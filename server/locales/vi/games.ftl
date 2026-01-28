@@ -1,79 +1,81 @@
-# Thông báo chung cho các trò chơi trong PlayAural
-# Những thông báo này dùng chung cho nhiều trò chơi
+# Thông báo trò chơi chung cho PlayAural
+# Các thông báo này được dùng chung cho nhiều trò chơi
 
 # Tên trò chơi
-game-name-ninetynine = Ninety Nine
+game-name-ninetynine = Chín Mươi Chín (Ninety Nine)
 
-# Luồng vòng chơi và lượt
+# Luồng vòng chơi và lượt chơi
 game-round-start = Vòng { $round }.
 game-round-end = Vòng { $round } hoàn tất.
 game-turn-start = Lượt của { $player }.
 game-no-turn = Hiện không phải lượt của ai.
 
 # Hiển thị điểm số
-game-scores-header = Điểm hiện tại:
+game-scores-header = Điểm số hiện tại:
 game-score-line = { $player }: { $score } điểm
-game-points = { $count } điểm
+game-points = { $count } { $count ->
+    [one] điểm
+   *[other] điểm
+}
 game-final-scores-header = Điểm tổng kết:
 
 # Thắng/Thua
 game-winner = { $player } thắng!
 game-winner-score = { $player } thắng với { $score } điểm!
-game-tiebreaker = Hòa rồi! Vào vòng phân định thắng thua!
-game-tiebreaker-players = Hòa giữa các người chơi { $players }! Vào vòng phân định thắng thua!
+game-tiebreaker = Tỉ số hòa! Vào vòng phân định thắng thua!
+game-tiebreaker-players = Tỉ số hòa giữa { $players }! Vào vòng phân định thắng thua!
 game-eliminated = { $player } đã bị loại với { $score } điểm.
 
-# Tùy chọn chung
+# Các tùy chọn chung
 game-set-target-score = Điểm mục tiêu: { $score }
 game-enter-target-score = Nhập điểm mục tiêu:
-game-option-changed-target = Điểm mục tiêu đã đặt là { $score }.
+game-option-changed-target = Điểm mục tiêu được đặt là { $score }.
 
 game-set-team-mode = Chế độ đội: { $mode }
 game-select-team-mode = Chọn chế độ đội
-game-option-changed-team = Chế độ đội đã đặt là { $mode }.
+game-option-changed-team = Chế độ đội được đặt là { $mode }.
 game-team-mode-individual = Cá nhân
-game-team-mode-x-teams-of-y = { $num_teams } đội, mỗi đội { $team_size } người
+game-team-mode-x-teams-of-y = { $num_teams } đội { $team_size } người
 game-team-name = Đội { $index }
 
-# Giá trị tùy chọn Bật/Tắt
+# Giá trị tùy chọn Boolean
 option-on = bật
 option-off = tắt
 
 # Hộp trạng thái
 status-box-closed = Đã đóng thông tin trạng thái.
 
-# Kết thúc game
+# Kết thúc trò chơi
 game-leave = Rời trò chơi
 
 # Đồng hồ vòng chơi
-round-timer-paused = { $player } đã tạm dừng (nhấn p để bắt đầu vòng sau).
-round-timer-resumed = Đồng hồ vòng chơi tiếp tục chạy.
+round-timer-paused = { $player } đã tạm dừng trò chơi (nhấn p để bắt đầu vòng tiếp theo).
+round-timer-resumed = Đồng hồ vòng chơi đã chạy lại.
 round-timer-countdown = Vòng tiếp theo trong { $seconds } giây...
 
-# Game xúc xắc - giữ/bỏ xúc xắc
+# Trò chơi xúc xắc - giữ/bỏ xúc xắc
 dice-keeping = Giữ { $value }.
 dice-rerolling = Gieo lại { $value }.
-dice-locked = Viên này đã bị khóa và không thể đổi.
+dice-locked = Xúc xắc đó đã bị khóa và không thể thay đổi.
 dice-status-label-locked = { $value } (đã khóa)
-dice-status-label-kept = { $value } (giữ lại)
+dice-status-label-kept = { $value } (đã giữ)
 
-# Chia bài (Game bài)
+# Chia bài (trò chơi bài)
 game-deal-counter = Chia ván { $current }/{ $total }.
 game-you-deal = Bạn chia bài.
 game-player-deals = { $player } chia bài.
 
 # Tên lá bài
-# Cấu trúc tiếng Việt: [Tên] [Chất] (ví dụ: Át cơ)
-card-name = { $rank } { $suit }
+card-name = { $rank } chất { $suit }
 no-cards = Không có bài
 
 # Tên chất bài
-suit-diamonds = rô
-suit-clubs = tép
-suit-hearts = cơ
-suit-spades = bích
+suit-diamonds = Rô
+suit-clubs = Tép
+suit-hearts = Cơ
+suit-spades = Bích
 
-# Tên quân bài (Số/Hàng)
+# Tên quân bài (Rank)
 rank-ace = Át
 rank-ace-plural = Át
 rank-two = 2
@@ -94,29 +96,29 @@ rank-nine = 9
 rank-nine-plural = 9
 rank-ten = 10
 rank-ten-plural = 10
-rank-jack = Bồi
-rank-jack-plural = Bồi
-rank-queen = Đầm
-rank-queen-plural = Đầm
-rank-king = Già
-rank-king-plural = Già
+rank-jack = Bồi (J)
+rank-jack-plural = Bồi (J)
+rank-queen = Đầm (Q)
+rank-queen-plural = Đầm (Q)
+rank-king = Già (K)
+rank-king-plural = Già (K)
 
-# Mô tả tay bài Poker (Thuần Việt)
-poker-high-card-with = Mậu thầu { $high }, dính { $rest }
+# Mô tả tay bài Poker
+poker-high-card-with = Mậu thầu { $high }, kèm { $rest }
 poker-high-card = Mậu thầu { $high }
 poker-pair-with = Đôi { $pair }, kèm { $rest }
 poker-pair = Đôi { $pair }
-poker-two-pair-with = Thú { $high } và { $low }, kèm { $kicker }
-poker-two-pair = Thú { $high } và { $low }
-poker-trips-with = Sám { $trips }, kèm { $rest }
-poker-trips = Sám { $trips }
-poker-straight-high = Sảnh { $high }
-poker-flush-high-with = Thùng { $high }, dính { $rest }
-poker-full-house = Cù lũ { $trips }, đôi { $pair }
+poker-two-pair-with = Hai đôi, { $high } và { $low }, kèm { $kicker }
+poker-two-pair = Hai đôi, { $high } và { $low }
+poker-trips-with = Bộ ba (Sám) { $trips }, kèm { $rest }
+poker-trips = Bộ ba (Sám) { $trips }
+poker-straight-high = Sảnh { $high } cao nhất
+poker-flush-high-with = Thùng { $high } cao nhất, kèm { $rest }
+poker-full-house = Cù lũ, { $trips } và { $pair }
 poker-quads-with = Tứ quý { $quads }, kèm { $kicker }
 poker-quads = Tứ quý { $quads }
-poker-straight-flush-high = Thùng phá sảnh { $high }
+poker-straight-flush-high = Thùng phá sảnh { $high } cao nhất
 poker-unknown-hand = Bài không xác định
 
-# Lỗi xác thực (chung)
+# Lỗi xác thực (chung cho các game)
 game-error-invalid-team-mode = Chế độ đội đã chọn không hợp lệ với số lượng người chơi hiện tại.

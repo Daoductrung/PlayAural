@@ -1,85 +1,85 @@
-# ThÃ´ng bÃ¡o trÃ² chÆ¡i Scopa
-# LÆ°u Ã½: CÃ¡c thÃ´ng bÃ¡o chung nhÆ° báº¯t Äáº§u vÃ²ng, báº¯t Äáº§u lÆ°á»£t, Äiá»m má»¥c tiÃªu, cháº¿ Äá» Äá»i náº±m trong games.ftl
-
-# TÃªn trÃ² chÆ¡i
-game-name-scopa = Scopa
-
-# Sá»± kiá»n trong game
-scopa-initial-table = BÃ i trÃªn bÃ n: { $cards }
-scopa-no-initial-table = KhÃ´ng cÃ³ bÃ i trÃªn bÃ n khi báº¯t Äáº§u.
-scopa-you-collect = Báº¡n Än { $cards } báº±ng lÃ¡ { $card }
-scopa-player-collects = { $player } Än { $cards } báº±ng lÃ¡ { $card }
-scopa-you-put-down = Báº¡n háº¡ xuá»ng lÃ¡ { $card }.
-scopa-player-puts-down = { $player } háº¡ xuá»ng lÃ¡ { $card }.
-scopa-scopa-suffix =  - SCOPA!
-scopa-clear-table-suffix = , quÃ©t sáº¡ch bÃ n.
-scopa-remaining-cards = { $player } nháº­n sá» bÃ i cÃ²n láº¡i trÃªn bÃ n.
-scopa-scoring-round = VÃ²ng tÃ­nh Äiá»m...
-scopa-most-cards = { $player } ÄÆ°á»£c 1 Äiá»m vÃ¬ nhiá»u bÃ i nháº¥t ({ $count } lÃ¡).
-scopa-most-cards-tie = Sá» lÆ°á»£ng bÃ i báº±ng nhau - khÃ´ng ai cÃ³ Äiá»m.
-scopa-most-diamonds = { $player } ÄÆ°á»£c 1 Äiá»m vÃ¬ nhiá»u RÃ´ nháº¥t ({ $count } lÃ¡).
-scopa-most-diamonds-tie = Sá» lÆ°á»£ng RÃ´ báº±ng nhau - khÃ´ng ai cÃ³ Äiá»m.
-scopa-seven-diamonds = { $player } ÄÆ°á»£c 1 Äiá»m vÃ¬ cÃ³ lÃ¡ 7 RÃ´.
-scopa-seven-diamonds-multi = { $player } ÄÆ°á»£c 1 Äiá»m vÃ¬ cÃ³ nhiá»u 7 RÃ´ nháº¥t ({ $count } Ã 7 RÃ´).
-scopa-seven-diamonds-tie = Sá» lÆ°á»£ng 7 RÃ´ báº±ng nhau - khÃ´ng ai cÃ³ Äiá»m.
-scopa-most-sevens = { $player } ÄÆ°á»£c 1 Äiá»m vÃ¬ nhiá»u quÃ¢n 7 nháº¥t ({ $count } quÃ¢n).
-scopa-most-sevens-tie = Sá» lÆ°á»£ng quÃ¢n 7 báº±ng nhau - khÃ´ng ai cÃ³ Äiá»m.
-scopa-round-scores = Äiá»m vÃ²ng nÃ y:
-scopa-round-score-line = { $player }: +{ $round_score } (tá»ng: { $total_score })
-scopa-table-empty = KhÃ´ng cÃ³ lÃ¡ bÃ i nÃ o trÃªn bÃ n.
-scopa-no-such-card = KhÃ´ng cÃ³ lÃ¡ bÃ i nÃ o á» vá» trÃ­ ÄÃ³.
-scopa-captured-count = Báº¡n ÄÃ£ Än ÄÆ°á»£c { $count } lÃ¡
-
-# HÃ nh Äá»ng xem
-scopa-view-table = Xem bÃ n
-scopa-view-captured = Xem bÃ i ÄÃ£ Än
-scopa-view-table-card = Xem bÃ i trÃªn bÃ n { $index }
-scopa-pause-timer = Táº¡m dá»«ng Äá»ng há»
-
-# Gá»£i Ã½ báº¯t bÃ i
-scopa-hint-match =  -> { $card }
-scopa-hint-multi =  -> { $count } lÃ¡
-
-# TÃ¹y chá»n riÃªng cho Scopa
-scopa-enter-target-score = Nháº­p Äiá»m má»¥c tiÃªu (1-121)
-scopa-set-cards-per-deal = Sá» lÃ¡ má»i láº§n chia: { $cards }
-scopa-enter-cards-per-deal = Nháº­p sá» lÃ¡ má»i láº§n chia (1-10)
-scopa-set-decks = Sá» lÆ°á»£ng bá» bÃ i: { $decks }
-scopa-enter-decks = Nháº­p sá» lÆ°á»£ng bá» bÃ i (1-6)
-scopa-toggle-escoba = Cháº¿ Äá» Escoba (tá»ng báº±ng 15): { $enabled }
-scopa-toggle-hints = Gá»£i Ã½ nÆ°á»c Än bÃ i: { $enabled }
-scopa-set-mechanic = CÆ¡ cháº¿ Scopa: { $mechanic }
-scopa-select-mechanic = Chá»n cÆ¡ cháº¿ Scopa
-scopa-toggle-instant-win = Tháº¯ng ngay khi ÄÆ°á»£c Scopa: { $enabled }
-scopa-toggle-team-scoring = Gá»p bÃ i cáº£ Äá»i Äá» tÃ­nh Äiá»m: { $enabled }
-scopa-toggle-inverse = Cháº¿ Äá» Äáº£o ngÆ°á»£c (Äáº¡t Äiá»m má»¥c tiÃªu = bá» loáº¡i): { $enabled }
-
-# ThÃ´ng bÃ¡o thay Äá»i tÃ¹y chá»n
-scopa-option-changed-cards = Sá» lÃ¡ má»i láº§n chia ÄÃ£ Äáº·t lÃ  { $cards }.
-scopa-option-changed-decks = Sá» lÆ°á»£ng bá» bÃ i ÄÃ£ Äáº·t lÃ  { $decks }.
-scopa-option-changed-escoba = Cháº¿ Äá» Escoba { $enabled }.
-scopa-option-changed-hints = Gá»£i Ã½ nÆ°á»c Än bÃ i { $enabled }.
-scopa-option-changed-mechanic = CÆ¡ cháº¿ Scopa ÄÃ£ Äáº·t lÃ  { $mechanic }.
-scopa-option-changed-instant = Tháº¯ng ngay khi ÄÆ°á»£c Scopa { $enabled }.
-scopa-option-changed-team-scoring = Gá»p bÃ i cáº£ Äá»i Äá» tÃ­nh Äiá»m { $enabled }.
-scopa-option-changed-inverse = Cháº¿ Äá» Äáº£o ngÆ°á»£c { $enabled }.
-
-# CÃ¡c lá»±a chá»n cÆ¡ cháº¿ Scopa
-scopa-mechanic-normal = BÃ¬nh thÆ°á»ng
-scopa-mechanic-no_scopas = KhÃ´ng tÃ­nh Äiá»m Scopa
-scopa-mechanic-only_scopas = Chá» tÃ­nh Äiá»m Scopa
-
-# LÃ½ do hÃ nh Äá»ng bá» vÃ´ hiá»u hÃ³a
-scopa-timer-not-active = Äá»ng há» vÃ²ng chÆ¡i khÃ´ng hoáº¡t Äá»ng.
-
-# Lá»i xÃ¡c thá»±c
-scopa-error-not-enough-cards = KhÃ´ng Äá»§ bÃ i trong { $decks } { $decks ->
-    [one] bá» bÃ i
-   *[other] bá» bÃ i
-} cho { $players } { $players ->
-    [one] ngÆ°á»i chÆ¡i
-   *[other] ngÆ°á»i chÆ¡i
-} vá»i { $cards_per_deal } lÃ¡ má»i ngÆ°á»i. (Cáº§n { $cards_per_deal } Ã { $players } = { $cards_needed } lÃ¡, nhÆ°ng chá» cÃ³ { $total_cards }.)
+# Thông báo trò chơi Bài Chổi (Scopa)
+# Lưu ý: Các thông báo chung như bắt đầu vòng, bắt đầu lượt, điểm mục tiêu, chế độ đội nằm trong games.ftl
 
-# Ð?nh d?ng
-scopa-line-format = {  }. {  }: {  }
+# Tên trò chơi
+game-name-scopa = Bài Chổi (Scopa)
+
+# Sự kiện trò chơi
+scopa-initial-table = Bài trên bàn: { $cards }
+scopa-no-initial-table = Không có bài nào trên bàn để bắt đầu.
+scopa-you-collect = Bạn dùng { $card } ăn được { $cards }
+scopa-player-collects = { $player } dùng { $card } ăn được { $cards }
+scopa-you-put-down = Bạn đánh ra { $card }.
+scopa-player-puts-down = { $player } đánh ra { $card }.
+scopa-scopa-suffix =  - SCOPA! (QUÉT SẠCH!)
+scopa-clear-table-suffix = , quét sạch bàn chơi.
+scopa-remaining-cards = { $player } nhận các lá bài còn lại trên bàn.
+scopa-scoring-round = Đang tính điểm...
+scopa-most-cards = { $player } được 1 điểm nhờ có nhiều lá bài nhất ({ $count } lá).
+scopa-most-cards-tie = Số lượng lá bài bằng nhau - không ai được điểm.
+scopa-most-diamonds = { $player } được 1 điểm nhờ có nhiều lá Rô nhất ({ $count } lá Rô).
+scopa-most-diamonds-tie = Số lượng lá Rô bằng nhau - không ai được điểm.
+scopa-seven-diamonds = { $player } được 1 điểm nhờ có lá 7 Rô.
+scopa-seven-diamonds-multi = { $player } được 1 điểm nhờ có nhiều lá 7 Rô nhất ({ $count } × 7 Rô).
+scopa-seven-diamonds-tie = Số lượng 7 Rô bằng nhau - không ai được điểm.
+scopa-most-sevens = { $player } được 1 điểm nhờ có nhiều lá 7 nhất ({ $count } lá 7).
+scopa-most-sevens-tie = Số lượng lá 7 bằng nhau - không ai được điểm.
+scopa-round-scores = Điểm số vòng này:
+scopa-round-score-line = { $player }: +{ $round_score } (tổng: { $total_score })
+scopa-table-empty = Không có lá bài nào trên bàn.
+scopa-no-such-card = Không có lá bài nào ở vị trí đó.
+scopa-captured-count = Bạn đã ăn được { $count } lá bài
+
+# Hành động xem
+scopa-view-table = Xem bài trên bàn
+scopa-view-captured = Xem bài đã ăn
+scopa-view-table-card = Xem lá bài trên bàn số { $index }
+scopa-pause-timer = Tạm dừng đồng hồ
+
+# Gợi ý nước đi
+scopa-hint-match =  -> ăn { $card }
+scopa-hint-multi =  -> ăn { $count } lá bài
+
+# Tùy chọn riêng cho Scopa
+scopa-enter-target-score = Nhập điểm mục tiêu (1-121)
+scopa-set-cards-per-deal = Số lá mỗi lần chia: { $cards }
+scopa-enter-cards-per-deal = Nhập số lá mỗi lần chia (1-10)
+scopa-set-decks = Số bộ bài: { $decks }
+scopa-enter-decks = Nhập số bộ bài (1-6)
+scopa-toggle-escoba = Escoba (tổng bằng 15): { $enabled }
+scopa-toggle-hints = Hiển thị gợi ý nước ăn bài: { $enabled }
+scopa-set-mechanic = Cơ chế Scopa: { $mechanic }
+scopa-select-mechanic = Chọn cơ chế Scopa
+scopa-toggle-instant-win = Thắng ngay lập tức khi Scopa: { $enabled }
+scopa-toggle-team-scoring = Gom chung bài của đội để tính điểm: { $enabled }
+scopa-toggle-inverse = Chế độ Đảo ngược (đạt điểm mục tiêu là bị loại): { $enabled }
+
+# Thông báo thay đổi tùy chọn
+scopa-option-changed-cards = Số lá mỗi lần chia được đặt là { $cards }.
+scopa-option-changed-decks = Số bộ bài được đặt là { $decks }.
+scopa-option-changed-escoba = Chế độ Escoba { $enabled }.
+scopa-option-changed-hints = Gợi ý nước ăn bài { $enabled }.
+scopa-option-changed-mechanic = Cơ chế Scopa được đặt là { $mechanic }.
+scopa-option-changed-instant = Thắng ngay lập tức khi Scopa { $enabled }.
+scopa-option-changed-team-scoring = Tính điểm chung cho đội { $enabled }.
+scopa-option-changed-inverse = Chế độ Đảo ngược { $enabled }.
+
+# Các lựa chọn cơ chế Scopa
+scopa-mechanic-normal = Bình thường
+scopa-mechanic-no_scopas = Không tính Scopa (Quét bàn không có điểm)
+scopa-mechanic-only_scopas = Chỉ tính điểm Scopa
+
+# Lý do hành động bị vô hiệu hóa
+scopa-timer-not-active = Đồng hồ vòng chơi đang không hoạt động.
+
+# Lỗi xác thực
+scopa-error-not-enough-cards = Không đủ bài trong { $decks } { $decks ->
+    [one] bộ bài
+   *[other] bộ bài
+} để chia cho { $players } { $players ->
+    [one] người chơi
+   *[other] người chơi
+} với { $cards_per_deal } lá mỗi người. (Cần { $cards_per_deal } × { $players } = { $cards_needed } lá, nhưng chỉ có { $total_cards } lá.)
+
+# Định dạng
+scopa-line-format = {  }. {  }: {  }

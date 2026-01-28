@@ -122,3 +122,11 @@ main-server-offline = Server is offline.
 main-attempting-reconnect = Connection lost. Attempting to reconnect...
 logged-out = You have logged out.
 goodbye = Goodbye!
+
+# Update System
+update-available-title = Update Available
+update-available-message = A new version ({ $version }) is available. Do you want to update now?
+update-downloading = Downloading update: { $percent }%
+update-complete = Download complete. Restarting...
+update-error = Update failed: { $error }
+update-checking = Checking for updates...

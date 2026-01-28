@@ -1,32 +1,32 @@
-# Thông báo trò chơi Light Turret
+# Thông báo trò chơi Pháo Đài Ánh Sáng
 
 # Tên trò chơi
-game-name-lightturret = Tháp Ánh Sáng
+game-name-lightturret = Pháo Đài Ánh Sáng
 
 # Giới thiệu
-lightturret-intro = Tháp Ánh Sáng đã khởi động! Mỗi người chơi sở hữu một ngọn tháp với { $power } sức mạnh. Hãy bắn vào tháp để thu thập ánh sáng và xu, nhưng cẩn thận: nếu lượng ánh sáng vượt quá sức mạnh, bạn sẽ bị loại! Dùng xu mua nâng cấp để tăng sức mạnh. Người có nhiều ánh sáng nhất vào cuối trận sẽ chiến thắng!
+lightturret-intro = Pháo Đài Ánh Sáng đã bắt đầu! Mỗi người chơi có một pháo đài với { $power } năng lượng. Hãy bắn pháo đài để thu thập ánh sáng và xu, nhưng cẩn thận: nếu lượng ánh sáng vượt quá năng lượng, bạn sẽ bị loại! Dùng xu mua nâng cấp để tăng năng lượng. Người có nhiều ánh sáng nhất khi kết thúc sẽ chiến thắng!
 
 # Hành động
-lightturret-shoot = Bắn vào tháp
+lightturret-shoot = Bắn pháo đài
 lightturret-upgrade = Mua nâng cấp (10 xu)
 lightturret-check-stats = Xem chỉ số
 
 # Kết quả hành động
-lightturret-shoot-result = { $player } bắn vào tháp và thu được { $gain } ánh sáng! Hiện tháp đang chứa { $light } ánh sáng.
+lightturret-shoot-result = { $player } bắn pháo đài và nhận được { $gain } ánh sáng! Hiện pháo đài đang chứa { $light } ánh sáng.
 lightturret-coins-gained = { $player } nhận được { $coins } xu! { $player } hiện có { $total } xu.
-lightturret-buys-upgrade = { $player } mua nâng cấp sức mạnh!
-lightturret-power-gained = { $player } tăng { $gain } sức mạnh! { $player } hiện có { $power } sức mạnh.
-lightturret-upgrade-accident = Gói nâng cấp vô tình bị hòa vào tháp! Kết quả là tháp nhận được { $light } ánh sáng.
-lightturret-not-enough-coins = Bạn không đủ xu! Cần { $need } xu nhưng chỉ có { $have }.
+lightturret-buys-upgrade = { $player } mua một gói nâng cấp năng lượng!
+lightturret-power-gained = { $player } tăng thêm { $gain } năng lượng! { $player } hiện có { $power } năng lượng.
+lightturret-upgrade-accident = Gói nâng cấp vô tình bị truyền vào pháo đài! Kết quả là nó đang chứa { $light } ánh sáng.
+lightturret-not-enough-coins = Bạn không đủ xu! Cần { $need } xu nhưng bạn chỉ có { $have }.
 
 # Loại bỏ
-lightturret-eliminated = Lượng ánh sáng quá lớn khiến linh hồn { $player } không chịu nổi! { $player } đã bị loại!
+lightturret-eliminated = Ánh sáng quá lớn khiến linh hồn của { $player } không thể chịu đựng nổi! { $player } đã bị loại!
 
 # Chỉ số
-lightturret-stats-alive = { $player }: { $power } sức mạnh, { $light } ánh sáng, { $coins } xu.
+lightturret-stats-alive = { $player }: { $power } năng lượng, { $light } ánh sáng, { $coins } xu.
 lightturret-stats-eliminated = { $player }: bị loại với { $light } ánh sáng.
 
-# Kết thúc game
+# Kết thúc trò chơi
 lightturret-game-over = Trò chơi kết thúc!
 lightturret-final-alive = { $player } hoàn thành với { $light } ánh sáng.
 lightturret-final-eliminated = { $player } đã bị loại với { $light } ánh sáng.
@@ -34,12 +34,12 @@ lightturret-winner = { $player } thắng với { $light } ánh sáng!
 lightturret-tie = Hòa nhau với { $light } ánh sáng!
 
 # Tùy chọn
-lightturret-set-starting-power = Sức mạnh khởi đầu: { $power }
-lightturret-enter-starting-power = Nhập sức mạnh khởi đầu:
-lightturret-option-changed-power = Sức mạnh khởi đầu đã đặt là { $power }.
+lightturret-set-starting-power = Năng lượng khởi điểm: { $power }
+lightturret-enter-starting-power = Nhập năng lượng khởi điểm:
+lightturret-option-changed-power = Năng lượng khởi điểm được đặt là { $power }.
 lightturret-set-max-rounds = Số vòng tối đa: { $rounds }
 lightturret-enter-max-rounds = Nhập số vòng tối đa:
-lightturret-option-changed-rounds = Số vòng tối đa đã đặt là { $rounds }.
+lightturret-option-changed-rounds = Số vòng tối đa được đặt là { $rounds }.
 
 # Lý do hành động bị vô hiệu hóa
 lightturret-you-are-eliminated = Bạn đã bị loại.
@@ -47,4 +47,4 @@ lightturret-you-are-eliminated = Bạn đã bị loại.
 # Định dạng
 lightturret-status-survived = Sống sót
 lightturret-status-eliminated = Bị loại
-lightturret-line-format = { $rank }. { $player }: { $light } ({ $status })
+lightturret-line-format = {  }. {  }: {  } ({  })

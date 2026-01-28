@@ -21,6 +21,9 @@ from ..messages.localization import Localization
 
 
 VERSION = "0.1.0"
+LATEST_CLIENT_VERSION = "0.1.0" # Current latest client
+UPDATE_URL = "https://github.com/user/PlayAural/releases/latest/download/update.zip" # Placeholder
+UPDATE_HASH = "" # Optional SHA256
 
 # Default paths based on module location
 _MODULE_DIR = Path(__file__).parent.parent
@@ -312,6 +315,11 @@ PlayAural Server
                 "username": username,
                 "version": VERSION,
                 "locale": user.locale,
+                "update_info": {
+                    "version": LATEST_CLIENT_VERSION,
+                    "url": UPDATE_URL,
+                    "hash": UPDATE_HASH,
+                }
             }
         )
 

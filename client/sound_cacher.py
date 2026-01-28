@@ -1,14 +1,21 @@
 import ctypes
 from sound_lib import output, stream
 
-o = output.Output()  # I fucking hate globals, and I hate you for using them, but
-
-
-# this is easy so violence begets violence or something
 class SoundCacher:
     def __init__(self):
         self.cache = {}
         self.refs = []  # so sound objects don't get eaten by the gc
+        # Initialize Output here, lazily
+        try:
+             # Store output reference to keep it alive
+             self.output = output.Output()
+        except Exception as e:
+             import logging
+             logging.getLogger("playaural").error(f"Failed to initialize sound_lib Output: {e}")
+             # We might want to re-raise or handle graceful degradation
+             # For an audio game, maybe re-raise?
+             # But at least we can log it now.
+             raise e
 
     def play(self, file_name, pan=0.0, volume=1.0, pitch=1.0):
         if file_name not in self.cache:

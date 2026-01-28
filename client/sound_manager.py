@@ -325,7 +325,20 @@ class SoundManager:
         self.current_music = None
         self.current_music_name = None
         self.music_volume = 0.2
-        self.sounds_folder = "sounds"
+        
+        import sys
+        if getattr(sys, 'frozen', False):
+            # If frozen (EXE), look relative to executable
+            base_path = os.path.dirname(sys.executable)
+            # PyInstaller v6+ puts things in _internal
+            internal_path = os.path.join(base_path, "_internal")
+            if os.path.exists(internal_path):
+                base_path = internal_path
+        else:
+            # If source, look relative to this file
+            base_path = os.path.dirname(os.path.abspath(__file__))
+            
+        self.sounds_folder = os.path.join(base_path, "sounds")
 
         # Configurable menu sounds (can be changed by server)
         self.menuclick_sound = "menuclick.ogg"

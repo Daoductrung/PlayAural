@@ -14,6 +14,8 @@ dependencies = [
     "websockets>=10.0",
     "sound-lib>=0.2.2",
     "fluent-runtime>=0.4.0",
+    "requests",
+    "psutil",
 ]
 
 [project.scripts]

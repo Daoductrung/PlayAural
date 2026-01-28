@@ -8,7 +8,7 @@ main-menu-label = Menu
 main-edit-label = Chỉnh sửa
 main-chat-label = Trò chuyện
 main-history-label = Lịch sử
-main-window-title = PlayAural 0.1
+main-window-title = PlayAural { $version }
 main-ambience-volume = Âm môi trường: { $value }%
 main-music-volume = Nhạc nền: { $value }%
 main-ping-result = Ping: { $value }ms
@@ -130,3 +130,5 @@ update-downloading = Đang tải bản cập nhật: { $percent }%
 update-complete = Tải hoàn tất. Đang khởi động lại...
 update-error = Cập nhật thất bại: { $error }
 update-checking = Đang kiểm tra bản cập nhật...
+update-cancelled = Đã hủy cập nhật. Trò chơi sẽ đóng lại.
+

@@ -97,17 +97,48 @@ class UpdaterApp:
                 self.root.destroy()
                 return
 
-            self.log("Extracting update...")
+            self.log("Analyzing update package...")
             
             with zipfile.ZipFile(self.zip_path, 'r') as zip_ref:
                 file_list = zip_ref.namelist()
                 total_files = len(file_list)
                 
+                # Check for single root folder
+                root_folders = {f.split('/')[0] for f in file_list if '/' in f}
+                # Filter out top-level files to be sure
+                top_level_files = [f for f in file_list if '/' not in f]
+                
+                has_single_root = len(root_folders) == 1 and not top_level_files
+                prefix = ""
+                if has_single_root:
+                    prefix = list(root_folders)[0] + "/"
+                    self.log(f"Detected root folder: {prefix}")
+                
+                self.log("Extracting update...")
+                
                 for i, file in enumerate(file_list):
-                    zip_ref.extract(file, self.target_dir)
+                    # Skip directories themselves if we are flattening
+                    if file.endswith('/'):
+                        continue
+                        
+                    # Calculate target path
+                    target_rel_path = file
+                    if has_single_root and file.startswith(prefix):
+                        target_rel_path = file[len(prefix):]
+                    
+                    target_abs_path = os.path.join(self.target_dir, target_rel_path)
+                    
+                    # Ensure parent dir exists
+                    os.makedirs(os.path.dirname(target_abs_path), exist_ok=True)
+                    
+                    # Extract file
+                    with zip_ref.open(file) as source, open(target_abs_path, "wb") as target:
+                        import shutil
+                        shutil.copyfileobj(source, target)
+                        
                     percent = ((i + 1) / total_files) * 100
                     self.progress_var.set(percent)
-                    # Update status occasionally to not spam UI
+                    # Update status occasionally
                     if i % 10 == 0:
                         self.log(f"Extracting: {int(percent)}%")
             

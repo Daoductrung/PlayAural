@@ -86,10 +86,11 @@ show_menu() {
     echo "2. Stop Server"
     echo "3. Restart Server"
     echo "4. View Logs (Tail)"
-    echo "5. Clear Logs"
+    echo "5. Clear Logs (Vacuum & Cache)"
     echo "6. Create User"
     echo "7. Reset User Password"
     echo "8. Re-install Environment (Fix missing libs)"
+    echo "9. Uninstall Service & Disable Startup"
     echo "0. Exit"
     echo "==================================="
     read -p "Choose an option: " choice
@@ -132,6 +133,10 @@ clear_logs() {
     echo "Clearing systemd journal logs..."
     journalctl --rotate
     journalctl --vacuum-time=1s
+    
+    echo -e "${YELLOW}Cleaning python cache (__pycache__)...${NC}"
+    find "$SERVER_DIR" -type d -name "__pycache__" -exec rm -rf {} +
+    
     echo "Logs cleared."
     read -p "Press Enter to continue..."
 }
@@ -202,6 +207,26 @@ EOF
     systemctl enable $SERVICE_NAME --now > /dev/null 2>&1
 }
 
+uninstall_service() {
+    echo -e "${YELLOW}Uninstalling service...${NC}"
+    
+    if systemctl is-active --quiet $SERVICE_NAME; then
+        systemctl stop $SERVICE_NAME
+    fi
+    systemctl disable $SERVICE_NAME > /dev/null 2>&1
+    
+    SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
+    if [ -f "$SERVICE_FILE" ]; then
+        rm "$SERVICE_FILE"
+        systemctl daemon-reload
+        echo -e "${GREEN}Service removed from systemd.${NC}"
+    else
+        echo "Service file not found."
+    fi
+    echo "Uninstall complete (Files in $SERVER_DIR remain untouched)."
+    read -p "Press Enter to continue..."
+}
+
 # Main Execution
 
 check_root
@@ -222,6 +247,7 @@ while true; do
         6) create_user ;;
         7) reset_password ;;
         8) install_environment; read -p "Done. Press Enter..." ;;
+        9) uninstall_service ;;
         0) exit 0 ;;
         *) echo "Invalid option." ;;
     esac

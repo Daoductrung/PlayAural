@@ -7,6 +7,11 @@ import sys
 import os
 import json
 from pathlib import Path
+import requests
+import zipfile
+import subprocess
+import threading
+import time
 
 # Add parent directory to path to import sound_manager and network_manager
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -17,7 +22,7 @@ from buffer_system import BufferSystem
 from config_manager import set_item_in_dict
 from localization import Localization
 
-VERSION = "0.1.0"
+VERSION = "0.1.1"
 
 
 class MainWindow(wx.Frame):
@@ -34,7 +39,7 @@ class MainWindow(wx.Frame):
         
         super().__init__(
             parent=None,
-            title=Localization.get("main-window-title"),
+            title=Localization.get("main-window-title", version=VERSION),
             size=(1, 1),  # Minimal size for audio-only interface
         )
 
@@ -1028,11 +1033,10 @@ class MainWindow(wx.Frame):
         self.sound_manager.music("connectloop.ogg")
 
         self.add_history(Localization.get("main-connecting-to", url=server_url))
-        if self.network.connect(server_url, username, password):
+        if self.network.connect(server_url, username, password, client_version=VERSION):
             self.add_history(Localization.get("main-connecting-as", username=username))
-
-            # Set a timeout to detect if connection never succeeds
-            wx.CallLater(10000, self._check_connection_timeout)
+            # Start timeout check
+            wx.CallLater(5000, self._check_connection_timeout)
         else:
             self._show_connection_error(Localization.get("main-connection-failed"))
 
@@ -1315,6 +1319,7 @@ class MainWindow(wx.Frame):
 
     def _prompt_update(self, update_info):
         """Prompt user to update."""
+        self.sound_manager.play("update_alert.ogg")
         version = update_info.get("version")
         result = wx.MessageBox(
             Localization.get("update-available-message", version=version),
@@ -1322,9 +1327,28 @@ class MainWindow(wx.Frame):
             wx.YES_NO | wx.ICON_QUESTION
         )
         if result == wx.YES:
+            # Create modal progress dialog with Cancel button
+            self.update_dialog = wx.ProgressDialog(
+                Localization.get("update-available-title"),
+                Localization.get("update-downloading", percent=0),
+                maximum=100,
+                parent=self,
+                style=wx.PD_APP_MODAL | wx.PD_AUTO_HIDE | wx.PD_CAN_ABORT
+            )
+            
+            # Stop existing music and play download loop
+            self.sound_manager.stop_music(fade=False)
+            self.sound_manager.music("download_loop.ogg", looping=True, fade_out_old=False)
+            
             # Start download in thread
             import threading
-            threading.Thread(target=self._download_update, args=(update_info,), daemon=True).start()
+            self.download_thread = threading.Thread(target=self._download_update, args=(update_info,), daemon=True)
+            self.download_thread.start()
+        else:
+            # Mandatory update - exit if refused by initial prompt
+            # (If they cancel during download, we also close)
+            self.Close()
+            wx.GetApp().ExitMainLoop()
 
     def _download_update(self, update_info):
         """Download update file."""
@@ -1334,42 +1358,128 @@ class MainWindow(wx.Frame):
         import os
         import time
         import sys
+        import wx
 
         url = update_info.get("url")
-        target_zip = os.path.join(os.getcwd(), "update.zip")
+        import tempfile
+        
+        url = update_info.get("url")
+        # Use temp directory for download to avoid permission issues
+        temp_dir = tempfile.gettempdir()
+        target_zip = os.path.join(temp_dir, f"playaural_update_{int(time.time())}.zip")
+        self.download_cancelled = False
         
         try:
-            self.speaker.speak(Localization.get("update-downloading", percent=0))
+            # self.speaker.speak(Localization.get("update-downloading", percent=0))
             
             response = requests.get(url, stream=True)
             response.raise_for_status()
             
-            total_size = int(response.headers.get("content-length", 0))
+            total_size_header = response.headers.get("content-length")
+            total_size = int(total_size_header) if total_size_header else 0
+            
             block_size = 1024 * 64 # 64KB blocks
             downloaded = 0
             
             last_percent = 0
+            last_update_check = 0
 
             with open(target_zip, "wb") as f:
                 for data in response.iter_content(block_size):
+                    if self.download_cancelled:
+                        break
+                        
                     downloaded += len(data)
                     f.write(data)
                     
-                    if total_size > 0:
-                        percent = int((downloaded / total_size) * 100)
-                        if percent >= last_percent + 10: # Announce every 10%
-                             wx.CallAfter(self.speaker.speak, Localization.get("update-downloading", percent=percent))
-                             last_percent = percent
+                    # Update UI in main thread
+                    # For performance, don't flood the UI queue if blocks are small/fast
+                    current_time = time.time()
+                    if current_time - last_update_check > 0.1: # Update max 10 times per second
+                        last_update_check = current_time
+                        
+                        keep_going = True
+                        if total_size > 0:
+                            percent = int((downloaded / total_size) * 100)
+                            # Call Update on main thread and get result (requires passing a callback or using a shared flag? 
+                            # Update returns (continue, skip). But we can't get return value via CallAfter easily
+                            # So we define a wrapper
+                            
+                            def update_modal(p, msg):
+                                if not self.update_dialog: return
+                                (cont, skip) = self.update_dialog.Update(p, msg)
+                                if not cont:
+                                    self.download_cancelled = True
+                            
+                            if percent > last_percent:
+                                wx.CallAfter(update_modal, percent, Localization.get("update-downloading", percent=percent))
+                                
+                                if percent % 10 == 0:
+                                    wx.CallAfter(self.speaker.speak, Localization.get("update-downloading", percent=percent))
+                                
+                                last_percent = percent
+                        else:
+                            # Indeterminate size
+                            downloaded_mb = downloaded / (1024*1024)
+                            msg = f"Downloading... {downloaded_mb:.2f} MB"
+                            
+                            def pulse_modal(msg):
+                                if not self.update_dialog: return
+                                (cont, skip) = self.update_dialog.Pulse(msg)
+                                if not cont:
+                                    self.download_cancelled = True
+
+                            wx.CallAfter(pulse_modal, msg)
             
+            if self.download_cancelled:
+                # Cleanup
+                f.close() # Ensure closed
+                if os.path.exists(target_zip):
+                    try:
+                        os.remove(target_zip)
+                    except:
+                        pass
+                
+                wx.CallAfter(self.sound_manager.stop_music)
+                wx.CallAfter(self.update_dialog.Destroy)
+                # If cancelled mandatory update, close app?
+                # User request: "khi hủy sẽ xóa tệp tạm". Implies they return to game or close?
+                # Mandatory update usually implies "Update or Die". 
+                # If I let them cancel, they stay on old version?
+                # The user said "cho phép người dùng hủy".
+                # If I let them cancel, do I exit app?
+                # User didn't specify. But "Mandatory" logic (lines 1339) implies they must update.
+                # However, maybe they want to cancel to try again later?
+                # I will Close App if cancelled, consistent with mandatory policy.
+                wx.CallAfter(wx.MessageBox, Localization.get("update-cancelled"), Localization.get("main-options-error-title"), wx.OK)
+                wx.CallAfter(self.Close)
+                wx.CallAfter(wx.GetApp().ExitMainLoop)
+                return
+
+            # Download complete
+            wx.CallAfter(self.update_dialog.Update, 100, Localization.get("update-complete"))
+            wx.CallAfter(self.sound_manager.stop_music, fade=True)
+            wx.CallAfter(self.sound_manager.play, "update_complete.ogg")
             wx.CallAfter(self.speaker.speak, Localization.get("update-complete"))
-            time.sleep(1) # Let the speech finish
+            
+            time.sleep(3) # Wait for sound to finish
+            
+            wx.CallAfter(self.update_dialog.Destroy)
             
             # Launch updater
             self._launch_updater(target_zip)
             
         except Exception as e:
+            wx.CallAfter(self.sound_manager.stop_music)
+            if self.update_dialog:
+                 wx.CallAfter(self.update_dialog.Destroy)
             wx.CallAfter(self.speaker.speak, Localization.get("update-error", error=str(e)))
             wx.CallAfter(wx.MessageBox, Localization.get("update-error", error=str(e)), "Error", wx.OK | wx.ICON_ERROR)
+            # Cleanup broken zip
+            if os.path.exists(target_zip):
+                 try:
+                     os.remove(target_zip)
+                 except: pass
 
     def _launch_updater(self, zip_path):
         """Launch the standalone updater."""
@@ -1388,11 +1498,36 @@ class MainWindow(wx.Frame):
                 cmd = [python_exe, updater_script, "--zip", zip_path, "--target", os.getcwd(), "--exe", "PlayAural.exe", "--pid", str(pid)]
                 subprocess.Popen(cmd)
             else:
-                # Running frozen, assume updater.exe is in _internal or same dir
-                # For now assume source structure for this task, but normally:
-                # updater_exe = os.path.join(os.path.dirname(sys.executable), "updater.exe")
-                # subprocess.Popen([updater_exe, ...])
-                pass
+                # Running frozen (compiled)
+                # Assume updater.exe is in the same directory as the main executable
+                updater_exe = os.path.join(os.path.dirname(sys.executable), "updater.exe")
+                
+                # Check if it exists
+                if not os.path.exists(updater_exe):
+                     # Try internal folder just in case (fallback)
+                     updater_exe = os.path.join(os.path.dirname(sys.executable), "_internal", "updater.exe")
+                
+                if os.path.exists(updater_exe):
+                    # Copy to temp to avoid file locking on overwrite
+                    import shutil
+                    import tempfile
+                    
+                    temp_dir = tempfile.gettempdir()
+                    # Use unique name to avoid conflicts or permission issues on temp
+                    temp_updater = os.path.join(temp_dir, f"playaural_updater_{pid}.exe")
+                    
+                    try:
+                         shutil.copy2(updater_exe, temp_updater)
+                         updater_exe = temp_updater
+                    except Exception as e:
+                         # Fallback to local if copy fails (though unlikely)
+                         print(f"Failed to copy updater to temp: {e}")
+                    
+                    cmd = [updater_exe, "--zip", zip_path, "--target", os.path.dirname(sys.executable), "--exe", "PlayAural.exe", "--pid", str(pid)]
+                    subprocess.Popen(cmd)
+                else:
+                     wx.CallAfter(wx.MessageBox, f"Updater not found at: {updater_exe}", "Error", wx.OK | wx.ICON_ERROR)
+                     return
             
             # Quit immediately
             wx.CallAfter(self.Close)

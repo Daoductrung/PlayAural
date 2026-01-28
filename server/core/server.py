@@ -20,9 +20,9 @@ from ..games.registry import GameRegistry, get_game_class
 from ..messages.localization import Localization
 
 
-VERSION = "0.1.0"
-LATEST_CLIENT_VERSION = "0.1.0" # Current latest client
-UPDATE_URL = "https://github.com/user/PlayAural/releases/latest/download/update.zip" # Placeholder
+VERSION = "0.1.1"
+LATEST_CLIENT_VERSION = "0.1.1"
+UPDATE_URL = "https://github.com/Daoductrung/PlayAural/releases/latest/download/PlayAural.zip"
 UPDATE_HASH = "" # Optional SHA256
 
 # Default paths based on module location
@@ -322,6 +322,13 @@ PlayAural Server
                 }
             }
         )
+
+        # Check client version
+        client_version = packet.get("version", "0.0.0")
+        if client_version != LATEST_CLIENT_VERSION:
+            # If version mismatch, do NOT send game list.
+            # The client will prompt for update.
+            return
 
         # Send game list
         await self._send_game_list(client)

@@ -10,13 +10,30 @@ Features:
 
 import wx
 import logging
-from ui import MainWindow
-from ui.login_dialog import LoginDialog
+import sys
+import os
 
-version = "0.1"
+# Fix CWD before importing modules that depend on it (sound_lib, etc)
+if getattr(sys, 'frozen', False):
+    os.chdir(os.path.dirname(sys.executable))
+else:
+    os.chdir(os.path.dirname(os.path.abspath(__file__)))
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    filename='playaural.log' if getattr(sys, 'frozen', False) else None
+)
+
+version = "0.1.1"
 
 def main():
     """Main entry point for the PlayAural v0.1 client."""
+    # Move imports here to ensure CWD is set first
+    from ui import MainWindow
+    from ui.login_dialog import LoginDialog
+    
     app = wx.App(False)
     
     # Initialize config manager and localization

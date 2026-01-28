@@ -31,7 +31,7 @@ class NetworkManager:
         """Check if a connection attempt is in progress."""
         return self.connecting or (self.thread and self.thread.is_alive())
 
-    def connect(self, server_url, username, password):
+    def connect(self, server_url, username, password, client_version="0.0.0"):
         """
         Connect to server.
         
@@ -39,6 +39,7 @@ class NetworkManager:
             server_url: WebSocket URL (e.g., "ws://localhost:8000")
             username: Username for authorization
             password: Password for authorization
+            client_version: Version string of the client
         """
         try:
             # Prevent multiple concurrent connection attempts
@@ -58,7 +59,7 @@ class NetworkManager:
             # Start async thread
             self.thread = threading.Thread(
                 target=self._run_async_loop,
-                args=(server_url, username, password),
+                args=(server_url, username, password, client_version),
                 daemon=True,
             )
             self.thread.start()
@@ -71,7 +72,7 @@ class NetworkManager:
             self.connecting = False
             return False
 
-    def _run_async_loop(self, server_url, username, password):
+    def _run_async_loop(self, server_url, username, password, client_version):
         """Run the async event loop in a thread."""
         try:
             # Create new event loop for this thread
@@ -80,7 +81,7 @@ class NetworkManager:
 
             # Run the connection coroutine
             self.loop.run_until_complete(
-                self._connect_and_listen(server_url, username, password)
+                self._connect_and_listen(server_url, username, password, client_version)
             )
         except Exception:
             import traceback
@@ -93,7 +94,7 @@ class NetworkManager:
             elif self.loop:
                  self.loop.close()
 
-    async def _connect_and_listen(self, server_url, username, password):
+    async def _connect_and_listen(self, server_url, username, password, client_version):
         """Connect to server and listen for messages."""
         try:
             # Create SSL context that allows self-signed certificates
@@ -114,9 +115,7 @@ class NetworkManager:
                             "type": "authorize",
                             "username": username,
                             "password": password,
-                            "major": 0,
-                            "minor": 1,
-                            "patch": 0,
+                            "version": client_version,
                         }
                     )
                 )

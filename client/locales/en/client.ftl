@@ -8,7 +8,7 @@ main-menu-label = Menu
 main-edit-label = Edit
 main-chat-label = Chat
 main-history-label = History
-main-window-title = PlayAural 0.1
+main-window-title = PlayAural { $version }
 main-ambience-volume = Ambience: { $value }%
 main-music-volume = Music: { $value }%
 main-ping-result = Ping: { $value }ms
@@ -130,3 +130,5 @@ update-downloading = Downloading update: { $percent }%
 update-complete = Download complete. Restarting...
 update-error = Update failed: { $error }
 update-checking = Checking for updates...
+update-cancelled = Update cancelled. Game will close.
+

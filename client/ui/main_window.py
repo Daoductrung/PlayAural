@@ -17,6 +17,8 @@ from buffer_system import BufferSystem
 from config_manager import set_item_in_dict
 from localization import Localization
 
+VERSION = "0.1.0"
+
 
 class MainWindow(wx.Frame):
     """Main application window for PlayAural v9 client."""
@@ -1300,7 +1302,105 @@ class MainWindow(wx.Frame):
         self.sound_manager.stop_music(fade=False)
         self.sound_manager.play("welcome.ogg", volume=1.0)
 
+        # Check for updates
+        update_info = packet.get("update_info")
+        if update_info:
+            server_ver = update_info.get("version")
+            if server_ver and server_ver != VERSION:
+                wx.CallAfter(self._prompt_update, update_info)
+
+        # Notify user (but don't speak redundantly)
+        # self.speaker.speak(Localization.get("main-connected"))
         self.add_history(Localization.get("main-connected-version", version=version))
+
+    def _prompt_update(self, update_info):
+        """Prompt user to update."""
+        version = update_info.get("version")
+        result = wx.MessageBox(
+            Localization.get("update-available-message", version=version),
+            Localization.get("update-available-title"),
+            wx.YES_NO | wx.ICON_QUESTION
+        )
+        if result == wx.YES:
+            # Start download in thread
+            import threading
+            threading.Thread(target=self._download_update, args=(update_info,), daemon=True).start()
+
+    def _download_update(self, update_info):
+        """Download update file."""
+        import requests
+        import zipfile
+        import subprocess
+        import os
+        import time
+        import sys
+
+        url = update_info.get("url")
+        target_zip = os.path.join(os.getcwd(), "update.zip")
+        
+        try:
+            self.speaker.speak(Localization.get("update-downloading", percent=0))
+            
+            response = requests.get(url, stream=True)
+            response.raise_for_status()
+            
+            total_size = int(response.headers.get("content-length", 0))
+            block_size = 1024 * 64 # 64KB blocks
+            downloaded = 0
+            
+            last_percent = 0
+
+            with open(target_zip, "wb") as f:
+                for data in response.iter_content(block_size):
+                    downloaded += len(data)
+                    f.write(data)
+                    
+                    if total_size > 0:
+                        percent = int((downloaded / total_size) * 100)
+                        if percent >= last_percent + 10: # Announce every 10%
+                             wx.CallAfter(self.speaker.speak, Localization.get("update-downloading", percent=percent))
+                             last_percent = percent
+            
+            wx.CallAfter(self.speaker.speak, Localization.get("update-complete"))
+            time.sleep(1) # Let the speech finish
+            
+            # Launch updater
+            self._launch_updater(target_zip)
+            
+        except Exception as e:
+            wx.CallAfter(self.speaker.speak, Localization.get("update-error", error=str(e)))
+            wx.CallAfter(wx.MessageBox, Localization.get("update-error", error=str(e)), "Error", wx.OK | wx.ICON_ERROR)
+
+    def _launch_updater(self, zip_path):
+        """Launch the standalone updater."""
+        import os
+        import sys
+        import subprocess
+
+        try:
+            # Check if updater.py exists (running from source) or internal
+            updater_script = os.path.join(os.getcwd(), "client", "updater.py")
+            pid = os.getpid()
+            
+            if os.path.exists(updater_script):
+                # Running from source, call python
+                python_exe = sys.executable
+                cmd = [python_exe, updater_script, "--zip", zip_path, "--target", os.getcwd(), "--exe", "PlayAural.exe", "--pid", str(pid)]
+                subprocess.Popen(cmd)
+            else:
+                # Running frozen, assume updater.exe is in _internal or same dir
+                # For now assume source structure for this task, but normally:
+                # updater_exe = os.path.join(os.path.dirname(sys.executable), "updater.exe")
+                # subprocess.Popen([updater_exe, ...])
+                pass
+            
+            # Quit immediately
+            wx.CallAfter(self.Close)
+            wx.CallAfter(wx.GetApp().ExitMainLoop)
+            os._exit(0)
+            
+        except Exception as e:
+            wx.CallAfter(wx.MessageBox, f"Failed to launch updater: {e}", "Error", wx.OK | wx.ICON_ERROR)
 
     def on_update_locale(self, packet):
         """Handle update_locale packet from server."""

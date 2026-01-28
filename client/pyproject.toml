@@ -1,0 +1,23 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "playaural-client"
+version = "0.1.0"
+description = "PlayAural v0.1 Game Client"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "wxPython>=4.2.0",
+    "accessible-output2>=0.16",
+    "websockets>=10.0",
+    "sound-lib>=0.2.2",
+    "fluent-runtime>=0.4.0",
+]
+
+[project.scripts]
+playaural-client = "client:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["."]

@@ -1,15 +1,15 @@
-"""
+﻿"""
 Tests for the Tradeoff game.
 """
 
 import json
 
-from server.games.tradeoff.game import (
+from ..games.tradeoff.game import (
     TradeoffGame,
     TradeoffPlayer,
     TradeoffOptions,
 )
-from server.games.tradeoff.scoring import (
+from ..games.tradeoff.scoring import (
     SET_DEFINITIONS,
     find_best_scoring,
     is_triple,
@@ -21,8 +21,8 @@ from server.games.tradeoff.scoring import (
     is_all_groups,
     is_all_triplets,
 )
-from server.users.test_user import MockUser
-from server.users.bot import Bot
+from ..users.test_user import MockUser
+from ..users.bot import Bot
 
 
 class TestTradeoffScoring:
@@ -449,3 +449,4 @@ class TestTradeoffPhases:
             tp: TradeoffPlayer = p  # type: ignore
             assert len(tp.rolled_dice) == 5
             assert all(1 <= d <= 6 for d in tp.rolled_dice)
+

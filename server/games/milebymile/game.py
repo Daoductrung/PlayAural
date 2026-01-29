@@ -1552,7 +1552,7 @@ class MileByMileGame(Game):
                         bonus_parts.append(("milebymile-from-perfect", {"points": 200}))
 
                 # Safe trip (no 200s)
-                if not race_state.used_200_mile:
+                if race_state.used_200_mile_count == 0:
                     score += 300
                     bonus_parts.append(("milebymile-from-safe", {"points": 300}))
 

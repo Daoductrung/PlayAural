@@ -1,12 +1,12 @@
-"""
+﻿"""
 Tests for the Threes game.
 """
 
 import json
 
-from server.games.threes.game import ThreesGame, ThreesPlayer, ThreesOptions
-from server.users.test_user import MockUser
-from server.users.bot import Bot
+from ..games.threes.game import ThreesGame, ThreesPlayer, ThreesOptions
+from ..users.test_user import MockUser
+from ..users.bot import Bot
 
 
 class TestThreesGameUnit:
@@ -138,3 +138,4 @@ class TestThreesPersistence:
         assert loaded.game_active is True
         assert loaded.current_round == 3
         assert loaded.options.total_rounds == 5
+

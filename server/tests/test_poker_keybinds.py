@@ -1,5 +1,5 @@
-from server.games.fivecarddraw.game import FiveCardDrawGame
-from server.games.holdem.game import HoldemGame
+﻿from ..games.fivecarddraw.game import FiveCardDrawGame
+from ..games.holdem.game import HoldemGame
 
 
 def test_poker_keybind_dealer_label():
@@ -10,3 +10,4 @@ def test_poker_keybind_dealer_label():
     holdem = HoldemGame()
     holdem.setup_keybinds()
     assert any(k.name == "Button" for k in holdem._keybinds.get("x", []))
+

@@ -1,4 +1,4 @@
-"""
+﻿"""
 Tests for the 1-4-24 (Midnight) game.
 
 Following the testing strategy:
@@ -11,9 +11,9 @@ import pytest
 import random
 import json
 
-from server.games.midnight.game import MidnightGame, MidnightOptions
-from server.users.test_user import MockUser
-from server.users.bot import Bot
+from ..games.midnight.game import MidnightGame, MidnightOptions
+from ..users.test_user import MockUser
+from ..users.bot import Bot
 
 
 class TestMidnightGameUnit:
@@ -507,3 +507,4 @@ class TestMidnightPersistence:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+

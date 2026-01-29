@@ -1,4 +1,4 @@
-"""
+﻿"""
 Integration tests for PlayAural v0.1.
 
 Tests larger chunks of server code working together.
@@ -8,14 +8,14 @@ import pytest
 import tempfile
 import os
 
-from server.persistence.database import Database
-from server.auth.auth import AuthManager
-from server.tables.manager import TableManager
-from server.tables.table import Table
-from server.users.test_user import MockUser
-from server.users.bot import Bot
-from server.games.pig.game import PigGame, PigOptions
-from server.games.registry import GameRegistry, get_game_class
+from ..persistence.database import Database
+from ..auth.auth import AuthManager
+from ..tables.manager import TableManager
+from ..tables.table import Table
+from ..users.test_user import MockUser
+from ..users.bot import Bot
+from ..games.pig.game import PigGame, PigOptions
+from ..games.registry import GameRegistry, get_game_class
 
 
 class TestDatabaseIntegration:
@@ -198,14 +198,14 @@ class TestGameRegistryIntegration:
     def test_pig_game_registered(self):
         """Test that Pig game is registered."""
         # Import to trigger registration
-        from server.games.pig.game import PigGame
+        from ..games.pig.game import PigGame
 
         game_class = get_game_class("pig")
         assert game_class is PigGame
 
     def test_get_by_category(self):
         """Test getting games by category."""
-        from server.games.pig.game import PigGame
+        from ..games.pig.game import PigGame
 
         categories = GameRegistry.get_by_category()
         assert "category-dice-games" in categories
@@ -280,3 +280,4 @@ class TestFullGameFlow:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+

@@ -599,8 +599,9 @@ class SoundManager:
                         time.sleep(0.1)
 
                     # Stop loop
-                    self.ambience_loop.looping = False
-                    self.ambience_loop.stop()
+                    if self.ambience_loop:
+                        self.ambience_loop.looping = False
+                        self.ambience_loop.stop()
 
                     # Play outro if provided
                     if outro_path:

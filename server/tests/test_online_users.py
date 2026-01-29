@@ -1,14 +1,14 @@
-from pathlib import Path
+﻿from pathlib import Path
 
 import pytest
 
-from server.core.server import Server
-from server.tables.manager import TableManager
-from server.users.test_user import MockUser
-from server.messages.localization import Localization
+from ..core.server import Server
+from ..tables.manager import TableManager
+from ..users.test_user import MockUser
+from ..messages.localization import Localization
 
 # Ensure games are registered for name lookups.
-import server.games  # noqa: F401
+from .. import games  # noqa: F401
 
 
 class DummyClient:
@@ -60,3 +60,4 @@ def test_online_users_menu_formats_game_names() -> None:
     texts = _menu_texts(viewer, "online_users")
     assert "Bob: Crazy Eights" in texts
     assert "Alice: Not in game" in texts
+

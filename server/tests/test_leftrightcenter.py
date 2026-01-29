@@ -1,15 +1,15 @@
-"""
+﻿"""
 Tests for the Left Right Center game.
 """
 
 import json
 
-from server.games.leftrightcenter.game import (
+from ..games.leftrightcenter.game import (
     LeftRightCenterGame,
     LeftRightCenterOptions,
 )
-from server.users.test_user import MockUser
-from server.users.bot import Bot
+from ..users.test_user import MockUser
+from ..users.bot import Bot
 
 
 def test_game_creation():
@@ -165,3 +165,4 @@ def test_team_scores_sync(monkeypatch):
         team = game._team_manager.get_team(p.name)
         assert team is not None
         assert team.total_score == p.chips
+

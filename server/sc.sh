@@ -11,6 +11,7 @@ SERVICE_NAME="playaural"
 # Auto-detect the directory where this script is located
 # We assume the script is placed inside the 'server' folder alongside main.py
 SERVER_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+DIR_NAME=$(basename "$SERVER_DIR")
 PYTHON="python3.12"
 
 # Colors
@@ -23,7 +24,7 @@ NC='\033[0m' # No Color
 # Helper Functions
 check_root() {
     if [ "$EUID" -ne 0 ]; then 
-        echo -e "${RED}Error: Please run as root (sudo ./server_control.sh)${NC}"
+        echo -e "${RED}Error: Please run as root (sudo ./sc.sh)${NC}"
         exit 1
     fi
 }
@@ -156,9 +157,10 @@ create_user() {
     read -s -p "Enter Password: " u_pass
     echo ""
     
-    cd "$SERVER_DIR"
-    echo "Running CLI..."
-    $PYTHON -m server.cli create-user "$u_name" "$u_pass"
+    # Run from parent directory to allow module import
+    cd "$SERVER_DIR/.."
+    echo "Running CLI (Package: $DIR_NAME)..."
+    $PYTHON -m ${DIR_NAME}.cli create-user "$u_name" "$u_pass"
     
     read -p "Press Enter to continue..."
 }
@@ -171,8 +173,9 @@ reset_password() {
     read -s -p "Enter New Password: " u_pass
     echo ""
     
-    cd "$SERVER_DIR"
-    $PYTHON -m server.cli reset-password "$u_name" "$u_pass"
+    # Run from parent directory to allow module import
+    cd "$SERVER_DIR/.."
+    $PYTHON -m ${DIR_NAME}.cli reset-password "$u_name" "$u_pass"
     
     read -p "Press Enter to continue..."
 }

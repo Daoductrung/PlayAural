@@ -39,14 +39,14 @@ if __name__ == "__main__":
     sys.path.insert(0, str(_MODULE_DIR.parent))
 
 # Initialize localization before importing games
-from server.messages.localization import Localization  # noqa: E402
+from .messages.localization import Localization  # noqa: E402
 
 Localization.init(_MODULE_DIR / "locales")
 
-from server.games.registry import GameRegistry, get_game_class  # noqa: E402
-from server.games.base import Game, BOT_NAMES  # noqa: E402
-from server.users.base import User, generate_uuid  # noqa: E402
-from server.users.bot import Bot  # noqa: E402
+from .games.registry import GameRegistry, get_game_class  # noqa: E402
+from .games.base import Game, BOT_NAMES  # noqa: E402
+from .users.base import User, generate_uuid  # noqa: E402
+from .users.bot import Bot  # noqa: E402
 
 
 @dataclass
@@ -479,8 +479,8 @@ def cmd_simulate(args):
 
 def cmd_create_user(args):
     """Create a new user."""
-    from server.persistence.database import Database
-    from server.auth.auth import AuthManager
+    from .persistence.database import Database
+    from .auth.auth import AuthManager
 
     db = Database()
     db.connect()
@@ -499,8 +499,8 @@ def cmd_create_user(args):
 
 def cmd_reset_password(args):
     """Reset a user's password."""
-    from server.persistence.database import Database
-    from server.auth.auth import AuthManager
+    from .persistence.database import Database
+    from .auth.auth import AuthManager
     
     db = Database()
     db.connect()

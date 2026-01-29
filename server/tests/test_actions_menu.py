@@ -1,4 +1,4 @@
-from server.game_utils.actions import Action, ActionSet, Visibility
+﻿from ..game_utils.actions import Action, ActionSet, Visibility
 
 
 class DummyGame:
@@ -39,3 +39,4 @@ def test_actions_menu_respects_show_in_actions_menu():
 
     enabled = action_set.get_enabled_actions(game, player)
     assert [ra.action.id for ra in enabled] == ["shown"]
+

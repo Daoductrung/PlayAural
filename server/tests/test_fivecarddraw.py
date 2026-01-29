@@ -1,8 +1,8 @@
-import json
+﻿import json
 
-from server.games.fivecarddraw.game import FiveCardDrawGame, FiveCardDrawOptions
-from server.users.test_user import MockUser
-from server.users.bot import Bot
+from ..games.fivecarddraw.game import FiveCardDrawGame, FiveCardDrawOptions
+from ..users.test_user import MockUser
+from ..users.bot import Bot
 
 
 def test_draw_game_creation():
@@ -167,3 +167,4 @@ def test_draw_all_in_still_draws():
     game.current_bet_round = 1
     game._after_action()
     assert game.phase == "draw"
+

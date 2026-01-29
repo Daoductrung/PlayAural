@@ -1,14 +1,14 @@
-"""Tests for Scopa game implementation."""
+﻿"""Tests for Scopa game implementation."""
 
 from pathlib import Path
 
-from server.games.scopa.game import ScopaGame, ScopaPlayer, ScopaOptions
-from server.games.scopa.capture import find_captures, select_best_capture
-from server.games.registry import GameRegistry
-from server.game_utils.cards import Card, DeckFactory
-from server.game_utils.teams import TeamManager
-from server.users.test_user import MockUser
-from server.messages.localization import Localization
+from ..games.scopa.game import ScopaGame, ScopaPlayer, ScopaOptions
+from ..games.scopa.capture import find_captures, select_best_capture
+from ..games.registry import GameRegistry
+from ..game_utils.cards import Card, DeckFactory
+from ..game_utils.teams import TeamManager
+from ..users.test_user import MockUser
+from ..messages.localization import Localization
 
 # Initialize localization for tests
 _locales_dir = Path(__file__).parent.parent / "locales"
@@ -139,16 +139,16 @@ class TestTeamManager:
         assert TeamManager.format_team_mode_for_display("3v3v3", "pt") == "3 equipes de 3"
 
         # Test Chinese
-        assert TeamManager.format_team_mode_for_display("individual", "zh") == "个人"
-        assert TeamManager.format_team_mode_for_display("2v2", "zh") == "2 个 2 人团队"
-        assert TeamManager.format_team_mode_for_display("2v2v2v2", "zh") == "4 个 2 人团队"
+        assert TeamManager.format_team_mode_for_display("individual", "zh") == "ä¸ªäºº"
+        assert TeamManager.format_team_mode_for_display("2v2", "zh") == "2 ä¸ª 2 äººå›¢é˜Ÿ"
+        assert TeamManager.format_team_mode_for_display("2v2v2v2", "zh") == "4 ä¸ª 2 äººå›¢é˜Ÿ"
 
         # Test parsing localized strings
         assert TeamManager.parse_display_to_team_mode("Individual") == "individual"
-        assert TeamManager.parse_display_to_team_mode("个人") == "individual"
+        assert TeamManager.parse_display_to_team_mode("ä¸ªäºº") == "individual"
         assert TeamManager.parse_display_to_team_mode("2 equipes de 2") == "2v2"
-        assert TeamManager.parse_display_to_team_mode("2 个 2 人团队") == "2v2"
-        assert TeamManager.parse_display_to_team_mode("4 个 2 人团队") == "2v2v2v2"
+        assert TeamManager.parse_display_to_team_mode("2 ä¸ª 2 äººå›¢é˜Ÿ") == "2v2"
+        assert TeamManager.parse_display_to_team_mode("4 ä¸ª 2 äººå›¢é˜Ÿ") == "2v2v2v2"
 
         # Test get_team_modes_for_player_count with locale
         modes_en = TeamManager.get_team_modes_for_player_count(4, "en")
@@ -160,8 +160,8 @@ class TestTeamManager:
         assert "2 equipes de 2" in modes_pt
 
         modes_zh = TeamManager.get_team_modes_for_player_count(4, "zh")
-        assert "个人" in modes_zh
-        assert "2 个 2 人团队" in modes_zh
+        assert "ä¸ªäºº" in modes_zh
+        assert "2 ä¸ª 2 äººå›¢é˜Ÿ" in modes_zh
 
 
 class TestScopaGameUnit:
@@ -343,7 +343,7 @@ class TestScopaPlayTest:
 
     def test_two_player_bot_game_completes(self):
         """Test that a 2-player bot game completes."""
-        from server.users.bot import Bot
+        from ..users.bot import Bot
 
         game = ScopaGame()
         game.options.target_score = 5  # Lower for faster test
@@ -366,7 +366,7 @@ class TestScopaPlayTest:
 
     def test_four_player_team_game(self):
         """Test a 4-player team game."""
-        from server.users.bot import Bot
+        from ..users.bot import Bot
 
         game = ScopaGame()
         game.options.target_score = 5
@@ -416,3 +416,4 @@ class TestScopaPersistence:
 
         assert len(game2.players[0].captured) == 1
         assert len(game2.table_cards) == 1
+

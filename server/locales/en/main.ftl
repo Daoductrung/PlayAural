@@ -313,3 +313,8 @@ logout-confirm-title = Are you sure you want to logout and exit the game?
 logout-confirm-yes = Yes, logout
 logout-confirm-no = No, stay
 goodbye = Goodbye!
+
+# System messages
+system-name = System
+server-restarting = Server is restarting in { $seconds } seconds...
+server-shutting-down = Server is shutting down in { $seconds } seconds...

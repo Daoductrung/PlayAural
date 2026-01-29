@@ -136,8 +136,10 @@ class NetworkManager:
 
         except (ConnectionRefusedError, OSError, asyncio.TimeoutError) as e:
             # Common connection errors - log briefly, don't spam traceback
-            # [WinError 1225] is an OSError
             print(f"Connection attempt failed: {e}")
+        except websockets.exceptions.InvalidStatus as e:
+            # Server rejected connection (e.g. 503 Service Unavailable)
+            print(f"Server rejected connection: {e}")
         except Exception:
             import traceback
 

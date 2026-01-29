@@ -1,4 +1,4 @@
-"""
+﻿"""
 Tests for the Pig game.
 
 Following the testing strategy:
@@ -11,9 +11,9 @@ import pytest
 import random
 import json
 
-from server.games.pig.game import PigGame, PigOptions
-from server.users.test_user import MockUser
-from server.users.bot import Bot
+from ..games.pig.game import PigGame, PigOptions
+from ..users.test_user import MockUser
+from ..users.bot import Bot
 
 
 class TestPigGameUnit:
@@ -473,3 +473,4 @@ class TestPigPersistence:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+

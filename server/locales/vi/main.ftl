@@ -313,3 +313,8 @@ logout-confirm-title = Bạn có chắc chắn muốn đăng xuất và thoát t
 logout-confirm-yes = Có, đăng xuất
 logout-confirm-no = Không, ở lại
 goodbye = Tạm biệt!
+
+# Thông báo hệ thống
+system-name = Hệ thống
+server-restarting = Máy chủ sẽ khởi động lại trong { $seconds } giây...
+server-shutting-down = Máy chủ sẽ tắt trong { $seconds } giây...

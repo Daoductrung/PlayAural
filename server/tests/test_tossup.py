@@ -1,4 +1,4 @@
-"""
+﻿"""
 Tests for the Toss Up game.
 
 Following the testing strategy:
@@ -11,9 +11,9 @@ import pytest
 import random
 import json
 
-from server.games.tossup.game import TossUpGame, TossUpOptions
-from server.users.test_user import MockUser
-from server.users.bot import Bot
+from ..games.tossup.game import TossUpGame, TossUpOptions
+from ..users.test_user import MockUser
+from ..users.bot import Bot
 
 
 class TestTossUpGameUnit:
@@ -556,3 +556,4 @@ class TestTossUpPersistence:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+

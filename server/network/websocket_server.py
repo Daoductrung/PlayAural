@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Coroutine
 import websockets
-from websockets.server import WebSocketServerProtocol
+from websockets.server import WebSocketServerProtocol, ServerProtocol
 
 
 @dataclass
@@ -31,6 +31,35 @@ class ClientConnection:
             await self.websocket.close(code, reason)
         except Exception:
             pass
+
+
+# Monkey-patch ServerProtocol to tolerate proxies stripping Connection: Upgrade header
+# We patch the base ServerProtocol class because newer websockets (v13+) use it directly
+# via the new asyncio implementation, bypassing WebSocketServerProtocol.
+_original_process_request = ServerProtocol.process_request
+
+def _tolerant_process_request(self, request):
+    # Cloudflare/Nginx sometimes rewrites Connection: Upgrade to Connection: Keep-Alive
+    # This causes InvalidUpgrade error in default process_request.
+    
+    # Check if this looks like a valid WebSocket upgrade
+    try:
+        headers = request.headers
+        upgrade = headers.get("Upgrade", "").lower()
+        connection = headers.get("Connection", "").lower()
+        
+        if upgrade == "websocket" and "upgrade" not in connection:
+             # This is the specific case of a proxy stripping the header.
+             # We assume it's valid and bypass the strict check in _original_process_request.
+             # Returning None tells websockets to proceed with the handshake.
+             return None
+    except Exception:
+        pass
+    
+    # For all other cases, let the original method handle it (including other validations)
+    return _original_process_request(self, request)
+
+ServerProtocol.process_request = _tolerant_process_request
 
 
 class WebSocketServer:
@@ -79,6 +108,7 @@ class WebSocketServer:
             self.host,
             self.port,
             ssl=self._ssl_context,
+            origins=None,  # Allow all origins (handled by Cloudflare/Auth)
         )
         protocol = "wss" if self._ssl_context else "ws"
         print(f"WebSocket server started on {protocol}://{self.host}:{self.port}")

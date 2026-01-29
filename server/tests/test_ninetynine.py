@@ -1,4 +1,4 @@
-"""
+﻿"""
 Tests for the Ninety Nine game.
 
 Following the testing strategy:
@@ -11,11 +11,11 @@ import pytest
 import random
 import json
 
-from server.games.ninetynine.game import (
+from ..games.ninetynine.game import (
     NinetyNineGame,
     NinetyNineOptions,
 )
-from server.game_utils.cards import (
+from ..game_utils.cards import (
     Card,
     Deck,
     DeckFactory,
@@ -29,8 +29,8 @@ from server.game_utils.cards import (
     RS_RANK_SKIP,
     RS_RANK_NINETY_NINE,
 )
-from server.users.test_user import MockUser
-from server.users.bot import Bot
+from ..users.test_user import MockUser
+from ..users.bot import Bot
 
 
 class TestNinetyNineUnit:
@@ -79,7 +79,7 @@ class TestCardAndDeck:
 
     def test_card_creation(self):
         """Test card creation and properties."""
-        from server.game_utils.cards import card_name
+        from ..game_utils.cards import card_name
 
         card = Card(id=0, rank=1, suit=SUIT_HEARTS)
         assert card.rank == 1
@@ -90,7 +90,7 @@ class TestCardAndDeck:
 
     def test_card_article(self):
         """Test card article (a/an)."""
-        from server.game_utils.cards import card_name_with_article
+        from ..game_utils.cards import card_name_with_article
 
         ace = Card(id=0, rank=1, suit=SUIT_HEARTS)
         assert card_name_with_article(ace).startswith("an")
@@ -489,3 +489,4 @@ class TestNinetyNinePersistence:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+

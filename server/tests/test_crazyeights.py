@@ -1,5 +1,5 @@
-from server.games.crazyeights.game import CrazyEightsGame, CrazyEightsOptions
-from server.users.bot import Bot
+﻿from ..games.crazyeights.game import CrazyEightsGame, CrazyEightsOptions
+from ..users.bot import Bot
 
 
 def test_crazyeights_game_creation():
@@ -32,3 +32,4 @@ def test_crazyeights_bot_game_completes():
         game.on_tick()
 
     assert game.status == "finished"
+

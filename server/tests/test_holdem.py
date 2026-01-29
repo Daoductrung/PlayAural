@@ -1,8 +1,8 @@
-import json
+﻿import json
 
-from server.games.holdem.game import HoldemGame, HoldemOptions
-from server.users.test_user import MockUser
-from server.users.bot import Bot
+from ..games.holdem.game import HoldemGame, HoldemOptions
+from ..users.test_user import MockUser
+from ..users.bot import Bot
 
 
 def test_holdem_game_creation():
@@ -151,3 +151,4 @@ def test_holdem_pot_limit_raise_cap():
     player.chips = 500
     game._action_raise(player, "200", "raise")
     assert game.betting.current_bet == 120
+

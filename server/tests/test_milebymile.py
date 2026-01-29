@@ -1,19 +1,19 @@
-"""
+﻿"""
 Tests for the Mile by Mile game.
 """
 
 import json
 import random
 
-from server.games.milebymile.game import (
+from ..games.milebymile.game import (
     MileByMileGame,
     MileByMilePlayer,
     MileByMileOptions,
     RaceState,
 )
-from server.games.milebymile.cards import HazardType, SafetyType
-from server.users.test_user import MockUser
-from server.users.bot import Bot
+from ..games.milebymile.cards import HazardType, SafetyType
+from ..users.test_user import MockUser
+from ..users.bot import Bot
 
 
 class TestMileByMileGameUnit:
@@ -221,3 +221,4 @@ class TestMileByMilePersistence:
         assert loaded.game_active is True
         assert loaded.current_race == 1
         assert loaded.options.round_distance == 500
+

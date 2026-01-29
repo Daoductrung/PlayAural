@@ -1,4 +1,4 @@
-"""
+﻿"""
 Test that action_id parameter is passed correctly to is_enabled and is_hidden methods.
 
 This verifies the enhancement to the action system that allows methods to optionally
@@ -7,9 +7,9 @@ receive the action_id as a keyword argument.
 
 import pytest
 
-from server.games.threes.game import ThreesGame
-from server.games.midnight.game import MidnightGame
-from server.users.test_user import MockUser
+from ..games.threes.game import ThreesGame
+from ..games.midnight.game import MidnightGame
+from ..users.test_user import MockUser
 
 
 class TestActionIdPassing:
@@ -143,3 +143,4 @@ class TestActionIdPassing:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+

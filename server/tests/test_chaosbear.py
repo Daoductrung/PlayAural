@@ -1,12 +1,12 @@
-"""
+﻿"""
 Tests for the Chaos Bear game.
 """
 
 import json
 
-from server.games.chaosbear.game import ChaosBearGame, ChaosBearPlayer
-from server.users.test_user import MockUser
-from server.users.bot import Bot
+from ..games.chaosbear.game import ChaosBearGame, ChaosBearPlayer
+from ..users.test_user import MockUser
+from ..users.bot import Bot
 
 
 class TestChaosBearGameUnit:
@@ -149,3 +149,4 @@ class TestChaosBearPersistence:
         assert loaded.round_number == 2
         assert loaded.players[0].position == 10
         assert loaded.players[0].alive is True
+

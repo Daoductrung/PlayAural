@@ -14,7 +14,22 @@ if _parent_dir not in sys.path:
 # Change to script directory so relative paths work
 os.chdir(_script_dir)
 
-from server.core.server import run_server  # noqa: E402
+# Determine package name based on directory name (e.g. 'server' or 'pgame')
+_pkg_name = os.path.basename(_script_dir)
+
+try:
+    from server.core.server import run_server
+except ImportError:
+    # Fallback for when directory is renamed (e.g. on VPS)
+    import importlib
+    try:
+        _module = importlib.import_module(f"{_pkg_name}.core.server")
+        run_server = _module.run_server
+    except ImportError as e:
+        print(f"CRITICAL: Could not import core server from 'server' or '{_pkg_name}'.")
+        print(f"Ensure the parent directory ({_parent_dir}) is in PYTHONPATH.")
+        print(f"Error detail: {e}")
+        sys.exit(1)
 
 
 def main():

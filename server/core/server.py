@@ -2676,7 +2676,45 @@ PlayAural Server
 
         convo = packet.get("convo", "local")
         message = packet.get("message", "")
-        # language = packet.get("language", "Other")
+        if message.startswith("/reboot") or message.startswith("/stop"):
+            # Check permissions
+            user = self._users.get(username)
+            if user and user.trust_level >= 2:
+                is_reboot = message.startswith("/reboot")
+                action_text = "restarting" if is_reboot else "shutting down"
+                
+                import os
+                
+                # Broadcast warning messages localized for each user
+                for u in self._users.values():
+                    if u.approved:
+                         sys_name = Localization.get(u.locale, "system-name")
+                         msg = Localization.get(u.locale, f"server-{action_text}", seconds=3)
+                         full_msg = f"{sys_name}: {msg}"
+                         
+                         asyncio.create_task(u.connection.send({
+                             "type": "chat",
+                             "convo": "global",
+                             "sender": sys_name,
+                             "message": msg, # Client will format it if needed, or we send formatted
+                         }))
+                
+                # Schedule exit
+                async def delayed_exit():
+                    await asyncio.sleep(3)
+                    await self.stop()
+                    # Use os._exit to avoid SystemExit exception being caught by asyncio handler
+                    # Exit code 1 to ensure systemd restarts it
+                    os._exit(1) 
+                
+                asyncio.create_task(delayed_exit())
+                return
+                
+                asyncio.create_task(delayed_exit())
+                return
+            else:
+                 # Fake command not found for non-admins to avoid revealing existence
+                 pass
 
         chat_packet = {
             "type": "chat",

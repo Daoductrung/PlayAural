@@ -1,11 +1,11 @@
-from server.game_utils.cards import (
+﻿from ..game_utils.cards import (
     Card,
     SUIT_CLUBS,
     SUIT_DIAMONDS,
     SUIT_HEARTS,
     SUIT_SPADES,
 )
-from server.game_utils.poker_evaluator import (
+from ..game_utils.poker_evaluator import (
     HIGH_CARD,
     ONE_PAIR,
     TWO_PAIR,
@@ -199,4 +199,5 @@ def test_describe_hand_localized_zh():
     hand = _cards([(13, SUIT_SPADES), (12, SUIT_SPADES), (11, SUIT_SPADES), (10, SUIT_SPADES), (9, SUIT_SPADES)])
     score = score_5_cards(hand)
     description = describe_hand(score, locale="zh")
-    assert "同花顺" in description
+    assert "åŒèŠ±é¡º" in description
+

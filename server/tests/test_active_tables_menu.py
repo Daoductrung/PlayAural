@@ -1,12 +1,12 @@
-from pathlib import Path
+﻿from pathlib import Path
 
-from server.core.server import Server
-from server.tables.manager import TableManager
-from server.users.test_user import MockUser
-from server.messages.localization import Localization
+from ..core.server import Server
+from ..tables.manager import TableManager
+from ..users.test_user import MockUser
+from ..messages.localization import Localization
 
 # Ensure games are registered for name lookups.
-import server.games  # noqa: F401
+from .. import games  # noqa: F401
 
 
 def _menu_texts(user: MockUser, menu_id: str) -> list[str]:
@@ -61,3 +61,4 @@ def test_main_menu_includes_active_tables_option() -> None:
     texts = _menu_texts(viewer, "main_menu")
     expected = Localization.get(viewer.locale, "view-active-tables")
     assert expected in texts
+

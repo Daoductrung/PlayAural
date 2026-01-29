@@ -1,16 +1,16 @@
-"""
+﻿"""
 Tests for the Light Turret game.
 """
 
 import json
 
-from server.games.lightturret.game import (
+from ..games.lightturret.game import (
     LightTurretGame,
     LightTurretPlayer,
     LightTurretOptions,
 )
-from server.users.test_user import MockUser
-from server.users.bot import Bot
+from ..users.test_user import MockUser
+from ..users.bot import Bot
 
 
 class TestLightTurretGameUnit:
@@ -149,3 +149,4 @@ class TestLightTurretPersistence:
         assert loaded.round == 3
         assert loaded.players[0].light == 2
         assert loaded.players[0].power == 5
+

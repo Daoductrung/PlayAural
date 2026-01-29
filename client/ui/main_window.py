@@ -22,7 +22,7 @@ from buffer_system import BufferSystem
 from config_manager import set_item_in_dict
 from localization import Localization
 
-VERSION = "0.1.1"
+VERSION = "0.1.0"
 
 
 class MainWindow(wx.Frame):
@@ -1069,6 +1069,8 @@ class MainWindow(wx.Frame):
             return
 
         self.connected = False
+        self.current_menu_id = None
+        self.current_menu_state = None
         
         # If explicit disconnect (e.g. kicked or logged out), normal error flow
         if self.disconnect_reason:
@@ -1301,10 +1303,44 @@ class MainWindow(wx.Frame):
         # Ensure we exit loop
         wx.GetApp().ExitMainLoop()
 
+    def restart_application(self):
+        """Restart the client application."""
+        import os
+        import sys
+        import subprocess
+
+        self.speaker.speak(Localization.get("main-restarting"), interrupt=True)
+        time.sleep(1.0) # Give time to speak
+
+        try:
+            # Determine how to restart
+            if getattr(sys, 'frozen', False):
+                # Running as compiled exe
+                cmd = [sys.executable]
+            else:
+                # Running from source
+                # Use sys.executable and current arguments
+                cmd = [sys.executable] + sys.argv
+
+            # Launch new instance
+            subprocess.Popen(cmd)
+            
+            # Close current
+            self.Destroy()
+            sys.exit(0)
+        except Exception as e:
+            print(f"Failed to restart: {e}")
+            self.Close()
+
     # Server packet handlers
 
     def on_authorize_success(self, packet):
         """Handle authorization success from server."""
+        # If this was a reconnection (silent or expected), restart the client to ensure clean state
+        if self.is_reconnecting or self.expecting_reconnect:
+            self.restart_application()
+            return
+
         self.connected = True
         version = packet.get("version", "unknown")
         locale = packet.get("locale", "en")
@@ -2078,13 +2114,13 @@ class MainWindow(wx.Frame):
             "grid_width": grid_width,
         }
 
-        if self.current_menu_state == new_menu_state:
+        # if self.current_menu_state == new_menu_state:
             # Menu is identical - skip wx update to avoid confusing screen readers
             # However, if position is specified, we should still move to it
-            if position is not None and len(items) > 0:
-                if 0 <= position < len(items):
-                    self.menu_list.SetSelection(position)
-            return
+        #    if position is not None and len(items) > 0:
+        #        if 0 <= position < len(items):
+        #            self.menu_list.SetSelection(position)
+        #    return
 
         # Store new menu state for future comparisons
         self.current_menu_state = new_menu_state

@@ -1,4 +1,4 @@
-"""Pytest configuration and fixtures."""
+﻿"""Pytest configuration and fixtures."""
 
 import pytest
 import sys
@@ -8,7 +8,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 # Initialize localization for tests
-from server.messages.localization import Localization
+from ..messages.localization import Localization
 
 _locales_dir = Path(__file__).parent.parent / "locales"
 Localization.init(_locales_dir)
@@ -17,7 +17,7 @@ Localization.init(_locales_dir)
 @pytest.fixture
 def mock_user():
     """Create a mock user."""
-    from server.users.test_user import MockUser
+    from ..users.test_user import MockUser
 
     return MockUser("TestPlayer")
 
@@ -25,7 +25,7 @@ def mock_user():
 @pytest.fixture
 def bot():
     """Create a bot user."""
-    from server.users.bot import Bot
+    from ..users.bot import Bot
 
     return Bot("TestBot")
 
@@ -33,7 +33,7 @@ def bot():
 @pytest.fixture
 def pig_game():
     """Create a fresh Pig game."""
-    from server.games.pig.game import PigGame
+    from ..games.pig.game import PigGame
 
     return PigGame()
 
@@ -41,8 +41,8 @@ def pig_game():
 @pytest.fixture
 def pig_game_with_players():
     """Create a Pig game with two players."""
-    from server.games.pig.game import PigGame
-    from server.users.test_user import MockUser
+    from ..games.pig.game import PigGame
+    from ..users.test_user import MockUser
 
     game = PigGame()
     user1 = MockUser("Alice")
@@ -50,3 +50,4 @@ def pig_game_with_players():
     game.add_player("Alice", user1)
     game.add_player("Bob", user2)
     return game, user1, user2
+

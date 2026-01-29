@@ -136,6 +136,29 @@ def check_table_pw():
     client.network.send_packet({"type": "check_table_pw_cmd"})
 
 
+@arg_parser(0)
+def check_table_pw():
+    client.network.send_packet({"type": "check_table_pw_cmd"})
+
+
+@arg_parser(0)
+def reboot():
+    """Reboot the server (Admin only)."""
+    # Send as chat message so server _handle_chat intercepts it
+    client.network.send_packet(
+        {"type": "chat", "convo": "global", "message": "/reboot"}
+    )
+
+
+@arg_parser(0)
+def stop():
+    """Stop the server (Admin only)."""
+    # Send as chat message so server _handle_chat intercepts it
+    client.network.send_packet(
+        {"type": "chat", "convo": "global", "message": "/stop"}
+    )
+
+
 aliases = (
     (
         admins,
@@ -161,4 +184,6 @@ aliases = (
     (set_table_pw, {"setpw"}),
     (remove_table_pw, {"removepw"}),
     (check_table_pw, {"checkpw"}),
+    (reboot, {"reboot", "restart"}),
+    (stop, {"stop", "shutdown", "exit"}),
 )

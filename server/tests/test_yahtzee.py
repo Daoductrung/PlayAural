@@ -1,10 +1,10 @@
-"""
+﻿"""
 Tests for the Yahtzee game.
 """
 
 import json
 
-from server.games.yahtzee.game import (
+from ..games.yahtzee.game import (
     YahtzeeGame,
     YahtzeePlayer,
     YahtzeeOptions,
@@ -15,8 +15,8 @@ from server.games.yahtzee.game import (
     UPPER_CATEGORIES,
     LOWER_CATEGORIES,
 )
-from server.users.test_user import MockUser
-from server.users.bot import Bot
+from ..users.test_user import MockUser
+from ..users.bot import Bot
 
 
 class TestYahtzeeScoring:
@@ -292,3 +292,4 @@ class TestYahtzeePersistence:
         assert loaded_alice.scores["ones"] == 3
         assert loaded_alice.scores["twos"] == 6
         assert loaded_alice.yahtzee_bonus_count == 1
+

@@ -1,13 +1,13 @@
-"""Tests for Age of Heroes game implementation."""
+﻿"""Tests for Age of Heroes game implementation."""
 
 from pathlib import Path
 
-from server.games.ageofheroes.game import (
+from ..games.ageofheroes.game import (
     AgeOfHeroesGame,
     AgeOfHeroesPlayer,
     AgeOfHeroesOptions,
 )
-from server.games.ageofheroes.cards import (
+from ..games.ageofheroes.cards import (
     Card,
     Deck,
     CardType,
@@ -17,7 +17,7 @@ from server.games.ageofheroes.cards import (
     MANDATORY_EVENTS,
     DISASTER_EVENTS,
 )
-from server.games.ageofheroes.state import (
+from ..games.ageofheroes.state import (
     Tribe,
     TribeState,
     WarState,
@@ -29,23 +29,23 @@ from server.games.ageofheroes.state import (
     BUILDING_COSTS,
     TRIBE_SPECIAL_RESOURCE,
 )
-from server.games.ageofheroes.construction import (
+from ..games.ageofheroes.construction import (
     can_build,
     has_resources,
     get_affordable_buildings,
 )
-from server.games.ageofheroes.combat import (
+from ..games.ageofheroes.combat import (
     can_declare_war,
     get_valid_war_targets,
     get_valid_war_goals,
 )
-from server.games.ageofheroes.bot import (
+from ..games.ageofheroes.bot import (
     bot_select_action,
     score_card_for_discard,
 )
-from server.games.registry import GameRegistry
-from server.users.test_user import MockUser
-from server.messages.localization import Localization
+from ..games.registry import GameRegistry
+from ..users.test_user import MockUser
+from ..messages.localization import Localization
 
 # Initialize localization for tests
 _locales_dir = Path(__file__).parent.parent / "locales"
@@ -457,7 +457,7 @@ class TestPlayTest:
 
     def test_two_player_bot_game_runs(self):
         """Test that a 2-player bot game can run for some ticks."""
-        from server.users.bot import Bot
+        from ..users.bot import Bot
 
         game = AgeOfHeroesGame()
         game.options.victory_cities = 3  # Lower for faster test
@@ -480,7 +480,7 @@ class TestPlayTest:
 
     def test_four_player_game(self):
         """Test a 4-player game."""
-        from server.users.bot import Bot
+        from ..users.bot import Bot
 
         game = AgeOfHeroesGame()
 
@@ -521,3 +521,4 @@ class TestPersistence:
         assert game2.players[0].tribe_state.cities == 3
         assert game2.players[0].tribe_state.monument_progress == 2
         assert game2.current_day == 5
+

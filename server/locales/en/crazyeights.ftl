@@ -45,4 +45,18 @@ crazyeights-player-draws-many = { $player } draws { $count } cards.
 crazyeights-player-passes = { $player } passes.
 
 # Formats
-crazyeights-line-format = {  }. {  }: {  }
+crazyeights-line-format = { $rank }. { $player }: { $score }
+
+# Timer
+crazyeights-check-turn-timer = Check turn timer
+crazyeights-timer-5 = 5 seconds
+crazyeights-timer-10 = 10 seconds
+crazyeights-timer-15 = 15 seconds
+crazyeights-timer-20 = 20 seconds
+crazyeights-timer-30 = 30 seconds
+crazyeights-timer-45 = 45 seconds
+crazyeights-timer-60 = 60 seconds
+crazyeights-timer-90 = 90 seconds
+crazyeights-timer-unlimited = Unlimited
+crazyeights-timer-disabled = Turn timer is disabled.
+crazyeights-timer-remaining = { $seconds } seconds remaining.

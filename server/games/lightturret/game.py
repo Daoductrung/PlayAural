@@ -1,5 +1,5 @@
 """
-Light Turret Game Implementation for PlayAural v0.1.
+Light Turret Game Implementation for PlayAural v0.1.0.
 
 A resource management game where you shoot a turret to gain light and coins.
 """

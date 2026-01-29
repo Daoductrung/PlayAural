@@ -159,4 +159,4 @@ milebymile-between-races = Wait for the next race to start.
 milebymile-error-karma-needs-three-teams = Karma rule requires at least 3 distinct cars/teams.
 
 # Formatting
-milebymile-line-format = {  }. {  }: {  }
+milebymile-line-format = { $rank }. { $name }: { $points }

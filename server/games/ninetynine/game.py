@@ -1,5 +1,5 @@
 """
-Ninety Nine Game Implementation for PlayAural v0.1.
+Ninety Nine Game Implementation for PlayAural v0.1.0.
 
 A card game where players try to avoid pushing the running total over 99.
 Last player standing wins!
@@ -251,7 +251,10 @@ class NinetyNineGame(Game):
         elif rank == 2:  # 2: multiply or divide (special handling)
             return None
 
-        elif 3 <= rank <= 8:  # 3-8: face value
+        elif rank == 4:  # 4: Reverse (Adds 0)
+            return 0
+
+        elif 3 <= rank <= 8:  # 3, 5-8: face value
             return rank
 
         elif rank == 9:  # 9: pass

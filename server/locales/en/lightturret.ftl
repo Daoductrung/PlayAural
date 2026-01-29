@@ -47,4 +47,4 @@ lightturret-you-are-eliminated = You have been eliminated.
 # Formatting
 lightturret-status-survived = Survived
 lightturret-status-eliminated = Eliminated
-lightturret-line-format = {  }. {  }: {  } ({  })
+lightturret-line-format = { $rank }. { $player }: { $light } ({ $status })

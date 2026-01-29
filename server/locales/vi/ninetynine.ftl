@@ -2,7 +2,7 @@
 # Các thông báo khớp chính xác với bản v10
 
 # Thông tin trò chơi
-ninetynine-name = Chín Mươi Chín (Ninety Nine)
+ninetynine-name = Chín Mươi Chín
 ninetynine-description = Một trò chơi bài mà người chơi cố gắng tránh làm tổng điểm vượt quá 99. Người trụ lại cuối cùng sẽ chiến thắng!
 
 # Vòng chơi

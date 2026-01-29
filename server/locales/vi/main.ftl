@@ -300,9 +300,9 @@ admin-broadcast-sent = Đã gửi thông báo tới { $count } người dùng.
 
 # Gian lận bộ bài Mile by Mile
 milebymile-rig-none = Không can thiệp
-milebymile-rig-no-duplicates = Không có thẻ trùng lặp
-milebymile-rig-2x-attacks = Nhân 2 thẻ Tấn công
-milebymile-rig-2x-defenses = Nhân 2 thẻ Phòng thủ
+milebymile-rig-no-duplicates = Không có Lá trùng lặp
+milebymile-rig-2x-attacks = Nhân 2 Lá Tấn công
+milebymile-rig-2x-defenses = Nhân 2 Lá Phòng thủ
 admin-broadcast-sent = Đã gửi thông báo tới { $count } người dùng.
 
 # Người chơi

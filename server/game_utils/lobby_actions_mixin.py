@@ -10,6 +10,7 @@ if TYPE_CHECKING:
 from ..users.base import MenuItem, EscapeBehavior
 from ..users.bot import Bot
 from ..messages.localization import Localization
+from ..documentation.manager import DocumentationManager
 
 
 # Default bot names available for selection

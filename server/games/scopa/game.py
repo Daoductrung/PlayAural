@@ -1,5 +1,5 @@
 """
-Scopa Card Game Implementation for PlayAural v0.1.
+Scopa Card Game Implementation for PlayAural v0.1.0.
 
 Classic Italian card game: capture cards from the table by matching ranks or sums.
 """

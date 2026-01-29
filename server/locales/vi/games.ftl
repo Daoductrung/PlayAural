@@ -2,7 +2,7 @@
 # Các thông báo này được dùng chung cho nhiều trò chơi
 
 # Tên trò chơi
-game-name-ninetynine = Chín Mươi Chín (Ninety Nine)
+game-name-ninetynine = Chín Mươi Chín
 
 # Luồng vòng chơi và lượt chơi
 game-round-start = Vòng { $round }.
@@ -122,3 +122,12 @@ poker-unknown-hand = Bài không xác định
 
 # Lỗi xác thực (chung cho các game)
 game-error-invalid-team-mode = Chế độ đội đã chọn không hợp lệ với số lượng người chơi hiện tại.
+
+# Tài liệu
+documentation-menu = Tài liệu
+introduction = Giới thiệu
+community-rules = Quy tắc cộng đồng
+global-keys = Phím tắt toàn cục
+game-rules = Luật chơi
+document-not-found = Không tìm thấy tài liệu.
+help = Trợ giúp

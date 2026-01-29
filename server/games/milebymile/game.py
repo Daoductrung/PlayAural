@@ -1,5 +1,5 @@
 """
-Mile by Mile Game Implementation for PlayAural v0.1.
+Mile by Mile Game Implementation for PlayAural v0.1.0.
 
 A racing card game based on Mille Bornes. Players race to reach a target distance
 while playing hazards on opponents and defending with safeties.
@@ -576,6 +576,9 @@ class MileByMileGame(Game):
             if race_state.miles + distance > self.options.round_distance:
                 return False
 
+        if distance == 200 and race_state.used_200_mile_count >= 2:
+            return False
+
         return True
 
     def _can_play_hazard(self, player: MileByMilePlayer, card: Card) -> bool:
@@ -978,7 +981,7 @@ class MileByMileGame(Game):
         race_state.miles += distance
 
         if distance == 200:
-            race_state.used_200_mile = True
+            race_state.used_200_mile_count += 1
 
         # Play sounds
         self.play_sound(f"game_cards/play{random.randint(1, 4)}.ogg")
@@ -1373,9 +1376,9 @@ class MileByMileGame(Game):
         """Validate game configuration before starting."""
         errors = super().prestart_validate()
 
-        # Set up teams first if not already done (needed for karma rule validation)
-        if not self._team_manager.teams:
-            self._setup_teams()
+        # Always set up teams to ensure we have the latest player list
+        # (needed for karma rule validation and proper team count)
+        self._setup_teams()
 
         # Validate team mode for current player count
         team_mode_error = self._validate_team_mode(self.options.team_mode)
@@ -1590,12 +1593,12 @@ class MileByMileGame(Game):
             self.add_team_score(team_idx, score)
 
             # Announce to each player in their locale
-            name = self.get_team_name(team_idx)
             for p in self.players:
                 user = self.get_user(p)
                 if not user:
                     continue
                 locale = user.locale
+                name = self.get_team_name(team_idx, locale)
 
                 # Build localized bonus descriptions
                 bonus_descriptions = [
@@ -1618,8 +1621,12 @@ class MileByMileGame(Game):
         # Announce total scores
         self.broadcast_l("milebymile-total-scores")
         for team_idx in range(self.get_num_teams()):
-            name = self.get_team_name(team_idx)
-            self.broadcast_l("milebymile-team-score", name=name, score=self.get_team_score(team_idx))
+            # Manually broadcast to support per-user localization of team name
+            for p in self.players:
+                user = self.get_user(p)
+                if user:
+                    name = self.get_team_name(team_idx, user.locale)
+                    user.speak_l("milebymile-team-score", name=name, score=self.get_team_score(team_idx))
 
     def _check_game_winner(self) -> int | None:
         """Check if any team has won the game. Returns team index or None."""

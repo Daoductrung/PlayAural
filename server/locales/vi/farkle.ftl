@@ -64,5 +64,5 @@ farkle-combo-double-triplets = Hai bộ ba
 farkle-combo-full-house = Cù lũ
 
 # Định dạng
-farkle-line-format = {  }. {  }: {  }
-farkle-combo-fallback = {  } được {  } điểm
+farkle-line-format = { $rank }. { $player }: { $points }
+farkle-combo-fallback = { $combo } được { $points } điểm

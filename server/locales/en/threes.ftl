@@ -47,5 +47,5 @@ threes-keep-all-first = Keep all dice first to bank.
 threes-last-die = This is your last die.
 
 # Formatting
-threes-line-format = {  }. {  }: {  }
-threes-dice-format-status = {  } ({  })
+threes-line-format = { $rank }. { $player }: { $points }
+threes-dice-format-status = { $value } ({ $status })

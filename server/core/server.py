@@ -18,10 +18,11 @@ from ..users.base import MenuItem, EscapeBehavior
 from ..users.preferences import UserPreferences, DiceKeepingStyle
 from ..games.registry import GameRegistry, get_game_class
 from ..messages.localization import Localization
+from ..documentation.manager import DocumentationManager
 
 
-VERSION = "0.1.1"
-LATEST_CLIENT_VERSION = "0.1.1"
+VERSION = "0.1.0"
+LATEST_CLIENT_VERSION = "0.1.0"
 UPDATE_URL = "https://github.com/Daoductrung/PlayAural/releases/latest/download/PlayAural.zip"
 UPDATE_HASH = "" # Optional SHA256
 
@@ -250,6 +251,8 @@ PlayAural Server
                 await self._handle_keybind(client, packet)
             elif packet_type == "editbox":
                 await self._handle_editbox(client, packet)
+            elif packet_type == "read_documentation":
+                 await self._handle_read_documentation(client, packet)
             elif packet_type == "chat":
                 await self._handle_chat(client, packet)
             elif packet_type == "list_online":
@@ -434,6 +437,9 @@ PlayAural Server
                 text=Localization.get(user.locale, "my-stats"), id="my_stats"
             ),
             MenuItem(text=Localization.get(user.locale, "options"), id="options"),
+            MenuItem(
+                text=Localization.get(user.locale, "documentation-menu"), id="documentation"
+            ),
         ]
         # Add administration menu for admins
         if user.trust_level >= 2:
@@ -981,7 +987,13 @@ PlayAural Server
         elif current_menu == "demote_confirm_menu":
             await self._handle_demote_confirm_selection(user, selection_id, state)
         elif current_menu == "logout_confirm_menu":
-            await self._handle_logout_confirm_selection(user, selection_id)
+             await self._handle_logout_confirm_selection(user, selection_id)
+        elif current_menu == "documentation_menu":
+            await self._handle_documentation_selection(user, selection_id)
+        elif current_menu == "doc_games_menu":
+            await self._handle_doc_games_selection(user, selection_id)
+        elif current_menu == "doc_viewer":
+            await self._handle_doc_viewer_selection(user, selection_id, state)
 
     async def _handle_main_menu_selection(
         self, user: NetworkUser, selection_id: str
@@ -999,6 +1011,8 @@ PlayAural Server
             self._show_my_stats_menu(user)
         elif selection_id == "options":
             self._show_options_menu(user)
+        elif selection_id == "documentation":
+            self._show_documentation_menu(user)
         elif selection_id == "administration":
             if user.trust_level >= 2:
                 self._show_admin_menu(user)
@@ -1039,9 +1053,159 @@ PlayAural Server
              await user.connection.close(1000, "Logout Failsafe")
         except:
              pass
-        else:
-            # "no" or back
+
+    # ==========================================================================
+    # Documentation System
+    # ==========================================================================
+
+    def _show_documentation_menu(self, user: NetworkUser) -> None:
+        """Show main documentation menu with categories."""
+        # Get categories (hardcoded for now, could be dynamic)
+        manager = DocumentationManager.get_instance()
+        categories = manager.get_all_categories(user.locale)
+        
+        items = []
+        for doc_id, label_key in categories.items():
+            items.append(
+                MenuItem(text=Localization.get(user.locale, label_key), id=doc_id)
+            )
+        
+        # Add Rules section
+        items.append(MenuItem(text=Localization.get(user.locale, "game-rules"), id="game_rules"))
+        
+        items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
+
+        user.show_menu(
+            "documentation_menu",
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self._user_states[user.username] = {"menu": "documentation_menu"}
+
+    def _show_game_rules_menu(self, user: NetworkUser) -> None:
+        """Show list of games to read rules for."""
+        games = GameRegistry.get_all()
+        # Sort games by localized name
+        game_list = []
+        for game_class in games:
+            name = Localization.get(user.locale, game_class.get_name_key())
+            game_list.append((game_class, name))
+        game_list.sort(key=lambda x: x[1])
+
+        items = []
+        for game_class, name in game_list:
+             # Using game type as doc_id suffix: games/scopa
+            items.append(MenuItem(text=name, id=f"games/{game_class.get_type()}"))
+            
+        items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
+
+        user.show_menu(
+            "doc_games_menu",
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self._user_states[user.username] = {"menu": "doc_games_menu"}
+
+    async def _handle_read_documentation(self, client: ClientConnection, packet: dict) -> None:
+        """Handle request to read a specific documentation file."""
+        # This packet comes from the client when user selects a doc item
+        # But actually we handle menu Selections, so this might be used if we had a direct command
+        # For now, we use menu handlers.
+        pass
+
+    async def _show_document_content(self, user: NetworkUser, doc_id: str) -> None:
+        """
+        Display document content.
+        For simplicity in this text/audio interface, we will:
+        1. Parse markdown headings and paragraphs
+        2. Present them as a read-only menu or speak them?
+        
+        Better approach for accessibility:
+        Present as a menu where:
+        - Each Header is a menu item (e.g. "H1: Welcome")
+        - Each Paragraph is a menu item (e.g. "PlayAural is...")
+        User can browse line by line.
+        """
+        manager = DocumentationManager.get_instance()
+        content = manager.get_document(doc_id, user.locale)
+        
+        if not content:
+            user.speak_l("document-not-found")
+            return
+
+        # Simple Markdown Element Parser
+        items = []
+        lines = content.split('\n')
+        
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            
+            # Clean markdown formatting characters
+            # Remove bold/italic markers
+            clean_text = line.replace('**', '').replace('__', '').replace('*', '').replace('`', '')
+            
+            if clean_text.startswith('#'):
+                # Header - remove # and extra spaces
+                clean_text = clean_text.lstrip('#').strip()
+                # Just show the text, no decorative ===
+                items.append(MenuItem(text=clean_text, id="header"))
+            elif clean_text.startswith('-') or clean_text.startswith('•'):
+                # List item
+                clean_text = clean_text.lstrip('-• ').strip()
+                items.append(MenuItem(text=f"{clean_text}", id="list_item"))
+            else:
+                # Paragraph
+                items.append(MenuItem(text=clean_text, id="text"))
+        
+        items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
+        
+        user.show_menu(
+            "doc_viewer",
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST
+        )
+        # Store metadata so we know where to go back to
+        self._user_states[user.username] = {
+            "menu": "doc_viewer",
+            "doc_id": doc_id
+        }
+
+    async def _handle_documentation_selection(self, user: NetworkUser, selection_id: str) -> None:
+        """Handle main documentation menu selection."""
+        if selection_id == "back":
             self._show_main_menu(user)
+        elif selection_id == "game_rules":
+            self._show_game_rules_menu(user)
+        else:
+            # Assume selection_id is a doc_id (e.g., 'intro', 'global_keys')
+            await self._show_document_content(user, selection_id)
+
+    async def _handle_doc_games_selection(self, user: NetworkUser, selection_id: str) -> None:
+        """Handle game rules list selection."""
+        if selection_id == "back":
+            self._show_documentation_menu(user)
+        else:
+            # selection_id is like 'games/scopa'
+            await self._show_document_content(user, selection_id)
+
+    async def _handle_doc_viewer_selection(self, user: NetworkUser, selection_id: str, state: dict) -> None:
+        """Handle selection in document viewer."""
+        if selection_id == "back":
+            # Logic to decide where to go back to
+            doc_id = state.get("doc_id", "")
+            if doc_id.startswith("games/"):
+                self._show_game_rules_menu(user)
+            else:
+                self._show_documentation_menu(user)
+        else:
+            # User clicked a text line - maybe just read it again?
+            # Or do nothing, TTS reads it on focus.
+            pass
 
     async def _handle_options_selection(
         self, user: NetworkUser, selection_id: str

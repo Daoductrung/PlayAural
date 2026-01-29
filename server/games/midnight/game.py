@@ -1,5 +1,5 @@
 """
-1-4-24 (Midnight) Game Implementation for PlayAural v0.1.
+1-4-24 (Midnight) Game Implementation for PlayAural v0.1.0.
 
 Dice game where players roll 6 dice trying to get a 1 and a 4.
 The other 4 dice are summed for points (max 24). Highest score wins the round.

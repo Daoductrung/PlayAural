@@ -121,7 +121,6 @@ class ConfigManager:
 
     def _get_default_identities(self) -> Dict[str, Any]:
         """Get default identities structure."""
-        # Returned to localhost for testing as requested
         return {
             "last_server_id": None,
             "servers": {},  # server_id -> server info with accounts

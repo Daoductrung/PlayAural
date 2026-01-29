@@ -168,7 +168,6 @@ class ActionSetCreationMixin:
                 is_hidden="_is_predict_outcomes_hidden",
             )
         )
-
         return action_set
 
     def setup_keybinds(self) -> None:

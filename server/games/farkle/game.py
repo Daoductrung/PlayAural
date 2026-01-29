@@ -1,5 +1,5 @@
 """
-Farkle Game Implementation for PlayAural v0.1.
+Farkle Game Implementation for PlayAural v0.1.0.
 
 Classic dice game: score combinations and don't Farkle!
 Push your luck by rolling again or bank your points.
@@ -884,6 +884,9 @@ class FarkleGame(Game):
 
     def _action_check_turn_score(self, player: Player, action_id: str) -> None:
         """Handle check turn score action."""
+        user = self.get_user(player)
+        locale = user.locale if user else "en"
+        
         current = self.current_player
         if current:
             farkle_current: FarklePlayer = current  # type: ignore
@@ -891,7 +894,7 @@ class FarkleGame(Game):
                 player,
                 [
                     Localization.get(
-                        "en",
+                        locale,
                         "farkle-turn-score",
                         player=current.name,
                         points=farkle_current.turn_score,
@@ -900,7 +903,7 @@ class FarkleGame(Game):
             )
         else:
             self.status_box(
-                player, [Localization.get("en", "farkle-no-turn")]
+                player, [Localization.get(locale, "farkle-no-turn")]
             )
 
     def on_start(self) -> None:

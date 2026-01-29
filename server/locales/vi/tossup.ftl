@@ -2,7 +2,7 @@
 # Lưu ý: Các thông báo chung như bắt đầu vòng, bắt đầu lượt, điểm mục tiêu nằm trong games.ftl
 
 # Thông tin trò chơi
-game-name-tossup = Tung Hứng (Toss Up)
+game-name-tossup = Toss Up
 tossup-category = Game Xúc Xắc
 
 # Hành động
@@ -60,4 +60,4 @@ tossup-rules-PlayAural-desc = Phân bố màu đều nhau. Mất trắng nếu t
 tossup-need-points = Bạn cần có điểm mới được chốt.
 
 # Định dạng
-tossup-line-format = {  }. {  }: {  }
+tossup-line-format = { $rank }. { $player }: { $points }

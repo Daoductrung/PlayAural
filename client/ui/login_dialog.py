@@ -33,11 +33,11 @@ class LoginDialog(wx.Dialog):
         # Initialize config manager
         self.config_manager = ConfigManager()
 
-        # Hardcode server for now (as requested)
+        # Initialize Official Server
         self.server_id = "official_server"  # Using a fixed ID for the "Official" server
-        # Ensure this server exists in config, if not create it default to localhost
+        # Ensure this server exists in config, if not create it default to official server
         if not self.config_manager.get_server_by_id(self.server_id):
-            self.config_manager.add_server("Official Server", "localhost", "8000", server_id=self.server_id)
+            self.config_manager.add_server("Official Server", "wss://playaural.ddt.one", "443", server_id=self.server_id)
         
         self.server_url = self.config_manager.get_server_url(self.server_id)
 

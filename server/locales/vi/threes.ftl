@@ -1,7 +1,7 @@
 # Thông báo trò chơi Săn Số 3 (Threes)
 
 # Thông tin trò chơi
-game-name-threes = Săn Số 3 (Threes)
+game-name-threes = Săn Số 3
 threes-category = Game Xúc Xắc
 
 # Hành động
@@ -47,5 +47,5 @@ threes-keep-all-first = Phải giữ tất cả xúc xắc thì mới được c
 threes-last-die = Đây là xúc xắc cuối cùng của bạn.
 
 # Định dạng
-threes-line-format = {  }. {  }: {  }
-threes-dice-format-status = {  } ({  })
+threes-line-format = { $rank }. { $player }: { $points }
+threes-dice-format-status = { $value } ({ $status })

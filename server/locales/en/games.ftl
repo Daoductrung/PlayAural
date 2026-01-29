@@ -122,3 +122,12 @@ poker-unknown-hand = Unknown hand
 
 # Validation errors (common across games)
 game-error-invalid-team-mode = The selected team mode is not valid for the current number of players.
+
+# Documentation
+documentation-menu = Documentation
+introduction = Introduction
+community-rules = Community Rules
+global-keys = Global Keybinds
+game-rules = Game Rules
+document-not-found = Document not found.
+help = Help

@@ -2,7 +2,7 @@
 # Lưu ý: Các thông báo chung như bắt đầu vòng, bắt đầu lượt, điểm mục tiêu, chế độ đội nằm trong games.ftl
 
 # Tên trò chơi
-game-name-scopa = Bài Chổi (Scopa)
+game-name-scopa = Bài Chổi
 
 # Sự kiện trò chơi
 scopa-initial-table = Bài trên bàn: { $cards }
@@ -82,4 +82,4 @@ scopa-error-not-enough-cards = Không đủ bài trong { $decks } { $decks ->
 } với { $cards_per_deal } lá mỗi người. (Cần { $cards_per_deal } × { $players } = { $cards_needed } lá, nhưng chỉ có { $total_cards } lá.)
 
 # Định dạng
-scopa-line-format = {  }. {  }: {  }
+scopa-line-format = { $rank }. { $player }: { $points }

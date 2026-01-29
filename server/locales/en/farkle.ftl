@@ -64,5 +64,5 @@ farkle-combo-double-triplets = Double triplets
 farkle-combo-full-house = Full house
 
 # Formatting
-farkle-line-format = {  }. {  }: {  }
-farkle-combo-fallback = {  } for {  } points
+farkle-line-format = { $rank }. { $player }: { $points }
+farkle-combo-fallback = { $combo } for { $points } points

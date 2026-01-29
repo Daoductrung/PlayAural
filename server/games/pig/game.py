@@ -1,5 +1,5 @@
 """
-Pig Game Implementation for PlayAural v0.1.
+Pig Game Implementation for PlayAural v0.1.0.
 
 Classic dice game: roll or bank, but don't get a 1!
 Supports individual and team modes via TeamManager.

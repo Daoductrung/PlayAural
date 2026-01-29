@@ -1,5 +1,5 @@
 """
-Threes Game Implementation for PlayAural v0.1.
+Threes Game Implementation for PlayAural v0.1.0.
 
 Low-score dice game: Roll 5 dice, keep at least one each roll.
 Threes = 0 points. Lowest score wins!

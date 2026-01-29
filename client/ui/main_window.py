@@ -121,7 +121,7 @@ class MainWindow(wx.Frame):
         # Language codes map
         self.lang_codes = {"en": "English", "vi": "Vietnamese", "es": "Spanish"}
 
-        # Auto-connect to localhost
+        # Auto-connect
         self._auto_connect()
 
     def _apply_client_audio_options(self):
@@ -190,6 +190,8 @@ class MainWindow(wx.Frame):
         """Setup keyboard accelerators."""
         # Create unique IDs for each accelerator
         self.ID_FOCUS_MENU = wx.NewIdRef()
+        self.ID_FOCUS_CHAT = wx.NewIdRef()
+        self.ID_FOCUS_HISTORY = wx.NewIdRef()        
         self.ID_VOLUME_DOWN = wx.NewIdRef()
         self.ID_VOLUME_UP = wx.NewIdRef()
         self.ID_AMBIENCE_DOWN = wx.NewIdRef()
@@ -214,6 +216,8 @@ class MainWindow(wx.Frame):
         # Common accelerators that work everywhere
         common_entries = [
             wx.AcceleratorEntry(wx.ACCEL_ALT, ord("M"), self.ID_FOCUS_MENU),
+            wx.AcceleratorEntry(wx.ACCEL_ALT, ord("C"), self.ID_FOCUS_CHAT),
+            wx.AcceleratorEntry(wx.ACCEL_ALT, ord("H"), self.ID_FOCUS_HISTORY),
             wx.AcceleratorEntry(wx.ACCEL_NORMAL, wx.WXK_F6, self.ID_TOGGLE_TABLE_CHAT),
             wx.AcceleratorEntry(wx.ACCEL_SHIFT, wx.WXK_F6, self.ID_TOGGLE_GLOBAL_CHAT),
             wx.AcceleratorEntry(wx.ACCEL_NORMAL, wx.WXK_F7, self.ID_AMBIENCE_DOWN),
@@ -254,6 +258,8 @@ class MainWindow(wx.Frame):
 
         # Bind the accelerator events
         self.Bind(wx.EVT_MENU, self.on_focus_menu, id=self.ID_FOCUS_MENU)
+        self.Bind(wx.EVT_MENU, self.on_focus_chat, id=self.ID_FOCUS_CHAT)
+        self.Bind(wx.EVT_MENU, self.on_focus_history, id=self.ID_FOCUS_HISTORY)
         self.Bind(wx.EVT_MENU, self.on_toggle_table_chat, id=self.ID_TOGGLE_TABLE_CHAT)
         self.Bind(
             wx.EVT_MENU, self.on_toggle_global_chat, id=self.ID_TOGGLE_GLOBAL_CHAT
@@ -293,6 +299,14 @@ class MainWindow(wx.Frame):
     def on_focus_menu(self, event):
         """Handle Alt+M shortcut to focus menu list."""
         self.menu_list.SetFocus()
+
+    def on_focus_chat(self, event):
+        """Handle Alt+C shortcut to focus chat input."""
+        self.chat_input.SetFocus()
+
+    def on_focus_history(self, event):
+        """Handle Alt+H shortcut to focus history text."""
+        self.history_text.SetFocus()
 
     def on_menu_focus(self, event):
         """Handle menu list gaining focus - enable buffer navigation."""
@@ -616,8 +630,8 @@ class MainWindow(wx.Frame):
                 key_name = "enter"
         # Handle letter keys (case insensitive)
         elif 65 <= key_code <= 90:  # A-Z
-            # Alt+P is handled by accelerator table for ping
-            if key_code == ord("P") and event.AltDown():
+            # Alt+P, M, C, H are handled by accelerator table
+            if event.AltDown() and key_code in [ord("P"), ord("M"), ord("C"), ord("H")]:
                 event.Skip()
                 return
             key_name = chr(key_code).lower()
@@ -1027,7 +1041,7 @@ class MainWindow(wx.Frame):
         """Auto-connect to server using login credentials."""
         username = self.credentials.get("username", "Guest")
         password = self.credentials.get("password", "")
-        server_url = self.credentials.get("server_url", "ws://localhost:8000")
+        server_url = self.credentials.get("server_url", "wss://playaural.ddt.one")
 
         # Play connection loop sound
         self.sound_manager.music("connectloop.ogg")

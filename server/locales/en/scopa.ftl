@@ -82,4 +82,4 @@ scopa-error-not-enough-cards = Not enough cards in { $decks } { $decks ->
 } with { $cards_per_deal } cards each. (Need { $cards_per_deal } × { $players } = { $cards_needed } cards, but only have { $total_cards }.)
 
 # Formatting
-scopa-line-format = {  }. {  }: {  }
+scopa-line-format = { $rank }. { $player }: { $points }

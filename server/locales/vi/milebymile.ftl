@@ -29,17 +29,17 @@ milebymile-option-changed-rig = Kiểu sắp xếp bộ bài được đặt là
 milebymile-status = { $name }: { $points } điểm, { $miles } dặm, Sự cố: { $problems }, Bảo hộ: { $safeties }
 
 # Hành động bài
-milebymile-no-matching-safety = Bạn không có thẻ Bảo hộ tương ứng!
+milebymile-no-matching-safety = Bạn không có Lá Bảo hộ tương ứng!
 milebymile-cant-play = Bạn không thể đánh { $card } vì { $reason }.
 milebymile-no-card-selected = Chưa chọn lá bài nào để bỏ.
-milebymile-no-valid-targets = Không có mục tiêu hợp lệ cho thẻ tấn công này!
+milebymile-no-valid-targets = Không có mục tiêu hợp lệ cho Lá tấn công này!
 milebymile-you-drew = Bạn đã rút: { $card }
 milebymile-discards = { $player } bỏ một lá bài.
 milebymile-select-target = Chọn một mục tiêu
 
 # Đánh bài dặm đường
-milebymile-plays-distance-individual = { $player } đánh thẻ { $distance } dặm, hiện đang ở dặm thứ { $total }.
-milebymile-plays-distance-team = { $player } đánh thẻ { $distance } dặm; đội của họ hiện đang ở dặm thứ { $total }.
+milebymile-plays-distance-individual = { $player } đánh Lá { $distance } dặm, hiện đang ở dặm thứ { $total }.
+milebymile-plays-distance-team = { $player } đánh Lá { $distance } dặm; đội của họ hiện đang ở dặm thứ { $total }.
 
 # Hoàn thành hành trình
 milebymile-journey-complete-perfect-individual = { $player } đã hoàn thành hành trình với màn về đích chuẩn xác tuyệt đối!
@@ -48,12 +48,12 @@ milebymile-journey-complete-individual = { $player } đã hoàn thành hành tr�
 milebymile-journey-complete-team = Đội { $team } đã hoàn thành hành trình!
 
 # Đánh bài nguy cơ (Hazard)
-milebymile-plays-hazard-individual = { $player } đánh thẻ { $card } lên { $target }.
-milebymile-plays-hazard-team = { $player } đánh thẻ { $card } lên Đội { $team }.
+milebymile-plays-hazard-individual = { $player } đánh Lá { $card } lên { $target }.
+milebymile-plays-hazard-team = { $player } đánh Lá { $card } lên Đội { $team }.
 
 # Đánh bài Khắc phục/Bảo hộ
-milebymile-plays-card = { $player } đánh thẻ { $card }.
-milebymile-plays-dirty-trick = { $player } đánh thẻ { $card } như một Đòn Phản Công (Coup-fourré)!
+milebymile-plays-card = { $player } đánh Lá { $card }.
+milebymile-plays-dirty-trick = { $player } đánh Lá { $card } như một Đòn Phản Công (Coup-fourré)!
 
 # Bộ bài
 milebymile-deck-reshuffled = Chồng bài bỏ đã được xào lại vào bộ bài rút.
@@ -69,13 +69,13 @@ milebymile-team-score = { $name }: { $score } điểm
 milebymile-from-distance = { $miles } từ quãng đường đi được
 milebymile-from-trip = { $points } từ việc hoàn thành chuyến đi
 milebymile-from-perfect = { $points } từ việc về đích chuẩn xác
-milebymile-from-safe = { $points } từ chuyến đi an toàn (không dùng thẻ 200)
+milebymile-from-safe = { $points } từ chuyến đi an toàn (không dùng Lá 200)
 milebymile-from-shutout = { $points } từ việc thắng trắng (đối thủ không đi được dặm nào)
 milebymile-from-safeties = { $points } từ { $count } { $safeties ->
-    [one] thẻ bảo hộ
-   *[other] thẻ bảo hộ
+    [one] Lá bảo hộ
+   *[other] Lá bảo hộ
 }
-milebymile-from-all-safeties = { $points } từ việc có đủ 4 thẻ bảo hộ
+milebymile-from-all-safeties = { $points } từ việc có đủ 4 Lá bảo hộ
 milebymile-from-dirty-tricks = { $points } từ { $count } { $tricks ->
     [one] đòn phản công
    *[other] đòn phản công
@@ -117,13 +117,13 @@ milebymile-reason-speed-limit = đang bị giới hạn tốc độ
 milebymile-reason-exceeds-distance = nó sẽ vượt quá { $miles } dặm
 milebymile-reason-no-targets = không có mục tiêu hợp lệ
 milebymile-reason-no-speed-limit = bạn không bị giới hạn tốc độ
-milebymile-reason-has-right-of-way = Thẻ Ưu Tiên cho phép bạn đi mà không cần đèn xanh
+milebymile-reason-has-right-of-way = Lá Ưu Tiên cho phép bạn đi mà không cần đèn xanh
 milebymile-reason-already-moving = xe của bạn đang chạy rồi
 milebymile-reason-must-fix-first = bạn phải sửa { $problem } trước
 milebymile-reason-has-gas = xe bạn vẫn còn xăng
 milebymile-reason-tires-fine = lốp xe vẫn ổn
 milebymile-reason-no-accident = xe bạn không bị tai nạn
-milebymile-reason-has-safety = bạn đã có thẻ bảo hộ đó rồi
+milebymile-reason-has-safety = bạn đã có Lá bảo hộ đó rồi
 milebymile-reason-has-karma = bạn vẫn còn điểm Nghiệp
 milebymile-reason-generic = lá bài này không thể đánh vào lúc này
 
@@ -159,4 +159,4 @@ milebymile-between-races = Hãy đợi cuộc đua tiếp theo bắt đầu.
 milebymile-error-karma-needs-three-teams = Luật Nghiệp chướng yêu cầu ít nhất 3 xe/đội khác nhau.
 
 # Định dạng
-milebymile-line-format = {  }. {  }: {  }
+milebymile-line-format = { $rank }. { $name }: { $points }

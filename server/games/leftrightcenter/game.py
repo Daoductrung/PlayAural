@@ -1,5 +1,5 @@
 """
-Left Right Center (LRC) Game Implementation for PlayAural v0.1.
+Left Right Center (LRC) Game Implementation for PlayAural v0.1.0.
 
 Players roll up to 3 dice (limited by chips they hold). Each die result
 passes a chip left/right/center or keeps it. Center chips are removed

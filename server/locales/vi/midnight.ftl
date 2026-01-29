@@ -2,7 +2,7 @@
 # Lưu ý: Các thông báo chung như bắt đầu vòng, bắt đầu lượt, điểm mục tiêu nằm trong games.ftl
 
 # Thông tin trò chơi
-game-name-midnight = Một Bốn Hai Tư (1-4-24)
+game-name-midnight = Một Bốn Hai Tư
 midnight-category = Game Xúc Xắc
 
 # Hành động
@@ -65,4 +65,4 @@ midnight-end-score = { $rank }. { $player }: thắng { $wins } { $wins ->
    *[other] vòng
 }
 
-midnight-die-index = Xúc xắc {  }
+midnight-die-index = Xúc xắc { $index }

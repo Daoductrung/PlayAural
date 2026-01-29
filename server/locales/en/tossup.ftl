@@ -60,4 +60,4 @@ tossup-rules-PlayAural-desc = Equal distribution. Bust if all dice are red.
 tossup-need-points = You need points to bank.
 
 # Formatting
-tossup-line-format = {  }. {  }: {  }
+tossup-line-format = { $rank }. { $player }: { $points }

@@ -1,5 +1,5 @@
 """
-Yahtzee Game Implementation for PlayAural v0.1.
+Yahtzee Game Implementation for PlayAural v0.1.0.
 
 Classic dice game: roll 5 dice up to 3 times per turn, then score in one of 13 categories.
 Fill all categories to complete the game. Highest total score wins.

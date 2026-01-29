@@ -47,4 +47,4 @@ lightturret-you-are-eliminated = Bạn đã bị loại.
 # Định dạng
 lightturret-status-survived = Sống sót
 lightturret-status-eliminated = Bị loại
-lightturret-line-format = {  }. {  }: {  } ({  })
+lightturret-line-format = { $rank }. { $player }: { $light } ({ $status })

@@ -64,4 +64,4 @@ midnight-end-score = { $rank }. { $player }: { $wins } { $wins ->
    *[other] round wins
 }
 
-midnight-die-index = Die {  }
+midnight-die-index = Die { $index }

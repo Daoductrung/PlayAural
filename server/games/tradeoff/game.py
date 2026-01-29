@@ -1,5 +1,5 @@
 """
-Tradeoff Game Implementation for PlayAural v0.1.
+Tradeoff Game Implementation for PlayAural v0.1.0.
 
 A dice trading game where players roll dice, trade unwanted ones to a shared pool,
 and take dice back in turn order (lowest scorer first). After 3 iterations,

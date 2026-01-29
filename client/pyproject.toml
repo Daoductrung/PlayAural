@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "playaural-client"
 version = "0.1.0"
-description = "PlayAural v0.1 Game Client"
+description = "PlayAural v0.1.0 Game Client"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [

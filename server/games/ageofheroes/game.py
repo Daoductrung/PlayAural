@@ -1,5 +1,5 @@
 """
-Age of Heroes Game Implementation for PlayAural v0.1.
+Age of Heroes Game Implementation for PlayAural v0.1.0.
 
 A civilization-building card game where tribes compete to build an empire of
 five cities, complete their monument of culture, or be the last tribe standing.

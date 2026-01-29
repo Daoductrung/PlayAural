@@ -45,4 +45,18 @@ crazyeights-player-draws-many = { $player } rút { $count } lá bài.
 crazyeights-player-passes = { $player } bỏ lượt.
 
 # Formats
-crazyeights-line-format = {  }. {  }: {  }
+crazyeights-line-format = { $rank }. { $player }: { $score }
+
+# Timer
+crazyeights-check-turn-timer = Kiểm tra thời gian lượt
+crazyeights-timer-5 = 5 giây
+crazyeights-timer-10 = 10 giây
+crazyeights-timer-15 = 15 giây
+crazyeights-timer-20 = 20 giây
+crazyeights-timer-30 = 30 giây
+crazyeights-timer-45 = 45 giây
+crazyeights-timer-60 = 60 giây
+crazyeights-timer-90 = 90 giây
+crazyeights-timer-unlimited = Vô hạn
+crazyeights-timer-disabled = Hẹn giờ lượt đang tắt.
+crazyeights-timer-remaining = Còn { $seconds } giây.

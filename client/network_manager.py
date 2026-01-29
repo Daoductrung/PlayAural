@@ -36,7 +36,7 @@ class NetworkManager:
         Connect to server.
         
         Args:
-            server_url: WebSocket URL (e.g., "ws://localhost:8000")
+            server_url: WebSocket URL (e.g., "wss://playaural.ddt.one")
             username: Username for authorization
             password: Password for authorization
             client_version: Version string of the client

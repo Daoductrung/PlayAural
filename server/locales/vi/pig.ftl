@@ -2,7 +2,7 @@
 # Lưu ý: Các thông báo chung như bắt đầu vòng, bắt đầu lượt, điểm mục tiêu nằm trong games.ftl
 
 # Thông tin trò chơi
-game-name-pig = Xúc Xắc Heo (Pig)
+game-name-pig = Xúc Xắc Heo
 pig-category = Game Xúc Xắc
 
 # Hành động
@@ -31,4 +31,4 @@ pig-need-more-points = Bạn cần thêm điểm mới được chốt.
 pig-error-min-bank-too-high = Điểm chốt tối thiểu phải nhỏ hơn điểm mục tiêu.
 
 # Định dạng
-pig-line-format = {  }. {  }: {  }
+pig-line-format = { $rank }. { $player }: { $points }

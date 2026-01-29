@@ -22,15 +22,15 @@ SUIT_SORT_ORDER = {1: 0, 2: 1, 3: 2, 4: 3}
 
 TURN_TIMER_CHOICES = ["5", "10", "15", "20", "30", "45", "60", "90", "0"]
 TURN_TIMER_LABELS = {
-    "5": "poker-timer-5",
-    "10": "poker-timer-10",
-    "15": "poker-timer-15",
-    "20": "poker-timer-20",
-    "30": "poker-timer-30",
-    "45": "poker-timer-45",
-    "60": "poker-timer-60",
-    "90": "poker-timer-90",
-    "0": "poker-timer-unlimited",
+    "5": "crazyeights-timer-5",
+    "10": "crazyeights-timer-10",
+    "15": "crazyeights-timer-15",
+    "20": "crazyeights-timer-20",
+    "30": "crazyeights-timer-30",
+    "45": "crazyeights-timer-45",
+    "60": "crazyeights-timer-60",
+    "90": "crazyeights-timer-90",
+    "0": "crazyeights-timer-unlimited",
 }
 
 
@@ -203,7 +203,7 @@ class CrazyEightsGame(Game):
                         self.host = p.name
                         self.broadcast_l("new-host", player=p.name)
                         break
-
+        
             self.rebuild_all_menus()
 
     # ==========================================================================
@@ -303,7 +303,7 @@ class CrazyEightsGame(Game):
         action_set.add(
             Action(
                 id="check_turn_timer",
-                label=Localization.get(locale, "poker-check-turn-timer"),
+                label=Localization.get(locale, "crazyeights-check-turn-timer"),
                 handler="_action_check_turn_timer",
                 is_enabled="_is_check_enabled",
                 is_hidden="_is_check_hidden",
@@ -725,9 +725,9 @@ class CrazyEightsGame(Game):
             return
         remaining = self.timer.seconds_remaining()
         if remaining <= 0:
-            user.speak_l("poker-timer-disabled")
+            user.speak_l("crazyeights-timer-disabled")
         else:
-            user.speak_l("poker-timer-remaining", seconds=remaining)
+            user.speak_l("crazyeights-timer-remaining", seconds=remaining)
 
     # ==========================================================================
     # Action state helpers

@@ -633,23 +633,3 @@ class ChaosBearGame(Game):
             energy=self.bear_energy,
         )
 
-    # ==========================================================================
-    # Scoring
-    # ==========================================================================
-
-    def get_scores(self) -> list[tuple[str, int]]:
-        """Get player scores (distance traveled)."""
-        scores = []
-        for player in self.players:
-            if not player.is_spectator:
-                scores.append((player.name, player.position))
-        return sorted(scores, key=lambda x: x[1], reverse=True)
-
-    def format_standings(self) -> str:
-        """Format the final standings."""
-        lines = []
-        for i, (name, distance) in enumerate(self.get_scores(), 1):
-            player = self.get_player_by_name(name)
-            status = "caught" if (player and not player.alive) else "survived"
-            lines.append(f"{i}. {name}: {distance} squares ({status})")
-        return "\n".join(lines)

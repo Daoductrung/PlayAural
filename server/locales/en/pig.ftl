@@ -31,4 +31,4 @@ pig-need-more-points = You need more points to bank.
 pig-error-min-bank-too-high = Minimum bank points must be less than the target score.
 
 # Formatting
-pig-line-format = {  }. {  }: {  }
+pig-line-format = { $rank }. { $player }: { $points }

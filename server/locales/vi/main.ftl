@@ -48,6 +48,7 @@ game-player-skipped = { $player } bị bỏ qua lượt.
 
 # Thông báo bàn chơi
 table-created = { $host } đã tạo một bàn chơi { $game } mới.
+table-created-broadcast = { $host } đã tạo một bàn chơi { $game } mới.
 table-joined = { $player } đã tham gia bàn.
 table-left = { $player } đã rời bàn.
 new-host = { $player } hiện là chủ bàn.
@@ -79,6 +80,18 @@ goodbye = Tạm biệt!
 user-online = { $player } đã trực tuyến.
 user-offline = { $player } đã ngoại tuyến.
 user-is-admin = { $player } là quản trị viên của PlayAural.
+user-is-dev = { $player } là Nhà phát triển của PlayAural.
+permission-denied = Bạn không có quyền thực hiện hành động này đối với Nhà phát triển.
+kick-user = Đá người dùng
+kick-broadcast = { $target } đã bị đá bởi { $actor }.
+you-were-kicked = Bạn đã bị đá bởi { $actor }.
+user-not-online = Người dùng { $target } không trực tuyến.
+kick-immune = Bạn không thể đá người dùng này.
+kick-confirm = Bạn có chắc chắn muốn đá { $player } không?
+kick-menu-title = Đá người dùng
+kick-confirm-menu-title = Xác nhận Đá người dùng
+no-users-to-kick = Không có người dùng nào để đá.
+usage-kick = Sử dụng: /kick <tên_người_dùng>
 online-users-none = Không có người dùng nào trực tuyến.
 online-users-one = 1 người dùng: { $users }
 online-users-many = { $count } người dùng: { $users }
@@ -99,6 +112,8 @@ turn-sound-option = Âm thanh báo lượt: { $status }
 
 # Tùy chọn xúc xắc
 clear-kept-option = Xóa các xúc xắc đã giữ khi gieo lại: { $status }
+option-notify-table-created-on = Thông báo khi tạo bàn: Bật
+option-notify-table-created-off = Thông báo khi tạo bàn: Tắt
 dice-keeping-style-option = Kiểu giữ xúc xắc: { $style }
 dice-keeping-style-changed = Kiểu giữ xúc xắc được đặt thành { $style }.
 dice-keeping-style-indexes = Theo vị trí xúc xắc

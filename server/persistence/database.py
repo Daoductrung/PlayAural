@@ -20,6 +20,8 @@ class UserRecord:
     preferences_json: str = "{}"
     trust_level: int = 1  # 1 = player, 2 = admin
     approved: bool = False  # Whether the account has been approved by an admin
+    email: str = ""
+    bio: str = ""
 
 
 @dataclass
@@ -72,7 +74,9 @@ class Database:
                 locale TEXT DEFAULT 'en',
                 preferences_json TEXT DEFAULT '{}',
                 trust_level INTEGER DEFAULT 1,
-                approved INTEGER DEFAULT 0
+                approved INTEGER DEFAULT 0,
+                email TEXT DEFAULT '',
+                bio TEXT DEFAULT ''
             )
         """)
 
@@ -170,13 +174,21 @@ class Database:
             cursor.execute("UPDATE users SET approved = 1")  # Approve all existing users
             self._conn.commit()
 
+        if "email" not in columns:
+            cursor.execute("ALTER TABLE users ADD COLUMN email TEXT DEFAULT ''")
+            self._conn.commit()
+
+        if "bio" not in columns:
+            cursor.execute("ALTER TABLE users ADD COLUMN bio TEXT DEFAULT ''")
+            self._conn.commit()
+
     # User operations
 
     def get_user(self, username: str) -> UserRecord | None:
         """Get a user by username."""
         cursor = self._conn.cursor()
         cursor.execute(
-            "SELECT id, username, password_hash, uuid, locale, preferences_json, trust_level, approved FROM users WHERE username = ?",
+            "SELECT id, username, password_hash, uuid, locale, preferences_json, trust_level, approved, email, bio FROM users WHERE username = ?",
             (username,),
         )
         row = cursor.fetchone()
@@ -190,19 +202,21 @@ class Database:
                 preferences_json=row["preferences_json"] or "{}",
                 trust_level=row["trust_level"] if row["trust_level"] is not None else 1,
                 approved=bool(row["approved"]) if row["approved"] is not None else False,
+                email=row["email"] or "",
+                bio=row["bio"] or "",
             )
         return None
 
     def create_user(
-        self, username: str, password_hash: str, locale: str = "en", trust_level: int = 1, approved: bool = False
+        self, username: str, password_hash: str, locale: str = "en", trust_level: int = 1, approved: bool = False, email: str = "", bio: str = ""
     ) -> UserRecord:
         """Create a new user with a generated UUID."""
         import uuid as uuid_module
         user_uuid = str(uuid_module.uuid4())
         cursor = self._conn.cursor()
         cursor.execute(
-            "INSERT INTO users (username, password_hash, uuid, locale, trust_level, approved) VALUES (?, ?, ?, ?, ?, ?)",
-            (username, password_hash, user_uuid, locale, trust_level, 1 if approved else 0),
+            "INSERT INTO users (username, password_hash, uuid, locale, trust_level, approved, email, bio) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (username, password_hash, user_uuid, locale, trust_level, 1 if approved else 0, email, bio),
         )
         self._conn.commit()
         return UserRecord(
@@ -213,6 +227,8 @@ class Database:
             locale=locale,
             trust_level=trust_level,
             approved=approved,
+            email=email,
+            bio=bio,
         )
 
     def user_exists(self, username: str) -> bool:
@@ -277,10 +293,10 @@ class Database:
             total_users = cursor.fetchone()[0]
 
             if total_users == 1:
-                # First and only user - make them admin
+                # First and only user - make them developer
                 username = users_without_trust[0]["username"]
                 cursor.execute(
-                    "UPDATE users SET trust_level = 2 WHERE id = ?",
+                    "UPDATE users SET trust_level = 3 WHERE id = ?",
                     (users_without_trust[0]["id"],),
                 )
                 promoted_user = username
@@ -304,7 +320,7 @@ class Database:
         """Get all users who are not yet approved."""
         cursor = self._conn.cursor()
         cursor.execute(
-            "SELECT id, username, password_hash, uuid, locale, preferences_json, trust_level, approved FROM users WHERE approved = 0"
+            "SELECT id, username, password_hash, uuid, locale, preferences_json, trust_level, approved, email, bio FROM users WHERE approved = 0"
         )
         users = []
         for row in cursor.fetchall():
@@ -317,6 +333,8 @@ class Database:
                 preferences_json=row["preferences_json"] or "{}",
                 trust_level=row["trust_level"] if row["trust_level"] is not None else 1,
                 approved=False,
+                email=row["email"] or "",
+                bio=row["bio"] or "",
             ))
         return users
 
@@ -341,7 +359,7 @@ class Database:
         """Get all approved users who are not admins (trust_level < 2)."""
         cursor = self._conn.cursor()
         cursor.execute(
-            "SELECT id, username, password_hash, uuid, locale, preferences_json, trust_level, approved FROM users WHERE approved = 1 AND trust_level < 2 ORDER BY username"
+            "SELECT id, username, password_hash, uuid, locale, preferences_json, trust_level, approved, email, bio FROM users WHERE approved = 1 AND trust_level < 2 ORDER BY username"
         )
         users = []
         for row in cursor.fetchall():
@@ -354,6 +372,8 @@ class Database:
                 preferences_json=row["preferences_json"] or "{}",
                 trust_level=row["trust_level"] if row["trust_level"] is not None else 1,
                 approved=True,
+                email=row["email"] or "",
+                bio=row["bio"] or "",
             ))
         return users
 
@@ -361,7 +381,7 @@ class Database:
         """Get all users who are admins (trust_level >= 2)."""
         cursor = self._conn.cursor()
         cursor.execute(
-            "SELECT id, username, password_hash, uuid, locale, preferences_json, trust_level, approved FROM users WHERE trust_level >= 2 ORDER BY username"
+            "SELECT id, username, password_hash, uuid, locale, preferences_json, trust_level, approved, email, bio FROM users WHERE trust_level >= 2 ORDER BY username"
         )
         users = []
         for row in cursor.fetchall():
@@ -374,6 +394,8 @@ class Database:
                 preferences_json=row["preferences_json"] or "{}",
                 trust_level=row["trust_level"],
                 approved=bool(row["approved"]) if row["approved"] is not None else False,
+                email=row["email"] or "",
+                bio=row["bio"] or "",
             ))
         return users
 

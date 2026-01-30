@@ -73,7 +73,7 @@ class AuthManager:
 
         return True
 
-    def register(self, username: str, password: str, locale: str = "en") -> bool:
+    def register(self, username: str, password: str, locale: str = "en", email: str = "", bio: str = "") -> bool:
         """
         Register a new user.
 
@@ -83,17 +83,16 @@ class AuthManager:
         if self._db.user_exists(username):
             return False
 
-        # Check if this is the first user - they become admin and are auto-approved
+        # Check if this is the first user - they become developer and are auto-approved
         is_first_user = self._db.get_user_count() == 0
-        trust_level = 2 if is_first_user else 1
-        trust_level = 2 if is_first_user else 1
+        trust_level = 3 if is_first_user else 1
         approved = True  # Auto-approve all users as requested
 
         password_hash = self.hash_password(password)
-        self._db.create_user(username, password_hash, locale, trust_level, approved)
+        self._db.create_user(username, password_hash, locale, trust_level, approved, email, bio)
 
         if is_first_user:
-            logging.info(f"User '{username}' is the first user and has been granted admin (trust level 2).")
+            logging.info(f"User '{username}' is the first user and has been granted developer (trust level 3).")
 
         return True
 

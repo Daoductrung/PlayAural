@@ -22,7 +22,7 @@ from buffer_system import BufferSystem
 from config_manager import set_item_in_dict
 from localization import Localization
 
-VERSION = "0.1.0"
+VERSION = "0.1.1"
 
 
 class MainWindow(wx.Frame):
@@ -158,6 +158,7 @@ class MainWindow(wx.Frame):
         self.edit_input = wx.TextCtrl(panel, size=(0, 0), style=wx.TE_PROCESS_ENTER)
         self.edit_input.Bind(wx.EVT_TEXT_ENTER, self.on_edit_enter)
         self.edit_input.Bind(wx.EVT_CHAR, self.on_edit_char)
+        self.edit_input.Bind(wx.EVT_KEY_DOWN, self.on_edit_key_down)
         self.edit_input.Hide()
         self.edit_label.Hide()
 
@@ -166,6 +167,7 @@ class MainWindow(wx.Frame):
             panel, size=(0, 0), style=wx.TE_MULTILINE | wx.TE_DONTWRAP
         )
         self.edit_input_multiline.Bind(wx.EVT_CHAR, self.on_edit_multiline_char)
+        self.edit_input_multiline.Bind(wx.EVT_KEY_DOWN, self.on_edit_key_down)
         self.edit_input_multiline.Hide()
 
         # Multiletter navigation is now server-controlled
@@ -510,30 +512,21 @@ class MainWindow(wx.Frame):
 
     def on_char_hook(self, event):
         """Handle character input for game keypresses."""
-
-        key_code = event.GetKeyCode()
         focused = wx.Window.FindFocus()
 
-        # Handle edit mode specially
-        if self.current_mode == "edit":
-            # Handle Escape key - dismiss edit field
-            if key_code == wx.WXK_ESCAPE:
-                if self.edit_mode_callback:
-                    self.edit_mode_callback("")
-                self.switch_to_list_mode()
-                return  # Event handled, don't skip
-
-            # Let the event continue to the text control
-            # Typing sounds are handled by on_edit_char and on_edit_multiline_char
+        # SKIP IMMEDIATELY for text controls to avoid breaking IME (Vietnamese Telex)
+        # We handle Escape/Enter for these in their specific handlers or TextEnter events
+        if isinstance(focused, wx.TextCtrl) or self.current_mode == "edit":
             event.Skip()
             return
 
         # Only process keybinds when menu list has focus
-        # All other controls (chat, history) get normal keyboard handling
         if focused != self.menu_list:
             event.Skip()
             return
 
+        key_code = event.GetKeyCode()
+        
         # Get modifiers
         modifiers = event.GetModifiers()
 
@@ -902,18 +895,25 @@ class MainWindow(wx.Frame):
         # Switch back to list mode
         self.switch_to_list_mode()
 
+    def on_edit_key_down(self, event):
+        """Handle key down events for edit inputs (Escape handling)."""
+        key_code = event.GetKeyCode()
+        
+        if key_code == wx.WXK_ESCAPE:
+             if self.edit_mode_callback:
+                 self.edit_mode_callback("")
+             self.switch_to_list_mode()
+             return
+
+        event.Skip()
+
     def on_edit_char(self, event):
         """Handle character input in edit mode to play typing sounds."""
         import random
 
         key_code = event.GetKeyCode()
 
-        # Handle Escape key - send empty value
-        if key_code == wx.WXK_ESCAPE:
-            if self.edit_mode_callback:
-                self.edit_mode_callback("")
-            self.switch_to_list_mode()
-            return  # Don't process the Escape key
+        # Escape is handled in on_edit_key_down
 
         # Only play typing sounds for printable characters (not Enter, Backspace, etc.)
         # Don't play if read-only or if user has disabled typing sounds
@@ -936,12 +936,7 @@ class MainWindow(wx.Frame):
 
         key_code = event.GetKeyCode()
 
-        # Handle Escape key - send empty value
-        if key_code == wx.WXK_ESCAPE:
-            if self.edit_mode_callback:
-                self.edit_mode_callback("")
-            self.switch_to_list_mode()
-            return  # Don't process the Escape key
+        # Escape is handled in on_edit_key_down
 
         # Check for Enter key
         if key_code == wx.WXK_RETURN:
@@ -1151,42 +1146,44 @@ class MainWindow(wx.Frame):
                 # Attempt reconnection
                 server_url = self.credentials.get("server_url")
                 username = self.credentials.get("username")
-                password = self.credentials.get("password", "")
                 if server_url and username:
                     self.speaker.speak(Localization.get("main-reconnecting"), interrupt=False)
-                    # Disconnect old connection first
+                    # Disconnect old connection first - this will trigger on_connection_lost which handles retry
                     self.network.disconnect()
-            # Explicit disconnect, close the client
-            reason = packet.get("reason", "")
             
-            # Internal codes: EXIT
-            if reason == "exit":
-                self.speaker.speak(Localization.get("goodbye"), interrupt=True)
-                
-                # Hard exit after 1s to allow speech
-                def hard_exit():
-                    import sys
-                    self.Destroy()
-                    sys.exit(0)
-                
-                wx.CallLater(1000, hard_exit)
-                return
+            wx.CallLater(3000, reconnect)
+            return
 
-            # Localize specific reasons
-            if reason == "logged-out":
-                reason = Localization.get("logged-out")
-                # Don't speak "Disconnected" for logout, just "Goodbye" (which server spake)
-                # But here we might want to say "You have logged out" to confirm.
+        # Explicit disconnect, close the client
+        reason = packet.get("reason", "")
+        
+        # Internal codes: EXIT
+        if reason == "exit":
+            self.speaker.speak(Localization.get("goodbye"), interrupt=True)
             
-            self.disconnect_reason = reason
+            # Hard exit after 1s to allow speech
+            def hard_exit():
+                import sys
+                self.Destroy()
+                sys.exit(0)
             
-            if reason != Localization.get("logged-out"):
-                self.speaker.speak(Localization.get("main-disconnected"), interrupt=False)
-            
-            if reason:
-                 self.speaker.speak(reason, interrupt=False)
-                 
-            wx.CallLater(500, self.Close)
+            wx.CallLater(1000, hard_exit)
+            return
+
+        # Localize specific reasons
+        if reason == "logged-out":
+            reason = Localization.get("logged-out")
+            # Don't speak "Disconnected" for logout, just "Goodbye"
+        
+        self.disconnect_reason = reason
+        
+        if reason != Localization.get("logged-out"):
+            self.speaker.speak(Localization.get("main-disconnected"), interrupt=False)
+        
+        if reason:
+             self.speaker.speak(reason, interrupt=False)
+             
+        wx.CallLater(500, self.Close)
 
     def on_force_exit(self, packet):
         """Handle forced exit command from server."""
@@ -1349,6 +1346,42 @@ class MainWindow(wx.Frame):
         self.config_manager.profiles["client_options_defaults"]["interface_language"] = locale
         self.config_manager.save_profiles()
         
+        # Apply preferences from server
+        preferences = packet.get("preferences", {})
+        if preferences:
+            # Map server preference keys to client config keys
+            # Server sends flat dict (e.g. "music_volume"), Client uses paths (e.g. "audio/music_volume")
+            
+            # Audio
+            if "music_volume" in preferences:
+                vol = preferences["music_volume"]
+                self.config_manager.set_client_option("audio/music_volume", vol, create_mode=True)
+                if self.sound_manager:
+                    self.sound_manager.set_music_volume(vol / 100.0)
+                    
+            if "ambience_volume" in preferences:
+                vol = preferences["ambience_volume"]
+                self.config_manager.set_client_option("audio/ambience_volume", vol, create_mode=True)
+                if self.sound_manager:
+                    self.sound_manager.set_ambience_volume(vol / 100.0)
+            
+            # Social
+            if "mute_global_chat" in preferences:
+                self.config_manager.set_client_option("social/mute_global_chat", preferences["mute_global_chat"], create_mode=True)
+            if "mute_table_chat" in preferences:
+                self.config_manager.set_client_option("social/mute_table_chat", preferences["mute_table_chat"], create_mode=True)
+                
+            # Interface
+            if "play_typing_sounds" in preferences:
+                self.config_manager.set_client_option("interface/play_typing_sounds", preferences["play_typing_sounds"], create_mode=True)
+            if "invert_multiline_enter_behavior" in preferences:
+                self.config_manager.set_client_option("interface/invert_multiline_enter_behavior", preferences["invert_multiline_enter_behavior"], create_mode=True)
+            
+            # Dice (Game specific options often handled by server state, but good to store)
+            if "clear_kept_on_roll" in preferences:
+                 # Client might not use this directly yet, but store it
+                 self.config_manager.set_client_option("game/clear_kept_on_roll", preferences["clear_kept_on_roll"], create_mode=True)
+
         # Verify if we need to reload localization (though UI is already built)
         # For now, it will apply on next restart, which is what the user asked for.
 
@@ -1402,13 +1435,7 @@ class MainWindow(wx.Frame):
 
     def _download_update(self, update_info):
         """Download update file."""
-        import requests
-        import zipfile
-        import subprocess
-        import os
-        import time
-        import sys
-        import wx
+        # Imports already at module level
 
         url = update_info.get("url")
         import tempfile
@@ -1545,6 +1572,7 @@ class MainWindow(wx.Frame):
             if os.path.exists(updater_script):
                 # Running from source, call python
                 python_exe = sys.executable
+                exe_name = os.path.basename(sys.executable) if getattr(sys, 'frozen', False) else "PlayAural.exe"
                 cmd = [python_exe, updater_script, "--zip", zip_path, "--target", os.getcwd(), "--exe", "PlayAural.exe", "--pid", str(pid)]
                 subprocess.Popen(cmd)
             else:
@@ -1573,7 +1601,7 @@ class MainWindow(wx.Frame):
                          # Fallback to local if copy fails (though unlikely)
                          print(f"Failed to copy updater to temp: {e}")
                     
-                    cmd = [updater_exe, "--zip", zip_path, "--target", os.path.dirname(sys.executable), "--exe", "PlayAural.exe", "--pid", str(pid)]
+                    cmd = [updater_exe, "--zip", zip_path, "--target", os.path.dirname(sys.executable), "--exe", os.path.basename(sys.executable), "--pid", str(pid)]
                     subprocess.Popen(cmd)
                 else:
                      wx.CallAfter(wx.MessageBox, f"Updater not found at: {updater_exe}", "Error", wx.OK | wx.ICON_ERROR)
@@ -2261,12 +2289,18 @@ class MainWindow(wx.Frame):
 
     def _load_preferences(self):
         """
-        Load preferences from ~/.playaural/preferences.json
+        Load preferences from AppData/Roaming/ddt.one/PlayAural/preferences.json
 
         Returns:
             Dict containing preferences, or empty dict if file doesn't exist
         """
-        config_dir = Path.home() / ".playaural"
+        import os
+        appdata = os.getenv("APPDATA")
+        if appdata:
+             config_dir = Path(appdata) / "ddt.one" / "PlayAural"
+        else:
+             config_dir = Path.home() / "ddt.one" / "PlayAural"
+        
         preferences_file = config_dir / "preferences.json"
 
         if preferences_file.exists():
@@ -2280,7 +2314,13 @@ class MainWindow(wx.Frame):
 
     def _save_muted_buffers(self):
         """Save muted buffers to preferences file."""
-        config_dir = Path.home() / ".playaural"
+        import os
+        appdata = os.getenv("APPDATA")
+        if appdata:
+             config_dir = Path(appdata) / "ddt.one" / "PlayAural"
+        else:
+             config_dir = Path.home() / "ddt.one" / "PlayAural"
+             
         preferences_file = config_dir / "preferences.json"
 
         # Load existing preferences

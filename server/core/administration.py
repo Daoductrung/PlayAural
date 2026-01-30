@@ -1,6 +1,7 @@
 """Administration functionality for the PlayAural server."""
 
 import functools
+import asyncio
 from typing import TYPE_CHECKING
 
 from ..users.network_user import NetworkUser
@@ -74,6 +75,10 @@ class AdministrationMixin:
             MenuItem(
                 text=Localization.get(user.locale, "broadcast-announcement"),
                 id="broadcast_announcement",
+            ),
+            MenuItem(
+                text=Localization.get(user.locale, "kick-user"),
+                id="kick_user",
             ),
             MenuItem(text=Localization.get(user.locale, "back"), id="back"),
         ]
@@ -151,8 +156,8 @@ class AdministrationMixin:
         """Show demote admin menu with list of admin users."""
         admins = self._db.get_admin_users()
 
-        # Filter out the current user (can't demote yourself)
-        admins = [a for a in admins if a.username != user.username]
+        # Filter out the current user (can't demote yourself) and developers (trust_level >= 3)
+        admins = [a for a in admins if a.username != user.username and a.trust_level < 3]
 
         if not admins:
             user.speak_l("no-admins-to-demote")
@@ -239,6 +244,8 @@ class AdministrationMixin:
             self._show_promote_admin_menu(user)
         elif selection_id == "demote_admin":
             self._show_demote_admin_menu(user)
+        elif selection_id == "kick_user":
+            self._show_kick_menu(user)
         elif selection_id == "broadcast_announcement":
             self._show_broadcast_input_menu(user)
         elif selection_id == "back":
@@ -321,6 +328,33 @@ class AdministrationMixin:
         else:
             # No or back - return to demote admin menu
             self._show_demote_admin_menu(user)
+
+    async def _handle_kick_selection(
+        self, user: NetworkUser, selection_id: str
+    ) -> None:
+        """Handle kick user menu selection."""
+        if selection_id == "back":
+            self._show_admin_menu(user)
+        elif selection_id.startswith("kick_"):
+            target_username = selection_id[5:]  # Remove "kick_" prefix
+            self._show_kick_confirm_menu(user, target_username)
+
+    async def _handle_kick_confirm_selection(
+        self, user: NetworkUser, selection_id: str, state: dict
+    ) -> None:
+        """Handle kick confirmation menu selection."""
+        target_username = state.get("target_username")
+        if not target_username:
+            self._show_kick_menu(user)
+            return
+
+        if selection_id == "yes":
+            await self._kick_user(user, target_username)
+        else:
+            # No or back - return to kick menu
+            # Or return to admin menu directly? Usually back to list is better to verify safety.
+            # But here "No" usually means "Cancel action".
+            self._show_kick_menu(user)
 
     async def _handle_broadcast_choice_selection(
         self, user: NetworkUser, selection_id: str, state: dict
@@ -430,6 +464,16 @@ class AdministrationMixin:
         self, admin: NetworkUser, username: str, broadcast_scope: str
     ) -> None:
         """Demote an admin to regular user."""
+        # Check target trust level first
+        target_record = self._db.get_user(username)
+        if not target_record:
+            return
+            
+        if target_record.trust_level >= 3:
+            # Cannot demote developer
+            admin.speak_l("permission-denied") # Fallback or new key
+            return
+
         # Update trust level in database
         self._db.update_user_trust_level(username, 1)
 
@@ -558,3 +602,116 @@ class AdministrationMixin:
         # admin.play_sound("notify.ogg") 
         
         self._show_admin_menu(admin)
+
+    # ==================== Kick System ====================
+
+    def _show_kick_menu(self, user: NetworkUser) -> None:
+        """Show kick menu with list of online users."""
+        # Get all online users except self and those with higher/equal immunity
+        # Admin (2) cannot kick Admin (2) or Dev (3) ?
+        # Rule: "Dev and admin can kick a user."
+        # Rule: "Dev can promote/demote admin but admin cannot promote/demote dev".
+        # Implied: Admin cannot kick Dev.
+        # Can Admin kick Admin? Usually yes, or maybe not. 
+        # "Dev and admin can kick a user." -> "A user" usually implies normal user.
+        # But let's assume standard hierarchy: Admin can kick < 2. Dev can kick < 3.
+        
+        target_users = []
+        for u in self._users.values():
+            if u.username == user.username:
+                continue
+            
+            # Immunity Check
+            if u.trust_level >= 3:
+                continue # Never show Devs
+            
+            if user.trust_level < 3 and u.trust_level >= 2:
+                 continue # Admin cannot kick other Admins (Safety)
+            
+            target_users.append(u)
+
+        if not target_users:
+            user.speak_l("no-users-to-kick") # Reuse or add key if needed. Or just "no-actions-available"
+            self._show_admin_menu(user)
+            return
+
+        items = []
+        for target in target_users:
+             items.append(MenuItem(text=target.username, id=f"kick_{target.username}"))
+        items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
+
+        user.show_menu(
+            "kick_menu",
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self._user_states[user.username] = {"menu": "kick_menu"}
+
+    def _show_kick_confirm_menu(self, user: NetworkUser, target_username: str) -> None:
+        """Show confirmation menu for kicking a user."""
+        user.speak_l("kick-confirm", player=target_username)
+        items = [
+            MenuItem(text=Localization.get(user.locale, "confirm-yes"), id="yes"),
+            MenuItem(text=Localization.get(user.locale, "confirm-no"), id="no"),
+        ]
+        user.show_menu(
+            "kick_confirm_menu",
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self._user_states[user.username] = {
+            "menu": "kick_confirm_menu",
+            "target_username": target_username,
+        }
+
+    @require_admin
+    async def _kick_user(self, admin: NetworkUser, target_username: str) -> None:
+        """Kick a user from the server."""
+        # Check if user is online
+        target_user = self._users.get(target_username)
+        if not target_user:
+            admin.speak_l("user-not-online", target=target_username)
+            return
+
+        # Check immunity
+        if target_user.trust_level >= 3:
+            admin.speak_l("permission-denied")
+            return
+        
+        if admin.trust_level < 3 and target_user.trust_level >= 2:
+             admin.speak_l("permission-denied")
+             return
+
+        # Logic
+        # 1. Broadcast Global Message (Chat + Sound)
+        # "kick-broadcast" = "{target} was kicked by {actor}."
+        kick_msg = Localization.get(admin.locale, "kick-broadcast", target=target_username, actor=admin.username) # Use admin locale for raw log, or better: localize per client
+        
+        # We need a broadcast method that handles parameters. _broadcast_presence_l is close but fixed keys.
+        # Let's manually iterate to localize properly.
+        
+        for u in self._users.values():
+            if u.approved:
+                u.speak_l("kick-broadcast", target=target_username, actor=admin.username)
+                u.play_sound("kick.ogg")
+
+        # 2. Notify Target
+        # "you-were-kicked"
+        target_user.speak_l("you-were-kicked", actor=admin.username)
+        
+        # 3. Force Exit Target
+        await target_user.connection.send({"type": "force_exit", "reason": "kicked"})
+        # Failsafe disconnect
+        asyncio.create_task(self._kick_disconnect_delay(target_user))
+
+        # 4. Return Admin to Menu
+        self._show_admin_menu(admin)
+
+    async def _kick_disconnect_delay(self, user):
+         await asyncio.sleep(1.0)
+         try:
+             await user.connection.close(1000, "Kicked")
+         except:
+             pass

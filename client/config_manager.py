@@ -97,7 +97,7 @@ class ConfigManager:
                 base_path = Path(appdata) / "ddt.one" / "PlayAural"
             else:
                 # Fallback if APPDATA is not set
-                base_path = Path.home() / ".playaural"
+                base_path = Path.home() / "ddt.one" / "PlayAural"
 
         self.base_path = base_path
         self.identities_path = base_path / "identities.json"

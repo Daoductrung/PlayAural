@@ -158,6 +158,13 @@ def stop():
         {"type": "chat", "convo": "global", "message": "/stop"}
     )
 
+@arg_parser(1)
+def kick(args: str):
+    """Kick a user (Admin only)."""
+    client.network.send_packet(
+        {"type": "chat", "convo": "global", "message": f"/kick {args}"}
+    )
+
 
 aliases = (
     (
@@ -186,4 +193,5 @@ aliases = (
     (check_table_pw, {"checkpw"}),
     (reboot, {"reboot", "restart"}),
     (stop, {"stop", "shutdown", "exit"}),
+    (kick, {"kick"}),
 )

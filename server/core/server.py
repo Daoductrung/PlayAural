@@ -21,8 +21,8 @@ from ..messages.localization import Localization
 from ..documentation.manager import DocumentationManager
 
 
-VERSION = "0.1.0"
-LATEST_CLIENT_VERSION = "0.1.0"
+VERSION = "0.1.1"
+LATEST_CLIENT_VERSION = "0.1.1"
 UPDATE_URL = "https://github.com/Daoductrung/PlayAural/releases/latest/download/PlayAural.zip"
 UPDATE_HASH = "" # Optional SHA256
 
@@ -63,6 +63,7 @@ class Server(AdministrationMixin):
         # User tracking
         self._users: dict[str, NetworkUser] = {}  # username -> NetworkUser
         self._user_states: dict[str, dict] = {}  # username -> UI state
+        self._pending_disconnects: dict[str, asyncio.Task] = {} # username -> broadcast task
 
         # Initialize localization
         if locales_dir is None:
@@ -200,12 +201,36 @@ PlayAural Server
             is_admin = user and user.trust_level >= 2
 
             # Broadcast offline announcement to all users with appropriate sound
-            offline_sound = "offlineadmin.ogg" if is_admin else "offline.ogg"
-            self._broadcast_presence_l("user-offline", client.username, offline_sound)
-
-            # Clean up user state
+            if user and user.trust_level >= 3:
+                offline_sound = "offlinedev.ogg"
+            elif is_admin:
+                offline_sound = "offlineadmin.ogg"
+            else:
+                offline_sound = "offline.ogg"
+            # Clean up user state immediately so they can rejoin
             self._users.pop(client.username, None)
             self._user_states.pop(client.username, None)
+
+            # Schedule delayed offline broadcast to prevent spam on quick reconnects
+            task = asyncio.create_task(self._delayed_offline_broadcast(
+                client.username, offline_sound, user.trust_level if user else 1
+            ))
+            self._pending_disconnects[client.username] = task
+
+    async def _delayed_offline_broadcast(self, username: str, sound: str, trust_level: int) -> None:
+        """Wait briefly then broadcast offline message if user hasn't reconnected."""
+        try:
+            await asyncio.sleep(2.0) # 2 seconds grace period
+            
+            # If we are here, user hasn't reconnected (or task wasn't cancelled)
+            self._pending_disconnects.pop(username, None)
+            
+            # Broadcast
+            self._broadcast_presence_l("user-offline", username, sound)
+            
+        except asyncio.CancelledError:
+            # User reconnected in time
+            pass
 
     def _broadcast_presence_l(
         self, message_id: str, player_name: str, sound: str
@@ -223,6 +248,13 @@ PlayAural Server
             if not user.approved:
                 continue  # Don't send broadcasts to unapproved users
             user.speak_l("user-is-admin", player=admin_name)
+
+    def _broadcast_dev_announcement(self, dev_name: str) -> None:
+        """Broadcast a developer announcement to all approved online users."""
+        for username, user in self._users.items():
+            if not user.approved:
+                continue  # Don't send broadcasts to unapproved users
+            user.speak_l("user-is-dev", player=dev_name)
 
     async def _on_client_message(self, client: ClientConnection, packet: dict) -> None:
         """Handle incoming message from client."""
@@ -303,15 +335,16 @@ PlayAural Server
         )
         self._users[username] = user
 
-        # Broadcast online announcement to all users with appropriate sound
-        online_sound = "onlineadmin.ogg" if trust_level >= 2 else "online.ogg"
-        self._broadcast_presence_l("user-online", username, online_sound)
-
-        # If user is an admin, announce that as well
-        if trust_level >= 2:
-            self._broadcast_admin_announcement(username)
+        # Check for pending disconnect (debounce)
+        pending_task = self._pending_disconnects.pop(username, None)
+        if pending_task:
+            # User reconnected quickly - cancel offline broadcast
+            pending_task.cancel()
+            # We skip broadcasting "online" because we cancelled the "offline"
+            # Effectively silencing the flap.
 
         # Send success response
+        # MUST generate this packet first so client considers itself "logged in"
         await client.send(
             {
                 "type": "authorize_success",
@@ -322,9 +355,38 @@ PlayAural Server
                     "version": LATEST_CLIENT_VERSION,
                     "url": UPDATE_URL,
                     "hash": UPDATE_HASH,
-                }
+                },
+                "preferences": user.preferences.to_dict(),
             }
         )
+
+        # Broadcast online announcement to all users with appropriate sound
+        # We do this AFTER authorize_success so the client is ready to receive/play it.
+        # This fixes the "no self sound" issue.
+        if trust_level >= 3:
+            online_sound = "onlinedev.ogg"
+        elif trust_level >= 2:
+            online_sound = "onlineadmin.ogg"
+        else:
+            online_sound = "online.ogg"
+        
+        # Only broadcast if we didn't cancel a pending disconnect (debounce)
+        # Wait, the debounce logic above says "We skip broadcasting..."
+        # But here I am outside the 'if/else'.
+        # I need to restore the 'else' logic OR use a flag 'should_broadcast'.
+        # Since I use 'pop', if pending_task existed, we cancelled it.
+        # If it existed, it means user was briefly offline.
+        # If we cancel offline, we should NOT broadcast online.
+        # So I need to wrap broadcast in "if not pending_task".
+        
+        if not pending_task:
+             self._broadcast_presence_l("user-online", username, online_sound)
+
+             # If user is a developer or admin, announce that as well
+             if trust_level >= 3:
+                  self._broadcast_dev_announcement(username)
+             elif trust_level >= 2:
+                  self._broadcast_admin_announcement(username)
 
         # Check client version
         client_version = packet.get("version", "0.0.0")
@@ -372,8 +434,8 @@ PlayAural Server
         username = packet.get("username", "")
         password = packet.get("password", "")
         locale = packet.get("locale", "en") # Get locale from client, default to en
-        # email and bio are sent but not stored yet
-        # TODO: Store email and bio
+        email = packet.get("email", "")
+        bio = packet.get("bio", "")
 
         if not username or not password:
             await client.send({
@@ -386,7 +448,7 @@ PlayAural Server
         needs_approval = self._db.get_user_count() > 0
 
         # Try to register the user
-        if self._auth.register(username, password, locale=locale):
+        if self._auth.register(username, password, locale=locale, email=email, bio=bio):
             await client.send({
                 "type": "speak",
                 "text": Localization.get(locale, "auth-registration-success"),
@@ -717,6 +779,13 @@ PlayAural Server
             MenuItem(
                 text=Localization.get(
                     user.locale,
+                    "option-notify-table-created-on" if prefs.notify_table_created else "option-notify-table-created-off"
+                ),
+                id="notify_table_created",
+            ),
+            MenuItem(
+                text=Localization.get(
+                    user.locale,
                     "clear-kept-option",
                     status=Localization.get(
                         user.locale, "option-on" if prefs.clear_kept_on_roll else "option-off"
@@ -986,8 +1055,14 @@ PlayAural Server
             await self._handle_promote_confirm_selection(user, selection_id, state)
         elif current_menu == "demote_confirm_menu":
             await self._handle_demote_confirm_selection(user, selection_id, state)
+        elif current_menu == "kick_menu":
+             await self._handle_kick_selection(user, selection_id)
+        elif current_menu == "kick_confirm_menu":
+             await self._handle_kick_confirm_selection(user, selection_id, state)
         elif current_menu == "logout_confirm_menu":
              await self._handle_logout_confirm_selection(user, selection_id)
+        elif current_menu == "broadcast_choice_menu":
+            await self._handle_broadcast_choice_selection(user, selection_id, state)
         elif current_menu == "documentation_menu":
             await self._handle_documentation_selection(user, selection_id)
         elif current_menu == "doc_games_menu":
@@ -1045,6 +1120,8 @@ PlayAural Server
             # We don't close the connection immediately. We let the client close it.
             # But we can schedule a failsafe close in case client is stuck
             asyncio.create_task(self._failsafe_close(user))
+        elif selection_id == "no":
+            self._show_main_menu(user)
 
     async def _failsafe_close(self, user):
         """Close connection after delay if client hasn't already."""
@@ -1257,6 +1334,11 @@ PlayAural Server
             self._save_user_preferences(user)
             self._sync_pref_to_client(user, "interface/play_typing_sounds", prefs.play_typing_sounds)
             self._show_options_menu(user)
+        elif selection_id == "notify_table_created":
+            prefs.notify_table_created = not prefs.notify_table_created
+            self._save_user_preferences(user)
+            # No client sync needed as this is purely server-side logic
+            self._show_options_menu(user)
         elif selection_id == "clear_kept":
             prefs.clear_kept_on_roll = not prefs.clear_kept_on_roll
             self._save_user_preferences(user)
@@ -1373,6 +1455,16 @@ PlayAural Server
                     host=user.username,
                     game=state.get("game_name", game_type),
                 )
+                
+                # Broadcast table creation to all other approved users
+                for u in self._users.values():
+                    if u.username != user.username and u.approved and u.preferences.notify_table_created:
+                        u.speak_l(
+                            "table-created-broadcast", 
+                            host=user.username, 
+                            game=state.get("game_name", game_type)
+                        )
+
                 min_players = game_class.get_min_players()
                 max_players = game_class.get_max_players()
                 user.speak_l(
@@ -2679,7 +2771,7 @@ PlayAural Server
         if message.startswith("/reboot") or message.startswith("/stop"):
             # Check permissions
             user = self._users.get(username)
-            if user and user.trust_level >= 2:
+            if user and user.trust_level >= 3:
                 is_reboot = message.startswith("/reboot")
                 action_text = "restarting" if is_reboot else "shutting down"
                 
@@ -2694,7 +2786,7 @@ PlayAural Server
                          
                          asyncio.create_task(u.connection.send({
                              "type": "chat",
-                             "convo": "global",
+                             "convo": "announcement",
                              "sender": sys_name,
                              "message": msg, # Client will format it if needed, or we send formatted
                          }))
@@ -2715,6 +2807,23 @@ PlayAural Server
             else:
                  # Fake command not found for non-admins to avoid revealing existence
                  pass
+
+        elif message.startswith("/kick"):
+             # Kick command
+             # Format: /kick <username>
+             user = self._users.get(username)
+             if user and user.trust_level >= 2:
+                 parts = message.split(" ", 1)
+                 if len(parts) < 2:
+                     user.speak_l("usage-kick") # Need to add this key or just speak generic
+                     # Or just ignore if empty
+                     return
+                 
+                 target_name = parts[1].strip()
+                 await self._kick_user(user, target_name)
+                 return
+             else:
+                 pass # Ignore for non-admins
 
         chat_packet = {
             "type": "chat",

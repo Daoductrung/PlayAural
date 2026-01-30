@@ -8,6 +8,15 @@ from typing import Callable, Coroutine
 import websockets
 from websockets.server import WebSocketServerProtocol, ServerProtocol
 
+# Try to import Headers for reconstruction
+try:
+    from websockets.datastructures import Headers
+except ImportError:
+    try:
+        from websockets.http import Headers
+    except ImportError:
+        Headers = None
+
 
 @dataclass
 class ClientConnection:
@@ -48,16 +57,51 @@ def _tolerant_process_request(self, request):
         upgrade = headers.get("Upgrade", "").lower()
         connection = headers.get("Connection", "").lower()
         
-        if upgrade == "websocket" and "upgrade" not in connection:
-             # This is the specific case of a proxy stripping the header.
-             # We assume it's valid and bypass the strict check in _original_process_request.
-             # Returning None tells websockets to proceed with the handshake.
-             return None
+        # Try to modify headers aggressively to fix "Connection: Keep-Alive"
+        if "websocket" in upgrade and "upgrade" not in connection:
+             patched = False
+             try:
+                 # STRATEGY 1: Reconstruct Headers object if possible (Cleaner)
+                 if Headers is not None and isinstance(headers, Headers):
+                     # Create new headers excluding Connection
+                     new_headers = Headers()
+                     for k, v in headers.raw_items():
+                         if k.lower() != "connection":
+                             new_headers[k] = v
+                     new_headers["Connection"] = "Upgrade"
+                     request.headers = new_headers
+                     patched = True
+                 
+                 # STRATEGY 2: MutableMapping (In-place modification)
+                 if not patched and hasattr(headers, '__setitem__'):
+                     # Delete ALL existing Connection headers first
+                     if hasattr(headers, '__delitem__'):
+                         try:
+                             del headers["Connection"]
+                         except KeyError: pass
+                     
+                     headers["Connection"] = "Upgrade"
+                     patched = True
+                     
+                 # STRATEGY 3: add_header fallback
+                 if not patched and hasattr(headers, 'add_header'):
+                     headers.add_header("Connection", "Upgrade")
+                     patched = True
+                     
+             except Exception:
+                 pass
+                 
     except Exception:
         pass
     
-    # For all other cases, let the original method handle it (including other validations)
-    return _original_process_request(self, request)
+    # Delegate to original method
+    # If original raises InvalidUpgrade, we catch it and try to return a 400 Bad Request tuple
+    # to avoid the noisy stack trace and connection drop log, althought it still closes connection.
+    try:
+        return _original_process_request(self, request)
+    except Exception as e:
+        # If we failed to patch and it crashed, re-raise to ensure library handles cleanup
+        raise e
 
 ServerProtocol.process_request = _tolerant_process_request
 

@@ -48,6 +48,7 @@ game-player-skipped = { $player } is skipped.
 
 # Table messages
 table-created = { $host } created a new { $game } table.
+table-created-broadcast = { $host } created a new { $game } table.
 table-joined = { $player } joined the table.
 table-left = { $player } left the table.
 new-host = { $player } is now the host.
@@ -79,6 +80,18 @@ goodbye = Goodbye!
 user-online = { $player } came online.
 user-offline = { $player } went offline.
 user-is-admin = { $player } is an administrator of PlayAural.
+user-is-dev = { $player } is the Developer of PlayAural.
+permission-denied = You do not have permission to perform this action on a Developer.
+kick-user = Kick User
+kick-broadcast = { $target } was kicked by { $actor }.
+you-were-kicked = You have been kicked by { $actor }.
+user-not-online = User { $target } is not online.
+kick-immune = You cannot kick this user.
+kick-confirm = Are you sure you want to kick { $player }?
+kick-menu-title = Kick User
+kick-confirm-menu-title = Confirm Kick User
+no-users-to-kick = No users available to kick.
+usage-kick = Usage: /kick <username>
 online-users-none = No users online.
 online-users-one = 1 user: { $users }
 online-users-many = { $count } users: { $users }
@@ -99,6 +112,8 @@ turn-sound-option = Turn sound: { $status }
 
 # Dice options
 clear-kept-option = Clear kept dice when rolling: { $status }
+option-notify-table-created-on = Notify when table created: On
+option-notify-table-created-off = Notify when table created: Off
 dice-keeping-style-option = Dice keeping style: { $style }
 dice-keeping-style-changed = Dice keeping style set to { $style }.
 dice-keeping-style-indexes = Dice indexes

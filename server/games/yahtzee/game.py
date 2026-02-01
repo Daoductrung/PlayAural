@@ -653,6 +653,7 @@ class YahtzeeGame(Game, DiceGameMixin):
     def on_start(self) -> None:
         """Called when the game starts."""
         self.status = "playing"
+        self._sync_table_status()
         self.game_active = True
         self.current_game = 0
         self.games_played = 0

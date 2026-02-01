@@ -386,6 +386,7 @@ class FiveCardDrawGame(Game):
     # ==========================================================================
     def on_start(self) -> None:
         self.status = "playing"
+        self._sync_table_status()
         self.game_active = True
         for player in self.players:
             player.chips = self.options.starting_chips

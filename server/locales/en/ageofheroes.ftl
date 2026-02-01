@@ -436,3 +436,4 @@ ageofheroes-cost-city = 2 Wood, Stone
 # Formats
 ageofheroes-winner-line = Winner: {  }
 ageofheroes-days-line = Days: {  }
+ageofheroes-your-cards = Your cards: { $cards }

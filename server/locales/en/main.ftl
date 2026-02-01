@@ -60,10 +60,18 @@ table-listing-with = { $host }'s table ({ $count } users) with { $members }
 table-listing-game = { $game }: { $host }'s table ({ $count } users)
 table-listing-game-one = { $game }: { $host }'s table ({ $count } user)
 table-listing-game-with = { $game }: { $host }'s table ({ $count } users) with { $members }
+table-listing-game-status = { $game } [{ $status }]: { $host }'s table ({ $count } users)
+table-listing-game-one-status = { $game } [{ $status }]: { $host }'s table ({ $count } user)
+table-listing-game-with-status = { $game } [{ $status }]: { $host }'s table ({ $count } users) with { $members }
+table-status-waiting = Waiting
+table-status-playing = Playing
+table-status-finished = Finished
 table-not-exists = Table no longer exists.
 table-full = Table is full.
 player-replaced-by-bot = { $player } left and was replaced by a bot.
+player-reclaimed-from-bot = { $player } reconnected and reclaimed their seat.
 player-took-over = { $player } took over from the bot.
+player-rejoined = { $player } has rejoined the game.
 spectator-joined = Joined { $host }'s table as a spectator.
 
 # Spectator mode
@@ -333,3 +341,5 @@ goodbye = Goodbye!
 system-name = System
 server-restarting = Server is restarting in { $seconds } seconds...
 server-shutting-down = Server is shutting down in { $seconds } seconds...
+server-error-changing-language = Error changing language: { $error }
+default-save-name = { $game } - { $date }

@@ -52,9 +52,9 @@ class LobbyActionsMixin:
                 # Handle both plain strings and (key, kwargs) tuples
                 if isinstance(error, tuple):
                     error_key, kwargs = error
-                    self.broadcast_l(error_key, buffer="misc", **kwargs)
+                    self.broadcast_l(error_key, **kwargs)
                 else:
-                    self.broadcast_l(error, buffer="misc")
+                    self.broadcast_l(error)
             return
 
         # Announce game is starting
@@ -164,14 +164,7 @@ class LobbyActionsMixin:
         if self.status == "playing" and not player.is_bot:
             # Mid-game: replace human with bot instead of removing
             # Keep the same player ID so they can rejoin and take over
-            player.is_bot = True
-            self._users.pop(player.id, None)
-
-            # Create a bot user with the same UUID to control this player
-            bot_user = Bot(player.name, uuid=player.id)
-            self.attach_user(player.id, bot_user)
-
-            self.broadcast_l("player-replaced-by-bot", player=player.name)
+            self._replace_with_bot(player)
             self.broadcast_sound("leave.ogg")
 
             # Check if any humans remain

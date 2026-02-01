@@ -109,8 +109,9 @@ options-restart-required-message = Việc thay đổi ngôn ngữ sẽ có hiệ
 # Buffer Names
 buffer-name-all = tất cả
 buffer-name-misc = hỗn hợp
-buffer-name-chats = trò chuyện
-buffer-name-activity = hoạt động
+buffer-name-game = trò chơi
+buffer-name-system = hệ thống
+buffer-name-chat = chat
 
 # Broadcast
 system-announcement = Thông báo Hệ thống

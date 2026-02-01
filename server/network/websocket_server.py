@@ -2,20 +2,57 @@
 
 import json
 import ssl
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Callable, Coroutine
 import websockets
 from websockets.server import WebSocketServerProtocol, ServerProtocol
 
-# Try to import Headers for reconstruction
-try:
-    from websockets.datastructures import Headers
-except ImportError:
-    try:
-        from websockets.http import Headers
-    except ImportError:
-        Headers = None
+# Helper class to mimic websockets.Headers interface with case-insensitive dict backend
+class CaseInsensitiveHeaders(dict):
+    """
+    A case-insensitive dict subclass that implements get_all().
+    Ensures compatibility with websockets library which expects case-insensitive lookups.
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__()
+        self.update(*args, **kwargs)
+
+    def __setitem__(self, key, value):
+        super().__setitem__(key.lower(), value)
+
+    def __getitem__(self, key):
+        return super().__getitem__(key.lower())
+
+    def __delitem__(self, key):
+        super().__delitem__(key.lower())
+
+    def __contains__(self, key):
+        return super().__contains__(key.lower())
+
+    def get(self, key, default=None):
+        return super().get(key.lower(), default)
+
+    def get_all(self, key):
+        """Return a list of values for the given header key."""
+        val = self.get(key)
+        return [val] if val is not None else []
+        
+    def update(self, *args, **kwargs):
+        if args:
+            if len(args) > 1:
+                raise TypeError("update expected at most 1 arguments, got %d" % len(args))
+            other = args[0]
+            if isinstance(other, dict):
+                for k, v in other.items():
+                    self[k] = v
+            else:
+                for k, v in other:
+                    self[k] = v
+        for k, v in kwargs.items():
+            self[k] = v
+
+
 
 
 @dataclass
@@ -55,52 +92,39 @@ def _tolerant_process_request(self, request):
     try:
         headers = request.headers
         upgrade = headers.get("Upgrade", "").lower()
-        connection = headers.get("Connection", "").lower()
-        
-        # Try to modify headers aggressively to fix "Connection: Keep-Alive"
-        if "websocket" in upgrade and "upgrade" not in connection:
-             patched = False
+         
+        if "websocket" in upgrade:
+             # Strategy: Force headers into a dictionary-like object (CaseInsensitiveHeaders) and replace.
+             # This avoids issues with immutable header objects AND satisfies the library's get_all() and case-insensitive API requirements.
              try:
-                 # STRATEGY 1: Reconstruct Headers object if possible (Cleaner)
-                 if Headers is not None and isinstance(headers, Headers):
-                     # Create new headers excluding Connection
-                     new_headers = Headers()
-                     for k, v in headers.raw_items():
-                         if k.lower() != "connection":
-                             new_headers[k] = v
-                     new_headers["Connection"] = "Upgrade"
-                     request.headers = new_headers
-                     patched = True
+                 # Create sanitized headers using our CaseInsensitiveHeaders class
+                 new_headers = CaseInsensitiveHeaders()
+                 for k, v in headers.items():
+                     if k.lower() != "connection":
+                         new_headers[k] = v
                  
-                 # STRATEGY 2: MutableMapping (In-place modification)
-                 if not patched and hasattr(headers, '__setitem__'):
-                     # Delete ALL existing Connection headers first
-                     if hasattr(headers, '__delitem__'):
-                         try:
-                             del headers["Connection"]
-                         except KeyError: pass
-                     
-                     headers["Connection"] = "Upgrade"
-                     patched = True
-                     
-                 # STRATEGY 3: add_header fallback
-                 if not patched and hasattr(headers, 'add_header'):
-                     headers.add_header("Connection", "Upgrade")
-                     patched = True
-                     
-             except Exception:
+                 # Force Connection: Upgrade (case-insensitive key "connection" will be used internally)
+                 new_headers["Connection"] = "Upgrade"
+                 
+                 # Create new request with matched headers using dataclasses.replace
+                 request = replace(request, headers=new_headers)
+                 
+             except Exception as e:
+                 print(f"Error patching headers: {e}")
                  pass
+
+                 
+    except Exception:
+        pass
                  
     except Exception:
         pass
     
-    # Delegate to original method
-    # If original raises InvalidUpgrade, we catch it and try to return a 400 Bad Request tuple
-    # to avoid the noisy stack trace and connection drop log, althought it still closes connection.
+    # Delegate to original method with potentially sanitized request
     try:
         return _original_process_request(self, request)
     except Exception as e:
-        # If we failed to patch and it crashed, re-raise to ensure library handles cleanup
+        # If still fails, re-raise
         raise e
 
 ServerProtocol.process_request = _tolerant_process_request

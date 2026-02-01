@@ -160,3 +160,12 @@ milebymile-error-karma-needs-three-teams = Luật Nghiệp chướng yêu cầu 
 
 # Định dạng
 milebymile-line-format = { $rank }. { $name }: { $points }
+
+# Chọn mục tiêu
+milebymile-target-individual = { $name } ({ $miles } dặm)
+milebymile-target-team = Đội { $team }: { $members } ({ $miles } dặm)
+
+milebymile-discard-card = Bỏ bài
+milebymile-detailed-status = Trạng thái chi tiết
+milebymile-check-status = Kiểm tra trạng thái
+milebymile-dirty-trick = Đòn Phản Công

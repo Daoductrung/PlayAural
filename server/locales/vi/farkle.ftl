@@ -66,3 +66,7 @@ farkle-combo-full-house = Cù lũ
 # Định dạng
 farkle-line-format = { $rank }. { $player }: { $points }
 farkle-combo-fallback = { $combo } được { $points } điểm
+
+farkle-check-turn-score = Kiểm tra điểm lượt này
+farkle-roll-label = Gieo xúc xắc
+farkle-bank-label = Chốt điểm

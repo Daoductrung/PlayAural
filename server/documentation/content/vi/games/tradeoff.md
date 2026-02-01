@@ -48,3 +48,4 @@ Phím tắt
 *   **1-6**: Lấy một viên xúc xắc có giá trị đó từ kho chung (trong giai đoạn Lấy về).
 *   **P**: Xem kho xúc xắc chung.
 *   **H**: Xem tay bài xúc xắc hiện tại của bạn.
+*   **V**: Xem danh sách người chơi.

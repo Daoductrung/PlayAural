@@ -8,7 +8,6 @@ from .stats_helpers import LeaderboardHelper, LeaderboardEntry, RatingHelper, Pl
 from .game_sound_mixin import GameSoundMixin
 from .game_communication_mixin import GameCommunicationMixin
 from .game_result_mixin import GameResultMixin
-from .duration_estimate_mixin import DurationEstimateMixin
 from .game_scores_mixin import GameScoresMixin
 from .game_prediction_mixin import GamePredictionMixin
 from .turn_management_mixin import TurnManagementMixin
@@ -40,7 +39,6 @@ __all__ = [
     "GameSoundMixin",
     "GameCommunicationMixin",
     "GameResultMixin",
-    "DurationEstimateMixin",
     "GameScoresMixin",
     "GamePredictionMixin",
     "TurnManagementMixin",

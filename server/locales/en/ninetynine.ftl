@@ -95,3 +95,4 @@ ninetynine-rules-variant-rs_games = RS Games
 # Disabled action reasons
 ninetynine-choose-first = You need to make a choice first.
 ninetynine-draw-first = You need to draw a card first.
+ninetynine-check-count = Check count

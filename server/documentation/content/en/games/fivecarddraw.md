@@ -38,9 +38,9 @@ Gameplay Steps
 
 4\. The Draw:
 
-&nbsp;  \* Players can choose to discard up to 5 cards (or choose to keep all of them - known as "Stand Pat").
+  \* Players can choose to discard up to 5 cards (or choose to keep all of them - known as "Stand Pat").
 
-&nbsp;  \* New cards are dealt to replace the discarded ones.
+  \* New cards are dealt to replace the discarded ones.
 
 5\. Second Betting Round: Another round of betting occurs after everyone has their final hand.
 
@@ -80,11 +80,11 @@ Options \& Variants
 
 \* Raise Mode:
 
-&nbsp;  \* No Limit: You can bet all your chips at any time.
+  \* No Limit: You can bet all your chips at any time.
 
-&nbsp;  \* Pot Limit: Maximum raise is the current size of the pot.
+  \* Pot Limit: Maximum raise is the current size of the pot.
 
-&nbsp;  \* Double Pot: Maximum raise is 2x the pot size.
+  \* Double Pot: Maximum raise is 2x the pot size.
 
 \* Starting Chips: Adjust the initial stack size.
 
@@ -110,9 +110,11 @@ Betting Actions
 
 \* P: Check table status (pot size, current bets).
 
-\* H: Check current hand value.
+\* H: Check players in hand.
 
-\* Shift + H: Read hand cards.
+* W: Read hand cards.
+
+* G: Check current hand value.
 
 
 

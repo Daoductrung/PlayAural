@@ -60,10 +60,18 @@ table-listing-with = Bàn của { $host } ({ $count } người dùng) cùng vớ
 table-listing-game = { $game }: Bàn của { $host } ({ $count } người dùng)
 table-listing-game-one = { $game }: Bàn của { $host } ({ $count } người dùng)
 table-listing-game-with = { $game }: Bàn của { $host } ({ $count } người dùng) cùng với { $members }
+table-listing-game-status = { $game } [{ $status }]: Bàn của { $host } ({ $count } người dùng)
+table-listing-game-one-status = { $game } [{ $status }]: Bàn của { $host } ({ $count } người dùng)
+table-listing-game-with-status = { $game } [{ $status }]: Bàn của { $host } ({ $count } người dùng) cùng với { $members }
+table-status-waiting = Đang chờ
+table-status-playing = Đang chơi
+table-status-finished = Đã hoàn thành
 table-not-exists = Bàn chơi không còn tồn tại.
 table-full = Bàn đã đầy.
 player-replaced-by-bot = { $player } đã rời đi và được thay thế bởi người chơi máy.
+player-reclaimed-from-bot = { $player } đã kết nối lại và lấy lại chỗ ngồi.
 player-took-over = { $player } đã thế chỗ cho người chơi máy.
+player-rejoined = { $player } đã tham gia lại trò chơi.
 spectator-joined = Đã tham gia bàn của { $host } với tư cách là khán giả.
 
 # Chế độ khán giả
@@ -333,3 +341,5 @@ goodbye = Tạm biệt!
 system-name = Hệ thống
 server-restarting = Máy chủ sẽ khởi động lại trong { $seconds } giây...
 server-shutting-down = Máy chủ sẽ tắt trong { $seconds } giây...
+server-error-changing-language = Lỗi khi đổi ngôn ngữ: { $error }
+default-save-name = { $game } - { $date }

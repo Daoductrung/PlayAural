@@ -297,6 +297,9 @@ class NinetyNineGame(Game):
 
     def create_turn_action_set(self, player: NinetyNinePlayer) -> ActionSet:
         """Create the turn action set for a player."""
+        user = self.get_user(player)
+        locale = user.locale if user else "en"
+
         action_set = ActionSet(name="turn")
 
         # Card slot actions will be dynamically created in _update_card_actions
@@ -305,7 +308,7 @@ class NinetyNineGame(Game):
         action_set.add(
             Action(
                 id="check_count",
-                label="Check count",
+                label=Localization.get(locale, "ninetynine-check-count"),
                 handler="_action_check_count",
                 is_enabled="_is_check_count_enabled",
                 is_hidden="_is_check_count_hidden",
@@ -318,6 +321,13 @@ class NinetyNineGame(Game):
         """Define all keybinds for the game."""
         super().setup_keybinds()
 
+        user = None
+        if hasattr(self, 'host_username') and self.host_username:
+             player = self.get_player(self.host_username)
+             if player:
+                 user = self.get_user(player)
+        locale = user.locale if user else "en"
+
         # Number keys for card slots (1-9, then 0 for 10)
         for i in range(1, 10):
             self.define_keybind(
@@ -329,16 +339,16 @@ class NinetyNineGame(Game):
 
         # Draw card (Space or D)
         self.define_keybind(
-            "space", "Draw card", ["draw_card"], state=KeybindState.ACTIVE
+            "space", Localization.get(locale, "ninetynine-draw-card"), ["draw_card"], state=KeybindState.ACTIVE
         )
         self.define_keybind(
-            "d", "Draw card", ["draw_card"], state=KeybindState.ACTIVE
+            "d", Localization.get(locale, "ninetynine-draw-card"), ["draw_card"], state=KeybindState.ACTIVE
         )
 
         # Count check
         self.define_keybind(
             "c",
-            "Check count",
+            Localization.get("en", "ninetynine-check-count"),
             ["check_count"],
             state=KeybindState.ACTIVE,
             include_spectators=True,
@@ -495,6 +505,7 @@ class NinetyNineGame(Game):
     def on_start(self) -> None:
         """Called when the game starts."""
         self.status = "playing"
+        self._sync_table_status()
         self.game_active = True
         self.round = 0
 

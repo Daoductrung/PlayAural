@@ -19,7 +19,8 @@ from ..game_utils.teams import TeamManager
 from ..game_utils.game_sound_mixin import GameSoundMixin
 from ..game_utils.game_communication_mixin import GameCommunicationMixin
 from ..game_utils.game_result_mixin import GameResultMixin
-from ..game_utils.duration_estimate_mixin import DurationEstimateMixin
+from ..game_utils.game_result_mixin import GameResultMixin
+from ..game_utils.game_scores_mixin import GameScoresMixin
 from ..game_utils.game_scores_mixin import GameScoresMixin
 from ..game_utils.game_prediction_mixin import GamePredictionMixin
 from ..game_utils.turn_management_mixin import TurnManagementMixin
@@ -74,7 +75,6 @@ class Game(
     GameSoundMixin,
     GameCommunicationMixin,
     GameResultMixin,
-    DurationEstimateMixin,
     GameScoresMixin,
     GamePredictionMixin,
     TurnManagementMixin,
@@ -151,11 +151,9 @@ class Game(
         self._actions_menu_open: set[str] = set()  # player_ids with actions menu open
         self._destroyed: bool = False  # Whether game has been destroyed
         # Duration estimation state
-        self._estimate_threads: list[threading.Thread] = []  # Running simulation threads
-        self._estimate_results: list[int] = []  # Collected tick counts
-        self._estimate_errors: list[str] = []  # Collected errors
-        self._estimate_running: bool = False  # Whether estimation is in progress
-        self._estimate_lock: threading.Lock = threading.Lock()  # Protect results list
+        self._status_box_open: set[str] = set()  # player_ids with status box open
+        self._actions_menu_open: set[str] = set()  # player_ids with actions menu open
+        self._destroyed: bool = False  # Whether game has been destroyed
 
     def rebuild_runtime_state(self) -> None:
         """
@@ -274,12 +272,51 @@ class Game(
 
         Subclasses should call super().on_tick() to ensure base functionality runs.
         """
-        # Check if duration estimation has completed
-        self.check_estimate_completion()
+        pass
+
+    def _sync_table_status(self) -> None:
+        """Synchronize table status with game status.
+        
+        Call this when game status changes (e.g., waiting -> playing -> finished)
+        to keep table and game status in sync.
+        """
+        if self._table:
+            self._table.status = self.status
 
     def on_round_timer_ready(self) -> None:
         """Called when round timer expires. Override in subclasses that use RoundTimer."""
         pass
+
+    def on_player_disconnect(self, player_id: str) -> None:
+        """Handle player disconnection.
+        
+        If game is playing, replace human with bot to keep game going.
+        """
+        if self.status != "playing":
+            return
+
+        player = self.get_player_by_id(player_id)
+        if not player or player.is_bot:
+            return
+
+        # Convert to bot
+        self._replace_with_bot(player)
+
+        # We don't play sound here because Server plays offline sound
+
+    def _replace_with_bot(self, player: "Player") -> None:
+        """Replace a human player with a bot (shared logic)."""
+        player.is_bot = True
+        self._users.pop(player.id, None)
+
+        from ..users.bot import Bot
+        # Use same UUID so user can reclaim it
+        bot_user = Bot(player.name, uuid=player.id)
+        self.attach_user(player.id, bot_user)
+        
+        self.broadcast_l("player-replaced-by-bot", player=player.name)
+        # Note: Caller is responsible for playing sounds if needed
+
 
     # Player management
 

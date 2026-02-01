@@ -185,6 +185,9 @@ class MileByMileGame(Game):
 
     def create_turn_action_set(self, player: MileByMilePlayer) -> ActionSet:
         """Create the turn action set for a player."""
+        user = self.get_user(player)
+        locale = user.locale if user else "en"
+
         action_set = ActionSet(name="turn")
 
         # Card slot actions will be dynamically added/removed
@@ -192,7 +195,7 @@ class MileByMileGame(Game):
         action_set.add(
             Action(
                 id="check_status",
-                label="Check status",
+                label=Localization.get(locale, "milebymile-check-status"),
                 handler="_action_check_status",
                 is_enabled="_is_check_status_enabled",
                 is_hidden="_is_check_status_hidden",
@@ -203,7 +206,7 @@ class MileByMileGame(Game):
         action_set.add(
             Action(
                 id="dirty_trick",
-                label="Play dirty trick",
+                label=Localization.get(locale, "milebymile-dirty-trick"),
                 handler="_action_dirty_trick",
                 is_enabled="_is_dirty_trick_enabled",
                 is_hidden="_is_dirty_trick_hidden",
@@ -214,7 +217,7 @@ class MileByMileGame(Game):
         action_set.add(
             Action(
                 id="junk_card",
-                label="Discard card",
+                label=Localization.get(locale, "milebymile-discard-card"),
                 handler="_action_junk_card",
                 is_enabled="_is_junk_card_enabled",
                 is_hidden="_is_junk_card_hidden",
@@ -225,7 +228,7 @@ class MileByMileGame(Game):
         action_set.add(
             Action(
                 id="check_status_detailed",
-                label="Detailed status",
+                label=Localization.get(locale, "milebymile-detailed-status"),
                 handler="_action_check_status_detailed",
                 is_enabled="_is_check_status_enabled",
                 is_hidden="_is_check_status_hidden",
@@ -238,6 +241,13 @@ class MileByMileGame(Game):
         """Define all keybinds for the game."""
         super().setup_keybinds()
 
+        user = None
+        if hasattr(self, 'host_username') and self.host_username:
+             player = self.get_player(self.host_username)
+             if player:
+                 user = self.get_user(player)
+        locale = user.locale if user else "en"
+
         # Remove base class's 's' and 'shift+s' keybinds before adding ours
         if "s" in self._keybinds:
             self._keybinds["s"] = []
@@ -247,7 +257,7 @@ class MileByMileGame(Game):
         # Override 's' to only show status (not scores from base class)
         self.define_keybind(
             "s",
-            "Check status",
+            Localization.get("en", "milebymile-check-status"),
             ["check_status"],
             state=KeybindState.ACTIVE,
             include_spectators=True,
@@ -256,7 +266,7 @@ class MileByMileGame(Game):
         # Override 'shift+s' to show detailed status (not just scores)
         self.define_keybind(
             "shift+s",
-            "Detailed status",
+            Localization.get(locale, "milebymile-detailed-status"),
             ["check_status_detailed"],
             state=KeybindState.ACTIVE,
             include_spectators=True,
@@ -264,7 +274,10 @@ class MileByMileGame(Game):
 
         # Dirty trick keybind
         self.define_keybind(
-            "d", "Play dirty trick", ["dirty_trick"], state=KeybindState.ACTIVE
+            "d",
+            Localization.get(locale, "milebymile-dirty-trick"),
+            ["dirty_trick"],
+            state=KeybindState.ACTIVE,
         )
 
         # Number keys for card slots (1-6)
@@ -275,10 +288,10 @@ class MileByMileGame(Game):
 
         # Shift+Enter or Backspace to discard the selected card
         self.define_keybind(
-            "shift+enter", "Discard card", ["junk_card"], state=KeybindState.ACTIVE
-        )
-        self.define_keybind(
-            "backspace", "Discard card", ["junk_card"], state=KeybindState.ACTIVE
+            "shift+enter",
+            Localization.get(locale, "milebymile-discard-card"),
+            ["junk_card"],
+            state=KeybindState.ACTIVE,
         )
 
     def _update_card_actions(self, player: MileByMilePlayer) -> None:
@@ -797,6 +810,28 @@ class MileByMileGame(Game):
         self.dirty_trick_window_hazard = None
         self.dirty_trick_window_ticks = 0
 
+    def _get_target_display_string(self, team_idx: int, race_state: "RaceState", locale: str) -> str:
+        """Get localized display string for a target team."""
+        from ...messages.localization import Localization
+        
+        team = self._team_manager.teams[team_idx]
+        if self.is_individual_mode():
+            return Localization.get(
+                locale, 
+                "milebymile-target-individual", 
+                name=team.members[0], 
+                miles=race_state.miles
+            )
+        else:
+            members = ", ".join(team.members)
+            return Localization.get(
+                locale, 
+                "milebymile-target-team", 
+                team=team_idx + 1, 
+                members=members, 
+                miles=race_state.miles
+            )
+
     def _hazard_target_options(self, player: Player) -> list[str]:
         """Get list of valid hazard target names for menu input."""
         if not isinstance(player, MileByMilePlayer):
@@ -820,16 +855,15 @@ class MileByMileGame(Game):
             return []
 
         target_indices = self._get_valid_hazard_targets(player, card.value)
-        # Format like v10: "Name (X miles)" for individual, "Team N: members (X miles)" for teams
         options = []
+        
+        user = self.get_user(player)
+        locale = user.locale if user else "en"
+        
         for team_idx in target_indices:
             race_state = self.race_states[team_idx]
-            team = self._team_manager.teams[team_idx]
-            if self.is_individual_mode():
-                options.append(f"{team.members[0]} ({race_state.miles} miles)")
-            else:
-                members = ", ".join(team.members)
-                options.append(f"Team {team_idx + 1}: {members} ({race_state.miles} miles)")
+            options.append(self._get_target_display_string(team_idx, race_state, locale))
+            
         return options
 
     def _bot_select_hazard_target(
@@ -862,13 +896,19 @@ class MileByMileGame(Game):
         # Pick target with most miles
         best_idx = max(target_indices, key=lambda i: self.race_states[i].miles)
         race_state = self.race_states[best_idx]
-        team = self._team_manager.teams[best_idx]
-        # Return in same format as _hazard_target_options
-        if self.is_individual_mode():
-            return f"{team.members[0]} ({race_state.miles} miles)"
-        else:
-            members = ", ".join(team.members)
-            return f"Team {best_idx + 1}: {members} ({race_state.miles} miles)"
+        
+        # We need to return the string that matches what options would provide
+        # But bots don't really have a locale, so existing logic effectively assumes 'en'
+        # or the format string match.
+        # Since _play_hazard uses the text to lookup, we should match standard behavior.
+        # Let's default to English for bots, or maybe the host's locale?
+        # A simpler way is to just generate it using 'en' since bot actions 
+        # usually pass internal checks, but here the 'input' is the string itself when passed to _action_play_card.
+        # Wait, usually bot input is passed directly to _action handler.
+        # If _action_play_card expects the string, we need to match it.
+        # But bots don't see menus, so they should return the formatted string.
+        # Let's use English for safety.
+        return self._get_target_display_string(best_idx, race_state, "en")
 
     def _action_play_card(self, player: Player, *args) -> None:
         """Handle playing a card from hand.
@@ -1061,35 +1101,24 @@ class MileByMileGame(Game):
 
         # Find target team index
         target_idx: int | None = None
+
         if target_selection:
-            # Target was selected from menu - parse the selection string
-            # Format: "Name (X miles)" or "Team N: members (X miles)"
-            if self.is_individual_mode():
-                # Extract name from "Name (X miles)"
-                name = (
-                    target_selection.split(" (")[0]
-                    if " (" in target_selection
-                    else target_selection
-                )
-                for idx in target_indices:
-                    team = self._team_manager.teams[idx]
-                    if team.members and team.members[0] == name:
-                        target_idx = idx
-                        break
-            else:
-                # Extract team number from "Team N: members (X miles)"
-                if target_selection.startswith("Team "):
-                    try:
-                        team_num = int(
-                            target_selection.split(":")[0].replace("Team ", "")
-                        )
-                        for idx in target_indices:
-                            if idx + 1 == team_num:
-                                target_idx = idx
-                                break
-                    except (ValueError, IndexError):
-                        pass
+            # Robust matching: generate strings for all valid targets and see which one matches
+            user = self.get_user(player)
+            # Use English for bots or fallback
+            locale = user.locale if user else "en"
+            
+            for idx in target_indices:
+                race_state = self.race_states[idx]
+                target_string = self._get_target_display_string(idx, race_state, locale)
+                if target_string == target_selection:
+                    target_idx = idx
+                    break
+            
             if target_idx is None:
+                # Fallback: if we can't match it (maybe lag?), and there's only one valid target, use it?
+                # Or maybe try matching just the name? 
+                # For now, strict matching is safest to avoid hitting wrong target.
                 return
         elif len(target_indices) == 1:
             target_idx = target_indices[0]
@@ -1399,6 +1428,7 @@ class MileByMileGame(Game):
         if not self._team_manager.teams:
             self._setup_teams()
         self.status = "playing"
+        self._sync_table_status()
         self.game_active = True
         self.current_race = 0
 

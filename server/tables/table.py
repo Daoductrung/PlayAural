@@ -74,6 +74,10 @@ class Table(DataClassJSONMixin):
         """Remove a member from the table."""
         self.members = [m for m in self.members if m.username != username]
         self._users.pop(username, None)
+        
+        # Auto-destroy if no members left (e.g. all humans left)
+        if not self.members:
+            self.destroy()
 
     def get_user(self, username: str) -> "User | None":
         """Get a user by username."""
@@ -96,7 +100,7 @@ class Table(DataClassJSONMixin):
         """Get the number of players (non-spectators)."""
         return len(self.get_players())
 
-    def broadcast(self, text: str, buffer: str = "misc") -> None:
+    def broadcast(self, text: str, buffer: str = "game") -> None:
         """Send a message to all members."""
         for username, user in self._users.items():
             user.speak(text, buffer)
@@ -110,6 +114,17 @@ class Table(DataClassJSONMixin):
         """Called every tick. Forwards to game."""
         if self._game:
             self._game.on_tick()
+
+        # Timeout for abandoned tables (host offline for > 5 mins)
+        if self._server:
+            if self.host not in self._server._users:
+                import time
+                if not hasattr(self, "_offline_since") or self._offline_since is None:
+                    self._offline_since = time.time()
+                elif time.time() - self._offline_since > 300:  # 300 seconds = 5 minutes
+                    self.destroy()
+            else:
+                self._offline_since = None
 
     def handle_event(self, username: str, event: dict) -> None:
         """Handle an event from a member."""

@@ -405,6 +405,9 @@ class CrazyEightsGame(Game):
         self.wild_wait_player_id = None
         self.wild_end_round_pending = False
 
+        # Synchronize table status
+        self._sync_table_status()
+
         # Replace main menu music with a silent track for this game.
         self.play_music("game_crazyeights/mus.ogg")
 

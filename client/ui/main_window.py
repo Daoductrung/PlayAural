@@ -22,7 +22,7 @@ from buffer_system import BufferSystem
 from config_manager import set_item_in_dict
 from localization import Localization
 
-VERSION = "0.1.1"
+VERSION = "0.1.2"
 
 
 class MainWindow(wx.Frame):
@@ -102,8 +102,9 @@ class MainWindow(wx.Frame):
         # Initialize buffer system
         self.buffer_system = BufferSystem()
         self.buffer_system.create_buffer("all")
-        self.buffer_system.create_buffer("chats")
-        self.buffer_system.create_buffer("activity")
+        self.buffer_system.create_buffer("chat")
+        self.buffer_system.create_buffer("game")
+        self.buffer_system.create_buffer("system")
         self.buffer_system.create_buffer("misc")
 
         # Load muted buffers from preferences
@@ -473,7 +474,7 @@ class MainWindow(wx.Frame):
 
     def _get_localized_buffer_name(self, buffer_name):
         """Get localized name for a standard buffer, or return original if custom."""
-        if buffer_name in ["all", "misc", "chats", "activity"]:
+        if buffer_name in ["all", "misc", "chats", "activity", "game", "system", "chat"]:
             return Localization.get(f"buffer-name-{buffer_name}")
         return buffer_name
 
@@ -1268,6 +1269,11 @@ class MainWindow(wx.Frame):
 
         if self.network.connect(server_url, username, password):
             # Wait 3 seconds then check again
+            wx.CallLater(
+                3000, lambda: self._do_reconnect(server_url, username, password)
+            )
+        elif self.network.is_connecting():
+            # Connection is in progress (slow connection), wait more
             wx.CallLater(
                 3000, lambda: self._do_reconnect(server_url, username, password)
             )

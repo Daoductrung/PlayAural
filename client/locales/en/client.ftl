@@ -109,8 +109,9 @@ options-restart-required-message = The language change will take full effect aft
 # Buffer Names
 buffer-name-all = all
 buffer-name-misc = misc
-buffer-name-chats = chats
-buffer-name-activity = activity
+buffer-name-game = game
+buffer-name-system = system
+buffer-name-chat = chat
 
 # Broadcast
 system-announcement = System Announcement

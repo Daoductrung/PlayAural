@@ -80,22 +80,7 @@ class ActionSetCreationMixin:
         )
         return action_set
 
-    def create_estimate_action_set(self, player: "Player") -> ActionSet:
-        """Create the estimate duration action set for a player."""
-        user = self.get_user(player)
-        locale = user.locale if user else "en"
 
-        action_set = ActionSet(name="estimate")
-        action_set.add(
-            Action(
-                id="estimate_duration",
-                label=Localization.get(locale, "estimate-duration"),
-                handler="_action_estimate_duration",
-                is_enabled="_is_estimate_duration_enabled",
-                is_hidden="_is_estimate_duration_hidden",
-            )
-        )
-        return action_set
 
     def create_standard_action_set(self, player: "Player") -> ActionSet:
         """Create the standard action set (F5, save) for a player."""
@@ -266,10 +251,6 @@ class ActionSetCreationMixin:
         if hasattr(self, "options"):
             options_set = self.create_options_action_set(player)
             self.add_action_set(player, options_set)
-
-        # Add estimate action set (after options)
-        estimate_set = self.create_estimate_action_set(player)
-        self.add_action_set(player, estimate_set)
 
         standard_set = self.create_standard_action_set(player)
         self.add_action_set(player, standard_set)

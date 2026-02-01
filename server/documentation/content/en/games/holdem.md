@@ -76,21 +76,21 @@ Options \& Variants
 
 \* Raise Mode:
 
-&nbsp;  \* No Limit: You can bet all your chips at any time.
+  \* No Limit: You can bet all your chips at any time.
 
-&nbsp;  \* Pot Limit: Maximum raise is the current size of the pot.
+  \* Pot Limit: Maximum raise is the current size of the pot.
 
-&nbsp;  \* Double Pot: Maximum raise is 2x the pot size.
+  \* Double Pot: Maximum raise is 2x the pot size.
 
 \* Blinds \& Ante:
 
-&nbsp;  \* Big Blind: Set the base stake.
+  \* Big Blind: Set the base stake.
 
-&nbsp;  \* Ante: Optional forced bet for all players.
+  \* Ante: Optional forced bet for all players.
 
-&nbsp;  \* Blind Timer: Automatically increase blinds over time.
+  \* Blind Timer: Automatically increase blinds over time.
 
-&nbsp;  \* Ante start level: Level at which the ante begins.
+  \* Ante start level: Level at which the ante begins.
 
 \* Starting Chips: Adjust the initial stack size.
 
@@ -110,13 +110,14 @@ Keyboard Shortcuts
 
 \* P: Check table status (pot size, current bets).
 
-\* H: Check hand value/strength.
+\* H: Check players in hand.
 
-\* Shift + H: Read private hole cards.
+* W: Read private hole cards.
+
+* G: Check hand value/strength.
 
 \* T: Read community cards (Table).
 
 \* D: Identify Dealer button position.
 
-\* Shift + T: Check remaining time for turn.
 

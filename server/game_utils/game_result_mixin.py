@@ -39,6 +39,7 @@ class GameResultMixin:
         """
         self.game_active = False
         self.status = "finished"
+        self._sync_table_status()
 
         # Build and persist the game result
         result = self.build_game_result()

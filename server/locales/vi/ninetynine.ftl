@@ -95,3 +95,4 @@ ninetynine-rules-variant-rs_games = RS Games
 # Lý do hành động bị vô hiệu hóa
 ninetynine-choose-first = Bạn cần đưa ra lựa chọn trước.
 ninetynine-draw-first = Bạn cần rút bài trước.
+ninetynine-check-count = Kiểm tra tổng điểm

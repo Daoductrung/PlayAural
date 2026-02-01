@@ -76,21 +76,21 @@ Tùy chọn \& Biến thể
 
 \* Chế độ Tố:
 
-&nbsp;  \* Không giới hạn: Tố tất cả số chip bạn có bất kỳ lúc nào.
+  \* Không giới hạn: Tố tất cả số chip bạn có bất kỳ lúc nào.
 
-&nbsp;  \* Giới hạn Hũ: Tố tối đa bằng số chip trong hũ.
+  \* Giới hạn Hũ: Tố tối đa bằng số chip trong hũ.
 
-&nbsp;  \* Gấp đôi Hũ: Tố tối đa bằng 2 lần số chip trong hũ.
+  \* Gấp đôi Hũ: Tố tối đa bằng 2 lần số chip trong hũ.
 
 \* Mù \& Tiền gà:
 
-&nbsp;  \* Mù lớn: Mức cược cơ bản của ván.
+  \* Mù lớn: Mức cược cơ bản của ván.
 
-&nbsp;  \* Tiền gà (Ante): Cược bắt buộc cho tất cả mọi người (tùy chọn).
+  \* Tiền gà (Ante): Cược bắt buộc cho tất cả mọi người (tùy chọn).
 
-&nbsp;  \* Hẹn giờ tăng mù: Tự động tăng tiền mù theo thời gian.
+  \* Hẹn giờ tăng mù: Tự động tăng tiền mù theo thời gian.
 
-&nbsp;  \* Tiền gà bắt đầu từ cấp độ: Chỉ thu tiền gà sau khi tiền mù đã tăng đến cấp độ nhất định.
+  \* Tiền gà bắt đầu từ cấp độ: Chỉ thu tiền gà sau khi tiền mù đã tăng đến cấp độ nhất định.
 
 \* Chip khởi điểm: Số chip ban đầu.
 
@@ -105,18 +105,11 @@ Phím tắt
 \* F: Úp bỏ bài.
 
 \* R: Tố.
-
 \* A: Tất tay (All-in).
-
 \* P: Kiểm tra trạng thái bàn (tổng hũ, mức cược hiện tại).
-
-\* H: Kiểm tra độ mạnh tay bài hiện tại.
-
-\* Shift + H: Đọc các lá bài tẩy (bài riêng).
-
+\* H: Kiểm tra người chơi trong ván.
+* W: Đọc các lá bài tẩy (bài riêng).
+* G: Kiểm tra độ mạnh tay bài hiện tại.
 \* T: Đọc các lá bài chung trên bàn.
-
 \* D: Kiểm tra vị trí Nút Dealer.
-
-\* Shift + T: Kiểm tra thời gian còn lại của lượt.
 

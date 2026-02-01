@@ -1843,6 +1843,7 @@ class AgeOfHeroesGame(Game):
     def on_start(self) -> None:
         """Called when the game starts."""
         self.status = "playing"
+        self._sync_table_status()
         self.game_active = True
 
         # Assign tribes to players
@@ -1914,7 +1915,7 @@ class AgeOfHeroesGame(Game):
                 user = self.get_user(player)
                 if user:
                     cards_str = read_cards(player.hand, user.locale)
-                    user.speak(f"Your cards: {cards_str}")
+                    user.speak_l("ageofheroes-your-cards", cards=cards_str)
 
     def _draw_cards(self, count: int) -> list[Card]:
         """Draw cards from deck, reshuffling discard pile if needed."""

@@ -36,17 +36,38 @@ from typing import Any
 # Allow running as standalone script (uv run cli.py)
 _MODULE_DIR = Path(__file__).parent
 if __name__ == "__main__":
+    # Add parent dir to path to find 'server' package if it exists
     sys.path.insert(0, str(_MODULE_DIR.parent))
+    # Add current dir to path to find submodules directly if 'server' package doesn't exist
+    sys.path.insert(0, str(_MODULE_DIR))
+
+# Handle 'server' package aliasing for root deployment
+# This allows 'from server.games import ...' to work even if we are in the root
+# and 'server' is not a real package directory.
+import types
+if "server" not in sys.modules:
+    # Create a dummy 'server' package that points to the current directory
+    server_pkg = types.ModuleType("server")
+    server_pkg.__path__ = [str(_MODULE_DIR)]
+    sys.modules["server"] = server_pkg
 
 # Initialize localization before importing games
-from .messages.localization import Localization  # noqa: E402
-
-Localization.init(_MODULE_DIR / "locales")
-
-from .games.registry import GameRegistry, get_game_class  # noqa: E402
-from .games.base import Game, BOT_NAMES  # noqa: E402
-from .users.base import User, generate_uuid  # noqa: E402
-from .users.bot import Bot  # noqa: E402
+HAS_SERVER_PACKAGE = False
+try:
+    # Try direct imports first (script execution)
+    from messages.localization import Localization  # noqa: E402
+    from games.registry import GameRegistry, get_game_class  # noqa: E402
+    from games.base import Game, BOT_NAMES  # noqa: E402
+    from users.base import User, generate_uuid  # noqa: E402
+    from users.bot import Bot  # noqa: E402
+except ImportError:
+    # Fallback to package imports (module execution)
+    HAS_SERVER_PACKAGE = True
+    from server.messages.localization import Localization  # noqa: E402
+    from server.games.registry import GameRegistry, get_game_class  # noqa: E402
+    from server.games.base import Game, BOT_NAMES  # noqa: E402
+    from server.users.base import User, generate_uuid  # noqa: E402
+    from server.users.bot import Bot  # noqa: E402
 
 
 @dataclass
@@ -393,7 +414,10 @@ def cmd_show_options(args):
     options_list = []
 
     # Inspect the options dataclass
-    from .game_utils.options import get_option_meta
+    if HAS_SERVER_PACKAGE:
+        from server.game_utils.options import get_option_meta
+    else:
+        from game_utils.options import get_option_meta
 
     for field_name in options_obj.__dataclass_fields__:
         current_value = getattr(options_obj, field_name)
@@ -479,8 +503,12 @@ def cmd_simulate(args):
 
 def cmd_create_user(args):
     """Create a new user."""
-    from .persistence.database import Database
-    from .auth.auth import AuthManager
+    if HAS_SERVER_PACKAGE:
+        from server.persistence.database import Database
+        from server.auth.auth import AuthManager
+    else:
+        from persistence.database import Database
+        from auth.auth import AuthManager
 
     db = Database()
     db.connect()
@@ -499,8 +527,12 @@ def cmd_create_user(args):
 
 def cmd_reset_password(args):
     """Reset a user's password."""
-    from .persistence.database import Database
-    from .auth.auth import AuthManager
+    if HAS_SERVER_PACKAGE:
+        from server.persistence.database import Database
+        from server.auth.auth import AuthManager
+    else:
+        from persistence.database import Database
+        from auth.auth import AuthManager
     
     db = Database()
     db.connect()

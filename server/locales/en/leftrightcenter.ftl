@@ -50,3 +50,5 @@ lrc-option-changed-starting-chips = Starting chips set to { $count }.
 
 # Formatting
 lrc-line-format = { $player }: { $chips }
+lrc-check-center = Check center pot
+lrc-roll-label = Roll dice

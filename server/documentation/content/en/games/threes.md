@@ -35,4 +35,5 @@ Keyboard Shortcuts
 
 * R: Roll dice (after selecting at least one keeper).
 * 1-5: Toggle dice to keep.
+* B: Bank points.
 * H: Check current dice status.

@@ -21,8 +21,8 @@ from ..messages.localization import Localization
 from ..documentation.manager import DocumentationManager
 
 
-VERSION = "0.1.1"
-LATEST_CLIENT_VERSION = "0.1.1"
+VERSION = "0.1.2"
+LATEST_CLIENT_VERSION = "0.1.2"
 UPDATE_URL = "https://github.com/Daoductrung/PlayAural/releases/latest/download/PlayAural.zip"
 UPDATE_HASH = "" # Optional SHA256
 
@@ -207,6 +207,18 @@ PlayAural Server
                 offline_sound = "offlineadmin.ogg"
             else:
                 offline_sound = "offline.ogg"
+            # Clean up users immediately so they can rejoin
+            # Table cleanup is now handled by Table.on_tick timeout
+            # and visibility is hidden immediately by menu filtering.
+            
+            # Auto-substitute with bot if in a playing game (requested feature)
+            if hasattr(self, "_tables"):
+                table = self._tables.find_user_table(client.username)
+                if table and table.game and table.game.status == "playing":
+                     # We need the user UUID. The user object is about to be popped, so get it now.
+                     if user:
+                         table.game.on_player_disconnect(user.uuid)
+
             # Clean up user state immediately so they can rejoin
             self._users.pop(client.username, None)
             self._user_states.pop(client.username, None)
@@ -236,25 +248,25 @@ PlayAural Server
         self, message_id: str, player_name: str, sound: str
     ) -> None:
         """Broadcast a localized presence announcement to all approved online users with sound."""
-        for username, user in self._users.items():
-            if not user.approved:
-                continue  # Don't send broadcasts to unapproved users
-            user.speak_l(message_id, player=player_name)
-            user.play_sound(sound)
+        for user in self._users.values():
+            if user.approved:
+                # Use "system" buffer for joins/parts
+                user.speak_l(message_id, buffer="system", player=player_name)
+                # Play sound (always uses main sound channel)
+                user.play_sound(sound)
 
-    def _broadcast_admin_announcement(self, admin_name: str) -> None:
+    async def _broadcast_admin_announcement(self, admin_name: str) -> None:
         """Broadcast an admin announcement to all approved online users."""
-        for username, user in self._users.items():
-            if not user.approved:
-                continue  # Don't send broadcasts to unapproved users
-            user.speak_l("user-is-admin", player=admin_name)
+        for user in self._users.values():
+            if user.approved:
+                user.speak_l("admin-announcement-broadcast", buffer="system", admin=admin_name)
 
-    def _broadcast_dev_announcement(self, dev_name: str) -> None:
+    async def _broadcast_dev_announcement(self, dev_name: str) -> None:
         """Broadcast a developer announcement to all approved online users."""
-        for username, user in self._users.items():
+        for user in self._users.values():
             if not user.approved:
                 continue  # Don't send broadcasts to unapproved users
-            user.speak_l("user-is-dev", player=dev_name)
+            user.speak_l("dev-announcement-broadcast", buffer="system", dev=dev_name)
 
     async def _on_client_message(self, client: ClientConnection, packet: dict) -> None:
         """Handle incoming message from client."""
@@ -415,8 +427,13 @@ PlayAural Server
             table.attach_user(username, user)
             player = game.get_player_by_id(user.uuid)
             if player:
+                # Restore humanity if they were replaced by a bot
+                if player.is_bot:
+                    player.is_bot = False
+                    game.broadcast_l("player-rejoined", player=player.name)
+                
                 game.attach_user(player.id, user)
-
+                
                 # Set user state so menu selections are handled correctly
                 self._user_states[username] = {
                     "menu": "in_game",
@@ -566,7 +583,16 @@ PlayAural Server
 
     def _show_tables_menu(self, user: NetworkUser, game_type: str) -> None:
         """Show available tables for a game."""
-        tables = self._tables.get_waiting_tables(game_type)
+        all_tables = self._tables.get_tables_by_type(game_type)
+        # Filter: Only show waiting or playing tables (exclude finished)
+        # - Show if host is online (for waiting tables)
+        # - OR table is playing (so players can rejoin)
+        tables = [
+            t for t in all_tables 
+            if t.game and t.game.status in ["waiting", "playing"]
+            and (t.host in self._users or t.game.status == "playing")
+        ]
+        
         game_class = get_game_class(game_type)
         game_name = (
             Localization.get(user.locale, game_class.get_name_key())
@@ -623,7 +649,16 @@ PlayAural Server
 
     def _show_active_tables_menu(self, user: NetworkUser) -> None:
         """Show available tables across all games."""
-        tables = self._tables.get_waiting_tables()
+        all_tables = self._tables.get_all_tables()
+        # Filter: Only show waiting or playing tables (exclude finished)
+        # - Show if host is online (for waiting tables)
+        # - OR table is playing (so players can rejoin even if host offline)
+        tables = [
+            t for t in all_tables 
+            if t.game and t.game.status in ["waiting", "playing"]
+            and (t.host in self._users or t.game.status == "playing")
+        ]
+
         if not tables:
             user.speak_l("no-active-tables")
             self._show_main_menu(user)
@@ -643,12 +678,27 @@ PlayAural Server
                 if member.username != table.host
             ]
             members_str = Localization.format_list_and(user.locale, member_names)
-            if member_count == 1:
-                listing_key = "table-listing-game-one"
-            elif member_names:
-                listing_key = "table-listing-game-with"
+            
+            # Determine status for display
+            if table.game:
+                if table.game.status == "waiting":
+                    status_key = "table-status-waiting"
+                elif table.game.status == "playing":
+                    status_key = "table-status-playing"
+                elif table.game.status == "finished":
+                    status_key = "table-status-finished"
+                else:
+                    status_key = "table-status-waiting"  # fallback
             else:
-                listing_key = "table-listing-game"
+                status_key = "table-status-waiting"  # fallback
+            status_text = Localization.get(user.locale, status_key)
+            
+            if member_count == 1:
+                listing_key = "table-listing-game-one-status"
+            elif member_names:
+                listing_key = "table-listing-game-with-status"
+            else:
+                listing_key = "table-listing-game-status"
             items.append(
                 MenuItem(
                     text=Localization.get(
@@ -658,6 +708,7 @@ PlayAural Server
                         host=table.host,
                         count=member_count,
                         members=members_str,
+                        status=status_text,
                     ),
                     id=f"table_{table.table_id}",
                 )
@@ -1223,7 +1274,7 @@ PlayAural Server
             
             # Clean markdown formatting characters
             # Remove bold/italic markers
-            clean_text = line.replace('**', '').replace('__', '').replace('*', '').replace('`', '')
+            clean_text = line.replace('**', '').replace('__', '').replace('*', '').replace('`', '').replace('&nbsp;', '')
             
             if clean_text.startswith('#'):
                 # Header - remove # and extra spaces
@@ -1406,7 +1457,7 @@ PlayAural Server
                 })
             except Exception as e:
                 logging.getLogger("playaural").exception("Error changing language")
-                user.speak(f"Error changing language: {e}")
+                user.speak_l("server-error-changing-language", error=str(e))
             
             self._show_options_menu(user)
             return
@@ -1457,12 +1508,14 @@ PlayAural Server
                 )
                 
                 # Broadcast table creation to all other approved users
+                name_key = game_class.get_name_key()
                 for u in self._users.values():
                     if u.username != user.username and u.approved and u.preferences.notify_table_created:
+                        local_game_name = Localization.get(u.locale, name_key)
                         u.speak_l(
                             "table-created-broadcast", 
                             host=user.username, 
-                            game=state.get("game_name", game_type)
+                            game=local_game_name
                         )
 
                 min_players = game_class.get_min_players()
@@ -1525,27 +1578,45 @@ PlayAural Server
 
         table_id = table.table_id
 
-        # Determine if user can join as player
-        can_join_as_player = (
-            game.status != "playing"
-            and len(game.players) < game.get_max_players()
-        )
+        # Check if user is reclaiming a bot-replaced slot
+        reclaimed_player = None
+        if game.status == "playing":
+            for player in game.players:
+                if player.is_bot and player.id == user.uuid:
+                    reclaimed_player = player
+                    break
 
-        if can_join_as_player:
-            # Join as player
-            table.add_member(user.username, user, as_spectator=False)
-            game.add_player(user.username, user)
-            game.broadcast_l("table-joined", player=user.username)
-            game.broadcast_sound("join.ogg")
+        if reclaimed_player:
+            # User is reclaiming their slot from a bot
+            reclaimed_player.is_bot = False
+            game._users.pop(reclaimed_player.id, None)  # Remove bot user
+            game.attach_user(reclaimed_player.id, user)  # Attach human user
+            table.add_member(user.username, user, as_spectator=reclaimed_player.is_spectator)
+            game.broadcast_l("player-reclaimed-from-bot", player=user.username)
+            game.broadcast_sound("online.ogg")
             game.rebuild_all_menus()
         else:
-            # Join as spectator
-            table.add_member(user.username, user, as_spectator=True)
-            game.add_spectator(user.username, user)
-            user.speak_l("spectator-joined", host=table.host)
-            game.broadcast_l("now-spectating", player=user.username)
-            game.broadcast_sound("join_spectator.ogg")
-            game.rebuild_all_menus()
+            # Determine if user can join as player
+            can_join_as_player = (
+                game.status != "playing"
+                and len(game.players) < game.get_max_players()
+            )
+
+            if can_join_as_player:
+                # Join as player
+                table.add_member(user.username, user, as_spectator=False)
+                game.add_player(user.username, user)
+                game.broadcast_l("table-joined", player=user.username)
+                game.broadcast_sound("join.ogg")
+                game.rebuild_all_menus()
+            else:
+                # Join as spectator
+                table.add_member(user.username, user, as_spectator=True)
+                game.add_spectator(user.username, user)
+                user.speak_l("spectator-joined", host=table.host)
+                game.broadcast_l("now-spectating", player=user.username)
+                game.broadcast_sound("join_spectator.ogg")
+                game.rebuild_all_menus()
 
         self._user_states[user.username] = {"menu": "in_game", "table_id": table_id}
 
@@ -2679,7 +2750,17 @@ PlayAural Server
             return
 
         # Generate save name
-        save_name = f"{game.get_name()} - {datetime.now():%Y-%m-%d %H:%M}"
+        user_record = self._db.get_user(username)
+        locale = user_record.locale if user_record else "en"
+        
+        game_name_key = f"game-name-{table.game_type}"
+        game_name = Localization.get(locale, game_name_key)
+        # Fallback if key missing (though it shouldn't be)
+        if game_name == game_name_key:
+             game_name = game.get_name()
+
+        date_str = datetime.now().strftime("%Y-%m-%d %H:%M")
+        save_name = Localization.get(locale, "default-save-name", game=game_name, date=date_str)
 
         # Get game JSON
         game_json = game.to_json()
@@ -2830,6 +2911,7 @@ PlayAural Server
             "convo": convo,
             "sender": username,
             "message": message,
+            "buffer": "chat",
             # "language": language,
         }
 

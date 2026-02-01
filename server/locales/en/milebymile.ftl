@@ -160,3 +160,12 @@ milebymile-error-karma-needs-three-teams = Karma rule requires at least 3 distin
 
 # Formatting
 milebymile-line-format = { $rank }. { $name }: { $points }
+
+# Target selection
+milebymile-target-individual = { $name } ({ $miles } miles)
+milebymile-target-team = Team { $team }: { $members } ({ $miles } miles)
+
+milebymile-discard-card = Discard card
+milebymile-detailed-status = Detailed status
+milebymile-check-status = Check status
+milebymile-dirty-trick = Play dirty trick

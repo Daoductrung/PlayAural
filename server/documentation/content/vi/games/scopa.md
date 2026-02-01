@@ -38,7 +38,7 @@ Bài được chia cho người chơi (thường là 3 lá mỗi lần) và 4 l�
 
 \* Ăn theo Tổng: Nếu không có lá bài nào cùng giá trị, bạn có thể ăn một nhóm các lá bài có tổng bằng giá trị lá bạn đánh ra.
 
-&nbsp;   \* Ví dụ: Bạn đánh lá Già (10) để ăn lá 3 và lá 7 trên bàn.
+   \* Ví dụ: Bạn đánh lá Già (10) để ăn lá 3 và lá 7 trên bàn.
 
 \* Đánh xuống: Nếu bạn không ăn được gì, lá bài của bạn sẽ nằm lại trên bàn.
 

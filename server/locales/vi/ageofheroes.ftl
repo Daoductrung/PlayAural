@@ -436,3 +436,4 @@ ageofheroes-cost-city = 2 Gỗ, Đá
 # Định dạng
 ageofheroes-winner-line = Người thắng: {  }
 ageofheroes-days-line = Số ngày: {  }
+ageofheroes-your-cards = Bài của bạn: { $cards }

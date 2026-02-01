@@ -48,3 +48,4 @@ Keyboard Shortcuts
 *   **1-6**: Take a die of that value from the pool (during Taking phase).
 *   **P**: View the shared pool of dice.
 *   **H**: View your current hand of dice.
+*   **V**: View all players (and their scores/dice counts).

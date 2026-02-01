@@ -381,7 +381,7 @@ class FarkleGame(Game):
         action_set.add(
             Action(
                 id="check_turn_score",
-                label="Check turn score",
+                label=Localization.get(locale, "farkle-check-turn-score"),
                 handler="_action_check_turn_score",
                 is_enabled="_is_check_turn_score_enabled",
                 is_hidden="_is_check_turn_score_hidden",
@@ -394,11 +394,22 @@ class FarkleGame(Game):
         """Define all keybinds for the game."""
         super().setup_keybinds()
 
+        user = None
+        if hasattr(self, 'host_username') and self.host_username:
+             player = self.get_player(self.host_username)
+             if player:
+                 user = self.get_user(player)
+        locale = user.locale if user else "en"
+
         # Turn action keybinds
-        self.define_keybind("r", "Roll dice", ["roll"], state=KeybindState.ACTIVE)
-        self.define_keybind("b", "Bank points", ["bank"], state=KeybindState.ACTIVE)
         self.define_keybind(
-            "c", "Check turn score", ["check_turn_score"], state=KeybindState.ACTIVE
+            "r", Localization.get(locale, "farkle-roll-label"), ["roll"], state=KeybindState.ACTIVE
+        )
+        self.define_keybind(
+            "b", Localization.get(locale, "farkle-bank-label"), ["bank"], state=KeybindState.ACTIVE
+        )
+        self.define_keybind(
+            "c", Localization.get("en", "farkle-check-turn-score"), ["check_turn_score"], state=KeybindState.ACTIVE
         )
 
     def _get_combo_label(
@@ -909,6 +920,7 @@ class FarkleGame(Game):
     def on_start(self) -> None:
         """Called when the game starts."""
         self.status = "playing"
+        self._sync_table_status()
         self.game_active = True
         self.round = 0
 

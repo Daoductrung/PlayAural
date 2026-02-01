@@ -30,9 +30,9 @@ On your turn, you start by rolling 6 dice.
 
 4\. Risk or Stop:
 
-&nbsp;  \* Roll Again: You can roll the remaining dice to try and score more.
+  \* Roll Again: You can roll the remaining dice to try and score more.
 
-&nbsp;  \* Bank: You can stop and bank your current turn score into your permanent total. This ends your turn.
+  \* Bank: You can stop and bank your current turn score into your permanent total. This ends your turn.
 
 5\. Hot Dice: If you manage to score with all 6 dice, you get "Hot Dice"! You receive 6 fresh dice and must continue rolling, accumulating even more points.
 
@@ -52,25 +52,25 @@ The scoring in this version is scaled (Standard / 10):
 
 \* Three of a Kind:
 
-&nbsp;  \* 1s: 100 points.
+  \* 1s: 100 points.
 
-&nbsp;  \* Others: Face Value x 10 (e.g., three 2s = 20, three 6s = 60).
+  \* Others: Face Value x 10 (e.g., three 2s = 20, three 6s = 60).
 
 \* Straights:
 
-&nbsp;  \* Small Straight (1-2-3-4-5 or 2-3-4-5-6): 100 points.
+  \* Small Straight (1-2-3-4-5 or 2-3-4-5-6): 100 points.
 
-&nbsp;  \* Large Straight (1-2-3-4-5-6): 200 points.
+  \* Large Straight (1-2-3-4-5-6): 200 points.
 
 \* Special Sets:
 
-&nbsp;  \* Three Pairs: 150 points.
+  \* Three Pairs: 150 points.
 
-&nbsp;  \* Full House (4 of a kind + Pair): 150 points.
+  \* Full House (4 of a kind + Pair): 150 points.
 
-&nbsp;  \* Double Triplets (Two sets of 3): 250 points.
+  \* Double Triplets (Two sets of 3): 250 points.
 
-&nbsp;  \* Multiples (4, 5, 6 of a kind): Score doubles for each additional matching die.
+  \* Multiples (4, 5, 6 of a kind): Score doubles for each additional matching die.
 
 
 

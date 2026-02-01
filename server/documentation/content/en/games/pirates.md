@@ -30,7 +30,6 @@ Movement \& Map
 
 The world consists of 4 random oceans connected in a line (Total 40 tiles).
 
-\* Left/Right Arrow: Move 1 tile.
 
 \* Level 15+: Unlock moving 2 tiles at once.
 
@@ -56,9 +55,9 @@ You can attack other pirates with Cannonballs if they are within range (Default:
 
 \* Hit: You gain XP and can choose to Board the enemy ship.
 
-&nbsp;   \* Push: Shove them 3-8 tiles (Left or Right) to mess up their positioning.
+   \* Push: Shove them 3-8 tiles (Left or Right) to mess up their positioning.
 
-&nbsp;   \* Steal: Roll dice to attempt stealing a random gem from them!
+   \* Steal: Roll dice to attempt stealing a random gem from them!
 
 
 
@@ -100,11 +99,11 @@ Options \& Variants
 
 \* Gem Stealing:
 
-&nbsp;   \* With Bonus: Skill bonuses apply to steal rolls (Default).
+   \* With Bonus: Skill bonuses apply to steal rolls (Default).
 
-&nbsp;   \* No Bonus: Flat dice roll.
+   \* No Bonus: Flat dice roll.
 
-&nbsp;   \* Disabled: Stealing is not allowed.
+   \* Disabled: Stealing is not allowed.
 
 
 
@@ -112,9 +111,7 @@ Keyboard Shortcuts
 
 
 
-\* Left/Right: Move.
-
-\* Up/Down: Navigate menus.
+* Up/Down: Navigate menus.
 
 \* Enter: Select action / Fire Cannon.
 

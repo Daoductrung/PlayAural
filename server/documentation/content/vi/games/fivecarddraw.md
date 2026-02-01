@@ -38,9 +38,9 @@ Trình tự Chơi
 
 4\. Giai đoạn Đổi bài:
 
-&nbsp;  \* Người chơi có thể chọn bỏ đi tối đa 5 lá bài (hoặc chọn giữ nguyên toàn bộ).
+  \* Người chơi có thể chọn bỏ đi tối đa 5 lá bài (hoặc chọn giữ nguyên toàn bộ).
 
-&nbsp;  \* Những lá bài mới sẽ được chia để thay thế cho những lá đã bỏ.
+  \* Những lá bài mới sẽ được chia để thay thế cho những lá đã bỏ.
 
 5\. Vòng cược Thứ hai: Một vòng cược nữa diễn ra sau khi mọi người đã có tay bài hoàn chỉnh.
 
@@ -80,11 +80,11 @@ Tùy chọn \& Biến thể
 
 \* Chế độ Tố:
 
-&nbsp;  \* Không giới hạn: Bạn có thể cược tất cả số chip mình có bất cứ lúc nào.
+  \* Không giới hạn: Bạn có thể cược tất cả số chip mình có bất cứ lúc nào.
 
-&nbsp;  \* Giới hạn Hũ: Mức tố tối đa bằng tổng số chip đang có trong hũ.
+  \* Giới hạn Hũ: Mức tố tối đa bằng tổng số chip đang có trong hũ.
 
-&nbsp;  \* Gấp đôi Hũ: Mức tố tối đa bằng 2 lần số chip trong hũ.
+  \* Gấp đôi Hũ: Mức tố tối đa bằng 2 lần số chip trong hũ.
 
 \* Chip khởi điểm: Số lượng chip mỗi người có khi bắt đầu.
 
@@ -108,9 +108,11 @@ Trong vòng cược
 
 \* P: Kiểm tra trạng thái bàn (xem hũ, mức cược hiện tại).
 
-\* H: Kiểm tra giá trị tay bài hiện tại.
+\* H: Kiểm tra người chơi trong ván.
 
-\* Shift + H: Đọc chi tiết các lá bài trên tay.
+* W: Đọc các lá bài trên tay.
+
+* G: Kiểm tra giá trị tay bài hiện tại.
 
 
 

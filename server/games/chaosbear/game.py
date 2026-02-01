@@ -199,6 +199,7 @@ class ChaosBearGame(Game):
     def on_start(self) -> None:
         """Called when the game starts."""
         self.status = "playing"
+        self._sync_table_status()
         self.game_active = True
         self.round_number = 1
         self.players_moved_this_round = 0

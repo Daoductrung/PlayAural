@@ -30,7 +30,6 @@ Di Chuyển \& Bản Đồ
 
 Thế giới bao gồm 4 đại dương ngẫu nhiên được nối liền nhau (Tổng cộng 40 ô).
 
-\* Mũi tên Trái/Phải: Di chuyển 1 ô.
 
 \* Cấp 15+: Mở khóa di chuyển 2 ô cùng lúc.
 
@@ -56,9 +55,9 @@ Bạn có thể tấn công cướp biển khác bằng Đại bác nếu họ �
 
 \* Trúng: Bạn nhận XP và có thể chọn Đổ bộ lên tàu địch.
 
-&nbsp;   \* Đẩy: Đẩy họ đi 3-8 ô (Trái hoặc Phải) để làm rối loạn vị trí của họ.
+   \* Đẩy: Đẩy họ đi 3-8 ô (Trái hoặc Phải) để làm rối loạn vị trí của họ.
 
-&nbsp;   \* Cướp đá quý: Gieo xúc xắc để cố gắng cướp một viên đá quý ngẫu nhiên từ họ!
+   \* Cướp đá quý: Gieo xúc xắc để cố gắng cướp một viên đá quý ngẫu nhiên từ họ!
 
 
 
@@ -100,11 +99,11 @@ Tùy Chọn \& Biến Thể
 
 \* Cướp đá quý:
 
-&nbsp;   \* Có cộng điểm thưởng: Điểm thưởng kỹ năng được áp dụng khi gieo xúc xắc cướp (Mặc định).
+   \* Có cộng điểm thưởng: Điểm thưởng kỹ năng được áp dụng khi gieo xúc xắc cướp (Mặc định).
 
-&nbsp;   \* Không cộng điểm thưởng: Gieo xúc xắc phẳng (không cộng thêm chỉ số).
+   \* Không cộng điểm thưởng: Gieo xúc xắc phẳng (không cộng thêm chỉ số).
 
-&nbsp;   \* Tắt: Không cho phép cướp đá quý.
+   \* Tắt: Không cho phép cướp đá quý.
 
 
 
@@ -112,9 +111,7 @@ Phím Tắt
 
 
 
-\* Trái/Phải: Di chuyển.
-
-\* Lên/Xuống: Điều hướng menu.
+* Lên/Xuống: Điều hướng menu.
 
 \* Enter: Chọn hành động / Bắn Đại Bác.
 

@@ -143,10 +143,69 @@ class LeftRightCenterGame(Game):
 
     def setup_keybinds(self) -> None:
         super().setup_keybinds()
-        self.define_keybind("r", "Roll dice", ["roll"], state=KeybindState.ACTIVE)
+        
+        # Need locale for keybinds as this method is called after initialize_lobby
+        # Note: server.py initialize_lobby calls setup_keybinds *after* adding host player.
+        # But we need to ensure we have access to locale.
+        # However, setup_keybinds is on the Game instance, not Player.
+        # Where do we get locale?
+        # self.players is a dict.
+        # We can try to use the host's locale or default to 'en'?
+        # Actually, setup_keybinds is usually called once. Keybinds are global definitions.
+        # Wait, if `locale` is not passed to setup_keybinds, where does it come from?
+        # It's NOT a local variable here!
+        # In `initialize_lobby` (where setup_keybinds is called), we verify if we can access user logic.
+        # But wait, `setup_keybinds` in my previous edits for `NinetyNine`, `MileByMile` etc didn't have `user = ...` logic inside `setup_keybinds`?
+        # Actually, I edited `create_turn_action_set`, NOT `setup_keybinds` in previous tool calls!
+        # `setup_keybinds` does NOT receive player/user.
+        # And Keybind definitions are static per game instance!
+        #
+        # CRITICAL REALIZATION: `Localization.get` inside `setup_keybinds` is meaningless if it depends on a single user's locale,
+        # because keybinds are shared across the game instance which might have multiple players with different locales?
+        # OR does `define_keybind` store the localized string?
+        # If `define_keybind` stores the string, then it uses whatever locale is active when `setup_keybinds` runs.
+        # `initialize_lobby` runs when the first player creates the table. So it uses the HOST's locale.
+        # This means all players see the HOST's language for keybind help?
+        # This is an architectural limitation I must accept for now, OR `Localization.get` should be deferred?
+        # `Action` labels use `Localization.get(locale, ...)` dynamically in `create_turn_action_set` (per player).
+        # Keybinds descriptions... are they sent to client as static strings?
+        # If so, yes, they will be in Host's language.
+        # But I need to get `locale` in `setup_keybinds`. it is NOT defined.
+        #
+        # I MUST ADD logic to get locale in `setup_keybinds`!!
+        # `initialize_lobby` passes `user`. But `setup_keybinds` doesn't take args.
+        # I can get it from `self.players[self.host_username]` if set?
+        # Or I need to fetch the host user again.
+        
+        # Let's see how I did it in `create_turn_action_set` -> I used `self.get_user(player)`.
+        # in `setup_keybinds`, I don't have `player`.
+        # But `self.host_username` should be set by `initialize_lobby` before calling `setup_keybinds`?
+        # Let's check `lobby_actions_mixin.py` or `server.py`.
+        # `server.py`: `game.initialize_lobby(user.username, user)`
+        # `LobbyActionsMixin.initialize_lobby`:
+        #    self.host_username = host_name
+        #    self.add_player(host_name, host_user) ...
+        #    self.setup_keybinds()
+        # So `self.host_username` IS available.
+        
+        user = None
+        if hasattr(self, 'host_username') and self.host_username:
+             # We need to find the user object. 
+             # self.get_player(self.host_username) returns Player object.
+             # self.get_user(player) returns User object.
+             # This seems safe.
+             player = self.get_player(self.host_username)
+             if player:
+                 user = self.get_user(player)
+        
+        locale = user.locale if user else "en"
+
+        self.define_keybind(
+            "r", Localization.get(locale, "lrc-roll-label"), ["roll"], state=KeybindState.ACTIVE
+        )
         self.define_keybind(
             "c",
-            "Center pot",
+            Localization.get("en", "lrc-check-center"),
             ["check_center"],
             state=KeybindState.ACTIVE,
             include_spectators=True,
@@ -159,7 +218,7 @@ class LeftRightCenterGame(Game):
         action_set.add(
             Action(
                 id="check_center",
-                label=Localization.get(locale, "lrc-center-pot"),
+                label=Localization.get(locale, "lrc-check-center"),
                 handler="_action_check_center",
                 is_enabled="_is_check_center_enabled",
                 is_hidden="_is_check_center_hidden",
@@ -173,6 +232,7 @@ class LeftRightCenterGame(Game):
 
     def on_start(self) -> None:
         self.status = "playing"
+        self._sync_table_status()
         self.game_active = True
         self.round = 0
         self.center_pot = 0

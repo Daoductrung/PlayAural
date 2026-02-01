@@ -50,3 +50,5 @@ lrc-option-changed-starting-chips = Số chip khởi điểm được đặt là
 
 # Định dạng
 lrc-line-format = { $player }: { $chips }
+lrc-check-center = Kiểm tra hũ giữa
+lrc-roll-label = Gieo xúc xắc

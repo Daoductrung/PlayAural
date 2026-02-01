@@ -35,4 +35,5 @@ Phím Tắt
 
 * R: Gieo xúc xắc (sau khi đã chọn giữ ít nhất một viên).
 * 1-5: Chọn xúc xắc để giữ.
+* B: Chốt điểm.
 * H: Kiểm tra trạng thái xúc xắc hiện tại.

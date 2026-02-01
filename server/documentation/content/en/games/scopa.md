@@ -38,7 +38,7 @@ Cards are dealt to players (usually 3 at a time) and 4 cards are placed on the t
 
 \* Capture by Sum: If there is no direct match, you can capture a set of cards that sum up to your card's value.
 
-&nbsp;   \* Example: You play a King (10) to capture a 3 and a 7.
+   \* Example: You play a King (10) to capture a 3 and a 7.
 
 \* Discard: If you cannot capture anything, your card stays on the table.
 

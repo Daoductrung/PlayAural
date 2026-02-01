@@ -66,3 +66,7 @@ farkle-combo-full-house = Full house
 # Formatting
 farkle-line-format = { $rank }. { $player }: { $points }
 farkle-combo-fallback = { $combo } for { $points } points
+
+farkle-check-turn-score = Check turn score
+farkle-roll-label = Roll dice
+farkle-bank-label = Bank points

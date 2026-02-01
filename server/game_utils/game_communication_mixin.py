@@ -18,7 +18,7 @@ class GameCommunicationMixin:
     """
 
     def broadcast(
-        self, text: str, buffer: str = "misc", exclude: "Player | None" = None
+        self, text: str, buffer: str = "game", exclude: "Player | None" = None
     ) -> None:
         """Send a message to all players, optionally excluding one."""
         for player in self.players:
@@ -31,7 +31,7 @@ class GameCommunicationMixin:
     def broadcast_l(
         self,
         message_id: str,
-        buffer: str = "misc",
+        buffer: str = "game",
         exclude: "Player | None" = None,
         **kwargs,
     ) -> None:
@@ -48,7 +48,7 @@ class GameCommunicationMixin:
         player: "Player",
         personal_message_id: str,
         others_message_id: str,
-        buffer: str = "misc",
+        buffer: str = "game",
         **kwargs,
     ) -> None:
         """

@@ -1,4 +1,4 @@
-"""Main window for PlayAural v9 client."""
+"""Main window for PlayAural v0.1 client."""
 
 import wx
 from .menu_list import MenuList
@@ -22,7 +22,7 @@ from buffer_system import BufferSystem
 from config_manager import set_item_in_dict
 from localization import Localization
 
-VERSION = "0.1.2"
+VERSION = "0.1.3"
 
 
 class MainWindow(wx.Frame):
@@ -1836,7 +1836,7 @@ class MainWindow(wx.Frame):
                 
             self.sound_manager.play(sound + ".ogg")
             self.speaker.speak(message)
-        self.add_history(message, "chats", False)
+        self.add_history(message, "chat", False)
 
     def on_server_play_sound(self, packet):
         """Handle play_sound packet from server."""

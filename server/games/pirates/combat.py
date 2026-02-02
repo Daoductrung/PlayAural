@@ -101,9 +101,9 @@ def do_attack(
     defender_user = game.get_user(defender)
 
     if attacker_user:
-        attacker_user.speak_l("pirates-attack-you-fire", target=defender.name)
+        attacker_user.speak_l("pirates-attack-you-fire", buffer="game", target=defender.name)
     if defender_user:
-        defender_user.speak_l("pirates-attack-incoming", attacker=attacker.name)
+        defender_user.speak_l("pirates-attack-incoming", buffer="game", attacker=attacker.name)
     game.broadcast_l(
         "pirates-attack-fired",
         attacker=attacker.name,
@@ -126,7 +126,7 @@ def do_attack(
     # Roll defense
     defense_roll = random.randint(1, 6)
     if defender_user:
-        defender_user.speak_l("pirates-defense-roll", roll=defense_roll)
+        defender_user.speak_l("pirates-defense-roll", buffer="game", roll=defense_roll)
     game.broadcast_l("pirates-defense-roll-others", player=defender.name, roll=defense_roll, exclude=defender)
 
     if defense_bonus > 0:
@@ -145,9 +145,9 @@ def do_attack(
         game.play_sound(f"game_pirates/cannonhit{sound_num}.ogg", volume=70)
 
         if attacker_user:
-            attacker_user.speak_l("pirates-attack-hit-you", target=defender.name)
+            attacker_user.speak_l("pirates-attack-hit-you", buffer="game", target=defender.name)
         if defender_user:
-            defender_user.speak_l("pirates-attack-hit-them", attacker=attacker.name)
+            defender_user.speak_l("pirates-attack-hit-them", buffer="game", attacker=attacker.name)
         game.broadcast_l(
             "pirates-attack-hit",
             attacker=attacker.name,
@@ -179,9 +179,9 @@ def do_attack(
     else:
         # Miss!
         if attacker_user:
-            attacker_user.speak_l("pirates-attack-miss-you", target=defender.name)
+            attacker_user.speak_l("pirates-attack-miss-you", buffer="game", target=defender.name)
         if defender_user:
-            defender_user.speak_l("pirates-attack-miss-them")
+            defender_user.speak_l("pirates-attack-miss-them", buffer="game")
         game.broadcast_l(
             "pirates-attack-miss",
             attacker=attacker.name,

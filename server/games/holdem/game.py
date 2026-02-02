@@ -566,7 +566,7 @@ class HoldemGame(Game):
             p.hand = sort_cards(p.hand)
             user = self.get_user(p)
             if user:
-                user.speak_l("poker-dealt-cards", cards=read_cards(p.hand, user.locale))
+                user.speak_l("poker-dealt-cards", buffer="game", cards=read_cards(p.hand, user.locale))
 
     def _announce_board(self, stage: str) -> None:
         for p in self.players:
@@ -576,11 +576,11 @@ class HoldemGame(Game):
                 
             locale = user.locale
             if stage == "flop":
-                user.speak_l("poker-flop", cards=read_cards(self.community, locale))
+                user.speak_l("poker-flop", buffer="game", cards=read_cards(self.community, locale))
             elif stage == "turn":
-                user.speak_l("poker-turn", card=card_name(self.community[-1], locale))
+                user.speak_l("poker-turn", buffer="game", card=card_name(self.community[-1], locale))
             elif stage == "river":
-                user.speak_l("poker-river", card=card_name(self.community[-1], locale))
+                user.speak_l("poker-river", buffer="game", card=card_name(self.community[-1], locale))
 
     def _deal_community(self, count: int) -> None:
         # Burn card (cosmetic)
@@ -979,7 +979,7 @@ class HoldemGame(Game):
                     desc_local = describe_hand(best_score, user.locale)
 
                     if pot_index == 0:
-                        user.speak_l("poker-players-split-pot", players=names, amount=pot.amount, hand=desc_local)
+                        user.speak_l("poker-players-split-pot", buffer="game", players=names, amount=pot.amount, hand=desc_local)
                     else:
                         user.speak_l(
                             "poker-players-split-side-pot",
@@ -1043,14 +1043,14 @@ class HoldemGame(Game):
             return
         pots = self.pot_manager.get_pots()
         if not pots:
-            user.speak_l("poker-pot-total", amount=0)
+            user.speak_l("poker-pot-total", buffer="game", amount=0)
             return
-        user.speak_l("poker-pot-total", amount=self.pot_manager.total_pot())
+        user.speak_l("poker-pot-total", buffer="game", amount=self.pot_manager.total_pot())
         if not self._all_in_ids():
             return
-        user.speak_l("poker-pot-main", amount=pots[0].amount)
+        user.speak_l("poker-pot-main", buffer="game", amount=pots[0].amount)
         for idx, pot in enumerate(pots[1:], start=1):
-            user.speak_l("poker-pot-side", index=idx, amount=pot.amount)
+            user.speak_l("poker-pot-side", buffer="game", index=idx, amount=pot.amount)
 
     def _action_check_bet(self, player: Player, action_id: str) -> None:
         if not self.betting:
@@ -1058,7 +1058,7 @@ class HoldemGame(Game):
         to_call = self.betting.amount_to_call(player.id)
         user = self.get_user(player)
         if user:
-            user.speak_l("poker-to-call", amount=to_call)
+            user.speak_l("poker-to-call", buffer="game", amount=to_call)
 
     def _action_check_min_raise(self, player: Player, action_id: str) -> None:
         if not self.betting:
@@ -1066,7 +1066,7 @@ class HoldemGame(Game):
         min_raise = max(self.betting.last_raise_size, 1)
         user = self.get_user(player)
         if user:
-            user.speak_l("poker-min-raise", amount=min_raise)
+            user.speak_l("poker-min-raise", buffer="game", amount=min_raise)
 
     def _action_check_hand_players(self, player: Player, action_id: str) -> None:
         user = self.get_user(player)
@@ -1079,13 +1079,13 @@ class HoldemGame(Game):
         ]
         count = len(active)
         if count == 0:
-            user.speak_l("poker-hand-players-none")
+            user.speak_l("poker-hand-players-none", buffer="game")
             return
         names = ", ".join(active)
         if count == 1:
-            user.speak_l("poker-hand-players-one", names=names, count=count)
+            user.speak_l("poker-hand-players-one", buffer="game", names=names, count=count)
         else:
-            user.speak_l("poker-hand-players", names=names, count=count)
+            user.speak_l("poker-hand-players", buffer="game", names=names, count=count)
 
     def _action_read_hand(self, player: Player, action_id: str) -> None:
         p = player if isinstance(player, HoldemPlayer) else None
@@ -1093,12 +1093,12 @@ class HoldemGame(Game):
             return
         user = self.get_user(player)
         if user:
-            user.speak(read_cards(p.hand, user.locale))
+            user.speak(read_cards(p.hand, user.locale), buffer="game")
 
     def _action_read_table(self, player: Player, action_id: str) -> None:
         user = self.get_user(player)
         if user:
-            user.speak(read_cards(self.community, user.locale))
+            user.speak(read_cards(self.community, user.locale), buffer="game")
 
     def _action_read_hand_value(self, player: Player, action_id: str) -> None:
         p = player if isinstance(player, HoldemPlayer) else None
@@ -1107,7 +1107,7 @@ class HoldemGame(Game):
         user = self.get_user(player)
         if user:
             desc = describe_partial_hand(p.hand + self.community, user.locale)
-            user.speak(desc)
+            user.speak(desc, buffer="game")
 
     def _action_read_card(self, player: Player, action_id: str) -> None:
         p = player if isinstance(player, HoldemPlayer) else None
@@ -1122,7 +1122,7 @@ class HoldemGame(Game):
             return
         user = self.get_user(player)
         if user:
-            user.speak(card_name(all_cards[idx], user.locale))
+            user.speak(card_name(all_cards[idx], user.locale), buffer="game")
 
     def _action_check_button(self, player: Player, action_id: str) -> None:
         user = self.get_user(player)
@@ -1132,7 +1132,7 @@ class HoldemGame(Game):
         button_id = self.table_state.get_button_id([p.id for p in active])
         button_player = self.get_player_by_id(button_id) if button_id else None
         if button_player:
-            user.speak_l("poker-button-is", player=button_player.name)
+            user.speak_l("poker-button-is", buffer="game", player=button_player.name)
 
     def _action_check_position(self, player: Player, action_id: str) -> None:
         user = self.get_user(player)
@@ -1146,16 +1146,16 @@ class HoldemGame(Game):
         if button_id and player.id in order:
             idx = (order.index(player.id) - order.index(button_id)) % len(order)
             if idx == 0:
-                user.speak_l("poker-position-button")
+                user.speak_l("poker-position-button", buffer="game")
             else:
                 key = "poker-position-seat" if idx == 1 else "poker-position-seats"
-                user.speak_l(key, position=idx)
+                user.speak_l(key, buffer="game", position=idx)
         if len(order) >= 2:
             sb_idx, bb_idx = self.table_state.get_blind_indices(order)
             sb_player = self.get_player_by_id(order[sb_idx])
             bb_player = self.get_player_by_id(order[bb_idx])
             if sb_player and bb_player:
-                user.speak_l("poker-blinds-players", sb=sb_player.name, bb=bb_player.name)
+                user.speak_l("poker-blinds-players", buffer="game", sb=sb_player.name, bb=bb_player.name)
 
     def _action_check_turn_timer(self, player: Player, action_id: str) -> None:
         user = self.get_user(player)
@@ -1163,24 +1163,24 @@ class HoldemGame(Game):
             return
         remaining = self.timer.seconds_remaining()
         if remaining <= 0:
-            user.speak_l("poker-timer-disabled")
+            user.speak_l("poker-timer-disabled", buffer="game")
         else:
-            user.speak_l("poker-timer-remaining", seconds=remaining)
+            user.speak_l("poker-timer-remaining", buffer="game", seconds=remaining)
 
     def _action_check_blind_timer(self, player: Player, action_id: str) -> None:
         user = self.get_user(player)
         if not user:
             return
         if self.blinds_raise_next_hand:
-            user.speak_l("poker-blinds-raise-next-hand")
+            user.speak_l("poker-blinds-raise-next-hand", buffer="game")
             return
         if self.blind_timer_ticks <= 0:
-            user.speak_l("poker-blind-timer-disabled")
+            user.speak_l("poker-blind-timer-disabled", buffer="game")
             return
         remaining = (self.blind_timer_ticks + 19) // 20
         minutes = remaining // 60
         seconds = remaining % 60
-        user.speak_l("poker-blind-timer-remaining-ms", minutes=minutes, seconds=seconds)
+        user.speak_l("poker-blind-timer-remaining-ms", buffer="game", minutes=minutes, seconds=seconds)
 
     def _action_reveal_both(self, player: Player, action_id: str) -> None:
         if self.phase != "showdown":
@@ -1190,7 +1190,7 @@ class HoldemGame(Game):
             return
         user = self.get_user(player)
         if user:
-            user.speak_l("poker-your-hand", cards=read_cards(p.hand, user.locale))
+            user.speak_l("poker-your-hand", buffer="game", cards=read_cards(p.hand, user.locale))
 
     def _action_reveal_first(self, player: Player, action_id: str) -> None:
         if self.phase != "showdown":
@@ -1200,7 +1200,7 @@ class HoldemGame(Game):
             return
         user = self.get_user(player)
         if user and p.hand:
-            user.speak(card_name(p.hand[0], user.locale))
+            user.speak(card_name(p.hand[0], user.locale), buffer="game")
 
     def _action_reveal_second(self, player: Player, action_id: str) -> None:
         if self.phase != "showdown":
@@ -1210,7 +1210,7 @@ class HoldemGame(Game):
             return
         user = self.get_user(player)
         if user and len(p.hand) > 1:
-            user.speak(card_name(p.hand[1], user.locale))
+            user.speak(card_name(p.hand[1], user.locale), buffer="game")
 
     # ==========================================================================
     # Helpers

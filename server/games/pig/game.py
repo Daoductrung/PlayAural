@@ -454,7 +454,7 @@ class PigGame(Game):
                 user = self.get_user(p)
                 if user:
                     team_name = self._team_manager.get_team_name(winning_team, user.locale)
-                    user.speak_l("pig-winner", player=team_name)
+                    user.speak_l("pig-winner", buffer="game", player=team_name)
             self.finish_game()
         elif len(winning_teams) > 1:
             # Tiebreaker! Start immediately (no delay)
@@ -464,7 +464,7 @@ class PigGame(Game):
                 user = self.get_user(player)
                 if user:
                     names_str = Localization.format_list_and(user.locale, team_names)
-                    user.speak_l("game-tiebreaker-players", players=names_str)
+                    user.speak_l("game-tiebreaker-players", buffer="game", players=names_str)
 
             # Mark players not on winning teams as spectators for the tiebreaker
             winning_team_indices = {t.index for t in winning_teams}

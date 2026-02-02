@@ -287,9 +287,9 @@ class TossUpGame(Game):
             result_text = self._format_roll_results(user.locale, green, yellow, red)
 
             if p == player:
-                user.speak_l("tossup-you-roll", results=result_text)
+                user.speak_l("tossup-you-roll", buffer="game", results=result_text)
             else:
-                user.speak_l("tossup-player-rolls", player=player.name, results=result_text)
+                user.speak_l("tossup-player-rolls", buffer="game", player=player.name, results=result_text)
 
         # Check for bust based on rules variant
         is_bust = False
@@ -566,7 +566,7 @@ class TossUpGame(Game):
                 user = self.get_user(player)
                 if user:
                     names_str = Localization.format_list_and(user.locale, names)
-                    user.speak_l("tossup-tie-tiebreaker", players=names_str)
+                    user.speak_l("tossup-tie-tiebreaker", buffer="game", players=names_str)
 
             # Mark non-winners as spectators for the tiebreaker
             winner_names = [w.name for w in winners]

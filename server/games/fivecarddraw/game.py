@@ -427,7 +427,7 @@ class FiveCardDrawGame(Game):
         for p in active:
             user = self.get_user(p)
             if user:
-                user.speak_l("draw-dealt-cards", cards=read_cards(p.hand, user.locale))
+                user.speak_l("draw-dealt-cards", buffer="game", cards=read_cards(p.hand, user.locale))
         self._start_betting_round(start_index=-1)
 
     def _post_ante(self, active: list[FiveCardDrawPlayer]) -> None:
@@ -698,7 +698,7 @@ class FiveCardDrawGame(Game):
         user = self.get_user(p)
         self.broadcast_l("draw-player-draws", exclude=p, player=p.name, count=len(indices))
         if user and drawn_cards:
-            user.speak_l("draw-you-drew-cards", cards=read_cards(drawn_cards, user.locale))
+            user.speak_l("draw-you-drew-cards", buffer="game", cards=read_cards(drawn_cards, user.locale))
         p.to_discard = set()
         self._advance_after_draw(p)
 
@@ -848,7 +848,7 @@ class FiveCardDrawGame(Game):
                     desc_local = describe_hand(best_score, user.locale)
                     
                     if pot_index == 0:
-                        user.speak_l("poker-players-split-pot", players=names, amount=pot.amount, hand=desc_local)
+                        user.speak_l("poker-players-split-pot", buffer="game", players=names, amount=pot.amount, hand=desc_local)
                     else:
                          user.speak_l(
                             "poker-players-split-side-pot",
@@ -927,13 +927,13 @@ class FiveCardDrawGame(Game):
             return
         pots = self.pot_manager.get_pots()
         if not pots:
-            user.speak_l("poker-pot-total", amount=0)
+            user.speak_l("poker-pot-total", buffer="game", amount=0)
             return
-        user.speak_l("poker-pot-total", amount=self.pot_manager.total_pot())
+        user.speak_l("poker-pot-total", buffer="game", amount=self.pot_manager.total_pot())
         if pots:
-            user.speak_l("poker-pot-main", amount=pots[0].amount)
+            user.speak_l("poker-pot-main", buffer="game", amount=pots[0].amount)
         for idx, pot in enumerate(pots[1:], start=1):
-            user.speak_l("poker-pot-side", index=idx, amount=pot.amount)
+            user.speak_l("poker-pot-side", buffer="game", index=idx, amount=pot.amount)
 
     def _action_check_bet(self, player: Player, action_id: str) -> None:
         if not self.betting:
@@ -941,7 +941,7 @@ class FiveCardDrawGame(Game):
         to_call = self.betting.amount_to_call(player.id)
         user = self.get_user(player)
         if user:
-            user.speak_l("poker-to-call", amount=to_call)
+            user.speak_l("poker-to-call", buffer="game", amount=to_call)
 
     def _action_check_min_raise(self, player: Player, action_id: str) -> None:
         if not self.betting:
@@ -949,7 +949,7 @@ class FiveCardDrawGame(Game):
         min_raise = max(self.betting.last_raise_size, 1)
         user = self.get_user(player)
         if user:
-            user.speak_l("poker-min-raise", amount=min_raise)
+            user.speak_l("poker-min-raise", buffer="game", amount=min_raise)
 
     def _action_check_hand_players(self, player: Player, action_id: str) -> None:
         user = self.get_user(player)
@@ -962,13 +962,13 @@ class FiveCardDrawGame(Game):
         ]
         count = len(active)
         if count == 0:
-            user.speak_l("poker-hand-players-none")
+            user.speak_l("poker-hand-players-none", buffer="game")
             return
         names = ", ".join(active)
         if count == 1:
-            user.speak_l("poker-hand-players-one", names=names, count=count)
+            user.speak_l("poker-hand-players-one", buffer="game", names=names, count=count)
         else:
-            user.speak_l("poker-hand-players", names=names, count=count)
+            user.speak_l("poker-hand-players", buffer="game", names=names, count=count)
 
     def _action_read_hand(self, player: Player, action_id: str) -> None:
         p = player if isinstance(player, FiveCardDrawPlayer) else None
@@ -976,7 +976,7 @@ class FiveCardDrawGame(Game):
             return
         user = self.get_user(player)
         if user:
-            user.speak_l("poker-your-hand", cards=read_cards(p.hand, user.locale))
+            user.speak_l("poker-your-hand", buffer="game", cards=read_cards(p.hand, user.locale))
 
     def _action_read_hand_value(self, player: Player, action_id: str) -> None:
         p = player if isinstance(player, FiveCardDrawPlayer) else None
@@ -985,7 +985,7 @@ class FiveCardDrawGame(Game):
         user = self.get_user(player)
         if user:
             desc = describe_partial_hand(p.hand, user.locale)
-            user.speak(desc)
+            user.speak(desc, buffer="game")
 
     def _action_read_card(self, player: Player, action_id: str) -> None:
         p = player if isinstance(player, FiveCardDrawPlayer) else None
@@ -999,7 +999,7 @@ class FiveCardDrawGame(Game):
             return
         user = self.get_user(player)
         if user:
-            user.speak(card_name(p.hand[idx], user.locale))
+            user.speak(card_name(p.hand[idx], user.locale), buffer="game")
 
     def _action_check_turn_timer(self, player: Player, action_id: str) -> None:
         user = self.get_user(player)
@@ -1007,15 +1007,15 @@ class FiveCardDrawGame(Game):
             return
         remaining = self.timer.seconds_remaining()
         if remaining <= 0:
-            user.speak_l("poker-timer-disabled")
+            user.speak_l("poker-timer-disabled", buffer="game")
         else:
-            user.speak_l("poker-timer-remaining", seconds=remaining)
+            user.speak_l("poker-timer-remaining", buffer="game", seconds=remaining)
 
     def _action_check_raise_mode(self, player: Player, action_id: str) -> None:
         user = self.get_user(player)
         if not user:
             return
-        user.speak_l(RAISE_MODE_LABELS.get(self.options.raise_mode, "poker-raise-no-limit"))
+        user.speak_l(RAISE_MODE_LABELS.get(self.options.raise_mode, "poker-raise-no-limit"), buffer="game")
 
     def _action_check_dealer(self, player: Player, action_id: str) -> None:
         user = self.get_user(player)
@@ -1025,7 +1025,7 @@ class FiveCardDrawGame(Game):
         dealer_id = self.table_state.get_button_id([p.id for p in active])
         dealer_player = self.get_player_by_id(dealer_id) if dealer_id else None
         if dealer_player:
-            user.speak_l("poker-dealer-is", player=dealer_player.name)
+            user.speak_l("poker-dealer-is", buffer="game", player=dealer_player.name)
 
     def _action_check_position(self, player: Player, action_id: str) -> None:
         user = self.get_user(player)
@@ -1039,10 +1039,10 @@ class FiveCardDrawGame(Game):
         if dealer_id and player.id in order:
             idx = (order.index(player.id) - order.index(dealer_id)) % len(order)
             if idx == 0:
-                user.speak_l("poker-position-dealer")
+                user.speak_l("poker-position-dealer", buffer="game")
             else:
                 key = "poker-position-dealer-seat" if idx == 1 else "poker-position-dealer-seats"
-                user.speak_l(key, position=idx)
+                user.speak_l(key, buffer="game", position=idx)
 
     # ==========================================================================
     # Helpers
@@ -1113,7 +1113,7 @@ class FiveCardDrawGame(Game):
             return
         user = self.get_user(player)
         if user:
-            user.speak(card_name(p.hand[idx], user.locale))
+            user.speak(card_name(p.hand[idx], user.locale), buffer="game")
 
     def _get_toggle_discard_label(self, player: Player, action_id: str) -> str:
         p = player if isinstance(player, FiveCardDrawPlayer) else None
@@ -1178,9 +1178,9 @@ class FiveCardDrawGame(Game):
             return
         card = card_name(player.hand[idx], user.locale)
         if idx in player.to_discard:
-            user.speak_l("draw-card-discarded", card=card)
+            user.speak_l("draw-card-discarded", buffer="game", card=card)
         else:
-            user.speak_l("draw-card-kept", card=card)
+            user.speak_l("draw-card-kept", buffer="game", card=card)
 
     def _action_card_key(self, player: Player, action_id: str) -> None:
         p = self._require_active_player(player)

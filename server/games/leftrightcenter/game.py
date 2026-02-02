@@ -298,7 +298,7 @@ class LeftRightCenterGame(Game):
             locale = user.locale
             localized_faces = [Localization.get(locale, f"lrc-face-{face}") for face in faces]
             results_text = Localization.format_list_and(locale, localized_faces)
-            user.speak_l("lrc-roll-results", player=player.name, results=results_text)
+            user.speak_l("lrc-roll-results", buffer="game", player=player.name, results=results_text)
 
     def _action_roll(self, player: Player, action_id: str) -> None:
         lrc_player: LeftRightCenterPlayer = player  # type: ignore
@@ -430,7 +430,7 @@ class LeftRightCenterGame(Game):
         user = self.get_user(player)
         if not user:
             return
-        user.speak_l("lrc-center-pot", count=self.center_pot)
+        user.speak_l("lrc-center-pot", buffer="game", count=self.center_pot)
 
     def end_turn(self, delay_ticks: int = 0) -> None:
         """End the current turn with optional delay for turn resolution."""

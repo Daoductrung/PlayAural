@@ -111,7 +111,7 @@ buffer-name-all = all
 buffer-name-misc = misc
 buffer-name-game = game
 buffer-name-system = system
-buffer-name-chat = chat
+buffer-name-chat = Chat
 
 # Broadcast
 system-announcement = System Announcement

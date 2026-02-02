@@ -129,7 +129,7 @@ class BuffSkill(CooldownSkill):
                     u = game.get_user(p)
                     if u:
                         s_name = Localization.get(u.locale, self.name)
-                        u.speak_l("pirates-buff-expired", player=player.name, skill=s_name)
+                        u.speak_l("pirates-buff-expired", buffer="game", player=player.name, skill=s_name)
                 return True
         return False
 
@@ -364,7 +364,7 @@ class SwordFighterSkill(BuffSkill):
 
         user = game.get_user(player)
         if user:
-            user.speak_l("pirates-sword-fighter-activated", turns=self.get_active(player))
+            user.speak_l("pirates-sword-fighter-activated", buffer="game", turns=self.get_active(player))
         
         # Manual broadcast
         for p in game.get_active_players():
@@ -372,7 +372,7 @@ class SwordFighterSkill(BuffSkill):
             u = game.get_user(p)
             if u:
                 s_name = Localization.get(u.locale, self.name)
-                u.speak_l("pirates-skill-activated", player=player.name, skill=s_name)
+                u.speak_l("pirates-skill-activated", buffer="game", player=player.name, skill=s_name)
 
         return "end_turn"
 
@@ -397,7 +397,7 @@ class PushSkill(BuffSkill):
 
         user = game.get_user(player)
         if user:
-            user.speak_l("pirates-push-activated", turns=self.get_active(player))
+            user.speak_l("pirates-push-activated", buffer="game", turns=self.get_active(player))
 
         # Manual broadcast
         for p in game.get_active_players():
@@ -405,7 +405,7 @@ class PushSkill(BuffSkill):
             u = game.get_user(p)
             if u:
                 s_name = Localization.get(u.locale, self.name)
-                u.speak_l("pirates-skill-activated", player=player.name, skill=s_name)
+                u.speak_l("pirates-skill-activated", buffer="game", player=player.name, skill=s_name)
 
         return "end_turn"
 
@@ -430,7 +430,7 @@ class SkilledCaptainSkill(BuffSkill):
 
         user = game.get_user(player)
         if user:
-            user.speak_l("pirates-skilled-captain-activated", turns=self.get_active(player))
+            user.speak_l("pirates-skilled-captain-activated", buffer="game", turns=self.get_active(player))
             
         # Manual broadcast
         for p in game.get_active_players():
@@ -438,7 +438,7 @@ class SkilledCaptainSkill(BuffSkill):
             u = game.get_user(p)
             if u:
                 s_name = Localization.get(u.locale, self.name)
-                u.speak_l("pirates-skill-activated", player=player.name, skill=s_name)
+                u.speak_l("pirates-skill-activated", buffer="game", player=player.name, skill=s_name)
 
         return "end_turn"
 
@@ -508,7 +508,7 @@ class DoubleDevastationSkill(BuffSkill):
 
         user = game.get_user(player)
         if user:
-            user.speak_l("pirates-double-devastation-activated", turns=self.get_active(player))
+            user.speak_l("pirates-double-devastation-activated", buffer="game", turns=self.get_active(player))
             
         # Manual broadcast
         for p in game.get_active_players():
@@ -516,7 +516,7 @@ class DoubleDevastationSkill(BuffSkill):
             u = game.get_user(p)
             if u:
                 s_name = Localization.get(u.locale, self.name)
-                u.speak_l("pirates-skill-activated", player=player.name, skill=s_name)
+                u.speak_l("pirates-skill-activated", buffer="game", player=player.name, skill=s_name)
 
         return "end_turn"
 

@@ -701,7 +701,7 @@ class NinetyNineGame(Game):
             self.pending_card_index = slot
             user = self.get_user(player)
             if user:
-                user.speak_l("ninetynine-ace-choice")
+                user.speak_l("ninetynine-ace-choice", buffer="game")
             self._update_all_turn_actions()
             self.rebuild_all_menus()
             return
@@ -711,7 +711,7 @@ class NinetyNineGame(Game):
             self.pending_card_index = slot
             user = self.get_user(player)
             if user:
-                user.speak_l("ninetynine-ten-choice")
+                user.speak_l("ninetynine-ten-choice", buffer="game")
             self._update_all_turn_actions()
             self.rebuild_all_menus()
             return
@@ -812,12 +812,14 @@ class NinetyNineGame(Game):
             if p == player:
                 user.speak_l(
                     "ninetynine-you-play",
+                    buffer="game",
                     card=c_name,
                     count=new_count,
                 )
             else:
                 user.speak_l(
                     "ninetynine-player-plays",
+                    buffer="game",
                     player=player.name,
                     card=c_name,
                     count=new_count,
@@ -858,7 +860,7 @@ class NinetyNineGame(Game):
             self.rebuild_all_menus()
             user = self.get_user(player)
             if user:
-                user.speak_l("ninetynine-draw-prompt")
+                user.speak_l("ninetynine-draw-prompt", buffer="game")
 
     def _check_milestones(
         self,
@@ -975,9 +977,9 @@ class NinetyNineGame(Game):
                 continue
 
             if listener == player:
-                user.speak_l("ninetynine-you-lose-tokens", amount=amount)
+                user.speak_l("ninetynine-you-lose-tokens", buffer="game", amount=amount)
             else:
-                user.speak_l("ninetynine-player-loses-tokens", player=player.name, amount=amount)
+                user.speak_l("ninetynine-player-loses-tokens", buffer="game", player=player.name, amount=amount)
         self._sync_team_scores()
 
     def _sync_team_scores(self) -> None:
@@ -1105,9 +1107,9 @@ class NinetyNineGame(Game):
                 # For "you draw", we show the card. For others, we just say "player draws a card".
                 if p == player:
                     c_name = card_name_with_article(drawn, user.locale)
-                    user.speak_l("ninetynine-you-draw", card=c_name)
+                    user.speak_l("ninetynine-you-draw", buffer="game", card=c_name)
                 else:
-                    user.speak_l("ninetynine-player-draws", player=player.name)
+                    user.speak_l("ninetynine-player-draws", buffer="game", player=player.name)
 
         self.pending_draw_player_id = None
         self.draw_timeout_ticks = 0
@@ -1118,7 +1120,7 @@ class NinetyNineGame(Game):
         """Announce the current count."""
         user = self.get_user(player)
         if user:
-            user.speak_l("ninetynine-current-count", count=self.count)
+            user.speak_l("ninetynine-current-count", buffer="game", count=self.count)
 
     # ==========================================================================
     # Bot AI

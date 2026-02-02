@@ -143,7 +143,7 @@ class LevelingSystem(DataClassJSONMixin):
 
             if levels_gained == 1:
                 if user:
-                    user.speak_l("pirates-level-up-you", level=self.level)
+                    user.speak_l("pirates-level-up-you", buffer="game", level=self.level)
                 game.broadcast_l(
                     "pirates-level-up",
                     player=player_name,
@@ -171,7 +171,7 @@ class LevelingSystem(DataClassJSONMixin):
                 # For the player leveling up
                 if user:
                     skill_names = ", ".join(Localization.get(user.locale, skill.name) for skill in skills_unlocked)
-                    user.speak_l("pirates-skills-unlocked-you", skills=skill_names)
+                    user.speak_l("pirates-skills-unlocked-you", buffer="game", skills=skill_names)
                 
                 # For other players (manual broadcast)
                 for p in game.get_active_players():

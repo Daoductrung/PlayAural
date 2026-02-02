@@ -21,8 +21,8 @@ from ..messages.localization import Localization
 from ..documentation.manager import DocumentationManager
 
 
-VERSION = "0.1.2"
-LATEST_CLIENT_VERSION = "0.1.2"
+VERSION = "0.1.3"
+LATEST_CLIENT_VERSION = "0.1.3"
 UPDATE_URL = "https://github.com/Daoductrung/PlayAural/releases/latest/download/PlayAural.zip"
 UPDATE_HASH = "" # Optional SHA256
 
@@ -660,7 +660,7 @@ PlayAural Server
         ]
 
         if not tables:
-            user.speak_l("no-active-tables")
+            user.speak_l("no-active-tables", buffer="system")
             self._show_main_menu(user)
             return
         items: list[MenuItem] = []
@@ -1503,6 +1503,7 @@ PlayAural Server
 
                 user.speak_l(
                     "table-created",
+                    buffer="game",
                     host=user.username,
                     game=state.get("game_name", game_type),
                 )
@@ -1514,6 +1515,7 @@ PlayAural Server
                         local_game_name = Localization.get(u.locale, name_key)
                         u.speak_l(
                             "table-created-broadcast", 
+                            buffer="system",
                             host=user.username, 
                             game=local_game_name
                         )
@@ -1522,6 +1524,7 @@ PlayAural Server
                 max_players = game_class.get_max_players()
                 user.speak_l(
                     "waiting-for-players",
+                    buffer="game",
                     current=len(game.players),
                     min=min_players,
                     max=max_players,
@@ -1537,7 +1540,7 @@ PlayAural Server
             if table:
                 self._auto_join_table(user, table, game_type)
             else:
-                user.speak_l("table-not-exists")
+                user.speak_l("table-not-exists", buffer="system")
                 self._show_tables_menu(user, game_type)
 
         elif selection_id == "back":

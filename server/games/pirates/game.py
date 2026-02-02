@@ -460,7 +460,7 @@ class PiratesGame(Game):
             u = self.get_user(p)
             if u:
                 oceans_str = ", ".join(Localization.get(u.locale, key) for key in self.selected_oceans)
-                u.speak_l("pirates-oceans", oceans=oceans_str)
+                u.speak_l("pirates-oceans", buffer="game", oceans=oceans_str)
 
         # Initialize player positions randomly
         for player in self.get_active_players():
@@ -585,7 +585,7 @@ class PiratesGame(Game):
         user = self.get_user(player)
         if user:
             gem_local = Localization.get(user.locale, gem_name)
-            user.speak_l("pirates-gem-found-you", gem=gem_local, value=gem_value)
+            user.speak_l("pirates-gem-found-you", buffer="game", gem=gem_local, value=gem_value)
         
         # Manual broadcast
         for p in self.get_active_players():
@@ -721,7 +721,7 @@ class PiratesGame(Game):
             # Blocked by map edge
             user = self.get_user(player)
             if user:
-                user.speak_l("pirates-map-edge", position=old_position)
+                user.speak_l("pirates-map-edge", buffer="game", position=old_position)
             return False
 
         player.position = new_position
@@ -743,9 +743,9 @@ class PiratesGame(Game):
         if user:
             direction_local = Localization.get(user.locale, direction_key)
             if abs_amount == 1:
-                user.speak_l("pirates-move-you", direction=direction_local, position=player.position)
+                user.speak_l("pirates-move-you", buffer="game", direction=direction_local, position=player.position)
             else:
-                user.speak_l("pirates-move-you-tiles", tiles=abs_amount, direction=direction_local, position=player.position)
+                user.speak_l("pirates-move-you-tiles", buffer="game", tiles=abs_amount, direction=direction_local, position=player.position)
 
         # Manual broadcast
         for p in self.get_active_players():
@@ -837,7 +837,7 @@ class PiratesGame(Game):
                 else:
                     user = self.get_user(player)
                     if user and reason:
-                        user.speak(reason)
+                        user.speak(reason, buffer="game")
                 return
 
     # ==========================================================================
@@ -880,7 +880,7 @@ class PiratesGame(Game):
         user = self.get_user(player)
         if user:
             ocean_name = Localization.get(user.locale, ocean_key) if ocean_key != "Unknown" else "Unknown"
-            user.speak_l("pirates-your-position", position=player.position, ocean=ocean_name)
+            user.speak_l("pirates-your-position", buffer="game", position=player.position, ocean=ocean_name)
 
     def _action_check_moon(self, player: Player, action_id: str) -> None:
         """Check moon brightness (gems collected percentage)."""
@@ -911,7 +911,7 @@ class PiratesGame(Game):
             max_range = skills.get_attack_range(player)
             user = self.get_user(player)
             if user:
-                user.speak_l("pirates-no-targets", range=max_range)
+                user.speak_l("pirates-no-targets", buffer="game", range=max_range)
             return "continue"
 
         # For human players, show target selection menu
@@ -948,7 +948,7 @@ class PiratesGame(Game):
         if not occupied_oceans:
             user = self.get_user(player)
             if user:
-                user.speak_l("pirates-portal-no-ships")
+                user.speak_l("pirates-portal-no-ships", buffer="game")
             self.broadcast_l("pirates-portal-fizzle", player=player.name, exclude=player)
             return "continue"
 
@@ -996,7 +996,7 @@ class PiratesGame(Game):
 
         user = self.get_user(player)
         if user:
-            user.speak_l("pirates-battleship-activated")
+            user.speak_l("pirates-battleship-activated", buffer="game")
             
         # Manual broadcast
         for p in self.get_active_players():
@@ -1004,17 +1004,17 @@ class PiratesGame(Game):
             u = self.get_user(p)
             if u:
                 skill_name = Localization.get(u.locale, skills.BATTLESHIP.name)
-                u.speak_l("pirates-skill-activated", player=player.name, skill=skill_name)
+                u.speak_l("pirates-skill-activated", buffer="game", player=player.name, skill=skill_name)
 
         for shot in range(1, 3):
             targets = self.get_targets_in_range(player)
             if not targets:
                 if user:
-                    user.speak_l("pirates-battleship-no-targets", shot=shot)
+                    user.speak_l("pirates-battleship-no-targets", buffer="game", shot=shot)
                 break
 
             if user:
-                user.speak_l("pirates-battleship-shot", shot=shot)
+                user.speak_l("pirates-battleship-shot", buffer="game", shot=shot)
 
             target = bot_ai.bot_select_target(self, player, targets)
             if target:

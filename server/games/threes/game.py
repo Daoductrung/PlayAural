@@ -265,7 +265,7 @@ class ThreesGame(Game, DiceGameMixin):
             if player.dice.kept_unlocked_count == 0:
                 user = self.get_user(player)
                 if user:
-                    user.speak_l("threes-must-keep")
+                    user.speak_l("threes-must-keep", buffer="game")
                 return
 
         # Roll dice (locks kept dice and rerolls unlocked)
@@ -286,9 +286,9 @@ class ThreesGame(Game, DiceGameMixin):
             dice_str = Localization.format_list(user.locale, parts)
 
             if p == player:
-                user.speak_l("threes-you-rolled", dice=dice_str)
+                user.speak_l("threes-you-rolled", buffer="game", dice=dice_str)
             else:
-                user.speak_l("threes-player-rolled", player=player.name, dice=dice_str)
+                user.speak_l("threes-player-rolled", buffer="game", player=player.name, dice=dice_str)
 
         # Check if auto-score needed (all locked or only 1 unlocked)
         if player.dice.unlocked_count <= 1:
@@ -321,11 +321,11 @@ class ThreesGame(Game, DiceGameMixin):
             return
 
         if not player.dice.has_rolled:
-            user.speak_l("threes-no-dice-yet")
+            user.speak_l("threes-no-dice-yet", buffer="game")
             return
 
         dice_str = self._format_dice_l(player.dice, user.locale)
-        user.speak_l("threes-your-dice", dice=dice_str)
+        user.speak_l("threes-your-dice", buffer="game", dice=dice_str)
 
     def _score_turn(self, player: ThreesPlayer) -> None:
         """Calculate and apply turn score."""
@@ -376,7 +376,7 @@ class ThreesGame(Game, DiceGameMixin):
                     parts.append(Localization.get(user.locale, "threes-score-pair", player=name, score=score))
                 
                 scores_str = Localization.format_list(user.locale, parts)
-                user.speak_l("threes-round-scores", round=self.current_round, scores=scores_str)
+                user.speak_l("threes-round-scores", buffer="game", round=self.current_round, scores=scores_str)
 
         # Check if game is over
         if self.current_round >= self.options.total_rounds:
@@ -443,7 +443,7 @@ class ThreesGame(Game, DiceGameMixin):
                 user = self.get_user(player)
                 if user:
                     winner_names = Localization.format_list_and(user.locale, winner_names_list)
-                    user.speak_l("threes-tie", players=winner_names, score=lowest_score)
+                    user.speak_l("threes-tie", buffer="game", players=winner_names, score=lowest_score)
 
         self.finish_game()
 

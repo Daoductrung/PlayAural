@@ -1630,7 +1630,7 @@ class AgeOfHeroesGame(Game):
         # Announce result
         user = self.get_user(player)
         if user:
-            user.speak_l("ageofheroes-dice-result", total=total, die1=die1, die2=die2)
+            user.speak_l("ageofheroes-dice-result", buffer="game", total=total, die1=die1, die2=die2)
 
         # Announce to others
         for p in self.players:
@@ -1764,7 +1764,7 @@ class AgeOfHeroesGame(Game):
         locale = user.locale
 
         if not player.hand:
-            user.speak_l("ageofheroes-hand-empty")
+            user.speak_l("ageofheroes-hand-empty", buffer="game")
             return
 
         # Group cards by type and subtype
@@ -1788,7 +1788,7 @@ class AgeOfHeroesGame(Game):
                 card_parts.append(card_name)
 
         hand_str = ", ".join(card_parts)
-        user.speak_l("ageofheroes-hand-contents", cards=hand_str, count=len(player.hand))
+        user.speak_l("ageofheroes-hand-contents", buffer="game", cards=hand_str, count=len(player.hand))
 
     def _action_check_status_detailed(self, player: Player, action_id: str) -> None:
         """Show detailed status in a status box."""
@@ -1915,7 +1915,7 @@ class AgeOfHeroesGame(Game):
                 user = self.get_user(player)
                 if user:
                     cards_str = read_cards(player.hand, user.locale)
-                    user.speak_l("ageofheroes-your-cards", cards=cards_str)
+                    user.speak_l("ageofheroes-your-cards", buffer="game", cards=cards_str)
 
     def _draw_cards(self, count: int) -> list[Card]:
         """Draw cards from deck, reshuffling discard pile if needed."""
@@ -1966,7 +1966,7 @@ class AgeOfHeroesGame(Game):
             user = self.get_user(p)
             if user:
                 card_name = get_card_name(card, user.locale)
-                user.speak_l("ageofheroes-discard-card", player=player.name, card=card_name)
+                user.speak_l("ageofheroes-discard-card", buffer="game", player=player.name, card=card_name)
 
     def _start_fair_phase(self) -> None:
         """Start the fair/trading phase."""
@@ -2014,11 +2014,11 @@ class AgeOfHeroesGame(Game):
                 user = self.get_user(player)
                 if user:
                     # Announce base card draw
-                    user.speak_l("ageofheroes-fair-draw-base", count=base_cards)
+                    user.speak_l("ageofheroes-fair-draw-base", buffer="game", count=base_cards)
 
                     # Announce additional road cards if any
                     if road_cards > 0:
-                        user.speak_l("ageofheroes-fair-draw-roads", count=road_cards)
+                        user.speak_l("ageofheroes-fair-draw-roads", buffer="game", count=road_cards)
 
                 # Announce to others
                 for p in self.players:

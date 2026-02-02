@@ -148,7 +148,7 @@ class CrazyEightsGame(Game):
             if not bot_name:
                 user = self.get_user(player)
                 if user:
-                    user.speak_l("no-bot-names-available")
+                    user.speak_l("no-bot-names-available", buffer="game")
                 return
 
         bot_user = Bot(bot_name)
@@ -703,7 +703,7 @@ class CrazyEightsGame(Game):
         user = self.get_user(player)
         if not user:
             return
-        user.speak(self.format_top_card(user.locale))
+        user.speak(self.format_top_card(user.locale), buffer="game")
 
     def _action_read_counts(self, player: Player, action_id: str) -> None:
         user = self.get_user(player)
@@ -720,7 +720,7 @@ class CrazyEightsGame(Game):
         if deck_count > 0:
             parts.append(Localization.get(locale, "crazyeights-deck-count", count=deck_count))
         text = ", ".join(parts) if parts else Localization.get(locale, "crazyeights-no-players")
-        user.speak(text)
+        user.speak(text, buffer="game")
 
     def _action_check_turn_timer(self, player: Player, action_id: str) -> None:
         user = self.get_user(player)
@@ -728,9 +728,9 @@ class CrazyEightsGame(Game):
             return
         remaining = self.timer.seconds_remaining()
         if remaining <= 0:
-            user.speak_l("crazyeights-timer-disabled")
+            user.speak_l("crazyeights-timer-disabled", buffer="game")
         else:
-            user.speak_l("crazyeights-timer-remaining", seconds=remaining)
+            user.speak_l("crazyeights-timer-remaining", buffer="game", seconds=remaining)
 
     # ==========================================================================
     # Action state helpers
@@ -1142,6 +1142,7 @@ class CrazyEightsGame(Game):
             )
             user.speak_l(
                 "crazyeights-round-summary",
+                buffer="game",
                 player=winner.name,
                 details=details,
                 total=total,
@@ -1160,6 +1161,7 @@ class CrazyEightsGame(Game):
                 continue
             user.speak_l(
                 "crazyeights-start-card",
+                buffer="game",
                 player=dealer_name,
                 card=self.format_top_card(user.locale),
             )
@@ -1170,7 +1172,7 @@ class CrazyEightsGame(Game):
             if not user:
                 continue
             suit_name = self._suit_name(suit, user.locale)
-            user.speak_l("crazyeights-suit-chosen", suit=suit_name)
+            user.speak_l("crazyeights-suit-chosen", buffer="game", suit=suit_name)
 
     def _broadcast_play(self, player: CrazyEightsPlayer, card: Card) -> None:
         for p in self.players:
@@ -1179,6 +1181,7 @@ class CrazyEightsGame(Game):
                 continue
             user.speak_l(
                 "crazyeights-player-plays",
+                buffer="game",
                 player=player.name,
                 card=self.format_card(card, user.locale),
             )
@@ -1189,14 +1192,14 @@ class CrazyEightsGame(Game):
             user = self.get_user(p)
             if not user:
                 continue
-            user.speak_l(key, player=player.name, count=count)
+            user.speak_l(key, buffer="game", player=player.name, count=count)
 
     def _broadcast_pass(self, player: CrazyEightsPlayer) -> None:
         for p in self.players:
             user = self.get_user(p)
             if not user:
                 continue
-            user.speak_l("crazyeights-player-passes", player=player.name)
+            user.speak_l("crazyeights-player-passes", buffer="game", player=player.name)
 
     def _play_round_end_sounds(
         self,

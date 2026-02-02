@@ -458,7 +458,7 @@ class YahtzeeGame(Game, DiceGameMixin):
         # If no rolls left, prompt to choose category
         if ytz_player.rolls_left == 0:
             if user:
-                user.speak_l("yahtzee-choose-category")
+                user.speak_l("yahtzee-choose-category", buffer="game")
 
         # Bot thinking time
         if player.is_bot:
@@ -569,7 +569,7 @@ class YahtzeeGame(Game, DiceGameMixin):
             return
 
         if not ytz_current.dice.has_rolled:
-            user.speak_l("yahtzee-not-rolled")
+            user.speak_l("yahtzee-not-rolled", buffer="game")
             return
 
         dice_strs = [str(d) for d in ytz_current.dice.values]
@@ -582,9 +582,9 @@ class YahtzeeGame(Game, DiceGameMixin):
         ]
         if kept:
             kept_str = Localization.format_list(user.locale, kept)
-            user.speak_l("yahtzee-your-dice-kept", dice=dice_str, kept=kept_str)
+            user.speak_l("yahtzee-your-dice-kept", buffer="game", dice=dice_str, kept=kept_str)
         else:
-            user.speak_l("yahtzee-your-dice", dice=dice_str)
+            user.speak_l("yahtzee-your-dice", buffer="game", dice=dice_str)
 
     def _action_view_scoresheet(self, player: Player, action_id: str) -> None:
         """View scoresheet."""
@@ -774,7 +774,7 @@ class YahtzeeGame(Game, DiceGameMixin):
                 user = self.get_user(p)
                 if user:
                     names_str = Localization.format_list_and(user.locale, winner_names)
-                    user.speak_l("yahtzee-winners-tie", players=names_str, score=high_score)
+                    user.speak_l("yahtzee-winners-tie", buffer="game", players=names_str, score=high_score)
 
         # Commit round scores to total
         self._team_manager.commit_round_scores()

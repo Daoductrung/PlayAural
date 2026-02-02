@@ -111,7 +111,7 @@ buffer-name-all = tất cả
 buffer-name-misc = hỗn hợp
 buffer-name-game = trò chơi
 buffer-name-system = hệ thống
-buffer-name-chat = chat
+buffer-name-chat = Trò chuyện
 
 # Broadcast
 system-announcement = Thông báo Hệ thống

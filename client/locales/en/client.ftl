@@ -46,6 +46,10 @@ login-error-account-not-found = Account not found
 login-error-server-url = Could not determine server URL
 login-unknown-server = Unknown Server
 login-unknown-account = Unknown Account
+auth-error-wrong-password = Incorrect password.
+auth-error-user-not-found = User does not exist.
+auth-registration-success = Registration successful! You can now log in with your credentials.
+auth-username-taken = Username already taken. Please choose a different username.
 
 # Login UI Overhaul
 login-welcome-title = Welcome to PlayAural

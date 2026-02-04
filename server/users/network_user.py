@@ -4,6 +4,7 @@ from typing import Any, TYPE_CHECKING
 
 from .base import User, MenuItem, EscapeBehavior, generate_uuid
 from .preferences import UserPreferences
+from ..messages.localization import Localization
 
 if TYPE_CHECKING:
     from ..network.websocket_server import ClientConnection
@@ -21,6 +22,7 @@ class NetworkUser(User):
         username: str,
         locale: str,
         connection: "ClientConnection",
+        client_type: str = "python",  # Default to python client for legacy compatibility
         uuid: str | None = None,
         preferences: UserPreferences | None = None,
         trust_level: int = 1,
@@ -30,6 +32,7 @@ class NetworkUser(User):
         self._username = username
         self._locale = locale
         self._connection = connection
+        self._client_type = client_type
         self._preferences = preferences or UserPreferences()
         self._trust_level = trust_level
         self._approved = approved
@@ -51,6 +54,10 @@ class NetworkUser(User):
     @property
     def locale(self) -> str:
         return self._locale
+
+    @property
+    def client_type(self) -> str:
+        return self._client_type
 
     def set_locale(self, locale: str) -> None:
         """Set the user's locale."""
@@ -98,6 +105,26 @@ class NetworkUser(User):
         packet = {"type": "speak", "text": text}
         if buffer != "misc":
             packet["buffer"] = buffer
+        self._queue_packet(packet)
+
+    def speak_l(self, message_id: str, buffer: str = "misc", **kwargs) -> None:
+        """
+        Send a localized message with params.
+        Attempts server-side translation first, but sends raw key and params
+        to allow client-side translation/overrides.
+        """
+        # Try to format on server
+        text = Localization.get(self.locale, message_id, **kwargs)
+        
+        packet = {
+            "type": "speak",
+            "text": text,        # Result of server translation (or key if missing)
+            "key": message_id,   # The raw key
+            "params": kwargs     # The params for client-side functionality
+        }
+        if buffer != "misc":
+            packet["buffer"] = buffer
+            
         self._queue_packet(packet)
 
     def play_sound(

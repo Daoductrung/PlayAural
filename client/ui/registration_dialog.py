@@ -173,44 +173,62 @@ class RegistrationDialog(wx.Dialog):
                     )
                 )
 
-                # Wait for response (server will send a "speak" message)
+                # Wait for response
                 message = await asyncio.wait_for(ws.recv(), timeout=5.0)
                 data = json.loads(message)
 
-                if data.get("type") == "speak":
-                    # The server sends a speak message regardless of success/fail, 
-                    # but typically "Account created successfully" or similar.
-                    # We should probably improve server side to send a real 'register_success' or 'register_failed' packet.
-                    # For now, we return the text.
-                    return data.get("text", "Registration successful")
+                if data.get("type") == "register_response":
+                    return data
+                elif data.get("type") == "speak":
+                    # Legacy server fallback
+                    return {"status": "legacy", "text": data.get("text")}
                 else:
-                    return Localization.get("reg-unexpected-error")
+                    return {"status": "error", "error": "unexpected", "text": Localization.get("reg-unexpected-error")}
 
         except asyncio.TimeoutError:
-            return Localization.get("reg-timeout-error")
+            return {"status": "error", "error": "timeout", "text": Localization.get("reg-timeout-error")}
         except Exception as e:
-            return Localization.get("reg-error-exception", error=str(e))
+            return {"status": "error", "error": "exception", "text": Localization.get("reg-error-exception", error=str(e))}
 
-    def _show_registration_result(self, message):
+    def _show_registration_result(self, result):
         """Show registration result to user."""
         self.register_btn.Enable(True)
 
-        # Check if it was successful
-        # This is a bit fragile relying on string matching, but without server protocol change it's what we have.
-        # Common success messages: "Account created successfully", "Account pending approval"
-        # Common error messages: "Username already taken"
-        
-        # NOTE: User reported "User already registered" false positive.
-        # This usually happens if the string match logic is wrong or server logic is wrong.
-        # Let's check server response in next step if this persists.
-        
-        is_success = "success" in message.lower() or "created" in message.lower() or "approval" in message.lower()
+        # Handle struct response
+        if isinstance(result, dict) and "status" in result:
+             status = result["status"]
+             if status == "success":
+                 # Save for pre-fill
+                self.registered_username = self.username_input.GetValue().strip()
+                wx.MessageBox(
+                    result.get("text", Localization.get("reg-success-title")), 
+                    Localization.get("reg-success-title"), 
+                    wx.OK | wx.ICON_INFORMATION
+                )
+                self.EndModal(wx.ID_OK)
+                return
+             elif status == "error":
+                 error_code = result.get("error")
+                 msg = result.get("text", result.get("error"))
+                 if error_code == "username_taken":
+                      wx.MessageBox(msg, Localization.get("reg-failed-title"), wx.OK | wx.ICON_WARNING)
+                 else:
+                      wx.MessageBox(msg, Localization.get("reg-failed-title"), wx.OK | wx.ICON_ERROR)
+                 return
+             elif status == "legacy":
+                 # Fallback to string matching
+                 message = result.get("text", "")
+                 pass 
+        else:
+             # String fallback (legacy error handling from _send wrapper)
+             message = str(result)
+
+        # Legacy String Matching (Robustness)
+        is_success = "success" in message.lower() or "created" in message.lower() or "approval" in message.lower() or "thành công" in message.lower()
         is_taken = "pending" not in message.lower() and ("taken" in message.lower() or "exists" in message.lower())
 
         if is_success:
-            # Save for pre-fill
             self.registered_username = self.username_input.GetValue().strip()
-            
             wx.MessageBox(
                 message, Localization.get("reg-success-title"), wx.OK | wx.ICON_INFORMATION
             )

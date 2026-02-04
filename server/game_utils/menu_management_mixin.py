@@ -8,6 +8,7 @@ if TYPE_CHECKING:
     from .actions import ResolvedAction
 
 from ..users.base import MenuItem, EscapeBehavior
+from ..messages.localization import Localization
 
 
 class MenuManagementMixin:
@@ -35,6 +36,20 @@ class MenuManagementMixin:
         items: list[MenuItem] = []
         for resolved in self.get_all_visible_actions(player):
             items.append(MenuItem(text=resolved.label, id=resolved.action.id))
+
+        # WEB-SPECIFIC: Add static control buttons
+        client_type = getattr(user, "client_type", None)
+        if client_type == "web":
+            # 1. Actions Menu / Context Menu (Top Left)
+            items.append(MenuItem(
+                text=Localization.get(user.locale, "actions-menu"),
+                id="web_actions_menu"
+            ))
+            # 2. Leave Table (Bottom Right)
+            items.append(MenuItem(
+                text=Localization.get(user.locale, "game-leave"), # Use "game-leave" ("Leave" or "Leave table") 
+                id="web_leave_table"
+            ))
 
         user.show_menu(
             "turn_menu",
@@ -65,6 +80,19 @@ class MenuManagementMixin:
         items: list[MenuItem] = []
         for resolved in self.get_all_visible_actions(player):
             items.append(MenuItem(text=resolved.label, id=resolved.action.id))
+            
+        # WEB-SPECIFIC: Add static control buttons
+        if user.client_type == "web":
+            # 1. Actions Menu / Context Menu (Top Left)
+            items.append(MenuItem(
+                text=Localization.get(user.locale, "actions-menu"),
+                id="web_actions_menu"
+            ))
+            # 2. Leave Table (Bottom Right)
+            items.append(MenuItem(
+                text=Localization.get(user.locale, "game-leave"),
+                id="web_leave_table"
+            ))
 
         user.update_menu("turn_menu", items, selection_id=selection_id)
 

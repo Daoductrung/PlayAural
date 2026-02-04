@@ -37,12 +37,63 @@ class EventHandlingMixin:
         elif event_type == "keybind":
             self._handle_keybind_event(player, event)
 
+        elif event_type == "action":
+            self._handle_action_event(player, event)
+
+    def _handle_action_event(self, player: "Player", event: dict) -> None:
+        """Handle a direct action execution event."""
+        action_id = event.get("action")
+        if not action_id:
+            return
+
+        # Check if action is available (can verify existence)
+        action = self.find_action(player, action_id)
+        if not action:
+            return
+
+        # Extract context
+        context_data = event.get("context", {})
+        menu_item_id = context_data.get("menu_item_id")
+        
+        # Import here to avoid circular dependency
+        from ..games.base import ActionContext
+
+        context = ActionContext(
+            menu_item_id=menu_item_id,
+            # We could add more context if needed
+        )
+
+        resolved = self.resolve_action(player, action)
+        if resolved.enabled:
+            self.execute_action(player, action_id, context=context)
+            
+            # Don't rebuild if action is waiting for input
+            if player.id not in self._pending_actions:
+                self.rebuild_all_menus()
+        elif resolved.disabled_reason:
+            if resolved.disabled_reason != "action-not-available":
+                user = self.get_user(player)
+                if user:
+                    user.speak_l(resolved.disabled_reason)
+
     def _handle_menu_event(self, player: "Player", event: dict) -> None:
         """Handle a menu selection event."""
         menu_id = event.get("menu_id")
         selection_id = event.get("selection_id", "")
+        
+        print(f"DEBUG: Menu Event: menu_id={menu_id}, selection_id={selection_id}, player={player.name}")
 
         if menu_id == "turn_menu":
+            # WEB-SPECIFIC: Intercept specific button IDs
+            if selection_id == "web_actions_menu":
+                # Directly call the show actions menu handler
+                self._action_show_actions_menu(player, "show_actions_menu")
+                return
+            elif selection_id == "web_leave_table":
+                # Directly call the leave game handler
+                self._action_leave_game(player, "leave_game")
+                return
+
             # If interacting with turn_menu, actions menu is no longer open
             self._actions_menu_open.discard(player.id)
             # Try by ID first, then by index

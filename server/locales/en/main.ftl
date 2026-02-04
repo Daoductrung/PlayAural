@@ -11,8 +11,12 @@ category-uncategorized = Uncategorized
 auth-username-password-required = Username and password are required.
 auth-registration-success = Registration successful! You can now log in with your credentials.
 auth-username-taken = Username already taken. Please choose a different username.
+auth-error-wrong-password = Incorrect password.
+auth-error-user-not-found = User does not exist.
 chat-language-english = English
 chat-global = { $player } says globally: { $message }
+dev-announcement-broadcast = { $dev } is a developer.
+admin-announcement-broadcast = { $admin } is an administrator.
 
 # Menu titles
 main-menu-title = Main Menu

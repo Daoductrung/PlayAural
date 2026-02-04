@@ -2825,6 +2825,29 @@ class AgeOfHeroesGame(Game):
         player.pending_offer_card_index = -1
         self.rebuild_all_menus()
 
+    def _action_cancel_offer(self, player: Player, action_id: str) -> None:
+        """Handle canceling a trade offer."""
+        if not isinstance(player, AgeOfHeroesPlayer):
+            return
+
+        if self.phase != GamePhase.FAIR:
+            return
+
+        if player.has_stopped_trading:
+            return
+
+        # Extract card index from action_id
+        try:
+            card_index = int(action_id.replace("cancel_offer_", ""))
+        except ValueError:
+            return
+
+        if cancel_offer(self, player, card_index):
+            # Announce cancellation (optional, maybe just silence or generic sound)
+            # Recheck trades just in case (though unlikely to create new matches)
+            check_and_execute_trades(self)
+            self.rebuild_all_menus()
+
     def _action_discard_card(self, player: Player, action_id: str) -> None:
         """Handle discard card action - remove selected card from hand."""
         if not isinstance(player, AgeOfHeroesPlayer):

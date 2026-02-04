@@ -46,6 +46,10 @@ login-error-account-not-found = Không tìm thấy tài khoản
 login-error-server-url = Không thể xác định địa chỉ máy chủ
 login-unknown-server = Máy chủ không xác định
 login-unknown-account = Tài khoản không xác định
+auth-error-wrong-password = Mật khẩu không đúng.
+auth-error-user-not-found = Tài khoản không tồn tại.
+auth-registration-success = Đăng ký thành công! Bạn có thể đăng nhập bằng thông tin xác thực của mình.
+auth-username-taken = Tên người dùng đã được sử dụng. Vui lòng chọn một tên người dùng khác.
 
 # Login UI Overhaul
 login-welcome-title = Chào mừng đến với PlayAural

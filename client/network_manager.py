@@ -230,6 +230,8 @@ class NetworkManager:
             self.main_window.on_server_game_list(packet)
         elif packet_type == "disconnect":
             self.main_window.on_server_disconnect(packet)
+        elif packet_type == "login_failed":
+            self.main_window.on_login_failed(packet)
         elif packet_type == "update_options_lists":
             self.main_window.on_update_options_lists(packet)
         elif packet_type == "open_client_options":

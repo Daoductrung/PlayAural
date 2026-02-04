@@ -11,8 +11,12 @@ category-uncategorized = Chưa phân loại
 auth-username-password-required = Yêu cầu phải có tên người dùng và mật khẩu.
 auth-registration-success = Đăng ký thành công! Bây giờ bạn có thể đăng nhập bằng thông tin xác thực của mình.
 auth-username-taken = Tên người dùng đã được sử dụng. Vui lòng chọn một tên người dùng khác.
+auth-error-wrong-password = Mật khẩu không đúng.
+auth-error-user-not-found = Tài khoản không tồn tại.
 chat-language-english = Tiếng Anh
 chat-global = { $player } nói trên kênh chung: { $message }
+dev-announcement-broadcast = { $dev } là nhà phát triển.
+admin-announcement-broadcast = { $admin } là quản trị viên.
 
 # Tiêu đề Menu
 main-menu-title = Menu Chính

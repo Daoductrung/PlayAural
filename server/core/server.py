@@ -21,8 +21,8 @@ from ..messages.localization import Localization
 from ..documentation.manager import DocumentationManager
 
 
-VERSION = "0.1.3"
-LATEST_CLIENT_VERSION = "0.1.3"
+VERSION = "0.1.4"
+LATEST_CLIENT_VERSION = "0.1.4"
 UPDATE_URL = "https://github.com/Daoductrung/PlayAural/releases/latest/download/PlayAural.zip"
 UPDATE_HASH = "" # Optional SHA256
 
@@ -312,16 +312,27 @@ PlayAural Server
         """Handle authorization packet."""
         username = packet.get("username", "")
         password = packet.get("password", "")
+        # Extract client type (default to python for legacy clients)
+        client_type = packet.get("client", "python")
 
         # Try to authenticate
+        # Try to authenticate
         if not self._auth.authenticate(username, password):
+            # Determine specific failure reason
+            reason = "wrong_password"
+            if not self._auth.get_user(username):
+                reason = "user_not_found"
+            
             await client.send(
                 {
-                    "type": "disconnect",
-                    "reason": "Invalid credentials",
+                    "type": "login_failed",
+                    "reason": reason,
                     "reconnect": False,
                 }
             )
+            # Give a tiny delay for packet to flush before disconnect? 
+            # Usually await send is enough.
+            # We still disconnect as per protocol
             return
 
         # Authentication successful
@@ -342,7 +353,7 @@ PlayAural Server
             except (json.JSONDecodeError, KeyError):
                 pass  # Use defaults on error
         user = NetworkUser(
-            username, locale, client, uuid=user_uuid, preferences=preferences,
+            username, locale, client, client_type=client_type, uuid=user_uuid, preferences=preferences,
             trust_level=trust_level, approved=is_approved
         )
         self._users[username] = user
@@ -396,7 +407,7 @@ PlayAural Server
 
              # If user is a developer or admin, announce that as well
              if trust_level >= 3:
-                  self._broadcast_dev_announcement(username)
+                  await self._broadcast_dev_announcement(username)
              elif trust_level >= 2:
                   self._broadcast_admin_announcement(username)
 
@@ -467,8 +478,9 @@ PlayAural Server
         # Try to register the user
         if self._auth.register(username, password, locale=locale, email=email, bio=bio):
             await client.send({
-                "type": "speak",
-                "text": Localization.get(locale, "auth-registration-success"),
+                "type": "register_response",
+                "status": "success",
+                "text": Localization.get(locale, "auth-registration-success"), # Fallback text
                 "locale": locale
             })
             # Notify admins of new account request (only if user needs approval)
@@ -476,7 +488,9 @@ PlayAural Server
                 self._notify_admins("account-request", "accountrequest.ogg")
         else:
             await client.send({
-                "type": "speak",
+                "type": "register_response",
+                "status": "error",
+                "error": "username_taken",
                 "text": Localization.get(locale, "auth-username-taken")
             })
 
@@ -751,8 +765,9 @@ PlayAural Server
             prefs.dice_keeping_style, "dice-keeping-style-indexes"
         )
         dice_style_name = Localization.get(user.locale, style_key)
-
-        items = [
+        
+        items = []
+        items.extend([
             MenuItem(
                 text=Localization.get(
                     user.locale, "language-option", language=current_lang
@@ -805,28 +820,36 @@ PlayAural Server
                 ),
                 id="mute_table_chat",
             ),
-            MenuItem(
-                text=Localization.get(
-                    user.locale,
-                    "invert-multiline-enter-option",
-                    status=Localization.get(
+        ])
+
+        # PC-specific options (Hide for Web)
+        if user.client_type != "web":
+            items.extend([
+                MenuItem(
+                    text=Localization.get(
                         user.locale,
-                        "option-on" if prefs.invert_multiline_enter_behavior else "option-off",
+                        "invert-multiline-enter-option",
+                        status=Localization.get(
+                            user.locale,
+                            "option-on" if prefs.invert_multiline_enter_behavior else "option-off",
+                        ),
                     ),
+                    id="invert_multiline_enter",
                 ),
-                id="invert_multiline_enter",
-            ),
-            MenuItem(
-                text=Localization.get(
-                    user.locale,
-                    "play-typing-sounds-option",
-                    status=Localization.get(
+                MenuItem(
+                    text=Localization.get(
                         user.locale,
-                        "option-on" if prefs.play_typing_sounds else "option-off",
+                        "play-typing-sounds-option",
+                        status=Localization.get(
+                            user.locale,
+                            "option-on" if prefs.play_typing_sounds else "option-off",
+                        ),
                     ),
+                    id="play_typing_sounds",
                 ),
-                id="play_typing_sounds",
-            ),
+            ])
+
+        items.extend([
             MenuItem(
                 text=Localization.get(
                     user.locale,
@@ -855,7 +878,7 @@ PlayAural Server
                 id="dice_keeping_style",
             ),
             MenuItem(text=Localization.get(user.locale, "back"), id="back"),
-        ]
+        ])
         user.show_menu(
             "options_menu",
             items,

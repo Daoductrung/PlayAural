@@ -336,9 +336,17 @@ class LoginDialog(wx.Dialog):
             elif result == "refused":
                  error_msg = Localization.get("login-error-connection-refused")
             elif result == "auth_failed":
-                 error_msg = Localization.get("login-info-failed") # Verification failed
+                  error_msg = Localization.get("login-info-failed") # Verification failed
+            elif isinstance(result, dict) and result.get("type") == "login_failed":
+                 reason = result.get("reason")
+                 if reason == "wrong_password":
+                      error_msg = Localization.get("auth-error-wrong-password")
+                 elif reason == "user_not_found":
+                      error_msg = Localization.get("auth-error-user-not-found")
+                 else:
+                      error_msg = Localization.get("login-info-failed")
             elif isinstance(result, str) and result.startswith("error:"):
-                 error_msg = Localization.get("login-error-unknown", error=result)
+                  error_msg = Localization.get("login-error-unknown", error=result)
             
             try:
                 self.status_text.SetLabel(error_msg)
@@ -378,6 +386,8 @@ class LoginDialog(wx.Dialog):
                     
                     if data.get("type") == "authorize_success":
                         return True
+                    elif data.get("type") == "login_failed":
+                        return data
                     else:
                         return "auth_failed"
                 except asyncio.TimeoutError:

@@ -1,0 +1,10 @@
+    switchLanguage(locale) {
+        console.log(`Switching language to: ${locale}`);
+        Localization.load(locale).then(() => {
+            this.updateUIText();
+        });
+    }
+}
+
+// Initialize Game Client
+const gameClient = new GameClient();

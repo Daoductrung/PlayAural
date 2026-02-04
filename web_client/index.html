@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PlayAural Web</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="lang-selector.css">
+</head>
+
+<body>
+    <script>
+        window.onerror = function (msg, url, line, col, error) {
+            let extra = "";
+            if (error && error.stack) extra = "\nStack: " + error.stack;
+            alert("Script Error: " + msg + "\nLine: " + line + "\nCol: " + col + extra + "\n\nPlease check the Console (F12) for more details.");
+
+            document.body.innerHTML += '<div style="color:red; background:white; padding:10px; border:1px solid red; margin:10px; z-index:9999; position:relative;">' +
+                "Script Error: " + msg + "<br>Line: " + line + "<br>URL: " + url + "</div>";
+            return false;
+        };
+    </script>
+
+    <!-- Screen Reader Announcers (dual regions for real-time game announcements) -->
+    <div id="sr-announcer-1" aria-live="polite" aria-atomic="true" class="sr-only"></div>
+    <div id="sr-announcer-2" aria-live="polite" aria-atomic="true" class="sr-only"></div>
+
+    <!-- Landing Screen -->
+    <div id="landing-screen" class="screen-container">
+        <div class="auth-box landing-content">
+            <h1 id="landing-title">Welcome to PlayAural Web</h1>
+
+            <div class="language-selector">
+                <button type="button" onclick="Game.setLanguage('en')" class="lang-btn">English</button>
+                <button type="button" onclick="Game.setLanguage('vi')" class="lang-btn">Tiếng Việt</button>
+            </div>
+
+            <p id="intro-text" class="intro-text" style="margin: 20px 0; line-height: 1.5;">
+                PlayAural is an audio-first online gaming platform designed for accessibility. Built on PlayPalace, it
+                offers a shared space for casual players to enjoy various card, dice, and adventure games together on
+                equal footing.
+            </p>
+
+            <!-- Default Actions (No saved session) -->
+            <div id="landing-actions" class="form-actions">
+                <button id="btn-show-login" onclick="Game.showLogin()">Login</button>
+                <button id="btn-show-register" class="secondary-btn" onclick="Game.showRegister()">Register</button>
+            </div>
+
+            <!-- Saved Session View (Hidden by default) -->
+            <div id="saved-session-view" class="hidden"
+                style="margin-top: 20px; border-top: 1px solid #444; padding-top: 20px;">
+                <p id="logged-in-as" style="margin-bottom: 15px; font-weight: bold; color: #4CAF50;">Logged in as: User
+                </p>
+                <button id="btn-play-now" onclick="Game.autoLoginConnection()">Play</button>
+                <button id="btn-remove-account" class="danger-btn" onclick="Game.removeAccount()"
+                    style="margin-top: 10px;">Remove Account</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Login Screen -->
+    <div id="login-screen" class="screen-container hidden">
+        <div class="auth-box">
+            <h1 id="login-title">PlayAural Web</h1>
+
+            <form id="login-form">
+                <div class="form-group" style="display: none;">
+                    <label for="server-url" id="login-server-label">Server URL</label>
+                    <input type="text" id="server-url" value="wss://playaural.ddt.one:443" required>
+                </div>
+                <div class="form-group">
+                    <label for="username" id="login-username-label">Username</label>
+                    <input type="text" id="username" required autocomplete="username">
+                </div>
+                <div class="form-group">
+                    <label for="password" id="login-password-label">Password</label>
+                    <input type="password" id="password" required autocomplete="current-password">
+                </div>
+
+                <div class="form-group checkbox-group" style="flex-direction: row; align-items: center; gap: 10px;">
+                    <input type="checkbox" id="chk-auto-login">
+                    <label for="chk-auto-login" id="label-auto-login" style="margin: 0;">Remember me</label>
+                </div>
+
+                <p id="login-status" class="status-message" aria-live="polite"></p>
+
+                <div class="form-actions">
+                    <button type="submit" id="btn-login">Connect & Login</button>
+                    <button type="button" class="text-btn" onclick="Game.showLanding()">Back</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Register Screen -->
+    <div id="register-screen" class="screen-container hidden">
+        <div class="auth-box">
+            <h1 id="reg-title">Create Account</h1>
+
+            <form id="register-form">
+                <div class="form-group" style="display: none;">
+                    <label for="reg-server-url" id="reg-server-label">Server URL</label>
+                    <input type="text" id="reg-server-url" value="wss://playaural.ddt.one:443" required>
+                </div>
+                <div class="form-group">
+                    <label for="reg-username" id="reg-username-label">Username</label>
+                    <input type="text" id="reg-username" required autocomplete="username">
+                </div>
+                <div class="form-group">
+                    <label for="reg-password" id="reg-password-label">Password</label>
+                    <input type="password" id="reg-password" required autocomplete="new-password">
+                </div>
+                <div class="form-group">
+                    <label for="reg-password-confirm" id="label-confirm-password">Confirm Password</label>
+                    <input type="password" id="reg-password-confirm" required autocomplete="new-password">
+                </div>
+                <div class="form-group" style="display: none;">
+                    <label for="reg-email" id="reg-email-label">Email (Optional)</label>
+                    <input type="email" id="reg-email" autocomplete="email">
+                </div>
+
+                <p id="register-status" class="status-message" aria-live="polite"></p>
+
+                <div class="form-actions">
+                    <button type="submit" id="btn-register">Register</button>
+                    <button type="button" id="btn-goto-login" class="secondary-btn" onclick="Game.showLogin()">Go to
+                        Login</button>
+                    <button type="button" class="text-btn" onclick="Game.showLanding()">Back</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Client Options Modal -->
+    <!-- Client Options Modal Removed -->
+    <div id="game-screen" class="hidden">
+        <header>
+            <h2 id="game-title">Main Menu</h2>
+            <div class="header-actions">
+                <div id="connection-status" role="status" aria-live="polite"></div>
+            </div>
+        </header>
+
+        <!-- Navigation Tabs -->
+        <nav class="tabs" role="tablist">
+            <button id="tab-menu" class="tab-btn active" role="tab" aria-selected="true"
+                aria-controls="content-menu">Menu</button>
+            <button id="tab-chat" class="tab-btn" role="tab" aria-selected="false"
+                aria-controls="content-chat">Chat</button>
+            <button id="tab-players" class="tab-btn" role="tab" aria-selected="false"
+                aria-controls="content-players">Players</button>
+        </nav>
+
+        <!-- Web Actions Container (Top Left) -->
+        <div id="web-actions-container" class="web-actions-area"></div>
+
+        <main>
+            <!-- Menu Tab Content -->
+            <div id="content-menu" class="tab-content" role="tabpanel" aria-labelledby="tab-menu">
+                <div id="menu-area" role="menu" aria-label="Game Menu">
+                    <!-- Menu items injected here -->
+                </div>
+            </div>
+
+            <!-- Chat Tab Content -->
+            <div id="content-chat" class="tab-content hidden" role="tabpanel" aria-labelledby="tab-chat">
+                <div id="chat-history" class="log-container" aria-live="polite"></div>
+                <form id="chat-form">
+                    <input type="text" id="chat-input" placeholder="Type a message..." aria-label="Chat Message">
+                    <button type="submit" id="btn-chat-send">Send</button>
+                </form>
+            </div>
+
+            <!-- Players Tab Content -->
+            <div id="content-players" class="tab-content hidden" role="tabpanel" aria-labelledby="tab-players">
+                <h2 id="players-title">Online Players</h2>
+                <div class="player-actions">
+                    <button id="btn-list-online" class="primary-btn">Read Online Players</button>
+                    <button id="btn-list-online-games" class="secondary-btn">List Players with Games</button>
+                </div>
+                <div id="player-list-area" class="log-container" aria-live="polite">
+                    <p id="players-instruction">Click a button above to view online players.</p>
+                </div>
+            </div>
+
+
+        </main>
+
+        <!-- Web Leave Container (Bottom Right, Fixed) -->
+        <div id="web-leave-container" class="web-leave-area"></div>
+    </div>
+
+    <script src="locales.js"></script>
+    <script src="game.js"></script>
+</body>
+
+</html>

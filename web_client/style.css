@@ -1,0 +1,491 @@
+:root {
+    --bg-color: #1a1a1a;
+    --text-color: #e0e0e0;
+    --accent-color: #4CAF50;
+    --secondary-color: #2196F3;
+    --error-color: #f44336;
+    --focus-color: #81D4FA;
+    --surface-color: #2d2d2d;
+    --border-color: #444;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    margin: 0;
+    display: flex;
+    /* Centering for Login */
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    overflow: hidden;
+}
+
+/* Utilities */
+.hidden {
+    display: none !important;
+}
+
+.background-active {
+    position: absolute;
+    left: -9999px;
+    top: -9999px;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+}
+
+/* Login/Register/Landing Forms - Centered */
+.screen-container {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.auth-box {
+    width: 100%;
+    max-width: 500px;
+    padding: 2rem;
+    background-color: var(--surface-color);
+    border-radius: 8px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+    text-align: center;
+}
+
+h1,
+h2 {
+    color: var(--accent-color);
+    margin-top: 0;
+}
+
+.form-group {
+    margin-bottom: 1rem;
+    text-align: left;
+}
+
+label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: bold;
+}
+
+input,
+textarea {
+    width: 100%;
+    padding: 0.75rem;
+    background-color: #3d3d3d;
+    border: 1px solid var(--border-color);
+    color: white;
+    border-radius: 4px;
+    box-sizing: border-box;
+}
+
+input:focus,
+textarea:focus {
+    outline: 2px solid var(--focus-color);
+    border-color: transparent;
+}
+
+button {
+    width: 100%;
+    padding: 0.75rem;
+    background-color: var(--accent-color);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 1rem;
+    margin-top: 0.5rem;
+}
+
+button:hover {
+    filter: brightness(1.1);
+}
+
+button.secondary-btn {
+    background-color: transparent;
+    border: 1px solid var(--accent-color);
+    color: var(--accent-color);
+}
+
+button.secondary-btn:hover {
+    background-color: rgba(76, 175, 80, 0.1);
+}
+
+/* Game Screen - Full Size */
+#game-screen {
+    width: 100%;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background-color: var(--bg-color);
+    padding: 0;
+    /* Override body padding if any */
+}
+
+/* Header */
+header {
+    padding: 1rem;
+    background-color: var(--surface-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.icon-btn {
+    width: auto;
+    min-width: 44px;
+    height: 44px;
+    padding: 0.5rem;
+    font-size: 1.25rem;
+    background-color: transparent;
+    border: 1px solid var(--accent-color);
+    margin: 0;
+}
+
+.icon-btn:hover {
+    background-color: rgba(76, 175, 80, 0.2);
+}
+
+#game-title {
+    margin: 0;
+    font-size: 1.25rem;
+}
+
+/* Tabs */
+.tabs {
+    display: flex;
+    background-color: #222;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.tab-btn {
+    flex: 1;
+    background: none;
+    border: none;
+    border-bottom: 3px solid transparent;
+    color: #888;
+    padding: 1rem;
+    margin: 0;
+    border-radius: 0;
+}
+
+.tab-btn:hover {
+    background-color: #333;
+    color: #ddd;
+}
+
+.tab-btn.active {
+    color: var(--accent-color);
+    border-bottom-color: var(--accent-color);
+    font-weight: bold;
+}
+
+/* Main Content Area */
+main {
+    flex: 1;
+    overflow: hidden;
+    /* Scroll inside tabs */
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+
+.tab-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 1rem;
+    overflow-y: auto;
+    height: 100%;
+    box-sizing: border-box;
+}
+
+/* Menu Tab */
+#menu-area {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.menu-item {
+    text-align: left;
+    background-color: var(--surface-color);
+    border: 1px solid var(--border-color);
+}
+
+/* Chat & History Logs */
+.log-container {
+    flex: 1;
+    overflow-y: auto;
+    background-color: #000;
+    border: 1px solid #333;
+    padding: 0.5rem;
+    border-radius: 4px;
+    margin-bottom: 0.5rem;
+    font-family: monospace;
+    font-size: 0.9rem;
+}
+
+.log-entry {
+    margin-bottom: 0.25rem;
+    border-bottom: 1px solid #222;
+    padding-bottom: 0.25rem;
+}
+
+.log-time {
+    color: #888;
+    margin-right: 0.5rem;
+}
+
+.log-sender {
+    font-weight: bold;
+    margin-right: 0.25rem;
+}
+
+.log-channel-global {
+    color: #00ffff;
+    /* Cyan */
+}
+
+.log-channel-table {
+    color: #00ff00;
+    /* Green */
+}
+
+.log-channel-system {
+    color: #ff00ff;
+    /* Magenta */
+}
+
+/* Chat Input */
+#chat-form {
+    display: flex;
+    gap: 0.5rem;
+}
+
+#chat-form input {
+    flex: 1;
+}
+
+/* Mobile Responsive */
+@media (max-width: 600px) {
+
+    #login-screen,
+    #register-screen {
+        max-width: 90%;
+        padding: 1rem;
+    }
+
+    header {
+        flex-direction: column;
+        gap: 0.5rem;
+        text-align: center;
+    }
+
+    .tabs {
+        flex-wrap: wrap;
+    }
+
+    .tab-btn {
+        padding: 0.75rem;
+        font-size: 0.9rem;
+    }
+
+    .form-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    button {
+        padding: 1rem;
+        /* Larger touch target */
+    }
+
+    .menu-item {
+        padding: 1rem;
+        /* Larger touch target */
+        margin-bottom: 0.5rem;
+    }
+}
+
+/* Ensure full height on mobile browsers with UI bars */
+@supports (-webkit-touch-callout: none) {
+
+    body,
+    #game-screen {
+        height: -webkit-fill-available;
+    }
+}
+
+/* Players Tab Styling */
+.player-actions {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+}
+
+.player-actions button {
+    flex: 1;
+    min-width: 180px;
+    margin-top: 0;
+}
+
+#player-list-area {
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 15px;
+    background: var(--surface-color);
+    height: 300px;
+    overflow-y: auto;
+}
+
+#player-list-area p {
+    margin: 5px 0;
+    color: var(--text-color);
+}
+
+/* Settings Styles */
+.settings-group {
+    background-color: var(--surface-color);
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+}
+
+.settings-group h3 {
+    margin-top: 0;
+    color: var(--secondary-color);
+    border-bottom: 1px solid #444;
+    padding-bottom: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.slider-container {
+    margin-bottom: 1.5rem;
+}
+
+/* Custom Range Slider */
+input[type=range] {
+    width: 100%;
+    margin: 0.5rem 0;
+    background: transparent;
+    -webkit-appearance: none;
+}
+
+input[type=range]:focus {
+    outline: none;
+}
+
+input[type=range]::-webkit-slider-runnable-track {
+    width: 100%;
+    height: 8px;
+    cursor: pointer;
+    background: #444;
+    border-radius: 4px;
+}
+
+input[type=range]::-webkit-slider-thumb {
+    height: 24px;
+    width: 24px;
+    border-radius: 50%;
+    background: var(--accent-color);
+    cursor: pointer;
+    -webkit-appearance: none;
+    margin-top: -8px;
+    /* Centers thumb on track */
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+}
+
+input[type=range]::-moz-range-thumb {
+    height: 24px;
+    width: 24px;
+    border: none;
+    border-radius: 50%;
+    background: var(--accent-color);
+    cursor: pointer;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+}
+
+.danger-btn {
+    background-color: var(--error-color);
+    margin-top: 1rem;
+}
+
+.danger-btn:hover {
+    filter: brightness(1.1);
+}
+
+.network-stats {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+/* Web Specific Button Areas */
+.web-actions-area {
+    padding: 10px 15px;
+    background-color: var(--surface-color);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    gap: 10px;
+}
+
+.web-leave-area {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    z-index: 1000;
+}
+
+.web-action-btn, 
+.web-leave-btn {
+    padding: 12px 24px;
+    font-size: 1.1rem;
+    font-weight: bold;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    min-width: 160px; /* Big click target */
+    width: auto; /* Allow growth */
+}
+
+/* Mobile adjustments */
+@media (max-width: 600px) {
+    .web-leave-area {
+        bottom: 15px;
+        right: 15px;
+        left: 15px; /* Full width on mobile? */
+    }
+    .web-leave-btn {
+        width: 100%;
+        font-size: 1.2rem;
+        padding: 15px;
+    }
+}

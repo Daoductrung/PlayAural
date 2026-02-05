@@ -45,6 +45,8 @@ window.LOCALES = {
         "status-sending-registration": "Sending registration...",
         "status-connection-error": "Connection Error",
         "status-invalid-url": "Invalid Server URL",
+        "kicked": "You have been kicked from the server.",
+        "force-exit": "The server has closed the connection.",
 
         "input-submit": "Submit",
 
@@ -165,6 +167,8 @@ window.LOCALES = {
         "status-sending-registration": "Đang gửi đăng ký...",
         "status-connection-error": "Lỗi kết nối",
         "status-invalid-url": "Địa chỉ máy chủ không hợp lệ",
+        "kicked": "Bạn đã bị quản trị viên đá khỏi máy chủ.",
+        "force-exit": "Máy chủ đã đóng kết nối.",
 
         "input-submit": "Gửi",
 

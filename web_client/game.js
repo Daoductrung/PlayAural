@@ -8,8 +8,7 @@ class Localization {
         if (window.LOCALES && window.LOCALES[locale]) {
             this.strings = window.LOCALES[locale];
             this.locale = locale;
-            console.log(`Loaded locale from script: ${locale}. Keys: ${Object.keys(this.strings).length}`);
-            console.log(`Sample key 'welcome': ${this.strings['welcome']}`);
+            console.log(`Loaded locale from script: ${locale}`);
             return;
         }
 
@@ -196,6 +195,11 @@ class GameClient {
         this.playlists = {}; // ID -> Playlist
         this.currentAnnouncerIndex = 0; // For rotating between dual aria-live regions
 
+        // Speech Queue System
+        this.speechQueue = [];
+        this.isSpeaking = false;
+        this.speechDelay = 200; // 0.2 seconds delay for fast responsiveness while maintaining queue order
+
         // Load Localization
         // Default to 'en', but prefer stored preference if available (loaded in loadConfig -> clientOptions but we are in constructor here)
         // Actually constructor calls loadConfig() at end.
@@ -380,27 +384,7 @@ class GameClient {
         }
     }
 
-    addToLog(container, message, sender = null) {
-        const entry = document.createElement('div');
-        entry.className = "log-entry";
 
-        let html = "";
-
-        if (sender) {
-            html += `<span class="log-sender">${sender}:</span> `;
-        }
-
-        // Content only, no timestamp
-        html += `<span class="log-msg">${message}</span>`;
-
-        entry.innerHTML = html;
-        container.appendChild(entry);
-
-        // Auto-scroll strategies
-        try {
-            container.scrollTop = container.scrollHeight;
-        } catch (e) { }
-    }
 
     addToChatLog(message, sender, senderClass) {
         const container = this.chatHistory;
@@ -619,11 +603,22 @@ class GameClient {
         }
     }
 
+
+
     speak(text, params = {}) {
         // Debug localization params
-        console.log(`Speaking: ${text}`, params);
+        console.log(`Queueing Speech: ${text}`, params);
 
         const localized = Localization.get(text, params);
+        this.speechQueue.push(localized);
+        this.processSpeechQueue();
+    }
+
+    processSpeechQueue() {
+        if (this.isSpeaking || this.speechQueue.length === 0) return;
+
+        this.isSpeaking = true;
+        const message = this.speechQueue.shift();
 
         // Use dual rotating aria-live regions for real-time games
         // Alternating between regions ensures screen readers detect every announcement
@@ -637,14 +632,13 @@ class GameClient {
 
             // Use requestAnimationFrame to ensure DOM update before setting new content
             requestAnimationFrame(() => {
-                srAnnouncer.textContent = localized;
+                srAnnouncer.textContent = message;
 
-                // Clear after screen reader has time to process (shorter delay for real-time)
+                // Throttle next message
                 setTimeout(() => {
-                    if (srAnnouncer.textContent === localized) {
-                        srAnnouncer.textContent = '';
-                    }
-                }, 1000);
+                    this.isSpeaking = false;
+                    this.processSpeechQueue();
+                }, this.speechDelay);
             });
         }
     }
@@ -655,113 +649,9 @@ class GameClient {
         this.speak(key, params);
     }
 
-    handleLogin(e) {
-        e.preventDefault();
-        const url = document.getElementById('server-url').value;
-        const username = document.getElementById('username').value;
-        const password = document.getElementById('password').value;
 
-        this.statusMsg.innerText = Localization.get("connecting");
-        this.isRegistering = false;
-        this.connect(url, username, password);
-    }
 
-    handleRegister(e) {
-        e.preventDefault();
-        const url = document.getElementById('reg-server-url').value;
-        const username = document.getElementById('reg-username').value;
-        const password = document.getElementById('reg-password').value;
-        const email = document.getElementById('reg-email').value;
 
-        this.regStatusMsg.innerText = Localization.get("connecting");
-        this.isRegistering = true;
-        this.registerData = { username, password, email };
-        this.connect(url, username, password);
-    }
-
-    connect(serverUrl, username, password) {
-        const targetMsg = this.isRegistering ? this.regStatusMsg : this.statusMsg;
-        targetMsg.innerText = Localization.get('status-connecting');
-
-        if (!serverUrl.startsWith('ws://') && !serverUrl.startsWith('wss://')) {
-            targetMsg.innerText = Localization.get('status-invalid-url');
-            return;
-        }
-
-        if (this.socket && (this.socket.readyState === WebSocket.OPEN || this.socket.readyState === WebSocket.CONNECTING)) {
-            this.socket.close();
-        }
-
-        try {
-            this.socket = new WebSocket(serverUrl);
-
-            this.socket.onopen = () => {
-                console.log("Connected to server");
-
-                if (this.isRegistering) {
-                    this.regStatusMsg.innerText = Localization.get("status-sending-registration");
-                    this.socket.send(JSON.stringify({
-                        type: "register",
-                        username: username,
-                        password: password,
-                        email: document.getElementById('reg-email').value.trim() || "",
-                        locale: Localization.locale
-                    }));
-                } else {
-                    this.statusMsg.innerText = Localization.get("status-authenticating");
-                    this.socket.send(JSON.stringify({
-                        type: "authorize",
-                        username: username,
-                        password: password,
-                        version: "0.1.4"
-                    }));
-                }
-            };
-
-            this.socket.onmessage = (event) => {
-                try {
-                    const packet = JSON.parse(event.data);
-                    this.handlePacket(packet);
-                } catch (err) {
-                    console.error("Invalid packet:", err);
-                }
-            };
-
-            this.socket.onclose = (event) => {
-                console.log("Disconnected", event);
-                this.isConnected = false;
-                const connStatus = document.getElementById('connection-status');
-                if (connStatus) connStatus.innerText = Localization.get('status-disconnected');
-
-                if (this.isRegistering) {
-                    // Stay on register screen
-                } else {
-                    this.showLogin();
-                }
-
-                const targetMsg = this.isRegistering ? this.regStatusMsg : this.statusMsg;
-                const disconnectionMsg = Localization.get("status-disconnected");
-                targetMsg.innerText = disconnectionMsg;
-                this.speak(disconnectionMsg);
-
-                // Auto-clear status message after 5 seconds per user request
-                setTimeout(() => {
-                    if (targetMsg) targetMsg.innerText = "";
-                    if (connStatus) connStatus.innerText = "";
-                }, 5000);
-            };
-
-            this.socket.onerror = (err) => {
-                console.error("WebSocket Error:", err);
-                const targetMsg = this.isRegistering ? this.regStatusMsg : this.statusMsg;
-                targetMsg.innerText = Localization.get("status-connection-error");
-            };
-
-        } catch (err) {
-            const targetMsg = this.isRegistering ? this.regStatusMsg : this.statusMsg;
-            targetMsg.innerText = Localization.get("status-invalid-url");
-        }
-    }
 
     play_music(filename, loop = true) {
         // If controlled by playlist, loop might be false
@@ -936,8 +826,6 @@ class GameClient {
     }
 
     handlePacket(packet) {
-        // console.log("Received:", JSON.stringify(packet)); // Log full packet for debug
-
         switch (packet.type) {
             case "login_failed":
                 this.socket.close();
@@ -1013,11 +901,28 @@ class GameClient {
                 break;
 
             case "disconnect":
+                if (packet.reconnect === false) {
+                    this.shouldReconnect = false;
+                    this.manualDisconnect = true;
+                }
                 this.socket.close();
                 const targetMsg = this.isRegistering ? this.regStatusMsg : this.statusMsg;
-                const reason = Localization.get(packet.reason || "disconnected");
+                const reason = Localization.get(packet.reason || "status-disconnected");
                 targetMsg.innerText = reason;
                 this.speak(reason);
+                break;
+
+            case "force_exit":
+                // Server explicitly forcing disconnect (Kick, Logout, etc)
+                console.log("Force Exit received");
+                this.shouldReconnect = false;
+                this.manualDisconnect = true;
+                this.socket.close();
+                if (packet.reason) {
+                    const forceReason = Localization.get(packet.reason);
+                    if (this.statusMsg) this.statusMsg.innerText = forceReason;
+                    this.speak(forceReason);
+                }
                 break;
 
             // Audio packets
@@ -1197,7 +1102,7 @@ class GameClient {
 
             case "table_create":
                 this.play_sound("notify.ogg");
-                this.speak("Table created.");
+                this.speak_l("table-created-notify");
                 break;
         }
     }
@@ -1260,11 +1165,6 @@ class GameClient {
             });
 
             // WEB-SPECIFIC LOGIC MOVED TO TOP OF FUNCTION
-
-            if (newItems.length > 0) {
-                const firstBtn = this.menuArea.querySelector('.menu-item');
-                if (firstBtn) firstBtn.focus();
-            }
 
             if (newItems.length > 0) {
                 const firstBtn = this.menuArea.querySelector('.menu-item');
@@ -1466,6 +1366,8 @@ class GameClient {
         this.lastUser = username;
         this.lastPass = password;
 
+        this.shouldReconnect = true; // Default to allowing reconnects
+
         if (!serverUrl.startsWith('ws://') && !serverUrl.startsWith('wss://')) {
             targetMsg.innerText = Localization.get('status-invalid-url');
             return;
@@ -1516,7 +1418,12 @@ class GameClient {
                 console.log("Disconnected", event);
                 this.isConnected = false;
                 const connStatus = document.getElementById('connection-status');
-                if (connStatus) connStatus.innerText = Localization.get('status-disconnected');
+                if (connStatus) {
+                    connStatus.innerText = Localization.get('status-disconnected');
+                    setTimeout(() => {
+                        connStatus.innerText = "";
+                    }, 3000);
+                }
 
                 if (this.isRegistering) {
                     // Stay on register screen
@@ -1524,7 +1431,9 @@ class GameClient {
                     if (this.regStatusMsg) this.regStatusMsg.innerText = reason;
                 } else {
                     // Only go back to login if it was a clean exit or manual logout
-                    if (event.code !== 1000 && !this.manualDisconnect) {
+                    // Only go back to login if it was a clean exit or manual logout
+                    // We now prioritize shouldReconnect flag over error codes
+                    if (this.shouldReconnect && !this.manualDisconnect) {
                         this.cleanupAndReconnect();
                     } else {
                         this.showLogin();
@@ -1813,7 +1722,7 @@ class GameClient {
         const storedUser = localStorage.getItem('pa_user');
         const storedPass = localStorage.getItem('pa_pass');
         // Default URL for local testing
-        const serverUrl = "wss://localhost:8000";
+        const serverUrl = "wss://playaural.ddt.one:443";
 
         console.log(`Auto-login: user=${storedUser}, pass exists=${!!storedPass}, url=${serverUrl}`);
 

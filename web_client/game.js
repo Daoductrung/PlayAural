@@ -476,37 +476,7 @@ class GameClient {
             return true;
         }
 
-        // --- Table Visibility ---
-        const setVis = ['/setvisible', '/setvis'];
-        if (setVis.includes(cmd)) {
-            this.socket.send(JSON.stringify({ type: "set_table_visibility_cmd", state: args }));
-            return true;
-        }
 
-        const checkVis = ['/checkvisible', '/checkvis'];
-        if (checkVis.includes(cmd)) {
-            this.socket.send(JSON.stringify({ type: "check_table_visibility_cmd" }));
-            return true;
-        }
-
-        // --- Table Password ---
-        const setPw = ['/setpw'];
-        if (setPw.includes(cmd)) {
-            this.socket.send(JSON.stringify({ type: "set_table_pw_cmd", password: args }));
-            return true;
-        }
-
-        const removePw = ['/removepw'];
-        if (removePw.includes(cmd)) {
-            this.socket.send(JSON.stringify({ type: "remove_table_pw_cmd" }));
-            return true;
-        }
-
-        const checkPw = ['/checkpw'];
-        if (checkPw.includes(cmd)) {
-            this.socket.send(JSON.stringify({ type: "check_table_pw_cmd" }));
-            return true;
-        }
 
         // --- Server Admin (Reboot/Stop/Kick) ---
         // These are sent as Global Chat messages for server to intercept
@@ -679,9 +649,7 @@ class GameClient {
         }
     }
 
-    processTTSQueue() {
-        // No longer needed with dual-region rotation approach
-    }
+
 
     speak_l(key, params = {}) {
         this.speak(key, params);
@@ -745,7 +713,7 @@ class GameClient {
                         type: "authorize",
                         username: username,
                         password: password,
-                        version: "0.1.3"
+                        version: "0.1.4"
                     }));
                 }
             };
@@ -1326,14 +1294,24 @@ class GameClient {
 
                 if (id) {
                     btn.dataset.id = id;
-                    btn.onclick = () => {
+                    btn.onclick = (e) => {
+                        if (e && e.shiftKey) return;
                         this.sendMenuSelection(this.currentMenuId, i + 1, id);
                     };
+                    // Update Context Menu handler
+                    btn.oncontextmenu = (e) => {
+                        e.preventDefault();
+                        this.sendKeybind("shift+enter", id, { shift: true });
+                        this.play_sound("menuclick.ogg");
+                    };
+                    this.enableLongPress(btn, id);
                 } else {
                     btn.removeAttribute('dataset-id');
                     btn.onclick = () => {
                         this.sendMenuSelection(this.currentMenuId, i + 1);
                     };
+                    btn.oncontextmenu = null;
+                    this.disableLongPress(btn);
                 }
             } else {
                 // Append new item
@@ -1367,40 +1345,21 @@ class GameClient {
         btn.innerText = text;
         if (id) {
             btn.dataset.id = id;
-            btn.onclick = () => {
+            btn.onclick = (e) => {
+                if (e && e.shiftKey) return; // Prevent click if Shift is held (Shift+Enter)
                 this.sendMenuSelection(this.currentMenuId, index + 1, id);
             };
 
-            // --- Long Press Logic (for simulating Shift+Enter / Secondary Action) ---
-            const LONG_PRESS_DURATION = 800; // ms
-            let pressTimer = null;
-
-            const startPress = (e) => {
-                // Only left click or touch
-                if (e.type === 'mousedown' && e.button !== 0) return;
-                pressTimer = setTimeout(() => {
-                    this.play_sound("menuclick.ogg"); // Feedback
-                    if (navigator.vibrate) navigator.vibrate(50); // Haptic feedback
-                    this.sendAction("junk_card", id); // Send "junk_card" action
-                    pressTimer = null;
-                }, LONG_PRESS_DURATION);
+            // Use Context Menu (Right Click or Shift+F10) for Discard
+            // Use property assignment to prevent listener stacking on reuse
+            btn.oncontextmenu = (e) => {
+                e.preventDefault();
+                if (!id) return;
+                this.sendKeybind("shift+enter", id, { shift: true });
+                this.play_sound("menuclick.ogg");
             };
 
-            const cancelPress = () => {
-                if (pressTimer) {
-                    clearTimeout(pressTimer);
-                    pressTimer = null;
-                }
-            };
-
-            btn.addEventListener('mousedown', startPress);
-            btn.addEventListener('touchstart', startPress, { passive: true });
-
-            btn.addEventListener('mouseup', cancelPress);
-            btn.addEventListener('mouseleave', cancelPress);
-            btn.addEventListener('touchend', cancelPress);
-            btn.addEventListener('touchmove', cancelPress);
-
+            this.enableLongPress(btn, id);
         } else {
             btn.disabled = true;
             btn.setAttribute('aria-disabled', 'true');
@@ -1409,44 +1368,79 @@ class GameClient {
         this.menuArea.appendChild(btn);
     }
 
-    sendAction(actionId, targetId) {
-        if (!this.isConnected) return;
-        // Send generic action packet with context
-        const packet = {
-            type: "action",
-            action: actionId,
-            context: {
-                menu_item_id: targetId
+    enableLongPress(btn, id) {
+        const LONG_PRESS_DURATION = 800; // ms
+
+        // Clean up any existing timer
+        if (btn._pressTimer) {
+            clearTimeout(btn._pressTimer);
+            btn._pressTimer = null;
+        }
+
+        const startPress = (e) => {
+            // Only left click or touch
+            if (e.type === 'mousedown' && e.button !== 0) return;
+
+            // Clean up any existing timer (safety)
+            if (btn._pressTimer) clearTimeout(btn._pressTimer);
+
+            btn._pressTimer = setTimeout(() => {
+                this.play_sound("menuclick.ogg"); // Feedback
+                if (navigator.vibrate) navigator.vibrate(50); // Haptic feedback
+                this.sendKeybind("shift+enter", id, { shift: true }); // Send "shift+enter" keybind
+                btn._pressTimer = null;
+            }, LONG_PRESS_DURATION);
+        };
+
+        const cancelPress = () => {
+            if (btn._pressTimer) {
+                clearTimeout(btn._pressTimer);
+                btn._pressTimer = null;
             }
         };
+
+        // Use on-properties to ensure immediate replacement when button is recycled
+        btn.onmousedown = startPress;
+        btn.ontouchstart = (e) => {
+            // Passive listener behavior is default for on* properties usually
+            startPress(e);
+        };
+
+        btn.onmouseup = cancelPress;
+        btn.onmouseleave = cancelPress;
+        btn.ontouchend = cancelPress;
+        btn.ontouchmove = cancelPress;
+    }
+
+    disableLongPress(btn) {
+        if (btn._pressTimer) {
+            clearTimeout(btn._pressTimer);
+            btn._pressTimer = null;
+        }
+        btn.onmousedown = null;
+        btn.ontouchstart = null;
+        btn.onmouseup = null;
+        btn.onmouseleave = null;
+        btn.ontouchend = null;
+        btn.ontouchmove = null;
+    }
+
+    sendKeybind(key, targetId, modifiers = {}) {
+        if (!this.isConnected) return;
+
+        const packet = {
+            type: "keybind",
+            key: key,
+            menu_item_id: targetId,
+            shift: modifiers.shift || false,
+            control: modifiers.control || false,
+            alt: modifiers.alt || false
+        };
         this.socket.send(JSON.stringify(packet));
-        console.log("Sent Action:", packet);
+        console.log("Sent Keybind:", packet);
     }
 
     handleGlobalKeyDown(e) {
-        // Shift+Enter detection
-        if (e.key === 'Enter' && e.shiftKey) {
-            const focused = document.activeElement;
-            if (focused && focused.classList.contains('menu-item') && focused.dataset.id) {
-                e.preventDefault();
-                this.sendAction("junk_card", focused.dataset.id);
-                this.play_sound("menuclick.ogg");
-            }
-        }
-
-        // Backspace / Delete for Discard (Parity with Python Client)
-        if (e.key === 'Backspace' || e.key === 'Delete') {
-            // Only if NOT in an input field
-            const tag = document.activeElement.tagName.toLowerCase();
-            if (tag !== 'input' && tag !== 'textarea') {
-                const focused = document.activeElement;
-                if (focused && focused.classList.contains('menu-item') && focused.dataset.id) {
-                    e.preventDefault(); // Prevent Back navigation on Backspace
-                    this.sendAction("junk_card", focused.dataset.id);
-                    this.play_sound("menuclick.ogg");
-                }
-            }
-        }
 
         // F1 for Ping (Parity)
         if (e.key === 'F1') {
@@ -1454,6 +1448,7 @@ class GameClient {
             this.sendPing();
         }
     }
+
 
     sendPing() {
         if (!this.isConnected || !this.socket) return;
@@ -1502,7 +1497,7 @@ class GameClient {
                         type: "authorize",
                         username: username,
                         password: password,
-                        version: "0.1.3",
+                        version: "0.1.4",
                         client: "web"
                     }));
                 }
@@ -1818,7 +1813,7 @@ class GameClient {
         const storedUser = localStorage.getItem('pa_user');
         const storedPass = localStorage.getItem('pa_pass');
         // Default URL for local testing
-        const serverUrl = "wss://playaural.ddt.one:443";
+        const serverUrl = "wss://localhost:8000";
 
         console.log(`Auto-login: user=${storedUser}, pass exists=${!!storedPass}, url=${serverUrl}`);
 

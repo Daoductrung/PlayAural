@@ -81,7 +81,7 @@ class EventHandlingMixin:
         menu_id = event.get("menu_id")
         selection_id = event.get("selection_id", "")
         
-        print(f"DEBUG: Menu Event: menu_id={menu_id}, selection_id={selection_id}, player={player.name}")
+
 
         if menu_id == "turn_menu":
             # WEB-SPECIFIC: Intercept specific button IDs
@@ -182,6 +182,7 @@ class EventHandlingMixin:
         key = event.get("key", "").lower()  # Normalize to lowercase
         menu_item_id = event.get("menu_item_id")
         menu_index = event.get("menu_index")
+
 
         # Handle modifiers - reconstruct full key string
         if event.get("shift") and not key.startswith("shift+"):

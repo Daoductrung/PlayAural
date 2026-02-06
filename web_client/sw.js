@@ -1,11 +1,16 @@
-const CACHE_NAME = 'playaural-v2-minimal';
+const CACHE_NAME = 'playaural-v2.1-minimal';
 
 // Minimal impact: only cache core files to ensure installability
 // We do NOT preload large assets.
 const PRECACHE_URLS = [
     '/',
     '/index.html',
-    '/manifest.json'
+    '/manifest.json',
+    '/icon.png',
+    '/style.css',
+    '/lang-selector.css',
+    '/game.js',
+    '/locales.js'
 ];
 
 // Install Event

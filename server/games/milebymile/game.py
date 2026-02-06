@@ -228,15 +228,17 @@ class MileByMileGame(Game):
         )
 
         # Detailed status action (hidden, triggered by shift+s keybind)
-        action_set.add(
-            Action(
-                id="check_status_detailed",
-                label=Localization.get(locale, "milebymile-detailed-status"),
-                handler="_action_check_status_detailed",
-                is_enabled="_is_check_status_enabled",
-                is_hidden="_is_check_status_hidden",
+        # WEB-SPECIFIC: Moved to Standard Action Set for Web
+        if not is_web:
+            action_set.add(
+                Action(
+                    id="check_status_detailed",
+                    label=Localization.get(locale, "milebymile-detailed-status"),
+                    handler="_action_check_status_detailed",
+                    is_enabled="_is_check_status_enabled",
+                    is_hidden="_is_check_status_hidden",
+                )
             )
-        )
 
         return action_set
 
@@ -260,6 +262,18 @@ class MileByMileGame(Game):
                         handler="_action_check_status",
                         is_enabled="_is_check_status_enabled",
                         is_hidden="_is_check_status_hidden",
+                    )
+                )
+
+            # Ensure 'check_status_detailed' is in standard set (moved from turn set for web)
+            if not action_set.get_action("check_status_detailed"):
+                 action_set.add(
+                    Action(
+                        id="check_status_detailed",
+                        label=Localization.get(locale, "milebymile-detailed-status"),
+                        handler="_action_check_status_detailed",
+                        is_enabled="_is_check_status_enabled",
+                        is_hidden="_is_detailed_status_hidden", # Hidden to push to Actions Menu
                     )
                 )
 
@@ -419,6 +433,10 @@ class MileByMileGame(Game):
         user = self.get_user(player)
         if user and getattr(user, "client_type", "") == "web":
             return Visibility.VISIBLE
+        return Visibility.HIDDEN
+
+    def _is_detailed_status_hidden(self, player: Player) -> Visibility:
+        """Detailed status is always hidden (in overflow menu)."""
         return Visibility.HIDDEN
 
     def _is_dirty_trick_enabled(self, player: Player) -> str | None:

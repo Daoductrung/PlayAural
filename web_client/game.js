@@ -1678,7 +1678,7 @@ class GameClient {
         const storedUser = localStorage.getItem('pa_user');
         const storedPass = localStorage.getItem('pa_pass');
         // Retrieve loaded URL from input (restored by loadConfig)
-        const serverUrl = document.getElementById('server-url').value || "localhost:8000";
+        const serverUrl = document.getElementById('server-url').value || "ws://localhost:8000";
 
         console.log(`Auto-login: user=${storedUser}, pass exists=${!!storedPass}, url=${serverUrl}`);
 

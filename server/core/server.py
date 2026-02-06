@@ -315,6 +315,25 @@ PlayAural Server
         # Extract client type (default to python for legacy clients)
         client_type = packet.get("client", "python")
 
+        # Check version if provided
+        client_version = packet.get("version", "0.0.0")
+        
+        # WEB CLIENT: Strict validation
+        # If version mismatch, send 'login_failed' so it shows the error message.
+        if client_type == "web" and client_version != VERSION:
+             print(f"Login failed for {username} (Web): Version mismatch (Server: {VERSION}, Client: {client_version})")
+             await client.send({
+                 "type": "login_failed",
+                 "reason": "version_mismatch",
+                 "text": f"Version mismatch. Server: {VERSION}, Client: {client_version}"
+             })
+             await client.close()
+             return
+
+        # PYTHON CLIENT: Legacy logic
+        # We proceed to authenticate and send 'authorize_success' so it receives 'update_info'.
+        # The logic at the end of this function will prevent sending the game list, triggering the update dialog.
+
         # Try to authenticate
         # Try to authenticate
         if not self._auth.authenticate(username, password):

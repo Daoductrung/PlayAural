@@ -15,6 +15,13 @@ window.LOCALES = {
         "reg-email-label": "Email",
         "reg-register-btn": "Register",
         "reg-back-btn": "Back to Login",
+        "btn-goto-login": "Go to Login",
+
+        "mobile-hint": "For the best experience on mobile, we recommend installing the app.",
+        "btn-install": "Install App",
+        "install-fail-hint": "To install: Tap Share button -> Add to Home Screen",
+        "windows-hint": "The web version is optimized for mobile. If you are on Windows, please use the desktop client.",
+        "btn-download-win": "Download for Windows",
 
         "tab-menu": "Menu",
         "tab-chat": "Chat",
@@ -88,6 +95,7 @@ window.LOCALES = {
         "auth-error-user-not-found": "User does not exist.",
         "auth-registration-success": "Registration successful! You can now log in.",
         "auth-username-taken": "Username already taken.",
+        "auth-error-version-mismatch": "Client version mismatch. Please refresh the page.",
 
         "intro-text": "PlayAural is an audio-first online gaming platform designed for accessibility. Built on PlayPalace, it offers a shared space for casual players to enjoy various card, dice, and adventure games together on equal footing.",
         "landing-title": "Welcome to PlayAural Web",
@@ -210,6 +218,7 @@ window.LOCALES = {
         "auth-error-user-not-found": "Tài khoản không tồn tại.",
         "auth-registration-success": "Đăng ký thành công! Bạn có thể đăng nhập.",
         "auth-username-taken": "Tên đăng nhập đã được sử dụng.",
+        "auth-error-version-mismatch": "Phiên bản không khớp. Vui lòng tải lại trang (Ctrl+F5).",
 
         "intro-text": "PlayAural là nền tảng trò chơi trực tuyến ưu tiên âm thanh, được thiết kế dễ tiếp cận cho mọi người. Được xây dựng dựa trên PlayPalace, nền tảng mang đến không gian chung để người chơi tận hưởng các trò chơi thẻ bài, xúc xắc và phiêu lưu một cách bình đẳng.",
         "landing-title": "Chào mừng đến với PlayAural Web",
@@ -223,6 +232,11 @@ window.LOCALES = {
         "logged-in-as": "Đang đăng nhập với tên: {username}",
         "btn-remove-account": "Xóa Tài khoản",
         "btn-goto-login": "Đến Trang Đăng nhập",
+        "mobile-hint": "Để có trải nghiệm tốt nhất trên di động, bạn nên cài đặt ứng dụng.",
+        "btn-install": "Cài đặt ứng dụng",
+        "install-fail-hint": "Để cài đặt: Bấm nút Chia sẻ -> Thêm vào Màn hình chính",
+        "windows-hint": "Web được tối ưu cho di động. Nếu bạn dùng Windows, vui lòng dùng bản Client.",
+        "btn-download-win": "Tải Client cho Windows",
         "link-no-account": "Chưa có tài khoản? Đăng ký tại đây.",
         "link-have-account": "Đã có tài khoản? Đăng nhập tại đây.",
 

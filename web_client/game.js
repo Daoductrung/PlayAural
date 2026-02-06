@@ -1,4 +1,5 @@
 console.log("Game.js initialized.");
+const CLIENT_VERSION = "0.1.4";
 
 class Localization {
     static strings = {}; // Loaded from window.LOCALES (locales.js)
@@ -253,6 +254,43 @@ class GameClient {
         this.loadConfig();
 
 
+        // PWA Install Prompt
+        this.deferredPrompt = null;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            // Prevent Chrome 67 and earlier from automatically showing the prompt
+            e.preventDefault();
+            // Stash the event so it can be triggered later.
+            this.deferredPrompt = e;
+            // Update UI to notify the user they can add to home screen
+            const installBtn = document.getElementById('btn-install-pwa');
+            if (installBtn) {
+                installBtn.classList.remove('hidden');
+                // Ensure text is updated if localization loaded already
+                if (Localization.locale) installBtn.innerText = Localization.get('btn-install');
+            }
+            console.log("PWA Install Prompt captured");
+        });
+
+        // Detect iOS
+        this.isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+    }
+
+    installPWA() {
+        if (!this.deferredPrompt) return;
+        // Show the prompt
+        this.deferredPrompt.prompt();
+        // Wait for the user to respond to the prompt
+        this.deferredPrompt.userChoice.then((choiceResult) => {
+            if (choiceResult.outcome === 'accepted') {
+                console.log('User accepted the A2HS prompt');
+            } else {
+                console.log('User dismissed the A2HS prompt');
+            }
+            this.deferredPrompt = null;
+            // Hide button after use
+            document.getElementById('btn-install-pwa').classList.add('hidden');
+        });
     }
 
     loadConfig() {
@@ -1355,7 +1393,7 @@ class GameClient {
                         type: "authorize",
                         username: username,
                         password: password,
-                        version: "0.1.4",
+                        version: CLIENT_VERSION,
                         client: "web"
                     }));
                 }
@@ -1678,7 +1716,7 @@ class GameClient {
         const storedUser = localStorage.getItem('pa_user');
         const storedPass = localStorage.getItem('pa_pass');
         // Retrieve loaded URL from input (restored by loadConfig)
-        const serverUrl = document.getElementById('server-url').value || "ws://localhost:8000";
+        const serverUrl = document.getElementById('server-url').value || "wss://playaural.ddt.one:443";
 
         console.log(`Auto-login: user=${storedUser}, pass exists=${!!storedPass}, url=${serverUrl}`);
 
@@ -1731,6 +1769,21 @@ class GameClient {
             landing.querySelector('#logged-in-as').innerText = loggedInText;
             landing.querySelector('#btn-play-now').innerText = Localization.get('btn-play');
             landing.querySelector('#btn-remove-account').innerText = Localization.get('btn-remove-account');
+
+            // Footer
+            landing.querySelector('#mobile-hint').innerText = Localization.get('mobile-hint');
+            landing.querySelector('#windows-hint').innerText = Localization.get('windows-hint');
+            landing.querySelector('#btn-download-win').innerText = Localization.get('btn-download-win');
+
+            const installBtn = landing.querySelector('#btn-install-pwa');
+            if (installBtn) installBtn.innerText = Localization.get('btn-install');
+
+            // iOS Instruction
+            if (this.isIOS) {
+                const instr = landing.querySelector('#install-instruction');
+                instr.innerText = Localization.get('install-fail-hint');
+                instr.classList.remove('hidden');
+            }
         }
 
         // --- Login Screen ---

@@ -7,7 +7,10 @@
     <title>PlayAural Web</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="lang-selector.css">
-</head>
+    <link rel="shortcut icon" href="icon.png" type="image/png">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#4CAF50">
+    <link rel="apple-touch-icon" href="icon.png">
 
 <body>
     <script>
@@ -58,6 +61,36 @@
                     style="margin-top: 10px;">Remove Account</button>
             </div>
         </div>
+        <!-- Footer / Install Section -->
+        <div id="landing-footer" style="margin-top: 40px; border-top: 1px solid #333; padding-top: 20px;">
+
+            <!-- PWA / Mobile Section -->
+            <div id="pwa-section">
+                <p id="mobile-hint" style="font-style: italic; color: #888; font-size: 0.9em;">
+                    For better experience on mobile...
+                </p>
+                <button id="btn-install-pwa" class="hidden" onclick="Game.installPWA()"
+                    style="background-color: #2196F3;">Install App</button>
+                <p id="install-instruction" class="hidden" style="color: #aaa; font-size: 0.9em;">
+                    To install: Tap Share -> Add to Home Screen
+                </p>
+            </div>
+
+            <!-- Windows Section -->
+            <div id="windows-section" style="margin-top: 20px;">
+                <p id="windows-hint" style="font-size: 0.9em; margin-bottom: 5px;">
+                    Web is optimized for mobile. On Windows, please use the desktop client.
+                </p>
+                <a id="btn-download-win"
+                    href="https://github.com/Daoductrung/PlayAural/releases/latest/download/PlayAural.zip"
+                    target="_blank" class="button"
+                    style="display: inline-block; text-decoration: none; background-color: #607d8b; color: white; padding: 10px 20px; border-radius: 4px; border: none; font-family: inherit; cursor: pointer;">
+                    Download for Windows
+                </a>
+            </div>
+
+        </div>
+    </div>
     </div>
 
     <!-- Login Screen -->
@@ -68,7 +101,7 @@
             <form id="login-form">
                 <div class="form-group" style="display: none;">
                     <label for="server-url" id="login-server-label">Server URL</label>
-                    <input type="text" id="server-url" value="ws://localhost:8000" required>
+                    <input type="text" id="server-url" value="wss://playaural.ddt.one:443" required>
                 </div>
                 <div class="form-group">
                     <label for="username" id="login-username-label">Username</label>
@@ -102,7 +135,7 @@
             <form id="register-form">
                 <div class="form-group" style="display: none;">
                     <label for="reg-server-url" id="reg-server-label">Server URL</label>
-                    <input type="text" id="reg-server-url" value="ws://localhost:8000" required>
+                    <input type="text" id="reg-server-url" value="wss://playaural.ddt.one:443" required>
                 </div>
                 <div class="form-group">
                     <label for="reg-username" id="reg-username-label">Username</label>
@@ -193,7 +226,20 @@
     </div>
 
     <script src="locales.js"></script>
+    <script src="locales.js"></script>
     <script src="game.js"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js')
+                    .then(registration => {
+                        console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                    }, err => {
+                        console.log('ServiceWorker registration failed: ', err);
+                    });
+            });
+        }
+    </script>
 </body>
 
 </html>

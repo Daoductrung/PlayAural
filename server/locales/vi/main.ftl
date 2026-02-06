@@ -15,8 +15,8 @@ auth-error-wrong-password = Mật khẩu không đúng.
 auth-error-user-not-found = Tài khoản không tồn tại.
 chat-language-english = Tiếng Anh
 chat-global = { $player } nói trên kênh chung: { $message }
-dev-announcement-broadcast = { $dev } là nhà phát triển.
-admin-announcement-broadcast = { $admin } là quản trị viên.
+dev-announcement-broadcast = { $dev } là nhà phát triển của PlayAural.
+admin-announcement-broadcast = { $admin } là quản trị viên của PlayAural.
 
 # Tiêu đề Menu
 main-menu-title = Menu Chính

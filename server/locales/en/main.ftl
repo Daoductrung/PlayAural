@@ -15,8 +15,8 @@ auth-error-wrong-password = Incorrect password.
 auth-error-user-not-found = User does not exist.
 chat-language-english = English
 chat-global = { $player } says globally: { $message }
-dev-announcement-broadcast = { $dev } is a developer.
-admin-announcement-broadcast = { $admin } is an administrator.
+dev-announcement-broadcast = { $dev } is a developer of PlayAural.
+admin-announcement-broadcast = { $admin } is an administrator of PlayAural.
 
 # Menu titles
 main-menu-title = Main Menu

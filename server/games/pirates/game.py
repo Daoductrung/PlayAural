@@ -263,13 +263,27 @@ class PiratesGame(Game):
         )
         action_set.add(
             Action(
-                id="check_position",
-                label=Localization.get(locale, "pirates-check-position"),
-                handler="_action_check_position",
-                is_enabled="_is_status_enabled",
-                is_hidden="_is_always_hidden",  # Always hidden, keybind only
+                id="check_moon",
+                label=Localization.get(locale, "pirates-check-moon"),
+                handler="_action_check_moon",
+                is_enabled="_is_moon_check_enabled",
+                is_hidden="_is_moon_check_hidden",
             )
         )
+        
+        # WEB-SPECIFIC: Moved to Standard Action Set for Web
+        is_web = user and getattr(user, "client_type", "") == "web"
+        if not is_web:
+            action_set.add(
+                Action(
+                    id="check_position",
+                    label=Localization.get(locale, "pirates-check-position"),
+                    handler="_action_check_position",
+                    is_enabled="_is_status_enabled",
+                    is_hidden="_is_always_hidden",  # Always hidden, keybind only
+                )
+            )
+
         action_set.add(
             Action(
                 id="check_status",
@@ -279,6 +293,43 @@ class PiratesGame(Game):
                 is_hidden="_is_status_hidden",
             )
         )
+
+        return action_set
+
+    # WEB-SPECIFIC: Target order for Standard Actions
+    web_target_order = ["check_position", "whose_turn", "whos_at_table"]
+
+    def create_standard_action_set(self, player: Player) -> ActionSet:
+        action_set = super().create_standard_action_set(player)
+        user = self.get_user(player)
+
+        # WEB-SPECIFIC: Reorder for Web Clients
+        if user and getattr(user, "client_type", "") == "web":
+            locale = user.locale
+
+            # Ensure 'check_position' is in standard set (moved from turn set for web)
+            if not action_set.get_action("check_position"):
+                 action_set.add(
+                    Action(
+                        id="check_position",
+                        label=Localization.get(locale, "pirates-check-position"),
+                        handler="_action_check_position",
+                        is_enabled="_is_status_enabled",
+                        is_hidden="_is_check_position_hidden", # Use new visibility method
+                    )
+                )
+
+            # Reordering Logic
+            final_order = []
+            for aid in self.web_target_order:
+                if action_set.get_action(aid):
+                    final_order.append(aid)
+            
+            for aid in action_set._order:
+                if aid not in self.web_target_order:
+                    final_order.append(aid)
+            
+            action_set._order = final_order
 
         return action_set
 
@@ -430,6 +481,31 @@ class PiratesGame(Game):
 
     def _is_always_hidden(self, player: Player) -> Visibility:
         """Always return hidden - for keybind-only actions."""
+        return Visibility.HIDDEN
+
+    # WEB-SPECIFIC: Visibility Overrides
+
+    def _is_whos_at_table_hidden(self, player: "Player") -> Visibility:
+        """Override: Visible for Web (always), hidden otherwise."""
+        user = self.get_user(player)
+        if user and getattr(user, "client_type", "") == "web":
+            return Visibility.VISIBLE
+        return super()._is_whos_at_table_hidden(player)
+
+    def _is_whose_turn_hidden(self, player: "Player") -> Visibility:
+        """Override: Visible for Web (Playing only), hidden otherwise."""
+        user = self.get_user(player)
+        if user and getattr(user, "client_type", "") == "web":
+            if self.status == "playing":
+                return Visibility.VISIBLE
+            return Visibility.HIDDEN
+        return super()._is_whose_turn_hidden(player)
+
+    def _is_check_position_hidden(self, player: "Player") -> Visibility:
+        """Override: Visible for Web, hidden otherwise."""
+        user = self.get_user(player)
+        if user and getattr(user, "client_type", "") == "web":
+            return Visibility.VISIBLE
         return Visibility.HIDDEN
 
     # ==========================================================================

@@ -309,6 +309,27 @@ class CrazyEightsGame(Game):
                 is_hidden="_is_check_hidden",
             )
         )
+
+
+        # WEB-SPECIFIC: Reorder for Web Clients
+        if user and getattr(user, "client_type", "") == "web":
+            target_order = [
+                "read_top",
+                "read_counts",
+                "check_scores",
+                "check_turn_timer",
+                "whose_turn",
+                "whos_at_table",
+            ]
+            # Keep existing items that are NOT in the target list
+            new_order = [aid for aid in action_set._order if aid not in target_order]
+            # Append target items if they exist in the set
+            for aid in target_order:
+                if action_set.get_action(aid):
+                    new_order.append(aid)
+
+            action_set._order = new_order
+
         return action_set
 
     def setup_keybinds(self) -> None:
@@ -855,7 +876,38 @@ class CrazyEightsGame(Game):
         return None
 
     def _is_check_hidden(self, player: Player) -> Visibility:
+        """Override: Web visible when playing."""
+        user = self.get_user(player)
+        if user and getattr(user, "client_type", "") == "web":
+            if self.status == "playing":
+                return Visibility.VISIBLE
+            return Visibility.HIDDEN
         return Visibility.HIDDEN
+
+    def _is_whos_at_table_hidden(self, player: "Player") -> Visibility:
+        """Override: Visible for Web (always), hidden otherwise."""
+        user = self.get_user(player)
+        if user and getattr(user, "client_type", "") == "web":
+            return Visibility.VISIBLE
+        return super()._is_whos_at_table_hidden(player)
+
+    def _is_whose_turn_hidden(self, player: "Player") -> Visibility:
+        """Override: Visible for Web (Playing only), hidden otherwise."""
+        user = self.get_user(player)
+        if user and getattr(user, "client_type", "") == "web":
+            if self.status == "playing":
+                return Visibility.VISIBLE
+            return Visibility.HIDDEN
+        return super()._is_whose_turn_hidden(player)
+
+    def _is_check_scores_hidden(self, player: "Player") -> Visibility:
+        """Override: Visible for Web (Playing only), hidden otherwise."""
+        user = self.get_user(player)
+        if user and getattr(user, "client_type", "") == "web":
+            if self.status == "playing":
+                return Visibility.VISIBLE
+            return Visibility.HIDDEN
+        return super()._is_check_scores_hidden(player)
 
     def _is_read_top_enabled(self, player: Player) -> str | None:
         if self.awaiting_wild_suit:

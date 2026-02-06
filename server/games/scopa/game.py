@@ -230,25 +230,31 @@ class ScopaGame(Game):
         action_set = ActionSet(name="turn")
 
         # Dynamic card actions will be created per-turn
-        # Add info actions (hidden from menu)
-        action_set.add(
-            Action(
-                id="view_table",
-                label=Localization.get(locale, "scopa-view-table"),
-                handler="_action_view_table",
-                is_enabled="_is_view_enabled",
-                is_hidden="_is_view_hidden",
+        # Dynamic card actions will be created per-turn
+        
+        # WEB-SPECIFIC: Moved to Standard Action Set for Web
+        is_web = user and getattr(user, "client_type", "") == "web"
+        if not is_web:
+            # Add info actions (hidden from menu)
+            action_set.add(
+                Action(
+                    id="view_table",
+                    label=Localization.get(locale, "scopa-view-table"),
+                    handler="_action_view_table",
+                    is_enabled="_is_view_enabled",
+                    is_hidden="_is_view_hidden",
+                )
             )
-        )
-        action_set.add(
-            Action(
-                id="view_captured",
-                label=Localization.get(locale, "scopa-view-captured"),
-                handler="_action_view_captured",
-                is_enabled="_is_view_enabled",
-                is_hidden="_is_view_hidden",
+            action_set.add(
+                Action(
+                    id="view_captured",
+                    label=Localization.get(locale, "scopa-view-captured"),
+                    handler="_action_view_captured",
+                    is_enabled="_is_view_enabled",
+                    is_hidden="_is_view_hidden",
+                )
             )
-        )
+        
         # Note: whose_turn, check_scores, check_scores_detailed are in base class standard set
 
         # View individual table cards (0-9 keys)
@@ -279,6 +285,55 @@ class ScopaGame(Game):
 
     # Options are now defined declaratively in ScopaOptions - no need to override
     # create_options_action_set as the base class handles it automatically
+
+    # WEB-SPECIFIC: Target order for Standard Actions
+    web_target_order = ["view_table", "view_captured", "check_scores", "whose_turn", "whos_at_table"]
+
+    def create_standard_action_set(self, player: Player) -> ActionSet:
+        action_set = super().create_standard_action_set(player)
+        user = self.get_user(player)
+
+        # WEB-SPECIFIC: Reorder for Web Clients
+        if user and getattr(user, "client_type", "") == "web":
+            locale = user.locale
+
+            # Ensure 'view_table' is in standard set (moved from turn set for web)
+            if not action_set.get_action("view_table"):
+                 action_set.add(
+                    Action(
+                        id="view_table",
+                        label=Localization.get(locale, "scopa-view-table"),
+                        handler="_action_view_table",
+                        is_enabled="_is_view_enabled",
+                        is_hidden="_is_check_table_hidden", # Use new visibility method
+                    )
+                )
+
+            # Ensure 'view_captured' is in standard set
+            if not action_set.get_action("view_captured"):
+                 action_set.add(
+                    Action(
+                        id="view_captured",
+                        label=Localization.get(locale, "scopa-view-captured"),
+                        handler="_action_view_captured",
+                        is_enabled="_is_view_enabled",
+                        is_hidden="_is_check_captured_hidden", # Use new visibility method
+                    )
+                )
+
+            # Reordering Logic
+            final_order = []
+            for aid in self.web_target_order:
+                if action_set.get_action(aid):
+                    final_order.append(aid)
+            
+            for aid in action_set._order:
+                if aid not in self.web_target_order:
+                    final_order.append(aid)
+            
+            action_set._order = final_order
+
+        return action_set
 
     def setup_keybinds(self) -> None:
         """Define all keybinds for the game."""
@@ -335,6 +390,51 @@ class ScopaGame(Game):
 
     def _is_view_hidden(self, player: Player) -> Visibility:
         """View actions are always hidden (keybind only)."""
+        return Visibility.HIDDEN
+
+    # WEB-SPECIFIC: Visibility Overrides
+
+    def _is_whos_at_table_hidden(self, player: "Player") -> Visibility:
+        """Override: Visible for Web (always), hidden otherwise."""
+        user = self.get_user(player)
+        if user and getattr(user, "client_type", "") == "web":
+            return Visibility.VISIBLE
+        return super()._is_whos_at_table_hidden(player)
+
+    def _is_whose_turn_hidden(self, player: "Player") -> Visibility:
+        """Override: Visible for Web (Playing only), hidden otherwise."""
+        user = self.get_user(player)
+        if user and getattr(user, "client_type", "") == "web":
+            if self.status == "playing":
+                return Visibility.VISIBLE
+            return Visibility.HIDDEN
+        return super()._is_whose_turn_hidden(player)
+
+    def _is_check_scores_hidden(self, player: "Player") -> Visibility:
+        """Override: Visible for Web (Playing only), hidden otherwise."""
+        user = self.get_user(player)
+        if user and getattr(user, "client_type", "") == "web":
+            if self.status == "playing":
+                return Visibility.VISIBLE
+            return Visibility.HIDDEN
+        return super()._is_check_scores_hidden(player)
+
+    def _is_check_table_hidden(self, player: "Player") -> Visibility:
+        """Override: Visible for Web (Playing only), hidden otherwise."""
+        user = self.get_user(player)
+        if user and getattr(user, "client_type", "") == "web":
+            if self.status == "playing":
+                return Visibility.VISIBLE
+            return Visibility.HIDDEN
+        return Visibility.HIDDEN
+
+    def _is_check_captured_hidden(self, player: "Player") -> Visibility:
+        """Override: Visible for Web (Playing only), hidden otherwise."""
+        user = self.get_user(player)
+        if user and getattr(user, "client_type", "") == "web":
+            if self.status == "playing":
+                return Visibility.VISIBLE
+            return Visibility.HIDDEN
         return Visibility.HIDDEN
 
     def _is_pause_timer_enabled(self, player: Player) -> str | None:

@@ -224,7 +224,55 @@ class LeftRightCenterGame(Game):
                 is_hidden="_is_check_center_hidden",
             )
         )
+        # WEB-SPECIFIC: Reorder for Web Clients
+        if user and getattr(user, "client_type", "") == "web":
+            target_order = [
+                "check_center",
+                "check_scores",
+                "whose_turn",
+                "whos_at_table",
+            ]
+            # Put target items FIRST
+            final_order = []
+            for aid in target_order:
+                if action_set.get_action(aid):
+                    final_order.append(aid)
+            
+            # Then add remaining items
+            for aid in action_set._order:
+                if aid not in target_order:
+                    final_order.append(aid)
+            
+            action_set._order = final_order
+
         return action_set
+
+    # WEB-SPECIFIC: Visibility Overrides
+
+    def _is_whos_at_table_hidden(self, player: "Player") -> Visibility:
+        """Override: Visible for Web (always), hidden otherwise."""
+        user = self.get_user(player)
+        if user and getattr(user, "client_type", "") == "web":
+            return Visibility.VISIBLE
+        return super()._is_whos_at_table_hidden(player)
+
+    def _is_whose_turn_hidden(self, player: "Player") -> Visibility:
+        """Override: Visible for Web (Playing only), hidden otherwise."""
+        user = self.get_user(player)
+        if user and getattr(user, "client_type", "") == "web":
+            if self.status == "playing":
+                return Visibility.VISIBLE
+            return Visibility.HIDDEN
+        return super()._is_whose_turn_hidden(player)
+
+    def _is_check_scores_hidden(self, player: "Player") -> Visibility:
+        """Override: Visible for Web (Playing only), hidden otherwise."""
+        user = self.get_user(player)
+        if user and getattr(user, "client_type", "") == "web":
+            if self.status == "playing":
+                return Visibility.VISIBLE
+            return Visibility.HIDDEN
+        return super()._is_check_scores_hidden(player)
 
     # ==========================================================================
     # Game flow
@@ -424,6 +472,12 @@ class LeftRightCenterGame(Game):
         return None
 
     def _is_check_center_hidden(self, player: Player) -> Visibility:
+        """Override: Web visible when playing."""
+        user = self.get_user(player)
+        if user and getattr(user, "client_type", "") == "web":
+            if self.status == "playing":
+                return Visibility.VISIBLE
+            return Visibility.HIDDEN
         return Visibility.HIDDEN
 
     def _action_check_center(self, player: Player, action_id: str) -> None:

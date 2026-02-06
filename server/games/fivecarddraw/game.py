@@ -266,6 +266,8 @@ class FiveCardDrawGame(Game):
         action_set = super().create_standard_action_set(player)
         user = self.get_user(player)
         locale = user.locale if user else "en"
+
+        # Add Game-Specific Standard Actions
         action_set.add(
             Action(
                 id="check_pot",
@@ -358,7 +360,55 @@ class FiveCardDrawGame(Game):
                     show_in_actions_menu=False,
                 )
             )
+
+        # WEB-SPECIFIC: Reorder for Web Clients
+        if user and getattr(user, "client_type", "") == "web":
+            target_order = [
+                "whose_turn",
+                "whos_at_table",
+                "check_scores",
+            ]
+            # Put target items FIRST
+            final_order = []
+            for aid in target_order:
+                if action_set.get_action(aid):
+                    final_order.append(aid)
+            
+            # Then add remaining items
+            for aid in action_set._order:
+                if aid not in target_order:
+                    final_order.append(aid)
+            
+            action_set._order = final_order
+
         return action_set
+
+    # WEB-SPECIFIC: Visibility Overrides
+
+    def _is_whos_at_table_hidden(self, player: "Player") -> Visibility:
+        """Override: Visible for Web (always), hidden otherwise."""
+        user = self.get_user(player)
+        if user and getattr(user, "client_type", "") == "web":
+            return Visibility.VISIBLE
+        return super()._is_whos_at_table_hidden(player)
+
+    def _is_whose_turn_hidden(self, player: "Player") -> Visibility:
+        """Override: Visible for Web (Playing only), hidden otherwise."""
+        user = self.get_user(player)
+        if user and getattr(user, "client_type", "") == "web":
+            if self.status == "playing":
+                return Visibility.VISIBLE
+            return Visibility.HIDDEN
+        return super()._is_whose_turn_hidden(player)
+
+    def _is_check_scores_hidden(self, player: "Player") -> Visibility:
+        """Override: Visible for Web (Playing only), hidden otherwise."""
+        user = self.get_user(player)
+        if user and getattr(user, "client_type", "") == "web":
+            if self.status == "playing":
+                return Visibility.VISIBLE
+            return Visibility.HIDDEN
+        return super()._is_check_scores_hidden(player)
 
     def setup_keybinds(self) -> None:
         super().setup_keybinds()

@@ -330,6 +330,30 @@ class MidnightGame(Game, DiceGameMixin):
 
         return action_set
 
+    # WEB-SPECIFIC: Override visibility for standard actions
+    # accessible in the Standard Action Set (displayed at bottom of menu)
+
+    def _is_whos_at_table_hidden(self, player: "Player") -> Visibility:
+        """Override: Visible for Web (always), hidden otherwise."""
+        user = self.get_user(player)
+        if user and getattr(user, "client_type", "") == "web":
+            return Visibility.VISIBLE
+        return super()._is_whos_at_table_hidden(player)
+
+    def _is_whose_turn_hidden(self, player: "Player") -> Visibility:
+        """Override: Visible for Web (Playing only), hidden otherwise."""
+        user = self.get_user(player)
+        if user and getattr(user, "client_type", "") == "web":
+            # Only visible when playing
+            if self.status == "playing":
+                return Visibility.VISIBLE
+            return Visibility.HIDDEN
+        return super()._is_whose_turn_hidden(player)
+
+    def _is_always_visible(self, player: "Player") -> Visibility:
+        """Helper for web-specific actions that should always be visible."""
+        return Visibility.VISIBLE
+
     def setup_keybinds(self) -> None:
         """Define all keybinds for the game."""
         # Call parent for lobby/standard keybinds

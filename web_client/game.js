@@ -226,16 +226,7 @@ class GameClient {
             this.sendListOnline(true);
         };
 
-        // Table Options (Escape equivalent for mobile)
-        const btnOptions = document.getElementById('btn-table-options');
-        if (btnOptions) {
-            btnOptions.onclick = (e) => {
-                e.preventDefault(); // Prevent focus issues
-                this.requestContextMenu();
-            };
-        } else {
-            console.error("Critical: btn-table-options not found in DOM!");
-        }
+        // Table Options Removed (Used to be btn-table-options)
 
         // Initialize Audio Context on first interaction (Touch included)
         const initAudioOnce = () => {
@@ -498,42 +489,7 @@ class GameClient {
         this.speak(includeGames ? "requesting-game-list" : "requesting-player-list");
     }
 
-    requestContextMenu() {
-        console.log("Table Options clicked");
-        if (!this.isConnected) {
-            console.warn("Context menu request failed: Not connected");
-            return;
-        }
 
-        // Emulate Python Client's on_escape logic
-        // Default to "keybind" if no menu state
-        const behavior = this.currentMenu ? this.currentMenu.escape_behavior : "keybind";
-        const menuId = this.currentMenu ? this.currentMenu.id : null;
-        console.log(`Context Menu behavior: ${behavior}, menuId: ${menuId}`);
-
-        if (behavior === "select_last_option" && this.currentMenu && this.currentMenu.items.length > 0) {
-            // Select the last item in the list
-            const index = this.currentMenu.items.length - 1;
-            const item = this.currentMenu.items[index];
-            this.sendMenuSelection(menuId, index + 1, item.id);
-            console.log("Context Menu: Selected last option");
-        } else if (behavior === "escape_event") {
-            // Send specific escape packet
-            this.socket.send(JSON.stringify({
-                type: "escape",
-                menu_id: menuId
-            }));
-            console.log("Context Menu: Sent escape event");
-        } else {
-            // Default: Send escape keybind
-            this.socket.send(JSON.stringify({
-                type: "keybind",
-                key: "escape"
-            }));
-            console.log("Context Menu: Sent escape keybind");
-        }
-        this.play_sound("menuclick.ogg");
-    }
 
     async play_sound(filename, options = {}) {
         // Try to init/resume audio context if needed
@@ -1721,8 +1677,8 @@ class GameClient {
     autoLoginConnection() {
         const storedUser = localStorage.getItem('pa_user');
         const storedPass = localStorage.getItem('pa_pass');
-        // Default URL for local testing
-        const serverUrl = "wss://playaural.ddt.one:443";
+        // Retrieve loaded URL from input (restored by loadConfig)
+        const serverUrl = document.getElementById('server-url').value || "localhost:8000";
 
         console.log(`Auto-login: user=${storedUser}, pass exists=${!!storedPass}, url=${serverUrl}`);
 

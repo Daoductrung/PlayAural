@@ -6,7 +6,7 @@
   "display": "standalone",
   "background_color": "#1a1a1a",
   "theme_color": "#4CAF50",
-  "orientation": "any",
+  "orientation": "portrait",
   "developer": {
     "name": "Dao Duc Trung",
     "url": "https://ddt.one"

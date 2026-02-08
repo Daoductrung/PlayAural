@@ -30,6 +30,11 @@ class UserPreferences:
     music_volume: int = 20
     ambience_volume: int = 20
 
+    # Speech preferences (Web only)
+    speech_mode: str = "aria"  # "aria" or "web_speech"
+    speech_rate: int = 100
+    speech_voice: str = ""  # Voice URI
+
     # Social preferences
     mute_global_chat: bool = False
     mute_table_chat: bool = False
@@ -51,6 +56,9 @@ class UserPreferences:
             "play_turn_sound": self.play_turn_sound,
             "music_volume": self.music_volume,
             "ambience_volume": self.ambience_volume,
+            "speech_mode": self.speech_mode,
+            "speech_rate": self.speech_rate,
+            "speech_voice": self.speech_voice,
             "mute_global_chat": self.mute_global_chat,
             "mute_table_chat": self.mute_table_chat,
             "notify_table_created": self.notify_table_created,
@@ -67,6 +75,9 @@ class UserPreferences:
             play_turn_sound=data.get("play_turn_sound", True),
             music_volume=data.get("music_volume", 20),
             ambience_volume=data.get("ambience_volume", 20),
+            speech_mode=data.get("speech_mode", "aria"),
+            speech_rate=data.get("speech_rate", 100),
+            speech_voice=data.get("speech_voice", ""),
             mute_global_chat=data.get("mute_global_chat", False),
             mute_table_chat=data.get("mute_table_chat", False),
             notify_table_created=data.get("notify_table_created", True),

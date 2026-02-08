@@ -841,6 +841,7 @@ PlayAural Server
             ),
         ])
 
+
         # PC-specific options (Hide for Web)
         if user.client_type != "web":
             items.extend([
@@ -867,6 +868,11 @@ PlayAural Server
                     id="play_typing_sounds",
                 ),
             ])
+        else:
+            # Web-specific options
+            items.append(
+                MenuItem(text=Localization.get(user.locale, "speech-settings"), id="speech_settings")
+            )
 
         items.extend([
             MenuItem(
@@ -931,6 +937,103 @@ PlayAural Server
         )
         self._user_states[user.username] = {"menu": "language_menu"}
 
+    def _show_speech_settings_menu(self, user: NetworkUser) -> None:
+        """Show speech settings menu (Web only)."""
+        prefs = user.preferences
+        items = []
+
+        # Speech Mode (Aria / Web Speech)
+        mode_key = "mode-aria" if prefs.speech_mode == "aria" else "mode-web-speech"
+        items.append(MenuItem(
+            text=Localization.get(
+                user.locale,
+                "speech-mode-option",
+                status=Localization.get(user.locale, mode_key)
+            ),
+            id="speech_mode"
+        ))
+
+        # Speech Rate
+        items.append(MenuItem(
+            text=Localization.get(
+                user.locale,
+                "speech-rate-option",
+                value=prefs.speech_rate
+            ),
+            id="speech_rate"
+        ))
+
+        # Speech Voice
+        voice_name = prefs.speech_voice if prefs.speech_voice else Localization.get(user.locale, "default-voice")
+        # Since voice is an ID, we might want to let the client render the name?
+        # For now, we display the ID or "Default". Client can improve this if needed.
+        items.append(MenuItem(
+            text=Localization.get(
+                user.locale,
+                "speech-voice-option",
+                voice=voice_name
+            ),
+            id="speech_voice"
+        ))
+
+        items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
+
+        user.show_menu(
+            "speech_settings_menu",
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self._user_states[user.username] = {"menu": "speech_settings_menu"}
+
+    async def _handle_speech_settings_selection(self, user: NetworkUser, selection_id: str) -> None:
+        """Handle speech settings menu selection."""
+        prefs = user.preferences
+
+        if selection_id == "back":
+            self._show_options_menu(user)
+        
+        elif selection_id == "speech_mode":
+            # Toggle between "aria" and "web_speech"
+            new_mode = "web_speech" if prefs.speech_mode == "aria" else "aria"
+            prefs.speech_mode = new_mode
+            self._save_user_preferences(user)
+            self._sync_pref_to_client(user, "speech_mode", new_mode)
+            self._show_speech_settings_menu(user)
+        
+        elif selection_id == "speech_rate":
+            user.show_editbox(
+                "speech_rate_input",
+                Localization.get(user.locale, "enter-speech-rate"),
+                default_value=str(prefs.speech_rate),
+            )
+            self._user_states[user.username]["menu"] = "speech_rate_input"
+        
+        elif selection_id == "speech_voice":
+            # Send an empty menu with a specific ID.
+            # The Web Client will intercept this ID and populate it with available voices.
+            # When selected, it will send the voice URI as selection_id to _handle_voice_selection.
+            user.show_menu(
+                "voice_selection_menu",
+                [MenuItem(text=Localization.get(user.locale, "select-voice"), id="placeholder")],
+                multiletter=True,
+                escape_behavior=EscapeBehavior.SELECT_LAST
+            )
+            self._user_states[user.username] = {"menu": "voice_selection_menu"}
+
+    async def _handle_voice_selection(self, user: NetworkUser, selection_id: str) -> None:
+        """Handle voice selection override (Web only)."""
+        if selection_id == "back":
+            self._show_speech_settings_menu(user)
+            return
+
+        # selection_id is the voice URI
+        user.preferences.speech_voice = selection_id
+        self._save_user_preferences(user)
+        self._sync_pref_to_client(user, "speech_voice", selection_id)
+        self._show_speech_settings_menu(user)
+
+
     def _sync_pref_to_client(self, user: NetworkUser, key: str, value: any) -> None:
         """Sync a preference update to the client."""
         asyncio.create_task(user.connection.send({
@@ -983,6 +1086,24 @@ PlayAural Server
             except ValueError:
                 user.speak_l("invalid-volume")
                 self._show_options_menu(user)
+                return True
+        
+        elif menu_id == "speech_rate_input":
+            try:
+                if not value or not value.isdigit():
+                     raise ValueError
+                rate = int(value)
+                if 50 <= rate <= 300:
+                    prefs.speech_rate = rate
+                    self._save_user_preferences(user)
+                    self._sync_pref_to_client(user, "speech_rate", rate)
+                    self._show_speech_settings_menu(user)
+                    return True
+                else:
+                    raise ValueError
+            except ValueError:
+                user.speak_l("invalid-rate")
+                self._show_speech_settings_menu(user)
                 return True
 
         return False
@@ -1116,6 +1237,10 @@ PlayAural Server
             await self._handle_options_selection(user, selection_id)
         elif current_menu == "language_menu":
             await self._handle_language_selection(user, selection_id)
+        elif current_menu == "speech_settings_menu":
+            await self._handle_speech_settings_selection(user, selection_id)
+        elif current_menu == "voice_selection_menu":
+            await self._handle_voice_selection(user, selection_id)
         elif current_menu == "dice_keeping_style_menu":
             await self._handle_dice_keeping_style_selection(user, selection_id)
         elif current_menu == "saved_tables_menu":
@@ -1383,6 +1508,9 @@ PlayAural Server
         """Handle options menu selection."""
         if selection_id == "language":
             self._show_language_menu(user)
+            return
+        elif selection_id == "speech_settings":
+            self._show_speech_settings_menu(user)
             return
 
         prefs = user.preferences

@@ -63,7 +63,7 @@ window.LOCALES = {
         "game-list-header": "Available Games:",
         "welcome": "Welcome, {username}.",
         "system-announcement": "System Announcement",
-        "dev-announcement-broadcast": "{dev} is a developer.",
+        "dev-announcement-broadcast": "{dev} is a developer of PlayAural.",
         "admin-announcement-broadcast": "{admin} is an administrator.",
         "broadcast": "Broadcast: {message}",
         "main-ping-result": "Ping: {value}ms",
@@ -126,7 +126,8 @@ window.LOCALES = {
         "btn-list-online-games": "List Players with Games",
         "players-instruction": "Click a button above to view online players.",
         "link-no-account": "No account? Register here.",
-        "link-have-account": "Already have an account? Login here."
+        "link-have-account": "Already have an account? Login here.",
+        "no-voices-found": "No voices found or still loading. Please try again in a moment or restart the browser."
     },
     "vi": {
         "app-title": "PlayAural Web",
@@ -186,7 +187,7 @@ window.LOCALES = {
         "game-list-header": "Các trò chơi hiện có:",
         "welcome": "Chào mừng, {username}.",
         "system-announcement": "Thông báo hệ thống",
-        "dev-announcement-broadcast": "{dev} là nhà phát triển.",
+        "dev-announcement-broadcast": "{dev} là nhà phát triển của PlayAural.",
         "admin-announcement-broadcast": "{admin} là quản trị viên.",
         "broadcast": "Thông báo: {message}",
         "main-ping-result": "Ping: {value}ms",
@@ -254,6 +255,7 @@ window.LOCALES = {
         "players-title": "Người chơi trực tuyến",
         "btn-list-online": "Đọc danh sách người chơi",
         "btn-list-online-games": "Liệt kê người chơi có trò chơi",
-        "players-instruction": "Nhấn nút ở trên để xem người chơi trực tuyến."
+        "players-instruction": "Nhấn nút ở trên để xem người chơi trực tuyến.",
+        "no-voices-found": "Không tìm thấy giọng đọc hoặc đang tải. Vui lòng thử lại sau giây lát hoặc khởi động lại trình duyệt."
     }
 };

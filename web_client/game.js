@@ -59,6 +59,332 @@ class Localization {
 }
 
 
+class SoundManager {
+    constructor(gameClient) {
+        this.client = gameClient;
+        this.ctx = null;
+        this.masterGain = null;
+        this.musicGain = null;
+        this.sfxGain = null;
+        this.ambienceGain = null;
+
+        // Assets
+        this.cache = new Map(); // url -> AudioBuffer
+        this.loading = new Map(); // url -> Promise
+
+        // State
+        this.currentMusicSource = null;
+        this.currentMusicUrl = null;
+        this.currentMusicGain = null;
+
+        this.ambienceIntroSource = null;
+        this.ambienceLoopSource = null;
+        this.ambienceOutroSource = null;
+
+        this.ambienceIntroGain = null;
+        this.ambienceLoopGain = null;
+        this.ambienceOutroGain = null;
+
+        this.ambienceState = 'stopped'; // stopped, loading, intro, looping, outro
+        this.ambienceConfig = null; // {intro, loop, outro}
+
+        // Settings (managed by GameClient, but mirrored here for direct access)
+        this.settings = {
+            musicVolume: 0.2,
+            sfxVolume: 1.0,
+            ambienceVolume: 0.3
+        };
+        this.isDucking = false;
+    }
+
+    init() {
+        if (this.ctx) return;
+
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        this.ctx = new AudioContext();
+
+        // Create Bus Structure
+        this.masterGain = this.ctx.createGain();
+        this.masterGain.connect(this.ctx.destination);
+
+        this.musicGain = this.ctx.createGain();
+        this.musicGain.connect(this.masterGain);
+
+        this.sfxGain = this.ctx.createGain();
+        this.sfxGain.connect(this.masterGain);
+
+        this.ambienceGain = this.ctx.createGain();
+        this.ambienceGain.connect(this.masterGain);
+
+        this.updateVolumes();
+        console.log("SoundManager: Audio Context Initialized");
+    }
+
+    async resume() {
+        if (!this.ctx) this.init();
+        if (this.ctx.state === 'suspended') {
+            await this.ctx.resume();
+            console.log("SoundManager: Audio Context Resumed");
+        }
+    }
+
+    updateVolumes() {
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+
+        // Calculate Ducking
+        let targetMusic = this.settings.musicVolume;
+        if (this.isDucking) targetMusic *= 0.3; // Reduce to 30%
+
+        // Use setTargetAtTime for smooth volume transitions (0.1s time constant)
+        this.musicGain.gain.setTargetAtTime(targetMusic, now, 0.1);
+        this.sfxGain.gain.setTargetAtTime(this.settings.sfxVolume, now, 0.1);
+        this.ambienceGain.gain.setTargetAtTime(this.settings.ambienceVolume, now, 0.1);
+    }
+
+    duckMusic(enable) {
+        if (this.isDucking === enable) return;
+        this.isDucking = enable;
+        this.updateVolumes();
+    }
+
+    setVolume(type, value) {
+        if (type === 'music') this.settings.musicVolume = value;
+        if (type === 'sound') this.settings.sfxVolume = value;
+        if (type === 'ambience') this.settings.ambienceVolume = value;
+        this.updateVolumes();
+    }
+
+    async load(filename) {
+        if (!filename) return null;
+        const url = `sounds/${filename}`;
+
+        if (this.cache.has(url)) return this.cache.get(url);
+        if (this.loading.has(url)) return this.loading.get(url);
+
+        const loadPromise = fetch(url)
+            .then(response => {
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                return response.arrayBuffer();
+            })
+            .then(arrayBuffer => this.ctx.decodeAudioData(arrayBuffer))
+            .then(audioBuffer => {
+                this.cache.set(url, audioBuffer);
+                this.loading.delete(url);
+                return audioBuffer;
+            })
+            .catch(err => {
+                console.warn(`SoundManager: Failed to load ${url}`, err);
+                this.loading.delete(url);
+                return null;
+            });
+
+        this.loading.set(url, loadPromise);
+        return loadPromise;
+    }
+
+    async playSound(filename, { volume = 1.0, pan = 0.0, pitch = 1.0 } = {}) {
+        await this.resume();
+        const buffer = await this.load(filename);
+        if (!buffer) return null;
+
+        const source = this.ctx.createBufferSource();
+        source.buffer = buffer;
+        source.playbackRate.value = pitch;
+
+        const panner = this.ctx.createStereoPanner();
+        panner.pan.value = Math.max(-1, Math.min(1, pan));
+
+        const gain = this.ctx.createGain();
+        gain.gain.value = volume;
+
+        // Chain: source -> panner -> localGain -> sfxBus
+        source.connect(panner);
+        panner.connect(gain);
+        gain.connect(this.sfxGain);
+
+        source.start(0);
+        return source;
+    }
+
+    async playMusic(filename, loop = true) {
+        if (this.currentMusicUrl === filename && this.currentMusicSource) {
+            // Already playing this track
+            // Just ensure loop setting is correct
+            this.currentMusicSource.loop = loop;
+            return;
+        }
+
+        await this.resume();
+        const buffer = await this.load(filename);
+        if (!buffer) return;
+
+        // Crossfade: Fade out existing
+        this.stopMusic(true);
+
+        const source = this.ctx.createBufferSource();
+        source.buffer = buffer;
+        source.loop = loop;
+
+        const gain = this.ctx.createGain();
+        gain.gain.value = 0; // Start silent for fade-in
+
+        source.connect(gain);
+        gain.connect(this.musicGain);
+
+        source.start(0);
+
+        // Fade in over 1 second
+        const now = this.ctx.currentTime;
+        gain.gain.linearRampToValueAtTime(1.0, now + 1.0);
+
+        this.currentMusicSource = source;
+        this.currentMusicGain = gain; // Keep track of own gain node for fade out
+        this.currentMusicUrl = filename;
+    }
+
+    stopMusic(fade = true) {
+        if (!this.currentMusicSource) return;
+
+        const source = this.currentMusicSource;
+        const gain = this.currentMusicGain;
+
+        // Detach current reference immediately so new music can start
+        this.currentMusicSource = null;
+        this.currentMusicUrl = null;
+        this.currentMusicGain = null;
+
+        if (fade && gain && this.ctx) {
+            const now = this.ctx.currentTime;
+            // Cancel scheduled values to take control
+            try { gain.gain.cancelScheduledValues(now); } catch (e) { }
+            gain.gain.setValueAtTime(gain.gain.value, now);
+            gain.gain.linearRampToValueAtTime(0, now + 1.0);
+
+            setTimeout(() => {
+                try { source.stop(); } catch (e) { }
+                source.disconnect();
+                gain.disconnect();
+            }, 1100);
+        } else {
+            try { source.stop(); } catch (e) { }
+            source.disconnect();
+            if (gain) gain.disconnect();
+        }
+    }
+
+    async playAmbience(intro, loopFile, outro) {
+        await this.resume();
+
+        // Stop any existing ambience immediately (force stop)
+        // Python client behavior: new ambience replaces old immediately
+        this.stopAmbience(true);
+
+        this.ambienceConfig = { intro, loop: loopFile, outro };
+        this.ambienceState = 'loading';
+
+        // Load all required buffers in parallel
+        const promises = [];
+        if (intro) promises.push(this.load(intro));
+        if (loopFile) promises.push(this.load(loopFile));
+        if (outro) promises.push(this.load(outro));
+
+        await Promise.all(promises);
+
+        // Check if stopped/changed while loading
+        if (this.ambienceState !== 'loading') return;
+
+        if (intro) {
+            const introBuffer = await this.load(intro);
+            if (introBuffer) {
+                this.ambienceState = 'intro';
+                this.ambienceIntroSource = this.ctx.createBufferSource();
+                this.ambienceIntroSource.buffer = introBuffer;
+                this.ambienceIntroSource.connect(this.ambienceGain);
+                this.ambienceIntroSource.onended = () => {
+                    // Only proceed if still in intro state (wasn't stopped)
+                    if (this.ambienceState === 'intro') {
+                        this._startAmbienceLoop();
+                    }
+                };
+                this.ambienceIntroSource.start(0);
+            } else {
+                // Skip intro if failed to load
+                this._startAmbienceLoop();
+            }
+        } else {
+            // No intro, start loop directly
+            this._startAmbienceLoop();
+        }
+    }
+
+    async _startAmbienceLoop() {
+        if (this.ambienceState === 'stopped') return;
+
+        const loopFile = this.ambienceConfig.loop;
+        if (!loopFile) return;
+
+        const loopBuffer = await this.load(loopFile);
+        if (!loopBuffer) return;
+
+        this.ambienceState = 'looping';
+        this.ambienceLoopSource = this.ctx.createBufferSource();
+        this.ambienceLoopSource.buffer = loopBuffer;
+        this.ambienceLoopSource.loop = true;
+        this.ambienceLoopSource.connect(this.ambienceGain);
+        this.ambienceLoopSource.start(0);
+    }
+
+    async stopAmbience(force = false) {
+        // If force=true, we stop everything immediately.
+        // If force=false, we stop loop and play outro.
+
+        const prevState = this.ambienceState;
+        this.ambienceState = 'stopped'; // Mark as stopped to prevent auto-transitions
+
+        // Stop active sources
+        if (this.ambienceIntroSource) {
+            try { this.ambienceIntroSource.stop(); } catch (e) { }
+            this.ambienceIntroSource = null;
+        }
+        if (this.ambienceLoopSource) {
+            try { this.ambienceLoopSource.stop(); } catch (e) { }
+            this.ambienceLoopSource = null;
+        }
+        if (this.ambienceOutroSource) {
+            // Always stop existing outro if playing
+            try { this.ambienceOutroSource.stop(); } catch (e) { }
+            this.ambienceOutroSource = null;
+        }
+
+        // Play Outro if graceful stop requested
+        if (!force && this.ambienceConfig && this.ambienceConfig.outro) {
+            // Only play outro if we were actually playing something
+            if (prevState !== 'stopped' && prevState !== 'loading') {
+                const outroFile = this.ambienceConfig.outro;
+                this.load(outroFile).then(outroBuffer => {
+                    if (outroBuffer) {
+                        this.ambienceState = 'outro';
+                        this.ambienceOutroSource = this.ctx.createBufferSource();
+                        this.ambienceOutroSource.buffer = outroBuffer;
+                        this.ambienceOutroSource.connect(this.ambienceGain);
+                        this.ambienceOutroSource.onended = () => {
+                            this.ambienceOutroSource = null;
+                            this.ambienceState = 'stopped';
+                        };
+                        this.ambienceOutroSource.start(0);
+                    }
+                });
+            }
+        }
+
+        if (force) {
+            this.ambienceConfig = null;
+        }
+    }
+}
+
+
 class Playlist {
     constructor(client, id, tracks, options = {}) {
         this.client = client;
@@ -73,7 +399,7 @@ class Playlist {
         this.currentIndex = 0;
         this.currentRepeat = 1;
         this.active = false;
-        this.currentAudio = null;
+        this.currentAudioSource = null; // We track source node now
 
         if (this.shuffle) {
             this.shuffleTracks();
@@ -94,13 +420,17 @@ class Playlist {
 
     stop() {
         this.active = false;
-        if (this.currentAudio) {
-            this.currentAudio.pause();
-            this.currentAudio = null;
+        // If playing SFX (playlist managed), stop it.
+        // If playing Music, GameClient/SoundManager handles it (mostly).
+        // Actually, if we are controlling music, we should stop it too?
+        // Python: playlist.stop just stops logic, sound manager handles playback.
+        if (this.audioType !== "music" && this.currentAudioSource) {
+            try { this.currentAudioSource.stop(); } catch (e) { }
+            this.currentAudioSource = null;
         }
     }
 
-    playNext() {
+    async playNext() {
         if (!this.active || this.tracks.length === 0) return;
 
         // Check if playlist finished
@@ -123,21 +453,29 @@ class Playlist {
 
         if (this.audioType === "music") {
             // Play as music (replaces current music)
-            this.client.play_music(filename, false); // looping=false because playlist handles loop
-            this.currentAudio = this.client.currentMusic;
+            // Play as music (replaces current music)
+            // Note: playMusic is now async, so we MUST await it to ensure source is active
+            // and correct before attaching onended listener.
+            // loop=false because playlist handles the sequence.
+            await this.client.soundManager.playMusic(filename, false);
+
+            // Now currentMusicSource is guaranteed to be the new one
+            if (this.client.soundManager.currentMusicSource) {
+                this.client.soundManager.currentMusicSource.onended = () => this.playNext();
+            }
+
         } else {
             // Play as sound
-            const path = `sounds/${filename}`;
-            this.currentAudio = new Audio(path);
-            this.currentAudio.volume = this.client.soundVolume;
-            this.currentAudio.play().catch(e => console.warn("Playlist play error:", e));
-        }
+            const source = await this.client.soundManager.playSound(filename, {
+                volume: 1.0 // Playlist volume?
+            });
 
-        // Setup next track callback
-        if (this.currentAudio) {
-            this.currentAudio.onended = () => {
-                this.playNext();
-            };
+            if (source) {
+                this.currentAudioSource = source;
+                source.onended = () => {
+                    this.playNext();
+                };
+            }
         }
     }
 }
@@ -145,7 +483,6 @@ class Playlist {
 class GameClient {
     constructor() {
         this.socket = null;
-        this.audioContext = null;
         this.isConnected = false;
         this.manualDisconnect = false;
 
@@ -168,7 +505,10 @@ class GameClient {
             mute_global_chat: false,
             mute_table_chat: false,
             notify_table_created: true,
-            play_typing_sounds: true
+            play_typing_sounds: true,
+            speech_mode: "aria",
+            speech_rate: 100,
+            speech_voice: ""
         };
         this.announcer = document.getElementById('announcer');
         this.menuArea = document.getElementById('menu-area');
@@ -189,17 +529,29 @@ class GameClient {
         this.soundVolume = 1.0;
         this.ambienceVolume = 0.3;
 
-        // State
-        this.currentMusic = null;
-        this.currentMusicName = null;
-        this.currentAmbience = null;
-        this.playlists = {}; // ID -> Playlist
-        this.currentAnnouncerIndex = 0; // For rotating between dual aria-live regions
+        // Audio System
+        this.soundManager = new SoundManager(this);
+        this.soundManager.setVolume('music', this.musicVolume);
+        // Note: musicVolume init value is 0.2
+        this.soundManager.setVolume('sound', this.soundVolume);
+        this.soundManager.setVolume('ambience', this.ambienceVolume);
 
-        // Speech Queue System
+
+        // Speech Queue System (ARIA)
         this.speechQueue = [];
         this.isSpeaking = false;
-        this.speechDelay = 200; // 0.2 seconds delay for fast responsiveness while maintaining queue order
+        this.currentAnnouncerIndex = 0;
+        this.speechDelay = 200;
+
+        // Voice Caching (Latency Optimization)
+        this.cachedVoices = [];
+        this.targetVoice = null;
+
+        // Web Speech API Queue System (Manual Management for Android Stability)
+        this.ttsQueue = [];
+        this.isTTSPlaying = false;
+        this.ttsTimeout = null;
+
 
         // Load Localization
         // Default to 'en', but prefer stored preference if available (loaded in loadConfig -> clientOptions but we are in constructor here)
@@ -231,9 +583,19 @@ class GameClient {
 
         // Initialize Audio Context on first interaction (Touch included)
         const initAudioOnce = () => {
-            this.initAudio();
+            this.soundManager.resume();
+
+            // "Unlock" TTS on Android Chrome (Warm-up)
+            // Play a silent utterance to get permissions and wake up the engine
+            if (window.speechSynthesis) {
+                const silent = new SpeechSynthesisUtterance("");
+                silent.volume = 0; // Silent
+                window.speechSynthesis.speak(silent);
+                console.log("TTS Warm-up triggered.");
+            }
+
             // Remove listeners after first successful init
-            if (this.audioContext && this.audioContext.state === 'running') {
+            if (this.soundManager.ctx && this.soundManager.ctx.state === 'running') {
                 document.removeEventListener('click', initAudioOnce);
                 document.removeEventListener('keydown', initAudioOnce);
                 document.removeEventListener('touchstart', initAudioOnce);
@@ -243,6 +605,25 @@ class GameClient {
         document.addEventListener('click', initAudioOnce);
         document.addEventListener('keydown', initAudioOnce);
         document.addEventListener('touchstart', initAudioOnce);
+
+        // Initialize Voices (Async)
+        this.voicesLoaded = false;
+        if (window.speechSynthesis) {
+            // Load initial if available
+            this.cachedVoices = window.speechSynthesis.getVoices();
+            if (this.cachedVoices.length > 0) this.voicesLoaded = true;
+
+            // Update when loaded/changed
+            window.speechSynthesis.onvoiceschanged = () => {
+                this.cachedVoices = window.speechSynthesis.getVoices();
+                this.voicesLoaded = true;
+                console.log(`Voices updated: ${this.cachedVoices.length} voices found.`);
+                // Re-calculate target voice if needed
+                if (this.preferences.speech_voice) {
+                    this.updateTargetVoice();
+                }
+            };
+        }
 
         // Load saved config
         this.clientOptions = {
@@ -306,12 +687,15 @@ class GameClient {
                 // Restore audio settings
                 if (config.musicVolume !== undefined) {
                     this.musicVolume = config.musicVolume;
+                    this.soundManager.setVolume('music', this.musicVolume);
                 }
                 if (config.soundVolume !== undefined) {
                     this.soundVolume = config.soundVolume;
+                    this.soundManager.setVolume('sound', this.soundVolume);
                 }
                 if (config.ambienceVolume !== undefined) {
                     this.ambienceVolume = config.ambienceVolume;
+                    this.soundManager.setVolume('ambience', this.ambienceVolume);
                 }
 
                 // Restore preferences
@@ -355,19 +739,6 @@ class GameClient {
                 localStorage.setItem('pa_user', this.lastUser);
                 localStorage.setItem('pa_pass', this.lastPass);
             }
-        }
-    }
-
-    initAudio() {
-        if (!this.audioContext) {
-            const AudioContext = window.AudioContext || window.webkitAudioContext;
-            this.audioContext = new AudioContext();
-            console.log("Audio Context Initialized");
-        }
-        if (this.audioContext.state === 'suspended') {
-            this.audioContext.resume().then(() => {
-                console.log("Audio Context Resumed");
-            }).catch(e => console.warn("Audio resume failed", e));
         }
     }
 
@@ -428,7 +799,7 @@ class GameClient {
         }
 
         html += `<span class="log-msg">${message}</span>`;
-        // html += ` <span class="log-time">[${time}]</span>`; // Optional time for mobile to save space? 
+        // html += ` <span class="log-time">[${time}]</span>`; // Optional time for mobile to save space?
         // User didn't specify, but mobile screen is small. Let's keep it but small.
 
         entry.innerHTML = html;
@@ -530,71 +901,7 @@ class GameClient {
 
 
     async play_sound(filename, options = {}) {
-        // Try to init/resume audio context if needed
-        if (!this.audioContext) {
-            this.initAudio();
-        }
-        if (this.audioContext && this.audioContext.state === 'suspended') {
-            try {
-                await this.audioContext.resume();
-            } catch (e) {
-                console.warn("Auto-resume failed in play_sound", e);
-            }
-        }
-
-        const pan = options.pan !== undefined ? options.pan : 0.0; // -1.0 to 1.0
-        const pitch = options.pitch !== undefined ? options.pitch : 1.0; // 0.0 to 2.0+
-        let volMultiplier = 1.0;
-
-        if (options.volume !== undefined) {
-            volMultiplier = options.volume;
-        }
-
-        const path = `sounds/${filename}`;
-
-        // Strategy: Use Web Audio API if available (for Pitch/Pan), fallback to HTML5 Audio
-        // Check if context is running AND not local file protocol (to avoid CORS)
-        const isLocalFile = window.location.protocol === 'file:';
-
-        if (this.audioContext && this.audioContext.state === 'running' && !isLocalFile) {
-            try {
-                // Fetch and Decode
-                const response = await fetch(path);
-                const arrayBuffer = await response.arrayBuffer();
-                const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
-
-                // Create Nodes
-                const source = this.audioContext.createBufferSource();
-                source.buffer = audioBuffer;
-                source.playbackRate.value = pitch;
-
-                const gainNode = this.audioContext.createGain();
-                gainNode.gain.value = this.soundVolume * volMultiplier;
-
-                const panner = this.audioContext.createStereoPanner();
-                panner.pan.value = Math.max(-1, Math.min(1, pan));
-
-                // Connect
-                source.connect(panner);
-                panner.connect(gainNode);
-                gainNode.connect(this.audioContext.destination);
-
-                source.start(0);
-                return; // Success
-
-            } catch (e) {
-                console.warn(`Web Audio API playback failed for ${path}, falling back:`, e);
-            }
-        }
-
-        // Fallback: Simple Audio Element
-        try {
-            const audio = new Audio(path);
-            audio.volume = Math.max(0, Math.min(1, this.soundVolume * volMultiplier));
-            await audio.play();
-        } catch (e) {
-            console.error(`Fallback playback failed for ${path}:`, e);
-        }
+        return this.soundManager.playSound(filename, options);
     }
 
 
@@ -604,8 +911,190 @@ class GameClient {
         console.log(`Queueing Speech: ${text}`, params);
 
         const localized = Localization.get(text, params);
+
+        // Web Speech API Mode
+        if (this.preferences.speech_mode === "web_speech") {
+            this.speakTTS(localized);
+            return;
+        }
+
+        // Aria-live Mode (Default)
         this.speechQueue.push(localized);
         this.processSpeechQueue();
+    }
+
+    speakTTS(text) {
+        if (!window.speechSynthesis) return;
+
+        // Optimization: Chunk long text for Android Stability (<200 chars safe zone)
+        // Split by punctuation or length
+        const chunks = this.chunkText(text, 160);
+
+        chunks.forEach(chunk => {
+            this.ttsQueue.push(chunk);
+        });
+
+        this.processTTSQueue();
+    }
+
+    chunkText(text, maxLength) {
+        if (text.length <= maxLength) return [text];
+
+        const chunks = [];
+        let remaining = text;
+
+        while (remaining.length > 0) {
+            if (remaining.length <= maxLength) {
+                chunks.push(remaining);
+                break;
+            }
+
+            // Find best split point (punctuation) within the limit
+            let splitIndex = -1;
+            const punctuations = ['.', '!', '?', ';', ','];
+
+            for (const p of punctuations) {
+                const idx = remaining.lastIndexOf(p, maxLength);
+                if (idx > splitIndex) splitIndex = idx;
+            }
+
+            // If no punctuation found, split by space
+            if (splitIndex === -1) {
+                splitIndex = remaining.lastIndexOf(' ', maxLength);
+            }
+
+            // If still no split point (one huge number?), force split
+            if (splitIndex === -1) {
+                splitIndex = maxLength;
+            } else {
+                splitIndex += 1; // Include the punctuation/space
+            }
+
+            chunks.push(remaining.substring(0, splitIndex).trim());
+            remaining = remaining.substring(splitIndex).trim();
+        }
+        return chunks;
+    }
+
+    processTTSQueue() {
+        if (this.isTTSPlaying) return;
+
+        if (this.ttsQueue.length === 0) {
+            // Optimization: Stop Ducking when done
+            this.soundManager.duckMusic(false);
+            return;
+        }
+
+        // Optimization: Start Ducking
+        this.soundManager.duckMusic(true);
+
+        this.isTTSPlaying = true;
+        const text = this.ttsQueue.shift();
+
+        // 1. Resume (Non-blocking)
+        if (window.speechSynthesis && window.speechSynthesis.paused) {
+            window.speechSynthesis.resume();
+        }
+
+        // Cancel persistent utterances
+        window.speechSynthesis.cancel();
+
+        const utterance = new SpeechSynthesisUtterance(text);
+
+        // 2. Optimized Voice Selection
+        if (this.targetVoice) {
+            utterance.voice = this.targetVoice;
+        } else {
+            // Fallback: Try to find in cache or fetch if empty
+            if (this.cachedVoices.length === 0) {
+                this.cachedVoices = window.speechSynthesis.getVoices();
+            }
+
+            if (this.preferences.speech_voice) {
+                const found = this.cachedVoices.find(v => v.voiceURI === this.preferences.speech_voice);
+                if (found) {
+                    this.targetVoice = found;
+                    utterance.voice = found;
+                }
+            }
+        }
+
+        // 3. Rate: Allow up to 10.0 and map 300% -> 3.0 (or higher if needed)
+        let serverRate = this.preferences.speech_rate || 100;
+        const rate = serverRate / 100.0;
+        utterance.rate = Math.max(0.1, Math.min(rate, 10.0)); // Browser max is usually 10
+
+        // Explicitly set language
+        if (Localization.locale) {
+            utterance.lang = Localization.locale;
+        }
+
+        // 4. Watchdog with "Nuclear Reset" capability
+        if (this.ttsTimeout) clearTimeout(this.ttsTimeout);
+
+        // Duration estimation
+        const baseTime = (text.length * 200) / rate;
+        const estimatedDuration = Math.max(4000, baseTime + 5000); // Increased min buffer to 4s
+
+        this.ttsTimeout = setTimeout(() => {
+            console.warn(`TTS Watchdog: Speech timed out after ${estimatedDuration}ms. Triggering NUCLEAR RESET.`);
+            this.resetTTS(); // Hard reset
+            // Skip current item to prevents loops
+            this.isTTSPlaying = false;
+            this.processTTSQueue();
+        }, estimatedDuration);
+
+
+        // Event Handling
+        utterance.onstart = () => {
+            console.log("TTS Started");
+        };
+
+        utterance.onend = () => {
+            console.log("TTS Ended");
+            if (this.ttsTimeout) clearTimeout(this.ttsTimeout);
+            this.isTTSPlaying = false;
+            this.processTTSQueue();
+        };
+
+        utterance.onerror = (e) => {
+            console.warn("TTS Error:", e);
+            if (this.ttsTimeout) clearTimeout(this.ttsTimeout);
+            this.isTTSPlaying = false;
+            this.processTTSQueue(); // Just proceed
+        };
+
+        // Android GC Fix: explicit reference to prevent garbage collection during playback
+        this.currentUtterance = utterance;
+
+        window.speechSynthesis.speak(utterance);
+
+        // Final "Kick": Aggressive resume to ensure playback starts on stubborn Android devices
+        if (window.speechSynthesis.paused) window.speechSynthesis.resume();
+    }
+
+    // New "Nuclear Reset" for stuck Android TTS
+    resetTTS() {
+        console.log("Performing TTS Nuclear Reset...");
+        if (!window.speechSynthesis) return;
+
+        // 1. Cancel everything
+        window.speechSynthesis.cancel();
+
+        // 2. Toggle Pause/Resume to unstick internal state
+        if (window.speechSynthesis.paused) {
+            window.speechSynthesis.resume();
+        } else {
+            window.speechSynthesis.pause();
+            window.speechSynthesis.resume();
+        }
+
+        // 3. Nullify flags
+        this.isTTSPlaying = false;
+        this.ttsTimeout = null;
+
+        // 4. Force re-fetch voices (async)
+        window.speechSynthesis.getVoices();
     }
 
     processSpeechQueue() {
@@ -648,62 +1137,29 @@ class GameClient {
 
 
     play_music(filename, loop = true) {
-        // If controlled by playlist, loop might be false
-
-        if (this.currentMusic && this.currentMusicName === filename && !this.currentMusic.paused) {
-            // If existing is already playing same file
-            // Update loop parameter just in case
-            this.currentMusic.loop = loop;
-            return;
-        }
-
-        if (this.currentMusic) {
-            this.stop_music();
-        }
-        if (!this.audioContext || !filename) return;
-
-        const path = `sounds/${filename}`;
-        const audio = new Audio(path);
-        audio.loop = loop;
-        audio.volume = this.musicVolume;
-
-        // Handle ended event for looping if not set natively (though audio.loop does it)
-        // If not looping, we might need to notify playlist. 
-        // Logic: Playlist sets loop=false, listens to onended.
-
-        audio.play().catch(e => console.warn(`Failed to play music: ${path}`, e));
-
-        this.currentMusic = audio;
-        this.currentMusicName = filename;
+        this.soundManager.playMusic(filename, loop);
     }
 
     stop_music() {
-        if (this.currentMusic) {
-            this.currentMusic.pause();
-            this.currentMusic = null;
-            this.currentMusicName = null;
-        }
+        this.soundManager.stopMusic(true);
     }
 
-    play_ambience(filename) {
-        if (this.currentAmbience) {
-            this.stop_ambience();
-        }
-        if (!this.audioContext || !filename) return;
 
-        const path = `sounds/${filename}`;
-        const audio = new Audio(path);
-        audio.loop = true;
-        audio.volume = this.ambienceVolume;
-        audio.play().catch(e => console.warn(`Failed to play ambience: ${path}`, e));
-        this.currentAmbience = audio;
+
+    // Server packet handlers usually call this
+    async on_server_play_ambience(packet) {
+        await this.soundManager.playAmbience(packet.intro, packet.loop, packet.outro);
+    }
+
+    on_server_stop_ambience(packet) {
+        // Python server sends: type="stop_ambience" (no force param usually)
+        // But if it did, we should support it.
+        const force = packet.force || false;
+        this.soundManager.stopAmbience(force);
     }
 
     stop_ambience() {
-        if (this.currentAmbience) {
-            this.currentAmbience.pause();
-            this.currentAmbience = null;
-        }
+        this.soundManager.stopAmbience();
     }
 
     // New Playlist Methods
@@ -797,10 +1253,12 @@ class GameClient {
 
     handlePreferenceUpdate(packet) {
         console.log("Updating preference (RAW):", packet);
+        let updates = {};
 
         // Merge new preferences (bulk update from authorize)
         if (packet.preferences) {
             this.preferences = { ...this.preferences, ...packet.preferences };
+            updates = packet.preferences;
             console.log("Preferences Updated (Bulk):", this.preferences);
         }
         // Single preference update (from update_preference packet)
@@ -814,9 +1272,37 @@ class GameClient {
 
             // Force update
             this.preferences[flatKey] = value;
+            updates[flatKey] = value;
         }
+
+        // Apply Side Effects (Audio Volume, etc)
+        if (updates.music_volume !== undefined) {
+            this.setMusicVolume(updates.music_volume / 100.0);
+        }
+        if (updates.sound_volume !== undefined) {
+            this.setSoundVolume(updates.sound_volume / 100.0);
+        }
+        if (updates.ambience_volume !== undefined) {
+            this.setAmbienceVolume(updates.ambience_volume / 100.0);
+        }
+
+        // Handle Speech Preferences
+        if (updates.speech_mode !== undefined) console.log("Speech Mode set to:", updates.speech_mode);
+        if (updates.speech_rate !== undefined) console.log("Speech Rate set to:", updates.speech_rate);
+        if (updates.speech_voice !== undefined) {
+            console.log("Speech Voice set to:", updates.speech_voice);
+            this.updateTargetVoice();
+        }
+
         this.saveConfig();
         console.log("Current Preferences Snapshot:", JSON.stringify(this.preferences));
+    }
+
+    updateTargetVoice() {
+        if (!this.cachedVoices || !this.cachedVoices.length) return;
+        const found = this.cachedVoices.find(v => v.voiceURI === this.preferences.speech_voice);
+        this.targetVoice = found || null;
+        if (this.targetVoice) console.log(`Target Voice cached: ${this.targetVoice.name}`);
     }
 
     handlePacket(packet) {
@@ -941,10 +1427,10 @@ class GameClient {
                 this.stop_music();
                 break;
             case "play_ambience":
-                if (packet.loop) this.play_ambience(packet.loop);
+                this.on_server_play_ambience(packet);
                 break;
             case "stop_ambience":
-                this.stop_ambience();
+                this.on_server_stop_ambience(packet);
                 break;
 
             // Playlist packets
@@ -998,8 +1484,6 @@ class GameClient {
 
                     if (this.preferences.mute_table_chat === true) {
                         shouldSpeak = false;
-                    } else {
-                        // console.log("PLAYING: Table Chat (Not Muted)");
                     }
                 } else {
                     // Default / System messages
@@ -1054,9 +1538,7 @@ class GameClient {
                 this.handlePreferenceUpdate(packet);
                 break;
 
-            case "stop_music":
-                this.stop_music();
-                break;
+
 
             case "get_playlist_duration":
                 // Server requests playlist duration info
@@ -1074,10 +1556,6 @@ class GameClient {
                 }
                 break;
 
-            // Removed/Simplified handlers
-            // Removed/Simplified handlers
-            // case "open_client_options": handled by server menu now
-
             case "pong":
                 // Simplified ping without UI
                 if (this.pingStart) {
@@ -1088,11 +1566,7 @@ class GameClient {
                 }
                 break;
 
-            case "force_exit":
-                alert(packet.reason || "You have been disconnected.");
-                this.socket.close();
-                window.close();
-                break;
+
 
             case "table_create":
                 this.play_sound("notify.ogg");
@@ -1112,6 +1586,21 @@ class GameClient {
             "web_actions_menu": { container: document.getElementById('web-actions-container'), cls: "web-action-btn" },
             "web_leave_table": { container: document.getElementById('web-leave-container'), cls: "web-leave-btn danger-btn" }
         };
+
+        // WEB-SPECIFIC: Voice Selection Menu Interception
+        if (packet.menu_id === "voice_selection_menu") {
+            const voices = window.speechSynthesis.getVoices();
+            newItems = voices.map(voice => ({
+                text: voice.name + (voice.default ? " (Default)" : ""),
+                id: voice.voiceURI // Use URI as ID
+            }));
+            newItems.push({ text: Localization.get("back"), id: "back" });
+
+            // If no voices found (async load issue?), show specific message
+            if (voices.length === 0) {
+                newItems = [{ text: Localization.get("no-voices-found"), id: "back" }];
+            }
+        }
 
         const webButtons = {};
         newItems = newItems.filter(item => {
@@ -1168,7 +1657,6 @@ class GameClient {
             return;
         }
 
-        // --- Diffing Logic (Same Menu ID) ---
         // --- Diffing Logic (Same Menu ID) ---
         const buttons = Array.from(this.menuArea.children).filter(el => el.classList.contains('menu-item'));
 
@@ -1491,22 +1979,19 @@ class GameClient {
 
     setMusicVolume(vol) {
         this.musicVolume = vol;
-        if (this.currentMusic) {
-            this.currentMusic.volume = vol;
-        }
+        this.soundManager.setVolume('music', vol);
         this.saveConfig();
     }
 
     setSoundVolume(vol) {
         this.soundVolume = vol;
+        this.soundManager.setVolume('sound', vol);
         this.saveConfig();
     }
 
     setAmbienceVolume(vol) {
         this.ambienceVolume = vol;
-        if (this.currentAmbience) {
-            this.currentAmbience.volume = vol;
-        }
+        this.soundManager.setVolume('ambience', vol);
         this.saveConfig();
     }
 

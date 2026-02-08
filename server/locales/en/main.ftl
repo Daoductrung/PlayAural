@@ -347,3 +347,16 @@ server-restarting = Server is restarting in { $seconds } seconds...
 server-shutting-down = Server is shutting down in { $seconds } seconds...
 server-error-changing-language = Error changing language: { $error }
 default-save-name = { $game } - { $date }
+
+# Speech Settings (Web)
+speech-settings = Speech Settings
+speech-mode-option = Speech Mode: { $status }
+speech-rate-option = Speech Rate: { $value }%
+speech-voice-option = Voice: { $voice }
+select-voice = Select Voice
+enter-speech-rate = Enter speech rate (50-300)
+invalid-rate = Invalid rate. Please enter a number between 50 and 300.
+mode-aria = Aria-live
+mode-web-speech = Web Speech API
+default-voice = Default Voice
+no-voices-found = No voices found or still loading. Please try again in a moment or restart the browser.

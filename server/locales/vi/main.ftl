@@ -347,3 +347,16 @@ server-restarting = Máy chủ sẽ khởi động lại trong { $seconds } giâ
 server-shutting-down = Máy chủ sẽ tắt trong { $seconds } giây...
 server-error-changing-language = Lỗi khi đổi ngôn ngữ: { $error }
 default-save-name = { $game } - { $date }
+
+# Cài đặt giọng nói (Web)
+speech-settings = Cài đặt giọng nói
+speech-mode-option = Chế độ đọc: { $status }
+speech-rate-option = Tốc độ đọc: { $value }%
+speech-voice-option = Giọng đọc: { $voice }
+select-voice = Chọn giọng đọc
+enter-speech-rate = Nhập tốc độ đọc (50-300)
+invalid-rate = Tốc độ không hợp lệ. Vui lòng nhập số từ 50 đến 300.
+mode-aria = Aria-live
+mode-web-speech = Web Speech API
+default-voice = Giọng mặc định
+no-voices-found = Không tìm thấy giọng đọc hoặc đang tải. Vui lòng thử lại sau giây lát hoặc khởi động lại trình duyệt.

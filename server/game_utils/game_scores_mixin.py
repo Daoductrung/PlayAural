@@ -56,7 +56,15 @@ class GameScoresMixin:
             return
 
         if self.team_manager.teams:
-            user.speak(self.team_manager.format_scores_brief(user.locale))
+            # Check for target score in options
+            target_score = None
+            if hasattr(self, "options"):
+                if hasattr(self.options, "target_score"):
+                    target_score = self.options.target_score
+                elif hasattr(self.options, "winning_score"):
+                    target_score = self.options.winning_score
+
+            user.speak(self.team_manager.format_scores_brief(user.locale, target_score))
         else:
             user.speak_l("no-scores-available")
 
@@ -67,7 +75,15 @@ class GameScoresMixin:
             return
 
         if self.team_manager.teams:
-            lines = self.team_manager.format_scores_detailed(user.locale)
+            # Check for target score in options
+            target_score = None
+            if hasattr(self, "options"):
+                if hasattr(self.options, "target_score"):
+                    target_score = self.options.target_score
+                elif hasattr(self.options, "winning_score"):
+                    target_score = self.options.winning_score
+
+            lines = self.team_manager.format_scores_detailed(user.locale, target_score)
             self.status_box(player, lines)
         else:
             self.status_box(player, ["No scores available."])

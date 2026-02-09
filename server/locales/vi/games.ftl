@@ -13,6 +13,7 @@ game-no-turn = Hiện không phải lượt của ai.
 # Hiển thị điểm số
 game-scores-header = Điểm số hiện tại:
 game-score-line = { $player }: { $score } điểm
+game-score-line-target = { $player }: { $score }/{ $target } điểm
 game-points = { $count } { $count ->
     [one] điểm
    *[other] điểm

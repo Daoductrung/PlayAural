@@ -556,7 +556,11 @@ class LightTurretGame(Game):
     def build_game_result(self) -> GameResult:
         """Build the game result with LightTurret-specific data."""
         sorted_players = sorted(
-            [p for p in self.players if isinstance(p, LightTurretPlayer)],
+            [
+                p
+                for p in self.players
+                if isinstance(p, LightTurretPlayer) and not p.is_spectator
+            ],
             key=lambda p: p.light,
             reverse=True,
         )

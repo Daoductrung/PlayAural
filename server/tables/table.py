@@ -142,9 +142,11 @@ class Table(DataClassJSONMixin):
             any_human_present = False
             if self._game:
                 for p in self._game.players:
-                    if not p.is_bot and p.id in self._server._users:
-                        any_human_present = True
-                        break
+                    if not p.is_bot:
+                        user = self._game.get_user(p)
+                        if user and user.username in self._server._users:
+                            any_human_present = True
+                            break
             # Fallback for lobby if game not started (members check)
             else:
                 for m in self.members:

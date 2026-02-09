@@ -534,7 +534,7 @@ class MileByMileGame(Game):
         self, player: MileByMilePlayer, card: Card, locale: str = "en"
     ) -> str:
         """Get a human-readable reason why a card can't be played."""
-        from ...messages.localization import Localization
+
 
         race_state = self.get_player_race_state(player)
         if not race_state:
@@ -597,7 +597,7 @@ class MileByMileGame(Game):
 
     def _get_localized_problem_name(self, problem: str, locale: str) -> str:
         """Get localized name for a problem/hazard type."""
-        from ...messages.localization import Localization
+
 
         key_map = {
             HazardType.OUT_OF_GAS: "milebymile-card-out-of-gas",
@@ -611,7 +611,7 @@ class MileByMileGame(Game):
 
     def _get_localized_safety_name(self, safety: str, locale: str) -> str:
         """Get localized name for a safety type."""
-        from ...messages.localization import Localization
+
 
         key_map = {
             SafetyType.EXTRA_TANK: "milebymile-card-extra-tank",
@@ -624,7 +624,7 @@ class MileByMileGame(Game):
 
     def _get_localized_card_name(self, card: Card, locale: str) -> str:
         """Get localized name for a card."""
-        from ...messages.localization import Localization
+
 
         if card.card_type == CardType.DISTANCE:
             return Localization.get(locale, "milebymile-card-miles", miles=card.value)
@@ -767,7 +767,7 @@ class MileByMileGame(Game):
         if not user:
             return
 
-        from ...messages.localization import Localization
+
 
         locale = user.locale
         none_str = Localization.get(locale, "milebymile-none")
@@ -792,10 +792,26 @@ class MileByMileGame(Game):
             else:
                 safeties_str = none_str
 
+            # Use global score format for consistency
+            if self.options.winning_score:
+                score_info = Localization.get(
+                    locale,
+                    "game-score-line-target",
+                    player=name,
+                    score=score,
+                    target=self.options.winning_score,
+                )
+            else:
+                score_info = Localization.get(
+                    locale,
+                    "game-score-line",
+                    player=name,
+                    score=score,
+                )
+
             user.speak_l(
                 "milebymile-status",
-                name=name,
-                points=score,
+                score_info=score_info,
                 miles=race_state.miles,
                 problems=problems_str,
                 safeties=safeties_str,
@@ -807,7 +823,7 @@ class MileByMileGame(Game):
         if not user:
             return
 
-        from ...messages.localization import Localization
+
 
         locale = user.locale
         none_str = Localization.get(locale, "milebymile-none")
@@ -837,11 +853,27 @@ class MileByMileGame(Game):
                 safeties_str = none_str
 
             # Add team status line using uniform format
+            # Use global score format for consistency
+            if self.options.winning_score:
+                score_info = Localization.get(
+                    locale,
+                    "game-score-line-target",
+                    player=name,
+                    score=score,
+                    target=self.options.winning_score,
+                )
+            else:
+                score_info = Localization.get(
+                    locale,
+                    "game-score-line",
+                    player=name,
+                    score=score,
+                )
+            
             line = Localization.get(
                 locale,
                 "milebymile-status",
-                name=name,
-                points=score,
+                score_info=score_info,
                 miles=race_state.miles,
                 problems=problems_str,
                 safeties=safeties_str,
@@ -892,7 +924,7 @@ class MileByMileGame(Game):
 
     def _get_target_display_string(self, team_idx: int, race_state: "RaceState", locale: str) -> str:
         """Get localized display string for a target team."""
-        from ...messages.localization import Localization
+
         
         team = self._team_manager.teams[team_idx]
         if self.is_individual_mode():
@@ -1641,7 +1673,7 @@ class MileByMileGame(Game):
 
     def _calculate_race_scores(self, winning_team_idx: int | None) -> None:
         """Calculate and announce race scores."""
-        from ...messages.localization import Localization
+
 
         for team_idx, race_state in self.iter_teams():
             base_miles = min(race_state.miles, self.options.round_distance)
@@ -1777,8 +1809,9 @@ class MileByMileGame(Game):
         # Build final scores
         final_scores = {}
         for team_idx, score in sorted_teams:
-            name = self.get_team_name(team_idx)
-            final_scores[name] = score
+            # Store team index as key for dynamic localization in format_end_screen
+            # We use string of index because JSON keys must be strings
+            final_scores[str(team_idx)] = score
 
         winner_idx, winner_score = sorted_teams[0] if sorted_teams else (0, 0)
         winner_name = self.get_team_name(winner_idx)
@@ -1810,7 +1843,22 @@ class MileByMileGame(Game):
         lines = [Localization.get(locale, "game-final-scores")]
 
         final_scores = result.custom_data.get("final_scores", {})
-        for i, (name, score) in enumerate(final_scores.items(), 1):
+        # Sort by points descending (though usually they are stored sorted, dict order isn't guaranteed in all py versions/json)
+        # But we preserved order in build_game_result, and py3.7+ dicts preserve insertion order.
+        # Let's trust insertion order or re-sort if needed. Since it comes from JSON, it *should* be fine if stored as list of tuples,
+        # but here it's a dict.
+        
+        # safely re-sort just in case
+        sorted_scores = sorted(final_scores.items(), key=lambda x: x[1], reverse=True)
+
+        for i, (key, score) in enumerate(sorted_scores, 1):
+            # Resolve name: if key is digit, it's a team index. Else it's a legacy name.
+            if key.isdigit():
+                team_idx = int(key)
+                name = self.get_team_name(team_idx, locale)
+            else:
+                name = key
+
             points_str = Localization.get(locale, "game-points", count=score)
             lines.append(
                 Localization.get(locale, "milebymile-line-format", rank=i, name=name, points=points_str)

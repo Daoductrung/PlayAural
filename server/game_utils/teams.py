@@ -404,25 +404,31 @@ class TeamManager(DataClassJSONMixin):
     # Score Formatting
     # ==========================================================================
 
-    def format_scores_brief(self, locale: str = "en") -> str:
+    def format_scores_brief(self, locale: str = "en", target_score: int | None = None) -> str:
         """
         Format scores as a brief single-line string for speaking.
 
         Returns something like: "Alice: 5. Bob: 3. Charlie: 1."
+        Or with target: "Alice: 5/100. Bob: 3/100."
         """
         sorted_teams = self.get_sorted_teams(by_score=True, descending=True)
         parts = []
         for team in sorted_teams:
             name = self.get_team_name(team, locale)
-            parts.append(f"{name}: {team.total_score}")
+            if target_score is not None:
+                parts.append(f"{name}: {team.total_score}/{target_score}")
+            else:
+                parts.append(f"{name}: {team.total_score}")
         return ". ".join(parts) + "."
 
-    def format_scores_detailed(self, locale: str = "en") -> list[str]:
+    def format_scores_detailed(self, locale: str = "en", target_score: int | None = None) -> list[str]:
         """
         Format scores as a list of lines for a status box.
 
         Returns something like:
         ["Alice: 5 points", "Bob: 3 points", ...]
+        Or with target:
+        ["Alice: 5/100 points", ...]
 
         No header needed - screen readers speak list items directly.
         """
@@ -430,6 +436,17 @@ class TeamManager(DataClassJSONMixin):
         lines = []
         for team in sorted_teams:
             name = self.get_team_name(team, locale)
-            score_str = Localization.get(locale, "game-points", count=team.total_score)
-            lines.append(f"{name}: {score_str}")
+            if target_score is not None:
+                lines.append(
+                    Localization.get(
+                        locale,
+                        "game-score-line-target",
+                        player=name,
+                        score=team.total_score,
+                        target=target_score,
+                    )
+                )
+            else:
+                score_str = Localization.get(locale, "game-points", count=team.total_score)
+                lines.append(f"{name}: {score_str}")
         return lines

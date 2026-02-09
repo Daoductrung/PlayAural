@@ -464,7 +464,9 @@ class ThreesGame(Game, DiceGameMixin):
         """End the game and announce winner."""
         # Find winner(s) (lowest score)
         players_with_scores = [
-            (p, p.total_score) for p in self.players if isinstance(p, ThreesPlayer)
+            (p, p.total_score)
+            for p in self.players
+            if isinstance(p, ThreesPlayer) and not p.is_spectator
         ]
         players_with_scores.sort(key=lambda x: x[1])
 

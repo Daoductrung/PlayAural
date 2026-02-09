@@ -303,6 +303,15 @@ class Game(
         # If so, do NOT replace with bot - just pause the game (let them reconnect)
         remaining_humans = sum(1 for p in self.players if not p.is_bot and not p.is_spectator and p.id != player_id)
         
+        # Spectators should just be removed, not replaced by bots
+        if player.is_spectator:
+            self.players = [p for p in self.players if p.id != player_id]
+            self.player_action_sets.pop(player.id, None)
+            self._users.pop(player.id, None)
+            self.broadcast_l("spectator-left", player=player.name)
+            # We don't play sound here because Server plays offline sound
+            return
+
         if remaining_humans == 0:
              # Last human leaving - don't replace
              self.broadcast_l("game-paused-host-disconnect", player=player.name)

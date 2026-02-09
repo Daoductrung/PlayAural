@@ -26,7 +26,7 @@ milebymile-option-changed-karma = Karma rule { $enabled }.
 milebymile-option-changed-rig = Deck rigging set to { $rig }.
 
 # Status
-milebymile-status = { $name }: { $points } points, { $miles } miles, Problems: { $problems }, Safeties: { $safeties }
+milebymile-status = { $score_info }, { $miles } miles, Problems: { $problems }, Safeties: { $safeties }
 
 # Card actions
 milebymile-no-matching-safety = You don't have the matching safety card!
@@ -146,9 +146,7 @@ milebymile-card-false-virtue = False Virtue
 milebymile-card-miles = { $miles } miles
 
 # Detailed Status
-milebymile-status-miles = { $count } miles
-milebymile-status-problems = Problems: { $list }
-milebymile-status-safeties = Safeties: { $list }
+
 
 # Disabled action reasons
 milebymile-no-dirty-trick-window = No dirty trick window is active.

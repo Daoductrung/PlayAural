@@ -305,10 +305,7 @@ class Game(
         
         # Spectators should just be removed, not replaced by bots
         if player.is_spectator:
-            self.players = [p for p in self.players if p.id != player_id]
-            self.player_action_sets.pop(player.id, None)
-            self._users.pop(player.id, None)
-            self.broadcast_l("spectator-left", player=player.name)
+            self.remove_spectator(player_id)
             # We don't play sound here because Server plays offline sound
             return
 
@@ -321,6 +318,42 @@ class Game(
         self._replace_with_bot(player)
 
         # We don't play sound here because Server plays offline sound
+
+    def remove_spectator(self, player_id: str) -> None:
+        """Remove a spectator from the game state entirely."""
+        player = self.get_player_by_id(player_id)
+        if not player:
+            return
+
+        # Remove from players list
+        self.players = [p for p in self.players if p.id != player_id]
+        
+        # Clean up game-specific state
+        self.player_action_sets.pop(player_id, None)
+        self._users.pop(player_id, None)
+        
+        # Notify others
+        self.broadcast_l("spectator-left", player=player.name)
+
+    def remove_player(self, player_id: str) -> None:
+        """Remove a player from the game state entirely.
+        
+        Use this only during lobby phase or forced removal where 
+        bot replacement is NOT desired.
+        """
+        player = self.get_player_by_id(player_id)
+        if not player:
+            return
+
+        # Remove from players list
+        self.players = [p for p in self.players if p.id != player_id]
+        
+        # Clean up game-specific state
+        self.player_action_sets.pop(player_id, None)
+        self._users.pop(player_id, None)
+        
+        # Notify others
+        self.broadcast_l("table-left", player=player.name)
 
     def _replace_with_bot(self, player: "Player") -> None:
         """Replace a human player with a bot (shared logic)."""

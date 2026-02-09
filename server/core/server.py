@@ -442,28 +442,53 @@ PlayAural Server
         table = self._tables.find_user_table(username)
 
         if table and table.game:
-            # Rejoin table - use same approach as _restore_saved_table
-            game = table.game
-
-            # Attach user to table and game
-            table.attach_user(username, user)
-            player = game.get_player_by_id(user.uuid)
-            if player:
-                # Restore humanity if they were replaced by a bot
-                if player.is_bot:
-                    player.is_bot = False
-                    game.broadcast_l("player-rejoined", player=player.name)
+            # Check if user was a spectator
+            # We need to find the member record to know their role
+            is_spectator = False
+            for member in table.members:
+                if member.username == username:
+                    is_spectator = member.is_spectator
+                    break
+            
+            if is_spectator:
+                # OPTIMIZATION: Spectators should NOT be automatically restored to the table.
+                # If they reconnect, they should land in the main menu.
+                # We remove them from the table to clean up the stale session.
+                table.remove_member(username)
                 
-                game.attach_user(player.id, user)
-                
-                # Set user state so menu selections are handled correctly
-                self._user_states[username] = {
-                    "menu": "in_game",
-                    "table_id": table.table_id,
-                }
+                # BUGFIX: Also remove from the game state to prevent "ghost" spectators
+                # Table.members is for the lobby/listing, Game.players is for the game logic.
+                if table.game:
+                    # We need the player ID (UUID) to remove from game
+                    # user.uuid is available here from the newly created NetworkUser
+                    # Use the centralized helper
+                    table.game.remove_spectator(user.uuid)
 
-                # Rebuild menu for this player
-                game.rebuild_player_menu(player)
+                # Show main menu
+                self._show_main_menu(user)
+            else:
+                # Rejoin table - use same approach as _restore_saved_table
+                game = table.game
+
+                # Attach user to table and game
+                table.attach_user(username, user)
+                player = game.get_player_by_id(user.uuid)
+                if player:
+                    # Restore humanity if they were replaced by a bot
+                    if player.is_bot:
+                        player.is_bot = False
+                        game.broadcast_l("player-rejoined", player=player.name)
+                    
+                    game.attach_user(player.id, user)
+                    
+                    # Set user state so menu selections are handled correctly
+                    self._user_states[username] = {
+                        "menu": "in_game",
+                        "table_id": table.table_id,
+                    }
+
+                    # Rebuild menu for this player
+                    game.rebuild_player_menu(player)
         else:
             # Show main menu
             self._show_main_menu(user)

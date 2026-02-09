@@ -196,6 +196,20 @@ class Table(DataClassJSONMixin):
                             # Kick them
                             if self._game:
                                 self._game.broadcast_l("player-kicked-offline", player=member.username)
+                                
+                                # Clean up Game state to prevent ghost players
+                                # We need the UUID to call game methods
+                                user_record = self._users.get(member.username)
+                                if user_record:
+                                    if member.is_spectator:
+                                        self._game.remove_spectator(user_record.uuid)
+                                    elif self.status == "waiting":
+                                        # In lobby, just remove the player
+                                        self._game.remove_player(user_record.uuid)
+                                    elif self.status == "playing":
+                                        # In game, treat as disconnect (bot replacement)
+                                        self._game.on_player_disconnect(user_record.uuid)
+
                             self.remove_member(member.username)
                             # Remove from tracker
                             self._member_offline_since.pop(member.username, None)

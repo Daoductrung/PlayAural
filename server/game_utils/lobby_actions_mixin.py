@@ -122,6 +122,14 @@ class LobbyActionsMixin:
             return  # Can only toggle before game starts
 
         player.is_spectator = not player.is_spectator
+        
+        # SYNC FIX: Update the table member record to match
+        if self._table:
+            for member in self._table.members:
+                if member.username == player.name:
+                    member.is_spectator = player.is_spectator
+                    break
+        
         if player.is_spectator:
             self.broadcast_l("now-spectating", player=player.name)
             self.broadcast_sound("join_spectator.ogg")
@@ -153,10 +161,14 @@ class LobbyActionsMixin:
         """Leave the game."""
         # Spectators can always leave cleanly (no bot replacement)
         if player.is_spectator:
-            self.players = [p for p in self.players if p.id != player.id]
-            self.player_action_sets.pop(player.id, None)
-            self._users.pop(player.id, None)
-            self.broadcast_l("spectator-left", player=player.name)
+            # BUGFIX: Ensure they are removed from the TABLE as well as the GAME
+            # Use the new centralized helper for game state
+            self.remove_spectator(player.id)
+            
+            # Explicitly remove from table to prevent ghost in lobby
+            if self._table:
+                self._table.remove_member(player.name)
+                
             self.broadcast_sound("leave_spectator.ogg")
             self.rebuild_all_menus()
             return
@@ -178,11 +190,9 @@ class LobbyActionsMixin:
             pass
 
         # Lobby or bot leaving: fully remove the player
-        self.players = [p for p in self.players if p.id != player.id]
-        self.player_action_sets.pop(player.id, None)
-        self._users.pop(player.id, None)
+        # Use centralized helper to ensure consistent cleanup
+        self.remove_player(player.id)
 
-        self.broadcast_l("table-left", player=player.name)
         self.broadcast_sound("leave.ogg")
 
         # Check if any humans remain (excluding spectators)

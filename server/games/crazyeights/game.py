@@ -1137,6 +1137,8 @@ class CrazyEightsGame(Game):
         for p in self.players:
             if not isinstance(p, CrazyEightsPlayer):
                 continue
+            if p.is_spectator:
+                continue
             if p.id == winner.id:
                 continue
             score = self._hand_points(p.hand)

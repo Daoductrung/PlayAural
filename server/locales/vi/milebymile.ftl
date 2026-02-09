@@ -26,7 +26,7 @@ milebymile-option-changed-karma = Luật Nghiệp chướng { $enabled }.
 milebymile-option-changed-rig = Kiểu sắp xếp bộ bài được đặt là { $rig }.
 
 # Trạng thái
-milebymile-status = { $name }: { $points } điểm, { $miles } dặm, Sự cố: { $problems }, Bảo hộ: { $safeties }
+milebymile-status = { $score_info }, { $miles } dặm, Sự cố: { $problems }, Bảo hộ: { $safeties }
 
 # Hành động bài
 milebymile-no-matching-safety = Bạn không có Lá Bảo hộ tương ứng!
@@ -146,9 +146,7 @@ milebymile-card-false-virtue = Giả Nhân Nghĩa
 milebymile-card-miles = { $miles } dặm
 
 # Trạng thái chi tiết
-milebymile-status-miles = { $count } dặm
-milebymile-status-problems = Sự cố: { $list }
-milebymile-status-safeties = Bảo hộ: { $list }
+
 
 # Lý do hành động bị vô hiệu hóa
 milebymile-no-dirty-trick-window = Không có cơ hội đánh đòn phản công.

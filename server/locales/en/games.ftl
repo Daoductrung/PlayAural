@@ -13,6 +13,7 @@ game-no-turn = No one's turn right now.
 # Score display
 game-scores-header = Current Scores:
 game-score-line = { $player }: { $score } points
+game-score-line-target = { $player }: { $score }/{ $target } points
 game-points = { $count } { $count ->
     [one] point
    *[other] points

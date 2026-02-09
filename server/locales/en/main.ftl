@@ -359,4 +359,9 @@ invalid-rate = Invalid rate. Please enter a number between 50 and 300.
 mode-aria = Aria-live
 mode-web-speech = Web Speech API
 default-voice = Default Voice
-no-voices-found = No voices found or still loading. Please try again in a moment or restart the browser.
+
+# Auto-kick and Pause notifications
+player-kicked-offline = Player { $player } has been kicked (offline).
+game-paused-host-disconnect = Game paused. Waiting for host { $player } to reconnect...
+game-resumed = Host { $player } reconnected. Game resumed!
+new-host = New host: { $player }

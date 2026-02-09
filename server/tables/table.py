@@ -75,6 +75,24 @@ class Table(DataClassJSONMixin):
         self.members = [m for m in self.members if m.username != username]
         self._users.pop(username, None)
         
+        if self.status == "waiting" and username == self.host:
+            # Host left/kicked in lobby -> promote new host
+            # Filter for humans (not bots). Note: Removed user is already gone from self.members
+            candidates = [m for m in self.members if not m.is_spectator and not (self._users.get(m.username) and getattr(self._users.get(m.username), "is_bot", False))]
+            
+            if candidates:
+                # Prioritize ONLINE humans
+                candidates.sort(key=lambda m: m.username in self._server._users if self._server else False, reverse=True)
+                
+                new_host = candidates[0].username
+                self.host = new_host
+                # Broadcast via game if possible
+                if self._game:
+                    self._game.broadcast_l("new-host", player=new_host)
+                    self._game.host = new_host
+                    if hasattr(self._game, "rebuild_all_menus"):
+                        self._game.rebuild_all_menus()
+
         # Auto-destroy if no members left (e.g. all humans left)
         if not self.members:
             self.destroy()
@@ -115,15 +133,88 @@ class Table(DataClassJSONMixin):
         if self._game:
             self._game.on_tick()
 
-        # Timeout for abandoned tables (host offline for > 5 mins)
+        # Timeout for abandoned tables
         if self._server:
-            if self.host not in self._server._users:
-                import time
-                if not hasattr(self, "_offline_since") or self._offline_since is None:
-                    self._offline_since = time.time()
-                elif time.time() - self._offline_since > 300:  # 300 seconds = 5 minutes
-                    self.destroy()
+            # Check host presence
+            host_online = self.host in self._server._users
+            
+            # Check if any human is present
+            any_human_present = False
+            if self._game:
+                for p in self._game.players:
+                    if not p.is_bot and p.id in self._server._users:
+                        any_human_present = True
+                        break
+            # Fallback for lobby if game not started (members check)
             else:
+                for m in self.members:
+                    if not m.is_spectator and m.username in self._server._users:
+                        any_human_present = True
+                        break
+
+            import time
+            current_time = time.time()
+            
+            should_destroy = False
+            
+            if self.status == "waiting":
+                # Waiting: 
+                # 1. If host offline and no other humans -> Destroy immediately
+                if not host_online and not any_human_present:
+                    should_destroy = True
+                
+                # 2. Check individual members for offline timeout (Auto-kick)
+                # This prevents "zombie members" in the lobby
+                if not should_destroy:
+                    # We iterate a copy to allow modification during iteration if we were removing immediately,
+                    # but here we just mark them. Removal happens after timeout.
+                    
+                    # Initialize tracker if needed
+                    if not hasattr(self, "_member_offline_since"):
+                        self._member_offline_since = {}
+
+                    for member in list(self.members): # Copy for safe iteration
+                        # Skip bots (they are always "offline" in server._users but valid in game)
+                        # Optimization: Check if username in server._users first (Fast path)
+                        if member.username in self._server._users:
+                            self._member_offline_since.pop(member.username, None)
+                            continue
+
+                        # If not in server._users, check if it's a Bot instance
+                        user = self._users.get(member.username)
+                        if user and hasattr(user, "is_bot") and user.is_bot:
+                            continue # Bots are fine
+                        
+                        # It's a human and they are offline
+                        if member.username not in self._member_offline_since:
+                            self._member_offline_since[member.username] = current_time
+                        
+                        # Check timeout (15 seconds grace period for lobby)
+                        elif current_time - self._member_offline_since[member.username] > 15.0:
+                            # Kick them
+                            if self._game:
+                                self._game.broadcast_l("player-kicked-offline", player=member.username)
+                            self.remove_member(member.username)
+                            # Remove from tracker
+                            self._member_offline_since.pop(member.username, None)
+            
+            elif self.status == "playing":
+                # Playing: 
+                # - If humans present: Keep alive forever (reset timer)
+                # - If NO humans present (e.g. host vs bot, host offline): 5 min timeout
+                if any_human_present:
+                    self._offline_since = None
+                else:
+                    # No humans left - start/check timer
+                    if not hasattr(self, "_offline_since") or self._offline_since is None:
+                        self._offline_since = current_time
+                    elif current_time - self._offline_since > 300:  # 5 minutes
+                        should_destroy = True
+
+            if should_destroy:
+                self.destroy()
+            elif any_human_present:
+                # Reset timer if humans are back
                 self._offline_since = None
 
     def handle_event(self, username: str, event: dict) -> None:

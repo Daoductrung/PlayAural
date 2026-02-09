@@ -413,14 +413,6 @@ PlayAural Server
             online_sound = "online.ogg"
         
         # Only broadcast if we didn't cancel a pending disconnect (debounce)
-        # Wait, the debounce logic above says "We skip broadcasting..."
-        # But here I am outside the 'if/else'.
-        # I need to restore the 'else' logic OR use a flag 'should_broadcast'.
-        # Since I use 'pop', if pending_task existed, we cancelled it.
-        # If it existed, it means user was briefly offline.
-        # If we cancel offline, we should NOT broadcast online.
-        # So I need to wrap broadcast in "if not pending_task".
-        
         if not pending_task:
              self._broadcast_presence_l("user-online", username, online_sound)
 
@@ -620,11 +612,23 @@ PlayAural Server
         # Filter: Only show waiting or playing tables (exclude finished)
         # - Show if host is online (for waiting tables)
         # - OR table is playing (so players can rejoin)
-        tables = [
-            t for t in all_tables 
-            if t.game and t.game.status in ["waiting", "playing"]
-            and (t.host in self._users or t.game.status == "playing")
-        ]
+        # Filter: Only show tables with at least one online, non-spectator human player
+        tables = []
+        for t in all_tables:
+            if not t.game:
+                continue
+            if t.game.status not in ["waiting", "playing"]:
+                continue
+            
+            # Check for at least one active human player
+            has_active_human = False
+            for member in t.members:
+                if not member.is_spectator and member.username in self._users:
+                    has_active_human = True
+                    break
+            
+            if has_active_human:
+                tables.append(t)
         
         game_class = get_game_class(game_type)
         game_name = (
@@ -647,20 +651,36 @@ PlayAural Server
                 if member.username != table.host
             ]
             members_str = Localization.format_list_and(user.locale, member_names)
-            if member_count == 1:
-                listing_key = "table-listing-one"
-            elif member_names:
-                listing_key = "table-listing-with"
+            # Determine status for display
+            if table.game:
+                if table.game.status == "waiting":
+                    status_key = "table-status-waiting"
+                elif table.game.status == "playing":
+                    status_key = "table-status-playing"
+                elif table.game.status == "finished":
+                    status_key = "table-status-finished"
+                else:
+                    status_key = "table-status-waiting"  # fallback
             else:
-                listing_key = "table-listing"
+                status_key = "table-status-waiting"  # fallback
+            status_text = Localization.get(user.locale, status_key)
+
+            if member_count == 1:
+                listing_key = "table-listing-game-one-status"
+            elif member_names:
+                listing_key = "table-listing-game-with-status"
+            else:
+                listing_key = "table-listing-game-status"
             items.append(
                 MenuItem(
                     text=Localization.get(
                         user.locale,
                         listing_key,
+                        game=game_name,
                         host=table.host,
                         count=member_count,
                         members=members_str,
+                        status=status_text,
                     ),
                     id=f"table_{table.table_id}",
                 )
@@ -686,11 +706,23 @@ PlayAural Server
         # Filter: Only show waiting or playing tables (exclude finished)
         # - Show if host is online (for waiting tables)
         # - OR table is playing (so players can rejoin even if host offline)
-        tables = [
-            t for t in all_tables 
-            if t.game and t.game.status in ["waiting", "playing"]
-            and (t.host in self._users or t.game.status == "playing")
-        ]
+        # Filter: Only show tables with at least one online, non-spectator human player
+        tables = []
+        for t in all_tables:
+            if not t.game:
+                continue
+            if t.game.status not in ["waiting", "playing"]:
+                continue
+            
+            # Check for at least one active human player
+            has_active_human = False
+            for member in t.members:
+                if not member.is_spectator and member.username in self._users:
+                    has_active_human = True
+                    break
+            
+            if has_active_human:
+                tables.append(t)
 
         if not tables:
             user.speak_l("no-active-tables", buffer="system")

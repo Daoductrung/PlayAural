@@ -10,6 +10,7 @@ from .state import (
     PlaySubPhase,
     get_building_name,
 )
+from ...messages.localization import Localization
 
 if TYPE_CHECKING:
     from .game import AgeOfHeroesGame, AgeOfHeroesPlayer
@@ -334,7 +335,7 @@ def get_construction_menu_items(
             cost_parts = []
             for resource in set(required):
                 count = required.count(resource)
-                from ...messages.localization import Localization
+
 
                 resource_name = Localization.get(
                     locale, f"ageofheroes-resource-{resource}"

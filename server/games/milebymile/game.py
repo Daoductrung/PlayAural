@@ -147,7 +147,7 @@ class MileByMileGame(Game):
         if team_index < len(self._team_manager.teams):
             return self._team_manager.get_team_name(self._team_manager.teams[team_index], locale)
         # Fallback if team doesn't exist in manager (shouldn't happen)
-        from ...messages.localization import Localization
+
         return Localization.get(locale, "game-team-name", index=team_index + 1)
 
     def is_individual_mode(self) -> bool:

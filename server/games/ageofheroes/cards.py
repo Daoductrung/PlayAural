@@ -5,6 +5,7 @@ from enum import Enum
 import random
 
 from mashumaro.mixins.json import DataClassJSONMixin
+from ...messages.localization import Localization
 
 
 class CardType(str, Enum):
@@ -268,7 +269,7 @@ class Deck(DataClassJSONMixin):
 
 def get_card_name(card: Card, locale: str) -> str:
     """Get the localized name for a card."""
-    from ...messages.localization import Localization
+
 
     return Localization.get(locale, card.get_name_key())
 

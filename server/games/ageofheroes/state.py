@@ -6,6 +6,7 @@ from enum import Enum
 from mashumaro.mixins.json import DataClassJSONMixin
 
 from .cards import SpecialResourceType, ResourceType
+from ...messages.localization import Localization
 
 
 class Tribe(str, Enum):
@@ -314,7 +315,7 @@ class TradeOffer(DataClassJSONMixin):
 
 def get_tribe_name(tribe: str, locale: str) -> str:
     """Get the localized name for a tribe."""
-    from ...messages.localization import Localization
+
 
     key = TRIBE_NAME_KEYS.get(tribe, "")
     return Localization.get(locale, key) if key else tribe
@@ -322,7 +323,7 @@ def get_tribe_name(tribe: str, locale: str) -> str:
 
 def get_building_name(building: str, locale: str) -> str:
     """Get the localized name for a building type."""
-    from ...messages.localization import Localization
+
 
     key = BUILDING_NAME_KEYS.get(building, "")
     return Localization.get(locale, key) if key else building
@@ -330,7 +331,7 @@ def get_building_name(building: str, locale: str) -> str:
 
 def get_action_name(action: str, locale: str) -> str:
     """Get the localized name for an action type."""
-    from ...messages.localization import Localization
+
 
     key = ACTION_NAME_KEYS.get(action, "")
     return Localization.get(locale, key) if key else action
@@ -338,7 +339,7 @@ def get_action_name(action: str, locale: str) -> str:
 
 def get_war_goal_name(goal: str, locale: str) -> str:
     """Get the localized name for a war goal."""
-    from ...messages.localization import Localization
+
 
     key = WAR_GOAL_KEYS.get(goal, "")
     return Localization.get(locale, key) if key else goal

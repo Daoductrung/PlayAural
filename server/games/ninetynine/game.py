@@ -1139,7 +1139,7 @@ class NinetyNineGame(Game):
 
     def format_end_screen(self, result: GameResult, locale: str) -> list[str]:
         """Format the end screen for NinetyNine game."""
-        from ...messages.localization import Localization
+
 
         lines = [Localization.get(locale, "game-final-scores")]
 

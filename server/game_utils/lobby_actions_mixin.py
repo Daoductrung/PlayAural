@@ -162,21 +162,20 @@ class LobbyActionsMixin:
             return
 
         if self.status == "playing" and not player.is_bot:
-            # Mid-game: replace human with bot instead of removing
-            # Keep the same player ID so they can rejoin and take over
-            self._replace_with_bot(player)
-            self.broadcast_sound("leave.ogg")
-
-            # Check if any humans remain
-            has_humans = any(not p.is_bot for p in self.players)
-            if not has_humans:
-                # Destroy the game - no humans left
-                self.destroy()
+            # Check if any humans remain (excluding spectators and current player)
+            # We do this check FIRST to handle the "Last Human Leaves" case specially
+            other_humans = any(not p.is_bot and not p.is_spectator and p.id != player.id for p in self.players)
+            
+            if other_humans:
+                # Mid-game AND other humans exist: replace with bot
+                self._replace_with_bot(player)
+                self.broadcast_sound("leave.ogg")
+                self.rebuild_all_menus()
                 return
 
-            # Rebuild menus for remaining players
-                self.rebuild_all_menus()
-            return
+            # If no other humans, fall through to full removal logic below
+            # This suppresses "replaced by bot" message and shows "left table" instead
+            pass
 
         # Lobby or bot leaving: fully remove the player
         self.players = [p for p in self.players if p.id != player.id]
@@ -186,22 +185,17 @@ class LobbyActionsMixin:
         self.broadcast_l("table-left", player=player.name)
         self.broadcast_sound("leave.ogg")
 
-        # Check if any humans remain
-        has_humans = any(not p.is_bot for p in self.players)
+        # Check if any humans remain (excluding spectators)
+        has_humans = any(not p.is_bot and not p.is_spectator for p in self.players)
         if not has_humans:
             # Destroy the game - no humans left
             self.destroy()
             return
 
         if self.status == "waiting":
-            # If host left, assign new host
-            if player.name == self.host and self.players:
-                # Find first human to be new host
-                for p in self.players:
-                    if not p.is_bot:
-                        self.host = p.name
-                        self.broadcast_l("new-host", player=p.name)
-                        break
+            # Sync with table - this will trigger host promotion in Table.remove_member if needed
+            if self._table:
+                self._table.remove_member(player.name)
 
             self.rebuild_all_menus()
 

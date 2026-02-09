@@ -359,4 +359,9 @@ invalid-rate = Tốc độ không hợp lệ. Vui lòng nhập số từ 50 đ�
 mode-aria = Aria-live
 mode-web-speech = Web Speech API
 default-voice = Giọng mặc định
-no-voices-found = Không tìm thấy giọng đọc hoặc đang tải. Vui lòng thử lại sau giây lát hoặc khởi động lại trình duyệt.
+
+# Auto-kick and Pause notifications
+player-kicked-offline = Người chơi { $player } đã bị mời ra khỏi phòng (offline).
+game-paused-host-disconnect = Trò chơi tạm dừng. Chờ chủ phòng { $player } kết nối lại...
+game-resumed = Chủ phòng { $player } đã quay lại. Trò chơi tiếp tục!
+new-host = Chủ phòng mới: { $player }

@@ -299,6 +299,15 @@ class Game(
         if not player or player.is_bot:
             return
 
+        # Check if this is the last human player (excluding spectators)
+        # If so, do NOT replace with bot - just pause the game (let them reconnect)
+        remaining_humans = sum(1 for p in self.players if not p.is_bot and not p.is_spectator and p.id != player_id)
+        
+        if remaining_humans == 0:
+             # Last human leaving - don't replace
+             self.broadcast_l("game-paused-host-disconnect", player=player.name)
+             return
+
         # Convert to bot
         self._replace_with_bot(player)
 
@@ -306,6 +315,10 @@ class Game(
 
     def _replace_with_bot(self, player: "Player") -> None:
         """Replace a human player with a bot (shared logic)."""
+        # strict check: only replace if playing
+        if self.status != "playing":
+            return
+
         player.is_bot = True
         self._users.pop(player.id, None)
 
@@ -328,6 +341,17 @@ class Game(
             user.play_music(self.current_music)
         if self.current_ambience:
             user.play_ambience(self.current_ambience)
+            
+        # Check for game resume (if this was a Host vs Bot paused scenario)
+        if self.status == "playing":
+             player = self.get_player_by_id(player_id)
+             if player and not player.is_bot and not player.is_spectator:
+                 # Count humans *including* this new one (who is already in _users)
+                 # Exclude spectators from this count - we only care about ACTIVE players
+                 human_count = sum(1 for p in self.players if not p.is_bot and not p.is_spectator and p.id in self._users)
+                 # If this is the FIRST human back, it means we were paused
+                 if human_count == 1:
+                      self.broadcast_l("game-resumed", player=user.username)
 
     def get_user(self, player: Player) -> User | None:
         """Get the user for a player."""

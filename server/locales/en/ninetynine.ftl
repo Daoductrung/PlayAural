@@ -69,7 +69,7 @@ ninetynine-choice-2 = Choice 2
 
 # Manual draw
 ninetynine-draw-card = Draw card
-ninetynine-draw-prompt = Press Space or D to draw a card.
+ninetynine-draw-prompt = Please draw a card.
 
 # Options
 ninetynine-set-tokens = Starting tokens: { $tokens }

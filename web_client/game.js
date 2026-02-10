@@ -69,21 +69,22 @@ class SoundManager {
         this.ambienceGain = null;
 
         // Assets
-        this.cache = new Map(); // url -> AudioBuffer
+        this.cache = new Map(); // url -> AudioBuffer (for SFX only)
         this.loading = new Map(); // url -> Promise
 
-        // State
-        this.currentMusicSource = null;
+        // State - Streaming Audio Elements
+        this.currentMusicElement = null;
+        this.currentMusicSource = null; // MediaElementSource
         this.currentMusicUrl = null;
-        this.currentMusicGain = null;
+        this.currentMusicGain = null; // fade gain
+
+        this.ambienceIntroElement = null;
+        this.ambienceLoopElement = null;
+        this.ambienceOutroElement = null;
 
         this.ambienceIntroSource = null;
         this.ambienceLoopSource = null;
         this.ambienceOutroSource = null;
-
-        this.ambienceIntroGain = null;
-        this.ambienceLoopGain = null;
-        this.ambienceOutroGain = null;
 
         this.ambienceState = 'stopped'; // stopped, loading, intro, looping, outro
         this.ambienceConfig = null; // {intro, loop, outro}
@@ -140,6 +141,11 @@ class SoundManager {
         this.musicGain.gain.setTargetAtTime(targetMusic, now, 0.1);
         this.sfxGain.gain.setTargetAtTime(this.settings.sfxVolume, now, 0.1);
         this.ambienceGain.gain.setTargetAtTime(this.settings.ambienceVolume, now, 0.1);
+        
+        // Update elements directly if not yet connected (e.g. cross-origin fallback)
+        if (this.currentMusicElement && !this.currentMusicSource) {
+             this.currentMusicElement.volume = targetMusic;
+        }
     }
 
     duckMusic(enable) {
@@ -155,7 +161,30 @@ class SoundManager {
         this.updateVolumes();
     }
 
-    async load(filename) {
+    // --- Helper for Streaming Audio ---
+    createAudioElement(url) {
+        const audio = new Audio();
+        // audio.crossOrigin = "anonymous"; // If loading from CDNs later
+        audio.src = url;
+        return audio;
+    }
+
+    connectElement(audio, gainNode) {
+        if (!this.ctx || !gainNode) return false;
+        try {
+            const source = this.ctx.createMediaElementSource(audio);
+            source.connect(gainNode);
+            return source;
+        } catch (e) {
+            console.warn("SoundManager: Failed to connect element source (CORS?)", e);
+            // Fallback: Audio element plays directly to destination (no bus effects/volume control via Web Audio)
+            // Manual volume control required
+            return null;
+        }
+    }
+
+    // --- SFX (Short sounds, kept as Buffer) ---
+    async loadBuffer(filename) {
         if (!filename) return null;
         const url = `sounds/${filename}`;
 
@@ -185,7 +214,7 @@ class SoundManager {
 
     async playSound(filename, { volume = 1.0, pan = 0.0, pitch = 1.0 } = {}) {
         await this.resume();
-        const buffer = await this.load(filename);
+        const buffer = await this.loadBuffer(filename);
         if (!buffer) return null;
 
         const source = this.ctx.createBufferSource();
@@ -207,180 +236,185 @@ class SoundManager {
         return source;
     }
 
+    // --- Streaming Music ---
     async playMusic(filename, loop = true) {
-        if (this.currentMusicUrl === filename && this.currentMusicSource) {
+        if (this.currentMusicUrl === filename && this.currentMusicElement && !this.currentMusicElement.paused) {
             // Already playing this track
-            // Just ensure loop setting is correct
-            this.currentMusicSource.loop = loop;
+            this.currentMusicElement.loop = loop;
             return;
         }
 
         await this.resume();
-        const buffer = await this.load(filename);
-        if (!buffer) return;
+        const url = `sounds/${filename}`;
 
         // Crossfade: Fade out existing
         this.stopMusic(true);
 
-        const source = this.ctx.createBufferSource();
-        source.buffer = buffer;
-        source.loop = loop;
+        const audio = this.createAudioElement(url);
+        audio.loop = loop;
+        audio.preload = "auto";
+        
+        // Connect to Web Audio
+        // Create a local gain for fade-in
+        const fadeGain = this.ctx.createGain();
+        fadeGain.gain.value = 0; // Start silent
+        
+        const source = this.connectElement(audio, fadeGain);
+        if (source) {
+            fadeGain.connect(this.musicGain);
+        } else {
+             // Fallback if connection failed (CORS), play directly
+             // We can't do fancy fade-in easily without Web Audio, just set volume
+             audio.volume = this.settings.musicVolume; 
+        }
 
-        const gain = this.ctx.createGain();
-        gain.gain.value = 0; // Start silent for fade-in
+        try {
+            await audio.play();
+        } catch (e) {
+            console.warn("SoundManager: Music play failed (autoplay?)", e);
+            return;
+        }
 
-        source.connect(gain);
-        gain.connect(this.musicGain);
+        // Fade in logic if Web Audio connected
+        if (source) {
+            const now = this.ctx.currentTime;
+            fadeGain.gain.linearRampToValueAtTime(1.0, now + 1.0);
+        }
 
-        source.start(0);
-
-        // Fade in over 1 second
-        const now = this.ctx.currentTime;
-        gain.gain.linearRampToValueAtTime(1.0, now + 1.0);
-
+        this.currentMusicElement = audio;
         this.currentMusicSource = source;
-        this.currentMusicGain = gain; // Keep track of own gain node for fade out
+        this.currentMusicGain = fadeGain;
         this.currentMusicUrl = filename;
     }
 
     stopMusic(fade = true) {
-        if (!this.currentMusicSource) return;
+        if (!this.currentMusicElement) return;
 
+        const audio = this.currentMusicElement;
         const source = this.currentMusicSource;
         const gain = this.currentMusicGain;
 
-        // Detach current reference immediately so new music can start
+        // Detach current reference
+        this.currentMusicElement = null;
         this.currentMusicSource = null;
-        this.currentMusicUrl = null;
         this.currentMusicGain = null;
+        this.currentMusicUrl = null;
 
         if (fade && gain && this.ctx) {
             const now = this.ctx.currentTime;
-            // Cancel scheduled values to take control
             try { gain.gain.cancelScheduledValues(now); } catch (e) { }
             gain.gain.setValueAtTime(gain.gain.value, now);
             gain.gain.linearRampToValueAtTime(0, now + 1.0);
 
             setTimeout(() => {
-                try { source.stop(); } catch (e) { }
-                source.disconnect();
+                audio.pause();
+                audio.src = ""; // Unload
+                if (source) source.disconnect();
                 gain.disconnect();
             }, 1100);
         } else {
-            try { source.stop(); } catch (e) { }
-            source.disconnect();
+            audio.pause();
+            audio.src = "";
+            if (source) source.disconnect();
             if (gain) gain.disconnect();
         }
     }
 
+    // --- Streaming Ambience ---
     async playAmbience(intro, loopFile, outro) {
         await this.resume();
 
         // Stop any existing ambience immediately (force stop)
-        // Python client behavior: new ambience replaces old immediately
         this.stopAmbience(true);
 
         this.ambienceConfig = { intro, loop: loopFile, outro };
         this.ambienceState = 'loading';
 
-        // Load all required buffers in parallel
-        const promises = [];
-        if (intro) promises.push(this.load(intro));
-        if (loopFile) promises.push(this.load(loopFile));
-        if (outro) promises.push(this.load(outro));
+        // Helper to prepare element
+        const prepare = (filename, loop) => {
+            if (!filename) return null;
+            const audio = this.createAudioElement(`sounds/${filename}`);
+            audio.loop = loop;
+            audio.preload = "auto";
+            return audio;
+        };
 
-        await Promise.all(promises);
+        const introEl = prepare(intro, false);
+        const loopEl = prepare(loopFile, true);
+        const outroEl = prepare(outro, false);
 
-        // Check if stopped/changed while loading
-        if (this.ambienceState !== 'loading') return;
+        if (introEl) {
+            this.ambienceState = 'intro';
+            this.ambienceIntroElement = introEl;
+            this.ambienceIntroSource = this.connectElement(introEl, this.ambienceGain);
+            
+            // Chain events
+            introEl.onended = () => {
+                if (this.ambienceState === 'intro') {
+                    this._startAmbienceLoop(loopEl);
+                }
+            };
 
-        if (intro) {
-            const introBuffer = await this.load(intro);
-            if (introBuffer) {
-                this.ambienceState = 'intro';
-                this.ambienceIntroSource = this.ctx.createBufferSource();
-                this.ambienceIntroSource.buffer = introBuffer;
-                this.ambienceIntroSource.connect(this.ambienceGain);
-                this.ambienceIntroSource.onended = () => {
-                    // Only proceed if still in intro state (wasn't stopped)
-                    if (this.ambienceState === 'intro') {
-                        this._startAmbienceLoop();
-                    }
-                };
-                this.ambienceIntroSource.start(0);
-            } else {
-                // Skip intro if failed to load
-                this._startAmbienceLoop();
-            }
+            try { await introEl.play(); } catch(e) { console.warn("Ambience intro play error", e); }
         } else {
-            // No intro, start loop directly
-            this._startAmbienceLoop();
+            this._startAmbienceLoop(loopEl);
         }
+        
+        // Store references for later cleanup
+        this.ambienceLoopElement = loopEl;
+        this.ambienceOutroElement = outroEl;
     }
 
-    async _startAmbienceLoop() {
+    async _startAmbienceLoop(loopEl) {
         if (this.ambienceState === 'stopped') return;
-
-        const loopFile = this.ambienceConfig.loop;
-        if (!loopFile) return;
-
-        const loopBuffer = await this.load(loopFile);
-        if (!loopBuffer) return;
+        if (!loopEl) return;
 
         this.ambienceState = 'looping';
-        this.ambienceLoopSource = this.ctx.createBufferSource();
-        this.ambienceLoopSource.buffer = loopBuffer;
-        this.ambienceLoopSource.loop = true;
-        this.ambienceLoopSource.connect(this.ambienceGain);
-        this.ambienceLoopSource.start(0);
+        this.ambienceLoopSource = this.connectElement(loopEl, this.ambienceGain);
+        
+        try { await loopEl.play(); } catch(e) { console.warn("Ambience loop play error", e); }
     }
 
-    async stopAmbience(force = false) {
-        // If force=true, we stop everything immediately.
-        // If force=false, we stop loop and play outro.
-
+    stopAmbience(force = false) {
         const prevState = this.ambienceState;
-        this.ambienceState = 'stopped'; // Mark as stopped to prevent auto-transitions
+        this.ambienceState = 'stopped';
 
-        // Stop active sources
-        if (this.ambienceIntroSource) {
-            try { this.ambienceIntroSource.stop(); } catch (e) { }
-            this.ambienceIntroSource = null;
-        }
-        if (this.ambienceLoopSource) {
-            try { this.ambienceLoopSource.stop(); } catch (e) { }
-            this.ambienceLoopSource = null;
-        }
-        if (this.ambienceOutroSource) {
-            // Always stop existing outro if playing
-            try { this.ambienceOutroSource.stop(); } catch (e) { }
-            this.ambienceOutroSource = null;
-        }
+        // Stop active elements
+        const stopEl = (el, src) => {
+             if (el) {
+                 el.pause();
+                 el.src = "";
+                 el.onended = null;
+                 if (src) src.disconnect();
+             }
+        };
 
-        // Play Outro if graceful stop requested
-        if (!force && this.ambienceConfig && this.ambienceConfig.outro) {
-            // Only play outro if we were actually playing something
-            if (prevState !== 'stopped' && prevState !== 'loading') {
-                const outroFile = this.ambienceConfig.outro;
-                this.load(outroFile).then(outroBuffer => {
-                    if (outroBuffer) {
-                        this.ambienceState = 'outro';
-                        this.ambienceOutroSource = this.ctx.createBufferSource();
-                        this.ambienceOutroSource.buffer = outroBuffer;
-                        this.ambienceOutroSource.connect(this.ambienceGain);
-                        this.ambienceOutroSource.onended = () => {
-                            this.ambienceOutroSource = null;
-                            this.ambienceState = 'stopped';
-                        };
-                        this.ambienceOutroSource.start(0);
-                    }
-                });
-            }
+        stopEl(this.ambienceIntroElement, this.ambienceIntroSource);
+        stopEl(this.ambienceLoopElement, this.ambienceLoopSource);
+        
+        // Outro logic
+        if (!force && this.ambienceOutroElement && prevState !== 'stopped' && prevState !== 'loading') {
+             const outroEl = this.ambienceOutroElement;
+             this.ambienceOutroSource = this.connectElement(outroEl, this.ambienceGain);
+             outroEl.onended = () => {
+                 stopEl(outroEl, this.ambienceOutroSource);
+                 this.ambienceOutroElement = null; // Clear ref
+             };
+             try { outroEl.play(); } catch(e) {}
+             // Don't clear outro ref yet, let it play
+        } else {
+            stopEl(this.ambienceOutroElement, this.ambienceOutroSource);
         }
 
-        if (force) {
-            this.ambienceConfig = null;
-        }
+        this.ambienceIntroElement = null;
+        this.ambienceLoopElement = null;
+        this.ambienceOutroElement = null;
+        
+        this.ambienceIntroSource = null;
+        this.ambienceLoopSource = null;
+        this.ambienceOutroSource = null;
+        
+        if (force) this.ambienceConfig = null;
     }
 }
 
@@ -541,6 +575,10 @@ class GameClient {
         this.isSpeaking = false;
         this.currentAnnouncerIndex = 0;
         this.speechDelay = 200;
+        
+        // Speech Debounce State
+        this.lastAnnouncementText = "";
+        this.lastAnnouncementTime = 0;
 
         // Voice Caching (Latency Optimization)
         this.cachedVoices = [];
@@ -1101,6 +1139,21 @@ class GameClient {
 
         this.isSpeaking = true;
         const message = this.speechQueue.shift();
+        
+        // DEBOUNCE: Filter duplicates within 700ms
+        const now = Date.now();
+        const cleanMessage = String(message).trim();
+        
+        if (cleanMessage === this.lastAnnouncementText && (now - this.lastAnnouncementTime) < 700) {
+            // Skip duplicate
+            console.log("Skipped duplicate speech:", cleanMessage);
+            this.isSpeaking = false;
+            this.processSpeechQueue(); // Process next
+            return;
+        }
+        
+        this.lastAnnouncementText = cleanMessage;
+        this.lastAnnouncementTime = now;
 
         // Use dual rotating aria-live regions for real-time games
         // Alternating between regions ensures screen readers detect every announcement

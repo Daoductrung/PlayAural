@@ -1,4 +1,4 @@
-const CACHE_NAME = 'playaural-v2.9-minimal';
+const CACHE_NAME = 'playaural-v3.0-minimal';
 
 // Minimal impact: only cache core files to ensure installability
 // We do NOT preload large assets.
@@ -47,6 +47,11 @@ self.addEventListener('fetch', event => {
     event.respondWith(
         fetch(event.request)
             .then(networkResponse => {
+                // Check valid response
+                if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
+                    return networkResponse;
+                }
+
                 // Update cache with the latest version we just fetched
                 // This ensures if we go offline later, we have the most recent version
                 const responseClone = networkResponse.clone();

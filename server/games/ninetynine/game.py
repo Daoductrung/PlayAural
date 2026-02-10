@@ -469,6 +469,14 @@ class NinetyNineGame(Game):
                     is_hidden="_is_draw_hidden",
                 )
             )
+            
+            # WEB-SPECIFIC: For web, force "draw_card" to be the FIRST action
+            # This ensures it appears at the top of the menu, above the disabled cards.
+            # Python client doesn't need this because it uses keybinds (Space/D).
+            if user and getattr(user, "client_type", "") == "web":
+                if "draw_card" in turn_set._order:
+                    turn_set._order.remove("draw_card")
+                    turn_set._order.insert(0, "draw_card")
 
     # ==========================================================================
     # Declarative Action Callbacks
@@ -925,7 +933,7 @@ class NinetyNineGame(Game):
             # Manual draw mode
             self.pending_draw_player_id = player.id
             self.draw_timeout_ticks = DRAW_TIMEOUT_TICKS
-            self._advance_turn()
+            # DO NOT ADVANCE TURN YET - wait for draw
             self._update_all_turn_actions()
             self.rebuild_all_menus()
             user = self.get_user(player)
@@ -1183,6 +1191,7 @@ class NinetyNineGame(Game):
 
         self.pending_draw_player_id = None
         self.draw_timeout_ticks = 0
+        self._advance_turn()  # Now we advance the turn
         self._update_all_turn_actions()
         self.rebuild_all_menus()
 

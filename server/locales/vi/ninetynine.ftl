@@ -69,7 +69,7 @@ ninetynine-choice-2 = Lựa chọn 2
 
 # Rút bài thủ công
 ninetynine-draw-card = Rút bài
-ninetynine-draw-prompt = Nhấn Space hoặc D để rút bài.
+ninetynine-draw-prompt = Hãy rút bài.
 
 # Tùy chọn
 ninetynine-set-tokens = Số xu khởi điểm: { $tokens }

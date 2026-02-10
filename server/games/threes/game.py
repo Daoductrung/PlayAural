@@ -103,6 +103,18 @@ class ThreesGame(Game, DiceGameMixin):
         """Check if roll action is enabled."""
         if self.status != "playing":
             return "action-not-playing"
+        
+        # WEB-SPECIFIC: Identify client type
+        user = self.get_user(player)
+        is_web = user and getattr(user, "client_type", "") == "web"
+        
+        # For web, return None (enabled) so button is 'always light', validation moves to handler
+        if is_web:
+             if self.current_player != player:
+                 # Still disable if not turn
+                 return "action-not-your-turn"
+             return None
+
         if self.current_player != player:
             return "action-not-your-turn"
         threes_player: ThreesPlayer = player  # type: ignore
@@ -121,6 +133,12 @@ class ThreesGame(Game, DiceGameMixin):
         """Roll is visible during play for current player."""
         if self.status != "playing":
             return Visibility.HIDDEN
+        
+        # WEB-SPECIFIC: Always visible for web
+        user = self.get_user(player)
+        if user and getattr(user, "client_type", "") == "web":
+             return Visibility.VISIBLE
+
         if self.current_player != player:
             return Visibility.HIDDEN
         return Visibility.VISIBLE
@@ -129,6 +147,18 @@ class ThreesGame(Game, DiceGameMixin):
         """Check if bank action is enabled."""
         if self.status != "playing":
             return "action-not-playing"
+        
+        # WEB-SPECIFIC: Identify client type
+        user = self.get_user(player)
+        is_web = user and getattr(user, "client_type", "") == "web"
+        
+        # For web, return None (enabled) so button is 'always light', validation moves to handler
+        if is_web:
+             if self.current_player != player:
+                 # Still disable if not turn
+                 return "action-not-your-turn"
+             return None
+
         if self.current_player != player:
             return "action-not-your-turn"
         threes_player: ThreesPlayer = player  # type: ignore
@@ -142,6 +172,12 @@ class ThreesGame(Game, DiceGameMixin):
         """Bank is hidden until dice are rolled."""
         if self.status != "playing":
             return Visibility.HIDDEN
+        
+        # WEB-SPECIFIC: Always visible for web
+        user = self.get_user(player)
+        if user and getattr(user, "client_type", "") == "web":
+             return Visibility.VISIBLE
+
         if self.current_player != player:
             return Visibility.HIDDEN
         threes_player: ThreesPlayer = player  # type: ignore
@@ -235,6 +271,24 @@ class ThreesGame(Game, DiceGameMixin):
             )
         )
 
+        # WEB-SPECIFIC: Reorder for Web Clients to put Roll/Bank at the top
+        if user and getattr(user, "client_type", "") == "web":
+            # Desired order: Roll, Bank, Dice Toggles...
+            top_actions = ["roll", "bank"]
+            final_order = []
+            
+            # Add top actions if they exist in the set
+            for aid in top_actions:
+                if action_set.get_action(aid):
+                    final_order.append(aid)
+            
+            # Add remaining actions (dice toggles, check hand, etc)
+            for aid in action_set._order:
+                if aid not in top_actions:
+                    final_order.append(aid)
+            
+            action_set._order = final_order
+
         return action_set
 
     # WEB-SPECIFIC: Target order for Standard Actions
@@ -301,8 +355,20 @@ class ThreesGame(Game, DiceGameMixin):
         if not isinstance(player, ThreesPlayer):
             return
 
+        # Explicit validation (moved from is_enabled for web clients)
+        # Note: If not player's turn, handler won't be called normally, but safe to check
+        if self.current_player != player:
+             return
+
         # If not first roll, must keep at least one unlocked die
         if player.dice.has_rolled:
+            if player.dice.unlocked_count <= 1:
+                # Should bank instead
+                user = self.get_user(player)
+                if user:
+                    user.speak_l("threes-must-bank", buffer="game")
+                return
+
             if player.dice.kept_unlocked_count == 0:
                 user = self.get_user(player)
                 if user:
@@ -350,6 +416,24 @@ class ThreesGame(Game, DiceGameMixin):
         """Bank score and end turn."""
         if not isinstance(player, ThreesPlayer):
             return
+        
+        # Explicit validation (for web clients)
+        if self.current_player != player:
+             return
+             
+        if not player.dice.has_rolled:
+            user = self.get_user(player)
+            if user:
+                user.speak_l("threes-roll-first", buffer="game")
+            return
+
+        if not player.dice.all_decided:
+             # In Threes, you must select everything before banking
+             user = self.get_user(player)
+             if user:
+                 user.speak_l("threes-keep-all-first", buffer="game")
+             return
+
         self._score_turn(player)
 
     def _action_check_hand(self, player: Player, action_id: str) -> None:

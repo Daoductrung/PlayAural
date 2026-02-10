@@ -400,6 +400,13 @@ class MileByMileGame(Game):
             turn_set._order.remove("check_status")
             turn_set._order.append("check_status")
 
+        # WEB-SPECIFIC: Force dirty_trick to the top
+        user = self.get_user(player)
+        if user and getattr(user, "client_type", "") == "web":
+            if "dirty_trick" in turn_set._order:
+                turn_set._order.remove("dirty_trick")
+                turn_set._order.insert(0, "dirty_trick")
+
     # ==========================================================================
     # Declarative Action Callbacks
     # ==========================================================================
@@ -443,7 +450,17 @@ class MileByMileGame(Game):
         """Check if dirty trick action is enabled."""
         if self.status != "playing":
             return "action-not-playing"
+        
+        # WEB-SPECIFIC: Identify client type
+        user = self.get_user(player)
+        is_web = user and getattr(user, "client_type", "") == "web"
+
         mbm_player: MileByMilePlayer = player  # type: ignore
+        
+        # For web, return None (enabled) so button is 'always light', validation moves to handler
+        if is_web:
+            return None
+
         if self.dirty_trick_window_team is None:
             return "milebymile-no-dirty-trick-window"
         if mbm_player.team_index != self.dirty_trick_window_team:
@@ -451,7 +468,10 @@ class MileByMileGame(Game):
         return None
 
     def _is_dirty_trick_hidden(self, player: Player) -> Visibility:
-        """Dirty trick is always hidden (keybind only)."""
+        """Dirty trick is hidden (keybind only), unless Web."""
+        user = self.get_user(player)
+        if user and getattr(user, "client_type", "") == "web":
+            return Visibility.VISIBLE
         return Visibility.HIDDEN
 
     def _is_junk_card_enabled(self, player: Player) -> str | None:
@@ -887,9 +907,19 @@ class MileByMileGame(Game):
         if not isinstance(player, MileByMilePlayer):
             return
 
+        # Explicit validation (moved from is_enabled for web clients)
+        if self.dirty_trick_window_team is None:
+            user = self.get_user(player)
+            if user:
+                user.speak_l("milebymile-no-dirty-trick-window", buffer="game")
+            return
+
         race_state = self.get_player_race_state(player)
         if not race_state or self.dirty_trick_window_team != player.team_index:
-            return
+             user = self.get_user(player)
+             if user:
+                 user.speak_l("milebymile-not-your-dirty-trick", buffer="game")
+             return
 
         hazard = self.dirty_trick_window_hazard
         if not hazard:
@@ -1328,7 +1358,7 @@ class MileByMileGame(Game):
         # Open dirty trick window
         self.dirty_trick_window_team = target_idx
         self.dirty_trick_window_hazard = card.value
-        self.dirty_trick_window_ticks = 60  # 3 seconds at 20 ticks/sec
+        self.dirty_trick_window_ticks = 140  # 7 seconds at 20 ticks/sec
 
         # Schedule bot dirty trick check
         for member_name in target_team.members:

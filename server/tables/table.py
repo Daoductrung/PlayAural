@@ -253,6 +253,15 @@ class Table(DataClassJSONMixin):
 
     def destroy(self) -> None:
         """Destroy this table. Called by Game.destroy()."""
+        if getattr(self, "_destroyed", False):
+            return
+        self._destroyed = True
+
+        # Ensure Game is also destroyed (e.g. if table is destroyed by timeout)
+        # We need to avoid infinite recursion since Game.destroy calls Table.destroy
+        if self._game and hasattr(self._game, "destroy") and not getattr(self._game, "_destroyed", False):
+             self._game.destroy()
+
         if self._manager:
             self._manager.on_table_destroy(self)
 

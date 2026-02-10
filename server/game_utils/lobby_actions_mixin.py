@@ -246,6 +246,11 @@ class LobbyActionsMixin:
     def destroy(self) -> None:
         """Request destruction of this game/table."""
         self._destroyed = True
+        
+        # Cleanup game result (if GameResultMixin is present)
+        if hasattr(self, "clear_last_game_result"):
+            self.clear_last_game_result()
+            
         if self._table:
             self._table.destroy()
 

@@ -67,7 +67,7 @@ game-you-deal = Bạn chia bài.
 game-player-deals = { $player } chia bài.
 
 # Tên lá bài
-card-name = { $rank } chất { $suit }
+card-name = { $rank } { $suit }
 no-cards = Không có bài
 
 # Tên chất bài
@@ -97,12 +97,12 @@ rank-nine = 9
 rank-nine-plural = 9
 rank-ten = 10
 rank-ten-plural = 10
-rank-jack = Bồi (J)
-rank-jack-plural = Bồi (J)
-rank-queen = Đầm (Q)
-rank-queen-plural = Đầm (Q)
-rank-king = Già (K)
-rank-king-plural = Già (K)
+rank-jack = Bồi
+rank-jack-plural = Bồi
+rank-queen = Đầm
+rank-queen-plural = Đầm
+rank-king = Già
+rank-king-plural = Già
 
 # Mô tả tay bài Poker
 poker-high-card-with = Mậu thầu { $high }, kèm { $rest }

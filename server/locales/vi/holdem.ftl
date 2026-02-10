@@ -6,11 +6,11 @@ holdem-set-starting-chips = Chip khởi điểm: { $count }
 holdem-enter-starting-chips = Nhập số chip khởi điểm
 holdem-option-changed-starting-chips = Chip khởi điểm được đặt là { $count }.
 
-holdem-set-big-blind = Mù lớn (Big Blind): { $count }
+holdem-set-big-blind = Mù lớn: { $count }
 holdem-enter-big-blind = Nhập số tiền mù lớn
 holdem-option-changed-big-blind = Mù lớn được đặt là { $count }.
 
-holdem-set-ante = Tiền gà (Ante): { $count }
+holdem-set-ante = Tiền gà: { $count }
 holdem-enter-ante = Nhập số tiền gà
 holdem-option-changed-ante = Tiền gà được đặt là { $count }.
 

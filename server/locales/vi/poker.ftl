@@ -14,7 +14,7 @@ poker-check-log = Nhật ký hành động
 poker-check-hand-players = Người chơi trong ván
 poker-check-turn-timer = Thời gian lượt
 poker-check-blind-timer = Thời gian tăng mù
-poker-check-button = Ai đang giữ Nút (Dealer Button)
+poker-check-button = Ai đang giữ Nút
 poker-check-dealer = Ai là người chia bài
 poker-check-position = Vị trí của bạn
 
@@ -46,7 +46,7 @@ poker-players-split-pot = { $players } chia gà { $amount } chip với bài { $h
 poker-players-split-side-pot = { $players } chia hũ phụ { $index } gồm { $amount } chip với bài { $hand }.
 poker-player-wins-game = { $player } thắng cả trò chơi.
 
-poker-showdown = Ngửa bài (Showdown).
+poker-showdown = Ngửa bài.
 
 poker-timer-disabled = Hẹn giờ lượt đã tắt.
 poker-timer-remaining = Còn { $seconds } giây.
@@ -65,7 +65,7 @@ poker-position-dealer-seat = Bạn ngồi ghế thứ { $position } sau người
 poker-position-dealer-seats = Bạn ngồi ghế thứ { $position } sau người chia bài.
 poker-show-hand = { $player } lật { $cards } ({ $hand }).
 poker-blinds-players = Mù nhỏ: { $sb }. Mù lớn: { $bb }.
-poker-reveal-only-showdown = Bạn chỉ có thể lật bài khi kết thúc ván (Showdown).
+poker-reveal-only-showdown = Bạn chỉ có thể lật bài khi kết thúc ván.
 
 poker-reveal-both = Lật cả hai lá bài tẩy
 poker-reveal-first = Lật lá bài tẩy thứ nhất
@@ -106,6 +106,6 @@ poker-blind-timer-15 = 15 phút
 poker-blind-timer-20 = 20 phút
 poker-blind-timer-30 = 30 phút
 
-poker-raise-no-limit = Không giới hạn (No Limit)
-poker-raise-pot-limit = Giới hạn theo Hũ (Pot Limit)
+poker-raise-no-limit = Không giới hạn
+poker-raise-pot-limit = Giới hạn theo Hũ
 poker-raise-double-pot = Giới hạn gấp đôi Hũ

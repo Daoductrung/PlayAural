@@ -6,7 +6,7 @@ draw-set-starting-chips = Chip khởi điểm: { $count }
 draw-enter-starting-chips = Nhập số chip khởi điểm
 draw-option-changed-starting-chips = Chip khởi điểm được đặt là { $count }.
 
-draw-set-ante = Tiền gà (Ante): { $count }
+draw-set-ante = Tiền gà: { $count }
 draw-enter-ante = Nhập số tiền gà
 draw-option-changed-ante = Tiền gà được đặt là { $count }.
 

@@ -12,7 +12,7 @@ milebymile-enter-winning-score = Nhập điểm thắng (1000-10000)
 milebymile-toggle-perfect-crossing = Yêu cầu về đích chính xác: { $enabled }
 milebymile-toggle-stacking = Cho phép tấn công cộng dồn: { $enabled }
 milebymile-toggle-reshuffle = Xào lại bài đã bỏ: { $enabled }
-milebymile-toggle-karma = Luật Nghiệp chướng (Karma): { $enabled }
+milebymile-toggle-karma = Luật Nghiệp chướng: { $enabled }
 milebymile-set-rig = Sắp xếp bộ bài (Gian lận): { $rig }
 milebymile-select-rig = Chọn kiểu sắp xếp bộ bài
 
@@ -53,7 +53,7 @@ milebymile-plays-hazard-team = { $player } đánh Lá { $card } lên Đội { $t
 
 # Đánh bài Khắc phục/Bảo hộ
 milebymile-plays-card = { $player } đánh Lá { $card }.
-milebymile-plays-dirty-trick = { $player } đánh Lá { $card } như một Đòn Phản Công (Coup-fourré)!
+milebymile-plays-dirty-trick = { $player } đánh Lá { $card } như một Đòn Phản Công!
 
 # Bộ bài
 milebymile-deck-reshuffled = Chồng bài bỏ đã được xào lại vào bộ bài rút.
@@ -132,12 +132,12 @@ milebymile-card-out-of-gas = Hết Xăng
 milebymile-card-flat-tire = Xịt Lốp
 milebymile-card-accident = Tai Nạn
 milebymile-card-speed-limit = Giới Hạn Tốc Độ
-milebymile-card-stop = Đèn Đỏ (Dừng)
+milebymile-card-stop = Đèn Đỏ
 milebymile-card-gasoline = Xăng
 milebymile-card-spare-tire = Lốp Dự Phòng
 milebymile-card-repairs = Sửa Chữa
 milebymile-card-end-of-limit = Hết Giới Hạn
-milebymile-card-green-light = Đèn Xanh (Đi)
+milebymile-card-green-light = Đèn Xanh
 milebymile-card-extra-tank = Thùng Xăng Phụ
 milebymile-card-puncture-proof = Lốp Chống Đinh
 milebymile-card-driving-ace = Tay Lái Lụa

@@ -44,7 +44,7 @@ chaosbear-status-player-caught = { $player }: bị bắt tại ô số { $positi
 chaosbear-status-bear = Gấu đang ở ô số { $position } với { $energy } năng lượng.
 
 # Kết thúc trò chơi
-chaosbear-winner = { $player } sống sót và chiến thắng! Họ đã đến được ô số { $position }!
+chaosbear-winner = { $player } chiến thắng! Họ đã đến được ô số { $position }!
 chaosbear-tie = Hòa nhau tại ô số { $position }!
 
 # Lý do hành động bị vô hiệu hóa

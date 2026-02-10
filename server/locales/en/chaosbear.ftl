@@ -44,7 +44,7 @@ chaosbear-status-player-caught = { $player }: caught at square { $position }.
 chaosbear-status-bear = The bear is at square { $position } with { $energy } energy.
 
 # End game
-chaosbear-winner = { $player } survived and wins! They reached square { $position }!
+chaosbear-winner = { $player } wins! They reached square { $position }!
 chaosbear-tie = It's a tie at square { $position }!
 
 # Disabled action reasons

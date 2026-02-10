@@ -453,7 +453,6 @@ class Playlist {
 
         if (this.audioType === "music") {
             // Play as music (replaces current music)
-            // Play as music (replaces current music)
             // Note: playMusic is now async, so we MUST await it to ensure source is active
             // and correct before attaching onended listener.
             // loop=false because playlist handles the sequence.
@@ -1204,50 +1203,11 @@ class GameClient {
         this.playlists = {};
     }
 
-    // New method to encapsulate chat processing logic
-    on_receive_chat(packet) {
-        const sender = packet.sender || "System";
-        let displaySender = sender;
-        let logClass = "log-channel-system"; // Default
-        let soundName = "chat.ogg";
-        let speakText = "";
-        let shouldSpeak = true;
-
-        if (packet.convo === "global") {
-            logClass = "log-channel-global";
-            const prefix = Localization.get("chat-prefix-global");
-            displaySender = `${prefix} ${sender}`;
-            speakText = `${sender}: ${packet.message}`;
-
-        } else if (packet.convo === "announcement") {
-            logClass = "log-channel-system";
-            const prefix = Localization.get("chat-prefix-announcement") || Localization.get("system-announcement");
-            displaySender = prefix;
-            speakText = `${prefix}: ${packet.message}`;
-            soundName = "notify.ogg";
-
-        } else if (packet.convo === "local" || packet.convo === "table" || packet.convo === "game") {
-            logClass = "log-channel-table";
-            const tagKey = (packet.convo === "local") ? "chat-prefix-local" : "chat-prefix-table";
-            const prefix = Localization.get(tagKey);
-            displaySender = `${prefix} ${sender}`;
-            speakText = `${sender}: ${packet.message}`;
-            soundName = "chatlocal.ogg";
-
-        } else {
-            // Default / System messages
-            const prefix = Localization.get("chat-prefix-system");
-            displaySender = `${prefix} ${sender}`;
-            speakText = `${packet.message}`;
-        }
-
-        if (shouldSpeak) {
-            this.play_sound(soundName);
-            this.speak(speakText);
-        }
-
-        this.addToChatLog(packet.message, displaySender, logClass);
+    // Server packet handlers usually call this
+    async on_server_play_ambience(packet) {
+        await this.soundManager.playAmbience(packet.intro, packet.loop, packet.outro);
     }
+
 
 
 
@@ -1476,7 +1436,32 @@ class GameClient {
 
                 } else if (packet.convo === "local" || packet.convo === "table" || packet.convo === "game") {
                     logClass = "log-channel-table";
-                    const tagKey = (packet.convo === "local") ? "chat-prefix-local" : "chat-prefix-table";
+
+                    // Logic Parity: Determine if we are "In Game" to show [Table] vs [Local]
+                    // Python client doesn't use prefixes, but user wants [Table] when in game.
+                    // Server sends "local" for both.
+
+                    let tagKey = "chat-prefix-local"; // Default
+
+                    // Check if we are in a game context
+                    const gameMenus = [
+                        "turn_menu",
+                        "actions_menu",
+                        "action_input_menu",
+                        "status_box",
+                        "game_over",
+                        "leave_game_confirm"
+                    ];
+
+                    if (this.currentMenuId && gameMenus.includes(this.currentMenuId)) {
+                        tagKey = "chat-prefix-table";
+                    }
+
+                    // Override if server explicitly sent "table" or "game" (future proofing)
+                    if (packet.convo === "table" || packet.convo === "game") {
+                        tagKey = "chat-prefix-table";
+                    }
+
                     const prefix = Localization.get(tagKey);
                     displaySender = `${prefix} ${sender}`;
                     speakText = `${sender}: ${packet.message}`;
@@ -1520,9 +1505,6 @@ class GameClient {
                 this.showInput(packet);
                 break;
 
-            case "game_list":
-                this.renderGameList(packet);
-                break;
 
             case "update_locale":
                 // Server requests locale change
@@ -1576,7 +1558,8 @@ class GameClient {
     }
 
     renderMenu(packet) {
-        this.switchTab('content-menu');
+        // Redundant switchTab removed.
+        // DOM updates will be visible immediately if tab is active.
 
         let newItems = packet.items || [];
         const isSameMenu = this.currentMenuId === packet.menu_id;
@@ -1650,8 +1633,12 @@ class GameClient {
             // WEB-SPECIFIC LOGIC MOVED TO TOP OF FUNCTION
 
             if (newItems.length > 0) {
-                const firstBtn = this.menuArea.querySelector('.menu-item');
-                if (firstBtn) firstBtn.focus();
+                // FIXED: Only auto-focus first button if user is ALREADY in the menu tab.
+                // Otherwise, this steals focus from Chat/Input fields!
+                if (this.activeTab === 'content-menu') {
+                    const firstBtn = this.menuArea.querySelector('.menu-item');
+                    if (firstBtn) firstBtn.focus();
+                }
             }
 
             return;

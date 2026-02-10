@@ -27,8 +27,24 @@ class MenuManagementMixin:
         """Rebuild the turn menu for a player."""
         if self._destroyed:
             return  # Don't rebuild menus after game is destroyed
+            
         if self.status == "finished":
-            return  # Don't rebuild turn menu after game has ended
+            # BUGFIX: If game is finished, we should restore the end screen
+            # instead of doing nothing (which leaves user with no menu)
+            
+            # Robustness: If _last_game_result is missing (e.g. after server restart),
+            # try to rebuild it from current state.
+            if not hasattr(self, "_last_game_result") or self._last_game_result is None:
+                if hasattr(self, "build_game_result"):
+                    self._last_game_result = self.build_game_result()
+
+            if hasattr(self, "_last_game_result") and self._last_game_result:
+                # We need to access _show_end_screen_to_player from GameResultMixin
+                # Since Game inherits from both, this is valid
+                if hasattr(self, "_show_end_screen_to_player"):
+                    self._show_end_screen_to_player(player, self._last_game_result)
+            return
+
         user = self.get_user(player)
         if not user:
             return

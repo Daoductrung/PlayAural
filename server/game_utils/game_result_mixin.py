@@ -27,6 +27,11 @@ class GameResultMixin:
         - self.destroy()
     """
 
+    def clear_last_game_result(self) -> None:
+        """Clear the stored last game result."""
+        if hasattr(self, "_last_game_result"):
+            self._last_game_result = None
+
     def finish_game(self, show_end_screen: bool = True) -> None:
         """Mark the game as finished, persist result, and optionally show end screen.
 
@@ -43,6 +48,7 @@ class GameResultMixin:
 
         # Build and persist the game result
         result = self.build_game_result()
+        self._last_game_result = result  # Store for menu restoration
         self._persist_result(result)
 
         # Show end screen
@@ -155,16 +161,20 @@ class GameResultMixin:
     def _show_end_screen(self, result: GameResult) -> None:
         """Show the end screen to all players using structured result."""
         for player in self.players:
-            user = self.get_user(player)
-            if user:
-                lines = self.format_end_screen(result, user.locale)
-                items = [MenuItem(text=line, id="score_line") for line in lines]
-                # Add Leave button at the end
-                items.append(MenuItem(
-                    text=Localization.get(user.locale, "game-leave"),
-                    id="leave_game"
-                ))
-                user.show_menu("game_over", items, multiletter=False)
+            self._show_end_screen_to_player(player, result)
+
+    def _show_end_screen_to_player(self, player: "Player", result: GameResult) -> None:
+        """Show the end screen to a specific player."""
+        user = self.get_user(player)
+        if user:
+            lines = self.format_end_screen(result, user.locale)
+            items = [MenuItem(text=line, id="score_line") for line in lines]
+            # Add Leave button at the end
+            items.append(MenuItem(
+                text=Localization.get(user.locale, "game-leave"),
+                id="leave_game"
+            ))
+            user.show_menu("game_over", items, multiletter=False)
 
     def show_game_end_menu(self, score_lines: list[str]) -> None:
         """Show the game end menu to all players.

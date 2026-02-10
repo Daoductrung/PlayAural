@@ -197,12 +197,9 @@ class CrazyEightsGame(Game):
             return
 
         if self.status == "waiting":
-            if player.name == self.host and self.players:
-                for p in self.players:
-                    if not p.is_bot:
-                        self.host = p.name
-                        self.broadcast_l("new-host", player=p.name)
-                        break
+            # Sync with table - this will trigger host promotion in Table.remove_member if needed
+            if self._table:
+                self._table.remove_member(player.name)
         
             self.rebuild_all_menus()
 

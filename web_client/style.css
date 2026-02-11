@@ -282,14 +282,61 @@ main {
     /* Magenta */
 }
 
-/* Chat Input */
+/* Chat Input View */
+#chat-input-view {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    height: 100%;
+    padding: 20px;
+    gap: 20px;
+}
+
 #chat-form {
     display: flex;
-    gap: 0.5rem;
+    gap: 10px;
+    width: 100%;
 }
 
 #chat-form input {
     flex: 1;
+    font-size: 1.2rem;
+    padding: 15px;
+}
+
+#btn-chat-send {
+    width: auto;
+    min-width: 100px;
+    font-size: 1.1rem;
+    margin-top: 0;
+}
+
+#btn-view-history {
+    padding: 15px;
+    font-size: 1.1rem;
+    margin-top: 0;
+}
+
+/* Chat History View */
+#chat-history-view {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+#btn-back-to-input {
+    margin-bottom: 10px;
+    padding: 10px;
+}
+
+#chat-history {
+    flex: 1;
+    overflow-y: auto;
+    background-color: #000;
+    border: 1px solid #333;
+    padding: 10px;
+    border-radius: 4px;
+    /* Newest first logic handled in JS via prepend, no CSS reverse needed */
 }
 
 /* Mobile Responsive */
@@ -466,14 +513,16 @@ input[type=range]::-moz-range-thumb {
     z-index: 1000;
 }
 
-.web-action-btn, 
+.web-action-btn,
 .web-leave-btn {
     padding: 12px 24px;
     font-size: 1.1rem;
     font-weight: bold;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-    min-width: 160px; /* Big click target */
-    width: auto; /* Allow growth */
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    min-width: 160px;
+    /* Big click target */
+    width: auto;
+    /* Allow growth */
 }
 
 /* Mobile adjustments */
@@ -481,8 +530,10 @@ input[type=range]::-moz-range-thumb {
     .web-leave-area {
         bottom: 15px;
         right: 15px;
-        left: 15px; /* Full width on mobile? */
+        left: 15px;
+        /* Full width on mobile? */
     }
+
     .web-leave-btn {
         width: 100%;
         font-size: 1.2rem;

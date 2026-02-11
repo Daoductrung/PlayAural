@@ -59,6 +59,8 @@ class Localization {
 }
 
 
+
+
 class SoundManager {
     constructor(gameClient) {
         this.client = gameClient;
@@ -141,10 +143,10 @@ class SoundManager {
         this.musicGain.gain.setTargetAtTime(targetMusic, now, 0.1);
         this.sfxGain.gain.setTargetAtTime(this.settings.sfxVolume, now, 0.1);
         this.ambienceGain.gain.setTargetAtTime(this.settings.ambienceVolume, now, 0.1);
-        
+
         // Update elements directly if not yet connected (e.g. cross-origin fallback)
         if (this.currentMusicElement && !this.currentMusicSource) {
-             this.currentMusicElement.volume = targetMusic;
+            this.currentMusicElement.volume = targetMusic;
         }
     }
 
@@ -253,19 +255,19 @@ class SoundManager {
         const audio = this.createAudioElement(url);
         audio.loop = loop;
         audio.preload = "auto";
-        
+
         // Connect to Web Audio
         // Create a local gain for fade-in
         const fadeGain = this.ctx.createGain();
         fadeGain.gain.value = 0; // Start silent
-        
+
         const source = this.connectElement(audio, fadeGain);
         if (source) {
             fadeGain.connect(this.musicGain);
         } else {
-             // Fallback if connection failed (CORS), play directly
-             // We can't do fancy fade-in easily without Web Audio, just set volume
-             audio.volume = this.settings.musicVolume; 
+            // Fallback if connection failed (CORS), play directly
+            // We can't do fancy fade-in easily without Web Audio, just set volume
+            audio.volume = this.settings.musicVolume;
         }
 
         try {
@@ -347,7 +349,7 @@ class SoundManager {
             this.ambienceState = 'intro';
             this.ambienceIntroElement = introEl;
             this.ambienceIntroSource = this.connectElement(introEl, this.ambienceGain);
-            
+
             // Chain events
             introEl.onended = () => {
                 if (this.ambienceState === 'intro') {
@@ -355,11 +357,11 @@ class SoundManager {
                 }
             };
 
-            try { await introEl.play(); } catch(e) { console.warn("Ambience intro play error", e); }
+            try { await introEl.play(); } catch (e) { console.warn("Ambience intro play error", e); }
         } else {
             this._startAmbienceLoop(loopEl);
         }
-        
+
         // Store references for later cleanup
         this.ambienceLoopElement = loopEl;
         this.ambienceOutroElement = outroEl;
@@ -371,8 +373,8 @@ class SoundManager {
 
         this.ambienceState = 'looping';
         this.ambienceLoopSource = this.connectElement(loopEl, this.ambienceGain);
-        
-        try { await loopEl.play(); } catch(e) { console.warn("Ambience loop play error", e); }
+
+        try { await loopEl.play(); } catch (e) { console.warn("Ambience loop play error", e); }
     }
 
     stopAmbience(force = false) {
@@ -381,27 +383,27 @@ class SoundManager {
 
         // Stop active elements
         const stopEl = (el, src) => {
-             if (el) {
-                 el.pause();
-                 el.src = "";
-                 el.onended = null;
-                 if (src) src.disconnect();
-             }
+            if (el) {
+                el.pause();
+                el.src = "";
+                el.onended = null;
+                if (src) src.disconnect();
+            }
         };
 
         stopEl(this.ambienceIntroElement, this.ambienceIntroSource);
         stopEl(this.ambienceLoopElement, this.ambienceLoopSource);
-        
+
         // Outro logic
         if (!force && this.ambienceOutroElement && prevState !== 'stopped' && prevState !== 'loading') {
-             const outroEl = this.ambienceOutroElement;
-             this.ambienceOutroSource = this.connectElement(outroEl, this.ambienceGain);
-             outroEl.onended = () => {
-                 stopEl(outroEl, this.ambienceOutroSource);
-                 this.ambienceOutroElement = null; // Clear ref
-             };
-             try { outroEl.play(); } catch(e) {}
-             // Don't clear outro ref yet, let it play
+            const outroEl = this.ambienceOutroElement;
+            this.ambienceOutroSource = this.connectElement(outroEl, this.ambienceGain);
+            outroEl.onended = () => {
+                stopEl(outroEl, this.ambienceOutroSource);
+                this.ambienceOutroElement = null; // Clear ref
+            };
+            try { outroEl.play(); } catch (e) { }
+            // Don't clear outro ref yet, let it play
         } else {
             stopEl(this.ambienceOutroElement, this.ambienceOutroSource);
         }
@@ -409,11 +411,11 @@ class SoundManager {
         this.ambienceIntroElement = null;
         this.ambienceLoopElement = null;
         this.ambienceOutroElement = null;
-        
+
         this.ambienceIntroSource = null;
         this.ambienceLoopSource = null;
         this.ambienceOutroSource = null;
-        
+
         if (force) this.ambienceConfig = null;
     }
 }
@@ -575,7 +577,7 @@ class GameClient {
         this.isSpeaking = false;
         this.currentAnnouncerIndex = 0;
         this.speechDelay = 200;
-        
+
         // Speech Debounce State
         this.lastAnnouncementText = "";
         this.lastAnnouncementTime = 0;
@@ -821,6 +823,22 @@ class GameClient {
         }
     }
 
+    showChatHistory() {
+        document.getElementById('chat-input-view').classList.add('hidden');
+        document.getElementById('chat-history-view').classList.remove('hidden');
+        this.speak(Localization.get('chat-history-view-active') || "Chat History");
+    }
+
+    showChatInput() {
+        document.getElementById('chat-history-view').classList.add('hidden');
+        document.getElementById('chat-input-view').classList.remove('hidden');
+        this.speak(Localization.get('chat-input-view-active') || "Chat Input");
+        setTimeout(() => {
+            const input = document.getElementById('chat-input');
+            if (input) input.focus();
+        }, 100);
+    }
+
 
 
     addToChatLog(message, sender, senderClass) {
@@ -837,11 +855,18 @@ class GameClient {
 
         html += `<span class="log-msg">${message}</span>`;
         // html += ` <span class="log-time">[${time}]</span>`; // Optional time for mobile to save space?
-        // User didn't specify, but mobile screen is small. Let's keep it but small.
 
         entry.innerHTML = html;
-        container.appendChild(entry);
-        container.scrollTop = container.scrollHeight;
+
+        // NEW LOGIC: Prepend (Newest First) for mobile optimization
+        if (container.firstChild) {
+            container.insertBefore(entry, container.firstChild);
+        } else {
+            container.appendChild(entry);
+        }
+
+        // No auto-scroll needed since we are at top
+        container.scrollTop = 0;
     }
 
     sendChat() {
@@ -1139,11 +1164,11 @@ class GameClient {
 
         this.isSpeaking = true;
         const message = this.speechQueue.shift();
-        
+
         // DEBOUNCE: Filter duplicates within 700ms
         const now = Date.now();
         const cleanMessage = String(message).trim();
-        
+
         if (cleanMessage === this.lastAnnouncementText && (now - this.lastAnnouncementTime) < 700) {
             // Skip duplicate
             console.log("Skipped duplicate speech:", cleanMessage);
@@ -1151,7 +1176,7 @@ class GameClient {
             this.processSpeechQueue(); // Process next
             return;
         }
-        
+
         this.lastAnnouncementText = cleanMessage;
         this.lastAnnouncementTime = now;
 
@@ -1255,14 +1280,6 @@ class GameClient {
         }
         this.playlists = {};
     }
-
-    // Server packet handlers usually call this
-    async on_server_play_ambience(packet) {
-        await this.soundManager.playAmbience(packet.intro, packet.loop, packet.outro);
-    }
-
-
-
 
     handlePreferenceUpdate(packet) {
         console.log("Updating preference (RAW):", packet);
@@ -1953,7 +1970,7 @@ class GameClient {
                     if (this.regStatusMsg) this.regStatusMsg.innerText = reason;
                 } else {
                     // Only go back to login if it was a clean exit or manual logout
-                    // Only go back to login if it was a clean exit or manual logout
+
                     // We now prioritize shouldReconnect flag over error codes
                     if (this.shouldReconnect && !this.manualDisconnect) {
                         this.cleanupAndReconnect();
@@ -2055,6 +2072,14 @@ class GameClient {
         submitBtn.innerText = Localization.get("input-submit");
         submitBtn.className = "primary-btn";
         submitBtn.style.marginTop = "10px";
+
+        // Enable Enter key to submit
+        input.onkeydown = (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                submitBtn.click();
+            }
+        };
 
         submitBtn.onclick = () => {
             const value = input.value;
@@ -2367,6 +2392,12 @@ class GameClient {
         }
         if (chatSendBtn) chatSendBtn.innerText = Localization.get('btn-chat-send');
 
+        const btnViewHistory = document.getElementById('btn-view-history');
+        const btnBackToInput = document.getElementById('btn-back-to-input');
+
+        if (btnViewHistory) btnViewHistory.innerText = Localization.get('btn-view-history');
+        if (btnBackToInput) btnBackToInput.innerText = Localization.get('btn-back-to-input');
+
         // Players section
         const playersTitle = document.getElementById('players-title');
         const btnListOnline = document.getElementById('btn-list-online');
@@ -2397,3 +2428,5 @@ window.onload = function () {
     document.getElementById('register-form').onsubmit = function (e) { e.preventDefault(); Game.register(); return false; };
     document.getElementById('chat-form').onsubmit = function (e) { e.preventDefault(); Game.sendChat(); return false; };
 };
+
+

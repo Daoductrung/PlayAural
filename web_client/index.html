@@ -198,12 +198,26 @@
             </div>
 
             <!-- Chat Tab Content -->
+
             <div id="content-chat" class="tab-content hidden" role="tabpanel" aria-labelledby="tab-chat">
-                <div id="chat-history" class="log-container" aria-live="polite"></div>
-                <form id="chat-form">
-                    <input type="text" id="chat-input" placeholder="Type a message..." aria-label="Chat Message">
-                    <button type="submit" id="btn-chat-send">Send</button>
-                </form>
+                <!-- View 1: Input (Default) -->
+                <div id="chat-input-view">
+                    <form id="chat-form" onsubmit="return false;">
+                        <input type="text" id="chat-input" placeholder="Type a message..." aria-label="Chat Message"
+                            autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                        <button type="button" id="btn-chat-send" onclick="Game.sendChat()">Send</button>
+                    </form>
+                    <button type="button" id="btn-view-history" class="secondary-btn"
+                        onclick="Game.showChatHistory()">View Chat History</button>
+                </div>
+
+                <!-- View 2: History (Hidden) -->
+                <div id="chat-history-view" class="hidden">
+                    <button type="button" id="btn-back-to-input" class="secondary-btn"
+                        onclick="Game.showChatInput()">Back to Input</button>
+                    <!-- Removed aria-live to prevent focus jumping/conflicts as requested -->
+                    <div id="chat-history" class="log-container"></div>
+                </div>
             </div>
 
             <!-- Players Tab Content -->

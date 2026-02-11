@@ -116,8 +116,13 @@ window.LOCALES = {
 
         // Chat
         "chat-input-placeholder": "Type a message...",
+        "chat-input-placeholder": "Type a message...",
         "chat-input-label": "Chat Message",
         "btn-chat-send": "Send",
+        "btn-view-history": "View Chat History",
+        "btn-back-to-input": "Back to Input",
+        "chat-history-view-active": "Chat History",
+        "chat-input-view-active": "Chat Input",
 
         // Players section
         "players-title": "Online Players",
@@ -245,8 +250,13 @@ window.LOCALES = {
 
         // Chat
         "chat-input-placeholder": "Nhập tin nhắn...",
+        "chat-input-placeholder": "Nhập tin nhắn...",
         "chat-input-label": "Tin nhắn trò chuyện",
         "btn-chat-send": "Gửi",
+        "btn-view-history": "Xem lịch sử tin nhắn",
+        "btn-back-to-input": "Quay lại nhập tin nhắn",
+        "chat-history-view-active": "Lịch sử tin nhắn",
+        "chat-input-view-active": "Nhập tin nhắn",
 
         // Players section
         "players-title": "Người chơi Trực tuyến",

@@ -1628,8 +1628,10 @@ class GameClient {
     }
 
     renderMenu(packet) {
-        // Redundant switchTab removed.
-        // DOM updates will be visible immediately if tab is active.
+        // User Requirement: Switch to Menu tab on update, UNLESS in Chat
+        if (this.activeTab !== 'content-chat') {
+            this.switchTab('content-menu');
+        }
 
         let newItems = packet.items || [];
         const isSameMenu = this.currentMenuId === packet.menu_id;

@@ -84,6 +84,8 @@ Examples:
     protocol = "wss" if args.ssl_cert else "ws"
     print(f"Starting PlayAural v0.1 server on {protocol}://{args.host}:{args.port}")
 
+
+
     asyncio.run(
         run_server(
             host=args.host,

@@ -238,8 +238,9 @@ class SnakesAndLaddersGame(Game):
             sp: SnakesPlayer = p # type: ignore
             speech_parts.append(f"{p.name} {sp.position}")
         
-        # Speak the positions (simple notification)
-        user.speak(f"Positions: {', '.join(speech_parts)}")
+        # Speak the positions
+        header = Localization.get(user.locale, "snakes-positions-header")
+        user.speak(f"{header} {', '.join(speech_parts)}")
 
 
     def _action_roll(self, player: Player, action_id: str) -> None:

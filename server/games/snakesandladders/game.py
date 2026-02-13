@@ -234,7 +234,7 @@ class SnakesAndLaddersGame(Game):
         # Use comma for natural pause
         speech_parts = []
         
-        for p in self.players:
+        for p in self.get_active_players():
             sp: SnakesPlayer = p # type: ignore
             speech_parts.append(f"{p.name} {sp.position}")
         
@@ -479,7 +479,7 @@ class SnakesAndLaddersGame(Game):
         
         # Sort players by position (descending)
         sorted_players = sorted(
-            self.players, 
+            self.get_active_players(), 
             key=lambda p: (p.finished, p.position), # Finished first, then highest position
             reverse=True
         )

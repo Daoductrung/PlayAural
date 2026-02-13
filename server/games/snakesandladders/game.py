@@ -44,6 +44,9 @@ class SnakesAndLaddersGame(Game):
 
 
     
+    # Game State - Override players list with specific type for Mashumaro
+    players: list[SnakesPlayer] = field(default_factory=list)
+    
     # Game Logic State
     is_rolling: bool = False
     event_queue: list[tuple[int, str, dict]] = field(default_factory=list)

@@ -167,3 +167,6 @@ milebymile-discard-card = Discard card
 milebymile-detailed-status = Detailed status
 milebymile-check-status = Check status
 milebymile-dirty-trick = Play dirty trick
+milebymile-info-button = Info
+milebymile-info-msg-individual = { $player }: Hazards: { $hazards }. Safeties: { $safeties }. Distance: { $miles } miles.
+milebymile-info-msg-team = Team { $team } ({ $members }): Hazards: { $hazards }. Safeties: { $safeties }. Distance: { $miles } miles.

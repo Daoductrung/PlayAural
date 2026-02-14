@@ -240,6 +240,20 @@ class MileByMileGame(Game):
                 )
             )
 
+        # Info action (Button "Info" / "Thông tin")
+        # Python: Action menu only (Info 1 of 8 removed), Shortcut 'i'
+        # Web: Turn menu
+        action_set.add(
+            Action(
+                id="info",
+                label=Localization.get(locale, "milebymile-info-button"),
+                handler="_action_info",
+                is_enabled="_is_check_status_enabled", # Enabled when playing
+                is_hidden="_is_info_hidden", # Visible when playing (Web), hidden otherwise (Python)
+                show_in_actions_menu=True, # Show in generic Action Menu (Python)
+            )
+        )
+
         return action_set
 
     # WEB-SPECIFIC: Target order for Standard Actions
@@ -327,6 +341,14 @@ class MileByMileGame(Game):
             include_spectators=True,
         )
 
+        # Info keybind 'i'
+        self.define_keybind(
+            "i",
+            Localization.get(locale, "milebymile-info-button"),
+            ["info"],
+            state=KeybindState.ACTIVE,
+        )
+
         # Dirty trick keybind
         self.define_keybind(
             "d",
@@ -400,12 +422,19 @@ class MileByMileGame(Game):
             turn_set._order.remove("check_status")
             turn_set._order.append("check_status")
 
-        # WEB-SPECIFIC: Force dirty_trick to the top
+        # WEB-SPECIFIC: 
+        # 1. Force dirty_trick to the top
+        # 2. Force info to the bottom (below cards)
         user = self.get_user(player)
         if user and getattr(user, "client_type", "") == "web":
             if "dirty_trick" in turn_set._order:
                 turn_set._order.remove("dirty_trick")
                 turn_set._order.insert(0, "dirty_trick")
+            
+            # Ensure info is at the end (after cards)
+            if "info" in turn_set._order:
+                turn_set._order.remove("info")
+                turn_set._order.append("info")
 
     # ==========================================================================
     # Declarative Action Callbacks
@@ -501,6 +530,18 @@ class MileByMileGame(Game):
         if self.status != "playing":
             return Visibility.HIDDEN
         return Visibility.VISIBLE
+
+    def _is_info_hidden(self, player: Player) -> Visibility:
+        """Info is visible in Turn Menu for Web, Hidden for Python (Access via Action Menu/Keybind)."""
+        user = self.get_user(player)
+        # Web: Show in Turn Menu
+        if user and getattr(user, "client_type", "") == "web":
+            if self.status == "playing":
+                return Visibility.VISIBLE
+            return Visibility.HIDDEN
+        
+        # Python: Hide from Turn Menu (use Action Menu instead)
+        return Visibility.HIDDEN
 
     def _get_card_slot_label(self, player: Player, action_id: str) -> str:
         """Get dynamic label for a card slot action."""
@@ -780,6 +821,60 @@ class MileByMileGame(Game):
     # ==========================================================================
     # Action Handlers
     # ==========================================================================
+
+    def _action_info(self, player: Player, action_id: str) -> None:
+        """Show detailed info about the player/team status."""
+        user = self.get_user(player)
+        if not user or not isinstance(player, MileByMilePlayer):
+            return
+
+        locale = user.locale
+        race_state = self.get_player_race_state(player)
+        if not race_state:
+            return
+
+        # Get problems/hazards
+        if not race_state.problems:
+            hazards_str = Localization.get(locale, "milebymile-none")
+        else:
+            names = [self._get_localized_problem_name(p, locale) for p in race_state.problems]
+            hazards_str = ", ".join(names)
+
+        # Get safeties
+        if not race_state.safeties:
+            safeties_str = Localization.get(locale, "milebymile-none")
+        else:
+            names = [self._get_localized_safety_name(s, locale) for s in race_state.safeties]
+            safeties_str = ", ".join(names)
+
+        miles = race_state.miles
+
+        if self.is_individual_mode():
+            user.speak_l(
+                "milebymile-info-msg-individual",
+                player=player.name,
+                miles=miles,
+                hazards=hazards_str,
+                safeties=safeties_str,
+            )
+        else:
+            # Team info
+            team_idx = player.team_index
+            team_name = self.get_team_name(team_idx, locale)
+            # Find team members
+            if team_idx < len(self._team_manager.teams):
+                member_names = ", ".join(self._team_manager.teams[team_idx].members)
+            else:
+                member_names = player.name
+
+            user.speak_l(
+                "milebymile-info-msg-team",
+                team=team_name,
+                members=member_names,
+                miles=miles,
+                hazards=hazards_str,
+                safeties=safeties_str,
+            )
 
     def _action_check_status(self, player: Player, action_id: str) -> None:
         """Show game status to player."""

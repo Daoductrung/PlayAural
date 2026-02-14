@@ -25,6 +25,7 @@ from ...messages.localization import Localization
 from ...ui.keybinds import KeybindState
 from .bot import bot_think
 from ...game_utils.poker_state import order_after_button
+from ...game_utils.poker_announcer import announce_pot_winners
 
 
 TURN_TIMER_CHOICES = ["5", "10", "15", "20", "30", "45", "60", "90", "0"]
@@ -382,15 +383,6 @@ class HoldemGame(Game):
                 id="reveal_first",
                 label=Localization.get(locale, "poker-reveal-first"),
                 handler="_action_reveal_first",
-                is_enabled="_is_reveal_enabled",
-                is_hidden="_is_reveal_hidden",
-            )
-        )
-        action_set.add(
-            Action(
-                id="reveal_second",
-                label=Localization.get(locale, "poker-reveal-second"),
-                handler="_action_reveal_second",
                 is_enabled="_is_reveal_enabled",
                 is_hidden="_is_reveal_hidden",
             )
@@ -993,60 +985,10 @@ class HoldemGame(Game):
                 w.chips += share
             if remainder > 0:
                 winners[0].chips += remainder
-            # Prepare common data
-            if len(winners) == 1:
-                winner = winners[0]
-                self.play_sound(random.choice(["game_blackjack/win1.ogg", "game_blackjack/win2.ogg", "game_blackjack/win3.ogg"]))
-                
-                # Notify each player with localized cards and hand description
-                for p in self.players:
-                    user = self.get_user(p)
-                    if not user:
-                        continue
-                    
-                    cards_str = read_cards(winner.hand, user.locale)
-                    desc_str = describe_hand(best_score, user.locale)
-
-                    if pot_index == 0 or len(pot.eligible_player_ids) <= 1:
-                        user.speak_l(
-                            "poker-player-wins-pot-hand",
-                            player=winner.name,
-                            amount=pot.amount,
-                            cards=cards_str,
-                            hand=desc_str,
-                        )
-                    else:
-                        user.speak_l(
-                            "poker-player-wins-side-pot-hand",
-                            player=winner.name,
-                            amount=pot.amount,
-                            index=pot_index,
-                            cards=cards_str,
-                            hand=desc_str,
-                        )
-            else:
-                names = ", ".join(w.name for w in winners)
-                self.play_sound(random.choice(["game_blackjack/win1.ogg", "game_blackjack/win2.ogg", "game_blackjack/win3.ogg"]))
-                
-                # Broadcast localized message to each player
-                for p in self.players:
-                    user = self.get_user(p)
-                    if not user:
-                        continue
-                        
-                    # Calculate descriptions in user's locale
-                    desc_local = describe_hand(best_score, user.locale)
-
-                    if pot_index == 0:
-                        user.speak_l("poker-players-split-pot", buffer="game", players=names, amount=pot.amount, hand=desc_local)
-                    else:
-                        user.speak_l(
-                            "poker-players-split-side-pot",
-                            players=names,
-                            amount=pot.amount,
-                            index=pot_index,
-                            hand=desc_local,
-                        )
+            
+            # Announce winners using shared logic
+            announce_pot_winners(self, pot_index, pot.amount, winners, best_score)
+        
         self._sync_team_scores()
 
     def _announce_showdown_hands(self, skip_best: bool = False) -> None:

@@ -22,6 +22,7 @@ from ...game_utils import poker_log
 from ...game_utils.poker_state import order_after_button
 from ...game_utils.poker_showdown import order_winners_by_button, format_showdown_lines
 from ...game_utils.poker_payout import resolve_pot
+from ...game_utils.poker_announcer import announce_pot_winners
 from ...messages.localization import Localization
 from ...ui.keybinds import KeybindState
 from .bot import bot_think
@@ -260,6 +261,44 @@ class FiveCardDrawGame(Game):
                     show_in_actions_menu=False,
                 )
             )
+        
+        # WEB-SPECIFIC: Turn Menu Actions
+        action_set.add(
+            Action(
+                id="speak_hand",
+                label=Localization.get(locale, "poker-read-hand"),
+                handler="_action_read_hand",
+                is_enabled="_is_turn_action_enabled",
+                is_hidden="_is_web_turn_action_hidden",
+            )
+        )
+        action_set.add(
+            Action(
+                id="speak_hand_value",
+                label=Localization.get(locale, "poker-hand-value"),
+                handler="_action_read_hand_value",
+                is_enabled="_is_turn_action_enabled",
+                is_hidden="_is_web_turn_action_hidden",
+            )
+        )
+        action_set.add(
+            Action(
+                id="check_dealer",
+                label=Localization.get(locale, "poker-check-dealer"),
+                handler="_action_check_dealer",
+                is_enabled="_is_turn_action_enabled",
+                is_hidden="_is_web_turn_action_hidden",
+            )
+        )
+        action_set.add(
+            Action(
+                id="check_hand_players",
+                label=Localization.get(locale, "poker-check-hand-players"),
+                handler="_action_check_hand_players",
+                is_enabled="_is_turn_action_enabled",
+                is_hidden="_is_web_turn_action_hidden",
+            )
+        )
         return action_set
 
     def create_standard_action_set(self, player: Player) -> ActionSet:
@@ -384,6 +423,13 @@ class FiveCardDrawGame(Game):
         return action_set
 
     # WEB-SPECIFIC: Visibility Overrides
+
+    def _is_web_turn_action_hidden(self, player: "Player") -> Visibility:
+        """Visible only for Web clients during their turn."""
+        user = self.get_user(player)
+        if not user or getattr(user, "client_type", "") != "web":
+            return Visibility.HIDDEN
+        return self._is_turn_action_hidden(player)
 
     def _is_whos_at_table_hidden(self, player: "Player") -> Visibility:
         """Override: Visible for Web (always), hidden otherwise."""
@@ -853,60 +899,9 @@ class FiveCardDrawGame(Game):
                 w.chips += share
             if remainder > 0:
                 winners[0].chips += remainder
-            # Prepare common data
-            if len(winners) == 1:
-                winner = winners[0]
-                self.play_sound(random.choice(["game_blackjack/win1.ogg", "game_blackjack/win2.ogg", "game_blackjack/win3.ogg"]))
-                
-                # Notify each player with localized cards and hand description
-                for p in self.players:
-                    user = self.get_user(p)
-                    if not user:
-                        continue
-                    
-                    cards_str = read_cards(winner.hand, user.locale)
-                    desc_str = describe_hand(best_score, user.locale)
-                    
-                    if pot_index == 0 or len(pot.eligible_player_ids) <= 1:
-                         user.speak_l(
-                            "poker-player-wins-pot-hand",
-                            player=winner.name,
-                            amount=pot.amount,
-                            cards=cards_str,
-                            hand=desc_str,
-                        )
-                    else:
-                        user.speak_l(
-                            "poker-player-wins-side-pot-hand",
-                            player=winner.name,
-                            amount=pot.amount,
-                            index=pot_index,
-                            cards=cards_str,
-                            hand=desc_str,
-                        )
-            else:
-                names = ", ".join(w.name for w in winners)
-                self.play_sound(random.choice(["game_blackjack/win1.ogg", "game_blackjack/win2.ogg", "game_blackjack/win3.ogg"]))
-                
-                # Broadcast localized message to each player
-                for p in self.players:
-                    user = self.get_user(p)
-                    if not user:
-                        continue
-                        
-                    # Calculate descriptions in user's locale
-                    desc_local = describe_hand(best_score, user.locale)
-                    
-                    if pot_index == 0:
-                        user.speak_l("poker-players-split-pot", buffer="game", players=names, amount=pot.amount, hand=desc_local)
-                    else:
-                         user.speak_l(
-                            "poker-players-split-side-pot",
-                            players=names,
-                            amount=pot.amount,
-                            index=pot_index,
-                            hand=desc_local,
-                        )
+            
+            # Announce winners using shared logic
+            announce_pot_winners(self, pot_index, pot.amount, winners, best_score)
             
             # Single winner case logic was above, let's fix that too by refactoring the whole block to be cleaner or just this part.
             # The original code had an `if len(winners) == 1` block. I should target the whole `if/else` block for cleaner replacement.

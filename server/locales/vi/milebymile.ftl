@@ -167,3 +167,6 @@ milebymile-discard-card = Bỏ bài
 milebymile-detailed-status = Trạng thái chi tiết
 milebymile-check-status = Kiểm tra trạng thái
 milebymile-dirty-trick = Đòn Phản Công
+milebymile-info-button = Thông tin
+milebymile-info-msg-individual = { $player }: Sự cố: { $hazards }. Bảo hộ: { $safeties }. Đã đi: { $miles } dặm.
+milebymile-info-msg-team = Đội { $team } ({ $members }): Sự cố: { $hazards }. Bảo hộ: { $safeties }. Đã đi: { $miles } dặm.

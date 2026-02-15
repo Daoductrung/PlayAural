@@ -233,6 +233,57 @@ class FiveCardDrawGame(Game, TurnTimerMixin):
                 is_hidden="_is_bet_action_hidden",
             )
         )
+        
+        # WEB-SPECIFIC: Turn Menu Actions (Restored & Reordered)
+        # Only add these for Web clients to avoid duplicates in Python client context menu
+        if user and getattr(user, "client_type", "") == "web":
+            # 1. Check scores (requested to be below All in)
+            action_set.add(
+                Action(
+                    id="check_scores",
+                    label=Localization.get(locale, "check-scores"), # Corrected label key
+                    handler="_action_check_scores",
+                    is_enabled="_is_check_scores_enabled",
+                    is_hidden="_is_check_scores_hidden",
+                )
+            )
+            # 2. Add duplicates back ONLY for Web (Turn Menu)
+            action_set.add(
+                Action(
+                    id="speak_hand",
+                    label=Localization.get(locale, "poker-read-hand"),
+                    handler="_action_read_hand",
+                    is_enabled="_is_turn_action_enabled",
+                    is_hidden="_is_turn_action_hidden",
+                )
+            )
+            action_set.add(
+                Action(
+                    id="speak_hand_value",
+                    label=Localization.get(locale, "poker-hand-value"),
+                    handler="_action_read_hand_value",
+                    is_enabled="_is_turn_action_enabled",
+                    is_hidden="_is_turn_action_hidden",
+                )
+            )
+            action_set.add(
+                Action(
+                    id="check_dealer",
+                    label=Localization.get(locale, "poker-check-dealer"),
+                    handler="_action_check_dealer",
+                    is_enabled="_is_turn_action_enabled",
+                    is_hidden="_is_turn_action_hidden",
+                )
+            )
+            action_set.add(
+                Action(
+                    id="check_hand_players",
+                    label=Localization.get(locale, "poker-check-hand-players"),
+                    handler="_action_check_hand_players",
+                    is_enabled="_is_turn_action_enabled",
+                    is_hidden="_is_turn_action_hidden",
+                )
+            )
         action_set.add(
             Action(
                 id="draw_cards",
@@ -268,43 +319,6 @@ class FiveCardDrawGame(Game, TurnTimerMixin):
                 )
             )
         
-        # WEB-SPECIFIC: Turn Menu Actions
-        action_set.add(
-            Action(
-                id="speak_hand",
-                label=Localization.get(locale, "poker-read-hand"),
-                handler="_action_read_hand",
-                is_enabled="_is_turn_action_enabled",
-                is_hidden="_is_web_turn_action_hidden",
-            )
-        )
-        action_set.add(
-            Action(
-                id="speak_hand_value",
-                label=Localization.get(locale, "poker-hand-value"),
-                handler="_action_read_hand_value",
-                is_enabled="_is_turn_action_enabled",
-                is_hidden="_is_web_turn_action_hidden",
-            )
-        )
-        action_set.add(
-            Action(
-                id="check_dealer",
-                label=Localization.get(locale, "poker-check-dealer"),
-                handler="_action_check_dealer",
-                is_enabled="_is_turn_action_enabled",
-                is_hidden="_is_web_turn_action_hidden",
-            )
-        )
-        action_set.add(
-            Action(
-                id="check_hand_players",
-                label=Localization.get(locale, "poker-check-hand-players"),
-                handler="_action_check_hand_players",
-                is_enabled="_is_turn_action_enabled",
-                is_hidden="_is_web_turn_action_hidden",
-            )
-        )
         return action_set
 
     def create_standard_action_set(self, player: Player) -> ActionSet:
@@ -408,10 +422,14 @@ class FiveCardDrawGame(Game, TurnTimerMixin):
 
         # WEB-SPECIFIC: Reorder for Web Clients
         if user and getattr(user, "client_type", "") == "web":
+            # Remove actions from standard set as they are now in turn set for Web
+            for duplicate_id in ["check_scores", "speak_hand", "speak_hand_value", "check_dealer", "check_hand_players"]:
+                if action_set.get_action(duplicate_id):
+                    action_set.remove(duplicate_id)
+
             target_order = [
                 "whose_turn",
                 "whos_at_table",
-                "check_scores",
             ]
             # Put target items FIRST
             final_order = []
@@ -430,12 +448,6 @@ class FiveCardDrawGame(Game, TurnTimerMixin):
 
     # WEB-SPECIFIC: Visibility Overrides
 
-    def _is_web_turn_action_hidden(self, player: "Player") -> Visibility:
-        """Visible only for Web clients during their turn."""
-        user = self.get_user(player)
-        if not user or getattr(user, "client_type", "") != "web":
-            return Visibility.HIDDEN
-        return self._is_turn_action_hidden(player)
 
     def _is_whos_at_table_hidden(self, player: "Player") -> Visibility:
         """Override: Visible for Web (always), hidden otherwise."""

@@ -2343,3 +2343,9 @@ class MainWindow(wx.Frame):
         except Exception:
             # Silently fail if we can't save preferences
             pass
+
+    def on_login_failed(self, packet):
+        """Handle login failure from server."""
+        reason = packet.get("reason", "Login failed")
+        self.disconnect_reason = reason
+        self.Close()

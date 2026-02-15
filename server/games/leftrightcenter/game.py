@@ -191,10 +191,10 @@ class LeftRightCenterGame(Game):
         user = None
         if hasattr(self, 'host_username') and self.host_username:
              # We need to find the user object. 
-             # self.get_player(self.host_username) returns Player object.
+             # self.get_player_by_name(self.host_username) returns Player object.
              # self.get_user(player) returns User object.
              # This seems safe.
-             player = self.get_player(self.host_username)
+             player = self.get_player_by_name(self.host_username)
              if player:
                  user = self.get_user(player)
         

@@ -363,10 +363,17 @@ class MidnightGame(Game, DiceGameMixin):
         self.setup_dice_keybinds(num_dice=6)
 
         # Roll action keybind
-        self.define_keybind("r", "Roll the dice", ["roll"], state=KeybindState.ACTIVE)
+        user = None
+        if hasattr(self, 'host_username') and self.host_username:
+             player = self.get_player_by_name(self.host_username)
+             if player:
+                 user = self.get_user(player)
+        locale = user.locale if user else "en"
+
+        self.define_keybind("r", Localization.get(locale, "midnight-roll"), ["roll"], state=KeybindState.ACTIVE)
 
         # Bank action keybind
-        self.define_keybind("b", "Bank", ["bank"], state=KeybindState.ACTIVE)
+        self.define_keybind("b", Localization.get(locale, "midnight-bank"), ["bank"], state=KeybindState.ACTIVE)
 
     def on_start(self) -> None:
         """Called when the game starts."""

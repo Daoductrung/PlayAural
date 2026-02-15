@@ -24,7 +24,7 @@ class TurnTimerMixin:
     - _on_turn_timeout() -> implement this!
     """
 
-    _timer_warning_played: bool = False
+    # _timer_warning_played is initialized in start_turn_timer or __post_init__ of subclass
 
     def start_turn_timer(self) -> None:
         """Start the turn timer based on game options."""

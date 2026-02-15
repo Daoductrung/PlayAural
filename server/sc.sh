@@ -58,7 +58,7 @@ install_environment() {
     echo "Checking required libraries..."
     # We run installation every time to ensure deps are there. It's fast if already installed.
     $PYTHON -m pip install --upgrade pip
-    $PYTHON -m pip install websockets argon2-cffi fluent-compiler mashumaro babel openskill
+    $PYTHON -m pip install --upgrade websockets argon2-cffi fluent-compiler mashumaro babel openskill
     
     echo -e "${GREEN}Environment ready.${NC}"
     echo "-----------------------------------"

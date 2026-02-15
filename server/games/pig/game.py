@@ -264,8 +264,15 @@ class PigGame(Game):
         super().setup_keybinds()
 
         # Turn action keybinds
-        self.define_keybind("r", "Roll dice", ["roll"], state=KeybindState.ACTIVE)
-        self.define_keybind("b", "Bank points", ["bank"], state=KeybindState.ACTIVE)
+        user = None
+        if hasattr(self, 'host_username') and self.host_username:
+             player = self.get_player_by_name(self.host_username)
+             if player:
+                 user = self.get_user(player)
+        locale = user.locale if user else "en"
+
+        self.define_keybind("r", Localization.get(locale, "pig-roll"), ["roll"], state=KeybindState.ACTIVE)
+        self.define_keybind("b", Localization.get(locale, "pig-bank", points=0), ["bank"], state=KeybindState.ACTIVE)
 
     def _action_roll(self, player: Player, action_id: str) -> None:
         """Handle roll action."""

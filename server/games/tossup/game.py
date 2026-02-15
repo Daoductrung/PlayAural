@@ -477,7 +477,9 @@ class TossUpGame(Game):
         current_score = self.get_player_score(tossup_player)
 
         # Custom turn announcement for Toss Up
-        self.play_sound("game_pig/turn.ogg")
+        user = self.get_user(player)
+        if user and user.preferences.play_turn_sound:
+            user.play_sound("game_pig/turn.ogg")
         self.broadcast_l("tossup-turn-start", player=player.name, score=current_score)
 
         # Set up bot target if this is a bot's turn

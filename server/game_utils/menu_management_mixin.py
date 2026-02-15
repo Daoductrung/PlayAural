@@ -98,7 +98,7 @@ class MenuManagementMixin:
             items.append(MenuItem(text=resolved.label, id=resolved.action.id))
             
         # WEB-SPECIFIC: Add static control buttons
-        if user.client_type == "web":
+        if getattr(user, "client_type", None) == "web":
             # 1. Actions Menu / Context Menu (Top Left)
             items.append(MenuItem(
                 text=Localization.get(user.locale, "actions-menu"),

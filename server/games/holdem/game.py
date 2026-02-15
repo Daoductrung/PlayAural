@@ -24,6 +24,7 @@ from ...game_utils import poker_log
 from ...messages.localization import Localization
 from ...ui.keybinds import KeybindState
 from .bot import bot_think
+from ...game_utils.turn_timer_mixin import TurnTimerMixin
 from ...game_utils.poker_state import order_after_button
 from ...game_utils.poker_announcer import announce_pot_winners
 
@@ -157,7 +158,7 @@ class HoldemOptions(GameOptions):
 
 @dataclass
 @register_game
-class HoldemGame(Game):
+class HoldemGame(Game, TurnTimerMixin):
     players: list[HoldemPlayer] = field(default_factory=list)
     options: HoldemOptions = field(default_factory=HoldemOptions)
     deck: Deck | None = None
@@ -181,6 +182,11 @@ class HoldemGame(Game):
     pending_board_delay_ticks: int = 0
     pending_board_wait_ticks: int = 0
     last_showdown_winner_ids: set[str] = field(default_factory=set)
+
+    def __post_init__(self):
+        super().__post_init__()
+        # Ensure timer warning flag is initialized (Mixin field)
+        self._timer_warning_played = False
 
     @classmethod
     def get_name(cls) -> str:
@@ -721,7 +727,7 @@ class HoldemGame(Game):
         self.announce_turn(turn_sound="game_3cardpoker/turn.ogg")
         if p.is_bot:
             BotHelper.jolt_bot(p, ticks=random.randint(30, 50))
-        self._start_turn_timer()
+        self.start_turn_timer()
         self.rebuild_all_menus()
 
     def _advance_turn(self) -> None:
@@ -734,15 +740,7 @@ class HoldemGame(Game):
         self.turn_index = self.turn_player_ids.index(next_id)
         self._start_turn()
 
-    def _start_turn_timer(self) -> None:
-        try:
-            seconds = int(self.options.turn_timer)
-        except ValueError:
-            seconds = 0
-        if seconds <= 0:
-            self.timer.clear()
-            return
-        self.timer.start(seconds)
+    # _start_turn_timer removed, handled by Mixin
 
     def on_tick(self) -> None:
         super().on_tick()
@@ -768,8 +766,7 @@ class HoldemGame(Game):
             self.pending_showdown = False
             self._showdown()
             return
-        if self.timer.tick():
-            self._handle_turn_timeout()
+        self.on_tick_turn_timer()
         self._tick_blind_timer()
         BotHelper.on_tick(self)
 
@@ -1281,7 +1278,8 @@ class HoldemGame(Game):
     def _is_always_hidden(self, player: Player) -> Visibility:
         return Visibility.HIDDEN
 
-    def _handle_turn_timeout(self) -> None:
+    def _on_turn_timeout(self) -> None:
+        """Called by TurnTimerMixin when time runs out."""
         player = self.current_player
         if not isinstance(player, HoldemPlayer):
             return

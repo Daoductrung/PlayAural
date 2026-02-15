@@ -261,6 +261,13 @@ class MileByMileGame(Game):
 
     def create_standard_action_set(self, player: Player) -> ActionSet:
         action_set = super().create_standard_action_set(player)
+
+        # Remove redundant score actions (superseded by check_status)
+        if action_set.get_action("check_scores"):
+            action_set.remove("check_scores")
+        if action_set.get_action("check_scores_detailed"):
+            action_set.remove("check_scores_detailed")
+
         user = self.get_user(player)
 
         # WEB-SPECIFIC: Reorder for Web Clients

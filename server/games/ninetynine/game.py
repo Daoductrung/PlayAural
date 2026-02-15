@@ -657,7 +657,7 @@ class NinetyNineGame(Game):
             return
 
         # Announce turn
-        self.broadcast_l("ninetynine-player-turn", player=player.name)
+        self.announce_turn()
 
         # RS Games: Check if player has any safe cards
         if not self.is_quentin_c and not self._has_safe_card(player):

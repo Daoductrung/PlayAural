@@ -26,6 +26,7 @@ from ...game_utils.poker_announcer import announce_pot_winners
 from ...messages.localization import Localization
 from ...ui.keybinds import KeybindState
 from .bot import bot_think
+from ...game_utils.turn_timer_mixin import TurnTimerMixin
 
 
 TURN_TIMER_CHOICES = ["5", "10", "15", "20", "30", "45", "60", "90", "0"]
@@ -118,7 +119,7 @@ class FiveCardDrawOptions(GameOptions):
 
 @dataclass
 @register_game
-class FiveCardDrawGame(Game):
+class FiveCardDrawGame(Game, TurnTimerMixin):
     players: list[FiveCardDrawPlayer] = field(default_factory=list)
     options: FiveCardDrawOptions = field(default_factory=FiveCardDrawOptions)
     deck: Deck | None = None
@@ -132,6 +133,11 @@ class FiveCardDrawGame(Game):
     current_bet_round: int = 0
     action_log: list[tuple[str, dict]] = field(default_factory=list)
     last_showdown_winner_ids: set[str] = field(default_factory=set)
+
+    def __post_init__(self):
+        super().__post_init__()
+        # Ensure timer warning flag is initialized (Mixin field)
+        self._timer_warning_played = False
 
     @classmethod
     def get_name(cls) -> str:
@@ -603,7 +609,7 @@ class FiveCardDrawGame(Game):
         self.announce_turn(turn_sound="game_3cardpoker/turn.ogg")
         if p.is_bot:
             BotHelper.jolt_bot(p, ticks=random.randint(30, 50))
-        self._start_turn_timer()
+        self.start_turn_timer()
         self.rebuild_all_menus()
 
     def _advance_turn(self) -> None:
@@ -616,15 +622,7 @@ class FiveCardDrawGame(Game):
         self.turn_index = self.turn_player_ids.index(next_id)
         self._start_turn()
 
-    def _start_turn_timer(self) -> None:
-        try:
-            seconds = int(self.options.turn_timer)
-        except ValueError:
-            seconds = 0
-        if seconds <= 0:
-            self.timer.clear()
-            return
-        self.timer.start(seconds)
+    # _start_turn_timer removed, handled by Mixin
 
     def on_tick(self) -> None:
         super().on_tick()
@@ -636,8 +634,8 @@ class FiveCardDrawGame(Game):
             if self._next_hand_wait_ticks == 0:
                 self._start_new_hand()
             return
-        if self.timer.tick():
-            self._handle_turn_timeout()
+        
+        self.on_tick_turn_timer()
         BotHelper.on_tick(self)
 
     def bot_think(self, player: FiveCardDrawPlayer) -> str | None:
@@ -1249,7 +1247,8 @@ class FiveCardDrawGame(Game):
     def _is_check_hidden(self, player: Player) -> Visibility:
         return Visibility.HIDDEN
 
-    def _handle_turn_timeout(self) -> None:
+    def _on_turn_timeout(self) -> None:
+        """Called by TurnTimerMixin when time runs out."""
         player = self.current_player
         if not isinstance(player, FiveCardDrawPlayer):
             return

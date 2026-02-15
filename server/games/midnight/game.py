@@ -422,8 +422,7 @@ class MidnightGame(Game, DiceGameMixin):
         midnight_player.qualified = False
 
         # Announce turn
-        self.play_sound("game_pig/turn.ogg")
-        self.broadcast_l("midnight-turn-start", player=player.name)
+        self.announce_turn()
 
         # Set up bot if this is a bot's turn
         if player.is_bot:

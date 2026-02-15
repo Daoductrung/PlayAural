@@ -17,6 +17,7 @@ from ...users.bot import Bot
 from ...users.base import User
 from datetime import datetime
 from .bot import bot_think
+from ...game_utils.turn_timer_mixin import TurnTimerMixin
 
 SUIT_SORT_ORDER = {1: 0, 2: 1, 3: 2, 4: 3}
 
@@ -69,7 +70,7 @@ class CrazyEightsPlayer(Player):
 
 @register_game
 @dataclass
-class CrazyEightsGame(Game):
+class CrazyEightsGame(Game, TurnTimerMixin):
     """Crazy Eights game implementation."""
 
     players: list[CrazyEightsPlayer] = field(default_factory=list)
@@ -90,7 +91,7 @@ class CrazyEightsGame(Game):
     turn_drawn_card: Card | None = None
 
     timer: PokerTurnTimer = field(default_factory=PokerTurnTimer)
-    timer_warning_played: bool = False
+    # timer_warning_played removed, handled by Mixin
 
     intro_wait_ticks: int = 0
     hand_wait_ticks: int = 0
@@ -99,6 +100,8 @@ class CrazyEightsGame(Game):
 
     def __post_init__(self):
         super().__post_init__()
+        # Ensure timer warning flag is initialized (Mixin field)
+        self._timer_warning_played = False
 
     # ==========================================================================
     # Metadata
@@ -168,6 +171,14 @@ class CrazyEightsGame(Game):
         self.rebuild_all_menus()
 
     def _perform_leave_game(self, player: Player) -> None:
+        if player.is_spectator:
+            self.remove_spectator(player.id)
+            if self._table:
+                self._table.remove_member(player.name)
+            self.play_sound("game_crazyeights/personleave.ogg")
+            self.rebuild_all_menus()
+            return
+
         if self.status == "playing" and not player.is_bot:
             player.is_bot = True
             self._users.pop(player.id, None)
@@ -464,9 +475,8 @@ class CrazyEightsGame(Game):
             if self.intro_wait_ticks == 0:
                 self._start_new_hand()
             return
-        if self.timer.tick():
-            self._handle_turn_timeout()
-        self._maybe_play_timer_warning()
+        
+        self.on_tick_turn_timer()
         BotHelper.on_tick(self)
 
     def _start_new_hand(self) -> None:
@@ -535,7 +545,7 @@ class CrazyEightsGame(Game):
             return
         self.turn_has_drawn = False
         self.turn_drawn_card = None
-        self.timer_warning_played = False
+        # timer_warning_played reset handled by start_turn_timer
 
         self._stop_turn_loop()
         self._start_turn_loop(player)
@@ -545,7 +555,10 @@ class CrazyEightsGame(Game):
         if player.is_bot:
             BotHelper.jolt_bot(player, ticks=random.randint(30, 40))
 
-        self._start_turn_timer()
+        if player.is_bot:
+            BotHelper.jolt_bot(player, ticks=random.randint(30, 40))
+
+        self.start_turn_timer()
         self._sync_turn_actions(player)
         self.rebuild_all_menus()
 
@@ -554,31 +567,8 @@ class CrazyEightsGame(Game):
         self.advance_turn(announce=False)
         self._start_turn()
 
-    def _start_turn_timer(self) -> None:
-        try:
-            seconds = int(self.options.turn_timer)
-        except ValueError:
-            seconds = 0
-        if seconds <= 0:
-            self.timer.clear()
-            return
-        self.timer.start(seconds)
-        self.timer_warning_played = False
-
-    def _maybe_play_timer_warning(self) -> None:
-        try:
-            seconds = int(self.options.turn_timer)
-        except ValueError:
-            seconds = 0
-        if seconds < 20:
-            return
-        if self.timer_warning_played:
-            return
-        if self.timer.seconds_remaining() == 5:
-            self.timer_warning_played = True
-            self.play_sound("game_crazyeights/fivesec.ogg")
-
-    def _handle_turn_timeout(self) -> None:
+    def _on_turn_timeout(self) -> None:
+        """Called by TurnTimerMixin when time runs out."""
         player = self.current_player
         if not isinstance(player, CrazyEightsPlayer):
             return
@@ -623,7 +613,7 @@ class CrazyEightsGame(Game):
                 self._end_round(p, last_card=card)
                 return
             self.awaiting_wild_suit = True
-            self._start_turn_timer()  # reset timer for suit selection
+            self.start_turn_timer()  # reset timer for suit selection
             if p.is_bot:
                 BotHelper.jolt_bot(p, ticks=random.randint(20, 30))
             return
@@ -674,7 +664,7 @@ class CrazyEightsGame(Game):
                     other_user.play_sound("game_crazyeights/draw.ogg")
         else:
             self.play_sound("game_crazyeights/draw.ogg")
-        self._start_turn_timer()  # reset timer after drawing
+        self.start_turn_timer()  # reset timer after drawing
         self._broadcast_draw(p, 1)
         selection_id = f"play_card_{card.id}"
         self.update_player_menu(p, selection_id=selection_id)

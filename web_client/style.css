@@ -499,15 +499,20 @@ input[type=range]::-moz-range-thumb {
 
 /* Web Specific Button Areas */
 .web-actions-area {
-    padding: 10px 15px;
-    background-color: var(--surface-color);
-    border-bottom: 1px solid var(--border-color);
+    position: fixed;
+    top: 60px; /* Below header */
+    left: 10px;
+    z-index: 1000;
     display: flex;
     gap: 10px;
+    /* Remove background/border to be cleaner as floating buttons */
+    background-color: transparent;
+    border: none;
+    padding: 0;
 }
 
 .web-leave-area {
-    position: absolute;
+    position: fixed;
     bottom: 20px;
     right: 20px;
     z-index: 1000;

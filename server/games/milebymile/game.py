@@ -248,7 +248,7 @@ class MileByMileGame(Game):
                 id="info",
                 label=Localization.get(locale, "milebymile-info-button"),
                 handler="_action_info",
-                is_enabled="_is_check_status_enabled", # Enabled when playing
+                is_enabled="_is_info_enabled", # Enabled when playing, disabled for spectators
                 is_hidden="_is_info_hidden", # Visible when playing (Web), hidden otherwise (Python)
                 show_in_actions_menu=True, # Show in generic Action Menu (Python)
             )
@@ -484,6 +484,9 @@ class MileByMileGame(Game):
 
     def _is_dirty_trick_enabled(self, player: Player) -> str | None:
         """Check if dirty trick action is enabled."""
+        if player.is_spectator:
+            return "action-not-playing"
+
         if self.status != "playing":
             return "action-not-playing"
         
@@ -505,6 +508,9 @@ class MileByMileGame(Game):
 
     def _is_dirty_trick_hidden(self, player: Player) -> Visibility:
         """Dirty trick is hidden (keybind only), unless Web."""
+        if player.is_spectator:
+            return Visibility.HIDDEN
+
         user = self.get_user(player)
         if user and getattr(user, "client_type", "") == "web":
             return Visibility.VISIBLE
@@ -538,8 +544,17 @@ class MileByMileGame(Game):
             return Visibility.HIDDEN
         return Visibility.VISIBLE
 
+    def _is_info_enabled(self, player: Player) -> str | None:
+        """Info enabled check."""
+        if player.is_spectator:
+            return "action-not-playing"
+        return self._is_check_status_enabled(player)
+
     def _is_info_hidden(self, player: Player) -> Visibility:
         """Info is visible in Turn Menu for Web, Hidden for Python (Access via Action Menu/Keybind)."""
+        if player.is_spectator:
+             return Visibility.HIDDEN
+
         user = self.get_user(player)
         # Web: Show in Turn Menu
         if user and getattr(user, "client_type", "") == "web":

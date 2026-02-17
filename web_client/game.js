@@ -820,6 +820,18 @@ class GameClient {
             }
 
             this.activeTab = tabId;
+
+            // WEB-SPECIFIC: Toggle Special Buttons Visibility
+            const actionsContainer = document.getElementById('web-actions-container');
+            const leaveContainer = document.getElementById('web-leave-container');
+            
+            if (tabId === 'content-menu') {
+                if (actionsContainer) actionsContainer.classList.remove('hidden');
+                if (leaveContainer) leaveContainer.classList.remove('hidden');
+            } else {
+                if (actionsContainer) actionsContainer.classList.add('hidden');
+                if (leaveContainer) leaveContainer.classList.add('hidden');
+            }
         }
     }
 

@@ -47,7 +47,7 @@ poker-players-split-side-pot = { $players } chia nhau hũ phụ { $index } gồm
 poker-player-all-in = { $player } tất tay với { $amount } chip.
 poker-player-wins-game = { $player } thắng cả trò chơi.
 
-poker-showdown = Ngửa bài (Showdown).
+poker-showdown = Ngửa bài.
 
 poker-timer-disabled = Thời gian lượt đã tắt.
 poker-timer-remaining = Còn lại { $seconds } giây.
@@ -108,5 +108,5 @@ poker-blind-timer-20 = 20 phút
 poker-blind-timer-30 = 30 phút
 
 poker-raise-no-limit = Không giới hạn
-poker-raise-pot-limit = Giới hạn theo hũ (Pot limit)
+poker-raise-pot-limit = Giới hạn theo hũ
 poker-raise-double-pot = Giới hạn gấp đôi hũ

@@ -1,80 +1,72 @@
-Scopa
+\*\*Scopa\*\*
 
 
 
-Scopa is a classic Italian card game played with a 40-card deck. The goal is to capture cards from the table by matching their values or sums, and ultimately scoring points based on collected cards.
+Scopa is a classic Italian card game whose origins stretch back to at least the 18th century. The name means "broom" in Italian, referring to the act of sweeping all the cards off the table. It is one of the most popular card games in Italy and has many regional variants played across the Mediterranean.
 
 
 
-Objective
+The goal is to capture cards from the table by playing cards from your hand that match table cards by rank, or whose value equals the sum of multiple table cards. The first player (or team) to reach the target score wins.
 
 
 
-Score points to reach the Target Score (default: 11). Points are awarded at the end of each round for:
+\*\*Gameplay\*\*
 
 
 
-\* Scopas: Clearing all cards from the table (1 point each).
-
-\* Most Cards: Capturing the most cards total (1 point).
-
-\* Most Diamonds: Capturing the most Diamond suits (Coins/Denari) (1 point).
-
-\* Settebello: Capturing the 7 of Diamonds (1 point).
-
-\* Most Sevens: Capturing the most cards of rank 7 (1 point).
+Scopa is played with a standard deck with the picture cards removed (40 cards total). The game is divided into rounds. On your turn, you must play exactly one card from your hand.
 
 
 
-Gameplay
+\*\*Capturing Cards\*\*
+
+1\. \*\*Rank Match:\*\* If the card you play matches the rank of a card on the table, you capture that card.
+
+2\. \*\*Sum Match:\*\* If no single card matches by rank, but multiple table cards add up to the rank of your played card, you capture that entire set.
+
+3\. \*\*Priority:\*\* A rank match always takes priority over a sum combination.
+
+4\. \*\*Scopa:\*\* If you clear the entire table with a single capture, you score a \*\*"Scopa"\*\* (1 bonus point).
 
 
 
-Cards are dealt to players (usually 3 at a time) and 4 cards are placed on the table. On your turn, you play one card from your hand:
+If your card cannot capture anything, it is simply placed on the table. When all players run out of cards, a new deal occurs from the remaining deck. Any cards left on the table after the final play of the round go to the player who made the last capture.
 
 
 
-\* Capture by Rank: If there is a card on the table with the same value as your card, you capture it.
-
-\* Capture by Sum: If there is no direct match, you can capture a set of cards that sum up to your card's value.
-
-   \* Example: You play a King (10) to capture a 3 and a 7.
-
-\* Discard: If you cannot capture anything, your card stays on the table.
+\*\*Scoring\*\*
 
 
 
-If you capture all cards on the table, you score a Scopa (Sweep)!
+At the end of each round, 1 point is awarded for each of the following (no points are given in the event of a tie):
+
+\* \*\*Most Cards:\*\* Captured the most total cards.
+
+\* \*\*Most Diamonds:\*\* Captured the most cards of the Diamonds suit.
+
+\* \*\*7 of Diamonds:\*\* Captured the specific 7 of Diamonds card.
+
+\* \*\*Most Sevens:\*\* Captured the most 7s.
+
+\* \*\*Scopas:\*\* 1 point for every time you cleared the table during play.
 
 
 
-Options \& Variants
+\*\*Game Variants\*\*
+
+\* \*\*Escoba Mode:\*\* Captures are made when the played card and table cards sum to exactly 15.
+
+\* \*\*Inverse Scopa:\*\* Reaching the target score eliminates you; the last player standing wins.
 
 
 
-\* Escoba Mode: If enabled, the rules change to the Spanish variant Escoba. You only capture cards that sum with your played card to exactly 15.
+\*\*Keyboard Shortcuts\*\*
 
-\* Target Score: Score needed to win (Default: 11).
+\* \*\*C:\*\* View all table cards.
 
-\* Cards Per Deal: Number of cards dealt at once (Default: 3).
+\* \*\*D:\*\* View your captured card count.
 
-\* Inverse Scopa: If enabled, the goal is to avoid scoring. Reaching the target score eliminates you!
+\* \*\*1-9 \& 0:\*\* View a specific table card by its position.
 
-\* Instant Win Scopas: If enabled, getting a Scopa can instantly win the match if your team score is high enough.
-
-
-
-Keyboard Shortcuts
-
-
-
-\* Arrow Keys: Navigate your hand.
-
-\* Enter: Play the selected card.
-
-\* C: View cards currently on the table.
-
-\* D: View cards you have captured.
-
-\* 1-9, 0: Read specific card on the table (1-10).
+\* \*\*S:\*\* Check current scores.
 

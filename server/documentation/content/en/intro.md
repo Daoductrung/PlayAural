@@ -1,4 +1,4 @@
-Welcome to PlayAural
+\*\*Welcome to PlayAural\*\*
 
 
 
@@ -6,11 +6,11 @@ Welcome to PlayAural, an online gaming platform designed with an audio-first app
 
 
 
-The goal of this online platform is simple: to provide a shared space where casual players can easily enjoy games together on equal footing. I aim to support better multi-language experiences and create a straightforward environment for anyone who just wants to play and have fun.
+The goal of this online platform is simple: to provide a shared space where casual players can easily enjoy games together on equal footing. PlayAural aims to support better multi-language experiences and create a straightforward environment for anyone who just wants to play and have fun.
 
 
 
-About the Project
+\*\*About the Project\*\*
 
 
 
@@ -26,27 +26,27 @@ Please note that PlayAural is currently in active development. Updates and impro
 
 
 
-Getting Started
+\*\*Getting Started\*\*
 
 
 
-1\. Play: Select "Play" from the Main Menu to browse the game catalog. From there, you can create a new table or view existing ones for a specific game.
+1\. \*\*Play:\*\* Select "Play" from the Main Menu to browse the game catalog. From there, you can create a new table or view existing ones for a specific game.
 
-2\. View active tables: Located below the "Play" button, this option lets you see all tables currently active on the server across all games.
+2\. \*\*View active tables:\*\* Located below the "Play" button, this option lets you see all tables currently active on the server across all games.
 
-3\. Invite: Feel free to invite friends or add computer-controlled Bots to fill empty seats at your table.
-
-
-
-Chat Commands
+3\. \*\*Invite:\*\* Feel free to invite friends or add computer-controlled Bots to fill empty seats at your table.
 
 
 
-You can use special commands in the chat box by typing a forward slash / followed by a keyword:
+\*\*Chat Commands\*\*
 
 
 
-\* /g message (or /global): Type slash g to send a message to the global chat channel, visible to everyone on the server.
+You can use special commands in the chat box by typing a forward slash `/` followed by a keyword:
+
+
+
+\* \*\*/g message\*\* (or \*\*/global\*\*): Type slash g to send a message to the global chat channel, visible to everyone on the server.
 
 
 
@@ -54,55 +54,55 @@ Note: Commands for table management and checking online administrators are curre
 
 
 
-Available Games
+\*\*Available Games\*\*
 
 
 
-We feature a growing collection of games:
+PlayAural features a growing collection of games:
 
 
 
-Card Games
+\*\*Card Games\*\*
 
 
 
-\* Texas Hold'em \& Five Card Draw: Classic poker variants.
+\* \*\*Texas Hold'em \& Five Card Draw:\*\* Classic poker variants.
 
-\* Scopa: A traditional Italian game of capturing cards and strategy.
+\* \*\*Scopa:\*\* A traditional Italian game of capturing cards and strategy.
 
-\* Ninety Nine: A survival card game where you must keep the running count under 99.
+\* \*\*Ninety Nine:\*\* A survival card game where you must keep the running count under 99.
 
-\* Crazy Eights: A classic shedding-type card game.
-
-
-
-Dice Games
+\* \*\*Crazy Eights:\*\* A classic shedding-type card game.
 
 
 
-\* Farkle / Toss Up / Threes: Push-your-luck games where you risk it all for high scores.
-
-\* Left Right Center / Midnight / Pig: Fast-paced social dice games.
+\*\*Dice Games\*\*
 
 
 
-Adventure \& Board
+\* \*\*Farkle / Toss Up / Threes:\*\* Push-your-luck games where you risk it all for high scores.
+
+\* \*\*Left Right Center / Midnight / Pig:\*\* Fast-paced social dice games.
 
 
 
-\* Pirates of the Lost Seas: A competitive RPG adventure. Sail, battle, and collect gems.
-
-\* Mile by Mile: A strategic racing card game.
-
-\* Light Turret: A resource management game of power and light.
+\*\*Adventure \& Board\*\*
 
 
 
-Community
+\* \*\*Pirates of the Lost Seas:\*\* A competitive RPG adventure. Sail, battle, and collect gems.
+
+\* \*\*Mile by Mile:\*\* A strategic racing card game.
+
+\* \*\*Light Turret:\*\* A resource management game of power and light.
 
 
 
-I strive to maintain a friendly and welcoming community for everyone.
+\*\*Community\*\*
+
+
+
+PlayAural strives to maintain a friendly and welcoming community for everyone.
 
 
 

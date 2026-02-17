@@ -1,62 +1,76 @@
-Xúc Xắc Heo
+\*\*Lợn (Pig)\*\*
 
 
 
-Xúc Xắc Heo (Pig) là một trò chơi xúc xắc thử thách vận may kinh điển. Mục tiêu là trở thành người đầu tiên đạt được điểm mục tiêu bằng cách gieo xúc xắc và chốt điểm, đồng thời tránh gieo phải mặt 1.
+Pig là một trò chơi xúc xắc kinh điển và thuần túy nhất. Theo nhiều cách, nó là nền tảng dẫn dắt bạn đến với những lựa chọn phức tạp hơn trong các trò chơi như Farkle hay Toss Up.
 
 
 
-Mục Tiêu
+Ý tưởng của trò chơi cực kỳ đơn giản: gieo một viên xúc xắc, cộng kết quả vào tổng điểm tạm thời của bạn và quyết định xem nên tiếp tục gieo hay dừng lại để chốt điểm. Nhưng nếu bạn gieo phải con 1, bạn sẽ mất trắng toàn bộ số điểm tích lũy được trong lượt đó. Người chơi (hoặc đội) đầu tiên đạt đến điểm mục tiêu sẽ giành chiến thắng.
 
 
 
-Trở thành người chơi (hoặc đội) đầu tiên đạt được Điểm mục tiêu (mặc định: 50).
+\*\*Cách chơi\*\*
 
 
 
-Cách Chơi
+Trò chơi được chia thành các vòng, và trong mỗi vòng, mọi người chơi sẽ thực hiện một lượt. Trong lượt của mình, bạn có hai lựa chọn: \*\*Gieo xúc xắc\*\* hoặc \*\*Chốt điểm\*\*.
 
 
 
-Trong lượt của mình, bạn gieo một viên xúc xắc nhiều lần.
+\* \*\*Gieo xúc xắc:\*\* Một viên xúc xắc duy nhất được tung ra. Nếu kết quả là bất kỳ số nào khác 1, số đó được cộng vào điểm lượt của bạn và bạn lại có quyền chọn gieo tiếp hoặc chốt. Bạn có thể gieo bao nhiêu lần tùy thích để xây dựng một số điểm lượt khổng lồ.
+
+\* \*\*Bị nổ (Bust):\*\* Tuy nhiên, nếu bạn gieo phải con 1, bạn bị "nổ". Toàn bộ điểm lượt của bạn bị xóa sạch - bạn không nhận được gì - và lượt chơi kết thúc ngay lập tức.
+
+\* \*\*Chốt điểm:\*\* Nếu bạn quyết định chốt điểm, số điểm lượt tích lũy sẽ được cộng vào tổng điểm vĩnh viễn, lượt chơi kết thúc và chuyển sang người tiếp theo một cách an toàn.
 
 
 
-Gieo: Bạn thực hiện gieo xúc xắc.
-
-\* Nếu gieo ra 1: Bạn Mất lượt (Bust). Bạn mất toàn bộ số điểm tạm tính đã tích lũy trong lượt này, và lượt chơi kết thúc ngay lập tức.
-
-\* Nếu gieo ra số khác: Số điểm đó sẽ được cộng vào "Điểm lượt" tạm thời của bạn.
+Trò chơi tiếp tục cho đến khi một người chơi (hoặc đội) đạt hoặc vượt quá điểm mục tiêu vào cuối vòng. Nếu có nhiều đội cùng đạt mục tiêu trong một vòng, một vòng phân định thắng thua sẽ được tổ chức.
 
 
 
-Quyết Định: Sau một lần gieo thành công (không phải số 1), bạn có thể chọn:
-
-\* Gieo tiếp: Mạo hiểm số Điểm lượt hiện có để kiếm thêm điểm.
-
-\* Chốt điểm: Cộng số Điểm lượt vào Tổng điểm chính thức của bạn và kết thúc lượt chơi.
+\*\*Tùy chỉnh tại bàn chơi\*\*
 
 
 
-Tùy Chọn \& Biến Thể
+\*\*Chủ bàn\*\* có thể điều chỉnh các thiết lập trước khi bắt đầu:
+
+\* \*\*Điểm mục tiêu:\*\* Điểm cần để thắng. Mặc định là 50 (có thể chỉnh từ 10 đến 1.000).
+
+\* \*\*Điểm chốt tối thiểu:\*\* Số điểm lượt tối thiểu bạn phải đạt được trước khi được phép chốt điểm. Mặc định là 0, tối đa là 50. Điều này khiến trò chơi trở nên mạo hiểm và kịch tính hơn.
+
+\* \*\*Số mặt xúc xắc:\*\* Mặc định là 6 mặt, có thể chỉnh từ 4 đến 20 mặt. Nhiều mặt hơn đồng nghĩa với tỉ lệ bị nổ thấp hơn.
 
 
 
-\* Điểm mục tiêu: Số điểm cần đạt được để chiến thắng (Mặc định: 50).
-
-\* Số mặt xúc xắc: Thay đổi số lượng mặt trên viên xúc xắc (Mặc định: 6). Tăng số mặt sẽ làm giảm tỷ lệ gieo phải số 1.
-
-\* Điểm chốt tối thiểu: Số điểm tối thiểu cần có trong một lượt trước khi bạn được phép Chốt điểm.
-
-\* Chế độ Đội: Chơi Cá nhân hoặc chia Đội.
+\*\*Ví dụ một lượt chơi\*\*
 
 
 
-Phím Tắt
+Điểm mục tiêu là 50 và bạn đang có tổng cộng 38 điểm. Bạn cần thêm 12 điểm nữa để thắng.
+
+1\. Bạn gieo được 4. Điểm lượt hiện tại là 4.
+
+2\. Bạn gieo tiếp và được 5. Điểm lượt là 9.
+
+3\. Bạn gieo tiếp và được 2. Điểm lượt là 11. Bạn chỉ còn cách chiến thắng đúng 1 điểm nữa thôi!
+
+4\. Bạn quyết định mạo hiểm gieo thêm một lần cuối...
+
+5\. Ôi không, gieo phải con 1! Bạn mất sạch điểm của lượt này và tổng điểm vẫn giữ nguyên ở mức 38.
 
 
 
-\* R: Gieo xúc xắc.
+\*\*Phím tắt bàn phím\*\*
 
-\* B: Chốt điểm.
+
+
+\* \*\*R:\*\* Gieo xúc xắc.
+
+\* \*\*B:\*\* Chốt điểm.
+
+\* \*\*T:\*\* Kiểm tra xem đang là lượt của ai.
+
+\* \*\*S:\*\* Kiểm tra điểm số các người chơi.
 

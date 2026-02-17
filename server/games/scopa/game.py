@@ -212,6 +212,10 @@ class ScopaGame(Game):
     def get_max_players(cls) -> int:
         return 16
 
+    @classmethod
+    def get_supported_leaderboards(cls) -> list[str]:
+        return ["rating", "games_played"]
+
     def create_player(
         self, player_id: str, name: str, is_bot: bool = False
     ) -> ScopaPlayer:
@@ -934,6 +938,15 @@ class ScopaGame(Game):
 
         winner = sorted_teams[0] if sorted_teams else None
 
+        winner_ids = []
+        if winner:
+            # Map member names to player IDs
+            active_players = self.get_active_players()
+            name_to_id = {p.name: p.id for p in active_players}
+            for member_name in winner.members:
+                if member_name in name_to_id:
+                    winner_ids.append(name_to_id[member_name])
+
         return GameResult(
             game_type=self.get_type(),
             timestamp=datetime.now().isoformat(),
@@ -948,6 +961,7 @@ class ScopaGame(Game):
             ],
             custom_data={
                 "winner_name": self.team_manager.get_team_name(winner) if winner else None,
+                "winner_ids": winner_ids,
                 "winner_score": winner.total_score if winner else 0,
                 "final_scores": final_scores,
                 "team_rankings": team_rankings,

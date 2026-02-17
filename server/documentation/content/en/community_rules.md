@@ -1,4 +1,4 @@
-Community Rules
+\*\*Community Rules\*\*
 
 
 
@@ -6,7 +6,7 @@ PlayAural aims to create a fun, equal, and accessible gaming space for everyone.
 
 
 
-1\. Multilingual Environment
+\*\*1. Multilingual Environment\*\*
 
 
 
@@ -14,25 +14,25 @@ PlayAural welcomes players from all over the world.
 
 
 
-\* No Language Restrictions: We do not ban or restrict any specific language in the global chat. You are free to speak your native language.
+\* \*\*No Language Restrictions:\*\* I do not ban or restrict any specific language in the global chat. You are free to speak your native language.
 
-\* Communication: As this is a diverse community, we encourage players to use translation tools to understand each other when necessary.
+\* \*\*Communication:\*\* As this is a diverse community, I encourage players to use translation tools to understand each other when necessary.
 
-\* Personal Preference: If you find the global chat distracting or prefer not to see other languages, you have the option to disable Global Chat in your Options.
-
-
-
-2\. Conduct \& Behavior
+\* \*\*Personal Preference:\*\* If you find the global chat distracting or prefer not to see other languages, you have the option to disable Global Chat in your Options.
 
 
 
-\* Respect Others: Please be kind to your fellow players. Harassment, insults, hate speech, or discrimination of any kind will not be tolerated.
-
-\* No Spam: Avoid spamming messages, advertisements, or excessive commands that disrupt the experience for others.
+\*\*2. Conduct \& Behavior\*\*
 
 
 
-3\. Administrative Discretion
+\* \*\*Respect Others:\*\* Please be kind to your fellow players. Harassment, insults, hate speech, or discrimination of any kind will not be tolerated.
+
+\* \*\*No Spam:\*\* Avoid spamming messages, advertisements, or excessive commands that disrupt the experience for others.
+
+
+
+\*\*3. Administrative Discretion\*\*
 
 
 
@@ -44,13 +44,13 @@ To ensure a safe environment for the community:
 
 
 
-4\. Updates \& Feedback
+\*\*4. Updates \& Feedback\*\*
 
 
 
-\* Work in Progress: As PlayAural is currently in active development, these rules are subject to change and may be updated at any time to better serve the community.
+\* \*\*Work in Progress:\*\* As PlayAural is currently in active development, these rules are subject to change and may be updated at any time to better serve the community.
 
-\* Feedback Welcome: Your suggestions regarding the game rules or community guidelines are highly appreciated. Please feel free to share your thoughts.
+\* \*\*Feedback Welcome:\*\* Your suggestions regarding the game rules or community guidelines are highly appreciated. Please feel free to share your thoughts.
 
 
 

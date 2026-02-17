@@ -1,94 +1,74 @@
-Pháo Đài Ánh Sáng
+\*\*Tháp Ánh Sáng (Light Turret)\*\*
 
 
 
-Pháo Đài Ánh Sáng là một trò chơi quản lý tài nguyên chiến thuật, nơi bạn phải kiểm soát mức năng lượng của pháo đài. Mục tiêu là tích lũy càng nhiều Ánh sáng càng tốt mà không làm hệ thống bị quá tải!
+Tháp Ánh Sáng là một trò chơi quản lý tài nguyên dành cho 2 đến 4 người chơi, kết hợp giữa rủi ro và phần thưởng theo phong cách thử thách vận may đầy chiến thuật. Khái niệm rất đơn giản: bạn sở hữu một tòa tháp, bạn bắn vào tháp để tích lũy ánh sáng và xu. Nhưng hãy cẩn thận - nếu lượng ánh sáng vượt quá sức chịu đựng (sức mạnh) của tháp, bạn sẽ bị loại.
 
 
 
-Mục tiêu
+Mục tiêu là kết thúc trò chơi với nhiều ánh sáng nhất. Bạn có thể dùng xu để mua nâng cấp nhằm tăng giới hạn sức mạnh, giúp bạn có thêm không gian để tiếp tục bắn. Tuy nhiên, việc nâng cấp có 25% tỉ lệ phản tác dụng, khiến tháp bị tăng thêm ánh sáng thay vì tăng sức mạnh. Trò chơi diễn ra trong một số vòng nhất định, và ai có nhiều ánh sáng nhất vào cuối game sẽ thắng.
 
 
 
-Thu thập nhiều Ánh sáng nhất có thể khi trò chơi kết thúc.
+\*\*Cách chơi\*\*
 
 
 
-Tài nguyên
+Trò chơi được chia thành các vòng, mỗi người chơi còn sống sẽ thực hiện một lượt. Trong lượt của mình, bạn có hai lựa chọn chính: bắn vào tháp hoặc mua nâng cấp.
 
 
 
-\* Ánh sáng: Điểm số của bạn. Có được bằng cách Bắn pháo đài.
+\*\*Bắn vào tháp\*\*
 
-\* Năng lượng: Giới hạn sức chứa của bạn. Nếu lượng Ánh sáng vượt quá mức Năng lượng hiện có, bạn sẽ bị quá tải và bị loại khỏi trò chơi.
-
-\* Xu: Tiền tệ dùng để mua nâng cấp. Bạn kiếm được Xu thông qua việc Bắn pháo đài.
+Đây là hành động cốt lõi. Khi bắn, bạn nhận được một lượng ánh sáng ngẫu nhiên (từ 1 đến 4) và kiếm được số xu gấp đôi lượng ánh sáng đó. Ví dụ: nếu bạn nhận 3 ánh sáng, bạn sẽ bỏ túi 6 xu. Nếu tổng ánh sáng vượt quá sức mạnh của tháp, bạn bị loại ngay lập tức. Tổng số ánh sáng bạn có vẫn được tính vào bảng xếp hạng cuối cùng, nhưng bạn không thể thực hiện thêm lượt chơi nào nữa.
 
 
 
-Cách chơi
+\*\*Nâng cấp\*\*
+
+Nếu có ít nhất 10 xu, bạn có thể dùng chúng để mua nâng cấp sức mạnh thay vì bắn.
+
+\* \*\*Thành công:\*\* Tăng sức mạnh của tháp thêm một khoảng ngẫu nhiên từ 2 đến 8.
+
+\* \*\*Phản tác dụng (25% tỉ lệ):\*\* Thay vì tăng sức mạnh, một lượng ánh sáng ngẫu nhiên (từ 1 đến 5) sẽ bị hấp thụ vào tháp. Điều này thậm chí có thể khiến bạn bị loại nếu nó đẩy lượng ánh sáng vượt quá sức mạnh hiện tại.
 
 
 
-Trong lượt của mình, bạn bắt buộc phải chọn một trong hai hành động sau:
+\*\*Kết thúc trò chơi\*\*
 
 
 
-1\. Bắn pháo đài (Phím Cách)
+Trò chơi kết thúc khi đáp ứng một trong hai điều kiện:
 
-Khai hỏa pháo đài để tạo ra tài nguyên.
+1\. Đạt đến số vòng tối đa (mặc định là 50 vòng).
 
-\* Bạn nhận được ngẫu nhiên từ 1 đến 4 Ánh sáng.
-
-\* Bạn nhận được số Xu bằng gấp đôi lượng Ánh sáng vừa kiếm được.
-
-\* Cảnh báo: Nếu cú bắn này làm tổng lượng Ánh sáng vượt quá Năng lượng hiện có, bạn sẽ phát nổ!
+2\. Tất cả người chơi đều đã bị loại.
 
 
 
-2\. Mua Nâng cấp (Phím U)
-
-Tiêu tốn 10 Xu để cố gắng gia tăng sức chứa (Năng lượng) của pháo đài.
-
-\* Thành công (75%): Năng lượng của bạn tăng thêm từ 2 đến 8 điểm. Điều này giúp bạn chứa được nhiều Ánh sáng hơn một cách an toàn.
-
-\* Sự cố (25%): Việc nâng cấp bị phản tác dụng! Thay vì tăng Năng lượng, nó lại cộng thêm từ 1 đến 5 Ánh sáng. Điều này rất nguy hiểm vì nó có thể khiến bạn bị quá tải bất ngờ!
+Người chơi có nhiều ánh sáng tích lũy nhất sẽ thắng. Những người chơi bị loại vẫn được xếp hạng dựa trên tổng ánh sáng của họ, vì vậy bị loại sớm không nhất thiết là bạn sẽ thua cuộc - nó chỉ có nghĩa là bạn không thể kiếm thêm ánh sáng được nữa.
 
 
 
-Bị Loại
+\*\*Ví dụ một lượt chơi\*\*
 
 
 
-Bạn sẽ bị loại ngay lập tức nếu chỉ số Ánh sáng lớn hơn Năng lượng tại bất kỳ thời điểm nào. Người chơi bị loại sẽ dừng cuộc chơi.
+Bạn bắt đầu với sức mạnh mặc định là 10. Hiện bạn có 6 ánh sáng và 8 xu.
+
+1\. Bạn quyết định bắn. Tháp kích hoạt và bạn nhận được 3 ánh sáng (tổng là 9) và 6 xu (tổng có 14). Bạn đang ở rất gần giới hạn 9/10.
+
+2\. Vòng tiếp theo, bạn dùng 10 xu mua nâng cấp. Nâng cấp thành công, giúp bạn có thêm 5 sức mạnh. Giờ sức mạnh của bạn là 15, ánh sáng vẫn là 9. Bạn đã tạo ra một khoảng trống an toàn để tiếp tục bắn.
 
 
 
-Chiến thắng
+\*\*Phím tắt bàn phím\*\*
 
 
 
-Trò chơi kết thúc khi đạt đến số vòng tối đa hoặc khi tất cả người chơi đều đã bị loại. Người chơi có số Ánh sáng cao nhất sẽ chiến thắng.
+\* \*\*Dấu cách (Space):\*\* Bắn vào tháp.
 
+\* \*\*U:\*\* Mua nâng cấp (tốn 10 xu).
 
-
-Tùy chọn \& Biến thể
-
-
-
-\* Năng lượng khởi điểm: Giới hạn Ánh sáng ban đầu trước khi bị nổ (Mặc định: 10).
-
-\* Số vòng tối đa: Độ dài của ván chơi (Mặc định: 50 lượt).
-
-
-
-Phím tắt
-
-
-
-\* Space (Phím Cách): Bắn pháo đài.
-
-\* U: Mua Nâng cấp (Cần 10 Xu).
-
-\* C: Kiểm tra chỉ số hiện tại (Năng lượng, Ánh sáng, Xu).
+\* \*\*C:\*\* Xem chỉ số của tất cả người chơi.
 

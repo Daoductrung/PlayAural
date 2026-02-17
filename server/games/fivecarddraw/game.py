@@ -144,6 +144,10 @@ class FiveCardDrawGame(Game, TurnTimerMixin):
         return "Five Card Draw"
 
     @classmethod
+    def get_supported_leaderboards(cls) -> list[str]:
+        return ["rating", "games_played"]
+
+    @classmethod
     def get_type(cls) -> str:
         return "fivecarddraw"
 

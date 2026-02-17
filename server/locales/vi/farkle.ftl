@@ -1,72 +1,72 @@
-# Thông báo trò chơi Farkle
+# Farkle game messages
 
-# Thông tin trò chơi
+# Game info
 game-name-farkle = Farkle
 
-# Hành động - Gieo và Chốt điểm
+# Actions - Roll and Bank
 farkle-roll = Gieo { $count } { $count ->
-    [one] xúc xắc
-   *[other] xúc xắc
+    [one] viên
+   *[other] viên
 }
 farkle-bank = Chốt { $points } điểm
 
-# Hành động chọn tổ hợp điểm (khớp chính xác với v10)
-farkle-take-single-one = Lấy con 1 lẻ được { $points } điểm
-farkle-take-single-five = Lấy con 5 lẻ được { $points } điểm
-farkle-take-three-kind = Lấy bộ ba con { $number } được { $points } điểm
-farkle-take-four-kind = Lấy bộ bốn con { $number } được { $points } điểm
-farkle-take-five-kind = Lấy bộ năm con { $number } được { $points } điểm
-farkle-take-six-kind = Lấy bộ sáu con { $number } được { $points } điểm
-farkle-take-small-straight = Lấy Sảnh nhỏ được { $points } điểm
-farkle-take-large-straight = Lấy Sảnh lớn được { $points } điểm
-farkle-take-three-pairs = Lấy Ba đôi được { $points } điểm
-farkle-take-double-triplets = Lấy Hai bộ ba được { $points } điểm
-farkle-take-full-house = Lấy Cù lũ được { $points } điểm
+# Scoring combination actions (matching v10 exactly)
+farkle-take-single-one = Một con 1 được { $points } điểm
+farkle-take-single-five = Một con 5 được { $points } điểm
+farkle-take-three-kind = Ba con { $number } được { $points } điểm
+farkle-take-four-kind = Bốn con { $number } được { $points } điểm
+farkle-take-five-kind = Năm con { $number } được { $points } điểm
+farkle-take-six-kind = Sáu con { $number } được { $points } điểm
+farkle-take-small-straight = Sảnh nhỏ được { $points } điểm
+farkle-take-large-straight = Sảnh lớn được { $points } điểm
+farkle-take-three-pairs = Ba đôi được { $points } điểm
+farkle-take-double-triplets = Hai bộ ba được { $points } điểm
+farkle-take-full-house = Cù lũ được { $points } điểm
 
-# Sự kiện trò chơi (khớp chính xác với v10)
+# Game events (matching v10 exactly)
 farkle-rolls = { $player } gieo { $count } { $count ->
-    [one] xúc xắc
-   *[other] xúc xắc
+    [one] viên
+   *[other] viên
 }...
 farkle-roll-result = { $dice }
-farkle-farkle = FARKLE! { $player } mất { $points } điểm.
+farkle-farkle = FARKLE! { $player } mất { $points } điểm
 farkle-takes-combo = { $player } lấy { $combo } được { $points } điểm
 farkle-you-take-combo = Bạn lấy { $combo } được { $points } điểm
-farkle-hot-dice = Ăn trọn bộ!
-farkle-banks = { $player } chốt { $points } điểm, nâng tổng điểm lên { $total }
+farkle-hot-dice = Nóng tay! (Được gieo tiếp)
+farkle-banks = { $player } chốt { $points } điểm, tổng cộng { $total }
 farkle-winner = { $player } thắng với { $score } điểm!
-farkle-winners-tie = Hòa nhau! Những người thắng cuộc: { $players }
+farkle-winners-tie = Hòa nhau! Những người thắng: { $players }
 
-# Hành động kiểm tra điểm lượt
-farkle-turn-score = { $player } hiện có { $points } điểm trong lượt này.
-farkle-no-turn = Hiện không có ai đang thực hiện lượt.
+# Check turn score action
+farkle-turn-score = { $player } đang có { $points } điểm trong lượt này.
+farkle-no-turn = Hiện không có ai đang chơi.
 
-# Tùy chọn riêng cho Farkle
+# Farkle-specific options
 farkle-set-target-score = Điểm mục tiêu: { $score }
 farkle-enter-target-score = Nhập điểm mục tiêu (500-5000):
-farkle-option-changed-target = Điểm mục tiêu được đặt là { $score }.
+farkle-option-changed-target = Điểm mục tiêu đã đặt là { $score }.
 
-# Lý do hành động bị vô hiệu hóa
-farkle-must-take-combo = Bạn phải chọn một tổ hợp ăn điểm trước.
-farkle-cannot-bank = Bạn không thể chốt điểm vào lúc này.
+# Disabled action reasons
+farkle-must-take-combo = Bạn phải chọn tổ hợp điểm trước.
+farkle-cannot-bank = Bạn không thể chốt điểm lúc này.
 
-# Tên các tổ hợp (dùng cho thông báo)
-farkle-combo-single-1 = Con 1 lẻ
-farkle-combo-single-5 = Con 5 lẻ
-farkle-combo-three-kind = Bộ ba con { $number }
-farkle-combo-four-kind = Bộ bốn con { $number }
-farkle-combo-five-kind = Bộ năm con { $number }
-farkle-combo-six-kind = Bộ sáu con { $number }
+# Combo names (for announcements)
+farkle-combo-single-1 = Một con 1
+farkle-combo-single-5 = Một con 5
+farkle-combo-three-kind = Ba con { $number }
+farkle-combo-four-kind = Bốn con { $number }
+farkle-combo-five-kind = Năm con { $number }
+farkle-combo-six-kind = Sáu con { $number }
 farkle-combo-small-straight = Sảnh nhỏ
 farkle-combo-large-straight = Sảnh lớn
 farkle-combo-three-pairs = Ba đôi
 farkle-combo-double-triplets = Hai bộ ba
 farkle-combo-full-house = Cù lũ
 
-# Định dạng
+# Formatting
 farkle-line-format = { $rank }. { $player }: { $points }
-farkle-combo-fallback = { $combo } được { $points } điểm
+farkle-combo-fallback = { $combo } ({ $points } điểm)
 
-farkle-check-turn-score = Kiểm tra điểm lượt này
+farkle-check-turn-score = Xem điểm lượt này
 farkle-roll-label = Gieo xúc xắc
 farkle-bank-label = Chốt điểm

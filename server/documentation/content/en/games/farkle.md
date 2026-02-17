@@ -1,94 +1,82 @@
-Farkle
+\*\*Farkle\*\*
 
 
 
-Farkle is a classic push-your-luck dice game where players roll dice to score combinations. You must decide whether to stop and bank your points or risk it all for more!
+Farkle is a push-your-luck game which dates back to at least the 18th century. It is probably one of the most well-known dice games in the blind community, and you may have played it before on any number of platforms.
 
 
 
-Objective
+The goal is to make combinations of dice without getting Farkles (rolls entirely devoid of valid combinations). Each combination is worth a number of points. Victory is achieved when someone's score passes a certain threshold; 500, 1,000, 3,000 and 5,000 are common choices.
 
 
 
-Be the first player to reach the winning score (Default: 500 points).
+\*\*Gameplay\*\*
 
 
 
-Gameplay
+The game is divided into distinct rounds, in which everyone takes a turn. On your turn, you will start with six dice. At this point, your only choice is to roll.
 
 
 
-On your turn, you start by rolling 6 dice.
+Then, take any combinations you see fit, adding their value to your turn score; to be clear, you aren't obliged to take every combination you roll. That is one strategic part of the game. The dice you haven't used in combinations can be rolled again.
 
 
 
-1\. Check for Points: After rolling, check if you have any scoring combinations (see below).
-
-2\. Farkle!: If you rolled NO scoring combinations, your turn ends immediately, and you lose any points accumulated during this turn.
-
-3\. Take Points: Select at least one scoring combination to "take" (move aside). These points are added to your temporary turn score.
-
-4\. Risk or Stop:
-
-  \* Roll Again: You can roll the remaining dice to try and score more.
-
-  \* Bank: You can stop and bank your current turn score into your permanent total. This ends your turn.
-
-5\. Hot Dice: If you manage to score with all 6 dice, you get "Hot Dice"! You receive 6 fresh dice and must continue rolling, accumulating even more points.
+If you manage to use all six of your dice, you'll get a fresh new set - this is known as having obtained \*\*"Hot Dice"\*\*, and can be done many times in one turn if you're lucky.
 
 
 
-Scoring Combinations
+However, if you do not roll any valid combinations, you are considered to have \*\*Farkled\*\*; your turn ends and all your accumulated points for that turn are forfeit. If you have enough points and think the risk outweighs the reward, you \*\*Bank\*\* your turn score, adding it to your total and ending your turn.
 
 
 
-The scoring in this version is scaled (Standard / 10):
+\*\*Example Turn\*\*
 
 
 
-\* Single 1: 10 points.
+It's the start of the game and you're up first.
 
-\* Single 5: 5 points.
+1\. You roll 1-2-3-4-5-6. You take the \*\*Large Straight\*\* (200 points), achieving \*\*Hot Dice\*\*.
 
-\* Three of a Kind:
+2\. You roll again: 1-2-2-2-6-6. You choose to take only the \*\*Single 1\*\* (10 points), ignoring the three twos to keep more dice for the next roll.
 
-  \* 1s: 100 points.
+3\. Your turn score is now 210. You roll the remaining 5 dice: they land on 1-1-4-4-5. 
 
-  \* Others: Face Value x 10 (e.g., three 2s = 20, three 6s = 60).
-
-\* Straights:
-
-  \* Small Straight (1-2-3-4-5 or 2-3-4-5-6): 100 points.
-
-  \* Large Straight (1-2-3-4-5-6): 200 points.
-
-\* Special Sets:
-
-  \* Three Pairs: 150 points.
-
-  \* Full House (4 of a kind + Pair): 150 points.
-
-  \* Double Triplets (Two sets of 3): 250 points.
-
-  \* Multiples (4, 5, 6 of a kind): Score doubles for each additional matching die.
+4\. You take the two ones (10 pts each) and the five (5 pts) and \*\*Bank\*\*, for a total score of 235.
 
 
 
-Options \& Variants
+\*\*Scoring Combinations\*\*
 
 
 
-\* Target Score: Set the winning score threshold (Default: 500 to 5000).
+\* \*\*Single Five:\*\* 5 points | \*\*Single One:\*\* 10 points
+
+\* \*\*Three of a Kind:\*\* 20 to 100 points (Ones are highest)
+
+\* \*\*Four of a Kind:\*\* 40 to 200 points
+
+\* \*\*Five of a Kind:\*\* 80 to 400 points
+
+\* \*\*Six of a Kind:\*\* 160 to 800 points
+
+\* \*\*Small Straight:\*\* 100 points
+
+\* \*\*Three Pairs / Full House:\*\* 150 points
+
+\* \*\*Large Straight:\*\* 200 points
+
+\* \*\*Double Triplets:\*\* 250 points
 
 
 
-Keyboard Shortcuts
+\*\*Keyboard Shortcuts\*\*
 
 
 
-\* R: Roll dice.
+\* \*\*R:\*\* Roll the dice.
 
-\* B: Bank points (stop turn).
+\* \*\*B:\*\* Bank your score.
 
-\* C: Check current turn score.
+\* \*\*C:\*\* Check the current turn score.
 

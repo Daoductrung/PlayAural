@@ -1,16 +1,16 @@
-Chào Mừng Đến Với PlayAural
+\*\*Chào mừng đến với PlayAural\*\*
 
 
 
-Chào mừng bạn đến với PlayAural, một nền tảng chơi game trực tuyến được thiết kế theo hướng ưu tiên âm thanh và chú trọng đặc biệt vào khả năng tiếp cận.
+Chào mừng bạn đến với PlayAural, một nền tảng chơi game trực tuyến được thiết kế với phương pháp ưu tiên âm thanh và tập trung mạnh mẽ vào khả năng tiếp cận.
 
 
 
-Mục tiêu của nền tảng trực tuyến này rất đơn giản: cung cấp một không gian chung nơi mọi người chơi có thể dễ dàng giải trí cùng nhau một cách bình đẳng. Tôi mong muốn hỗ trợ trải nghiệm đa ngôn ngữ tốt hơn và tạo ra một môi trường đơn giản cho bất kỳ ai chỉ muốn chơi và tận hưởng niềm vui.
+Mục tiêu của nền tảng trực tuyến này rất đơn giản: mang lại một không gian chung nơi những người chơi bình thường có thể dễ dàng tận hưởng các trò chơi cùng nhau một cách bình đẳng. PlayAural đặt mục tiêu hỗ trợ trải nghiệm đa ngôn ngữ tốt hơn và tạo ra một môi trường đơn giản cho bất kỳ ai chỉ muốn chơi và giải trí.
 
 
 
-Về Dự Án
+\*\*Về Dự án\*\*
 
 
 
@@ -18,93 +18,93 @@ Tôi là Trung (ddt.one), nhà phát triển và quản trị viên của phiên
 
 
 
-PlayAural được xây dựng dựa trên nền tảng mã nguồn mở tuyệt vời của PlayPalace. Tôi xin gửi lời cảm ơn chân thành đến những người sáng tạo ban đầu vì công sức của họ, điều đã giúp dự án này trở thành hiện thực.
+PlayAural được xây dựng dựa trên nền tảng mã nguồn mở tuyệt vời của PlayPalace. Tôi xin bày tỏ lòng biết ơn chân thành đến những người sáng tạo ban đầu vì công việc đáng kinh ngạc của họ, điều đã giúp dự án này có thể thực hiện được.
 
 
 
-Lưu ý rằng PlayAural hiện đang trong giai đoạn phát triển tích cực. Các bản cập nhật và cải tiến sẽ diễn ra thường xuyên. Mọi phản hồi, báo lỗi và góp ý của bạn luôn được hoan nghênh và trân trọng.
+Vui lòng lưu ý rằng PlayAural hiện đang trong quá trình phát triển tích cực. Các bản cập nhật và cải tiến đang diễn ra thường xuyên. Phản hồi, báo cáo lỗi và đề xuất của bạn luôn được chào đón và đánh giá cao.
 
 
 
-Hướng Dẫn Bắt Đầu
+\*\*Bắt đầu\*\*
 
 
 
-1\. Chơi: Chọn "Chơi" từ Menu Chính để xem danh mục trò chơi. Từ đó, bạn có thể tạo bàn mới hoặc xem các bàn đang mở của một trò chơi cụ thể.
+1\. \*\*Chơi:\*\* Chọn "Chơi" từ Menu chính để xem danh mục trò chơi. Từ đó, bạn có thể tạo bàn mới hoặc xem các bàn hiện có của một trò chơi cụ thể.
 
-2\. Xem các bàn đang hoạt động: Nằm dưới nút "Chơi", tùy chọn này cho phép bạn xem tất cả các bàn chơi đang diễn ra trên máy chủ.
+2\. \*\*Xem các bàn đang hoạt động:\*\* Nằm dưới nút "Chơi", tùy chọn này cho phép bạn xem tất cả các bàn hiện đang hoạt động trên máy chủ ở mọi trò chơi.
 
-3\. Mời: Đừng ngại mời bạn bè hoặc thêm Người chơi máy để lấp đầy chỗ trống tại bàn chơi của bạn.
-
-
-
-Lệnh Trò Chuyện
+3\. \*\*Mời người chơi:\*\* Hãy thoải mái mời bạn bè hoặc thêm các Bot do máy tính điều khiển để lấp đầy các ghế trống tại bàn của bạn.
 
 
 
-Bạn có thể sử dụng các lệnh đặc biệt trong khung trò chuyện bằng cách gõ dấu gạch chéo / theo sau là từ khóa:
+\*\*Lệnh Trò chuyện\*\*
 
 
 
-\* /g noi\_dung (hoặc /global): Gõ /g để gửi tin nhắn đến kênh chung, hiển thị cho tất cả mọi người trên máy chủ.
+Bạn có thể sử dụng các lệnh đặc biệt trong hộp chat bằng cách gõ dấu gạch chéo `/` kèm theo từ khóa:
 
 
 
-Lưu ý: Các lệnh quản lý bàn chơi và kiểm tra quản trị viên hiện đang bảo trì và không được liệt kê tại đây.
+\* \*\*/g nội-dung\*\* (hoặc \*\*/global\*\*): Gõ `/g` để gửi tin nhắn đến kênh chat toàn cầu, mọi người trên máy chủ đều có thể nhìn thấy.
 
 
 
-Các Trò Chơi Hiện Có
+Lưu ý: Các lệnh quản lý bàn và kiểm tra quản trị viên đang trực tuyến hiện đang được bảo trì và không được liệt kê ở đây.
 
 
 
-Chúng tôi có một bộ sưu tập game ngày càng mở rộng:
+\*\*Các Trò chơi Hiện có\*\*
 
 
 
-Trò chơi Bài
+PlayAural cung cấp một bộ sưu tập trò chơi đang ngày càng mở rộng:
 
 
 
-\* Texas Hold'em \& Poker 5 Lá: Các biến thể Poker kinh điển.
-
-\* Bài Chổi (Scopa): Game bài truyền thống của Ý mang tính chiến thuật cao.
-
-\* Chín Mươi Chín (Ninety Nine): Game sinh tồn nơi bạn phải giữ tổng điểm dưới 99.
-
-\* Crazy Eights: Game bài tống (đánh hết bài) kinh điển.
+\*\*Trò chơi Bài\*\*
 
 
 
-Trò chơi Xúc Xắc
+\* \*\*Texas Hold'em \& Five Card Draw:\*\* Các biến thể bài Poker cổ điển.
+
+\* \*\*Scopa:\*\* Một trò chơi truyền thống của Ý về việc ăn bài và chiến thuật.
+
+\* \*\*Ninety Nine:\*\* Một trò chơi bài sinh tồn nơi bạn phải giữ tổng điểm tích lũy dưới 99.
+
+\* \*\*Crazy Eights:\*\* Trò chơi đánh bài loại bỏ bài trên tay cổ điển.
 
 
 
-\* Farkle / Tung Hứng (Toss Up) / Săn Số 3 (Threes): Trò chơi thử thách vận may để giành điểm số cao.
-
-\* Trái Phải Giữa (Left Right Center) / Một Bốn Hai Tư (Midnight) / Xúc Xắc Heo (Pig): Các game xúc xắc xã hội nhịp độ nhanh.
+\*\*Trò chơi Xúc xắc\*\*
 
 
 
-Phiêu Lưu \& Bàn Cờ
+\* \*\*Farkle / Toss Up / Threes:\*\* Các trò chơi thử thách vận may, nơi bạn mạo hiểm tất cả để giành điểm số cao.
+
+\* \*\*Left Right Center / Midnight / Pig:\*\* Các trò chơi xúc xắc mang tính xã hội với tốc độ nhanh.
 
 
 
-\* Cướp Biển Vùng Biển Thất Lạc (Pirates of the Lost Seas): Game nhập vai cạnh tranh. Ra khơi, chiến đấu và thu thập đá quý.
-
-\* Đường Đua Nghìn Dặm (Mile by Mile): Game bài đua xe chiến thuật.
-
-\* Pháo Đài Ánh Sáng (Light Turret): Game quản lý tài nguyên về năng lượng và ánh sáng.
+\*\*Phiêu lưu \& Bàn cờ\*\*
 
 
 
-Cộng Đồng
+\* \*\*Cướp Biển Vùng Biển Mất Tích (Pirates of the Lost Seas):\*\* Một cuộc phiêu lưu RPG cạnh tranh. Dong buồm, chiến đấu và thu thập đá quý.
+
+\* \*\*Đường Đua Nghìn Dặm (Mile by Mile):\*\* Trò chơi bài đua xe chiến thuật.
+
+\* \*\*Tháp Ánh Sáng (Light Turret):\*\* Trò chơi quản lý tài nguyên về năng lượng và ánh sáng.
 
 
 
-Tôi luôn cố gắng duy trì một cộng đồng thân thiện và cởi mở cho tất cả mọi người.
+\*\*Cộng đồng\*\*
 
 
 
-Cảm ơn bạn đã chơi tại PlayAural!
+PlayAural nỗ lực duy trì một cộng đồng thân thiện và chào đón tất cả mọi người, đặc biệt là những người mù.
+
+
+
+Cảm ơn bạn đã chơi PlayAural!
 

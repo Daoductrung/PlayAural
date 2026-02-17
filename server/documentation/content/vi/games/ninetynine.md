@@ -1,110 +1,94 @@
-Chín Mươi Chín
+\*\*Chín Mươi Chín (Ninety Nine)\*\*
 
 
 
-Chín Mươi Chín là một trò chơi bài nhịp độ nhanh, nơi người chơi lần lượt cộng điểm vào một tổng số chung. Mục tiêu rất đơn giản: đừng bao giờ là người khiến tổng điểm vượt quá 99!
+Chín Mươi Chín là một trò chơi bài sinh tồn và chiến thuật cổ điển. Người chơi lần lượt đánh các lá bài để cộng dồn vào (hoặc trừ bớt) tổng điểm chung. Mục tiêu rất đơn giản: đừng để bản thân là người đẩy tổng điểm vượt quá 99.
 
 
 
-Mục tiêu
+Trò chơi này đã là một phần không thể thiếu trong cộng đồng trò chơi cho người mù nhiều năm qua, xuất hiện trên cả hai nền tảng Quentin C Playroom và RS Games. PlayAural hỗ trợ cả hai biến thể luật này. Về cơ bản, đây là một trò chơi loại trừ: mỗi người chơi bắt đầu với một số lượng thẻ nhất định, mất thẻ khi mắc lỗi và bị loại khi hết thẻ. Người cuối cùng còn trụ lại sẽ thắng.
 
 
 
-Trở thành người cuối cùng còn giữ được Xu. Bạn sẽ mất một Xu nếu không thể đánh ra lá bài nào mà vẫn giữ tổng điểm từ 99 trở xuống.
+\*\*Cách chơi\*\*
 
 
 
-Cách chơi
+Chín Mươi Chín được chơi theo từng vòng tại \*\*bàn chơi\*\*. Khi bắt đầu mỗi vòng, tổng điểm đặt về 0 và mỗi người chơi còn sống được chia một bộ bài mới (mặc định là 3 lá).
 
 
 
-1\. Tổng điểm (Count): Trò chơi duy trì một con số "Tổng điểm" chung, bắt đầu từ 0.
+Trong lượt của mình, bạn đánh một lá bài để thay đổi tổng điểm chung. Hầu hết các lá bài cộng thêm giá trị con số của chúng, nhưng một số lá đặc biệt có hiệu ứng khác. Sau khi đánh bài, bạn rút một lá mới từ bộ bài (tự động hoặc thủ công tùy vào thiết lập của \*\*chủ bàn\*\*).
 
-2\. Lượt chơi: Đến lượt mình, bạn đánh một lá bài từ trên tay để cộng (hoặc trừ) vào Tổng điểm.
 
-3\. Rút bài: Sau khi đánh, bạn tự động rút một lá bài mới để bù vào (trừ khi bộ bài đã hết).
 
-4\. Vượt quá (Busting): Nếu đến lượt bạn mà bạn không thể đánh bất kỳ lá bài nào để giữ Tổng điểm <= 99, bạn bị coi là "Vượt quá". Bạn sẽ mất một Xu và vòng chơi mới bắt đầu.
+Vòng chơi kết thúc khi có người đẩy tổng điểm vượt quá 99 (bị "nổ"), hoặc khi có người không còn bài để đánh. Người mắc lỗi sẽ mất thẻ, một vòng mới bắt đầu cho đến khi tìm ra người thắng cuộc.
 
-5\. Loại bỏ: Nếu bạn mất hết Xu, bạn sẽ bị loại khỏi trò chơi.
 
 
+\*\*Giá trị các lá bài\*\*
 
-Các Biến thể Luật
 
 
+\*\*Biến thể luật Quentin C (Mặc định)\*\*
 
-Bạn có thể chọn giữa hai bộ luật trong phần tùy chọn: Luật Quentin C (Mặc định) hoặc Luật RS Games.
+\* \*\*Át (A):\*\* Chọn cộng 1 hoặc cộng 11. Nếu tổng điểm trên 88, hệ thống tự động tính là +1.
 
+\* \*\*2:\*\* Nếu tổng điểm là số chẵn và trên 49, lá 2 sẽ chia đôi tổng điểm. Ngược lại, nó sẽ nhân đôi tổng điểm.
 
+\* \*\*3 đến 8:\*\* Cộng giá trị con số tương ứng.
 
-Luật Quentin C (Mặc định)
+\* \*\*9:\*\* Thẻ bỏ lượt (cộng 0 điểm).
 
+\* \*\*10:\*\* Chọn cộng 10 hoặc trừ 10. Nếu tổng điểm từ 90 trở lên, hệ thống tự động tính là -10.
 
+\* \*\*J:\*\* Cộng 10 và mất lượt người tiếp theo.
 
-\* Át (A): Cộng 1 hoặc cộng 11 (Bạn được chọn).
+\* \*\*Q / K:\*\* Cộng 10.
 
-\* 2: Nhân đôi Tổng điểm. Nếu Tổng điểm > 49 (và là số chẵn), nó sẽ Chia đôi Tổng điểm.
+\* \*\*4:\*\* Cộng 4 và đảo ngược chiều chơi.
 
-\* 4: Đảo chiều vòng chơi (nếu có hơn 2 người chơi). (Cộng 0).
 
-\* 9: Bỏ qua (Cộng 0 vào tổng điểm).
 
-\* 10: Cộng 10 hoặc Trừ 10 (Bạn được chọn).
+\*\*Biến thể luật RS Games\*\*
 
-\* Bồi (J): Cộng 10. Đồng thời làm người chơi tiếp theo Mất lượt.
+Sử dụng bộ bài 60 lá đặc biệt (1-9 và các lá chức năng):
 
-\* Đầm (Q): Cộng 10.
+\* \*\*1 đến 9:\*\* Cộng giá trị con số tương ứng.
 
-\* Già (K): Cộng 10.
+\* \*\*+10 / -10:\*\* Cộng hoặc trừ 10 điểm.
 
-\* Các lá 3, 5, 6, 7, 8: Cộng giá trị tương ứng ghi trên lá bài.
+\* \*\*Bỏ lượt (Pass) / Đảo chiều (Reverse) / Nhảy lượt (Skip):\*\* Cộng 0 điểm kèm hiệu ứng tương ứng.
 
+\* \*\*Chín mươi chín (Ninety Nine):\*\* Đặt thẳng tổng điểm về chính xác 99.
 
 
-Luật RS Games
 
+\*\*Các mốc điểm và Hình phạt (Luật Quentin C)\*\*
 
+\* \*\*Dừng đúng mức 33 hoặc 66:\*\* Tất cả những người chơi khác mất 1 thẻ.
 
-\* Các lá 1-9: Cộng giá trị tương ứng ghi trên lá bài.
+\* \*\*Vượt qua mức 33 hoặc 66:\*\* Bạn bị mất 1 thẻ.
 
-\* 10: Cộng 10 (Cố định).
+\* \*\*Dừng đúng mức 99:\*\* Tất cả những người chơi khác mất 2 thẻ và vòng chơi kết thúc.
 
-\* Lá Trừ 10: Trừ 10 điểm.
+\* \*\*Nổ (vượt quá 99):\*\* Bạn mất 2 thẻ và vòng chơi kết thúc.
 
-\* Lá Bỏ qua (Pass): Cộng 0.
 
-\* Lá Đảo chiều: Đảo ngược vòng chơi.
 
-\* Lá Mất lượt (Skip): Bỏ qua lượt của người tiếp theo.
+\*\*Cách tính điểm\*\*
 
-\* Lá Chín Mươi Chín: Đặt Tổng điểm ngay lập tức thành 99.
 
 
+Người chơi bắt đầu với một số lượng thẻ (mặc định là 9). Khi một người chơi về 0 thẻ, họ sẽ bị loại. Người cuối cùng còn thẻ sẽ giành chiến thắng.
 
-Xu \& Phạt
 
 
+\*\*Phím tắt bàn phím\*\*
 
-Bạn bắt đầu với 9 Xu. Bạn sẽ mất Xu trong các trường hợp:
 
 
+\* \*\*C:\*\* Kiểm tra tổng điểm hiện tại.
 
-\* Vượt quá: Làm tổng điểm vượt quá 99.
-
-\* Hết bài: Nếu bộ bài rút đã hết và bạn cũng không còn lá bài nào trên tay để đánh.
-
-
-
-Phím tắt
-
-
-
-\* Các phím số 1-9: Đánh lá bài ở vị trí từ 1 đến 9.
-
-\* Phím số 0: Đánh lá bài ở vị trí thứ 10 (nếu cầm nhiều bài).
-
-\* D hoặc Space (Phím Cách): Rút bài (Chỉ dùng khi tắt chế độ Tự động rút).
-
-\* C: Kiểm tra Tổng điểm hiện tại.
+\* \*\*Dấu cách hoặc D:\*\* Rút một lá bài (khi chế độ rút bài thủ công được bật).
 

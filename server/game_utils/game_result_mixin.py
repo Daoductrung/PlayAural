@@ -135,13 +135,30 @@ class GameResultMixin:
 
         Default: Winner first, everyone else tied for second.
         """
+        winner_ids = result.custom_data.get("winner_ids")
         winner_name = result.custom_data.get("winner_name")
         human_players = [p for p in result.player_results if not p.is_bot]
 
         if not human_players:
             return []
 
+        if winner_ids:
+            # New logic: winner_ids is a list of player IDs who won
+            winners = []
+            losers = []
+            for p in human_players:
+                if p.player_id in winner_ids:
+                    winners.append(p.player_id)
+                else:
+                    losers.append(p.player_id)
+            
+            if winners:
+                if losers:
+                    return [winners, losers]
+                return [winners]
+
         if winner_name:
+            # Backward compatibility logic
             winner_id = None
             others = []
             for p in human_players:

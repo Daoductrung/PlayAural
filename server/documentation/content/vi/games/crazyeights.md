@@ -1,122 +1,86 @@
-Crazy Eights
+\*\*Crazy Eights (Tám Điên)\*\*
 
 
 
-Crazy Eights là một trò chơi đánh bài tẩu tán (loại bỏ bài trên tay). Người đầu tiên đánh hết bài trên tay sẽ thắng vòng chơi và nhận điểm dựa trên số bài còn lại của các đối thủ.
+Crazy Eights là một trò chơi bài loại bỏ bài cổ điển với mục tiêu là trở thành người đầu tiên đánh hết bài trên tay. Đây là trò chơi yêu thích của nhiều gia đình qua nhiều thế hệ, và nếu bạn đã từng chơi UNO, bạn sẽ thấy nó rất quen thuộc -- thực tế, Crazy Eights chính là trò chơi đã truyền cảm hứng để tạo ra UNO.
 
 
 
-Mục tiêu
+Người chơi lần lượt đánh các lá bài khớp với lá bài trên cùng của xấp bài bỏ theo chất hoặc hạng, sử dụng các lá tám như lá bài tự do để đổi chất tùy ý. Người đầu tiên hết bài sẽ thắng vòng đó và nhận điểm dựa trên những lá bài còn lại trên tay đối thủ.
 
 
 
-Trở thành người đầu tiên đạt được điểm số chiến thắng (mặc định: 500). Bạn ghi điểm bằng cách đánh hết bài trước đối thủ.
+\*\*Cách chơi\*\*
 
 
 
-Thiết lập Trò chơi
+Trò chơi hỗ trợ từ 2 đến 8 người chơi và sử dụng hai bộ bài 52 lá tiêu chuẩn trộn lại với nhau. Mỗi vòng, mỗi người chơi được chia 5 lá bài, và một lá bài bắt đầu sẽ được lật ngửa để tạo xấp bài bỏ. Lá bài bắt đầu này luôn là một lá bài số (không bao giờ là lá chức năng hay lá hình người).
 
 
 
-\* Số người chơi: 2 đến 8 người.
+Trong lượt của mình, bạn phải đánh một lá bài khớp với chất hoặc hạng của lá bài trên cùng ở xấp bài bỏ. Ví dụ: nếu lá trên cùng là 7 cơ, bạn có thể đánh bất kỳ lá cơ nào hoặc bất kỳ lá 7 nào từ chất khác.
 
-\* Bộ bài: Sử dụng 2 bộ bài tiêu chuẩn.
 
-\* Bài chia ban đầu: Mỗi người chơi nhận 7 lá bài.
 
+\*\*Các lá bài đặc biệt\*\*
 
 
-Cách chơi
 
+\* \*\*Lá 8 Tự do (Wild 8):\*\* Lá tám có thể được đánh lên trên bất kỳ lá bài nào, vào bất kỳ lúc nào. Khi đánh lá 8, bạn được chọn chất bài mà người chơi tiếp theo phải theo.
 
+\* \*\*Mất lượt (Skip):\*\* Bỏ qua lượt của người chơi tiếp theo.
 
-1\. Một lá bài được lật từ bộ bài rút để tạo thành chồng bài bỏ (nơi đánh bài xuống).
+\* \*\*Đảo chiều (Reverse):\*\* Đảo ngược chiều đánh bài. Trong ván 2 người, lá này có tác dụng như lá Mất lượt.
 
-2\. Người chơi lần lượt đánh bài theo chiều vòng tròn.
+\* \*\*Rút Hai (Draw Two):\*\* Bắt người chơi tiếp theo phải rút 2 lá từ xấp bài và mất lượt.
 
-3\. Để đánh một lá bài, nó phải trùng Hạng (ví dụ: cùng là số 5) hoặc trùng Chất (ví dụ: cùng là chất Cơ) với lá bài nằm trên cùng của chồng bài bỏ.
 
-4\. Số 8 là lá bài Vạn năng: Lá số 8 có thể đánh đè lên bất kỳ lá bài nào. Khi đánh lá số 8, bạn phải chọn Chất (Cơ, Rô, Tép, Bích) cho người chơi tiếp theo.
 
+\*\*Rút bài và Bỏ lượt\*\*
 
 
-Rút bài và Bỏ lượt
 
+Nếu bạn không có lá bài nào có thể đánh được, bạn phải rút một lá từ xấp bài. Nếu lá bài vừa rút có thể đánh được, bạn có tùy chọn đánh nó ngay lập tức. Nếu không, bạn bỏ lượt. Bạn không được phép rút bài nếu trên tay vẫn còn lá bài có thể đánh được.
 
 
-\* Nếu bạn không có bài hợp lệ để đánh (hoặc chiến thuật muốn giữ bài), bạn phải Rút một lá từ bộ bài.
 
-\* Bạn chỉ rút 1 lá.
+\*\*Cách tính điểm\*\*
 
-\* Nếu lá vừa rút ra có thể đánh được, bạn có thể đánh nó ngay lập tức.
 
-\* Nếu lá vừa rút vẫn không đánh được, bạn phải Bỏ lượt.
 
+Khi một người chơi hết bài, vòng chơi kết thúc và họ nhận được điểm dựa trên số bài còn lại trên tay của tất cả đối thủ:
 
+\* \*\*Lá 8:\*\* 50 điểm mỗi lá.
 
-Các Lá bài Hành động Đặc biệt
+\* \*\*Lá Mất lượt, Đảo chiều, Rút Hai:\*\* 20 điểm mỗi lá.
 
+\* \*\*Lá Át (A):\*\* 1 điểm mỗi lá.
 
+\* \*\*Các lá bài số (2-7, 9-10):\*\* Điểm bằng giá trị con số (ví dụ: lá 5 được 5 điểm).
 
-Một số lá bài có hiệu ứng đặc biệt khi được đánh ra:
 
 
+Trò chơi tiếp tục qua nhiều vòng cho đến khi có người đạt được điểm thắng mục tiêu (có thể tùy chỉnh lên đến 10,000 điểm).
 
-\* Bồi (J): Đảo chiều. Đổi chiều vòng chơi (Ví dụ từ trái sang phải thành phải sang trái). Trong ván 2 người, lá này có tác dụng như lá Mất lượt.
 
-\* Đầm (Q): Mất lượt. Người chơi tiếp theo bị bỏ qua lượt chơi.
 
-\* Già (K): Rút Hai. Người chơi tiếp theo bắt buộc phải rút 2 lá bài và bị mất lượt đánh.
+\*\*Phím tắt bàn phím\*\*
 
 
 
-Tính điểm
+\* \*\*Dấu cách (Space):\*\* Rút một lá bài.
 
+\* \*\*P:\*\* Bỏ lượt (sau khi đã rút bài).
 
+\* \*\*C:\*\* Đọc lá bài trên cùng của xấp bài bỏ.
 
-Khi một người chơi đánh hết bài, vòng chơi kết thúc. Người thắng vòng đó sẽ nhận được điểm dựa trên tổng giá trị các lá bài còn lại trên tay của đối thủ:
+\* \*\*E:\*\* Đọc số lượng bài (số bài của mỗi người và số bài còn lại trong xấp).
 
+\* \*\*Shift+T:\*\* Kiểm tra thời gian lượt chơi.
 
 
-\* Số 8: 50 điểm.
 
-\* Các lá Hình (Bồi, Đầm, Già): 20 điểm.
+\*\*Khi chọn chất sau khi đánh lá 8:\*\*
 
-\* Át: 1 điểm.
-
-\* Các lá số (2-10): Điểm tương ứng với mặt số (ví dụ: lá 7 tính 7 điểm).
-
-
-
-Phím tắt
-
-
-
-Hành động trong lượt
-
-\* Space (Phím Cách): Rút một lá bài.
-
-\* P: Bỏ lượt (chỉ được dùng sau khi đã rút bài mà vẫn không đánh được).
-
-
-
-Chọn Chất (sau khi đánh lá số 8)
-
-\* C: Chọn chất Tép.
-
-\* D: Chọn chất Rô.
-
-\* H: Chọn chất Cơ.
-
-\* S: Chọn chất Bích.
-
-
-
-Thông tin
-
-\* C: Đọc lá bài đang nằm trên cùng của chồng bài bỏ.
-
-\* E: Đọc số lượng bài trên tay của mỗi người chơi.
-
-\* Shift + T: Kiểm tra thời gian còn lại của lượt.
+\* \*\*C:\*\* Tép | \*\*D:\*\* Rô | \*\*H:\*\* Cơ | \*\*S:\*\* Bích
 

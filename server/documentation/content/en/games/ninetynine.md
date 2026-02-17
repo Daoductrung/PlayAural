@@ -1,110 +1,94 @@
-Ninety Nine
+\*\*Ninety Nine\*\*
 
 
 
-Ninety Nine is a fast-paced card game where players take turns adding values to a running total. The objective is simple: never be the one to make the total exceed 99!
+Ninety Nine is a classic card game of survival and strategy. Players take turns playing cards that add to (or sometimes subtract from) a shared running total, and the goal is simple: don't be the one to push it over 99.
 
 
 
-Objective
+The game has been a staple in the blind gaming community for years, appearing in both the Quentin C Playroom and RS Games platforms. PlayAural supports both variants. At its core, Ninety Nine is an elimination game: every player starts with a set of tokens, loses them for making mistakes, and is knocked out when they run dry. The last player standing wins.
 
 
 
-Be the last player remaining with tokens. You lose a token if you cannot play a card without pushing the count over 99.
+\*\*Gameplay\*\*
 
 
 
-Gameplay
+Ninety Nine is played in rounds at a \*\*table\*\*. At the start of each round, the running count resets to 0, and every surviving player is dealt a fresh hand of cards (3 by default).
 
 
 
-1\. Total Count: The game maintains a central "Count" which starts at 0.
+On your turn, you play one card from your hand to modify the running count. Most cards add their face value, but special cards have unique effects. After playing, you draw a replacement card (automatically or manually, depending on the \*\*host's\*\* settings).
 
-2\. Turn Structure: On your turn, you play one card from your hand, which modifies the Count.
 
-3\. Drawing: After playing, you automatically draw a replacement card (unless the deck runs out).
 
-4\. Busting: If you cannot play any card without the Count going over 99, you "Bust". You lose a token and a new round begins.
+The round ends when someone pushes the count over 99 (a "bust"), or until someone has no cards left. The offending player loses tokens, and a new round begins.
 
-5\. Elimination: If you lose all your tokens, you are out of the game.
 
 
+\*\*Card Values\*\*
 
-Game Variants
 
 
+\*\*Quentin C Variant (Default)\*\*
 
-You can choose between two rule sets in the options: Quentin C (Default) or RS Games.
+\* \*\*Ace:\*\* Choose +1 or +11. Automatically plays as +1 if the count is above 88.
 
+\* \*\*2:\*\* If the count is even and above 49, it divides the count by 2. Otherwise, it doubles it.
 
+\* \*\*3-8:\*\* Adds face value.
 
-Quentin C Rules (Default)
+\* \*\*9:\*\* Pass card (adds 0).
 
+\* \*\*10:\*\* Choose +10 or -10. Automatically plays as -10 if the count is 90 or above.
 
+\* \*\*Jack:\*\* Adds 10 and skips the next player.
 
-\* Ace: Adds 1 or 11 (Your choice).
+\* \*\*Queen/King:\*\* Adds 10.
 
-\* 2: Doubles the count. If count > 49 (and is even), it Divides by 2 instead.
+\* \*\*4:\*\* Adds 4 and reverses the turn direction.
 
-\* 4: Reverses turn order (if more than 2 players). (Adds 0).
 
-\* 9: Pass (Adds 0).
 
-\* 10: Adds 10 or Subtracts 10 (Your choice).
+\*\*RS Games Variant\*\*
 
-\* Jack: Adds 10. Also Skips the next player.
+Uses a 60-card deck (1-9 and special cards):
 
-\* Queen: Adds 10.
+\* \*\*1-9:\*\* Adds face value.
 
-\* King: Adds 10.
+\* \*\*+10 / -10:\*\* Adds or subtracts 10.
 
-\* 3, 5, 6, 7, 8: Face value.
+\* \*\*Pass / Reverse / Skip:\*\* Adds 0 with their respective effects.
 
+\* \*\*Ninety Nine:\*\* Sets the count exactly to 99.
 
 
-RS Games Rules
 
+\*\*Milestones and Penalties (Quentin C Variant)\*\*
 
+\* \*\*Landing exactly on 33 or 66:\*\* Every other player loses 1 token.
 
-\* 1-9: Adds face value.
+\* \*\*Passing through 33 or 66:\*\* You lose 1 token.
 
-\* 10: Adds 10 (Fixed).
+\* \*\*Landing exactly on 99:\*\* Every other player loses 2 tokens, and the round ends.
 
-\* -10 Card: Subtracts 10.
+\* \*\*Busting (over 99):\*\* You lose 2 tokens, and the round ends.
 
-\* Pass Card: Adds 0.
 
-\* Reverse Card: Reverses turn order.
 
-\* Skip Card: Skips the next player.
+\*\*Scoring\*\*
 
-\* Ninety-Nine Card: Sets the count to exactly 99.
 
 
+Players start with a pool of tokens (default 9). When a player reaches 0 tokens, they are eliminated. The last player with tokens wins.
 
-Tokens \& Penalties
 
 
+\*\*Keyboard Shortcuts\*\*
 
-You start with 9 Tokens. You lose tokens for:
 
 
+\* \*\*C:\*\* Check the current count.
 
-\* Busting: Going over 99.
-
-\* Running out of cards: If the deck is empty and you have no cards left.
-
-
-
-Keyboard Shortcuts
-
-
-
-\* Numbers 1-9: Play card in slot 1-9.
-
-\* Number 0: Play card in slot 10 (if holding many cards).
-
-\* D or Space: Draw a card (Manual mode only).
-
-\* C: Check current count.
+\* \*\*Space or D:\*\* Draw a card (if manual draw is enabled).
 

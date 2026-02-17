@@ -34,7 +34,7 @@ milebymile-cant-play = Bạn không thể đánh { $card } vì { $reason }.
 milebymile-no-card-selected = Chưa chọn lá bài nào để bỏ.
 milebymile-no-valid-targets = Không có mục tiêu hợp lệ cho Lá tấn công này!
 milebymile-you-drew = Bạn đã rút: { $card }
-milebymile-discards = { $player } bỏ một lá bài.
+milebymile-discards = { $player } bỏ lá bài { $card }.
 milebymile-select-target = Chọn một mục tiêu
 
 # Đánh bài dặm đường

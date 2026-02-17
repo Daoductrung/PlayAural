@@ -79,6 +79,10 @@ class SnakesAndLaddersGame(Game):
         return "category-board-games"
 
     @classmethod
+    def get_supported_leaderboards(cls) -> list[str]:
+        return ["rating", "games_played"]
+
+    @classmethod
     def get_min_players(cls) -> int:
         return 2
 

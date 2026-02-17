@@ -1,118 +1,112 @@
-Gấu Cuồng Loạn
+\*\*Gấu Cuồng Loạn (Chaos Bear)\*\*
 
 
 
-Gấu Cuồng Loạn là một trò chơi rượt đuổi kịch tính, nơi bạn phải chạy trốn khỏi một con gấu tàn bạo. Mục tiêu rất đơn giản: chạy nhanh nhất có thể và sống sót!
+Gấu Cuồng Loạn là một trò chơi rượt đuổi đầy mạo hiểm dành cho 2 đến 4 người chơi. Bạn và những người chơi khác đang bị săn đuổi bởi một con gấu hung hãn, và mục tiêu của bạn rất đơn giản: đừng để bị bắt.
 
 
 
-Mục tiêu
+Mỗi vòng, người chơi gieo xúc xắc để chạy về phía trước trên một đường thẳng. Sau đó, con gấu sẽ thực hiện lượt của nó để rút ngắn khoảng cách. Càng về sau, con gấu càng tích lũy nhiều năng lượng, khiến nó chạy nhanh hơn và khó bị cắt đuôi hơn. Nếu con gấu đuổi kịp vị trí của bạn, bạn sẽ bị loại. Người cuối cùng còn sống sót sẽ thắng cuộc -- hoặc nếu tất cả đều bị bắt trong cùng một lượt của gấu, người chạy được xa nhất sẽ giành chiến thắng.
 
 
 
-Giữ khoảng cách với con gấu càng lâu càng tốt. Người chơi cuối cùng còn sống sót, hoặc người chạy được quãng đường xa nhất, sẽ giành chiến thắng.
+Việc rút bài tại các ô đặc biệt sẽ mang lại những biến số hỗn loạn, từ việc giúp bạn tiến lên phía trước đến việc bị đẩy lùi lại -- hoặc thậm chí tác động trực tiếp đến mức năng lượng của con gấu.
 
 
 
-Thiết lập Trò chơi
+\*\*Cách chơi\*\*
 
 
 
-\* Số người chơi: 2 đến 4 người.
+Trò chơi diễn ra trên một đường chạy vô tận. Tất cả người chơi bắt đầu tại vị trí 30, trong khi con gấu bắt đầu tại vị trí 0. Trò chơi chia thành các vòng; mỗi vòng, mỗi người chơi còn sống sẽ thực hiện một lượt, sau đó đến lượt con gấu di chuyển.
 
-\* Vị trí xuất phát: Tất cả người chơi bắt đầu ở ô số 30.
 
-\* Gấu: Bắt đầu ở ô số 0 với 1 điểm Năng lượng.
 
+\*\*Lượt của người chơi\*\*
 
 
-Cách chơi
 
+Trong lượt của mình, bạn gieo một xúc xắc sáu mặt (giá trị từ 1 đến 6) và tiến lên bấy nhiêu ô. Sau đó lượt của bạn kết thúc.
 
 
-Trò chơi diễn ra theo các vòng. Trong mỗi vòng, tất cả người chơi sẽ đi trước, sau đó mới đến lượt Gấu di chuyển.
 
+Tuy nhiên, nếu bạn đang đứng ở vị trí chia hết cho 5 (như 30, 35, 40, v.v.), bạn có quyền lựa chọn rút một lá bài thay vì gieo xúc xắc. Việc rút bài cũng sẽ kết thúc lượt của bạn. Hiệu ứng của lá bài sẽ được áp dụng ngay lập tức. Xem phần Lá bài bên dưới để biết chi tiết.
 
 
-Lượt của Người chơi
 
+\*\*Lượt của Gấu\*\*
 
 
-Đến lượt bạn, bạn thường sẽ Gieo xúc xắc để di chuyển tiến về phía trước (từ 1 đến 6 ô).
 
+Sau khi tất cả người chơi đã di chuyển, con gấu sẽ đi. Gấu gieo một xúc xắc có giá trị từ 1 đến 3, sau đó cộng thêm mức năng lượng hiện tại vào kết quả.
 
+\* \*\*Ngoại lệ:\*\* Nếu gấu gieo được mặt 3, năng lượng của nó tăng thêm 1, nhưng điểm năng lượng cộng thêm này sẽ không được tính vào khoảng cách di chuyển ngay trong lượt đó.
 
-Nếu bạn dừng chân tại một ô là bội số của 5 (ví dụ: 35, 40, 45...), bạn có một quyền lựa chọn đặc biệt:
 
 
+Năng lượng của gấu bắt đầu ở mức 1 và không bao giờ xuống dưới 1. Nếu vị trí mới của gấu bằng hoặc vượt qua vị trí của bất kỳ người chơi nào, những người đó sẽ bị bắt và loại khỏi trò chơi. Khi gấu bắt được người chơi, nó sẽ mất 3 năng lượng (tối thiểu về 1) sau khi xơi tái con mồi.
 
-1\. Gieo xúc xắc: Di chuyển bình thường như mọi khi.
 
-2\. Rút bài: Chấp nhận rủi ro rút một lá bài để nhận hiệu ứng đặc biệt.
 
+\*\*Chiến thắng\*\*
 
 
-Các loại Lá bài:
 
+Trò chơi kết thúc khi chỉ còn một người chơi sống sót. Nếu con gấu bắt được tất cả những người còn lại trong cùng một lượt, người đạt đến vị trí xa nhất sẽ thắng.
 
 
-\* Lực đẩy: Tiến lên 3 ô.
 
-\* Siêu lực đẩy: Tiến lên 5 ô.
+\*\*Các Lá bài\*\*
 
-\* Mệt mỏi: Giảm 1 điểm Năng lượng của Gấu (Tin tốt!).
 
-\* Cơn đói: Tăng 1 điểm Năng lượng của Gấu (Tin xấu!).
 
-\* Đẩy lùi: Bạn bị đẩy lùi lại 3 ô.
+Chỉ có thể rút tại các ô chia hết cho 5:
 
-\* Quà ngẫu nhiên: Bạn di chuyển ngẫu nhiên (tiến hoặc lùi) từ 1 đến 6 ô.
+\* \*\*Tăng tốc (Impulsion):\*\* Tiến lên 3 ô.
 
+\* \*\*Siêu tăng tốc (Super Impulsion):\*\* Tiến lên 5 ô.
 
+\* \*\*Mệt mỏi (Tiredness):\*\* Năng lượng của gấu giảm 1 (tối thiểu 1).
 
-Lượt của Gấu
+\* \*\*Cơn đói (Hunger):\*\* Năng lượng của gấu tăng 1.
 
+\* \*\*Đẩy lùi (Backward Push):\*\* Bị lùi về 3 ô (tối thiểu về 0).
 
+\* \*\*Quà ngẫu nhiên (Random Gift):\*\* Tiến đến hoặc lùi về một số ô ngẫu nhiên từ 1 đến 6.
 
-Sau khi tất cả người chơi đã di chuyển, Gấu sẽ bắt đầu đuổi theo.
 
 
+\*\*Ví dụ một lượt chơi\*\*
 
-1\. Gấu gieo một xúc xắc 3 mặt (1-3).
 
-2\. Gấu tiến lên một đoạn bằng: Số gieo được + Năng lượng hiện tại.
 
+Trò chơi bắt đầu. Minh và Thu đang ở vị trí 30, con gấu ở vị trí 0.
 
+Minh gieo xúc xắc được 4 và tiến đến vị trí 34.
 
-Tăng Năng lượng: Nếu Gấu gieo được mặt 3, Năng lượng của nó sẽ tăng thêm 1 vĩnh viễn (khiến nó chạy nhanh hơn ở các lượt sau).
+Thu đang ở vị trí 30 (ô chia hết cho 5) nên quyết định rút bài. Cô rút được lá \*\*Tăng tốc\*\* và tiến thêm 3 ô đến vị trí 33.
 
+Con gấu gieo được 2 + năng lượng 1 = di chuyển 3 ô đến vị trí 3.
 
 
-Bị Bắt
 
+Vài vòng sau, Minh đang ở vị trí 50 và Thu ở vị trí 48. Con gấu đang ở vị trí 45 với năng lượng là 5.
 
+Minh rút bài và gặp lá \*\*Đẩy lùi\*\*, bị lùi về vị trí 47.
 
-\* Nếu vị trí của Gấu lớn hơn hoặc bằng vị trí của bạn, bạn bị bắt và bị loại khỏi trò chơi.
+Thu gieo xúc xắc được 1 và tiến đến vị trí 49.
 
-\* Lưu ý: Nếu Gấu bắt được một ai đó, nó sẽ dừng lại để "đánh chén". Điều này làm Năng lượng của Gấu giảm đi 3 điểm (nhưng không thấp hơn 1).
+Con gấu gieo được mặt 3. Năng lượng của nó tăng lên 6, nhưng nó di chuyển 3 + 5 = 8 ô đến vị trí 53. Con gấu đã vượt qua cả Minh và Thu. Vì Thu đã đạt đến vị trí 49 còn Minh chỉ ở 47, nên Thu là người giành chiến thắng chung cuộc!
 
 
 
-Chiến thắng
+\*\*Phím tắt bàn phím\*\*
 
 
 
-\* Người chơi cuối cùng còn sống sót sẽ thắng.
+\* \*\*R:\*\* Gieo xúc xắc.
 
-\* Nếu tất cả mọi người cùng bị bắt trong một vòng, người chạy được quãng đường xa nhất sẽ thắng.
+\* \*\*D:\*\* Rút một lá bài.
 
-
-
-Phím tắt
-
-
-
-\* C: Kiểm tra trạng thái (Nghe vị trí của tất cả người chơi và Gấu).
-
-\* Enter: Thực hiện hành động trong menu (Gieo xúc xắc / Rút bài).
+\* \*\*C:\*\* Kiểm tra trạng thái của tất cả người chơi và con gấu.
 

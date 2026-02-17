@@ -1,66 +1,82 @@
-Trái Phải Giữa
+\*\*Trái Phải Giữa (Left Right Center)\*\*
 
 
 
-Trái Phải Giữa là một trò chơi xúc xắc tốc độ nhanh, nơi các chip (xu) được chuyển qua lại khắp bàn chơi. Mục tiêu là trở thành người cuối cùng còn giữ được chip!
+Trái Phải Giữa là một trò chơi xúc xắc nhanh dựa trên may mắn, nơi các chip sẽ được chuyển quanh bàn cho đến khi chỉ còn duy nhất một người chơi sở hữu chip.
 
 
 
-Mục tiêu
+Trong mỗi lượt, bạn sẽ gieo tối đa ba viên xúc xắc sáu mặt. Mỗi viên xúc xắc có các mặt: Trái, Phải, Giữa và 3 mặt Chấm (không có tác dụng). Các mặt Trái sẽ chuyển chip cho người bên trái bạn, mặt Phải chuyển cho người bên phải, mặt Giữa chuyển chip vào hũ ở giữa (loại khỏi cuộc chơi), và mặt Chấm có nghĩa là bạn được giữ lại chip đó.
 
 
 
-Trở thành người chơi cuối cùng còn lại chip trên tay.
+Người cuối cùng còn giữ chip sẽ giành chiến thắng.
 
 
 
-Thiết lập Trò chơi
+\*\*Cách chơi\*\*
 
 
 
-\* Số người chơi: 2 đến 20 người.
-
-\* Chip khởi điểm: Mỗi người chơi bắt đầu với một lượng chip nhất định (Mặc định: 3).
+PlayAural hỗ trợ từ 2 đến 20 người chơi cho trò chơi này. Khi bắt đầu, mỗi người nhận được một số lượng chip nhất định (mặc định là 3, có thể chỉnh từ 1 đến 10). Thứ tự lượt chơi diễn ra xoay vòng quanh bàn.
 
 
 
-Cách chơi
+Trong lượt của mình:
+
+Bạn gieo số lượng xúc xắc tương ứng với số chip bạn có, nhưng tối đa là 3 viên.
+
+\* Nếu bạn có từ 3 chip trở lên, bạn gieo 3 viên.
+
+\* Nếu bạn có 2 chip, bạn gieo 2 viên.
+
+\* Nếu bạn có 1 chip, bạn gieo 1 viên.
+
+\* Nếu bạn có 0 chip, bạn sẽ bị nhảy qua lượt, nhưng bạn chưa hẳn đã thua vì người khác vẫn có thể chuyển chip cho bạn sau đó.
 
 
 
-Đến lượt của mình, bạn sẽ gieo các viên xúc xắc đặc biệt. Số lượng xúc xắc bạn gieo phụ thuộc vào số chip bạn đang có (tối đa là 3 viên).
+Mỗi mặt xúc xắc sẽ di chuyển một chip:
+
+\* \*\*Trái (Left):\*\* Chuyển 1 chip cho người chơi bên trái bạn.
+
+\* \*\*Phải (Right):\*\* Chuyển 1 chip cho người chơi bên phải bạn.
+
+\* \*\*Giữa (Center):\*\* Bỏ 1 chip vào hũ giữa.
+
+\* \*\*Chấm (Dot):\*\* Giữ lại chip đó (không di chuyển).
 
 
 
-Đối với mỗi viên xúc xắc gieo được, mặt hiển thị sẽ quyết định số phận của chip:
+\*\*Ví dụ một lượt chơi\*\*
 
 
 
-\* L (Trái): Bạn chuyển một chip cho người chơi bên Trái.
+Bạn đang có 3 chip và gieo được: \*\*Trái, Giữa, Chấm\*\*.
 
-\* R (Phải): Bạn chuyển một chip cho người chơi bên Phải.
+1\. 1 chip được chuyển cho người bên trái.
 
-\* C (Giữa): Bạn bỏ một chip vào Hũ giữa. Những chip này sẽ bị loại khỏi cuộc chơi vĩnh viễn!
+2\. 1 chip được bỏ vào hũ giữa.
 
-\* Dấu chấm (•): Bạn được giữ lại chip của mình.
+3\. 1 chip bạn được giữ lại.
 
-
-
-Thắng và Thua
+Bạn kết thúc lượt với 1 chip còn lại.
 
 
 
-\* Hết chip chưa phải là hết: Nếu bạn mất hết chip, bạn chưa bị loại khỏi trò chơi! Bạn sẽ chỉ bị bỏ qua lượt gieo xúc xắc, nhưng vẫn có thể nhận chip từ người chơi bên trái hoặc bên phải chuyển sang. Nếu nhận được chip, bạn sẽ quay lại cuộc chơi và được gieo xúc xắc ở lượt tiếp theo.
-
-\* Người chiến thắng: Trò chơi kết thúc khi chỉ còn duy nhất một người chơi còn giữ chip. Người đó sẽ giành chiến thắng (và ăn toàn bộ chip trong hũ nếu chơi ăn tiền).
+\*\*Chiến thắng\*\*
 
 
 
-Phím tắt
+Trò chơi kết thúc ngay lập tức khi chỉ còn một người chơi duy nhất có chip. Người đó thắng cuộc, bất kể có bao nhiêu chip đang nằm trong hũ giữa.
 
 
 
-\* R: Gieo xúc xắc.
+\*\*Phím tắt bàn phím\*\*
 
-\* C: Kiểm tra số lượng chip trong Hũ giữa.
+
+
+\* \*\*R:\*\* Gieo xúc xắc.
+
+\* \*\*C:\*\* Kiểm tra số chip trong hũ giữa.
 

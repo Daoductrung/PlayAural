@@ -556,6 +556,15 @@ class PigGame(Game):
                 "is_individual": self.options.team_mode == "individual"
             })
 
+        winner_ids = []
+        if winner:
+            # Map member names to player IDs
+            active_players = self.get_active_players()
+            name_to_id = {p.name: p.id for p in active_players}
+            for member_name in winner.members:
+                if member_name in name_to_id:
+                    winner_ids.append(name_to_id[member_name])
+
         return GameResult(
             game_type=self.get_type(),
             timestamp=datetime.now().isoformat(),
@@ -570,6 +579,7 @@ class PigGame(Game):
             ],
             custom_data={
                 "winner_name": self._team_manager.get_team_name(winner) if winner else None,
+                "winner_ids": winner_ids,
                 "winner_score": winner.total_score if winner else 0,
                 "final_scores": final_scores,
                 "team_rankings": team_rankings,

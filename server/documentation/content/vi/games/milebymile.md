@@ -1,136 +1,94 @@
-Đường Đua Nghìn Dặm
+\*\*Đường Đua Nghìn Dặm (Mile by Mile)\*\*
 
 
 
-Đường Đua Nghìn Dặm là một trò chơi bài đua xe kinh điển dựa trên Mille Bornes. Mục tiêu là trở thành đội đầu tiên đi hết quãng đường quy định (thường là 1000 dặm) trong khi tìm cách cản trở đối thủ bằng các lá bài Nguy cơ.
+Đường Đua Nghìn Dặm là một trò chơi bài đua xe dựa trên trò chơi kinh điển Mille Bornes của Pháp, được tạo ra vào năm 1954. Cái tên này có nghĩa là "một nghìn cột mốc", ám chỉ các cột mốc cây số dọc theo các con đường ở Pháp.
 
 
 
-Mục tiêu
+Mục tiêu rất đơn giản: đưa xe của bạn về đích bằng cách đánh các lá bài dặm đường, đồng thời tung ra các lá bài nguy cơ để làm chậm đối thủ và sử dụng các lá khắc phục hoặc bảo hộ để giữ cho xe luôn chạy. Trò chơi diễn ra qua nhiều chặng đua cho đến khi có người đạt đủ điểm thắng cuộc.
 
 
 
-Đua để đạt chính xác 1000 dặm (mặc định) trước các đối thủ. Đội đầu tiên đạt tổng điểm 5000 qua nhiều vòng chơi sẽ chiến thắng chung cuộc.
+\*\*Cách chơi\*\*
 
 
 
-Cách chơi
+Mỗi chặng đua, mọi người chơi đều bắt đầu ở trạng thái dừng. Bạn phải đánh lá \*\*Đèn Xanh\*\* để có thể bắt đầu di chuyển. Trong lượt của mình, bạn rút một lá bài (tổng cộng 7 lá trên tay) và chọn đánh một lá hoặc bỏ một lá.
 
 
 
-Trong lượt của mình, bạn rút một lá bài và sau đó phải đánh ra hoặc bỏ đi một lá bài.
+\*\*Các Lá Bài Dặm Đường\*\*
 
+Giúp bạn tăng quãng đường đã đi: 25, 50, 75, 100 và 200 dặm.
 
+\* \*\*Di chuyển:\*\* Bạn chỉ có thể đánh lá dặm khi xe đang chạy (không bị đèn đỏ hay gặp sự cố).
 
-Các loại Lá bài
+\* \*\*Giới hạn tốc độ:\*\* Nếu bị dính lá này, bạn chỉ có thể đánh các lá 50 dặm trở xuống.
 
+\* \*\*Quy tắc lá 200 dặm:\*\* Bạn chỉ được phép sử dụng lá 200 dặm tối đa \*\*2 lần trong mỗi chặng đua\*\*.
 
+\* \*\*Về đích chính xác:\*\* Theo mặc định, bạn phải đạt đúng số dặm mục tiêu (ví dụ 1.000 dặm) chứ không được đi quá.
 
-1\. Lá Dặm đường (25, 50, 75, 100, 200 dặm)
 
-\* Dùng để di chuyển xe tiến về phía trước.
 
-\* Bạn phải có Đèn Xanh mới được bắt đầu di chuyển.
+\*\*Nguy Cơ và Khắc Phục\*\*
 
-\* Bạn không thể đánh lá dặm đường nếu đang bị dừng lại bởi một Sự cố (Nguy cơ).
+\* \*\*Đèn Đỏ / Đèn Xanh:\*\* Dừng xe.
 
-\* Giới hạn thẻ 200 dặm: Bạn chỉ được đánh tối đa hai lá 200 dặm trong mỗi vòng chơi.
+\* \*\*Giới Hạn Tốc Độ / Hết Giới Hạn:\*\* Chỉ được đi tối đa 50 dặm.
 
+\* \*\*Hết Xăng / Xăng:\*\* Dừng xe.
 
+\* \*\*Xịt Lốp / Lốp Dự Phòng:\*\* Dừng xe.
 
-2\. Lá Nguy cơ
+\* \*\*Tai Nạn / Sửa Chữa:\*\* Dừng xe.
 
-Là các đòn tấn công bạn đánh vào đối thủ để làm chậm họ lại.
 
-\* Đèn Đỏ: Dừng xe đối thủ. Họ cần có "Đèn Xanh" để đi tiếp.
 
-\* Giới Hạn Tốc Độ: Giới hạn tốc độ của đối thủ xuống tối đa 50 dặm/lượt.
+\*\*Các Lá Bảo Hộ\*\*
 
-\* Hết Xăng: Dừng xe đối thủ. Họ cần lá "Xăng" để khắc phục.
+Đây là những lá bài quyền năng bảo vệ bạn vĩnh viễn trong suốt chặng đua và cho bạn thêm một lượt đi ngay lập tức:
 
-\* Xịt Lốp: Dừng xe đối thủ. Họ cần lá "Lốp Dự Phòng".
+\* \*\*Thùng Xăng Phụ:\*\* Chống Hết Xăng.
 
-\* Tai Nạn: Dừng xe đối thủ. Họ cần lá "Sửa Chữa".
+\* \*\*Lốp Chống Đinh:\*\* Chống Xịt Lốp.
 
+\* \*\*Tay Lái Lụa:\*\* Chống Tai Nạn.
 
+\* \*\*Xe Ưu Tiên:\*\* Chống Đèn Đỏ và Giới Hạn Tốc Độ. Bạn sẽ không bao giờ cần đánh lá Đèn Xanh nữa.
 
-3\. Lá Khắc phục
 
-Dùng để sửa chữa các Nguy cơ mà đối thủ gây ra cho bạn.
 
-\* Đèn Xanh: Cho phép bạn di chuyển. Dùng để hóa giải "Đèn Đỏ" và cũng cần thiết để khởi hành lại sau khi đã sửa xong các sự cố khác (Xăng, Lốp, Tai nạn).
+\*\*Đòn Phản Công (Coup Fourré)\*\*
 
-\* Hết Giới Hạn: Hóa giải Giới Hạn Tốc Độ.
+Khi đối thủ đánh một lá nguy cơ lên bạn, bạn có một cửa sổ thời gian khoảng \*\*7 giây\*\* để nhấn phím \*\*D\*\* nếu bạn có lá bảo hộ tương ứng trên tay. Hành động này sẽ chặn đòn tấn công, cho bạn sự bảo hộ vĩnh viễn và tặng bạn 300 điểm thưởng vào cuối chặng đua.
 
-\* Xăng: Hóa giải Hết Xăng.
 
-\* Lốp Dự Phòng: Hóa giải Xịt Lốp.
 
-\* Sửa Chữa: Hóa giải Tai Nạn.
+\*\*Cách tính điểm\*\*
 
+\* \*\*Quãng đường:\*\* 1 điểm cho mỗi dặm đi được.
 
+\* \*\*Hoàn thành chuyến đi:\*\* 400 điểm.
 
-4\. Lá Bảo hộ
+\* \*\*Chuyến đi an toàn:\*\* 300 điểm (về đích mà không sử dụng bất kỳ lá 200 dặm nào).
 
-Là những lá bài mạnh nhất, mang lại khả năng miễn nhiễm vĩnh viễn.
+\* \*\*Thắng trắng:\*\* 500 điểm (đối thủ không đi được dặm nào).
 
-\* Xe Ưu Tiên: Miễn nhiễm/Hóa giải "Đèn Đỏ" và "Giới Hạn Tốc Độ". Bạn không bao giờ cần Đèn Xanh để di chuyển!
+\* \*\*Đòn phản công:\*\* 300 điểm cho mỗi lần thực hiện thành công.
 
-\* Thùng Xăng Phụ: Miễn nhiễm "Hết Xăng".
 
-\* Lốp Chống Đinh: Miễn nhiễm "Xịt Lốp".
 
-\* Tay Lái Lụa: Miễn nhiễm "Tai Nạn".
+\*\*Phím tắt bàn phím\*\*
 
+\* \*\*Enter:\*\* Đánh lá bài đang chọn.
 
+\* \*\*Shift+Enter:\*\* Bỏ lá bài đang chọn.
 
-Đòn Phản Công (Coup-fourré)
+\* \*\*D:\*\* Đánh Đòn Phản Công (Coup Fourré).
 
+\* \*\*S:\*\* Kiểm tra trạng thái.
 
-
-Nếu đối thủ đánh một lá Nguy cơ vào bạn, và trên tay bạn đang có lá Bảo hộ tương ứng, bạn có thể đánh nó ngay lập tức (kể cả khi chưa đến lượt) để tuyên bố Đòn Phản Công.
-
-\* Bạn sẽ nhận được 300 điểm thưởng.
-
-\* Sự cố bị hóa giải ngay lập tức.
-
-\* Bạn được đi thêm một lượt ngay sau đó.
-
-
-
-Chiến thắng Vòng chơi
-
-
-
-Vòng chơi kết thúc khi một đội đạt đủ quãng đường mục tiêu (1000 dặm).
-
-\* Yêu cầu chính xác: Bạn phải về đích với số dặm chính xác. Nếu một lá bài làm tổng dặm vượt quá đích, bạn không được đánh lá đó.
-
-
-
-Tùy chọn \& Biến thể
-
-
-
-\* Cho phép tấn công cộng dồn: Nếu bật, bạn có thể đánh chồng nhiều loại Nguy cơ lên đối thủ (ví dụ: làm họ Xịt Lốp trong khi họ đang Hết Xăng).
-
-\* Luật Nghiệp chướng (Giả Nhân Nghĩa): Nếu bật, bộ bài sẽ có thêm lá "Giả Nhân Nghĩa". Bạn không thể tấn công người đang giữ lá này. Nếu cố tình tấn công, đòn đánh sẽ thất bại!
-
-\* Chế độ Đội: Có thể chơi Cá nhân hoặc chia Đội (ví dụ: 2 đấu 2).
-
-
-
-Phím tắt
-
-
-
-\* Các phím số 1-6: Đánh lá bài ở vị trí tương ứng.
-
-\* Shift + Enter: Bỏ lá bài đang chọn.
-
-\* S: Kiểm tra trạng thái đơn giản (Số dặm/Sự cố) của các đội.
-
-\* Shift + S: Mở menu trạng thái chi tiết.
-
-\* D: Tuyên bố Đòn Phản Công khi bị tấn công.
+\* \*\*Shift+S:\*\* Xem bảng trạng thái chi tiết.
 

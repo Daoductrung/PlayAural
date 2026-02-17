@@ -227,6 +227,15 @@ class Game(
         """
         return []
 
+    @classmethod
+    def get_supported_leaderboards(cls) -> list[str]:
+        """Return list of supported built-in leaderboard types.
+
+        Options: "total_score", "high_score", "rating", "games_played"
+        Override to exclude types that don't make sense for the game.
+        """
+        return ["total_score", "high_score", "rating", "games_played"]
+
     def prestart_validate(self) -> list[str] | list[tuple[str, dict]]:
         """Validate game configuration before starting.
 

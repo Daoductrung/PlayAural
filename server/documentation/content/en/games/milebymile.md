@@ -1,136 +1,94 @@
-Mile by Mile
+\*\*Mile by Mile\*\*
 
 
 
-Mile by Mile is a classic racing card game based on Mille Bornes. The goal is to be the first team to reach the target distance (usually 1000 miles) while impeding your opponents with hazards.
+Mile by Mile is a racing card game based on the classic French game Mille Bornes, created in 1954 by Edmond Dujardin. The name translates to "a thousand milestones," referring to the kilometer markers along French roads.
 
 
 
-Objective
+The goal is to race your car to the finish line by playing distance cards, while throwing hazards at your opponents and using remedies and safeties to keep yourself moving. The first player or team to reach the winning score across multiple races takes the victory.
 
 
 
-Race to reach exactly 1000 miles (default) before your opponents. The first team to reach a total score of 5000 points across multiple rounds wins the match.
+\*\*Gameplay\*\*
 
 
 
-Gameplay
+Each race, every player starts stopped. You must play a \*\*Green Light\*\* to get moving. On your turn, you draw a card to bring your hand to 7 and then either play or discard one card.
 
 
 
-On your turn, you draw a card and must then play or discard one card.
+\*\*Distance Cards\*\*
 
+These add miles to your total: 25, 50, 75, 100, and 200 miles. 
 
+\* \*\*Movement:\*\* You can only play these when you are moving (no active hazards or stops).
 
-Card Types
+\* \*\*Speed Limit:\*\* If you have this hazard, you can only play 50 miles or less.
 
+\* \*\*The 200-Mile Rule:\*\* You are only allowed to use a 200-mile card \*\*twice per race\*\*.
 
+\* \*\*Perfect Crossing:\*\* By default, you must reach the target distance (e.g., 1,000 miles) exactly.
 
-1\. Distance Cards (25, 50, 75, 100, 200 miles)
 
-\* Played to advance your car.
 
-\* You must have a Green Light to start moving.
+\*\*Hazards and Remedies\*\*
 
-\* You cannot play distance cards if you are stopped by a Hazard.
+\* \*\*Stop / Green Light:\*\* Stops the car.
 
-\* 200 Mile limit: You can only play a maximum of two 200-mile cards per round.
+\* \*\*Speed Limit / End of Limit:\*\* Restricts distance cards to 50 miles.
 
+\* \*\*Out of Gas / Gasoline:\*\* Stops the car.
 
+\* \*\*Flat Tire / Spare Tire:\*\* Stops the car.
 
-2\. Hazards
+\* \*\*Accident / Repairs:\*\* Stops the car.
 
-Attacks you play on opponents to slow them down.
 
-\* Stop: Stops an opponent. They need a "Green Light" to move again.
 
-\* Speed Limit: Limits an opponent to 50 miles per turn.
+\*\*Safety Cards\*\*
 
-\* Out of Gas: Stops an opponent. They need "Gasoline".
+These provide permanent protection for the rest of the race and grant an extra turn:
 
-\* Flat Tire: Stops an opponent. They need a "Spare Tire".
+\* \*\*Extra Tank:\*\* Protects against Out of Gas.
 
-\* Accident: Stops an opponent. They need "Repairs".
+\* \*\*Puncture Proof:\*\* Protects against Flat Tire.
 
+\* \*\*Driving Ace:\*\* Protects against Accident.
 
+\* \*\*Right of Way:\*\* Protects against Stop and Speed Limit. You never need a Green Light again.
 
-3\. Remedies
 
-Used to fix Hazards played on you.
 
-\* Green Light: Allows you to move. Cures "Stop" and is needed to restart moving after fixing other hazards (Gas, Tire, Accident).
+\*\*Dirty Tricks (Coup Fourré)\*\*
 
-\* End of Limit: Cures Speed Limit.
+When an opponent plays a hazard on you, you have a \*\*7-second window\*\* to play the matching safety card from your hand by pressing \*\*D\*\*. This blocks the hazard and earns 300 bonus points at the end of the race.
 
-\* Gasoline: Cures Out of Gas.
 
-\* Spare Tire: Cures Flat Tire.
 
-\* Repairs: Cures Accident.
+\*\*Scoring\*\*
 
+\* \*\*Distance:\*\* 1 point per mile.
 
+\* \*\*Trip Complete:\*\* 400 points.
 
-4\. Safeties
+\* \*\*Safe Trip:\*\* 300 points (completing the race without using any 200-mile cards).
 
-Powerful cards that provide permanent immunity.
+\* \*\*Shut Out:\*\* 500 points (opponents have 0 miles).
 
-\* Right of Way: Prevents/Cures "Stop" and "Speed Limit". You never need a Green Light to move!
+\* \*\*Dirty Tricks:\*\* 300 points each.
 
-\* Extra Tank: Prevents "Out of Gas".
 
-\* Puncture Proof: Prevents "Flat Tire".
 
-\* Driving Ace: Prevents "Accident".
+\*\*Keyboard Shortcuts\*\*
 
+\* \*\*Enter:\*\* Play selected card.
 
+\* \*\*Shift+Enter:\*\* Discard selected card.
 
-Coup Fourré (Dirty Trick)
+\* \*\*D:\*\* Play a Dirty Trick (Coup Fourré).
 
+\* \*\*S:\*\* Check status.
 
-
-If an opponent plays a Hazard on you, and you have the corresponding Safety card in your hand, you can play it immediately (even if it's not your turn) to declare a Coup Fourré.
-
-\* You score 300 bonus points.
-
-\* The hazard is immediately removed.
-
-\* You get an extra turn immediately.
-
-
-
-Winning the Round
-
-
-
-The round ends when a team reaches the target distance (1000 miles).
-
-\* Exact count required: You must reach the target distance exactly. If a card would take you over, you cannot play it.
-
-
-
-Options \& Variants
-
-
-
-\* Allow Stacking Attacks: If enabled, you can stack multiple hazards on an opponent (e.g., giving them a Flat Tire while they are already Out of Gas).
-
-\* Karma Rule (False Virtue): If enabled, special "False Virtue" cards are added to the deck. You cannot play a Hazard on an opponent who holds a "False Virtue" card. If you try, the attack fails!
-
-\* Team Mode: Can be played Individually or in Teams (e.g., 2v2).
-
-
-
-Keyboard Shortcuts
-
-
-
-\* Numbers 1-6: Play card in slot 1-6.
-
-\* Shift + Enter: Discard the selected card.
-
-\* S: Check simple status (Miles/Hazards) of all teams.
-
-\* Shift + S: Open detailed status menu.
-
-\* D: Call a Coup Fourré (Dirty Trick) when attacked.
+\* \*\*Shift+S:\*\* Detailed status box.
 

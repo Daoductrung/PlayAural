@@ -1,70 +1,70 @@
-# Thông báo trò chơi Thương Vụ Đổi Chác (Tradeoff)
+# Tradeoff game messages
 
-# Thông tin trò chơi
-game-name-tradeoff = Thương Vụ Đổi Chác (Tradeoff)
+# Game info
+game-name-tradeoff = Tradeoff
 
-# Luồng vòng chơi và ván đấu
+# Round and iteration flow
 tradeoff-round-start = Vòng { $round }.
-tradeoff-iteration = Ván { $iteration } / 3.
+tradeoff-iteration = Lượt gieo { $iteration } trên 3.
 
-# Giai đoạn 1: Đổi chác
+# Phase 1: Trading
 tradeoff-you-rolled = Bạn gieo được: { $dice }.
 tradeoff-toggle-trade = { $value } ({ $status })
-tradeoff-trade-status-trading = đổi
-tradeoff-trade-status-keeping = giữ
-tradeoff-confirm-trades = Xác nhận đổi ({ $count } xúc xắc)
-tradeoff-keeping = Giữ { $value }.
-tradeoff-trading = Đổi { $value }.
+tradeoff-trade-status-trading = đang đổi
+tradeoff-trade-status-keeping = đang giữ
+tradeoff-confirm-trades = Xác nhận đổi ({ $count } viên)
+tradeoff-keeping = Đang giữ { $value }.
+tradeoff-trading = Đang đổi { $value }.
 tradeoff-player-traded = { $player } đã đổi: { $dice }.
 tradeoff-player-traded-none = { $player } giữ lại tất cả xúc xắc.
 
-# Giai đoạn 2: Lấy từ kho chung
-tradeoff-your-turn-take = Đến lượt bạn lấy một xúc xắc từ kho chung.
-tradeoff-take-die = Lấy con { $value } (còn { $remaining })
-tradeoff-you-take = Bạn lấy một con { $value }.
-tradeoff-player-takes = { $player } lấy một con { $value }.
+# Phase 2: Taking from pool
+tradeoff-your-turn-take = Đến lượt bạn lấy một viên xúc xắc từ hũ chung.
+tradeoff-take-die = Lấy viên { $value } (còn lại { $remaining })
+tradeoff-you-take = Bạn lấy một viên { $value }.
+tradeoff-player-takes = { $player } lấy một viên { $value }.
 
-# Giai đoạn 3: Tính điểm
+# Phase 3: Scoring
 tradeoff-player-scored = { $player } ({ $points } điểm): { $sets }.
 tradeoff-no-sets = { $player }: không có bộ nào.
 
-# Mô tả các bộ (ngắn gọn)
+# Set descriptions (concise)
 tradeoff-set-triple = bộ ba con { $value }
-tradeoff-set-group = nhóm các con { $value }
-tradeoff-set-mini-straight = sảnh nhỏ { $low }-{ $high }
-tradeoff-set-double-triple = hai bộ ba (con { $v1 } và { $v2 })
+tradeoff-set-group = nhóm con { $value }
+tradeoff-set-mini-straight = sảnh mini { $low }-{ $high }
+tradeoff-set-double-triple = bộ ba đôi ({ $v1 } và { $v2 })
 tradeoff-set-straight = sảnh { $low }-{ $high }
-tradeoff-set-double-group = hai nhóm (con { $v1 } và { $v2 })
-tradeoff-set-all-groups = tất cả theo nhóm
-tradeoff-set-all-triplets = tất cả là bộ ba
+tradeoff-set-double-group = nhóm đôi ({ $v1 } và { $v2 })
+tradeoff-set-all-groups = tất cả nhóm
+tradeoff-set-all-triplets = tất cả bộ ba
 
-# Kết thúc vòng
-tradeoff-round-scores = Điểm số Vòng { $round }:
+# Round end
+tradeoff-round-scores = Điểm vòng { $round }:
 tradeoff-score-line = { $player }: +{ $round_points } (tổng: { $total })
-tradeoff-leader = { $player } dẫn đầu với { $score }.
+tradeoff-leader = { $player } đang dẫn đầu với { $score } điểm.
 
-# Kết thúc trò chơi
+# Game end
 tradeoff-winner = { $player } thắng với { $score } điểm!
 tradeoff-winners-tie = Hòa nhau! { $players } cùng đạt { $score } điểm!
 
-# Kiểm tra trạng thái
+# Status checks
 tradeoff-view-hand = Xem xúc xắc trên tay
-tradeoff-view-pool = Xem kho chung
+tradeoff-view-pool = Xem hũ chung
 tradeoff-view-players = Xem người chơi
-tradeoff-hand-display = Tay bạn ({ $count } xúc xắc): { $dice }
-tradeoff-pool-display = Kho chung ({ $count } xúc xắc): { $dice }
+tradeoff-hand-display = Tay của bạn ({ $count } viên): { $dice }
+tradeoff-pool-display = Hũ chung ({ $count } viên): { $dice }
 tradeoff-player-info = { $player }: { $hand }. Đã đổi: { $traded }.
-tradeoff-player-info-no-trade = { $player }: { $hand }. Không đổi gì.
+tradeoff-player-info-no-trade = { $player }: { $hand }. Không đổi viên nào.
 
-# Thông báo lỗi
-tradeoff-not-trading-phase = Không phải giai đoạn đổi chác.
+# Error messages
+tradeoff-not-trading-phase = Không phải giai đoạn đổi xúc xắc.
 tradeoff-not-taking-phase = Không phải giai đoạn lấy xúc xắc.
 tradeoff-already-confirmed = Đã xác nhận rồi.
-tradeoff-no-die = Không có xúc xắc nào để chọn.
+tradeoff-no-die = Không có viên nào để chọn.
 tradeoff-no-more-takes = Không còn lượt lấy nào.
-tradeoff-not-in-pool = Xúc xắc đó không có trong kho.
+tradeoff-not-in-pool = Viên xúc xắc đó không có trong hũ chung.
 
-# Tùy chọn
+# Options
 tradeoff-set-target = Điểm mục tiêu: { $score }
 tradeoff-enter-target = Nhập điểm mục tiêu:
-tradeoff-option-changed-target = Điểm mục tiêu được đặt là { $score }.
+tradeoff-option-changed-target = Điểm mục tiêu đã đặt là { $score }.

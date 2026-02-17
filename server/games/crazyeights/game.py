@@ -127,6 +127,10 @@ class CrazyEightsGame(Game, TurnTimerMixin):
     def get_max_players(cls) -> int:
         return 8
 
+    @classmethod
+    def get_supported_leaderboards(cls) -> list[str]:
+        return ["rating", "games_played"]
+
     def create_player(self, player_id: str, name: str, is_bot: bool = False) -> CrazyEightsPlayer:
         return CrazyEightsPlayer(id=player_id, name=name, is_bot=is_bot)
 
@@ -1289,6 +1293,7 @@ class CrazyEightsGame(Game, TurnTimerMixin):
             ],
             custom_data={
                 "winner_name": winner.name if winner else None,
+                "winner_ids": [winner.id] if winner else [],
                 "winner_score": winner.score if winner else 0,
                 "final_scores": final_scores,
             },

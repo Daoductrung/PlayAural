@@ -1,66 +1,82 @@
-Left Right Center
+\*\*Left Right Center\*\*
 
 
 
-Left Right Center (LRC) is a fast-paced dice game of chance where chips are passed around the table. The goal is to be the last player holding any chips!
+Left Right Center is a fast luck-based dice game where chips move around the table until only one player still has any left. 
 
 
 
-Objective
+On each turn, you roll up to three six-sided dice. Each die has a Left, Right, and Center side as well as 3 dots which do nothing. Dice showing Left pass chips to the player on your left, Right pass chips to the player on your right, Center moves chips into the center pot (out of play), and Dot means you keep that chip.
 
 
 
-Be the last player remaining with chips.
+The last player with any chips wins.
 
 
 
-Game Setup
+\*\*Gameplay\*\*
 
 
 
-\* Players: 2 to 20.
-
-\* Chips: Each player starts with a set amount of chips (Default: 3).
+PlayAural Left Right Center supports 2 to 20 players. At the start of the game, each player receives a configurable number of chips (default 3, range 1 to 10). Turn order then proceeds normally around the table.
 
 
 
-Gameplay
+On your turn:
+
+You roll a number of dice equal to the lower of 3 and your current chip count.
+
+\* If you have 3+ chips, you roll 3 dice.
+
+\* If you have 2 chips, you roll 2 dice.
+
+\* If you have 1 chip, you roll 1 die.
+
+\* If you have 0 chips, your turn is skipped, but you are not necessarily out of the game as someone might pass you a chip later.
 
 
 
-On your turn, you roll specialized dice. The number of dice you roll is determined by how many chips you currently have (up to a maximum of 3 dice).
+Each die result moves one chip:
+
+\* \*\*Left:\*\* Pass 1 chip to the player on your left.
+
+\* \*\*Right:\*\* Pass 1 chip to the player on your right.
+
+\* \*\*Center:\*\* Move 1 chip to the center pot.
+
+\* \*\*Dot:\*\* Keep that chip (no movement).
 
 
 
-For each die rolled, the face determines where your chip goes:
+\*\*Example Turn\*\*
 
 
 
-\* L (Left): You pass one chip to the player on your left.
+You start with 3 chips and roll: \*\*Left, Center, Dot\*\*.
 
-\* R (Right): You pass one chip to the player on your right.
+1\. 1 chip goes to the player on your left.
 
-\* C (Center): You put one chip into the Center Pot. These chips are removed from play forever!
+2\. 1 chip goes into the center pot.
 
-\* Dot (•): You keep your chip.
+3\. 1 chip stays with you.
 
-
-
-Losing \& Winning
+You end the turn with 1 chip.
 
 
 
-\* Staying Alive: If you lose all your chips, you are not out of the game! You skip your turn (since you can't roll), but you can still receive chips from the players on your left or right. If you receive chips, you are back in the game and can roll again on your next turn.
-
-\* The Winner: The winner is determined when only one player has chips remaining. That player wins the game (and collects the pot).
+\*\*Winning\*\*
 
 
 
-Keyboard Shortcuts
+The game ends immediately when only one active player still has chips. That player wins, regardless of how many chips are in the center pot.
 
 
 
-\* R: Roll dice.
+\*\*Keyboard Shortcuts\*\*
 
-\* C: Check current Center Pot size.
+
+
+\* \*\*R:\*\* Roll dice.
+
+\* \*\*C:\*\* Read the current center pot.
 

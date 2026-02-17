@@ -1,94 +1,74 @@
-Light Turret
+\*\*Light Turret\*\*
 
 
 
-Light Turret is a strategic resource management game where you manage a turret's energy levels. The goal is to accumulate as much Light as possible without overloading your system!
+Light Turret is a resource management game for 2 to 4 players, blending risk and reward in a strategic push-your-luck format. The concept is simple: you manage a turret, shooting it to accumulate light and coins. But be careful — if your light exceeds your turret's power capacity, you are eliminated.
 
 
 
-Objective
+The goal is to finish the game with the most light. You can spend coins on upgrades to raise your power limit, giving yourself more room to keep shooting. However, upgrades carry a 25% chance of backfiring and adding light to your turret instead. The game runs for a set number of rounds, and whoever has the most light at the end wins.
 
 
 
-Collect the most Light by the end of the game.
+\*\*Gameplay\*\*
 
 
 
-Resources
+The game is divided into rounds, in which every surviving player takes a turn. On your turn, you have two main choices: shoot the turret or buy an upgrade.
 
 
 
-\* Light: Your score. Gained by shooting.
+\*\*Shooting\*\*
 
-\* Power: Your capacity limit. If your Light exceeds your Power, you overload and are eliminated.
-
-\* Coins: Currency used to buy upgrades. You earn coins by shooting.
+Shooting the turret is the core action. When you shoot, you gain a random amount of light (between 1 and 4) and earn coins equal to twice the light gained. For example, if you gain 3 light, you also pocket 6 coins. If your total light exceeds your power, you are eliminated on the spot. Your light total still counts toward the final standings, but you can no longer take turns.
 
 
 
-Gameplay
+\*\*Upgrading\*\*
+
+If you have at least 10 coins, you can spend them on a power upgrade. 
+
+\* \*\*Success:\*\* Increases your power by a random amount between 2 and 8.
+
+\* \*\*Backfire (25% chance):\*\* Instead of gaining power, a random amount of light (between 1 and 5) is added to your turret. This can result in elimination.
 
 
 
-On your turn, you must choose one of two actions:
+\*\*Game End\*\*
 
 
 
-1\. Shoot (Space)
+The game ends when one of two conditions is met:
 
-Fire your turret to generate resources.
+1\. The maximum number of rounds is reached (default: 50).
 
-\* You gain 1-4 Light.
-
-\* You gain Coins equal to double the Light gained.
-
-\* Warning: If this shot increases your Light above your current Power, you explode!
+2\. All players have been eliminated.
 
 
 
-2\. Upgrade (U)
-
-Spend 10 Coins to try and increase your capacity.
-
-\* Success (75% chance): Your Power increases by 2-8. This allows you to store more Light safely.
-
-\* Accident (25% chance): The upgrade backfires! Instead of Power, you gain 1-5 Light. This is dangerous as it might cause an overload!
+The player with the most accumulated light wins. Eliminated players are still ranked by their light total, so getting eliminated early doesn't always mean you will finish last.
 
 
 
-Elimination
+\*\*Example Turn\*\*
 
 
 
-You are eliminated if your Light > Power at any moment. Eliminated players are out of the game.
+You start with the default power of 10. You currently have 6 light and 8 coins. 
+
+1\. You decide to shoot. You gain 3 light (total 9) and 6 coins (total 14). You are now at 9/10 capacity.
+
+2\. Next round, you spend 10 coins on an upgrade. It succeeds, granting 5 extra power. Your power is now 15, and your light remains at 9. You now have 6 points of "headroom" to continue shooting safely.
 
 
 
-Winning
+\*\*Keyboard Shortcuts\*\*
 
 
 
-The game ends when the maximum number of rounds is reached or when all players are eliminated. The player with the highest Light score wins.
+\* \*\*Space:\*\* Shoot the turret.
 
+\* \*\*U:\*\* Buy an upgrade (costs 10 coins).
 
-
-Options \& Variants
-
-
-
-\* Starting Power: Maximum Light limit before exploding (Default: 10).
-
-\* Max Rounds: Length of the game (Default: 50 turns).
-
-
-
-Keyboard Shortcuts
-
-
-
-\* Space: Shoot.
-
-\* U: Buy Upgrade (Requires 10 Coins).
-
-\* C: Check current stats (Power, Light, Coins).
+\* \*\*C:\*\* Check stats for all players.
 

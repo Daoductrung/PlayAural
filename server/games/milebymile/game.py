@@ -100,6 +100,10 @@ class MileByMileGame(Game):
     def get_max_players(cls) -> int:
         return 9
 
+    @classmethod
+    def get_supported_leaderboards(cls) -> list[str]:
+        return ["rating", "games_played"]
+
     def create_player(
         self, player_id: str, name: str, is_bot: bool = False
     ) -> MileByMilePlayer:
@@ -1622,7 +1626,7 @@ class MileByMileGame(Game):
         else:
             self.discard_pile.append(card)
 
-        self.broadcast_l("milebymile-discards", player=player.name)
+        self._broadcast_card_message("milebymile-discards", card, player=player.name)
         self.play_sound(f"game_cards/discard{random.randint(1, 3)}.ogg")
         self._end_turn()
 
@@ -2268,3 +2272,59 @@ class MileByMileGame(Game):
             return 50
 
         return 100
+
+    def build_game_result(self) -> GameResult:
+        """Build the game result for Mile by Mile."""
+        # Calculate winner based on race_winner_team_index
+        winner_team_idx = getattr(self, "race_winner_team_index", None)
+        winner_ids = []
+        winner_name = None
+        winner_team_idx = getattr(self, "race_winner_team_index", None)
+
+        final_scores = {}
+        # Calculate team scores/progress
+        for i, team in enumerate(self._team_manager.teams):
+            if i < len(self.race_states):
+                race_state = self.race_states[i]
+            # Use miles as the primary score for now, but team.total_score tracks points across rounds?
+            # MileByMile might not be tracking total score correctly across rounds yet if not implemented fully.
+            # But let's check what Pig does.
+            # For now, let's use the team total score if available, or just miles if single round?
+            # The game seems to have multiple rounds ("race_winner_team_index").
+            
+            # Use total_score from TeamManager which accumulates points
+            final_scores[self._team_manager.get_team_name(team)] = team.total_score
+            
+            if winner_team_idx is not None and i == winner_team_idx:
+                winner_name = self._team_manager.get_team_name(team)
+                
+                # Map members to IDs
+                active_players = self.get_active_players()
+                name_to_id = {p.name: p.id for p in active_players}
+                for member_name in team.members:
+                    if member_name in name_to_id:
+                        winner_ids.append(name_to_id[member_name])
+                        
+        winner_score = final_scores.get(winner_name, 0) if winner_name else 0
+
+        result = GameResult(
+            game_type=self.get_type(),
+            timestamp=datetime.now().isoformat(),
+            duration_ticks=self.sound_scheduler_tick,
+            player_results=[
+                PlayerResult(
+                    player_id=p.id,
+                    player_name=p.name,
+                    is_bot=p.is_bot,
+                )
+                for p in self.get_active_players()
+            ],
+            custom_data={
+                "winner_name": winner_name,
+                "winner_ids": winner_ids if winner_ids else None,
+                "winner_score": winner_score,
+                "final_scores": final_scores,
+                "team_mode": self.options.team_mode,
+            },
+        )
+        return result

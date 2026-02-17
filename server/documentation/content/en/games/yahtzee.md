@@ -1,50 +1,72 @@
-Yahtzee
+\*\*Yahtzee\*\*
 
-Yahtzee is a classic dice game played with five dice. The player's objective is to score points by rolling five dice to make certain combinations. The dice can be rolled up to three times in a turn to try to make various scoring combinations.
 
-Objective
 
-The game consists of 13 rounds. In each round, you roll the dice and then score the roll in one of 13 categories. You must score once in each category. The objective is to get the highest total score.
+Yahtzee is a classic dice game that has been a household staple since 1956. It is a game of strategy, probability, and luck. The goal is to roll five dice to fill in 13 scoring categories on your scoresheet. Each category can only be used once, so deciding when to score or "scratch" a category is the heart of the game.
 
-Gameplay
 
-On your turn, you have up to 3 rolls:
 
-1.  **First Roll**: Roll all 5 dice.
-2.  **Second and Third Rolls**: You may choose to keep any dice you want and re-roll the rest.
+The player with the highest total score at the end of 13 rounds wins.
 
-After your rolls (or whenever you choose to stop), you must assign your dice to one of the 13 scoring categories.
 
-Scoring Categories
 
-**Upper Section**
-If you score a total of at least 63 points in the Upper Section, you get a bonus of 35 points!
+\*\*Gameplay\*\*
 
-*   **Ones**: Sum of dice with the number 1.
-*   **Twos**: Sum of dice with the number 2.
-*   **Threes**: Sum of dice with the number 3.
-*   **Fours**: Sum of dice with the number 4.
-*   **Fives**: Sum of dice with the number 5.
-*   **Sixes**: Sum of dice with the number 6.
 
-**Lower Section**
 
-*   **Three of a Kind**: At least 3 dice of the same face value. Score: Sum of all 5 dice.
-*   **Four of a Kind**: At least 4 dice of the same face value. Score: Sum of all 5 dice.
-*   **Full House**: 3 of one number and 2 of another. Score: 25 points.
-*   **Small Straight**: 4 consecutive numbers (e.g., 1-2-3-4). Score: 30 points.
-*   **Large Straight**: 5 consecutive numbers (e.g., 1-2-3-4-5). Score: 40 points.
-*   **Yahtzee**: 5 of a kind. Score: 50 points.
-    *   **Yahtzee Bonus**: If you roll another Yahtzee after filling the Yahtzee category with 50, you get 100 bonus points!
-*   **Chance**: Any combination. Score: Sum of all 5 dice.
+The game supports 1 to 4 players. On your turn, you can roll the dice up to three times.
 
-Options
+1\. \*\*First Roll:\*\* Roll all five dice.
 
-*   **Rounds**: Number of games to play in a row (Default: 1).
+2\. \*\*Rerolls:\*\* After the first and second rolls, you can choose to keep any number of dice and reroll the rest.
 
-Keyboard Shortcuts
+3\. \*\*Scoring:\*\* After your third roll (or sooner if you are satisfied), you must choose one of your 13 categories to record a score. If your dice don't fit the category, you receive a 0.
 
-*   **R**: Roll dice.
-*   **1-5**: Toggle which dice to keep/hold.
-*   **D**: View current dice.
-*   **C**: View your scoresheet.
+
+
+\*\*Scoring Categories\*\*
+
+
+
+\*\*Upper Section\*\*
+
+You score the sum of the dice matching the category (Ones, Twos, Threes, Fours, Fives, Sixes).
+
+\* \*\*Bonus:\*\* If the total of your Upper Section is \*\*63 or higher\*\*, you receive a \*\*35-point bonus\*\*.
+
+
+
+\*\*Lower Section\*\*
+
+\* \*\*Three of a Kind / Four of a Kind:\*\* Sum of all five dice.
+
+\* \*\*Full House:\*\* 25 points (3 of one value, 2 of another).
+
+\* \*\*Small Straight:\*\* 30 points (4 consecutive numbers).
+
+\* \*\*Large Straight:\*\* 40 points (5 consecutive numbers).
+
+\* \*\*Yahtzee:\*\* 50 points (All 5 dice the same).
+
+\* \*\*Chance:\*\* Sum of all five dice (use for any roll).
+
+
+
+\*\*Yahtzee Bonus\*\*
+
+If you roll another Yahtzee after already scoring 50 in the Yahtzee category, you earn a \*\*100-point bonus\*\*.
+
+
+
+\*\*Keyboard Shortcuts\*\*
+
+
+
+\* \*\*R:\*\* Roll the dice.
+
+\* \*\*1-5:\*\* Toggle keeping/rerolling individual dice by position.
+
+\* \*\*D:\*\* View current dice and which ones are kept.
+
+\* \*\*C:\*\* View your scoresheet.
+

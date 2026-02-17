@@ -110,6 +110,13 @@ online-users-one = 1 user: { $users }
 online-users-many = { $count } users: { $users }
 online-user-not-in-game = Not in game
 online-user-waiting-approval = Waiting for approval
+user-role-dev = Developer
+user-role-admin = Admin
+user-role-user = User
+client-type-web = Web
+client-type-desktop = Desktop
+client-type-python = Python
+online-user-full-entry = { $username } ({ $role }, { $client }): { $status }
 
 # Options
 language = Language

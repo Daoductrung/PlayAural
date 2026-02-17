@@ -1,121 +1,90 @@
-Cướp Biển Vùng Biển Thất Lạc
+\*\*Cướp Biển Vùng Biển Mất Tích (Pirates of the Lost Seas)\*\*
 
 
 
-Tiến ra biển lớn trong cuộc phiêu lưu nhập vai (RPG) phức tạp này! Giong buồm qua 4 đại dương rộng lớn, thu thập đá quý, chiến đấu với những tên cướp biển khác và lên cấp để mở khóa các kỹ năng mạnh mẽ.
+Cướp Biển Vùng Biển Mất Tích là một trò chơi phiêu lưu phong cách nhập vai dành cho 2 đến 5 người chơi. Bạn sẽ dong buồm trên bản đồ gồm 40 ô trải dài qua bốn đại dương ngẫu nhiên, thu thập đá quý và chiến đấu với các cướp biển khác bằng đại bác. Trong quá trình chơi, bạn sẽ nhận được điểm kinh nghiệm (XP) để lên cấp và mở khóa các kỹ năng mạnh mẽ.
 
 
 
-Mục Tiêu
+Mục tiêu là có số điểm cao nhất khi tất cả 18 viên đá quý đã được thu thập. Điểm số hoàn toàn dựa trên giá trị các viên đá bạn giữ vào cuối trò chơi, vì vậy việc tấn công người khác để cướp đá quý là một chiến thuật rất quan trọng.
 
 
 
-Trò chơi kết thúc khi tất cả 18 viên Đá quý đã được thu thập. Người chơi có điểm số cao nhất sẽ chiến thắng!
+\*\*Cách chơi\*\*
 
 
 
-\* Đá quý thường: 1 Điểm.
+Trò chơi chia thành các vòng, mỗi người chơi thực hiện một lượt. Trong lượt của mình, bạn chọn một hành động: di chuyển đến ô lân cận, bắn đại bác vào đối thủ hoặc sử dụng kỹ năng đã mở khóa.
 
-\* Đá quý hiếm: 2 Điểm.
 
-\* Đá quý huyền thoại: 3 Điểm.
 
+\*\*Bản đồ \& Di chuyển\*\*
 
+Bản đồ gồm 40 ô chia thành 4 đại dương. Bạn bắt đầu ở một vị trí ngẫu nhiên. Khi lên cấp, bạn có thể đi xa hơn trong một lượt:
 
-Cách Chơi
+\* \*\*Cấp 0+:\*\* Đi 1 ô sang trái hoặc phải.
 
+\* \*\*Cấp 15+:\*\* Đi tối đa 2 ô.
 
+\* \*\*Cấp 150+:\*\* Đi tối đa 3 ô.
 
-Di Chuyển \& Bản Đồ
 
-Thế giới bao gồm 4 đại dương ngẫu nhiên được nối liền nhau (Tổng cộng 40 ô).
 
+\*\*Đá quý\*\*
 
-\* Cấp 15+: Mở khóa di chuyển 2 ô cùng lúc.
+Có 18 viên đá quý nằm rải rác:
 
-\* Cấp 150+: Mở khóa di chuyển 3 ô cùng lúc.
+\* \*\*Đá quý thường (1 điểm):\*\* Ngọc mắt mèo, Hồng ngọc, Kim cương, v.v.
 
+\* \*\*Đá quý hiếm (2 điểm):\*\* Ngọc cung điện, Ngọc xanh tuyệt đỉnh, v.v.
 
+\* \*\*Đá quý huyền thoại (3 điểm):\*\* Ngọc trai đen chắc chắn không bị nguyền rủa (tm).
 
-Đá Quý \& Lên Cấp
+Khi bạn dừng chân tại ô có đá quý, bạn sẽ tự động thu thập nó. Trò chơi kết thúc khi viên đá cuối cùng được tìm thấy.
 
-\* Tìm Đá Quý: Di chuyển vào ô có đá quý để tự động thu thập.
 
-\* XP: Bạn nhận XP bằng cách di chuyển, tìm đá quý và chiến đấu. Cướp biển cấp cao sẽ mở khóa các kỹ năng mạnh mẽ!
 
-\* Trăng Vàng: Mỗi vòng thứ 3, Trăng Vàng sẽ lên, nhân ba tất cả XP nhận được!
+\*\*Chiến đấu\*\*
 
+Bạn có thể bắn đại bác vào bất kỳ người chơi nào trong phạm vi 5 ô.
 
+\* \*\*Công/Thủ:\*\* Cả hai bên đổ xúc xắc d6 và cộng thưởng kỹ năng. Nếu bên tấn công cao điểm hơn, đó là một cú bắn trúng.
 
-Chiến Đấu
+\* \*\*Khi bắn trúng:\*\* Bạn nhận XP và chọn \*\*Đẩy lùi\*\* đối thủ (3-8 ô) hoặc \*\*Trộm\*\* đá quý (nếu chủ bàn bật tính năng này).
 
-Bạn có thể tấn công cướp biển khác bằng Đại bác nếu họ ở trong tầm (Mặc định: 5 ô).
+\* \*\*Khi bắn trượt:\*\* Người phòng thủ sẽ nhận được XP vì đã chống trả thành công.
 
-\* Gieo Tấn công/Phòng thủ: Ngẫu nhiên 1-6 + Thưởng Kỹ năng.
 
-\* Trúng: Bạn nhận XP và có thể chọn Đổ bộ lên tàu địch.
 
-   \* Đẩy: Đẩy họ đi 3-8 ô (Trái hoặc Phải) để làm rối loạn vị trí của họ.
+\*\*Kinh nghiệm và Trăng Vàng\*\*
 
-   \* Cướp đá quý: Gieo xúc xắc để cố gắng cướp một viên đá quý ngẫu nhiên từ họ!
+\* \*\*Nguồn XP:\*\* Tìm thấy đá quý, bắn trúng đối thủ hoặc phòng thủ thành công.
 
+\* \*\*Trăng Vàng:\*\* Cứ mỗi 3 vòng, Trăng Vàng sẽ hiện ra, nhân ba toàn bộ XP nhận được.
 
+\* \*\*Lên cấp:\*\* Mỗi cấp yêu cầu (Cấp độ x 20) XP.
 
-Kỹ Năng
 
 
+\*\*Kỹ năng\*\*
 
-Khi lên cấp, bạn sẽ mở khóa các khả năng mới:
+\* \*\*Cấp 10:\*\* Bản năng thủy thủ (Xem tình trạng khám phá bản đồ).
 
+\* \*\*Cấp 25:\*\* Cổng dịch chuyển (Dịch chuyển đến vùng biển của người chơi khác).
 
+\* \*\*Cấp 40:\*\* Máy dò đá quý (Tiết lộ vị trí đá quý - dùng 3 lần).
 
-\* Cấp 0: Bắn Đại Bác (Tấn công cơ bản).
+\* \*\*Cấp 60-90:\*\* Kỹ năng bổ trợ (Kiếm sĩ, Đẩy lùi, Thuyền trưởng tài ba để tăng chỉ số chiến đấu).
 
-\* Cấp 10: Trực Giác Thủy Thủ (Kiểm tra các khu vực bản đồ để tìm người chơi/khám phá).
+\* \*\*Cấp 125:\*\* Thiết giáp hạm (Bắn hai phát đại bác trong một lượt).
 
-\* Cấp 25: Cổng Dịch Chuyển (Dịch chuyển tới một đại dương đang có người).
+\* \*\*Cấp 200:\*\* Song trùng tàn phá (Gấp đôi tầm bắn lên 10 ô).
 
-\* Cấp 40: Tìm Đá Quý (Tiết lộ vị trí của một viên đá quý).
 
-\* Cấp 60: Kiếm Sĩ (+4 Tấn công trong 3 lượt).
 
-\* Cấp 75: Đẩy Lùi (+3 Phòng thủ trong 4 lượt).
+\*\*Phím tắt bàn phím\*\*
 
-\* Cấp 90: Thuyền Trưởng Tài Ba (+2 Công \& +2 Thủ trong 4 lượt).
+\* \*\*P:\*\* Kiểm tra vị trí và đại dương hiện tại.
 
-\* Cấp 125: Chiến Hạm (Bắn 2 quả đại bác trong một lượt).
-
-\* Cấp 200: Hủy Diệt Kép (Tăng tầm bắn lên 10 ô).
-
-
-
-Tùy Chọn \& Biến Thể
-
-
-
-\* Hệ số XP chiến đấu: Điều chỉnh lượng XP nhận được từ việc chiến đấu.
-
-\* Hệ số XP tìm đá quý: Điều chỉnh lượng XP nhận được từ việc tìm đá quý.
-
-\* Cướp đá quý:
-
-   \* Có cộng điểm thưởng: Điểm thưởng kỹ năng được áp dụng khi gieo xúc xắc cướp (Mặc định).
-
-   \* Không cộng điểm thưởng: Gieo xúc xắc phẳng (không cộng thêm chỉ số).
-
-   \* Tắt: Không cho phép cướp đá quý.
-
-
-
-Phím Tắt
-
-
-
-* Lên/Xuống: Điều hướng menu.
-
-\* Enter: Chọn hành động / Bắn Đại Bác.
-
-\* P: Kiểm tra vị trí tuyệt đối.
-
-\* M: Kiểm tra trạng thái Trăng Vàng (nếu đang kích hoạt).
+\* \*\*M:\*\* Kiểm tra độ sáng Trăng Vàng (khi đang kích hoạt).
 

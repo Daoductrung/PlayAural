@@ -34,7 +34,7 @@ milebymile-cant-play = You can't play { $card } because { $reason }.
 milebymile-no-card-selected = No card selected to discard.
 milebymile-no-valid-targets = No valid targets for this hazard!
 milebymile-you-drew = You drew: { $card }
-milebymile-discards = { $player } discards a card.
+milebymile-discards = { $player } discards { $card }.
 milebymile-select-target = Select a target
 
 # Distance plays

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'playaural-v3.1-minimal';
+const CACHE_NAME = 'playaural-v3.2-minimal';
 
 // Minimal impact: only cache core files to ensure installability
 // We do NOT preload large assets.

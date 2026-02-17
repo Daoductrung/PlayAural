@@ -1,80 +1,72 @@
-Bài Chổi (Scopa)
+\*\*Scopa\*\*
 
 
 
-Bài Chổi (Scopa) là một trò chơi bài cổ điển của Ý sử dụng bộ bài 40 lá. Mục tiêu là ăn các lá bài trên bàn bằng cách khớp giá trị hoặc tổng giá trị của chúng, và cuối cùng ghi điểm dựa trên số bài đã thu thập.
+Scopa là một trò chơi bài cổ điển của Ý có nguồn gốc từ ít nhất là thế kỷ 18. Cái tên này trong tiếng Ý có nghĩa là "cái chổi", ám chỉ hành động quét sạch tất cả các lá bài trên bàn. Đây là một trong những trò chơi phổ biến nhất tại Ý và có nhiều biến thể khác nhau khắp vùng Địa Trung Hải.
 
 
 
-Mục Tiêu
+Mục tiêu của trò chơi là ăn các lá bài trên bàn bằng cách đánh một lá bài từ tay mình sao cho nó khớp với hạng của lá bài trên bàn, hoặc có giá trị bằng tổng của nhiều lá bài trên bàn. Người chơi (hoặc đội) đầu tiên đạt đến điểm mục tiêu sẽ giành chiến thắng.
 
 
 
-Ghi điểm để đạt được Điểm mục tiêu (mặc định: 11). Điểm được tính vào cuối mỗi vòng cho các thành tích sau:
+\*\*Cách chơi\*\*
 
 
 
-\* Scopa (Quét sạch): Dọn sạch tất cả bài trên bàn (mỗi lần 1 điểm).
-
-\* Nhiều bài nhất: Ăn được tổng số lượng bài nhiều nhất (1 điểm).
-
-\* Nhiều Rô nhất: Ăn được nhiều lá chất Rô (Tiền/Coins/Denari) nhất (1 điểm).
-
-\* Settebello: Ăn được lá 7 Rô (1 điểm).
-
-\* Nhiều lá 7 nhất: Ăn được nhiều lá bài hạng 7 nhất (1 điểm).
+Scopa được chơi với bộ bài tiêu chuẩn đã loại bỏ các lá hình người (J, Q, K), tổng cộng còn 40 lá. Trò chơi chia thành các vòng. Trong lượt của mình, bạn phải đánh chính xác một lá bài trên tay.
 
 
 
-Cách Chơi
+\*\*Ăn bài (Capture)\*\*
+
+1\. \*\*Khớp hạng:\*\* Nếu lá bài bạn đánh khớp với hạng của một lá trên bàn, bạn ăn lá bài đó.
+
+2\. \*\*Khớp tổng:\*\* Nếu không có lá nào khớp hạng, nhưng tổng giá trị của nhiều lá trên bàn bằng với lá bạn đánh, bạn ăn toàn bộ nhóm lá đó.
+
+3\. \*\*Ưu tiên:\*\* Việc ăn khớp hạng luôn được ưu tiên hơn so với việc ăn theo tổng điểm.
+
+4\. \*\*Scopa:\*\* Nếu bạn ăn bài và quét sạch toàn bộ các lá bài hiện có trên bàn, bạn ghi được một điểm \*\*"Scopa"\*\*.
 
 
 
-Bài được chia cho người chơi (thường là 3 lá mỗi lần) và 4 lá được đặt ngửa trên bàn. Trong lượt của mình, bạn đánh ra một lá bài từ trên tay:
+Nếu lá bài bạn đánh không thể ăn được gì, nó sẽ để lại trên bàn. Khi tất cả người chơi hết bài trên tay, một đợt chia bài mới sẽ diễn ra từ phần bài còn lại. Những lá bài cuối cùng còn sót lại trên bàn khi kết thúc vòng chơi sẽ thuộc về người cuối cùng thực hiện được một nước ăn bài.
 
 
 
-\* Ăn theo Hạng: Nếu trên bàn có một lá bài cùng giá trị với lá bạn đánh ra, bạn ăn lá đó.
-
-\* Ăn theo Tổng: Nếu không có lá bài nào cùng giá trị, bạn có thể ăn một nhóm các lá bài có tổng bằng giá trị lá bạn đánh ra.
-
-   \* Ví dụ: Bạn đánh lá Già (10) để ăn lá 3 và lá 7 trên bàn.
-
-\* Đánh xuống: Nếu bạn không ăn được gì, lá bài của bạn sẽ nằm lại trên bàn.
+\*\*Cách tính điểm\*\*
 
 
 
-Nếu bạn ăn được tất cả các lá bài trên bàn, bạn ghi được một điểm Scopa (Quét sạch)!
+Vào cuối mỗi vòng, 1 điểm sẽ được trao cho mỗi hạng mục sau (nếu hòa thì không ai có điểm):
+
+\* \*\*Nhiều bài nhất:\*\* Người ăn được nhiều lá bài nhất.
+
+\* \*\*Nhiều Rô nhất:\*\* Người ăn được nhiều lá bài chất Rô nhất.
+
+\* \*\*Lá 7 Rô:\*\* Người ăn được lá 7 Rô.
+
+\* \*\*Nhiều lá 7 nhất:\*\* Người ăn được nhiều lá hạng 7 nhất.
+
+\* \*\*Scopa:\*\* Mỗi lần bạn quét sạch bàn trong khi chơi sẽ được cộng ngay 1 điểm.
 
 
 
-Tùy Chọn \& Biến Thể
+\*\*Các biến thể trò chơi\*\*
+
+\* \*\*Chế độ Escoba:\*\* Việc ăn bài xảy ra khi lá bài bạn đánh cộng với các lá bài trên bàn có tổng bằng chính xác 15.
+
+\* \*\*Scopa Đảo ngược:\*\* Chế độ mà khi bạn đạt đến điểm mục tiêu, bạn sẽ bị loại; người cuối cùng còn trụ lại sẽ thắng.
 
 
 
-\* Chế độ Escoba: Nếu bật, luật chơi chuyển sang biến thể Escoba của Tây Ban Nha. Bạn chỉ ăn các lá bài mà khi cộng với lá bài bạn đánh ra có tổng đúng bằng 15.
+\*\*Phím tắt bàn phím\*\*
 
-\* Điểm mục tiêu: Số điểm cần đạt để chiến thắng (Mặc định: 11).
+\* \*\*C:\*\* Xem toàn bộ bài trên bàn.
 
-\* Số lá mỗi lần chia: Số lượng bài chia cho người chơi mỗi đợt (Mặc định: 3).
+\* \*\*D:\*\* Xem số lượng bài bạn đã ăn được.
 
-\* Chế độ Đảo ngược: Nếu bật, mục tiêu là tránh ghi điểm. Đạt tới điểm mục tiêu sẽ bị loại!
+\* \*\*1-9 và 0:\*\* Xem lá bài cụ thể trên bàn theo vị trí.
 
-\* Thắng ngay lập tức khi Scopa: Nếu bật, đạt được Scopa có thể giúp thắng trận đấu ngay lập tức nếu điểm đội của bạn đủ cao.
-
-
-
-Phím Tắt
-
-
-
-\* Các Phím Mũi Tên: Di chuyển chọn bài trên tay.
-
-\* Enter: Đánh lá bài đang chọn.
-
-\* C: Xem các lá bài hiện có trên bàn.
-
-\* D: Xem các lá bài bạn đã ăn được.
-
-\* 1-9, 0: Đọc lá bài cụ thể trên bàn (tương ứng vị trí 1-10).
+\* \*\*S:\*\* Kiểm tra điểm số hiện tại.
 

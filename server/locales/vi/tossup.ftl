@@ -1,16 +1,16 @@
-# Thông báo trò chơi Tung Hứng (Toss Up)
-# Lưu ý: Các thông báo chung như bắt đầu vòng, bắt đầu lượt, điểm mục tiêu nằm trong games.ftl
+# Toss Up game messages
+# Note: Common messages like round-start, turn-start, target-score are in games.ftl
 
-# Thông tin trò chơi
+# Game info
 game-name-tossup = Toss Up
-tossup-category = Game Xúc Xắc
+tossup-category = Game xúc xắc
 
-# Hành động
+# Actions
 tossup-roll-first = Gieo { $count } xúc xắc
 tossup-roll-remaining = Gieo { $count } xúc xắc còn lại
 tossup-bank = Chốt { $points } điểm
 
-# Sự kiện trò chơi
+# Game events
 tossup-turn-start = Lượt của { $player }. Điểm: { $score }
 tossup-you-roll = Bạn gieo được: { $results }.
 tossup-player-rolls = { $player } gieo được: { $results }.
@@ -19,45 +19,45 @@ tossup-result-green = { $count } xanh
 tossup-result-yellow = { $count } vàng
 tossup-result-red = { $count } đỏ
 
-# Trạng thái lượt
-tossup-you-have-points = Điểm lượt: { $turn_points }. Còn lại: { $dice_count } xúc xắc.
-tossup-player-has-points = { $player } có { $turn_points } điểm lượt. Còn lại { $dice_count } xúc xắc.
+# Turn status
+tossup-you-have-points = Điểm lượt này: { $turn_points }. Xúc xắc còn lại: { $dice_count }.
+tossup-player-has-points = { $player } có { $turn_points } điểm lượt này. Còn { $dice_count } xúc xắc.
 
-# Xúc xắc mới (khi đã dùng hết xúc xắc xanh)
+# Fresh dice
 tossup-you-get-fresh = Hết xúc xắc! Nhận lại { $count } xúc xắc mới.
 tossup-player-gets-fresh = { $player } nhận lại { $count } xúc xắc mới.
 
-# Mất lượt (Bust)
-tossup-you-bust = MẤT TRẮNG! Bạn mất { $points } điểm của lượt này.
-tossup-player-busts = { $player } bị mất trắng và mất { $points } điểm!
+# Bust
+tossup-you-bust = Mất trắng! Bạn mất { $points } điểm trong lượt này.
+tossup-player-busts = { $player } mất trắng và mất { $points } điểm!
 
-# Chốt điểm
+# Bank
 tossup-you-bank = Bạn chốt { $points } điểm. Tổng điểm: { $total }.
 tossup-player-banks = { $player } chốt { $points } điểm. Tổng điểm: { $total }.
 
-# Người thắng
+# Winner
 tossup-winner = { $player } thắng với { $score } điểm!
 tossup-tie-tiebreaker = Hòa giữa { $players }! Vào vòng phân định thắng thua!
 
-# Tùy chọn
+# Options
 tossup-set-rules-variant = Biến thể luật: { $variant }
 tossup-select-rules-variant = Chọn biến thể luật:
 tossup-option-changed-rules = Biến thể luật đã đổi thành { $variant }
 
-tossup-set-starting-dice = Số xúc xắc khởi điểm: { $count }
-tossup-enter-starting-dice = Nhập số lượng xúc xắc khởi điểm:
-tossup-option-changed-dice = Số xúc xắc khởi điểm đổi thành { $count }
+tossup-set-starting-dice = Số xúc xắc ban đầu: { $count }
+tossup-enter-starting-dice = Nhập số lượng xúc xắc ban đầu:
+tossup-option-changed-dice = Số xúc xắc ban đầu đã đổi thành { $count }
 
-# Các biến thể luật
+# Rules variants
 tossup-rules-standard = Tiêu chuẩn
 tossup-rules-PlayAural = PlayAural
 
-# Giải thích luật
-tossup-rules-standard-desc = Mỗi xúc xắc có 3 mặt xanh, 2 mặt vàng, 1 mặt đỏ. Mất trắng nếu không có mặt xanh nào và có ít nhất một mặt đỏ.
-tossup-rules-PlayAural-desc = Phân bố màu đều nhau. Mất trắng nếu tất cả xúc xắc đều là màu đỏ.
+# Rules explanations
+tossup-rules-standard-desc = 3 xanh, 2 vàng, 1 đỏ mỗi viên. Mất trắng nếu không có màu xanh và có ít nhất một màu đỏ.
+tossup-rules-PlayAural-desc = Phân bố đều. Mất trắng nếu tất cả xúc xắc đều là màu đỏ.
 
-# Lý do hành động bị vô hiệu hóa
-tossup-need-points = Bạn cần có điểm mới được chốt.
+# Disabled reasons
+tossup-need-points = Bạn cần có điểm mới chốt được.
 
-# Định dạng
+# Formatting
 tossup-line-format = { $rank }. { $player }: { $points }

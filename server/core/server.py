@@ -2092,28 +2092,45 @@ PlayAural Server
         game_name = Localization.get(user.locale, game_class.get_name_key())
 
         # Available leaderboard types (common to all games)
+        supported_types = game_class.get_supported_leaderboards()
         items = [
             MenuItem(
                 text=Localization.get(user.locale, "leaderboard-type-wins"),
                 id="type_wins",
-            ),
-            MenuItem(
-                text=Localization.get(user.locale, "leaderboard-type-rating"),
-                id="type_rating",
-            ),
-            MenuItem(
-                text=Localization.get(user.locale, "leaderboard-type-total-score"),
-                id="type_total_score",
-            ),
-            MenuItem(
-                text=Localization.get(user.locale, "leaderboard-type-high-score"),
-                id="type_high_score",
-            ),
-            MenuItem(
-                text=Localization.get(user.locale, "leaderboard-type-games-played"),
-                id="type_games_played",
-            ),
+            )
         ]
+
+        if "rating" in supported_types:
+            items.append(
+                MenuItem(
+                    text=Localization.get(user.locale, "leaderboard-type-rating"),
+                    id="type_rating",
+                )
+            )
+
+        if "total_score" in supported_types:
+            items.append(
+                MenuItem(
+                    text=Localization.get(user.locale, "leaderboard-type-total-score"),
+                    id="type_total_score",
+                )
+            )
+
+        if "high_score" in supported_types:
+            items.append(
+                MenuItem(
+                    text=Localization.get(user.locale, "leaderboard-type-high-score"),
+                    id="type_high_score",
+                )
+            )
+
+        if "games_played" in supported_types:
+            items.append(
+                MenuItem(
+                    text=Localization.get(user.locale, "leaderboard-type-games-played"),
+                    id="type_games_played",
+                )
+            )
 
         # Game-specific leaderboards (declared by each game class)
         for lb_config in game_class.get_leaderboard_types():
@@ -2184,6 +2201,8 @@ PlayAural Server
         player_stats: dict[str, dict] = {}
         for result in game_results:
             winner_name = result.custom_data.get("winner_name")
+            winner_ids = result.custom_data.get("winner_ids")
+            
             for p in result.player_results:
                 if p.is_bot:
                     continue
@@ -2193,7 +2212,16 @@ PlayAural Server
                         "losses": 0,
                         "name": p.player_name,
                     }
-                if winner_name == p.player_name:
+                
+                # Check winner_ids if available, otherwise fallback to name match
+                is_winner = False
+                if winner_ids:
+                    if p.player_id in winner_ids:
+                        is_winner = True
+                elif winner_name == p.player_name:
+                    is_winner = True
+                    
+                if is_winner:
                     player_stats[p.player_id]["wins"] += 1
                 else:
                     player_stats[p.player_id]["losses"] += 1
@@ -2716,13 +2744,22 @@ PlayAural Server
 
         for result in game_results:
             winner_name = result.custom_data.get("winner_name")
+            winner_ids = result.custom_data.get("winner_ids")
             final_scores = result.custom_data.get("final_scores", {})
             final_light = result.custom_data.get("final_light", {})
 
             for p in result.player_results:
                 if p.player_id == user.uuid:
                     games_played += 1
-                    if winner_name == p.player_name:
+                    
+                    is_winner = False
+                    if winner_ids:
+                        if p.player_id in winner_ids:
+                            is_winner = True
+                    elif winner_name == p.player_name:
+                        is_winner = True
+
+                    if is_winner:
                         wins += 1
                     else:
                         losses += 1
@@ -3166,6 +3203,27 @@ PlayAural Server
                 if user.approved:
                     await user.connection.send(chat_packet)
 
+    def _get_user_role_and_client_text(self, locale: str, user: NetworkUser) -> tuple[str, str]:
+        """Get localized role and client type text for a user."""
+        # Role
+        if user.trust_level >= 3:
+            role_key = "user-role-dev"
+        elif user.trust_level >= 2:
+            role_key = "user-role-admin"
+        else:
+            role_key = "user-role-user"
+        role_text = Localization.get(locale, role_key)
+
+        # Client
+        client_type = user.client_type or "python"
+        client_key = f"client-type-{client_type.lower()}"
+        client_text = Localization.get(locale, client_key)
+        # Fallback if key missing
+        if client_text == client_key:
+             client_text = client_type.capitalize()
+        
+        return role_text, client_text
+
     def _get_online_usernames(self) -> list[str]:
         """Return sorted list of online usernames."""
         return sorted(self._users.keys(), key=str.lower)
@@ -3175,24 +3233,45 @@ PlayAural Server
         lines: list[str] = []
         for username in self._get_online_usernames():
             online_user = self._users.get(username)
-            # Check if user is waiting for approval
-            if online_user and not online_user.approved:
-                status = Localization.get(user.locale, "online-user-waiting-approval")
-                lines.append(f"{username}: {status}")
+            if not online_user:
                 continue
 
-            table = self._tables.find_user_table(username)
-            if table:
-                game_class = get_game_class(table.game_type)
-                game_name = (
-                    Localization.get(user.locale, game_class.get_name_key())
-                    if game_class
-                    else table.game_type
-                )
-                lines.append(f"{username}: {game_name}")
+            # Get Role and Client
+            role_text, client_text = self._get_user_role_and_client_text(
+                user.locale, online_user
+            )
+
+            # Check if user is waiting for approval
+            if not online_user.approved:
+                status = Localization.get(user.locale, "online-user-waiting-approval")
+                # Fallback to old format for unapproved users if needed, but new format is fine
+                # lines.append(f"{username}: {status}") 
+                # Use new format
             else:
-                status = Localization.get(user.locale, "online-user-not-in-game")
-                lines.append(f"{username}: {status}")
+                table = self._tables.find_user_table(username)
+                if table:
+                    game_class = get_game_class(table.game_type)
+                    status = (
+                        Localization.get(user.locale, game_class.get_name_key())
+                        if game_class
+                        else table.game_type
+                    )
+                else:
+                    status = Localization.get(user.locale, "online-user-not-in-game")
+            
+            # Use the full entry format: {username} ({role}, {client}): {status}
+            line = Localization.get(
+                user.locale,
+                "online-user-full-entry",
+                username=username,
+                role=role_text,
+                client=client_text,
+                status=status,
+            )
+            lines.append(line)
+
+            # Logic handled above
+            pass
         if not lines:
             lines.append(Localization.get(user.locale, "online-users-none"))
         return lines
@@ -3260,7 +3339,17 @@ PlayAural Server
         if count == 0:
             user.speak_l("online-users-none")
             return
-        users_str = Localization.format_list_and(user.locale, online)
+
+        formatted_list = []
+        for name in online:
+            u = self._users.get(name)
+            if u:
+                role, client = self._get_user_role_and_client_text(user.locale, u)
+                formatted_list.append(f"{name} ({role}, {client})")
+            else:
+                formatted_list.append(name)
+
+        users_str = Localization.format_list_and(user.locale, formatted_list)
         if count == 1:
             user.speak_l("online-users-one", users=users_str)
         else:

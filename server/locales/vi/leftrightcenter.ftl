@@ -1,36 +1,36 @@
-# Thông báo cho trò chơi Trái Phải Giữa (Left Right Center)
+# Messages for Left Right Center (English)
 
-# Tên trò chơi
-game-name-leftrightcenter = Trái Phải Giữa
+# Game name
+game-name-leftrightcenter = Left Right Center
 
-# Hành động
+# Actions
 lrc-roll = Gieo { $count } { $count ->
-    [one] xúc xắc
-   *[other] xúc xắc
+    [one] viên
+   *[other] viên
 }
 
-# Các mặt xúc xắc
+# Dice faces
 lrc-face-left = Trái
 lrc-face-right = Phải
 lrc-face-center = Giữa
 lrc-face-dot = Chấm
 
-# Sự kiện trò chơi
+# Game events
 lrc-roll-results = { $player } gieo được { $results }.
 lrc-pass-left = { $player } chuyển { $count } { $count ->
     [one] chip
    *[other] chip
-} sang { $target }.
+} cho { $target }.
 lrc-pass-right = { $player } chuyển { $count } { $count ->
     [one] chip
    *[other] chip
-} sang { $target }.
+} cho { $target }.
 lrc-pass-center = { $player } bỏ { $count } { $count ->
     [one] chip
    *[other] chip
 } vào giữa.
 lrc-no-chips = { $player } không còn chip để gieo.
-lrc-center-pot = Có { $count } { $count ->
+lrc-center-pot = { $count } { $count ->
     [one] chip
    *[other] chip
 } ở giữa.
@@ -43,12 +43,12 @@ lrc-winner = { $player } thắng với { $count } { $count ->
    *[other] chip
 }!
 
-# Tùy chọn
-lrc-set-starting-chips = Số chip khởi điểm: { $count }
-lrc-enter-starting-chips = Nhập số chip khởi điểm:
-lrc-option-changed-starting-chips = Số chip khởi điểm được đặt là { $count }.
+# Options
+lrc-set-starting-chips = Số chip ban đầu: { $count }
+lrc-enter-starting-chips = Nhập số chip ban đầu:
+lrc-option-changed-starting-chips = Số chip ban đầu đã được đặt là { $count }.
 
-# Định dạng
+# Formatting
 lrc-line-format = { $player }: { $chips }
 lrc-check-center = Kiểm tra hũ giữa
 lrc-roll-label = Gieo xúc xắc

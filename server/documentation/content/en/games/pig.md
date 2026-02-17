@@ -1,62 +1,76 @@
-Pig
+\*\*Pig\*\*
 
 
 
-Pig is a classic push-your-luck dice game. The goal is to be the first to reach the target score by rolling a die and banking points, while avoiding rolling a 1.
+Pig is basically the quintessential dice game. In many ways, it leads into more complex choices found in games like Farkle and Toss Up.
 
 
 
-Objective
+The idea is dead simple: roll a die, add it to your running total, and decide whether to keep going or bank what you have. But if you roll a 1, you lose everything you have accumulated that turn. The first player (or team) to reach the target score wins.
 
 
 
-Be the first player (or team) to reach the Target Score (default: 50).
+\*\*Gameplay\*\*
 
 
 
-Gameplay
+The game is divided into rounds, and in each round every player takes one turn. On your turn, you have two choices: \*\*Roll\*\* or \*\*Bank\*\*.
 
 
 
-On your turn, you roll a single die repeatedly.
+\* \*\*Rolling:\*\* A single die is thrown. If the result is anything other than a 1, the number is added to your turn score and you can choose to roll again or bank. You can keep rolling as many times as you like to build a massive score.
+
+\* \*\*Busting:\*\* If you roll a 1, you "bust." Your entire turn score is wiped out, you get 0 points for the turn, and it passes to the next player.
+
+\* \*\*Banking:\*\* If you choose to bank, your accumulated turn score is added to your permanent total, ending your turn safely.
 
 
 
-Roll: You roll the die.
-
-\* If you roll a 1: You Bust. You lose all points accumulated in this turn, and your turn ends immediately.
-
-\* If you roll any other number: That number is added to your temporary "Turn Score".
+The game continues until a player or team reaches the target score at the end of a round. If multiple teams hit the target in the same round, a tiebreaker is played.
 
 
 
-Decision: After a successful roll (not a 1), you can choose to:
-
-\* Roll Again: Risk your current Turn Score to add more points.
-
-\* Bank: Add your Turn Score to your permanent Total Score and end your turn.
+\*\*Customizable Options\*\*
 
 
 
-Options \& Variants
+The \*\*host\*\* can tweak several settings at the \*\*table\*\*:
+
+\* \*\*Target Score:\*\* Default is 50 (range 10 to 1,000).
+
+\* \*\*Minimum Bank Points:\*\* The minimum score you must reach in a single turn before being allowed to bank (default 0, up to 50).
+
+\* \*\*Dice Sides:\*\* Default is 6 sides, but can be set from 4 to 20. More sides lower the risk of busting.
 
 
 
-\* Target Score: The score required to win (Default: 50).
-
-\* Dice Sides: Change the number of sides on the die (Default: 6). Increasing this reduces the chance of rolling a 1 (Busting).
-
-\* Min Bank Points: Minimum points required in a turn before you are allowed to Bank.
-
-\* Team Mode: Play Individually or in Teams.
+\*\*Example Turn\*\*
 
 
 
-Keyboard Shortcuts
+The target score is 50 and you have 38 points. You need 12 more to win.
+
+1\. You roll a 4. Turn score: 4. 
+
+2\. You roll again and get a 5. Turn score: 9. 
+
+3\. You roll again and get a 2. Turn score: 11. You are 1 point away from the target!
+
+4\. You decide to risk it and roll one last time...
+
+5\. Oh no, a 1! You bust, lose all 11 points, and your total stays at 38.
 
 
 
-\* R: Roll dice.
+\*\*Keyboard Shortcuts\*\*
 
-\* B: Bank points.
+
+
+\* \*\*R:\*\* Roll the die.
+
+\* \*\*B:\*\* Bank your points.
+
+\* \*\*T:\*\* Check whose turn it is.
+
+\* \*\*S:\*\* Check scores.
 

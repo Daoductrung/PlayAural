@@ -1,34 +1,34 @@
-# Thông báo trò chơi Xúc Xắc Heo (Pig)
-# Lưu ý: Các thông báo chung như bắt đầu vòng, bắt đầu lượt, điểm mục tiêu nằm trong games.ftl
+# Pig game messages
+# Note: Common messages like round-start, turn-start, target-score are in games.ftl
 
-# Thông tin trò chơi
-game-name-pig = Xúc Xắc Heo
-pig-category = Game Xúc Xắc
+# Game info
+game-name-pig = Pig
+pig-category = Game xúc xắc
 
-# Hành động
+# Actions
 pig-roll = Gieo xúc xắc
 pig-bank = Chốt { $points } điểm
 
-# Sự kiện trò chơi (Riêng cho Pig)
+# Game events (Pig-specific)
 pig-rolls = { $player } gieo xúc xắc...
-pig-roll-result = Ra con { $roll }, tổng điểm lượt này là { $total }
-pig-bust = Ôi không, con 1! { $player } mất { $points } điểm.
-pig-bank-action = { $player } quyết định chốt { $points } điểm, nâng tổng điểm lên { $total }
+pig-roll-result = Được { $roll }, tổng cộng là { $total }
+pig-bust = Ôi không, gieo phải 1! { $player } mất { $points } điểm.
+pig-bank-action = { $player } quyết định chốt { $points } điểm, tổng cộng là { $total }
 pig-winner = Chúng ta đã có người chiến thắng, đó là { $player }!
 
-# Tùy chọn riêng cho Pig
+# Pig-specific options
 pig-set-min-bank = Điểm chốt tối thiểu: { $points }
 pig-set-dice-sides = Số mặt xúc xắc: { $sides }
-pig-enter-min-bank = Nhập số điểm tối thiểu để được chốt:
+pig-enter-min-bank = Nhập số điểm chốt tối thiểu:
 pig-enter-dice-sides = Nhập số mặt của xúc xắc:
-pig-option-changed-min-bank = Điểm chốt tối thiểu được đổi thành { $points }
-pig-option-changed-dice = Xúc xắc bây giờ có { $sides } mặt
+pig-option-changed-min-bank = Điểm chốt tối thiểu đã đổi thành { $points }
+pig-option-changed-dice = Xúc xắc giờ có { $sides } mặt
 
-# Lý do hành động bị vô hiệu hóa
+# Disabled reasons
 pig-need-more-points = Bạn cần thêm điểm mới được chốt.
 
-# Lỗi xác thực
-pig-error-min-bank-too-high = Điểm chốt tối thiểu phải nhỏ hơn điểm mục tiêu.
+# Validation errors
+pig-error-min-bank-too-high = Điểm chốt tối thiểu phải thấp hơn điểm mục tiêu.
 
-# Định dạng
+# Formatting
 pig-line-format = { $rank }. { $player }: { $points }

@@ -193,6 +193,10 @@ class HoldemGame(Game, TurnTimerMixin):
         return "Texas Hold'em"
 
     @classmethod
+    def get_supported_leaderboards(cls) -> list[str]:
+        return ["rating", "games_played"]
+
+    @classmethod
     def get_type(cls) -> str:
         return "holdem"
 

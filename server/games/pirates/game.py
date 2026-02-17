@@ -133,6 +133,10 @@ class PiratesGame(Game):
     def get_max_players(cls) -> int:
         return 5
 
+    @classmethod
+    def get_supported_leaderboards(cls) -> list[str]:
+        return ["rating", "games_played"]
+
     def __post_init__(self):
         """Initialize non-serialized state."""
         super().__post_init__()

@@ -1,39 +1,66 @@
-Toss Up
+\*\*Toss Up\*\*
 
-Toss Up is a push-your-luck dice game where you hunt for Green dice while avoiding the dreaded Red ones.
 
-Objective
 
-Be the first player to reach the Target Score (default: 100).
+Toss Up is a push-your-luck dice game where you roll a handful of colored dice. Each die can land on Green, Yellow, or Red. The concept is simple: keep rolling to accumulate points by landing on Green, or bank what you have and pass the turn. However, the presence of Red dice means you could bust and lose all your turn points at any moment.
 
-Gameplay
 
-You start your turn with a set of dice (Default: 10).
 
-1. Roll: Press R. You roll all your available dice. The results can be:
-* Green: Adds 1 Point per die. These dice are removed from the pool.
-* Yellow: Adds 0 Points. These dice stay in the pool.
-* Red: Adds 0 Points. These dice stay in the pool.
+The first player or team to reach the target score wins.
 
-2. Bust Check:
-* If you Bust (see Variants below), you lose all points gained in this turn and your turn ends immediately.
-* Otherwise, your points are added to your temporary "Turn Score".
 
-3. Decision:
-* Roll Again: If you have dice left, you can roll them again to get more points.
-* Bank: Press B. Save your Turn Score to your permanent Total Score. Ends your turn.
 
-4. Fresh Set: If you manage to remove all your dice (by rolling only Greens and Yellows), you get a Fresh Set of 10 dice and can continue rolling!
+\*\*Gameplay\*\*
 
-Options & Variants
 
-* Rules Variant:
-    * Standard: You bust if you roll No Greens and At least one Red.
-    * PlayAural: You bust only if All dice are Red.
-* Target Score: Score needed to win (Default: 100).
-* Starting Dice: Number of dice to start with (Default: 10).
 
-Keyboard Shortcuts
+The game is played in rounds, with each player taking one turn per round. On your turn, you start with a pool of dice (10 by default, configurable between 5 and 20).
 
-* R: Roll dice.
-* B: Bank points.
+
+
+\*\*The Dice Colors:\*\*
+
+\* \*\*Green:\*\* You score 1 point per green die, and those dice are removed from your pool for the rest of the turn.
+
+\* \*\*Yellow:\*\* These dice do nothing. They stay in your pool for the next roll.
+
+\* \*\*Red:\*\* These dice stay in your pool. They do not score, but they carry the risk of ending your turn.
+
+
+
+If all of your dice are removed (all came up green), you receive a fresh set of dice at the starting count and can keep going. This is known as getting "fresh dice" and can lead to massive scores in a single turn.
+
+
+
+\*\*Bust Conditions\*\*
+
+
+
+How you bust depends on the rules variant chosen at the \*\*table\*\*:
+
+\* \*\*Standard (Default):\*\* You bust if you roll \*\*no green dice\*\* and at least one red die. You need at least one green to stay alive unless the roll is entirely yellow.
+
+\* \*\*PlayAural:\*\* You bust only if \*\*every single die\*\* lands on red (no greens and no yellows at all).
+
+
+
+When you bust, all points accumulated during the current turn are lost, and your turn ends immediately.
+
+
+
+\*\*Winning\*\*
+
+
+
+The game continues until a player or team reaches the target score (default 100). If multiple players are tied at or above the target at the end of a round, they enter a tiebreaker round to determine the winner.
+
+
+
+\*\*Keyboard Shortcuts\*\*
+
+
+
+\* \*\*R:\*\* Roll the dice.
+
+\* \*\*B:\*\* Bank your points.
+

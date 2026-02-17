@@ -114,8 +114,7 @@ user-role-dev = Nhà phát triển
 user-role-admin = Quản trị viên
 user-role-user = Người dùng
 client-type-web = Web
-client-type-desktop = Desktop
-client-type-python = Python
+client-type-python = Máy tính
 online-user-full-entry = { $username } ({ $role }, { $client }): { $status }
 
 # Options

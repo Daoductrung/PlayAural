@@ -114,8 +114,7 @@ user-role-dev = Developer
 user-role-admin = Admin
 user-role-user = User
 client-type-web = Web
-client-type-desktop = Desktop
-client-type-python = Python
+client-type-python = Desktop
 online-user-full-entry = { $username } ({ $role }, { $client }): { $status }
 
 # Options

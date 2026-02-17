@@ -3339,17 +3339,8 @@ PlayAural Server
         if count == 0:
             user.speak_l("online-users-none")
             return
-
-        formatted_list = []
-        for name in online:
-            u = self._users.get(name)
-            if u:
-                role, client = self._get_user_role_and_client_text(user.locale, u)
-                formatted_list.append(f"{name} ({role}, {client})")
-            else:
-                formatted_list.append(name)
-
-        users_str = Localization.format_list_and(user.locale, formatted_list)
+        
+        users_str = Localization.format_list_and(user.locale, online)
         if count == 1:
             user.speak_l("online-users-one", users=users_str)
         else:

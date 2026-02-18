@@ -1,5 +1,3 @@
-# Five Card Draw
-
 game-name-fivecarddraw = Five Card Draw
 
 draw-set-starting-chips = Số chip ban đầu: { $count }
@@ -54,8 +52,6 @@ draw-player-stands-pat = { $player } giữ nguyên bài.
 draw-you-discard-limit = Bạn có thể bỏ tối đa { $count } lá bài.
 draw-player-discard-limit = { $player } có thể bỏ tối đa { $count } lá bài.
 
-# Card keys
 draw-card-key = Phím bài { $index }
 
-# End Screen
 draw-winner-chips = { $rank }. { $player }: { $chips } chip

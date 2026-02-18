@@ -1,5 +1,3 @@
-# Texas Hold'em
-
 game-name-holdem = Texas Hold'em
 
 holdem-set-starting-chips = Starting chips: { $count }
@@ -37,5 +35,4 @@ holdem-option-changed-max-raises = Max raises set to { $count }.
 holdem-antes-posted = Antes posted: { $amount }.
 holdem-blinds-posted = Blinds posted: { $sb } / { $bb }.
 
-# End Screen
 holdem-winner-chips = { $rank }. { $player }: { $chips } chips

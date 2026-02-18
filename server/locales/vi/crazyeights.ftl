@@ -1,5 +1,3 @@
-# Crazy Eights
-
 game-name-crazyeights = Crazy Eights
 
 crazyeights-set-winning-score = Điểm chiến thắng: { $score }
@@ -44,10 +42,8 @@ crazyeights-player-draws-one = { $player } rút một lá bài.
 crazyeights-player-draws-many = { $player } rút { $count } lá bài.
 crazyeights-player-passes = { $player } bỏ lượt.
 
-# Formats
 crazyeights-line-format = { $rank }. { $player }: { $score }
 
-# Timer
 crazyeights-check-turn-timer = Kiểm tra thời gian lượt
 crazyeights-timer-5 = 5 giây
 crazyeights-timer-10 = 10 giây

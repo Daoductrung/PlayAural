@@ -1,21 +1,15 @@
-# Messages for Left Right Center (English)
-
-# Game name
 game-name-leftrightcenter = Left Right Center
 
-# Actions
 lrc-roll = Roll { $count } { $count ->
     [one] die
    *[other] dice
 }
 
-# Dice faces
 lrc-face-left = Left
 lrc-face-right = Right
 lrc-face-center = Center
 lrc-face-dot = Dot
 
-# Game events
 lrc-roll-results = { $player } rolls { $results }.
 lrc-pass-left = { $player } passes { $count } { $count ->
     [one] chip
@@ -43,12 +37,10 @@ lrc-winner = { $player } wins with { $count } { $count ->
    *[other] chips
 }!
 
-# Options
 lrc-set-starting-chips = Starting chips: { $count }
 lrc-enter-starting-chips = Enter starting chips:
 lrc-option-changed-starting-chips = Starting chips set to { $count }.
 
-# Formatting
 lrc-line-format = { $player }: { $chips }
 lrc-check-center = Check center pot
 lrc-roll-label = Roll dice

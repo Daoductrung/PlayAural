@@ -1,10 +1,5 @@
-# Mile by Mile game messages
-# Note: Common messages like round-start, turn-start, team-mode are in games.ftl
-
-# Game name
 game-name-milebymile = Mile by Mile
 
-# Game options
 milebymile-set-distance = Race distance: { $miles } miles
 milebymile-enter-distance = Enter race distance (300-3000)
 milebymile-set-winning-score = Winning score: { $score } points
@@ -16,7 +11,6 @@ milebymile-toggle-karma = Karma rule: { $enabled }
 milebymile-set-rig = Deck rigging: { $rig }
 milebymile-select-rig = Select deck rigging option
 
-# Option change announcements
 milebymile-option-changed-distance = Race distance set to { $miles } miles.
 milebymile-option-changed-winning = Winning score set to { $score } points.
 milebymile-option-changed-crossing = Require exact finish { $enabled }.
@@ -25,10 +19,8 @@ milebymile-option-changed-reshuffle = Reshuffle discard pile { $enabled }.
 milebymile-option-changed-karma = Karma rule { $enabled }.
 milebymile-option-changed-rig = Deck rigging set to { $rig }.
 
-# Status
 milebymile-status = { $score_info }, { $miles } miles, Problems: { $problems }, Safeties: { $safeties }
 
-# Card actions
 milebymile-no-matching-safety = You don't have the matching safety card!
 milebymile-cant-play = You can't play { $card } because { $reason }.
 milebymile-no-card-selected = No card selected to discard.
@@ -37,35 +29,28 @@ milebymile-you-drew = You drew: { $card }
 milebymile-discards = { $player } discards { $card }.
 milebymile-select-target = Select a target
 
-# Distance plays
 milebymile-plays-distance-individual = { $player } plays { $distance } miles, and is now at { $total } miles.
 milebymile-plays-distance-team = { $player } plays { $distance } miles; their team is now at { $total } miles.
 
-# Journey complete
 milebymile-journey-complete-perfect-individual = { $player } has completed the journey with a perfect crossing!
 milebymile-journey-complete-perfect-team = Team { $team } has completed the journey with a perfect crossing!
 milebymile-journey-complete-individual = { $player } has completed the journey!
 milebymile-journey-complete-team = Team { $team } has completed the journey!
 
-# Hazard plays
 milebymile-plays-hazard-individual = { $player } plays { $card } on { $target }.
 milebymile-plays-hazard-team = { $player } plays { $card } on Team { $team }.
 
-# Remedy/Safety plays
 milebymile-plays-card = { $player } plays { $card }.
 milebymile-plays-dirty-trick = { $player } plays { $card } as a Dirty Trick!
 
-# Deck
 milebymile-deck-reshuffled = Discard pile shuffled back into deck.
 
-# Race
 milebymile-new-race = New race begins!
 milebymile-race-complete = Race complete! Calculating scores...
 milebymile-earned-points = { $name } earned { $score } points this race: { $breakdown }.
 milebymile-total-scores = Total scores:
 milebymile-team-score = { $name }: { $score } points
 
-# Scoring breakdown
 milebymile-from-distance = { $miles } from distance travelled
 milebymile-from-trip = { $points } from completing the trip
 milebymile-from-perfect = { $points } from a perfect crossing
@@ -81,12 +66,10 @@ milebymile-from-dirty-tricks = { $points } from { $count } { $tricks ->
     *[other] dirty tricks
 }
 
-# Game end
 milebymile-wins-individual = { $player } wins the game!
 milebymile-wins-team = Team { $team } wins the game! ({ $members })
 milebymile-final-score = Final score: { $score } points
 
-# Karma messages - clash (both lose karma)
 milebymile-karma-clash-you-target = You and your target are both shunned! The attack is neutralized.
 milebymile-karma-clash-you-attacker = You and { $attacker } are both shunned! The attack is neutralized.
 milebymile-karma-clash-others = { $attacker } and { $target } are both shunned! The attack is neutralized.
@@ -94,22 +77,18 @@ milebymile-karma-clash-your-team = Your team and your target are both shunned! T
 milebymile-karma-clash-target-team = You and Team { $team } are both shunned! The attack is neutralized.
 milebymile-karma-clash-other-teams = Team { $attacker } and Team { $target } are both shunned! The attack is neutralized.
 
-# Karma messages - attacker shunned
 milebymile-karma-shunned-you = You have been shunned for your aggression! Your karma is lost.
 milebymile-karma-shunned-other = { $player } has been shunned for their aggression!
 milebymile-karma-shunned-your-team = Your team has been shunned for its aggression! Your team's karma is lost.
 milebymile-karma-shunned-other-team = Team { $team } has been shunned for its aggression!
 
-# False Virtue
 milebymile-false-virtue-you = You play False Virtue and regain your karma!
 milebymile-false-virtue-other = { $player } plays False Virtue and regains their karma!
 milebymile-false-virtue-your-team = Your team plays False Virtue and regains its karma!
 milebymile-false-virtue-other-team = Team { $team } plays False Virtue and regains its karma!
 
-# Problems/Safeties (for status display)
 milebymile-none = none
 
-# Unplayable card reasons
 milebymile-reason-not-on-team = you're not on a team
 milebymile-reason-stopped = you're stopped
 milebymile-reason-has-problem = you have a problem that prevents driving
@@ -127,7 +106,6 @@ milebymile-reason-has-safety = you already have that safety
 milebymile-reason-has-karma = you still have your karma
 milebymile-reason-generic = it can't be played right now
 
-# Card names
 milebymile-card-out-of-gas = Out of Gas
 milebymile-card-flat-tire = Flat Tire
 milebymile-card-accident = Accident
@@ -145,21 +123,14 @@ milebymile-card-right-of-way = Right of Way
 milebymile-card-false-virtue = False Virtue
 milebymile-card-miles = { $miles } miles
 
-# Detailed Status
-
-
-# Disabled action reasons
 milebymile-no-dirty-trick-window = No dirty trick window is active.
 milebymile-not-your-dirty-trick = It's not your team's dirty trick window.
 milebymile-between-races = Wait for the next race to start.
 
-# Validation errors
 milebymile-error-karma-needs-three-teams = Karma rule requires at least 3 distinct cars/teams.
 
-# Formatting
 milebymile-line-format = { $rank }. { $name }: { $points }
 
-# Target selection
 milebymile-target-individual = { $name } ({ $miles } miles)
 milebymile-target-team = Team { $team }: { $members } ({ $miles } miles)
 
@@ -169,4 +140,4 @@ milebymile-check-status = Check status
 milebymile-dirty-trick = Play dirty trick
 milebymile-info-button = Info
 milebymile-info-msg-individual = { $player }: Hazards: { $hazards }. Safeties: { $safeties }. Distance: { $miles } miles.
-milebymile-info-msg-team = Team { $team } ({ $members }): Hazards: { $hazards }. Safeties: { $safeties }. Distance: { $miles } miles.
+milebymile-info-msg-team = { $team } ({ $members }): Hazards: { $hazards }. Safeties: { $safeties }. Distance: { $miles } miles.

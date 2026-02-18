@@ -578,7 +578,7 @@ class ThreesGame(Game, DiceGameMixin):
         """Build the game result with Threes-specific data."""
         # Sorted by score ascending (lowest wins)
         sorted_players = sorted(
-            [p for p in self.players if isinstance(p, ThreesPlayer)],
+            [p for p in self.players if isinstance(p, ThreesPlayer) and not p.is_spectator],
             key=lambda p: p.total_score,
         )
 

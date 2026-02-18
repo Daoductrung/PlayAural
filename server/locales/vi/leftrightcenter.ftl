@@ -1,21 +1,15 @@
-# Messages for Left Right Center (English)
-
-# Game name
 game-name-leftrightcenter = Left Right Center
 
-# Actions
 lrc-roll = Gieo { $count } { $count ->
     [one] viên
    *[other] viên
 }
 
-# Dice faces
 lrc-face-left = Trái
 lrc-face-right = Phải
 lrc-face-center = Giữa
 lrc-face-dot = Chấm
 
-# Game events
 lrc-roll-results = { $player } gieo được { $results }.
 lrc-pass-left = { $player } chuyển { $count } { $count ->
     [one] chip
@@ -43,12 +37,10 @@ lrc-winner = { $player } thắng với { $count } { $count ->
    *[other] chip
 }!
 
-# Options
 lrc-set-starting-chips = Số chip ban đầu: { $count }
 lrc-enter-starting-chips = Nhập số chip ban đầu:
 lrc-option-changed-starting-chips = Số chip ban đầu đã được đặt là { $count }.
 
-# Formatting
 lrc-line-format = { $player }: { $chips }
 lrc-check-center = Kiểm tra hũ giữa
 lrc-roll-label = Gieo xúc xắc

@@ -1,5 +1,3 @@
-# Shared Poker Messages
-
 poker-fold = Fold
 poker-call = Call
 poker-check = Check
@@ -89,7 +87,6 @@ poker-log-all-in = { $player } went all in for { $amount }
 poker-table-cards = Table cards: { $cards }.
 poker-your-hand = Your hand: { $cards }.
 
-# Timer choice labels
 poker-timer-5 = 5 seconds
 poker-timer-10 = 10 seconds
 poker-timer-15 = 15 seconds

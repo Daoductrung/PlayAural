@@ -1,13 +1,8 @@
-# Yahtzee game messages
-
-# Game info
 game-name-yahtzee = Yahtzee
 
-# Actions - Rolling
 yahtzee-roll = Gieo lại (còn { $count } lần)
 yahtzee-roll-all = Gieo xúc xắc
 
-# Upper section scoring categories
 yahtzee-score-ones = Số 1 được { $points } điểm
 yahtzee-score-twos = Số 2 được { $points } điểm
 yahtzee-score-threes = Số 3 được { $points } điểm
@@ -15,7 +10,6 @@ yahtzee-score-fours = Số 4 được { $points } điểm
 yahtzee-score-fives = Số 5 được { $points } điểm
 yahtzee-score-sixes = Số 6 được { $points } điểm
 
-# Lower section scoring categories
 yahtzee-score-three-kind = Bộ ba đồng nhất được { $points } điểm
 yahtzee-score-four-kind = Bộ bốn đồng nhất được { $points } điểm
 yahtzee-score-full-house = Cù lũ được { $points } điểm
@@ -24,36 +18,29 @@ yahtzee-score-large-straight = Sảnh lớn được { $points } điểm
 yahtzee-score-yahtzee = Yahtzee được { $points } điểm
 yahtzee-score-chance = Cơ hội được { $points } điểm
 
-# Game events
 yahtzee-you-rolled = Bạn gieo được: { $dice }. Số lần gieo còn lại: { $remaining }
 yahtzee-player-rolled = { $player } gieo được: { $dice }. Số lần gieo còn lại: { $remaining }
 
-# Scoring announcements
 yahtzee-you-scored = Bạn ghi được { $points } điểm vào mục { $category }.
 yahtzee-player-scored = { $player } ghi được { $points } điểm vào mục { $category }.
 
-# Yahtzee bonus
 yahtzee-you-bonus = Thưởng Yahtzee! +100 điểm
 yahtzee-player-bonus = { $player } nhận được thưởng Yahtzee! +100 điểm
 
-# Upper section bonus
 yahtzee-you-upper-bonus = Thưởng phần trên! +35 điểm ({ $total } điểm ở phần trên)
 yahtzee-player-upper-bonus = { $player } nhận được thưởng phần trên! +35 điểm
 yahtzee-you-upper-bonus-missed = Bạn đã bỏ lỡ thưởng phần trên (đạt { $total } điểm, cần 63 điểm).
 yahtzee-player-upper-bonus-missed = { $player } đã bỏ lỡ thưởng phần trên.
 
-# Scoring mode
 yahtzee-choose-category = Chọn một mục để ghi điểm.
 yahtzee-continuing = Đang tiếp tục lượt.
 
-# Status checks
 yahtzee-check-scoresheet = Kiểm tra bảng điểm
 yahtzee-view-dice = Kiểm tra xúc xắc trên tay
 yahtzee-your-dice = Xúc xắc của bạn: { $dice }.
 yahtzee-your-dice-kept = Xúc xắc của bạn: { $dice }. Đang giữ: { $kept }
 yahtzee-not-rolled = Bạn chưa gieo xúc xắc.
 
-# Scoresheet display
 yahtzee-scoresheet-header = === Bảng điểm của { $player } ===
 yahtzee-scoresheet-upper = Phần Trên:
 yahtzee-scoresheet-lower = Phần Dưới:
@@ -64,7 +51,6 @@ yahtzee-scoresheet-upper-total-needed = Tổng phần trên: { $total } (cần t
 yahtzee-scoresheet-yahtzee-bonus = Thưởng Yahtzee: { $count } x 100 = { $total }
 yahtzee-scoresheet-grand-total = TỔNG ĐIỂM CHUNG CUỘC: { $total }
 
-# Category names (for announcements)
 yahtzee-category-ones = Số 1
 yahtzee-category-twos = Số 2
 yahtzee-category-threes = Số 3
@@ -79,16 +65,13 @@ yahtzee-category-large-straight = Sảnh lớn
 yahtzee-category-yahtzee = Yahtzee
 yahtzee-category-chance = Cơ hội
 
-# Game end
 yahtzee-winner = { $player } thắng với { $score } điểm!
 yahtzee-winners-tie = Hòa nhau! { $players } đều ghi được { $score } điểm!
 
-# Options
 yahtzee-set-rounds = Số ván chơi: { $rounds }
 yahtzee-enter-rounds = Nhập số ván chơi (1-10):
 yahtzee-option-changed-rounds = Số ván chơi đã được đặt là { $rounds }.
 
-# Disabled action reasons
 yahtzee-no-rolls-left = Bạn không còn lượt gieo nào.
 yahtzee-roll-first = Bạn cần gieo xúc xắc trước.
 yahtzee-category-filled = Mục đó đã được ghi điểm rồi.

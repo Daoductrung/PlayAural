@@ -1,5 +1,3 @@
-# Crazy Eights
-
 game-name-crazyeights = Crazy Eights
 
 crazyeights-set-winning-score = Winning score: { $score }
@@ -44,10 +42,8 @@ crazyeights-player-draws-one = { $player } draws a card.
 crazyeights-player-draws-many = { $player } draws { $count } cards.
 crazyeights-player-passes = { $player } passes.
 
-# Formats
 crazyeights-line-format = { $rank }. { $player }: { $score }
 
-# Timer
 crazyeights-check-turn-timer = Check turn timer
 crazyeights-timer-5 = 5 seconds
 crazyeights-timer-10 = 10 seconds

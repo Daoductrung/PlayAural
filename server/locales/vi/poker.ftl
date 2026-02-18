@@ -1,5 +1,3 @@
-# Shared Poker Messages
-
 poker-fold = Bỏ bài
 poker-call = Theo
 poker-check = Xem
@@ -89,7 +87,6 @@ poker-log-all-in = { $player } đã tất tay { $amount }
 poker-table-cards = Bài trên bàn: { $cards }.
 poker-your-hand = Bài của bạn: { $cards }.
 
-# Timer choice labels
 poker-timer-5 = 5 giây
 poker-timer-10 = 10 giây
 poker-timer-15 = 15 giây

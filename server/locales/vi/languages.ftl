@@ -1,4 +1,3 @@
-# Tên các ngôn ngữ được dịch sang ngôn ngữ này
 language-ar = Tiếng Ả Rập
 language-cs = Tiếng Séc
 language-de = Tiếng Đức

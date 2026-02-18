@@ -6,7 +6,6 @@ window.LOCALES = {
         "login-username-label": "Username",
         "login-password-label": "Password",
         "login-btn": "Connect & Login",
-        "login-create-account-btn": "Create Account",
 
         "reg-title": "Create Account",
         "reg-server-label": "Server URL",
@@ -14,7 +13,6 @@ window.LOCALES = {
         "reg-password-label": "Password",
         "reg-email-label": "Email",
         "reg-register-btn": "Register",
-        "reg-back-btn": "Back to Login",
         "btn-goto-login": "Go to Login",
 
         "mobile-hint": "For the best experience on mobile, we recommend installing the app.",
@@ -29,7 +27,7 @@ window.LOCALES = {
 
         "chat-input-label": "Chat Message",
         "chat-input-placeholder": "Type a message...",
-        "chat-send-btn": "Send",
+
         "chat-prefix-local": "[Local]",
         "chat-prefix-global": "[Global]",
         "chat-prefix-table": "[Table]",
@@ -37,29 +35,21 @@ window.LOCALES = {
         "chat-prefix-announcement": "System Announcement",
 
         "players-title": "Online Players",
-        "players-list-btn": "List Online",
-        "players-list-games-btn": "List Active",
-        "players-area-placeholder": "Click to view players.",
-        "players-requesting": "Requesting list...",
-        "players-requesting-games": "Requesting games...",
 
         "status-connected": "Connected",
         "status-connecting": "Connecting...",
         "status-disconnected": "Disconnected",
-        "status-reconnecting": "Reconnecting...",
         "status-authenticating": "Authenticating...",
         "status-sending-registration": "Sending registration...",
         "status-connection-error": "Connection Error",
         "status-invalid-url": "Invalid Server URL",
         "kicked": "You have been kicked from the server.",
-        "force-exit": "The server has closed the connection.",
 
         "input-submit": "Submit",
 
         "common-ok": "OK",
         "common-cancel": "Cancel",
         "common-error": "Error",
-        "game-list-header": "Available Games:",
         "welcome": "Welcome, {username}.",
         "system-announcement": "System Announcement",
         "dev-announcement-broadcast": "{dev} is a developer of PlayAural.",
@@ -83,25 +73,18 @@ window.LOCALES = {
         "no-actions-available": "No actions available.",
         "go-back": "Go Back",
 
-        "chat-muted-global": "Global chat muted.",
-        "chat-unmuted-global": "Global chat unmuted.",
-        "chat-muted-table": "Table chat muted.",
-        "chat-unmuted-table": "Table chat unmuted.",
-        "no-games-active": "No games currently active.",
         "requesting-player-list": "Requesting online player list...",
         "requesting-game-list": "Requesting player list with games...",
         "auth-error-wrong-password": "Incorrect password.",
         "auth-error-user-not-found": "User does not exist.",
         "auth-registration-success": "Registration successful! You can now log in.",
         "auth-username-taken": "Username already taken.",
-        "auth-error-version-mismatch": "Client version mismatch. Please refresh the page.",
 
         "intro-text": "PlayAural is an audio-first online gaming platform designed for accessibility. Built on PlayPalace, it offers a shared space for casual players to enjoy various card, dice, and adventure games together on equal footing.",
         "landing-title": "Welcome to PlayAural Web",
         "btn-enter": "Login",
         "btn-register": "Register",
         "btn-play": "Play",
-        "btn-logout": "Logout",
         "label-auto-login": "Remember me (Auto-login)",
         "label-confirm-password": "Confirm Password",
         "error-password-mismatch": "Passwords do not match.",
@@ -115,8 +98,8 @@ window.LOCALES = {
         "tab-players": "Players",
 
         // Chat
-        "chat-input-placeholder": "Type a message...",
-        "chat-input-placeholder": "Type a message...",
+
+
         "chat-input-label": "Chat Message",
         "btn-chat-send": "Send",
         "btn-view-history": "View Chat History",
@@ -140,7 +123,6 @@ window.LOCALES = {
         "login-username-label": "Tên đăng nhập",
         "login-password-label": "Mật khẩu",
         "login-btn": "Kết nối & Đăng nhập",
-        "login-create-account-btn": "Tạo tài khoản",
 
         "reg-title": "Tạo tài khoản",
         "reg-server-label": "Địa chỉ máy chủ (URL)",
@@ -148,7 +130,6 @@ window.LOCALES = {
         "reg-password-label": "Mật khẩu",
         "reg-email-label": "Email",
         "reg-register-btn": "Đăng ký",
-        "reg-back-btn": "Quay lại Đăng nhập",
         "btn-goto-login": "Đến trang Đăng nhập",
 
         "mobile-hint": "Để có trải nghiệm tốt nhất trên di động, tôi khuyên bạn nên cài đặt ứng dụng.",
@@ -163,7 +144,7 @@ window.LOCALES = {
 
         "chat-input-label": "Nội dung trò chuyện",
         "chat-input-placeholder": "Nhập tin nhắn...",
-        "chat-send-btn": "Gửi",
+
         "chat-prefix-local": "[Tại chỗ]",
         "chat-prefix-global": "[Toàn cầu]",
         "chat-prefix-table": "[Bàn]",
@@ -171,29 +152,21 @@ window.LOCALES = {
         "chat-prefix-announcement": "Thông báo hệ thống",
 
         "players-title": "Người chơi trực tuyến",
-        "players-list-btn": "Danh sách trực tuyến",
-        "players-list-games-btn": "Danh sách đang chơi",
-        "players-area-placeholder": "Nhấn để xem danh sách người chơi.",
-        "players-requesting": "Đang lấy danh sách...",
-        "players-requesting-games": "Đang lấy danh sách game...",
 
         "status-connected": "Đã kết nối",
         "status-connecting": "Đang kết nối...",
         "status-disconnected": "Đã ngắt kết nối",
-        "status-reconnecting": "Đang kết nối lại...",
         "status-authenticating": "Đang xác thực...",
         "status-sending-registration": "Đang gửi thông tin đăng ký...",
         "status-connection-error": "Lỗi kết nối",
         "status-invalid-url": "Địa chỉ máy chủ không hợp lệ",
         "kicked": "Bạn đã bị đuổi khỏi máy chủ.",
-        "force-exit": "Máy chủ đã đóng kết nối.",
 
         "input-submit": "Gửi đi",
 
         "common-ok": "OK",
         "common-cancel": "Hủy",
         "common-error": "Lỗi",
-        "game-list-header": "Các trò chơi hiện có:",
         "welcome": "Chào mừng, {username}.",
         "system-announcement": "Thông báo hệ thống",
         "dev-announcement-broadcast": "{dev} là nhà phát triển của PlayAural.",
@@ -217,25 +190,18 @@ window.LOCALES = {
         "no-actions-available": "Không có hành động nào.",
         "go-back": "Quay lại",
 
-        "chat-muted-global": "Đã tắt tiếng chat toàn cầu.",
-        "chat-unmuted-global": "Đã bật tiếng chat toàn cầu.",
-        "chat-muted-table": "Đã tắt tiếng chat trong bàn.",
-        "chat-unmuted-table": "Đã bật tiếng chat trong bàn.",
-        "no-games-active": "Hiện không có bàn nào đang hoạt động.",
         "requesting-player-list": "Đang lấy danh sách người chơi trực tuyến...",
         "requesting-game-list": "Đang lấy danh sách người chơi kèm thông tin game...",
         "auth-error-wrong-password": "Sai mật khẩu.",
         "auth-error-user-not-found": "Người dùng không tồn tại.",
         "auth-registration-success": "Đăng ký thành công! Giờ bạn có thể đăng nhập.",
         "auth-username-taken": "Tên đăng nhập đã có người sử dụng.",
-        "auth-error-version-mismatch": "Phiên bản không khớp. Vui lòng tải lại trang.",
 
         "intro-text": "PlayAural là nền tảng chơi game trực tuyến ưu tiên âm thanh, được thiết kế cho khả năng tiếp cận. Dựa trên PlayPalace, tôi mang đến một không gian chung để mọi người cùng thưởng thức các trò chơi bài, xúc xắc và phiêu lưu một cách bình đẳng.",
         "landing-title": "Chào mừng bạn đến với PlayAural Web",
         "btn-enter": "Đăng nhập",
         "btn-register": "Đăng ký",
         "btn-play": "Chơi",
-        "btn-logout": "Đăng xuất",
         "label-auto-login": "Ghi nhớ tôi (Tự động đăng nhập)",
         "label-confirm-password": "Xác nhận mật khẩu",
         "error-password-mismatch": "Mật khẩu xác nhận không khớp.",
@@ -249,7 +215,7 @@ window.LOCALES = {
         "tab-players": "Người chơi",
 
         // Chat
-        "chat-input-placeholder": "Nhập tin nhắn...",
+
         "chat-input-label": "Nội dung trò chuyện",
         "btn-chat-send": "Gửi",
         "btn-view-history": "Xem nhật ký trò chuyện",

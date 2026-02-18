@@ -1,10 +1,5 @@
-# Scopa game messages
-# Note: Common messages like round-start, turn-start, target-score, team-mode are in games.ftl
-
-# Game name
 game-name-scopa = Scopa
 
-# Game events
 scopa-initial-table = Table cards: { $cards }
 scopa-no-initial-table = No cards on the table to start.
 scopa-you-collect = You collect { $cards } with { $card }
@@ -30,17 +25,14 @@ scopa-table-empty = There are no cards on the table.
 scopa-no-such-card = No card at that position.
 scopa-captured-count = You have captured { $count } cards
 
-# View actions
 scopa-view-table = View table
 scopa-view-captured = View captured
 scopa-view-table-card = View table card { $index }
 scopa-pause-timer = Pause timer
 
-# Capture hints
 scopa-hint-match =  -> { $card }
 scopa-hint-multi =  -> { $count } cards
 
-# Scopa-specific options
 scopa-enter-target-score = Enter target score (1-121)
 scopa-set-cards-per-deal = Cards per deal: { $cards }
 scopa-enter-cards-per-deal = Enter cards per deal (1-10)
@@ -54,7 +46,6 @@ scopa-toggle-instant-win = Instant win on scopa: { $enabled }
 scopa-toggle-team-scoring = Pool team cards for scoring: { $enabled }
 scopa-toggle-inverse = Inverse mode (reach target = elimination): { $enabled }
 
-# Option change announcements
 scopa-option-changed-cards = Cards per deal set to { $cards }.
 scopa-option-changed-decks = Number of decks set to { $decks }.
 scopa-option-changed-escoba = Escoba { $enabled }.
@@ -64,15 +55,12 @@ scopa-option-changed-instant = Instant win on scopa { $enabled }.
 scopa-option-changed-team-scoring = Team card scoring { $enabled }.
 scopa-option-changed-inverse = Inverse mode { $enabled }.
 
-# Scopa mechanic choices
 scopa-mechanic-normal = Normal
 scopa-mechanic-no_scopas = No Scopas
 scopa-mechanic-only_scopas = Scopas Only
 
-# Disabled action reasons
 scopa-timer-not-active = The round timer is not active.
 
-# Validation errors
 scopa-error-not-enough-cards = Not enough cards in { $decks } { $decks ->
     [one] deck
     *[other] decks
@@ -81,5 +69,4 @@ scopa-error-not-enough-cards = Not enough cards in { $decks } { $decks ->
     *[other] players
 } with { $cards_per_deal } cards each. (Need { $cards_per_deal } × { $players } = { $cards_needed } cards, but only have { $total_cards }.)
 
-# Formatting
 scopa-line-format = { $rank }. { $player }: { $points }

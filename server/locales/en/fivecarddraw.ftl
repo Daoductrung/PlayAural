@@ -1,5 +1,3 @@
-# Five Card Draw
-
 game-name-fivecarddraw = Five Card Draw
 
 draw-set-starting-chips = Starting chips: { $count }
@@ -54,8 +52,6 @@ draw-player-stands-pat = { $player } stands pat.
 draw-you-discard-limit = You may discard up to { $count } cards.
 draw-player-discard-limit = { $player } may discard up to { $count } cards.
 
-# Card keys
 draw-card-key = Card key { $index }
 
-# End Screen
 draw-winner-chips = { $rank }. { $player }: { $chips } chips

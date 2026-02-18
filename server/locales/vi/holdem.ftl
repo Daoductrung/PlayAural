@@ -1,5 +1,3 @@
-# Texas Hold'em
-
 game-name-holdem = Texas Hold'em
 
 holdem-set-starting-chips = Số chip ban đầu: { $count }
@@ -37,5 +35,4 @@ holdem-option-changed-max-raises = Số lần tố tối đa đã được đặ
 holdem-antes-posted = Đã đóng cược góp: { $amount }.
 holdem-blinds-posted = Đã đóng cược mù: { $sb } / { $bb }.
 
-# End Screen
 holdem-winner-chips = { $rank }. { $player }: { $chips } chip

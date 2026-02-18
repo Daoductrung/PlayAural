@@ -346,6 +346,8 @@ class LightTurretGame(Game):
             return
 
         for p in self.players:
+            if p.is_spectator:
+                continue
             if isinstance(p, LightTurretPlayer):
                 if p.alive:
                     user.speak_l(

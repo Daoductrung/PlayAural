@@ -1,10 +1,5 @@
-# Age of Heroes game messages
-# A civilization-building card game for 2-6 players
-
-# Game name
 game-name-ageofheroes = Kỷ Nguyên Anh Hùng
 
-# Tribes
 ageofheroes-tribe-egyptians = Ai Cập
 ageofheroes-tribe-romans = La Mã
 ageofheroes-tribe-greeks = Hy Lạp
@@ -12,7 +7,6 @@ ageofheroes-tribe-babylonians = Babylon
 ageofheroes-tribe-celts = Celt
 ageofheroes-tribe-chinese = Trung Hoa
 
-# Special Resources (for monuments)
 ageofheroes-special-limestone = Đá vôi
 ageofheroes-special-concrete = Bê tông
 ageofheroes-special-marble = Đá cẩm thạch
@@ -20,14 +14,12 @@ ageofheroes-special-bricks = Gạch nung
 ageofheroes-special-sandstone = Đá sa thạch
 ageofheroes-special-granite = Đá hoa cương
 
-# Standard Resources
 ageofheroes-resource-iron = Sắt
 ageofheroes-resource-wood = Gỗ
 ageofheroes-resource-grain = Lương thực
 ageofheroes-resource-stone = Đá
 ageofheroes-resource-gold = Vàng
 
-# Events
 ageofheroes-event-population-growth = Tăng trưởng dân số
 ageofheroes-event-earthquake = Động đất
 ageofheroes-event-eruption = Núi lửa phun trào
@@ -37,39 +29,33 @@ ageofheroes-event-olympics = Thế vận hội Olympic
 ageofheroes-event-hero = Anh hùng
 ageofheroes-event-fortune = Vận may
 
-# Buildings
 ageofheroes-building-army = Quân đội
 ageofheroes-building-fortress = Pháo đài
 ageofheroes-building-general = Tướng quân
 ageofheroes-building-road = Đường
 ageofheroes-building-city = Thành phố
 
-# Actions
 ageofheroes-action-tax-collection = Thu thuế
 ageofheroes-action-construction = Xây dựng
 ageofheroes-action-war = Chiến tranh
 ageofheroes-action-do-nothing = Không làm gì
 ageofheroes-play = Chơi
 
-# War goals
 ageofheroes-war-conquest = Chinh phạt
 ageofheroes-war-plunder = Cướp bóc
 ageofheroes-war-destruction = Phá hủy
 
-# Game options
 ageofheroes-set-victory-cities = Thành phố chiến thắng: { $cities }
 ageofheroes-enter-victory-cities = Nhập số thành phố để thắng (3-7)
 ageofheroes-set-victory-monument = Hoàn thành kỳ quan: { $progress }%
 ageofheroes-toggle-neighbor-roads = Chỉ làm đường tới hàng xóm: { $enabled }
 ageofheroes-set-max-hand = Số bài tối đa trên tay: { $cards } lá
 
-# Option change announcements
 ageofheroes-option-changed-victory-cities = Chiến thắng yêu cầu { $cities } thành phố.
 ageofheroes-option-changed-victory-monument = Ngưỡng hoàn thành kỳ quan được đặt là { $progress }%.
 ageofheroes-option-changed-neighbor-roads = Chỉ làm đường tới hàng xóm: { $enabled }.
 ageofheroes-option-changed-max-hand = Số bài tối đa trên tay được đặt là { $cards } lá.
 
-# Setup phase
 ageofheroes-setup-start = Bạn là thủ lĩnh của tộc { $tribe }. Tài nguyên kỳ quan đặc biệt của bạn là { $special }. Gieo xúc xắc để xác định thứ tự đi.
 ageofheroes-setup-viewer = Các người chơi đang gieo xúc xắc để xác định thứ tự đi.
 ageofheroes-roll-dice = Gieo xúc xắc
@@ -80,7 +66,6 @@ ageofheroes-dice-tie = Nhiều người chơi hòa nhau với { $total } điểm
 ageofheroes-first-player = { $player } gieo cao nhất với { $total } điểm và đi trước.
 ageofheroes-first-player-you = Với { $total } điểm, bạn được đi trước.
 
-# Preparation phase
 ageofheroes-prepare-start = Người chơi phải đánh các lá sự kiện và bỏ các lá thảm họa.
 ageofheroes-prepare-your-turn = Bạn có { $count } { $count ->
     [one] lá bài
@@ -88,7 +73,6 @@ ageofheroes-prepare-your-turn = Bạn có { $count } { $count ->
 } để đánh hoặc bỏ.
 ageofheroes-prepare-done = Giai đoạn chuẩn bị hoàn tất.
 
-# Events played/discarded
 ageofheroes-population-growth = { $player } dùng Tăng trưởng dân số và xây dựng một thành phố mới.
 ageofheroes-population-growth-you = Bạn dùng Tăng trưởng dân số và xây dựng một thành phố mới.
 ageofheroes-discard-card = { $player } bỏ lá { $card }.
@@ -98,7 +82,6 @@ ageofheroes-earthquake-you = Một trận động đất đánh vào tộc của
 ageofheroes-eruption = Núi lửa phun trào phá hủy một thành phố của { $player }.
 ageofheroes-eruption-you = Núi lửa phun trào phá hủy một thành phố của bạn.
 
-# Disaster effects
 ageofheroes-hunger-strikes = Nạn đói hoành hành.
 ageofheroes-lose-card-hunger = Bạn mất { $card }.
 ageofheroes-barbarians-pillage = Man tộc tấn công kho tài nguyên của { $player }.
@@ -108,7 +91,6 @@ ageofheroes-lose-card-barbarians = Bạn mất { $card }.
 ageofheroes-block-with-card = { $player } chặn thảm họa bằng lá { $card }.
 ageofheroes-block-with-card-you = Bạn chặn thảm họa bằng lá { $card }.
 
-# Targeted disaster cards (Earthquake/Eruption)
 ageofheroes-select-disaster-target = Chọn mục tiêu cho { $card }.
 ageofheroes-no-targets = Không có mục tiêu hợp lệ.
 ageofheroes-earthquake-strikes-you = { $attacker } dùng Động đất tấn công bạn. Quân đội của bạn bị vô hiệu hóa.
@@ -121,7 +103,6 @@ ageofheroes-eruption-strikes-you = { $attacker } dùng Núi lửa phun trào t�
 ageofheroes-eruption-strikes = { $attacker } dùng Núi lửa phun trào tấn công { $player }.
 ageofheroes-city-destroyed = Một thành phố bị phá hủy bởi núi lửa phun trào.
 
-# Fair phase
 ageofheroes-fair-start = Bình minh lên tại khu chợ.
 ageofheroes-fair-draw-base = Bạn rút { $count } { $count ->
     [one] lá bài
@@ -136,7 +117,6 @@ ageofheroes-fair-draw-other = { $player } rút { $count } { $count ->
    *[other] lá bài
 }.
 
-# Trading/Auction
 ageofheroes-auction-start = Bắt đầu đấu giá.
 ageofheroes-offer-trade = Đề nghị trao đổi
 ageofheroes-offer-made = { $player } đề nghị đổi { $card } lấy { $wanted }.
@@ -154,14 +134,12 @@ ageofheroes-any-card = Bất kỳ lá nào
 ageofheroes-cannot-trade-own-special = Bạn không thể trao đổi tài nguyên kỳ quan đặc biệt của chính mình.
 ageofheroes-resource-not-in-game = Tài nguyên đặc biệt này không được sử dụng trong ván này.
 
-# Main play phase
 ageofheroes-play-start = Giai đoạn chơi chính.
 ageofheroes-day = Ngày { $day }
 ageofheroes-draw-card = { $player } rút một lá bài từ bộ bài.
 ageofheroes-draw-card-you = Bạn rút { $card } từ bộ bài.
 ageofheroes-your-action = Bạn muốn làm gì?
 
-# Tax Collection
 ageofheroes-tax-collection = { $player } chọn Thu thuế: { $cities } { $cities ->
     [one] thành phố
    *[other] thành phố
@@ -180,7 +158,6 @@ ageofheroes-tax-no-city = Thu thuế: Bạn không còn thành phố nào. Bỏ 
 ageofheroes-tax-no-city-done = { $player } chọn Thu thuế nhưng không có thành phố, nên họ đổi một lá bài.
 ageofheroes-tax-no-city-done-you = Thu thuế: Bạn đã đổi { $card } lấy một lá bài mới.
 
-# Construction
 ageofheroes-construction-menu = Bạn muốn xây gì?
 ageofheroes-construction-done = { $player } đã xây { $article } { $building }.
 ageofheroes-construction-done-you = Bạn đã xây { $article } { $building }.
@@ -199,11 +176,9 @@ ageofheroes-approve = Chấp thuận
 ageofheroes-deny = Từ chối
 ageofheroes-supply-exhausted = Không còn { $building } để xây.
 
-# Do Nothing
 ageofheroes-do-nothing = { $player } bỏ lượt.
 ageofheroes-do-nothing-you = Bạn bỏ lượt...
 
-# War
 ageofheroes-war-declare = { $attacker } tuyên chiến với { $defender }. Mục tiêu: { $goal }.
 ageofheroes-war-prepare = Chọn quân đội của bạn để { $action }.
 ageofheroes-war-no-army = Bạn không có quân đội hay lá bài anh hùng nào.
@@ -265,7 +240,6 @@ ageofheroes-war-bonuses-other = { $general ->
     }
 }
 
-# Battle
 ageofheroes-battle-start = Trận chiến bắt đầu. { $att_armies } { $att_armies ->
     [one] quân đội
    *[other] quân đội
@@ -305,7 +279,6 @@ ageofheroes-battle-draw = Trận chiến kết thúc hòa...
 ageofheroes-battle-continue = Tiếp tục trận chiến.
 ageofheroes-battle-end = Trận chiến kết thúc.
 
-# War outcomes
 ageofheroes-conquest-success = { $attacker } chinh phạt { $count } { $count ->
     [one] thành phố
    *[other] thành phố
@@ -327,7 +300,6 @@ ageofheroes-army-losses-you = Bạn mất { $count } { $count ->
    *[other] quân đội
 }.
 
-# Army return
 ageofheroes-army-return-road = Quân đội của bạn trở về ngay lập tức nhờ đường bộ.
 ageofheroes-army-return-delayed = { $count } { $count ->
     [one] đơn vị trở về
@@ -338,17 +310,14 @@ ageofheroes-army-returned-you = Quân của bạn đã trở về từ chiến t
 ageofheroes-army-recover = Quân đội của { $player } hồi phục sau trận động đất.
 ageofheroes-army-recover-you = Quân đội của bạn hồi phục sau trận động đất.
 
-# Olympics
 ageofheroes-olympics-cancel = { $player } tổ chức Thế vận hội Olympic. Chiến tranh bị hủy bỏ.
 ageofheroes-olympics-prompt = { $attacker } đã tuyên chiến. Bạn có thẻ Thế vận hội Olympic - dùng nó để hủy chiến tranh không?
 ageofheroes-yes = Có
 ageofheroes-no = Không
 
-# Monument progress
 ageofheroes-monument-progress = Kỳ quan của { $player } đã hoàn thành { $count }/5.
 ageofheroes-monument-progress-you = Kỳ quan của bạn đã hoàn thành { $count }/5.
 
-# Hand management
 ageofheroes-discard-excess = Bạn có nhiều hơn { $max } lá bài. Hãy bỏ { $count } { $count ->
     [one] lá bài
    *[other] lá bài
@@ -359,7 +328,6 @@ ageofheroes-discard-more = Bỏ thêm { $count } { $count ->
    *[other] lá bài
 }.
 
-# Victory
 ageofheroes-victory-cities = { $player } đã xây được 5 thành phố! Đế chế Năm Thành phố.
 ageofheroes-victory-cities-you = Bạn đã xây được 5 thành phố! Đế chế Năm Thành phố.
 ageofheroes-victory-monument = { $player } đã hoàn thành kỳ quan của họ! Những người mang nền văn hóa vĩ đại.
@@ -368,18 +336,15 @@ ageofheroes-victory-last-standing = { $player } là tộc cuối cùng còn tr�
 ageofheroes-victory-last-standing-you = Bạn là tộc cuối cùng còn trụ lại! Kẻ Kiên Cường Nhất.
 ageofheroes-game-over = Kết thúc game.
 
-# Elimination
 ageofheroes-eliminated = { $player } đã bị loại.
 ageofheroes-eliminated-you = Bạn đã bị loại.
 
-# Hand
 ageofheroes-hand-empty = Bạn không có bài.
 ageofheroes-hand-contents = Bài trên tay ({ $count } { $count ->
     [one] lá
    *[other] lá
 }): { $cards }
 
-# Status
 ageofheroes-status = { $player } ({ $tribe }): { $cities } { $cities ->
     [one] thành phố
    *[other] thành phố
@@ -401,39 +366,32 @@ ageofheroes-status-earthquake-armies = Quân đội đang hồi phục: { $count
 ageofheroes-status-returning-armies = Quân đội đang trở về: { $count }
 ageofheroes-status-returning-generals = Tướng quân đang trở về: { $count }
 
-# Deck info
 ageofheroes-deck-empty = Không còn lá { $card } trong bộ bài.
 ageofheroes-deck-count = Bài còn lại: { $count }
 ageofheroes-deck-reshuffled = Chồng bài bỏ đã được xào lại vào bộ bài.
 
-# Give up
 ageofheroes-give-up-confirm = Bạn có chắc chắn muốn bỏ cuộc không?
 ageofheroes-gave-up = { $player } đã bỏ cuộc!
 ageofheroes-gave-up-you = Bạn đã bỏ cuộc!
 
-# Hero card
 ageofheroes-hero-use = Dùng như quân đội hay tướng quân?
 ageofheroes-hero-army = Quân đội
 ageofheroes-hero-general = Tướng quân
 
-# Fortune card
 ageofheroes-fortune-reroll = { $player } dùng Vận may để gieo lại.
 ageofheroes-fortune-prompt = Bạn đã gieo thua. Dùng Vận may để gieo lại không?
 
-# Disabled action reasons
 ageofheroes-not-your-turn = Chưa đến lượt của bạn.
 ageofheroes-game-not-started = Trò chơi chưa bắt đầu.
 ageofheroes-wrong-phase = Hành động này không khả dụng trong giai đoạn hiện tại.
 ageofheroes-no-resources = Bạn không có đủ tài nguyên cần thiết.
 
-# Building costs (for display)
 ageofheroes-cost-army = 2 Lương thực, Sắt
 ageofheroes-cost-fortress = Sắt, Gỗ, Đá
 ageofheroes-cost-general = Sắt, Vàng
 ageofheroes-cost-road = 2 Đá
 ageofheroes-cost-city = 2 Gỗ, Đá
 
-# Formats
 ageofheroes-winner-line = Người thắng: {  }
 ageofheroes-days-line = Số ngày: {  }
 ageofheroes-your-cards = Bài của bạn: { $cards }

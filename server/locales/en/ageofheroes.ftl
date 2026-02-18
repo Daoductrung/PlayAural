@@ -1,10 +1,5 @@
-# Age of Heroes game messages
-# A civilization-building card game for 2-6 players
-
-# Game name
 game-name-ageofheroes = Age of Heroes
 
-# Tribes
 ageofheroes-tribe-egyptians = Egyptians
 ageofheroes-tribe-romans = Romans
 ageofheroes-tribe-greeks = Greeks
@@ -12,7 +7,6 @@ ageofheroes-tribe-babylonians = Babylonians
 ageofheroes-tribe-celts = Celts
 ageofheroes-tribe-chinese = Chinese
 
-# Special Resources (for monuments)
 ageofheroes-special-limestone = Limestone
 ageofheroes-special-concrete = Concrete
 ageofheroes-special-marble = Marble
@@ -20,14 +14,12 @@ ageofheroes-special-bricks = Bricks
 ageofheroes-special-sandstone = Sandstone
 ageofheroes-special-granite = Granite
 
-# Standard Resources
 ageofheroes-resource-iron = Iron
 ageofheroes-resource-wood = Wood
 ageofheroes-resource-grain = Grain
 ageofheroes-resource-stone = Stone
 ageofheroes-resource-gold = Gold
 
-# Events
 ageofheroes-event-population-growth = Population Growth
 ageofheroes-event-earthquake = Earthquake
 ageofheroes-event-eruption = Eruption
@@ -37,39 +29,33 @@ ageofheroes-event-olympics = Olympic Games
 ageofheroes-event-hero = Hero
 ageofheroes-event-fortune = Fortune
 
-# Buildings
 ageofheroes-building-army = Army
 ageofheroes-building-fortress = Fortress
 ageofheroes-building-general = General
 ageofheroes-building-road = Road
 ageofheroes-building-city = City
 
-# Actions
 ageofheroes-action-tax-collection = Tax Collection
 ageofheroes-action-construction = Construction
 ageofheroes-action-war = War
 ageofheroes-action-do-nothing = Do Nothing
 ageofheroes-play = Play
 
-# War goals
 ageofheroes-war-conquest = Conquest
 ageofheroes-war-plunder = Plunder
 ageofheroes-war-destruction = Destruction
 
-# Game options
 ageofheroes-set-victory-cities = Victory cities: { $cities }
 ageofheroes-enter-victory-cities = Enter number of cities to win (3-7)
 ageofheroes-set-victory-monument = Monument completion: { $progress }%
 ageofheroes-toggle-neighbor-roads = Roads only to neighbors: { $enabled }
 ageofheroes-set-max-hand = Maximum hand size: { $cards } cards
 
-# Option change announcements
 ageofheroes-option-changed-victory-cities = Victory requires { $cities } cities.
 ageofheroes-option-changed-victory-monument = Monument completion threshold set to { $progress }%.
 ageofheroes-option-changed-neighbor-roads = Roads only to neighbors { $enabled }.
 ageofheroes-option-changed-max-hand = Maximum hand size set to { $cards } cards.
 
-# Setup phase
 ageofheroes-setup-start = You are the leader of the { $tribe } tribe. Your special monument resource is { $special }. Roll the dice to determine turn order.
 ageofheroes-setup-viewer = Players are rolling dice to determine turn order.
 ageofheroes-roll-dice = Roll the dice
@@ -80,7 +66,6 @@ ageofheroes-dice-tie = Multiple players tied with { $total }. Rolling again...
 ageofheroes-first-player = { $player } rolled highest with { $total } and goes first.
 ageofheroes-first-player-you = With { $total } points, you go first.
 
-# Preparation phase
 ageofheroes-prepare-start = Players must play event cards and discard disasters.
 ageofheroes-prepare-your-turn = You have { $count } { $count ->
     [one] card
@@ -88,7 +73,6 @@ ageofheroes-prepare-your-turn = You have { $count } { $count ->
 } to play or discard.
 ageofheroes-prepare-done = Preparation phase complete.
 
-# Events played/discarded
 ageofheroes-population-growth = { $player } plays Population Growth and builds a new city.
 ageofheroes-population-growth-you = You play Population Growth and build a new city.
 ageofheroes-discard-card = { $player } discards { $card }.
@@ -98,7 +82,6 @@ ageofheroes-earthquake-you = An earthquake strikes your tribe; your armies go in
 ageofheroes-eruption = An eruption destroys one of { $player }'s cities.
 ageofheroes-eruption-you = An eruption destroys one of your cities.
 
-# Disaster effects
 ageofheroes-hunger-strikes = Hunger strikes.
 ageofheroes-lose-card-hunger = You lose { $card }.
 ageofheroes-barbarians-pillage = Barbarians attack { $player }'s resources.
@@ -108,7 +91,6 @@ ageofheroes-lose-card-barbarians = You lose { $card }.
 ageofheroes-block-with-card = { $player } blocks the disaster using { $card }.
 ageofheroes-block-with-card-you = You block the disaster using { $card }.
 
-# Targeted disaster cards (Earthquake/Eruption)
 ageofheroes-select-disaster-target = Select a target for { $card }.
 ageofheroes-no-targets = No valid targets available.
 ageofheroes-earthquake-strikes-you = { $attacker } plays Earthquake against you. Your armies are disabled.
@@ -121,7 +103,6 @@ ageofheroes-eruption-strikes-you = { $attacker } plays Eruption against you. One
 ageofheroes-eruption-strikes = { $attacker } plays Eruption against { $player }.
 ageofheroes-city-destroyed = A city is destroyed by the eruption.
 
-# Fair phase
 ageofheroes-fair-start = The day dawns at the marketplace.
 ageofheroes-fair-draw-base = You draw { $count } { $count ->
     [one] card
@@ -136,7 +117,6 @@ ageofheroes-fair-draw-other = { $player } draws { $count } { $count ->
     *[other] cards
 }.
 
-# Trading/Auction
 ageofheroes-auction-start = Auction begins.
 ageofheroes-offer-trade = Offer to trade
 ageofheroes-offer-made = { $player } offers { $card } for { $wanted }.
@@ -154,14 +134,12 @@ ageofheroes-any-card = Any card
 ageofheroes-cannot-trade-own-special = You cannot trade your own special monument resource.
 ageofheroes-resource-not-in-game = This special resource is not being used in this game.
 
-# Main play phase
 ageofheroes-play-start = Play phase.
 ageofheroes-day = Day { $day }
 ageofheroes-draw-card = { $player } draws a card from the deck.
 ageofheroes-draw-card-you = You draw { $card } from the deck.
 ageofheroes-your-action = What do you want to do?
 
-# Tax Collection
 ageofheroes-tax-collection = { $player } chooses Tax Collection: { $cities } { $cities ->
     [one] city
     *[other] cities
@@ -180,7 +158,6 @@ ageofheroes-tax-no-city = Tax Collection: You have no surviving cities. Discard 
 ageofheroes-tax-no-city-done = { $player } chooses Tax Collection but has no cities, so they exchange a card.
 ageofheroes-tax-no-city-done-you = Tax Collection: You exchanged { $card } for a new card.
 
-# Construction
 ageofheroes-construction-menu = What do you want to build?
 ageofheroes-construction-done = { $player } built { $article } { $building }.
 ageofheroes-construction-done-you = You built { $article } { $building }.
@@ -199,11 +176,9 @@ ageofheroes-approve = Approve
 ageofheroes-deny = Deny
 ageofheroes-supply-exhausted = No more { $building } available to build.
 
-# Do Nothing
 ageofheroes-do-nothing = { $player } passes.
 ageofheroes-do-nothing-you = You pass...
 
-# War
 ageofheroes-war-declare = { $attacker } declares war on { $defender }. Goal: { $goal }.
 ageofheroes-war-prepare = Select your armies for { $action }.
 ageofheroes-war-no-army = You have no armies or hero cards available.
@@ -265,7 +240,6 @@ ageofheroes-war-bonuses-other = { $general ->
     }
 }
 
-# Battle
 ageofheroes-battle-start = Battle begins. { $attacker }'s { $att_armies } { $att_armies ->
     [one] army
     *[other] armies
@@ -305,7 +279,6 @@ ageofheroes-battle-draw = The battle ends in a draw...
 ageofheroes-battle-continue = Continue the battle.
 ageofheroes-battle-end = The battle is over.
 
-# War outcomes
 ageofheroes-conquest-success = { $attacker } conquers { $count } { $count ->
     [one] city
     *[other] cities
@@ -327,7 +300,6 @@ ageofheroes-army-losses-you = You lose { $count } { $count ->
     *[other] armies
 }.
 
-# Army return
 ageofheroes-army-return-road = Your troops return immediately via road.
 ageofheroes-army-return-delayed = { $count } { $count ->
     [one] unit returns
@@ -338,17 +310,14 @@ ageofheroes-army-returned-you = Your troops have returned from war.
 ageofheroes-army-recover = { $player }'s armies recover from the earthquake.
 ageofheroes-army-recover-you = Your armies recover from the earthquake.
 
-# Olympics
 ageofheroes-olympics-cancel = { $player } plays Olympic Games. War cancelled.
 ageofheroes-olympics-prompt = { $attacker } has declared war. You have Olympic Games - use it to cancel?
 ageofheroes-yes = Yes
 ageofheroes-no = No
 
-# Monument progress
 ageofheroes-monument-progress = { $player }'s monument is { $count }/5 complete.
 ageofheroes-monument-progress-you = Your monument is { $count }/5 complete.
 
-# Hand management
 ageofheroes-discard-excess = You have more than { $max } cards. Discard { $count } { $count ->
     [one] card
     *[other] cards
@@ -359,7 +328,6 @@ ageofheroes-discard-more = Discard { $count } more { $count ->
     *[other] cards
 }.
 
-# Victory
 ageofheroes-victory-cities = { $player } has built 5 cities! Empire of Five Cities.
 ageofheroes-victory-cities-you = You have built 5 cities! Empire of Five Cities.
 ageofheroes-victory-monument = { $player } has completed their monument! Carriers of Great Culture.
@@ -368,18 +336,15 @@ ageofheroes-victory-last-standing = { $player } is the last tribe standing! The 
 ageofheroes-victory-last-standing-you = You are the last tribe standing! The Most Persistent.
 ageofheroes-game-over = Game Over.
 
-# Elimination
 ageofheroes-eliminated = { $player } has been eliminated.
 ageofheroes-eliminated-you = You have been eliminated.
 
-# Hand
 ageofheroes-hand-empty = You have no cards.
 ageofheroes-hand-contents = Your hand ({ $count } { $count ->
     [one] card
     *[other] cards
 }): { $cards }
 
-# Status
 ageofheroes-status = { $player } ({ $tribe }): { $cities } { $cities ->
     [one] city
     *[other] cities
@@ -401,39 +366,32 @@ ageofheroes-status-earthquake-armies = Recovering armies: { $count }
 ageofheroes-status-returning-armies = Returning armies: { $count }
 ageofheroes-status-returning-generals = Returning generals: { $count }
 
-# Deck info
 ageofheroes-deck-empty = No more { $card } cards in the deck.
 ageofheroes-deck-count = Cards remaining: { $count }
 ageofheroes-deck-reshuffled = The discard pile has been reshuffled into the deck.
 
-# Give up
 ageofheroes-give-up-confirm = Are you sure you want to give up?
 ageofheroes-gave-up = { $player } gave up!
 ageofheroes-gave-up-you = You gave up!
 
-# Hero card
 ageofheroes-hero-use = Use as army or general?
 ageofheroes-hero-army = Army
 ageofheroes-hero-general = General
 
-# Fortune card
 ageofheroes-fortune-reroll = { $player } uses Fortune to reroll.
 ageofheroes-fortune-prompt = You lost the roll. Use Fortune to reroll?
 
-# Disabled action reasons
 ageofheroes-not-your-turn = It's not your turn.
 ageofheroes-game-not-started = The game hasn't started yet.
 ageofheroes-wrong-phase = This action is not available in the current phase.
 ageofheroes-no-resources = You don't have the required resources.
 
-# Building costs (for display)
 ageofheroes-cost-army = 2 Grain, Iron
 ageofheroes-cost-fortress = Iron, Wood, Stone
 ageofheroes-cost-general = Iron, Gold
 ageofheroes-cost-road = 2 Stone
 ageofheroes-cost-city = 2 Wood, Stone
 
-# Formats
 ageofheroes-winner-line = Winner: {  }
 ageofheroes-days-line = Days: {  }
 ageofheroes-your-cards = Your cards: { $cards }

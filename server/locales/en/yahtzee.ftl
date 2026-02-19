@@ -3,26 +3,71 @@ game-name-yahtzee = Yahtzee
 yahtzee-roll = Re-roll ({ $count } left)
 yahtzee-roll-all = Roll dice
 
-yahtzee-score-ones = Ones for { $points } points
-yahtzee-score-twos = Twos for { $points } points
-yahtzee-score-threes = Threes for { $points } points
-yahtzee-score-fours = Fours for { $points } points
-yahtzee-score-fives = Fives for { $points } points
-yahtzee-score-sixes = Sixes for { $points } points
+yahtzee-score-ones = Ones for { $points } { $points ->
+    [one] point
+   *[other] points
+}
+yahtzee-score-twos = Twos for { $points } { $points ->
+    [one] point
+   *[other] points
+}
+yahtzee-score-threes = Threes for { $points } { $points ->
+    [one] point
+   *[other] points
+}
+yahtzee-score-fours = Fours for { $points } { $points ->
+    [one] point
+   *[other] points
+}
+yahtzee-score-fives = Fives for { $points } { $points ->
+    [one] point
+   *[other] points
+}
+yahtzee-score-sixes = Sixes for { $points } { $points ->
+    [one] point
+   *[other] points
+}
 
-yahtzee-score-three-kind = Three of a Kind for { $points } points
-yahtzee-score-four-kind = Four of a Kind for { $points } points
-yahtzee-score-full-house = Full House for { $points } points
-yahtzee-score-small-straight = Small Straight for { $points } points
-yahtzee-score-large-straight = Large Straight for { $points } points
-yahtzee-score-yahtzee = Yahtzee for { $points } points
-yahtzee-score-chance = Chance for { $points } points
+yahtzee-score-three-kind = Three of a Kind for { $points } { $points ->
+    [one] point
+   *[other] points
+}
+yahtzee-score-four-kind = Four of a Kind for { $points } { $points ->
+    [one] point
+   *[other] points
+}
+yahtzee-score-full-house = Full House for { $points } { $points ->
+    [one] point
+   *[other] points
+}
+yahtzee-score-small-straight = Small Straight for { $points } { $points ->
+    [one] point
+   *[other] points
+}
+yahtzee-score-large-straight = Large Straight for { $points } { $points ->
+    [one] point
+   *[other] points
+}
+yahtzee-score-yahtzee = Yahtzee for { $points } { $points ->
+    [one] point
+   *[other] points
+}
+yahtzee-score-chance = Chance for { $points } { $points ->
+    [one] point
+   *[other] points
+}
 
 yahtzee-you-rolled = You rolled: { $dice }. Rolls remaining: { $remaining }
 yahtzee-player-rolled = { $player } rolled: { $dice }. Rolls remaining: { $remaining }
 
-yahtzee-you-scored = You scored { $points } points in { $category }.
-yahtzee-player-scored = { $player } scored { $points } in { $category }.
+yahtzee-you-scored = You scored { $points } { $points ->
+    [one] point
+   *[other] points
+} in { $category }.
+yahtzee-player-scored = { $player } scored { $points } { $points ->
+    [one] point
+   *[other] points
+} in { $category }.
 
 yahtzee-you-bonus = Yahtzee bonus! +100 points
 yahtzee-player-bonus = { $player } got a Yahtzee bonus! +100 points
@@ -65,7 +110,10 @@ yahtzee-category-large-straight = Large Straight
 yahtzee-category-yahtzee = Yahtzee
 yahtzee-category-chance = Chance
 
-yahtzee-winner = { $player } wins with { $score } points!
+yahtzee-winner = { $player } wins with { $score } { $score ->
+    [one] point
+   *[other] points
+}!
 yahtzee-winners-tie = It's a tie! { $players } all scored { $score } points!
 
 yahtzee-set-rounds = Number of games: { $rounds }

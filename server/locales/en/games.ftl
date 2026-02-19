@@ -71,6 +71,21 @@ rank-jack = jack
 rank-queen = queen
 rank-king = king
 
+rank-ace-plural = aces
+rank-two-plural = twos
+rank-three-plural = threes
+rank-four-plural = fours
+rank-five-plural = fives
+rank-six-plural = sixes
+rank-seven-plural = sevens
+rank-eight-plural = eights
+rank-nine-plural = nines
+rank-ten-plural = tens
+rank-jack-plural = jacks
+rank-queen-plural = queens
+rank-king-plural = kings
+
+
 poker-high-card-with = { $high } high, with { $rest }
 poker-high-card = { $high } high
 poker-pair-with = Pair of { $pair }, with { $rest }

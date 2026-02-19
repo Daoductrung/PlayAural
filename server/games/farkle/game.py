@@ -13,6 +13,7 @@ from ..base import Game, Player, GameOptions
 from ..registry import register_game
 from ...game_utils.actions import Action, ActionSet, Visibility
 from ...game_utils.bot_helper import BotHelper
+from ...game_utils.dice import DiceSet
 from ...game_utils.game_result import GameResult, PlayerResult
 from ...game_utils.options import IntOption, option_field
 from ...messages.localization import Localization
@@ -25,7 +26,7 @@ class FarklePlayer(Player):
 
     score: int = 0  # Permanent score (banked points)
     turn_score: int = 0  # Points accumulated this turn (lost on farkle)
-    current_roll: list[int] = field(default_factory=list)  # Dice available to take
+    dice: DiceSet = field(default_factory=lambda: DiceSet(num_dice=6))  # Dice state
     banked_dice: list[int] = field(default_factory=list)  # Dice taken this turn
     has_taken_combo: bool = False  # True after taking a combo (enables roll)
     # Stats tracking
@@ -341,7 +342,6 @@ class FarkleGame(Game):
             is_bot=is_bot,
             score=0,
             turn_score=0,
-            current_roll=[],
             banked_dice=[],
             has_taken_combo=False,
         )
@@ -543,7 +543,7 @@ class FarkleGame(Game):
             del turn_set._actions[action_id]
 
         # Get available combinations
-        combos = get_available_combinations(player.current_roll)
+        combos = get_available_combinations(player.dice.values)
 
         # Rebuild the order: scoring actions first, then roll, bank, check_turn_score
         turn_set._order.clear()
@@ -580,7 +580,7 @@ class FarkleGame(Game):
         if player.is_spectator:
             return "action-spectator"
         farkle_player: FarklePlayer = player  # type: ignore
-        can_roll = len(farkle_player.current_roll) == 0 or farkle_player.has_taken_combo
+        can_roll = len(farkle_player.dice.values) == 0 or farkle_player.has_taken_combo
         if not can_roll:
             return "farkle-must-take-combo"
         return None
@@ -592,7 +592,7 @@ class FarkleGame(Game):
         if self.current_player != player:
             return Visibility.HIDDEN
         farkle_player: FarklePlayer = player  # type: ignore
-        can_roll = len(farkle_player.current_roll) == 0 or farkle_player.has_taken_combo
+        can_roll = len(farkle_player.dice.values) == 0 or farkle_player.has_taken_combo
         if not can_roll:
             return Visibility.HIDDEN
         return Visibility.VISIBLE
@@ -615,8 +615,8 @@ class FarkleGame(Game):
             return "action-spectator"
         farkle_player: FarklePlayer = player  # type: ignore
         can_bank = farkle_player.turn_score > 0 and (
-            len(farkle_player.current_roll) == 0
-            or not has_scoring_dice(farkle_player.current_roll)
+            len(farkle_player.dice.values) == 0
+            or not has_scoring_dice(farkle_player.dice.values)
         )
         if not can_bank:
             return "farkle-cannot-bank"
@@ -630,8 +630,8 @@ class FarkleGame(Game):
             return Visibility.HIDDEN
         farkle_player: FarklePlayer = player  # type: ignore
         can_bank = farkle_player.turn_score > 0 and (
-            len(farkle_player.current_roll) == 0
-            or not has_scoring_dice(farkle_player.current_roll)
+            len(farkle_player.dice.values) == 0
+            or not has_scoring_dice(farkle_player.dice.values)
         )
         if not can_bank:
             return Visibility.HIDDEN
@@ -674,8 +674,8 @@ class FarkleGame(Game):
 
     def _get_roll_dice_count(self, player: FarklePlayer) -> int:
         """Get the number of dice that will be rolled."""
-        if len(player.current_roll) > 0:
-            return len(player.current_roll)
+        if len(player.dice.values) > 0:
+            return len(player.dice.values)
         else:
             num_dice = 6 - len(player.banked_dice)
             if num_dice == 0:
@@ -687,14 +687,14 @@ class FarkleGame(Game):
         farkle_player: FarklePlayer = player  # type: ignore
 
         # Check for hot dice (all 6 banked) and reset
-        if len(farkle_player.current_roll) == 0:
+        if len(farkle_player.dice.values) == 0:
             num_dice = 6 - len(farkle_player.banked_dice)
             if num_dice == 0:
                 # Hot dice! Reset banked dice and roll all 6
                 farkle_player.banked_dice = []
                 num_dice = 6
         else:
-            num_dice = len(farkle_player.current_roll)
+            num_dice = len(farkle_player.dice.values)
 
         self.broadcast_l("farkle-rolls", player=player.name, count=num_dice)
         self.play_sound("game_pig/roll.ogg")
@@ -703,16 +703,17 @@ class FarkleGame(Game):
         BotHelper.jolt_bot(player, ticks=random.randint(10, 20))
 
         # Roll the dice
-        farkle_player.current_roll = sorted(
-            [random.randint(1, 6) for _ in range(num_dice)]
-        )
+        farkle_player.dice.num_dice = num_dice
+        farkle_player.dice.reset()
+        farkle_player.dice.roll()
+        farkle_player.dice.values.sort()
 
         # Announce the roll
-        dice_str = ", ".join(str(d) for d in farkle_player.current_roll)
+        dice_str = ", ".join(str(d) for d in farkle_player.dice.values)
         self.broadcast_l("farkle-roll-result", dice=dice_str)
 
         # Check for farkle
-        if not has_scoring_dice(farkle_player.current_roll):
+        if not has_scoring_dice(farkle_player.dice.values):
             self.play_sound("game_farkle/farkle.ogg")
             self.broadcast_l(
                 "farkle-farkle", player=player.name, points=farkle_player.turn_score
@@ -720,7 +721,7 @@ class FarkleGame(Game):
             # Track turn (farkle = 0 points banked)
             farkle_player.turns_taken += 1
             farkle_player.turn_score = 0
-            farkle_player.current_roll = []
+            farkle_player.dice.reset()
             farkle_player.banked_dice = []
             self.end_turn()
             return
@@ -780,7 +781,7 @@ class FarkleGame(Game):
             return  # Unknown combo
 
         # Validate that the combo is actually available in the current roll
-        if not has_combination(farkle_player.current_roll, combo_type, number):
+        if not has_combination(farkle_player.dice.values, combo_type, number):
             # Combo no longer available (stale menu state), refresh the menu
             self.update_scoring_actions(farkle_player)
             self.rebuild_player_menu(farkle_player)
@@ -823,7 +824,7 @@ class FarkleGame(Game):
                 )
 
         # Check for hot dice
-        if len(farkle_player.banked_dice) == 6 and len(farkle_player.current_roll) == 0:
+        if len(farkle_player.banked_dice) == 6 and len(farkle_player.dice.values) == 0:
             self.broadcast_l("farkle-hot-dice")
             self.play_sound("game_farkle/hotdice.ogg")
 
@@ -837,51 +838,51 @@ class FarkleGame(Game):
     def _remove_combo_dice(
         self, player: FarklePlayer, combo_type: str, number: int
     ) -> None:
-        """Remove dice from current_roll for the given combination."""
-        counts = count_dice(player.current_roll)
+        """Remove dice from dice.values for the given combination."""
+        counts = count_dice(player.dice.values)
 
         if combo_type == COMBO_SINGLE_1:
             # Remove one 1
-            player.current_roll.remove(1)
+            player.dice.values.remove(1)
             player.banked_dice.append(1)
 
         elif combo_type == COMBO_SINGLE_5:
             # Remove one 5
-            player.current_roll.remove(5)
+            player.dice.values.remove(5)
             player.banked_dice.append(5)
 
         elif combo_type == COMBO_THREE_OF_KIND:
             # Remove three of the number
             for _ in range(3):
-                player.current_roll.remove(number)
+                player.dice.values.remove(number)
                 player.banked_dice.append(number)
 
         elif combo_type == COMBO_FOUR_OF_KIND:
             # Remove four of the number
             for _ in range(4):
-                player.current_roll.remove(number)
+                player.dice.values.remove(number)
                 player.banked_dice.append(number)
 
         elif combo_type == COMBO_FIVE_OF_KIND:
             # Remove five of the number
             for _ in range(5):
-                player.current_roll.remove(number)
+                player.dice.values.remove(number)
                 player.banked_dice.append(number)
 
         elif combo_type == COMBO_SIX_OF_KIND:
             # Remove all six of the number
             for _ in range(6):
-                player.current_roll.remove(number)
+                player.dice.values.remove(number)
                 player.banked_dice.append(number)
 
         elif combo_type == COMBO_LARGE_STRAIGHT:
             # Remove all dice (1-6)
-            player.banked_dice.extend(player.current_roll)
-            player.current_roll = []
+            player.banked_dice.extend(player.dice.values)
+            player.dice.reset()
 
         elif combo_type == COMBO_SMALL_STRAIGHT:
             # Remove 5 dice for small straight
-            counts = count_dice(player.current_roll)
+            counts = count_dice(player.dice.values)
             # Determine which straight we have
             has_1_5 = all(counts[i] >= 1 for i in range(1, 6))
             if has_1_5:
@@ -890,7 +891,7 @@ class FarkleGame(Game):
                 needed = [2, 3, 4, 5, 6]
 
             for num in needed:
-                player.current_roll.remove(num)
+                player.dice.values.remove(num)
                 player.banked_dice.append(num)
 
         elif combo_type in (
@@ -899,8 +900,8 @@ class FarkleGame(Game):
             COMBO_FULL_HOUSE,
         ):
             # Remove all 6 dice
-            player.banked_dice.extend(player.current_roll)
-            player.current_roll = []
+            player.banked_dice.extend(player.dice.values)
+            player.dice.reset()
 
     def _action_bank(self, player: Player, action_id: str) -> None:
         """Handle bank action."""
@@ -928,7 +929,7 @@ class FarkleGame(Game):
 
         # Reset turn state
         farkle_player.turn_score = 0
-        farkle_player.current_roll = []
+        farkle_player.dice.reset()
         farkle_player.banked_dice = []
         farkle_player.has_taken_combo = False
 
@@ -978,7 +979,7 @@ class FarkleGame(Game):
             farkle_p: FarklePlayer = p  # type: ignore
             farkle_p.score = 0
             farkle_p.turn_score = 0
-            farkle_p.current_roll = []
+            farkle_p.dice.reset()
             farkle_p.banked_dice = []
             farkle_p.has_taken_combo = False
 
@@ -1009,7 +1010,7 @@ class FarkleGame(Game):
 
         # Reset turn state
         farkle_player.turn_score = 0
-        farkle_player.current_roll = []
+        farkle_player.dice.reset()
         farkle_player.banked_dice = []
         farkle_player.has_taken_combo = False
 

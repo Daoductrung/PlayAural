@@ -307,3 +307,5 @@ pirates-instinct-header = Map Sectors:
 pirates-menu-gem-seeker = { $name } ({ $uses } uses left)
 
 pirates-ocean-unknown = Unknown Ocean
+
+pirates-check-status-detailed = Detailed status

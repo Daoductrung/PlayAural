@@ -298,6 +298,16 @@ class PiratesGame(Game):
             )
         )
 
+        action_set.add(
+            Action(
+                id="check_status_detailed",
+                label=Localization.get(locale, "pirates-check-status-detailed"),
+                handler="_action_check_status_detailed",
+                is_enabled="_is_status_enabled",
+                is_hidden="_is_detailed_status_hidden",
+            )
+        )
+
         return action_set
 
     # WEB-SPECIFIC: Target order for Standard Actions
@@ -305,6 +315,13 @@ class PiratesGame(Game):
 
     def create_standard_action_set(self, player: Player) -> ActionSet:
         action_set = super().create_standard_action_set(player)
+        
+        # Remove default score actions to prevent "No scores available yet"
+        if action_set.get_action("check_scores"):
+            action_set.remove("check_scores")
+        if action_set.get_action("check_scores_detailed"):
+            action_set.remove("check_scores_detailed")
+
         user = self.get_user(player)
 
         # WEB-SPECIFIC: Reorder for Web Clients
@@ -320,6 +337,18 @@ class PiratesGame(Game):
                         handler="_action_check_position",
                         is_enabled="_is_status_enabled",
                         is_hidden="_is_check_position_hidden", # Use new visibility method
+                    )
+                )
+
+            # Ensure 'check_status_detailed' is in standard set
+            if not action_set.get_action("check_status_detailed"):
+                 action_set.add(
+                    Action(
+                        id="check_status_detailed",
+                        label=Localization.get(locale, "pirates-check-status-detailed"),
+                        handler="_action_check_status_detailed",
+                        is_enabled="_is_status_enabled",
+                        is_hidden="_is_detailed_status_hidden", # Hidden to push to Actions Menu
                     )
                 )
 
@@ -346,12 +375,27 @@ class PiratesGame(Game):
             "Check position",
             ["check_position"],
             state=KeybindState.ACTIVE,
-            include_spectators=True,
         )
         self.define_keybind(
             "m",
             "Check moon brightness",
             ["check_moon"],
+            state=KeybindState.ACTIVE,
+            include_spectators=True,
+        )
+
+        self.define_keybind(
+            "s",
+            "Check status",
+            ["check_status"],
+            state=KeybindState.ACTIVE,
+            include_spectators=True,
+        )
+
+        self.define_keybind(
+            "shift+s",
+            "Detailed status",
+            ["check_status_detailed"],
             state=KeybindState.ACTIVE,
             include_spectators=True,
         )
@@ -469,6 +513,9 @@ class PiratesGame(Game):
             return Visibility.HIDDEN
         return Visibility.VISIBLE
 
+    def _is_detailed_status_hidden(self, player: Player) -> Visibility:
+        return Visibility.HIDDEN
+
     def _is_moon_check_enabled(self, player: Player) -> str | None:
         if self.status != "playing":
             return "action-not-playing"
@@ -507,6 +554,8 @@ class PiratesGame(Game):
 
     def _is_check_position_hidden(self, player: "Player") -> Visibility:
         """Override: Visible for Web, hidden otherwise."""
+        if player.is_spectator:
+            return Visibility.HIDDEN
         user = self.get_user(player)
         if user and getattr(user, "client_type", "") == "web":
             return Visibility.VISIBLE
@@ -925,8 +974,36 @@ class PiratesGame(Game):
     # ==========================================================================
 
     def _action_check_status(self, player: Player, action_id: str) -> None:
-        """Show game status to the player."""
-        if not isinstance(player, PiratesPlayer):
+        """Show game status (speech only)."""
+        if not isinstance(player, PiratesPlayer) and not player.is_spectator:
+            return
+
+        user = self.get_user(player)
+        if not user:
+            return
+            
+        locale = user.locale
+
+        # Speak status for each active player individually
+        for p in self.get_active_players():
+            gem_str = gems.format_gem_list(p.gems, locale)
+            points_str = Localization.get(locale, "game-points", count=p.score)
+            
+            # We construct the message manually to ensure it's spoken as a distinct unit
+            # using the existing formatting key
+            user.speak_l(
+                "pirates-status-line",
+                buffer="game",
+                player=p.name,
+                level=p.level,
+                xp=p.xp,
+                points=points_str,
+                gems=gem_str
+            )
+
+    def _action_check_status_detailed(self, player: Player, action_id: str) -> None:
+        """Show full game status list."""
+        if not isinstance(player, PiratesPlayer) and not player.is_spectator:
             return
 
         user = self.get_user(player)
@@ -951,7 +1028,7 @@ class PiratesGame(Game):
 
     def _action_check_position(self, player: Player, action_id: str) -> None:
         """Announce player's current position."""
-        if not isinstance(player, PiratesPlayer):
+        if not isinstance(player, PiratesPlayer) or player.is_spectator:
             return
 
         ocean_index = (player.position - 1) // 10

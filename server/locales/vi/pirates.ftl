@@ -187,3 +187,5 @@ pirates-menu-back = Quay lại
 pirates-instinct-header = Các khu vực bản đồ:
 pirates-menu-gem-seeker = { $name } (còn { $uses } lần dùng)
 pirates-ocean-unknown = Đại dương lạ
+
+pirates-check-status-detailed = Trạng thái chi tiết

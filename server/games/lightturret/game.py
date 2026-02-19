@@ -345,9 +345,7 @@ class LightTurretGame(Game):
         if not user:
             return
 
-        for p in self.players:
-            if p.is_spectator:
-                continue
+        for p in self.get_active_players():
             if isinstance(p, LightTurretPlayer):
                 if p.alive:
                     user.speak_l(
@@ -484,8 +482,8 @@ class LightTurretGame(Game):
         # Exclude spectators from the count
         alive_count = sum(
             1
-            for p in self.players
-            if isinstance(p, LightTurretPlayer) and p.alive and not p.is_spectator
+            for p in self.get_active_players()
+            if isinstance(p, LightTurretPlayer) and p.alive
         )
         if alive_count == 0:
             return self._find_light_winner()
@@ -496,10 +494,9 @@ class LightTurretGame(Game):
         """Find the player with the most light."""
         max_light = 0
         winner = None
-        for p in self.players:
+        for p in self.get_active_players():
             if (
                 isinstance(p, LightTurretPlayer)
-                and not p.is_spectator
                 and p.light > max_light
             ):
                 max_light = p.light

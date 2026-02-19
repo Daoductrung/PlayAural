@@ -71,6 +71,21 @@ rank-jack = J
 rank-queen = Q
 rank-king = K
 
+rank-ace-plural = Át
+rank-two-plural = 2
+rank-three-plural = 3
+rank-four-plural = 4
+rank-five-plural = 5
+rank-six-plural = 6
+rank-seven-plural = 7
+rank-eight-plural = 8
+rank-nine-plural = 9
+rank-ten-plural = 10
+rank-jack-plural = J
+rank-queen-plural = Q
+rank-king-plural = K
+
+
 poker-high-card-with = Mậu thầu { $high }, kèm { $rest }
 poker-high-card = Mậu thầu { $high }
 poker-pair-with = Đôi { $pair }, kèm { $rest }

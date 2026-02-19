@@ -293,12 +293,12 @@ class LeftRightCenterGame(Game):
         self._pending_roll = None
         self._roll_delay_ticks = 0
 
-        for player in self.players:
+        for player in self.get_active_players():
             player.chips = self.options.starting_chips
 
         # Set up individual team scores so the default scoreboard works
         self._team_manager.team_mode = "individual"
-        self._team_manager.setup_teams([p.name for p in self.players])
+        self._team_manager.setup_teams([p.name for p in self.get_active_players()])
         self._sync_team_scores()
 
         # Initialize turn order with all active players
@@ -331,7 +331,7 @@ class LeftRightCenterGame(Game):
         self._start_turn()
 
     def _get_turn_order(self) -> list[LeftRightCenterPlayer]:
-        return [p for p in self.players if not p.is_spectator]
+        return self.get_active_players()
 
     def _get_left_right(self, player: LeftRightCenterPlayer) -> tuple[LeftRightCenterPlayer, LeftRightCenterPlayer]:
         order = self._get_turn_order()
@@ -505,7 +505,7 @@ class LeftRightCenterGame(Game):
         """Mirror player chips into TeamManager totals for scoreboard output."""
         for team in self._team_manager.teams:
             team.total_score = 0
-        for p in self.players:
+        for p in self.get_active_players():
             team = self._team_manager.get_team(p.name)
             if team:
                 team.total_score = p.chips
@@ -538,7 +538,7 @@ class LeftRightCenterGame(Game):
             custom_data={
                 "winner_name": winner.name if winner else None,
                 "center_pot": self.center_pot,
-                "final_chips": {p.name: p.chips for p in self.players},
+                "final_chips": {p.name: p.chips for p in active_players},
             },
         )
 

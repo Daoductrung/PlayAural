@@ -84,10 +84,16 @@ class TurnTimerMixin:
             # or maybe "game_pig/turn.ogg" is not right.
             # Let's define a method for the sound name.
             
-            self.play_sound(self._get_timer_warning_sound())
+            self.play_sound(self.timer_warning_sound)
 
-    def _get_timer_warning_sound(self) -> str:
-        """Get the warning sound file path. Warning: Default assumes CrazyEights asset."""
+    @property
+    def timer_warning_sound(self) -> str:
+        """
+        Get the warning sound file path.
+        
+        Defaults to the CrazyEights sound for backward compatibility,
+        but can be overridden by subclasses.
+        """
         return "game_crazyeights/fivesec.ogg"
 
     def _on_turn_timeout(self) -> None:

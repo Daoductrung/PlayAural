@@ -454,11 +454,9 @@ class ScopaGame(Game):
         return Visibility.HIDDEN
 
     def _is_card_action_enabled(self, player: Player) -> str | None:
-        """Card actions are enabled for current player during play."""
+        """Card actions are visibly enabled during play so they show up."""
         if self.status != "playing":
             return "action-not-playing"
-        if self.current_player != player:
-            return "action-not-your-turn"
         if player.is_spectator:
             return "action-spectator"
         return None
@@ -467,8 +465,7 @@ class ScopaGame(Game):
         """Card actions are visible for current player during play."""
         if self.status != "playing":
             return Visibility.HIDDEN
-        if self.current_player != player:
-            return Visibility.HIDDEN
+        # Allow visibility even if not current player (handler rejects out-of-turn play)
         return Visibility.VISIBLE
 
     def _get_card_label(self, player: Player, action_id: str) -> str:
@@ -507,9 +504,9 @@ class ScopaGame(Game):
         # Remove old card actions
         turn_set.remove_by_prefix("play_card_")
 
-        # Add card actions for current player
+        # Add card actions for current player AND waiting players (so they can see hand)
         # Use dynamic label to ensure locale changes are reflected
-        if is_playing and is_current and not is_spectator:
+        if is_playing and not is_spectator:
             for card in sort_cards(player.hand, by_suit=False):
                 turn_set.add(
                     Action(
@@ -1032,6 +1029,10 @@ class ScopaGame(Game):
     def _action_play_card(self, player: Player, action_id: str) -> None:
         """Handle playing a card - extracts card ID from action_id."""
         if not isinstance(player, ScopaPlayer):
+            return
+
+        # Explicitly reject play if it's not their turn (since action is enabled to be visible)
+        if self.current_player != player:
             return
 
         # Extract card ID from action_id (e.g., "play_card_42" -> 42)

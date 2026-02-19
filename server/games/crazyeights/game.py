@@ -81,10 +81,7 @@ class CrazyEightsGame(Game, TurnTimerMixin):
     current_suit: int | None = None
 
     awaiting_wild_suit: bool = False
-    pending_round_winner_id: str | None = None
     wild_wait_ticks: int = 0
-    wild_wait_player_id: str | None = None
-    wild_end_round_pending: bool = False
     dealer_index: int = -1
 
     turn_has_drawn: bool = False
@@ -95,7 +92,6 @@ class CrazyEightsGame(Game, TurnTimerMixin):
 
     intro_wait_ticks: int = 0
     hand_wait_ticks: int = 0
-    _turn_sound_player_id: str | None = None
     max_hand_size: int = 12
 
     def __post_init__(self):
@@ -385,6 +381,8 @@ class CrazyEightsGame(Game, TurnTimerMixin):
         turn_set.remove("pass")
         if self.status != "playing" or player.is_spectator:
             return
+        if self.hand_wait_ticks > 0 or self.intro_wait_ticks > 0:
+            return
         nonwild_cards = sorted(
             (card for card in player.hand if card.rank != 8),
             key=lambda c: (SUIT_SORT_ORDER.get(c.suit, 4), -c.rank, c.id),
@@ -433,16 +431,13 @@ class CrazyEightsGame(Game, TurnTimerMixin):
         self.round = 0
         self.turn_direction = 1
         self.awaiting_wild_suit = False
-        self.pending_round_winner_id = None
         self.wild_wait_ticks = 0
-        self.wild_wait_player_id = None
-        self.wild_end_round_pending = False
 
         # Synchronize table status
         self._sync_table_status()
 
         # Replace main menu music with a silent track for this game.
-        self.play_music("game_crazyeights/mus.ogg")
+        self.play_music("game_uno/music.ogg")
 
         self._team_manager.team_mode = "individual"
         self._team_manager.setup_teams([p.name for p in self.players])
@@ -459,14 +454,6 @@ class CrazyEightsGame(Game, TurnTimerMixin):
         if self.wild_wait_ticks > 0:
             self.wild_wait_ticks -= 1
             if self.wild_wait_ticks == 0:
-                if self.wild_end_round_pending and self.wild_wait_player_id:
-                    player = self.get_player_by_id(self.wild_wait_player_id)
-                    if isinstance(player, CrazyEightsPlayer):
-                        self.wild_end_round_pending = False
-                        self.wild_wait_player_id = None
-                        self._end_round(player, last_card=None)
-                        return
-                self.wild_wait_player_id = None
                 self._advance_turn()
             return
         if self.hand_wait_ticks > 0:
@@ -488,10 +475,7 @@ class CrazyEightsGame(Game, TurnTimerMixin):
         self.turn_direction = 1
         self.turn_skip_count = 0
         self.awaiting_wild_suit = False
-        self.pending_round_winner_id = None
         self.wild_wait_ticks = 0
-        self.wild_wait_player_id = None
-        self.wild_end_round_pending = False
         self.turn_has_drawn = False
         self.turn_drawn_card = None
 
@@ -543,6 +527,8 @@ class CrazyEightsGame(Game, TurnTimerMixin):
             self.deck.add([card])
             self.deck.shuffle()
 
+
+
     def _start_turn(self) -> None:
         player = self.current_player
         if not isinstance(player, CrazyEightsPlayer):
@@ -551,13 +537,7 @@ class CrazyEightsGame(Game, TurnTimerMixin):
         self.turn_drawn_card = None
         # timer_warning_played reset handled by start_turn_timer
 
-        self._stop_turn_loop()
-        self._start_turn_loop(player)
-
-        self.broadcast_l("game-turn-start", player=player.name)
-
-        if player.is_bot:
-            BotHelper.jolt_bot(player, ticks=random.randint(30, 40))
+        self.announce_turn(turn_sound="game_pig/turn.ogg")
 
         if player.is_bot:
             BotHelper.jolt_bot(player, ticks=random.randint(30, 40))
@@ -567,7 +547,6 @@ class CrazyEightsGame(Game, TurnTimerMixin):
         self.rebuild_all_menus()
 
     def _advance_turn(self) -> None:
-        self._stop_turn_loop()
         self.advance_turn(announce=False)
         self._start_turn()
 
@@ -706,9 +685,6 @@ class CrazyEightsGame(Game, TurnTimerMixin):
 
         self.timer.clear()
         self.wild_wait_ticks = 15
-        self.wild_wait_player_id = p.id
-        if self.pending_round_winner_id == p.id:
-            self.wild_end_round_pending = True
         return
 
     def _action_read_top(self, player: Player, action_id: str) -> None:
@@ -764,6 +740,10 @@ class CrazyEightsGame(Game, TurnTimerMixin):
             return "action-spectator"
         if self.current_player != player:
             return "action-not-your-turn"
+        if self.hand_wait_ticks > 0:
+            return "action-wait-for-hand"
+        if self.intro_wait_ticks > 0:
+            return "action-wait-for-intro"
         return None
 
     def _is_turn_action_hidden(self, player: Player) -> Visibility:
@@ -773,17 +753,29 @@ class CrazyEightsGame(Game, TurnTimerMixin):
             return Visibility.HIDDEN
         if self.wild_wait_ticks > 0:
             return Visibility.HIDDEN
+        if self.hand_wait_ticks > 0:
+            return Visibility.HIDDEN
+        if self.intro_wait_ticks > 0:
+            return Visibility.HIDDEN
         return Visibility.VISIBLE
 
     def _is_play_card_enabled(self, player: Player, *, action_id: str | None = None) -> str | None:
         if self.awaiting_wild_suit:
             return "action-not-available"
+        if self.hand_wait_ticks > 0:
+            return "action-wait-for-hand"
+        if self.intro_wait_ticks > 0:
+            return "action-wait-for-intro"
         return None
 
     def _is_play_card_hidden(self, player: Player, *, action_id: str | None = None) -> Visibility:
         if self.status != "playing":
             return Visibility.HIDDEN
         if player.is_spectator:
+            return Visibility.HIDDEN
+        if self.hand_wait_ticks > 0:
+            return Visibility.HIDDEN
+        if self.intro_wait_ticks > 0:
             return Visibility.HIDDEN
         if not isinstance(player, CrazyEightsPlayer):
             return Visibility.HIDDEN
@@ -978,7 +970,6 @@ class CrazyEightsGame(Game, TurnTimerMixin):
 
     def _handle_empty_draw(self) -> None:
         # No cards available to draw; end the round with no scoring and start a new hand.
-        self._stop_turn_loop()
         self._start_new_hand()
 
     def _reshuffle_discard_into_deck(self) -> None:
@@ -991,17 +982,7 @@ class CrazyEightsGame(Game, TurnTimerMixin):
         self.deck.shuffle()
         self.play_sound("game_crazyeights/pileempty.ogg")
 
-    def _play_card_sound(self, card: Card) -> None:
-        if card.rank == 8:
-            self.play_sound("game_crazyeights/discwild.ogg")
-        elif card.rank == 13:
-            self.play_sound("game_crazyeights/discdraw.ogg")
-        elif card.rank == 12:
-            self.play_sound("game_crazyeights/discskip.ogg")
-        elif card.rank == 11:
-            self.play_sound("game_crazyeights/discrev.ogg")
-        else:
-            self.play_sound("game_crazyeights/discarded.ogg")
+
 
     def _apply_card_effects(self, card: Card) -> None:
         if card.rank == 12:  # Skip
@@ -1122,7 +1103,6 @@ class CrazyEightsGame(Game, TurnTimerMixin):
     # ==========================================================================
 
     def _end_round(self, winner: CrazyEightsPlayer, last_card: Card | None) -> None:
-        self._stop_turn_loop()
         points_from: list[tuple[CrazyEightsPlayer, int]] = []
         total = 0
         for p in self.players:
@@ -1136,17 +1116,22 @@ class CrazyEightsGame(Game, TurnTimerMixin):
             points_from.append((p, score))
             total += score
 
-        winner.score += total
+        # Update score on the authoritative player instance
+        real_winner = self.get_player_by_id(winner.id)
+        if isinstance(real_winner, CrazyEightsPlayer):
+            real_winner.score += total
+        
         self._sync_team_scores()
 
         self._announce_round_points(winner, points_from, total)
         self._play_round_end_sounds(winner, points_from, total)
 
-        if winner.score >= self.options.winning_score:
-            self._end_game(winner)
+        if isinstance(real_winner, CrazyEightsPlayer) and real_winner.score >= self.options.winning_score:
+            self._end_game(real_winner)
             return
 
         self.hand_wait_ticks = 5 * 20
+        self.rebuild_all_menus()
 
     def _hand_points(self, hand: list[Card]) -> int:
         total = 0
@@ -1270,7 +1255,6 @@ class CrazyEightsGame(Game, TurnTimerMixin):
                 user.play_sound(lose_small)
 
     def _end_game(self, winner: CrazyEightsPlayer) -> None:
-        self._stop_turn_loop()
         self.play_sound("game_crazyeights/hitmark.ogg")
         self.broadcast_l("crazyeights-game-winner", player=winner.name, score=winner.score)
         self.finish_game()
@@ -1321,19 +1305,19 @@ class CrazyEightsGame(Game, TurnTimerMixin):
     # Sounds
     # ==========================================================================
 
-    def _start_turn_loop(self, player: CrazyEightsPlayer) -> None:
-        user = self.get_user(player)
-        if not user:
+    def _play_card_sound(self, card: Card = None) -> None:
+        if not card:
+            self.play_sound("game_crazyeights/discarded.ogg")
             return
-        self._turn_sound_player_id = player.id
-        user.play_ambience("game_crazyeights/yourturn.ogg")
 
-    def _stop_turn_loop(self) -> None:
-        if not self._turn_sound_player_id:
-            return
-        player = self.get_player_by_id(self._turn_sound_player_id)
-        if player:
-            user = self.get_user(player)
-            if user:
-                user.stop_ambience()
-        self._turn_sound_player_id = None
+        sound = "game_crazyeights/discarded.ogg"
+        if card.rank == 8:
+            sound = "game_crazyeights/discwild.ogg"
+        elif card.rank == 11:
+            sound = "game_crazyeights/discskip.ogg"
+        elif card.rank == 12:
+            sound = "game_crazyeights/discrev.ogg"
+        elif card.rank == 13:
+            sound = "game_crazyeights/discdraw.ogg"
+        
+        self.play_sound(sound)

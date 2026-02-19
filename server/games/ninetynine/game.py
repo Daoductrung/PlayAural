@@ -527,11 +527,9 @@ class NinetyNineGame(Game):
         return Visibility.HIDDEN
 
     def _is_card_slot_enabled(self, player: Player) -> str | None:
-        """Check if card slot actions are enabled."""
+        """Check if card slot actions are enabled. (Keep explicitly visible so UI displays them out-of-turn)"""
         if self.status != "playing":
             return "action-not-playing"
-        if self.current_player != player:
-            return "action-not-your-turn"
         if self.pending_choice is not None:
             return "ninetynine-choose-first"
         nn_player: NinetyNinePlayer = player  # type: ignore
@@ -756,6 +754,7 @@ class NinetyNineGame(Game):
         if not isinstance(player, NinetyNinePlayer):
             return
 
+        # Explicitly reject play if it's not their turn (since action is enabled to be visible)
         if self.current_player != player:
             return
 

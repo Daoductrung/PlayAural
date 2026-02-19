@@ -938,26 +938,21 @@ class FarkleGame(Game):
     def _action_check_turn_score(self, player: Player, action_id: str) -> None:
         """Handle check turn score action."""
         user = self.get_user(player)
-        locale = user.locale if user else "en"
+        if not user:
+            return
+
+        # locale = user.locale if user else "en" # locale is accessed inside speak_l if needed, or we pass args
         
         current = self.current_player
         if current:
             farkle_current: FarklePlayer = current  # type: ignore
-            self.status_box(
-                player,
-                [
-                    Localization.get(
-                        locale,
-                        "farkle-turn-score",
-                        player=current.name,
-                        points=farkle_current.turn_score,
-                    )
-                ],
+            user.speak_l(
+                "farkle-turn-score",
+                player=current.name,
+                points=farkle_current.turn_score,
             )
         else:
-            self.status_box(
-                player, [Localization.get(locale, "farkle-no-turn")]
-            )
+            user.speak_l("farkle-no-turn")
 
     def on_start(self) -> None:
         """Called when the game starts."""

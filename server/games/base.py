@@ -403,6 +403,10 @@ class Game(
                  # If this is the FIRST human back, it means we were paused
                  if human_count == 1:
                       self.broadcast_l("game-resumed", player=user.username)
+                 
+                 # Rebuild the player's menu so they have immediate UI state
+                 if hasattr(self, "rebuild_player_menu"):
+                     self.rebuild_player_menu(player)
 
     def get_user(self, player: Player) -> User | None:
         """Get the user for a player."""

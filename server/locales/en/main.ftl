@@ -10,6 +10,8 @@ auth-registration-success = Registration successful! You can now log in with you
 auth-username-taken = Username already taken. Please choose a different username.
 auth-error-wrong-password = Incorrect password.
 auth-error-user-not-found = User does not exist.
+auth-kicked-logged-in-elsewhere = You have been disconnected because your account was logged in from another device.
+
 chat-global = { $player } says globally: { $message }
 dev-announcement-broadcast = { $dev } is a developer of PlayAural.
 admin-announcement-broadcast = { $admin } is an administrator of PlayAural.

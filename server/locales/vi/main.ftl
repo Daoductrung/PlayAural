@@ -10,7 +10,9 @@ auth-registration-success = Đăng ký thành công! Giờ bạn có thể đăn
 auth-username-taken = Tên đăng nhập đã có người dùng. Vui lòng chọn tên khác.
 auth-error-wrong-password = Sai mật khẩu.
 auth-error-user-not-found = Người dùng không tồn tại.
-chat-global = { $player } nói với tất cả: { $message }
+auth-kicked-logged-in-elsewhere = Bạn đã bị ngắt kết nối vì tài khoản của bạn vừa được đăng nhập từ một thiết bị khác.
+
+chat-global = { $player } nói chung: { $message }
 dev-announcement-broadcast = { $dev } là nhà phát triển của PlayAural.
 admin-announcement-broadcast = { $admin } là quản trị viên của PlayAural.
 

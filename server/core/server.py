@@ -220,14 +220,18 @@ PlayAural Server
                          table.game.on_player_disconnect(user.uuid)
 
             # Clean up user state immediately so they can rejoin
-            self._users.pop(client.username, None)
-            self._user_states.pop(client.username, None)
+            # FIX: Only remove from memory if the currently registered user actually belongs to this disconnecting client object
+            if user and user.connection == client:
+                self._users.pop(client.username, None)
+                self._user_states.pop(client.username, None)
 
             # Schedule delayed offline broadcast to prevent spam on quick reconnects
-            task = asyncio.create_task(self._delayed_offline_broadcast(
-                client.username, offline_sound, user.trust_level if user else 1
-            ))
-            self._pending_disconnects[client.username] = task
+            # Only broadcast if this client was actually the active one
+            if user and user.connection == client:
+                task = asyncio.create_task(self._delayed_offline_broadcast(
+                    client.username, offline_sound, user.trust_level
+                ))
+                self._pending_disconnects[client.username] = task
 
     async def _delayed_offline_broadcast(self, username: str, sound: str, trust_level: int) -> None:
         """Wait briefly then broadcast offline message if user hasn't reconnected."""
@@ -354,6 +358,22 @@ PlayAural Server
             # We still disconnect as per protocol
             return
 
+        # Check if user is already connected
+        old_client = self._ws_server.get_client_by_username(username)
+        if old_client and old_client != client:
+            user_record = self._auth.get_user(username)
+            old_locale = user_record.locale if user_record else "en"
+            # Send strictly recognized disconnect message to prevent auto-reconnect loop
+            await old_client.send({
+                "type": "disconnect",
+                "reason": Localization.get(old_locale, "auth-kicked-logged-in-elsewhere"),
+                "reconnect": False
+            })
+            # Close old connection
+            await old_client.close()
+            # Remove from users dict to ensure clean state for new connection
+            self._users.pop(username, None)
+
         # Authentication successful
         client.username = username
         client.authenticated = True
@@ -438,18 +458,20 @@ PlayAural Server
             self._show_waiting_for_approval(user)
             return
 
+        # Restore state or show main menu
         # Check if user is in a table
         table = self._tables.find_user_table(username)
 
+        restored_game = False
+        is_spectator = False
         if table and table.game:
             # Check if user was a spectator
             # We need to find the member record to know their role
-            is_spectator = False
             for member in table.members:
                 if member.username == username:
                     is_spectator = member.is_spectator
                     break
-            
+
             if is_spectator:
                 # OPTIMIZATION: Spectators should NOT be automatically restored to the table.
                 # If they reconnect, they should land in the main menu.
@@ -464,34 +486,61 @@ PlayAural Server
                     # Use the centralized helper
                     table.game.remove_spectator(user.uuid)
 
-                # Show main menu
-                self._show_main_menu(user)
             else:
-                # Rejoin table - use same approach as _restore_saved_table
-                game = table.game
-
-                # Attach user to table and game
-                table.attach_user(username, user)
-                player = game.get_player_by_id(user.uuid)
+                # Active player rejoining
+                player = table.game.get_player_by_id(user.uuid)
                 if player:
-                    # Restore humanity if they were replaced by a bot
-                    if player.is_bot:
-                        player.is_bot = False
-                        game.broadcast_l("player-rejoined", player=player.name)
+                    # Update player's bot status in case they were replaced
+                    player.is_bot = False
                     
-                    game.attach_user(player.id, user)
-                    
-                    # Set user state so menu selections are handled correctly
-                    self._user_states[username] = {
-                        "menu": "in_game",
-                        "table_id": table.table_id,
-                    }
+                    # Rejoin table - use same approach as _restore_saved_table
+                    table.attach_user(username, user)
 
-                    # Rebuild menu for this player
-                    game.rebuild_player_menu(player)
-        else:
-            # Show main menu
-            self._show_main_menu(user)
+                    # Check status: if game is finished, we don't rebuild state, we let them see the table menu
+                    if table.game.status != "finished":
+                        restored_game = True
+
+                        # Restore humanity if they were replaced by a bot
+                        if player.is_bot:
+                            player.is_bot = False
+                            table.game.broadcast_l("player-rejoined", player=player.name)
+                        
+                        table.game.attach_user(player.id, user)
+                        
+                        # Set user state so menu selections are handled correctly
+                        self._user_states[username] = {
+                            "menu": "in_game",
+                            "table_id": table.table_id,
+                        }
+
+        if not restored_game:
+            # Not in an active game (or was a spectator); restore menu state
+            state = self._user_states.get(username, {})
+            current_menu = state.get("menu", "main_menu")
+
+            if current_menu == "tables_menu":
+                game_type = state.get("game_type")
+                if game_type:
+                    self._show_games_list_menu(user)
+                    self._show_tables_menu(user, game_type)
+                else:
+                    self._show_main_menu(user)
+            elif current_menu == "active_tables_menu":
+                self._show_active_tables_menu(user)
+            elif current_menu == "games_menu":
+                self._show_games_list_menu(user)
+            elif current_menu == "options_menu":
+                self._show_options_menu(user)
+            elif current_menu == "documentation_menu":
+                self._show_documentation_menu(user)
+            elif current_menu == "saved_tables_menu":
+                self._show_saved_tables_menu(user)
+            elif current_menu == "leaderboards_menu":
+                self._show_leaderboards_menu(user)
+            elif current_menu == "my_stats_menu":
+                self._show_my_stats_menu(user)
+            else:
+                self._show_main_menu(user)
 
     async def _handle_register(self, client: ClientConnection, packet: dict) -> None:
         """Handle registration packet from registration dialog."""

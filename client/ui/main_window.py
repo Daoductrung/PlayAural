@@ -1177,6 +1177,9 @@ class MainWindow(wx.Frame):
             # Don't speak "Disconnected" for logout, just "Goodbye"
         
         self.disconnect_reason = reason
+        self.quitting = True
+        self.is_reconnecting = False
+        self.expecting_reconnect = False
         
         if reason != Localization.get("logged-out"):
             self.speaker.speak(Localization.get("main-disconnected"), interrupt=False)
@@ -1184,7 +1187,8 @@ class MainWindow(wx.Frame):
         if reason:
              self.speaker.speak(reason, interrupt=False)
              
-        wx.CallLater(500, self.Close)
+        # Also trigger the error popup immediately to stop connection loss race
+        self._show_connection_error(Localization.get("main-disconnected"))
 
     def on_force_exit(self, packet):
         """Handle forced exit command from server."""
@@ -1285,6 +1289,9 @@ class MainWindow(wx.Frame):
 
     def _show_connection_error(self, message):
         """Show error modal and quit application."""
+        self.quitting = True
+        self.is_reconnecting = False
+
         # Stop any music
         self.sound_manager.stop_music(fade=False)
 
@@ -1302,9 +1309,13 @@ class MainWindow(wx.Frame):
         wx.MessageBox(error_body, Localization.get("main-connection-error-title"), wx.OK | wx.ICON_ERROR)
 
         # Quit the application
-        self.Close()
-        # Ensure we exit loop
-        wx.GetApp().ExitMainLoop()
+        try:
+            self.Destroy()
+            import sys
+            sys.exit(0)
+        except Exception:
+            import os
+            os._exit(0)
 
     def restart_application(self):
         """Restart the client application."""
@@ -1339,10 +1350,11 @@ class MainWindow(wx.Frame):
 
     def on_authorize_success(self, packet):
         """Handle authorization success from server."""
-        # If this was a reconnection (silent or expected), restart the client to ensure clean state
+        # Reset reconnect flags on success instead of restarting
         if self.is_reconnecting or self.expecting_reconnect:
-            self.restart_application()
-            return
+            self.is_reconnecting = False
+            self.expecting_reconnect = False
+            self.reconnect_attempts = 0
 
         self.connected = True
         version = packet.get("version", "unknown")

@@ -383,32 +383,40 @@ class SoundManager:
 
     def music(self, music_name: str, looping: bool = True, fade_out_old: bool = True):
         """
-        Play background music with looping.
+        Play background music with looping and optional crossfading.
 
         Args:
             music_name: Name of music file (assumed to be in sounds/ folder)
             looping: whether to loop the music track or not.
-            fade_out_old: Whether to fade out the current music before starting new (ignored, kept for compatibility)
+            fade_out_old: Whether to cross-fade out the current music before starting new
         """
         # Don't restart if already playing this music
         if self.current_music_name == music_name and self.current_music:
             return
 
-        # Stop old music immediately
+        # Handle old music
         if self.current_music:
-            try:
-                self.current_music.stop()
-            except Exception:
-                pass
+            if fade_out_old:
+                self._fade_out_old_music_thread(self.current_music)
+            else:
+                try:
+                    self.current_music.stop()
+                except Exception:
+                    pass
 
         # Start new music
         music_path = os.path.join(self.sounds_folder, music_name)
         try:
+            # For fade in, start volume at 0
+            start_vol = 0.0 if fade_out_old else self.music_volume
             self.current_music = self.sound_cacher.play(
-                music_path, volume=self.music_volume
+                music_path, volume=start_vol
             )
             if self.current_music:
                 self.current_music.looping = looping
+                if fade_out_old:
+                    self._fade_in_music_thread(self.current_music, self.music_volume)
+                    
             self.current_music_name = music_name
         except Exception:
             import traceback
@@ -425,9 +433,34 @@ class SoundManager:
                 start_volume = old_music.volume
                 steps = 20
                 for i in range(steps, -1, -1):
-                    old_music.volume = start_volume * (i / steps)
+                    try:
+                        old_music.volume = start_volume * (i / steps)
+                    except Exception:
+                        pass
                     time.sleep(0.05)
-                old_music.stop()
+                try:
+                    old_music.stop()
+                except Exception:
+                    pass
+            except Exception:
+                pass
+
+        # Start fade in background thread
+        fade_thread = threading.Thread(target=fade, daemon=True)
+        fade_thread.start()
+
+    def _fade_in_music_thread(self, new_music, target_volume):
+        """Fade in new music in a background thread."""
+
+        def fade():
+            try:
+                steps = 20
+                for i in range(1, steps + 1):
+                    try:
+                        new_music.volume = target_volume * (i / steps)
+                    except Exception:
+                        pass
+                    time.sleep(0.05)
             except Exception:
                 pass
 

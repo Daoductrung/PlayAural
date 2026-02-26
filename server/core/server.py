@@ -21,8 +21,8 @@ from ..messages.localization import Localization
 from ..documentation.manager import DocumentationManager
 
 
-VERSION = "0.1.5"
-LATEST_CLIENT_VERSION = "0.1.5"
+VERSION = "0.1.6"
+LATEST_CLIENT_VERSION = "0.1.6"
 UPDATE_URL = "https://github.com/Daoductrung/PlayAural/releases/latest/download/PlayAural.zip"
 UPDATE_HASH = "" # Optional SHA256
 

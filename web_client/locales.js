@@ -77,6 +77,7 @@ window.LOCALES = {
         "requesting-game-list": "Requesting player list with games...",
         "auth-error-wrong-password": "Incorrect password.",
         "auth-error-user-not-found": "User does not exist.",
+        "auth-error-version-mismatch": "Client version mismatch. The server has been updated to a newer version. Please refresh this web page, or clear your browser cache to access the latest version.",
         "auth-registration-success": "Registration successful! You can now log in.",
         "auth-username-taken": "Username already taken.",
 
@@ -194,6 +195,7 @@ window.LOCALES = {
         "requesting-game-list": "Đang lấy danh sách người chơi kèm thông tin game...",
         "auth-error-wrong-password": "Sai mật khẩu.",
         "auth-error-user-not-found": "Người dùng không tồn tại.",
+        "auth-error-version-mismatch": "Phiên bản không khớp. Máy chủ đã được cập nhật lên phiên bản mới. Vui lòng tải lại trang web này, hoặc xóa bộ nhớ đệm (cache) của trình duyệt để tiếp tục truy cập trò chơi.",
         "auth-registration-success": "Đăng ký thành công! Giờ bạn có thể đăng nhập.",
         "auth-username-taken": "Tên đăng nhập đã có người sử dụng.",
 

@@ -230,6 +230,7 @@ class HoldemGame(Game, TurnTimerMixin):
                 get_label="_get_call_label",
                 is_enabled="_is_turn_action_enabled",
                 is_hidden="_is_turn_action_hidden",
+                show_in_actions_menu=False,
             )
         )
         action_set.add(
@@ -239,6 +240,7 @@ class HoldemGame(Game, TurnTimerMixin):
                 handler="_action_fold",
                 is_enabled="_is_turn_action_enabled",
                 is_hidden="_is_turn_action_hidden",
+                show_in_actions_menu=False,
             )
         )
         action_set.add(
@@ -248,6 +250,7 @@ class HoldemGame(Game, TurnTimerMixin):
                 handler="_action_raise",
                 is_enabled="_is_turn_action_enabled",
                 is_hidden="_is_turn_action_hidden",
+                show_in_actions_menu=False,
                 input_request=EditboxInput(
                     prompt="poker-enter-raise",
                     default="",
@@ -262,6 +265,7 @@ class HoldemGame(Game, TurnTimerMixin):
                 handler="_action_all_in",
                 is_enabled="_is_turn_action_enabled",
                 is_hidden="_is_turn_action_hidden",
+                show_in_actions_menu=False,
             )
         )
         return action_set
@@ -277,6 +281,7 @@ class HoldemGame(Game, TurnTimerMixin):
                 handler="_action_check_pot",
                 is_enabled="_is_check_enabled",
                 is_hidden="_is_check_hidden",
+                show_in_actions_menu=False,
             )
         )
         action_set.add(
@@ -286,6 +291,7 @@ class HoldemGame(Game, TurnTimerMixin):
                 handler="_action_check_bet",
                 is_enabled="_is_check_enabled",
                 is_hidden="_is_check_hidden",
+                show_in_actions_menu=False,
             )
         )
         action_set.add(
@@ -295,6 +301,7 @@ class HoldemGame(Game, TurnTimerMixin):
                 handler="_action_check_min_raise",
                 is_enabled="_is_check_enabled",
                 is_hidden="_is_check_hidden",
+                show_in_actions_menu=False,
             )
         )
         action_set.add(
@@ -304,6 +311,7 @@ class HoldemGame(Game, TurnTimerMixin):
                 handler="_action_check_hand_players",
                 is_enabled="_is_check_enabled",
                 is_hidden="_is_check_hidden",
+                show_in_actions_menu=False,
             )
         )
         action_set.add(
@@ -313,6 +321,7 @@ class HoldemGame(Game, TurnTimerMixin):
                 handler="_action_check_turn_timer",
                 is_enabled="_is_check_enabled",
                 is_hidden="_is_check_hidden",
+                show_in_actions_menu=False,
             )
         )
         action_set.add(
@@ -322,6 +331,7 @@ class HoldemGame(Game, TurnTimerMixin):
                 handler="_action_read_hand",
                 is_enabled="_is_check_enabled",
                 is_hidden="_is_check_hidden",
+                show_in_actions_menu=False,
             )
         )
         action_set.add(
@@ -331,6 +341,7 @@ class HoldemGame(Game, TurnTimerMixin):
                 handler="_action_read_table",
                 is_enabled="_is_check_enabled",
                 is_hidden="_is_check_hidden",
+                show_in_actions_menu=False,
             )
         )
         action_set.add(
@@ -340,6 +351,7 @@ class HoldemGame(Game, TurnTimerMixin):
                 handler="_action_read_hand_value",
                 is_enabled="_is_check_enabled",
                 is_hidden="_is_check_hidden",
+                show_in_actions_menu=False,
             )
         )
         action_set.add(
@@ -349,6 +361,7 @@ class HoldemGame(Game, TurnTimerMixin):
                 handler="_action_check_button",
                 is_enabled="_is_check_enabled",
                 is_hidden="_is_check_hidden",
+                show_in_actions_menu=False,
             )
         )
         action_set.add(
@@ -358,6 +371,7 @@ class HoldemGame(Game, TurnTimerMixin):
                 handler="_action_check_position",
                 is_enabled="_is_check_enabled",
                 is_hidden="_is_check_hidden",
+                show_in_actions_menu=False,
             )
         )
         action_set.add(
@@ -367,6 +381,7 @@ class HoldemGame(Game, TurnTimerMixin):
                 handler="_action_check_blind_timer",
                 is_enabled="_is_check_enabled",
                 is_hidden="_is_check_hidden",
+                show_in_actions_menu=False,
             )
         )
         for i in range(1, 8):
@@ -377,6 +392,7 @@ class HoldemGame(Game, TurnTimerMixin):
                     handler="_action_read_card",
                     is_enabled="_is_check_enabled",
                     is_hidden="_is_always_hidden",
+                    show_in_actions_menu=False,
                 )
             )
         action_set.add(
@@ -386,6 +402,7 @@ class HoldemGame(Game, TurnTimerMixin):
                 handler="_action_reveal_both",
                 is_enabled="_is_reveal_enabled",
                 is_hidden="_is_reveal_hidden",
+                show_in_actions_menu=False,
             )
         )
         action_set.add(
@@ -395,6 +412,7 @@ class HoldemGame(Game, TurnTimerMixin):
                 handler="_action_reveal_first",
                 is_enabled="_is_reveal_enabled",
                 is_hidden="_is_reveal_hidden",
+                show_in_actions_menu=False,
             )
         )
         action_set.add(
@@ -404,6 +422,7 @@ class HoldemGame(Game, TurnTimerMixin):
                 handler="_action_reveal_second",
                 is_enabled="_is_reveal_enabled",
                 is_hidden="_is_reveal_hidden",
+                show_in_actions_menu=False,
             )
         )
         return action_set

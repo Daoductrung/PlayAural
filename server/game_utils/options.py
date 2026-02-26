@@ -114,6 +114,7 @@ class IntOption(OptionMeta):
                 prompt=self.prompt,
                 default=str(current_value),
             ),
+            show_in_actions_menu=False,
         )
 
     def validate_and_convert(self, value: str) -> tuple[bool, Any]:
@@ -163,6 +164,7 @@ class FloatOption(OptionMeta):
                 prompt=self.prompt,
                 default=str(current_value),
             ),
+            show_in_actions_menu=False,
         )
 
     def validate_and_convert(self, value: str) -> tuple[bool, Any]:
@@ -232,6 +234,7 @@ class MenuOption(OptionMeta):
                 prompt=self.prompt,
                 options=f"_options_for_{option_name}",
             ),
+            show_in_actions_menu=False,
         )
 
     def validate_and_convert(self, value: str) -> tuple[bool, Any]:
@@ -296,6 +299,7 @@ class BoolOption(OptionMeta):
             is_enabled="_is_option_enabled",
             is_hidden="_is_option_hidden",
             # No input_request - toggles directly
+            show_in_actions_menu=False,
         )
 
     def validate_and_convert(self, value: str) -> tuple[bool, Any]:

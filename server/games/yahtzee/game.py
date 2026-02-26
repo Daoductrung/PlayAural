@@ -270,6 +270,7 @@ class YahtzeeGame(Game, DiceGameMixin):
                 is_enabled="_is_roll_enabled",
                 is_hidden="_is_roll_hidden",
                 get_label="_get_roll_label",
+                show_in_actions_menu=False,
             )
         )
 
@@ -287,6 +288,7 @@ class YahtzeeGame(Game, DiceGameMixin):
                     is_enabled=f"_is_score_{cat}_enabled",
                     is_hidden=f"_is_score_{cat}_hidden",
                     get_label=f"_get_score_{cat}_label",
+                    show_in_actions_menu=False,
                 )
             )
 

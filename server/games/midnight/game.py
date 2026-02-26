@@ -318,6 +318,7 @@ class MidnightGame(Game, DiceGameMixin):
                 handler="_action_roll",
                 is_enabled="_is_roll_enabled",
                 is_hidden="_is_roll_hidden",
+                show_in_actions_menu=False,
             )
         )
 
@@ -329,6 +330,7 @@ class MidnightGame(Game, DiceGameMixin):
                 handler="_action_bank",
                 is_enabled="_is_bank_enabled",
                 is_hidden="_is_bank_hidden",
+                show_in_actions_menu=False,
             )
         )
 

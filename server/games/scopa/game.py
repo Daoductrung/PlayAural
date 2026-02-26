@@ -516,6 +516,7 @@ class ScopaGame(Game):
                         is_enabled="_is_card_action_enabled",
                         is_hidden="_is_card_action_hidden",
                         get_label="_get_card_label",
+                        show_in_actions_menu=False,
                     )
                 )
 

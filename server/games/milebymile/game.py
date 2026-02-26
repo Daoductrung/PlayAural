@@ -217,6 +217,7 @@ class MileByMileGame(Game):
                 handler="_action_dirty_trick",
                 is_enabled="_is_dirty_trick_enabled",
                 is_hidden="_is_dirty_trick_hidden",
+                show_in_actions_menu=False,
             )
         )
 
@@ -228,6 +229,7 @@ class MileByMileGame(Game):
                 handler="_action_junk_card",
                 is_enabled="_is_junk_card_enabled",
                 is_hidden="_is_junk_card_hidden",
+                show_in_actions_menu=False,
             )
         )
 
@@ -425,6 +427,7 @@ class MileByMileGame(Game):
                     is_hidden="_is_card_action_hidden",
                     get_label="_get_card_slot_label",
                     input_request=input_request,
+                    show_in_actions_menu=False,
                 )
             )
 

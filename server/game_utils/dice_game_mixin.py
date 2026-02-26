@@ -85,7 +85,7 @@ class DiceGameMixin:
                     is_enabled="_is_dice_key_enabled",
                     is_hidden="_is_dice_key_hidden",
                     get_label="_get_dice_key_label",
-                    show_in_actions_menu=True,
+                    show_in_actions_menu=False,
                 )
             )
             # Shift+key actions for dice values style keeping
@@ -97,7 +97,7 @@ class DiceGameMixin:
                     is_enabled="_is_dice_unkeep_enabled",
                     is_hidden="_is_dice_key_hidden",
                     get_label="_get_dice_unkeep_label",
-                    show_in_actions_menu=True,
+                    show_in_actions_menu=False,
                 )
             )
 

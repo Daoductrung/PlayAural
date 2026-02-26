@@ -95,6 +95,7 @@ class ActionSetCreationMixin:
                 handler="_action_show_actions_menu",
                 is_enabled="_is_show_actions_enabled",
                 is_hidden="_is_show_actions_hidden",
+                show_in_actions_menu=False,
             )
         )
         action_set.add(

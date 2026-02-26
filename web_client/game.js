@@ -97,7 +97,7 @@ class SoundManager {
             sfxVolume: 1.0,
             ambienceVolume: 0.3
         };
-        this.isDucking = false;
+        this.wakeLockSource = null;
     }
 
     init() {
@@ -135,9 +135,7 @@ class SoundManager {
         if (!this.ctx) return;
         const now = this.ctx.currentTime;
 
-        // Calculate Ducking
-        let targetMusic = this.settings.musicVolume;
-        if (this.isDucking) targetMusic *= 0.3; // Reduce to 30%
+        const targetMusic = this.settings.musicVolume;
 
         // Use setTargetAtTime for smooth volume transitions (0.1s time constant)
         this.musicGain.gain.setTargetAtTime(targetMusic, now, 0.1);
@@ -150,17 +148,49 @@ class SoundManager {
         }
     }
 
-    duckMusic(enable) {
-        if (this.isDucking === enable) return;
-        this.isDucking = enable;
-        this.updateVolumes();
-    }
-
     setVolume(type, value) {
         if (type === 'music') this.settings.musicVolume = value;
         if (type === 'sound') this.settings.sfxVolume = value;
         if (type === 'ambience') this.settings.ambienceVolume = value;
         this.updateVolumes();
+    }
+
+    // --- Audio Wake-Lock (Android Fix) ---
+    // Plays a continuous, completely silent buffer to prevent the AudioContext
+    // and associated services (like SpeechSynthesis) from suspending.
+    startAudioWakeLock() {
+        if (!this.ctx || this.wakeLockSource) return;
+
+        console.log("SoundManager: Starting Audio Wake-Lock...");
+        try {
+            // Create a short silent buffer (1 second of silence)
+            const buffer = this.ctx.createBuffer(1, this.ctx.sampleRate, this.ctx.sampleRate);
+            this.wakeLockSource = this.ctx.createBufferSource();
+            this.wakeLockSource.buffer = buffer;
+            this.wakeLockSource.loop = true;
+
+            // Connect to destination via a 0 volume gain node for absolute silence
+            const silence = this.ctx.createGain();
+            silence.gain.value = 0;
+
+            this.wakeLockSource.connect(silence);
+            silence.connect(this.ctx.destination);
+
+            this.wakeLockSource.start(0);
+        } catch (e) {
+            console.error("SoundManager: Failed to start Audio Wake-Lock", e);
+        }
+    }
+
+    stopAudioWakeLock() {
+        if (this.wakeLockSource) {
+            console.log("SoundManager: Stopping Audio Wake-Lock.");
+            try {
+                this.wakeLockSource.stop();
+                this.wakeLockSource.disconnect();
+            } catch (e) { }
+            this.wakeLockSource = null;
+        }
     }
 
     // --- Helper for Streaming Audio ---
@@ -590,6 +620,7 @@ class GameClient {
         this.ttsQueue = [];
         this.isTTSPlaying = false;
         this.ttsTimeout = null;
+        this.ttsKeepAliveInterval = null; // Periodic silent "kick" for Android engine
 
 
         // Load Localization
@@ -741,6 +772,11 @@ class GameClient {
                 if (config.preferences) {
                     this.preferences = { ...this.preferences, ...config.preferences };
                     console.log("Restored preferences:", this.preferences);
+
+                    // Initialize TTS Keep-Alive if mode was saved as web_speech
+                    if (this.preferences.speech_mode === "web_speech") {
+                        this.startTTSKeepAlive();
+                    }
                 }
                 // Legacy support
                 else if (config.clientOptions) {
@@ -1054,13 +1090,8 @@ class GameClient {
         if (this.isTTSPlaying) return;
 
         if (this.ttsQueue.length === 0) {
-            // Optimization: Stop Ducking when done
-            this.soundManager.duckMusic(false);
             return;
         }
-
-        // Optimization: Start Ducking
-        this.soundManager.duckMusic(true);
 
         this.isTTSPlaying = true;
         const text = this.ttsQueue.shift();
@@ -1145,6 +1176,41 @@ class GameClient {
 
         // Final "Kick": Aggressive resume to ensure playback starts on stubborn Android devices
         if (window.speechSynthesis.paused) window.speechSynthesis.resume();
+    }
+
+    // Android Keep-Alive Mechanism
+    // Periodically speaks a zero-volume silent string to prevent the Android engine 
+    // from suspending during idle periods, eliminating the "wake-up" latency.
+    startTTSKeepAlive() {
+        if (!window.speechSynthesis || this.ttsKeepAliveInterval) return;
+
+        console.log("Starting TTS Keep-Alive (Android Fix - 1s interval)");
+        
+        // Start the Audio Wake-Lock as well for maximum protection
+        this.soundManager.startAudioWakeLock();
+
+        this.ttsKeepAliveInterval = setInterval(() => {
+            // Only kick if engine is NOT currently speaking to avoid interruptions
+            if (!window.speechSynthesis.speaking && this.ttsQueue.length === 0) {
+                const kick = new SpeechSynthesisUtterance(" "); // Non-empty but silent space
+                kick.volume = 0;
+                kick.rate = 10; // Fast as possible
+                // Tag it to avoid watchdog interference if we ever track it
+                kick._isKeepAlive = true;
+                window.speechSynthesis.speak(kick);
+            }
+        }, 1000); // 1-second interval for aggressive wake-lock
+    }
+
+    stopTTSKeepAlive() {
+        if (this.ttsKeepAliveInterval) {
+            console.log("Stopping TTS Keep-Alive");
+            clearInterval(this.ttsKeepAliveInterval);
+            this.ttsKeepAliveInterval = null;
+            
+            // Stop Audio Wake-Lock
+            this.soundManager.stopAudioWakeLock();
+        }
     }
 
     // New "Nuclear Reset" for stuck Android TTS
@@ -1329,7 +1395,14 @@ class GameClient {
         }
 
         // Handle Speech Preferences
-        if (updates.speech_mode !== undefined) console.log("Speech Mode set to:", updates.speech_mode);
+        if (updates.speech_mode !== undefined) {
+            console.log("Speech Mode set to:", updates.speech_mode);
+            if (updates.speech_mode === "web_speech") {
+                this.startTTSKeepAlive();
+            } else {
+                this.stopTTSKeepAlive();
+            }
+        }
         if (updates.speech_rate !== undefined) console.log("Speech Rate set to:", updates.speech_rate);
         if (updates.speech_voice !== undefined) {
             console.log("Speech Voice set to:", updates.speech_voice);
@@ -1568,11 +1641,20 @@ class GameClient {
                 break;
 
             case "menu":
-                this.renderMenu(packet);
+                if (packet.menu_id === "actions_menu" || packet.menu_id === "leave_game_confirm") {
+                    this.showModalMenu(packet);
+                } else {
+                    this.closeModal();
+                    this.renderMenu(packet);
+                }
                 break;
 
             case "update_menu":
-                this.renderMenu(packet);
+                if (packet.menu_id === "actions_menu" || packet.menu_id === "leave_game_confirm") {
+                    this.showModalMenu(packet);
+                } else {
+                    this.renderMenu(packet);
+                }
                 break;
 
             case "update_options_lists":
@@ -1584,6 +1666,7 @@ class GameClient {
                 break;
 
             case "request_input":
+                this.closeModal();
                 this.showInput(packet);
                 break;
 
@@ -2314,6 +2397,70 @@ class GameClient {
         this.lastUser = null;
         this.lastPass = null;
         this.showLanding();
+    }
+
+    showModalMenu(packet) {
+        const modal = document.getElementById('actions-modal');
+        const modalTitle = document.getElementById('modal-title');
+        const modalMenuArea = document.getElementById('modal-menu-area');
+        const closeBtn = document.getElementById('btn-close-modal');
+
+        if (!modal || !modalMenuArea) return;
+
+        // Set title
+        const titleRaw = packet.menu_id ? packet.menu_id.replace(/_/g, ' ').toUpperCase() : "ACTIONS";
+        modalTitle.innerText = packet.title || titleRaw;
+
+        // Clear and populate menu
+        modalMenuArea.innerHTML = "";
+        const items = packet.items || [];
+
+        items.forEach((item, index) => {
+            const btn = document.createElement('button');
+            btn.className = "modal-item";
+            btn.innerText = (typeof item === 'string') ? item : item.text;
+            
+            const itemId = (typeof item === 'string') ? null : item.id;
+            btn.onclick = () => {
+                this.play_sound("menuclick.ogg");
+                this.sendMenuSelection(packet.menu_id, index + 1, itemId);
+                // Modal will close automatically on next menu/clear_ui packet
+                // but we can close it immediately for better feedback
+                this.closeModal();
+            };
+            modalMenuArea.appendChild(btn);
+        });
+
+        // Setup close button
+        closeBtn.onclick = () => {
+            this.sendEscape(packet.menu_id);
+            this.closeModal();
+        };
+
+        // Show the modal
+        if (!modal.open) {
+            modal.showModal();
+            // Focus first item
+            const firstBtn = modalMenuArea.querySelector('button');
+            if (firstBtn) firstBtn.focus();
+        }
+    }
+
+    closeModal() {
+        const modal = document.getElementById('actions-modal');
+        if (modal && modal.open) {
+            modal.close();
+            // Return focus to menu area
+            this.menuArea.focus();
+        }
+    }
+
+    sendEscape(menuId) {
+        if (!this.isConnected) return;
+        this.socket.send(JSON.stringify({
+            type: "escape",
+            menu_id: menuId
+        }));
     }
 
     updateUIText() {

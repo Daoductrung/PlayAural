@@ -2116,6 +2116,12 @@ class MainWindow(wx.Frame):
 
     def on_server_menu(self, packet):
         """Handle menu packet from server."""
+        # FOCUS-STEAL PREVENTION (Client-Side):
+        # If the user is currently typing in an edit box, we must NOT 
+        # disrupt them with a menu update, even if the server pushes one.
+        if self.current_mode == "edit":
+            return
+
         items_raw = packet.get("items", [])
         menu_id = packet.get("menu_id", None)
         multiletter_enabled = packet.get("multiletter_enabled", True)

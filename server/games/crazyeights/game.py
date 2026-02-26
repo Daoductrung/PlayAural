@@ -230,6 +230,7 @@ class CrazyEightsGame(Game, TurnTimerMixin):
                 handler="_action_draw",
                 is_enabled="_is_draw_enabled",
                 is_hidden="_is_draw_hidden",
+                show_in_actions_menu=False,
             )
         )
         action_set.add(
@@ -239,6 +240,7 @@ class CrazyEightsGame(Game, TurnTimerMixin):
                 handler="_action_pass",
                 is_enabled="_is_pass_enabled",
                 is_hidden="_is_pass_hidden",
+                show_in_actions_menu=False,
             )
         )
 
@@ -409,6 +411,7 @@ class CrazyEightsGame(Game, TurnTimerMixin):
                     handler="_action_draw",
                     is_enabled="_is_draw_enabled",
                     is_hidden="_is_draw_hidden",
+                    show_in_actions_menu=False,
                 )
             )
             turn_set.add(
@@ -418,6 +421,7 @@ class CrazyEightsGame(Game, TurnTimerMixin):
                     handler="_action_pass",
                     is_enabled="_is_pass_enabled",
                     is_hidden="_is_pass_hidden",
+                    show_in_actions_menu=False,
                 )
             )
 

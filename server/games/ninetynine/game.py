@@ -428,6 +428,7 @@ class NinetyNineGame(Game):
                     handler="_action_play_card",
                     is_enabled="_is_card_slot_enabled",
                     is_hidden="_is_card_slot_hidden",
+                    show_in_actions_menu=False,
                 )
             )
 
@@ -450,6 +451,7 @@ class NinetyNineGame(Game):
                     handler="_action_choice_1",
                     is_enabled="_is_choice_enabled",
                     is_hidden="_is_choice_hidden",
+                    show_in_actions_menu=False,
                 )
             )
             turn_set.add(
@@ -459,6 +461,7 @@ class NinetyNineGame(Game):
                     handler="_action_choice_2",
                     is_enabled="_is_choice_enabled",
                     is_hidden="_is_choice_hidden",
+                    show_in_actions_menu=False,
                 )
             )
 
@@ -471,6 +474,7 @@ class NinetyNineGame(Game):
                     handler="_action_draw_card",
                     is_enabled="_is_draw_enabled",
                     is_hidden="_is_draw_hidden",
+                    show_in_actions_menu=False,
                 )
             )
             

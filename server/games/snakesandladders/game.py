@@ -153,7 +153,8 @@ class SnakesAndLaddersGame(Game):
                 label=Localization.get(locale, "snakes-roll"),
                 handler="_action_roll",
                 is_enabled="_is_roll_enabled",
-                is_hidden="_is_roll_hidden"
+                is_hidden="_is_roll_hidden",
+                show_in_actions_menu=False,
             )
         )
         return action_set

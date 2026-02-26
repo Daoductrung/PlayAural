@@ -203,6 +203,7 @@ class FiveCardDrawGame(Game, TurnTimerMixin):
                 handler="_action_call",
                 is_enabled="_is_bet_action_enabled",
                 is_hidden="_is_bet_action_hidden",
+                show_in_actions_menu=False,
             )
         )
         action_set.add(
@@ -212,6 +213,7 @@ class FiveCardDrawGame(Game, TurnTimerMixin):
                 handler="_action_fold",
                 is_enabled="_is_bet_action_enabled",
                 is_hidden="_is_bet_action_hidden",
+                show_in_actions_menu=False,
             )
         )
         action_set.add(
@@ -226,6 +228,7 @@ class FiveCardDrawGame(Game, TurnTimerMixin):
                     default="",
                     bot_input="_bot_input_raise",
                 ),
+                show_in_actions_menu=False,
             )
         )
         action_set.add(
@@ -235,6 +238,7 @@ class FiveCardDrawGame(Game, TurnTimerMixin):
                 handler="_action_all_in",
                 is_enabled="_is_bet_action_enabled",
                 is_hidden="_is_bet_action_hidden",
+                show_in_actions_menu=False,
             )
         )
         
@@ -296,6 +300,7 @@ class FiveCardDrawGame(Game, TurnTimerMixin):
                 is_enabled="_is_draw_enabled",
                 is_hidden="_is_draw_hidden",
                 get_label="_get_draw_label",
+                show_in_actions_menu=False,
             )
         )
         for i in range(1, 6):
@@ -307,7 +312,7 @@ class FiveCardDrawGame(Game, TurnTimerMixin):
                     is_enabled="_is_discard_toggle_enabled",
                     is_hidden="_is_always_hidden",
                     get_label="_get_card_key_label",
-                    show_in_actions_menu=True,
+                    show_in_actions_menu=False,
                 )
             )
         for i in range(1, 6):

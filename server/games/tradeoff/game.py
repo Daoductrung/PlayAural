@@ -429,6 +429,7 @@ class TradeoffGame(Game):
                     is_enabled=f"_is_toggle_trade_{i}_enabled",
                     is_hidden=f"_is_toggle_trade_{i}_hidden",
                     get_label=f"_get_toggle_trade_{i}_label",
+                    show_in_actions_menu=False,
                 )
             )
 
@@ -441,6 +442,7 @@ class TradeoffGame(Game):
                     handler=f"_action_dice_key_{v}",
                     is_enabled="_is_dice_key_enabled",
                     is_hidden="_is_dice_key_hidden",
+                    show_in_actions_menu=False,
                 )
             )
             # Shift+key actions for Quentin C style
@@ -451,6 +453,7 @@ class TradeoffGame(Game):
                     handler=f"_action_dice_trade_{v}",
                     is_enabled="_is_dice_key_enabled",
                     is_hidden="_is_dice_key_hidden",
+                    show_in_actions_menu=False,
                 )
             )
 
@@ -463,6 +466,7 @@ class TradeoffGame(Game):
                 is_enabled="_is_confirm_trades_enabled",
                 is_hidden="_is_confirm_trades_hidden",
                 get_label="_get_confirm_trades_label",
+                show_in_actions_menu=False,
             )
         )
 
@@ -476,6 +480,7 @@ class TradeoffGame(Game):
                     is_enabled=f"_is_take_{v}_enabled",
                     is_hidden=f"_is_take_{v}_hidden",
                     get_label=f"_get_take_{v}_label",
+                    show_in_actions_menu=False,
                 )
             )
 

@@ -97,6 +97,7 @@ class ChaosBearGame(Game):
                 handler="_action_roll_dice",
                 is_enabled="_is_roll_dice_enabled",
                 is_hidden="_is_roll_dice_hidden",
+                show_in_actions_menu=False,
             )
         )
 
@@ -107,6 +108,7 @@ class ChaosBearGame(Game):
                 handler="_action_draw_card",
                 is_enabled="_is_draw_card_enabled",
                 is_hidden="_is_draw_card_hidden",
+                show_in_actions_menu=False,
             )
         )
 

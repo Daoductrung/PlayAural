@@ -177,6 +177,7 @@ class PiratesGame(Game):
                 handler="_action_move_left",
                 is_enabled="_is_move_enabled",
                 is_hidden="_is_move_hidden",
+                show_in_actions_menu=False,
             )
         )
         action_set.add(
@@ -186,6 +187,7 @@ class PiratesGame(Game):
                 handler="_action_move_right",
                 is_enabled="_is_move_enabled",
                 is_hidden="_is_move_hidden",
+                show_in_actions_menu=False,
             )
         )
 
@@ -197,6 +199,7 @@ class PiratesGame(Game):
                 handler="_action_move_2_left",
                 is_enabled="_is_move_2_enabled",
                 is_hidden="_is_move_2_hidden",
+                show_in_actions_menu=False,
             )
         )
         action_set.add(
@@ -206,6 +209,7 @@ class PiratesGame(Game):
                 handler="_action_move_2_right",
                 is_enabled="_is_move_2_enabled",
                 is_hidden="_is_move_2_hidden",
+                show_in_actions_menu=False,
             )
         )
 
@@ -217,6 +221,7 @@ class PiratesGame(Game):
                 handler="_action_move_3_left",
                 is_enabled="_is_move_3_enabled",
                 is_hidden="_is_move_3_hidden",
+                show_in_actions_menu=False,
             )
         )
         action_set.add(
@@ -226,6 +231,7 @@ class PiratesGame(Game):
                 handler="_action_move_3_right",
                 is_enabled="_is_move_3_enabled",
                 is_hidden="_is_move_3_hidden",
+                show_in_actions_menu=False,
             )
         )
 
@@ -248,6 +254,7 @@ class PiratesGame(Game):
                 handler="_action_use_skill",
                 is_enabled="_is_skill_enabled",
                 is_hidden="_is_skill_hidden",
+                show_in_actions_menu=False,
                 input_request=MenuInput(
                     options="_get_skill_options",
                     prompt="pirates-select-skill",

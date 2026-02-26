@@ -362,6 +362,7 @@ class FarkleGame(Game):
                 is_enabled="_is_roll_enabled",
                 is_hidden="_is_roll_hidden",
                 get_label="_get_roll_label",
+                show_in_actions_menu=False,
             )
         )
 
@@ -374,6 +375,7 @@ class FarkleGame(Game):
                 is_enabled="_is_bank_enabled",
                 is_hidden="_is_bank_hidden",
                 get_label="_get_bank_label",
+                show_in_actions_menu=False,
             )
         )
 
@@ -559,6 +561,7 @@ class FarkleGame(Game):
                 handler="_action_take_combo",
                 is_enabled="_is_scoring_action_enabled",
                 is_hidden="_is_scoring_action_hidden",
+                show_in_actions_menu=False,
             )
             turn_set._order.append(action_id)
 

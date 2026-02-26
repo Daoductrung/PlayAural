@@ -141,6 +141,7 @@ class LeftRightCenterGame(Game):
                 is_enabled="_is_roll_enabled",
                 is_hidden="_is_roll_hidden",
                 get_label="_get_roll_label",
+                show_in_actions_menu=False,
             )
         )
         return action_set

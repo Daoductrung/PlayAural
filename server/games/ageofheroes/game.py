@@ -257,6 +257,7 @@ class AgeOfHeroesGame(Game):
                 is_enabled="_is_roll_dice_enabled",
                 is_hidden="_is_roll_dice_hidden",
                 get_label="_get_roll_dice_label",
+                show_in_actions_menu=False,
             )
         )
 
@@ -269,6 +270,7 @@ class AgeOfHeroesGame(Game):
                 is_enabled="_is_war_roll_enabled",
                 is_hidden="_is_war_roll_hidden",
                 get_label="_get_war_roll_label",
+                show_in_actions_menu=False,
             )
         )
 
@@ -293,6 +295,7 @@ class AgeOfHeroesGame(Game):
                     is_enabled="_is_main_action_enabled",
                     is_hidden="_is_main_action_hidden",
                     get_label="_get_main_action_label",
+                    show_in_actions_menu=False,
                 )
             )
 
@@ -306,6 +309,7 @@ class AgeOfHeroesGame(Game):
                     is_enabled="_is_build_enabled",
                     is_hidden="_is_build_hidden",
                     get_label="_get_build_label",
+                    show_in_actions_menu=False,
                 )
             )
         action_set.add(
@@ -316,6 +320,7 @@ class AgeOfHeroesGame(Game):
                 is_enabled="_is_construction_menu_enabled",
                 is_hidden="_is_construction_menu_hidden",
                 get_label="_get_stop_building_label",
+                show_in_actions_menu=False,
             )
         )
 

@@ -1429,6 +1429,7 @@ class GameClient {
 
                 this.manualDisconnect = true;
                 this.disconnectReason = errorText;
+                this.speak(errorText); // Ensure error is announced
                 break;
 
             case "register_response":

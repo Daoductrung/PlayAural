@@ -130,10 +130,22 @@ class CrazyEightsGame(Game, TurnTimerMixin):
     def create_player(self, player_id: str, name: str, is_bot: bool = False) -> CrazyEightsPlayer:
         return CrazyEightsPlayer(id=player_id, name=name, is_bot=is_bot)
 
+    def broadcast_sound(self, name: str, volume: int = 100, pan: int = 0, pitch: int = 100) -> None:
+        """Suppress default system sounds that conflict with custom ones."""
+        if name in ("join.ogg", "leave.ogg", "join_spectator.ogg", "leave_spectator.ogg"):
+            return
+        super().broadcast_sound(name, volume, pan, pitch)
+
     def add_player(self, name: str, user: User) -> CrazyEightsPlayer:
         player = super().add_player(name, user)
         sound = "game_crazyeights/botsit.ogg" if player.is_bot else "game_crazyeights/personsit.ogg"
         self.play_sound(sound)
+        return player
+
+    def add_spectator(self, name: str, user: User) -> Player:
+        player = super().add_spectator(name, user)
+        # Restore spectator join sound since we suppressed the default one
+        super().broadcast_sound("join_spectator.ogg")
         return player
 
     def _action_add_bot(self, player: Player, bot_name: str, action_id: str) -> None:
@@ -155,64 +167,58 @@ class CrazyEightsGame(Game, TurnTimerMixin):
                 return
 
         bot_user = Bot(bot_name)
-        bot_player = self.add_player(bot_name, bot_user)
-        self.broadcast_l("table-joined", player=bot_player.name)
+        self.add_player(bot_name, bot_user)
+        self.broadcast_l("table-joined", player=bot_name)
         self.rebuild_all_menus()
 
     def _action_remove_bot(self, player: Player, action_id: str) -> None:
         for i in range(len(self.players) - 1, -1, -1):
             if self.players[i].is_bot:
-                bot = self.players.pop(i)
-                self.player_action_sets.pop(bot.id, None)
-                self._users.pop(bot.id, None)
-                self.broadcast_l("table-left", player=bot.name)
+                bot = self.players[i]
+                # remove_player already broadcasts "table-left"
+                self.remove_player(bot.id)
                 self.play_sound("game_crazyeights/botleave.ogg")
                 break
         self.rebuild_all_menus()
 
     def _perform_leave_game(self, player: Player) -> None:
         if player.is_spectator:
+            # remove_spectator already broadcasts "spectator-left"
             self.remove_spectator(player.id)
             if self._table:
                 self._table.remove_member(player.name)
-            self.play_sound("game_crazyeights/personleave.ogg")
+            # Standard spectator leave sound
+            super().broadcast_sound("leave_spectator.ogg")
             self.rebuild_all_menus()
             return
 
         if self.status == "playing" and not player.is_bot:
-            player.is_bot = True
-            self._users.pop(player.id, None)
-            bot_user = Bot(player.name, uuid=player.id)
-            self.attach_user(player.id, bot_user)
-            self.broadcast_l("player-replaced-by-bot", player=player.name)
-            self.play_sound("game_crazyeights/personleave.ogg")
-
-            has_humans = any(not p.is_bot for p in self.players)
-            if not has_humans:
-                self.destroy()
+            # Check if any humans remain (excluding spectators)
+            other_humans = any(not p.is_bot and not p.is_spectator and p.id != player.id for p in self.players)
+            
+            if other_humans:
+                self._replace_with_bot(player)
+                self.broadcast_l("player-replaced-by-bot", player=player.name)
+                self.play_sound("game_crazyeights/personleave.ogg")
+                self.rebuild_all_menus()
                 return
 
-            self.rebuild_all_menus()
-            return
-
-        self.players = [p for p in self.players if p.id != player.id]
-        self.player_action_sets.pop(player.id, None)
-        self._users.pop(player.id, None)
-        self.broadcast_l("table-left", player=player.name)
+        # Full removal logic
+        # remove_player already broadcasts "table-left"
+        self.remove_player(player.id)
+        if self.status == "waiting" and self._table:
+            self._table.remove_member(player.name)
+        
         leave_sound = "game_crazyeights/botleave.ogg" if player.is_bot else "game_crazyeights/personleave.ogg"
         self.play_sound(leave_sound)
 
-        has_humans = any(not p.is_bot for p in self.players)
+        # Correct spectator eviction / destruction logic
+        has_humans = any(not p.is_bot and not p.is_spectator for p in self.players)
         if not has_humans:
             self.destroy()
             return
 
-        if self.status == "waiting":
-            # Sync with table - this will trigger host promotion in Table.remove_member if needed
-            if self._table:
-                self._table.remove_member(player.name)
-        
-            self.rebuild_all_menus()
+        self.rebuild_all_menus()
 
     # ==========================================================================
     # Action sets
@@ -1261,6 +1267,7 @@ class CrazyEightsGame(Game, TurnTimerMixin):
     def _end_game(self, winner: CrazyEightsPlayer) -> None:
         self.play_sound("game_crazyeights/hitmark.ogg")
         self.broadcast_l("crazyeights-game-winner", player=winner.name, score=winner.score)
+        # Call finish_game() to show results to everyone
         self.finish_game()
 
     def build_game_result(self) -> GameResult:

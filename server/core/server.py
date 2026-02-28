@@ -1301,7 +1301,10 @@ PlayAural Server
 
         from datetime import datetime
         # Format reason
-        loc_reason = Localization.get(user.locale, active_ban.reason_key)
+        if active_ban.reason_key.startswith("CUSTOM_"):
+            loc_reason = active_ban.reason_key[7:]
+        else:
+            loc_reason = Localization.get(user.locale, active_ban.reason_key)
 
         # Format expiration
         if not active_ban.expires_at:

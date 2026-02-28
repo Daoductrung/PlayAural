@@ -585,6 +585,24 @@ class AdministrationManager:
                 # Cancelled or empty
                 self._show_admin_menu(user)
             return True
+        elif menu_id == "ban_custom_reason_input" and input_id == "ban_custom_reason_input":
+            if value:
+                target_username = state.get("target_username")
+                duration = state.get("duration")
+                if target_username and duration:
+                    # Prefix with CUSTOM_ to easily identify raw strings later
+                    await self._perform_ban(user, target_username, duration, f"CUSTOM_{value}")
+                else:
+                    self._show_admin_menu(user)
+            else:
+                # Go back to reason selection if cancelled or empty
+                target_username = state.get("target_username")
+                duration = state.get("duration")
+                if target_username and duration:
+                    self._show_ban_reason_menu(user, target_username, duration)
+                else:
+                    self._show_admin_menu(user)
+            return True
 
         return False
 
@@ -878,7 +896,18 @@ class AdministrationManager:
             self._show_admin_menu(user)
             return
 
-        if selection_id.startswith("reason_"):
+        if selection_id == "reason_custom":
+            user.show_editbox(
+                "ban_custom_reason_input",
+                Localization.get(user.locale, "enter-custom-ban-reason"),
+                multiline=False,
+            )
+            self.server.user_states[user.username] = {
+                "menu": "ban_custom_reason_input",
+                "target_username": target_username,
+                "duration": duration,
+            }
+        elif selection_id.startswith("reason_"):
             # Internal reason keys are formatted like "reason-spam"
             reason_key = selection_id.replace("_", "-")
             await self._perform_ban(user, target_username, duration, reason_key)
@@ -928,7 +957,12 @@ class AdministrationManager:
         # Broadcast
         for u in self.server.users.values():
             if u.approved:
-                loc_reason = Localization.get(u.locale, reason_key)
+                if reason_key.startswith("CUSTOM_"):
+                    # Display the raw custom reason string directly
+                    loc_reason = reason_key[7:]
+                else:
+                    loc_reason = Localization.get(u.locale, reason_key)
+
                 loc_duration = Localization.get(u.locale, duration_locale_key)
                 u.speak_l("ban-broadcast", target=target_username, actor=admin.username, reason=loc_reason, duration=loc_duration)
                 u.play_sound("accountban.ogg")

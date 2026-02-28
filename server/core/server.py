@@ -215,6 +215,14 @@ PlayAural Server
             user = self._users.get(client.username)
             is_admin = user and user.trust_level >= 2
 
+            # Check if user is banned (we don't want offline broadcast for them)
+            # We must check the database directly in case the user state was already
+            # cleaned up or not fully initialized, ensuring we never broadcast for banned users.
+            is_banned = False
+            active_ban = self._db.get_active_ban(client.username)
+            if active_ban:
+                is_banned = True
+
             # Broadcast offline announcement to all users with appropriate sound
             if user and user.trust_level >= 3:
                 offline_sound = "offlinedev.ogg"
@@ -241,8 +249,8 @@ PlayAural Server
                 self._user_states.pop(client.username, None)
 
             # Schedule delayed offline broadcast to prevent spam on quick reconnects
-            # Only broadcast if this client was actually the active one
-            if user and user.connection == client:
+            # Only broadcast if this client was actually the active one AND not banned
+            if user and user.connection == client and not is_banned:
                 task = asyncio.create_task(self._delayed_offline_broadcast(
                     client.username, offline_sound, user.trust_level
                 ))
@@ -302,11 +310,21 @@ PlayAural Server
             # Always allow ping to keep connection alive
             await self._handle_ping(client)
         else:
-            # For all other packets, check if user is approved
             user = self._users.get(client.username)
-            if user and not user.approved:
-                # Unapproved users can only ping - drop all other packets
-                return
+
+            if user:
+                # Check if user is in lockdown state (banned)
+                state = self._user_states.get(client.username, {})
+                if state.get("menu") == "banned_menu":
+                    # Banned users can only interact with the banned menu (Disconnect)
+                    if packet_type == "menu":
+                        await self._handle_menu(client, packet)
+                    return
+
+                # For all other packets, check if user is approved
+                if not user.approved:
+                    # Unapproved users can only ping - drop all other packets
+                    return
 
             if packet_type == "menu":
                 await self._handle_menu(client, packet)
@@ -437,25 +455,29 @@ PlayAural Server
             }
         )
 
-        # Broadcast online announcement to all users with appropriate sound
-        # We do this AFTER authorize_success so the client is ready to receive/play it.
-        # This fixes the "no self sound" issue.
-        if trust_level >= 3:
-            online_sound = "onlinedev.ogg"
-        elif trust_level >= 2:
-            online_sound = "onlineadmin.ogg"
-        else:
-            online_sound = "online.ogg"
-        
-        # Only broadcast if we didn't cancel a pending disconnect (debounce)
-        if not pending_task:
-             self._broadcast_presence_l("user-online", username, online_sound)
+        # Check if user is banned before broadcasting presence
+        active_ban = self._db.get_active_ban(username)
 
-             # If user is a developer or admin, announce that as well
-             if trust_level >= 3:
-                  await self._broadcast_dev_announcement(username)
-             elif trust_level >= 2:
-                  await self._broadcast_admin_announcement(username)
+        if not active_ban:
+            # Broadcast online announcement to all users with appropriate sound
+            # We do this AFTER authorize_success so the client is ready to receive/play it.
+            # This fixes the "no self sound" issue.
+            if trust_level >= 3:
+                online_sound = "onlinedev.ogg"
+            elif trust_level >= 2:
+                online_sound = "onlineadmin.ogg"
+            else:
+                online_sound = "online.ogg"
+
+            # Only broadcast if we didn't cancel a pending disconnect (debounce)
+            if not pending_task:
+                 self._broadcast_presence_l("user-online", username, online_sound)
+
+                 # If user is a developer or admin, announce that as well
+                 if trust_level >= 3:
+                      await self._broadcast_dev_announcement(username)
+                 elif trust_level >= 2:
+                      await self._broadcast_admin_announcement(username)
 
         # Check client version
         client_version = packet.get("version", "0.0.0")
@@ -466,6 +488,12 @@ PlayAural Server
 
         # Send game list
         await self._send_game_list(client)
+
+        # Check if user is banned
+        active_ban = self._db.get_active_ban(username)
+        if active_ban:
+            self._show_banned_menu(user, active_ban)
+            return
 
         # Check if user is approved
         if not user.approved:
@@ -1267,6 +1295,43 @@ PlayAural Server
         # If the user is currently looking at the options menu, we should refresh it
         # But determining that is complex. Updating the backend state is sufficient for next view.
 
+    def _show_banned_menu(self, user: NetworkUser, active_ban) -> None:
+        """Show banned screen with reason and expiration."""
+        user.speak_l("banned-menu-title")
+
+        from datetime import datetime
+        # Format reason
+        if active_ban.reason_key.startswith("CUSTOM_"):
+            loc_reason = active_ban.reason_key[7:]
+        else:
+            loc_reason = Localization.get(user.locale, active_ban.reason_key)
+
+        # Format expiration
+        if not active_ban.expires_at:
+            expires_text = Localization.get(user.locale, "banned-permanent")
+        else:
+            try:
+                dt = datetime.fromisoformat(active_ban.expires_at)
+                # Localize or just use standard formatting
+                formatted_dt = dt.strftime("%Y-%m-%d %H:%M:%S")
+                expires_text = Localization.get(user.locale, "banned-expires", expires=formatted_dt)
+            except ValueError:
+                expires_text = Localization.get(user.locale, "banned-expires", expires=active_ban.expires_at)
+
+        items = [
+            MenuItem(text=Localization.get(user.locale, "banned-reason", reason=loc_reason), id="info_reason"),
+            MenuItem(text=expires_text, id="info_expires"),
+            MenuItem(text=Localization.get(user.locale, "disconnect"), id="disconnect"),
+        ]
+
+        user.show_menu(
+            "banned_menu",
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self._user_states[user.username] = {"menu": "banned_menu"}
+
     def _show_waiting_for_approval(self, user: NetworkUser) -> None:
         """Show waiting for approval screen to unapproved user."""
         user.speak_l("waiting-for-approval")
@@ -1344,7 +1409,12 @@ PlayAural Server
             return
 
         # Handle menu selections based on current menu
-        if current_menu == "main_menu":
+        if current_menu == "banned_menu":
+            if selection_id == "disconnect":
+                await user.connection.send({"type": "force_exit", "reason": "banned"})
+                asyncio.create_task(self._failsafe_close(user))
+            return
+        elif current_menu == "main_menu":
             await self._handle_main_menu_selection(user, selection_id)
         elif current_menu == "games_menu":
             await self._handle_games_selection(user, selection_id, state)
@@ -1383,7 +1453,8 @@ PlayAural Server
         elif current_menu in [
             "admin_menu", "account_approval_menu", "pending_user_actions_menu",
             "promote_admin_menu", "demote_admin_menu", "promote_confirm_menu",
-            "demote_confirm_menu", "kick_menu", "kick_confirm_menu", "broadcast_choice_menu"
+            "demote_confirm_menu", "kick_menu", "kick_confirm_menu", "broadcast_choice_menu",
+            "ban_menu", "ban_duration_menu", "ban_reason_menu", "unban_menu"
         ]:
             await self.admin_manager.handle_menu_selection(user, selection_id, current_menu, state)
         elif current_menu == "logout_confirm_menu":
@@ -3282,8 +3353,14 @@ PlayAural Server
         return role_text, client_text
 
     def _get_online_usernames(self) -> list[str]:
-        """Return sorted list of online usernames."""
-        return sorted(self._users.keys(), key=str.lower)
+        """Return sorted list of online usernames. Excludes banned users."""
+        online_users = []
+        for username in self._users.keys():
+            # Hide banned users from the public online list
+            state = self._user_states.get(username, {})
+            if state.get("menu") != "banned_menu":
+                online_users.append(username)
+        return sorted(online_users, key=str.lower)
 
     def _format_online_users_lines(self, user: NetworkUser) -> list[str]:
         """Format online users with game names for menu display."""

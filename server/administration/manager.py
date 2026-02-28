@@ -61,6 +61,14 @@ class AdministrationManager:
                 id="demote_admin",
             ),
             MenuItem(
+                text=Localization.get(user.locale, "ban-user"),
+                id="ban_user",
+            ),
+            MenuItem(
+                text=Localization.get(user.locale, "unban-user"),
+                id="unban_user",
+            ),
+            MenuItem(
                 text=Localization.get(user.locale, "broadcast-announcement"),
                 id="broadcast_announcement",
             ),
@@ -246,6 +254,14 @@ class AdministrationManager:
              await self._handle_kick_confirm_selection(user, selection_id, state)
         elif current_menu == "broadcast_choice_menu":
             await self._handle_broadcast_choice_selection(user, selection_id, state)
+        elif current_menu == "ban_menu":
+             await self._handle_ban_selection(user, selection_id)
+        elif current_menu == "ban_duration_menu":
+             await self._handle_ban_duration_selection(user, selection_id, state)
+        elif current_menu == "ban_reason_menu":
+             await self._handle_ban_reason_selection(user, selection_id, state)
+        elif current_menu == "unban_menu":
+             await self._handle_unban_selection(user, selection_id)
 
     async def _handle_admin_menu_selection(
         self, user: NetworkUser, selection_id: str
@@ -257,6 +273,10 @@ class AdministrationManager:
             self._show_promote_admin_menu(user)
         elif selection_id == "demote_admin":
             self._show_demote_admin_menu(user)
+        elif selection_id == "ban_user":
+            self._show_ban_menu(user)
+        elif selection_id == "unban_user":
+            self._show_unban_menu(user)
         elif selection_id == "kick_user":
             self._show_kick_menu(user)
         elif selection_id == "broadcast_announcement":
@@ -565,6 +585,24 @@ class AdministrationManager:
                 # Cancelled or empty
                 self._show_admin_menu(user)
             return True
+        elif menu_id == "ban_custom_reason_input" and input_id == "ban_custom_reason_input":
+            if value:
+                target_username = state.get("target_username")
+                duration = state.get("duration")
+                if target_username and duration:
+                    # Prefix with CUSTOM_ to easily identify raw strings later
+                    await self._perform_ban(user, target_username, duration, f"CUSTOM_{value}")
+                else:
+                    self._show_admin_menu(user)
+            else:
+                # Go back to reason selection if cancelled or empty
+                target_username = state.get("target_username")
+                duration = state.get("duration")
+                if target_username and duration:
+                    self._show_ban_reason_menu(user, target_username, duration)
+                else:
+                    self._show_admin_menu(user)
+            return True
 
         return False
 
@@ -728,3 +766,253 @@ class AdministrationManager:
              await user.connection.close(1000, "Kicked")
          except:
              pass
+
+    # ==================== Ban System ====================
+
+    def _show_ban_menu(self, user: NetworkUser) -> None:
+        """Show list of users to ban."""
+        all_users = self.server.db._conn.execute("SELECT username, trust_level FROM users WHERE approved = 1").fetchall()
+
+        target_users = []
+        for row in all_users:
+            username = row["username"]
+            trust_level = row["trust_level"]
+
+            if username == user.username:
+                continue
+
+            # Hierarchy Check: Admins (2) cannot ban Developers (3) or Admins (2). Devs (3) can ban anyone.
+            if trust_level >= 3:
+                continue
+            if user.trust_level < 3 and trust_level >= 2:
+                continue
+
+            # Exclude already banned users
+            if self.server.db.get_active_ban(username):
+                continue
+
+            target_users.append(username)
+
+        if not target_users:
+            user.speak_l("no-users-to-ban")
+            self._show_admin_menu(user)
+            return
+
+        items = []
+        for target in target_users:
+             items.append(MenuItem(text=target, id=f"ban_{target}"))
+        items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
+
+        user.show_menu(
+            "ban_menu",
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self.server.user_states[user.username] = {"menu": "ban_menu"}
+
+    async def _handle_ban_selection(self, user: NetworkUser, selection_id: str) -> None:
+        if selection_id == "back":
+            self._show_admin_menu(user)
+        elif selection_id.startswith("ban_"):
+            target_username = selection_id[4:]
+            self._show_ban_duration_menu(user, target_username)
+
+    def _show_ban_duration_menu(self, user: NetworkUser, target_username: str) -> None:
+        """Show duration options for banning."""
+        items = [
+            MenuItem(text=Localization.get(user.locale, "ban-duration-1h"), id="duration_1h"),
+            MenuItem(text=Localization.get(user.locale, "ban-duration-6h"), id="duration_6h"),
+            MenuItem(text=Localization.get(user.locale, "ban-duration-12h"), id="duration_12h"),
+            MenuItem(text=Localization.get(user.locale, "ban-duration-1d"), id="duration_1d"),
+            MenuItem(text=Localization.get(user.locale, "ban-duration-3d"), id="duration_3d"),
+            MenuItem(text=Localization.get(user.locale, "ban-duration-1w"), id="duration_1w"),
+            MenuItem(text=Localization.get(user.locale, "ban-duration-1m"), id="duration_1m"),
+            MenuItem(text=Localization.get(user.locale, "ban-duration-permanent"), id="duration_perm"),
+            MenuItem(text=Localization.get(user.locale, "back"), id="back"),
+        ]
+
+        user.show_menu(
+            "ban_duration_menu",
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self.server.user_states[user.username] = {
+            "menu": "ban_duration_menu",
+            "target_username": target_username,
+        }
+
+    async def _handle_ban_duration_selection(self, user: NetworkUser, selection_id: str, state: dict) -> None:
+        if selection_id == "back":
+            self._show_ban_menu(user)
+            return
+
+        target_username = state.get("target_username")
+        if not target_username:
+            self._show_admin_menu(user)
+            return
+
+        if selection_id.startswith("duration_"):
+            duration = selection_id[9:]
+            self._show_ban_reason_menu(user, target_username, duration)
+
+    def _show_ban_reason_menu(self, user: NetworkUser, target_username: str, duration: str) -> None:
+        """Show reason options for banning."""
+        items = [
+            MenuItem(text=Localization.get(user.locale, "reason-spam"), id="reason_spam"),
+            MenuItem(text=Localization.get(user.locale, "reason-harassment"), id="reason_harassment"),
+            MenuItem(text=Localization.get(user.locale, "reason-cheating"), id="reason_cheating"),
+            MenuItem(text=Localization.get(user.locale, "reason-inappropriate"), id="reason_inappropriate"),
+            MenuItem(text=Localization.get(user.locale, "reason-custom"), id="reason_custom"),
+            MenuItem(text=Localization.get(user.locale, "back"), id="back"),
+        ]
+
+        user.show_menu(
+            "ban_reason_menu",
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self.server.user_states[user.username] = {
+            "menu": "ban_reason_menu",
+            "target_username": target_username,
+            "duration": duration,
+        }
+
+    async def _handle_ban_reason_selection(self, user: NetworkUser, selection_id: str, state: dict) -> None:
+        if selection_id == "back":
+            target_username = state.get("target_username")
+            if target_username:
+                self._show_ban_duration_menu(user, target_username)
+            else:
+                self._show_admin_menu(user)
+            return
+
+        target_username = state.get("target_username")
+        duration = state.get("duration")
+
+        if not target_username or not duration:
+            self._show_admin_menu(user)
+            return
+
+        if selection_id == "reason_custom":
+            user.show_editbox(
+                "ban_custom_reason_input",
+                Localization.get(user.locale, "enter-custom-ban-reason"),
+                multiline=False,
+            )
+            self.server.user_states[user.username] = {
+                "menu": "ban_custom_reason_input",
+                "target_username": target_username,
+                "duration": duration,
+            }
+        elif selection_id.startswith("reason_"):
+            # Internal reason keys are formatted like "reason-spam"
+            reason_key = selection_id.replace("_", "-")
+            await self._perform_ban(user, target_username, duration, reason_key)
+
+    @require_admin
+    async def _perform_ban(self, admin: NetworkUser, target_username: str, duration_id: str, reason_key: str) -> None:
+        from datetime import datetime, timedelta
+
+        # Calculate expires_at
+        now = datetime.now()
+        expires_at = None
+        duration_locale_key = f"ban-duration-{duration_id}"
+
+        if duration_id == "1h":
+            expires_at = (now + timedelta(hours=1)).isoformat()
+        elif duration_id == "6h":
+            expires_at = (now + timedelta(hours=6)).isoformat()
+        elif duration_id == "12h":
+            expires_at = (now + timedelta(hours=12)).isoformat()
+        elif duration_id == "1d":
+            expires_at = (now + timedelta(days=1)).isoformat()
+        elif duration_id == "3d":
+            expires_at = (now + timedelta(days=3)).isoformat()
+        elif duration_id == "1w":
+            expires_at = (now + timedelta(weeks=1)).isoformat()
+        elif duration_id == "1m":
+            expires_at = (now + timedelta(days=30)).isoformat()
+        elif duration_id == "perm":
+            expires_at = None
+            duration_locale_key = "ban-duration-permanent"
+
+        # Check target user hierarchy again for safety
+        target_record = self.server.db.get_user(target_username)
+        if not target_record:
+            admin.speak_l("user-not-online", target=target_username)
+            self._show_admin_menu(admin)
+            return
+
+        if target_record.trust_level >= 3 or (admin.trust_level < 3 and target_record.trust_level >= 2):
+            admin.speak_l("permission-denied")
+            self._show_admin_menu(admin)
+            return
+
+        # Write to database
+        self.server.db.ban_user(target_username, admin.username, reason_key, expires_at)
+
+        # Broadcast
+        for u in self.server.users.values():
+            if u.approved:
+                if reason_key.startswith("CUSTOM_"):
+                    # Display the raw custom reason string directly
+                    loc_reason = reason_key[7:]
+                else:
+                    loc_reason = Localization.get(u.locale, reason_key)
+
+                loc_duration = Localization.get(u.locale, duration_locale_key)
+                u.speak_l("ban-broadcast", target=target_username, actor=admin.username, reason=loc_reason, duration=loc_duration)
+                u.play_sound("accountban.ogg")
+
+        # Kick if online
+        target_user = self.server.users.get(target_username)
+        if target_user:
+            # We just close the connection abruptly or send to banned screen
+            # Force exit is fine. Next login they will be trapped.
+            await target_user.connection.send({"type": "force_exit", "reason": "banned"})
+            asyncio.create_task(self._kick_disconnect_delay(target_user))
+
+        self._show_admin_menu(admin)
+
+    def _show_unban_menu(self, user: NetworkUser) -> None:
+        """Show list of banned users."""
+        banned_users = self.server.db.get_all_banned_users()
+
+        if not banned_users:
+            user.speak_l("no-banned-users")
+            self._show_admin_menu(user)
+            return
+
+        items = []
+        for username in banned_users:
+            items.append(MenuItem(text=username, id=f"unban_{username}"))
+        items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
+
+        user.show_menu(
+            "unban_menu",
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self.server.user_states[user.username] = {"menu": "unban_menu"}
+
+    async def _handle_unban_selection(self, user: NetworkUser, selection_id: str) -> None:
+        if selection_id == "back":
+            self._show_admin_menu(user)
+        elif selection_id.startswith("unban_"):
+            target_username = selection_id[6:]
+            await self._perform_unban(user, target_username)
+
+    @require_admin
+    async def _perform_unban(self, admin: NetworkUser, target_username: str) -> None:
+        if self.server.db.unban_user(target_username):
+            # Broadcast
+            for u in self.server.users.values():
+                if u.approved:
+                    u.speak_l("unban-broadcast", target=target_username, actor=admin.username)
+                    u.play_sound("accountban.ogg") # Requested to use same sound
+
+        self._show_unban_menu(admin)

@@ -215,6 +215,14 @@ PlayAural Server
             user = self._users.get(client.username)
             is_admin = user and user.trust_level >= 2
 
+            # Check if user is banned (we don't want offline broadcast for them)
+            is_banned = False
+            if user:
+                # We can check state, or db
+                state = self._user_states.get(client.username, {})
+                if state.get("menu") == "banned_menu":
+                    is_banned = True
+
             # Broadcast offline announcement to all users with appropriate sound
             if user and user.trust_level >= 3:
                 offline_sound = "offlinedev.ogg"
@@ -241,8 +249,8 @@ PlayAural Server
                 self._user_states.pop(client.username, None)
 
             # Schedule delayed offline broadcast to prevent spam on quick reconnects
-            # Only broadcast if this client was actually the active one
-            if user and user.connection == client:
+            # Only broadcast if this client was actually the active one AND not banned
+            if user and user.connection == client and not is_banned:
                 task = asyncio.create_task(self._delayed_offline_broadcast(
                     client.username, offline_sound, user.trust_level
                 ))
@@ -3342,8 +3350,14 @@ PlayAural Server
         return role_text, client_text
 
     def _get_online_usernames(self) -> list[str]:
-        """Return sorted list of online usernames."""
-        return sorted(self._users.keys(), key=str.lower)
+        """Return sorted list of online usernames. Excludes banned users."""
+        online_users = []
+        for username in self._users.keys():
+            # Hide banned users from the public online list
+            state = self._user_states.get(username, {})
+            if state.get("menu") != "banned_menu":
+                online_users.append(username)
+        return sorted(online_users, key=str.lower)
 
     def _format_online_users_lines(self, user: NetworkUser) -> list[str]:
         """Format online users with game names for menu display."""

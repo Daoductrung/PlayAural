@@ -253,6 +253,8 @@ account-action = account action taken
 
 promote-admin = Promote Admin
 demote-admin = Demote Admin
+ban-user = Ban User
+unban-user = Unban User
 no-users-to-promote = No users available to promote.
 no-admins-to-demote = No admins available to demote.
 confirm-promote = Are you sure you want to promote { $player } to admin?
@@ -265,6 +267,35 @@ promote-announcement-you = You have been promoted to admin!
 demote-announcement = { $player } has been demoted from admin.
 demote-announcement-you = You have been demoted from admin.
 not-admin-anymore = You are no longer an admin and cannot perform this action.
+
+ban-duration-1h = 1 hour
+ban-duration-6h = 6 hours
+ban-duration-12h = 12 hours
+ban-duration-1d = 1 day
+ban-duration-3d = 3 days
+ban-duration-1w = 1 week
+ban-duration-1m = 1 month
+ban-duration-permanent = Permanent
+
+reason-spam = Spam
+reason-harassment = Harassment
+reason-cheating = Cheating
+reason-inappropriate = Inappropriate behavior
+reason-custom = Other / Custom
+
+no-users-to-ban = No users available to ban.
+no-banned-users = No users are currently banned.
+
+ban-broadcast = { $target } has been banned by { $actor } for { $reason }. Duration: { $duration }.
+unban-broadcast = { $target } has been unbanned by { $actor }.
+
+banned-menu-title = Account Banned
+banned-reason = Reason: { $reason }
+banned-expires = Expires: { $expires }
+banned-permanent = Expires: Permanent
+disconnect = Disconnect
+
+enter-custom-ban-reason = Enter custom ban reason:
 
 broadcast-announcement = Broadcast Announcement
 admin-broadcast-prompt = Enter the message to broadcast to all online users. (This will be sent to everyone!)

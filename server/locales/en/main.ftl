@@ -295,6 +295,8 @@ banned-expires = Expires: { $expires }
 banned-permanent = Expires: Permanent
 disconnect = Disconnect
 
+enter-custom-ban-reason = Enter custom ban reason:
+
 broadcast-announcement = Broadcast Announcement
 admin-broadcast-prompt = Enter the message to broadcast to all online users. (This will be sent to everyone!)
 admin-broadcast-sent = Broadcast sent to { $count } users.

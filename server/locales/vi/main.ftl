@@ -295,6 +295,8 @@ banned-expires = Hết hạn: { $expires }
 banned-permanent = Hết hạn: Vĩnh viễn
 disconnect = Ngắt kết nối
 
+enter-custom-ban-reason = Nhập lý do cấm tùy chỉnh:
+
 broadcast-announcement = Gửi thông báo
 admin-broadcast-prompt = Nhập tin nhắn để thông báo cho tất cả người dùng đang trực tuyến. (Tin nhắn này sẽ gửi tới mọi người!)
 admin-broadcast-sent = Đã gửi thông báo đến { $count } người dùng.

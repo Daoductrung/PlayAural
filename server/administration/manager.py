@@ -569,12 +569,13 @@ class AdministrationManager:
         return False
 
     @require_admin
-    async def perform_broadcast(self, admin: NetworkUser, message: str) -> None:
+    async def perform_broadcast(self, admin: NetworkUser, message: str, show_menu: bool = True) -> None:
         """Perform the broadcast action."""
         # Clean up message
         message = message.strip()
         if not message:
-            self._show_admin_menu(admin)
+            if show_menu:
+                self._show_admin_menu(admin)
             return
 
         # Prepare packets
@@ -611,7 +612,8 @@ class AdministrationManager:
         # Also play a confirmation sound for admin locally via queue
         # admin.play_sound("notify.ogg") 
         
-        self._show_admin_menu(admin)
+        if show_menu:
+            self._show_admin_menu(admin)
 
     # ==================== Kick System ====================
 
@@ -677,7 +679,7 @@ class AdministrationManager:
         }
 
     @require_admin
-    async def kick_user(self, admin: NetworkUser, target_username: str) -> None:
+    async def kick_user(self, admin: NetworkUser, target_username: str, show_menu: bool = True) -> None:
         """Kick a user from the server."""
         # Check if user is online
         target_user = self.server.users.get(target_username)
@@ -717,7 +719,8 @@ class AdministrationManager:
         asyncio.create_task(self._kick_disconnect_delay(target_user))
 
         # 4. Return Admin to Menu
-        self._show_admin_menu(admin)
+        if show_menu:
+            self._show_admin_menu(admin)
 
     async def _kick_disconnect_delay(self, user):
          await asyncio.sleep(1.0)

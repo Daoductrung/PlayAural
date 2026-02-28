@@ -3225,7 +3225,7 @@ PlayAural Server
                      return
                  
                  target_name = parts[1].strip()
-                 await self.admin_manager.kick_user(user, target_name)
+                 await self.admin_manager.kick_user(user, target_name, show_menu=False)
                  return
              else:
                  pass # Ignore for non-admins
@@ -3439,7 +3439,7 @@ PlayAural Server
 
         message = packet.get("message", "")
         if message:
-            await self.admin_manager.perform_broadcast(user, message)
+            await self.admin_manager.perform_broadcast(user, message, show_menu=False)
 
 
 async def run_server(

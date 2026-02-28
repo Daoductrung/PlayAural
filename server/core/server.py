@@ -216,12 +216,12 @@ PlayAural Server
             is_admin = user and user.trust_level >= 2
 
             # Check if user is banned (we don't want offline broadcast for them)
+            # We must check the database directly in case the user state was already
+            # cleaned up or not fully initialized, ensuring we never broadcast for banned users.
             is_banned = False
-            if user:
-                # We can check state, or db
-                state = self._user_states.get(client.username, {})
-                if state.get("menu") == "banned_menu":
-                    is_banned = True
+            active_ban = self._db.get_active_ban(client.username)
+            if active_ban:
+                is_banned = True
 
             # Broadcast offline announcement to all users with appropriate sound
             if user and user.trust_level >= 3:

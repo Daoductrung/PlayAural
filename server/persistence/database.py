@@ -211,6 +211,25 @@ class Database:
             cursor.execute("ALTER TABLE users ADD COLUMN bio TEXT DEFAULT ''")
             self._conn.commit()
 
+        # Check if bans table exists (migration for existing databases)
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='bans'")
+        if not cursor.fetchone():
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS bans (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    username TEXT NOT NULL,
+                    admin_username TEXT NOT NULL,
+                    reason_key TEXT NOT NULL,
+                    issued_at TEXT NOT NULL,
+                    expires_at TEXT
+                )
+            """)
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_bans_username
+                ON bans(username)
+            """)
+            self._conn.commit()
+
     # User operations
 
     def get_user(self, username: str) -> UserRecord | None:

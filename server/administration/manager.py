@@ -2,15 +2,14 @@
 
 import functools
 import asyncio
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from ..users.network_user import NetworkUser
 from ..users.base import MenuItem, EscapeBehavior
 from ..messages.localization import Localization
 
 if TYPE_CHECKING:
-    from ..persistence.database import Database
-
+    from ..core.server import Server
 
 def require_admin(func):
     """Decorator that checks if the user is still an admin before executing an admin action."""
@@ -18,36 +17,25 @@ def require_admin(func):
     async def wrapper(self, admin, *args, **kwargs):
         if admin.trust_level < 2:
             admin.speak_l("not-admin-anymore")
-            self._show_main_menu(admin)
+            self.server._show_main_menu(admin)
             return
         return await func(self, admin, *args, **kwargs)
     return wrapper
 
 
-class AdministrationMixin:
+class AdministrationManager:
     """
-    Mixin class providing administration functionality.
-
-    This mixin expects the following attributes on the class it's mixed into:
-    - _db: Database instance
-    - _users: dict[str, NetworkUser] of online users
-    - _user_states: dict[str, dict] of user menu states
-    - _show_main_menu(user): method to show main menu
+    Manager class providing administration functionality.
     """
 
-    _db: "Database"
-    _users: dict[str, NetworkUser]
-    _user_states: dict[str, dict]
-
-    def _show_main_menu(self, user: NetworkUser) -> None:
-        """Show main menu - to be implemented by the main class."""
-        raise NotImplementedError
+    def __init__(self, server: "Server"):
+        self.server = server
 
     def _notify_admins(
         self, message_id: str, sound: str, exclude_username: str | None = None
     ) -> None:
         """Notify all online admins with a message and sound, optionally excluding one admin."""
-        for username, user in self._users.items():
+        for username, user in self.server.users.items():
             if user.trust_level < 2:
                 continue  # Not an admin
             if exclude_username and username == exclude_username:
@@ -88,11 +76,11 @@ class AdministrationMixin:
             multiletter=True,
             escape_behavior=EscapeBehavior.SELECT_LAST,
         )
-        self._user_states[user.username] = {"menu": "admin_menu"}
+        self.server.user_states[user.username] = {"menu": "admin_menu"}
 
     def _show_account_approval_menu(self, user: NetworkUser) -> None:
         """Show account approval menu with pending users."""
-        pending = self._db.get_pending_users()
+        pending = self.server.db.get_pending_users()
 
         if not pending:
             user.speak_l("no-pending-accounts")
@@ -110,7 +98,7 @@ class AdministrationMixin:
             multiletter=True,
             escape_behavior=EscapeBehavior.SELECT_LAST,
         )
-        self._user_states[user.username] = {"menu": "account_approval_menu"}
+        self.server.user_states[user.username] = {"menu": "account_approval_menu"}
 
     def _show_pending_user_actions_menu(self, user: NetworkUser, pending_username: str) -> None:
         """Show actions for a pending user (approve, decline)."""
@@ -125,14 +113,14 @@ class AdministrationMixin:
             multiletter=True,
             escape_behavior=EscapeBehavior.SELECT_LAST,
         )
-        self._user_states[user.username] = {
+        self.server.user_states[user.username] = {
             "menu": "pending_user_actions_menu",
             "pending_username": pending_username,
         }
 
     def _show_promote_admin_menu(self, user: NetworkUser) -> None:
         """Show promote admin menu with list of non-admin users."""
-        non_admins = self._db.get_non_admin_users()
+        non_admins = self.server.db.get_non_admin_users()
 
         if not non_admins:
             user.speak_l("no-users-to-promote")
@@ -150,11 +138,11 @@ class AdministrationMixin:
             multiletter=True,
             escape_behavior=EscapeBehavior.SELECT_LAST,
         )
-        self._user_states[user.username] = {"menu": "promote_admin_menu"}
+        self.server.user_states[user.username] = {"menu": "promote_admin_menu"}
 
     def _show_demote_admin_menu(self, user: NetworkUser) -> None:
         """Show demote admin menu with list of admin users."""
-        admins = self._db.get_admin_users()
+        admins = self.server.db.get_admin_users()
 
         # Filter out the current user (can't demote yourself) and developers (trust_level >= 3)
         admins = [a for a in admins if a.username != user.username and a.trust_level < 3]
@@ -175,7 +163,7 @@ class AdministrationMixin:
             multiletter=True,
             escape_behavior=EscapeBehavior.SELECT_LAST,
         )
-        self._user_states[user.username] = {"menu": "demote_admin_menu"}
+        self.server.user_states[user.username] = {"menu": "demote_admin_menu"}
 
     def _show_promote_confirm_menu(self, user: NetworkUser, target_username: str) -> None:
         """Show confirmation menu for promoting a user to admin."""
@@ -190,7 +178,7 @@ class AdministrationMixin:
             multiletter=True,
             escape_behavior=EscapeBehavior.SELECT_LAST,
         )
-        self._user_states[user.username] = {
+        self.server.user_states[user.username] = {
             "menu": "promote_confirm_menu",
             "target_username": target_username,
         }
@@ -208,7 +196,7 @@ class AdministrationMixin:
             multiletter=True,
             escape_behavior=EscapeBehavior.SELECT_LAST,
         )
-        self._user_states[user.username] = {
+        self.server.user_states[user.username] = {
             "menu": "demote_confirm_menu",
             "target_username": target_username,
         }
@@ -226,13 +214,38 @@ class AdministrationMixin:
             multiletter=True,
             escape_behavior=EscapeBehavior.SELECT_LAST,
         )
-        self._user_states[user.username] = {
+        self.server.user_states[user.username] = {
             "menu": "broadcast_choice_menu",
             "action": action,  # "promote" or "demote"
             "target_username": target_username,
         }
 
     # ==================== Menu Selection Handlers ====================
+
+    async def handle_menu_selection(
+        self, user: NetworkUser, selection_id: str, current_menu: str, state: dict[str, Any]
+    ) -> None:
+        """Main entry point for handling admin-related menu selections."""
+        if current_menu == "admin_menu":
+            await self._handle_admin_menu_selection(user, selection_id)
+        elif current_menu == "account_approval_menu":
+            await self._handle_account_approval_selection(user, selection_id)
+        elif current_menu == "pending_user_actions_menu":
+            await self._handle_pending_user_actions_selection(user, selection_id, state)
+        elif current_menu == "promote_admin_menu":
+            await self._handle_promote_admin_selection(user, selection_id)
+        elif current_menu == "demote_admin_menu":
+            await self._handle_demote_admin_selection(user, selection_id)
+        elif current_menu == "promote_confirm_menu":
+            await self._handle_promote_confirm_selection(user, selection_id, state)
+        elif current_menu == "demote_confirm_menu":
+            await self._handle_demote_confirm_selection(user, selection_id, state)
+        elif current_menu == "kick_menu":
+             await self._handle_kick_selection(user, selection_id)
+        elif current_menu == "kick_confirm_menu":
+             await self._handle_kick_confirm_selection(user, selection_id, state)
+        elif current_menu == "broadcast_choice_menu":
+            await self._handle_broadcast_choice_selection(user, selection_id, state)
 
     async def _handle_admin_menu_selection(
         self, user: NetworkUser, selection_id: str
@@ -249,7 +262,7 @@ class AdministrationMixin:
         elif selection_id == "broadcast_announcement":
             self._show_broadcast_input_menu(user)
         elif selection_id == "back":
-            self._show_main_menu(user)
+            self.server._show_main_menu(user)
 
     async def _handle_account_approval_selection(
         self, user: NetworkUser, selection_id: str
@@ -349,7 +362,7 @@ class AdministrationMixin:
             return
 
         if selection_id == "yes":
-            await self._kick_user(user, target_username)
+            await self.kick_user(user, target_username)
         else:
             # No or back - return to kick menu
             # Or return to admin menu directly? Usually back to list is better to verify safety.
@@ -380,7 +393,7 @@ class AdministrationMixin:
     @require_admin
     async def _approve_user(self, admin: NetworkUser, username: str) -> None:
         """Approve a pending user account."""
-        if self._db.approve_user(username):
+        if self.server.db.approve_user(username):
             admin.speak_l("account-approved", player=username)
 
             # Notify other admins of the account action
@@ -389,17 +402,17 @@ class AdministrationMixin:
             )
 
             # Check if the user is online and waiting for approval
-            waiting_user = self._users.get(username)
+            waiting_user = self.server.users.get(username)
             if waiting_user:
                 # Update the user's approved status so they can now interact
                 waiting_user.set_approved(True)
 
-                waiting_state = self._user_states.get(username, {})
+                waiting_state = self.server.user_states.get(username, {})
                 if waiting_state.get("menu") == "waiting_for_approval":
                     # User is online and waiting - welcome them and show main menu
                     waiting_user.speak_l("account-approved-welcome")
                     waiting_user.play_sound("accountapprove.ogg")
-                    self._show_main_menu(waiting_user)
+                    self.server._show_main_menu(waiting_user)
 
         self._show_account_approval_menu(admin)
 
@@ -407,9 +420,9 @@ class AdministrationMixin:
     async def _decline_user(self, admin: NetworkUser, username: str) -> None:
         """Decline and delete a pending user account."""
         # Check if the user is online first
-        waiting_user = self._users.get(username)
+        waiting_user = self.server.users.get(username)
 
-        if self._db.delete_user(username):
+        if self.server.db.delete_user(username):
             admin.speak_l("account-declined", player=username)
 
             # Notify other admins of the account action
@@ -430,10 +443,10 @@ class AdministrationMixin:
     ) -> None:
         """Promote a user to admin."""
         # Update trust level in database
-        self._db.update_user_trust_level(username, 2)
+        self.server.db.update_user_trust_level(username, 2)
 
         # Update the user's trust level if they are online
-        target_user = self._users.get(username)
+        target_user = self.server.users.get(username)
         if target_user:
             target_user.set_trust_level(2)
 
@@ -465,7 +478,7 @@ class AdministrationMixin:
     ) -> None:
         """Demote an admin to regular user."""
         # Check target trust level first
-        target_record = self._db.get_user(username)
+        target_record = self.server.db.get_user(username)
         if not target_record:
             return
             
@@ -475,10 +488,10 @@ class AdministrationMixin:
             return
 
         # Update trust level in database
-        self._db.update_user_trust_level(username, 1)
+        self.server.db.update_user_trust_level(username, 1)
 
         # Update the user's trust level if they are online
-        target_user = self._users.get(username)
+        target_user = self.server.users.get(username)
         if target_user:
             target_user.set_trust_level(1)
 
@@ -513,7 +526,7 @@ class AdministrationMixin:
         exclude_username: str | None = None,
     ) -> None:
         """Broadcast an admin promotion/demotion announcement."""
-        for username, user in self._users.items():
+        for username, user in self.server.users.items():
             if not user.approved:
                 continue  # Don't send broadcasts to unapproved users
             if exclude_username and username == exclude_username:
@@ -530,11 +543,11 @@ class AdministrationMixin:
             Localization.get(user.locale, "admin-broadcast-prompt"),
             multiline=True,
         )
-        self._user_states[user.username] = {
+        self.server.user_states[user.username] = {
             "menu": "admin_broadcast_input",
         }
 
-    async def _handle_admin_input(
+    async def handle_input(
         self, user: NetworkUser, packet: dict, state: dict
     ) -> bool:
         """
@@ -547,7 +560,7 @@ class AdministrationMixin:
 
         if menu_id == "admin_broadcast_input" and input_id == "broadcast_message":
             if value:
-                await self._perform_broadcast(user, value)
+                await self.perform_broadcast(user, value)
             else:
                 # Cancelled or empty
                 self._show_admin_menu(user)
@@ -555,11 +568,8 @@ class AdministrationMixin:
 
         return False
 
-        admin.speak_l("admin-broadcast-sent", count=count)
-        # self._show_admin_menu(admin) # Don't show menu immediately so they can hear report
-
     @require_admin
-    async def _perform_broadcast(self, admin: NetworkUser, message: str) -> None:
+    async def perform_broadcast(self, admin: NetworkUser, message: str) -> None:
         """Perform the broadcast action."""
         # Clean up message
         message = message.strip()
@@ -581,10 +591,10 @@ class AdministrationMixin:
         # This implies client update is expected. Let's remove the redundancy to be clean.
         
         count = 0
-        total_online = len(self._users)
+        total_online = len(self.server.users)
         
         # We iterate a copy of values to be safe against dictionary changes during async await
-        users_list = list(self._users.values())
+        users_list = list(self.server.users.values())
         
         for user in users_list:
             if user.approved:
@@ -617,7 +627,7 @@ class AdministrationMixin:
         # But let's assume standard hierarchy: Admin can kick < 2. Dev can kick < 3.
         
         target_users = []
-        for u in self._users.values():
+        for u in self.server.users.values():
             if u.username == user.username:
                 continue
             
@@ -646,7 +656,7 @@ class AdministrationMixin:
             multiletter=True,
             escape_behavior=EscapeBehavior.SELECT_LAST,
         )
-        self._user_states[user.username] = {"menu": "kick_menu"}
+        self.server.user_states[user.username] = {"menu": "kick_menu"}
 
     def _show_kick_confirm_menu(self, user: NetworkUser, target_username: str) -> None:
         """Show confirmation menu for kicking a user."""
@@ -661,16 +671,16 @@ class AdministrationMixin:
             multiletter=True,
             escape_behavior=EscapeBehavior.SELECT_LAST,
         )
-        self._user_states[user.username] = {
+        self.server.user_states[user.username] = {
             "menu": "kick_confirm_menu",
             "target_username": target_username,
         }
 
     @require_admin
-    async def _kick_user(self, admin: NetworkUser, target_username: str) -> None:
+    async def kick_user(self, admin: NetworkUser, target_username: str) -> None:
         """Kick a user from the server."""
         # Check if user is online
-        target_user = self._users.get(target_username)
+        target_user = self.server.users.get(target_username)
         if not target_user:
             admin.speak_l("user-not-online", target=target_username)
             return
@@ -692,7 +702,7 @@ class AdministrationMixin:
         # We need a broadcast method that handles parameters. _broadcast_presence_l is close but fixed keys.
         # Let's manually iterate to localize properly.
         
-        for u in self._users.values():
+        for u in self.server.users.values():
             if u.approved:
                 u.speak_l("kick-broadcast", target=target_username, actor=admin.username)
                 u.play_sound("kick.ogg")

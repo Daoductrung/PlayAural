@@ -58,6 +58,6 @@ def test_online_users_menu_formats_game_names() -> None:
     server._show_online_users_menu(viewer)
 
     texts = _menu_texts(viewer, "online_users")
-    assert "Bob: Crazy Eights" in texts
-    assert "Alice: Not in game" in texts
+    assert "Bob (User, Desktop): Crazy Eights" in texts
+    assert "Alice (User, Desktop): Not in game" in texts
 

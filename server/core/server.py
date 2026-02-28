@@ -8,7 +8,7 @@ from pathlib import Path
 import json
 
 from .tick import TickScheduler
-from .administration import AdministrationMixin
+from ..administration.manager import AdministrationManager
 from ..network.websocket_server import WebSocketServer, ClientConnection
 from ..persistence.database import Database
 from ..auth.auth import AuthManager
@@ -31,7 +31,7 @@ _MODULE_DIR = Path(__file__).parent.parent
 _DEFAULT_LOCALES_DIR = _MODULE_DIR / "locales"
 
 
-class Server(AdministrationMixin):
+class Server:
     """
     Main PlayAural v0.1 server.
 
@@ -65,11 +65,26 @@ class Server(AdministrationMixin):
         self._user_states: dict[str, dict] = {}  # username -> UI state
         self._pending_disconnects: dict[str, asyncio.Task] = {} # username -> broadcast task
 
+        # Initialize admin manager
+        self.admin_manager = AdministrationManager(self)
+
         # Initialize localization
         if locales_dir is None:
             locales_dir = _DEFAULT_LOCALES_DIR
         Localization.init(Path(locales_dir))
         Localization.preload_bundles()
+
+    @property
+    def db(self) -> Database:
+        return self._db
+
+    @property
+    def users(self) -> dict[str, NetworkUser]:
+        return self._users
+
+    @property
+    def user_states(self) -> dict[str, dict]:
+        return self._user_states
 
     async def start(self) -> None:
         """
@@ -1365,28 +1380,14 @@ PlayAural Server
             await self._handle_my_game_stats_selection(user, selection_id, state)
         elif current_menu == "online_users":
             self._restore_previous_menu(user, state)
-        elif current_menu == "admin_menu":
-            await self._handle_admin_menu_selection(user, selection_id)
-        elif current_menu == "account_approval_menu":
-            await self._handle_account_approval_selection(user, selection_id)
-        elif current_menu == "pending_user_actions_menu":
-            await self._handle_pending_user_actions_selection(user, selection_id, state)
-        elif current_menu == "promote_admin_menu":
-            await self._handle_promote_admin_selection(user, selection_id)
-        elif current_menu == "demote_admin_menu":
-            await self._handle_demote_admin_selection(user, selection_id)
-        elif current_menu == "promote_confirm_menu":
-            await self._handle_promote_confirm_selection(user, selection_id, state)
-        elif current_menu == "demote_confirm_menu":
-            await self._handle_demote_confirm_selection(user, selection_id, state)
-        elif current_menu == "kick_menu":
-             await self._handle_kick_selection(user, selection_id)
-        elif current_menu == "kick_confirm_menu":
-             await self._handle_kick_confirm_selection(user, selection_id, state)
+        elif current_menu in [
+            "admin_menu", "account_approval_menu", "pending_user_actions_menu",
+            "promote_admin_menu", "demote_admin_menu", "promote_confirm_menu",
+            "demote_confirm_menu", "kick_menu", "kick_confirm_menu", "broadcast_choice_menu"
+        ]:
+            await self.admin_manager.handle_menu_selection(user, selection_id, current_menu, state)
         elif current_menu == "logout_confirm_menu":
              await self._handle_logout_confirm_selection(user, selection_id)
-        elif current_menu == "broadcast_choice_menu":
-            await self._handle_broadcast_choice_selection(user, selection_id, state)
         elif current_menu == "documentation_menu":
             await self._handle_documentation_selection(user, selection_id)
         elif current_menu == "doc_games_menu":
@@ -1414,7 +1415,7 @@ PlayAural Server
             self._show_documentation_menu(user)
         elif selection_id == "administration":
             if user.trust_level >= 2:
-                self._show_admin_menu(user)
+                self.admin_manager._show_admin_menu(user)
         elif selection_id == "logout":
             self._show_logout_confirm_menu(user)
 
@@ -3155,7 +3156,7 @@ PlayAural Server
         if user:
             user_state = self._user_states.get(username, {})
             # Try admin handler
-            if await self._handle_admin_input(user, packet, user_state):
+            if await self.admin_manager.handle_input(user, packet, user_state):
                 return
             
             # Try options handler
@@ -3224,7 +3225,7 @@ PlayAural Server
                      return
                  
                  target_name = parts[1].strip()
-                 await self._kick_user(user, target_name)
+                 await self.admin_manager.kick_user(user, target_name, show_menu=False)
                  return
              else:
                  pass # Ignore for non-admins
@@ -3438,7 +3439,7 @@ PlayAural Server
 
         message = packet.get("message", "")
         if message:
-            await self._perform_broadcast(user, message)
+            await self.admin_manager.perform_broadcast(user, message, show_menu=False)
 
 
 async def run_server(

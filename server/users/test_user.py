@@ -26,6 +26,8 @@ class MockUser(User):
         self._username = username
         self._locale = locale
         self._approved = approved
+        self.client_type = "python"
+        self._trust_level = 1
         self.messages: list[Message] = []
         self.menus: dict[str, dict[str, Any]] = {}
         self.editboxes: dict[str, dict[str, Any]] = {}
@@ -33,6 +35,14 @@ class MockUser(User):
     @property
     def uuid(self) -> str:
         return self._uuid
+
+    @property
+    def trust_level(self) -> int:
+        return self._trust_level
+
+    @trust_level.setter
+    def trust_level(self, level: int):
+        self._trust_level = level
 
     @property
     def username(self) -> str:

@@ -253,6 +253,8 @@ account-action = đã thực hiện hành động tài khoản
 
 promote-admin = Thăng chức Admin
 demote-admin = Giáng chức Admin
+ban-user = Cấm người dùng
+unban-user = Bỏ cấm người dùng
 no-users-to-promote = Không có người dùng nào để thăng chức.
 no-admins-to-demote = Không có admin nào để giáng chức.
 confirm-promote = Bạn có chắc muốn thăng chức admin cho { $player }?
@@ -265,6 +267,33 @@ promote-announcement-you = Bạn đã được thăng chức thành admin!
 demote-announcement = { $player } đã bị giáng chức khỏi vị trí admin.
 demote-announcement-you = Bạn đã bị giáng chức khỏi vị trí admin.
 not-admin-anymore = Bạn không còn là admin và không thể thực hiện hành động này.
+
+ban-duration-1h = 1 giờ
+ban-duration-6h = 6 giờ
+ban-duration-12h = 12 giờ
+ban-duration-1d = 1 ngày
+ban-duration-3d = 3 ngày
+ban-duration-1w = 1 tuần
+ban-duration-1m = 1 tháng
+ban-duration-permanent = Vĩnh viễn
+
+reason-spam = Spam
+reason-harassment = Quấy rối
+reason-cheating = Gian lận
+reason-inappropriate = Hành vi không phù hợp
+reason-custom = Khác / Tùy chỉnh
+
+no-users-to-ban = Không có người dùng nào để cấm.
+no-banned-users = Không có người dùng nào đang bị cấm.
+
+ban-broadcast = { $target } đã bị cấm bởi { $actor } vì { $reason }. Thời hạn: { $duration }.
+unban-broadcast = { $target } đã được bỏ cấm bởi { $actor }.
+
+banned-menu-title = Tài khoản bị cấm
+banned-reason = Lý do: { $reason }
+banned-expires = Hết hạn: { $expires }
+banned-permanent = Hết hạn: Vĩnh viễn
+disconnect = Ngắt kết nối
 
 broadcast-announcement = Gửi thông báo
 admin-broadcast-prompt = Nhập tin nhắn để thông báo cho tất cả người dùng đang trực tuyến. (Tin nhắn này sẽ gửi tới mọi người!)

@@ -25,6 +25,18 @@ class UserRecord:
 
 
 @dataclass
+class BanRecord:
+    """A ban record from the database."""
+
+    id: int
+    username: str
+    admin_username: str
+    reason_key: str
+    issued_at: str
+    expires_at: str | None
+
+
+@dataclass
 class SavedTableRecord:
     """A saved table record from the database."""
 
@@ -149,6 +161,23 @@ class Database:
                 sigma REAL NOT NULL,
                 PRIMARY KEY (player_id, game_type)
             )
+        """)
+
+        # Bans table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS bans (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT NOT NULL,
+                admin_username TEXT NOT NULL,
+                reason_key TEXT NOT NULL,
+                issued_at TEXT NOT NULL,
+                expires_at TEXT
+            )
+        """)
+
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_bans_username
+            ON bans(username)
         """)
 
         self._conn.commit()
@@ -398,6 +427,86 @@ class Database:
                 bio=row["bio"] or "",
             ))
         return users
+
+    # Ban operations
+
+    def ban_user(self, username: str, admin_username: str, reason_key: str, expires_at: str | None) -> BanRecord:
+        """Ban a user."""
+        from datetime import datetime
+        issued_at = datetime.now().isoformat()
+        cursor = self._conn.cursor()
+        cursor.execute(
+            "INSERT INTO bans (username, admin_username, reason_key, issued_at, expires_at) VALUES (?, ?, ?, ?, ?)",
+            (username, admin_username, reason_key, issued_at, expires_at),
+        )
+        self._conn.commit()
+        return BanRecord(
+            id=cursor.lastrowid,
+            username=username,
+            admin_username=admin_username,
+            reason_key=reason_key,
+            issued_at=issued_at,
+            expires_at=expires_at,
+        )
+
+    def unban_user(self, username: str) -> bool:
+        """Unban a user by removing their active bans. Returns True if unbanned."""
+        cursor = self._conn.cursor()
+        cursor.execute("DELETE FROM bans WHERE username = ?", (username,))
+        self._conn.commit()
+        return cursor.rowcount > 0
+
+    def get_active_ban(self, username: str) -> BanRecord | None:
+        """Get the active ban for a user, if any. Clears expired bans."""
+        from datetime import datetime
+        cursor = self._conn.cursor()
+        cursor.execute(
+            "SELECT id, username, admin_username, reason_key, issued_at, expires_at FROM bans WHERE username = ? ORDER BY issued_at DESC",
+            (username,),
+        )
+
+        now = datetime.now().isoformat()
+        active_ban = None
+        expired_ids = []
+
+        for row in cursor.fetchall():
+            expires_at = row["expires_at"]
+            if expires_at and expires_at <= now:
+                expired_ids.append(row["id"])
+            elif not active_ban:
+                # Keep the most recent active ban
+                active_ban = BanRecord(
+                    id=row["id"],
+                    username=row["username"],
+                    admin_username=row["admin_username"],
+                    reason_key=row["reason_key"],
+                    issued_at=row["issued_at"],
+                    expires_at=row["expires_at"],
+                )
+            else:
+                # If there are multiple active bans, we only return one but we might want to clean up others?
+                # Actually, standard logic is just return the first active one we find
+                pass
+
+        # Cleanup expired bans
+        if expired_ids:
+            for ban_id in expired_ids:
+                cursor.execute("DELETE FROM bans WHERE id = ?", (ban_id,))
+            self._conn.commit()
+
+        return active_ban
+
+    def get_all_banned_users(self) -> list[str]:
+        """Get a list of all currently banned usernames."""
+        from datetime import datetime
+        now = datetime.now().isoformat()
+        cursor = self._conn.cursor()
+        # Find usernames where they have at least one active ban
+        cursor.execute(
+            "SELECT DISTINCT username FROM bans WHERE expires_at IS NULL OR expires_at > ?",
+            (now,)
+        )
+        return [row["username"] for row in cursor.fetchall()]
 
     # Table operations
 

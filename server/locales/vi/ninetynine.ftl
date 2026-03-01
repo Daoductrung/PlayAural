@@ -12,6 +12,13 @@ ninetynine-direction-reverses = Chiều chơi bị đảo ngược!
 
 ninetynine-player-skipped = { $player } bị mất lượt.
 
+rs-card-plus-10 = +10
+rs-card-minus-10 = -10
+rs-card-pass = Bỏ lượt
+rs-card-reverse = Đảo chiều
+rs-card-skip = Nhảy lượt
+rs-card-ninety-nine = Chín Mươi Chín
+
 ninetynine-you-lose-tokens = Bạn mất { $amount } { $amount ->
     [one] thẻ
    *[other] thẻ

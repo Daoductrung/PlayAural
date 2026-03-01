@@ -507,7 +507,6 @@ class PiratesGame(Game):
         for skill in skills.get_available_skills(player):
             options.append(skill.get_menu_label(player, locale))
 
-        options.append(Localization.get(locale, "pirates-menu-back"))
         return options
 
     def _is_status_enabled(self, player: Player) -> str | None:
@@ -957,9 +956,9 @@ class PiratesGame(Game):
 
         user = self.get_user(player)
         locale = user.locale if user else "en"
-        back_label = Localization.get(locale, "pirates-menu-back")
 
-        if skill_choice == back_label:
+        # The base ActionExecutionMixin adds a system "_cancel" item.
+        if skill_choice == "_cancel":
             return
 
         # Find the skill by matching the label

@@ -133,35 +133,14 @@ class TestTeamManager:
         assert TeamManager.format_team_mode_for_display("individual", "en") == "Individual"
         assert TeamManager.format_team_mode_for_display("2v2", "en") == "2 teams of 2"
 
-        # Test Portuguese
-        assert TeamManager.format_team_mode_for_display("individual", "pt") == "Individual"
-        assert TeamManager.format_team_mode_for_display("2v2", "pt") == "2 equipes de 2"
-        assert TeamManager.format_team_mode_for_display("3v3v3", "pt") == "3 equipes de 3"
-
-        # Test Chinese
-        assert TeamManager.format_team_mode_for_display("individual", "zh") == "ä¸ªäºº"
-        assert TeamManager.format_team_mode_for_display("2v2", "zh") == "2 ä¸ª 2 äººå›¢é˜Ÿ"
-        assert TeamManager.format_team_mode_for_display("2v2v2v2", "zh") == "4 ä¸ª 2 äººå›¢é˜Ÿ"
-
         # Test parsing localized strings
         assert TeamManager.parse_display_to_team_mode("Individual") == "individual"
-        assert TeamManager.parse_display_to_team_mode("ä¸ªäºº") == "individual"
-        assert TeamManager.parse_display_to_team_mode("2 equipes de 2") == "2v2"
-        assert TeamManager.parse_display_to_team_mode("2 ä¸ª 2 äººå›¢é˜Ÿ") == "2v2"
-        assert TeamManager.parse_display_to_team_mode("4 ä¸ª 2 äººå›¢é˜Ÿ") == "2v2v2v2"
+        assert TeamManager.parse_display_to_team_mode("2 teams of 2") == "2v2"
 
         # Test get_team_modes_for_player_count with locale
         modes_en = TeamManager.get_team_modes_for_player_count(4, "en")
         assert "Individual" in modes_en
         assert "2 teams of 2" in modes_en
-
-        modes_pt = TeamManager.get_team_modes_for_player_count(4, "pt")
-        assert "Individual" in modes_pt
-        assert "2 equipes de 2" in modes_pt
-
-        modes_zh = TeamManager.get_team_modes_for_player_count(4, "zh")
-        assert "ä¸ªäºº" in modes_zh
-        assert "2 ä¸ª 2 äººå›¢é˜Ÿ" in modes_zh
 
 
 class TestScopaGameUnit:

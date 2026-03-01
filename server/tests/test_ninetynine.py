@@ -175,10 +175,14 @@ class TestCardValues:
         """Test card values in Quentin C variant."""
         game = NinetyNineGame()
 
-        # 3-8 are face value
-        for rank in range(3, 9):
+        # 3, 5-8 are face value (4 is reverse)
+        for rank in [3, 5, 6, 7, 8]:
             card = Card(id=rank, rank=rank, suit=SUIT_HEARTS)
             assert game.calculate_card_value(card, 50) == rank
+
+        # 4 is reverse (adds 4)
+        card = Card(id=4, rank=4, suit=SUIT_HEARTS)
+        assert game.calculate_card_value(card, 50) == 4
 
         # 9 is pass (0)
         nine = Card(id=9, rank=9, suit=SUIT_HEARTS)

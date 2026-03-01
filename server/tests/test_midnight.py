@@ -260,8 +260,8 @@ class TestMidnightGameActions:
 
     def test_requires_turn(self):
         """Test that turn-required actions are only available on your turn."""
-        p1_actions = self.game.get_all_enabled_actions(self.player1)
-        p2_actions = self.game.get_all_enabled_actions(self.player2)
+        p1_actions = self.game.get_all_visible_actions(self.player1)
+        p2_actions = self.game.get_all_visible_actions(self.player2)
 
         p1_ids = [a.action.id for a in p1_actions]
         p2_ids = [a.action.id for a in p2_actions]

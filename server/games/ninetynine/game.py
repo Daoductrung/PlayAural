@@ -255,8 +255,8 @@ class NinetyNineGame(Game):
         elif rank == 2:  # 2: multiply or divide (special handling)
             return None
 
-        elif rank == 4:  # 4: Reverse (Adds 0)
-            return 0
+        elif rank == 4:  # 4: Reverse (Adds 4)
+            return 4
 
         elif 3 <= rank <= 8:  # 3, 5-8: face value
             return rank

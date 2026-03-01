@@ -38,8 +38,18 @@ farkle-set-target-score = Target score: { $score }
 farkle-enter-target-score = Enter target score (500-5000):
 farkle-option-changed-target = Target score set to { $score }.
 
+farkle-set-entrance-score = Minimal entrance score: { $score }
+farkle-enter-entrance-score = Enter minimal entrance score (0-5000):
+farkle-option-changed-entrance = Minimal entrance score set to { $score }.
+
+farkle-set-bank-score = Minimal bank score: { $score }
+farkle-enter-bank-score = Enter minimal bank score (0-5000):
+farkle-option-changed-bank = Minimal bank score set to { $score }.
+
 farkle-must-take-combo = You must take a scoring combination first.
 farkle-cannot-bank = You cannot bank right now.
+farkle-must-reach-entrance-score = You must reach the minimal entrance score to bank your first points.
+farkle-must-reach-bank-score = You must reach the minimal bank score to bank your points.
 
 farkle-combo-single-1 = Single 1
 farkle-combo-single-5 = Single 5

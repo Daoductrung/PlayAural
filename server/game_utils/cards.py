@@ -248,6 +248,18 @@ def card_name(card: Card, locale: str = "en") -> str:
     """
     # RS Games cards have no suit and use special naming
     if card.suit == SUIT_NONE:
+        if card.rank == RS_RANK_PLUS_10:
+            return Localization.get(locale, "rs-card-plus-10")
+        elif card.rank == RS_RANK_MINUS_10:
+            return Localization.get(locale, "rs-card-minus-10")
+        elif card.rank == RS_RANK_PASS:
+            return Localization.get(locale, "rs-card-pass")
+        elif card.rank == RS_RANK_REVERSE:
+            return Localization.get(locale, "rs-card-reverse")
+        elif card.rank == RS_RANK_SKIP:
+            return Localization.get(locale, "rs-card-skip")
+        elif card.rank == RS_RANK_NINETY_NINE:
+            return Localization.get(locale, "rs-card-ninety-nine")
         return RS_GAMES_RANK_NAMES.get(card.rank, str(card.rank))
 
     rank_key = RANK_KEYS.get(card.rank)

@@ -30,6 +30,10 @@ Tuy nhiên, nếu bạn gieo xúc xắc mà không ra được bất kỳ tổ h
 
 
 
+Lưu ý rằng có các mức tối thiểu có thể cấu hình để chốt điểm. Nếu bạn có tổng điểm là 0, bạn phải đạt mức \*\*điểm vào chơi tối thiểu\*\* (mặc định 50) trong một lượt duy nhất để có thể chốt lần đầu tiên. Trong bất kỳ lượt nào tiếp theo sau khi đã có điểm, điểm trong lượt của bạn phải đạt mức \*\*điểm chốt tối thiểu\*\* (mặc định 30) trước khi bạn có thể chốt.
+
+
+
 \*\*Ví dụ một lượt chơi\*\*
 
 

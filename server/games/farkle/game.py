@@ -49,6 +49,28 @@ class FarkleOptions(GameOptions):
             change_msg="farkle-option-changed-target",
         )
     )
+    min_entrance_score: int = option_field(
+        IntOption(
+            default=50,
+            min_val=0,
+            max_val=5000,
+            value_key="score",
+            label="farkle-set-entrance-score",
+            prompt="farkle-enter-entrance-score",
+            change_msg="farkle-option-changed-entrance",
+        )
+    )
+    min_bank_score: int = option_field(
+        IntOption(
+            default=30,
+            min_val=0,
+            max_val=5000,
+            value_key="score",
+            label="farkle-set-bank-score",
+            prompt="farkle-enter-bank-score",
+            change_msg="farkle-option-changed-bank",
+        )
+    )
 
 
 # Scoring combination types
@@ -623,6 +645,15 @@ class FarkleGame(Game):
         )
         if not can_bank:
             return "farkle-cannot-bank"
+
+        # Check minimal scores
+        if farkle_player.score == 0:
+            if farkle_player.turn_score < self.options.min_entrance_score:
+                return "farkle-must-reach-entrance-score"
+        else:
+            if farkle_player.turn_score < self.options.min_bank_score:
+                return "farkle-must-reach-bank-score"
+
         return None
 
     def _is_bank_hidden(self, player: Player) -> Visibility:
@@ -638,6 +669,15 @@ class FarkleGame(Game):
         )
         if not can_bank:
             return Visibility.HIDDEN
+
+        # Check minimal scores (hide if criteria not met, same as can_bank check)
+        if farkle_player.score == 0:
+            if farkle_player.turn_score < self.options.min_entrance_score:
+                return Visibility.HIDDEN
+        else:
+            if farkle_player.turn_score < self.options.min_bank_score:
+                return Visibility.HIDDEN
+
         return Visibility.VISIBLE
 
     def _get_bank_label(self, player: Player, action_id: str) -> str:
@@ -1074,22 +1114,30 @@ class FarkleGame(Game):
             if score_to_beat is not None and potential_total <= score_to_beat:
                 return "roll"
 
-            # Banking decision based on turn score and dice remaining
-            if player.turn_score >= 35:
-                # Bank probability increases as fewer dice remain
-                bank_probabilities = {
-                    6: 0.40,
-                    5: 0.50,
-                    4: 0.55,
-                    3: 0.65,
-                    2: 0.70,
-                    1: 0.75,
-                }
-                bank_prob = bank_probabilities.get(dice_remaining, 0.50)
+            # Determine applicable minimum bank score
+            min_score = self.options.min_entrance_score if player.score == 0 else self.options.min_bank_score
 
-                if random.random() < bank_prob:
-                    if bank_enabled:
-                        return "bank"
+            # Check if we've met the mandatory minimum
+            if player.turn_score >= min_score:
+                # Banking decision based on turn score and dice remaining
+                # The bot's risk threshold of 35 is now only considered if the minimum is met
+                # and if the minimum itself isn't higher than 35.
+                risk_threshold = max(35, min_score)
+                if player.turn_score >= risk_threshold:
+                    # Bank probability increases as fewer dice remain
+                    bank_probabilities = {
+                        6: 0.40,
+                        5: 0.50,
+                        4: 0.55,
+                        3: 0.65,
+                        2: 0.70,
+                        1: 0.75,
+                    }
+                    bank_prob = bank_probabilities.get(dice_remaining, 0.50)
+
+                    if random.random() < bank_prob:
+                        if bank_enabled:
+                            return "bank"
 
             return "roll"
 

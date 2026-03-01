@@ -12,6 +12,13 @@ ninetynine-direction-reverses = The direction of play reverses!
 
 ninetynine-player-skipped = { $player } is skipped.
 
+rs-card-plus-10 = +10
+rs-card-minus-10 = -10
+rs-card-pass = Pass
+rs-card-reverse = Reverse
+rs-card-skip = Skip
+rs-card-ninety-nine = Ninety Nine
+
 ninetynine-you-lose-tokens = You lose { $amount } { $amount ->
     [one] token
     *[other] tokens

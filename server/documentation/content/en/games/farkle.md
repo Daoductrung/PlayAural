@@ -30,6 +30,10 @@ However, if you do not roll any valid combinations, you are considered to have \
 
 
 
+Note that there are configurable minimums for banking points. If you have a total score of 0, you must reach the \*\*minimal entrance score\*\* (default 50) in a single turn to be able to bank for the first time. On any subsequent turn after getting on the board, your turn score must reach the \*\*minimal bank score\*\* (default 30) before you can bank.
+
+
+
 \*\*Example Turn\*\*
 
 

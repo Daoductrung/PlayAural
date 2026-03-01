@@ -151,7 +151,7 @@ pirates-gem-none = không có đá quý
 pirates-skill-cannon-name = Bắn Đại Bác
 pirates-skill-cannon-desc = Bắn đại bác vào người chơi trong phạm vi 5 ô.
 pirates-skill-instinct-name = Bản Năng Thủy Thủ
-pirates-skill-instinct-desc = Hiển thị thông tin khu vực bản đồ và trạng thái khám phá.
+pirates-skill-instinct-desc = Hiển thị số lượng đá quý chưa thu thập và người chơi khác trong mỗi khu vực bản đồ.
 pirates-skill-portal-name = Cổng Dịch Chuyển
 pirates-skill-portal-desc = Dịch chuyển đến vị trí ngẫu nhiên trong vùng biển có người chơi khác.
 pirates-skill-seeker-name = Máy Dò Đá Quý
@@ -174,10 +174,13 @@ pirates-skill-not-turn = Chưa đến lượt bạn.
 pirates-skill-no-targets = Không có mục tiêu trong tầm.
 pirates-skill-incompatible = Không thể dùng { $skill } khi { $active } đang kích hoạt.
 
-pirates-instinct-fully = Đã khám phá toàn bộ
-pirates-instinct-partially = Đã khám phá một phần ({ $count }/5)
-pirates-instinct-uncharted = Chưa khám phá
-pirates-instinct-sector = Khu vực { $sector } ({ $start }-{ $end }): { $status }
+pirates-instinct-sector = Khu vực { $sector } (Ô { $start }-{ $end }): { $gems } { $gems ->
+    [one] đá quý
+   *[other] đá quý
+}, { $players } { $players ->
+    [one] người chơi
+   *[other] người chơi
+}.
 
 pirates-req-level = Yêu cầu cấp { $level }
 pirates-menu-active = { $name } (đang kích hoạt: { $turns } lượt)

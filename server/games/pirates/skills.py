@@ -229,19 +229,30 @@ class SailorsInstinctSkill(Skill):
         for sector in range(1, 9):
             sector_start = (sector - 1) * 5 + 1
             sector_end = sector * 5
-            charted_count = sum(
-                1 for i in range(sector_start, sector_end + 1)
-                if game.charted_tiles.get(i, False)
+
+            # Count gems in this sector
+            gems_count = sum(
+                1 for pos, gem_type in game.gem_positions.items()
+                if sector_start <= pos <= sector_end and gem_type != -1
             )
 
-            if charted_count == 5:
-                status = Localization.get(locale, "pirates-instinct-fully")
-            elif charted_count > 0:
-                status = Localization.get(locale, "pirates-instinct-partially", count=charted_count)
-            else:
-                status = Localization.get(locale, "pirates-instinct-uncharted")
+            # Count other players in this sector
+            players_count = sum(
+                1 for p in game.get_active_players()
+                if p.id != player.id and sector_start <= p.position <= sector_end
+            )
 
-            lines.append(Localization.get(locale, "pirates-instinct-sector", sector=sector, start=sector_start, end=sector_end, status=status))
+            lines.append(
+                Localization.get(
+                    locale,
+                    "pirates-instinct-sector",
+                    sector=sector,
+                    start=sector_start,
+                    end=sector_end,
+                    gems=gems_count,
+                    players=players_count
+                )
+            )
 
         game.status_box(player, lines)
         return "continue"

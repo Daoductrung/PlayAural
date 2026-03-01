@@ -242,7 +242,7 @@ pirates-skill-cannon-desc = Fire a cannonball at a player within 5 tiles.
 
 pirates-skill-instinct-name = Sailor's Instinct
 
-pirates-skill-instinct-desc = Shows map sector information and charted status.
+pirates-skill-instinct-desc = Shows uncollected gems and other players per map sector.
 
 pirates-skill-portal-name = Portal
 
@@ -284,13 +284,13 @@ pirates-skill-no-targets = No targets in range.
 
 pirates-skill-incompatible = Cannot use { $skill } while { $active } is active.
 
-pirates-instinct-fully = Fully charted
-
-pirates-instinct-partially = Partially charted ({ $count }/5)
-
-pirates-instinct-uncharted = Uncharted
-
-pirates-instinct-sector = Sector { $sector } ({ $start }-{ $end }): { $status }
+pirates-instinct-sector = Sector { $sector } (Tiles { $start }-{ $end }): { $gems } { $gems ->
+    [one] gem
+   *[other] gems
+}, { $players } { $players ->
+    [one] player
+   *[other] players
+}.
 
 pirates-req-level = Requires level { $level }
 

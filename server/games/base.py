@@ -63,6 +63,9 @@ class Player(DataClassJSONMixin):
     bot_pending_action: str | None = None  # Action to execute when ready
     bot_target: int | None = None  # Game-specific target (e.g., score to reach)
 
+    # Synchronization
+    reconnect_grace_ticks: int = 0  # Ticks to ignore input after reconnecting
+
 
 # Re-export GameOptions from options module for backwards compatibility
 GameOptions = DeclarativeGameOptions
@@ -281,7 +284,9 @@ class Game(
 
         Subclasses should call super().on_tick() to ensure base functionality runs.
         """
-        pass
+        for player in self.players:
+            if getattr(player, "reconnect_grace_ticks", 0) > 0:
+                player.reconnect_grace_ticks -= 1
 
     def _sync_table_status(self) -> None:
         """Synchronize table status with game status.
@@ -397,6 +402,13 @@ class Game(
         if self.status == "playing":
              player = self.get_player_by_id(player_id)
              if player and not player.is_bot and not player.is_spectator:
+                 # Clear pending bot actions
+                 player.bot_pending_action = None
+                 player.bot_think_ticks = 0
+
+                 # Set a short grace period (1 second = 20 ticks) to ignore rapid input during sync
+                 player.reconnect_grace_ticks = 20
+
                  # Count humans *including* this new one (who is already in _users)
                  # Exclude spectators from this count - we only care about ACTIVE players
                  human_count = sum(1 for p in self.players if not p.is_bot and not p.is_spectator and p.id in self._users)

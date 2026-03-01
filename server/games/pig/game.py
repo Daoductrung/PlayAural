@@ -128,6 +128,7 @@ class PigGame(Game):
             return "action-not-playing"
         if player.is_spectator:
             return "action-spectator"
+        # Always return string if it's not the player's turn
         if self.current_player != player:
             return "action-not-your-turn"
         return None

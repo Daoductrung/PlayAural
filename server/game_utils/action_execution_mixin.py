@@ -31,6 +31,9 @@ class ActionExecutionMixin:
         context: "ActionContext | None" = None,
     ) -> None:
         """Execute an action for a player, optionally with input value and context."""
+        if not player.is_bot and getattr(player, "reconnect_grace_ticks", 0) > 0:
+            return
+
         action = self.find_action(player, action_id)
         if not action:
             return

@@ -166,7 +166,7 @@ class AgeOfHeroesOptions(GameOptions):
 
 
 @dataclass
-# @register_game
+@register_game
 class AgeOfHeroesGame(Game):
     """
     Age of Heroes - A civilization-building card game.

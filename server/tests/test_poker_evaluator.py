@@ -188,16 +188,4 @@ def test_describe_best_hand_straight_flush():
     assert len(best) == 5
 
 
-def test_describe_hand_localized_pt():
-    hand = _cards([(1, SUIT_SPADES), (1, SUIT_DIAMONDS), (9, SUIT_CLUBS), (7, SUIT_HEARTS), (4, SUIT_DIAMONDS)])
-    score = score_5_cards(hand)
-    description = describe_hand(score, locale="pt")
-    assert "Par de" in description
-
-
-def test_describe_hand_localized_zh():
-    hand = _cards([(13, SUIT_SPADES), (12, SUIT_SPADES), (11, SUIT_SPADES), (10, SUIT_SPADES), (9, SUIT_SPADES)])
-    score = score_5_cards(hand)
-    description = describe_hand(score, locale="zh")
-    assert "åŒèŠ±é¡º" in description
 

@@ -11,14 +11,14 @@ from .threes.game import ThreesGame
 from .milebymile.game import MileByMileGame
 from .chaosbear.game import ChaosBearGame
 from .farkle.game import FarkleGame
-from .yahtzee.game import YahtzeeGame
+# from .yahtzee.game import YahtzeeGame
 from .ninetynine.game import NinetyNineGame
-from .tradeoff.game import TradeoffGame
+# from .tradeoff.game import TradeoffGame
 from .pirates.game import PiratesGame
 from .leftrightcenter.game import LeftRightCenterGame
 from .tossup.game import TossUpGame
 from .midnight.game import MidnightGame
-from .ageofheroes.game import AgeOfHeroesGame
+# from .ageofheroes.game import AgeOfHeroesGame
 from .fivecarddraw.game import FiveCardDrawGame
 from .holdem.game import HoldemGame
 from .crazyeights.game import CrazyEightsGame
@@ -36,14 +36,14 @@ __all__ = [
     "MileByMileGame",
     "ChaosBearGame",
     "FarkleGame",
-    "YahtzeeGame",
+    # "YahtzeeGame",
     "NinetyNineGame",
-    "TradeoffGame",
+    # "TradeoffGame",
     "PiratesGame",
     "LeftRightCenterGame",
     "TossUpGame",
     "MidnightGame",
-    "AgeOfHeroesGame",
+    # "AgeOfHeroesGame",
     "FiveCardDrawGame",
     "HoldemGame",
     "CrazyEightsGame",

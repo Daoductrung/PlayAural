@@ -54,6 +54,14 @@ At the end of each round, 1 point is awarded for each of the following (no point
 
 \*\*Game Variants\*\*
 
+\* \*\*Manual Selection:\*\* When enabled, if a played card can capture multiple valid combinations from the table, you can manually choose which combination to take instead of the game auto-selecting the one with the most cards.
+
+\* \*\*Asso piglia tutto (Ace takes all):\*\* Playing an Ace sweeps all cards currently on the table (this sweep usually does not count as a Scopa point). If there is already an Ace on the table, it only captures that Ace. This mode cannot be enabled alongside Escoba.
+
+\* \*\*Primiera Scoring:\*\* Replaces the "Most Sevens" scoring rule with traditional Primiera scoring (7=21 pts, 6=18 pts, Ace=16 pts, 5=15 pts, 4=14 pts, 3=13 pts, 2=12 pts, face cards=10 pts). Calculate your best card in each of the 4 suits.
+
+\* \*\*Napola:\*\* Earn bonus points for capturing an uninterrupted sequence of Diamond cards starting from the Ace (Ace, 2, 3 of Diamonds = 3 points; up to 10 points for all Diamonds).
+
 \* \*\*Escoba Mode:\*\* Captures are made when the played card and table cards sum to exactly 15.
 
 \* \*\*Inverse Scopa:\*\* Reaching the target score eliminates you; the last player standing wins.

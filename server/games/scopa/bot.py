@@ -57,8 +57,9 @@ def evaluate_card(game: "ScopaGame", card: Card, player: "ScopaPlayer") -> float
     score = 0.0
     inverse = game.options.inverse_scopa
     escoba = game.options.escoba
+    asso_piglia_tutto = game.options.asso_piglia_tutto
 
-    captures = find_captures(game.table_cards, card.rank, escoba)
+    captures = find_captures(game.table_cards, card.rank, escoba, asso_piglia_tutto)
 
     if not captures:
         # No capture available

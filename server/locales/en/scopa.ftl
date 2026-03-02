@@ -19,6 +19,16 @@ scopa-seven-diamonds-multi = { $player } scores 1 point for most 7 of diamonds (
 scopa-seven-diamonds-tie = 7 of diamonds is a tie - no point awarded.
 scopa-most-sevens = { $player } scores 1 point for most sevens ({ $count } sevens).
 scopa-most-sevens-tie = Most sevens is a tie - no point awarded.
+scopa-primiera = { $player } scores 1 point for primiera ({ $score } points).
+scopa-primiera-tie = Primiera is a tie - no point awarded.
+scopa-napola = { $player } scores { $points } points for napola.
+
+scopa-manual-select-prompt = You must choose which cards to capture.
+
+scopa-capture-option = Capture { $cards }
+
+scopa-error-conflict-escoba-asso = Escoba and Asso Piglia Tutto cannot be enabled at the same time.
+
 scopa-round-scores = Round scores:
 scopa-round-score-line = { $player }: +{ $round_score } (total: { $total_score })
 scopa-table-empty = There are no cards on the table.
@@ -45,6 +55,10 @@ scopa-select-mechanic = Select scopa mechanic
 scopa-toggle-instant-win = Instant win on scopa: { $enabled }
 scopa-toggle-team-scoring = Pool team cards for scoring: { $enabled }
 scopa-toggle-inverse = Inverse mode (reach target = elimination): { $enabled }
+scopa-toggle-manual = Manual capture selection: { $enabled }
+scopa-toggle-asso = Asso piglia tutto (Ace takes all): { $enabled }
+scopa-toggle-primiera = Primiera scoring: { $enabled }
+scopa-toggle-napola = Napola (Diamond sequence): { $enabled }
 
 scopa-option-changed-cards = Cards per deal set to { $cards }.
 scopa-option-changed-decks = Number of decks set to { $decks }.
@@ -54,6 +68,10 @@ scopa-option-changed-mechanic = Scopa mechanic set to { $mechanic }.
 scopa-option-changed-instant = Instant win on scopa { $enabled }.
 scopa-option-changed-team-scoring = Team card scoring { $enabled }.
 scopa-option-changed-inverse = Inverse mode { $enabled }.
+scopa-option-changed-manual = Manual capture selection { $enabled }.
+scopa-option-changed-asso = Asso piglia tutto { $enabled }.
+scopa-option-changed-primiera = Primiera scoring { $enabled }.
+scopa-option-changed-napola = Napola { $enabled }.
 
 scopa-mechanic-normal = Normal
 scopa-mechanic-no_scopas = No Scopas

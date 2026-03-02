@@ -268,6 +268,28 @@ class TestScopaCaptureLogic:
                 break
         assert found
 
+    def test_asso_piglia_tutto_sweep(self):
+        """Test Asso piglia tutto sweeps the board."""
+        table_cards = [
+            Card(id=0, rank=5, suit=1),
+            Card(id=1, rank=2, suit=2),
+            Card(id=2, rank=3, suit=3),
+        ]
+        captures = find_captures(table_cards, 1, asso_piglia_tutto=True)
+        assert len(captures) == 1
+        assert len(captures[0]) == 3
+
+    def test_asso_piglia_tutto_with_ace(self):
+        """Test Asso piglia tutto only takes the ace if an ace is on the board."""
+        table_cards = [
+            Card(id=0, rank=1, suit=1),
+            Card(id=1, rank=2, suit=2),
+        ]
+        captures = find_captures(table_cards, 1, asso_piglia_tutto=True)
+        assert len(captures) == 1
+        assert len(captures[0]) == 1
+        assert captures[0][0].rank == 1
+
     def test_select_best_capture(self):
         """Test selecting best (most cards) capture."""
         captures = [
@@ -277,6 +299,91 @@ class TestScopaCaptureLogic:
 
         best = select_best_capture(captures)
         assert len(best) == 2
+
+
+class TestScopaVariants:
+    """Tests for new options like primiera, napola, and manual selection."""
+
+    def test_primiera_scoring(self):
+        from ..games.scopa.scoring import score_round
+        game = ScopaGame()
+        game.options.primiera_scoring = True
+        user1 = MockUser("Player1")
+        user2 = MockUser("Player2")
+        game.add_player("Player1", user1)
+        game.add_player("Player2", user2)
+        game.on_start()
+
+        # Player1 has a 7 (21 pts)
+        game.players[0].captured = [Card(id=1, rank=7, suit=0)]
+        # Player2 has a 6 (18 pts)
+        game.players[1].captured = [Card(id=2, rank=6, suit=0)]
+
+        score_round(game)
+
+        # Player 1 should win primiera
+        team1 = game.team_manager.get_team("Player1")
+        team2 = game.team_manager.get_team("Player2")
+        # team1 might have 2 points (most cards tie, diamonds tie, sevens/primiera 1)
+        assert team1.round_score > team2.round_score
+
+    def test_napola_scoring(self):
+        from ..games.scopa.scoring import score_round
+        game = ScopaGame()
+        game.options.napola = True
+        user1 = MockUser("Player1")
+        user2 = MockUser("Player2")
+        game.add_player("Player1", user1)
+        game.add_player("Player2", user2)
+        game.on_start()
+
+        # Player1 gets Ace, 2, 3 of Diamonds (suit 1)
+        game.players[0].captured = [
+            Card(id=1, rank=1, suit=1),
+            Card(id=2, rank=2, suit=1),
+            Card(id=3, rank=3, suit=1),
+            Card(id=4, rank=4, suit=1),
+        ]
+
+        score_round(game)
+
+        # Player 1 should get 4 napola points + other standard points
+        team1 = game.team_manager.get_team("Player1")
+        assert team1.round_score >= 4
+
+    def test_conflict_validation(self):
+        game = ScopaGame()
+        game.options.escoba = True
+        game.options.asso_piglia_tutto = True
+        errors = game.prestart_validate()
+        assert "scopa-error-conflict-escoba-asso" in errors
+
+    def test_manual_selection_trigger(self):
+        game = ScopaGame()
+        game.options.manual_selection = True
+        user1 = MockUser("Player1")
+        game.add_player("Player1", user1)
+        game.on_start()
+
+        game.current_player = game.players[0]
+
+        # Table has 2 and 3, and another 2 and 3. Player plays 5.
+        # find_captures only returns sum combinations if there's no exact match.
+        game.table_cards = [
+            Card(id=1, rank=2, suit=1),
+            Card(id=2, rank=3, suit=2),
+            Card(id=3, rank=1, suit=3),
+            Card(id=4, rank=4, suit=4)
+        ]
+        played_card = Card(id=5, rank=5, suit=1)
+        game.players[0].hand = [played_card]
+
+        game._play_card(game.players[0], played_card)
+
+        # Should not have executed capture yet
+        assert game._pending_capture_card is not None
+        assert game._pending_captures is not None
+        assert len(game._pending_captures) == 2  # 2+3 and 1+4
 
 
 class TestScopaGameFlow:

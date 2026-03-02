@@ -30,7 +30,10 @@ def find_subsets_with_sum(cards: list[Card], target: int) -> list[list[Card]]:
 
 
 def find_captures(
-    table_cards: list[Card], card_value: int, escoba: bool = False
+    table_cards: list[Card],
+    card_value: int,
+    escoba: bool = False,
+    asso_piglia_tutto: bool = False,
 ) -> list[list[Card]]:
     """
     Find all valid capture combinations for a card value.
@@ -39,6 +42,7 @@ def find_captures(
         table_cards: Cards currently on the table.
         card_value: The rank of the card being played.
         escoba: If True, use escoba rules (sum to 15).
+        asso_piglia_tutto: If True, an Ace sweeps all table cards unless an Ace is already on the table.
 
     Returns:
         List of possible capture combinations (each is a list of cards).
@@ -46,6 +50,18 @@ def find_captures(
     For standard scopa: rank match first, then sum combinations.
     For escoba: find combinations that sum to 15 (including played card).
     """
+    if asso_piglia_tutto and card_value == 1:
+        # Check if there is an Ace on the table
+        table_aces = [c for c in table_cards if c.rank == 1]
+        if table_aces:
+            # Only capture the table Ace(s). Return each as an option.
+            return [[c] for c in table_aces]
+        elif table_cards:
+            # Sweep all cards (we wrap it in a list so it's one option)
+            return [list(table_cards)]
+        else:
+            return []
+
     if escoba:
         # Escoba: find subsets that sum to 15 - card_value
         target = 15 - card_value
@@ -70,7 +86,11 @@ def select_best_capture(captures: list[list[Card]]) -> list[Card]:
 from ...messages.localization import Localization
 
 def get_capture_hint(
-    table_cards: list[Card], card: Card, escoba: bool = False, locale: str = "en"
+    table_cards: list[Card],
+    card: Card,
+    escoba: bool = False,
+    asso_piglia_tutto: bool = False,
+    locale: str = "en",
 ) -> str:
     """
     Get a hint about what cards would be captured.
@@ -79,12 +99,13 @@ def get_capture_hint(
         table_cards: Cards currently on the table.
         card: The card being considered for play.
         escoba: If True, use escoba rules.
+        asso_piglia_tutto: If True, apply Ace sweep rules.
         locale: Locale for card names.
 
     Returns:
         Hint string like " -> 7 of Coins" or " -> 3 cards", or empty string.
     """
-    captures = find_captures(table_cards, card.rank, escoba)
+    captures = find_captures(table_cards, card.rank, escoba, asso_piglia_tutto)
     if not captures:
         return ""
     best = select_best_capture(captures)

@@ -92,18 +92,66 @@ def score_round(game: "ScopaGame") -> None:
         else:
             game.broadcast_l("scopa-seven-diamonds-tie")
 
-    # Most sevens
-    seven_counts = [
-        (team, sum(1 for c in cards if c.rank == 7)) for team, cards in team_data
-    ]
-    max_sevens = max(count for _, count in seven_counts)
-    if max_sevens > 0:
-        winners = [team for team, count in seven_counts if count == max_sevens]
-        if len(winners) == 1:
-            game.team_manager.add_to_team_round_score(winners[0].members[0], 1)
-            game.broadcast_team_l("scopa-most-sevens", team=winners[0], count=max_sevens)
-        else:
-            game.broadcast_l("scopa-most-sevens-tie")
+    if game.options.primiera_scoring:
+        # Primiera scoring
+        # Primiera values: 7=21, 6=18, 1=16, 5=15, 4=14, 3=13, 2=12, face cards (8,9,10)=10
+        def get_primiera_value(card: Card) -> int:
+            if card.rank == 7: return 21
+            if card.rank == 6: return 18
+            if card.rank == 1: return 16
+            if card.rank == 5: return 15
+            if card.rank == 4: return 14
+            if card.rank == 3: return 13
+            if card.rank == 2: return 12
+            return 10
+
+        primiera_scores = []
+        for team, cards in team_data:
+            team_total = 0
+            # Calculate best card for each of the 4 suits (0 to 3)
+            for suit in range(4):
+                suit_cards = [c for c in cards if c.suit == suit]
+                if suit_cards:
+                    team_total += max(get_primiera_value(c) for c in suit_cards)
+            primiera_scores.append((team, team_total))
+
+        if primiera_scores:
+            max_primiera = max(score for _, score in primiera_scores)
+            if max_primiera > 0:
+                winners = [team for team, score in primiera_scores if score == max_primiera]
+                if len(winners) == 1:
+                    game.team_manager.add_to_team_round_score(winners[0].members[0], 1)
+                    game.broadcast_team_l("scopa-primiera", team=winners[0], score=max_primiera)
+                else:
+                    game.broadcast_l("scopa-primiera-tie")
+    else:
+        # Most sevens
+        seven_counts = [
+            (team, sum(1 for c in cards if c.rank == 7)) for team, cards in team_data
+        ]
+        max_sevens = max(count for _, count in seven_counts)
+        if max_sevens > 0:
+            winners = [team for team, count in seven_counts if count == max_sevens]
+            if len(winners) == 1:
+                game.team_manager.add_to_team_round_score(winners[0].members[0], 1)
+                game.broadcast_team_l("scopa-most-sevens", team=winners[0], count=max_sevens)
+            else:
+                game.broadcast_l("scopa-most-sevens-tie")
+
+    if game.options.napola:
+        # Napola: continuous sequence of diamonds starting from Ace
+        for team, cards in team_data:
+            diamond_ranks = {c.rank for c in cards if c.suit == 1}
+            # Must have Ace (1), 2, 3
+            if {1, 2, 3}.issubset(diamond_ranks):
+                napola_points = 3
+                for r in range(4, 11):
+                    if r in diamond_ranks:
+                        napola_points += 1
+                    else:
+                        break
+                game.team_manager.add_to_team_round_score(team.members[0], napola_points)
+                game.broadcast_team_l("scopa-napola", team=team, points=napola_points)
 
     # Announce round scores
     game.broadcast_l("scopa-round-scores")

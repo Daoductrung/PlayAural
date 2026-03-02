@@ -54,6 +54,14 @@ Vào cuối mỗi vòng, 1 điểm sẽ được trao cho mỗi hạng mục sau
 
 \*\*Các biến thể trò chơi\*\*
 
+\* \*\*Chọn nước ăn bài thủ công:\*\* Khi được bật, nếu lá bài đánh xuống có thể ăn nhiều tổ hợp khác nhau từ trên bàn, bạn có thể chọn thủ công tổ hợp nào để ăn thay vì trò chơi tự động chọn tổ hợp có nhiều lá bài nhất.
+
+\* \*\*Asso piglia tutto (Át ăn tất cả):\*\* Đánh lá Át sẽ quét sạch tất cả các lá bài hiện có trên bàn (việc quét này thường không được tính là điểm Scopa). Nếu đã có một lá Át trên bàn, nó chỉ ăn lá Át đó. Chế độ này không thể được bật cùng với Escoba.
+
+\* \*\*Tính điểm Primiera:\*\* Thay thế quy tắc tính điểm "Nhiều lá 7 nhất" bằng cách tính điểm Primiera truyền thống (7=21 điểm, 6=18 điểm, Át=16 điểm, 5=15 điểm, 4=14 điểm, 3=13 điểm, 2=12 điểm, các lá hình=10 điểm). Tính lá bài tốt nhất của bạn trong mỗi chất (4 chất).
+
+\* \*\*Napola:\*\* Kiếm điểm thưởng bằng cách ăn một chuỗi liên tiếp các lá bài chất Rô bắt đầu từ Át (Át, 2, 3 Rô = 3 điểm; tối đa lên đến 10 điểm cho tất cả các lá Rô).
+
 \* \*\*Chế độ Escoba:\*\* Việc ăn bài xảy ra khi lá bài bạn đánh cộng với các lá bài trên bàn có tổng bằng chính xác 15.
 
 \* \*\*Scopa Đảo ngược:\*\* Chế độ mà khi bạn đạt đến điểm mục tiêu, bạn sẽ bị loại; người cuối cùng còn trụ lại sẽ thắng.

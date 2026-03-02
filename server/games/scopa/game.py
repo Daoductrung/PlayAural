@@ -10,7 +10,7 @@ import random
 
 from ..base import Game, Player, GameOptions
 from ..registry import register_game
-from ...game_utils.actions import Action, ActionSet, Visibility
+from ...game_utils.actions import Action, ActionSet, Visibility, MenuInput
 from ...game_utils.bot_helper import BotHelper
 from ...game_utils.cards import (
     Card,
@@ -208,10 +208,6 @@ class ScopaGame(Game):
     _current_deal: int = 0  # Current deal number in round
     _total_deals: int = 0  # Total deals in round
 
-    # State for manual capture selection
-    _pending_capture_card: Card | None = None
-    _pending_captures: list[list[Card]] | None = None
-
     def __post_init__(self):
         """Initialize runtime state."""
         super().__post_init__()
@@ -268,21 +264,6 @@ class ScopaGame(Game):
         locale = user.locale if user else "en"
 
         action_set = ActionSet(name="turn")
-
-        # If waiting for manual capture, show those options instead
-        if self._pending_capture_card and self._pending_captures and self.current_player == player:
-            for i, capture in enumerate(self._pending_captures):
-                card_strs = read_cards(capture, locale)
-                action_set.add(
-                    Action(
-                        id=f"select_capture_{i}",
-                        label=Localization.get(locale, "scopa-capture-option", cards=card_strs),
-                        handler="_action_select_capture",
-                        is_enabled="_is_view_enabled",
-                        is_hidden="_is_card_action_hidden",
-                    )
-                )
-            return action_set
 
         # Dynamic card actions will be created per-turn
         # Dynamic card actions will be created per-turn
@@ -559,6 +540,24 @@ class ScopaGame(Game):
         # Use dynamic label to ensure locale changes are reflected
         if is_playing and not is_spectator:
             for card in sort_cards(player.hand, by_suit=False):
+                # Check if this card requires manual capture selection
+                input_request = None
+
+                # Only if options are right, and it's our turn
+                if is_current and not player.is_bot and self.options.manual_selection:
+                    captures = find_captures(self.table_cards, card.rank, self.options.escoba, self.options.asso_piglia_tutto)
+                    if len(captures) > 1:
+                        # Register the pending captures for this card temporarily so the menu can build
+                        if getattr(self, "_pending_capture_map", None) is None:
+                            self._pending_capture_map = {}
+                        self._pending_capture_map[card.id] = captures
+
+                        input_request = MenuInput(
+                            prompt="scopa-manual-select-prompt",
+                            options="_capture_options_for_card",
+                            bot_select=None,  # bots don't get here because of not player.is_bot
+                        )
+
                 turn_set.add(
                     Action(
                         id=f"play_card_{card.id}",
@@ -567,9 +566,37 @@ class ScopaGame(Game):
                         is_enabled="_is_card_action_enabled",
                         is_hidden="_is_card_action_hidden",
                         get_label="_get_card_label",
+                        input_request=input_request,
                         show_in_actions_menu=False,
                     )
                 )
+
+    def _get_capture_display_string(self, capture: list[Card], locale: str) -> str:
+        """Get localized display string for a capture option."""
+        card_strs = read_cards(capture, locale)
+        # Ensure it doesn't return an empty string, though read_cards handles empty lists
+        return Localization.get(locale, "scopa-capture-option", cards=card_strs)
+
+    def _capture_options_for_card(self, player: ScopaPlayer, action_id: str) -> list[str]:
+        """Generate menu options for a specific card's possible captures."""
+        user = self.get_user(player)
+        locale = user.locale if user else "en"
+
+        try:
+            card_id = int(action_id.removeprefix("play_card_"))
+        except ValueError:
+            return []
+
+        pending_map = getattr(self, "_pending_capture_map", {})
+        captures = pending_map.get(card_id, [])
+
+        options = []
+        for capture in captures:
+            opt_str = self._get_capture_display_string(capture, locale)
+            if opt_str:
+                options.append(opt_str)
+
+        return options
 
     def _update_all_card_actions(self) -> None:
         """Update card actions for all players."""
@@ -807,47 +834,6 @@ class ScopaGame(Game):
 
         self._update_all_card_actions()
         self.rebuild_all_menus()
-
-    def _play_card(self, player: ScopaPlayer, card: Card) -> None:
-        """Handle playing a card."""
-        # Remove card from hand
-        player.hand = [c for c in player.hand if c.id != card.id]
-
-        # Play sound
-        play_sound = random.choice(["play1.ogg", "play2.ogg", "play3.ogg", "play4.ogg"])
-        self.play_sound(f"game_cards/{play_sound}")
-
-        # Find and execute capture
-        captures = find_captures(self.table_cards, card.rank, self.options.escoba, self.options.asso_piglia_tutto)
-
-        if captures:
-            if len(captures) > 1 and self.options.manual_selection and not player.is_bot:
-                self._pending_capture_card = card
-                self._pending_captures = captures
-                user = self.get_user(player)
-                if user:
-                    user.speak_l("scopa-manual-select-prompt")
-                self.rebuild_all_menus()
-                return
-
-            best_capture = select_best_capture(captures)
-            self._execute_capture(player, card, best_capture)
-        else:
-            # No capture, card goes to table
-            self.table_cards.append(card)
-
-            # Personal message for player
-            user = self.get_user(player)
-            if user:
-                user.speak_l("scopa-you-put-down", buffer="game", card=card_name(card, user.locale))
-
-            # Broadcast to others
-            self._broadcast_cards_l(
-                "scopa-player-puts-down", card=card, player=player.name, exclude=player
-            )
-
-        BotHelper.jolt_bots(self, ticks=random.randint(8, 15))
-        self._end_turn()
 
     def _execute_capture(
         self, player: ScopaPlayer, played_card: Card, captured: list[Card]
@@ -1104,7 +1090,7 @@ class ScopaGame(Game):
     # Action Handlers
     # ==========================================================================
 
-    def _action_play_card(self, player: Player, action_id: str) -> None:
+    def _action_play_card(self, player: Player, *args) -> None:
         """Handle playing a card - extracts card ID from action_id."""
         if not isinstance(player, ScopaPlayer):
             return
@@ -1113,8 +1099,13 @@ class ScopaGame(Game):
         if self.current_player != player:
             return
 
-        if self._pending_capture_card:
-            return # Must select capture
+        if len(args) == 1:
+            action_id = args[0]
+            input_value = None
+        elif len(args) == 2:
+            input_value, action_id = args
+        else:
+            return
 
         # Extract card ID from action_id (e.g., "play_card_42" -> 42)
         try:
@@ -1124,31 +1115,53 @@ class ScopaGame(Game):
 
         # Find the card in player's hand
         card = next((c for c in player.hand if c.id == card_id), None)
-        if card:
-            self._play_card(player, card)
-
-    def _action_select_capture(self, player: Player, action_id: str) -> None:
-        """Handle selecting a manual capture option."""
-        if not isinstance(player, ScopaPlayer) or self.current_player != player:
+        if not card:
             return
 
-        if not self._pending_capture_card or not self._pending_captures:
-            return
+        # Execute play
+        # First remove card from hand
+        player.hand = [c for c in player.hand if c.id != card.id]
 
-        try:
-            idx = int(action_id.removeprefix("select_capture_"))
-        except ValueError:
-            return
+        play_sound = random.choice(["play1.ogg", "play2.ogg", "play3.ogg", "play4.ogg"])
+        self.play_sound(f"game_cards/{play_sound}")
 
-        if 0 <= idx < len(self._pending_captures):
-            card = self._pending_capture_card
-            capture = self._pending_captures[idx]
+        captures = find_captures(self.table_cards, card.rank, self.options.escoba, self.options.asso_piglia_tutto)
 
-            # Reset state
-            self._pending_capture_card = None
-            self._pending_captures = None
+        if captures:
+            if input_value is not None:
+                # We have a selection from the menu
+                # Need to match localized string to capture index
+                user = self.get_user(player)
+                locale = user.locale if user else "en"
 
-            self._execute_capture(player, card, capture)
+                best_capture = None
+                for capture in captures:
+                    opt_str = self._get_capture_display_string(capture, locale)
+                    if opt_str == input_value:
+                        best_capture = capture
+                        break
+
+                if best_capture is None:
+                    # Fallback if somehow not found
+                    best_capture = select_best_capture(captures)
+            else:
+                best_capture = select_best_capture(captures)
+
+            self._execute_capture(player, card, best_capture)
+        else:
+            # No capture, card goes to table
+            self.table_cards.append(card)
+
+            user = self.get_user(player)
+            if user:
+                user.speak_l("scopa-you-put-down", buffer="game", card=card_name(card, user.locale))
+
+            self._broadcast_cards_l(
+                "scopa-player-puts-down", card=card, player=player.name, exclude=player
+            )
+
+        BotHelper.jolt_bots(self, ticks=random.randint(8, 15))
+        self._end_turn()
 
     def _action_view_table(self, player: Player, action_id: str) -> None:
         """View all table cards."""

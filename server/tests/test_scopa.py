@@ -378,12 +378,25 @@ class TestScopaVariants:
         played_card = Card(id=5, rank=5, suit=1)
         game.players[0].hand = [played_card]
 
-        game._play_card(game.players[0], played_card)
+        # We need to test the menu prompt flow
+        # Update actions so MenuInput is built
+        game._update_card_actions(game.players[0])
+        action_set = game.get_action_set(game.players[0], "turn")
+        card_action = next((a for a in action_set._actions.values() if a.id == f"play_card_{played_card.id}"), None)
+        assert card_action is not None
+        assert card_action.input_request is not None
+        assert card_action.input_request.prompt == "scopa-manual-select-prompt"
 
-        # Should not have executed capture yet
-        assert game._pending_capture_card is not None
-        assert game._pending_captures is not None
-        assert len(game._pending_captures) == 2  # 2+3 and 1+4
+        # Execute play via standard Action flow with a menu selection
+        options = game._capture_options_for_card(game.players[0], f"play_card_{played_card.id}")
+        assert len(options) == 2
+
+        # Simulate user selecting the first option
+        game._action_play_card(game.players[0], options[0], f"play_card_{played_card.id}")
+
+        # Verify capture executed (played card goes to captured, table cards updated)
+        assert played_card in game.players[0].captured
+        assert len(game.table_cards) == 2 # 4 cards on table - 2 captured = 2 left
 
 
 class TestScopaGameFlow:

@@ -577,10 +577,14 @@ class ScopaGame(Game):
         # Ensure it doesn't return an empty string, though read_cards handles empty lists
         return Localization.get(locale, "scopa-capture-option", cards=card_strs)
 
-    def _capture_options_for_card(self, player: ScopaPlayer, action_id: str) -> list[str]:
+    def _capture_options_for_card(self, player: ScopaPlayer) -> list[str]:
         """Generate menu options for a specific card's possible captures."""
         user = self.get_user(player)
         locale = user.locale if user else "en"
+
+        action_id = getattr(self, "_pending_actions", {}).get(player.id)
+        if not action_id:
+            return []
 
         try:
             card_id = int(action_id.removeprefix("play_card_"))
@@ -1134,8 +1138,15 @@ class ScopaGame(Game):
                 user = self.get_user(player)
                 locale = user.locale if user else "en"
 
+                # To be absolutely sure we're getting the right captures list,
+                # let's try to fetch it the same way the menu options method did.
+                # Find captures regenerates it, which is fine, but order must be preserved.
+                # Actually, find_captures is deterministic, but just in case:
+                pending_map = getattr(self, "_pending_capture_map", {})
+                stored_captures = pending_map.get(card.id, captures)
+
                 best_capture = None
-                for capture in captures:
+                for capture in stored_captures:
                     opt_str = self._get_capture_display_string(capture, locale)
                     if opt_str == input_value:
                         best_capture = capture
@@ -1143,7 +1154,7 @@ class ScopaGame(Game):
 
                 if best_capture is None:
                     # Fallback if somehow not found
-                    best_capture = select_best_capture(captures)
+                    best_capture = select_best_capture(stored_captures)
             else:
                 best_capture = select_best_capture(captures)
 

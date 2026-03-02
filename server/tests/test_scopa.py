@@ -387,8 +387,11 @@ class TestScopaVariants:
         assert card_action.input_request is not None
         assert card_action.input_request.prompt == "scopa-manual-select-prompt"
 
+        # Set pending action state (like the engine does before calling options_method)
+        game._pending_actions = {game.players[0].id: f"play_card_{played_card.id}"}
+
         # Execute play via standard Action flow with a menu selection
-        options = game._capture_options_for_card(game.players[0], f"play_card_{played_card.id}")
+        options = game._capture_options_for_card(game.players[0])
         assert len(options) == 2
 
         # Simulate user selecting the first option

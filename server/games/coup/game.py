@@ -594,11 +594,17 @@ class CoupGame(Game):
 
         self.broadcast_l("coup-waiting-for-reactions")
         self.rebuild_all_menus()
-        BotHelper.jolt_bots(self, ticks=random.randint(20, 40))
+
+        # Jolt bots heavily so they don't react instantly
+        BotHelper.jolt_bots(self, ticks=random.randint(40, 80)) # 2-4 seconds delay
 
     def _action_challenge(self, player: Player, action_id: str) -> None:
         # Resolve challenge
         if self.turn_phase not in ["action_declared", "waiting_block"]:
+            return
+
+        # Prevent race condition: if timer is already 0, someone else beat them to it
+        if self.interrupt_timer_ticks <= 0:
             return
 
         self.interrupt_timer_ticks = 0
@@ -681,6 +687,10 @@ class CoupGame(Game):
         if self.turn_phase != "action_declared":
             return
 
+        # Prevent race condition
+        if self.interrupt_timer_ticks <= 0:
+            return
+
         self.interrupt_timer_ticks = 0
         claimer = self.get_player_by_id(self.active_claimer_id)
 
@@ -706,7 +716,7 @@ class CoupGame(Game):
 
         self.broadcast_l("coup-waiting-for-reactions")
         self.rebuild_all_menus()
-        BotHelper.jolt_bots(self, ticks=random.randint(20, 40))
+        BotHelper.jolt_bots(self, ticks=random.randint(40, 80))
 
     def _action_pass(self, player: Player, action_id: str) -> None:
         if self.turn_phase not in ["action_declared", "waiting_block"]:
@@ -725,7 +735,8 @@ class CoupGame(Game):
             # Everyone passed, fast-forward timer
             self.interrupt_timer_ticks = 1
 
-        self.rebuild_player_menu(player)
+        # Rebuild all menus so everyone sees that this player passed/menu updates
+        self.rebuild_all_menus()
 
     def _get_required_character_for_action(self, action: str) -> str:
         mapping = {

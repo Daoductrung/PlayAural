@@ -105,9 +105,9 @@ class CoupBot(BotHelper):
             claimer = game.get_player_by_id(game.active_claimer_id)
             if not claimer: return None
 
-            # Don't do anything 70% of the time right away to simulate thinking
-            if random.random() < 0.7:
-                return None
+            # Since the interrupt phase can be quick, if the bot hasn't decided yet,
+            # wait. If they reach this code, it means their `bot_think_ticks` hit 0.
+            # We should decide ONCE and either pass, block, or challenge.
 
             required_char = game._get_required_character_for_action(game.active_action)
             if game.turn_phase == "waiting_block":

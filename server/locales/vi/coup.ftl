@@ -70,3 +70,7 @@ coup-must-lose-influence = Bạn phải chọn một thẻ để mất.
 coup-set-mandatory-coup = Giới hạn tiền bắt buộc Đảo chính
 coup-enter-mandatory-coup = Nhập số tiền tối thiểu để bắt buộc Đảo chính:
 coup-option-changed-mandatory-coup = Số tiền bắt buộc Đảo chính đã thay đổi.
+
+coup-set-timer-duration = Thời gian chờ gián đoạn (Giây)
+coup-enter-timer-duration = Nhập thời gian chờ Thách thức/Chặn (giây):
+coup-option-changed-timer = Thời gian chờ đã thay đổi.

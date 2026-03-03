@@ -20,7 +20,7 @@ class CoupBot(BotHelper):
         idx = random.randint(0, len(player.live_influences) - 1)
         char = player.live_influences[idx].character
         player.reveal_influence(idx)
-        game.broadcast_l("coup-loses-influence", player=player.name, character=char)
+        game._broadcast_card_message("coup-loses-influence", char, player=player.name)
         if player.is_dead:
             game.broadcast_l("coup-player-eliminated", player=player.name)
         game._post_lose_influence()

@@ -53,9 +53,9 @@ class CoupOptions(GameOptions):
             min_val=3,
             max_val=15,
             value_key="seconds",
-            label="game-set-timer-duration",
-            prompt="game-enter-timer-duration",
-            change_msg="game-option-changed-timer",
+            label="coup-set-timer-duration",
+            prompt="coup-enter-timer-duration",
+            change_msg="coup-option-changed-timer",
         )
     )
     # The minimum required to Coup is 7. You *must* Coup at 10+.

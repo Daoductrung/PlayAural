@@ -70,3 +70,7 @@ coup-must-lose-influence = You must choose an influence to lose.
 coup-set-mandatory-coup = Mandatory Coup Coin Threshold
 coup-enter-mandatory-coup = Enter coins required to force a Coup:
 coup-option-changed-mandatory-coup = Mandatory Coup threshold changed.
+
+coup-set-timer-duration = Interrupt Timer Duration (Seconds)
+coup-enter-timer-duration = Enter duration for Challenge/Block window (seconds):
+coup-option-changed-timer = Timer duration changed.

@@ -51,6 +51,7 @@ class CoupGame(Game):
     active_claimer_id: str | None = None
     original_claimer_id: str | None = None
     return_count: int = 0
+    passed_players: set[str] = field(default_factory=set)
 
     # Timer state
     interrupt_timer_ticks: int = 0
@@ -146,6 +147,7 @@ class CoupGame(Game):
         self.active_claimer_id = None
         self.original_claimer_id = None
         self.interrupt_timer_ticks = 0
+        self.passed_players = set()
 
         self.rebuild_all_menus()
 
@@ -403,6 +405,9 @@ class CoupGame(Game):
         if player.id == self.active_claimer_id:
             return Visibility.HIDDEN
 
+        if player.id in getattr(self, "passed_players", set()):
+            return Visibility.HIDDEN
+
         # In waiting_block (e.g. Duke blocking Foreign Aid), only Challenge or Pass makes sense, no second Block.
         # But this is just visibility, we handle specifics in is_enabled.
         return Visibility.VISIBLE
@@ -565,6 +570,7 @@ class CoupGame(Game):
         self.turn_phase = "action_declared"
         self.interrupt_timer_ticks = self.options.timer_duration_seconds * 20
         self.interrupt_duration_ticks = self.interrupt_timer_ticks
+        self.passed_players = set()
 
         player = self.get_player_by_id(player_id)
         target = self.get_player_by_id(target_id) if target_id else None
@@ -625,7 +631,7 @@ class CoupGame(Game):
         if has_character:
             # Challenge fails! Challenger loses influence
             self.play_sound("game_coup/challengesuccess.ogg") # Claimer successfully proved
-            self.broadcast_l("coup-challenge-failed", player=claimer.name, character=revealed_char)
+            self._broadcast_card_message("coup-challenge-failed", revealed_char, player=claimer.name)
 
             # Claimer puts card back and draws new one
             for card in claimer.live_influences:
@@ -696,15 +702,30 @@ class CoupGame(Game):
         self.active_claimer_id = player.id # Blocker is now claiming to have a role
         self.interrupt_timer_ticks = self.options.timer_duration_seconds * 20
         self.interrupt_duration_ticks = self.interrupt_timer_ticks
+        self.passed_players = set()
 
         self.broadcast_l("coup-waiting-for-reactions")
         self.rebuild_all_menus()
         BotHelper.jolt_bots(self, ticks=random.randint(20, 40))
 
     def _action_pass(self, player: Player, action_id: str) -> None:
-        # A single player passing doesn't end the timer, just stops their jolt or handles UI.
-        # But for bots, we can track who passed to speed it up. For now, do nothing special.
-        pass
+        if self.turn_phase not in ["action_declared", "waiting_block"]:
+            return
+
+        self.passed_players.add(player.id)
+
+        # Check if all other eligible players have passed
+        alive = self.get_alive_players()
+        eligible_count = 0
+        for p in alive:
+            if p.id != self.active_claimer_id:
+                eligible_count += 1
+
+        if len(self.passed_players) >= eligible_count:
+            # Everyone passed, fast-forward timer
+            self.interrupt_timer_ticks = 1
+
+        self.rebuild_player_menu(player)
 
     def _get_required_character_for_action(self, action: str) -> str:
         mapping = {
@@ -835,6 +856,16 @@ class CoupGame(Game):
             self.broadcast_l("coup-exchange-complete", player=player.name)
             self._end_turn()
 
+    def _broadcast_card_message(self, message_key: str, character: str | Character, **kwargs) -> None:
+        """Broadcast a message with a localized card name to all players."""
+        char_val = character.value if hasattr(character, "value") else character
+        for p in self.players:
+            user = self.get_user(p)
+            if not user:
+                continue
+            card_name = Localization.get(user.locale, f"coup-card-{char_val}")
+            user.speak_l(message_key, buffer="game", character=card_name, **kwargs)
+
     def _prompt_lose_influence(self, player_id: str, reason: str) -> None:
         """Prompts a player to choose which influence to lose."""
         player = self.get_player_by_id(player_id)
@@ -847,7 +878,7 @@ class CoupGame(Game):
             # Only one left, auto-lose it
             self.play_sound(f"game_coup/chardestroy{random.randint(1, 2)}.ogg")
             player.reveal_influence(0)
-            self.broadcast_l("coup-loses-influence", player=player.name, character=live[0].character)
+            self._broadcast_card_message("coup-loses-influence", live[0].character, player=player.name)
             if player.is_dead:
                 self.broadcast_l("coup-player-eliminated", player=player.name)
             self._post_lose_influence()
@@ -880,18 +911,18 @@ class CoupGame(Game):
         self.play_sound(f"game_coup/chardestroy{random.randint(1, 2)}.ogg")
         char = coup_player.live_influences[idx].character
         coup_player.reveal_influence(idx)
-        self.broadcast_l("coup-loses-influence", player=player.name, character=char)
+        self._broadcast_card_message("coup-loses-influence", char, player=player.name)
 
         self._post_lose_influence()
 
     def _post_lose_influence(self) -> None:
         next_action = getattr(self, "_next_action_after_lose", "end_turn")
+        self._next_action_after_lose = "end_turn"
+
         if next_action == "end_turn":
             self._end_turn()
         elif next_action == "resolve_action":
             self._resolve_action()
-
-        self._next_action_after_lose = "end_turn"
 
     def _end_game(self, winner: CoupPlayer | None) -> None:
         """End the game."""

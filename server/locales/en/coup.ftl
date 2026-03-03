@@ -79,6 +79,10 @@ coup-no-cards = You have no cards.
 coup-table-line = { $player } lost: { $cards }
 coup-table-empty = No cards have been revealed yet.
 
+coup-end-winner = Winner
+coup-end-eliminated = Eliminated
+coup-end-line = { $rank }. { $name } ({ $status }) - { $coins } coins. Cards: { $cards }
+
 coup-set-mandatory-coup = Mandatory Coup Coin Threshold ({ $coins })
 coup-enter-mandatory-coup = Enter coins required to force a Coup (10 - 20):
 coup-option-changed-mandatory-coup = Mandatory Coup threshold changed.

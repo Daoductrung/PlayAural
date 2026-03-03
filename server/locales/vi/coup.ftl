@@ -79,6 +79,10 @@ coup-no-cards = Bạn không có thẻ nào.
 coup-table-line = { $player } đã mất: { $cards }
 coup-table-empty = Chưa có thẻ nào được lật mở.
 
+coup-end-winner = Người chiến thắng
+coup-end-eliminated = Bị loại
+coup-end-line = { $rank }. { $name } ({ $status }) - { $coins } đồng. Các thẻ: { $cards }
+
 coup-set-mandatory-coup = Giới hạn tiền bắt buộc Đảo chính ({ $coins })
 coup-enter-mandatory-coup = Nhập số tiền tối thiểu để bắt buộc Đảo chính (10 - 20):
 coup-option-changed-mandatory-coup = Số tiền bắt buộc Đảo chính đã thay đổi.

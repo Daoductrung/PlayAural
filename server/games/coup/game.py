@@ -1083,6 +1083,22 @@ class CoupGame(Game):
         alive = self.get_alive_players()
         winner = alive[0] if alive else None
 
+        # Sort players: winner first, then by coins
+        sorted_players = sorted(self.players, key=lambda p: (not p.is_dead, p.coins), reverse=True)
+
+        rankings = []
+        for p in sorted_players:
+            dead_cards = [c.character.value for c in p.dead_influences]
+            if not p.is_dead:
+                dead_cards.extend([c.character.value for c in p.live_influences]) # show remaining too!
+
+            rankings.append({
+                "name": p.name,
+                "coins": p.coins,
+                "cards": dead_cards,
+                "is_winner": p == winner
+            })
+
         return GameResult(
             game_type=self.get_type(),
             timestamp=datetime.now().isoformat(),
@@ -1099,8 +1115,40 @@ class CoupGame(Game):
                 "winner_name": winner.name if winner else None,
                 "winner_ids": [winner.id] if winner else None,
                 "winner_score": 1,
+                "rankings": rankings,
             },
         )
+
+    def format_end_screen(self, result: GameResult, locale: str) -> list[str]:
+        """Format the end screen for Coup."""
+        lines = [Localization.get(locale, "game-final-scores")]
+        rankings = result.custom_data.get("rankings", [])
+
+        for i, data in enumerate(rankings, 1):
+            name = data["name"]
+            coins = data["coins"]
+            cards = data["cards"]
+
+            loc_cards = [Localization.get(locale, f"coup-card-{c}") for c in cards]
+            cards_str = ", ".join(loc_cards) if loc_cards else Localization.get(locale, "coup-no-cards")
+
+            if data.get("is_winner"):
+                status = Localization.get(locale, "coup-end-winner")
+            else:
+                status = Localization.get(locale, "coup-end-eliminated")
+
+            line = Localization.get(
+                locale,
+                "coup-end-line",
+                rank=i,
+                name=name,
+                status=status,
+                coins=coins,
+                cards=cards_str
+            )
+            lines.append(line)
+
+        return lines
 
     def get_alive_players(self) -> list[CoupPlayer]:
         """Get all alive players."""

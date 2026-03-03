@@ -156,12 +156,65 @@ class CoupGame(Game):
         self.advance_turn(announce=False)
         self._start_turn()
 
+    def setup_keybinds(self) -> None:
+        """Define all keybinds for the game."""
+        super().setup_keybinds()
+
+        user = None
+        if hasattr(self, 'host_username') and self.host_username:
+             player = self.get_player_by_name(self.host_username)
+             if player:
+                 user = self.get_user(player)
+        locale = user.locale if user else "en"
+
+        # Information Keybinds
+        self.define_keybind("w", Localization.get(locale, "coup-action-check-wealth"), ["check_wealth"], state=KeybindState.ACTIVE, include_spectators=True)
+        self.define_keybind("h", Localization.get(locale, "coup-action-check-hand"), ["check_hand"], state=KeybindState.ACTIVE)
+        self.define_keybind("t", Localization.get(locale, "coup-action-check-table"), ["check_table"], state=KeybindState.ACTIVE, include_spectators=True)
+
+        # Reaction Keybinds
+        self.define_keybind("c", Localization.get(locale, "coup-action-challenge"), ["challenge"], state=KeybindState.ACTIVE)
+        self.define_keybind("b", Localization.get(locale, "coup-action-block"), ["block"], state=KeybindState.ACTIVE)
+        self.define_keybind("p", Localization.get(locale, "coup-action-pass"), ["pass"], state=KeybindState.ACTIVE)
+
     def create_turn_action_set(self, player: CoupPlayer) -> ActionSet:
         """Create the turn action set for a player."""
         user = self.get_user(player)
         locale = user.locale if user else "en"
 
         action_set = ActionSet(name="turn")
+
+        # Info Actions
+        action_set.add(
+            Action(
+                id="check_wealth",
+                label=Localization.get(locale, "coup-action-check-wealth"),
+                handler="_action_check_wealth",
+                is_enabled="_is_info_enabled",
+                is_hidden="_is_info_hidden",
+                show_in_actions_menu=False,
+            )
+        )
+        action_set.add(
+            Action(
+                id="check_hand",
+                label=Localization.get(locale, "coup-action-check-hand"),
+                handler="_action_check_hand",
+                is_enabled="_is_info_enabled",
+                is_hidden="_is_info_hidden",
+                show_in_actions_menu=False,
+            )
+        )
+        action_set.add(
+            Action(
+                id="check_table",
+                label=Localization.get(locale, "coup-action-check-table"),
+                handler="_action_check_table",
+                is_enabled="_is_info_enabled",
+                is_hidden="_is_info_hidden",
+                show_in_actions_menu=False,
+            )
+        )
 
         # Lose Influence Actions
         for i in range(4):
@@ -317,6 +370,17 @@ class CoupGame(Game):
     # ==========================================================================
     # Action Checks
     # ==========================================================================
+
+    def _is_info_hidden(self, player: Player) -> Visibility:
+        user = self.get_user(player)
+        if user and getattr(user, "client_type", "") == "web":
+            return Visibility.VISIBLE
+        return Visibility.HIDDEN
+
+    def _is_info_enabled(self, player: Player) -> str | None:
+        if self.status != "playing":
+            return "action-not-playing"
+        return None
 
     def _is_lose_influence_hidden(self, player: Player) -> Visibility:
         if self.turn_phase != "losing_influence" or player.id != self.active_target_id:
@@ -510,6 +574,56 @@ class CoupGame(Game):
     # ==========================================================================
     # Action Handlers
     # ==========================================================================
+
+    def _action_check_wealth(self, player: Player, action_id: str) -> None:
+        user = self.get_user(player)
+        if not user:
+            return
+
+        lines = []
+        for p in self.get_alive_players():
+            # e.g., "Alice: 4 coins"
+            lines.append(Localization.get(user.locale, "coup-wealth-line", player=p.name, coins=p.coins))
+
+        if not lines:
+            lines.append(Localization.get(user.locale, "coup-no-alive-players"))
+
+        self.status_box(player, lines)
+
+    def _action_check_hand(self, player: Player, action_id: str) -> None:
+        user = self.get_user(player)
+        if not user:
+            return
+
+        coup_player: CoupPlayer = player  # type: ignore
+        lines = []
+        for card in coup_player.live_influences:
+            card_name = Localization.get(user.locale, f"coup-card-{card.character.value}")
+            lines.append(card_name)
+
+        if not lines:
+            lines.append(Localization.get(user.locale, "coup-no-cards"))
+
+        self.status_box(player, lines)
+
+    def _action_check_table(self, player: Player, action_id: str) -> None:
+        user = self.get_user(player)
+        if not user:
+            return
+
+        lines = []
+        for p in self.players:
+            dead = p.dead_influences
+            if dead:
+                cards = [Localization.get(user.locale, f"coup-card-{c.character.value}") for c in dead]
+                # e.g., "Alice lost: Duke, Captain"
+                cards_str = ", ".join(cards)
+                lines.append(Localization.get(user.locale, "coup-table-line", player=p.name, cards=cards_str))
+
+        if not lines:
+            lines.append(Localization.get(user.locale, "coup-table-empty"))
+
+        self.status_box(player, lines)
 
     def _action_income(self, player: Player, action_id: str) -> None:
         coup_player: CoupPlayer = player  # type: ignore

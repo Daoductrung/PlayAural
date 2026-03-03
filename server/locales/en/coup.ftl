@@ -66,6 +66,17 @@ coup-blocks-steal = { $blocker } claims the Captain/Ambassador to block { $targe
 
 coup-loses-influence = { $player } loses their { $character }!
 coup-must-lose-influence = You must choose an influence to lose.
+coup-must-return-card = Please select a card to return to the deck.
+
+coup-action-check-wealth = Check Wealth
+coup-action-check-hand = Check Hand
+coup-action-check-table = Check Table
+
+coup-wealth-line = { $player }: { $coins } coins
+coup-no-alive-players = No players are currently alive.
+coup-no-cards = You have no cards.
+coup-table-line = { $player } lost: { $cards }
+coup-table-empty = No cards have been revealed yet.
 
 coup-set-mandatory-coup = Mandatory Coup Coin Threshold
 coup-enter-mandatory-coup = Enter coins required to force a Coup:

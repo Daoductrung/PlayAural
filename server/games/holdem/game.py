@@ -268,6 +268,67 @@ class HoldemGame(Game, TurnTimerMixin):
                 show_in_actions_menu=False,
             )
         )
+
+        # WEB-SPECIFIC: Turn Menu Actions (Restored & Reordered)
+        # Only add these for Web clients to avoid duplicates in Python client context menu
+        if user and getattr(user, "client_type", "") == "web":
+            # 1. Check scores (requested to be below All in)
+            action_set.add(
+                Action(
+                    id="check_scores",
+                    label=Localization.get(locale, "check-scores"),
+                    handler="_action_check_scores",
+                    is_enabled="_is_check_scores_enabled",
+                    is_hidden="_is_check_scores_hidden",
+                )
+            )
+            # 2. Add duplicates back ONLY for Web (Turn Menu)
+            action_set.add(
+                Action(
+                    id="speak_hand",
+                    label=Localization.get(locale, "poker-read-hand"),
+                    handler="_action_read_hand",
+                    is_enabled="_is_turn_action_enabled",
+                    is_hidden="_is_turn_action_hidden",
+                )
+            )
+            action_set.add(
+                Action(
+                    id="speak_table",
+                    label=Localization.get(locale, "poker-read-table"),
+                    handler="_action_read_table",
+                    is_enabled="_is_turn_action_enabled",
+                    is_hidden="_is_turn_action_hidden",
+                )
+            )
+            action_set.add(
+                Action(
+                    id="speak_hand_value",
+                    label=Localization.get(locale, "poker-hand-value"),
+                    handler="_action_read_hand_value",
+                    is_enabled="_is_turn_action_enabled",
+                    is_hidden="_is_turn_action_hidden",
+                )
+            )
+            action_set.add(
+                Action(
+                    id="check_button",
+                    label=Localization.get(locale, "poker-check-button"),
+                    handler="_action_check_button",
+                    is_enabled="_is_turn_action_enabled",
+                    is_hidden="_is_turn_action_hidden",
+                )
+            )
+            action_set.add(
+                Action(
+                    id="check_hand_players",
+                    label=Localization.get(locale, "poker-check-hand-players"),
+                    handler="_action_check_hand_players",
+                    is_enabled="_is_turn_action_enabled",
+                    is_hidden="_is_turn_action_hidden",
+                )
+            )
+
         return action_set
 
     def create_standard_action_set(self, player: Player) -> ActionSet:

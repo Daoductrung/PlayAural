@@ -154,6 +154,9 @@ class CoupGame(Game):
         self.interrupt_timer_ticks = 0
         self.passed_players = set()
 
+        if player.is_bot:
+            BotHelper.jolt_bot(player, ticks=random.randint(20, 50))
+
         self.rebuild_all_menus()
 
     def _end_turn(self) -> None:

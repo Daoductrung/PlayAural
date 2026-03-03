@@ -167,14 +167,20 @@ class CoupGame(Game):
                  user = self.get_user(player)
         locale = user.locale if user else "en"
 
+        # Unbind global keys that overlap or we want to override
+        if "t" in self._keybinds:
+            self._keybinds["t"] = []
+        if "b" in self._keybinds:
+            self._keybinds["b"] = []
+
         # Information Keybinds
         self.define_keybind("w", Localization.get(locale, "coup-action-check-wealth"), ["check_wealth"], state=KeybindState.ACTIVE, include_spectators=True)
         self.define_keybind("h", Localization.get(locale, "coup-action-check-hand"), ["check_hand"], state=KeybindState.ACTIVE)
-        self.define_keybind("t", Localization.get(locale, "coup-action-check-table"), ["check_table"], state=KeybindState.ACTIVE, include_spectators=True)
+        self.define_keybind("l", Localization.get(locale, "coup-action-check-table"), ["check_table"], state=KeybindState.ACTIVE, include_spectators=True)
 
         # Reaction Keybinds
         self.define_keybind("c", Localization.get(locale, "coup-action-challenge"), ["challenge"], state=KeybindState.ACTIVE)
-        self.define_keybind("b", Localization.get(locale, "coup-action-block"), ["block"], state=KeybindState.ACTIVE)
+        self.define_keybind("v", Localization.get(locale, "coup-action-block"), ["block"], state=KeybindState.ACTIVE)
         self.define_keybind("p", Localization.get(locale, "coup-action-pass"), ["pass"], state=KeybindState.ACTIVE)
 
     def create_turn_action_set(self, player: CoupPlayer) -> ActionSet:
@@ -183,38 +189,6 @@ class CoupGame(Game):
         locale = user.locale if user else "en"
 
         action_set = ActionSet(name="turn")
-
-        # Info Actions
-        action_set.add(
-            Action(
-                id="check_wealth",
-                label=Localization.get(locale, "coup-action-check-wealth"),
-                handler="_action_check_wealth",
-                is_enabled="_is_info_enabled",
-                is_hidden="_is_info_hidden",
-                show_in_actions_menu=False,
-            )
-        )
-        action_set.add(
-            Action(
-                id="check_hand",
-                label=Localization.get(locale, "coup-action-check-hand"),
-                handler="_action_check_hand",
-                is_enabled="_is_info_enabled",
-                is_hidden="_is_info_hidden",
-                show_in_actions_menu=False,
-            )
-        )
-        action_set.add(
-            Action(
-                id="check_table",
-                label=Localization.get(locale, "coup-action-check-table"),
-                handler="_action_check_table",
-                is_enabled="_is_info_enabled",
-                is_hidden="_is_info_hidden",
-                show_in_actions_menu=False,
-            )
-        )
 
         # Lose Influence Actions
         for i in range(4):
@@ -365,6 +339,44 @@ class CoupGame(Game):
             )
         )
 
+        return action_set
+
+    def create_standard_action_set(self, player: Player) -> ActionSet:
+        action_set = super().create_standard_action_set(player)
+        user = self.get_user(player)
+        locale = user.locale if user else "en"
+
+        # Info Actions (accessible anytime)
+        action_set.add(
+            Action(
+                id="check_wealth",
+                label=Localization.get(locale, "coup-action-check-wealth"),
+                handler="_action_check_wealth",
+                is_enabled="_is_info_enabled",
+                is_hidden="_is_info_hidden",
+                show_in_actions_menu=True,
+            )
+        )
+        action_set.add(
+            Action(
+                id="check_hand",
+                label=Localization.get(locale, "coup-action-check-hand"),
+                handler="_action_check_hand",
+                is_enabled="_is_info_enabled",
+                is_hidden="_is_info_hidden",
+                show_in_actions_menu=True,
+            )
+        )
+        action_set.add(
+            Action(
+                id="check_table",
+                label=Localization.get(locale, "coup-action-check-table"),
+                handler="_action_check_table",
+                is_enabled="_is_info_enabled",
+                is_hidden="_is_info_hidden",
+                show_in_actions_menu=True,
+            )
+        )
         return action_set
 
     # ==========================================================================
@@ -588,7 +600,8 @@ class CoupGame(Game):
         if not lines:
             lines.append(Localization.get(user.locale, "coup-no-alive-players"))
 
-        self.status_box(player, lines)
+        combined = ", ".join(lines)
+        user.speak(combined, buffer="game")
 
     def _action_check_hand(self, player: Player, action_id: str) -> None:
         user = self.get_user(player)
@@ -604,7 +617,8 @@ class CoupGame(Game):
         if not lines:
             lines.append(Localization.get(user.locale, "coup-no-cards"))
 
-        self.status_box(player, lines)
+        combined = ", ".join(lines)
+        user.speak(combined, buffer="game")
 
     def _action_check_table(self, player: Player, action_id: str) -> None:
         user = self.get_user(player)
@@ -623,7 +637,8 @@ class CoupGame(Game):
         if not lines:
             lines.append(Localization.get(user.locale, "coup-table-empty"))
 
-        self.status_box(player, lines)
+        combined = "; ".join(lines)
+        user.speak(combined, buffer="game")
 
     def _action_income(self, player: Player, action_id: str) -> None:
         coup_player: CoupPlayer = player  # type: ignore

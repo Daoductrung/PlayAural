@@ -112,12 +112,14 @@ Keyboard Shortcuts
 
 \* H: Check players in hand.
 
-* W: Read private hole cards.
+\* W: Read private hole cards.
 
-* G: Check hand value/strength.
+\* G: Check hand value/strength.
 
-\* T: Read community cards (Table).
+\* E: Read community cards (Table).
 
-\* D: Identify Dealer button position.
+\* X: Identify Dealer button position.
+
+\* Z: Your position.
 
 

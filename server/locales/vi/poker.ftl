@@ -85,6 +85,7 @@ poker-log-raise = { $player } đã tố { $amount }
 poker-log-all-in = { $player } đã tất tay { $amount }
 
 poker-table-cards = Bài trên bàn: { $cards }.
+poker-table-cards-none = Chưa có lá bài chung nào trên bàn.
 poker-your-hand = Bài của bạn: { $cards }.
 
 poker-timer-5 = 5 giây

@@ -425,14 +425,6 @@ class HoldemGame(Game, TurnTimerMixin):
                 show_in_actions_menu=False,
             )
         )
-        return action_set
-
-    # WEB-SPECIFIC: Target order for Standard Actions
-    web_target_order = ["check_scores", "whose_turn", "whos_at_table"]
-
-    def create_standard_action_set(self, player: Player) -> ActionSet:
-        action_set = super().create_standard_action_set(player)
-        user = self.get_user(player)
 
         # WEB-SPECIFIC: Reorder for Web Clients
         if user and getattr(user, "client_type", "") == "web":
@@ -449,6 +441,9 @@ class HoldemGame(Game, TurnTimerMixin):
             action_set._order = final_order
 
         return action_set
+
+    # WEB-SPECIFIC: Target order for Standard Actions
+    web_target_order = ["check_scores", "whose_turn", "whos_at_table"]
 
     # WEB-SPECIFIC: Visibility Overrides
 
@@ -1126,12 +1121,17 @@ class HoldemGame(Game, TurnTimerMixin):
             return
         user = self.get_user(player)
         if user:
-            user.speak(read_cards(p.hand, user.locale), buffer="game")
+            if not p.hand:
+                return
+            user.speak_l("poker-your-hand", buffer="game", cards=read_cards(p.hand, user.locale))
 
     def _action_read_table(self, player: Player, action_id: str) -> None:
         user = self.get_user(player)
         if user:
-            user.speak(read_cards(self.community, user.locale), buffer="game")
+            if not self.community:
+                user.speak_l("poker-table-cards-none", buffer="game")
+            else:
+                user.speak_l("poker-table-cards", buffer="game", cards=read_cards(self.community, user.locale))
 
     def _action_read_hand_value(self, player: Player, action_id: str) -> None:
         p = player if isinstance(player, HoldemPlayer) else None
@@ -1139,6 +1139,8 @@ class HoldemGame(Game, TurnTimerMixin):
             return
         user = self.get_user(player)
         if user:
+            if not p.hand:
+                return
             desc = describe_partial_hand(p.hand + self.community, user.locale)
             user.speak(desc, buffer="game")
 

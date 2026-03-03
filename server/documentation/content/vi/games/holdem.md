@@ -108,8 +108,9 @@ Phím tắt
 \* A: Tất tay (All-in).
 \* P: Kiểm tra trạng thái bàn (tổng hũ, mức cược hiện tại).
 \* H: Kiểm tra người chơi trong ván.
-* W: Đọc các lá bài tẩy (bài riêng).
-* G: Kiểm tra độ mạnh tay bài hiện tại.
-\* T: Đọc các lá bài chung trên bàn.
-\* D: Kiểm tra vị trí Nút Dealer.
+\* W: Đọc các lá bài tẩy (bài riêng).
+\* G: Kiểm tra độ mạnh tay bài hiện tại.
+\* E: Đọc các lá bài chung trên bàn.
+\* X: Kiểm tra vị trí Nút Dealer.
+\* Z: Vị trí của bạn.
 

@@ -85,6 +85,7 @@ poker-log-raise = { $player } raised { $amount }
 poker-log-all-in = { $player } went all in for { $amount }
 
 poker-table-cards = Table cards: { $cards }.
+poker-table-cards-none = No cards on the table.
 poker-your-hand = Your hand: { $cards }.
 
 poker-timer-5 = 5 seconds

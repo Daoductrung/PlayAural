@@ -268,6 +268,67 @@ class HoldemGame(Game, TurnTimerMixin):
                 show_in_actions_menu=False,
             )
         )
+
+        # WEB-SPECIFIC: Turn Menu Actions (Restored & Reordered)
+        # Only add these for Web clients to avoid duplicates in Python client context menu
+        if user and getattr(user, "client_type", "") == "web":
+            # 1. Check scores (requested to be below All in)
+            action_set.add(
+                Action(
+                    id="check_scores",
+                    label=Localization.get(locale, "check-scores"),
+                    handler="_action_check_scores",
+                    is_enabled="_is_check_scores_enabled",
+                    is_hidden="_is_check_scores_hidden",
+                )
+            )
+            # 2. Add duplicates back ONLY for Web (Turn Menu)
+            action_set.add(
+                Action(
+                    id="speak_hand",
+                    label=Localization.get(locale, "poker-read-hand"),
+                    handler="_action_read_hand",
+                    is_enabled="_is_turn_action_enabled",
+                    is_hidden="_is_turn_action_hidden",
+                )
+            )
+            action_set.add(
+                Action(
+                    id="speak_table",
+                    label=Localization.get(locale, "poker-read-table"),
+                    handler="_action_read_table",
+                    is_enabled="_is_turn_action_enabled",
+                    is_hidden="_is_turn_action_hidden",
+                )
+            )
+            action_set.add(
+                Action(
+                    id="speak_hand_value",
+                    label=Localization.get(locale, "poker-hand-value"),
+                    handler="_action_read_hand_value",
+                    is_enabled="_is_turn_action_enabled",
+                    is_hidden="_is_turn_action_hidden",
+                )
+            )
+            action_set.add(
+                Action(
+                    id="check_button",
+                    label=Localization.get(locale, "poker-check-button"),
+                    handler="_action_check_button",
+                    is_enabled="_is_turn_action_enabled",
+                    is_hidden="_is_turn_action_hidden",
+                )
+            )
+            action_set.add(
+                Action(
+                    id="check_hand_players",
+                    label=Localization.get(locale, "poker-check-hand-players"),
+                    handler="_action_check_hand_players",
+                    is_enabled="_is_turn_action_enabled",
+                    is_hidden="_is_turn_action_hidden",
+                )
+            )
+
         return action_set
 
     def create_standard_action_set(self, player: Player) -> ActionSet:
@@ -281,7 +342,6 @@ class HoldemGame(Game, TurnTimerMixin):
                 handler="_action_check_pot",
                 is_enabled="_is_check_enabled",
                 is_hidden="_is_check_hidden",
-                show_in_actions_menu=False,
             )
         )
         action_set.add(
@@ -291,7 +351,6 @@ class HoldemGame(Game, TurnTimerMixin):
                 handler="_action_check_bet",
                 is_enabled="_is_check_enabled",
                 is_hidden="_is_check_hidden",
-                show_in_actions_menu=False,
             )
         )
         action_set.add(
@@ -301,7 +360,6 @@ class HoldemGame(Game, TurnTimerMixin):
                 handler="_action_check_min_raise",
                 is_enabled="_is_check_enabled",
                 is_hidden="_is_check_hidden",
-                show_in_actions_menu=False,
             )
         )
         action_set.add(
@@ -311,7 +369,6 @@ class HoldemGame(Game, TurnTimerMixin):
                 handler="_action_check_hand_players",
                 is_enabled="_is_check_enabled",
                 is_hidden="_is_check_hidden",
-                show_in_actions_menu=False,
             )
         )
         action_set.add(
@@ -321,7 +378,6 @@ class HoldemGame(Game, TurnTimerMixin):
                 handler="_action_check_turn_timer",
                 is_enabled="_is_check_enabled",
                 is_hidden="_is_check_hidden",
-                show_in_actions_menu=False,
             )
         )
         action_set.add(
@@ -331,7 +387,6 @@ class HoldemGame(Game, TurnTimerMixin):
                 handler="_action_read_hand",
                 is_enabled="_is_check_enabled",
                 is_hidden="_is_check_hidden",
-                show_in_actions_menu=False,
             )
         )
         action_set.add(
@@ -341,7 +396,6 @@ class HoldemGame(Game, TurnTimerMixin):
                 handler="_action_read_table",
                 is_enabled="_is_check_enabled",
                 is_hidden="_is_check_hidden",
-                show_in_actions_menu=False,
             )
         )
         action_set.add(
@@ -351,7 +405,6 @@ class HoldemGame(Game, TurnTimerMixin):
                 handler="_action_read_hand_value",
                 is_enabled="_is_check_enabled",
                 is_hidden="_is_check_hidden",
-                show_in_actions_menu=False,
             )
         )
         action_set.add(
@@ -361,7 +414,6 @@ class HoldemGame(Game, TurnTimerMixin):
                 handler="_action_check_button",
                 is_enabled="_is_check_enabled",
                 is_hidden="_is_check_hidden",
-                show_in_actions_menu=False,
             )
         )
         action_set.add(
@@ -371,7 +423,6 @@ class HoldemGame(Game, TurnTimerMixin):
                 handler="_action_check_position",
                 is_enabled="_is_check_enabled",
                 is_hidden="_is_check_hidden",
-                show_in_actions_menu=False,
             )
         )
         action_set.add(
@@ -381,7 +432,6 @@ class HoldemGame(Game, TurnTimerMixin):
                 handler="_action_check_blind_timer",
                 is_enabled="_is_check_enabled",
                 is_hidden="_is_check_hidden",
-                show_in_actions_menu=False,
             )
         )
         for i in range(1, 8):
@@ -402,7 +452,6 @@ class HoldemGame(Game, TurnTimerMixin):
                 handler="_action_reveal_both",
                 is_enabled="_is_reveal_enabled",
                 is_hidden="_is_reveal_hidden",
-                show_in_actions_menu=False,
             )
         )
         action_set.add(
@@ -412,7 +461,6 @@ class HoldemGame(Game, TurnTimerMixin):
                 handler="_action_reveal_first",
                 is_enabled="_is_reveal_enabled",
                 is_hidden="_is_reveal_hidden",
-                show_in_actions_menu=False,
             )
         )
         action_set.add(
@@ -422,20 +470,16 @@ class HoldemGame(Game, TurnTimerMixin):
                 handler="_action_reveal_second",
                 is_enabled="_is_reveal_enabled",
                 is_hidden="_is_reveal_hidden",
-                show_in_actions_menu=False,
             )
         )
-        return action_set
-
-    # WEB-SPECIFIC: Target order for Standard Actions
-    web_target_order = ["check_scores", "whose_turn", "whos_at_table"]
-
-    def create_standard_action_set(self, player: Player) -> ActionSet:
-        action_set = super().create_standard_action_set(player)
-        user = self.get_user(player)
 
         # WEB-SPECIFIC: Reorder for Web Clients
         if user and getattr(user, "client_type", "") == "web":
+            # Remove actions from standard set as they are now in turn set for Web
+            for duplicate_id in ["check_scores", "speak_hand", "speak_table", "speak_hand_value", "check_button", "check_hand_players"]:
+                if action_set.get_action(duplicate_id):
+                    action_set.remove(duplicate_id)
+
             # Reordering Logic
             final_order = []
             for aid in self.web_target_order:
@@ -449,6 +493,9 @@ class HoldemGame(Game, TurnTimerMixin):
             action_set._order = final_order
 
         return action_set
+
+    # WEB-SPECIFIC: Target order for Standard Actions
+    web_target_order = ["check_scores", "whose_turn", "whos_at_table"]
 
     # WEB-SPECIFIC: Visibility Overrides
 
@@ -839,22 +886,34 @@ class HoldemGame(Game, TurnTimerMixin):
         try:
             amount = int(amount_str)
         except ValueError:
+            user = self.get_user(p)
+            if user:
+                user.speak_l("poker-enter-raise")
             return
         if amount <= 0:
+            user = self.get_user(p)
+            if user:
+                user.speak_l("poker-enter-raise")
             return
         if not self.betting.can_raise():
-            self.broadcast_l("poker-raise-cap-reached")
+            user = self.get_user(p)
+            if user:
+                user.speak_l("poker-raise-cap-reached")
             return
         to_call = self.betting.amount_to_call(p.id)
         min_raise = max(self.betting.last_raise_size, 1)
         if amount > p.chips:
-            self.broadcast_personal_l(p, "poker-raise-too-large", "poker-raise-too-large")
+            user = self.get_user(p)
+            if user:
+                user.speak_l("poker-raise-too-large")
             return
         if amount == p.chips:
             self._action_all_in(p, "all_in")
             return
         if amount < min_raise:
-            self.broadcast_l("poker-raise-too-small", amount=min_raise)
+            user = self.get_user(p)
+            if user:
+                user.speak_l("poker-raise-too-small", amount=min_raise)
             return
         total = to_call + amount
         # Apply raise mode limits
@@ -1114,12 +1173,17 @@ class HoldemGame(Game, TurnTimerMixin):
             return
         user = self.get_user(player)
         if user:
-            user.speak(read_cards(p.hand, user.locale), buffer="game")
+            if not p.hand:
+                return
+            user.speak_l("poker-your-hand", buffer="game", cards=read_cards(p.hand, user.locale))
 
     def _action_read_table(self, player: Player, action_id: str) -> None:
         user = self.get_user(player)
         if user:
-            user.speak(read_cards(self.community, user.locale), buffer="game")
+            if not self.community:
+                user.speak_l("poker-table-cards-none", buffer="game")
+            else:
+                user.speak_l("poker-table-cards", buffer="game", cards=read_cards(self.community, user.locale))
 
     def _action_read_hand_value(self, player: Player, action_id: str) -> None:
         p = player if isinstance(player, HoldemPlayer) else None
@@ -1127,6 +1191,8 @@ class HoldemGame(Game, TurnTimerMixin):
             return
         user = self.get_user(player)
         if user:
+            if not p.hand:
+                return
             desc = describe_partial_hand(p.hand + self.community, user.locale)
             user.speak(desc, buffer="game")
 

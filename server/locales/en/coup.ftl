@@ -67,6 +67,7 @@ coup-blocks-steal = { $blocker } claims the Captain/Ambassador to block { $targe
 coup-loses-influence = { $player } loses their { $character }!
 coup-must-lose-influence = You must choose an influence to lose.
 coup-must-return-card = Please select a card to return to the deck.
+coup-returned-card = You returned a { $character } to the deck.
 
 coup-action-check-wealth = Check Wealth
 coup-action-check-hand = Check Hand
@@ -78,10 +79,10 @@ coup-no-cards = You have no cards.
 coup-table-line = { $player } lost: { $cards }
 coup-table-empty = No cards have been revealed yet.
 
-coup-set-mandatory-coup = Mandatory Coup Coin Threshold
-coup-enter-mandatory-coup = Enter coins required to force a Coup:
+coup-set-mandatory-coup = Mandatory Coup Coin Threshold ({ $coins })
+coup-enter-mandatory-coup = Enter coins required to force a Coup (10 - 20):
 coup-option-changed-mandatory-coup = Mandatory Coup threshold changed.
 
-coup-set-timer-duration = Interrupt Timer Duration (Seconds)
-coup-enter-timer-duration = Enter duration for Challenge/Block window (seconds):
+coup-set-timer-duration = Interrupt Timer Duration ({ $seconds }s)
+coup-enter-timer-duration = Enter duration for Challenge/Block window (3 - 15 seconds):
 coup-option-changed-timer = Timer duration changed.

@@ -167,12 +167,6 @@ class CoupGame(Game):
                  user = self.get_user(player)
         locale = user.locale if user else "en"
 
-        # Unbind global keys that overlap or we want to override
-        if "t" in self._keybinds:
-            self._keybinds["t"] = []
-        if "b" in self._keybinds:
-            self._keybinds["b"] = []
-
         # Information Keybinds
         self.define_keybind("w", Localization.get(locale, "coup-action-check-wealth"), ["check_wealth"], state=KeybindState.ACTIVE, include_spectators=True)
         self.define_keybind("h", Localization.get(locale, "coup-action-check-hand"), ["check_hand"], state=KeybindState.ACTIVE)
@@ -489,6 +483,9 @@ class CoupGame(Game):
         return Visibility.VISIBLE
 
     def _is_challenge_enabled(self, player: Player) -> str | None:
+        if player.id == self.active_claimer_id:
+            return "action-not-available"
+
         if self.turn_phase == "action_declared":
             # Can we challenge this action?
             unchallengeable = ["income", "foreign_aid", "coup"]
@@ -501,6 +498,9 @@ class CoupGame(Game):
         return "coup-no-active-claim"
 
     def _is_block_enabled(self, player: Player) -> str | None:
+        if player.id == self.active_claimer_id:
+            return "action-not-available"
+
         if self.turn_phase != "action_declared":
             return "coup-cannot-block-now"
 
@@ -520,6 +520,8 @@ class CoupGame(Game):
         return "coup-cannot-block-action"
 
     def _is_pass_enabled(self, player: Player) -> str | None:
+        if player.id == self.active_claimer_id or player.id in getattr(self, "passed_players", set()):
+            return "action-not-available"
         return None  # If the interrupt is visible, passing is enabled.
 
     def _is_action_hidden(self, player: Player) -> Visibility:
@@ -975,6 +977,11 @@ class CoupGame(Game):
         self.deck.add(card)
         self.deck.shuffle()
         coup_player.influences.remove(card)
+
+        user = self.get_user(player)
+        if user:
+            card_name = Localization.get(user.locale, f"coup-card-{card.character.value}")
+            user.speak_l("coup-returned-card", buffer="game", character=card_name)
 
         # Check if we are done exchanging
         # Target live is original live count (usually 2, sometimes 1)

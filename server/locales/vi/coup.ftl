@@ -67,6 +67,7 @@ coup-blocks-steal = { $blocker } dùng chức Đội trưởng/Đại sứ để
 coup-loses-influence = { $player } bị mất { $character }!
 coup-must-lose-influence = Bạn phải chọn một thẻ để mất.
 coup-must-return-card = Vui lòng chọn một thẻ để trả lại bộ bài.
+coup-returned-card = Bạn đã trả một thẻ { $character } về bộ bài.
 
 coup-action-check-wealth = Kiểm tra tài sản
 coup-action-check-hand = Kiểm tra thẻ trên tay
@@ -78,10 +79,10 @@ coup-no-cards = Bạn không có thẻ nào.
 coup-table-line = { $player } đã mất: { $cards }
 coup-table-empty = Chưa có thẻ nào được lật mở.
 
-coup-set-mandatory-coup = Giới hạn tiền bắt buộc Đảo chính
-coup-enter-mandatory-coup = Nhập số tiền tối thiểu để bắt buộc Đảo chính:
+coup-set-mandatory-coup = Giới hạn tiền bắt buộc Đảo chính ({ $coins })
+coup-enter-mandatory-coup = Nhập số tiền tối thiểu để bắt buộc Đảo chính (10 - 20):
 coup-option-changed-mandatory-coup = Số tiền bắt buộc Đảo chính đã thay đổi.
 
-coup-set-timer-duration = Thời gian chờ gián đoạn (Giây)
-coup-enter-timer-duration = Nhập thời gian chờ Thách thức/Chặn (giây):
+coup-set-timer-duration = Thời gian chờ gián đoạn ({ $seconds } giây)
+coup-enter-timer-duration = Nhập thời gian chờ Thách thức/Chặn (3 - 15 giây):
 coup-option-changed-timer = Thời gian chờ đã thay đổi.

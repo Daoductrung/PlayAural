@@ -117,6 +117,11 @@ class CoupGame(Game):
         # Jolt bots
         BotHelper.jolt_bots(self, ticks=random.randint(10, 20))
 
+        # Broadcast initial hands privately
+        for player in active_players:
+            if not player.is_bot:
+                self._action_check_hand(player, "check_hand")
+
         # Start first turn
         self.reset_turn_order()
         self._start_turn()
@@ -335,8 +340,17 @@ class CoupGame(Game):
 
         return action_set
 
+    web_target_order = ["check_wealth", "check_hand", "check_table", "whose_turn", "whos_at_table"]
+
     def create_standard_action_set(self, player: Player) -> ActionSet:
         action_set = super().create_standard_action_set(player)
+
+        # Remove redundant global score checks that don't apply well to Coup
+        if action_set.get_action("check_scores"):
+            action_set.remove("check_scores")
+        if action_set.get_action("check_scores_detailed"):
+            action_set.remove("check_scores_detailed")
+
         user = self.get_user(player)
         locale = user.locale if user else "en"
 
@@ -371,11 +385,41 @@ class CoupGame(Game):
                 show_in_actions_menu=True,
             )
         )
+
+        # WEB-SPECIFIC: Reorder for Web Clients
+        if user and getattr(user, "client_type", "") == "web":
+            final_order = []
+            for aid in self.web_target_order:
+                if action_set.get_action(aid):
+                    final_order.append(aid)
+
+            for aid in action_set._order:
+                if aid not in self.web_target_order:
+                    final_order.append(aid)
+
+            action_set._order = final_order
+
         return action_set
 
     # ==========================================================================
     # Action Checks
     # ==========================================================================
+
+    def _is_whos_at_table_hidden(self, player: "Player") -> Visibility:
+        """Override: Visible for Web (always), hidden otherwise."""
+        user = self.get_user(player)
+        if user and getattr(user, "client_type", "") == "web":
+            return Visibility.VISIBLE
+        return super()._is_whos_at_table_hidden(player)
+
+    def _is_whose_turn_hidden(self, player: "Player") -> Visibility:
+        """Override: Visible for Web (Playing only), hidden otherwise."""
+        user = self.get_user(player)
+        if user and getattr(user, "client_type", "") == "web":
+            if self.status == "playing":
+                return Visibility.VISIBLE
+            return Visibility.HIDDEN
+        return super()._is_whose_turn_hidden(player)
 
     def _is_info_hidden(self, player: Player) -> Visibility:
         user = self.get_user(player)
@@ -617,10 +661,12 @@ class CoupGame(Game):
             lines.append(card_name)
 
         if not lines:
-            lines.append(Localization.get(user.locale, "coup-no-cards"))
+            cards_str = Localization.get(user.locale, "coup-no-cards")
+        else:
+            cards_str = ", ".join(lines)
 
-        combined = ", ".join(lines)
-        user.speak(combined, buffer="game")
+        # Deliver a contextual message including their coins and cards
+        user.speak_l("coup-hand-context", coins=coup_player.coins, cards=cards_str, buffer="game")
 
     def _action_check_table(self, player: Player, action_id: str) -> None:
         user = self.get_user(player)

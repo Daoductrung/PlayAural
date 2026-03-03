@@ -76,6 +76,7 @@ coup-action-check-table = Kiểm tra bàn
 coup-wealth-line = { $player }: { $coins } đồng
 coup-no-alive-players = Không có người chơi nào còn sống.
 coup-no-cards = Bạn không có thẻ nào.
+coup-hand-context = Bạn có { $coins } đồng. Các thẻ của bạn: { $cards }.
 coup-table-line = { $player } đã mất: { $cards }
 coup-table-empty = Chưa có thẻ nào được lật mở.
 

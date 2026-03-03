@@ -76,6 +76,7 @@ coup-action-check-table = Check Table
 coup-wealth-line = { $player }: { $coins } coins
 coup-no-alive-players = No players are currently alive.
 coup-no-cards = You have no cards.
+coup-hand-context = You have { $coins } coins. Your cards: { $cards }.
 coup-table-line = { $player } lost: { $cards }
 coup-table-empty = No cards have been revealed yet.
 

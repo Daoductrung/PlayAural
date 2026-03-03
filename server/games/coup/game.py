@@ -360,7 +360,7 @@ class CoupGame(Game):
                 id="check_wealth",
                 label=Localization.get(locale, "coup-action-check-wealth"),
                 handler="_action_check_wealth",
-                is_enabled="_is_info_enabled",
+                is_enabled="_is_public_info_enabled",
                 is_hidden="_is_info_hidden",
                 show_in_actions_menu=True,
             )
@@ -370,8 +370,8 @@ class CoupGame(Game):
                 id="check_hand",
                 label=Localization.get(locale, "coup-action-check-hand"),
                 handler="_action_check_hand",
-                is_enabled="_is_info_enabled",
-                is_hidden="_is_info_hidden",
+                is_enabled="_is_private_info_enabled",
+                is_hidden="_is_private_info_hidden",
                 show_in_actions_menu=True,
             )
         )
@@ -380,7 +380,7 @@ class CoupGame(Game):
                 id="check_table",
                 label=Localization.get(locale, "coup-action-check-table"),
                 handler="_action_check_table",
-                is_enabled="_is_info_enabled",
+                is_enabled="_is_public_info_enabled",
                 is_hidden="_is_info_hidden",
                 show_in_actions_menu=True,
             )
@@ -427,9 +427,21 @@ class CoupGame(Game):
             return Visibility.VISIBLE
         return Visibility.HIDDEN
 
-    def _is_info_enabled(self, player: Player) -> str | None:
+    def _is_private_info_hidden(self, player: Player) -> Visibility:
+        if player.is_spectator:
+            return Visibility.HIDDEN
+        return self._is_info_hidden(player)
+
+    def _is_public_info_enabled(self, player: Player) -> str | None:
         if self.status != "playing":
             return "action-not-playing"
+        return None
+
+    def _is_private_info_enabled(self, player: Player) -> str | None:
+        if self.status != "playing":
+            return "action-not-playing"
+        if player.is_spectator:
+            return "action-spectator"
         return None
 
     def _is_lose_influence_hidden(self, player: Player) -> Visibility:
@@ -527,6 +539,8 @@ class CoupGame(Game):
         return Visibility.VISIBLE
 
     def _is_challenge_enabled(self, player: Player) -> str | None:
+        if player.is_spectator or player.is_dead:
+            return "action-not-playing"
         if player.id == self.active_claimer_id:
             return "action-not-available"
 
@@ -542,6 +556,8 @@ class CoupGame(Game):
         return "coup-no-active-claim"
 
     def _is_block_enabled(self, player: Player) -> str | None:
+        if player.is_spectator or player.is_dead:
+            return "action-not-playing"
         if player.id == self.active_claimer_id:
             return "action-not-available"
 
@@ -564,6 +580,8 @@ class CoupGame(Game):
         return "coup-cannot-block-action"
 
     def _is_pass_enabled(self, player: Player) -> str | None:
+        if player.is_spectator or player.is_dead:
+            return "action-not-playing"
         if player.id == self.active_claimer_id or player.id in getattr(self, "passed_players", set()):
             return "action-not-available"
         return None  # If the interrupt is visible, passing is enabled.
@@ -674,7 +692,7 @@ class CoupGame(Game):
             return
 
         lines = []
-        for p in self.players:
+        for p in self.get_active_players():
             dead = p.dead_influences
             if dead:
                 cards = [Localization.get(user.locale, f"coup-card-{c.character.value}") for c in dead]
@@ -1052,7 +1070,7 @@ class CoupGame(Game):
     def _broadcast_card_message(self, message_key: str, character: str | Character, **kwargs) -> None:
         """Broadcast a message with a localized card name to all players."""
         char_val = character.value if hasattr(character, "value") else character
-        for p in self.players:
+        for p in self.players: # Broadcast to everyone, including spectators
             user = self.get_user(p)
             if not user:
                 continue
@@ -1129,8 +1147,9 @@ class CoupGame(Game):
         alive = self.get_alive_players()
         winner = alive[0] if alive else None
 
+        active_players = self.get_active_players()
         # Sort players: winner first, then by coins
-        sorted_players = sorted(self.players, key=lambda p: (not p.is_dead, p.coins), reverse=True)
+        sorted_players = sorted(active_players, key=lambda p: (not p.is_dead, p.coins), reverse=True)
 
         rankings = []
         for p in sorted_players:
@@ -1155,7 +1174,7 @@ class CoupGame(Game):
                     player_name=p.name,
                     is_bot=p.is_bot,
                 )
-                for p in self.players
+                for p in active_players
             ],
             custom_data={
                 "winner_name": winner.name if winner else None,

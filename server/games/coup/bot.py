@@ -115,7 +115,7 @@ class CoupBot(BotHelper):
 
             # Track known dead cards
             dead_cards = []
-            for p in game.players:
+            for p in game.get_active_players():
                 dead_cards.extend([c.character.value for c in p.dead_influences])
 
             # Determine logic if required_char is a list

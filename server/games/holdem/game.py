@@ -839,22 +839,34 @@ class HoldemGame(Game, TurnTimerMixin):
         try:
             amount = int(amount_str)
         except ValueError:
+            user = self.get_user(p)
+            if user:
+                user.speak_l("poker-enter-raise")
             return
         if amount <= 0:
+            user = self.get_user(p)
+            if user:
+                user.speak_l("poker-enter-raise")
             return
         if not self.betting.can_raise():
-            self.broadcast_l("poker-raise-cap-reached")
+            user = self.get_user(p)
+            if user:
+                user.speak_l("poker-raise-cap-reached")
             return
         to_call = self.betting.amount_to_call(p.id)
         min_raise = max(self.betting.last_raise_size, 1)
         if amount > p.chips:
-            self.broadcast_personal_l(p, "poker-raise-too-large", "poker-raise-too-large")
+            user = self.get_user(p)
+            if user:
+                user.speak_l("poker-raise-too-large")
             return
         if amount == p.chips:
             self._action_all_in(p, "all_in")
             return
         if amount < min_raise:
-            self.broadcast_l("poker-raise-too-small", amount=min_raise)
+            user = self.get_user(p)
+            if user:
+                user.speak_l("poker-raise-too-small", amount=min_raise)
             return
         total = to_call + amount
         # Apply raise mode limits

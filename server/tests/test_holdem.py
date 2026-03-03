@@ -62,9 +62,18 @@ def test_holdem_raise_too_large_rejected():
     player.chips = 5
     pot_before = game.pot_manager.total_pot()
     bet_before = game.betting.bets.get(player.id, 0) if game.betting else 0
+
+    # Track messages spoken to the user to verify private error routing
+    user = game.get_user(player)
+    spoken_messages_before = len(user.get_spoken_messages())
+
     game._action_raise(player, "10", "raise")
     assert game.pot_manager.total_pot() == pot_before
     assert game.betting.bets.get(player.id, 0) == bet_before
+
+    # Ensure it didn't crash and the error message was sent privately
+    spoken_messages_after = user.get_spoken_messages()
+    assert len(spoken_messages_after) > spoken_messages_before
 
 
 def test_holdem_short_stack_raise_all_in():

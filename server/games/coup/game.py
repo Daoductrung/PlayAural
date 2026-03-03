@@ -28,6 +28,7 @@ from ...ui.keybinds import KeybindState
 
 from .cards import Deck, Card, Character
 from .player import CoupPlayer, CoupOptions
+from .bot import CoupBot
 
 
 @dataclass
@@ -585,6 +586,7 @@ class CoupGame(Game):
             self.play_sound("game_coup/claim_ambassador.ogg")
             self.broadcast_l("coup-claims-exchange", player=player.name)
 
+        self.broadcast_l("coup-waiting-for-reactions")
         self.rebuild_all_menus()
         BotHelper.jolt_bots(self, ticks=random.randint(20, 40))
 
@@ -640,7 +642,10 @@ class CoupGame(Game):
                 self._next_action_after_lose = "resolve_action"
             else:
                 self._next_action_after_lose = "end_turn" # Block succeeded, turn ends
+                self.broadcast_l("coup-bluff-wrong", challenger=player.name)
+
                 # Play block success sound
+                self.broadcast_l("coup-block-successful", blocker=claimer.name)
                 if self.active_action == "foreign_aid":
                     self.play_sound("game_coup/block_duke.ogg")
                 elif self.active_action == "assassinate":
@@ -662,6 +667,7 @@ class CoupGame(Game):
             elif self.turn_phase == "waiting_block":
                 self._next_action_after_lose = "resolve_action"
 
+            self.broadcast_l("coup-bluff-called", player=claimer.name)
             # Claimer loses influence
             self._prompt_lose_influence(claimer.id, "lost_challenge")
 
@@ -690,6 +696,8 @@ class CoupGame(Game):
         self.active_claimer_id = player.id # Blocker is now claiming to have a role
         self.interrupt_timer_ticks = self.options.timer_duration_seconds * 20
         self.interrupt_duration_ticks = self.interrupt_timer_ticks
+
+        self.broadcast_l("coup-waiting-for-reactions")
         self.rebuild_all_menus()
         BotHelper.jolt_bots(self, ticks=random.randint(20, 40))
 
@@ -729,6 +737,8 @@ class CoupGame(Game):
                     self._resolve_action()
                 elif self.turn_phase == "waiting_block":
                     # Nobody challenged the block, action fails
+                    blocker = self.get_player_by_id(self.active_claimer_id)
+                    self.broadcast_l("coup-block-successful", blocker=blocker.name if blocker else "Someone")
                     if self.active_action == "foreign_aid":
                         self.play_sound("game_coup/block_duke.ogg")
                     elif self.active_action == "assassinate":
@@ -737,125 +747,11 @@ class CoupGame(Game):
                         self.play_sound("game_coup/block_stealing.ogg")
                     self._end_turn()
 
-        BotHelper.on_tick(self)
-
-    def bot_think(self, player: CoupPlayer) -> str | None:
-        if player.is_dead:
-            return None
-
-        # If losing influence, handled by _bot_lose_influence
-        if self.turn_phase == "losing_influence" and self.active_target_id == player.id:
-            return None
-
-        # Interrupt window logic
-        if self.turn_phase in ["action_declared", "waiting_block"]:
-            if player.id == self.active_claimer_id:
-                return None
-
-            # Smart AI logic to challenge or block
-            claimer = self.get_player_by_id(self.active_claimer_id)
-            if not claimer: return None
-
-            # Don't do anything 70% of the time right away to simulate thinking
-            if random.random() < 0.7:
-                return None
-
-            required_char = self._get_required_character_for_action(self.active_action)
-            if self.turn_phase == "waiting_block":
-                required_char = self._get_required_character_for_block(self.active_action)
-
-            # If we KNOW they are bluffing (we have all 3, or we have 2 and 1 is dead, etc.)
-            # Track known dead cards
-            dead_cards = []
-            for p in self.players:
-                dead_cards.extend([c.character.value for c in p.dead_influences])
-
-            # Determine logic if required_char is a list
-            if isinstance(required_char, list):
-                # We know they are bluffing ONLY if ALL characters in the list are exhausted
-                total_exhausted = 0
-                hold_any = False
-                for rc in required_char:
-                    dead_count = dead_cards.count(rc)
-                    my_count = sum(1 for c in player.live_influences if c.character.value == rc)
-                    if dead_count + my_count == 3:
-                        total_exhausted += 1
-                    if player.has_influence(rc):
-                        hold_any = True
-                if total_exhausted == len(required_char):
-                    return "challenge"
-
-                if hold_any and random.random() < 0.15:
-                    return "challenge"
-                elif random.random() < 0.05:
-                    return "challenge"
-            else:
-                dead_count = dead_cards.count(required_char)
-                my_count = sum(1 for c in player.live_influences if c.character.value == required_char)
-
-                if dead_count + my_count == 3:
-                    return "challenge" # They MUST be bluffing
-
-                # Otherwise, 15% chance to challenge if we hold the card, 5% otherwise
-                if required_char and player.has_influence(required_char) and random.random() < 0.15:
-                    return "challenge"
-                elif random.random() < 0.05:
-                    return "challenge"
-
-            # Blocking logic (only in action_declared)
-            if self.turn_phase == "action_declared" and self._is_block_enabled(player) is None:
-                # E.g. someone is stealing from us
-                if self.active_action == "steal" and self.active_target_id == player.id:
-                    # 40% chance to block
-                    if random.random() < 0.4:
-                        return "block"
-                elif self.active_action == "assassinate" and self.active_target_id == player.id:
-                    # 60% chance to block
-                    if random.random() < 0.6:
-                        return "block"
-                elif self.active_action == "foreign_aid":
-                    # 10% chance to block someone else's foreign aid
-                    if random.random() < 0.1:
-                        return "block"
-
-            return "pass"
-
-        # Main turn actions
-        if self.turn_phase == "main" and self.current_player == player:
-            if player.coins >= self.options.mandatory_coup_threshold:
-                return "coup"
-
-            # Available actions
-            actions = ["income", "foreign_aid", "tax", "exchange"]
-            weights = []
-            if player.coins >= 7:
-                actions = ["coup"] # Must be chosen if >= 7 and weights won't matter
-                weights = [100]
-            else:
-                if player.coins >= 3: actions.append("assassinate")
-
-                # Can we steal? Check if anyone has coins
-                can_steal = any(p.coins > 0 for p in self.get_alive_players() if p.id != player.id)
-                if can_steal:
-                    actions.append("steal")
-
-                # Weight actions based on holding the card
-                for action in actions:
-                    weight = 10
-                    if action == "tax" and player.has_influence("duke"): weight = 50
-                    elif action == "assassinate" and player.has_influence("assassin"): weight = 40
-                    elif action == "steal" and player.has_influence("captain"): weight = 30
-                    elif action == "exchange" and player.has_influence("ambassador"): weight = 20
-                    elif action == "coup": weight = 100 # high priority
-                    weights.append(weight)
-
-            action = random.choices(actions, weights=weights, k=1)[0]
-            return action
-
-        return None
+        CoupBot.on_tick(self)
 
     def _resolve_action(self) -> None:
         """Resolves the active action after no challenges/blocks occur or they fail."""
+        self.broadcast_l("coup-action-resolves")
         player = self.get_player_by_id(self.original_claimer_id)
         target = self.get_player_by_id(self.active_target_id)
 
@@ -897,9 +793,8 @@ class CoupGame(Game):
             self.interrupt_timer_ticks = 0
             self.rebuild_all_menus()
 
-            # TODO: Auto-exchange for bots
             if player.is_bot:
-                self._bot_resolve_exchange(player)
+                BotHelper.jolt_bot(player, ticks=random.randint(10, 20))
 
 
     def _action_return_card(self, player: Player, action_id: str) -> None:
@@ -953,6 +848,8 @@ class CoupGame(Game):
             self.play_sound(f"game_coup/chardestroy{random.randint(1, 2)}.ogg")
             player.reveal_influence(0)
             self.broadcast_l("coup-loses-influence", player=player.name, character=live[0].character)
+            if player.is_dead:
+                self.broadcast_l("coup-player-eliminated", player=player.name)
             self._post_lose_influence()
         else:
             # Need to pick
@@ -961,7 +858,7 @@ class CoupGame(Game):
             self.rebuild_all_menus()
 
             if player.is_bot:
-                self._bot_lose_influence(player)
+                BotHelper.jolt_bot(player, ticks=random.randint(10, 20))
             else:
                 user = self.get_user(player)
                 if user:
@@ -995,39 +892,6 @@ class CoupGame(Game):
             self._resolve_action()
 
         self._next_action_after_lose = "end_turn"
-
-    def _bot_lose_influence(self, player: CoupPlayer) -> None:
-        # Bot picks a random influence to lose
-        self.play_sound(f"game_coup/chardestroy{random.randint(1, 2)}.ogg")
-        idx = random.randint(0, len(player.live_influences) - 1)
-        char = player.live_influences[idx].character
-        player.reveal_influence(idx)
-        self.broadcast_l("coup-loses-influence", player=player.name, character=char)
-        self._post_lose_influence()
-
-    def _bot_resolve_exchange(self, player: CoupPlayer) -> None:
-        # Bot randomly keeps 2
-        live_count = 2 if len(player.influences) >= 4 else 1 # Depends on if they lost 1
-        live_count = len([c for c in player.influences if not c.is_revealed])
-
-        # We need to end up with original number of live cards
-        # Currently, exchange gave them +2 cards.
-        target_live = live_count - 2
-
-        # Shuffle their live cards, keep target_live, return 2
-        cards = player.live_influences
-        random.shuffle(cards)
-        keep = cards[:target_live]
-        return_cards = cards[target_live:]
-
-        player.influences = [c for c in player.influences if c.is_revealed] + keep
-        for c in return_cards:
-            self.deck.add(c)
-        self.deck.shuffle()
-
-        self.play_sound("game_coup/exchange_complete.ogg")
-        self.broadcast_l("coup-exchange-complete", player=player.name)
-        self._end_turn()
 
     def _end_game(self, winner: CoupPlayer | None) -> None:
         """End the game."""

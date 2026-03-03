@@ -46,6 +46,17 @@ coup-claims-exchange = { $player } claims the Ambassador to exchange cards.
 coup-exchanges = { $player } draws 2 cards to exchange.
 coup-exchange-complete = { $player } has completed their exchange.
 
+coup-waiting-for-reactions = Waiting for players to Challenge or Block...
+coup-player-eliminated = { $player } has lost all their influence and is eliminated from the game.
+coup-game-over = Game Over! { $winner } is the last survivor and wins the game!
+coup-target-is-dead = Invalid target: { $target } is already eliminated.
+coup-cannot-afford-assassinate = You need at least 3 coins to assassinate.
+coup-cannot-afford-coup = You need at least 7 coins to stage a Coup.
+coup-bluff-called = { $player } was caught bluffing and must lose an influence!
+coup-bluff-wrong = { $challenger } guessed wrong and must lose an influence!
+coup-block-successful = { $blocker } successfully blocked the action!
+coup-action-resolves = The action resolves successfully.
+
 coup-challenges = { $challenger } challenges { $target }!
 coup-challenge-succeeded = { $player } was caught bluffing!
 coup-challenge-failed = { $player } was telling the truth, they revealed a { $character }!

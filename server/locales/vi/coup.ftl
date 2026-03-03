@@ -46,6 +46,17 @@ coup-claims-exchange = { $player } dùng chức Đại sứ để đổi thẻ.
 coup-exchanges = { $player } rút 2 thẻ để trao đổi.
 coup-exchange-complete = { $player } đã hoàn thành việc đổi thẻ.
 
+coup-waiting-for-reactions = Đang chờ người chơi khác Thách thức hoặc Chặn...
+coup-player-eliminated = { $player } đã mất tất cả thẻ và bị loại khỏi trò chơi.
+coup-game-over = Trò chơi kết thúc! { $winner } là người sống sót cuối cùng và giành chiến thắng!
+coup-target-is-dead = Mục tiêu không hợp lệ: { $target } đã bị loại.
+coup-cannot-afford-assassinate = Bạn cần ít nhất 3 đồng để ám sát.
+coup-cannot-afford-coup = Bạn cần ít nhất 7 đồng để Đảo chính.
+coup-bluff-called = { $player } bị bắt quả tang đang nói dối và phải mất một thẻ!
+coup-bluff-wrong = { $challenger } đã đoán sai và phải mất một thẻ!
+coup-block-successful = { $blocker } đã chặn hành động thành công!
+coup-action-resolves = Hành động đã được thực hiện thành công.
+
 coup-challenges = { $challenger } thách thức { $target }!
 coup-challenge-succeeded = { $player } bị bắt quả tang đang nói dối!
 coup-challenge-failed = { $player } đã nói thật, họ tiết lộ một { $character }!

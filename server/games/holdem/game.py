@@ -550,10 +550,10 @@ class HoldemGame(Game, TurnTimerMixin):
         self.status = "playing"
         self._sync_table_status()
         self.game_active = True
-        for player in self.players:
+        for player in self.get_active_players():
             player.chips = self.options.starting_chips
         self._team_manager.team_mode = "individual"
-        self._team_manager.setup_teams([p.name for p in self.players])
+        self._team_manager.setup_teams([p.name for p in self.get_active_players()])
         self._sync_team_scores()
         self.set_turn_players(self.get_active_players())
         self.play_music("game_3cardpoker/mus.ogg")
@@ -1377,7 +1377,7 @@ class HoldemGame(Game, TurnTimerMixin):
     def _sync_team_scores(self) -> None:
         for team in self._team_manager.teams:
             team.total_score = 0
-        for p in self.players:
+        for p in self.get_active_players():
             team = self._team_manager.get_team(p.name)
             if team:
                 team.total_score = p.chips

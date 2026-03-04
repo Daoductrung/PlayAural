@@ -147,6 +147,7 @@ class CoupGame(Game):
 
         # Play intro music
         self.play_music("game_coup/music.ogg")
+        self.play_sound(f"game_cards/shuffle{random.randint(1, 3)}.ogg")
 
         # Jolt bots
         BotHelper.jolt_bots(self, ticks=random.randint(10, 20))
@@ -927,6 +928,10 @@ class CoupGame(Game):
 
         self.passed_players.add(player.id)
 
+        user = self.get_user(player)
+        if user and not player.is_bot:
+            user.speak_l("coup-action-pass-confirmed", buffer="game")
+
         # Check if all other eligible players have passed
         alive = self.get_alive_players()
         eligible_count = 0
@@ -1063,9 +1068,16 @@ class CoupGame(Game):
                 if card.character == revealed_char:
                     self.deck.add(card)
                     self.deck.shuffle()
+                    self.play_sound(f"game_cards/discard{random.randint(1, 3)}.ogg")
                     claimer.influences.remove(card)
                     new_card = self.deck.draw()
                     claimer.influences.append(new_card)
+                    self.play_sound(f"game_cards/draw{random.randint(1, 4)}.ogg")
+                    if new_card and not claimer.is_bot:
+                        user = self.get_user(claimer)
+                        if user:
+                            new_card_name = Localization.get(user.locale, f"coup-card-{new_card.character.value}")
+                            user.speak_l("coup-drew-replacement-card", character=new_card_name, buffer="game")
                     break
 
             if self.turn_phase == "action_declared":
@@ -1197,8 +1209,12 @@ class CoupGame(Game):
             # Add 2 cards to hand, transition to exchange phase instantly
             card1 = self.deck.draw()
             card2 = self.deck.draw()
-            if card1: player.influences.append(card1)
-            if card2: player.influences.append(card2)
+            if card1:
+                player.influences.append(card1)
+                self.play_sound(f"game_cards/draw{random.randint(1, 4)}.ogg")
+            if card2:
+                player.influences.append(card2)
+                self.play_sound(f"game_cards/draw{random.randint(1, 4)}.ogg")
 
             self.turn_phase = "exchanging"
             self.interrupt_timer_ticks = 0
@@ -1225,6 +1241,7 @@ class CoupGame(Game):
         self.deck.add(card)
         self.deck.shuffle()
         coup_player.influences.remove(card)
+        self.play_sound(f"game_cards/discard{random.randint(1, 3)}.ogg")
 
         user = self.get_user(player)
         if user:
@@ -1272,6 +1289,7 @@ class CoupGame(Game):
         if len(live) == 1:
             # Only one left, auto-lose it
             self.play_sound(f"game_coup/chardestroy{random.randint(1, 2)}.ogg")
+            self.play_sound(f"game_cards/discard{random.randint(1, 3)}.ogg")
             player.reveal_influence(0)
             self._broadcast_card_message("coup-loses-influence", live[0].character, player=player.name)
             if player.is_dead:
@@ -1308,6 +1326,7 @@ class CoupGame(Game):
 
         sound_file = f"chardestroy{random.randint(1, 2)}.ogg"
         self.play_sound(f"game_coup/{sound_file}")
+        self.play_sound(f"game_cards/discard{random.randint(1, 3)}.ogg")
 
         char = coup_player.live_influences[idx].character
         coup_player.reveal_influence(idx)

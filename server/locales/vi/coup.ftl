@@ -49,6 +49,9 @@ coup-claims-exchange = { $player } tuyên bố là Sứ giả để trao đổi 
 coup-exchanges = { $player } rút 2 lá bài để trao đổi.
 coup-exchange-complete = { $player } đã hoàn thành việc trao đổi bài.
 
+coup-drew-replacement-card = Bạn đã rút được lá { $character } để thay thế.
+coup-action-pass-confirmed = Bạn đã bỏ qua.
+
 coup-waiting-for-reactions = Đang chờ người chơi Thách thức hoặc Chặn...
 coup-player-eliminated = { $player } đã mất tất cả lá bài và bị loại khỏi cuộc chơi.
 coup-game-over = Trò chơi kết thúc! { $winner } là người cuối cùng còn sống sót và giành chiến thắng!

@@ -1,57 +1,56 @@
-Coup
+**Đảo Chính (Coup)**
 
-Chao mung ban den voi Coup, mot tro choi vo cung cang thang ve suy luan, lua doi va thao tung chinh tri. Duoc dat trong mot tuong lai phan utopia, noi chinh phu bi dieu hanh boi mot tang lop quy toc moi la cac CEO da quoc gia. Ban la nguoi dung dau mot gia dinh dang khao khat quyen luc. Muc tieu cua ban la tro thanh nguoi choi song sot cuoi cung bang cach tieu diet the luc (cac the nhan vat) cua doi thu va ep ho di day. Trong Coup, noi doi khong chi la mot lua chon ma thuong la dieu bat buoc.
+Đảo Chính là một trò chơi căng thẳng về suy luận, lừa dối và thao túng chính trị. Bạn sẽ vào vai người đứng đầu một gia tộc đang tranh giành quyền lực. Mục tiêu của bạn là trở thành người cuối cùng sống sót bằng cách loại bỏ ảnh hưởng của các đối thủ. Trong trò chơi này, nói dối không chỉ là một lựa chọn, nó thường là yếu tố sống còn.
 
-Thanh phan va Thiet lap
+**Cách chơi**
 
-- Bo bai: Co tong cong 15 the nhan vat, bao gom 3 ban sao cua moi nhan vat: Cong tuoc (Duke), Sat thu (Assassin), Doi truong (Captain), Dai su (Ambassador), va Nu ba tuoc (Contessa).
-- Khoi dau: Moi nguoi choi bat dau voi 2 dong xu va 2 the nhan vat up xuong (goi la "the luc" cua ban). Ban chi bi loai khi mat ca 2 the luc nay.
+Trò chơi sử dụng một bộ bài 15 lá, bao gồm 3 bản sao cho mỗi nhân vật trong số 5 nhân vật: Tướng quân, Sát thủ, Đô đốc, Sứ giả và Nữ bá tước.
 
-Quy tac Cot loi va Hanh dong
+Mỗi người chơi bắt đầu với 2 xu và 2 lá bài nhân vật úp xuống (tượng trưng cho ảnh hưởng của bạn). Bạn sẽ bị loại khỏi trò chơi khi mất cả hai lá bài của mình.
 
-Den luot cua minh, ban co the thuc hien chinh xac MOT hanh dong. Neu hanh dong do doi hoi mot nhan vat cu the, ban phai tuyen bo minh dang co nhan vat do tren tay. Ban khong nhat thiet phai thuc su co the do - ban chi can noi rang ban co no la duoc!
+Trong lượt của mình, bạn được thực hiện chính xác **một** hành động. Nếu hành động đó yêu cầu một nhân vật cụ thể, bạn phải tuyên bố rằng mình có nhân vật đó. Bạn không cần thực sự có lá bài đó trên tay — bạn chỉ cần nói là mình có!
 
-Hanh dong tieu chuan (Khong yeu cau the)
-- Thu nhap: Lay 1 dong xu tu kho bac. Hanh dong nay an toan tuyet doi va khong the bi chan.
-- Vien tro nuoc ngoai: Lay 2 dong xu tu kho bac. (Co the bi bat ky ai tu xung la Cong tuoc chan lai).
-- Dao chinh (Coup): Tra 7 dong xu de phat dong cuoc dao chinh nham vao mot nguoi choi khac. Nguoi do ngay lap tuc mat di mot the. Dao chinh khong the bi chan hay thach thuc. Chu y: Neu luot cua ban bat dau ma co 10 dong xu tro len, ban bat buoc phai chon Dao chinh.
+**Hành động Tiêu chuẩn (Không cần nhân vật)**
 
-Hanh dong theo Nhan vat
-- Cong tuoc (Duke): Danh thue - Lay 3 dong xu tu kho bac.
-- Sat thu (Assassin): Am sat - Tra 3 dong xu va chon mot muc tieu. Neu thanh cong, nguoi do se mat mot the. (Co the bi Nu ba tuoc chan).
-- Doi truong (Captain): An trom - Lay 2 dong xu tu mot nguoi khac. Neu ho chi co 1 dong, ban lay 1 dong. (Co the bi Doi truong hoac Dai su chan).
-- Dai su (Ambassador): Trao doi the - Rut 2 the tu bo bai, nhin cung voi the tren tay cua ban, va sau do tra lai chinh xac 2 the vao bo bai.
+* **Thu nhập:** Lấy 1 xu từ ngân khố. Hành động này hoàn toàn an toàn và không thể bị chặn.
+* **Viện trợ nước ngoài:** Lấy 2 xu từ ngân khố. Hành động này có thể bị chặn bởi bất kỳ ai tuyên bố mình có Tướng quân.
+* **Đảo chính:** Trả 7 xu để tiến hành Đảo chính nhắm vào một người chơi khác. Người đó ngay lập tức mất một lá bài. Đảo chính không thể bị chặn hay bị thách thức.
 
-Thach thuc va Chan (Khoang thoi gian gian doan)
+**Hành động của Nhân vật**
 
-Bat cu khi nao mot nguoi choi tuyen bo su dung nhan vat—du la de thuc hien hanh dong (nhu Danh thue) hay de chan hanh dong (nhu dung Cong tuoc chan Vien tro)—mot khoang thoi gian ngan se xuat hien (thuong la 5 den 7 giay). Trong luc nay, bat ky ai khac deu co the phan ung thong qua cac Phim tat.
+* **Tướng quân (Thu thuế):** Lấy 3 xu từ ngân khố.
+* **Sát thủ (Ám sát):** Trả 3 xu và chọn một người chơi làm mục tiêu. Nếu thành công, người đó mất một lá bài. Hành động này có thể bị chặn bởi Nữ bá tước.
+* **Đô đốc (Trộm đồ):** Trộm 2 xu từ người chơi khác. Nếu họ chỉ có 1 xu, bạn trộm 1 xu. Hành động này có thể bị chặn bởi Đô đốc hoặc Sứ giả.
+* **Sứ giả (Trao đổi bài):** Rút 2 lá bài từ bộ bài, xem chúng cùng với các lá bài đang úp của bạn, sau đó chọn và trả lại chính xác 2 lá bài vào bộ bài.
 
-Thach thuc
-Neu ban nghi rang ai do dang noi doi, ban co the thach thuc ho.
-- Neu ho noi that: Ho se lat the ma ho vua tuyen bo, xao no tro lai vao bo bai va rut the moi. Ban (nguoi thach thuc) se mat mot the vi da doan sai!
-- Neu ho noi doi: Ho se that bai trong viec thuc hien hanh dong do va phai mat di mot the.
+**Thách thức và Chặn (Cửa sổ Ngắt quãng)**
 
-Chan mot Hanh dong
-Mot so hanh dong co the bi chan boi nhung nhan vat cu the. Vi du, neu Alice co gang an trom tu Bob, Bob co the tuyen bo anh ta co Doi truong de chan viec do. Loi chan nay ban than no cung la mot loi tuyen bo, nghia la Alice (hoac ai do khac) tiep tuc co the "thach thuc" loi khai cua Bob!
+Bất cứ khi nào có người tuyên bố một nhân vật để hành động hoặc để chặn, một đồng hồ đếm ngược ngắn sẽ bắt đầu. Trong khoảng thời gian này, bất kỳ người chơi nào khác cũng có thể phản ứng:
 
-Vi du Tung buoc
+* **Thách thức:** Nếu bạn nghĩ ai đó đang nói dối, bạn có thể thách thức họ.
+    * Nếu họ **đã nói thật**, họ lật lá bài đó lên để chứng minh, xào lại vào bộ bài và rút một lá mới. Bạn, người thách thức, sẽ bị mất một lá bài vì đã đoán sai!
+    * Nếu họ **đã nói dối**, hành động của họ thất bại và họ buộc phải bỏ đi một lá bài.
+* **Chặn:** Một số hành động có thể bị chặn bởi các nhân vật cụ thể. Lời chặn này bản thân nó cũng là một lời tuyên bố, nghĩa là bất kỳ ai cũng có quyền thách thức người đang cố gắng chặn!
 
-1. Hanh dong: Alice noi, "Toi la Cong tuoc va toi lay 3 dong xu tien thue."
-2. Khoang thoi gian gian doan: Dong ho bat dau dem. Bob nghi Alice dang noi doi nen nhan phim `c` de Thach thuc.
-3. Giai quyet:
-   - Neu Alice that su co the Cong tuoc, co ay lat no ra. Bob bi mat mot the. Alice van nhan duoc 3 dong xu.
-   - Neu Alice KHONG co the Cong tuoc, co ay khong duoc lay xu va con phai mat di mot the cua minh.
+**Tùy chỉnh tại bàn chơi**
 
-Phim tat ban phim
+Chủ bàn có thể thiết lập các tùy chọn sau trước khi bắt đầu:
+* **Ngưỡng xu bắt buộc Đảo chính:** Số xu khiến một người chơi bắt buộc phải chọn hành động Đảo chính (mặc định là 10 xu, có thể chỉnh lên tối đa 20 xu).
+* **Thời gian chờ phản ứng:** Thời gian mở cửa sổ ngắt quãng cho phép người chơi Thách thức hoặc Chặn (có thể chỉnh từ 3 đến 15 giây).
 
-Trong nhung khoang thoi gian quyet dinh dien ra cuc nhanh, viec su dung phim tat duoc khuyen khich, dac biet huu ich cho nguoi dung trinh doc man hinh.
+**Ví dụ một lượt chơi**
 
-Phim tat Phan ung (Khi cho doi)
-- c : Thach thuc loi tuyen bo hoac loi chan.
-- v : Chan mot hanh dong nham vao ban (hoac chan Vien tro nuoc ngoai).
-- p : Bo qua (dong y khong thach thuc hay chan). Neu tat ca moi nguoi cung bo qua, dong ho se duoc tua nhanh.
+1. **Hành động:** Nam tuyên bố mình là Tướng quân và lấy 3 xu để Thu thuế.
+2. **Cửa sổ ngắt quãng:** Đồng hồ bắt đầu đếm. Lan nghĩ Nam đang nói dối nên nhấn phím **C** để Thách thức.
+3. **Giải quyết:**
+   * Nếu Nam *thực sự* có Tướng quân, anh ấy lật lá bài lên. Lan bị phạt mất một lá bài, và Nam nhận được 3 xu của mình.
+   * Nếu Nam *không có* Tướng quân, hành động của anh ấy thất bại, anh ấy không nhận được xu nào và bị mất một lá bài.
 
-Phim tat Thong tin (Bat ky luc nao)
-- w : Kiem tra Tai san (Liet ke tat ca nguoi choi con song va so xu cua ho).
-- h : Kiem tra The tren tay (Nhac ban nhung the dang up cua minh).
-- l : Kiem tra Ban (Liet ke tat ca nhung the da bi mat va duoc mo tren ban).
+**Phím tắt bàn phím**
+
+* **C:** Thách thức một lời tuyên bố hoặc một lời chặn.
+* **V:** Chặn một hành động nhắm vào bạn (hoặc chặn Viện trợ nước ngoài).
+* **P:** Bỏ qua (đồng ý không thách thức hoặc chặn). Nếu tất cả đều bỏ qua, đồng hồ đếm ngược sẽ kết thúc sớm.
+* **W:** Kiểm tra tài sản (đọc danh sách những người chơi còn sống và số xu của họ).
+* **H:** Kiểm tra bài trên tay (đọc lại các lá bài bạn đang giữ).
+* **L:** Kiểm tra bàn chơi (đọc danh sách tất cả các lá bài đã bị loại và lật ngửa trên bàn).

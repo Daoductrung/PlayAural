@@ -1,3 +1,0 @@
-mashumaro
-fluent_compiler
-pytest-asyncio

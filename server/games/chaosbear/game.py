@@ -305,16 +305,15 @@ class ChaosBearGame(Game):
             return
 
         # Process all events up to current tick
-        remaining_events = []
+        current_queue = list(self.event_queue)
+        self.event_queue = []
         current_tick = self.sound_scheduler_tick
 
-        for tick, event_type, data in self.event_queue:
+        for tick, event_type, data in current_queue:
             if tick <= current_tick:
                 self._handle_event(event_type, data)
             else:
-                remaining_events.append((tick, event_type, data))
-
-        self.event_queue = remaining_events
+                self.event_queue.append((tick, event_type, data))
 
     def _handle_event(self, event_type: str, data: dict) -> None:
         """Execute a single game event."""

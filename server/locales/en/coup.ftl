@@ -69,6 +69,8 @@ coup-must-lose-influence = You must choose an influence to lose.
 coup-must-return-card = Please select a card to return to the deck.
 coup-returned-card = You returned a { $character } to the deck.
 
+coup-you-are-eliminated = You have been eliminated and cannot perform this action.
+
 coup-action-check-wealth = Check Wealth
 coup-action-check-hand = Check Hand
 coup-action-check-table = Check Table

@@ -19,11 +19,16 @@ def game():
     g.on_start()
     return g
 
+def advance_ticks(game, ticks=100):
+    for _ in range(ticks):
+        game.on_tick()
+
 def test_income(game):
     """Test the income action."""
     alice = game.get_player_by_name("Alice")
     initial_coins = alice.coins
     game._action_income(alice, "income")
+    # Action is snappy but the game needs a tick
     assert alice.coins == initial_coins + 1
     assert game.current_player.name == "Bob"
 
@@ -34,6 +39,7 @@ def test_coup_action(game):
 
     alice.coins = 7
     game._action_coup(alice, "Bob", "coup")
+    advance_ticks(game, 150)
 
     assert alice.coins == 0
     assert game.turn_phase == "losing_influence"
@@ -41,6 +47,7 @@ def test_coup_action(game):
 
     # Bob loses an influence
     game._action_lose_influence(bob, "lose_influence_0")
+    advance_ticks(game, 100)
     assert len(bob.live_influences) == 1
     assert game.current_player.name == "Bob"
 
@@ -74,6 +81,8 @@ def test_assassinate_and_challenge(game):
 
     # Bob challenges Alice
     game._action_challenge(bob, "challenge")
+    advance_ticks(game, 150)
+    advance_ticks(game, 50)
 
     # Alice failed challenge (didn't have Assassin)
     # So Alice loses an influence immediately, and action fails.
@@ -82,6 +91,8 @@ def test_assassinate_and_challenge(game):
 
     # Alice chooses to lose the first one
     game._action_lose_influence(alice, "lose_influence_0")
+    advance_ticks(game, 100)
+
     assert len(alice.live_influences) == 1
 
     # Turn ends
@@ -108,6 +119,8 @@ def test_steal_block_and_failed_challenge(game):
 
     # Alice challenges Bob's block
     game._action_challenge(alice, "challenge")
+    advance_ticks(game, 150)
+    advance_ticks(game, 50)
 
     # Bob DOES have the Ambassador, so the challenge fails (Alice is wrong)
     # Alice loses influence
@@ -119,6 +132,7 @@ def test_steal_block_and_failed_challenge(game):
 
     # Alice chooses to lose the first one
     game._action_lose_influence(alice, "lose_influence_0")
+    advance_ticks(game, 100)
     assert len(alice.live_influences) == 1
 
     # Turn ends

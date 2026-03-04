@@ -20,8 +20,8 @@ def game():
     return g
 
 def advance_ticks(game, ticks=100):
-    game.sound_scheduler_tick += ticks
-    game.on_tick()
+    for _ in range(ticks):
+        game.on_tick()
 
 def test_income(game):
     """Test the income action."""

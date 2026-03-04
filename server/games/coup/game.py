@@ -1104,6 +1104,8 @@ class CoupGame(Game):
 
     def on_tick(self) -> None:
         super().on_tick()
+        self.process_scheduled_sounds()
+
         if not self.game_active:
             return
 

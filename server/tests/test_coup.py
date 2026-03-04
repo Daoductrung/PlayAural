@@ -28,7 +28,7 @@ def test_income(game):
     alice = game.get_player_by_name("Alice")
     initial_coins = alice.coins
     game._action_income(alice, "income")
-    advance_ticks(game, 100)
+    # Action is snappy but the game needs a tick
     assert alice.coins == initial_coins + 1
     assert game.current_player.name == "Bob"
 
@@ -57,16 +57,12 @@ def test_foreign_aid_and_block(game):
     bob = game.get_player_by_name("Bob")
 
     game._action_foreign_aid(alice, "foreign_aid")
-    advance_ticks(game, 100)
-
     assert game.turn_phase == "action_declared"
     assert game.active_action == "foreign_aid"
     assert game.active_claimer_id == alice.id
 
     # Bob blocks
     game._action_block(bob, "block")
-    advance_ticks(game, 150)
-
     assert game.turn_phase == "waiting_block"
     assert game.active_claimer_id == bob.id
 
@@ -80,8 +76,6 @@ def test_assassinate_and_challenge(game):
     alice.coins = 3
 
     game._action_assassinate(alice, "Bob", "assassinate")
-    advance_ticks(game, 100)
-
     assert game.turn_phase == "action_declared"
     assert game.active_target_id == bob.id
 
@@ -115,12 +109,10 @@ def test_steal_block_and_failed_challenge(game):
     bob.influences = [Card(Character.AMBASSADOR), Card(Character.CONTESSA)]
 
     game._action_steal(alice, "Bob", "steal")
-    advance_ticks(game, 100)
     assert game.turn_phase == "action_declared"
 
     # Bob blocks with Ambassador
     game._action_block(bob, "block")
-    advance_ticks(game, 100)
     assert game.turn_phase == "waiting_block"
     assert game.active_claimer_id == bob.id
     assert game.original_claimer_id == alice.id

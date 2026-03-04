@@ -46,6 +46,9 @@ coup-claims-exchange = { $player } claims the Ambassador to exchange cards.
 coup-exchanges = { $player } draws 2 cards to exchange.
 coup-exchange-complete = { $player } has completed their exchange.
 
+coup-drew-replacement-card = You drew a { $character } as a replacement.
+coup-action-pass-confirmed = You passed.
+
 coup-waiting-for-reactions = Waiting for players to Challenge or Block...
 coup-player-eliminated = { $player } has lost all their influence and is eliminated from the game.
 coup-game-over = Game Over! { $winner } is the last survivor and wins the game!

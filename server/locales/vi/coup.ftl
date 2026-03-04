@@ -72,6 +72,8 @@ coup-must-lose-influence = Bạn phải chọn một lá bài để bỏ đi.
 coup-must-return-card = Vui lòng chọn một lá bài để trả lại bộ bài.
 coup-returned-card = Bạn đã trả lại lá { $character } vào bộ bài.
 
+coup-you-are-eliminated = Bạn đã bị loại và không thể thực hiện hành động này.
+
 coup-action-check-wealth = Kiểm tra tài sản
 coup-action-check-hand = Kiểm tra bài trên tay
 coup-action-check-table = Kiểm tra bàn chơi

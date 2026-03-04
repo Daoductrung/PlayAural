@@ -19,11 +19,16 @@ def game():
     g.on_start()
     return g
 
+def advance_ticks(game, ticks=100):
+    game.sound_scheduler_tick += ticks
+    game.on_tick()
+
 def test_income(game):
     """Test the income action."""
     alice = game.get_player_by_name("Alice")
     initial_coins = alice.coins
     game._action_income(alice, "income")
+    advance_ticks(game, 100)
     assert alice.coins == initial_coins + 1
     assert game.current_player.name == "Bob"
 
@@ -34,6 +39,7 @@ def test_coup_action(game):
 
     alice.coins = 7
     game._action_coup(alice, "Bob", "coup")
+    advance_ticks(game, 150)
 
     assert alice.coins == 0
     assert game.turn_phase == "losing_influence"
@@ -41,6 +47,7 @@ def test_coup_action(game):
 
     # Bob loses an influence
     game._action_lose_influence(bob, "lose_influence_0")
+    advance_ticks(game, 100)
     assert len(bob.live_influences) == 1
     assert game.current_player.name == "Bob"
 
@@ -50,12 +57,16 @@ def test_foreign_aid_and_block(game):
     bob = game.get_player_by_name("Bob")
 
     game._action_foreign_aid(alice, "foreign_aid")
+    advance_ticks(game, 100)
+
     assert game.turn_phase == "action_declared"
     assert game.active_action == "foreign_aid"
     assert game.active_claimer_id == alice.id
 
     # Bob blocks
     game._action_block(bob, "block")
+    advance_ticks(game, 150)
+
     assert game.turn_phase == "waiting_block"
     assert game.active_claimer_id == bob.id
 
@@ -69,11 +80,15 @@ def test_assassinate_and_challenge(game):
     alice.coins = 3
 
     game._action_assassinate(alice, "Bob", "assassinate")
+    advance_ticks(game, 100)
+
     assert game.turn_phase == "action_declared"
     assert game.active_target_id == bob.id
 
     # Bob challenges Alice
     game._action_challenge(bob, "challenge")
+    advance_ticks(game, 150)
+    advance_ticks(game, 50)
 
     # Alice failed challenge (didn't have Assassin)
     # So Alice loses an influence immediately, and action fails.
@@ -82,6 +97,8 @@ def test_assassinate_and_challenge(game):
 
     # Alice chooses to lose the first one
     game._action_lose_influence(alice, "lose_influence_0")
+    advance_ticks(game, 100)
+
     assert len(alice.live_influences) == 1
 
     # Turn ends
@@ -98,16 +115,20 @@ def test_steal_block_and_failed_challenge(game):
     bob.influences = [Card(Character.AMBASSADOR), Card(Character.CONTESSA)]
 
     game._action_steal(alice, "Bob", "steal")
+    advance_ticks(game, 100)
     assert game.turn_phase == "action_declared"
 
     # Bob blocks with Ambassador
     game._action_block(bob, "block")
+    advance_ticks(game, 100)
     assert game.turn_phase == "waiting_block"
     assert game.active_claimer_id == bob.id
     assert game.original_claimer_id == alice.id
 
     # Alice challenges Bob's block
     game._action_challenge(alice, "challenge")
+    advance_ticks(game, 150)
+    advance_ticks(game, 50)
 
     # Bob DOES have the Ambassador, so the challenge fails (Alice is wrong)
     # Alice loses influence
@@ -119,6 +140,7 @@ def test_steal_block_and_failed_challenge(game):
 
     # Alice chooses to lose the first one
     game._action_lose_influence(alice, "lose_influence_0")
+    advance_ticks(game, 100)
     assert len(alice.live_influences) == 1
 
     # Turn ends

@@ -145,6 +145,7 @@ class PusoyDosGame(Game, TurnTimerMixin):
         self.trick_cards = []
 
         deck, _ = DeckFactory.standard_deck()
+        deck.shuffle()
         active = self.get_active_players()
 
         # Clear hands and state
@@ -184,9 +185,9 @@ class PusoyDosGame(Game, TurnTimerMixin):
             self.turn_index = idx
 
         self.play_sound("game_crazyeights/newhand.ogg")
-        self.schedule_sound("game_cards/small_shuffle.ogg", 10, volume=100)
-        self.schedule_sound("game_cards/draw3.ogg", 20, volume=100)
-        self.schedule_sound("game_cards/draw3.ogg", 25, volume=100)
+        self.schedule_sound(f"game_cards/shuffle{random.randint(1, 3)}.ogg", 10, volume=100)
+        self.schedule_sound(f"game_cards/draw{random.randint(1, 4)}.ogg", 20, volume=100)
+        self.schedule_sound(f"game_cards/draw{random.randint(1, 4)}.ogg", 25, volume=100)
 
         for p in active:
             user = self.get_user(p)
@@ -200,9 +201,12 @@ class PusoyDosGame(Game, TurnTimerMixin):
         if not player or not isinstance(player, PusoyDosPlayer):
             return
 
-        # Ensure we skip players who passed this trick, UNLESS everyone else passed.
-        # But wait, Big Two rules: trick clears when everyone else passes.
-        # If it's my turn, and everyone else passed, I start a new trick.
+        # Edge case: everyone else left/disconnected, forcing trick to clear
+        active_ids = [p.id for p in self.get_active_players() if isinstance(p, PusoyDosPlayer)]
+        if self.trick_winner_id not in active_ids and self.current_combo is not None:
+            # Trick winner is gone, trick goes to whoever is currently up.
+            self.trick_winner_id = player.id
+
         if self.trick_winner_id == player.id:
             # Trick is over, I won it. Start a new trick.
             self.current_combo = None
@@ -215,6 +219,13 @@ class PusoyDosGame(Game, TurnTimerMixin):
 
         elif player.passed_this_trick:
             # Still in current trick, but I passed. Skip me.
+            # To avoid infinite loop if everyone is flagged pass (shouldn't happen), check:
+            all_passed = all((p.passed_this_trick for p in self.get_active_players() if isinstance(p, PusoyDosPlayer) and p.id != self.trick_winner_id))
+            if all_passed:
+                 self.trick_winner_id = player.id
+                 self._start_turn()
+                 return
+
             self.advance_turn(announce=False)
             self._start_turn()
             return
@@ -249,6 +260,9 @@ class PusoyDosGame(Game, TurnTimerMixin):
         BotHelper.on_tick(self)
 
     def bot_think(self, player: PusoyDosPlayer) -> str | None:
+        if self.hand_wait_ticks > 0 or self.intro_wait_ticks > 0:
+            return None
+
         ids = bot_think(self, player)
         if not ids:
             return "pass"
@@ -289,7 +303,7 @@ class PusoyDosGame(Game, TurnTimerMixin):
                 label=Localization.get(locale, "pusoydos-pass"),
                 handler="_action_pass",
                 is_enabled="_is_pass_enabled",
-                is_hidden="_is_turn_action_hidden",
+                is_hidden="_is_pass_hidden",
                 show_in_actions_menu=False,
             )
         )
@@ -328,8 +342,8 @@ class PusoyDosGame(Game, TurnTimerMixin):
                 id="read_hand",
                 label=Localization.get(locale, "pusoydos-read-hand"),
                 handler="_action_read_hand",
-                is_enabled="_is_check_enabled",
-                is_hidden="_is_check_hidden",
+                is_enabled="_is_read_hand_enabled",
+                is_hidden="_is_read_hand_hidden",
             )
         )
         action_set.add(
@@ -415,7 +429,7 @@ class PusoyDosGame(Game, TurnTimerMixin):
                     label=Localization.get(self._player_locale(player), "pusoydos-pass"),
                     handler="_action_pass",
                     is_enabled="_is_pass_enabled",
-                    is_hidden="_is_turn_action_hidden",
+                    is_hidden="_is_pass_hidden",
                     show_in_actions_menu=False,
                 )
             )
@@ -494,10 +508,18 @@ class PusoyDosGame(Game, TurnTimerMixin):
         self.trick_winner_id = p.id
         self.is_first_turn = False
 
-        self.play_sound("game_cards/discard.ogg")
+        # Audio for playing cards based on how many
+        if len(selected) > 1:
+            self.play_sound(f"game_cards/play{random.randint(1, 4)}.ogg")
+        else:
+            self.play_sound(f"game_cards/discard{random.randint(1, 3)}.ogg")
+
         if combo.type_name in ["full_house", "four_of_a_kind", "straight_flush"]:
             self.play_sound("game_crazyeights/hitmark.ogg")
         self._broadcast_play(p, combo)
+
+        if len(p.hand) == 1:
+            self.play_sound("game_crazyeights/onecard.ogg")
 
         if len(p.hand) == 0:
             self._end_hand(p)
@@ -629,11 +651,11 @@ class PusoyDosGame(Game, TurnTimerMixin):
     def _is_turn_action_hidden(self, player: Player) -> Visibility:
         if self.status != "playing" or player.is_spectator:
             return Visibility.HIDDEN
-        if self.current_player != player:
-            return Visibility.HIDDEN
         if self.hand_wait_ticks > 0:
             return Visibility.HIDDEN
         if self.intro_wait_ticks > 0:
+            return Visibility.HIDDEN
+        if self.current_player != player:
             return Visibility.HIDDEN
         return Visibility.VISIBLE
 
@@ -645,6 +667,11 @@ class PusoyDosGame(Game, TurnTimerMixin):
         if not self.current_combo:
             return "pusoydos-error-must-play"
         return self._is_turn_action_enabled(player)
+
+    def _is_pass_hidden(self, player: Player) -> Visibility:
+        if not self.current_combo:
+            return Visibility.HIDDEN
+        return self._is_turn_action_hidden(player)
 
     def _is_check_enabled(self, player: Player) -> str | None:
         if self.status != "playing":
@@ -658,6 +685,41 @@ class PusoyDosGame(Game, TurnTimerMixin):
                 return Visibility.VISIBLE
             return Visibility.HIDDEN
         return Visibility.HIDDEN
+
+    def _is_read_hand_enabled(self, player: Player) -> str | None:
+        if player.is_spectator:
+            return "action-spectator"
+        return self._is_check_enabled(player)
+
+    def _is_read_hand_hidden(self, player: Player) -> Visibility:
+        if player.is_spectator:
+            return Visibility.HIDDEN
+        return self._is_check_hidden(player)
+
+    def _is_whos_at_table_hidden(self, player: "Player") -> Visibility:
+        """Override: Visible for Web (always), hidden otherwise."""
+        user = self.get_user(player)
+        if user and getattr(user, "client_type", "") == "web":
+            return Visibility.VISIBLE
+        return super()._is_whos_at_table_hidden(player)
+
+    def _is_whose_turn_hidden(self, player: "Player") -> Visibility:
+        """Override: Visible for Web (Playing only), hidden otherwise."""
+        user = self.get_user(player)
+        if user and getattr(user, "client_type", "") == "web":
+            if self.status == "playing":
+                return Visibility.VISIBLE
+            return Visibility.HIDDEN
+        return super()._is_whose_turn_hidden(player)
+
+    def _is_check_scores_hidden(self, player: "Player") -> Visibility:
+        """Override: Visible for Web (Playing only), hidden otherwise."""
+        user = self.get_user(player)
+        if user and getattr(user, "client_type", "") == "web":
+            if self.status == "playing":
+                return Visibility.VISIBLE
+            return Visibility.HIDDEN
+        return super()._is_check_scores_hidden(player)
 
     def _player_locale(self, player: Player) -> str:
         user = self.get_user(player)
@@ -729,10 +791,11 @@ class PusoyDosGame(Game, TurnTimerMixin):
         for name, lost in loser_penalties:
             self.broadcast_l("pusoydos-hand-loser", player=name, amount=lost)
 
-        # Check if anyone is bankrupt
+        # Check if anyone is bankrupt or hit max score limit (if one existed, but it's coin based).
+        # For coins, if someone is bankrupt we end game.
         bankrupt = [p.name for p in self.get_active_players() if isinstance(p, PusoyDosPlayer) and p.score <= 0]
         if bankrupt:
-            self._end_game(winner)
+            self._end_game(final_winner=winner)
             return
 
         self.hand_wait_ticks = 5 * 20

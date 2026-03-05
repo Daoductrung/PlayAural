@@ -24,6 +24,7 @@ from .holdem.game import HoldemGame
 from .crazyeights.game import CrazyEightsGame
 from .snakesandladders.game import SnakesAndLaddersGame
 from .coup.game import CoupGame
+from .pusoydos.game import PusoyDosGame
 
 __all__ = [
     "Game",
@@ -50,4 +51,5 @@ __all__ = [
     "CrazyEightsGame",
     "SnakesAndLaddersGame",
     "CoupGame",
+    "PusoyDosGame",
 ]

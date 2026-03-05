@@ -69,3 +69,37 @@ def test_first_turn_requires_3_of_clubs():
     # Now it works
     assert game.trick_winner_id == current.id
     assert game.current_combo.type_name == "single"
+
+def test_play_validations():
+    game = PusoyDosGame()
+    u1 = MockUser("p1")
+    u2 = MockUser("p2")
+    p1 = game.add_player("p1", u1)
+    p2 = game.add_player("p2", u2)
+    game.on_start()
+
+    # Fast forward
+    game.intro_wait_ticks = 1
+    game.on_tick()
+
+    current = game.current_player
+    game.is_first_turn = False
+
+    # Set a trick
+    game.current_combo = Combo("pair", [Card(1, 4, 1), Card(2, 4, 2)], 4, 2)
+    game.trick_cards = game.current_combo.cards
+
+    # Try playing a single card
+    current.hand = [Card(3, 5, 1)]
+    current.selected_cards = {3}
+    game.execute_action(current, "play_selected")
+
+    user = game.get_user(current)
+    assert user.get_last_spoken() == "You must play exactly 2 cards to beat the current trick."
+
+    # Try playing a lower pair
+    current.hand = [Card(4, 3, 1), Card(5, 3, 2)]
+    current.selected_cards = {4, 5}
+    game.execute_action(current, "play_selected")
+
+    assert user.get_last_spoken() == "Your combination is lower than the current trick."

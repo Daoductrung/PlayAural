@@ -87,6 +87,7 @@ class PusoyDosGame(Game, TurnTimerMixin):
     is_first_turn: bool = True
     hand_wait_ticks: int = 0
     intro_wait_ticks: int = 0
+    round: int = 0
 
     timer: PokerTurnTimer = field(default_factory=PokerTurnTimer)
 
@@ -125,6 +126,7 @@ class PusoyDosGame(Game, TurnTimerMixin):
         self.status = "playing"
         self._sync_table_status()
         self.game_active = True
+        self.round = 0
 
         for p in self.get_active_players():
             p.score = self.options.min_entry
@@ -139,10 +141,13 @@ class PusoyDosGame(Game, TurnTimerMixin):
         self.broadcast_l("pusoydos-game-start")
 
     def _start_new_hand(self) -> None:
+        self.round += 1
         self.is_first_turn = True
         self.current_combo = None
         self.trick_winner_id = None
         self.trick_cards = []
+
+        self.broadcast_l("pusoydos-new-hand", round=self.round)
 
         deck, _ = DeckFactory.standard_deck()
         deck.shuffle()
@@ -496,8 +501,11 @@ class PusoyDosGame(Game, TurnTimerMixin):
 
         # Check against trick
         if self.current_combo:
+            if len(combo.cards) != len(self.current_combo.cards):
+                self._send_error(p, "pusoydos-error-wrong-length", count=len(self.current_combo.cards))
+                return
             if not combo.beats(self.current_combo):
-                self._send_error(p, "pusoydos-error-does-not-beat")
+                self._send_error(p, "pusoydos-error-lower-combo")
                 return
 
         # Play is valid!
@@ -595,10 +603,10 @@ class PusoyDosGame(Game, TurnTimerMixin):
             return None
         return player
 
-    def _send_error(self, player: PusoyDosPlayer, msg_key: str) -> None:
+    def _send_error(self, player: PusoyDosPlayer, msg_key: str, **kwargs) -> None:
         user = self.get_user(player)
         if user:
-            user.speak_l(msg_key, buffer="game")
+            user.speak_l(msg_key, buffer="game", **kwargs)
 
     def _get_card_label(self, player: Player, action_id: str) -> str:
         if not isinstance(player, PusoyDosPlayer):

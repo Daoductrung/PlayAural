@@ -22,6 +22,7 @@ pusoydos-enter-penalty = Enter penalty multiplier (min: 1, max: 10000):
 pusoydos-option-changed-penalty = Penalty multiplier set to { $count }.
 
 pusoydos-game-start = Starting Pusoy Dos!
+pusoydos-new-hand = Round { $round }
 pusoydos-dealt = Dealt 13 cards: { $cards }.
 
 pusoydos-card-unselected = { $card }
@@ -41,7 +42,8 @@ pusoydos-timer-remaining = { $seconds } seconds remaining.
 pusoydos-error-no-cards = You have not selected any cards.
 pusoydos-error-invalid-combo = The selected cards do not form a valid combination.
 pusoydos-error-first-turn-3c = You must include the 3 of Clubs in the first play.
-pusoydos-error-does-not-beat = Your combination does not beat the current trick.
+pusoydos-error-wrong-length = You must play exactly { $count } cards to beat the current trick.
+pusoydos-error-lower-combo = Your combination is lower than the current trick.
 pusoydos-error-must-play = You cannot pass when starting a new trick.
 
 pusoydos-player-plays-single = { $player } plays { $card }.

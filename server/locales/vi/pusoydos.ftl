@@ -22,6 +22,7 @@ pusoydos-enter-penalty = Nhập hệ số phạt (tối thiểu: 1, tối đa: 1
 pusoydos-option-changed-penalty = Hệ số phạt đã đổi thành { $count }.
 
 pusoydos-game-start = Bắt đầu trò chơi Tiến lên!
+pusoydos-new-hand = Vòng { $round }
 pusoydos-dealt = Đã chia 13 lá bài: { $cards }.
 
 pusoydos-card-unselected = { $card }
@@ -41,7 +42,8 @@ pusoydos-timer-remaining = Còn lại { $seconds } giây.
 pusoydos-error-no-cards = Bạn chưa chọn bài nào.
 pusoydos-error-invalid-combo = Các lá bài đã chọn không tạo thành bộ hợp lệ.
 pusoydos-error-first-turn-3c = Lượt đầu tiên phải chứa 3 Nhép.
-pusoydos-error-does-not-beat = Bộ bài của bạn không lớn hơn bài trên bàn.
+pusoydos-error-wrong-length = Bạn phải đánh chính xác { $count } lá bài để chặn bộ hiện tại.
+pusoydos-error-lower-combo = Bộ bài của bạn không lớn hơn bài trên bàn.
 pusoydos-error-must-play = Bạn không thể bỏ qua khi bắt đầu vòng mới.
 
 pusoydos-player-plays-single = { $player } đánh { $card }.

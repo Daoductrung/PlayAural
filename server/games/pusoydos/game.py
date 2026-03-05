@@ -681,7 +681,7 @@ class PusoyDosGame(Game, TurnTimerMixin):
             return Visibility.HIDDEN
         return Visibility.VISIBLE
 
-    def _is_card_toggle_enabled(self, player: Player) -> str | None:
+    def _is_card_toggle_enabled(self, player: Player, *, action_id: str | None = None) -> str | None:
         if self.status != "playing":
             return "action-not-playing"
         if player.is_spectator:
@@ -694,14 +694,20 @@ class PusoyDosGame(Game, TurnTimerMixin):
             return "action-wait-for-intro"
         return None
 
-    def _is_card_toggle_hidden(self, player: Player) -> Visibility:
-        if self.status != "playing" or player.is_spectator:
+    def _is_card_toggle_hidden(self, player: Player, *, action_id: str | None = None) -> Visibility:
+        if self.status != "playing":
+            return Visibility.HIDDEN
+        if player.is_spectator:
             return Visibility.HIDDEN
         if self.hand_wait_ticks > 0:
             return Visibility.HIDDEN
         if self.intro_wait_ticks > 0:
             return Visibility.HIDDEN
-        # Cards are ALWAYS visible to the owner
+        if not isinstance(player, PusoyDosPlayer):
+            return Visibility.HIDDEN
+
+        # Action IDs check. If the action_id references a card they don't have, hide it.
+        # But generally if we just want them visible to the owner at all times:
         return Visibility.VISIBLE
 
     def _is_play_selected_enabled(self, player: Player) -> str | None:

@@ -92,7 +92,6 @@ class CrazyEightsGame(Game, TurnTimerMixin):
 
     intro_wait_ticks: int = 0
     hand_wait_ticks: int = 0
-    max_hand_size: int = 12
 
     def __post_init__(self):
         super().__post_init__()
@@ -838,8 +837,6 @@ class CrazyEightsGame(Game, TurnTimerMixin):
             return "action-not-available"
         if self.turn_has_drawn:
             return None
-        if isinstance(player, CrazyEightsPlayer) and len(player.hand) >= self.max_hand_size:
-            return None
         if not self._can_draw(player if isinstance(player, CrazyEightsPlayer) else None):
             return None
         return "action-not-available"
@@ -852,8 +849,6 @@ class CrazyEightsGame(Game, TurnTimerMixin):
         if isinstance(player, CrazyEightsPlayer) and self._has_playable_cards(player):
             return Visibility.HIDDEN
         if self.turn_has_drawn:
-            return Visibility.VISIBLE
-        if isinstance(player, CrazyEightsPlayer) and len(player.hand) >= self.max_hand_size:
             return Visibility.VISIBLE
         if not self._can_draw(player if isinstance(player, CrazyEightsPlayer) else None):
             return Visibility.VISIBLE
@@ -936,8 +931,6 @@ class CrazyEightsGame(Game, TurnTimerMixin):
         if self.awaiting_wild_suit:
             return False
         if self.turn_has_drawn:
-            return False
-        if len(player.hand) >= self.max_hand_size:
             return False
         if self._has_playable_cards(player):
             return False

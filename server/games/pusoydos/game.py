@@ -215,7 +215,7 @@ class PusoyDosGame(Game, TurnTimerMixin):
             for p in self.get_active_players():
                 if isinstance(p, PusoyDosPlayer):
                     p.passed_this_trick = False
-            self.broadcast_l("pusoydos-trick-won", player=player.name)
+            # No loud broadcast, trick just clears quietly for pacing
 
         elif player.passed_this_trick:
             # Still in current trick, but I passed. Skip me.
@@ -411,6 +411,20 @@ class PusoyDosGame(Game, TurnTimerMixin):
         if self.hand_wait_ticks > 0 or self.intro_wait_ticks > 0:
             return
 
+        # Cards always visible for the player so they can read hand, but toggling only works on turn
+        for card in player.hand:
+            turn_set.add(
+                Action(
+                    id=f"toggle_select_{card.id}",
+                    label="",
+                    handler="_action_toggle_select",
+                    is_enabled="_is_card_toggle_enabled",
+                    is_hidden="_is_card_toggle_hidden",
+                    get_label="_get_card_label",
+                    show_in_actions_menu=False,
+                )
+            )
+
         if self.current_player == player:
             turn_set.add(
                 Action(
@@ -433,19 +447,6 @@ class PusoyDosGame(Game, TurnTimerMixin):
                     show_in_actions_menu=False,
                 )
             )
-
-            for card in player.hand:
-                turn_set.add(
-                    Action(
-                        id=f"toggle_select_{card.id}",
-                        label="",
-                        handler="_action_toggle_select",
-                        is_enabled="_is_turn_action_enabled",
-                        is_hidden="_is_turn_action_hidden",
-                        get_label="_get_card_label",
-                        show_in_actions_menu=False,
-                    )
-                )
 
     # ==========================================================================
     # Action Handlers
@@ -485,10 +486,11 @@ class PusoyDosGame(Game, TurnTimerMixin):
             self._send_error(p, "pusoydos-error-invalid-combo")
             return
 
-        # Check first turn rule: must contain 3 of Clubs
+        # Check first turn rule: must contain 3 of Clubs (if the player has it)
         if self.is_first_turn:
+            player_has_three = any(c.rank == 3 and c.suit == 2 for c in p.hand)
             has_three_of_clubs = any(c.rank == 3 and c.suit == 2 for c in selected)
-            if not has_three_of_clubs:
+            if player_has_three and not has_three_of_clubs:
                 self._send_error(p, "pusoydos-error-first-turn-3c")
                 return
 
@@ -657,6 +659,29 @@ class PusoyDosGame(Game, TurnTimerMixin):
             return Visibility.HIDDEN
         if self.current_player != player:
             return Visibility.HIDDEN
+        return Visibility.VISIBLE
+
+    def _is_card_toggle_enabled(self, player: Player) -> str | None:
+        if self.status != "playing":
+            return "action-not-playing"
+        if player.is_spectator:
+            return "action-spectator"
+        if self.current_player != player:
+            return "action-not-your-turn"
+        if self.hand_wait_ticks > 0:
+            return "action-wait-for-hand"
+        if self.intro_wait_ticks > 0:
+            return "action-wait-for-intro"
+        return None
+
+    def _is_card_toggle_hidden(self, player: Player) -> Visibility:
+        if self.status != "playing" or player.is_spectator:
+            return Visibility.HIDDEN
+        if self.hand_wait_ticks > 0:
+            return Visibility.HIDDEN
+        if self.intro_wait_ticks > 0:
+            return Visibility.HIDDEN
+        # Cards are ALWAYS visible to the owner
         return Visibility.VISIBLE
 
     def _is_play_selected_enabled(self, player: Player) -> str | None:

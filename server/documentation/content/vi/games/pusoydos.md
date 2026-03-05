@@ -1,31 +1,78 @@
-# Tiến lên miền Nam (Pusoy Dos)
+\*\*Pusoy Dos\*\*
 
-## Giới thiệu
-Tiến lên miền Nam là một trò chơi đánh bài rất phổ biến. Mục tiêu là trở thành người đầu tiên đánh hết tất cả các lá bài của mình.
 
-## Luật chơi
-- Trò chơi sử dụng bộ bài 52 lá tiêu chuẩn. Mỗi người chơi được chia 13 lá.
-- Xếp hạng quân bài: Quân số 2 là quân bài cao nhất, sau đó là Át, K, Q, J, 10, 9, 8, 7, 6, 5, 4, và 3 là thấp nhất.
-- Xếp hạng chất: Rô (cao nhất) > Cơ > Bích > Nhép (thấp nhất).
-- Lượt đầu tiên: Người chơi giữ quân 3 Nhép sẽ bắt đầu vòng chơi đầu tiên và phải bao gồm quân bài này trong lần đánh đầu.
 
-## Cách chơi
-- Người chơi lần lượt đánh các kết hợp bài. Kết hợp bài được đánh phải lớn hơn kết hợp bài trước đó và cùng loại.
-- Các loại kết hợp bài gồm:
-  - Một lá bài.
-  - Đôi: Hai lá bài cùng số.
-  - Ba lá: Ba lá bài cùng số.
-  - Bài 5 lá: Bao gồm Sảnh, Đồng chất, Cù lũ, Tứ quý và Sảnh rồng.
-- Một vòng kết thúc khi tất cả những người chơi khác liên tiếp bỏ qua. Người chơi đánh cuối cùng sẽ bắt đầu một vòng mới với bất kỳ kết hợp nào.
+Pusoy Dos (hay còn gọi là Big Two) là một trò chơi bài đánh chạy điểm phổ biến có nguồn gốc từ vùng duyên hải Trung Quốc vào những năm 1980. Trò chơi này nhanh chóng lan rộng và trở thành một trò chơi bài quen thuộc trên khắp châu Á. Đặc biệt tại Philippines, trò chơi này phát triển cực kỳ mạnh mẽ và mang tên gọi Pusoy Dos.
 
-## Tính điểm
-- Người chơi đầu tiên đánh hết bài sẽ thắng ván đó.
-- Những người thua cuộc sẽ trả cho người thắng một khoản phạt dựa trên số lá bài còn lại trên tay, nhân với cài đặt phạt.
-- Nếu một người chơi còn đủ 13 lá bài khi ván kết thúc, số tiền phạt sẽ được nhân đôi.
 
-## Phím tắt
-- Phím cách: Đánh các lá bài đã chọn
-- P: Bỏ qua
-- C: Kiểm tra bài trên bàn
-- H: Đọc bài trên tay
-- Shift+T: Thời gian của lượt
+
+Mục tiêu của trò chơi rất đơn giản: trở thành người chơi đầu tiên đánh hết toàn bộ bài trên tay.
+
+
+
+\*\*Cách chơi\*\*
+
+
+
+Trò chơi sử dụng bộ bài 52 lá tiêu chuẩn. Mỗi người chơi được chia 13 lá bài khi bắt đầu vòng chơi.
+
+
+
+\* \*\*Thứ tự các lá bài:\*\* Lá số 2 là lá bài cao nhất, tiếp theo là Át, K, Q, J, 10, 9, 8, 7, 6, 5, 4, và 3 là lá thấp nhất.
+
+\* \*\*Thứ tự các chất:\*\* Rô (cao nhất) > Cơ > Bích > Tép (thấp nhất).
+
+\* \*\*Lượt đầu tiên:\*\* Người chơi giữ lá 3 Tép sẽ là người đi đầu tiên và bắt buộc phải đánh lá bài này trong lượt đi đầu của mình.
+
+
+
+Người chơi lần lượt đánh các tổ hợp bài. Tổ hợp được đánh ra phải lớn hơn tổ hợp bài trước đó trên bàn và phải cùng loại.
+
+
+
+Các loại tổ hợp hợp lệ bao gồm:
+
+\* \*\*Lá lẻ:\*\* Một lá bài duy nhất.
+
+\* \*\*Đôi:\*\* Hai lá bài có cùng số.
+
+\* \*\*Sám cô:\*\* Ba lá bài có cùng số.
+
+\* \*\*Tổ hợp 5 lá:\*\* Gồm chính xác 5 lá bài. Bao gồm Sảnh, Thùng, Cù lũ, Tứ quý và Thùng phá sảnh.
+
+
+
+Một vòng đánh kết thúc khi tất cả những người chơi khác liên tiếp bỏ lượt. Người chơi cuối cùng đánh bài sẽ giành được quyền đi và bắt đầu vòng đánh mới với bất kỳ tổ hợp nào.
+
+
+
+\*\*Cách tính điểm\*\*
+
+
+
+Người chơi đầu tiên đánh hết bài trên tay sẽ thắng vòng đó.
+
+
+
+Những người chơi thua cuộc phải trả một khoản tiền phạt cho người thắng. Khoản phạt này được tính dựa trên số lá bài còn lại trên tay của họ, nhân với hệ số phạt được thiết lập tại bàn chơi.
+
+
+
+Nếu một người chơi còn nguyên cả 13 lá bài khi vòng chơi kết thúc, tiền phạt của họ sẽ bị nhân đôi.
+
+
+
+\*\*Phím tắt bàn phím\*\*
+
+
+
+\* \*\*Dấu cách:\*\* Đánh các lá bài đã chọn.
+
+\* \*\*P:\*\* Bỏ lượt.
+
+\* \*\*C:\*\* Kiểm tra bài trên bàn.
+
+\* \*\*H:\*\* Đọc bài trên tay của bạn.
+
+\* \*\*Shift+T:\*\* Kiểm tra thời gian lượt chơi.
+

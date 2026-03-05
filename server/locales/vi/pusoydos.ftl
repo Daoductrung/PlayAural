@@ -1,7 +1,7 @@
 game-name-pusoydos = Tiến lên miền Nam (Pusoy Dos)
 
 pusoydos-set-min-entry = Tiền cược tối thiểu: { $count }
-pusoydos-enter-min-entry = Nhập tiền cược tối thiểu (tối thiểu: 0, tối đa: 1000000):
+pusoydos-enter-min-entry = Nhập tiền cược tối thiểu (tối thiểu: 100, tối đa: 100000):
 pusoydos-option-changed-min-entry = Tiền cược tối thiểu đã đổi thành { $count }.
 
 pusoydos-set-turn-timer = Thời gian mỗi lượt: { $choice }
@@ -18,7 +18,7 @@ pusoydos-timer-90 = 90 Giây
 pusoydos-timer-unlimited = Không giới hạn
 
 pusoydos-set-penalty = Hệ số phạt: { $count }
-pusoydos-enter-penalty = Nhập hệ số phạt (tối thiểu: 1, tối đa: 10000):
+pusoydos-enter-penalty = Nhập hệ số phạt (tối thiểu: 1, tối đa: 500):
 pusoydos-option-changed-penalty = Hệ số phạt đã đổi thành { $count }.
 
 pusoydos-game-start = Bắt đầu trò chơi Tiến lên!

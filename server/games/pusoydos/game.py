@@ -43,8 +43,8 @@ class PusoyDosOptions(GameOptions):
     min_entry: int = option_field(
         IntOption(
             default=1000,
-            min_val=0,
-            max_val=1000000,
+            min_val=100,
+            max_val=100000,
             value_key="count",
             label="pusoydos-set-min-entry",
             prompt="pusoydos-enter-min-entry",
@@ -66,7 +66,7 @@ class PusoyDosOptions(GameOptions):
         IntOption(
             default=10,
             min_val=1,
-            max_val=10000,
+            max_val=500,
             value_key="count",
             label="pusoydos-set-penalty",
             prompt="pusoydos-enter-penalty",
@@ -280,6 +280,15 @@ class PusoyDosGame(Game, TurnTimerMixin):
         player = self.current_player
         if not isinstance(player, PusoyDosPlayer):
             return
+
+        if not self.current_combo:
+            # Cannot pass if forced to play. Use bot logic to auto-play.
+            ids = bot_think(self, player)
+            if ids:
+                player.selected_cards = set(ids)
+                self._action_play_selected(player, "play_selected")
+                return
+
         self._action_pass(player, "pass")
 
     # ==========================================================================
@@ -290,6 +299,19 @@ class PusoyDosGame(Game, TurnTimerMixin):
         user = self.get_user(player)
         locale = user.locale if user else "en"
         action_set = ActionSet(name="turn")
+
+        for card in player.hand:
+            action_set.add(
+                Action(
+                    id=f"toggle_select_{card.id}",
+                    label="",
+                    handler="_action_toggle_select",
+                    is_enabled="_is_card_toggle_enabled",
+                    is_hidden="_is_card_toggle_hidden",
+                    get_label="_get_card_label",
+                    show_in_actions_menu=False,
+                )
+            )
 
         action_set.add(
             Action(
@@ -312,19 +334,6 @@ class PusoyDosGame(Game, TurnTimerMixin):
                 show_in_actions_menu=False,
             )
         )
-
-        for card in player.hand:
-            action_set.add(
-                Action(
-                    id=f"toggle_select_{card.id}",
-                    label="",
-                    handler="_action_toggle_select",
-                    is_enabled="_is_turn_action_enabled",
-                    is_hidden="_is_turn_action_hidden",
-                    get_label="_get_card_label",
-                    show_in_actions_menu=False,
-                )
-            )
 
         return action_set
 
@@ -430,28 +439,27 @@ class PusoyDosGame(Game, TurnTimerMixin):
                 )
             )
 
-        if self.current_player == player:
-            turn_set.add(
-                Action(
-                    id="play_selected",
-                    label="",
-                    handler="_action_play_selected",
-                    is_enabled="_is_play_selected_enabled",
-                    is_hidden="_is_turn_action_hidden",
-                    get_label="_get_play_selected_label",
-                    show_in_actions_menu=False,
-                )
+        turn_set.add(
+            Action(
+                id="play_selected",
+                label="",
+                handler="_action_play_selected",
+                is_enabled="_is_play_selected_enabled",
+                is_hidden="_is_turn_action_hidden",
+                get_label="_get_play_selected_label",
+                show_in_actions_menu=False,
             )
-            turn_set.add(
-                Action(
-                    id="pass",
-                    label=Localization.get(self._player_locale(player), "pusoydos-pass"),
-                    handler="_action_pass",
-                    is_enabled="_is_pass_enabled",
-                    is_hidden="_is_pass_hidden",
-                    show_in_actions_menu=False,
-                )
+        )
+        turn_set.add(
+            Action(
+                id="pass",
+                label=Localization.get(self._player_locale(player), "pusoydos-pass"),
+                handler="_action_pass",
+                is_enabled="_is_pass_enabled",
+                is_hidden="_is_pass_hidden",
+                show_in_actions_menu=False,
             )
+        )
 
     # ==========================================================================
     # Action Handlers

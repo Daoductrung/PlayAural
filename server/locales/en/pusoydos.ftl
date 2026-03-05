@@ -1,7 +1,7 @@
 game-name-pusoydos = Pusoy Dos
 
 pusoydos-set-min-entry = Minimum Entry Coins: { $count }
-pusoydos-enter-min-entry = Enter minimum entry coins (min: 0, max: 1000000):
+pusoydos-enter-min-entry = Enter minimum entry coins (min: 100, max: 100000):
 pusoydos-option-changed-min-entry = Minimum entry coins set to { $count }.
 
 pusoydos-set-turn-timer = Turn Timer: { $choice }
@@ -18,7 +18,7 @@ pusoydos-timer-90 = 90 Seconds
 pusoydos-timer-unlimited = Unlimited
 
 pusoydos-set-penalty = Penalty Multiplier: { $count }
-pusoydos-enter-penalty = Enter penalty multiplier (min: 1, max: 10000):
+pusoydos-enter-penalty = Enter penalty multiplier (min: 1, max: 500):
 pusoydos-option-changed-penalty = Penalty multiplier set to { $count }.
 
 pusoydos-game-start = Starting Pusoy Dos!

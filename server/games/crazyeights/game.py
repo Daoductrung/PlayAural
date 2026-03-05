@@ -642,7 +642,6 @@ class CrazyEightsGame(Game, TurnTimerMixin):
             return
         card = self._draw_card()
         if not card:
-            self._handle_empty_draw()
             return
         p.hand.append(card)
         self.turn_has_drawn = True
@@ -684,8 +683,10 @@ class CrazyEightsGame(Game, TurnTimerMixin):
         self.consecutive_passes += 1
 
         # Blocked Game Detection
+        # A game is only truly blocked if all players pass AND the deck is completely exhausted.
+        is_deck_exhausted = self.deck.is_empty() and len(self.discard_pile) <= 1
         active_players = [ap for ap in self.players if not ap.is_spectator and isinstance(ap, CrazyEightsPlayer)]
-        if self.consecutive_passes >= len(active_players):
+        if self.consecutive_passes >= len(active_players) and is_deck_exhausted:
             self._handle_blocked_game(active_players)
             return
 
@@ -829,9 +830,7 @@ class CrazyEightsGame(Game, TurnTimerMixin):
             return self._is_turn_action_enabled(player)
         if not isinstance(player, CrazyEightsPlayer):
             return "action-not-available"
-        if self.turn_has_drawn:
-            return "action-not-available"
-        if self._has_playable_cards(player):
+        if not self._can_draw(player):
             return "action-not-available"
         return None
 
@@ -842,9 +841,7 @@ class CrazyEightsGame(Game, TurnTimerMixin):
             return Visibility.HIDDEN
         if not isinstance(player, CrazyEightsPlayer):
             return Visibility.HIDDEN
-        if self.turn_has_drawn:
-            return Visibility.HIDDEN
-        if self._has_playable_cards(player):
+        if not self._can_draw(player):
             return Visibility.HIDDEN
         return Visibility.VISIBLE
 
@@ -954,6 +951,9 @@ class CrazyEightsGame(Game, TurnTimerMixin):
             return False
         if self._has_playable_cards(player):
             return False
+        # Cannot draw if both deck and discard (except top card) are empty
+        if self.deck.is_empty() and len(self.discard_pile) <= 1:
+            return False
         return True
 
     # ==========================================================================
@@ -993,10 +993,6 @@ class CrazyEightsGame(Game, TurnTimerMixin):
         if self.deck.is_empty():
             self._reshuffle_discard_into_deck()
         return self.deck.draw_one()
-
-    def _handle_empty_draw(self) -> None:
-        # No cards available to draw; end the round with no scoring and start a new hand.
-        self._start_new_hand()
 
     def _reshuffle_discard_into_deck(self) -> None:
         if len(self.discard_pile) <= 1:

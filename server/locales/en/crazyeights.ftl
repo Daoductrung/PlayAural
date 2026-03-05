@@ -13,6 +13,7 @@ crazyeights-pass = Pass
 crazyeights-read-top = Read top card
 crazyeights-read-counts = Read card counts
 crazyeights-deck-count = deck { $count }
+crazyeights-game-blocked = The game is blocked! No one can play.
 
 crazyeights-new-hand = Round { $round }.
 crazyeights-start-card = { $player } turns up { $card }.

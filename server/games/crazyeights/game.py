@@ -87,6 +87,8 @@ class CrazyEightsGame(Game, TurnTimerMixin):
     turn_has_drawn: bool = False
     turn_drawn_card: Card | None = None
 
+    consecutive_passes: int = 0
+
     timer: PokerTurnTimer = field(default_factory=PokerTurnTimer)
     # timer_warning_played removed, handled by Mixin
 
@@ -487,6 +489,7 @@ class CrazyEightsGame(Game, TurnTimerMixin):
         self.wild_wait_ticks = 0
         self.turn_has_drawn = False
         self.turn_drawn_card = None
+        self.consecutive_passes = 0
 
         self.broadcast_l("crazyeights-new-hand", round=self.round)
         self.play_sound("game_crazyeights/newhand.ogg")
@@ -596,6 +599,7 @@ class CrazyEightsGame(Game, TurnTimerMixin):
         self.discard_pile.append(card)
         self.turn_has_drawn = False
         self.turn_drawn_card = None
+        self.consecutive_passes = 0
 
         self._play_card_sound(card)
         self._broadcast_play(p, card)
@@ -676,7 +680,23 @@ class CrazyEightsGame(Game, TurnTimerMixin):
         self._broadcast_pass(p)
         self.turn_has_drawn = False
         self.turn_drawn_card = None
+
+        self.consecutive_passes += 1
+
+        # Blocked Game Detection
+        active_players = [ap for ap in self.players if not ap.is_spectator and isinstance(ap, CrazyEightsPlayer)]
+        if self.consecutive_passes >= len(active_players):
+            self._handle_blocked_game(active_players)
+            return
+
         self._advance_turn()
+
+    def _handle_blocked_game(self, active_players: list[CrazyEightsPlayer]) -> None:
+        """Handle a blocked game where everyone passes."""
+        self.broadcast_l("crazyeights-game-blocked")
+        # Player with the lowest points in hand wins the blocked round
+        winner = min(active_players, key=lambda p: self._hand_points(p.hand))
+        self._end_round(winner, last_card=None)
 
     def _action_choose_suit(self, player: Player, action_id: str) -> None:
         p = self._require_active_player(player)

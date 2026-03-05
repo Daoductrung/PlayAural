@@ -13,6 +13,7 @@ crazyeights-pass = Bỏ lượt
 crazyeights-read-top = Đọc lá bài trên cùng
 crazyeights-read-counts = Đọc số lượng bài
 crazyeights-deck-count = bộ bài { $count }
+crazyeights-game-blocked = Trò chơi bị chặn! Không ai có thể đánh tiếp.
 
 crazyeights-new-hand = Vòng { $round }.
 crazyeights-start-card = { $player } lật lá { $card }.

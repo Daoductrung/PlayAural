@@ -682,12 +682,12 @@ class PusoyDosGame(Game, TurnTimerMixin):
         return Visibility.VISIBLE
 
     def _is_card_toggle_enabled(self, player: Player, *, action_id: str | None = None) -> str | None:
+        # NOTE: Do NOT return an error if it's not their turn!
+        # If we return an error (like "action-not-your-turn"), the server filters it out of the UI payload for out-of-turn players, which causes it to disappear.
         if self.status != "playing":
             return "action-not-playing"
         if player.is_spectator:
             return "action-spectator"
-        if self.current_player != player:
-            return "action-not-your-turn"
         if self.hand_wait_ticks > 0:
             return "action-wait-for-hand"
         if self.intro_wait_ticks > 0:
@@ -705,9 +705,6 @@ class PusoyDosGame(Game, TurnTimerMixin):
             return Visibility.HIDDEN
         if not isinstance(player, PusoyDosPlayer):
             return Visibility.HIDDEN
-
-        # Action IDs check. If the action_id references a card they don't have, hide it.
-        # But generally if we just want them visible to the owner at all times:
         return Visibility.VISIBLE
 
     def _is_play_selected_enabled(self, player: Player) -> str | None:

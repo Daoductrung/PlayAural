@@ -87,12 +87,13 @@ class CrazyEightsGame(Game, TurnTimerMixin):
     turn_has_drawn: bool = False
     turn_drawn_card: Card | None = None
 
+    consecutive_passes: int = 0
+
     timer: PokerTurnTimer = field(default_factory=PokerTurnTimer)
     # timer_warning_played removed, handled by Mixin
 
     intro_wait_ticks: int = 0
     hand_wait_ticks: int = 0
-    max_hand_size: int = 12
 
     def __post_init__(self):
         super().__post_init__()
@@ -488,6 +489,7 @@ class CrazyEightsGame(Game, TurnTimerMixin):
         self.wild_wait_ticks = 0
         self.turn_has_drawn = False
         self.turn_drawn_card = None
+        self.consecutive_passes = 0
 
         self.broadcast_l("crazyeights-new-hand", round=self.round)
         self.play_sound("game_crazyeights/newhand.ogg")
@@ -597,6 +599,7 @@ class CrazyEightsGame(Game, TurnTimerMixin):
         self.discard_pile.append(card)
         self.turn_has_drawn = False
         self.turn_drawn_card = None
+        self.consecutive_passes = 0
 
         self._play_card_sound(card)
         self._broadcast_play(p, card)
@@ -639,7 +642,6 @@ class CrazyEightsGame(Game, TurnTimerMixin):
             return
         card = self._draw_card()
         if not card:
-            self._handle_empty_draw()
             return
         p.hand.append(card)
         self.turn_has_drawn = True
@@ -668,13 +670,34 @@ class CrazyEightsGame(Game, TurnTimerMixin):
         p = self._require_active_player(player)
         if not p:
             return
-        if not self.turn_has_drawn:
+
+        # Check if pass is actually enabled (prevent deadlock if max hand size reached)
+        if self._is_pass_enabled(p) is not None:
             return
+
         self.play_sound("game_crazyeights/pass.ogg")
         self._broadcast_pass(p)
         self.turn_has_drawn = False
         self.turn_drawn_card = None
+
+        self.consecutive_passes += 1
+
+        # Blocked Game Detection
+        # A game is only truly blocked if all players pass AND the deck is completely exhausted.
+        is_deck_exhausted = self.deck.is_empty() and len(self.discard_pile) <= 1
+        active_players = [ap for ap in self.players if not ap.is_spectator and isinstance(ap, CrazyEightsPlayer)]
+        if self.consecutive_passes >= len(active_players) and is_deck_exhausted:
+            self._handle_blocked_game(active_players)
+            return
+
         self._advance_turn()
+
+    def _handle_blocked_game(self, active_players: list[CrazyEightsPlayer]) -> None:
+        """Handle a blocked game where everyone passes."""
+        self.broadcast_l("crazyeights-game-blocked")
+        # Player with the lowest points in hand wins the blocked round
+        winner = min(active_players, key=lambda p: self._hand_points(p.hand))
+        self._end_round(winner, last_card=None)
 
     def _action_choose_suit(self, player: Player, action_id: str) -> None:
         p = self._require_active_player(player)
@@ -807,9 +830,7 @@ class CrazyEightsGame(Game, TurnTimerMixin):
             return self._is_turn_action_enabled(player)
         if not isinstance(player, CrazyEightsPlayer):
             return "action-not-available"
-        if self.turn_has_drawn:
-            return "action-not-available"
-        if self._has_playable_cards(player):
+        if not self._can_draw(player):
             return "action-not-available"
         return None
 
@@ -820,9 +841,7 @@ class CrazyEightsGame(Game, TurnTimerMixin):
             return Visibility.HIDDEN
         if not isinstance(player, CrazyEightsPlayer):
             return Visibility.HIDDEN
-        if self.turn_has_drawn:
-            return Visibility.HIDDEN
-        if self._has_playable_cards(player):
+        if not self._can_draw(player):
             return Visibility.HIDDEN
         return Visibility.VISIBLE
 
@@ -834,8 +853,6 @@ class CrazyEightsGame(Game, TurnTimerMixin):
         if isinstance(player, CrazyEightsPlayer) and self._has_playable_cards(player):
             return "action-not-available"
         if self.turn_has_drawn:
-            return None
-        if isinstance(player, CrazyEightsPlayer) and len(player.hand) >= self.max_hand_size:
             return None
         if not self._can_draw(player if isinstance(player, CrazyEightsPlayer) else None):
             return None
@@ -849,8 +866,6 @@ class CrazyEightsGame(Game, TurnTimerMixin):
         if isinstance(player, CrazyEightsPlayer) and self._has_playable_cards(player):
             return Visibility.HIDDEN
         if self.turn_has_drawn:
-            return Visibility.VISIBLE
-        if isinstance(player, CrazyEightsPlayer) and len(player.hand) >= self.max_hand_size:
             return Visibility.VISIBLE
         if not self._can_draw(player if isinstance(player, CrazyEightsPlayer) else None):
             return Visibility.VISIBLE
@@ -934,9 +949,10 @@ class CrazyEightsGame(Game, TurnTimerMixin):
             return False
         if self.turn_has_drawn:
             return False
-        if len(player.hand) >= self.max_hand_size:
-            return False
         if self._has_playable_cards(player):
+            return False
+        # Cannot draw if both deck and discard (except top card) are empty
+        if self.deck.is_empty() and len(self.discard_pile) <= 1:
             return False
         return True
 
@@ -977,10 +993,6 @@ class CrazyEightsGame(Game, TurnTimerMixin):
         if self.deck.is_empty():
             self._reshuffle_discard_into_deck()
         return self.deck.draw_one()
-
-    def _handle_empty_draw(self) -> None:
-        # No cards available to draw; end the round with no scoring and start a new hand.
-        self._start_new_hand()
 
     def _reshuffle_discard_into_deck(self) -> None:
         if len(self.discard_pile) <= 1:

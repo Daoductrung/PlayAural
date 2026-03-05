@@ -12,6 +12,7 @@ from ...game_utils.game_result import GameResult, PlayerResult
 from ...game_utils.options import IntOption, MenuOption, option_field
 from ...game_utils.cards import Card, Deck, DeckFactory, card_name, read_cards
 from ...game_utils.turn_timer_mixin import TurnTimerMixin
+from ...game_utils.poker_timer import PokerTurnTimer
 from ...messages.localization import Localization
 from ...ui.keybinds import KeybindState
 
@@ -55,6 +56,7 @@ class PusoyDosOptions(GameOptions):
             choices=TURN_TIMER_CHOICES,
             choice_labels=TURN_TIMER_LABELS,
             default="0",
+            value_key="choice",
             label="pusoydos-set-turn-timer",
             prompt="pusoydos-select-turn-timer",
             change_msg="pusoydos-option-changed-turn-timer",
@@ -85,6 +87,12 @@ class PusoyDosGame(Game, TurnTimerMixin):
     is_first_turn: bool = True
     hand_wait_ticks: int = 0
     intro_wait_ticks: int = 0
+
+    timer: PokerTurnTimer = field(default_factory=PokerTurnTimer)
+
+    def __post_init__(self):
+        super().__post_init__()
+        self._timer_warning_played = False
 
     @classmethod
     def get_name(cls) -> str:
@@ -126,7 +134,8 @@ class PusoyDosGame(Game, TurnTimerMixin):
         self._sync_team_scores()
 
         self.play_music("game_ninetynine/mus.ogg")
-        self.intro_wait_ticks = 40
+        self.play_sound("game_crazyeights/intro.ogg")
+        self.intro_wait_ticks = 7 * 20
         self.broadcast_l("pusoydos-game-start")
 
     def _start_new_hand(self) -> None:
@@ -174,9 +183,10 @@ class PusoyDosGame(Game, TurnTimerMixin):
             idx = self.turn_player_ids.index(start_player.id)
             self.turn_index = idx
 
-        self.play_sound("game_cards/small_shuffle.ogg")
-        self.schedule_sound("game_cards/draw3.ogg", 10, volume=100)
-        self.schedule_sound("game_cards/draw3.ogg", 15, volume=100)
+        self.play_sound("game_crazyeights/newhand.ogg")
+        self.schedule_sound("game_cards/small_shuffle.ogg", 10, volume=100)
+        self.schedule_sound("game_cards/draw3.ogg", 20, volume=100)
+        self.schedule_sound("game_cards/draw3.ogg", 25, volume=100)
 
         for p in active:
             user = self.get_user(p)
@@ -485,6 +495,8 @@ class PusoyDosGame(Game, TurnTimerMixin):
         self.is_first_turn = False
 
         self.play_sound("game_cards/discard.ogg")
+        if combo.type_name in ["full_house", "four_of_a_kind", "straight_flush"]:
+            self.play_sound("game_crazyeights/hitmark.ogg")
         self._broadcast_play(p, combo)
 
         if len(p.hand) == 0:
@@ -677,8 +689,6 @@ class PusoyDosGame(Game, TurnTimerMixin):
             user.speak_l("pusoydos-player-passes", buffer="game", player=player.name)
 
     def _end_hand(self, winner: PusoyDosPlayer) -> None:
-        self.play_sound("game_crazyeights/bigwin.ogg")
-
         penalty = self.options.penalty_multiplier
         total_won = 0
 
@@ -699,6 +709,22 @@ class PusoyDosGame(Game, TurnTimerMixin):
         winner.score += total_won
         self._sync_team_scores()
 
+        # Audio Polish for win/lose
+        if total_won >= (penalty * 15): # big win threshold
+            self.play_sound("game_crazyeights/bigwin.ogg")
+        else:
+            self.play_sound("game_crazyeights/youwin.ogg")
+
+        for p in self.get_active_players():
+            if isinstance(p, PusoyDosPlayer) and p.id != winner.id:
+                user = self.get_user(p)
+                if user:
+                    cards_left = len(p.hand)
+                    if cards_left == 13:
+                        user.play_sound("game_crazyeights/loser.ogg")
+                    else:
+                        user.play_sound("game_crazyeights/youlose.ogg")
+
         self.broadcast_l("pusoydos-hand-winner", player=winner.name, amount=total_won)
         for name, lost in loser_penalties:
             self.broadcast_l("pusoydos-hand-loser", player=name, amount=lost)
@@ -709,11 +735,11 @@ class PusoyDosGame(Game, TurnTimerMixin):
             self._end_game(winner)
             return
 
-        self.hand_wait_ticks = 100
+        self.hand_wait_ticks = 5 * 20
         self.rebuild_all_menus()
 
     def _end_game(self, final_winner: PusoyDosPlayer) -> None:
-        self.play_sound("game_pig/win.ogg")
+        self.play_sound("game_crazyeights/hitmark.ogg")
         self.broadcast_l("pusoydos-game-over", player=final_winner.name)
         self.finish_game()
 
@@ -750,3 +776,11 @@ class PusoyDosGame(Game, TurnTimerMixin):
                 Localization.get(locale, "pusoydos-line-format", rank=i, player=name, score=score)
             )
         return lines
+
+    def _sync_team_scores(self) -> None:
+        for team in self._team_manager.teams:
+            team.total_score = 0
+        for p in self.players:
+            team = self._team_manager.get_team(p.name)
+            if team and isinstance(p, PusoyDosPlayer):
+                team.total_score = p.score

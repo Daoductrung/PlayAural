@@ -422,6 +422,8 @@ class PusoyDosGame(Game, TurnTimerMixin):
 
         if self.status != "playing" or player.is_spectator:
             return
+
+        # Hide cards ONLY during transitions
         if self.hand_wait_ticks > 0 or self.intro_wait_ticks > 0:
             return
 
@@ -439,27 +441,29 @@ class PusoyDosGame(Game, TurnTimerMixin):
                 )
             )
 
-        turn_set.add(
-            Action(
-                id="play_selected",
-                label="",
-                handler="_action_play_selected",
-                is_enabled="_is_play_selected_enabled",
-                is_hidden="_is_turn_action_hidden",
-                get_label="_get_play_selected_label",
-                show_in_actions_menu=False,
+        # Action buttons are only added if it is the player's turn to keep the menu clean
+        if self.current_player == player:
+            turn_set.add(
+                Action(
+                    id="play_selected",
+                    label="",
+                    handler="_action_play_selected",
+                    is_enabled="_is_play_selected_enabled",
+                    is_hidden="_is_turn_action_hidden",
+                    get_label="_get_play_selected_label",
+                    show_in_actions_menu=False,
+                )
             )
-        )
-        turn_set.add(
-            Action(
-                id="pass",
-                label=Localization.get(self._player_locale(player), "pusoydos-pass"),
-                handler="_action_pass",
-                is_enabled="_is_pass_enabled",
-                is_hidden="_is_pass_hidden",
-                show_in_actions_menu=False,
+            turn_set.add(
+                Action(
+                    id="pass",
+                    label=Localization.get(self._player_locale(player), "pusoydos-pass"),
+                    handler="_action_pass",
+                    is_enabled="_is_pass_enabled",
+                    is_hidden="_is_pass_hidden",
+                    show_in_actions_menu=False,
+                )
             )
-        )
 
     # ==========================================================================
     # Action Handlers

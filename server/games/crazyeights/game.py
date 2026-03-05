@@ -668,8 +668,11 @@ class CrazyEightsGame(Game, TurnTimerMixin):
         p = self._require_active_player(player)
         if not p:
             return
-        if not self.turn_has_drawn:
+
+        # Check if pass is actually enabled (prevent deadlock if max hand size reached)
+        if self._is_pass_enabled(p) is not None:
             return
+
         self.play_sound("game_crazyeights/pass.ogg")
         self._broadcast_pass(p)
         self.turn_has_drawn = False

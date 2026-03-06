@@ -376,7 +376,7 @@ class Table(DataClassJSONMixin):
 
         # 10. Announce new host if changed
         if old_host != self.host:
-             new_game.broadcast_l("table-new-host-promoted", player=self.host)
+             new_game.broadcast_l("table-new-host-promoted", buffer="system", player=self.host)
 
         # 11. Mark old game as destroyed so ticks stop affecting it
         old_game._destroyed = True

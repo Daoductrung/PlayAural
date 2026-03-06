@@ -199,7 +199,8 @@ class GameResultMixin:
                 id="leave_game"
             ))
             # game_over menu will be handled by the NEW game instance's EventHandlingMixin
-            user.show_menu("game_over", items, multiletter=False)
+            from ..users.base import EscapeBehavior
+            user.show_menu("game_over", items, multiletter=False, escape_behavior=EscapeBehavior.SELECT_LAST)
 
     def show_game_end_menu(self, score_lines: list[str]) -> None:
         """Show the game end menu to all players.

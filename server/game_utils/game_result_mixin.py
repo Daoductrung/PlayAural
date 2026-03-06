@@ -55,10 +55,13 @@ class GameResultMixin:
         if show_end_screen:
             self._show_end_screen(result)
 
-        # Auto-destroy if no humans remain (bot-only games)
+        # Auto-destroy if no humans remain (bot-only games), else reset table for next game
         has_humans = any(not p.is_bot for p in self.players)
         if not has_humans:
             self.destroy()
+        else:
+            if self._table:
+                self._table.reset_game()
 
     def build_game_result(self) -> GameResult:
         """Build the game result. Override in subclasses for custom data.
@@ -186,12 +189,18 @@ class GameResultMixin:
         if user:
             lines = self.format_end_screen(result, user.locale)
             items = [MenuItem(text=line, id="score_line") for line in lines]
-            # Add Leave button at the end
+            # Add Return to Lobby and Leave buttons at the end
+            items.append(MenuItem(
+                text=Localization.get(user.locale, "return-to-lobby"),
+                id="return_to_lobby"
+            ))
             items.append(MenuItem(
                 text=Localization.get(user.locale, "game-leave"),
                 id="leave_game"
             ))
-            user.show_menu("game_over", items, multiletter=False)
+            # game_over menu will be handled by the NEW game instance's EventHandlingMixin
+            from ..users.base import EscapeBehavior
+            user.show_menu("game_over", items, multiletter=False, escape_behavior=EscapeBehavior.SELECT_LAST)
 
     def show_game_end_menu(self, score_lines: list[str]) -> None:
         """Show the game end menu to all players.

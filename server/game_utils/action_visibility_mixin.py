@@ -65,7 +65,7 @@ class ActionVisibilityMixin:
             return "action-game-in-progress"
         if player.name != self.host:
             return "action-not-host"
-        if len(self.players) >= self.get_max_players():
+        if self.get_active_player_count() >= self.get_max_players():
             return "action-table-full"
         return None
 

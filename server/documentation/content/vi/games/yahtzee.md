@@ -2,6 +2,10 @@
 
 
 
+\*\*Lưu ý: Trò chơi này hiện đang bị vô hiệu hóa và đang được bảo trì.\*\*
+
+
+
 Yahtzee là một trò chơi xúc xắc kinh điển được yêu thích trên toàn thế giới từ năm 1956. Đây là trò chơi kết hợp giữa chiến thuật, xác suất và sự may mắn. Mục tiêu của bạn là gieo năm viên xúc xắc để lấp đầy 13 mục ghi điểm trên bảng điểm. Mỗi mục chỉ được sử dụng một lần duy nhất, vì vậy việc quyết định ghi điểm vào đâu hoặc "hủy" mục nào là yếu tố then chốt.
 
 

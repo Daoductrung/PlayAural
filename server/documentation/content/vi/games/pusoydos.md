@@ -22,7 +22,7 @@ Trò chơi sử dụng bộ bài 52 lá tiêu chuẩn. Mỗi người chơi đư
 
 \* \*\*Thứ tự các chất:\*\* Rô (cao nhất) > Cơ > Bích > Tép (thấp nhất).
 
-\* \*\*Lượt đầu tiên:\*\* Người chơi giữ lá 3 Tép sẽ là người đi đầu tiên và bắt buộc phải đánh lá bài này trong lượt đi đầu của mình.
+\* \*\*Lượt đầu tiên:\*\* Người chơi giữ lá 3 Tép sẽ là người đi đầu tiên và bắt buộc phải đánh lá bài này trong lượt đi đầu của mình. Nếu chơi với ít hơn 4 người và không ai giữ lá 3 Tép, người chơi có lá bài thấp nhất sẽ đi đầu tiên.
 
 
 

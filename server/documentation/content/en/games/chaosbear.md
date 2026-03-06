@@ -6,7 +6,7 @@ Chaos Bear is a push-your-luck chase game for 2 to 4 players. You and your fello
 
 
 
-Each round, players roll a die to sprint forward along a number line. The bear then takes its own turn, rolling to close the gap. As the game goes on, the bear accumulates energy, making it faster and harder to outrun. If the bear reaches your position, you're out. The last player still running wins -- or, if everyone gets caught in the same bear turn, the player who made it the furthest takes the victory.
+Each round, players roll a die to sprint forward along a number line. The bear then takes its own turn, rolling to close the gap. As the game goes on, the bear accumulates energy, making it faster and harder to outrun. If the bear reaches your position, you're out. The last player still running wins -- or, if everyone gets caught in the same bear turn, the system declares a tie for the players who made it the furthest.
 
 
 
@@ -52,7 +52,7 @@ The bear's energy starts at 1 and never drops below 1. If the bear's new positio
 
 
 
-The game ends when only one player remains alive. If the bear catches everyone in a single turn, the player who reached the furthest position wins.
+The game ends when only one player remains alive. If the bear catches everyone in a single turn, the system declares a tie for the players who reached the furthest position.
 
 
 
@@ -96,7 +96,7 @@ Charlie draws a card and gets \*\*Backward Push\*\*, moving back to 42.
 
 Diana rolls a 1 and moves to 43.
 
-The bear rolls a 3. Its energy increases to 5, but it moves 3 + 4 = 7 to position 45. The bear has passed both Charlie and Diana. Since Charlie reached position 45 and Diana only reached 43, Charlie is the winner!
+The bear rolls a 3. Its energy increases to 5, but it moves 3 + 4 = 7 to position 45. The bear has passed both Charlie and Diana. Since Charlie reached position 45 and Diana only reached 43, Charlie is declared the winner in a tiebreaker!
 
 
 

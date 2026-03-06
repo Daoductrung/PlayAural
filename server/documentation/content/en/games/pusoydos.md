@@ -22,7 +22,7 @@ The game is played with a standard 52-card deck. Each player is dealt 13 cards.
 
 \* \*\*Suit Rankings:\*\* Diamonds (highest) > Hearts > Spades > Clubs (lowest).
 
-\* \*\*First Turn:\*\* The player holding the 3 of Clubs starts the first trick, and must include it in their first play.
+\* \*\*First Turn:\*\* The player holding the 3 of Clubs starts the first trick, and must include it in their first play. If playing with fewer than 4 players and no one holds the 3 of Clubs, the player with the lowest value card starts instead.
 
 
 

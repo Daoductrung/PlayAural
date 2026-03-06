@@ -1,5 +1,7 @@
 Tradeoff
 
+**Note: This game is currently disabled and under maintenance.**
+
 Tradeoff is a collaborative yet competitive dice game where players build a collection of 15 dice over three trading rounds. The goal is to form specific scoring combinations from your final hand of 15 dice.
 
 Objective

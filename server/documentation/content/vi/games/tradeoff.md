@@ -1,5 +1,7 @@
 Tradeoff
 
+**Lưu ý: Trò chơi này hiện đang bị vô hiệu hóa và đang được bảo trì.**
+
 Tradeoff là một trò chơi xúc xắc vừa hợp tác vừa cạnh tranh, nơi người chơi xây dựng bộ sưu tập gồm 15 viên xúc xắc qua ba vòng giao dịch. Mục tiêu là tạo thành các tổ hợp ghi điểm cụ thể từ 15 viên xúc xắc cuối cùng của bạn.
 
 Mục tiêu

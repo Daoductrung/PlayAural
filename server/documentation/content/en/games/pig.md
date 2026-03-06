@@ -36,6 +36,8 @@ The game continues until a player or team reaches the target score at the end of
 
 The \*\*host\*\* can tweak several settings at the \*\*table\*\*:
 
+\* \*\*Team Mode:\*\* Choose to play individually or in teams.
+
 \* \*\*Target Score:\*\* Default is 50 (range 10 to 1,000).
 
 \* \*\*Minimum Bank Points:\*\* The minimum score you must reach in a single turn before being allowed to bank (default 0, up to 50).

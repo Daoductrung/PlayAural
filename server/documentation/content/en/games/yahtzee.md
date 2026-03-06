@@ -2,6 +2,10 @@
 
 
 
+\*\*Note: This game is currently disabled and under maintenance.\*\*
+
+
+
 Yahtzee is a classic dice game that has been a household staple since 1956. It is a game of strategy, probability, and luck. The goal is to roll five dice to fill in 13 scoring categories on your scoresheet. Each category can only be used once, so deciding when to score or "scratch" a category is the heart of the game.
 
 

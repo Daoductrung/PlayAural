@@ -171,6 +171,7 @@ table-no-players = Không có người chơi.
 table-players-one = { $count } người chơi: { $players }.
 table-players-many = { $count } người chơi: { $players }.
 table-spectators = Khán giả: { $spectators }.
+table-host-suffix = (Chủ phòng)
 game-leave = Rời khỏi
 game-over = Kết thúc game
 game-final-scores = Điểm tổng kết

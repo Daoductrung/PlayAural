@@ -111,6 +111,7 @@ class GameSoundMixin:
     def play_ambience(self, loop: str, intro: str = "", outro: str = "") -> None:
         """Play ambient sound for all players."""
         self.current_ambience = loop
+        self.current_ambience_outro = outro
         for player in self.players:
             user = self.get_user(player)
             if user:
@@ -119,6 +120,7 @@ class GameSoundMixin:
     def stop_ambience(self) -> None:
         """Stop ambient sound for all players."""
         self.current_ambience = ""
+        self.current_ambience_outro = ""
         for player in self.players:
             user = self.get_user(player)
             if user:

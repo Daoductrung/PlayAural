@@ -281,27 +281,41 @@ class Table(DataClassJSONMixin):
         if hasattr(old_game, "options"):
             old_options = old_game.options
 
-        # Track humans, bots, and spectators who are actively connected or part of the table
+        # Track humans, bots, and spectators who are actively connected or part of the game
         # We need their UUIDs, names, and user objects
         active_players = []
         active_spectators = []
         active_bots = []
 
-        # We iterate over the members list because that's the absolute truth for the table
-        for member in self.members:
-            user = self._users.get(member.username)
-            if not user:
-                continue
+        # We iterate over the old_game.players list because bots are NOT in self.members
+        for player in old_game.players:
+            # For humans, check if they are still actively connected/in the table members
+            is_active_human = False
+            for member in self.members:
+                if member.username == player.name:
+                    is_active_human = True
+                    break
 
-            if getattr(user, "is_bot", False):
-                # Need the player's ID from the old game for bots so they keep their ID
-                old_player = old_game.get_player_by_name(member.username)
-                bot_id = old_player.id if old_player else user.uuid
-                active_bots.append((bot_id, member.username, user))
-            elif member.is_spectator:
-                active_spectators.append((user.uuid, member.username, user))
-            else:
-                active_players.append((user.uuid, member.username, user))
+            if player.is_bot:
+                # Bots are always "active"
+                user = old_game._users.get(player.id)
+                if user:
+                    active_bots.append((player.id, player.name, user))
+            elif is_active_human:
+                user = self._users.get(player.name)
+                if user:
+                    if player.is_spectator:
+                        active_spectators.append((player.id, player.name, user))
+                    else:
+                        active_players.append((player.id, player.name, user))
+
+        # Check for any spectators that joined the table but weren't added to the game yet
+        # (e.g., they joined exactly as the game ended)
+        for member in self.members:
+            if member.is_spectator and not any(name == member.username for _, name, _ in active_spectators):
+                user = self._users.get(member.username)
+                if user:
+                    active_spectators.append((user.uuid, member.username, user))
 
         # 2. Re-evaluate host
         # If the old host left, they won't be in active_players

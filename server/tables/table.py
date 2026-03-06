@@ -281,81 +281,82 @@ class Table(DataClassJSONMixin):
         if hasattr(old_game, "options"):
             old_options = old_game.options
 
-        # Track humans, bots, and spectators who are actively connected or part of the game
-        # We need their UUIDs, names, and user objects
+        # 2. Clean up stale members
+        # If a player disconnected during the end-game sequence, they might still be in self.members
+        # but not in self._users. We must remove them now to prevent ghost players.
+        valid_members = []
+        for member in self.members:
+            if self._users.get(member.username):
+                valid_members.append(member)
+        self.members = valid_members
+
+        # 3. Track humans, bots, and spectators
         active_players = []
         active_spectators = []
         active_bots = []
 
-        # We iterate over the old_game.players list because bots are NOT in self.members
-        for player in old_game.players:
-            # For humans, check if they are still actively connected/in the table members
-            is_active_human = False
-            for member in self.members:
-                if member.username == player.name:
-                    is_active_human = True
-                    break
+        # Table.members is the SINGLE SOURCE OF TRUTH for humans and their roles
+        for member in self.members:
+            user = self._users.get(member.username)
+            if not user:
+                continue # Safety check, though we just cleaned up
 
+            if member.is_spectator:
+                active_spectators.append((user.uuid, member.username, user))
+            else:
+                active_players.append((user.uuid, member.username, user))
+
+        # old_game.players is the ONLY source for bots
+        for player in old_game.players:
             if player.is_bot:
-                # Bots are always "active"
                 user = old_game._users.get(player.id)
                 if user:
                     active_bots.append((player.id, player.name, user))
-            elif is_active_human:
-                user = self._users.get(player.name)
-                if user:
-                    if player.is_spectator:
-                        active_spectators.append((player.id, player.name, user))
-                    else:
-                        active_players.append((player.id, player.name, user))
 
-        # Check for any spectators that joined the table but weren't added to the game yet
-        # (e.g., they joined exactly as the game ended)
-        for member in self.members:
-            if member.is_spectator and not any(name == member.username for _, name, _ in active_spectators):
-                user = self._users.get(member.username)
-                if user:
-                    active_spectators.append((user.uuid, member.username, user))
+        # 4. Re-evaluate host
+        # If the old host left, they won't be in active_players or active_spectators
+        old_host = self.host
+        host_present = any(name == self.host for _, name, _ in active_players) or \
+                       any(name == self.host for _, name, _ in active_spectators)
 
-        # 2. Re-evaluate host
-        # If the old host left, they won't be in active_players
-        host_present = any(username == self.host for _, username, _ in active_players)
-
-        if not host_present and active_players:
-            # Sort humans (perhaps by join time if we had it, but for now just prioritize active ones)
-            # Prioritize online humans
+        if not host_present:
+            # Promote a new host. Prioritize players over spectators.
             candidates = [p for p in active_players]
-            if self._server:
-                candidates.sort(key=lambda p: p[1] in self._server._users, reverse=True)
-            self.host = candidates[0][1]
-        elif not host_present and not active_players:
-             # This shouldn't happen if reset_game is called properly, but fallback
-             # Just leave it or destroy
-             self.destroy()
-             return
+            if not candidates:
+                candidates = [s for s in active_spectators]
 
-        # 3. Instantiate fresh game
+            if candidates:
+                # Prioritize online humans (though valid_members cleanup should ensure this)
+                if self._server:
+                    candidates.sort(key=lambda p: p[1] in self._server._users, reverse=True)
+                self.host = candidates[0][1]
+            else:
+                # No humans left at all
+                self.destroy()
+                return
+
+        # 5. Instantiate fresh game
         new_game = game_class()
 
-        # 4. Copy options
+        # 6. Safe Option Cloning
         if old_options and hasattr(new_game, "options"):
-            import copy
-            new_game.options = copy.deepcopy(old_options)
+            # Serialize old options to dict and rebuild to avoid deepcopy issues with dataclasses
+            options_dict = old_options.to_dict()
+            new_game.options = type(new_game.options).from_dict(options_dict)
 
-        # 5. Link table
+        # 7. Link table
         new_game._table = self
         self._game = new_game
 
-        # 6. Initialize lobby state
+        # 8. Initialize lobby state
         new_game.host = self.host
         new_game.status = "waiting"
         new_game.setup_keybinds()
 
-        # 7. Add players back
+        # 9. Add players back
         for uuid_str, name, user in active_players:
              new_game.add_player(name, user)
              # Explicitly set the player ID since add_player uses user.uuid by default
-             # (This is mostly redundant for humans, but good for consistency)
              player = new_game.get_player_by_name(name)
              if player:
                  player.id = uuid_str
@@ -367,17 +368,20 @@ class Table(DataClassJSONMixin):
                  player.id = uuid_str
 
         for uuid_str, name, user in active_bots:
-             # Bots don't have user.uuid naturally, they get it from Game.create_player or Bot()
-             # We use the raw create_player/append logic for bots to perfectly match LobbyActionsMixin
+             # Use the raw create_player/append logic for bots to perfectly match LobbyActionsMixin
              bot_player = new_game.create_player(uuid_str, name, is_bot=True)
              new_game.players.append(bot_player)
              new_game.attach_user(bot_player.id, user)
              new_game.setup_player_actions(bot_player)
 
-        # 8. Mark old game as destroyed so ticks stop affecting it
+        # 10. Announce new host if changed
+        if old_host != self.host:
+             new_game.broadcast_l("table-new-host-promoted", player=self.host)
+
+        # 11. Mark old game as destroyed so ticks stop affecting it
         old_game._destroyed = True
 
-        # 9. Sync status
+        # 12. Sync status
         self.status = "waiting"
 
     def save_and_close(self, username: str) -> None:

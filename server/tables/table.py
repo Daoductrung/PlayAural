@@ -378,10 +378,17 @@ class Table(DataClassJSONMixin):
         if old_host != self.host:
              new_game.broadcast_l("table-new-host-promoted", buffer="system", player=self.host)
 
-        # 11. Mark old game as destroyed so ticks stop affecting it
+        # 11. Transfer scheduled sounds and sound scheduler tick from old game
+        new_game.scheduled_sounds = list(old_game.scheduled_sounds)
+        new_game.sound_scheduler_tick = old_game.sound_scheduler_tick
+
+        # 12. Play waiting lobby music
+        new_game.play_music("findgamemus.ogg")
+
+        # 13. Mark old game as destroyed so ticks stop affecting it
         old_game._destroyed = True
 
-        # 12. Sync status
+        # 14. Sync status
         self.status = "waiting"
 
     def save_and_close(self, username: str) -> None:

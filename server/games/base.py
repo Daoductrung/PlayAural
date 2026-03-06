@@ -117,6 +117,7 @@ class Game(
     host: str = ""  # Username of the host
     current_music: str = ""  # Currently playing music track
     current_ambience: str = ""  # Currently playing ambience loop
+    current_ambience_outro: str = ""  # Outro for the currently playing ambience loop
     turn_index: int = 0  # Current turn index (serialized for persistence)
     turn_direction: int = 1  # Turn direction: 1 = forward, -1 = reverse
     turn_skip_count: int = 0  # Number of players to skip on next advance

@@ -265,6 +265,107 @@ class Table(DataClassJSONMixin):
         if self._manager:
             self._manager.on_table_destroy(self)
 
+    def reset_game(self) -> None:
+        """Reset the table to the lobby state with a completely fresh Game instance."""
+        if not self._game:
+            return
+
+        from ..games.registry import get_game_class
+        game_class = get_game_class(self.game_type)
+        if not game_class:
+            return
+
+        # 1. Store old game state we need
+        old_game = self._game
+        old_options = None
+        if hasattr(old_game, "options"):
+            old_options = old_game.options
+
+        # Track humans, bots, and spectators who are actively connected or part of the table
+        # We need their UUIDs, names, and user objects
+        active_players = []
+        active_spectators = []
+        active_bots = []
+
+        # We iterate over the members list because that's the absolute truth for the table
+        for member in self.members:
+            user = self._users.get(member.username)
+            if not user:
+                continue
+
+            if getattr(user, "is_bot", False):
+                # Need the player's ID from the old game for bots so they keep their ID
+                old_player = old_game.get_player_by_name(member.username)
+                bot_id = old_player.id if old_player else user.uuid
+                active_bots.append((bot_id, member.username, user))
+            elif member.is_spectator:
+                active_spectators.append((user.uuid, member.username, user))
+            else:
+                active_players.append((user.uuid, member.username, user))
+
+        # 2. Re-evaluate host
+        # If the old host left, they won't be in active_players
+        host_present = any(username == self.host for _, username, _ in active_players)
+
+        if not host_present and active_players:
+            # Sort humans (perhaps by join time if we had it, but for now just prioritize active ones)
+            # Prioritize online humans
+            candidates = [p for p in active_players]
+            if self._server:
+                candidates.sort(key=lambda p: p[1] in self._server._users, reverse=True)
+            self.host = candidates[0][1]
+        elif not host_present and not active_players:
+             # This shouldn't happen if reset_game is called properly, but fallback
+             # Just leave it or destroy
+             self.destroy()
+             return
+
+        # 3. Instantiate fresh game
+        new_game = game_class()
+
+        # 4. Copy options
+        if old_options and hasattr(new_game, "options"):
+            import copy
+            new_game.options = copy.deepcopy(old_options)
+
+        # 5. Link table
+        new_game._table = self
+        self._game = new_game
+
+        # 6. Initialize lobby state
+        new_game.host = self.host
+        new_game.status = "waiting"
+        new_game.setup_keybinds()
+
+        # 7. Add players back
+        for uuid_str, name, user in active_players:
+             new_game.add_player(name, user)
+             # Explicitly set the player ID since add_player uses user.uuid by default
+             # (This is mostly redundant for humans, but good for consistency)
+             player = new_game.get_player_by_name(name)
+             if player:
+                 player.id = uuid_str
+
+        for uuid_str, name, user in active_spectators:
+             new_game.add_spectator(name, user)
+             player = new_game.get_player_by_name(name)
+             if player:
+                 player.id = uuid_str
+
+        for uuid_str, name, user in active_bots:
+             # Bots don't have user.uuid naturally, they get it from Game.create_player or Bot()
+             # We use the raw create_player/append logic for bots to perfectly match LobbyActionsMixin
+             bot_player = new_game.create_player(uuid_str, name, is_bot=True)
+             new_game.players.append(bot_player)
+             new_game.attach_user(bot_player.id, user)
+             new_game.setup_player_actions(bot_player)
+
+        # 8. Mark old game as destroyed so ticks stop affecting it
+        old_game._destroyed = True
+
+        # 9. Sync status
+        self.status = "waiting"
+
     def save_and_close(self, username: str) -> None:
         """Save game state and close table. Called by game save action."""
         if self._server:

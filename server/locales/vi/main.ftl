@@ -26,6 +26,7 @@ back = Quay lại
 go-back = Quay lại
 context-menu = Menu ngữ cảnh.
 no-actions-available = Không có hành động nào.
+return-to-lobby = Trở lại phòng chờ
 create-table = Tạo bàn mới
 leave-table = Rời bàn
 start-game = Bắt đầu game

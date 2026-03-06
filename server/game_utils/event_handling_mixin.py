@@ -132,13 +132,15 @@ class EventHandlingMixin:
                 self.rebuild_player_menu(player)
 
         elif menu_id == "game_over":
-            # Handle game over menu - leave_game is the only selectable action
-            # It's always the last item
-            if selection_id == "leave_game":
+            # Handle game over menu - Return to lobby or Leave game
+            # When the game is over, `self` here is the NEW lobby game instance
+            if selection_id == "return_to_lobby":
+                self.rebuild_player_menu(player)
+            elif selection_id == "leave_game":
                 self.execute_action(player, "leave_game")
             else:
-                # Index-based - any selection triggers leave
-                self.execute_action(player, "leave_game")
+                # By default, assume they hit enter on a score line, which goes to lobby
+                self.rebuild_player_menu(player)
 
         elif menu_id == "action_input_menu":
             # Handle action input menu selection

@@ -26,6 +26,7 @@ back = Back
 go-back = Go back
 context-menu = Context menu.
 no-actions-available = No actions available.
+return-to-lobby = Return to lobby
 create-table = Create a new table
 leave-table = Leave table
 start-game = Start game

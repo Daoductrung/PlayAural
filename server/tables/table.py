@@ -284,10 +284,16 @@ class Table(DataClassJSONMixin):
         # 2. Clean up stale members
         # If a player disconnected during the end-game sequence, they might still be in self.members
         # but not in self._users. We must remove them now to prevent ghost players.
+        # We also check the server's master user list to ensure they are actually online.
         valid_members = []
         for member in self.members:
-            if self._users.get(member.username):
-                valid_members.append(member)
+            user = self._users.get(member.username)
+            if user:
+                # Bots are always "online" for the game's purposes, though they aren't in server._users
+                is_bot = getattr(user, "is_bot", False)
+                # Humans must be actively connected to the server
+                if is_bot or (self._server and member.username in self._server._users):
+                    valid_members.append(member)
         self.members = valid_members
 
         # 3. Track humans, bots, and spectators

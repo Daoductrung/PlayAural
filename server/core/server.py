@@ -1948,9 +1948,10 @@ PlayAural Server
             game.rebuild_all_menus()
         else:
             # Determine if user can join as player
+            active_players_count = sum(1 for p in game.players if not p.is_spectator)
             can_join_as_player = (
                 game.status != "playing"
-                and len(game.players) < game.get_max_players()
+                and active_players_count < game.get_max_players()
             )
 
             if can_join_as_player:
@@ -2029,7 +2030,8 @@ PlayAural Server
                     }
                     return
 
-            if len(game.players) >= game.get_max_players():
+            active_players_count = sum(1 for p in game.players if not p.is_spectator)
+            if active_players_count >= game.get_max_players():
                 user.speak_l("table-full")
                 self._return_from_join_menu(user, state)
                 return

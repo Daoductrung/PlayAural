@@ -171,6 +171,7 @@ table-no-players = No players.
 table-players-one = { $count } player: { $players }.
 table-players-many = { $count } players: { $players }.
 table-spectators = Spectators: { $spectators }.
+table-host-suffix = (Host)
 game-leave = Leave
 game-over = Game Over
 game-final-scores = Final Scores

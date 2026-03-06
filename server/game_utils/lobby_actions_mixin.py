@@ -121,6 +121,15 @@ class LobbyActionsMixin:
         if self.status != "waiting":
             return  # Can only toggle before game starts
 
+        # If currently a spectator trying to become a player, check capacity
+        if player.is_spectator:
+            active_players = sum(1 for p in self.players if not p.is_spectator)
+            if active_players >= self.get_max_players():
+                user = self.get_user(player)
+                if user:
+                    user.speak_l("table-full")
+                return
+
         player.is_spectator = not player.is_spectator
         
         # SYNC FIX: Update the table member record to match

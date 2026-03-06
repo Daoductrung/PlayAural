@@ -36,8 +36,25 @@ class GameScoresMixin:
         user = self.get_user(player)
         if not user:
             return
-        players = [p.name for p in self.players if not p.is_spectator]
-        spectators = [p.name for p in self.players if p.is_spectator]
+
+        host_suffix = " " + Localization.get(user.locale, "table-host-suffix")
+
+        players = []
+        for p in self.players:
+            if not p.is_spectator:
+                name = p.name
+                if name == self.host:
+                    name += host_suffix
+                players.append(name)
+
+        spectators = []
+        for p in self.players:
+            if p.is_spectator:
+                name = p.name
+                if name == self.host:
+                    name += host_suffix
+                spectators.append(name)
+
         count = len(players)
         if count == 0:
             user.speak_l("table-no-players")

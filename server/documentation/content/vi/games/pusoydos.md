@@ -15,10 +15,12 @@ Trò chơi sử dụng bộ bài 52 lá tiêu chuẩn. Mỗi người chơi đư
 Người chơi lần lượt đánh các tổ hợp bài. Tổ hợp được đánh ra phải lớn hơn tổ hợp bài trước đó trên bàn và phải cùng loại.
 
 Các loại tổ hợp hợp lệ bao gồm:
+
 * **Lá lẻ:** Một lá bài duy nhất.
 * **Đôi:** Hai lá bài có cùng số.
 * **Sám cô:** Ba lá bài có cùng số.
 * **Tổ hợp 5 lá:** Gồm chính xác 5 lá bài, tương tự như các tay bài Poker. Chúng được xếp hạng từ thấp đến cao như sau:
+
   * **Sảnh (Straight):** Năm lá bài liên tiếp không cùng chất (ví dụ: 3-4-5-6-7). Lá bài cao nhất sẽ quyết định độ mạnh của sảnh.
   * **Thùng (Flush):** Năm lá bài có cùng chất (ví dụ: năm lá Bích). Thùng đánh bại bất kỳ Sảnh nào. Chất bài là yếu tố chính quyết định độ mạnh giữa các Thùng.
   * **Cù lũ (Full House):** Một bộ ba (Sám cô) kết hợp với một đôi. Cù lũ đánh bại Thùng và Sảnh. Thứ hạng của bộ ba sẽ quyết định độ mạnh của Cù lũ.
@@ -29,13 +31,13 @@ Một vòng đánh kết thúc khi tất cả những người chơi khác liên
 
 **Ví dụ một vòng chơi**
 
-* Bắt đầu trò chơi. Alice có lá bài thấp nhất (3 Tép) và cô ấy đánh một đôi: 3 Tép và 3 Cơ.
-* Đến lượt Bob. Vì Alice đã đánh "Đôi", Bob *bắt buộc* phải đánh một "Đôi" lớn hơn. Anh ấy đánh một đôi 5.
-* Đến lượt Charlie. Anh ấy không có đôi nào cao hơn 5, vì vậy anh ấy quyết định nhấn "P" để Bỏ lượt.
-* Alice đánh một đôi K.
-* Bob bỏ lượt. Vì cả hai đối thủ đều đã bỏ lượt liên tiếp, Alice giành được vòng này.
-* Alice bây giờ có thể bắt đầu vòng mới với *bất kỳ* tổ hợp nào. Cô ấy chọn đánh một Sảnh 5 lá.
-* Bob bây giờ phải đánh một tổ hợp 5 lá có thể đánh bại Sảnh (như một Sảnh cao hơn, hoặc một Thùng).
+* Bắt đầu trò chơi. Hạnh có lá bài thấp nhất (3 Tép) và cô ấy đánh một đôi: 3 Tép và 3 Cơ.
+* Đến lượt Trung. Vì Hạnh đã đánh "Đôi", Trung *bắt buộc* phải đánh một "Đôi" lớn hơn. Anh ấy đánh một đôi 5.
+* Đến lượt Bình. Anh ấy không có đôi nào cao hơn 5, vì vậy anh ấy quyết định nhấn "P" để Bỏ lượt.
+* Hạnh đánh một đôi K.
+* Trung bỏ lượt. Vì cả hai đối thủ đều đã bỏ lượt liên tiếp, Hạnh giành được vòng này.
+* Hạnh bây giờ có thể bắt đầu vòng mới với *bất kỳ* tổ hợp nào. Cô ấy chọn đánh một Sảnh 5 lá.
+* Trung bây giờ phải đánh một tổ hợp 5 lá có thể đánh bại Sảnh (như một Sảnh cao hơn, hoặc một Thùng).
 
 **Cách tính điểm**
 

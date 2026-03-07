@@ -52,6 +52,7 @@ class CoupGame(Game):
     original_claimer_id: str | None = None
     return_count: int = 0
     passed_players: set[str] = field(default_factory=set)
+    player_claims: dict[str, set[str]] = field(default_factory=dict)
 
     # Audio sequence timing and state locking
     is_resolving: bool = False
@@ -138,10 +139,13 @@ class CoupGame(Game):
 
         # Initial hands and coins
         active_players = self.get_active_players()
+        self.player_claims.clear()
+
         for player in active_players:
             player.coins = 2
             player.influences = []
             player.is_dead = False
+            self.player_claims[player.id] = set()
             for _ in range(2):
                 card = self.deck.draw()
                 if card:
@@ -711,7 +715,7 @@ class CoupGame(Game):
     def _bot_select_target(self, player: Player, options: list[str]) -> str | None:
         if not options:
             return None
-        return random.choice(options)
+        return CoupBot.select_best_target(self, player, options)
 
     # ==========================================================================
     # Action Handlers
@@ -844,6 +848,10 @@ class CoupGame(Game):
         player = self.get_player_by_id(player_id)
         target = self.get_player_by_id(target_id) if target_id else None
 
+        req_char = self._get_required_character_for_action(action)
+        if req_char and player_id in self.player_claims:
+            self.player_claims[player_id].add(req_char)
+
         # Play claim sound and broadcast
         if action == "tax":
             self.play_sound("game_coup/claim_duke.ogg")
@@ -906,14 +914,21 @@ class CoupGame(Game):
         if self.active_action == "foreign_aid":
             self.play_sound("game_coup/claim_duke.ogg") # Claiming Duke to block
             self.broadcast_l("coup-blocks-foreign-aid", blocker=player.name, target=claimer.name)
+            if player.id in self.player_claims:
+                self.player_claims[player.id].add("duke")
         elif self.active_action == "assassinate":
             self.play_sound("game_coup/claim_contessa.ogg") # Claiming Contessa
             self.broadcast_l("coup-blocks-assassinate", blocker=player.name, target=claimer.name)
+            if player.id in self.player_claims:
+                self.player_claims[player.id].add("contessa")
         elif self.active_action == "steal":
             # For steal, might be Captain or Ambassador. For simplicity, just use Ambassador claim sound
             # or Captain claim sound randomly, or let's just say they claim to block.
             self.play_sound("game_coup/claim_ambassador.ogg")
             self.broadcast_l("coup-blocks-steal", blocker=player.name, target=claimer.name)
+            if player.id in self.player_claims:
+                # Add a generic 'ambassador' claim for UI/Bot tracking purposes when stealing is blocked.
+                self.player_claims[player.id].add("ambassador")
 
         # Enter "waiting_block" phase where the BLOCK can be challenged
         self.turn_phase = "waiting_block"
@@ -1077,6 +1092,8 @@ class CoupGame(Game):
                     new_card = self.deck.draw()
                     claimer.influences.append(new_card)
                     self.play_sound(f"game_cards/draw{random.randint(1, 4)}.ogg")
+                    if claimer.id in self.player_claims:
+                        self.player_claims[claimer.id].clear()
                     if new_card and not claimer.is_bot:
                         user = self.get_user(claimer)
                         if user:
@@ -1220,6 +1237,9 @@ class CoupGame(Game):
                 player.influences.append(card2)
                 self.play_sound(f"game_cards/draw{random.randint(1, 4)}.ogg")
 
+            if player.id in self.player_claims:
+                self.player_claims[player.id].clear()
+
             self.turn_phase = "exchanging"
             self.interrupt_timer_ticks = 0
             self.rebuild_all_menus()
@@ -1347,6 +1367,9 @@ class CoupGame(Game):
         ))
 
     def _post_lose_influence(self) -> None:
+        if self.active_target_id and self.active_target_id in self.player_claims:
+            self.player_claims[self.active_target_id].clear()
+
         next_action = getattr(self, "_next_action_after_lose", "end_turn")
         self._next_action_after_lose = "end_turn"
 

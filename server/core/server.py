@@ -295,6 +295,13 @@ PlayAural Server
                 continue  # Don't send broadcasts to unapproved users
             user.speak_l("dev-announcement-broadcast", buffer="system", dev=dev_name)
 
+    def _notify_admins(self, message_id: str, sound: str) -> None:
+        """Notify all online admins (trust level >= 2) with a message and sound."""
+        for user in self._users.values():
+            if user.trust_level >= 2:
+                user.speak_l(message_id)
+                user.play_sound(sound)
+
     async def _on_client_message(self, client: ClientConnection, packet: dict) -> None:
         """Handle incoming message from client."""
         packet_type = packet.get("type")

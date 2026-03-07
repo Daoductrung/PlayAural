@@ -182,9 +182,9 @@ create_user() {
     
     export PLAYAURAL_CLI_PW="$u_pass"
 
-    cd "$SERVER_DIR/.."
+    cd "$SERVER_DIR"
     echo "Running CLI (Package: $DIR_NAME) securely..."
-    sudo -u "$SERVICE_USER" -E $VENV_PYTHON -m ${DIR_NAME}.cli create-user "$u_name"
+    sudo -u "$SERVICE_USER" -E $VENV_PYTHON cli.py create-user "$u_name"
     
     unset PLAYAURAL_CLI_PW
     read -p "Press Enter to continue..."
@@ -201,8 +201,8 @@ reset_password() {
     
     export PLAYAURAL_CLI_PW="$u_pass"
 
-    cd "$SERVER_DIR/.."
-    sudo -u "$SERVICE_USER" -E $VENV_PYTHON -m ${DIR_NAME}.cli reset-password "$u_name"
+    cd "$SERVER_DIR"
+    sudo -u "$SERVICE_USER" -E $VENV_PYTHON cli.py reset-password "$u_name"
     
     unset PLAYAURAL_CLI_PW
     read -p "Press Enter to continue..."

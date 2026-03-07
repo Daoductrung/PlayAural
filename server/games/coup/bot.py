@@ -166,6 +166,12 @@ class CoupBot(BotHelper):
 
             return "pass"
 
+        # Main turn actions
+        if game.turn_phase == "main" and game.current_player == player:
+            return cls._decide_main_action(game, player)
+
+        return None
+
     @classmethod
     def _decide_challenge(cls, game: "CoupGame", bot: "CoupPlayer", claimer: "CoupPlayer") -> bool:
         """Smart logic for challenging."""

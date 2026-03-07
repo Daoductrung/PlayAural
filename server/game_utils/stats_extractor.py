@@ -72,6 +72,9 @@ class StatsExtractor:
                     if val is not None:
                         if aggregate == "max":
                             updates[player_id][f"custom_{lb_id}_high"] = float(val)
+                        elif aggregate == "avg":
+                            updates[player_id][f"custom_{lb_id}_sum"] = float(val)
+                            updates[player_id][f"custom_{lb_id}_count"] = 1.0
                         else:
                             updates[player_id][f"custom_{lb_id}"] = float(val)
 

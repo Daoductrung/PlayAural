@@ -2281,37 +2281,6 @@ PlayAural Server
             "game_name": game_name,
         }
 
-    def _get_game_results_deprecated(self, game_type: str) -> list:
-        """Get game results as GameResult objects."""
-        from ..game_utils.game_result import GameResult, PlayerResult
-        import json
-
-        results = self._db.get_game_stats(game_type, limit=100)
-        game_results = []
-
-        for row in results:
-            custom_data = json.loads(row[4]) if row[4] else {}
-            player_rows = self._db.get_game_result_players(row[0])
-            player_results = [
-                PlayerResult(
-                    player_id=p["player_id"],
-                    player_name=p["player_name"],
-                    is_bot=p["is_bot"],
-                )
-                for p in player_rows
-            ]
-            game_results.append(
-                GameResult(
-                    game_type=row[1],
-                    timestamp=row[2],
-                    duration_ticks=row[3],
-                    player_results=player_results,
-                    custom_data=custom_data,
-                )
-            )
-
-        return game_results
-
     def _show_wins_leaderboard(
         self, user: NetworkUser, game_type: str, game_name: str
     ) -> None:
@@ -2374,10 +2343,7 @@ PlayAural Server
                 )
             )
         else:
-            for rank, rating in enumerate(ratings, 1):
-                # Look up username using db helper method
-                player_name = self._db.get_user_name_by_uuid(rating.player_id) or rating.player_id
-
+            for rank, (player_name, rating) in enumerate(ratings, 1):
                 items.append(
                     MenuItem(
                         text=Localization.get(
@@ -2553,34 +2519,36 @@ PlayAural Server
         lb_id = config["id"]
         format_key = config.get("format", "score")
         decimals = config.get("decimals", 0)
+        aggregate = config.get("aggregate", "sum")
 
         # Check if this is a ratio calculation or simple path
         is_ratio = "numerator" in config and "denominator" in config
+        is_avg = (aggregate == "avg")
 
         player_scores: list[tuple[str, str, float]] = []
 
-        if is_ratio:
-            # Custom ratio extraction via aggregate fetch
-            cursor = self._db._conn.cursor()
-            cursor.execute("""
-                SELECT p_num.player_id, u.username, p_num.stat_value, p_denom.stat_value
-                FROM player_game_stats p_num
-                JOIN player_game_stats p_denom ON p_num.player_id = p_denom.player_id AND p_num.game_type = p_denom.game_type AND p_denom.stat_key = ?
-                LEFT JOIN users u ON p_num.player_id = u.uuid
-                WHERE p_num.game_type = ? AND p_num.stat_key = ?
-            """, (f"custom_{lb_id}_denominator", game_type, f"custom_{lb_id}_numerator"))
-            for row in cursor.fetchall():
-                player_id = row[0]
-                player_name = row[1]
-                total_num = row[2]
-                total_denom = row[3]
+        if is_ratio or is_avg:
+            if is_avg:
+                num_key = f"custom_{lb_id}_sum"
+                denom_key = f"custom_{lb_id}_count"
+            else:
+                num_key = f"custom_{lb_id}_numerator"
+                denom_key = f"custom_{lb_id}_denominator"
+
+            # Custom ratio or average extraction via aggregate fetch
+            ratio_stats = self._db.get_top_ratio_stats(
+                game_type,
+                num_key,
+                denom_key
+            )
+            for player_id, player_name, total_num, total_denom in ratio_stats:
                 if total_denom > 0:
                     value = total_num / total_denom
-                    player_scores.append((player_id, player_name or player_id, value))
+                    player_scores.append((player_id, player_name, value))
             player_scores.sort(key=lambda x: x[2], reverse=True)
+            player_scores = player_scores[:10]  # Apply limit for ratio stats
         else:
             # Simple stat
-            aggregate = config.get("aggregate", "sum")
             if aggregate == "max":
                 stat_key = f"custom_{lb_id}_high"
             else:
@@ -2591,7 +2559,7 @@ PlayAural Server
         items = []
         entry_key = f"leaderboard-{format_key}-entry"
 
-        for rank, (player_id, name, value) in enumerate(player_scores[:10], 1):
+        for rank, (player_id, name, value) in enumerate(player_scores, 1):
             display_value = round(value, decimals) if decimals > 0 else int(value)
             items.append(
                 MenuItem(
@@ -2840,6 +2808,7 @@ PlayAural Server
 
             # Check if this is a ratio calculation or simple path
             is_ratio = bool(numerator_path and denominator_path)
+            is_avg = (aggregate == "avg")
 
             final_value = None
 
@@ -2848,6 +2817,11 @@ PlayAural Server
                 denom = stats.get(f"custom_{lb_id}_denominator", 0)
                 if denom > 0:
                     final_value = num / denom
+            elif is_avg:
+                sum_val = stats.get(f"custom_{lb_id}_sum", 0)
+                count_val = stats.get(f"custom_{lb_id}_count", 0)
+                if count_val > 0:
+                    final_value = sum_val / count_val
             else:
                 if aggregate == "max":
                     final_value = stats.get(f"custom_{lb_id}_high")
@@ -2872,19 +2846,6 @@ PlayAural Server
                     text = f"{type_name}: {formatted_value}"
 
                 items.append(MenuItem(text=text, id=f"custom_{lb_id}"))
-
-    def _extract_path_value(self, data: dict, path: str) -> float | None:
-        """Extract a value from nested dict using dot notation path."""
-        parts = path.split(".")
-        current = data
-        for part in parts:
-            if isinstance(current, dict) and part in current:
-                current = current[part]
-            else:
-                return None
-        if isinstance(current, (int, float)):
-            return float(current)
-        return None
 
     async def _handle_my_stats_selection(
         self, user: NetworkUser, selection_id: str, state: dict

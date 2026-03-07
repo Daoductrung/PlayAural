@@ -1100,6 +1100,24 @@ class Database:
         )
         return [(row["player_id"], row["player_name"] or row["player_id"], row["wins"], row["losses"]) for row in cursor.fetchall()]
 
+    def get_top_ratio_stats(self, game_type: str, num_key: str, denom_key: str) -> list[tuple[str, str, float, float]]:
+        """
+        Get numerator and denominator stats for all players for a game type, returning them so they can be sorted.
+        Returns list of (player_id, player_name, total_num, total_denom).
+        """
+        cursor = self._conn.cursor()
+        cursor.execute("""
+            SELECT p_num.player_id, u.username, p_num.stat_value, p_denom.stat_value
+            FROM player_game_stats p_num
+            JOIN player_game_stats p_denom
+                ON p_num.player_id = p_denom.player_id
+               AND p_num.game_type = p_denom.game_type
+               AND p_denom.stat_key = ?
+            LEFT JOIN users u ON p_num.player_id = u.uuid
+            WHERE p_num.game_type = ? AND p_num.stat_key = ?
+        """, (denom_key, game_type, num_key))
+        return [(row[0], row[1] or row[0], row[2], row[3]) for row in cursor.fetchall()]
+
     def get_user_name_by_uuid(self, uuid: str) -> str | None:
         """Look up a username by UUID efficiently."""
         cursor = self._conn.cursor()
@@ -1160,21 +1178,24 @@ class Database:
 
     def get_rating_leaderboard(
         self, game_type: str, limit: int = 10
-    ) -> list[tuple[str, float, float]]:
+    ) -> list[tuple[str, str, float, float]]:
         """
         Get the rating leaderboard for a game type.
 
         Returns:
-            List of (player_id, mu, sigma) tuples sorted by mu descending
+            List of (player_id, player_name, mu, sigma) tuples sorted by ordinal descending
         """
         cursor = self._conn.cursor()
         cursor.execute(
             """
-            SELECT player_id, mu, sigma FROM player_ratings
-            WHERE game_type = ?
-            ORDER BY mu DESC
+            SELECT pr.player_id, u.username as player_name, pr.mu, pr.sigma,
+                   (pr.mu - 3 * pr.sigma) as ordinal
+            FROM player_ratings pr
+            LEFT JOIN users u ON pr.player_id = u.uuid
+            WHERE pr.game_type = ?
+            ORDER BY ordinal DESC
             LIMIT ?
             """,
             (game_type, limit),
         )
-        return [(row["player_id"], row["mu"], row["sigma"]) for row in cursor.fetchall()]
+        return [(row["player_id"], row["player_name"] or row["player_id"], row["mu"], row["sigma"]) for row in cursor.fetchall()]

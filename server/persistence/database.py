@@ -337,6 +337,7 @@ class Database:
         - bans: Expired more than 30 days ago.
         """
         import datetime
+        import logging
         from datetime import timedelta
 
         now = datetime.datetime.now()
@@ -347,14 +348,28 @@ class Database:
 
         # 1. Prune game_results (ON DELETE CASCADE handles game_result_players)
         cursor.execute("DELETE FROM game_results WHERE timestamp < ?", (thirty_days_ago,))
+        deleted_games = cursor.rowcount
 
         # 2. Prune saved_tables
         cursor.execute("DELETE FROM saved_tables WHERE saved_at < ?", (one_year_ago,))
+        deleted_saves = cursor.rowcount
 
         # 3. Prune expired bans (keep them around for 30 days post-expiry for admin logs, then drop)
         cursor.execute("DELETE FROM bans WHERE expires_at IS NOT NULL AND expires_at < ?", (thirty_days_ago,))
+        deleted_bans = cursor.rowcount
 
         self._conn.commit()
+
+        # Log results
+        logger = logging.getLogger("playaural.db.prune")
+        if deleted_games > 0 or deleted_saves > 0 or deleted_bans > 0:
+             logger.info(f"Database Pruning: Deleted {deleted_games} old game results, {deleted_saves} old saved tables, and {deleted_bans} expired bans.")
+        else:
+             logger.info("Database Pruning: 0 records deleted (no old data found).")
+
+        # Also print to standard output for explicit CLI visibility on startup
+        if deleted_games > 0 or deleted_saves > 0 or deleted_bans > 0:
+             print(f"Database Pruning: Cleaned up {deleted_games} game_results, {deleted_saves} saved_tables, and {deleted_bans} bans.")
 
     # User operations
 

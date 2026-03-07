@@ -326,6 +326,7 @@ class CoupGame(Game):
                 input_request=MenuInput(
                     prompt="coup-select-target",
                     options="_target_options",
+                    option_labels="_target_labels",
                     bot_select="_bot_select_target",
                 ),
                 show_in_actions_menu=False,
@@ -353,6 +354,7 @@ class CoupGame(Game):
                 input_request=MenuInput(
                     prompt="coup-select-target",
                     options="_target_options",
+                    option_labels="_target_labels",
                     bot_select="_bot_select_target",
                 ),
                 show_in_actions_menu=False,
@@ -368,6 +370,7 @@ class CoupGame(Game):
                 input_request=MenuInput(
                     prompt="coup-select-target",
                     options="_target_options",
+                    option_labels="_target_labels",
                     bot_select="_bot_select_target",
                 ),
                 show_in_actions_menu=False,
@@ -712,6 +715,19 @@ class CoupGame(Game):
                 options.append(p.name)
         return options
 
+    def _target_labels(self, player: Player, options: list[str]) -> list[str] | None:
+        user = self.get_user(player)
+        locale = user.locale if user else "en"
+
+        labels = []
+        for name in options:
+            target = self.get_player_by_name(name)
+            if target and isinstance(target, CoupPlayer):
+                labels.append(Localization.get(locale, "coup-wealth-line", player=target.name, coins=target.coins))
+            else:
+                labels.append(name)
+        return labels
+
     def _bot_select_target(self, player: Player, options: list[str]) -> str | None:
         if not options:
             return None
@@ -743,6 +759,11 @@ class CoupGame(Game):
             return
 
         coup_player: CoupPlayer = player  # type: ignore
+
+        if coup_player.is_dead:
+            user.speak_l("coup-you-are-eliminated", buffer="game")
+            return
+
         lines = []
         for card in coup_player.live_influences:
             card_name = Localization.get(user.locale, f"coup-card-{card.character.value}")

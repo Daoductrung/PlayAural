@@ -214,17 +214,6 @@ class CoupBot(BotHelper):
         if total_exhausted == len(req_list):
             return True # 100% certainty they are lying
 
-        # Memory Deduction Certainty: Has the player claimed too many roles for their hand size?
-        if claimer.id in game.player_claims:
-            claims = game.player_claims[claimer.id]
-            # Note: The current claim was already added to the set by the engine
-            live_count = len(claimer.live_influences)
-            if len(claims) > live_count:
-                # They have claimed more unique roles than they have cards. Mathematical lie!
-                # Wait, they could have Ambassador'd. The engine clears claims on draw/exchange.
-                # So if they still have too many claims, they are definitely lying.
-                return True
-
         # Probabilistic Challenge
         base_chance = 0.05
         if bot_has_any:
@@ -232,6 +221,15 @@ class CoupBot(BotHelper):
 
         # Add scarcity multiplier
         base_chance += (scarcity_score * 0.20)
+
+        # Memory Deduction: Is the player acting highly suspicious?
+        # If they have claimed more unique roles than they have cards, they are definitely lying
+        # ABOUT SOMETHING. We can't guarantee their *current* action is the lie, but they are highly suspicious.
+        if claimer.id in game.player_claims:
+            claims = game.player_claims[claimer.id]
+            live_count = len(claimer.live_influences)
+            if len(claims) > live_count:
+                base_chance += 0.25  # Increase challenge chance significantly, but don't guarantee it to avoid bot suicide.
 
         # Aggression towards threats
         if claimer.coins >= 7:

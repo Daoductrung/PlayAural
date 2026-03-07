@@ -326,7 +326,6 @@ class CoupGame(Game):
                 input_request=MenuInput(
                     prompt="coup-select-target",
                     options="_target_options",
-                    option_labels="_target_labels",
                     bot_select="_bot_select_target",
                 ),
                 show_in_actions_menu=False,
@@ -354,7 +353,6 @@ class CoupGame(Game):
                 input_request=MenuInput(
                     prompt="coup-select-target",
                     options="_target_options",
-                    option_labels="_target_labels",
                     bot_select="_bot_select_target",
                 ),
                 show_in_actions_menu=False,
@@ -370,7 +368,6 @@ class CoupGame(Game):
                 input_request=MenuInput(
                     prompt="coup-select-target",
                     options="_target_options",
-                    option_labels="_target_labels",
                     bot_select="_bot_select_target",
                 ),
                 show_in_actions_menu=False,
@@ -709,29 +706,34 @@ class CoupGame(Game):
         return None
 
     def _target_options(self, player: Player) -> list[str]:
+        user = self.get_user(player)
+        locale = user.locale if user else "en"
         options = []
         for p in self.get_alive_players():
             if p != player:
-                options.append(p.name)
+                options.append(Localization.get(locale, "coup-wealth-line", player=p.name, coins=p.coins))
         return options
 
-    def _target_labels(self, player: Player, options: list[str]) -> list[str] | None:
-        user = self.get_user(player)
-        locale = user.locale if user else "en"
-
-        labels = []
-        for name in options:
-            target = self.get_player_by_name(name)
-            if target and isinstance(target, CoupPlayer):
-                labels.append(Localization.get(locale, "coup-wealth-line", player=target.name, coins=target.coins))
-            else:
-                labels.append(name)
-        return labels
+    def _extract_target_name(self, target_str: str) -> str:
+        """Helper to extract the base player name from the formatted option string."""
+        # The string format is defined by "coup-wealth-line" which is "PlayerName: X coins"
+        # We can extract the name by splitting on ':'
+        if ":" in target_str:
+            return target_str.split(":", 1)[0].strip()
+        return target_str.strip()
 
     def _bot_select_target(self, player: Player, options: list[str]) -> str | None:
         if not options:
             return None
-        return CoupBot.select_best_target(self, player, options)
+
+        # Bot evaluates based on raw names, so we need to map formatted options back to names
+        # and then map the selected name back to the formatted option string
+        option_map = {self._extract_target_name(opt): opt for opt in options}
+
+        best_name = CoupBot.select_best_target(self, player, list(option_map.keys()))
+        if best_name and best_name in option_map:
+            return option_map[best_name]
+        return random.choice(options)
 
     # ==========================================================================
     # Action Handlers
@@ -812,7 +814,7 @@ class CoupGame(Game):
 
     def _action_coup(self, player: Player, target_name: str, action_id: str) -> None:
         coup_player: CoupPlayer = player  # type: ignore
-        target = self.get_player_by_name(target_name)
+        target = self.get_player_by_name(self._extract_target_name(target_name))
 
         if not target or target.is_dead:
             return
@@ -836,7 +838,7 @@ class CoupGame(Game):
 
     def _action_assassinate(self, player: Player, target_name: str, action_id: str) -> None:
         coup_player: CoupPlayer = player  # type: ignore
-        target = self.get_player_by_name(target_name)
+        target = self.get_player_by_name(self._extract_target_name(target_name))
 
         if not target or target.is_dead:
             return
@@ -845,7 +847,7 @@ class CoupGame(Game):
         self._declare_action(player.id, "assassinate", target.id)
 
     def _action_steal(self, player: Player, target_name: str, action_id: str) -> None:
-        target = self.get_player_by_name(target_name)
+        target = self.get_player_by_name(self._extract_target_name(target_name))
 
         if not target or target.is_dead:
             return

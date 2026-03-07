@@ -56,7 +56,7 @@ class Database:
     Stores users and tables as specified in persistence.md.
     """
 
-    def __init__(self, db_path: str | Path = "playaural.db"):
+    def __init__(self, db_path: str | Path = "PlayAural.db"):
         self.db_path = Path(db_path)
         self._conn: sqlite3.Connection | None = None
 

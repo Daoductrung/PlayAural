@@ -1290,7 +1290,10 @@ class CoupGame(Game):
             return
 
         live = player.live_influences
-        if len(live) == 1:
+        if len(live) == 0:
+            self._post_lose_influence()
+            return
+        elif len(live) == 1:
             # Only one left, auto-lose it
             self.play_sound(f"game_coup/chardestroy{random.randint(1, 2)}.ogg")
             self.play_sound(f"game_cards/discard{random.randint(1, 3)}.ogg")

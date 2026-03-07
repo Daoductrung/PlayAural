@@ -180,6 +180,31 @@ class Database:
             ON bans(username)
         """)
 
+        # Player game stats (aggregated stats for leaderboards)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS player_game_stats (
+                player_id TEXT NOT NULL,
+                game_type TEXT NOT NULL,
+                stat_key TEXT NOT NULL,
+                stat_value REAL NOT NULL,
+                PRIMARY KEY (player_id, game_type, stat_key)
+            )
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_player_game_stats_leaderboard
+            ON player_game_stats(game_type, stat_key, stat_value DESC)
+        """)
+
+        # Additional indexes for fast lookups
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_users_uuid
+            ON users(uuid)
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_result_players_result
+            ON game_result_players(result_id)
+        """)
+
         self._conn.commit()
 
         # Run migrations for existing databases
@@ -229,6 +254,77 @@ class Database:
                 ON bans(username)
             """)
             self._conn.commit()
+
+        # Check if player_game_stats needs backfilling
+        cursor.execute("SELECT COUNT(*) FROM player_game_stats")
+        if cursor.fetchone()[0] == 0:
+            cursor.execute("SELECT COUNT(*) FROM game_results")
+            if cursor.fetchone()[0] > 0:
+                print("Running one-time backfill of player_game_stats from historical game results...")
+                self._backfill_player_game_stats()
+
+    def _backfill_player_game_stats(self) -> None:
+        """Backfill player_game_stats from historical game results."""
+        from ..game_utils.stats_extractor import StatsExtractor
+
+        cursor = self._conn.cursor()
+
+        # Get all game results
+        cursor.execute("SELECT id, game_type, custom_data FROM game_results ORDER BY id ASC")
+        results = cursor.fetchall()
+
+        for row in results:
+            result_id = row["id"]
+            game_type = row["game_type"]
+            try:
+                custom_data = json.loads(row["custom_data"]) if row["custom_data"] else {}
+            except Exception:
+                custom_data = {}
+
+            # Get players for this game
+            cursor.execute("SELECT player_id, player_name, is_bot FROM game_result_players WHERE result_id = ?", (result_id,))
+            players = [(p["player_id"], p["player_name"], bool(p["is_bot"])) for p in cursor.fetchall()]
+
+            # Apply incremental updates exactly as we would for a new game
+            from ..game_utils.game_result import GameResult, PlayerResult
+
+            # Reconstruct GameResult
+            from datetime import datetime
+            gr = GameResult(
+                game_type=game_type,
+                timestamp=datetime.now().isoformat(),
+                duration_ticks=0,
+                player_results=[PlayerResult(player_id=pid, player_name=name, is_bot=is_bot) for pid, name, is_bot in players],
+                custom_data=custom_data
+            )
+
+            # Only process if there are human players
+            if not gr.has_human_players():
+                continue
+
+            updates = StatsExtractor.extract_incremental_stats(gr)
+            for player_id, stats in updates.items():
+                for stat_key, stat_value in stats.items():
+                    if stat_key.endswith("_high"):
+                        # For high scores, use MAX
+                        base_key = stat_key[:-5]  # strip '_high'
+                        cursor.execute("""
+                            INSERT INTO player_game_stats (player_id, game_type, stat_key, stat_value)
+                            VALUES (?, ?, ?, ?)
+                            ON CONFLICT(player_id, game_type, stat_key)
+                            DO UPDATE SET stat_value = MAX(stat_value, excluded.stat_value)
+                        """, (player_id, game_type, base_key, float(stat_value)))
+                    else:
+                        # For others (wins, total_score, games_played), use SUM
+                        cursor.execute("""
+                            INSERT INTO player_game_stats (player_id, game_type, stat_key, stat_value)
+                            VALUES (?, ?, ?, ?)
+                            ON CONFLICT(player_id, game_type, stat_key)
+                            DO UPDATE SET stat_value = stat_value + excluded.stat_value
+                        """, (player_id, game_type, stat_key, float(stat_value)))
+
+        self._conn.commit()
+        print("Backfill completed.")
 
     # User operations
 
@@ -742,6 +838,42 @@ class Database:
                 (result_id, player_id, player_name, 1 if is_bot else 0),
             )
 
+        # Update player_game_stats
+        from ..game_utils.game_result import GameResult, PlayerResult
+        from ..game_utils.stats_extractor import StatsExtractor
+
+        # We temporarily build a GameResult just for the extractor
+        from datetime import datetime
+        gr = GameResult(
+            game_type=game_type,
+            timestamp=datetime.now().isoformat(),
+            duration_ticks=duration_ticks,
+            player_results=[PlayerResult(player_id=pid, player_name=name, is_bot=is_bot) for pid, name, is_bot in players],
+            custom_data=custom_data or {}
+        )
+
+        if gr.has_human_players():
+            updates = StatsExtractor.extract_incremental_stats(gr)
+            for p_id, stats in updates.items():
+                for stat_key, stat_value in stats.items():
+                    if stat_key.endswith("_high"):
+                        # For high scores, use MAX
+                        base_key = stat_key[:-5]  # strip '_high'
+                        cursor.execute("""
+                            INSERT INTO player_game_stats (player_id, game_type, stat_key, stat_value)
+                            VALUES (?, ?, ?, ?)
+                            ON CONFLICT(player_id, game_type, stat_key)
+                            DO UPDATE SET stat_value = MAX(stat_value, excluded.stat_value)
+                        """, (p_id, game_type, base_key, float(stat_value)))
+                    else:
+                        # For others (wins, total_score, games_played), use SUM
+                        cursor.execute("""
+                            INSERT INTO player_game_stats (player_id, game_type, stat_key, stat_value)
+                            VALUES (?, ?, ?, ?)
+                            ON CONFLICT(player_id, game_type, stat_key)
+                            DO UPDATE SET stat_value = stat_value + excluded.stat_value
+                        """, (p_id, game_type, stat_key, float(stat_value)))
+
         self._conn.commit()
         return result_id
 
@@ -923,6 +1055,70 @@ class Database:
         return {
             "games_played": row["games_played"] or 0,
         }
+
+    def get_top_player_game_stats(self, game_type: str, stat_key: str, limit: int = 10) -> list[tuple[str, str, float]]:
+        """
+        Get the top players for a specific stat in a specific game.
+        Returns list of (player_id, player_name, stat_value).
+        """
+        cursor = self._conn.cursor()
+        cursor.execute(
+            """
+            SELECT pgs.player_id, u.username as player_name, pgs.stat_value
+            FROM player_game_stats pgs
+            LEFT JOIN users u ON pgs.player_id = u.uuid
+            WHERE pgs.game_type = ? AND pgs.stat_key = ?
+            ORDER BY pgs.stat_value DESC
+            LIMIT ?
+            """,
+            (game_type, stat_key, limit),
+        )
+        return [(row["player_id"], row["player_name"] or row["player_id"], row["stat_value"]) for row in cursor.fetchall()]
+
+    def get_top_wins_with_losses(self, game_type: str, limit: int = 10) -> list[tuple[str, str, float, float]]:
+        """
+        Get the top players by wins along with their losses to avoid N+1 queries.
+        Returns list of (player_id, player_name, wins, losses).
+        """
+        cursor = self._conn.cursor()
+        cursor.execute(
+            """
+            SELECT
+                pgs_w.player_id,
+                u.username as player_name,
+                pgs_w.stat_value as wins,
+                COALESCE(pgs_l.stat_value, 0) as losses
+            FROM player_game_stats pgs_w
+            LEFT JOIN player_game_stats pgs_l
+                ON pgs_w.player_id = pgs_l.player_id AND pgs_w.game_type = pgs_l.game_type AND pgs_l.stat_key = 'losses'
+            LEFT JOIN users u ON pgs_w.player_id = u.uuid
+            WHERE pgs_w.game_type = ? AND pgs_w.stat_key = 'wins'
+            ORDER BY pgs_w.stat_value DESC
+            LIMIT ?
+            """,
+            (game_type, limit),
+        )
+        return [(row["player_id"], row["player_name"] or row["player_id"], row["wins"], row["losses"]) for row in cursor.fetchall()]
+
+    def get_user_name_by_uuid(self, uuid: str) -> str | None:
+        """Look up a username by UUID efficiently."""
+        cursor = self._conn.cursor()
+        cursor.execute("SELECT username FROM users WHERE uuid = ?", (uuid,))
+        row = cursor.fetchone()
+        return row["username"] if row else None
+
+    def get_all_player_game_stats(self, player_id: str, game_type: str) -> dict[str, float]:
+        """Get all pre-calculated stats for a specific player and game."""
+        cursor = self._conn.cursor()
+        cursor.execute(
+            """
+            SELECT stat_key, stat_value
+            FROM player_game_stats
+            WHERE player_id = ? AND game_type = ?
+            """,
+            (player_id, game_type)
+        )
+        return {row["stat_key"]: row["stat_value"] for row in cursor.fetchall()}
 
     # Player rating operations
 

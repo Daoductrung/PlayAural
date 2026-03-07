@@ -52,8 +52,10 @@ pusoydos-player-passes = { $player } passes.
 pusoydos-trick-won = { $player } won the trick.
 
 pusoydos-trick-empty = The trick is empty.
-pusoydos-trick-status = Current trick: { $player } played a { $combo } of { $cards }.
+pusoydos-trick-status = { $player } played a { $combo } of { $cards }.
 pusoydos-your-hand = Your hand: { $cards }.
+pusoydos-read-card-counts = Read card counts
+pusoydos-card-count-line = { $player } has { $count } cards
 
 pusoydos-combo-single = Single
 pusoydos-combo-pair = Pair

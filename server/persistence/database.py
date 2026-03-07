@@ -64,7 +64,9 @@ class Database:
         """Connect to the database and create tables if needed."""
         self._conn = sqlite3.connect(str(self.db_path))
         self._conn.row_factory = sqlite3.Row
+        self._conn.execute("PRAGMA foreign_keys = ON;")
         self._create_tables()
+        self.prune_old_records()
 
     def close(self) -> None:
         """Close the database connection."""
@@ -74,6 +76,7 @@ class Database:
 
     def _create_tables(self) -> None:
         """Create database tables if they don't exist."""
+        self._conn.execute("PRAGMA foreign_keys = ON;")
         cursor = self._conn.cursor()
 
         # Users table
@@ -326,6 +329,33 @@ class Database:
         self._conn.commit()
         print("Backfill completed.")
 
+    def prune_old_records(self) -> None:
+        """
+        Prune historical bloat from the database to save space.
+        - game_results: Older than 30 days.
+        - saved_tables: Older than 365 days.
+        - bans: Expired more than 30 days ago.
+        """
+        import datetime
+        from datetime import timedelta
+
+        now = datetime.datetime.now()
+        thirty_days_ago = (now - timedelta(days=30)).isoformat()
+        one_year_ago = (now - timedelta(days=365)).isoformat()
+
+        cursor = self._conn.cursor()
+
+        # 1. Prune game_results (ON DELETE CASCADE handles game_result_players)
+        cursor.execute("DELETE FROM game_results WHERE timestamp < ?", (thirty_days_ago,))
+
+        # 2. Prune saved_tables
+        cursor.execute("DELETE FROM saved_tables WHERE saved_at < ?", (one_year_ago,))
+
+        # 3. Prune expired bans (keep them around for 30 days post-expiry for admin logs, then drop)
+        cursor.execute("DELETE FROM bans WHERE expires_at IS NOT NULL AND expires_at < ?", (thirty_days_ago,))
+
+        self._conn.commit()
+
     # User operations
 
     def get_user(self, username: str) -> UserRecord | None:
@@ -493,9 +523,25 @@ class Database:
         return cursor.rowcount > 0
 
     def delete_user(self, username: str) -> bool:
-        """Delete a user account. Returns True if user was found and deleted."""
+        """Delete a user account and safely clean up orphaned metadata. Returns True if user was found and deleted."""
+        user = self.get_user(username)
+        if not user:
+            return False
+
         cursor = self._conn.cursor()
+
+        # Delete dependent data using explicit soft keys (username/uuid)
+        cursor.execute("DELETE FROM player_game_stats WHERE player_id = ?", (user.uuid,))
+        cursor.execute("DELETE FROM player_ratings WHERE player_id = ?", (user.uuid,))
+        cursor.execute("DELETE FROM saved_tables WHERE username = ?", (username,))
+        cursor.execute("DELETE FROM bans WHERE username = ?", (username,))
+
+        # We explicitly DO NOT delete `game_result_players` rows here because doing so
+        # breaks historical game integrity for other users who participated.
+
+        # Finally delete the user
         cursor.execute("DELETE FROM users WHERE username = ?", (username,))
+
         self._conn.commit()
         return cursor.rowcount > 0
 

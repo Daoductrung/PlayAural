@@ -2281,84 +2281,18 @@ PlayAural Server
             "game_name": game_name,
         }
 
-    def _get_game_results(self, game_type: str) -> list:
-        """Get game results as GameResult objects."""
-        from ..game_utils.game_result import GameResult, PlayerResult
-        import json
-
-        results = self._db.get_game_stats(game_type, limit=100)
-        game_results = []
-
-        for row in results:
-            custom_data = json.loads(row[4]) if row[4] else {}
-            player_rows = self._db.get_game_result_players(row[0])
-            player_results = [
-                PlayerResult(
-                    player_id=p["player_id"],
-                    player_name=p["player_name"],
-                    is_bot=p["is_bot"],
-                )
-                for p in player_rows
-            ]
-            game_results.append(
-                GameResult(
-                    game_type=row[1],
-                    timestamp=row[2],
-                    duration_ticks=row[3],
-                    player_results=player_results,
-                    custom_data=custom_data,
-                )
-            )
-
-        return game_results
-
     def _show_wins_leaderboard(
         self, user: NetworkUser, game_type: str, game_name: str
     ) -> None:
         """Show win leaders leaderboard."""
         from ..game_utils.stats_helpers import LeaderboardHelper
 
-        game_results = self._get_game_results(game_type)
-
-        # Build player stats: {player_id: {wins, losses, name}}
-        player_stats: dict[str, dict] = {}
-        for result in game_results:
-            winner_name = result.custom_data.get("winner_name")
-            winner_ids = result.custom_data.get("winner_ids")
-            
-            for p in result.player_results:
-                if p.is_bot:
-                    continue
-                if p.player_id not in player_stats:
-                    player_stats[p.player_id] = {
-                        "wins": 0,
-                        "losses": 0,
-                        "name": p.player_name,
-                    }
-                
-                # Check winner_ids if available, otherwise fallback to name match
-                is_winner = False
-                if winner_ids:
-                    if p.player_id in winner_ids:
-                        is_winner = True
-                elif winner_name == p.player_name:
-                    is_winner = True
-                    
-                if is_winner:
-                    player_stats[p.player_id]["wins"] += 1
-                else:
-                    player_stats[p.player_id]["losses"] += 1
-
-        # Sort by wins descending
-        sorted_players = sorted(
-            player_stats.items(), key=lambda x: x[1]["wins"], reverse=True
-        )
+        # Fetch top wins from pre-calculated stats avoiding N+1 queries
+        top_wins = self._db.get_top_wins_with_losses(game_type, limit=10)
 
         items = []
 
-        for rank, (player_id, stats) in enumerate(sorted_players[:10], 1):
-            wins = stats["wins"]
-            losses = stats["losses"]
+        for rank, (player_id, player_name, wins, losses) in enumerate(top_wins, 1):
             total = wins + losses
             percentage = round((wins / total * 100) if total > 0 else 0)
             items.append(
@@ -2367,10 +2301,10 @@ PlayAural Server
                         user.locale,
                         "leaderboard-wins-entry",
                         rank=rank,
-                        player=stats["name"],
-                        wins=wins,
-                        losses=losses,
-                        percentage=percentage,
+                        player=player_name,
+                        wins=int(wins),
+                        losses=int(losses),
+                        percentage=int(percentage),
                     ),
                     id=f"entry_{rank}",
                 )
@@ -2409,20 +2343,7 @@ PlayAural Server
                 )
             )
         else:
-            for rank, rating in enumerate(ratings, 1):
-                # Get player name from UUID - check recent game results
-                player_name = rating.player_id
-                # Look up name from game results
-                results = self._db.get_game_stats(game_type, limit=100)
-                for result in results:
-                    players = self._db.get_game_result_players(result[0])
-                    for p in players:
-                        if p["player_id"] == rating.player_id:
-                            player_name = p["player_name"]
-                            break
-                    if player_name != rating.player_id:
-                        break
-
+            for rank, (player_name, rating) in enumerate(ratings, 1):
                 items.append(
                     MenuItem(
                         text=Localization.get(
@@ -2458,38 +2379,19 @@ PlayAural Server
         """Show total score leaderboard."""
         from ..game_utils.stats_helpers import LeaderboardHelper
 
-        game_results = self._get_game_results(game_type)
-
-        # Build total scores per player
-        player_scores: dict[str, dict] = {}
-        for result in game_results:
-            final_scores = result.custom_data.get("final_scores", {})
-            for p in result.player_results:
-                if p.is_bot:
-                    continue
-                if p.player_id not in player_scores:
-                    player_scores[p.player_id] = {"total": 0, "name": p.player_name}
-                # Try to get score by player name
-                score = final_scores.get(p.player_name, 0)
-                if score:
-                    player_scores[p.player_id]["total"] += score
-
-        # Sort by total score descending
-        sorted_players = sorted(
-            player_scores.items(), key=lambda x: x[1]["total"], reverse=True
-        )
+        top_scores = self._db.get_top_player_game_stats(game_type, "total_score", limit=10)
 
         items = []
 
-        for rank, (player_id, stats) in enumerate(sorted_players[:10], 1):
+        for rank, (player_id, player_name, total) in enumerate(top_scores, 1):
             items.append(
                 MenuItem(
                     text=Localization.get(
                         user.locale,
                         "leaderboard-score-entry",
                         rank=rank,
-                        player=stats["name"],
-                        value=int(stats["total"]),
+                        player=player_name,
+                        value=int(total),
                     ),
                     id=f"entry_{rank}",
                 )
@@ -2513,37 +2415,19 @@ PlayAural Server
         self, user: NetworkUser, game_type: str, game_name: str
     ) -> None:
         """Show high score leaderboard."""
-        game_results = self._get_game_results(game_type)
-
-        # Build high scores per player
-        player_high: dict[str, dict] = {}
-        for result in game_results:
-            final_scores = result.custom_data.get("final_scores", {})
-            for p in result.player_results:
-                if p.is_bot:
-                    continue
-                score = final_scores.get(p.player_name, 0)
-                if p.player_id not in player_high:
-                    player_high[p.player_id] = {"high": score, "name": p.player_name}
-                elif score > player_high[p.player_id]["high"]:
-                    player_high[p.player_id]["high"] = score
-
-        # Sort by high score descending
-        sorted_players = sorted(
-            player_high.items(), key=lambda x: x[1]["high"], reverse=True
-        )
+        top_scores = self._db.get_top_player_game_stats(game_type, "high_score", limit=10)
 
         items = []
 
-        for rank, (player_id, stats) in enumerate(sorted_players[:10], 1):
+        for rank, (player_id, player_name, high) in enumerate(top_scores, 1):
             items.append(
                 MenuItem(
                     text=Localization.get(
                         user.locale,
                         "leaderboard-score-entry",
                         rank=rank,
-                        player=stats["name"],
-                        value=int(stats["high"]),
+                        player=player_name,
+                        value=int(high),
                     ),
                     id=f"entry_{rank}",
                 )
@@ -2567,34 +2451,19 @@ PlayAural Server
         self, user: NetworkUser, game_type: str, game_name: str
     ) -> None:
         """Show games played leaderboard."""
-        game_results = self._get_game_results(game_type)
-
-        # Count games per player
-        player_games: dict[str, dict] = {}
-        for result in game_results:
-            for p in result.player_results:
-                if p.is_bot:
-                    continue
-                if p.player_id not in player_games:
-                    player_games[p.player_id] = {"count": 0, "name": p.player_name}
-                player_games[p.player_id]["count"] += 1
-
-        # Sort by games played descending
-        sorted_players = sorted(
-            player_games.items(), key=lambda x: x[1]["count"], reverse=True
-        )
+        top_games = self._db.get_top_player_game_stats(game_type, "games_played", limit=10)
 
         items = []
 
-        for rank, (player_id, stats) in enumerate(sorted_players[:10], 1):
+        for rank, (player_id, player_name, count) in enumerate(top_games, 1):
             items.append(
                 MenuItem(
                     text=Localization.get(
                         user.locale,
                         "leaderboard-games-entry",
                         rank=rank,
-                        player=stats["name"],
-                        value=stats["count"],
+                        player=player_name,
+                        value=int(count),
                     ),
                     id=f"entry_{rank}",
                 )
@@ -2647,84 +2516,50 @@ PlayAural Server
         config: dict,
     ) -> None:
         """Show a custom leaderboard using declarative config."""
-        game_results = self._get_game_results(game_type)
-
         lb_id = config["id"]
-        aggregate = config.get("aggregate", "sum")
         format_key = config.get("format", "score")
         decimals = config.get("decimals", 0)
+        aggregate = config.get("aggregate", "sum")
 
         # Check if this is a ratio calculation or simple path
         is_ratio = "numerator" in config and "denominator" in config
+        is_avg = (aggregate == "avg")
 
-        # Aggregate data per player
-        player_data: dict[str, dict] = {}
-
-        for result in game_results:
-            custom_data = result.custom_data
-            for p in result.player_results:
-                if p.is_bot:
-                    continue
-
-                if p.player_id not in player_data:
-                    player_data[p.player_id] = {
-                        "name": p.player_name,
-                        "values": [],
-                        "numerators": [],
-                        "denominators": [],
-                    }
-
-                if is_ratio:
-                    num = self._extract_value_from_path(
-                        custom_data, config["numerator"], p.player_id, p.player_name
-                    )
-                    denom = self._extract_value_from_path(
-                        custom_data, config["denominator"], p.player_id, p.player_name
-                    )
-                    if num is not None and denom is not None:
-                        player_data[p.player_id]["numerators"].append(num)
-                        player_data[p.player_id]["denominators"].append(denom)
-                else:
-                    value = self._extract_value_from_path(
-                        custom_data, config["path"], p.player_id, p.player_name
-                    )
-                    if value is not None:
-                        player_data[p.player_id]["values"].append(value)
-
-        # Calculate final values based on aggregate type
         player_scores: list[tuple[str, str, float]] = []
 
-        for player_id, data in player_data.items():
-            if is_ratio:
-                total_num = sum(data["numerators"])
-                total_denom = sum(data["denominators"])
+        if is_ratio or is_avg:
+            if is_avg:
+                num_key = f"custom_{lb_id}_sum"
+                denom_key = f"custom_{lb_id}_count"
+            else:
+                num_key = f"custom_{lb_id}_numerator"
+                denom_key = f"custom_{lb_id}_denominator"
+
+            # Custom ratio or average extraction via aggregate fetch
+            ratio_stats = self._db.get_top_ratio_stats(
+                game_type,
+                num_key,
+                denom_key
+            )
+            for player_id, player_name, total_num, total_denom in ratio_stats:
                 if total_denom > 0:
                     value = total_num / total_denom
-                    player_scores.append((player_id, data["name"], value))
+                    player_scores.append((player_id, player_name, value))
+            player_scores.sort(key=lambda x: x[2], reverse=True)
+            player_scores = player_scores[:10]  # Apply limit for ratio stats
+        else:
+            # Simple stat
+            if aggregate == "max":
+                stat_key = f"custom_{lb_id}_high"
             else:
-                values = data["values"]
-                if not values:
-                    continue
-
-                if aggregate == "sum":
-                    value = sum(values)
-                elif aggregate == "max":
-                    value = max(values)
-                elif aggregate == "avg":
-                    value = sum(values) / len(values)
-                else:
-                    value = sum(values)
-
-                player_scores.append((player_id, data["name"], value))
-
-        # Sort descending
-        player_scores.sort(key=lambda x: x[2], reverse=True)
+                stat_key = f"custom_{lb_id}"
+            player_scores = self._db.get_top_player_game_stats(game_type, stat_key, limit=10)
 
         # Build menu items
         items = []
         entry_key = f"leaderboard-{format_key}-entry"
 
-        for rank, (player_id, name, value) in enumerate(player_scores[:10], 1):
+        for rank, (player_id, name, value) in enumerate(player_scores, 1):
             display_value = round(value, decimals) if decimals > 0 else int(value)
             items.append(
                 MenuItem(
@@ -2819,13 +2654,8 @@ PlayAural Server
             for game_class in categories[category_key]:
                 game_type = game_class.get_type()
                 # Check if user has played this game
-                game_results = self._get_game_results(game_type)
-                has_stats = any(
-                    p.player_id == user.uuid
-                    for result in game_results
-                    for p in result.player_results
-                )
-                if has_stats:
+                stats = self._db.get_all_player_game_stats(user.uuid, game_type)
+                if stats and stats.get("games_played", 0) > 0:
                     game_name = Localization.get(user.locale, game_class.get_name_key())
                     items.append(
                         MenuItem(text=game_name, id=f"stats_{game_type}")
@@ -2856,48 +2686,18 @@ PlayAural Server
             return
 
         game_name = Localization.get(user.locale, game_class.get_name_key())
-        game_results = self._get_game_results(game_type)
+        stats = self._db.get_all_player_game_stats(user.uuid, game_type)
 
-        # Calculate player's personal stats
-        wins = 0
-        losses = 0
-        total_score = 0
-        high_score = 0
-        games_played = 0
-
-        for result in game_results:
-            winner_name = result.custom_data.get("winner_name")
-            winner_ids = result.custom_data.get("winner_ids")
-            final_scores = result.custom_data.get("final_scores", {})
-            final_light = result.custom_data.get("final_light", {})
-
-            for p in result.player_results:
-                if p.player_id == user.uuid:
-                    games_played += 1
-                    
-                    is_winner = False
-                    if winner_ids:
-                        if p.player_id in winner_ids:
-                            is_winner = True
-                    elif winner_name == p.player_name:
-                        is_winner = True
-
-                    if is_winner:
-                        wins += 1
-                    else:
-                        losses += 1
-
-                    # Get score from final_scores or final_light (for Light Turret)
-                    score = final_scores.get(p.player_name, 0)
-                    if not score:
-                        score = final_light.get(p.player_name, 0)
-                    total_score += score
-                    if score > high_score:
-                        high_score = score
+        games_played = int(stats.get("games_played", 0))
 
         if games_played == 0:
             user.speak_l("my-stats-no-data")
             return
+
+        wins = int(stats.get("wins", 0))
+        losses = int(stats.get("losses", 0))
+        total_score = int(stats.get("total_score", 0))
+        high_score = int(stats.get("high_score", 0))
 
         items = []
         # Basic stats
@@ -2975,7 +2775,7 @@ PlayAural Server
             )
 
         # Game-specific stats from custom leaderboard configs
-        self._add_custom_stats(user, game_class, game_results, items)
+        self._add_custom_stats(user, game_class, stats, items)
 
         items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
 
@@ -2995,67 +2795,38 @@ PlayAural Server
         self,
         user: NetworkUser,
         game_class,
-        game_results: list,
+        stats: dict,
         items: list,
     ) -> None:
         """Add game-specific custom stats from leaderboard configs."""
         for config in game_class.get_leaderboard_types():
             lb_id = config["id"]
-            path = config.get("path")
             numerator_path = config.get("numerator")
             denominator_path = config.get("denominator")
             aggregate = config.get("aggregate", "sum")
             decimals = config.get("decimals", 0)
 
-            # Extract values for this player from all game results
-            values = []
-            num_values = []
-            denom_values = []
+            # Check if this is a ratio calculation or simple path
+            is_ratio = bool(numerator_path and denominator_path)
+            is_avg = (aggregate == "avg")
 
-            for result in game_results:
-                # Check if player participated in this game
-                player_name = None
-                for p in result.player_results:
-                    if p.player_id == user.uuid:
-                        player_name = p.player_name
-                        break
-
-                if not player_name:
-                    continue
-
-                custom_data = result.custom_data
-
-                if path:
-                    # Simple path extraction
-                    resolved_path = path.replace("{player_name}", player_name)
-                    resolved_path = resolved_path.replace("{player_id}", user.uuid)
-                    value = self._extract_path_value(custom_data, resolved_path)
-                    if value is not None:
-                        values.append(value)
-                elif numerator_path and denominator_path:
-                    # Ratio calculation
-                    num_path = numerator_path.replace("{player_name}", player_name)
-                    denom_path = denominator_path.replace("{player_name}", player_name)
-                    num_val = self._extract_path_value(custom_data, num_path)
-                    denom_val = self._extract_path_value(custom_data, denom_path)
-                    if num_val is not None and denom_val is not None:
-                        num_values.append(num_val)
-                        denom_values.append(denom_val)
-
-            # Calculate aggregated value
             final_value = None
-            if values:
-                if aggregate == "sum":
-                    final_value = sum(values)
-                elif aggregate == "max":
-                    final_value = max(values)
-                elif aggregate == "avg":
-                    final_value = sum(values) / len(values)
-            elif num_values and denom_values:
-                total_num = sum(num_values)
-                total_denom = sum(denom_values)
-                if total_denom > 0:
-                    final_value = total_num / total_denom
+
+            if is_ratio:
+                num = stats.get(f"custom_{lb_id}_numerator", 0)
+                denom = stats.get(f"custom_{lb_id}_denominator", 0)
+                if denom > 0:
+                    final_value = num / denom
+            elif is_avg:
+                sum_val = stats.get(f"custom_{lb_id}_sum", 0)
+                count_val = stats.get(f"custom_{lb_id}_count", 0)
+                if count_val > 0:
+                    final_value = sum_val / count_val
+            else:
+                if aggregate == "max":
+                    final_value = stats.get(f"custom_{lb_id}_high")
+                else:
+                    final_value = stats.get(f"custom_{lb_id}")
 
             if final_value is not None:
                 # Format the value
@@ -3075,19 +2846,6 @@ PlayAural Server
                     text = f"{type_name}: {formatted_value}"
 
                 items.append(MenuItem(text=text, id=f"custom_{lb_id}"))
-
-    def _extract_path_value(self, data: dict, path: str) -> float | None:
-        """Extract a value from nested dict using dot notation path."""
-        parts = path.split(".")
-        current = data
-        for part in parts:
-            if isinstance(current, dict) and part in current:
-                current = current[part]
-            else:
-                return None
-        if isinstance(current, (int, float)):
-            return float(current)
-        return None
 
     async def _handle_my_stats_selection(
         self, user: NetworkUser, selection_id: str, state: dict

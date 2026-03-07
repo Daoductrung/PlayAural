@@ -64,7 +64,9 @@ class Database:
         """Connect to the database and create tables if needed."""
         self._conn = sqlite3.connect(str(self.db_path))
         self._conn.row_factory = sqlite3.Row
+        self._conn.execute("PRAGMA foreign_keys = ON;")
         self._create_tables()
+        self.prune_old_records()
 
     def close(self) -> None:
         """Close the database connection."""
@@ -74,6 +76,7 @@ class Database:
 
     def _create_tables(self) -> None:
         """Create database tables if they don't exist."""
+        self._conn.execute("PRAGMA foreign_keys = ON;")
         cursor = self._conn.cursor()
 
         # Users table
@@ -180,6 +183,31 @@ class Database:
             ON bans(username)
         """)
 
+        # Player game stats (aggregated stats for leaderboards)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS player_game_stats (
+                player_id TEXT NOT NULL,
+                game_type TEXT NOT NULL,
+                stat_key TEXT NOT NULL,
+                stat_value REAL NOT NULL,
+                PRIMARY KEY (player_id, game_type, stat_key)
+            )
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_player_game_stats_leaderboard
+            ON player_game_stats(game_type, stat_key, stat_value DESC)
+        """)
+
+        # Additional indexes for fast lookups
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_users_uuid
+            ON users(uuid)
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_result_players_result
+            ON game_result_players(result_id)
+        """)
+
         self._conn.commit()
 
         # Run migrations for existing databases
@@ -229,6 +257,119 @@ class Database:
                 ON bans(username)
             """)
             self._conn.commit()
+
+        # Check if player_game_stats needs backfilling
+        cursor.execute("SELECT COUNT(*) FROM player_game_stats")
+        if cursor.fetchone()[0] == 0:
+            cursor.execute("SELECT COUNT(*) FROM game_results")
+            if cursor.fetchone()[0] > 0:
+                print("Running one-time backfill of player_game_stats from historical game results...")
+                self._backfill_player_game_stats()
+
+    def _backfill_player_game_stats(self) -> None:
+        """Backfill player_game_stats from historical game results."""
+        from ..game_utils.stats_extractor import StatsExtractor
+
+        cursor = self._conn.cursor()
+
+        # Get all game results
+        cursor.execute("SELECT id, game_type, custom_data FROM game_results ORDER BY id ASC")
+        results = cursor.fetchall()
+
+        for row in results:
+            result_id = row["id"]
+            game_type = row["game_type"]
+            try:
+                custom_data = json.loads(row["custom_data"]) if row["custom_data"] else {}
+            except Exception:
+                custom_data = {}
+
+            # Get players for this game
+            cursor.execute("SELECT player_id, player_name, is_bot FROM game_result_players WHERE result_id = ?", (result_id,))
+            players = [(p["player_id"], p["player_name"], bool(p["is_bot"])) for p in cursor.fetchall()]
+
+            # Apply incremental updates exactly as we would for a new game
+            from ..game_utils.game_result import GameResult, PlayerResult
+
+            # Reconstruct GameResult
+            from datetime import datetime
+            gr = GameResult(
+                game_type=game_type,
+                timestamp=datetime.now().isoformat(),
+                duration_ticks=0,
+                player_results=[PlayerResult(player_id=pid, player_name=name, is_bot=is_bot) for pid, name, is_bot in players],
+                custom_data=custom_data
+            )
+
+            # Only process if there are human players
+            if not gr.has_human_players():
+                continue
+
+            updates = StatsExtractor.extract_incremental_stats(gr)
+            for player_id, stats in updates.items():
+                for stat_key, stat_value in stats.items():
+                    if stat_key.endswith("_high"):
+                        # For high scores, use MAX
+                        base_key = stat_key[:-5]  # strip '_high'
+                        cursor.execute("""
+                            INSERT INTO player_game_stats (player_id, game_type, stat_key, stat_value)
+                            VALUES (?, ?, ?, ?)
+                            ON CONFLICT(player_id, game_type, stat_key)
+                            DO UPDATE SET stat_value = MAX(stat_value, excluded.stat_value)
+                        """, (player_id, game_type, base_key, float(stat_value)))
+                    else:
+                        # For others (wins, total_score, games_played), use SUM
+                        cursor.execute("""
+                            INSERT INTO player_game_stats (player_id, game_type, stat_key, stat_value)
+                            VALUES (?, ?, ?, ?)
+                            ON CONFLICT(player_id, game_type, stat_key)
+                            DO UPDATE SET stat_value = stat_value + excluded.stat_value
+                        """, (player_id, game_type, stat_key, float(stat_value)))
+
+        self._conn.commit()
+        print("Backfill completed.")
+
+    def prune_old_records(self) -> None:
+        """
+        Prune historical bloat from the database to save space.
+        - game_results: Older than 30 days.
+        - saved_tables: Older than 365 days.
+        - bans: Expired more than 30 days ago.
+        """
+        import datetime
+        import logging
+        from datetime import timedelta
+
+        now = datetime.datetime.now()
+        thirty_days_ago = (now - timedelta(days=30)).isoformat()
+        one_year_ago = (now - timedelta(days=365)).isoformat()
+
+        cursor = self._conn.cursor()
+
+        # 1. Prune game_results (ON DELETE CASCADE handles game_result_players)
+        cursor.execute("DELETE FROM game_results WHERE timestamp < ?", (thirty_days_ago,))
+        deleted_games = cursor.rowcount
+
+        # 2. Prune saved_tables
+        cursor.execute("DELETE FROM saved_tables WHERE saved_at < ?", (one_year_ago,))
+        deleted_saves = cursor.rowcount
+
+        # 3. Prune expired bans (keep them around for 30 days post-expiry for admin logs, then drop)
+        cursor.execute("DELETE FROM bans WHERE expires_at IS NOT NULL AND expires_at < ?", (thirty_days_ago,))
+        deleted_bans = cursor.rowcount
+
+        self._conn.commit()
+
+        # Log results
+        logger = logging.getLogger("playaural.db.prune")
+        if deleted_games > 0 or deleted_saves > 0 or deleted_bans > 0:
+             logger.info(f"Database Pruning: Deleted {deleted_games} old game results, {deleted_saves} old saved tables, and {deleted_bans} expired bans.")
+        else:
+             logger.info("Database Pruning: 0 records deleted (no old data found).")
+
+        # Also print to standard output for explicit CLI visibility on startup
+        if deleted_games > 0 or deleted_saves > 0 or deleted_bans > 0:
+             print(f"Database Pruning: Cleaned up {deleted_games} game_results, {deleted_saves} saved_tables, and {deleted_bans} bans.")
 
     # User operations
 
@@ -397,9 +538,25 @@ class Database:
         return cursor.rowcount > 0
 
     def delete_user(self, username: str) -> bool:
-        """Delete a user account. Returns True if user was found and deleted."""
+        """Delete a user account and safely clean up orphaned metadata. Returns True if user was found and deleted."""
+        user = self.get_user(username)
+        if not user:
+            return False
+
         cursor = self._conn.cursor()
+
+        # Delete dependent data using explicit soft keys (username/uuid)
+        cursor.execute("DELETE FROM player_game_stats WHERE player_id = ?", (user.uuid,))
+        cursor.execute("DELETE FROM player_ratings WHERE player_id = ?", (user.uuid,))
+        cursor.execute("DELETE FROM saved_tables WHERE username = ?", (username,))
+        cursor.execute("DELETE FROM bans WHERE username = ?", (username,))
+
+        # We explicitly DO NOT delete `game_result_players` rows here because doing so
+        # breaks historical game integrity for other users who participated.
+
+        # Finally delete the user
         cursor.execute("DELETE FROM users WHERE username = ?", (username,))
+
         self._conn.commit()
         return cursor.rowcount > 0
 
@@ -742,6 +899,42 @@ class Database:
                 (result_id, player_id, player_name, 1 if is_bot else 0),
             )
 
+        # Update player_game_stats
+        from ..game_utils.game_result import GameResult, PlayerResult
+        from ..game_utils.stats_extractor import StatsExtractor
+
+        # We temporarily build a GameResult just for the extractor
+        from datetime import datetime
+        gr = GameResult(
+            game_type=game_type,
+            timestamp=datetime.now().isoformat(),
+            duration_ticks=duration_ticks,
+            player_results=[PlayerResult(player_id=pid, player_name=name, is_bot=is_bot) for pid, name, is_bot in players],
+            custom_data=custom_data or {}
+        )
+
+        if gr.has_human_players():
+            updates = StatsExtractor.extract_incremental_stats(gr)
+            for p_id, stats in updates.items():
+                for stat_key, stat_value in stats.items():
+                    if stat_key.endswith("_high"):
+                        # For high scores, use MAX
+                        base_key = stat_key[:-5]  # strip '_high'
+                        cursor.execute("""
+                            INSERT INTO player_game_stats (player_id, game_type, stat_key, stat_value)
+                            VALUES (?, ?, ?, ?)
+                            ON CONFLICT(player_id, game_type, stat_key)
+                            DO UPDATE SET stat_value = MAX(stat_value, excluded.stat_value)
+                        """, (p_id, game_type, base_key, float(stat_value)))
+                    else:
+                        # For others (wins, total_score, games_played), use SUM
+                        cursor.execute("""
+                            INSERT INTO player_game_stats (player_id, game_type, stat_key, stat_value)
+                            VALUES (?, ?, ?, ?)
+                            ON CONFLICT(player_id, game_type, stat_key)
+                            DO UPDATE SET stat_value = stat_value + excluded.stat_value
+                        """, (p_id, game_type, stat_key, float(stat_value)))
+
         self._conn.commit()
         return result_id
 
@@ -924,6 +1117,88 @@ class Database:
             "games_played": row["games_played"] or 0,
         }
 
+    def get_top_player_game_stats(self, game_type: str, stat_key: str, limit: int = 10) -> list[tuple[str, str, float]]:
+        """
+        Get the top players for a specific stat in a specific game.
+        Returns list of (player_id, player_name, stat_value).
+        """
+        cursor = self._conn.cursor()
+        cursor.execute(
+            """
+            SELECT pgs.player_id, u.username as player_name, pgs.stat_value
+            FROM player_game_stats pgs
+            LEFT JOIN users u ON pgs.player_id = u.uuid
+            WHERE pgs.game_type = ? AND pgs.stat_key = ?
+            ORDER BY pgs.stat_value DESC
+            LIMIT ?
+            """,
+            (game_type, stat_key, limit),
+        )
+        return [(row["player_id"], row["player_name"] or row["player_id"], row["stat_value"]) for row in cursor.fetchall()]
+
+    def get_top_wins_with_losses(self, game_type: str, limit: int = 10) -> list[tuple[str, str, float, float]]:
+        """
+        Get the top players by wins along with their losses to avoid N+1 queries.
+        Returns list of (player_id, player_name, wins, losses).
+        """
+        cursor = self._conn.cursor()
+        cursor.execute(
+            """
+            SELECT
+                pgs_w.player_id,
+                u.username as player_name,
+                pgs_w.stat_value as wins,
+                COALESCE(pgs_l.stat_value, 0) as losses
+            FROM player_game_stats pgs_w
+            LEFT JOIN player_game_stats pgs_l
+                ON pgs_w.player_id = pgs_l.player_id AND pgs_w.game_type = pgs_l.game_type AND pgs_l.stat_key = 'losses'
+            LEFT JOIN users u ON pgs_w.player_id = u.uuid
+            WHERE pgs_w.game_type = ? AND pgs_w.stat_key = 'wins'
+            ORDER BY pgs_w.stat_value DESC
+            LIMIT ?
+            """,
+            (game_type, limit),
+        )
+        return [(row["player_id"], row["player_name"] or row["player_id"], row["wins"], row["losses"]) for row in cursor.fetchall()]
+
+    def get_top_ratio_stats(self, game_type: str, num_key: str, denom_key: str) -> list[tuple[str, str, float, float]]:
+        """
+        Get numerator and denominator stats for all players for a game type, returning them so they can be sorted.
+        Returns list of (player_id, player_name, total_num, total_denom).
+        """
+        cursor = self._conn.cursor()
+        cursor.execute("""
+            SELECT p_num.player_id, u.username, p_num.stat_value, p_denom.stat_value
+            FROM player_game_stats p_num
+            JOIN player_game_stats p_denom
+                ON p_num.player_id = p_denom.player_id
+               AND p_num.game_type = p_denom.game_type
+               AND p_denom.stat_key = ?
+            LEFT JOIN users u ON p_num.player_id = u.uuid
+            WHERE p_num.game_type = ? AND p_num.stat_key = ?
+        """, (denom_key, game_type, num_key))
+        return [(row[0], row[1] or row[0], row[2], row[3]) for row in cursor.fetchall()]
+
+    def get_user_name_by_uuid(self, uuid: str) -> str | None:
+        """Look up a username by UUID efficiently."""
+        cursor = self._conn.cursor()
+        cursor.execute("SELECT username FROM users WHERE uuid = ?", (uuid,))
+        row = cursor.fetchone()
+        return row["username"] if row else None
+
+    def get_all_player_game_stats(self, player_id: str, game_type: str) -> dict[str, float]:
+        """Get all pre-calculated stats for a specific player and game."""
+        cursor = self._conn.cursor()
+        cursor.execute(
+            """
+            SELECT stat_key, stat_value
+            FROM player_game_stats
+            WHERE player_id = ? AND game_type = ?
+            """,
+            (player_id, game_type)
+        )
+        return {row["stat_key"]: row["stat_value"] for row in cursor.fetchall()}
+
     # Player rating operations
 
     def get_player_rating(
@@ -964,21 +1239,24 @@ class Database:
 
     def get_rating_leaderboard(
         self, game_type: str, limit: int = 10
-    ) -> list[tuple[str, float, float]]:
+    ) -> list[tuple[str, str, float, float]]:
         """
         Get the rating leaderboard for a game type.
 
         Returns:
-            List of (player_id, mu, sigma) tuples sorted by mu descending
+            List of (player_id, player_name, mu, sigma) tuples sorted by ordinal descending
         """
         cursor = self._conn.cursor()
         cursor.execute(
             """
-            SELECT player_id, mu, sigma FROM player_ratings
-            WHERE game_type = ?
-            ORDER BY mu DESC
+            SELECT pr.player_id, u.username as player_name, pr.mu, pr.sigma,
+                   (pr.mu - 3 * pr.sigma) as ordinal
+            FROM player_ratings pr
+            LEFT JOIN users u ON pr.player_id = u.uuid
+            WHERE pr.game_type = ?
+            ORDER BY ordinal DESC
             LIMIT ?
             """,
             (game_type, limit),
         )
-        return [(row["player_id"], row["mu"], row["sigma"]) for row in cursor.fetchall()]
+        return [(row["player_id"], row["player_name"] or row["player_id"], row["mu"], row["sigma"]) for row in cursor.fetchall()]

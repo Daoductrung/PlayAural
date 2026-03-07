@@ -317,16 +317,16 @@ class RatingHelper:
 
         return self.update_ratings(rankings)
 
-    def get_leaderboard(self, limit: int = 10) -> list[PlayerRating]:
+    def get_leaderboard(self, limit: int = 10) -> list[tuple[str, PlayerRating]]:
         """
         Get the rating leaderboard for this game type.
 
-        Returns players sorted by ordinal (conservative skill estimate).
+        Returns a list of (player_name, PlayerRating) tuples sorted by ordinal.
         """
         rows = self.db.get_rating_leaderboard(self.game_type, limit)
         return [
-            PlayerRating(player_id=pid, mu=mu, sigma=sigma)
-            for pid, mu, sigma in rows
+            (pname, PlayerRating(player_id=pid, mu=mu, sigma=sigma))
+            for pid, pname, mu, sigma in rows
         ]
 
     def predict_win_probability(

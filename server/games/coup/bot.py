@@ -16,14 +16,11 @@ class CoupBot(BotHelper):
     @classmethod
     def bot_lose_influence(cls, game: "CoupGame", player: "CoupPlayer") -> None:
         """Bot picks a random influence to lose."""
-        game.play_sound(f"game_coup/chardestroy{random.randint(1, 2)}.ogg")
+        if not player.live_influences:
+            return
         idx = random.randint(0, len(player.live_influences) - 1)
-        char = player.live_influences[idx].character
-        player.reveal_influence(idx)
-        game._broadcast_card_message("coup-loses-influence", char, player=player.name)
-        if player.is_dead:
-            game.broadcast_l("coup-player-eliminated", player=player.name)
-        game._post_lose_influence()
+        action_id = f"lose_influence_{idx}"
+        game.execute_action(player, action_id)
 
     @classmethod
     def bot_resolve_exchange(cls, game: "CoupGame", player: "CoupPlayer") -> None:
@@ -52,7 +49,7 @@ class CoupBot(BotHelper):
     @classmethod
     def on_tick(cls, game: "CoupGame") -> None:
         """Process bot actions for Coup."""
-        if not game.game_active:
+        if not game.game_active or game.is_resolving:
             return
 
         # In Coup, any player can interrupt, not just the current player.

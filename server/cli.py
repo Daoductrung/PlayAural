@@ -503,6 +503,12 @@ def cmd_simulate(args):
 
 def cmd_create_user(args):
     """Create a new user."""
+    import os
+    password = os.environ.get("PLAYAURAL_CLI_PW")
+    if not password:
+        print("Error: Password must be provided via PLAYAURAL_CLI_PW environment variable.")
+        sys.exit(1)
+
     if HAS_SERVER_PACKAGE:
         from server.persistence.database import Database
         from server.auth.auth import AuthManager
@@ -515,7 +521,7 @@ def cmd_create_user(args):
     auth = AuthManager(db)
 
     print(f"Creating user '{args.username}'...")
-    if auth.register(args.username, args.password, args.locale):
+    if auth.register(args.username, password, args.locale):
         print(f"Success: User '{args.username}' created.")
         user = db.get_user(args.username)
         if user and user.trust_level >= 2:
@@ -527,6 +533,12 @@ def cmd_create_user(args):
 
 def cmd_reset_password(args):
     """Reset a user's password."""
+    import os
+    password = os.environ.get("PLAYAURAL_CLI_PW")
+    if not password:
+        print("Error: Password must be provided via PLAYAURAL_CLI_PW environment variable.")
+        sys.exit(1)
+
     if HAS_SERVER_PACKAGE:
         from server.persistence.database import Database
         from server.auth.auth import AuthManager
@@ -539,7 +551,7 @@ def cmd_reset_password(args):
     auth = AuthManager(db)
     
     print(f"Resetting password for '{args.username}'...")
-    if auth.reset_password(args.username, args.password):
+    if auth.reset_password(args.username, password):
         print(f"Success: Password updated for '{args.username}'.")
     else:
         print(f"Error: User '{args.username}' not found.")
@@ -601,13 +613,11 @@ def main():
     # create-user command
     create_user_parser = subparsers.add_parser("create-user", help="Create a new user")
     create_user_parser.add_argument("username", help="Username")
-    create_user_parser.add_argument("password", help="Password")
     create_user_parser.add_argument("--locale", default="en", help="Locale (default: en)")
 
     # reset-password command
     reset_pw_parser = subparsers.add_parser("reset-password", help="Reset a user's password")
     reset_pw_parser.add_argument("username", help="Username")
-    reset_pw_parser.add_argument("password", help="New Password")
 
     args = parser.parse_args()
 

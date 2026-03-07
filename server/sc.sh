@@ -1,18 +1,24 @@
 #!/bin/bash
 
-# PlayAural Server Management Script (Auto-Setup Version)
+# PlayAural Server Management Script (Production-Grade)
 # Supported OS: AlmaLinux 8 / EL8
 # Features: 
-# - Auto-detects running directory
-# - Auto-installs Python 3.9 + Dependencies if missing
+# - Dedicated service user (playaural)
+# - Isolated Python Virtual Environment
+# - Secure systemd backgrounding and binding (0.0.0.0)
+# - Process-table-safe password management
 
 SERVICE_NAME="playaural"
+SERVICE_USER="playaural"
 
 # Auto-detect the directory where this script is located
-# We assume the script is placed inside the 'server' folder alongside main.py
 SERVER_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 DIR_NAME=$(basename "$SERVER_DIR")
-PYTHON="python3.12"
+
+# Base Python to create venv
+PYTHON_BIN="python3.12"
+VENV_DIR="$SERVER_DIR/.venv"
+VENV_PYTHON="$VENV_DIR/bin/python"
 
 # Colors
 GREEN='\033[0;32m'
@@ -24,41 +30,55 @@ NC='\033[0m' # No Color
 # Helper Functions
 check_root() {
     if [ "$EUID" -ne 0 ]; then 
-        echo -e "${RED}Error: Please run as root (sudo ./sc.sh)${NC}"
+        echo -e "${RED}Error: Please run this management script as root (sudo ./sc.sh)${NC}"
         exit 1
     fi
+}
+
+setup_system_user() {
+    if ! id "$SERVICE_USER" &>/dev/null; then
+        echo -e "${CYAN}Creating dedicated service user: $SERVICE_USER...${NC}"
+        useradd -r -s /sbin/nologin "$SERVICE_USER"
+        echo -e "${GREEN}Service user created.${NC}"
+    fi
+}
+
+fix_permissions() {
+    echo -e "${CYAN}Fixing permissions for $SERVER_DIR...${NC}"
+    chown -R "$SERVICE_USER:$SERVICE_USER" "$SERVER_DIR"
+    # Ensure execution rights for directories
+    find "$SERVER_DIR" -type d -exec chmod 755 {} +
 }
 
 install_environment() {
     echo -e "${CYAN}Checking environment...${NC}"
     
-    # 1. Check/Install Python 3.12
-    if ! command -v $PYTHON &> /dev/null; then
-        echo -e "${YELLOW}Python 3.12 not found. Installing...${NC}"
-        # Ensure EPEL is available just in case, though 3.12 might be in appstream
+    # 1. Check/Install System Python 3.12
+    if ! command -v $PYTHON_BIN &> /dev/null; then
+        echo -e "${YELLOW}Python 3.12 not found. Installing system packages...${NC}"
         dnf install epel-release -y
-        # Try installing python3.12 directly
         dnf install python3.12 python3.12-pip -y
         
         if [ $? -ne 0 ]; then
-             echo -e "${RED}Failed to install Python 3.12.${NC}"
-             echo -e "${YELLOW}Attempting to enable module stream...${NC}"
-             # Fallback: sometimes it's hidden behind modules? (Less likely for 3.12 on EL8, but good measure)
-             # Actually, simpler to just fail and ask user to check repos if standard install fails.
-             echo -e "${RED}Could not install python3.12 automatically. Please install it manually.${NC}"
+             echo -e "${RED}Failed to install Python 3.12 automatically. Please install it manually.${NC}"
              read -p "Press Enter to return..."
              return
         fi
-        echo -e "${GREEN}Python 3.12 installed.${NC}"
-    else
-        echo -e "${GREEN}Python 3.12 is present.${NC}"
+        echo -e "${GREEN}System Python 3.12 installed.${NC}"
     fi
 
-    # 2. Check/Install Python Libraries
-    echo "Checking required libraries..."
-    # We run installation every time to ensure deps are there. It's fast if already installed.
-    $PYTHON -m pip install --upgrade pip
-    $PYTHON -m pip install --upgrade websockets argon2-cffi fluent-compiler mashumaro babel openskill
+    # 2. Setup Virtual Environment
+    if [ ! -d "$VENV_DIR" ]; then
+        echo -e "${YELLOW}Creating Python virtual environment in $VENV_DIR...${NC}"
+        $PYTHON_BIN -m venv "$VENV_DIR"
+    fi
+
+    # 3. Check/Install Python Libraries in venv
+    echo "Installing required libraries in virtual environment..."
+    $VENV_PYTHON -m pip install --upgrade pip
+    $VENV_PYTHON -m pip install --upgrade websockets argon2-cffi fluent-compiler mashumaro babel openskill
+
+    fix_permissions
     
     echo -e "${GREEN}Environment ready.${NC}"
     echo "-----------------------------------"
@@ -66,8 +86,7 @@ install_environment() {
 
 check_status() {
     if systemctl is-active --quiet $SERVICE_NAME; then
-        echo -e "Server Status: ${GREEN}RUNNING${NC}"
-        # Show only port 8000
+        echo -e "Server Status: ${GREEN}RUNNING${NC} (User: $SERVICE_USER)"
         echo -n "Port 8000 Usage: "
         ss -tuln | grep ":8000 " && echo "" || echo "Not detecting listener on port 8000"
     else
@@ -98,7 +117,8 @@ show_menu() {
 }
 
 start_server() {
-    # Auto-generate service file if missing or path changed
+    setup_system_user
+    install_environment
     setup_service
     
     echo "Starting server..."
@@ -117,7 +137,9 @@ stop_server() {
 }
 
 restart_server() {
+    setup_system_user
     setup_service
+    fix_permissions
     echo "Restarting server..."
     systemctl restart $SERVICE_NAME
     sleep 2
@@ -143,7 +165,8 @@ clear_logs() {
 }
 
 create_user() {
-    install_environment # Ensure env is ready before running python code
+    setup_system_user
+    install_environment
     
     echo "--- Create New User ---"
     read -p "Enter Username: " u_name
@@ -157,15 +180,18 @@ create_user() {
     read -s -p "Enter Password: " u_pass
     echo ""
     
-    # Run from parent directory to allow module import
+    export PLAYAURAL_CLI_PW="$u_pass"
+
     cd "$SERVER_DIR/.."
-    echo "Running CLI (Package: $DIR_NAME)..."
-    $PYTHON -m ${DIR_NAME}.cli create-user "$u_name" "$u_pass"
+    echo "Running CLI (Package: $DIR_NAME) securely..."
+    sudo -u "$SERVICE_USER" -E $VENV_PYTHON -m ${DIR_NAME}.cli create-user "$u_name"
     
+    unset PLAYAURAL_CLI_PW
     read -p "Press Enter to continue..."
 }
 
 reset_password() {
+    setup_system_user
     install_environment
     
     echo "--- Reset Password ---"
@@ -173,39 +199,40 @@ reset_password() {
     read -s -p "Enter New Password: " u_pass
     echo ""
     
-    # Run from parent directory to allow module import
+    export PLAYAURAL_CLI_PW="$u_pass"
+
     cd "$SERVER_DIR/.."
-    $PYTHON -m ${DIR_NAME}.cli reset-password "$u_name" "$u_pass"
+    sudo -u "$SERVICE_USER" -E $VENV_PYTHON -m ${DIR_NAME}.cli reset-password "$u_name"
     
+    unset PLAYAURAL_CLI_PW
     read -p "Press Enter to continue..."
 }
 
 setup_service() {
-    # Dynamically creates/updates systemd service file based on current path
     echo "Verifying systemd service configuration..."
     
     SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
     
-    # Check if we need to update the service file (e.g. if path changed)
-    # Ideally checking content, but simpler to just overwrite if valid
-    
-    # We construct the file content
     cat <<EOF > "$SERVICE_FILE"
 [Unit]
 Description=PlayAural Game Server
 After=network.target
 
 [Service]
-User=root
+User=$SERVICE_USER
+Group=$SERVICE_USER
 WorkingDirectory=$SERVER_DIR
-ExecStart=/usr/bin/$PYTHON main.py --host 127.0.0.1 --port 8000
+ExecStart=$VENV_PYTHON main.py --host 0.0.0.0 --port 8000
 Restart=always
+# Hardening options
+ProtectSystem=full
+PrivateTmp=true
+NoNewPrivileges=true
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
-    # Reload daemon
     systemctl daemon-reload
     systemctl enable $SERVICE_NAME --now > /dev/null 2>&1
 }
@@ -234,8 +261,9 @@ uninstall_service() {
 
 check_root
 
-# First run check: Try to setup environment immediately if python missing
-if ! command -v $PYTHON &> /dev/null; then
+# Fast check if environment needs setup on first run
+if [ ! -d "$VENV_DIR" ]; then
+    setup_system_user
     install_environment
 fi
 

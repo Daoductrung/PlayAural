@@ -222,7 +222,7 @@ After=network.target
 User=$SERVICE_USER
 Group=$SERVICE_USER
 WorkingDirectory=$SERVER_DIR
-ExecStart=$VENV_PYTHON main.py --host 0.0.0.0 --port 8000
+ExecStart=$VENV_PYTHON main.py --host 127.0.0.1 --port 8000
 Restart=always
 # Hardening options
 ProtectSystem=full

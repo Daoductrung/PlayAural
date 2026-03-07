@@ -362,6 +362,15 @@ class PusoyDosGame(Game, TurnTimerMixin):
         )
         action_set.add(
             Action(
+                id="read_card_counts",
+                label=Localization.get(locale, "pusoydos-read-card-counts"),
+                handler="_action_read_card_counts",
+                is_enabled="_is_check_enabled",
+                is_hidden="_is_check_hidden",
+            )
+        )
+        action_set.add(
+            Action(
                 id="check_turn_timer",
                 label=Localization.get(locale, "pusoydos-check-turn-timer"),
                 handler="_action_check_turn_timer",
@@ -375,6 +384,7 @@ class PusoyDosGame(Game, TurnTimerMixin):
             target_order = [
                 "check_trick",
                 "read_hand",
+                "read_card_counts",
                 "check_scores",
                 "check_turn_timer",
                 "whose_turn",
@@ -394,6 +404,7 @@ class PusoyDosGame(Game, TurnTimerMixin):
         self.define_keybind("p", "Pass", ["pass"], state=KeybindState.ACTIVE)
         self.define_keybind("c", "Check current trick", ["check_trick"], include_spectators=True)
         self.define_keybind("h", "Read your hand", ["read_hand"], include_spectators=False)
+        self.define_keybind("e", "Read card counts", ["read_card_counts"], include_spectators=True)
         self.define_keybind("shift+t", "Turn timer", ["check_turn_timer"], include_spectators=True)
 
     def rebuild_player_menu(self, player: Player) -> None:
@@ -591,6 +602,21 @@ class PusoyDosGame(Game, TurnTimerMixin):
         user = self.get_user(player)
         if user:
             user.speak_l("pusoydos-your-hand", buffer="game", cards=read_cards(player.hand, user.locale))
+
+    def _action_read_card_counts(self, player: Player, action_id: str) -> None:
+        user = self.get_user(player)
+        if not user:
+            return
+
+        lines = []
+        for p in self.get_active_players():
+            if isinstance(p, PusoyDosPlayer):
+                lines.append(Localization.get(user.locale, "pusoydos-card-count-line", player=p.name, count=len(p.hand)))
+
+        if not lines:
+            return
+
+        user.speak("; ".join(lines), buffer="game")
 
     def _action_check_turn_timer(self, player: Player, action_id: str) -> None:
         user = self.get_user(player)

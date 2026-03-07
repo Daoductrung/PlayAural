@@ -52,8 +52,10 @@ pusoydos-player-passes = { $player } bỏ lượt.
 pusoydos-trick-won = { $player } đã giành được cái.
 
 pusoydos-trick-empty = Bàn đang trống.
-pusoydos-trick-status = Bài trên bàn: { $player } đã đánh { $combo } gồm { $cards }.
+pusoydos-trick-status = { $player } đã đánh { $combo } gồm { $cards }.
 pusoydos-your-hand = Bài của bạn: { $cards }.
+pusoydos-read-card-counts = Đọc số lượng bài
+pusoydos-card-count-line = { $player } còn { $count } lá
 
 pusoydos-combo-single = Lá lẻ
 pusoydos-combo-pair = Đôi

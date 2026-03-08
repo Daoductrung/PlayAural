@@ -22,15 +22,21 @@ class MockUser(User):
     """
 
     def __init__(self, username: str, locale: str = "en", uuid: str | None = None, approved: bool = True):
+        from .preferences import UserPreferences
         self._uuid = uuid or generate_uuid()
         self._username = username
         self._locale = locale
         self._approved = approved
         self.client_type = "python"
         self._trust_level = 1
+        self._preferences = UserPreferences()
         self.messages: list[Message] = []
         self.menus: dict[str, dict[str, Any]] = {}
         self.editboxes: dict[str, dict[str, Any]] = {}
+
+    @property
+    def preferences(self):
+        return self._preferences
 
     @property
     def uuid(self) -> str:

@@ -265,18 +265,21 @@ PlayAural Server
             self._pending_disconnects.pop(username, None)
             
             # Broadcast
-            self._broadcast_presence_l("user-offline", username, sound)
+            self._broadcast_presence_l("user-offline", username, sound, trust_level)
             
         except asyncio.CancelledError:
             # User reconnected in time
             pass
 
     def _broadcast_presence_l(
-        self, message_id: str, player_name: str, sound: str
+        self, message_id: str, player_name: str, sound: str, target_trust_level: int = 1
     ) -> None:
         """Broadcast a localized presence announcement to all approved online users with sound."""
         for user in self._users.values():
             if user.approved:
+                # If target is a normal user (trust level < 2) and this user has presence notifications off, skip
+                if target_trust_level < 2 and not user.preferences.notify_user_presence:
+                    continue
                 # Use "system" buffer for joins/parts
                 user.speak_l(message_id, buffer="system", player=player_name)
                 # Play sound (always uses main sound channel)
@@ -478,7 +481,7 @@ PlayAural Server
 
             # Only broadcast if we didn't cancel a pending disconnect (debounce)
             if not pending_task:
-                 self._broadcast_presence_l("user-online", username, online_sound)
+                 self._broadcast_presence_l("user-online", username, online_sound, trust_level)
 
                  # If user is a developer or admin, announce that as well
                  if trust_level >= 3:
@@ -948,6 +951,13 @@ PlayAural Server
                     user.locale, "language-option", language=current_lang
                 ),
                 id="language",
+            ),
+            MenuItem(
+                text=Localization.get(
+                    user.locale,
+                    "option-notify-user-presence-on" if prefs.notify_user_presence else "option-notify-user-presence-off"
+                ),
+                id="notify_user_presence",
             ),
             MenuItem(
                 text=Localization.get(
@@ -1744,6 +1754,10 @@ PlayAural Server
             prefs.notify_table_created = not prefs.notify_table_created
             self._save_user_preferences(user)
             # No client sync needed as this is purely server-side logic
+            self._show_options_menu(user)
+        elif selection_id == "notify_user_presence":
+            prefs.notify_user_presence = not prefs.notify_user_presence
+            self._save_user_preferences(user)
             self._show_options_menu(user)
         elif selection_id == "clear_kept":
             prefs.clear_kept_on_roll = not prefs.clear_kept_on_roll

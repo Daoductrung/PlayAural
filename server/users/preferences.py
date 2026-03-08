@@ -39,6 +39,7 @@ class UserPreferences:
     mute_global_chat: bool = False
     mute_table_chat: bool = False
     notify_table_created: bool = True  # Notify when a new table is created
+    notify_user_presence: bool = False # Notify when normal users connect/disconnect
 
     # Interface preferences
     invert_multiline_enter_behavior: bool = False
@@ -62,6 +63,7 @@ class UserPreferences:
             "mute_global_chat": self.mute_global_chat,
             "mute_table_chat": self.mute_table_chat,
             "notify_table_created": self.notify_table_created,
+            "notify_user_presence": self.notify_user_presence,
             "invert_multiline_enter_behavior": self.invert_multiline_enter_behavior,
             "play_typing_sounds": self.play_typing_sounds,
             "clear_kept_on_roll": self.clear_kept_on_roll,
@@ -81,6 +83,7 @@ class UserPreferences:
             mute_global_chat=data.get("mute_global_chat", False),
             mute_table_chat=data.get("mute_table_chat", False),
             notify_table_created=data.get("notify_table_created", True),
+            notify_user_presence=data.get("notify_user_presence", False),
             invert_multiline_enter_behavior=data.get("invert_multiline_enter_behavior", False),
             play_typing_sounds=data.get("play_typing_sounds", True),
             clear_kept_on_roll=data.get("clear_kept_on_roll", False),

@@ -838,6 +838,23 @@ PlayAural Server
         )
         self._user_states[user.username] = {"menu": "active_tables_menu"}
 
+    def _show_active_tables_filter_menu(self, user: NetworkUser) -> None:
+        """Show menu to select the active tables filter."""
+        items = [
+            MenuItem(text=Localization.get(user.locale, "filter-name-all"), id="filter_all"),
+            MenuItem(text=Localization.get(user.locale, "filter-name-waiting"), id="filter_waiting"),
+            MenuItem(text=Localization.get(user.locale, "filter-name-playing"), id="filter_playing"),
+            MenuItem(text=Localization.get(user.locale, "back"), id="back"),
+        ]
+
+        user.show_menu(
+            "active_tables_filter_menu",
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self._user_states[user.username] = {"menu": "active_tables_filter_menu"}
+
     def _get_tables_menu_items(self, user: NetworkUser, game_type: str) -> list[MenuItem]:
         """Generate the list of MenuItems for a specific game's tables menu."""
         all_tables = self._tables.get_tables_by_type(game_type)
@@ -1564,6 +1581,8 @@ PlayAural Server
             await self._handle_tables_selection(user, selection_id, state)
         elif current_menu == "active_tables_menu":
             await self._handle_active_tables_selection(user, selection_id)
+        elif current_menu == "active_tables_filter_menu":
+            await self._handle_active_tables_filter_selection(user, selection_id)
         elif current_menu == "join_menu":
             await self._handle_join_selection(user, selection_id, state)
         elif current_menu == "options_menu":
@@ -2046,26 +2065,7 @@ PlayAural Server
     ) -> None:
         """Handle active tables menu selection."""
         if selection_id == "toggle_filter":
-            # Cycle through: all -> waiting -> playing -> all
-            current = user.preferences.active_tables_filter
-            if current == "all":
-                new_filter = "waiting"
-            elif current == "waiting":
-                new_filter = "playing"
-            else:
-                new_filter = "all"
-
-            user.preferences.active_tables_filter = new_filter
-            self._save_user_preferences(user)
-
-            # Dynamically refresh the menu
-            items = self._get_active_tables_menu_items(user)
-            user.update_menu("active_tables_menu", items)
-
-            # Announce the new filter state
-            filter_name_key = f"filter-name-{new_filter}"
-            filter_name = Localization.get(user.locale, filter_name_key)
-            user.speak_l("active-tables-filter", filter=filter_name)
+            self._show_active_tables_filter_menu(user)
             return
 
         elif selection_id == "no_tables_msg":
@@ -2081,6 +2081,27 @@ PlayAural Server
                 self._show_active_tables_menu(user)
         elif selection_id == "back":
             self._show_main_menu(user)
+
+    async def _handle_active_tables_filter_selection(
+        self, user: NetworkUser, selection_id: str
+    ) -> None:
+        """Handle active tables filter sub-menu selection."""
+        if selection_id.startswith("filter_"):
+            new_filter = selection_id[7:]  # Remove 'filter_' prefix (all, waiting, playing)
+            user.preferences.active_tables_filter = new_filter
+            self._save_user_preferences(user)
+
+            filter_name_key = f"filter-name-{new_filter}"
+            filter_name = Localization.get(user.locale, filter_name_key)
+            user.speak_l("active-tables-filter", filter=filter_name)
+
+            # Return to the active tables menu (which will automatically apply the new filter)
+            self._show_active_tables_menu(user)
+            return
+
+        elif selection_id == "back":
+            self._show_active_tables_menu(user)
+            return
 
     def _auto_join_table(
         self, user: NetworkUser, table: "Table", game_type: str

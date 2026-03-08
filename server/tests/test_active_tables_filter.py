@@ -22,17 +22,30 @@ async def test_active_tables_filter_toggle(mock_server):
 
     assert user_a.preferences.active_tables_filter == "all"
 
-    # Toggle to waiting
+    # 1. User clicks the toggle filter item, should open submenu
     await mock_server._handle_active_tables_selection(user_a, "toggle_filter")
+    assert mock_server._user_states["UserA"]["menu"] == "active_tables_filter_menu"
+
+    # 2. User selects "Waiting" from submenu
+    await mock_server._handle_active_tables_filter_selection(user_a, "filter_waiting")
     assert user_a.preferences.active_tables_filter == "waiting"
+    assert mock_server._user_states["UserA"]["menu"] == "active_tables_menu"
 
-    # Toggle to playing
+    # 3. User clicks filter again
     await mock_server._handle_active_tables_selection(user_a, "toggle_filter")
+
+    # 4. User selects "Playing"
+    await mock_server._handle_active_tables_filter_selection(user_a, "filter_playing")
     assert user_a.preferences.active_tables_filter == "playing"
+    assert mock_server._user_states["UserA"]["menu"] == "active_tables_menu"
 
-    # Toggle to all
+    # 5. User clicks filter again
     await mock_server._handle_active_tables_selection(user_a, "toggle_filter")
-    assert user_a.preferences.active_tables_filter == "all"
+
+    # 6. User clicks Cancel ("back")
+    await mock_server._handle_active_tables_filter_selection(user_a, "back")
+    assert user_a.preferences.active_tables_filter == "playing" # Should not change
+    assert mock_server._user_states["UserA"]["menu"] == "active_tables_menu"
 
 
 @pytest.mark.asyncio

@@ -59,6 +59,8 @@ class Table(DataClassJSONMixin):
         self._game = value
         if value:
             self.game_json = value.to_json()
+        if self._server and hasattr(self._server, "on_tables_changed"):
+            self._server.on_tables_changed()
 
     def add_member(
         self, username: str, user: "User", as_spectator: bool = False

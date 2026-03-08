@@ -1770,9 +1770,19 @@ class GameClient {
             const item = webButtons[id];
             if (item) {
                 config.container.innerHTML = "";
-                const newBtn = document.createElement('button');
+                const newBtn = document.createElement('div');
                 newBtn.innerText = item.text || item.id;
                 newBtn.className = config.cls;
+                newBtn.tabIndex = 0; // Make focusable
+
+                // Simulate button click behavior for div
+                newBtn.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        if (newBtn.onclick) newBtn.onclick(e);
+                    }
+                });
+
                 newBtn.onclick = () => {
                     this.play_sound("menuclick.ogg");
                     this.sendMenuSelection(packet.menu_id, 0, id);
@@ -1866,7 +1876,7 @@ class GameClient {
     }
 
     createMenuItem(item, index) {
-        const btn = document.createElement('button');
+        const btn = document.createElement('div');
         btn.className = "menu-item";
 
         let text = "";
@@ -1882,6 +1892,21 @@ class GameClient {
         btn.innerText = text;
         if (id) {
             btn.dataset.id = id;
+            btn.tabIndex = 0; // Make focusable
+
+            // Simulate button click behavior for div
+            btn.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault(); // prevent scrolling with space
+                    // Emulate the shift+enter context menu behavior if shift is held
+                    if (e.shiftKey && e.key === 'Enter') {
+                        if (btn.oncontextmenu) btn.oncontextmenu(e);
+                    } else if (btn.onclick) {
+                        btn.onclick(e);
+                    }
+                }
+            });
+
             btn.onclick = (e) => {
                 if (e && e.shiftKey) return; // Prevent click if Shift is held (Shift+Enter)
                 this.sendMenuSelection(this.currentMenuId, index + 1, id);
@@ -1898,7 +1923,6 @@ class GameClient {
 
             this.enableLongPress(btn, id);
         } else {
-            btn.disabled = true;
             btn.setAttribute('aria-disabled', 'true');
         }
 
@@ -1946,7 +1970,7 @@ class GameClient {
         btn.onmouseup = cancelPress;
         btn.onmouseleave = cancelPress;
         btn.ontouchend = cancelPress;
-        btn.ontouchmove = cancelPress;
+        btn.ontouchmove = cancelPress; // Cancel if the user scrolls
     }
 
     disableLongPress(btn) {

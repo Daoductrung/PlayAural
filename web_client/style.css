@@ -230,6 +230,7 @@ main {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
+    padding-bottom: 80px; /* Prevent final items from hiding behind fixed Leave button */
 }
 
 .menu-item {
@@ -560,22 +561,26 @@ input[type=range]::-moz-range-thumb {
 
 /* Web Specific Button Areas */
 .web-actions-area {
-    position: fixed;
-    top: 60px; /* Below header */
-    left: 10px;
-    z-index: 1000;
+    position: sticky;
+    top: 0;
+    z-index: 100;
     display: flex;
     gap: 10px;
-    /* Remove background/border to be cleaner as floating buttons */
-    background-color: transparent;
-    border: none;
-    padding: 0;
+    background-color: var(--bg-color);
+    padding: 0.5rem 0;
+    margin-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+/* Hide empty container to avoid layout shift when no actions exist */
+.web-actions-area:empty {
+    display: none;
 }
 
 .web-leave-area {
     position: fixed;
     bottom: 20px;
-    right: 20px;
+    left: 20px;
     z-index: 1000;
 }
 

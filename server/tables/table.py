@@ -40,6 +40,7 @@ class Table(DataClassJSONMixin):
     _manager: Any = field(default=None, repr=False)  # Reference to TableManager
     _server: Any = field(default=None, repr=False)  # Reference to Server (for saves)
     _db: Any = field(default=None, repr=False)  # Reference to Database (for ratings)
+    _last_menu_state_hash: str | None = field(default=None, repr=False)
 
     def __post_init__(self):
         self._game = None
@@ -47,6 +48,7 @@ class Table(DataClassJSONMixin):
         self._manager = None
         self._server = None
         self._db = None
+        self._last_menu_state_hash = None
 
     @property
     def game(self) -> "Game | None":
@@ -69,6 +71,8 @@ class Table(DataClassJSONMixin):
 
         self.members.append(TableMember(username=username, is_spectator=as_spectator))
         self._users[username] = user
+        if self._server and hasattr(self._server, "on_tables_changed"):
+            self._server.on_tables_changed()
 
     def remove_member(self, username: str) -> None:
         """Remove a member from the table."""
@@ -132,6 +136,15 @@ class Table(DataClassJSONMixin):
         """Called every tick. Forwards to game."""
         if self._game:
             self._game.on_tick()
+
+            # Check if state changed for menu auto-refresh
+            current_state_hash = f"{self._game.status}_{len(self.members)}_{self.host}"
+            if self._last_menu_state_hash is None:
+                self._last_menu_state_hash = current_state_hash
+            elif self._last_menu_state_hash != current_state_hash:
+                self._last_menu_state_hash = current_state_hash
+                if self._server and hasattr(self._server, "on_tables_changed"):
+                    self._server.on_tables_changed()
 
         # Timeout for abandoned tables
         if self._server:

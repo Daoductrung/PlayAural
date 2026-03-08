@@ -914,6 +914,180 @@ PlayAural Server
         )
         self._user_states[user.username] = {"menu": "active_tables_menu"}
 
+    def _get_tables_menu_items(self, user: NetworkUser, game_type: str) -> list[MenuItem]:
+        """Generate the list of MenuItems for a specific game's tables menu."""
+        all_tables = self._tables.get_tables_by_type(game_type)
+        tables = []
+        for t in all_tables:
+            if not t.game:
+                continue
+            if t.game.status not in ["waiting", "playing"]:
+                continue
+
+            has_active_human = False
+            for member in t.members:
+                if not member.is_spectator and member.username in self._users:
+                    has_active_human = True
+                    break
+
+            if has_active_human:
+                tables.append(t)
+
+        game_class = get_game_class(game_type)
+        game_name = (
+            Localization.get(user.locale, game_class.get_name_key())
+            if game_class
+            else game_type
+        )
+
+        items = [
+            MenuItem(
+                text=Localization.get(user.locale, "create-table"), id="create_table"
+            )
+        ]
+
+        for table in tables:
+            member_count = len(table.members)
+            member_names = [
+                member.username
+                for member in table.members
+                if member.username != table.host
+            ]
+            members_str = Localization.format_list_and(user.locale, member_names)
+            if table.game:
+                if table.game.status == "waiting":
+                    status_key = "table-status-waiting"
+                elif table.game.status == "playing":
+                    status_key = "table-status-playing"
+                elif table.game.status == "finished":
+                    status_key = "table-status-finished"
+                else:
+                    status_key = "table-status-waiting"
+            else:
+                status_key = "table-status-waiting"
+            status_text = Localization.get(user.locale, status_key)
+
+            if member_count == 1:
+                listing_key = "table-listing-game-one-status"
+            elif member_names:
+                listing_key = "table-listing-game-with-status"
+            else:
+                listing_key = "table-listing-game-status"
+            items.append(
+                MenuItem(
+                    text=Localization.get(
+                        user.locale,
+                        listing_key,
+                        game=game_name,
+                        host=table.host,
+                        count=member_count,
+                        members=members_str,
+                        status=status_text,
+                    ),
+                    id=f"table_{table.table_id}",
+                )
+            )
+
+        items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
+        return items
+
+    def _get_active_tables_menu_items(self, user: NetworkUser) -> list[MenuItem]:
+        """Generate the list of MenuItems for the global active tables menu."""
+        all_tables = self._tables.get_all_tables()
+        tables = []
+        for t in all_tables:
+            if not t.game:
+                continue
+            if t.game.status not in ["waiting", "playing"]:
+                continue
+
+            has_active_human = False
+            for member in t.members:
+                if not member.is_spectator and member.username in self._users:
+                    has_active_human = True
+                    break
+
+            if has_active_human:
+                tables.append(t)
+
+        items: list[MenuItem] = []
+        for table in tables:
+            game_class = get_game_class(table.game_type)
+            game_name = (
+                Localization.get(user.locale, game_class.get_name_key())
+                if game_class
+                else table.game_type
+            )
+            member_count = len(table.members)
+            member_names = [
+                member.username
+                for member in table.members
+                if member.username != table.host
+            ]
+            members_str = Localization.format_list_and(user.locale, member_names)
+
+            if table.game:
+                if table.game.status == "waiting":
+                    status_key = "table-status-waiting"
+                elif table.game.status == "playing":
+                    status_key = "table-status-playing"
+                elif table.game.status == "finished":
+                    status_key = "table-status-finished"
+                else:
+                    status_key = "table-status-waiting"
+            else:
+                status_key = "table-status-waiting"
+            status_text = Localization.get(user.locale, status_key)
+
+            if member_count == 1:
+                listing_key = "table-listing-game-one-status"
+            elif member_names:
+                listing_key = "table-listing-game-with-status"
+            else:
+                listing_key = "table-listing-game-status"
+            items.append(
+                MenuItem(
+                    text=Localization.get(
+                        user.locale,
+                        listing_key,
+                        game=game_name,
+                        host=table.host,
+                        count=member_count,
+                        members=members_str,
+                        status=status_text,
+                    ),
+                    id=f"table_{table.table_id}",
+                )
+            )
+        items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
+        return items
+
+    def on_tables_changed(self) -> None:
+        """Called by TableManager when a table is created, destroyed, or changes status.
+        Dynamically updates the tables menus for any users currently viewing them."""
+        for username, user in self._users.items():
+            state = self._user_states.get(username, {})
+            current_menu = state.get("menu")
+
+            if current_menu == "active_tables_menu":
+                # Check if there are still tables available. If not, we might want to let them
+                # stay in the menu (it will just show 'back'), or kick them out.
+                # Since the client handles empty lists poorly, we can just send the updated items.
+                # If there are no tables, it will just contain 'back'.
+                items = self._get_active_tables_menu_items(user)
+                if len(items) == 1: # Only 'back' is left
+                    # If empty, speak a message and boot them to main menu using show_menu logic
+                    # Or we just let it update to 'back' and they can press escape.
+                    # Let's dynamically update to just show 'back'.
+                    pass
+                user.update_menu("active_tables_menu", items)
+
+            elif current_menu == "tables_menu":
+                game_type = state.get("game_type")
+                if game_type:
+                    items = self._get_tables_menu_items(user, game_type)
+                    user.update_menu("tables_menu", items)
+
     # Dice keeping style display names
     DICE_KEEPING_STYLES = {
         DiceKeepingStyle.PlayAural: "dice-keeping-style-indexes",

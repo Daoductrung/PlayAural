@@ -123,6 +123,10 @@ def _tolerant_process_request(self, request):
     # Delegate to original method with potentially sanitized request
     try:
         return _original_process_request(self, request)
+    except websockets.exceptions.InvalidUpgrade as e:
+        # Suppress InvalidUpgrade to avoid spam from port scanners by converting it
+        # to InvalidHandshake which the websockets library handles without logging a traceback
+        raise websockets.exceptions.InvalidHandshake(f"Invalid upgrade: {e}")
     except Exception as e:
         # If still fails, re-raise
         raise e

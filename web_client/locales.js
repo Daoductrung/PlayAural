@@ -24,6 +24,8 @@ window.LOCALES = {
         "tab-menu": "Menu",
         "tab-chat": "Chat",
         "tab-players": "Players",
+        "tab-history": "History",
+        "history-title": "TTS History",
 
         "chat-input-label": "Chat Message",
         "chat-input-placeholder": "Type a message...",
@@ -142,6 +144,8 @@ window.LOCALES = {
         "tab-menu": "Menu",
         "tab-chat": "Trò chuyện",
         "tab-players": "Người chơi",
+        "tab-history": "Nhật ký",
+        "history-title": "Nhật ký TTS",
 
         "chat-input-label": "Nội dung trò chuyện",
         "chat-input-placeholder": "Nhập tin nhắn...",

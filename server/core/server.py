@@ -265,18 +265,21 @@ PlayAural Server
             self._pending_disconnects.pop(username, None)
             
             # Broadcast
-            self._broadcast_presence_l("user-offline", username, sound)
+            self._broadcast_presence_l("user-offline", username, sound, trust_level)
             
         except asyncio.CancelledError:
             # User reconnected in time
             pass
 
     def _broadcast_presence_l(
-        self, message_id: str, player_name: str, sound: str
+        self, message_id: str, player_name: str, sound: str, target_trust_level: int = 1
     ) -> None:
         """Broadcast a localized presence announcement to all approved online users with sound."""
         for user in self._users.values():
             if user.approved:
+                # If target is a normal user (trust level < 2) and this user has presence notifications off, skip
+                if target_trust_level < 2 and not user.preferences.notify_user_presence:
+                    continue
                 # Use "system" buffer for joins/parts
                 user.speak_l(message_id, buffer="system", player=player_name)
                 # Play sound (always uses main sound channel)
@@ -478,7 +481,7 @@ PlayAural Server
 
             # Only broadcast if we didn't cancel a pending disconnect (debounce)
             if not pending_task:
-                 self._broadcast_presence_l("user-online", username, online_sound)
+                 self._broadcast_presence_l("user-online", username, online_sound, trust_level)
 
                  # If user is a developer or admin, announce that as well
                  if trust_level >= 3:
@@ -826,33 +829,156 @@ PlayAural Server
 
     def _show_active_tables_menu(self, user: NetworkUser) -> None:
         """Show available tables across all games."""
-        all_tables = self._tables.get_all_tables()
-        # Filter: Only show waiting or playing tables (exclude finished)
-        # - Show if host is online (for waiting tables)
-        # - OR table is playing (so players can rejoin even if host offline)
-        # Filter: Only show tables with at least one online, non-spectator human player
+        items = self._get_active_tables_menu_items(user)
+        user.show_menu(
+            "active_tables_menu",
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self._user_states[user.username] = {"menu": "active_tables_menu"}
+
+    def _show_active_tables_filter_menu(self, user: NetworkUser) -> None:
+        """Show menu to select the active tables filter."""
+        items = [
+            MenuItem(text=Localization.get(user.locale, "filter-name-all"), id="filter_all"),
+            MenuItem(text=Localization.get(user.locale, "filter-name-waiting"), id="filter_waiting"),
+            MenuItem(text=Localization.get(user.locale, "filter-name-playing"), id="filter_playing"),
+            MenuItem(text=Localization.get(user.locale, "back"), id="back"),
+        ]
+
+        user.show_menu(
+            "active_tables_filter_menu",
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self._user_states[user.username] = {"menu": "active_tables_filter_menu"}
+
+    def _get_tables_menu_items(self, user: NetworkUser, game_type: str) -> list[MenuItem]:
+        """Generate the list of MenuItems for a specific game's tables menu."""
+        all_tables = self._tables.get_tables_by_type(game_type)
         tables = []
         for t in all_tables:
             if not t.game:
                 continue
             if t.game.status not in ["waiting", "playing"]:
                 continue
-            
-            # Check for at least one active human player
+
             has_active_human = False
             for member in t.members:
                 if not member.is_spectator and member.username in self._users:
                     has_active_human = True
                     break
-            
+
             if has_active_human:
                 tables.append(t)
 
-        if not tables:
-            user.speak_l("no-active-tables", buffer="system")
-            self._show_main_menu(user)
-            return
+        game_class = get_game_class(game_type)
+        game_name = (
+            Localization.get(user.locale, game_class.get_name_key())
+            if game_class
+            else game_type
+        )
+
+        items = [
+            MenuItem(
+                text=Localization.get(user.locale, "create-table"), id="create_table"
+            )
+        ]
+
+        for table in tables:
+            member_count = len(table.members)
+            member_names = [
+                member.username
+                for member in table.members
+                if member.username != table.host
+            ]
+            members_str = Localization.format_list_and(user.locale, member_names)
+            if table.game:
+                if table.game.status == "waiting":
+                    status_key = "table-status-waiting"
+                elif table.game.status == "playing":
+                    status_key = "table-status-playing"
+                elif table.game.status == "finished":
+                    status_key = "table-status-finished"
+                else:
+                    status_key = "table-status-waiting"
+            else:
+                status_key = "table-status-waiting"
+            status_text = Localization.get(user.locale, status_key)
+
+            if member_count == 1:
+                listing_key = "table-listing-game-one-status"
+            elif member_names:
+                listing_key = "table-listing-game-with-status"
+            else:
+                listing_key = "table-listing-game-status"
+            items.append(
+                MenuItem(
+                    text=Localization.get(
+                        user.locale,
+                        listing_key,
+                        game=game_name,
+                        host=table.host,
+                        count=member_count,
+                        members=members_str,
+                        status=status_text,
+                    ),
+                    id=f"table_{table.table_id}",
+                )
+            )
+
+        items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
+        return items
+
+    def _get_active_tables_menu_items(self, user: NetworkUser) -> list[MenuItem]:
+        """Generate the list of MenuItems for the global active tables menu."""
+        all_tables = self._tables.get_all_tables()
+        tables = []
+        filter_type = user.preferences.active_tables_filter
+
+        for t in all_tables:
+            if not t.game:
+                continue
+            if t.game.status not in ["waiting", "playing"]:
+                continue
+
+            # Apply filter
+            if filter_type != "all" and t.game.status != filter_type:
+                continue
+
+            has_active_human = False
+            for member in t.members:
+                if not member.is_spectator and member.username in self._users:
+                    has_active_human = True
+                    break
+
+            if has_active_human:
+                tables.append(t)
+
         items: list[MenuItem] = []
+
+        # 1. Add Filter Toggle
+        filter_name_key = f"filter-name-{filter_type}"
+        filter_name = Localization.get(user.locale, filter_name_key)
+        items.append(
+            MenuItem(
+                text=Localization.get(user.locale, "active-tables-filter", filter=filter_name),
+                id="toggle_filter"
+            )
+        )
+
+        # 2. Add empty message if no tables match filter
+        if not tables:
+            empty_msg_key = f"no-active-tables-{filter_type}"
+            items.append(
+                MenuItem(
+                    text=Localization.get(user.locale, empty_msg_key),
+                    id="no_tables_msg"
+                )
+            )
+
         for table in tables:
             game_class = get_game_class(table.game_type)
             game_name = (
@@ -867,8 +993,7 @@ PlayAural Server
                 if member.username != table.host
             ]
             members_str = Localization.format_list_and(user.locale, member_names)
-            
-            # Determine status for display
+
             if table.game:
                 if table.game.status == "waiting":
                     status_key = "table-status-waiting"
@@ -877,11 +1002,11 @@ PlayAural Server
                 elif table.game.status == "finished":
                     status_key = "table-status-finished"
                 else:
-                    status_key = "table-status-waiting"  # fallback
+                    status_key = "table-status-waiting"
             else:
-                status_key = "table-status-waiting"  # fallback
+                status_key = "table-status-waiting"
             status_text = Localization.get(user.locale, status_key)
-            
+
             if member_count == 1:
                 listing_key = "table-listing-game-one-status"
             elif member_names:
@@ -903,13 +1028,33 @@ PlayAural Server
                 )
             )
         items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
-        user.show_menu(
-            "active_tables_menu",
-            items,
-            multiletter=True,
-            escape_behavior=EscapeBehavior.SELECT_LAST,
-        )
-        self._user_states[user.username] = {"menu": "active_tables_menu"}
+        return items
+
+    def on_tables_changed(self) -> None:
+        """Called by TableManager when a table is created, destroyed, or changes status.
+        Dynamically updates the tables menus for any users currently viewing them."""
+        for username, user in self._users.items():
+            state = self._user_states.get(username, {})
+            current_menu = state.get("menu")
+
+            if current_menu == "active_tables_menu":
+                # Check if there are still tables available. If not, we might want to let them
+                # stay in the menu (it will just show 'back'), or kick them out.
+                # Since the client handles empty lists poorly, we can just send the updated items.
+                # If there are no tables, it will just contain 'back'.
+                items = self._get_active_tables_menu_items(user)
+                if len(items) == 1: # Only 'back' is left
+                    # If empty, speak a message and boot them to main menu using show_menu logic
+                    # Or we just let it update to 'back' and they can press escape.
+                    # Let's dynamically update to just show 'back'.
+                    pass
+                user.update_menu("active_tables_menu", items)
+
+            elif current_menu == "tables_menu":
+                game_type = state.get("game_type")
+                if game_type:
+                    items = self._get_tables_menu_items(user, game_type)
+                    user.update_menu("tables_menu", items)
 
     # Dice keeping style display names
     DICE_KEEPING_STYLES = {
@@ -948,6 +1093,13 @@ PlayAural Server
                     user.locale, "language-option", language=current_lang
                 ),
                 id="language",
+            ),
+            MenuItem(
+                text=Localization.get(
+                    user.locale,
+                    "option-notify-user-presence-on" if prefs.notify_user_presence else "option-notify-user-presence-off"
+                ),
+                id="notify_user_presence",
             ),
             MenuItem(
                 text=Localization.get(
@@ -1429,6 +1581,8 @@ PlayAural Server
             await self._handle_tables_selection(user, selection_id, state)
         elif current_menu == "active_tables_menu":
             await self._handle_active_tables_selection(user, selection_id)
+        elif current_menu == "active_tables_filter_menu":
+            await self._handle_active_tables_filter_selection(user, selection_id)
         elif current_menu == "join_menu":
             await self._handle_join_selection(user, selection_id, state)
         elif current_menu == "options_menu":
@@ -1745,6 +1899,10 @@ PlayAural Server
             self._save_user_preferences(user)
             # No client sync needed as this is purely server-side logic
             self._show_options_menu(user)
+        elif selection_id == "notify_user_presence":
+            prefs.notify_user_presence = not prefs.notify_user_presence
+            self._save_user_preferences(user)
+            self._show_options_menu(user)
         elif selection_id == "clear_kept":
             prefs.clear_kept_on_roll = not prefs.clear_kept_on_roll
             self._save_user_preferences(user)
@@ -1906,7 +2064,14 @@ PlayAural Server
         self, user: NetworkUser, selection_id: str
     ) -> None:
         """Handle active tables menu selection."""
-        if selection_id.startswith("table_"):
+        if selection_id == "toggle_filter":
+            self._show_active_tables_filter_menu(user)
+            return
+
+        elif selection_id == "no_tables_msg":
+            return  # Do nothing if they click the empty message
+
+        elif selection_id.startswith("table_"):
             table_id = selection_id[6:]
             table = self._tables.get_table(table_id)
             if table:
@@ -1916,6 +2081,27 @@ PlayAural Server
                 self._show_active_tables_menu(user)
         elif selection_id == "back":
             self._show_main_menu(user)
+
+    async def _handle_active_tables_filter_selection(
+        self, user: NetworkUser, selection_id: str
+    ) -> None:
+        """Handle active tables filter sub-menu selection."""
+        if selection_id.startswith("filter_"):
+            new_filter = selection_id[7:]  # Remove 'filter_' prefix (all, waiting, playing)
+            user.preferences.active_tables_filter = new_filter
+            self._save_user_preferences(user)
+
+            filter_name_key = f"filter-name-{new_filter}"
+            filter_name = Localization.get(user.locale, filter_name_key)
+            user.speak_l("active-tables-filter", filter=filter_name)
+
+            # Return to the active tables menu (which will automatically apply the new filter)
+            self._show_active_tables_menu(user)
+            return
+
+        elif selection_id == "back":
+            self._show_active_tables_menu(user)
+            return
 
     def _auto_join_table(
         self, user: NetworkUser, table: "Table", game_type: str
@@ -2068,8 +2254,12 @@ PlayAural Server
     ) -> None:
         """Handle saved tables menu selection."""
         if selection_id.startswith("saved_"):
-            save_id = int(selection_id[6:])  # Remove "saved_" prefix
-            self._show_saved_table_actions_menu(user, save_id)
+            try:
+                save_id = int(selection_id[6:])  # Remove "saved_" prefix
+                self._show_saved_table_actions_menu(user, save_id)
+            except ValueError:
+                # Malformed selection_id (like 'saved_tables') -> refresh menu
+                self._show_saved_tables_menu(user)
         elif selection_id == "back":
             self._show_main_menu(user)
 

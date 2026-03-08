@@ -184,14 +184,16 @@
                 aria-controls="content-chat">Chat</button>
             <button id="tab-players" class="tab-btn" role="tab" aria-selected="false"
                 aria-controls="content-players">Players</button>
+            <button id="tab-history" class="tab-btn" role="tab" aria-selected="false"
+                aria-controls="content-history">History</button>
         </nav>
-
-        <!-- Web Actions Container (Top Left) -->
-        <div id="web-actions-container" class="web-actions-area"></div>
 
         <main>
             <!-- Menu Tab Content -->
             <div id="content-menu" class="tab-content" role="tabpanel" aria-labelledby="tab-menu">
+                <!-- Web Actions Container (Sticky Top Left) -->
+                <div id="web-actions-container" class="web-actions-area"></div>
+
                 <div id="menu-area" role="menu" aria-label="Game Menu" tabindex="-1">
                     <!-- Menu items injected here -->
                 </div>
@@ -229,6 +231,14 @@
                 </div>
                 <div id="player-list-area" class="log-container" aria-live="polite">
                     <p id="players-instruction">Click a button above to view online players.</p>
+                </div>
+            </div>
+
+            <!-- History Tab Content -->
+            <div id="content-history" class="tab-content hidden" role="tabpanel" aria-labelledby="tab-history">
+                <h2 id="history-title">TTS History</h2>
+                <div id="tts-history-log" class="log-container" tabindex="-1">
+                    <!-- TTS history injected here -->
                 </div>
             </div>
 

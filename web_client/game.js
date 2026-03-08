@@ -2594,10 +2594,12 @@ class GameClient {
         const tabMenu = document.getElementById('tab-menu');
         const tabChat = document.getElementById('tab-chat');
         const tabPlayers = document.getElementById('tab-players');
+        const tabHistory = document.getElementById('tab-history');
 
         if (tabMenu) tabMenu.innerText = Localization.get('tab-menu');
         if (tabChat) tabChat.innerText = Localization.get('tab-chat');
         if (tabPlayers) tabPlayers.innerText = Localization.get('tab-players');
+        if (tabHistory) tabHistory.innerText = Localization.get('tab-history');
 
         // Chat section
         const chatInput = document.getElementById('chat-input');
@@ -2625,6 +2627,10 @@ class GameClient {
         if (btnListOnline) btnListOnline.innerText = Localization.get('btn-list-online');
         if (btnListOnlineGames) btnListOnlineGames.innerText = Localization.get('btn-list-online-games');
         if (playersInstruction) playersInstruction.innerText = Localization.get('players-instruction');
+
+        // History section
+        const historyTitle = document.getElementById('history-title');
+        if (historyTitle) historyTitle.innerText = Localization.get('history-title');
 
         const connStatus = document.getElementById('connection-status');
         if (connStatus && connStatus.innerText.trim() !== "") {

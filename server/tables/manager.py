@@ -35,6 +35,8 @@ class TableManager:
             table._db = self._server._db
         table.add_member(host_username, host_user, as_spectator=False)
         self._tables[table_id] = table
+        if self._server and hasattr(self._server, "on_tables_changed"):
+            self._server.on_tables_changed()
         return table
 
     def get_table(self, table_id: str) -> Table | None:
@@ -43,7 +45,9 @@ class TableManager:
 
     def remove_table(self, table_id: str) -> None:
         """Remove a table."""
-        self._tables.pop(table_id, None)
+        if self._tables.pop(table_id, None):
+            if self._server and hasattr(self._server, "on_tables_changed"):
+                self._server.on_tables_changed()
 
     def get_all_tables(self) -> list[Table]:
         """Get all tables."""

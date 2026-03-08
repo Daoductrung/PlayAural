@@ -230,12 +230,74 @@ main {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
+    padding-bottom: 80px; /* Prevent final items from hiding behind fixed Leave button */
 }
 
 .menu-item {
-    text-align: left;
+    display: block;
+    width: 100%;
+    padding: 0.75rem;
+    font-size: 1rem;
+    font-family: inherit;
+    color: var(--text-color);
     background-color: var(--surface-color);
     border: 1px solid var(--border-color);
+    border-radius: 4px;
+    text-align: left;
+    font-weight: bold;
+    cursor: pointer;
+    margin-top: 0.5rem;
+    /* Mobile text selection / callout prevention */
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+}
+
+.menu-item:hover {
+    filter: brightness(1.2);
+}
+
+.menu-item:focus {
+    outline: 2px solid var(--accent-color);
+    outline-offset: -2px;
+}
+
+.menu-item[aria-disabled="true"] {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Web actions container styles (dynamic bottom buttons) */
+.web-action-btn, .web-leave-btn {
+    display: block;
+    width: 100%;
+    padding: 0.75rem;
+    font-size: 1rem;
+    font-family: inherit;
+    color: white;
+    background-color: var(--accent-color);
+    border: none;
+    border-radius: 4px;
+    text-align: center;
+    font-weight: bold;
+    cursor: pointer;
+    margin-top: 0.5rem;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+}
+
+.web-action-btn:hover, .web-leave-btn:hover {
+    filter: brightness(1.1);
+}
+
+.web-action-btn:focus, .web-leave-btn:focus {
+    outline: 2px solid white;
+    outline-offset: -2px;
+}
+
+.web-leave-btn.danger-btn {
+    background-color: var(--danger-color);
 }
 
 /* Chat & History Logs */
@@ -255,6 +317,13 @@ main {
     margin-bottom: 0.25rem;
     border-bottom: 1px solid #222;
     padding-bottom: 0.25rem;
+    /* Accessibility formatting */
+    outline: none;
+}
+
+.log-entry:focus {
+    background-color: #222;
+    border-radius: 2px;
 }
 
 .log-time {
@@ -499,22 +568,26 @@ input[type=range]::-moz-range-thumb {
 
 /* Web Specific Button Areas */
 .web-actions-area {
-    position: fixed;
-    top: 60px; /* Below header */
-    left: 10px;
-    z-index: 1000;
+    position: sticky;
+    top: 0;
+    z-index: 100;
     display: flex;
     gap: 10px;
-    /* Remove background/border to be cleaner as floating buttons */
-    background-color: transparent;
-    border: none;
-    padding: 0;
+    background-color: var(--bg-color);
+    padding: 0.5rem 0;
+    margin-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+/* Hide empty container to avoid layout shift when no actions exist */
+.web-actions-area:empty {
+    display: none;
 }
 
 .web-leave-area {
     position: fixed;
     bottom: 20px;
-    right: 20px;
+    left: 20px;
     z-index: 1000;
 }
 

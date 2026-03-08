@@ -585,7 +585,7 @@ class GameClient {
 
         // Chat & History
         this.chatHistory = document.getElementById('chat-history');
-        this.historyLog = document.getElementById('history-log');
+        this.ttsHistoryLog = document.getElementById('tts-history-log');
         this.chatForm = document.getElementById('chat-form');
         this.chatInput = document.getElementById('chat-input');
 
@@ -826,14 +826,11 @@ class GameClient {
 
         // Hide all contents
         this.tabContents.forEach(c => {
-            if (c.id === 'content-history') {
-                // Special handling for history: Keep it in DOM but hidden visually
-                c.classList.remove('hidden'); // Ensure standard hidden is off
-                c.classList.add('background-active');
-            } else {
-                c.classList.add('hidden');
-                c.classList.remove('background-active'); // Ensure no stray class (though unlikely)
-            }
+            // Note: content-history is now a standard tab. The old hidden background-active logic
+            // was presumably for a different unseen history element or legacy code.
+            // We just use standard hidden toggles for the new actual History tab.
+            c.classList.add('hidden');
+            c.classList.remove('background-active');
         });
 
         // Activate target
@@ -844,16 +841,15 @@ class GameClient {
             activeTabBtn.classList.add('active');
             activeTabBtn.setAttribute('aria-selected', 'true');
 
-            if (tabId === 'content-history') {
-                activeContent.classList.remove('background-active');
-                activeContent.classList.remove('hidden');
-                // Scroll to bottom when becoming visible
-                if (this.historyLog) {
-                    this.historyLog.scrollTop = this.historyLog.scrollHeight;
-                }
-            } else {
-                activeContent.classList.remove('hidden');
+            if (tabId === 'content-chat' && !document.getElementById('chat-history-view').classList.contains('hidden')) {
+                // If chat tab is active AND looking at its own chat-history
+                const chatLog = document.getElementById('chat-history');
+                if (chatLog) chatLog.scrollTop = chatLog.scrollHeight;
+            } else if (tabId === 'content-history') {
+                if (this.ttsHistoryLog) this.ttsHistoryLog.scrollTop = 0; // Since it's prepended
             }
+
+            activeContent.classList.remove('hidden');
 
             this.activeTab = tabId;
 
@@ -1022,6 +1018,9 @@ class GameClient {
 
         const localized = Localization.get(text, params);
 
+        // Add to history tab
+        this.addToHistoryLog(localized);
+
         // Web Speech API Mode
         if (this.preferences.speech_mode === "web_speech") {
             this.speakTTS(localized);
@@ -1031,6 +1030,38 @@ class GameClient {
         // Aria-live Mode (Default)
         this.speechQueue.push(localized);
         this.processSpeechQueue();
+    }
+
+    addToHistoryLog(message) {
+        const log = document.getElementById("tts-history-log");
+        if (!log) return;
+
+        const entry = document.createElement("div");
+        entry.className = "log-entry";
+        entry.tabIndex = 0; // Focusable for screen readers
+
+        // Timestamp
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+        const timeSpan = document.createElement("span");
+        timeSpan.style.color = "#888";
+        timeSpan.style.marginRight = "8px";
+        timeSpan.innerText = `[${timeStr}]`;
+
+        const msgSpan = document.createElement("span");
+        msgSpan.innerText = message;
+
+        entry.appendChild(timeSpan);
+        entry.appendChild(msgSpan);
+
+        // Prepend to show newest at the top
+        log.prepend(entry);
+
+        // Optional: Keep history bounded (e.g. 100 entries)
+        while (log.children.length > 100) {
+            log.removeChild(log.lastChild);
+        }
     }
 
     speakTTS(text) {
@@ -1770,9 +1801,19 @@ class GameClient {
             const item = webButtons[id];
             if (item) {
                 config.container.innerHTML = "";
-                const newBtn = document.createElement('button');
+                const newBtn = document.createElement('div');
                 newBtn.innerText = item.text || item.id;
                 newBtn.className = config.cls;
+                newBtn.tabIndex = 0; // Make focusable
+
+                // Simulate button click behavior for div
+                newBtn.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        if (newBtn.onclick) newBtn.onclick(e);
+                    }
+                });
+
                 newBtn.onclick = () => {
                     this.play_sound("menuclick.ogg");
                     this.sendMenuSelection(packet.menu_id, 0, id);
@@ -1866,7 +1907,7 @@ class GameClient {
     }
 
     createMenuItem(item, index) {
-        const btn = document.createElement('button');
+        const btn = document.createElement('div');
         btn.className = "menu-item";
 
         let text = "";
@@ -1882,6 +1923,21 @@ class GameClient {
         btn.innerText = text;
         if (id) {
             btn.dataset.id = id;
+            btn.tabIndex = 0; // Make focusable
+
+            // Simulate button click behavior for div
+            btn.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault(); // prevent scrolling with space
+                    // Emulate the shift+enter context menu behavior if shift is held
+                    if (e.shiftKey && e.key === 'Enter') {
+                        if (btn.oncontextmenu) btn.oncontextmenu(e);
+                    } else if (btn.onclick) {
+                        btn.onclick(e);
+                    }
+                }
+            });
+
             btn.onclick = (e) => {
                 if (e && e.shiftKey) return; // Prevent click if Shift is held (Shift+Enter)
                 this.sendMenuSelection(this.currentMenuId, index + 1, id);
@@ -1898,7 +1954,6 @@ class GameClient {
 
             this.enableLongPress(btn, id);
         } else {
-            btn.disabled = true;
             btn.setAttribute('aria-disabled', 'true');
         }
 
@@ -1946,7 +2001,7 @@ class GameClient {
         btn.onmouseup = cancelPress;
         btn.onmouseleave = cancelPress;
         btn.ontouchend = cancelPress;
-        btn.ontouchmove = cancelPress;
+        btn.ontouchmove = cancelPress; // Cancel if the user scrolls
     }
 
     disableLongPress(btn) {
@@ -2539,10 +2594,12 @@ class GameClient {
         const tabMenu = document.getElementById('tab-menu');
         const tabChat = document.getElementById('tab-chat');
         const tabPlayers = document.getElementById('tab-players');
+        const tabHistory = document.getElementById('tab-history');
 
         if (tabMenu) tabMenu.innerText = Localization.get('tab-menu');
         if (tabChat) tabChat.innerText = Localization.get('tab-chat');
         if (tabPlayers) tabPlayers.innerText = Localization.get('tab-players');
+        if (tabHistory) tabHistory.innerText = Localization.get('tab-history');
 
         // Chat section
         const chatInput = document.getElementById('chat-input');
@@ -2570,6 +2627,10 @@ class GameClient {
         if (btnListOnline) btnListOnline.innerText = Localization.get('btn-list-online');
         if (btnListOnlineGames) btnListOnlineGames.innerText = Localization.get('btn-list-online-games');
         if (playersInstruction) playersInstruction.innerText = Localization.get('players-instruction');
+
+        // History section
+        const historyTitle = document.getElementById('history-title');
+        if (historyTitle) historyTitle.innerText = Localization.get('history-title');
 
         const connStatus = document.getElementById('connection-status');
         if (connStatus && connStatus.innerText.trim() !== "") {

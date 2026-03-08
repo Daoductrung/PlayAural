@@ -184,6 +184,8 @@
                 aria-controls="content-chat">Chat</button>
             <button id="tab-players" class="tab-btn" role="tab" aria-selected="false"
                 aria-controls="content-players">Players</button>
+            <button id="tab-history" class="tab-btn" role="tab" aria-selected="false"
+                aria-controls="content-history">History</button>
         </nav>
 
         <main>
@@ -229,6 +231,14 @@
                 </div>
                 <div id="player-list-area" class="log-container" aria-live="polite">
                     <p id="players-instruction">Click a button above to view online players.</p>
+                </div>
+            </div>
+
+            <!-- History Tab Content -->
+            <div id="content-history" class="tab-content hidden" role="tabpanel" aria-labelledby="tab-history">
+                <h2 id="history-title">TTS History</h2>
+                <div id="tts-history-log" class="log-container" tabindex="-1">
+                    <!-- TTS history injected here -->
                 </div>
             </div>
 

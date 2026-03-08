@@ -317,6 +317,13 @@ main {
     margin-bottom: 0.25rem;
     border-bottom: 1px solid #222;
     padding-bottom: 0.25rem;
+    /* Accessibility formatting */
+    outline: none;
+}
+
+.log-entry:focus {
+    background-color: #222;
+    border-radius: 2px;
 }
 
 .log-time {

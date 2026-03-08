@@ -2068,8 +2068,12 @@ PlayAural Server
     ) -> None:
         """Handle saved tables menu selection."""
         if selection_id.startswith("saved_"):
-            save_id = int(selection_id[6:])  # Remove "saved_" prefix
-            self._show_saved_table_actions_menu(user, save_id)
+            try:
+                save_id = int(selection_id[6:])  # Remove "saved_" prefix
+                self._show_saved_table_actions_menu(user, save_id)
+            except ValueError:
+                # Malformed selection_id (like 'saved_tables') -> refresh menu
+                self._show_saved_tables_menu(user)
         elif selection_id == "back":
             self._show_main_menu(user)
 

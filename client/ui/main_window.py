@@ -1413,6 +1413,12 @@ class MainWindow(wx.Frame):
             server_ver = update_info.get("version")
             if server_ver and server_ver != VERSION:
                 wx.CallAfter(self._prompt_update, update_info)
+                return
+
+        # Check for sounds update if app update is not needed
+        sounds_info = packet.get("sounds_info")
+        if sounds_info:
+            wx.CallAfter(self._check_sounds_update, sounds_info)
 
         # Notify user (but don't speak redundantly)
         # self.speaker.speak(Localization.get("main-connected"))
@@ -1632,6 +1638,220 @@ class MainWindow(wx.Frame):
             
         except Exception as e:
             wx.CallAfter(wx.MessageBox, f"Failed to launch updater: {e}", "Error", wx.OK | wx.ICON_ERROR)
+
+    def _check_sounds_update(self, sounds_info):
+        """Check if sounds update is needed."""
+        server_sounds_ver = str(sounds_info.get("version", ""))
+        sounds_url = sounds_info.get("url")
+
+        if not server_sounds_ver or not sounds_url:
+            return
+
+        # Read local version
+        local_sounds_ver = ""
+        version_file = os.path.join(self.sound_manager.sounds_folder, "version.txt")
+        try:
+            if os.path.exists(version_file):
+                with open(version_file, "r") as f:
+                    local_sounds_ver = f.read().strip()
+        except Exception:
+            pass
+
+        if server_sounds_ver != local_sounds_ver:
+            self._prompt_sounds_update(sounds_info)
+
+    def _prompt_sounds_update(self, sounds_info):
+        """Prompt user to update sounds."""
+        self.sound_manager.play("update_alert.ogg")
+        result = wx.MessageBox(
+            Localization.get("sounds-update-available-message"),
+            Localization.get("sounds-update-available-title"),
+            wx.YES_NO | wx.ICON_QUESTION
+        )
+        if result == wx.YES:
+            # Create modal progress dialog with Cancel button
+            self.sounds_update_dialog = wx.ProgressDialog(
+                Localization.get("sounds-update-available-title"),
+                Localization.get("sounds-update-downloading", percent=0),
+                maximum=100,
+                parent=self,
+                style=wx.PD_APP_MODAL | wx.PD_AUTO_HIDE | wx.PD_CAN_ABORT
+            )
+
+            # Start download in thread
+            import threading
+            self.sounds_download_thread = threading.Thread(target=self._download_and_extract_sounds, args=(sounds_info,), daemon=True)
+            self.sounds_download_thread.start()
+
+    def _download_and_extract_sounds(self, sounds_info):
+        """Download and extract sounds update."""
+        url = sounds_info.get("url")
+        version = sounds_info.get("version")
+
+        import tempfile
+        import shutil
+
+        temp_dir = tempfile.gettempdir()
+        target_zip = os.path.join(temp_dir, f"playaural_sounds_{int(time.time())}.zip")
+        self.sounds_download_cancelled = False
+
+        try:
+            # Download phase
+            response = requests.get(url, stream=True)
+            response.raise_for_status()
+
+            total_size_header = response.headers.get("content-length")
+            total_size = int(total_size_header) if total_size_header else 0
+
+            block_size = 1024 * 64
+            downloaded = 0
+            last_percent = 0
+            last_update_check = 0
+
+            with open(target_zip, "wb") as f:
+                for data in response.iter_content(block_size):
+                    if self.sounds_download_cancelled:
+                        break
+
+                    downloaded += len(data)
+                    f.write(data)
+
+                    current_time = time.time()
+                    if current_time - last_update_check > 0.1:
+                        last_update_check = current_time
+
+                        if total_size > 0:
+                            percent = int((downloaded / total_size) * 100)
+
+                            def update_modal(p, msg):
+                                if not getattr(self, "sounds_update_dialog", None): return
+                                (cont, skip) = self.sounds_update_dialog.Update(p, msg)
+                                if not cont:
+                                    self.sounds_download_cancelled = True
+
+                            if percent > last_percent:
+                                wx.CallAfter(update_modal, percent, Localization.get("sounds-update-downloading", percent=percent))
+
+                                if percent % 10 == 0:
+                                    wx.CallAfter(self.speaker.speak, Localization.get("sounds-update-downloading", percent=percent))
+
+                                last_percent = percent
+                        else:
+                            downloaded_mb = downloaded / (1024*1024)
+                            msg = f"Downloading... {downloaded_mb:.2f} MB"
+
+                            def pulse_modal(msg):
+                                if not getattr(self, "sounds_update_dialog", None): return
+                                (cont, skip) = self.sounds_update_dialog.Pulse(msg)
+                                if not cont:
+                                    self.sounds_download_cancelled = True
+
+                            wx.CallAfter(pulse_modal, msg)
+
+            if self.sounds_download_cancelled:
+                if os.path.exists(target_zip):
+                    try:
+                        os.remove(target_zip)
+                    except:
+                        pass
+                wx.CallAfter(self.sounds_update_dialog.Destroy)
+                wx.CallAfter(self.speaker.speak, Localization.get("sounds-update-cancelled"))
+                return
+
+            # Download complete, start extraction
+            wx.CallAfter(self.sounds_update_dialog.Update, 100, Localization.get("sounds-update-extracting"))
+            wx.CallAfter(self.speaker.speak, Localization.get("sounds-update-extracting"))
+
+            # Create a temporary extraction directory next to the old sounds folder
+            sounds_dir = self.sound_manager.sounds_folder
+            parent_dir = os.path.dirname(sounds_dir)
+            sounds_new_dir = os.path.join(parent_dir, f"sounds_new_{int(time.time())}")
+
+            os.makedirs(sounds_new_dir, exist_ok=True)
+
+            with zipfile.ZipFile(target_zip, 'r') as zip_ref:
+                file_list = zip_ref.namelist()
+
+                # Check for single root folder (like sounds/menuclick.ogg)
+                root_folders = {f.split('/')[0] for f in file_list if '/' in f}
+                top_level_files = [f for f in file_list if '/' not in f]
+
+                has_single_root = len(root_folders) == 1 and not top_level_files
+                prefix = ""
+                if has_single_root:
+                    prefix = list(root_folders)[0] + "/"
+
+                for file in file_list:
+                    if file.endswith('/'):
+                        continue
+
+                    target_rel_path = file
+                    if has_single_root and file.startswith(prefix):
+                        target_rel_path = file[len(prefix):]
+
+                    target_abs_path = os.path.join(sounds_new_dir, target_rel_path)
+
+                    os.makedirs(os.path.dirname(target_abs_path), exist_ok=True)
+
+                    with zip_ref.open(file) as source, open(target_abs_path, "wb") as target:
+                        shutil.copyfileobj(source, target)
+
+            # Write new version.txt
+            with open(os.path.join(sounds_new_dir, "version.txt"), "w") as f:
+                f.write(str(version))
+
+            # Extraction complete, perform atomic swap
+            sounds_old_dir = os.path.join(parent_dir, f"sounds_old_{int(time.time())}")
+
+            # Wait a brief moment to ensure handles are freed up if needed
+            time.sleep(0.5)
+
+            try:
+                # Stop existing sounds and clear cache to release file locks
+                wx.CallAfter(self.sound_manager.stop_music, fade=False)
+                wx.CallAfter(self.sound_manager.stop_ambience, force=True)
+                # Ensure main loop processes these calls before renaming
+                time.sleep(1.0)
+
+                if os.path.exists(sounds_dir):
+                    os.rename(sounds_dir, sounds_old_dir)
+                os.rename(sounds_new_dir, sounds_dir)
+
+                # Try to clean up old dir, ignore if fails
+                try:
+                    shutil.rmtree(sounds_old_dir)
+                except Exception:
+                    pass
+
+            except PermissionError:
+                # File lock issues
+                wx.CallAfter(self.sounds_update_dialog.Destroy)
+                wx.CallAfter(self.speaker.speak, Localization.get("sounds-update-file-lock"))
+                return
+
+            # Clean up zip
+            if os.path.exists(target_zip):
+                 try:
+                     os.remove(target_zip)
+                 except: pass
+
+            # Swap complete
+            wx.CallAfter(self.sounds_update_dialog.Destroy)
+            wx.CallAfter(self.speaker.speak, Localization.get("sounds-update-complete"))
+
+            # Restart
+            time.sleep(2)
+            wx.CallAfter(self.restart_application)
+
+        except Exception as e:
+            if getattr(self, "sounds_update_dialog", None):
+                 wx.CallAfter(self.sounds_update_dialog.Destroy)
+            wx.CallAfter(self.speaker.speak, Localization.get("sounds-update-error", error=str(e)))
+            wx.CallAfter(wx.MessageBox, Localization.get("sounds-update-error", error=str(e)), "Error", wx.OK | wx.ICON_ERROR)
+            if os.path.exists(target_zip):
+                 try:
+                     os.remove(target_zip)
+                 except: pass
 
     def on_update_locale(self, packet):
         """Handle update_locale packet from server."""

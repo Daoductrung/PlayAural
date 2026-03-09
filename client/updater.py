@@ -11,9 +11,10 @@ import threading
 import psutil
 
 class UpdaterApp:
-    def __init__(self, zip_path, target_dir, exe_name, wait_pid=None):
+    def __init__(self, zip_path, target_dir, exe_name, wait_pid=None, extract_dir=None):
         self.zip_path = zip_path
         self.target_dir = target_dir
+        self.extract_dir = extract_dir if extract_dir else target_dir
         self.exe_name = exe_name
         self.wait_pid = wait_pid
         
@@ -126,7 +127,7 @@ class UpdaterApp:
                     if has_single_root and file.startswith(prefix):
                         target_rel_path = file[len(prefix):]
                     
-                    target_abs_path = os.path.join(self.target_dir, target_rel_path)
+                    target_abs_path = os.path.join(self.extract_dir, target_rel_path)
                     
                     # Ensure parent dir exists
                     os.makedirs(os.path.dirname(target_abs_path), exist_ok=True)
@@ -170,9 +171,10 @@ class UpdaterApp:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="PlayAural Auto-Updater")
     parser.add_argument("--zip", required=True, help="Path to the update zip file")
-    parser.add_argument("--target", required=True, help="Target directory to extract to")
+    parser.add_argument("--target", required=True, help="Target directory (contains executable)")
     parser.add_argument("--exe", required=True, help="Name of the executable to launch")
     parser.add_argument("--pid", type=int, help="Process ID to wait for shutdown")
+    parser.add_argument("--extract-dir", help="Directory to extract to (defaults to target)")
     
     args = parser.parse_args()
     
@@ -184,5 +186,5 @@ if __name__ == "__main__":
         # We can just rely on file lock retry loop
         pass
 
-    app = UpdaterApp(args.zip, args.target, args.exe, args.pid)
+    app = UpdaterApp(args.zip, args.target, args.exe, args.pid, args.extract_dir)
     app.run()

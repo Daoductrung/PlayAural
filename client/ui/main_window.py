@@ -1582,7 +1582,7 @@ class MainWindow(wx.Frame):
                      os.remove(target_zip)
                  except: pass
 
-    def _launch_updater(self, zip_path):
+    def _launch_updater(self, zip_path, extract_dir=None):
         """Launch the standalone updater."""
         import os
         import sys
@@ -1598,6 +1598,8 @@ class MainWindow(wx.Frame):
                 python_exe = sys.executable
                 exe_name = os.path.basename(sys.executable) if getattr(sys, 'frozen', False) else "PlayAural.exe"
                 cmd = [python_exe, updater_script, "--zip", zip_path, "--target", os.getcwd(), "--exe", "PlayAural.exe", "--pid", str(pid)]
+                if extract_dir:
+                    cmd.extend(["--extract-dir", extract_dir])
                 subprocess.Popen(cmd)
             else:
                 # Running frozen (compiled)
@@ -1626,6 +1628,8 @@ class MainWindow(wx.Frame):
                          print(f"Failed to copy updater to temp: {e}")
                     
                     cmd = [updater_exe, "--zip", zip_path, "--target", os.path.dirname(sys.executable), "--exe", os.path.basename(sys.executable), "--pid", str(pid)]
+                    if extract_dir:
+                        cmd.extend(["--extract-dir", extract_dir])
                     subprocess.Popen(cmd)
                 else:
                      wx.CallAfter(wx.MessageBox, f"Updater not found at: {updater_exe}", "Error", wx.OK | wx.ICON_ERROR)
@@ -1684,12 +1688,10 @@ class MainWindow(wx.Frame):
             self.sounds_download_thread.start()
 
     def _download_and_extract_sounds(self, sounds_info):
-        """Download and extract sounds update."""
+        """Download sounds update and launch updater."""
         url = sounds_info.get("url")
-        version = sounds_info.get("version")
 
         import tempfile
-        import shutil
 
         temp_dir = tempfile.gettempdir()
         target_zip = os.path.join(temp_dir, f"playaural_sounds_{int(time.time())}.zip")
@@ -1758,90 +1760,16 @@ class MainWindow(wx.Frame):
                 wx.CallAfter(self.speaker.speak, Localization.get("sounds-update-cancelled"))
                 return
 
-            # Download complete, start extraction
+            # Download complete
             wx.CallAfter(self.sounds_update_dialog.Update, 100, Localization.get("sounds-update-extracting"))
             wx.CallAfter(self.speaker.speak, Localization.get("sounds-update-extracting"))
 
-            # Create a temporary extraction directory next to the old sounds folder
-            sounds_dir = self.sound_manager.sounds_folder
-            parent_dir = os.path.dirname(sounds_dir)
-            sounds_new_dir = os.path.join(parent_dir, f"sounds_new_{int(time.time())}")
-
-            os.makedirs(sounds_new_dir, exist_ok=True)
-
-            with zipfile.ZipFile(target_zip, 'r') as zip_ref:
-                file_list = zip_ref.namelist()
-
-                # Check for single root folder (like sounds/menuclick.ogg)
-                root_folders = {f.split('/')[0] for f in file_list if '/' in f}
-                top_level_files = [f for f in file_list if '/' not in f]
-
-                has_single_root = len(root_folders) == 1 and not top_level_files
-                prefix = ""
-                if has_single_root:
-                    prefix = list(root_folders)[0] + "/"
-
-                for file in file_list:
-                    if file.endswith('/'):
-                        continue
-
-                    target_rel_path = file
-                    if has_single_root and file.startswith(prefix):
-                        target_rel_path = file[len(prefix):]
-
-                    target_abs_path = os.path.join(sounds_new_dir, target_rel_path)
-
-                    os.makedirs(os.path.dirname(target_abs_path), exist_ok=True)
-
-                    with zip_ref.open(file) as source, open(target_abs_path, "wb") as target:
-                        shutil.copyfileobj(source, target)
-
-            # Write new version.txt
-            with open(os.path.join(sounds_new_dir, "version.txt"), "w") as f:
-                f.write(str(version))
-
-            # Extraction complete, perform atomic swap
-            sounds_old_dir = os.path.join(parent_dir, f"sounds_old_{int(time.time())}")
-
-            # Wait a brief moment to ensure handles are freed up if needed
-            time.sleep(0.5)
-
-            try:
-                # Stop existing sounds and clear cache to release file locks
-                wx.CallAfter(self.sound_manager.stop_music, fade=False)
-                wx.CallAfter(self.sound_manager.stop_ambience, force=True)
-                # Ensure main loop processes these calls before renaming
-                time.sleep(1.0)
-
-                if os.path.exists(sounds_dir):
-                    os.rename(sounds_dir, sounds_old_dir)
-                os.rename(sounds_new_dir, sounds_dir)
-
-                # Try to clean up old dir, ignore if fails
-                try:
-                    shutil.rmtree(sounds_old_dir)
-                except Exception:
-                    pass
-
-            except PermissionError:
-                # File lock issues
-                wx.CallAfter(self.sounds_update_dialog.Destroy)
-                wx.CallAfter(self.speaker.speak, Localization.get("sounds-update-file-lock"))
-                return
-
-            # Clean up zip
-            if os.path.exists(target_zip):
-                 try:
-                     os.remove(target_zip)
-                 except: pass
-
-            # Swap complete
+            time.sleep(1) # Let the sound play
             wx.CallAfter(self.sounds_update_dialog.Destroy)
-            wx.CallAfter(self.speaker.speak, Localization.get("sounds-update-complete"))
 
-            # Restart
-            time.sleep(2)
-            wx.CallAfter(self.restart_application)
+            # Launch updater with extract-dir argument
+            sounds_dir = self.sound_manager.sounds_folder
+            wx.CallAfter(self._launch_updater, target_zip, extract_dir=sounds_dir)
 
         except Exception as e:
             if getattr(self, "sounds_update_dialog", None):

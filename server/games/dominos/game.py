@@ -173,15 +173,15 @@ class DominosGame(Game):
 
         # The actual tiles will be added dynamically in _update_turn_actions
 
-        # Keybind-only actions
+        # Visible check actions
         action_set.add(
             Action(
                 id="check_board",
                 label=Localization.get(locale, "dominos-check-board"),
                 handler="_action_check_board",
                 is_enabled="_is_check_enabled",
-                is_hidden="_is_hidden_always",
-                show_in_actions_menu=False,
+                is_hidden="_is_visible_always",
+                show_in_actions_menu=True,
             )
         )
         action_set.add(
@@ -190,8 +190,8 @@ class DominosGame(Game):
                 label=Localization.get(locale, "dominos-check-hands"),
                 handler="_action_check_hands",
                 is_enabled="_is_check_enabled",
-                is_hidden="_is_hidden_always",
-                show_in_actions_menu=False,
+                is_hidden="_is_visible_always",
+                show_in_actions_menu=True,
             )
         )
 
@@ -263,8 +263,8 @@ class DominosGame(Game):
             return "action-not-playing"
         return None
 
-    def _is_hidden_always(self, player: Player) -> Visibility:
-        return Visibility.HIDDEN
+    def _is_visible_always(self, player: Player) -> Visibility:
+        return Visibility.VISIBLE
 
     def _is_check_board_hidden_web(self, player: Player) -> Visibility:
         user = self.get_user(player)
@@ -308,25 +308,11 @@ class DominosGame(Game):
             return "action-not-playing"
         if player.is_spectator:
             return "action-spectator"
-        if self.current_player != player:
-            return "action-not-your-turn"
 
-        # We need the tile ID. It's safe to parse here because _is_tile_enabled is called during resolution.
-        if not action_id:
-            return None # Not strictly checking yet
-
-        tile_id = action_id.split("_", 2)[-1]
-
-        dominos_player: DominosPlayer = player # type: ignore
-        tile = next((t for t in dominos_player.hand if t.id == tile_id), None)
-
-        if not tile:
-            return "dominos-invalid-tile"
-
-        if self.left_end != -1 and self.right_end != -1:
-            if not tile.matches(self.left_end) and not tile.matches(self.right_end):
-                return "dominos-cannot-play-tile"
-
+        # Do NOT return "action-not-your-turn" or "dominos-cannot-play-tile" here
+        # Returning None makes them always visible and clickable (enabled) in the menu
+        # so the screen reader can read them, and they aren't hidden/grayed out entirely out-of-turn.
+        # We will strictly enforce turn and valid play rules in _action_play_tile instead.
         return None
 
     def _is_tile_hidden(self, player: Player) -> Visibility:
@@ -504,16 +490,6 @@ class DominosGame(Game):
                 )
             )
 
-            # WEB-SPECIFIC: For web, prioritize draw/pass to top if they must be used
-            if user and getattr(user, "client_type", "") == "web" and is_current:
-                 if not self._can_play(player):
-                      if "draw_tile" in turn_set._order:
-                          turn_set._order.remove("draw_tile")
-                          turn_set._order.insert(0, "draw_tile")
-                      if "pass_turn" in turn_set._order:
-                          turn_set._order.remove("pass_turn")
-                          turn_set._order.insert(0, "pass_turn")
-
     def _update_all_turn_actions(self) -> None:
         for player in self.players:
             if isinstance(player, DominosPlayer):
@@ -608,14 +584,18 @@ class DominosGame(Game):
         if not isinstance(player, DominosPlayer):
             return
 
+        user = self.get_user(player)
+
         if self.current_player != player:
+            if user:
+                user.speak_l("action-not-your-turn", buffer="system")
             return
 
         input_value = None
         if len(args) == 1:
             action_id = args[0]
         elif len(args) == 2:
-            action_id, input_value = args
+            input_value, action_id = args
         else:
             return
 
@@ -624,6 +604,12 @@ class DominosGame(Game):
 
         if not tile:
             return
+
+        if self.left_end != -1 and self.right_end != -1:
+            if not tile.matches(self.left_end) and not tile.matches(self.right_end):
+                if user:
+                    user.speak_l("dominos-cannot-play-tile", buffer="system")
+                return
 
         # Determine side
         side = None
@@ -756,7 +742,7 @@ class DominosGame(Game):
         player.hand.append(tile)
         self._sort_hand(player)
 
-        self.play_sound("game_cards/draw1.ogg")
+        self.play_sound("game_dominos/draw.ogg")
 
         for p in self.players:
             u = self.get_user(p)

@@ -6,7 +6,7 @@ dominos-mode-draw = Draw
 dominos-mode-block = Block
 dominos-mode-all-fives = All Fives
 
-dominos-set-mode = Game Mode
+dominos-set-mode = Game Mode: { $mode }
 dominos-select-mode = Select Game Mode
 
 dominos-option-changed-mode = Game Mode changed to { $mode }
@@ -29,8 +29,8 @@ dominos-prompt-side = Which side do you want to play this tile on?
 
 dominos-first-player = { $player } will play first.
 
-dominos-played-first = Played { $tile } as the first tile.
-dominos-played-side = Played { $tile } on the { $side }.
+dominos-played-first = { $tile } as the first tile.
+dominos-played-side = { $tile } on the { $side }.
 dominos-side-left = left
 dominos-side-right = right
 

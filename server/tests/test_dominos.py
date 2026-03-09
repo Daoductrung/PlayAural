@@ -67,8 +67,15 @@ def test_cannot_play_invalid_tile():
     player = game.current_player
     tile = player.hand[0]
 
+    # We changed _is_tile_enabled to return None so tiles render out-of-turn
     err = game._is_tile_enabled(player, f"play_tile_{tile.id}")
-    assert err == "dominos-cannot-play-tile"
+    assert err is None
+
+    # Enforce play verification in the action handler
+    game._action_play_tile(player, f"play_tile_{tile.id}")
+
+    # The tile should still be in the hand because playing it failed
+    assert len(player.hand) == 7
 
 def test_draw_action():
     game = DominosGame()
@@ -132,14 +139,18 @@ def test_all_fives_scoring():
     assert player.score == 0
     assert game.right_is_double == True
 
+    # Advance the turn because _action_play_tile advances the turn if played
+    # The previous tile played successfully, advancing the turn.
+    player2 = game.current_player
+
     # Now let's play a 2-4 on the Left 2.
     tile2 = Tile(2, 4)
-    player.hand = [tile2, Tile(0, 0)]
+    player2.hand = [tile2, Tile(0, 0)]
     # We must explicitly pass the side input because 2-4 only matches the left 2, so it autos.
-    game._action_play_tile(player, f"play_tile_{tile2.id}")
+    game._action_play_tile(player2, f"play_tile_{tile2.id}")
     # New ends: Left is 4 (single), Right is 3 (double).
     # 4 + 6 = 10. Multiple of 5! Score 10 points.
-    assert player.score == 10
+    assert player2.score == 10
 
 def test_play_both_ends_input():
     game = DominosGame()
@@ -156,6 +167,7 @@ def test_play_both_ends_input():
     player.hand = [tile, Tile(0, 0)]
 
     # Provide the localized string for Left (1)
+    # The signature in action handlers is (player, input_value, action_id)
     game._action_play_tile(player, "Left (1)", f"play_tile_{tile.id}")
 
     # Left end was 1. We played 1-2. New left end is 2.

@@ -313,6 +313,23 @@ broadcast-announcement = Gửi thông báo
 admin-broadcast-prompt = Nhập tin nhắn để thông báo cho tất cả người dùng đang trực tuyến. (Tin nhắn này sẽ gửi tới mọi người!)
 admin-broadcast-sent = Đã gửi thông báo đến { $count } người dùng.
 
+manage-motd = Quản lý thông báo ngày (MOTD)
+create-update-motd = Tạo/Cập nhật MOTD
+view-motd = Xem MOTD hiện tại
+delete-motd = Xóa MOTD
+motd-version-prompt = Nhập số phiên bản MOTD mới (phải > 0):
+invalid-motd-version = Phiên bản MOTD không hợp lệ. Phải là một số dương.
+motd-prompt = Nhập MOTD cho ngôn ngữ { $language } (nhấn Enter để xuống dòng, Shift+Enter để gửi nếu đảo ngược phím):
+motd-created = Đã tạo thành công MOTD phiên bản { $version }.
+motd-cancelled = Đã hủy tạo MOTD.
+motd-deleted = MOTD đã bị xóa.
+motd-delete-empty = Không có MOTD nào đang hoạt động để xóa.
+motd-not-exists = Không có MOTD nào đang hoạt động.
+motd-announcement = Thông báo của ngày
+motd-broadcast = Thông báo mới: { $message }
+error-no-languages = Lỗi: Không tìm thấy ngôn ngữ.
+ok = OK
+
 milebymile-rig-none = Không
 milebymile-rig-no-duplicates = Không trùng lặp
 milebymile-rig-2x-attacks = Tấn công x2

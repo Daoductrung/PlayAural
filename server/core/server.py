@@ -1647,7 +1647,8 @@ PlayAural Server
             "admin_menu", "account_approval_menu", "pending_user_actions_menu",
             "promote_admin_menu", "demote_admin_menu", "promote_confirm_menu",
             "demote_confirm_menu", "kick_menu", "kick_confirm_menu", "broadcast_choice_menu",
-            "ban_menu", "ban_duration_menu", "ban_reason_menu", "unban_menu"
+            "ban_menu", "ban_duration_menu", "ban_reason_menu", "unban_menu",
+            "manage_motd_menu", "view_motd_menu"
         ]:
             await self.admin_manager.handle_menu_selection(user, selection_id, current_menu, state)
         elif current_menu == "logout_confirm_menu":

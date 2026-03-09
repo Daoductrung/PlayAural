@@ -10,6 +10,11 @@ from tkinter import messagebox
 import threading
 import psutil
 
+try:
+    import winsound
+except ImportError:
+    winsound = None
+
 class UpdaterApp:
     def __init__(self, zip_path, target_dir, exe_name, wait_pid=None, extract_dir=None):
         self.zip_path = zip_path
@@ -117,6 +122,8 @@ class UpdaterApp:
                 
                 self.log("Extracting update...")
                 
+                last_beep_percent = -1
+
                 for i, file in enumerate(file_list):
                     # Skip directories themselves if we are flattening
                     if file.endswith('/'):
@@ -139,9 +146,19 @@ class UpdaterApp:
                         
                     percent = ((i + 1) / total_files) * 100
                     self.progress_var.set(percent)
+
+                    # Beep periodically (e.g. every 5%)
+                    current_percent_int = int(percent)
+                    if winsound and current_percent_int >= last_beep_percent + 5:
+                        # Map 0-100% to 500Hz-2000Hz
+                        freq = 500 + int((current_percent_int / 100.0) * 1500)
+                        # Fire and forget beep to not block extraction too much
+                        threading.Thread(target=lambda f=freq: winsound.Beep(f, 50), daemon=True).start()
+                        last_beep_percent = current_percent_int
+
                     # Update status occasionally
                     if i % 10 == 0:
-                        self.log(f"Extracting: {int(percent)}%")
+                        self.log(f"Extracting: {current_percent_int}%")
             
             self.log("Update complete!")
             time.sleep(1) # Show 100% briefly

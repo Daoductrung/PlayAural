@@ -23,7 +23,8 @@ else:
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    filename='playaural.log' if getattr(sys, 'frozen', False) else None
+    # Stream default is sys.stderr when filename is not specified
+    # We do not output to a file to prevent cluttering the user directory
 )
 
 version = "0.1.6"

@@ -1,4 +1,4 @@
-game-name-fivecarddraw = Five Card Draw
+game-name-fivecarddraw = Poker Rút năm lá
 
 draw-set-starting-chips = Số chip ban đầu: { $count }
 draw-enter-starting-chips = Nhập số chip ban đầu

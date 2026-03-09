@@ -162,8 +162,8 @@ action-no-scores = Chưa có điểm số nào.
 
 music-volume-option = Âm lượng nhạc: { $value }%
 ambience-volume-option = Âm lượng môi trường: { $value }%
-mute-global-chat-option = Tắt tiếng chat chung: { $status }
-mute-table-chat-option = Tắt tiếng chat trong bàn: { $status }
+mute-global-chat-option = Tắt tiếng trò chuyện chung: { $status }
+mute-table-chat-option = Tắt tiếng trò chuyện trong bàn: { $status }
 invert-multiline-enter-option = Đảo ngược phím Enter: { $status }
 play-typing-sounds-option = Âm thanh gõ phím: { $status }
 enter-music-volume = Nhập âm lượng nhạc (0-100)

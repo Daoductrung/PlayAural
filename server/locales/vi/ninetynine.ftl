@@ -1,4 +1,4 @@
-game-name-ninetynine = Ninety Nine
+game-name-ninetynine = Chín mươi chín
 ninetynine-description = Một trò chơi bài nơi người chơi cố gắng không để tổng điểm vượt quá 99. Người cuối cùng còn trụ lại sẽ thắng!
 
 ninetynine-round = Vòng { $round }.

@@ -1413,6 +1413,12 @@ class MainWindow(wx.Frame):
             server_ver = update_info.get("version")
             if server_ver and server_ver != VERSION:
                 wx.CallAfter(self._prompt_update, update_info)
+                return
+
+        # Check for sounds update if app update is not needed
+        sounds_info = packet.get("sounds_info")
+        if sounds_info:
+            wx.CallAfter(self._check_sounds_update, sounds_info)
 
         # Notify user (but don't speak redundantly)
         # self.speaker.speak(Localization.get("main-connected"))
@@ -1576,7 +1582,7 @@ class MainWindow(wx.Frame):
                      os.remove(target_zip)
                  except: pass
 
-    def _launch_updater(self, zip_path):
+    def _launch_updater(self, zip_path, extract_dir=None):
         """Launch the standalone updater."""
         import os
         import sys
@@ -1592,6 +1598,8 @@ class MainWindow(wx.Frame):
                 python_exe = sys.executable
                 exe_name = os.path.basename(sys.executable) if getattr(sys, 'frozen', False) else "PlayAural.exe"
                 cmd = [python_exe, updater_script, "--zip", zip_path, "--target", os.getcwd(), "--exe", "PlayAural.exe", "--pid", str(pid)]
+                if extract_dir:
+                    cmd.extend(["--extract-dir", extract_dir])
                 subprocess.Popen(cmd)
             else:
                 # Running frozen (compiled)
@@ -1620,6 +1628,8 @@ class MainWindow(wx.Frame):
                          print(f"Failed to copy updater to temp: {e}")
                     
                     cmd = [updater_exe, "--zip", zip_path, "--target", os.path.dirname(sys.executable), "--exe", os.path.basename(sys.executable), "--pid", str(pid)]
+                    if extract_dir:
+                        cmd.extend(["--extract-dir", extract_dir])
                     subprocess.Popen(cmd)
                 else:
                      wx.CallAfter(wx.MessageBox, f"Updater not found at: {updater_exe}", "Error", wx.OK | wx.ICON_ERROR)
@@ -1632,6 +1642,144 @@ class MainWindow(wx.Frame):
             
         except Exception as e:
             wx.CallAfter(wx.MessageBox, f"Failed to launch updater: {e}", "Error", wx.OK | wx.ICON_ERROR)
+
+    def _check_sounds_update(self, sounds_info):
+        """Check if sounds update is needed."""
+        server_sounds_ver = str(sounds_info.get("version", ""))
+        sounds_url = sounds_info.get("url")
+
+        if not server_sounds_ver or not sounds_url:
+            return
+
+        # Read local version
+        local_sounds_ver = ""
+        version_file = os.path.join(self.sound_manager.sounds_folder, "version.txt")
+        try:
+            if os.path.exists(version_file):
+                with open(version_file, "r") as f:
+                    local_sounds_ver = f.read().strip()
+        except Exception:
+            pass
+
+        if server_sounds_ver != local_sounds_ver:
+            self._prompt_sounds_update(sounds_info)
+
+    def _prompt_sounds_update(self, sounds_info):
+        """Prompt user to update sounds."""
+        self.sound_manager.play("update_alert.ogg")
+        result = wx.MessageBox(
+            Localization.get("sounds-update-available-message"),
+            Localization.get("sounds-update-available-title"),
+            wx.YES_NO | wx.ICON_QUESTION
+        )
+        if result == wx.YES:
+            # Create modal progress dialog with Cancel button
+            self.sounds_update_dialog = wx.ProgressDialog(
+                Localization.get("sounds-update-available-title"),
+                Localization.get("sounds-update-downloading", percent=0),
+                maximum=100,
+                parent=self,
+                style=wx.PD_APP_MODAL | wx.PD_AUTO_HIDE | wx.PD_CAN_ABORT
+            )
+
+            # Start download in thread
+            import threading
+            self.sounds_download_thread = threading.Thread(target=self._download_and_extract_sounds, args=(sounds_info,), daemon=True)
+            self.sounds_download_thread.start()
+
+    def _download_and_extract_sounds(self, sounds_info):
+        """Download sounds update and launch updater."""
+        url = sounds_info.get("url")
+
+        import tempfile
+
+        temp_dir = tempfile.gettempdir()
+        target_zip = os.path.join(temp_dir, f"playaural_sounds_{int(time.time())}.zip")
+        self.sounds_download_cancelled = False
+
+        try:
+            # Download phase
+            response = requests.get(url, stream=True)
+            response.raise_for_status()
+
+            total_size_header = response.headers.get("content-length")
+            total_size = int(total_size_header) if total_size_header else 0
+
+            block_size = 1024 * 64
+            downloaded = 0
+            last_percent = 0
+            last_update_check = 0
+
+            with open(target_zip, "wb") as f:
+                for data in response.iter_content(block_size):
+                    if self.sounds_download_cancelled:
+                        break
+
+                    downloaded += len(data)
+                    f.write(data)
+
+                    current_time = time.time()
+                    if current_time - last_update_check > 0.1:
+                        last_update_check = current_time
+
+                        if total_size > 0:
+                            percent = int((downloaded / total_size) * 100)
+
+                            def update_modal(p, msg):
+                                if not getattr(self, "sounds_update_dialog", None): return
+                                (cont, skip) = self.sounds_update_dialog.Update(p, msg)
+                                if not cont:
+                                    self.sounds_download_cancelled = True
+
+                            if percent > last_percent:
+                                wx.CallAfter(update_modal, percent, Localization.get("sounds-update-downloading", percent=percent))
+
+                                if percent % 10 == 0:
+                                    wx.CallAfter(self.speaker.speak, Localization.get("sounds-update-downloading", percent=percent))
+
+                                last_percent = percent
+                        else:
+                            downloaded_mb = downloaded / (1024*1024)
+                            msg = f"Downloading... {downloaded_mb:.2f} MB"
+
+                            def pulse_modal(msg):
+                                if not getattr(self, "sounds_update_dialog", None): return
+                                (cont, skip) = self.sounds_update_dialog.Pulse(msg)
+                                if not cont:
+                                    self.sounds_download_cancelled = True
+
+                            wx.CallAfter(pulse_modal, msg)
+
+            if self.sounds_download_cancelled:
+                if os.path.exists(target_zip):
+                    try:
+                        os.remove(target_zip)
+                    except:
+                        pass
+                wx.CallAfter(self.sounds_update_dialog.Destroy)
+                wx.CallAfter(self.speaker.speak, Localization.get("sounds-update-cancelled"))
+                return
+
+            # Download complete
+            wx.CallAfter(self.sounds_update_dialog.Update, 100, Localization.get("sounds-update-extracting"))
+            wx.CallAfter(self.speaker.speak, Localization.get("sounds-update-extracting"))
+
+            time.sleep(1) # Let the sound play
+            wx.CallAfter(self.sounds_update_dialog.Destroy)
+
+            # Launch updater with extract-dir argument
+            sounds_dir = self.sound_manager.sounds_folder
+            wx.CallAfter(self._launch_updater, target_zip, extract_dir=sounds_dir)
+
+        except Exception as e:
+            if getattr(self, "sounds_update_dialog", None):
+                 wx.CallAfter(self.sounds_update_dialog.Destroy)
+            wx.CallAfter(self.speaker.speak, Localization.get("sounds-update-error", error=str(e)))
+            wx.CallAfter(wx.MessageBox, Localization.get("sounds-update-error", error=str(e)), "Error", wx.OK | wx.ICON_ERROR)
+            if os.path.exists(target_zip):
+                 try:
+                     os.remove(target_zip)
+                 except: pass
 
     def on_update_locale(self, packet):
         """Handle update_locale packet from server."""

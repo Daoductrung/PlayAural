@@ -113,6 +113,16 @@ update-available-message = A new version ({ $version }) is available. Do you wan
 update-downloading = Downloading update: { $percent }%
 update-complete = Download complete. Restarting...
 update-error = Update failed: { $error }
+
+sounds-update-available-title = Sounds Update
+sounds-update-available-message = A sounds update is available. Do you want to download it now?
+sounds-update-downloading = Downloading sounds... { $percent }%
+sounds-update-extracting = Extracting sounds...
+sounds-update-cancelled = Sounds update cancelled.
+sounds-update-complete = Sounds updated successfully. Restarting application.
+sounds-update-error = Sounds update failed: { $error }
+sounds-update-file-lock = Cannot update sounds because files are in use. Please restart the game manually to apply changes.
+
 update-checking = Checking for updates...
 update-cancelled = Update cancelled. Game will close.
 

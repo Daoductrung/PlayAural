@@ -10,10 +10,16 @@ from tkinter import messagebox
 import threading
 import psutil
 
+try:
+    import winsound
+except ImportError:
+    winsound = None
+
 class UpdaterApp:
-    def __init__(self, zip_path, target_dir, exe_name, wait_pid=None):
+    def __init__(self, zip_path, target_dir, exe_name, wait_pid=None, extract_dir=None):
         self.zip_path = zip_path
         self.target_dir = target_dir
+        self.extract_dir = extract_dir if extract_dir else target_dir
         self.exe_name = exe_name
         self.wait_pid = wait_pid
         
@@ -116,6 +122,8 @@ class UpdaterApp:
                 
                 self.log("Extracting update...")
                 
+                last_beep_percent = -1
+
                 for i, file in enumerate(file_list):
                     # Skip directories themselves if we are flattening
                     if file.endswith('/'):
@@ -126,7 +134,7 @@ class UpdaterApp:
                     if has_single_root and file.startswith(prefix):
                         target_rel_path = file[len(prefix):]
                     
-                    target_abs_path = os.path.join(self.target_dir, target_rel_path)
+                    target_abs_path = os.path.join(self.extract_dir, target_rel_path)
                     
                     # Ensure parent dir exists
                     os.makedirs(os.path.dirname(target_abs_path), exist_ok=True)
@@ -138,9 +146,19 @@ class UpdaterApp:
                         
                     percent = ((i + 1) / total_files) * 100
                     self.progress_var.set(percent)
+
+                    # Beep periodically (e.g. every 5%)
+                    current_percent_int = int(percent)
+                    if winsound and current_percent_int >= last_beep_percent + 5:
+                        # Map 0-100% to 500Hz-2000Hz
+                        freq = 500 + int((current_percent_int / 100.0) * 1500)
+                        # Fire and forget beep to not block extraction too much
+                        threading.Thread(target=lambda f=freq: winsound.Beep(f, 50), daemon=True).start()
+                        last_beep_percent = current_percent_int
+
                     # Update status occasionally
                     if i % 10 == 0:
-                        self.log(f"Extracting: {int(percent)}%")
+                        self.log(f"Extracting: {current_percent_int}%")
             
             self.log("Update complete!")
             time.sleep(1) # Show 100% briefly
@@ -170,9 +188,10 @@ class UpdaterApp:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="PlayAural Auto-Updater")
     parser.add_argument("--zip", required=True, help="Path to the update zip file")
-    parser.add_argument("--target", required=True, help="Target directory to extract to")
+    parser.add_argument("--target", required=True, help="Target directory (contains executable)")
     parser.add_argument("--exe", required=True, help="Name of the executable to launch")
     parser.add_argument("--pid", type=int, help="Process ID to wait for shutdown")
+    parser.add_argument("--extract-dir", help="Directory to extract to (defaults to target)")
     
     args = parser.parse_args()
     
@@ -184,5 +203,5 @@ if __name__ == "__main__":
         # We can just rely on file lock retry loop
         pass
 
-    app = UpdaterApp(args.zip, args.target, args.exe, args.pid)
+    app = UpdaterApp(args.zip, args.target, args.exe, args.pid, args.extract_dir)
     app.run()

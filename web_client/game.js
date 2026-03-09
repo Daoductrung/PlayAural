@@ -218,7 +218,8 @@ class SoundManager {
     // --- SFX (Short sounds, kept as Buffer) ---
     async loadBuffer(filename) {
         if (!filename) return null;
-        const url = `sounds/${filename}`;
+        const versionParam = this.client.soundsVersion ? `?v=${this.client.soundsVersion}` : '';
+        const url = `sounds/${filename}${versionParam}`;
 
         if (this.cache.has(url)) return this.cache.get(url);
         if (this.loading.has(url)) return this.loading.get(url);
@@ -277,7 +278,8 @@ class SoundManager {
         }
 
         await this.resume();
-        const url = `sounds/${filename}`;
+        const versionParam = this.client.soundsVersion ? `?v=${this.client.soundsVersion}` : '';
+        const url = `sounds/${filename}${versionParam}`;
 
         // Crossfade: Fade out existing
         this.stopMusic(true);
@@ -365,7 +367,8 @@ class SoundManager {
         // Helper to prepare element
         const prepare = (filename, loop) => {
             if (!filename) return null;
-            const audio = this.createAudioElement(`sounds/${filename}`);
+            const versionParam = this.client.soundsVersion ? `?v=${this.client.soundsVersion}` : '';
+            const audio = this.createAudioElement(`sounds/${filename}${versionParam}`);
             audio.loop = loop;
             audio.preload = "auto";
             return audio;
@@ -601,6 +604,8 @@ class GameClient {
         this.soundManager.setVolume('sound', this.soundVolume);
         this.soundManager.setVolume('ambience', this.ambienceVolume);
 
+
+        this.soundsVersion = null;
 
         // Speech Queue System (ARIA)
         this.speechQueue = [];
@@ -1498,6 +1503,10 @@ class GameClient {
                 this.isConnected = true;
                 this.disconnectReason = null; // Clear any previous error
                 console.log("Authorized as:", packet.username);
+
+                if (packet.sounds_info && packet.sounds_info.version) {
+                    this.soundsVersion = packet.sounds_info.version;
+                }
 
                 // Apply server-sent locale if present
                 if (packet.locale && packet.locale !== Localization.locale) {

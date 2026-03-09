@@ -113,6 +113,16 @@ update-available-message = Đã có phiên bản mới ({ $version }). Bạn có
 update-downloading = Đang tải bản cập nhật: { $percent }%
 update-complete = Tải xuống hoàn tất. Đang khởi động lại...
 update-error = Cập nhật thất bại: { $error }
+
+sounds-update-available-title = Cập nhật âm thanh
+sounds-update-available-message = Có bản cập nhật âm thanh mới. Bạn có muốn tải xuống ngay bây giờ không?
+sounds-update-downloading = Đang tải âm thanh... { $percent }%
+sounds-update-extracting = Đang giải nén âm thanh...
+sounds-update-cancelled = Đã hủy cập nhật âm thanh.
+sounds-update-complete = Đã cập nhật âm thanh thành công. Đang khởi động lại ứng dụng.
+sounds-update-error = Cập nhật âm thanh thất bại: { $error }
+sounds-update-file-lock = Không thể cập nhật âm thanh vì tệp đang được sử dụng. Vui lòng khởi động lại trò chơi theo cách thủ công để áp dụng các thay đổi.
+
 update-checking = Đang kiểm tra bản cập nhật...
 update-cancelled = Đã hủy cập nhật. Trò chơi sẽ đóng.
 

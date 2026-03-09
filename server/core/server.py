@@ -26,6 +26,9 @@ LATEST_CLIENT_VERSION = "0.1.6"
 UPDATE_URL = "https://github.com/Daoductrung/PlayAural/releases/latest/download/PlayAural.zip"
 UPDATE_HASH = "" # Optional SHA256
 
+SOUNDS_VERSION = "1"
+SOUNDS_URL = "https://github.com/Daoductrung/PlayAural/releases/latest/download/sounds.zip"
+
 # Default paths based on module location
 _MODULE_DIR = Path(__file__).parent.parent
 _DEFAULT_LOCALES_DIR = _MODULE_DIR / "locales"
@@ -460,6 +463,10 @@ PlayAural Server
                     "version": LATEST_CLIENT_VERSION,
                     "url": UPDATE_URL,
                     "hash": UPDATE_HASH,
+                },
+                "sounds_info": {
+                    "version": SOUNDS_VERSION,
+                    "url": SOUNDS_URL,
                 },
                 "preferences": user.preferences.to_dict(),
             }

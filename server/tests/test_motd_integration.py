@@ -126,11 +126,12 @@ async def test_motd_admin_flow(mock_server):
 async def test_motd_login_interception(mock_server):
     server, user = mock_server
 
-    # Setup MOTD
-    server._db.create_motd(1, {"en": "Line 1\nLine 2", "vi": "Dong 1\nDong 2"})
+    # Setup MOTD with a rollback version (e.g. version 2, while user is on 5)
+    server._db.create_motd(2, {"en": "Line 1\nLine 2", "vi": "Dong 1\nDong 2"})
 
-    # Setup test user for login
-    server._db.create_user("test_user", "hash", "en", 1, True)
+    # Setup test user for login, simulate they have seen version 5
+    user_record = server._db.create_user("test_user", "hash", "en", 1, True)
+    server._db.update_user_motd_version("test_user", 5)
 
     # Since we bypass network auth for tests, let's call _handle_authorize logic manually
     client = MagicMock()
@@ -154,20 +155,20 @@ async def test_motd_login_interception(mock_server):
 
     await server._handle_authorize(client, packet)
 
-    # Verify user was intercepted and shown MOTD menu
+    # Verify user was intercepted and shown MOTD menu because 2 != 5
     assert server._user_states["test_user"]["menu"] == "motd_menu"
-    assert server._user_states["test_user"]["motd_version"] == 1
+    assert server._user_states["test_user"]["motd_version"] == 2
 
     # Simulate clicking OK
     test_network_user = server._users["test_user"]
     await server._handle_menu(test_network_user.connection, {"selection_id": "ok"})
 
-    # Verify user is sent to main menu and DB is updated
+    # Verify user is sent to main menu and DB is updated to 2
     assert server._user_states["test_user"]["menu"] == "main_menu"
 
     # Check DB update
     record = server._db.get_user("test_user")
-    assert record.motd_version == 1
+    assert record.motd_version == 2
 
 @pytest.mark.asyncio
 async def test_motd_reconnect_game_state(mock_server):

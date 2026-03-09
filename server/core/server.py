@@ -516,8 +516,8 @@ PlayAural Server
         motd_version = active_motd[0] if active_motd else 0
         user_motd_version = user_record.motd_version if user_record else 0
 
-        if motd_version > user_motd_version and active_motd:
-            # User has not acknowledged the latest MOTD. Show it to them.
+        if motd_version != user_motd_version and active_motd:
+            # User has not acknowledged the active MOTD version. Show it to them.
             self._show_motd_menu(user, active_motd[1], motd_version)
             return
 

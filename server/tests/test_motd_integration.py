@@ -168,3 +168,89 @@ async def test_motd_login_interception(mock_server):
     # Check DB update
     record = server._db.get_user("test_user")
     assert record.motd_version == 1
+
+@pytest.mark.asyncio
+async def test_motd_reconnect_game_state(mock_server):
+    server, user = mock_server
+
+    # 1. Setup user in an active game
+    server._db.create_user("gamer", "hash", "en", 1, True)
+
+    # Create network user
+    client = MagicMock()
+    client.username = "gamer"
+    client.authenticated = True
+    client.send = AsyncMock()
+    client.close = AsyncMock()
+
+    gamer_user = NetworkUser("gamer", "en", client)
+    gamer_user._uuid = server._db.get_user("gamer").uuid # ensure uuid matches DB
+    server._users["gamer"] = gamer_user
+
+    # Put user in a table
+    table = server._tables.create_table("holdem", "gamer", gamer_user)
+
+    # Need a mock game
+    mock_game = MagicMock()
+    mock_game.status = "playing"
+    mock_game.players = [MagicMock(id=gamer_user.uuid, name="gamer", is_bot=False)]
+    mock_game._users = {gamer_user.uuid: gamer_user}
+
+    # This matches the signature game.get_player_by_id(uuid)
+    def mock_get_player_by_id(pid):
+        for p in mock_game.players:
+            if p.id == pid:
+                return p
+        return None
+
+    mock_game.get_player_by_id = mock_get_player_by_id
+
+    table.game = mock_game
+
+    # 2. Simulate disconnect
+    await server._on_client_disconnect(client)
+    # Disconnect removes the user from self._users and self._user_states, but table logic usually replaces with bot
+    mock_game.players[0].is_bot = True
+
+    # 3. Admin creates MOTD
+    server._db.create_motd(1, {"en": "New MOTD"})
+
+    # 4. User reconnects
+    new_client = MagicMock()
+    new_client.username = "gamer"
+    new_client.authenticated = True
+    new_client.send = AsyncMock()
+
+    packet = {
+        "username": "gamer",
+        "password": "hash",
+        "client": "python",
+        "version": "0.1.6"
+    }
+
+    server._auth.authenticate = MagicMock(return_value=True)
+    server._ws_server = MagicMock()
+    server._ws_server.get_client_by_username = MagicMock(return_value=None)
+
+    # Handle authorize -> Should trigger MOTD menu
+    await server._handle_authorize(new_client, packet)
+
+    # Verify trapped in MOTD menu
+    assert server._user_states["gamer"]["menu"] == "motd_menu"
+    assert server._user_states["gamer"]["motd_version"] == 1
+
+    # 5. User clicks OK
+    new_gamer_user = server._users["gamer"]
+
+    # Mock game handle event to assert it doesn't get called (the fix)
+    mock_game.handle_event = MagicMock()
+
+    await server._handle_menu(new_client, {"selection_id": "ok"})
+
+    # 6. Verify game restored and NOT sent to main menu
+    assert server._user_states["gamer"]["menu"] == "in_game"
+    assert server._user_states["gamer"]["table_id"] == table.table_id
+    assert mock_game.players[0].is_bot == False
+
+    # Also verify that the MOTD selection didn't accidentally leak to the game handle_event
+    mock_game.handle_event.assert_not_called()

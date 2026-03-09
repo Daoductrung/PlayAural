@@ -1586,6 +1586,16 @@ PlayAural Server
         state = self._user_states.get(username, {})
         current_menu = state.get("menu")
 
+        # Check if user is in a system lockdown menu. If so, intercept before game logic.
+        if current_menu == "banned_menu":
+            if selection_id == "disconnect":
+                await user.connection.send({"type": "force_exit", "reason": "banned"})
+                asyncio.create_task(self._failsafe_close(user))
+            return
+        elif current_menu == "motd_menu":
+            await self._handle_motd_selection(user, selection_id, state)
+            return
+
         # Check if user is in a table - delegate all events to game
         table = self._tables.find_user_table(username)
         if table and table.game:
@@ -1600,12 +1610,7 @@ PlayAural Server
             return
 
         # Handle menu selections based on current menu
-        if current_menu == "banned_menu":
-            if selection_id == "disconnect":
-                await user.connection.send({"type": "force_exit", "reason": "banned"})
-                asyncio.create_task(self._failsafe_close(user))
-            return
-        elif current_menu == "main_menu":
+        if current_menu == "main_menu":
             await self._handle_main_menu_selection(user, selection_id)
         elif current_menu == "games_menu":
             await self._handle_games_selection(user, selection_id, state)
@@ -1659,8 +1664,6 @@ PlayAural Server
             await self._handle_doc_games_selection(user, selection_id)
         elif current_menu == "doc_viewer":
             await self._handle_doc_viewer_selection(user, selection_id, state)
-        elif current_menu == "motd_menu":
-            await self._handle_motd_selection(user, selection_id, state)
 
     async def _handle_motd_selection(
         self, user: NetworkUser, selection_id: str, state: dict

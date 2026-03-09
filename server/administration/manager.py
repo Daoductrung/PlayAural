@@ -76,6 +76,10 @@ class AdministrationManager:
                 text=Localization.get(user.locale, "kick-user"),
                 id="kick_user",
             ),
+            MenuItem(
+                text=Localization.get(user.locale, "manage-motd"),
+                id="manage_motd",
+            ),
             MenuItem(text=Localization.get(user.locale, "back"), id="back"),
         ]
         user.show_menu(
@@ -262,6 +266,11 @@ class AdministrationManager:
              await self._handle_ban_reason_selection(user, selection_id, state)
         elif current_menu == "unban_menu":
              await self._handle_unban_selection(user, selection_id)
+        elif current_menu == "manage_motd_menu":
+             await self._handle_manage_motd_selection(user, selection_id, state)
+        elif current_menu == "view_motd_menu":
+             if selection_id == "back":
+                 self._show_manage_motd_menu(user)
 
     async def _handle_admin_menu_selection(
         self, user: NetworkUser, selection_id: str
@@ -281,6 +290,8 @@ class AdministrationManager:
             self._show_kick_menu(user)
         elif selection_id == "broadcast_announcement":
             self._show_broadcast_input_menu(user)
+        elif selection_id == "manage_motd":
+            self._show_manage_motd_menu(user)
         elif selection_id == "back":
             self.server._show_main_menu(user)
 
@@ -603,8 +614,124 @@ class AdministrationManager:
                 else:
                     self._show_admin_menu(user)
             return True
+        elif menu_id == "admin_motd_input" and input_id.startswith("motd_message_"):
+            language = input_id.split("motd_message_")[1]
+            if value:
+                # Save input
+                translations = state.get("translations", {})
+                translations[language] = value
+                state["translations"] = translations
+
+                # Get remaining languages
+                pending_languages = state.get("pending_languages", [])
+                if language in pending_languages:
+                    pending_languages.remove(language)
+
+                if pending_languages:
+                    # Prompt for next language
+                    next_lang = pending_languages[0]
+                    self._prompt_motd_language(user, next_lang, pending_languages, translations)
+                else:
+                    # All languages completed, save MOTD
+                    new_version = self.server.db.create_motd(translations)
+                    user.speak_l("motd-created", version=new_version)
+
+                    # Live Broadcast to all approved online users
+                    for u in self.server.users.values():
+                        if u.approved:
+                            motd_text = translations.get(u.locale, translations.get("en", list(translations.values())[0]))
+                            u.play_sound("notify.ogg")
+                            # We prefix it explicitly for clarity, but standard speak is fine
+                            # Use "system" buffer
+                            u.speak_l("motd-broadcast", buffer="system", message=motd_text)
+
+                    self._show_manage_motd_menu(user)
+            else:
+                # Cancelled
+                user.speak_l("motd-cancelled")
+                self._show_manage_motd_menu(user)
+            return True
 
         return False
+
+    def _show_manage_motd_menu(self, user: NetworkUser) -> None:
+        """Show the manage MOTD menu."""
+        items = [
+            MenuItem(text=Localization.get(user.locale, "create-update-motd"), id="create_update"),
+            MenuItem(text=Localization.get(user.locale, "view-motd"), id="view"),
+            MenuItem(text=Localization.get(user.locale, "delete-motd"), id="delete"),
+            MenuItem(text=Localization.get(user.locale, "back"), id="back"),
+        ]
+        user.show_menu(
+            "manage_motd_menu",
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self.server.user_states[user.username] = {"menu": "manage_motd_menu"}
+
+    async def _handle_manage_motd_selection(
+        self, user: NetworkUser, selection_id: str, state: dict
+    ) -> None:
+        """Handle MOTD management selection."""
+        if selection_id == "create_update":
+            # Get available languages
+            languages = Localization.get_available_languages()
+            lang_codes = list(languages.keys())
+
+            # Start prompting for the first language
+            if lang_codes:
+                first_lang = lang_codes[0]
+                self._prompt_motd_language(user, first_lang, lang_codes, {})
+            else:
+                user.speak_l("error-no-languages")
+                self._show_manage_motd_menu(user)
+
+        elif selection_id == "view":
+            active_version = self.server.db.get_highest_motd_version()
+            if active_version == 0:
+                user.speak_l("motd-not-exists")
+                self._show_manage_motd_menu(user)
+            else:
+                motd_text = self.server.db.get_motd(active_version, user.locale)
+                if not motd_text:
+                    motd_text = "Missing MOTD"
+
+                # Split by newlines into a menu
+                items = [MenuItem(text=line, id=f"line_{i}") for i, line in enumerate(motd_text.split('\n'))]
+                items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
+
+                user.show_menu(
+                    "view_motd_menu",
+                    items,
+                    multiletter=False,
+                    escape_behavior=EscapeBehavior.SELECT_LAST,
+                )
+                self.server.user_states[user.username] = {"menu": "view_motd_menu"}
+
+        elif selection_id == "delete":
+            self.server.db.delete_motd()
+            user.speak_l("motd-deleted")
+            self._show_manage_motd_menu(user)
+
+        elif selection_id == "back":
+            self._show_admin_menu(user)
+
+    def _prompt_motd_language(self, user: NetworkUser, current_lang: str, pending_languages: list[str], translations: dict) -> None:
+        """Prompt admin for MOTD text for a specific language."""
+        languages = Localization.get_available_languages(user.locale)
+        lang_name = languages.get(current_lang, current_lang)
+
+        user.show_editbox(
+            f"motd_message_{current_lang}",
+            Localization.get(user.locale, "motd-prompt", language=lang_name),
+            multiline=True,
+        )
+        self.server.user_states[user.username] = {
+            "menu": "admin_motd_input",
+            "pending_languages": pending_languages,
+            "translations": translations,
+        }
 
     @require_admin
     async def perform_broadcast(self, admin: NetworkUser, message: str, show_menu: bool = True) -> None:

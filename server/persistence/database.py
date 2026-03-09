@@ -22,6 +22,7 @@ class UserRecord:
     approved: bool = False  # Whether the account has been approved by an admin
     email: str = ""
     bio: str = ""
+    motd_version: int = 0
 
 
 @dataclass
@@ -198,6 +199,17 @@ class Database:
             ON player_game_stats(game_type, stat_key, stat_value DESC)
         """)
 
+
+        # MOTD table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS motd (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                version INTEGER NOT NULL,
+                language TEXT NOT NULL,
+                message TEXT NOT NULL
+            )
+        """)
+
         # Additional indexes for fast lookups
         cursor.execute("""
             CREATE INDEX IF NOT EXISTS idx_users_uuid
@@ -237,6 +249,10 @@ class Database:
 
         if "bio" not in columns:
             cursor.execute("ALTER TABLE users ADD COLUMN bio TEXT DEFAULT ''")
+            self._conn.commit()
+
+        if "motd_version" not in columns:
+            cursor.execute("ALTER TABLE users ADD COLUMN motd_version INTEGER DEFAULT 0")
             self._conn.commit()
 
         # Check if bans table exists (migration for existing databases)
@@ -377,7 +393,7 @@ class Database:
         """Get a user by username."""
         cursor = self._conn.cursor()
         cursor.execute(
-            "SELECT id, username, password_hash, uuid, locale, preferences_json, trust_level, approved, email, bio FROM users WHERE username = ?",
+            "SELECT id, username, password_hash, uuid, locale, preferences_json, trust_level, approved, email, bio, motd_version FROM users WHERE username = ?",
             (username,),
         )
         row = cursor.fetchone()
@@ -393,6 +409,7 @@ class Database:
                 approved=bool(row["approved"]) if row["approved"] is not None else False,
                 email=row["email"] or "",
                 bio=row["bio"] or "",
+                motd_version=row["motd_version"] if "motd_version" in row.keys() else 0,
             )
         return None
 
@@ -505,11 +522,20 @@ class Database:
         )
         self._conn.commit()
 
+    def update_user_motd_version(self, username: str, motd_version: int) -> None:
+        """Update a user's motd version."""
+        cursor = self._conn.cursor()
+        cursor.execute(
+            "UPDATE users SET motd_version = ? WHERE username = ?",
+            (motd_version, username),
+        )
+        self._conn.commit()
+
     def get_pending_users(self) -> list[UserRecord]:
         """Get all users who are not yet approved."""
         cursor = self._conn.cursor()
         cursor.execute(
-            "SELECT id, username, password_hash, uuid, locale, preferences_json, trust_level, approved, email, bio FROM users WHERE approved = 0"
+            "SELECT id, username, password_hash, uuid, locale, preferences_json, trust_level, approved, email, bio, motd_version FROM users WHERE approved = 0"
         )
         users = []
         for row in cursor.fetchall():
@@ -524,6 +550,7 @@ class Database:
                 approved=False,
                 email=row["email"] or "",
                 bio=row["bio"] or "",
+                motd_version=row["motd_version"] if "motd_version" in row.keys() else 0,
             ))
         return users
 
@@ -564,7 +591,7 @@ class Database:
         """Get all approved users who are not admins (trust_level < 2)."""
         cursor = self._conn.cursor()
         cursor.execute(
-            "SELECT id, username, password_hash, uuid, locale, preferences_json, trust_level, approved, email, bio FROM users WHERE approved = 1 AND trust_level < 2 ORDER BY username"
+            "SELECT id, username, password_hash, uuid, locale, preferences_json, trust_level, approved, email, bio, motd_version FROM users WHERE approved = 1 AND trust_level < 2 ORDER BY username"
         )
         users = []
         for row in cursor.fetchall():
@@ -579,6 +606,7 @@ class Database:
                 approved=True,
                 email=row["email"] or "",
                 bio=row["bio"] or "",
+                motd_version=row["motd_version"] if "motd_version" in row.keys() else 0,
             ))
         return users
 
@@ -586,7 +614,7 @@ class Database:
         """Get all users who are admins (trust_level >= 2)."""
         cursor = self._conn.cursor()
         cursor.execute(
-            "SELECT id, username, password_hash, uuid, locale, preferences_json, trust_level, approved, email, bio FROM users WHERE trust_level >= 2 ORDER BY username"
+            "SELECT id, username, password_hash, uuid, locale, preferences_json, trust_level, approved, email, bio, motd_version FROM users WHERE trust_level >= 2 ORDER BY username"
         )
         users = []
         for row in cursor.fetchall():
@@ -601,8 +629,99 @@ class Database:
                 approved=bool(row["approved"]) if row["approved"] is not None else False,
                 email=row["email"] or "",
                 bio=row["bio"] or "",
+                motd_version=row["motd_version"] if "motd_version" in row.keys() else 0,
             ))
         return users
+
+
+    # MOTD operations
+
+    def get_highest_motd_version(self) -> int:
+        """Get the highest motd version currently active."""
+        cursor = self._conn.cursor()
+        try:
+            cursor.execute("SELECT MAX(version) FROM motd")
+            row = cursor.fetchone()
+            return row[0] if row[0] is not None else 0
+        except sqlite3.OperationalError:
+            return 0
+
+    def get_motd(self, version: int, language: str) -> str | None:
+        """Get a motd message for a specific version and language."""
+        cursor = self._conn.cursor()
+        try:
+            cursor.execute(
+                "SELECT message FROM motd WHERE version = ? AND language = ?",
+                (version, language)
+            )
+            row = cursor.fetchone()
+            if row:
+                return row["message"]
+
+            # Fallback to English
+            cursor.execute(
+                "SELECT message FROM motd WHERE version = ? AND language = 'en'",
+                (version,)
+            )
+            row = cursor.fetchone()
+            if row:
+                return row["message"]
+
+            # Fallback to any language
+            cursor.execute(
+                "SELECT message FROM motd WHERE version = ? LIMIT 1",
+                (version,)
+            )
+            row = cursor.fetchone()
+            if row:
+                return row["message"]
+            return None
+        except sqlite3.OperationalError:
+            return None
+
+    def get_active_motd(self, language: str) -> tuple[int, str] | None:
+        """Get the active (highest version) motd and message for a language."""
+        version = self.get_highest_motd_version()
+        if version == 0:
+            return None
+
+        message = self.get_motd(version, language)
+        if message:
+            return (version, message)
+        return None
+
+    def create_motd(self, translations: dict[str, str]) -> int:
+        """Create a new motd version with translations and delete old versions."""
+        cursor = self._conn.cursor()
+
+        # Find the next version
+        try:
+            cursor.execute("SELECT MAX(motd_version) FROM users")
+            row = cursor.fetchone()
+            next_version = (row[0] if row[0] is not None else 0) + 1
+        except sqlite3.OperationalError:
+            next_version = 1
+
+        # Delete existing MOTDs
+        self.delete_motd()
+
+        for language, message in translations.items():
+            cursor.execute(
+                "INSERT INTO motd (version, language, message) VALUES (?, ?, ?)",
+                (next_version, language, message)
+            )
+
+        self._conn.commit()
+        return next_version
+
+    def delete_motd(self) -> None:
+        """Delete all motd records."""
+        cursor = self._conn.cursor()
+        try:
+            cursor.execute("DELETE FROM motd")
+            self._conn.commit()
+        except sqlite3.OperationalError:
+            pass
 
     # Ban operations
 

@@ -313,6 +313,20 @@ broadcast-announcement = Broadcast Announcement
 admin-broadcast-prompt = Enter the message to broadcast to all online users. (This will be sent to everyone!)
 admin-broadcast-sent = Broadcast sent to { $count } users.
 
+manage-motd = Manage MOTD
+create-update-motd = Create/Update MOTD
+view-motd = View Active MOTD
+delete-motd = Delete MOTD
+motd-prompt = Enter MOTD for { $language } (use Enter for new line, Shift+Enter to submit if multiline inverted):
+motd-created = MOTD version { $version } has been successfully created.
+motd-cancelled = MOTD creation cancelled.
+motd-deleted = MOTD has been deleted.
+motd-not-exists = No active MOTD exists.
+motd-announcement = Message of the Day
+motd-broadcast = New Message of the Day: { $message }
+error-no-languages = Error: No languages found.
+ok = OK
+
 milebymile-rig-none = None
 milebymile-rig-no-duplicates = No Duplicates
 milebymile-rig-2x-attacks = 2x Attacks

@@ -511,7 +511,20 @@ PlayAural Server
             self._show_waiting_for_approval(user)
             return
 
-        # Restore state or show main menu
+        # Check MOTD
+        active_motd = self._db.get_active_motd(user.locale)
+        motd_version = active_motd[0] if active_motd else 0
+        user_motd_version = user_record.motd_version if user_record else 0
+
+        if motd_version > user_motd_version and active_motd:
+            # User has not acknowledged the latest MOTD. Show it to them.
+            self._show_motd_menu(user, active_motd[1], motd_version)
+            return
+
+        self._restore_user_state(user, username)
+
+    def _restore_user_state(self, user: NetworkUser, username: str) -> None:
+        """Restore user state or show main menu after successful login."""
         # Check if user is in a table
         table = self._tables.find_user_table(username)
 
@@ -594,6 +607,25 @@ PlayAural Server
                 self._show_my_stats_menu(user)
             else:
                 self._show_main_menu(user)
+
+    def _show_motd_menu(self, user: NetworkUser, message: str, version: int) -> None:
+        """Show the forced-read MOTD menu."""
+        user.speak_l("motd-announcement")
+        items = []
+        for i, line in enumerate(message.split('\n')):
+            items.append(MenuItem(text=line, id=f"line_{i}"))
+        items.append(MenuItem(text=Localization.get(user.locale, "ok"), id="ok"))
+
+        user.show_menu(
+            "motd_menu",
+            items,
+            multiletter=False,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self._user_states[user.username] = {
+            "menu": "motd_menu",
+            "motd_version": version
+        }
 
     async def _handle_register(self, client: ClientConnection, packet: dict) -> None:
         """Handle registration packet from registration dialog."""
@@ -1626,6 +1658,20 @@ PlayAural Server
             await self._handle_doc_games_selection(user, selection_id)
         elif current_menu == "doc_viewer":
             await self._handle_doc_viewer_selection(user, selection_id, state)
+        elif current_menu == "motd_menu":
+            await self._handle_motd_selection(user, selection_id, state)
+
+    async def _handle_motd_selection(
+        self, user: NetworkUser, selection_id: str, state: dict
+    ) -> None:
+        """Handle MOTD acknowledgment."""
+        if selection_id == "ok":
+            version = state.get("motd_version", 0)
+            if version > 0:
+                self._db.update_user_motd_version(user.username, version)
+
+            # Now proceed with normal login flow
+            self._restore_user_state(user, user.username)
 
     async def _handle_main_menu_selection(
         self, user: NetworkUser, selection_id: str

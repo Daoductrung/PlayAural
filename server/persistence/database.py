@@ -690,17 +690,9 @@ class Database:
             return (version, message)
         return None
 
-    def create_motd(self, translations: dict[str, str]) -> int:
+    def create_motd(self, version: int, translations: dict[str, str]) -> None:
         """Create a new motd version with translations and delete old versions."""
         cursor = self._conn.cursor()
-
-        # Find the next version
-        try:
-            cursor.execute("SELECT MAX(motd_version) FROM users")
-            row = cursor.fetchone()
-            next_version = (row[0] if row[0] is not None else 0) + 1
-        except sqlite3.OperationalError:
-            next_version = 1
 
         # Delete existing MOTDs
         self.delete_motd()
@@ -708,11 +700,10 @@ class Database:
         for language, message in translations.items():
             cursor.execute(
                 "INSERT INTO motd (version, language, message) VALUES (?, ?, ?)",
-                (next_version, language, message)
+                (version, language, message)
             )
 
         self._conn.commit()
-        return next_version
 
     def delete_motd(self) -> None:
         """Delete all motd records."""

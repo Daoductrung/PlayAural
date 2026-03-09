@@ -614,6 +614,30 @@ class AdministrationManager:
                 else:
                     self._show_admin_menu(user)
             return True
+        elif menu_id == "admin_motd_version_input" and input_id == "motd_version":
+            if value:
+                try:
+                    version = int(value)
+                    if version <= 0:
+                        raise ValueError
+
+                    # Start prompting languages
+                    languages = Localization.get_available_languages()
+                    lang_codes = list(languages.keys())
+
+                    if lang_codes:
+                        first_lang = lang_codes[0]
+                        self._prompt_motd_language(user, first_lang, lang_codes, {}, version)
+                    else:
+                        user.speak_l("error-no-languages")
+                        self._show_manage_motd_menu(user)
+                except ValueError:
+                    user.speak_l("invalid-motd-version")
+                    self._show_manage_motd_menu(user)
+            else:
+                user.speak_l("motd-cancelled")
+                self._show_manage_motd_menu(user)
+            return True
         elif menu_id == "admin_motd_input" and input_id.startswith("motd_message_"):
             language = input_id.split("motd_message_")[1]
             if value:
@@ -621,6 +645,8 @@ class AdministrationManager:
                 translations = state.get("translations", {})
                 translations[language] = value
                 state["translations"] = translations
+
+                version = state.get("version", 1)
 
                 # Get remaining languages
                 pending_languages = state.get("pending_languages", [])
@@ -630,11 +656,11 @@ class AdministrationManager:
                 if pending_languages:
                     # Prompt for next language
                     next_lang = pending_languages[0]
-                    self._prompt_motd_language(user, next_lang, pending_languages, translations)
+                    self._prompt_motd_language(user, next_lang, pending_languages, translations, version)
                 else:
                     # All languages completed, save MOTD
-                    new_version = self.server.db.create_motd(translations)
-                    user.speak_l("motd-created", version=new_version)
+                    self.server.db.create_motd(version, translations)
+                    user.speak_l("motd-created", version=version)
 
                     # Live Broadcast to all approved online users
                     for u in self.server.users.values():
@@ -675,17 +701,15 @@ class AdministrationManager:
     ) -> None:
         """Handle MOTD management selection."""
         if selection_id == "create_update":
-            # Get available languages
-            languages = Localization.get_available_languages()
-            lang_codes = list(languages.keys())
-
-            # Start prompting for the first language
-            if lang_codes:
-                first_lang = lang_codes[0]
-                self._prompt_motd_language(user, first_lang, lang_codes, {})
-            else:
-                user.speak_l("error-no-languages")
-                self._show_manage_motd_menu(user)
+            # First prompt for version number
+            user.show_editbox(
+                "motd_version",
+                Localization.get(user.locale, "motd-version-prompt"),
+                multiline=False,
+            )
+            self.server.user_states[user.username] = {
+                "menu": "admin_motd_version_input",
+            }
 
         elif selection_id == "view":
             active_version = self.server.db.get_highest_motd_version()
@@ -710,14 +734,17 @@ class AdministrationManager:
                 self.server.user_states[user.username] = {"menu": "view_motd_menu"}
 
         elif selection_id == "delete":
-            self.server.db.delete_motd()
-            user.speak_l("motd-deleted")
+            if self.server.db.get_highest_motd_version() == 0:
+                user.speak_l("motd-delete-empty")
+            else:
+                self.server.db.delete_motd()
+                user.speak_l("motd-deleted")
             self._show_manage_motd_menu(user)
 
         elif selection_id == "back":
             self._show_admin_menu(user)
 
-    def _prompt_motd_language(self, user: NetworkUser, current_lang: str, pending_languages: list[str], translations: dict) -> None:
+    def _prompt_motd_language(self, user: NetworkUser, current_lang: str, pending_languages: list[str], translations: dict, version: int) -> None:
         """Prompt admin for MOTD text for a specific language."""
         languages = Localization.get_available_languages(user.locale)
         lang_name = languages.get(current_lang, current_lang)
@@ -731,6 +758,7 @@ class AdministrationManager:
             "menu": "admin_motd_input",
             "pending_languages": pending_languages,
             "translations": translations,
+            "version": version,
         }
 
     @require_admin

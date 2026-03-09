@@ -50,6 +50,27 @@ async def test_motd_admin_flow(mock_server):
     # 2. Admin clicks Create/Update MOTD
     await server._handle_menu(user.connection, {"selection_id": "create_update"})
 
+    # Verify we are prompted for the version
+    assert server._user_states["admin_user"]["menu"] == "admin_motd_version_input"
+
+    # Simulate invalid version input
+    await server._handle_editbox(user.connection, {
+        "input_id": "motd_version",
+        "text": "abc"
+    })
+
+    # Verify it bounces back to manage menu
+    assert server._user_states["admin_user"]["menu"] == "manage_motd_menu"
+
+    # Click Create/Update again
+    await server._handle_menu(user.connection, {"selection_id": "create_update"})
+
+    # Simulate valid version input
+    await server._handle_editbox(user.connection, {
+        "input_id": "motd_version",
+        "text": "2"
+    })
+
     # Verify we are prompted for the first language (en or vi depending on dict order, mocked as en, vi)
     assert server._user_states["admin_user"]["menu"] == "admin_motd_input"
     assert "pending_languages" in server._user_states["admin_user"]
@@ -80,7 +101,7 @@ async def test_motd_admin_flow(mock_server):
 
     # Check DB
     version = server._db.get_highest_motd_version()
-    assert version == 1
+    assert version == 2
     assert server._db.get_motd(version, first_lang) == f"Message for {first_lang}"
 
     # 5. Admin clicks View
@@ -96,12 +117,17 @@ async def test_motd_admin_flow(mock_server):
     assert server._user_states["admin_user"]["menu"] == "manage_motd_menu"
     assert server._db.get_highest_motd_version() == 0
 
+    # 7. Admin clicks Delete again (empty delete check)
+    user.speak_l = MagicMock()
+    await server._handle_menu(user.connection, {"selection_id": "delete"})
+    user.speak_l.assert_called_with("motd-delete-empty")
+
 @pytest.mark.asyncio
 async def test_motd_login_interception(mock_server):
     server, user = mock_server
 
     # Setup MOTD
-    server._db.create_motd({"en": "Line 1\nLine 2", "vi": "Dong 1\nDong 2"})
+    server._db.create_motd(1, {"en": "Line 1\nLine 2", "vi": "Dong 1\nDong 2"})
 
     # Setup test user for login
     server._db.create_user("test_user", "hash", "en", 1, True)

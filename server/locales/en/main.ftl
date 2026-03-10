@@ -407,3 +407,44 @@ error-bio-length = Bio must not exceed 250 characters.
 error-rate-limit-login = Too many failed login attempts. Please try again in 15 minutes.
 error-rate-limit-register = You have reached the maximum number of account registrations for today.
 auth-error-rate-limit = Too many failed login attempts. Please try again in 15 minutes.
+
+friends-my-friends = My Friends
+friends-pending-requests = Pending Requests ({ $count })
+friends-no-pending-requests = Pending Requests
+friends-send-request = Send Friend Request
+friends-list-empty = You have no friends yet.
+friend-status-offline = Offline
+friend-status-playing = Playing { $game }
+friend-status-lobby = In Lobby
+friend-list-entry = { $username } ({ $status })
+
+friend-actions-title = Actions for { $username }
+view-profile = View Profile
+join-table = Join Table
+remove-friend = Remove Friend
+already-in-table = You are already in this table.
+friend-removed-success = { $username } has been removed from your friends list.
+friend-removed-notify = { $username } has removed you from their friends list.
+
+no-pending-requests = No pending requests.
+friend-request-from = Friend request from { $username }
+accept = Accept
+decline = Decline
+friend-accepted-success = You are now friends with { $username }.
+friend-accepted-notify = { $username } has accepted your friend request!
+request-not-found = Friend request no longer exists.
+friend-declined-success = Friend request declined.
+friend-declined-notify = { $username } declined your friend request.
+
+public-profile-title = { $username }'s Profile
+enter-friend-username = Enter the username of the person you want to friend:
+friend-error-self = You cannot send a friend request to yourself.
+friend-error-already-friends = You are already friends with this user.
+friend-error-duplicate = You already have a pending friend request to this user.
+friend-request-sent = Friend request sent to { $username }.
+friend-request-received = You have received a new friend request from { $username }.
+
+friends-grouped-requests = You have pending friend requests from: { $usernames }
+friends-grouped-accepted = Your friend requests were accepted by: { $usernames }
+friends-grouped-declined = Your friend requests were declined by: { $usernames }
+friends-grouped-removed = You were removed from the friends list by: { $usernames }

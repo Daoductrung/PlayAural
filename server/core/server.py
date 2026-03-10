@@ -608,6 +608,9 @@ PlayAural Server
                             "table_id": table.table_id,
                         }
 
+        # Process Offline Notifications exactly once when they enter active state
+        self._process_offline_notifications(user)
+
         if not restored_game:
             # Not in an active game (or was a spectator); restore menu state
             state = self._user_states.get(username, {})
@@ -657,6 +660,37 @@ PlayAural Server
         self._user_states[user.username] = {
             "menu": "mandatory_email_menu"
         }
+
+    def _process_offline_notifications(self, user: NetworkUser) -> None:
+        """Fetch, group, and announce offline notifications for a user."""
+        notifications = self._db.get_and_clear_notifications(user.uuid)
+        if not notifications:
+            return
+
+        # Group by event_type
+        grouped = {}
+        for notif in notifications:
+            etype = notif["event_type"]
+            if etype not in grouped:
+                grouped[etype] = []
+            if notif["source_username"] not in grouped[etype]:
+                grouped[etype].append(notif["source_username"])
+
+        for etype, usernames in grouped.items():
+            formatted_names = Localization.format_list_and(user.locale, usernames)
+
+            if etype == "friend_request_received":
+                user.speak_l("friends-grouped-requests", usernames=formatted_names)
+                user.play_sound("friend_request_received.ogg")
+            elif etype == "friend_accepted":
+                user.speak_l("friends-grouped-accepted", usernames=formatted_names)
+                user.play_sound("friend_accepted.ogg")
+            elif etype == "friend_declined":
+                user.speak_l("friends-grouped-declined", usernames=formatted_names)
+                user.play_sound("friend_declined.ogg")
+            elif etype == "friend_removed":
+                user.speak_l("friends-grouped-removed", usernames=formatted_names)
+                user.play_sound("friend_removed.ogg")
 
     def _show_motd_menu(self, user: NetworkUser, message: str, version: int) -> None:
         """Show the forced-read MOTD menu."""
@@ -1762,6 +1796,18 @@ PlayAural Server
             await self._handle_bio_actions_selection(user, selection_id, state)
         elif current_menu == "email_confirm_menu":
             await self._handle_email_confirm_selection(user, selection_id, state)
+        elif current_menu == "friends_hub_menu":
+            await self._handle_friends_hub_selection(user, selection_id)
+        elif current_menu == "friends_list_menu":
+            await self._handle_friends_list_selection(user, selection_id)
+        elif current_menu == "friend_actions_menu":
+            await self._handle_friend_actions_selection(user, selection_id, state)
+        elif current_menu == "friend_requests_menu":
+            await self._handle_friend_requests_selection(user, selection_id)
+        elif current_menu == "friend_request_actions_menu":
+            await self._handle_friend_request_actions_selection(user, selection_id, state)
+        elif current_menu == "public_profile_menu":
+            await self._handle_public_profile_selection(user, selection_id, state)
         elif current_menu == "online_users":
             self._restore_previous_menu(user, state)
         elif current_menu in [
@@ -1852,13 +1898,331 @@ PlayAural Server
         if selection_id == "profile":
             self._show_profile_menu(user)
         elif selection_id == "friends":
-            pass # Placeholder for future
+            self._show_friends_hub_menu(user)
         elif selection_id == "my_stats":
             self._show_my_stats_menu(user)
         elif selection_id == "options":
             self._show_options_menu(user)
         elif selection_id == "back":
             self._show_main_menu(user)
+
+    def _show_friends_hub_menu(self, user: NetworkUser) -> None:
+        """Show the main friends hub menu."""
+        # Get counts for the menu labels
+        pending_requests = self._db.get_pending_incoming_requests(user.uuid)
+        pending_count = len(pending_requests)
+
+        req_text = Localization.get(user.locale, "friends-pending-requests", count=pending_count) if pending_count > 0 else Localization.get(user.locale, "friends-no-pending-requests")
+
+        items = [
+            MenuItem(text=Localization.get(user.locale, "friends-my-friends"), id="my_friends"),
+            MenuItem(text=req_text, id="pending_requests"),
+            MenuItem(text=Localization.get(user.locale, "friends-send-request"), id="send_request"),
+            MenuItem(text=Localization.get(user.locale, "back"), id="back")
+        ]
+        user.show_menu(
+            "friends_hub_menu",
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self._user_states[user.username] = {"menu": "friends_hub_menu"}
+
+    async def _handle_friends_hub_selection(self, user: NetworkUser, selection_id: str) -> None:
+        """Handle selection in friends hub."""
+        if selection_id == "my_friends":
+            self._show_friends_list_menu(user)
+        elif selection_id == "pending_requests":
+            self._show_friend_requests_menu(user)
+        elif selection_id == "send_request":
+            user.show_editbox(
+                "send_friend_request_input",
+                Localization.get(user.locale, "enter-friend-username"),
+            )
+            self._user_states[user.username]["menu"] = "send_friend_request_input"
+        elif selection_id == "back":
+            self._show_personal_options_menu(user)
+
+    def _show_friends_list_menu(self, user: NetworkUser) -> None:
+        """Show the list of accepted friends and their status."""
+        friend_uuids = self._db.get_friends(user.uuid)
+        items = []
+
+        if not friend_uuids:
+            items.append(MenuItem(text=Localization.get(user.locale, "friends-list-empty"), id=""))
+        else:
+            # Sort friends alphabetically
+            friends = []
+            for f_uuid in friend_uuids:
+                f_name = self._db.get_user_name_by_uuid(f_uuid)
+                if f_name:
+                    friends.append(f_name)
+            friends.sort(key=str.lower)
+
+            for f_name in friends:
+                # Determine status
+                is_online = f_name in self._users
+                if not is_online:
+                    status = Localization.get(user.locale, "friend-status-offline")
+                else:
+                    table = self._tables.find_user_table(f_name)
+                    if table:
+                        game_class = get_game_class(table.game_type)
+                        game_name = Localization.get(user.locale, game_class.get_name_key()) if game_class else table.game_type
+                        status = Localization.get(user.locale, "friend-status-playing", game=game_name)
+                    else:
+                        status = Localization.get(user.locale, "friend-status-lobby")
+
+                display_text = Localization.get(user.locale, "friend-list-entry", username=f_name, status=status)
+                items.append(MenuItem(text=display_text, id=f"friend_{f_name}"))
+
+        items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
+
+        user.show_menu(
+            "friends_list_menu",
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self._user_states[user.username] = {"menu": "friends_list_menu"}
+
+    async def _handle_friends_list_selection(self, user: NetworkUser, selection_id: str) -> None:
+        if selection_id == "back":
+            self._show_friends_hub_menu(user)
+        elif selection_id.startswith("friend_"):
+            target_username = selection_id[7:]
+            self._show_friend_actions_menu(user, target_username)
+
+    def _show_friend_actions_menu(self, user: NetworkUser, target_username: str) -> None:
+        """Show actions for a specific friend."""
+        items = [
+            MenuItem(text=Localization.get(user.locale, "view-profile"), id="view_profile"),
+        ]
+
+        # Check if they are online and in a table
+        if target_username in self._users:
+            table = self._tables.find_user_table(target_username)
+            if table:
+                items.append(MenuItem(text=Localization.get(user.locale, "join-table"), id="join_table"))
+
+        items.append(MenuItem(text=Localization.get(user.locale, "remove-friend"), id="remove_friend"))
+        items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
+
+        # Set title dynamically
+        title = Localization.get(user.locale, "friend-actions-title", username=target_username)
+        user.show_menu(
+            "friend_actions_menu",
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+            title=title
+        )
+        self._user_states[user.username] = {
+            "menu": "friend_actions_menu",
+            "target_username": target_username
+        }
+
+    async def _handle_friend_actions_selection(self, user: NetworkUser, selection_id: str, state: dict) -> None:
+        target_username = state.get("target_username")
+        if not target_username:
+            self._show_friends_list_menu(user)
+            return
+
+        if selection_id == "back":
+            self._show_friends_list_menu(user)
+
+        elif selection_id == "view_profile":
+            self._show_public_profile(user, target_username, "friend_actions_menu")
+
+        elif selection_id == "join_table":
+            table = self._tables.find_user_table(target_username)
+            if table:
+                # Check if we are already in a table
+                current_table = self._tables.find_user_table(user.username)
+                if current_table:
+                    if current_table == table:
+                         user.speak_l("already-in-table")
+                         self._show_friend_actions_menu(user, target_username)
+                         return
+                    else:
+                         current_table.remove_member(user.username)
+
+                # Proceed to join
+                self._auto_join_table(user, table, table.game_type)
+            else:
+                user.speak_l("table-not-exists")
+                self._show_friend_actions_menu(user, target_username)
+
+        elif selection_id == "remove_friend":
+            target_record = self._db.get_user(target_username)
+            if target_record:
+                self._db.remove_friendship(user.uuid, target_record.uuid)
+                user.speak_l("friend-removed-success", username=target_username)
+                user.play_sound("friend_removed.ogg")
+
+                # Notify target
+                target_user = self._users.get(target_username)
+                if target_user:
+                    target_user.speak_l("friend-removed-notify", username=user.username)
+                    target_user.play_sound("friend_removed.ogg")
+                else:
+                    self._db.add_notification(target_record.uuid, user.username, "friend_removed")
+
+            self._show_friends_list_menu(user)
+
+    def _show_friend_requests_menu(self, user: NetworkUser) -> None:
+        """Show list of pending incoming requests."""
+        pending_uuids = self._db.get_pending_incoming_requests(user.uuid)
+        items = []
+
+        if not pending_uuids:
+            items.append(MenuItem(text=Localization.get(user.locale, "no-pending-requests"), id=""))
+        else:
+            for r_uuid in pending_uuids:
+                r_name = self._db.get_user_name_by_uuid(r_uuid)
+                if r_name:
+                    items.append(MenuItem(text=r_name, id=f"req_{r_name}"))
+
+        items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
+
+        user.show_menu(
+            "friend_requests_menu",
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self._user_states[user.username] = {"menu": "friend_requests_menu"}
+
+    async def _handle_friend_requests_selection(self, user: NetworkUser, selection_id: str) -> None:
+        if selection_id == "back":
+            self._show_friends_hub_menu(user)
+        elif selection_id.startswith("req_"):
+            target_username = selection_id[4:]
+            self._show_friend_request_actions_menu(user, target_username)
+
+    def _show_friend_request_actions_menu(self, user: NetworkUser, target_username: str) -> None:
+        """Show accept/decline for a specific request."""
+        title = Localization.get(user.locale, "friend-request-from", username=target_username)
+        items = [
+            MenuItem(text=Localization.get(user.locale, "accept"), id="accept"),
+            MenuItem(text=Localization.get(user.locale, "decline"), id="decline"),
+            MenuItem(text=Localization.get(user.locale, "back"), id="back")
+        ]
+        user.show_menu(
+            "friend_request_actions_menu",
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+            title=title
+        )
+        self._user_states[user.username] = {
+            "menu": "friend_request_actions_menu",
+            "target_username": target_username
+        }
+
+    async def _handle_friend_request_actions_selection(self, user: NetworkUser, selection_id: str, state: dict) -> None:
+        target_username = state.get("target_username")
+        if not target_username:
+            self._show_friend_requests_menu(user)
+            return
+
+        target_record = self._db.get_user(target_username)
+        if not target_record:
+            user.speak_l("unknown-player")
+            self._show_friend_requests_menu(user)
+            return
+
+        if selection_id == "back":
+            self._show_friend_requests_menu(user)
+
+        elif selection_id == "accept":
+            # Attempt to accept
+            success = self._db.accept_friend_request(target_record.uuid, user.uuid)
+            if success:
+                user.speak_l("friend-accepted-success", username=target_username)
+                user.play_sound("friend_accepted.ogg")
+
+                # Notify target
+                target_user = self._users.get(target_username)
+                if target_user:
+                    target_user.speak_l("friend-accepted-notify", username=user.username)
+                    target_user.play_sound("friend_accepted.ogg")
+                else:
+                    self._db.add_notification(target_record.uuid, user.username, "friend_accepted")
+            else:
+                user.speak_l("request-not-found")
+            self._show_friend_requests_menu(user)
+
+        elif selection_id == "decline":
+            # Delete it
+            self._db.remove_friendship(user.uuid, target_record.uuid)
+            user.speak_l("friend-declined-success")
+
+            # Notify target
+            target_user = self._users.get(target_username)
+            if target_user:
+                target_user.speak_l("friend-declined-notify", username=user.username)
+                target_user.play_sound("friend_declined.ogg")
+            else:
+                self._db.add_notification(target_record.uuid, user.username, "friend_declined")
+
+            self._show_friend_requests_menu(user)
+
+    def _show_public_profile(self, requesting_user: NetworkUser, target_username: str, return_menu_id: str) -> None:
+        """Show a read-only profile view of another player."""
+        target_record = self._db.get_user(target_username)
+        if not target_record:
+            requesting_user.speak_l("unknown-player")
+            # Fallback to the previous menu based on state if it's tricky, but we have return_menu_id
+            state = self._user_states.get(requesting_user.username, {})
+            if return_menu_id == "friend_actions_menu":
+                 self._show_friend_actions_menu(requesting_user, state.get("target_username", ""))
+            else:
+                 self._show_main_menu(requesting_user)
+            return
+
+        date_str = target_record.registration_date[:10] if target_record.registration_date else "Unknown"
+        bio_str = target_record.bio if target_record.bio else Localization.get(requesting_user.locale, "profile-bio-empty")
+        gender_loc_key = f"gender-{target_record.gender.lower().replace(' ', '-')}"
+        gender_str = Localization.get(requesting_user.locale, gender_loc_key)
+
+        items = [
+            MenuItem(text=Localization.get(requesting_user.locale, "profile-registration-date", date=date_str), id=""),
+            MenuItem(text=Localization.get(requesting_user.locale, "profile-username", username=target_record.username), id=""),
+            MenuItem(text=Localization.get(requesting_user.locale, "profile-gender", gender=gender_str), id=""),
+            MenuItem(text=Localization.get(requesting_user.locale, "profile-bio", bio=bio_str), id=""),
+        ]
+
+        # Admins and Devs can see the email
+        if requesting_user.trust_level >= 2:
+             email_str = target_record.email if target_record.email else Localization.get(requesting_user.locale, "profile-email-empty")
+             items.append(MenuItem(text=f"Admin View - {Localization.get(requesting_user.locale, 'profile-email', email=email_str)}", id=""))
+
+        items.append(MenuItem(text=Localization.get(requesting_user.locale, "back"), id="back"))
+
+        title = Localization.get(requesting_user.locale, "public-profile-title", username=target_record.username)
+
+        requesting_user.show_menu(
+            "public_profile_menu",
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+            title=title
+        )
+        self._user_states[requesting_user.username] = {
+            "menu": "public_profile_menu",
+            "return_menu_id": return_menu_id,
+            "target_username": target_username
+        }
+
+    async def _handle_public_profile_selection(self, user: NetworkUser, selection_id: str, state: dict) -> None:
+        """Handle selection in public profile."""
+        if selection_id == "back":
+            return_menu_id = state.get("return_menu_id")
+            if return_menu_id == "friend_actions_menu":
+                 self._show_friend_actions_menu(user, state.get("target_username", ""))
+            else:
+                 self._show_main_menu(user)
 
     def _show_profile_menu(self, user: NetworkUser) -> None:
         """Show the user's profile menu."""
@@ -3609,6 +3973,54 @@ PlayAural Server
                     self._db.update_user_bio(user.username, value)
                     user.speak_l("bio-updated")
                 self._show_profile_menu(user)
+                return
+
+            elif menu_id == "send_friend_request_input":
+                value = value.strip()
+                if not value:
+                     self._show_friends_hub_menu(user)
+                     return
+
+                if value.lower() == user.username.lower():
+                     user.speak_l("friend-error-self")
+                     self._show_friends_hub_menu(user)
+                     return
+
+                target_record = self._db.get_user(value)
+                if not target_record:
+                     user.speak_l("unknown-player")
+                     self._show_friends_hub_menu(user)
+                     return
+
+                # Send request
+                status = self._db.send_friend_request(user.uuid, target_record.uuid)
+
+                if status == "already_friends":
+                     user.speak_l("friend-error-already-friends")
+                elif status == "duplicate":
+                     user.speak_l("friend-error-duplicate")
+                elif status == "accepted":
+                     user.speak_l("friend-accepted-success", username=target_record.username)
+                     user.play_sound("friend_accepted.ogg")
+                     # Notify target if online
+                     target_user = self._users.get(target_record.username)
+                     if target_user:
+                         target_user.speak_l("friend-accepted-notify", username=user.username)
+                         target_user.play_sound("friend_accepted.ogg")
+                     else:
+                         self._db.add_notification(target_record.uuid, user.username, "friend_accepted")
+                elif status == "sent":
+                     user.speak_l("friend-request-sent", username=target_record.username)
+                     user.play_sound("friend_request_sent.ogg")
+                     # Notify target if online
+                     target_user = self._users.get(target_record.username)
+                     if target_user:
+                         target_user.speak_l("friend-request-received", username=user.username)
+                         target_user.play_sound("friend_request_received.ogg")
+                     else:
+                         self._db.add_notification(target_record.uuid, user.username, "friend_request_received")
+
+                self._show_friends_hub_menu(user)
                 return
 
     async def _handle_chat(self, client: ClientConnection, packet: dict) -> None:

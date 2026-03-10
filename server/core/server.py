@@ -532,6 +532,12 @@ PlayAural Server
 
     def _restore_user_state(self, user: NetworkUser, username: str) -> None:
         """Restore user state or show main menu after successful login."""
+        # Enforce mandatory email requirement
+        user_record = self._db.get_user(username)
+        if user_record and not user_record.email:
+            self._show_mandatory_email_menu(user)
+            return
+
         # Check if user is in a table
         table = self._tables.find_user_table(username)
 
@@ -619,6 +625,22 @@ PlayAural Server
             else:
                 self._show_main_menu(user)
 
+    def _show_mandatory_email_menu(self, user: NetworkUser) -> None:
+        """Show the mandatory email setup menu."""
+        user.speak_l("mandatory-email-notice")
+        items = [
+            MenuItem(text=Localization.get(user.locale, "ok"), id="ok")
+        ]
+        user.show_menu(
+            "mandatory_email_menu",
+            items,
+            multiletter=False,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self._user_states[user.username] = {
+            "menu": "mandatory_email_menu"
+        }
+
     def _show_motd_menu(self, user: NetworkUser, message: str, version: int) -> None:
         """Show the forced-read MOTD menu."""
         user.speak_l("motd-announcement")
@@ -652,6 +674,15 @@ PlayAural Server
             await client.send({
                 "type": "speak",
                 "text": Localization.get(locale, "auth-username-password-required")
+            })
+            return
+
+        if not email:
+            await client.send({
+                "type": "register_response",
+                "status": "error",
+                "error": "email_empty",
+                "text": Localization.get(locale, "reg-error-email")
             })
             return
 
@@ -1628,6 +1659,9 @@ PlayAural Server
         elif current_menu == "motd_menu":
             await self._handle_motd_selection(user, selection_id, state)
             return
+        elif current_menu == "mandatory_email_menu":
+            await self._handle_mandatory_email_selection(user, selection_id)
+            return
 
         # Check if user is in a table - delegate all events to game
         table = self._tables.find_user_table(username)
@@ -1707,6 +1741,21 @@ PlayAural Server
             await self._handle_doc_games_selection(user, selection_id)
         elif current_menu == "doc_viewer":
             await self._handle_doc_viewer_selection(user, selection_id, state)
+
+    async def _handle_mandatory_email_selection(
+        self, user: NetworkUser, selection_id: str
+    ) -> None:
+        """Handle mandatory email setup acknowledgment."""
+        if selection_id == "ok":
+            user_record = self._db.get_user(user.username)
+            user.show_editbox(
+                "email_input",
+                Localization.get(user.locale, "enter-email"),
+                default_value=user_record.email if user_record else "",
+            )
+            self._user_states[user.username]["menu"] = "email_input"
+            # Flag that we came from the mandatory loop so we know where to route after
+            self._user_states[user.username]["from_mandatory"] = True
 
     async def _handle_motd_selection(
         self, user: NetworkUser, selection_id: str, state: dict
@@ -3465,16 +3514,33 @@ PlayAural Server
             value = packet.get("text", packet.get("value", ""))
 
             if menu_id == "email_input":
+                value = value.strip()
                 user_record = self._db.get_user(user.username)
                 current_email = user_record.email if user_record else ""
+                from_mandatory = user_state.get("from_mandatory", False)
+
+                if not value:
+                    user.speak_l("error-email-empty")
+                    if from_mandatory:
+                        self._show_mandatory_email_menu(user)
+                    else:
+                        self._show_profile_menu(user)
+                    return
 
                 if value == current_email:
                     user.speak_l("no-changes-made")
-                    self._show_profile_menu(user)
+                    if from_mandatory:
+                         # Should not hit this since mandatory means current was empty and value is empty, which is caught above
+                         self._show_mandatory_email_menu(user)
+                    else:
+                         self._show_profile_menu(user)
                 elif not current_email:
                     self._db.update_user_email(user.username, value)
                     user.speak_l("email-updated")
-                    self._show_profile_menu(user)
+                    if from_mandatory:
+                        self._restore_user_state(user, user.username)
+                    else:
+                        self._show_profile_menu(user)
                 else:
                     self._show_email_confirm_menu(user, value)
                 return

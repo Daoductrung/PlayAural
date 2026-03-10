@@ -2447,6 +2447,11 @@ class GameClient {
         const confirm = document.getElementById('reg-password-confirm').value;
         const email = document.getElementById('reg-email').value;
 
+        if (!email || email.trim() === "") {
+            alert(Localization.get("reg-error-email"));
+            return;
+        }
+
         if (username.length < 3 || username.length > 30) {
             alert(Localization.get("auth-error-username-length"));
             return;

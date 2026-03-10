@@ -84,6 +84,8 @@ window.LOCALES = {
         "auth-username-taken": "Username already taken.",
         "auth-error-username-length": "Username must be between 3 and 30 characters.",
         "auth-error-password-weak": "Password must be at least 8 characters long and contain both letters and numbers.",
+        "error-email-empty": "Email is mandatory and cannot be empty.",
+        "reg-error-email": "Email is required to register.",
 
         "intro-text": "PlayAural is an audio-first online gaming platform designed for accessibility. Built on PlayPalace, it offers a shared space for casual players to enjoy various card, dice, and adventure games together on equal footing.",
         "landing-title": "Welcome to PlayAural Web",
@@ -206,6 +208,8 @@ window.LOCALES = {
         "auth-username-taken": "Tên đăng nhập đã có người sử dụng.",
         "auth-error-username-length": "Tên đăng nhập phải dài từ 3 đến 30 ký tự.",
         "auth-error-password-weak": "Mật khẩu phải dài ít nhất 8 ký tự và bao gồm cả chữ và số.",
+        "error-email-empty": "Email là bắt buộc và không được để trống.",
+        "reg-error-email": "Email là bắt buộc để đăng ký.",
 
         "intro-text": "PlayAural là nền tảng chơi game trực tuyến ưu tiên âm thanh, được thiết kế cho khả năng tiếp cận. Dựa trên PlayPalace, tôi mang đến một không gian chung để mọi người cùng thưởng thức các trò chơi bài, xúc xắc và phiêu lưu một cách bình đẳng.",
         "landing-title": "Chào mừng bạn đến với PlayAural Web",

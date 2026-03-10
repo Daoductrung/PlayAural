@@ -34,14 +34,14 @@ class TestAuthSecurity:
         client = MockClient()
 
         # Test too short
-        packet = {"username": "ab", "password": "Password123"}
+        packet = {"username": "ab", "password": "Password123", "email": "test@test.com"}
         await self.server._handle_register(client, packet)
         assert len(client.sent_messages) == 1
         assert client.sent_messages[-1]["status"] == "error"
         assert client.sent_messages[-1]["error"] == "username_length"
 
         # Test too long
-        packet = {"username": "a" * 31, "password": "Password123"}
+        packet = {"username": "a" * 31, "password": "Password123", "email": "test@test.com"}
         await self.server._handle_register(client, packet)
         assert client.sent_messages[-1]["status"] == "error"
         assert client.sent_messages[-1]["error"] == "username_length"
@@ -51,19 +51,19 @@ class TestAuthSecurity:
         client = MockClient()
 
         # Test too short
-        packet = {"username": "validuser", "password": "Pass1"}
+        packet = {"username": "validuser", "password": "Pass1", "email": "test@test.com"}
         await self.server._handle_register(client, packet)
         assert client.sent_messages[-1]["status"] == "error"
         assert client.sent_messages[-1]["error"] == "password_weak"
 
         # Test no numbers
-        packet = {"username": "validuser", "password": "PasswordOnlyLetters"}
+        packet = {"username": "validuser", "password": "PasswordOnlyLetters", "email": "test@test.com"}
         await self.server._handle_register(client, packet)
         assert client.sent_messages[-1]["status"] == "error"
         assert client.sent_messages[-1]["error"] == "password_weak"
 
         # Test no letters
-        packet = {"username": "validuser", "password": "123456789"}
+        packet = {"username": "validuser", "password": "123456789", "email": "test@test.com"}
         await self.server._handle_register(client, packet)
         assert client.sent_messages[-1]["status"] == "error"
         assert client.sent_messages[-1]["error"] == "password_weak"
@@ -71,10 +71,20 @@ class TestAuthSecurity:
     @pytest.mark.asyncio
     async def test_valid_registration(self):
         client = MockClient()
-        packet = {"username": "validuser", "password": "Password123"}
+        packet = {"username": "validuser", "password": "Password123", "email": "test@test.com"}
         await self.server._handle_register(client, packet)
         assert client.sent_messages[-1]["status"] == "success"
 
         # Check user is in db
         user = self.db.get_user("validuser")
         assert user is not None
+
+    @pytest.mark.asyncio
+    async def test_email_mandatory_registration(self):
+        client = MockClient()
+
+        # Test no email
+        packet = {"username": "validuser", "password": "Password123"}
+        await self.server._handle_register(client, packet)
+        assert client.sent_messages[-1]["status"] == "error"
+        assert client.sent_messages[-1]["error"] == "email_empty"

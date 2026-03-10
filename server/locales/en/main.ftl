@@ -396,3 +396,7 @@ enter-bio = Enter your bio:
 gender-updated = Gender updated.
 no-changes-made = No changes made.
 confirm-email-change = Are you sure you want to change your email to { $email }?
+
+mandatory-email-notice = You must set an email to continue participating. Your email is private and only known to you.
+error-email-empty = Email is mandatory and cannot be empty.
+reg-error-email = Email is required to register.

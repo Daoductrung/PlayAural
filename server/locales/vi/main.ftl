@@ -396,3 +396,7 @@ enter-bio = Nhập phần giới thiệu:
 gender-updated = Đã cập nhật giới tính.
 no-changes-made = Không có thay đổi nào.
 confirm-email-change = Bạn có chắc chắn muốn thay đổi email thành { $email } không?
+
+mandatory-email-notice = Bạn phải thiết lập email để tiếp tục tham gia. Email của bạn là riêng tư và chỉ có bạn biết.
+error-email-empty = Email là bắt buộc và không được để trống.
+reg-error-email = Email là bắt buộc để đăng ký.

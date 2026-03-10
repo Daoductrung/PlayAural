@@ -2447,6 +2447,18 @@ class GameClient {
         const confirm = document.getElementById('reg-password-confirm').value;
         const email = document.getElementById('reg-email').value;
 
+        if (username.length < 3 || username.length > 30) {
+            alert(Localization.get("auth-error-username-length"));
+            return;
+        }
+
+        const hasLetters = /[a-zA-Z]/.test(password);
+        const hasNumbers = /[0-9]/.test(password);
+        if (password.length < 8 || !hasLetters || !hasNumbers) {
+            alert(Localization.get("auth-error-password-weak"));
+            return;
+        }
+
         if (password !== confirm) {
             alert(Localization.get("error-password-mismatch"));
             return;

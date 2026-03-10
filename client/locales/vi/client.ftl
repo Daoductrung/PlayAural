@@ -127,3 +127,6 @@ update-checking = Đang kiểm tra bản cập nhật...
 update-cancelled = Đã hủy cập nhật. Trò chơi sẽ đóng.
 
 main-restarting = Đang khởi động lại...
+
+auth-error-username-length = Tên đăng nhập phải dài từ 3 đến 30 ký tự.
+auth-error-password-weak = Mật khẩu phải dài ít nhất 8 ký tự và bao gồm cả chữ và số.

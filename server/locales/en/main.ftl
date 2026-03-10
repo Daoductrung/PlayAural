@@ -363,3 +363,6 @@ player-kicked-offline = Player { $player } has been kicked (offline).
 game-paused-host-disconnect = Game paused. Waiting for host { $player } to reconnect...
 game-resumed = Host { $player } reconnected. Game resumed!
 new-host = New host: { $player }
+
+auth-error-username-length = Username must be between 3 and 30 characters.
+auth-error-password-weak = Password must be at least 8 characters long and contain both letters and numbers.

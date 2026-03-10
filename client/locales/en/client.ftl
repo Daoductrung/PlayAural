@@ -127,3 +127,6 @@ update-checking = Checking for updates...
 update-cancelled = Update cancelled. Game will close.
 
 main-restarting = Restarting...
+
+auth-error-username-length = Username must be between 3 and 30 characters.
+auth-error-password-weak = Password must be at least 8 characters long and contain both letters and numbers.

@@ -97,6 +97,7 @@ class RegistrationDialog(wx.Dialog):
 
     def on_register(self, event):
         """Handle register button click."""
+        import re
         username = self.username_input.GetValue().strip()
         password = self.password_input.GetValue()
         confirm = self.confirm_input.GetValue()
@@ -107,8 +108,21 @@ class RegistrationDialog(wx.Dialog):
             self.username_input.SetFocus()
             return
 
+        if len(username) < 3 or len(username) > 30:
+            wx.MessageBox(Localization.get("auth-error-username-length"), Localization.get("common-error"), wx.OK | wx.ICON_ERROR)
+            self.username_input.SetFocus()
+            return
+
         if not password:
             wx.MessageBox(Localization.get("reg-error-password"), Localization.get("common-error"), wx.OK | wx.ICON_ERROR)
+            self.password_input.SetFocus()
+            return
+
+        has_letters = bool(re.search(r'[a-zA-Z]', password))
+        has_numbers = bool(re.search(r'[0-9]', password))
+
+        if len(password) < 8 or not has_letters or not has_numbers:
+            wx.MessageBox(Localization.get("auth-error-password-weak"), Localization.get("common-error"), wx.OK | wx.ICON_ERROR)
             self.password_input.SetFocus()
             return
 

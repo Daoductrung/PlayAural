@@ -636,6 +636,8 @@ PlayAural Server
 
     async def _handle_register(self, client: ClientConnection, packet: dict) -> None:
         """Handle registration packet from registration dialog."""
+        import re
+
         username = packet.get("username", "")
         password = packet.get("password", "")
         locale = packet.get("locale", "en") # Get locale from client, default to en
@@ -646,6 +648,27 @@ PlayAural Server
             await client.send({
                 "type": "speak",
                 "text": Localization.get(locale, "auth-username-password-required")
+            })
+            return
+
+        if len(username) < 3 or len(username) > 30:
+            await client.send({
+                "type": "register_response",
+                "status": "error",
+                "error": "username_length",
+                "text": Localization.get(locale, "auth-error-username-length")
+            })
+            return
+
+        has_letters = bool(re.search(r'[a-zA-Z]', password))
+        has_numbers = bool(re.search(r'[0-9]', password))
+
+        if len(password) < 8 or not has_letters or not has_numbers:
+            await client.send({
+                "type": "register_response",
+                "status": "error",
+                "error": "password_weak",
+                "text": Localization.get(locale, "auth-error-password-weak")
             })
             return
 

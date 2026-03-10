@@ -366,3 +366,29 @@ new-host = Chủ bàn mới: { $player }
 
 auth-error-username-length = Tên đăng nhập phải dài từ 3 đến 30 ký tự.
 auth-error-password-weak = Mật khẩu phải dài ít nhất 8 ký tự và bao gồm cả chữ và số.
+
+personal-and-options = Cá nhân và Tùy chỉnh
+profile = Hồ sơ
+friends = Bạn bè
+profile-registration-date = Ngày đăng ký: { $date }
+profile-username = Tên đăng nhập: { $username }
+profile-email = Email: { $email }
+profile-gender = Giới tính: { $gender }
+profile-bio = Giới thiệu: { $bio }
+profile-bio-empty = Chưa đặt
+profile-email-empty = Chưa đặt
+
+gender-male = Nam
+gender-female = Nữ
+gender-non-binary = Phi nhị giới
+gender-not-set = Chưa đặt
+
+action-set-edit = Đặt / Chỉnh sửa
+action-delete = Xóa
+bio-already-empty = Phần giới thiệu đã trống.
+bio-deleted = Đã xóa giới thiệu.
+bio-updated = Đã cập nhật giới thiệu.
+
+enter-email = Nhập địa chỉ email mới:
+email-updated = Đã cập nhật email.
+enter-bio = Nhập phần giới thiệu:

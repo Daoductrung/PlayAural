@@ -366,3 +366,29 @@ new-host = New host: { $player }
 
 auth-error-username-length = Username must be between 3 and 30 characters.
 auth-error-password-weak = Password must be at least 8 characters long and contain both letters and numbers.
+
+personal-and-options = Personal and Options
+profile = Profile
+friends = Friends
+profile-registration-date = Registration Date: { $date }
+profile-username = Username: { $username }
+profile-email = Email: { $email }
+profile-gender = Gender: { $gender }
+profile-bio = Bio: { $bio }
+profile-bio-empty = Not set
+profile-email-empty = Not set
+
+gender-male = Male
+gender-female = Female
+gender-non-binary = Non-binary
+gender-not-set = Not set
+
+action-set-edit = Set / Edit
+action-delete = Delete
+bio-already-empty = Bio is already empty.
+bio-deleted = Bio deleted.
+bio-updated = Bio updated.
+
+enter-email = Enter new email address:
+email-updated = Email address updated.
+enter-bio = Enter your bio:

@@ -610,8 +610,12 @@ PlayAural Server
                 self._show_saved_tables_menu(user)
             elif current_menu == "leaderboards_menu":
                 self._show_leaderboards_menu(user)
+            elif current_menu == "personal_options_menu":
+                self._show_personal_options_menu(user)
             elif current_menu == "my_stats_menu":
                 self._show_my_stats_menu(user)
+            elif current_menu == "profile_menu":
+                self._show_profile_menu(user)
             else:
                 self._show_main_menu(user)
 
@@ -727,9 +731,8 @@ PlayAural Server
                 text=Localization.get(user.locale, "leaderboards"), id="leaderboards"
             ),
             MenuItem(
-                text=Localization.get(user.locale, "my-stats"), id="my_stats"
+                text=Localization.get(user.locale, "personal-and-options"), id="personal_options"
             ),
-            MenuItem(text=Localization.get(user.locale, "options"), id="options"),
             MenuItem(
                 text=Localization.get(user.locale, "documentation-menu"), id="documentation"
             ),
@@ -1642,6 +1645,8 @@ PlayAural Server
         # Handle menu selections based on current menu
         if current_menu == "main_menu":
             await self._handle_main_menu_selection(user, selection_id)
+        elif current_menu == "personal_options_menu":
+            await self._handle_personal_options_selection(user, selection_id)
         elif current_menu == "games_menu":
             await self._handle_games_selection(user, selection_id, state)
         elif current_menu == "tables_menu":
@@ -1676,6 +1681,12 @@ PlayAural Server
             await self._handle_my_stats_selection(user, selection_id, state)
         elif current_menu == "my_game_stats":
             await self._handle_my_game_stats_selection(user, selection_id, state)
+        elif current_menu == "profile_menu":
+            await self._handle_profile_selection(user, selection_id)
+        elif current_menu == "gender_menu":
+            await self._handle_gender_selection(user, selection_id)
+        elif current_menu == "bio_actions_menu":
+            await self._handle_bio_actions_selection(user, selection_id, state)
         elif current_menu == "online_users":
             self._restore_previous_menu(user, state)
         elif current_menu in [
@@ -1719,10 +1730,8 @@ PlayAural Server
             self._show_saved_tables_menu(user)
         elif selection_id == "leaderboards":
             self._show_leaderboards_menu(user)
-        elif selection_id == "my_stats":
-            self._show_my_stats_menu(user)
-        elif selection_id == "options":
-            self._show_options_menu(user)
+        elif selection_id == "personal_options":
+            self._show_personal_options_menu(user)
         elif selection_id == "documentation":
             self._show_documentation_menu(user)
         elif selection_id == "administration":
@@ -1730,6 +1739,152 @@ PlayAural Server
                 self.admin_manager._show_admin_menu(user)
         elif selection_id == "logout":
             self._show_logout_confirm_menu(user)
+
+    def _show_personal_options_menu(self, user: NetworkUser) -> None:
+        """Show the personal and options sub-menu."""
+        items = [
+            MenuItem(text=Localization.get(user.locale, "profile"), id="profile"),
+            MenuItem(text=Localization.get(user.locale, "friends"), id="friends"),
+            MenuItem(text=Localization.get(user.locale, "my-stats"), id="my_stats"),
+            MenuItem(text=Localization.get(user.locale, "options"), id="options"),
+            MenuItem(text=Localization.get(user.locale, "back"), id="back")
+        ]
+        user.show_menu(
+            "personal_options_menu",
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self._user_states[user.username] = {"menu": "personal_options_menu"}
+
+    async def _handle_personal_options_selection(self, user: NetworkUser, selection_id: str) -> None:
+        """Handle personal and options menu selection."""
+        if selection_id == "profile":
+            self._show_profile_menu(user)
+        elif selection_id == "friends":
+            pass # Placeholder for future
+        elif selection_id == "my_stats":
+            self._show_my_stats_menu(user)
+        elif selection_id == "options":
+            self._show_options_menu(user)
+        elif selection_id == "back":
+            self._show_main_menu(user)
+
+    def _show_profile_menu(self, user: NetworkUser) -> None:
+        """Show the user's profile menu."""
+        user_record = self._db.get_user(user.username)
+        if not user_record:
+            self._show_personal_options_menu(user)
+            return
+
+        date_str = user_record.registration_date[:10] if user_record.registration_date else "Unknown"
+        email_str = user_record.email if user_record.email else Localization.get(user.locale, "profile-email-empty")
+        bio_str = user_record.bio if user_record.bio else Localization.get(user.locale, "profile-bio-empty")
+        gender_loc_key = f"gender-{user_record.gender.lower().replace(' ', '-')}"
+        gender_str = Localization.get(user.locale, gender_loc_key)
+
+        items = [
+            MenuItem(text=Localization.get(user.locale, "profile-registration-date", date=date_str), id=""),
+            MenuItem(text=Localization.get(user.locale, "profile-username", username=user_record.username), id=""),
+            MenuItem(text=Localization.get(user.locale, "profile-email", email=email_str), id="edit_email"),
+            MenuItem(text=Localization.get(user.locale, "profile-gender", gender=gender_str), id="edit_gender"),
+            MenuItem(text=Localization.get(user.locale, "profile-bio", bio=bio_str), id="edit_bio"),
+            MenuItem(text=Localization.get(user.locale, "back"), id="back")
+        ]
+
+        user.show_menu(
+            "profile_menu",
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self._user_states[user.username] = {"menu": "profile_menu"}
+
+    async def _handle_profile_selection(self, user: NetworkUser, selection_id: str) -> None:
+        """Handle profile menu selection."""
+        if selection_id == "edit_email":
+            user_record = self._db.get_user(user.username)
+            user.show_editbox(
+                "email_input",
+                Localization.get(user.locale, "enter-email"),
+                default_value=user_record.email if user_record else "",
+            )
+            self._user_states[user.username]["menu"] = "email_input"
+        elif selection_id == "edit_gender":
+            self._show_gender_menu(user)
+        elif selection_id == "edit_bio":
+            self._show_bio_actions_menu(user)
+        elif selection_id == "back":
+            self._show_personal_options_menu(user)
+
+    def _show_gender_menu(self, user: NetworkUser) -> None:
+        """Show the gender selection menu."""
+        genders = ["Male", "Female", "Non-binary", "Not set"]
+        user_record = self._db.get_user(user.username)
+        current_gender = user_record.gender if user_record else "Not set"
+
+        items = []
+        for g in genders:
+            prefix = "* " if g == current_gender else ""
+            loc_key = f"gender-{g.lower().replace(' ', '-')}"
+            localized_gender = Localization.get(user.locale, loc_key)
+            items.append(MenuItem(text=f"{prefix}{localized_gender}", id=f"gender_{g}"))
+
+        items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
+
+        user.show_menu(
+            "gender_menu",
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self._user_states[user.username] = {"menu": "gender_menu"}
+
+    async def _handle_gender_selection(self, user: NetworkUser, selection_id: str) -> None:
+        """Handle gender selection."""
+        if selection_id.startswith("gender_"):
+            new_gender = selection_id[7:]
+            self._db.update_user_gender(user.username, new_gender)
+            self._show_profile_menu(user)
+        elif selection_id == "back":
+            self._show_profile_menu(user)
+
+    def _show_bio_actions_menu(self, user: NetworkUser) -> None:
+        """Show bio action options."""
+        items = [
+            MenuItem(text=Localization.get(user.locale, "action-set-edit"), id="set_bio"),
+            MenuItem(text=Localization.get(user.locale, "action-delete"), id="delete_bio"),
+            MenuItem(text=Localization.get(user.locale, "back"), id="back")
+        ]
+        user.show_menu(
+            "bio_actions_menu",
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self._user_states[user.username] = {"menu": "bio_actions_menu"}
+
+    async def _handle_bio_actions_selection(self, user: NetworkUser, selection_id: str, state: dict) -> None:
+        """Handle bio action selection."""
+        if selection_id == "set_bio":
+            user_record = self._db.get_user(user.username)
+            user.show_editbox(
+                "bio_input",
+                Localization.get(user.locale, "enter-bio"),
+                default_value=user_record.bio if user_record else "",
+                multiline=True
+            )
+            self._user_states[user.username]["menu"] = "bio_input"
+        elif selection_id == "delete_bio":
+            user_record = self._db.get_user(user.username)
+            if user_record and user_record.bio:
+                self._db.update_user_bio(user.username, "")
+                user.speak_l("bio-deleted")
+            else:
+                user.speak_l("bio-already-empty")
+            self._show_profile_menu(user)
+        elif selection_id == "back":
+            self._show_profile_menu(user)
 
     def _show_logout_confirm_menu(self, user: NetworkUser) -> None:
         """Show logout confirmation menu."""
@@ -1990,7 +2145,7 @@ PlayAural Server
         elif selection_id == "dice_keeping_style":
             self._show_dice_keeping_style_menu(user)
         elif selection_id == "back":
-            self._show_main_menu(user)
+            self._show_personal_options_menu(user)
 
     def _show_dice_keeping_style_menu(self, user: NetworkUser) -> None:
         """Show dice keeping style selection menu."""
@@ -3129,7 +3284,7 @@ PlayAural Server
     ) -> None:
         """Handle my stats game selection."""
         if selection_id == "back":
-            self._show_main_menu(user)
+            self._show_personal_options_menu(user)
         elif selection_id.startswith("stats_"):
             game_type = selection_id[6:]  # Remove "stats_" prefix
             self._show_my_game_stats(user, game_type)
@@ -3270,8 +3425,21 @@ PlayAural Server
             # Try options handler
             if await self._handle_options_input(user, packet, user_state):
                return
-            # But currently we don't have other system inputs
-            pass
+
+            # Profile inputs
+            menu_id = user_state.get("menu")
+            value = packet.get("text", packet.get("value", ""))
+
+            if menu_id == "email_input":
+                self._db.update_user_email(user.username, value)
+                user.speak_l("email-updated")
+                self._show_profile_menu(user)
+                return
+            elif menu_id == "bio_input":
+                self._db.update_user_bio(user.username, value)
+                user.speak_l("bio-updated")
+                self._show_profile_menu(user)
+                return
 
     async def _handle_chat(self, client: ClientConnection, packet: dict) -> None:
         """Handle chat message."""

@@ -23,6 +23,8 @@ class UserRecord:
     email: str = ""
     bio: str = ""
     motd_version: int = 0
+    gender: str = "Not set"
+    registration_date: str = ""
 
 
 @dataclass
@@ -92,7 +94,9 @@ class Database:
                 trust_level INTEGER DEFAULT 1,
                 approved INTEGER DEFAULT 0,
                 email TEXT DEFAULT '',
-                bio TEXT DEFAULT ''
+                bio TEXT DEFAULT '',
+                gender TEXT DEFAULT 'Not set',
+                registration_date TEXT DEFAULT ''
             )
         """)
 
@@ -255,6 +259,18 @@ class Database:
             cursor.execute("ALTER TABLE users ADD COLUMN motd_version INTEGER DEFAULT 0")
             self._conn.commit()
 
+        if "gender" not in columns:
+            cursor.execute("ALTER TABLE users ADD COLUMN gender TEXT DEFAULT 'Not set'")
+            self._conn.commit()
+
+        if "registration_date" not in columns:
+            from datetime import datetime
+            cursor.execute("ALTER TABLE users ADD COLUMN registration_date TEXT DEFAULT ''")
+            # Backfill existing users with current timestamp
+            now_iso = datetime.now().isoformat()
+            cursor.execute("UPDATE users SET registration_date = ? WHERE registration_date = ''", (now_iso,))
+            self._conn.commit()
+
         # Check if bans table exists (migration for existing databases)
         cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='bans'")
         if not cursor.fetchone():
@@ -393,7 +409,7 @@ class Database:
         """Get a user by username."""
         cursor = self._conn.cursor()
         cursor.execute(
-            "SELECT id, username, password_hash, uuid, locale, preferences_json, trust_level, approved, email, bio, motd_version FROM users WHERE username = ?",
+            "SELECT id, username, password_hash, uuid, locale, preferences_json, trust_level, approved, email, bio, motd_version, gender, registration_date FROM users WHERE username = ?",
             (username,),
         )
         row = cursor.fetchone()
@@ -410,6 +426,8 @@ class Database:
                 email=row["email"] or "",
                 bio=row["bio"] or "",
                 motd_version=row["motd_version"] if "motd_version" in row.keys() else 0,
+                gender=row["gender"] if "gender" in row.keys() else "Not set",
+                registration_date=row["registration_date"] if "registration_date" in row.keys() else "",
             )
         return None
 
@@ -418,11 +436,13 @@ class Database:
     ) -> UserRecord:
         """Create a new user with a generated UUID."""
         import uuid as uuid_module
+        from datetime import datetime
         user_uuid = str(uuid_module.uuid4())
+        now_iso = datetime.now().isoformat()
         cursor = self._conn.cursor()
         cursor.execute(
-            "INSERT INTO users (username, password_hash, uuid, locale, trust_level, approved, email, bio) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            (username, password_hash, user_uuid, locale, trust_level, 1 if approved else 0, email, bio),
+            "INSERT INTO users (username, password_hash, uuid, locale, trust_level, approved, email, bio, registration_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (username, password_hash, user_uuid, locale, trust_level, 1 if approved else 0, email, bio, now_iso),
         )
         self._conn.commit()
         return UserRecord(
@@ -435,6 +455,7 @@ class Database:
             approved=approved,
             email=email,
             bio=bio,
+            registration_date=now_iso,
         )
 
     def user_exists(self, username: str) -> bool:
@@ -466,6 +487,33 @@ class Database:
         cursor.execute(
             "UPDATE users SET password_hash = ? WHERE username = ?",
             (password_hash, username),
+        )
+        self._conn.commit()
+
+    def update_user_email(self, username: str, email: str) -> None:
+        """Update a user's email."""
+        cursor = self._conn.cursor()
+        cursor.execute(
+            "UPDATE users SET email = ? WHERE username = ?",
+            (email, username),
+        )
+        self._conn.commit()
+
+    def update_user_bio(self, username: str, bio: str) -> None:
+        """Update a user's bio."""
+        cursor = self._conn.cursor()
+        cursor.execute(
+            "UPDATE users SET bio = ? WHERE username = ?",
+            (bio, username),
+        )
+        self._conn.commit()
+
+    def update_user_gender(self, username: str, gender: str) -> None:
+        """Update a user's gender."""
+        cursor = self._conn.cursor()
+        cursor.execute(
+            "UPDATE users SET gender = ? WHERE username = ?",
+            (gender, username),
         )
         self._conn.commit()
 
@@ -535,7 +583,7 @@ class Database:
         """Get all users who are not yet approved."""
         cursor = self._conn.cursor()
         cursor.execute(
-            "SELECT id, username, password_hash, uuid, locale, preferences_json, trust_level, approved, email, bio, motd_version FROM users WHERE approved = 0"
+            "SELECT id, username, password_hash, uuid, locale, preferences_json, trust_level, approved, email, bio, motd_version, gender, registration_date FROM users WHERE approved = 0"
         )
         users = []
         for row in cursor.fetchall():
@@ -551,6 +599,8 @@ class Database:
                 email=row["email"] or "",
                 bio=row["bio"] or "",
                 motd_version=row["motd_version"] if "motd_version" in row.keys() else 0,
+                gender=row["gender"] if "gender" in row.keys() else "Not set",
+                registration_date=row["registration_date"] if "registration_date" in row.keys() else "",
             ))
         return users
 
@@ -578,8 +628,12 @@ class Database:
         cursor.execute("DELETE FROM saved_tables WHERE username = ?", (username,))
         cursor.execute("DELETE FROM bans WHERE username = ?", (username,))
 
-        # We explicitly DO NOT delete `game_result_players` rows here because doing so
-        # breaks historical game integrity for other users who participated.
+        # Anonymize historical game data rather than deleting it to preserve integrity
+        # for other players in those matches.
+        cursor.execute(
+            "UPDATE game_result_players SET player_id = 'deleted', player_name = 'Deleted User' WHERE player_id = ?",
+            (user.uuid,)
+        )
 
         # Finally delete the user
         cursor.execute("DELETE FROM users WHERE username = ?", (username,))
@@ -591,7 +645,7 @@ class Database:
         """Get all approved users who are not admins (trust_level < 2)."""
         cursor = self._conn.cursor()
         cursor.execute(
-            "SELECT id, username, password_hash, uuid, locale, preferences_json, trust_level, approved, email, bio, motd_version FROM users WHERE approved = 1 AND trust_level < 2 ORDER BY username"
+            "SELECT id, username, password_hash, uuid, locale, preferences_json, trust_level, approved, email, bio, motd_version, gender, registration_date FROM users WHERE approved = 1 AND trust_level < 2 ORDER BY username"
         )
         users = []
         for row in cursor.fetchall():
@@ -607,6 +661,8 @@ class Database:
                 email=row["email"] or "",
                 bio=row["bio"] or "",
                 motd_version=row["motd_version"] if "motd_version" in row.keys() else 0,
+                gender=row["gender"] if "gender" in row.keys() else "Not set",
+                registration_date=row["registration_date"] if "registration_date" in row.keys() else "",
             ))
         return users
 
@@ -614,7 +670,7 @@ class Database:
         """Get all users who are admins (trust_level >= 2)."""
         cursor = self._conn.cursor()
         cursor.execute(
-            "SELECT id, username, password_hash, uuid, locale, preferences_json, trust_level, approved, email, bio, motd_version FROM users WHERE trust_level >= 2 ORDER BY username"
+            "SELECT id, username, password_hash, uuid, locale, preferences_json, trust_level, approved, email, bio, motd_version, gender, registration_date FROM users WHERE trust_level >= 2 ORDER BY username"
         )
         users = []
         for row in cursor.fetchall():
@@ -630,6 +686,8 @@ class Database:
                 email=row["email"] or "",
                 bio=row["bio"] or "",
                 motd_version=row["motd_version"] if "motd_version" in row.keys() else 0,
+                gender=row["gender"] if "gender" in row.keys() else "Not set",
+                registration_date=row["registration_date"] if "registration_date" in row.keys() else "",
             ))
         return users
 

@@ -22,8 +22,36 @@ main-menu-title = Menu Chính
 
 play = Chơi
 view-active-tables = Xem các bàn đang hoạt động
+profile = Hồ sơ
 options = Tùy chỉnh
 logout = Đăng xuất
+
+profile-registration-date = Ngày đăng ký: { $date }
+profile-username = Tên đăng nhập: { $username }
+profile-email = Email: { $email }
+profile-display-name = Tên hiển thị: { $name }
+profile-gender = Giới tính: { $gender }
+profile-bio = Tiểu sử: { $status }
+
+profile-not-set = Chưa thiết lập
+profile-bio-set = Đã thiết lập
+profile-bio-edit = Sửa tiểu sử
+profile-bio-delete = Xóa tiểu sử
+profile-bio-already-empty = Tiểu sử của bạn đã trống sẵn.
+profile-bio-deleted = Xóa tiểu sử thành công.
+profile-bio-prompt = Nhập tiểu sử của bạn:
+profile-email-prompt = Nhập email của bạn:
+profile-display-name-prompt = Nhập tên hiển thị của bạn:
+
+profile-gender-male = Nam
+profile-gender-female = Nữ
+profile-gender-non-binary = Phi nhị giới
+profile-gender-none = Chưa thiết lập
+
+profile-updated = Cập nhật hồ sơ thành công.
+profile-error-email = Địa chỉ email không hợp lệ. Vui lòng đảm bảo có chứa ký tự @.
+profile-error-display-name-length = Tên hiển thị phải có độ dài từ 30 ký tự trở xuống.
+profile-error-bio-length = Tiểu sử phải có độ dài từ 500 ký tự trở xuống.
 back = Quay lại
 go-back = Quay lại
 context-menu = Menu ngữ cảnh.

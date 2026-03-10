@@ -726,6 +726,9 @@ PlayAural Server
             MenuItem(
                 text=Localization.get(user.locale, "my-stats"), id="my_stats"
             ),
+            MenuItem(
+                text=Localization.get(user.locale, "profile"), id="profile"
+            ),
             MenuItem(text=Localization.get(user.locale, "options"), id="options"),
             MenuItem(
                 text=Localization.get(user.locale, "documentation-menu"), id="documentation"
@@ -1120,6 +1123,78 @@ PlayAural Server
         DiceKeepingStyle.PlayAural: "dice-keeping-style-indexes",
         DiceKeepingStyle.QUENTIN_C: "dice-keeping-style-values",
     }
+
+    def _show_profile_menu(self, user: NetworkUser) -> None:
+        """Show the user profile menu."""
+        user_record = self._db.get_user(user.username)
+        if not user_record:
+            return
+
+        reg_date_text = Localization.get(user.locale, "profile-registration-date", date=user_record.registration_date)
+        username_text = Localization.get(user.locale, "profile-username", username=user_record.username)
+        email_val = user_record.email if user_record.email else Localization.get(user.locale, "profile-not-set")
+        email_text = Localization.get(user.locale, "profile-email", email=email_val)
+        display_name_val = user_record.display_name if user_record.display_name else Localization.get(user.locale, "profile-not-set")
+        display_name_text = Localization.get(user.locale, "profile-display-name", name=display_name_val)
+        gender_val = Localization.get(user.locale, f"profile-gender-{user_record.gender.lower() if user_record.gender else 'none'}")
+        gender_text = Localization.get(user.locale, "profile-gender", gender=gender_val)
+        bio_status = Localization.get(user.locale, "profile-bio-set") if user_record.bio else Localization.get(user.locale, "profile-not-set")
+        bio_text = Localization.get(user.locale, "profile-bio", status=bio_status)
+
+        items = [
+            MenuItem(text=reg_date_text, id=None),  # Read-only
+            MenuItem(text=username_text, id=None),  # Read-only
+            MenuItem(text=email_text, id="edit_email"),
+            MenuItem(text=display_name_text, id="edit_display_name"),
+            MenuItem(text=gender_text, id="edit_gender"),
+            MenuItem(text=bio_text, id="edit_bio"),
+            MenuItem(text=Localization.get(user.locale, "back"), id="back")
+        ]
+
+        user.show_menu(
+            "profile_menu",
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self._user_states[user.username] = {"menu": "profile_menu"}
+
+    def _show_gender_menu(self, user: NetworkUser) -> None:
+        """Show the gender selection menu."""
+        user_record = self._db.get_user(user.username)
+        current = user_record.gender if user_record and user_record.gender else "none"
+
+        options = ["male", "female", "non-binary", "none"]
+        items = []
+        for opt in options:
+            prefix = "* " if current.lower() == opt else ""
+            text = Localization.get(user.locale, f"profile-gender-{opt}")
+            items.append(MenuItem(text=f"{prefix}{text}", id=f"gender_{opt}"))
+
+        items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
+
+        user.show_menu(
+            "gender_menu",
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self._user_states[user.username] = {"menu": "gender_menu"}
+
+    def _show_bio_menu(self, user: NetworkUser) -> None:
+        """Show bio action menu."""
+        items = [
+            MenuItem(text=Localization.get(user.locale, "profile-bio-edit"), id="bio_edit"),
+            MenuItem(text=Localization.get(user.locale, "profile-bio-delete"), id="bio_delete"),
+            MenuItem(text=Localization.get(user.locale, "back"), id="back")
+        ]
+        user.show_menu(
+            "bio_menu",
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self._user_states[user.username] = {"menu": "bio_menu"}
 
     def _show_options_menu(self, user: NetworkUser) -> None:
         """Show options menu."""
@@ -1673,6 +1748,12 @@ PlayAural Server
             await self._handle_my_stats_selection(user, selection_id, state)
         elif current_menu == "my_game_stats":
             await self._handle_my_game_stats_selection(user, selection_id, state)
+        elif current_menu == "profile_menu":
+            await self._handle_profile_menu_selection(user, selection_id)
+        elif current_menu == "gender_menu":
+            await self._handle_gender_menu_selection(user, selection_id)
+        elif current_menu == "bio_menu":
+            await self._handle_bio_menu_selection(user, selection_id)
         elif current_menu == "online_users":
             self._restore_previous_menu(user, state)
         elif current_menu in [
@@ -1718,6 +1799,8 @@ PlayAural Server
             self._show_leaderboards_menu(user)
         elif selection_id == "my_stats":
             self._show_my_stats_menu(user)
+        elif selection_id == "profile":
+            self._show_profile_menu(user)
         elif selection_id == "options":
             self._show_options_menu(user)
         elif selection_id == "documentation":
@@ -1756,6 +1839,61 @@ PlayAural Server
             asyncio.create_task(self._failsafe_close(user))
         elif selection_id == "no":
             self._show_main_menu(user)
+
+    async def _handle_profile_menu_selection(self, user: NetworkUser, selection_id: str) -> None:
+        """Handle profile menu selection."""
+        user_record = self._db.get_user(user.username)
+        if not user_record:
+            return
+
+        if selection_id == "edit_email":
+            user.show_editbox("email_input", Localization.get(user.locale, "profile-email-prompt"), default_value=user_record.email)
+            self._user_states[user.username] = {"menu": "email_input"}
+        elif selection_id == "edit_display_name":
+            user.show_editbox("display_name_input", Localization.get(user.locale, "profile-display-name-prompt"), default_value=user_record.display_name)
+            self._user_states[user.username] = {"menu": "display_name_input"}
+        elif selection_id == "edit_gender":
+            self._show_gender_menu(user)
+        elif selection_id == "edit_bio":
+            self._show_bio_menu(user)
+        elif selection_id == "back":
+            self._show_main_menu(user)
+
+    async def _handle_gender_menu_selection(self, user: NetworkUser, selection_id: str) -> None:
+        """Handle gender menu selection."""
+        if selection_id.startswith("gender_"):
+            gender = selection_id[7:]
+            user_record = self._db.get_user(user.username)
+            if user_record:
+                if gender == "none":
+                    gender = ""
+                else:
+                    gender = gender.capitalize()
+                self._db.update_user_profile(user.username, user_record.display_name, user_record.email, user_record.bio, gender)
+                user.speak_l("profile-updated")
+            self._show_profile_menu(user)
+        elif selection_id == "back":
+            self._show_profile_menu(user)
+
+    async def _handle_bio_menu_selection(self, user: NetworkUser, selection_id: str) -> None:
+        """Handle bio menu selection."""
+        if selection_id == "bio_edit":
+            user_record = self._db.get_user(user.username)
+            if user_record:
+                user.show_editbox("bio_input", Localization.get(user.locale, "profile-bio-prompt"), default_value=user_record.bio, multiline=True)
+                self._user_states[user.username] = {"menu": "bio_input"}
+        elif selection_id == "bio_delete":
+            user_record = self._db.get_user(user.username)
+            if user_record:
+                if not user_record.bio:
+                    user.speak_l("profile-bio-already-empty")
+                    self._show_bio_menu(user)
+                else:
+                    self._db.update_user_profile(user.username, user_record.display_name, user_record.email, "", user_record.gender)
+                    user.speak_l("profile-bio-deleted")
+                    self._show_profile_menu(user)
+        elif selection_id == "back":
+            self._show_profile_menu(user)
 
     async def _failsafe_close(self, user):
         """Close connection after delay if client hasn't already."""
@@ -3267,8 +3405,48 @@ PlayAural Server
             # Try options handler
             if await self._handle_options_input(user, packet, user_state):
                return
+
+            if await self._handle_profile_input(user, packet, user_state):
+                return
             # But currently we don't have other system inputs
             pass
+
+    async def _handle_profile_input(self, user: NetworkUser, packet: dict, state: dict) -> bool:
+        """Handle profile editbox inputs."""
+        menu_id = state.get("menu")
+        value = packet.get("text", packet.get("value", "")).strip()
+
+        if menu_id in ("email_input", "display_name_input", "bio_input"):
+            user_record = self._db.get_user(user.username)
+            if not user_record:
+                return True
+
+            if menu_id == "email_input":
+                # Basic email validation (optional but good practice)
+                if value and "@" not in value:
+                    user.speak_l("profile-error-email")
+                    # Re-show editbox
+                    user.show_editbox("email_input", Localization.get(user.locale, "profile-email-prompt"), default_value=user_record.email)
+                    return True
+                self._db.update_user_profile(user.username, user_record.display_name, value, user_record.bio, user_record.gender)
+            elif menu_id == "display_name_input":
+                if len(value) > 30:
+                    user.speak_l("profile-error-display-name-length")
+                    user.show_editbox("display_name_input", Localization.get(user.locale, "profile-display-name-prompt"), default_value=user_record.display_name)
+                    return True
+                self._db.update_user_profile(user.username, value, user_record.email, user_record.bio, user_record.gender)
+            elif menu_id == "bio_input":
+                if len(value) > 500:
+                    user.speak_l("profile-error-bio-length")
+                    user.show_editbox("bio_input", Localization.get(user.locale, "profile-bio-prompt"), default_value=user_record.bio, multiline=True)
+                    return True
+                self._db.update_user_profile(user.username, user_record.display_name, user_record.email, value, user_record.gender)
+
+            user.speak_l("profile-updated")
+            self._show_profile_menu(user)
+            return True
+
+        return False
 
     async def _handle_chat(self, client: ClientConnection, packet: dict) -> None:
         """Handle chat message."""
@@ -3335,10 +3513,16 @@ PlayAural Server
              else:
                  pass # Ignore for non-admins
 
+        sender_name = username
+        if user:
+            user_record = self._db.get_user(username)
+            if user_record and user_record.display_name:
+                sender_name = user_record.display_name
+
         chat_packet = {
             "type": "chat",
             "convo": convo,
-            "sender": username,
+            "sender": sender_name,
             "message": message,
             "buffer": "chat",
             # "language": language,
@@ -3404,6 +3588,12 @@ PlayAural Server
             if not online_user:
                 continue
 
+            # Display name fallback
+            display_name = username
+            user_record = self._db.get_user(username)
+            if user_record and user_record.display_name:
+                display_name = f"{user_record.display_name} ({username})"
+
             # Get Role and Client
             role_text, client_text = self._get_user_role_and_client_text(
                 user.locale, online_user
@@ -3431,7 +3621,7 @@ PlayAural Server
             line = Localization.get(
                 user.locale,
                 "online-user-full-entry",
-                username=username,
+                username=display_name,
                 role=role_text,
                 client=client_text,
                 status=status,

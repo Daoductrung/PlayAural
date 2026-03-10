@@ -22,8 +22,36 @@ main-menu-title = Main Menu
 
 play = Play
 view-active-tables = View active tables
+profile = Profile
 options = Options
 logout = Logout
+
+profile-registration-date = Registration Date: { $date }
+profile-username = Username: { $username }
+profile-email = Email: { $email }
+profile-display-name = Display Name: { $name }
+profile-gender = Gender: { $gender }
+profile-bio = Bio: { $status }
+
+profile-not-set = Not set
+profile-bio-set = Set
+profile-bio-edit = Edit Bio
+profile-bio-delete = Delete Bio
+profile-bio-already-empty = Your bio is already empty.
+profile-bio-deleted = Bio deleted successfully.
+profile-bio-prompt = Enter your bio:
+profile-email-prompt = Enter your email:
+profile-display-name-prompt = Enter your display name:
+
+profile-gender-male = Male
+profile-gender-female = Female
+profile-gender-non-binary = Non-binary
+profile-gender-none = Not set
+
+profile-updated = Profile updated successfully.
+profile-error-email = Invalid email address. Please make sure it contains an @ symbol.
+profile-error-display-name-length = Display name must be 30 characters or less.
+profile-error-bio-length = Bio must be 500 characters or less.
 back = Back
 go-back = Go back
 context-menu = Context menu.

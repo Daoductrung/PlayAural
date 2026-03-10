@@ -10,6 +10,8 @@ auth-registration-success = Đăng ký thành công! Giờ bạn có thể đăn
 auth-username-taken = Tên đăng nhập đã có người dùng. Vui lòng chọn tên khác.
 auth-error-wrong-password = Sai mật khẩu.
 auth-error-user-not-found = Người dùng không tồn tại.
+auth-error-invalid-username-length = Tên đăng nhập phải dài từ 3 đến 30 ký tự.
+auth-error-weak-password = Mật khẩu phải có ít nhất 8 ký tự và chứa cả chữ cái và số.
 auth-kicked-logged-in-elsewhere = Bạn đã bị ngắt kết nối vì tài khoản của bạn vừa được đăng nhập từ một thiết bị khác.
 
 chat-global = { $player } nói chung: { $message }

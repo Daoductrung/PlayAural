@@ -10,6 +10,8 @@ auth-registration-success = Registration successful! You can now log in with you
 auth-username-taken = Username already taken. Please choose a different username.
 auth-error-wrong-password = Incorrect password.
 auth-error-user-not-found = User does not exist.
+auth-error-invalid-username-length = Username must be between 3 and 30 characters long.
+auth-error-weak-password = Password must be at least 8 characters long and contain both letters and numbers.
 auth-kicked-logged-in-elsewhere = You have been disconnected because your account was logged in from another device.
 
 chat-global = { $player } says globally: { $message }

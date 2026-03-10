@@ -649,6 +649,26 @@ PlayAural Server
             })
             return
 
+        # Username Constraints: 3-30 characters
+        if not (3 <= len(username) <= 30):
+            await client.send({
+                "type": "register_response",
+                "status": "error",
+                "error": "invalid-username-length",
+                "text": Localization.get(locale, "auth-error-invalid-username-length")
+            })
+            return
+
+        # Password Constraints: >= 8 chars, at least 1 letter, at least 1 number
+        if len(password) < 8 or not any(c.isalpha() for c in password) or not any(c.isdigit() for c in password):
+            await client.send({
+                "type": "register_response",
+                "status": "error",
+                "error": "weak-password",
+                "text": Localization.get(locale, "auth-error-weak-password")
+            })
+            return
+
         # Check if this will be a user that needs approval (not the first user)
         needs_approval = self._db.get_user_count() > 0
 

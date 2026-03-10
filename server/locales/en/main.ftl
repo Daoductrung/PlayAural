@@ -392,3 +392,7 @@ bio-updated = Bio updated.
 enter-email = Enter new email address:
 email-updated = Email address updated.
 enter-bio = Enter your bio:
+
+gender-updated = Gender updated.
+no-changes-made = No changes made.
+confirm-email-change = Are you sure you want to change your email to { $email }?

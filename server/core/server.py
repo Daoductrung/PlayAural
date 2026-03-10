@@ -1687,6 +1687,8 @@ PlayAural Server
             await self._handle_gender_selection(user, selection_id)
         elif current_menu == "bio_actions_menu":
             await self._handle_bio_actions_selection(user, selection_id, state)
+        elif current_menu == "email_confirm_menu":
+            await self._handle_email_confirm_selection(user, selection_id, state)
         elif current_menu == "online_users":
             self._restore_previous_menu(user, state)
         elif current_menu in [
@@ -1844,7 +1846,12 @@ PlayAural Server
         """Handle gender selection."""
         if selection_id.startswith("gender_"):
             new_gender = selection_id[7:]
-            self._db.update_user_gender(user.username, new_gender)
+            user_record = self._db.get_user(user.username)
+            if user_record and user_record.gender == new_gender:
+                user.speak_l("no-changes-made")
+            else:
+                self._db.update_user_gender(user.username, new_gender)
+                user.speak_l("gender-updated")
             self._show_profile_menu(user)
         elif selection_id == "back":
             self._show_profile_menu(user)
@@ -1884,6 +1891,33 @@ PlayAural Server
                 user.speak_l("bio-already-empty")
             self._show_profile_menu(user)
         elif selection_id == "back":
+            self._show_profile_menu(user)
+
+    def _show_email_confirm_menu(self, user: NetworkUser, new_email: str) -> None:
+        """Show email change confirmation menu."""
+        user.speak_l("confirm-email-change", email=new_email)
+        items = [
+            MenuItem(text=Localization.get(user.locale, "confirm-yes"), id="yes"),
+            MenuItem(text=Localization.get(user.locale, "confirm-no"), id="no"),
+        ]
+        user.show_menu(
+            "email_confirm_menu",
+            items,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self._user_states[user.username] = {
+            "menu": "email_confirm_menu",
+            "pending_email": new_email
+        }
+
+    async def _handle_email_confirm_selection(self, user: NetworkUser, selection_id: str, state: dict) -> None:
+        """Handle email change confirmation selection."""
+        if selection_id == "yes":
+            new_email = state.get("pending_email", "")
+            self._db.update_user_email(user.username, new_email)
+            user.speak_l("email-updated")
+            self._show_profile_menu(user)
+        elif selection_id == "no":
             self._show_profile_menu(user)
 
     def _show_logout_confirm_menu(self, user: NetworkUser) -> None:
@@ -3431,13 +3465,28 @@ PlayAural Server
             value = packet.get("text", packet.get("value", ""))
 
             if menu_id == "email_input":
-                self._db.update_user_email(user.username, value)
-                user.speak_l("email-updated")
-                self._show_profile_menu(user)
+                user_record = self._db.get_user(user.username)
+                current_email = user_record.email if user_record else ""
+
+                if value == current_email:
+                    user.speak_l("no-changes-made")
+                    self._show_profile_menu(user)
+                elif not current_email:
+                    self._db.update_user_email(user.username, value)
+                    user.speak_l("email-updated")
+                    self._show_profile_menu(user)
+                else:
+                    self._show_email_confirm_menu(user, value)
                 return
             elif menu_id == "bio_input":
-                self._db.update_user_bio(user.username, value)
-                user.speak_l("bio-updated")
+                user_record = self._db.get_user(user.username)
+                current_bio = user_record.bio if user_record else ""
+
+                if value == current_bio:
+                    user.speak_l("no-changes-made")
+                else:
+                    self._db.update_user_bio(user.username, value)
+                    user.speak_l("bio-updated")
                 self._show_profile_menu(user)
                 return
 

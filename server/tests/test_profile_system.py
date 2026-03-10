@@ -54,3 +54,63 @@ class TestProfileSystem:
         assert len(players_after) == 1
         assert players_after[0]["player_name"] == "Deleted User"
         assert players_after[0]["player_id"] == "deleted"
+
+
+    @pytest.mark.asyncio
+    async def test_email_update_flow(self):
+        from server.core.server import Server
+        from unittest.mock import MagicMock
+
+        server = Server(db_path=self.temp_file.name)
+        server._db = self.db
+
+        self.db.create_user("email_user", "hash")
+
+        user = MagicMock()
+        user.username = "email_user"
+        user.locale = "en"
+        user.uuid = "123"
+        server._users["email_user"] = user
+        server._user_states["email_user"] = {"menu": "email_input"}
+
+        client = MagicMock()
+        client.username = "email_user"
+
+        # 1. Update from empty (direct update)
+        packet = {"text": "first@test.com"}
+        await server._handle_editbox(client, packet)
+
+        db_user = self.db.get_user("email_user")
+        assert db_user.email == "first@test.com"
+        user.speak_l.assert_called_with("email-updated")
+
+        # Reset mock
+        user.speak_l.reset_mock()
+
+        # 2. Try to update same email (no-op)
+        server._user_states["email_user"] = {"menu": "email_input"}
+        packet = {"text": "first@test.com"}
+        await server._handle_editbox(client, packet)
+
+        user.speak_l.assert_called_with("no-changes-made")
+
+        # Reset mock
+        user.speak_l.reset_mock()
+
+        # 3. Change to new email (should show confirmation menu)
+        server._user_states["email_user"] = {"menu": "email_input"}
+        packet = {"text": "second@test.com"}
+        await server._handle_editbox(client, packet)
+
+        # Ensure it didn't update yet
+        db_user = self.db.get_user("email_user")
+        assert db_user.email == "first@test.com"
+
+        # Verify it went to confirmation menu
+        assert server._user_states["email_user"]["menu"] == "email_confirm_menu"
+        assert server._user_states["email_user"]["pending_email"] == "second@test.com"
+
+        # 4. Accept confirmation
+        await server._handle_email_confirm_selection(user, "yes", server._user_states["email_user"])
+        db_user = self.db.get_user("email_user")
+        assert db_user.email == "second@test.com"

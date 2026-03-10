@@ -392,3 +392,7 @@ bio-updated = Đã cập nhật giới thiệu.
 enter-email = Nhập địa chỉ email mới:
 email-updated = Đã cập nhật email.
 enter-bio = Nhập phần giới thiệu:
+
+gender-updated = Đã cập nhật giới tính.
+no-changes-made = Không có thay đổi nào.
+confirm-email-change = Bạn có chắc chắn muốn thay đổi email thành { $email } không?

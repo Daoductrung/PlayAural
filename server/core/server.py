@@ -687,6 +687,15 @@ PlayAural Server
             })
             return
 
+        if self._db.email_exists(email):
+            await client.send({
+                "type": "register_response",
+                "status": "error",
+                "error": "email_taken",
+                "text": Localization.get(locale, "error-email-taken")
+            })
+            return
+
         if len(username) < 3 or len(username) > 30:
             await client.send({
                 "type": "register_response",
@@ -3535,7 +3544,17 @@ PlayAural Server
                          self._show_mandatory_email_menu(user)
                     else:
                          self._show_profile_menu(user)
-                elif not current_email:
+                    return
+
+                if self._db.email_exists(value, exclude_username=user.username):
+                    user.speak_l("error-email-taken")
+                    if from_mandatory:
+                        self._show_mandatory_email_menu(user)
+                    else:
+                        self._show_profile_menu(user)
+                    return
+
+                if not current_email:
                     self._db.update_user_email(user.username, value)
                     user.speak_l("email-updated")
                     if from_mandatory:

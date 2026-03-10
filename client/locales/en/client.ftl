@@ -134,3 +134,5 @@ auth-error-password-weak = Password must be at least 8 characters long and conta
 error-email-empty = Email is mandatory and cannot be empty.
 
 reg-error-email = Email is required to register.
+
+error-email-taken = This email is already in use by another account.

@@ -464,6 +464,17 @@ class Database:
         cursor.execute("SELECT 1 FROM users WHERE username = ?", (username,))
         return cursor.fetchone() is not None
 
+    def email_exists(self, email: str, exclude_username: str | None = None) -> bool:
+        """Check if an email is already in use by another account."""
+        if not email:
+            return False  # Empty emails shouldn't trigger "taken" errors for legacy compat
+        cursor = self._conn.cursor()
+        if exclude_username:
+            cursor.execute("SELECT 1 FROM users WHERE email = ? AND username != ?", (email, exclude_username))
+        else:
+            cursor.execute("SELECT 1 FROM users WHERE email = ?", (email,))
+        return cursor.fetchone() is not None
+
     def update_user_locale(self, username: str, locale: str) -> None:
         """Update a user's locale."""
         cursor = self._conn.cursor()

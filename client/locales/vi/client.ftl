@@ -134,3 +134,5 @@ auth-error-password-weak = Mật khẩu phải dài ít nhất 8 ký tự và ba
 error-email-empty = Email là bắt buộc và không được để trống.
 
 reg-error-email = Email là bắt buộc để đăng ký.
+
+error-email-taken = Email này đã được sử dụng bởi một tài khoản khác.

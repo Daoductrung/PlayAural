@@ -238,7 +238,7 @@ class RegistrationDialog(wx.Dialog):
              elif status == "error":
                  error_code = result.get("error")
                  msg = result.get("text", result.get("error"))
-                 if error_code == "username_taken":
+                 if error_code in ["username_taken", "email_taken"]:
                       wx.MessageBox(msg, Localization.get("reg-failed-title"), wx.OK | wx.ICON_WARNING)
                  else:
                       wx.MessageBox(msg, Localization.get("reg-failed-title"), wx.OK | wx.ICON_ERROR)

@@ -88,3 +88,17 @@ class TestAuthSecurity:
         await self.server._handle_register(client, packet)
         assert client.sent_messages[-1]["status"] == "error"
         assert client.sent_messages[-1]["error"] == "email_empty"
+
+    @pytest.mark.asyncio
+    async def test_email_uniqueness_registration(self):
+        client = MockClient()
+
+        # 1. Register first user
+        self.db.create_user("firstuser", "hash", email="unique@test.com")
+
+        # 2. Try to register with same email
+        packet = {"username": "seconduser", "password": "Password123", "email": "unique@test.com"}
+        await self.server._handle_register(client, packet)
+
+        assert client.sent_messages[-1]["status"] == "error"
+        assert client.sent_messages[-1]["error"] == "email_taken"

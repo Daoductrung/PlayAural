@@ -629,6 +629,7 @@ PlayAural Server
         """Show the mandatory email setup menu."""
         user.speak_l("mandatory-email-notice")
         items = [
+            MenuItem(text=Localization.get(user.locale, "mandatory-email-notice"), id=""),
             MenuItem(text=Localization.get(user.locale, "ok"), id="ok")
         ]
         user.show_menu(

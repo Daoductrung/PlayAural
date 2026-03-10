@@ -111,14 +111,12 @@ class TossUpGame(Game):
     def get_max_players(cls) -> int:
         return 8
 
-    def create_player(
-        self, player_id: str, name: str, is_bot: bool = False
-    ) -> TossUpPlayer:
+    def create_player(self, player_id: str, name: str, is_bot: bool = False, display_name: str = "") -> TossUpPlayer:
         """Create a new player with TossUp-specific state."""
         return TossUpPlayer(
             id=player_id,
             name=name,
-            is_bot=is_bot,
+            is_bot=is_bot, display_name=display_name,
             turn_points=0,
             dice_count=0,
             last_roll={},

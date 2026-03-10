@@ -80,6 +80,10 @@ class TestCardAndDeck:
     def test_card_creation(self):
         """Test card creation and properties."""
         from ..game_utils.cards import card_name
+        from ..messages.localization import Localization
+        from pathlib import Path
+        Localization.init(Path("server/locales"))
+        Localization.preload_bundles()
 
         card = Card(id=0, rank=1, suit=SUIT_HEARTS)
         assert card.rank == 1
@@ -91,6 +95,10 @@ class TestCardAndDeck:
     def test_card_article(self):
         """Test card article (a/an)."""
         from ..game_utils.cards import card_name_with_article
+        from ..messages.localization import Localization
+        from pathlib import Path
+        Localization.init(Path("server/locales"))
+        Localization.preload_bundles()
 
         ace = Card(id=0, rank=1, suit=SUIT_HEARTS)
         assert card_name_with_article(ace).startswith("an")

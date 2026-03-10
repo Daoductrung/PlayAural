@@ -140,11 +140,9 @@ class TradeoffGame(Game):
             },
         ]
 
-    def create_player(
-        self, player_id: str, name: str, is_bot: bool = False
-    ) -> TradeoffPlayer:
+    def create_player(self, player_id: str, name: str, is_bot: bool = False, display_name: str = "") -> TradeoffPlayer:
         """Create a new player with Tradeoff-specific state."""
-        return TradeoffPlayer(id=player_id, name=name, is_bot=is_bot)
+        return TradeoffPlayer(id=player_id, name=name, is_bot=is_bot, display_name=display_name)
 
     # ==========================================================================
     # Declarative is_enabled / is_hidden / get_label for turn actions

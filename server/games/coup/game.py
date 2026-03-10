@@ -119,11 +119,9 @@ class CoupGame(Game):
     def get_supported_leaderboards(cls) -> list[str]:
         return ["rating", "games_played"]
 
-    def create_player(
-        self, player_id: str, name: str, is_bot: bool = False
-    ) -> CoupPlayer:
+    def create_player(self, player_id: str, name: str, is_bot: bool = False, display_name: str = "") -> CoupPlayer:
         """Create a new Coup player."""
-        return CoupPlayer(id=player_id, name=name, is_bot=is_bot)
+        return CoupPlayer(id=player_id, name=name, is_bot=is_bot, display_name=display_name)
 
     def on_start(self) -> None:
         """Called when the game starts."""

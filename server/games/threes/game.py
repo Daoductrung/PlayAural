@@ -89,11 +89,9 @@ class ThreesGame(Game, DiceGameMixin):
     def get_max_players(cls) -> int:
         return 8
 
-    def create_player(
-        self, player_id: str, name: str, is_bot: bool = False
-    ) -> ThreesPlayer:
+    def create_player(self, player_id: str, name: str, is_bot: bool = False, display_name: str = "") -> ThreesPlayer:
         """Create a new player with Threes-specific state."""
-        return ThreesPlayer(id=player_id, name=name, is_bot=is_bot)
+        return ThreesPlayer(id=player_id, name=name, is_bot=is_bot, display_name=display_name)
 
     # ==========================================================================
     # Declarative is_enabled / is_hidden / get_label for turn actions

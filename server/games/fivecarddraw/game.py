@@ -163,8 +163,8 @@ class FiveCardDrawGame(Game, TurnTimerMixin):
     def get_max_players(cls) -> int:
         return 5
 
-    def create_player(self, player_id: str, name: str, is_bot: bool = False) -> FiveCardDrawPlayer:
-        return FiveCardDrawPlayer(id=player_id, name=name, is_bot=is_bot, chips=0)
+    def create_player(self, player_id: str, name: str, is_bot: bool = False, display_name: str = "") -> FiveCardDrawPlayer:
+        return FiveCardDrawPlayer(id=player_id, name=name, is_bot=is_bot, display_name=display_name, chips=0)
 
     # ==========================================================================
     # Action availability

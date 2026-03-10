@@ -354,14 +354,12 @@ class FarkleGame(Game):
             },
         ]
 
-    def create_player(
-        self, player_id: str, name: str, is_bot: bool = False
-    ) -> FarklePlayer:
+    def create_player(self, player_id: str, name: str, is_bot: bool = False, display_name: str = "") -> FarklePlayer:
         """Create a new player with Farkle-specific state."""
         return FarklePlayer(
             id=player_id,
             name=name,
-            is_bot=is_bot,
+            is_bot=is_bot, display_name=display_name,
             score=0,
             turn_score=0,
             banked_dice=[],

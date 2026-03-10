@@ -99,11 +99,9 @@ class LightTurretGame(Game):
     def get_supported_leaderboards(cls) -> list[str]:
         return ["rating", "games_played"]
 
-    def create_player(
-        self, player_id: str, name: str, is_bot: bool = False
-    ) -> LightTurretPlayer:
+    def create_player(self, player_id: str, name: str, is_bot: bool = False, display_name: str = "") -> LightTurretPlayer:
         """Create a new player with Light Turret-specific state."""
-        return LightTurretPlayer(id=player_id, name=name, is_bot=is_bot)
+        return LightTurretPlayer(id=player_id, name=name, is_bot=is_bot, display_name=display_name)
 
     def create_turn_action_set(self, player: LightTurretPlayer) -> ActionSet:
         """Create the turn action set for a player."""

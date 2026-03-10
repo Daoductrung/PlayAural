@@ -55,9 +55,10 @@ class Player(DataClassJSONMixin):
     """
 
     id: str  # UUID - unique identifier (from user.uuid for humans, generated for bots)
-    name: str  # Display name
+    name: str  # Username (login name)
     is_bot: bool = False
     is_spectator: bool = False
+    display_name: str = "" # True display name for UI/TTS
     # Bot AI state (serialized for persistence)
     bot_think_ticks: int = 0  # Ticks until bot can act
     bot_pending_action: str | None = None  # Action to execute when ready
@@ -326,7 +327,8 @@ class Game(
 
         if remaining_humans == 0:
              # Last human leaving - don't replace
-             self.broadcast_l("game-paused-host-disconnect", player=player.name)
+             display_name = player.display_name if player.display_name else player.name
+             self.broadcast_l("game-paused-host-disconnect", player=display_name)
              return
 
         # Convert to bot
@@ -348,7 +350,8 @@ class Game(
         self._users.pop(player_id, None)
         
         # Notify others
-        self.broadcast_l("spectator-left", player=player.name)
+        display_name = player.display_name if player.display_name else player.name
+        self.broadcast_l("spectator-left", player=display_name)
 
     def remove_player(self, player_id: str) -> None:
         """Remove a player from the game state entirely.
@@ -368,7 +371,8 @@ class Game(
         self._users.pop(player_id, None)
         
         # Notify others
-        self.broadcast_l("table-left", player=player.name)
+        display_name = player.display_name if player.display_name else player.name
+        self.broadcast_l("table-left", player=display_name)
 
     def _replace_with_bot(self, player: "Player") -> None:
         """Replace a human player with a bot (shared logic)."""
@@ -384,7 +388,8 @@ class Game(
         bot_user = Bot(player.name, uuid=player.id)
         self.attach_user(player.id, bot_user)
         
-        self.broadcast_l("player-replaced-by-bot", player=player.name)
+        display_name = player.display_name if player.display_name else player.name
+        self.broadcast_l("player-replaced-by-bot", player=display_name)
         # Note: Caller is responsible for playing sounds if needed
 
 

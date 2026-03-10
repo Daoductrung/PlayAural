@@ -119,8 +119,8 @@ class PusoyDosGame(Game, TurnTimerMixin):
     def get_supported_leaderboards(cls) -> list[str]:
         return ["rating", "games_played"]
 
-    def create_player(self, player_id: str, name: str, is_bot: bool = False) -> PusoyDosPlayer:
-        return PusoyDosPlayer(id=player_id, name=name, is_bot=is_bot)
+    def create_player(self, player_id: str, name: str, is_bot: bool = False, display_name: str = "") -> PusoyDosPlayer:
+        return PusoyDosPlayer(id=player_id, name=name, is_bot=is_bot, display_name=display_name)
 
     def on_start(self) -> None:
         self.status = "playing"

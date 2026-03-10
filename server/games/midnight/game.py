@@ -88,14 +88,12 @@ class MidnightGame(Game, DiceGameMixin):
     def get_supported_leaderboards(cls) -> list[str]:
         return ["rating", "games_played"]
 
-    def create_player(
-        self, player_id: str, name: str, is_bot: bool = False
-    ) -> MidnightPlayer:
+    def create_player(self, player_id: str, name: str, is_bot: bool = False, display_name: str = "") -> MidnightPlayer:
         """Create a new player with Midnight-specific state."""
         return MidnightPlayer(
             id=player_id,
             name=name,
-            is_bot=is_bot,
+            is_bot=is_bot, display_name=display_name,
             dice=DiceSet(num_dice=6, sides=6),
             round_score=0,
             round_wins=0,

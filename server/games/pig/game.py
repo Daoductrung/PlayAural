@@ -112,11 +112,9 @@ class PigGame(Game):
     def get_max_players(cls) -> int:
         return 4
 
-    def create_player(
-        self, player_id: str, name: str, is_bot: bool = False
-    ) -> PigPlayer:
+    def create_player(self, player_id: str, name: str, is_bot: bool = False, display_name: str = "") -> PigPlayer:
         """Create a new player with Pig-specific state."""
-        return PigPlayer(id=player_id, name=name, is_bot=is_bot, round_score=0)
+        return PigPlayer(id=player_id, name=name, is_bot=is_bot, display_name=display_name, round_score=0)
 
     # ==========================================================================
     # Declarative is_enabled / is_hidden / get_label methods for turn actions

@@ -248,11 +248,9 @@ class YahtzeeGame(Game, DiceGameMixin):
     def get_max_players(cls) -> int:
         return 4
 
-    def create_player(
-        self, player_id: str, name: str, is_bot: bool = False
-    ) -> YahtzeePlayer:
+    def create_player(self, player_id: str, name: str, is_bot: bool = False, display_name: str = "") -> YahtzeePlayer:
         """Create a new player with Yahtzee-specific state."""
-        return YahtzeePlayer(id=player_id, name=name, is_bot=is_bot)
+        return YahtzeePlayer(id=player_id, name=name, is_bot=is_bot, display_name=display_name)
 
     def create_turn_action_set(self, player: YahtzeePlayer) -> ActionSet:
         """Create the turn action set for a player."""

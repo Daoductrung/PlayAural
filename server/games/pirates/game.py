@@ -152,12 +152,10 @@ class PiratesGame(Game):
         if self.charted_tiles:
             self.charted_tiles = {int(k): v for k, v in self.charted_tiles.items()}
 
-    def create_player(
-        self, player_id: str, name: str, is_bot: bool = False
-    ) -> PiratesPlayer:
+    def create_player(self, player_id: str, name: str, is_bot: bool = False, display_name: str = "") -> PiratesPlayer:
         """Create a new Pirates player."""
         # Skills are initialized in PiratesPlayer.__post_init__
-        return PiratesPlayer(id=player_id, name=name, is_bot=is_bot)
+        return PiratesPlayer(id=player_id, name=name, is_bot=is_bot, display_name=display_name)
 
     # ==========================================================================
     # Action Sets

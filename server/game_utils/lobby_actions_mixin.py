@@ -94,7 +94,7 @@ class LobbyActionsMixin:
                 return
 
         bot_user = Bot(bot_name)
-        bot_player = self.create_player(bot_user.uuid, bot_name, is_bot=True)
+        bot_player = self.create_player(bot_user.uuid, bot_name, is_bot=True, display_name=bot_name)
         self.players.append(bot_player)
         self.attach_user(bot_player.id, bot_user)
         # Set up action sets for the bot
@@ -282,18 +282,19 @@ class LobbyActionsMixin:
         return sum(1 for p in self.players if p.is_bot)
 
     def create_player(
-        self, player_id: str, name: str, is_bot: bool = False
+        self, player_id: str, name: str, is_bot: bool = False, display_name: str = ""
     ) -> "Player":
         """Create a new player. Override in subclasses for custom player types."""
         # Import here to avoid circular dependency at module level
         from ..games.base import Player
 
-        return Player(id=player_id, name=name, is_bot=is_bot)
+        return Player(id=player_id, name=name, is_bot=is_bot, display_name=display_name)
 
     def add_player(self, name: str, user: "User") -> "Player":
         """Add a player to the game."""
         is_bot = hasattr(user, "is_bot") and user.is_bot
-        player = self.create_player(user.uuid, name, is_bot=is_bot)
+        display_name = getattr(user, "display_name", name)
+        player = self.create_player(user.uuid, display_name, is_bot=is_bot)
         self.players.append(player)
         self.attach_user(player.id, user)
         # Set up action sets for the new player
@@ -302,7 +303,8 @@ class LobbyActionsMixin:
 
     def add_spectator(self, name: str, user: "User") -> "Player":
         """Add a spectator to the game."""
-        player = self.create_player(user.uuid, name, is_bot=False)
+        display_name = getattr(user, "display_name", name)
+        player = self.create_player(user.uuid, display_name, is_bot=False)
         player.is_spectator = True
         self.players.append(player)
         self.attach_user(player.id, user)

@@ -90,10 +90,8 @@ class SnakesAndLaddersGame(Game):
     def get_max_players(cls) -> int:
         return 4
 
-    def create_player(
-        self, player_id: str, name: str, is_bot: bool = False
-    ) -> SnakesPlayer:
-        return SnakesPlayer(id=player_id, name=name, is_bot=is_bot)
+    def create_player(self, player_id: str, name: str, is_bot: bool = False, display_name: str = "") -> SnakesPlayer:
+        return SnakesPlayer(id=player_id, name=name, is_bot=is_bot, display_name=display_name)
 
     def on_start(self) -> None:
         """Called when the game starts."""

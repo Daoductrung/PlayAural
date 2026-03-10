@@ -16,6 +16,7 @@ class TableMember:
 
     username: str
     is_spectator: bool = False
+    display_name: str = ""
 
 
 @dataclass
@@ -71,7 +72,8 @@ class Table(DataClassJSONMixin):
             if member.username == username:
                 return
 
-        self.members.append(TableMember(username=username, is_spectator=as_spectator))
+        display_name = getattr(user, "display_name", username)
+        self.members.append(TableMember(username=username, is_spectator=as_spectator, display_name=display_name))
         self._users[username] = user
         if self._server and hasattr(self._server, "on_tables_changed"):
             self._server.on_tables_changed()
@@ -91,10 +93,11 @@ class Table(DataClassJSONMixin):
                 candidates.sort(key=lambda m: m.username in self._server._users if self._server else False, reverse=True)
                 
                 new_host = candidates[0].username
+                new_host_display = candidates[0].display_name if hasattr(candidates[0], "display_name") and candidates[0].display_name else new_host
                 self.host = new_host
                 # Broadcast via game if possible
                 if self._game:
-                    self._game.broadcast_l("new-host", player=new_host)
+                    self._game.broadcast_l("new-host", player=new_host_display)
                     self._game.host = new_host
                     if hasattr(self._game, "rebuild_all_menus"):
                         self._game.rebuild_all_menus()
@@ -210,7 +213,8 @@ class Table(DataClassJSONMixin):
                         elif current_time - self._member_offline_since[member.username] > 15.0:
                             # Kick them
                             if self._game:
-                                self._game.broadcast_l("player-kicked-offline", player=member.username)
+                                display_name = member.display_name if hasattr(member, "display_name") and member.display_name else member.username
+                                self._game.broadcast_l("player-kicked-offline", player=display_name)
                                 
                                 # Clean up Game state to prevent ghost players
                                 # We need the UUID to call game methods
@@ -250,12 +254,13 @@ class Table(DataClassJSONMixin):
 
     def handle_event(self, username: str, event: dict) -> None:
         """Handle an event from a member."""
+        # Using player_id (UUID) avoids issues if player.name is overridden with display_name
         if self._game:
-            # Find the player
-            for player in self._game.players:
-                if player.name == username:
+            user = self._users.get(username)
+            if user:
+                player = self._game.get_player_by_id(user.uuid)
+                if player:
                     self._game.handle_event(player, event)
-                    break
 
     def save_game_state(self) -> None:
         """Save the current game state to game_json."""
@@ -397,7 +402,12 @@ class Table(DataClassJSONMixin):
 
         # 10. Announce new host if changed
         if old_host != self.host:
-             new_game.broadcast_l("table-new-host-promoted", buffer="system", player=self.host)
+             new_host_display = self.host
+             for member in self.members:
+                 if member.username == self.host:
+                     new_host_display = member.display_name if hasattr(member, "display_name") and member.display_name else member.username
+                     break
+             new_game.broadcast_l("table-new-host-promoted", buffer="system", player=new_host_display)
 
         # 11. Transfer scheduled sounds and sound scheduler tick from old game
         new_game.scheduled_sounds = list(old_game.scheduled_sounds)

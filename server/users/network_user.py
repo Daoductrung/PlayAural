@@ -27,6 +27,7 @@ class NetworkUser(User):
         preferences: UserPreferences | None = None,
         trust_level: int = 1,
         approved: bool = False,
+        display_name: str = "",
     ):
         self._uuid = uuid or generate_uuid()
         self._username = username
@@ -36,6 +37,7 @@ class NetworkUser(User):
         self._preferences = preferences or UserPreferences()
         self._trust_level = trust_level
         self._approved = approved
+        self._display_name = display_name
         self._message_queue: list[dict[str, Any]] = []
 
         # Track current UI state for session resumption
@@ -50,6 +52,10 @@ class NetworkUser(User):
     @property
     def username(self) -> str:
         return self._username
+
+    @property
+    def display_name(self) -> str:
+        return self._display_name if self._display_name else self._username
 
     @property
     def locale(self) -> str:

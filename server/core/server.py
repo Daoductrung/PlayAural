@@ -255,11 +255,11 @@ PlayAural Server
             # Only broadcast if this client was actually the active one AND not banned
             if user and user.connection == client and not is_banned:
                 task = asyncio.create_task(self._delayed_offline_broadcast(
-                    client.username, offline_sound, user.trust_level
+                    client.username, user.display_name, offline_sound, user.trust_level
                 ))
                 self._pending_disconnects[client.username] = task
 
-    async def _delayed_offline_broadcast(self, username: str, sound: str, trust_level: int) -> None:
+    async def _delayed_offline_broadcast(self, username: str, display_name: str, sound: str, trust_level: int) -> None:
         """Wait briefly then broadcast offline message if user hasn't reconnected."""
         try:
             await asyncio.sleep(2.0) # 2 seconds grace period
@@ -268,7 +268,7 @@ PlayAural Server
             self._pending_disconnects.pop(username, None)
             
             # Broadcast
-            self._broadcast_presence_l("user-offline", username, sound, trust_level)
+            self._broadcast_presence_l("user-offline", display_name, sound, trust_level)
             
         except asyncio.CancelledError:
             # User reconnected in time
@@ -430,6 +430,7 @@ PlayAural Server
         user_uuid = user_record.uuid if user_record else None
         trust_level = user_record.trust_level if user_record else 1
         is_approved = user_record.approved if user_record else False
+        display_name = user_record.display_name if user_record and hasattr(user_record, "display_name") else ""
         preferences = UserPreferences()
         if user_record and user_record.preferences_json:
             try:
@@ -439,7 +440,7 @@ PlayAural Server
                 pass  # Use defaults on error
         user = NetworkUser(
             username, locale, client, client_type=client_type, uuid=user_uuid, preferences=preferences,
-            trust_level=trust_level, approved=is_approved
+            trust_level=trust_level, approved=is_approved, display_name=display_name
         )
         self._users[username] = user
 
@@ -488,13 +489,13 @@ PlayAural Server
 
             # Only broadcast if we didn't cancel a pending disconnect (debounce)
             if not pending_task:
-                 self._broadcast_presence_l("user-online", username, online_sound, trust_level)
+                 self._broadcast_presence_l("user-online", user.display_name, online_sound, trust_level)
 
                  # If user is a developer or admin, announce that as well
                  if trust_level >= 3:
-                      await self._broadcast_dev_announcement(username)
+                      await self._broadcast_dev_announcement(user.display_name)
                  elif trust_level >= 2:
-                      await self._broadcast_admin_announcement(username)
+                      await self._broadcast_admin_announcement(user.display_name)
 
         # Check client version
         client_version = packet.get("version", "0.0.0")
@@ -834,12 +835,16 @@ PlayAural Server
 
         for table in tables:
             member_count = len(table.members)
-            member_names = [
-                member.username
-                for member in table.members
-                if member.username != table.host
-            ]
+            member_names = []
+            host_display_name = table.host
+            for m in table.members:
+                if m.username == table.host:
+                    host_display_name = m.display_name if hasattr(m, "display_name") and m.display_name else m.username
+                else:
+                    member_names.append(m.display_name if hasattr(m, "display_name") and m.display_name else m.username)
+
             members_str = Localization.format_list_and(user.locale, member_names)
+
             # Determine status for display
             if table.game:
                 if table.game.status == "waiting":
@@ -866,7 +871,7 @@ PlayAural Server
                         user.locale,
                         listing_key,
                         game=game_name,
-                        host=table.host,
+                        host=host_display_name,
                         count=member_count,
                         members=members_str,
                         status=status_text,
@@ -951,12 +956,16 @@ PlayAural Server
 
         for table in tables:
             member_count = len(table.members)
-            member_names = [
-                member.username
-                for member in table.members
-                if member.username != table.host
-            ]
+            member_names = []
+            host_display_name = table.host
+            for m in table.members:
+                if m.username == table.host:
+                    host_display_name = m.display_name if hasattr(m, "display_name") and m.display_name else m.username
+                else:
+                    member_names.append(m.display_name if hasattr(m, "display_name") and m.display_name else m.username)
+
             members_str = Localization.format_list_and(user.locale, member_names)
+
             if table.game:
                 if table.game.status == "waiting":
                     status_key = "table-status-waiting"
@@ -982,7 +991,7 @@ PlayAural Server
                         user.locale,
                         listing_key,
                         game=game_name,
-                        host=table.host,
+                        host=host_display_name,
                         count=member_count,
                         members=members_str,
                         status=status_text,
@@ -1049,11 +1058,14 @@ PlayAural Server
                 else table.game_type
             )
             member_count = len(table.members)
-            member_names = [
-                member.username
-                for member in table.members
-                if member.username != table.host
-            ]
+            member_names = []
+            host_display_name = table.host
+            for m in table.members:
+                if m.username == table.host:
+                    host_display_name = m.display_name if hasattr(m, "display_name") and m.display_name else m.username
+                else:
+                    member_names.append(m.display_name if hasattr(m, "display_name") and m.display_name else m.username)
+
             members_str = Localization.format_list_and(user.locale, member_names)
 
             if table.game:
@@ -1081,7 +1093,7 @@ PlayAural Server
                         user.locale,
                         listing_key,
                         game=game_name,
-                        host=table.host,
+                        host=host_display_name,
                         count=member_count,
                         members=members_str,
                         status=status_text,
@@ -2366,15 +2378,16 @@ PlayAural Server
                 # Join as player
                 table.add_member(user.username, user, as_spectator=False)
                 game.add_player(user.username, user)
-                game.broadcast_l("table-joined", player=user.username)
+                game.broadcast_l("table-joined", player=user.display_name)
                 game.broadcast_sound("join.ogg")
                 game.rebuild_all_menus()
             else:
                 # Join as spectator
                 table.add_member(user.username, user, as_spectator=True)
                 game.add_spectator(user.username, user)
+
                 user.speak_l("spectator-joined", host=table.host)
-                game.broadcast_l("now-spectating", player=user.username)
+                game.broadcast_l("now-spectating", player=user.display_name)
                 game.broadcast_sound("join_spectator.ogg")
                 game.rebuild_all_menus()
 
@@ -2416,7 +2429,7 @@ PlayAural Server
                     matching_player.is_bot = False
                     game.attach_user(matching_player.id, user)
                     table.add_member(user.username, user, as_spectator=False)
-                    game.broadcast_l("player-took-over", player=user.username)
+                    game.broadcast_l("player-took-over", player=user.display_name)
                     game.broadcast_sound("join.ogg")
                     game.rebuild_all_menus()
                     self._user_states[user.username] = {
@@ -2428,8 +2441,9 @@ PlayAural Server
                     # No matching player - join as spectator instead
                     table.add_member(user.username, user, as_spectator=True)
                     game.add_spectator(user.username, user)
+
                     user.speak_l("spectator-joined", host=table.host)
-                    game.broadcast_l("now-spectating", player=user.username)
+                    game.broadcast_l("now-spectating", player=user.display_name)
                     game.broadcast_sound("join_spectator.ogg")
                     game.rebuild_all_menus()
                     self._user_states[user.username] = {
@@ -2455,8 +2469,9 @@ PlayAural Server
         elif selection_id == "join_spectator":
             table.add_member(user.username, user, as_spectator=True)
             game.add_spectator(user.username, user)
+
             user.speak_l("spectator-joined", host=table.host)
-            game.broadcast_l("now-spectating", player=user.username)
+            game.broadcast_l("now-spectating", player=user.display_name)
             game.broadcast_sound("join_spectator.ogg")
             game.rebuild_all_menus()
             self._user_states[user.username] = {"menu": "in_game", "table_id": table_id}
@@ -3454,11 +3469,12 @@ PlayAural Server
         if not username:
             return
 
+        user = self._users.get(username)
+
         convo = packet.get("convo", "local")
         message = packet.get("message", "")
         if message.startswith("/reboot") or message.startswith("/stop"):
             # Check permissions
-            user = self._users.get(username)
             if user and user.trust_level >= 3:
                 is_reboot = message.startswith("/reboot")
                 action_text = "restarting" if is_reboot else "shutting down"
@@ -3513,11 +3529,7 @@ PlayAural Server
              else:
                  pass # Ignore for non-admins
 
-        sender_name = username
-        if user:
-            user_record = self._db.get_user(username)
-            if user_record and user_record.display_name:
-                sender_name = user_record.display_name
+        sender_name = user.display_name if user else username
 
         chat_packet = {
             "type": "chat",
@@ -3589,10 +3601,7 @@ PlayAural Server
                 continue
 
             # Display name fallback
-            display_name = username
-            user_record = self._db.get_user(username)
-            if user_record and user_record.display_name:
-                display_name = f"{user_record.display_name} ({username})"
+            display_name = online_user.display_name
 
             # Get Role and Client
             role_text, client_text = self._get_user_role_and_client_text(

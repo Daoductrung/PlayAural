@@ -55,6 +55,11 @@ class User(ABC):
         ...
 
     @property
+    def display_name(self) -> str:
+        """The user's display name for UI/TTS. Falls back to username if not overridden."""
+        return self.username
+
+    @property
     @abstractmethod
     def locale(self) -> str:
         """The user's locale for localization (e.g., 'en', 'es')."""

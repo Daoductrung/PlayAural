@@ -130,12 +130,13 @@ async def test_motd_login_interception(mock_server):
     server._db.create_motd(2, {"en": "Line 1\nLine 2", "vi": "Dong 1\nDong 2"})
 
     # Setup test user for login, simulate they have seen version 5
-    user_record = server._db.create_user("test_user", "hash", "en", 1, True)
+    user_record = server._db.create_user("test_user", "hash", "en", 1, True, email="test@test.com")
     server._db.update_user_motd_version("test_user", 5)
 
     # Since we bypass network auth for tests, let's call _handle_authorize logic manually
     client = MagicMock()
     client.username = "test_user"
+    client.ip_address = "127.0.0.1"
     client.authenticated = True
     client.send = AsyncMock()
     client.close = AsyncMock()
@@ -145,13 +146,20 @@ async def test_motd_login_interception(mock_server):
         "username": "test_user",
         "password": "hash",
         "client": "python",
-        "version": "0.1.6"
+        "version": "0.1.7"
     }
 
     # Mock auth check
     server._auth.authenticate = MagicMock(return_value=True)
     server._ws_server = MagicMock()
     server._ws_server.get_client_by_username = MagicMock(return_value=None)
+    server._rate_limiter = MagicMock()
+    server._rate_limiter.is_login_allowed = MagicMock(return_value=True)
+    server._rate_limiter.clear_failed_logins = MagicMock()
+
+    # We must explicitly add the new user object manually just like authorize success does internally
+    # since we mocked out get_client_by_username etc, but the authorize method initializes the NetworkUser
+    # However we'll just let _handle_authorize run which adds them to _users dictionary
 
     await server._handle_authorize(client, packet)
 
@@ -175,11 +183,12 @@ async def test_motd_reconnect_game_state(mock_server):
     server, user = mock_server
 
     # 1. Setup user in an active game
-    server._db.create_user("gamer", "hash", "en", 1, True)
+    server._db.create_user("gamer", "hash", "en", 1, True, email="test@test.com")
 
     # Create network user
     client = MagicMock()
     client.username = "gamer"
+    client.ip_address = "127.0.0.1"
     client.authenticated = True
     client.send = AsyncMock()
     client.close = AsyncMock()
@@ -219,6 +228,7 @@ async def test_motd_reconnect_game_state(mock_server):
     # 4. User reconnects
     new_client = MagicMock()
     new_client.username = "gamer"
+    new_client.ip_address = "127.0.0.1"
     new_client.authenticated = True
     new_client.send = AsyncMock()
 
@@ -226,12 +236,16 @@ async def test_motd_reconnect_game_state(mock_server):
         "username": "gamer",
         "password": "hash",
         "client": "python",
-        "version": "0.1.6"
+        "version": "0.1.7"
     }
 
     server._auth.authenticate = MagicMock(return_value=True)
     server._ws_server = MagicMock()
     server._ws_server.get_client_by_username = MagicMock(return_value=None)
+
+    server._rate_limiter = MagicMock()
+    server._rate_limiter.is_login_allowed = MagicMock(return_value=True)
+    server._rate_limiter.clear_failed_logins = MagicMock()
 
     # Handle authorize -> Should trigger MOTD menu
     await server._handle_authorize(new_client, packet)

@@ -402,3 +402,8 @@ error-email-empty = Email là bắt buộc và không được để trống.
 reg-error-email = Email là bắt buộc để đăng ký.
 
 error-email-taken = Email này đã được sử dụng bởi một tài khoản khác.
+
+error-bio-length = Phần giới thiệu không được vượt quá 250 ký tự.
+error-rate-limit-login = Quá nhiều lần đăng nhập thất bại. Vui lòng thử lại sau 15 phút.
+error-rate-limit-register = Bạn đã đạt đến số lượng đăng ký tài khoản tối đa trong hôm nay.
+auth-error-rate-limit = Quá nhiều lần đăng nhập thất bại. Vui lòng thử lại sau 15 phút.

@@ -2228,6 +2228,7 @@ class GameClient {
         const input = document.createElement(packet.multiline ? 'textarea' : 'input');
         input.value = packet.default_value || "";
         if (packet.read_only) input.readOnly = true;
+        if (packet.max_length) input.maxLength = packet.max_length;
         input.setAttribute('aria-label', promptText);
 
         const submitBtn = document.createElement('button');

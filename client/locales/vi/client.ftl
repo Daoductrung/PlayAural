@@ -136,3 +136,5 @@ error-email-empty = Email là bắt buộc và không được để trống.
 reg-error-email = Email là bắt buộc để đăng ký.
 
 error-email-taken = Email này đã được sử dụng bởi một tài khoản khác.
+
+auth-error-rate-limit = Quá nhiều lần đăng nhập thất bại. Vui lòng thử lại sau 15 phút.

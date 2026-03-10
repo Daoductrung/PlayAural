@@ -259,23 +259,26 @@ class NetworkUser(User):
         *,
         multiline: bool = False,
         read_only: bool = False,
+        max_length: int | None = None,
     ) -> None:
         self._current_editboxes[input_id] = {
             "prompt": prompt,
             "default_value": default_value,
             "multiline": multiline,
             "read_only": read_only,
+            "max_length": max_length,
         }
-        self._queue_packet(
-            {
-                "type": "request_input",
-                "input_id": input_id,
-                "prompt": prompt,
-                "default_value": default_value,
-                "multiline": multiline,
-                "read_only": read_only,
-            }
-        )
+        packet = {
+            "type": "request_input",
+            "input_id": input_id,
+            "prompt": prompt,
+            "default_value": default_value,
+            "multiline": multiline,
+            "read_only": read_only,
+        }
+        if max_length is not None:
+            packet["max_length"] = max_length
+        self._queue_packet(packet)
 
     def remove_editbox(self, input_id: str) -> None:
         self._current_editboxes.pop(input_id, None)

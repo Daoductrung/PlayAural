@@ -12,6 +12,7 @@ from ..administration.manager import AdministrationManager
 from ..network.websocket_server import WebSocketServer, ClientConnection
 from ..persistence.database import Database
 from ..auth.auth import AuthManager
+from ..auth.rate_limit import RateLimiter
 from ..tables.manager import TableManager
 from ..users.network_user import NetworkUser
 from ..users.base import MenuItem, EscapeBehavior
@@ -70,6 +71,9 @@ class Server:
 
         # Initialize admin manager
         self.admin_manager = AdministrationManager(self)
+
+        # Initialize rate limiter
+        self._rate_limiter = RateLimiter()
 
         # Initialize localization
         if locales_dir is None:
@@ -365,6 +369,16 @@ PlayAural Server
         # Extract client type (default to python for legacy clients)
         client_type = packet.get("client", "python")
 
+        # Rate limit check (brute force protection)
+        if not self._rate_limiter.is_login_allowed(client.ip_address):
+            await client.send({
+                "type": "login_failed",
+                "reason": "rate_limit",
+                "reconnect": False,
+            })
+            await client.close()
+            return
+
         # Check version if provided
         client_version = packet.get("version", "0.0.0")
         
@@ -385,8 +399,10 @@ PlayAural Server
         # The logic at the end of this function will prevent sending the game list, triggering the update dialog.
 
         # Try to authenticate
-        # Try to authenticate
         if not self._auth.authenticate(username, password):
+            # Record failed login
+            self._rate_limiter.record_failed_login(client.ip_address)
+
             # Determine specific failure reason
             reason = "wrong_password"
             if not self._auth.get_user(username):
@@ -399,10 +415,10 @@ PlayAural Server
                     "reconnect": False,
                 }
             )
-            # Give a tiny delay for packet to flush before disconnect? 
-            # Usually await send is enough.
-            # We still disconnect as per protocol
             return
+
+        # Success - clear failed logins for this IP
+        self._rate_limiter.clear_failed_logins(client.ip_address)
 
         # Check if user is already connected
         old_client = self._ws_server.get_client_by_username(username)
@@ -665,6 +681,18 @@ PlayAural Server
         """Handle registration packet from registration dialog."""
         import re
 
+        # Rate limit check (spam protection)
+        if not self._rate_limiter.is_registration_allowed(client.ip_address):
+            locale = packet.get("locale", "en")
+            await client.send({
+                "type": "register_response",
+                "status": "error",
+                "error": "rate_limit",
+                "text": Localization.get(locale, "error-rate-limit-register")
+            })
+            await client.close()
+            return
+
         username = packet.get("username", "")
         password = packet.get("password", "")
         locale = packet.get("locale", "en") # Get locale from client, default to en
@@ -722,6 +750,7 @@ PlayAural Server
 
         # Try to register the user
         if self._auth.register(username, password, locale=locale, email=email, bio=bio):
+            self._rate_limiter.record_registration(client.ip_address)
             await client.send({
                 "type": "register_response",
                 "status": "success",
@@ -1938,7 +1967,8 @@ PlayAural Server
                 "bio_input",
                 Localization.get(user.locale, "enter-bio"),
                 default_value=user_record.bio if user_record else "",
-                multiline=True
+                multiline=True,
+                max_length=250
             )
             self._user_states[user.username]["menu"] = "bio_input"
         elif selection_id == "delete_bio":
@@ -3565,6 +3595,11 @@ PlayAural Server
                     self._show_email_confirm_menu(user, value)
                 return
             elif menu_id == "bio_input":
+                if len(value) > 250:
+                    user.speak_l("error-bio-length")
+                    self._show_profile_menu(user)
+                    return
+
                 user_record = self._db.get_user(user.username)
                 current_bio = user_record.bio if user_record else ""
 

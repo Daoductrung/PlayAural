@@ -144,3 +144,41 @@ class TestProfileSystem:
         db_user = self.db.get_user("user_b")
         assert db_user.email == ""
         user.speak_l.assert_called_with("error-email-taken")
+
+    @pytest.mark.asyncio
+    async def test_bio_length_limit(self):
+        from server.core.server import Server
+        from unittest.mock import MagicMock
+
+        server = Server(db_path=self.temp_file.name)
+        server._db = self.db
+
+        self.db.create_user("bio_user", "hash")
+
+        user = MagicMock()
+        user.username = "bio_user"
+        user.locale = "en"
+        user.uuid = "123"
+        server._users["bio_user"] = user
+        server._user_states["bio_user"] = {"menu": "bio_input"}
+
+        client = MagicMock()
+        client.username = "bio_user"
+
+        # 1. Valid bio
+        packet = {"text": "A valid bio"}
+        await server._handle_editbox(client, packet)
+
+        db_user = self.db.get_user("bio_user")
+        assert db_user.bio == "A valid bio"
+        user.speak_l.assert_called_with("bio-updated")
+
+        # 2. Too long bio
+        server._user_states["bio_user"] = {"menu": "bio_input"}
+        packet = {"text": "a" * 251}
+        await server._handle_editbox(client, packet)
+
+        db_user = self.db.get_user("bio_user")
+        # Should not have updated
+        assert db_user.bio == "A valid bio"
+        user.speak_l.assert_called_with("error-bio-length")

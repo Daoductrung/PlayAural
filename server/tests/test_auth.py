@@ -8,9 +8,13 @@ import os
 class MockClient:
     def __init__(self):
         self.sent_messages = []
+        self.ip_address = "127.0.0.1"
 
     async def send(self, message):
         self.sent_messages.append(message)
+
+    async def close(self):
+        pass
 
 
 class TestAuthSecurity:

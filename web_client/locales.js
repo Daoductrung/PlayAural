@@ -87,6 +87,7 @@ window.LOCALES = {
         "error-email-empty": "Email is mandatory and cannot be empty.",
         "reg-error-email": "Email is required to register.",
         "error-email-taken": "This email is already in use by another account.",
+        "auth-error-rate-limit": "Too many failed login attempts. Please try again in 15 minutes.",
 
         "intro-text": "PlayAural is an audio-first online gaming platform designed for accessibility. Built on PlayPalace, it offers a shared space for casual players to enjoy various card, dice, and adventure games together on equal footing.",
         "landing-title": "Welcome to PlayAural Web",
@@ -212,6 +213,7 @@ window.LOCALES = {
         "error-email-empty": "Email là bắt buộc và không được để trống.",
         "reg-error-email": "Email là bắt buộc để đăng ký.",
         "error-email-taken": "Email này đã được sử dụng bởi một tài khoản khác.",
+        "auth-error-rate-limit": "Quá nhiều lần đăng nhập thất bại. Vui lòng thử lại sau 15 phút.",
 
         "intro-text": "PlayAural là nền tảng chơi game trực tuyến ưu tiên âm thanh, được thiết kế cho khả năng tiếp cận. Dựa trên PlayPalace, tôi mang đến một không gian chung để mọi người cùng thưởng thức các trò chơi bài, xúc xắc và phiêu lưu một cách bình đẳng.",
         "landing-title": "Chào mừng bạn đến với PlayAural Web",

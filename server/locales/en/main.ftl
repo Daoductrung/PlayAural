@@ -79,6 +79,8 @@ goodbye = Goodbye!
 
 user-online = { $player } came online.
 user-offline = { $player } went offline.
+friend-online = Your friend { $player } is now online.
+friend-offline = Your friend { $player } went offline.
 permission-denied = You do not have permission to perform this action on a Developer.
 kick-user = Kick User
 kick-broadcast = { $target } was kicked by { $actor }.
@@ -114,6 +116,8 @@ option-notify-table-created-on = Notify when table created: On
 option-notify-table-created-off = Notify when table created: Off
 option-notify-user-presence-on = User online/offline notifications: On
 option-notify-user-presence-off = User online/offline notifications: Off
+option-notify-friend-presence-on = Friend online/offline notifications: On
+option-notify-friend-presence-off = Friend online/offline notifications: Off
 dice-keeping-style-option = Dice keeping style: { $style }
 dice-keeping-style-changed = Dice keeping style set to { $style }.
 dice-keeping-style-indexes = Dice indexes

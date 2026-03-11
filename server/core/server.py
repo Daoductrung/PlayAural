@@ -259,11 +259,11 @@ PlayAural Server
             # Only broadcast if this client was actually the active one AND not banned
             if user and user.connection == client and not is_banned:
                 task = asyncio.create_task(self._delayed_offline_broadcast(
-                    client.username, offline_sound, user.trust_level
+                    client.username, user.uuid, offline_sound, user.trust_level
                 ))
                 self._pending_disconnects[client.username] = task
 
-    async def _delayed_offline_broadcast(self, username: str, sound: str, trust_level: int) -> None:
+    async def _delayed_offline_broadcast(self, username: str, user_uuid: str, sound: str, trust_level: int) -> None:
         """Wait briefly then broadcast offline message if user hasn't reconnected."""
         try:
             await asyncio.sleep(2.0) # 2 seconds grace period
@@ -272,7 +272,7 @@ PlayAural Server
             self._pending_disconnects.pop(username, None)
             
             # Broadcast
-            self._broadcast_presence_l("user-offline", username, sound, trust_level)
+            self._broadcast_presence_l("user-offline", username, user_uuid, sound, trust_level)
             
         except asyncio.CancelledError:
             # User reconnected in time
@@ -281,18 +281,39 @@ PlayAural Server
             self.on_user_presence_changed()
 
     def _broadcast_presence_l(
-        self, message_id: str, player_name: str, sound: str, target_trust_level: int = 1
+        self, message_id: str, player_name: str, player_uuid: str, default_sound: str, target_trust_level: int = 1
     ) -> None:
         """Broadcast a localized presence announcement to all approved online users with sound."""
+        is_online_event = (message_id == "user-online")
+        friend_message_id = "friend-online" if is_online_event else "friend-offline"
+        friend_sound = "onlinefriend.ogg" if is_online_event else "offlinefriend.ogg"
+
+        # Optimization: Fetch the connected player's friends once to avoid N+1 queries.
+        # The database returns a list of UUIDs for friends.
+        connecting_player_friends_uuids = set(self._db.get_friends(player_uuid))
+
         for user in self._users.values():
-            if user.approved:
-                # If target is a normal user (trust level < 2) and this user has presence notifications off, skip
+            if not user.approved:
+                continue
+
+            # Check if this connected user's UUID is in the joining/leaving player's friend list.
+            # Friendship is bidirectional, so checking one side is sufficient.
+            is_friend = False
+            if user.preferences.notify_friend_presence:
+                is_friend = user.uuid in connecting_player_friends_uuids
+
+            if is_friend:
+                # Play friend priority notification
+                user.speak_l(friend_message_id, buffer="system", player=player_name)
+                user.play_sound(friend_sound)
+            else:
+                # If target is a normal user (trust level < 2) and this user has general presence notifications off, skip
                 if target_trust_level < 2 and not user.preferences.notify_user_presence:
                     continue
                 # Use "system" buffer for joins/parts
                 user.speak_l(message_id, buffer="system", player=player_name)
-                # Play sound (always uses main sound channel)
-                user.play_sound(sound)
+                # Play default sound
+                user.play_sound(default_sound)
 
     async def _broadcast_admin_announcement(self, admin_name: str) -> None:
         """Broadcast an admin announcement to all approved online users."""
@@ -506,7 +527,7 @@ PlayAural Server
 
             # Only broadcast if we didn't cancel a pending disconnect (debounce)
             if not pending_task:
-                 self._broadcast_presence_l("user-online", username, online_sound, trust_level)
+                 self._broadcast_presence_l("user-online", username, user_uuid, online_sound, trust_level)
                  self.on_user_presence_changed()
 
                  # If user is a developer or admin, announce that as well
@@ -1289,20 +1310,9 @@ PlayAural Server
         dice_style_name = Localization.get(user.locale, style_key)
         
         items = []
+
+        # 1. Audio & Media
         items.extend([
-            MenuItem(
-                text=Localization.get(
-                    user.locale, "language-option", language=current_lang
-                ),
-                id="language",
-            ),
-            MenuItem(
-                text=Localization.get(
-                    user.locale,
-                    "option-notify-user-presence-on" if prefs.notify_user_presence else "option-notify-user-presence-off"
-                ),
-                id="notify_user_presence",
-            ),
             MenuItem(
                 text=Localization.get(
                     user.locale,
@@ -1329,6 +1339,54 @@ PlayAural Server
                 ),
                 id="turn_sound",
             ),
+        ])
+
+        if user.client_type != "web":
+            items.append(
+                MenuItem(
+                    text=Localization.get(
+                        user.locale,
+                        "play-typing-sounds-option",
+                        status=Localization.get(
+                            user.locale,
+                            "option-on" if prefs.play_typing_sounds else "option-off",
+                        ),
+                    ),
+                    id="play_typing_sounds",
+                )
+            )
+
+        # 2. Accessibility & Interface
+        items.append(
+            MenuItem(
+                text=Localization.get(
+                    user.locale, "language-option", language=current_lang
+                ),
+                id="language",
+            )
+        )
+
+        if user.client_type == "web":
+            items.append(
+                MenuItem(text=Localization.get(user.locale, "speech-settings"), id="speech_settings")
+            )
+        else:
+            items.append(
+                MenuItem(
+                    text=Localization.get(
+                        user.locale,
+                        "invert-multiline-enter-option",
+                        status=Localization.get(
+                            user.locale,
+                            "option-on" if prefs.invert_multiline_enter_behavior else "option-off",
+                        ),
+                    ),
+                    id="invert_multiline_enter",
+                )
+            )
+
+        # 3. Social & Notifications
+        items.extend([
             MenuItem(
                 text=Localization.get(
                     user.locale,
@@ -1349,48 +1407,40 @@ PlayAural Server
                 ),
                 id="mute_table_chat",
             ),
-        ])
-
-
-        # PC-specific options (Hide for Web)
-        if user.client_type != "web":
-            items.extend([
-                MenuItem(
-                    text=Localization.get(
-                        user.locale,
-                        "invert-multiline-enter-option",
-                        status=Localization.get(
-                            user.locale,
-                            "option-on" if prefs.invert_multiline_enter_behavior else "option-off",
-                        ),
-                    ),
-                    id="invert_multiline_enter",
+            MenuItem(
+                text=Localization.get(
+                    user.locale,
+                    "option-notify-user-presence-on" if prefs.notify_user_presence else "option-notify-user-presence-off"
                 ),
-                MenuItem(
-                    text=Localization.get(
-                        user.locale,
-                        "play-typing-sounds-option",
-                        status=Localization.get(
-                            user.locale,
-                            "option-on" if prefs.play_typing_sounds else "option-off",
-                        ),
-                    ),
-                    id="play_typing_sounds",
+                id="notify_user_presence",
+            ),
+            MenuItem(
+                text=Localization.get(
+                    user.locale,
+                    "option-notify-friend-presence-on" if prefs.notify_friend_presence else "option-notify-friend-presence-off"
                 ),
-            ])
-        else:
-            # Web-specific options
-            items.append(
-                MenuItem(text=Localization.get(user.locale, "speech-settings"), id="speech_settings")
-            )
-
-        items.extend([
+                id="notify_friend_presence",
+            ),
             MenuItem(
                 text=Localization.get(
                     user.locale,
                     "option-notify-table-created-on" if prefs.notify_table_created else "option-notify-table-created-off"
                 ),
                 id="notify_table_created",
+            ),
+        ])
+
+        # 4. Gameplay Preferences
+        items.extend([
+            MenuItem(
+                text=Localization.get(
+                    user.locale,
+                    "dice-keeping-style-option",
+                    style=Localization.get(
+                        user.locale, self.DICE_KEEPING_STYLES.get(prefs.dice_keeping_style, "dice-keeping-style-indexes")
+                    ),
+                ),
+                id="dice_keeping_style",
             ),
             MenuItem(
                 text=Localization.get(
@@ -1402,18 +1452,9 @@ PlayAural Server
                 ),
                 id="clear_kept",
             ),
-            MenuItem(
-                text=Localization.get(
-                    user.locale,
-                    "dice-keeping-style-option",
-                    style=Localization.get(
-                        user.locale, self.DICE_KEEPING_STYLES.get(prefs.dice_keeping_style, "dice-keeping-style-indexes")
-                    ),
-                ),
-                id="dice_keeping_style",
-            ),
             MenuItem(text=Localization.get(user.locale, "back"), id="back"),
         ])
+
         user.show_menu(
             "options_menu",
             items,
@@ -2675,6 +2716,10 @@ PlayAural Server
             self._show_options_menu(user)
         elif selection_id == "notify_user_presence":
             prefs.notify_user_presence = not prefs.notify_user_presence
+            self._save_user_preferences(user)
+            self._show_options_menu(user)
+        elif selection_id == "notify_friend_presence":
+            prefs.notify_friend_presence = not prefs.notify_friend_presence
             self._save_user_preferences(user)
             self._show_options_menu(user)
         elif selection_id == "clear_kept":

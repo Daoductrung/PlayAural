@@ -79,6 +79,8 @@ goodbye = Tạm biệt!
 
 user-online = { $player } đã trực tuyến.
 user-offline = { $player } đã ngoại tuyến.
+friend-online = Bạn của bạn { $player } hiện đã trực tuyến.
+friend-offline = Bạn của bạn { $player } đã ngoại tuyến.
 permission-denied = Bạn không có quyền thực hiện hành động này đối với Nhà phát triển.
 kick-user = Đuổi người chơi
 kick-broadcast = { $target } đã bị đuổi bởi { $actor }.
@@ -114,6 +116,8 @@ option-notify-table-created-on = Thông báo khi có bàn mới: Bật
 option-notify-table-created-off = Thông báo khi có bàn mới: Tắt
 option-notify-user-presence-on = Thông báo người dùng trực tuyến/ngoại tuyến: Bật
 option-notify-user-presence-off = Thông báo người dùng trực tuyến/ngoại tuyến: Tắt
+option-notify-friend-presence-on = Thông báo trạng thái bạn bè: Bật
+option-notify-friend-presence-off = Thông báo trạng thái bạn bè: Tắt
 dice-keeping-style-option = Kiểu giữ xúc xắc: { $style }
 dice-keeping-style-changed = Kiểu giữ xúc xắc đã đặt thành { $style }.
 dice-keeping-style-indexes = Theo vị trí

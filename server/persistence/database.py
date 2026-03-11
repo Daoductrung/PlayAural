@@ -67,9 +67,75 @@ class Database:
         """Connect to the database and create tables if needed."""
         self._conn = sqlite3.connect(str(self.db_path))
         self._conn.row_factory = sqlite3.Row
+        self._migrate_username_collation()
         self._conn.execute("PRAGMA foreign_keys = ON;")
         self._create_tables()
         self.prune_old_records()
+
+    def _migrate_username_collation(self) -> None:
+        """Ensure usernames are case-insensitive unique at the schema level.
+        Cleans up existing duplicates and migrates table if needed."""
+        cursor = self._conn.cursor()
+
+        # Check if users table exists first
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='users'")
+        if not cursor.fetchone():
+            return
+
+        # Check if the column is already COLLATE NOCASE
+        cursor.execute("PRAGMA table_info(users)")
+        columns = cursor.fetchall()
+
+        # We need to query sqlite_master to see the full CREATE TABLE statement
+        # because PRAGMA table_info doesn't easily expose collations in some SQLite versions.
+        cursor.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='users'")
+        row = cursor.fetchone()
+        if not row or not row[0]:
+            return
+
+        sql = row[0].upper()
+        if "COLLATE NOCASE" in sql:
+            return  # Already migrated
+
+        logging.info("Migrating users table to enforce case-insensitive usernames.")
+
+        # Step 1: Clean up duplicates (Keep the oldest row for each lower(username))
+        cursor.execute("""
+            DELETE FROM users
+            WHERE id NOT IN (
+                SELECT MIN(id)
+                FROM users
+                GROUP BY LOWER(username)
+            )
+        """)
+
+        # Step 2: Create the new table with COLLATE NOCASE
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS users_new (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE COLLATE NOCASE NOT NULL,
+                password_hash TEXT NOT NULL,
+                uuid TEXT NOT NULL,
+                locale TEXT DEFAULT 'en',
+                preferences_json TEXT DEFAULT '{}',
+                trust_level INTEGER DEFAULT 1,
+                approved INTEGER DEFAULT 0,
+                email TEXT DEFAULT '',
+                bio TEXT DEFAULT '',
+                gender TEXT DEFAULT 'Not set',
+                registration_date TEXT DEFAULT ''
+            )
+        """)
+
+        # Step 3: Copy data
+        cursor.execute("INSERT INTO users_new SELECT * FROM users")
+
+        # Step 4: Swap tables
+        cursor.execute("DROP TABLE users")
+        cursor.execute("ALTER TABLE users_new RENAME TO users")
+
+        self._conn.commit()
+        logging.info("Users table migration complete.")
 
     def close(self) -> None:
         """Close the database connection."""
@@ -86,7 +152,7 @@ class Database:
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                username TEXT UNIQUE NOT NULL,
+                username TEXT UNIQUE COLLATE NOCASE NOT NULL,
                 password_hash TEXT NOT NULL,
                 uuid TEXT NOT NULL,
                 locale TEXT DEFAULT 'en',
@@ -518,9 +584,9 @@ class Database:
         )
 
     def user_exists(self, username: str) -> bool:
-        """Check if a user exists."""
+        """Check if a user exists (case-insensitive)."""
         cursor = self._conn.cursor()
-        cursor.execute("SELECT 1 FROM users WHERE username = ?", (username,))
+        cursor.execute("SELECT 1 FROM users WHERE LOWER(username) = LOWER(?)", (username,))
         return cursor.fetchone() is not None
 
     def email_exists(self, email: str, exclude_username: str | None = None) -> bool:
@@ -529,9 +595,9 @@ class Database:
             return False  # Empty emails shouldn't trigger "taken" errors for legacy compat
         cursor = self._conn.cursor()
         if exclude_username:
-            cursor.execute("SELECT 1 FROM users WHERE email = ? AND username != ?", (email, exclude_username))
+            cursor.execute("SELECT 1 FROM users WHERE LOWER(email) = LOWER(?) AND LOWER(username) != LOWER(?)", (email, exclude_username))
         else:
-            cursor.execute("SELECT 1 FROM users WHERE email = ?", (email,))
+            cursor.execute("SELECT 1 FROM users WHERE LOWER(email) = LOWER(?)", (email,))
         return cursor.fetchone() is not None
 
     def update_user_locale(self, username: str, locale: str) -> None:

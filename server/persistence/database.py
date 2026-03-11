@@ -465,10 +465,10 @@ class Database:
     # User operations
 
     def get_user(self, username: str) -> UserRecord | None:
-        """Get a user by username."""
+        """Get a user by username (case-insensitive)."""
         cursor = self._conn.cursor()
         cursor.execute(
-            "SELECT id, username, password_hash, uuid, locale, preferences_json, trust_level, approved, email, bio, motd_version, gender, registration_date FROM users WHERE username = ?",
+            "SELECT id, username, password_hash, uuid, locale, preferences_json, trust_level, approved, email, bio, motd_version, gender, registration_date FROM users WHERE LOWER(username) = LOWER(?)",
             (username,),
         )
         row = cursor.fetchone()

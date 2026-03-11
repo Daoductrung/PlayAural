@@ -416,6 +416,7 @@ friends-send-request = Gửi lời mời kết bạn
 friends-list-empty = Bạn chưa có người bạn nào.
 friend-status-offline = Ngoại tuyến
 friend-status-playing = Đang chơi { $game }
+friend-status-spectating = Đang xem { $game }
 friend-status-lobby = Trong phòng chờ
 friend-list-entry = { $username } ({ $status })
 
@@ -449,3 +450,4 @@ friends-grouped-requests = Bạn có lời mời kết bạn đang chờ từ: {
 friends-grouped-accepted = Lời mời kết bạn của bạn đã được chấp nhận bởi: { $usernames }
 friends-grouped-declined = Lời mời kết bạn của bạn đã bị từ chối bởi: { $usernames }
 friends-grouped-removed = Bạn đã bị xóa khỏi danh sách bạn bè bởi: { $usernames }
+friends-and-others = { $names } và { $count } người khác

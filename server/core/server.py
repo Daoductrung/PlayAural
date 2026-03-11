@@ -277,6 +277,8 @@ PlayAural Server
         except asyncio.CancelledError:
             # User reconnected in time
             pass
+        finally:
+            self.on_user_presence_changed()
 
     def _broadcast_presence_l(
         self, message_id: str, player_name: str, sound: str, target_trust_level: int = 1
@@ -505,6 +507,7 @@ PlayAural Server
             # Only broadcast if we didn't cancel a pending disconnect (debounce)
             if not pending_task:
                  self._broadcast_presence_l("user-online", username, online_sound, trust_level)
+                 self.on_user_presence_changed()
 
                  # If user is a developer or admin, announce that as well
                  if trust_level >= 3:
@@ -677,7 +680,14 @@ PlayAural Server
                 grouped[etype].append(notif["source_username"])
 
         for etype, usernames in grouped.items():
-            formatted_names = Localization.format_list_and(user.locale, usernames)
+            # Cap the list at 3 to prevent TTS flooding
+            if len(usernames) > 3:
+                displayed_names = usernames[:3]
+                remaining_count = len(usernames) - 3
+                formatted_names_base = Localization.format_list_and(user.locale, displayed_names)
+                formatted_names = Localization.get(user.locale, "friends-and-others", names=formatted_names_base, count=remaining_count)
+            else:
+                formatted_names = Localization.format_list_and(user.locale, usernames)
 
             if etype == "friend_request_received":
                 user.speak_l("friends-grouped-requests", usernames=formatted_names)
@@ -1199,9 +1209,32 @@ PlayAural Server
         items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
         return items
 
+    def on_user_presence_changed(self) -> None:
+        """Called when a user logs in or disconnects to refresh social menus."""
+        for username, user in self._users.items():
+            state = self._user_states.get(username, {})
+            current_menu = state.get("menu")
+            if current_menu == "friends_list_menu":
+                self._show_friends_list_menu(user)
+
+    def on_friend_requests_changed(self, target_uuid: str) -> None:
+        """Called when friend requests are sent, accepted, or declined to refresh UI."""
+        # We need to find the user by UUID to update their menu
+        for username, user in self._users.items():
+            if user.uuid == target_uuid:
+                state = self._user_states.get(username, {})
+                current_menu = state.get("menu")
+                if current_menu == "friends_hub_menu":
+                    self._show_friends_hub_menu(user)
+                elif current_menu == "friend_requests_menu":
+                    self._show_friend_requests_menu(user)
+                elif current_menu == "friends_list_menu":
+                    self._show_friends_list_menu(user)
+
     def on_tables_changed(self) -> None:
         """Called by TableManager when a table is created, destroyed, or changes status.
         Dynamically updates the tables menus for any users currently viewing them."""
+        self.on_user_presence_changed()
         for username, user in self._users.items():
             state = self._user_states.get(username, {})
             current_menu = state.get("menu")
@@ -1961,7 +1994,11 @@ PlayAural Server
 
             for f_name in friends:
                 # Determine status
-                is_online = f_name in self._users
+                online_user = self._users.get(f_name)
+                # Ensure they are truly online and not stuck in banned screen or unapproved
+                state = self._user_states.get(f_name, {})
+                is_online = online_user is not None and online_user.approved and state.get("menu") != "banned_menu"
+
                 if not is_online:
                     status = Localization.get(user.locale, "friend-status-offline")
                 else:
@@ -1969,7 +2006,18 @@ PlayAural Server
                     if table:
                         game_class = get_game_class(table.game_type)
                         game_name = Localization.get(user.locale, game_class.get_name_key()) if game_class else table.game_type
-                        status = Localization.get(user.locale, "friend-status-playing", game=game_name)
+
+                        # Determine if spectating
+                        is_spectator = False
+                        for m in table.members:
+                            if m.username == f_name:
+                                is_spectator = m.is_spectator
+                                break
+
+                        if is_spectator:
+                            status = Localization.get(user.locale, "friend-status-spectating", game=game_name)
+                        else:
+                            status = Localization.get(user.locale, "friend-status-playing", game=game_name)
                     else:
                         status = Localization.get(user.locale, "friend-status-lobby")
 
@@ -2068,6 +2116,8 @@ PlayAural Server
                 else:
                     self._db.add_notification(target_record.uuid, user.username, "friend_removed")
 
+                self.on_friend_requests_changed(target_record.uuid)
+
             self._show_friends_list_menu(user)
 
     def _show_friend_requests_menu(self, user: NetworkUser) -> None:
@@ -2149,6 +2199,7 @@ PlayAural Server
                     target_user.play_sound("friend_accepted.ogg")
                 else:
                     self._db.add_notification(target_record.uuid, user.username, "friend_accepted")
+                self.on_friend_requests_changed(target_record.uuid)
             else:
                 user.speak_l("request-not-found")
             self._show_friend_requests_menu(user)
@@ -2166,6 +2217,7 @@ PlayAural Server
             else:
                 self._db.add_notification(target_record.uuid, user.username, "friend_declined")
 
+            self.on_friend_requests_changed(target_record.uuid)
             self._show_friend_requests_menu(user)
 
     def _show_public_profile(self, requesting_user: NetworkUser, target_username: str, return_menu_id: str) -> None:
@@ -4009,6 +4061,7 @@ PlayAural Server
                          target_user.play_sound("friend_accepted.ogg")
                      else:
                          self._db.add_notification(target_record.uuid, user.username, "friend_accepted")
+                     self.on_friend_requests_changed(target_record.uuid)
                 elif status == "sent":
                      user.speak_l("friend-request-sent", username=target_record.username)
                      user.play_sound("friend_request_sent.ogg")
@@ -4019,6 +4072,7 @@ PlayAural Server
                          target_user.play_sound("friend_request_received.ogg")
                      else:
                          self._db.add_notification(target_record.uuid, user.username, "friend_request_received")
+                     self.on_friend_requests_changed(target_record.uuid)
 
                 self._show_friends_hub_menu(user)
                 return

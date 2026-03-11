@@ -416,6 +416,7 @@ friends-send-request = Send Friend Request
 friends-list-empty = You have no friends yet.
 friend-status-offline = Offline
 friend-status-playing = Playing { $game }
+friend-status-spectating = Spectating { $game }
 friend-status-lobby = In Lobby
 friend-list-entry = { $username } ({ $status })
 
@@ -449,3 +450,7 @@ friends-grouped-requests = You have pending friend requests from: { $usernames }
 friends-grouped-accepted = Your friend requests were accepted by: { $usernames }
 friends-grouped-declined = Your friend requests were declined by: { $usernames }
 friends-grouped-removed = You were removed from the friends list by: { $usernames }
+friends-and-others = { $names } and { $count } { $count ->
+    [one] other
+   *[other] others
+}

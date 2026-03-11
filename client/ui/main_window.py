@@ -604,6 +604,27 @@ class MainWindow(wx.Frame):
                                 packet["selection_id"] = item_id
                         self.network.send_packet(packet)
                 return
+            elif self.escape_behavior == "select_first_option":
+                # Send selection for the first item without actually moving focus
+                if self.current_mode == "list" and self.connected:
+                    item_count = self.menu_list.GetCount()
+                    if item_count > 0:
+                        # Play menuenter sound like a normal activation
+                        if self.sound_manager:
+                            self.sound_manager.play_menuenter()
+                        # Build packet with selection (1-based index)
+                        packet = {
+                            "type": "menu",
+                            "menu_id": self.current_menu_id,
+                            "selection": 1,
+                        }
+                        # Include selection_id for the first item if available
+                        if 0 < len(self.current_menu_item_ids):
+                            item_id = self.current_menu_item_ids[0]
+                            if item_id is not None:
+                                packet["selection_id"] = item_id
+                        self.network.send_packet(packet)
+                return
             elif self.escape_behavior == "escape_event":
                 # Send explicit escape event to server
                 if self.connected:

@@ -368,6 +368,9 @@ PlayAural Server
 
             if packet_type == "menu":
                 await self._handle_menu(client, packet)
+            elif packet_type == "escape":
+                packet["selection_id"] = "back"
+                await self._handle_menu(client, packet)
             elif packet_type == "keybind":
                 await self._handle_keybind(client, packet)
             elif packet_type == "editbox":
@@ -2103,9 +2106,6 @@ PlayAural Server
         items.append(MenuItem(text=Localization.get(user.locale, "remove-friend"), id="remove_friend"))
         items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
 
-        # Prepend title dynamically as a read-only item
-        title = Localization.get(user.locale, "friend-actions-title", username=target_username)
-        items.insert(0, MenuItem(text=title, id=""))
         user.show_menu(
             "friend_actions_menu",
             items,
@@ -2209,9 +2209,7 @@ PlayAural Server
 
     def _show_friend_request_actions_menu(self, user: NetworkUser, target_username: str) -> None:
         """Show accept/decline for a specific request."""
-        title = Localization.get(user.locale, "friend-request-from", username=target_username)
         items = [
-            MenuItem(text=title, id=""),
             MenuItem(text=Localization.get(user.locale, "accept"), id="accept"),
             MenuItem(text=Localization.get(user.locale, "decline"), id="decline"),
             MenuItem(text=Localization.get(user.locale, "back"), id="back")
@@ -2308,9 +2306,6 @@ PlayAural Server
              items.append(MenuItem(text=Localization.get(requesting_user.locale, "admin-view-email", email=email_str), id=""))
 
         items.append(MenuItem(text=Localization.get(requesting_user.locale, "back"), id="back"))
-
-        title = Localization.get(requesting_user.locale, "public-profile-title", username=target_record.username)
-        items.insert(0, MenuItem(text=title, id=""))
 
         requesting_user.show_menu(
             "public_profile_menu",
@@ -4201,28 +4196,35 @@ PlayAural Server
                 best_match = None
                 best_match_len = 0
 
-                # Check online friends first
-                friend_uuids = self._db.get_friends(user.uuid)
-                for f_uuid in friend_uuids:
-                    # Find online user with this UUID
-                    for u in self._users.values():
-                        if u.uuid == f_uuid and u.username:
-                            target_name = u.username
-                            if text_after_at.lower().startswith(target_name.lower()):
-                                if len(text_after_at) == len(target_name) or text_after_at[len(target_name)] == ' ':
-                                    if len(target_name) > best_match_len:
+                # Pre-fetch friend UUIDs for fast lookup
+                friend_uuids = set(self._db.get_friends(user.uuid))
+                text_lower = text_after_at.lower()
+
+                # Check all online users in one pass, prioritizing friends
+                for u in self._users.values():
+                    if u.username and u.username != username:
+                        target_name = u.username
+                        target_lower = target_name.lower()
+
+                        if text_lower.startswith(target_lower):
+                            # Ensure it's a full name match (either exact match or followed by space)
+                            if len(text_lower) == len(target_lower) or text_lower[len(target_lower)] == ' ':
+                                is_friend = u.uuid in friend_uuids
+                                # We update best match if this is a friend AND we don't have a friend match yet,
+                                # OR if it's a longer match than we currently have.
+                                # A friend match of ANY length overrides a non-friend match.
+                                if not best_match:
+                                    best_match = target_name
+                                    best_match_len = len(target_name)
+                                    best_match_is_friend = is_friend
+                                else:
+                                    if is_friend and not best_match_is_friend:
+                                        # Friend overrides non-friend
                                         best_match = target_name
                                         best_match_len = len(target_name)
-                            break
-
-                # Fallback: check all online users if no friend matched
-                if not best_match:
-                    for u in self._users.values():
-                        if u.username:
-                            target_name = u.username
-                            if text_after_at.lower().startswith(target_name.lower()):
-                                if len(text_after_at) == len(target_name) or text_after_at[len(target_name)] == ' ':
-                                    if len(target_name) > best_match_len:
+                                        best_match_is_friend = True
+                                    elif is_friend == best_match_is_friend and len(target_name) > best_match_len:
+                                        # Longer match wins (tiebreaker)
                                         best_match = target_name
                                         best_match_len = len(target_name)
 
@@ -4457,9 +4459,7 @@ PlayAural Server
             self._show_online_users_menu(user)
             return
 
-        title = Localization.get(user.locale, "online-user-actions-title", username=target_username)
         items = [
-            MenuItem(text=title, id=""),
             MenuItem(text=Localization.get(user.locale, "view-profile"), id="view_profile"),
         ]
 

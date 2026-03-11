@@ -101,6 +101,9 @@ user-role-user = User
 client-type-web = Web
 client-type-python = Desktop
 online-user-full-entry = { $username } ({ $role }, { $client }): { $status }
+online-user-actions-title = Actions for { $username }
+user-not-online-anymore = This user is no longer online.
+close-menu = Close
 
 language = Language
 language-option = Language: { $language }

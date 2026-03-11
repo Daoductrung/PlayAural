@@ -101,6 +101,9 @@ user-role-user = Người dùng
 client-type-web = Web
 client-type-python = Máy tính
 online-user-full-entry = { $username } ({ $role }, { $client }): { $status }
+online-user-actions-title = Hành động cho { $username }
+user-not-online-anymore = Người dùng này không còn trực tuyến.
+close-menu = Đóng
 
 language = Ngôn ngữ
 language-option = Ngôn ngữ: { $language }

@@ -1237,6 +1237,9 @@ PlayAural Server
             current_menu = state.get("menu")
             if current_menu == "friends_list_menu":
                 self._show_friends_list_menu(user)
+            elif current_menu == "online_users":
+                items = self._get_online_users_menu_items(user)
+                user.update_menu("online_users", items)
 
     def on_friend_requests_changed(self, target_uuid: str) -> None:
         """Called when friend requests are sent, accepted, or declined to refresh UI."""
@@ -1883,7 +1886,9 @@ PlayAural Server
         elif current_menu == "public_profile_menu":
             await self._handle_public_profile_selection(user, selection_id, state)
         elif current_menu == "online_users":
-            self._restore_previous_menu(user, state)
+            await self._handle_online_users_selection(user, selection_id, state)
+        elif current_menu == "online_user_actions_menu":
+            await self._handle_online_user_actions_selection(user, selection_id, state)
         elif current_menu in [
             "admin_menu", "account_approval_menu", "pending_user_actions_menu",
             "promote_admin_menu", "demote_admin_menu", "promote_confirm_menu",
@@ -2325,6 +2330,12 @@ PlayAural Server
             return_menu_id = state.get("return_menu_id")
             if return_menu_id == "friend_actions_menu":
                  self._show_friend_actions_menu(user, state.get("target_username", ""))
+            elif return_menu_id == "online_user_actions_menu":
+                 # For online user actions, we need to construct a pseudo-state to resume correctly
+                 # However, _show_online_user_actions_menu expects a state dict representing the Online List's origins.
+                 # Let's pass a generic state to avoid crashing, though the deeply nested back might route to main_menu if lost.
+                 pseudo_state = {"return_menu_id": "main_menu", "return_menu": {}, "return_state": {}}
+                 self._show_online_user_actions_menu(user, state.get("target_username", ""), pseudo_state)
             else:
                  self._show_main_menu(user)
 
@@ -4314,9 +4325,9 @@ PlayAural Server
                 online_users.append(username)
         return sorted(online_users, key=str.lower)
 
-    def _format_online_users_lines(self, user: NetworkUser) -> list[str]:
-        """Format online users with game names for menu display."""
-        lines: list[str] = []
+    def _format_online_users_lines(self, user: NetworkUser) -> list[tuple[str, str]]:
+        """Format online users with game names for menu display. Returns tuples of (username, display_text)."""
+        lines: list[tuple[str, str]] = []
         for username in self._get_online_usernames():
             online_user = self._users.get(username)
             if not online_user:
@@ -4330,9 +4341,6 @@ PlayAural Server
             # Check if user is waiting for approval
             if not online_user.approved:
                 status = Localization.get(user.locale, "online-user-waiting-approval")
-                # Fallback to old format for unapproved users if needed, but new format is fine
-                # lines.append(f"{username}: {status}") 
-                # Use new format
             else:
                 table = self._tables.find_user_table(username)
                 if table:
@@ -4354,16 +4362,30 @@ PlayAural Server
                 client=client_text,
                 status=status,
             )
-            lines.append(line)
+            lines.append((username, line))
 
-            # Logic handled above
-            pass
         if not lines:
-            lines.append(Localization.get(user.locale, "online-users-none"))
+            lines.append(("", Localization.get(user.locale, "online-users-none")))
         return lines
 
+    def _get_online_users_menu_items(self, user: NetworkUser) -> list[MenuItem]:
+        """Generate the list of MenuItems for the interactive online users list."""
+        items = [MenuItem(text=Localization.get(user.locale, "close-menu"), id="back")]
+
+        for username, line in self._format_online_users_lines(user):
+            if not username:
+                # E.g. "No users online"
+                items.append(MenuItem(text=line, id=""))
+            elif username == user.username:
+                # Do not allow opening an action menu for oneself
+                items.append(MenuItem(text=line, id=""))
+            else:
+                items.append(MenuItem(text=line, id=f"online_{username}"))
+
+        return items
+
     def _show_online_users_menu(self, user: NetworkUser) -> None:
-        """Show online users with games in a read-only menu."""
+        """Show interactive online users menu."""
         current_state = self._user_states.get(user.username, {})
         previous_menu_id = current_state.get("menu")
         previous_menu = None
@@ -4371,16 +4393,14 @@ PlayAural Server
             current_menus = getattr(user, "_current_menus", {})
             previous_menu = current_menus.get(previous_menu_id)
 
-        items = [
-            MenuItem(text=line, id="online_user")
-            for line in self._format_online_users_lines(user)
-        ]
+        items = self._get_online_users_menu_items(user)
+
         user.show_menu(
             "online_users",
             items,
-            multiletter=False,
-            escape_behavior=EscapeBehavior.SELECT_LAST,
-            position=0,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_FIRST, # Back is at index 0
+            position=1, # Default focus to first user, not the 'Back' button
         )
         self._user_states[user.username] = {
             "menu": "online_users",
@@ -4388,6 +4408,110 @@ PlayAural Server
             "return_menu": previous_menu,
             "return_state": dict(current_state),
         }
+
+    async def _handle_online_users_selection(self, user: NetworkUser, selection_id: str, state: dict) -> None:
+        """Handle selection from the interactive online users list."""
+        if selection_id == "back":
+            self._restore_previous_menu(user, state)
+        elif selection_id.startswith("online_"):
+            target_username = selection_id[7:]
+            self._show_online_user_actions_menu(user, target_username, state)
+
+    def _show_online_user_actions_menu(self, user: NetworkUser, target_username: str, previous_state: dict) -> None:
+        """Show context menu for an online user."""
+        target_user = self._users.get(target_username)
+        if not target_user:
+            user.speak_l("user-not-online-anymore")
+            # Restart the menu process to clean state
+            self._show_online_users_menu(user)
+            return
+
+        title = Localization.get(user.locale, "online-user-actions-title", username=target_username)
+        items = [
+            MenuItem(text=title, id=""),
+            MenuItem(text=Localization.get(user.locale, "view-profile"), id="view_profile"),
+        ]
+
+        # Add "Send Friend Request" if not already friends and not pending
+        friend_uuids = self._db.get_friends(user.uuid)
+        pending_uuids = self._db.get_pending_incoming_requests(user.uuid)
+        # Check if we sent one to them too
+        # To be safe, just use the helper which handles "duplicate" cleanly, but for UI:
+        if target_user.uuid not in friend_uuids and target_user.uuid not in pending_uuids:
+             items.append(MenuItem(text=Localization.get(user.locale, "friends-send-request"), id="send_friend_request"))
+
+        items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
+
+        user.show_menu(
+            "online_user_actions_menu",
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+
+        # Preserve the deep return state needed to eventually close the online list
+        self._user_states[user.username] = {
+            "menu": "online_user_actions_menu",
+            "target_username": target_username,
+            "return_menu_id": previous_state.get("return_menu_id"),
+            "return_menu": previous_state.get("return_menu"),
+            "return_state": previous_state.get("return_state"),
+        }
+
+
+    async def _handle_online_user_actions_selection(self, user: NetworkUser, selection_id: str, state: dict) -> None:
+        """Handle selection in the online user actions menu."""
+        target_username = state.get("target_username")
+
+        if selection_id == "back":
+            # Reconstruct the deep state to pass back to the online list so it knows how to close later
+            user_state = dict(state)
+            user_state["menu"] = "online_users"
+            self._user_states[user.username] = user_state
+
+            items = self._get_online_users_menu_items(user)
+            user.show_menu(
+                "online_users",
+                items,
+                multiletter=True,
+                escape_behavior=EscapeBehavior.SELECT_FIRST,
+                position=1,
+            )
+            return
+
+        target_user = self._users.get(target_username)
+        if not target_user:
+            user.speak_l("user-not-online-anymore")
+            self._show_online_users_menu(user)
+            return
+
+        if selection_id == "view_profile":
+            self._show_public_profile(user, target_username, "online_user_actions_menu")
+
+        elif selection_id == "send_friend_request":
+            status = self._db.send_friend_request(user.uuid, target_user.uuid)
+
+            if status == "already_friends":
+                 user.speak_l("friend-error-already-friends")
+            elif status == "duplicate":
+                 user.speak_l("friend-error-duplicate")
+            elif status == "accepted":
+                 user.speak_l("friend-accepted-success", username=target_user.username)
+                 user.play_sound("friend_accepted.ogg")
+                 # Notify target if online
+                 target_user.speak_l("friend-accepted-notify", username=user.username)
+                 target_user.play_sound("friend_accepted.ogg")
+                 self.on_friend_requests_changed(target_user.uuid)
+            elif status == "sent":
+                 user.speak_l("friend-request-sent", username=target_user.username)
+                 user.play_sound("friend_request_sent.ogg")
+                 # Notify target if online
+                 target_user.speak_l("friend-request-received", username=user.username)
+                 target_user.play_sound("friend_request_received.ogg")
+                 self.on_friend_requests_changed(target_user.uuid)
+
+            # Refresh the actions menu so the button disappears
+            self._show_online_user_actions_menu(user, target_username, state)
 
     def _restore_previous_menu(self, user: NetworkUser, state: dict) -> None:
         """Restore the previous menu after closing the online users list."""
@@ -4446,7 +4570,9 @@ PlayAural Server
         if table and table.game:
             player = table.game.get_player_by_id(user.uuid)
             if player:
-                table.game.status_box(player, self._format_online_users_lines(user))
+                # Strip the username tuples back down to just strings for the read-only status box
+                string_lines = [line for _, line in self._format_online_users_lines(user)]
+                table.game.status_box(player, string_lines)
                 return
 
         self._show_online_users_menu(user)

@@ -12,6 +12,7 @@ from ..administration.manager import AdministrationManager
 from ..network.websocket_server import WebSocketServer, ClientConnection
 from ..persistence.database import Database
 from ..auth.auth import AuthManager
+from ..auth.rate_limit import RateLimiter
 from ..tables.manager import TableManager
 from ..users.network_user import NetworkUser
 from ..users.base import MenuItem, EscapeBehavior
@@ -70,6 +71,9 @@ class Server:
 
         # Initialize admin manager
         self.admin_manager = AdministrationManager(self)
+
+        # Initialize rate limiter
+        self._rate_limiter = RateLimiter()
 
         # Initialize localization
         if locales_dir is None:
@@ -365,6 +369,16 @@ PlayAural Server
         # Extract client type (default to python for legacy clients)
         client_type = packet.get("client", "python")
 
+        # Rate limit check (brute force protection)
+        if not self._rate_limiter.is_login_allowed(client.ip_address):
+            await client.send({
+                "type": "login_failed",
+                "reason": "rate_limit",
+                "reconnect": False,
+            })
+            await client.close()
+            return
+
         # Check version if provided
         client_version = packet.get("version", "0.0.0")
         
@@ -385,8 +399,10 @@ PlayAural Server
         # The logic at the end of this function will prevent sending the game list, triggering the update dialog.
 
         # Try to authenticate
-        # Try to authenticate
         if not self._auth.authenticate(username, password):
+            # Record failed login
+            self._rate_limiter.record_failed_login(client.ip_address)
+
             # Determine specific failure reason
             reason = "wrong_password"
             if not self._auth.get_user(username):
@@ -399,10 +415,10 @@ PlayAural Server
                     "reconnect": False,
                 }
             )
-            # Give a tiny delay for packet to flush before disconnect? 
-            # Usually await send is enough.
-            # We still disconnect as per protocol
             return
+
+        # Success - clear failed logins for this IP
+        self._rate_limiter.clear_failed_logins(client.ip_address)
 
         # Check if user is already connected
         old_client = self._ws_server.get_client_by_username(username)
@@ -532,6 +548,12 @@ PlayAural Server
 
     def _restore_user_state(self, user: NetworkUser, username: str) -> None:
         """Restore user state or show main menu after successful login."""
+        # Enforce mandatory email requirement
+        user_record = self._db.get_user(username)
+        if user_record and not user_record.email:
+            self._show_mandatory_email_menu(user)
+            return
+
         # Check if user is in a table
         table = self._tables.find_user_table(username)
 
@@ -586,6 +608,9 @@ PlayAural Server
                             "table_id": table.table_id,
                         }
 
+        # Process Offline Notifications exactly once when they enter active state
+        self._process_offline_notifications(user)
+
         if not restored_game:
             # Not in an active game (or was a spectator); restore menu state
             state = self._user_states.get(username, {})
@@ -610,10 +635,62 @@ PlayAural Server
                 self._show_saved_tables_menu(user)
             elif current_menu == "leaderboards_menu":
                 self._show_leaderboards_menu(user)
+            elif current_menu == "personal_options_menu":
+                self._show_personal_options_menu(user)
             elif current_menu == "my_stats_menu":
                 self._show_my_stats_menu(user)
+            elif current_menu == "profile_menu":
+                self._show_profile_menu(user)
             else:
                 self._show_main_menu(user)
+
+    def _show_mandatory_email_menu(self, user: NetworkUser) -> None:
+        """Show the mandatory email setup menu."""
+        user.speak_l("mandatory-email-notice")
+        items = [
+            MenuItem(text=Localization.get(user.locale, "mandatory-email-notice"), id=""),
+            MenuItem(text=Localization.get(user.locale, "ok"), id="ok")
+        ]
+        user.show_menu(
+            "mandatory_email_menu",
+            items,
+            multiletter=False,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self._user_states[user.username] = {
+            "menu": "mandatory_email_menu"
+        }
+
+    def _process_offline_notifications(self, user: NetworkUser) -> None:
+        """Fetch, group, and announce offline notifications for a user."""
+        notifications = self._db.get_and_clear_notifications(user.uuid)
+        if not notifications:
+            return
+
+        # Group by event_type
+        grouped = {}
+        for notif in notifications:
+            etype = notif["event_type"]
+            if etype not in grouped:
+                grouped[etype] = []
+            if notif["source_username"] not in grouped[etype]:
+                grouped[etype].append(notif["source_username"])
+
+        for etype, usernames in grouped.items():
+            formatted_names = Localization.format_list_and(user.locale, usernames)
+
+            if etype == "friend_request_received":
+                user.speak_l("friends-grouped-requests", usernames=formatted_names)
+                user.play_sound("friend_request_received.ogg")
+            elif etype == "friend_accepted":
+                user.speak_l("friends-grouped-accepted", usernames=formatted_names)
+                user.play_sound("friend_accepted.ogg")
+            elif etype == "friend_declined":
+                user.speak_l("friends-grouped-declined", usernames=formatted_names)
+                user.play_sound("friend_declined.ogg")
+            elif etype == "friend_removed":
+                user.speak_l("friends-grouped-removed", usernames=formatted_names)
+                user.play_sound("friend_removed.ogg")
 
     def _show_motd_menu(self, user: NetworkUser, message: str, version: int) -> None:
         """Show the forced-read MOTD menu."""
@@ -636,6 +713,20 @@ PlayAural Server
 
     async def _handle_register(self, client: ClientConnection, packet: dict) -> None:
         """Handle registration packet from registration dialog."""
+        import re
+
+        # Rate limit check (spam protection)
+        if not self._rate_limiter.is_registration_allowed(client.ip_address):
+            locale = packet.get("locale", "en")
+            await client.send({
+                "type": "register_response",
+                "status": "error",
+                "error": "rate_limit",
+                "text": Localization.get(locale, "error-rate-limit-register")
+            })
+            await client.close()
+            return
+
         username = packet.get("username", "")
         password = packet.get("password", "")
         locale = packet.get("locale", "en") # Get locale from client, default to en
@@ -649,11 +740,51 @@ PlayAural Server
             })
             return
 
+        if not email:
+            await client.send({
+                "type": "register_response",
+                "status": "error",
+                "error": "email_empty",
+                "text": Localization.get(locale, "reg-error-email")
+            })
+            return
+
+        if self._db.email_exists(email):
+            await client.send({
+                "type": "register_response",
+                "status": "error",
+                "error": "email_taken",
+                "text": Localization.get(locale, "error-email-taken")
+            })
+            return
+
+        if len(username) < 3 or len(username) > 30:
+            await client.send({
+                "type": "register_response",
+                "status": "error",
+                "error": "username_length",
+                "text": Localization.get(locale, "auth-error-username-length")
+            })
+            return
+
+        has_letters = bool(re.search(r'[a-zA-Z]', password))
+        has_numbers = bool(re.search(r'[0-9]', password))
+
+        if len(password) < 8 or not has_letters or not has_numbers:
+            await client.send({
+                "type": "register_response",
+                "status": "error",
+                "error": "password_weak",
+                "text": Localization.get(locale, "auth-error-password-weak")
+            })
+            return
+
         # Check if this will be a user that needs approval (not the first user)
         needs_approval = self._db.get_user_count() > 0
 
         # Try to register the user
         if self._auth.register(username, password, locale=locale, email=email, bio=bio):
+            self._rate_limiter.record_registration(client.ip_address)
             await client.send({
                 "type": "register_response",
                 "status": "success",
@@ -704,9 +835,8 @@ PlayAural Server
                 text=Localization.get(user.locale, "leaderboards"), id="leaderboards"
             ),
             MenuItem(
-                text=Localization.get(user.locale, "my-stats"), id="my_stats"
+                text=Localization.get(user.locale, "personal-and-options"), id="personal_options"
             ),
-            MenuItem(text=Localization.get(user.locale, "options"), id="options"),
             MenuItem(
                 text=Localization.get(user.locale, "documentation-menu"), id="documentation"
             ),
@@ -1602,6 +1732,9 @@ PlayAural Server
         elif current_menu == "motd_menu":
             await self._handle_motd_selection(user, selection_id, state)
             return
+        elif current_menu == "mandatory_email_menu":
+            await self._handle_mandatory_email_selection(user, selection_id)
+            return
 
         # Check if user is in a table - delegate all events to game
         table = self._tables.find_user_table(username)
@@ -1619,6 +1752,8 @@ PlayAural Server
         # Handle menu selections based on current menu
         if current_menu == "main_menu":
             await self._handle_main_menu_selection(user, selection_id)
+        elif current_menu == "personal_options_menu":
+            await self._handle_personal_options_selection(user, selection_id)
         elif current_menu == "games_menu":
             await self._handle_games_selection(user, selection_id, state)
         elif current_menu == "tables_menu":
@@ -1653,6 +1788,26 @@ PlayAural Server
             await self._handle_my_stats_selection(user, selection_id, state)
         elif current_menu == "my_game_stats":
             await self._handle_my_game_stats_selection(user, selection_id, state)
+        elif current_menu == "profile_menu":
+            await self._handle_profile_selection(user, selection_id)
+        elif current_menu == "gender_menu":
+            await self._handle_gender_selection(user, selection_id)
+        elif current_menu == "bio_actions_menu":
+            await self._handle_bio_actions_selection(user, selection_id, state)
+        elif current_menu == "email_confirm_menu":
+            await self._handle_email_confirm_selection(user, selection_id, state)
+        elif current_menu == "friends_hub_menu":
+            await self._handle_friends_hub_selection(user, selection_id)
+        elif current_menu == "friends_list_menu":
+            await self._handle_friends_list_selection(user, selection_id)
+        elif current_menu == "friend_actions_menu":
+            await self._handle_friend_actions_selection(user, selection_id, state)
+        elif current_menu == "friend_requests_menu":
+            await self._handle_friend_requests_selection(user, selection_id)
+        elif current_menu == "friend_request_actions_menu":
+            await self._handle_friend_request_actions_selection(user, selection_id, state)
+        elif current_menu == "public_profile_menu":
+            await self._handle_public_profile_selection(user, selection_id, state)
         elif current_menu == "online_users":
             self._restore_previous_menu(user, state)
         elif current_menu in [
@@ -1671,6 +1826,21 @@ PlayAural Server
             await self._handle_doc_games_selection(user, selection_id)
         elif current_menu == "doc_viewer":
             await self._handle_doc_viewer_selection(user, selection_id, state)
+
+    async def _handle_mandatory_email_selection(
+        self, user: NetworkUser, selection_id: str
+    ) -> None:
+        """Handle mandatory email setup acknowledgment."""
+        if selection_id == "ok":
+            user_record = self._db.get_user(user.username)
+            user.show_editbox(
+                "email_input",
+                Localization.get(user.locale, "enter-email"),
+                default_value=user_record.email if user_record else "",
+            )
+            self._user_states[user.username]["menu"] = "email_input"
+            # Flag that we came from the mandatory loop so we know where to route after
+            self._user_states[user.username]["from_mandatory"] = True
 
     async def _handle_motd_selection(
         self, user: NetworkUser, selection_id: str, state: dict
@@ -1696,10 +1866,8 @@ PlayAural Server
             self._show_saved_tables_menu(user)
         elif selection_id == "leaderboards":
             self._show_leaderboards_menu(user)
-        elif selection_id == "my_stats":
-            self._show_my_stats_menu(user)
-        elif selection_id == "options":
-            self._show_options_menu(user)
+        elif selection_id == "personal_options":
+            self._show_personal_options_menu(user)
         elif selection_id == "documentation":
             self._show_documentation_menu(user)
         elif selection_id == "administration":
@@ -1707,6 +1875,503 @@ PlayAural Server
                 self.admin_manager._show_admin_menu(user)
         elif selection_id == "logout":
             self._show_logout_confirm_menu(user)
+
+    def _show_personal_options_menu(self, user: NetworkUser) -> None:
+        """Show the personal and options sub-menu."""
+        items = [
+            MenuItem(text=Localization.get(user.locale, "profile"), id="profile"),
+            MenuItem(text=Localization.get(user.locale, "friends"), id="friends"),
+            MenuItem(text=Localization.get(user.locale, "my-stats"), id="my_stats"),
+            MenuItem(text=Localization.get(user.locale, "options"), id="options"),
+            MenuItem(text=Localization.get(user.locale, "back"), id="back")
+        ]
+        user.show_menu(
+            "personal_options_menu",
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self._user_states[user.username] = {"menu": "personal_options_menu"}
+
+    async def _handle_personal_options_selection(self, user: NetworkUser, selection_id: str) -> None:
+        """Handle personal and options menu selection."""
+        if selection_id == "profile":
+            self._show_profile_menu(user)
+        elif selection_id == "friends":
+            self._show_friends_hub_menu(user)
+        elif selection_id == "my_stats":
+            self._show_my_stats_menu(user)
+        elif selection_id == "options":
+            self._show_options_menu(user)
+        elif selection_id == "back":
+            self._show_main_menu(user)
+
+    def _show_friends_hub_menu(self, user: NetworkUser) -> None:
+        """Show the main friends hub menu."""
+        # Get counts for the menu labels
+        pending_requests = self._db.get_pending_incoming_requests(user.uuid)
+        pending_count = len(pending_requests)
+
+        req_text = Localization.get(user.locale, "friends-pending-requests", count=pending_count) if pending_count > 0 else Localization.get(user.locale, "friends-no-pending-requests")
+
+        items = [
+            MenuItem(text=Localization.get(user.locale, "friends-my-friends"), id="my_friends"),
+            MenuItem(text=req_text, id="pending_requests"),
+            MenuItem(text=Localization.get(user.locale, "friends-send-request"), id="send_request"),
+            MenuItem(text=Localization.get(user.locale, "back"), id="back")
+        ]
+        user.show_menu(
+            "friends_hub_menu",
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self._user_states[user.username] = {"menu": "friends_hub_menu"}
+
+    async def _handle_friends_hub_selection(self, user: NetworkUser, selection_id: str) -> None:
+        """Handle selection in friends hub."""
+        if selection_id == "my_friends":
+            self._show_friends_list_menu(user)
+        elif selection_id == "pending_requests":
+            self._show_friend_requests_menu(user)
+        elif selection_id == "send_request":
+            user.show_editbox(
+                "send_friend_request_input",
+                Localization.get(user.locale, "enter-friend-username"),
+            )
+            self._user_states[user.username]["menu"] = "send_friend_request_input"
+        elif selection_id == "back":
+            self._show_personal_options_menu(user)
+
+    def _show_friends_list_menu(self, user: NetworkUser) -> None:
+        """Show the list of accepted friends and their status."""
+        friend_uuids = self._db.get_friends(user.uuid)
+        items = []
+
+        if not friend_uuids:
+            items.append(MenuItem(text=Localization.get(user.locale, "friends-list-empty"), id=""))
+        else:
+            # Sort friends alphabetically
+            friends = []
+            for f_uuid in friend_uuids:
+                f_name = self._db.get_user_name_by_uuid(f_uuid)
+                if f_name:
+                    friends.append(f_name)
+            friends.sort(key=str.lower)
+
+            for f_name in friends:
+                # Determine status
+                is_online = f_name in self._users
+                if not is_online:
+                    status = Localization.get(user.locale, "friend-status-offline")
+                else:
+                    table = self._tables.find_user_table(f_name)
+                    if table:
+                        game_class = get_game_class(table.game_type)
+                        game_name = Localization.get(user.locale, game_class.get_name_key()) if game_class else table.game_type
+                        status = Localization.get(user.locale, "friend-status-playing", game=game_name)
+                    else:
+                        status = Localization.get(user.locale, "friend-status-lobby")
+
+                display_text = Localization.get(user.locale, "friend-list-entry", username=f_name, status=status)
+                items.append(MenuItem(text=display_text, id=f"friend_{f_name}"))
+
+        items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
+
+        user.show_menu(
+            "friends_list_menu",
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self._user_states[user.username] = {"menu": "friends_list_menu"}
+
+    async def _handle_friends_list_selection(self, user: NetworkUser, selection_id: str) -> None:
+        if selection_id == "back":
+            self._show_friends_hub_menu(user)
+        elif selection_id.startswith("friend_"):
+            target_username = selection_id[7:]
+            self._show_friend_actions_menu(user, target_username)
+
+    def _show_friend_actions_menu(self, user: NetworkUser, target_username: str) -> None:
+        """Show actions for a specific friend."""
+        items = [
+            MenuItem(text=Localization.get(user.locale, "view-profile"), id="view_profile"),
+        ]
+
+        # Check if they are online and in a table
+        if target_username in self._users:
+            table = self._tables.find_user_table(target_username)
+            if table:
+                items.append(MenuItem(text=Localization.get(user.locale, "join-table"), id="join_table"))
+
+        items.append(MenuItem(text=Localization.get(user.locale, "remove-friend"), id="remove_friend"))
+        items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
+
+        # Prepend title dynamically as a read-only item
+        title = Localization.get(user.locale, "friend-actions-title", username=target_username)
+        items.insert(0, MenuItem(text=title, id=""))
+        user.show_menu(
+            "friend_actions_menu",
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self._user_states[user.username] = {
+            "menu": "friend_actions_menu",
+            "target_username": target_username
+        }
+
+    async def _handle_friend_actions_selection(self, user: NetworkUser, selection_id: str, state: dict) -> None:
+        target_username = state.get("target_username")
+        if not target_username:
+            self._show_friends_list_menu(user)
+            return
+
+        if selection_id == "back":
+            self._show_friends_list_menu(user)
+
+        elif selection_id == "view_profile":
+            self._show_public_profile(user, target_username, "friend_actions_menu")
+
+        elif selection_id == "join_table":
+            table = self._tables.find_user_table(target_username)
+            if table:
+                # Check if we are already in a table
+                current_table = self._tables.find_user_table(user.username)
+                if current_table:
+                    if current_table == table:
+                         user.speak_l("already-in-table")
+                         self._show_friend_actions_menu(user, target_username)
+                         return
+                    else:
+                         current_table.remove_member(user.username)
+
+                # Proceed to join
+                self._auto_join_table(user, table, table.game_type)
+            else:
+                user.speak_l("table-not-exists")
+                self._show_friend_actions_menu(user, target_username)
+
+        elif selection_id == "remove_friend":
+            target_record = self._db.get_user(target_username)
+            if target_record:
+                self._db.remove_friendship(user.uuid, target_record.uuid)
+                user.speak_l("friend-removed-success", username=target_username)
+                user.play_sound("friend_removed.ogg")
+
+                # Notify target
+                target_user = self._users.get(target_username)
+                if target_user:
+                    target_user.speak_l("friend-removed-notify", username=user.username)
+                    target_user.play_sound("friend_removed.ogg")
+                else:
+                    self._db.add_notification(target_record.uuid, user.username, "friend_removed")
+
+            self._show_friends_list_menu(user)
+
+    def _show_friend_requests_menu(self, user: NetworkUser) -> None:
+        """Show list of pending incoming requests."""
+        pending_uuids = self._db.get_pending_incoming_requests(user.uuid)
+        items = []
+
+        if not pending_uuids:
+            items.append(MenuItem(text=Localization.get(user.locale, "no-pending-requests"), id=""))
+        else:
+            for r_uuid in pending_uuids:
+                r_name = self._db.get_user_name_by_uuid(r_uuid)
+                if r_name:
+                    items.append(MenuItem(text=r_name, id=f"req_{r_name}"))
+
+        items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
+
+        user.show_menu(
+            "friend_requests_menu",
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self._user_states[user.username] = {"menu": "friend_requests_menu"}
+
+    async def _handle_friend_requests_selection(self, user: NetworkUser, selection_id: str) -> None:
+        if selection_id == "back":
+            self._show_friends_hub_menu(user)
+        elif selection_id.startswith("req_"):
+            target_username = selection_id[4:]
+            self._show_friend_request_actions_menu(user, target_username)
+
+    def _show_friend_request_actions_menu(self, user: NetworkUser, target_username: str) -> None:
+        """Show accept/decline for a specific request."""
+        title = Localization.get(user.locale, "friend-request-from", username=target_username)
+        items = [
+            MenuItem(text=title, id=""),
+            MenuItem(text=Localization.get(user.locale, "accept"), id="accept"),
+            MenuItem(text=Localization.get(user.locale, "decline"), id="decline"),
+            MenuItem(text=Localization.get(user.locale, "back"), id="back")
+        ]
+        user.show_menu(
+            "friend_request_actions_menu",
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self._user_states[user.username] = {
+            "menu": "friend_request_actions_menu",
+            "target_username": target_username
+        }
+
+    async def _handle_friend_request_actions_selection(self, user: NetworkUser, selection_id: str, state: dict) -> None:
+        target_username = state.get("target_username")
+        if not target_username:
+            self._show_friend_requests_menu(user)
+            return
+
+        target_record = self._db.get_user(target_username)
+        if not target_record:
+            user.speak_l("unknown-player")
+            self._show_friend_requests_menu(user)
+            return
+
+        if selection_id == "back":
+            self._show_friend_requests_menu(user)
+
+        elif selection_id == "accept":
+            # Attempt to accept
+            success = self._db.accept_friend_request(target_record.uuid, user.uuid)
+            if success:
+                user.speak_l("friend-accepted-success", username=target_username)
+                user.play_sound("friend_accepted.ogg")
+
+                # Notify target
+                target_user = self._users.get(target_username)
+                if target_user:
+                    target_user.speak_l("friend-accepted-notify", username=user.username)
+                    target_user.play_sound("friend_accepted.ogg")
+                else:
+                    self._db.add_notification(target_record.uuid, user.username, "friend_accepted")
+            else:
+                user.speak_l("request-not-found")
+            self._show_friend_requests_menu(user)
+
+        elif selection_id == "decline":
+            # Delete it
+            self._db.remove_friendship(user.uuid, target_record.uuid)
+            user.speak_l("friend-declined-success")
+
+            # Notify target
+            target_user = self._users.get(target_username)
+            if target_user:
+                target_user.speak_l("friend-declined-notify", username=user.username)
+                target_user.play_sound("friend_declined.ogg")
+            else:
+                self._db.add_notification(target_record.uuid, user.username, "friend_declined")
+
+            self._show_friend_requests_menu(user)
+
+    def _show_public_profile(self, requesting_user: NetworkUser, target_username: str, return_menu_id: str) -> None:
+        """Show a read-only profile view of another player."""
+        target_record = self._db.get_user(target_username)
+        if not target_record:
+            requesting_user.speak_l("unknown-player")
+            # Fallback to the previous menu based on state if it's tricky, but we have return_menu_id
+            state = self._user_states.get(requesting_user.username, {})
+            if return_menu_id == "friend_actions_menu":
+                 self._show_friend_actions_menu(requesting_user, state.get("target_username", ""))
+            else:
+                 self._show_main_menu(requesting_user)
+            return
+
+        date_str = target_record.registration_date[:10] if target_record.registration_date else "Unknown"
+        bio_str = target_record.bio if target_record.bio else Localization.get(requesting_user.locale, "profile-bio-empty")
+        gender_loc_key = f"gender-{target_record.gender.lower().replace(' ', '-')}"
+        gender_str = Localization.get(requesting_user.locale, gender_loc_key)
+
+        items = [
+            MenuItem(text=Localization.get(requesting_user.locale, "profile-registration-date", date=date_str), id=""),
+            MenuItem(text=Localization.get(requesting_user.locale, "profile-username", username=target_record.username), id=""),
+            MenuItem(text=Localization.get(requesting_user.locale, "profile-gender", gender=gender_str), id=""),
+            MenuItem(text=Localization.get(requesting_user.locale, "profile-bio", bio=bio_str), id=""),
+        ]
+
+        # Admins and Devs can see the email
+        if requesting_user.trust_level >= 2:
+             email_str = target_record.email if target_record.email else Localization.get(requesting_user.locale, "profile-email-empty")
+             items.append(MenuItem(text=Localization.get(requesting_user.locale, "admin-view-email", email=email_str), id=""))
+
+        items.append(MenuItem(text=Localization.get(requesting_user.locale, "back"), id="back"))
+
+        title = Localization.get(requesting_user.locale, "public-profile-title", username=target_record.username)
+        items.insert(0, MenuItem(text=title, id=""))
+
+        requesting_user.show_menu(
+            "public_profile_menu",
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self._user_states[requesting_user.username] = {
+            "menu": "public_profile_menu",
+            "return_menu_id": return_menu_id,
+            "target_username": target_username
+        }
+
+    async def _handle_public_profile_selection(self, user: NetworkUser, selection_id: str, state: dict) -> None:
+        """Handle selection in public profile."""
+        if selection_id == "back":
+            return_menu_id = state.get("return_menu_id")
+            if return_menu_id == "friend_actions_menu":
+                 self._show_friend_actions_menu(user, state.get("target_username", ""))
+            else:
+                 self._show_main_menu(user)
+
+    def _show_profile_menu(self, user: NetworkUser) -> None:
+        """Show the user's profile menu."""
+        user_record = self._db.get_user(user.username)
+        if not user_record:
+            self._show_personal_options_menu(user)
+            return
+
+        date_str = user_record.registration_date[:10] if user_record.registration_date else "Unknown"
+        email_str = user_record.email if user_record.email else Localization.get(user.locale, "profile-email-empty")
+        bio_str = user_record.bio if user_record.bio else Localization.get(user.locale, "profile-bio-empty")
+        gender_loc_key = f"gender-{user_record.gender.lower().replace(' ', '-')}"
+        gender_str = Localization.get(user.locale, gender_loc_key)
+
+        items = [
+            MenuItem(text=Localization.get(user.locale, "profile-registration-date", date=date_str), id=""),
+            MenuItem(text=Localization.get(user.locale, "profile-username", username=user_record.username), id=""),
+            MenuItem(text=Localization.get(user.locale, "profile-email", email=email_str), id="edit_email"),
+            MenuItem(text=Localization.get(user.locale, "profile-gender", gender=gender_str), id="edit_gender"),
+            MenuItem(text=Localization.get(user.locale, "profile-bio", bio=bio_str), id="edit_bio"),
+            MenuItem(text=Localization.get(user.locale, "back"), id="back")
+        ]
+
+        user.show_menu(
+            "profile_menu",
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self._user_states[user.username] = {"menu": "profile_menu"}
+
+    async def _handle_profile_selection(self, user: NetworkUser, selection_id: str) -> None:
+        """Handle profile menu selection."""
+        if selection_id == "edit_email":
+            user_record = self._db.get_user(user.username)
+            user.show_editbox(
+                "email_input",
+                Localization.get(user.locale, "enter-email"),
+                default_value=user_record.email if user_record else "",
+            )
+            self._user_states[user.username]["menu"] = "email_input"
+        elif selection_id == "edit_gender":
+            self._show_gender_menu(user)
+        elif selection_id == "edit_bio":
+            self._show_bio_actions_menu(user)
+        elif selection_id == "back":
+            self._show_personal_options_menu(user)
+
+    def _show_gender_menu(self, user: NetworkUser) -> None:
+        """Show the gender selection menu."""
+        genders = ["Male", "Female", "Non-binary", "Not set"]
+        user_record = self._db.get_user(user.username)
+        current_gender = user_record.gender if user_record else "Not set"
+
+        items = []
+        for g in genders:
+            prefix = "* " if g == current_gender else ""
+            loc_key = f"gender-{g.lower().replace(' ', '-')}"
+            localized_gender = Localization.get(user.locale, loc_key)
+            items.append(MenuItem(text=f"{prefix}{localized_gender}", id=f"gender_{g}"))
+
+        items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
+
+        user.show_menu(
+            "gender_menu",
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self._user_states[user.username] = {"menu": "gender_menu"}
+
+    async def _handle_gender_selection(self, user: NetworkUser, selection_id: str) -> None:
+        """Handle gender selection."""
+        if selection_id.startswith("gender_"):
+            new_gender = selection_id[7:]
+            user_record = self._db.get_user(user.username)
+            if user_record and user_record.gender == new_gender:
+                user.speak_l("no-changes-made")
+            else:
+                self._db.update_user_gender(user.username, new_gender)
+                user.speak_l("gender-updated")
+            self._show_profile_menu(user)
+        elif selection_id == "back":
+            self._show_profile_menu(user)
+
+    def _show_bio_actions_menu(self, user: NetworkUser) -> None:
+        """Show bio action options."""
+        items = [
+            MenuItem(text=Localization.get(user.locale, "action-set-edit"), id="set_bio"),
+            MenuItem(text=Localization.get(user.locale, "action-delete"), id="delete_bio"),
+            MenuItem(text=Localization.get(user.locale, "back"), id="back")
+        ]
+        user.show_menu(
+            "bio_actions_menu",
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self._user_states[user.username] = {"menu": "bio_actions_menu"}
+
+    async def _handle_bio_actions_selection(self, user: NetworkUser, selection_id: str, state: dict) -> None:
+        """Handle bio action selection."""
+        if selection_id == "set_bio":
+            user_record = self._db.get_user(user.username)
+            user.show_editbox(
+                "bio_input",
+                Localization.get(user.locale, "enter-bio"),
+                default_value=user_record.bio if user_record else "",
+                multiline=True,
+                max_length=250
+            )
+            self._user_states[user.username]["menu"] = "bio_input"
+        elif selection_id == "delete_bio":
+            user_record = self._db.get_user(user.username)
+            if user_record and user_record.bio:
+                self._db.update_user_bio(user.username, "")
+                user.speak_l("bio-deleted")
+            else:
+                user.speak_l("bio-already-empty")
+            self._show_profile_menu(user)
+        elif selection_id == "back":
+            self._show_profile_menu(user)
+
+    def _show_email_confirm_menu(self, user: NetworkUser, new_email: str) -> None:
+        """Show email change confirmation menu."""
+        user.speak_l("confirm-email-change", email=new_email)
+        items = [
+            MenuItem(text=Localization.get(user.locale, "confirm-yes"), id="yes"),
+            MenuItem(text=Localization.get(user.locale, "confirm-no"), id="no"),
+        ]
+        user.show_menu(
+            "email_confirm_menu",
+            items,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self._user_states[user.username] = {
+            "menu": "email_confirm_menu",
+            "pending_email": new_email
+        }
+
+    async def _handle_email_confirm_selection(self, user: NetworkUser, selection_id: str, state: dict) -> None:
+        """Handle email change confirmation selection."""
+        if selection_id == "yes":
+            new_email = state.get("pending_email", "")
+            self._db.update_user_email(user.username, new_email)
+            user.speak_l("email-updated")
+            self._show_profile_menu(user)
+        elif selection_id == "no":
+            self._show_profile_menu(user)
 
     def _show_logout_confirm_menu(self, user: NetworkUser) -> None:
         """Show logout confirmation menu."""
@@ -1967,7 +2632,7 @@ PlayAural Server
         elif selection_id == "dice_keeping_style":
             self._show_dice_keeping_style_menu(user)
         elif selection_id == "back":
-            self._show_main_menu(user)
+            self._show_personal_options_menu(user)
 
     def _show_dice_keeping_style_menu(self, user: NetworkUser) -> None:
         """Show dice keeping style selection menu."""
@@ -3106,7 +3771,7 @@ PlayAural Server
     ) -> None:
         """Handle my stats game selection."""
         if selection_id == "back":
-            self._show_main_menu(user)
+            self._show_personal_options_menu(user)
         elif selection_id.startswith("stats_"):
             game_type = selection_id[6:]  # Remove "stats_" prefix
             self._show_my_game_stats(user, game_type)
@@ -3247,8 +3912,116 @@ PlayAural Server
             # Try options handler
             if await self._handle_options_input(user, packet, user_state):
                return
-            # But currently we don't have other system inputs
-            pass
+
+            # Profile inputs
+            menu_id = user_state.get("menu")
+            value = packet.get("text", packet.get("value", ""))
+
+            if menu_id == "email_input":
+                value = value.strip()
+                user_record = self._db.get_user(user.username)
+                current_email = user_record.email if user_record else ""
+                from_mandatory = user_state.get("from_mandatory", False)
+
+                if not value:
+                    user.speak_l("error-email-empty")
+                    if from_mandatory:
+                        self._show_mandatory_email_menu(user)
+                    else:
+                        self._show_profile_menu(user)
+                    return
+
+                if value == current_email:
+                    user.speak_l("no-changes-made")
+                    if from_mandatory:
+                         # Should not hit this since mandatory means current was empty and value is empty, which is caught above
+                         self._show_mandatory_email_menu(user)
+                    else:
+                         self._show_profile_menu(user)
+                    return
+
+                if self._db.email_exists(value, exclude_username=user.username):
+                    user.speak_l("error-email-taken")
+                    if from_mandatory:
+                        self._show_mandatory_email_menu(user)
+                    else:
+                        self._show_profile_menu(user)
+                    return
+
+                if not current_email:
+                    self._db.update_user_email(user.username, value)
+                    user.speak_l("email-updated")
+                    if from_mandatory:
+                        self._restore_user_state(user, user.username)
+                    else:
+                        self._show_profile_menu(user)
+                else:
+                    self._show_email_confirm_menu(user, value)
+                return
+            elif menu_id == "bio_input":
+                if len(value) > 250:
+                    user.speak_l("error-bio-length")
+                    self._show_profile_menu(user)
+                    return
+
+                user_record = self._db.get_user(user.username)
+                current_bio = user_record.bio if user_record else ""
+
+                if value == current_bio:
+                    user.speak_l("no-changes-made")
+                else:
+                    self._db.update_user_bio(user.username, value)
+                    user.speak_l("bio-updated")
+                self._show_profile_menu(user)
+                return
+
+            elif menu_id == "send_friend_request_input":
+                value = value.strip()
+                if not value:
+                     self._show_friends_hub_menu(user)
+                     return
+
+                if value.lower() == user.username.lower():
+                     user.speak_l("friend-error-self")
+                     self._show_friends_hub_menu(user)
+                     return
+
+                target_record = self._db.get_user(value)
+                if not target_record:
+                     user.speak_l("unknown-player")
+                     self._show_friends_hub_menu(user)
+                     return
+
+                # Send request
+                status = self._db.send_friend_request(user.uuid, target_record.uuid)
+
+                if status == "already_friends":
+                     user.speak_l("friend-error-already-friends")
+                elif status == "duplicate":
+                     user.speak_l("friend-error-duplicate")
+                elif status == "accepted":
+                     user.speak_l("friend-accepted-success", username=target_record.username)
+                     user.play_sound("friend_accepted.ogg")
+                     # Notify target if online
+                     target_user = self._users.get(target_record.username)
+                     if target_user:
+                         target_user.speak_l("friend-accepted-notify", username=user.username)
+                         target_user.play_sound("friend_accepted.ogg")
+                     else:
+                         self._db.add_notification(target_record.uuid, user.username, "friend_accepted")
+                elif status == "sent":
+                     user.speak_l("friend-request-sent", username=target_record.username)
+                     user.play_sound("friend_request_sent.ogg")
+                     # Notify target if online
+                     target_user = self._users.get(target_record.username)
+                     if target_user:
+                         target_user.speak_l("friend-request-received", username=user.username)
+                         target_user.play_sound("friend_request_received.ogg")
+                     else:
+                         self._db.add_notification(target_record.uuid, user.username, "friend_request_received")
+
+                self._show_friends_hub_menu(user)
+                return
 
     async def _handle_chat(self, client: ClientConnection, packet: dict) -> None:
         """Handle chat message."""

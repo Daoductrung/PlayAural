@@ -23,6 +23,8 @@ class UserRecord:
     email: str = ""
     bio: str = ""
     motd_version: int = 0
+    gender: str = "Not set"
+    registration_date: str = ""
 
 
 @dataclass
@@ -92,7 +94,9 @@ class Database:
                 trust_level INTEGER DEFAULT 1,
                 approved INTEGER DEFAULT 0,
                 email TEXT DEFAULT '',
-                bio TEXT DEFAULT ''
+                bio TEXT DEFAULT '',
+                gender TEXT DEFAULT 'Not set',
+                registration_date TEXT DEFAULT ''
             )
         """)
 
@@ -210,6 +214,28 @@ class Database:
             )
         """)
 
+        # Friendships table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS friendships (
+                requester_id TEXT NOT NULL,
+                receiver_id TEXT NOT NULL,
+                status TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                PRIMARY KEY (requester_id, receiver_id)
+            )
+        """)
+
+        # User Notifications table (offline alerts)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS user_notifications (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT NOT NULL,
+                source_username TEXT NOT NULL,
+                event_type TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+        """)
+
         # Additional indexes for fast lookups
         cursor.execute("""
             CREATE INDEX IF NOT EXISTS idx_users_uuid
@@ -255,6 +281,18 @@ class Database:
             cursor.execute("ALTER TABLE users ADD COLUMN motd_version INTEGER DEFAULT 0")
             self._conn.commit()
 
+        if "gender" not in columns:
+            cursor.execute("ALTER TABLE users ADD COLUMN gender TEXT DEFAULT 'Not set'")
+            self._conn.commit()
+
+        if "registration_date" not in columns:
+            from datetime import datetime
+            cursor.execute("ALTER TABLE users ADD COLUMN registration_date TEXT DEFAULT ''")
+            # Backfill existing users with current timestamp
+            now_iso = datetime.now().isoformat()
+            cursor.execute("UPDATE users SET registration_date = ? WHERE registration_date = ''", (now_iso,))
+            self._conn.commit()
+
         # Check if bans table exists (migration for existing databases)
         cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='bans'")
         if not cursor.fetchone():
@@ -271,6 +309,34 @@ class Database:
             cursor.execute("""
                 CREATE INDEX IF NOT EXISTS idx_bans_username
                 ON bans(username)
+            """)
+            self._conn.commit()
+
+        # Check if friendships table exists
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='friendships'")
+        if not cursor.fetchone():
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS friendships (
+                    requester_id TEXT NOT NULL,
+                    receiver_id TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    PRIMARY KEY (requester_id, receiver_id)
+                )
+            """)
+            self._conn.commit()
+
+        # Check if user_notifications table exists
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='user_notifications'")
+        if not cursor.fetchone():
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS user_notifications (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id TEXT NOT NULL,
+                    source_username TEXT NOT NULL,
+                    event_type TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                )
             """)
             self._conn.commit()
 
@@ -374,18 +440,27 @@ class Database:
         cursor.execute("DELETE FROM bans WHERE expires_at IS NOT NULL AND expires_at < ?", (thirty_days_ago,))
         deleted_bans = cursor.rowcount
 
+        # 4. Prune pending friend requests older than 6 months (180 days)
+        six_months_ago = (now - timedelta(days=180)).isoformat()
+        cursor.execute("DELETE FROM friendships WHERE status = 'pending' AND created_at < ?", (six_months_ago,))
+        deleted_requests = cursor.rowcount
+
+        # 5. Prune old offline notifications
+        cursor.execute("DELETE FROM user_notifications WHERE created_at < ?", (six_months_ago,))
+        deleted_notifications = cursor.rowcount
+
         self._conn.commit()
 
         # Log results
         logger = logging.getLogger("playaural.db.prune")
-        if deleted_games > 0 or deleted_saves > 0 or deleted_bans > 0:
-             logger.info(f"Database Pruning: Deleted {deleted_games} old game results, {deleted_saves} old saved tables, and {deleted_bans} expired bans.")
+        if deleted_games > 0 or deleted_saves > 0 or deleted_bans > 0 or deleted_requests > 0 or deleted_notifications > 0:
+             logger.info(f"Database Pruning: Deleted {deleted_games} old game results, {deleted_saves} old saved tables, {deleted_bans} expired bans, {deleted_requests} pending requests, {deleted_notifications} notifications.")
         else:
              logger.info("Database Pruning: 0 records deleted (no old data found).")
 
         # Also print to standard output for explicit CLI visibility on startup
-        if deleted_games > 0 or deleted_saves > 0 or deleted_bans > 0:
-             print(f"Database Pruning: Cleaned up {deleted_games} game_results, {deleted_saves} saved_tables, and {deleted_bans} bans.")
+        if deleted_games > 0 or deleted_saves > 0 or deleted_bans > 0 or deleted_requests > 0 or deleted_notifications > 0:
+             print(f"Database Pruning: Cleaned up {deleted_games} game_results, {deleted_saves} saved_tables, {deleted_bans} bans, {deleted_requests} friend requests, {deleted_notifications} notifications.")
 
     # User operations
 
@@ -393,7 +468,7 @@ class Database:
         """Get a user by username."""
         cursor = self._conn.cursor()
         cursor.execute(
-            "SELECT id, username, password_hash, uuid, locale, preferences_json, trust_level, approved, email, bio, motd_version FROM users WHERE username = ?",
+            "SELECT id, username, password_hash, uuid, locale, preferences_json, trust_level, approved, email, bio, motd_version, gender, registration_date FROM users WHERE username = ?",
             (username,),
         )
         row = cursor.fetchone()
@@ -410,6 +485,8 @@ class Database:
                 email=row["email"] or "",
                 bio=row["bio"] or "",
                 motd_version=row["motd_version"] if "motd_version" in row.keys() else 0,
+                gender=row["gender"] if "gender" in row.keys() else "Not set",
+                registration_date=row["registration_date"] if "registration_date" in row.keys() else "",
             )
         return None
 
@@ -418,11 +495,13 @@ class Database:
     ) -> UserRecord:
         """Create a new user with a generated UUID."""
         import uuid as uuid_module
+        from datetime import datetime
         user_uuid = str(uuid_module.uuid4())
+        now_iso = datetime.now().isoformat()
         cursor = self._conn.cursor()
         cursor.execute(
-            "INSERT INTO users (username, password_hash, uuid, locale, trust_level, approved, email, bio) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            (username, password_hash, user_uuid, locale, trust_level, 1 if approved else 0, email, bio),
+            "INSERT INTO users (username, password_hash, uuid, locale, trust_level, approved, email, bio, registration_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (username, password_hash, user_uuid, locale, trust_level, 1 if approved else 0, email, bio, now_iso),
         )
         self._conn.commit()
         return UserRecord(
@@ -435,12 +514,24 @@ class Database:
             approved=approved,
             email=email,
             bio=bio,
+            registration_date=now_iso,
         )
 
     def user_exists(self, username: str) -> bool:
         """Check if a user exists."""
         cursor = self._conn.cursor()
         cursor.execute("SELECT 1 FROM users WHERE username = ?", (username,))
+        return cursor.fetchone() is not None
+
+    def email_exists(self, email: str, exclude_username: str | None = None) -> bool:
+        """Check if an email is already in use by another account."""
+        if not email:
+            return False  # Empty emails shouldn't trigger "taken" errors for legacy compat
+        cursor = self._conn.cursor()
+        if exclude_username:
+            cursor.execute("SELECT 1 FROM users WHERE email = ? AND username != ?", (email, exclude_username))
+        else:
+            cursor.execute("SELECT 1 FROM users WHERE email = ?", (email,))
         return cursor.fetchone() is not None
 
     def update_user_locale(self, username: str, locale: str) -> None:
@@ -466,6 +557,33 @@ class Database:
         cursor.execute(
             "UPDATE users SET password_hash = ? WHERE username = ?",
             (password_hash, username),
+        )
+        self._conn.commit()
+
+    def update_user_email(self, username: str, email: str) -> None:
+        """Update a user's email."""
+        cursor = self._conn.cursor()
+        cursor.execute(
+            "UPDATE users SET email = ? WHERE username = ?",
+            (email, username),
+        )
+        self._conn.commit()
+
+    def update_user_bio(self, username: str, bio: str) -> None:
+        """Update a user's bio."""
+        cursor = self._conn.cursor()
+        cursor.execute(
+            "UPDATE users SET bio = ? WHERE username = ?",
+            (bio, username),
+        )
+        self._conn.commit()
+
+    def update_user_gender(self, username: str, gender: str) -> None:
+        """Update a user's gender."""
+        cursor = self._conn.cursor()
+        cursor.execute(
+            "UPDATE users SET gender = ? WHERE username = ?",
+            (gender, username),
         )
         self._conn.commit()
 
@@ -535,7 +653,7 @@ class Database:
         """Get all users who are not yet approved."""
         cursor = self._conn.cursor()
         cursor.execute(
-            "SELECT id, username, password_hash, uuid, locale, preferences_json, trust_level, approved, email, bio, motd_version FROM users WHERE approved = 0"
+            "SELECT id, username, password_hash, uuid, locale, preferences_json, trust_level, approved, email, bio, motd_version, gender, registration_date FROM users WHERE approved = 0"
         )
         users = []
         for row in cursor.fetchall():
@@ -551,6 +669,8 @@ class Database:
                 email=row["email"] or "",
                 bio=row["bio"] or "",
                 motd_version=row["motd_version"] if "motd_version" in row.keys() else 0,
+                gender=row["gender"] if "gender" in row.keys() else "Not set",
+                registration_date=row["registration_date"] if "registration_date" in row.keys() else "",
             ))
         return users
 
@@ -577,9 +697,15 @@ class Database:
         cursor.execute("DELETE FROM player_ratings WHERE player_id = ?", (user.uuid,))
         cursor.execute("DELETE FROM saved_tables WHERE username = ?", (username,))
         cursor.execute("DELETE FROM bans WHERE username = ?", (username,))
+        cursor.execute("DELETE FROM friendships WHERE requester_id = ? OR receiver_id = ?", (user.uuid, user.uuid))
+        cursor.execute("DELETE FROM user_notifications WHERE user_id = ? OR source_username = ?", (user.uuid, username))
 
-        # We explicitly DO NOT delete `game_result_players` rows here because doing so
-        # breaks historical game integrity for other users who participated.
+        # Anonymize historical game data rather than deleting it to preserve integrity
+        # for other players in those matches.
+        cursor.execute(
+            "UPDATE game_result_players SET player_id = 'deleted', player_name = 'Deleted User' WHERE player_id = ?",
+            (user.uuid,)
+        )
 
         # Finally delete the user
         cursor.execute("DELETE FROM users WHERE username = ?", (username,))
@@ -591,7 +717,7 @@ class Database:
         """Get all approved users who are not admins (trust_level < 2)."""
         cursor = self._conn.cursor()
         cursor.execute(
-            "SELECT id, username, password_hash, uuid, locale, preferences_json, trust_level, approved, email, bio, motd_version FROM users WHERE approved = 1 AND trust_level < 2 ORDER BY username"
+            "SELECT id, username, password_hash, uuid, locale, preferences_json, trust_level, approved, email, bio, motd_version, gender, registration_date FROM users WHERE approved = 1 AND trust_level < 2 ORDER BY username"
         )
         users = []
         for row in cursor.fetchall():
@@ -607,6 +733,8 @@ class Database:
                 email=row["email"] or "",
                 bio=row["bio"] or "",
                 motd_version=row["motd_version"] if "motd_version" in row.keys() else 0,
+                gender=row["gender"] if "gender" in row.keys() else "Not set",
+                registration_date=row["registration_date"] if "registration_date" in row.keys() else "",
             ))
         return users
 
@@ -614,7 +742,7 @@ class Database:
         """Get all users who are admins (trust_level >= 2)."""
         cursor = self._conn.cursor()
         cursor.execute(
-            "SELECT id, username, password_hash, uuid, locale, preferences_json, trust_level, approved, email, bio, motd_version FROM users WHERE trust_level >= 2 ORDER BY username"
+            "SELECT id, username, password_hash, uuid, locale, preferences_json, trust_level, approved, email, bio, motd_version, gender, registration_date FROM users WHERE trust_level >= 2 ORDER BY username"
         )
         users = []
         for row in cursor.fetchall():
@@ -630,6 +758,8 @@ class Database:
                 email=row["email"] or "",
                 bio=row["bio"] or "",
                 motd_version=row["motd_version"] if "motd_version" in row.keys() else 0,
+                gender=row["gender"] if "gender" in row.keys() else "Not set",
+                registration_date=row["registration_date"] if "registration_date" in row.keys() else "",
             ))
         return users
 
@@ -1308,6 +1438,132 @@ class Database:
             (player_id, game_type)
         )
         return {row["stat_key"]: row["stat_value"] for row in cursor.fetchall()}
+
+    # Social / Friend Operations
+
+    def send_friend_request(self, requester_id: str, receiver_id: str) -> str:
+        """
+        Send a friend request. Returns the status:
+        'sent': Request sent successfully.
+        'accepted': They had already sent one to you, so it was mutually accepted.
+        'duplicate': Already pending.
+        'already_friends': Already accepted.
+        """
+        from datetime import datetime
+        now = datetime.now().isoformat()
+        cursor = self._conn.cursor()
+
+        # Check existing connection
+        cursor.execute("""
+            SELECT status, requester_id FROM friendships
+            WHERE (requester_id = ? AND receiver_id = ?)
+               OR (requester_id = ? AND receiver_id = ?)
+        """, (requester_id, receiver_id, receiver_id, requester_id))
+
+        row = cursor.fetchone()
+        if row:
+            status = row["status"]
+            existing_requester = row["requester_id"]
+
+            if status == "accepted":
+                return "already_friends"
+            elif status == "pending":
+                if existing_requester == requester_id:
+                    return "duplicate"
+                else:
+                    # They sent one to us, we are sending one back -> Accept!
+                    cursor.execute("""
+                        UPDATE friendships SET status = 'accepted'
+                        WHERE requester_id = ? AND receiver_id = ?
+                    """, (existing_requester, requester_id))
+                    self._conn.commit()
+                    return "accepted"
+
+        # No existing relation, insert pending
+        cursor.execute("""
+            INSERT INTO friendships (requester_id, receiver_id, status, created_at)
+            VALUES (?, ?, 'pending', ?)
+        """, (requester_id, receiver_id, now))
+        self._conn.commit()
+        return "sent"
+
+    def accept_friend_request(self, requester_id: str, receiver_id: str) -> bool:
+        """Accept a pending friend request."""
+        cursor = self._conn.cursor()
+        cursor.execute("""
+            UPDATE friendships SET status = 'accepted'
+            WHERE requester_id = ? AND receiver_id = ? AND status = 'pending'
+        """, (requester_id, receiver_id))
+        self._conn.commit()
+        return cursor.rowcount > 0
+
+    def remove_friendship(self, user1_id: str, user2_id: str) -> bool:
+        """Remove a friendship or pending request."""
+        cursor = self._conn.cursor()
+        cursor.execute("""
+            DELETE FROM friendships
+            WHERE (requester_id = ? AND receiver_id = ?)
+               OR (requester_id = ? AND receiver_id = ?)
+        """, (user1_id, user2_id, user2_id, user1_id))
+        self._conn.commit()
+        return cursor.rowcount > 0
+
+    def get_friends(self, user_id: str) -> list[str]:
+        """Get a list of accepted friend UUIDs."""
+        cursor = self._conn.cursor()
+        cursor.execute("""
+            SELECT requester_id, receiver_id FROM friendships
+            WHERE status = 'accepted' AND (requester_id = ? OR receiver_id = ?)
+        """, (user_id, user_id))
+
+        friends = []
+        for row in cursor.fetchall():
+            if row["requester_id"] == user_id:
+                friends.append(row["receiver_id"])
+            else:
+                friends.append(row["requester_id"])
+        return friends
+
+    def get_pending_incoming_requests(self, user_id: str) -> list[str]:
+        """Get a list of UUIDs who sent a pending friend request to this user."""
+        cursor = self._conn.cursor()
+        cursor.execute("""
+            SELECT requester_id FROM friendships
+            WHERE receiver_id = ? AND status = 'pending'
+        """, (user_id,))
+        return [row["requester_id"] for row in cursor.fetchall()]
+
+    def add_notification(self, user_id: str, source_username: str, event_type: str) -> None:
+        """Add an offline notification for a user."""
+        from datetime import datetime
+        now = datetime.now().isoformat()
+        cursor = self._conn.cursor()
+        cursor.execute("""
+            INSERT INTO user_notifications (user_id, source_username, event_type, created_at)
+            VALUES (?, ?, ?, ?)
+        """, (user_id, source_username, event_type, now))
+        self._conn.commit()
+
+    def get_and_clear_notifications(self, user_id: str) -> list[dict]:
+        """Retrieve and immediately delete all notifications for a user."""
+        cursor = self._conn.cursor()
+        cursor.execute("""
+            SELECT id, source_username, event_type
+            FROM user_notifications
+            WHERE user_id = ?
+            ORDER BY created_at ASC
+        """, (user_id,))
+
+        notifications = [
+            {"source_username": row["source_username"], "event_type": row["event_type"]}
+            for row in cursor.fetchall()
+        ]
+
+        if notifications:
+            cursor.execute("DELETE FROM user_notifications WHERE user_id = ?", (user_id,))
+            self._conn.commit()
+
+        return notifications
 
     # Player rating operations
 

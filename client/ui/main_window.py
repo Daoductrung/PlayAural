@@ -811,6 +811,7 @@ class MainWindow(wx.Frame):
         default_value="",
         multiline=False,
         read_only=False,
+        max_length=None,
     ):
         """
         Switch from list mode to edit mode.
@@ -821,6 +822,7 @@ class MainWindow(wx.Frame):
             default_value: Default text to populate the editbox with
             multiline: Whether to use a multiline editbox
             read_only: Whether the editbox is read-only
+            max_length: Optional maximum length for the text input
         """
         if self.current_mode == "edit":
             return  # Already in edit mode
@@ -840,6 +842,10 @@ class MainWindow(wx.Frame):
             self.edit_input.Hide()
             self.edit_input_multiline.Show()
             self.edit_input_multiline.Clear()
+            if max_length is not None:
+                self.edit_input_multiline.SetMaxLength(max_length)
+            else:
+                self.edit_input_multiline.SetMaxLength(0)
             self.edit_input_multiline.SetValue(default_value)
             self.edit_input_multiline.SetEditable(not read_only)
             self.edit_input_multiline.SetFocus()
@@ -849,6 +855,10 @@ class MainWindow(wx.Frame):
             self.edit_input_multiline.Hide()
             self.edit_input.Show()
             self.edit_input.Clear()
+            if max_length is not None:
+                self.edit_input.SetMaxLength(max_length)
+            else:
+                self.edit_input.SetMaxLength(0)
             self.edit_input.SetValue(default_value)
             self.edit_input.SetEditable(not read_only)
             self.edit_input.SetFocus()
@@ -2421,6 +2431,7 @@ class MainWindow(wx.Frame):
         default_value = packet.get("default_value", "")
         multiline = packet.get("multiline", False)
         read_only = packet.get("read_only", False)
+        max_length = packet.get("max_length", None)
 
         def on_submit(text):
             # Send editbox event back to server
@@ -2429,7 +2440,7 @@ class MainWindow(wx.Frame):
                 event_packet["input_id"] = input_id
             self.network.send_packet(event_packet)
 
-        self.switch_to_edit_mode(prompt, on_submit, default_value, multiline, read_only)
+        self.switch_to_edit_mode(prompt, on_submit, default_value, multiline, read_only, max_length)
 
     def on_server_clear_ui(self, packet):
         """Handle clear_ui packet from server."""

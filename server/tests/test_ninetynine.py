@@ -29,12 +29,19 @@ from ..game_utils.cards import (
     RS_RANK_SKIP,
     RS_RANK_NINETY_NINE,
 )
+from pathlib import Path
 from ..users.test_user import MockUser
 from ..users.bot import Bot
+from server.messages.localization import Localization
 
 
 class TestNinetyNineUnit:
     """Unit tests for Ninety Nine game functions."""
+
+    @classmethod
+    def setup_class(cls):
+        Localization.init(Path("server/locales"))
+        Localization.preload_bundles()
 
     def test_game_creation(self):
         """Test creating a new Ninety Nine game."""
@@ -77,6 +84,11 @@ class TestNinetyNineUnit:
 class TestCardAndDeck:
     """Tests for Card and Deck classes."""
 
+    @classmethod
+    def setup_class(cls):
+        Localization.init(Path("server/locales"))
+        Localization.preload_bundles()
+
     def test_card_creation(self):
         """Test card creation and properties."""
         from ..game_utils.cards import card_name
@@ -84,7 +96,7 @@ class TestCardAndDeck:
         card = Card(id=0, rank=1, suit=SUIT_HEARTS)
         assert card.rank == 1
         assert card.suit == SUIT_HEARTS
-        name = card_name(card).lower()
+        name = card_name(card, "en").lower()
         assert "ace" in name
         assert "hearts" in name
 
@@ -93,13 +105,13 @@ class TestCardAndDeck:
         from ..game_utils.cards import card_name_with_article
 
         ace = Card(id=0, rank=1, suit=SUIT_HEARTS)
-        assert card_name_with_article(ace).startswith("an")
+        assert card_name_with_article(ace, "en").startswith("an")
 
         two = Card(id=1, rank=2, suit=SUIT_HEARTS)
-        assert card_name_with_article(two).startswith("a ")
+        assert card_name_with_article(two, "en").startswith("a ")
 
         eight = Card(id=2, rank=8, suit=SUIT_HEARTS)
-        assert card_name_with_article(eight).startswith("an")
+        assert card_name_with_article(eight, "en").startswith("an")
 
     def test_deck_creation(self):
         """Test deck creation."""

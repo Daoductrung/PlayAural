@@ -61,6 +61,7 @@ class ClientConnection:
 
     websocket: WebSocketServerProtocol
     address: str
+    ip_address: str = ""
     username: str | None = None
     authenticated: bool = False
 
@@ -200,7 +201,27 @@ class WebSocketServer:
     async def _handle_client(self, websocket: WebSocketServerProtocol) -> None:
         """Handle a client connection."""
         address = f"{websocket.remote_address[0]}:{websocket.remote_address[1]}"
-        client = ClientConnection(websocket=websocket, address=address)
+
+        # Extract real IP from headers if behind a reverse proxy (e.g. Cloudflare, Nginx)
+        real_ip = websocket.remote_address[0]
+        try:
+            # Note: websocket.request.headers is accessible in websockets library
+            if hasattr(websocket, 'request_headers'):
+                headers = websocket.request_headers
+            elif hasattr(websocket, 'request') and hasattr(websocket.request, 'headers'):
+                headers = websocket.request.headers
+            else:
+                headers = {}
+
+            if "X-Forwarded-For" in headers:
+                # X-Forwarded-For can contain multiple IPs separated by commas. The first is the original client.
+                real_ip = headers["X-Forwarded-For"].split(",")[0].strip()
+            elif "X-Real-IP" in headers:
+                real_ip = headers["X-Real-IP"].strip()
+        except Exception:
+            pass
+
+        client = ClientConnection(websocket=websocket, address=address, ip_address=real_ip)
         self._clients[address] = client
 
         try:

@@ -458,3 +458,10 @@ friends-and-others = { $names } and { $count } { $count ->
     [one] other
    *[other] others
 }
+
+send-private-message = Send Private Message
+enter-pm-message = Enter your message for { $username }:
+pm-error-not-friends = You can only send private messages to friends.
+pm-error-offline = { $username } is not currently online.
+pm-sent-success = Message sent to { $username }.
+pm-received = Private message from { $username }: { $message }

@@ -2090,6 +2090,7 @@ PlayAural Server
 
         # Check if they are online and in a table
         if target_username in self._users:
+            items.append(MenuItem(text=Localization.get(user.locale, "send-private-message"), id="send_pm"))
             table = self._tables.find_user_table(target_username)
             if table:
                 items.append(MenuItem(text=Localization.get(user.locale, "join-table"), id="join_table"))
@@ -2122,6 +2123,16 @@ PlayAural Server
 
         elif selection_id == "view_profile":
             self._show_public_profile(user, target_username, "friend_actions_menu")
+
+        elif selection_id == "send_pm":
+            user.show_editbox(
+                "send_pm_input",
+                Localization.get(user.locale, "enter-pm-message", username=target_username),
+                multiline=True,
+                max_length=500
+            )
+            self._user_states[user.username]["menu"] = "send_pm_input"
+            self._user_states[user.username]["target_username"] = target_username
 
         elif selection_id == "join_table":
             table = self._tables.find_user_table(target_username)
@@ -4122,6 +4133,46 @@ PlayAural Server
                 self._show_friends_hub_menu(user)
                 return
 
+            elif menu_id == "send_pm_input":
+                target_username = user_state.get("target_username")
+                value = value.strip()
+                if value and target_username:
+                    await self._deliver_private_message(user, target_username, value)
+
+                # Return to friend actions menu regardless
+                if target_username:
+                    self._show_friend_actions_menu(user, target_username)
+                else:
+                    self._show_friends_list_menu(user)
+                return
+
+    async def _deliver_private_message(self, sender: NetworkUser, target_username: str, message: str) -> None:
+        """Deliver a private message after validating friendship and online status."""
+        target_user = self._users.get(target_username)
+
+        # 1. Online Check
+        if not target_user or not target_user.approved:
+            sender.speak_l("pm-error-offline", username=target_username)
+            sender.play_sound("accounterror.ogg")
+            return
+
+        # 2. Friend Check
+        friend_uuids = self._db.get_friends(sender.uuid)
+        if target_user.uuid not in friend_uuids:
+            sender.speak_l("pm-error-not-friends")
+            sender.play_sound("accounterror.ogg")
+            return
+
+        # 3. Delivery
+        # Receiver
+        target_user.speak_l("pm-received", buffer="chat", username=sender.username, message=message)
+        target_user.play_sound("pm.ogg")
+
+        # Sender FTL confirmation
+        sender.speak_l("pm-sent-success", username=target_username)
+        sender.play_sound("pm.ogg")
+
+
     async def _handle_chat(self, client: ClientConnection, packet: dict) -> None:
         """Handle chat message."""
         username = client.username
@@ -4130,6 +4181,21 @@ PlayAural Server
 
         convo = packet.get("convo", "local")
         message = packet.get("message", "")
+
+        # Handle Private Message chat command
+        if message.startswith("@"):
+            parts = message.split(" ", 1)
+            if len(parts) == 2:
+                target_username = parts[0][1:] # Strip the @
+                pm_content = parts[1].strip()
+                if not pm_content:
+                    # Stop empty chat messages from accidentally falling back into global chat
+                    return
+                user = self._users.get(username)
+                if user:
+                    await self._deliver_private_message(user, target_username, pm_content)
+                return
+
         if message.startswith("/reboot") or message.startswith("/stop"):
             # Check permissions
             user = self._users.get(username)

@@ -373,6 +373,7 @@ friends = Friends
 profile-registration-date = Registration Date: { $date }
 profile-username = Username: { $username }
 profile-email = Email: { $email }
+admin-view-email = Admin View - Email: { $email }
 profile-gender = Gender: { $gender }
 profile-bio = Bio: { $bio }
 profile-bio-empty = Not set

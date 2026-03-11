@@ -681,16 +681,16 @@ PlayAural Server
 
             if etype == "friend_request_received":
                 user.speak_l("friends-grouped-requests", usernames=formatted_names)
-                user.play_sound("notify.ogg")
+                user.play_sound("friend_request_received.ogg")
             elif etype == "friend_accepted":
                 user.speak_l("friends-grouped-accepted", usernames=formatted_names)
-                user.play_sound("online.ogg")
+                user.play_sound("friend_accepted.ogg")
             elif etype == "friend_declined":
                 user.speak_l("friends-grouped-declined", usernames=formatted_names)
-                user.play_sound("accounterror.ogg")
+                user.play_sound("friend_declined.ogg")
             elif etype == "friend_removed":
                 user.speak_l("friends-grouped-removed", usernames=formatted_names)
-                user.play_sound("offline.ogg")
+                user.play_sound("friend_removed.ogg")
 
     def _show_motd_menu(self, user: NetworkUser, message: str, version: int) -> None:
         """Show the forced-read MOTD menu."""
@@ -2058,13 +2058,13 @@ PlayAural Server
             if target_record:
                 self._db.remove_friendship(user.uuid, target_record.uuid)
                 user.speak_l("friend-removed-success", username=target_username)
-                user.play_sound("offline.ogg")
+                user.play_sound("friend_removed.ogg")
 
                 # Notify target
                 target_user = self._users.get(target_username)
                 if target_user:
                     target_user.speak_l("friend-removed-notify", username=user.username)
-                    target_user.play_sound("offline.ogg")
+                    target_user.play_sound("friend_removed.ogg")
                 else:
                     self._db.add_notification(target_record.uuid, user.username, "friend_removed")
 
@@ -2140,13 +2140,13 @@ PlayAural Server
             success = self._db.accept_friend_request(target_record.uuid, user.uuid)
             if success:
                 user.speak_l("friend-accepted-success", username=target_username)
-                user.play_sound("online.ogg")
+                user.play_sound("friend_accepted.ogg")
 
                 # Notify target
                 target_user = self._users.get(target_username)
                 if target_user:
                     target_user.speak_l("friend-accepted-notify", username=user.username)
-                    target_user.play_sound("online.ogg")
+                    target_user.play_sound("friend_accepted.ogg")
                 else:
                     self._db.add_notification(target_record.uuid, user.username, "friend_accepted")
             else:
@@ -2162,7 +2162,7 @@ PlayAural Server
             target_user = self._users.get(target_username)
             if target_user:
                 target_user.speak_l("friend-declined-notify", username=user.username)
-                target_user.play_sound("accounterror.ogg")
+                target_user.play_sound("friend_declined.ogg")
             else:
                 self._db.add_notification(target_record.uuid, user.username, "friend_declined")
 
@@ -2196,7 +2196,7 @@ PlayAural Server
         # Admins and Devs can see the email
         if requesting_user.trust_level >= 2:
              email_str = target_record.email if target_record.email else Localization.get(requesting_user.locale, "profile-email-empty")
-             items.append(MenuItem(text=f"Admin View - {Localization.get(requesting_user.locale, 'profile-email', email=email_str)}", id=""))
+             items.append(MenuItem(text=Localization.get(requesting_user.locale, "admin-view-email", email=email_str), id=""))
 
         items.append(MenuItem(text=Localization.get(requesting_user.locale, "back"), id="back"))
 
@@ -4001,22 +4001,22 @@ PlayAural Server
                      user.speak_l("friend-error-duplicate")
                 elif status == "accepted":
                      user.speak_l("friend-accepted-success", username=target_record.username)
-                     user.play_sound("online.ogg")
+                     user.play_sound("friend_accepted.ogg")
                      # Notify target if online
                      target_user = self._users.get(target_record.username)
                      if target_user:
                          target_user.speak_l("friend-accepted-notify", username=user.username)
-                         target_user.play_sound("online.ogg")
+                         target_user.play_sound("friend_accepted.ogg")
                      else:
                          self._db.add_notification(target_record.uuid, user.username, "friend_accepted")
                 elif status == "sent":
                      user.speak_l("friend-request-sent", username=target_record.username)
-                     user.play_sound("notify.ogg")
+                     user.play_sound("friend_request_sent.ogg")
                      # Notify target if online
                      target_user = self._users.get(target_record.username)
                      if target_user:
                          target_user.speak_l("friend-request-received", username=user.username)
-                         target_user.play_sound("notify.ogg")
+                         target_user.play_sound("friend_request_received.ogg")
                      else:
                          self._db.add_notification(target_record.uuid, user.username, "friend_request_received")
 

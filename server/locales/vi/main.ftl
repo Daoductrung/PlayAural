@@ -373,6 +373,7 @@ friends = Bạn bè
 profile-registration-date = Ngày đăng ký: { $date }
 profile-username = Tên đăng nhập: { $username }
 profile-email = Email: { $email }
+admin-view-email = Chế độ xem của Quản trị viên - Email: { $email }
 profile-gender = Giới tính: { $gender }
 profile-bio = Giới thiệu: { $bio }
 profile-bio-empty = Chưa đặt

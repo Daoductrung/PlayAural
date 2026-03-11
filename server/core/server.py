@@ -2092,6 +2092,8 @@ PlayAural Server
 
     def _show_friend_actions_menu(self, user: NetworkUser, target_username: str) -> None:
         """Show actions for a specific friend."""
+        user.speak_l("friend-actions-title", username=target_username)
+
         items = [
             MenuItem(text=Localization.get(user.locale, "view-profile"), id="view_profile"),
         ]
@@ -2106,9 +2108,6 @@ PlayAural Server
         items.append(MenuItem(text=Localization.get(user.locale, "remove-friend"), id="remove_friend"))
         items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
 
-        # Prepend title dynamically as a read-only item
-        title = Localization.get(user.locale, "friend-actions-title", username=target_username)
-        items.insert(0, MenuItem(text=title, id=""))
         user.show_menu(
             "friend_actions_menu",
             items,
@@ -2212,9 +2211,9 @@ PlayAural Server
 
     def _show_friend_request_actions_menu(self, user: NetworkUser, target_username: str) -> None:
         """Show accept/decline for a specific request."""
-        title = Localization.get(user.locale, "friend-request-from", username=target_username)
+        user.speak_l("friend-request-from", username=target_username)
+
         items = [
-            MenuItem(text=title, id=""),
             MenuItem(text=Localization.get(user.locale, "accept"), id="accept"),
             MenuItem(text=Localization.get(user.locale, "decline"), id="decline"),
             MenuItem(text=Localization.get(user.locale, "back"), id="back")
@@ -2312,8 +2311,7 @@ PlayAural Server
 
         items.append(MenuItem(text=Localization.get(requesting_user.locale, "back"), id="back"))
 
-        title = Localization.get(requesting_user.locale, "public-profile-title", username=target_record.username)
-        items.insert(0, MenuItem(text=title, id=""))
+        requesting_user.speak_l("public-profile-title", username=target_record.username)
 
         requesting_user.show_menu(
             "public_profile_menu",
@@ -4420,10 +4418,6 @@ PlayAural Server
         """Show interactive online users menu."""
         current_state = self._user_states.get(user.username, {})
         previous_menu_id = current_state.get("menu")
-        previous_menu = None
-        if previous_menu_id:
-            current_menus = getattr(user, "_current_menus", {})
-            previous_menu = current_menus.get(previous_menu_id)
 
         items = self._get_online_users_menu_items(user)
 
@@ -4437,7 +4431,6 @@ PlayAural Server
         self._user_states[user.username] = {
             "menu": "online_users",
             "return_menu_id": previous_menu_id,
-            "return_menu": previous_menu,
             "return_state": dict(current_state),
         }
 
@@ -4458,9 +4451,9 @@ PlayAural Server
             self._show_online_users_menu(user)
             return
 
-        title = Localization.get(user.locale, "online-user-actions-title", username=target_username)
+        user.speak_l("online-user-actions-title", username=target_username)
+
         items = [
-            MenuItem(text=title, id=""),
             MenuItem(text=Localization.get(user.locale, "view-profile"), id="view_profile"),
         ]
 
@@ -4486,7 +4479,6 @@ PlayAural Server
             "menu": "online_user_actions_menu",
             "target_username": target_username,
             "return_menu_id": previous_state.get("return_menu_id"),
-            "return_menu": previous_state.get("return_menu"),
             "return_state": previous_state.get("return_state"),
         }
 
@@ -4548,23 +4540,64 @@ PlayAural Server
     def _restore_previous_menu(self, user: NetworkUser, state: dict) -> None:
         """Restore the previous menu after closing the online users list."""
         previous_menu_id = state.get("return_menu_id")
-        previous_menu = state.get("return_menu")
-        if not previous_menu_id or not previous_menu:
+        original_state = state.get("return_state", {})
+
+        # If no explicit return, fallback to main menu
+        if not previous_menu_id:
             self._show_main_menu(user)
             return
 
-        user.show_menu(
-            previous_menu_id,
-            previous_menu.get("items", []),
-            multiletter=previous_menu.get("multiletter_enabled", True),
-            escape_behavior=EscapeBehavior(previous_menu.get("escape_behavior", "keybind")),
-            position=previous_menu.get("position"),
-            grid_enabled=previous_menu.get("grid_enabled", False),
-            grid_width=previous_menu.get("grid_width", 1),
-        )
-        restored_state = dict(state.get("return_state", {}))
-        restored_state["menu"] = previous_menu_id
-        self._user_states[user.username] = restored_state
+        # Explict routing tree to regenerate the active menu state accurately
+        if previous_menu_id == "main_menu":
+            self._show_main_menu(user)
+        elif previous_menu_id == "personal_options_menu":
+            self._show_personal_options_menu(user)
+        elif previous_menu_id == "games_menu":
+            category = original_state.get("category")
+            if category:
+                self._show_games_menu(user, category)
+            else:
+                self._show_games_list_menu(user)
+        elif previous_menu_id == "tables_menu":
+            self._show_tables_menu(user, original_state.get("game_type", ""))
+        elif previous_menu_id == "active_tables_menu":
+            self._show_active_tables_menu(user)
+        elif previous_menu_id == "options_menu":
+            self._show_options_menu(user)
+        elif previous_menu_id == "saved_tables_menu":
+            self._show_saved_tables_menu(user)
+        elif previous_menu_id == "leaderboards_menu":
+            self._show_leaderboards_menu(user)
+        elif previous_menu_id == "my_stats_menu":
+            self._show_my_stats_menu(user)
+        elif previous_menu_id == "profile_menu":
+            self._show_profile_menu(user)
+        elif previous_menu_id == "friends_hub_menu":
+            self._show_friends_hub_menu(user)
+        elif previous_menu_id == "friends_list_menu":
+            self._show_friends_list_menu(user)
+        elif previous_menu_id == "documentation_menu":
+            self._show_documentation_menu(user)
+        elif previous_menu_id == "in_game":
+            # The user invoked the list while playing a game.
+            # Closing the list shouldn't "re-show" the game, the game handles its own state
+            # We just need to reset the server state tracker so keybinds map back to the game.
+            self._user_states[user.username] = original_state
+
+            # To be absolutely sure focus is correctly restored in the client,
+            # we instruct the client to close any active modal overlay by sending a clean escape or dummy update.
+            # Usually setting state and doing nothing is enough if the game handles its UI redraw on tick.
+            table_id = original_state.get("table_id")
+            if table_id:
+                table = self._tables.get_table(table_id)
+                if table and table.game:
+                    player = table.game.get_player_by_id(user.uuid)
+                    if player:
+                        # Re-send the game's standard UI to clear the online list modal
+                        table.game.rebuild_menu(player)
+        else:
+            # Fallback for dynamic/deep menus to prevent getting stuck
+            self._show_main_menu(user)
 
     async def _handle_list_online(self, client: ClientConnection) -> None:
         """Handle request for online users list."""

@@ -129,7 +129,22 @@ class Database:
         """)
 
         # Step 3: Copy data
-        cursor.execute("INSERT INTO users_new SELECT * FROM users")
+        # Dynamically fetch existing columns to avoid mismatch errors on old databases
+        cursor.execute("PRAGMA table_info(users)")
+        old_columns = [col["name"] for col in cursor.fetchall()]
+
+        # Determine the overlapping columns
+        new_columns = [
+            "id", "username", "password_hash", "uuid", "locale",
+            "preferences_json", "trust_level", "approved", "email",
+            "bio", "gender", "registration_date"
+        ]
+
+        # Only copy columns that exist in the old table. The new ones will use DEFAULT values.
+        cols_to_copy = [c for c in new_columns if c in old_columns]
+        cols_str = ", ".join(cols_to_copy)
+
+        cursor.execute(f"INSERT INTO users_new ({cols_str}) SELECT {cols_str} FROM users")
 
         # Step 4: Swap tables
         cursor.execute("DROP TABLE users")

@@ -363,3 +363,89 @@ player-kicked-offline = Người chơi { $player } đã bị đuổi (ngoại tu
 game-paused-host-disconnect = Game tạm dừng. Đang chờ chủ bàn { $player } kết nối lại...
 game-resumed = Chủ bàn { $player } đã kết nối lại. Tiếp tục game!
 new-host = Chủ bàn mới: { $player }
+
+auth-error-username-length = Tên đăng nhập phải dài từ 3 đến 30 ký tự.
+auth-error-password-weak = Mật khẩu phải dài ít nhất 8 ký tự và bao gồm cả chữ và số.
+
+personal-and-options = Cá nhân và Tùy chỉnh
+profile = Hồ sơ
+friends = Bạn bè
+profile-registration-date = Ngày đăng ký: { $date }
+profile-username = Tên đăng nhập: { $username }
+profile-email = Email: { $email }
+admin-view-email = Chế độ xem của Quản trị viên - Email: { $email }
+profile-gender = Giới tính: { $gender }
+profile-bio = Giới thiệu: { $bio }
+profile-bio-empty = Chưa đặt
+profile-email-empty = Chưa đặt
+
+gender-male = Nam
+gender-female = Nữ
+gender-non-binary = Phi nhị giới
+gender-not-set = Chưa đặt
+
+action-set-edit = Đặt / Chỉnh sửa
+action-delete = Xóa
+bio-already-empty = Phần giới thiệu đã trống.
+bio-deleted = Đã xóa giới thiệu.
+bio-updated = Đã cập nhật giới thiệu.
+
+enter-email = Nhập địa chỉ email mới:
+email-updated = Đã cập nhật email.
+enter-bio = Nhập phần giới thiệu:
+
+gender-updated = Đã cập nhật giới tính.
+no-changes-made = Không có thay đổi nào.
+confirm-email-change = Bạn có chắc chắn muốn thay đổi email thành { $email } không?
+
+mandatory-email-notice = Bạn phải thiết lập email để tiếp tục tham gia. Email của bạn là riêng tư và chỉ có bạn biết.
+error-email-empty = Email là bắt buộc và không được để trống.
+reg-error-email = Email là bắt buộc để đăng ký.
+
+error-email-taken = Email này đã được sử dụng bởi một tài khoản khác.
+
+error-bio-length = Phần giới thiệu không được vượt quá 250 ký tự.
+error-rate-limit-login = Quá nhiều lần đăng nhập thất bại. Vui lòng thử lại sau 15 phút.
+error-rate-limit-register = Bạn đã đạt đến số lượng đăng ký tài khoản tối đa trong hôm nay.
+auth-error-rate-limit = Quá nhiều lần đăng nhập thất bại. Vui lòng thử lại sau 15 phút.
+
+friends-my-friends = Bạn bè của tôi
+friends-pending-requests = Lời mời kết bạn ({ $count })
+friends-no-pending-requests = Lời mời kết bạn
+friends-send-request = Gửi lời mời kết bạn
+friends-list-empty = Bạn chưa có người bạn nào.
+friend-status-offline = Ngoại tuyến
+friend-status-playing = Đang chơi { $game }
+friend-status-lobby = Trong phòng chờ
+friend-list-entry = { $username } ({ $status })
+
+friend-actions-title = Hành động cho { $username }
+view-profile = Xem hồ sơ
+join-table = Tham gia bàn
+remove-friend = Xóa bạn
+already-in-table = Bạn đã ở trong bàn này rồi.
+friend-removed-success = Đã xóa { $username } khỏi danh sách bạn bè của bạn.
+friend-removed-notify = { $username } đã xóa bạn khỏi danh sách bạn bè.
+
+no-pending-requests = Không có lời mời kết bạn nào đang chờ.
+friend-request-from = Lời mời kết bạn từ { $username }
+accept = Chấp nhận
+decline = Từ chối
+friend-accepted-success = Bạn và { $username } hiện đã là bạn bè.
+friend-accepted-notify = { $username } đã chấp nhận lời mời kết bạn của bạn!
+request-not-found = Lời mời kết bạn không còn tồn tại.
+friend-declined-success = Đã từ chối lời mời kết bạn.
+friend-declined-notify = { $username } đã từ chối lời mời kết bạn của bạn.
+
+public-profile-title = Hồ sơ của { $username }
+enter-friend-username = Nhập tên người dùng bạn muốn kết bạn:
+friend-error-self = Bạn không thể gửi lời mời kết bạn cho chính mình.
+friend-error-already-friends = Bạn đã là bạn bè với người này.
+friend-error-duplicate = Bạn đã gửi một lời mời kết bạn cho người này rồi.
+friend-request-sent = Đã gửi lời mời kết bạn đến { $username }.
+friend-request-received = Bạn đã nhận được một lời mời kết bạn mới từ { $username }.
+
+friends-grouped-requests = Bạn có lời mời kết bạn đang chờ từ: { $usernames }
+friends-grouped-accepted = Lời mời kết bạn của bạn đã được chấp nhận bởi: { $usernames }
+friends-grouped-declined = Lời mời kết bạn của bạn đã bị từ chối bởi: { $usernames }
+friends-grouped-removed = Bạn đã bị xóa khỏi danh sách bạn bè bởi: { $usernames }

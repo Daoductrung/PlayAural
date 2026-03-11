@@ -73,6 +73,13 @@ class RegistrationDialog(wx.Dialog):
         self.confirm_input = wx.TextCtrl(panel, style=wx.TE_PASSWORD)
         sizer.Add(self.confirm_input, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 10)
 
+        # Email
+        email_label = wx.StaticText(panel, label=Localization.get("reg-email-label"))
+        sizer.Add(email_label, 0, wx.LEFT | wx.TOP, 10)
+
+        self.email_input = wx.TextCtrl(panel)
+        sizer.Add(self.email_input, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 10)
+
         # Buttons
         button_sizer = wx.BoxSizer(wx.HORIZONTAL)
 
@@ -97,13 +104,20 @@ class RegistrationDialog(wx.Dialog):
 
     def on_register(self, event):
         """Handle register button click."""
+        import re
         username = self.username_input.GetValue().strip()
         password = self.password_input.GetValue()
         confirm = self.confirm_input.GetValue()
+        email = self.email_input.GetValue().strip()
 
         # Validate fields
         if not username:
             wx.MessageBox(Localization.get("reg-error-username"), Localization.get("common-error"), wx.OK | wx.ICON_ERROR)
+            self.username_input.SetFocus()
+            return
+
+        if len(username) < 3 or len(username) > 30:
+            wx.MessageBox(Localization.get("auth-error-username-length"), Localization.get("common-error"), wx.OK | wx.ICON_ERROR)
             self.username_input.SetFocus()
             return
 
@@ -112,34 +126,48 @@ class RegistrationDialog(wx.Dialog):
             self.password_input.SetFocus()
             return
 
+        has_letters = bool(re.search(r'[a-zA-Z]', password))
+        has_numbers = bool(re.search(r'[0-9]', password))
+
+        if len(password) < 8 or not has_letters or not has_numbers:
+            wx.MessageBox(Localization.get("auth-error-password-weak"), Localization.get("common-error"), wx.OK | wx.ICON_ERROR)
+            self.password_input.SetFocus()
+            return
+
         if password != confirm:
             wx.MessageBox(Localization.get("reg-error-match"), Localization.get("common-error"), wx.OK | wx.ICON_ERROR)
             self.confirm_input.SetFocus()
+            return
+
+        if not email:
+            # We can use the same key since it's added everywhere
+            wx.MessageBox(Localization.get("reg-error-email"), Localization.get("common-error"), wx.OK | wx.ICON_ERROR)
+            self.email_input.SetFocus()
             return
 
         # Disable button during registration
         self.register_btn.Enable(False)
 
         # Send registration to server
-        self._send_registration(username, password)
+        self._send_registration(username, password, email)
 
-    def _send_registration(self, username, password):
+    def _send_registration(self, username, password, email):
         """Send registration packet to server."""
         # Run in a thread to avoid blocking UI
         thread = threading.Thread(
             target=self._register_thread,
-            args=(username, password),
+            args=(username, password, email),
             daemon=True,
         )
         thread.start()
 
-    def _register_thread(self, username, password):
+    def _register_thread(self, username, password, email):
         """Thread to handle registration."""
         try:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             result = loop.run_until_complete(
-                self._send_register_packet(username, password)
+                self._send_register_packet(username, password, email)
             )
             loop.close()
 
@@ -148,7 +176,7 @@ class RegistrationDialog(wx.Dialog):
         except Exception as e:
             wx.CallAfter(self._show_registration_result, Localization.get("reg-connection-error", error=str(e)))
 
-    async def _send_register_packet(self, username, password):
+    async def _send_register_packet(self, username, password, email):
         """Send registration packet and wait for response."""
         try:
             # Create SSL context that allows self-signed certificates
@@ -166,7 +194,7 @@ class RegistrationDialog(wx.Dialog):
                             "type": "register",
                             "username": username,
                             "password": password,
-                            "email": "", # Legacy field
+                            "email": email,
                             "bio": "",   # Legacy field
                             "locale": Localization._locale,
                         }
@@ -210,7 +238,7 @@ class RegistrationDialog(wx.Dialog):
              elif status == "error":
                  error_code = result.get("error")
                  msg = result.get("text", result.get("error"))
-                 if error_code == "username_taken":
+                 if error_code in ["username_taken", "email_taken"]:
                       wx.MessageBox(msg, Localization.get("reg-failed-title"), wx.OK | wx.ICON_WARNING)
                  else:
                       wx.MessageBox(msg, Localization.get("reg-failed-title"), wx.OK | wx.ICON_ERROR)

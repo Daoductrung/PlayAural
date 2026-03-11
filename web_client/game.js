@@ -2228,6 +2228,7 @@ class GameClient {
         const input = document.createElement(packet.multiline ? 'textarea' : 'input');
         input.value = packet.default_value || "";
         if (packet.read_only) input.readOnly = true;
+        if (packet.max_length) input.maxLength = packet.max_length;
         input.setAttribute('aria-label', promptText);
 
         const submitBtn = document.createElement('button');
@@ -2446,6 +2447,23 @@ class GameClient {
         const password = document.getElementById('reg-password').value;
         const confirm = document.getElementById('reg-password-confirm').value;
         const email = document.getElementById('reg-email').value;
+
+        if (!email || email.trim() === "") {
+            alert(Localization.get("reg-error-email"));
+            return;
+        }
+
+        if (username.length < 3 || username.length > 30) {
+            alert(Localization.get("auth-error-username-length"));
+            return;
+        }
+
+        const hasLetters = /[a-zA-Z]/.test(password);
+        const hasNumbers = /[0-9]/.test(password);
+        if (password.length < 8 || !hasLetters || !hasNumbers) {
+            alert(Localization.get("auth-error-password-weak"));
+            return;
+        }
 
         if (password !== confirm) {
             alert(Localization.get("error-password-mismatch"));

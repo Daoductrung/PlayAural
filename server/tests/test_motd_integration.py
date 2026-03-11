@@ -141,12 +141,13 @@ async def test_motd_login_interception(mock_server):
     client.send = AsyncMock()
     client.close = AsyncMock()
 
+    from server.core.server import LATEST_CLIENT_VERSION
     # Call auth handle
     packet = {
         "username": "test_user",
         "password": "hash",
         "client": "python",
-        "version": "0.1.7"
+        "version": LATEST_CLIENT_VERSION
     }
 
     # Mock auth check
@@ -232,11 +233,12 @@ async def test_motd_reconnect_game_state(mock_server):
     new_client.authenticated = True
     new_client.send = AsyncMock()
 
+    from server.core.server import LATEST_CLIENT_VERSION
     packet = {
         "username": "gamer",
         "password": "hash",
         "client": "python",
-        "version": "0.1.7"
+        "version": LATEST_CLIENT_VERSION
     }
 
     server._auth.authenticate = MagicMock(return_value=True)

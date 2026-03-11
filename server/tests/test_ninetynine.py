@@ -40,7 +40,7 @@ class TestNinetyNineUnit:
 
     @classmethod
     def setup_class(cls):
-        Localization.init(Path("server/locales"))
+        Localization.init(Path("locales"))
         Localization.preload_bundles()
 
     def test_game_creation(self):
@@ -86,7 +86,7 @@ class TestCardAndDeck:
 
     @classmethod
     def setup_class(cls):
-        Localization.init(Path("server/locales"))
+        Localization.init(Path("locales"))
         Localization.preload_bundles()
 
     def test_card_creation(self):

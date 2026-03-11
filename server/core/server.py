@@ -368,6 +368,9 @@ PlayAural Server
 
             if packet_type == "menu":
                 await self._handle_menu(client, packet)
+            elif packet_type == "escape":
+                packet["selection_id"] = "back"
+                await self._handle_menu(client, packet)
             elif packet_type == "keybind":
                 await self._handle_keybind(client, packet)
             elif packet_type == "editbox":
@@ -4180,7 +4183,7 @@ PlayAural Server
         target_user.play_sound("pm.ogg")
 
         # Sender FTL confirmation
-        sender.speak_l("pm-sent-success", username=target_username)
+        sender.speak_l("pm-sent-content", buffer="chat", username=target_username, message=message)
         sender.play_sound("pm.ogg")
 
 
@@ -4195,16 +4198,45 @@ PlayAural Server
 
         # Handle Private Message chat command
         if message.startswith("@"):
-            parts = message.split(" ", 1)
-            if len(parts) == 2:
-                target_username = parts[0][1:] # Strip the @
-                pm_content = parts[1].strip()
-                if not pm_content:
-                    # Stop empty chat messages from accidentally falling back into global chat
-                    return
-                user = self._users.get(username)
-                if user:
-                    await self._deliver_private_message(user, target_username, pm_content)
+            text_after_at = message[1:]
+
+            # Longest matching prefix algorithm for usernames containing spaces
+            longest_match_name = ""
+
+            # Search through all known usernames (both online and offline friends)
+            # Since users might message an offline friend and we want to correctly identify the target
+            user = self._users.get(username)
+            if user:
+                friend_uuids = self._db.get_friends(user.uuid)
+                potential_targets = [self._db.get_user_name_by_uuid(f_uuid) for f_uuid in friend_uuids]
+                potential_targets = [t for t in potential_targets if t] # Filter out None
+
+                # Add all currently online users to the pool
+                potential_targets.extend(self._get_online_usernames())
+
+                for target in set(potential_targets):
+                    if text_after_at.lower().startswith(target.lower()):
+                        next_char_idx = len(target)
+                        # Ensure the match ends at a word boundary (space or end of string)
+                        if next_char_idx == len(text_after_at) or text_after_at[next_char_idx] == " ":
+                            if len(target) > len(longest_match_name):
+                                longest_match_name = target
+
+                if longest_match_name:
+                    pm_content = text_after_at[len(longest_match_name):].strip()
+                    if pm_content:
+                        await self._deliver_private_message(user, longest_match_name, pm_content)
+                else:
+                    # Fallback if no matching user found: just split by space and try to deliver anyway
+                    # so the user gets the standard "user not found/offline" error instead of broadcasting a PM.
+                    parts = text_after_at.split(" ", 1)
+                    if len(parts) == 2:
+                        target_username = parts[0]
+                        pm_content = parts[1].strip()
+                        if pm_content:
+                            await self._deliver_private_message(user, target_username, pm_content)
+
+                # Unconditionally return to prevent the PM from ever broadcasting to global chat
                 return
 
         if message.startswith("/reboot") or message.startswith("/stop"):

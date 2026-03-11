@@ -464,4 +464,5 @@ enter-pm-message = Nhập tin nhắn cho { $username }:
 pm-error-not-friends = Bạn chỉ có thể gửi tin nhắn riêng cho bạn bè.
 pm-error-offline = { $username } hiện không trực tuyến.
 pm-sent-success = Đã gửi tin nhắn đến { $username }.
+pm-sent-content = Bạn gửi { $username }: { $message }
 pm-received = Tin nhắn riêng từ { $username }: { $message }

@@ -467,4 +467,5 @@ enter-pm-message = Enter your message for { $username }:
 pm-error-not-friends = You can only send private messages to friends.
 pm-error-offline = { $username } is not currently online.
 pm-sent-success = Message sent to { $username }.
+pm-sent-content = You to { $username }: { $message }
 pm-received = Private message from { $username }: { $message }

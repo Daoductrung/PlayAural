@@ -4180,7 +4180,7 @@ PlayAural Server
         target_user.play_sound("pm.ogg")
 
         # Sender FTL confirmation
-        sender.speak_l("pm-sent-success", username=target_username)
+        sender.speak_l("pm-sent-content", buffer="chat", username=target_username, message=message)
         sender.play_sound("pm.ogg")
 
 
@@ -4195,17 +4195,48 @@ PlayAural Server
 
         # Handle Private Message chat command
         if message.startswith("@"):
-            parts = message.split(" ", 1)
-            if len(parts) == 2:
-                target_username = parts[0][1:] # Strip the @
-                pm_content = parts[1].strip()
-                if not pm_content:
+            user = self._users.get(username)
+            if user:
+                text_after_at = message[1:]
+                best_match = None
+                best_match_len = 0
+
+                # Check online friends first
+                friend_uuids = self._db.get_friends(user.uuid)
+                for f_uuid in friend_uuids:
+                    # Find online user with this UUID
+                    for u in self._users.values():
+                        if u.uuid == f_uuid and u.username:
+                            target_name = u.username
+                            if text_after_at.lower().startswith(target_name.lower()):
+                                if len(text_after_at) == len(target_name) or text_after_at[len(target_name)] == ' ':
+                                    if len(target_name) > best_match_len:
+                                        best_match = target_name
+                                        best_match_len = len(target_name)
+                            break
+
+                # Fallback: check all online users if no friend matched
+                if not best_match:
+                    for u in self._users.values():
+                        if u.username:
+                            target_name = u.username
+                            if text_after_at.lower().startswith(target_name.lower()):
+                                if len(text_after_at) == len(target_name) or text_after_at[len(target_name)] == ' ':
+                                    if len(target_name) > best_match_len:
+                                        best_match = target_name
+                                        best_match_len = len(target_name)
+
+                if best_match:
+                    pm_content = text_after_at[best_match_len:].strip()
+                    if pm_content:
+                        await self._deliver_private_message(user, best_match, pm_content)
                     # Stop empty chat messages from accidentally falling back into global chat
                     return
-                user = self._users.get(username)
-                if user:
-                    await self._deliver_private_message(user, target_username, pm_content)
-                return
+                else:
+                    # Provide feedback if we couldn't parse the user
+                    user.speak_l("pm-error-offline", username=text_after_at.split(" ", 1)[0])
+                    user.play_sound("accounterror.ogg")
+                    return
 
         if message.startswith("/reboot") or message.startswith("/stop"):
             # Check permissions
@@ -4411,7 +4442,7 @@ PlayAural Server
 
     async def _handle_online_users_selection(self, user: NetworkUser, selection_id: str, state: dict) -> None:
         """Handle selection from the interactive online users list."""
-        if selection_id == "back":
+        if selection_id in ("back", ""):
             self._restore_previous_menu(user, state)
         elif selection_id.startswith("online_"):
             target_username = selection_id[7:]

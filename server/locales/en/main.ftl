@@ -79,6 +79,8 @@ goodbye = Goodbye!
 
 user-online = { $player } came online.
 user-offline = { $player } went offline.
+friend-online = Your friend { $player } is now online.
+friend-offline = Your friend { $player } went offline.
 permission-denied = You do not have permission to perform this action on a Developer.
 kick-user = Kick User
 kick-broadcast = { $target } was kicked by { $actor }.
@@ -99,6 +101,9 @@ user-role-user = User
 client-type-web = Web
 client-type-python = Desktop
 online-user-full-entry = { $username } ({ $role }, { $client }): { $status }
+online-user-actions-title = Actions for { $username }
+user-not-online-anymore = This user is no longer online.
+close-menu = Close
 
 language = Language
 language-option = Language: { $language }
@@ -114,6 +119,8 @@ option-notify-table-created-on = Notify when table created: On
 option-notify-table-created-off = Notify when table created: Off
 option-notify-user-presence-on = User online/offline notifications: On
 option-notify-user-presence-off = User online/offline notifications: Off
+option-notify-friend-presence-on = Friend online/offline notifications: On
+option-notify-friend-presence-off = Friend online/offline notifications: Off
 dice-keeping-style-option = Dice keeping style: { $style }
 dice-keeping-style-changed = Dice keeping style set to { $style }.
 dice-keeping-style-indexes = Dice indexes
@@ -416,6 +423,7 @@ friends-send-request = Send Friend Request
 friends-list-empty = You have no friends yet.
 friend-status-offline = Offline
 friend-status-playing = Playing { $game }
+friend-status-spectating = Spectating { $game }
 friend-status-lobby = In Lobby
 friend-list-entry = { $username } ({ $status })
 
@@ -449,3 +457,14 @@ friends-grouped-requests = You have pending friend requests from: { $usernames }
 friends-grouped-accepted = Your friend requests were accepted by: { $usernames }
 friends-grouped-declined = Your friend requests were declined by: { $usernames }
 friends-grouped-removed = You were removed from the friends list by: { $usernames }
+friends-and-others = { $names } and { $count } { $count ->
+    [one] other
+   *[other] others
+}
+
+send-private-message = Send Private Message
+enter-pm-message = Enter your message for { $username }:
+pm-error-not-friends = You can only send private messages to friends.
+pm-error-offline = { $username } is not currently online.
+pm-sent-success = Message sent to { $username }.
+pm-received = Private message from { $username }: { $message }

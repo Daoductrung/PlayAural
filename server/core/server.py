@@ -259,11 +259,11 @@ PlayAural Server
             # Only broadcast if this client was actually the active one AND not banned
             if user and user.connection == client and not is_banned:
                 task = asyncio.create_task(self._delayed_offline_broadcast(
-                    client.username, offline_sound, user.trust_level
+                    client.username, user.uuid, offline_sound, user.trust_level
                 ))
                 self._pending_disconnects[client.username] = task
 
-    async def _delayed_offline_broadcast(self, username: str, sound: str, trust_level: int) -> None:
+    async def _delayed_offline_broadcast(self, username: str, user_uuid: str, sound: str, trust_level: int) -> None:
         """Wait briefly then broadcast offline message if user hasn't reconnected."""
         try:
             await asyncio.sleep(2.0) # 2 seconds grace period
@@ -272,25 +272,48 @@ PlayAural Server
             self._pending_disconnects.pop(username, None)
             
             # Broadcast
-            self._broadcast_presence_l("user-offline", username, sound, trust_level)
+            self._broadcast_presence_l("user-offline", username, user_uuid, sound, trust_level)
             
         except asyncio.CancelledError:
             # User reconnected in time
             pass
+        finally:
+            self.on_user_presence_changed()
 
     def _broadcast_presence_l(
-        self, message_id: str, player_name: str, sound: str, target_trust_level: int = 1
+        self, message_id: str, player_name: str, player_uuid: str, default_sound: str, target_trust_level: int = 1
     ) -> None:
         """Broadcast a localized presence announcement to all approved online users with sound."""
+        is_online_event = (message_id == "user-online")
+        friend_message_id = "friend-online" if is_online_event else "friend-offline"
+        friend_sound = "onlinefriend.ogg" if is_online_event else "offlinefriend.ogg"
+
+        # Optimization: Fetch the connected player's friends once to avoid N+1 queries.
+        # The database returns a list of UUIDs for friends.
+        connecting_player_friends_uuids = set(self._db.get_friends(player_uuid))
+
         for user in self._users.values():
-            if user.approved:
-                # If target is a normal user (trust level < 2) and this user has presence notifications off, skip
+            if not user.approved:
+                continue
+
+            # Check if this connected user's UUID is in the joining/leaving player's friend list.
+            # Friendship is bidirectional, so checking one side is sufficient.
+            is_friend = False
+            if user.preferences.notify_friend_presence:
+                is_friend = user.uuid in connecting_player_friends_uuids
+
+            if is_friend:
+                # Play friend priority notification
+                user.speak_l(friend_message_id, buffer="system", player=player_name)
+                user.play_sound(friend_sound)
+            else:
+                # If target is a normal user (trust level < 2) and this user has general presence notifications off, skip
                 if target_trust_level < 2 and not user.preferences.notify_user_presence:
                     continue
                 # Use "system" buffer for joins/parts
                 user.speak_l(message_id, buffer="system", player=player_name)
-                # Play sound (always uses main sound channel)
-                user.play_sound(sound)
+                # Play default sound
+                user.play_sound(default_sound)
 
     async def _broadcast_admin_announcement(self, admin_name: str) -> None:
         """Broadcast an admin announcement to all approved online users."""
@@ -504,7 +527,8 @@ PlayAural Server
 
             # Only broadcast if we didn't cancel a pending disconnect (debounce)
             if not pending_task:
-                 self._broadcast_presence_l("user-online", username, online_sound, trust_level)
+                 self._broadcast_presence_l("user-online", username, user_uuid, online_sound, trust_level)
+                 self.on_user_presence_changed()
 
                  # If user is a developer or admin, announce that as well
                  if trust_level >= 3:
@@ -677,7 +701,14 @@ PlayAural Server
                 grouped[etype].append(notif["source_username"])
 
         for etype, usernames in grouped.items():
-            formatted_names = Localization.format_list_and(user.locale, usernames)
+            # Cap the list at 3 to prevent TTS flooding
+            if len(usernames) > 3:
+                displayed_names = usernames[:3]
+                remaining_count = len(usernames) - 3
+                formatted_names_base = Localization.format_list_and(user.locale, displayed_names)
+                formatted_names = Localization.get(user.locale, "friends-and-others", names=formatted_names_base, count=remaining_count)
+            else:
+                formatted_names = Localization.format_list_and(user.locale, usernames)
 
             if etype == "friend_request_received":
                 user.speak_l("friends-grouped-requests", usernames=formatted_names)
@@ -1199,9 +1230,35 @@ PlayAural Server
         items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
         return items
 
+    def on_user_presence_changed(self) -> None:
+        """Called when a user logs in or disconnects to refresh social menus."""
+        for username, user in self._users.items():
+            state = self._user_states.get(username, {})
+            current_menu = state.get("menu")
+            if current_menu == "friends_list_menu":
+                self._show_friends_list_menu(user)
+            elif current_menu == "online_users":
+                items = self._get_online_users_menu_items(user)
+                user.update_menu("online_users", items)
+
+    def on_friend_requests_changed(self, target_uuid: str) -> None:
+        """Called when friend requests are sent, accepted, or declined to refresh UI."""
+        # We need to find the user by UUID to update their menu
+        for username, user in self._users.items():
+            if user.uuid == target_uuid:
+                state = self._user_states.get(username, {})
+                current_menu = state.get("menu")
+                if current_menu == "friends_hub_menu":
+                    self._show_friends_hub_menu(user)
+                elif current_menu == "friend_requests_menu":
+                    self._show_friend_requests_menu(user)
+                elif current_menu == "friends_list_menu":
+                    self._show_friends_list_menu(user)
+
     def on_tables_changed(self) -> None:
         """Called by TableManager when a table is created, destroyed, or changes status.
         Dynamically updates the tables menus for any users currently viewing them."""
+        self.on_user_presence_changed()
         for username, user in self._users.items():
             state = self._user_states.get(username, {})
             current_menu = state.get("menu")
@@ -1256,20 +1313,9 @@ PlayAural Server
         dice_style_name = Localization.get(user.locale, style_key)
         
         items = []
+
+        # 1. Audio & Media
         items.extend([
-            MenuItem(
-                text=Localization.get(
-                    user.locale, "language-option", language=current_lang
-                ),
-                id="language",
-            ),
-            MenuItem(
-                text=Localization.get(
-                    user.locale,
-                    "option-notify-user-presence-on" if prefs.notify_user_presence else "option-notify-user-presence-off"
-                ),
-                id="notify_user_presence",
-            ),
             MenuItem(
                 text=Localization.get(
                     user.locale,
@@ -1296,6 +1342,54 @@ PlayAural Server
                 ),
                 id="turn_sound",
             ),
+        ])
+
+        if user.client_type != "web":
+            items.append(
+                MenuItem(
+                    text=Localization.get(
+                        user.locale,
+                        "play-typing-sounds-option",
+                        status=Localization.get(
+                            user.locale,
+                            "option-on" if prefs.play_typing_sounds else "option-off",
+                        ),
+                    ),
+                    id="play_typing_sounds",
+                )
+            )
+
+        # 2. Accessibility & Interface
+        items.append(
+            MenuItem(
+                text=Localization.get(
+                    user.locale, "language-option", language=current_lang
+                ),
+                id="language",
+            )
+        )
+
+        if user.client_type == "web":
+            items.append(
+                MenuItem(text=Localization.get(user.locale, "speech-settings"), id="speech_settings")
+            )
+        else:
+            items.append(
+                MenuItem(
+                    text=Localization.get(
+                        user.locale,
+                        "invert-multiline-enter-option",
+                        status=Localization.get(
+                            user.locale,
+                            "option-on" if prefs.invert_multiline_enter_behavior else "option-off",
+                        ),
+                    ),
+                    id="invert_multiline_enter",
+                )
+            )
+
+        # 3. Social & Notifications
+        items.extend([
             MenuItem(
                 text=Localization.get(
                     user.locale,
@@ -1316,48 +1410,40 @@ PlayAural Server
                 ),
                 id="mute_table_chat",
             ),
-        ])
-
-
-        # PC-specific options (Hide for Web)
-        if user.client_type != "web":
-            items.extend([
-                MenuItem(
-                    text=Localization.get(
-                        user.locale,
-                        "invert-multiline-enter-option",
-                        status=Localization.get(
-                            user.locale,
-                            "option-on" if prefs.invert_multiline_enter_behavior else "option-off",
-                        ),
-                    ),
-                    id="invert_multiline_enter",
+            MenuItem(
+                text=Localization.get(
+                    user.locale,
+                    "option-notify-user-presence-on" if prefs.notify_user_presence else "option-notify-user-presence-off"
                 ),
-                MenuItem(
-                    text=Localization.get(
-                        user.locale,
-                        "play-typing-sounds-option",
-                        status=Localization.get(
-                            user.locale,
-                            "option-on" if prefs.play_typing_sounds else "option-off",
-                        ),
-                    ),
-                    id="play_typing_sounds",
+                id="notify_user_presence",
+            ),
+            MenuItem(
+                text=Localization.get(
+                    user.locale,
+                    "option-notify-friend-presence-on" if prefs.notify_friend_presence else "option-notify-friend-presence-off"
                 ),
-            ])
-        else:
-            # Web-specific options
-            items.append(
-                MenuItem(text=Localization.get(user.locale, "speech-settings"), id="speech_settings")
-            )
-
-        items.extend([
+                id="notify_friend_presence",
+            ),
             MenuItem(
                 text=Localization.get(
                     user.locale,
                     "option-notify-table-created-on" if prefs.notify_table_created else "option-notify-table-created-off"
                 ),
                 id="notify_table_created",
+            ),
+        ])
+
+        # 4. Gameplay Preferences
+        items.extend([
+            MenuItem(
+                text=Localization.get(
+                    user.locale,
+                    "dice-keeping-style-option",
+                    style=Localization.get(
+                        user.locale, self.DICE_KEEPING_STYLES.get(prefs.dice_keeping_style, "dice-keeping-style-indexes")
+                    ),
+                ),
+                id="dice_keeping_style",
             ),
             MenuItem(
                 text=Localization.get(
@@ -1369,18 +1455,9 @@ PlayAural Server
                 ),
                 id="clear_kept",
             ),
-            MenuItem(
-                text=Localization.get(
-                    user.locale,
-                    "dice-keeping-style-option",
-                    style=Localization.get(
-                        user.locale, self.DICE_KEEPING_STYLES.get(prefs.dice_keeping_style, "dice-keeping-style-indexes")
-                    ),
-                ),
-                id="dice_keeping_style",
-            ),
             MenuItem(text=Localization.get(user.locale, "back"), id="back"),
         ])
+
         user.show_menu(
             "options_menu",
             items,
@@ -1809,7 +1886,9 @@ PlayAural Server
         elif current_menu == "public_profile_menu":
             await self._handle_public_profile_selection(user, selection_id, state)
         elif current_menu == "online_users":
-            self._restore_previous_menu(user, state)
+            await self._handle_online_users_selection(user, selection_id, state)
+        elif current_menu == "online_user_actions_menu":
+            await self._handle_online_user_actions_selection(user, selection_id, state)
         elif current_menu in [
             "admin_menu", "account_approval_menu", "pending_user_actions_menu",
             "promote_admin_menu", "demote_admin_menu", "promote_confirm_menu",
@@ -1961,7 +2040,11 @@ PlayAural Server
 
             for f_name in friends:
                 # Determine status
-                is_online = f_name in self._users
+                online_user = self._users.get(f_name)
+                # Ensure they are truly online and not stuck in banned screen or unapproved
+                state = self._user_states.get(f_name, {})
+                is_online = online_user is not None and online_user.approved and state.get("menu") != "banned_menu"
+
                 if not is_online:
                     status = Localization.get(user.locale, "friend-status-offline")
                 else:
@@ -1969,7 +2052,18 @@ PlayAural Server
                     if table:
                         game_class = get_game_class(table.game_type)
                         game_name = Localization.get(user.locale, game_class.get_name_key()) if game_class else table.game_type
-                        status = Localization.get(user.locale, "friend-status-playing", game=game_name)
+
+                        # Determine if spectating
+                        is_spectator = False
+                        for m in table.members:
+                            if m.username == f_name:
+                                is_spectator = m.is_spectator
+                                break
+
+                        if is_spectator:
+                            status = Localization.get(user.locale, "friend-status-spectating", game=game_name)
+                        else:
+                            status = Localization.get(user.locale, "friend-status-playing", game=game_name)
                     else:
                         status = Localization.get(user.locale, "friend-status-lobby")
 
@@ -2001,6 +2095,7 @@ PlayAural Server
 
         # Check if they are online and in a table
         if target_username in self._users:
+            items.append(MenuItem(text=Localization.get(user.locale, "send-private-message"), id="send_pm"))
             table = self._tables.find_user_table(target_username)
             if table:
                 items.append(MenuItem(text=Localization.get(user.locale, "join-table"), id="join_table"))
@@ -2033,6 +2128,16 @@ PlayAural Server
 
         elif selection_id == "view_profile":
             self._show_public_profile(user, target_username, "friend_actions_menu")
+
+        elif selection_id == "send_pm":
+            user.show_editbox(
+                "send_pm_input",
+                Localization.get(user.locale, "enter-pm-message", username=target_username),
+                multiline=True,
+                max_length=500
+            )
+            self._user_states[user.username]["menu"] = "send_pm_input"
+            self._user_states[user.username]["target_username"] = target_username
 
         elif selection_id == "join_table":
             table = self._tables.find_user_table(target_username)
@@ -2067,6 +2172,8 @@ PlayAural Server
                     target_user.play_sound("friend_removed.ogg")
                 else:
                     self._db.add_notification(target_record.uuid, user.username, "friend_removed")
+
+                self.on_friend_requests_changed(target_record.uuid)
 
             self._show_friends_list_menu(user)
 
@@ -2149,6 +2256,7 @@ PlayAural Server
                     target_user.play_sound("friend_accepted.ogg")
                 else:
                     self._db.add_notification(target_record.uuid, user.username, "friend_accepted")
+                self.on_friend_requests_changed(target_record.uuid)
             else:
                 user.speak_l("request-not-found")
             self._show_friend_requests_menu(user)
@@ -2166,6 +2274,7 @@ PlayAural Server
             else:
                 self._db.add_notification(target_record.uuid, user.username, "friend_declined")
 
+            self.on_friend_requests_changed(target_record.uuid)
             self._show_friend_requests_menu(user)
 
     def _show_public_profile(self, requesting_user: NetworkUser, target_username: str, return_menu_id: str) -> None:
@@ -2221,6 +2330,12 @@ PlayAural Server
             return_menu_id = state.get("return_menu_id")
             if return_menu_id == "friend_actions_menu":
                  self._show_friend_actions_menu(user, state.get("target_username", ""))
+            elif return_menu_id == "online_user_actions_menu":
+                 # For online user actions, we need to construct a pseudo-state to resume correctly
+                 # However, _show_online_user_actions_menu expects a state dict representing the Online List's origins.
+                 # Let's pass a generic state to avoid crashing, though the deeply nested back might route to main_menu if lost.
+                 pseudo_state = {"return_menu_id": "main_menu", "return_menu": {}, "return_state": {}}
+                 self._show_online_user_actions_menu(user, state.get("target_username", ""), pseudo_state)
             else:
                  self._show_main_menu(user)
 
@@ -2623,6 +2738,10 @@ PlayAural Server
             self._show_options_menu(user)
         elif selection_id == "notify_user_presence":
             prefs.notify_user_presence = not prefs.notify_user_presence
+            self._save_user_preferences(user)
+            self._show_options_menu(user)
+        elif selection_id == "notify_friend_presence":
+            prefs.notify_friend_presence = not prefs.notify_friend_presence
             self._save_user_preferences(user)
             self._show_options_menu(user)
         elif selection_id == "clear_kept":
@@ -4009,6 +4128,7 @@ PlayAural Server
                          target_user.play_sound("friend_accepted.ogg")
                      else:
                          self._db.add_notification(target_record.uuid, user.username, "friend_accepted")
+                     self.on_friend_requests_changed(target_record.uuid)
                 elif status == "sent":
                      user.speak_l("friend-request-sent", username=target_record.username)
                      user.play_sound("friend_request_sent.ogg")
@@ -4019,9 +4139,50 @@ PlayAural Server
                          target_user.play_sound("friend_request_received.ogg")
                      else:
                          self._db.add_notification(target_record.uuid, user.username, "friend_request_received")
+                     self.on_friend_requests_changed(target_record.uuid)
 
                 self._show_friends_hub_menu(user)
                 return
+
+            elif menu_id == "send_pm_input":
+                target_username = user_state.get("target_username")
+                value = value.strip()
+                if value and target_username:
+                    await self._deliver_private_message(user, target_username, value)
+
+                # Return to friend actions menu regardless
+                if target_username:
+                    self._show_friend_actions_menu(user, target_username)
+                else:
+                    self._show_friends_list_menu(user)
+                return
+
+    async def _deliver_private_message(self, sender: NetworkUser, target_username: str, message: str) -> None:
+        """Deliver a private message after validating friendship and online status."""
+        target_user = self._users.get(target_username)
+
+        # 1. Online Check
+        if not target_user or not target_user.approved:
+            sender.speak_l("pm-error-offline", username=target_username)
+            sender.play_sound("accounterror.ogg")
+            return
+
+        # 2. Friend Check
+        friend_uuids = self._db.get_friends(sender.uuid)
+        if target_user.uuid not in friend_uuids:
+            sender.speak_l("pm-error-not-friends")
+            sender.play_sound("accounterror.ogg")
+            return
+
+        # 3. Delivery
+        # Receiver
+        target_user.speak_l("pm-received", buffer="chat", username=sender.username, message=message)
+        target_user.play_sound("pm.ogg")
+
+        # Sender FTL confirmation
+        sender.speak_l("pm-sent-success", username=target_username)
+        sender.play_sound("pm.ogg")
+
 
     async def _handle_chat(self, client: ClientConnection, packet: dict) -> None:
         """Handle chat message."""
@@ -4031,6 +4192,21 @@ PlayAural Server
 
         convo = packet.get("convo", "local")
         message = packet.get("message", "")
+
+        # Handle Private Message chat command
+        if message.startswith("@"):
+            parts = message.split(" ", 1)
+            if len(parts) == 2:
+                target_username = parts[0][1:] # Strip the @
+                pm_content = parts[1].strip()
+                if not pm_content:
+                    # Stop empty chat messages from accidentally falling back into global chat
+                    return
+                user = self._users.get(username)
+                if user:
+                    await self._deliver_private_message(user, target_username, pm_content)
+                return
+
         if message.startswith("/reboot") or message.startswith("/stop"):
             # Check permissions
             user = self._users.get(username)
@@ -4149,9 +4325,9 @@ PlayAural Server
                 online_users.append(username)
         return sorted(online_users, key=str.lower)
 
-    def _format_online_users_lines(self, user: NetworkUser) -> list[str]:
-        """Format online users with game names for menu display."""
-        lines: list[str] = []
+    def _format_online_users_lines(self, user: NetworkUser) -> list[tuple[str, str]]:
+        """Format online users with game names for menu display. Returns tuples of (username, display_text)."""
+        lines: list[tuple[str, str]] = []
         for username in self._get_online_usernames():
             online_user = self._users.get(username)
             if not online_user:
@@ -4165,9 +4341,6 @@ PlayAural Server
             # Check if user is waiting for approval
             if not online_user.approved:
                 status = Localization.get(user.locale, "online-user-waiting-approval")
-                # Fallback to old format for unapproved users if needed, but new format is fine
-                # lines.append(f"{username}: {status}") 
-                # Use new format
             else:
                 table = self._tables.find_user_table(username)
                 if table:
@@ -4189,16 +4362,30 @@ PlayAural Server
                 client=client_text,
                 status=status,
             )
-            lines.append(line)
+            lines.append((username, line))
 
-            # Logic handled above
-            pass
         if not lines:
-            lines.append(Localization.get(user.locale, "online-users-none"))
+            lines.append(("", Localization.get(user.locale, "online-users-none")))
         return lines
 
+    def _get_online_users_menu_items(self, user: NetworkUser) -> list[MenuItem]:
+        """Generate the list of MenuItems for the interactive online users list."""
+        items = [MenuItem(text=Localization.get(user.locale, "close-menu"), id="back")]
+
+        for username, line in self._format_online_users_lines(user):
+            if not username:
+                # E.g. "No users online"
+                items.append(MenuItem(text=line, id=""))
+            elif username == user.username:
+                # Do not allow opening an action menu for oneself
+                items.append(MenuItem(text=line, id=""))
+            else:
+                items.append(MenuItem(text=line, id=f"online_{username}"))
+
+        return items
+
     def _show_online_users_menu(self, user: NetworkUser) -> None:
-        """Show online users with games in a read-only menu."""
+        """Show interactive online users menu."""
         current_state = self._user_states.get(user.username, {})
         previous_menu_id = current_state.get("menu")
         previous_menu = None
@@ -4206,16 +4393,14 @@ PlayAural Server
             current_menus = getattr(user, "_current_menus", {})
             previous_menu = current_menus.get(previous_menu_id)
 
-        items = [
-            MenuItem(text=line, id="online_user")
-            for line in self._format_online_users_lines(user)
-        ]
+        items = self._get_online_users_menu_items(user)
+
         user.show_menu(
             "online_users",
             items,
-            multiletter=False,
-            escape_behavior=EscapeBehavior.SELECT_LAST,
-            position=0,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_FIRST, # Back is at index 0
+            position=1, # Default focus to first user, not the 'Back' button
         )
         self._user_states[user.username] = {
             "menu": "online_users",
@@ -4223,6 +4408,110 @@ PlayAural Server
             "return_menu": previous_menu,
             "return_state": dict(current_state),
         }
+
+    async def _handle_online_users_selection(self, user: NetworkUser, selection_id: str, state: dict) -> None:
+        """Handle selection from the interactive online users list."""
+        if selection_id == "back":
+            self._restore_previous_menu(user, state)
+        elif selection_id.startswith("online_"):
+            target_username = selection_id[7:]
+            self._show_online_user_actions_menu(user, target_username, state)
+
+    def _show_online_user_actions_menu(self, user: NetworkUser, target_username: str, previous_state: dict) -> None:
+        """Show context menu for an online user."""
+        target_user = self._users.get(target_username)
+        if not target_user:
+            user.speak_l("user-not-online-anymore")
+            # Restart the menu process to clean state
+            self._show_online_users_menu(user)
+            return
+
+        title = Localization.get(user.locale, "online-user-actions-title", username=target_username)
+        items = [
+            MenuItem(text=title, id=""),
+            MenuItem(text=Localization.get(user.locale, "view-profile"), id="view_profile"),
+        ]
+
+        # Add "Send Friend Request" if not already friends and not pending
+        friend_uuids = self._db.get_friends(user.uuid)
+        pending_uuids = self._db.get_pending_incoming_requests(user.uuid)
+        # Check if we sent one to them too
+        # To be safe, just use the helper which handles "duplicate" cleanly, but for UI:
+        if target_user.uuid not in friend_uuids and target_user.uuid not in pending_uuids:
+             items.append(MenuItem(text=Localization.get(user.locale, "friends-send-request"), id="send_friend_request"))
+
+        items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
+
+        user.show_menu(
+            "online_user_actions_menu",
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+
+        # Preserve the deep return state needed to eventually close the online list
+        self._user_states[user.username] = {
+            "menu": "online_user_actions_menu",
+            "target_username": target_username,
+            "return_menu_id": previous_state.get("return_menu_id"),
+            "return_menu": previous_state.get("return_menu"),
+            "return_state": previous_state.get("return_state"),
+        }
+
+
+    async def _handle_online_user_actions_selection(self, user: NetworkUser, selection_id: str, state: dict) -> None:
+        """Handle selection in the online user actions menu."""
+        target_username = state.get("target_username")
+
+        if selection_id == "back":
+            # Reconstruct the deep state to pass back to the online list so it knows how to close later
+            user_state = dict(state)
+            user_state["menu"] = "online_users"
+            self._user_states[user.username] = user_state
+
+            items = self._get_online_users_menu_items(user)
+            user.show_menu(
+                "online_users",
+                items,
+                multiletter=True,
+                escape_behavior=EscapeBehavior.SELECT_FIRST,
+                position=1,
+            )
+            return
+
+        target_user = self._users.get(target_username)
+        if not target_user:
+            user.speak_l("user-not-online-anymore")
+            self._show_online_users_menu(user)
+            return
+
+        if selection_id == "view_profile":
+            self._show_public_profile(user, target_username, "online_user_actions_menu")
+
+        elif selection_id == "send_friend_request":
+            status = self._db.send_friend_request(user.uuid, target_user.uuid)
+
+            if status == "already_friends":
+                 user.speak_l("friend-error-already-friends")
+            elif status == "duplicate":
+                 user.speak_l("friend-error-duplicate")
+            elif status == "accepted":
+                 user.speak_l("friend-accepted-success", username=target_user.username)
+                 user.play_sound("friend_accepted.ogg")
+                 # Notify target if online
+                 target_user.speak_l("friend-accepted-notify", username=user.username)
+                 target_user.play_sound("friend_accepted.ogg")
+                 self.on_friend_requests_changed(target_user.uuid)
+            elif status == "sent":
+                 user.speak_l("friend-request-sent", username=target_user.username)
+                 user.play_sound("friend_request_sent.ogg")
+                 # Notify target if online
+                 target_user.speak_l("friend-request-received", username=user.username)
+                 target_user.play_sound("friend_request_received.ogg")
+                 self.on_friend_requests_changed(target_user.uuid)
+
+            # Refresh the actions menu so the button disappears
+            self._show_online_user_actions_menu(user, target_username, state)
 
     def _restore_previous_menu(self, user: NetworkUser, state: dict) -> None:
         """Restore the previous menu after closing the online users list."""
@@ -4281,7 +4570,9 @@ PlayAural Server
         if table and table.game:
             player = table.game.get_player_by_id(user.uuid)
             if player:
-                table.game.status_box(player, self._format_online_users_lines(user))
+                # Strip the username tuples back down to just strings for the read-only status box
+                string_lines = [line for _, line in self._format_online_users_lines(user)]
+                table.game.status_box(player, string_lines)
                 return
 
         self._show_online_users_menu(user)

@@ -79,6 +79,8 @@ goodbye = Tạm biệt!
 
 user-online = { $player } đã trực tuyến.
 user-offline = { $player } đã ngoại tuyến.
+friend-online = Bạn của bạn { $player } hiện đã trực tuyến.
+friend-offline = Bạn của bạn { $player } đã ngoại tuyến.
 permission-denied = Bạn không có quyền thực hiện hành động này đối với Nhà phát triển.
 kick-user = Đuổi người chơi
 kick-broadcast = { $target } đã bị đuổi bởi { $actor }.
@@ -99,6 +101,9 @@ user-role-user = Người dùng
 client-type-web = Web
 client-type-python = Máy tính
 online-user-full-entry = { $username } ({ $role }, { $client }): { $status }
+online-user-actions-title = Hành động cho { $username }
+user-not-online-anymore = Người dùng này không còn trực tuyến.
+close-menu = Đóng
 
 language = Ngôn ngữ
 language-option = Ngôn ngữ: { $language }
@@ -114,6 +119,8 @@ option-notify-table-created-on = Thông báo khi có bàn mới: Bật
 option-notify-table-created-off = Thông báo khi có bàn mới: Tắt
 option-notify-user-presence-on = Thông báo người dùng trực tuyến/ngoại tuyến: Bật
 option-notify-user-presence-off = Thông báo người dùng trực tuyến/ngoại tuyến: Tắt
+option-notify-friend-presence-on = Thông báo trạng thái bạn bè: Bật
+option-notify-friend-presence-off = Thông báo trạng thái bạn bè: Tắt
 dice-keeping-style-option = Kiểu giữ xúc xắc: { $style }
 dice-keeping-style-changed = Kiểu giữ xúc xắc đã đặt thành { $style }.
 dice-keeping-style-indexes = Theo vị trí
@@ -416,6 +423,7 @@ friends-send-request = Gửi lời mời kết bạn
 friends-list-empty = Bạn chưa có người bạn nào.
 friend-status-offline = Ngoại tuyến
 friend-status-playing = Đang chơi { $game }
+friend-status-spectating = Đang xem { $game }
 friend-status-lobby = Trong phòng chờ
 friend-list-entry = { $username } ({ $status })
 
@@ -449,3 +457,11 @@ friends-grouped-requests = Bạn có lời mời kết bạn đang chờ từ: {
 friends-grouped-accepted = Lời mời kết bạn của bạn đã được chấp nhận bởi: { $usernames }
 friends-grouped-declined = Lời mời kết bạn của bạn đã bị từ chối bởi: { $usernames }
 friends-grouped-removed = Bạn đã bị xóa khỏi danh sách bạn bè bởi: { $usernames }
+friends-and-others = { $names } và { $count } người khác
+
+send-private-message = Gửi tin nhắn riêng
+enter-pm-message = Nhập tin nhắn cho { $username }:
+pm-error-not-friends = Bạn chỉ có thể gửi tin nhắn riêng cho bạn bè.
+pm-error-offline = { $username } hiện không trực tuyến.
+pm-sent-success = Đã gửi tin nhắn đến { $username }.
+pm-received = Tin nhắn riêng từ { $username }: { $message }

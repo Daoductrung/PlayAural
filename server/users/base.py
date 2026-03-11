@@ -17,6 +17,7 @@ class EscapeBehavior(Enum):
 
     KEYBIND = "keybind"  # Sent as keybind event (ignored if no handler)
     SELECT_LAST = "select_last_option"  # Auto-selects the last menu item
+    SELECT_FIRST = "select_first_option"  # Auto-selects the first menu item
     ESCAPE_EVENT = "escape_event"  # Sends explicit escape event to server
 
 

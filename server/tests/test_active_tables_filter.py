@@ -9,7 +9,7 @@ def mock_server():
     server = Server(db_path=":memory:")
     server._db.connect()
     server._db.initialize_trust_levels()
-    Localization.init(Path("locales"))
+    Localization.init(Path("server/locales"))
     Localization.preload_bundles()
     return server
 

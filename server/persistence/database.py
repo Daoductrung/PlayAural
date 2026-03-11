@@ -68,9 +68,10 @@ class Database:
         """Connect to the database and create tables if needed."""
         self._conn = sqlite3.connect(str(self.db_path))
         self._conn.row_factory = sqlite3.Row
-        self._migrate_username_collation()
         self._conn.execute("PRAGMA foreign_keys = ON;")
         self._create_tables()
+        # Run migration after tables and legacy columns are fully initialized
+        self._migrate_username_collation()
         self.prune_old_records()
 
     def _migrate_username_collation(self) -> None:
@@ -101,16 +102,44 @@ class Database:
         logging.info("Migrating users table to enforce case-insensitive usernames.")
 
         # Step 1: Clean up duplicates (Keep the oldest row for each lower(username))
+        # Get the UUIDs of the duplicate users that are about to be deleted
         cursor.execute("""
-            DELETE FROM users
+            SELECT uuid FROM users
             WHERE id NOT IN (
                 SELECT MIN(id)
                 FROM users
                 GROUP BY LOWER(username)
             )
         """)
+        duplicate_uuids = [row["uuid"] for row in cursor.fetchall()]
+
+        if duplicate_uuids:
+            uuids_str = ",".join(f"'{u}'" for u in duplicate_uuids)
+
+            # Since PlayAural tables often don't have explicit ON DELETE CASCADE foreign keys
+            # to the `users` table's `uuid` field (because `users` primary key is `id`),
+            # we must explicitly clean up orphaned data linked by UUID.
+            cursor.execute(f"DELETE FROM friendships WHERE requester_id IN ({uuids_str}) OR receiver_id IN ({uuids_str})")
+            cursor.execute(f"DELETE FROM user_notifications WHERE user_id IN ({uuids_str})")
+            cursor.execute(f"DELETE FROM player_ratings WHERE player_id IN ({uuids_str})")
+            cursor.execute(f"DELETE FROM player_game_stats WHERE player_id IN ({uuids_str})")
+
+            # For game_result_players, we don't delete the record, we anonymize it to preserve game history for others
+            cursor.execute(f"UPDATE game_result_players SET player_id = 'deleted', player_name = 'Deleted User' WHERE player_id IN ({uuids_str})")
+
+            # Now delete the duplicate user records themselves
+            cursor.execute("""
+                DELETE FROM users
+                WHERE id NOT IN (
+                    SELECT MIN(id)
+                    FROM users
+                    GROUP BY LOWER(username)
+                )
+            """)
 
         # Step 2: Create the new table with COLLATE NOCASE
+        # Turn off foreign keys temporarily to safely drop the original users table
+        self._conn.execute("PRAGMA foreign_keys = OFF;")
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS users_new (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -151,6 +180,9 @@ class Database:
         cursor.execute("ALTER TABLE users_new RENAME TO users")
 
         self._conn.commit()
+
+        # Restore foreign key enforcement
+        self._conn.execute("PRAGMA foreign_keys = ON;")
         logging.info("Users table migration complete.")
 
     def close(self) -> None:

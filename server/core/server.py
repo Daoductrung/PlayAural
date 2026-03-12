@@ -4452,7 +4452,7 @@ PlayAural Server
             "online_users",
             items,
             multiletter=True,
-            escape_behavior=EscapeBehavior.SELECT_FIRST, # Back is at index 0
+            escape_behavior=EscapeBehavior.ESCAPE_EVENT, # Legacy client compat: emit raw escape packet to be caught globally
             position=1, # Default focus to first user, not the 'Back' button
         )
         self._user_states[user.username] = {
@@ -4523,7 +4523,7 @@ PlayAural Server
                 "online_users",
                 items,
                 multiletter=True,
-                escape_behavior=EscapeBehavior.SELECT_FIRST,
+                escape_behavior=EscapeBehavior.ESCAPE_EVENT,
                 position=1,
             )
             return

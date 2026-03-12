@@ -136,8 +136,10 @@ main-restarting = Restarting...
 
 auth-error-username-length = Username must be between 3 and 30 characters.
 auth-error-password-weak = Password must be at least 8 characters long and contain both letters and numbers.
+reg-error-password-match = Passwords do not match.
 
 error-email-empty = Email is mandatory and cannot be empty.
+error-email-invalid = Please enter a valid email address.
 
 reg-error-email = Email is required to register.
 

@@ -42,6 +42,28 @@ class Server:
     Coordinates all components: network, auth, tables, games, and persistence.
     """
 
+    # Global menus handled directly by the server, even if the user is sitting at a table.
+    # This prevents active games from swallowing interactions meant for global overlays (like options or online list).
+    GLOBAL_SYSTEM_MENUS = {
+        "main_menu", "personal_options_menu", "games_menu", "tables_menu",
+        "active_tables_menu", "active_tables_filter_menu", "join_menu",
+        "options_menu", "language_menu", "speech_settings_menu", "voice_selection_menu",
+        "dice_keeping_style_menu", "saved_tables_menu", "saved_table_actions_menu",
+        "leaderboards_menu", "leaderboard_types_menu", "game_leaderboard",
+        "my_stats_menu", "my_game_stats", "profile_menu", "gender_menu",
+        "bio_actions_menu", "email_confirm_menu", "friends_hub_menu",
+        "friends_list_menu", "friend_actions_menu", "friend_requests_menu",
+        "friend_request_actions_menu", "public_profile_menu", "online_users",
+        "online_user_actions_menu", "admin_menu", "account_approval_menu",
+        "pending_user_actions_menu", "promote_admin_menu", "demote_admin_menu",
+        "promote_confirm_menu", "demote_confirm_menu", "kick_menu", "kick_confirm_menu",
+        "broadcast_choice_menu", "ban_menu", "ban_duration_menu", "ban_reason_menu",
+        "unban_menu", "manage_motd_menu", "view_motd_menu", "logout_confirm_menu",
+        "documentation_menu", "doc_games_menu", "doc_viewer", "email_input",
+        "bio_input", "send_friend_request_input", "send_pm_input", "music_volume_input",
+        "ambience_volume_input", "speech_rate_input", "waiting_for_approval"
+    }
+
     def __init__(
         self,
         host: str = "0.0.0.0",
@@ -1816,18 +1838,19 @@ PlayAural Server
             await self._handle_mandatory_email_selection(user, selection_id)
             return
 
-        # Check if user is in a table - delegate all events to game
-        table = self._tables.find_user_table(username)
-        if table and table.game:
-            player = table.game.get_player_by_id(user.uuid)
-            if player:
-                table.game.handle_event(player, packet)
-                # Check if player left the game (user replaced by bot or removed)
-                game_user = table.game._users.get(user.uuid)
-                if game_user is not user:
-                    table.remove_member(username)
-                    self._show_main_menu(user)
-            return
+        # Check if user is in a table - delegate to game ONLY if it's a table-specific menu
+        if current_menu not in self.GLOBAL_SYSTEM_MENUS:
+            table = self._tables.find_user_table(username)
+            if table and table.game:
+                player = table.game.get_player_by_id(user.uuid)
+                if player:
+                    table.game.handle_event(player, packet)
+                    # Check if player left the game (user replaced by bot or removed)
+                    game_user = table.game._users.get(user.uuid)
+                    if game_user is not user:
+                        table.remove_member(username)
+                        self._show_main_menu(user)
+                return
 
         # Handle menu selections based on current menu
         if current_menu == "main_menu":
@@ -2092,8 +2115,6 @@ PlayAural Server
 
     def _show_friend_actions_menu(self, user: NetworkUser, target_username: str) -> None:
         """Show actions for a specific friend."""
-        user.speak_l("friend-actions-title", username=target_username)
-
         items = [
             MenuItem(text=Localization.get(user.locale, "view-profile"), id="view_profile"),
         ]
@@ -2211,8 +2232,6 @@ PlayAural Server
 
     def _show_friend_request_actions_menu(self, user: NetworkUser, target_username: str) -> None:
         """Show accept/decline for a specific request."""
-        user.speak_l("friend-request-from", username=target_username)
-
         items = [
             MenuItem(text=Localization.get(user.locale, "accept"), id="accept"),
             MenuItem(text=Localization.get(user.locale, "decline"), id="decline"),
@@ -2310,8 +2329,6 @@ PlayAural Server
              items.append(MenuItem(text=Localization.get(requesting_user.locale, "admin-view-email", email=email_str), id=""))
 
         items.append(MenuItem(text=Localization.get(requesting_user.locale, "back"), id="back"))
-
-        requesting_user.speak_l("public-profile-title", username=target_record.username)
 
         requesting_user.show_menu(
             "public_profile_menu",
@@ -3990,16 +4007,21 @@ PlayAural Server
             return
 
         user = self._users.get(username)
-        table = self._tables.find_user_table(username)
-        if table and table.game and user:
-            player = table.game.get_player_by_id(user.uuid)
-            if player:
-                table.game.handle_event(player, packet)
-                # Check if player left the game (user replaced by bot or removed)
-                game_user = table.game._users.get(user.uuid)
-                if game_user is not user:
-                    table.remove_member(username)
-                    self._show_main_menu(user)
+
+        state = self._user_states.get(username, {})
+        current_menu = state.get("menu")
+
+        if current_menu not in self.GLOBAL_SYSTEM_MENUS:
+            table = self._tables.find_user_table(username)
+            if table and table.game and user:
+                player = table.game.get_player_by_id(user.uuid)
+                if player:
+                    table.game.handle_event(player, packet)
+                    # Check if player left the game (user replaced by bot or removed)
+                    game_user = table.game._users.get(user.uuid)
+                    if game_user is not user:
+                        table.remove_member(username)
+                        self._show_main_menu(user)
 
     async def _handle_editbox(self, client: ClientConnection, packet: dict) -> None:
         """Handle editbox submission."""
@@ -4008,23 +4030,28 @@ PlayAural Server
             return
 
         user = self._users.get(username)
-        
-        # Check if user is in a game
-        table = self._tables.find_user_table(username)
-        if table and table.game and user:
-            player = table.game.get_player_by_id(user.uuid)
-            if player:
-                table.game.handle_event(player, packet)
-                # Check if player left the game (user replaced by bot or removed)
-                game_user = table.game._users.get(user.uuid)
-                if game_user is not user:
-                    table.remove_member(username)
-                    self._show_main_menu(user)
+        if not user:
             return
 
-        # Not in a game, check if there's a system menu input handler
+        user_state = self._user_states.get(username, {})
+        current_menu = user_state.get("menu")
+
+        # Check if user is in a game and interacting with a game's editbox (not a system editbox)
+        if current_menu not in self.GLOBAL_SYSTEM_MENUS:
+            table = self._tables.find_user_table(username)
+            if table and table.game:
+                player = table.game.get_player_by_id(user.uuid)
+                if player:
+                    table.game.handle_event(player, packet)
+                    # Check if player left the game (user replaced by bot or removed)
+                    game_user = table.game._users.get(user.uuid)
+                    if game_user is not user:
+                        table.remove_member(username)
+                        self._show_main_menu(user)
+                return
+
+        # Handle system menu input
         if user:
-            user_state = self._user_states.get(username, {})
             # Try admin handler
             if await self.admin_manager.handle_input(user, packet, user_state):
                 return
@@ -4451,8 +4478,6 @@ PlayAural Server
             self._show_online_users_menu(user)
             return
 
-        user.speak_l("online-user-actions-title", username=target_username)
-
         items = [
             MenuItem(text=Localization.get(user.locale, "view-profile"), id="view_profile"),
         ]
@@ -4578,8 +4603,8 @@ PlayAural Server
             self._show_friends_list_menu(user)
         elif previous_menu_id == "documentation_menu":
             self._show_documentation_menu(user)
-        elif previous_menu_id == "in_game":
-            # The user invoked the list while playing a game.
+        elif previous_menu_id in ("in_game", "waiting_room", "spectating", "post_game"):
+            # The user invoked the list while interacting with a table state.
             # Closing the list shouldn't "re-show" the game, the game handles its own state
             # We just need to reset the server state tracker so keybinds map back to the game.
             self._user_states[user.username] = original_state

@@ -1,4 +1,4 @@
-game-name-fivecarddraw = Five Card Draw
+game-name-fivecarddraw = Poker Five Card Draw
 
 draw-set-starting-chips = Starting chips: { $count }
 draw-enter-starting-chips = Enter starting chips

@@ -1,4 +1,4 @@
-game-name-holdem = Texas Hold'em
+game-name-holdem = Poker Texas Hold'em
 
 holdem-set-starting-chips = Starting chips: { $count }
 holdem-enter-starting-chips = Enter starting chips

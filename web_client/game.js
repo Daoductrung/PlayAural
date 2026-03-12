@@ -1,5 +1,5 @@
 console.log("Game.js initialized.");
-const CLIENT_VERSION = "0.1.8";
+const CLIENT_VERSION = "0.1.9";
 
 class Localization {
     static strings = {}; // Loaded from window.LOCALES (locales.js)

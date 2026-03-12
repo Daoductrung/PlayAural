@@ -27,7 +27,7 @@ logging.basicConfig(
     # We do not output to a file to prevent cluttering the user directory
 )
 
-version = "0.1.8"
+version = "0.1.9"
 
 def main():
     """Main entry point for the PlayAural v0.1 client."""

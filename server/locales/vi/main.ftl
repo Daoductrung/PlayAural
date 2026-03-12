@@ -16,6 +16,15 @@ chat-global = { $player } nói chung: { $message }
 dev-announcement-broadcast = { $dev } là nhà phát triển của PlayAural.
 admin-announcement-broadcast = { $admin } là quản trị viên của PlayAural.
 
+admin-smtp-settings = Cài đặt SMTP
+email-reset-subject = Mã khôi phục mật khẩu PlayAural
+email-reset-body = Chào { $username },\n\nBạn đã yêu cầu khôi phục mật khẩu cho tài khoản PlayAural của mình.\nMã khôi phục 6 số của bạn là: { $code }\n\nMã này sẽ hết hạn sau 15 phút.\nNếu bạn không yêu cầu điều này, vui lòng bỏ qua email này.
+email-test-subject = Bài kiểm tra SMTP PlayAural
+email-test-body = Đây là email kiểm tra từ máy chủ PlayAural xác minh cấu hình SMTP của bạn.
+smtp-test-sending = Đang kiểm tra kết nối, vui lòng chờ...
+smtp-test-success = Gửi email kiểm tra thành công đến { $email }!
+smtp-test-failed = Lỗi gửi email kiểm tra: { $error }
+
 main-menu-title = Menu Chính
 
 play = Chơi
@@ -467,3 +476,15 @@ pm-error-offline = { $username } hiện không trực tuyến.
 pm-sent-success = Đã gửi tin nhắn đến { $username }.
 pm-sent-content = Bạn gửi đến { $username }: { $message }
 pm-received = Tin nhắn riêng từ { $username }: { $message }
+
+login-btn-forgot-password = Quên mật khẩu?
+forgot-password-prompt = Nhập địa chỉ email liên kết với tài khoản của bạn:
+reset-code-instructions = Một email chứa mã khôi phục 6 số đã được gửi đến địa chỉ của bạn.
+reset-code-prompt = Mã khôi phục 6 số:
+new-password-prompt = Mật khẩu mới:
+error-smtp-not-configured = Tính năng khôi phục mật khẩu hiện đang bị quản trị viên vô hiệu hóa.
+error-email-not-found = Không tìm thấy tài khoản nào với địa chỉ email đó.
+success-reset-email-sent = Mã khôi phục đã được gửi đến địa chỉ email của bạn.
+error-smtp-send-failed = Không thể gửi email khôi phục. Vui lòng thử lại sau.
+error-invalid-reset-code = Mã khôi phục không hợp lệ hoặc đã hết hạn.
+success-password-reset = Mật khẩu của bạn đã được đặt lại thành công. Bây giờ bạn có thể đăng nhập.

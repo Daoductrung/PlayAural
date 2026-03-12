@@ -97,6 +97,45 @@ class AuthManager:
 
         return True
 
+    def generate_reset_token(self, user_uuid: str) -> str:
+        """
+        Generate a secure 6-digit numeric reset token, hash it, and save it.
+        Returns the plaintext token.
+        """
+        import secrets
+        from datetime import datetime, timedelta
+
+        # Generate cryptographically secure 6-digit numeric token
+        token = f"{secrets.randbelow(1000000):06d}"
+
+        # Hash token for storage
+        token_hash = self._hasher.hash(token)
+
+        # Set expiry to 15 minutes from now
+        expires_at = (datetime.now() + timedelta(minutes=15)).isoformat()
+
+        self._db.save_password_reset_token(user_uuid, token_hash, expires_at)
+
+        return token
+
+    def verify_reset_token(self, user_uuid: str, token: str) -> bool:
+        """
+        Verify if a provided plaintext token matches the stored active hash.
+        """
+        record = self._db.get_password_reset_token(user_uuid)
+        if not record:
+            return False
+
+        try:
+            self._hasher.verify(record["token_hash"], token)
+            return True
+        except (VerifyMismatchError, InvalidHashError):
+            return False
+
+    def clear_reset_token(self, user_uuid: str) -> None:
+        """Clear the reset token after successful use."""
+        self._db.delete_password_reset_token(user_uuid)
+
     def reset_password(self, username: str, new_password: str) -> bool:
         """
         Reset a user's password.

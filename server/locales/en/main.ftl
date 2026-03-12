@@ -16,6 +16,15 @@ chat-global = { $player } says globally: { $message }
 dev-announcement-broadcast = { $dev } is a developer of PlayAural.
 admin-announcement-broadcast = { $admin } is an administrator of PlayAural.
 
+admin-smtp-settings = SMTP Settings
+email-reset-subject = PlayAural Password Reset Code
+email-reset-body = Hello { $username },\n\nYou requested a password reset for your PlayAural account.\nYour 6-digit reset code is: { $code }\n\nThis code will expire in 15 minutes.\nIf you did not request this, please ignore this email.
+email-test-subject = PlayAural SMTP Test
+email-test-body = This is a test email from the PlayAural server verifying your SMTP configuration.
+smtp-test-sending = Testing connection, please wait...
+smtp-test-success = Test email sent successfully to { $email }!
+smtp-test-failed = Failed to send test email: { $error }
+
 main-menu-title = Main Menu
 
 play = Play
@@ -470,3 +479,15 @@ pm-error-offline = { $username } is not currently online.
 pm-sent-success = Message sent to { $username }.
 pm-sent-content = You to { $username }: { $message }
 pm-received = Private message from { $username }: { $message }
+
+login-btn-forgot-password = Forgot Password?
+forgot-password-prompt = Enter the email address associated with your account:
+reset-code-instructions = An email with a 6-digit reset code has been sent to your address.
+reset-code-prompt = 6-Digit Reset Code:
+new-password-prompt = New Password:
+error-smtp-not-configured = Password recovery is currently disabled by the administrator.
+error-email-not-found = No account found with that email address.
+success-reset-email-sent = A reset code has been sent to your email address.
+error-smtp-send-failed = Failed to send the reset email. Please try again later.
+error-invalid-reset-code = Invalid or expired reset code.
+success-password-reset = Your password has been successfully reset. You can now log in.

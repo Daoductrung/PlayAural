@@ -80,6 +80,10 @@ class AdministrationManager:
                 text=Localization.get(user.locale, "manage-motd"),
                 id="manage_motd",
             ),
+            MenuItem(
+                text=Localization.get(user.locale, "admin-smtp-settings"),
+                id="smtp_settings",
+            ),
             MenuItem(text=Localization.get(user.locale, "back"), id="back"),
         ]
         user.show_menu(
@@ -271,6 +275,10 @@ class AdministrationManager:
         elif current_menu == "view_motd_menu":
              if selection_id == "back":
                  self._show_manage_motd_menu(user)
+        elif current_menu == "smtp_settings_menu":
+             await self._handle_smtp_settings_selection(user, selection_id)
+        elif current_menu == "smtp_encryption_menu":
+             await self._handle_smtp_encryption_selection(user, selection_id)
 
     async def _handle_admin_menu_selection(
         self, user: NetworkUser, selection_id: str
@@ -292,6 +300,8 @@ class AdministrationManager:
             self._show_broadcast_input_menu(user)
         elif selection_id == "manage_motd":
             self._show_manage_motd_menu(user)
+        elif selection_id == "smtp_settings":
+            self._show_smtp_settings_menu(user)
         elif selection_id == "back":
             self.server._show_main_menu(user)
 
@@ -589,7 +599,51 @@ class AdministrationManager:
         input_id = packet.get("input_id")
         value = packet.get("text", packet.get("value")) # Support both just in case
 
-        if menu_id == "admin_broadcast_input" and input_id == "broadcast_message":
+        if menu_id == "smtp_setting_input":
+            if value is not None:
+                field = state.get("field")
+                config = self.server.db.get_smtp_config()
+                if not config:
+                    from ..persistence.database import SmtpConfig
+                    config = SmtpConfig("", 587, "", "", "", "", "tls")
+
+                host = config.host
+                port = config.port
+                username = config.username
+                password = config.password
+                from_email = config.from_email
+                from_name = config.from_name
+                encryption_type = config.encryption_type
+
+                if field == "host":
+                    host = value.strip()
+                elif field == "port":
+                    try:
+                        port = int(value.strip())
+                    except ValueError:
+                        user.speak_l("invalid-volume")  # Generic invalid number sound
+                        self._show_smtp_settings_menu(user)
+                        return True
+                elif field == "username":
+                    username = value.strip()
+                elif field == "password":
+                    password = value
+                elif field == "from_email":
+                    from_email = value.strip()
+                elif field == "from_name":
+                    from_name = value.strip()
+                elif field == "test_email":
+                    if value.strip():
+                        await self._run_smtp_test(user, config, value.strip())
+                    else:
+                        self._show_smtp_settings_menu(user)
+                    return True
+
+                self.server.db.update_smtp_config(host, port, username, password, from_email, from_name, encryption_type)
+                user.speak_l("bio-updated")  # Generic success message for now
+            self._show_smtp_settings_menu(user)
+            return True
+        elif menu_id == "admin_broadcast_input" and input_id == "broadcast_message":
             if value:
                 await self.perform_broadcast(user, value)
             else:
@@ -679,6 +733,146 @@ class AdministrationManager:
             return True
 
         return False
+
+    def _show_smtp_settings_menu(self, user: NetworkUser) -> None:
+        """Show SMTP configuration menu."""
+        config = self.server.db.get_smtp_config()
+        if not config:
+            from ..persistence.database import SmtpConfig
+            config = SmtpConfig("", 587, "", "", "", "", "tls")
+
+        host_str = config.host if config.host else "Not set"
+        username_str = config.username if config.username else "Not set"
+        password_str = "********" if config.password else "Not set"
+        from_email_str = config.from_email if config.from_email else "Not set"
+        from_name_str = config.from_name if config.from_name else "Not set"
+        encryption_str = config.encryption_type.upper()
+
+        items = [
+            MenuItem(text=f"Host: {host_str}", id="set_host"),
+            MenuItem(text=f"Port: {config.port}", id="set_port"),
+            MenuItem(text=f"Username: {username_str}", id="set_username"),
+            MenuItem(text=f"Password: {password_str}", id="set_password"),
+            MenuItem(text=f"From Email: {from_email_str}", id="set_from_email"),
+            MenuItem(text=f"From Name: {from_name_str}", id="set_from_name"),
+            MenuItem(text=f"Encryption: {encryption_str}", id="set_encryption"),
+            MenuItem(text="Test Connection", id="test_connection"),
+            MenuItem(text=Localization.get(user.locale, "back"), id="back"),
+        ]
+
+        user.show_menu(
+            "smtp_settings_menu",
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self.server.user_states[user.username] = {"menu": "smtp_settings_menu"}
+
+    async def _handle_smtp_settings_selection(self, user: NetworkUser, selection_id: str) -> None:
+        """Handle selection in the SMTP settings menu."""
+        if selection_id == "back":
+            self._show_admin_menu(user)
+            return
+
+        if selection_id == "set_encryption":
+            self._show_smtp_encryption_menu(user)
+            return
+
+        if selection_id == "test_connection":
+            user.show_editbox(
+                "smtp_test_email",
+                "Enter target email address for test:",
+                multiline=False,
+            )
+            self.server.user_states[user.username] = {
+                "menu": "smtp_setting_input",
+                "field": "test_email"
+            }
+            return
+
+        # Handle text inputs
+        field_map = {
+            "set_host": ("host", "Enter SMTP Host (e.g., smtp.gmail.com):", False),
+            "set_port": ("port", "Enter SMTP Port (e.g., 587 or 465):", False),
+            "set_username": ("username", "Enter SMTP Username:", False),
+            "set_password": ("password", "Enter SMTP Password:", True),
+            "set_from_email": ("from_email", "Enter From Email address:", False),
+            "set_from_name": ("from_name", "Enter From Name (e.g., PlayAural Support):", False),
+        }
+
+        if selection_id in field_map:
+            field, prompt, is_password = field_map[selection_id]
+            # Get current value for default
+            config = self.server.db.get_smtp_config()
+            default_val = ""
+            if config and not is_password:
+                default_val = str(getattr(config, field))
+
+            user.show_editbox(
+                f"smtp_{field}",
+                prompt,
+                default_value=default_val,
+                multiline=False,
+            )
+            self.server.user_states[user.username] = {
+                "menu": "smtp_setting_input",
+                "field": field
+            }
+
+    def _show_smtp_encryption_menu(self, user: NetworkUser) -> None:
+        """Show encryption type selection."""
+        config = self.server.db.get_smtp_config()
+        current = config.encryption_type if config else "tls"
+
+        items = [
+            MenuItem(text="* No encryption" if current == "none" else "No encryption", id="enc_none"),
+            MenuItem(text="* Use SSL" if current == "ssl" else "Use SSL", id="enc_ssl"),
+            MenuItem(text="* Enable TLS encryption automatically (STARTTLS)" if current == "tls" else "Enable TLS encryption automatically (STARTTLS)", id="enc_tls"),
+            MenuItem(text=Localization.get(user.locale, "back"), id="back"),
+        ]
+
+        user.show_menu(
+            "smtp_encryption_menu",
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self.server.user_states[user.username] = {"menu": "smtp_encryption_menu"}
+
+    async def _handle_smtp_encryption_selection(self, user: NetworkUser, selection_id: str) -> None:
+        if selection_id == "back":
+            self._show_smtp_settings_menu(user)
+            return
+
+        if selection_id.startswith("enc_"):
+            enc_type = selection_id[4:]
+            config = self.server.db.get_smtp_config()
+            if config:
+                self.server.db.update_smtp_config(
+                    config.host, config.port, config.username, config.password,
+                    config.from_email, config.from_name, enc_type
+                )
+                user.speak_l("bio-updated")
+        self._show_smtp_settings_menu(user)
+
+    async def _run_smtp_test(self, user: NetworkUser, config, target_email: str) -> None:
+        """Run the actual SMTP test."""
+        from ..core.smtp_mailer import SmtpMailer
+
+        user.speak_l("smtp-test-sending", buffer="system")
+
+        subject = Localization.get(user.locale, "email-test-subject")
+        body = Localization.get(user.locale, "email-test-body")
+
+        success, error = await SmtpMailer.send_email(config, target_email, subject, body)
+
+        if success:
+            user.speak_l("smtp-test-success", buffer="system", email=target_email)
+        else:
+            user.speak_l("smtp-test-failed", buffer="system", error=error)
+
+        self._show_smtp_settings_menu(user)
+
 
     def _show_manage_motd_menu(self, user: NetworkUser) -> None:
         """Show the manage MOTD menu."""

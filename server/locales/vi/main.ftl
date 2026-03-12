@@ -16,6 +16,46 @@ chat-global = { $player } nói chung: { $message }
 dev-announcement-broadcast = { $dev } là nhà phát triển của PlayAural.
 admin-announcement-broadcast = { $admin } là quản trị viên của PlayAural.
 
+admin-smtp-updated-success = Đã cập nhật thiết lập SMTP thành công
+admin-smtp-settings = Cài đặt SMTP
+email-reset-subject = Mã khôi phục mật khẩu PlayAural
+email-reset-body = Chào { $username },\n\nBạn đã yêu cầu khôi phục mật khẩu cho tài khoản PlayAural của mình.\nMã khôi phục 6 số của bạn là: { $code }\n\nMã này sẽ hết hạn sau 15 phút.\nNếu bạn không yêu cầu điều này, vui lòng bỏ qua email này.
+email-reset-body-html = <p>Chào { $username },</p>
+    <p>Chúng tôi nhận được yêu cầu khôi phục mật khẩu cho tài khoản PlayAural của bạn.</p>
+    <p>Mã khôi phục 6 số của bạn là:</p>
+    <h2>{ $code }</h2>
+    <p>Mã này sẽ hết hạn sau đúng 15 phút.</p>
+    <p>Nếu bạn không yêu cầu điều này, vui lòng bỏ qua email này. Tài khoản của bạn vẫn an toàn.</p>
+    <p>Trân trọng,<br>Trung</p>
+email-test-subject = Bài kiểm tra SMTP PlayAural
+email-test-body = Đây là email kiểm tra từ máy chủ PlayAural xác minh cấu hình SMTP của bạn.
+email-test-body-html = <p>Xin chào,</p>
+    <p>Đây là email kiểm tra từ máy chủ PlayAural.</p>
+    <p>Nếu bạn đang đọc được dòng này, điều đó có nghĩa cấu hình SMTP của bạn đã gửi email HTML thành công.</p>
+smtp-test-sending = Đang kiểm tra kết nối, vui lòng chờ...
+smtp-test-success = Gửi email kiểm tra thành công đến { $email }!
+smtp-test-failed = Lỗi gửi email kiểm tra: { $error }
+smtp-host = Máy chủ: { $value }
+smtp-port = Cổng: { $value }
+smtp-username = Tên đăng nhập: { $value }
+smtp-password = Mật khẩu: { $value }
+smtp-from-email = Email người gửi: { $value }
+smtp-from-name = Tên người gửi: { $value }
+smtp-encryption = Mã hóa: { $value }
+smtp-test-connection = Kiểm tra kết nối
+smtp-not-set = Chưa đặt
+smtp-prompt-host = Nhập Máy chủ SMTP (ví dụ: smtp.gmail.com):
+smtp-prompt-port = Nhập Cổng SMTP (ví dụ: 587 hoặc 465):
+smtp-prompt-username = Nhập Tên đăng nhập SMTP:
+smtp-prompt-password = Nhập Mật khẩu SMTP:
+smtp-prompt-from-email = Nhập Địa chỉ Email người gửi:
+smtp-prompt-from-name = Nhập Tên người gửi (ví dụ: PlayAural Support):
+smtp-prompt-test-email = Nhập địa chỉ email đích để kiểm tra:
+smtp-enc-none = Không mã hóa
+smtp-enc-ssl = Sử dụng SSL
+smtp-enc-tls = Tự động bật mã hóa TLS (STARTTLS)
+smtp-current-enc = * { $value }
+
 main-menu-title = Menu Chính
 
 play = Chơi
@@ -467,3 +507,10 @@ pm-error-offline = { $username } hiện không trực tuyến.
 pm-sent-success = Đã gửi tin nhắn đến { $username }.
 pm-sent-content = Bạn gửi đến { $username }: { $message }
 pm-received = Tin nhắn riêng từ { $username }: { $message }
+
+error-smtp-not-configured = Tính năng khôi phục mật khẩu hiện đang bị quản trị viên vô hiệu hóa.
+error-email-not-found = Không tìm thấy tài khoản nào với địa chỉ email đó.
+success-reset-email-sent = Mã khôi phục đã được gửi đến địa chỉ email của bạn.
+error-smtp-send-failed = Không thể gửi email khôi phục. Vui lòng thử lại sau.
+error-invalid-reset-code = Mã khôi phục không hợp lệ hoặc đã hết hạn.
+success-password-reset = Mật khẩu của bạn đã được đặt lại thành công. Bây giờ bạn có thể đăng nhập.

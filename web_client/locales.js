@@ -89,6 +89,15 @@ window.LOCALES = {
         "error-email-taken": "This email is already in use by another account.",
         "auth-error-rate-limit": "Too many failed login attempts. Please try again in 15 minutes.",
 
+        "login-btn-forgot-password": "Forgot Password?",
+        "forgot-password-prompt": "Enter the email address associated with your account:",
+        "btn-send-code": "Send Code",
+        "reset-password-title": "Reset Password",
+        "reset-code-instructions": "An email with a 6-digit reset code has been sent to your address.",
+        "reset-code-prompt": "6-Digit Reset Code",
+        "new-password-prompt": "New Password",
+        "btn-submit-reset": "Reset Password",
+
         "intro-text": "PlayAural is an audio-first online gaming platform designed for accessibility. Built on PlayPalace, it offers a shared space for casual players to enjoy various card, dice, and adventure games together on equal footing.",
         "landing-title": "Welcome to PlayAural Web",
         "btn-enter": "Login",
@@ -214,6 +223,15 @@ window.LOCALES = {
         "reg-error-email": "Email là bắt buộc để đăng ký.",
         "error-email-taken": "Email này đã được sử dụng bởi một tài khoản khác.",
         "auth-error-rate-limit": "Quá nhiều lần đăng nhập thất bại. Vui lòng thử lại sau 15 phút.",
+
+        "login-btn-forgot-password": "Quên mật khẩu?",
+        "forgot-password-prompt": "Nhập địa chỉ email liên kết với tài khoản của bạn:",
+        "btn-send-code": "Gửi mã",
+        "reset-password-title": "Khôi phục mật khẩu",
+        "reset-code-instructions": "Một email chứa mã khôi phục 6 số đã được gửi đến địa chỉ của bạn.",
+        "reset-code-prompt": "Mã khôi phục 6 số",
+        "new-password-prompt": "Mật khẩu mới",
+        "btn-submit-reset": "Đặt lại mật khẩu",
 
         "intro-text": "PlayAural là nền tảng chơi game trực tuyến ưu tiên âm thanh, được thiết kế cho khả năng tiếp cận. Dựa trên PlayPalace, tôi mang đến một không gian chung để mọi người cùng thưởng thức các trò chơi bài, xúc xắc và phiêu lưu một cách bình đẳng.",
         "landing-title": "Chào mừng bạn đến với PlayAural Web",

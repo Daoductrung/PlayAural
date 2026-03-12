@@ -123,6 +123,58 @@
                     <button type="submit" id="btn-login">Connect & Login</button>
                     <button type="button" class="text-btn" onclick="Game.showLanding()">Back</button>
                 </div>
+
+                <div style="margin-top: 15px; text-align: center;">
+                    <button type="button" id="btn-show-forgot-password" class="text-btn" style="font-size: 0.9em; text-decoration: underline;" onclick="Game.showForgotPassword()">Forgot Password?</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Forgot Password Screen -->
+    <div id="forgot-password-screen" class="screen-container hidden">
+        <div class="auth-box">
+            <h1 id="forgot-password-title">Forgot Password</h1>
+            <p id="forgot-password-prompt" style="margin-bottom: 15px;">Enter the email address associated with your account:</p>
+
+            <form id="forgot-password-form">
+                <div class="form-group">
+                    <label for="forgot-email" id="forgot-email-label" class="sr-only">Email</label>
+                    <input type="email" id="forgot-email" required autocomplete="email" placeholder="Email Address">
+                </div>
+
+                <p id="forgot-password-status" class="status-message" aria-live="polite"></p>
+
+                <div class="form-actions">
+                    <button type="submit" id="btn-send-reset-code">Send Code</button>
+                    <button type="button" class="text-btn" onclick="Game.showLogin()">Back</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Reset Password Screen -->
+    <div id="reset-password-screen" class="screen-container hidden">
+        <div class="auth-box">
+            <h1 id="reset-password-title">Reset Password</h1>
+            <p id="reset-code-instructions" style="margin-bottom: 15px;">An email with a 6-digit reset code has been sent to your address.</p>
+
+            <form id="reset-password-form">
+                <div class="form-group">
+                    <label for="reset-code" id="reset-code-label">6-Digit Reset Code</label>
+                    <input type="text" id="reset-code" required autocomplete="off" maxlength="6">
+                </div>
+                <div class="form-group">
+                    <label for="new-password" id="new-password-label">New Password</label>
+                    <input type="password" id="new-password" required autocomplete="new-password">
+                </div>
+
+                <p id="reset-password-status" class="status-message" aria-live="polite"></p>
+
+                <div class="form-actions">
+                    <button type="submit" id="btn-submit-reset">Reset Password</button>
+                    <button type="button" class="text-btn" onclick="Game.showLogin()">Cancel</button>
+                </div>
             </form>
         </div>
     </div>

@@ -40,6 +40,17 @@ class BanRecord:
 
 
 @dataclass
+class SmtpConfig:
+    """SMTP configuration from the database."""
+    host: str
+    port: int
+    username: str
+    password: str
+    from_email: str
+    from_name: str
+    encryption_type: str  # 'none', 'ssl', 'tls'
+
+@dataclass
 class SavedTableRecord:
     """A saved table record from the database."""
 
@@ -236,6 +247,35 @@ class Database:
             )
         """)
 
+        # SMTP Configuration table (single row expected)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS smtp_config (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                host TEXT NOT NULL DEFAULT '',
+                port INTEGER NOT NULL DEFAULT 587,
+                username TEXT NOT NULL DEFAULT '',
+                password TEXT NOT NULL DEFAULT '',
+                from_email TEXT NOT NULL DEFAULT '',
+                from_name TEXT NOT NULL DEFAULT '',
+                encryption_type TEXT NOT NULL DEFAULT 'tls'
+            )
+        """)
+
+        # Password Reset Tokens table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS password_reset_tokens (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_uuid TEXT NOT NULL,
+                token_hash TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                expires_at TEXT NOT NULL
+            )
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_reset_tokens_user_uuid
+            ON password_reset_tokens(user_uuid)
+        """)
+
         # Additional indexes for fast lookups
         cursor.execute("""
             CREATE INDEX IF NOT EXISTS idx_users_uuid
@@ -337,6 +377,41 @@ class Database:
                     event_type TEXT NOT NULL,
                     created_at TEXT NOT NULL
                 )
+            """)
+            self._conn.commit()
+
+        # Check if smtp_config table exists
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='smtp_config'")
+        if not cursor.fetchone():
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS smtp_config (
+                    id INTEGER PRIMARY KEY CHECK (id = 1),
+                    host TEXT NOT NULL DEFAULT '',
+                    port INTEGER NOT NULL DEFAULT 587,
+                    username TEXT NOT NULL DEFAULT '',
+                    password TEXT NOT NULL DEFAULT '',
+                    from_email TEXT NOT NULL DEFAULT '',
+                    from_name TEXT NOT NULL DEFAULT '',
+                    encryption_type TEXT NOT NULL DEFAULT 'tls'
+                )
+            """)
+            self._conn.commit()
+
+        # Check if password_reset_tokens table exists
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='password_reset_tokens'")
+        if not cursor.fetchone():
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS password_reset_tokens (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_uuid TEXT NOT NULL,
+                    token_hash TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    expires_at TEXT NOT NULL
+                )
+            """)
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_reset_tokens_user_uuid
+                ON password_reset_tokens(user_uuid)
             """)
             self._conn.commit()
 
@@ -544,20 +619,52 @@ class Database:
         cursor.execute("DELETE FROM user_notifications WHERE created_at < ?", (six_months_ago,))
         deleted_notifications = cursor.rowcount
 
+        # 6. Prune expired password reset tokens
+        cursor.execute("DELETE FROM password_reset_tokens WHERE expires_at < ?", (now.isoformat(),))
+        deleted_tokens = cursor.rowcount
+
         self._conn.commit()
 
         # Log results
         logger = logging.getLogger("playaural.db.prune")
-        if deleted_games > 0 or deleted_saves > 0 or deleted_bans > 0 or deleted_requests > 0 or deleted_notifications > 0:
-             logger.info(f"Database Pruning: Deleted {deleted_games} old game results, {deleted_saves} old saved tables, {deleted_bans} expired bans, {deleted_requests} pending requests, {deleted_notifications} notifications.")
+        if deleted_games > 0 or deleted_saves > 0 or deleted_bans > 0 or deleted_requests > 0 or deleted_notifications > 0 or deleted_tokens > 0:
+             logger.info(f"Database Pruning: Deleted {deleted_games} old game results, {deleted_saves} old saved tables, {deleted_bans} expired bans, {deleted_requests} pending requests, {deleted_notifications} notifications, {deleted_tokens} expired tokens.")
         else:
              logger.info("Database Pruning: 0 records deleted (no old data found).")
 
         # Also print to standard output for explicit CLI visibility on startup
-        if deleted_games > 0 or deleted_saves > 0 or deleted_bans > 0 or deleted_requests > 0 or deleted_notifications > 0:
-             print(f"Database Pruning: Cleaned up {deleted_games} game_results, {deleted_saves} saved_tables, {deleted_bans} bans, {deleted_requests} friend requests, {deleted_notifications} notifications.")
+        if deleted_games > 0 or deleted_saves > 0 or deleted_bans > 0 or deleted_requests > 0 or deleted_notifications > 0 or deleted_tokens > 0:
+             print(f"Database Pruning: Cleaned up {deleted_games} game_results, {deleted_saves} saved_tables, {deleted_bans} bans, {deleted_requests} friend requests, {deleted_notifications} notifications, {deleted_tokens} expired tokens.")
 
     # User operations
+
+    def get_user_by_email(self, email: str) -> UserRecord | None:
+        """Get a user by email (case-insensitive)."""
+        if not email:
+            return None
+        cursor = self._conn.cursor()
+        cursor.execute(
+            "SELECT id, username, password_hash, uuid, locale, preferences_json, trust_level, approved, email, bio, motd_version, gender, registration_date FROM users WHERE LOWER(email) = LOWER(?)",
+            (email,),
+        )
+        row = cursor.fetchone()
+        if row:
+            return UserRecord(
+                id=row["id"],
+                username=row["username"],
+                password_hash=row["password_hash"],
+                uuid=row["uuid"],
+                locale=row["locale"] or "en",
+                preferences_json=row["preferences_json"] or "{}",
+                trust_level=row["trust_level"] if row["trust_level"] is not None else 1,
+                approved=bool(row["approved"]) if row["approved"] is not None else False,
+                email=row["email"] or "",
+                bio=row["bio"] or "",
+                motd_version=row["motd_version"] if "motd_version" in row.keys() else 0,
+                gender=row["gender"] if "gender" in row.keys() else "Not set",
+                registration_date=row["registration_date"] if "registration_date" in row.keys() else "",
+            )
+        return None
 
     def get_user(self, username: str) -> UserRecord | None:
         """Get a user by username (case-insensitive)."""
@@ -1533,6 +1640,71 @@ class Database:
             (player_id, game_type)
         )
         return {row["stat_key"]: row["stat_value"] for row in cursor.fetchall()}
+
+    # SMTP Config Operations
+
+    def get_smtp_config(self) -> SmtpConfig | None:
+        """Get the current SMTP configuration."""
+        cursor = self._conn.cursor()
+        cursor.execute("SELECT host, port, username, password, from_email, from_name, encryption_type FROM smtp_config WHERE id = 1")
+        row = cursor.fetchone()
+        if row:
+            return SmtpConfig(
+                host=row["host"],
+                port=row["port"],
+                username=row["username"],
+                password=row["password"],
+                from_email=row["from_email"],
+                from_name=row["from_name"],
+                encryption_type=row["encryption_type"]
+            )
+        return None
+
+    def update_smtp_config(self, host: str, port: int, username: str, password: str, from_email: str, from_name: str, encryption_type: str) -> None:
+        """Update the SMTP configuration."""
+        cursor = self._conn.cursor()
+        cursor.execute("""
+            INSERT OR REPLACE INTO smtp_config (id, host, port, username, password, from_email, from_name, encryption_type)
+            VALUES (1, ?, ?, ?, ?, ?, ?, ?)
+        """, (host, port, username, password, from_email, from_name, encryption_type))
+        self._conn.commit()
+
+    # Password Reset Token Operations
+
+    def save_password_reset_token(self, user_uuid: str, token_hash: str, expires_at: str) -> None:
+        """Save a new password reset token and delete any existing ones for this user."""
+        from datetime import datetime
+        now = datetime.now().isoformat()
+        cursor = self._conn.cursor()
+        # Delete old tokens for user
+        cursor.execute("DELETE FROM password_reset_tokens WHERE user_uuid = ?", (user_uuid,))
+        # Insert new token
+        cursor.execute("""
+            INSERT INTO password_reset_tokens (user_uuid, token_hash, created_at, expires_at)
+            VALUES (?, ?, ?, ?)
+        """, (user_uuid, token_hash, now, expires_at))
+        self._conn.commit()
+
+    def get_password_reset_token(self, user_uuid: str) -> dict | None:
+        """Get the active password reset token for a user."""
+        from datetime import datetime
+        now = datetime.now().isoformat()
+        cursor = self._conn.cursor()
+        cursor.execute("""
+            SELECT token_hash, expires_at
+            FROM password_reset_tokens
+            WHERE user_uuid = ? AND expires_at > ?
+        """, (user_uuid, now))
+        row = cursor.fetchone()
+        if row:
+            return {"token_hash": row["token_hash"], "expires_at": row["expires_at"]}
+        return None
+
+    def delete_password_reset_token(self, user_uuid: str) -> None:
+        """Delete all password reset tokens for a user."""
+        cursor = self._conn.cursor()
+        cursor.execute("DELETE FROM password_reset_tokens WHERE user_uuid = ?", (user_uuid,))
+        self._conn.commit()
 
     # Social / Friend Operations
 

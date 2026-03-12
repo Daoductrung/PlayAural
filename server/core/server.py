@@ -61,7 +61,8 @@ class Server:
         "unban_menu", "manage_motd_menu", "view_motd_menu", "logout_confirm_menu",
         "documentation_menu", "doc_games_menu", "doc_viewer", "email_input",
         "bio_input", "send_friend_request_input", "send_pm_input", "music_volume_input",
-        "ambience_volume_input", "speech_rate_input", "waiting_for_approval"
+        "ambience_volume_input", "speech_rate_input", "waiting_for_approval",
+        "smtp_settings_menu", "smtp_encryption_menu", "smtp_setting_input"
     }
 
     def __init__(
@@ -365,6 +366,10 @@ PlayAural Server
             await self._handle_authorize(client, packet)
         elif packet_type == "register":
             await self._handle_register(client, packet)
+        elif packet_type == "request_password_reset":
+            await self._handle_request_password_reset(client, packet)
+        elif packet_type == "submit_reset_code":
+            await self._handle_submit_reset_code(client, packet)
         elif not client.authenticated:
             # Ignore non-auth packets from unauthenticated clients
             return
@@ -766,6 +771,164 @@ PlayAural Server
             "menu": "motd_menu",
             "motd_version": version
         }
+
+    async def _handle_request_password_reset(self, client: ClientConnection, packet: dict) -> None:
+        """Handle password reset request from client."""
+        # Rate limit check (spam protection)
+        if not self._rate_limiter.is_password_reset_allowed(client.ip_address):
+            locale = packet.get("locale", "en")
+            await client.send({
+                "type": "request_password_reset_response",
+                "status": "error",
+                "error": "rate_limit",
+                "text": Localization.get(locale, "error-rate-limit-login") # Reuse login rate limit text
+            })
+            return
+
+        email = packet.get("email", "").strip()
+        locale = packet.get("locale", "en")
+
+        if not email:
+            await client.send({
+                "type": "request_password_reset_response",
+                "status": "error",
+                "error": "email_empty",
+                "text": Localization.get(locale, "error-email-empty")
+            })
+            return
+
+        # Record attempt
+        self._rate_limiter.record_password_reset(client.ip_address)
+
+        # Check SMTP Config
+        config = self._db.get_smtp_config()
+        if not config or not config.host:
+            await client.send({
+                "type": "request_password_reset_response",
+                "status": "error",
+                "error": "smtp_not_configured",
+                "text": Localization.get(locale, "error-smtp-not-configured")
+            })
+            return
+
+        # Check if user exists
+        user_record = self._db.get_user_by_email(email)
+        if not user_record:
+            # Return generic success to prevent email enumeration
+            await client.send({
+                "type": "request_password_reset_response",
+                "status": "success",
+                "text": Localization.get(locale, "success-reset-email-sent")
+            })
+            return
+
+        # Generate Token
+        token = self._auth.generate_reset_token(user_record.uuid)
+
+        # Send Email asynchronously
+        from .smtp_mailer import SmtpMailer
+
+        user_locale = user_record.locale or "en"
+        subject = Localization.get(user_locale, "email-reset-subject")
+        body = Localization.get(user_locale, "email-reset-body", username=user_record.username, code=token)
+        body_html = Localization.get(user_locale, "email-reset-body-html", username=user_record.username, code=token)
+
+        success, error_msg = await SmtpMailer.send_email(config, email, subject, body, html_body=body_html)
+
+        if success:
+            await client.send({
+                "type": "request_password_reset_response",
+                "status": "success",
+                "text": Localization.get(locale, "success-reset-email-sent")
+            })
+        else:
+            await client.send({
+                "type": "request_password_reset_response",
+                "status": "error",
+                "error": "smtp_error",
+                "text": Localization.get(locale, "error-smtp-send-failed")
+            })
+
+
+    async def _handle_submit_reset_code(self, client: ClientConnection, packet: dict) -> None:
+        """Handle submission of password reset code."""
+        import re
+
+        email = packet.get("email", "").strip()
+        code = packet.get("code", "").strip()
+        new_password = packet.get("new_password", "")
+        locale = packet.get("locale", "en")
+
+        if not email or not code or not new_password:
+            await client.send({
+                "type": "submit_reset_code_response",
+                "status": "error",
+                "error": "missing_fields",
+                "text": Localization.get(locale, "auth-username-password-required")
+            })
+            return
+
+        user_record = self._db.get_user_by_email(email)
+        if not user_record:
+            await client.send({
+                "type": "submit_reset_code_response",
+                "status": "error",
+                "error": "user_not_found",
+                "text": Localization.get(locale, "error-invalid-reset-code")
+            })
+            return
+
+        # Validate password strength
+        has_letters = bool(re.search(r'[a-zA-Z]', new_password))
+        has_numbers = bool(re.search(r'[0-9]', new_password))
+
+        if len(new_password) < 8 or not has_letters or not has_numbers:
+            await client.send({
+                "type": "submit_reset_code_response",
+                "status": "error",
+                "error": "password_weak",
+                "text": Localization.get(locale, "auth-error-password-weak")
+            })
+            return
+
+        # Verify Code
+        if self._auth.verify_reset_token(user_record.uuid, code):
+            # Success! Update password
+            self._auth.reset_password(user_record.username, new_password)
+
+            # Invalidate active sessions to force re-login
+            self._auth.invalidate_user_sessions(user_record.username)
+
+            # Delete token
+            self._auth.clear_reset_token(user_record.uuid)
+
+            # Check if user is currently online and kick them
+            if self._ws_server:
+                online_client = self._ws_server.get_client_by_username(user_record.username)
+                if online_client:
+                     await online_client.send({
+                         "type": "disconnect",
+                         "reason": Localization.get(user_record.locale, "auth-kicked-logged-in-elsewhere"), # Close enough reason
+                         "reconnect": False
+                     })
+                     await online_client.close()
+                     self._users.pop(user_record.username, None)
+
+            await client.send({
+                "type": "submit_reset_code_response",
+                "status": "success",
+                "text": Localization.get(locale, "success-password-reset"),
+                "username": user_record.username
+            })
+        else:
+            # Rate limit verification failures to prevent brute force? Handled by overall attempt limits if needed.
+            await client.send({
+                "type": "submit_reset_code_response",
+                "status": "error",
+                "error": "invalid_code",
+                "text": Localization.get(locale, "error-invalid-reset-code")
+            })
+
 
     async def _handle_register(self, client: ClientConnection, packet: dict) -> None:
         """Handle registration packet from registration dialog."""
@@ -1929,7 +2092,7 @@ PlayAural Server
             "promote_admin_menu", "demote_admin_menu", "promote_confirm_menu",
             "demote_confirm_menu", "kick_menu", "kick_confirm_menu", "broadcast_choice_menu",
             "ban_menu", "ban_duration_menu", "ban_reason_menu", "unban_menu",
-            "manage_motd_menu", "view_motd_menu"
+            "manage_motd_menu", "view_motd_menu", "smtp_settings_menu", "smtp_encryption_menu"
         ]:
             await self.admin_manager.handle_menu_selection(user, selection_id, current_menu, state)
         elif current_menu == "logout_confirm_menu":

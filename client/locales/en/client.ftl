@@ -70,6 +70,12 @@ reg-register-btn = Register
 reg-error-username = Please enter a username
 reg-error-email = Please enter an email address
 reg-error-password = Please enter a password
+
+login-btn-forgot-password = Forgot Password?
+forgot-password-prompt = Enter the email address associated with your account:
+reset-code-instructions = An email with a 6-digit reset code has been sent to your address.
+reset-code-prompt = 6-Digit Reset Code:
+new-password-prompt = New Password:
 reg-error-match = Passwords do not match
 reg-error-bio = Please enter a bio
 reg-success-title = Registration Successful

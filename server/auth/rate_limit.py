@@ -84,6 +84,22 @@ class RateLimiter:
         if ip in self._failed_logins:
             del self._failed_logins[ip]
 
+    def is_password_reset_allowed(self, ip: str) -> bool:
+        """Check if a password reset request is allowed for this IP (Max 2 per 15 min)."""
+        if not hasattr(self, '_password_resets'):
+            self._password_resets = {}
+        valid_times = self._cleanup_list(ip, self._password_resets, 900)
+        return len(valid_times) < 2
+
+    def record_password_reset(self, ip: str) -> None:
+        """Record a password reset request attempt."""
+        if not hasattr(self, '_password_resets'):
+            self._password_resets = {}
+        if ip not in self._password_resets:
+            self._password_resets[ip] = []
+        self._password_resets[ip].append(time.time())
+        self._cleanup_list(ip, self._password_resets, 900)
+
     def is_registration_allowed(self, ip: str) -> bool:
         """Check if an IP is allowed to register a new account."""
         valid_times = self._cleanup_list(ip, self._registrations, self.REG_WINDOW_SEC)

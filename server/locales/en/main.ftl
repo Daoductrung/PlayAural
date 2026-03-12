@@ -16,6 +16,46 @@ chat-global = { $player } says globally: { $message }
 dev-announcement-broadcast = { $dev } is a developer of PlayAural.
 admin-announcement-broadcast = { $admin } is an administrator of PlayAural.
 
+admin-smtp-updated-success = SMTP setting updated successfully
+admin-smtp-settings = SMTP Settings
+email-reset-subject = PlayAural Password Reset Code
+email-reset-body = Hello { $username },\n\nYou requested a password reset for your PlayAural account.\nYour 6-digit reset code is: { $code }\n\nThis code will expire in 15 minutes.\nIf you did not request this, please ignore this email.
+email-reset-body-html = <p>Hi { $username },</p>
+    <p>We received a request to reset the password for your PlayAural account.</p>
+    <p>Your 6-digit recovery code is:</p>
+    <h2>{ $code }</h2>
+    <p>This code will expire in exactly 15 minutes.</p>
+    <p>If you did not request this, please ignore this email. Your account remains secure.</p>
+    <p>Best regards,<br>Trung</p>
+email-test-subject = PlayAural SMTP Test
+email-test-body = This is a test email from the PlayAural server verifying your SMTP configuration.
+email-test-body-html = <p>Hello,</p>
+    <p>This is a test email from the PlayAural server.</p>
+    <p>If you are reading this, your SMTP configuration is successfully sending HTML emails.</p>
+smtp-test-sending = Testing connection, please wait...
+smtp-test-success = Test email sent successfully to { $email }!
+smtp-test-failed = Failed to send test email: { $error }
+smtp-host = Host: { $value }
+smtp-port = Port: { $value }
+smtp-username = Username: { $value }
+smtp-password = Password: { $value }
+smtp-from-email = From Email: { $value }
+smtp-from-name = From Name: { $value }
+smtp-encryption = Encryption: { $value }
+smtp-test-connection = Test Connection
+smtp-not-set = Not set
+smtp-prompt-host = Enter SMTP Host (e.g., smtp.gmail.com):
+smtp-prompt-port = Enter SMTP Port (e.g., 587 or 465):
+smtp-prompt-username = Enter SMTP Username:
+smtp-prompt-password = Enter SMTP Password:
+smtp-prompt-from-email = Enter From Email address:
+smtp-prompt-from-name = Enter From Name (e.g., PlayAural Support):
+smtp-prompt-test-email = Enter target email address for test:
+smtp-enc-none = No encryption
+smtp-enc-ssl = Use SSL
+smtp-enc-tls = Enable TLS encryption automatically (STARTTLS)
+smtp-current-enc = * { $value }
+
 main-menu-title = Main Menu
 
 play = Play
@@ -470,3 +510,10 @@ pm-error-offline = { $username } is not currently online.
 pm-sent-success = Message sent to { $username }.
 pm-sent-content = You to { $username }: { $message }
 pm-received = Private message from { $username }: { $message }
+
+error-smtp-not-configured = Password recovery is currently disabled by the administrator.
+error-email-not-found = No account found with that email address.
+success-reset-email-sent = A reset code has been sent to your email address.
+error-smtp-send-failed = Failed to send the reset email. Please try again later.
+error-invalid-reset-code = Invalid or expired reset code.
+success-password-reset = Your password has been successfully reset. You can now log in.

@@ -160,6 +160,11 @@ class LoginDialog(wx.Dialog):
         btn_login_manual.Bind(wx.EVT_BUTTON, self.on_manual_login)
         self.action_sizer.Add(btn_login_manual, 0, wx.EXPAND | wx.BOTTOM, 10)
 
+        # Forgot Password Button
+        btn_forgot_pw = wx.Button(self.panel, label=Localization.get("login-btn-forgot-password"))
+        btn_forgot_pw.Bind(wx.EVT_BUTTON, self.on_forgot_password)
+        self.action_sizer.Add(btn_forgot_pw, 0, wx.EXPAND | wx.BOTTOM, 10)
+
     def on_login_cached(self, event):
         """Login with current cached credentials."""
         self._verify_and_login(self.username, self.password)
@@ -239,6 +244,14 @@ class LoginDialog(wx.Dialog):
         pnl.SetSizer(sz)
         dlg.CenterOnParent()
         
+        # Forgot password button in manual login
+        btn_forgot_pw_man = wx.Button(pnl, label=Localization.get("login-btn-forgot-password"))
+        btn_forgot_pw_man.Bind(wx.EVT_BUTTON, lambda e: self._handle_manual_forgot_password(dlg, e))
+        btn_sz.Add(btn_forgot_pw_man, 0, wx.ALL, 5)
+
+        pnl.SetSizer(sz)
+        dlg.CenterOnParent()
+
         # Focus appropriately
         if prefill_username:
             pass_txt.SetFocus()
@@ -251,6 +264,234 @@ class LoginDialog(wx.Dialog):
             if username and password:
                 self._verify_and_login(username, password)
         dlg.Destroy()
+
+    def _handle_manual_forgot_password(self, parent_dlg, event):
+        """Helper to close manual login dialog and launch forgot password."""
+        parent_dlg.EndModal(wx.ID_CANCEL)
+        wx.CallAfter(self.on_forgot_password, None)
+
+    def on_forgot_password(self, event):
+        """Handle forgot password flow."""
+        if not self.server_url:
+             wx.MessageBox(
+                Localization.get("login-error-server-url"), Localization.get("common-error"), wx.OK | wx.ICON_ERROR
+            )
+             return
+
+        # 1. Prompt for Email
+        dlg = wx.TextEntryDialog(
+            self,
+            Localization.get("forgot-password-prompt"),
+            Localization.get("login-btn-forgot-password")
+        )
+
+        if dlg.ShowModal() == wx.ID_OK:
+            email = dlg.GetValue().strip()
+            if email:
+                self.status_text.SetLabel(Localization.get("login-info-verifying"))
+                self.panel.Layout()
+                wx.Yield()
+
+                # Send request in background thread
+                import threading
+                thread = threading.Thread(
+                    target=self._request_password_reset_thread,
+                    args=(email,),
+                    daemon=True,
+                )
+                thread.start()
+        dlg.Destroy()
+
+    def _request_password_reset_thread(self, email):
+        """Background thread to send reset request."""
+        try:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            result = loop.run_until_complete(
+                self._send_password_reset_request(email)
+            )
+            loop.close()
+
+            # Show result on main thread
+            wx.CallAfter(self._handle_password_reset_response, result, email)
+        except Exception as e:
+            wx.CallAfter(self._show_registration_result, Localization.get("reg-connection-error", error=str(e)))
+
+    async def _send_password_reset_request(self, email):
+        """Send the reset request to the server."""
+        try:
+            ssl_context = None
+            if self.server_url.startswith("wss://"):
+                ssl_context = ssl.create_default_context()
+                ssl_context.check_hostname = False
+                ssl_context.verify_mode = ssl.CERT_NONE
+
+            async with websockets.connect(self.server_url, ssl=ssl_context) as ws:
+                await ws.send(
+                    json.dumps(
+                        {
+                            "type": "request_password_reset",
+                            "email": email,
+                            "locale": Localization._locale,
+                        }
+                    )
+                )
+
+                # Wait for response (can take a moment if server is actually sending email)
+                message = await asyncio.wait_for(ws.recv(), timeout=15.0)
+                data = json.loads(message)
+                return data
+
+        except asyncio.TimeoutError:
+            return {"status": "error", "error": "timeout", "text": Localization.get("reg-timeout-error")}
+        except Exception as e:
+            return {"status": "error", "error": "exception", "text": Localization.get("reg-error-exception", error=str(e))}
+
+    def _handle_password_reset_response(self, result, email):
+        """Handle the server's response to the reset request."""
+        self.status_text.SetLabel("")
+
+        if isinstance(result, dict) and "status" in result:
+             status = result["status"]
+             if status == "success":
+                 # Open code submission dialog
+                 wx.MessageBox(
+                     result.get("text", Localization.get("success-reset-email-sent")),
+                     Localization.get("login-btn-forgot-password"),
+                     wx.OK | wx.ICON_INFORMATION
+                 )
+                 self._show_reset_code_dialog(email)
+             elif status == "error":
+                 msg = result.get("text", result.get("error"))
+                 wx.MessageBox(msg, Localization.get("reg-failed-title"), wx.OK | wx.ICON_ERROR)
+        else:
+             # String fallback
+             wx.MessageBox(str(result), Localization.get("reg-failed-title"), wx.OK | wx.ICON_ERROR)
+
+    def _show_reset_code_dialog(self, email):
+        """Show the dialog to enter the 6-digit code and new password."""
+        dlg = wx.Dialog(self, title=Localization.get("login-btn-forgot-password"), size=(350, 300))
+        pnl = wx.Panel(dlg)
+        sz = wx.BoxSizer(wx.VERTICAL)
+
+        # Instructions
+        lbl_inst = wx.StaticText(pnl, label=Localization.get("reset-code-instructions"))
+        sz.Add(lbl_inst, 0, wx.ALL | wx.CENTER, 10)
+
+        input_sizer = wx.FlexGridSizer(2, 2, 10, 10)
+
+        # Code
+        input_sizer.Add(wx.StaticText(pnl, label=Localization.get("reset-code-prompt")), 0, wx.ALIGN_CENTER_VERTICAL)
+        code_txt = wx.TextCtrl(pnl)
+        input_sizer.Add(code_txt, 1, wx.EXPAND)
+
+        # New Password
+        input_sizer.Add(wx.StaticText(pnl, label=Localization.get("new-password-prompt")), 0, wx.ALIGN_CENTER_VERTICAL)
+        pass_txt = wx.TextCtrl(pnl, style=wx.TE_PASSWORD)
+        input_sizer.Add(pass_txt, 1, wx.EXPAND)
+
+        input_sizer.AddGrowableCol(1, 1)
+        sz.Add(input_sizer, 1, wx.EXPAND | wx.ALL, 15)
+
+        # Buttons
+        btn_sz = wx.BoxSizer(wx.HORIZONTAL)
+        ok_btn = wx.Button(pnl, wx.ID_OK, label=Localization.get("common-ok"))
+        ok_btn.SetDefault()
+        btn_sz.Add(ok_btn, 0, wx.ALL, 5)
+        cancel_btn = wx.Button(pnl, wx.ID_CANCEL, label=Localization.get("common-cancel"))
+        btn_sz.Add(cancel_btn, 0, wx.ALL, 5)
+        sz.Add(btn_sz, 0, wx.ALIGN_CENTER | wx.BOTTOM, 15)
+
+        pnl.SetSizer(sz)
+        dlg.CenterOnParent()
+        code_txt.SetFocus()
+
+        if dlg.ShowModal() == wx.ID_OK:
+            code = code_txt.GetValue().strip()
+            new_password = pass_txt.GetValue()
+            if code and new_password:
+                self.status_text.SetLabel(Localization.get("login-info-verifying"))
+                self.panel.Layout()
+                wx.Yield()
+
+                # Send verification request in background thread
+                import threading
+                thread = threading.Thread(
+                    target=self._submit_reset_code_thread,
+                    args=(email, code, new_password),
+                    daemon=True,
+                )
+                thread.start()
+        dlg.Destroy()
+
+    def _submit_reset_code_thread(self, email, code, new_password):
+        """Background thread to submit the reset code."""
+        try:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            result = loop.run_until_complete(
+                self._send_submit_reset_code(email, code, new_password)
+            )
+            loop.close()
+
+            # Show result on main thread
+            wx.CallAfter(self._handle_submit_code_response, result, email, new_password)
+        except Exception as e:
+            wx.CallAfter(self._show_registration_result, Localization.get("reg-connection-error", error=str(e)))
+
+    async def _send_submit_reset_code(self, email, code, new_password):
+        """Send the reset code validation request to the server."""
+        try:
+            ssl_context = None
+            if self.server_url.startswith("wss://"):
+                ssl_context = ssl.create_default_context()
+                ssl_context.check_hostname = False
+                ssl_context.verify_mode = ssl.CERT_NONE
+
+            async with websockets.connect(self.server_url, ssl=ssl_context) as ws:
+                await ws.send(
+                    json.dumps(
+                        {
+                            "type": "submit_reset_code",
+                            "email": email,
+                            "code": code,
+                            "new_password": new_password,
+                            "locale": Localization._locale,
+                        }
+                    )
+                )
+
+                message = await asyncio.wait_for(ws.recv(), timeout=5.0)
+                data = json.loads(message)
+                return data
+
+        except asyncio.TimeoutError:
+            return {"status": "error", "error": "timeout", "text": Localization.get("reg-timeout-error")}
+        except Exception as e:
+            return {"status": "error", "error": "exception", "text": Localization.get("reg-error-exception", error=str(e))}
+
+    def _handle_submit_code_response(self, result, email, new_password):
+        """Handle the server's response to the code submission."""
+        self.status_text.SetLabel("")
+
+        if isinstance(result, dict) and "status" in result:
+             status = result["status"]
+             if status == "success":
+                 wx.MessageBox(
+                     result.get("text", Localization.get("success-password-reset")),
+                     Localization.get("login-btn-forgot-password"),
+                     wx.OK | wx.ICON_INFORMATION
+                 )
+                 # Re-fetch username if returned, or we could just prompt manual login
+                 # Let's prompt manual login with the known password
+                 username = result.get("username", "")
+                 self.on_manual_login(None, prefill_username=username)
+             elif status == "error":
+                 msg = result.get("text", result.get("error"))
+                 wx.MessageBox(msg, Localization.get("reg-failed-title"), wx.OK | wx.ICON_ERROR)
+        else:
+             wx.MessageBox(str(result), Localization.get("reg-failed-title"), wx.OK | wx.ICON_ERROR)
+
 
     def _verify_and_login(self, username, password):
         """Verify credentials by connecting to server, then save and exit."""

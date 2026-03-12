@@ -407,6 +407,7 @@ confirm-email-change = Bạn có chắc chắn muốn thay đổi email thành {
 
 mandatory-email-notice = Bạn phải thiết lập email để tiếp tục tham gia. Email của bạn là riêng tư và chỉ có bạn biết.
 error-email-empty = Email là bắt buộc và không được để trống.
+error-email-invalid = Định dạng email không hợp lệ. Vui lòng cung cấp một địa chỉ email chính xác.
 reg-error-email = Email là bắt buộc để đăng ký.
 
 error-email-taken = Email này đã được sử dụng bởi một tài khoản khác.

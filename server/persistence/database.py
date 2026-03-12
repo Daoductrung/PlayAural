@@ -348,6 +348,98 @@ class Database:
                 print("Running one-time backfill of player_game_stats from historical game results...")
                 self._backfill_player_game_stats()
 
+        # Migrate users table to strictly case-insensitive
+        self._migrate_users_to_case_insensitive()
+
+    def _migrate_users_to_case_insensitive(self) -> None:
+        """Migrate users table to use COLLATE NOCASE for case-insensitive username uniqueness."""
+        cursor = self._conn.cursor()
+
+        # First check if it already has COLLATE NOCASE
+        cursor.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='users'")
+        row = cursor.fetchone()
+        if not row:
+            return
+
+        sql = row["sql"].upper()
+        if "COLLATE NOCASE" in sql:
+            return  # Already migrated
+
+        print("Migrating users table to enforce case-insensitive uniqueness...")
+
+        # Disable foreign keys temporarily for the migration
+        self._conn.execute("PRAGMA foreign_keys = OFF;")
+
+        # 1. Clean up duplicate users (keep the one with the smallest ID, meaning oldest)
+        cursor.execute("""
+            SELECT id, uuid, username FROM users
+            WHERE id NOT IN (
+                SELECT MIN(id)
+                FROM users
+                GROUP BY LOWER(username)
+            )
+        """)
+        duplicates = cursor.fetchall()
+
+        for dupe in duplicates:
+            dupe_id = dupe["id"]
+            dupe_uuid = dupe["uuid"]
+            dupe_username = dupe["username"]
+
+            # Cascade delete data linked to the duplicate user
+            cursor.execute("DELETE FROM player_game_stats WHERE player_id = ?", (dupe_uuid,))
+            cursor.execute("DELETE FROM player_ratings WHERE player_id = ?", (dupe_uuid,))
+            cursor.execute("DELETE FROM saved_tables WHERE username = ?", (dupe_username,))
+            cursor.execute("DELETE FROM bans WHERE username = ?", (dupe_username,))
+            cursor.execute("DELETE FROM friendships WHERE requester_id = ? OR receiver_id = ?", (dupe_uuid, dupe_uuid))
+            cursor.execute("DELETE FROM user_notifications WHERE user_id = ? OR source_username = ?", (dupe_uuid, dupe_username))
+
+            # Anonymize historical game data
+            cursor.execute(
+                "UPDATE game_result_players SET player_id = 'deleted', player_name = 'Deleted User' WHERE player_id = ?",
+                (dupe_uuid,)
+            )
+
+            # Finally, delete the duplicate user itself
+            cursor.execute("DELETE FROM users WHERE id = ?", (dupe_id,))
+
+        self._conn.commit()
+
+        # 2. Create the exact schema for the new table but inject COLLATE NOCASE for the username
+        import re
+        original_sql = row["sql"]
+        # Replace 'CREATE TABLE users' with 'CREATE TABLE users_new'
+        new_sql = re.sub(r'CREATE\s+TABLE\s+users\b', 'CREATE TABLE users_new', original_sql, count=1, flags=re.IGNORECASE)
+        # Inject COLLATE NOCASE after 'username TEXT' if it's not already there
+        new_sql = re.sub(r'(username\s+TEXT)(?!\s+COLLATE\s+NOCASE)', r'\1 COLLATE NOCASE', new_sql, flags=re.IGNORECASE)
+
+        # Create new table using the preserved constraints
+        cursor.execute(new_sql)
+
+        # 3. Get existing columns dynamically for the INSERT statement
+        cursor.execute("PRAGMA table_info(users)")
+        columns_info = cursor.fetchall()
+        column_names = [col["name"] for col in columns_info]
+        columns_str = ", ".join(column_names)
+
+        # 4. Copy data mapped by columns
+        cursor.execute(f"INSERT INTO users_new ({columns_str}) SELECT {columns_str} FROM users")
+
+        # 5. Swap tables
+        cursor.execute("DROP TABLE users")
+        cursor.execute("ALTER TABLE users_new RENAME TO users")
+
+        # Recreate any indexes lost by the drop
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_users_uuid
+            ON users(uuid)
+        """)
+
+        # Re-enable foreign keys
+        self._conn.execute("PRAGMA foreign_keys = ON;")
+        self._conn.commit()
+        print("Migration complete.")
+
     def _backfill_player_game_stats(self) -> None:
         """Backfill player_game_stats from historical game results."""
         from ..game_utils.stats_extractor import StatsExtractor
@@ -427,6 +519,9 @@ class Database:
         one_year_ago = (now - timedelta(days=365)).isoformat()
 
         cursor = self._conn.cursor()
+
+        # Ensure foreign keys are ON so cascading deletes work
+        self._conn.execute("PRAGMA foreign_keys = ON;")
 
         # 1. Prune game_results (ON DELETE CASCADE handles game_result_players)
         cursor.execute("DELETE FROM game_results WHERE timestamp < ?", (thirty_days_ago,))
@@ -518,9 +613,9 @@ class Database:
         )
 
     def user_exists(self, username: str) -> bool:
-        """Check if a user exists."""
+        """Check if a user exists (case-insensitive)."""
         cursor = self._conn.cursor()
-        cursor.execute("SELECT 1 FROM users WHERE username = ?", (username,))
+        cursor.execute("SELECT 1 FROM users WHERE LOWER(username) = LOWER(?)", (username,))
         return cursor.fetchone() is not None
 
     def email_exists(self, email: str, exclude_username: str | None = None) -> bool:
@@ -529,7 +624,7 @@ class Database:
             return False  # Empty emails shouldn't trigger "taken" errors for legacy compat
         cursor = self._conn.cursor()
         if exclude_username:
-            cursor.execute("SELECT 1 FROM users WHERE email = ? AND username != ?", (email, exclude_username))
+            cursor.execute("SELECT 1 FROM users WHERE email = ? AND LOWER(username) != LOWER(?)", (email, exclude_username))
         else:
             cursor.execute("SELECT 1 FROM users WHERE email = ?", (email,))
         return cursor.fetchone() is not None
@@ -538,7 +633,7 @@ class Database:
         """Update a user's locale."""
         cursor = self._conn.cursor()
         cursor.execute(
-            "UPDATE users SET locale = ? WHERE username = ?", (locale, username)
+            "UPDATE users SET locale = ? WHERE LOWER(username) = LOWER(?)", (locale, username)
         )
         self._conn.commit()
 
@@ -546,7 +641,7 @@ class Database:
         """Update a user's preferences."""
         cursor = self._conn.cursor()
         cursor.execute(
-            "UPDATE users SET preferences_json = ? WHERE username = ?",
+            "UPDATE users SET preferences_json = ? WHERE LOWER(username) = LOWER(?)",
             (preferences_json, username),
         )
         self._conn.commit()
@@ -555,7 +650,7 @@ class Database:
         """Update a user's password hash."""
         cursor = self._conn.cursor()
         cursor.execute(
-            "UPDATE users SET password_hash = ? WHERE username = ?",
+            "UPDATE users SET password_hash = ? WHERE LOWER(username) = LOWER(?)",
             (password_hash, username),
         )
         self._conn.commit()
@@ -564,7 +659,7 @@ class Database:
         """Update a user's email."""
         cursor = self._conn.cursor()
         cursor.execute(
-            "UPDATE users SET email = ? WHERE username = ?",
+            "UPDATE users SET email = ? WHERE LOWER(username) = LOWER(?)",
             (email, username),
         )
         self._conn.commit()
@@ -573,7 +668,7 @@ class Database:
         """Update a user's bio."""
         cursor = self._conn.cursor()
         cursor.execute(
-            "UPDATE users SET bio = ? WHERE username = ?",
+            "UPDATE users SET bio = ? WHERE LOWER(username) = LOWER(?)",
             (bio, username),
         )
         self._conn.commit()
@@ -582,7 +677,7 @@ class Database:
         """Update a user's gender."""
         cursor = self._conn.cursor()
         cursor.execute(
-            "UPDATE users SET gender = ? WHERE username = ?",
+            "UPDATE users SET gender = ? WHERE LOWER(username) = LOWER(?)",
             (gender, username),
         )
         self._conn.commit()
@@ -635,7 +730,7 @@ class Database:
         """Update a user's trust level."""
         cursor = self._conn.cursor()
         cursor.execute(
-            "UPDATE users SET trust_level = ? WHERE username = ?",
+            "UPDATE users SET trust_level = ? WHERE LOWER(username) = LOWER(?)",
             (trust_level, username),
         )
         self._conn.commit()
@@ -644,7 +739,7 @@ class Database:
         """Update a user's motd version."""
         cursor = self._conn.cursor()
         cursor.execute(
-            "UPDATE users SET motd_version = ? WHERE username = ?",
+            "UPDATE users SET motd_version = ? WHERE LOWER(username) = LOWER(?)",
             (motd_version, username),
         )
         self._conn.commit()
@@ -678,7 +773,7 @@ class Database:
         """Approve a user account. Returns True if user was found and approved."""
         cursor = self._conn.cursor()
         cursor.execute(
-            "UPDATE users SET approved = 1 WHERE username = ?",
+            "UPDATE users SET approved = 1 WHERE LOWER(username) = LOWER(?)",
             (username,),
         )
         self._conn.commit()
@@ -708,7 +803,7 @@ class Database:
         )
 
         # Finally delete the user
-        cursor.execute("DELETE FROM users WHERE username = ?", (username,))
+        cursor.execute("DELETE FROM users WHERE LOWER(username) = LOWER(?)", (username,))
 
         self._conn.commit()
         return cursor.rowcount > 0

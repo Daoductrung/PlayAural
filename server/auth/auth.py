@@ -69,7 +69,7 @@ class AuthManager:
         # Upgrade legacy hash to Argon2 on successful login
         if self._is_legacy_hash(user.password_hash):
             new_hash = self.hash_password(password)
-            self._db.update_user_password(username, new_hash)
+            self._db.update_user_password(user.username, new_hash)
 
         return True
 
@@ -114,9 +114,12 @@ class AuthManager:
         return self._db.get_user(username)
 
     def create_session(self, username: str) -> str:
-        """Create a session token for a user."""
+        """Create a session token for a user, normalizing to the canonical database username."""
         token = secrets.token_hex(32)
-        self._sessions[token] = username
+        user = self._db.get_user(username)
+        # Store the exact casing from the database if the user exists
+        canonical_username = user.username if user else username
+        self._sessions[token] = canonical_username
         return token
 
     def validate_session(self, token: str) -> str | None:
@@ -129,6 +132,6 @@ class AuthManager:
 
     def invalidate_user_sessions(self, username: str) -> None:
         """Invalidate all sessions for a user."""
-        to_remove = [t for t, u in self._sessions.items() if u == username]
+        to_remove = [t for t, u in self._sessions.items() if u.lower() == username.lower()]
         for token in to_remove:
             del self._sessions[token]

@@ -70,6 +70,12 @@ reg-register-btn = Đăng ký
 reg-error-username = Vui lòng nhập tên đăng nhập
 reg-error-email = Vui lòng nhập địa chỉ email
 reg-error-password = Vui lòng nhập mật khẩu
+
+login-btn-forgot-password = Quên mật khẩu?
+forgot-password-prompt = Nhập địa chỉ email liên kết với tài khoản của bạn:
+reset-code-instructions = Một email chứa mã khôi phục 6 số đã được gửi đến địa chỉ của bạn.
+reset-code-prompt = Mã khôi phục 6 số:
+new-password-prompt = Mật khẩu mới:
 reg-error-match = Mật khẩu xác nhận không khớp
 reg-error-bio = Vui lòng nhập phần giới thiệu
 reg-success-title = Đăng ký thành công

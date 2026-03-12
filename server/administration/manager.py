@@ -741,22 +741,25 @@ class AdministrationManager:
             from ..persistence.database import SmtpConfig
             config = SmtpConfig("", 587, "", "", "", "", "tls")
 
-        host_str = config.host if config.host else "Not set"
-        username_str = config.username if config.username else "Not set"
-        password_str = "********" if config.password else "Not set"
-        from_email_str = config.from_email if config.from_email else "Not set"
-        from_name_str = config.from_name if config.from_name else "Not set"
-        encryption_str = config.encryption_type.upper()
+        not_set = Localization.get(user.locale, "smtp-not-set")
+        host_str = config.host if config.host else not_set
+        username_str = config.username if config.username else not_set
+        password_str = "********" if config.password else not_set
+        from_email_str = config.from_email if config.from_email else not_set
+        from_name_str = config.from_name if config.from_name else not_set
+
+        enc_key = f"smtp-enc-{config.encryption_type.lower()}"
+        encryption_str = Localization.get(user.locale, enc_key)
 
         items = [
-            MenuItem(text=f"Host: {host_str}", id="set_host"),
-            MenuItem(text=f"Port: {config.port}", id="set_port"),
-            MenuItem(text=f"Username: {username_str}", id="set_username"),
-            MenuItem(text=f"Password: {password_str}", id="set_password"),
-            MenuItem(text=f"From Email: {from_email_str}", id="set_from_email"),
-            MenuItem(text=f"From Name: {from_name_str}", id="set_from_name"),
-            MenuItem(text=f"Encryption: {encryption_str}", id="set_encryption"),
-            MenuItem(text="Test Connection", id="test_connection"),
+            MenuItem(text=Localization.get(user.locale, "smtp-host", value=host_str), id="set_host"),
+            MenuItem(text=Localization.get(user.locale, "smtp-port", value=config.port), id="set_port"),
+            MenuItem(text=Localization.get(user.locale, "smtp-username", value=username_str), id="set_username"),
+            MenuItem(text=Localization.get(user.locale, "smtp-password", value=password_str), id="set_password"),
+            MenuItem(text=Localization.get(user.locale, "smtp-from-email", value=from_email_str), id="set_from_email"),
+            MenuItem(text=Localization.get(user.locale, "smtp-from-name", value=from_name_str), id="set_from_name"),
+            MenuItem(text=Localization.get(user.locale, "smtp-encryption", value=encryption_str), id="set_encryption"),
+            MenuItem(text=Localization.get(user.locale, "smtp-test-connection"), id="test_connection"),
             MenuItem(text=Localization.get(user.locale, "back"), id="back"),
         ]
 
@@ -781,7 +784,7 @@ class AdministrationManager:
         if selection_id == "test_connection":
             user.show_editbox(
                 "smtp_test_email",
-                "Enter target email address for test:",
+                Localization.get(user.locale, "smtp-prompt-test-email"),
                 multiline=False,
             )
             self.server.user_states[user.username] = {
@@ -792,16 +795,16 @@ class AdministrationManager:
 
         # Handle text inputs
         field_map = {
-            "set_host": ("host", "Enter SMTP Host (e.g., smtp.gmail.com):", False),
-            "set_port": ("port", "Enter SMTP Port (e.g., 587 or 465):", False),
-            "set_username": ("username", "Enter SMTP Username:", False),
-            "set_password": ("password", "Enter SMTP Password:", True),
-            "set_from_email": ("from_email", "Enter From Email address:", False),
-            "set_from_name": ("from_name", "Enter From Name (e.g., PlayAural Support):", False),
+            "set_host": ("host", "smtp-prompt-host", False),
+            "set_port": ("port", "smtp-prompt-port", False),
+            "set_username": ("username", "smtp-prompt-username", False),
+            "set_password": ("password", "smtp-prompt-password", True),
+            "set_from_email": ("from_email", "smtp-prompt-from-email", False),
+            "set_from_name": ("from_name", "smtp-prompt-from-name", False),
         }
 
         if selection_id in field_map:
-            field, prompt, is_password = field_map[selection_id]
+            field, prompt_key, is_password = field_map[selection_id]
             # Get current value for default
             config = self.server.db.get_smtp_config()
             default_val = ""
@@ -810,7 +813,7 @@ class AdministrationManager:
 
             user.show_editbox(
                 f"smtp_{field}",
-                prompt,
+                Localization.get(user.locale, prompt_key),
                 default_value=default_val,
                 multiline=False,
             )
@@ -824,10 +827,14 @@ class AdministrationManager:
         config = self.server.db.get_smtp_config()
         current = config.encryption_type if config else "tls"
 
+        def format_enc(key):
+            text = Localization.get(user.locale, key)
+            return Localization.get(user.locale, "smtp-current-enc", value=text) if current == key.replace("smtp-enc-", "") else text
+
         items = [
-            MenuItem(text="* No encryption" if current == "none" else "No encryption", id="enc_none"),
-            MenuItem(text="* Use SSL" if current == "ssl" else "Use SSL", id="enc_ssl"),
-            MenuItem(text="* Enable TLS encryption automatically (STARTTLS)" if current == "tls" else "Enable TLS encryption automatically (STARTTLS)", id="enc_tls"),
+            MenuItem(text=format_enc("smtp-enc-none"), id="enc_none"),
+            MenuItem(text=format_enc("smtp-enc-ssl"), id="enc_ssl"),
+            MenuItem(text=format_enc("smtp-enc-tls"), id="enc_tls"),
             MenuItem(text=Localization.get(user.locale, "back"), id="back"),
         ]
 

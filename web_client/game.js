@@ -557,13 +557,19 @@ class GameClient {
         // UI Elements
         this.loginScreen = document.getElementById('login-screen');
         this.registerScreen = document.getElementById('register-screen');
+        this.forgotPasswordScreen = document.getElementById('forgot-password-screen');
+        this.resetPasswordScreen = document.getElementById('reset-password-screen');
         this.gameScreen = document.getElementById('game-screen');
 
         this.loginForm = document.getElementById('login-form');
         this.registerForm = document.getElementById('register-form');
+        this.forgotPasswordForm = document.getElementById('forgot-password-form');
+        this.resetPasswordForm = document.getElementById('reset-password-form');
 
         this.statusMsg = document.getElementById('login-status');
         this.regStatusMsg = document.getElementById('register-status');
+        this.forgotStatusMsg = document.getElementById('forgot-password-status');
+        this.resetStatusMsg = document.getElementById('reset-password-status');
 
         // Initialize preferences (default values matching server)
         this.preferences = {
@@ -2348,6 +2354,8 @@ class GameClient {
         this.landingScreen.classList.remove('hidden');
         this.loginScreen.classList.add('hidden');
         this.registerScreen.classList.add('hidden');
+        this.forgotPasswordScreen.classList.add('hidden');
+        this.resetPasswordScreen.classList.add('hidden');
         this.gameScreen.classList.add('hidden');
 
         // Re-check auto-login state
@@ -2365,6 +2373,8 @@ class GameClient {
         this.landingScreen.classList.add('hidden');
         this.loginScreen.classList.remove('hidden');
         this.registerScreen.classList.add('hidden');
+        this.forgotPasswordScreen.classList.add('hidden');
+        this.resetPasswordScreen.classList.add('hidden');
         this.gameScreen.classList.add('hidden');
 
         // Reset registration flag to ensure we don't accidentally register again
@@ -2390,13 +2400,39 @@ class GameClient {
         this.landingScreen.classList.add('hidden');
         this.loginScreen.classList.add('hidden');
         this.registerScreen.classList.remove('hidden');
+        this.forgotPasswordScreen.classList.add('hidden');
+        this.resetPasswordScreen.classList.add('hidden');
         this.gameScreen.classList.add('hidden');
+    }
+
+    showForgotPassword() {
+        this.landingScreen.classList.add('hidden');
+        this.loginScreen.classList.add('hidden');
+        this.registerScreen.classList.add('hidden');
+        this.resetPasswordScreen.classList.add('hidden');
+        this.gameScreen.classList.add('hidden');
+        this.forgotPasswordScreen.classList.remove('hidden');
+
+        if (this.forgotStatusMsg) this.forgotStatusMsg.innerText = "";
+    }
+
+    showResetPassword() {
+        this.landingScreen.classList.add('hidden');
+        this.loginScreen.classList.add('hidden');
+        this.registerScreen.classList.add('hidden');
+        this.forgotPasswordScreen.classList.add('hidden');
+        this.gameScreen.classList.add('hidden');
+        this.resetPasswordScreen.classList.remove('hidden');
+
+        if (this.resetStatusMsg) this.resetStatusMsg.innerText = "";
     }
 
     showGame() {
         this.landingScreen.classList.add('hidden');
         this.loginScreen.classList.add('hidden');
         this.registerScreen.classList.add('hidden');
+        this.forgotPasswordScreen.classList.add('hidden');
+        this.resetPasswordScreen.classList.add('hidden');
         this.gameScreen.classList.remove('hidden');
     }
 
@@ -2438,6 +2474,135 @@ class GameClient {
         } else {
             console.log("Auto-login failed: missing credentials");
             this.showLogin();
+        }
+    }
+
+    requestPasswordReset() {
+        const serverUrl = document.getElementById('server-url').value || "wss://playaural.ddt.one:443";
+        const email = document.getElementById('forgot-email').value;
+
+        if (!email || email.trim() === "") {
+            alert(Localization.get("reg-error-email") || "Email is required.");
+            return;
+        }
+
+        this.isRegistering = true; // Use this flag to avoid auto-login behavior on close
+        this.forgotStatusMsg.innerText = Localization.get('status-connecting');
+
+        // We temporarily connect just to send this packet
+        if (this.socket && (this.socket.readyState === WebSocket.OPEN || this.socket.readyState === WebSocket.CONNECTING)) {
+            this.socket.close();
+        }
+
+        try {
+            this.socket = new WebSocket(serverUrl);
+            this.socket.onopen = () => {
+                this.forgotStatusMsg.innerText = "Sending request...";
+                this.socket.send(JSON.stringify({
+                    type: "request_password_reset",
+                    email: email,
+                    locale: Localization.locale
+                }));
+            };
+            this.socket.onmessage = (event) => {
+                try {
+                    const packet = JSON.parse(event.data);
+                    if (packet.type === "request_password_reset_response") {
+                        if (packet.status === "success") {
+                            this.forgotStatusMsg.innerText = packet.text || "Success";
+                            this.speak(packet.text || "Success");
+
+                            // Save email for next step
+                            this.resetEmail = email;
+
+                            setTimeout(() => {
+                                this.showResetPassword();
+                            }, 1500);
+                        } else {
+                            const errMsg = packet.text || "Error";
+                            this.forgotStatusMsg.innerText = errMsg;
+                            this.speak(errMsg);
+                        }
+                        this.socket.close();
+                    }
+                } catch (err) {}
+            };
+            this.socket.onclose = () => {};
+            this.socket.onerror = () => {
+                this.forgotStatusMsg.innerText = Localization.get("status-connection-error");
+            };
+        } catch (e) {
+            this.forgotStatusMsg.innerText = Localization.get("status-invalid-url");
+        }
+    }
+
+    submitResetCode() {
+        const serverUrl = document.getElementById('server-url').value || "wss://playaural.ddt.one:443";
+        const email = this.resetEmail || document.getElementById('forgot-email').value;
+        const code = document.getElementById('reset-code').value;
+        const newPassword = document.getElementById('new-password').value;
+
+        if (!code || !newPassword) {
+            alert("Code and New Password are required.");
+            return;
+        }
+
+        const hasLetters = /[a-zA-Z]/.test(newPassword);
+        const hasNumbers = /[0-9]/.test(newPassword);
+        if (newPassword.length < 8 || !hasLetters || !hasNumbers) {
+            alert(Localization.get("auth-error-password-weak") || "Password too weak.");
+            return;
+        }
+
+        this.isRegistering = true;
+        this.resetStatusMsg.innerText = Localization.get('status-connecting');
+
+        if (this.socket && (this.socket.readyState === WebSocket.OPEN || this.socket.readyState === WebSocket.CONNECTING)) {
+            this.socket.close();
+        }
+
+        try {
+            this.socket = new WebSocket(serverUrl);
+            this.socket.onopen = () => {
+                this.resetStatusMsg.innerText = "Verifying...";
+                this.socket.send(JSON.stringify({
+                    type: "submit_reset_code",
+                    email: email,
+                    code: code,
+                    new_password: newPassword,
+                    locale: Localization.locale
+                }));
+            };
+            this.socket.onmessage = (event) => {
+                try {
+                    const packet = JSON.parse(event.data);
+                    if (packet.type === "submit_reset_code_response") {
+                        if (packet.status === "success") {
+                            this.resetStatusMsg.innerText = packet.text || "Success";
+                            this.speak(packet.text || "Success");
+
+                            setTimeout(() => {
+                                this.showLogin();
+                                if (packet.username) {
+                                    document.getElementById('username').value = packet.username;
+                                }
+                                document.getElementById('password').value = newPassword;
+                            }, 2000);
+                        } else {
+                            const errMsg = packet.text || "Error";
+                            this.resetStatusMsg.innerText = errMsg;
+                            this.speak(errMsg);
+                        }
+                        this.socket.close();
+                    }
+                } catch (err) {}
+            };
+            this.socket.onclose = () => {};
+            this.socket.onerror = () => {
+                this.resetStatusMsg.innerText = Localization.get("status-connection-error");
+            };
+        } catch (e) {
+            this.resetStatusMsg.innerText = Localization.get("status-invalid-url");
         }
     }
 
@@ -2589,11 +2754,38 @@ class GameClient {
             loginScreen.querySelector('#login-password-label').innerText = Localization.get('login-password-label');
             loginScreen.querySelector('#label-auto-login').innerText = Localization.get('label-auto-login');
             loginScreen.querySelector('#btn-login').innerText = Localization.get('login-btn');
+
+            const btnForgot = loginScreen.querySelector('#btn-show-forgot-password');
+            if (btnForgot) btnForgot.innerText = Localization.get('login-btn-forgot-password');
+
             if (loginScreen.querySelector('#link-no-account'))
                 loginScreen.querySelector('#link-no-account').innerText = Localization.get('link-no-account');
             // Back button (hardcoded "Back" in HTML usually, or add key)
             const backBtn = loginScreen.querySelector('.text-btn');
             if (backBtn) backBtn.innerText = Localization.get('go-back') || "Back";
+        }
+
+        // --- Forgot & Reset Password Screens ---
+        const forgotScreen = document.getElementById('forgot-password-screen');
+        if (forgotScreen) {
+            forgotScreen.querySelector('#forgot-password-title').innerText = Localization.get('login-btn-forgot-password');
+            forgotScreen.querySelector('#forgot-password-prompt').innerText = Localization.get('forgot-password-prompt');
+            forgotScreen.querySelector('#btn-send-reset-code').innerText = Localization.get('btn-send-code') || "Send Code";
+
+            const backBtn = forgotScreen.querySelector('.text-btn');
+            if (backBtn) backBtn.innerText = Localization.get('go-back') || "Back";
+        }
+
+        const resetScreen = document.getElementById('reset-password-screen');
+        if (resetScreen) {
+            resetScreen.querySelector('#reset-password-title').innerText = Localization.get('reset-password-title') || "Reset Password";
+            resetScreen.querySelector('#reset-code-instructions').innerText = Localization.get('reset-code-instructions');
+            resetScreen.querySelector('#reset-code-label').innerText = Localization.get('reset-code-prompt');
+            resetScreen.querySelector('#new-password-label').innerText = Localization.get('new-password-prompt');
+            resetScreen.querySelector('#btn-submit-reset').innerText = Localization.get('btn-submit-reset') || "Reset Password";
+
+            const cancelBtn = resetScreen.querySelector('.text-btn');
+            if (cancelBtn) cancelBtn.innerText = Localization.get('common-cancel') || "Cancel";
         }
 
         // --- Register Screen ---
@@ -2676,6 +2868,8 @@ window.onload = function () {
     // Prevent default form submissions
     document.getElementById('login-form').onsubmit = function (e) { e.preventDefault(); Game.connectToGame(); return false; };
     document.getElementById('register-form').onsubmit = function (e) { e.preventDefault(); Game.register(); return false; };
+        document.getElementById('forgot-password-form').onsubmit = function (e) { e.preventDefault(); Game.requestPasswordReset(); return false; };
+        document.getElementById('reset-password-form').onsubmit = function (e) { e.preventDefault(); Game.submitResetCode(); return false; };
     document.getElementById('chat-form').onsubmit = function (e) { e.preventDefault(); Game.sendChat(); return false; };
 };
 

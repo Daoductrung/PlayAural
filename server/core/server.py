@@ -61,7 +61,8 @@ class Server:
         "unban_menu", "manage_motd_menu", "view_motd_menu", "logout_confirm_menu",
         "documentation_menu", "doc_games_menu", "doc_viewer", "email_input",
         "bio_input", "send_friend_request_input", "send_pm_input", "music_volume_input",
-        "ambience_volume_input", "speech_rate_input", "waiting_for_approval"
+        "ambience_volume_input", "speech_rate_input", "waiting_for_approval",
+        "smtp_settings_menu", "smtp_encryption_menu", "smtp_setting_input"
     }
 
     def __init__(
@@ -2090,7 +2091,7 @@ PlayAural Server
             "promote_admin_menu", "demote_admin_menu", "promote_confirm_menu",
             "demote_confirm_menu", "kick_menu", "kick_confirm_menu", "broadcast_choice_menu",
             "ban_menu", "ban_duration_menu", "ban_reason_menu", "unban_menu",
-            "manage_motd_menu", "view_motd_menu"
+            "manage_motd_menu", "view_motd_menu", "smtp_settings_menu", "smtp_encryption_menu"
         ]:
             await self.admin_manager.handle_menu_selection(user, selection_id, current_menu, state)
         elif current_menu == "logout_confirm_menu":

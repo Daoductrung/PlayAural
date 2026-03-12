@@ -831,8 +831,9 @@ PlayAural Server
         user_locale = user_record.locale or "en"
         subject = Localization.get(user_locale, "email-reset-subject")
         body = Localization.get(user_locale, "email-reset-body", username=user_record.username, code=token)
+        body_html = Localization.get(user_locale, "email-reset-body-html", username=user_record.username, code=token)
 
-        success, error_msg = await SmtpMailer.send_email(config, email, subject, body)
+        success, error_msg = await SmtpMailer.send_email(config, email, subject, body, html_body=body_html)
 
         if success:
             await client.send({

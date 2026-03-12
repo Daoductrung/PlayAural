@@ -640,7 +640,7 @@ class AdministrationManager:
                     return True
 
                 self.server.db.update_smtp_config(host, port, username, password, from_email, from_name, encryption_type)
-                user.speak_l("bio-updated")  # Generic success message for now
+                user.speak_l("admin-smtp-updated-success")
             self._show_smtp_settings_menu(user)
             return True
         elif menu_id == "admin_broadcast_input" and input_id == "broadcast_message":
@@ -859,7 +859,7 @@ class AdministrationManager:
                     config.host, config.port, config.username, config.password,
                     config.from_email, config.from_name, enc_type
                 )
-                user.speak_l("bio-updated")
+                user.speak_l("admin-smtp-updated-success")
         self._show_smtp_settings_menu(user)
 
     async def _run_smtp_test(self, user: NetworkUser, config, target_email: str) -> None:
@@ -870,8 +870,9 @@ class AdministrationManager:
 
         subject = Localization.get(user.locale, "email-test-subject")
         body = Localization.get(user.locale, "email-test-body")
+        body_html = Localization.get(user.locale, "email-test-body-html")
 
-        success, error = await SmtpMailer.send_email(config, target_email, subject, body)
+        success, error = await SmtpMailer.send_email(config, target_email, subject, body, html_body=body_html)
 
         if success:
             user.speak_l("smtp-test-success", buffer="system", email=target_email)

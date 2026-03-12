@@ -16,11 +16,22 @@ chat-global = { $player } says globally: { $message }
 dev-announcement-broadcast = { $dev } is a developer of PlayAural.
 admin-announcement-broadcast = { $admin } is an administrator of PlayAural.
 
+admin-smtp-updated-success = SMTP setting updated successfully
 admin-smtp-settings = SMTP Settings
 email-reset-subject = PlayAural Password Reset Code
 email-reset-body = Hello { $username },\n\nYou requested a password reset for your PlayAural account.\nYour 6-digit reset code is: { $code }\n\nThis code will expire in 15 minutes.\nIf you did not request this, please ignore this email.
+email-reset-body-html = <p>Hi { $username },</p>
+    <p>We received a request to reset the password for your PlayAural account.</p>
+    <p>Your 6-digit recovery code is:</p>
+    <h2>{ $code }</h2>
+    <p>This code will expire in exactly 15 minutes.</p>
+    <p>If you did not request this, please ignore this email. Your account remains secure.</p>
+    <p>Best regards,<br>Trung</p>
 email-test-subject = PlayAural SMTP Test
 email-test-body = This is a test email from the PlayAural server verifying your SMTP configuration.
+email-test-body-html = <p>Hello,</p>
+    <p>This is a test email from the PlayAural server.</p>
+    <p>If you are reading this, your SMTP configuration is successfully sending HTML emails.</p>
 smtp-test-sending = Testing connection, please wait...
 smtp-test-success = Test email sent successfully to { $email }!
 smtp-test-failed = Failed to send test email: { $error }

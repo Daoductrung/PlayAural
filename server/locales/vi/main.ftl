@@ -16,11 +16,22 @@ chat-global = { $player } nói chung: { $message }
 dev-announcement-broadcast = { $dev } là nhà phát triển của PlayAural.
 admin-announcement-broadcast = { $admin } là quản trị viên của PlayAural.
 
+admin-smtp-updated-success = Đã cập nhật thiết lập SMTP thành công
 admin-smtp-settings = Cài đặt SMTP
 email-reset-subject = Mã khôi phục mật khẩu PlayAural
 email-reset-body = Chào { $username },\n\nBạn đã yêu cầu khôi phục mật khẩu cho tài khoản PlayAural của mình.\nMã khôi phục 6 số của bạn là: { $code }\n\nMã này sẽ hết hạn sau 15 phút.\nNếu bạn không yêu cầu điều này, vui lòng bỏ qua email này.
+email-reset-body-html = <p>Chào { $username },</p>
+    <p>Chúng tôi nhận được yêu cầu khôi phục mật khẩu cho tài khoản PlayAural của bạn.</p>
+    <p>Mã khôi phục 6 số của bạn là:</p>
+    <h2>{ $code }</h2>
+    <p>Mã này sẽ hết hạn sau đúng 15 phút.</p>
+    <p>Nếu bạn không yêu cầu điều này, vui lòng bỏ qua email này. Tài khoản của bạn vẫn an toàn.</p>
+    <p>Trân trọng,<br>Trung</p>
 email-test-subject = Bài kiểm tra SMTP PlayAural
 email-test-body = Đây là email kiểm tra từ máy chủ PlayAural xác minh cấu hình SMTP của bạn.
+email-test-body-html = <p>Xin chào,</p>
+    <p>Đây là email kiểm tra từ máy chủ PlayAural.</p>
+    <p>Nếu bạn đang đọc được dòng này, điều đó có nghĩa cấu hình SMTP của bạn đã gửi email HTML thành công.</p>
 smtp-test-sending = Đang kiểm tra kết nối, vui lòng chờ...
 smtp-test-success = Gửi email kiểm tra thành công đến { $email }!
 smtp-test-failed = Lỗi gửi email kiểm tra: { $error }

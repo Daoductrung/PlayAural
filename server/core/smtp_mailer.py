@@ -17,7 +17,8 @@ class SmtpMailer:
         config: "SmtpConfig",
         to_email: str,
         subject: str,
-        body: str
+        body: str,
+        html_body: str = None
     ) -> tuple[bool, str]:
         """
         Sends an email asynchronously based on the provided SMTP configuration.
@@ -28,6 +29,9 @@ class SmtpMailer:
 
         msg = EmailMessage()
         msg.set_content(body)
+        if html_body:
+            msg.add_alternative(html_body, subtype='html')
+
         msg['Subject'] = subject
         msg['From'] = f"{config.from_name} <{config.from_email}>"
         msg['To'] = to_email

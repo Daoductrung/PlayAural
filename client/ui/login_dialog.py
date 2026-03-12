@@ -370,7 +370,7 @@ class LoginDialog(wx.Dialog):
 
     def _show_reset_code_dialog(self, email):
         """Show the dialog to enter the 6-digit code and new password."""
-        dlg = wx.Dialog(self, title=Localization.get("login-btn-forgot-password"), size=(350, 300))
+        dlg = wx.Dialog(self, title=Localization.get("login-btn-forgot-password"), size=(400, 350))
         pnl = wx.Panel(dlg)
         sz = wx.BoxSizer(wx.VERTICAL)
 
@@ -378,17 +378,25 @@ class LoginDialog(wx.Dialog):
         lbl_inst = wx.StaticText(pnl, label=Localization.get("reset-code-instructions"))
         sz.Add(lbl_inst, 0, wx.ALL | wx.CENTER, 10)
 
-        input_sizer = wx.FlexGridSizer(2, 2, 10, 10)
+        input_sizer = wx.FlexGridSizer(3, 2, 10, 10)
 
         # Code
-        input_sizer.Add(wx.StaticText(pnl, label=Localization.get("reset-code-prompt")), 0, wx.ALIGN_CENTER_VERTICAL)
+        code_lbl = wx.StaticText(pnl, label=Localization.get("reset-code-prompt"))
+        input_sizer.Add(code_lbl, 0, wx.ALIGN_CENTER_VERTICAL)
         code_txt = wx.TextCtrl(pnl)
         input_sizer.Add(code_txt, 1, wx.EXPAND)
 
         # New Password
-        input_sizer.Add(wx.StaticText(pnl, label=Localization.get("new-password-prompt")), 0, wx.ALIGN_CENTER_VERTICAL)
+        pass_lbl = wx.StaticText(pnl, label=Localization.get("new-password-prompt"))
+        input_sizer.Add(pass_lbl, 0, wx.ALIGN_CENTER_VERTICAL)
         pass_txt = wx.TextCtrl(pnl, style=wx.TE_PASSWORD)
         input_sizer.Add(pass_txt, 1, wx.EXPAND)
+
+        # Confirm New Password
+        confirm_lbl = wx.StaticText(pnl, label=Localization.get("reg-confirm-password-label"))
+        input_sizer.Add(confirm_lbl, 0, wx.ALIGN_CENTER_VERTICAL)
+        confirm_txt = wx.TextCtrl(pnl, style=wx.TE_PASSWORD)
+        input_sizer.Add(confirm_txt, 1, wx.EXPAND)
 
         input_sizer.AddGrowableCol(1, 1)
         sz.Add(input_sizer, 1, wx.EXPAND | wx.ALL, 15)
@@ -406,22 +414,53 @@ class LoginDialog(wx.Dialog):
         dlg.CenterOnParent()
         code_txt.SetFocus()
 
-        if dlg.ShowModal() == wx.ID_OK:
+        while dlg.ShowModal() == wx.ID_OK:
             code = code_txt.GetValue().strip()
             new_password = pass_txt.GetValue()
-            if code and new_password:
-                self.status_text.SetLabel(Localization.get("login-info-verifying"))
-                self.panel.Layout()
-                wx.Yield()
+            confirm_password = confirm_txt.GetValue()
 
-                # Send verification request in background thread
-                import threading
-                thread = threading.Thread(
-                    target=self._submit_reset_code_thread,
-                    args=(email, code, new_password),
-                    daemon=True,
+            if not code or not new_password:
+                wx.MessageBox(
+                    Localization.get("auth-username-password-required"),
+                    Localization.get("common-error"),
+                    wx.OK | wx.ICON_ERROR
                 )
-                thread.start()
+                continue
+
+            import re
+            has_letters = bool(re.search(r'[a-zA-Z]', new_password))
+            has_numbers = bool(re.search(r'[0-9]', new_password))
+
+            if len(new_password) < 8 or not has_letters or not has_numbers:
+                wx.MessageBox(
+                    Localization.get("auth-error-password-weak"),
+                    Localization.get("common-error"),
+                    wx.OK | wx.ICON_ERROR
+                )
+                continue
+
+            if new_password != confirm_password:
+                wx.MessageBox(
+                    Localization.get("reg-error-password-match"),
+                    Localization.get("common-error"),
+                    wx.OK | wx.ICON_ERROR
+                )
+                continue
+
+            self.status_text.SetLabel(Localization.get("login-info-verifying"))
+            self.panel.Layout()
+            wx.Yield()
+
+            # Send verification request in background thread
+            import threading
+            thread = threading.Thread(
+                target=self._submit_reset_code_thread,
+                args=(email, code, new_password),
+                daemon=True,
+            )
+            thread.start()
+            break
+
         dlg.Destroy()
 
     def _submit_reset_code_thread(self, email, code, new_password):

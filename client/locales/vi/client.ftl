@@ -136,8 +136,10 @@ main-restarting = Đang khởi động lại...
 
 auth-error-username-length = Tên đăng nhập phải dài từ 3 đến 30 ký tự.
 auth-error-password-weak = Mật khẩu phải dài ít nhất 8 ký tự và bao gồm cả chữ và số.
+reg-error-password-match = Mật khẩu không khớp.
 
 error-email-empty = Email là bắt buộc và không được để trống.
+error-email-invalid = Vui lòng nhập địa chỉ email hợp lệ.
 
 reg-error-email = Email là bắt buộc để đăng ký.
 

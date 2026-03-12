@@ -1936,9 +1936,10 @@ class GameClient {
         }
 
         btn.innerText = text;
+        btn.tabIndex = 0; // Always make focusable so screen readers can navigate read-only items
+
         if (id) {
             btn.dataset.id = id;
-            btn.tabIndex = 0; // Make focusable
 
             // Simulate button click behavior for div
             btn.addEventListener('keydown', (e) => {
@@ -2541,6 +2542,7 @@ class GameClient {
         const email = this.resetEmail || document.getElementById('forgot-email').value;
         const code = document.getElementById('reset-code').value;
         const newPassword = document.getElementById('new-password').value;
+        const confirmPassword = document.getElementById('confirm-new-password').value;
 
         if (!code || !newPassword) {
             alert("Code and New Password are required.");
@@ -2551,6 +2553,11 @@ class GameClient {
         const hasNumbers = /[0-9]/.test(newPassword);
         if (newPassword.length < 8 || !hasLetters || !hasNumbers) {
             alert(Localization.get("auth-error-password-weak") || "Password too weak.");
+            return;
+        }
+
+        if (newPassword !== confirmPassword) {
+            alert(Localization.get("reg-error-password-match") || "Passwords do not match.");
             return;
         }
 
@@ -2782,6 +2789,7 @@ class GameClient {
             resetScreen.querySelector('#reset-code-instructions').innerText = Localization.get('reset-code-instructions');
             resetScreen.querySelector('#reset-code-label').innerText = Localization.get('reset-code-prompt');
             resetScreen.querySelector('#new-password-label').innerText = Localization.get('new-password-prompt');
+            resetScreen.querySelector('#confirm-new-password-label').innerText = Localization.get('label-confirm-password');
             resetScreen.querySelector('#btn-submit-reset').innerText = Localization.get('btn-submit-reset') || "Reset Password";
 
             const cancelBtn = resetScreen.querySelector('.text-btn');

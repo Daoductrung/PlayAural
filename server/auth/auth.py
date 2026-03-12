@@ -1,6 +1,7 @@
 """Authentication and session management."""
 
 import hashlib
+import re
 import secrets
 from typing import TYPE_CHECKING
 
@@ -135,3 +136,11 @@ class AuthManager:
         to_remove = [t for t, u in self._sessions.items() if u.lower() == username.lower()]
         for token in to_remove:
             del self._sessions[token]
+
+def is_valid_email(email: str | None) -> bool:
+    """Check if an email is valid using a standard regex format."""
+    if not email:
+        return False
+    # Standard email format allowing custom domains
+    pattern = r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$"
+    return bool(re.match(pattern, email))

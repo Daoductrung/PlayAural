@@ -11,7 +11,7 @@ from .tick import TickScheduler
 from ..administration.manager import AdministrationManager
 from ..network.websocket_server import WebSocketServer, ClientConnection
 from ..persistence.database import Database
-from ..auth.auth import AuthManager
+from ..auth.auth import AuthManager, is_valid_email
 from ..auth.rate_limit import RateLimiter
 from ..tables.manager import TableManager
 from ..users.network_user import NetworkUser
@@ -597,9 +597,9 @@ PlayAural Server
 
     def _restore_user_state(self, user: NetworkUser, username: str) -> None:
         """Restore user state or show main menu after successful login."""
-        # Enforce mandatory email requirement
+        # Enforce mandatory email requirement (also intercept if email is invalid format)
         user_record = self._db.get_user(username)
-        if user_record and not user_record.email:
+        if user_record and not is_valid_email(user_record.email):
             self._show_mandatory_email_menu(user)
             return
 
@@ -802,6 +802,15 @@ PlayAural Server
                 "status": "error",
                 "error": "email_empty",
                 "text": Localization.get(locale, "reg-error-email")
+            })
+            return
+
+        if not is_valid_email(email):
+            await client.send({
+                "type": "register_response",
+                "status": "error",
+                "error": "email_invalid",
+                "text": Localization.get(locale, "error-email-invalid")
             })
             return
 
@@ -4072,6 +4081,14 @@ PlayAural Server
 
                 if not value:
                     user.speak_l("error-email-empty")
+                    if from_mandatory:
+                        self._show_mandatory_email_menu(user)
+                    else:
+                        self._show_profile_menu(user)
+                    return
+
+                if not is_valid_email(value):
+                    user.speak_l("error-email-invalid")
                     if from_mandatory:
                         self._show_mandatory_email_menu(user)
                     else:

@@ -407,6 +407,7 @@ confirm-email-change = Are you sure you want to change your email to { $email }?
 
 mandatory-email-notice = You must set an email to continue participating. Your email is private and only known to you.
 error-email-empty = Email is mandatory and cannot be empty.
+error-email-invalid = Invalid email format. Please provide a valid email address.
 reg-error-email = Email is required to register.
 
 error-email-taken = This email is already in use by another account.

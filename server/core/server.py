@@ -473,6 +473,9 @@ PlayAural Server
         # Success - clear failed logins for this IP
         self._rate_limiter.clear_failed_logins(client.ip_address)
 
+        # Update last login date
+        self._db.update_user_last_login(username)
+
         # Check if user is already connected
         old_client = self._ws_server.get_client_by_username(username)
         if old_client and old_client != client:
@@ -2249,20 +2252,22 @@ PlayAural Server
         if not friend_uuids:
             items.append(MenuItem(text=Localization.get(user.locale, "friends-list-empty"), id=""))
         else:
-            # Sort friends alphabetically
-            friends = []
+            # Gather friends and determine their status
+            friends_data = []
             for f_uuid in friend_uuids:
                 f_name = self._db.get_user_name_by_uuid(f_uuid)
                 if f_name:
-                    friends.append(f_name)
-            friends.sort(key=str.lower)
+                    online_user = self._users.get(f_name)
+                    state = self._user_states.get(f_name, {})
+                    is_online = online_user is not None and online_user.approved and state.get("menu") != "banned_menu"
+                    friends_data.append({"name": f_name, "is_online": is_online})
 
-            for f_name in friends:
-                # Determine status
-                online_user = self._users.get(f_name)
-                # Ensure they are truly online and not stuck in banned screen or unapproved
-                state = self._user_states.get(f_name, {})
-                is_online = online_user is not None and online_user.approved and state.get("menu") != "banned_menu"
+            # Sort: Online first (True > False if reverse sorted, but we can use a custom key), then alphabetically
+            friends_data.sort(key=lambda x: (not x["is_online"], x["name"].lower()))
+
+            for f_data in friends_data:
+                f_name = f_data["name"]
+                is_online = f_data["is_online"]
 
                 if not is_online:
                     status = Localization.get(user.locale, "friend-status-offline")
@@ -3377,6 +3382,21 @@ PlayAural Server
 
         # Load game from JSON and rebuild runtime state
         game = game_class.from_json(record.game_json)
+
+        # Strip spectators from the game's internal state so they don't block the restore
+        # Note: Depending on the game's Player model, is_spectator might be an attribute.
+        players_to_keep = []
+        spectator_ids = []
+        for player in game.players:
+            if getattr(player, "is_spectator", False):
+                spectator_ids.append(player.id)
+            else:
+                players_to_keep.append(player)
+        game.players = players_to_keep
+        # Also clean up any users dictionaries or references if the base game engine uses them
+        for spec_id in spectator_ids:
+            game._users.pop(spec_id, None)
+
         game.rebuild_runtime_state()
         table.game = game
         game._table = table  # Enable game to call table.destroy()
@@ -4172,6 +4192,10 @@ PlayAural Server
         # Build members list (includes bot status)
         members_data = []
         for player in game.players:
+            # Safely check for is_spectator using getattr since some game models might implement it differently
+            # or we can rely on player.is_spectator if it's on the base Player class.
+            if getattr(player, "is_spectator", False):
+                continue
             members_data.append(
                 {
                     "username": player.name,

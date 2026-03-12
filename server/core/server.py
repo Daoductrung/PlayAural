@@ -854,10 +854,24 @@ PlayAural Server
         """Handle submission of password reset code."""
         import re
 
+        locale = packet.get("locale", "en")
+
+        # Rate limit check for code submission (prevent brute-forcing the 6-digit code)
+        if not self._rate_limiter.is_reset_code_submission_allowed(client.ip_address):
+            # To be extra safe and prevent Argon2 CPU exhaustion, we should delete the token
+            # But we don't know the email here reliably yet without trusting client input.
+            # We'll just reject the request.
+            await client.send({
+                "type": "submit_reset_code_response",
+                "status": "error",
+                "error": "rate_limit",
+                "text": Localization.get(locale, "error-rate-limit-login") # Reuse existing translation
+            })
+            return
+
         email = packet.get("email", "").strip()
         code = packet.get("code", "").strip()
         new_password = packet.get("new_password", "")
-        locale = packet.get("locale", "en")
 
         if not email or not code or not new_password:
             await client.send({
@@ -870,6 +884,7 @@ PlayAural Server
 
         user_record = self._db.get_user_by_email(email)
         if not user_record:
+            self._rate_limiter.record_reset_code_submission(client.ip_address)
             await client.send({
                 "type": "submit_reset_code_response",
                 "status": "error",
@@ -894,6 +909,7 @@ PlayAural Server
         # Verify Code
         if self._auth.verify_reset_token(user_record.uuid, code):
             # Success! Update password
+            self._rate_limiter.clear_reset_code_submissions(client.ip_address)
             self._auth.reset_password(user_record.username, new_password)
 
             # Invalidate active sessions to force re-login
@@ -921,7 +937,12 @@ PlayAural Server
                 "username": user_record.username
             })
         else:
-            # Rate limit verification failures to prevent brute force? Handled by overall attempt limits if needed.
+            self._rate_limiter.record_reset_code_submission(client.ip_address)
+
+            # If they have now reached the rate limit, invalidate the token to prevent further attempts
+            if not self._rate_limiter.is_reset_code_submission_allowed(client.ip_address):
+                self._auth.clear_reset_token(user_record.uuid)
+
             await client.send({
                 "type": "submit_reset_code_response",
                 "status": "error",

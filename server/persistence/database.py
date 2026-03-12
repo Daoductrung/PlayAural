@@ -584,6 +584,7 @@ class Database:
         - game_results: Older than 30 days.
         - saved_tables: Older than 365 days.
         - bans: Expired more than 30 days ago.
+        - password reset tokens: Expired.
         """
         import datetime
         import logging
@@ -592,6 +593,7 @@ class Database:
         now = datetime.datetime.now()
         thirty_days_ago = (now - timedelta(days=30)).isoformat()
         one_year_ago = (now - timedelta(days=365)).isoformat()
+        now_str = now.isoformat()
 
         cursor = self._conn.cursor()
 

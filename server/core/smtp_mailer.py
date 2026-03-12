@@ -2,6 +2,7 @@
 
 import smtplib
 import asyncio
+import logging
 from email.message import EmailMessage
 from typing import TYPE_CHECKING
 
@@ -46,6 +47,7 @@ class SmtpMailer:
                 msg
             )
         except Exception as e:
+            logging.exception("Failed to dispatch SMTP email task:")
             return False, str(e)
 
     @staticmethod
@@ -63,13 +65,18 @@ class SmtpMailer:
                 with smtplib.SMTP(config.host, config.port, timeout=10) as server:
                     server.ehlo()
                     if config.encryption_type.lower() == 'tls':
-                        server.starttls()
+                        # Use default SSL context for STARTTLS to ensure secure connection
+                        import ssl
+                        context = ssl.create_default_context()
+                        server.starttls(context=context)
                         server.ehlo()
                     if config.username and config.password:
                         server.login(config.username, config.password)
                     server.send_message(msg)
             return True, ""
         except smtplib.SMTPException as e:
+            logging.exception("SMTPException occurred while sending email:")
             return False, f"SMTP error: {str(e)}"
         except Exception as e:
+            logging.exception("Unexpected connection error occurred while sending email:")
             return False, f"Connection error: {str(e)}"

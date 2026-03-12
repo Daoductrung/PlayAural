@@ -100,6 +100,27 @@ class RateLimiter:
         self._password_resets[ip].append(time.time())
         self._cleanup_list(ip, self._password_resets, 900)
 
+    def is_reset_code_submission_allowed(self, ip: str) -> bool:
+        """Check if submitting a reset code is allowed for this IP (Max 5 per 15 min)."""
+        if not hasattr(self, '_reset_code_submissions'):
+            self._reset_code_submissions = {}
+        valid_times = self._cleanup_list(ip, self._reset_code_submissions, 900)
+        return len(valid_times) < 5
+
+    def record_reset_code_submission(self, ip: str) -> None:
+        """Record a failed reset code submission attempt."""
+        if not hasattr(self, '_reset_code_submissions'):
+            self._reset_code_submissions = {}
+        if ip not in self._reset_code_submissions:
+            self._reset_code_submissions[ip] = []
+        self._reset_code_submissions[ip].append(time.time())
+        self._cleanup_list(ip, self._reset_code_submissions, 900)
+
+    def clear_reset_code_submissions(self, ip: str) -> None:
+        """Clear failed reset code submission attempts for an IP."""
+        if hasattr(self, '_reset_code_submissions') and ip in self._reset_code_submissions:
+            del self._reset_code_submissions[ip]
+
     def is_registration_allowed(self, ip: str) -> bool:
         """Check if an IP is allowed to register a new account."""
         valid_times = self._cleanup_list(ip, self._registrations, self.REG_WINDOW_SEC)

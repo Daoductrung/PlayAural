@@ -1936,9 +1936,10 @@ class GameClient {
         }
 
         btn.innerText = text;
+        btn.tabIndex = 0; // Always make focusable so screen readers can navigate read-only items
+
         if (id) {
             btn.dataset.id = id;
-            btn.tabIndex = 0; // Make focusable
 
             // Simulate button click behavior for div
             btn.addEventListener('keydown', (e) => {

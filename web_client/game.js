@@ -818,12 +818,15 @@ class GameClient {
         };
         localStorage.setItem('playaural_config', JSON.stringify(config));
 
-        // Save Credentials if Auto-Login checked
+        // Save Credentials if Auto-Login checked.
+        // Username is stored in localStorage (not sensitive).
+        // Password is stored in sessionStorage only — it is never written to
+        // localStorage so it cannot be read across browser sessions.
         if (this.lastUser && this.lastPass) {
             const autoLogin = document.getElementById('chk-auto-login').checked;
             if (autoLogin) {
                 localStorage.setItem('pa_user', this.lastUser);
-                localStorage.setItem('pa_pass', this.lastPass);
+                sessionStorage.setItem('pa_pass', this.lastPass);
             }
         }
     }
@@ -901,17 +904,19 @@ class GameClient {
         const entry = document.createElement('div');
         entry.className = "log-entry";
 
-        const time = new Date().toLocaleTimeString();
-        let html = "";
-
+        // Build with DOM nodes so server-controlled text is never parsed as HTML.
         if (sender) {
-            html += `<span class="log-sender ${senderClass}">${sender}:</span> `;
+            const senderSpan = document.createElement('span');
+            senderSpan.className = `log-sender ${senderClass}`;
+            senderSpan.textContent = `${sender}:`;
+            entry.appendChild(senderSpan);
+            entry.appendChild(document.createTextNode(' '));
         }
 
-        html += `<span class="log-msg">${message}</span>`;
-        // html += ` <span class="log-time">[${time}]</span>`; // Optional time for mobile to save space?
-
-        entry.innerHTML = html;
+        const msgSpan = document.createElement('span');
+        msgSpan.className = 'log-msg';
+        msgSpan.textContent = message;
+        entry.appendChild(msgSpan);
 
         // NEW LOGIC: Prepend (Newest First) for mobile optimization
         if (container.firstChild) {
@@ -2315,9 +2320,17 @@ class GameClient {
         this.registerScreen = document.getElementById('register-screen');
         this.gameScreen = document.getElementById('game-screen');
 
-        // Load Auto-login capability
+        // Migrate: remove any password that a previous version stored in localStorage.
+        if (localStorage.getItem('pa_pass')) {
+            const migratedPass = localStorage.getItem('pa_pass');
+            sessionStorage.setItem('pa_pass', migratedPass);
+            localStorage.removeItem('pa_pass');
+        }
+
+        // Load Auto-login capability.
+        // Username lives in localStorage; password lives in sessionStorage only.
         const storedUser = localStorage.getItem('pa_user');
-        const storedPass = localStorage.getItem('pa_pass'); // Warning: Insecure for prod, ok for proto
+        const storedPass = sessionStorage.getItem('pa_pass');
 
         if (storedUser && storedPass) {
             this.lastUser = storedUser;
@@ -2452,7 +2465,7 @@ class GameClient {
 
         if (autoLogin) {
             localStorage.setItem('pa_user', username);
-            localStorage.setItem('pa_pass', password);
+            sessionStorage.setItem('pa_pass', password);
         } else {
             // Only clear ONLY if user explicitly unchecked? 
             // Or usually we don't clear unless they say "Remove Account".
@@ -2464,7 +2477,7 @@ class GameClient {
 
     autoLoginConnection() {
         const storedUser = localStorage.getItem('pa_user');
-        const storedPass = localStorage.getItem('pa_pass');
+        const storedPass = sessionStorage.getItem('pa_pass');
         // Retrieve loaded URL from input (restored by loadConfig)
         const serverUrl = document.getElementById('server-url').value || "wss://playaural.ddt.one:443";
 
@@ -2648,7 +2661,7 @@ class GameClient {
 
     removeAccount() {
         localStorage.removeItem('pa_user');
-        localStorage.removeItem('pa_pass');
+        sessionStorage.removeItem('pa_pass');
         this.lastUser = null;
         this.lastPass = null;
         this.showLanding();

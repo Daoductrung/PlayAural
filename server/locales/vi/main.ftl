@@ -412,6 +412,7 @@ game-resumed = Chủ bàn { $player } đã kết nối lại. Tiếp tục game!
 new-host = Chủ bàn mới: { $player }
 
 auth-error-username-length = Tên đăng nhập phải dài từ 3 đến 30 ký tự.
+auth-error-username-invalid-chars = Tên đăng nhập chỉ được chứa chữ cái, chữ số và dấu cách (không được có nhiều dấu cách liên tiếp hoặc ký tự đặc biệt).
 auth-error-password-weak = Mật khẩu phải dài ít nhất 8 ký tự và bao gồm cả chữ và số.
 
 personal-and-options = Cá nhân và Tùy chỉnh

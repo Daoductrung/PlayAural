@@ -14,6 +14,7 @@ class TableManager:
 
     def __init__(self):
         self._tables: dict[str, Table] = {}
+        self._username_to_table: dict[str, str] = {}  # username -> table_id O(1) lookup
         self._server: Any = None  # Reference to server for destroy/save notifications
 
     def create_table(
@@ -24,6 +25,8 @@ class TableManager:
     ) -> Table:
         """Create a new table."""
         table_id = str(uuid.uuid4())[:8]
+        while table_id in self._tables:
+            table_id = str(uuid.uuid4())[:8]
         table = Table(
             table_id=table_id,
             game_type=game_type,
@@ -45,7 +48,10 @@ class TableManager:
 
     def remove_table(self, table_id: str) -> None:
         """Remove a table."""
-        if self._tables.pop(table_id, None):
+        table = self._tables.pop(table_id, None)
+        if table:
+            for member in table.members:
+                self._username_to_table.pop(member.username, None)
             if self._server and hasattr(self._server, "on_tables_changed"):
                 self._server.on_tables_changed()
 
@@ -65,11 +71,10 @@ class TableManager:
         return [t for t in tables if t.status == "waiting"]
 
     def find_user_table(self, username: str) -> Table | None:
-        """Find the table a user is currently in."""
-        for table in self._tables.values():
-            for member in table.members:
-                if member.username == username:
-                    return table
+        """Find the table a user is currently in (O(1) via reverse-lookup dict)."""
+        table_id = self._username_to_table.get(username)
+        if table_id:
+            return self._tables.get(table_id)
         return None
 
     def on_tick(self) -> None:
@@ -84,6 +89,8 @@ class TableManager:
         if self._server:
             table._db = self._server._db
         self._tables[table.table_id] = table
+        for member in table.members:
+            self._username_to_table[member.username] = table.table_id
 
     def save_all(self) -> list[Table]:
         """Save all tables' game state and return them."""

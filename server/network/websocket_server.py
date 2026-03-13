@@ -117,10 +117,7 @@ def _tolerant_process_request(self, request):
                  
     except Exception:
         pass
-                 
-    except Exception:
-        pass
-    
+
     # Delegate to original method with potentially sanitized request
     try:
         return _original_process_request(self, request)
@@ -159,6 +156,7 @@ class WebSocketServer:
         self._on_disconnect = on_disconnect
         self._on_message = on_message
         self._clients: dict[str, ClientConnection] = {}
+        self._username_to_client: dict[str, ClientConnection] = {}
         self._server: websockets.WebSocketServer | None = None
         self._running = False
         self._ssl_context = None
@@ -197,6 +195,7 @@ class WebSocketServer:
         for client in list(self._clients.values()):
             await client.close()
         self._clients.clear()
+        self._username_to_client.clear()
 
     async def _handle_client(self, websocket: WebSocketServerProtocol) -> None:
         """Handle a client connection."""
@@ -240,6 +239,8 @@ class WebSocketServer:
             pass
         finally:
             del self._clients[address]
+            if client.username:
+                self._username_to_client.pop(client.username, None)
             if self._on_disconnect:
                 await self._on_disconnect(client)
 
@@ -251,17 +252,20 @@ class WebSocketServer:
             if client.authenticated and client != exclude:
                 await client.send(packet)
 
+    def register_client_username(self, address: str, username: str) -> None:
+        """Register a username for a connected client after successful authentication."""
+        client = self._clients.get(address)
+        if client:
+            self._username_to_client[username] = client
+
     async def send_to_user(self, username: str, packet: dict) -> bool:
         """Send a packet to a specific user."""
-        for client in list(self._clients.values()):
-            if client.username == username:
-                await client.send(packet)
-                return True
+        client = self._username_to_client.get(username)
+        if client:
+            await client.send(packet)
+            return True
         return False
 
     def get_client_by_username(self, username: str) -> ClientConnection | None:
         """Get a client by username."""
-        for client in list(self._clients.values()):
-            if client.username == username:
-                return client
-        return None
+        return self._username_to_client.get(username)

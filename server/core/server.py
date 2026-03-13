@@ -3,6 +3,7 @@
 import asyncio
 import logging
 import sys
+import unicodedata
 from pathlib import Path
 
 import json
@@ -265,12 +266,11 @@ PlayAural Server
             # and visibility is hidden immediately by menu filtering.
             
             # Auto-substitute with bot if in a playing game (requested feature)
-            if hasattr(self, "_tables"):
-                table = self._tables.find_user_table(client.username)
-                if table and table.game and table.game.status == "playing":
-                     # We need the user UUID. The user object is about to be popped, so get it now.
-                     if user:
-                         table.game.on_player_disconnect(user.uuid)
+            table = self._tables.find_user_table(client.username)
+            if table and table.game and table.game.status == "playing":
+                # We need the user UUID. The user object is about to be popped, so get it now.
+                if user:
+                    table.game.on_player_disconnect(user.uuid)
 
             # Clean up user state immediately so they can rejoin
             # FIX: Only remove from memory if the currently registered user actually belongs to this disconnecting client object
@@ -495,6 +495,7 @@ PlayAural Server
         # Authentication successful
         client.username = username
         client.authenticated = True
+        self._ws_server.register_client_username(client.address, username)
 
         # Create network user with preferences and persistent UUID
         user_record = self._auth.get_user(username)
@@ -569,8 +570,7 @@ PlayAural Server
                  elif trust_level >= 2:
                       await self._broadcast_admin_announcement(username)
 
-        # Check client version
-        client_version = packet.get("version", "0.0.0")
+        # Check client version (variable already set above for the web-client check)
         if client_version != LATEST_CLIENT_VERSION:
             # If version mismatch, do NOT send game list.
             # The client will prompt for update.
@@ -579,8 +579,7 @@ PlayAural Server
         # Send game list
         await self._send_game_list(client)
 
-        # Check if user is banned
-        active_ban = self._db.get_active_ban(username)
+        # Re-use the ban result already fetched above
         if active_ban:
             self._show_banned_menu(user, active_ban)
             return
@@ -845,6 +844,8 @@ PlayAural Server
                 "text": Localization.get(locale, "success-reset-email-sent")
             })
         else:
+            # Email failed — delete the stored token so it doesn't linger orphaned in the DB
+            self._auth.clear_reset_token(user_record.uuid)
             await client.send({
                 "type": "request_password_reset_response",
                 "status": "error",
@@ -970,7 +971,10 @@ PlayAural Server
             await client.close()
             return
 
-        username = packet.get("username", "")
+        # Strip surrounding whitespace, then NFC-normalize so that visually
+        # identical Vietnamese strings (precomposed vs. decomposed) are always
+        # stored in the same canonical form.
+        username = unicodedata.normalize('NFC', packet.get("username", "").strip())
         password = packet.get("password", "")
         locale = packet.get("locale", "en") # Get locale from client, default to en
         email = packet.get("email", "")
@@ -1010,6 +1014,7 @@ PlayAural Server
             })
             return
 
+        # Length is checked after stripping so padding spaces don't inflate it
         if len(username) < 3 or len(username) > 30:
             await client.send({
                 "type": "register_response",
@@ -1018,6 +1023,30 @@ PlayAural Server
                 "text": Localization.get(locale, "auth-error-username-length")
             })
             return
+
+        # No runs of multiple spaces (e.g. "Nguyen  Van")
+        if '  ' in username:
+            await client.send({
+                "type": "register_response",
+                "status": "error",
+                "error": "username_invalid_chars",
+                "text": Localization.get(locale, "auth-error-username-invalid-chars")
+            })
+            return
+
+        # Positive allowlist: only Unicode letters, digits, and single spaces.
+        # This structurally blocks <, >, ", ', `, control characters, etc.
+        if not all(c.isalpha() or c.isdigit() or c == ' ' for c in username):
+            await client.send({
+                "type": "register_response",
+                "status": "error",
+                "error": "username_invalid_chars",
+                "text": Localization.get(locale, "auth-error-username-invalid-chars")
+            })
+            return
+
+        # Silently cap bio length to prevent database bloat
+        bio = bio[:500]
 
         has_letters = bool(re.search(r'[a-zA-Z]', password))
         has_numbers = bool(re.search(r'[0-9]', password))

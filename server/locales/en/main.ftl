@@ -412,6 +412,7 @@ game-resumed = Host { $player } reconnected. Game resumed!
 new-host = New host: { $player }
 
 auth-error-username-length = Username must be between 3 and 30 characters.
+auth-error-username-invalid-chars = Username may only contain letters, numbers, and spaces (no consecutive spaces, and no special characters).
 auth-error-password-weak = Password must be at least 8 characters long and contain both letters and numbers.
 
 personal-and-options = Personal and Options

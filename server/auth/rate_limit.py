@@ -15,6 +15,8 @@ class RateLimiter:
     def __init__(self):
         self._failed_logins: dict[str, list[float]] = {}
         self._registrations: dict[str, list[float]] = {}
+        self._password_resets: dict[str, list[float]] = {}
+        self._reset_code_submissions: dict[str, list[float]] = {}
         self._last_full_cleanup = time.time()
         self._cleanup_interval_sec = 300  # Sweep memory every 5 minutes
 
@@ -44,6 +46,28 @@ class RateLimiter:
                 expired_ips.append(ip)
         for ip in expired_ips:
             del self._registrations[ip]
+
+        # Clean password resets
+        expired_ips = []
+        for ip, times in self._password_resets.items():
+            valid_times = [t for t in times if current_time - t <= 900]
+            if valid_times:
+                self._password_resets[ip] = valid_times
+            else:
+                expired_ips.append(ip)
+        for ip in expired_ips:
+            del self._password_resets[ip]
+
+        # Clean reset code submissions
+        expired_ips = []
+        for ip, times in self._reset_code_submissions.items():
+            valid_times = [t for t in times if current_time - t <= 900]
+            if valid_times:
+                self._reset_code_submissions[ip] = valid_times
+            else:
+                expired_ips.append(ip)
+        for ip in expired_ips:
+            del self._reset_code_submissions[ip]
 
         self._last_full_cleanup = current_time
 
@@ -86,15 +110,11 @@ class RateLimiter:
 
     def is_password_reset_allowed(self, ip: str) -> bool:
         """Check if a password reset request is allowed for this IP (Max 2 per 15 min)."""
-        if not hasattr(self, '_password_resets'):
-            self._password_resets = {}
         valid_times = self._cleanup_list(ip, self._password_resets, 900)
         return len(valid_times) < 2
 
     def record_password_reset(self, ip: str) -> None:
         """Record a password reset request attempt."""
-        if not hasattr(self, '_password_resets'):
-            self._password_resets = {}
         if ip not in self._password_resets:
             self._password_resets[ip] = []
         self._password_resets[ip].append(time.time())
@@ -102,15 +122,11 @@ class RateLimiter:
 
     def is_reset_code_submission_allowed(self, ip: str) -> bool:
         """Check if submitting a reset code is allowed for this IP (Max 5 per 15 min)."""
-        if not hasattr(self, '_reset_code_submissions'):
-            self._reset_code_submissions = {}
         valid_times = self._cleanup_list(ip, self._reset_code_submissions, 900)
         return len(valid_times) < 5
 
     def record_reset_code_submission(self, ip: str) -> None:
         """Record a failed reset code submission attempt."""
-        if not hasattr(self, '_reset_code_submissions'):
-            self._reset_code_submissions = {}
         if ip not in self._reset_code_submissions:
             self._reset_code_submissions[ip] = []
         self._reset_code_submissions[ip].append(time.time())
@@ -118,7 +134,7 @@ class RateLimiter:
 
     def clear_reset_code_submissions(self, ip: str) -> None:
         """Clear failed reset code submission attempts for an IP."""
-        if hasattr(self, '_reset_code_submissions') and ip in self._reset_code_submissions:
+        if ip in self._reset_code_submissions:
             del self._reset_code_submissions[ip]
 
     def is_registration_allowed(self, ip: str) -> bool:

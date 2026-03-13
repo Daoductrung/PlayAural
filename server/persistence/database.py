@@ -1,7 +1,11 @@
 """SQLite database for persistence."""
 
+import logging
+import re
 import sqlite3
+import uuid as uuid_module
 import json
+from datetime import datetime, timedelta
 from pathlib import Path
 from dataclasses import dataclass
 
@@ -328,7 +332,6 @@ class Database:
             self._conn.commit()
 
         if "registration_date" not in columns:
-            from datetime import datetime
             cursor.execute("ALTER TABLE users ADD COLUMN registration_date TEXT DEFAULT ''")
             # Backfill existing users with current timestamp
             now_iso = datetime.now().isoformat()
@@ -487,7 +490,6 @@ class Database:
         self._conn.commit()
 
         # 2. Create the exact schema for the new table but inject COLLATE NOCASE for the username
-        import re
         original_sql = row["sql"]
         # Replace 'CREATE TABLE users' with 'CREATE TABLE users_new'
         new_sql = re.sub(r'CREATE\s+TABLE\s+users\b', 'CREATE TABLE users_new', original_sql, count=1, flags=re.IGNORECASE)
@@ -547,7 +549,6 @@ class Database:
             from ..game_utils.game_result import GameResult, PlayerResult
 
             # Reconstruct GameResult
-            from datetime import datetime
             gr = GameResult(
                 game_type=game_type,
                 timestamp=datetime.now().isoformat(),
@@ -592,11 +593,7 @@ class Database:
         - bans: Expired more than 30 days ago.
         - password reset tokens: Expired.
         """
-        import datetime
-        import logging
-        from datetime import timedelta
-
-        now = datetime.datetime.now()
+        now = datetime.now()
         thirty_days_ago = (now - timedelta(days=30)).isoformat()
         one_year_ago = (now - timedelta(days=365)).isoformat()
         now_str = now.isoformat()
@@ -679,7 +676,7 @@ class Database:
         """Get a user by username (case-insensitive)."""
         cursor = self._conn.cursor()
         cursor.execute(
-            "SELECT id, username, password_hash, uuid, locale, preferences_json, trust_level, approved, email, bio, motd_version, gender, registration_date, last_login_date FROM users WHERE LOWER(username) = LOWER(?)",
+            "SELECT id, username, password_hash, uuid, locale, preferences_json, trust_level, approved, email, bio, motd_version, gender, registration_date, last_login_date FROM users WHERE username = ?",
             (username,),
         )
         row = cursor.fetchone()
@@ -704,17 +701,19 @@ class Database:
 
     def create_user(
         self, username: str, password_hash: str, locale: str = "en", trust_level: int = 1, approved: bool = False, email: str = "", bio: str = ""
-    ) -> UserRecord:
-        """Create a new user with a generated UUID."""
-        import uuid as uuid_module
-        from datetime import datetime
+    ) -> UserRecord | None:
+        """Create a new user with a generated UUID. Returns None if username is already taken."""
         user_uuid = str(uuid_module.uuid4())
         now_iso = datetime.now().isoformat()
         cursor = self._conn.cursor()
-        cursor.execute(
-            "INSERT INTO users (username, password_hash, uuid, locale, trust_level, approved, email, bio, registration_date, last_login_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (username, password_hash, user_uuid, locale, trust_level, 1 if approved else 0, email, bio, now_iso, ""),
-        )
+        try:
+            cursor.execute(
+                "INSERT INTO users (username, password_hash, uuid, locale, trust_level, approved, email, bio, registration_date, last_login_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (username, password_hash, user_uuid, locale, trust_level, 1 if approved else 0, email, bio, now_iso, ""),
+            )
+        except sqlite3.IntegrityError:
+            # Username already exists (UNIQUE constraint) — race between user_exists and INSERT
+            return None
         self._conn.commit()
         return UserRecord(
             id=cursor.lastrowid,
@@ -733,25 +732,28 @@ class Database:
     def user_exists(self, username: str) -> bool:
         """Check if a user exists (case-insensitive)."""
         cursor = self._conn.cursor()
-        cursor.execute("SELECT 1 FROM users WHERE LOWER(username) = LOWER(?)", (username,))
+        cursor.execute("SELECT 1 FROM users WHERE username = ?", (username,))
         return cursor.fetchone() is not None
 
     def email_exists(self, email: str, exclude_username: str | None = None) -> bool:
-        """Check if an email is already in use by another account."""
+        """Check if an email is already in use by another account (case-insensitive)."""
         if not email:
             return False  # Empty emails shouldn't trigger "taken" errors for legacy compat
         cursor = self._conn.cursor()
         if exclude_username:
-            cursor.execute("SELECT 1 FROM users WHERE email = ? AND LOWER(username) != LOWER(?)", (email, exclude_username))
+            cursor.execute(
+                "SELECT 1 FROM users WHERE LOWER(email) = LOWER(?) AND username != ?",
+                (email, exclude_username),
+            )
         else:
-            cursor.execute("SELECT 1 FROM users WHERE email = ?", (email,))
+            cursor.execute("SELECT 1 FROM users WHERE LOWER(email) = LOWER(?)", (email,))
         return cursor.fetchone() is not None
 
     def update_user_locale(self, username: str, locale: str) -> None:
         """Update a user's locale."""
         cursor = self._conn.cursor()
         cursor.execute(
-            "UPDATE users SET locale = ? WHERE LOWER(username) = LOWER(?)", (locale, username)
+            "UPDATE users SET locale = ? WHERE username = ?", (locale, username)
         )
         self._conn.commit()
 
@@ -759,7 +761,7 @@ class Database:
         """Update a user's preferences."""
         cursor = self._conn.cursor()
         cursor.execute(
-            "UPDATE users SET preferences_json = ? WHERE LOWER(username) = LOWER(?)",
+            "UPDATE users SET preferences_json = ? WHERE username = ?",
             (preferences_json, username),
         )
         self._conn.commit()
@@ -768,7 +770,7 @@ class Database:
         """Update a user's password hash."""
         cursor = self._conn.cursor()
         cursor.execute(
-            "UPDATE users SET password_hash = ? WHERE LOWER(username) = LOWER(?)",
+            "UPDATE users SET password_hash = ? WHERE username = ?",
             (password_hash, username),
         )
         self._conn.commit()
@@ -777,7 +779,7 @@ class Database:
         """Update a user's email."""
         cursor = self._conn.cursor()
         cursor.execute(
-            "UPDATE users SET email = ? WHERE LOWER(username) = LOWER(?)",
+            "UPDATE users SET email = ? WHERE username = ?",
             (email, username),
         )
         self._conn.commit()
@@ -786,7 +788,7 @@ class Database:
         """Update a user's bio."""
         cursor = self._conn.cursor()
         cursor.execute(
-            "UPDATE users SET bio = ? WHERE LOWER(username) = LOWER(?)",
+            "UPDATE users SET bio = ? WHERE username = ?",
             (bio, username),
         )
         self._conn.commit()
@@ -795,18 +797,17 @@ class Database:
         """Update a user's gender."""
         cursor = self._conn.cursor()
         cursor.execute(
-            "UPDATE users SET gender = ? WHERE LOWER(username) = LOWER(?)",
+            "UPDATE users SET gender = ? WHERE username = ?",
             (gender, username),
         )
         self._conn.commit()
 
     def update_user_last_login(self, username: str) -> None:
         """Update a user's last login date."""
-        from datetime import datetime
         now_iso = datetime.now().isoformat()
         cursor = self._conn.cursor()
         cursor.execute(
-            "UPDATE users SET last_login_date = ? WHERE LOWER(username) = LOWER(?)",
+            "UPDATE users SET last_login_date = ? WHERE username = ?",
             (now_iso, username),
         )
         self._conn.commit()
@@ -859,7 +860,7 @@ class Database:
         """Update a user's trust level."""
         cursor = self._conn.cursor()
         cursor.execute(
-            "UPDATE users SET trust_level = ? WHERE LOWER(username) = LOWER(?)",
+            "UPDATE users SET trust_level = ? WHERE username = ?",
             (trust_level, username),
         )
         self._conn.commit()
@@ -868,7 +869,7 @@ class Database:
         """Update a user's motd version."""
         cursor = self._conn.cursor()
         cursor.execute(
-            "UPDATE users SET motd_version = ? WHERE LOWER(username) = LOWER(?)",
+            "UPDATE users SET motd_version = ? WHERE username = ?",
             (motd_version, username),
         )
         self._conn.commit()
@@ -903,7 +904,7 @@ class Database:
         """Approve a user account. Returns True if user was found and approved."""
         cursor = self._conn.cursor()
         cursor.execute(
-            "UPDATE users SET approved = 1 WHERE LOWER(username) = LOWER(?)",
+            "UPDATE users SET approved = 1 WHERE username = ?",
             (username,),
         )
         self._conn.commit()
@@ -934,7 +935,7 @@ class Database:
         )
 
         # Finally delete the user
-        cursor.execute("DELETE FROM users WHERE LOWER(username) = LOWER(?)", (username,))
+        cursor.execute("DELETE FROM users WHERE username = ?", (username,))
 
         self._conn.commit()
         return cursor.rowcount > 0
@@ -1076,7 +1077,6 @@ class Database:
 
     def ban_user(self, username: str, admin_username: str, reason_key: str, expires_at: str | None) -> BanRecord:
         """Ban a user."""
-        from datetime import datetime
         issued_at = datetime.now().isoformat()
         cursor = self._conn.cursor()
         cursor.execute(
@@ -1101,48 +1101,43 @@ class Database:
         return cursor.rowcount > 0
 
     def get_active_ban(self, username: str) -> BanRecord | None:
-        """Get the active ban for a user, if any. Clears expired bans."""
-        from datetime import datetime
-        cursor = self._conn.cursor()
-        cursor.execute(
-            "SELECT id, username, admin_username, reason_key, issued_at, expires_at FROM bans WHERE username = ? ORDER BY issued_at DESC",
-            (username,),
-        )
-
+        """Get the active ban for a user, if any. Clears expired bans in one SQL call."""
         now = datetime.now().isoformat()
-        active_ban = None
-        expired_ids = []
+        cursor = self._conn.cursor()
 
-        for row in cursor.fetchall():
-            expires_at = row["expires_at"]
-            if expires_at and expires_at <= now:
-                expired_ids.append(row["id"])
-            elif not active_ban:
-                # Keep the most recent active ban
-                active_ban = BanRecord(
-                    id=row["id"],
-                    username=row["username"],
-                    admin_username=row["admin_username"],
-                    reason_key=row["reason_key"],
-                    issued_at=row["issued_at"],
-                    expires_at=row["expires_at"],
-                )
-            else:
-                # If there are multiple active bans, we only return one but we might want to clean up others?
-                # Actually, standard logic is just return the first active one we find
-                pass
-
-        # Cleanup expired bans
-        if expired_ids:
-            for ban_id in expired_ids:
-                cursor.execute("DELETE FROM bans WHERE id = ?", (ban_id,))
+        # Purge expired bans for this user in a single DELETE
+        cursor.execute(
+            "DELETE FROM bans WHERE username = ? AND expires_at IS NOT NULL AND expires_at <= ?",
+            (username, now),
+        )
+        if cursor.rowcount:
             self._conn.commit()
 
-        return active_ban
+        # Fetch the most-recent active ban (permanent or future expiry)
+        cursor.execute(
+            """
+            SELECT id, username, admin_username, reason_key, issued_at, expires_at
+            FROM bans
+            WHERE username = ? AND (expires_at IS NULL OR expires_at > ?)
+            ORDER BY issued_at DESC
+            LIMIT 1
+            """,
+            (username, now),
+        )
+        row = cursor.fetchone()
+        if row:
+            return BanRecord(
+                id=row["id"],
+                username=row["username"],
+                admin_username=row["admin_username"],
+                reason_key=row["reason_key"],
+                issued_at=row["issued_at"],
+                expires_at=row["expires_at"],
+            )
+        return None
 
     def get_all_banned_users(self) -> list[str]:
         """Get a list of all currently banned usernames."""
-        from datetime import datetime
         now = datetime.now().isoformat()
         cursor = self._conn.cursor()
         # Find usernames where they have at least one active ban
@@ -1209,14 +1204,28 @@ class Database:
         )
 
     def load_all_tables(self) -> list[Table]:
-        """Load all tables from the database."""
+        """Load all tables from the database in a single query."""
+        from ..tables.table import TableMember
         cursor = self._conn.cursor()
-        cursor.execute("SELECT table_id FROM tables")
+        cursor.execute("SELECT table_id, game_type, host, members_json, game_json, status FROM tables")
         tables = []
         for row in cursor.fetchall():
-            table = self.load_table(row["table_id"])
-            if table:
-                tables.append(table)
+            try:
+                members_data = json.loads(row["members_json"])
+                members = [
+                    TableMember(username=m["username"], is_spectator=m["is_spectator"])
+                    for m in members_data
+                ]
+                tables.append(Table(
+                    table_id=row["table_id"],
+                    game_type=row["game_type"],
+                    host=row["host"],
+                    members=members,
+                    game_json=row["game_json"],
+                    status=row["status"],
+                ))
+            except Exception:
+                pass  # Skip any malformed table records
         return tables
 
     def delete_table(self, table_id: str) -> None:
@@ -1232,9 +1241,22 @@ class Database:
         self._conn.commit()
 
     def save_all_tables(self, tables: list[Table]) -> None:
-        """Save multiple tables."""
+        """Save multiple tables in a single transaction."""
+        if not tables:
+            return
+        cursor = self._conn.cursor()
         for table in tables:
-            self.save_table(table)
+            members_json = json.dumps(
+                [{"username": m.username, "is_spectator": m.is_spectator} for m in table.members]
+            )
+            cursor.execute(
+                """
+                INSERT OR REPLACE INTO tables (table_id, game_type, host, members_json, game_json, status)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (table.table_id, table.game_type, table.host, members_json, table.game_json, table.status),
+            )
+        self._conn.commit()
 
     # Saved table operations (user-saved game states)
 
@@ -1247,8 +1269,6 @@ class Database:
         members_json: str,
     ) -> SavedTableRecord:
         """Save a table state to a user's saved tables."""
-        from datetime import datetime
-
         saved_at = datetime.now().isoformat()
 
         cursor = self._conn.cursor()
@@ -1372,7 +1392,6 @@ class Database:
         from ..game_utils.stats_extractor import StatsExtractor
 
         # We temporarily build a GameResult just for the extractor
-        from datetime import datetime
         gr = GameResult(
             game_type=game_type,
             timestamp=datetime.now().isoformat(),
@@ -1699,7 +1718,6 @@ class Database:
 
     def save_password_reset_token(self, user_uuid: str, token_hash: str, expires_at: str) -> None:
         """Save a new password reset token and delete any existing ones for this user."""
-        from datetime import datetime
         now = datetime.now().isoformat()
         cursor = self._conn.cursor()
         # Delete old tokens for user
@@ -1713,7 +1731,6 @@ class Database:
 
     def get_password_reset_token(self, user_uuid: str) -> dict | None:
         """Get the active password reset token for a user."""
-        from datetime import datetime
         now = datetime.now().isoformat()
         cursor = self._conn.cursor()
         cursor.execute("""
@@ -1742,7 +1759,6 @@ class Database:
         'duplicate': Already pending.
         'already_friends': Already accepted.
         """
-        from datetime import datetime
         now = datetime.now().isoformat()
         cursor = self._conn.cursor()
 
@@ -1828,7 +1844,6 @@ class Database:
 
     def add_notification(self, user_id: str, source_username: str, event_type: str) -> None:
         """Add an offline notification for a user."""
-        from datetime import datetime
         now = datetime.now().isoformat()
         cursor = self._conn.cursor()
         cursor.execute("""

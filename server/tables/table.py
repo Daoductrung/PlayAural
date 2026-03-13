@@ -1,5 +1,6 @@
 """Table management for games."""
 
+import time
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
@@ -41,6 +42,9 @@ class Table(DataClassJSONMixin):
     _server: Any = field(default=None, repr=False)  # Reference to Server (for saves)
     _db: Any = field(default=None, repr=False)  # Reference to Database (for ratings)
     _last_menu_state_hash: str | None = field(default=None, repr=False)
+    _member_offline_since: dict = field(default_factory=dict, repr=False)
+    _offline_since: float | None = field(default=None, repr=False)
+    _destroyed: bool = field(default=False, repr=False)
 
     def __post_init__(self):
         self._game = None
@@ -49,6 +53,9 @@ class Table(DataClassJSONMixin):
         self._server = None
         self._db = None
         self._last_menu_state_hash = None
+        self._member_offline_since = {}
+        self._offline_since = None
+        self._destroyed = False
 
     @property
     def game(self) -> "Game | None":
@@ -73,6 +80,8 @@ class Table(DataClassJSONMixin):
 
         self.members.append(TableMember(username=username, is_spectator=as_spectator))
         self._users[username] = user
+        if self._manager and hasattr(self._manager, "_username_to_table"):
+            self._manager._username_to_table[username] = self.table_id
         if self._server and hasattr(self._server, "on_tables_changed"):
             self._server.on_tables_changed()
 
@@ -80,7 +89,9 @@ class Table(DataClassJSONMixin):
         """Remove a member from the table."""
         self.members = [m for m in self.members if m.username != username]
         self._users.pop(username, None)
-        
+        if self._manager and hasattr(self._manager, "_username_to_table"):
+            self._manager._username_to_table.pop(username, None)
+
         if self.status == "waiting" and username == self.host:
             # Host left/kicked in lobby -> promote new host
             # Filter for humans (not bots). Note: Removed user is already gone from self.members
@@ -140,7 +151,7 @@ class Table(DataClassJSONMixin):
             self._game.on_tick()
 
             # Check if state changed for menu auto-refresh
-            current_state_hash = f"{self._game.status}_{len(self.members)}_{self.host}"
+            current_state_hash = f"{self._game.status}|{len(self.members)}|{self.host}"
             if self._last_menu_state_hash is None:
                 self._last_menu_state_hash = current_state_hash
             elif self._last_menu_state_hash != current_state_hash:
@@ -169,7 +180,6 @@ class Table(DataClassJSONMixin):
                         any_human_present = True
                         break
 
-            import time
             current_time = time.time()
             
             should_destroy = False
@@ -183,13 +193,6 @@ class Table(DataClassJSONMixin):
                 # 2. Check individual members for offline timeout (Auto-kick)
                 # This prevents "zombie members" in the lobby
                 if not should_destroy:
-                    # We iterate a copy to allow modification during iteration if we were removing immediately,
-                    # but here we just mark them. Removal happens after timeout.
-                    
-                    # Initialize tracker if needed
-                    if not hasattr(self, "_member_offline_since"):
-                        self._member_offline_since = {}
-
                     for member in list(self.members): # Copy for safe iteration
                         # Skip bots (they are always "offline" in server._users but valid in game)
                         # Optimization: Check if username in server._users first (Fast path)
@@ -237,7 +240,7 @@ class Table(DataClassJSONMixin):
                     self._offline_since = None
                 else:
                     # No humans left - start/check timer
-                    if not hasattr(self, "_offline_since") or self._offline_since is None:
+                    if self._offline_since is None:
                         self._offline_since = current_time
                     elif current_time - self._offline_since > 300:  # 5 minutes
                         should_destroy = True
@@ -268,7 +271,7 @@ class Table(DataClassJSONMixin):
 
     def destroy(self) -> None:
         """Destroy this table. Called by Game.destroy()."""
-        if getattr(self, "_destroyed", False):
+        if self._destroyed:
             return
         self._destroyed = True
 

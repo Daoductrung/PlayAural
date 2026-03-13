@@ -90,7 +90,10 @@ class AuthManager:
         approved = True  # Auto-approve all users as requested
 
         password_hash = self.hash_password(password)
-        self._db.create_user(username, password_hash, locale, trust_level, approved, email, bio)
+        result = self._db.create_user(username, password_hash, locale, trust_level, approved, email, bio)
+        if result is None:
+            # Concurrent registration for the same username; treat as taken
+            return False
 
         if is_first_user:
             logging.info(f"User '{username}' is the first user and has been granted developer (trust level 3).")
@@ -102,7 +105,6 @@ class AuthManager:
         Generate a secure 6-digit numeric reset token, hash it, and save it.
         Returns the plaintext token.
         """
-        import secrets
         from datetime import datetime, timedelta
 
         # Generate cryptographically secure 6-digit numeric token

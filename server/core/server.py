@@ -1486,7 +1486,8 @@ PlayAural Server
             state = self._user_states.get(username, {})
             current_menu = state.get("menu")
             if current_menu == "friends_list_menu":
-                self._show_friends_list_menu(user)
+                items = self._get_friends_list_menu_items(user)
+                user.update_menu("friends_list_menu", items)
             elif current_menu == "online_users":
                 items = self._get_online_users_menu_items(user)
                 user.update_menu("online_users", items)
@@ -1499,11 +1500,14 @@ PlayAural Server
                 state = self._user_states.get(username, {})
                 current_menu = state.get("menu")
                 if current_menu == "friends_hub_menu":
-                    self._show_friends_hub_menu(user)
+                    items = self._get_friends_hub_menu_items(user)
+                    user.update_menu("friends_hub_menu", items)
                 elif current_menu == "friend_requests_menu":
-                    self._show_friend_requests_menu(user)
+                    items = self._get_friend_requests_menu_items(user)
+                    user.update_menu("friend_requests_menu", items)
                 elif current_menu == "friends_list_menu":
-                    self._show_friends_list_menu(user)
+                    items = self._get_friends_list_menu_items(user)
+                    user.update_menu("friends_list_menu", items)
 
     def on_tables_changed(self) -> None:
         """Called by TableManager when a table is created, destroyed, or changes status.
@@ -2238,20 +2242,23 @@ PlayAural Server
         elif selection_id == "back":
             self._show_main_menu(user)
 
-    def _show_friends_hub_menu(self, user: NetworkUser) -> None:
-        """Show the main friends hub menu."""
-        # Get counts for the menu labels
+    def _get_friends_hub_menu_items(self, user: NetworkUser) -> list[MenuItem]:
+        """Build menu items for the friends hub menu."""
         pending_requests = self._db.get_pending_incoming_requests(user.uuid)
         pending_count = len(pending_requests)
 
         req_text = Localization.get(user.locale, "friends-pending-requests", count=pending_count) if pending_count > 0 else Localization.get(user.locale, "friends-no-pending-requests")
 
-        items = [
+        return [
             MenuItem(text=Localization.get(user.locale, "friends-my-friends"), id="my_friends"),
             MenuItem(text=req_text, id="pending_requests"),
             MenuItem(text=Localization.get(user.locale, "friends-send-request"), id="send_request"),
             MenuItem(text=Localization.get(user.locale, "back"), id="back")
         ]
+
+    def _show_friends_hub_menu(self, user: NetworkUser) -> None:
+        """Show the main friends hub menu."""
+        items = self._get_friends_hub_menu_items(user)
         user.show_menu(
             "friends_hub_menu",
             items,
@@ -2275,8 +2282,8 @@ PlayAural Server
         elif selection_id == "back":
             self._show_personal_options_menu(user)
 
-    def _show_friends_list_menu(self, user: NetworkUser) -> None:
-        """Show the list of accepted friends and their status."""
+    def _get_friends_list_menu_items(self, user: NetworkUser) -> list[MenuItem]:
+        """Build menu items for the friends list menu."""
         friend_uuids = self._db.get_friends(user.uuid)
         items = []
 
@@ -2293,7 +2300,7 @@ PlayAural Server
                     is_online = online_user is not None and online_user.approved and state.get("menu") != "banned_menu"
                     friends_data.append({"name": f_name, "is_online": is_online})
 
-            # Sort: Online first (True > False if reverse sorted, but we can use a custom key), then alphabetically
+            # Sort: Online first, then alphabetically
             friends_data.sort(key=lambda x: (not x["is_online"], x["name"].lower()))
 
             for f_data in friends_data:
@@ -2326,7 +2333,11 @@ PlayAural Server
                 items.append(MenuItem(text=display_text, id=f"friend_{f_name}"))
 
         items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
+        return items
 
+    def _show_friends_list_menu(self, user: NetworkUser) -> None:
+        """Show the list of accepted friends and their status."""
+        items = self._get_friends_list_menu_items(user)
         user.show_menu(
             "friends_list_menu",
             items,
@@ -2429,8 +2440,8 @@ PlayAural Server
 
             self._show_friends_list_menu(user)
 
-    def _show_friend_requests_menu(self, user: NetworkUser) -> None:
-        """Show list of pending incoming requests."""
+    def _get_friend_requests_menu_items(self, user: NetworkUser) -> list[MenuItem]:
+        """Build menu items for the friend requests menu."""
         pending_uuids = self._db.get_pending_incoming_requests(user.uuid)
         items = []
 
@@ -2443,7 +2454,11 @@ PlayAural Server
                     items.append(MenuItem(text=r_name, id=f"req_{r_name}"))
 
         items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
+        return items
 
+    def _show_friend_requests_menu(self, user: NetworkUser) -> None:
+        """Show list of pending incoming requests."""
+        items = self._get_friend_requests_menu_items(user)
         user.show_menu(
             "friend_requests_menu",
             items,

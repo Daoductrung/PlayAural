@@ -66,20 +66,64 @@ Games use a mixin-based architecture. Each game class inherits from `Game` plus 
 
 Games are dataclasses serialized via Mashumaro for state persistence.
 
+#### Turn Management Rules
+- **`set_turn_players(players)`** resets `turn_index` to 0, making `players[0]` the current player immediately.
+- **`advance_turn()`** increments the index. Never call it immediately after `set_turn_players` at the start of a round — that skips the first player.
+- The canonical pattern for starting a round: `set_turn_players(alive_players)` → `_announce_turn()` (no `advance_turn` between them). See ChaosBear's `on_start` / `_next_round_step` as the reference.
+- **`get_active_players()`** excludes spectators. Always use it (never iterate `self.players` directly) when building game results, calculating winners, or announcing per-player results.
+
+#### Game Event / Sound Scheduling
+- Games use `self.event_queue` (list of `(tick, event_type, data)` tuples) for deferred state changes and `self.schedule_sound(path, delay_ticks)` for audio timing.
+- `on_tick()` must call `super().on_tick()` and `self.process_scheduled_sounds()`.
+- When writing deterministic tests for bot behaviour, use `advance_until(game, condition_fn, max_ticks=500)` rather than fixed tick counts. Combine state conditions with phase checks (e.g. `len(player.live_influences) == 1 and g.turn_phase != "losing_influence"`) to avoid stopping one tick before a post-event fires.
+
 ### Desktop Client Architecture
 - **`client/ui/main_window.py`** — Core UI (2,500+ lines), handles all in-game interaction
 - **`client/network_manager.py`** — WebSocket client, receives packets, dispatches to UI
 - **`client/sound_manager.py`** — Audio playback
-- **`client/config_manager.py`** — User preferences persistence
+- **`client/config_manager.py`** — User preferences persistence; passwords stored in system keyring (never in JSON)
 - **`client/localization.py`** — Fluent runtime localization
+- **`client/ssl_utils.py`** — Centralized SSL context factory; CA-strict for production (`wss://`), relaxed for localhost
+
+#### Desktop Client Rules
+- **Credentials**: Passwords live exclusively in the OS keyring via `keyring` library. `config_manager.py` migrates any legacy plaintext passwords on first load. Never write passwords to JSON.
+- **SSL**: Always use `make_ssl_context(server_url)` from `ssl_utils.py`. Do not construct `ssl.SSLContext` objects inline.
+- **Imports**: All imports at module level. No in-function imports except inside `main()` where CWD must be set first.
+- **Dialogs**: Always call `dlg.ShowModal()` and capture the result before calling `dlg.Destroy()`. Never skip `ShowModal()`.
+- **PyInstaller**: `client/pyproject.toml` is the source of truth for dependencies (not `requirements.txt`). When adding a dependency that uses dynamic imports (e.g. keyring), add `collect_all('pkg')` plus explicit `hiddenimports` to `PlayAural.spec`.
 
 ### Web Client Architecture
 - **`web_client/game.js`** — Single-file game logic (~2,900 lines), connects to same WebSocket server
 - **`web_client/locales.js`** — i18n strings
 - ARIA live regions for screen reader announcements; service worker for PWA offline support
 
+#### Web Client Rules
+- **XSS**: Never use `innerHTML` with server-controlled content. Use `element.textContent` or DOM API (`createElement` / `appendChild`) for all user/server data.
+- **Credentials**: `pa_pass` lives in `sessionStorage` only (never `localStorage`). `pa_user` may remain in `localStorage`.
+- **TTS cleanup**: On `socket.onclose`, always call `stopTTSKeepAlive()`, clear `ttsTimeout`, flush `ttsQueue = []`, reset `isTTSPlaying = false`, and call `speechSynthesis.cancel()`.
+- **Reconnect state**: `reconnectAttempts` and `reconnectTimer` are initialized in the `GameClient` constructor. Exponential backoff is capped at 30 s with MAX_RETRIES = 5.
+
+### Server Menu Auto-Refresh Pattern
+The canonical pattern for any menu that displays live data:
+
+1. **`_get_<menu>_items(user) -> list[MenuItem]`** — pure data builder, no side effects.
+2. **`_show_<menu>(user)`** — calls `_get_*_items`, then `user.show_menu(...)` and sets `_user_states`. Used for **initial display only**.
+3. **Auto-refresh callbacks** (`on_tables_changed`, `on_user_presence_changed`, `on_friend_requests_changed`) — call `_get_*_items` and then **`user.update_menu(...)`** to push new content without resetting the user's cursor position.
+
+**Never call `_show_<menu>()` from a refresh callback** — that triggers `show_menu()` which snaps the user's selection to item #1.
+
+Menus that currently auto-refresh:
+| Menu | Refresh trigger |
+|---|---|
+| `active_tables_menu` | `on_tables_changed` |
+| `tables_menu` (per-game) | `on_tables_changed` |
+| `friends_list_menu` | `on_user_presence_changed`, `on_friend_requests_changed` |
+| `friends_hub_menu` | `on_friend_requests_changed` |
+| `friend_requests_menu` | `on_friend_requests_changed` |
+| `online_users` | `on_user_presence_changed` |
+
 ### Key Tech Stack
 - Python 3.11, `asyncio`, `websockets>=12.0`, `mashumaro`, `fluent-compiler`, `openskill`, `argon2-cffi`
-- Desktop: `wxPython>=4.2.0`, `accessible-output2`, `sound-lib`
+- Desktop: `wxPython>=4.2.0`, `accessible-output2`, `sound-lib`, `keyring>=24.0`
 - Package manager: `uv`
 - Languages: English, Vietnamese (`vi_VN`)

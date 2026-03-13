@@ -29,6 +29,8 @@ config/*.json
 !config/default_*.json
 identities.json
 option_profiles.json
+PlayAural.db
+errors.log
 .vscode/
 .idea/
 .DS_Store

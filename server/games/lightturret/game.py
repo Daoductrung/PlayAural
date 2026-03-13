@@ -515,7 +515,7 @@ class LightTurretGame(Game):
         max_light = 0
         winners = []
         for p in self.players:
-            if isinstance(p, LightTurretPlayer):
+            if isinstance(p, LightTurretPlayer) and not p.is_spectator:
                 # Announce each player's result
                 if p.alive:
                     self.broadcast_l(

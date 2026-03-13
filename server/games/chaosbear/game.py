@@ -438,8 +438,8 @@ class ChaosBearGame(Game):
         if alive_players:
             self.set_turn_players(alive_players)
 
-        # Advance to next player (first player of new round)
-        self.advance_turn(announce=False)
+        # set_turn_players already resets turn_index to 0, making the first alive
+        # player current — no advance_turn call needed here.
         self._announce_turn()
         
         self.is_rolling = False

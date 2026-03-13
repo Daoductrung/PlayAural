@@ -633,6 +633,10 @@ class GameClient {
         this.ttsTimeout = null;
         this.ttsKeepAliveInterval = null; // Periodic silent "kick" for Android engine
 
+        // Reconnection state
+        this.reconnectAttempts = 0;
+        this.reconnectTimer = null;
+
 
         // Load Localization
         // Default to 'en', but prefer stored preference if available (loaded in loadConfig -> clientOptions but we are in constructor here)
@@ -2168,6 +2172,17 @@ class GameClient {
                 // Clear active playbacks
                 this.stop_music();
                 this.stop_ambience();
+
+                // Stop TTS keep-alive interval and clear any pending watchdog
+                this.stopTTSKeepAlive();
+                if (this.ttsTimeout) {
+                    clearTimeout(this.ttsTimeout);
+                    this.ttsTimeout = null;
+                }
+                // Flush stale TTS queue so old speech doesn't replay after reconnect
+                this.ttsQueue = [];
+                this.isTTSPlaying = false;
+                if (window.speechSynthesis) window.speechSynthesis.cancel();
             };
 
             this.socket.onerror = (err) => {

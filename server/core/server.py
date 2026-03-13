@@ -2147,6 +2147,8 @@ PlayAural Server
             "ban_menu", "ban_duration_menu", "ban_reason_menu", "unban_menu",
             "manage_motd_menu", "view_motd_menu", "smtp_settings_menu", "smtp_encryption_menu"
         ]:
+            if user.trust_level < 2:
+                return
             await self.admin_manager.handle_menu_selection(user, selection_id, current_menu, state)
         elif current_menu == "logout_confirm_menu":
              await self._handle_logout_confirm_selection(user, selection_id)

@@ -1128,13 +1128,11 @@ class AdministrationManager:
 
     def _show_ban_menu(self, user: NetworkUser) -> None:
         """Show list of users to ban."""
-        all_users = self.server.db._conn.execute("SELECT username, trust_level FROM users WHERE approved = 1").fetchall()
+        all_users = self.server.db.get_approved_users()
+        banned = set(self.server.db.get_all_banned_users())
 
         target_users = []
-        for row in all_users:
-            username = row["username"]
-            trust_level = row["trust_level"]
-
+        for username, trust_level in all_users:
             if username == user.username:
                 continue
 
@@ -1144,8 +1142,8 @@ class AdministrationManager:
             if user.trust_level < 3 and trust_level >= 2:
                 continue
 
-            # Exclude already banned users
-            if self.server.db.get_active_ban(username):
+            # Exclude already banned users (O(1) set lookup instead of per-user DB query)
+            if username in banned:
                 continue
 
             target_users.append(username)
@@ -1315,8 +1313,7 @@ class AdministrationManager:
         for u in self.server.users.values():
             if u.approved:
                 if reason_key.startswith("CUSTOM_"):
-                    # Display the raw custom reason string directly
-                    loc_reason = reason_key[7:]
+                    loc_reason = reason_key[7:].strip().replace("\n", " ")[:200]
                 else:
                     loc_reason = Localization.get(u.locale, reason_key)
 
@@ -1324,11 +1321,10 @@ class AdministrationManager:
                 u.speak_l("ban-broadcast", target=target_username, actor=admin.username, reason=loc_reason, duration=loc_duration)
                 u.play_sound("accountban.ogg")
 
-        # Kick if online
-        target_user = self.server.users.get(target_username)
+        # Evict from memory immediately so the user cannot receive further broadcasts
+        # or be treated as online, regardless of whether the network send succeeds.
+        target_user = self.server.users.pop(target_username, None)
         if target_user:
-            # We just close the connection abruptly or send to banned screen
-            # Force exit is fine. Next login they will be trapped.
             await target_user.connection.send({"type": "force_exit", "reason": "banned"})
             asyncio.create_task(self._kick_disconnect_delay(target_user))
 

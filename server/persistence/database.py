@@ -1147,6 +1147,14 @@ class Database:
         )
         return [row["username"] for row in cursor.fetchall()]
 
+    def get_approved_users(self) -> list[tuple[str, int]]:
+        """Return (username, trust_level) for every approved user account."""
+        cursor = self._conn.cursor()
+        cursor.execute(
+            "SELECT username, trust_level FROM users WHERE approved = 1"
+        )
+        return [(row["username"], row["trust_level"]) for row in cursor.fetchall()]
+
     # Table operations
 
     def save_table(self, table: Table) -> None:

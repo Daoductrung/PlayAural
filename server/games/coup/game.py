@@ -47,12 +47,14 @@ class CoupGame(Game):
 
     # State tracking for interrupts/challenges
     active_action: str | None = None
-    active_target_id: str | None = None
+    active_target_id: str | None = None   # the original action target (never overwritten mid-phase)
     active_claimer_id: str | None = None
     original_claimer_id: str | None = None
     return_count: int = 0
     passed_players: set[str] = field(default_factory=set)
     player_claims: dict[str, set[str]] = field(default_factory=dict)
+    _losing_player_id: str = ""            # player currently choosing which influence to lose
+    _next_action_after_lose: str = "end_turn"  # what to do after influence loss resolves
 
     # Audio sequence timing and state locking
     is_resolving: bool = False
@@ -491,14 +493,14 @@ class CoupGame(Game):
         return None
 
     def _is_lose_influence_hidden(self, player: Player) -> Visibility:
-        if self.turn_phase != "losing_influence" or player.id != self.active_target_id:
+        if self.turn_phase != "losing_influence" or player.id != self._losing_player_id:
             return Visibility.HIDDEN
         return Visibility.VISIBLE
 
     def _is_lose_influence_enabled(self, player: Player, action_id: str | None = None) -> str | None:
         if self.is_resolving:
             return "action-game-in-progress"
-        if self.turn_phase != "losing_influence" or player.id != self.active_target_id:
+        if self.turn_phase != "losing_influence" or player.id != self._losing_player_id:
             return "action-not-available"
 
         if not action_id:
@@ -1338,6 +1340,7 @@ class CoupGame(Game):
             return
         elif len(live) == 1:
             # Only one left, auto-lose it
+            self._losing_player_id = player.id
             self.play_sound(f"game_coup/chardestroy{random.randint(1, 2)}.ogg")
             self.play_sound(f"game_cards/discard{random.randint(1, 3)}.ogg")
             player.reveal_influence(0)
@@ -1346,9 +1349,9 @@ class CoupGame(Game):
                 self.broadcast_l("coup-player-eliminated", player=player.name)
             self._post_lose_influence()
         else:
-            # Need to pick
+            # Need to pick — use _losing_player_id so active_target_id is never overwritten
+            self._losing_player_id = player.id
             self.turn_phase = "losing_influence"
-            self.active_target_id = player.id
             self.rebuild_all_menus()
 
             if player.is_bot:
@@ -1359,7 +1362,7 @@ class CoupGame(Game):
                     user.speak_l("coup-must-lose-influence", buffer="game")
 
     def _action_lose_influence(self, player: Player, action_id: str) -> None:
-        if self.turn_phase != "losing_influence" or player.id != self.active_target_id:
+        if self.turn_phase != "losing_influence" or player.id != self._losing_player_id:
             return
 
         coup_player: CoupPlayer = player  # type: ignore
@@ -1381,6 +1384,8 @@ class CoupGame(Game):
         char = coup_player.live_influences[idx].character
         coup_player.reveal_influence(idx)
         self._broadcast_card_message("coup-loses-influence", char, player=player.name)
+        if coup_player.is_dead:
+            self.broadcast_l("coup-player-eliminated", player=player.name)
 
         duration = self.get_audio_duration_ticks(sound_file)
         self.event_queue.append((
@@ -1390,10 +1395,11 @@ class CoupGame(Game):
         ))
 
     def _post_lose_influence(self) -> None:
-        if self.active_target_id and self.active_target_id in self.player_claims:
-            self.player_claims[self.active_target_id].clear()
+        if self._losing_player_id and self._losing_player_id in self.player_claims:
+            self.player_claims[self._losing_player_id].clear()
+        self._losing_player_id = ""
 
-        next_action = getattr(self, "_next_action_after_lose", "end_turn")
+        next_action = self._next_action_after_lose
         self._next_action_after_lose = "end_turn"
 
         if next_action == "end_turn":

@@ -19,6 +19,21 @@ def game():
     g.on_start()
     return g
 
+@pytest.fixture
+def game3():
+    """Create a new Coup game with 3 players: Alice, Bob, Charlie."""
+    g = CoupGame()
+    g.players.append(g.create_player("player1", "Alice"))
+    g.players.append(g.create_player("player2", "Bob"))
+    g.players.append(g.create_player("player3", "Charlie"))
+
+    g.attach_user("player1", MockUser("Alice", "player1"))
+    g.attach_user("player2", MockUser("Bob", "player2"))
+    g.attach_user("player3", MockUser("Charlie", "player3"))
+
+    g.on_start()
+    return g
+
 def advance_ticks(game, ticks=100):
     for _ in range(ticks):
         game.on_tick()
@@ -43,7 +58,7 @@ def test_coup_action(game):
 
     assert alice.coins == 0
     assert game.turn_phase == "losing_influence"
-    assert game.active_target_id == bob.id
+    assert game._losing_player_id == bob.id
 
     # Bob loses an influence
     game._action_lose_influence(bob, "lose_influence_0")
@@ -87,7 +102,7 @@ def test_assassinate_and_challenge(game):
     # Alice failed challenge (didn't have Assassin)
     # So Alice loses an influence immediately, and action fails.
     assert game.turn_phase == "losing_influence"
-    assert game.active_target_id == alice.id
+    assert game._losing_player_id == alice.id
 
     # Alice chooses to lose the first one
     game._action_lose_influence(alice, "lose_influence_0")
@@ -123,12 +138,13 @@ def test_steal_block_and_failed_challenge(game):
     advance_ticks(game, 50)
 
     # Bob DOES have the Ambassador, so the challenge fails (Alice is wrong)
-    # Alice loses influence
+    # Alice loses influence; active_target_id must remain Bob (the original steal target)
     assert game.turn_phase == "losing_influence"
-    assert game.active_target_id == alice.id
+    assert game.active_target_id == bob.id
 
     # Bob successfully blocked, meaning Alice's steal fails and turn should end after she loses influence
-    assert getattr(game, "_next_action_after_lose", "end_turn") == "end_turn"
+    assert game._next_action_after_lose == "end_turn"
+    assert game._losing_player_id == alice.id
 
     # Alice chooses to lose the first one
     game._action_lose_influence(alice, "lose_influence_0")
@@ -140,3 +156,49 @@ def test_steal_block_and_failed_challenge(game):
     # Coins didn't change because steal failed
     assert alice.coins == 2
     assert bob.coins == 2
+
+
+def test_assassination_third_party_challenger_target_not_swapped(game3):
+    """Regression: when a third party challenges an assassination and loses the challenge,
+    active_target_id must NOT be overwritten.  The assassination must resolve against the
+    original target (Charlie), not the challenger (Bob)."""
+    alice = game3.get_player_by_name("Alice")
+    bob = game3.get_player_by_name("Bob")
+    charlie = game3.get_player_by_name("Charlie")
+
+    # Give Alice an Assassin so she wins any challenge
+    alice.influences = [Card(Character.ASSASSIN), Card(Character.DUKE)]
+    alice.coins = 3
+    # Bob has 2 cards and no Assassin (so he'll lose his challenge)
+    bob.influences = [Card(Character.DUKE), Card(Character.CONTESSA)]
+    charlie.influences = [Card(Character.CAPTAIN), Card(Character.AMBASSADOR)]
+
+    # Alice assassinates Charlie
+    game3._action_assassinate(alice, "Charlie", "assassinate")
+    assert game3.active_target_id == charlie.id
+    assert game3.active_action == "assassinate"
+
+    # Bob (third party) challenges Alice's Assassin claim
+    game3._action_challenge(bob, "challenge")
+    advance_ticks(game3, 200)
+
+    # Alice has the Assassin — challenge FAILS for Bob.
+    # Bob must lose an influence.  active_target_id must still be Charlie.
+    assert game3.active_target_id == charlie.id
+    assert game3._losing_player_id == bob.id
+    assert game3.turn_phase == "losing_influence"
+
+    # Bob chooses which card to lose
+    game3._action_lose_influence(bob, "lose_influence_0")
+    advance_ticks(game3, 200)
+
+    # Assassination now resolves: Charlie (not Bob) must lose an influence
+    assert game3._losing_player_id == charlie.id
+    assert game3.turn_phase == "losing_influence"
+
+    # Bob still has 1 card (lost 1 from the failed challenge)
+    assert len(bob.live_influences) == 1
+    assert not bob.is_dead
+
+    # Charlie has not yet lost a card (resolve is pending her choice)
+    assert len(charlie.live_influences) == 2

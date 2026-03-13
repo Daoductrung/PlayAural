@@ -173,6 +173,7 @@ class DiceGameMixin:
         style = user.preferences.dice_keeping_style if user else DiceKeepingStyle.PlayAural
         if style != DiceKeepingStyle.QUENTIN_C:
             return "action-not-available"
+        key_num: int | None = None
         if action_id:
             try:
                 key_num = int(action_id.split("_")[-1])
@@ -184,7 +185,7 @@ class DiceGameMixin:
             toggle_reason = self._is_dice_toggle_enabled(player, 0)
             if toggle_reason is not None:
                 return "action-not-available"
-        if hasattr(player, "dice"):
+        if hasattr(player, "dice") and key_num is not None:
             if not self._has_unkept_value(player, key_num):
                 return "action-not-available"
         return None

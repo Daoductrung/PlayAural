@@ -235,7 +235,7 @@ class PusoyDosGame(Game, TurnTimerMixin):
             self._start_turn()
             return
 
-        self.announce_turn(turn_sound="game_pig/turn.ogg")
+        self.announce_turn()
 
         if player.is_bot:
             BotHelper.jolt_bot(player, ticks=random.randint(30, 50))

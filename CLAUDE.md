@@ -49,7 +49,7 @@ Key packet types: `AUTHORIZE`, `MENU`, `KEYBIND`, `CHAT`, `SPEAK`, `PLAY_SOUND`,
 ### Server Architecture
 - **`server/core/server.py`** — Main orchestrator
 - **`server/network/websocket_server.py`** — Async WebSocket connection management
-- **`server/games/`** — 18 game implementations; each extends an abstract `Game` base class via 11+ mixins
+- **`server/games/`** — 21 game implementations; each extends an abstract `Game` base class via 14 mixins
 - **`server/game_utils/`** — 40+ shared utility modules (cards, dice, poker logic, turn management, scoring)
 - **`server/auth/`** — Argon2 password hashing, rate limiting
 - **`server/persistence/database.py`** — SQLite (`PlayAural.db`), user accounts, game history, OpenSkill ratings
@@ -58,9 +58,11 @@ Key packet types: `AUTHORIZE`, `MENU`, `KEYBIND`, `CHAT`, `SPEAK`, `PLAY_SOUND`,
 - **`server/messages/`** — Fluent-based localization
 
 ### Game Implementation Pattern
-Games use a mixin-based architecture. Each game class inherits from `Game` plus mixins like:
-`GameSoundMixin`, `GameCommunicationMixin`, `GameResultMixin`, `TurnManagementMixin`,
-`MenuManagementMixin`, `ActionSetCreationMixin`, `ActionExecutionMixin`, etc.
+Games use a mixin-based architecture. Each game class inherits from `Game` plus 14 mixins:
+`GameSoundMixin`, `GameCommunicationMixin`, `GameResultMixin`, `GameScoresMixin`,
+`GamePredictionMixin`, `TurnManagementMixin`, `MenuManagementMixin`, `ActionVisibilityMixin`,
+`LobbyActionsMixin`, `EventHandlingMixin`, `ActionSetCreationMixin`, `ActionExecutionMixin`,
+`OptionsHandlerMixin`, `ActionSetSystemMixin`
 
 Games are dataclasses serialized via Mashumaro for state persistence.
 

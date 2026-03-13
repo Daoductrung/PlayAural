@@ -1,5 +1,6 @@
 """Mixin providing game result handling and persistence."""
 
+from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -29,8 +30,7 @@ class GameResultMixin:
 
     def clear_last_game_result(self) -> None:
         """Clear the stored last game result."""
-        if hasattr(self, "_last_game_result"):
-            self._last_game_result = None
+        self._last_game_result = None
 
     def finish_game(self, show_end_screen: bool = True) -> None:
         """Mark the game as finished, persist result, and optionally show end screen.
@@ -78,8 +78,6 @@ class GameResultMixin:
         Returns:
             A GameResult with game-specific data in custom_data.
         """
-        from datetime import datetime
-
         return GameResult(
             game_type=self.get_type(),
             timestamp=datetime.now().isoformat(),
@@ -211,18 +209,3 @@ class GameResultMixin:
             from ..users.base import EscapeBehavior
             user.show_menu("game_over", items, multiletter=False, escape_behavior=EscapeBehavior.SELECT_LAST)
 
-    def show_game_end_menu(self, score_lines: list[str]) -> None:
-        """Show the game end menu to all players.
-
-        DEPRECATED: Use finish_game() with build_game_result() and format_end_screen()
-        instead. This method is kept for backwards compatibility during migration.
-
-        Args:
-            score_lines: List of score lines to display
-                         (e.g., ["Final Scores:", "1. Alice: 100 points", ...])
-        """
-        for player in self.players:
-            user = self.get_user(player)
-            if user:
-                items = [MenuItem(text=line, id="score_line") for line in score_lines]
-                user.show_menu("game_over", items, multiletter=False)

@@ -549,7 +549,7 @@ class CrazyEightsGame(Game, TurnTimerMixin):
         self.turn_drawn_card = None
         # timer_warning_played reset handled by start_turn_timer
 
-        self.announce_turn(turn_sound="game_pig/turn.ogg")
+        self.announce_turn()
 
         if player.is_bot:
             BotHelper.jolt_bot(player, ticks=random.randint(30, 40))

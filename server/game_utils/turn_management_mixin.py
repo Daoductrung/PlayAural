@@ -112,7 +112,7 @@ class TurnManagementMixin:
         if announce:
             self.announce_turn()
 
-    def announce_turn(self, turn_sound: str = "game_pig/turn.ogg") -> None:
+    def announce_turn(self, turn_sound: str = "turn.ogg") -> None:
         """Announce the current player's turn with sound and message."""
         player = self.current_player
         if not player:

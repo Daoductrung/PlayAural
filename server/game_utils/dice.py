@@ -216,28 +216,6 @@ class DiceSet(DataClassJSONMixin):
             total += v
         return total
 
-    def to_dict(self) -> dict:
-        """Serialize to dictionary."""
-        return {
-            "num_dice": self.num_dice,
-            "sides": self.sides,
-            "values": self.values,
-            "kept": self.kept,
-            "locked": self.locked,
-        }
-
-    @classmethod
-    def from_dict(cls, data: dict) -> "DiceSet":
-        """Deserialize from dictionary."""
-        return cls(
-            num_dice=data.get("num_dice", 5),
-            sides=data.get("sides", 6),
-            values=data.get("values", []),
-            kept=data.get("kept", []),
-            locked=data.get("locked", []),
-        )
-
-
 def roll_dice(num_dice: int = 1, sides: int = 6) -> list[int]:
     """Roll multiple dice and return their values."""
     return [random.randint(1, sides) for _ in range(num_dice)]

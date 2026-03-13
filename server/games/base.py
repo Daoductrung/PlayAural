@@ -3,7 +3,6 @@
 from dataclasses import dataclass, field
 from typing import Any
 from abc import ABC, abstractmethod
-import threading
 
 from mashumaro.mixins.json import DataClassJSONMixin
 from mashumaro.config import BaseConfig
@@ -19,8 +18,6 @@ from ..game_utils.teams import TeamManager
 from ..game_utils.game_sound_mixin import GameSoundMixin
 from ..game_utils.game_communication_mixin import GameCommunicationMixin
 from ..game_utils.game_result_mixin import GameResultMixin
-from ..game_utils.game_result_mixin import GameResultMixin
-from ..game_utils.game_scores_mixin import GameScoresMixin
 from ..game_utils.game_scores_mixin import GameScoresMixin
 from ..game_utils.game_prediction_mixin import GamePredictionMixin
 from ..game_utils.turn_management_mixin import TurnManagementMixin
@@ -154,10 +151,7 @@ class Game(
         self._status_box_open: set[str] = set()  # player_ids with status box open
         self._actions_menu_open: set[str] = set()  # player_ids with actions menu open
         self._destroyed: bool = False  # Whether game has been destroyed
-        # Duration estimation state
-        self._status_box_open: set[str] = set()  # player_ids with status box open
-        self._actions_menu_open: set[str] = set()  # player_ids with actions menu open
-        self._destroyed: bool = False  # Whether game has been destroyed
+        self._last_game_result = None  # Stored for end-screen restoration
 
     def rebuild_runtime_state(self) -> None:
         """

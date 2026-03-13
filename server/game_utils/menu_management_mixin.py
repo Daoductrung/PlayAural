@@ -34,15 +34,11 @@ class MenuManagementMixin:
             
             # Robustness: If _last_game_result is missing (e.g. after server restart),
             # try to rebuild it from current state.
-            if not hasattr(self, "_last_game_result") or self._last_game_result is None:
-                if hasattr(self, "build_game_result"):
-                    self._last_game_result = self.build_game_result()
+            if self._last_game_result is None and hasattr(self, "build_game_result"):
+                self._last_game_result = self.build_game_result()
 
-            if hasattr(self, "_last_game_result") and self._last_game_result:
-                # We need to access _show_end_screen_to_player from GameResultMixin
-                # Since Game inherits from both, this is valid
-                if hasattr(self, "_show_end_screen_to_player"):
-                    self._show_end_screen_to_player(player, self._last_game_result)
+            if self._last_game_result and hasattr(self, "_show_end_screen_to_player"):
+                self._show_end_screen_to_player(player, self._last_game_result)
             return
 
         user = self.get_user(player)

@@ -393,7 +393,7 @@ class PigGame(Game):
         player.round_score = 0
 
         # Announce turn (plays sound and broadcasts message)
-        self.announce_turn()
+        self.announce_turn(turn_sound="game_pig/turn.ogg")
 
         # Set up bot target if this is a bot's turn
         if player.is_bot:

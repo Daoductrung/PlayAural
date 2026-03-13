@@ -128,7 +128,7 @@ class SnakesAndLaddersGame(Game):
         user = self.get_user(player)
         # Note: We assume user object has preferences.play_turn_sound as used in base mixin
         if user and getattr(user.preferences, "play_turn_sound", True):
-             user.play_sound("game_pig/turn.ogg")
+             user.play_sound("turn.ogg")
 
         self.broadcast_l(
             "snakes-turn", 

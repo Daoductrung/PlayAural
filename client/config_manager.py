@@ -8,9 +8,18 @@ Handles client-side configuration including:
 
 import json
 import uuid
+import keyring
+import keyring.errors
 from pathlib import Path
 from typing import Dict, Any, Optional, List
 from datetime import datetime
+
+# Keyring service name used for all stored credentials.
+_KEYRING_SERVICE = "PlayAural"
+
+
+def _keyring_key(server_id: str, account_id: str) -> str:
+    return f"{server_id}|{account_id}"
 
 def get_item_from_dict(dictionary: dict, key_path: (str, tuple), *, create_mode: bool= False):
   """Return the item in a dictionary, typically a nested layer dict.
@@ -112,12 +121,46 @@ class ConfigManager:
             try:
                 with open(self.identities_path, "r") as f:
                     identities = json.load(f)
-                    return identities
+                # Migrate any plaintext passwords to the system keyring.
+                if self._migrate_passwords_to_keyring(identities):
+                    try:
+                        self.base_path.mkdir(parents=True, exist_ok=True)
+                        with open(self.identities_path, "w") as f:
+                            json.dump(identities, f, indent=2)
+                        print("Password migration to keyring complete.")
+                    except Exception as e:
+                        print(f"Error saving migrated identities: {e}")
+                return identities
             except Exception as e:
                 print(f"Error loading identities: {e}")
                 return self._get_default_identities()
 
         return self._get_default_identities()
+
+    def _migrate_passwords_to_keyring(self, identities: Dict[str, Any]) -> bool:
+        """Move any plaintext passwords found in *identities* to the system keyring.
+
+        Modifies *identities* in-place by deleting the ``"password"`` key from
+        each account dict that still contains one.
+
+        Returns:
+            ``True`` if at least one password was migrated (caller should save).
+        """
+        migrated = False
+        for server_id, server in identities.get("servers", {}).items():
+            for account_id, account in server.get("accounts", {}).items():
+                if "password" in account:
+                    try:
+                        keyring.set_password(
+                            _KEYRING_SERVICE,
+                            _keyring_key(server_id, account_id),
+                            account["password"],
+                        )
+                        del account["password"]
+                        migrated = True
+                    except Exception as e:
+                        print(f"Error migrating password for {account_id}: {e}")
+        return migrated
 
     def _get_default_identities(self) -> Dict[str, Any]:
         """Get default identities structure."""
@@ -478,18 +521,28 @@ class ConfigManager:
     def get_account_by_id(
         self, server_id: str, account_id: str
     ) -> Optional[Dict[str, Any]]:
-        """Get account info by ID.
+        """Get account info by ID, with password injected from the system keyring.
 
         Args:
             server_id: Server ID
             account_id: Account ID
 
         Returns:
-            Account info dict or None if not found
+            Account info dict (with ``"password"`` key populated from keyring)
+            or None if not found.
         """
         server = self.get_server_by_id(server_id)
         if server:
-            return server.get("accounts", {}).get(account_id)
+            account = server.get("accounts", {}).get(account_id)
+            if account is not None:
+                result = dict(account)
+                result["password"] = (
+                    keyring.get_password(
+                        _KEYRING_SERVICE, _keyring_key(server_id, account_id)
+                    )
+                    or ""
+                )
+                return result
         return None
 
     def add_account(
@@ -522,11 +575,17 @@ class ConfigManager:
         self.identities["servers"][server_id]["accounts"][account_id] = {
             "account_id": account_id,
             "username": username,
-            "password": password,
+            # password is NOT stored in JSON — kept in the system keyring.
             "notes": notes,
             "auto_login": auto_login,
         }
         self.save_identities()
+        try:
+            keyring.set_password(
+                _KEYRING_SERVICE, _keyring_key(server_id, account_id), password
+            )
+        except Exception as e:
+            print(f"Error storing password in keyring: {e}")
         return account_id
 
     def update_account(
@@ -555,11 +614,16 @@ class ConfigManager:
         if username is not None:
             account["username"] = username
         if password is not None:
-            account["password"] = password
+            try:
+                keyring.set_password(
+                    _KEYRING_SERVICE, _keyring_key(server_id, account_id), password
+                )
+            except Exception as e:
+                print(f"Error updating password in keyring: {e}")
         if notes is not None:
             account["notes"] = notes
         if auto_login is not None:
-             account["auto_login"] = auto_login
+            account["auto_login"] = auto_login
         self.save_identities()
 
     def delete_account(self, server_id: str, account_id: str):
@@ -576,6 +640,15 @@ class ConfigManager:
             if server.get("last_account_id") == account_id:
                 server["last_account_id"] = None
             self.save_identities()
+            # Remove the corresponding keyring entry.
+            try:
+                keyring.delete_password(
+                    _KEYRING_SERVICE, _keyring_key(server_id, account_id)
+                )
+            except keyring.errors.PasswordDeleteError:
+                pass  # Already absent — nothing to do.
+            except Exception as e:
+                print(f"Error deleting password from keyring: {e}")
 
     def set_last_account(self, server_id: str, account_id: str):
         """Set the last used account for a server.

@@ -32,3 +32,4 @@ option_profiles.json
 .vscode/
 .idea/
 .DS_Store
+.claude/

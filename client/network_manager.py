@@ -3,9 +3,10 @@
 import asyncio
 import json
 import threading
+import traceback
 import wx
 import websockets
-import ssl
+from ssl_utils import make_ssl_context
 
 
 class NetworkManager:
@@ -66,8 +67,6 @@ class NetworkManager:
 
             return True
         except Exception:
-            import traceback
-
             traceback.print_exc()
             self.connecting = False
             return False
@@ -84,8 +83,6 @@ class NetworkManager:
                 self._connect_and_listen(server_url, username, password, client_version)
             )
         except Exception:
-            import traceback
-
             traceback.print_exc()
         finally:
             self.connecting = False
@@ -97,14 +94,12 @@ class NetworkManager:
     async def _connect_and_listen(self, server_url, username, password, client_version):
         """Connect to server and listen for messages."""
         try:
-            # Create SSL context that allows self-signed certificates
-            ssl_context = None
-            if server_url.startswith("wss://"):
-                ssl_context = ssl.create_default_context()
-                ssl_context.check_hostname = False
-                ssl_context.verify_mode = ssl.CERT_NONE
-
-            async with websockets.connect(server_url, ssl=ssl_context) as websocket:
+            async with websockets.connect(
+                server_url,
+                ssl=make_ssl_context(server_url),
+                ping_interval=20,
+                ping_timeout=20,
+            ) as websocket:
                 self.ws = websocket
                 self.connected = True
 
@@ -126,13 +121,17 @@ class NetworkManager:
                         message = await asyncio.wait_for(websocket.recv(), timeout=1.0)
                         packet = json.loads(message)
 
-                        # Forward to main thread
-                        wx.CallAfter(self._handle_packet, packet)
+                        # Forward to main thread (skip if shutting down)
+                        if not self.should_stop:
+                            wx.CallAfter(self._handle_packet, packet)
                     except asyncio.TimeoutError:
                         # Timeout is normal, just continue
                         continue
                     except websockets.exceptions.ConnectionClosed:
                         break
+                    except (json.JSONDecodeError, ValueError, KeyError):
+                        # Malformed packet — discard and keep listening
+                        continue
 
         except (ConnectionRefusedError, OSError, asyncio.TimeoutError) as e:
             # Common connection errors - log briefly, don't spam traceback
@@ -141,8 +140,6 @@ class NetworkManager:
             # Server rejected connection (e.g. 503 Service Unavailable)
             print(f"Server rejected connection: {e}")
         except Exception:
-            import traceback
-
             traceback.print_exc()
         finally:
             self.connected = False
@@ -182,11 +179,11 @@ class NetworkManager:
             asyncio.run_coroutine_threadsafe(self.ws.send(message), self.loop)
             return True
         except Exception:
-            import traceback
-
             traceback.print_exc()
             self.connected = False
-            wx.CallAfter(self.main_window.on_connection_lost)
+            # Only trigger reconnect if this isn't an intentional disconnect
+            if not self.should_stop:
+                wx.CallAfter(self.main_window.on_connection_lost)
             return False
 
     def _handle_packet(self, packet):
@@ -196,6 +193,14 @@ class NetworkManager:
         Args:
             packet: Dictionary received from server
         """
+        # Guard against delivery to a window that was destroyed between the
+        # wx.CallAfter dispatch and the main-thread execution of this callback.
+        try:
+            if not self.main_window or not self.main_window.IsShown():
+                return
+        except RuntimeError:
+            return  # Underlying C++ wx object already deleted
+
         packet_type = packet.get("type")
 
         if packet_type == "update_locale":

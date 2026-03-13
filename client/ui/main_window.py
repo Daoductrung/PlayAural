@@ -69,8 +69,9 @@ class MainWindow(wx.Frame):
         self.max_silent_reconnect_duration = 30 # seconds
         self.reconnect_attempts = 0  # Track reconnection attempts
         self.max_reconnect_attempts = 30  # Maximum reconnection attempts
-        self.last_server_message = None  # Track last speak message for error display
         self.disconnect_reason = None  # Track reason for disconnection
+        self._reconnect_delay = 1  # seconds; doubles on each miss, capped at 10
+        self._ping_start_time = None  # set by on_ping, cleared by on_server_pong
 
         # Store user's options
         # Client-side options (from config file, per-server)
@@ -83,9 +84,6 @@ class MainWindow(wx.Frame):
             self.client_options = self.config_manager.get_client_options(self.server_id)
             # Apply initial volumes from client options
             self._apply_client_audio_options()
-
-        # Track which test music is playing
-        self.current_test_music = "mainmus.ogg"
 
         # Track current mode (list or edit)
         self.current_mode = "list"  # "list" or "edit"
@@ -374,7 +372,6 @@ class MainWindow(wx.Frame):
 
     def on_ping(self, event):
         """Handle Alt+P to ping the server and measure latency."""
-        import time
         self._ping_start_time = time.time()
         self.sound_manager.play("pingstart.ogg")
         self.network.send_packet({"type": "ping"})
@@ -393,7 +390,6 @@ class MainWindow(wx.Frame):
 
     def on_server_pong(self, packet):
         """Handle pong response from server."""
-        import time
         if self._ping_start_time is not None:
             elapsed_ms = int((time.time() - self._ping_start_time) * 1000)
             self._ping_start_time = None
@@ -509,7 +505,8 @@ class MainWindow(wx.Frame):
         if item:
             # Just speak the message text, no position info
             self.speaker.speak(item["text"], interrupt=True)
-        # If no item, fail silently (don't announce empty buffer)
+        else:
+            self.speaker.speak(Localization.get("main-buffer-empty"), interrupt=True)
 
     def on_char_hook(self, event):
         """Handle character input for game keypresses."""
@@ -1091,7 +1088,6 @@ class MainWindow(wx.Frame):
         # Unexpected disconnect - Try smart reconnect
         if not self.is_reconnecting:
             self.is_reconnecting = True
-            import time
             self.reconnect_start_time = time.time()
             self.speaker.speak(Localization.get("main-attempting-reconnect"), interrupt=True)
             self._attempt_silent_reconnect()
@@ -1102,7 +1098,6 @@ class MainWindow(wx.Frame):
 
     def _attempt_silent_reconnect(self):
         """Attempt to reconnect silently in background."""
-        import time
         if not self.is_reconnecting:
             return
 
@@ -1124,9 +1119,9 @@ class MainWindow(wx.Frame):
             if not self.network.connect(server_url, username, password):
                  # Already connecting or error, just wait
                  pass
-            
-            # Check status after a delay
-            wx.CallLater(1000, self._check_reconnect_status)
+
+            # Check status after the current backoff delay
+            wx.CallLater(self._reconnect_delay * 1000, self._check_reconnect_status)
 
     def _check_reconnect_status(self):
         """Check if silent reconnect succeeded."""
@@ -1139,8 +1134,9 @@ class MainWindow(wx.Frame):
              self.connected = True
              self.speaker.speak(Localization.get("main-connected"), interrupt=True)
         else:
-             # Just signal to try again (which will check timeouts and existing connection attempts)
-             wx.CallLater(1000, self._attempt_silent_reconnect)
+             # Double the delay (cap at 10s) then try again
+             self._reconnect_delay = min(self._reconnect_delay * 2, 10)
+             wx.CallLater(self._reconnect_delay * 1000, self._attempt_silent_reconnect)
 
     def on_server_disconnect(self, packet):
         """Handle server disconnect packet."""
@@ -1213,24 +1209,20 @@ class MainWindow(wx.Frame):
             def hard_exit():
                 try:
                     # Try graceful exit first
-                    import sys
                     self.Destroy()
                     sys.exit(0)
                 except Exception:
                     # Fallback to hard process termination
-                    import os
                     os._exit(0)
                 finally:
                     # Should not assume we get here, but just in case
-                    import os
                     os._exit(0)
-                
+
             # Give 1s for speech then kill process
             wx.CallLater(1000, hard_exit)
-            
+
         except Exception:
              # If setup fails, die immediately
-             import os
              os._exit(0)
 
     def on_update_preference(self, packet):
@@ -1270,7 +1262,7 @@ class MainWindow(wx.Frame):
             self.expecting_reconnect = False
             self.reconnect_attempts = 0
             self.speaker.speak(
-                "Failed to reconnect after multiple attempts.", interrupt=False
+                Localization.get("main-reconnect-failed"), interrupt=False
             )
             self.Close()
             return
@@ -1294,7 +1286,7 @@ class MainWindow(wx.Frame):
         else:
             self.expecting_reconnect = False
             self.reconnect_attempts = 0
-            self.speaker.speak("Failed to reconnect.", interrupt=False)
+            self.speaker.speak(Localization.get("main-reconnect-failed"), interrupt=False)
             self.Close()
 
     def _show_connection_error(self, message):
@@ -1302,8 +1294,9 @@ class MainWindow(wx.Frame):
         self.quitting = True
         self.is_reconnecting = False
 
-        # Stop any music
+        # Stop all looping audio so nothing bleeds past the error dialog.
         self.sound_manager.stop_music(fade=False)
+        self.sound_manager.stop_ambience(force=True)
 
         # Build error message
         # Use provided message only - do not append stale last_server_message
@@ -1329,27 +1322,18 @@ class MainWindow(wx.Frame):
 
     def restart_application(self):
         """Restart the client application."""
-        import os
-        import sys
-        import subprocess
-
         self.speaker.speak(Localization.get("main-restarting"), interrupt=True)
-        time.sleep(1.0) # Give time to speak
+        # Give TTS 1 s to finish without blocking the wx event loop
+        wx.CallLater(1000, self._do_restart)
 
+    def _do_restart(self):
+        """Spawn a fresh process and exit — called by wx.CallLater."""
         try:
-            # Determine how to restart
             if getattr(sys, 'frozen', False):
-                # Running as compiled exe
                 cmd = [sys.executable]
             else:
-                # Running from source
-                # Use sys.executable and current arguments
                 cmd = [sys.executable] + sys.argv
-
-            # Launch new instance
             subprocess.Popen(cmd)
-            
-            # Close current
             self.Destroy()
             sys.exit(0)
         except Exception as e:
@@ -1365,6 +1349,7 @@ class MainWindow(wx.Frame):
             self.is_reconnecting = False
             self.expecting_reconnect = False
             self.reconnect_attempts = 0
+            self._reconnect_delay = 1
 
         self.connected = True
         version = packet.get("version", "unknown")
@@ -1458,7 +1443,6 @@ class MainWindow(wx.Frame):
             self.sound_manager.music("download_loop.ogg", looping=True, fade_out_old=False)
             
             # Start download in thread
-            import threading
             self.download_thread = threading.Thread(target=self._download_update, args=(update_info,), daemon=True)
             self.download_thread.start()
         else:
@@ -1594,9 +1578,6 @@ class MainWindow(wx.Frame):
 
     def _launch_updater(self, zip_path, extract_dir=None):
         """Launch the standalone updater."""
-        import os
-        import sys
-        import subprocess
 
         try:
             # Check if updater.py exists (running from source) or internal
@@ -1693,7 +1674,6 @@ class MainWindow(wx.Frame):
             )
 
             # Start download in thread
-            import threading
             self.sounds_download_thread = threading.Thread(target=self._download_and_extract_sounds, args=(sounds_info,), daemon=True)
             self.sounds_download_thread.start()
 
@@ -1941,9 +1921,11 @@ class MainWindow(wx.Frame):
             self.client_options,
         )
 
+        result = dlg.ShowModal()
         dlg.Destroy()
-        # Send updated client options to server after saving
-        self.send_client_options_to_server()
+        # Send updated client options to server only when the user confirmed.
+        if result == wx.ID_OK:
+            self.send_client_options_to_server()
 
     def on_server_speak(self, packet):
         """Handle speak packet from server."""
@@ -1956,8 +1938,6 @@ class MainWindow(wx.Frame):
         )  # Check if message should be muted (no TTS)
 
         if text:
-            # Store last message for error display on disconnect
-            self.last_server_message = text
             # Add to history regardless of mute status
             self.add_history(text, buffer_name, speak_aloud=(not is_muted))
 
@@ -2477,7 +2457,6 @@ class MainWindow(wx.Frame):
         Returns:
             Dict containing preferences, or empty dict if file doesn't exist
         """
-        import os
         appdata = os.getenv("APPDATA")
         if appdata:
              config_dir = Path(appdata) / "ddt.one" / "PlayAural"
@@ -2497,7 +2476,6 @@ class MainWindow(wx.Frame):
 
     def _save_muted_buffers(self):
         """Save muted buffers to preferences file."""
-        import os
         appdata = os.getenv("APPDATA")
         if appdata:
              config_dir = Path(appdata) / "ddt.one" / "PlayAural"
@@ -2523,6 +2501,16 @@ class MainWindow(wx.Frame):
 
     def on_login_failed(self, packet):
         """Handle login failure from server."""
-        reason = packet.get("reason", "Login failed")
-        self.disconnect_reason = reason
+        # Map raw server reason codes to localized strings so client.py can
+        # display a meaningful message in the login dialog on the next loop.
+        raw_reason = packet.get("reason", "")
+        reason_map = {
+            "wrong_password": Localization.get("auth-error-wrong-password"),
+            "user_not_found": Localization.get("auth-error-user-not-found"),
+            "rate_limit": Localization.get("auth-error-rate-limit"),
+        }
+        self.disconnect_reason = reason_map.get(raw_reason) or Localization.get("login-info-failed")
+        # Stop looping audio before the window closes.
+        self.sound_manager.stop_music(fade=False)
+        self.sound_manager.stop_ambience(force=True)
         self.Close()

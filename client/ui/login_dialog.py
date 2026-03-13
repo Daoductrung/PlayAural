@@ -1,27 +1,30 @@
 """Login dialog for PlayAural client."""
 
+import re
+import threading
+import traceback
 import wx
 import sys
 import os
 import asyncio
 import json
 import websockets
-import ssl
 from pathlib import Path
-from threading import Thread
 
 # Add parent directory to path to import config_manager
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from config_manager import ConfigManager
 from localization import Localization
+from ssl_utils import make_ssl_context
 
 
 class LoginDialog(wx.Dialog):
     """Login dialog with simplified flow."""
 
-    def __init__(self, parent=None, disconnect_message=None):
+    def __init__(self, parent=None, disconnect_message=None, version="0.1.0"):
         """Initialize the login dialog."""
         super().__init__(parent, title=Localization.get("login-title"), size=(450, 450))
+        self.version = version
 
         if disconnect_message:
             wx.CallAfter(lambda: wx.MessageBox(
@@ -90,12 +93,12 @@ class LoginDialog(wx.Dialog):
         
         target_account = None
         if last_account_id and last_account_id in accounts:
-            target_account = accounts[last_account_id]
             self.account_id = last_account_id
+            target_account = self.config_manager.get_account_by_id(self.server_id, last_account_id)
         elif accounts:
             # Fallback to first account
             self.account_id = list(accounts.keys())[0]
-            target_account = accounts[self.account_id]
+            target_account = self.config_manager.get_account_by_id(self.server_id, self.account_id)
 
         self.action_sizer.Clear(True) # Clear previous buttons
 
@@ -293,7 +296,6 @@ class LoginDialog(wx.Dialog):
                 wx.Yield()
 
                 # Send request in background thread
-                import threading
                 thread = threading.Thread(
                     target=self._request_password_reset_thread,
                     args=(email,),
@@ -320,13 +322,7 @@ class LoginDialog(wx.Dialog):
     async def _send_password_reset_request(self, email):
         """Send the reset request to the server."""
         try:
-            ssl_context = None
-            if self.server_url.startswith("wss://"):
-                ssl_context = ssl.create_default_context()
-                ssl_context.check_hostname = False
-                ssl_context.verify_mode = ssl.CERT_NONE
-
-            async with websockets.connect(self.server_url, ssl=ssl_context) as ws:
+            async with websockets.connect(self.server_url, ssl=make_ssl_context(self.server_url)) as ws:
                 await ws.send(
                     json.dumps(
                         {
@@ -427,7 +423,6 @@ class LoginDialog(wx.Dialog):
                 )
                 continue
 
-            import re
             has_letters = bool(re.search(r'[a-zA-Z]', new_password))
             has_numbers = bool(re.search(r'[0-9]', new_password))
 
@@ -452,7 +447,6 @@ class LoginDialog(wx.Dialog):
             wx.Yield()
 
             # Send verification request in background thread
-            import threading
             thread = threading.Thread(
                 target=self._submit_reset_code_thread,
                 args=(email, code, new_password),
@@ -481,13 +475,7 @@ class LoginDialog(wx.Dialog):
     async def _send_submit_reset_code(self, email, code, new_password):
         """Send the reset code validation request to the server."""
         try:
-            ssl_context = None
-            if self.server_url.startswith("wss://"):
-                ssl_context = ssl.create_default_context()
-                ssl_context.check_hostname = False
-                ssl_context.verify_mode = ssl.CERT_NONE
-
-            async with websockets.connect(self.server_url, ssl=ssl_context) as ws:
+            async with websockets.connect(self.server_url, ssl=make_ssl_context(self.server_url)) as ws:
                 await ws.send(
                     json.dumps(
                         {
@@ -600,7 +588,6 @@ class LoginDialog(wx.Dialog):
                 self.EndModal(wx.ID_OK)
                 
             except Exception as e:
-                import traceback
                 traceback.print_exc()
                 wx.MessageBox(f"Login Error: {e}", Localization.get("common-error"), wx.OK | wx.ICON_ERROR)
                 try:
@@ -644,19 +631,13 @@ class LoginDialog(wx.Dialog):
 
     async def _async_test(self, username, password):
         try:
-             ssl_context = None
-             if self.server_url.startswith("wss://"):
-                ssl_context = ssl.create_default_context()
-                ssl_context.check_hostname = False
-                ssl_context.verify_mode = ssl.CERT_NONE
-            
-             async with websockets.connect(self.server_url, ssl=ssl_context) as ws:
+             async with websockets.connect(self.server_url, ssl=make_ssl_context(self.server_url)) as ws:
                 # Send authorize
                 await ws.send(json.dumps({
                     "type": "authorize",
                     "username": username,
                     "password": password,
-                    "major": 0, "minor": 1, "patch": 0
+                    "version": self.version,
                 }))
                 
                 # Wait for response

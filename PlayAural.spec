@@ -12,6 +12,17 @@ tmp_ret = collect_all('requests')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 tmp_ret = collect_all('fluent')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
+# keyring uses dynamic backend discovery — collect everything so the Windows
+# Credential Manager backend (and its win32ctypes dependency) is bundled.
+tmp_ret = collect_all('keyring')
+datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
+hiddenimports += [
+    'keyring.backends',
+    'keyring.backends.Windows',
+    'keyring.backends.fail',
+    'win32ctypes.core',
+    'win32ctypes.pywin32',
+]
 
 
 a = Analysis(

@@ -17,6 +17,7 @@ sound-lib>=0.2.2
 fluent-runtime>=0.4.0
 requests
 psutil
+keyring>=24.0
 
 # ── Development / Testing ────────────────────────────────────────────────────
 pytest>=8.0

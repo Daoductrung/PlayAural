@@ -114,7 +114,7 @@ class CoupBot(BotHelper):
                         execute_fn=lambda action_id, p=player: game.execute_action(p, action_id),
                     )
         elif game.turn_phase == "losing_influence":
-            target = game.get_player_by_id(game.active_target_id)
+            target = game.get_player_by_id(game._losing_player_id)
             if target and target.is_bot:
                 # Bots don't need a pending action loop for lose_influence/exchange
                 # if we just execute it directly, but let's adhere to the structure or

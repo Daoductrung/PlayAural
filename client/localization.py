@@ -4,8 +4,6 @@ Client-side localization system using Fluent.
 
 import os
 from pathlib import Path
-import os
-from pathlib import Path
 from fluent.runtime import FluentBundle, FluentResource
 
 class Localization:

@@ -1,17 +1,18 @@
 """Registration dialog for PlayAural v0.1 client."""
 
+import re
 import wx
 import json
 import asyncio
 import threading
 import websockets
-import ssl
 import sys
 import os
 
 # Ensure we can import localization
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from localization import Localization
+from ssl_utils import make_ssl_context
 
 
 class RegistrationDialog(wx.Dialog):
@@ -104,7 +105,6 @@ class RegistrationDialog(wx.Dialog):
 
     def on_register(self, event):
         """Handle register button click."""
-        import re
         username = self.username_input.GetValue().strip()
         password = self.password_input.GetValue()
         confirm = self.confirm_input.GetValue()
@@ -179,14 +179,7 @@ class RegistrationDialog(wx.Dialog):
     async def _send_register_packet(self, username, password, email):
         """Send registration packet and wait for response."""
         try:
-            # Create SSL context that allows self-signed certificates
-            ssl_context = None
-            if self.server_url.startswith("wss://"):
-                ssl_context = ssl.create_default_context()
-                ssl_context.check_hostname = False
-                ssl_context.verify_mode = ssl.CERT_NONE
-
-            async with websockets.connect(self.server_url, ssl=ssl_context) as ws:
+            async with websockets.connect(self.server_url, ssl=make_ssl_context(self.server_url)) as ws:
                 # Send registration packet
                 await ws.send(
                     json.dumps(

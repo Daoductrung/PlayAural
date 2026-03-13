@@ -16,6 +16,7 @@ main-global-chat-muted = Global chat muted
 main-global-chat-unmuted = Global chat unmuted
 main-buffer-status = Buffer { $name } { $status }.
 main-buffer-info = { $name }{ $status }. { $count } items
+main-buffer-empty = Buffer empty.
 main-connecting = Connecting...
 main-connected = Connected!
 main-disconnected = Disconnected.
@@ -111,6 +112,7 @@ login-error-connection-refused = Connection refused: Server might be offline.
 login-error-connection-timeout = Connection timeout: Server did not respond.
 login-error-unknown = An unknown error occurred: { $error }
 main-attempting-reconnect = Connection lost. Attempting to reconnect...
+main-reconnect-failed = Reconnection failed. Please restart the application.
 logged-out = You have logged out.
 goodbye = Goodbye!
 

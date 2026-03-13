@@ -38,6 +38,15 @@ def advance_ticks(game, ticks=100):
     for _ in range(ticks):
         game.on_tick()
 
+def advance_until(game, condition_fn, max_ticks=500):
+    """Advance one tick at a time until condition_fn() returns True.
+    Returns True if condition was met, False if max_ticks exhausted."""
+    for _ in range(max_ticks):
+        game.on_tick()
+        if condition_fn():
+            return True
+    return False
+
 def test_income(game):
     """Test the income action."""
     alice = game.get_player_by_name("Alice")
@@ -202,3 +211,84 @@ def test_assassination_third_party_challenger_target_not_swapped(game3):
 
     # Charlie has not yet lost a card (resolve is pending her choice)
     assert len(charlie.live_influences) == 2
+
+
+# ── Bot Lose-Influence Regression Tests ──────────────────────────────────────
+
+def test_bot_loses_influence_when_couped():
+    """A bot that is the direct target of a Coup must auto-discard an influence."""
+    g = CoupGame()
+    alice = g.create_player("p1", "Alice")
+    bot = g.create_player("b1", "BotBob", is_bot=True)
+    g.players = [alice, bot]
+    g.attach_user("p1", MockUser("Alice", "p1"))
+    # setup_player_actions must be called so execute_action can find lose_influence_* actions
+    g.setup_player_actions(alice)
+    g.setup_player_actions(bot)
+    g.on_start()
+
+    # Ensure bot has 2 live cards so the choice is non-trivial
+    from server.games.coup.cards import Card, Character
+    bot.influences = [Card(Character.DUKE), Card(Character.CONTESSA)]
+
+    alice.coins = 7
+    g._action_coup(alice, "BotBob", "coup")
+
+    # Wait until game enters losing_influence for the bot
+    reached = advance_until(g, lambda: g.turn_phase == "losing_influence" and g._losing_player_id == bot.id)
+    assert reached, "Game never entered losing_influence for bot"
+    assert g._losing_player_id == bot.id
+
+    # Wait until bot auto-discards and the game exits losing_influence
+    reached = advance_until(g, lambda: len(bot.live_influences) == 1 and g.turn_phase != "losing_influence")
+    assert reached, "Bot never discarded an influence or game never exited losing_influence"
+    assert len(bot.live_influences) == 1
+
+
+def test_bot_challenger_loses_influence_while_active_target_differs():
+    """Regression: bot challenges and loses; active_target_id differs from
+    _losing_player_id.  The bot must still auto-discard without freezing."""
+    g = CoupGame()
+    alice = g.create_player("p1", "Alice")
+    bot = g.create_player("b1", "BotBob", is_bot=True)
+    charlie = g.create_player("p3", "Charlie")
+    g.players = [alice, bot, charlie]
+    g.attach_user("p1", MockUser("Alice", "p1"))
+    g.attach_user("p3", MockUser("Charlie", "p3"))
+    # setup_player_actions must be called so execute_action can find lose_influence_* actions
+    g.setup_player_actions(alice)
+    g.setup_player_actions(bot)
+    g.setup_player_actions(charlie)
+    g.on_start()
+
+    from server.games.coup.cards import Card, Character
+    # Alice has Assassin so she wins any challenge
+    alice.influences = [Card(Character.ASSASSIN), Card(Character.DUKE)]
+    alice.coins = 3
+    # Bot has two cards but no Assassin — it will lose the challenge
+    bot.influences = [Card(Character.DUKE), Card(Character.CONTESSA)]
+    charlie.influences = [Card(Character.CAPTAIN), Card(Character.AMBASSADOR)]
+
+    # Alice assassinates Charlie
+    g._action_assassinate(alice, "Charlie", "assassinate")
+    assert g.active_target_id == charlie.id
+
+    # Bot challenges Alice's claim — and loses (Alice has Assassin)
+    g._action_challenge(bot, "challenge")
+
+    # Wait until game enters losing_influence for the bot (active_target_id must still be Charlie)
+    reached = advance_until(g, lambda: g.turn_phase == "losing_influence" and g._losing_player_id == bot.id)
+    assert reached, "Game never entered losing_influence for bot"
+    assert g.active_target_id == charlie.id
+    assert g._losing_player_id == bot.id
+
+    # Wait until bot auto-discards (live_influences drops to 1)
+    reached = advance_until(g, lambda: len(bot.live_influences) == 1)
+    assert reached, "Bot never discarded an influence"
+    assert len(bot.live_influences) == 1
+
+    # Assassination must now resolve: Charlie must be the one losing an influence
+    reached = advance_until(g, lambda: g.turn_phase == "losing_influence" and g._losing_player_id == charlie.id)
+    assert reached, "Assassination never resolved against Charlie"
+    assert g.active_target_id == charlie.id
+    assert g._losing_player_id == charlie.id

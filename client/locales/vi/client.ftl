@@ -16,6 +16,7 @@ main-global-chat-muted = Đã tắt tiếng trò chuyện chung
 main-global-chat-unmuted = Đã bật tiếng trò chuyện chung
 main-buffer-status = Bộ đệm { $name } { $status }.
 main-buffer-info = { $name }{ $status }. { $count } mục
+main-buffer-empty = Bộ đệm trống.
 main-connecting = Đ đang kết nối...
 main-connected = Đã kết nối!
 main-disconnected = Đã ngắt kết nối.
@@ -111,6 +112,7 @@ login-error-connection-refused = Kết nối bị từ chối: Máy chủ có th
 login-error-connection-timeout = Hết thời gian kết nối: Máy chủ không phản hồi.
 login-error-unknown = Đã xảy ra lỗi không xác định: { $error }
 main-attempting-reconnect = Mất kết nối. Đang thử kết nối lại...
+main-reconnect-failed = Kết nối lại thất bại. Vui lòng khởi động lại ứng dụng.
 logged-out = Bạn đã đăng xuất.
 goodbye = Tạm biệt!
 

@@ -1,5 +1,6 @@
 """Custom ListBox with multiletter navigation support."""
 
+import unicodedata
 import wx
 import time
 
@@ -205,20 +206,41 @@ class MenuList(wx.ListBox):
             self.sound_manager.play_menuclick()
         event.Skip()
 
+    @staticmethod
+    def _normalize_for_search(text: str) -> str:
+        """Normalize text for accent-insensitive prefix matching.
+
+        Two-step process:
+        1. Replace đ/Đ with d/D — the only Vietnamese character whose modifier
+           is a stroke (U+0110/U+0111) rather than a combining diacritic, so it
+           does not decompose via NFD and must be handled explicitly.
+        2. NFD decomposition followed by stripping of all Unicode combining marks
+           (category Mn) — removes tones, circumflexes, horns, breves, etc. from
+           all other Vietnamese vowels (ă â á à ả ã ạ ê ô ơ ư ...).
+
+        The display text and TTS output are never touched; this is used only
+        during keystroke prefix comparison.
+        """
+        text = text.replace("đ", "d").replace("Đ", "D")
+        nfd = unicodedata.normalize("NFD", text)
+        return "".join(c for c in nfd if unicodedata.category(c) != "Mn").lower()
+
     def _find_and_select(self, search_text):
         """
         Find and select item that starts with the search text.
         Works like the old version:
         - If current item already matches and we have >1 char, stay on it
         - Otherwise search from next item forward, wrapping around
+        Matching is accent-insensitive: pressing 'd' matches 'đ', 'a' matches
+        'á', 'à', 'ă', 'â', etc.
         """
-        search_text = search_text.lower()
+        search_norm = self._normalize_for_search(search_text)
         current_pos = self.GetSelection()
 
         # If we have more than 1 character and current item matches, stay on it
         if len(search_text) > 1 and current_pos != wx.NOT_FOUND:
-            current_text = self.GetString(current_pos).lower()
-            if current_text.startswith(search_text):
+            current_norm = self._normalize_for_search(self.GetString(current_pos))
+            if current_norm.startswith(search_norm):
                 return  # Stay on current item
 
         # Search from next item forward, wrapping around
@@ -227,8 +249,8 @@ class MenuList(wx.ListBox):
 
         for offset in range(1, count + 1):
             i = (start_pos + offset) % count
-            item_text = self.GetString(i).lower()
-            if item_text.startswith(search_text):
+            item_norm = self._normalize_for_search(self.GetString(i))
+            if item_norm.startswith(search_norm):
                 old_selection = self.GetSelection()
                 self.SetSelection(i)
                 self.EnsureVisible(i)

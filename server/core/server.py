@@ -70,9 +70,9 @@ class Server:
 
     # Subset of GLOBAL_SYSTEM_MENUS: menus that are transient overlays shown
     # while the player is still inside a game.  When _restore_previous_menu
-    # encounters one of these as the return target it must call _return_to_game
-    # (which clears game._actions_menu_open) rather than re-displaying the
-    # overlay or falling back to the main menu.
+    # encounters one of these as the return target it re-shows the exact
+    # overlay (so the user lands back where they left off) rather than falling
+    # to the game turn menu or the main menu.
     # Add new in-game overlay menus here — nowhere else needs to change.
     IN_GAME_OVERLAY_MENUS = {
         "host_management_menu", "host_invite_menu", "host_pass_menu",
@@ -1122,6 +1122,15 @@ PlayAural Server
 
     def _show_main_menu(self, user: NetworkUser) -> None:
         """Show the main menu to a user."""
+        # Invariant guard: a user must never be in a table while seeing the
+        # main menu — that desynchronises table membership from _user_states
+        # and causes ghost duplicates.  Log loudly so regressions are caught.
+        if self._tables.find_user_table(user.username):
+            logging.getLogger("playaural").warning(
+                "_show_main_menu called while %s is still in a table — "
+                "possible routing bug (state desync / ghost risk)",
+                user.username,
+            )
         items = [
             MenuItem(text=Localization.get(user.locale, "play"), id="play"),
             MenuItem(
@@ -2080,6 +2089,7 @@ PlayAural Server
         if not user:
             return
 
+        menu_id = packet.get("menu_id", "")
         selection_id = packet.get("selection_id", "")
 
         state = self._user_states.get(username, {})
@@ -2096,6 +2106,20 @@ PlayAural Server
             return
         elif current_menu == "mandatory_email_menu":
             await self._handle_mandatory_email_selection(user, selection_id)
+            return
+
+        # When any game-level status_box is dismissed, always delegate to the
+        # game regardless of what _user_states says — a game may push a
+        # status_box (e.g. score summary, hand view) while a GLOBAL_SYSTEM_MENU
+        # is active.  The game clears _status_box_open and calls
+        # rebuild_player_menu, which short-circuits safely when
+        # _actions_menu_open is still set.
+        if menu_id == "status_box":
+            table = self._tables.find_user_table(username)
+            if table and table.game:
+                player = table.game.get_player_by_id(user.uuid)
+                if player:
+                    table.game.handle_event(player, packet)
             return
 
         # Check if user is in a table - delegate to game ONLY if it's a table-specific menu
@@ -2595,15 +2619,20 @@ PlayAural Server
 
     def _show_public_profile(self, requesting_user: NetworkUser, target_username: str, return_menu_id: str) -> None:
         """Show a read-only profile view of another player."""
+        # Capture the full current state before overwriting it so Back can
+        # reconstruct deep return chains (e.g. in-game → online_users →
+        # online_user_actions_menu → public_profile_menu → back → back → game).
+        prior_state = dict(self._user_states.get(requesting_user.username, {}))
+
         target_record = self._db.get_user(target_username)
         if not target_record:
             requesting_user.speak_l("unknown-player")
-            # Fallback to the previous menu based on state if it's tricky, but we have return_menu_id
-            state = self._user_states.get(requesting_user.username, {})
             if return_menu_id == "friend_actions_menu":
-                 self._show_friend_actions_menu(requesting_user, state.get("target_username", ""))
+                self._show_friend_actions_menu(requesting_user, prior_state.get("target_username", ""))
+            elif return_menu_id == "online_user_actions_menu":
+                self._show_online_user_actions_menu(requesting_user, prior_state.get("target_username", ""), prior_state)
             else:
-                 self._show_main_menu(requesting_user)
+                self._show_main_menu(requesting_user)
             return
 
         date_str = target_record.registration_date[:10] if target_record.registration_date else "Unknown"
@@ -2634,7 +2663,8 @@ PlayAural Server
         self._user_states[requesting_user.username] = {
             "menu": "public_profile_menu",
             "return_menu_id": return_menu_id,
-            "target_username": target_username
+            "target_username": target_username,
+            "return_state": prior_state,
         }
 
     async def _handle_public_profile_selection(self, user: NetworkUser, selection_id: str, state: dict) -> None:
@@ -2644,13 +2674,19 @@ PlayAural Server
             if return_menu_id == "friend_actions_menu":
                  self._show_friend_actions_menu(user, state.get("target_username", ""))
             elif return_menu_id == "online_user_actions_menu":
-                 # For online user actions, we need to construct a pseudo-state to resume correctly
-                 # However, _show_online_user_actions_menu expects a state dict representing the Online List's origins.
-                 # Let's pass a generic state to avoid crashing, though the deeply nested back might route to main_menu if lost.
-                 pseudo_state = {"return_menu_id": "main_menu", "return_menu": {}, "return_state": {}}
-                 self._show_online_user_actions_menu(user, state.get("target_username", ""), pseudo_state)
+                # Restore the full prior state saved when the profile was opened.
+                # That state is the online_user_actions_menu dict, which carries
+                # the original return_menu_id/return_state pointing back to the
+                # game (or wherever the user came from before online_users).
+                prior_state = state.get("return_state", {})
+                self._show_online_user_actions_menu(user, state.get("target_username", ""), prior_state)
             else:
-                 self._show_main_menu(user)
+                # Unknown return origin — fall back gracefully without ghost risk.
+                table = self._tables.find_user_table(user.username)
+                if table:
+                    self._return_to_game(user, table)
+                else:
+                    self._show_main_menu(user)
 
     def _show_profile_menu(self, user: NetworkUser) -> None:
         """Show the user's profile menu."""
@@ -5400,19 +5436,36 @@ PlayAural Server
                     player = table.game.get_player_by_id(user.uuid)
                     if player:
                         # Re-send the game's standard UI to clear the online list modal
-                        table.game.rebuild_menu(player)
+                        table.game.rebuild_player_menu(player)
         elif previous_menu_id in self.IN_GAME_OVERLAY_MENUS:
-            # The user navigated away (e.g. via the online users list) while an
-            # in-game overlay was open.  Restoring original_state would leave
-            # _user_states pointing at the overlay and would NOT clear
-            # game._actions_menu_open, permanently blocking menu rebuilds.
-            # _return_to_game handles both concerns atomically.
+            # The user opened the online users list while an in-game overlay
+            # was active.  Re-show the exact overlay they came from so they
+            # land back where they expect, not on the game's turn menu.
             table_id = original_state.get("table_id")
             table = self._tables.get_table(table_id) if table_id else None
-            self._return_to_game(user, table)
+            if not table or not table.game:
+                self._show_main_menu(user)
+                return
+            if previous_menu_id == "host_management_menu":
+                self._show_host_management_menu(user, table)
+            elif previous_menu_id == "host_invite_menu":
+                self._show_host_invite_menu(user, table)
+            elif previous_menu_id == "host_pass_menu":
+                self._show_host_pass_menu(user, table)
+            elif previous_menu_id in ("host_kick_menu", "host_kick_ban_menu"):
+                self._show_host_kick_menu(user, table, ban=original_state.get("ban", False))
+            else:
+                self._return_to_game(user, table)
         else:
-            # Fallback for dynamic/deep menus to prevent getting stuck
-            self._show_main_menu(user)
+            # Fallback for unrecognised return targets.  Never call
+            # _show_main_menu while the user is still in a table — that
+            # desynchronises table membership from _user_states and creates
+            # the "ghost" duplicate-self scenario.
+            table = self._tables.find_user_table(user.username)
+            if table:
+                self._return_to_game(user, table)
+            else:
+                self._show_main_menu(user)
 
     async def _handle_list_online(self, client: ClientConnection) -> None:
         """Handle request for online users list."""
@@ -5445,15 +5498,6 @@ PlayAural Server
         user = self._users.get(username)
         if not user:
             return
-
-        table = self._tables.find_user_table(username)
-        if table and table.game:
-            player = table.game.get_player_by_id(user.uuid)
-            if player:
-                # Strip the username tuples back down to just strings for the read-only status box
-                string_lines = [line for _, line in self._format_online_users_lines(user)]
-                table.game.status_box(player, string_lines)
-                return
 
         self._show_online_users_menu(user)
 

@@ -107,6 +107,18 @@ class ActionVisibilityMixin:
             return Localization.get(locale, "play")
         return Localization.get(locale, "spectate")
 
+    def _is_host_management_enabled(self, player: "Player") -> str | None:
+        """Host management is only available to the host."""
+        if player.name != self.host:
+            return "action-not-host"
+        return None
+
+    def _is_host_management_hidden(self, player: "Player") -> Visibility:
+        """Host management is hidden from non-hosts and spectators."""
+        if player.name != self.host or player.is_spectator:
+            return Visibility.HIDDEN
+        return Visibility.VISIBLE
+
     def _is_leave_game_enabled(self, player: "Player") -> str | None:
         """Leave game is always enabled."""
         return None

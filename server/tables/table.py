@@ -34,6 +34,7 @@ class Table(DataClassJSONMixin):
     members: list[TableMember] = field(default_factory=list)
     game_json: str | None = None  # Serialized game state
     status: str = "waiting"  # waiting, playing, finished
+    is_private: bool = False  # Private tables are hidden from active tables lists
 
     # Not serialized
     _game: "Game | None" = field(default=None, repr=False)
@@ -56,6 +57,10 @@ class Table(DataClassJSONMixin):
         self._member_offline_since = {}
         self._offline_since = None
         self._destroyed = False
+        # Table-scoped ban list — runtime only, never serialized.
+        # Keyed by player UUID. Dies with this Table instance, so no ban can
+        # carry over even if a future table reuses the same table_id.
+        self._banned_uuids: set[str] = set()
 
     @property
     def game(self) -> "Game | None":
@@ -113,6 +118,14 @@ class Table(DataClassJSONMixin):
         # Auto-destroy if no members left (e.g. all humans left)
         if not self.members:
             self.destroy()
+
+    def is_banned(self, user_uuid: str) -> bool:
+        """Check if a UUID is banned from this table instance."""
+        return user_uuid in self._banned_uuids
+
+    def ban_user(self, user_uuid: str) -> None:
+        """Add a UUID to the table-scoped ban list."""
+        self._banned_uuids.add(user_uuid)
 
     def get_user(self, username: str) -> "User | None":
         """Get a user by username."""

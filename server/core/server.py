@@ -63,7 +63,9 @@ class Server:
         "documentation_menu", "doc_games_menu", "doc_viewer", "email_input",
         "bio_input", "send_friend_request_input", "send_pm_input", "music_volume_input",
         "ambience_volume_input", "speech_rate_input", "waiting_for_approval",
-        "smtp_settings_menu", "smtp_encryption_menu", "smtp_setting_input"
+        "smtp_settings_menu", "smtp_encryption_menu", "smtp_setting_input",
+        "host_management_menu", "host_invite_menu", "host_pass_menu",
+        "host_kick_menu", "host_kick_ban_menu", "table_invite_prompt",
     }
 
     def __init__(
@@ -92,6 +94,8 @@ class Server:
         self._users: dict[str, NetworkUser] = {}  # username -> NetworkUser
         self._user_states: dict[str, dict] = {}  # username -> UI state
         self._pending_disconnects: dict[str, asyncio.Task] = {} # username -> broadcast task
+        # Pending table invites: invitee_username -> {table_id, host_username, task}
+        self._pending_invites: dict[str, dict] = {}
 
         # Initialize admin manager
         self.admin_manager = AdministrationManager(self)
@@ -265,6 +269,10 @@ PlayAural Server
             # Table cleanup is now handled by Table.on_tick timeout
             # and visibility is hidden immediately by menu filtering.
             
+            # Cancel any pending invite where this user was the invitee
+            if client.username in self._pending_invites:
+                self._cancel_invite(client.username)
+
             # Auto-substitute with bot if in a playing game (requested feature)
             table = self._tables.find_user_table(client.username)
             if table and table.game and table.game.status == "playing":
@@ -1314,6 +1322,9 @@ PlayAural Server
                 continue
             if t.game.status not in ["waiting", "playing"]:
                 continue
+            # Hide private tables from non-members
+            if t.is_private and user.username not in {m.username for m in t.members}:
+                continue
 
             has_active_human = False
             for member in t.members:
@@ -1392,6 +1403,9 @@ PlayAural Server
             if not t.game:
                 continue
             if t.game.status not in ["waiting", "playing"]:
+                continue
+            # Hide private tables from everyone except members already in them
+            if t.is_private and user.username not in {m.username for m in t.members}:
                 continue
 
             # Apply filter
@@ -1491,6 +1505,12 @@ PlayAural Server
             elif current_menu == "online_users":
                 items = self._get_online_users_menu_items(user)
                 user.update_menu("online_users", items)
+            elif current_menu == "host_invite_menu":
+                table_id = state.get("table_id")
+                table = self._tables.get_table(table_id)
+                if table:
+                    items = self._get_host_invite_menu_items(user, table)
+                    user.update_menu("host_invite_menu", items)
 
     def on_friend_requests_changed(self, target_uuid: str) -> None:
         """Called when friend requests are sent, accepted, or declined to refresh UI."""
@@ -2154,6 +2174,16 @@ PlayAural Server
             if user.trust_level < 2:
                 return
             await self.admin_manager.handle_menu_selection(user, selection_id, current_menu, state)
+        elif current_menu == "host_management_menu":
+            await self._handle_host_management_selection(user, selection_id, state)
+        elif current_menu == "host_invite_menu":
+            await self._handle_host_invite_selection(user, selection_id, state)
+        elif current_menu == "host_pass_menu":
+            await self._handle_host_pass_selection(user, selection_id, state)
+        elif current_menu in ("host_kick_menu", "host_kick_ban_menu"):
+            await self._handle_host_kick_selection(user, selection_id, state)
+        elif current_menu == "table_invite_prompt":
+            await self._handle_table_invite_selection(user, selection_id, state)
         elif current_menu == "logout_confirm_menu":
              await self._handle_logout_confirm_selection(user, selection_id)
         elif current_menu == "documentation_menu":
@@ -3223,6 +3253,13 @@ PlayAural Server
             self._show_tables_menu(user, game_type)
             return
 
+        # Ban check (table-scoped)
+        user_record = self._db.get_user(user.username)
+        if user_record and table.is_banned(user_record.uuid):
+            user.speak_l("table-you-are-banned")
+            self._show_tables_menu(user, game_type)
+            return
+
         table_id = table.table_id
 
         # Check if user is reclaiming a bot-replaced slot
@@ -3275,6 +3312,441 @@ PlayAural Server
         else:
             self._show_tables_menu(user, state.get("game_type", ""))
 
+    # ==========================================================================
+    # Host Table Management
+    # ==========================================================================
+
+    def _return_to_game(self, user: NetworkUser, table: "Table | None") -> None:
+        """Return a user to their in-game state after leaving a host management menu."""
+        if table and table.game:
+            self._user_states[user.username] = {"menu": "in_game", "table_id": table.table_id}
+            player = table.game.get_player_by_id(user.uuid)
+            if player and hasattr(table.game, "rebuild_player_menu"):
+                table.game.rebuild_player_menu(player)
+        else:
+            self._show_main_menu(user)
+
+    def _restore_menu_from_state(self, user: NetworkUser, state: dict) -> None:
+        """Restore a user's menu from a saved state snapshot."""
+        menu = state.get("menu")
+        if menu == "in_game":
+            table_id = state.get("table_id")
+            table = self._tables.get_table(table_id)
+            if table and table.game:
+                player = table.game.get_player_by_id(user.uuid)
+                if player and hasattr(table.game, "rebuild_player_menu"):
+                    self._user_states[user.username] = state
+                    table.game.rebuild_player_menu(player)
+                    return
+        self._show_main_menu(user)
+
+    # --- Host Management Menu ---
+
+    def _get_host_management_menu_items(self, user: NetworkUser, table: "Table") -> list[MenuItem]:
+        """Build items for the host management menu."""
+        locale = user.locale
+        privacy_key = "host-management-set-public" if table.is_private else "host-management-set-private"
+        return [
+            MenuItem(text=Localization.get(locale, privacy_key), id="toggle_privacy"),
+            MenuItem(text=Localization.get(locale, "host-management-invite"), id="invite_friend"),
+            MenuItem(text=Localization.get(locale, "host-management-pass-host"), id="pass_host"),
+            MenuItem(text=Localization.get(locale, "host-management-kick"), id="kick_player"),
+            MenuItem(text=Localization.get(locale, "host-management-kick-ban"), id="kick_ban_player"),
+            MenuItem(text=Localization.get(locale, "back"), id="back"),
+        ]
+
+    def _show_host_management_menu(self, user: NetworkUser, table: "Table") -> None:
+        """Show the host management menu."""
+        items = self._get_host_management_menu_items(user, table)
+        user.show_menu(
+            "host_management_menu",
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self._user_states[user.username] = {
+            "menu": "host_management_menu",
+            "table_id": table.table_id,
+        }
+
+    async def _handle_host_management_selection(
+        self, user: NetworkUser, selection_id: str, state: dict
+    ) -> None:
+        """Handle host management menu selection."""
+        table_id = state.get("table_id")
+        table = self._tables.get_table(table_id)
+
+        if not table or table.host != user.username:
+            self._return_to_game(user, table)
+            return
+
+        if selection_id == "toggle_privacy":
+            table.is_private = not table.is_private
+            key = "host-management-table-now-private" if table.is_private else "host-management-table-now-public"
+            if table.game:
+                table.game.broadcast_l(key)
+            self.on_tables_changed()
+            self._show_host_management_menu(user, table)
+
+        elif selection_id == "invite_friend":
+            self._show_host_invite_menu(user, table)
+
+        elif selection_id == "pass_host":
+            self._show_host_pass_menu(user, table)
+
+        elif selection_id == "kick_player":
+            self._show_host_kick_menu(user, table, ban=False)
+
+        elif selection_id == "kick_ban_player":
+            self._show_host_kick_menu(user, table, ban=True)
+
+        elif selection_id == "back":
+            self._return_to_game(user, table)
+
+    # --- Invite ---
+
+    def _get_invitable_friends(self, user: NetworkUser, table: "Table") -> list[str]:
+        """Return friends who are online, idle (not in any table), and not already invited."""
+        friend_uuids = self._db.get_friends(user.uuid)
+        result = []
+        for f_uuid in friend_uuids:
+            f_name = self._db.get_user_name_by_uuid(f_uuid)
+            if not f_name:
+                continue
+            if f_name not in self._users:
+                continue  # offline
+            if self._tables.find_user_table(f_name):
+                continue  # already in a table
+            if f_name in self._pending_invites:
+                continue  # already has a pending invite
+            result.append(f_name)
+        return result
+
+    def _get_host_invite_menu_items(self, user: NetworkUser, table: "Table") -> list[MenuItem]:
+        """Build items for the invite friends menu."""
+        locale = user.locale
+        invitable = self._get_invitable_friends(user, table)
+        items: list[MenuItem] = []
+        if not invitable:
+            items.append(MenuItem(text=Localization.get(locale, "host-invite-no-friends"), id=""))
+        else:
+            for f_name in invitable:
+                items.append(MenuItem(text=f_name, id=f"invite_{f_name}"))
+        items.append(MenuItem(text=Localization.get(locale, "back"), id="back"))
+        return items
+
+    def _show_host_invite_menu(self, user: NetworkUser, table: "Table") -> None:
+        """Show the invite friends menu."""
+        items = self._get_host_invite_menu_items(user, table)
+        user.show_menu(
+            "host_invite_menu",
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self._user_states[user.username] = {
+            "menu": "host_invite_menu",
+            "table_id": table.table_id,
+        }
+
+    async def _handle_host_invite_selection(
+        self, user: NetworkUser, selection_id: str, state: dict
+    ) -> None:
+        """Handle host invite menu selection."""
+        table_id = state.get("table_id")
+        table = self._tables.get_table(table_id)
+
+        if not table or table.host != user.username:
+            self._return_to_game(user, table)
+            return
+
+        if selection_id == "back":
+            self._show_host_management_menu(user, table)
+            return
+
+        if not selection_id.startswith("invite_"):
+            return
+
+        invitee_name = selection_id[7:]
+        invitee_user = self._users.get(invitee_name)
+
+        if not invitee_user:
+            user.speak_l("host-invite-friend-unavailable")
+            self._show_host_invite_menu(user, table)
+            return
+        if invitee_name in self._pending_invites:
+            user.speak_l("host-invite-already-pending")
+            self._show_host_invite_menu(user, table)
+            return
+        if self._tables.find_user_table(invitee_name):
+            user.speak_l("host-invite-friend-busy")
+            self._show_host_invite_menu(user, table)
+            return
+
+        await self._send_table_invite(user, table, invitee_user)
+        user.speak_l("host-invite-sent", player=invitee_name)
+        self._show_host_management_menu(user, table)
+
+    async def _send_table_invite(
+        self, host_user: NetworkUser, table: "Table", invitee_user: NetworkUser
+    ) -> None:
+        """Send a table invite and schedule its 30-second expiry."""
+        invitee_name = invitee_user.username
+        game_class = get_game_class(table.game_type)
+        game_name = (
+            Localization.get(invitee_user.locale, game_class.get_name_key())
+            if game_class
+            else table.game_type
+        )
+
+        prev_state = self._user_states.get(invitee_name, {})
+        self._user_states[invitee_name] = {
+            "menu": "table_invite_prompt",
+            "table_id": table.table_id,
+            "prev_state": prev_state,
+        }
+
+        items = [
+            MenuItem(text=Localization.get(invitee_user.locale, "invite-accept"), id="accept"),
+            MenuItem(text=Localization.get(invitee_user.locale, "invite-decline"), id="decline"),
+        ]
+        invitee_user.play_sound("invite.ogg")
+        invitee_user.speak_l("table-invite-received", host=host_user.username, game=game_name)
+        invitee_user.show_menu(
+            "table_invite_prompt",
+            items,
+            multiletter=False,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+
+        task = asyncio.create_task(self._expire_invite(invitee_name, table.table_id))
+        self._pending_invites[invitee_name] = {
+            "table_id": table.table_id,
+            "host_username": host_user.username,
+            "task": task,
+        }
+
+    async def _expire_invite(self, invitee_name: str, table_id: str) -> None:
+        """Auto-expire an invite after 30 seconds."""
+        try:
+            await asyncio.sleep(30.0)
+            self._pending_invites.pop(invitee_name, None)
+            invitee_user = self._users.get(invitee_name)
+            if not invitee_user:
+                return
+            state = self._user_states.get(invitee_name, {})
+            if state.get("menu") == "table_invite_prompt" and state.get("table_id") == table_id:
+                invitee_user.speak_l("table-invite-expired")
+                prev_state = state.get("prev_state", {})
+                self._restore_menu_from_state(invitee_user, prev_state)
+        except asyncio.CancelledError:
+            pass
+
+    def _cancel_invite(self, invitee_name: str) -> None:
+        """Cancel a pending invite and stop its expiry task."""
+        invite = self._pending_invites.pop(invitee_name, None)
+        if invite:
+            invite["task"].cancel()
+
+    async def _handle_table_invite_selection(
+        self, user: NetworkUser, selection_id: str, state: dict
+    ) -> None:
+        """Handle accept/decline of a table invite."""
+        table_id = state.get("table_id")
+        prev_state = state.get("prev_state", {})
+
+        self._cancel_invite(user.username)
+
+        table = self._tables.get_table(table_id)
+
+        if selection_id == "accept" and table and table.game:
+            user_record = self._db.get_user(user.username)
+            if user_record and table.is_banned(user_record.uuid):
+                user.speak_l("table-you-are-banned")
+                self._restore_menu_from_state(user, prev_state)
+                return
+            # _auto_join_table sets _user_states itself, so just call it
+            self._auto_join_table(user, table, table.game_type)
+        else:
+            if table and selection_id == "decline":
+                host_user = self._users.get(table.host)
+                if host_user:
+                    host_user.speak_l("host-invite-declined", player=user.username)
+            self._restore_menu_from_state(user, prev_state)
+
+    # --- Pass Host ---
+
+    def _get_host_pass_menu_items(self, user: NetworkUser, table: "Table") -> list[MenuItem]:
+        """Build items for the pass-host menu."""
+        locale = user.locale
+        items: list[MenuItem] = []
+        candidates = []
+        if table.game:
+            for p in table.game.players:
+                if not p.is_bot and not p.is_spectator and p.name != user.username:
+                    candidates.append(p.name)
+        if not candidates:
+            items.append(MenuItem(text=Localization.get(locale, "host-pass-no-candidates"), id=""))
+        else:
+            for name in candidates:
+                items.append(MenuItem(text=name, id=f"pass_{name}"))
+        items.append(MenuItem(text=Localization.get(locale, "back"), id="back"))
+        return items
+
+    def _show_host_pass_menu(self, user: NetworkUser, table: "Table") -> None:
+        """Show the pass-host menu."""
+        items = self._get_host_pass_menu_items(user, table)
+        user.show_menu(
+            "host_pass_menu",
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self._user_states[user.username] = {
+            "menu": "host_pass_menu",
+            "table_id": table.table_id,
+        }
+
+    async def _handle_host_pass_selection(
+        self, user: NetworkUser, selection_id: str, state: dict
+    ) -> None:
+        """Handle pass-host menu selection."""
+        table_id = state.get("table_id")
+        table = self._tables.get_table(table_id)
+
+        if not table or table.host != user.username:
+            self._return_to_game(user, table)
+            return
+
+        if selection_id == "back":
+            self._show_host_management_menu(user, table)
+            return
+
+        if selection_id.startswith("pass_"):
+            new_host_name = selection_id[5:]
+            if table.game:
+                target = table.game.get_player_by_name(new_host_name)
+                if target and not target.is_bot and not target.is_spectator:
+                    table.host = new_host_name
+                    table.game.host = new_host_name
+                    table.game.broadcast_l("host-passed", player=new_host_name)
+                    table.game.rebuild_all_menus()
+                    self.on_tables_changed()
+                    self._return_to_game(user, table)
+                    return
+            user.speak_l("host-pass-failed")
+            self._show_host_pass_menu(user, table)
+
+    # --- Kick / Kick-and-Ban ---
+
+    def _get_host_kick_menu_items(self, user: NetworkUser, table: "Table") -> list[MenuItem]:
+        """Build items for the kick menu (all human non-host players, including spectators)."""
+        locale = user.locale
+        items: list[MenuItem] = []
+        candidates = []
+        if table.game:
+            for p in table.game.players:
+                if not p.is_bot and p.name != user.username:
+                    candidates.append(p.name)
+        if not candidates:
+            items.append(MenuItem(text=Localization.get(locale, "host-kick-no-candidates"), id=""))
+        else:
+            for name in candidates:
+                items.append(MenuItem(text=name, id=f"kick_{name}"))
+        items.append(MenuItem(text=Localization.get(locale, "back"), id="back"))
+        return items
+
+    def _show_host_kick_menu(self, user: NetworkUser, table: "Table", ban: bool) -> None:
+        """Show the kick (or kick-and-ban) player menu."""
+        items = self._get_host_kick_menu_items(user, table)
+        menu_id = "host_kick_ban_menu" if ban else "host_kick_menu"
+        user.show_menu(
+            menu_id,
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self._user_states[user.username] = {
+            "menu": menu_id,
+            "table_id": table.table_id,
+            "ban": ban,
+        }
+
+    async def _handle_host_kick_selection(
+        self, user: NetworkUser, selection_id: str, state: dict
+    ) -> None:
+        """Handle kick / kick-and-ban menu selection."""
+        table_id = state.get("table_id")
+        table = self._tables.get_table(table_id)
+        is_ban = state.get("ban", False)
+
+        if not table or table.host != user.username:
+            self._return_to_game(user, table)
+            return
+
+        if selection_id == "back":
+            self._show_host_management_menu(user, table)
+            return
+
+        if not selection_id.startswith("kick_"):
+            return
+
+        target_name = selection_id[5:]
+
+        if not table.game:
+            self._return_to_game(user, table)
+            return
+
+        target_player = table.game.get_player_by_name(target_name)
+        if not target_player or target_player.is_bot or target_name == user.username:
+            user.speak_l("host-kick-invalid-target")
+            self._show_host_kick_menu(user, table, ban=is_ban)
+            return
+
+        # If banning, record UUID against this table instance (runtime-only)
+        if is_ban:
+            target_record = self._db.get_user(target_name)
+            if target_record:
+                table.ban_user(target_record.uuid)
+
+        target_online_user = self._users.get(target_name)
+
+        # Announce to the table
+        kick_key = "host-kick-ban-broadcast" if is_ban else "host-kick-broadcast"
+        table.game.broadcast_l(kick_key, player=target_name)
+
+        # Notify the kicked player
+        if target_online_user:
+            you_key = "host-kick-ban-you" if is_ban else "host-kick-you"
+            target_online_user.speak_l(you_key, host=user.username)
+
+        # Remove from game state
+        if target_player.is_spectator:
+            table.game.remove_spectator(target_player.id)
+        elif table.game.status == "waiting":
+            table.game.remove_player(target_player.id)
+        else:
+            # Mid-game: bot replacement preserves game continuity
+            table.game._replace_with_bot(target_player)
+
+        table.remove_member(target_name)
+
+        # Send kicked player back to main menu
+        if target_online_user:
+            self._user_states.pop(target_name, None)
+            self._show_main_menu(target_online_user)
+
+        # Cancel any pending invite to this user from this table
+        invite = self._pending_invites.get(target_name)
+        if invite and invite.get("table_id") == table_id:
+            self._cancel_invite(target_name)
+
+        table.game.rebuild_all_menus()
+        self.on_tables_changed()
+
+        # Redisplay updated kick menu so host can act on remaining players
+        self._show_host_kick_menu(user, table, ban=is_ban)
+
     async def _handle_join_selection(
         self, user: NetworkUser, selection_id: str, state: dict
     ) -> None:
@@ -3284,6 +3756,13 @@ PlayAural Server
 
         if not table or not table.game:
             user.speak_l("table-not-exists")
+            self._return_from_join_menu(user, state)
+            return
+
+        # Ban check (table-scoped)
+        user_record = self._db.get_user(user.username)
+        if user_record and table.is_banned(user_record.uuid):
+            user.speak_l("table-you-are-banned")
             self._return_from_join_menu(user, state)
             return
 

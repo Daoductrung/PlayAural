@@ -71,6 +71,15 @@ class ActionSetCreationMixin:
         )
         action_set.add(
             Action(
+                id="host_management",
+                label=Localization.get(locale, "host-management"),
+                handler="_action_host_management",
+                is_enabled="_is_host_management_enabled",
+                is_hidden="_is_host_management_hidden",
+            )
+        )
+        action_set.add(
+            Action(
                 id="leave_game",
                 label=Localization.get(locale, "leave-table"),
                 handler="_action_leave_game",
@@ -172,6 +181,12 @@ class ActionSetCreationMixin:
             ["toggle_spectator"],
             state=KeybindState.IDLE,
             include_spectators=True,
+        )
+        self.define_keybind(
+            "h",
+            "Host Management",
+            ["host_management"],
+            state=KeybindState.ALWAYS,
         )
         self.define_keybind(
             "ctrl+q",

@@ -245,6 +245,17 @@ class LobbyActionsMixin:
         elif user:
             user.speak_l("no-actions-available")
 
+    def _action_host_management(self, player: "Player", action_id: str) -> None:
+        """Open the server-level host management menu (host only)."""
+        if player.name != self.host:
+            return
+        user = self.get_user(player)
+        if not user or not self._table:
+            return
+        server = self._table._server
+        if server and hasattr(server, "_show_host_management_menu"):
+            server._show_host_management_menu(user, self._table)
+
     def _action_save_table(self, player: "Player", action_id: str) -> None:
         """Save the current table state (host only). This destroys the table."""
         if self._table:

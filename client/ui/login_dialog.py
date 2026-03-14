@@ -672,5 +672,6 @@ class LoginDialog(wx.Dialog):
             "password": self.password,
             "server_url": self.server_url,
             "server_id": self.server_id,
+            "account_id": self.account_id,
             "config_manager": self.config_manager,
         }

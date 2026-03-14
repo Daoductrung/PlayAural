@@ -148,3 +148,4 @@ reg-error-email = Email is required to register.
 error-email-taken = This email is already in use by another account.
 
 auth-error-rate-limit = Too many failed login attempts. Please try again in 15 minutes.
+auth-auto-login-disabled = Auto-login has been disabled for this account. Please log in manually and update your credentials if needed.

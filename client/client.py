@@ -43,7 +43,7 @@ def main():
     
     # Get saved language or default to 'en'
     # Check default options
-    locale = config_manager.profiles["client_options_defaults"].get("interface_language", "en")
+    locale = config_manager.get_client_options().get("interface_language", "en")
     
     from localization import Localization
     logging.getLogger("playaural").info(
@@ -58,14 +58,16 @@ def main():
         login_dialog = LoginDialog(disconnect_message=disconnect_message, version=version)
 
         credentials = None
-        disconnect_message = None # Reset message
+        came_from_failure = bool(disconnect_message)
+        disconnect_message = None # Reset message for next iteration
 
         # Access the detected account from the dialog we just created.
         # If auto-login is set, trust the cached credentials and skip the dialog.
+        # Skip if we came from a failure — user must see the error and act manually.
         # The server will reject bad credentials via on_login_failed, so there is
         # no need for a separate _test_connection round-trip that doubles the
         # number of WebSocket handshakes the user pays for on every startup.
-        if login_dialog.account_id:
+        if login_dialog.account_id and not came_from_failure:
             account = login_dialog.config_manager.get_account_by_id(login_dialog.server_id, login_dialog.account_id)
             if account and account.get("auto_login", False):
                 logging.getLogger("playaural").info("Auto-login: using cached credentials.")
@@ -74,6 +76,7 @@ def main():
                     "password": account["password"],
                     "server_url": login_dialog.server_url,
                     "server_id": login_dialog.server_id,
+                    "account_id": login_dialog.account_id,
                     "config_manager": login_dialog.config_manager,
                 }
 

@@ -1356,8 +1356,7 @@ class MainWindow(wx.Frame):
         locale = packet.get("locale", "en")
 
         # Save locale to config
-        self.config_manager.profiles["client_options_defaults"]["interface_language"] = locale
-        self.config_manager.save_profiles()
+        self.config_manager.set_client_option("interface_language", locale, create_mode=True)
         
         # Apply preferences from server
         preferences = packet.get("preferences", {})
@@ -1774,8 +1773,7 @@ class MainWindow(wx.Frame):
     def on_update_locale(self, packet):
         """Handle update_locale packet from server."""
         locale = packet.get("locale", "en")
-        self.config_manager.profiles["client_options_defaults"]["interface_language"] = locale
-        self.config_manager.save_profiles()
+        self.config_manager.set_client_option("interface_language", locale, create_mode=True)
         
         # Notify user that restart is required if locale changed
         if locale != Localization._locale:
@@ -1794,92 +1792,11 @@ class MainWindow(wx.Frame):
         self.server_options = packet.get("options", {})
 
     def on_update_options_lists(self, packet):
-        """Handle update_options_lists packet from server.
-
-        Automatically updates client options to include new games and languages
-        without requiring the user to open the options dialog.
-        """
+        """Handle update_options_lists packet from server."""
         self.games_list = packet.get("games", [])
         self.lang_codes = packet.get("languages", {})
         if not self.config_manager or not self.server_id:
             return
-
-        updated = False
-
-        languages = tuple(self.lang_codes.values())
-        # Update games in both default profile and server profile
-        if self.games_list:
-            # Update default profile
-            default_local_table = self.config_manager.profiles[
-                "client_options_defaults"
-            ].setdefault("local_table", {})
-            default_creation_notifications = default_local_table.setdefault("creation_notifications", {})
-            for game_info in self.games_list:
-                game_name = game_info["name"]
-                if game_name not in default_creation_notifications:
-                    default_creation_notifications[game_name] = True
-                    updated = True
-
-            # Update server profile
-            if "servers" in self.config_manager.profiles and self.server_id in self.config_manager.profiles["servers"]:
-                server_overrides = self.config_manager.profiles["servers"][
-                    self.server_id
-                ].setdefault("options_overrides", {})
-                server_local_table = server_overrides.setdefault("local_table", {})
-                server_creation_notifications = server_local_table.setdefault(
-                    "creation_notifications", {}
-                )
-                for game_info in self.games_list:
-                    game_name = game_info["name"]
-                    if game_name not in server_creation_notifications:
-                        server_creation_notifications[game_name] = True
-                        updated = True
-
-        # Update languages in both default profile and server profile
-        # Rebuild dicts to match server order (alphabetical ascending)
-        if languages:
-            # Update default profile - rebuild to match server order
-            default_social = self.config_manager.profiles[
-                "client_options_defaults"
-            ].setdefault("social", {})
-            default_lang_subscriptions = default_social.get(
-                "language_subscriptions", {}
-            )
-            new_default_subscriptions = {}
-            for language in languages:
-                # Preserve existing value or default to False
-                new_default_subscriptions[language] = default_lang_subscriptions.get(language, False)
-            # Update if keys changed (order or new languages added)
-            if list(new_default_subscriptions.keys()) != list(default_lang_subscriptions.keys()):
-                default_social["language_subscriptions"] = new_default_subscriptions
-                updated = True
-
-            # Update server profile - rebuild to match server order
-            if self.server_id in self.config_manager.profiles["servers"]:
-                server_overrides = self.config_manager.profiles["servers"][
-                    self.server_id
-                ].setdefault("options_overrides", {})
-                social_overrides = server_overrides.setdefault("social", {})
-                lang_subscriptions = social_overrides.get(
-                    "language_subscriptions", {}
-                )
-                new_subscriptions = {}
-                for language in languages:
-                    # Preserve existing value or default to False
-                    new_subscriptions[language] = lang_subscriptions.get(language, False)
-                # Update if keys changed (order or new languages added)
-                if list(new_subscriptions.keys()) != list(lang_subscriptions.keys()):
-                    social_overrides["language_subscriptions"] = new_subscriptions
-                    updated = True
-
-        # Save if any changes were made
-        if updated:
-            self.config_manager.save_profiles()
-            # Reload client options to reflect the changes
-            self.client_options = self.config_manager.get_client_options(self.server_id)
-
-        # Send client options to server after update_options_lists is complete
-        # (this ensures migration and options list updates are both finished)
         self.send_client_options_to_server()
 
     def send_client_options_to_server(self):
@@ -2087,8 +2004,6 @@ class MainWindow(wx.Frame):
     def on_table_create(self, packet):
         host = packet.get("host")
         game = packet.get("game")
-        if not self.client_options["local_table"]["creation_notifications"][game]:
-            return
         self.sound_manager.play("notify.ogg")
         self.add_history(f"{host} is hosting {game}.", "activity")
 
@@ -2501,15 +2416,26 @@ class MainWindow(wx.Frame):
 
     def on_login_failed(self, packet):
         """Handle login failure from server."""
-        # Map raw server reason codes to localized strings so client.py can
-        # display a meaningful message in the login dialog on the next loop.
         raw_reason = packet.get("reason", "")
         reason_map = {
             "wrong_password": Localization.get("auth-error-wrong-password"),
             "user_not_found": Localization.get("auth-error-user-not-found"),
             "rate_limit": Localization.get("auth-error-rate-limit"),
         }
-        self.disconnect_reason = reason_map.get(raw_reason) or Localization.get("login-info-failed")
+        error_msg = reason_map.get(raw_reason) or Localization.get("login-info-failed")
+
+        # Credential errors (permanent failures) — disable auto-login so the user
+        # is not silently trapped in an infinite reconnect loop.
+        credential_errors = {"wrong_password", "user_not_found"}
+        if raw_reason in credential_errors:
+            account_id = self.credentials.get("account_id")
+            server_id = self.credentials.get("server_id")
+            config_manager = self.credentials.get("config_manager")
+            if account_id and server_id and config_manager:
+                config_manager.update_account(server_id, account_id, auto_login=False)
+            error_msg = f"{error_msg} {Localization.get('auth-auto-login-disabled')}"
+
+        self.disconnect_reason = error_msg
         # Stop looping audio before the window closes.
         self.sound_manager.stop_music(fade=False)
         self.sound_manager.stop_ambience(force=True)

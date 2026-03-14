@@ -2,8 +2,7 @@
 
 Handles client-side configuration including:
 - Server management with user accounts (identities.json - private)
-- Global default options (option_profiles.json - shareable)
-- Per-server option overrides (option_profiles.json - shareable)
+- Client options stored within identities.json
 """
 
 import json
@@ -88,16 +87,15 @@ def delete_item_from_dict(dictionary: dict, key_path: (str, tuple), *, delete_em
 class ConfigManager:
     """Manages client configuration and per-server settings.
 
-    Uses two separate files:
-    - identities.json: Contains servers with user accounts (private, not shareable)
-    - option_profiles.json: Contains client options (shareable, no credentials)
+    Uses a single file:
+    - identities.json: Contains servers with user accounts and client options (private)
     """
 
     def __init__(self, base_path: Optional[Path] = None):
         """Initialize the config manager.
 
         Args:
-            base_path: Base directory path. Defaults to ~/.playaural/
+            base_path: Base directory path. Defaults to %APPDATA%/ddt.one/PlayAural/
         """
         if base_path is None:
             import os
@@ -110,24 +108,41 @@ class ConfigManager:
 
         self.base_path = base_path
         self.identities_path = base_path / "identities.json"
-        self.profiles_path = base_path / "option_profiles.json"
 
         self.identities = self._load_identities()
-        self.profiles = self._load_profiles()
 
     def _load_identities(self) -> Dict[str, Any]:
-        """Load identities from file (servers with user accounts)."""
+        """Load identities from file (servers, accounts, and client options)."""
         if self.identities_path.exists():
             try:
                 with open(self.identities_path, "r") as f:
                     identities = json.load(f)
+                needs_save = False
                 # Migrate any plaintext passwords to the system keyring.
                 if self._migrate_passwords_to_keyring(identities):
+                    needs_save = True
+                    print("Password migration to keyring complete.")
+                # Ensure client_options exists with all current defaults filled in.
+                if "client_options" not in identities:
+                    identities["client_options"] = self._get_default_client_options()
+                    needs_save = True
+                else:
+                    # Fill in any keys added since the file was last written.
+                    merged = self._deep_merge(
+                        self._get_default_client_options(),
+                        identities["client_options"],
+                    )
+                    if merged != identities["client_options"]:
+                        identities["client_options"] = merged
+                        needs_save = True
+                # One-shot migration: absorb option_profiles.json if it still exists.
+                if self._migrate_from_profiles(identities):
+                    needs_save = True
+                if needs_save:
                     try:
                         self.base_path.mkdir(parents=True, exist_ok=True)
                         with open(self.identities_path, "w") as f:
                             json.dump(identities, f, indent=2)
-                        print("Password migration to keyring complete.")
                     except Exception as e:
                         print(f"Error saving migrated identities: {e}")
                 return identities
@@ -135,7 +150,16 @@ class ConfigManager:
                 print(f"Error loading identities: {e}")
                 return self._get_default_identities()
 
-        return self._get_default_identities()
+        # Fresh install — try absorbing option_profiles.json before returning defaults.
+        identities = self._get_default_identities()
+        if self._migrate_from_profiles(identities):
+            try:
+                self.base_path.mkdir(parents=True, exist_ok=True)
+                with open(self.identities_path, "w") as f:
+                    json.dump(identities, f, indent=2)
+            except Exception as e:
+                print(f"Error saving migrated identities: {e}")
+        return identities
 
     def _migrate_passwords_to_keyring(self, identities: Dict[str, Any]) -> bool:
         """Move any plaintext passwords found in *identities* to the system keyring.
@@ -162,125 +186,61 @@ class ConfigManager:
                         print(f"Error migrating password for {account_id}: {e}")
         return migrated
 
+    def _migrate_from_profiles(self, identities: Dict[str, Any]) -> bool:
+        """Absorb option_profiles.json into identities if it exists, then delete it.
+
+        User-saved values from the old file win over code defaults so that
+        existing settings are preserved across the migration.
+
+        Returns:
+            ``True`` if the migration file was found and processed.
+        """
+        profiles_path = self.base_path / "option_profiles.json"
+        if not profiles_path.exists():
+            return False
+        try:
+            with open(profiles_path, "r") as f:
+                profiles = json.load(f)
+            old_defaults = profiles.get("client_options_defaults", {})
+            # Strip keys that no longer exist in the data model.
+            old_defaults.pop("local_table", None)
+            old_defaults.pop("server_options", None)
+            if old_defaults:
+                # Old file values override current defaults (user may have customised them).
+                identities["client_options"] = self._deep_merge(
+                    identities["client_options"], old_defaults
+                )
+            profiles_path.unlink()
+            print("Migrated option_profiles.json into identities.json.")
+        except Exception as e:
+            print(f"Error migrating option_profiles.json: {e}")
+        return True
+
     def _get_default_identities(self) -> Dict[str, Any]:
         """Get default identities structure."""
         return {
             "last_server_id": None,
-            "servers": {},  # server_id -> server info with accounts
+            "servers": {},
+            "client_options": self._get_default_client_options(),
         }
 
-    def _load_profiles(self) -> Dict[str, Any]:
-        """Load option profiles from file (shareable, no credentials)."""
-        if not self.profiles_path.exists():
-            return self._get_default_profiles()
-
-        try:
-            with open(self.profiles_path, "r") as f:
-                profiles = json.load(f)
-                # Migrate old combined config if needed
-                return self._migrate_profiles(profiles)
-        except Exception as e:
-            print(f"Error loading profiles: {e}")
-            return self._get_default_profiles()
-
-    def _get_default_profiles(self) -> Dict[str, Any]:
-        """Get default profiles structure (shareable)."""
+    def _get_default_client_options(self) -> Dict[str, Any]:
+        """Get the canonical default client options."""
         return {
-            "client_options_defaults": {
-                "interface_language": "en",
-                "audio": {"music_volume": 20, "ambience_volume": 20},
-                "social": {
-                    "mute_global_chat": False,
-                    "mute_table_chat": False,
-                },
-                "interface": {
-                    "invert_multiline_enter_behavior": False,
-                    "play_typing_sounds": True,
-                },
-                "local_table": {
-                    "start_as_visible": "always",
-                    "start_with_password": "never",
-                    "default_password_text": "",
-                    "creation_notifications": {}},  # Will be populated dynamically
+            "interface_language": "en",
+            "audio": {"music_volume": 20, "ambience_volume": 20},
+            "social": {
+                "mute_global_chat": False,
+                "mute_table_chat": False,
+            },
+            "interface": {
+                "invert_multiline_enter_behavior": False,
+                "play_typing_sounds": True,
+            },
+            "game": {
+                "clear_kept_on_roll": False,
             },
         }
-
-    def _migrate_profiles(self, profiles: Dict[str, Any]) -> Dict[str, Any]:
-        """Migrate profiles to fix data issues.
-
-        Args:
-            profiles: The loaded profiles dictionary
-
-        Returns:
-            Migrated profiles dictionary
-        """
-        needs_save = False
-
-        # Migration: Convert old "servers" structure to "server_options"
-        if "servers" in profiles and "server_options" not in profiles:
-            profiles["server_options"] = {}
-            for server_id, server_info in profiles["servers"].items():
-                if "options_overrides" in server_info and server_info["options_overrides"]:
-                    profiles["server_options"][server_id] = server_info["options_overrides"]
-            del profiles["servers"]
-            needs_save = True
-            print("Migrated 'servers' to 'server_options' in profiles")
-
-        # Ensure server_options exists
-        if "server_options" not in profiles:
-            profiles["server_options"] = {}
-
-        # Migration: Rename table_creations to local_table/creation_notifications
-        # and add new default options to local_table
-        if "client_options_defaults" in profiles:
-            defaults = profiles["client_options_defaults"]
-            if "table_creations" in defaults:
-                table_creations_value = defaults.pop("table_creations")
-                if "local_table" not in defaults:
-                    defaults["local_table"] = {}
-                # Build local_table with proper ordering (new options before creation_notifications)
-                new_local_table = {
-                    "start_as_visible": defaults["local_table"].get("start_as_visible", "always"),
-                    "start_with_password": defaults["local_table"].get("start_with_password", "never"),
-                    "default_password_text": defaults["local_table"].get("default_password_text", ""),
-                    "creation_notifications": table_creations_value,
-                }
-                # Preserve any other existing keys in local_table
-                for key, value in defaults["local_table"].items():
-                    if key not in new_local_table:
-                        new_local_table[key] = value
-                defaults["local_table"] = new_local_table
-                needs_save = True
-                print("Migrated 'table_creations' -> 'local_table/creation_notifications' in default profile")
-
-        # Check each server override for table_creations
-        for server_id, overrides in profiles.get("server_options", {}).items():
-            if "table_creations" in overrides:
-                table_creations_value = overrides.pop("table_creations")
-                if "local_table" not in overrides:
-                    overrides["local_table"] = {}
-                # Build local_table with proper ordering
-                new_local_table = {
-                    "start_as_visible": overrides["local_table"].get("start_as_visible", "always"),
-                    "start_with_password": overrides["local_table"].get("start_with_password", "never"),
-                    "default_password_text": overrides["local_table"].get("default_password_text", ""),
-                    "creation_notifications": table_creations_value,
-                }
-                # Preserve any other existing keys in local_table
-                for key, value in overrides["local_table"].items():
-                    if key not in new_local_table:
-                        new_local_table[key] = value
-                overrides["local_table"] = new_local_table
-                needs_save = True
-                print(f"Migrated 'table_creations' -> 'local_table/creation_notifications' in server {server_id}")
-
-        # Save immediately if migration occurred
-        if needs_save:
-            self.profiles = profiles
-            self.save_profiles()
-            print("Profile migration completed and saved to disk.")
-
-        return profiles
 
     def _deep_merge(
         self, base: Dict[str, Any], override: Dict[str, Any], override_wins: bool = True
@@ -312,7 +272,7 @@ class ConfigManager:
         return result
 
     def save_identities(self):
-        """Save identities to file."""
+        """Save identities (including client options) to file."""
         try:
             # Create directory if it doesn't exist
             self.base_path.mkdir(parents=True, exist_ok=True)
@@ -322,21 +282,9 @@ class ConfigManager:
         except Exception as e:
             print(f"Error saving identities: {e}")
 
-    def save_profiles(self):
-        """Save option profiles to file."""
-        try:
-            # Create config directory if it doesn't exist
-            self.base_path.mkdir(parents=True, exist_ok=True)
-
-            with open(self.profiles_path, "w") as f:
-                json.dump(self.profiles, f, indent=2)
-        except Exception as e:
-            print(f"Error saving profiles: {e}")
-
     def save(self):
-        """Save both identities and profiles."""
+        """Save all configuration."""
         self.save_identities()
-        self.save_profiles()
 
     # ========== Server Management ==========
 
@@ -399,7 +347,7 @@ class ConfigManager:
         """
         if server_id is None:
             server_id = str(uuid.uuid4())
-            
+
         self.identities["servers"][server_id] = {
             "server_id": server_id,
             "name": name,
@@ -607,10 +555,12 @@ class ConfigManager:
             notes: New notes (if provided)
             auto_login: New auto-login settings (if provided)
         """
-        account = self.get_account_by_id(server_id, account_id)
-        if not account:
+        server = self.get_server_by_id(server_id)
+        if not server or account_id not in server.get("accounts", {}):
             return
 
+        # Modify the actual dict in self.identities (not a copy).
+        account = server["accounts"][account_id]
         if username is not None:
             account["username"] = username
         if password is not None:
@@ -664,21 +614,22 @@ class ConfigManager:
         self.save_identities()
 
     def get_client_options(self, server_id: Optional[str] = None) -> Dict[str, Any]:
-        """Get client options (global defaults).
-        
+        """Get client options.
+
         Args:
             server_id: Legacy argument, ignored.
-            
+
         Returns:
-            Global options dict
+            Client options dict
         """
-        # Always return defaults
-        return self._deep_copy(self.profiles["client_options_defaults"])
+        return self._deep_copy(
+            self.identities.get("client_options", self._get_default_client_options())
+        )
 
     def set_client_option(
         self, key_path: str, value: Any, server_id: Optional[str] = None, *, create_mode: bool = False
     ):
-        """Set a client option (global default).
+        """Set a client option.
 
         Args:
             key_path: Path to the option (e.g., "audio/music_volume")
@@ -686,14 +637,12 @@ class ConfigManager:
             server_id: Legacy argument, ignored.
             create_mode: If True, create intermediate dictionaries as needed
         """
-        # Always set default
-        target = self.profiles["client_options_defaults"]
-        
+        if "client_options" not in self.identities:
+            self.identities["client_options"] = self._get_default_client_options()
+        target = self.identities["client_options"]
         success = set_item_in_dict(target, key_path, value, create_mode=create_mode)
         if success:
-             self.save_profiles()
-
-
+            self.save_identities()
 
     def _deep_copy(self, obj: Any) -> Any:
         """Deep copy a nested dict/list structure."""
@@ -703,4 +652,3 @@ class ConfigManager:
             return [self._deep_copy(item) for item in obj]
         else:
             return obj
-

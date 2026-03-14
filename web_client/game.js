@@ -822,15 +822,15 @@ class GameClient {
         };
         localStorage.setItem('playaural_config', JSON.stringify(config));
 
-        // Save Credentials if Auto-Login checked.
-        // Username is stored in localStorage (not sensitive).
-        // Password is stored in sessionStorage only — it is never written to
-        // localStorage so it cannot be read across browser sessions.
+        // Save Credentials if "Remember Me" is checked.
+        // When checked: password persists in localStorage (explicit user opt-in).
+        // When unchecked: password lives in sessionStorage only (cleared on browser close).
         if (this.lastUser && this.lastPass) {
             const autoLogin = document.getElementById('chk-auto-login').checked;
             if (autoLogin) {
                 localStorage.setItem('pa_user', this.lastUser);
-                sessionStorage.setItem('pa_pass', this.lastPass);
+                localStorage.setItem('pa_pass', this.lastPass);
+                localStorage.setItem('pa_remember', '1');
             }
         }
     }
@@ -2335,17 +2335,14 @@ class GameClient {
         this.registerScreen = document.getElementById('register-screen');
         this.gameScreen = document.getElementById('game-screen');
 
-        // Migrate: remove any password that a previous version stored in localStorage.
-        if (localStorage.getItem('pa_pass')) {
-            const migratedPass = localStorage.getItem('pa_pass');
-            sessionStorage.setItem('pa_pass', migratedPass);
-            localStorage.removeItem('pa_pass');
-        }
-
         // Load Auto-login capability.
-        // Username lives in localStorage; password lives in sessionStorage only.
+        // When "Remember Me" was checked, pa_remember='1' and pa_pass live in localStorage.
+        // Otherwise password lives in sessionStorage only (cleared on browser close).
         const storedUser = localStorage.getItem('pa_user');
-        const storedPass = sessionStorage.getItem('pa_pass');
+        const remember = localStorage.getItem('pa_remember') === '1';
+        const storedPass = remember
+            ? localStorage.getItem('pa_pass')
+            : sessionStorage.getItem('pa_pass');
 
         if (storedUser && storedPass) {
             this.lastUser = storedUser;
@@ -2387,9 +2384,13 @@ class GameClient {
         this.resetPasswordScreen.classList.add('hidden');
         this.gameScreen.classList.add('hidden');
 
-        // Re-check auto-login state
+        // Re-check auto-login state — require both user and a retrievable password
         const storedUser = localStorage.getItem('pa_user');
-        if (storedUser) {
+        const _remember = localStorage.getItem('pa_remember') === '1';
+        const _storedPass = _remember
+            ? localStorage.getItem('pa_pass')
+            : sessionStorage.getItem('pa_pass');
+        if (storedUser && _storedPass) {
             document.getElementById('landing-actions').classList.add('hidden');
             document.getElementById('saved-session-view').classList.remove('hidden');
         } else {
@@ -2411,6 +2412,12 @@ class GameClient {
         if (this.regStatusMsg) this.regStatusMsg.innerText = "";
         if (this.statusMsg) this.statusMsg.innerText = "";
 
+
+        // Restore "Remember Me" checkbox from the stored preference
+        const chkAutoLogin = document.getElementById('chk-auto-login');
+        if (chkAutoLogin) {
+            chkAutoLogin.checked = localStorage.getItem('pa_remember') === '1';
+        }
 
         // Safety: Stop any pending reconnects if user manually returning to login
         if (this.reconnectTimer) {
@@ -2479,12 +2486,15 @@ class GameClient {
         }
 
         if (autoLogin) {
+            // Explicit opt-in: persist credentials across browser sessions
             localStorage.setItem('pa_user', username);
-            sessionStorage.setItem('pa_pass', password);
+            localStorage.setItem('pa_pass', password);
+            localStorage.setItem('pa_remember', '1');
         } else {
-            // Only clear ONLY if user explicitly unchecked? 
-            // Or usually we don't clear unless they say "Remove Account".
-            // Implementation: Update lastUser/Pass, but saving to LS only if checked.
+            // No persistent remember: clear any stored password and use session only
+            localStorage.removeItem('pa_pass');
+            localStorage.removeItem('pa_remember');
+            sessionStorage.setItem('pa_pass', password);
         }
 
         this.connect(serverUrl, username, password);
@@ -2492,7 +2502,10 @@ class GameClient {
 
     autoLoginConnection() {
         const storedUser = localStorage.getItem('pa_user');
-        const storedPass = sessionStorage.getItem('pa_pass');
+        const remember = localStorage.getItem('pa_remember') === '1';
+        const storedPass = remember
+            ? localStorage.getItem('pa_pass')
+            : sessionStorage.getItem('pa_pass');
         // Retrieve loaded URL from input (restored by loadConfig)
         const serverUrl = document.getElementById('server-url').value || "wss://playaural.ddt.one:443";
 
@@ -2676,6 +2689,8 @@ class GameClient {
 
     removeAccount() {
         localStorage.removeItem('pa_user');
+        localStorage.removeItem('pa_pass');
+        localStorage.removeItem('pa_remember');
         sessionStorage.removeItem('pa_pass');
         this.lastUser = null;
         this.lastPass = null;

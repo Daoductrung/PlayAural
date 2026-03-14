@@ -68,6 +68,17 @@ class Server:
         "host_kick_menu", "host_kick_ban_menu", "table_invite_prompt",
     }
 
+    # Subset of GLOBAL_SYSTEM_MENUS: menus that are transient overlays shown
+    # while the player is still inside a game.  When _restore_previous_menu
+    # encounters one of these as the return target it must call _return_to_game
+    # (which clears game._actions_menu_open) rather than re-displaying the
+    # overlay or falling back to the main menu.
+    # Add new in-game overlay menus here — nowhere else needs to change.
+    IN_GAME_OVERLAY_MENUS = {
+        "host_management_menu", "host_invite_menu", "host_pass_menu",
+        "host_kick_menu", "host_kick_ban_menu",
+    }
+
     def __init__(
         self,
         host: str = "0.0.0.0",
@@ -5390,6 +5401,15 @@ PlayAural Server
                     if player:
                         # Re-send the game's standard UI to clear the online list modal
                         table.game.rebuild_menu(player)
+        elif previous_menu_id in self.IN_GAME_OVERLAY_MENUS:
+            # The user navigated away (e.g. via the online users list) while an
+            # in-game overlay was open.  Restoring original_state would leave
+            # _user_states pointing at the overlay and would NOT clear
+            # game._actions_menu_open, permanently blocking menu rebuilds.
+            # _return_to_game handles both concerns atomically.
+            table_id = original_state.get("table_id")
+            table = self._tables.get_table(table_id) if table_id else None
+            self._return_to_game(user, table)
         else:
             # Fallback for dynamic/deep menus to prevent getting stuck
             self._show_main_menu(user)

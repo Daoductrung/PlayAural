@@ -99,13 +99,13 @@ class Table(DataClassJSONMixin):
 
         if self.status == "waiting" and username == self.host:
             # Host left/kicked in lobby -> promote new host
-            # Filter for humans (not bots). Note: Removed user is already gone from self.members
+            # Filter for non-spectator humans. Note: Removed user is already gone from self.members
             candidates = [m for m in self.members if not m.is_spectator and not (self._users.get(m.username) and getattr(self._users.get(m.username), "is_bot", False))]
-            
+
             if candidates:
                 # Prioritize ONLINE humans
                 candidates.sort(key=lambda m: m.username in self._server._users if self._server else False, reverse=True)
-                
+
                 new_host = candidates[0].username
                 self.host = new_host
                 # Broadcast via game if possible
@@ -114,6 +114,13 @@ class Table(DataClassJSONMixin):
                     self._game.host = new_host
                     if hasattr(self._game, "rebuild_all_menus"):
                         self._game.rebuild_all_menus()
+            else:
+                # No non-spectator human can take over as host: destroy the table.
+                # This handles the case where only spectators remain after the host leaves
+                # (e.g. host is the only player and others joined as spectators, or the
+                # host toggled to spectator and all remaining members are spectators).
+                self.destroy()
+                return
 
         # Auto-destroy if no members left (e.g. all humans left)
         if not self.members:

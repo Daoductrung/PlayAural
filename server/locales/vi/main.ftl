@@ -539,6 +539,7 @@ host-kick-ban-broadcast = { $player } đã bị đuổi và cấm khỏi bàn.
 host-kick-you = Bạn đã bị { $host } đuổi khỏi bàn.
 host-kick-ban-you = Bạn đã bị { $host } đuổi và cấm khỏi bàn.
 table-you-are-banned = Bạn bị cấm khỏi bàn này.
+table-private-invite-only = Bàn này là riêng tư. Bạn cần được chủ phòng mời để tham gia.
 
 error-smtp-not-configured = Tính năng khôi phục mật khẩu hiện đang bị quản trị viên vô hiệu hóa.
 error-email-not-found = Không tìm thấy tài khoản nào với địa chỉ email đó.

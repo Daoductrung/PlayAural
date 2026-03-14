@@ -2394,7 +2394,10 @@ PlayAural Server
             items.append(MenuItem(text=Localization.get(user.locale, "send-private-message"), id="send_pm"))
             table = self._tables.find_user_table(target_username)
             if table:
-                items.append(MenuItem(text=Localization.get(user.locale, "join-table"), id="join_table"))
+                # Only show "Join Table" if the table is public OR the user is already a member
+                user_is_member = any(m.username == user.username for m in table.members)
+                if not table.is_private or user_is_member:
+                    items.append(MenuItem(text=Localization.get(user.locale, "join-table"), id="join_table"))
 
         items.append(MenuItem(text=Localization.get(user.locale, "remove-friend"), id="remove_friend"))
         items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
@@ -2444,6 +2447,13 @@ PlayAural Server
                          return
                     else:
                          current_table.remove_member(user.username)
+
+                # Block direct joins to private tables (must receive an explicit host invite)
+                user_is_member = any(m.username == user.username for m in table.members)
+                if table.is_private and not user_is_member:
+                    user.speak_l("table-private-invite-only")
+                    self._show_friend_actions_menu(user, target_username)
+                    return
 
                 # Proceed to join
                 self._auto_join_table(user, table, table.game_type)
@@ -3509,7 +3519,12 @@ PlayAural Server
             "prev_state": prev_state,
         }
 
+        invite_text = Localization.get(
+            invitee_user.locale, "table-invite-received",
+            host=host_user.username, game=game_name,
+        )
         items = [
+            MenuItem(text=invite_text, id=""),  # Static info line (unclickable)
             MenuItem(text=Localization.get(invitee_user.locale, "invite-accept"), id="accept"),
             MenuItem(text=Localization.get(invitee_user.locale, "invite-decline"), id="decline"),
         ]

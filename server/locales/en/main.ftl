@@ -542,6 +542,7 @@ host-kick-ban-broadcast = { $player } has been kicked and banned from the table.
 host-kick-you = You have been kicked from the table by { $host }.
 host-kick-ban-you = You have been kicked and banned from the table by { $host }.
 table-you-are-banned = You are banned from this table.
+table-private-invite-only = This table is private. You must receive an invite from the host to join.
 
 error-smtp-not-configured = Password recovery is currently disabled by the administrator.
 error-email-not-found = No account found with that email address.

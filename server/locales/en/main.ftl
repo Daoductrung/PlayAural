@@ -513,6 +513,7 @@ pm-sent-content = You to { $username }: { $message }
 pm-received = Private message from { $username }: { $message }
 
 host-management = Host Management
+table-spectator-suffix = (Spectator)
 host-management-set-private = Set Table to Private
 host-management-set-public = Set Table to Public
 host-management-invite = Invite a Friend

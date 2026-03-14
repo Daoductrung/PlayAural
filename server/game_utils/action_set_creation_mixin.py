@@ -183,10 +183,11 @@ class ActionSetCreationMixin:
             include_spectators=True,
         )
         self.define_keybind(
-            "h",
+            "ctrl+shift+m",
             "Host Management",
             ["host_management"],
             state=KeybindState.ALWAYS,
+            include_spectators=True,
         )
         self.define_keybind(
             "ctrl+q",

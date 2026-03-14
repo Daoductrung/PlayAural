@@ -3322,6 +3322,9 @@ PlayAural Server
             self._user_states[user.username] = {"menu": "in_game", "table_id": table.table_id}
             player = table.game.get_player_by_id(user.uuid)
             if player and hasattr(table.game, "rebuild_player_menu"):
+                # Clear the actions-menu-open guard set before rebuilding, so the
+                # turn menu is actually pushed (we set it in _action_host_management).
+                table.game._actions_menu_open.discard(player.id)
                 table.game.rebuild_player_menu(player)
         else:
             self._show_main_menu(user)
@@ -3642,17 +3645,19 @@ PlayAural Server
     def _get_host_kick_menu_items(self, user: NetworkUser, table: "Table") -> list[MenuItem]:
         """Build items for the kick menu (all human non-host players, including spectators)."""
         locale = user.locale
+        spectator_suffix = Localization.get(locale, "table-spectator-suffix")
         items: list[MenuItem] = []
         candidates = []
         if table.game:
             for p in table.game.players:
                 if not p.is_bot and p.name != user.username:
-                    candidates.append(p.name)
+                    label = f"{p.name} {spectator_suffix}" if p.is_spectator else p.name
+                    candidates.append((p.name, label))
         if not candidates:
             items.append(MenuItem(text=Localization.get(locale, "host-kick-no-candidates"), id=""))
         else:
-            for name in candidates:
-                items.append(MenuItem(text=name, id=f"kick_{name}"))
+            for name, label in candidates:
+                items.append(MenuItem(text=label, id=f"kick_{name}"))
         items.append(MenuItem(text=Localization.get(locale, "back"), id="back"))
         return items
 

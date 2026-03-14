@@ -254,6 +254,8 @@ class LobbyActionsMixin:
             return
         server = self._table._server
         if server and hasattr(server, "_show_host_management_menu"):
+            # Mark actions menu as open so rebuild_all_menus won't overwrite this menu
+            self._actions_menu_open.add(player.id)
             server._show_host_management_menu(user, self._table)
 
     def _action_save_table(self, player: "Player", action_id: str) -> None:

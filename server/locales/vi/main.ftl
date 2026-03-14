@@ -510,6 +510,7 @@ pm-sent-content = Bạn gửi đến { $username }: { $message }
 pm-received = Tin nhắn riêng từ { $username }: { $message }
 
 host-management = Quản lý phòng
+table-spectator-suffix = (Khán giả)
 host-management-set-private = Đặt bàn thành riêng tư
 host-management-set-public = Đặt bàn thành công khai
 host-management-invite = Mời bạn bè

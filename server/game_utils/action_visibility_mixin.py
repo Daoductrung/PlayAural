@@ -114,10 +114,8 @@ class ActionVisibilityMixin:
         return None
 
     def _is_host_management_hidden(self, player: "Player") -> Visibility:
-        """Host management is hidden from non-hosts and spectators."""
-        if player.name != self.host or player.is_spectator:
-            return Visibility.HIDDEN
-        return Visibility.VISIBLE
+        """Host management is always hidden (actions menu / Ctrl+Shift+M only)."""
+        return Visibility.HIDDEN
 
     def _is_leave_game_enabled(self, player: "Player") -> str | None:
         """Leave game is always enabled."""

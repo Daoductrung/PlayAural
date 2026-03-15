@@ -271,9 +271,9 @@ window.LOCALES = {
         // Shortcuts section
         "players-title": "Lối tắt",
         "btn-list-online": "Đọc tên người chơi trực tuyến",
-        "btn-list-online-games": "Danh sách người chơi kèm thông tin game",
+        "btn-list-online-games": "Danh sách người chơi trực tuyến",
         "btn-open-friends": "Mở danh sách bạn bè",
-        "btn-open-options": "Mở cài đặt",
+        "btn-open-options": "Mở tùy chỉnh",
         "btn-check-ping": "Kiểm tra độ trễ",
         "players-instruction": "Nhấn nút phía trên để xem danh sách người chơi trực tuyến.",
         "requesting-friends-hub": "Đang mở danh sách bạn bè...",

@@ -13,6 +13,13 @@ Here is a list of general keybinds used within the PlayAural system.
 * **F9 / F10:** Decrease / Increase Music Volume.
 * **Alt + P:** Check Network Latency (Ping).
 * **Alt + M:** Focus Main Menu.
+* **Alt + F:** Open Friends Hub (available anywhere, including while in a game).
+* **Alt + O:** Open Options (available anywhere, including while in a game).
+
+**In-Game Controls**
+
+* **F5:** Open the Actions menu (lists available game actions for the current turn).
+* **Ctrl + Shift + M:** Open Host Management (table hosts only; available during a game).
 
 **Buffer Navigation**
 
@@ -32,3 +39,13 @@ Keys used to navigate through lists and selection menus.
 * **Escape:** Go Back or Close Menu.
 * **Letters (A-Z):** Quickly jump to items starting with that letter.
 * **Known Issue:** This feature may not work correctly with accented characters.
+
+**Mobile & Web Users — Shortcuts Tab**
+
+If you are playing on a mobile device or through the web browser, you may not have access to a physical keyboard. The **Shortcuts** tab (found in the side panel during a game) gives you quick-access buttons for the most important global features:
+
+* **Open Friends:** Opens the Friends Hub, where you can view your friends list, send friend requests, and send private messages.
+* **Open Options:** Opens the Options menu, where you can adjust language, speech settings, and other preferences.
+* **Check Ping:** Tests your current connection latency to the server.
+
+These buttons work the same way as their keyboard equivalents and are available at any time, including while you are in an active game.

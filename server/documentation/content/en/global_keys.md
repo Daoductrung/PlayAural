@@ -18,7 +18,6 @@ Here is a list of general keybinds used within the PlayAural system.
 
 **In-Game Controls**
 
-* **F5:** Open the Actions menu (lists available game actions for the current turn).
 * **Ctrl + Shift + M:** Open Host Management (table hosts only; available during a game).
 
 **Buffer Navigation**

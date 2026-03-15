@@ -18,7 +18,6 @@ Dưới đây là danh sách các phím tắt chung được sử dụng trong h
 
 **Điều khiển trong ván chơi**
 
-* **F5:** Mở menu Hành động (liệt kê các hành động trò chơi có sẵn cho lượt hiện tại).
 * **Ctrl + Shift + M:** Mở Quản lý Phòng (chỉ dành cho chủ phòng; khả dụng trong ván chơi).
 
 **Điều hướng Bộ nhớ đệm (Buffer)**

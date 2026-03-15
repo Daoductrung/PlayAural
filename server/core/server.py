@@ -1,13 +1,14 @@
 """Main server class that ties everything together."""
 
 import asyncio
+import json
 import logging
 import os
+import re
 import sys
 import unicodedata
+from datetime import datetime
 from pathlib import Path
-
-import json
 
 from .tick import TickScheduler
 from ..administration.manager import AdministrationManager
@@ -22,6 +23,10 @@ from ..users.preferences import UserPreferences, DiceKeepingStyle
 from ..games.registry import GameRegistry, get_game_class
 from ..messages.localization import Localization
 from ..documentation.manager import DocumentationManager
+from .smtp_mailer import SmtpMailer
+from ..users.bot import Bot
+from ..game_utils.stats_helpers import LeaderboardHelper, RatingHelper
+from ..game_utils.game_result import GameResult
 
 
 VERSION = "0.1.11"
@@ -210,7 +215,6 @@ PlayAural Server
 
     def _load_tables(self) -> None:
         """Load tables from database and restore their games."""
-        from ..users.bot import Bot
 
         tables = self._db.load_all_tables()
         for table in tables:
@@ -879,8 +883,6 @@ PlayAural Server
         token = self._auth.generate_reset_token(user_record.uuid)
 
         # Send Email asynchronously
-        from .smtp_mailer import SmtpMailer
-
         user_locale = user_record.locale or "en"
         subject = Localization.get(user_locale, "email-reset-subject")
         body = Localization.get(user_locale, "email-reset-body", username=user_record.username, code=token)
@@ -907,8 +909,6 @@ PlayAural Server
 
     async def _handle_submit_reset_code(self, client: ClientConnection, packet: dict) -> None:
         """Handle submission of password reset code."""
-        import re
-
         locale = packet.get("locale", "en")
 
         # Rate limit check for code submission (prevent brute-forcing the 6-digit code)
@@ -1008,8 +1008,6 @@ PlayAural Server
 
     async def _handle_register(self, client: ClientConnection, packet: dict) -> None:
         """Handle registration packet from registration dialog."""
-        import re
-
         # Rate limit check (spam protection)
         if not self._rate_limiter.is_registration_allowed(client.ip_address):
             locale = packet.get("locale", "en")
@@ -2032,7 +2030,6 @@ PlayAural Server
         """Show banned screen with reason and expiration."""
         user.speak_l("banned-menu-title")
 
-        from datetime import datetime
         # Format reason
         if active_ban.reason_key.startswith("CUSTOM_"):
             loc_reason = active_ban.reason_key[7:]
@@ -2075,14 +2072,12 @@ PlayAural Server
         """Show saved tables menu."""
         saved = self._db.get_user_saved_tables(user.username)
 
-        if not saved:
-            user.speak_l("no-saved-tables")
-            self._show_main_menu(user)
-            return
-
         items = []
-        for record in saved:
-            items.append(MenuItem(text=record.save_name, id=f"saved_{record.id}"))
+        if not saved:
+            items.append(MenuItem(text=Localization.get(user.locale, "no-saved-tables"), id=""))
+        else:
+            for record in saved:
+                items.append(MenuItem(text=record.save_name, id=f"saved_{record.id}"))
         items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
 
         user.show_menu(
@@ -2294,22 +2289,22 @@ PlayAural Server
     ) -> None:
         """Handle main menu selection."""
         if selection_id == "play":
-            self._show_games_list_menu(user)
+            self._nav_push(user, self._show_games_list_menu)
         elif selection_id == "active_tables":
-            self._show_active_tables_menu(user)
+            self._nav_push(user, self._show_active_tables_menu)
         elif selection_id == "saved_tables":
-            self._show_saved_tables_menu(user)
+            self._nav_push(user, self._show_saved_tables_menu)
         elif selection_id == "leaderboards":
-            self._show_leaderboards_menu(user)
+            self._nav_push(user, self._show_leaderboards_menu)
         elif selection_id == "personal_options":
-            self._show_personal_options_menu(user)
+            self._nav_push(user, self._show_personal_options_menu)
         elif selection_id == "documentation":
-            self._show_documentation_menu(user)
+            self._nav_push(user, self._show_documentation_menu)
         elif selection_id == "administration":
             if user.trust_level >= 2:
-                self.admin_manager._show_admin_menu(user)
+                self._nav_push(user, self.admin_manager._show_admin_menu)
         elif selection_id == "logout":
-            self._show_logout_confirm_menu(user)
+            self._nav_push(user, self._show_logout_confirm_menu)
 
     def _show_personal_options_menu(self, user: NetworkUser) -> None:
         """Show the personal and options sub-menu."""
@@ -2331,15 +2326,15 @@ PlayAural Server
     async def _handle_personal_options_selection(self, user: NetworkUser, selection_id: str) -> None:
         """Handle personal and options menu selection."""
         if selection_id == "profile":
-            self._show_profile_menu(user)
+            self._nav_push(user, self._show_profile_menu)
         elif selection_id == "friends":
             self._nav_push(user, self._show_friends_hub_menu)
         elif selection_id == "my_stats":
-            self._show_my_stats_menu(user)
+            self._nav_push(user, self._show_my_stats_menu)
         elif selection_id == "options":
             self._nav_push(user, self._show_options_menu)
         elif selection_id == "back":
-            self._show_main_menu(user)
+            self._nav_back(user)
 
     def _get_friends_hub_menu_items(self, user: NetworkUser) -> list[MenuItem]:
         """Build menu items for the friends hub menu."""
@@ -2698,7 +2693,7 @@ PlayAural Server
         """Show the user's profile menu."""
         user_record = self._db.get_user(user.username)
         if not user_record:
-            self._show_personal_options_menu(user)
+            self._nav_back(user)
             return
 
         date_str = user_record.registration_date[:10] if user_record.registration_date else "Unknown"
@@ -2735,11 +2730,11 @@ PlayAural Server
             )
             self._user_states[user.username]["menu"] = "email_input"
         elif selection_id == "edit_gender":
-            self._show_gender_menu(user)
+            self._nav_push(user, self._show_gender_menu)
         elif selection_id == "edit_bio":
-            self._show_bio_actions_menu(user)
+            self._nav_push(user, self._show_bio_actions_menu)
         elif selection_id == "back":
-            self._show_personal_options_menu(user)
+            self._nav_back(user)
 
     def _show_gender_menu(self, user: NetworkUser) -> None:
         """Show the gender selection menu."""
@@ -2774,9 +2769,9 @@ PlayAural Server
             else:
                 self._db.update_user_gender(user.username, new_gender)
                 user.speak_l("gender-updated")
-            self._show_profile_menu(user)
+            self._nav_back(user)
         elif selection_id == "back":
-            self._show_profile_menu(user)
+            self._nav_back(user)
 
     def _show_bio_actions_menu(self, user: NetworkUser) -> None:
         """Show bio action options."""
@@ -2812,9 +2807,9 @@ PlayAural Server
                 user.speak_l("bio-deleted")
             else:
                 user.speak_l("bio-already-empty")
-            self._show_profile_menu(user)
+            self._nav_back(user)
         elif selection_id == "back":
-            self._show_profile_menu(user)
+            self._nav_back(user)
 
     def _show_email_confirm_menu(self, user: NetworkUser, new_email: str) -> None:
         """Show email change confirmation menu."""
@@ -2839,9 +2834,9 @@ PlayAural Server
             new_email = state.get("pending_email", "")
             self._db.update_user_email(user.username, new_email)
             user.speak_l("email-updated")
-            self._show_profile_menu(user)
+            self._nav_refresh(user, self._show_profile_menu)
         elif selection_id == "no":
-            self._show_profile_menu(user)
+            self._nav_refresh(user, self._show_profile_menu)
 
     def _show_logout_confirm_menu(self, user: NetworkUser) -> None:
         """Show logout confirmation menu."""
@@ -2870,7 +2865,7 @@ PlayAural Server
             # But we can schedule a failsafe close in case client is stuck
             asyncio.create_task(self._failsafe_close(user))
         elif selection_id == "no":
-            self._show_main_menu(user)
+            self._nav_back(user)
 
     async def _failsafe_close(self, user):
         """Close connection after delay if client hasn't already."""
@@ -2941,7 +2936,7 @@ PlayAural Server
         # For now, we use menu handlers.
         pass
 
-    async def _show_document_content(self, user: NetworkUser, doc_id: str) -> None:
+    def _show_document_content(self, user: NetworkUser, doc_id: str) -> None:
         """
         Display document content.
         For simplicity in this text/audio interface, we will:
@@ -3004,33 +2999,27 @@ PlayAural Server
     async def _handle_documentation_selection(self, user: NetworkUser, selection_id: str) -> None:
         """Handle main documentation menu selection."""
         if selection_id == "back":
-            self._show_main_menu(user)
+            self._nav_back(user)
         elif selection_id == "game_rules":
-            self._show_game_rules_menu(user)
+            self._nav_push(user, self._show_game_rules_menu)
         else:
             # Assume selection_id is a doc_id (e.g., 'intro', 'global_keys')
-            await self._show_document_content(user, selection_id)
+            self._nav_push(user, self._show_document_content, selection_id)
 
     async def _handle_doc_games_selection(self, user: NetworkUser, selection_id: str) -> None:
         """Handle game rules list selection."""
         if selection_id == "back":
-            self._show_documentation_menu(user)
+            self._nav_back(user)
         else:
             # selection_id is like 'games/scopa'
-            await self._show_document_content(user, selection_id)
+            self._nav_push(user, self._show_document_content, selection_id)
 
     async def _handle_doc_viewer_selection(self, user: NetworkUser, selection_id: str, state: dict) -> None:
         """Handle selection in document viewer."""
         if selection_id == "back":
-            # Logic to decide where to go back to
-            doc_id = state.get("doc_id", "")
-            if doc_id.startswith("games/"):
-                self._show_game_rules_menu(user)
-            else:
-                self._show_documentation_menu(user)
+            self._nav_back(user)
         else:
-            # User clicked a text line - maybe just read it again?
-            # Or do nothing, TTS reads it on focus.
+            # User clicked a text line - TTS reads it on focus.
             pass
 
     async def _handle_options_selection(
@@ -3178,9 +3167,9 @@ PlayAural Server
         """Handle game selection."""
         if selection_id.startswith("game_"):
             game_type = selection_id[5:]  # Remove "game_" prefix
-            self._show_tables_menu(user, game_type)
+            self._nav_push(user, self._show_tables_menu, game_type)
         elif selection_id == "back":
-            self._show_main_menu(user)
+            self._nav_back(user)
 
     async def _handle_tables_selection(
         self, user: NetworkUser, selection_id: str, state: dict
@@ -3242,18 +3231,17 @@ PlayAural Server
                 self._auto_join_table(user, table, game_type)
             else:
                 user.speak_l("table-not-exists", buffer="system")
-                self._show_tables_menu(user, game_type)
+                self._nav_refresh(user, self._show_tables_menu, game_type)
 
         elif selection_id == "back":
-            # Return to the main games list (not category view)
-            self._show_games_list_menu(user)
+            self._nav_back(user)
 
     async def _handle_active_tables_selection(
         self, user: NetworkUser, selection_id: str
     ) -> None:
         """Handle active tables menu selection."""
         if selection_id == "toggle_filter":
-            self._show_active_tables_filter_menu(user)
+            self._nav_push(user, self._show_active_tables_filter_menu)
             return
 
         elif selection_id == "no_tables_msg":
@@ -3266,9 +3254,9 @@ PlayAural Server
                 self._auto_join_table(user, table, table.game_type)
             else:
                 user.speak_l("table-not-exists")
-                self._show_active_tables_menu(user)
+                self._nav_refresh(user, self._show_active_tables_menu)
         elif selection_id == "back":
-            self._show_main_menu(user)
+            self._nav_back(user)
 
     async def _handle_active_tables_filter_selection(
         self, user: NetworkUser, selection_id: str
@@ -3283,12 +3271,11 @@ PlayAural Server
             filter_name = Localization.get(user.locale, filter_name_key)
             user.speak_l("active-tables-filter", filter=filter_name)
 
-            # Return to the active tables menu (which will automatically apply the new filter)
-            self._show_active_tables_menu(user)
+            self._nav_back(user)
             return
 
         elif selection_id == "back":
-            self._show_active_tables_menu(user)
+            self._nav_back(user)
             return
 
     def _auto_join_table(
@@ -3305,14 +3292,14 @@ PlayAural Server
         game = table.game
         if not game:
             user.speak_l("table-not-exists")
-            self._show_tables_menu(user, game_type)
+            self._nav_refresh(user, self._show_tables_menu, game_type)
             return
 
         # Ban check (table-scoped)
         user_record = self._db.get_user(user.username)
         if user_record and table.is_banned(user_record.uuid):
             user.speak_l("table-you-are-banned")
-            self._show_tables_menu(user, game_type)
+            self._nav_refresh(user, self._show_tables_menu, game_type)
             return
 
         table_id = table.table_id
@@ -3461,7 +3448,7 @@ PlayAural Server
             if table.game:
                 table.game.broadcast_l(key)
             self.on_tables_changed()
-            self._show_host_management_menu(user, table)
+            self._nav_refresh(user, self._show_host_management_menu, table)
 
         elif selection_id == "invite_friend":
             self._show_host_invite_menu(user, table)
@@ -3536,7 +3523,7 @@ PlayAural Server
             return
 
         if selection_id == "back":
-            self._show_host_management_menu(user, table)
+            self._nav_refresh(user, self._show_host_management_menu, table)
             return
 
         if not selection_id.startswith("invite_"):
@@ -3547,20 +3534,20 @@ PlayAural Server
 
         if not invitee_user:
             user.speak_l("host-invite-friend-unavailable")
-            self._show_host_invite_menu(user, table)
+            self._nav_refresh(user, self._show_host_invite_menu, table)
             return
         if invitee_name in self._pending_invites:
             user.speak_l("host-invite-already-pending")
-            self._show_host_invite_menu(user, table)
+            self._nav_refresh(user, self._show_host_invite_menu, table)
             return
         if self._tables.find_user_table(invitee_name):
             user.speak_l("host-invite-friend-busy")
-            self._show_host_invite_menu(user, table)
+            self._nav_refresh(user, self._show_host_invite_menu, table)
             return
 
         await self._send_table_invite(user, table, invitee_user)
         user.speak_l("host-invite-sent", player=invitee_name)
-        self._show_host_management_menu(user, table)
+        self._nav_refresh(user, self._show_host_management_menu, table)
 
     async def _send_table_invite(
         self, host_user: NetworkUser, table: "Table", invitee_user: NetworkUser
@@ -3699,7 +3686,7 @@ PlayAural Server
             return
 
         if selection_id == "back":
-            self._show_host_management_menu(user, table)
+            self._nav_refresh(user, self._show_host_management_menu, table)
             return
 
         if selection_id.startswith("pass_"):
@@ -3715,7 +3702,7 @@ PlayAural Server
                     self._return_to_game(user, table)
                     return
             user.speak_l("host-pass-failed")
-            self._show_host_pass_menu(user, table)
+            self._nav_refresh(user, self._show_host_pass_menu, table)
 
     # --- Kick / Kick-and-Ban ---
 
@@ -3767,7 +3754,7 @@ PlayAural Server
             return
 
         if selection_id == "back":
-            self._show_host_management_menu(user, table)
+            self._nav_refresh(user, self._show_host_management_menu, table)
             return
 
         if not selection_id.startswith("kick_"):
@@ -3782,7 +3769,7 @@ PlayAural Server
         target_player = table.game.get_player_by_name(target_name)
         if not target_player or target_player.is_bot or target_name == user.username:
             user.speak_l("host-kick-invalid-target")
-            self._show_host_kick_menu(user, table, ban=is_ban)
+            self._nav_refresh(user, self._show_host_kick_menu, table, ban=is_ban)
             return
 
         # If banning, record UUID against this table instance (runtime-only)
@@ -3827,7 +3814,7 @@ PlayAural Server
         self.on_tables_changed()
 
         # Redisplay updated kick menu so host can act on remaining players
-        self._show_host_kick_menu(user, table, ban=is_ban)
+        self._nav_refresh(user, self._show_host_kick_menu, table, ban=is_ban)
 
     async def _handle_join_selection(
         self, user: NetworkUser, selection_id: str, state: dict
@@ -3920,12 +3907,12 @@ PlayAural Server
         if selection_id.startswith("saved_"):
             try:
                 save_id = int(selection_id[6:])  # Remove "saved_" prefix
-                self._show_saved_table_actions_menu(user, save_id)
+                self._nav_push(user, self._show_saved_table_actions_menu, save_id)
             except ValueError:
                 # Malformed selection_id (like 'saved_tables') -> refresh menu
-                self._show_saved_tables_menu(user)
+                self._nav_refresh(user, self._show_saved_tables_menu)
         elif selection_id == "back":
-            self._show_main_menu(user)
+            self._nav_back(user)
 
     async def _handle_saved_table_actions_selection(
         self, user: NetworkUser, selection_id: str, state: dict
@@ -3933,7 +3920,7 @@ PlayAural Server
         """Handle saved table actions (restore/delete)."""
         save_id = state.get("save_id")
         if not save_id:
-            self._show_main_menu(user)
+            self._nav_back(user)
             return
 
         if selection_id == "restore":
@@ -3941,26 +3928,24 @@ PlayAural Server
         elif selection_id == "delete":
             self._db.delete_saved_table(save_id)
             user.speak_l("saved-table-deleted")
-            self._show_saved_tables_menu(user)
+            self._nav_back(user)
         elif selection_id == "back":
-            self._show_saved_tables_menu(user)
+            self._nav_back(user)
 
     async def _restore_saved_table(self, user: NetworkUser, save_id: int) -> None:
         """Restore a saved table."""
-        import json
-        from ..users.bot import Bot
 
         record = self._db.get_saved_table(save_id)
         if not record:
             user.speak_l("table-not-exists")
-            self._show_main_menu(user)
+            self._nav_back(user)
             return
 
         # Get the game class
         game_class = get_game_class(record.game_type)
         if not game_class:
             user.speak_l("game-type-not-found")
-            self._show_main_menu(user)
+            self._nav_back(user)
             return
 
         # Parse members from saved state
@@ -3981,7 +3966,7 @@ PlayAural Server
 
         if missing_players:
             user.speak_l("missing-players", players=", ".join(missing_players))
-            self._show_saved_tables_menu(user)
+            self._nav_back(user)
             return
 
         # All players available - create table and restore game
@@ -4078,14 +4063,6 @@ PlayAural Server
         """Show leaderboard type selection menu for a game."""
         game_class = get_game_class(game_type)
         if not game_class:
-            user.speak_l("game-type-not-found")
-            return
-
-        # Check if there's any data for this game
-        results = self._db.get_game_stats(game_type, limit=1)
-        if not results:
-            # No data - speak message and stay on game selection
-            user.speak_l("leaderboard-no-data")
             return
 
         game_name = Localization.get(user.locale, game_class.get_name_key())
@@ -4161,12 +4138,14 @@ PlayAural Server
         self, user: NetworkUser, game_type: str, game_name: str
     ) -> None:
         """Show win leaders leaderboard."""
-        from ..game_utils.stats_helpers import LeaderboardHelper
 
         # Fetch top wins from pre-calculated stats avoiding N+1 queries
         top_wins = self._db.get_top_wins_with_losses(game_type, limit=10)
 
         items = []
+
+        if not top_wins:
+            items.append(MenuItem(text=Localization.get(user.locale, "leaderboard-no-data"), id="no_data"))
 
         for rank, (player_id, player_name, wins, losses) in enumerate(top_wins, 1):
             total = wins + losses
@@ -4204,7 +4183,6 @@ PlayAural Server
         self, user: NetworkUser, game_type: str, game_name: str
     ) -> None:
         """Show skill rating leaderboard."""
-        from ..game_utils.stats_helpers import RatingHelper
 
         rating_helper = RatingHelper(self._db, game_type)
         ratings = rating_helper.get_leaderboard(limit=10)
@@ -4253,11 +4231,12 @@ PlayAural Server
         self, user: NetworkUser, game_type: str, game_name: str
     ) -> None:
         """Show total score leaderboard."""
-        from ..game_utils.stats_helpers import LeaderboardHelper
-
         top_scores = self._db.get_top_player_game_stats(game_type, "total_score", limit=10)
 
         items = []
+
+        if not top_scores:
+            items.append(MenuItem(text=Localization.get(user.locale, "leaderboard-no-data"), id="no_data"))
 
         for rank, (player_id, player_name, total) in enumerate(top_scores, 1):
             items.append(
@@ -4295,6 +4274,9 @@ PlayAural Server
 
         items = []
 
+        if not top_scores:
+            items.append(MenuItem(text=Localization.get(user.locale, "leaderboard-no-data"), id="no_data"))
+
         for rank, (player_id, player_name, high) in enumerate(top_scores, 1):
             items.append(
                 MenuItem(
@@ -4330,6 +4312,9 @@ PlayAural Server
         top_games = self._db.get_top_player_game_stats(game_type, "games_played", limit=10)
 
         items = []
+
+        if not top_games:
+            items.append(MenuItem(text=Localization.get(user.locale, "leaderboard-no-data"), id="no_data"))
 
         for rank, (player_id, player_name, count) in enumerate(top_games, 1):
             items.append(
@@ -4435,6 +4420,9 @@ PlayAural Server
         items = []
         entry_key = f"leaderboard-{format_key}-entry"
 
+        if not player_scores:
+            items.append(MenuItem(text=Localization.get(user.locale, "leaderboard-no-data"), id="no_data"))
+
         for rank, (player_id, name, value) in enumerate(player_scores, 1):
             display_value = round(value, decimals) if decimals > 0 else int(value)
             items.append(
@@ -4470,9 +4458,19 @@ PlayAural Server
         """Handle leaderboards menu selection."""
         if selection_id.startswith("lb_"):
             game_type = selection_id[3:]  # Remove "lb_" prefix
-            self._show_leaderboard_types_menu(user, game_type)
+            game_class = get_game_class(game_type)
+            if not game_class:
+                user.speak_l("game-type-not-found")
+                self._nav_refresh(user, self._show_leaderboards_menu)
+                return
+            results = self._db.get_game_stats(game_type, limit=1)
+            if not results:
+                user.speak_l("leaderboard-no-data")
+                self._nav_refresh(user, self._show_leaderboards_menu)
+                return
+            self._nav_push(user, self._show_leaderboard_types_menu, game_type)
         elif selection_id == "back":
-            self._show_main_menu(user)
+            self._nav_back(user)
 
     async def _handle_leaderboard_types_selection(
         self, user: NetworkUser, selection_id: str, state: dict
@@ -4483,17 +4481,17 @@ PlayAural Server
 
         # Built-in leaderboard types
         if selection_id == "type_wins":
-            self._show_wins_leaderboard(user, game_type, game_name)
+            self._nav_push(user, self._show_wins_leaderboard, game_type, game_name)
         elif selection_id == "type_rating":
-            self._show_rating_leaderboard(user, game_type, game_name)
+            self._nav_push(user, self._show_rating_leaderboard, game_type, game_name)
         elif selection_id == "type_total_score":
-            self._show_total_score_leaderboard(user, game_type, game_name)
+            self._nav_push(user, self._show_total_score_leaderboard, game_type, game_name)
         elif selection_id == "type_high_score":
-            self._show_high_score_leaderboard(user, game_type, game_name)
+            self._nav_push(user, self._show_high_score_leaderboard, game_type, game_name)
         elif selection_id == "type_games_played":
-            self._show_games_played_leaderboard(user, game_type, game_name)
+            self._nav_push(user, self._show_games_played_leaderboard, game_type, game_name)
         elif selection_id == "back":
-            self._show_leaderboards_menu(user)
+            self._nav_back(user)
         elif selection_id.startswith("type_"):
             # Custom leaderboard type - look up config from game class
             lb_id = selection_id[5:]  # Remove "type_" prefix
@@ -4501,9 +4499,7 @@ PlayAural Server
             if game_class:
                 for config in game_class.get_leaderboard_types():
                     if config["id"] == lb_id:
-                        self._show_custom_leaderboard(
-                            user, game_type, game_name, config
-                        )
+                        self._nav_push(user, self._show_custom_leaderboard, game_type, game_name, config)
                         return
 
     async def _handle_game_leaderboard_selection(
@@ -4511,9 +4507,7 @@ PlayAural Server
     ) -> None:
         """Handle game leaderboard menu selection."""
         if selection_id == "back":
-            game_type = state.get("game_type", "")
-            game_name = state.get("game_name", "")
-            self._show_leaderboard_types_menu(user, game_type)
+            self._nav_back(user)
         # Other selections (entries, header) are informational only
 
     # =========================================================================
@@ -4538,9 +4532,7 @@ PlayAural Server
                     )
 
         if not items:
-            user.speak_l("my-stats-no-games")
-            self._show_main_menu(user)
-            return
+            items.append(MenuItem(text=Localization.get(user.locale, "my-stats-no-games"), id=""))
 
         items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
 
@@ -4554,8 +4546,6 @@ PlayAural Server
 
     def _show_my_game_stats(self, user: NetworkUser, game_type: str) -> None:
         """Show personal stats for a specific game."""
-        from ..game_utils.stats_helpers import RatingHelper
-
         game_class = get_game_class(game_type)
         if not game_class:
             user.speak_l("game-type-not-found")
@@ -4566,92 +4556,51 @@ PlayAural Server
 
         games_played = int(stats.get("games_played", 0))
 
-        if games_played == 0:
-            user.speak_l("my-stats-no-data")
-            return
-
-        wins = int(stats.get("wins", 0))
-        losses = int(stats.get("losses", 0))
-        total_score = int(stats.get("total_score", 0))
-        high_score = int(stats.get("high_score", 0))
-
         items = []
-        # Basic stats
-        winrate = round((wins / games_played * 100) if games_played > 0 else 0)
 
-        items.append(
-            MenuItem(
-                text=Localization.get(user.locale, "my-stats-games-played", value=games_played),
-                id="games_played",
-            )
-        )
-        items.append(
-            MenuItem(
-                text=Localization.get(user.locale, "my-stats-wins", value=wins),
-                id="wins",
-            )
-        )
-        items.append(
-            MenuItem(
-                text=Localization.get(user.locale, "my-stats-losses", value=losses),
-                id="losses",
-            )
-        )
-        items.append(
-            MenuItem(
-                text=Localization.get(user.locale, "my-stats-winrate", value=winrate),
-                id="winrate",
-            )
-        )
-
-
-        # Score stats (if applicable)
-        supported_types = game_class.get_supported_leaderboards()
-
-        if total_score > 0:
-            if "total_score" in supported_types:
-                items.append(
-                    MenuItem(
-                        text=Localization.get(user.locale, "my-stats-total-score", value=total_score),
-                        id="total_score",
-                    )
-                )
-
-            if "high_score" in supported_types:
-                items.append(
-                    MenuItem(
-                        text=Localization.get(user.locale, "my-stats-high-score", value=high_score),
-                        id="high_score",
-                    )
-                )
-
-
-        # Skill rating
-        rating_helper = RatingHelper(self._db, game_type)
-        rating = rating_helper.get_rating(user.uuid)
-        if rating.mu != 25.0 or rating.sigma != 25.0 / 3:  # Non-default rating
-            items.append(
-                MenuItem(
-                    text=Localization.get(
-                        user.locale,
-                        "my-stats-rating",
-                        value=round(rating.ordinal),
-                        mu=round(rating.mu, 1),
-                        sigma=round(rating.sigma, 1),
-                    ),
-                    id="rating",
-                )
-            )
+        if games_played == 0:
+            items.append(MenuItem(text=Localization.get(user.locale, "my-stats-no-data"), id=""))
         else:
-            items.append(
-                MenuItem(
-                    text=Localization.get(user.locale, "my-stats-no-rating"),
-                    id="no_rating",
-                )
-            )
+            wins = int(stats.get("wins", 0))
+            losses = int(stats.get("losses", 0))
+            total_score = int(stats.get("total_score", 0))
+            high_score = int(stats.get("high_score", 0))
+            winrate = round((wins / games_played * 100) if games_played > 0 else 0)
 
-        # Game-specific stats from custom leaderboard configs
-        self._add_custom_stats(user, game_class, stats, items)
+            items.append(MenuItem(text=Localization.get(user.locale, "my-stats-games-played", value=games_played), id="games_played"))
+            items.append(MenuItem(text=Localization.get(user.locale, "my-stats-wins", value=wins), id="wins"))
+            items.append(MenuItem(text=Localization.get(user.locale, "my-stats-losses", value=losses), id="losses"))
+            items.append(MenuItem(text=Localization.get(user.locale, "my-stats-winrate", value=winrate), id="winrate"))
+
+            # Score stats (if applicable)
+            supported_types = game_class.get_supported_leaderboards()
+            if total_score > 0:
+                if "total_score" in supported_types:
+                    items.append(MenuItem(text=Localization.get(user.locale, "my-stats-total-score", value=total_score), id="total_score"))
+                if "high_score" in supported_types:
+                    items.append(MenuItem(text=Localization.get(user.locale, "my-stats-high-score", value=high_score), id="high_score"))
+
+            # Skill rating
+            rating_helper = RatingHelper(self._db, game_type)
+            rating = rating_helper.get_rating(user.uuid)
+            if rating.mu != 25.0 or rating.sigma != 25.0 / 3:  # Non-default rating
+                items.append(
+                    MenuItem(
+                        text=Localization.get(
+                            user.locale,
+                            "my-stats-rating",
+                            value=round(rating.ordinal),
+                            mu=round(rating.mu, 1),
+                            sigma=round(rating.sigma, 1),
+                        ),
+                        id="rating",
+                    )
+                )
+            else:
+                items.append(MenuItem(text=Localization.get(user.locale, "my-stats-no-rating"), id="no_rating"))
+
+            # Game-specific stats from custom leaderboard configs
+            self._add_custom_stats(user, game_class, stats, items)
 
         items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
 
@@ -4728,17 +4677,17 @@ PlayAural Server
     ) -> None:
         """Handle my stats game selection."""
         if selection_id == "back":
-            self._show_personal_options_menu(user)
+            self._nav_back(user)
         elif selection_id.startswith("stats_"):
             game_type = selection_id[6:]  # Remove "stats_" prefix
-            self._show_my_game_stats(user, game_type)
+            self._nav_push(user, self._show_my_game_stats, game_type)
 
     async def _handle_my_game_stats_selection(
         self, user: NetworkUser, selection_id: str, state: dict
     ) -> None:
         """Handle my game stats menu selection."""
         if selection_id == "back":
-            self._show_my_stats_menu(user)
+            self._nav_back(user)
         # Other selections (stats entries) are informational only
 
     def on_table_destroy(self, table) -> None:
@@ -4754,8 +4703,6 @@ PlayAural Server
 
     def on_game_result(self, result) -> None:
         """Handle game result persistence. Called by Table when a game finishes."""
-        from ..game_utils.game_result import GameResult
-
         if not isinstance(result, GameResult):
             return
 
@@ -4773,9 +4720,6 @@ PlayAural Server
 
     def on_table_save(self, table, username: str) -> None:
         """Handle table save request. Called by TableManager."""
-        import json
-        from datetime import datetime
-
         game = table.game
         if not game:
             return
@@ -4899,7 +4843,7 @@ PlayAural Server
                     if from_mandatory:
                         self._show_mandatory_email_menu(user)
                     else:
-                        self._show_profile_menu(user)
+                        self._nav_refresh(user, self._show_profile_menu)
                     return
 
                 if not is_valid_email(value):
@@ -4907,7 +4851,7 @@ PlayAural Server
                     if from_mandatory:
                         self._show_mandatory_email_menu(user)
                     else:
-                        self._show_profile_menu(user)
+                        self._nav_refresh(user, self._show_profile_menu)
                     return
 
                 if value == current_email:
@@ -4916,7 +4860,7 @@ PlayAural Server
                          # Should not hit this since mandatory means current was empty and value is empty, which is caught above
                          self._show_mandatory_email_menu(user)
                     else:
-                         self._show_profile_menu(user)
+                         self._nav_refresh(user, self._show_profile_menu)
                     return
 
                 if self._db.email_exists(value, exclude_username=user.username):
@@ -4924,7 +4868,7 @@ PlayAural Server
                     if from_mandatory:
                         self._show_mandatory_email_menu(user)
                     else:
-                        self._show_profile_menu(user)
+                        self._nav_refresh(user, self._show_profile_menu)
                     return
 
                 if not current_email:
@@ -4933,14 +4877,14 @@ PlayAural Server
                     if from_mandatory:
                         self._restore_user_state(user, user.username)
                     else:
-                        self._show_profile_menu(user)
+                        self._nav_refresh(user, self._show_profile_menu)
                 else:
-                    self._show_email_confirm_menu(user, value)
+                    self._nav_refresh(user, self._show_email_confirm_menu, value)
                 return
             elif menu_id == "bio_input":
                 if len(value) > 250:
                     user.speak_l("error-bio-length")
-                    self._show_profile_menu(user)
+                    self._nav_refresh(user, self._show_profile_menu)
                     return
 
                 user_record = self._db.get_user(user.username)
@@ -4951,7 +4895,7 @@ PlayAural Server
                 else:
                     self._db.update_user_bio(user.username, value)
                     user.speak_l("bio-updated")
-                self._show_profile_menu(user)
+                self._nav_refresh(user, self._show_profile_menu)
                 return
 
             elif menu_id == "send_friend_request_input":
@@ -5554,16 +5498,45 @@ PlayAural Server
             self._show_tables_menu(user, frame.get("game_type", ""))
         elif menu == "active_tables_menu":
             self._show_active_tables_menu(user)
+        elif menu == "active_tables_filter_menu":
+            self._show_active_tables_filter_menu(user)
         elif menu == "saved_tables_menu":
             self._show_saved_tables_menu(user)
+        elif menu == "saved_table_actions_menu":
+            save_id = frame.get("save_id")
+            if save_id:
+                self._show_saved_table_actions_menu(user, save_id)
+            else:
+                self._show_saved_tables_menu(user)
         elif menu == "leaderboards_menu":
             self._show_leaderboards_menu(user)
+        elif menu == "leaderboard_types_menu":
+            self._show_leaderboard_types_menu(user, frame.get("game_type", ""))
+        elif menu == "game_leaderboard":
+            # Restore to parent leaderboard type menu (type not stored)
+            self._show_leaderboard_types_menu(user, frame.get("game_type", ""))
         elif menu == "my_stats_menu":
             self._show_my_stats_menu(user)
+        elif menu == "my_game_stats":
+            self._show_my_game_stats(user, frame.get("game_type", ""))
         elif menu == "profile_menu":
             self._show_profile_menu(user)
+        elif menu == "gender_menu":
+            self._show_gender_menu(user)
+        elif menu == "bio_actions_menu":
+            self._show_bio_actions_menu(user)
+        elif menu == "logout_confirm_menu":
+            self._show_logout_confirm_menu(user)
         elif menu == "documentation_menu":
             self._show_documentation_menu(user)
+        elif menu == "doc_games_menu":
+            self._show_game_rules_menu(user)
+        elif menu == "doc_viewer":
+            doc_id = frame.get("doc_id", "")
+            if doc_id:
+                self._show_document_content(user, doc_id)
+            else:
+                self._show_documentation_menu(user)
         else:
             table = self._tables.find_user_table(username)
             if table:

@@ -99,14 +99,12 @@ class AdministrationManager:
         """Show account approval menu with pending users."""
         pending = self.server.db.get_pending_users()
 
-        if not pending:
-            user.speak_l("no-pending-accounts")
-            self._show_admin_menu(user)
-            return
-
         items = []
-        for pending_user in pending:
-            items.append(MenuItem(text=pending_user.username, id=f"pending_{pending_user.username}"))
+        if not pending:
+            items.append(MenuItem(text=Localization.get(user.locale, "no-pending-accounts"), id=""))
+        else:
+            for pending_user in pending:
+                items.append(MenuItem(text=pending_user.username, id=f"pending_{pending_user.username}"))
         items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
 
         user.show_menu(
@@ -139,14 +137,12 @@ class AdministrationManager:
         """Show promote admin menu with list of non-admin users."""
         non_admins = self.server.db.get_non_admin_users()
 
-        if not non_admins:
-            user.speak_l("no-users-to-promote")
-            self._show_admin_menu(user)
-            return
-
         items = []
-        for non_admin in non_admins:
-            items.append(MenuItem(text=non_admin.username, id=f"promote_{non_admin.username}"))
+        if not non_admins:
+            items.append(MenuItem(text=Localization.get(user.locale, "no-users-to-promote"), id=""))
+        else:
+            for non_admin in non_admins:
+                items.append(MenuItem(text=non_admin.username, id=f"promote_{non_admin.username}"))
         items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
 
         user.show_menu(
@@ -164,14 +160,12 @@ class AdministrationManager:
         # Filter out the current user (can't demote yourself) and developers (trust_level >= 3)
         admins = [a for a in admins if a.username != user.username and a.trust_level < 3]
 
-        if not admins:
-            user.speak_l("no-admins-to-demote")
-            self._show_admin_menu(user)
-            return
-
         items = []
-        for admin in admins:
-            items.append(MenuItem(text=admin.username, id=f"demote_{admin.username}"))
+        if not admins:
+            items.append(MenuItem(text=Localization.get(user.locale, "no-admins-to-demote"), id=""))
+        else:
+            for admin in admins:
+                items.append(MenuItem(text=admin.username, id=f"demote_{admin.username}"))
         items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
 
         user.show_menu(
@@ -1038,14 +1032,12 @@ class AdministrationManager:
             
             target_users.append(u)
 
-        if not target_users:
-            user.speak_l("no-users-to-kick") # Reuse or add key if needed. Or just "no-actions-available"
-            self._show_admin_menu(user)
-            return
-
         items = []
-        for target in target_users:
-             items.append(MenuItem(text=target.username, id=f"kick_{target.username}"))
+        if not target_users:
+            items.append(MenuItem(text=Localization.get(user.locale, "no-users-to-kick"), id=""))
+        else:
+            for target in target_users:
+                items.append(MenuItem(text=target.username, id=f"kick_{target.username}"))
         items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
 
         user.show_menu(
@@ -1149,14 +1141,12 @@ class AdministrationManager:
 
             target_users.append(username)
 
-        if not target_users:
-            user.speak_l("no-users-to-ban")
-            self._show_admin_menu(user)
-            return
-
         items = []
-        for target in target_users:
-             items.append(MenuItem(text=target, id=f"ban_{target}"))
+        if not target_users:
+            items.append(MenuItem(text=Localization.get(user.locale, "no-users-to-ban"), id=""))
+        else:
+            for target in target_users:
+                items.append(MenuItem(text=target, id=f"ban_{target}"))
         items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
 
         user.show_menu(
@@ -1346,14 +1336,12 @@ class AdministrationManager:
         """Show list of banned users."""
         banned_users = self.server.db.get_all_banned_users()
 
-        if not banned_users:
-            user.speak_l("no-banned-users")
-            self._show_admin_menu(user)
-            return
-
         items = []
-        for username in banned_users:
-            items.append(MenuItem(text=username, id=f"unban_{username}"))
+        if not banned_users:
+            items.append(MenuItem(text=Localization.get(user.locale, "no-banned-users"), id=""))
+        else:
+            for username in banned_users:
+                items.append(MenuItem(text=username, id=f"unban_{username}"))
         items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
 
         user.show_menu(

@@ -429,6 +429,10 @@ PlayAural Server
                 await self._handle_list_online(client)
             elif packet_type == "list_online_with_games":
                 await self._handle_list_online_with_games(client)
+            elif packet_type == "open_friends_hub":
+                await self._handle_open_friends_hub(client)
+            elif packet_type == "open_options":
+                await self._handle_open_options(client)
             elif packet_type == "broadcast_cmd":
                 await self._handle_broadcast_cmd(client, packet)
             elif packet_type == "set_preference":
@@ -1839,8 +1843,8 @@ PlayAural Server
         prefs = user.preferences
 
         if selection_id == "back":
-            self._show_options_menu(user)
-        
+            self._nav_back(user)
+
         elif selection_id == "speech_mode":
             # Toggle between "aria" and "web_speech"
             new_mode = "web_speech" if prefs.speech_mode == "aria" else "aria"
@@ -1861,13 +1865,16 @@ PlayAural Server
             # Send an empty menu with a specific ID.
             # The Web Client will intercept this ID and populate it with available voices.
             # When selected, it will send the voice URI as selection_id to _handle_voice_selection.
+            current = self._user_states.get(user.username, {})
+            stack = list(current.get("_stack", []))
+            stack.append({k: v for k, v in current.items() if k != "_stack"})
             user.show_menu(
                 "voice_selection_menu",
                 [MenuItem(text=Localization.get(user.locale, "select-voice"), id="placeholder")],
                 multiletter=True,
                 escape_behavior=EscapeBehavior.SELECT_LAST
             )
-            self._user_states[user.username] = {"menu": "voice_selection_menu"}
+            self._user_states[user.username] = {"menu": "voice_selection_menu", "_stack": stack}
 
     async def _handle_voice_selection(self, user: NetworkUser, selection_id: str) -> None:
         """Handle voice selection override (Web only)."""
@@ -2299,11 +2306,11 @@ PlayAural Server
         if selection_id == "profile":
             self._show_profile_menu(user)
         elif selection_id == "friends":
-            self._show_friends_hub_menu(user)
+            self._nav_push(user, self._show_friends_hub_menu)
         elif selection_id == "my_stats":
             self._show_my_stats_menu(user)
         elif selection_id == "options":
-            self._show_options_menu(user)
+            self._nav_push(user, self._show_options_menu)
         elif selection_id == "back":
             self._show_main_menu(user)
 
@@ -2335,9 +2342,9 @@ PlayAural Server
     async def _handle_friends_hub_selection(self, user: NetworkUser, selection_id: str) -> None:
         """Handle selection in friends hub."""
         if selection_id == "my_friends":
-            self._show_friends_list_menu(user)
+            self._nav_push(user, self._show_friends_list_menu)
         elif selection_id == "pending_requests":
-            self._show_friend_requests_menu(user)
+            self._nav_push(user, self._show_friend_requests_menu)
         elif selection_id == "send_request":
             user.show_editbox(
                 "send_friend_request_input",
@@ -2345,7 +2352,7 @@ PlayAural Server
             )
             self._user_states[user.username]["menu"] = "send_friend_request_input"
         elif selection_id == "back":
-            self._show_personal_options_menu(user)
+            self._nav_back(user)
 
     def _get_friends_list_menu_items(self, user: NetworkUser) -> list[MenuItem]:
         """Build menu items for the friends list menu."""
@@ -2413,10 +2420,10 @@ PlayAural Server
 
     async def _handle_friends_list_selection(self, user: NetworkUser, selection_id: str) -> None:
         if selection_id == "back":
-            self._show_friends_hub_menu(user)
+            self._nav_back(user)
         elif selection_id.startswith("friend_"):
             target_username = selection_id[7:]
-            self._show_friend_actions_menu(user, target_username)
+            self._nav_push(user, self._show_friend_actions_menu, target_username)
 
     def _show_friend_actions_menu(self, user: NetworkUser, target_username: str) -> None:
         """Show actions for a specific friend."""
@@ -2445,20 +2452,20 @@ PlayAural Server
         )
         self._user_states[user.username] = {
             "menu": "friend_actions_menu",
-            "target_username": target_username
+            "target_username": target_username,
         }
 
     async def _handle_friend_actions_selection(self, user: NetworkUser, selection_id: str, state: dict) -> None:
         target_username = state.get("target_username")
         if not target_username:
-            self._show_friends_list_menu(user)
+            self._nav_refresh(user, self._show_friends_list_menu)
             return
 
         if selection_id == "back":
-            self._show_friends_list_menu(user)
+            self._nav_back(user)
 
         elif selection_id == "view_profile":
-            self._show_public_profile(user, target_username, "friend_actions_menu")
+            self._nav_push(user, self._show_public_profile, target_username)
 
         elif selection_id == "send_pm":
             user.show_editbox(
@@ -2478,7 +2485,7 @@ PlayAural Server
                 if current_table:
                     if current_table == table:
                          user.speak_l("already-in-table")
-                         self._show_friend_actions_menu(user, target_username)
+                         self._nav_refresh(user, self._show_friend_actions_menu, target_username)
                          return
                     else:
                          current_table.remove_member(user.username)
@@ -2487,14 +2494,14 @@ PlayAural Server
                 user_is_member = any(m.username == user.username for m in table.members)
                 if table.is_private and not user_is_member:
                     user.speak_l("table-private-invite-only")
-                    self._show_friend_actions_menu(user, target_username)
+                    self._nav_refresh(user, self._show_friend_actions_menu, target_username)
                     return
 
                 # Proceed to join
                 self._auto_join_table(user, table, table.game_type)
             else:
                 user.speak_l("table-not-exists")
-                self._show_friend_actions_menu(user, target_username)
+                self._nav_refresh(user, self._show_friend_actions_menu, target_username)
 
         elif selection_id == "remove_friend":
             target_record = self._db.get_user(target_username)
@@ -2513,7 +2520,7 @@ PlayAural Server
 
                 self.on_friend_requests_changed(target_record.uuid)
 
-            self._show_friends_list_menu(user)
+            self._nav_refresh(user, self._show_friends_list_menu)
 
     def _get_friend_requests_menu_items(self, user: NetworkUser) -> list[MenuItem]:
         """Build menu items for the friend requests menu."""
@@ -2544,10 +2551,10 @@ PlayAural Server
 
     async def _handle_friend_requests_selection(self, user: NetworkUser, selection_id: str) -> None:
         if selection_id == "back":
-            self._show_friends_hub_menu(user)
+            self._nav_back(user)
         elif selection_id.startswith("req_"):
             target_username = selection_id[4:]
-            self._show_friend_request_actions_menu(user, target_username)
+            self._nav_push(user, self._show_friend_request_actions_menu, target_username)
 
     def _show_friend_request_actions_menu(self, user: NetworkUser, target_username: str) -> None:
         """Show accept/decline for a specific request."""
@@ -2564,23 +2571,23 @@ PlayAural Server
         )
         self._user_states[user.username] = {
             "menu": "friend_request_actions_menu",
-            "target_username": target_username
+            "target_username": target_username,
         }
 
     async def _handle_friend_request_actions_selection(self, user: NetworkUser, selection_id: str, state: dict) -> None:
         target_username = state.get("target_username")
         if not target_username:
-            self._show_friend_requests_menu(user)
+            self._nav_refresh(user, self._show_friend_requests_menu)
             return
 
         target_record = self._db.get_user(target_username)
         if not target_record:
             user.speak_l("unknown-player")
-            self._show_friend_requests_menu(user)
+            self._nav_refresh(user, self._show_friend_requests_menu)
             return
 
         if selection_id == "back":
-            self._show_friend_requests_menu(user)
+            self._nav_back(user)
 
         elif selection_id == "accept":
             # Attempt to accept
@@ -2599,7 +2606,7 @@ PlayAural Server
                 self.on_friend_requests_changed(target_record.uuid)
             else:
                 user.speak_l("request-not-found")
-            self._show_friend_requests_menu(user)
+            self._nav_refresh(user, self._show_friend_requests_menu)
 
         elif selection_id == "decline":
             # Delete it
@@ -2615,24 +2622,14 @@ PlayAural Server
                 self._db.add_notification(target_record.uuid, user.username, "friend_declined")
 
             self.on_friend_requests_changed(target_record.uuid)
-            self._show_friend_requests_menu(user)
+            self._nav_refresh(user, self._show_friend_requests_menu)
 
-    def _show_public_profile(self, requesting_user: NetworkUser, target_username: str, return_menu_id: str) -> None:
+    def _show_public_profile(self, requesting_user: NetworkUser, target_username: str) -> None:
         """Show a read-only profile view of another player."""
-        # Capture the full current state before overwriting it so Back can
-        # reconstruct deep return chains (e.g. in-game → online_users →
-        # online_user_actions_menu → public_profile_menu → back → back → game).
-        prior_state = dict(self._user_states.get(requesting_user.username, {}))
-
         target_record = self._db.get_user(target_username)
         if not target_record:
             requesting_user.speak_l("unknown-player")
-            if return_menu_id == "friend_actions_menu":
-                self._show_friend_actions_menu(requesting_user, prior_state.get("target_username", ""))
-            elif return_menu_id == "online_user_actions_menu":
-                self._show_online_user_actions_menu(requesting_user, prior_state.get("target_username", ""), prior_state)
-            else:
-                self._show_main_menu(requesting_user)
+            self._nav_back(requesting_user)
             return
 
         date_str = target_record.registration_date[:10] if target_record.registration_date else "Unknown"
@@ -2662,31 +2659,13 @@ PlayAural Server
         )
         self._user_states[requesting_user.username] = {
             "menu": "public_profile_menu",
-            "return_menu_id": return_menu_id,
             "target_username": target_username,
-            "return_state": prior_state,
         }
 
     async def _handle_public_profile_selection(self, user: NetworkUser, selection_id: str, state: dict) -> None:
         """Handle selection in public profile."""
         if selection_id == "back":
-            return_menu_id = state.get("return_menu_id")
-            if return_menu_id == "friend_actions_menu":
-                 self._show_friend_actions_menu(user, state.get("target_username", ""))
-            elif return_menu_id == "online_user_actions_menu":
-                # Restore the full prior state saved when the profile was opened.
-                # That state is the online_user_actions_menu dict, which carries
-                # the original return_menu_id/return_state pointing back to the
-                # game (or wherever the user came from before online_users).
-                prior_state = state.get("return_state", {})
-                self._show_online_user_actions_menu(user, state.get("target_username", ""), prior_state)
-            else:
-                # Unknown return origin — fall back gracefully without ghost risk.
-                table = self._tables.find_user_table(user.username)
-                if table:
-                    self._return_to_game(user, table)
-                else:
-                    self._show_main_menu(user)
+            self._nav_back(user)
 
     def _show_profile_menu(self, user: NetworkUser) -> None:
         """Show the user's profile menu."""
@@ -3032,10 +3011,10 @@ PlayAural Server
     ) -> None:
         """Handle options menu selection."""
         if selection_id == "language":
-            self._show_language_menu(user)
+            self._nav_push(user, self._show_language_menu)
             return
         elif selection_id == "speech_settings":
-            self._show_speech_settings_menu(user)
+            self._nav_push(user, self._show_speech_settings_menu)
             return
 
         prefs = user.preferences
@@ -3098,9 +3077,9 @@ PlayAural Server
             self._save_user_preferences(user)
             self._show_options_menu(user)
         elif selection_id == "dice_keeping_style":
-            self._show_dice_keeping_style_menu(user)
+            self._nav_push(user, self._show_dice_keeping_style_menu)
         elif selection_id == "back":
-            self._show_personal_options_menu(user)
+            self._nav_back(user)
 
     def _show_dice_keeping_style_menu(self, user: NetworkUser) -> None:
         """Show dice keeping style selection menu."""
@@ -3131,10 +3110,10 @@ PlayAural Server
             style_key = self.DICE_KEEPING_STYLES.get(style, "dice-keeping-style-indexes")
             style_name = Localization.get(user.locale, style_key)
             user.speak_l("dice-keeping-style-changed", style=style_name)
-            self._show_options_menu(user)
+            self._nav_back(user)
             return
         # Back or invalid
-        self._show_options_menu(user)
+        self._nav_back(user)
 
     def _save_user_preferences(self, user: NetworkUser) -> None:
         """Save user preferences to database."""
@@ -3162,10 +3141,10 @@ PlayAural Server
                 logging.getLogger("playaural").exception("Error changing language")
                 user.speak_l("server-error-changing-language", error=str(e))
             
-            self._show_options_menu(user)
+            self._nav_back(user)
             return
         # Back or invalid
-        self._show_options_menu(user)
+        self._nav_back(user)
 
     async def _handle_categories_selection(
         self, user: NetworkUser, selection_id: str, state: dict
@@ -3202,6 +3181,13 @@ PlayAural Server
                 game = game_class()
                 table.game = game
                 game._table = table  # Enable game to call table.destroy()
+                # Set in_game state BEFORE initialize_lobby so the universal
+                # GLOBAL_SYSTEM_MENUS guard in rebuild_player_menu lets the
+                # initial turn_menu through (otherwise "tables_menu" blocks it).
+                self._user_states[user.username] = {
+                    "menu": "in_game",
+                    "table_id": table.table_id,
+                }
                 game.initialize_lobby(user.username, user)
 
                 user.speak_l(
@@ -3232,10 +3218,6 @@ PlayAural Server
                     min=min_players,
                     max=max_players,
                 )
-            self._user_states[user.username] = {
-                "menu": "in_game",
-                "table_id": table.table_id,
-            }
 
         elif selection_id.startswith("table_"):
             table_id = selection_id[6:]  # Remove "table_" prefix
@@ -3327,6 +3309,12 @@ PlayAural Server
                     reclaimed_player = player
                     break
 
+        # Set in_game state BEFORE rebuild_all_menus so the universal
+        # GLOBAL_SYSTEM_MENUS guard lets the initial turn_menu through
+        # (the user's previous state — e.g. "tables_menu" — is in
+        # GLOBAL_SYSTEM_MENUS and would otherwise block the push).
+        self._user_states[user.username] = {"menu": "in_game", "table_id": table_id}
+
         if reclaimed_player:
             # User is reclaiming their slot from a bot
             reclaimed_player.is_bot = False
@@ -3359,8 +3347,6 @@ PlayAural Server
                 game.broadcast_l("now-spectating", player=user.username)
                 game.broadcast_sound("join_spectator.ogg")
                 game.rebuild_all_menus()
-
-        self._user_states[user.username] = {"menu": "in_game", "table_id": table_id}
 
     def _return_from_join_menu(self, user: NetworkUser, state: dict) -> None:
         """Return to the appropriate tables menu after join."""
@@ -4942,18 +4928,18 @@ PlayAural Server
             elif menu_id == "send_friend_request_input":
                 value = value.strip()
                 if not value:
-                     self._show_friends_hub_menu(user)
+                     self._nav_refresh(user, self._show_friends_hub_menu)
                      return
 
                 if value.lower() == user.username.lower():
                      user.speak_l("friend-error-self")
-                     self._show_friends_hub_menu(user)
+                     self._nav_refresh(user, self._show_friends_hub_menu)
                      return
 
                 target_record = self._db.get_user(value)
                 if not target_record:
                      user.speak_l("unknown-player")
-                     self._show_friends_hub_menu(user)
+                     self._nav_refresh(user, self._show_friends_hub_menu)
                      return
 
                 # Send request
@@ -4986,7 +4972,7 @@ PlayAural Server
                          self._db.add_notification(target_record.uuid, user.username, "friend_request_received")
                      self.on_friend_requests_changed(target_record.uuid)
 
-                self._show_friends_hub_menu(user)
+                self._nav_refresh(user, self._show_friends_hub_menu)
                 return
 
             elif menu_id == "send_pm_input":
@@ -4997,9 +4983,9 @@ PlayAural Server
 
                 # Return to friend actions menu regardless
                 if target_username:
-                    self._show_friend_actions_menu(user, target_username)
+                    self._nav_refresh(user, self._show_friend_actions_menu, target_username)
                 else:
-                    self._show_friends_list_menu(user)
+                    self._nav_refresh(user, self._show_friends_list_menu)
                 return
 
     async def _deliver_private_message(self, sender: NetworkUser, target_username: str, message: str) -> None:
@@ -5260,9 +5246,6 @@ PlayAural Server
 
     def _show_online_users_menu(self, user: NetworkUser) -> None:
         """Show interactive online users menu."""
-        current_state = self._user_states.get(user.username, {})
-        previous_menu_id = current_state.get("menu")
-
         items = self._get_online_users_menu_items(user)
 
         user.show_menu(
@@ -5272,21 +5255,17 @@ PlayAural Server
             escape_behavior=EscapeBehavior.ESCAPE_EVENT, # Legacy client compat: emit raw escape packet to be caught globally
             position=1, # Default focus to first user, not the 'Back' button
         )
-        self._user_states[user.username] = {
-            "menu": "online_users",
-            "return_menu_id": previous_menu_id,
-            "return_state": dict(current_state),
-        }
+        self._user_states[user.username] = {"menu": "online_users"}
 
     async def _handle_online_users_selection(self, user: NetworkUser, selection_id: str, state: dict) -> None:
         """Handle selection from the interactive online users list."""
         if selection_id == "back":
-            self._restore_previous_menu(user, state)
+            self._nav_back(user)
         elif selection_id.startswith("online_"):
             target_username = selection_id[7:]
-            self._show_online_user_actions_menu(user, target_username, state)
+            self._nav_push(user, self._show_online_user_actions_menu, target_username)
 
-    def _show_online_user_actions_menu(self, user: NetworkUser, target_username: str, previous_state: dict) -> None:
+    def _show_online_user_actions_menu(self, user: NetworkUser, target_username: str) -> None:
         """Show context menu for an online user."""
         target_user = self._users.get(target_username)
         if not target_user:
@@ -5316,12 +5295,9 @@ PlayAural Server
             escape_behavior=EscapeBehavior.SELECT_LAST,
         )
 
-        # Preserve the deep return state needed to eventually close the online list
         self._user_states[user.username] = {
             "menu": "online_user_actions_menu",
             "target_username": target_username,
-            "return_menu_id": previous_state.get("return_menu_id"),
-            "return_state": previous_state.get("return_state"),
         }
 
 
@@ -5330,19 +5306,7 @@ PlayAural Server
         target_username = state.get("target_username")
 
         if selection_id == "back":
-            # Reconstruct the deep state to pass back to the online list so it knows how to close later
-            user_state = dict(state)
-            user_state["menu"] = "online_users"
-            self._user_states[user.username] = user_state
-
-            items = self._get_online_users_menu_items(user)
-            user.show_menu(
-                "online_users",
-                items,
-                multiletter=True,
-                escape_behavior=EscapeBehavior.ESCAPE_EVENT,
-                position=1,
-            )
+            self._nav_back(user)
             return
 
         target_user = self._users.get(target_username)
@@ -5352,9 +5316,11 @@ PlayAural Server
             return
 
         if selection_id == "view_profile":
-            self._show_public_profile(user, target_username, "online_user_actions_menu")
+            self._nav_push(user, self._show_public_profile, target_username)
 
         elif selection_id == "send_friend_request":
+            username = user.username
+            current = self._user_states.get(username, {})
             status = self._db.send_friend_request(user.uuid, target_user.uuid)
 
             if status == "already_friends":
@@ -5376,96 +5342,139 @@ PlayAural Server
                  target_user.play_sound("friend_request_received.ogg")
                  self.on_friend_requests_changed(target_user.uuid)
 
-            # Refresh the actions menu so the button disappears
-            self._show_online_user_actions_menu(user, target_username, state)
+            # Refresh the actions menu so the button disappears, preserving the stack
+            self._show_online_user_actions_menu(user, target_username)
+            if username in self._user_states:
+                self._user_states[username]["_stack"] = list(current.get("_stack", []))
 
-    def _restore_previous_menu(self, user: NetworkUser, state: dict) -> None:
-        """Restore the previous menu after closing the online users list."""
-        previous_menu_id = state.get("return_menu_id")
-        original_state = state.get("return_state", {})
+    def _nav_refresh(self, user: NetworkUser, show_fn, *args, **kwargs) -> None:
+        """Re-show a menu in-place, preserving the existing navigation stack.
 
-        # If no explicit return, fallback to main menu
-        if not previous_menu_id:
-            self._show_main_menu(user)
-            return
+        Use this when an action completes and should stay on (or return to) the
+        current menu level — NOT when navigating forward (use _nav_push for that).
+        Unlike calling the show function directly, this keeps _stack intact so
+        the user can still navigate back through the full hierarchy they entered.
+        """
+        username = user.username
+        saved_stack = list(self._user_states.get(username, {}).get("_stack", []))
+        show_fn(user, *args, **kwargs)
+        if username in self._user_states:
+            self._user_states[username]["_stack"] = saved_stack
 
-        # Explict routing tree to regenerate the active menu state accurately
-        if previous_menu_id == "main_menu":
-            self._show_main_menu(user)
-        elif previous_menu_id == "personal_options_menu":
-            self._show_personal_options_menu(user)
-        elif previous_menu_id == "games_menu":
-            category = original_state.get("category")
-            if category:
-                self._show_games_menu(user, category)
-            else:
-                self._show_games_list_menu(user)
-        elif previous_menu_id == "tables_menu":
-            self._show_tables_menu(user, original_state.get("game_type", ""))
-        elif previous_menu_id == "active_tables_menu":
-            self._show_active_tables_menu(user)
-        elif previous_menu_id == "options_menu":
-            self._show_options_menu(user)
-        elif previous_menu_id == "saved_tables_menu":
-            self._show_saved_tables_menu(user)
-        elif previous_menu_id == "leaderboards_menu":
-            self._show_leaderboards_menu(user)
-        elif previous_menu_id == "my_stats_menu":
-            self._show_my_stats_menu(user)
-        elif previous_menu_id == "profile_menu":
-            self._show_profile_menu(user)
-        elif previous_menu_id == "friends_hub_menu":
-            self._show_friends_hub_menu(user)
-        elif previous_menu_id == "friends_list_menu":
-            self._show_friends_list_menu(user)
-        elif previous_menu_id == "documentation_menu":
-            self._show_documentation_menu(user)
-        elif previous_menu_id in ("in_game", "waiting_room", "spectating", "post_game"):
-            # The user invoked the list while interacting with a table state.
-            # Closing the list shouldn't "re-show" the game, the game handles its own state
-            # We just need to reset the server state tracker so keybinds map back to the game.
-            self._user_states[user.username] = original_state
+    def _nav_push(self, user: NetworkUser, show_fn, *args, **kwargs) -> None:
+        """Push current state onto the return stack and navigate to a new menu."""
+        username = user.username
+        current = self._user_states.get(username, {})
+        frame = {k: v for k, v in current.items() if k != "_stack"}
+        stack = list(current.get("_stack", []))
+        stack.append(frame)
+        show_fn(user, *args, **kwargs)
+        if username in self._user_states:
+            self._user_states[username]["_stack"] = stack
 
-            # To be absolutely sure focus is correctly restored in the client,
-            # we instruct the client to close any active modal overlay by sending a clean escape or dummy update.
-            # Usually setting state and doing nothing is enough if the game handles its UI redraw on tick.
-            table_id = original_state.get("table_id")
-            if table_id:
-                table = self._tables.get_table(table_id)
-                if table and table.game:
-                    player = table.game.get_player_by_id(user.uuid)
-                    if player:
-                        # Re-send the game's standard UI to clear the online list modal
-                        table.game.rebuild_player_menu(player)
-        elif previous_menu_id in self.IN_GAME_OVERLAY_MENUS:
-            # The user opened the online users list while an in-game overlay
-            # was active.  Re-show the exact overlay they came from so they
-            # land back where they expect, not on the game's turn menu.
-            table_id = original_state.get("table_id")
-            table = self._tables.get_table(table_id) if table_id else None
-            if not table or not table.game:
-                self._show_main_menu(user)
-                return
-            if previous_menu_id == "host_management_menu":
-                self._show_host_management_menu(user, table)
-            elif previous_menu_id == "host_invite_menu":
-                self._show_host_invite_menu(user, table)
-            elif previous_menu_id == "host_pass_menu":
-                self._show_host_pass_menu(user, table)
-            elif previous_menu_id in ("host_kick_menu", "host_kick_ban_menu"):
-                self._show_host_kick_menu(user, table, ban=original_state.get("ban", False))
-            else:
-                self._return_to_game(user, table)
-        else:
-            # Fallback for unrecognised return targets.  Never call
-            # _show_main_menu while the user is still in a table — that
-            # desynchronises table membership from _user_states and creates
-            # the "ghost" duplicate-self scenario.
-            table = self._tables.find_user_table(user.username)
+    def _nav_back(self, user: NetworkUser) -> None:
+        """Navigate back by restoring the top frame from the return stack."""
+        username = user.username
+        current = self._user_states.get(username, {})
+        stack = list(current.get("_stack", []))
+        if not stack:
+            table = self._tables.find_user_table(username)
             if table:
                 self._return_to_game(user, table)
             else:
                 self._show_main_menu(user)
+            return
+        frame = stack.pop()
+        self._user_states[username] = {**frame, "_stack": stack}
+        self._restore_frame(user, frame, stack)
+
+    def _restore_frame(self, user: NetworkUser, frame: dict, stack: list) -> None:
+        """Re-render the menu described by a popped stack frame."""
+        username = user.username
+        menu = frame.get("menu", "")
+        # For in-game states, delegate to _return_to_game (which manages its own state)
+        if menu in ("in_game", "waiting_room", "spectating", "post_game"):
+            table_id = frame.get("table_id")
+            table = (self._tables.get_table(table_id) if table_id
+                     else self._tables.find_user_table(username))
+            self._return_to_game(user, table)
+            return
+        if menu in self.IN_GAME_OVERLAY_MENUS:
+            table_id = frame.get("table_id")
+            table = self._tables.get_table(table_id) if table_id else None
+            if not table or not table.game:
+                self._show_main_menu(user)
+                return
+            if menu == "host_management_menu":
+                self._show_host_management_menu(user, table)
+            elif menu == "host_invite_menu":
+                self._show_host_invite_menu(user, table)
+            elif menu == "host_pass_menu":
+                self._show_host_pass_menu(user, table)
+            elif menu in ("host_kick_menu", "host_kick_ban_menu"):
+                self._show_host_kick_menu(user, table, ban=frame.get("ban", False))
+            else:
+                self._return_to_game(user, table)
+            return  # IN_GAME_OVERLAY_MENUS manage their own state
+        # For all other menus: call show function then re-inject stack
+        if menu == "main_menu":
+            self._show_main_menu(user)
+        elif menu == "personal_options_menu":
+            self._show_personal_options_menu(user)
+        elif menu == "options_menu":
+            self._show_options_menu(user)
+        elif menu == "language_menu":
+            self._show_language_menu(user)
+        elif menu == "speech_settings_menu":
+            self._show_speech_settings_menu(user)
+        elif menu == "dice_keeping_style_menu":
+            self._show_dice_keeping_style_menu(user)
+        elif menu == "friends_hub_menu":
+            self._show_friends_hub_menu(user)
+        elif menu == "friends_list_menu":
+            self._show_friends_list_menu(user)
+        elif menu == "friend_actions_menu":
+            self._show_friend_actions_menu(user, frame.get("target_username", ""))
+        elif menu == "friend_requests_menu":
+            self._show_friend_requests_menu(user)
+        elif menu == "friend_request_actions_menu":
+            self._show_friend_request_actions_menu(user, frame.get("target_username", ""))
+        elif menu == "online_users":
+            self._show_online_users_menu(user)
+        elif menu == "online_user_actions_menu":
+            self._show_online_user_actions_menu(user, frame.get("target_username", ""))
+        elif menu == "public_profile_menu":
+            self._show_public_profile(user, frame.get("target_username", ""))
+        elif menu == "games_menu":
+            category = frame.get("category")
+            if category:
+                self._show_games_menu(user, category)
+            else:
+                self._show_games_list_menu(user)
+        elif menu == "tables_menu":
+            self._show_tables_menu(user, frame.get("game_type", ""))
+        elif menu == "active_tables_menu":
+            self._show_active_tables_menu(user)
+        elif menu == "saved_tables_menu":
+            self._show_saved_tables_menu(user)
+        elif menu == "leaderboards_menu":
+            self._show_leaderboards_menu(user)
+        elif menu == "my_stats_menu":
+            self._show_my_stats_menu(user)
+        elif menu == "profile_menu":
+            self._show_profile_menu(user)
+        elif menu == "documentation_menu":
+            self._show_documentation_menu(user)
+        else:
+            table = self._tables.find_user_table(username)
+            if table:
+                self._return_to_game(user, table)
+            else:
+                self._show_main_menu(user)
+            return
+        # Re-inject stack (show functions overwrite _user_states[username])
+        if username in self._user_states:
+            self._user_states[username]["_stack"] = stack
 
     async def _handle_list_online(self, client: ClientConnection) -> None:
         """Handle request for online users list."""
@@ -5499,7 +5508,27 @@ PlayAural Server
         if not user:
             return
 
-        self._show_online_users_menu(user)
+        self._nav_push(user, self._show_online_users_menu)
+
+    async def _handle_open_friends_hub(self, client: ClientConnection) -> None:
+        """Handle Alt+F global hotkey: open the friends hub from any context."""
+        username = client.username
+        if not username:
+            return
+        user = self._users.get(username)
+        if not user:
+            return
+        self._nav_push(user, self._show_friends_hub_menu)
+
+    async def _handle_open_options(self, client: ClientConnection) -> None:
+        """Handle Alt+O global hotkey: open the options menu from any context."""
+        username = client.username
+        if not username:
+            return
+        user = self._users.get(username)
+        if not user:
+            return
+        self._nav_push(user, self._show_options_menu)
 
     async def _handle_ping(self, client: ClientConnection) -> None:
         """Handle ping request - respond immediately with pong."""

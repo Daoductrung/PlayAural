@@ -202,6 +202,8 @@ class MainWindow(wx.Frame):
         self.ID_PING = wx.NewIdRef()
         self.ID_LIST_ONLINE = wx.NewIdRef()
         self.ID_LIST_ONLINE_WITH_GAMES = wx.NewIdRef()
+        self.ID_OPEN_FRIENDS_HUB = wx.NewIdRef()
+        self.ID_OPEN_OPTIONS = wx.NewIdRef()
 
         # Buffer system IDs
         self.ID_PREV_BUFFER = wx.NewIdRef()
@@ -230,6 +232,8 @@ class MainWindow(wx.Frame):
                 wx.ACCEL_SHIFT, wx.WXK_F2, self.ID_LIST_ONLINE_WITH_GAMES
             ),
             wx.AcceleratorEntry(wx.ACCEL_ALT, ord("P"), self.ID_PING),
+            wx.AcceleratorEntry(wx.ACCEL_ALT, ord("F"), self.ID_OPEN_FRIENDS_HUB),
+            wx.AcceleratorEntry(wx.ACCEL_ALT, ord("O"), self.ID_OPEN_OPTIONS),
         ]
 
         # Buffer navigation accelerators (only for menu list)
@@ -270,6 +274,8 @@ class MainWindow(wx.Frame):
         self.Bind(wx.EVT_MENU, self.on_volume_down, id=self.ID_VOLUME_DOWN)
         self.Bind(wx.EVT_MENU, self.on_volume_up, id=self.ID_VOLUME_UP)
         self.Bind(wx.EVT_MENU, self.on_ping, id=self.ID_PING)
+        self.Bind(wx.EVT_MENU, self.on_open_friends_hub, id=self.ID_OPEN_FRIENDS_HUB)
+        self.Bind(wx.EVT_MENU, self.on_open_options, id=self.ID_OPEN_OPTIONS)
         self.Bind(wx.EVT_MENU, self.on_list_online, id=self.ID_LIST_ONLINE)
         self.Bind(
             wx.EVT_MENU,
@@ -387,6 +393,29 @@ class MainWindow(wx.Frame):
             if self.current_menu_id == "online_users":
                 return
             self.network.send_packet({"type": "list_online_with_games"})
+
+    # Friends-family menus: if already inside any of these, suppress re-entry.
+    _FRIENDS_MENU_IDS = frozenset({
+        "friends_hub_menu", "friends_list_menu", "friend_actions_menu",
+        "friend_requests_menu", "friend_request_actions_menu",
+        "send_friend_request_input",
+    })
+    # Options-family menus.
+    _OPTIONS_MENU_IDS = frozenset({
+        "options_menu", "language_menu", "speech_settings_menu",
+        "voice_selection_menu", "dice_keeping_style_menu",
+        "music_volume_input", "ambience_volume_input",
+    })
+
+    def on_open_friends_hub(self, event):
+        """Handle Alt+F to open the friends hub from anywhere."""
+        if self.connected and self.current_menu_id not in self._FRIENDS_MENU_IDS:
+            self.network.send_packet({"type": "open_friends_hub"})
+
+    def on_open_options(self, event):
+        """Handle Alt+O to open the options menu from anywhere."""
+        if self.connected and self.current_menu_id not in self._OPTIONS_MENU_IDS:
+            self.network.send_packet({"type": "open_options"})
 
     def on_server_pong(self, packet):
         """Handle pong response from server."""
@@ -621,8 +650,8 @@ class MainWindow(wx.Frame):
                 key_name = "enter"
         # Handle letter keys (case insensitive)
         elif 65 <= key_code <= 90:  # A-Z
-            # Alt+P, M, C, H are handled by accelerator table
-            if event.AltDown() and key_code in [ord("P"), ord("M"), ord("C"), ord("H")]:
+            # Alt+P, M, C, H, F, O are handled by accelerator table
+            if event.AltDown() and key_code in [ord("P"), ord("M"), ord("C"), ord("H"), ord("F"), ord("O")]:
                 event.Skip()
                 return
             key_name = chr(key_code).lower()

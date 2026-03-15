@@ -656,12 +656,25 @@ class GameClient {
             });
         });
 
-        // Players Tab
+        // Shortcuts Tab
         document.getElementById('btn-list-online').onclick = () => {
             this.sendListOnline(false);
         };
         document.getElementById('btn-list-online-games').onclick = () => {
             this.sendListOnline(true);
+        };
+        document.getElementById('btn-open-friends').onclick = () => {
+            if (!this.isConnected) return;
+            this.socket.send(JSON.stringify({ type: "open_friends_hub" }));
+            this.speak("requesting-friends-hub");
+        };
+        document.getElementById('btn-open-options').onclick = () => {
+            if (!this.isConnected) return;
+            this.socket.send(JSON.stringify({ type: "open_options" }));
+            this.speak("requesting-options");
+        };
+        document.getElementById('btn-check-ping').onclick = () => {
+            this.sendPing();
         };
 
         // Table Options Removed (Used to be btn-table-options)
@@ -2887,15 +2900,21 @@ class GameClient {
         if (btnViewHistory) btnViewHistory.innerText = Localization.get('btn-view-history');
         if (btnBackToInput) btnBackToInput.innerText = Localization.get('btn-back-to-input');
 
-        // Players section
+        // Shortcuts section
         const playersTitle = document.getElementById('players-title');
         const btnListOnline = document.getElementById('btn-list-online');
         const btnListOnlineGames = document.getElementById('btn-list-online-games');
+        const btnOpenFriends = document.getElementById('btn-open-friends');
+        const btnOpenOptions = document.getElementById('btn-open-options');
+        const btnCheckPing = document.getElementById('btn-check-ping');
         const playersInstruction = document.getElementById('players-instruction');
 
         if (playersTitle) playersTitle.innerText = Localization.get('players-title');
         if (btnListOnline) btnListOnline.innerText = Localization.get('btn-list-online');
         if (btnListOnlineGames) btnListOnlineGames.innerText = Localization.get('btn-list-online-games');
+        if (btnOpenFriends) btnOpenFriends.innerText = Localization.get('btn-open-friends');
+        if (btnOpenOptions) btnOpenOptions.innerText = Localization.get('btn-open-options');
+        if (btnCheckPing) btnCheckPing.innerText = Localization.get('btn-check-ping');
         if (playersInstruction) playersInstruction.innerText = Localization.get('players-instruction');
 
         // History section

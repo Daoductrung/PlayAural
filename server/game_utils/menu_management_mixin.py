@@ -45,22 +45,33 @@ class MenuManagementMixin:
         if not user:
             return
 
-        # FOCUS-STEAL PREVENTION: 
+        # FOCUS-STEAL PREVENTION:
         # Do NOT push a turn_menu update if the user has a transient menu or input open.
-        # This prevents interrupting the user while they are in the actions menu, 
+        # This prevents interrupting the user while they are in the actions menu,
         # reading a status box, or entering text (e.g. bet amount).
-        
+
         # 1. Action Menu or Status Box (from LobbyActionsMixin and MenuManagementMixin)
         if player.id in self._actions_menu_open or player.id in self._status_box_open:
             return
-            
-        # 2. Input Menus or Editboxes (from ActionExecutionMixin and LobbyActionsMixin)
+
+        # 2. Server-level system overlay (online_users, friends_hub, options, etc.)
+        # If _user_states says the user is viewing ANY global system menu, never
+        # overwrite it with a game turn_menu — regardless of which specific menu it
+        # is.  This is the universal guard: it catches everything in GLOBAL_SYSTEM_MENUS
+        # without needing per-menu entries in _actions_menu_open.
+        server = getattr(getattr(self, "_table", None), "_server", None)
+        if server is not None:
+            state = server._user_states.get(user.username, {})
+            if state.get("menu") in server.GLOBAL_SYSTEM_MENUS:
+                return
+
+        # 3. Input Menus or Editboxes (from ActionExecutionMixin and LobbyActionsMixin)
         # Check _pending_actions to see if user is currently providing input for an action
         pending_action = self._pending_actions.get(player.id)
         if pending_action:
             # action_input_menu and action_input_editbox are protected.
             # leave_game_confirm is also protected as it's a transient modal.
-            # Since _pending_actions stores action IDs, not menu IDs, 
+            # Since _pending_actions stores action IDs, not menu IDs,
             # we rely on the fact that any pending action implies an open input UI.
             return
 
@@ -108,11 +119,17 @@ class MenuManagementMixin:
         if not user:
             return
 
-        # FOCUS-STEAL PREVENTION: 
-        # Same check as in rebuild_player_menu to prevent updates while user is busy.
+        # FOCUS-STEAL PREVENTION:
+        # Same checks as in rebuild_player_menu to prevent updates while user is busy.
         if player.id in self._actions_menu_open or player.id in self._status_box_open:
             return
-            
+
+        server = getattr(getattr(self, "_table", None), "_server", None)
+        if server is not None:
+            state = server._user_states.get(user.username, {})
+            if state.get("menu") in server.GLOBAL_SYSTEM_MENUS:
+                return
+
         pending_action = self._pending_actions.get(player.id)
         if pending_action:
             return

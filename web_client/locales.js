@@ -23,7 +23,7 @@ window.LOCALES = {
 
         "tab-menu": "Menu",
         "tab-chat": "Chat",
-        "tab-players": "Players",
+        "tab-players": "Shortcuts",
         "tab-history": "History",
         "history-title": "TTS History",
 
@@ -36,7 +36,7 @@ window.LOCALES = {
         "chat-prefix-system": "[System]",
         "chat-prefix-announcement": "System Announcement",
 
-        "players-title": "Online Players",
+        "players-title": "Shortcuts",
 
         "status-connected": "Connected",
         "status-connecting": "Connecting...",
@@ -115,7 +115,7 @@ window.LOCALES = {
         // Tabs
         "tab-menu": "Menu",
         "tab-chat": "Chat",
-        "tab-players": "Players",
+        "tab-players": "Shortcuts",
 
         // Chat
 
@@ -127,11 +127,16 @@ window.LOCALES = {
         "chat-history-view-active": "Chat History",
         "chat-input-view-active": "Chat Input",
 
-        // Players section
-        "players-title": "Online Players",
+        // Shortcuts section
+        "players-title": "Shortcuts",
         "btn-list-online": "Read Online Players",
         "btn-list-online-games": "List Players with Games",
+        "btn-open-friends": "Open Friends",
+        "btn-open-options": "Open Options",
+        "btn-check-ping": "Check Ping",
         "players-instruction": "Click a button above to view online players.",
+        "requesting-friends-hub": "Opening Friends Hub...",
+        "requesting-options": "Opening Options...",
         "link-no-account": "No account? Register here.",
         "link-have-account": "Already have an account? Login here.",
         "no-voices-found": "No voices found or still loading. Please try again in a moment or restart the browser."
@@ -160,7 +165,7 @@ window.LOCALES = {
 
         "tab-menu": "Menu",
         "tab-chat": "Trò chuyện",
-        "tab-players": "Người chơi",
+        "tab-players": "Lối tắt",
         "tab-history": "Nhật ký",
         "history-title": "Nhật ký TTS",
 
@@ -173,7 +178,7 @@ window.LOCALES = {
         "chat-prefix-system": "[Hệ thống]",
         "chat-prefix-announcement": "Thông báo hệ thống",
 
-        "players-title": "Người chơi trực tuyến",
+        "players-title": "Lối tắt",
 
         "status-connected": "Đã kết nối",
         "status-connecting": "Đang kết nối...",
@@ -252,7 +257,7 @@ window.LOCALES = {
         // Tabs
         "tab-menu": "Menu",
         "tab-chat": "Trò chuyện",
-        "tab-players": "Người chơi",
+        "tab-players": "Lối tắt",
 
         // Chat
 
@@ -263,11 +268,16 @@ window.LOCALES = {
         "chat-history-view-active": "Nhật ký trò chuyện",
         "chat-input-view-active": "Ô nhập liệu trò chuyện",
 
-        // Players section
-        "players-title": "Người chơi trực tuyến",
+        // Shortcuts section
+        "players-title": "Lối tắt",
         "btn-list-online": "Đọc tên người chơi trực tuyến",
         "btn-list-online-games": "Danh sách người chơi kèm thông tin game",
+        "btn-open-friends": "Mở danh sách bạn bè",
+        "btn-open-options": "Mở cài đặt",
+        "btn-check-ping": "Kiểm tra độ trễ",
         "players-instruction": "Nhấn nút phía trên để xem danh sách người chơi trực tuyến.",
+        "requesting-friends-hub": "Đang mở danh sách bạn bè...",
+        "requesting-options": "Đang mở cài đặt...",
         "link-no-account": "Chưa có tài khoản? Đăng ký tại đây.",
         "link-have-account": "Đã có tài khoản? Đăng nhập tại đây.",
         "no-voices-found": "Không tìm thấy giọng đọc hoặc đang tải. Vui lòng thử lại sau giây lát hoặc khởi động lại trình duyệt."

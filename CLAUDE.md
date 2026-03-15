@@ -72,6 +72,21 @@ Games are dataclasses serialized via Mashumaro for state persistence.
 - The canonical pattern for starting a round: `set_turn_players(alive_players)` → `_announce_turn()` (no `advance_turn` between them). See ChaosBear's `on_start` / `_next_round_step` as the reference.
 - **`get_active_players()`** excludes spectators. Always use it (never iterate `self.players` directly) when building game results, calculating winners, or announcing per-player results.
 
+#### Server-Side Menu Navigation Stack
+
+All server-side menu navigation uses a breadcrumb stack stored in `_user_states[username]["_stack"]`. Three primitives manage it:
+
+- **`_nav_push(user, show_fn, *args)`** — Captures the current state frame, pushes it onto `_stack`, calls `show_fn`, then re-injects the stack. Use for **forward navigation** (opening a sub-menu).
+- **`_nav_back(user)`** — Pops the top frame and calls `_restore_frame`. If the stack is empty, falls back to the game table or main menu. Use for all **Back** button handlers.
+- **`_nav_refresh(user, show_fn, *args)`** — Saves `_stack`, calls `show_fn`, then re-injects the stack unchanged. Use when an **action completes** and the user stays on the same menu level (e.g. accept friend request → refresh friend requests menu). Never use a bare `_show_*()` call in an action handler — it drops the stack.
+- **`_restore_frame(user, frame, stack)`** — Re-enters the correct show function for a popped frame, then re-injects the remaining stack. Routes `in_game`/`post_game`/etc. to `_return_to_game`; routes overlay menus to their show functions.
+
+**Rules:**
+- `_nav_push` = navigate forward (add a frame to history)
+- `_nav_refresh` = stay in place after an action (preserve history)
+- `_nav_back` = go back (pop a frame from history)
+- Never call `_show_*()` directly in an action handler — always use `_nav_refresh` so the stack survives.
+
 #### Host Management / Transient Server-Side Menus
 The server can push a transient menu (e.g. Host Management) on top of the in-game UI. To prevent `rebuild_all_menus()` from immediately overwriting it when a keybind fires:
 - Add `player.id` to `game._actions_menu_open` **before** pushing the menu to the user.
@@ -79,6 +94,14 @@ The server can push a transient menu (e.g. Host Management) on top of the in-gam
 - `rebuild_all_menus()` skips any player whose ID is in `_actions_menu_open`.
 
 `_is_host_management_hidden` always returns `Visibility.HIDDEN` so the action never appears in the turn menu. It remains accessible via the actions/F5 menu (which checks `show_in_actions_menu`, not `visible`) and the `Ctrl+Shift+M` keybind (`KeybindState.ALWAYS`, `include_spectators=True`). Non-host spectators receive the `action-not-host` disabled reason from the keybind handler.
+
+#### Universal Redraw Guard (GLOBAL_SYSTEM_MENUS)
+`server.GLOBAL_SYSTEM_MENUS` is a class-level set of menu IDs that represent server-side overlays (friends hub, options, online users, public profile, etc.). Two invariants are enforced:
+
+1. **`rebuild_player_menu` / `update_player_menu`** in `menu_management_mixin.py` return early if `_user_states[username]["menu"]` is in `GLOBAL_SYSTEM_MENUS`. This prevents game tick redraws from overwriting an overlay the user is currently viewing.
+2. **`_show_end_screen_to_player`** in `game_result_mixin.py` checks if the player's current state is in `GLOBAL_SYSTEM_MENUS` and, if so, resets it to `{"menu": "in_game", "table_id": ...}` and clears `_actions_menu_open`. This prevents the post-game screen from being unresponsive when the game ends while an overlay is open.
+
+When the `_user_states` assignment must happen **before** `rebuild_all_menus()` or `initialize_lobby()` fires (table creation/join), set state first or the guard will block the initial turn-menu push.
 
 #### Game Event / Sound Scheduling
 - Games use `self.event_queue` (list of `(tick, event_type, data)` tuples) for deferred state changes and `self.schedule_sound(path, delay_ticks)` for audio timing.

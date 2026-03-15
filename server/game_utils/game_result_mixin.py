@@ -209,3 +209,20 @@ class GameResultMixin:
             from ..users.base import EscapeBehavior
             user.show_menu("game_over", items, multiletter=False, escape_behavior=EscapeBehavior.SELECT_LAST)
 
+            # Bug 2 fix: If the player had a global overlay open (e.g. friends_hub_menu,
+            # online_users, options_menu) when the game ended, _user_states still points
+            # to that overlay.  The client now shows "game_over" but the server routes
+            # all button presses to the overlay handler — so buttons are unresponsive.
+            # Clear any overlay state so the server correctly routes game_over selections.
+            server = getattr(getattr(self, "_table", None), "_server", None)
+            if server is not None:
+                state = server._user_states.get(user.username, {})
+                if state.get("menu") in server.GLOBAL_SYSTEM_MENUS:
+                    table_id = getattr(getattr(self, "_table", None), "table_id", None)
+                    server._user_states[user.username] = {
+                        "menu": "in_game",
+                        "table_id": table_id,
+                    }
+                    # Also clear any actions-menu-open flag so rebuild guards don't block
+                    self._actions_menu_open.discard(player.id)
+

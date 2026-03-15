@@ -130,8 +130,6 @@ PlayAural features a growing collection of games across several categories:
 
 \* \*\*Pirates of the Lost Seas:\*\* A competitive RPG adventure. Sail the seas, battle rivals, and collect gems to claim victory.
 
-\* \*\*Age of Heroes:\*\* Choose your hero, battle through encounters, and race to be the last one standing.
-
 \* \*\*Chaos Bear:\*\* A chaotic and unpredictable survival game where anything can happen.
 
 \* \*\*Mile by Mile:\*\* A strategic racing card game inspired by the classic Mille Bornes.

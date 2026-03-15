@@ -237,7 +237,6 @@ pytest -v                                      # verbose output
 | Pirates of the Lost Seas | Competitive RPG — sail, battle, collect gems |
 | Snakes and Ladders | Classic board game |
 | Light Turret | Resource management — power and light |
-| Age of Heroes | Strategy adventure game |
 | Chaos Bear | Fast-paced action game |
 
 ### Social / Party

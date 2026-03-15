@@ -797,7 +797,7 @@ class PiratesGame(Game):
                 PlayerResult(
                     player_id=p.id,
                     player_name=p.name,
-                    is_bot=p.is_bot,
+                    is_bot=p.is_bot and not p.replaced_human,
                 )
                 for p in sorted_players
             ],

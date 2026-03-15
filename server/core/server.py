@@ -25,7 +25,7 @@ from ..messages.localization import Localization
 from ..documentation.manager import DocumentationManager
 from .smtp_mailer import SmtpMailer
 from ..users.bot import Bot
-from ..game_utils.stats_helpers import LeaderboardHelper, RatingHelper
+from ..game_utils.stats_helpers import RatingHelper
 from ..game_utils.game_result import GameResult
 
 
@@ -4574,11 +4574,10 @@ PlayAural Server
 
             # Score stats (if applicable)
             supported_types = game_class.get_supported_leaderboards()
-            if total_score > 0:
-                if "total_score" in supported_types:
-                    items.append(MenuItem(text=Localization.get(user.locale, "my-stats-total-score", value=total_score), id="total_score"))
-                if "high_score" in supported_types:
-                    items.append(MenuItem(text=Localization.get(user.locale, "my-stats-high-score", value=high_score), id="high_score"))
+            if total_score > 0 and "total_score" in supported_types:
+                items.append(MenuItem(text=Localization.get(user.locale, "my-stats-total-score", value=total_score), id="total_score"))
+            if high_score > 0 and "high_score" in supported_types:
+                items.append(MenuItem(text=Localization.get(user.locale, "my-stats-high-score", value=high_score), id="high_score"))
 
             # Skill rating
             rating_helper = RatingHelper(self._db, game_type)

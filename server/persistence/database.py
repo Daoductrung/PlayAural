@@ -1663,7 +1663,8 @@ class Database:
         """
         cursor = self._conn.cursor()
         cursor.execute("""
-            SELECT p_num.player_id, u.username, p_num.stat_value, p_denom.stat_value
+            SELECT p_num.player_id, u.username AS player_name,
+                   p_num.stat_value AS num_value, p_denom.stat_value AS denom_value
             FROM player_game_stats p_num
             JOIN player_game_stats p_denom
                 ON p_num.player_id = p_denom.player_id
@@ -1672,7 +1673,10 @@ class Database:
             LEFT JOIN users u ON p_num.player_id = u.uuid
             WHERE p_num.game_type = ? AND p_num.stat_key = ?
         """, (denom_key, game_type, num_key))
-        return [(row[0], row[1] or row[0], row[2], row[3]) for row in cursor.fetchall()]
+        return [
+            (row["player_id"], row["player_name"] or row["player_id"], row["num_value"], row["denom_value"])
+            for row in cursor.fetchall()
+        ]
 
     def get_user_name_by_uuid(self, uuid: str) -> str | None:
         """Look up a username by UUID efficiently."""

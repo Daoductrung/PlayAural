@@ -29,6 +29,7 @@ from ..game_utils.action_set_creation_mixin import ActionSetCreationMixin
 from ..game_utils.action_execution_mixin import ActionExecutionMixin
 from ..game_utils.action_set_system_mixin import ActionSetSystemMixin
 from ..ui.keybinds import Keybind
+from ..users.bot import Bot
 
 
 @dataclass
@@ -54,6 +55,7 @@ class Player(DataClassJSONMixin):
     id: str  # UUID - unique identifier (from user.uuid for humans, generated for bots)
     name: str  # Display name
     is_bot: bool = False
+    replaced_human: bool = False  # True if this slot was a human who disconnected and was replaced by a bot
     is_spectator: bool = False
     # Bot AI state (serialized for persistence)
     bot_think_ticks: int = 0  # Ticks until bot can act
@@ -323,7 +325,7 @@ class Game(
              self.broadcast_l("game-paused-host-disconnect", player=player.name)
              return
 
-        # Convert to bot
+        # Convert to bot (marking original human status before replacement)
         self._replace_with_bot(player)
 
         # We don't play sound here because Server plays offline sound
@@ -370,10 +372,10 @@ class Game(
         if self.status != "playing":
             return
 
+        player.replaced_human = True
         player.is_bot = True
         self._users.pop(player.id, None)
 
-        from ..users.bot import Bot
         # Use same UUID so user can reclaim it
         bot_user = Bot(player.name, uuid=player.id)
         self.attach_user(player.id, bot_user)

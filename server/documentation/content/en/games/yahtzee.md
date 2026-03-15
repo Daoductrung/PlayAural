@@ -2,15 +2,9 @@
 
 
 
-\*\*Note: This game is currently disabled and under maintenance.\*\*
+Yahtzee is a classic dice game beloved since 1956, combining strategy, probability, and luck. Over 13 rounds, you roll five dice up to three times per turn to fill in scoring categories on your scorecard. Each category can only be used once, so choosing where to score — or which category to sacrifice with a zero — is the heart of the game.
 
-
-
-Yahtzee is a classic dice game that has been a household staple since 1956. It is a game of strategy, probability, and luck. The goal is to roll five dice to fill in 13 scoring categories on your scoresheet. Each category can only be used once, so deciding when to score or "scratch" a category is the heart of the game.
-
-
-
-The player with the highest total score at the end of 13 rounds wins.
+The player with the highest total score after all 13 categories are filled wins.
 
 
 
@@ -18,13 +12,17 @@ The player with the highest total score at the end of 13 rounds wins.
 
 
 
-The game supports 1 to 4 players. On your turn, you can roll the dice up to three times.
+The game supports 1 to 4 players. On your turn you have up to three rolls.
 
-1\. \*\*First Roll:\*\* Roll all five dice.
+1\. \*\*First roll:\*\* All five dice are rolled automatically when you press Roll.
 
-2\. \*\*Rerolls:\*\* After the first and second rolls, you can choose to keep any number of dice and reroll the rest.
+2\. \*\*Keep dice:\*\* Press 1–5 to toggle individual dice between "keep" and "reroll". Kept dice are not rolled again.
 
-3\. \*\*Scoring:\*\* After your third roll (or sooner if you are satisfied), you must choose one of your 13 categories to record a score. If your dice don't fit the category, you receive a 0.
+3\. \*\*Reroll:\*\* Press Roll again to reroll only the unkept dice. You may reroll up to two more times.
+
+4\. \*\*Score:\*\* After your final roll (or whenever you are satisfied), select a scoring category from the menu. If your dice don't qualify, you take a zero in that category.
+
+You must score in exactly one category every turn — there is no passing.
 
 
 
@@ -34,31 +32,44 @@ The game supports 1 to 4 players. On your turn, you can roll the dice up to thre
 
 \*\*Upper Section\*\*
 
-You score the sum of the dice matching the category (Ones, Twos, Threes, Fours, Fives, Sixes).
+Each category scores the sum of all dice matching that face value.
 
-\* \*\*Bonus:\*\* If the total of your Upper Section is \*\*63 or higher\*\*, you receive a \*\*35-point bonus\*\*.
+\* \*\*Ones:\*\* Sum of all ones rolled.
+\* \*\*Twos:\*\* Sum of all twos rolled.
+\* \*\*Threes:\*\* Sum of all threes rolled.
+\* \*\*Fours:\*\* Sum of all fours rolled.
+\* \*\*Fives:\*\* Sum of all fives rolled.
+\* \*\*Sixes:\*\* Sum of all sixes rolled.
+
+\*\*Upper Section Bonus:\*\* If your upper section total reaches 63 or more, you earn a \*\*35-point bonus\*\*. The target of 63 assumes three of each face value (e.g. three threes = 9, three fours = 12, and so on).
 
 
 
 \*\*Lower Section\*\*
 
-\* \*\*Three of a Kind / Four of a Kind:\*\* Sum of all five dice.
-
-\* \*\*Full House:\*\* 25 points (3 of one value, 2 of another).
-
-\* \*\*Small Straight:\*\* 30 points (4 consecutive numbers).
-
-\* \*\*Large Straight:\*\* 40 points (5 consecutive numbers).
-
-\* \*\*Yahtzee:\*\* 50 points (All 5 dice the same).
-
-\* \*\*Chance:\*\* Sum of all five dice (use for any roll).
+\* \*\*Three of a Kind:\*\* At least three dice showing the same value. Scores the sum of all five dice.
+\* \*\*Four of a Kind:\*\* At least four dice showing the same value. Scores the sum of all five dice.
+\* \*\*Full House:\*\* Three of one value and two of another. Worth \*\*25 points\*\*. Five of a kind also qualifies (Yahtzee joker rule).
+\* \*\*Small Straight:\*\* Four consecutive values (1-2-3-4, 2-3-4-5, or 3-4-5-6). Worth \*\*30 points\*\*.
+\* \*\*Large Straight:\*\* Five consecutive values (1-2-3-4-5 or 2-3-4-5-6). Worth \*\*40 points\*\*.
+\* \*\*Yahtzee:\*\* All five dice showing the same value. Worth \*\*50 points\*\*.
+\* \*\*Chance:\*\* Any combination. Scores the sum of all five dice. Use this as a safety net for a bad roll.
 
 
 
 \*\*Yahtzee Bonus\*\*
 
-If you roll another Yahtzee after already scoring 50 in the Yahtzee category, you earn a \*\*100-point bonus\*\*.
+
+
+If you have already scored 50 in the Yahtzee category and roll another Yahtzee, you earn a \*\*100-point bonus\*\* regardless of which other category you score in that turn. The bonus is announced immediately and stacks — multiple Yahtzee bonuses in one game are possible.
+
+
+
+\*\*Scoring Zero\*\*
+
+
+
+If none of your open categories fit your dice, you must take a zero in one of them. The scoring menu shows the point value each category would award with your current dice, including a zero when nothing qualifies. Choose carefully — some categories (such as Chance) are easier to salvage later than others (such as Large Straight).
 
 
 
@@ -66,11 +77,7 @@ If you roll another Yahtzee after already scoring 50 in the Yahtzee category, yo
 
 
 
-\* \*\*R:\*\* Roll the dice.
-
-\* \*\*1-5:\*\* Toggle keeping/rerolling individual dice by position.
-
-\* \*\*D:\*\* View current dice and which ones are kept.
-
-\* \*\*C:\*\* View your scoresheet.
-
+\* \*\*R:\*\* Roll the dice (or reroll unkept dice).
+\* \*\*1–5:\*\* Toggle keeping or rerolling each die by position (1 = leftmost).
+\* \*\*D:\*\* Read out the current dice values and which are being kept.
+\* \*\*C:\*\* Read your full scorecard, including remaining categories and current totals.

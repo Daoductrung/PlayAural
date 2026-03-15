@@ -152,7 +152,7 @@ class TestYahtzeeGameUnit:
         assert game.get_name() == "Yahtzee"
         assert game.get_type() == "yahtzee"
         assert game.get_category() == "category-dice-games"
-        assert game.get_min_players() == 1
+        assert game.get_min_players() == 2
         assert game.get_max_players() == 4
 
     def test_player_creation(self):

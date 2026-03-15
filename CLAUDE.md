@@ -51,7 +51,7 @@ Key packet types: `AUTHORIZE`, `MENU`, `KEYBIND`, `CHAT`, `SPEAK`, `PLAY_SOUND`,
 ### Server Architecture
 - **`server/core/server.py`** — Main orchestrator
 - **`server/network/websocket_server.py`** — Async WebSocket connection management
-- **`server/games/`** — 21 game implementations; each extends an abstract `Game` base class via 14 mixins
+- **`server/games/`** — 20 game implementations; each extends an abstract `Game` base class via 14 mixins
 - **`server/game_utils/`** — 40+ shared utility modules (cards, dice, poker logic, turn management, scoring)
 - **`server/auth/`** — Argon2 password hashing, rate limiting
 - **`server/persistence/database.py`** — SQLite (`PlayAural.db`), user accounts, game history, OpenSkill ratings
@@ -124,7 +124,7 @@ The shutdown sequence is a 32-second structured countdown managed by `self._shut
 - **Final phase**: shutdown sound (`server_alert_shutdown.ogg`) + silent chat + explicit `speak` + `disconnect` packet (`"reconnect": true/false`) sent to all approved users, then 2 s sleep, then `stop()` → `os._exit(1)`.
 - **`stop()` order**: tick scheduler → WS server (disconnect handlers fire here) → cancel `_pending_disconnects` tasks → cancel `_shutdown_task` → `_save_tables()` → close DB.
 - **Locale keys**: `server-restarting` (with `$seconds`), `server-restarting-now`, `server-shutting-down` (with `$seconds`), `server-shutting-down-now` — all in both `en` and `vi` FTL files.
-- **Sound files**: `client/sounds/server_alert_warning.ogg`, `server_alert_tick.ogg`, `server_alert_shutdown.ogg`. See `sounds.md` at the repo root for creative briefs.
+- **Sound files**: `client/sounds/server_alert_warning.ogg`, `server_alert_tick.ogg`, `server_alert_shutdown.ogg`.
 
 #### Game Event / Sound Scheduling
 - Games use `self.event_queue` (list of `(tick, event_type, data)` tuples) for deferred state changes and `self.schedule_sound(path, delay_ticks)` for audio timing.

@@ -2,6 +2,7 @@
 
 import functools
 import asyncio
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 from ..users.network_user import NetworkUser
@@ -1269,8 +1270,6 @@ class AdministrationManager:
 
     @require_admin
     async def _perform_ban(self, admin: NetworkUser, target_username: str, duration_id: str, reason_key: str) -> None:
-        from datetime import datetime, timedelta
-
         # Calculate expires_at
         now = datetime.now()
         expires_at = None
@@ -1321,9 +1320,22 @@ class AdministrationManager:
                 u.speak_l("ban-broadcast", target=target_username, actor=admin.username, reason=loc_reason, duration=loc_duration)
                 u.play_sound("accountban.ogg")
 
+        # If the banned player is mid-game, substitute with a bot NOW — before
+        # popping them from _users.  _on_client_disconnect guards bot substitution
+        # with `if user:`, which will be False once we pop, so we must do it here.
+        target_user = self.server.users.get(target_username)
+        if target_user:
+            table = self.server._tables.find_user_table(target_username)
+            if table and table.game and table.game.status == "playing":
+                table.game.on_player_disconnect(target_user.uuid)
+
         # Evict from memory immediately so the user cannot receive further broadcasts
         # or be treated as online, regardless of whether the network send succeeds.
         target_user = self.server.users.pop(target_username, None)
+        # _on_client_disconnect skips _user_states.pop when user is already gone from
+        # _users (its guard is `if user and user.connection == client`).  Clean it up
+        # here so the entry does not linger until the next server restart.
+        self.server._user_states.pop(target_username, None)
         if target_user:
             await target_user.connection.send({"type": "force_exit", "reason": "banned"})
             asyncio.create_task(self._kick_disconnect_delay(target_user))

@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import os
 import sys
 import unicodedata
 from pathlib import Path
@@ -69,7 +70,7 @@ class Server:
     }
 
     # Subset of GLOBAL_SYSTEM_MENUS: menus that are transient overlays shown
-    # while the player is still inside a game.  When _restore_previous_menu
+    # while the player is still inside a game.  When _restore_frame
     # encounters one of these as the return target it re-shows the exact
     # overlay (so the user lands back where they left off) rather than falling
     # to the game turn menu or the main menu.
@@ -107,6 +108,8 @@ class Server:
         self._pending_disconnects: dict[str, asyncio.Task] = {} # username -> broadcast task
         # Pending table invites: invitee_username -> {table_id, host_username, task}
         self._pending_invites: dict[str, dict] = {}
+        # Active shutdown/reboot countdown task (None when idle)
+        self._shutdown_task: asyncio.Task | None = None
 
         # Initialize admin manager
         self.admin_manager = AdministrationManager(self)
@@ -173,16 +176,32 @@ PlayAural Server
         """Stop the server."""
         print("Stopping server...")
 
-        # Save all tables
-        self._save_tables()
-
-        # Stop tick scheduler
+        # Stop tick scheduler first so no more game ticks fire during shutdown.
         if self._tick_scheduler:
             await self._tick_scheduler.stop()
 
-        # Stop WebSocket server
+        # Stop WebSocket server — this closes all active connections and waits for
+        # all _handle_client coroutines to finish.  _on_client_disconnect fires for
+        # every connected user during this step (bot substitution, user-state cleanup,
+        # etc.), so we must stop the WS server BEFORE saving tables to capture any
+        # final game-state mutations (e.g. a player converted to bot on disconnect).
         if self._ws_server:
             await self._ws_server.stop()
+
+        # Cancel the shutdown countdown task if stop() is called externally
+        # (e.g. SIGTERM) while a /reboot or /stop sequence is still running.
+        if self._shutdown_task and not self._shutdown_task.done():
+            self._shutdown_task.cancel()
+            self._shutdown_task = None
+
+        # Cancel any pending delayed-offline-broadcast tasks so they don't access
+        # the database after it has been closed.
+        for task in list(self._pending_disconnects.values()):
+            task.cancel()
+        self._pending_disconnects.clear()
+
+        # Save all tables after all connections have been processed.
+        self._save_tables()
 
         # Close database
         self._db.close()
@@ -638,54 +657,63 @@ PlayAural Server
 
         restored_game = False
         is_spectator = False
-        if table and table.game:
-            # Check if user was a spectator
-            # We need to find the member record to know their role
-            for member in table.members:
-                if member.username == username:
-                    is_spectator = member.is_spectator
-                    break
-
-            if is_spectator:
-                # OPTIMIZATION: Spectators should NOT be automatically restored to the table.
-                # If they reconnect, they should land in the main menu.
-                # We remove them from the table to clean up the stale session.
+        if table:
+            if not table.game:
+                # Table exists (e.g. a lobby that was persisted) but has no active game.
+                # The player's membership is stale — remove it so they don't become a
+                # ghost member stuck in a lobby they can't interact with.
                 table.remove_member(username)
-                
-                # BUGFIX: Also remove from the game state to prevent "ghost" spectators
-                # Table.members is for the lobby/listing, Game.players is for the game logic.
-                if table.game:
-                    # We need the player ID (UUID) to remove from game
-                    # user.uuid is available here from the newly created NetworkUser
-                    # Use the centralized helper
-                    table.game.remove_spectator(user.uuid)
 
             else:
-                # Active player rejoining
-                player = table.game.get_player_by_id(user.uuid)
-                if player:
-                    # Update player's bot status in case they were replaced
-                    player.is_bot = False
-                    
-                    # Rejoin table - use same approach as _restore_saved_table
-                    table.attach_user(username, user)
+                # Check if user was a spectator
+                # We need to find the member record to know their role
+                for member in table.members:
+                    if member.username == username:
+                        is_spectator = member.is_spectator
+                        break
 
-                    # Check status: if game is finished, we don't rebuild state, we let them see the table menu
-                    if table.game.status != "finished":
-                        restored_game = True
+                if is_spectator:
+                    # OPTIMIZATION: Spectators should NOT be automatically restored to the table.
+                    # If they reconnect, they should land in the main menu.
+                    # We remove them from the table to clean up the stale session.
+                    table.remove_member(username)
 
-                        # Restore humanity if they were replaced by a bot
-                        if player.is_bot:
-                            player.is_bot = False
-                            table.game.broadcast_l("player-rejoined", player=player.name)
-                        
-                        table.game.attach_user(player.id, user)
-                        
-                        # Set user state so menu selections are handled correctly
-                        self._user_states[username] = {
-                            "menu": "in_game",
-                            "table_id": table.table_id,
-                        }
+                    # BUGFIX: Also remove from the game state to prevent "ghost" spectators
+                    # Table.members is for the lobby/listing, Game.players is for the game logic.
+                    table.game.remove_spectator(user.uuid)
+
+                else:
+                    # Active player rejoining
+                    player = table.game.get_player_by_id(user.uuid)
+                    if player:
+                        # Update player's bot status in case they were replaced
+                        player.is_bot = False
+
+                        # Rejoin table - use same approach as _restore_saved_table
+                        table.attach_user(username, user)
+
+                        # Check status: if game is finished, we don't rebuild state, we let them see the table menu
+                        if table.game.status != "finished":
+                            restored_game = True
+
+                            # Restore humanity if they were replaced by a bot
+                            if player.is_bot:
+                                player.is_bot = False
+                                table.game.broadcast_l("player-rejoined", player=player.name)
+
+                            table.game.attach_user(player.id, user)
+
+                            # Set user state so menu selections are handled correctly
+                            self._user_states[username] = {
+                                "menu": "in_game",
+                                "table_id": table.table_id,
+                            }
+                    else:
+                        # Player's uuid is not in the game (should not normally happen, but
+                        # can occur if the game was saved in an inconsistent state).  Remove
+                        # the stale membership so the player lands cleanly in the main menu
+                        # instead of becoming a ghost member with no matching game slot.
+                        table.remove_member(username)
 
         # Process Offline Notifications exactly once when they enter active state
         self._process_offline_notifications(user)
@@ -1851,7 +1879,7 @@ PlayAural Server
             prefs.speech_mode = new_mode
             self._save_user_preferences(user)
             self._sync_pref_to_client(user, "speech_mode", new_mode)
-            self._show_speech_settings_menu(user)
+            self._nav_refresh(user, self._show_speech_settings_menu)
         
         elif selection_id == "speech_rate":
             user.show_editbox(
@@ -1865,28 +1893,27 @@ PlayAural Server
             # Send an empty menu with a specific ID.
             # The Web Client will intercept this ID and populate it with available voices.
             # When selected, it will send the voice URI as selection_id to _handle_voice_selection.
-            current = self._user_states.get(user.username, {})
-            stack = list(current.get("_stack", []))
-            stack.append({k: v for k, v in current.items() if k != "_stack"})
-            user.show_menu(
-                "voice_selection_menu",
-                [MenuItem(text=Localization.get(user.locale, "select-voice"), id="placeholder")],
-                multiletter=True,
-                escape_behavior=EscapeBehavior.SELECT_LAST
-            )
-            self._user_states[user.username] = {"menu": "voice_selection_menu", "_stack": stack}
+            def _show_voice_selection_menu(u: NetworkUser) -> None:
+                u.show_menu(
+                    "voice_selection_menu",
+                    [MenuItem(text=Localization.get(u.locale, "select-voice"), id="placeholder")],
+                    multiletter=True,
+                    escape_behavior=EscapeBehavior.SELECT_LAST,
+                )
+                self._user_states[u.username] = {"menu": "voice_selection_menu"}
+            self._nav_push(user, _show_voice_selection_menu)
 
     async def _handle_voice_selection(self, user: NetworkUser, selection_id: str) -> None:
         """Handle voice selection override (Web only)."""
         if selection_id == "back":
-            self._show_speech_settings_menu(user)
+            self._nav_back(user)
             return
 
         # selection_id is the voice URI
         user.preferences.speech_voice = selection_id
         self._save_user_preferences(user)
         self._sync_pref_to_client(user, "speech_voice", selection_id)
-        self._show_speech_settings_menu(user)
+        self._nav_back(user)
 
 
     def _sync_pref_to_client(self, user: NetworkUser, key: str, value: any) -> None:
@@ -1916,15 +1943,15 @@ PlayAural Server
                     prefs.music_volume = vol
                     self._save_user_preferences(user)
                     self._sync_pref_to_client(user, "audio/music_volume", vol)
-                    self._show_options_menu(user)
+                    self._nav_refresh(user, self._show_options_menu)
                     return True
                 else:
                     raise ValueError
             except ValueError:
                 user.speak_l("invalid-volume")
-                self._show_options_menu(user) 
+                self._nav_refresh(user, self._show_options_menu)
                 return True
-        
+
         elif menu_id == "ambience_volume_input":
             try:
                 if not value or not value.isdigit():
@@ -1934,15 +1961,15 @@ PlayAural Server
                     prefs.ambience_volume = vol
                     self._save_user_preferences(user)
                     self._sync_pref_to_client(user, "audio/ambience_volume", vol)
-                    self._show_options_menu(user)
+                    self._nav_refresh(user, self._show_options_menu)
                     return True
                 else:
                     raise ValueError
             except ValueError:
                 user.speak_l("invalid-volume")
-                self._show_options_menu(user)
+                self._nav_refresh(user, self._show_options_menu)
                 return True
-        
+
         elif menu_id == "speech_rate_input":
             try:
                 if not value or not value.isdigit():
@@ -1952,13 +1979,13 @@ PlayAural Server
                     prefs.speech_rate = rate
                     self._save_user_preferences(user)
                     self._sync_pref_to_client(user, "speech_rate", rate)
-                    self._show_speech_settings_menu(user)
+                    self._nav_refresh(user, self._show_speech_settings_menu)
                     return True
                 else:
                     raise ValueError
             except ValueError:
                 user.speak_l("invalid-rate")
-                self._show_speech_settings_menu(user)
+                self._nav_refresh(user, self._show_speech_settings_menu)
                 return True
 
         return False
@@ -3038,44 +3065,43 @@ PlayAural Server
         elif selection_id == "turn_sound":
             prefs.play_turn_sound = not prefs.play_turn_sound
             self._save_user_preferences(user)
-            self._show_options_menu(user)
+            self._nav_refresh(user, self._show_options_menu)
         elif selection_id == "mute_global_chat":
             prefs.mute_global_chat = not prefs.mute_global_chat
             self._save_user_preferences(user)
             self._sync_pref_to_client(user, "social/mute_global_chat", prefs.mute_global_chat)
-            self._show_options_menu(user)
+            self._nav_refresh(user, self._show_options_menu)
         elif selection_id == "mute_table_chat":
             prefs.mute_table_chat = not prefs.mute_table_chat
             self._save_user_preferences(user)
             self._sync_pref_to_client(user, "social/mute_table_chat", prefs.mute_table_chat)
-            self._show_options_menu(user)
+            self._nav_refresh(user, self._show_options_menu)
         elif selection_id == "invert_multiline_enter":
             prefs.invert_multiline_enter_behavior = not prefs.invert_multiline_enter_behavior
             self._save_user_preferences(user)
             self._sync_pref_to_client(user, "interface/invert_multiline_enter_behavior", prefs.invert_multiline_enter_behavior)
-            self._show_options_menu(user)
+            self._nav_refresh(user, self._show_options_menu)
         elif selection_id == "play_typing_sounds":
             prefs.play_typing_sounds = not prefs.play_typing_sounds
             self._save_user_preferences(user)
             self._sync_pref_to_client(user, "interface/play_typing_sounds", prefs.play_typing_sounds)
-            self._show_options_menu(user)
+            self._nav_refresh(user, self._show_options_menu)
         elif selection_id == "notify_table_created":
             prefs.notify_table_created = not prefs.notify_table_created
             self._save_user_preferences(user)
-            # No client sync needed as this is purely server-side logic
-            self._show_options_menu(user)
+            self._nav_refresh(user, self._show_options_menu)
         elif selection_id == "notify_user_presence":
             prefs.notify_user_presence = not prefs.notify_user_presence
             self._save_user_preferences(user)
-            self._show_options_menu(user)
+            self._nav_refresh(user, self._show_options_menu)
         elif selection_id == "notify_friend_presence":
             prefs.notify_friend_presence = not prefs.notify_friend_presence
             self._save_user_preferences(user)
-            self._show_options_menu(user)
+            self._nav_refresh(user, self._show_options_menu)
         elif selection_id == "clear_kept":
             prefs.clear_kept_on_roll = not prefs.clear_kept_on_roll
             self._save_user_preferences(user)
-            self._show_options_menu(user)
+            self._nav_refresh(user, self._show_options_menu)
         elif selection_id == "dice_keeping_style":
             self._nav_push(user, self._show_dice_keeping_style_menu)
         elif selection_id == "back":
@@ -3145,16 +3171,6 @@ PlayAural Server
             return
         # Back or invalid
         self._nav_back(user)
-
-    async def _handle_categories_selection(
-        self, user: NetworkUser, selection_id: str, state: dict
-    ) -> None:
-        """Handle category selection."""
-        if selection_id.startswith("category_"):
-            category = selection_id[9:]  # Remove "category_" prefix
-            self._show_games_menu(user, category)
-        elif selection_id == "back":
-            self._show_main_menu(user)
 
     async def _handle_games_selection(
         self, user: NetworkUser, selection_id: str, state: dict
@@ -3373,7 +3389,13 @@ PlayAural Server
             self._show_main_menu(user)
 
     def _restore_menu_from_state(self, user: NetworkUser, state: dict) -> None:
-        """Restore a user's menu from a saved state snapshot."""
+        """Restore a user's menu from a saved state snapshot.
+
+        Used by the table-invite flow (accept/decline/expire) to return the
+        user to wherever they were before the invite arrived.  The saved
+        ``state`` dict may contain a ``_stack`` key; we honour it so the user
+        can continue navigating back through any menus they had open.
+        """
         menu = state.get("menu")
         if menu == "in_game":
             table_id = state.get("table_id")
@@ -3384,6 +3406,13 @@ PlayAural Server
                     self._user_states[user.username] = state
                     table.game.rebuild_player_menu(player)
                     return
+        elif menu and menu != "table_invite_prompt":
+            # Delegate to _restore_frame so any known GLOBAL_SYSTEM_MENU or
+            # in-game-overlay is re-rendered correctly and the _stack is
+            # re-injected by _restore_frame's epilogue.
+            stack = list(state.get("_stack", []))
+            self._restore_frame(user, state, stack)
+            return
         self._show_main_menu(user)
 
     # --- Host Management Menu ---
@@ -5071,37 +5100,111 @@ PlayAural Server
             # Check permissions
             user = self._users.get(username)
             if user and user.trust_level >= 3:
+                # Prevent double-scheduling if a countdown is already in progress.
+                if self._shutdown_task is not None and not self._shutdown_task.done():
+                    return
+
                 is_reboot = message.startswith("/reboot")
-                action_text = "restarting" if is_reboot else "shutting down"
-                
-                import os
-                
-                # Broadcast warning messages localized for each user
-                for u in self._users.values():
-                    if u.approved:
-                         sys_name = Localization.get(u.locale, "system-name")
-                         msg = Localization.get(u.locale, f"server-{action_text}", seconds=3)
-                         full_msg = f"{sys_name}: {msg}"
-                         
-                         asyncio.create_task(u.connection.send({
-                             "type": "chat",
-                             "convo": "announcement",
-                             "sender": sys_name,
-                             "message": msg, # Client will format it if needed, or we send formatted
-                         }))
-                
-                # Schedule exit
-                async def delayed_exit():
-                    await asyncio.sleep(3)
+
+                def _broadcast_alert(seconds_remaining: int) -> None:
+                    """Send a countdown chat message + audio cue to all approved users."""
+                    msg_key = "server-restarting" if is_reboot else "server-shutting-down"
+                    # Prominent alarm at the 30 s / 20 s marks; short tick for the
+                    # per-second 10 s countdown.
+                    in_countdown = seconds_remaining <= 10
+                    sound = (
+                        "server_alert_warning.ogg"
+                        if not in_countdown
+                        else "server_alert_tick.ogg"
+                    )
+                    for u in list(self._users.values()):
+                        if not u.approved:
+                            continue
+                        # Countdown (≤10 s): raw number only. Warning (30/20 s): full sentence.
+                        if in_countdown:
+                            speak_text = str(seconds_remaining)
+                            chat_msg = str(seconds_remaining)
+                        else:
+                            speak_text = Localization.get(u.locale, msg_key, seconds=seconds_remaining)
+                            chat_msg = speak_text
+                        sys_name = Localization.get(u.locale, "system-name")
+                        # Chat packet — appears in the log but is silent (no TTS, no notify.ogg).
+                        # TTS is driven by the explicit speak packet below so we control the
+                        # exact text: bare number for countdown, full sentence for warnings.
+                        asyncio.create_task(u.connection.send({
+                            "type": "chat",
+                            "convo": "announcement",
+                            "sender": sys_name,
+                            "message": chat_msg,
+                            "silent": True,
+                        }))
+                        # Explicit TTS — bypasses chat-handler formatting so no prefix is added.
+                        asyncio.create_task(u.connection.send({
+                            "type": "speak",
+                            "text": speak_text,
+                        }))
+                        asyncio.create_task(u.connection.send({
+                            "type": "play_sound",
+                            "name": sound,
+                            "volume": 100,
+                            "pan": 0,
+                            "pitch": 100,
+                        }))
+
+                async def shutdown_sequence() -> None:
+                    # Phase 1 — 30 s countdown: broadcast at 30 s and 20 s marks,
+                    # then every second from 10 s down to 1 s.
+                    WARN_AT = {30, 20}
+                    COUNTDOWN_FROM = 10
+
+                    for seconds_remaining in range(30, 0, -1):
+                        if seconds_remaining in WARN_AT or seconds_remaining <= COUNTDOWN_FROM:
+                            _broadcast_alert(seconds_remaining)
+                        await asyncio.sleep(1)
+
+                    # Phase 2 — send shutdown sound + final chat line + disconnect
+                    # packet to every currently-approved user, then tear down.
+                    now_key = "server-restarting-now" if is_reboot else "server-shutting-down-now"
+                    for u in list(self._users.values()):
+                        if not u.approved:
+                            continue
+                        msg = Localization.get(u.locale, now_key)
+                        sys_name = Localization.get(u.locale, "system-name")
+                        asyncio.create_task(u.connection.send({
+                            "type": "play_sound",
+                            "name": "server_alert_shutdown.ogg",
+                            "volume": 100,
+                            "pan": 0,
+                            "pitch": 100,
+                        }))
+                        asyncio.create_task(u.connection.send({
+                            "type": "chat",
+                            "convo": "announcement",
+                            "sender": sys_name,
+                            "message": msg,
+                            "silent": True,
+                        }))
+                        asyncio.create_task(u.connection.send({
+                            "type": "speak",
+                            "text": msg,
+                        }))
+                        # Graceful disconnect packet — tells the desktop client whether
+                        # to auto-reconnect (reboot) or exit cleanly (stop).
+                        asyncio.create_task(u.connection.send({
+                            "type": "disconnect",
+                            "reason": msg,
+                            "reconnect": is_reboot,
+                        }))
+
+                    # Give clients 2 s to receive and process all packets before we
+                    # tear down the WebSocket server.
+                    await asyncio.sleep(2)
                     await self.stop()
-                    # Use os._exit to avoid SystemExit exception being caught by asyncio handler
-                    # Exit code 1 to ensure systemd restarts it
-                    os._exit(1) 
-                
-                asyncio.create_task(delayed_exit())
-                return
-                
-                asyncio.create_task(delayed_exit())
+                    # os._exit bypasses asyncio's exception handler so the process
+                    # exits cleanly. Exit code 1 triggers systemd Restart=on-failure.
+                    os._exit(1)
+
+                self._shutdown_task = asyncio.create_task(shutdown_sequence())
                 return
             else:
                  # Fake command not found for non-admins to avoid revealing existence
@@ -5312,15 +5415,13 @@ PlayAural Server
         target_user = self._users.get(target_username)
         if not target_user:
             user.speak_l("user-not-online-anymore")
-            self._show_online_users_menu(user)
+            self._nav_back(user)
             return
 
         if selection_id == "view_profile":
             self._nav_push(user, self._show_public_profile, target_username)
 
         elif selection_id == "send_friend_request":
-            username = user.username
-            current = self._user_states.get(username, {})
             status = self._db.send_friend_request(user.uuid, target_user.uuid)
 
             if status == "already_friends":
@@ -5343,9 +5444,7 @@ PlayAural Server
                  self.on_friend_requests_changed(target_user.uuid)
 
             # Refresh the actions menu so the button disappears, preserving the stack
-            self._show_online_user_actions_menu(user, target_username)
-            if username in self._user_states:
-                self._user_states[username]["_stack"] = list(current.get("_stack", []))
+            self._nav_refresh(user, self._show_online_user_actions_menu, target_username)
 
     def _nav_refresh(self, user: NetworkUser, show_fn, *args, **kwargs) -> None:
         """Re-show a menu in-place, preserving the existing navigation stack.

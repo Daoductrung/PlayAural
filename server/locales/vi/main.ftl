@@ -392,6 +392,9 @@ goodbye = Tạm biệt!
 
 system-name = Hệ thống
 server-restarting = Máy chủ sẽ khởi động lại trong { $seconds } giây nữa...
+server-restarting-now = Máy chủ đang khởi động lại ngay bây giờ. Vui lòng kết nối lại sau ít phút.
+server-shutting-down = Máy chủ sẽ tắt trong { $seconds } giây nữa...
+server-shutting-down-now = Máy chủ đang tắt ngay bây giờ. Tạm biệt!
 server-error-changing-language = Lỗi khi thay đổi ngôn ngữ: { $error }
 default-save-name = { $game } - { $date }
 

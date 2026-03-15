@@ -46,6 +46,8 @@ Packet(type: str, data: dict)  # PacketType enum defines all message types
 ```
 Key packet types: `AUTHORIZE`, `MENU`, `KEYBIND`, `CHAT`, `SPEAK`, `PLAY_SOUND`, `GAME_ACTION`, etc.
 
+**`silent` flag on `chat` packets**: Adding `"silent": True` to a `chat` packet suppresses both the notification sound (`notify.ogg` / `chat.ogg`) and the TTS readout in both the desktop and web clients. The message is still written to the chat log. Use this when the server is also sending an explicit `speak` packet and a `play_sound` packet to take full control over audio output — e.g. the server alert broadcast countdown. Never set `silent` on regular user-visible chat messages.
+
 ### Server Architecture
 - **`server/core/server.py`** — Main orchestrator
 - **`server/network/websocket_server.py`** — Async WebSocket connection management
@@ -85,7 +87,7 @@ All server-side menu navigation uses a breadcrumb stack stored in `_user_states[
 - `_nav_push` = navigate forward (add a frame to history)
 - `_nav_refresh` = stay in place after an action (preserve history)
 - `_nav_back` = go back (pop a frame from history)
-- Never call `_show_*()` directly in an action handler — always use `_nav_refresh` so the stack survives.
+- Never call `_show_*()` directly in an action handler — always use `_nav_refresh` so the stack survives. This applies to **all** action handlers: confirmations, toggle flips, error paths, editbox returns, and fallback/offline paths alike.
 
 #### Host Management / Transient Server-Side Menus
 The server can push a transient menu (e.g. Host Management) on top of the in-game UI. To prevent `rebuild_all_menus()` from immediately overwriting it when a keybind fires:
@@ -103,10 +105,34 @@ The server can push a transient menu (e.g. Host Management) on top of the in-gam
 
 When the `_user_states` assignment must happen **before** `rebuild_all_menus()` or `initialize_lobby()` fires (table creation/join), set state first or the guard will block the initial turn-menu push.
 
+#### Reconnect / Ghost Player Cleanup (`_restore_user_state`)
+When a player reconnects, `_restore_user_state` checks `_tables.find_user_table(username)` and applies the following cleanup rules before restoring game state:
+
+- **Lobby (no active game)**: `table.game is None` → call `table.remove_member(username)` immediately. The player lands on the main menu. Without this, they become a ghost member that the lobby-kick timer later fires on.
+- **Spectator**: remove from `table.members` and call `table.game.remove_spectator(user.uuid)`. Spectators are never auto-restored.
+- **Active player, UUID found**: reattach via `table.attach_user` + `table.game.attach_user`; mark `restored_game = True`.
+- **Active player, UUID not found** (inconsistent saved state): call `table.remove_member(username)`. Player lands on the main menu cleanly with no ghost membership.
+
+`table.remove_member` always cleans up `_username_to_table` — no stale mapping remains.
+
+#### Server Alert Broadcast (`/reboot` and `/stop`)
+The shutdown sequence is a 32-second structured countdown managed by `self._shutdown_task: asyncio.Task | None`.
+
+- **Double-invocation guard**: if `_shutdown_task` is already running (not `None` and not `.done()`), the second command is silently ignored.
+- **Countdown schedule**: broadcast at 30 s and 20 s (full localized sentence + `server_alert_warning.ogg`), then every second from 10 s down to 1 s (raw number only + `server_alert_tick.ogg`).
+- **TTS control**: all countdown chat packets carry `"silent": True` (suppresses both notification sound and TTS in both clients). A separate `{"type": "speak", "text": "..."}` packet drives TTS with the exact desired text — bare number for countdown ticks, full sentence for warnings.
+- **Final phase**: shutdown sound (`server_alert_shutdown.ogg`) + silent chat + explicit `speak` + `disconnect` packet (`"reconnect": true/false`) sent to all approved users, then 2 s sleep, then `stop()` → `os._exit(1)`.
+- **`stop()` order**: tick scheduler → WS server (disconnect handlers fire here) → cancel `_pending_disconnects` tasks → cancel `_shutdown_task` → `_save_tables()` → close DB.
+- **Locale keys**: `server-restarting` (with `$seconds`), `server-restarting-now`, `server-shutting-down` (with `$seconds`), `server-shutting-down-now` — all in both `en` and `vi` FTL files.
+- **Sound files**: `client/sounds/server_alert_warning.ogg`, `server_alert_tick.ogg`, `server_alert_shutdown.ogg`. See `sounds.md` at the repo root for creative briefs.
+
 #### Game Event / Sound Scheduling
 - Games use `self.event_queue` (list of `(tick, event_type, data)` tuples) for deferred state changes and `self.schedule_sound(path, delay_ticks)` for audio timing.
 - `on_tick()` must call `super().on_tick()` and `self.process_scheduled_sounds()`.
 - When writing deterministic tests for bot behaviour, use `advance_until(game, condition_fn, max_ticks=500)` rather than fixed tick counts. Combine state conditions with phase checks (e.g. `len(player.live_influences) == 1 and g.turn_phase != "losing_influence"`) to avoid stopping one tick before a post-event fires.
+
+#### Server Import Rules
+All imports at module level. No in-function imports anywhere in the server codebase — this rule mirrors the Desktop Client rule and applies equally to `server/core/server.py`, all mixins, and all utility modules.
 
 ### Desktop Client Architecture
 - **`client/ui/main_window.py`** — Core UI (2,500+ lines), handles all in-game interaction

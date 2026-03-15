@@ -392,6 +392,9 @@ goodbye = Goodbye!
 
 system-name = System
 server-restarting = Server is restarting in { $seconds } seconds...
+server-restarting-now = Server is restarting now. Please reconnect shortly.
+server-shutting-down = Server is shutting down in { $seconds } seconds...
+server-shutting-down-now = Server is shutting down now. Goodbye!
 server-error-changing-language = Error changing language: { $error }
 default-save-name = { $game } - { $date }
 

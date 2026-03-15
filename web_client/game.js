@@ -1701,7 +1701,7 @@ class GameClient {
                     speakText = `${packet.message}`;
                 }
 
-                if (shouldSpeak) {
+                if (shouldSpeak && !packet.silent) {
                     this.play_sound(soundName);
                     this.speak(speakText);
                 }

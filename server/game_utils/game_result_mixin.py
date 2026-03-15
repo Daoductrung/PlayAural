@@ -10,7 +10,7 @@ if TYPE_CHECKING:
 from .game_result import GameResult, PlayerResult
 from .stats_helpers import RatingHelper
 from ..messages.localization import Localization
-from ..users.base import MenuItem
+from ..users.base import MenuItem, EscapeBehavior
 
 
 class GameResultMixin:
@@ -206,7 +206,6 @@ class GameResultMixin:
                 id="leave_game"
             ))
             # game_over menu will be handled by the NEW game instance's EventHandlingMixin
-            from ..users.base import EscapeBehavior
             user.show_menu("game_over", items, multiletter=False, escape_behavior=EscapeBehavior.SELECT_LAST)
 
             # Bug 2 fix: If the player had a global overlay open (e.g. friends_hub_menu,

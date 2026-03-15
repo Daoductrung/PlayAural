@@ -1924,14 +1924,14 @@ class MainWindow(wx.Frame):
             or convo not in {"global", "local"}
             or not self.client_options["social"][f"mute_{convo}_chat"]
         ):"""
-            sound = "chat"
-            if convo == "local":
-                sound += "local"
-            elif convo == "announcement":
-                sound = "notify"
-                
-            self.sound_manager.play(sound + ".ogg")
-            self.speaker.speak(message)
+            if not packet.get("silent"):
+                sound = "chat"
+                if convo == "local":
+                    sound += "local"
+                elif convo == "announcement":
+                    sound = "notify"
+                self.sound_manager.play(sound + ".ogg")
+                self.speaker.speak(message)
         self.add_history(message, "chat", False)
 
     def on_server_play_sound(self, packet):

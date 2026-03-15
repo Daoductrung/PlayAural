@@ -38,7 +38,6 @@ Các phím dùng để di chuyển trong danh sách và các menu lựa chọn.
 * **Enter:** Kích hoạt mục đang chọn.
 * **Escape:** Quay lại hoặc Đóng Menu.
 * **Các chữ cái (A-Z):** Nhảy nhanh đến các mục bắt đầu bằng chữ cái đó.
-* **Lỗi đã biết:** Tính năng này có thể không hoạt động chính xác với các ký tự có dấu.
 
 **Người dùng Di động & Web — Thẻ Lối tắt (Shortcuts)**
 

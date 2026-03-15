@@ -38,7 +38,6 @@ Keys used to navigate through lists and selection menus.
 * **Enter:** Activate selected item.
 * **Escape:** Go Back or Close Menu.
 * **Letters (A-Z):** Quickly jump to items starting with that letter.
-* **Known Issue:** This feature may not work correctly with accented characters.
 
 **Mobile & Web Users — Shortcuts Tab**
 

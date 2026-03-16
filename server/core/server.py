@@ -730,37 +730,14 @@ PlayAural Server
         self._process_offline_notifications(user)
 
         if not restored_game:
-            # Not in an active game (or was a spectator); restore menu state
+            # Not in an active game (or was a spectator); restore the user's
+            # last menu state.  _restore_menu_from_state delegates to
+            # _restore_frame, which is the single source of truth for all menu
+            # IDs (main_menu, GLOBAL_SYSTEM_MENUS, admin menus, etc.) and also
+            # re-injects the saved _stack so the user can navigate back
+            # naturally.  No hardcoded elif chain needed here.
             state = self._user_states.get(username, {})
-            current_menu = state.get("menu", "main_menu")
-
-            if current_menu == "tables_menu":
-                game_type = state.get("game_type")
-                if game_type:
-                    self._show_games_list_menu(user)
-                    self._show_tables_menu(user, game_type)
-                else:
-                    self._show_main_menu(user)
-            elif current_menu == "active_tables_menu":
-                self._show_active_tables_menu(user)
-            elif current_menu == "games_menu":
-                self._show_games_list_menu(user)
-            elif current_menu == "options_menu":
-                self._show_options_menu(user)
-            elif current_menu == "documentation_menu":
-                self._show_documentation_menu(user)
-            elif current_menu == "saved_tables_menu":
-                self._show_saved_tables_menu(user)
-            elif current_menu == "leaderboards_menu":
-                self._show_leaderboards_menu(user)
-            elif current_menu == "personal_options_menu":
-                self._show_personal_options_menu(user)
-            elif current_menu == "my_stats_menu":
-                self._show_my_stats_menu(user)
-            elif current_menu == "profile_menu":
-                self._show_profile_menu(user)
-            else:
-                self._show_main_menu(user)
+            self._restore_menu_from_state(user, state)
 
     def _show_mandatory_email_menu(self, user: NetworkUser) -> None:
         """Show the mandatory email setup menu."""

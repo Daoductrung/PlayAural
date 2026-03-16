@@ -1100,6 +1100,15 @@ class MainWindow(wx.Frame):
         if self.quitting:
             return
 
+        # Guard against stale on_connection_lost callbacks that were queued by
+        # wx.CallAfter during a previous failed reconnect attempt but arrived
+        # after a newer connection already succeeded.  If the network layer is
+        # already connected, this notification is out-of-date — ignore it so we
+        # don't clobber the live connected=True state or restart the reconnect
+        # loop unnecessarily.
+        if self.network.connected:
+            return
+
         self.connected = False
         self.current_menu_id = None
         self.current_menu_state = None
@@ -1145,7 +1154,7 @@ class MainWindow(wx.Frame):
         if server_url and username:
             # Attempt to connect - if returns False, it means we are already connecting
             # so we just wait and check status later
-            if not self.network.connect(server_url, username, password):
+            if not self.network.connect(server_url, username, password, client_version=VERSION):
                  # Already connecting or error, just wait
                  pass
 
@@ -1301,7 +1310,7 @@ class MainWindow(wx.Frame):
         )
         self.network.disconnect()
 
-        if self.network.connect(server_url, username, password):
+        if self.network.connect(server_url, username, password, client_version=VERSION):
             # Wait 3 seconds then check again
             wx.CallLater(
                 3000, lambda: self._do_reconnect(server_url, username, password)

@@ -40,8 +40,10 @@ tradeoff-winners-tie = It's a tie! { $players } tied with { $score } points!
 tradeoff-view-hand = View your hand
 tradeoff-view-pool = View the pool
 tradeoff-view-players = View players
+tradeoff-hand-empty = Your hand is empty.
 tradeoff-hand-display = Your hand ({ $count } dice): { $dice }
 tradeoff-pool-display = Pool ({ $count } dice): { $dice }
+tradeoff-pool-empty = The pool is empty.
 tradeoff-player-info = { $player }: { $hand }. Traded: { $traded }.
 tradeoff-player-info-no-trade = { $player }: { $hand }. Traded nothing.
 

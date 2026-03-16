@@ -260,6 +260,7 @@ leaderboard-wins-entry = { $rank }: { $player }, { $wins } { $wins ->
 }, { $percentage }% winrate
 leaderboard-score-entry = { $rank }. { $player }: { $value }
 leaderboard-games-entry = { $rank }. { $player }: { $value } games
+leaderboard-avg-entry = { $rank }. { $player }: { $value }
 
 leaderboard-no-player-stats = You haven't played this game yet.
 
@@ -282,6 +283,7 @@ my-stats-rating = Skill rating: { $value } ({ $mu } ± { $sigma })
 my-stats-no-rating = No skill rating yet
 my-stats-avg-per-turn = Avg points per turn: { $value }
 my-stats-best-turn = Best single turn: { $value }
+my-stats-score-per-round = Score per round: { $value }
 
 predict-outcomes = Predict outcomes
 predict-header = Predicted Outcomes (by skill rating)

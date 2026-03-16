@@ -40,8 +40,10 @@ tradeoff-winners-tie = Hòa nhau! { $players } cùng đạt { $score } điểm!
 tradeoff-view-hand = Xem xúc xắc trên tay
 tradeoff-view-pool = Xem hũ chung
 tradeoff-view-players = Xem người chơi
+tradeoff-hand-empty = Bạn không có viên xúc xắc nào trên tay.
 tradeoff-hand-display = Tay của bạn ({ $count } viên): { $dice }
 tradeoff-pool-display = Hũ chung ({ $count } viên): { $dice }
+tradeoff-pool-empty = Hũ chung hiện đang trống.
 tradeoff-player-info = { $player }: { $hand }. Đã đổi: { $traded }.
 tradeoff-player-info-no-trade = { $player }: { $hand }. Không đổi viên nào.
 

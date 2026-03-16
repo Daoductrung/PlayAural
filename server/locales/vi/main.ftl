@@ -260,6 +260,7 @@ leaderboard-wins-entry = { $rank }: { $player }, { $wins } { $wins ->
 }, tỷ lệ thắng { $percentage }%
 leaderboard-score-entry = { $rank }. { $player }: { $value }
 leaderboard-games-entry = { $rank }. { $player }: { $value } ván
+leaderboard-avg-entry = { $rank }. { $player }: { $value }
 
 leaderboard-no-player-stats = Bạn chưa chơi trò chơi này.
 
@@ -282,6 +283,7 @@ my-stats-rating = Xếp hạng kỹ năng: { $value } ({ $mu } ± { $sigma })
 my-stats-no-rating = Chưa có xếp hạng kỹ năng
 my-stats-avg-per-turn = Điểm trung bình mỗi lượt: { $value }
 my-stats-best-turn = Lượt đi điểm cao nhất: { $value }
+my-stats-score-per-round = Điểm trung bình mỗi vòng: { $value }
 
 predict-outcomes = Dự đoán kết quả
 predict-header = Kết quả dự đoán (theo xếp hạng kỹ năng)

@@ -13,7 +13,7 @@ from .chaosbear.game import ChaosBearGame
 from .farkle.game import FarkleGame
 from .yahtzee.game import YahtzeeGame
 from .ninetynine.game import NinetyNineGame
-# from .tradeoff.game import TradeoffGame
+from .tradeoff.game import TradeoffGame
 from .pirates.game import PiratesGame
 from .leftrightcenter.game import LeftRightCenterGame
 from .tossup.game import TossUpGame
@@ -39,7 +39,7 @@ __all__ = [
     "FarkleGame",
     "YahtzeeGame",
     "NinetyNineGame",
-    # "TradeoffGame",
+    "TradeoffGame",
     "PiratesGame",
     "LeftRightCenterGame",
     "TossUpGame",

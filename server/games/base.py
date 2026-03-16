@@ -322,7 +322,7 @@ class Game(
 
         if remaining_humans == 0:
              # Last human leaving - don't replace
-             self.broadcast_l("game-paused-host-disconnect", player=player.name)
+             self.broadcast_l("game-paused-host-disconnect", buffer="system", player=player.name)
              return
 
         # Convert to bot (marking original human status before replacement)
@@ -344,7 +344,7 @@ class Game(
         self._users.pop(player_id, None)
         
         # Notify others
-        self.broadcast_l("spectator-left", player=player.name)
+        self.broadcast_l("spectator-left", buffer="system", player=player.name)
 
     def remove_player(self, player_id: str) -> None:
         """Remove a player from the game state entirely.
@@ -364,7 +364,7 @@ class Game(
         self._users.pop(player_id, None)
         
         # Notify others
-        self.broadcast_l("table-left", player=player.name)
+        self.broadcast_l("table-left", buffer="system", player=player.name)
 
     def _replace_with_bot(self, player: "Player") -> None:
         """Replace a human player with a bot (shared logic)."""
@@ -380,7 +380,7 @@ class Game(
         bot_user = Bot(player.name, uuid=player.id)
         self.attach_user(player.id, bot_user)
         
-        self.broadcast_l("player-replaced-by-bot", player=player.name)
+        self.broadcast_l("player-replaced-by-bot", buffer="system", player=player.name)
         # Note: Caller is responsible for playing sounds if needed
 
 
@@ -411,7 +411,7 @@ class Game(
                  human_count = sum(1 for p in self.players if not p.is_bot and not p.is_spectator and p.id in self._users)
                  # If this is the FIRST human back, it means we were paused
                  if human_count == 1:
-                      self.broadcast_l("game-resumed", player=user.username)
+                      self.broadcast_l("game-resumed", buffer="system", player=user.username)
                  
                  # Rebuild the player's menu so they have immediate UI state
                  if hasattr(self, "rebuild_player_menu"):

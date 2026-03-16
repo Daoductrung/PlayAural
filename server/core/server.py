@@ -397,7 +397,7 @@ PlayAural Server
         """Notify all online admins (trust level >= 2) with a message and sound."""
         for user in self._users.values():
             if user.trust_level >= 2:
-                user.speak_l(message_id)
+                user.speak_l(message_id, buffer="system")
                 user.play_sound(sound)
 
     async def _on_client_message(self, client: ClientConnection, packet: dict) -> None:
@@ -703,7 +703,7 @@ PlayAural Server
                             # Restore humanity if they were replaced by a bot
                             if player.is_bot:
                                 player.is_bot = False
-                                table.game.broadcast_l("player-rejoined", player=player.name)
+                                table.game.broadcast_l("player-rejoined", buffer="system", player=player.name)
 
                             table.game.attach_user(player.id, user)
 
@@ -757,7 +757,7 @@ PlayAural Server
 
     def _show_mandatory_email_menu(self, user: NetworkUser) -> None:
         """Show the mandatory email setup menu."""
-        user.speak_l("mandatory-email-notice")
+        user.speak_l("mandatory-email-notice", buffer="system")
         items = [
             MenuItem(text=Localization.get(user.locale, "mandatory-email-notice"), id=""),
             MenuItem(text=Localization.get(user.locale, "ok"), id="ok")
@@ -798,21 +798,21 @@ PlayAural Server
                 formatted_names = Localization.format_list_and(user.locale, usernames)
 
             if etype == "friend_request_received":
-                user.speak_l("friends-grouped-requests", usernames=formatted_names)
+                user.speak_l("friends-grouped-requests", buffer="system", usernames=formatted_names)
                 user.play_sound("friend_request_received.ogg")
             elif etype == "friend_accepted":
-                user.speak_l("friends-grouped-accepted", usernames=formatted_names)
+                user.speak_l("friends-grouped-accepted", buffer="system", usernames=formatted_names)
                 user.play_sound("friend_accepted.ogg")
             elif etype == "friend_declined":
-                user.speak_l("friends-grouped-declined", usernames=formatted_names)
+                user.speak_l("friends-grouped-declined", buffer="system", usernames=formatted_names)
                 user.play_sound("friend_declined.ogg")
             elif etype == "friend_removed":
-                user.speak_l("friends-grouped-removed", usernames=formatted_names)
+                user.speak_l("friends-grouped-removed", buffer="system", usernames=formatted_names)
                 user.play_sound("friend_removed.ogg")
 
     def _show_motd_menu(self, user: NetworkUser, message: str, version: int) -> None:
         """Show the forced-read MOTD menu."""
-        user.speak_l("motd-announcement")
+        user.speak_l("motd-announcement", buffer="system")
         items = []
         for i, line in enumerate(message.split('\n')):
             items.append(MenuItem(text=line, id=f"line_{i}"))
@@ -1946,7 +1946,7 @@ PlayAural Server
                 else:
                     raise ValueError
             except ValueError:
-                user.speak_l("invalid-volume")
+                user.speak_l("invalid-volume", buffer="system")
                 self._nav_refresh(user, self._show_options_menu)
                 return True
 
@@ -1964,7 +1964,7 @@ PlayAural Server
                 else:
                     raise ValueError
             except ValueError:
-                user.speak_l("invalid-volume")
+                user.speak_l("invalid-volume", buffer="system")
                 self._nav_refresh(user, self._show_options_menu)
                 return True
 
@@ -1982,7 +1982,7 @@ PlayAural Server
                 else:
                     raise ValueError
             except ValueError:
-                user.speak_l("invalid-rate")
+                user.speak_l("invalid-rate", buffer="system")
                 self._nav_refresh(user, self._show_speech_settings_menu)
                 return True
 
@@ -2028,7 +2028,7 @@ PlayAural Server
 
     def _show_banned_menu(self, user: NetworkUser, active_ban) -> None:
         """Show banned screen with reason and expiration."""
-        user.speak_l("banned-menu-title")
+        user.speak_l("banned-menu-title", buffer="system")
 
         # Format reason
         if active_ban.reason_key.startswith("CUSTOM_"):
@@ -2064,7 +2064,7 @@ PlayAural Server
 
     def _show_waiting_for_approval(self, user: NetworkUser) -> None:
         """Show waiting for approval screen to unapproved user."""
-        user.speak_l("waiting-for-approval")
+        user.speak_l("waiting-for-approval", buffer="system")
         user.clear_ui()
         self._user_states[user.username] = {"menu": "waiting_for_approval"}
 
@@ -2506,7 +2506,7 @@ PlayAural Server
                 current_table = self._tables.find_user_table(user.username)
                 if current_table:
                     if current_table == table:
-                         user.speak_l("already-in-table")
+                         user.speak_l("already-in-table", buffer="system")
                          self._nav_refresh(user, self._show_friend_actions_menu, target_username)
                          return
                     else:
@@ -2515,27 +2515,27 @@ PlayAural Server
                 # Block direct joins to private tables (must receive an explicit host invite)
                 user_is_member = any(m.username == user.username for m in table.members)
                 if table.is_private and not user_is_member:
-                    user.speak_l("table-private-invite-only")
+                    user.speak_l("table-private-invite-only", buffer="system")
                     self._nav_refresh(user, self._show_friend_actions_menu, target_username)
                     return
 
                 # Proceed to join
                 self._auto_join_table(user, table, table.game_type)
             else:
-                user.speak_l("table-not-exists")
+                user.speak_l("table-not-exists", buffer="system")
                 self._nav_refresh(user, self._show_friend_actions_menu, target_username)
 
         elif selection_id == "remove_friend":
             target_record = self._db.get_user(target_username)
             if target_record:
                 self._db.remove_friendship(user.uuid, target_record.uuid)
-                user.speak_l("friend-removed-success", username=target_username)
+                user.speak_l("friend-removed-success", buffer="system", username=target_username)
                 user.play_sound("friend_removed.ogg")
 
                 # Notify target
                 target_user = self._users.get(target_username)
                 if target_user:
-                    target_user.speak_l("friend-removed-notify", username=user.username)
+                    target_user.speak_l("friend-removed-notify", buffer="system", username=user.username)
                     target_user.play_sound("friend_removed.ogg")
                 else:
                     self._db.add_notification(target_record.uuid, user.username, "friend_removed")
@@ -2604,7 +2604,7 @@ PlayAural Server
 
         target_record = self._db.get_user(target_username)
         if not target_record:
-            user.speak_l("unknown-player")
+            user.speak_l("unknown-player", buffer="system")
             self._nav_refresh(user, self._show_friend_requests_menu)
             return
 
@@ -2615,30 +2615,30 @@ PlayAural Server
             # Attempt to accept
             success = self._db.accept_friend_request(target_record.uuid, user.uuid)
             if success:
-                user.speak_l("friend-accepted-success", username=target_username)
+                user.speak_l("friend-accepted-success", buffer="system", username=target_username)
                 user.play_sound("friend_accepted.ogg")
 
                 # Notify target
                 target_user = self._users.get(target_username)
                 if target_user:
-                    target_user.speak_l("friend-accepted-notify", username=user.username)
+                    target_user.speak_l("friend-accepted-notify", buffer="system", username=user.username)
                     target_user.play_sound("friend_accepted.ogg")
                 else:
                     self._db.add_notification(target_record.uuid, user.username, "friend_accepted")
                 self.on_friend_requests_changed(target_record.uuid)
             else:
-                user.speak_l("request-not-found")
+                user.speak_l("request-not-found", buffer="system")
             self._nav_refresh(user, self._show_friend_requests_menu)
 
         elif selection_id == "decline":
             # Delete it
             self._db.remove_friendship(user.uuid, target_record.uuid)
-            user.speak_l("friend-declined-success")
+            user.speak_l("friend-declined-success", buffer="system")
 
             # Notify target
             target_user = self._users.get(target_username)
             if target_user:
-                target_user.speak_l("friend-declined-notify", username=user.username)
+                target_user.speak_l("friend-declined-notify", buffer="system", username=user.username)
                 target_user.play_sound("friend_declined.ogg")
             else:
                 self._db.add_notification(target_record.uuid, user.username, "friend_declined")
@@ -2650,7 +2650,7 @@ PlayAural Server
         """Show a read-only profile view of another player."""
         target_record = self._db.get_user(target_username)
         if not target_record:
-            requesting_user.speak_l("unknown-player")
+            requesting_user.speak_l("unknown-player", buffer="system")
             self._nav_back(requesting_user)
             return
 
@@ -2765,10 +2765,10 @@ PlayAural Server
             new_gender = selection_id[7:]
             user_record = self._db.get_user(user.username)
             if user_record and user_record.gender == new_gender:
-                user.speak_l("no-changes-made")
+                user.speak_l("no-changes-made", buffer="system")
             else:
                 self._db.update_user_gender(user.username, new_gender)
-                user.speak_l("gender-updated")
+                user.speak_l("gender-updated", buffer="system")
             self._nav_back(user)
         elif selection_id == "back":
             self._nav_back(user)
@@ -2804,16 +2804,16 @@ PlayAural Server
             user_record = self._db.get_user(user.username)
             if user_record and user_record.bio:
                 self._db.update_user_bio(user.username, "")
-                user.speak_l("bio-deleted")
+                user.speak_l("bio-deleted", buffer="system")
             else:
-                user.speak_l("bio-already-empty")
+                user.speak_l("bio-already-empty", buffer="system")
             self._nav_back(user)
         elif selection_id == "back":
             self._nav_back(user)
 
     def _show_email_confirm_menu(self, user: NetworkUser, new_email: str) -> None:
         """Show email change confirmation menu."""
-        user.speak_l("confirm-email-change", email=new_email)
+        user.speak_l("confirm-email-change", buffer="system", email=new_email)
         items = [
             MenuItem(text=Localization.get(user.locale, "confirm-yes"), id="yes"),
             MenuItem(text=Localization.get(user.locale, "confirm-no"), id="no"),
@@ -2833,14 +2833,14 @@ PlayAural Server
         if selection_id == "yes":
             new_email = state.get("pending_email", "")
             self._db.update_user_email(user.username, new_email)
-            user.speak_l("email-updated")
+            user.speak_l("email-updated", buffer="system")
             self._nav_refresh(user, self._show_profile_menu)
         elif selection_id == "no":
             self._nav_refresh(user, self._show_profile_menu)
 
     def _show_logout_confirm_menu(self, user: NetworkUser) -> None:
         """Show logout confirmation menu."""
-        user.speak_l("logout-confirm-title")
+        user.speak_l("logout-confirm-title", buffer="system")
         items = [
             MenuItem(text=Localization.get(user.locale, "logout-confirm-yes"), id="yes"),
             MenuItem(text=Localization.get(user.locale, "logout-confirm-no"), id="no"),
@@ -2953,7 +2953,7 @@ PlayAural Server
         content = manager.get_document(doc_id, user.locale)
         
         if not content:
-            user.speak_l("document-not-found")
+            user.speak_l("document-not-found", buffer="system")
             return
 
         # Simple Markdown Element Parser
@@ -3124,7 +3124,7 @@ PlayAural Server
             self._save_user_preferences(user)
             style_key = self.DICE_KEEPING_STYLES.get(style, "dice-keeping-style-indexes")
             style_name = Localization.get(user.locale, style_key)
-            user.speak_l("dice-keeping-style-changed", style=style_name)
+            user.speak_l("dice-keeping-style-changed", buffer="system", style=style_name)
             self._nav_back(user)
             return
         # Back or invalid
@@ -3145,7 +3145,7 @@ PlayAural Server
                 lang_code = selection_id[5:]
                 user.set_locale(lang_code)
                 self._db.update_user_locale(user.username, lang_code)
-                user.speak_l("language-changed", language=Localization.get(lang_code, f"language-{lang_code}"))
+                user.speak_l("language-changed", buffer="system", language=Localization.get(lang_code, f"language-{lang_code}"))
                 
                 # Send packet to update client config immediately
                 await user.connection.send({
@@ -3154,7 +3154,7 @@ PlayAural Server
                 })
             except Exception as e:
                 logging.getLogger("playaural").exception("Error changing language")
-                user.speak_l("server-error-changing-language", error=str(e))
+                user.speak_l("server-error-changing-language", buffer="system", error=str(e))
             
             self._nav_back(user)
             return
@@ -3253,7 +3253,7 @@ PlayAural Server
             if table:
                 self._auto_join_table(user, table, table.game_type)
             else:
-                user.speak_l("table-not-exists")
+                user.speak_l("table-not-exists", buffer="system")
                 self._nav_refresh(user, self._show_active_tables_menu)
         elif selection_id == "back":
             self._nav_back(user)
@@ -3269,7 +3269,7 @@ PlayAural Server
 
             filter_name_key = f"filter-name-{new_filter}"
             filter_name = Localization.get(user.locale, filter_name_key)
-            user.speak_l("active-tables-filter", filter=filter_name)
+            user.speak_l("active-tables-filter", buffer="system", filter=filter_name)
 
             self._nav_back(user)
             return
@@ -3291,14 +3291,14 @@ PlayAural Server
         """
         game = table.game
         if not game:
-            user.speak_l("table-not-exists")
+            user.speak_l("table-not-exists", buffer="system")
             self._nav_refresh(user, self._show_tables_menu, game_type)
             return
 
         # Ban check (table-scoped)
         user_record = self._db.get_user(user.username)
         if user_record and table.is_banned(user_record.uuid):
-            user.speak_l("table-you-are-banned")
+            user.speak_l("table-you-are-banned", buffer="system")
             self._nav_refresh(user, self._show_tables_menu, game_type)
             return
 
@@ -3324,7 +3324,7 @@ PlayAural Server
             game._users.pop(reclaimed_player.id, None)  # Remove bot user
             game.attach_user(reclaimed_player.id, user)  # Attach human user
             table.add_member(user.username, user, as_spectator=reclaimed_player.is_spectator)
-            game.broadcast_l("player-reclaimed-from-bot", player=user.username)
+            game.broadcast_l("player-reclaimed-from-bot", buffer="system", player=user.username)
             game.broadcast_sound("online.ogg")
             game.rebuild_all_menus()
         else:
@@ -3339,15 +3339,15 @@ PlayAural Server
                 # Join as player
                 table.add_member(user.username, user, as_spectator=False)
                 game.add_player(user.username, user)
-                game.broadcast_l("table-joined", player=user.username)
+                game.broadcast_l("table-joined", buffer="system", player=user.username)
                 game.broadcast_sound("join.ogg")
                 game.rebuild_all_menus()
             else:
                 # Join as spectator
                 table.add_member(user.username, user, as_spectator=True)
                 game.add_spectator(user.username, user)
-                user.speak_l("spectator-joined", host=table.host)
-                game.broadcast_l("now-spectating", player=user.username)
+                user.speak_l("spectator-joined", buffer="system", host=table.host)
+                game.broadcast_l("now-spectating", buffer="system", player=user.username)
                 game.broadcast_sound("join_spectator.ogg")
                 game.rebuild_all_menus()
 
@@ -3446,7 +3446,7 @@ PlayAural Server
             table.is_private = not table.is_private
             key = "host-management-table-now-private" if table.is_private else "host-management-table-now-public"
             if table.game:
-                table.game.broadcast_l(key)
+                table.game.broadcast_l(key, buffer="system")
             self.on_tables_changed()
             self._nav_refresh(user, self._show_host_management_menu, table)
 
@@ -3533,20 +3533,20 @@ PlayAural Server
         invitee_user = self._users.get(invitee_name)
 
         if not invitee_user:
-            user.speak_l("host-invite-friend-unavailable")
+            user.speak_l("host-invite-friend-unavailable", buffer="system")
             self._nav_refresh(user, self._show_host_invite_menu, table)
             return
         if invitee_name in self._pending_invites:
-            user.speak_l("host-invite-already-pending")
+            user.speak_l("host-invite-already-pending", buffer="system")
             self._nav_refresh(user, self._show_host_invite_menu, table)
             return
         if self._tables.find_user_table(invitee_name):
-            user.speak_l("host-invite-friend-busy")
+            user.speak_l("host-invite-friend-busy", buffer="system")
             self._nav_refresh(user, self._show_host_invite_menu, table)
             return
 
         await self._send_table_invite(user, table, invitee_user)
-        user.speak_l("host-invite-sent", player=invitee_name)
+        user.speak_l("host-invite-sent", buffer="system", player=invitee_name)
         self._nav_refresh(user, self._show_host_management_menu, table)
 
     async def _send_table_invite(
@@ -3578,7 +3578,7 @@ PlayAural Server
             MenuItem(text=Localization.get(invitee_user.locale, "invite-decline"), id="decline"),
         ]
         invitee_user.play_sound("invite.ogg")
-        invitee_user.speak_l("table-invite-received", host=host_user.username, game=game_name)
+        invitee_user.speak_l("table-invite-received", buffer="system", host=host_user.username, game=game_name)
         invitee_user.show_menu(
             "table_invite_prompt",
             items,
@@ -3603,7 +3603,7 @@ PlayAural Server
                 return
             state = self._user_states.get(invitee_name, {})
             if state.get("menu") == "table_invite_prompt" and state.get("table_id") == table_id:
-                invitee_user.speak_l("table-invite-expired")
+                invitee_user.speak_l("table-invite-expired", buffer="system")
                 prev_state = state.get("prev_state", {})
                 self._restore_menu_from_state(invitee_user, prev_state)
         except asyncio.CancelledError:
@@ -3629,7 +3629,7 @@ PlayAural Server
         if selection_id == "accept" and table and table.game:
             user_record = self._db.get_user(user.username)
             if user_record and table.is_banned(user_record.uuid):
-                user.speak_l("table-you-are-banned")
+                user.speak_l("table-you-are-banned", buffer="system")
                 self._restore_menu_from_state(user, prev_state)
                 return
             # _auto_join_table sets _user_states itself, so just call it
@@ -3638,7 +3638,7 @@ PlayAural Server
             if table and selection_id == "decline":
                 host_user = self._users.get(table.host)
                 if host_user:
-                    host_user.speak_l("host-invite-declined", player=user.username)
+                    host_user.speak_l("host-invite-declined", buffer="system", player=user.username)
             self._restore_menu_from_state(user, prev_state)
 
     # --- Pass Host ---
@@ -3696,12 +3696,12 @@ PlayAural Server
                 if target and not target.is_bot and not target.is_spectator:
                     table.host = new_host_name
                     table.game.host = new_host_name
-                    table.game.broadcast_l("host-passed", player=new_host_name)
+                    table.game.broadcast_l("host-passed", buffer="system", player=new_host_name)
                     table.game.rebuild_all_menus()
                     self.on_tables_changed()
                     self._return_to_game(user, table)
                     return
-            user.speak_l("host-pass-failed")
+            user.speak_l("host-pass-failed", buffer="system")
             self._nav_refresh(user, self._show_host_pass_menu, table)
 
     # --- Kick / Kick-and-Ban ---
@@ -3768,7 +3768,7 @@ PlayAural Server
 
         target_player = table.game.get_player_by_name(target_name)
         if not target_player or target_player.is_bot or target_name == user.username:
-            user.speak_l("host-kick-invalid-target")
+            user.speak_l("host-kick-invalid-target", buffer="system")
             self._nav_refresh(user, self._show_host_kick_menu, table, ban=is_ban)
             return
 
@@ -3782,12 +3782,12 @@ PlayAural Server
 
         # Announce to the table
         kick_key = "host-kick-ban-broadcast" if is_ban else "host-kick-broadcast"
-        table.game.broadcast_l(kick_key, player=target_name)
+        table.game.broadcast_l(kick_key, buffer="system", player=target_name)
 
         # Notify the kicked player
         if target_online_user:
             you_key = "host-kick-ban-you" if is_ban else "host-kick-you"
-            target_online_user.speak_l(you_key, host=user.username)
+            target_online_user.speak_l(you_key, buffer="system", host=user.username)
 
         # Remove from game state
         if target_player.is_spectator:
@@ -3824,14 +3824,14 @@ PlayAural Server
         table = self._tables.get_table(table_id)
 
         if not table or not table.game:
-            user.speak_l("table-not-exists")
+            user.speak_l("table-not-exists", buffer="system")
             self._return_from_join_menu(user, state)
             return
 
         # Ban check (table-scoped)
         user_record = self._db.get_user(user.username)
         if user_record and table.is_banned(user_record.uuid):
-            user.speak_l("table-you-are-banned")
+            user.speak_l("table-you-are-banned", buffer="system")
             self._return_from_join_menu(user, state)
             return
 
@@ -3852,7 +3852,7 @@ PlayAural Server
                     matching_player.is_bot = False
                     game.attach_user(matching_player.id, user)
                     table.add_member(user.username, user, as_spectator=False)
-                    game.broadcast_l("player-took-over", player=user.username)
+                    game.broadcast_l("player-took-over", buffer="system", player=user.username)
                     game.broadcast_sound("join.ogg")
                     game.rebuild_all_menus()
                     self._user_states[user.username] = {
@@ -3864,8 +3864,8 @@ PlayAural Server
                     # No matching player - join as spectator instead
                     table.add_member(user.username, user, as_spectator=True)
                     game.add_spectator(user.username, user)
-                    user.speak_l("spectator-joined", host=table.host)
-                    game.broadcast_l("now-spectating", player=user.username)
+                    user.speak_l("spectator-joined", buffer="system", host=table.host)
+                    game.broadcast_l("now-spectating", buffer="system", player=user.username)
                     game.broadcast_sound("join_spectator.ogg")
                     game.rebuild_all_menus()
                     self._user_states[user.username] = {
@@ -3876,14 +3876,14 @@ PlayAural Server
 
             active_players_count = sum(1 for p in game.players if not p.is_spectator)
             if active_players_count >= game.get_max_players():
-                user.speak_l("table-full")
+                user.speak_l("table-full", buffer="system")
                 self._return_from_join_menu(user, state)
                 return
 
             # Add player to game
             table.add_member(user.username, user, as_spectator=False)
             game.add_player(user.username, user)
-            game.broadcast_l("table-joined", player=user.username)
+            game.broadcast_l("table-joined", buffer="system", player=user.username)
             game.broadcast_sound("join.ogg")
             game.rebuild_all_menus()
             self._user_states[user.username] = {"menu": "in_game", "table_id": table_id}
@@ -3891,8 +3891,8 @@ PlayAural Server
         elif selection_id == "join_spectator":
             table.add_member(user.username, user, as_spectator=True)
             game.add_spectator(user.username, user)
-            user.speak_l("spectator-joined", host=table.host)
-            game.broadcast_l("now-spectating", player=user.username)
+            user.speak_l("spectator-joined", buffer="system", host=table.host)
+            game.broadcast_l("now-spectating", buffer="system", player=user.username)
             game.broadcast_sound("join_spectator.ogg")
             game.rebuild_all_menus()
             self._user_states[user.username] = {"menu": "in_game", "table_id": table_id}
@@ -3927,7 +3927,7 @@ PlayAural Server
             await self._restore_saved_table(user, save_id)
         elif selection_id == "delete":
             self._db.delete_saved_table(save_id)
-            user.speak_l("saved-table-deleted")
+            user.speak_l("saved-table-deleted", buffer="system")
             self._nav_back(user)
         elif selection_id == "back":
             self._nav_back(user)
@@ -3937,14 +3937,14 @@ PlayAural Server
 
         record = self._db.get_saved_table(save_id)
         if not record:
-            user.speak_l("table-not-exists")
+            user.speak_l("table-not-exists", buffer="system")
             self._nav_back(user)
             return
 
         # Get the game class
         game_class = get_game_class(record.game_type)
         if not game_class:
-            user.speak_l("game-type-not-found")
+            user.speak_l("game-type-not-found", buffer="system")
             self._nav_back(user)
             return
 
@@ -4031,7 +4031,7 @@ PlayAural Server
         game.rebuild_all_menus()
 
         # Notify all players
-        game.broadcast_l("table-restored")
+        game.broadcast_l("table-restored", buffer="system")
 
         # Delete the saved table now that it's been restored
         self._db.delete_saved_table(save_id)
@@ -4460,12 +4460,12 @@ PlayAural Server
             game_type = selection_id[3:]  # Remove "lb_" prefix
             game_class = get_game_class(game_type)
             if not game_class:
-                user.speak_l("game-type-not-found")
+                user.speak_l("game-type-not-found", buffer="system")
                 self._nav_refresh(user, self._show_leaderboards_menu)
                 return
             results = self._db.get_game_stats(game_type, limit=1)
             if not results:
-                user.speak_l("leaderboard-no-data")
+                user.speak_l("leaderboard-no-data", buffer="system")
                 self._nav_refresh(user, self._show_leaderboards_menu)
                 return
             self._nav_push(user, self._show_leaderboard_types_menu, game_type)
@@ -4548,7 +4548,7 @@ PlayAural Server
         """Show personal stats for a specific game."""
         game_class = get_game_class(game_type)
         if not game_class:
-            user.speak_l("game-type-not-found")
+            user.speak_l("game-type-not-found", buffer="system")
             return
 
         game_name = Localization.get(user.locale, game_class.get_name_key())
@@ -4764,7 +4764,7 @@ PlayAural Server
         )
 
         # Broadcast save message and destroy the table
-        game.broadcast_l("table-saved-destroying")
+        game.broadcast_l("table-saved-destroying", buffer="system")
         game.destroy()
 
     async def _handle_keybind(self, client: ClientConnection, packet: dict) -> None:
@@ -4838,7 +4838,7 @@ PlayAural Server
                 from_mandatory = user_state.get("from_mandatory", False)
 
                 if not value:
-                    user.speak_l("error-email-empty")
+                    user.speak_l("error-email-empty", buffer="system")
                     if from_mandatory:
                         self._show_mandatory_email_menu(user)
                     else:
@@ -4846,7 +4846,7 @@ PlayAural Server
                     return
 
                 if not is_valid_email(value):
-                    user.speak_l("error-email-invalid")
+                    user.speak_l("error-email-invalid", buffer="system")
                     if from_mandatory:
                         self._show_mandatory_email_menu(user)
                     else:
@@ -4854,7 +4854,7 @@ PlayAural Server
                     return
 
                 if value == current_email:
-                    user.speak_l("no-changes-made")
+                    user.speak_l("no-changes-made", buffer="system")
                     if from_mandatory:
                          # Should not hit this since mandatory means current was empty and value is empty, which is caught above
                          self._show_mandatory_email_menu(user)
@@ -4863,7 +4863,7 @@ PlayAural Server
                     return
 
                 if self._db.email_exists(value, exclude_username=user.username):
-                    user.speak_l("error-email-taken")
+                    user.speak_l("error-email-taken", buffer="system")
                     if from_mandatory:
                         self._show_mandatory_email_menu(user)
                     else:
@@ -4872,7 +4872,7 @@ PlayAural Server
 
                 if not current_email:
                     self._db.update_user_email(user.username, value)
-                    user.speak_l("email-updated")
+                    user.speak_l("email-updated", buffer="system")
                     if from_mandatory:
                         self._restore_user_state(user, user.username)
                     else:
@@ -4882,7 +4882,7 @@ PlayAural Server
                 return
             elif menu_id == "bio_input":
                 if len(value) > 250:
-                    user.speak_l("error-bio-length")
+                    user.speak_l("error-bio-length", buffer="system")
                     self._nav_refresh(user, self._show_profile_menu)
                     return
 
@@ -4890,10 +4890,10 @@ PlayAural Server
                 current_bio = user_record.bio if user_record else ""
 
                 if value == current_bio:
-                    user.speak_l("no-changes-made")
+                    user.speak_l("no-changes-made", buffer="system")
                 else:
                     self._db.update_user_bio(user.username, value)
-                    user.speak_l("bio-updated")
+                    user.speak_l("bio-updated", buffer="system")
                 self._nav_refresh(user, self._show_profile_menu)
                 return
 
@@ -4904,13 +4904,13 @@ PlayAural Server
                      return
 
                 if value.lower() == user.username.lower():
-                     user.speak_l("friend-error-self")
+                     user.speak_l("friend-error-self", buffer="system")
                      self._nav_refresh(user, self._show_friends_hub_menu)
                      return
 
                 target_record = self._db.get_user(value)
                 if not target_record:
-                     user.speak_l("unknown-player")
+                     user.speak_l("unknown-player", buffer="system")
                      self._nav_refresh(user, self._show_friends_hub_menu)
                      return
 
@@ -4918,27 +4918,27 @@ PlayAural Server
                 status = self._db.send_friend_request(user.uuid, target_record.uuid)
 
                 if status == "already_friends":
-                     user.speak_l("friend-error-already-friends")
+                     user.speak_l("friend-error-already-friends", buffer="system")
                 elif status == "duplicate":
-                     user.speak_l("friend-error-duplicate")
+                     user.speak_l("friend-error-duplicate", buffer="system")
                 elif status == "accepted":
-                     user.speak_l("friend-accepted-success", username=target_record.username)
+                     user.speak_l("friend-accepted-success", buffer="system", username=target_record.username)
                      user.play_sound("friend_accepted.ogg")
                      # Notify target if online
                      target_user = self._users.get(target_record.username)
                      if target_user:
-                         target_user.speak_l("friend-accepted-notify", username=user.username)
+                         target_user.speak_l("friend-accepted-notify", buffer="system", username=user.username)
                          target_user.play_sound("friend_accepted.ogg")
                      else:
                          self._db.add_notification(target_record.uuid, user.username, "friend_accepted")
                      self.on_friend_requests_changed(target_record.uuid)
                 elif status == "sent":
-                     user.speak_l("friend-request-sent", username=target_record.username)
+                     user.speak_l("friend-request-sent", buffer="system", username=target_record.username)
                      user.play_sound("friend_request_sent.ogg")
                      # Notify target if online
                      target_user = self._users.get(target_record.username)
                      if target_user:
-                         target_user.speak_l("friend-request-received", username=user.username)
+                         target_user.speak_l("friend-request-received", buffer="system", username=user.username)
                          target_user.play_sound("friend_request_received.ogg")
                      else:
                          self._db.add_notification(target_record.uuid, user.username, "friend_request_received")
@@ -5160,7 +5160,7 @@ PlayAural Server
              if user and user.trust_level >= 2:
                  parts = message.split(" ", 1)
                  if len(parts) < 2:
-                     user.speak_l("usage-kick") # Need to add this key or just speak generic
+                     user.speak_l("usage-kick", buffer="system") # Need to add this key or just speak generic
                      # Or just ignore if empty
                      return
                  
@@ -5315,7 +5315,7 @@ PlayAural Server
         """Show context menu for an online user."""
         target_user = self._users.get(target_username)
         if not target_user:
-            user.speak_l("user-not-online-anymore")
+            user.speak_l("user-not-online-anymore", buffer="system")
             # Restart the menu process to clean state
             self._show_online_users_menu(user)
             return
@@ -5357,7 +5357,7 @@ PlayAural Server
 
         target_user = self._users.get(target_username)
         if not target_user:
-            user.speak_l("user-not-online-anymore")
+            user.speak_l("user-not-online-anymore", buffer="system")
             self._nav_back(user)
             return
 
@@ -5368,21 +5368,21 @@ PlayAural Server
             status = self._db.send_friend_request(user.uuid, target_user.uuid)
 
             if status == "already_friends":
-                 user.speak_l("friend-error-already-friends")
+                 user.speak_l("friend-error-already-friends", buffer="system")
             elif status == "duplicate":
-                 user.speak_l("friend-error-duplicate")
+                 user.speak_l("friend-error-duplicate", buffer="system")
             elif status == "accepted":
-                 user.speak_l("friend-accepted-success", username=target_user.username)
+                 user.speak_l("friend-accepted-success", buffer="system", username=target_user.username)
                  user.play_sound("friend_accepted.ogg")
                  # Notify target if online
-                 target_user.speak_l("friend-accepted-notify", username=user.username)
+                 target_user.speak_l("friend-accepted-notify", buffer="system", username=user.username)
                  target_user.play_sound("friend_accepted.ogg")
                  self.on_friend_requests_changed(target_user.uuid)
             elif status == "sent":
-                 user.speak_l("friend-request-sent", username=target_user.username)
+                 user.speak_l("friend-request-sent", buffer="system", username=target_user.username)
                  user.play_sound("friend_request_sent.ogg")
                  # Notify target if online
-                 target_user.speak_l("friend-request-received", username=user.username)
+                 target_user.speak_l("friend-request-received", buffer="system", username=user.username)
                  target_user.play_sound("friend_request_received.ogg")
                  self.on_friend_requests_changed(target_user.uuid)
 
@@ -5560,7 +5560,7 @@ PlayAural Server
         online = self._get_online_usernames()
         count = len(online)
         if count == 0:
-            user.speak_l("online-users-none")
+            user.speak_l("online-users-none", buffer="system")
             return
         
         users_str = Localization.format_list_and(user.locale, online)

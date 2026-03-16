@@ -110,7 +110,7 @@ class Table(DataClassJSONMixin):
                 self.host = new_host
                 # Broadcast via game if possible
                 if self._game:
-                    self._game.broadcast_l("new-host", player=new_host)
+                    self._game.broadcast_l("new-host", buffer="system", player=new_host)
                     self._game.host = new_host
                     if hasattr(self._game, "rebuild_all_menus"):
                         self._game.rebuild_all_menus()
@@ -233,7 +233,7 @@ class Table(DataClassJSONMixin):
                         elif current_time - self._member_offline_since[member.username] > 15.0:
                             # Kick them
                             if self._game:
-                                self._game.broadcast_l("player-kicked-offline", player=member.username)
+                                self._game.broadcast_l("player-kicked-offline", buffer="system", player=member.username)
                                 
                                 # Clean up Game state to prevent ghost players
                                 # We need the UUID to call game methods

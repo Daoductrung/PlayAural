@@ -82,7 +82,7 @@ class TestProfileSystem:
 
         db_user = self.db.get_user("email_user")
         assert db_user.email == "first@test.com"
-        user.speak_l.assert_called_with("email-updated")
+        user.speak_l.assert_called_with("email-updated", buffer="system")
 
         # Reset mock
         user.speak_l.reset_mock()
@@ -92,7 +92,7 @@ class TestProfileSystem:
         packet = {"text": "first@test.com"}
         await server._handle_editbox(client, packet)
 
-        user.speak_l.assert_called_with("no-changes-made")
+        user.speak_l.assert_called_with("no-changes-made", buffer="system")
 
         # Reset mock
         user.speak_l.reset_mock()
@@ -143,7 +143,7 @@ class TestProfileSystem:
 
         db_user = self.db.get_user("user_b")
         assert db_user.email == ""
-        user.speak_l.assert_called_with("error-email-taken")
+        user.speak_l.assert_called_with("error-email-taken", buffer="system")
 
     @pytest.mark.asyncio
     async def test_bio_length_limit(self):
@@ -171,7 +171,7 @@ class TestProfileSystem:
 
         db_user = self.db.get_user("bio_user")
         assert db_user.bio == "A valid bio"
-        user.speak_l.assert_called_with("bio-updated")
+        user.speak_l.assert_called_with("bio-updated", buffer="system")
 
         # 2. Too long bio
         server._user_states["bio_user"] = {"menu": "bio_input"}
@@ -181,4 +181,4 @@ class TestProfileSystem:
         db_user = self.db.get_user("bio_user")
         # Should not have updated
         assert db_user.bio == "A valid bio"
-        user.speak_l.assert_called_with("error-bio-length")
+        user.speak_l.assert_called_with("error-bio-length", buffer="system")

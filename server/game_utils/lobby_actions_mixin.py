@@ -58,7 +58,7 @@ class LobbyActionsMixin:
             return
 
         # Announce game is starting
-        self.broadcast_l("game-starting")
+        self.broadcast_l("game-starting", buffer="system")
 
         # Start the game (subclasses implement this)
         self.on_start()
@@ -99,7 +99,7 @@ class LobbyActionsMixin:
         self.attach_user(bot_player.id, bot_user)
         # Set up action sets for the bot
         self.setup_player_actions(bot_player)
-        self.broadcast_l("table-joined", player=bot_name)
+        self.broadcast_l("table-joined", buffer="system", player=bot_name)
         self.broadcast_sound("join.ogg")
         self.rebuild_all_menus()
 
@@ -111,7 +111,7 @@ class LobbyActionsMixin:
                 # Clean up action sets
                 self.player_action_sets.pop(bot.id, None)
                 self._users.pop(bot.id, None)
-                self.broadcast_l("table-left", player=bot.name)
+                self.broadcast_l("table-left", buffer="system", player=bot.name)
                 self.broadcast_sound("leave.ogg")
                 break
         self.rebuild_all_menus()
@@ -140,10 +140,10 @@ class LobbyActionsMixin:
                     break
         
         if player.is_spectator:
-            self.broadcast_l("now-spectating", player=player.name)
+            self.broadcast_l("now-spectating", buffer="system", player=player.name)
             self.broadcast_sound("join_spectator.ogg")
         else:
-            self.broadcast_l("now-playing", player=player.name)
+            self.broadcast_l("now-playing", buffer="system", player=player.name)
             self.broadcast_sound("leave_spectator.ogg")
 
         self.rebuild_all_menus()

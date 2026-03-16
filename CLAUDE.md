@@ -51,7 +51,7 @@ Key packet types: `AUTHORIZE`, `MENU`, `KEYBIND`, `CHAT`, `SPEAK`, `PLAY_SOUND`,
 ### Server Architecture
 - **`server/core/server.py`** — Main orchestrator
 - **`server/network/websocket_server.py`** — Async WebSocket connection management
-- **`server/games/`** — 21 game implementations; each extends an abstract `Game` base class via 14 mixins
+- **`server/games/`** — 20 game implementations; each extends an abstract `Game` base class via 14 mixins
 - **`server/game_utils/`** — 40+ shared utility modules (cards, dice, poker logic, turn management, scoring)
 - **`server/auth/`** — Argon2 password hashing, rate limiting
 - **`server/persistence/database.py`** — SQLite (`PlayAural.db`), user accounts, game history, OpenSkill ratings
@@ -130,6 +130,19 @@ The shutdown sequence is a 32-second structured countdown managed by `self._shut
 - Games use `self.event_queue` (list of `(tick, event_type, data)` tuples) for deferred state changes and `self.schedule_sound(path, delay_ticks)` for audio timing.
 - `on_tick()` must call `super().on_tick()` and `self.process_scheduled_sounds()`.
 - When writing deterministic tests for bot behaviour, use `advance_until(game, condition_fn, max_ticks=500)` rather than fixed tick counts. Combine state conditions with phase checks (e.g. `len(player.live_influences) == 1 and g.turn_phase != "losing_influence"`) to avoid stopping one tick before a post-event fires.
+
+#### TTS Buffer Categorization
+Every `user.speak_l()` and `broadcast_l()` call must carry an explicit `buffer=` parameter. Defaults are wrong in almost every case:
+- `user.speak_l()` defaults to `"misc"` — almost never correct in `server.py`
+- `broadcast_l()` defaults to `"game"` — correct for in-game events only
+
+Rules:
+- **`buffer="chat"`**: Player-to-player text only (global chat, room chat, private messages).
+- **`buffer="game"`**: All gameplay events — turn announcements, dice rolls, card plays, scores, game state changes. Use for all `broadcast_l` calls inside game files.
+- **`buffer="system"`**: Server-wide announcements, player connections/disconnections, room joins/leaves, host management (kicks, bans, invitations, host-pass), settings confirmations, profile changes, friend events, and all error/validation messages in `server.py`. Most `user.speak_l` calls in `server/core/server.py` belong here.
+- **`buffer="misc"`**: Only for genuinely minor informational messages that fit none of the above.
+
+Connectivity/membership `broadcast_l` calls in `base.py`, `table.py`, and `lobby_actions_mixin.py` (player-rejoined, table-joined, now-spectating, player-replaced-by-bot, game-resumed, etc.) also use `buffer="system"`.
 
 #### Server Import Rules
 All imports at module level. No in-function imports anywhere in the server codebase — this rule mirrors the Desktop Client rule and applies equally to `server/core/server.py`, all mixins, and all utility modules.

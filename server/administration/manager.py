@@ -298,7 +298,7 @@ class AdministrationManager:
         elif selection_id == "smtp_settings":
             self._show_smtp_settings_menu(user)
         elif selection_id == "back":
-            self.server._show_main_menu(user)
+            self.server._nav_back(user)
 
     async def _handle_account_approval_selection(
         self, user: NetworkUser, selection_id: str
@@ -579,9 +579,7 @@ class AdministrationManager:
             Localization.get(user.locale, "admin-broadcast-prompt"),
             multiline=True,
         )
-        self.server.user_states[user.username] = {
-            "menu": "admin_broadcast_input",
-        }
+        self.server.enter_input_state(user, "admin_broadcast_input")
 
     async def handle_input(
         self, user: NetworkUser, packet: dict, state: dict
@@ -782,10 +780,7 @@ class AdministrationManager:
                 Localization.get(user.locale, "smtp-prompt-test-email"),
                 multiline=False,
             )
-            self.server.user_states[user.username] = {
-                "menu": "smtp_setting_input",
-                "field": "test_email"
-            }
+            self.server.enter_input_state(user, "smtp_setting_input", field="test_email")
             return
 
         # Handle text inputs
@@ -812,10 +807,7 @@ class AdministrationManager:
                 default_value=default_val,
                 multiline=False,
             )
-            self.server.user_states[user.username] = {
-                "menu": "smtp_setting_input",
-                "field": field
-            }
+            self.server.enter_input_state(user, "smtp_setting_input", field=field)
 
     def _show_smtp_encryption_menu(self, user: NetworkUser) -> None:
         """Show encryption type selection."""
@@ -904,9 +896,7 @@ class AdministrationManager:
                 Localization.get(user.locale, "motd-version-prompt"),
                 multiline=False,
             )
-            self.server.user_states[user.username] = {
-                "menu": "admin_motd_version_input",
-            }
+            self.server.enter_input_state(user, "admin_motd_version_input")
 
         elif selection_id == "view":
             active_version = self.server.db.get_highest_motd_version()
@@ -951,12 +941,12 @@ class AdministrationManager:
             Localization.get(user.locale, "motd-prompt", language=lang_name),
             multiline=True,
         )
-        self.server.user_states[user.username] = {
-            "menu": "admin_motd_input",
-            "pending_languages": pending_languages,
-            "translations": translations,
-            "version": version,
-        }
+        self.server.enter_input_state(
+            user, "admin_motd_input",
+            pending_languages=pending_languages,
+            translations=translations,
+            version=version,
+        )
 
     @require_admin
     async def perform_broadcast(self, admin: NetworkUser, message: str, show_menu: bool = True) -> None:
@@ -1248,11 +1238,11 @@ class AdministrationManager:
                 Localization.get(user.locale, "enter-custom-ban-reason"),
                 multiline=False,
             )
-            self.server.user_states[user.username] = {
-                "menu": "ban_custom_reason_input",
-                "target_username": target_username,
-                "duration": duration,
-            }
+            self.server.enter_input_state(
+                user, "ban_custom_reason_input",
+                target_username=target_username,
+                duration=duration,
+            )
         elif selection_id.startswith("reason_"):
             # Internal reason keys are formatted like "reason-spam"
             reason_key = selection_id.replace("_", "-")

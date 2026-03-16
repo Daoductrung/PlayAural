@@ -70,6 +70,8 @@ class Server:
         "bio_input", "send_friend_request_input", "send_pm_input", "music_volume_input",
         "ambience_volume_input", "speech_rate_input", "waiting_for_approval",
         "smtp_settings_menu", "smtp_encryption_menu", "smtp_setting_input",
+        "admin_broadcast_input", "admin_motd_version_input", "admin_motd_input",
+        "ban_custom_reason_input",
         "host_management_menu", "host_invite_menu", "host_pass_menu",
         "host_kick_menu", "host_kick_ban_menu", "table_invite_prompt",
     }
@@ -1885,7 +1887,7 @@ PlayAural Server
                 Localization.get(user.locale, "enter-speech-rate"),
                 default_value=str(prefs.speech_rate),
             )
-            self._user_states[user.username]["menu"] = "speech_rate_input"
+            self._enter_input_state(user, "speech_rate_input")
         
         elif selection_id == "speech_voice":
             # Send an empty menu with a specific ID.
@@ -2268,9 +2270,8 @@ PlayAural Server
                 Localization.get(user.locale, "enter-email"),
                 default_value=user_record.email if user_record else "",
             )
-            self._user_states[user.username]["menu"] = "email_input"
             # Flag that we came from the mandatory loop so we know where to route after
-            self._user_states[user.username]["from_mandatory"] = True
+            self._enter_input_state(user, "email_input", from_mandatory=True)
 
     async def _handle_motd_selection(
         self, user: NetworkUser, selection_id: str, state: dict
@@ -2372,7 +2373,7 @@ PlayAural Server
                 "send_friend_request_input",
                 Localization.get(user.locale, "enter-friend-username"),
             )
-            self._user_states[user.username]["menu"] = "send_friend_request_input"
+            self._enter_input_state(user, "send_friend_request_input")
         elif selection_id == "back":
             self._nav_back(user)
 
@@ -2480,7 +2481,7 @@ PlayAural Server
     async def _handle_friend_actions_selection(self, user: NetworkUser, selection_id: str, state: dict) -> None:
         target_username = state.get("target_username")
         if not target_username:
-            self._nav_refresh(user, self._show_friends_list_menu)
+            self._nav_back(user)
             return
 
         if selection_id == "back":
@@ -2496,8 +2497,7 @@ PlayAural Server
                 multiline=True,
                 max_length=500
             )
-            self._user_states[user.username]["menu"] = "send_pm_input"
-            self._user_states[user.username]["target_username"] = target_username
+            self._enter_input_state(user, "send_pm_input", target_username=target_username)
 
         elif selection_id == "join_table":
             table = self._tables.find_user_table(target_username)
@@ -2542,7 +2542,7 @@ PlayAural Server
 
                 self.on_friend_requests_changed(target_record.uuid)
 
-            self._nav_refresh(user, self._show_friends_list_menu)
+            self._nav_back(user)
 
     def _get_friend_requests_menu_items(self, user: NetworkUser) -> list[MenuItem]:
         """Build menu items for the friend requests menu."""
@@ -2599,13 +2599,13 @@ PlayAural Server
     async def _handle_friend_request_actions_selection(self, user: NetworkUser, selection_id: str, state: dict) -> None:
         target_username = state.get("target_username")
         if not target_username:
-            self._nav_refresh(user, self._show_friend_requests_menu)
+            self._nav_back(user)
             return
 
         target_record = self._db.get_user(target_username)
         if not target_record:
             user.speak_l("unknown-player", buffer="system")
-            self._nav_refresh(user, self._show_friend_requests_menu)
+            self._nav_back(user)
             return
 
         if selection_id == "back":
@@ -2628,7 +2628,7 @@ PlayAural Server
                 self.on_friend_requests_changed(target_record.uuid)
             else:
                 user.speak_l("request-not-found", buffer="system")
-            self._nav_refresh(user, self._show_friend_requests_menu)
+            self._nav_back(user)
 
         elif selection_id == "decline":
             # Delete it
@@ -2644,7 +2644,7 @@ PlayAural Server
                 self._db.add_notification(target_record.uuid, user.username, "friend_declined")
 
             self.on_friend_requests_changed(target_record.uuid)
-            self._nav_refresh(user, self._show_friend_requests_menu)
+            self._nav_back(user)
 
     def _show_public_profile(self, requesting_user: NetworkUser, target_username: str) -> None:
         """Show a read-only profile view of another player."""
@@ -2728,7 +2728,7 @@ PlayAural Server
                 Localization.get(user.locale, "enter-email"),
                 default_value=user_record.email if user_record else "",
             )
-            self._user_states[user.username]["menu"] = "email_input"
+            self._enter_input_state(user, "email_input")
         elif selection_id == "edit_gender":
             self._nav_push(user, self._show_gender_menu)
         elif selection_id == "edit_bio":
@@ -2799,7 +2799,7 @@ PlayAural Server
                 multiline=True,
                 max_length=250
             )
-            self._user_states[user.username]["menu"] = "bio_input"
+            self._enter_input_state(user, "bio_input")
         elif selection_id == "delete_bio":
             user_record = self._db.get_user(user.username)
             if user_record and user_record.bio:
@@ -3041,7 +3041,7 @@ PlayAural Server
                 Localization.get(user.locale, "enter-music-volume"),
                 default_value=str(prefs.music_volume),
             )
-            self._user_states[user.username]["menu"] = "music_volume_input"
+            self._enter_input_state(user, "music_volume_input")
             return
         elif selection_id == "ambience_volume":
             user.show_editbox(
@@ -3049,7 +3049,7 @@ PlayAural Server
                 Localization.get(user.locale, "enter-ambience-volume"),
                 default_value=str(prefs.ambience_volume),
             )
-            self._user_states[user.username]["menu"] = "ambience_volume_input"
+            self._enter_input_state(user, "ambience_volume_input")
             return
         elif selection_id == "turn_sound":
             prefs.play_turn_sound = not prefs.play_turn_sound
@@ -5403,12 +5403,98 @@ PlayAural Server
         if username in self._user_states:
             self._user_states[username]["_stack"] = saved_stack
 
-    def _nav_push(self, user: NetworkUser, show_fn, *args, **kwargs) -> None:
-        """Push current state onto the return stack and navigate to a new menu."""
+    def _enter_input_state(self, user: NetworkUser, input_id: str, **extra) -> None:
+        """Transition into an editbox input state, recording the parent frame.
+
+        Marks the state as transient (_transient=True) and snapshots the current
+        (stable, non-editbox) state as _parent_frame.  If a global keybind fires
+        while this editbox is active, _nav_push will push _parent_frame onto the
+        stack instead of the unrestorable editbox state, preventing the nav stack
+        from getting stuck on an ID that _restore_frame cannot re-render.
+
+        Use this everywhere an editbox menu ID is assigned to _user_states.
+        """
         username = user.username
         current = self._user_states.get(username, {})
-        frame = {k: v for k, v in current.items() if k != "_stack"}
+        # Snapshot the stable parent state (strip navigation bookkeeping keys)
+        parent_frame = {
+            k: v for k, v in current.items()
+            if k not in ("_stack", "_transient", "_parent_frame")
+        }
+        state = self._user_states.setdefault(username, {})
+        state["menu"] = input_id
+        state["_transient"] = True
+        state["_parent_frame"] = parent_frame
+        state.update(extra)
+
+    # Public alias so external modules (e.g. administration/manager.py) can call it.
+    enter_input_state = _enter_input_state
+
+    def _user_is_in_input_state(self, username: str) -> bool:
+        """Return True if the user has a modal editbox open (server-side OR game-side).
+
+        Two disjoint cases are covered:
+
+        1. **Server-side editbox** (_transient=True): set by _enter_input_state
+           whenever the server shows an editbox for things like volume, speech
+           rate, friend requests, profile fields, admin inputs, etc.
+
+        2. **Game-side editbox** (_pending_actions): set by the game's
+           _request_action_input when an action needs player text or menu input
+           (e.g. a target score, a bet amount, any EditboxInput or MenuInput
+           action in the table-settings or in-game options flow).
+
+        In both cases the client's editbox widget holds keyboard focus.  Any
+        nav push that fires in this window changes server state without the
+        client ever displaying the new menu, permanently desyncing the state
+        machine: the subsequent editbox submission arrives with the wrong
+        current_menu and is silently dropped, leaving the game stuck.
+        """
+        # Server-side editbox (set by _enter_input_state)
+        if self._user_states.get(username, {}).get("_transient"):
+            return True
+        # Game-side editbox (game waiting for a player's pending action input)
+        table = self._tables.find_user_table(username)
+        if table and table.game:
+            user = self._users.get(username)
+            if user:
+                player = table.game.get_player_by_id(user.uuid)
+                if player and player.id in table.game._pending_actions:
+                    return True
+        return False
+
+    def _nav_push(self, user: NetworkUser, show_fn, *args, **kwargs) -> None:
+        """Push current state onto the return stack and navigate to a new menu.
+
+        Modal-focus guard: if the user currently has any editbox open (server-
+        side _transient or game-side _pending_actions), this call is silently
+        discarded.  The client's editbox widget holds keyboard focus and cannot
+        display an incoming overlay; processing the push would desync server
+        state from the client, causing the subsequent editbox submission to be
+        misrouted and the UI to lock up permanently.
+
+        The guard lives here — at the single call site for all forward
+        navigation — so that every code path (explicit hotkey handlers,
+        game keybind actions, admin flows, and any future additions) is
+        protected automatically without per-handler decoration.
+
+        When the state is a transient editbox (_transient=True), the recorded
+        _parent_frame is pushed instead of the editbox ID itself, because
+        editbox states cannot be re-rendered by _restore_frame.
+        """
+        username = user.username
+        if self._user_is_in_input_state(username):
+            return
+        current = self._user_states.get(username, {})
         stack = list(current.get("_stack", []))
+        if current.get("_transient"):
+            # Push the stable parent, not the unrestorable editbox state.
+            parent = current.get("_parent_frame") or {}
+            frame = {k: v for k, v in parent.items()
+                     if k not in ("_stack", "_transient", "_parent_frame")}
+        else:
+            frame = {k: v for k, v in current.items()
+                     if k not in ("_stack", "_transient", "_parent_frame")}
         stack.append(frame)
         show_fn(user, *args, **kwargs)
         if username in self._user_states:
@@ -5536,6 +5622,83 @@ PlayAural Server
                 self._show_document_content(user, doc_id)
             else:
                 self._show_documentation_menu(user)
+        elif menu == "email_confirm_menu":
+            new_email = frame.get("new_email", "")
+            if new_email:
+                self._show_email_confirm_menu(user, new_email)
+            else:
+                self._show_profile_menu(user)
+        elif menu == "waiting_for_approval":
+            self._show_waiting_for_approval(user)
+        # Admin menus — delegate to admin_manager's show functions
+        elif menu == "admin_menu":
+            self.admin_manager._show_admin_menu(user)
+        elif menu == "account_approval_menu":
+            self.admin_manager._show_account_approval_menu(user)
+        elif menu == "pending_user_actions_menu":
+            pending_username = frame.get("pending_username", "")
+            if pending_username:
+                self.admin_manager._show_pending_user_actions_menu(user, pending_username)
+            else:
+                self.admin_manager._show_account_approval_menu(user)
+        elif menu == "promote_admin_menu":
+            self.admin_manager._show_promote_admin_menu(user)
+        elif menu == "demote_admin_menu":
+            self.admin_manager._show_demote_admin_menu(user)
+        elif menu == "promote_confirm_menu":
+            target_username = frame.get("target_username", "")
+            if target_username:
+                self.admin_manager._show_promote_confirm_menu(user, target_username)
+            else:
+                self.admin_manager._show_promote_admin_menu(user)
+        elif menu == "demote_confirm_menu":
+            target_username = frame.get("target_username", "")
+            if target_username:
+                self.admin_manager._show_demote_confirm_menu(user, target_username)
+            else:
+                self.admin_manager._show_demote_admin_menu(user)
+        elif menu == "broadcast_choice_menu":
+            target_username = frame.get("target_username", "")
+            action = frame.get("action", "")
+            if target_username and action:
+                self.admin_manager._show_broadcast_choice_menu(user, action, target_username)
+            else:
+                self.admin_manager._show_admin_menu(user)
+        elif menu == "kick_menu":
+            self.admin_manager._show_kick_menu(user)
+        elif menu == "kick_confirm_menu":
+            target_username = frame.get("target_username", "")
+            if target_username:
+                self.admin_manager._show_kick_confirm_menu(user, target_username)
+            else:
+                self.admin_manager._show_kick_menu(user)
+        elif menu == "ban_menu":
+            self.admin_manager._show_ban_menu(user)
+        elif menu == "ban_duration_menu":
+            target_username = frame.get("target_username", "")
+            if target_username:
+                self.admin_manager._show_ban_duration_menu(user, target_username)
+            else:
+                self.admin_manager._show_ban_menu(user)
+        elif menu == "ban_reason_menu":
+            target_username = frame.get("target_username", "")
+            duration = frame.get("duration", "")
+            if target_username and duration:
+                self.admin_manager._show_ban_reason_menu(user, target_username, duration)
+            elif target_username:
+                self.admin_manager._show_ban_duration_menu(user, target_username)
+            else:
+                self.admin_manager._show_ban_menu(user)
+        elif menu == "unban_menu":
+            self.admin_manager._show_unban_menu(user)
+        elif menu == "manage_motd_menu":
+            self.admin_manager._show_manage_motd_menu(user)
+        elif menu == "view_motd_menu":
+            self.admin_manager._show_manage_motd_menu(user)  # dynamic content; fall back to parent
+        elif menu == "smtp_settings_menu":
+            self.admin_manager._show_smtp_settings_menu(user)
+        elif menu == "smtp_encryption_menu":
+            self.admin_manager._show_smtp_encryption_menu(user)
         else:
             table = self._tables.find_user_table(username)
             if table:

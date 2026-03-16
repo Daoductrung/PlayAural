@@ -59,10 +59,12 @@ class MenuManagementMixin:
         # overwrite it with a game turn_menu — regardless of which specific menu it
         # is.  This is the universal guard: it catches everything in GLOBAL_SYSTEM_MENUS
         # without needing per-menu entries in _actions_menu_open.
+        # Also guard transient editbox states (_transient=True) for any future
+        # game-specific editbox that is not registered in GLOBAL_SYSTEM_MENUS.
         server = getattr(getattr(self, "_table", None), "_server", None)
         if server is not None:
             state = server._user_states.get(user.username, {})
-            if state.get("menu") in server.GLOBAL_SYSTEM_MENUS:
+            if state.get("menu") in server.GLOBAL_SYSTEM_MENUS or state.get("_transient"):
                 return
 
         # 3. Input Menus or Editboxes (from ActionExecutionMixin and LobbyActionsMixin)
@@ -127,7 +129,7 @@ class MenuManagementMixin:
         server = getattr(getattr(self, "_table", None), "_server", None)
         if server is not None:
             state = server._user_states.get(user.username, {})
-            if state.get("menu") in server.GLOBAL_SYSTEM_MENUS:
+            if state.get("menu") in server.GLOBAL_SYSTEM_MENUS or state.get("_transient"):
                 return
 
         pending_action = self._pending_actions.get(player.id)
@@ -137,7 +139,7 @@ class MenuManagementMixin:
         items: list[MenuItem] = []
         for resolved in self.get_all_visible_actions(player):
             items.append(MenuItem(text=resolved.label, id=resolved.action.id))
-            
+
         # WEB-SPECIFIC: Add static control buttons
         if getattr(user, "client_type", None) == "web":
             # 1. Actions Menu / Context Menu (Top Left)

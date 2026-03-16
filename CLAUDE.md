@@ -76,18 +76,36 @@ Games are dataclasses serialized via Mashumaro for state persistence.
 
 #### Server-Side Menu Navigation Stack
 
-All server-side menu navigation uses a breadcrumb stack stored in `_user_states[username]["_stack"]`. Three primitives manage it:
+All server-side menu navigation uses a breadcrumb stack stored in `_user_states[username]["_stack"]`. Four primitives manage it:
 
-- **`_nav_push(user, show_fn, *args)`** — Captures the current state frame, pushes it onto `_stack`, calls `show_fn`, then re-injects the stack. Use for **forward navigation** (opening a sub-menu).
+- **`_nav_push(user, show_fn, *args)`** — Captures the current state frame, pushes it onto `_stack`, calls `show_fn`, then re-injects the stack. Use for **forward navigation** (opening a sub-menu). Contains the modal-focus guard (see below) — automatically a no-op when any editbox is active.
 - **`_nav_back(user)`** — Pops the top frame and calls `_restore_frame`. If the stack is empty, falls back to the game table or main menu. Use for all **Back** button handlers.
 - **`_nav_refresh(user, show_fn, *args)`** — Saves `_stack`, calls `show_fn`, then re-injects the stack unchanged. Use when an **action completes** and the user stays on the same menu level (e.g. accept friend request → refresh friend requests menu). Never use a bare `_show_*()` call in an action handler — it drops the stack.
-- **`_restore_frame(user, frame, stack)`** — Re-enters the correct show function for a popped frame, then re-injects the remaining stack. Routes `in_game`/`post_game`/etc. to `_return_to_game`; routes overlay menus to their show functions.
+- **`_restore_frame(user, frame, stack)`** — Re-enters the correct show function for a popped frame, then re-injects the remaining stack. Routes `in_game`/`post_game`/etc. to `_return_to_game`; routes all overlay menus (including admin menus) to their show functions. Falls back to game/main-menu for any unrecognised ID.
 
 **Rules:**
 - `_nav_push` = navigate forward (add a frame to history)
 - `_nav_refresh` = stay in place after an action (preserve history)
 - `_nav_back` = go back (pop a frame from history)
 - Never call `_show_*()` directly in an action handler — always use `_nav_refresh` so the stack survives. This applies to **all** action handlers: confirmations, toggle flips, error paths, editbox returns, and fallback/offline paths alike.
+
+#### Editbox Input States (`_enter_input_state`)
+
+Any time the server transitions a user into an editbox, call `_enter_input_state(user, input_id, **extra)` instead of mutating `_user_states` directly. It:
+1. Snapshots the current (stable, non-editbox) state as `_parent_frame`
+2. Sets `_transient = True` in the state
+
+This prevents two classes of bugs:
+
+**Stack corruption**: `_nav_push` checks `_transient` and, when True, pushes `_parent_frame` instead of the unrestorable editbox ID. Editbox states therefore never end up on the nav stack, so `_restore_frame` never needs to handle them.
+
+**Modal-focus desync**: `_nav_push` calls `_user_is_in_input_state(username)` at the top and returns immediately if it returns True. This covers both:
+- Server-side editboxes (`_transient = True`, set by `_enter_input_state`)
+- Game-side editboxes (`_pending_actions[player.id]` set by `_request_action_input`)
+
+Because the guard lives inside `_nav_push` itself — not in individual hotkey handlers — every code path (Alt+F friends hub, Alt+O options, Shift+F2 online users, game keybind actions, future additions) is automatically protected. No per-handler decoration needed or possible to forget.
+
+Use `self.server.enter_input_state(user, input_id, **extra)` from `administration/manager.py` (public alias). Never assign `_user_states[username]["menu"] = "..._input"` directly.
 
 #### Host Management / Transient Server-Side Menus
 The server can push a transient menu (e.g. Host Management) on top of the in-game UI. To prevent `rebuild_all_menus()` from immediately overwriting it when a keybind fires:
@@ -100,7 +118,7 @@ The server can push a transient menu (e.g. Host Management) on top of the in-gam
 #### Universal Redraw Guard (GLOBAL_SYSTEM_MENUS)
 `server.GLOBAL_SYSTEM_MENUS` is a class-level set of menu IDs that represent server-side overlays (friends hub, options, online users, public profile, etc.). Two invariants are enforced:
 
-1. **`rebuild_player_menu` / `update_player_menu`** in `menu_management_mixin.py` return early if `_user_states[username]["menu"]` is in `GLOBAL_SYSTEM_MENUS`. This prevents game tick redraws from overwriting an overlay the user is currently viewing.
+1. **`rebuild_player_menu` / `update_player_menu`** in `menu_management_mixin.py` return early if `_user_states[username]["menu"]` is in `GLOBAL_SYSTEM_MENUS` **or** `_user_states[username]["_transient"]` is True. This prevents game tick redraws from overwriting an overlay or an active editbox the user is currently viewing.
 2. **`_show_end_screen_to_player`** in `game_result_mixin.py` checks if the player's current state is in `GLOBAL_SYSTEM_MENUS` and, if so, resets it to `{"menu": "in_game", "table_id": ...}` and clears `_actions_menu_open`. This prevents the post-game screen from being unresponsive when the game ends while an overlay is open.
 
 When the `_user_states` assignment must happen **before** `rebuild_all_menus()` or `initialize_lobby()` fires (table creation/join), set state first or the guard will block the initial turn-menu push.

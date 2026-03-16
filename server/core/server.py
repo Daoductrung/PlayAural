@@ -714,6 +714,11 @@ PlayAural Server
                                 "menu": "in_game",
                                 "table_id": table.table_id,
                             }
+
+                            # Immediately push the turn menu so the player sees their
+                            # options without waiting for the next game tick.
+                            if hasattr(table.game, "rebuild_player_menu"):
+                                table.game.rebuild_player_menu(player)
                     else:
                         # Player's uuid is not in the game (should not normally happen, but
                         # can occur if the game was saved in an inconsistent state).  Remove

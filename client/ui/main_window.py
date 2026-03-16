@@ -1179,14 +1179,13 @@ class MainWindow(wx.Frame):
             )
 
             def reconnect():
-                # Attempt reconnection
                 server_url = self.credentials.get("server_url")
                 username = self.credentials.get("username")
+                password = self.credentials.get("password", "")
                 if server_url and username:
                     self.speaker.speak(Localization.get("main-reconnecting"), interrupt=False)
-                    # Disconnect old connection first - this will trigger on_connection_lost which handles retry
-                    self.network.disconnect()
-            
+                    self._do_reconnect(server_url, username, password)
+
             wx.CallLater(3000, reconnect)
             return
 

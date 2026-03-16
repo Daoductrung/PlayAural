@@ -128,10 +128,12 @@ When a player reconnects, `_restore_user_state` checks `_tables.find_user_table(
 
 - **Lobby (no active game)**: `table.game is None` → call `table.remove_member(username)` immediately. The player lands on the main menu. Without this, they become a ghost member that the lobby-kick timer later fires on.
 - **Spectator**: remove from `table.members` and call `table.game.remove_spectator(user.uuid)`. Spectators are never auto-restored.
-- **Active player, UUID found**: reattach via `table.attach_user` + `table.game.attach_user`; mark `restored_game = True`.
+- **Active player, UUID found**: reattach via `table.attach_user` + `table.game.attach_user`; mark `restored_game = True`. Immediately call `table.game.rebuild_player_menu(player)` after setting `_user_states` — do not rely on the next game tick.
 - **Active player, UUID not found** (inconsistent saved state): call `table.remove_member(username)`. Player lands on the main menu cleanly with no ghost membership.
 
 `table.remove_member` always cleans up `_username_to_table` — no stale mapping remains.
+
+**Non-game state restoration**: when `restored_game = False`, call `self._restore_menu_from_state(user, state)`. This delegates to `_restore_frame`, which is the single canonical router covering every menu ID (including GLOBAL_SYSTEM_MENUS, admin menus, and `main_menu`) and re-injects the saved `_stack`. Never use a hardcoded `elif` chain here — it will always be incomplete and will silently fail for any menu ID not listed.
 
 #### Server Alert Broadcast (`/reboot` and `/stop`)
 The shutdown sequence is a 32-second structured countdown managed by `self._shutdown_task: asyncio.Task | None`.
@@ -181,6 +183,7 @@ All imports at module level. No in-function imports anywhere in the server codeb
 - **Imports**: All imports at module level. No in-function imports except inside `main()` where CWD must be set first.
 - **Dialogs**: Always call `dlg.ShowModal()` and capture the result before calling `dlg.Destroy()`. Never skip `ShowModal()`.
 - **PyInstaller**: `client/pyproject.toml` is the source of truth for dependencies (not `requirements.txt`). When adding a dependency that uses dynamic imports (e.g. keyring), add `collect_all('pkg')` plus explicit `hiddenimports` to `PlayAural.spec`.
+- **`network.connect()` version parameter**: Always pass `client_version=VERSION` to every `network.connect()` call, including all reconnect paths (`_attempt_silent_reconnect`, `_do_reconnect`). Omitting it defaults to `"0.0.0"`, causing the server to skip `_restore_user_state` and silently drop all menu selections after reconnect (chat still works, making the bug hard to diagnose).
 
 ### Web Client Architecture
 - **`web_client/game.js`** — Single-file game logic (~2,900 lines), connects to same WebSocket server

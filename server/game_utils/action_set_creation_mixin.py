@@ -34,6 +34,7 @@ class ActionSetCreationMixin:
                 handler="_action_start_game",
                 is_enabled="_is_start_game_enabled",
                 is_hidden="_is_start_game_hidden",
+                include_spectators=True,
             )
         )
         action_set.add(
@@ -48,6 +49,7 @@ class ActionSetCreationMixin:
                     default="",
                     bot_input="_bot_input_add_bot",
                 ),
+                include_spectators=True,
             )
         )
         action_set.add(
@@ -57,6 +59,7 @@ class ActionSetCreationMixin:
                 handler="_action_remove_bot",
                 is_enabled="_is_remove_bot_enabled",
                 is_hidden="_is_remove_bot_hidden",
+                include_spectators=True,
             )
         )
         action_set.add(
@@ -67,6 +70,7 @@ class ActionSetCreationMixin:
                 is_enabled="_is_toggle_spectator_enabled",
                 is_hidden="_is_toggle_spectator_hidden",
                 get_label="_get_toggle_spectator_label",
+                include_spectators=True,
             )
         )
         action_set.add(
@@ -76,6 +80,7 @@ class ActionSetCreationMixin:
                 handler="_action_host_management",
                 is_enabled="_is_host_management_enabled",
                 is_hidden="_is_host_management_hidden",
+                include_spectators=True,
             )
         )
         action_set.add(
@@ -85,6 +90,7 @@ class ActionSetCreationMixin:
                 handler="_action_leave_game",
                 is_enabled="_is_leave_game_enabled",
                 is_hidden="_is_leave_game_hidden",
+                include_spectators=True,
             )
         )
         return action_set
@@ -92,7 +98,7 @@ class ActionSetCreationMixin:
 
 
     def create_standard_action_set(self, player: "Player") -> ActionSet:
-        """Create the standard action set (F5, save) for a player."""
+        """Create the standard action set (actions menu, save) for a player."""
         user = self.get_user(player)
         locale = user.locale if user else "en"
 
@@ -105,6 +111,7 @@ class ActionSetCreationMixin:
                 is_enabled="_is_show_actions_enabled",
                 is_hidden="_is_show_actions_hidden",
                 show_in_actions_menu=False,
+                include_spectators=True,
             )
         )
         action_set.add(
@@ -125,6 +132,7 @@ class ActionSetCreationMixin:
                 handler="_action_whose_turn",
                 is_enabled="_is_whose_turn_enabled",
                 is_hidden="_is_whose_turn_hidden",
+                include_spectators=True,
             )
         )
         action_set.add(
@@ -134,6 +142,7 @@ class ActionSetCreationMixin:
                 handler="_action_whos_at_table",
                 is_enabled="_is_whos_at_table_enabled",
                 is_hidden="_is_whos_at_table_hidden",
+                include_spectators=True,
             )
         )
         action_set.add(
@@ -143,6 +152,7 @@ class ActionSetCreationMixin:
                 handler="_action_check_scores",
                 is_enabled="_is_check_scores_enabled",
                 is_hidden="_is_check_scores_hidden",
+                include_spectators=True,
             )
         )
         action_set.add(
@@ -152,6 +162,7 @@ class ActionSetCreationMixin:
                 handler="_action_check_scores_detailed",
                 is_enabled="_is_check_scores_detailed_enabled",
                 is_hidden="_is_check_scores_detailed_hidden",
+                include_spectators=True,
             )
         )
         action_set.add(
@@ -161,6 +172,7 @@ class ActionSetCreationMixin:
                 handler="_action_predict_outcomes",
                 is_enabled="_is_predict_outcomes_enabled",
                 is_hidden="_is_predict_outcomes_hidden",
+                include_spectators=True,
             )
         )
         return action_set

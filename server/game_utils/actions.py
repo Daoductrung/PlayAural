@@ -75,6 +75,7 @@ class Action(DataClassJSONMixin):
     get_label: str | None = None  # Optional method name (e.g., "_get_roll_label")
     input_request: MenuInput | EditboxInput | None = None
     show_in_actions_menu: bool = True
+    include_spectators: bool = False  # Whether spectators can see/execute this action
 
 
 @dataclass
@@ -189,11 +190,16 @@ class ActionSet(DataClassJSONMixin):
     def get_visible_actions(
         self, game: "Game", player: "Player"
     ) -> list[ResolvedAction]:
-        """Get enabled, visible actions for the turn menu."""
+        """Get enabled, visible actions for the turn menu.
+
+        Spectators never receive turn-menu buttons — they access permitted
+        actions via the actions menu (Escape) and keybinds instead.
+        """
         return [
             ra
             for ra in self.resolve_actions(game, player)
             if ra.enabled and ra.visible
+            and not (player.is_spectator and not ra.action.include_spectators)
         ]
 
     def get_enabled_actions(
@@ -204,6 +210,7 @@ class ActionSet(DataClassJSONMixin):
             ra
             for ra in self.resolve_actions(game, player)
             if ra.enabled and ra.action.show_in_actions_menu
+            and not (player.is_spectator and not ra.action.include_spectators)
         ]
 
     def get_all_actions(

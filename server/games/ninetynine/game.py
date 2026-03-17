@@ -319,6 +319,7 @@ class NinetyNineGame(Game):
                     handler="_action_check_count",
                     is_enabled="_is_check_count_enabled",
                     is_hidden="_is_check_count_hidden",
+                    include_spectators=True,
                 )
             )
 

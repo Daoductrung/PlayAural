@@ -10,7 +10,7 @@ class DummyGame:
 
 
 class DummyPlayer:
-    pass
+    is_spectator = False
 
 
 def test_actions_menu_respects_show_in_actions_menu():

@@ -38,6 +38,11 @@ class ActionExecutionMixin:
         if not action:
             return
 
+        # Defense-in-depth: block spectators from executing player-only actions,
+        # regardless of how the request arrived (menu click, keybind, direct event).
+        if player.is_spectator and not action.include_spectators:
+            return
+
         # Check if action is enabled using declarative callback
         resolved = self.resolve_action(player, action)
         if not resolved.enabled:

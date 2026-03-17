@@ -37,7 +37,7 @@ def setup_poker_keybinds(
     game.define_keybind("w", "Read hand", [read_hand], include_spectators=False)
     game.define_keybind("g", "Hand value", [hand_value], include_spectators=False)
     game.define_keybind("x", dealer_label, [check_dealer], include_spectators=True)
-    game.define_keybind("z", "Position", [check_position], include_spectators=True)
+    game.define_keybind("z", "Position", [check_position], include_spectators=False)
     game.define_keybind("n", "Current bet", [check_bet], include_spectators=True)
     game.define_keybind("m", "Minimum raise", [check_min_raise], include_spectators=True)
     game.define_keybind("h", "Players in hand", [check_hand_players], include_spectators=True)

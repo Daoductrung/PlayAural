@@ -70,7 +70,7 @@ class ActionVisibilityMixin:
         return None
 
     def _is_add_bot_hidden(self, player: "Player") -> Visibility:
-        """Add bot is always hidden (F5/keybind only)."""
+        """Add bot is always hidden (actions menu/keybind only)."""
         return Visibility.HIDDEN
 
     def _is_remove_bot_enabled(self, player: "Player") -> str | None:
@@ -84,7 +84,7 @@ class ActionVisibilityMixin:
         return None
 
     def _is_remove_bot_hidden(self, player: "Player") -> Visibility:
-        """Remove bot is always hidden (F5/keybind only)."""
+        """Remove bot is always hidden (actions menu/keybind only)."""
         return Visibility.HIDDEN
 
     def _is_toggle_spectator_enabled(self, player: "Player") -> str | None:
@@ -96,7 +96,7 @@ class ActionVisibilityMixin:
         return None
 
     def _is_toggle_spectator_hidden(self, player: "Player") -> Visibility:
-        """Toggle spectator is always hidden (F5/keybind only)."""
+        """Toggle spectator is always hidden (actions menu/keybind only)."""
         return Visibility.HIDDEN
 
     def _get_toggle_spectator_label(self, player: "Player", action_id: str) -> str:
@@ -122,7 +122,7 @@ class ActionVisibilityMixin:
         return None
 
     def _is_leave_game_hidden(self, player: "Player") -> Visibility:
-        """Leave game is always hidden (F5/keybind only)."""
+        """Leave game is always hidden (actions menu/keybind only)."""
         return Visibility.HIDDEN
 
     # --- Option actions ---

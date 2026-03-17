@@ -205,7 +205,8 @@ class SnakesAndLaddersGame(Game):
                 handler="_action_check_positions",
                 is_enabled="_is_check_positions_enabled",
                 # Only show in menu for Web clients
-                is_hidden="_is_check_positions_hidden"
+                is_hidden="_is_check_positions_hidden",
+                include_spectators=True,
             )
         )
         

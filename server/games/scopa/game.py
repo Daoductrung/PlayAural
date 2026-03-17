@@ -279,6 +279,7 @@ class ScopaGame(Game):
                     handler="_action_view_table",
                     is_enabled="_is_view_enabled",
                     is_hidden="_is_view_hidden",
+                    include_spectators=True,
                 )
             )
             action_set.add(
@@ -288,9 +289,10 @@ class ScopaGame(Game):
                     handler="_action_view_captured",
                     is_enabled="_is_view_enabled",
                     is_hidden="_is_view_hidden",
+                    include_spectators=False,
                 )
             )
-        
+
         # Note: whose_turn, check_scores, check_scores_detailed are in base class standard set
 
         # View individual table cards (0-9 keys)
@@ -303,6 +305,7 @@ class ScopaGame(Game):
                     handler="_action_view_table_card",
                     is_enabled="_is_view_enabled",
                     is_hidden="_is_view_hidden",
+                    include_spectators=True,
                 )
             )
 
@@ -342,6 +345,7 @@ class ScopaGame(Game):
                         handler="_action_view_table",
                         is_enabled="_is_view_enabled",
                         is_hidden="_is_check_table_hidden", # Use new visibility method
+                        include_spectators=True,
                     )
                 )
 
@@ -354,6 +358,7 @@ class ScopaGame(Game):
                         handler="_action_view_captured",
                         is_enabled="_is_view_enabled",
                         is_hidden="_is_check_captured_hidden", # Use new visibility method
+                        include_spectators=False,
                     )
                 )
 
@@ -389,7 +394,7 @@ class ScopaGame(Game):
             "View captured cards",
             ["view_captured"],
             state=KeybindState.ACTIVE,
-            include_spectators=True,
+            include_spectators=False,
         )
 
         # Number keys to view specific table cards

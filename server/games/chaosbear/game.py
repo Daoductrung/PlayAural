@@ -119,6 +119,7 @@ class ChaosBearGame(Game):
                 handler="_action_check_status",
                 is_enabled="_is_check_status_enabled",
                 is_hidden="_is_check_status_hidden",
+                include_spectators=True,
             )
         )
 

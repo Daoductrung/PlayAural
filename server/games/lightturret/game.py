@@ -141,6 +141,7 @@ class LightTurretGame(Game):
                     handler="_action_check_stats",
                     is_enabled="_is_check_stats_enabled",
                     is_hidden="_is_check_stats_hidden",
+                    include_spectators=True,
                 )
             )
         return action_set

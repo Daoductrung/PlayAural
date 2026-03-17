@@ -270,6 +270,7 @@ class PiratesGame(Game):
                 handler="_action_check_moon",
                 is_enabled="_is_moon_check_enabled",
                 is_hidden="_is_moon_check_hidden",
+                include_spectators=True,
             )
         )
         action_set.add(
@@ -279,6 +280,7 @@ class PiratesGame(Game):
                 handler="_action_check_moon",
                 is_enabled="_is_moon_check_enabled",
                 is_hidden="_is_moon_check_hidden",
+                include_spectators=True,
             )
         )
         
@@ -302,6 +304,7 @@ class PiratesGame(Game):
                 handler="_action_check_status",
                 is_enabled="_is_status_enabled",
                 is_hidden="_is_status_hidden",
+                include_spectators=True,
             )
         )
 
@@ -312,6 +315,7 @@ class PiratesGame(Game):
                 handler="_action_check_status_detailed",
                 is_enabled="_is_status_enabled",
                 is_hidden="_is_detailed_status_hidden",
+                include_spectators=True,
             )
         )
 
@@ -356,6 +360,7 @@ class PiratesGame(Game):
                         handler="_action_check_status_detailed",
                         is_enabled="_is_status_enabled",
                         is_hidden="_is_detailed_status_hidden", # Hidden to push to Actions Menu
+                        include_spectators=True,
                     )
                 )
 

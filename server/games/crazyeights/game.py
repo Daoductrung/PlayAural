@@ -306,6 +306,7 @@ class CrazyEightsGame(Game, TurnTimerMixin):
                 handler="_action_read_top",
                 is_enabled="_is_read_top_enabled",
                 is_hidden="_is_check_hidden",
+                include_spectators=True,
             )
         )
         action_set.add(
@@ -315,6 +316,7 @@ class CrazyEightsGame(Game, TurnTimerMixin):
                 handler="_action_read_counts",
                 is_enabled="_is_check_enabled",
                 is_hidden="_is_check_hidden",
+                include_spectators=True,
             )
         )
         action_set.add(
@@ -324,6 +326,7 @@ class CrazyEightsGame(Game, TurnTimerMixin):
                 handler="_action_check_turn_timer",
                 is_enabled="_is_check_enabled",
                 is_hidden="_is_check_hidden",
+                include_spectators=True,
             )
         )
 

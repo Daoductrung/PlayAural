@@ -227,6 +227,7 @@ class LeftRightCenterGame(Game):
                 handler="_action_check_center",
                 is_enabled="_is_check_center_enabled",
                 is_hidden="_is_check_center_hidden",
+                include_spectators=True,
             )
         )
         # WEB-SPECIFIC: Reorder for Web Clients

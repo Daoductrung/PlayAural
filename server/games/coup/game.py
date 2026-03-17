@@ -411,6 +411,7 @@ class CoupGame(Game):
                 is_enabled="_is_public_info_enabled",
                 is_hidden="_is_info_hidden",
                 show_in_actions_menu=True,
+                include_spectators=True,
             )
         )
         action_set.add(
@@ -431,6 +432,7 @@ class CoupGame(Game):
                 is_enabled="_is_public_info_enabled",
                 is_hidden="_is_info_hidden",
                 show_in_actions_menu=True,
+                include_spectators=True,
             )
         )
 

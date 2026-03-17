@@ -343,6 +343,7 @@ class FiveCardDrawGame(Game, TurnTimerMixin):
                 handler="_action_check_pot",
                 is_enabled="_is_check_enabled",
                 is_hidden="_is_check_hidden",
+                include_spectators=True,
             )
         )
         action_set.add(
@@ -352,6 +353,7 @@ class FiveCardDrawGame(Game, TurnTimerMixin):
                 handler="_action_check_bet",
                 is_enabled="_is_check_enabled",
                 is_hidden="_is_check_hidden",
+                include_spectators=True,
             )
         )
         action_set.add(
@@ -361,6 +363,7 @@ class FiveCardDrawGame(Game, TurnTimerMixin):
                 handler="_action_check_min_raise",
                 is_enabled="_is_check_enabled",
                 is_hidden="_is_check_hidden",
+                include_spectators=True,
             )
         )
         action_set.add(
@@ -370,6 +373,7 @@ class FiveCardDrawGame(Game, TurnTimerMixin):
                 handler="_action_check_hand_players",
                 is_enabled="_is_check_enabled",
                 is_hidden="_is_check_hidden",
+                include_spectators=True,
             )
         )
         action_set.add(
@@ -379,6 +383,7 @@ class FiveCardDrawGame(Game, TurnTimerMixin):
                 handler="_action_check_turn_timer",
                 is_enabled="_is_check_enabled",
                 is_hidden="_is_check_hidden",
+                include_spectators=True,
             )
         )
         action_set.add(
@@ -406,6 +411,7 @@ class FiveCardDrawGame(Game, TurnTimerMixin):
                 handler="_action_check_dealer",
                 is_enabled="_is_check_enabled",
                 is_hidden="_is_check_hidden",
+                include_spectators=True,
             )
         )
         action_set.add(
@@ -415,6 +421,7 @@ class FiveCardDrawGame(Game, TurnTimerMixin):
                 handler="_action_check_position",
                 is_enabled="_is_check_enabled",
                 is_hidden="_is_check_hidden",
+                include_spectators=False,
             )
         )
         for i in range(1, 6):

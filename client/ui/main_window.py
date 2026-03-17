@@ -601,8 +601,6 @@ class MainWindow(wx.Frame):
             # Don't send to server, let it bubble up to the accelerator
             event.Skip()
             return
-        elif key_code == wx.WXK_F5:
-            key_name = "f5"
         elif key_code == wx.WXK_ESCAPE or key_code == wx.WXK_BACK:
             if key_code == wx.WXK_BACK and self.current_menu_id == "main_menu":
                 event.Skip()
@@ -672,7 +670,6 @@ class MainWindow(wx.Frame):
             "f1",
             "f2",
             "f3",
-            "f5",
             "escape",
             "space",
             "backspace",

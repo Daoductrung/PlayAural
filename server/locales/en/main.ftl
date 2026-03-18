@@ -328,6 +328,7 @@ promote-announcement-you = You have been promoted to admin!
 demote-announcement = { $player } has been demoted from admin.
 demote-announcement-you = You have been demoted from admin.
 not-admin-anymore = You are no longer an admin and cannot perform this action.
+dev-only-action = This action is restricted to Developers only.
 
 ban-duration-1h = 1 hour
 ban-duration-6h = 6 hours

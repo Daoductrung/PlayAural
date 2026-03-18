@@ -81,12 +81,15 @@ class AdministrationManager:
                 text=Localization.get(user.locale, "manage-motd"),
                 id="manage_motd",
             ),
-            MenuItem(
-                text=Localization.get(user.locale, "admin-smtp-settings"),
-                id="smtp_settings",
-            ),
-            MenuItem(text=Localization.get(user.locale, "back"), id="back"),
         ]
+        if user.trust_level >= 3:
+            items.append(
+                MenuItem(
+                    text=Localization.get(user.locale, "admin-smtp-settings"),
+                    id="smtp_settings",
+                )
+            )
+        items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
         user.show_menu(
             "admin_menu",
             items,
@@ -296,7 +299,11 @@ class AdministrationManager:
         elif selection_id == "manage_motd":
             self._show_manage_motd_menu(user)
         elif selection_id == "smtp_settings":
-            self._show_smtp_settings_menu(user)
+            if user.trust_level >= 3:
+                self._show_smtp_settings_menu(user)
+            else:
+                user.speak_l("dev-only-action", buffer="system")
+                self.server._nav_refresh(user, self._show_admin_menu)
         elif selection_id == "back":
             self.server._nav_back(user)
 
@@ -593,6 +600,10 @@ class AdministrationManager:
         value = packet.get("text", packet.get("value")) # Support both just in case
 
         if menu_id == "smtp_setting_input":
+            if user.trust_level < 3:
+                user.speak_l("dev-only-action", buffer="system")
+                self.server._nav_back(user)
+                return True
             if value is not None:
                 field = state.get("field")
                 config = self.server.db.get_smtp_config()
@@ -728,7 +739,11 @@ class AdministrationManager:
         return False
 
     def _show_smtp_settings_menu(self, user: NetworkUser) -> None:
-        """Show SMTP configuration menu."""
+        """Show SMTP configuration menu. Dev-only."""
+        if user.trust_level < 3:
+            user.speak_l("dev-only-action", buffer="system")
+            self.server._nav_back(user)
+            return
         config = self.server.db.get_smtp_config()
         if not config:
             from ..persistence.database import SmtpConfig
@@ -765,7 +780,11 @@ class AdministrationManager:
         self.server.user_states[user.username] = {"menu": "smtp_settings_menu"}
 
     async def _handle_smtp_settings_selection(self, user: NetworkUser, selection_id: str) -> None:
-        """Handle selection in the SMTP settings menu."""
+        """Handle selection in the SMTP settings menu. Dev-only."""
+        if user.trust_level < 3:
+            user.speak_l("dev-only-action", buffer="system")
+            self.server._nav_back(user)
+            return
         if selection_id == "back":
             self._show_admin_menu(user)
             return
@@ -834,6 +853,11 @@ class AdministrationManager:
         self.server.user_states[user.username] = {"menu": "smtp_encryption_menu"}
 
     async def _handle_smtp_encryption_selection(self, user: NetworkUser, selection_id: str) -> None:
+        """Handle selection in the SMTP encryption menu. Dev-only."""
+        if user.trust_level < 3:
+            user.speak_l("dev-only-action", buffer="system")
+            self.server._nav_back(user)
+            return
         if selection_id == "back":
             self._show_smtp_settings_menu(user)
             return

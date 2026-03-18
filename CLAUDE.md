@@ -183,6 +183,25 @@ Rules:
 
 Connectivity/membership `broadcast_l` calls in `base.py`, `table.py`, and `lobby_actions_mixin.py` (player-rejoined, table-joined, now-spectating, player-replaced-by-bot, game-resumed, etc.) also use `buffer="system"`.
 
+#### Administration Privilege Tiers
+
+The server has three privilege levels stored as `user.trust_level` (integer):
+
+| Level | Role | Capabilities |
+|---|---|---|
+| 1 | **User** | Default; no admin access |
+| 2 | **Admin** | Account approval, promote/demote admins, ban/unban, kick, broadcast, MOTD |
+| 3 | **Dev** | All admin capabilities plus SMTP configuration; immune from demotion/banning |
+
+The first user to register is automatically promoted to Dev (`trust_level = 3`).
+
+**Dev-only features**: SMTP configuration (`smtp_settings` menu and all sub-menus) is restricted to `trust_level >= 3`. Enforcement is three-layer:
+1. **UI**: `_show_admin_menu` only appends the SMTP menu item when `user.trust_level >= 3`.
+2. **Routing**: the `smtp_settings` selection handler re-checks `trust_level >= 3` and speaks `dev-only-action` + refreshes the admin menu for Admins.
+3. **Defense-in-depth**: `_show_smtp_settings_menu`, `_handle_smtp_settings_selection`, `_handle_smtp_encryption_selection`, and the editbox input handler each guard `trust_level < 3` at the top before touching any data.
+
+When adding a new Dev-only admin action, apply the same three layers; do not rely on menu visibility alone.
+
 #### Server Import Rules
 All imports at module level. No in-function imports anywhere in the server codebase — this rule mirrors the Desktop Client rule and applies equally to `server/core/server.py`, all mixins, and all utility modules.
 

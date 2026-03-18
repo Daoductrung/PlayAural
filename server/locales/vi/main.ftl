@@ -328,6 +328,7 @@ promote-announcement-you = Bạn đã được thăng chức thành admin!
 demote-announcement = { $player } đã bị giáng chức khỏi vị trí admin.
 demote-announcement-you = Bạn đã bị giáng chức khỏi vị trí admin.
 not-admin-anymore = Bạn không còn là admin và không thể thực hiện hành động này.
+dev-only-action = Hành động này chỉ dành cho Nhà phát triển.
 
 ban-duration-1h = 1 giờ
 ban-duration-6h = 6 giờ

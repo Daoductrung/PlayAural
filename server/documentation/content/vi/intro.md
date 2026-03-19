@@ -32,7 +32,7 @@ PlayAural hiện có sẵn trên hai nền tảng:
 
 
 
-Vui lòng lưu ý rằng PlayAural hiện đang trong quá trình phát triển tích cực. Các bản cập nhật và cải tiến được phát hành thường xuyên. Phản hồi, báo cáo lỗi và đề xuất của bạn luôn được chào đón và đánh giá cao.
+Vui lòng lưu ý rằng PlayAural hiện đang trong quá trình phát triển tích cực. Các bản cập nhật và cải tiến được phát hành thường xuyên. Phản hồi, báo cáo lỗi và đề xuất của bạn luôn được chào đón và đánh giá cao. Bạn có thể liên hệ trực tiếp với nhà phát triển: Website: https://ddt.one | Telegram: @daoductrung | Email: trung@ddt.one
 
 
 

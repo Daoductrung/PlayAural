@@ -86,7 +86,7 @@ To ensure a safe and enjoyable environment for the community:
 
 \* The administrator reserves the right to issue warnings, mute, temporarily suspend, or permanently ban any account found to be in serious or repeated violation of these rules, without prior notice.
 
-\* Decisions regarding enforcement are made at the administrator's discretion. If you believe an action was taken in error, you are welcome to reach out respectfully to discuss it.
+\* Decisions regarding enforcement are made at the administrator's discretion. If you believe an action was taken in error, you are welcome to reach out respectfully via the contact channels listed below.
 
 
 
@@ -96,7 +96,7 @@ To ensure a safe and enjoyable environment for the community:
 
 \* \*\*Work in Progress:\*\* As PlayAural is currently in active development, these rules are subject to change and may be updated at any time to better serve the community.
 
-\* \*\*Feedback Welcome:\*\* Your suggestions regarding game rules, features, or community guidelines are highly appreciated. Please feel free to share your thoughts through the in-game feedback options or by contacting the administrator directly.
+\* \*\*Feedback Welcome:\*\* Your suggestions regarding game rules, features, or community guidelines are highly appreciated. You can reach the developer directly through any of these channels: Website: https://ddt.one | Telegram: @daoductrung | Email: trung@ddt.one
 
 
 

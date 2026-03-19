@@ -32,7 +32,7 @@ PlayAural is available on two platforms:
 
 
 
-Please note that PlayAural is currently in active development. Updates and improvements are released regularly. Your feedback, bug reports, and suggestions are always welcome and highly appreciated.
+Please note that PlayAural is currently in active development. Updates and improvements are released regularly. Your feedback, bug reports, and suggestions are always welcome and highly appreciated. You can reach the developer directly: Website: https://ddt.one | Telegram: @daoductrung | Email: trung@ddt.one
 
 
 

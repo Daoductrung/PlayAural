@@ -31,7 +31,6 @@ class FarklePlayer(Player):
     has_taken_combo: bool = False  # True after taking a combo (enables roll)
     # Stats tracking
     turns_taken: int = 0  # Number of turns completed (for avg points per turn)
-    best_turn: int = 0  # Highest points banked in a single turn
 
 
 @dataclass
@@ -345,12 +344,6 @@ class FarkleGame(Game):
                 "aggregate": "sum",  # sum num/sum denom across games
                 "format": "avg",
                 "decimals": 1,
-            },
-            {
-                "id": "best_single_turn",
-                "path": "player_stats.{player_name}.best_turn",
-                "aggregate": "max",
-                "format": "score",
             },
         ]
 
@@ -952,8 +945,6 @@ class FarkleGame(Game):
 
         # Track stats before resetting
         farkle_player.turns_taken += 1
-        if farkle_player.turn_score > farkle_player.best_turn:
-            farkle_player.best_turn = farkle_player.turn_score
 
         # Add turn score to permanent score
         farkle_player.score += farkle_player.turn_score
@@ -1214,7 +1205,6 @@ class FarkleGame(Game):
             final_scores[p.name] = farkle_p.score
             player_stats[p.name] = {
                 "turns_taken": farkle_p.turns_taken,
-                "best_turn": farkle_p.best_turn,
                 "total_score": farkle_p.score,
             }
 

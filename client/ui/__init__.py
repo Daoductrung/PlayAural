@@ -1,4 +1,4 @@
-"""UI components for PlayAural v0.1 client."""
+"""UI components for PlayAural client."""
 
 from .menu_list import MenuList
 from .main_window import MainWindow

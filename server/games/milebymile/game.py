@@ -1,5 +1,5 @@
 """
-Mile by Mile Game Implementation for PlayAural v0.1.0.
+Mile by Mile Game Implementation.
 
 A racing card game based on Mille Bornes. Players race to reach a target distance
 while playing hazards on opponents and defending with safeties.
@@ -119,12 +119,7 @@ class MileByMileGame(Game):
         active_players = self.get_active_players()
         player_names = [p.name for p in active_players]
 
-        # options.team_mode should be in internal format, but handle old display format for backwards compatibility
-        team_mode = self.options.team_mode
-        # If it contains spaces or uppercase (except 'v'), it's likely old display format
-        if " " in team_mode or any(c.isupper() for c in team_mode if c != "v"):
-            team_mode = TeamManager.parse_display_to_team_mode(team_mode)
-        self._team_manager.team_mode = team_mode
+        self._team_manager.team_mode = self.options.team_mode
         self._team_manager.setup_teams(player_names)
 
         # Set player team indices
@@ -2010,7 +2005,7 @@ class MileByMileGame(Game):
         sorted_scores = sorted(final_scores.items(), key=lambda x: x[1], reverse=True)
 
         for i, (key, score) in enumerate(sorted_scores, 1):
-            # Resolve name: if key is digit, it's a team index. Else it's a legacy name.
+            # Resolve name: if key is digit, it's a team index. Else it's a direct name.
             if key.isdigit():
                 team_idx = int(key)
                 name = self.get_team_name(team_idx, locale)

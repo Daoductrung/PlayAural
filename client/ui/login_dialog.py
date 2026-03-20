@@ -21,7 +21,7 @@ from ssl_utils import make_ssl_context
 class LoginDialog(wx.Dialog):
     """Login dialog with simplified flow."""
 
-    def __init__(self, parent=None, disconnect_message=None, version="0.1.0"):
+    def __init__(self, parent=None, disconnect_message=None, version="1.0.0"):
         """Initialize the login dialog."""
         super().__init__(parent, title=Localization.get("login-title"), size=(450, 450))
         self.version = version

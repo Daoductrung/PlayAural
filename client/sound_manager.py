@@ -1,4 +1,4 @@
-"""Sound and music manager for PlayAural v0.1 client."""
+"""Sound and music manager for PlayAural client."""
 
 import os
 import threading

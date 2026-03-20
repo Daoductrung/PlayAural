@@ -1,7 +1,6 @@
 """SQLite database for persistence."""
 
 import logging
-import re
 import sqlite3
 import uuid as uuid_module
 import json
@@ -114,7 +113,7 @@ class Database:
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                username TEXT UNIQUE NOT NULL,
+                username TEXT COLLATE NOCASE UNIQUE NOT NULL,
                 password_hash TEXT NOT NULL,
                 uuid TEXT NOT NULL,
                 locale TEXT DEFAULT 'en',
@@ -123,6 +122,7 @@ class Database:
                 approved INTEGER DEFAULT 0,
                 email TEXT DEFAULT '',
                 bio TEXT DEFAULT '',
+                motd_version INTEGER DEFAULT 0,
                 gender TEXT DEFAULT 'Not set',
                 registration_date TEXT DEFAULT '',
                 last_login_date TEXT DEFAULT ''
@@ -323,316 +323,6 @@ class Database:
 
         self._conn.commit()
 
-        # Run migrations for existing databases
-        self._run_migrations()
-
-    def _run_migrations(self) -> None:
-        """Run database migrations for existing databases."""
-        cursor = self._conn.cursor()
-
-        # Check which columns exist in users table
-        cursor.execute("PRAGMA table_info(users)")
-        columns = [row[1] for row in cursor.fetchall()]
-
-        if "trust_level" not in columns:
-            cursor.execute("ALTER TABLE users ADD COLUMN trust_level INTEGER DEFAULT 1")
-            self._conn.commit()
-
-        if "approved" not in columns:
-            # Add approved column - existing users are auto-approved
-            cursor.execute("ALTER TABLE users ADD COLUMN approved INTEGER DEFAULT 0")
-            cursor.execute("UPDATE users SET approved = 1")  # Approve all existing users
-            self._conn.commit()
-
-        if "email" not in columns:
-            cursor.execute("ALTER TABLE users ADD COLUMN email TEXT DEFAULT ''")
-            self._conn.commit()
-
-        if "bio" not in columns:
-            cursor.execute("ALTER TABLE users ADD COLUMN bio TEXT DEFAULT ''")
-            self._conn.commit()
-
-        if "motd_version" not in columns:
-            cursor.execute("ALTER TABLE users ADD COLUMN motd_version INTEGER DEFAULT 0")
-            self._conn.commit()
-
-        if "gender" not in columns:
-            cursor.execute("ALTER TABLE users ADD COLUMN gender TEXT DEFAULT 'Not set'")
-            self._conn.commit()
-
-        if "registration_date" not in columns:
-            cursor.execute("ALTER TABLE users ADD COLUMN registration_date TEXT DEFAULT ''")
-            # Backfill existing users with current timestamp
-            now_iso = datetime.now().isoformat()
-            cursor.execute("UPDATE users SET registration_date = ? WHERE registration_date = ''", (now_iso,))
-            self._conn.commit()
-
-        if "last_login_date" not in columns:
-            cursor.execute("ALTER TABLE users ADD COLUMN last_login_date TEXT DEFAULT ''")
-            self._conn.commit()
-
-        # Check if bans table exists (migration for existing databases)
-        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='bans'")
-        if not cursor.fetchone():
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS bans (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    username TEXT NOT NULL,
-                    admin_username TEXT NOT NULL,
-                    reason_key TEXT NOT NULL,
-                    issued_at TEXT NOT NULL,
-                    expires_at TEXT
-                )
-            """)
-            cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_bans_username
-                ON bans(username)
-            """)
-            self._conn.commit()
-
-        # Check if mutes table exists (migration for existing databases)
-        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='mutes'")
-        if not cursor.fetchone():
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS mutes (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    username TEXT NOT NULL,
-                    admin_username TEXT NOT NULL,
-                    reason TEXT NOT NULL DEFAULT '',
-                    issued_at TEXT NOT NULL,
-                    expires_at TEXT
-                )
-            """)
-            cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_mutes_username
-                ON mutes(username)
-            """)
-            self._conn.commit()
-
-        # Check if friendships table exists
-        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='friendships'")
-        if not cursor.fetchone():
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS friendships (
-                    requester_id TEXT NOT NULL,
-                    receiver_id TEXT NOT NULL,
-                    status TEXT NOT NULL,
-                    created_at TEXT NOT NULL,
-                    PRIMARY KEY (requester_id, receiver_id)
-                )
-            """)
-            self._conn.commit()
-
-        # Check if user_notifications table exists
-        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='user_notifications'")
-        if not cursor.fetchone():
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS user_notifications (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    user_id TEXT NOT NULL,
-                    source_username TEXT NOT NULL,
-                    event_type TEXT NOT NULL,
-                    created_at TEXT NOT NULL
-                )
-            """)
-            self._conn.commit()
-
-        # Check if smtp_config table exists
-        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='smtp_config'")
-        if not cursor.fetchone():
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS smtp_config (
-                    id INTEGER PRIMARY KEY CHECK (id = 1),
-                    host TEXT NOT NULL DEFAULT '',
-                    port INTEGER NOT NULL DEFAULT 587,
-                    username TEXT NOT NULL DEFAULT '',
-                    password TEXT NOT NULL DEFAULT '',
-                    from_email TEXT NOT NULL DEFAULT '',
-                    from_name TEXT NOT NULL DEFAULT '',
-                    encryption_type TEXT NOT NULL DEFAULT 'tls'
-                )
-            """)
-            self._conn.commit()
-
-        # Check if password_reset_tokens table exists
-        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='password_reset_tokens'")
-        if not cursor.fetchone():
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS password_reset_tokens (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    user_uuid TEXT NOT NULL,
-                    token_hash TEXT NOT NULL,
-                    created_at TEXT NOT NULL,
-                    expires_at TEXT NOT NULL
-                )
-            """)
-            cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_reset_tokens_user_uuid
-                ON password_reset_tokens(user_uuid)
-            """)
-            self._conn.commit()
-
-        # Check if player_game_stats needs backfilling
-        cursor.execute("SELECT COUNT(*) FROM player_game_stats")
-        if cursor.fetchone()[0] == 0:
-            cursor.execute("SELECT COUNT(*) FROM game_results")
-            if cursor.fetchone()[0] > 0:
-                print("Running one-time backfill of player_game_stats from historical game results...")
-                self._backfill_player_game_stats()
-
-        # Migrate users table to strictly case-insensitive
-        self._migrate_users_to_case_insensitive()
-
-    def _migrate_users_to_case_insensitive(self) -> None:
-        """Migrate users table to use COLLATE NOCASE for case-insensitive username uniqueness."""
-        cursor = self._conn.cursor()
-
-        # First check if it already has COLLATE NOCASE
-        cursor.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='users'")
-        row = cursor.fetchone()
-        if not row:
-            return
-
-        sql = row["sql"].upper()
-        if "COLLATE NOCASE" in sql:
-            return  # Already migrated
-
-        print("Migrating users table to enforce case-insensitive uniqueness...")
-
-        # Disable foreign keys temporarily for the migration
-        self._conn.execute("PRAGMA foreign_keys = OFF;")
-
-        # 1. Clean up duplicate users (keep the one with the smallest ID, meaning oldest)
-        cursor.execute("""
-            SELECT id, uuid, username FROM users
-            WHERE id NOT IN (
-                SELECT MIN(id)
-                FROM users
-                GROUP BY LOWER(username)
-            )
-        """)
-        duplicates = cursor.fetchall()
-
-        for dupe in duplicates:
-            dupe_id = dupe["id"]
-            dupe_uuid = dupe["uuid"]
-            dupe_username = dupe["username"]
-
-            # Cascade delete data linked to the duplicate user
-            cursor.execute("DELETE FROM player_game_stats WHERE player_id = ?", (dupe_uuid,))
-            cursor.execute("DELETE FROM player_ratings WHERE player_id = ?", (dupe_uuid,))
-            cursor.execute("DELETE FROM saved_tables WHERE username = ?", (dupe_username,))
-            cursor.execute("DELETE FROM bans WHERE username = ?", (dupe_username,))
-            cursor.execute("DELETE FROM friendships WHERE requester_id = ? OR receiver_id = ?", (dupe_uuid, dupe_uuid))
-            cursor.execute("DELETE FROM user_notifications WHERE user_id = ? OR source_username = ?", (dupe_uuid, dupe_username))
-
-            # Anonymize historical game data
-            cursor.execute(
-                "UPDATE game_result_players SET player_id = 'deleted', player_name = 'Deleted User' WHERE player_id = ?",
-                (dupe_uuid,)
-            )
-
-            # Finally, delete the duplicate user itself
-            cursor.execute("DELETE FROM users WHERE id = ?", (dupe_id,))
-
-        self._conn.commit()
-
-        # 2. Create the exact schema for the new table but inject COLLATE NOCASE for the username
-        original_sql = row["sql"]
-        # Replace 'CREATE TABLE users' with 'CREATE TABLE users_new'
-        new_sql = re.sub(r'CREATE\s+TABLE\s+users\b', 'CREATE TABLE users_new', original_sql, count=1, flags=re.IGNORECASE)
-        # Inject COLLATE NOCASE after 'username TEXT' if it's not already there
-        new_sql = re.sub(r'(username\s+TEXT)(?!\s+COLLATE\s+NOCASE)', r'\1 COLLATE NOCASE', new_sql, flags=re.IGNORECASE)
-
-        # Create new table using the preserved constraints
-        cursor.execute(new_sql)
-
-        # 3. Get existing columns dynamically for the INSERT statement
-        cursor.execute("PRAGMA table_info(users)")
-        columns_info = cursor.fetchall()
-        column_names = [col["name"] for col in columns_info]
-        columns_str = ", ".join(column_names)
-
-        # 4. Copy data mapped by columns
-        cursor.execute(f"INSERT INTO users_new ({columns_str}) SELECT {columns_str} FROM users")
-
-        # 5. Swap tables
-        cursor.execute("DROP TABLE users")
-        cursor.execute("ALTER TABLE users_new RENAME TO users")
-
-        # Recreate any indexes lost by the drop
-        cursor.execute("""
-            CREATE INDEX IF NOT EXISTS idx_users_uuid
-            ON users(uuid)
-        """)
-
-        # Re-enable foreign keys
-        self._conn.execute("PRAGMA foreign_keys = ON;")
-        self._conn.commit()
-        print("Migration complete.")
-
-    def _backfill_player_game_stats(self) -> None:
-        """Backfill player_game_stats from historical game results."""
-        from ..game_utils.stats_extractor import StatsExtractor
-
-        cursor = self._conn.cursor()
-
-        # Get all game results
-        cursor.execute("SELECT id, game_type, custom_data FROM game_results ORDER BY id ASC")
-        results = cursor.fetchall()
-
-        for row in results:
-            result_id = row["id"]
-            game_type = row["game_type"]
-            try:
-                custom_data = json.loads(row["custom_data"]) if row["custom_data"] else {}
-            except Exception:
-                custom_data = {}
-
-            # Get players for this game
-            cursor.execute("SELECT player_id, player_name, is_bot FROM game_result_players WHERE result_id = ?", (result_id,))
-            players = [(p["player_id"], p["player_name"], bool(p["is_bot"])) for p in cursor.fetchall()]
-
-            # Apply incremental updates exactly as we would for a new game
-            from ..game_utils.game_result import GameResult, PlayerResult
-
-            # Reconstruct GameResult
-            gr = GameResult(
-                game_type=game_type,
-                timestamp=datetime.now().isoformat(),
-                duration_ticks=0,
-                player_results=[PlayerResult(player_id=pid, player_name=name, is_bot=is_bot) for pid, name, is_bot in players],
-                custom_data=custom_data
-            )
-
-            # Only process if there are human players
-            if not gr.has_human_players():
-                continue
-
-            updates = StatsExtractor.extract_incremental_stats(gr)
-            for player_id, stats in updates.items():
-                for stat_key, stat_value in stats.items():
-                    if stat_key.endswith("_high"):
-                        # For high scores, use MAX
-                        base_key = stat_key[:-5]  # strip '_high'
-                        cursor.execute("""
-                            INSERT INTO player_game_stats (player_id, game_type, stat_key, stat_value)
-                            VALUES (?, ?, ?, ?)
-                            ON CONFLICT(player_id, game_type, stat_key)
-                            DO UPDATE SET stat_value = MAX(stat_value, excluded.stat_value)
-                        """, (player_id, game_type, base_key, float(stat_value)))
-                    else:
-                        # For others (wins, total_score, games_played), use SUM
-                        cursor.execute("""
-                            INSERT INTO player_game_stats (player_id, game_type, stat_key, stat_value)
-                            VALUES (?, ?, ?, ?)
-                            ON CONFLICT(player_id, game_type, stat_key)
-                            DO UPDATE SET stat_value = stat_value + excluded.stat_value
-                        """, (player_id, game_type, stat_key, float(stat_value)))
-
-        self._conn.commit()
-        print("Backfill completed.")
-
     def prune_old_records(self) -> None:
         """
         Prune historical bloat from the database to save space.
@@ -759,8 +449,10 @@ class Database:
                 "INSERT INTO users (username, password_hash, uuid, locale, trust_level, approved, email, bio, registration_date, last_login_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (username, password_hash, user_uuid, locale, trust_level, 1 if approved else 0, email, bio, now_iso, ""),
             )
-        except sqlite3.IntegrityError:
-            # Username already exists (UNIQUE constraint) — race between user_exists and INSERT
+        except sqlite3.IntegrityError as e:
+            logging.getLogger("playaural.db").warning(
+                "IntegrityError creating user '%s': %s", username, e
+            )
             return None
         self._conn.commit()
         return UserRecord(
@@ -786,7 +478,7 @@ class Database:
     def email_exists(self, email: str, exclude_username: str | None = None) -> bool:
         """Check if an email is already in use by another account (case-insensitive)."""
         if not email:
-            return False  # Empty emails shouldn't trigger "taken" errors for legacy compat
+            return False  # Empty emails shouldn't trigger "taken" errors
         cursor = self._conn.cursor()
         if exclude_username:
             cursor.execute(

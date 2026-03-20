@@ -190,7 +190,7 @@ The server has three privilege levels stored as `user.trust_level` (integer):
 | Level | Role | Capabilities |
 |---|---|---|
 | 1 | **User** | Default; no admin access |
-| 2 | **Admin** | Account approval, promote/demote admins, ban/unban, kick, broadcast, MOTD |
+| 2 | **Admin** | Account approval, promote/demote admins, ban/unban, mute/unmute, kick, broadcast, MOTD |
 | 3 | **Dev** | All admin capabilities plus SMTP configuration; immune from demotion/banning |
 
 The first user to register is automatically promoted to Dev (`trust_level = 3`).
@@ -214,8 +214,8 @@ All imports at module level. No in-function imports anywhere in the server codeb
 - **`client/ssl_utils.py`** — Centralized SSL context factory; CA-strict for production (`wss://`), relaxed for localhost
 
 #### Desktop Client Rules
-- **Credentials**: Passwords live exclusively in the OS keyring via `keyring` library. `config_manager.py` migrates any legacy plaintext passwords on first load. Never write passwords to JSON.
-- **Config file**: All client configuration lives in a single `identities.json` (`%APPDATA%/ddt.one/PlayAural/`). It stores server/account data **and** client options under the top-level `"client_options"` key. There is no separate `option_profiles.json` — a one-shot migration absorbs it on first load if still present. Never split config back into two files.
+- **Credentials**: Passwords live exclusively in the OS keyring via `keyring` library. Never write passwords to JSON.
+- **Config file**: All client configuration lives in a single `identities.json` (`%APPDATA%/ddt.one/PlayAural/`). It stores server/account data **and** client options under the top-level `"client_options"` key. Never split config into multiple files.
 - **Auto-login failure**: `on_login_failed` in `main_window.py` disables the `auto_login` flag (via `config_manager.update_account`) for permanent credential errors (`wrong_password`, `user_not_found`). Transient errors (`rate_limit`) leave the flag intact. The `client.py` main loop skips auto-login when `came_from_failure` is True, ensuring the user always sees the error dialog after a failed auto-login.
 - **SSL**: Always use `make_ssl_context(server_url)` from `ssl_utils.py`. Do not construct `ssl.SSLContext` objects inline.
 - **Imports**: All imports at module level. No in-function imports except inside `main()` where CWD must be set first.

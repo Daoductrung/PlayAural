@@ -1,5 +1,5 @@
 """
-Pig Game Implementation for PlayAural v0.1.0.
+Pig Game Implementation.
 
 Classic dice game: roll or bank, but don't get a 1!
 Supports individual and team modes via TeamManager.
@@ -350,12 +350,7 @@ class PigGame(Game):
 
         # Set up teams based on active players
         active_players = self.get_active_players()
-        # options.team_mode should be in internal format, but handle old display format for backwards compatibility
-        team_mode = self.options.team_mode
-        # If it contains spaces or uppercase (except 'v'), it's likely old display format
-        if " " in team_mode or any(c.isupper() for c in team_mode if c != "v"):
-            team_mode = TeamManager.parse_display_to_team_mode(team_mode)
-        self._team_manager.team_mode = team_mode
+        self._team_manager.team_mode = self.options.team_mode
         self._team_manager.setup_teams([p.name for p in active_players])
 
         # Initialize turn order
@@ -555,7 +550,6 @@ class PigGame(Game):
                 "index": team.index,
                 "members": team.members,
                 "score": team.total_score,
-                "name_legacy": name,
                 "is_individual": self.options.team_mode == "individual"
             })
 

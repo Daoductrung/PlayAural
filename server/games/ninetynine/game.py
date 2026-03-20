@@ -1,5 +1,5 @@
 """
-Ninety Nine Game Implementation for PlayAural v0.1.0.
+Ninety Nine Game Implementation.
 
 A card game where players try to avoid pushing the running total over 99.
 Last player standing wins!

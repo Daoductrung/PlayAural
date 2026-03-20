@@ -1,5 +1,5 @@
 """
-Toss Up Game Implementation for PlayAural v0.1.0.
+Toss Up Game Implementation.
 
 Push-your-luck dice game: roll dice with green/yellow/red sides.
 Green = points + remove die. Yellow = remove die. Red = danger!

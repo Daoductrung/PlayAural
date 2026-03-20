@@ -1,5 +1,5 @@
 """
-PlayAural Client (v0.1)
+PlayAural Client
 A wxPython-based client for PlayAural with websocket support.
 Features:
 - Menu list with multiletter navigation (toggle-able)
@@ -27,10 +27,10 @@ logging.basicConfig(
     # We do not output to a file to prevent cluttering the user directory
 )
 
-version = "0.1.13"
+version = "1.0.0"
 
 def main():
-    """Main entry point for the PlayAural v0.1 client."""
+    """Main entry point for the PlayAural client."""
     # Move imports here to ensure CWD is set first
     from ui import MainWindow
     from ui.login_dialog import LoginDialog

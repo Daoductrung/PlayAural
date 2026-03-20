@@ -30,8 +30,8 @@ from ..game_utils.stats_helpers import RatingHelper
 from ..game_utils.game_result import GameResult
 
 
-VERSION = "0.1.13"
-LATEST_CLIENT_VERSION = "0.1.13"
+VERSION = "1.0.0"
+LATEST_CLIENT_VERSION = "1.0.0"
 UPDATE_URL = "https://github.com/Daoductrung/PlayAural/releases/latest/download/PlayAural.zip"
 UPDATE_HASH = "" # Optional SHA256
 
@@ -45,7 +45,7 @@ _DEFAULT_LOCALES_DIR = _MODULE_DIR / "locales"
 
 class Server:
     """
-    Main PlayAural v0.1 server.
+    Main PlayAural server.
 
     Coordinates all components: network, auth, tables, games, and persistence.
     """
@@ -1103,7 +1103,8 @@ PlayAural Server
         needs_approval = self._db.get_user_count() > 0
 
         # Try to register the user
-        if self._auth.register(username, password, locale=locale, email=email, bio=bio):
+        reg_result = self._auth.register(username, password, locale=locale, email=email, bio=bio)
+        if reg_result == "ok":
             self._rate_limiter.record_registration(client.ip_address)
             await client.send({
                 "type": "register_response",
@@ -1114,12 +1115,22 @@ PlayAural Server
             # Notify admins of new account request (only if user needs approval)
             if needs_approval:
                 self._notify_admins("account-request", "accountrequest.ogg")
-        else:
+        elif reg_result == "username_taken":
             await client.send({
                 "type": "register_response",
                 "status": "error",
                 "error": "username_taken",
                 "text": Localization.get(locale, "auth-username-taken")
+            })
+        else:
+            logging.getLogger("playaural").error(
+                "Registration DB error for user '%s': %s", username, reg_result
+            )
+            await client.send({
+                "type": "register_response",
+                "status": "error",
+                "error": "server_error",
+                "text": Localization.get(locale, "auth-registration-error")
             })
 
     async def _send_game_list(self, client: ClientConnection) -> None:
@@ -4872,7 +4883,7 @@ PlayAural Server
             elif menu_id == "bio_input":
                 if len(value) > 250:
                     user.speak_l("error-bio-length", buffer="system")
-                    self._nav_refresh(user, self._show_profile_menu)
+                    self._nav_refresh(user, self._show_bio_actions_menu)
                     return
 
                 user_record = self._db.get_user(user.username)
@@ -4883,7 +4894,7 @@ PlayAural Server
                 else:
                     self._db.update_user_bio(user.username, value)
                     user.speak_l("bio-updated", buffer="system")
-                self._nav_refresh(user, self._show_profile_menu)
+                self._nav_back(user)
                 return
 
             elif menu_id == "send_friend_request_input":

@@ -1,4 +1,4 @@
-"""Registration dialog for PlayAural v0.1 client."""
+"""Registration dialog for PlayAural client."""
 
 import re
 import wx
@@ -188,7 +188,6 @@ class RegistrationDialog(wx.Dialog):
                             "username": username,
                             "password": password,
                             "email": email,
-                            "bio": "",   # Legacy field
                             "locale": Localization._locale,
                         }
                     )
@@ -200,9 +199,6 @@ class RegistrationDialog(wx.Dialog):
 
                 if data.get("type") == "register_response":
                     return data
-                elif data.get("type") == "speak":
-                    # Legacy server fallback
-                    return {"status": "legacy", "text": data.get("text")}
                 else:
                     return {"status": "error", "error": "unexpected", "text": Localization.get("reg-unexpected-error")}
 
@@ -235,29 +231,6 @@ class RegistrationDialog(wx.Dialog):
                       wx.MessageBox(msg, Localization.get("reg-failed-title"), wx.OK | wx.ICON_WARNING)
                  else:
                       wx.MessageBox(msg, Localization.get("reg-failed-title"), wx.OK | wx.ICON_ERROR)
-                 return
-             elif status == "legacy":
-                 # Fallback to string matching
-                 message = result.get("text", "")
-                 pass 
-        else:
-             # String fallback (legacy error handling from _send wrapper)
-             message = str(result)
-
-        # Legacy String Matching (Robustness)
-        is_success = "success" in message.lower() or "created" in message.lower() or "approval" in message.lower() or "thành công" in message.lower()
-        is_taken = "pending" not in message.lower() and ("taken" in message.lower() or "exists" in message.lower())
-
-        if is_success:
-            self.registered_username = self.username_input.GetValue().strip()
-            wx.MessageBox(
-                message, Localization.get("reg-success-title"), wx.OK | wx.ICON_INFORMATION
-            )
-            self.EndModal(wx.ID_OK)
-        elif is_taken:
-             wx.MessageBox(message, Localization.get("reg-failed-title"), wx.OK | wx.ICON_WARNING)
-        else:
-            wx.MessageBox(message, Localization.get("reg-failed-title"), wx.OK | wx.ICON_ERROR)
 
     def on_cancel(self, event):
         """Handle cancel button click."""

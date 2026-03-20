@@ -1,15 +1,15 @@
-"""Entry point for running the PlayAural v0.1 server."""
+"""Entry point for running the PlayAural server."""
 
 import argparse
 import asyncio
 
-from .core.server import run_server
+from .core.server import run_server, VERSION
 
 
 def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(
-        description="PlayAural v0.1 Server",
+        description="PlayAural Server",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -56,7 +56,7 @@ Examples:
         parser.error("Both --ssl-cert and --ssl-key must be provided together")
 
     protocol = "wss" if args.ssl_cert else "ws"
-    print(f"Starting PlayAural v0.1 server on {protocol}://{args.host}:{args.port}")
+    print(f"Starting PlayAural v{VERSION} server on {protocol}://{args.host}:{args.port}")
 
     asyncio.run(
         run_server(

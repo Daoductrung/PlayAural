@@ -1,4 +1,4 @@
-"""Entry point for running the PlayAural v0.1 server with uv run main.py."""
+"""Entry point for running the PlayAural server with uv run main.py."""
 
 import argparse
 import asyncio
@@ -18,13 +18,14 @@ os.chdir(_script_dir)
 _pkg_name = os.path.basename(_script_dir)
 
 try:
-    from server.core.server import run_server
+    from server.core.server import run_server, VERSION
 except ImportError:
     # Fallback for when directory is renamed (e.g. on VPS)
     import importlib
     try:
         _module = importlib.import_module(f"{_pkg_name}.core.server")
         run_server = _module.run_server
+        VERSION = _module.VERSION
     except ImportError as e:
         print(f"CRITICAL: Could not import core server from 'server' or '{_pkg_name}'.")
         print(f"Ensure the parent directory ({_parent_dir}) is in PYTHONPATH.")
@@ -35,7 +36,7 @@ except ImportError:
 def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(
-        description="PlayAural v0.1 Server",
+        description="PlayAural Server",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -82,7 +83,7 @@ Examples:
         parser.error("Both --ssl-cert and --ssl-key must be provided together")
 
     protocol = "wss" if args.ssl_cert else "ws"
-    print(f"Starting PlayAural v0.1 server on {protocol}://{args.host}:{args.port}")
+    print(f"Starting PlayAural v{VERSION} server on {protocol}://{args.host}:{args.port}")
 
 
 

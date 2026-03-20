@@ -878,7 +878,6 @@ class RollingBallsGame(Game):
                 "index": team.index,
                 "members": team.members,
                 "score": team.total_score,
-                "name_legacy": name,
                 "is_individual": True
             })
 

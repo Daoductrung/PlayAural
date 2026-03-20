@@ -1,5 +1,5 @@
 ﻿"""
-Integration tests for PlayAural v0.1.
+Integration tests for PlayAural.
 
 Tests larger chunks of server code working together.
 """
@@ -129,8 +129,8 @@ class TestAuthIntegration:
     def test_register_and_authenticate(self):
         """Test user registration and authentication."""
         # Register
-        assert self.auth.register("newuser", "password123")
-        assert not self.auth.register("newuser", "different")  # Already exists
+        assert self.auth.register("newuser", "password123") == "ok"
+        assert self.auth.register("newuser", "different") == "username_taken"
 
         # Authenticate
         assert self.auth.authenticate("newuser", "password123")

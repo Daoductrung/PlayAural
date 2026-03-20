@@ -159,6 +159,7 @@ class TestProfileSystem:
         user.username = "bio_user"
         user.locale = "en"
         user.uuid = "123"
+        user.trust_level = 1
         server._users["bio_user"] = user
         server._user_states["bio_user"] = {"menu": "bio_input"}
 

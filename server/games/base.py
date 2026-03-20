@@ -261,10 +261,6 @@ class Game(
         active_players = self.get_active_players()
         num_players = len(active_players)
 
-        # Parse old display format if needed
-        if " " in team_mode or any(c.isupper() for c in team_mode if c != "v"):
-            team_mode = TeamManager.parse_display_to_team_mode(team_mode)
-
         # Check if team mode is valid for player count
         if not TeamManager.is_valid_team_mode(team_mode, num_players):
             return "game-error-invalid-team-mode"

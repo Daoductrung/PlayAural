@@ -118,10 +118,6 @@ class ConfigManager:
                 with open(self.identities_path, "r") as f:
                     identities = json.load(f)
                 needs_save = False
-                # Migrate any plaintext passwords to the system keyring.
-                if self._migrate_passwords_to_keyring(identities):
-                    needs_save = True
-                    print("Password migration to keyring complete.")
                 # Ensure client_options exists with all current defaults filled in.
                 if "client_options" not in identities:
                     identities["client_options"] = self._get_default_client_options()
@@ -135,9 +131,6 @@ class ConfigManager:
                     if merged != identities["client_options"]:
                         identities["client_options"] = merged
                         needs_save = True
-                # One-shot migration: absorb option_profiles.json if it still exists.
-                if self._migrate_from_profiles(identities):
-                    needs_save = True
                 if needs_save:
                     try:
                         self.base_path.mkdir(parents=True, exist_ok=True)
@@ -150,71 +143,7 @@ class ConfigManager:
                 print(f"Error loading identities: {e}")
                 return self._get_default_identities()
 
-        # Fresh install — try absorbing option_profiles.json before returning defaults.
-        identities = self._get_default_identities()
-        if self._migrate_from_profiles(identities):
-            try:
-                self.base_path.mkdir(parents=True, exist_ok=True)
-                with open(self.identities_path, "w") as f:
-                    json.dump(identities, f, indent=2)
-            except Exception as e:
-                print(f"Error saving migrated identities: {e}")
-        return identities
-
-    def _migrate_passwords_to_keyring(self, identities: Dict[str, Any]) -> bool:
-        """Move any plaintext passwords found in *identities* to the system keyring.
-
-        Modifies *identities* in-place by deleting the ``"password"`` key from
-        each account dict that still contains one.
-
-        Returns:
-            ``True`` if at least one password was migrated (caller should save).
-        """
-        migrated = False
-        for server_id, server in identities.get("servers", {}).items():
-            for account_id, account in server.get("accounts", {}).items():
-                if "password" in account:
-                    try:
-                        keyring.set_password(
-                            _KEYRING_SERVICE,
-                            _keyring_key(server_id, account_id),
-                            account["password"],
-                        )
-                        del account["password"]
-                        migrated = True
-                    except Exception as e:
-                        print(f"Error migrating password for {account_id}: {e}")
-        return migrated
-
-    def _migrate_from_profiles(self, identities: Dict[str, Any]) -> bool:
-        """Absorb option_profiles.json into identities if it exists, then delete it.
-
-        User-saved values from the old file win over code defaults so that
-        existing settings are preserved across the migration.
-
-        Returns:
-            ``True`` if the migration file was found and processed.
-        """
-        profiles_path = self.base_path / "option_profiles.json"
-        if not profiles_path.exists():
-            return False
-        try:
-            with open(profiles_path, "r") as f:
-                profiles = json.load(f)
-            old_defaults = profiles.get("client_options_defaults", {})
-            # Strip keys that no longer exist in the data model.
-            old_defaults.pop("local_table", None)
-            old_defaults.pop("server_options", None)
-            if old_defaults:
-                # Old file values override current defaults (user may have customised them).
-                identities["client_options"] = self._deep_merge(
-                    identities["client_options"], old_defaults
-                )
-            profiles_path.unlink()
-            print("Migrated option_profiles.json into identities.json.")
-        except Exception as e:
-            print(f"Error migrating option_profiles.json: {e}")
-        return True
+        return self._get_default_identities()
 
     def _get_default_identities(self) -> Dict[str, Any]:
         """Get default identities structure."""

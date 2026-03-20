@@ -8,6 +8,7 @@ category-uncategorized = Chưa phân loại
 auth-username-password-required = Yêu cầu tên đăng nhập và mật khẩu.
 auth-registration-success = Đăng ký thành công! Giờ bạn có thể đăng nhập.
 auth-username-taken = Tên đăng nhập đã có người dùng. Vui lòng chọn tên khác.
+auth-registration-error = Đăng ký thất bại do lỗi máy chủ. Vui lòng thử lại.
 auth-error-wrong-password = Sai mật khẩu.
 auth-error-user-not-found = Người dùng không tồn tại.
 auth-kicked-logged-in-elsewhere = Bạn đã bị ngắt kết nối vì tài khoản của bạn vừa được đăng nhập từ một thiết bị khác.

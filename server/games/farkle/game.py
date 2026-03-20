@@ -1,5 +1,5 @@
 """
-Farkle Game Implementation for PlayAural v0.1.0.
+Farkle Game Implementation.
 
 Classic dice game: score combinations and don't Farkle!
 Push your luck by rolling again or bank your points.

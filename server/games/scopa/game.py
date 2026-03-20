@@ -1,5 +1,5 @@
 """
-Scopa Card Game Implementation for PlayAural v0.1.0.
+Scopa Card Game Implementation.
 
 Classic Italian card game: capture cards from the table by matching ranks or sums.
 """
@@ -659,12 +659,7 @@ class ScopaGame(Game):
         # Setup teams
         active_players = self.get_active_players()
         player_names = [p.name for p in active_players]
-        # options.team_mode should be in internal format, but handle old display format for backwards compatibility
-        team_mode = self.options.team_mode
-        # If it contains spaces or uppercase (except 'v'), it's likely old display format
-        if " " in team_mode or any(c.isupper() for c in team_mode if c != "v"):
-            team_mode = TeamManager.parse_display_to_team_mode(team_mode)
-        self._team_manager.team_mode = team_mode
+        self._team_manager.team_mode = self.options.team_mode
         self._team_manager.setup_teams(player_names)
 
         # Initialize turn order

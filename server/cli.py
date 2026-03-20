@@ -521,13 +521,16 @@ def cmd_create_user(args):
     auth = AuthManager(db)
 
     print(f"Creating user '{args.username}'...")
-    if auth.register(args.username, password, args.locale):
+    result = auth.register(args.username, password, args.locale)
+    if result == "ok":
         print(f"Success: User '{args.username}' created.")
         user = db.get_user(args.username)
         if user and user.trust_level >= 2:
              print("Note: User granted ADMIN privileges (First user).")
-    else:
+    elif result == "username_taken":
         print(f"Error: User '{args.username}' already exists.")
+    else:
+        print(f"Error: Registration failed ({result}).")
     
     db.close()
 

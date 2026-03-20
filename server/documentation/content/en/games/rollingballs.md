@@ -62,7 +62,7 @@ The host can configure these settings at the table before starting:
 
 
 
-It is your turn. You press \*\*P\*\* to view the pipe and see that the next three balls are: +10 (Tasty Banh Mi), -5 (Out of Gas), and +20 (Found 10k VND).
+It is your turn. You press \*\*P\*\* to view the pipe and see that the next three balls are: +3 (Colosseum Tour), -2 (Cairo Camel Spit), and +5 (First Class Upgrade).
 
 
 
@@ -70,11 +70,11 @@ You decide to take 3 balls to get those positive points, even with the negative 
 
 
 
-The game announces your draws: "Tasty Banh Mi! Plus 10 points!", "Out of Gas! Minus 5 points!", "Found 10k VND! Plus 20 points!".
+The game announces your draws: "Colosseum Tour! Plus 3 points!", "Cairo Camel Spit! Minus 2 points!", "First Class Upgrade! Plus 5 points!".
 
 
 
-Your turn ends, and your total score increases by 25 points. The next player is up.
+Your turn ends, and your total score increases by 6 points. The next player is up.
 
 
 

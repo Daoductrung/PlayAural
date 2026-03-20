@@ -62,7 +62,7 @@ Chủ bàn có thể điều chỉnh các thiết lập sau trước khi trò ch
 
 
 
-Đến lượt của Trung. Trung nhấn phím \*\*P\*\* để xem trộm ống và thấy 3 quả bóng tiếp theo là: +10 (Cắn ổ bánh mì giòn rụm), -5 (Dắt bộ vì hết xăng), và +20 (Nhặt được tờ 10 cành).
+Đến lượt của Trung. Trung nhấn phím \*\*P\*\* để xem trộm ống và thấy 3 quả bóng tiếp theo là: +3 (Tham quan Đấu trường La Mã), -2 (Lạc đà Cairo phun nước bọt), và +5 (Được nâng hạng vé máy bay First Class).
 
 
 
@@ -70,11 +70,11 @@ Trung quyết định rút 3 quả bóng để lấy điểm thưởng, chấp n
 
 
 
-Trò chơi thông báo: "Cắn ổ bánh mì giòn rụm! Được cộng 10 điểm!", "Dắt bộ vì hết xăng! Bị trừ 5 điểm!", "Nhặt được tờ 10 cành! Được cộng 20 điểm!".
+Trò chơi thông báo: "Tham quan Đấu trường La Mã! Được cộng 3 điểm!", "Lạc đà Cairo phun nước bọt! Bị trừ 2 điểm!", "Được nâng hạng vé máy bay First Class! Được cộng 5 điểm!".
 
 
 
-Lượt chơi kết thúc, và tổng điểm của Trung tăng thêm 25 điểm. Lượt chơi chuyển sang người tiếp theo.
+Lượt chơi kết thúc, và tổng điểm của Trung tăng thêm 6 điểm. Lượt chơi chuyển sang người tiếp theo.
 
 
 

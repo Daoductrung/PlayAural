@@ -16,6 +16,7 @@ from ..network.websocket_server import WebSocketServer, ClientConnection
 from ..persistence.database import Database
 from ..auth.auth import AuthManager, is_valid_email
 from ..auth.rate_limit import RateLimiter
+from ..auth.chat_rate_limit import ChatRateLimiter
 from ..tables.manager import TableManager
 from ..users.network_user import NetworkUser
 from ..users.base import MenuItem, EscapeBehavior
@@ -65,13 +66,14 @@ class Server:
         "pending_user_actions_menu", "promote_admin_menu", "demote_admin_menu",
         "promote_confirm_menu", "demote_confirm_menu", "kick_menu", "kick_confirm_menu",
         "broadcast_choice_menu", "ban_menu", "ban_duration_menu", "ban_reason_menu",
-        "unban_menu", "manage_motd_menu", "view_motd_menu", "logout_confirm_menu",
+        "unban_menu", "mute_menu", "mute_duration_menu", "mute_reason_menu",
+        "unmute_menu", "manage_motd_menu", "view_motd_menu", "logout_confirm_menu",
         "documentation_menu", "doc_games_menu", "doc_viewer", "email_input",
         "bio_input", "send_friend_request_input", "send_pm_input", "music_volume_input",
         "ambience_volume_input", "speech_rate_input", "waiting_for_approval",
         "smtp_settings_menu", "smtp_encryption_menu", "smtp_setting_input",
         "admin_broadcast_input", "admin_motd_version_input", "admin_motd_input",
-        "ban_custom_reason_input",
+        "ban_custom_reason_input", "mute_custom_reason_input",
         "host_management_menu", "host_invite_menu", "host_pass_menu",
         "host_kick_menu", "host_kick_ban_menu", "table_invite_prompt",
     }
@@ -121,8 +123,9 @@ class Server:
         # Initialize admin manager
         self.admin_manager = AdministrationManager(self)
 
-        # Initialize rate limiter
+        # Initialize rate limiters
         self._rate_limiter = RateLimiter()
+        self._chat_rate_limiter = ChatRateLimiter()
 
         # Initialize localization
         if locales_dir is None:
@@ -305,6 +308,9 @@ PlayAural Server
             # Table cleanup is now handled by Table.on_tick timeout
             # and visibility is hidden immediately by menu filtering.
             
+            # Clean up chat rate limiter state
+            self._chat_rate_limiter.remove_user(client.username)
+
             # Cancel any pending invite where this user was the invitee
             if client.username in self._pending_invites:
                 self._cancel_invite(client.username)
@@ -2217,6 +2223,7 @@ PlayAural Server
             "promote_admin_menu", "demote_admin_menu", "promote_confirm_menu",
             "demote_confirm_menu", "kick_menu", "kick_confirm_menu", "broadcast_choice_menu",
             "ban_menu", "ban_duration_menu", "ban_reason_menu", "unban_menu",
+            "mute_menu", "mute_duration_menu", "mute_reason_menu", "unmute_menu",
             "manage_motd_menu", "view_motd_menu", "smtp_settings_menu", "smtp_encryption_menu"
         ]:
             if user.trust_level < 2:
@@ -4975,6 +4982,54 @@ PlayAural Server
         if not username:
             return
 
+        user = self._users.get(username)
+        if not user:
+            return
+
+        # Check admin mute (persistent, stored in DB)
+        active_mute = self._db.get_active_mute(username)
+        if active_mute:
+            if active_mute.expires_at:
+                remaining = (datetime.fromisoformat(active_mute.expires_at) - datetime.now()).total_seconds()
+                if remaining > 0:
+                    if remaining < 60:
+                        user.speak_l("muted-remaining-seconds", buffer="system", seconds=str(int(remaining) + 1))
+                    else:
+                        user.speak_l("muted-remaining-minutes", buffer="system", minutes=str(int(remaining // 60) + 1))
+                    return
+                else:
+                    self._db.unmute_user(username)
+            else:
+                user.speak_l("muted-permanent", buffer="system")
+                return
+
+        # Check auto-mute and rate limit (in-memory token bucket)
+        allowed, reason = self._chat_rate_limiter.try_consume(username)
+        if not allowed:
+            if reason and reason.startswith("__auto_muted:"):
+                remaining = int(reason.split(":")[1])
+                if remaining < 60:
+                    user.speak_l("auto-muted-seconds", buffer="system", seconds=str(remaining))
+                else:
+                    user.speak_l("auto-muted-minutes", buffer="system", minutes=str(remaining // 60 + 1))
+            elif reason and reason.startswith("__auto_muted_seconds:"):
+                duration = reason.split(":")[1]
+                user.speak_l("auto-muted-applied-seconds", buffer="system", seconds=duration)
+            elif reason and reason.startswith("__auto_muted_minutes:"):
+                duration = reason.split(":")[1]
+                user.speak_l("auto-muted-applied-minutes", buffer="system", minutes=duration)
+            else:
+                user.speak_l("chat-rate-limited", buffer="system")
+
+            # Notify admins if severe spam threshold reached
+            if self._chat_rate_limiter.should_notify_admins(username):
+                self._chat_rate_limiter.mark_admin_notified(username)
+                for u in self._users.values():
+                    if u.trust_level >= 2 and u.username != username:
+                        u.speak_l("admin-spam-alert", buffer="system", username=username)
+
+            return
+
         convo = packet.get("convo", "local")
         message = packet.get("message", "")
 
@@ -5673,6 +5728,25 @@ PlayAural Server
                 self.admin_manager._show_ban_menu(user)
         elif menu == "unban_menu":
             self.admin_manager._show_unban_menu(user)
+        elif menu == "mute_menu":
+            self.admin_manager._show_mute_menu(user)
+        elif menu == "mute_duration_menu":
+            target_username = frame.get("target_username", "")
+            if target_username:
+                self.admin_manager._show_mute_duration_menu(user, target_username)
+            else:
+                self.admin_manager._show_mute_menu(user)
+        elif menu == "mute_reason_menu":
+            target_username = frame.get("target_username", "")
+            duration = frame.get("duration", "")
+            if target_username and duration:
+                self.admin_manager._show_mute_reason_menu(user, target_username, duration)
+            elif target_username:
+                self.admin_manager._show_mute_duration_menu(user, target_username)
+            else:
+                self.admin_manager._show_mute_menu(user)
+        elif menu == "unmute_menu":
+            self.admin_manager._show_unmute_menu(user)
         elif menu == "manage_motd_menu":
             self.admin_manager._show_manage_motd_menu(user)
         elif menu == "view_motd_menu":

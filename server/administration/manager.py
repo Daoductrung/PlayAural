@@ -70,6 +70,14 @@ class AdministrationManager:
                 id="unban_user",
             ),
             MenuItem(
+                text=Localization.get(user.locale, "mute-user"),
+                id="mute_user",
+            ),
+            MenuItem(
+                text=Localization.get(user.locale, "unmute-user"),
+                id="unmute_user",
+            ),
+            MenuItem(
                 text=Localization.get(user.locale, "broadcast-announcement"),
                 id="broadcast_announcement",
             ),
@@ -268,6 +276,14 @@ class AdministrationManager:
              await self._handle_ban_reason_selection(user, selection_id, state)
         elif current_menu == "unban_menu":
              await self._handle_unban_selection(user, selection_id)
+        elif current_menu == "mute_menu":
+             await self._handle_mute_selection(user, selection_id)
+        elif current_menu == "mute_duration_menu":
+             await self._handle_mute_duration_selection(user, selection_id, state)
+        elif current_menu == "mute_reason_menu":
+             await self._handle_mute_reason_selection(user, selection_id, state)
+        elif current_menu == "unmute_menu":
+             await self._handle_unmute_selection(user, selection_id)
         elif current_menu == "manage_motd_menu":
              await self._handle_manage_motd_selection(user, selection_id, state)
         elif current_menu == "view_motd_menu":
@@ -292,6 +308,10 @@ class AdministrationManager:
             self._show_ban_menu(user)
         elif selection_id == "unban_user":
             self._show_unban_menu(user)
+        elif selection_id == "mute_user":
+            self._show_mute_menu(user)
+        elif selection_id == "unmute_user":
+            self._show_unmute_menu(user)
         elif selection_id == "kick_user":
             self._show_kick_menu(user)
         elif selection_id == "broadcast_announcement":
@@ -669,6 +689,22 @@ class AdministrationManager:
                 duration = state.get("duration")
                 if target_username and duration:
                     self._show_ban_reason_menu(user, target_username, duration)
+                else:
+                    self._show_admin_menu(user)
+            return True
+        elif menu_id == "mute_custom_reason_input" and input_id == "mute_custom_reason_input":
+            if value:
+                target_username = state.get("target_username")
+                duration = state.get("duration")
+                if target_username and duration:
+                    await self._perform_mute(user, target_username, duration, f"CUSTOM_{value}")
+                else:
+                    self._show_admin_menu(user)
+            else:
+                target_username = state.get("target_username")
+                duration = state.get("duration")
+                if target_username and duration:
+                    self._show_mute_reason_menu(user, target_username, duration)
                 else:
                     self._show_admin_menu(user)
             return True
@@ -1383,3 +1419,240 @@ class AdministrationManager:
                     u.play_sound("accountban.ogg") # Requested to use same sound
 
         self._show_unban_menu(admin)
+
+    # ==================== Mute / Unmute ====================
+
+    def _show_mute_menu(self, user: NetworkUser) -> None:
+        """Show list of users to mute."""
+        all_users = self.server.db.get_approved_users()
+        muted = set(self.server.db.get_all_muted_users())
+
+        target_users = []
+        for username, trust_level in all_users:
+            if username == user.username:
+                continue
+            # Devs cannot be muted
+            if trust_level >= 3:
+                continue
+            # Admins cannot mute other admins (only devs can)
+            if user.trust_level < 3 and trust_level >= 2:
+                continue
+            if username in muted:
+                continue
+            target_users.append(username)
+
+        items = []
+        if not target_users:
+            items.append(MenuItem(text=Localization.get(user.locale, "no-users-to-mute"), id=""))
+        else:
+            for target in target_users:
+                items.append(MenuItem(text=target, id=f"mute_{target}"))
+        items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
+
+        user.show_menu(
+            "mute_menu",
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self.server.user_states[user.username] = {"menu": "mute_menu"}
+
+    async def _handle_mute_selection(self, user: NetworkUser, selection_id: str) -> None:
+        if selection_id == "back":
+            self._show_admin_menu(user)
+        elif selection_id.startswith("mute_"):
+            target_username = selection_id[5:]
+            self._show_mute_duration_menu(user, target_username)
+
+    def _show_mute_duration_menu(self, user: NetworkUser, target_username: str) -> None:
+        """Show duration options for muting."""
+        items = [
+            MenuItem(text=Localization.get(user.locale, "mute-duration-5m"), id="duration_5m"),
+            MenuItem(text=Localization.get(user.locale, "mute-duration-15m"), id="duration_15m"),
+            MenuItem(text=Localization.get(user.locale, "mute-duration-30m"), id="duration_30m"),
+            MenuItem(text=Localization.get(user.locale, "mute-duration-1h"), id="duration_1h"),
+            MenuItem(text=Localization.get(user.locale, "mute-duration-6h"), id="duration_6h"),
+            MenuItem(text=Localization.get(user.locale, "mute-duration-1d"), id="duration_1d"),
+            MenuItem(text=Localization.get(user.locale, "mute-duration-permanent"), id="duration_perm"),
+            MenuItem(text=Localization.get(user.locale, "back"), id="back"),
+        ]
+
+        user.show_menu(
+            "mute_duration_menu",
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self.server.user_states[user.username] = {
+            "menu": "mute_duration_menu",
+            "target_username": target_username,
+        }
+
+    async def _handle_mute_duration_selection(self, user: NetworkUser, selection_id: str, state: dict) -> None:
+        if selection_id == "back":
+            self._show_mute_menu(user)
+            return
+
+        target_username = state.get("target_username")
+        if not target_username:
+            self._show_admin_menu(user)
+            return
+
+        if selection_id.startswith("duration_"):
+            duration = selection_id[9:]
+            self._show_mute_reason_menu(user, target_username, duration)
+
+    def _show_mute_reason_menu(self, user: NetworkUser, target_username: str, duration: str) -> None:
+        """Show reason options for muting."""
+        items = [
+            MenuItem(text=Localization.get(user.locale, "reason-spam"), id="reason_spam"),
+            MenuItem(text=Localization.get(user.locale, "reason-harassment"), id="reason_harassment"),
+            MenuItem(text=Localization.get(user.locale, "reason-inappropriate"), id="reason_inappropriate"),
+            MenuItem(text=Localization.get(user.locale, "reason-custom"), id="reason_custom"),
+            MenuItem(text=Localization.get(user.locale, "back"), id="back"),
+        ]
+
+        user.show_menu(
+            "mute_reason_menu",
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self.server.user_states[user.username] = {
+            "menu": "mute_reason_menu",
+            "target_username": target_username,
+            "duration": duration,
+        }
+
+    async def _handle_mute_reason_selection(self, user: NetworkUser, selection_id: str, state: dict) -> None:
+        if selection_id == "back":
+            target_username = state.get("target_username")
+            if target_username:
+                self._show_mute_duration_menu(user, target_username)
+            else:
+                self._show_admin_menu(user)
+            return
+
+        target_username = state.get("target_username")
+        duration = state.get("duration")
+
+        if not target_username or not duration:
+            self._show_admin_menu(user)
+            return
+
+        if selection_id == "reason_custom":
+            user.show_editbox(
+                "mute_custom_reason_input",
+                Localization.get(user.locale, "enter-custom-mute-reason"),
+                multiline=False,
+            )
+            self.server.enter_input_state(
+                user, "mute_custom_reason_input",
+                target_username=target_username,
+                duration=duration,
+            )
+        elif selection_id.startswith("reason_"):
+            reason_key = selection_id.replace("_", "-")
+            await self._perform_mute(user, target_username, duration, reason_key)
+
+    @require_admin
+    async def _perform_mute(self, admin: NetworkUser, target_username: str, duration_id: str, reason_key: str) -> None:
+        now = datetime.now()
+        expires_at = None
+        duration_locale_key = f"mute-duration-{duration_id}"
+
+        if duration_id == "5m":
+            expires_at = (now + timedelta(minutes=5)).isoformat()
+        elif duration_id == "15m":
+            expires_at = (now + timedelta(minutes=15)).isoformat()
+        elif duration_id == "30m":
+            expires_at = (now + timedelta(minutes=30)).isoformat()
+        elif duration_id == "1h":
+            expires_at = (now + timedelta(hours=1)).isoformat()
+        elif duration_id == "6h":
+            expires_at = (now + timedelta(hours=6)).isoformat()
+        elif duration_id == "1d":
+            expires_at = (now + timedelta(days=1)).isoformat()
+        elif duration_id == "perm":
+            expires_at = None
+            duration_locale_key = "mute-duration-permanent"
+
+        # Hierarchy check
+        target_record = self.server.db.get_user(target_username)
+        if not target_record:
+            admin.speak_l("user-not-found", buffer="system")
+            self._show_admin_menu(admin)
+            return
+
+        if target_record.trust_level >= 3 or (admin.trust_level < 3 and target_record.trust_level >= 2):
+            admin.speak_l("permission-denied", buffer="system")
+            self._show_admin_menu(admin)
+            return
+
+        # Write to database
+        self.server.db.mute_user(target_username, admin.username, reason_key, expires_at)
+
+        # Broadcast to admins
+        for u in self.server.users.values():
+            if u.trust_level >= 2:
+                if reason_key.startswith("CUSTOM_"):
+                    loc_reason = reason_key[7:].strip().replace("\n", " ")[:200]
+                else:
+                    loc_reason = Localization.get(u.locale, reason_key)
+                loc_duration = Localization.get(u.locale, duration_locale_key)
+                u.speak_l("mute-broadcast", buffer="system", target=target_username, actor=admin.username, reason=loc_reason, duration=loc_duration)
+
+        # Notify the muted user if they are online
+        target_user = self.server.users.get(target_username)
+        if target_user:
+            if reason_key.startswith("CUSTOM_"):
+                loc_reason = reason_key[7:].strip().replace("\n", " ")[:200]
+            else:
+                loc_reason = Localization.get(target_user.locale, reason_key)
+            loc_duration = Localization.get(target_user.locale, duration_locale_key)
+            target_user.speak_l("you-have-been-muted", buffer="system", reason=loc_reason, duration=loc_duration)
+            target_user.play_sound("accountban.ogg")
+
+        self._show_admin_menu(admin)
+
+    def _show_unmute_menu(self, user: NetworkUser) -> None:
+        """Show list of muted users."""
+        muted_users = self.server.db.get_all_muted_users()
+
+        items = []
+        if not muted_users:
+            items.append(MenuItem(text=Localization.get(user.locale, "no-muted-users"), id=""))
+        else:
+            for username in muted_users:
+                items.append(MenuItem(text=username, id=f"unmute_{username}"))
+        items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
+
+        user.show_menu(
+            "unmute_menu",
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self.server.user_states[user.username] = {"menu": "unmute_menu"}
+
+    async def _handle_unmute_selection(self, user: NetworkUser, selection_id: str) -> None:
+        if selection_id == "back":
+            self._show_admin_menu(user)
+        elif selection_id.startswith("unmute_"):
+            target_username = selection_id[7:]
+            await self._perform_unmute(user, target_username)
+
+    @require_admin
+    async def _perform_unmute(self, admin: NetworkUser, target_username: str) -> None:
+        if self.server.db.unmute_user(target_username):
+            # Broadcast to admins
+            for u in self.server.users.values():
+                if u.trust_level >= 2:
+                    u.speak_l("unmute-broadcast", buffer="system", target=target_username, actor=admin.username)
+
+            # Notify the unmuted user if they are online
+            target_user = self.server.users.get(target_username)
+            if target_user:
+                target_user.speak_l("you-have-been-unmuted", buffer="system")
+
+        self._show_unmute_menu(admin)

@@ -45,6 +45,18 @@ class BanRecord:
 
 
 @dataclass
+class MuteRecord:
+    """A mute record from the database."""
+
+    id: int
+    username: str
+    admin_username: str
+    reason: str
+    issued_at: str
+    expires_at: str | None
+
+
+@dataclass
 class SmtpConfig:
     """SMTP configuration from the database."""
     host: str
@@ -205,6 +217,23 @@ class Database:
             ON bans(username)
         """)
 
+        # Mutes table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS mutes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT NOT NULL,
+                admin_username TEXT NOT NULL,
+                reason TEXT NOT NULL DEFAULT '',
+                issued_at TEXT NOT NULL,
+                expires_at TEXT
+            )
+        """)
+
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_mutes_username
+            ON mutes(username)
+        """)
+
         # Player game stats (aggregated stats for leaderboards)
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS player_game_stats (
@@ -358,6 +387,25 @@ class Database:
             cursor.execute("""
                 CREATE INDEX IF NOT EXISTS idx_bans_username
                 ON bans(username)
+            """)
+            self._conn.commit()
+
+        # Check if mutes table exists (migration for existing databases)
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='mutes'")
+        if not cursor.fetchone():
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS mutes (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    username TEXT NOT NULL,
+                    admin_username TEXT NOT NULL,
+                    reason TEXT NOT NULL DEFAULT '',
+                    issued_at TEXT NOT NULL,
+                    expires_at TEXT
+                )
+            """)
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_mutes_username
+                ON mutes(username)
             """)
             self._conn.commit()
 
@@ -1143,6 +1191,79 @@ class Database:
         # Find usernames where they have at least one active ban
         cursor.execute(
             "SELECT DISTINCT username FROM bans WHERE expires_at IS NULL OR expires_at > ?",
+            (now,)
+        )
+        return [row["username"] for row in cursor.fetchall()]
+
+    # ==================== Mute operations ====================
+
+    def mute_user(self, username: str, admin_username: str, reason: str, expires_at: str | None) -> MuteRecord:
+        """Mute a user."""
+        issued_at = datetime.now().isoformat()
+        cursor = self._conn.cursor()
+        cursor.execute(
+            "INSERT INTO mutes (username, admin_username, reason, issued_at, expires_at) VALUES (?, ?, ?, ?, ?)",
+            (username, admin_username, reason, issued_at, expires_at),
+        )
+        self._conn.commit()
+        return MuteRecord(
+            id=cursor.lastrowid,
+            username=username,
+            admin_username=admin_username,
+            reason=reason,
+            issued_at=issued_at,
+            expires_at=expires_at,
+        )
+
+    def unmute_user(self, username: str) -> bool:
+        """Unmute a user by removing their active mutes. Returns True if unmuted."""
+        cursor = self._conn.cursor()
+        cursor.execute("DELETE FROM mutes WHERE username = ?", (username,))
+        self._conn.commit()
+        return cursor.rowcount > 0
+
+    def get_active_mute(self, username: str) -> MuteRecord | None:
+        """Get the active mute for a user, if any. Clears expired mutes."""
+        now = datetime.now().isoformat()
+        cursor = self._conn.cursor()
+
+        # Purge expired mutes
+        cursor.execute(
+            "DELETE FROM mutes WHERE username = ? AND expires_at IS NOT NULL AND expires_at <= ?",
+            (username, now),
+        )
+        if cursor.rowcount:
+            self._conn.commit()
+
+        # Fetch the most-recent active mute
+        cursor.execute(
+            """
+            SELECT id, username, admin_username, reason, issued_at, expires_at
+            FROM mutes
+            WHERE username = ? AND (expires_at IS NULL OR expires_at > ?)
+            ORDER BY issued_at DESC
+            LIMIT 1
+            """,
+            (username, now),
+        )
+        row = cursor.fetchone()
+        if row:
+            return MuteRecord(
+                id=row["id"],
+                username=row["username"],
+                admin_username=row["admin_username"],
+                reason=row["reason"],
+                issued_at=row["issued_at"],
+                expires_at=row["expires_at"],
+            )
+        return None
+
+    def get_all_muted_users(self) -> list[str]:
+        """Get a list of all currently muted usernames."""
+        now = datetime.now().isoformat()
+        cursor = self._conn.cursor()
+        cursor.execute(
+            "SELECT DISTINCT username FROM mutes WHERE expires_at IS NULL OR expires_at > ?",
             (now,)
         )
         return [row["username"] for row in cursor.fetchall()]

@@ -359,6 +359,32 @@ disconnect = Disconnect
 
 enter-custom-ban-reason = Enter custom ban reason:
 
+mute-user = Mute User
+unmute-user = Unmute User
+no-users-to-mute = No users available to mute.
+no-muted-users = No users are currently muted.
+mute-duration-5m = 5 minutes
+mute-duration-15m = 15 minutes
+mute-duration-30m = 30 minutes
+mute-duration-1h = 1 hour
+mute-duration-6h = 6 hours
+mute-duration-1d = 1 day
+mute-duration-permanent = Permanent
+enter-custom-mute-reason = Enter custom mute reason:
+mute-broadcast = { $target } has been muted by { $actor } for { $reason }. Duration: { $duration }.
+unmute-broadcast = { $target } has been unmuted by { $actor }.
+you-have-been-muted = You have been muted. Reason: { $reason }. Duration: { $duration }.
+you-have-been-unmuted = You have been unmuted. You can chat again.
+muted-remaining-seconds = You are muted. { $seconds } seconds remaining.
+muted-remaining-minutes = You are muted. { $minutes } minutes remaining.
+muted-permanent = You are permanently muted. Contact an administrator for more information.
+auto-muted-seconds = You have been temporarily muted for spamming. { $seconds } seconds remaining.
+auto-muted-minutes = You have been temporarily muted for spamming. { $minutes } minutes remaining.
+auto-muted-applied-seconds = You have been auto-muted for { $seconds } seconds due to excessive chat spam.
+auto-muted-applied-minutes = You have been auto-muted for { $minutes } minutes due to excessive chat spam.
+chat-rate-limited = Slow down! You are sending messages too quickly.
+admin-spam-alert = Warning: { $username } is spamming chat excessively and has been auto-muted.
+
 broadcast-announcement = Broadcast Announcement
 admin-broadcast-prompt = Enter the message to broadcast to all online users. (This will be sent to everyone!)
 admin-broadcast-sent = Broadcast sent to { $count } users.

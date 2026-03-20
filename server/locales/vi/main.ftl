@@ -359,6 +359,32 @@ disconnect = Ngắt kết nối
 
 enter-custom-ban-reason = Nhập lý do cấm tùy chỉnh:
 
+mute-user = Tắt tiếng người dùng
+unmute-user = Bỏ tắt tiếng người dùng
+no-users-to-mute = Không có người dùng nào để tắt tiếng.
+no-muted-users = Không có người dùng nào đang bị tắt tiếng.
+mute-duration-5m = 5 phút
+mute-duration-15m = 15 phút
+mute-duration-30m = 30 phút
+mute-duration-1h = 1 giờ
+mute-duration-6h = 6 giờ
+mute-duration-1d = 1 ngày
+mute-duration-permanent = Vĩnh viễn
+enter-custom-mute-reason = Nhập lý do tắt tiếng tùy chỉnh:
+mute-broadcast = { $target } đã bị tắt tiếng bởi { $actor } vì { $reason }. Thời hạn: { $duration }.
+unmute-broadcast = { $target } đã được bỏ tắt tiếng bởi { $actor }.
+you-have-been-muted = Bạn đã bị tắt tiếng. Lý do: { $reason }. Thời hạn: { $duration }.
+you-have-been-unmuted = Bạn đã được bỏ tắt tiếng. Bạn có thể trò chuyện lại.
+muted-remaining-seconds = Bạn đang bị tắt tiếng. Còn { $seconds } giây.
+muted-remaining-minutes = Bạn đang bị tắt tiếng. Còn { $minutes } phút.
+muted-permanent = Bạn đã bị tắt tiếng vĩnh viễn. Vui lòng liên hệ quản trị viên để biết thêm thông tin.
+auto-muted-seconds = Bạn đã bị tắt tiếng tạm thời vì spam. Còn { $seconds } giây.
+auto-muted-minutes = Bạn đã bị tắt tiếng tạm thời vì spam. Còn { $minutes } phút.
+auto-muted-applied-seconds = Bạn đã bị tự động tắt tiếng { $seconds } giây vì spam quá mức.
+auto-muted-applied-minutes = Bạn đã bị tự động tắt tiếng { $minutes } phút vì spam quá mức.
+chat-rate-limited = Chậm lại! Bạn đang gửi tin nhắn quá nhanh.
+admin-spam-alert = Cảnh báo: { $username } đang spam quá mức và đã bị tự động tắt tiếng.
+
 broadcast-announcement = Gửi thông báo
 admin-broadcast-prompt = Nhập tin nhắn để thông báo cho tất cả người dùng đang trực tuyến. (Tin nhắn này sẽ gửi tới mọi người!)
 admin-broadcast-sent = Đã gửi thông báo đến { $count } người dùng.

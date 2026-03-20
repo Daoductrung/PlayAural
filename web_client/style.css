@@ -231,6 +231,9 @@ main {
     flex-direction: column;
     gap: 0.5rem;
     padding-bottom: 80px; /* Prevent final items from hiding behind fixed Leave button */
+    /* Allow text selection / keyboard focus inside dynamically injected inputs */
+    -webkit-user-select: text;
+    user-select: text;
 }
 
 .menu-item {
@@ -459,6 +462,15 @@ main {
     }
 }
 
+/* Dynamic input fields (editbox) — override touch suppression for iOS keyboard focus */
+.input-wrapper input,
+.input-wrapper textarea {
+    -webkit-user-select: text;
+    user-select: text;
+    -webkit-touch-callout: default;
+    touch-action: manipulation;
+}
+
 /* Players Tab Styling */
 .player-actions {
     display: flex;
@@ -586,7 +598,7 @@ input[type=range]::-moz-range-thumb {
 
 .web-leave-area {
     position: fixed;
-    bottom: 20px;
+    bottom: calc(20px + env(safe-area-inset-bottom, 0px));
     left: 20px;
     z-index: 1000;
 }
@@ -606,10 +618,9 @@ input[type=range]::-moz-range-thumb {
 /* Mobile adjustments */
 @media (max-width: 600px) {
     .web-leave-area {
-        bottom: 15px;
+        bottom: calc(15px + env(safe-area-inset-bottom, 0px));
         right: 15px;
         left: 15px;
-        /* Full width on mobile? */
     }
 
     .web-leave-btn {

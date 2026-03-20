@@ -1856,7 +1856,9 @@ class GameClient {
                     this.sendMenuSelection(packet.menu_id, 0, id);
                 };
                 config.container.appendChild(newBtn);
-            } else if (!isSameMenu) {
+            } else if (!isSameMenu && id === "web_actions_menu") {
+                // Only clear actions container on menu change (transient).
+                // Leave button persists — cleared only on disconnect/screen transition.
                 config.container.innerHTML = "";
             }
         }
@@ -2270,6 +2272,10 @@ class GameClient {
         if (packet.read_only) input.readOnly = true;
         if (packet.max_length) input.maxLength = packet.max_length;
         input.setAttribute('aria-label', promptText);
+        // Ensure iOS Safari allows keyboard focus without extra taps
+        input.style.webkitUserSelect = 'text';
+        input.style.userSelect = 'text';
+        input.setAttribute('inputmode', packet.multiline ? 'text' : 'text');
 
         const submitBtn = document.createElement('button');
         submitBtn.innerText = Localization.get("input-submit");
@@ -2318,8 +2324,12 @@ class GameClient {
         wrapper.appendChild(submitBtn);
         this.menuArea.appendChild(wrapper);
 
-        input.focus();
-        input.select(); // Auto-select text for easy replacement
+        // iOS Safari requires a short delay before focus/select to reliably
+        // present the virtual keyboard on the first tap.
+        setTimeout(() => {
+            input.focus();
+            input.select();
+        }, 50);
     }
 
     sendMenuSelection(menu_id, selection, selection_id = null) {
@@ -2419,6 +2429,12 @@ class GameClient {
         this.forgotPasswordScreen.classList.add('hidden');
         this.resetPasswordScreen.classList.add('hidden');
         this.gameScreen.classList.add('hidden');
+
+        // Clear persistent web buttons on disconnect/logout
+        const leaveContainer = document.getElementById('web-leave-container');
+        if (leaveContainer) leaveContainer.innerHTML = "";
+        const actionsContainer = document.getElementById('web-actions-container');
+        if (actionsContainer) actionsContainer.innerHTML = "";
 
         // Reset registration flag to ensure we don't accidentally register again
         this.isRegistering = false;

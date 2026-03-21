@@ -1,0 +1,1 @@
+"""LastCard game implementation."""

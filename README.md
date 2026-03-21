@@ -204,7 +204,7 @@ pytest -v                                      # verbose output
 
 ## Game Catalog
 
-22 games across four categories:
+23 games across four categories:
 
 ### Card Games
 
@@ -215,6 +215,7 @@ pytest -v                                      # verbose output
 | Blackjack | Classic casino card game against the dealer |
 | Pusoy Dos | Filipino shedding card game |
 | Crazy Eights | Classic shedding card game |
+| Last Card | Uno-style shedding game with stacking, jump-ins, and 20+ customizable house rules |
 | Scopa | Traditional Italian card-capture game |
 | Ninety Nine | Keep the running count under 99 |
 | Mile by Mile | Strategic racing card game |

@@ -51,7 +51,7 @@ Key packet types: `AUTHORIZE`, `MENU`, `KEYBIND`, `CHAT`, `SPEAK`, `PLAY_SOUND`,
 ### Server Architecture
 - **`server/core/server.py`** — Main orchestrator
 - **`server/network/websocket_server.py`** — Async WebSocket connection management
-- **`server/games/`** — 22 game implementations; each extends an abstract `Game` base class via 14 mixins
+- **`server/games/`** — 23 game implementations; each extends an abstract `Game` base class via 14 mixins
 - **`server/game_utils/`** — 40+ shared utility modules (cards, dice, poker logic, turn management, scoring)
 - **`server/auth/`** — Argon2 password hashing, rate limiting
 - **`server/persistence/database.py`** — SQLite (`PlayAural.db`), user accounts, game history, OpenSkill ratings
@@ -169,6 +169,13 @@ The shutdown sequence is a 32-second structured countdown managed by `self._shut
 - Games use `self.event_queue` (list of `(tick, event_type, data)` tuples) for deferred state changes and `self.schedule_sound(path, delay_ticks)` for audio timing.
 - `on_tick()` must call `super().on_tick()` and `self.process_scheduled_sounds()`.
 - When writing deterministic tests for bot behaviour, use `advance_until(game, condition_fn, max_ticks=500)` rather than fixed tick counts. Combine state conditions with phase checks (e.g. `len(player.live_influences) == 1 and g.turn_phase != "losing_influence"`) to avoid stopping one tick before a post-event fires.
+
+#### Web/Mobile UI Consideration (Mandatory)
+When implementing a new game, always consider the web/mobile client experience alongside the desktop client. Desktop users have keyboard shortcuts for every action, but web/mobile users rely on tappable buttons in the Turn Menu. Key rules:
+- **Time-critical reaction actions** (e.g. buzzer, jump-in, challenge, accept) must be visible as tappable buttons in the Turn Menu during their active windows for web clients. Use `getattr(user, "client_type", "") == "web"` in `is_hidden` callbacks to show them only for web users (desktop users use keybinds).
+- **Utility actions** that desktop users access via keybinds (e.g. sort hand) should also appear in the Turn Menu for web clients.
+- **Turn Menu ordering** matters for screen readers: place reaction buttons first (top), then card/play actions in the middle, then utility buttons (draw, pass, sort) last. Use the `_sync_turn_actions` reordering pattern from LastCard/CrazyEights as the reference.
+- See `server/games/lastcard/game.py` (`_is_buzzer_hidden`, `_is_jump_in_hidden`, `_is_sort_turn_hidden`, and the web reordering block in `_sync_turn_actions`) for the canonical implementation.
 
 #### TTS Buffer Categorization
 Every `user.speak_l()` and `broadcast_l()` call must carry an explicit `buffer=` parameter. Defaults are wrong in almost every case:

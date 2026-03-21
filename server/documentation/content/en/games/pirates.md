@@ -72,9 +72,13 @@ You can fire a cannonball at any player within 5 tiles.
 
 \* \*\*Level 25:\*\* Portal (Teleport to another player's ocean).
 
-\* \*\*Level 40:\*\* Gem Seeker (Reveal a gem's location - 3 uses).
+\* \*\*Level 40:\*\* Gem Seeker (Reveal a gem's location — 3 uses).
 
-\* \*\*Level 60-90:\*\* Buffs (Sword Fighter, Push, Skilled Captain for combat bonuses).
+\* \*\*Level 60:\*\* Sword Fighter (Boost attack and defense for several turns).
+
+\* \*\*Level 75:\*\* Push (Increase push distance after a successful hit).
+
+\* \*\*Level 90:\*\* Skilled Captain (Boost both attack and defense).
 
 \* \*\*Level 125:\*\* Battleship (Fire two cannons in one turn).
 
@@ -82,9 +86,23 @@ You can fire a cannonball at any player within 5 tiles.
 
 
 
+\*\*Game Options\*\*
+
+\* \*\*Combat XP Multiplier:\*\* Scale XP earned from combat (default 1.0, range 0.1-3.0).
+
+\* \*\*Find Gem XP Multiplier:\*\* Scale XP earned from finding gems (default 1.0, range 0.1-3.0).
+
+\* \*\*Gem Stealing:\*\* How gem theft works after a hit — with roll bonus, without roll bonus, or disabled (default with roll bonus).
+
+
+
 \*\*Keyboard Shortcuts\*\*
 
 \* \*\*P:\*\* Check your current position and ocean.
 
-\* \*\*M:\*\* Check the Golden Moon status (when active).
+\* \*\*M:\*\* Check the Golden Moon status.
+
+\* \*\*S:\*\* Check game status (all players' positions, gems, and levels).
+
+\* \*\*Shift+S:\*\* Detailed status.
 

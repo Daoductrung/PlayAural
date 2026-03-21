@@ -56,7 +56,7 @@ Trò chơi diễn ra theo vòng, và trong lượt của mình, bạn sẽ gieo 
 
 
 
-\* \*\*R:\*\* Gieo xúc xắc.
+\* \*\*R hoặc Dấu cách:\*\* Gieo xúc xắc.
 
 \* \*\*C:\*\* Kiểm tra vị trí (Đọc vị trí hiện tại của tất cả người chơi trên bàn cờ).
 

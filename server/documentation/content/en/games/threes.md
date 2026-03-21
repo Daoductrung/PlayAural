@@ -64,6 +64,12 @@ Your turn ends automatically once all five dice are decided. If you have only on
 
 
 
+\*\*Game Options\*\*
+
+\* \*\*Total Rounds:\*\* The number of rounds to play (default 10).
+
+
+
 \*\*Keyboard Shortcuts\*\*
 
 

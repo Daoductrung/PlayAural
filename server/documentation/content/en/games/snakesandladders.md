@@ -56,7 +56,7 @@ To win, you must land exactly on Square 100. If your die roll is higher than the
 
 
 
-\* \*\*R:\*\* Roll the die.
+\* \*\*R or Space:\*\* Roll the die.
 
 \* \*\*C:\*\* Check positions (Reads out the current location of all players).
 

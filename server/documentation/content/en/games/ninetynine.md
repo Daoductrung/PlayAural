@@ -84,6 +84,18 @@ Players start with a pool of tokens (default 9). When a player reaches 0 tokens,
 
 
 
+\*\*Game Options\*\*
+
+\* \*\*Starting Tokens:\*\* How many tokens each player begins with (default 9, range 1-50).
+
+\* \*\*Hand Size:\*\* Number of cards dealt to each player per round (default 3, range 1-13).
+
+\* \*\*Rules Variant:\*\* Quentin C (default) or RS Games.
+
+\* \*\*Auto-Draw:\*\* Whether a replacement card is drawn automatically after playing (default on). When off, players must manually draw with Space or D.
+
+
+
 \*\*Keyboard Shortcuts\*\*
 
 

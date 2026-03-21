@@ -74,6 +74,16 @@ It's the start of the game and you're up first.
 
 
 
+\*\*Game Options\*\*
+
+\* \*\*Target Score:\*\* The score needed to win (default 500).
+
+\* \*\*Minimum Entrance Score:\*\* The minimum turn score required to bank for the first time (default 50).
+
+\* \*\*Minimum Bank Score:\*\* The minimum turn score required to bank on subsequent turns (default 30).
+
+
+
 \*\*Keyboard Shortcuts\*\*
 
 

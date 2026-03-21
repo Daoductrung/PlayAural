@@ -12,7 +12,7 @@ The player with the highest total score after all 13 categories are filled wins.
 
 
 
-The game supports 1 to 4 players. On your turn you have up to three rolls.
+The game supports 2 to 4 players. On your turn you have up to three rolls.
 
 1\. \*\*First roll:\*\* All five dice are rolled automatically when you press Roll.
 
@@ -70,6 +70,12 @@ If you have already scored 50 in the Yahtzee category and roll another Yahtzee, 
 
 
 If none of your open categories fit your dice, you must take a zero in one of them. The scoring menu shows the point value each category would award with your current dice, including a zero when nothing qualifies. Choose carefully — some categories (such as Chance) are easier to salvage later than others (such as Large Straight).
+
+
+
+\*\*Game Options\*\*
+
+\* \*\*Number of Games:\*\* How many full 13-round games to play in a session (default 1).
 
 
 

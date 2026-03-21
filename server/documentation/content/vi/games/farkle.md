@@ -74,6 +74,16 @@ Trò chơi bắt đầu và bạn là người đi đầu tiên.
 
 
 
+\*\*Tùy chọn trò chơi\*\*
+
+\* \*\*Điểm mục tiêu:\*\* Số điểm cần đạt để thắng (mặc định 500).
+
+\* \*\*Điểm nhập cuộc tối thiểu:\*\* Số điểm tối thiểu trong một lượt để chốt lần đầu tiên (mặc định 50).
+
+\* \*\*Điểm chốt tối thiểu:\*\* Số điểm tối thiểu trong một lượt để chốt ở các lượt sau (mặc định 30).
+
+
+
 \*\*Phím tắt bàn phím\*\*
 
 

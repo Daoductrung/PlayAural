@@ -52,13 +52,39 @@ The host can tweak several settings at the table:
 
 
 
-\* \*\*Rules Profile:\*\* Select pre-configured rule sets (like Vegas, Atlantic City, or European) which dictate dealer behavior (such as whether the dealer hits or stands on a soft 17).
+\* \*\*Rules Profile:\*\* Select pre-configured rule sets (like Vegas, Atlantic City, or European) which adjust multiple settings at once.
 
-\* \*\*Decks:\*\* The number of standard 52-card decks used in the shoe (defaults to 6).
+\* \*\*Decks:\*\* The number of standard 52-card decks used in the shoe (default 4, range 1-8).
 
-\* \*\*Starting Chips:\*\* The number of chips each player begins the game with.
+\* \*\*Starting Chips:\*\* The number of chips each player begins the game with (default 500).
 
-\* \*\*Table Minimum / Maximum Bet:\*\* The betting limits for the table.
+\* \*\*Base Bet:\*\* The default bet amount for new rounds (default 10).
+
+\* \*\*Table Minimum / Maximum Bet:\*\* The betting limits for the table (default 5 min, 100 max).
+
+\* \*\*Dealer Hits Soft 17:\*\* Whether the dealer must hit on a soft 17 (default on).
+
+\* \*\*Dealer Peeks for Blackjack:\*\* Whether the dealer checks their hole card for Blackjack when showing an Ace or 10-value card (default on).
+
+\* \*\*Players' Cards Face Up:\*\* Whether players' cards are visible to all (default on).
+
+\* \*\*Allow Insurance:\*\* Whether the insurance side bet is available (default on).
+
+\* \*\*Allow Late Surrender:\*\* Whether players can surrender after seeing their hand (default on).
+
+\* \*\*Blackjack Payout:\*\* The payout ratio for a natural Blackjack (default 3:2).
+
+\* \*\*Double Down Rule:\*\* When doubling down is allowed — on any two cards, 9-11 only, or 10-11 only (default any two).
+
+\* \*\*Allow Double After Split:\*\* Whether doubling down is permitted on split hands (default on).
+
+\* \*\*Split Rule:\*\* Whether splitting requires same rank or same value (default same rank).
+
+\* \*\*Max Split Hands:\*\* The maximum number of hands a player can split into (default 2).
+
+\* \*\*Split Aces One Card Only:\*\* Whether split Aces receive only one additional card each (default on).
+
+\* \*\*Split Aces Count as Blackjack:\*\* Whether an Ace + 10-value on a split hand counts as a natural Blackjack (default off).
 
 \* \*\*Turn Timer:\*\* An optional timer to keep the game moving.
 

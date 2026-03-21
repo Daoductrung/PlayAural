@@ -56,6 +56,16 @@ Trò chơi tiếp tục cho đến khi có người đạt đến điểm mục 
 
 
 
+\*\*Tùy chọn trò chơi\*\*
+
+\* \*\*Điểm mục tiêu:\*\* Số điểm cần đạt để thắng (mặc định 100, phạm vi 20-500).
+
+\* \*\*Số xúc xắc bắt đầu:\*\* Số viên xúc xắc mỗi người gieo mỗi lượt (mặc định 10, phạm vi 5-20).
+
+\* \*\*Biến thể luật:\*\* Tiêu chuẩn (nổ = không xanh + ít nhất một đỏ) hoặc PlayAural (nổ = toàn bộ xúc xắc đỏ).
+
+
+
 \*\*Phím tắt bàn phím\*\*
 
 

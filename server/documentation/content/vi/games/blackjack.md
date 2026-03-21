@@ -52,13 +52,39 @@ Chủ bàn có thể điều chỉnh một số thiết lập tại bàn:
 
 
 
-\* \*\*Hồ sơ luật chơi:\*\* Chọn các bộ luật đã được thiết lập sẵn (ví dụ: Vegas, Châu Âu, Giao hữu) quy định cách nhà cái hành động (như nhà cái sẽ rút thêm hay Dừng khi đạt 17 mềm).
+\* \*\*Hồ sơ luật chơi:\*\* Chọn các bộ luật đã được thiết lập sẵn (ví dụ: Vegas, Châu Âu, Giao hữu) để điều chỉnh nhiều thiết lập cùng lúc.
 
-\* \*\*Số lượng bộ bài:\*\* Số lượng bộ bài 52 lá tiêu chuẩn được sử dụng trong hộp bài (mặc định là 6 bộ).
+\* \*\*Số lượng bộ bài:\*\* Số lượng bộ bài 52 lá tiêu chuẩn được sử dụng trong hộp bài (mặc định 4, phạm vi 1-8).
 
-\* \*\*Xu khởi điểm:\*\* Số lượng xu mà mỗi người chơi có khi bắt đầu trò chơi.
+\* \*\*Xu khởi điểm:\*\* Số lượng xu mà mỗi người chơi có khi bắt đầu trò chơi (mặc định 500).
 
-\* \*\*Cược tối thiểu / tối đa của bàn:\*\* Giới hạn cược cho phép tại bàn chơi.
+\* \*\*Mức cược mặc định:\*\* Mức cược mặc định cho mỗi ván mới (mặc định 10).
+
+\* \*\*Cược tối thiểu / tối đa của bàn:\*\* Giới hạn cược cho phép tại bàn chơi (mặc định 5 tối thiểu, 100 tối đa).
+
+\* \*\*Nhà cái rút thêm khi 17 mềm:\*\* Nhà cái có phải rút thêm khi đạt 17 mềm không (mặc định bật).
+
+\* \*\*Nhà cái kiểm tra Blackjack:\*\* Nhà cái có kiểm tra lá bài úp khi lá bài ngửa là Át hoặc lá 10 điểm không (mặc định bật).
+
+\* \*\*Bài người chơi lật ngửa:\*\* Bài của người chơi có hiển thị cho tất cả không (mặc định bật).
+
+\* \*\*Cho phép bảo hiểm:\*\* Có cho phép đặt cược phụ bảo hiểm không (mặc định bật).
+
+\* \*\*Cho phép bỏ bài muộn:\*\* Người chơi có thể bỏ bài sau khi xem tay bài không (mặc định bật).
+
+\* \*\*Tỷ lệ trả thưởng Blackjack:\*\* Tỷ lệ trả thưởng khi có Blackjack tự nhiên (mặc định 3:2).
+
+\* \*\*Quy tắc gấp đôi:\*\* Khi nào được phép gấp đôi — bất kỳ hai lá nào, chỉ 9-11, hoặc chỉ 10-11 (mặc định bất kỳ hai lá).
+
+\* \*\*Cho phép gấp đôi sau tách:\*\* Có được phép gấp đôi trên tay bài đã tách không (mặc định bật).
+
+\* \*\*Quy tắc tách bài:\*\* Tách bài yêu cầu cùng số hay cùng giá trị (mặc định cùng số).
+
+\* \*\*Số tay bài tách tối đa:\*\* Số lượng tay bài tối đa mà người chơi có thể tách (mặc định 2).
+
+\* \*\*Tách Át chỉ nhận một lá:\*\* Khi tách Át, mỗi tay bài chỉ nhận thêm một lá bài (mặc định bật).
+
+\* \*\*Tách Át tính là Blackjack:\*\* Át + lá 10 điểm trên tay bài đã tách có tính là Blackjack tự nhiên không (mặc định tắt).
 
 \* \*\*Đồng hồ tính giờ:\*\* Một bộ đếm thời gian tùy chọn để giữ cho nhịp độ trò chơi luôn trôi chảy.
 

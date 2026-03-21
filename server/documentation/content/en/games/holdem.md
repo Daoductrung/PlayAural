@@ -74,25 +74,23 @@ Options \& Variants
 
 
 
-\* Raise Mode:
+\* \*\*Raise Mode:\*\* No Limit (bet all chips anytime), Pot Limit (max raise = pot), or Double Pot (max raise = 2x pot).
 
-  \* No Limit: You can bet all your chips at any time.
+\* \*\*Blinds & Ante:\*\*
 
-  \* Pot Limit: Maximum raise is the current size of the pot.
+  \* Big Blind: Set the base stake (default 200).
 
-  \* Double Pot: Maximum raise is 2x the pot size.
+  \* Ante: Optional forced bet for all players (default 0).
 
-\* Blinds \& Ante:
+  \* Blind Timer: Automatically increase blinds over time (default every 20 hands).
 
-  \* Big Blind: Set the base stake.
+  \* Ante Start Level: The blind level at which the ante kicks in (default 0).
 
-  \* Ante: Optional forced bet for all players.
+\* \*\*Starting Chips:\*\* Adjust the initial stack size (default 20,000).
 
-  \* Blind Timer: Automatically increase blinds over time.
+\* \*\*Max Raises:\*\* Limit the number of raises per betting round (0 = unlimited, default 0).
 
-  \* Ante start level: Level at which the ante begins.
-
-\* Starting Chips: Adjust the initial stack size.
+\* \*\*Turn Timer:\*\* Set a time limit for decisions.
 
 
 
@@ -100,26 +98,38 @@ Keyboard Shortcuts
 
 
 
-\* C: Check or Call.
+\* \*\*C:\*\* Check or Call.
 
-\* F: Fold.
+\* \*\*F:\*\* Fold.
 
-\* R: Raise.
+\* \*\*R:\*\* Raise.
 
-\* A: All-in.
+\* \*\*Shift+A:\*\* All-in.
 
-\* P: Check table status (pot size, current bets).
+\* \*\*P:\*\* Check table status (pot size, current bets).
 
-\* H: Check players in hand.
+\* \*\*H:\*\* Check players in hand.
 
-\* W: Read private hole cards.
+\* \*\*W:\*\* Read private hole cards.
 
-\* G: Check hand value/strength.
+\* \*\*G:\*\* Check hand value/strength.
 
-\* E: Read community cards (Table).
+\* \*\*N:\*\* Check current bet to call.
 
-\* X: Identify Dealer button position.
+\* \*\*M:\*\* Check minimum raise amount.
 
-\* Z: Your position.
+\* \*\*E:\*\* Read community cards (Table).
+
+\* \*\*X:\*\* Identify Dealer button position.
+
+\* \*\*Z:\*\* Your position.
+
+\* \*\*V:\*\* Check blind timer.
+
+\* \*\*O:\*\* Reveal both hole cards (post-hand).
+
+\* \*\*U:\*\* Reveal first hole card (post-hand).
+
+\* \*\*I:\*\* Reveal second hole card (post-hand).
 
 

@@ -52,6 +52,26 @@ At the end of each round, 1 point is awarded for each of the following (no point
 
 
 
+\*\*Game Options\*\*
+
+\* \*\*Target Score:\*\* The score needed to win (default 11, range 1-121).
+
+\* \*\*Cards Per Deal:\*\* How many cards each player receives per deal (default 3, range 1-10).
+
+\* \*\*Number of Decks:\*\* How many 40-card decks to use (default 1, range 1-6).
+
+\* \*\*Team Mode:\*\* Play individually or in teams.
+
+\* \*\*Team Card Scoring:\*\* Whether team members' captured cards are pooled for scoring (default on).
+
+\* \*\*Show Capture Hints:\*\* Display which table cards can be captured with each hand card (default off).
+
+\* \*\*Scopa Mechanic:\*\* Normal, No Scopas (table sweeps do not score), or Only Scopas (only sweep points count).
+
+\* \*\*Instant Win Scopas:\*\* Whether clearing the table instantly wins the round (default off).
+
+
+
 \*\*Game Variants\*\*
 
 \* \*\*Manual Selection:\*\* When enabled, if a played card can capture multiple valid combinations from the table, you can manually choose which combination to take instead of the game auto-selecting the one with the most cards.

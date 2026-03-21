@@ -127,7 +127,7 @@ class TradeoffGame(Game):
 
     @classmethod
     def get_supported_leaderboards(cls) -> list[str]:
-        return ["rating", "games_played"]
+        return ["wins", "rating", "games_played"]
 
     @classmethod
     def get_leaderboard_types(cls) -> list[dict]:

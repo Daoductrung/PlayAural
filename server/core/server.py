@@ -4069,12 +4069,15 @@ PlayAural Server
 
         # Available leaderboard types (common to all games)
         supported_types = game_class.get_supported_leaderboards()
-        items = [
-            MenuItem(
-                text=Localization.get(user.locale, "leaderboard-type-wins"),
-                id="type_wins",
+        items: list[MenuItem] = []
+
+        if "wins" in supported_types:
+            items.append(
+                MenuItem(
+                    text=Localization.get(user.locale, "leaderboard-type-wins"),
+                    id="type_wins",
+                )
             )
-        ]
 
         if "rating" in supported_types:
             items.append(
@@ -4567,13 +4570,15 @@ PlayAural Server
             high_score = int(stats.get("high_score", 0))
             winrate = round((wins / games_played * 100) if games_played > 0 else 0)
 
+            supported_types = game_class.get_supported_leaderboards()
+
             items.append(MenuItem(text=Localization.get(user.locale, "my-stats-games-played", value=games_played), id="games_played"))
-            items.append(MenuItem(text=Localization.get(user.locale, "my-stats-wins", value=wins), id="wins"))
-            items.append(MenuItem(text=Localization.get(user.locale, "my-stats-losses", value=losses), id="losses"))
-            items.append(MenuItem(text=Localization.get(user.locale, "my-stats-winrate", value=winrate), id="winrate"))
+            if "wins" in supported_types:
+                items.append(MenuItem(text=Localization.get(user.locale, "my-stats-wins", value=wins), id="wins"))
+                items.append(MenuItem(text=Localization.get(user.locale, "my-stats-losses", value=losses), id="losses"))
+                items.append(MenuItem(text=Localization.get(user.locale, "my-stats-winrate", value=winrate), id="winrate"))
 
             # Score stats (if applicable)
-            supported_types = game_class.get_supported_leaderboards()
             if total_score > 0 and "total_score" in supported_types:
                 items.append(MenuItem(text=Localization.get(user.locale, "my-stats-total-score", value=total_score), id="total_score"))
             if high_score > 0 and "high_score" in supported_types:

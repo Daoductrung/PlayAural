@@ -194,7 +194,7 @@ class HoldemGame(Game, TurnTimerMixin):
 
     @classmethod
     def get_supported_leaderboards(cls) -> list[str]:
-        return ["rating", "games_played"]
+        return ["wins", "rating", "games_played"]
 
     @classmethod
     def get_type(cls) -> str:

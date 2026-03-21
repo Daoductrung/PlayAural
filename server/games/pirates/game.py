@@ -135,7 +135,7 @@ class PiratesGame(Game):
 
     @classmethod
     def get_supported_leaderboards(cls) -> list[str]:
-        return ["rating", "games_played"]
+        return ["wins", "rating", "games_played"]
 
     def __post_init__(self):
         """Initialize non-serialized state."""

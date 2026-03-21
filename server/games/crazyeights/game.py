@@ -126,7 +126,7 @@ class CrazyEightsGame(Game, TurnTimerMixin):
 
     @classmethod
     def get_supported_leaderboards(cls) -> list[str]:
-        return ["rating", "games_played"]
+        return ["wins", "rating", "games_played"]
 
     def create_player(self, player_id: str, name: str, is_bot: bool = False) -> CrazyEightsPlayer:
         return CrazyEightsPlayer(id=player_id, name=name, is_bot=is_bot)

@@ -175,6 +175,16 @@ class ActionSetCreationMixin:
                 include_spectators=True,
             )
         )
+        action_set.add(
+            Action(
+                id="game_info",
+                label=Localization.get(locale, "game-info"),
+                handler="_action_game_info",
+                is_enabled="_is_game_info_enabled",
+                is_hidden="_is_game_info_hidden",
+                include_spectators=True,
+            )
+        )
         return action_set
 
     def setup_keybinds(self) -> None:
@@ -195,7 +205,7 @@ class ActionSetCreationMixin:
             include_spectators=True,
         )
         self.define_keybind(
-            "ctrl+shift+m",
+            "ctrl+m",
             "Host Management",
             ["host_management"],
             state=KeybindState.ALWAYS,
@@ -229,7 +239,7 @@ class ActionSetCreationMixin:
             include_spectators=True,
         )
         self.define_keybind(
-            "ctrl+w",
+            "ctrl+u",
             "Who's at the table",
             ["whos_at_table"],
             state=KeybindState.ALWAYS,
@@ -254,6 +264,13 @@ class ActionSetCreationMixin:
             "Predict outcomes",
             ["predict_outcomes"],
             state=KeybindState.ACTIVE,
+            include_spectators=True,
+        )
+        self.define_keybind(
+            "ctrl+i",
+            "Game info",
+            ["game_info"],
+            state=KeybindState.ALWAYS,
             include_spectators=True,
         )
 

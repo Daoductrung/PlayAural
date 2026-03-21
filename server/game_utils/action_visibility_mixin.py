@@ -114,7 +114,7 @@ class ActionVisibilityMixin:
         return None
 
     def _is_host_management_hidden(self, player: "Player") -> Visibility:
-        """Host management is always hidden (actions menu / Ctrl+Shift+M only)."""
+        """Host management is always hidden (actions menu / Ctrl+M only)."""
         return Visibility.HIDDEN
 
     def _is_leave_game_enabled(self, player: "Player") -> str | None:
@@ -229,4 +229,12 @@ class ActionVisibilityMixin:
 
     def _is_predict_outcomes_hidden(self, player: "Player") -> Visibility:
         """Predict outcomes is always hidden (keybind only)."""
+        return Visibility.HIDDEN
+
+    def _is_game_info_enabled(self, player: "Player") -> str | None:
+        """Game info is always enabled."""
+        return None
+
+    def _is_game_info_hidden(self, player: "Player") -> Visibility:
+        """Game info is always hidden (keybind/actions menu only)."""
         return Visibility.HIDDEN

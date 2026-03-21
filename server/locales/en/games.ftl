@@ -112,3 +112,15 @@ game-rules = Game Rules
 changelog = Changelog
 document-not-found = Document not found.
 help = Help
+
+# Game Info (Ctrl+I)
+game-info = Game Info
+game-info-header = Current Game Information
+game-info-name = Game: {$game}
+game-info-players = Players: {$count}
+game-info-host = Host: {$host}
+game-info-status = Status: {$status}
+game-info-status-waiting = Waiting in lobby
+game-info-status-playing = In progress
+game-info-options-header = Settings:
+game-info-no-options = This game has no custom configuration options.

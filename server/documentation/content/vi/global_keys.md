@@ -18,7 +18,9 @@ Dưới đây là danh sách các phím tắt chung được sử dụng trong h
 
 **Điều khiển trong ván chơi**
 
-* **Ctrl + Shift + M:** Mở Quản lý Phòng (chỉ dành cho chủ phòng; khả dụng trong ván chơi).
+* **Ctrl + M:** Mở Quản lý Phòng (chỉ dành cho chủ phòng; khả dụng trong ván chơi).
+* **Ctrl + I:** Xem Thông tin Trò chơi (hiển thị cài đặt và tùy chọn hiện tại).
+* **Ctrl + U:** Ai đang ở bàn (liệt kê tất cả người chơi và khán giả).
 
 **Điều hướng Bộ nhớ đệm (Buffer)**
 

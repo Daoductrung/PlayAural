@@ -104,3 +104,41 @@ class GameScoresMixin:
             self.status_box(player, lines)
         else:
             self.status_box(player, ["No scores available."])
+
+    def _action_game_info(self, player: "Player", action_id: str) -> None:
+        """Show current game settings/options to the player."""
+        user = self.get_user(player)
+        if not user:
+            return
+
+        locale = user.locale
+        lines = [Localization.get(locale, "game-info-header")]
+
+        # Game name
+        game_name = Localization.get(locale, self.get_name_key())
+        lines.append(Localization.get(locale, "game-info-name", game=game_name))
+
+        # Player count
+        active = [p for p in self.players if not p.is_spectator]
+        lines.append(
+            Localization.get(locale, "game-info-players", count=len(active))
+        )
+
+        # Host
+        lines.append(Localization.get(locale, "game-info-host", host=self.host))
+
+        # Status
+        status_text = Localization.get(locale, f"game-info-status-{self.status}")
+        lines.append(
+            Localization.get(locale, "game-info-status", status=status_text)
+        )
+
+        # Options
+        if hasattr(self, "options") and self.options.get_option_metas():
+            lines.append(Localization.get(locale, "game-info-options-header"))
+            for option_line in self.options.format_options_summary(locale):
+                lines.append(f"  {option_line}")
+        else:
+            lines.append(Localization.get(locale, "game-info-no-options"))
+
+        self.status_box(player, lines)

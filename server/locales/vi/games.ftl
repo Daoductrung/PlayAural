@@ -112,3 +112,15 @@ game-rules = Luật chơi
 changelog = Nhật ký thay đổi
 document-not-found = Không tìm thấy tài liệu.
 help = Trợ giúp
+
+# Game Info (Ctrl+I)
+game-info = Thông tin trò chơi
+game-info-header = Thông tin trò chơi hiện tại
+game-info-name = Trò chơi: {$game}
+game-info-players = Người chơi: {$count}
+game-info-host = Chủ phòng: {$host}
+game-info-status = Trạng thái: {$status}
+game-info-status-waiting = Đang chờ trong phòng
+game-info-status-playing = Đang chơi
+game-info-options-header = Cài đặt:
+game-info-no-options = Trò chơi này không có tùy chọn cấu hình.

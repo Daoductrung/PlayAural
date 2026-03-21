@@ -85,7 +85,7 @@ The `include_spectators` flag on `Action` and `Keybind` must always agree. Incon
 
 **Host spectator edge case**: `start_game`, `add_bot`, `remove_bot` are marked `include_spectators=True` so a player who toggles to spectator in the lobby retains host management. Non-host spectators cannot trigger these because the `is_enabled` callbacks gate by host identity (`player.name != self.host`).
 
-Standard/lobby actions already marked `include_spectators=True` in the base class: `show_actions`, `toggle_spectator`, `host_management`, `leave_game`, `start_game`, `add_bot`, `remove_bot`, `whose_turn`, `whos_at_table`, `check_scores`, `check_scores_detailed`, `predict_outcomes`.
+Standard/lobby actions already marked `include_spectators=True` in the base class: `show_actions`, `toggle_spectator`, `host_management`, `leave_game`, `start_game`, `add_bot`, `remove_bot`, `whose_turn`, `whos_at_table`, `check_scores`, `check_scores_detailed`, `predict_outcomes`, `game_info`.
 
 #### Turn Management Rules
 - **`set_turn_players(players)`** resets `turn_index` to 0, making `players[0]` the current player immediately.
@@ -132,7 +132,7 @@ The server can push a transient menu (e.g. Host Management) on top of the in-gam
 - Clear it (`_actions_menu_open.discard(player.id)`) in `_return_to_game()` **before** calling `rebuild_player_menu()`.
 - `rebuild_all_menus()` skips any player whose ID is in `_actions_menu_open`.
 
-`_is_host_management_hidden` always returns `Visibility.HIDDEN` so the action never appears in the turn menu. It remains accessible via the actions menu/Escape (which checks `show_in_actions_menu`, not `visible`) and the `Ctrl+Shift+M` keybind (`KeybindState.ALWAYS`, `include_spectators=True`). Non-host spectators receive the `action-not-host` disabled reason from the keybind handler.
+`_is_host_management_hidden` always returns `Visibility.HIDDEN` so the action never appears in the turn menu. It remains accessible via the actions menu/Escape (which checks `show_in_actions_menu`, not `visible`) and the `Ctrl+M` keybind (`KeybindState.ALWAYS`, `include_spectators=True`). Non-host spectators receive the `action-not-host` disabled reason from the keybind handler.
 
 #### Universal Redraw Guard (GLOBAL_SYSTEM_MENUS)
 `server.GLOBAL_SYSTEM_MENUS` is a class-level set of menu IDs that represent server-side overlays (friends hub, options, online users, public profile, etc.). Two invariants are enforced:

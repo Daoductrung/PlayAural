@@ -46,7 +46,10 @@ class OptionMeta:
     prompt: str = ""  # Localization key for input prompt (if applicable)
 
     def get_label(self, locale: str, value: Any) -> str:
-        """Get the localized label with current value interpolated."""
+        """Get the localized label with current value interpolated.
+
+        Subclasses must override this.
+        """
         raise NotImplementedError
 
     def get_label_kwargs(self, value: Any) -> dict[str, Any]:
@@ -86,6 +89,9 @@ class IntOption(OptionMeta):
     value_key: str = (
         "score"  # Key used in localization (e.g., "score", "points", "sides")
     )
+
+    def get_label(self, locale: str, value: Any) -> str:
+        return Localization.get(locale, self.label, **self.get_label_kwargs(value))
 
     def get_label_kwargs(self, value: Any) -> dict[str, Any]:
         return {self.value_key: value}
@@ -136,6 +142,9 @@ class FloatOption(OptionMeta):
     value_key: str = (
         "value"  # Key used in localization (e.g., "value", "amount", "rate")
     )
+
+    def get_label(self, locale: str, value: Any) -> str:
+        return Localization.get(locale, self.label, **self.get_label_kwargs(value))
 
     def get_label_kwargs(self, value: Any) -> dict[str, Any]:
         return {self.value_key: value}
@@ -188,6 +197,11 @@ class MenuOption(OptionMeta):
     # Map choice values to localization keys for display
     # If not provided, raw choice values are displayed
     choice_labels: dict[str, str] | None = None
+
+    def get_label(self, locale: str, value: Any) -> str:
+        return Localization.get(
+            locale, self.label, **self.get_label_kwargs_localized(value, locale)
+        )
 
     def get_localized_choice(self, value: str, locale: str) -> str:
         """Get the localized display text for a choice value."""
@@ -274,6 +288,11 @@ class BoolOption(OptionMeta):
         # Bool options don't need a prompt - they just toggle
         self.prompt = ""
 
+    def get_label(self, locale: str, value: Any) -> str:
+        on_off_key = "option-on" if value else "option-off"
+        on_off = Localization.get(locale, on_off_key)
+        return Localization.get(locale, self.label, **{self.value_key: on_off})
+
     def get_label_kwargs(self, value: Any) -> dict[str, Any]:
         return {self.value_key: "on" if value else "off"}
 
@@ -353,6 +372,14 @@ class GameOptions(DataClassJSONMixin):
     def get_option_metas(self) -> dict[str, OptionMeta]:
         """Get all option metadata for this options instance."""
         return get_all_option_metas(type(self))
+
+    def format_options_summary(self, locale: str) -> list[str]:
+        """Return a list of localized label strings for all current option values."""
+        lines = []
+        for name, meta in self.get_option_metas().items():
+            current_value = getattr(self, name)
+            lines.append(meta.get_label(locale, current_value))
+        return lines
 
     def create_options_action_set(self, game: "Game", player: "Player") -> ActionSet:
         """Create an ActionSet with all declared options."""

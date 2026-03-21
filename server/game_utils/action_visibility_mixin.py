@@ -238,3 +238,11 @@ class ActionVisibilityMixin:
     def _is_game_info_hidden(self, player: "Player") -> Visibility:
         """Game info is always hidden (keybind/actions menu only)."""
         return Visibility.HIDDEN
+
+    def _is_game_rules_enabled(self, player: "Player") -> str | None:
+        """Game rules is always enabled."""
+        return None
+
+    def _is_game_rules_hidden(self, player: "Player") -> Visibility:
+        """Game rules is always hidden (keybind/actions menu only)."""
+        return Visibility.HIDDEN

@@ -124,3 +124,7 @@ game-info-status-waiting = Waiting in lobby
 game-info-status-playing = In progress
 game-info-options-header = Settings:
 game-info-no-options = This game has no custom configuration options.
+
+# How to Play (Ctrl+F1)
+how-to-play = How to Play
+game-rules-not-available = Rules for {$game} are not available yet.

@@ -185,6 +185,16 @@ class ActionSetCreationMixin:
                 include_spectators=True,
             )
         )
+        action_set.add(
+            Action(
+                id="game_rules",
+                label=Localization.get(locale, "how-to-play"),
+                handler="_action_game_rules",
+                is_enabled="_is_game_rules_enabled",
+                is_hidden="_is_game_rules_hidden",
+                include_spectators=True,
+            )
+        )
         return action_set
 
     def setup_keybinds(self) -> None:
@@ -270,6 +280,13 @@ class ActionSetCreationMixin:
             "ctrl+i",
             "Game info",
             ["game_info"],
+            state=KeybindState.ALWAYS,
+            include_spectators=True,
+        )
+        self.define_keybind(
+            "ctrl+f1",
+            "How to play",
+            ["game_rules"],
             state=KeybindState.ALWAYS,
             include_spectators=True,
         )

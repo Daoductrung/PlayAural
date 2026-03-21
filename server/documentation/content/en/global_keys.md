@@ -21,6 +21,7 @@ Here is a list of general keybinds used within the PlayAural system.
 * **Ctrl + M:** Open Host Management (table hosts only; available during a game).
 * **Ctrl + I:** View Game Info (shows current game settings and options).
 * **Ctrl + U:** Who's at the table (lists all players and spectators).
+* **Ctrl + F1:** How to Play (opens the current game's rules).
 
 **Buffer Navigation**
 

@@ -2074,8 +2074,12 @@ class GameClient {
 
     handleGlobalKeyDown(e) {
 
-        // F1 for Ping (Parity)
-        if (e.key === 'F1') {
+        if (e.key === 'F1' && e.ctrlKey) {
+            // Ctrl+F1: Game rules — send as keybind to server
+            e.preventDefault();
+            this.sendKeybind("f1", null, { control: true });
+        } else if (e.key === 'F1') {
+            // F1 for Ping (Parity)
             e.preventDefault();
             this.sendPing();
         }

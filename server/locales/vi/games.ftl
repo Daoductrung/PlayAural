@@ -124,3 +124,7 @@ game-info-status-waiting = Đang chờ trong phòng
 game-info-status-playing = Đang chơi
 game-info-options-header = Cài đặt:
 game-info-no-options = Trò chơi này không có tùy chọn cấu hình.
+
+# How to Play (Ctrl+F1)
+how-to-play = Cách chơi
+game-rules-not-available = Luật chơi cho {$game} chưa có sẵn.

@@ -109,5 +109,6 @@ introduction = Giới thiệu
 community-rules = Nội quy cộng đồng
 global-keys = Phím tắt toàn cục
 game-rules = Luật chơi
+changelog = Nhật ký thay đổi
 document-not-found = Không tìm thấy tài liệu.
 help = Trợ giúp

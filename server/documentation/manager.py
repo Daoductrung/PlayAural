@@ -66,6 +66,7 @@ class DocumentationManager:
         """
         return {
             "intro": "introduction",
-            "community_rules": "community-rules", 
+            "community_rules": "community-rules",
             "global_keys": "global-keys",
+            "changelog": "changelog",
         }

@@ -109,5 +109,6 @@ introduction = Introduction
 community-rules = Community Rules
 global-keys = Global Keybinds
 game-rules = Game Rules
+changelog = Changelog
 document-not-found = Document not found.
 help = Help

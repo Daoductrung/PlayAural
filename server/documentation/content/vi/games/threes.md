@@ -64,6 +64,12 @@ Lượt chơi của bạn sẽ tự động kết thúc khi cả năm viên xúc
 
 
 
+\*\*Tùy chọn trò chơi\*\*
+
+\* \*\*Tổng số vòng:\*\* Số vòng chơi (mặc định 10).
+
+
+
 \*\*Phím tắt bàn phím\*\*
 
 

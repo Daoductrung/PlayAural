@@ -78,19 +78,15 @@ Options \& Variants
 
 
 
-\* Raise Mode:
+\* \*\*Raise Mode:\*\* No Limit (bet all chips anytime), Pot Limit (max raise = pot), or Double Pot (max raise = 2x pot).
 
-  \* No Limit: You can bet all your chips at any time.
+\* \*\*Starting Chips:\*\* Adjust the initial stack size (default 20,000).
 
-  \* Pot Limit: Maximum raise is the current size of the pot.
+\* \*\*Ante:\*\* A forced bet paid by all players before dealing (default 100).
 
-  \* Double Pot: Maximum raise is 2x the pot size.
+\* \*\*Max Raises:\*\* Limit the number of raises per betting round (0 = unlimited, default 0).
 
-\* Starting Chips: Adjust the initial stack size.
-
-\* Ante: Set a forced bet for every player before dealing.
-
-\* Turn Timer: Set a time limit for decisions.
+\* \*\*Turn Timer:\*\* Set a time limit for decisions.
 
 
 
@@ -100,27 +96,35 @@ Keyboard Shortcuts
 
 Betting Actions
 
-\* C: Check or Call.
+\* \*\*C:\*\* Check or Call.
 
-\* F: Fold.
+\* \*\*F:\*\* Fold.
 
 \* \*\*R:\*\* Raise.
 
-\* A: All-in.
+\* \*\*Shift+A:\*\* All-in.
 
-\* P: Check table status (pot size, current bets).
+\* \*\*P:\*\* Check table status (pot size, current bets).
 
-\* H: Check players in hand.
+\* \*\*H:\*\* Check players in hand.
 
-* W: Read hand cards.
+\* \*\*W:\*\* Read hand cards.
 
-* G: Check current hand value.
+\* \*\*G:\*\* Check current hand value.
+
+\* \*\*N:\*\* Check current bet to call.
+
+\* \*\*M:\*\* Check minimum raise amount.
+
+\* \*\*X:\*\* Check dealer position.
+
+\* \*\*Z:\*\* Check your position.
 
 
 
 Draw Phase Actions
 
-\* Numbers 1 to 5: Select or Deselect cards to discard.
+\* \*\*1-5:\*\* Select or Deselect cards to discard.
 
-\* Space: Confirm to draw new cards replacing the selected ones.
+\* \*\*Space:\*\* Confirm to draw new cards replacing the selected ones.
 

@@ -204,7 +204,7 @@ pytest -v                                      # verbose output
 
 ## Game Catalog
 
-20 games across four categories:
+22 games across four categories:
 
 ### Card Games
 
@@ -212,6 +212,7 @@ pytest -v                                      # verbose output
 |------|-------------|
 | Texas Hold'em | Classic community-card poker |
 | Five Card Draw | Traditional draw poker |
+| Blackjack | Classic casino card game against the dealer |
 | Pusoy Dos | Filipino shedding card game |
 | Crazy Eights | Classic shedding card game |
 | Scopa | Traditional Italian card-capture game |
@@ -224,11 +225,12 @@ pytest -v                                      # verbose output
 |------|-------------|
 | Farkle | Push-your-luck dice scoring |
 | Toss Up | Push-your-luck with color-coded dice faces |
-| Threes | Farkle variant — threes are wild |
+| Threes | Low-score dice game — threes are worth zero |
 | Yahtzee | Classic combination dice game |
 | Left Right Center | Fast-paced social dice game |
 | Midnight | Build the best hand before midnight |
 | Pig | Simple push-your-luck dice race |
+| Rolling Balls | Draw balls from a pipe for points |
 
 ### Adventure & Board
 
@@ -237,14 +239,14 @@ pytest -v                                      # verbose output
 | Pirates of the Lost Seas | Competitive RPG — sail, battle, collect gems |
 | Snakes and Ladders | Classic board game |
 | Light Turret | Resource management — power and light |
-| Chaos Bear | Fast-paced action game |
+| Chaos Bear | Push-your-luck chase game |
 
 ### Social / Party
 
 | Game | Description |
 |------|-------------|
 | Coup | Hidden-role social deduction |
-| Trade-off | Competitive trading and negotiation |
+| Trade-off | Competitive dice-trading game |
 
 ---
 

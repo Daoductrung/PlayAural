@@ -80,13 +80,35 @@ When an opponent plays a hazard on you, you have a \*\*7-second window\*\* to pl
 
 
 
+\*\*Game Options\*\*
+
+\* \*\*Round Distance:\*\* The target distance for each race (default 1,000 miles, range 300-3,000).
+
+\* \*\*Winning Score:\*\* The total score needed to win the match (default 5,000, range 1,000-10,000).
+
+\* \*\*Team Mode:\*\* Play individually or in teams.
+
+\* \*\*Perfect Crossing:\*\* Whether you must reach the target distance exactly (default on).
+
+\* \*\*Allow Stacking Attacks:\*\* Whether multiple hazards can be played on the same player (default off).
+
+\* \*\*Reshuffle Discard Pile:\*\* Whether the discard pile is reshuffled when the draw pile runs out (default on).
+
+\* \*\*Karma Rule:\*\* Whether playing a hazard on someone backfires if you have no matching safety (default off).
+
+\* \*\*Rig Game:\*\* Adjust the deck composition (no duplicates, 2x attacks, 2x defenses, or none).
+
+
+
 \*\*Keyboard Shortcuts\*\*
 
-\* \*\*Enter:\*\* Play selected card.
+\* \*\*1-6:\*\* Select and play a card from your hand by position.
 
-\* \*\*Shift+Enter:\*\* Discard selected card.
+\* \*\*Shift+Enter:\*\* Discard the currently selected card.
 
 \* \*\*D:\*\* Play a Dirty Trick (Coup Fourré).
+
+\* \*\*I:\*\* View hand info (cards in hand with details).
 
 \* \*\*S:\*\* Check status.
 

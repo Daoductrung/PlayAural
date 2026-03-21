@@ -56,6 +56,16 @@ The game continues until a player or team reaches the target score (default 100)
 
 
 
+\*\*Game Options\*\*
+
+\* \*\*Target Score:\*\* The score needed to win (default 100, range 20-500).
+
+\* \*\*Starting Dice:\*\* How many dice each player rolls per turn (default 10, range 5-20).
+
+\* \*\*Rules Variant:\*\* Standard (bust = no green + at least one red) or PlayAural (bust = all dice red).
+
+
+
 \*\*Keyboard Shortcuts\*\*
 
 

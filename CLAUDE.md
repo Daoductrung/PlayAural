@@ -51,7 +51,7 @@ Key packet types: `AUTHORIZE`, `MENU`, `KEYBIND`, `CHAT`, `SPEAK`, `PLAY_SOUND`,
 ### Server Architecture
 - **`server/core/server.py`** — Main orchestrator
 - **`server/network/websocket_server.py`** — Async WebSocket connection management
-- **`server/games/`** — 20 game implementations; each extends an abstract `Game` base class via 14 mixins
+- **`server/games/`** — 22 game implementations; each extends an abstract `Game` base class via 14 mixins
 - **`server/game_utils/`** — 40+ shared utility modules (cards, dice, poker logic, turn management, scoring)
 - **`server/auth/`** — Argon2 password hashing, rate limiting
 - **`server/persistence/database.py`** — SQLite (`PlayAural.db`), user accounts, game history, OpenSkill ratings
@@ -224,7 +224,7 @@ All imports at module level. No in-function imports anywhere in the server codeb
 - **`network.connect()` version parameter**: Always pass `client_version=VERSION` to every `network.connect()` call, including all reconnect paths (`_attempt_silent_reconnect`, `_do_reconnect`). Omitting it defaults to `"0.0.0"`, causing the server to skip `_restore_user_state` and silently drop all menu selections after reconnect (chat still works, making the bug hard to diagnose).
 
 ### Web Client Architecture
-- **`web_client/game.js`** — Single-file game logic (~2,900 lines), connects to same WebSocket server
+- **`web_client/game.js`** — Single-file game logic (~3,000 lines), connects to same WebSocket server
 - **`web_client/locales.js`** — i18n strings
 - ARIA live regions for screen reader announcements; service worker for PWA offline support
 

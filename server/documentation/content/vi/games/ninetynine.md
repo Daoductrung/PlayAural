@@ -84,6 +84,18 @@ Người chơi bắt đầu với một số lượng thẻ (mặc định là 9
 
 
 
+\*\*Tùy chọn trò chơi\*\*
+
+\* \*\*Số thẻ bắt đầu:\*\* Số thẻ mỗi người chơi có khi bắt đầu (mặc định 9, phạm vi 1-50).
+
+\* \*\*Số bài trên tay:\*\* Số lá bài được chia cho mỗi người mỗi vòng (mặc định 3, phạm vi 1-13).
+
+\* \*\*Biến thể luật:\*\* Quentin C (mặc định) hoặc RS Games.
+
+\* \*\*Tự động rút bài:\*\* Tự động rút bài thay thế sau khi đánh (mặc định bật). Khi tắt, người chơi phải rút bằng phím Cách hoặc D.
+
+
+
 \*\*Phím tắt bàn phím\*\*
 
 

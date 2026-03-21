@@ -74,25 +74,23 @@ Tùy chọn \& Biến thể
 
 
 
-\* Chế độ Tố:
+\* \*\*Chế độ Tố:\*\* Không giới hạn (tố tất cả bất kỳ lúc nào), Giới hạn Hũ (tố tối đa = hũ), hoặc Gấp đôi Hũ (tố tối đa = 2x hũ).
 
-  \* Không giới hạn: Tố tất cả số chip bạn có bất kỳ lúc nào.
+\* \*\*Mù & Tiền gà:\*\*
 
-  \* Giới hạn Hũ: Tố tối đa bằng số chip trong hũ.
+  \* Mù lớn: Mức cược cơ bản (mặc định 200).
 
-  \* Gấp đôi Hũ: Tố tối đa bằng 2 lần số chip trong hũ.
+  \* Tiền gà (Ante): Cược bắt buộc cho tất cả (mặc định 0).
 
-\* Mù \& Tiền gà:
+  \* Hẹn giờ tăng mù: Tự động tăng tiền mù (mặc định mỗi 20 ván).
 
-  \* Mù lớn: Mức cược cơ bản của ván.
+  \* Tiền gà bắt đầu từ cấp độ: Cấp tiền mù mà tiền gà bắt đầu áp dụng (mặc định 0).
 
-  \* Tiền gà (Ante): Cược bắt buộc cho tất cả mọi người (tùy chọn).
+\* \*\*Chip khởi điểm:\*\* Số chip ban đầu (mặc định 20,000).
 
-  \* Hẹn giờ tăng mù: Tự động tăng tiền mù theo thời gian.
+\* \*\*Giới hạn số lần Tố:\*\* Giới hạn số lần tố mỗi vòng cược (0 = không giới hạn, mặc định 0).
 
-  \* Tiền gà bắt đầu từ cấp độ: Chỉ thu tiền gà sau khi tiền mù đã tăng đến cấp độ nhất định.
-
-\* Chip khởi điểm: Số chip ban đầu.
+\* \*\*Đồng hồ tính giờ:\*\* Giới hạn thời gian cho mỗi quyết định.
 
 
 
@@ -100,17 +98,37 @@ Phím tắt
 
 
 
-\* C: Xem hoặc Theo.
+\* \*\*C:\*\* Xem hoặc Theo.
 
-\* F: Úp bỏ bài.
+\* \*\*F:\*\* Úp bỏ bài.
 
-\* R: Tố.
-\* A: Tất tay (All-in).
-\* P: Kiểm tra trạng thái bàn (tổng hũ, mức cược hiện tại).
-\* H: Kiểm tra người chơi trong ván.
-\* W: Đọc các lá bài tẩy (bài riêng).
-\* G: Kiểm tra độ mạnh tay bài hiện tại.
-\* E: Đọc các lá bài chung trên bàn.
-\* X: Kiểm tra vị trí Nút Dealer.
-\* Z: Vị trí của bạn.
+\* \*\*R:\*\* Tố.
+
+\* \*\*Shift+A:\*\* Tất tay (All-in).
+
+\* \*\*P:\*\* Kiểm tra trạng thái bàn (tổng hũ, mức cược hiện tại).
+
+\* \*\*H:\*\* Kiểm tra người chơi trong ván.
+
+\* \*\*W:\*\* Đọc các lá bài tẩy (bài riêng).
+
+\* \*\*G:\*\* Kiểm tra độ mạnh tay bài hiện tại.
+
+\* \*\*N:\*\* Kiểm tra mức cược hiện tại cần theo.
+
+\* \*\*M:\*\* Kiểm tra mức tố tối thiểu.
+
+\* \*\*E:\*\* Đọc các lá bài chung trên bàn.
+
+\* \*\*X:\*\* Kiểm tra vị trí Nút Dealer.
+
+\* \*\*Z:\*\* Vị trí của bạn.
+
+\* \*\*V:\*\* Kiểm tra hẹn giờ tăng mù.
+
+\* \*\*O:\*\* Lật cả hai lá bài tẩy (sau ván).
+
+\* \*\*U:\*\* Lật lá bài tẩy thứ nhất (sau ván).
+
+\* \*\*I:\*\* Lật lá bài tẩy thứ hai (sau ván).
 

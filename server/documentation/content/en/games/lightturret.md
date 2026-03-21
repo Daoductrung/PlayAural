@@ -62,6 +62,14 @@ You start with the default power of 10. You currently have 6 light and 8 coins.
 
 
 
+\*\*Game Options\*\*
+
+\* \*\*Starting Power:\*\* The initial power capacity for each player (default 10).
+
+\* \*\*Max Rounds:\*\* The maximum number of rounds before the game ends (default 50).
+
+
+
 \*\*Keyboard Shortcuts\*\*
 
 

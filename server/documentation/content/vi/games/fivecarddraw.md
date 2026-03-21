@@ -78,17 +78,15 @@ Tùy chọn \& Biến thể
 
 
 
-\* Chế độ Tố:
+\* \*\*Chế độ Tố:\*\* Không giới hạn (cược tất cả bất kỳ lúc nào), Giới hạn Hũ (tố tối đa = hũ), hoặc Gấp đôi Hũ (tố tối đa = 2x hũ).
 
-  \* Không giới hạn: Bạn có thể cược tất cả số chip mình có bất cứ lúc nào.
+\* \*\*Chip khởi điểm:\*\* Số lượng chip mỗi người có khi bắt đầu (mặc định 20,000).
 
-  \* Giới hạn Hũ: Mức tố tối đa bằng tổng số chip đang có trong hũ.
+\* \*\*Tiền gà:\*\* Mức cược bắt buộc đầu ván (mặc định 100).
 
-  \* Gấp đôi Hũ: Mức tố tối đa bằng 2 lần số chip trong hũ.
+\* \*\*Giới hạn số lần Tố:\*\* Giới hạn số lần tố mỗi vòng cược (0 = không giới hạn, mặc định 0).
 
-\* Chip khởi điểm: Số lượng chip mỗi người có khi bắt đầu.
-
-\* Tiền gà: Mức cược bắt buộc đầu ván.
+\* \*\*Đồng hồ tính giờ:\*\* Giới hạn thời gian cho mỗi quyết định.
 
 
 
@@ -98,27 +96,35 @@ Phím tắt
 
 Trong vòng cược
 
-\* C: Xem hoặc Theo.
+\* \*\*C:\*\* Xem hoặc Theo.
 
-\* F: Úp bỏ bài.
+\* \*\*F:\*\* Úp bỏ bài.
 
-\* R: Tố.
+\* \*\*R:\*\* Tố.
 
-\* A: Tất tay (All-in).
+\* \*\*Shift+A:\*\* Tất tay (All-in).
 
-\* P: Kiểm tra trạng thái bàn (xem hũ, mức cược hiện tại).
+\* \*\*P:\*\* Kiểm tra trạng thái bàn (xem hũ, mức cược hiện tại).
 
-\* H: Kiểm tra người chơi trong ván.
+\* \*\*H:\*\* Kiểm tra người chơi trong ván.
 
-* W: Đọc các lá bài trên tay.
+\* \*\*W:\*\* Đọc các lá bài trên tay.
 
-* G: Kiểm tra giá trị tay bài hiện tại.
+\* \*\*G:\*\* Kiểm tra giá trị tay bài hiện tại.
+
+\* \*\*N:\*\* Kiểm tra mức cược hiện tại cần theo.
+
+\* \*\*M:\*\* Kiểm tra mức tố tối thiểu.
+
+\* \*\*X:\*\* Kiểm tra vị trí Dealer.
+
+\* \*\*Z:\*\* Kiểm tra vị trí của bạn.
 
 
 
 Trong giai đoạn Đổi bài
 
-\* Các phím số 1 đến 5: Chọn hoặc Bỏ chọn các lá bài bạn muốn vứt đi để đổi lá mới.
+\* \*\*1-5:\*\* Chọn hoặc Bỏ chọn các lá bài bạn muốn vứt đi để đổi lá mới.
 
-\* Space (Phím Cách): Xác nhận đổi các lá bài đã chọn.
+\* \*\*Space (Phím Cách):\*\* Xác nhận đổi các lá bài đã chọn.
 

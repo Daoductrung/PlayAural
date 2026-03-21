@@ -52,6 +52,26 @@ Vào cuối mỗi vòng, 1 điểm sẽ được trao cho mỗi hạng mục sau
 
 
 
+\*\*Tùy chọn trò chơi\*\*
+
+\* \*\*Điểm mục tiêu:\*\* Số điểm cần đạt để thắng (mặc định 11, phạm vi 1-121).
+
+\* \*\*Số bài chia mỗi lượt:\*\* Số lá bài mỗi người chơi nhận mỗi lần chia (mặc định 3, phạm vi 1-10).
+
+\* \*\*Số bộ bài:\*\* Số bộ bài 40 lá được sử dụng (mặc định 1, phạm vi 1-6).
+
+\* \*\*Chế độ đội:\*\* Chơi cá nhân hoặc theo đội.
+
+\* \*\*Tính điểm bài theo đội:\*\* Bài ăn được của các thành viên trong đội được gộp chung để tính điểm (mặc định bật).
+
+\* \*\*Gợi ý ăn bài:\*\* Hiển thị những lá bài nào trên bàn có thể ăn được với mỗi lá bài trên tay (mặc định tắt).
+
+\* \*\*Cơ chế Scopa:\*\* Bình thường, Không Scopa (quét bàn không tính điểm), hoặc Chỉ Scopa (chỉ tính điểm quét bàn).
+
+\* \*\*Scopa tức thì:\*\* Quét sạch bàn sẽ thắng ngay ván đó (mặc định tắt).
+
+
+
 \*\*Các biến thể trò chơi\*\*
 
 \* \*\*Chọn nước ăn bài thủ công:\*\* Khi được bật, nếu lá bài đánh xuống có thể ăn nhiều tổ hợp khác nhau từ trên bàn, bạn có thể chọn thủ công tổ hợp nào để ăn thay vì trò chơi tự động chọn tổ hợp có nhiều lá bài nhất.

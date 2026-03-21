@@ -70,6 +70,12 @@ Khi bắt đầu lượt, bạn có sáu viên xúc xắc tiêu chuẩn.
 
 
 
+\*\*Tùy chọn trò chơi\*\*
+
+\* \*\*Số vòng:\*\* Số vòng chơi (mặc định 5, phạm vi 1-20).
+
+
+
 \*\*Phím tắt bàn phím\*\*
 
 

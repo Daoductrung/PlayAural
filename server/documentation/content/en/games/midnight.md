@@ -70,6 +70,12 @@ To score, your final set of six dice must contain both a \*\*1\*\* and a \*\*4\*
 
 
 
+\*\*Game Options\*\*
+
+\* \*\*Rounds:\*\* The number of rounds to play (default 5, range 1-20).
+
+
+
 \*\*Keyboard Shortcuts\*\*
 
 

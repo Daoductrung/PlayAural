@@ -204,7 +204,7 @@ pytest -v                                      # verbose output
 
 ## Game Catalog
 
-23 games across four categories:
+24 games across four categories:
 
 ### Card Games
 
@@ -241,6 +241,7 @@ pytest -v                                      # verbose output
 | Snakes and Ladders | Classic board game |
 | Light Turret | Resource management — power and light |
 | Chaos Bear | Push-your-luck chase game |
+| Dominos | Classic tile-matching game with Draw/Block modes, spinner support, and team play |
 
 ### Social / Party
 

@@ -218,7 +218,7 @@ class DominosGame(Game):
 
     @classmethod
     def get_category(cls) -> str:
-        return "category-card-games"
+        return "category-board-games"
 
     @classmethod
     def get_min_players(cls) -> int:
@@ -1165,17 +1165,9 @@ class DominosGame(Game):
             user = self.get_user(other)
             if not user:
                 continue
-            message_id = "dominos-you-played-drawn" if auto_played and other is player else None
-            if other is player and not auto_played:
+            if other is player:
                 user.speak_l(
-                    "dominos-you-played",
-                    buffer="game",
-                    tile=self._format_tile(tile),
-                    side=self._branch_name(branch, user.locale),
-                )
-            elif other is player and auto_played:
-                user.speak_l(
-                    "dominos-you-played-drawn",
+                    "dominos-you-played-drawn" if auto_played else "dominos-you-played",
                     buffer="game",
                     tile=self._format_tile(tile),
                     side=self._branch_name(branch, user.locale),

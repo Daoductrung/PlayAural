@@ -72,7 +72,7 @@ def test_dominos_game_registration_and_defaults() -> None:
     assert game_class.get_name() == "Dominos"
     assert game_class.get_name_key() == "game-name-dominos"
     assert game_class.get_type() == "dominos"
-    assert game_class.get_category() == "category-card-games"
+    assert game_class.get_category() == "category-board-games"
     assert game_class.get_min_players() == 2
     assert game_class.get_max_players() == 4
 

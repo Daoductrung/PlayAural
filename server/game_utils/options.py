@@ -299,6 +299,11 @@ class BoolOption(OptionMeta):
     def get_change_kwargs(self, value: Any) -> dict[str, Any]:
         return {self.value_key: "on" if value else "off"}
 
+    def get_change_kwargs_localized(self, value: Any, locale: str) -> dict[str, Any]:
+        """Get kwargs with localized on/off value for change message."""
+        on_off_key = "option-on" if value else "option-off"
+        return {self.value_key: Localization.get(locale, on_off_key)}
+
     def create_action(
         self,
         option_name: str,
@@ -444,7 +449,6 @@ class OptionsHandlerMixin:
         """Handle a declarative option change (for int/menu options).
 
         This is called by auto-generated option actions.
-        No broadcast needed - screen readers speak the updated list item.
         """
         meta = get_option_meta(type(self.options), option_name)
         if not meta:
@@ -457,6 +461,9 @@ class OptionsHandlerMixin:
         # Set the option value
         setattr(self.options, option_name, converted)
 
+        # Broadcast change to all players
+        self._broadcast_option_change(meta, converted)
+
         # Update labels and rebuild menus
         if hasattr(self.options, "update_options_labels"):
             self.options.update_options_labels(self)
@@ -466,7 +473,6 @@ class OptionsHandlerMixin:
         """Handle a declarative boolean option toggle.
 
         This is called by auto-generated toggle actions.
-        No broadcast needed - screen readers speak the updated list item.
         """
         meta = get_option_meta(type(self.options), option_name)
         if not meta:
@@ -477,10 +483,25 @@ class OptionsHandlerMixin:
         new_value = not current
         setattr(self.options, option_name, new_value)
 
+        # Broadcast change to all players
+        self._broadcast_option_change(meta, new_value)
+
         # Update labels and rebuild menus
         if hasattr(self.options, "update_options_labels"):
             self.options.update_options_labels(self)
         self.rebuild_all_menus()
+
+    def _broadcast_option_change(self, meta: OptionMeta, value: Any) -> None:
+        """Broadcast an option change announcement to all players."""
+        for player in self.players:
+            user = self.get_user(player)
+            if not user:
+                continue
+            if hasattr(meta, "get_change_kwargs_localized"):
+                kwargs = meta.get_change_kwargs_localized(value, user.locale)
+            else:
+                kwargs = meta.get_change_kwargs(value)
+            user.speak_l(meta.change_msg, "system", **kwargs)
 
     # Generic option action handlers (extract option_name from action_id)
 

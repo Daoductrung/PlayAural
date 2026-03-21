@@ -487,6 +487,7 @@ reg-error-email = Email is required to register.
 error-email-taken = This email is already in use by another account.
 
 error-bio-length = Bio must not exceed 250 characters.
+error-captcha-failed = Verification failed. Please try again.
 error-rate-limit-login = Too many failed login attempts. Please try again in 15 minutes.
 error-rate-limit-register = You have reached the maximum number of account registrations for today.
 auth-error-rate-limit = Too many failed login attempts. Please try again in 15 minutes.

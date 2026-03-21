@@ -324,6 +324,16 @@
     <script src="locales.js"></script>
     <script src="game.js"></script>
     <script>
+        // reCAPTCHA v3 — loaded only when a real site key is configured.
+        // Replace this placeholder with your production key before launch.
+        if (typeof RECAPTCHA_SITE_KEY !== 'undefined' && RECAPTCHA_SITE_KEY) {
+            const s = document.createElement('script');
+            s.src = 'https://www.google.com/recaptcha/api.js?render=' + RECAPTCHA_SITE_KEY;
+            s.async = true;
+            document.head.appendChild(s);
+        }
+    </script>
+    <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('sw.js')

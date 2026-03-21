@@ -1,6 +1,26 @@
 console.log("Game.js initialized.");
 const CLIENT_VERSION = "1.0.0";
 
+// reCAPTCHA v3 site key — replace with your production key before launch.
+// When empty, CAPTCHA is skipped entirely (graceful degradation for dev).
+const RECAPTCHA_SITE_KEY = "";
+
+/**
+ * Get a reCAPTCHA v3 token for the given action.
+ * Returns "" if reCAPTCHA is not configured (graceful degradation).
+ */
+async function getCaptchaToken(action) {
+    if (!RECAPTCHA_SITE_KEY || typeof grecaptcha === 'undefined') {
+        return "";
+    }
+    try {
+        return await grecaptcha.execute(RECAPTCHA_SITE_KEY, { action });
+    } catch (err) {
+        console.warn("reCAPTCHA token error:", err);
+        return "";
+    }
+}
+
 class Localization {
     static strings = {}; // Loaded from window.LOCALES (locales.js)
     static locale = "en";
@@ -2093,7 +2113,7 @@ class GameClient {
         this.play_sound("ping.ogg"); // Assuming ping.ogg exists or use a default
     }
 
-    connect(serverUrl, username, password) {
+    async connect(serverUrl, username, password) {
         const targetMsg = this.isRegistering ? this.regStatusMsg : this.statusMsg;
         targetMsg.innerText = Localization.get('status-connecting');
 
@@ -2109,6 +2129,10 @@ class GameClient {
             return;
         }
 
+        // Get CAPTCHA token before connecting (skipped when key is empty)
+        const captchaAction = this.isRegistering ? "register" : "login";
+        const captchaToken = await getCaptchaToken(captchaAction);
+
         if (this.socket && (this.socket.readyState === WebSocket.OPEN || this.socket.readyState === WebSocket.CONNECTING)) {
             this.socket.close();
         }
@@ -2122,22 +2146,26 @@ class GameClient {
 
                 if (this.isRegistering) {
                     this.regStatusMsg.innerText = Localization.get("status-sending-registration");
-                    this.socket.send(JSON.stringify({
+                    const pkt = {
                         type: "register",
                         username: username,
                         password: password,
                         email: document.getElementById('reg-email').value.trim() || "",
                         locale: Localization.locale
-                    }));
+                    };
+                    if (captchaToken) pkt.captcha_token = captchaToken;
+                    this.socket.send(JSON.stringify(pkt));
                 } else {
                     this.statusMsg.innerText = Localization.get("status-authenticating");
-                    this.socket.send(JSON.stringify({
+                    const pkt = {
                         type: "authorize",
                         username: username,
                         password: password,
                         version: CLIENT_VERSION,
                         client: "web"
-                    }));
+                    };
+                    if (captchaToken) pkt.captcha_token = captchaToken;
+                    this.socket.send(JSON.stringify(pkt));
                 }
             };
 
@@ -2552,7 +2580,7 @@ class GameClient {
         }
     }
 
-    requestPasswordReset() {
+    async requestPasswordReset() {
         const serverUrl = document.getElementById('server-url').value || "wss://playaural.ddt.one:443";
         const email = document.getElementById('forgot-email').value;
 
@@ -2560,6 +2588,8 @@ class GameClient {
             alert(Localization.get("reg-error-email") || "Email is required.");
             return;
         }
+
+        const captchaToken = await getCaptchaToken("request_password_reset");
 
         this.isRegistering = true; // Use this flag to avoid auto-login behavior on close
         this.forgotStatusMsg.innerText = Localization.get('status-connecting');
@@ -2576,7 +2606,8 @@ class GameClient {
                 this.socket.send(JSON.stringify({
                     type: "request_password_reset",
                     email: email,
-                    locale: Localization.locale
+                    locale: Localization.locale,
+                    captcha_token: captchaToken
                 }));
             };
             this.socket.onmessage = (event) => {
@@ -2611,7 +2642,7 @@ class GameClient {
         }
     }
 
-    submitResetCode() {
+    async submitResetCode() {
         const serverUrl = document.getElementById('server-url').value || "wss://playaural.ddt.one:443";
         const email = this.resetEmail || document.getElementById('forgot-email').value;
         const code = document.getElementById('reset-code').value;
@@ -2635,6 +2666,8 @@ class GameClient {
             return;
         }
 
+        const captchaToken = await getCaptchaToken("submit_reset_code");
+
         this.isRegistering = true;
         this.resetStatusMsg.innerText = Localization.get('status-connecting');
 
@@ -2651,7 +2684,8 @@ class GameClient {
                     email: email,
                     code: code,
                     new_password: newPassword,
-                    locale: Localization.locale
+                    locale: Localization.locale,
+                    captcha_token: captchaToken
                 }));
             };
             this.socket.onmessage = (event) => {

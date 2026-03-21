@@ -15,6 +15,7 @@ from ..administration.manager import AdministrationManager
 from ..network.websocket_server import WebSocketServer, ClientConnection
 from ..persistence.database import Database
 from ..auth.auth import AuthManager, is_valid_email
+from ..auth.captcha import verify_captcha
 from ..auth.rate_limit import RateLimiter
 from ..auth.chat_rate_limit import ChatRateLimiter
 from ..tables.manager import TableManager
@@ -486,9 +487,23 @@ PlayAural Server
             await client.close()
             return
 
+        # CAPTCHA verification (web clients only)
+        if client_type == "web":
+            passed, reason = await verify_captcha(
+                packet.get("captcha_token", ""), client.ip_address
+            )
+            if not passed:
+                await client.send({
+                    "type": "login_failed",
+                    "reason": reason,
+                    "reconnect": False,
+                })
+                await client.close()
+                return
+
         # Check version if provided
         client_version = packet.get("version", "0.0.0")
-        
+
         # WEB CLIENT: Strict validation
         # If version mismatch, send 'login_failed' so it shows the error message.
         if client_type == "web" and client_version != VERSION:
@@ -832,6 +847,20 @@ PlayAural Server
             })
             return
 
+        # CAPTCHA verification
+        passed, reason = await verify_captcha(
+            packet.get("captcha_token", ""), client.ip_address
+        )
+        if not passed:
+            locale = packet.get("locale", "en")
+            await client.send({
+                "type": "request_password_reset_response",
+                "status": "error",
+                "error": reason,
+                "text": Localization.get(locale, "error-captcha-failed"),
+            })
+            return
+
         email = packet.get("email", "").strip()
         locale = packet.get("locale", "en")
 
@@ -911,6 +940,19 @@ PlayAural Server
                 "status": "error",
                 "error": "rate_limit",
                 "text": Localization.get(locale, "error-rate-limit-login") # Reuse existing translation
+            })
+            return
+
+        # CAPTCHA verification
+        passed, reason = await verify_captcha(
+            packet.get("captcha_token", ""), client.ip_address
+        )
+        if not passed:
+            await client.send({
+                "type": "submit_reset_code_response",
+                "status": "error",
+                "error": reason,
+                "text": Localization.get(locale, "error-captcha-failed"),
             })
             return
 
@@ -1006,6 +1048,21 @@ PlayAural Server
                 "status": "error",
                 "error": "rate_limit",
                 "text": Localization.get(locale, "error-rate-limit-register")
+            })
+            await client.close()
+            return
+
+        # CAPTCHA verification (web clients send client field; registration is web-only)
+        passed, reason = await verify_captcha(
+            packet.get("captcha_token", ""), client.ip_address
+        )
+        if not passed:
+            locale = packet.get("locale", "en")
+            await client.send({
+                "type": "register_response",
+                "status": "error",
+                "error": reason,
+                "text": Localization.get(locale, "error-captcha-failed"),
             })
             await client.close()
             return

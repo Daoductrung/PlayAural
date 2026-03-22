@@ -285,26 +285,6 @@ class YahtzeeGame(Game, DiceGameMixin):
                 )
             )
 
-        # View actions (keybind-only, always hidden from menus)
-        action_set.add(
-            Action(
-                id="view_dice",
-                label=Localization.get(locale, "yahtzee-view-dice"),
-                handler="_action_view_dice",
-                is_enabled="_is_view_dice_enabled",
-                is_hidden="_is_view_dice_hidden",
-            )
-        )
-        action_set.add(
-            Action(
-                id="view_scoresheet",
-                label=Localization.get(locale, "yahtzee-check-scoresheet"),
-                handler="_action_view_scoresheet",
-                is_enabled="_is_view_scoresheet_enabled",
-                is_hidden="_is_view_scoresheet_hidden",
-            )
-        )
-
         return action_set
 
     def setup_keybinds(self) -> None:
@@ -764,6 +744,27 @@ class YahtzeeGame(Game, DiceGameMixin):
     def create_standard_action_set(self, player: Player) -> ActionSet:
         action_set = super().create_standard_action_set(player)
         user = self.get_user(player)
+        locale = user.locale if user else "en"
+
+        action_set.add(
+            Action(
+                id="view_dice",
+                label=Localization.get(locale, "yahtzee-view-dice"),
+                handler="_action_view_dice",
+                is_enabled="_is_view_dice_enabled",
+                is_hidden="_is_view_dice_hidden",
+            )
+        )
+        action_set.add(
+            Action(
+                id="view_scoresheet",
+                label=Localization.get(locale, "yahtzee-check-scoresheet"),
+                handler="_action_view_scoresheet",
+                is_enabled="_is_view_scoresheet_enabled",
+                is_hidden="_is_view_scoresheet_hidden",
+            )
+        )
+
         if user and getattr(user, "client_type", "") == "web":
             info_actions = ["check_scores", "whose_turn", "whos_at_table"]
             new_order = [aid for aid in action_set._order if aid not in info_actions]

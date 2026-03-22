@@ -118,6 +118,7 @@ class LightTurretGame(Game):
                 handler="_action_shoot",
                 is_enabled="_is_turn_action_enabled",
                 is_hidden="_is_turn_action_hidden",
+                show_in_actions_menu=False,
             )
         )
         action_set.add(
@@ -127,23 +128,10 @@ class LightTurretGame(Game):
                 handler="_action_upgrade",
                 is_enabled="_is_turn_action_enabled",
                 is_hidden="_is_turn_action_hidden",
+                show_in_actions_menu=False,
             )
         )
         
-        # WEB-SPECIFIC: "check_stats" is moved to Standard Action Set for Web
-        # to ensure it's visible out-of-turn and consistently ordered.
-        is_web = user and getattr(user, "client_type", "") == "web"
-        if not is_web:
-            action_set.add(
-                Action(
-                    id="check_stats",
-                    label=Localization.get(locale, "lightturret-check-stats"),
-                    handler="_action_check_stats",
-                    is_enabled="_is_check_stats_enabled",
-                    is_hidden="_is_check_stats_hidden",
-                    include_spectators=True,
-                )
-            )
         return action_set
 
     # WEB-SPECIFIC: Target order for Standard Actions
@@ -152,33 +140,27 @@ class LightTurretGame(Game):
     def create_standard_action_set(self, player: Player) -> ActionSet:
         action_set = super().create_standard_action_set(player)
         user = self.get_user(player)
-        
-        # WEB-SPECIFIC: Reorder for Web Clients
-        if user and getattr(user, "client_type", "") == "web":
-            locale = user.locale
-            
-            # Ensure 'check_stats' is in standard set (it was removed from proper turn set for web)
-            if not action_set.get_action("check_stats"):
-                action_set.add(
-                    Action(
-                        id="check_stats",
-                        label=Localization.get(locale, "lightturret-check-stats"),
-                        handler="_action_check_stats",
-                        is_enabled="_is_check_stats_enabled",
-                        is_hidden="_is_check_stats_hidden",
-                    )
-                )
+        locale = user.locale if user else "en"
 
-            # Reordering Logic
+        action_set.add(
+            Action(
+                id="check_stats",
+                label=Localization.get(locale, "lightturret-check-stats"),
+                handler="_action_check_stats",
+                is_enabled="_is_check_stats_enabled",
+                is_hidden="_is_check_stats_hidden",
+                include_spectators=True,
+            )
+        )
+
+        if user and getattr(user, "client_type", "") == "web":
             final_order = []
             for aid in self.web_target_order:
                 if action_set.get_action(aid):
                     final_order.append(aid)
-            
             for aid in action_set._order:
                 if aid not in self.web_target_order:
                     final_order.append(aid)
-            
             action_set._order = final_order
 
         return action_set

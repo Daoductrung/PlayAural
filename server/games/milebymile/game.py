@@ -190,20 +190,6 @@ class MileByMileGame(Game):
         action_set = ActionSet(name="turn")
 
         # Card slot actions will be dynamically added/removed
-        # Status action (will be repositioned after cards in _update_card_actions)
-        # WEB-SPECIFIC: Moved to Standard Action Set for Web
-        is_web = user and getattr(user, "client_type", "") == "web"
-        if not is_web:
-            action_set.add(
-                Action(
-                    id="check_status",
-                    label=Localization.get(locale, "milebymile-check-status"),
-                    handler="_action_check_status",
-                    is_enabled="_is_check_status_enabled",
-                    is_hidden="_is_check_status_hidden",
-                    include_spectators=True,
-                )
-            )
 
         # Dirty trick action (hidden, triggered by keybind)
         action_set.add(
@@ -229,34 +215,6 @@ class MileByMileGame(Game):
             )
         )
 
-        # Detailed status action (hidden, triggered by shift+s keybind)
-        # WEB-SPECIFIC: Moved to Standard Action Set for Web
-        if not is_web:
-            action_set.add(
-                Action(
-                    id="check_status_detailed",
-                    label=Localization.get(locale, "milebymile-detailed-status"),
-                    handler="_action_check_status_detailed",
-                    is_enabled="_is_check_status_enabled",
-                    is_hidden="_is_check_status_hidden",
-                    include_spectators=True,
-                )
-            )
-
-        # Info action (Button "Info" / "Thông tin")
-        # Python: Action menu only (Info 1 of 8 removed), Shortcut 'i'
-        # Web: Turn menu
-        action_set.add(
-            Action(
-                id="info",
-                label=Localization.get(locale, "milebymile-info-button"),
-                handler="_action_info",
-                is_enabled="_is_info_enabled", # Enabled when playing, disabled for spectators
-                is_hidden="_is_info_hidden", # Visible when playing (Web), hidden otherwise (Python)
-                show_in_actions_menu=True, # Show in generic Action Menu (Python)
-            )
-        )
-
         return action_set
 
     # WEB-SPECIFIC: Target order for Standard Actions
@@ -264,6 +222,8 @@ class MileByMileGame(Game):
 
     def create_standard_action_set(self, player: Player) -> ActionSet:
         action_set = super().create_standard_action_set(player)
+        user = self.get_user(player)
+        locale = user.locale if user else "en"
 
         # Remove redundant score actions (superseded by check_status)
         if action_set.get_action("check_scores"):
@@ -271,48 +231,44 @@ class MileByMileGame(Game):
         if action_set.get_action("check_scores_detailed"):
             action_set.remove("check_scores_detailed")
 
-        user = self.get_user(player)
+        action_set.add(
+            Action(
+                id="check_status",
+                label=Localization.get(locale, "milebymile-check-status"),
+                handler="_action_check_status",
+                is_enabled="_is_check_status_enabled",
+                is_hidden="_is_check_status_hidden",
+                include_spectators=True,
+            )
+        )
+        action_set.add(
+            Action(
+                id="check_status_detailed",
+                label=Localization.get(locale, "milebymile-detailed-status"),
+                handler="_action_check_status_detailed",
+                is_enabled="_is_check_status_enabled",
+                is_hidden="_is_detailed_status_hidden",
+                include_spectators=True,
+            )
+        )
+        action_set.add(
+            Action(
+                id="info",
+                label=Localization.get(locale, "milebymile-info-button"),
+                handler="_action_info",
+                is_enabled="_is_info_enabled",
+                is_hidden="_is_info_hidden",
+            )
+        )
 
-        # WEB-SPECIFIC: Reorder for Web Clients
         if user and getattr(user, "client_type", "") == "web":
-            locale = user.locale
-
-            # Ensure 'check_status' is in standard set (moved from turn set for web)
-            if not action_set.get_action("check_status"):
-                 action_set.add(
-                    Action(
-                        id="check_status",
-                        label=Localization.get(locale, "milebymile-check-status"),
-                        handler="_action_check_status",
-                        is_enabled="_is_check_status_enabled",
-                        is_hidden="_is_check_status_hidden",
-                        include_spectators=True,
-                    )
-                )
-
-            # Ensure 'check_status_detailed' is in standard set (moved from turn set for web)
-            if not action_set.get_action("check_status_detailed"):
-                 action_set.add(
-                    Action(
-                        id="check_status_detailed",
-                        label=Localization.get(locale, "milebymile-detailed-status"),
-                        handler="_action_check_status_detailed",
-                        is_enabled="_is_check_status_enabled",
-                        is_hidden="_is_detailed_status_hidden", # Hidden to push to Actions Menu
-                        include_spectators=True,
-                    )
-                )
-
-            # Reordering Logic
             final_order = []
             for aid in self.web_target_order:
                 if action_set.get_action(aid):
                     final_order.append(aid)
-            
             for aid in action_set._order:
                 if aid not in self.web_target_order:
                     final_order.append(aid)
-            
             action_set._order = final_order
 
         return action_set

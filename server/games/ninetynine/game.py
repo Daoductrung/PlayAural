@@ -308,21 +308,6 @@ class NinetyNineGame(Game):
 
         # Card slot actions will be dynamically created in _update_card_actions
 
-        # Status action (keybind only)
-        # WEB-SPECIFIC: Moved to Standard Action Set for Web
-        is_web = user and getattr(user, "client_type", "") == "web"
-        if not is_web:
-            action_set.add(
-                Action(
-                    id="check_count",
-                    label=Localization.get(locale, "ninetynine-check-count"),
-                    handler="_action_check_count",
-                    is_enabled="_is_check_count_enabled",
-                    is_hidden="_is_check_count_hidden",
-                    include_spectators=True,
-                )
-            )
-
         return action_set
 
     # WEB-SPECIFIC: Target order for Standard Actions
@@ -331,33 +316,27 @@ class NinetyNineGame(Game):
     def create_standard_action_set(self, player: Player) -> ActionSet:
         action_set = super().create_standard_action_set(player)
         user = self.get_user(player)
+        locale = user.locale if user else "en"
 
-        # WEB-SPECIFIC: Reorder for Web Clients
+        action_set.add(
+            Action(
+                id="check_count",
+                label=Localization.get(locale, "ninetynine-check-count"),
+                handler="_action_check_count",
+                is_enabled="_is_check_count_enabled",
+                is_hidden="_is_check_count_hidden",
+                include_spectators=True,
+            )
+        )
+
         if user and getattr(user, "client_type", "") == "web":
-            locale = user.locale
-
-            # Ensure 'check_count' is in standard set (moved from turn set for web)
-            if not action_set.get_action("check_count"):
-                 action_set.add(
-                    Action(
-                        id="check_count",
-                        label=Localization.get(locale, "ninetynine-check-count"),
-                        handler="_action_check_count",
-                        is_enabled="_is_check_count_enabled",
-                        is_hidden="_is_check_count_hidden",
-                    )
-                )
-
-            # Reordering Logic
             final_order = []
             for aid in self.web_target_order:
                 if action_set.get_action(aid):
                     final_order.append(aid)
-            
             for aid in action_set._order:
                 if aid not in self.web_target_order:
                     final_order.append(aid)
-            
             action_set._order = final_order
 
         return action_set

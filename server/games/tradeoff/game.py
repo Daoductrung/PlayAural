@@ -411,7 +411,13 @@ class TradeoffGame(Game):
                 )
             )
 
-        # View actions (keybind-only for desktop; visible on web)
+        return action_set
+
+    def create_standard_action_set(self, player: Player) -> ActionSet:
+        action_set = super().create_standard_action_set(player)
+        user = self.get_user(player)
+        locale = user.locale if user else "en"
+
         action_set.add(
             Action(
                 id="view_hand",
@@ -440,12 +446,6 @@ class TradeoffGame(Game):
             )
         )
 
-        return action_set
-
-    def create_standard_action_set(self, player: Player) -> ActionSet:
-        """For web clients: expose global info actions and push them to the bottom."""
-        action_set = super().create_standard_action_set(player)
-        user = self.get_user(player)
         if user and getattr(user, "client_type", "") == "web":
             info_actions = ["check_scores", "whose_turn", "whos_at_table"]
             new_order = [aid for aid in action_set._order if aid not in info_actions]

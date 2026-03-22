@@ -267,40 +267,6 @@ class RollingBallsGame(Game):
 
         action_set = ActionSet(name="turn")
 
-        # View pipe (always visible during play, doesn't require turn)
-        if self.options.view_pipe_limit > 0:
-            remaining = self.options.view_pipe_limit - player.view_pipe_uses
-            action_set.add(
-                Action(
-                    id="view_pipe",
-                    label=Localization.get(
-                        locale, "rb-view-pipe-action", remaining=remaining
-                    ),
-                    handler="_action_view_pipe",
-                    is_enabled="_is_view_pipe_enabled",
-                    is_hidden="_is_view_pipe_hidden",
-                    get_label="_get_view_pipe_label",
-                    show_in_actions_menu=True,
-                    include_spectators=False,  # Hidden from audience
-                )
-            )
-
-        # Reshuffle pipe
-        if self.options.reshuffle_limit > 0:
-            remaining = self.options.reshuffle_limit - player.reshuffle_uses
-            action_set.add(
-                Action(
-                    id="reshuffle",
-                    label=Localization.get(
-                        locale, "rb-reshuffle-action", remaining=remaining
-                    ),
-                    handler="_action_reshuffle",
-                    is_enabled="_is_reshuffle_enabled",
-                    is_hidden="_is_reshuffle_hidden",
-                    get_label="_get_reshuffle_label",
-                )
-            )
-
         # Take N balls (dynamic based on min/max options)
         for n in range(self.options.min_take, self.options.max_take + 1):
             action_set.add(
@@ -322,19 +288,44 @@ class RollingBallsGame(Game):
     def create_standard_action_set(self, player: Player) -> ActionSet:
         action_set = super().create_standard_action_set(player)
         user = self.get_user(player)
+        locale = user.locale if user else "en"
 
-        # WEB-SPECIFIC: Reorder for Web Clients
+        rb_player = player if isinstance(player, RollingBallsPlayer) else None
+
+        if self.options.view_pipe_limit > 0:
+            remaining = self.options.view_pipe_limit - (rb_player.view_pipe_uses if rb_player else 0)
+            action_set.add(
+                Action(
+                    id="view_pipe",
+                    label=Localization.get(locale, "rb-view-pipe-action", remaining=remaining),
+                    handler="_action_view_pipe",
+                    is_enabled="_is_view_pipe_enabled",
+                    is_hidden="_is_view_pipe_hidden",
+                    get_label="_get_view_pipe_label",
+                )
+            )
+
+        if self.options.reshuffle_limit > 0:
+            remaining = self.options.reshuffle_limit - (rb_player.reshuffle_uses if rb_player else 0)
+            action_set.add(
+                Action(
+                    id="reshuffle",
+                    label=Localization.get(locale, "rb-reshuffle-action", remaining=remaining),
+                    handler="_action_reshuffle",
+                    is_enabled="_is_reshuffle_enabled",
+                    is_hidden="_is_reshuffle_hidden",
+                    get_label="_get_reshuffle_label",
+                )
+            )
+
         if user and getattr(user, "client_type", "") == "web":
-            # Reordering Logic
             final_order = []
             for aid in self.web_target_order:
                 if action_set.get_action(aid):
                     final_order.append(aid)
-
             for aid in action_set._order:
                 if aid not in self.web_target_order:
                     final_order.append(aid)
-
             action_set._order = final_order
 
         return action_set

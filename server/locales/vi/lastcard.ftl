@@ -170,6 +170,7 @@ lastcard-hands-rotated = Tất cả bài đã được xoay!
 # Scoring
 lastcard-round-winner = { $player } thắng ván và nhận { $points } điểm.
 lastcard-round-end-negative = Hết ván. Điểm được cộng cho mỗi người chơi.
+lastcard-round-deadlock = Không ai có thể đánh hoặc rút bài. Ván chơi kết thúc hòa.
 lastcard-game-winner = { $player } chiến thắng với { $score } điểm!
 lastcard-line-format = { $rank }. { $player }: { $score }
 
@@ -202,3 +203,4 @@ lastcard-draw-penalty-none = Không có phạt rút.
 
 # Validation errors
 lastcard-error-too-many-cards = Quá nhiều bài cần chia: { $players } người chơi × { $hand_size } lá vượt quá bộ bài 108 lá.
+lastcard-error-hand-exceeds-max = Số bài trên tay ({ $hand_size }) không thể vượt quá giới hạn tối đa ({ $max_hand }).

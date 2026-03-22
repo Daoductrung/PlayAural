@@ -148,7 +148,7 @@ The host can configure a wide range of settings before starting the game:
 
 \* \*\*Force Play:\*\* When enabled, you cannot draw from the deck if you already have a playable card. You are forced to play one of your cards. Default: Off.
 
-\* \*\*Last Card Callout:\*\* When enabled, playing down to one card triggers the buzzer callout window. Default: On.
+\* \*\*Last Card Callout:\*\* When enabled, playing down to one card triggers a brief pause with an announcement. If the Buzzer is also enabled, players can catch opponents or protect themselves during this window. If the Buzzer is disabled, the pause is announcement-only with no gameplay consequences. Default: On.
 
 \* \*\*Challenge Wild Draw Four:\*\* When enabled, the next player can challenge a Wild Draw Four to check if it was played legally. Default: On.
 
@@ -170,7 +170,7 @@ The host can configure a wide range of settings before starting the game:
 
 
 
-\* \*\*Buzzer:\*\* Enables or disables the buzzer sound for the Last Card Callout feature. Default: On.
+\* \*\*Buzzer:\*\* Enables or disables the buzzer action for the Last Card Callout feature. When OFF, the buzzer key (B on desktop) and buzzer button (on web) are completely disabled — players cannot catch opponents or protect themselves during the callout window. If Last Card Callout is ON but Buzzer is OFF, the game still pauses briefly to announce the last card, but the window has no gameplay effect. Default: On.
 
 \* \*\*Reaction Timer:\*\* The duration of interrupt windows (Last Card Callout, Jump-In, Wild Draw Four Challenge). Default: 4 seconds. Range: 2 to 7 seconds.
 

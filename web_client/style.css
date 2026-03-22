@@ -270,6 +270,25 @@ main {
     cursor: not-allowed;
 }
 
+/* Grid mode: 2D board layout for grid-based games */
+#menu-area.grid-mode {
+    display: grid;
+    gap: 0.25rem;
+    padding-bottom: 80px;
+}
+
+#menu-area.grid-mode .menu-item {
+    width: auto;
+    margin-top: 0;
+    padding: 0.5rem 0.25rem;
+    text-align: center;
+    font-size: 0.85rem;
+    min-height: 2.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
 /* Web actions container styles (dynamic bottom buttons) */
 .web-action-btn, .web-leave-btn {
     display: block;

@@ -51,8 +51,8 @@ Key packet types: `AUTHORIZE`, `MENU`, `KEYBIND`, `CHAT`, `SPEAK`, `PLAY_SOUND`,
 ### Server Architecture
 - **`server/core/server.py`** — Main orchestrator
 - **`server/network/websocket_server.py`** — Async WebSocket connection management
-- **`server/games/`** — 24 game implementations; each extends an abstract `Game` base class via 14 mixins
-- **`server/game_utils/`** — 40+ shared utility modules (cards, dice, poker logic, turn management, scoring)
+- **`server/games/`** — 25 game implementations; each extends an abstract `Game` base class via 14 mixins
+- **`server/game_utils/`** — ~40 shared utility modules (cards, dice, poker logic, turn management, scoring)
 - **`server/auth/`** — Argon2 password hashing, rate limiting
 - **`server/persistence/database.py`** — SQLite (`PlayAural.db`), user accounts, game history, OpenSkill ratings
 - **`server/tables/`** — Table creation, joining, host/guest management, state persistence
@@ -90,7 +90,7 @@ Standard/lobby actions already marked `include_spectators=True` in the base clas
 #### Turn Management Rules
 - **`set_turn_players(players)`** resets `turn_index` to 0, making `players[0]` the current player immediately.
 - **`advance_turn()`** increments the index. Never call it immediately after `set_turn_players` at the start of a round — that skips the first player.
-- The canonical pattern for starting a round: `set_turn_players(alive_players)` → `_announce_turn()` (no `advance_turn` between them). See ChaosBear's `on_start` / `_next_round_step` as the reference.
+- The canonical pattern for starting a round: `set_turn_players(alive_players)` → `announce_turn()` (no `advance_turn` between them). See ChaosBear's `on_start` / `_next_round_step` as the reference.
 - **`get_active_players()`** excludes spectators. Always use it (never iterate `self.players` directly) when building game results, calculating winners, or announcing per-player results.
 
 #### Server-Side Menu Navigation Stack

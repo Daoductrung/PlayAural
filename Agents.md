@@ -44,12 +44,24 @@ Game (ABC, DataClassJSONMixin)
 
 Game state is serialized via Mashumaro for persistence. **All game state must live in dataclass fields** — runtime-only state goes in `__post_init__`.
 
+### 2.1b Optional Mixins
+
+Beyond the 14 base mixins, games can inherit from additional utility mixins:
+
+| Mixin | Module | Purpose |
+|-------|--------|---------|
+| `GridGameMixin` | `game_utils.grid_mixin` | 2D grid navigation, per-player cursors, arrow-key movement, cell actions with `grid_enabled`/`grid_width` protocol flags for web grid rendering. Override `get_cell_label`, `on_grid_select`, `is_grid_cell_enabled`, `is_grid_cell_hidden`. Call `_init_grid()` in `on_start()`, `setup_grid_keybinds()` in `setup_keybinds()`, and `build_grid_actions(player)` + `build_grid_nav_actions()` in `create_turn_action_set()`. |
+| `TurnTimerMixin` | `game_utils.turn_timer_mixin` | Turn countdown timer using `PokerTurnTimer`. Call `start_turn_timer()`, `stop_turn_timer()`, `on_tick_turn_timer()` in `on_tick()`. |
+
+MRO placement: `class MyGame(Game, TurnTimerMixin)` or `class MyGame(GridGameMixin, TurnTimerMixin, Game)`. `GridGameMixin` must come before `Game`; `TurnTimerMixin` can go either side.
+
 ### 2.2 File Structure for a New Game
 
 ```
 server/games/<game_name>/
 ├── __init__.py       # from .game import <GameName>Game
-└── game.py           # All game logic in one file
+├── game.py           # Core game logic
+└── bot.py            # Bot AI (optional — can stay in game.py for simple bots)
 ```
 
 Additionally required:
@@ -76,7 +88,7 @@ Every game must implement these `@classmethod` methods:
 | `get_max_players()` | `int` | `4` |
 | `get_supported_leaderboards()` | `list[str]` | `["wins", "rating", "games_played"]` |
 
-Available categories: `category-card-games`, `category-dice-games`, `category-board-games`, `category-poker`, `category-uncategorized`.
+Available categories: `category-card-games`, `category-dice-games`, `category-board-games`, `category-poker`, `category-rb-play-center`, `category-uncategorized`.
 
 ### 2.4 Required Instance Methods
 
@@ -223,7 +235,7 @@ class MyGameOptions(GameOptions):
                    change_msg="mygame-option-changed-mode",
                    choice_labels={"normal": "mygame-mode-normal", "hard": "mygame-mode-hard"}))
     hints: bool = option_field(
-        BoolOption(default=True, label="mygame-toggle-hints",
+        BoolOption(default=True, label="mygame-set-hints",
                    change_msg="mygame-option-changed-hints"))
 ```
 
@@ -407,11 +419,11 @@ Every game needs two `.ftl` files:
 # Game name (required — used by server menu system)
 game-name-<type> = <English Name>
 
-# Option labels (one per option)
-<type>-set-<option> = <Label>: { $value }
+# Option labels (one per option — use $<value_key> as the variable name)
+<type>-set-<option> = <Label>: { $<value_key> }
 <type>-enter-<option> = <Prompt>               # IntOption/FloatOption only
 <type>-select-<option> = <Prompt>              # MenuOption only
-<type>-option-changed-<option> = <Changed message with $value>.
+<type>-option-changed-<option> = <Changed message with $<value_key>>.
 
 # Option choice labels (MenuOption)
 <type>-mode-<choice> = <Localized choice name>
@@ -524,7 +536,7 @@ Always test that a bot game completes: use `advance_until` with a high `max_tick
 
 ### 12.3 General
 
-- Keep game logic in a single `game.py` file per game
+- Keep game logic in `game.py` per game (bot AI can live in a separate `bot.py`)
 - Use `get_active_players()` — never iterate `self.players` for gameplay logic
 - Always call `super().on_tick()` and `self.process_scheduled_sounds()` in `on_tick`
 - Always call `super().setup_keybinds()` in `setup_keybinds`
@@ -539,7 +551,7 @@ Use this checklist when implementing a new game. Every item is mandatory.
 
 ### Architecture
 - [ ] Game class is a `@dataclass` decorated with `@register_game`
-- [ ] Game inherits from `Game` (which brings all 14 mixins)
+- [ ] Game inherits from `Game` (which brings all 14 mixins), plus optional mixins like `GridGameMixin`, `TurnTimerMixin` as needed
 - [ ] Custom `Player` subclass with `DataClassJSONMixin`-compatible fields
 - [ ] Custom data model classes (cards/tiles/tokens) are `@dataclass` with `DataClassJSONMixin`
 - [ ] `GameOptions` subclass uses declarative `option_field()` for every setting

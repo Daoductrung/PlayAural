@@ -45,7 +45,7 @@ PlayAural/
 │   ├── core/               # Main server orchestrator
 │   ├── network/            # Async WebSocket connection management
 │   ├── games/              # all game implementations (one directory each)
-│   ├── game_utils/         # 40+ shared mixins & utilities (cards, dice, scoring…)
+│   ├── game_utils/         # ~40 shared mixins & utilities (cards, dice, scoring…)
 │   ├── tables/             # Table creation, joining, host/guest management
 │   ├── auth/               # Argon2 password hashing, rate limiting
 │   ├── persistence/        # SQLite database (PlayAural.db), OpenSkill ratings
@@ -204,7 +204,7 @@ pytest -v                                      # verbose output
 
 ## Game Catalog
 
-24 games across four categories:
+25 games across four categories:
 
 ### Card Games
 
@@ -241,6 +241,7 @@ pytest -v                                      # verbose output
 | Snakes and Ladders | Classic board game |
 | Light Turret | Resource management — power and light |
 | Chaos Bear | Push-your-luck chase game |
+| Battleship | Naval combat on a 2D grid — deploy your fleet and sink the enemy ships |
 | Dominos | Classic tile-matching game with Draw/Block modes, spinner support, and team play |
 
 ### Social / Party

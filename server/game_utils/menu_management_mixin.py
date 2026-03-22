@@ -95,11 +95,16 @@ class MenuManagementMixin:
                 id="web_leave_table"
             ))
 
+        grid_kwargs = {}
+        if hasattr(self, "_build_grid_menu_kwargs"):
+            grid_kwargs = self._build_grid_menu_kwargs()
+
         user.show_menu(
             "turn_menu",
             items,
             multiletter=False,
             escape_behavior=EscapeBehavior.KEYBIND,
+            **grid_kwargs,
         )
 
     def rebuild_all_menus(self) -> None:

@@ -1888,11 +1888,23 @@ class GameClient {
             this.currentMenuId = packet.menu_id;
             this.menuArea.innerHTML = "";
 
+            // Grid mode: apply CSS grid layout when server sends grid_enabled
+            const gridEnabled = packet.grid_enabled || false;
+            const gridWidth = packet.grid_width || 1;
+            this.menuArea.classList.toggle('grid-mode', gridEnabled);
+            if (gridEnabled && gridWidth > 1) {
+                this.menuArea.style.gridTemplateColumns = `repeat(${gridWidth}, 1fr)`;
+                this.menuArea.setAttribute('role', 'grid');
+            } else {
+                this.menuArea.style.gridTemplateColumns = '';
+                this.menuArea.removeAttribute('role');
+            }
+
             // Set title if provided
             const titleRaw = packet.menu_id ? packet.menu_id.replace('_', ' ').toUpperCase() : "MENU";
             document.getElementById('game-title').innerText = packet.title || titleRaw;
             // User requested NOT to announce menu titles
-            // this.speak(packet.title || titleRaw); 
+            // this.speak(packet.title || titleRaw);
 
             newItems.forEach((item, index) => {
                 this.createMenuItem(item, index);

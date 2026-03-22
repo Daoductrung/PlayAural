@@ -394,7 +394,13 @@ class FarkleGame(Game):
             )
         )
 
-        # Check turn score (actions menu only)
+        return action_set
+
+    def create_standard_action_set(self, player: Player) -> ActionSet:
+        action_set = super().create_standard_action_set(player)
+        user = self.get_user(player)
+        locale = user.locale if user else "en"
+
         action_set.add(
             Action(
                 id="check_turn_score",
@@ -405,13 +411,8 @@ class FarkleGame(Game):
             )
         )
 
-        return action_set
-
-    def create_standard_action_set(self, player: Player) -> ActionSet:
-        action_set = super().create_standard_action_set(player)
-        user = self.get_user(player)
         if user and getattr(user, "client_type", "") == "web":
-            target_order = ["check_scores", "whose_turn", "whos_at_table"]
+            target_order = ["check_turn_score", "check_scores", "whose_turn", "whos_at_table"]
             new_order = [aid for aid in action_set._order if aid not in target_order]
             for aid in target_order:
                 if action_set.get_action(aid):
@@ -687,7 +688,12 @@ class FarkleGame(Game):
         return None
 
     def _is_check_turn_score_hidden(self, player: Player) -> Visibility:
-        """Check turn score is always hidden from menu (keybind only)."""
+        """Check turn score: visible for web clients during play, keybind-only for desktop."""
+        if self.status != "playing":
+            return Visibility.HIDDEN
+        user = self.get_user(player)
+        if user and getattr(user, "client_type", "") == "web":
+            return Visibility.VISIBLE
         return Visibility.HIDDEN
 
     def _is_scoring_action_enabled(self, player: Player) -> str | None:

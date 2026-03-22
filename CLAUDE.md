@@ -87,6 +87,21 @@ The `include_spectators` flag on `Action` and `Keybind` must always agree. Incon
 
 Standard/lobby actions already marked `include_spectators=True` in the base class: `show_actions`, `toggle_spectator`, `host_management`, `leave_game`, `start_game`, `add_bot`, `remove_bot`, `whose_turn`, `whos_at_table`, `check_scores`, `check_scores_detailed`, `predict_outcomes`, `game_info`, `game_rules`.
 
+#### Action Set Ordering & Menu Deduplication
+
+`get_all_enabled_actions()` combines action sets in this order: **turn → lobby → options → standard**. The Escape/actions menu displays them in this combined order. Two rules prevent UX issues:
+
+**1. Info/status actions belong in `create_standard_action_set`, not `create_turn_action_set`.**
+Game-specific read-only actions (check hand, view dice, check status, view table, etc.) must be defined in `create_standard_action_set`. Placing them in the turn set causes them to appear *above* the platform's default global actions (leave game, scores, game info) in the Escape menu, breaking consistent ordering across games. They are still accessible via their keybinds regardless of which set they belong to.
+
+**2. Turn actions that should not appear in the Escape menu need `show_in_actions_menu=False`.**
+Core gameplay actions (hit, stand, roll, play card, shoot, etc.) already appear as tappable buttons in the turn menu. Without `show_in_actions_menu=False`, they also appear at the *top* of the Escape/actions menu, pushing global actions down. Set `show_in_actions_menu=False` on any turn action that is already visible in the turn menu and has no reason to appear in the global actions list.
+
+**Summary:**
+- **Turn action set**: Only actions that need to appear as turn menu buttons (play, roll, pass, etc.) with `show_in_actions_menu=False`.
+- **Standard action set**: Info/status actions (check hand, view scores, view table, etc.) — always below default global actions in the Escape menu.
+- **Keybinds**: Work independently of which action set an action belongs to.
+
 #### Turn Management Rules
 - **`set_turn_players(players)`** resets `turn_index` to 0, making `players[0]` the current player immediately.
 - **`advance_turn()`** increments the index. Never call it immediately after `set_turn_players` at the start of a round — that skips the first player.

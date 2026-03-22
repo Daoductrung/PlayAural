@@ -112,6 +112,13 @@ class ChaosBearGame(Game):
             )
         )
 
+        return action_set
+
+    def create_standard_action_set(self, player: Player) -> ActionSet:
+        action_set = super().create_standard_action_set(player)
+        user = self.get_user(player)
+        locale = user.locale if user else "en"
+
         action_set.add(
             Action(
                 id="check_status",
@@ -840,9 +847,10 @@ class ChaosBearGame(Game):
         if not user:
             return
 
-        # Show all player positions first
-        for p in self.players:
-            if not p.is_spectator:
+        # Show all player positions (sorted by distance, furthest first)
+        active = [p for p in self.players if not p.is_spectator]
+        active.sort(key=lambda p: p.position, reverse=True)
+        for p in active:
                 if p.alive:
                     user.speak_l(
                         "chaosbear-status-player-alive",

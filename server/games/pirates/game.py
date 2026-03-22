@@ -262,41 +262,41 @@ class PiratesGame(Game):
             )
         )
 
-        # Status actions
-        action_set.add(
-            Action(
-                id="check_moon",
-                label=Localization.get(locale, "pirates-check-moon"),
-                handler="_action_check_moon",
-                is_enabled="_is_moon_check_enabled",
-                is_hidden="_is_moon_check_hidden",
-                include_spectators=True,
-            )
-        )
-        action_set.add(
-            Action(
-                id="check_moon",
-                label=Localization.get(locale, "pirates-check-moon"),
-                handler="_action_check_moon",
-                is_enabled="_is_moon_check_enabled",
-                is_hidden="_is_moon_check_hidden",
-                include_spectators=True,
-            )
-        )
-        
-        # WEB-SPECIFIC: Moved to Standard Action Set for Web
-        is_web = user and getattr(user, "client_type", "") == "web"
-        if not is_web:
-            action_set.add(
-                Action(
-                    id="check_position",
-                    label=Localization.get(locale, "pirates-check-position"),
-                    handler="_action_check_position",
-                    is_enabled="_is_status_enabled",
-                    is_hidden="_is_always_hidden",  # Always hidden, keybind only
-                )
-            )
+        return action_set
 
+    # WEB-SPECIFIC: Target order for Standard Actions
+    web_target_order = ["check_position", "whose_turn", "whos_at_table"]
+
+    def create_standard_action_set(self, player: Player) -> ActionSet:
+        action_set = super().create_standard_action_set(player)
+        user = self.get_user(player)
+        locale = user.locale if user else "en"
+
+        # Remove default score actions to prevent "No scores available yet"
+        if action_set.get_action("check_scores"):
+            action_set.remove("check_scores")
+        if action_set.get_action("check_scores_detailed"):
+            action_set.remove("check_scores_detailed")
+
+        action_set.add(
+            Action(
+                id="check_moon",
+                label=Localization.get(locale, "pirates-check-moon"),
+                handler="_action_check_moon",
+                is_enabled="_is_moon_check_enabled",
+                is_hidden="_is_moon_check_hidden",
+                include_spectators=True,
+            )
+        )
+        action_set.add(
+            Action(
+                id="check_position",
+                label=Localization.get(locale, "pirates-check-position"),
+                handler="_action_check_position",
+                is_enabled="_is_status_enabled",
+                is_hidden="_is_always_hidden",
+            )
+        )
         action_set.add(
             Action(
                 id="check_status",
@@ -307,7 +307,6 @@ class PiratesGame(Game):
                 include_spectators=True,
             )
         )
-
         action_set.add(
             Action(
                 id="check_status_detailed",
@@ -319,61 +318,14 @@ class PiratesGame(Game):
             )
         )
 
-        return action_set
-
-    # WEB-SPECIFIC: Target order for Standard Actions
-    web_target_order = ["check_position", "whose_turn", "whos_at_table"]
-
-    def create_standard_action_set(self, player: Player) -> ActionSet:
-        action_set = super().create_standard_action_set(player)
-        
-        # Remove default score actions to prevent "No scores available yet"
-        if action_set.get_action("check_scores"):
-            action_set.remove("check_scores")
-        if action_set.get_action("check_scores_detailed"):
-            action_set.remove("check_scores_detailed")
-
-        user = self.get_user(player)
-
-        # WEB-SPECIFIC: Reorder for Web Clients
         if user and getattr(user, "client_type", "") == "web":
-            locale = user.locale
-
-            # Ensure 'check_position' is in standard set (moved from turn set for web)
-            if not action_set.get_action("check_position"):
-                 action_set.add(
-                    Action(
-                        id="check_position",
-                        label=Localization.get(locale, "pirates-check-position"),
-                        handler="_action_check_position",
-                        is_enabled="_is_status_enabled",
-                        is_hidden="_is_check_position_hidden", # Use new visibility method
-                    )
-                )
-
-            # Ensure 'check_status_detailed' is in standard set
-            if not action_set.get_action("check_status_detailed"):
-                 action_set.add(
-                    Action(
-                        id="check_status_detailed",
-                        label=Localization.get(locale, "pirates-check-status-detailed"),
-                        handler="_action_check_status_detailed",
-                        is_enabled="_is_status_enabled",
-                        is_hidden="_is_detailed_status_hidden", # Hidden to push to Actions Menu
-                        include_spectators=True,
-                    )
-                )
-
-            # Reordering Logic
             final_order = []
             for aid in self.web_target_order:
                 if action_set.get_action(aid):
                     final_order.append(aid)
-            
             for aid in action_set._order:
                 if aid not in self.web_target_order:
                     final_order.append(aid)
-            
             action_set._order = final_order
 
         return action_set

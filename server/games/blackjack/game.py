@@ -628,6 +628,7 @@ class BlackjackGame(Game):
                 handler="_action_hit",
                 is_enabled="_is_turn_action_enabled",
                 is_hidden="_is_turn_action_hidden",
+                show_in_actions_menu=False,
             )
         )
         action_set.add(
@@ -637,6 +638,7 @@ class BlackjackGame(Game):
                 handler="_action_stand",
                 is_enabled="_is_turn_action_enabled",
                 is_hidden="_is_turn_action_hidden",
+                show_in_actions_menu=False,
             )
         )
         action_set.add(
@@ -646,6 +648,7 @@ class BlackjackGame(Game):
                 handler="_action_double_down",
                 is_enabled="_is_double_down_enabled",
                 is_hidden="_is_double_down_hidden",
+                show_in_actions_menu=False,
             )
         )
         action_set.add(
@@ -655,6 +658,7 @@ class BlackjackGame(Game):
                 handler="_action_split",
                 is_enabled="_is_split_enabled",
                 is_hidden="_is_split_hidden",
+                show_in_actions_menu=False,
             )
         )
         action_set.add(
@@ -664,6 +668,7 @@ class BlackjackGame(Game):
                 handler="_action_surrender",
                 is_enabled="_is_surrender_enabled",
                 is_hidden="_is_surrender_hidden",
+                show_in_actions_menu=False,
             )
         )
         action_set.add(
@@ -673,6 +678,7 @@ class BlackjackGame(Game):
                 handler="_action_take_insurance",
                 is_enabled="_is_take_insurance_enabled",
                 is_hidden="_is_take_insurance_hidden",
+                show_in_actions_menu=False,
             )
         )
         action_set.add(
@@ -682,6 +688,7 @@ class BlackjackGame(Game):
                 handler="_action_even_money",
                 is_enabled="_is_even_money_enabled",
                 is_hidden="_is_even_money_hidden",
+                show_in_actions_menu=False,
             )
         )
         action_set.add(
@@ -691,6 +698,7 @@ class BlackjackGame(Game):
                 handler="_action_decline_insurance",
                 is_enabled="_is_decline_insurance_enabled",
                 is_hidden="_is_insurance_action_hidden",
+                show_in_actions_menu=False,
             )
         )
         return action_set

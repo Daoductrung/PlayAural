@@ -262,17 +262,6 @@ class ThreesGame(Game, DiceGameMixin):
             )
         )
 
-        # Check hand action
-        action_set.add(
-            Action(
-                id="check_hand",
-                label=Localization.get(locale, "threes-check-hand"),
-                handler="_action_check_hand",
-                is_enabled="_is_check_hand_enabled",
-                is_hidden="_is_check_hand_hidden",
-            )
-        )
-
         # WEB-SPECIFIC: Reorder for Web Clients to put Roll/Bank at the top
         if user and getattr(user, "client_type", "") == "web":
             # Desired order: Roll, Bank, Dice Toggles...
@@ -299,6 +288,17 @@ class ThreesGame(Game, DiceGameMixin):
     def create_standard_action_set(self, player: Player) -> ActionSet:
         action_set = super().create_standard_action_set(player)
         user = self.get_user(player)
+        locale = user.locale if user else "en"
+
+        action_set.add(
+            Action(
+                id="check_hand",
+                label=Localization.get(locale, "threes-check-hand"),
+                handler="_action_check_hand",
+                is_enabled="_is_check_hand_enabled",
+                is_hidden="_is_check_hand_hidden",
+            )
+        )
 
         # WEB-SPECIFIC: Reorder for Web Clients
         if user and getattr(user, "client_type", "") == "web":

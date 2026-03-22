@@ -266,48 +266,6 @@ class ScopaGame(Game):
         action_set = ActionSet(name="turn")
 
         # Dynamic card actions will be created per-turn
-        # Dynamic card actions will be created per-turn
-        
-        # WEB-SPECIFIC: Moved to Standard Action Set for Web
-        is_web = user and getattr(user, "client_type", "") == "web"
-        if not is_web:
-            # Add info actions (hidden from menu)
-            action_set.add(
-                Action(
-                    id="view_table",
-                    label=Localization.get(locale, "scopa-view-table"),
-                    handler="_action_view_table",
-                    is_enabled="_is_view_enabled",
-                    is_hidden="_is_view_hidden",
-                    include_spectators=True,
-                )
-            )
-            action_set.add(
-                Action(
-                    id="view_captured",
-                    label=Localization.get(locale, "scopa-view-captured"),
-                    handler="_action_view_captured",
-                    is_enabled="_is_view_enabled",
-                    is_hidden="_is_view_hidden",
-                    include_spectators=False,
-                )
-            )
-
-        # Note: whose_turn, check_scores, check_scores_detailed are in base class standard set
-
-        # View individual table cards (0-9 keys)
-        for i in range(10):
-            card_idx = i if i > 0 else 10
-            action_set.add(
-                Action(
-                    id=f"view_table_card_{i}",
-                    label=Localization.get(locale, "scopa-view-table-card", index=card_idx),
-                    handler="_action_view_table_card",
-                    is_enabled="_is_view_enabled",
-                    is_hidden="_is_view_hidden",
-                    include_spectators=True,
-                )
-            )
 
         # Host-only pause timer action (hidden from menu)
         action_set.add(
@@ -331,47 +289,48 @@ class ScopaGame(Game):
     def create_standard_action_set(self, player: Player) -> ActionSet:
         action_set = super().create_standard_action_set(player)
         user = self.get_user(player)
+        locale = user.locale if user else "en"
 
-        # WEB-SPECIFIC: Reorder for Web Clients
+        action_set.add(
+            Action(
+                id="view_table",
+                label=Localization.get(locale, "scopa-view-table"),
+                handler="_action_view_table",
+                is_enabled="_is_view_enabled",
+                is_hidden="_is_view_hidden",
+                include_spectators=True,
+            )
+        )
+        action_set.add(
+            Action(
+                id="view_captured",
+                label=Localization.get(locale, "scopa-view-captured"),
+                handler="_action_view_captured",
+                is_enabled="_is_view_enabled",
+                is_hidden="_is_view_hidden",
+            )
+        )
+        for i in range(10):
+            card_idx = i if i > 0 else 10
+            action_set.add(
+                Action(
+                    id=f"view_table_card_{i}",
+                    label=Localization.get(locale, "scopa-view-table-card", index=card_idx),
+                    handler="_action_view_table_card",
+                    is_enabled="_is_view_enabled",
+                    is_hidden="_is_view_hidden",
+                    include_spectators=True,
+                )
+            )
+
         if user and getattr(user, "client_type", "") == "web":
-            locale = user.locale
-
-            # Ensure 'view_table' is in standard set (moved from turn set for web)
-            if not action_set.get_action("view_table"):
-                 action_set.add(
-                    Action(
-                        id="view_table",
-                        label=Localization.get(locale, "scopa-view-table"),
-                        handler="_action_view_table",
-                        is_enabled="_is_view_enabled",
-                        is_hidden="_is_check_table_hidden", # Use new visibility method
-                        include_spectators=True,
-                    )
-                )
-
-            # Ensure 'view_captured' is in standard set
-            if not action_set.get_action("view_captured"):
-                 action_set.add(
-                    Action(
-                        id="view_captured",
-                        label=Localization.get(locale, "scopa-view-captured"),
-                        handler="_action_view_captured",
-                        is_enabled="_is_view_enabled",
-                        is_hidden="_is_check_captured_hidden", # Use new visibility method
-                        include_spectators=False,
-                    )
-                )
-
-            # Reordering Logic
             final_order = []
             for aid in self.web_target_order:
                 if action_set.get_action(aid):
                     final_order.append(aid)
-            
             for aid in action_set._order:
                 if aid not in self.web_target_order:
                     final_order.append(aid)
-            
             action_set._order = final_order
 
         return action_set

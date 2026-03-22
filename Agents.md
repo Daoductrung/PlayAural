@@ -143,7 +143,18 @@ Games have two action sets per player:
 - **Turn set** (`"turn"`) — The primary gameplay menu. Dynamic per-tick.
 - **Standard set** (`"standard"`) — The Escape/Actions menu. Static utility actions.
 
-Turn actions with `show_in_actions_menu=False` only appear in the turn menu, never in the Escape menu. Use this for card/tile play actions.
+`get_all_enabled_actions()` combines action sets in this order: **turn → lobby → options → standard**. The Escape/actions menu displays them in this combined order. Two rules prevent UX issues:
+
+**Rule 1: Info/status actions belong in `create_standard_action_set`, not `create_turn_action_set`.**
+Game-specific read-only actions (check hand, view dice, check status, view table, etc.) must be defined in `create_standard_action_set`. Placing them in the turn set causes them to appear *above* the platform's default global actions (leave game, scores, game info) in the Escape menu, breaking consistent ordering across games. They are still accessible via their keybinds regardless of which set they belong to.
+
+**Rule 2: Turn actions need `show_in_actions_menu=False`.**
+Core gameplay actions (hit, stand, roll, play card, shoot, etc.) already appear as tappable buttons in the turn menu. Without `show_in_actions_menu=False`, they also appear at the *top* of the Escape/actions menu, pushing global actions down. Set `show_in_actions_menu=False` on every turn action that is already visible in the turn menu.
+
+**Summary:**
+- **Turn action set**: Only actions that need to appear as turn menu buttons (play, roll, pass, etc.) — always with `show_in_actions_menu=False`.
+- **Standard action set**: Info/status actions (check hand, view scores, view table, etc.) — always below default global actions in the Escape menu.
+- **Keybinds**: Work independently of which action set an action belongs to.
 
 ### 3.3 Spectator Visibility (`include_spectators`)
 
@@ -572,6 +583,8 @@ Use this checklist when implementing a new game. Every item is mandatory.
 - [ ] Dynamic actions use `_sync_turn_actions` pattern
 - [ ] Player-private actions: `include_spectators=False`
 - [ ] Public info actions: `include_spectators=True`
+- [ ] Turn actions have `show_in_actions_menu=False` (see Section 3.2)
+- [ ] Info/status actions defined in `create_standard_action_set`, not turn set (see Section 3.2)
 
 ### Options
 - [ ] Every option has working game logic (no dead options)

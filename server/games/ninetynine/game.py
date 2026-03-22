@@ -4,7 +4,7 @@ Ninety Nine Game Implementation.
 A card game where players try to avoid pushing the running total over 99.
 Last player standing wins!
 
-Rules match v10 implementation with Quentin C and RS Games variants.
+Rules match v10 implementation with standard and action cards variants.
 """
 
 from dataclasses import dataclass, field
@@ -24,12 +24,12 @@ from ...game_utils.cards import (
     card_name_with_article,
     sort_cards,
     SUIT_NONE,
-    RS_RANK_PLUS_10,
-    RS_RANK_MINUS_10,
-    RS_RANK_PASS,
-    RS_RANK_REVERSE,
-    RS_RANK_SKIP,
-    RS_RANK_NINETY_NINE,
+    N99_RANK_PLUS_10,
+    N99_RANK_MINUS_10,
+    N99_RANK_PASS,
+    N99_RANK_REVERSE,
+    N99_RANK_SKIP,
+    N99_RANK_NINETY_NINE,
 )
 from ...game_utils.options import BoolOption, IntOption, MenuOption, option_field
 from ...messages.localization import Localization
@@ -54,8 +54,8 @@ DEFAULT_HAND_SIZE = 3
 DEFAULT_TOKENS = 9
 
 # Token penalties
-PENALTY_BUST = 2  # Quentin C: going over 99
-PENALTY_BUST_RS = 1  # RS Games: going over 99
+PENALTY_BUST = 2  # Standard: going over 99
+PENALTY_BUST_ACTION = 1  # Action cards: going over 99
 PENALTY_MILESTONE_PASS = 1  # Passing through 33 or 66
 PENALTY_MILESTONE_99 = 2  # Landing on 99 (others lose this)
 PENALTY_MILESTONE_33_66 = 1  # Landing on 33/66 (others lose this)
@@ -101,12 +101,12 @@ class NinetyNineOptions(GameOptions):
     )
     rules_variant: str = option_field(
         MenuOption(
-            default="quentin_c",
+            default="standard",
             value_key="rules",
-            choices=["quentin_c", "rs_games"],
+            choices=["standard", "action_cards"],
             choice_labels={
-                "quentin_c": "ninetynine-rules-variant-quentin_c",
-                "rs_games": "ninetynine-rules-variant-rs_games",
+                "standard": "ninetynine-rules-variant-standard",
+                "action_cards": "ninetynine-rules-variant-action-cards",
             },
             label="ninetynine-set-rules",
             prompt="ninetynine-select-rules",
@@ -130,7 +130,7 @@ class NinetyNineGame(Game):
     Ninety Nine - A card game where players try to avoid going over 99.
 
     Players take turns playing cards that modify a running count.
-    Rules match v10 with Quentin C and RS Games variants.
+    Rules match v10 with standard and action cards variants.
     """
 
     players: list[NinetyNinePlayer] = field(default_factory=list)
@@ -196,9 +196,9 @@ class NinetyNineGame(Game):
         ]
 
     @property
-    def is_quentin_c(self) -> bool:
-        """Check if using Quentin C rules."""
-        return self.options.rules_variant == "quentin_c"
+    def is_standard_rules(self) -> bool:
+        """Check if using standard rules (52-card deck)."""
+        return self.options.rules_variant == "standard"
 
     @property
     def pending_draw_player(self) -> NinetyNinePlayer | None:
@@ -240,13 +240,13 @@ class NinetyNineGame(Game):
         """
         rank = card.rank
 
-        if self.is_quentin_c:
-            return self._calculate_quentin_c_value(rank, current_count)
+        if self.is_standard_rules:
+            return self._calculate_standard_value(rank, current_count)
         else:
-            return self._calculate_rs_games_value(rank)
+            return self._calculate_action_cards_value(rank)
 
-    def _calculate_quentin_c_value(self, rank: int, current_count: int) -> int | None:
-        """Calculate card value for Quentin C variant."""
+    def _calculate_standard_value(self, rank: int, current_count: int) -> int | None:
+        """Calculate card value for standard variant."""
         if rank == 1:  # Ace: +1 or +11
             if current_count > ACE_AUTO_THRESHOLD:
                 return 1  # Auto +1 if would bust with +11
@@ -274,22 +274,22 @@ class NinetyNineGame(Game):
 
         return 0
 
-    def _calculate_rs_games_value(self, rank: int) -> int | None:
-        """Calculate card value for RS Games variant."""
+    def _calculate_action_cards_value(self, rank: int) -> int | None:
+        """Calculate card value for action cards variant."""
         if 1 <= rank <= 9:  # Number cards: face value
             return rank
-        elif rank == RS_RANK_PLUS_10:
+        elif rank == N99_RANK_PLUS_10:
             return 10
-        elif rank == RS_RANK_MINUS_10:
+        elif rank == N99_RANK_MINUS_10:
             return -10
-        elif rank in (RS_RANK_PASS, RS_RANK_REVERSE, RS_RANK_SKIP):
+        elif rank in (N99_RANK_PASS, N99_RANK_REVERSE, N99_RANK_SKIP):
             return 0
-        elif rank == RS_RANK_NINETY_NINE:
+        elif rank == N99_RANK_NINETY_NINE:
             return None  # Special handling - sets to exactly 99
         return 0
 
     def calculate_two_effect(self, current_count: int) -> int:
-        """Calculate the new count after playing a 2 (Quentin C)."""
+        """Calculate the new count after playing a 2 (standard rules)."""
         if current_count % 2 == 0 and current_count > TWO_DIVIDE_THRESHOLD:
             return current_count // 2
         else:
@@ -624,10 +624,10 @@ class NinetyNineGame(Game):
         self.draw_timeout_ticks = 0
 
         # Build and shuffle deck based on variant
-        if self.is_quentin_c:
+        if self.is_standard_rules:
             self.deck, _ = DeckFactory.standard_deck()
         else:
-            self.deck, _ = DeckFactory.rs_games_deck()
+            self.deck, _ = DeckFactory.n99_action_deck()
         self.discard_pile = []
 
         # Update alive players list
@@ -666,9 +666,9 @@ class NinetyNineGame(Game):
         # Announce turn
         self.announce_turn()
 
-        # RS Games: Check if player has any safe cards
-        if not self.is_quentin_c and not self._has_safe_card(player):
-            self._rs_games_no_safe_cards(player)
+        # Action cards: Check if player has any safe cards
+        if not self.is_standard_rules and not self._has_safe_card(player):
+            self._action_cards_no_safe_cards(player)
             return
 
         # Set up bot thinking
@@ -679,9 +679,9 @@ class NinetyNineGame(Game):
         self.rebuild_all_menus()
 
     def _has_safe_card(self, player: NinetyNinePlayer) -> bool:
-        """Check if player has any card that won't make them go over 99 (RS Games)."""
+        """Check if player has any card that won't make them go over 99 (action cards)."""
         for card in player.hand:
-            if card.rank == RS_RANK_NINETY_NINE:
+            if card.rank == N99_RANK_NINETY_NINE:
                 return True
 
             value = self.calculate_card_value(card, self.count)
@@ -692,16 +692,16 @@ class NinetyNineGame(Game):
 
         return False
 
-    def _rs_games_no_safe_cards(self, player: NinetyNinePlayer) -> None:
-        """Handle RS Games auto-lose when player has no safe cards."""
+    def _action_cards_no_safe_cards(self, player: NinetyNinePlayer) -> None:
+        """Handle action cards auto-lose when player has no safe cards."""
         self.broadcast_l("ninetynine-no-valid-cards", player=player.name)
 
         self._play_sound_for_player(
             player, "game_pig/win.ogg", "game_ninetynine/lose2.ogg"
         )
 
-        player.tokens = max(0, player.tokens - PENALTY_BUST_RS)
-        self._announce_token_loss(player, PENALTY_BUST_RS)
+        player.tokens = max(0, player.tokens - PENALTY_BUST_ACTION)
+        self._announce_token_loss(player, PENALTY_BUST_ACTION)
 
         if player.tokens <= 0:
             self._eliminate_player(player)
@@ -802,12 +802,12 @@ class NinetyNineGame(Game):
             self.rebuild_all_menus()
             return
 
-        if card.rank == 2 and self.is_quentin_c:  # 2 card special handling
+        if card.rank == 2 and self.is_standard_rules:  # 2 card special handling
             new_count = self.calculate_two_effect(old_count)
             self._play_card(player, slot, card, new_count)
             return
 
-        if card.rank == RS_RANK_NINETY_NINE and not self.is_quentin_c:
+        if card.rank == N99_RANK_NINETY_NINE and not self.is_standard_rules:
             self._play_card(player, slot, card, MAX_COUNT)
             return
 
@@ -967,12 +967,12 @@ class NinetyNineGame(Game):
 
         # Landing on 99
         if new_count == MAX_COUNT:
-            if self.is_quentin_c and value > 0:
+            if self.is_standard_rules and value > 0:
                 self._others_lose_tokens(player, PENALTY_MILESTONE_99, "99")
                 return True
 
         # Only check 33/66 milestones in Quentin C with positive value
-        if self.is_quentin_c and value > 0:
+        if self.is_standard_rules and value > 0:
             passed_33 = old_count < MILESTONE_33 < new_count
             landed_33 = new_count == MILESTONE_33
             passed_66 = old_count < MILESTONE_66 < new_count
@@ -1032,7 +1032,7 @@ class NinetyNineGame(Game):
             player, "game_pig/win.ogg", "game_ninetynine/lose2.ogg"
         )
 
-        amount = PENALTY_BUST if self.is_quentin_c else PENALTY_BUST_RS
+        amount = PENALTY_BUST if self.is_standard_rules else PENALTY_BUST_ACTION
         player.tokens = max(0, player.tokens - amount)
         self._announce_token_loss(player, amount)
 
@@ -1088,17 +1088,17 @@ class NinetyNineGame(Game):
         """Apply special card effects (reverse, skip)."""
         rank = card.rank
 
-        if self.is_quentin_c:
+        if self.is_standard_rules:
             if rank == 4 and len(self.alive_players) > 2:
                 self.reverse_turn_direction()
                 self.broadcast_l("ninetynine-direction-reverses")
             if rank == 11:  # Jack skips
                 self.skip_next_players(1)
         else:
-            if rank == RS_RANK_REVERSE and len(self.alive_players) > 2:
+            if rank == N99_RANK_REVERSE and len(self.alive_players) > 2:
                 self.reverse_turn_direction()
                 self.broadcast_l("ninetynine-direction-reverses")
-            if rank == RS_RANK_SKIP:
+            if rank == N99_RANK_SKIP:
                 self.skip_next_players(1)
 
     def _check_game_end(self) -> None:

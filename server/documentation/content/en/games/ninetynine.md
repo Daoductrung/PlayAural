@@ -6,7 +6,7 @@ Ninety Nine is a classic card game of survival and strategy. Players take turns 
 
 
 
-The game has been a staple in the blind gaming community for years, appearing in both the Quentin C Playroom and RS Games platforms. PlayAural supports both variants. At its core, Ninety Nine is an elimination game: every player starts with a set of tokens, loses them for making mistakes, and is knocked out when they run dry. The last player standing wins.
+The game has been a staple in the blind gaming community for years. PlayAural supports two distinct variants: the standard 52-card deck and an action cards variant with a special 60-card deck. At its core, Ninety Nine is an elimination game: every player starts with a set of tokens, loses them for making mistakes, and is knocked out when they run dry. The last player standing wins.
 
 
 
@@ -30,7 +30,7 @@ The round ends when someone pushes the count over 99 (a "bust"), or until someon
 
 
 
-\*\*Quentin C Variant (Default)\*\*
+\*\*Standard Variant (Default)\*\*
 
 \* \*\*Ace:\*\* Choose +1 or +11. Automatically plays as +1 if the count is above 88.
 
@@ -50,7 +50,7 @@ The round ends when someone pushes the count over 99 (a "bust"), or until someon
 
 
 
-\*\*RS Games Variant\*\*
+\*\*Action Cards Variant\*\*
 
 Uses a 60-card deck (1-9 and special cards):
 
@@ -64,7 +64,7 @@ Uses a 60-card deck (1-9 and special cards):
 
 
 
-\*\*Milestones and Penalties (Quentin C Variant)\*\*
+\*\*Milestones and Penalties (Standard Variant)\*\*
 
 \* \*\*Landing exactly on 33 or 66:\*\* Every other player loses 1 token.
 
@@ -90,7 +90,7 @@ Players start with a pool of tokens (default 9). When a player reaches 0 tokens,
 
 \* \*\*Hand Size:\*\* Number of cards dealt to each player per round (default 3, range 1-13).
 
-\* \*\*Rules Variant:\*\* Quentin C (default) or RS Games.
+\* \*\*Rules Variant:\*\* Standard (default) or Action Cards.
 
 \* \*\*Auto-Draw:\*\* Whether a replacement card is drawn automatically after playing (default on). When off, players must manually draw with Space or D.
 

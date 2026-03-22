@@ -12,12 +12,12 @@ ninetynine-direction-reverses = The direction of play reverses!
 
 ninetynine-player-skipped = { $player } is skipped.
 
-rs-card-plus-10 = +10
-rs-card-minus-10 = -10
-rs-card-pass = Pass
-rs-card-reverse = Reverse
-rs-card-skip = Skip
-rs-card-ninety-nine = Ninety Nine
+n99-card-plus-10 = +10
+n99-card-minus-10 = -10
+n99-card-pass = Pass
+n99-card-reverse = Reverse
+n99-card-skip = Skip
+n99-card-ninety-nine = Ninety Nine
 
 ninetynine-you-lose-tokens = You lose { $amount } { $amount ->
     [one] token
@@ -71,11 +71,11 @@ ninetynine-option-changed-hand-size = Hand size set to { $size }.
 ninetynine-set-autodraw = Automatic drawing: { $enabled }
 ninetynine-option-changed-autodraw = Automatic drawing set to { $enabled }.
 
-ninetynine-rules-quentin = Quentin C rules.
-ninetynine-rules-rsgames = RS Games rules.
+ninetynine-rules-standard = Standard rules.
+ninetynine-rules-action-cards = Action cards rules.
 
-ninetynine-rules-variant-quentin_c = Quentin C
-ninetynine-rules-variant-rs_games = RS Games
+ninetynine-rules-variant-standard = Standard
+ninetynine-rules-variant-action-cards = Action Cards
 
 ninetynine-choose-first = You need to make a choice first.
 ninetynine-draw-first = You need to draw a card first.

@@ -19,15 +19,15 @@ from ..game_utils.cards import (
     Card,
     Deck,
     DeckFactory,
-    RS_GAMES_RANK_NAMES,
+    N99_SPECIAL_RANK_NAMES,
     SUIT_NONE,
     SUIT_HEARTS,
-    RS_RANK_PLUS_10,
-    RS_RANK_MINUS_10,
-    RS_RANK_PASS,
-    RS_RANK_REVERSE,
-    RS_RANK_SKIP,
-    RS_RANK_NINETY_NINE,
+    N99_RANK_PLUS_10,
+    N99_RANK_MINUS_10,
+    N99_RANK_PASS,
+    N99_RANK_REVERSE,
+    N99_RANK_SKIP,
+    N99_RANK_NINETY_NINE,
 )
 from pathlib import Path
 from ..users.test_user import MockUser
@@ -68,17 +68,17 @@ class TestNinetyNineUnit:
         game = NinetyNineGame()
         assert game.options.starting_tokens == 9
         assert game.options.hand_size == 3
-        assert game.options.rules_variant == "quentin_c"
+        assert game.options.rules_variant == "standard"
 
     def test_custom_options(self):
         """Test custom game options."""
         options = NinetyNineOptions(
-            starting_tokens=5, hand_size=5, rules_variant="rs_games"
+            starting_tokens=5, hand_size=5, rules_variant="action_cards"
         )
         game = NinetyNineGame(options=options)
         assert game.options.starting_tokens == 5
         assert game.options.hand_size == 5
-        assert game.options.rules_variant == "rs_games"
+        assert game.options.rules_variant == "action_cards"
 
 
 class TestCardAndDeck:
@@ -144,9 +144,9 @@ class TestCardAndDeck:
         assert deck.is_empty()
         assert deck.draw_one() is None
 
-    def test_rs_games_deck_creation(self):
-        """Test RS Games deck has 60 cards with correct distribution."""
-        deck, _ = DeckFactory.rs_games_deck()
+    def test_n99_action_deck_creation(self):
+        """Test N99 action deck has 60 cards with correct distribution."""
+        deck, _ = DeckFactory.n99_action_deck()
         assert len(deck.cards) == 60
 
         # Count cards by rank
@@ -160,31 +160,31 @@ class TestCardAndDeck:
 
         # Special cards: 4 of each (ranks 14-19)
         for rank in [
-            RS_RANK_PLUS_10,
-            RS_RANK_MINUS_10,
-            RS_RANK_PASS,
-            RS_RANK_REVERSE,
-            RS_RANK_SKIP,
-            RS_RANK_NINETY_NINE,
+            N99_RANK_PLUS_10,
+            N99_RANK_MINUS_10,
+            N99_RANK_PASS,
+            N99_RANK_REVERSE,
+            N99_RANK_SKIP,
+            N99_RANK_NINETY_NINE,
         ]:
             assert rank_counts.get(rank, 0) == 4, f"Expected 4 cards of rank {rank}"
 
-    def test_rs_games_card_names(self):
-        """Test RS Games card naming."""
+    def test_n99_action_card_names(self):
+        """Test N99 action card naming."""
         # Check special card names
-        assert RS_GAMES_RANK_NAMES[RS_RANK_PLUS_10] == "10"
-        assert RS_GAMES_RANK_NAMES[RS_RANK_MINUS_10] == "-10"
-        assert RS_GAMES_RANK_NAMES[RS_RANK_PASS] == "Pass"
-        assert RS_GAMES_RANK_NAMES[RS_RANK_REVERSE] == "Reverse"
-        assert RS_GAMES_RANK_NAMES[RS_RANK_SKIP] == "Skip"
-        assert RS_GAMES_RANK_NAMES[RS_RANK_NINETY_NINE] == "Ninety Nine"
+        assert N99_SPECIAL_RANK_NAMES[N99_RANK_PLUS_10] == "10"
+        assert N99_SPECIAL_RANK_NAMES[N99_RANK_MINUS_10] == "-10"
+        assert N99_SPECIAL_RANK_NAMES[N99_RANK_PASS] == "Pass"
+        assert N99_SPECIAL_RANK_NAMES[N99_RANK_REVERSE] == "Reverse"
+        assert N99_SPECIAL_RANK_NAMES[N99_RANK_SKIP] == "Skip"
+        assert N99_SPECIAL_RANK_NAMES[N99_RANK_NINETY_NINE] == "Ninety Nine"
 
 
 class TestCardValues:
     """Tests for card value calculations."""
 
-    def test_quentin_c_values(self):
-        """Test card values in Quentin C variant."""
+    def test_standard_values(self):
+        """Test card values in standard variant."""
         game = NinetyNineGame()
 
         # 3, 5-8 are face value (4 is reverse)
@@ -404,12 +404,12 @@ class TestNinetyNinePlayTest:
 
         assert not game.game_active
 
-    def test_rs_games_variant(self):
-        """Test RS Games variant."""
+    def test_action_cards_variant(self):
+        """Test action cards variant."""
         random.seed(111)
 
         game = NinetyNineGame(
-            options=NinetyNineOptions(starting_tokens=3, rules_variant="rs_games")
+            options=NinetyNineOptions(starting_tokens=3, rules_variant="action_cards")
         )
         bot1 = Bot("Bot1")
         bot2 = Bot("Bot2")

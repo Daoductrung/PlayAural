@@ -1666,8 +1666,8 @@ PlayAural Server
 
     # Dice keeping style display names
     DICE_KEEPING_STYLES = {
-        DiceKeepingStyle.PlayAural: "dice-keeping-style-indexes",
-        DiceKeepingStyle.QUENTIN_C: "dice-keeping-style-values",
+        DiceKeepingStyle.INDEX_BASED: "dice-keeping-style-indexes",
+        DiceKeepingStyle.VALUE_BASED: "dice-keeping-style-values",
     }
 
     def _show_options_menu(self, user: NetworkUser) -> None:

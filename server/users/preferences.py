@@ -7,16 +7,16 @@ from enum import Enum
 class DiceKeepingStyle(Enum):
     """Dice keeping style preference."""
 
-    PlayAural = "PlayAural"  # Dice indexes (1-5 keys)
-    QUENTIN_C = "quentin_c"  # Dice values (1-6 keys)
+    INDEX_BASED = "index_based"  # Dice indexes (1-5 keys)
+    VALUE_BASED = "value_based"  # Dice values (1-6 keys)
 
     @classmethod
     def from_str(cls, value: str) -> "DiceKeepingStyle":
-        """Convert string to enum, defaulting to PlayAural."""
+        """Convert string to enum, defaulting to INDEX_BASED."""
         try:
             return cls(value)
         except ValueError:
-            return cls.PlayAural
+            return cls.INDEX_BASED
 
 
 @dataclass
@@ -50,7 +50,7 @@ class UserPreferences:
     # Dice game preferences
     clear_kept_on_roll: bool = False  # Clear kept dice after rolling
     dice_keeping_style: DiceKeepingStyle = field(
-        default_factory=lambda: DiceKeepingStyle.PlayAural
+        default_factory=lambda: DiceKeepingStyle.INDEX_BASED
     )
 
     def to_dict(self) -> dict:
@@ -94,6 +94,6 @@ class UserPreferences:
             active_tables_filter=data.get("active_tables_filter", "all"),
             clear_kept_on_roll=data.get("clear_kept_on_roll", False),
             dice_keeping_style=DiceKeepingStyle.from_str(
-                data.get("dice_keeping_style", "PlayAural")
+                data.get("dice_keeping_style", "index_based")
             ),
         )

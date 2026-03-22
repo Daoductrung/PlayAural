@@ -9,11 +9,11 @@ from typing import TYPE_CHECKING
 from ...game_utils.cards import (
     Card,
     SUIT_NONE,
-    RS_RANK_PASS,
-    RS_RANK_MINUS_10,
-    RS_RANK_REVERSE,
-    RS_RANK_SKIP,
-    RS_RANK_NINETY_NINE,
+    N99_RANK_MINUS_10,
+    N99_RANK_PASS,
+    N99_RANK_REVERSE,
+    N99_RANK_SKIP,
+    N99_RANK_NINETY_NINE,
 )
 
 if TYPE_CHECKING:
@@ -33,11 +33,11 @@ BOT_HOARD_ACE = 350
 BOT_HOARD_NINE = 300
 BOT_HOARD_TEN = 200
 BOT_HOARD_TWO = 150
-BOT_HOARD_RS_PASS = 400
-BOT_HOARD_RS_SKIP = 400
-BOT_HOARD_RS_MINUS_10 = 300
-BOT_HOARD_RS_REVERSE = 200
-BOT_HOARD_RS_99 = 250
+BOT_HOARD_ACTION_PASS = 400
+BOT_HOARD_ACTION_SKIP = 400
+BOT_HOARD_ACTION_MINUS_10 = 300
+BOT_HOARD_ACTION_REVERSE = 200
+BOT_HOARD_ACTION_99 = 250
 
 # Game constants needed for bot logic
 MAX_COUNT = 99
@@ -108,20 +108,20 @@ def _evaluate_count(game: "NinetyNineGame", new_count: int, card_rank: int) -> i
     is_two_player = alive_count == 2
 
     # Check if this is a Skip card
-    is_skip = (card_rank == 11 and game.is_quentin_c) or (
-        card_rank == RS_RANK_SKIP and not game.is_quentin_c
+    is_skip = (card_rank == 11 and game.is_standard_rules) or (
+        card_rank == N99_RANK_SKIP and not game.is_standard_rules
     )
 
-    if game.is_quentin_c:
-        return _evaluate_quentin_c(game, new_count, is_two_player, is_skip)
+    if game.is_standard_rules:
+        return _evaluate_standard(game, new_count, is_two_player, is_skip)
     else:
-        return _evaluate_rs_games(new_count, is_two_player, is_skip)
+        return _evaluate_action_cards(new_count, is_two_player, is_skip)
 
 
-def _evaluate_quentin_c(
+def _evaluate_standard(
     game: "NinetyNineGame", new_count: int, is_two_player: bool, is_skip: bool
 ) -> int:
-    """Evaluate count for Quentin C variant."""
+    """Evaluate count for standard variant."""
     score = 0
     current_count = game.count
 
@@ -175,8 +175,8 @@ def _evaluate_quentin_c(
     return score
 
 
-def _evaluate_rs_games(new_count: int, is_two_player: bool, is_skip: bool) -> int:
-    """Evaluate count for RS Games variant."""
+def _evaluate_action_cards(new_count: int, is_two_player: bool, is_skip: bool) -> int:
+    """Evaluate count for action cards variant."""
     score = 0
 
     if is_two_player and is_skip:
@@ -213,10 +213,10 @@ def _score_card(
     count = game.count
 
     # Calculate base score from evaluating the resulting count
-    if game.is_quentin_c:
-        base_score = _score_quentin_c_card(game, rank, count)
+    if game.is_standard_rules:
+        base_score = _score_standard_card(game, rank, count)
     else:
-        base_score = _score_rs_games_card(game, rank, count)
+        base_score = _score_action_cards_card(game, rank, count)
 
     # Apply hoarding logic
     base_score += _hoarding_modifier(game, rank)
@@ -227,8 +227,8 @@ def _score_card(
     return base_score
 
 
-def _score_quentin_c_card(game: "NinetyNineGame", rank: int, count: int) -> int:
-    """Score a card for Quentin C variant."""
+def _score_standard_card(game: "NinetyNineGame", rank: int, count: int) -> int:
+    """Score a card for standard variant."""
     if rank == 1:  # Ace
         score_11 = _evaluate_count(game, count + 11, rank)
         score_1 = _evaluate_count(game, count + 1, rank)
@@ -253,12 +253,12 @@ def _score_quentin_c_card(game: "NinetyNineGame", rank: int, count: int) -> int:
         return _evaluate_count(game, count + (value or 0), rank)
 
 
-def _score_rs_games_card(game: "NinetyNineGame", rank: int, count: int) -> int:
-    """Score a card for RS Games variant."""
-    if rank == RS_RANK_NINETY_NINE:
+def _score_action_cards_card(game: "NinetyNineGame", rank: int, count: int) -> int:
+    """Score a card for action cards variant."""
+    if rank == N99_RANK_NINETY_NINE:
         return _evaluate_count(game, MAX_COUNT, rank)
     else:
-        value = _get_rs_card_value(rank)
+        value = _get_action_card_value(rank)
         return _evaluate_count(game, count + (value or 0), rank)
 
 
@@ -266,7 +266,7 @@ def _hoarding_modifier(game: "NinetyNineGame", rank: int) -> int:
     """Calculate hoarding modifier for a card."""
     count = game.count
 
-    if game.is_quentin_c:
+    if game.is_standard_rules:
         in_danger = (28 <= count <= 32) or (61 <= count <= 65) or count >= 88
 
         if not in_danger:
@@ -287,20 +287,20 @@ def _hoarding_modifier(game: "NinetyNineGame", rank: int) -> int:
         in_danger = count >= 85
 
         if not in_danger:
-            if rank == RS_RANK_PASS:
-                return -BOT_HOARD_RS_PASS
-            elif rank == RS_RANK_SKIP:
-                return -BOT_HOARD_RS_SKIP
-            elif rank == RS_RANK_MINUS_10:
-                return -BOT_HOARD_RS_MINUS_10
-            elif rank == RS_RANK_REVERSE:
-                return -BOT_HOARD_RS_REVERSE
-            elif rank == RS_RANK_NINETY_NINE:
-                return -BOT_HOARD_RS_99
+            if rank == N99_RANK_PASS:
+                return -BOT_HOARD_ACTION_PASS
+            elif rank == N99_RANK_SKIP:
+                return -BOT_HOARD_ACTION_SKIP
+            elif rank == N99_RANK_MINUS_10:
+                return -BOT_HOARD_ACTION_MINUS_10
+            elif rank == N99_RANK_REVERSE:
+                return -BOT_HOARD_ACTION_REVERSE
+            elif rank == N99_RANK_NINETY_NINE:
+                return -BOT_HOARD_ACTION_99
         else:
-            if rank in (RS_RANK_PASS, RS_RANK_SKIP):
+            if rank in (N99_RANK_PASS, N99_RANK_SKIP):
                 return 150
-            elif rank == RS_RANK_MINUS_10:
+            elif rank == N99_RANK_MINUS_10:
                 return 200
 
     return 0
@@ -315,17 +315,17 @@ def _special_card_modifier(game: "NinetyNineGame", rank: int) -> int:
     alive_count = len([p for p in game.players if p.tokens > 0])
     low_tokens = next_player.tokens <= 1
 
-    if game.is_quentin_c:
+    if game.is_standard_rules:
         if rank == 11:  # Jack skips
             return 300 if low_tokens else 150
         if rank == 4 and alive_count > 2:
             return 150 if low_tokens else 50
     else:
-        if rank == RS_RANK_SKIP:
+        if rank == N99_RANK_SKIP:
             return 300 if low_tokens else 150
-        if rank == RS_RANK_REVERSE and alive_count > 2:
+        if rank == N99_RANK_REVERSE and alive_count > 2:
             return 150 if low_tokens else 50
-        if rank == RS_RANK_PASS:
+        if rank == N99_RANK_PASS:
             return 200 if low_tokens else 75
 
     return 0
@@ -348,7 +348,7 @@ def _next_alive_player(game: "NinetyNineGame") -> "NinetyNinePlayer | None":
 
 
 def _calculate_two_effect(current_count: int) -> int:
-    """Calculate the new count after playing a 2 (Quentin C)."""
+    """Calculate the new count after playing a 2 (standard rules)."""
     if current_count % 2 == 0 and current_count > TWO_DIVIDE_THRESHOLD:
         return current_count // 2
     else:
@@ -356,7 +356,7 @@ def _calculate_two_effect(current_count: int) -> int:
 
 
 def _get_card_value(rank: int, current_count: int) -> int:
-    """Get simple card value for Quentin C (used by bot scoring)."""
+    """Get simple card value for standard rules (used by bot scoring)."""
     if 3 <= rank <= 8:
         return rank
     elif rank == 9:
@@ -366,16 +366,16 @@ def _get_card_value(rank: int, current_count: int) -> int:
     return 0
 
 
-def _get_rs_card_value(rank: int) -> int:
-    """Get simple card value for RS Games (used by bot scoring)."""
-    from ...game_utils.cards import RS_RANK_PLUS_10
+def _get_action_card_value(rank: int) -> int:
+    """Get simple card value for action cards (used by bot scoring)."""
+    from ...game_utils.cards import N99_RANK_PLUS_10
 
     if 1 <= rank <= 9:
         return rank
-    elif rank == RS_RANK_PLUS_10:
+    elif rank == N99_RANK_PLUS_10:
         return 10
-    elif rank == RS_RANK_MINUS_10:
+    elif rank == N99_RANK_MINUS_10:
         return -10
-    elif rank in (RS_RANK_PASS, RS_RANK_REVERSE, RS_RANK_SKIP):
+    elif rank in (N99_RANK_PASS, N99_RANK_REVERSE, N99_RANK_SKIP):
         return 0
     return 0

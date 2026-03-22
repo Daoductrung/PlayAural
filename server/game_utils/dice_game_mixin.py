@@ -120,7 +120,7 @@ class DiceGameMixin:
                 [f"dice_key_{v}"],
                 state=KeybindState.ACTIVE,
             )
-            # Shift+1-6 for unkeeping (Quentin C style)
+            # Shift+1-6 for unkeeping (value-based style)
             self.define_keybind(
                 f"shift+{v}",
                 f"Unkeep dice {v}",
@@ -139,19 +139,19 @@ class DiceGameMixin:
         if not action_id:
             return None
         user = self.get_user(player)
-        style = user.preferences.dice_keeping_style if user else DiceKeepingStyle.PlayAural
+        style = user.preferences.dice_keeping_style if user else DiceKeepingStyle.INDEX_BASED
         try:
             key_num = int(action_id.split("_")[-1])
         except ValueError:
             return "action-not-available"
         if hasattr(player, "dice"):
-            if style == DiceKeepingStyle.QUENTIN_C:
+            if style == DiceKeepingStyle.VALUE_BASED:
                 if key_num > player.dice.sides:
                     return "action-not-available"
             elif key_num > player.dice.num_dice:
                 return "action-not-available"
         if hasattr(self, "_is_dice_toggle_enabled"):
-            if style == DiceKeepingStyle.PlayAural:
+            if style == DiceKeepingStyle.INDEX_BASED:
                 die_index = key_num - 1
             else:
                 die_index = 0
@@ -160,7 +160,7 @@ class DiceGameMixin:
             toggle_reason = self._is_dice_toggle_enabled(player, die_index)
             if toggle_reason is not None:
                 return "action-not-available"
-        if style == DiceKeepingStyle.QUENTIN_C and hasattr(player, "dice"):
+        if style == DiceKeepingStyle.VALUE_BASED and hasattr(player, "dice"):
             if not self._has_kept_value(player, key_num):
                 return "action-not-available"
         return None
@@ -170,8 +170,8 @@ class DiceGameMixin:
         if self.status != "playing":
             return "action-not-playing"
         user = self.get_user(player)
-        style = user.preferences.dice_keeping_style if user else DiceKeepingStyle.PlayAural
-        if style != DiceKeepingStyle.QUENTIN_C:
+        style = user.preferences.dice_keeping_style if user else DiceKeepingStyle.INDEX_BASED
+        if style != DiceKeepingStyle.VALUE_BASED:
             return "action-not-available"
         key_num: int | None = None
         if action_id:
@@ -197,8 +197,8 @@ class DiceGameMixin:
         except ValueError:
             return action_id
         user = self.get_user(player)
-        style = user.preferences.dice_keeping_style if user else DiceKeepingStyle.PlayAural
-        if style == DiceKeepingStyle.PlayAural and hasattr(player, "dice"):
+        style = user.preferences.dice_keeping_style if user else DiceKeepingStyle.INDEX_BASED
+        if style == DiceKeepingStyle.INDEX_BASED and hasattr(player, "dice"):
             die_index = key_num - 1
             if die_index >= player.dice.num_dice:
                 return f"Keep die {key_num}"
@@ -218,8 +218,8 @@ class DiceGameMixin:
     def _apply_dice_values_defaults(self, player: Player) -> None:
         """In dice values style, default to keeping all dice after a roll."""
         user = self.get_user(player)
-        style = user.preferences.dice_keeping_style if user else DiceKeepingStyle.PlayAural
-        if style != DiceKeepingStyle.QUENTIN_C:
+        style = user.preferences.dice_keeping_style if user else DiceKeepingStyle.INDEX_BASED
+        if style != DiceKeepingStyle.VALUE_BASED:
             return
         if not hasattr(player, "dice"):
             return
@@ -416,7 +416,7 @@ class DiceGameMixin:
 
         style = user.preferences.dice_keeping_style
 
-        if style == DiceKeepingStyle.PlayAural:
+        if style == DiceKeepingStyle.INDEX_BASED:
             # Toggle by index - check if die index is valid
             die_index = key_num - 1
             if hasattr(player, "dice") and die_index < player.dice.num_dice:
@@ -437,7 +437,7 @@ class DiceGameMixin:
 
         style = user.preferences.dice_keeping_style
 
-        if style == DiceKeepingStyle.QUENTIN_C:
+        if style == DiceKeepingStyle.VALUE_BASED:
             self._keep_by_value(player, value)
         # Silent in dice indexes style
 

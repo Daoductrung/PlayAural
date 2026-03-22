@@ -537,13 +537,13 @@ class TradeoffGame(Game):
         Handle a dice key press (1-6).
 
         PlayAural style: toggle die at index (key_num - 1), keys 1-5.
-        Quentin C style: keep (unmark) first trading die with that face value.
+        Value-based style: keep (unmark) first trading die with that face value.
         """
         user = self.get_user(player)
         if not user:
             return
         style = user.preferences.dice_keeping_style
-        if style == DiceKeepingStyle.PlayAural:
+        if style == DiceKeepingStyle.INDEX_BASED:
             if key_num <= 5:
                 self._toggle_trade(player, key_num - 1)
         else:
@@ -553,16 +553,16 @@ class TradeoffGame(Game):
         """
         Handle Shift+key press (trade by face value).
 
-        Only active in Quentin C style; silent in PlayAural style.
+        Only active in value-based style; silent in index-based style.
         """
         user = self.get_user(player)
         if not user:
             return
-        if user.preferences.dice_keeping_style == DiceKeepingStyle.QUENTIN_C:
+        if user.preferences.dice_keeping_style == DiceKeepingStyle.VALUE_BASED:
             self._trade_by_value(player, value)
 
     def _keep_by_value(self, player: Player, value: int) -> None:
-        """Keep the first trading die with the given face value (Quentin C style)."""
+        """Keep the first trading die with the given face value (value-based style)."""
         tp: TradeoffPlayer = player  # type: ignore
         if self.phase != "trading" or tp.trades_confirmed:
             return

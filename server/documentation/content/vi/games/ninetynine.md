@@ -6,7 +6,7 @@ Chín Mươi Chín là một trò chơi bài sinh tồn và chiến thuật cổ
 
 
 
-Trò chơi này đã là một phần không thể thiếu trong cộng đồng trò chơi cho người mù nhiều năm qua, xuất hiện trên cả hai nền tảng Quentin C Playroom và RS Games. PlayAural hỗ trợ cả hai biến thể luật này. Về cơ bản, đây là một trò chơi loại trừ: mỗi người chơi bắt đầu với một số lượng thẻ nhất định, mất thẻ khi mắc lỗi và bị loại khi hết thẻ. Người cuối cùng còn trụ lại sẽ thắng.
+Trò chơi này đã là một phần không thể thiếu trong cộng đồng trò chơi cho người mù nhiều năm qua. PlayAural hỗ trợ hai biến thể luật riêng biệt: biến thể tiêu chuẩn với bộ bài 52 lá và biến thể lá bài hành động với bộ bài đặc biệt 60 lá. Về cơ bản, đây là một trò chơi loại trừ: mỗi người chơi bắt đầu với một số lượng thẻ nhất định, mất thẻ khi mắc lỗi và bị loại khi hết thẻ. Người cuối cùng còn trụ lại sẽ thắng.
 
 
 
@@ -30,7 +30,7 @@ Vòng chơi kết thúc khi có người đẩy tổng điểm vượt quá 99 (
 
 
 
-\*\*Biến thể luật Quentin C (Mặc định)\*\*
+\*\*Biến thể tiêu chuẩn (Mặc định)\*\*
 
 \* \*\*Át (A):\*\* Chọn cộng 1 hoặc cộng 11. Nếu tổng điểm trên 88, hệ thống tự động tính là +1.
 
@@ -50,7 +50,7 @@ Vòng chơi kết thúc khi có người đẩy tổng điểm vượt quá 99 (
 
 
 
-\*\*Biến thể luật RS Games\*\*
+\*\*Biến thể lá bài hành động\*\*
 
 Sử dụng bộ bài 60 lá đặc biệt (1-9 và các lá chức năng):
 
@@ -64,7 +64,7 @@ Sử dụng bộ bài 60 lá đặc biệt (1-9 và các lá chức năng):
 
 
 
-\*\*Các mốc điểm và Hình phạt (Luật Quentin C)\*\*
+\*\*Các mốc điểm và Hình phạt (Luật tiêu chuẩn)\*\*
 
 \* \*\*Dừng đúng mức 33 hoặc 66:\*\* Tất cả những người chơi khác mất 1 thẻ.
 
@@ -90,7 +90,7 @@ Người chơi bắt đầu với một số lượng thẻ (mặc định là 9
 
 \* \*\*Số bài trên tay:\*\* Số lá bài được chia cho mỗi người mỗi vòng (mặc định 3, phạm vi 1-13).
 
-\* \*\*Biến thể luật:\*\* Quentin C (mặc định) hoặc RS Games.
+\* \*\*Biến thể luật:\*\* Tiêu chuẩn (mặc định) hoặc Lá bài hành động.
 
 \* \*\*Tự động rút bài:\*\* Tự động rút bài thay thế sau khi đánh (mặc định bật). Khi tắt, người chơi phải rút bằng phím Cách hoặc D.
 

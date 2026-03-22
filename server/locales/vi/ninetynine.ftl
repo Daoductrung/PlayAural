@@ -12,12 +12,12 @@ ninetynine-direction-reverses = Chiều chơi bị đảo ngược!
 
 ninetynine-player-skipped = { $player } bị mất lượt.
 
-rs-card-plus-10 = +10
-rs-card-minus-10 = -10
-rs-card-pass = Bỏ lượt
-rs-card-reverse = Đảo chiều
-rs-card-skip = Nhảy lượt
-rs-card-ninety-nine = Chín Mươi Chín
+n99-card-plus-10 = +10
+n99-card-minus-10 = -10
+n99-card-pass = Bỏ lượt
+n99-card-reverse = Đảo chiều
+n99-card-skip = Nhảy lượt
+n99-card-ninety-nine = Chín Mươi Chín
 
 ninetynine-you-lose-tokens = Bạn mất { $amount } { $amount ->
     [one] thẻ
@@ -71,11 +71,11 @@ ninetynine-option-changed-hand-size = Số bài trên tay đã được đặt l
 ninetynine-set-autodraw = Tự động rút bài: { $enabled }
 ninetynine-option-changed-autodraw = Tự động rút bài: { $enabled }.
 
-ninetynine-rules-quentin = Luật Quentin C.
-ninetynine-rules-rsgames = Luật RS Games.
+ninetynine-rules-standard = Luật tiêu chuẩn.
+ninetynine-rules-action-cards = Luật lá bài hành động.
 
-ninetynine-rules-variant-quentin_c = Quentin C
-ninetynine-rules-variant-rs_games = RS Games
+ninetynine-rules-variant-standard = Tiêu chuẩn
+ninetynine-rules-variant-action-cards = Lá Bài Hành Động
 
 ninetynine-choose-first = Bạn cần đưa ra lựa chọn trước.
 ninetynine-draw-first = Bạn cần rút bài trước.

@@ -13,19 +13,19 @@ from ..messages.localization import Localization
 
 
 # Suit constants
-SUIT_NONE = 0  # For games with no suits (e.g., RS Games Ninety-Nine)
+SUIT_NONE = 0  # For games with no suits (e.g., Ninety-Nine action cards variant)
 SUIT_DIAMONDS = 1
 SUIT_CLUBS = 2
 SUIT_HEARTS = 3
 SUIT_SPADES = 4
 
-# RS Games special card ranks (for Ninety-Nine RS Games variant)
-RS_RANK_PLUS_10 = 14
-RS_RANK_MINUS_10 = 15
-RS_RANK_PASS = 16
-RS_RANK_REVERSE = 17
-RS_RANK_SKIP = 18
-RS_RANK_NINETY_NINE = 19
+# Special card ranks for Ninety-Nine action cards variant
+N99_RANK_PLUS_10 = 14
+N99_RANK_MINUS_10 = 15
+N99_RANK_PASS = 16
+N99_RANK_REVERSE = 17
+N99_RANK_SKIP = 18
+N99_RANK_NINETY_NINE = 19
 
 
 @dataclass
@@ -33,7 +33,7 @@ class Card(DataClassJSONMixin):
     """A playing card."""
 
     id: int  # Unique identifier
-    rank: int  # Card rank (1-13 for standard, 1-10 for Italian, 14-19 for RS Games special)
+    rank: int  # Card rank (1-13 for standard, 1-10 for Italian, 14-19 for N99 action cards)
     suit: int  # Suit number (0=none, 1=diamonds, 2=clubs, 3=hearts, 4=spades)
 
     def __hash__(self) -> int:
@@ -144,9 +144,9 @@ class DeckFactory:
         return deck, card_lookup
 
     @staticmethod
-    def rs_games_deck() -> tuple[Deck, dict[int, Card]]:
+    def n99_action_deck() -> tuple[Deck, dict[int, Card]]:
         """
-        Create RS Games 60-card deck for Ninety-Nine variant.
+        Create 60-card action deck for Ninety-Nine action cards variant.
 
         Contains:
         - Number cards 1-9: 4 of each (36 cards)
@@ -170,12 +170,12 @@ class DeckFactory:
         # Special cards (4 of each = 24 cards)
         # 14=+10, 15=-10, 16=Pass, 17=Reverse, 18=Skip, 19=Ninety Nine
         for rank in [
-            RS_RANK_PLUS_10,
-            RS_RANK_MINUS_10,
-            RS_RANK_PASS,
-            RS_RANK_REVERSE,
-            RS_RANK_SKIP,
-            RS_RANK_NINETY_NINE,
+            N99_RANK_PLUS_10,
+            N99_RANK_MINUS_10,
+            N99_RANK_PASS,
+            N99_RANK_REVERSE,
+            N99_RANK_SKIP,
+            N99_RANK_NINETY_NINE,
         ]:
             for _ in range(4):
                 card = Card(id=card_id, rank=rank, suit=SUIT_NONE)
@@ -213,8 +213,8 @@ RANK_KEYS = {
     13: "rank-king",
 }
 
-# RS Games special card names (not localized - they're game-specific terms)
-RS_GAMES_RANK_NAMES = {
+# Ninety-Nine action card rank names (not localized - they're game-specific terms)
+N99_SPECIAL_RANK_NAMES = {
     1: "1",
     2: "2",
     3: "3",
@@ -224,12 +224,12 @@ RS_GAMES_RANK_NAMES = {
     7: "7",
     8: "8",
     9: "9",
-    RS_RANK_PLUS_10: "10",
-    RS_RANK_MINUS_10: "-10",
-    RS_RANK_PASS: "Pass",
-    RS_RANK_REVERSE: "Reverse",
-    RS_RANK_SKIP: "Skip",
-    RS_RANK_NINETY_NINE: "Ninety Nine",
+    N99_RANK_PLUS_10: "10",
+    N99_RANK_MINUS_10: "-10",
+    N99_RANK_PASS: "Pass",
+    N99_RANK_REVERSE: "Reverse",
+    N99_RANK_SKIP: "Skip",
+    N99_RANK_NINETY_NINE: "Ninety Nine",
 }
 
 
@@ -237,7 +237,7 @@ def card_name(card: Card, locale: str = "en") -> str:
     """
     Get localized card name (e.g., 'Seven of Diamonds').
 
-    For RS Games cards (suit == SUIT_NONE), returns the special card name directly.
+    For N99 action cards (suit == SUIT_NONE), returns the special card name directly.
 
     Args:
         card: The card to name.
@@ -246,21 +246,21 @@ def card_name(card: Card, locale: str = "en") -> str:
     Returns:
         Localized card name string.
     """
-    # RS Games cards have no suit and use special naming
+    # N99 action cards have no suit and use special naming
     if card.suit == SUIT_NONE:
-        if card.rank == RS_RANK_PLUS_10:
-            return Localization.get(locale, "rs-card-plus-10")
-        elif card.rank == RS_RANK_MINUS_10:
-            return Localization.get(locale, "rs-card-minus-10")
-        elif card.rank == RS_RANK_PASS:
-            return Localization.get(locale, "rs-card-pass")
-        elif card.rank == RS_RANK_REVERSE:
-            return Localization.get(locale, "rs-card-reverse")
-        elif card.rank == RS_RANK_SKIP:
-            return Localization.get(locale, "rs-card-skip")
-        elif card.rank == RS_RANK_NINETY_NINE:
-            return Localization.get(locale, "rs-card-ninety-nine")
-        return RS_GAMES_RANK_NAMES.get(card.rank, str(card.rank))
+        if card.rank == N99_RANK_PLUS_10:
+            return Localization.get(locale, "n99-card-plus-10")
+        elif card.rank == N99_RANK_MINUS_10:
+            return Localization.get(locale, "n99-card-minus-10")
+        elif card.rank == N99_RANK_PASS:
+            return Localization.get(locale, "n99-card-pass")
+        elif card.rank == N99_RANK_REVERSE:
+            return Localization.get(locale, "n99-card-reverse")
+        elif card.rank == N99_RANK_SKIP:
+            return Localization.get(locale, "n99-card-skip")
+        elif card.rank == N99_RANK_NINETY_NINE:
+            return Localization.get(locale, "n99-card-ninety-nine")
+        return N99_SPECIAL_RANK_NAMES.get(card.rank, str(card.rank))
 
     rank_key = RANK_KEYS.get(card.rank)
     suit_key = SUIT_KEYS.get(card.suit)
@@ -304,9 +304,9 @@ def card_name_short(card: Card) -> str:
     Returns:
         Short card name string.
     """
-    # RS Games cards have no suit
+    # N99 action cards have no suit
     if card.suit == SUIT_NONE:
-        return RS_GAMES_RANK_NAMES.get(card.rank, str(card.rank))
+        return N99_SPECIAL_RANK_NAMES.get(card.rank, str(card.rank))
 
     suit_chars = {1: "D", 2: "C", 3: "H", 4: "S"}
     rank_chars = {1: "A", 11: "J", 12: "Q", 13: "K"}

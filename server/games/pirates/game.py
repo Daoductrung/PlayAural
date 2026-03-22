@@ -585,7 +585,11 @@ class PiratesGame(Game):
 
         # Play music and ambience
         self.play_music("game_pirates/mus.ogg")
-        self.play_ambience("game_pirates/amloop.ogg", intro="game_pirates/am_intro.ogg")
+        self.play_ambience(
+            "game_pirates/amloop.ogg",
+            intro="game_pirates/am_intro.ogg",
+            outro="game_pirates/am_outro.ogg",
+        )
 
         self.broadcast_l("pirates-welcome")
 

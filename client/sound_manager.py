@@ -647,8 +647,10 @@ class SoundManager:
                             outro_path, volume=self.ambience_volume
                         )
                         if self.ambience_outro:
-                            # Wait for outro to finish
-                            while self.ambience_outro.is_playing:
+                            # Wait for outro to finish, but allow force stop
+                            # to cancel it via stop_ambience(force=True)
+                            outro_ref = self.ambience_outro
+                            while outro_ref.is_playing and self.ambience_outro is not None:
                                 time.sleep(0.1)
 
             except Exception:

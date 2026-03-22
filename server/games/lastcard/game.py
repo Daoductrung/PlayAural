@@ -343,6 +343,9 @@ class LastCardGame(Game, TurnTimerMixin):
     # Jump-in tracking
     jump_in_played: bool = False  # Set when a jump-in occurs to cancel normal turn advance
 
+    # Deadlock detection
+    consecutive_passes: int = 0  # Resets whenever a card is played or drawn
+
     def __post_init__(self):
         super().__post_init__()
         self._timer_warning_played = False
@@ -709,6 +712,10 @@ class LastCardGame(Game, TurnTimerMixin):
         if total_cards_needed > 108:
             errors.append(("lastcard-error-too-many-cards",
                            {"players": len(active), "hand_size": self.options.hand_size}))
+        max_hand = self.options.max_hand_size
+        if max_hand > 0 and self.options.hand_size > max_hand:
+            errors.append(("lastcard-error-hand-exceeds-max",
+                           {"hand_size": self.options.hand_size, "max_hand": max_hand}))
         return errors
 
     # ==========================================================================
@@ -781,6 +788,7 @@ class LastCardGame(Game, TurnTimerMixin):
         self.interrupt_phase = ""
         self.interrupt_timer_ticks = 0
         self.awaiting_swap_target = False
+        self.consecutive_passes = 0
         self.jump_in_played = False
 
         self.broadcast_l("lastcard-new-hand", round=self.round)
@@ -1001,6 +1009,7 @@ class LastCardGame(Game, TurnTimerMixin):
         self.turn_has_drawn = False
         player.draws_this_turn = 0
         player.called_last_card = False
+        self.consecutive_passes = 0
 
         # Play sounds (staggered card sounds)
         for i, card in enumerate(cards):
@@ -1018,7 +1027,7 @@ class LastCardGame(Game, TurnTimerMixin):
             return
 
         # Last card callout
-        if len(player.hand) == 1 and self.options.last_card_callout and self.options.buzzer_enabled:
+        if len(player.hand) == 1 and self.options.last_card_callout:
             self.play_sound(SOUND_UNO_CALL)
             self.interrupt_phase = "last_card_callout"
             self.interrupt_target_id = player.id
@@ -1118,6 +1127,7 @@ class LastCardGame(Game, TurnTimerMixin):
         self.turn_has_drawn = False
         player.draws_this_turn = 0
         player.called_last_card = False
+        self.consecutive_passes = 0
 
         self._play_card_sound(card)
         self._broadcast_play(player, card)
@@ -1149,7 +1159,7 @@ class LastCardGame(Game, TurnTimerMixin):
             return
 
         # Last card callout check
-        if len(player.hand) == 1 and self.options.last_card_callout and self.options.buzzer_enabled:
+        if len(player.hand) == 1 and self.options.last_card_callout:
             self.play_sound(SOUND_UNO_CALL)
             self.interrupt_phase = "last_card_callout"
             self.interrupt_target_id = player.id
@@ -1298,6 +1308,7 @@ class LastCardGame(Game, TurnTimerMixin):
         p.draws_this_turn += 1
         self.turn_has_drawn = True
         p.called_last_card = False
+        self.consecutive_passes = 0
 
         playable = self._is_card_playable(card, p)
         if playable:
@@ -1317,8 +1328,10 @@ class LastCardGame(Game, TurnTimerMixin):
         # Draw until playable logic
         if self.options.draw_until_playable and not playable:
             draw_limit = self.options.draw_limit
-            if draw_limit > 0 and p.draws_this_turn >= draw_limit:
-                # Hit draw limit, must pass
+            max_hand = self.options.max_hand_size
+            if (draw_limit > 0 and p.draws_this_turn >= draw_limit) or (
+                    max_hand > 0 and len(p.hand) >= max_hand):
+                # Hit draw limit or max hand size, must pass
                 self.turn_has_drawn = True
             else:
                 # Keep drawing state - player can draw again or will auto-draw
@@ -1359,6 +1372,16 @@ class LastCardGame(Game, TurnTimerMixin):
         self._broadcast_pass(p)
         self.turn_has_drawn = False
         p.draws_this_turn = 0
+        self.consecutive_passes += 1
+
+        # Deadlock detection: if every active player passed without playing or drawing
+        # and the deck is completely exhausted, the round is stuck
+        is_deck_exhausted = self.deck.is_empty() and len(self.discard_pile) <= 1
+        active_count = len(self.turn_player_ids)
+        if self.consecutive_passes >= active_count and is_deck_exhausted:
+            self._end_round_deadlock()
+            return
+
         self._advance_turn()
 
     # ==========================================================================
@@ -2175,6 +2198,10 @@ class LastCardGame(Game, TurnTimerMixin):
             return False
         if self.interrupt_phase:
             return False
+        # Max hand size: can't draw if already at cap
+        max_hand = self.options.max_hand_size
+        if max_hand > 0 and len(player.hand) >= max_hand:
+            return False
         # Force play: can't draw if you have playable cards
         if self.options.force_play and self._has_playable_cards(player):
             return False
@@ -2388,6 +2415,38 @@ class LastCardGame(Game, TurnTimerMixin):
                 return
         else:
             # Negative: game ends when any player exceeds winning_score
+            over_limit = [p for p in active if p.score >= self.options.winning_score]
+            if over_limit:
+                actual_winner = min(active, key=lambda p: p.score)
+                self._end_game(actual_winner)
+                return
+
+        self.hand_wait_ticks = 5 * 20
+        self.rebuild_all_menus()
+
+    def _end_round_deadlock(self) -> None:
+        """End the round when all players are forced to pass (deck exhausted, no playable cards)."""
+        active = [p for p in self.players if not p.is_spectator and isinstance(p, LastCardPlayer)]
+        self.broadcast_l("lastcard-round-deadlock")
+
+        # Score by hand points: lowest hand wins (fewest points held)
+        if self.options.scoring_mode == "classic":
+            # Classic: no winner, no points awarded
+            pass
+        else:
+            # Negative: everyone scores their hand points as usual
+            for p in active:
+                pts = self._hand_points(p.hand)
+                p.score += pts
+
+        self.play_sound(SOUND_LOSE_ROUND)
+        self._sync_team_scores()
+
+        for p in active:
+            p.hand = []
+
+        # Check for game winner (negative mode only — classic can't end on a draw round)
+        if self.options.scoring_mode != "classic":
             over_limit = [p for p in active if p.score >= self.options.winning_score]
             if over_limit:
                 actual_winner = min(active, key=lambda p: p.score)

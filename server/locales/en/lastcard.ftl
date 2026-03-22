@@ -170,6 +170,7 @@ lastcard-hands-rotated = All hands have been rotated!
 # Scoring
 lastcard-round-winner = { $player } wins the round and gains { $points } points.
 lastcard-round-end-negative = Round over. Points added to each player.
+lastcard-round-deadlock = No one can play or draw. The round ends in a draw.
 lastcard-game-winner = { $player } wins with { $score } points!
 lastcard-line-format = { $rank }. { $player }: { $score }
 
@@ -202,3 +203,4 @@ lastcard-draw-penalty-none = No draw penalty active.
 
 # Validation errors
 lastcard-error-too-many-cards = Too many cards needed: { $players } players × { $hand_size } cards exceeds the 108-card deck.
+lastcard-error-hand-exceeds-max = Hand size ({ $hand_size }) cannot exceed the maximum hand size ({ $max_hand }).

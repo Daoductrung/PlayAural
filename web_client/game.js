@@ -444,30 +444,30 @@ class SoundManager {
             }
         };
 
+        // Always stop intro and loop
         stopEl(this.ambienceIntroElement, this.ambienceIntroSource);
         stopEl(this.ambienceLoopElement, this.ambienceLoopSource);
-
-        // Outro logic
-        if (!force && this.ambienceOutroElement && prevState !== 'stopped' && prevState !== 'loading') {
-            const outroEl = this.ambienceOutroElement;
-            this.ambienceOutroSource = this.connectElement(outroEl, this.ambienceGain);
-            outroEl.onended = () => {
-                stopEl(outroEl, this.ambienceOutroSource);
-                this.ambienceOutroElement = null; // Clear ref
-            };
-            try { outroEl.play(); } catch (e) { }
-            // Don't clear outro ref yet, let it play
-        } else {
-            stopEl(this.ambienceOutroElement, this.ambienceOutroSource);
-        }
-
         this.ambienceIntroElement = null;
         this.ambienceLoopElement = null;
-        this.ambienceOutroElement = null;
-
         this.ambienceIntroSource = null;
         this.ambienceLoopSource = null;
-        this.ambienceOutroSource = null;
+
+        // Outro: play gracefully on non-force stop, kill on force stop
+        if (!force && this.ambienceOutroElement && prevState !== 'stopped' && prevState !== 'loading') {
+            // Play outro — keep references so a future force stop can cancel it
+            this.ambienceOutroSource = this.connectElement(this.ambienceOutroElement, this.ambienceGain);
+            this.ambienceOutroElement.onended = () => {
+                stopEl(this.ambienceOutroElement, this.ambienceOutroSource);
+                this.ambienceOutroElement = null;
+                this.ambienceOutroSource = null;
+            };
+            try { this.ambienceOutroElement.play(); } catch (e) { }
+        } else {
+            // Force stop or no outro — clean up everything
+            stopEl(this.ambienceOutroElement, this.ambienceOutroSource);
+            this.ambienceOutroElement = null;
+            this.ambienceOutroSource = null;
+        }
 
         if (force) this.ambienceConfig = null;
     }

@@ -389,7 +389,9 @@ class Game(
         if self.current_music:
             user.play_music(self.current_music)
         if self.current_ambience:
-            user.play_ambience(self.current_ambience)
+            user.play_ambience(
+                self.current_ambience, outro=self.current_ambience_outro,
+            )
             
         # Check for game resume (if this was a Host vs Bot paused scenario)
         if self.status == "playing":

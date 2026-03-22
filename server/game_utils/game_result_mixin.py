@@ -51,14 +51,9 @@ class GameResultMixin:
         self._last_game_result = result  # Store for menu restoration
         self._persist_result(result)
 
-        # Handle ambience stop/outro
-        if hasattr(self, "current_ambience_outro") and self.current_ambience_outro:
-            # Play the outro once (this will typically override/stop the loop in the client)
-            # However, to be safe, we can just play it as a regular sound
-            self.play_sound(self.current_ambience_outro)
-            self.stop_ambience()
-        else:
-            self.stop_ambience()
+        # Stop ambience — clients handle outro playback automatically
+        # when they receive a non-force stop_ambience packet
+        self.stop_ambience()
 
         # Show end screen
         if show_end_screen:

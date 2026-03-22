@@ -577,6 +577,11 @@ class SoundManager:
         # Stop any existing ambience (forcibly, without outro)
         self.stop_ambience(force=True)
 
+        # Wait for old thread to finish so it can't start an outro
+        # after our force stop ran
+        if self.ambience_thread and self.ambience_thread.is_alive():
+            self.ambience_thread.join(timeout=2.0)
+
         # Start ambience playback in background thread
         def play_ambience_sequence():
             try:

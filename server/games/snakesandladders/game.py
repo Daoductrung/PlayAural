@@ -218,11 +218,6 @@ class SnakesAndLaddersGame(Game):
                 if action_set.get_action(aid):
                     new_order.append(aid)
             action_set._order = new_order
-        else:
-            # Desktop: just move check_positions to top
-            if "check_positions" in action_set._order:
-                action_set._order.remove("check_positions")
-                action_set._order.insert(0, "check_positions")
 
         return action_set
 

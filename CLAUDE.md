@@ -190,6 +190,7 @@ When implementing a new game, always consider the web/mobile client experience a
 - **Time-critical reaction actions** (e.g. buzzer, jump-in, challenge, accept) must be visible as tappable buttons in the Turn Menu during their active windows for web clients. Use `getattr(user, "client_type", "") == "web"` in `is_hidden` callbacks to show them only for web users (desktop users use keybinds).
 - **Utility actions** that desktop users access via keybinds (e.g. sort hand) should also appear in the Turn Menu for web clients.
 - **Turn Menu ordering** matters for screen readers: place reaction buttons first (top), then card/play actions in the middle, then utility buttons (draw, pass, sort) last. Use the `_sync_turn_actions` reordering pattern from LastCard/CrazyEights as the reference.
+- **Standard action ordering for web** must be consistent across all games: game-specific info actions first, then `check_scores` (if applicable), then `whose_turn`, then `whos_at_table`. Add web reordering in `create_standard_action_set` and `_is_check_scores_hidden` visibility override for games that track scores.
 - See `server/games/lastcard/game.py` (`_is_buzzer_hidden`, `_is_jump_in_hidden`, `_is_sort_turn_hidden`, and the web reordering block in `_sync_turn_actions`) for the canonical implementation.
 
 #### TTS Buffer Categorization

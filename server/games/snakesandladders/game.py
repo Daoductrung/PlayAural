@@ -210,12 +210,20 @@ class SnakesAndLaddersGame(Game):
             )
         )
         
-        # Reorder actions to put "Check positions" at the top of the standard lists
-        # This makes it appear higher in the Actions menu
-        if "check_positions" in action_set._order:
-            action_set._order.remove("check_positions")
-            action_set._order.insert(0, "check_positions")
-            
+        # WEB-SPECIFIC: Reorder for Web Clients
+        if user and getattr(user, "client_type", "") == "web":
+            target_order = ["check_positions", "whose_turn", "whos_at_table"]
+            new_order = [aid for aid in action_set._order if aid not in target_order]
+            for aid in target_order:
+                if action_set.get_action(aid):
+                    new_order.append(aid)
+            action_set._order = new_order
+        else:
+            # Desktop: just move check_positions to top
+            if "check_positions" in action_set._order:
+                action_set._order.remove("check_positions")
+                action_set._order.insert(0, "check_positions")
+
         return action_set
 
     def _is_check_positions_hidden(self, player: Player) -> Visibility:

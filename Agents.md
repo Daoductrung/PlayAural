@@ -374,7 +374,26 @@ if user and getattr(user, "client_type", "") == "web":
 
 ### 7.5 Standard Action Ordering for Web
 
-Override standard action ordering to surface the most useful info actions for web users (e.g., `read_ends`, `read_hand` before `check_scores`, `whose_turn`). See `dominos/game.py` `_apply_standard_action_order` as the reference.
+Within the standard action set, web clients must maintain a **consistent ordering** of the platform's base info actions across all games:
+
+1. **Game-specific info actions** (check status, view table, read hand, etc.) — top
+2. **`check_scores`** (if the game tracks scores) — after game-specific
+3. **`whose_turn`** — after check_scores
+4. **`whos_at_table`** — last
+
+Implement this via web reordering in `create_standard_action_set`:
+
+```python
+if user and getattr(user, "client_type", "") == "web":
+    target_order = ["game_specific_action", "check_scores", "whose_turn", "whos_at_table"]
+    new_order = [aid for aid in action_set._order if aid not in target_order]
+    for aid in target_order:
+        if action_set.get_action(aid):
+            new_order.append(aid)
+    action_set._order = new_order
+```
+
+For games that track scores, also add a `_is_check_scores_hidden` visibility override (visible for web when playing). See `pig/game.py` or `farkle/game.py` as references.
 
 ---
 
@@ -596,8 +615,8 @@ Use this checklist when implementing a new game. Every item is mandatory.
 - [ ] Reaction actions visible in Turn Menu for web clients during active windows
 - [ ] Utility actions (read hand, sort, etc.) visible in Turn Menu for web clients
 - [ ] Turn Menu ordered: reactions → cards/tiles → utilities
-- [ ] Standard actions reordered for web (info actions surfaced)
-- [ ] `whose_turn`, `check_scores`, `whos_at_table` visible for web clients
+- [ ] Standard actions reordered for web: game-specific → `check_scores` → `whose_turn` → `whos_at_table` (see Section 7.5)
+- [ ] `whose_turn`, `whos_at_table` visible for web clients; `check_scores` visible if game tracks scores
 
 ### Audio & Accessibility
 - [ ] Every game state change announced via TTS (`broadcast_l` / `speak_l`)

@@ -283,7 +283,7 @@ class ThreesGame(Game, DiceGameMixin):
         return action_set
 
     # WEB-SPECIFIC: Target order for Standard Actions
-    web_target_order = ["whose_turn", "whos_at_table"]
+    web_target_order = ["check_scores", "whose_turn", "whos_at_table"]
 
     def create_standard_action_set(self, player: Player) -> ActionSet:
         action_set = super().create_standard_action_set(player)
@@ -333,6 +333,15 @@ class ThreesGame(Game, DiceGameMixin):
                 return Visibility.VISIBLE
             return Visibility.HIDDEN
         return super()._is_whose_turn_hidden(player)
+
+    def _is_check_scores_hidden(self, player: "Player") -> Visibility:
+        """Override: Visible for Web (Playing only), hidden otherwise."""
+        user = self.get_user(player)
+        if user and getattr(user, "client_type", "") == "web":
+            if self.status == "playing":
+                return Visibility.VISIBLE
+            return Visibility.HIDDEN
+        return super()._is_check_scores_hidden(player)
 
     def setup_keybinds(self) -> None:
         """Define all keybinds for the game."""

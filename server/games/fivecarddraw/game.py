@@ -447,18 +447,12 @@ class FiveCardDrawGame(Game, TurnTimerMixin):
                 "whose_turn",
                 "whos_at_table",
             ]
-            # Put target items FIRST
-            final_order = []
+            # Put target items LAST for consistent ordering
+            new_order = [aid for aid in action_set._order if aid not in target_order]
             for aid in target_order:
                 if action_set.get_action(aid):
-                    final_order.append(aid)
-            
-            # Then add remaining items
-            for aid in action_set._order:
-                if aid not in target_order:
-                    final_order.append(aid)
-            
-            action_set._order = final_order
+                    new_order.append(aid)
+            action_set._order = new_order
 
         return action_set
 

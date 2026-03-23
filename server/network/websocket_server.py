@@ -1,11 +1,13 @@
 """WebSocket server for client connections."""
 
+import http
 import json
 import ssl
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Callable, Coroutine
 import websockets
+from websockets.asyncio.server import ServerConnection
 from websockets.server import WebSocketServerProtocol, ServerProtocol
 
 # Helper class to mimic websockets.Headers interface with case-insensitive dict backend
@@ -118,16 +120,7 @@ def _tolerant_process_request(self, request):
     except Exception:
         pass
 
-    # Delegate to original method with potentially sanitized request
-    try:
-        return _original_process_request(self, request)
-    except websockets.exceptions.InvalidUpgrade as e:
-        # Suppress InvalidUpgrade to avoid spam from port scanners by converting it
-        # to InvalidHandshake which the websockets library handles without logging a traceback
-        raise websockets.exceptions.InvalidHandshake(f"Invalid upgrade: {e}")
-    except Exception as e:
-        # If still fails, re-raise
-        raise e
+    return _original_process_request(self, request)
 
 ServerProtocol.process_request = _tolerant_process_request
 
@@ -180,9 +173,35 @@ class WebSocketServer:
             self.port,
             ssl=self._ssl_context,
             origins=None,  # Allow all origins (handled by Cloudflare/Auth)
+            process_request=self._process_request,
         )
         protocol = "wss" if self._ssl_context else "ws"
         print(f"WebSocket server started on {protocol}://{self.host}:{self.port}")
+
+    def _process_request(self, connection: ServerConnection, request):
+        """Quietly reject plain HTTP probes before the WebSocket handshake runs.
+
+        This avoids `opening handshake failed` tracebacks for port scanners and
+        bots that connect to the WebSocket port without sending a real upgrade
+        request, while still allowing the tolerant proxy workaround in
+        `ServerProtocol.process_request` to repair legitimate upgrade requests
+        where a proxy rewrites `Connection: Upgrade`.
+        """
+        headers = request.headers
+        upgrade = headers.get("Upgrade", "")
+        if "websocket" in upgrade.lower():
+            return None
+
+        connection_values = ", ".join(headers.get_all("Connection"))
+        if connection_values:
+            detail = f"Invalid upgrade: invalid Connection header: {connection_values}"
+        else:
+            detail = "Invalid upgrade: missing Connection header"
+
+        return connection.respond(
+            http.HTTPStatus.BAD_REQUEST,
+            f"Failed to open a WebSocket connection: {detail}.\n",
+        )
 
     async def stop(self) -> None:
         """Stop the WebSocket server."""

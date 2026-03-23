@@ -96,9 +96,11 @@ battleship-cell-empty = { $coord }, open water.
 battleship-cell-ship-placed = { $coord }, { $ship }.
 battleship-cell-unknown = { $coord }, uncharted.
 battleship-cell-hit = { $coord }, hit.
+battleship-cell-sunk = { $coord }, { $ship }, sunk.
 battleship-cell-miss = { $coord }, miss.
 battleship-cell-own-ship = { $coord }, your { $ship }.
 battleship-cell-own-hit = { $coord }, your { $ship }, hit.
+battleship-cell-own-sunk = { $coord }, your { $ship }, sunk.
 battleship-cell-own-miss = { $coord }, incoming miss.
 
 # Fleet status

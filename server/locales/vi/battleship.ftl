@@ -96,9 +96,11 @@ battleship-cell-empty = { $coord }, biển trống.
 battleship-cell-ship-placed = { $coord }, { $ship }.
 battleship-cell-unknown = { $coord }, chưa trinh sát.
 battleship-cell-hit = { $coord }, trúng.
+battleship-cell-sunk = { $coord }, { $ship }, chìm.
 battleship-cell-miss = { $coord }, trượt.
 battleship-cell-own-ship = { $coord }, { $ship } của bạn.
 battleship-cell-own-hit = { $coord }, { $ship } của bạn, bị trúng.
+battleship-cell-own-sunk = { $coord }, { $ship } của bạn, đã chìm.
 battleship-cell-own-miss = { $coord }, đạn trượt.
 
 # Tình trạng hạm đội

@@ -499,6 +499,17 @@ class BattleshipGame(GridGameMixin, TurnTimerMixin, Game):
 
         self._init_grid()
 
+        # Rebuild turn action sets — they were created during lobby when
+        # grid_rows/grid_cols were still at their default (10×10).
+        for player in self.get_active_players():
+            self.remove_action_set(player, "turn")
+            turn_set = self.create_turn_action_set(player)
+            if turn_set:
+                # Insert at position 0 so turn set stays first
+                sets = self.player_action_sets.get(player.id, [])
+                sets.insert(0, turn_set)
+                self.player_action_sets[player.id] = sets
+
         if self.options.placement_mode == "auto":
             self._auto_deploy_all()
         else:
@@ -597,6 +608,12 @@ class BattleshipGame(GridGameMixin, TurnTimerMixin, Game):
                 opponent_shot = opponent.shot_board[row][col]
             if opponent_shot == CELL_HIT:
                 ship_name = self._ship_name_at(bp, row, col, locale)
+                ship = self._find_ship_at(bp, row, col)
+                if ship and ship.sunk:
+                    return Localization.get(
+                        locale, "battleship-cell-own-sunk",
+                        coord=coord, ship=ship_name,
+                    )
                 return Localization.get(
                     locale, "battleship-cell-own-hit",
                     coord=coord, ship=ship_name,
@@ -618,6 +635,17 @@ class BattleshipGame(GridGameMixin, TurnTimerMixin, Game):
             # Viewing shot board (opponent's waters)
             cell = bp.shot_board[row][col]
             if cell == CELL_HIT:
+                opponent = _get_opponent(self, bp)
+                if opponent:
+                    ship = self._find_ship_at(opponent, row, col)
+                    if ship and ship.sunk:
+                        ship_name = Localization.get(
+                            locale, f"battleship-ship-{ship.type_key}",
+                        )
+                        return Localization.get(
+                            locale, "battleship-cell-sunk",
+                            coord=coord, ship=ship_name,
+                        )
                 return Localization.get(
                     locale, "battleship-cell-hit", coord=coord,
                 )

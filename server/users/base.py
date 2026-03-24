@@ -177,6 +177,9 @@ class User(ABC):
         items: list[str | MenuItem],
         position: int | None = None,
         selection_id: str | None = None,
+        *,
+        grid_enabled: bool = False,
+        grid_width: int = 1,
     ) -> None:
         """
         Update an existing menu's items.
@@ -186,6 +189,8 @@ class User(ABC):
             items: New list of items.
             position: Optional new position (1-based).
             selection_id: Optional item ID to focus on.
+            grid_enabled: Enable grid navigation mode.
+            grid_width: Number of columns in grid mode.
         """
         ...
 

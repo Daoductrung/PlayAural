@@ -560,6 +560,25 @@ class TestGridMenuKwargs:
         assert menu_data.get("grid_enabled") is True
         assert menu_data.get("grid_width") == 6
 
+    def test_grid_params_reach_update_menu_after_cursor_move(self) -> None:
+        game = make_game(rows=4, cols=6, start=True)
+        player = game.get_active_players()[0]
+        user = game.get_user(player)
+        assert user is not None
+
+        user.messages.clear()
+        game._action_grid_move(player, "grid_move_right")
+
+        update_message = next(
+            message for message in reversed(user.messages)
+            if message.type == "update_menu"
+        )
+        assert update_message.data["grid_enabled"] is True
+        assert update_message.data["grid_width"] == 6
+        assert update_message.data["selection_id"] == grid_cell_id(0, 1)
+        assert user.menus["turn_menu"]["grid_enabled"] is True
+        assert user.menus["turn_menu"]["grid_width"] == 6
+
     def test_non_grid_game_no_grid_params(self) -> None:
         """A regular game (without GridGameMixin) should not have grid params."""
         # GridTestGame has the mixin, but when status != playing, no grid params
@@ -572,6 +591,19 @@ class TestGridMenuKwargs:
             menu_data = user.menus["turn_menu"]
             # In waiting state, grid should not be enabled
             assert not menu_data.get("grid_enabled", False)
+
+    def test_non_grid_menu_updates_keep_list_layout_defaults(self) -> None:
+        user = MockUser("ListPlayer", uuid="list-player")
+
+        user.show_menu("turn_menu", ["First item"])
+        user.update_menu("turn_menu", ["Updated item"], selection_id="item_1")
+
+        assert user.menus["turn_menu"]["grid_enabled"] is False
+        assert user.menus["turn_menu"]["grid_width"] == 1
+        update_message = user.messages[-1]
+        assert update_message.type == "update_menu"
+        assert update_message.data["grid_enabled"] is False
+        assert update_message.data["grid_width"] == 1
 
 
 # ------------------------------------------------------------------ #

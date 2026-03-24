@@ -409,6 +409,27 @@ PlayAural Server
                 user.speak_l(message_id, buffer="system")
                 user.play_sound(sound)
 
+    def _get_auth_client_type(self, packet: dict) -> str:
+        """Return the normalized client type for auth-related packets.
+
+        If the packet doesn't specify a client type, treat it as ``python``.
+        """
+        client_type = str(packet.get("client", "python")).strip().lower()
+        return client_type or "python"
+
+    async def _verify_captcha_if_required(
+        self, client: ClientConnection, packet: dict
+    ) -> tuple[bool, str]:
+        """Verify CAPTCHA only for client types that support it.
+
+        The web client can execute reCAPTCHA v3 in-browser and must provide a
+        token. The desktop client cannot, so it relies on the existing server
+        rate limits and validation rules instead.
+        """
+        if self._get_auth_client_type(packet) != "web":
+            return True, ""
+        return await verify_captcha(packet.get("captcha_token", ""), client.ip_address)
+
     async def _on_client_message(self, client: ClientConnection, packet: dict) -> None:
         """Handle incoming message from client."""
         packet_type = packet.get("type")
@@ -474,8 +495,7 @@ PlayAural Server
         """Handle authorization packet."""
         username = packet.get("username", "")
         password = packet.get("password", "")
-        # Extract client type (default to python for legacy clients)
-        client_type = packet.get("client", "python")
+        client_type = self._get_auth_client_type(packet)
 
         # Rate limit check (brute force protection)
         if not self._rate_limiter.is_login_allowed(client.ip_address):
@@ -487,19 +507,15 @@ PlayAural Server
             await client.close()
             return
 
-        # CAPTCHA verification (web clients only)
-        if client_type == "web":
-            passed, reason = await verify_captcha(
-                packet.get("captcha_token", ""), client.ip_address
-            )
-            if not passed:
-                await client.send({
-                    "type": "login_failed",
-                    "reason": reason,
-                    "reconnect": False,
-                })
-                await client.close()
-                return
+        passed, reason = await self._verify_captcha_if_required(client, packet)
+        if not passed:
+            await client.send({
+                "type": "login_failed",
+                "reason": reason,
+                "reconnect": False,
+            })
+            await client.close()
+            return
 
         # Check version if provided
         client_version = packet.get("version", "0.0.0")
@@ -516,7 +532,7 @@ PlayAural Server
              await client.close()
              return
 
-        # PYTHON CLIENT: Legacy logic
+        # PYTHON CLIENT:
         # We proceed to authenticate and send 'authorize_success' so it receives 'update_info'.
         # The logic at the end of this function will prevent sending the game list, triggering the update dialog.
 
@@ -847,10 +863,7 @@ PlayAural Server
             })
             return
 
-        # CAPTCHA verification
-        passed, reason = await verify_captcha(
-            packet.get("captcha_token", ""), client.ip_address
-        )
+        passed, reason = await self._verify_captcha_if_required(client, packet)
         if not passed:
             locale = packet.get("locale", "en")
             await client.send({
@@ -943,10 +956,7 @@ PlayAural Server
             })
             return
 
-        # CAPTCHA verification
-        passed, reason = await verify_captcha(
-            packet.get("captcha_token", ""), client.ip_address
-        )
+        passed, reason = await self._verify_captcha_if_required(client, packet)
         if not passed:
             await client.send({
                 "type": "submit_reset_code_response",
@@ -1052,10 +1062,7 @@ PlayAural Server
             await client.close()
             return
 
-        # CAPTCHA verification (web clients send client field; registration is web-only)
-        passed, reason = await verify_captcha(
-            packet.get("captcha_token", ""), client.ip_address
-        )
+        passed, reason = await self._verify_captcha_if_required(client, packet)
         if not passed:
             locale = packet.get("locale", "en")
             await client.send({

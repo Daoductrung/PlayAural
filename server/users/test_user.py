@@ -117,11 +117,16 @@ class MockUser(User):
         items: list[str | MenuItem],
         position: int | None = None,
         selection_id: str | None = None,
+        *,
+        grid_enabled: bool = False,
+        grid_width: int = 1,
     ) -> None:
         if menu_id in self.menus:
             self.menus[menu_id]["items"] = items
             if position is not None:
                 self.menus[menu_id]["position"] = position
+            self.menus[menu_id]["grid_enabled"] = grid_enabled
+            self.menus[menu_id]["grid_width"] = grid_width
         self.messages.append(
             Message(
                 "update_menu",
@@ -130,6 +135,8 @@ class MockUser(User):
                     "items": items,
                     "position": position,
                     "selection_id": selection_id,
+                    "grid_enabled": grid_enabled,
+                    "grid_width": grid_width,
                 },
             )
         )

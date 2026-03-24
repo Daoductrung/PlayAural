@@ -221,6 +221,9 @@ class NetworkUser(User):
         items: list[str | MenuItem],
         position: int | None = None,
         selection_id: str | None = None,
+        *,
+        grid_enabled: bool = False,
+        grid_width: int = 1,
     ) -> None:
         converted_items = self._convert_items(items)
 
@@ -228,11 +231,15 @@ class NetworkUser(User):
             self._current_menus[menu_id]["items"] = converted_items
             if position is not None:
                 self._current_menus[menu_id]["position"] = position
+            self._current_menus[menu_id]["grid_enabled"] = grid_enabled
+            self._current_menus[menu_id]["grid_width"] = grid_width
 
         packet: dict[str, Any] = {
             "type": "menu",
             "menu_id": menu_id,
             "items": converted_items,
+            "grid_enabled": grid_enabled,
+            "grid_width": grid_width,
         }
         if position is not None:
             packet["position"] = position - 1

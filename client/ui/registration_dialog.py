@@ -189,6 +189,7 @@ class RegistrationDialog(wx.Dialog):
                             "password": password,
                             "email": email,
                             "locale": Localization._locale,
+                            "client": "python",
                         }
                     )
                 )

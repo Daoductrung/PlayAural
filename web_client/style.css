@@ -22,6 +22,12 @@ body {
     overflow: hidden;
 }
 
+body.recaptcha-hidden .grecaptcha-badge {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+}
+
 /* Utilities */
 .hidden {
     display: none !important;

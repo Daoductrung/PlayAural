@@ -12,7 +12,7 @@
     <meta name="theme-color" content="#4CAF50">
     <link rel="apple-touch-icon" href="icon.png">
 
-<body>
+<body class="recaptcha-hidden">
     <script>
         window.onerror = function (msg, url, line, col, error) {
             let extra = "";
@@ -22,6 +22,21 @@
             document.body.innerHTML += '<div style="color:red; background:white; padding:10px; border:1px solid red; margin:10px; z-index:9999; position:relative;">' +
                 "Script Error: " + msg + "<br>Line: " + line + "<br>URL: " + url + "</div>";
             return false;
+        };
+    </script>
+    <script>
+        window.Game = window.Game || {
+            setLanguage() { },
+            showLogin() { },
+            showRegister() { },
+            autoLoginConnection() { },
+            removeAccount() { },
+            installPWA() { },
+            showLanding() { },
+            showForgotPassword() { },
+            sendChat() { },
+            showChatHistory() { },
+            showChatInput() { }
         };
     </script>
 
@@ -326,7 +341,7 @@
     <script>
         // reCAPTCHA v3 — loaded only when a real site key is configured.
         // Replace this placeholder with your production key before launch.
-        if (typeof RECAPTCHA_SITE_KEY !== 'undefined' && RECAPTCHA_SITE_KEY) {
+        if (false && typeof RECAPTCHA_SITE_KEY !== 'undefined' && RECAPTCHA_SITE_KEY) {
             const s = document.createElement('script');
             s.src = 'https://www.google.com/recaptcha/api.js?render=' + RECAPTCHA_SITE_KEY;
             s.async = true;

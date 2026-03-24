@@ -78,6 +78,9 @@ class Bot(User):
         items: list[str | MenuItem],
         position: int | None = None,
         selection_id: str | None = None,
+        *,
+        grid_enabled: bool = False,
+        grid_width: int = 1,
     ) -> None:
         pass
 

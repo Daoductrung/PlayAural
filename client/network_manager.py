@@ -111,6 +111,7 @@ class NetworkManager:
                             "username": username,
                             "password": password,
                             "version": client_version,
+                            "client": "python",
                         }
                     )
                 )

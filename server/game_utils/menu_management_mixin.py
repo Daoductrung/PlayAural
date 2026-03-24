@@ -158,7 +158,16 @@ class MenuManagementMixin:
                 id="web_leave_table"
             ))
 
-        user.update_menu("turn_menu", items, selection_id=selection_id)
+        grid_kwargs = {}
+        if hasattr(self, "_build_grid_menu_kwargs"):
+            grid_kwargs = self._build_grid_menu_kwargs()
+
+        user.update_menu(
+            "turn_menu",
+            items,
+            selection_id=selection_id,
+            **grid_kwargs,
+        )
 
     def update_all_menus(self) -> None:
         """Update menus for all players, preserving focus position."""

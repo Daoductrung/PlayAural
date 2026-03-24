@@ -329,6 +329,7 @@ class LoginDialog(wx.Dialog):
                             "type": "request_password_reset",
                             "email": email,
                             "locale": Localization._locale,
+                            "client": "python",
                         }
                     )
                 )
@@ -484,6 +485,7 @@ class LoginDialog(wx.Dialog):
                             "code": code,
                             "new_password": new_password,
                             "locale": Localization._locale,
+                            "client": "python",
                         }
                     )
                 )
@@ -638,6 +640,7 @@ class LoginDialog(wx.Dialog):
                     "username": username,
                     "password": password,
                     "version": self.version,
+                    "client": "python",
                 }))
                 
                 # Wait for response

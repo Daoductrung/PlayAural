@@ -4,15 +4,74 @@ const CLIENT_VERSION = "1.0.0";
 // reCAPTCHA v3 site key — replace with your production key before launch.
 // When empty, CAPTCHA is skipped entirely (graceful degradation for dev).
 const RECAPTCHA_SITE_KEY = "";
+let recaptchaReadyPromise = null;
+
+function setRecaptchaVisibility(visible) {
+    document.body?.classList.toggle('recaptcha-hidden', !visible);
+}
+
+async function ensureRecaptchaReady() {
+    if (!RECAPTCHA_SITE_KEY) {
+        return false;
+    }
+
+    if (typeof grecaptcha !== 'undefined' && typeof grecaptcha.ready === 'function') {
+        await new Promise(resolve => grecaptcha.ready(resolve));
+        return true;
+    }
+
+    if (!recaptchaReadyPromise) {
+        recaptchaReadyPromise = new Promise((resolve) => {
+            const existing = document.querySelector('script[data-recaptcha="playaural"]');
+            if (existing) {
+                existing.addEventListener('load', () => {
+                    if (typeof grecaptcha !== 'undefined' && typeof grecaptcha.ready === 'function') {
+                        grecaptcha.ready(() => resolve(true));
+                    } else {
+                        resolve(false);
+                    }
+                }, { once: true });
+                existing.addEventListener('error', () => resolve(false), { once: true });
+                return;
+            }
+
+            const script = document.createElement('script');
+            script.src = `https://www.google.com/recaptcha/api.js?render=${RECAPTCHA_SITE_KEY}`;
+            script.async = true;
+            script.defer = true;
+            script.dataset.recaptcha = "playaural";
+            script.onload = () => {
+                if (typeof grecaptcha !== 'undefined' && typeof grecaptcha.ready === 'function') {
+                    grecaptcha.ready(() => resolve(true));
+                } else {
+                    resolve(false);
+                }
+            };
+            script.onerror = () => {
+                console.warn("Failed to load reCAPTCHA script.");
+                resolve(false);
+            };
+            document.head.appendChild(script);
+        });
+    }
+
+    return await recaptchaReadyPromise;
+}
 
 /**
  * Get a reCAPTCHA v3 token for the given action.
  * Returns "" if reCAPTCHA is not configured (graceful degradation).
  */
 async function getCaptchaToken(action) {
-    if (!RECAPTCHA_SITE_KEY || typeof grecaptcha === 'undefined') {
+    if (!RECAPTCHA_SITE_KEY) {
         return "";
     }
+
+    const captchaReady = await ensureRecaptchaReady();
+    if (!captchaReady || typeof grecaptcha === 'undefined') {
+        return "";
+    }
+
     try {
         return await grecaptcha.execute(RECAPTCHA_SITE_KEY, { action });
     } catch (err) {
@@ -1649,7 +1708,7 @@ class GameClient {
                 break;
             case "clear_ui": // Also clears playlists
                 this.removeAllPlaylists();
-                this.renderMenu({ items: [] }); // Clear menu
+                this.renderMenu({ items: [], grid_enabled: false, grid_width: 1 }); // Clear menu
                 break;
 
             case "chat":
@@ -1811,6 +1870,28 @@ class GameClient {
         }
     }
 
+    applyMenuLayout(packet) {
+        const hasGridEnabled = Object.prototype.hasOwnProperty.call(packet, "grid_enabled");
+        const hasGridWidth = Object.prototype.hasOwnProperty.call(packet, "grid_width");
+        const gridEnabled = hasGridEnabled
+            ? !!packet.grid_enabled
+            : this.menuArea.classList.contains('grid-mode');
+        const gridWidth = hasGridWidth
+            ? Math.max(1, parseInt(packet.grid_width, 10) || 1)
+            : Math.max(1, parseInt(this.menuArea.dataset.gridWidth || "1", 10));
+
+        this.menuArea.classList.toggle('grid-mode', gridEnabled);
+        this.menuArea.dataset.gridWidth = String(gridWidth);
+
+        if (gridEnabled && gridWidth > 1) {
+            this.menuArea.style.gridTemplateColumns = `repeat(${gridWidth}, 1fr)`;
+            this.menuArea.setAttribute('role', 'grid');
+        } else {
+            this.menuArea.style.gridTemplateColumns = '';
+            this.menuArea.removeAttribute('role');
+        }
+    }
+
     renderMenu(packet) {
         // User Requirement: Switch to Menu tab on update, UNLESS in Chat
         if (this.activeTab !== 'content-chat') {
@@ -1851,6 +1932,8 @@ class GameClient {
             return true;
         });
 
+        this.applyMenuLayout(packet);
+
         // Always Update Web Buttons
         for (const [id, config] of Object.entries(specialIds)) {
             if (!config.container) continue;
@@ -1887,18 +1970,6 @@ class GameClient {
         if (!isSameMenu || !this.menuArea.children.length) {
             this.currentMenuId = packet.menu_id;
             this.menuArea.innerHTML = "";
-
-            // Grid mode: apply CSS grid layout when server sends grid_enabled
-            const gridEnabled = packet.grid_enabled || false;
-            const gridWidth = packet.grid_width || 1;
-            this.menuArea.classList.toggle('grid-mode', gridEnabled);
-            if (gridEnabled && gridWidth > 1) {
-                this.menuArea.style.gridTemplateColumns = `repeat(${gridWidth}, 1fr)`;
-                this.menuArea.setAttribute('role', 'grid');
-            } else {
-                this.menuArea.style.gridTemplateColumns = '';
-                this.menuArea.removeAttribute('role');
-            }
 
             // Set title if provided
             const titleRaw = packet.menu_id ? packet.menu_id.replace('_', ' ').toUpperCase() : "MENU";
@@ -2163,7 +2234,8 @@ class GameClient {
                         username: username,
                         password: password,
                         email: document.getElementById('reg-email').value.trim() || "",
-                        locale: Localization.locale
+                        locale: Localization.locale,
+                        client: "web"
                     };
                     if (captchaToken) pkt.captcha_token = captchaToken;
                     this.socket.send(JSON.stringify(pkt));
@@ -2434,6 +2506,7 @@ class GameClient {
         const targetLang = savedLang || browserLang;
 
         this.setLanguage(targetLang);
+        this.updateCaptchaForScreen("landing");
     }
 
     setLanguage(lang) {
@@ -2443,7 +2516,20 @@ class GameClient {
         });
     }
 
+    updateCaptchaForScreen(screenName) {
+        const isAuthScreen = ["login", "register", "forgot_password", "reset_password"].includes(screenName);
+        const shouldShowCaptcha = isAuthScreen && !!RECAPTCHA_SITE_KEY;
+        setRecaptchaVisibility(shouldShowCaptcha);
+
+        if (shouldShowCaptcha) {
+            ensureRecaptchaReady().catch((err) => {
+                console.warn("reCAPTCHA preload failed:", err);
+            });
+        }
+    }
+
     showLanding() {
+        this.updateCaptchaForScreen("landing");
         this.landingScreen.classList.remove('hidden');
         this.loginScreen.classList.add('hidden');
         this.registerScreen.classList.add('hidden');
@@ -2467,6 +2553,7 @@ class GameClient {
     }
 
     showLogin() {
+        this.updateCaptchaForScreen("login");
         this.landingScreen.classList.add('hidden');
         this.loginScreen.classList.remove('hidden');
         this.registerScreen.classList.add('hidden');
@@ -2506,6 +2593,7 @@ class GameClient {
     }
 
     showRegister() {
+        this.updateCaptchaForScreen("register");
         this.landingScreen.classList.add('hidden');
         this.loginScreen.classList.add('hidden');
         this.registerScreen.classList.remove('hidden');
@@ -2515,6 +2603,7 @@ class GameClient {
     }
 
     showForgotPassword() {
+        this.updateCaptchaForScreen("forgot_password");
         this.landingScreen.classList.add('hidden');
         this.loginScreen.classList.add('hidden');
         this.registerScreen.classList.add('hidden');
@@ -2526,6 +2615,7 @@ class GameClient {
     }
 
     showResetPassword() {
+        this.updateCaptchaForScreen("reset_password");
         this.landingScreen.classList.add('hidden');
         this.loginScreen.classList.add('hidden');
         this.registerScreen.classList.add('hidden');
@@ -2537,6 +2627,7 @@ class GameClient {
     }
 
     showGame() {
+        this.updateCaptchaForScreen("game");
         this.landingScreen.classList.add('hidden');
         this.loginScreen.classList.add('hidden');
         this.registerScreen.classList.add('hidden');
@@ -2619,6 +2710,7 @@ class GameClient {
                     type: "request_password_reset",
                     email: email,
                     locale: Localization.locale,
+                    client: "web",
                     captcha_token: captchaToken
                 }));
             };
@@ -2697,6 +2789,7 @@ class GameClient {
                     code: code,
                     new_password: newPassword,
                     locale: Localization.locale,
+                    client: "web",
                     captcha_token: captchaToken
                 }));
             };
@@ -2997,16 +3090,18 @@ class GameClient {
 }
 
 // Start app
-window.onload = function () {
+function bootstrapGameClient() {
     window.Game = new GameClient();
     window.Game.initLanding();
 
     // Prevent default form submissions
     document.getElementById('login-form').onsubmit = function (e) { e.preventDefault(); Game.connectToGame(); return false; };
     document.getElementById('register-form').onsubmit = function (e) { e.preventDefault(); Game.register(); return false; };
-        document.getElementById('forgot-password-form').onsubmit = function (e) { e.preventDefault(); Game.requestPasswordReset(); return false; };
-        document.getElementById('reset-password-form').onsubmit = function (e) { e.preventDefault(); Game.submitResetCode(); return false; };
+    document.getElementById('forgot-password-form').onsubmit = function (e) { e.preventDefault(); Game.requestPasswordReset(); return false; };
+    document.getElementById('reset-password-form').onsubmit = function (e) { e.preventDefault(); Game.submitResetCode(); return false; };
     document.getElementById('chat-form').onsubmit = function (e) { e.preventDefault(); Game.sendChat(); return false; };
-};
+}
+
+bootstrapGameClient();
 
 

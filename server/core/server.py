@@ -5547,10 +5547,10 @@ PlayAural Server
     # Public alias so external modules (e.g. administration/manager.py) can call it.
     enter_input_state = _enter_input_state
 
-    def _user_is_in_input_state(self, username: str) -> bool:
-        """Return True if the user has a modal editbox open (server-side OR game-side).
+    def _user_has_blocking_modal_state(self, username: str) -> bool:
+        """Return True if forward navigation must be blocked for the user.
 
-        Two disjoint cases are covered:
+        Three disjoint cases are covered:
 
         1. **Server-side editbox** (_transient=True): set by _enter_input_state
            whenever the server shows an editbox for things like volume, speech
@@ -5561,34 +5561,39 @@ PlayAural Server
            (e.g. a target score, a bet amount, any EditboxInput or MenuInput
            action in the table-settings or in-game options flow).
 
-        In both cases the client's editbox widget holds keyboard focus.  Any
-        nav push that fires in this window changes server state without the
-        client ever displaying the new menu, permanently desyncing the state
-        machine: the subsequent editbox submission arrives with the wrong
-        current_menu and is silently dropped, leaving the game stuck.
+        3. **Game-side status box** (_status_box_open): set when a game shows a
+           transient read-only status/menu overlay such as a hand view, score
+           summary, or board status. Pushing a global menu on top of this leaves
+           the game's status-box-open flag uncleared, so returning to the game
+           later can no longer rebuild the turn menu.
+
+        In all three cases, processing a forward nav push would desync the
+        server's menu state from what the client can safely restore.
         """
         # Server-side editbox (set by _enter_input_state)
         if self._user_states.get(username, {}).get("_transient"):
             return True
-        # Game-side editbox (game waiting for a player's pending action input)
+        # Game-side editbox or status box
         table = self._tables.find_user_table(username)
         if table and table.game:
             user = self._users.get(username)
             if user:
                 player = table.game.get_player_by_id(user.uuid)
-                if player and player.id in table.game._pending_actions:
-                    return True
+                if player:
+                    if player.id in table.game._pending_actions:
+                        return True
+                    if player.id in table.game._status_box_open:
+                        return True
         return False
 
     def _nav_push(self, user: NetworkUser, show_fn, *args, **kwargs) -> None:
         """Push current state onto the return stack and navigate to a new menu.
 
-        Modal-focus guard: if the user currently has any editbox open (server-
-        side _transient or game-side _pending_actions), this call is silently
-        discarded.  The client's editbox widget holds keyboard focus and cannot
-        display an incoming overlay; processing the push would desync server
-        state from the client, causing the subsequent editbox submission to be
-        misrouted and the UI to lock up permanently.
+        Modal-focus guard: if the user currently has a blocking modal UI open
+        (server-side _transient editbox, game-side _pending_actions input, or a
+        game status box), this call is silently discarded. Processing the push
+        would desync server state from the client and can strand the user
+        without a restorable path back to the game menu.
 
         The guard lives here — at the single call site for all forward
         navigation — so that every code path (explicit hotkey handlers,
@@ -5600,7 +5605,7 @@ PlayAural Server
         editbox states cannot be re-rendered by _restore_frame.
         """
         username = user.username
-        if self._user_is_in_input_state(username):
+        if self._user_has_blocking_modal_state(username):
             return
         current = self._user_states.get(username, {})
         stack = list(current.get("_stack", []))

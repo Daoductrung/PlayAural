@@ -731,6 +731,8 @@ class GameClient {
         // Reconnection state
         this.reconnectAttempts = 0;
         this.reconnectTimer = null;
+        this.connectionAttemptInProgress = false;
+        this.connectionAttemptTimer = null;
 
 
         // Load Localization
@@ -1610,6 +1612,7 @@ class GameClient {
                 break;
 
             case "register_response":
+                this.finishConnectionAttempt();
                 if (packet.status === "success") {
                     const msg = Localization.get("auth-registration-success");
                     if (this.regStatusMsg) this.regStatusMsg.innerText = msg;
@@ -1642,6 +1645,7 @@ class GameClient {
 
             case "authorize_success":
                 this.isConnected = true;
+                this.finishConnectionAttempt();
                 this.disconnectReason = null; // Clear any previous error
                 console.log("Authorized as:", packet.username);
 
@@ -2239,6 +2243,7 @@ class GameClient {
 
         this.shouldReconnect = false;
         this.manualDisconnect = true;
+        this.finishConnectionAttempt();
 
         if (goToLogin) {
             this.showLogin();
@@ -2253,8 +2258,64 @@ class GameClient {
         return message;
     }
 
+    setSavedSessionPlayDisabled(disabled) {
+        const playNowBtn = document.getElementById('btn-play-now');
+        if (!playNowBtn) return;
+        playNowBtn.disabled = disabled;
+        playNowBtn.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+    }
+
+    beginConnectionAttempt(targetMsg) {
+        if (this.connectionAttemptInProgress) {
+            return false;
+        }
+
+        this.connectionAttemptInProgress = true;
+        this.setSavedSessionPlayDisabled(true);
+
+        if (this.connectionAttemptTimer) {
+            clearTimeout(this.connectionAttemptTimer);
+        }
+
+        this.connectionAttemptTimer = setTimeout(() => {
+            if (!this.connectionAttemptInProgress || this.isConnected) {
+                return;
+            }
+
+            const timeoutMessage = Localization.get("status-connection-error");
+            this.shouldReconnect = false;
+            this.manualDisconnect = true;
+            this.disconnectReason = timeoutMessage;
+
+            if (targetMsg) {
+                targetMsg.innerText = timeoutMessage;
+            }
+
+            if (this.socket && (this.socket.readyState === WebSocket.OPEN || this.socket.readyState === WebSocket.CONNECTING)) {
+                this.socket.close();
+            } else {
+                this.finishConnectionAttempt();
+                this.speak(timeoutMessage);
+            }
+        }, 10000);
+
+        return true;
+    }
+
+    finishConnectionAttempt() {
+        this.connectionAttemptInProgress = false;
+        if (this.connectionAttemptTimer) {
+            clearTimeout(this.connectionAttemptTimer);
+            this.connectionAttemptTimer = null;
+        }
+        this.setSavedSessionPlayDisabled(false);
+    }
+
     async connect(serverUrl, username, password) {
         const targetMsg = this.isRegistering ? this.regStatusMsg : this.statusMsg;
+        if (!this.beginConnectionAttempt(targetMsg)) {
+            return;
+        }
         targetMsg.innerText = Localization.get('status-connecting');
 
         // Store credentials for reconnect
@@ -2266,6 +2327,7 @@ class GameClient {
 
         if (!serverUrl.startsWith('ws://') && !serverUrl.startsWith('wss://')) {
             targetMsg.innerText = Localization.get('status-invalid-url');
+            this.finishConnectionAttempt();
             return;
         }
 
@@ -2329,6 +2391,7 @@ class GameClient {
             this.socket.onclose = (event) => {
                 console.log("Disconnected", event);
                 this.isConnected = false;
+                this.finishConnectionAttempt();
                 const connStatus = document.getElementById('connection-status');
                 if (connStatus) {
                     connStatus.innerText = Localization.get('status-disconnected');
@@ -2389,6 +2452,7 @@ class GameClient {
         } catch (err) {
             const targetMsg = this.isRegistering ? this.regStatusMsg : this.statusMsg;
             if (targetMsg) targetMsg.innerText = Localization.get("status-invalid-url");
+            this.finishConnectionAttempt();
         }
     }
 

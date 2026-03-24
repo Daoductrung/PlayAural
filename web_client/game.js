@@ -1913,12 +1913,16 @@ class GameClient {
         const gridWidth = hasGridWidth
             ? Math.max(1, parseInt(packet.grid_width, 10) || 1)
             : Math.max(1, parseInt(this.menuArea.dataset.gridWidth || "1", 10));
+        const menuWrapper = this.menuArea.closest('.tab-content');
 
         this.menuArea.classList.toggle('grid-mode', gridEnabled);
         this.menuArea.dataset.gridWidth = String(gridWidth);
+        if (menuWrapper) {
+            menuWrapper.classList.toggle('grid-layout-active', gridEnabled && gridWidth > 1);
+        }
 
         if (gridEnabled && gridWidth > 1) {
-            this.menuArea.style.gridTemplateColumns = `repeat(${gridWidth}, 1fr)`;
+            this.menuArea.style.gridTemplateColumns = `repeat(${gridWidth}, minmax(var(--grid-cell-min-width), 1fr))`;
             this.menuArea.setAttribute('role', 'grid');
         } else {
             this.menuArea.style.gridTemplateColumns = '';

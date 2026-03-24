@@ -13,6 +13,8 @@
     --safe-left: env(safe-area-inset-left, 0px);
     --screen-padding: max(1rem, var(--safe-top)) max(1rem, var(--safe-right)) max(1rem, var(--safe-bottom)) max(1rem, var(--safe-left));
     --leave-clearance: 6.5rem;
+    --grid-cell-min-width: clamp(4.75rem, 14vw, 7rem);
+    --grid-cell-min-height: clamp(3.5rem, 10vw, 4.5rem);
 }
 
 body {
@@ -264,6 +266,10 @@ main {
     box-sizing: border-box;
 }
 
+#content-menu.grid-layout-active {
+    overflow: auto;
+}
+
 /* Menu Tab */
 #menu-area {
     display: flex;
@@ -317,16 +323,21 @@ main {
     gap: 0.25rem;
     padding-bottom: calc(var(--leave-clearance) + var(--safe-bottom));
     align-content: start;
-    overflow-x: auto;
+    grid-auto-rows: minmax(var(--grid-cell-min-height), auto);
+    min-width: 100%;
 }
 
 #menu-area.grid-mode .menu-item {
     width: auto;
     margin-top: 0;
-    padding: 0.5rem 0.35rem;
+    min-width: var(--grid-cell-min-width);
+    min-height: var(--grid-cell-min-height);
+    padding: 0.6rem 0.5rem;
     text-align: center;
-    font-size: clamp(0.9rem, 2.8vw, 1rem);
-    min-height: clamp(3rem, 10vw, 3.5rem);
+    font-size: clamp(0.95rem, 2.4vw, 1rem);
+    line-height: 1.2;
+    white-space: normal;
+    overflow-wrap: anywhere;
     display: flex;
     align-items: center;
     justify-content: center;

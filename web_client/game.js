@@ -60,23 +60,28 @@ async function ensureRecaptchaReady() {
 
 /**
  * Get a reCAPTCHA v3 token for the given action.
- * Returns "" if reCAPTCHA is not configured (graceful degradation).
+ * Returns a structured result so auth flows can stop locally when
+ * reCAPTCHA is blocked or fails to execute.
  */
-async function getCaptchaToken(action) {
+async function getCaptchaTokenResult(action) {
     if (!RECAPTCHA_SITE_KEY) {
-        return "";
+        return { ok: true, token: "", skipped: true };
     }
 
     const captchaReady = await ensureRecaptchaReady();
     if (!captchaReady || typeof grecaptcha === 'undefined') {
-        return "";
+        return { ok: false, token: "", reason: "auth-error-captcha-unavailable" };
     }
 
     try {
-        return await grecaptcha.execute(RECAPTCHA_SITE_KEY, { action });
+        const token = await grecaptcha.execute(RECAPTCHA_SITE_KEY, { action });
+        if (!token) {
+            return { ok: false, token: "", reason: "auth-error-captcha-unavailable" };
+        }
+        return { ok: true, token };
     } catch (err) {
         console.warn("reCAPTCHA token error:", err);
-        return "";
+        return { ok: false, token: "", reason: "auth-error-captcha-execute-failed" };
     }
 }
 
@@ -2225,6 +2230,25 @@ class GameClient {
         this.play_sound("ping.ogg"); // Assuming ping.ogg exists or use a default
     }
 
+    showLocalAuthError(reasonKey, targetMsg = null, { goToLogin = false } = {}) {
+        const message = Localization.get(reasonKey) || Localization.get("common-error");
+
+        this.shouldReconnect = false;
+        this.manualDisconnect = true;
+
+        if (goToLogin) {
+            this.showLogin();
+            targetMsg = this.statusMsg;
+        }
+
+        if (targetMsg) {
+            targetMsg.innerText = message;
+        }
+
+        this.speak(message);
+        return message;
+    }
+
     async connect(serverUrl, username, password) {
         const targetMsg = this.isRegistering ? this.regStatusMsg : this.statusMsg;
         targetMsg.innerText = Localization.get('status-connecting');
@@ -2243,7 +2267,14 @@ class GameClient {
 
         // Get CAPTCHA token before connecting (skipped when key is empty)
         const captchaAction = this.isRegistering ? "register" : "login";
-        const captchaToken = await getCaptchaToken(captchaAction);
+        const captchaResult = await getCaptchaTokenResult(captchaAction);
+        if (!captchaResult.ok) {
+            this.showLocalAuthError(captchaResult.reason, targetMsg, {
+                goToLogin: !this.isRegistering
+            });
+            return;
+        }
+        const captchaToken = captchaResult.token;
 
         if (this.socket && (this.socket.readyState === WebSocket.OPEN || this.socket.readyState === WebSocket.CONNECTING)) {
             this.socket.close();
@@ -2735,7 +2766,12 @@ class GameClient {
             return;
         }
 
-        const captchaToken = await getCaptchaToken("request_password_reset");
+        const captchaResult = await getCaptchaTokenResult("request_password_reset");
+        if (!captchaResult.ok) {
+            this.showLocalAuthError(captchaResult.reason, this.forgotStatusMsg);
+            return;
+        }
+        const captchaToken = captchaResult.token;
 
         this.isRegistering = true; // Use this flag to avoid auto-login behavior on close
         this.forgotStatusMsg.innerText = Localization.get('status-connecting');
@@ -2813,7 +2849,12 @@ class GameClient {
             return;
         }
 
-        const captchaToken = await getCaptchaToken("submit_reset_code");
+        const captchaResult = await getCaptchaTokenResult("submit_reset_code");
+        if (!captchaResult.ok) {
+            this.showLocalAuthError(captchaResult.reason, this.resetStatusMsg);
+            return;
+        }
+        const captchaToken = captchaResult.token;
 
         this.isRegistering = true;
         this.resetStatusMsg.innerText = Localization.get('status-connecting');

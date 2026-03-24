@@ -1,9 +1,14 @@
 {
   "name": "PlayAural",
   "short_name": "PlayAural",
+  "id": "/",
+  "scope": "/",
   "description": "Audio-first online gaming platform designed for accessibility.",
   "start_url": "/",
   "display": "standalone",
+  "display_override": [
+    "standalone"
+  ],
   "background_color": "#1a1a1a",
   "theme_color": "#4CAF50",
   "orientation": "portrait",

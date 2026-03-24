@@ -7,6 +7,12 @@
     --focus-color: #81D4FA;
     --surface-color: #2d2d2d;
     --border-color: #444;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-right: env(safe-area-inset-right, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-left: env(safe-area-inset-left, 0px);
+    --screen-padding: max(1rem, var(--safe-top)) max(1rem, var(--safe-right)) max(1rem, var(--safe-bottom)) max(1rem, var(--safe-left));
+    --leave-clearance: 6.5rem;
 }
 
 body {
@@ -14,18 +20,20 @@ body {
     background-color: var(--bg-color);
     color: var(--text-color);
     margin: 0;
-    display: flex;
-    /* Centering for Login */
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
-    overflow: hidden;
+    min-height: 100vh;
+    min-height: 100dvh;
+    overflow-x: hidden;
+    overflow-y: auto;
 }
 
 body.recaptcha-hidden .grecaptcha-badge {
     display: none !important;
     visibility: hidden !important;
     pointer-events: none !important;
+}
+
+body.game-active {
+    overflow: hidden;
 }
 
 /* Utilities */
@@ -59,9 +67,13 @@ body.recaptcha-hidden .grecaptcha-badge {
 /* Login/Register/Landing Forms - Centered */
 .screen-container {
     width: 100%;
+    min-height: 100vh;
+    min-height: 100dvh;
     display: flex;
     justify-content: center;
     align-items: center;
+    padding: var(--screen-padding);
+    box-sizing: border-box;
 }
 
 .auth-box {
@@ -72,6 +84,20 @@ body.recaptcha-hidden .grecaptcha-badge {
     border-radius: 8px;
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
     text-align: center;
+    box-sizing: border-box;
+}
+
+#landing-screen {
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 1.5rem;
+}
+
+#landing-footer {
+    width: min(100%, 500px);
+    padding-bottom: max(1rem, var(--safe-bottom));
+    box-sizing: border-box;
 }
 
 h1,
@@ -138,7 +164,9 @@ button.secondary-btn:hover {
 /* Game Screen - Full Size */
 #game-screen {
     width: 100%;
-    height: 100vh;
+    min-height: 100vh;
+    min-height: 100dvh;
+    height: 100dvh;
     display: flex;
     flex-direction: column;
     background-color: var(--bg-color);
@@ -148,12 +176,13 @@ button.secondary-btn:hover {
 
 /* Header */
 header {
-    padding: 1rem;
+    padding: max(1rem, var(--safe-top)) max(1rem, var(--safe-right)) 1rem max(1rem, var(--safe-left));
     background-color: var(--surface-color);
     display: flex;
     justify-content: space-between;
     align-items: center;
     border-bottom: 1px solid var(--border-color);
+    box-sizing: border-box;
 }
 
 .header-actions {
@@ -187,6 +216,8 @@ header {
     display: flex;
     background-color: #222;
     border-bottom: 1px solid var(--border-color);
+    padding-left: max(0px, var(--safe-left));
+    padding-right: max(0px, var(--safe-right));
 }
 
 .tab-btn {
@@ -219,15 +250,17 @@ main {
     position: relative;
     display: flex;
     flex-direction: column;
+    min-height: 0;
 }
 
 .tab-content {
     flex: 1;
     display: flex;
     flex-direction: column;
-    padding: 1rem;
+    padding: 1rem max(1rem, var(--safe-right)) calc(1rem + var(--safe-bottom)) max(1rem, var(--safe-left));
     overflow-y: auto;
     height: 100%;
+    min-height: 0;
     box-sizing: border-box;
 }
 
@@ -236,7 +269,7 @@ main {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
-    padding-bottom: 80px; /* Prevent final items from hiding behind fixed Leave button */
+    padding-bottom: calc(var(--leave-clearance) + var(--safe-bottom));
     /* Allow text selection / keyboard focus inside dynamically injected inputs */
     -webkit-user-select: text;
     user-select: text;
@@ -256,6 +289,8 @@ main {
     font-weight: bold;
     cursor: pointer;
     margin-top: 0.5rem;
+    min-height: 48px;
+    box-sizing: border-box;
     /* Mobile text selection / callout prevention */
     user-select: none;
     -webkit-user-select: none;
@@ -280,16 +315,18 @@ main {
 #menu-area.grid-mode {
     display: grid;
     gap: 0.25rem;
-    padding-bottom: 80px;
+    padding-bottom: calc(var(--leave-clearance) + var(--safe-bottom));
+    align-content: start;
+    overflow-x: auto;
 }
 
 #menu-area.grid-mode .menu-item {
     width: auto;
     margin-top: 0;
-    padding: 0.5rem 0.25rem;
+    padding: 0.5rem 0.35rem;
     text-align: center;
-    font-size: 0.85rem;
-    min-height: 2.5rem;
+    font-size: clamp(0.9rem, 2.8vw, 1rem);
+    min-height: clamp(3rem, 10vw, 3.5rem);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -339,6 +376,7 @@ main {
     margin-bottom: 0.5rem;
     font-family: monospace;
     font-size: 0.9rem;
+    min-height: 0;
 }
 
 .log-entry {
@@ -439,9 +477,14 @@ main {
 /* Mobile Responsive */
 @media (max-width: 600px) {
 
-    #login-screen,
-    #register-screen {
-        max-width: 90%;
+    .screen-container {
+        align-items: flex-start;
+        justify-content: flex-start;
+        padding: max(1rem, var(--safe-top)) max(0.75rem, var(--safe-right)) max(1rem, var(--safe-bottom)) max(0.75rem, var(--safe-left));
+    }
+
+    .auth-box {
+        max-width: 100%;
         padding: 1rem;
     }
 
@@ -478,12 +521,22 @@ main {
     }
 }
 
+@media (pointer: coarse) {
+    button,
+    .menu-item,
+    .web-action-btn,
+    .web-leave-btn {
+        min-height: 48px;
+    }
+}
+
 /* Ensure full height on mobile browsers with UI bars */
 @supports (-webkit-touch-callout: none) {
 
     body,
+    .screen-container,
     #game-screen {
-        height: -webkit-fill-available;
+        min-height: -webkit-fill-available;
     }
 }
 
@@ -624,7 +677,7 @@ input[type=range]::-moz-range-thumb {
 .web-leave-area {
     position: fixed;
     bottom: calc(20px + env(safe-area-inset-bottom, 0px));
-    left: 20px;
+    left: calc(20px + var(--safe-left));
     z-index: 1000;
 }
 
@@ -644,8 +697,8 @@ input[type=range]::-moz-range-thumb {
 @media (max-width: 600px) {
     .web-leave-area {
         bottom: calc(15px + env(safe-area-inset-bottom, 0px));
-        right: 15px;
-        left: 15px;
+        right: calc(15px + var(--safe-right));
+        left: calc(15px + var(--safe-left));
     }
 
     .web-leave-btn {
@@ -653,6 +706,17 @@ input[type=range]::-moz-range-thumb {
         font-size: 1.2rem;
         padding: 15px;
     }
+}
+
+.input-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.input-wrapper textarea {
+    min-height: 10rem;
+    resize: vertical;
 }
 /* Modal Dialog Styles */
 .modal {

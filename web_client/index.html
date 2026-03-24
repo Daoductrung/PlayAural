@@ -4,6 +4,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="PlayAural">
+    <meta name="format-detection" content="telephone=no">
     <title>PlayAural Web</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="lang-selector.css">
@@ -11,6 +16,7 @@
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#4CAF50">
     <link rel="apple-touch-icon" href="icon.png">
+</head>
 
 <body class="recaptcha-hidden">
     <script>
@@ -106,8 +112,6 @@
 
         </div>
     </div>
-    </div>
-
     <!-- Login Screen -->
     <div id="login-screen" class="screen-container hidden">
         <div class="auth-box">
@@ -116,15 +120,15 @@
             <form id="login-form">
                 <div class="form-group" style="display: none;">
                     <label for="server-url" id="login-server-label">Server URL</label>
-                    <input type="text" id="server-url" value="wss://playaural.ddt.one:443" required>
+                    <input type="text" id="server-url" value="wss://playaural.ddt.one:443" required autocorrect="off" autocapitalize="off" spellcheck="false" inputmode="url" enterkeyhint="next">
                 </div>
                 <div class="form-group">
                     <label for="username" id="login-username-label">Username</label>
-                    <input type="text" id="username" required autocomplete="username">
+                    <input type="text" id="username" required autocomplete="username" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="next">
                 </div>
                 <div class="form-group">
                     <label for="password" id="login-password-label">Password</label>
-                    <input type="password" id="password" required autocomplete="current-password">
+                    <input type="password" id="password" required autocomplete="current-password" enterkeyhint="go">
                 </div>
 
                 <div class="form-group checkbox-group" style="flex-direction: row; align-items: center; gap: 10px;">
@@ -155,7 +159,7 @@
             <form id="forgot-password-form">
                 <div class="form-group">
                     <label for="forgot-email" id="forgot-email-label" class="sr-only">Email</label>
-                    <input type="email" id="forgot-email" required autocomplete="email" placeholder="Email Address">
+                    <input type="email" id="forgot-email" required autocomplete="email" placeholder="Email Address" autocorrect="off" autocapitalize="off" spellcheck="false" inputmode="email" enterkeyhint="send">
                 </div>
 
                 <p id="forgot-password-status" class="status-message" aria-live="polite"></p>
@@ -177,15 +181,15 @@
             <form id="reset-password-form">
                 <div class="form-group">
                     <label for="reset-code" id="reset-code-label">6-Digit Reset Code</label>
-                    <input type="text" id="reset-code" required autocomplete="off" maxlength="6">
+                    <input type="text" id="reset-code" required autocomplete="one-time-code" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="next">
                 </div>
                 <div class="form-group">
                     <label for="new-password" id="new-password-label">New Password</label>
-                    <input type="password" id="new-password" required autocomplete="new-password">
+                    <input type="password" id="new-password" required autocomplete="new-password" enterkeyhint="next">
                 </div>
                 <div class="form-group">
                     <label for="confirm-new-password" id="confirm-new-password-label">Confirm Password</label>
-                    <input type="password" id="confirm-new-password" required autocomplete="new-password">
+                    <input type="password" id="confirm-new-password" required autocomplete="new-password" enterkeyhint="done">
                 </div>
 
                 <p id="reset-password-status" class="status-message" aria-live="polite"></p>
@@ -206,23 +210,23 @@
             <form id="register-form">
                 <div class="form-group" style="display: none;">
                     <label for="reg-server-url" id="reg-server-label">Server URL</label>
-                    <input type="text" id="reg-server-url" value="wss://playaural.ddt.one:443" required>
+                    <input type="text" id="reg-server-url" value="wss://playaural.ddt.one:443" required autocorrect="off" autocapitalize="off" spellcheck="false" inputmode="url" enterkeyhint="next">
                 </div>
                 <div class="form-group">
                     <label for="reg-username" id="reg-username-label">Username</label>
-                    <input type="text" id="reg-username" required autocomplete="username">
+                    <input type="text" id="reg-username" required autocomplete="username" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="next">
                 </div>
                 <div class="form-group">
                     <label for="reg-password" id="reg-password-label">Password</label>
-                    <input type="password" id="reg-password" required autocomplete="new-password">
+                    <input type="password" id="reg-password" required autocomplete="new-password" enterkeyhint="next">
                 </div>
                 <div class="form-group">
                     <label for="reg-password-confirm" id="label-confirm-password">Confirm Password</label>
-                    <input type="password" id="reg-password-confirm" required autocomplete="new-password">
+                    <input type="password" id="reg-password-confirm" required autocomplete="new-password" enterkeyhint="next">
                 </div>
                 <div class="form-group">
                     <label for="reg-email" id="reg-email-label">Email</label>
-                    <input type="email" id="reg-email" required autocomplete="email">
+                    <input type="email" id="reg-email" required autocomplete="email" autocorrect="off" autocapitalize="off" spellcheck="false" inputmode="email" enterkeyhint="done">
                 </div>
 
                 <p id="register-status" class="status-message" aria-live="polite"></p>
@@ -277,7 +281,7 @@
                 <div id="chat-input-view">
                     <form id="chat-form" onsubmit="return false;">
                         <input type="text" id="chat-input" placeholder="Type a message..." aria-label="Chat Message"
-                            autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                            autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="send">
                         <button type="button" id="btn-chat-send" onclick="Game.sendChat()">Send</button>
                     </form>
                     <button type="button" id="btn-view-history" class="secondary-btn"

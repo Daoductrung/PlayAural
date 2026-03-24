@@ -7,13 +7,14 @@
 }
 
 .lang-btn {
-    padding: 8px 16px;
+    padding: 10px 18px;
     border: 1px solid #555;
     background: #2a2a2a;
     color: #fff;
     cursor: pointer;
     border-radius: 4px;
     font-size: 14px;
+    min-height: 44px;
     transition: all 0.2s;
 }
 
@@ -24,4 +25,11 @@
 
 .lang-btn:active {
     background: #1a1a1a;
+}
+
+@media (pointer: coarse) {
+    .lang-btn {
+        min-height: 48px;
+        padding: 12px 20px;
+    }
 }

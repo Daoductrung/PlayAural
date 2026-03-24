@@ -84,10 +84,17 @@ class Localization {
     static strings = {}; // Loaded from window.LOCALES (locales.js)
     static locale = "en";
 
+    static applyDocumentLanguage(locale) {
+        if (document?.documentElement) {
+            document.documentElement.lang = locale || "en";
+        }
+    }
+
     static async load(locale) {
         if (window.LOCALES && window.LOCALES[locale]) {
             this.strings = window.LOCALES[locale];
             this.locale = locale;
+            this.applyDocumentLanguage(locale);
             console.log(`Loaded locale from script: ${locale}`);
             return;
         }
@@ -98,6 +105,7 @@ class Localization {
             if (!response.ok) throw new Error(`Failed to load locale ${locale} via fetch`);
             this.strings = await response.json();
             this.locale = locale;
+            this.applyDocumentLanguage(locale);
             console.log(`Loaded locale via fetch: ${locale}`);
         } catch (err) {
             console.warn("Localization fetch failed (normal if offline/file://):", err);
@@ -106,10 +114,14 @@ class Localization {
             // try falling back to 'en' from LOCALES if available
             if (window.LOCALES && window.LOCALES['en']) {
                 this.strings = window.LOCALES['en'];
+                this.locale = "en";
+                this.applyDocumentLanguage("en");
                 console.log("Fell back to built-in English");
             } else {
                 // Hard fallback (Should not be reached if locales.js is loaded)
                 this.strings = {};
+                this.locale = "en";
+                this.applyDocumentLanguage("en");
                 console.error("Critical: No localization data found!");
             }
         }
@@ -663,7 +675,6 @@ class GameClient {
             speech_rate: 100,
             speech_voice: ""
         };
-        this.announcer = document.getElementById('announcer');
         this.menuArea = document.getElementById('menu-area');
 
         // Tabs
@@ -815,6 +826,9 @@ class GameClient {
         // PWA Install Prompt
         this.deferredPrompt = null;
         window.addEventListener('beforeinstallprompt', (e) => {
+            if (this.isStandalone()) {
+                return;
+            }
             // Prevent Chrome 67 and earlier from automatically showing the prompt
             e.preventDefault();
             // Stash the event so it can be triggered later.
@@ -829,9 +843,24 @@ class GameClient {
             console.log("PWA Install Prompt captured");
         });
 
-        // Detect iOS
-        this.isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        window.addEventListener('appinstalled', () => {
+            this.deferredPrompt = null;
+            const installBtn = document.getElementById('btn-install-pwa');
+            if (installBtn) {
+                installBtn.classList.add('hidden');
+            }
+        });
 
+        // Detect iOS
+        this.isIOS = (
+            /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+            (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+        ) && !window.MSStream;
+
+    }
+
+    isStandalone() {
+        return window.matchMedia?.('(display-mode: standalone)').matches || window.navigator.standalone === true;
     }
 
     installPWA() {
@@ -2400,7 +2429,7 @@ class GameClient {
 
         // Enable Enter key to submit
         input.onkeydown = (e) => {
-            if (e.key === 'Enter') {
+            if (e.key === 'Enter' && !packet.multiline) {
                 e.preventDefault();
                 submitBtn.click();
             }
@@ -2473,6 +2502,7 @@ class GameClient {
         this.loginScreen = document.getElementById('login-screen');
         this.registerScreen = document.getElementById('register-screen');
         this.gameScreen = document.getElementById('game-screen');
+        this.setActiveScreen("landing");
 
         // Load Auto-login capability.
         // When "Remember Me" was checked, pa_remember='1' and pa_pass live in localStorage.
@@ -2516,6 +2546,13 @@ class GameClient {
         });
     }
 
+    setActiveScreen(screenName) {
+        document.body?.classList.toggle('game-active', screenName === "game");
+        if (document.body) {
+            document.body.dataset.screen = screenName;
+        }
+    }
+
     updateCaptchaForScreen(screenName) {
         const isAuthScreen = ["login", "register", "forgot_password", "reset_password"].includes(screenName);
         const shouldShowCaptcha = isAuthScreen && !!RECAPTCHA_SITE_KEY;
@@ -2530,6 +2567,7 @@ class GameClient {
 
     showLanding() {
         this.updateCaptchaForScreen("landing");
+        this.setActiveScreen("landing");
         this.landingScreen.classList.remove('hidden');
         this.loginScreen.classList.add('hidden');
         this.registerScreen.classList.add('hidden');
@@ -2554,6 +2592,7 @@ class GameClient {
 
     showLogin() {
         this.updateCaptchaForScreen("login");
+        this.setActiveScreen("login");
         this.landingScreen.classList.add('hidden');
         this.loginScreen.classList.remove('hidden');
         this.registerScreen.classList.add('hidden');
@@ -2594,6 +2633,7 @@ class GameClient {
 
     showRegister() {
         this.updateCaptchaForScreen("register");
+        this.setActiveScreen("register");
         this.landingScreen.classList.add('hidden');
         this.loginScreen.classList.add('hidden');
         this.registerScreen.classList.remove('hidden');
@@ -2604,6 +2644,7 @@ class GameClient {
 
     showForgotPassword() {
         this.updateCaptchaForScreen("forgot_password");
+        this.setActiveScreen("forgot_password");
         this.landingScreen.classList.add('hidden');
         this.loginScreen.classList.add('hidden');
         this.registerScreen.classList.add('hidden');
@@ -2616,6 +2657,7 @@ class GameClient {
 
     showResetPassword() {
         this.updateCaptchaForScreen("reset_password");
+        this.setActiveScreen("reset_password");
         this.landingScreen.classList.add('hidden');
         this.loginScreen.classList.add('hidden');
         this.registerScreen.classList.add('hidden');
@@ -2628,6 +2670,7 @@ class GameClient {
 
     showGame() {
         this.updateCaptchaForScreen("game");
+        this.setActiveScreen("game");
         this.landingScreen.classList.add('hidden');
         this.loginScreen.classList.add('hidden');
         this.registerScreen.classList.add('hidden');
@@ -2958,6 +3001,9 @@ class GameClient {
 
             const installBtn = landing.querySelector('#btn-install-pwa');
             if (installBtn) installBtn.innerText = Localization.get('btn-install');
+            if (installBtn && this.isStandalone()) {
+                installBtn.classList.add('hidden');
+            }
 
             // iOS Instruction
             if (this.isIOS) {

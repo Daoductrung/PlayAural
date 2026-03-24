@@ -1,14 +1,20 @@
 # Changelog
 
-## Version 1.0.0
+## Wednesday 25 March 2026
 
-- Official public release of PlayAural
-- 20 games available: Card games, dice games, and adventure games
-- Full localization support for English and Vietnamese
-- Web client (PWA) and Windows desktop client
-- OpenSkill rating system with leaderboards
-- Friend system with online status tracking
-- Chat system with global, table, and private channels
-- Chat rate limiting with auto-moderation
-- Admin and moderation tools
-- Server alert broadcast system for scheduled restarts
+## Welcome to the first version of PlayAural. This is an audio-first online gaming platform designed to be fully accessible for blind players.
+
+## Added 25 different games across four categories, including card games like Ninety Nine, dice games, adventure games like Battleship, and social games like Coup.
+
+## Added a desktop application with native screen reader support and low latency.
+
+## Added a web version that is best optimized for mobile devices.
+
+## Added full bilingual support, allowing you to play in both English and Vietnamese.
+
+## Added a complete account system to save progress, skill ratings, add friends, and chat.
+
+## Added a spectator mode, allowing players to join tables and listen to ongoing games.
+
+## Added comprehensive keyboard shortcuts for desktop users and simple, easy-to-use button layouts for mobile players.
+

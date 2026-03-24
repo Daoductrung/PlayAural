@@ -46,7 +46,7 @@ Mỗi người chơi có năm tàu để triển khai:
 
 
 
-Người chơi lần lượt khai hỏa vào bản đồ đối phương. Di chuyển đến một tọa độ trên bản đồ mục tiêu rồi nhấn Enter hoặc Phím cách để bắn. Sau một khoảng chờ ngắn, kết quả sẽ được thông báo: trúng đích hoặc trượt.
+Người chơi lần lượt khai hỏa vào bản đồ đối phương. Di chuyển đến một tọa độ trên bản đồ mục tiêu rồi nhấn Enter để bắn. Sau một khoảng chờ ngắn, kết quả sẽ được thông báo: trúng đích hoặc trượt.
 
 
 
@@ -100,10 +100,11 @@ Trước khi bắt đầu trận đấu, chủ bàn có thể chỉnh các mục
 
 \* \*\*Phím mũi tên:\*\* Di chuyển trên lưới.
 
-\* \*\*Enter hoặc Phím cách:\*\* Khai hỏa vào tọa độ đã chọn (chiến đấu) hoặc chọn ô để đặt tàu (triển khai).
+\* \*\*Enter:\*\* Khai hỏa vào tọa độ đã chọn (chiến đấu) hoặc chọn ô để đặt tàu (triển khai).
 
 \* \*\*V:\*\* Chuyển đổi giữa vùng biển của bạn và bản đồ mục tiêu.
 
 \* \*\*F:\*\* Đọc tình trạng hạm đội: tàu nào còn nguyên, hư hại hay đã chìm.
 
 \* \*\*E:\*\* Trinh sát hạm đội địch: số tàu bạn đã đánh chìm.
+

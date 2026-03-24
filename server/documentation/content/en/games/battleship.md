@@ -46,7 +46,7 @@ In manual mode, you place ships one at a time. Navigate the grid to select a sta
 
 
 
-Players alternate turns firing at the opponent's grid. Navigate to a coordinate on the target grid and press Enter or Space to fire. After a brief delay, the result is announced: hit or miss.
+Players alternate turns firing at the opponent's grid. Navigate to a coordinate on the target grid and press Enter to fire. After a brief delay, the result is announced: hit or miss.
 
 
 
@@ -100,10 +100,11 @@ The host can adjust the following settings before the match starts:
 
 \* \*\*Arrow keys:\*\* Navigate the grid.
 
-\* \*\*Enter or Space:\*\* Fire at the selected coordinate (battle) or select a cell for ship placement (deployment).
+\* \*\*Enter:\*\* Fire at the selected coordinate (battle) or select a cell for ship placement (deployment).
 
 \* \*\*V:\*\* Toggle between your waters and the target grid.
 
 \* \*\*F:\*\* Read your fleet status: which ships are intact, damaged, or sunk.
 
 \* \*\*E:\*\* Read enemy fleet intel: how many ships you have sunk so far.
+

@@ -12,7 +12,6 @@
     --safe-bottom: env(safe-area-inset-bottom, 0px);
     --safe-left: env(safe-area-inset-left, 0px);
     --screen-padding: max(1rem, var(--safe-top)) max(1rem, var(--safe-right)) max(1rem, var(--safe-bottom)) max(1rem, var(--safe-left));
-    --leave-clearance: 6.5rem;
     --grid-cell-min-width: clamp(4.75rem, 14vw, 7rem);
     --grid-cell-min-height: clamp(3.5rem, 10vw, 4.5rem);
 }
@@ -275,7 +274,7 @@ main {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
-    padding-bottom: calc(var(--leave-clearance) + var(--safe-bottom));
+    padding-bottom: var(--safe-bottom);
     /* Allow text selection / keyboard focus inside dynamically injected inputs */
     -webkit-user-select: text;
     user-select: text;
@@ -321,7 +320,7 @@ main {
 #menu-area.grid-mode {
     display: grid;
     gap: 0.25rem;
-    padding-bottom: calc(var(--leave-clearance) + var(--safe-bottom));
+    padding-bottom: var(--safe-bottom);
     align-content: start;
     grid-auto-rows: minmax(var(--grid-cell-min-height), auto);
     min-width: 100%;
@@ -344,7 +343,7 @@ main {
 }
 
 /* Web actions container styles (dynamic bottom buttons) */
-.web-action-btn, .web-leave-btn {
+.web-action-btn {
     display: block;
     width: 100%;
     padding: 0.75rem;
@@ -363,17 +362,13 @@ main {
     -webkit-touch-callout: none;
 }
 
-.web-action-btn:hover, .web-leave-btn:hover {
+.web-action-btn:hover {
     filter: brightness(1.1);
 }
 
-.web-action-btn:focus, .web-leave-btn:focus {
+.web-action-btn:focus {
     outline: 2px solid white;
     outline-offset: -2px;
-}
-
-.web-leave-btn.danger-btn {
-    background-color: var(--danger-color);
 }
 
 /* Chat & History Logs */
@@ -535,8 +530,7 @@ main {
 @media (pointer: coarse) {
     button,
     .menu-item,
-    .web-action-btn,
-    .web-leave-btn {
+    .web-action-btn {
         min-height: 48px;
     }
 }
@@ -685,15 +679,7 @@ input[type=range]::-moz-range-thumb {
     display: none;
 }
 
-.web-leave-area {
-    position: fixed;
-    bottom: calc(20px + env(safe-area-inset-bottom, 0px));
-    left: calc(20px + var(--safe-left));
-    z-index: 1000;
-}
-
-.web-action-btn,
-.web-leave-btn {
+.web-action-btn {
     padding: 12px 24px;
     font-size: 1.1rem;
     font-weight: bold;
@@ -706,13 +692,7 @@ input[type=range]::-moz-range-thumb {
 
 /* Mobile adjustments */
 @media (max-width: 600px) {
-    .web-leave-area {
-        bottom: calc(15px + env(safe-area-inset-bottom, 0px));
-        right: calc(15px + var(--safe-right));
-        left: calc(15px + var(--safe-left));
-    }
-
-    .web-leave-btn {
+    .web-action-btn {
         width: 100%;
         font-size: 1.2rem;
         padding: 15px;

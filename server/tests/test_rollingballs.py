@@ -22,6 +22,14 @@ from server.users.test_user import MockUser
 from server.users.bot import Bot
 
 
+def set_web_client(game: RollingBallsGame, *players) -> None:
+    targets = players or game.players
+    for player in targets:
+        user = game.get_user(player)
+        if user is not None:
+            user.client_type = "web"
+
+
 class TestRollingBallsUnit:
     """Unit tests for Rolling Balls game functions."""
 
@@ -158,6 +166,26 @@ class TestRollingBallsUnit:
         for ball in game.pipe:
             assert ball["description_key"] in pizza_pack
             assert ball["value"] == pizza_pack[ball["description_key"]]
+
+    def test_web_standard_menu_orders_pipe_actions_before_scores_turn_and_table(self):
+        """Web clients should receive the standard info actions in the shared order."""
+        game = RollingBallsGame()
+        user1 = MockUser("Alice")
+        user2 = MockUser("Bob")
+        player1 = game.add_player("Alice", user1)
+        game.add_player("Bob", user2)
+        set_web_client(game, player1)
+        game.on_start()
+
+        action_set = game.create_standard_action_set(player1)
+        order = action_set._order
+
+        expected = ["view_pipe", "reshuffle", "check_scores", "whose_turn", "whos_at_table"]
+        indices = [order.index(action_id) for action_id in expected]
+
+        assert indices == sorted(indices)
+        assert order.index("view_pipe") < order.index("check_scores")
+        assert order.index("reshuffle") < order.index("check_scores")
 
     def test_serialization(self):
         """Test that game state can be serialized and deserialized."""

@@ -283,7 +283,13 @@ class RollingBallsGame(Game):
         return action_set
 
     # WEB-SPECIFIC: Target order for Standard Actions
-    web_target_order = ["check_scores", "whose_turn", "whos_at_table"]
+    web_target_order = [
+        "view_pipe",
+        "reshuffle",
+        "check_scores",
+        "whose_turn",
+        "whos_at_table",
+    ]
 
     def create_standard_action_set(self, player: Player) -> ActionSet:
         action_set = super().create_standard_action_set(player)

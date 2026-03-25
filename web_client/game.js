@@ -1001,14 +1001,11 @@ class GameClient {
 
             // WEB-SPECIFIC: Toggle Special Buttons Visibility
             const actionsContainer = document.getElementById('web-actions-container');
-            const leaveContainer = document.getElementById('web-leave-container');
             
             if (tabId === 'content-menu') {
                 if (actionsContainer) actionsContainer.classList.remove('hidden');
-                if (leaveContainer) leaveContainer.classList.remove('hidden');
             } else {
                 if (actionsContainer) actionsContainer.classList.add('hidden');
-                if (leaveContainer) leaveContainer.classList.add('hidden');
             }
         }
     }
@@ -1943,8 +1940,7 @@ class GameClient {
 
         // WEB-SPECIFIC: Filter out Special Buttons FIRST
         const specialIds = {
-            "web_actions_menu": { container: document.getElementById('web-actions-container'), cls: "web-action-btn" },
-            "web_leave_table": { container: document.getElementById('web-leave-container'), cls: "web-leave-btn danger-btn" }
+            "web_actions_menu": { container: document.getElementById('web-actions-container'), cls: "web-action-btn" }
         };
 
         // WEB-SPECIFIC: Voice Selection Menu Interception
@@ -2000,8 +1996,6 @@ class GameClient {
                 };
                 config.container.appendChild(newBtn);
             } else if (!isSameMenu && id === "web_actions_menu") {
-                // Only clear actions container on menu change (transient).
-                // Leave button persists — cleared only on disconnect/screen transition.
                 config.container.innerHTML = "";
             }
         }
@@ -2697,9 +2691,6 @@ class GameClient {
         this.resetPasswordScreen.classList.add('hidden');
         this.gameScreen.classList.add('hidden');
 
-        // Clear persistent web buttons on disconnect/logout
-        const leaveContainer = document.getElementById('web-leave-container');
-        if (leaveContainer) leaveContainer.innerHTML = "";
         const actionsContainer = document.getElementById('web-actions-container');
         if (actionsContainer) actionsContainer.innerHTML = "";
 
@@ -3256,5 +3247,3 @@ function bootstrapGameClient() {
 }
 
 bootstrapGameClient();
-
-

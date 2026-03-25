@@ -329,12 +329,12 @@ class Database:
         - game_results: Older than 30 days.
         - saved_tables: Older than 365 days.
         - bans: Expired more than 30 days ago.
+        - mutes: Expired or orphaned.
         - password reset tokens: Expired.
         """
         now = datetime.now()
         thirty_days_ago = (now - timedelta(days=30)).isoformat()
         one_year_ago = (now - timedelta(days=365)).isoformat()
-        now_str = now.isoformat()
 
         cursor = self._conn.cursor()
 
@@ -362,22 +362,38 @@ class Database:
         cursor.execute("DELETE FROM user_notifications WHERE created_at < ?", (six_months_ago,))
         deleted_notifications = cursor.rowcount
 
-        # 6. Prune expired password reset tokens
+        # 6. Prune expired mutes
+        cursor.execute("DELETE FROM mutes WHERE expires_at IS NOT NULL AND expires_at < ?", (now.isoformat(),))
+        deleted_expired_mutes = cursor.rowcount
+
+        # 7. Prune orphaned mutes for usernames that no longer exist
+        cursor.execute("""
+            DELETE FROM mutes
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM users
+                WHERE users.username = mutes.username
+            )
+        """)
+        deleted_orphaned_mutes = cursor.rowcount
+
+        # 8. Prune expired password reset tokens
         cursor.execute("DELETE FROM password_reset_tokens WHERE expires_at < ?", (now.isoformat(),))
         deleted_tokens = cursor.rowcount
+        deleted_mutes = deleted_expired_mutes + deleted_orphaned_mutes
 
         self._conn.commit()
 
         # Log results
         logger = logging.getLogger("playaural.db.prune")
-        if deleted_games > 0 or deleted_saves > 0 or deleted_bans > 0 or deleted_requests > 0 or deleted_notifications > 0 or deleted_tokens > 0:
-             logger.info(f"Database Pruning: Deleted {deleted_games} old game results, {deleted_saves} old saved tables, {deleted_bans} expired bans, {deleted_requests} pending requests, {deleted_notifications} notifications, {deleted_tokens} expired tokens.")
+        if deleted_games > 0 or deleted_saves > 0 or deleted_bans > 0 or deleted_requests > 0 or deleted_notifications > 0 or deleted_mutes > 0 or deleted_tokens > 0:
+             logger.info(f"Database Pruning: Deleted {deleted_games} old game results, {deleted_saves} old saved tables, {deleted_bans} expired bans, {deleted_requests} pending requests, {deleted_notifications} notifications, {deleted_expired_mutes} expired mutes, {deleted_orphaned_mutes} orphaned mutes, {deleted_tokens} expired tokens.")
         else:
              logger.info("Database Pruning: 0 records deleted (no old data found).")
 
         # Also print to standard output for explicit CLI visibility on startup
-        if deleted_games > 0 or deleted_saves > 0 or deleted_bans > 0 or deleted_requests > 0 or deleted_notifications > 0 or deleted_tokens > 0:
-             print(f"Database Pruning: Cleaned up {deleted_games} game_results, {deleted_saves} saved_tables, {deleted_bans} bans, {deleted_requests} friend requests, {deleted_notifications} notifications, {deleted_tokens} expired tokens.")
+        if deleted_games > 0 or deleted_saves > 0 or deleted_bans > 0 or deleted_requests > 0 or deleted_notifications > 0 or deleted_mutes > 0 or deleted_tokens > 0:
+             print(f"Database Pruning: Cleaned up {deleted_games} game_results, {deleted_saves} saved_tables, {deleted_bans} bans, {deleted_requests} friend requests, {deleted_notifications} notifications, {deleted_expired_mutes} expired mutes, {deleted_orphaned_mutes} orphaned mutes, {deleted_tokens} expired tokens.")
 
     # User operations
 
@@ -663,6 +679,7 @@ class Database:
         cursor.execute("DELETE FROM player_ratings WHERE player_id = ?", (user.uuid,))
         cursor.execute("DELETE FROM saved_tables WHERE username = ?", (username,))
         cursor.execute("DELETE FROM bans WHERE username = ?", (username,))
+        cursor.execute("DELETE FROM mutes WHERE username = ?", (username,))
         cursor.execute("DELETE FROM friendships WHERE requester_id = ? OR receiver_id = ?", (user.uuid, user.uuid))
         cursor.execute("DELETE FROM user_notifications WHERE user_id = ? OR source_username = ?", (user.uuid, username))
         cursor.execute("DELETE FROM password_reset_tokens WHERE user_uuid = ?", (user.uuid,))

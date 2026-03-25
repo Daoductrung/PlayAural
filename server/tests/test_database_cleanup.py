@@ -21,6 +21,10 @@ def test_prune_old_records(db):
     old_game = now - timedelta(days=40)
     old_save = now - timedelta(days=400)
     old_ban = now - timedelta(days=40)
+    future = now + timedelta(days=10)
+
+    db.create_user("mute_active", "hash")
+    db.create_user("mute_expired", "hash")
 
     # Insert game_results
     cursor.execute("INSERT INTO game_results (game_type, timestamp, duration_ticks, custom_data) VALUES (?, ?, ?, ?)",
@@ -46,6 +50,14 @@ def test_prune_old_records(db):
                    ("b1", "admin", "reason", old_game.isoformat(), recent.isoformat())) # Expired recently
     cursor.execute("INSERT INTO bans (username, admin_username, reason_key, issued_at, expires_at) VALUES (?, ?, ?, ?, ?)",
                    ("b2", "admin", "reason", old_save.isoformat(), old_ban.isoformat())) # Expired long ago
+
+    # Insert mutes
+    cursor.execute("INSERT INTO mutes (username, admin_username, reason, issued_at, expires_at) VALUES (?, ?, ?, ?, ?)",
+                   ("mute_active", "admin", "reason", recent.isoformat(), future.isoformat()))
+    cursor.execute("INSERT INTO mutes (username, admin_username, reason, issued_at, expires_at) VALUES (?, ?, ?, ?, ?)",
+                   ("mute_expired", "admin", "reason", old_game.isoformat(), recent.isoformat()))
+    cursor.execute("INSERT INTO mutes (username, admin_username, reason, issued_at, expires_at) VALUES (?, ?, ?, ?, ?)",
+                   ("mute_orphan", "admin", "reason", recent.isoformat(), future.isoformat()))
 
     db._conn.commit()
 
@@ -75,6 +87,13 @@ def test_prune_old_records(db):
     assert "b1" in bans
     assert "b2" not in bans
 
+    # Check mutes
+    cursor.execute("SELECT username FROM mutes")
+    mutes = [row[0] for row in cursor.fetchall()]
+    assert "mute_active" in mutes
+    assert "mute_expired" not in mutes
+    assert "mute_orphan" not in mutes
+
 def test_delete_user_cascades(db):
     db.create_user("Alice", "hash")
     alice = db.get_user("Alice")
@@ -86,6 +105,7 @@ def test_delete_user_cascades(db):
     cursor.execute("INSERT INTO player_ratings (player_id, game_type, mu, sigma) VALUES (?, 'pig', 25.0, 8.0)", (alice.uuid,))
     cursor.execute("INSERT INTO saved_tables (username, save_name, game_type, game_json, members_json, saved_at) VALUES (?, 'save', 'pig', '', '', '')", ("Alice",))
     cursor.execute("INSERT INTO bans (username, admin_username, reason_key, issued_at, expires_at) VALUES (?, 'admin', 'r', '', '')", ("Alice",))
+    cursor.execute("INSERT INTO mutes (username, admin_username, reason, issued_at, expires_at) VALUES (?, 'admin', 'r', '', '')", ("Alice",))
     db._conn.commit()
 
     # Run delete
@@ -102,6 +122,9 @@ def test_delete_user_cascades(db):
     assert cursor.fetchone()[0] == 0
 
     cursor.execute("SELECT COUNT(*) FROM bans")
+    assert cursor.fetchone()[0] == 0
+
+    cursor.execute("SELECT COUNT(*) FROM mutes")
     assert cursor.fetchone()[0] == 0
 
     cursor.execute("SELECT COUNT(*) FROM users")

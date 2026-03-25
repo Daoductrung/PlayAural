@@ -6,7 +6,7 @@ class RateLimiter:
     Tracks requests by IP address.
     """
 
-    LOGIN_MAX_ATTEMPTS = 5
+    LOGIN_MAX_ATTEMPTS = 20
     LOGIN_WINDOW_SEC = 900  # 15 minutes
 
     REG_MAX_ATTEMPTS = 3

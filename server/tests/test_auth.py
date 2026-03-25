@@ -287,3 +287,40 @@ class TestAuthSecurity:
         assert web_client.sent_messages[-1]["status"] == "error"
         assert web_client.sent_messages[-1]["error"] == "captcha_missing"
         assert len(calls) == 1
+
+    @pytest.mark.asyncio
+    async def test_authorize_rate_limit_triggers_after_twenty_failed_attempts(self):
+        username = "authuser"
+        correct_password = "Password123"
+        wrong_password = "WrongPassword123"
+        self.server._auth.register(username, correct_password)
+
+        for _ in range(self.server._rate_limiter.LOGIN_MAX_ATTEMPTS):
+            client = MockClient()
+            await self.server._handle_authorize(
+                client,
+                {
+                    "type": "authorize",
+                    "client": "python",
+                    "username": username,
+                    "password": wrong_password,
+                    "version": "1.0.0",
+                },
+            )
+            assert client.sent_messages[-1]["type"] == "login_failed"
+            assert client.sent_messages[-1]["reason"] == "wrong_password"
+
+        blocked_client = MockClient()
+        await self.server._handle_authorize(
+            blocked_client,
+            {
+                "type": "authorize",
+                "client": "python",
+                "username": username,
+                "password": correct_password,
+                "version": "1.0.0",
+            },
+        )
+        assert blocked_client.sent_messages[-1]["type"] == "login_failed"
+        assert blocked_client.sent_messages[-1]["reason"] == "rate_limit"
+        assert blocked_client.closed is True

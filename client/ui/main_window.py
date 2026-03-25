@@ -16,6 +16,7 @@ import time
 # Add parent directory to path to import sound_manager and network_manager
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from . import slash_commands
+from auth_error_messages import get_login_failure_message, is_credential_error
 from sound_manager import SoundManager
 from network_manager import NetworkManager
 from buffer_system import BufferSystem
@@ -2451,17 +2452,11 @@ class MainWindow(wx.Frame):
     def on_login_failed(self, packet):
         """Handle login failure from server."""
         raw_reason = packet.get("reason", "")
-        reason_map = {
-            "wrong_password": Localization.get("auth-error-wrong-password"),
-            "user_not_found": Localization.get("auth-error-user-not-found"),
-            "rate_limit": Localization.get("auth-error-rate-limit"),
-        }
-        error_msg = reason_map.get(raw_reason) or Localization.get("login-info-failed")
+        error_msg = get_login_failure_message(raw_reason)
 
         # Credential errors (permanent failures) — disable auto-login so the user
         # is not silently trapped in an infinite reconnect loop.
-        credential_errors = {"wrong_password", "user_not_found"}
-        if raw_reason in credential_errors:
+        if is_credential_error(raw_reason):
             account_id = self.credentials.get("account_id")
             server_id = self.credentials.get("server_id")
             config_manager = self.credentials.get("config_manager")

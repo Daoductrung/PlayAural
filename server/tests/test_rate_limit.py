@@ -6,7 +6,7 @@ def test_login_rate_limiting():
     limiter = RateLimiter()
     ip = "192.168.1.1"
 
-    for _ in range(5):
+    for _ in range(limiter.LOGIN_MAX_ATTEMPTS):
         assert limiter.is_login_allowed(ip) is True
         limiter.record_failed_login(ip)
 

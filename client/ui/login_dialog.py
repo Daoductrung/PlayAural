@@ -14,6 +14,7 @@ from pathlib import Path
 # Add parent directory to path to import config_manager
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from config_manager import ConfigManager
+from auth_error_messages import get_login_failure_message
 from localization import Localization
 from ssl_utils import make_ssl_context
 
@@ -608,12 +609,7 @@ class LoginDialog(wx.Dialog):
                   error_msg = Localization.get("login-info-failed") # Verification failed
             elif isinstance(result, dict) and result.get("type") == "login_failed":
                  reason = result.get("reason")
-                 if reason == "wrong_password":
-                      error_msg = Localization.get("auth-error-wrong-password")
-                 elif reason == "user_not_found":
-                      error_msg = Localization.get("auth-error-user-not-found")
-                 else:
-                      error_msg = Localization.get("login-info-failed")
+                 error_msg = get_login_failure_message(reason)
             elif isinstance(result, str) and result.startswith("error:"):
                   error_msg = Localization.get("login-error-unknown", error=result)
             

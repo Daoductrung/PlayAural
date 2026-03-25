@@ -228,6 +228,9 @@ When adding a new Dev-only admin action, apply the same three layers; do not rel
 #### Server Import Rules
 All imports at module level. No in-function imports anywhere in the server codebase — this rule mirrors the Desktop Client rule and applies equally to `server/core/server.py`, all mixins, and all utility modules.
 
+#### Persistence / Data Lifecycle Reminder
+Whenever adding a new database-backed feature, explicitly decide the data lifecycle: what is stored, how long it should live, how stale rows are cleaned up, and what happens on account deletion. Do not add time-bound or accumulative persistence without a cleanup path and tests that prove it does not leave garbage behind.
+
 ### Desktop Client Architecture
 - **`client/ui/main_window.py`** — Core UI (2,500+ lines), handles all in-game interaction
 - **`client/network_manager.py`** — WebSocket client, receives packets, dispatches to UI

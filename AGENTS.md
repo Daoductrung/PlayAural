@@ -2,8 +2,6 @@
 
 This document is the authoritative reference for any AI assistant (Claude, Codex, or other) contributing to the PlayAural codebase. Follow every rule exactly. When in doubt, read the existing code — especially `lastcard/game.py` and `dominos/game.py` as canonical examples.
 
----
-
 ## 1. Project Overview
 
 PlayAural is an **audio-first multiplayer online gaming platform** with full screen reader support. It has three components:
@@ -572,6 +570,21 @@ Always test that a bot game completes: use `advance_until` with a high `max_tick
 - Always call `super().setup_keybinds()` in `setup_keybinds`
 - Always call `super().create_standard_action_set(player)` when overriding
 - Never use `innerHTML` with server data in the web client — use `textContent`
+
+### 12.4 Persistence & Data Lifecycle
+
+Any new database-backed feature must define its data lifecycle up front. Do not add persistent storage without also deciding how that data ages, expires, or gets removed.
+
+Required review for every new persistent table, column, or record type:
+- **Stored data**: Document exactly what is stored and why it must persist.
+- **Lifespan**: Decide whether the data is permanent, bounded, or time-limited.
+- **Cleanup mechanism**: If the data can become stale, define how it is cleaned up. This can be immediate deletion on use, periodic pruning at startup, scheduled cleanup, bounded retention, or explicit admin/user deletion.
+- **Account deletion behavior**: Decide whether the data should be deleted, anonymized, or preserved when an account is removed. Never leave orphaned rows behind.
+- **Testing**: Add tests that prove the cleanup path works, especially for expiry, stale-row pruning, and account deletion behavior.
+
+Examples of features that require this review include chat logs, notifications, invitations, friend requests, password reset tokens, moderation records, saved states, temporary UI records, and any future time-bound or accumulative data.
+
+Rule: if a feature can create rows that are no longer useful after some time or after a user is deleted, the implementation is incomplete until its cleanup policy and tests are in place.
 
 ---
 

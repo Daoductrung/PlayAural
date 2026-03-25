@@ -36,7 +36,7 @@ The first player to empty their hand wins the round and scores points based on t
 
 \* \*\*Wild:\*\* Can be played on top of anything. When you play a Wild, you choose the color that the next player must follow. Worth 50 points.
 
-\* \*\*Wild Draw Four:\*\* The most powerful card. Like a Wild, you choose the color, but the next player must also draw 4 cards and lose their turn. However, you are technically only allowed to play it if you have no other cards matching the current color. Worth 50 points.
+\* \*\*Wild Draw Four:\*\* The most powerful card. Like a Wild, you choose the color, and the next player must draw 4 cards and lose their turn. Because this card is meant to be a last resort, the next player is allowed to Challenge it. If you had another card matching the active color when you played it, the challenge succeeds and you draw the 4 cards instead. Worth 50 points.
 
 
 
@@ -46,7 +46,7 @@ The first player to empty their hand wins the round and scores points based on t
 
 If you have no playable cards, you draw one card from the deck. If the drawn card is playable, you may play it immediately. Otherwise, you press Pass and your turn ends.
 
-By default, you cannot draw if you already have a playable card in your hand. This behavior can be changed with the Force Play and Draw Until Playable options described below.
+By default, you cannot draw if you already have a playable card in your hand. If Draw Until Playable is enabled, you may keep drawing one card at a time on that turn until you find a playable card, hit the draw limit, hit the max hand size, or run out of deck. If Force Play is enabled, a playable card you draw must be played and you cannot Pass.
 
 
 
@@ -68,7 +68,7 @@ Last Card offers two scoring modes:
 
 
 
-When you play down to your last card, an announcement sounds. Other players have a brief window to press the Buzzer to catch you. If someone catches you before you buzz yourself, you draw 2 penalty cards. Press the Buzzer key (B) right before or after playing down to one card to protect yourself.
+When you play down to your last card, the game can announce it with a Last Card callout. If the Buzzer option is also enabled, that announcement opens a brief reaction window: other players can try to catch you, and you can protect yourself by pressing B right before or after playing down to one card. If someone catches you before you buzz yourself, you draw 2 penalty cards.
 
 
 
@@ -96,7 +96,7 @@ The host can configure a wide range of settings before starting the game:
 
 
 
-\* \*\*Draw Until Playable:\*\* When enabled, you keep drawing cards until you get one you can play, instead of drawing just one card. Default: Off.
+\* \*\*Draw Until Playable:\*\* When enabled, you may keep pressing Draw to draw one card at a time on the same turn until you get one you can play, instead of being limited to a single draw. Default: Off.
 
 \* \*\*Draw Limit:\*\* When Draw Until Playable is on, this caps how many cards you can draw in a single turn. Set to 0 for no limit. Default: 0. Range: 0 to 20.
 
@@ -146,9 +146,9 @@ The host can configure a wide range of settings before starting the game:
 
 \* \*\*Jump-In:\*\* When enabled, if you have the exact same card (same color and rank) as the card just played, you can jump in out of turn by pressing J. Your card is played immediately, and the turn order continues from you. Default: Off.
 
-\* \*\*Force Play:\*\* When enabled, you cannot draw from the deck if you already have a playable card. You are forced to play one of your cards. Default: Off.
+\* \*\*Force Play:\*\* When enabled, you are never allowed to end your turn with a playable card still sitting in your hand. If you already have a playable card, you must play one of those cards instead of choosing Pass. If you draw and the drawn card is playable, you must play it immediately. This rule does not let you choose to draw while you already have a playable card in hand. Default: Off.
 
-\* \*\*Last Card Callout:\*\* When enabled, playing down to one card triggers a brief pause with an announcement. If the Buzzer is also enabled, players can catch opponents or protect themselves during this window. If the Buzzer is disabled, the pause is announcement-only with no gameplay consequences. Default: On.
+\* \*\*Last Card Callout:\*\* When enabled, playing down to one card plays the Last Card announcement. If the Buzzer is also enabled, that announcement opens a brief reaction window. If the Buzzer is disabled, the announcement still plays but the turn continues immediately. Default: On.
 
 \* \*\*Challenge Wild Draw Four:\*\* When enabled, the next player can challenge a Wild Draw Four to check if it was played legally. Default: On.
 
@@ -170,9 +170,9 @@ The host can configure a wide range of settings before starting the game:
 
 
 
-\* \*\*Buzzer:\*\* Enables or disables the buzzer action for the Last Card Callout feature. When OFF, the buzzer key (B on desktop) and buzzer button (on web) are completely disabled — players cannot catch opponents or protect themselves during the callout window. If Last Card Callout is ON but Buzzer is OFF, the game still pauses briefly to announce the last card, but the window has no gameplay effect. Default: On.
+\* \*\*Buzzer:\*\* Enables or disables the interactive reaction window for the Last Card Callout feature. When OFF, the buzzer key (B on desktop) and buzzer button (on web) are completely disabled — players cannot catch opponents or protect themselves, and the Last Card announcement becomes audio-only. Default: On.
 
-\* \*\*Reaction Timer:\*\* The duration of interrupt windows (Last Card Callout, Jump-In, Wild Draw Four Challenge). Default: 4 seconds. Range: 2 to 7 seconds.
+\* \*\*Reaction Timer:\*\* The duration of interrupt windows (Last Card Callout when Buzzer is enabled, Jump-In, Wild Draw Four Challenge). Default: 4 seconds. Range: 2 to 7 seconds.
 
 \* \*\*Max Hand Size:\*\* A safety cap on the number of cards a player can hold. Drawing stops when this limit is reached. Set to 0 for unlimited. Default: 0 (unlimited). Range: 0 to 50.
 

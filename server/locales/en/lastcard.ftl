@@ -202,5 +202,8 @@ lastcard-draw-penalty-active = Current draw penalty: { $count } cards.
 lastcard-draw-penalty-none = No draw penalty active.
 
 # Validation errors
+lastcard-error-draw-until-playable-conflicts-force-play = Draw Until Playable cannot be combined with Force Play.
+lastcard-error-draw-limit-requires-draw-until-playable = Draw Limit only works when Draw Until Playable is enabled.
+lastcard-error-buzzer-requires-last-card-callout = Buzzer only works when Last Card Callout is enabled.
 lastcard-error-too-many-cards = Too many cards needed: { $players } players × { $hand_size } cards exceeds the 108-card deck.
 lastcard-error-hand-exceeds-max = Hand size ({ $hand_size }) cannot exceed the maximum hand size ({ $max_hand }).

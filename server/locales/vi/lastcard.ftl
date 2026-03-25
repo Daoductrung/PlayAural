@@ -202,5 +202,8 @@ lastcard-draw-penalty-active = Phạt rút hiện tại: { $count } lá bài.
 lastcard-draw-penalty-none = Không có phạt rút.
 
 # Validation errors
+lastcard-error-draw-until-playable-conflicts-force-play = Không thể bật đồng thời Rút đến khi chơi được và Bắt buộc chơi.
+lastcard-error-draw-limit-requires-draw-until-playable = Giới hạn rút chỉ hoạt động khi đã bật Rút đến khi chơi được.
+lastcard-error-buzzer-requires-last-card-callout = Chuông báo chỉ hoạt động khi đã bật Hô lá cuối.
 lastcard-error-too-many-cards = Quá nhiều bài cần chia: { $players } người chơi × { $hand_size } lá vượt quá bộ bài 108 lá.
 lastcard-error-hand-exceeds-max = Số bài trên tay ({ $hand_size }) không thể vượt quá giới hạn tối đa ({ $max_hand }).

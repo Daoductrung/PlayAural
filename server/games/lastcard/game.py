@@ -23,7 +23,6 @@ from ...game_utils.poker_timer import PokerTurnTimer
 from ...messages.localization import Localization
 from ...ui.keybinds import KeybindState
 from ...users.bot import Bot
-from ...users.base import User
 from .bot import bot_think, bot_react
 from ...game_utils.turn_timer_mixin import TurnTimerMixin
 
@@ -381,21 +380,6 @@ class LastCardGame(Game, TurnTimerMixin):
     def create_player(self, player_id: str, name: str, is_bot: bool = False) -> LastCardPlayer:
         return LastCardPlayer(id=player_id, name=name, is_bot=is_bot)
 
-    def broadcast_sound(self, name: str, volume: int = 100, pan: int = 0, pitch: int = 100) -> None:
-        if name in ("join.ogg", "leave.ogg", "join_spectator.ogg", "leave_spectator.ogg"):
-            return
-        super().broadcast_sound(name, volume, pan, pitch)
-
-    def add_player(self, name: str, user: User) -> LastCardPlayer:
-        player = super().add_player(name, user)
-        self.play_sound("join.ogg")
-        return player
-
-    def add_spectator(self, name: str, user: User) -> Player:
-        player = super().add_spectator(name, user)
-        super().broadcast_sound("join_spectator.ogg")
-        return player
-
     def _action_add_bot(self, player: Player, bot_name: str, action_id: str) -> None:
         if not bot_name.strip():
             from ...game_utils.lobby_actions_mixin import BOT_NAMES
@@ -412,6 +396,7 @@ class LastCardGame(Game, TurnTimerMixin):
         bot_user = Bot(bot_name)
         self.add_player(bot_name, bot_user)
         self.broadcast_l("table-joined", player=bot_name)
+        self.broadcast_sound("join.ogg")
         self.rebuild_all_menus()
 
     def _action_remove_bot(self, player: Player, action_id: str) -> None:
@@ -419,7 +404,7 @@ class LastCardGame(Game, TurnTimerMixin):
             if self.players[i].is_bot:
                 bot = self.players[i]
                 self.remove_player(bot.id)
-                self.play_sound("leave.ogg")
+                self.broadcast_sound("leave.ogg")
                 break
         self.rebuild_all_menus()
 
@@ -428,7 +413,7 @@ class LastCardGame(Game, TurnTimerMixin):
             self.remove_spectator(player.id)
             if self._table:
                 self._table.remove_member(player.name)
-            super().broadcast_sound("leave_spectator.ogg")
+            self.broadcast_sound("leave_spectator.ogg")
             self.rebuild_all_menus()
             return
 
@@ -437,14 +422,14 @@ class LastCardGame(Game, TurnTimerMixin):
             if other_humans:
                 self._replace_with_bot(player)
                 self.broadcast_l("player-replaced-by-bot", player=player.name)
-                self.play_sound("leave.ogg")
+                self.broadcast_sound("leave.ogg")
                 self.rebuild_all_menus()
                 return
 
         self.remove_player(player.id)
         if self.status == "waiting" and self._table:
             self._table.remove_member(player.name)
-        self.play_sound("leave.ogg")
+        self.broadcast_sound("leave.ogg")
 
         has_humans = any(not p.is_bot and not p.is_spectator for p in self.players)
         if not has_humans:
@@ -550,16 +535,17 @@ class LastCardGame(Game, TurnTimerMixin):
         action_set.add(Action(
             id="cycle_hand_sort", label=Localization.get(locale, "lastcard-cycle-sort"),
             handler="_action_cycle_hand_sort", is_enabled="_is_check_enabled",
-            is_hidden="_is_read_hand_hidden"))
+            is_hidden="_is_sort_standard_hidden"))
 
         # WEB-SPECIFIC: Reorder for Web Clients
         if user and getattr(user, "client_type", "") == "web":
             target_order = [
+                "read_hand",
                 "read_top",
                 "read_counts",
                 "read_draw_penalty",
-                "check_scores",
                 "check_turn_timer",
+                "check_scores",
                 "whose_turn",
                 "whos_at_table",
             ]
@@ -708,6 +694,12 @@ class LastCardGame(Game, TurnTimerMixin):
     def prestart_validate(self) -> list[str | tuple[str, dict]]:
         errors = super().prestart_validate()
         active = [p for p in self.players if not p.is_spectator]
+        if self.options.draw_until_playable and self.options.force_play:
+            errors.append("lastcard-error-draw-until-playable-conflicts-force-play")
+        if not self.options.draw_until_playable and self.options.draw_limit > 0:
+            errors.append("lastcard-error-draw-limit-requires-draw-until-playable")
+        if not self.options.last_card_callout and self.options.buzzer_enabled:
+            errors.append("lastcard-error-buzzer-requires-last-card-callout")
         total_cards_needed = self.options.hand_size * len(active) + 1  # +1 for start card
         if total_cards_needed > 108:
             errors.append(("lastcard-error-too-many-cards",
@@ -1029,14 +1021,15 @@ class LastCardGame(Game, TurnTimerMixin):
         # Last card callout
         if len(player.hand) == 1 and self.options.last_card_callout:
             self.play_sound(SOUND_UNO_CALL)
-            self.interrupt_phase = "last_card_callout"
-            self.interrupt_target_id = player.id
-            self.interrupt_timer_ticks = self.options.interrupt_timer * 20
-            self.interrupt_wd4_player_id = ""
-            self.interrupt_wd4_had_matching = False
-            BotHelper.jolt_bots(self, ticks=random.randint(10, 30))
-            self.rebuild_all_menus()
-            return
+            if self.options.buzzer_enabled:
+                self.interrupt_phase = "last_card_callout"
+                self.interrupt_target_id = player.id
+                self.interrupt_timer_ticks = self.options.interrupt_timer * 20
+                self.interrupt_wd4_player_id = ""
+                self.interrupt_wd4_had_matching = False
+                BotHelper.jolt_bots(self, ticks=random.randint(10, 30))
+                self.rebuild_all_menus()
+                return
 
         # Apply stacked effects
         count = len(cards)
@@ -1161,14 +1154,15 @@ class LastCardGame(Game, TurnTimerMixin):
         # Last card callout check
         if len(player.hand) == 1 and self.options.last_card_callout:
             self.play_sound(SOUND_UNO_CALL)
-            self.interrupt_phase = "last_card_callout"
-            self.interrupt_target_id = player.id
-            self.interrupt_timer_ticks = self.options.interrupt_timer * 20
-            self.interrupt_wd4_player_id = player.id if card.rank == RANK_WILD_DRAW_FOUR else ""
-            self.interrupt_wd4_had_matching = had_matching_color
-            BotHelper.jolt_bots(self, ticks=random.randint(10, 30))
-            self.rebuild_all_menus()
-            return
+            if self.options.buzzer_enabled:
+                self.interrupt_phase = "last_card_callout"
+                self.interrupt_target_id = player.id
+                self.interrupt_timer_ticks = self.options.interrupt_timer * 20
+                self.interrupt_wd4_player_id = player.id if card.rank == RANK_WILD_DRAW_FOUR else ""
+                self.interrupt_wd4_had_matching = had_matching_color
+                BotHelper.jolt_bots(self, ticks=random.randint(10, 30))
+                self.rebuild_all_menus()
+                return
 
         # WD4 challenge window
         if card.rank == RANK_WILD_DRAW_FOUR and self.options.challenge_wild_draw_four:
@@ -1413,6 +1407,8 @@ class LastCardGame(Game, TurnTimerMixin):
         if not isinstance(player, LastCardPlayer):
             return
         if player.is_spectator:
+            return
+        if not self.options.last_card_callout or not self.options.buzzer_enabled:
             return
         if self.interrupt_phase != "last_card_callout":
             # Player can pre-emptively call last card on their own turn
@@ -1976,14 +1972,14 @@ class LastCardGame(Game, TurnTimerMixin):
             return "action-not-playing"
         if player.is_spectator:
             return "action-spectator"
-        if not self.options.buzzer_enabled:
+        if not self.options.last_card_callout or not self.options.buzzer_enabled:
             return "action-not-available"
         return None
 
     def _is_buzzer_hidden(self, player: Player) -> Visibility:
         if self.status != "playing" or player.is_spectator:
             return Visibility.HIDDEN
-        if not self.options.buzzer_enabled:
+        if not self.options.last_card_callout or not self.options.buzzer_enabled:
             return Visibility.HIDDEN
         # Web clients: show buzzer button during last-card callout window,
         # or when current player has 2 cards (pre-buzz opportunity)
@@ -2113,7 +2109,14 @@ class LastCardGame(Game, TurnTimerMixin):
     def _is_read_hand_hidden(self, player: Player) -> Visibility:
         if player.is_spectator:
             return Visibility.HIDDEN
+        user = self.get_user(player)
+        if user and getattr(user, "client_type", "") == "web":
+            if self.status == "playing":
+                return Visibility.VISIBLE
         return Visibility.HIDDEN  # Keybind-only
+
+    def _is_sort_standard_hidden(self, player: Player) -> Visibility:
+        return Visibility.HIDDEN  # Keybind-only / turn-menu utility
 
     def _is_sort_turn_hidden(self, player: Player) -> Visibility:
         """Sort hand button in turn menu: web-only."""

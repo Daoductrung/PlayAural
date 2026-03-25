@@ -1,6 +1,7 @@
 """Comprehensive tests for the LastCard game."""
 
 import random
+from unittest.mock import patch
 from ..games.lastcard.game import (
     LastCardGame, LastCardOptions, LastCardPlayer,
     build_lastcard_deck,
@@ -588,6 +589,48 @@ def test_buzzer_caught():
     game.execute_action(p1, "buzzer")
 
     assert len(p0.hand) == initial_p0_hand + 2
+
+
+def test_callout_without_buzzer_does_not_pause():
+    game = make_game(last_card_callout=True, buzzer_enabled=False,
+                     challenge_wild_draw_four=False, jump_in=False)
+    add_bots(game, 2)
+    start_game(game)
+
+    p0 = game.players[0]
+    p1 = game.players[1]
+    setup_turn(game, 0, make_card(100, 5, COLOR_RED), COLOR_RED)
+
+    red_7 = make_card(200, 7, COLOR_RED)
+    p0.hand = [red_7, make_card(201, 3, COLOR_BLUE)]
+    game._sync_turn_actions(p0)
+
+    game.execute_action(p0, f"play_card_{red_7.id}")
+
+    assert game.interrupt_phase == ""
+    assert game.current_player == p1
+
+
+def test_wd4_challenge_still_starts_when_buzzer_disabled():
+    game = make_game(last_card_callout=True, buzzer_enabled=False,
+                     challenge_wild_draw_four=True, jump_in=False)
+    add_bots(game, 2)
+    start_game(game)
+
+    p0 = game.players[0]
+    p1 = game.players[1]
+    setup_turn(game, 0, make_card(100, 5, COLOR_RED), COLOR_RED)
+
+    wd4 = make_card(200, RANK_WILD_DRAW_FOUR, COLOR_WILD)
+    p0.hand = [wd4, make_card(201, 3, COLOR_BLUE)]
+    game._sync_turn_actions(p0)
+
+    game.execute_action(p0, f"play_card_{wd4.id}")
+    game.execute_action(p0, "color_blue")
+    advance_ticks(game, 20)
+
+    assert game.interrupt_phase == "challenge_wd4"
+    assert game._next_player() == p1
 
 
 # ============================================================================
@@ -1357,6 +1400,33 @@ def test_prestart_validate_too_many_cards():
     assert any("lastcard-error-too-many-cards" in (e[0] if isinstance(e, tuple) else e) for e in errors)
 
 
+def test_prestart_validate_force_play_conflicts_with_draw_until_playable():
+    """Reject mutually conflicting draw behavior options."""
+    game = LastCardGame(options=LastCardOptions(draw_until_playable=True, force_play=True))
+    for i in range(4):
+        game.add_player(f"P{i}", Bot(f"P{i}"))
+    errors = game.prestart_validate()
+    assert "lastcard-error-draw-until-playable-conflicts-force-play" in errors
+
+
+def test_prestart_validate_draw_limit_requires_draw_until_playable():
+    """Reject draw-limit configs that do nothing."""
+    game = LastCardGame(options=LastCardOptions(draw_until_playable=False, draw_limit=3))
+    for i in range(4):
+        game.add_player(f"P{i}", Bot(f"P{i}"))
+    errors = game.prestart_validate()
+    assert "lastcard-error-draw-limit-requires-draw-until-playable" in errors
+
+
+def test_prestart_validate_buzzer_requires_last_card_callout():
+    """Reject buzzer configs that do nothing without callout."""
+    game = LastCardGame(options=LastCardOptions(last_card_callout=False, buzzer_enabled=True))
+    for i in range(4):
+        game.add_player(f"P{i}", Bot(f"P{i}"))
+    errors = game.prestart_validate()
+    assert "lastcard-error-buzzer-requires-last-card-callout" in errors
+
+
 def test_prestart_validate_ok():
     """Normal config passes validation."""
     game = LastCardGame(options=LastCardOptions(hand_size=7))
@@ -1364,6 +1434,42 @@ def test_prestart_validate_ok():
         game.add_player(f"P{i}", Bot(f"P{i}"))
     errors = game.prestart_validate()
     assert not errors
+
+
+def test_add_bot_uses_standard_join_sound():
+    """Bot joins should use the standard lobby join sound identifier."""
+    game = make_game()
+    add_bots(game, 2)
+    host = game.players[0]
+
+    with patch.object(game, "broadcast_sound") as broadcast_sound:
+        game._action_add_bot(host, "BotExtra", "add_bot")
+
+    broadcast_sound.assert_called_once_with("join.ogg")
+
+
+def test_remove_bot_uses_standard_leave_sound():
+    """Bot removals should use the standard lobby leave sound identifier."""
+    game = make_game()
+    add_bots(game, 2)
+    host = game.players[0]
+
+    with patch.object(game, "broadcast_sound") as broadcast_sound:
+        game._action_remove_bot(host, "remove_bot")
+
+    broadcast_sound.assert_called_once_with("leave.ogg")
+
+
+def test_spectator_leave_uses_standard_spectator_leave_sound():
+    """Spectator departures should use the standard spectator leave sound."""
+    game = make_game()
+    players = add_bots(game, 2)
+    spectator = game.add_spectator("Spec", Bot("Spec"))
+
+    with patch.object(game, "broadcast_sound") as broadcast_sound:
+        game._perform_leave_game(spectator)
+
+    broadcast_sound.assert_called_once_with("leave_spectator.ogg")
 
 
 # ============================================================================
@@ -1477,6 +1583,20 @@ def test_web_sort_visible_in_turn_menu():
     assert game._is_sort_turn_hidden(p) == Visibility.VISIBLE
 
 
+def test_web_read_hand_visible_in_standard_menu():
+    """Web clients see read hand in the standard menu."""
+    from ..game_utils.actions import Visibility
+    game = make_game()
+    players = add_bots(game, 3)
+    start_game(game)
+    p = players[0]
+
+    bot_user = game.get_user(p)
+    bot_user.client_type = "web"
+
+    assert game._is_read_hand_hidden(p) == Visibility.VISIBLE
+
+
 def test_web_turn_menu_order():
     """Web turn menu places reaction buttons before cards, utilities after."""
     game = make_game(jump_in=True, buzzer_enabled=True)
@@ -1511,5 +1631,36 @@ def test_web_turn_menu_order():
     sort_idx = order.index("cycle_hand_sort_turn")
     assert sort_idx > draw_idx, "sort must be after draw"
     assert sort_idx > pass_idx, "sort must be after pass"
+
+
+def test_web_standard_menu_order_includes_read_hand():
+    """Web standard menu puts read hand with the game-specific info actions."""
+    game = make_game()
+    players = add_bots(game, 3)
+    start_game(game)
+    p = players[0]
+
+    bot_user = game.get_user(p)
+    bot_user.client_type = "web"
+
+    standard_set = game.create_standard_action_set(p)
+    order = standard_set._order
+
+    read_hand_idx = order.index("read_hand")
+    read_top_idx = order.index("read_top")
+    read_counts_idx = order.index("read_counts")
+    read_draw_penalty_idx = order.index("read_draw_penalty")
+    check_turn_timer_idx = order.index("check_turn_timer")
+    check_scores_idx = order.index("check_scores")
+    whose_turn_idx = order.index("whose_turn")
+    whos_at_table_idx = order.index("whos_at_table")
+
+    assert read_hand_idx < read_top_idx
+    assert read_top_idx < read_counts_idx
+    assert read_counts_idx < read_draw_penalty_idx
+    assert read_draw_penalty_idx < check_turn_timer_idx
+    assert check_turn_timer_idx < check_scores_idx
+    assert check_scores_idx < whose_turn_idx
+    assert whose_turn_idx < whos_at_table_idx
 
 

@@ -1927,10 +1927,8 @@ class GameClient {
 
         if (gridEnabled && gridWidth > 1) {
             this.menuArea.style.gridTemplateColumns = `repeat(${gridWidth}, minmax(var(--grid-cell-min-width), 1fr))`;
-            this.menuArea.setAttribute('role', 'grid');
         } else {
             this.menuArea.style.gridTemplateColumns = '';
-            this.menuArea.removeAttribute('role');
         }
     }
 

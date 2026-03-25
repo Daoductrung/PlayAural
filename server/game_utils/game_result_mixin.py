@@ -117,6 +117,9 @@ class GameResultMixin:
 
     def _update_ratings(self, result: GameResult) -> None:
         """Update player ratings based on game result."""
+        if "rating" not in self.get_supported_leaderboards():
+            return
+
         if not self._table or not self._table._db:
             return
 

@@ -4649,23 +4649,24 @@ PlayAural Server
                 items.append(MenuItem(text=Localization.get(user.locale, "my-stats-high-score", value=high_score), id="high_score"))
 
             # Skill rating
-            rating_helper = RatingHelper(self._db, game_type)
-            rating = rating_helper.get_rating(user.uuid)
-            if rating.mu != 25.0 or rating.sigma != 25.0 / 3:  # Non-default rating
-                items.append(
-                    MenuItem(
-                        text=Localization.get(
-                            user.locale,
-                            "my-stats-rating",
-                            value=round(rating.ordinal),
-                            mu=round(rating.mu, 1),
-                            sigma=round(rating.sigma, 1),
-                        ),
-                        id="rating",
+            if "rating" in supported_types:
+                rating_helper = RatingHelper(self._db, game_type)
+                rating = rating_helper.get_rating(user.uuid)
+                if rating.mu != 25.0 or rating.sigma != 25.0 / 3:  # Non-default rating
+                    items.append(
+                        MenuItem(
+                            text=Localization.get(
+                                user.locale,
+                                "my-stats-rating",
+                                value=round(rating.ordinal),
+                                mu=round(rating.mu, 1),
+                                sigma=round(rating.sigma, 1),
+                            ),
+                            id="rating",
+                        )
                     )
-                )
-            else:
-                items.append(MenuItem(text=Localization.get(user.locale, "my-stats-no-rating"), id="no_rating"))
+                else:
+                    items.append(MenuItem(text=Localization.get(user.locale, "my-stats-no-rating"), id="no_rating"))
 
             # Game-specific stats from custom leaderboard configs
             self._add_custom_stats(user, game_class, stats, items)

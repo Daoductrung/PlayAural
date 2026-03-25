@@ -221,6 +221,8 @@ class ActionVisibilityMixin:
         """Check if predict_outcomes action is enabled."""
         if self.status != "playing":
             return "action-not-playing"
+        if "rating" not in self.get_supported_leaderboards():
+            return "action-not-available"
         # Need at least 2 human players for meaningful predictions
         human_count = sum(1 for p in self.players if not p.is_bot and not p.is_spectator)
         if human_count < 2:

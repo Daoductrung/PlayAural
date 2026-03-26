@@ -212,48 +212,53 @@ class RatingHelper:
 
     def update_ratings(
         self,
-        rankings: list[list[str]],
+        teams: list[list[str]],
+        ranks: list[int] | None = None,
     ) -> dict[str, PlayerRating]:
         """
         Update ratings based on game outcome.
 
         Args:
-            rankings: Ordered list of player groups by placement.
-                      First group = 1st place, second = 2nd place, etc.
-                      Players in same group = tie for that position.
+            teams: Competitors in the match. Each inner list is either a
+                   single player or a true team of cooperating players.
+            ranks: Optional placement ranks aligned with ``teams``.
+                   Lower values are better. Equal values indicate ties.
 
         Returns:
             Dictionary of updated ratings for all players.
 
         Example:
             # Alice won, Bob and Charlie tied for 2nd
-            helper.update_ratings([["alice_id"], ["bob_id", "charlie_id"]])
+            helper.update_ratings(
+                [["alice_id"], ["bob_id"], ["charlie_id"]],
+                ranks=[0, 1, 1],
+            )
 
-            # Free-for-all: Alice 1st, Bob 2nd, Charlie 3rd
-            helper.update_ratings([["alice"], ["bob"], ["charlie"]])
+            # Team game: Alice and Bob beat Charlie and Dana
+            helper.update_ratings([["alice", "bob"], ["charlie", "dana"]], ranks=[0, 1])
         """
         # Flatten to get all player IDs
-        all_players = [pid for group in rankings for pid in group]
+        all_players = [pid for group in teams for pid in group]
 
         # Get current ratings
         current_ratings = self.get_ratings(all_players)
 
         # Convert to OpenSkill format
-        teams = []
-        for group in rankings:
+        model_teams = []
+        for group in teams:
             team_ratings = []
             for pid in group:
                 r = current_ratings[pid]
                 team_ratings.append(self.model.rating(mu=r.mu, sigma=r.sigma))
-            teams.append(team_ratings)
+            model_teams.append(team_ratings)
 
         # Calculate new ratings
-        new_teams = self.model.rate(teams)
+        new_teams = self.model.rate(model_teams, ranks=ranks)
 
         # Update database and build result
         updated_ratings: dict[str, PlayerRating] = {}
 
-        for group_idx, group in enumerate(rankings):
+        for group_idx, group in enumerate(teams):
             for player_idx, pid in enumerate(group):
                 new_rating = new_teams[group_idx][player_idx]
                 self.db.set_player_rating(
@@ -277,45 +282,92 @@ class RatingHelper:
 
         Args:
             result: The game result
-            ranking_extractor: Function to extract rankings from result.
-                               Defaults to simple winner-vs-rest extraction.
+            ranking_extractor: Optional function that returns actual competitors
+                               in finishing order. Each inner list must be a
+                               real team, not a tie bucket.
 
         Returns:
             Dictionary of updated ratings.
         """
         if ranking_extractor is None:
-            # Default: winner first, everyone else tied for second
-            def ranking_extractor(r: "GameResult") -> list[list[str]]:
-                winner_name = r.custom_data.get("winner_name")
-                human_players = [
-                    p for p in r.player_results if not p.is_bot
-                ]
+            teams, ranks = self.extract_teams_and_ranks(result)
+        else:
+            teams = ranking_extractor(result)
+            if not teams:
+                return {}
+            ranks = list(range(len(teams)))
 
-                if not human_players:
-                    return []
-
-                if winner_name:
-                    winner_id = None
-                    others = []
-                    for p in human_players:
-                        if p.player_name == winner_name:
-                            winner_id = p.player_id
-                        else:
-                            others.append(p.player_id)
-
-                    if winner_id:
-                        if others:
-                            return [[winner_id], others]
-                        return [[winner_id]]
-
-                # No clear winner - everyone ties
-                return [[p.player_id for p in human_players]]
-
-        rankings = ranking_extractor(result)
-        if not rankings:
+        if not teams:
             return {}
 
-        return self.update_ratings(rankings)
+        return self.update_ratings(teams, ranks=ranks)
+
+    @staticmethod
+    def extract_teams_and_ranks(
+        result: "GameResult",
+    ) -> tuple[list[list[str]], list[int]]:
+        """Build true OpenSkill competitors and placement ranks from a game result."""
+        human_players = [p for p in result.player_results if not p.is_bot]
+        if not human_players:
+            return [], []
+
+        name_to_id = {p.player_name: p.player_id for p in human_players}
+        team_rankings = result.custom_data.get("team_rankings")
+        if isinstance(team_rankings, list) and team_rankings:
+            teams: list[list[str]] = []
+            ranks: list[int] = []
+            last_score = object()
+            current_rank = -1
+
+            for entry in team_rankings:
+                if not isinstance(entry, dict):
+                    continue
+                members = entry.get("members", [])
+                if not isinstance(members, list):
+                    continue
+                team_ids = [name_to_id[name] for name in members if name in name_to_id]
+                if not team_ids:
+                    continue
+
+                score = entry.get("score")
+                if current_rank == -1:
+                    current_rank = 0
+                elif score != last_score:
+                    current_rank += 1
+
+                teams.append(team_ids)
+                ranks.append(current_rank)
+                last_score = score
+
+            if teams:
+                return teams, ranks
+
+        winner_ids = result.custom_data.get("winner_ids") or []
+        if not winner_ids:
+            winner_name = result.custom_data.get("winner_name")
+            if winner_name:
+                winner_ids = [
+                    p.player_id for p in human_players if p.player_name == winner_name
+                ]
+
+        if winner_ids:
+            winner_set = set(winner_ids)
+            human_ids = {p.player_id for p in human_players}
+            teams = [[pid] for pid in winner_ids if pid in human_ids]
+            ranks = [0] * len(teams)
+
+            for player in human_players:
+                if player.player_id in winner_set:
+                    continue
+                teams.append([player.player_id])
+                ranks.append(1)
+
+            if teams:
+                return teams, ranks
+
+        teams = [[p.player_id] for p in human_players]
+        ranks = [0] * len(teams)
+        return teams, ranks
 
     def get_leaderboard(self, limit: int = 10) -> list[tuple[str, PlayerRating]]:
         """

@@ -125,46 +125,20 @@ class GameResultMixin:
 
         rating_helper = RatingHelper(self._table._db, self.get_type())
 
-        # Get rankings from the result
-        rankings = self.get_rankings_for_rating(result)
-        if not rankings or len(rankings) < 2:
-            # Need at least 2 teams/players to update ratings
+        teams, ranks = RatingHelper.extract_teams_and_ranks(result)
+        if not teams or len(teams) < 2:
+            # Need at least 2 competitors to update ratings
             return
 
-        # Update ratings
-        rating_helper.update_ratings(rankings)
+        rating_helper.update_ratings(teams, ranks=ranks)
 
     def get_rankings_for_rating(self, result: GameResult) -> list[list[str]]:
-        """Get player rankings for rating update. Override for custom ranking logic.
-
-        Returns a list of player ID groups ordered by placement.
-        First group = 1st place, second = 2nd place, etc.
-        Players in same group = tie for that position.
-
-        Default: Winner first, everyone else tied for second.
-        """
-        winner_ids = result.custom_data.get("winner_ids")
-        human_players = [p for p in result.player_results if not p.is_bot]
-
-        if not human_players:
-            return []
-
-        if winner_ids:
-            winners = []
-            losers = []
-            for p in human_players:
-                if p.player_id in winner_ids:
-                    winners.append(p.player_id)
-                else:
-                    losers.append(p.player_id)
-
-            if winners:
-                if losers:
-                    return [winners, losers]
-                return [winners]
-
-        # No clear winner - everyone ties
-        return [[p.player_id for p in human_players]]
+        """Backward-compatible placement buckets derived from result data."""
+        teams, ranks = RatingHelper.extract_teams_and_ranks(result)
+        grouped: dict[int, list[str]] = {}
+        for team, rank in zip(teams, ranks):
+            grouped.setdefault(rank, []).extend(team)
+        return [grouped[rank] for rank in sorted(grouped)]
 
     def _show_end_screen(self, result: GameResult) -> None:
         """Show the end screen to all players using structured result."""

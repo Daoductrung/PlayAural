@@ -22,11 +22,20 @@ class MockClient:
 
 
 class DummyWebSocketServer:
+    def __init__(self):
+        self._clients_by_address = {}
+        self._clients_by_username = {}
+
+    def bind_client(self, client):
+        self._clients_by_address[client.address] = client
+
     def get_client_by_username(self, username):
-        return None
+        return self._clients_by_username.get(username)
 
     def register_client_username(self, address, username):
-        return None
+        client = self._clients_by_address.get(address)
+        if client is not None:
+            self._clients_by_username[username] = client
 
 
 class TestAuthSecurity:
@@ -324,3 +333,64 @@ class TestAuthSecurity:
         assert blocked_client.sent_messages[-1]["type"] == "login_failed"
         assert blocked_client.sent_messages[-1]["reason"] == "rate_limit"
         assert blocked_client.closed is True
+
+    @pytest.mark.asyncio
+    async def test_authorize_normalizes_to_canonical_username(self):
+        self.server._auth.register("Alice", "Password123")
+        client = MockClient()
+        self.server._ws_server.bind_client(client)
+
+        await self.server._handle_authorize(
+            client,
+            {
+                "type": "authorize",
+                "client": "python",
+                "username": "alice",
+                "password": "Password123",
+                "version": "1.0.0",
+            },
+        )
+
+        assert client.username == "Alice"
+        assert "Alice" in self.server._users
+        assert "alice" not in self.server._users
+        assert self.server._ws_server.get_client_by_username("Alice") is client
+        assert client.sent_messages[0]["type"] == "authorize_success"
+        assert client.sent_messages[0]["username"] == "Alice"
+
+    @pytest.mark.asyncio
+    async def test_authorize_kicks_existing_session_across_case_variants(self):
+        self.server._auth.register("Alice", "Password123")
+
+        first_client = MockClient()
+        second_client = MockClient()
+        second_client.address = "127.0.0.1:23456"
+        self.server._ws_server.bind_client(first_client)
+        self.server._ws_server.bind_client(second_client)
+
+        await self.server._handle_authorize(
+            first_client,
+            {
+                "type": "authorize",
+                "client": "python",
+                "username": "Alice",
+                "password": "Password123",
+                "version": "1.0.0",
+            },
+        )
+
+        await self.server._handle_authorize(
+            second_client,
+            {
+                "type": "authorize",
+                "client": "python",
+                "username": "alice",
+                "password": "Password123",
+                "version": "1.0.0",
+            },
+        )
+
+        assert first_client.closed is True
+        assert first_client.sent_messages[-1]["type"] == "disconnect"
+        assert second_client.username == "Alice"
+        assert self.server._ws_server.get_client_by_username("Alice") is second_client

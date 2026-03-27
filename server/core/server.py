@@ -558,13 +558,18 @@ PlayAural Server
         # Success - clear failed logins for this IP
         self._rate_limiter.clear_failed_logins(client.ip_address)
 
+        # Normalize to the canonical username stored in the database.
+        # The users table is case-insensitive, but all in-memory presence maps
+        # use exact string keys, so we must not keep the raw login casing here.
+        user_record = self._auth.get_user(username)
+        canonical_username = user_record.username if user_record else username
+
         # Update last login date
-        self._db.update_user_last_login(username)
+        self._db.update_user_last_login(canonical_username)
 
         # Check if user is already connected
-        old_client = self._ws_server.get_client_by_username(username)
+        old_client = self._ws_server.get_client_by_username(canonical_username)
         if old_client and old_client != client:
-            user_record = self._auth.get_user(username)
             old_locale = user_record.locale if user_record else "en"
             # Send strictly recognized disconnect message to prevent auto-reconnect loop
             await old_client.send({
@@ -575,15 +580,14 @@ PlayAural Server
             # Close old connection
             await old_client.close()
             # Remove from users dict to ensure clean state for new connection
-            self._users.pop(username, None)
+            self._users.pop(canonical_username, None)
 
         # Authentication successful
-        client.username = username
+        client.username = canonical_username
         client.authenticated = True
-        self._ws_server.register_client_username(client.address, username)
+        self._ws_server.register_client_username(client.address, canonical_username)
 
         # Create network user with preferences and persistent UUID
-        user_record = self._auth.get_user(username)
         locale = user_record.locale if user_record else "en"
         user_uuid = user_record.uuid if user_record else None
         trust_level = user_record.trust_level if user_record else 1
@@ -596,13 +600,13 @@ PlayAural Server
             except (json.JSONDecodeError, KeyError):
                 pass  # Use defaults on error
         user = NetworkUser(
-            username, locale, client, client_type=client_type, uuid=user_uuid, preferences=preferences,
+            canonical_username, locale, client, client_type=client_type, uuid=user_uuid, preferences=preferences,
             trust_level=trust_level, approved=is_approved
         )
-        self._users[username] = user
+        self._users[canonical_username] = user
 
         # Check for pending disconnect (debounce)
-        pending_task = self._pending_disconnects.pop(username, None)
+        pending_task = self._pending_disconnects.pop(canonical_username, None)
         if pending_task:
             # User reconnected quickly - cancel offline broadcast
             pending_task.cancel()
@@ -614,7 +618,7 @@ PlayAural Server
         await client.send(
             {
                 "type": "authorize_success",
-                "username": username,
+                "username": canonical_username,
                 "version": VERSION,
                 "locale": user.locale,
                 "update_info": {
@@ -631,7 +635,7 @@ PlayAural Server
         )
 
         # Check if user is banned before broadcasting presence
-        active_ban = self._db.get_active_ban(username)
+        active_ban = self._db.get_active_ban(canonical_username)
 
         if not active_ban:
             # Broadcast online announcement to all users with appropriate sound
@@ -646,14 +650,14 @@ PlayAural Server
 
             # Only broadcast if we didn't cancel a pending disconnect (debounce)
             if not pending_task:
-                 self._broadcast_presence_l("user-online", username, user_uuid, online_sound, trust_level)
+                 self._broadcast_presence_l("user-online", canonical_username, user_uuid, online_sound, trust_level)
                  self.on_user_presence_changed()
 
                  # If user is a developer or admin, announce that as well
                  if trust_level >= 3:
-                      await self._broadcast_dev_announcement(username)
+                      await self._broadcast_dev_announcement(canonical_username)
                  elif trust_level >= 2:
-                      await self._broadcast_admin_announcement(username)
+                      await self._broadcast_admin_announcement(canonical_username)
 
         # Check client version (variable already set above for the web-client check)
         if client_version != LATEST_CLIENT_VERSION:
@@ -685,7 +689,7 @@ PlayAural Server
             self._show_motd_menu(user, active_motd[1], motd_version)
             return
 
-        self._restore_user_state(user, username)
+        self._restore_user_state(user, canonical_username)
 
     def _restore_user_state(self, user: NetworkUser, username: str) -> None:
         """Restore user state or show main menu after successful login."""

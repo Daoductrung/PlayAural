@@ -1,10 +1,44 @@
 import pytest
 from unittest.mock import MagicMock
+from server.auth.auth import AuthManager
 from server.persistence.database import Database
 from server.core.server import Server
 from server.users.network_user import NetworkUser
 import tempfile
 import os
+
+
+class MockClient:
+    def __init__(self, address: str):
+        self.sent_messages = []
+        self.ip_address = "127.0.0.1"
+        self.address = address
+        self.username = None
+        self.authenticated = False
+        self.closed = False
+
+    async def send(self, message):
+        self.sent_messages.append(message)
+
+    async def close(self):
+        self.closed = True
+
+
+class DummyWebSocketServer:
+    def __init__(self):
+        self._clients_by_address = {}
+        self._clients_by_username = {}
+
+    def bind_client(self, client):
+        self._clients_by_address[client.address] = client
+
+    def get_client_by_username(self, username):
+        return self._clients_by_username.get(username)
+
+    def register_client_username(self, address, username):
+        client = self._clients_by_address.get(address)
+        if client is not None:
+            self._clients_by_username[username] = client
 
 class TestFriendsSystem:
     def setup_method(self):
@@ -15,6 +49,8 @@ class TestFriendsSystem:
 
         self.server = Server(db_path=self.temp_file.name)
         self.server._db = self.db
+        self.server._auth = AuthManager(self.db)
+        self.server._ws_server = DummyWebSocketServer()
 
     def teardown_method(self):
         self.db.close()
@@ -106,3 +142,35 @@ class TestFriendsSystem:
 
         # Verify Bob has NO notifications from Alice
         assert len(self.db.get_and_clear_notifications(u_bob.uuid)) == 0
+
+    @pytest.mark.asyncio
+    async def test_friends_list_marks_case_variant_login_as_online(self):
+        self.server._auth.register("Alice", "Password123")
+        self.server._auth.register("Bob", "Password123")
+
+        alice_record = self.db.get_user("Alice")
+        bob_record = self.db.get_user("Bob")
+        assert alice_record is not None
+        assert bob_record is not None
+
+        self.db.send_friend_request(alice_record.uuid, bob_record.uuid)
+        self.db.accept_friend_request(alice_record.uuid, bob_record.uuid)
+
+        alice_client = MockClient("127.0.0.1:10001")
+        self.server._ws_server.bind_client(alice_client)
+        await self.server._handle_authorize(
+            alice_client,
+            {
+                "type": "authorize",
+                "client": "python",
+                "username": "alice",
+                "password": "Password123",
+                "version": "1.0.0",
+            },
+        )
+
+        bob_client = MagicMock()
+        bob_user = NetworkUser("Bob", "en", bob_client, uuid=bob_record.uuid, approved=True)
+        items = self.server._get_friends_list_menu_items(bob_user)
+
+        assert any(item.id == "friend_Alice" and "In Lobby" in item.text for item in items)

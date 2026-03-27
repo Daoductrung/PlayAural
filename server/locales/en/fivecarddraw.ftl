@@ -21,11 +21,12 @@ draw-enter-max-raises = Enter max raises (0 for unlimited)
 draw-option-changed-max-raises = Max raises set to { $count }.
 
 draw-antes-posted = Antes posted: { $amount }.
-draw-betting-round-1 = Betting round.
-draw-betting-round-2 = Betting round.
+draw-betting-round-1 = First betting round.
+draw-betting-round-2 = Second betting round.
 draw-begin-draw = Draw phase.
 draw-not-draw-phase = It is not time to draw.
 draw-not-betting = You cannot bet during the draw phase.
+draw-fold-not-available = You cannot fold during the draw phase.
 
 draw-toggle-discard = Toggle discard for card { $index }
 draw-card-keep = Keep { $card }

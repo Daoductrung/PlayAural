@@ -40,14 +40,16 @@ def announce_pot_winners(
             if pot_index == 0:
                 user.speak_l(
                     "poker-player-wins-pot-hand",
+                    buffer="game",
                     player=winner.name,
                     amount=pot_amount,
                     cards=cards_str,
                     hand=desc_str,
                 )
             else:
-                 user.speak_l(
+                user.speak_l(
                     "poker-player-wins-side-pot-hand",
+                    buffer="game",
                     player=winner.name,
                     amount=pot_amount,
                     index=pot_index,
@@ -74,6 +76,7 @@ def announce_pot_winners(
             else:
                 user.speak_l(
                     "poker-players-split-side-pot",
+                    buffer="game",
                     players=names,
                     amount=pot_amount,
                     index=pot_index,

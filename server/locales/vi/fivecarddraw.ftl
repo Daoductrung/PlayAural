@@ -21,11 +21,12 @@ draw-enter-max-raises = Nhập số lần tố tối đa (0 để không giới 
 draw-option-changed-max-raises = Số lần tố tối đa đã được đặt là { $count }.
 
 draw-antes-posted = Đã đóng cược góp: { $amount }.
-draw-betting-round-1 = Vòng cược.
-draw-betting-round-2 = Vòng cược.
+draw-betting-round-1 = Vòng cược đầu tiên.
+draw-betting-round-2 = Vòng cược thứ hai.
 draw-begin-draw = Giai đoạn đổi bài.
 draw-not-draw-phase = Chưa đến lúc đổi bài.
 draw-not-betting = Bạn không thể cược trong giai đoạn đổi bài.
+draw-fold-not-available = Bạn không thể bỏ bài trong giai đoạn đổi bài.
 
 draw-toggle-discard = Chọn đổi lá bài thứ { $index }
 draw-card-keep = Giữ { $card }

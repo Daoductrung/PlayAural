@@ -25,7 +25,6 @@ from ...messages.localization import Localization
 from ...ui.keybinds import KeybindState
 from .bot import bot_think
 from ...game_utils.turn_timer_mixin import TurnTimerMixin
-from ...game_utils.poker_state import order_after_button
 from ...game_utils.poker_announcer import announce_pot_winners
 
 
@@ -182,6 +181,7 @@ class HoldemGame(Game, TurnTimerMixin):
     pending_board_delay_ticks: int = 0
     pending_board_wait_ticks: int = 0
     last_showdown_winner_ids: set[str] = field(default_factory=set)
+    _next_hand_wait_ticks: int = 0
 
     def __post_init__(self):
         super().__post_init__()
@@ -228,7 +228,7 @@ class HoldemGame(Game, TurnTimerMixin):
                 label=Localization.get(locale, "poker-call"),
                 handler="_action_call",
                 get_label="_get_call_label",
-                is_enabled="_is_turn_action_enabled",
+                is_enabled="_is_betting_action_enabled",
                 is_hidden="_is_turn_action_hidden",
                 show_in_actions_menu=False,
             )
@@ -238,7 +238,7 @@ class HoldemGame(Game, TurnTimerMixin):
                 id="fold",
                 label=Localization.get(locale, "poker-fold"),
                 handler="_action_fold",
-                is_enabled="_is_turn_action_enabled",
+                is_enabled="_is_betting_action_enabled",
                 is_hidden="_is_turn_action_hidden",
                 show_in_actions_menu=False,
             )
@@ -248,7 +248,7 @@ class HoldemGame(Game, TurnTimerMixin):
                 id="raise",
                 label=Localization.get(locale, "poker-raise"),
                 handler="_action_raise",
-                is_enabled="_is_turn_action_enabled",
+                is_enabled="_is_betting_action_enabled",
                 is_hidden="_is_turn_action_hidden",
                 show_in_actions_menu=False,
                 input_request=EditboxInput(
@@ -263,7 +263,7 @@ class HoldemGame(Game, TurnTimerMixin):
                 id="all_in",
                 label=Localization.get(locale, "poker-all-in"),
                 handler="_action_all_in",
-                is_enabled="_is_turn_action_enabled",
+                is_enabled="_is_betting_action_enabled",
                 is_hidden="_is_turn_action_hidden",
                 show_in_actions_menu=False,
             )
@@ -327,6 +327,20 @@ class HoldemGame(Game, TurnTimerMixin):
                     is_enabled="_is_turn_action_enabled",
                     is_hidden="_is_turn_action_hidden",
                 )
+            )
+
+            # Web-specific turn menu reordering:
+            # [call, fold, raise, all_in] → [speak_hand, speak_table, speak_hand_value] → [check_scores, check_button, check_hand_players]
+            bet_actions = ["call", "fold", "raise", "all_in"]
+            info_actions = ["speak_hand", "speak_table", "speak_hand_value"]
+            utility_actions = ["check_scores", "check_button", "check_hand_players"]
+            pinned = set(bet_actions) | set(info_actions) | set(utility_actions)
+            rest = [aid for aid in action_set._order if aid not in pinned]
+            action_set._order = (
+                [aid for aid in bet_actions if aid in action_set._order]
+                + [aid for aid in info_actions if aid in action_set._order]
+                + [aid for aid in utility_actions if aid in action_set._order]
+                + rest
             )
 
         return action_set
@@ -826,7 +840,7 @@ class HoldemGame(Game, TurnTimerMixin):
         self.process_scheduled_sounds()
         if not self.game_active:
             return
-        if getattr(self, "_next_hand_wait_ticks", 0) > 0:
+        if self._next_hand_wait_ticks > 0:
             self._next_hand_wait_ticks -= 1
             if self._next_hand_wait_ticks == 0:
                 self._start_new_hand()
@@ -969,25 +983,16 @@ class HoldemGame(Game, TurnTimerMixin):
             return
         to_call = self.betting.amount_to_call(p.id)
         min_raise = max(self.betting.last_raise_size, 1)
-        pay = clamp_total_to_cap(amount, compute_pot_limit_caps(self.pot_manager.total_pot(), to_call, self.options.raise_mode))
+        pay = amount  # all-in always commits the full stack regardless of raise mode
         p.chips -= pay
-        p.all_in = p.chips == 0
+        p.all_in = True
         self.play_sound("game_3cardpoker/bet.ogg")
         self.pot_manager.add_contribution(p.id, pay)
         raise_amount = pay - to_call
         is_raise = raise_amount >= min_raise and pay > to_call
         self.betting.record_bet(p.id, pay, is_raise=is_raise)
-        if pay > to_call:
-            poker_log.log_raise(self.action_log, p.name, pay)
-            self.broadcast_l("poker-player-raises", player=p.name, amount=pay)
-        elif to_call == 0:
-            poker_log.log_check(self.action_log, p.name)
-            self.broadcast_l("poker-player-checks", player=p.name)
-        else:
-            poker_log.log_call(self.action_log, p.name, pay)
-            self.broadcast_l("poker-player-calls", player=p.name, amount=pay)
-        if p.all_in:
-            self.broadcast_l("poker-player-all-in", player=p.name, amount=pay)
+        poker_log.log_all_in(self.action_log, p.name, pay)
+        self.broadcast_l("poker-player-all-in", player=p.name, amount=pay)
         self._sync_team_scores()
         self._after_action()
 
@@ -1043,8 +1048,13 @@ class HoldemGame(Game, TurnTimerMixin):
         amount = self.pot_manager.total_pot()
         if isinstance(winner, HoldemPlayer):
             winner.chips += amount
+        winner_contribution = self.pot_manager.contributions.get(winner.id, 0)
+        amount_from_others = amount - winner_contribution
         self.play_sound(random.choice(["game_blackjack/win1.ogg", "game_blackjack/win2.ogg", "game_blackjack/win3.ogg"]))
-        self.broadcast_l("poker-player-wins-pot", player=winner.name, amount=amount)
+        if amount_from_others > 0:
+            self.broadcast_l("poker-player-wins-pot", player=winner.name, amount=amount_from_others)
+        else:
+            self.broadcast_l("poker-uncalled-bet-returned", player=winner.name, amount=winner_contribution)
         self._sync_team_scores()
         self._advance_blind_level()
         self._queue_new_hand()
@@ -1092,10 +1102,7 @@ class HoldemGame(Game, TurnTimerMixin):
             active_ids,
             self.table_state.get_button_id(active_ids),
             lambda p: p.id,
-            lambda p: (
-                (p, best_hand(p.hand + self.community)[0]),
-                best_hand(p.hand + self.community)[0],
-            ),
+            lambda p: (lambda s: ((p, s), s))(best_hand(p.hand + self.community)[0]),
         )
         for player_id, (player_obj, hand_score), _score in lines_data:
             if skip_ids and player_id in skip_ids:
@@ -1142,10 +1149,12 @@ class HoldemGame(Game, TurnTimerMixin):
             user.speak_l("poker-pot-side", buffer="game", index=idx, amount=pot.amount)
 
     def _action_check_bet(self, player: Player, action_id: str) -> None:
+        user = self.get_user(player)
         if not self.betting:
+            if user:
+                user.speak_l("poker-no-active-betting", buffer="game")
             return
         to_call = self.betting.amount_to_call(player.id)
-        user = self.get_user(player)
         if user:
             user.speak_l("poker-to-call", buffer="game", amount=to_call)
 
@@ -1183,6 +1192,7 @@ class HoldemGame(Game, TurnTimerMixin):
         user = self.get_user(player)
         if user:
             if not p.hand:
+                user.speak_l("poker-hand-no-cards", buffer="game")
                 return
             user.speak_l("poker-your-hand", buffer="game", cards=read_cards(p.hand, user.locale))
 
@@ -1276,7 +1286,10 @@ class HoldemGame(Game, TurnTimerMixin):
         remaining = (self.blind_timer_ticks + 19) // 20
         minutes = remaining // 60
         seconds = remaining % 60
-        user.speak_l("poker-blind-timer-remaining-ms", buffer="game", minutes=minutes, seconds=seconds)
+        if minutes > 0:
+            user.speak_l("poker-blind-timer-remaining-ms", buffer="game", minutes=minutes, seconds=seconds)
+        else:
+            user.speak_l("poker-blind-timer-remaining", buffer="game", seconds=seconds)
 
     def _action_reveal_both(self, player: Player, action_id: str) -> None:
         if self.phase != "showdown":
@@ -1339,8 +1352,15 @@ class HoldemGame(Game, TurnTimerMixin):
             return "action-not-your-turn"
         return None
 
+    def _is_betting_action_enabled(self, player: Player) -> str | None:
+        if self.phase not in ("preflop", "flop", "turn", "river"):
+            return "poker-no-active-betting"
+        return self._is_turn_action_enabled(player)
+
     def _is_turn_action_hidden(self, player: Player) -> Visibility:
         if self.status != "playing" or player.is_spectator:
+            return Visibility.HIDDEN
+        if self._next_hand_wait_ticks > 0 or self.pending_showdown or self.phase == "showdown":
             return Visibility.HIDDEN
         if self.current_player != player:
             return Visibility.HIDDEN

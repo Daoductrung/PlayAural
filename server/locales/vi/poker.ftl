@@ -34,9 +34,7 @@ poker-min-raise = Tố tối thiểu { $amount } chip.
 poker-player-folds = { $player } bỏ bài.
 poker-player-checks = { $player } xem.
 poker-player-calls = { $player } theo { $amount } chip.
-poker-player-raises = { $player } tố { $amount } chip.
-poker-player-all-in = { $player } tất tay với { $amount } chip.
-
+poker-player-raises = { $player } tố lên { $amount } chip.
 poker-player-wins-pot = { $player } thắng { $amount } chip.
 poker-player-wins-pot-hand = { $player } thắng { $amount } chip với { $cards } ({ $hand }).
 poker-player-wins-side-pot-hand = { $player } thắng hũ phụ { $index } gồm { $amount } chip với { $cards } ({ $hand }).
@@ -66,9 +64,9 @@ poker-show-hand = { $player } lật { $cards } ({ $hand }).
 poker-blinds-players = Mù nhỏ: { $sb }. Mù lớn: { $bb }.
 poker-reveal-only-showdown = Bạn chỉ có thể lật bài khi kết thúc ván (Ngửa bài).
 
-poker-reveal-both = Lật cả hai lá bài tẩy
-poker-reveal-first = Lật lá bài tẩy thứ nhất
-poker-reveal-second = Lật lá bài tẩy thứ hai
+poker-reveal-both = Đọc cả hai lá bài tẩy
+poker-reveal-first = Đọc lá bài tẩy thứ nhất
+poker-reveal-second = Đọc lá bài tẩy thứ hai
 
 poker-raise-cap-reached = Đã đạt giới hạn tố cho vòng này.
 poker-raise-too-small = Tố tối thiểu { $amount } chip.
@@ -76,12 +74,15 @@ poker-hand-players-none = Không có người chơi trong ván.
 poker-hand-players-one = { $count } người chơi: { $names }.
 poker-hand-players = { $count } người chơi: { $names }.
 poker-raise-too-large = Bạn không thể tố nhiều hơn số chip mình đang có.
+poker-uncalled-bet-returned = Cược chưa được gọi { $amount } chip được trả lại cho { $player }.
+poker-hand-no-cards = Bạn không có bài trên tay.
+poker-no-active-betting = Không có vòng cược nào đang diễn ra.
 
 poker-log-empty = Chưa có hành động nào.
 poker-log-fold = { $player } đã bỏ bài
 poker-log-check = { $player } đã xem
 poker-log-call = { $player } đã theo { $amount }
-poker-log-raise = { $player } đã tố { $amount }
+poker-log-raise = { $player } đã tố lên { $amount }
 poker-log-all-in = { $player } đã tất tay { $amount }
 
 poker-table-cards = Bài trên bàn: { $cards }.

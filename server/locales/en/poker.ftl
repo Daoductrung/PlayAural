@@ -34,9 +34,7 @@ poker-min-raise = { $amount } chips minimum raise.
 poker-player-folds = { $player } folds.
 poker-player-checks = { $player } checks.
 poker-player-calls = { $player } calls { $amount } chips.
-poker-player-raises = { $player } raises { $amount } chips.
-poker-player-all-in = { $player } goes all in for { $amount } chips.
-
+poker-player-raises = { $player } raises to { $amount } chips.
 poker-player-wins-pot = { $player } wins { $amount } chips.
 poker-player-wins-pot-hand = { $player } wins { $amount } chips with { $cards } for { $hand }.
 poker-player-wins-side-pot-hand = { $player } wins side pot { $index } of { $amount } chips with { $cards } for { $hand }.
@@ -66,9 +64,9 @@ poker-show-hand = { $player } shows { $cards } for { $hand }.
 poker-blinds-players = Small blind: { $sb }. Big blind: { $bb }.
 poker-reveal-only-showdown = You can only reveal cards at the end of the hand.
 
-poker-reveal-both = Reveal both hole cards
-poker-reveal-first = Reveal first hole card
-poker-reveal-second = Reveal second hole card
+poker-reveal-both = Read both hole cards
+poker-reveal-first = Read first hole card
+poker-reveal-second = Read second hole card
 
 poker-raise-cap-reached = Raise cap reached for this round.
 poker-raise-too-small = { $amount } chips minimum raise.
@@ -76,12 +74,15 @@ poker-hand-players-none = No players in the hand.
 poker-hand-players-one = { $count } player: { $names }.
 poker-hand-players = { $count } players: { $names }.
 poker-raise-too-large = You cannot raise more than your chip stack.
+poker-uncalled-bet-returned = Uncalled bet of { $amount } chips returned to { $player }.
+poker-hand-no-cards = You have no cards in hand.
+poker-no-active-betting = No active betting round.
 
 poker-log-empty = No actions yet.
 poker-log-fold = { $player } folded
 poker-log-check = { $player } checked
 poker-log-call = { $player } called { $amount }
-poker-log-raise = { $player } raised { $amount }
+poker-log-raise = { $player } raised to { $amount }
 poker-log-all-in = { $player } went all in for { $amount }
 
 poker-table-cards = Table cards: { $cards }.

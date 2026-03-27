@@ -2082,7 +2082,7 @@ class MainWindow(wx.Frame):
             old_index = old_map[item_id][0]
             operations.append(("delete", old_index))
 
-        # Generate insert and update operations (using new indices)
+        # Generate insert and update operations
         for i, (new_id, new_text) in enumerate(zip(new_ids, new_items)):
             if new_id is None:
                 continue
@@ -2091,10 +2091,18 @@ class MainWindow(wx.Frame):
                 # New item - insert it
                 operations.append(("insert", i, new_text))
             elif new_id in common_ids:
-                # Existing item - check if text changed
-                old_text = old_map[new_id][1]
-                if old_text != new_text:
-                    operations.append(("update", i, new_text))
+                old_index, old_text = old_map[new_id]
+                text_changed = old_text != new_text
+                position_changed = old_index != i
+
+                if position_changed:
+                    # Item moved: delete from old position, insert at new position.
+                    # This handles both pure reorders and combined move+text-change.
+                    operations.append(("delete", old_index))
+                    operations.append(("insert", i, new_text))
+                elif text_changed:
+                    # Same position, only text changed — cheaper in-place update.
+                    operations.append(("update", old_index, new_text))
 
         return operations
 
@@ -2158,49 +2166,29 @@ class MainWindow(wx.Frame):
 
         return operations
 
-    def apply_menu_diff(self, operations, old_selection):
+    def apply_menu_diff(self, operations):
         """
-        Apply diff operations to menu_list while preserving screen reader context.
-        Returns new selection index after operations.
+        Apply diff operations to menu_list.
 
-        Operations must be applied carefully:
-        - Deletes in reverse order (high index to low) to avoid index shifting issues
+        Operations are applied in a specific order to keep indices stable:
+        - Deletes in reverse order (high index first) to avoid index shifting
         - Inserts in forward order
         - Updates in any order
         """
-        new_selection = old_selection
-
-        # Separate operations by type
         deletes = [(op[1],) for op in operations if op[0] == "delete"]
         inserts = [op for op in operations if op[0] == "insert"]
         updates = [op for op in operations if op[0] == "update"]
 
-        # Apply deletes in reverse order (highest index first)
-        # This prevents index shifting issues
         for (index,) in sorted(deletes, key=lambda x: x[0], reverse=True):
             self.menu_list.Delete(index)
-            # Adjust selection if deleting before/at selected item
-            if new_selection != wx.NOT_FOUND:
-                if index < new_selection:
-                    new_selection -= 1
-                elif index == new_selection:
-                    # Selected item was deleted, select next item (or last if at end)
-                    new_selection = min(new_selection, self.menu_list.GetCount() - 1)
 
-        # Apply inserts in forward order
         for op_type, *args in inserts:
             index, text = args
             self.menu_list.Insert(text, index)
-            # Adjust selection if inserting before selected item
-            if new_selection != wx.NOT_FOUND and index <= new_selection:
-                new_selection += 1
 
-        # Apply updates (order doesn't matter)
         for op_type, *args in updates:
             index, text = args
             self.menu_list.SetString(index, text)
-
-        return new_selection
 
     def on_server_menu(self, packet):
         """Handle menu packet from server."""
@@ -2243,8 +2231,6 @@ class MainWindow(wx.Frame):
             except ValueError:
                 pass  # ID not found, ignore
 
-        # Handle menus even if empty (items could be [])
-        # Check if this menu is identical to the previous one
         new_menu_state = {
             "menu_id": menu_id,
             "items": items,
@@ -2253,16 +2239,6 @@ class MainWindow(wx.Frame):
             "grid_enabled": grid_enabled,
             "grid_width": grid_width,
         }
-
-        # if self.current_menu_state == new_menu_state:
-            # Menu is identical - skip wx update to avoid confusing screen readers
-            # However, if position is specified, we should still move to it
-        #    if position is not None and len(items) > 0:
-        #        if 0 <= position < len(items):
-        #            self.menu_list.SetSelection(position)
-        #    return
-
-        # Store new menu state for future comparisons
         self.current_menu_state = new_menu_state
 
         # Set multiletter navigation for this menu
@@ -2273,10 +2249,6 @@ class MainWindow(wx.Frame):
 
         # Set escape behavior for this menu
         self.escape_behavior = escape_behavior
-
-        # Make sure we're in list mode
-        if self.current_mode == "edit":
-            self.switch_to_list_mode()
 
         # Check if this is the same menu or a different one
         is_same_menu_id = self.current_menu_id == menu_id
@@ -2316,26 +2288,24 @@ class MainWindow(wx.Frame):
             operations = self.compute_menu_diff(old_items, items, old_item_ids, item_ids)
 
             # Apply diff operations (screen reader friendly)
-            new_selection = self.apply_menu_diff(operations, old_selection)
+            self.apply_menu_diff(operations)
 
-            # Override selection if position is explicitly provided
-            if position is not None and len(items) > 0:
-                if 0 <= position < len(items):
-                    new_selection = position
-                    # Force selection update when position is explicitly provided
-                    self.menu_list.SetSelection(new_selection)
-            # Set selection after diff operations
+            # Cursor stays stationary at its current numerical index.  Items may
+            # shift around it but the focused slot never changes due to remote
+            # insertions or deletions elsewhere in the list — identical to the web
+            # client's positional-overwrite behaviour.  Clamp only when the list
+            # shrank and the old index is now out of range.
+            # The server can force an explicit jump via the `position` field.
+            if position is not None and 0 <= position < len(items):
+                self.menu_list.SetSelection(position)
             elif len(items) > 0:
-                # Check if an item is actually selected and if it matches our target
-                current_selection = self.menu_list.GetSelection()
-                if new_selection != wx.NOT_FOUND:
-                    # Only call SetSelection if nothing is selected or wrong item is selected
-                    if current_selection != new_selection:
-                        self.menu_list.SetSelection(new_selection)
-                else:
-                    # No valid selection computed, default to 0 if nothing selected
-                    if current_selection == wx.NOT_FOUND:
-                        self.menu_list.SetSelection(0)
+                target = (
+                    min(old_selection, len(items) - 1)
+                    if old_selection != wx.NOT_FOUND
+                    else 0
+                )
+                if self.menu_list.GetSelection() != target:
+                    self.menu_list.SetSelection(target)
         else:
             # Same menu ID but list is empty - full rebuild
             self.menu_list.Clear()

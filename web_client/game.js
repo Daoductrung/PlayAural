@@ -1968,6 +1968,17 @@ class GameClient {
             return true;
         });
 
+        // Resolve explicit focus target from server.
+        // position is already 0-based (server does position - 1 before sending).
+        // selection_id is converted to an index by scanning the filtered item list.
+        let targetPosition = (packet.position != null) ? packet.position : null;
+        if (targetPosition == null && packet.selection_id != null) {
+            const idx = newItems.findIndex(item =>
+                typeof item !== 'string' && item.id === packet.selection_id
+            );
+            if (idx !== -1) targetPosition = idx;
+        }
+
         this.applyMenuLayout(packet);
 
         // Always Update Web Buttons
@@ -2017,13 +2028,11 @@ class GameClient {
 
             // WEB-SPECIFIC LOGIC MOVED TO TOP OF FUNCTION
 
-            if (newItems.length > 0) {
-                // FIXED: Only auto-focus first button if user is ALREADY in the menu tab.
-                // Otherwise, this steals focus from Chat/Input fields!
-                if (this.activeTab === 'content-menu') {
-                    const firstBtn = this.menuArea.querySelector('.menu-item');
-                    if (firstBtn) firstBtn.focus();
-                }
+            if (newItems.length > 0 && this.activeTab === 'content-menu') {
+                const allBtns = this.menuArea.querySelectorAll('.menu-item');
+                const focusIdx = (targetPosition != null && targetPosition >= 0 && targetPosition < allBtns.length)
+                    ? targetPosition : 0;
+                allBtns[focusIdx].focus();
             }
 
             return;
@@ -2031,6 +2040,13 @@ class GameClient {
 
         // --- Diffing Logic (Same Menu ID) ---
         const buttons = Array.from(this.menuArea.children).filter(el => el.classList.contains('menu-item'));
+
+        // Record focused index before DOM mutations so we can clamp if the list shrinks
+        let oldFocusIndex = -1;
+        const focusedEl = document.activeElement;
+        if (focusedEl && this.menuArea.contains(focusedEl)) {
+            oldFocusIndex = buttons.indexOf(focusedEl);
+        }
 
         // 1. Update existing or append new
         for (let i = 0; i < newItems.length; i++) {
@@ -2078,6 +2094,25 @@ class GameClient {
             const btn = buttons.pop();
             if (btn && btn.parentNode) {
                 btn.parentNode.removeChild(btn);
+            }
+        }
+
+        // Cursor management after diff (matches Python client):
+        // - Server sent explicit position → focus that button.
+        // - Focused button removed (list shrank) → clamp to min(oldIndex, lastIndex).
+        // - Otherwise → leave focus unchanged (stationary index).
+        if (targetPosition != null) {
+            const updatedBtns = this.menuArea.querySelectorAll('.menu-item');
+            if (updatedBtns.length > 0 && targetPosition >= 0 && targetPosition < updatedBtns.length) {
+                updatedBtns[targetPosition].focus();
+            }
+        } else if (newItems.length > 0 && !this.menuArea.contains(document.activeElement)) {
+            const updatedBtns = this.menuArea.querySelectorAll('.menu-item');
+            if (updatedBtns.length > 0) {
+                const clampedIdx = oldFocusIndex >= 0
+                    ? Math.min(oldFocusIndex, updatedBtns.length - 1)
+                    : 0;
+                updatedBtns[clampedIdx].focus();
             }
         }
     }

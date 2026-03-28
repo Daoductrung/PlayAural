@@ -90,7 +90,6 @@ class MainWindow(wx.Frame):
         self.current_mode = "list"  # "list" or "edit"
         self.edit_mode_callback = None  # Callback for when edit mode submits
         self.current_menu_id = None  # Track which menu is currently displayed
-        self.current_menu_state = None  # Track previous menu state for comparison
         self.current_menu_item_ids = []  # Track item IDs for current menu (parallel to menu items)
         self.current_edit_multiline = False  # Track if current editbox is multiline
         self.current_edit_read_only = False  # Track if current editbox is read-only
@@ -640,8 +639,6 @@ class MainWindow(wx.Frame):
             key_name = "escape"
         elif key_code == wx.WXK_SPACE:
             key_name = "space"
-        elif key_code == wx.WXK_BACK:
-            key_name = "backspace"
         elif key_code == wx.WXK_RETURN or key_code == wx.WXK_NUMPAD_ENTER:
             # Only send Enter as keybind if modifiers are held
             # Plain Enter should activate the menu (handled by MenuList)
@@ -1109,8 +1106,7 @@ class MainWindow(wx.Frame):
 
         self.connected = False
         self.current_menu_id = None
-        self.current_menu_state = None
-        
+
         # If explicit disconnect (e.g. kicked or logged out), normal error flow
         if self.disconnect_reason:
              self._show_connection_error(Localization.get("main-disconnected"))
@@ -2200,8 +2196,6 @@ class MainWindow(wx.Frame):
 
         items_raw = packet.get("items", [])
         menu_id = packet.get("menu_id", None)
-        multiletter_enabled = packet.get("multiletter_enabled", True)
-        escape_behavior = packet.get("escape_behavior", "keybind")
         position = packet.get("position", None)  # Optional position to move to
         selection_id = packet.get("selection_id", None)  # Optional item ID to focus
         grid_enabled = packet.get("grid_enabled", False)
@@ -2231,30 +2225,20 @@ class MainWindow(wx.Frame):
             except ValueError:
                 pass  # ID not found, ignore
 
-        new_menu_state = {
-            "menu_id": menu_id,
-            "items": items,
-            "multiletter_enabled": multiletter_enabled,
-            "escape_behavior": escape_behavior,
-            "grid_enabled": grid_enabled,
-            "grid_width": grid_width,
-        }
-        self.current_menu_state = new_menu_state
+        is_same_menu_id = self.current_menu_id == menu_id
+        self.current_menu_id = menu_id
 
-        # Set multiletter navigation for this menu
-        self.set_multiletter_navigation(multiletter_enabled)
+        # update_menu packets from the server omit escape_behavior and
+        # multiletter_enabled.  Preserve the existing values on same-menu-id
+        # updates so that Escape-as-Back and keybind routing survive dynamic
+        # refreshes (friends list, online users, tables, etc.).
+        if "multiletter_enabled" in packet or not is_same_menu_id:
+            self.set_multiletter_navigation(packet.get("multiletter_enabled", True))
 
-        # Set grid mode for this menu
         self.set_grid_mode(grid_enabled, grid_width)
 
-        # Set escape behavior for this menu
-        self.escape_behavior = escape_behavior
-
-        # Check if this is the same menu or a different one
-        is_same_menu_id = self.current_menu_id == menu_id
-
-        # Store the menu_id so we can send it back with selections
-        self.current_menu_id = menu_id
+        if "escape_behavior" in packet or not is_same_menu_id:
+            self.escape_behavior = packet.get("escape_behavior", "keybind")
 
         # Different menu ID → always clear and rebuild (don't bother with diff)
         if not is_same_menu_id:
@@ -2347,7 +2331,6 @@ class MainWindow(wx.Frame):
         # Clear menu
         self.menu_list.Clear()
         self.current_menu_id = None
-        self.current_menu_state = None
         # Switch to list mode if in edit mode
         if self.current_mode == "edit":
             self.switch_to_list_mode()

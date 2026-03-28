@@ -5361,10 +5361,14 @@ PlayAural Server
             if not online_user:
                 continue
 
-            # Get Role and Client
+            # Get Role, Client, and Language
             role_text, client_text = self._get_user_role_and_client_text(
                 user.locale, online_user
             )
+            language_key = f"language-{online_user.locale}"
+            language_text = Localization.get(user.locale, language_key)
+            if language_text == language_key:
+                language_text = online_user.locale.upper()
 
             # Check if user is waiting for approval
             if not online_user.approved:
@@ -5381,13 +5385,14 @@ PlayAural Server
                 else:
                     status = Localization.get(user.locale, "online-user-not-in-game")
             
-            # Use the full entry format: {username} ({role}, {client}): {status}
+            # Use the full entry format: {username} ({role}, {client}, {language}): {status}
             line = Localization.get(
                 user.locale,
                 "online-user-full-entry",
                 username=username,
                 role=role_text,
                 client=client_text,
+                language=language_text,
                 status=status,
             )
             lines.append((username, line))
@@ -5421,7 +5426,7 @@ PlayAural Server
             items,
             multiletter=True,
             escape_behavior=EscapeBehavior.ESCAPE_EVENT, # Legacy client compat: emit raw escape packet to be caught globally
-            position=1, # Default focus to first user, not the 'Back' button
+            position=2, # Default focus to first user, not the 'Back' button (1-based)
         )
         self._user_states[user.username] = {"menu": "online_users"}
 

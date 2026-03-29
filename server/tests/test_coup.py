@@ -292,3 +292,179 @@ def test_bot_challenger_loses_influence_while_active_target_differs():
     assert reached, "Assassination never resolved against Charlie"
     assert g.active_target_id == charlie.id
     assert g._losing_player_id == charlie.id
+
+
+# ── Immortal-Player Regression Tests ────────────────────────────────────────
+
+
+def test_zero_cards_player_is_marked_dead_on_lose_influence():
+    """Regression: A player with 0 live cards but is_dead=False must be
+    eliminated when _prompt_lose_influence is called (safety net)."""
+    g = CoupGame()
+    alice = g.create_player("p1", "Alice")
+    bob = g.create_player("p2", "Bob")
+    g.players = [alice, bob]
+    g.attach_user("p1", MockUser("Alice", "p1"))
+    g.attach_user("p2", MockUser("Bob", "p2"))
+    g.on_start()
+
+    # Manually corrupt Bob into the "immortal" state: 0 cards, not dead
+    bob.influences = []
+    bob.is_dead = False
+
+    # Now trigger _prompt_lose_influence for Bob (e.g. from a coup)
+    g._next_action_after_lose = "end_turn"
+    g._prompt_lose_influence(bob.id, "coup")
+
+    # Bob must now be dead
+    assert bob.is_dead is True
+    assert len(bob.live_influences) == 0
+
+
+def test_bluffed_block_on_assassination_kills_blocker_then_target(game3):
+    """Full flow: Alice assassinates Charlie, Charlie bluff-blocks (no Contessa),
+    Alice challenges the block successfully.  Charlie loses a card from the
+    failed bluff, then the assassination resolves and takes the second card."""
+    alice = game3.get_player_by_name("Alice")
+    bob = game3.get_player_by_name("Bob")
+    charlie = game3.get_player_by_name("Charlie")
+
+    from server.games.coup.cards import Card, Character
+
+    alice.influences = [Card(Character.ASSASSIN), Card(Character.DUKE)]
+    alice.coins = 3
+    bob.influences = [Card(Character.CAPTAIN), Card(Character.AMBASSADOR)]
+    # Charlie has 2 cards, no Contessa — bluff block will fail
+    charlie.influences = [Card(Character.DUKE), Card(Character.CAPTAIN)]
+
+    # Alice assassinates Charlie
+    game3._action_assassinate(alice, "Charlie", "assassinate")
+    assert game3.active_target_id == charlie.id
+
+    # Charlie blocks (claims Contessa — bluffing)
+    game3._action_block(charlie, "block")
+    assert game3.turn_phase == "waiting_block"
+    assert game3.active_claimer_id == charlie.id
+
+    # Alice challenges the block — Charlie doesn't have Contessa
+    game3._action_challenge(alice, "challenge")
+    advance_ticks(game3, 200)
+
+    # Charlie must lose a card from the failed bluff
+    assert game3.turn_phase == "losing_influence"
+    assert game3._losing_player_id == charlie.id
+    assert game3._next_action_after_lose == "resolve_action"
+
+    # Charlie picks which card to lose
+    game3._action_lose_influence(charlie, "lose_influence_0")
+    assert len(charlie.live_influences) == 1
+
+    # Wait for the full chain: post_lose_influence → resolve_action (assassinate)
+    # → prompt_lose_influence (auto-lose 2nd card) → post_lose_influence → end_turn
+    reached = advance_until(game3, lambda: charlie.is_dead)
+    assert reached, "Charlie was never eliminated after bluffed block + assassination"
+    assert len(charlie.live_influences) == 0
+    assert charlie.is_dead is True
+
+
+def test_exchange_return_count_matches_draw_count():
+    """Exchange that draws fewer than 2 cards (near-empty deck)
+    must only require returning that many cards."""
+    g = CoupGame()
+    alice = g.create_player("p1", "Alice")
+    bob = g.create_player("p2", "Bob")
+    g.players = [alice, bob]
+    g.attach_user("p1", MockUser("Alice", "p1"))
+    g.attach_user("p2", MockUser("Bob", "p2"))
+    g.on_start()
+
+    from server.games.coup.cards import Card, Character
+
+    # Leave only 1 card in the deck
+    g.deck.cards = [Card(Character.CONTESSA)]
+    alice.influences = [Card(Character.AMBASSADOR), Card(Character.DUKE)]
+    alice.coins = 2
+
+    # Simulate exchange resolving (skip the interrupt window)
+    g.original_claimer_id = alice.id
+    g.active_action = "exchange"
+    g._resolve_action()
+
+    # Only 1 card was drawn → _exchange_draw_count must be 1
+    assert g._exchange_draw_count == 1
+    assert g.turn_phase == "exchanging"
+    assert len(alice.live_influences) == 3  # 2 original + 1 drawn
+
+    # Return 1 card — exchange should complete (not wait for a second return)
+    g._action_return_card(alice, "return_card_0")
+    assert len(alice.live_influences) == 2
+    # Turn should have ended (exchange complete after 1 return)
+    assert g.turn_phase != "exchanging"
+
+
+def test_exchange_empty_deck_skips_exchange_phase():
+    """Exchange with a completely empty deck should complete immediately
+    without entering the exchange phase."""
+    g = CoupGame()
+    alice = g.create_player("p1", "Alice")
+    bob = g.create_player("p2", "Bob")
+    g.players = [alice, bob]
+    g.attach_user("p1", MockUser("Alice", "p1"))
+    g.attach_user("p2", MockUser("Bob", "p2"))
+    g.on_start()
+
+    from server.games.coup.cards import Card, Character
+
+    g.deck.cards = []  # Empty deck
+    alice.influences = [Card(Character.AMBASSADOR), Card(Character.DUKE)]
+
+    g.original_claimer_id = alice.id
+    g.active_action = "exchange"
+    g._resolve_action()
+
+    # No cards drawn, exchange phase should be skipped entirely
+    assert g.turn_phase != "exchanging"
+    assert len(alice.live_influences) == 2  # Unchanged
+
+
+def test_bot_never_passes_when_assassination_is_lethal():
+    """A bot with 1 card and no Contessa must ALWAYS challenge or block
+    when being assassinated — passing is guaranteed death."""
+    from server.games.coup.bot import CoupBot
+
+    g = CoupGame()
+    alice = g.create_player("p1", "Alice")
+    bot = g.create_player("b1", "BotBob", is_bot=True)
+    g.players = [alice, bot]
+    g.attach_user("p1", MockUser("Alice", "p1"))
+    g.setup_player_actions(alice)
+    g.setup_player_actions(bot)
+    g.on_start()
+
+    # Run 50 independent trials to verify the bot never passes.
+    # Each trial sets up the exact scenario: bot has 1 card (Duke, not Contessa),
+    # Alice declares assassination.
+    pass_count = 0
+    for _ in range(50):
+        bot.influences = [Card(Character.DUKE)]
+        bot.is_dead = False
+        alice.influences = [Card(Character.ASSASSIN), Card(Character.CAPTAIN)]
+        alice.coins = 3
+
+        g.active_action = "assassinate"
+        g.active_claimer_id = alice.id
+        g.original_claimer_id = alice.id
+        g.active_target_id = bot.id
+        g.turn_phase = "action_declared"
+        g.interrupt_timer_ticks = 100
+        g.is_resolving = False
+        g.passed_players = set()
+
+        decision = CoupBot.bot_think(g, bot)
+        if decision == "pass":
+            pass_count += 1
+
+    assert pass_count == 0, (
+        f"Bot passed {pass_count}/50 times when assassination was lethal — "
+        f"it should always challenge or bluff-block"
+    )

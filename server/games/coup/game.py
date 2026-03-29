@@ -51,8 +51,16 @@ class CoupGame(Game):
     active_claimer_id: str | None = None
     original_claimer_id: str | None = None
     return_count: int = 0
+    _exchange_draw_count: int = 2   # how many cards were actually drawn during exchange
     passed_players: set[str] = field(default_factory=set)
     player_claims: dict[str, set[str]] = field(default_factory=dict)
+    # Per-player history within this game for bot opponent modeling.
+    # Each entry maps player_id → list of event dicts:
+    #   {"type": "claim_unchallenged", "role": str}
+    #   {"type": "caught_bluffing"}
+    #   {"type": "proved_role", "role": str}
+    #   {"type": "action", "action": str, "target_id": str|None}
+    _player_history: dict[str, list[dict]] = field(default_factory=dict)
     _losing_player_id: str = ""            # player currently choosing which influence to lose
     _next_action_after_lose: str = "end_turn"  # what to do after influence loss resolves
 
@@ -142,12 +150,14 @@ class CoupGame(Game):
         # Initial hands and coins
         active_players = self.get_active_players()
         self.player_claims.clear()
+        self._player_history.clear()
 
         for player in active_players:
             player.coins = 2
             player.influences = []
             player.is_dead = False
             self.player_claims[player.id] = set()
+            self._player_history[player.id] = []
             for _ in range(2):
                 card = self.deck.draw()
                 if card:
@@ -879,6 +889,12 @@ class CoupGame(Game):
         if req_char and player_id in self.player_claims:
             self.player_claims[player_id].add(req_char)
 
+        # Record for opponent modeling
+        if player_id in self._player_history:
+            self._player_history[player_id].append(
+                {"type": "action", "action": action, "target_id": target_id}
+            )
+
         # Play claim sound and broadcast
         if action == "tax":
             self.play_sound("game_coup/claim_duke.ogg")
@@ -1103,13 +1119,27 @@ class CoupGame(Game):
                 has_character = True
                 revealed_char = required_char
 
+        # Record challenge outcome for opponent modeling
+        if has_character:
+            if claimer.id in self._player_history:
+                self._player_history[claimer.id].append(
+                    {"type": "proved_role", "role": revealed_char}
+                )
+        else:
+            if claimer.id in self._player_history:
+                self._player_history[claimer.id].append(
+                    {"type": "caught_bluffing"}
+                )
+
         if has_character:
             # Challenge fails!
             self.play_sound("game_coup/challengesuccess.ogg")
             duration = self.get_audio_duration_ticks("challengesuccess.ogg")
             self._broadcast_card_message("coup-challenge-failed", revealed_char, player=claimer.name)
 
-            # Claimer replaces card
+            # Claimer replaces card: return the revealed card to the deck
+            # and draw a fresh one.  The old card is added first, so the
+            # deck is guaranteed non-empty for the draw.
             for card in claimer.live_influences:
                 if card.character == revealed_char:
                     self.deck.add(card)
@@ -1117,15 +1147,16 @@ class CoupGame(Game):
                     self.play_sound(f"game_cards/discard{random.randint(1, 3)}.ogg")
                     claimer.influences.remove(card)
                     new_card = self.deck.draw()
-                    claimer.influences.append(new_card)
-                    self.play_sound(f"game_cards/draw{random.randint(1, 4)}.ogg")
+                    if new_card:
+                        claimer.influences.append(new_card)
+                        self.play_sound(f"game_cards/draw{random.randint(1, 4)}.ogg")
+                        if not claimer.is_bot:
+                            user = self.get_user(claimer)
+                            if user:
+                                new_card_name = Localization.get(user.locale, f"coup-card-{new_card.character.value}")
+                                user.speak_l("coup-drew-replacement-card", character=new_card_name, buffer="game")
                     if claimer.id in self.player_claims:
                         self.player_claims[claimer.id].clear()
-                    if new_card and not claimer.is_bot:
-                        user = self.get_user(claimer)
-                        if user:
-                            new_card_name = Localization.get(user.locale, f"coup-card-{new_card.character.value}")
-                            user.speak_l("coup-drew-replacement-card", character=new_card_name, buffer="game")
                     break
 
             if self.turn_phase == "action_declared":
@@ -1176,10 +1207,26 @@ class CoupGame(Game):
             if self.interrupt_timer_ticks == 0:
                 # Timer expired! Resolve current state
                 if self.turn_phase == "action_declared":
-                    # Nobody challenged or blocked, action resolves
+                    # Nobody challenged or blocked, action resolves.
+                    # Record that the claimer's role claim went unchallenged.
+                    claimer_id = self.active_claimer_id
+                    if claimer_id and claimer_id in self._player_history:
+                        req_char = self._get_required_character_for_action(self.active_action)
+                        if req_char:
+                            self._player_history[claimer_id].append(
+                                {"type": "claim_unchallenged", "role": req_char}
+                            )
                     self._resolve_action()
                 elif self.turn_phase == "waiting_block":
-                    # Nobody challenged the block, action fails
+                    # Nobody challenged the block — record block claim unchallenged.
+                    blocker_id = self.active_claimer_id
+                    if blocker_id and blocker_id in self._player_history:
+                        req_char = self._get_required_character_for_block(self.active_action)
+                        roles = req_char if isinstance(req_char, list) else [req_char] if req_char else []
+                        for role in roles:
+                            self._player_history[blocker_id].append(
+                                {"type": "claim_unchallenged", "role": role}
+                            )
                     self.is_resolving = True
                     self.rebuild_all_menus()
                     blocker = self.get_player_by_id(self.active_claimer_id)
@@ -1254,19 +1301,32 @@ class CoupGame(Game):
             self.play_sound("game_coup/exchange_start.ogg")
             self.broadcast_l("coup-exchanges", player=player.name)
 
-            # Add 2 cards to hand, transition to exchange phase instantly
+            # Draw up to 2 cards; track how many were actually drawn so the
+            # return phase requires exactly that many back.
+            drawn = 0
             card1 = self.deck.draw()
-            card2 = self.deck.draw()
             if card1:
                 player.influences.append(card1)
                 self.play_sound(f"game_cards/draw{random.randint(1, 4)}.ogg")
+                drawn += 1
+            card2 = self.deck.draw()
             if card2:
                 player.influences.append(card2)
                 self.play_sound(f"game_cards/draw{random.randint(1, 4)}.ogg")
+                drawn += 1
 
             if player.id in self.player_claims:
                 self.player_claims[player.id].clear()
 
+            if drawn == 0:
+                # Deck was empty — nothing to exchange, just end turn
+                self.play_sound("game_coup/exchange_complete.ogg")
+                self.broadcast_l("coup-exchange-complete", player=player.name)
+                self._end_turn()
+                return
+
+            self._exchange_draw_count = drawn
+            self.return_count = 0
             self.turn_phase = "exchanging"
             self.interrupt_timer_ticks = 0
             self.rebuild_all_menus()
@@ -1299,25 +1359,23 @@ class CoupGame(Game):
             card_name = Localization.get(user.locale, f"coup-card-{card.character.value}")
             user.speak_l("coup-returned-card", buffer="game", character=card_name)
 
-        # Check if we are done exchanging
-        # Target live is original live count (usually 2, sometimes 1)
-        # We had live_count + 2 cards. We return 2.
-        # So when len(live) == expected, we are done.
-        # For now, just count if we've returned 2.
-        # It's easier: if len(live) > (2 if alive else 1), keep returning
-        # But wait, max normal live is 2. So we return until live == (original count).
-        # We don't explicitly store original count.
-        # But since we draw 2, we return 2.
-        # We need to track how many we returned.
-        # Let's just track it via the deck state, but simpler: Add a state variable.
-        if getattr(self, "return_count", 0) == 0:
-            self.return_count = 1
-            self.rebuild_all_menus()
-        else:
+        # If the player has no live cards left after returning, they're dead.
+        if not coup_player.live_influences:
+            coup_player.is_dead = True
+            self.broadcast_l("coup-player-eliminated", player=player.name)
+            self.return_count = 0
+            self._end_turn()
+            return
+
+        # Return exactly as many cards as were drawn.
+        self.return_count += 1
+        if self.return_count >= self._exchange_draw_count:
             self.return_count = 0
             self.play_sound("game_coup/exchange_complete.ogg")
             self.broadcast_l("coup-exchange-complete", player=player.name)
             self._end_turn()
+        else:
+            self.rebuild_all_menus()
 
     def _broadcast_card_message(self, message_key: str, character: str | Character, **kwargs) -> None:
         """Broadcast a message with a localized card name to all players."""
@@ -1338,6 +1396,11 @@ class CoupGame(Game):
 
         live = player.live_influences
         if len(live) == 0:
+            # Safety net: player has no cards but is_dead was never set.
+            # Mark them dead so they cannot remain "immortal".
+            if not player.is_dead:
+                player.is_dead = True
+                self.broadcast_l("coup-player-eliminated", player=player.name)
             self._post_lose_influence()
             return
         elif len(live) == 1:

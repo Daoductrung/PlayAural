@@ -23,7 +23,7 @@ from buffer_system import BufferSystem
 from config_manager import set_item_in_dict
 from localization import Localization
 
-VERSION = "1.0.1"
+VERSION = "1.0.2"
 
 
 class MainWindow(wx.Frame):

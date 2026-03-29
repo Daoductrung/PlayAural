@@ -31,8 +31,8 @@ from ..game_utils.stats_helpers import RatingHelper
 from ..game_utils.game_result import GameResult
 
 
-VERSION = "1.0.1"
-LATEST_CLIENT_VERSION = "1.0.1"
+VERSION = "1.0.2"
+LATEST_CLIENT_VERSION = "1.0.2"
 UPDATE_URL = "https://github.com/Daoductrung/PlayAural/releases/latest/download/PlayAural.zip"
 UPDATE_HASH = "" # Optional SHA256
 

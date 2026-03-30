@@ -664,7 +664,7 @@ class CrazyEightsGame(Game, TurnTimerMixin):
             self.play_sound("game_crazyeights/draw.ogg")
         self.start_turn_timer()  # reset timer after drawing
         self._broadcast_draw(p, 1)
-        selection_id = f"play_card_{card.id}"
+        selection_id = f"play_card_{card.id}" if playable else None
         self.update_player_menu(p, selection_id=selection_id)
         if p.is_bot:
             BotHelper.jolt_bot(p, ticks=random.randint(20, 30))

@@ -1,5 +1,19 @@
 Nhật ký thay đổi
 
+Thứ Tư 1 Tháng Tư 2026
+
+Cập nhật máy chủ:
+
+Đã thêm hai trò chơi mới là Cờ vua và Cờ thỏ cáo với đầy đủ luật chơi và tài liệu hướng dẫn chi tiết.
+
+Đã tích hợp hệ thống đồng hồ bấm giờ chuyên nghiệp cho Cờ vua, hỗ trợ nhiều chế độ thời gian khác nhau.
+
+Đã thêm các tính năng quan trọng trong ván cờ như đề nghị hòa, xin đi lại và các quy định về chiếu bí hoặc hòa cờ tự động.
+
+Đã hoàn thiện các quy tắc đặc trưng của Cờ thỏ cáo như nhân đôi điểm số và các luật thi đấu quốc tế.
+
+Đã hỗ trợ hoàn chỉnh ngôn ngữ tiếng Việt và tiếng Anh cho toàn bộ nội dung của hai trò chơi mới.
+
 Thứ Ba 31 Tháng Ba 2026
 
 Cập nhật máy chủ:

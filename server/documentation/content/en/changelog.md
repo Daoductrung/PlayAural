@@ -1,5 +1,19 @@
 Changelog
 
+Wednesday 1 April 2026
+
+Server Updates:
+
+Added two new games: Chess and Backgammon, featuring complete rules and detailed documentation.
+
+Implemented professional chess clocks with various time control presets.
+
+Added essential match features for Chess, including draw offers, undo requests, and automatic draw detection.
+
+Integrated standard Backgammon mechanics, including doubling cube support and international tournament rules.
+
+Fully localized both games in English and Vietnamese.
+
 Tuesday 31 March 2026
 
 Server Updates:

@@ -1,9 +1,11 @@
 """Tests for Backgammon."""
 
 from pathlib import Path
+import time
 
 import pytest
 
+from ..games.backgammon import bot as backgammon_bot
 from ..games.backgammon.game import (
     BackgammonBoard,
     BackgammonGame,
@@ -245,9 +247,15 @@ def test_smart_bot_prefers_hitting_blot() -> None:
     set_board(game, points=points)
     game.rebuild_all_menus()
 
-    assert game.bot_think(bot) == game.action_id_for_move(
+    expected = game.action_id_for_move(
         BackgammonMove(source=4, destination=7, die_value=3, is_hit=True)
     )
+    action_id = None
+    for _ in range(20):
+        action_id = game.bot_think(bot)
+        if action_id:
+            break
+    assert action_id == expected
 
 
 def test_keybinds_avoid_reserved_keys() -> None:
@@ -289,6 +297,109 @@ def test_bot_can_finish_simple_game() -> None:
     game.rebuild_all_menus()
 
     assert advance_until(game, lambda: game.match_winner_color == COLOR_WHITE)
+
+
+def test_smart_bot_respects_per_tick_sequence_budget(monkeypatch) -> None:
+    monkeypatch.setattr(backgammon_bot, "SMART_BOT_SEQUENCE_BUDGET", 1)
+    game = make_game(bot_second=True, bot_strategy="smart")
+    bot = game.players[1]
+    human = game.players[0]
+    bot.color = COLOR_WHITE
+    human.color = COLOR_RED
+    game.set_turn_players([bot, human])
+    game.turn_phase = TURN_PHASE_MOVING
+    game.remaining_dice = [1]
+
+    points = [0] * 24
+    points[0] = -1
+    points[5] = -1
+    set_board(game, points=points)
+
+    calls = {"count": 0}
+    original = backgammon_bot._score_sequence
+
+    def counting_score(game_obj, player_obj, sequence, board=None):
+        calls["count"] += 1
+        return original(game_obj, player_obj, sequence, board=board)
+
+    monkeypatch.setattr(backgammon_bot, "_score_sequence", counting_score)
+
+    result = game.bot_think(bot)
+
+    assert result is None
+    assert calls["count"] <= backgammon_bot.SMART_BOT_SEQUENCE_BUDGET
+    assert game.smart_bot_search is not None
+    assert game.smart_bot_search.stack
+
+
+def test_smart_bot_search_completes_over_multiple_ticks(monkeypatch) -> None:
+    monkeypatch.setattr(backgammon_bot, "SMART_BOT_SEQUENCE_BUDGET", 1)
+    game = make_game(bot_second=True, bot_strategy="smart")
+    bot = game.players[1]
+    human = game.players[0]
+    bot.color = COLOR_WHITE
+    human.color = COLOR_RED
+    game.set_turn_players([bot, human])
+    game.turn_phase = TURN_PHASE_MOVING
+    game.remaining_dice = [1]
+
+    points = [0] * 24
+    points[0] = -1
+    points[5] = -1
+    set_board(game, points=points)
+
+    action_id = None
+    for _ in range(80):
+        action_id = game.bot_think(bot)
+        if action_id:
+            break
+
+    assert action_id is not None
+    assert game.smart_bot_search is not None
+    assert game.smart_bot_search.completed is True
+
+
+def test_many_smart_bot_tables_stay_within_safe_tick_threshold(monkeypatch) -> None:
+    monkeypatch.setattr(backgammon_bot, "SMART_BOT_SEQUENCE_BUDGET", 1)
+    original = backgammon_bot._score_sequence
+
+    def slow_score(game_obj, player_obj, sequence, board=None):
+        time.sleep(0.002)
+        return original(game_obj, player_obj, sequence, board=board)
+
+    monkeypatch.setattr(backgammon_bot, "_score_sequence", slow_score)
+
+    games: list[BackgammonGame] = []
+    for index in range(20):
+        game = make_game(start=True, bot_second=True, bot_strategy="smart")
+        bot = game.players[1]
+        human = game.players[0]
+        bot.color = COLOR_WHITE
+        human.color = COLOR_RED
+        game.set_turn_players([bot, human])
+        game.turn_phase = TURN_PHASE_MOVING
+        game.remaining_dice = [1]
+        points = [0] * 24
+        points[index % 6] = -1
+        points[6 + (index % 6)] = -1
+        set_board(game, points=points)
+        bot.bot_think_ticks = 0
+        games.append(game)
+
+    started = time.perf_counter()
+    for game in games:
+        game.on_tick()
+    elapsed = time.perf_counter() - started
+
+    assert elapsed < 0.35
+    assert all(
+        game.players[1].bot_pending_action is not None or game.smart_bot_search is not None
+        for game in games
+    )
+    assert all(
+        game.smart_bot_search is None or game.smart_bot_search.evaluated_sequences <= 1
+        for game in games
+    )
 
 
 def test_serialization_preserves_state() -> None:

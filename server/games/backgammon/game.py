@@ -90,6 +90,26 @@ class BackgammonMove(DataClassJSONMixin):
 
 
 @dataclass
+class BackgammonSmartSearchNode(DataClassJSONMixin):
+    prefix: list[BackgammonMove] = field(default_factory=list)
+    remaining_dice: list[int] = field(default_factory=list)
+
+
+@dataclass
+class BackgammonSmartSearchState(DataClassJSONMixin):
+    player_id: str = ""
+    player_color: str = ""
+    root_dice: list[int] = field(default_factory=list)
+    root_board: BackgammonBoard = field(default_factory=BackgammonBoard)
+    stack: list[BackgammonSmartSearchNode] = field(default_factory=list)
+    best_sequence: list[BackgammonMove] = field(default_factory=list)
+    best_score: int = -100_000
+    best_length: int = -1
+    evaluated_sequences: int = 0
+    completed: bool = False
+
+
+@dataclass
 class BackgammonPlayer(Player):
     color: str = ""
 
@@ -141,6 +161,7 @@ class BackgammonGame(Game):
     game_number: int = 1
 
     match_winner_color: str = ""
+    smart_bot_search: BackgammonSmartSearchState | None = None
 
     @classmethod
     def get_name(cls) -> str:
@@ -358,6 +379,7 @@ class BackgammonGame(Game):
         self.crawford_used = False
         self.game_number = 1
         self.match_winner_color = ""
+        self._reset_smart_bot_search()
         self._start_new_game(initial=True)
 
     def on_tick(self) -> None:
@@ -390,6 +412,47 @@ class BackgammonGame(Game):
         source = "bar" if move.source == -1 else f"p{move.source}"
         destination = "off" if move.is_bear_off else f"p{move.destination}"
         return f"move_{source}_{destination}_{move.die_value}"
+
+    def _clone_board(self, board: BackgammonBoard | None = None) -> BackgammonBoard:
+        source = board or self.board
+        return BackgammonBoard(
+            points=list(source.points),
+            bar_red=source.bar_red,
+            bar_white=source.bar_white,
+            off_red=source.off_red,
+            off_white=source.off_white,
+        )
+
+    def _reset_smart_bot_search(self) -> None:
+        self.smart_bot_search = None
+
+    def _new_smart_bot_search_state(
+        self, player: BackgammonPlayer
+    ) -> BackgammonSmartSearchState:
+        return BackgammonSmartSearchState(
+            player_id=player.id,
+            player_color=player.color,
+            root_dice=list(self.remaining_dice),
+            root_board=self._clone_board(),
+            stack=[
+                BackgammonSmartSearchNode(
+                    prefix=[],
+                    remaining_dice=list(self.remaining_dice),
+                )
+            ],
+        )
+
+    def _is_smart_bot_search_valid(self, player: BackgammonPlayer) -> bool:
+        search = self.smart_bot_search
+        return bool(
+            search
+            and self.current_player == player
+            and self.turn_phase == TURN_PHASE_MOVING
+            and search.player_id == player.id
+            and search.player_color == player.color
+            and search.root_dice == list(self.remaining_dice)
+            and search.root_board == self.board
+        )
 
     def _sync_turn_actions(self, player: Player, action_set: ActionSet | None = None) -> None:
         turn_set = action_set or self.get_action_set(player, "turn")
@@ -452,6 +515,7 @@ class BackgammonGame(Game):
         self.pending_double_to = ""
         self.cube_value = 1
         self.cube_owner = ""
+        self._reset_smart_bot_search()
         if not initial:
             self.broadcast_l(
                 "backgammon-new-game",
@@ -463,6 +527,7 @@ class BackgammonGame(Game):
         self._perform_opening_roll()
 
     def _perform_opening_roll(self) -> None:
+        self._reset_smart_bot_search()
         red_player = self._get_player_by_color(COLOR_RED)
         white_player = self._get_player_by_color(COLOR_WHITE)
         if not red_player or not white_player:
@@ -505,6 +570,7 @@ class BackgammonGame(Game):
     def _action_roll_dice(self, player: Player, action_id: str) -> None:
         if player != self.current_player:
             return
+        self._reset_smart_bot_search()
         die1 = random.randint(1, 6)  # nosec B311
         die2 = random.randint(1, 6)  # nosec B311
         self.remaining_dice = [die1, die2] if die1 != die2 else [die1, die1, die1, die1]
@@ -534,6 +600,7 @@ class BackgammonGame(Game):
         bg_player = self._as_backgammon_player(player)
         if not bg_player or not self._can_offer_double(bg_player):
             return
+        self._reset_smart_bot_search()
         self.turn_phase = TURN_PHASE_DOUBLING
         self.pending_double_to = self._opponent_color(bg_player.color)
         self.broadcast_l(
@@ -549,6 +616,7 @@ class BackgammonGame(Game):
         bg_player = self._as_backgammon_player(player)
         if not bg_player or bg_player.color != self.pending_double_to:
             return
+        self._reset_smart_bot_search()
         self.cube_value *= 2
         self.cube_owner = bg_player.color
         self.turn_phase = TURN_PHASE_PRE_ROLL
@@ -567,6 +635,7 @@ class BackgammonGame(Game):
         proposer = self._as_backgammon_player(self.current_player)
         if not bg_player or not proposer or bg_player.color != self.pending_double_to:
             return
+        self._reset_smart_bot_search()
         self.broadcast_l(
             "backgammon-double-dropped",
             buffer="game",
@@ -586,6 +655,7 @@ class BackgammonGame(Game):
                 user.speak_l("backgammon-illegal-move", buffer="system")
             return
 
+        self._reset_smart_bot_search()
         self._apply_move(move, bg_player.color)
         self.moves_this_turn.append(move)
         self.remaining_dice.remove(move.die_value)
@@ -606,6 +676,7 @@ class BackgammonGame(Game):
         bg_player = self._as_backgammon_player(player)
         if not bg_player or not self.moves_this_turn:
             return
+        self._reset_smart_bot_search()
         move = self.moves_this_turn.pop()
         self._undo_move(move, bg_player.color)
         self.remaining_dice.append(move.die_value)
@@ -870,6 +941,7 @@ class BackgammonGame(Game):
         return super()._is_check_scores_hidden(player)
 
     def _advance_to_next_turn(self) -> None:
+        self._reset_smart_bot_search()
         self.remaining_dice = []
         self.moves_this_turn = []
         self.turn_phase = TURN_PHASE_PRE_ROLL
@@ -1114,31 +1186,39 @@ class BackgammonGame(Game):
             return [[]]
         return sequences
 
-    def _generate_moves_for_die(self, color: str, die_value: int) -> list[BackgammonMove]:
+    def _generate_moves_for_die(
+        self,
+        color: str,
+        die_value: int,
+        board: BackgammonBoard | None = None,
+    ) -> list[BackgammonMove]:
         sign = self._color_sign(color)
         moves: list[BackgammonMove] = []
+        active_board = board or self.board
 
-        if self._bar_count(color) > 0:
+        if self._bar_count(color, active_board) > 0:
             destination = 24 - die_value if color == COLOR_RED else die_value - 1
-            if self._can_land_on_point(color, destination):
+            if self._can_land_on_point(color, destination, active_board):
                 moves.append(
                     BackgammonMove(
                         source=-1,
                         destination=destination,
                         die_value=die_value,
-                        is_hit=self._is_hit_point(color, destination),
+                        is_hit=self._is_hit_point(color, destination, active_board),
                     )
                 )
             return moves
 
-        can_bear_off = self._all_checkers_in_home(color)
-        for point_index, value in enumerate(self.board.points):
+        can_bear_off = self._all_checkers_in_home(color, active_board)
+        for point_index, value in enumerate(active_board.points):
             if value * sign <= 0:
                 continue
 
             destination = point_index - die_value if color == COLOR_RED else point_index + die_value
             if color == COLOR_RED and destination < 0:
-                if can_bear_off and (destination == -1 or self._is_furthest_checker(color, point_index)):
+                if can_bear_off and (
+                    destination == -1 or self._is_furthest_checker(color, point_index, active_board)
+                ):
                     moves.append(
                         BackgammonMove(
                             source=point_index,
@@ -1149,7 +1229,9 @@ class BackgammonGame(Game):
                     )
                 continue
             if color == COLOR_WHITE and destination > 23:
-                if can_bear_off and (destination == 24 or self._is_furthest_checker(color, point_index)):
+                if can_bear_off and (
+                    destination == 24 or self._is_furthest_checker(color, point_index, active_board)
+                ):
                     moves.append(
                         BackgammonMove(
                             source=point_index,
@@ -1159,61 +1241,83 @@ class BackgammonGame(Game):
                         )
                     )
                 continue
-            if 0 <= destination <= 23 and self._can_land_on_point(color, destination):
+            if 0 <= destination <= 23 and self._can_land_on_point(color, destination, active_board):
                 moves.append(
                     BackgammonMove(
                         source=point_index,
                         destination=destination,
                         die_value=die_value,
-                        is_hit=self._is_hit_point(color, destination),
+                        is_hit=self._is_hit_point(color, destination, active_board),
                     )
                 )
         return moves
 
-    def _can_land_on_point(self, color: str, point_index: int) -> bool:
+    def _can_land_on_point(
+        self,
+        color: str,
+        point_index: int,
+        board: BackgammonBoard | None = None,
+    ) -> bool:
         sign = self._color_sign(color)
-        value = self.board.points[point_index]
+        value = (board or self.board).points[point_index]
         return value * -sign <= 1
 
-    def _is_hit_point(self, color: str, point_index: int) -> bool:
+    def _is_hit_point(
+        self,
+        color: str,
+        point_index: int,
+        board: BackgammonBoard | None = None,
+    ) -> bool:
         sign = self._color_sign(color)
-        value = self.board.points[point_index]
+        value = (board or self.board).points[point_index]
         return value * -sign == 1
 
-    def _apply_move(self, move: BackgammonMove, color: str) -> None:
+    def _apply_move(
+        self,
+        move: BackgammonMove,
+        color: str,
+        board: BackgammonBoard | None = None,
+    ) -> None:
         sign = self._color_sign(color)
         opponent = self._opponent_color(color)
+        active_board = board or self.board
 
         if move.source == -1:
-            self._set_bar(color, self._bar_count(color) - 1)
+            self._set_bar(color, self._bar_count(color, active_board) - 1, active_board)
         else:
-            self.board.points[move.source] -= sign
+            active_board.points[move.source] -= sign
 
         if move.is_bear_off:
-            self._set_off(color, self._off_count(color) + 1)
+            self._set_off(color, self._off_count(color, active_board) + 1, active_board)
             return
 
         if move.is_hit:
-            self.board.points[move.destination] += sign
-            self._set_bar(opponent, self._bar_count(opponent) + 1)
-        self.board.points[move.destination] += sign
+            active_board.points[move.destination] += sign
+            self._set_bar(opponent, self._bar_count(opponent, active_board) + 1, active_board)
+        active_board.points[move.destination] += sign
 
-    def _undo_move(self, move: BackgammonMove, color: str) -> None:
+    def _undo_move(
+        self,
+        move: BackgammonMove,
+        color: str,
+        board: BackgammonBoard | None = None,
+    ) -> None:
         sign = self._color_sign(color)
         opponent = self._opponent_color(color)
+        active_board = board or self.board
 
         if move.is_bear_off:
-            self._set_off(color, self._off_count(color) - 1)
+            self._set_off(color, self._off_count(color, active_board) - 1, active_board)
         else:
-            self.board.points[move.destination] -= sign
+            active_board.points[move.destination] -= sign
             if move.is_hit:
-                self.board.points[move.destination] -= sign
-                self._set_bar(opponent, self._bar_count(opponent) - 1)
+                active_board.points[move.destination] -= sign
+                self._set_bar(opponent, self._bar_count(opponent, active_board) - 1, active_board)
 
         if move.source == -1:
-            self._set_bar(color, self._bar_count(color) + 1)
+            self._set_bar(color, self._bar_count(color, active_board) + 1, active_board)
         else:
-            self.board.points[move.source] += sign
+            active_board.points[move.source] += sign
 
     def _game_points_for_winner(self, winner_color: str) -> int:
         loser_color = self._opponent_color(winner_color)
@@ -1230,11 +1334,16 @@ class BackgammonGame(Game):
     def _winner_home_indices(self, winner_color: str) -> range:
         return range(0, 6) if winner_color == COLOR_RED else range(18, 24)
 
-    def _all_checkers_in_home(self, color: str) -> bool:
-        if self._bar_count(color) > 0:
+    def _all_checkers_in_home(
+        self,
+        color: str,
+        board: BackgammonBoard | None = None,
+    ) -> bool:
+        active_board = board or self.board
+        if self._bar_count(color, active_board) > 0:
             return False
         sign = self._color_sign(color)
-        for index, value in enumerate(self.board.points):
+        for index, value in enumerate(active_board.points):
             if value * sign <= 0:
                 continue
             if color == COLOR_RED and index > 5:
@@ -1243,15 +1352,21 @@ class BackgammonGame(Game):
                 return False
         return True
 
-    def _is_furthest_checker(self, color: str, point_index: int) -> bool:
+    def _is_furthest_checker(
+        self,
+        color: str,
+        point_index: int,
+        board: BackgammonBoard | None = None,
+    ) -> bool:
         sign = self._color_sign(color)
+        active_board = board or self.board
         if color == COLOR_RED:
             for index in range(point_index + 1, 6):
-                if self.board.points[index] * sign > 0:
+                if active_board.points[index] * sign > 0:
                     return False
         else:
             for index in range(18, point_index):
-                if self.board.points[index] * sign > 0:
+                if active_board.points[index] * sign > 0:
                     return False
         return True
 
@@ -1299,10 +1414,11 @@ class BackgammonGame(Game):
         current = self._as_backgammon_player(self.current_player)
         return bool(current and self._can_offer_double(current))
 
-    def _pip_count(self, color: str) -> int:
+    def _pip_count(self, color: str, board: BackgammonBoard | None = None) -> int:
         sign = self._color_sign(color)
-        total = self._bar_count(color) * 25
-        for index, value in enumerate(self.board.points):
+        active_board = board or self.board
+        total = self._bar_count(color, active_board) * 25
+        for index, value in enumerate(active_board.points):
             if value * sign <= 0:
                 continue
             count = abs(value)
@@ -1330,23 +1446,27 @@ class BackgammonGame(Game):
     def _color_sign(self, color: str) -> int:
         return 1 if color == COLOR_RED else -1
 
-    def _bar_count(self, color: str) -> int:
-        return self.board.bar_red if color == COLOR_RED else self.board.bar_white
+    def _bar_count(self, color: str, board: BackgammonBoard | None = None) -> int:
+        active_board = board or self.board
+        return active_board.bar_red if color == COLOR_RED else active_board.bar_white
 
-    def _off_count(self, color: str) -> int:
-        return self.board.off_red if color == COLOR_RED else self.board.off_white
+    def _off_count(self, color: str, board: BackgammonBoard | None = None) -> int:
+        active_board = board or self.board
+        return active_board.off_red if color == COLOR_RED else active_board.off_white
 
-    def _set_bar(self, color: str, count: int) -> None:
+    def _set_bar(self, color: str, count: int, board: BackgammonBoard | None = None) -> None:
+        active_board = board or self.board
         if color == COLOR_RED:
-            self.board.bar_red = count
+            active_board.bar_red = count
         else:
-            self.board.bar_white = count
+            active_board.bar_white = count
 
-    def _set_off(self, color: str, count: int) -> None:
+    def _set_off(self, color: str, count: int, board: BackgammonBoard | None = None) -> None:
+        active_board = board or self.board
         if color == COLOR_RED:
-            self.board.off_red = count
+            active_board.off_red = count
         else:
-            self.board.off_white = count
+            active_board.off_white = count
 
     def _score_for_color(self, color: str) -> int:
         return self.score_red if color == COLOR_RED else self.score_white

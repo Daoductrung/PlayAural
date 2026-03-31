@@ -1,5 +1,13 @@
 Changelog
 
+Tuesday 31 March 2026
+
+Server Updates:
+
+Added a new game: Ludo, complete with full gameplay rules and detailed documentation.
+
+Fully localized the game with natural and familiar terminology for both English and Vietnamese players.
+
 Sunday 29 March 2026
 
 Server Updates:

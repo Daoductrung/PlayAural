@@ -1,5 +1,13 @@
 Nhật ký thay đổi
 
+Thứ Ba 31 Tháng Ba 2026
+
+Cập nhật máy chủ:
+
+Đã thêm trò chơi mới là Cờ cá ngựa với đầy đủ luật chơi và tài liệu hướng dẫn chi tiết.
+
+Đã hoàn thiện hệ thống ngôn ngữ, sử dụng các thuật ngữ quen thuộc của Cờ cá ngựa trong tiếng Việt để mang lại cảm giác gần gũi và tự nhiên nhất.
+
 Chủ Nhật 29 Tháng Ba 2026
 
 Cập nhật máy chủ:

@@ -31,6 +31,7 @@ from .dominos.game import DominosGame
 from .battleship.game import BattleshipGame
 from .ludo.game import LudoGame
 from .backgammon.game import BackgammonGame
+from .chess.game import ChessGame
 
 __all__ = [
     "Game",
@@ -64,4 +65,5 @@ __all__ = [
     "BattleshipGame",
     "LudoGame",
     "BackgammonGame",
+    "ChessGame",
 ]

@@ -1,0 +1,2 @@
+from .game import ChessGame
+

@@ -204,7 +204,7 @@ pytest -v                                      # verbose output
 
 ## Game Catalog
 
-25 games across four categories:
+26 games across four categories:
 
 ### Card Games
 
@@ -242,6 +242,7 @@ pytest -v                                      # verbose output
 | Light Turret | Resource management — power and light |
 | Chaos Bear | Push-your-luck chase game |
 | Battleship | Naval combat on a 2D grid — deploy your fleet and sink the enemy ships |
+| Backgammon | Classic two-player race game with match play, doubling cube, and bearing off |
 | Dominos | Classic tile-matching game with Draw/Block modes, spinner support, and team play |
 
 ### Social / Party

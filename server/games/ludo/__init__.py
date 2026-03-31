@@ -1,0 +1,1 @@
+"""Ludo game implementation."""

@@ -811,18 +811,11 @@ class BlackjackGame(Game):
 
         # WEB-SPECIFIC: Reorder for Web Clients
         if user and getattr(user, "client_type", "") == "web":
-            # Reordering Logic: Put these specific ones at the bottom
-            final_order = []
-            bottom_items = []
-
-            for aid in action_set._order:
-                if aid in self.web_target_order:
-                    bottom_items.append(aid)
-                else:
-                    final_order.append(aid)
-
-            final_order.extend(bottom_items)
-            action_set._order = final_order
+            new_order = [aid for aid in action_set._order if aid not in self.web_target_order]
+            for aid in self.web_target_order:
+                if action_set.get_action(aid):
+                    new_order.append(aid)
+            action_set._order = new_order
 
         # Default behavior: standard actions added via `.add()` appear at the end
         # (below the default table actions like "check scores", "show actions", etc.)

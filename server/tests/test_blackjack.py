@@ -467,6 +467,25 @@ def test_blackjack_actions_menu_hides_bet_previous_action() -> None:
     assert "bet_previous" not in enabled_ids
 
 
+def test_blackjack_web_standard_actions_keep_scores_above_turn_info() -> None:
+    game, host_player, host_user = create_game_with_host()
+    game.status = "playing"
+    game.game_active = True
+    host_user.client_type = "web"
+
+    standard = game.create_standard_action_set(host_player)
+    order = standard._order
+
+    check_scores_idx = order.index("check_scores")
+    whose_turn_idx = order.index("whose_turn")
+    whos_at_table_idx = order.index("whos_at_table")
+
+    assert check_scores_idx < whose_turn_idx
+    assert whose_turn_idx < whos_at_table_idx
+    assert whose_turn_idx == len(order) - 2
+    assert whos_at_table_idx == len(order) - 1
+
+
 def test_blackjack_starts_next_hand_when_all_players_enter_bets() -> None:
     game, host_player, _host_user = create_game_with_host()
     guest_user = MockUser("Guest")

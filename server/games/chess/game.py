@@ -521,12 +521,6 @@ class ChessGame(GridGameMixin, Game):
         self.round = 1
         self._init_grid()
         self._init_board()
-        self.selected_square.clear()
-        self.bot_move_targets.clear()
-        self.draw_offer_from = ""
-        self.undo_request_from = ""
-        self.undo_history = []
-        self.pending_undo_snapshot = None
 
         white_player.color = COLOR_WHITE
         black_player.color = COLOR_BLACK
@@ -686,6 +680,8 @@ class ChessGame(GridGameMixin, Game):
 
     def _init_board(self) -> None:
         self.board = [None] * 64
+        self.selected_square.clear()
+        self.bot_move_targets.clear()
         back_rank = ["rook", "knight", "bishop", "queen", "king", "bishop", "knight", "rook"]
         for file_index, piece_type in enumerate(back_rank):
             self.board[file_index] = ChessPiece(piece_type, COLOR_WHITE, has_moved=False)
@@ -1234,7 +1230,6 @@ class ChessGame(GridGameMixin, Game):
             rook_to = rank * 8 + (5 if castle_side == "kingside" else 3)
             self.board[to_sq] = ChessPiece("king", piece.color, has_moved=True)
             self.board[from_sq] = None
-            rook_piece = self.board[rook_from]
             self.board[rook_to] = ChessPiece("rook", piece.color, has_moved=True)
             self.board[rook_from] = None
             self.en_passant_target = -1
@@ -1246,8 +1241,6 @@ class ChessGame(GridGameMixin, Game):
                 self.castle_black_kingside = False
                 self.castle_black_queenside = False
             outcome["special"] = f"castle_{castle_side}"
-            if rook_piece is None:
-                self.board[rook_to] = None
             return outcome
 
         captured_piece = target
@@ -1412,6 +1405,8 @@ class ChessGame(GridGameMixin, Game):
             first_square, first_piece = non_kings[0]
             second_square, second_piece = non_kings[1]
             if first_piece.kind == "bishop" and second_piece.kind == "bishop":
+                # Same-colored bishops are insufficient regardless of whether they
+                # belong to one side or are split across both sides.
                 first_color = (first_square // 8 + first_square % 8) % 2
                 second_color = (second_square // 8 + second_square % 8) % 2
                 return first_color == second_color
@@ -1431,7 +1426,7 @@ class ChessGame(GridGameMixin, Game):
             if piece is None:
                 continue
             parts.append(
-                f"{square}:{piece.color[0]}{piece_codes[piece.kind]}{int(piece.has_moved)}"
+                f"{square}:{piece.color[0]}{piece_codes[piece.kind]}"
             )
         castling = ""
         if self.castle_white_kingside:
@@ -1503,8 +1498,6 @@ class ChessGame(GridGameMixin, Game):
         self.position_history.append(self._get_position_hash())
         self.undo_history.append(snapshot)
         self.pending_undo_snapshot = None
-        self.draw_offer_from = ""
-        self.undo_request_from = ""
 
         opponent = self._get_player_by_color(opponent_color)
         if self.is_checkmate(opponent_color):

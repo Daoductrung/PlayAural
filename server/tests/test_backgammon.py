@@ -1,7 +1,6 @@
 """Tests for Backgammon."""
 
 from pathlib import Path
-import time
 
 import pytest
 
@@ -11,6 +10,7 @@ from ..games.backgammon.game import (
     BackgammonGame,
     BackgammonMove,
     BackgammonOptions,
+    INITIAL_POINTS,
     COLOR_RED,
     COLOR_WHITE,
     SOUND_TURN,
@@ -96,7 +96,6 @@ def test_opening_roll_sets_first_turn_and_dice(monkeypatch) -> None:
 
 def test_bar_entry_moves_generated_before_other_moves() -> None:
     game = make_game()
-    game.add_player  # keep import silence
     set_board(game, red_bar=1)
     moves = game._generate_moves_for_die(COLOR_RED, 1)
     assert moves == [BackgammonMove(source=-1, destination=23, die_value=1, is_hit=False, is_bear_off=False)]
@@ -134,6 +133,36 @@ def test_bear_off_points_backgammon() -> None:
     assert game._game_points_for_winner(COLOR_RED) == 3
 
 
+def test_normal_win_scores_one_point() -> None:
+    game = make_game()
+    points = [0] * 24
+    points[0] = 1
+    set_board(game, points=points, red_off=14, white_off=3)
+
+    assert game._game_points_for_winner(COLOR_RED) == 1
+
+
+def test_gammon_scores_two_points() -> None:
+    game = make_game()
+    points = [0] * 24
+    points[0] = 1
+    points[12] = -15
+    set_board(game, points=points, red_off=14, white_off=0)
+
+    assert game._game_points_for_winner(COLOR_RED) == 2
+
+
+def test_cube_value_multiplies_game_points() -> None:
+    game = make_game()
+    points = [0] * 24
+    points[0] = 1
+    points[12] = -15
+    set_board(game, points=points, red_off=14, white_off=0)
+    game.cube_value = 4
+
+    assert game._game_points_for_winner(COLOR_RED) == 8
+
+
 def test_double_offer_accept_and_drop_flow() -> None:
     game = make_game(start=True, match_length=5)
     red = game.players[0]
@@ -155,6 +184,66 @@ def test_double_offer_accept_and_drop_flow() -> None:
     game._action_drop_double(red, "drop_double")
     assert game.pending_double_to == ""
     assert game.score_white == 2
+
+
+def test_undo_move_restores_board_and_die() -> None:
+    game = make_game(start=True)
+    red = game.players[0]
+    white = game.players[1]
+    game.set_turn_players([red, white])
+    game.turn_phase = TURN_PHASE_MOVING
+    game.remaining_dice = [2, 1]
+    points = [0] * 24
+    points[3] = 1
+    set_board(game, points=points)
+
+    move = BackgammonMove(source=3, destination=2, die_value=1)
+    game._action_move_option(red, game.action_id_for_move(move))
+    assert game.board.points[2] == 1
+
+    game._action_undo_move(red, "undo_move")
+
+    assert game.board.points[3] == 1
+    assert game.board.points[2] == 0
+    assert game.remaining_dice == [2, 1]
+
+
+def test_bear_off_allows_over_roll_for_furthest_checker() -> None:
+    game = make_game()
+    points = [0] * 24
+    points[3] = 1
+    set_board(game, points=points)
+
+    moves = game._generate_moves_for_die(COLOR_RED, 5)
+
+    assert BackgammonMove(source=3, destination=24, die_value=5, is_bear_off=True) in moves
+
+
+def test_winning_game_starts_next_game_with_reset_board() -> None:
+    game = make_game(start=True, match_length=3)
+    original_number = game.game_number
+
+    game._award_game(COLOR_RED, 1)
+
+    assert game.game_number == original_number + 1
+    assert game.board.points == list(INITIAL_POINTS)
+    assert game.board.bar_red == 0
+    assert game.board.bar_white == 0
+    assert game.board.off_red == 0
+    assert game.board.off_white == 0
+
+
+def test_format_end_screen_includes_match_score() -> None:
+    game = make_game(start=True, match_length=5)
+    game.score_red = 3
+    game.score_white = 1
+    result = game.build_game_result()
+
+    lines = game.format_end_screen(result, "en")
+
+    assert lines
+    assert "3" in lines[0]
+    assert "1" in lines[0]
 
 
 def test_crawford_rule_activates_for_next_game() -> None:
@@ -359,15 +448,16 @@ def test_smart_bot_search_completes_over_multiple_ticks(monkeypatch) -> None:
     assert game.smart_bot_search.completed is True
 
 
-def test_many_smart_bot_tables_stay_within_safe_tick_threshold(monkeypatch) -> None:
+def test_many_smart_bot_tables_respect_per_tick_budget(monkeypatch) -> None:
     monkeypatch.setattr(backgammon_bot, "SMART_BOT_SEQUENCE_BUDGET", 1)
+    calls = {"count": 0}
     original = backgammon_bot._score_sequence
 
-    def slow_score(game_obj, player_obj, sequence, board=None):
-        time.sleep(0.002)
+    def counting_score(game_obj, player_obj, sequence, board=None):
+        calls["count"] += 1
         return original(game_obj, player_obj, sequence, board=board)
 
-    monkeypatch.setattr(backgammon_bot, "_score_sequence", slow_score)
+    monkeypatch.setattr(backgammon_bot, "_score_sequence", counting_score)
 
     games: list[BackgammonGame] = []
     for index in range(20):
@@ -386,12 +476,8 @@ def test_many_smart_bot_tables_stay_within_safe_tick_threshold(monkeypatch) -> N
         bot.bot_think_ticks = 0
         games.append(game)
 
-    started = time.perf_counter()
     for game in games:
         game.on_tick()
-    elapsed = time.perf_counter() - started
-
-    assert elapsed < 0.35
     assert all(
         game.players[1].bot_pending_action is not None or game.smart_bot_search is not None
         for game in games
@@ -400,6 +486,7 @@ def test_many_smart_bot_tables_stay_within_safe_tick_threshold(monkeypatch) -> N
         game.smart_bot_search is None or game.smart_bot_search.evaluated_sequences <= 1
         for game in games
     )
+    assert calls["count"] <= len(games) * backgammon_bot.SMART_BOT_SEQUENCE_BUDGET
 
 
 def test_serialization_preserves_state() -> None:

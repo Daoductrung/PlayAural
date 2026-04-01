@@ -59,9 +59,9 @@ def _best_move_index(game: "LudoGame", player: "LudoPlayer") -> int | None:
             else:
                 landing = ((new_pos - 1) % _TRACK_LENGTH) + 1
                 # Check for capture opportunity
-                captured, _ = game._get_token_at_position(landing, player)
-                if captured and not game._is_safe_square(landing, player):
-                    score = 1800  # capture is very valuable
+                captured_tokens = game._get_tokens_at_position(landing, player)
+                if captured_tokens and not game._is_safe_square(landing, player):
+                    score = 1800 + len(captured_tokens) * 100  # bigger stacks are better captures
                 elif game._is_safe_square(landing, player):
                     score = 700 + token.position  # safe square is good
                 else:
@@ -69,9 +69,9 @@ def _best_move_index(game: "LudoGame", player: "LudoPlayer") -> int | None:
         elif token.state == "yard":
             # Entering from yard — check if we'd capture on start square
             start = game._get_start_position(player)
-            captured, _ = game._get_token_at_position(start, player)
-            if captured and not game._is_safe_square(start, player):
-                score = 1800  # capture on entry
+            captured_tokens = game._get_tokens_at_position(start, player)
+            if captured_tokens and not game._is_safe_square(start, player):
+                score = 1800 + len(captured_tokens) * 100  # capture on entry
             else:
                 score = 300
 

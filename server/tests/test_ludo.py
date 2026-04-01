@@ -277,6 +277,29 @@ class TestLudoUnit:
         assert victim.tokens[1].state == "yard"
         assert victim.tokens[1].position == 0
 
+    def test_capture_multiple_opponents_on_same_square(self):
+        game = LudoGame()
+        for i in range(3):
+            game.add_player(f"P{i}", MockUser(f"P{i}"))
+        game.on_start()
+
+        attacker = game.players[0]
+        victim_one = game.players[1]
+        victim_two = game.players[2]
+
+        victim_one.tokens[0].state = "track"
+        victim_one.tokens[0].position = 10
+        victim_two.tokens[0].state = "track"
+        victim_two.tokens[0].position = 10
+
+        attacker.tokens[0].state = "track"
+        attacker.tokens[0].position = 8
+
+        game._move_token(attacker, attacker.tokens[0], 2)
+
+        assert victim_one.tokens[0].state == "yard"
+        assert victim_two.tokens[0].state == "yard"
+
     def test_own_stack_is_not_captured(self):
         game = LudoGame()
         for i in range(2):
@@ -310,6 +333,38 @@ class TestLudoUnit:
         game._move_token(player, token, 6)
         assert token.state == "track"
         assert token.position == COLOR_STARTS["red"]
+
+    def test_enter_board_from_yard_can_capture_on_unsafe_start_square(self):
+        game = LudoGame(options=LudoOptions(safe_start_squares=False))
+        for i in range(2):
+            game.add_player(f"P{i}", MockUser(f"P{i}"))
+        game.on_start()
+
+        attacker = game.players[0]
+        victim = game.players[1]
+        victim.tokens[0].state = "track"
+        victim.tokens[0].position = COLOR_STARTS["red"]
+
+        game._move_token(attacker, attacker.tokens[0], 6)
+
+        assert attacker.tokens[0].position == COLOR_STARTS["red"]
+        assert victim.tokens[0].state == "yard"
+
+    def test_non_red_token_enters_home_column_across_wrap_boundary(self):
+        game = LudoGame()
+        for i in range(2):
+            game.add_player(f"P{i}", MockUser(f"P{i}"))
+        game.on_start()
+
+        player = game.players[1]  # Blue, home entry 12
+        token = player.tokens[0]
+        token.state = "track"
+        token.position = 11
+
+        game._move_token(player, token, 2)
+
+        assert token.state == "home_column"
+        assert token.position == 1
 
     def test_token_index_from_action(self):
         game = LudoGame()
@@ -495,6 +550,20 @@ class TestLudoConsecutiveSixes:
         # (from turn_start_state restore)
         assert self.p1.tokens[0].position == initial_pos
 
+    def test_first_six_triggers_penalty_when_limit_is_one(self):
+        self.game.options.max_consecutive_sixes = 1
+        token = self.p1.tokens[0]
+        self.game.turn_start_state = self.game._save_turn_state()
+
+        self.game._move_token(self.p1, token, 6)
+        assert token.state == "track"
+
+        self.game.last_roll = 6
+        self.game._after_move(self.p1)
+
+        assert token.state == "yard"
+        assert token.position == 0
+
     def test_no_penalty_when_disabled(self):
         """max_consecutive_sixes=0 should disable the penalty."""
         self.game.options.max_consecutive_sixes = 0
@@ -516,6 +585,40 @@ class TestLudoConsecutiveSixes:
         self.game.execute_action(self.p1, "roll_dice")
         # Should still be same player's turn (extra turn granted, no penalty)
         assert self.game.current_player == old_player
+
+
+class TestLudoBot:
+    def test_bot_prefers_larger_stack_capture(self):
+        game = LudoGame(options=LudoOptions(safe_start_squares=False))
+        human = MockUser("Human")
+        bot = Bot("Bot")
+        victim = MockUser("Victim")
+        game.add_player("Human", human)
+        game.add_player("Bot", bot)
+        game.add_player("Victim", victim)
+        game.on_start()
+
+        bot_player = game.players[1]
+        human_player = game.players[0]
+        victim_player = game.players[2]
+        game.set_turn_players([bot_player, human_player, victim_player])
+        game.current_player = bot_player
+        game.last_roll = 2
+
+        bot_player.tokens[0].state = "track"
+        bot_player.tokens[0].position = 8
+        bot_player.tokens[1].state = "track"
+        bot_player.tokens[1].position = 20
+        victim_player.tokens[0].state = "track"
+        victim_player.tokens[0].position = 10
+        victim_player.tokens[1].state = "track"
+        victim_player.tokens[1].position = 10
+        human_player.tokens[0].state = "track"
+        human_player.tokens[0].position = 22
+
+        bot_player.move_options = {0: "capture two", 1: "capture one"}
+
+        assert game.bot_think(bot_player) == "move_token_1"
 
 
 class TestLudoPlayTest:

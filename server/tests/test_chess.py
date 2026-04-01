@@ -179,6 +179,32 @@ def test_castling_kingside_moves_king_and_rook() -> None:
     assert game.board[notation_to_index("h1")] is None
 
 
+def test_castling_queenside_moves_king_and_rook() -> None:
+    game = make_game(start=True)
+    white = game.players[0]
+    clear_board(game)
+    place_piece(game, "e1", "king", COLOR_WHITE)
+    place_piece(game, "a1", "rook", COLOR_WHITE)
+    place_piece(game, "e8", "king", COLOR_BLACK)
+    game.castle_white_kingside = False
+    game.castle_white_queenside = True
+    game.castle_black_kingside = False
+    game.castle_black_queenside = False
+    game.current_player = white
+    game.current_color = COLOR_WHITE
+    game.selected_square.clear()
+
+    select_square(game, white, "e1")
+    select_square(game, white, "c1")
+
+    king = game.board[notation_to_index("c1")]
+    rook = game.board[notation_to_index("d1")]
+    assert king is not None and king.kind == "king"
+    assert rook is not None and rook.kind == "rook"
+    assert game.board[notation_to_index("e1")] is None
+    assert game.board[notation_to_index("a1")] is None
+
+
 def test_en_passant_captures_pawn() -> None:
     game = make_game(start=True)
     white = game.players[0]
@@ -198,6 +224,20 @@ def test_en_passant_captures_pawn() -> None:
     moved = game.board[notation_to_index("d6")]
     assert moved is not None and moved.kind == "pawn" and moved.color == COLOR_WHITE
     assert game.move_history[-1].special == "en_passant"
+
+
+def test_en_passant_target_is_set_then_cleared() -> None:
+    game = make_game(start=True)
+    white = game.players[0]
+    black = game.players[1]
+
+    select_square(game, white, "e2")
+    select_square(game, white, "e4")
+    assert game.en_passant_target == notation_to_index("e3")
+
+    select_square(game, black, "a7")
+    select_square(game, black, "a6")
+    assert game.en_passant_target == -1
 
 
 def test_promotion_requires_choice_then_records_result() -> None:
@@ -266,6 +306,41 @@ def test_insufficient_material_detection() -> None:
     place_piece(game, "e1", "king", COLOR_WHITE)
     place_piece(game, "e8", "king", COLOR_BLACK)
     assert game._is_insufficient_material() is True
+
+
+def test_same_colored_bishops_same_side_are_insufficient() -> None:
+    game = make_game(start=True)
+    clear_board(game)
+    place_piece(game, "e1", "king", COLOR_WHITE)
+    place_piece(game, "e8", "king", COLOR_BLACK)
+    place_piece(game, "c1", "bishop", COLOR_WHITE)
+    place_piece(game, "e3", "bishop", COLOR_WHITE)
+
+    assert game._is_insufficient_material() is True
+
+
+def test_opposite_colored_bishop_pair_is_not_insufficient() -> None:
+    game = make_game(start=True)
+    clear_board(game)
+    place_piece(game, "e1", "king", COLOR_WHITE)
+    place_piece(game, "e8", "king", COLOR_BLACK)
+    place_piece(game, "c1", "bishop", COLOR_WHITE)
+    place_piece(game, "f1", "bishop", COLOR_WHITE)
+
+    assert game._is_insufficient_material() is False
+
+
+def test_position_hash_ignores_non_castling_piece_move_history() -> None:
+    game = make_game(start=True)
+    clear_board(game)
+    place_piece(game, "e1", "king", COLOR_WHITE)
+    place_piece(game, "e8", "king", COLOR_BLACK)
+    place_piece(game, "g1", "knight", COLOR_WHITE, has_moved=False)
+
+    original_hash = game._get_position_hash()
+    place_piece(game, "g1", "knight", COLOR_WHITE, has_moved=True)
+
+    assert game._get_position_hash() == original_hash
 
 
 def test_web_standard_actions_are_ordered_and_visible_once() -> None:
@@ -409,6 +484,23 @@ def test_timeout_ends_game_with_opponent_win() -> None:
     assert game.winner_color == COLOR_BLACK
 
 
+def test_timeout_with_insufficient_material_is_draw() -> None:
+    game = make_game_with_options(start=True, time_control="bullet_1_0")
+    clear_board(game)
+    place_piece(game, "e1", "king", COLOR_WHITE)
+    place_piece(game, "e8", "king", COLOR_BLACK)
+    game.current_player = game.players[0]
+    game.current_color = COLOR_WHITE
+    game.white_clock_ticks = 1
+    game.black_clock_ticks = 100
+
+    game.on_tick()
+
+    assert game.status == "finished"
+    assert game.winner_color == ""
+    assert game.draw_reason == "timeout_insufficient_material"
+
+
 def test_claim_required_draw_can_be_claimed() -> None:
     game = make_game_with_options(start=True, draw_handling="claim_required")
     white = game.players[0]
@@ -428,12 +520,49 @@ def test_claim_required_draw_can_be_claimed() -> None:
     assert game.draw_reason == "fifty_move_rule"
 
 
+def test_claim_required_threefold_can_be_claimed() -> None:
+    game = make_game_with_options(start=True, draw_handling="claim_required")
+    white = game.players[0]
+    clear_board(game)
+    place_piece(game, "e1", "king", COLOR_WHITE)
+    place_piece(game, "e8", "king", COLOR_BLACK)
+    current_hash = game._get_position_hash()
+    game.position_history = [current_hash, current_hash, current_hash]
+    game.current_player = white
+    game.current_color = COLOR_WHITE
+
+    assert game._is_claim_draw_enabled(white) is None
+
+    game._action_claim_draw(white, "claim_draw")
+
+    assert game.status == "finished"
+    assert game.draw_reason == "threefold_repetition"
+
+
 def test_automatic_draw_handling_hides_claim_action() -> None:
     game = make_game_with_options(start=True, draw_handling="automatic")
     white = game.players[0]
     game.halfmove_clock = 100
 
     assert game._is_claim_draw_enabled(white) == "action-not-available"
+
+
+def test_automatic_fifty_move_draw_triggers_on_move() -> None:
+    game = make_game_with_options(start=True, draw_handling="automatic")
+    white = game.players[0]
+    clear_board(game)
+    place_piece(game, "e1", "king", COLOR_WHITE)
+    place_piece(game, "e8", "king", COLOR_BLACK)
+    game.current_player = white
+    game.current_color = COLOR_WHITE
+    game.halfmove_clock = 99
+    game.position_history = [game._get_position_hash()]
+
+    select_square(game, white, "e1")
+    select_square(game, white, "e2")
+
+    assert game.status == "finished"
+    assert game.draw_reason == "fifty_move_rule"
 
 
 def test_draw_offer_can_be_accepted() -> None:
@@ -449,6 +578,18 @@ def test_draw_offer_can_be_accepted() -> None:
 
     assert game.status == "finished"
     assert game.draw_reason == "agreement"
+
+
+def test_draw_offer_can_be_declined() -> None:
+    game = make_game_with_options(start=True, allow_draw_offers=True)
+    white = game.players[0]
+    black = game.players[1]
+
+    game._action_offer_draw(white, "offer_draw")
+    game._action_decline_draw(black, "decline_draw")
+
+    assert game.status == "playing"
+    assert game.draw_offer_from == ""
 
 
 def test_undo_request_restores_previous_position() -> None:
@@ -471,6 +612,21 @@ def test_undo_request_restores_previous_position() -> None:
     assert game.board[notation_to_index("e4")] is None
     assert game.current_color == COLOR_WHITE
     assert not game.move_history
+
+
+def test_undo_request_can_be_declined() -> None:
+    game = make_game_with_options(start=True, allow_undo_requests=True)
+    white = game.players[0]
+    black = game.players[1]
+
+    select_square(game, white, "e2")
+    select_square(game, white, "e4")
+    game._action_request_undo(black, "request_undo")
+    game._action_decline_undo(white, "decline_undo")
+
+    assert game.status == "playing"
+    assert game.undo_request_from == ""
+    assert game.board[notation_to_index("e4")] is not None
 
 
 def test_custom_keybinds_do_not_use_reserved_keys() -> None:

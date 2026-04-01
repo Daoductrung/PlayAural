@@ -190,9 +190,6 @@ class BackgammonGame(Game):
     def create_player(self, player_id: str, name: str, is_bot: bool = False) -> BackgammonPlayer:
         return BackgammonPlayer(id=player_id, name=name, is_bot=is_bot)
 
-    def prestart_validate(self) -> list[str | tuple[str, dict]]:
-        return super().prestart_validate()
-
     def create_turn_action_set(self, player: BackgammonPlayer) -> ActionSet:
         user = self.get_user(player)
         locale = user.locale if user else "en"

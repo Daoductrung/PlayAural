@@ -2577,8 +2577,6 @@ PlayAural Server
                          user.speak_l("already-in-table", buffer="system")
                          self._nav_refresh(user, self._show_friend_actions_menu, target_username)
                          return
-                    else:
-                         current_table.remove_member(user.username)
 
                 # Block direct joins to private tables (must receive an explicit host invite)
                 user_is_member = any(m.username == user.username for m in table.members)
@@ -3372,6 +3370,14 @@ PlayAural Server
 
         table_id = table.table_id
 
+        current_table = self._tables.find_user_table(user.username)
+        if current_table == table:
+            user.speak_l("already-in-table", buffer="system")
+            return
+
+        if current_table and current_table != table:
+            self._leave_current_table_for_transfer(user, current_table)
+
         # Check if user is reclaiming a bot-replaced slot
         reclaimed_player = None
         if game.status == "playing":
@@ -3387,14 +3393,7 @@ PlayAural Server
         self._user_states[user.username] = {"menu": "in_game", "table_id": table_id}
 
         if reclaimed_player:
-            # User is reclaiming their slot from a bot
-            reclaimed_player.is_bot = False
-            game._users.pop(reclaimed_player.id, None)  # Remove bot user
-            game.attach_user(reclaimed_player.id, user)  # Attach human user
-            table.add_member(user.username, user, as_spectator=reclaimed_player.is_spectator)
-            game.broadcast_l("player-reclaimed-from-bot", buffer="system", player=user.username)
-            game.broadcast_sound("online.ogg")
-            game.rebuild_all_menus()
+            self._reclaim_bot_replaced_slot(user, table, reclaimed_player)
         else:
             # Determine if user can join as player
             active_players_count = sum(1 for p in game.players if not p.is_spectator)
@@ -3418,6 +3417,56 @@ PlayAural Server
                 game.broadcast_l("now-spectating", buffer="system", player=user.username)
                 game.broadcast_sound("join_spectator.ogg")
                 game.rebuild_all_menus()
+
+    def _reclaim_bot_replaced_slot(
+        self,
+        user: NetworkUser,
+        table: "Table",
+        reclaimed_player: "Player",
+        *,
+        message_key: str = "player-reclaimed-from-bot",
+        sound_name: str = "online.ogg",
+    ) -> None:
+        """Restore a human user to an in-progress seat currently held by a bot."""
+        game = table.game
+        if not game:
+            return
+
+        reclaimed_player.is_bot = False
+        reclaimed_player.replaced_human = False
+        game._users.pop(reclaimed_player.id, None)
+        game.attach_user(reclaimed_player.id, user)
+
+        existing_member = next(
+            (member for member in table.members if member.username == user.username),
+            None,
+        )
+        if existing_member:
+            existing_member.is_spectator = reclaimed_player.is_spectator
+            table.attach_user(user.username, user)
+        else:
+            table.add_member(
+                user.username,
+                user,
+                as_spectator=reclaimed_player.is_spectator,
+            )
+
+        game.broadcast_l(message_key, buffer="system", player=user.username)
+        game.broadcast_sound(sound_name)
+        game.rebuild_all_menus()
+
+    def _leave_current_table_for_transfer(
+        self, user: NetworkUser, current_table: "Table"
+    ) -> None:
+        """Leave the user's current table safely before joining another one."""
+        game = current_table.game
+        if game:
+            current_player = game.get_player_by_id(user.uuid)
+            if current_player:
+                game._perform_leave_game(current_player)
+
+        if any(member.username == user.username for member in current_table.members):
+            current_table.remove_member(user.username)
 
     def _return_from_join_menu(self, user: NetworkUser, state: dict) -> None:
         """Return to the appropriate tables menu after join."""
@@ -3916,13 +3965,13 @@ PlayAural Server
                         break
 
                 if matching_player:
-                    # Take over from the bot
-                    matching_player.is_bot = False
-                    game.attach_user(matching_player.id, user)
-                    table.add_member(user.username, user, as_spectator=False)
-                    game.broadcast_l("player-took-over", buffer="system", player=user.username)
-                    game.broadcast_sound("join.ogg")
-                    game.rebuild_all_menus()
+                    self._reclaim_bot_replaced_slot(
+                        user,
+                        table,
+                        matching_player,
+                        message_key="player-took-over",
+                        sound_name="join.ogg",
+                    )
                     self._user_states[user.username] = {
                         "menu": "in_game",
                         "table_id": table_id,

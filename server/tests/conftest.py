@@ -1,7 +1,9 @@
 ﻿"""Pytest configuration and fixtures."""
 
 import pytest
+import shutil
 import sys
+import tempfile
 from pathlib import Path
 
 # Add parent directory to path for imports
@@ -12,6 +14,18 @@ from ..messages.localization import Localization
 
 _locales_dir = Path(__file__).parent.parent / "locales"
 Localization.init(_locales_dir)
+
+
+@pytest.fixture
+def tmp_path() -> Path:
+    """Use a workspace-local temp directory to avoid locked system temp paths."""
+    base = Path(__file__).parent / ".tmp"
+    base.mkdir(exist_ok=True)
+    path = Path(tempfile.mkdtemp(dir=base))
+    try:
+        yield path
+    finally:
+        shutil.rmtree(path, ignore_errors=True)
 
 
 @pytest.fixture

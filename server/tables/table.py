@@ -141,6 +141,8 @@ class Table(DataClassJSONMixin):
     def attach_user(self, username: str, user: "User") -> None:
         """Attach a user to a member (e.g., after deserialization)."""
         self._users[username] = user
+        if self._manager and hasattr(self._manager, "_username_to_table"):
+            self._manager._username_to_table[username] = self.table_id
 
     def get_players(self) -> list[TableMember]:
         """Get all non-spectator members."""

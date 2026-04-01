@@ -1,5 +1,17 @@
 Nhật ký thay đổi
 
+Thứ Năm 2 Tháng Tư 2026
+
+Cập nhật máy chủ:
+
+Đã cải thiện tính năng quay lại bàn đại diện: Nếu bạn rời khỏi một ván đấu và người máy đã thay thế vị trí của bạn, giờ đây bạn có thể quay lại đúng chỗ ngồi cũ của mình một cách chính xác thông qua lời mời hoặc menu tham gia mà không gặp lỗi trùng lặp dữ liệu.
+
+Đã xử lý việc chuyển đổi bàn chơi an toàn hơn: Khi bạn tham gia một bàn chơi mới trong lúc đang ở một ván đấu khác, hệ thống sẽ thực hiện quy trình rời khỏi ván đấu cũ một cách hợp lệ trước khi chuyển bạn sang bàn mới. Điều này giúp đảm bảo ván đấu bạn vừa rời đi vẫn hoạt động ổn định và người máy có thể thay thế bạn đúng cách.
+
+Đã tăng cường tính ổn định cho hệ thống: Bổ sung thêm các kiểm tra nội bộ để đảm bảo việc hiển thị bàn chơi riêng tư và chuyển đổi giữa các trò chơi luôn chính xác và mượt mà.
+
+Đã sửa một lỗi kỹ thuật nền giúp hệ thống hoạt động ổn định và tin cậy hơn trên các môi trường máy tính Windows khác nhau.
+
 Thứ Tư 1 Tháng Tư 2026
 
 Cập nhật máy chủ:

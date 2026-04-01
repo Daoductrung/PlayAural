@@ -1,5 +1,17 @@
 Changelog
 
+Thursday 2 April 2026
+
+Server Updates:
+
+Improved seat reclamation: If you were replaced by a bot after leaving a game, you can now seamlessly take back your original seat via invitations or the join menu without creating duplicate entries.
+
+Safe table switching: Joining a new table while currently in a game now triggers a proper departure from your active match first. This ensures the game you left remains stable and a bot can take over correctly.
+
+Enhanced system reliability: Added extra safety checks for private table visibility and table switching to prevent errors.
+
+Resolved a technical background issue to ensure the platform runs more reliably across various Windows environments.
+
 Wednesday 1 April 2026
 
 Server Updates:

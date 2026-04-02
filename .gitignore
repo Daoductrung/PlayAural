@@ -24,7 +24,6 @@ wheels/
 .pytest_cache/
 .coverage
 htmlcov/
-errors.log
 config/*.json
 !config/default_*.json
 identities.json

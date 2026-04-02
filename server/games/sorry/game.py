@@ -78,6 +78,7 @@ class SorryGame(Game):
 
     game_state: SorryGameState = field(default_factory=SorryGameState)
     winner_name: str = ""
+    ended_due_to_empty_deck: bool = False
     event_queue: list[tuple[int, str, dict]] = field(default_factory=list)
 
     @classmethod
@@ -421,6 +422,7 @@ class SorryGame(Game):
         self.game_active = True
         self.round = 1
         self.winner_name = ""
+        self.ended_due_to_empty_deck = False
         self.event_queue = []
         self._sync_table_status()
 
@@ -503,36 +505,30 @@ class SorryGame(Game):
             return "draw_card"
 
         if self.game_state.turn_phase == "choose_split":
-            self._sync_turn_actions(player)
-            options = self._get_current_split_options(player)
-            player_state = self._get_player_state(player)
-            if not options or player_state is None:
-                return None
-            selected = choose_move(self.game_state, player_state, options, self._get_rules_profile())
-            if selected is None:
-                return None
-            slot_index = next(
-                (idx for idx, move in enumerate(options, start=1) if move.action_id == selected.action_id),
-                None,
-            )
-            return f"move_slot_{slot_index}" if slot_index is not None else None
+            return self._choose_bot_move_slot(player, self._get_current_split_options(player))
 
         if self.game_state.turn_phase == "choose_move":
-            self._sync_turn_actions(player)
-            options = self._get_current_legal_moves(player)
-            player_state = self._get_player_state(player)
-            if not options or player_state is None:
-                return None
-            selected = choose_move(self.game_state, player_state, options, self._get_rules_profile())
-            if selected is None:
-                return None
-            slot_index = next(
-                (idx for idx, move in enumerate(options, start=1) if move.action_id == selected.action_id),
-                None,
-            )
-            return f"move_slot_{slot_index}" if slot_index is not None else None
+            return self._choose_bot_move_slot(player, self._get_current_legal_moves(player))
 
         return None
+
+    def _choose_bot_move_slot(
+        self,
+        player: Player,
+        options: list[SorryMove],
+    ) -> str | None:
+        self._sync_turn_actions(player)
+        player_state = self._get_player_state(player)
+        if not options or player_state is None:
+            return None
+        selected = choose_move(self.game_state, player_state, options, self._get_rules_profile())
+        if selected is None:
+            return None
+        slot_index = next(
+            (idx for idx, move in enumerate(options, start=1) if move.action_id == selected.action_id),
+            None,
+        )
+        return f"move_slot_{slot_index}" if slot_index is not None else None
 
     def _start_turn(self, announce: bool = True) -> None:
         self.game_state.turn_phase = "draw"
@@ -570,6 +566,34 @@ class SorryGame(Game):
         current = self.current_player
         if current and current.is_bot:
             BotHelper.jolt_bot(current, ticks=random.randint(12, 20))
+
+    def _broadcast_personal_card_message(
+        self,
+        player: Player,
+        personal_message_id: str,
+        others_message_id: str,
+        card_face: str,
+    ) -> None:
+        for listener in self.players:
+            user = self.get_user(listener)
+            if not user:
+                continue
+            card_text = self._card_display_text(user.locale, card_face)
+            if listener.id == player.id:
+                user.speak_l(personal_message_id, buffer="game", card=card_text)
+            else:
+                user.speak_l(
+                    others_message_id,
+                    buffer="game",
+                    player=player.name,
+                    card=card_text,
+                )
+
+    def _handle_deck_exhaustion(self) -> None:
+        self.ended_due_to_empty_deck = True
+        self.game_state.turn_phase = "resolving"
+        self.broadcast_l("sorry-deck-exhausted", buffer="game")
+        self.finish_game()
 
     def _get_current_legal_moves(self, player: Player) -> list[SorryMove]:
         if self.game_state.turn_phase != "choose_move":
@@ -654,7 +678,7 @@ class SorryGame(Game):
                 steps=move.steps or 0,
             )
         if move.move_type == "swap":
-            target_name = self._target_player_name(move.target_player_id)
+            target_name = self._target_player_name(locale, move.target_player_id)
             return Localization.get(
                 locale,
                 "sorry-move-swap",
@@ -663,7 +687,7 @@ class SorryGame(Game):
                 target_pawn=move.target_pawn_index,
             )
         if move.move_type == "sorry":
-            target_name = self._target_player_name(move.target_player_id)
+            target_name = self._target_player_name(locale, move.target_player_id)
             return Localization.get(
                 locale,
                 "sorry-move-sorry",
@@ -687,11 +711,11 @@ class SorryGame(Game):
                 pawn_b=move.secondary_pawn_index,
                 steps_b=move.secondary_steps or 0,
             )
-        return move.description
+        return Localization.get(locale, "sorry-move-slot-fallback")
 
-    def _target_player_name(self, player_id: str | None) -> str:
+    def _target_player_name(self, locale: str, player_id: str | None) -> str:
         target = self.get_player_by_id(player_id) if player_id else None
-        return target.name if target else "Unknown"
+        return target.name if target else Localization.get(locale, "unknown-player")
 
     def _describe_pawn(self, locale: str, player_state: SorryPlayerState, pawn_index: int) -> str:
         pawn = player_state.pawns[pawn_index - 1]
@@ -809,7 +833,7 @@ class SorryGame(Game):
                 others_message_id = "sorry-play-swap"
                 kwargs = {
                     "pawn": move.pawn_index,
-                    "target_player": self._target_player_name(move.target_player_id),
+                    "target_player": self._target_player_name(locale, move.target_player_id),
                     "target_pawn": move.target_pawn_index,
                     "destination": self._move_destination(locale, player, move.pawn_index),
                 }
@@ -818,7 +842,7 @@ class SorryGame(Game):
                 others_message_id = "sorry-play-sorry"
                 kwargs = {
                     "pawn": move.pawn_index,
-                    "target_player": self._target_player_name(move.target_player_id),
+                    "target_player": self._target_player_name(locale, move.target_player_id),
                     "target_pawn": move.target_pawn_index,
                     "destination": self._move_destination(locale, player, move.pawn_index),
                 }
@@ -993,7 +1017,7 @@ class SorryGame(Game):
 
         card_face = draw_next_card(self.game_state)
         if card_face is None:
-            self._end_turn_after_card("0")
+            self._handle_deck_exhaustion()
             return
 
         self.play_sound(f"game_squares/draw{random.randint(1, 3)}.ogg")
@@ -1002,13 +1026,11 @@ class SorryGame(Game):
         self._queue_event(6, "after_draw", player_id=player.id, card_face=card_face)
 
     def _handle_after_draw(self, player: Player, card_face: str) -> None:
-        card_text = self._card_display_text("en", card_face)
-        self.broadcast_personal_l(
+        self._broadcast_personal_card_message(
             player,
             "sorry-you-draw-announcement",
             "sorry-draw-announcement",
-            buffer="game",
-            card=card_text,
+            card_face,
         )
 
         player_state = self._get_player_state(player)
@@ -1024,12 +1046,11 @@ class SorryGame(Game):
         )
 
         if not legal_moves:
-            self.broadcast_personal_l(
+            self._broadcast_personal_card_message(
                 player,
                 "sorry-you-no-legal-moves",
                 "sorry-no-legal-moves",
-                buffer="game",
-                card=card_text,
+                card_face,
             )
             discard_current_card(self.game_state)
             self._end_turn_after_card(card_face)
@@ -1164,9 +1185,6 @@ class SorryGame(Game):
             )
         self.status_box(player, lines)
 
-    def _is_slide_square(self, square: int) -> bool:
-        return self._slide_owner_color(square) is not None
-
     def _board_square_tokens(self, locale: str, square: int) -> list[str]:
         tokens: list[str] = []
         normalized_square = normalize_track_position(square)
@@ -1261,6 +1279,7 @@ class SorryGame(Game):
     def build_game_result(self) -> GameResult:
         final_scores = {player.name: player.pawns_in_home for player in self.get_active_players()}
         winner = max(self.get_active_players(), key=lambda player: player.pawns_in_home, default=None)
+        winner_name = None if self.ended_due_to_empty_deck else (self.winner_name or (winner.name if winner else None))
         return GameResult(
             game_type=self.get_type(),
             timestamp=datetime.now().isoformat(),
@@ -1274,7 +1293,8 @@ class SorryGame(Game):
                 for player in self.get_active_players()
             ],
             custom_data={
-                "winner_name": self.winner_name or (winner.name if winner else None),
+                "winner_name": winner_name,
                 "final_scores": final_scores,
+                "ended_due_to_empty_deck": self.ended_due_to_empty_deck,
             },
         )

@@ -39,7 +39,7 @@ class PawnDestination(DataClassJSONMixin):
 class SorryMove(DataClassJSONMixin):
     action_id: str
     move_type: str
-    description: str
+    description: str = ""
     pawn_index: int | None = None
     steps: int | None = None
     secondary_pawn_index: int | None = None
@@ -152,7 +152,6 @@ def _generate_start_moves(player_state: SorryPlayerState) -> list[SorryMove]:
         SorryMove(
             action_id=f"start_p{pawn.pawn_index}",
             move_type="start",
-            description=f"Move pawn {pawn.pawn_index} out of start",
             pawn_index=pawn.pawn_index,
         )
         for pawn in player_state.pawns
@@ -176,7 +175,6 @@ def _generate_forward_moves(player_state: SorryPlayerState, steps: int) -> list[
             SorryMove(
                 action_id=f"forward{steps}_p{pawn.pawn_index}",
                 move_type="forward",
-                description=f"Move pawn {pawn.pawn_index} forward {steps}",
                 pawn_index=pawn.pawn_index,
                 steps=steps,
             )
@@ -200,7 +198,6 @@ def _generate_backward_moves(player_state: SorryPlayerState, steps: int) -> list
             SorryMove(
                 action_id=f"backward{steps}_p{pawn.pawn_index}",
                 move_type="backward",
-                description=f"Move pawn {pawn.pawn_index} backward {steps}",
                 pawn_index=pawn.pawn_index,
                 steps=steps,
             )
@@ -226,7 +223,6 @@ def _generate_swap_moves(
                     SorryMove(
                         action_id=f"swap_p{own_pawn.pawn_index}_{opponent_id}_p{target.pawn_index}",
                         move_type="swap",
-                        description=f"Swap pawn {own_pawn.pawn_index} with {opponent_id} pawn {target.pawn_index}",
                         pawn_index=own_pawn.pawn_index,
                         target_player_id=opponent_id,
                         target_pawn_index=target.pawn_index,
@@ -260,7 +256,6 @@ def _generate_sorry_moves(
                     SorryMove(
                         action_id=f"sorry_p{own_pawn.pawn_index}_{opponent_id}_p{target.pawn_index}",
                         move_type="sorry",
-                        description=f"Move pawn {own_pawn.pawn_index} to replace {opponent_id} pawn {target.pawn_index}",
                         pawn_index=own_pawn.pawn_index,
                         target_player_id=opponent_id,
                         target_pawn_index=target.pawn_index,
@@ -288,7 +283,6 @@ def _generate_sorry_fallback_forward_moves(
             SorryMove(
                 action_id=f"sorry_fwd{steps}_p{pawn.pawn_index}",
                 move_type="sorry_fallback_forward",
-                description=f"Move pawn {pawn.pawn_index} forward {steps}",
                 pawn_index=pawn.pawn_index,
                 steps=steps,
             )
@@ -342,7 +336,6 @@ def _generate_split_seven_moves(player_state: SorryPlayerState) -> list[SorryMov
                 SorryMove(
                     action_id=f"split7_pair_p{pawn_a_index}_p{pawn_b_index}",
                     move_type="split7_pick",
-                    description=f"Split 7 between pawn {pawn_a_index} and pawn {pawn_b_index}",
                     pawn_index=pawn_a_index,
                     secondary_pawn_index=pawn_b_index,
                 )
@@ -380,7 +373,6 @@ def generate_split_options_for_pair(
             SorryMove(
                 action_id=f"split7_p{pawn_a_index}_{first_steps}_p{pawn_b_index}_{second_steps}",
                 move_type="split7",
-                description=f"Pawn {pawn_a_index} moves {first_steps}, pawn {pawn_b_index} moves {second_steps}",
                 pawn_index=pawn_a_index,
                 steps=first_steps,
                 secondary_pawn_index=pawn_b_index,
@@ -586,6 +578,8 @@ def apply_move(
         target_pos = target_pawn.track_position
         own_pawn.track_position = target_pos
         target_pawn.track_position = own_pos
+        # On an 11 switch, only the pawn whose move just ended checks for a slide.
+        # The displaced pawn does not immediately slide from the square it was moved to.
         events.extend(_resolve_slide_for_pawn(state, player_state, own_pawn, rules))
         return events
 

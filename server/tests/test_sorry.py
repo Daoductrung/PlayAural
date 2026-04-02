@@ -6,7 +6,7 @@ from ..games.registry import GameRegistry
 from ..games.sorry.game import SorryGame, SorryOptions
 from ..games.sorry.moves import apply_move, generate_legal_moves, generate_split_options_for_pair
 from ..games.sorry.rules import RULES_PROFILES
-from ..games.sorry.state import build_initial_game_state
+from ..games.sorry.state import build_default_draw_pile, build_initial_game_state
 from ..messages.localization import Localization
 from ..users.bot import Bot
 from ..users.test_user import MockUser
@@ -86,6 +86,15 @@ def test_on_start_initializes_state_and_music() -> None:
     )
 
 
+def test_default_deck_matches_standard_45_card_composition() -> None:
+    deck = build_default_draw_pile()
+
+    assert len(deck) == 45
+    assert deck.count("1") == 5
+    for face in ("2", "3", "4", "5", "7", "8", "10", "11", "12", "sorry"):
+        assert deck.count(face) == 4
+
+
 def test_classic_start_move_requires_one_or_two() -> None:
     state = build_initial_game_state(["p1", "p2"])
     player_state = state.player_states["p1"]
@@ -146,6 +155,28 @@ def test_swap_can_trigger_slide() -> None:
 
     assert red.pawns[0].track_position == 19
     assert blue.pawns[0].track_position == 10
+
+
+def test_swap_only_checks_slide_for_active_pawn() -> None:
+    state = build_initial_game_state(["p1", "p2"])
+    red = state.player_states["p1"]
+    blue = state.player_states["p2"]
+    rules = RULES_PROFILES["classic_00390"]
+
+    red.pawns[0].zone = "track"
+    red.pawns[0].track_position = 1
+    blue.pawns[0].zone = "track"
+    blue.pawns[0].track_position = 10
+
+    move = next(
+        move
+        for move in generate_legal_moves(state, red, "11", rules)
+        if move.move_type == "swap" and move.target_player_id == "p2" and move.target_pawn_index == 1
+    )
+    apply_move(state, red, move, rules)
+
+    assert red.pawns[0].track_position == 10
+    assert blue.pawns[0].track_position == 1
 
 
 def test_split_seven_moves_two_pawns() -> None:
@@ -285,6 +316,27 @@ def test_draw_announcement_waits_for_audio_queue() -> None:
 
     assert advance_until(game, lambda: game.game_state.turn_phase == "choose_move", max_ticks=30)
     assert Localization.get("en", "sorry-you-draw-announcement", card="1") in user.get_spoken_messages()
+
+
+def test_draw_announcements_localize_card_text_per_listener(monkeypatch) -> None:
+    game = make_game(start=True, locales=["en", "vi"])
+    player = game.players[0]
+    player_user = game.get_user(player)
+    other_user = game.get_user(game.players[1])
+    assert player_user is not None
+    assert other_user is not None
+
+    monkeypatch.setattr(
+        game,
+        "_card_display_text",
+        lambda locale, card_face: f"{locale}:{card_face}",
+    )
+
+    game._handle_after_draw(player, "4")
+
+    assert Localization.get("en", "sorry-you-draw-announcement", card="en:4") in player_user.get_spoken_messages()
+    assert Localization.get("vi", "sorry-draw-announcement", player=player.name, card="vi:4") in other_user.get_spoken_messages()
+    assert Localization.get("vi", "sorry-no-legal-moves", player=player.name, card="vi:4") in other_user.get_spoken_messages()
 
 
 def test_self_bump_uses_dedicated_message() -> None:
@@ -427,6 +479,25 @@ def test_result_contains_home_counts() -> None:
 
     assert result.custom_data["winner_name"] == player.name
     assert result.custom_data["final_scores"][player.name] == 4
+
+
+def test_empty_deck_ends_game_cleanly() -> None:
+    game = make_game(start=True)
+    player = game.current_player
+    assert player is not None
+    user = game.get_user(player)
+    assert user is not None
+
+    game.game_state.draw_pile = []
+    game.game_state.discard_pile = []
+    game._action_draw_card(player, "draw_card")
+
+    assert game.status == "finished"
+    assert Localization.get("en", "sorry-deck-exhausted") in user.get_spoken_messages()
+
+    result = game.build_game_result()
+    assert result.custom_data["ended_due_to_empty_deck"] is True
+    assert result.custom_data["winner_name"] is None
 
 
 def test_serialization_round_trips_game_state() -> None:

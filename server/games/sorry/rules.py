@@ -97,6 +97,9 @@ class Classic00390Rules:
         return "classic_00390"
 
 
+_CLASSIC_00390_RULES = Classic00390Rules()
+
+
 @dataclass(frozen=True)
 class A5065CoreRules:
     profile_id: str = "a5065_core"
@@ -104,25 +107,25 @@ class A5065CoreRules:
     pawns_per_player: int = 3
 
     def card_faces(self) -> tuple[str, ...]:
-        return Classic00390Rules().card_faces()
+        return _CLASSIC_00390_RULES.card_faces()
 
     def can_leave_start_with_card(self, card_face: str) -> bool:
         return bool(self.forward_steps_for_card(card_face))
 
     def forward_steps_for_card(self, card_face: str) -> tuple[int, ...]:
-        return Classic00390Rules().forward_steps_for_card(card_face)
+        return _CLASSIC_00390_RULES.forward_steps_for_card(card_face)
 
     def backward_steps_for_card(self, card_face: str) -> tuple[int, ...]:
-        return Classic00390Rules().backward_steps_for_card(card_face)
+        return _CLASSIC_00390_RULES.backward_steps_for_card(card_face)
 
     def allows_split_seven(self, card_face: str) -> bool:
-        return Classic00390Rules().allows_split_seven(card_face)
+        return _CLASSIC_00390_RULES.allows_split_seven(card_face)
 
     def allows_swap(self, card_face: str) -> bool:
-        return Classic00390Rules().allows_swap(card_face)
+        return _CLASSIC_00390_RULES.allows_swap(card_face)
 
     def allows_sorry(self, card_face: str) -> bool:
-        return Classic00390Rules().allows_sorry(card_face)
+        return _CLASSIC_00390_RULES.allows_sorry(card_face)
 
     def sorry_fallback_forward_steps(self, card_face: str) -> tuple[int, ...]:
         if card_face == "sorry":
@@ -137,7 +140,7 @@ class A5065CoreRules:
 
 
 RULES_PROFILES: dict[str, SorryRulesProfile] = {
-    "classic_00390": Classic00390Rules(),
+    "classic_00390": _CLASSIC_00390_RULES,
     "a5065_core": A5065CoreRules(),
 }
 

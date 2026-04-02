@@ -13,6 +13,9 @@ from .state import (
 )
 
 
+_LEGAL_BACKWARD_THREAT_DISTANCES = {1, 4}
+
+
 def _track_threat_count(
     state: SorryGameState,
     player_id: str,
@@ -29,7 +32,7 @@ def _track_threat_count(
             backward = clockwise_distance(target_track, pawn.track_position)
             if 1 <= forward <= 12:
                 threats += 1
-            elif 1 <= backward <= 4:
+            elif backward in _LEGAL_BACKWARD_THREAT_DISTANCES:
                 threats += 1
     return threats
 
@@ -58,20 +61,6 @@ def _moved_pawn_indexes(move: SorryMove) -> list[int]:
     if move.secondary_pawn_index is not None:
         indexes.append(move.secondary_pawn_index)
     return indexes
-
-
-def _capture_count(before: SorryGameState, after: SorryGameState, player_id: str) -> int:
-    before_start = 0
-    after_start = 0
-    for opponent_id, opponent_state in before.player_states.items():
-        if opponent_id == player_id:
-            continue
-        before_start += sum(1 for pawn in opponent_state.pawns if pawn.zone == "start")
-    for opponent_id, opponent_state in after.player_states.items():
-        if opponent_id == player_id:
-            continue
-        after_start += sum(1 for pawn in opponent_state.pawns if pawn.zone == "start")
-    return max(0, after_start - before_start)
 
 
 def choose_move(
@@ -105,7 +94,7 @@ def choose_move(
         own_start_after = sum(1 for pawn in sim_player.pawns if pawn.zone == "start")
 
         winning_flag = int(all(pawn.zone == "home" for pawn in sim_player.pawns))
-        capture_total = _capture_count(state, sim_state, player_state.player_id) + len(captures)
+        capture_total = len(captures)
         leave_start_flag = int(own_start_after < own_start_before)
 
         threat_count = 0

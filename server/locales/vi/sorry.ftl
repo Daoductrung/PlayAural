@@ -37,6 +37,7 @@ sorry-draw-announcement = { $player } rút được thẻ { $card }.
 sorry-you-draw-announcement = Bạn rút được thẻ { $card }.
 sorry-no-legal-moves = { $player } không có nước đi hợp lệ với thẻ { $card }.
 sorry-you-no-legal-moves = Bạn không có nước đi hợp lệ với thẻ { $card }.
+sorry-deck-exhausted = Chồng bài Sorry! đã hết, nên ván cờ kết thúc tại đây.
 sorry-you-extra-turn = Bạn rút thẻ 2 và được đi thêm lượt.
 sorry-player-extra-turn = { $player } rút thẻ 2 và được đi thêm lượt.
 

@@ -37,6 +37,7 @@ sorry-draw-announcement = { $player } draws { $card }.
 sorry-you-draw-announcement = You draw { $card }.
 sorry-no-legal-moves = { $player } has no legal move for { $card }.
 sorry-you-no-legal-moves = You have no legal move for { $card }.
+sorry-deck-exhausted = The Sorry deck is empty, so the game ends here.
 sorry-you-extra-turn = You drew a 2 and take another turn.
 sorry-player-extra-turn = { $player } drew a 2 and takes another turn.
 

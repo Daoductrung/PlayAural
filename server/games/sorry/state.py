@@ -25,6 +25,19 @@ CARD_FACES: tuple[str, ...] = (
     "12",
     "sorry",
 )
+DEFAULT_CARD_COUNTS: dict[str, int] = {
+    "1": 5,
+    "2": 4,
+    "3": 4,
+    "4": 4,
+    "5": 4,
+    "7": 4,
+    "8": 4,
+    "10": 4,
+    "11": 4,
+    "12": 4,
+    "sorry": 4,
+}
 
 
 @dataclass
@@ -84,7 +97,7 @@ def clockwise_distance(start: int, end: int) -> int:
 def build_default_draw_pile() -> list[str]:
     deck: list[str] = []
     for card in CARD_FACES:
-        deck.extend([card] * 4)
+        deck.extend([card] * DEFAULT_CARD_COUNTS[card])
     return deck
 
 

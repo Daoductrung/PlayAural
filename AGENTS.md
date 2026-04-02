@@ -48,10 +48,18 @@ Beyond the 14 base mixins, games can inherit from additional utility mixins:
 
 | Mixin | Module | Purpose |
 |-------|--------|---------|
-| `GridGameMixin` | `game_utils.grid_mixin` | 2D grid navigation, per-player cursors, arrow-key movement, cell actions with `grid_enabled`/`grid_width` protocol flags for web grid rendering. Override `get_cell_label`, `on_grid_select`, `is_grid_cell_enabled`, `is_grid_cell_hidden`. Call `_init_grid()` in `on_start()`, `setup_grid_keybinds()` in `setup_keybinds()`, and `build_grid_actions(player)` + `build_grid_nav_actions()` in `create_turn_action_set()`. |
+| `GridGameMixin` | `game_utils.grid_mixin` | 2D grid navigation, per-player cursors, arrow-key movement, cell actions with `grid_enabled`/`grid_width` protocol flags for web grid rendering. Override `get_cell_label`, `on_grid_select`, `is_grid_cell_enabled`, `is_grid_cell_hidden`. Call `_init_grid()` in `on_start()`, `setup_grid_keybinds()` in `setup_keybinds()`, and `build_grid_actions(player)` + `build_grid_nav_actions()` in `create_turn_action_set()`. Grid games must declare `grid_cursors: dict[str, GridCursor]` exactly — not tuples, lists, or untyped dicts — so Mashumaro can serialize saved table state safely. |
 | `TurnTimerMixin` | `game_utils.turn_timer_mixin` | Turn countdown timer using `PokerTurnTimer`. Call `start_turn_timer()`, `stop_turn_timer()`, `on_tick_turn_timer()` in `on_tick()`. |
 
 MRO placement: `class MyGame(Game, TurnTimerMixin)` or `class MyGame(GridGameMixin, TurnTimerMixin, Game)`. `GridGameMixin` must come before `Game`; `TurnTimerMixin` can go either side.
+
+**Grid serialization rule:** If a game uses `GridGameMixin`, every serialized grid field must use Mashumaro-safe types. In particular:
+- `grid_cursors` must be annotated as `dict[str, GridCursor]`
+- `grid_row_labels` must be `list[str]`
+- `grid_col_labels` must be `list[str]`
+- Do not store raw `(row, col)` tuples, ad-hoc dicts, or other cursor shapes in serialized game state
+
+Reason: Mashumaro serializers are generated from type annotations, not just runtime values. A mismatched annotation like `dict[str, tuple[int, int]]` can crash table save/restore even if the runtime objects happen to be `GridCursor` instances.
 
 ### 2.2 File Structure for a New Game
 

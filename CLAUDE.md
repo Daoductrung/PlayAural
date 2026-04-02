@@ -68,6 +68,17 @@ Games use a mixin-based architecture. Each game class inherits from `Game` plus 
 
 Games are dataclasses serialized via Mashumaro for state persistence.
 
+#### Grid Mixins and Cursor Serialization
+For any game using `GridGameMixin`, the grid state must be declared with Mashumaro-safe types that exactly match the runtime objects:
+
+- `grid_cursors: dict[str, GridCursor]`
+- `grid_row_labels: list[str]`
+- `grid_col_labels: list[str]`
+
+Do **not** annotate `grid_cursors` as `dict[str, tuple[int, int]]`, plain dicts, or any other loose shape, even if the values seem equivalent. Mashumaro generates serializers from the field annotations, so schema drift here can break table save/load with runtime errors during `to_json()`.
+
+Rule: if the grid mixin owns a serialized state object, use the mixin's canonical type directly. Do not substitute raw tuples for `GridCursor`.
+
 #### Spectator Action Visibility (`include_spectators`)
 
 Every `Action` has an `include_spectators: bool = False` field that controls whether spectators can see and execute the action. The default is `False` — spectators are blocked from all actions unless explicitly opted in.

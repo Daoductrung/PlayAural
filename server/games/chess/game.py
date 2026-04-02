@@ -14,7 +14,7 @@ from ..registry import register_game
 from ...game_utils.actions import Action, ActionSet, Visibility
 from ...game_utils.bot_helper import BotHelper
 from ...game_utils.game_result import GameResult, PlayerResult
-from ...game_utils.grid_mixin import GridGameMixin, grid_cell_id
+from ...game_utils.grid_mixin import GridCursor, GridGameMixin, grid_cell_id
 from ...game_utils.options import BoolOption, MenuOption, option_field
 from ...messages.localization import Localization
 from ...ui.keybinds import KeybindState
@@ -229,7 +229,7 @@ class ChessGame(GridGameMixin, Game):
         default_factory=lambda: ["8", "7", "6", "5", "4", "3", "2", "1"]
     )
     grid_col_labels: list[str] = field(default_factory=lambda: list("ABCDEFGH"))
-    grid_cursors: dict[str, tuple[int, int]] = field(default_factory=dict)
+    grid_cursors: dict[str, GridCursor] = field(default_factory=dict)
 
     @classmethod
     def get_name(cls) -> str:

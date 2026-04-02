@@ -3,6 +3,7 @@
 from pathlib import Path
 
 from ..game_utils.actions import Visibility
+from ..game_utils.grid_mixin import GridCursor
 from ..games.chess.game import (
     ChessGame,
     ChessOptions,
@@ -627,6 +628,33 @@ def test_undo_request_can_be_declined() -> None:
     assert game.status == "playing"
     assert game.undo_request_from == ""
     assert game.board[notation_to_index("e4")] is not None
+
+
+def test_chess_game_state_round_trips_with_grid_cursor() -> None:
+    game = make_game_with_options(
+        start=True,
+        time_control="blitz_3_2",
+        draw_handling="claim_required",
+        allow_draw_offers=True,
+        allow_undo_requests=True,
+    )
+    white = game.players[0]
+
+    select_square(game, white, "e2")
+    select_square(game, white, "e4")
+    game.grid_cursors[white.id] = GridCursor(row=3, col=4)
+    game.board_flipped[white.id] = True
+
+    payload = game.to_json()
+    restored = ChessGame.from_json(payload)
+
+    assert restored.grid_cursors[white.id].row == 3
+    assert restored.grid_cursors[white.id].col == 4
+    assert restored.board[notation_to_index("e4")] is not None
+    assert restored.board[notation_to_index("e2")] is None
+    assert restored.move_history[-1].from_square == notation_to_index("e2")
+    assert restored.move_history[-1].to_square == notation_to_index("e4")
+    assert restored.board_flipped[white.id] is True
 
 
 def test_custom_keybinds_do_not_use_reserved_keys() -> None:

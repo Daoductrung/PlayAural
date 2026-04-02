@@ -204,7 +204,7 @@ pytest -v                                      # verbose output
 
 ## Game Catalog
 
-27 games across four categories:
+28 games across four categories:
 
 ### Card Games
 
@@ -244,6 +244,7 @@ pytest -v                                      # verbose output
 | Battleship | Naval combat on a 2D grid — deploy your fleet and sink the enemy ships |
 | Backgammon | Classic two-player race game with match play, doubling cube, and bearing off |
 | Chess | Classic two-player strategy game with castling, en passant, promotion, and checkmate |
+| Sorry! | Track-racing board game with card-driven movement, swaps, slides, and surprise bumping |
 | Dominos | Classic tile-matching game with Draw/Block modes, spinner support, and team play |
 
 ### Social / Party

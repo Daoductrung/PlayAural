@@ -16,6 +16,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
+from mashumaro.mixins.json import DataClassJSONMixin
+
 from .actions import Action, ActionSet, Visibility
 from ..messages.localization import Localization
 
@@ -28,11 +30,21 @@ GRID_CELL_PREFIX = "grid_cell_"
 
 
 @dataclass
-class GridCursor:
+class GridCursor(DataClassJSONMixin):
     """Per-player cursor position on the grid."""
 
     row: int = 0
     col: int = 0
+
+    def __getitem__(self, index: int) -> int:
+        if index == 0:
+            return self.row
+        if index == 1:
+            return self.col
+        raise IndexError(index)
+
+    def __len__(self) -> int:
+        return 2
 
 
 class GridGameMixin:
@@ -66,6 +78,11 @@ class GridGameMixin:
         """Initialise the grid state.  Call once from ``on_start``."""
         if not hasattr(self, "grid_cursors"):
             self.grid_cursors: dict[str, GridCursor] = {}
+        else:
+            self.grid_cursors = {
+                player_id: self._coerce_grid_cursor(cursor)
+                for player_id, cursor in self.grid_cursors.items()
+            }
         for player in self.get_active_players():
             if player.id not in self.grid_cursors:
                 self.grid_cursors[player.id] = GridCursor(row=0, col=0)
@@ -75,6 +92,18 @@ class GridGameMixin:
             self.grid_col_labels = [
                 chr(ord("A") + i) for i in range(self.grid_cols)
             ]
+
+    def _coerce_grid_cursor(self, value) -> GridCursor:
+        if isinstance(value, GridCursor):
+            return value
+        if isinstance(value, (tuple, list)) and len(value) >= 2:
+            return GridCursor(row=int(value[0]), col=int(value[1]))
+        if isinstance(value, dict):
+            return GridCursor(
+                row=int(value.get("row", 0)),
+                col=int(value.get("col", 0)),
+            )
+        return GridCursor(row=0, col=0)
 
     # ------------------------------------------------------------------ #
     # Abstract — subclasses MUST override                                 #
@@ -136,7 +165,9 @@ class GridGameMixin:
         cursor = self.grid_cursors.get(player.id)
         if cursor is None:
             cursor = GridCursor(row=0, col=0)
-            self.grid_cursors[player.id] = cursor
+        else:
+            cursor = self._coerce_grid_cursor(cursor)
+        self.grid_cursors[player.id] = cursor
         return cursor
 
     def _clamp_cursor(self, cursor: GridCursor) -> None:

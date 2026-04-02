@@ -697,3 +697,40 @@ class TestPositionTracking:
         game._clamp_cursor(cursor)
         assert cursor.row == 2
         assert cursor.col == 0
+
+
+# ------------------------------------------------------------------ #
+# Unit tests: serialization                                           #
+# ------------------------------------------------------------------ #
+
+
+class TestSerialization:
+    def test_grid_cursor_round_trips_through_game_json(self) -> None:
+        game = make_game(rows=4, cols=4, start=True)
+        player = game.get_active_players()[0]
+        game.grid_cursors[player.id] = GridCursor(row=2, col=3)
+
+        payload = game.to_json()
+        restored = GridTestGame.from_json(payload)
+
+        assert restored.grid_cursors[player.id].row == 2
+        assert restored.grid_cursors[player.id].col == 3
+
+    def test_battleship_game_state_with_grid_cursor_serializes(self) -> None:
+        from ..games.battleship.game import BattleshipGame
+
+        game = BattleshipGame()
+        game.setup_keybinds()
+        game.add_player("Player1", MockUser("Player1", uuid="p1"))
+        game.add_player("Player2", MockUser("Player2", uuid="p2"))
+        game.host = "Player1"
+        game.on_start()
+
+        player = game.get_active_players()[0]
+        game.grid_cursors[player.id] = GridCursor(row=4, col=5)
+
+        payload = game.to_json()
+        restored = BattleshipGame.from_json(payload)
+
+        assert restored.grid_cursors[player.id].row == 4
+        assert restored.grid_cursors[player.id].col == 5

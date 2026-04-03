@@ -173,11 +173,6 @@ enter-bot-name = Enter bot name
 no-options-available = No options available.
 no-scores-available = No scores available.
 
-estimate-duration = Estimate duration
-estimate-computing = Computing estimated game duration...
-estimate-result = Bot average: { $bot_time } (± { $std_dev }). { $outlier_info }Estimated human time: { $human_time }.
-estimate-error = Could not estimate duration.
-estimate-already-running = Duration estimation already in progress.
 
 saved-tables = Saved Tables
 no-saved-tables = You have no saved tables.

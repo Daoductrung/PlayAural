@@ -141,20 +141,6 @@ class ActionVisibilityMixin:
             return Visibility.HIDDEN
         return Visibility.VISIBLE
 
-    # --- Estimate actions ---
-
-    def _is_estimate_duration_enabled(self, player: "Player") -> str | None:
-        """Check if estimate_duration action is enabled."""
-        if self.status != "waiting":
-            return "action-game-in-progress"
-        return None
-
-    def _is_estimate_duration_hidden(self, player: "Player") -> Visibility:
-        """Estimate duration is visible in waiting state."""
-        if self.status != "waiting":
-            return Visibility.HIDDEN
-        return Visibility.VISIBLE
-
     # --- Standard actions ---
 
     def _is_show_actions_enabled(self, player: "Player") -> str | None:

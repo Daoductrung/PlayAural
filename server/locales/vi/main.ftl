@@ -173,11 +173,6 @@ enter-bot-name = Nhập tên bot
 no-options-available = Không có tùy chọn nào.
 no-scores-available = Chưa có điểm số.
 
-estimate-duration = Ước tính thời gian
-estimate-computing = Đang tính toán thời gian chơi ước tính...
-estimate-result = Bot trung bình: { $bot_time } (± { $std_dev }). { $outlier_info }Ước tính người chơi: { $human_time }.
-estimate-error = Không thể ước tính thời gian.
-estimate-already-running = Đang trong quá trình ước tính thời gian.
 
 saved-tables = Các bàn đã lưu
 no-saved-tables = Bạn không có bàn nào đã lưu.

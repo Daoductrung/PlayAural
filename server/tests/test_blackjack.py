@@ -134,6 +134,17 @@ def test_blackjack_on_start_waits_for_bets_then_deals_and_posts_bets() -> None:
     assert game.phase == "settle"
     assert game.hand_number == 0
 
+    game.deck = Deck(
+        [
+            make_card(1, 9, 1),
+            make_card(2, 8, 2),
+            make_card(3, 10, 3),
+            make_card(4, 7, 1),
+            make_card(5, 7, 2),
+            make_card(6, 6, 3),
+        ]
+    )
+
     game._action_set_next_bet(guest_player, "10", "set_next_bet")
 
     assert game.status == "playing"

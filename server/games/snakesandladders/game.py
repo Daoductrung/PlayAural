@@ -17,6 +17,7 @@ from ..registry import register_game
 from ...game_utils.actions import Action, ActionSet, Visibility
 from ...game_utils.bot_helper import BotHelper
 from ...game_utils.game_result import GameResult, PlayerResult
+from ...game_utils.sequence_runner_mixin import SequenceBeat, SequenceOperation
 from ...messages.localization import Localization
 from ...ui.keybinds import KeybindState
 
@@ -49,7 +50,6 @@ class SnakesAndLaddersGame(Game):
     
     # Game Logic State
     is_rolling: bool = False
-    event_queue: list[tuple[int, str, dict]] = field(default_factory=list)
 
     # Game Constants
     WINNING_SQUARE = 100
@@ -100,6 +100,7 @@ class SnakesAndLaddersGame(Game):
         self.status = "playing"
         self._sync_table_status()
         self.game_active = True
+        self.cancel_all_sequences()
 
         # Initialize players
         for p in self.players:
@@ -117,6 +118,7 @@ class SnakesAndLaddersGame(Game):
 
     def _start_turn(self) -> None:
         """Start the current player's turn."""
+        self.cancel_sequences_by_tag("turn_flow")
         player = self.current_player
         if not player:
             return
@@ -141,6 +143,55 @@ class SnakesAndLaddersGame(Game):
             BotHelper.jolt_bot(player, ticks=random.randint(20, 40))
 
         self.rebuild_all_menus()
+
+    def on_sequence_callback(
+        self,
+        sequence_id: str,
+        callback_id: str,
+        payload: dict,
+    ) -> None:
+        _ = sequence_id
+        player_id = payload.get("player_id")
+        player = self.get_player_by_id(player_id) if player_id else None
+
+        if callback_id == "move":
+            if player:
+                new_pos = payload["pos"]
+                player.position = new_pos
+                self.broadcast_l("snakes-move", player=player.name, position=new_pos)
+            return
+
+        if callback_id == "bounce":
+            if player:
+                new_pos = payload["pos"]
+                player.position = new_pos
+                self.broadcast_l("snakes-bounce", player=player.name, position=new_pos)
+            return
+
+        if callback_id == "ladder":
+            if player:
+                start = payload["start"]
+                end = payload["end"]
+                player.position = end
+                self.broadcast_l("snakes-ladder", player=player.name, start=start, end=end)
+            return
+
+        if callback_id == "snake":
+            if player:
+                start = payload["start"]
+                end = payload["end"]
+                player.position = end
+                self.broadcast_l("snakes-snake", player=player.name, start=start, end=end)
+            return
+
+        if callback_id == "win":
+            if player:
+                self._handle_win(player)  # type: ignore[arg-type]
+            return
+
+        if callback_id == "end_turn":
+            self.is_rolling = False
+            self.end_turn()
 
     def create_turn_action_set(self, player: SnakesPlayer) -> ActionSet:
         action_set = ActionSet(name="turn")
@@ -247,16 +298,19 @@ class SnakesAndLaddersGame(Game):
         user = self.get_user(player)
         if not user:
             return
-            
-        # Format for speech: "Trung 1, Bot 5"
-        # Use comma for natural pause
+
         speech_parts = []
-        
-        for p in self.get_active_players():
+
+        ordered_players = sorted(
+            self.get_active_players(),
+            key=lambda p: p.position,
+            reverse=True,
+        )
+
+        for p in ordered_players:
             sp: SnakesPlayer = p # type: ignore
             speech_parts.append(f"{p.name} {sp.position}")
-        
-        # Speak the positions
+
         header = Localization.get(user.locale, "snakes-positions-header")
         user.speak(f"{header} {', '.join(speech_parts)}")
 
@@ -276,9 +330,6 @@ class SnakesAndLaddersGame(Game):
         
         self.broadcast_l("snakes-roll-result", player=player.name, roll=roll)
         
-        # Current tick for scheduling
-        current_tick = self.sound_scheduler_tick
-        
         # Delays
         step_delay_start = 8 # Wait after roll
         step_interval = 4    # Fast steps
@@ -296,37 +347,38 @@ class SnakesAndLaddersGame(Game):
         old_pos = snakes_player.position
         intermediate_pos = old_pos + roll
         
-        # Event: Update position AFTER steps
-        move_complete_tick = current_tick + step_delay_start + (roll * step_interval)
-        self.event_queue.append((
-            move_complete_tick, 
-            "move", 
-            {"player_id": player.id, "pos": intermediate_pos}
-        ))
-        
-        next_event_tick = move_complete_tick + 2 # Tiny pause after move (reduced from 5)
-        
+        move_complete_delay = step_delay_start + (roll * step_interval)
+
         # --- PHASE 2: Bounce Back ---
         final_pre_interaction_pos = intermediate_pos
-        
+        beats = [
+            SequenceBeat(
+                ops=[
+                    SequenceOperation.callback_op(
+                        "move",
+                        {"player_id": player.id, "pos": intermediate_pos},
+                    )
+                ],
+                delay_after_ticks=2,
+            )
+        ]
+
         if intermediate_pos > self.WINNING_SQUARE:
             overshoot = intermediate_pos - self.WINNING_SQUARE
             final_pre_interaction_pos = self.WINNING_SQUARE - overshoot
-            
-            # Bounce sound
-            self.schedule_sound(
-                "game_snakes/bounce.ogg", 
-                delay_ticks=next_event_tick - current_tick
+
+            self.schedule_sound("game_snakes/bounce.ogg", delay_ticks=move_complete_delay + 2)
+            beats.append(
+                SequenceBeat(
+                    ops=[
+                        SequenceOperation.callback_op(
+                            "bounce",
+                            {"player_id": player.id, "pos": final_pre_interaction_pos},
+                        )
+                    ],
+                    delay_after_ticks=8,
+                )
             )
-            
-            # Event: Bounce update
-            self.event_queue.append((
-                next_event_tick,
-                "bounce",
-                {"player_id": player.id, "pos": final_pre_interaction_pos}
-            ))
-            
-            next_event_tick += 8 # Pause after bounce (reduced from 15)
             
         # --- PHASE 3: Interactions (Snake/Ladder) ---
         # Check interaction at the position where player landed (after potential bounce)
@@ -343,118 +395,70 @@ class SnakesAndLaddersGame(Game):
             
             # Sound
             ladder_variant = random.randint(1, self.NUM_LADDER_SOUNDS)
-            self.schedule_sound(
-                f"game_snakes/ladder{ladder_variant}.ogg", 
-                delay_ticks=next_event_tick - current_tick
+            ladder_delay = move_complete_delay + 2 + (8 if intermediate_pos > self.WINNING_SQUARE else 0)
+            self.schedule_sound(f"game_snakes/ladder{ladder_variant}.ogg", delay_ticks=ladder_delay)
+            beats.append(
+                SequenceBeat(
+                    ops=[
+                        SequenceOperation.callback_op(
+                            "ladder",
+                            {"player_id": player.id, "start": final_pos, "end": top},
+                        )
+                    ],
+                    delay_after_ticks=15,
+                )
             )
-            
-            # Event: Ladder Climb
-            self.event_queue.append((
-                next_event_tick,
-                "ladder",
-                {"player_id": player.id, "start": final_pos, "end": top}
-            ))
-            
             final_pos = top
-            next_event_tick += 15 # Pause for ladder (reduced from 30)
-            
             if final_pos == self.WINNING_SQUARE:
                 is_win = True
                 
         elif final_pos in self.SNAKES:
             # Snake
             tail = self.SNAKES[final_pos]
-            
-            # Sound
-            self.schedule_sound(
-                "game_snakes/snake.ogg", 
-                delay_ticks=next_event_tick - current_tick
+
+            snake_delay = move_complete_delay + 2 + (8 if intermediate_pos > self.WINNING_SQUARE else 0)
+            self.schedule_sound("game_snakes/snake.ogg", delay_ticks=snake_delay)
+            beats.append(
+                SequenceBeat(
+                    ops=[
+                        SequenceOperation.callback_op(
+                            "snake",
+                            {"player_id": player.id, "start": final_pos, "end": tail},
+                        )
+                    ],
+                    delay_after_ticks=12,
+                )
             )
-            
-            # Event: Snake Bite
-            self.event_queue.append((
-                next_event_tick,
-                "snake",
-                {"player_id": player.id, "start": final_pos, "end": tail}
-            ))
-            
             final_pos = tail
-            next_event_tick += 12 # Pause for snake (reduced from 25)
 
         # --- PHASE 4: Conclusion ---
-        
         if is_win:
-             # Win event
-             self.event_queue.append((
-                 next_event_tick,
-                 "win",
-                 {"player_id": player.id}
-             ))
+            beats.append(
+                SequenceBeat(
+                    ops=[
+                        SequenceOperation.callback_op(
+                            "win",
+                            {"player_id": player.id},
+                        )
+                    ]
+                )
+            )
         else:
-             # End Turn event
-             self.event_queue.append((
-                 next_event_tick + 5, # Quick turn change (reduced from 10)
-                 "end_turn",
-                 {}
-             ))
+            beats.append(SequenceBeat.pause(5))
+            beats.append(
+                SequenceBeat(
+                    ops=[SequenceOperation.callback_op("end_turn")],
+                )
+            )
 
-        # We do NOT manually set position here anymore. 
-        # It is set by the event processor.
-
-    def _process_events(self) -> None:
-        """Process queued game events."""
-        if not self.event_queue:
-            return
-
-        # Process all events up to current tick
-        current_queue = list(self.event_queue)
-        self.event_queue = []
-        current_tick = self.sound_scheduler_tick
-        
-        for tick, event_type, data in current_queue:
-            if tick <= current_tick:
-                self._handle_event(event_type, data)
-            else:
-                self.event_queue.append((tick, event_type, data))
-
-    def _handle_event(self, event_type: str, data: dict) -> None:
-        """Execute a single game event."""
-        player_id = data.get("player_id")
-        player = self.get_player_by_id(player_id) if player_id else None
-        
-        if event_type == "move":
-            if player:
-                new_pos = data["pos"]
-                player.position = new_pos
-                self.broadcast_l("snakes-move", player=player.name, position=new_pos)
-
-        elif event_type == "bounce":
-            if player:
-                new_pos = data["pos"]
-                player.position = new_pos
-                self.broadcast_l("snakes-bounce", player=player.name, position=new_pos)
-
-        elif event_type == "ladder":
-            if player:
-                start = data["start"]
-                end = data["end"]
-                player.position = end
-                self.broadcast_l("snakes-ladder", player=player.name, start=start, end=end)
-
-        elif event_type == "snake":
-            if player:
-                start = data["start"]
-                end = data["end"]
-                player.position = end
-                self.broadcast_l("snakes-snake", player=player.name, start=start, end=end)
-
-        elif event_type == "win":
-            if player:
-                self._handle_win(player) # type: ignore
-
-        elif event_type == "end_turn":
-            self.is_rolling = False
-            self.end_turn()
+        self.start_sequence(
+            "turn_flow",
+            beats,
+            start_delay=move_complete_delay,
+            tag="turn_flow",
+            lock_scope=self.SEQUENCE_LOCK_GAMEPLAY,
+            pause_bots=True,
+        )
 
     def _handle_win(self, winner: SnakesPlayer, delay: int = 0) -> None:
         """Handle win condition."""
@@ -474,12 +478,9 @@ class SnakesAndLaddersGame(Game):
 
     def on_tick(self) -> None:
         super().on_tick()
-        # Process sound scheduler
         self.process_scheduled_sounds()
-        # Process logic queue
-        self._process_events()
-        
-        if self.status == "playing":
+        self.process_sequences()
+        if self.status == "playing" and not self.is_sequence_bot_paused():
             BotHelper.on_tick(self)
 
     def bot_think(self, player: SnakesPlayer) -> str | None:

@@ -60,7 +60,9 @@ def test_handler_extraction():
 
     assert game.is_resolving == True
 
-    # Event queue should have target ID
-    event = game.event_queue[0]
-    assert event[1] == "prompt_lose_influence"
-    assert event[2]["target_id"] == p2.id
+    # The delayed lose-influence prompt now lives in the shared sequence runner.
+    assert game.has_active_sequence(sequence_id="resolution")
+    sequence = game.active_sequences[0]
+    op = sequence.beats[0].ops[0]
+    assert op.callback_id == "prompt_lose_influence"
+    assert op.payload["target_id"] == p2.id

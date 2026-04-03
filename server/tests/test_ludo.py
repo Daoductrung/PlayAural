@@ -474,6 +474,24 @@ class TestLudoActions:
         spoken = self.u1.get_spoken_messages()
         assert any("Select token to move" in msg for msg in spoken)
 
+    def test_check_board_remains_available_during_roll_sequence(self, monkeypatch):
+        self.p1.tokens[0].state = "track"
+        self.p1.tokens[0].position = 10
+
+        def fake_randint(start, end):
+            if (start, end) == (1, 6):
+                return 3
+            return 1
+
+        monkeypatch.setattr(random, "randint", fake_randint)
+
+        self.game.execute_action(self.p1, "roll_dice")
+
+        assert self.game.is_sequence_gameplay_locked() is True
+        self.game.execute_action(self.p1, "check_board")
+        spoken = self.u1.get_spoken_messages()
+        assert any("Alice" in msg for msg in spoken)
+
     def test_web_standard_actions_follow_project_order(self):
         self.u1.client_type = "web"
 
@@ -795,6 +813,40 @@ class TestLudoPersistence:
 
         actions = game.get_all_enabled_actions(game.players[0])
         assert len(actions) > 0
+
+    def test_move_sequence_resumes_after_reload(self, monkeypatch):
+        game = LudoGame()
+        user = MockUser("Alice")
+        bot = Bot("Bot")
+        p1 = game.add_player("Alice", user)
+        game.add_player("Bot", bot)
+        game.on_start()
+
+        p1.tokens[0].state = "track"
+        p1.tokens[0].position = 10
+
+        def fake_randint(start, end):
+            if (start, end) == (1, 6):
+                return 3
+            return 1
+
+        monkeypatch.setattr(random, "randint", fake_randint)
+
+        game.execute_action(p1, "roll_dice")
+        payload = game.to_json()
+
+        restored = LudoGame.from_json(payload)
+        restored.attach_user(p1.id, user)
+        restored.attach_user(game.players[1].id, bot)
+
+        assert restored.has_active_sequence(tag="turn_flow") is True
+
+        for _ in range(20):
+            restored.on_tick()
+            if restored.players[0].tokens[0].position == 13:
+                break
+
+        assert restored.players[0].tokens[0].position == 13
 
 
 if __name__ == "__main__":

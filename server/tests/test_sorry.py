@@ -318,6 +318,22 @@ def test_draw_announcement_waits_for_audio_queue() -> None:
     assert Localization.get("en", "sorry-you-draw-announcement", card="1") in user.get_spoken_messages()
 
 
+def test_info_actions_remain_available_during_draw_sequence() -> None:
+    game = make_game(start=True)
+    player = game.players[0]
+    user = game.get_user(player)
+    assert user is not None
+    user.clear_messages()
+
+    game.game_state.draw_pile = ["1"]
+    game._action_draw_card(player, "draw_card")
+
+    assert game.is_sequence_gameplay_locked() is True
+    game._action_check_card(player, "check_card")
+
+    assert Localization.get("en", "sorry-current-card", card="1") in user.get_spoken_messages()
+
+
 def test_draw_announcements_localize_card_text_per_listener(monkeypatch) -> None:
     game = make_game(start=True, locales=["en", "vi"])
     player = game.players[0]
@@ -498,6 +514,28 @@ def test_empty_deck_ends_game_cleanly() -> None:
     result = game.build_game_result()
     assert result.custom_data["ended_due_to_empty_deck"] is True
     assert result.custom_data["winner_name"] is None
+
+
+def test_draw_sequence_resumes_after_reload() -> None:
+    game = make_game(start=True)
+    player = game.players[0]
+    user = game.get_user(player)
+    assert user is not None
+
+    game.game_state.draw_pile = ["1"]
+    game._action_draw_card(player, "draw_card")
+    payload = game.to_json()
+
+    restored = SorryGame.from_json(payload)
+    for restored_player in restored.players:
+        original_player = game.get_player_by_id(restored_player.id)
+        assert original_player is not None
+        original_user = game.get_user(original_player)
+        assert original_user is not None
+        restored.attach_user(restored_player.id, original_user)
+
+    assert restored.has_active_sequence(tag="turn_flow") is True
+    assert advance_until(restored, lambda: restored.game_state.turn_phase == "choose_move", max_ticks=30)
 
 
 def test_serialization_round_trips_game_state() -> None:

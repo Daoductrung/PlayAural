@@ -23,6 +23,7 @@ from ..registry import register_game
 from ...game_utils.actions import Action, ActionSet, Visibility, MenuInput
 from ...game_utils.bot_helper import BotHelper
 from ...game_utils.game_result import GameResult, PlayerResult
+from ...game_utils.sequence_runner_mixin import SequenceBeat, SequenceOperation
 from ...messages.localization import Localization
 from ...ui.keybinds import KeybindState
 
@@ -66,7 +67,6 @@ class CoupGame(Game):
 
     # Audio sequence timing and state locking
     is_resolving: bool = False
-    event_queue: list[tuple[int, str, dict]] = field(default_factory=list)
 
     # Static lengths for Coup audio files in ticks (20 ticks = 1 second)
     AUDIO_DURATIONS_TICKS = {
@@ -140,6 +140,7 @@ class CoupGame(Game):
         self.status = "playing"
         self._sync_table_status()
         self.game_active = True
+        self.cancel_all_sequences()
         self.round = 1
 
         # Initialize deck
@@ -183,6 +184,7 @@ class CoupGame(Game):
 
     def _start_turn(self) -> None:
         """Start a player's turn."""
+        self.cancel_sequences_by_tag("resolution")
         player = self.current_player
         if not player or not isinstance(player, CoupPlayer):
             return
@@ -841,11 +843,11 @@ class CoupGame(Game):
         self.broadcast_l("coup-plays-coup", player=player.name, target=target.name)
 
         duration = self.get_audio_duration_ticks("coup.ogg")
-        self.event_queue.append((
-            self.sound_scheduler_tick + duration,
+        self._start_resolution_callback(
             "prompt_lose_influence",
-            {"target_id": target.id, "reason": "coup"}
-        ))
+            delay_ticks=duration,
+            payload={"target_id": target.id, "reason": "coup"},
+        )
 
     def _action_tax(self, player: Player, action_id: str) -> None:
         self._declare_action(player.id, "tax")
@@ -936,11 +938,11 @@ class CoupGame(Game):
         self.broadcast_l("coup-challenges", challenger=player.name, target=claimer.name)
 
         duration = self.get_audio_duration_ticks("challenge.ogg")
-        self.event_queue.append((
-            self.sound_scheduler_tick + duration,
+        self._start_resolution_callback(
             "resolve_challenge",
-            {"challenger_id": player.id}
-        ))
+            delay_ticks=duration,
+            payload={"challenger_id": player.id},
+        )
 
     def _action_block(self, player: Player, action_id: str) -> None:
         if self.turn_phase != "action_declared":
@@ -1025,72 +1027,53 @@ class CoupGame(Game):
         }
         return mapping.get(action, "")
 
-    def _process_events(self) -> None:
-        """Process queued game events."""
-        if not self.event_queue:
+    def _start_resolution_callback(
+        self,
+        callback_id: str,
+        *,
+        delay_ticks: int = 0,
+        payload: dict | None = None,
+    ) -> None:
+        self.start_sequence(
+            "resolution",
+            [
+                SequenceBeat(
+                    ops=[SequenceOperation.callback_op(callback_id, payload or {})],
+                )
+            ],
+            start_delay=max(0, delay_ticks),
+            tag="resolution",
+            lock_scope=self.SEQUENCE_LOCK_GAMEPLAY,
+            pause_bots=True,
+        )
+
+    def on_sequence_callback(
+        self,
+        sequence_id: str,
+        callback_id: str,
+        payload: dict,
+    ) -> None:
+        _ = sequence_id
+        if callback_id == "prompt_lose_influence":
+            self.is_resolving = False
+            self._prompt_lose_influence(payload.get("target_id"), payload.get("reason"))
             return
 
-        current_queue = list(self.event_queue)
-        self.event_queue = []
-        current_tick = self.sound_scheduler_tick
+        if callback_id == "resolve_challenge":
+            self._execute_challenge(payload.get("challenger_id"))
+            return
 
-        for tick, event_type, data in current_queue:
-            if tick <= current_tick:
-                self._handle_event(event_type, data)
-            else:
-                self.event_queue.append((tick, event_type, data))
+        if callback_id == "post_challenge_lose_influence":
+            self.is_resolving = False
+            self._prompt_lose_influence(payload.get("target_id"), payload.get("reason"))
+            return
 
-    def _handle_event(self, event_type: str, data: dict) -> None:
-        if event_type == "resolve_income":
-            player = self.get_player_by_id(data.get("player_id"))
-            if player:
-                player.coins += 1
-                self.broadcast_l("coup-takes-income", player=player.name)
+        if callback_id == "post_block_success":
             self.is_resolving = False
             self._end_turn()
+            return
 
-        elif event_type == "prompt_lose_influence":
-            self.is_resolving = False
-            self._prompt_lose_influence(data.get("target_id"), data.get("reason"))
-
-        elif event_type == "start_interrupt_window":
-            self.interrupt_timer_ticks = self.options.timer_duration_seconds * 20
-            self.interrupt_duration_ticks = self.interrupt_timer_ticks
-            self.is_resolving = False
-            self.broadcast_l("coup-waiting-for-reactions")
-            self.rebuild_all_menus()
-            BotHelper.jolt_bots(self, ticks=random.randint(40, 80)) # 2-4 seconds delay
-
-        elif event_type == "start_waiting_block":
-            self.turn_phase = "waiting_block"
-            self.active_claimer_id = data.get("blocker_id")
-            self.interrupt_timer_ticks = self.options.timer_duration_seconds * 20
-            self.interrupt_duration_ticks = self.interrupt_timer_ticks
-            self.passed_players = set()
-            self.is_resolving = False
-            self.broadcast_l("coup-waiting-for-reactions")
-            self.rebuild_all_menus()
-            BotHelper.jolt_bots(self, ticks=random.randint(40, 80))
-
-        elif event_type == "resolve_challenge":
-            self._execute_challenge(data.get("challenger_id"))
-
-        elif event_type == "post_challenge_lose_influence":
-            self.is_resolving = False
-            self._prompt_lose_influence(data.get("target_id"), data.get("reason"))
-
-        elif event_type == "post_challenge_resolve_action":
-            self._resolve_action()
-
-        elif event_type == "post_challenge_end_turn":
-            self.is_resolving = False
-            self._end_turn()
-
-        elif event_type == "post_block_success":
-            self.is_resolving = False
-            self._end_turn()
-
-        elif event_type == "post_lose_influence":
+        if callback_id == "post_lose_influence":
             self.is_resolving = False
             self._post_lose_influence()
 
@@ -1168,11 +1151,11 @@ class CoupGame(Game):
                 # We will just play the block success sound alongside the challenge success.
                 # Technically we should maybe sequentialize this, but both are short.
 
-            self.event_queue.append((
-                self.sound_scheduler_tick + duration,
+            self._start_resolution_callback(
                 "post_challenge_lose_influence",
-                {"target_id": player.id, "reason": "failed_challenge"}
-            ))
+                delay_ticks=duration,
+                payload={"target_id": player.id, "reason": "failed_challenge"},
+            )
 
         else:
             # Challenge succeeds!
@@ -1187,20 +1170,19 @@ class CoupGame(Game):
 
             self.broadcast_l("coup-bluff-called", player=claimer.name)
 
-            self.event_queue.append((
-                self.sound_scheduler_tick + duration,
+            self._start_resolution_callback(
                 "post_challenge_lose_influence",
-                {"target_id": claimer.id, "reason": "lost_challenge"}
-            ))
+                delay_ticks=duration,
+                payload={"target_id": claimer.id, "reason": "lost_challenge"},
+            )
 
     def on_tick(self) -> None:
         super().on_tick()
         self.process_scheduled_sounds()
+        self.process_sequences()
 
         if not self.game_active:
             return
-
-        self._process_events()
 
         if self.interrupt_timer_ticks > 0 and not self.is_resolving:
             self.interrupt_timer_ticks -= 1
@@ -1243,11 +1225,10 @@ class CoupGame(Game):
                         self.play_sound(f"game_coup/{sound_file}")
 
                     duration = self.get_audio_duration_ticks(sound_file) if sound_file else 0
-                    self.event_queue.append((
-                        self.sound_scheduler_tick + duration,
+                    self._start_resolution_callback(
                         "post_block_success",
-                        {}
-                    ))
+                        delay_ticks=duration,
+                    )
 
         CoupBot.on_tick(self)
 
@@ -1282,11 +1263,11 @@ class CoupGame(Game):
             self.broadcast_l("coup-assassinates", player=player.name, target=target.name if target else "")
 
             duration = self.get_audio_duration_ticks(sound_file)
-            self.event_queue.append((
-                self.sound_scheduler_tick + duration,
+            self._start_resolution_callback(
                 "prompt_lose_influence",
-                {"target_id": target.id if target else "", "reason": "assassinated"}
-            ))
+                delay_ticks=duration,
+                payload={"target_id": target.id if target else "", "reason": "assassinated"},
+            )
 
         elif self.active_action == "steal":
             stolen = min(2, target.coins) if target else 0
@@ -1453,11 +1434,10 @@ class CoupGame(Game):
             self.broadcast_l("coup-player-eliminated", player=player.name)
 
         duration = self.get_audio_duration_ticks(sound_file)
-        self.event_queue.append((
-            self.sound_scheduler_tick + duration,
+        self._start_resolution_callback(
             "post_lose_influence",
-            {}
-        ))
+            delay_ticks=duration,
+        )
 
     def _post_lose_influence(self) -> None:
         if self._losing_player_id and self._losing_player_id in self.player_claims:

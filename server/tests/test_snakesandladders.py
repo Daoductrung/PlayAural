@@ -204,6 +204,30 @@ class TestSnakesGameActions:
         combined = " ".join(messages)
         assert "Alice 5" in combined
         assert "Bob 10" in combined
+        assert combined.index("Bob 10") < combined.index("Alice 5")
+
+    def test_roll_sequence_resumes_after_restore(self):
+        """A queued roll sequence should survive save/load and finish correctly."""
+        with patch('server.games.snakesandladders.game.random.randint') as mock_rand:
+            mock_rand.side_effect = [4, 1, 1, 1, 1, 1]
+            self.game.execute_action(self.player1, "roll")
+
+        assert self.game.has_active_sequence(sequence_id="turn_flow") is True
+
+        payload = self.game.to_json()
+        restored = SnakesAndLaddersGame.from_json(payload)
+        restored.attach_user(self.player1.id, self.user1)
+        restored.attach_user(self.player2.id, self.user2)
+
+        for _ in range(60):
+            restored.on_tick()
+
+        restored_player1 = restored.get_player_by_id(self.player1.id)
+        restored_player2 = restored.get_player_by_id(self.player2.id)
+        assert restored_player1 is not None
+        assert restored_player2 is not None
+        assert restored_player1.position == 5
+        assert restored.current_player == restored_player2
 
 
 class TestSnakesPlayTest:

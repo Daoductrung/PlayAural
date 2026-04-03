@@ -15,6 +15,7 @@ from ...game_utils.actions import Action, ActionSet, Visibility
 from ...game_utils.bot_helper import BotHelper
 from ...game_utils.game_result import GameResult, PlayerResult
 from ...game_utils.options import GameOptions, IntOption, BoolOption, option_field
+from ...game_utils.sequence_runner_mixin import SequenceBeat, SequenceOperation
 from ...messages.localization import Localization
 from ...ui.keybinds import KeybindState
 from .bot import bot_think
@@ -97,7 +98,6 @@ class LudoGame(Game):
     extra_turn: bool = False
     turn_start_state: dict | None = None
     is_rolling: bool = False
-    event_queue: list[tuple[int, str, dict]] = field(default_factory=list)
 
     @classmethod
     def get_name(cls) -> str:
@@ -263,7 +263,7 @@ class LudoGame(Game):
         self._sync_table_status()
         self.game_active = True
         self.last_roll = 0
-        self.event_queue = []
+        self.cancel_all_sequences()
 
         active_players = self.get_active_players()
         self.set_turn_players(active_players)
@@ -289,51 +289,46 @@ class LudoGame(Game):
     def on_tick(self) -> None:
         super().on_tick()
         self.process_scheduled_sounds()
-        self._process_events()
+        self.process_sequences()
         if not self.game_active:
             return
-        BotHelper.on_tick(self)
+        if not self.is_sequence_bot_paused():
+            BotHelper.on_tick(self)
 
     def bot_think(self, player: Player) -> str | None:
         return bot_think(self, player)  # type: ignore[arg-type]
 
-    # ======================================================================
-    # Event queue (following chaosbear / snakesandladders pattern)
-    # ======================================================================
+    def _find_player_by_id(self, player_id: str) -> LudoPlayer | None:
+        for p in self.players:
+            if p.id == player_id:
+                return p
+        return None
 
-    def _process_events(self) -> None:
-        if not self.event_queue:
-            return
-        current_queue = list(self.event_queue)
-        self.event_queue = []
-        current_tick = self.sound_scheduler_tick
-        for tick, event_type, data in current_queue:
-            if tick <= current_tick:
-                self._handle_event(event_type, data)
-            else:
-                self.event_queue.append((tick, event_type, data))
-
-    def _handle_event(self, event_type: str, data: dict) -> None:
-        if event_type == "move":
-            player = self._find_player_by_id(data["player_id"])
+    def on_sequence_callback(
+        self,
+        sequence_id: str,
+        callback_id: str,
+        payload: dict,
+    ) -> None:
+        _ = sequence_id
+        if callback_id == "move":
+            player = self._find_player_by_id(payload["player_id"])
             if not player:
                 return
-            token = player.tokens[data["token_number"] - 1]
+            token = player.tokens[payload["token_number"] - 1]
             self._move_token(player, token, self.last_roll)
-            self.event_queue.append((
-                self.sound_scheduler_tick + 2,
-                "after_move",
-                {"player_id": player.id},
-            ))
-        elif event_type == "after_move":
+            return
+
+        if callback_id == "after_move":
             self.is_rolling = False
-            player = self._find_player_by_id(data["player_id"])
-            if not player:
-                return
-            self._after_move(player)
-        elif event_type == "no_moves":
+            player = self._find_player_by_id(payload["player_id"])
+            if player:
+                self._after_move(player)
+            return
+
+        if callback_id == "no_moves":
             self.is_rolling = False
-            player = self._find_player_by_id(data["player_id"])
+            player = self._find_player_by_id(payload["player_id"])
             if player:
                 self.broadcast_personal_l(
                     player,
@@ -343,18 +338,13 @@ class LudoGame(Game):
                 )
             self._end_turn()
 
-    def _find_player_by_id(self, player_id: str) -> LudoPlayer | None:
-        for p in self.players:
-            if p.id == player_id:
-                return p
-        return None
-
     # ======================================================================
     # Turn flow
     # ======================================================================
 
     def _start_turn(self, new_turn: bool) -> None:
         player = self.current_player
+        self.cancel_sequences_by_tag("turn_flow")
         self.is_rolling = False
         if isinstance(player, LudoPlayer):
             player.move_options = {}
@@ -363,11 +353,12 @@ class LudoGame(Game):
             self.turn_start_state = self._save_turn_state()
         self.extra_turn = False
         if player and player.is_bot:
-            BotHelper.jolt_bot(player, ticks=random.randint(40, 100))  # nosec B311
+            BotHelper.jolt_bot(player, ticks=random.randint(20, 40))  # nosec B311
         self.announce_turn()
         self.rebuild_all_menus()
 
     def _end_turn(self) -> None:
+        self.cancel_sequences_by_tag("turn_flow")
         if self.extra_turn:
             self._start_turn(new_turn=False)
             return
@@ -543,6 +534,8 @@ class LudoGame(Game):
             return "action-spectator"
         if self.current_player != player:
             return "action-not-your-turn"
+        if self.is_sequence_gameplay_locked():
+            return "action-not-available"
         if self.is_rolling:
             return "action-not-available"
         ludo_player: LudoPlayer = player  # type: ignore
@@ -556,6 +549,8 @@ class LudoGame(Game):
         if player.is_spectator:
             return Visibility.HIDDEN
         if self.current_player != player:
+            return Visibility.HIDDEN
+        if self.is_sequence_gameplay_locked():
             return Visibility.HIDDEN
         if self.is_rolling:
             return Visibility.HIDDEN
@@ -571,6 +566,8 @@ class LudoGame(Game):
             return "action-spectator"
         if self.current_player != player:
             return "action-not-your-turn"
+        if self.is_sequence_gameplay_locked():
+            return "action-not-available"
         if self.is_rolling:
             return "action-not-available"
         ludo_player: LudoPlayer = player  # type: ignore
@@ -596,6 +593,8 @@ class LudoGame(Game):
         if player.is_spectator:
             return Visibility.HIDDEN
         if self.current_player != player:
+            return Visibility.HIDDEN
+        if self.is_sequence_gameplay_locked():
             return Visibility.HIDDEN
         if self.is_rolling:
             return Visibility.HIDDEN
@@ -642,9 +641,7 @@ class LudoGame(Game):
 
         self.last_roll = random.randint(1, 6)  # nosec B311
         self.is_rolling = True
-        self.play_sound(
-            f"game_squares/diceroll{random.randint(1, NUM_DICE_SOUNDS)}.ogg"  # nosec B311
-        )
+        dice_sound = f"game_squares/diceroll{random.randint(1, NUM_DICE_SOUNDS)}.ogg"  # nosec B311
         self.broadcast_personal_l(
             player,
             "ludo-you-roll",
@@ -656,23 +653,42 @@ class LudoGame(Game):
         moveable = self._get_moveable_tokens(ludo_player, self.last_roll)
         if not moveable:
             # Queue no-moves event after a brief pause for the dice sound
-            current_tick = self.sound_scheduler_tick
-            self.event_queue.append((
-                current_tick + 10,
-                "no_moves",
-                {"player_id": player.id},
-            ))
+            self.start_sequence(
+                "turn_flow",
+                [
+                    SequenceBeat(
+                        ops=[SequenceOperation.sound_op(dice_sound)],
+                        delay_after_ticks=10,
+                    ),
+                    SequenceBeat(
+                        ops=[
+                            SequenceOperation.callback_op(
+                                "no_moves",
+                                {"player_id": player.id},
+                            )
+                        ]
+                    ),
+                ],
+                tag="turn_flow",
+                lock_scope=self.SEQUENCE_LOCK_GAMEPLAY,
+                pause_bots=True,
+            )
             self.rebuild_all_menus()
             return
 
         if len(moveable) == 1:
-            self._schedule_move(ludo_player, moveable[0][1])
+            self._start_move_sequence(
+                ludo_player,
+                moveable[0][1],
+                include_dice_sound=dice_sound,
+            )
             self.rebuild_all_menus()
             return
 
         # Multiple tokens can move — present choice (is_rolling stays True
         # but we clear it so player can interact with move_options)
         self.is_rolling = False
+        self.play_sound(dice_sound)
         user = self.get_user(ludo_player)
         locale = user.locale if user else "en"
         ludo_player.move_options = {
@@ -681,7 +697,7 @@ class LudoGame(Game):
         if user:
             user.speak_l("ludo-select-token", buffer="game")
         if player.is_bot:
-            BotHelper.jolt_bot(player, ticks=random.randint(40, 100))  # nosec B311
+            BotHelper.jolt_bot(player, ticks=random.randint(20, 40))  # nosec B311
         self.rebuild_all_menus()
 
     def _action_move_token(self, player: Player, action_id: str) -> None:
@@ -692,35 +708,92 @@ class LudoGame(Game):
         ludo_player.move_options = {}
         self.is_rolling = True
         token = ludo_player.tokens[token_index]
-        self._schedule_move(ludo_player, token)
+        self._start_move_sequence(ludo_player, token)
         self.rebuild_all_menus()
 
     def _schedule_move(self, player: LudoPlayer, token: LudoToken) -> None:
-        """Schedule step sounds and queue the move event."""
-        current_tick = self.sound_scheduler_tick
-        roll = self.last_roll
+        """Backward-compatible wrapper around the shared sequence runner."""
+        self._start_move_sequence(player, token)
+
+    def _build_move_sequence(
+        self,
+        player: LudoPlayer,
+        token: LudoToken,
+        *,
+        include_dice_sound: str | None = None,
+    ) -> list[SequenceBeat]:
+        beats: list[SequenceBeat] = []
+        if include_dice_sound:
+            beats.append(
+                SequenceBeat(
+                    ops=[SequenceOperation.sound_op(include_dice_sound)],
+                    delay_after_ticks=STEP_DELAY_START,
+                )
+            )
+        else:
+            beats.append(SequenceBeat.pause(STEP_DELAY_START))
 
         if token.state == "yard":
-            # Entering from yard — single token placement sound
-            self.schedule_sound(
-                f"game_squares/token{random.randint(1, NUM_TOKEN_SOUNDS)}.ogg",  # nosec B311
-                delay_ticks=STEP_DELAY_START,
-            )
-            move_tick = current_tick + STEP_DELAY_START + 4
-        else:
-            # Track or home column — play sequential step sounds
-            for i in range(roll):
-                self.schedule_sound(
-                    f"game_squares/step{random.randint(1, NUM_STEP_SOUNDS)}.ogg",  # nosec B311
-                    delay_ticks=STEP_DELAY_START + i * STEP_INTERVAL,
+            beats.append(
+                SequenceBeat(
+                    ops=[
+                        SequenceOperation.sound_op(
+                            f"game_squares/token{random.randint(1, NUM_TOKEN_SOUNDS)}.ogg"  # nosec B311
+                        )
+                    ],
+                    delay_after_ticks=4,
                 )
-            move_tick = current_tick + STEP_DELAY_START + roll * STEP_INTERVAL + 2
+            )
+        else:
+            for _ in range(self.last_roll):
+                beats.append(
+                    SequenceBeat(
+                        ops=[
+                            SequenceOperation.sound_op(
+                                f"game_squares/step{random.randint(1, NUM_STEP_SOUNDS)}.ogg"  # nosec B311
+                            )
+                        ],
+                        delay_after_ticks=STEP_INTERVAL,
+                    )
+                )
 
-        self.event_queue.append((
-            move_tick,
-            "move",
-            {"player_id": player.id, "token_number": token.token_number},
-        ))
+        beats.append(
+            SequenceBeat(
+                ops=[
+                    SequenceOperation.callback_op(
+                        "move",
+                        {"player_id": player.id, "token_number": token.token_number},
+                    )
+                ],
+                delay_after_ticks=2,
+            )
+        )
+        beats.append(
+            SequenceBeat(
+                ops=[
+                    SequenceOperation.callback_op(
+                        "after_move",
+                        {"player_id": player.id},
+                    )
+                ]
+            )
+        )
+        return beats
+
+    def _start_move_sequence(
+        self,
+        player: LudoPlayer,
+        token: LudoToken,
+        *,
+        include_dice_sound: str | None = None,
+    ) -> None:
+        self.start_sequence(
+            "turn_flow",
+            self._build_move_sequence(player, token, include_dice_sound=include_dice_sound),
+            tag="turn_flow",
+            lock_scope=self.SEQUENCE_LOCK_GAMEPLAY,
+            pause_bots=True,
+        )
 
     def _action_check_board(self, player: Player, action_id: str) -> None:
         user = self.get_user(player)

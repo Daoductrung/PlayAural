@@ -20,6 +20,7 @@ from ..game_utils.game_communication_mixin import GameCommunicationMixin
 from ..game_utils.game_result_mixin import GameResultMixin
 from ..game_utils.game_scores_mixin import GameScoresMixin
 from ..game_utils.game_prediction_mixin import GamePredictionMixin
+from ..game_utils.sequence_runner_mixin import SequenceRunnerMixin, SequenceState
 from ..game_utils.turn_management_mixin import TurnManagementMixin
 from ..game_utils.menu_management_mixin import MenuManagementMixin
 from ..game_utils.action_visibility_mixin import ActionVisibilityMixin
@@ -79,6 +80,7 @@ class Game(
     GameResultMixin,
     GameScoresMixin,
     GamePredictionMixin,
+    SequenceRunnerMixin,
     TurnManagementMixin,
     MenuManagementMixin,
     ActionVisibilityMixin,
@@ -131,6 +133,7 @@ class Game(
         default_factory=list
     )  # [[tick, sound, vol, pan, pitch], ...]
     sound_scheduler_tick: int = 0  # Current tick counter
+    active_sequences: list[SequenceState] = field(default_factory=list)
     # Action sets (serialized - actions are pure data now)
     player_action_sets: dict[str, list[ActionSet]] = field(default_factory=dict)
     # Team manager (serialized for persistence)

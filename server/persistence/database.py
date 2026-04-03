@@ -92,6 +92,7 @@ class Database:
 
     def connect(self) -> None:
         """Connect to the database and create tables if needed."""
+        self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._conn = sqlite3.connect(str(self.db_path))
         self._conn.row_factory = sqlite3.Row
         self._conn.execute("PRAGMA foreign_keys = ON;")

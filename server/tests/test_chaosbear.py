@@ -3,6 +3,7 @@ Tests for the Chaos Bear game.
 """
 
 import json
+from unittest.mock import patch
 
 from ..games.chaosbear.game import ChaosBearGame, ChaosBearPlayer
 from ..users.test_user import MockUser
@@ -149,4 +150,36 @@ class TestChaosBearPersistence:
         assert loaded.round_number == 2
         assert loaded.players[0].position == 10
         assert loaded.players[0].alive is True
+
+    def test_roll_sequence_resumes_after_restore(self):
+        """A pending movement sequence should resume after save/load."""
+        game = ChaosBearGame()
+        user1 = MockUser("Alice")
+        user2 = MockUser("Bob")
+        player1 = game.add_player("Alice", user1)
+        player2 = game.add_player("Bob", user2)
+
+        game.on_start()
+        game.reset_turn_order()
+
+        with patch("server.games.chaosbear.game.random.randint") as mock_rand:
+            mock_rand.side_effect = [4, 1, 1, 1, 1]
+            game._action_roll_dice(player1, "roll_dice")
+
+        assert game.has_active_sequence(sequence_id="turn_flow") is True
+
+        payload = game.to_json()
+        restored = ChaosBearGame.from_json(payload)
+        restored.attach_user(player1.id, user1)
+        restored.attach_user(player2.id, user2)
+
+        for _ in range(40):
+            restored.on_tick()
+
+        restored_player1 = restored.get_player_by_id(player1.id)
+        restored_player2 = restored.get_player_by_id(player2.id)
+        assert restored_player1 is not None
+        assert restored_player2 is not None
+        assert restored_player1.position == 34
+        assert restored.current_player == restored_player2
 

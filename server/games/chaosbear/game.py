@@ -15,6 +15,7 @@ from ..registry import register_game
 from ...game_utils.bot_helper import BotHelper
 from ...game_utils.game_result import GameResult, PlayerResult
 from ...game_utils.actions import Action, ActionSet, Visibility
+from ...game_utils.sequence_runner_mixin import SequenceBeat, SequenceOperation
 from ...ui.keybinds import KeybindState
 from ...messages.localization import Localization
 
@@ -42,7 +43,6 @@ class ChaosBearGame(Game):
     
     # Game Logic State
     is_rolling: bool = False
-    event_queue: list[tuple[int, str, dict]] = field(default_factory=list)
 
     # Game state
     bear_position: int = 0
@@ -270,6 +270,7 @@ class ChaosBearGame(Game):
         self.status = "playing"
         self._sync_table_status()
         self.game_active = True
+        self.cancel_all_sequences()
         self.round_number = 1
         self.players_moved_this_round = 0
 
@@ -316,24 +317,15 @@ class ChaosBearGame(Game):
 
         self.broadcast_l("chaosbear-turn", player=player.name, position=player.position)
 
-    def _process_events(self) -> None:
-        """Process queued game events."""
-        if not self.event_queue:
-            return
-
-        # Process all events up to current tick
-        current_queue = list(self.event_queue)
-        self.event_queue = []
-        current_tick = self.sound_scheduler_tick
-
-        for tick, event_type, data in current_queue:
-            if tick <= current_tick:
-                self._handle_event(event_type, data)
-            else:
-                self.event_queue.append((tick, event_type, data))
-
-    def _handle_event(self, event_type: str, data: dict) -> None:
-        """Execute a single game event."""
+    def on_sequence_callback(
+        self,
+        sequence_id: str,
+        callback_id: str,
+        payload: dict,
+    ) -> None:
+        _ = sequence_id
+        event_type = callback_id
+        data = payload
         player_id = data.get("player_id")
         player = self.get_player_by_id(player_id) if player_id else None
         
@@ -346,19 +338,15 @@ class ChaosBearGame(Game):
                     self.broadcast_l("chaosbear-position", player=player.name, position=new_pos)
 
         elif event_type == "card_effect":
-            # Just broadcast/update logic handled in pre-calc, 
-            # but here we might want to strictly set position to ensure sync
             if player and isinstance(player, ChaosBearPlayer):
                 if "pos" in data:
                     player.position = data["pos"]
-                    # Message is specific to card type usually, handled before or here?
-                    # The original implementation broadcasted specific messages per card.
-                    # We will move those broadcasts to here if we want strict sync.
-                    # For now, let's assume we pass the message ID and kwargs.
-                    msg_id = data.get("msg_id")
-                    if msg_id:
-                        kwargs = data.get("kwargs", {})
-                        self.broadcast_l(msg_id, **kwargs)
+                if "energy" in data:
+                    self.bear_energy = data["energy"]
+                msg_id = data.get("msg_id")
+                if msg_id:
+                    kwargs = data.get("kwargs", {})
+                    self.broadcast_l(msg_id, **kwargs)
 
         elif event_type == "bear_roll_result":
             roll = data["roll"]
@@ -368,6 +356,7 @@ class ChaosBearGame(Game):
 
         elif event_type == "bear_energy_up":
             energy = data["energy"]
+            self.bear_energy = energy
             self.broadcast_l("chaosbear-bear-energy-up", energy=energy)
 
         elif event_type == "bear_move":
@@ -376,6 +365,7 @@ class ChaosBearGame(Game):
             self.broadcast_l("chaosbear-bear-position", position=new_pos)
 
         elif event_type == "bear_feast":
+             self.bear_energy = data["energy"]
              self.broadcast_l("chaosbear-bear-feast")
 
         elif event_type == "player_caught":
@@ -383,29 +373,23 @@ class ChaosBearGame(Game):
                  player.alive = False
                  self.broadcast_l("chaosbear-player-caught", player=player.name)
 
-        elif event_type == "check_winner":
-             self._check_for_winner()
-
         elif event_type == "next_round":
              self._next_round_step()
 
-        elif event_type == "attempt_end_turn":
+        elif event_type == "end_turn":
              self.end_turn()
-
-        elif event_type == "unlock_rolling":
-             self.is_rolling = False
 
     def on_tick(self) -> None:
         """Called every game tick."""
         super().on_tick()
         self.process_scheduled_sounds()
-        self._process_events()
+        self.process_sequences()
 
         if self.status != "playing":
             return
 
-        # Process bot thinking
-        BotHelper.on_tick(self)
+        if not self.is_sequence_bot_paused():
+            BotHelper.on_tick(self)
 
     def bot_think(self, player: ChaosBearPlayer) -> str | None:
         """Determine what action a bot should take."""
@@ -467,11 +451,10 @@ class ChaosBearGame(Game):
 
     def _bear_turn(self) -> None:
         """The bear takes its turn."""
+        self.cancel_sequences_by_tag("turn_flow")
         self.is_rolling = True
         self.rebuild_all_menus()
-        
-        current_tick = self.sound_scheduler_tick
-        
+
         # Check if any players are close - play warning
         for player in self.players:
             if player.alive and not player.is_spectator:
@@ -489,103 +472,126 @@ class ChaosBearGame(Game):
 
         # Bear rolls 1-3 + energy
         bear_die = random.randint(1, 3)
-        move_distance = bear_die + self.bear_energy
-        
-        # Queue roll result (Faster: 10 ticks = 0.5s)
-        self.event_queue.append((
-            current_tick + 10,
-            "bear_roll_result",
-            {"roll": bear_die, "energy": self.bear_energy, "total": move_distance}
-        ))
+        original_energy = self.bear_energy
+        move_distance = bear_die + original_energy
+        updated_energy = original_energy
 
-        # Bear gains energy if rolled 3
-        extra_delay = 0
+        beats: list[SequenceBeat] = [
+            SequenceBeat(
+                ops=[
+                    SequenceOperation.callback_op(
+                        "bear_roll_result",
+                        {"roll": bear_die, "energy": original_energy, "total": move_distance},
+                    )
+                ],
+                delay_after_ticks=10,
+            )
+        ]
+
         if bear_die == 3:
-            self.bear_energy += 1
-            # Queue energy up event
-            self.event_queue.append((
-                current_tick + 15,
-                "bear_energy_up",
-                {"energy": self.bear_energy}
-            ))
-            
+            updated_energy = original_energy + 1
+            beats[0].delay_after_ticks = 5
             self.schedule_sound(
                 f"game_chaosbear/energyup{random.randint(1, 2)}.ogg", delay_ticks=15
             )
-            # Don't count the extra energy toward movement this turn
-            move_distance -= 1
-            extra_delay = 10
+            beats.append(
+                SequenceBeat(
+                    ops=[
+                        SequenceOperation.callback_op(
+                            "bear_energy_up",
+                            {"energy": updated_energy},
+                        )
+                    ],
+                    delay_after_ticks=15 + move_distance * 4,
+                )
+            )
+        else:
+            beats[0].delay_after_ticks = 10 + move_distance * 4
 
         # Calculate projected position (don't update self.bear_position yet)
         projected_bear_pos = self.bear_position + move_distance
-        
-        # Step delay start (Faster: 20 ticks = 1s after roll start)
-        step_start_delay = 20 + extra_delay
 
         # Schedule bear step sounds - Exact match to movement
         for i in range(move_distance):
             self.schedule_sound(
                 f"game_chaosbear/bearstep{random.randint(1, 5)}.ogg",
-                delay_ticks=step_start_delay + i * 4,
+                delay_ticks=20 + (10 if bear_die == 3 else 0) + i * 4,
             )
 
-        # Queue bear move update (this will update self.bear_position)
-        move_finish_time = step_start_delay + move_distance * 4
-        self.event_queue.append((
-            current_tick + move_finish_time,
-            "bear_move",
-            {"pos": projected_bear_pos}
-        ))
-        
-        # Check for catches using projected position
-        catch_delay = move_finish_time + 4 # Faster catch check
+        beats.append(
+            SequenceBeat(
+                ops=[
+                    SequenceOperation.callback_op(
+                        "bear_move",
+                        {"pos": projected_bear_pos},
+                    )
+                ],
+                delay_after_ticks=4,
+            )
+        )
+
         kills = 0
-        
-        temp_catch_delay = catch_delay
-        
+        post_feast_energy = updated_energy
+
         for player in self.players:
             if player.alive and not player.is_spectator:
                 if projected_bear_pos >= player.position:
-                    # Queue catch event
-                    self.event_queue.append((
-                        current_tick + temp_catch_delay,
-                        "player_caught",
-                        {"player_id": player.id}
-                    ))
-                    
-                    self.schedule_sound(
-                        f"game_chaosbear/playerdie{random.randint(1, 2)}.ogg",
-                        delay_ticks=temp_catch_delay,
+                    beats.append(
+                        SequenceBeat(
+                            ops=[
+                                SequenceOperation.callback_op(
+                                    "player_caught",
+                                    {"player_id": player.id},
+                                )
+                            ],
+                            delay_after_ticks=30,
+                        )
                     )
-                    
                     kills += 1
-                    
-                    self.schedule_sound(
-                         f"game_chaosbear/energydown{random.randint(1, 3)}.ogg",
-                         delay_ticks=temp_catch_delay + 30, # Faster energy down
-                    )
-                    temp_catch_delay += 30 # Faster sequence for multiple kills
-        
-        # Queue feast event if kills
-        if kills > 0:
-             self.bear_energy = max(1, self.bear_energy - 3)
-             self.event_queue.append((
-                 current_tick + temp_catch_delay,
-                 "bear_feast",
-                 {}
-             ))
-             temp_catch_delay += 20
-        
 
-        # Queue next round
-        # Queue next round (Faster: 5 ticks always)
-        next_round_delay = 5
-        
-        self.event_queue.append((
-            current_tick + temp_catch_delay + 5 + next_round_delay,
-            "next_round",
-            {}
-        ))
+        if kills > 0:
+            post_feast_energy = max(1, updated_energy - 3)
+            beats.append(
+                SequenceBeat(
+                    ops=[
+                        SequenceOperation.callback_op(
+                            "bear_feast",
+                            {"energy": post_feast_energy},
+                        )
+                    ],
+                    delay_after_ticks=10,
+                )
+            )
+        else:
+            beats[-1].delay_after_ticks = 14
+
+        beats.append(
+            SequenceBeat(
+                ops=[SequenceOperation.callback_op("next_round")],
+                )
+            )
+
+        move_offset = 20 + (10 if bear_die == 3 else 0) + move_distance * 4
+        if kills > 0:
+            catch_offset = move_offset + 4
+            for kill_index in range(kills):
+                self.schedule_sound(
+                    f"game_chaosbear/playerdie{random.randint(1, 2)}.ogg",
+                    delay_ticks=catch_offset + kill_index * 30,
+                )
+                self.schedule_sound(
+                    f"game_chaosbear/energydown{random.randint(1, 3)}.ogg",
+                    delay_ticks=catch_offset + kill_index * 30 + 30,
+                )
+
+        self.start_sequence(
+            "turn_flow",
+            beats,
+            start_delay=10,
+            tag="turn_flow",
+            lock_scope=self.SEQUENCE_LOCK_GAMEPLAY,
+            pause_bots=True,
+        )
 
     def _check_for_winner(self) -> bool:
         """Check if there's a winner."""
@@ -706,6 +712,7 @@ class ChaosBearGame(Game):
         if self.current_player != player or not player.alive:
             return
 
+        self.cancel_sequences_by_tag("turn_flow")
         self.is_rolling = True
         self.rebuild_all_menus()
 
@@ -716,8 +723,6 @@ class ChaosBearGame(Game):
         # Broadcast immediately
         self.broadcast_l("chaosbear-roll", player=player.name, roll=roll)
 
-        current_tick = self.sound_scheduler_tick
-        
         # Schedule step sounds
         for i in range(roll):
             self.schedule_sound(
@@ -728,20 +733,28 @@ class ChaosBearGame(Game):
         # Calculate new position
         new_pos = player.position + roll
 
-        # Queue move event
-        move_complete_tick = current_tick + 6 + (roll * 4) + 2
-        self.event_queue.append((
-            move_complete_tick,
-            "move",
-            {"player_id": player.id, "pos": new_pos}
-        ))
-
-        # Queue end turn (Faster: 5 ticks)
-        self.event_queue.append((
-            move_complete_tick + 5,
-            "attempt_end_turn",
-            {}
-        ))
+        move_complete_delay = 6 + (roll * 4) + 2
+        self.start_sequence(
+            "turn_flow",
+            [
+                SequenceBeat(
+                    ops=[
+                        SequenceOperation.callback_op(
+                            "move",
+                            {"player_id": player.id, "pos": new_pos},
+                        )
+                    ],
+                    delay_after_ticks=5,
+                ),
+                SequenceBeat(
+                    ops=[SequenceOperation.callback_op("end_turn")],
+                ),
+            ],
+            start_delay=move_complete_delay,
+            tag="turn_flow",
+            lock_scope=self.SEQUENCE_LOCK_GAMEPLAY,
+            pause_bots=True,
+        )
 
     def _action_draw_card(self, player: Player, action_id: str) -> None:
         """Draw a card for a special effect."""
@@ -752,6 +765,7 @@ class ChaosBearGame(Game):
         if player.position % 5 != 0 or player.position == 0:
             return
 
+        self.cancel_sequences_by_tag("turn_flow")
         self.is_rolling = True
         self.rebuild_all_menus()
         
@@ -761,10 +775,10 @@ class ChaosBearGame(Game):
         card = random.randint(0, 5)
         new_pos = player.position
         
-        current_tick = self.sound_scheduler_tick
         event_delay = 10
         msg_id = ""
         kwargs = {}
+        payload: dict[str, object] = {"player_id": player.id}
 
         if card == 0:
             # Impulsion - forward 3
@@ -774,6 +788,7 @@ class ChaosBearGame(Game):
             )
             msg_id = "chaosbear-card-impulsion"
             kwargs = {"player": player.name, "position": new_pos}
+            payload["pos"] = new_pos
             
         elif card == 1:
             # Super impulsion - forward 5
@@ -783,10 +798,11 @@ class ChaosBearGame(Game):
             )
             msg_id = "chaosbear-card-super-impulsion"
             kwargs = {"player": player.name, "position": new_pos}
+            payload["pos"] = new_pos
 
         elif card == 2:
             # Tiredness - bear energy -1
-            self.bear_energy = max(1, self.bear_energy - 1)
+            new_energy = max(1, self.bear_energy - 1)
             self.schedule_sound(
                 f"game_chaosbear/tiredness{random.randint(1, 2)}.ogg", delay_ticks=4
             )
@@ -794,12 +810,13 @@ class ChaosBearGame(Game):
                 f"game_chaosbear/energydown{random.randint(1, 3)}.ogg", delay_ticks=24
             )
             msg_id = "chaosbear-card-tiredness"
-            kwargs = {"energy": self.bear_energy}
+            kwargs = {"energy": new_energy}
+            payload["energy"] = new_energy
             event_delay = 30 # Wait longer for energy sound
 
         elif card == 3:
             # Hunger - bear energy +1
-            self.bear_energy += 1
+            new_energy = self.bear_energy + 1
             self.schedule_sound(
                 f"game_chaosbear/hunger{random.randint(1, 2)}.ogg", delay_ticks=4
             )
@@ -807,7 +824,8 @@ class ChaosBearGame(Game):
                 f"game_chaosbear/energyup{random.randint(1, 2)}.ogg", delay_ticks=14
             )
             msg_id = "chaosbear-card-hunger"
-            kwargs = {"energy": self.bear_energy}
+            kwargs = {"energy": new_energy}
+            payload["energy"] = new_energy
             event_delay = 20
 
         elif card == 4:
@@ -816,6 +834,7 @@ class ChaosBearGame(Game):
             self.schedule_sound("game_chaosbear/backpush.ogg", delay_ticks=4)
             msg_id = "chaosbear-card-backward"
             kwargs = {"player": player.name, "position": new_pos}
+            payload["pos"] = new_pos
 
         else:
             # Random gift - forward/back 1-6
@@ -832,20 +851,27 @@ class ChaosBearGame(Game):
                 )
                 msg_id = "chaosbear-gift-forward"
             kwargs = {"player": player.name, "position": new_pos}
+            payload["pos"] = new_pos
 
-        # Queue card effect event
-        self.event_queue.append((
-            current_tick + event_delay,
-            "card_effect",
-            {"player_id": player.id, "pos": new_pos, "msg_id": msg_id, "kwargs": kwargs}
-        ))
-        
-        # Queue end turn (Faster: 5 ticks)
-        self.event_queue.append((
-            current_tick + event_delay + 5,
-            "attempt_end_turn",
-            {}
-        ))
+        payload["msg_id"] = msg_id
+        payload["kwargs"] = kwargs
+
+        self.start_sequence(
+            "turn_flow",
+            [
+                SequenceBeat(
+                    ops=[SequenceOperation.callback_op("card_effect", payload)],
+                    delay_after_ticks=5,
+                ),
+                SequenceBeat(
+                    ops=[SequenceOperation.callback_op("end_turn")],
+                ),
+            ],
+            start_delay=event_delay,
+            tag="turn_flow",
+            lock_scope=self.SEQUENCE_LOCK_GAMEPLAY,
+            pause_bots=True,
+        )
 
     def _action_check_status(self, player: Player, action_id: str) -> None:
         """Check the current game status."""

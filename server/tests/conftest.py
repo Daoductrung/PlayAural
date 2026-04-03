@@ -4,6 +4,7 @@ import pytest
 import shutil
 import sys
 import tempfile
+import uuid
 from pathlib import Path
 
 # Add parent directory to path for imports
@@ -18,10 +19,11 @@ Localization.init(_locales_dir)
 
 @pytest.fixture
 def tmp_path() -> Path:
-    """Use a workspace-local temp directory to avoid locked system temp paths."""
-    base = Path(__file__).parent / ".tmp"
-    base.mkdir(exist_ok=True)
-    path = Path(tempfile.mkdtemp(dir=base))
+    """Use a dedicated temp root that is writable for pytest and SQLite."""
+    base = Path(tempfile.gettempdir()) / "playaural-tests"
+    base.mkdir(parents=True, exist_ok=True)
+    path = base / f"tmp_{uuid.uuid4().hex}"
+    path.mkdir(parents=True, exist_ok=True)
     try:
         yield path
     finally:

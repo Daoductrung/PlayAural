@@ -75,6 +75,28 @@ def test_coup_action(game):
     assert len(bob.live_influences) == 1
     assert game.current_player.name == "Bob"
 
+def test_coup_resolution_sequence_resumes_after_restore(game):
+    """A delayed Coup resolution should resume after save/load."""
+    alice = game.get_player_by_name("Alice")
+    bob = game.get_player_by_name("Bob")
+
+    alice.coins = 7
+    game._action_coup(alice, "Bob", "coup")
+
+    assert game.has_active_sequence(sequence_id="resolution") is True
+
+    payload = game.to_json()
+    restored = CoupGame.from_json(payload)
+    restored.attach_user("player1", MockUser("Alice", "player1"))
+    restored.attach_user("player2", MockUser("Bob", "player2"))
+
+    reached = advance_until(
+        restored,
+        lambda: restored.turn_phase == "losing_influence" and restored._losing_player_id == "player2",
+        max_ticks=200,
+    )
+    assert reached, "Coup resolution did not resume after restore"
+
 def test_foreign_aid_and_block(game):
     """Test foreign aid and block."""
     alice = game.get_player_by_name("Alice")

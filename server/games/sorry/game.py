@@ -7,6 +7,7 @@ from ...game_utils.actions import Action, ActionSet, Visibility
 from ...game_utils.bot_helper import BotHelper
 from ...game_utils.game_result import GameResult, PlayerResult
 from ...game_utils.options import BoolOption, GameOptions, MenuOption, option_field
+from ...game_utils.sequence_runner_mixin import SequenceBeat, SequenceOperation
 from ..base import Game, Player
 from ..registry import register_game
 from .bot import choose_move
@@ -79,7 +80,6 @@ class SorryGame(Game):
     game_state: SorryGameState = field(default_factory=SorryGameState)
     winner_name: str = ""
     ended_due_to_empty_deck: bool = False
-    event_queue: list[tuple[int, str, dict]] = field(default_factory=list)
 
     @classmethod
     def get_name(cls) -> str:
@@ -369,12 +369,16 @@ class SorryGame(Game):
             return "action-not-playing"
         if self.current_player != player:
             return "action-not-your-turn"
+        if self.is_sequence_gameplay_locked():
+            return "action-not-available"
         if self.game_state.turn_phase != "draw":
             return "action-not-available"
         return None
 
     def _is_draw_hidden(self, player: Player) -> Visibility:
         if self.status != "playing" or self.current_player != player:
+            return Visibility.HIDDEN
+        if self.is_sequence_gameplay_locked():
             return Visibility.HIDDEN
         if self.game_state.turn_phase != "draw":
             return Visibility.HIDDEN
@@ -390,6 +394,8 @@ class SorryGame(Game):
             return "action-not-playing"
         if self.current_player != player:
             return "action-not-your-turn"
+        if self.is_sequence_gameplay_locked():
+            return "action-not-available"
         if self.game_state.turn_phase not in {"choose_move", "choose_split"}:
             return "action-not-available"
         slot = self._parse_move_slot(action_id)
@@ -399,6 +405,8 @@ class SorryGame(Game):
 
     def _is_move_slot_hidden(self, player: Player, action_id: str) -> Visibility:
         if self.status != "playing" or self.current_player != player:
+            return Visibility.HIDDEN
+        if self.is_sequence_gameplay_locked():
             return Visibility.HIDDEN
         if self.game_state.turn_phase not in {"choose_move", "choose_split"}:
             return Visibility.HIDDEN
@@ -423,7 +431,7 @@ class SorryGame(Game):
         self.round = 1
         self.winner_name = ""
         self.ended_due_to_empty_deck = False
-        self.event_queue = []
+        self.cancel_all_sequences()
         self._sync_table_status()
 
         active_players = self.get_active_players()
@@ -465,40 +473,9 @@ class SorryGame(Game):
         self.process_scheduled_sounds()
         if not self.game_active:
             return
-        self._process_events()
-        BotHelper.on_tick(self)
-
-    def _process_events(self) -> None:
-        if not self.event_queue:
-            return
-
-        current_tick = self.sound_scheduler_tick
-        current_queue = list(self.event_queue)
-        self.event_queue = []
-        for tick, event_type, data in current_queue:
-            if tick <= current_tick:
-                self._handle_event(event_type, data)
-            else:
-                self.event_queue.append((tick, event_type, data))
-
-    def _queue_event(self, delay_ticks: int, event_type: str, **data) -> None:
-        self.event_queue.append((self.sound_scheduler_tick + delay_ticks, event_type, data))
-
-    def _handle_event(self, event_type: str, data: dict) -> None:
-        if event_type == "after_draw":
-            player = self.get_player_by_id(data["player_id"])
-            if player is None:
-                return
-            self._handle_after_draw(player, data["card_face"])
-            return
-
-        if event_type == "resolve_move":
-            player = self.get_player_by_id(data["player_id"])
-            if player is None:
-                return
-            move = SorryMove.from_dict(data["move"])
-            captures = [CaptureEvent.from_dict(item) for item in data["captures"]]
-            self._resolve_selected_move(player, move, data["card_face"], captures)
+        self.process_sequences()
+        if not self.is_sequence_bot_paused():
+            BotHelper.on_tick(self)
 
     def bot_think(self, player: Player) -> str | None:
         if self.game_state.turn_phase == "draw":
@@ -531,6 +508,7 @@ class SorryGame(Game):
         return f"move_slot_{slot_index}" if slot_index is not None else None
 
     def _start_turn(self, announce: bool = True) -> None:
+        self.cancel_sequences_by_tag("turn_flow")
         self.game_state.turn_phase = "draw"
         self.game_state.current_card = None
         self.game_state.split_pawn_a = None
@@ -541,6 +519,7 @@ class SorryGame(Game):
         self._queue_current_bot()
 
     def _end_turn_after_card(self, card_face: str) -> None:
+        self.cancel_sequences_by_tag("turn_flow")
         self.game_state.turn_number += 1
         self.game_state.turn_phase = "draw"
         self.game_state.current_card = None
@@ -566,6 +545,27 @@ class SorryGame(Game):
         current = self.current_player
         if current and current.is_bot:
             BotHelper.jolt_bot(current, ticks=random.randint(12, 20))
+
+    def on_sequence_callback(
+        self,
+        sequence_id: str,
+        callback_id: str,
+        payload: dict,
+    ) -> None:
+        _ = sequence_id
+        if callback_id == "after_draw":
+            player = self.get_player_by_id(payload["player_id"])
+            if player is not None:
+                self._handle_after_draw(player, payload["card_face"])
+            return
+
+        if callback_id == "resolve_move":
+            player = self.get_player_by_id(payload["player_id"])
+            if player is None:
+                return
+            move = SorryMove.from_dict(payload["move"])
+            captures = [CaptureEvent.from_dict(item) for item in payload["captures"]]
+            self._resolve_selected_move(player, move, payload["card_face"], captures)
 
     def _broadcast_personal_card_message(
         self,
@@ -633,32 +633,92 @@ class SorryGame(Game):
         player_state = self._get_player_state(player)
         return bool(player_state and all(pawn.zone == "home" for pawn in player_state.pawns))
 
-    def _schedule_move_sounds(self, move: SorryMove) -> int:
-        last_delay = 0
+    def _build_draw_sequence(self, player: Player, card_face: str) -> list[SequenceBeat]:
+        draw_sound = f"game_squares/draw{random.randint(1, 3)}.ogg"
+        return [
+            SequenceBeat(
+                ops=[SequenceOperation.sound_op(draw_sound)],
+                delay_after_ticks=6,
+            ),
+            SequenceBeat(
+                ops=[
+                    SequenceOperation.callback_op(
+                        "after_draw",
+                        {"player_id": player.id, "card_face": card_face},
+                    )
+                ]
+            ),
+        ]
+
+    def _build_move_sequence(
+        self,
+        player: Player,
+        move: SorryMove,
+        card_face: str,
+        captures: list[CaptureEvent],
+    ) -> list[SequenceBeat]:
+        beats: list[SequenceBeat] = []
+
         if move.move_type in {"forward", "backward", "split7", "sorry_fallback_forward"}:
             step_count = 1
             if move.move_type == "split7":
                 step_count = (move.steps or 0) + (move.secondary_steps or 0)
             else:
                 step_count = max(1, move.steps or 0)
-            for step in range(step_count):
-                delay = step * 2
-                self.schedule_sound(
-                    f"game_squares/token{random.randint(1, 10)}.ogg",
-                    delay_ticks=delay,
+            for _ in range(step_count):
+                beats.append(
+                    SequenceBeat(
+                        ops=[
+                            SequenceOperation.sound_op(
+                                f"game_squares/token{random.randint(1, 10)}.ogg"
+                            )
+                        ],
+                        delay_after_ticks=2,
+                    )
                 )
-                last_delay = delay
         elif move.move_type in {"start", "swap"}:
-            self.schedule_sound("game_squares/token1.ogg")
+            beats.append(
+                SequenceBeat(
+                    ops=[SequenceOperation.sound_op("game_squares/token1.ogg")],
+                    delay_after_ticks=2,
+                )
+            )
         elif move.move_type == "sorry":
-            self.schedule_sound("game_chess/capture1.ogg")
-        return last_delay
+            beats.append(
+                SequenceBeat(
+                    ops=[SequenceOperation.sound_op("game_chess/capture1.ogg")],
+                    delay_after_ticks=2,
+                )
+            )
 
-    def _schedule_capture_sound(self, delay_ticks: int) -> None:
-        self.schedule_sound(
-            f"game_chess/capture{random.randint(1, 2)}.ogg",
-            delay_ticks=delay_ticks,
+        if captures:
+            beats.append(
+                SequenceBeat(
+                    ops=[
+                        SequenceOperation.sound_op(
+                            f"game_chess/capture{random.randint(1, 2)}.ogg"
+                        )
+                    ],
+                    delay_after_ticks=2,
+                )
+            )
+
+        beats.append(
+            SequenceBeat(
+                ops=[
+                    SequenceOperation.callback_op(
+                        "resolve_move",
+                        {
+                            "player_id": player.id,
+                            "move": move.to_dict(),
+                            "card_face": card_face,
+                            "captures": [capture.to_dict() for capture in captures],
+                        },
+                    )
+                ]
+            )
         )
+        return beats
 
     def _move_label(self, locale: str, move: SorryMove) -> str:
         if move.move_type == "start":
@@ -947,18 +1007,12 @@ class SorryGame(Game):
         self._sync_player_counts()
         self.game_state.turn_phase = "resolving"
         self.rebuild_all_menus()
-        last_delay = self._schedule_move_sounds(move)
-        if captures:
-            capture_delay = last_delay + 2
-            self._schedule_capture_sound(capture_delay)
-            last_delay = capture_delay
-        self._queue_event(
-            last_delay + 2,
-            "resolve_move",
-            player_id=player.id,
-            move=move.to_dict(),
-            card_face=card_face,
-            captures=[capture.to_dict() for capture in captures],
+        self.start_sequence(
+            "turn_flow",
+            self._build_move_sequence(player, move, card_face, captures),
+            tag="turn_flow",
+            lock_scope=self.SEQUENCE_LOCK_GAMEPLAY,
+            pause_bots=True,
         )
 
     def _resolve_selected_move(
@@ -1020,10 +1074,15 @@ class SorryGame(Game):
             self._handle_deck_exhaustion()
             return
 
-        self.play_sound(f"game_squares/draw{random.randint(1, 3)}.ogg")
         self.game_state.turn_phase = "resolving"
         self.rebuild_all_menus()
-        self._queue_event(6, "after_draw", player_id=player.id, card_face=card_face)
+        self.start_sequence(
+            "turn_flow",
+            self._build_draw_sequence(player, card_face),
+            tag="turn_flow",
+            lock_scope=self.SEQUENCE_LOCK_GAMEPLAY,
+            pause_bots=True,
+        )
 
     def _handle_after_draw(self, player: Player, card_face: str) -> None:
         self._broadcast_personal_card_message(

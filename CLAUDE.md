@@ -68,6 +68,73 @@ Games use a mixin-based architecture. Each game class inherits from `Game` plus 
 
 Games are dataclasses serialized via Mashumaro for state persistence.
 
+#### SequenceRunnerMixin for Cinematic Gameplay Flows
+`Game` now includes `SequenceRunnerMixin`. Use it as the standard way to build delayed, multi-step audio/gameplay sequences instead of per-game `event_queue` tuple schedulers.
+
+Use it for:
+- movement animations that resolve over several ticks
+- delayed reveal/capture/elimination flows
+- dramatic audio cutscenes
+- any gameplay sequence that must survive save/load cleanly
+
+Core primitives:
+- `SequenceOperation.sound_op(path, ...)` for shared sounds
+- `SequenceOperation.localized_sound_op({"en": "...", "vi": "..."}, ...)` for per-locale voice files
+- `SequenceOperation.callback_op("callback_id", payload={...})` for game logic hooks
+- `SequenceBeat(ops=[...], delay_after_ticks=N)` for one timed beat
+- `SequenceBeat.pause(N)` for a pure wait
+
+Typical pattern:
+```python
+self.start_sequence(
+    "turn_flow",
+    [
+        SequenceBeat(
+            ops=[SequenceOperation.sound_op("game_x/start.ogg")],
+            delay_after_ticks=10,
+        ),
+        SequenceBeat(
+            ops=[SequenceOperation.callback_op("apply_effect", {"player_id": player.id})],
+            delay_after_ticks=6,
+        ),
+        SequenceBeat(
+            ops=[SequenceOperation.callback_op("finish_turn")],
+        ),
+    ],
+    tag="turn_flow",
+    lock_scope=self.SEQUENCE_LOCK_GAMEPLAY,
+    pause_bots=True,
+)
+```
+
+Then implement:
+```python
+def on_sequence_callback(self, sequence_id: str, callback_id: str, payload: dict) -> None:
+    if callback_id == "apply_effect":
+        ...
+```
+
+Rules:
+- Keep the helper generic. Game rules belong in the game callback methods, not in the shared runner.
+- Keep payloads Mashumaro-safe. Sequences are serialized in `active_sequences`.
+- Use `callback_op` for all state changes. Audio alone must never be the only thing advancing game logic.
+- Prefer explicit `delay_after_ticks` over inferred audio lengths, especially for localized voice files.
+- Cancel stale flows on turn/round reset with `cancel_sequences_by_tag(...)` or `cancel_sequence(...)`.
+
+Locking:
+- `SEQUENCE_LOCK_NONE`: no input lock
+- `SEQUENCE_LOCK_GAMEPLAY`: block gameplay actions only, keep info/status actions available
+- `SEQUENCE_LOCK_ALL`: rare full freeze, use sparingly
+
+Default rule: use `SEQUENCE_LOCK_GAMEPLAY` for almost all in-game cutscenes. Do not freeze informational actions unless there is a real correctness reason.
+
+Bot integration:
+- Call `self.process_sequences()` in `on_tick()`
+- If the sequence should suspend bot input, pass `pause_bots=True`
+- Gate bot ticking with `if not self.is_sequence_bot_paused(): ...`
+
+Migration rule: if you encounter a hand-rolled per-game `event_queue` used only for delayed gameplay/audio sequencing, replace it with `SequenceRunnerMixin` unless there is a compelling reason not to.
+
 #### Grid Mixins and Cursor Serialization
 For any game using `GridGameMixin`, the grid state must be declared with Mashumaro-safe types that exactly match the runtime objects:
 
@@ -192,8 +259,10 @@ The shutdown sequence is a 32-second structured countdown managed by `self._shut
 - **Sound files**: `client/sounds/server_alert_warning.ogg`, `server_alert_tick.ogg`, `server_alert_shutdown.ogg`.
 
 #### Game Event / Sound Scheduling
-- Games use `self.event_queue` (list of `(tick, event_type, data)` tuples) for deferred state changes and `self.schedule_sound(path, delay_ticks)` for audio timing.
-- `on_tick()` must call `super().on_tick()` and `self.process_scheduled_sounds()`.
+- Prefer `SequenceRunnerMixin` for delayed gameplay/audio flows.
+- Use `self.schedule_sound(path, delay_ticks)` for simple sound timing that does not need a gameplay callback.
+- Use `SequenceRunnerMixin` when the sound timing must also advance state, lock gameplay actions, or survive save/load mid-sequence.
+- `on_tick()` must call `super().on_tick()`, `self.process_scheduled_sounds()`, and `self.process_sequences()` for games that use sequences.
 - When writing deterministic tests for bot behaviour, use `advance_until(game, condition_fn, max_ticks=500)` rather than fixed tick counts. Combine state conditions with phase checks (e.g. `len(player.live_influences) == 1 and g.turn_phase != "losing_influence"`) to avoid stopping one tick before a post-event fires.
 
 #### Web/Mobile UI Consideration (Mandatory)

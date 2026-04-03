@@ -33,7 +33,7 @@ Game (ABC, DataClassJSONMixin)
 ├── MenuManagementMixin     — rebuild_player_menu, update_player_menu
 ├── ActionVisibilityMixin   — action visibility resolution
 ├── LobbyActionsMixin       — lobby phase, bots, prestart_validate
-├── EventHandlingMixin      — on_tick, event_queue
+├── EventHandlingMixin      — base tick/event hooks (legacy per-game queues only)
 ├── ActionSetCreationMixin  — keybinds, turn/standard action sets
 ├── ActionExecutionMixin    — execute_action, find_action
 ├── OptionsHandlerMixin     — declarative option handling + broadcast
@@ -60,6 +60,97 @@ MRO placement: `class MyGame(Game, TurnTimerMixin)` or `class MyGame(GridGameMix
 - Do not store raw `(row, col)` tuples, ad-hoc dicts, or other cursor shapes in serialized game state
 
 Reason: Mashumaro serializers are generated from type annotations, not just runtime values. A mismatched annotation like `dict[str, tuple[int, int]]` can crash table save/restore even if the runtime objects happen to be `GridCursor` instances.
+
+### 2.1c SequenceRunnerMixin (Built Into `Game`)
+
+All games automatically inherit `SequenceRunnerMixin` through `Game`. Use it for any **cinematic, delayed, multi-step gameplay flow** that must survive save/load and must not deadlock the table:
+
+- movement animations that resolve over several ticks
+- delayed reveals, captures, explosions, collapses, bear turns, roulette phases
+- audio-first cutscenes where sounds and state changes need explicit ordering
+- any old `event_queue`-style flow that used `(tick, event_type, data)` tuples
+
+Do **not** hardcode game rules into the helper. The helper only runs serialized beats and calls the game back through `on_sequence_callback(...)`.
+
+Core serialized types:
+
+- `SequenceOperation`
+  - `sound_op(path, volume=..., pan=..., pitch=...)`
+  - `localized_sound_op({"en": "...", "vi": "..."}, fallback_locale="en", ...)`
+  - `callback_op("callback_id", payload={...})`
+- `SequenceBeat`
+  - `ops=[...]`
+  - `delay_after_ticks=N`
+  - `SequenceBeat.pause(N)` for a pure wait beat
+- `SequenceState`
+  - stored automatically in `Game.active_sequences`
+
+Standard usage pattern:
+
+```python
+self.start_sequence(
+    "turn_flow",
+    [
+        SequenceBeat(
+            ops=[SequenceOperation.sound_op("game_x/start.ogg")],
+            delay_after_ticks=12,
+        ),
+        SequenceBeat(
+            ops=[SequenceOperation.callback_op("apply_move", {"player_id": player.id})],
+            delay_after_ticks=8,
+        ),
+        SequenceBeat(
+            ops=[SequenceOperation.callback_op("finish_turn")],
+        ),
+    ],
+    tag="turn_flow",
+    lock_scope=self.SEQUENCE_LOCK_GAMEPLAY,
+    pause_bots=True,
+)
+```
+
+Then implement:
+
+```python
+def on_sequence_callback(self, sequence_id: str, callback_id: str, payload: dict) -> None:
+    if callback_id == "apply_move":
+        ...
+```
+
+Rules:
+
+- **Use explicit beats, not ad-hoc tick tuples.** The sequence definition is the source of truth for timing.
+- **Keep payloads Mashumaro-safe.** Only store serializable primitives/dicts/lists or dataclasses already used safely elsewhere.
+- **Use `callback_op` for state changes.** Sounds should never be the only thing driving game logic.
+- **Use `sound_op` for shared mechanical sounds** that every listener hears.
+- **Use `localized_sound_op` for voice acting or locale-specific files.** The helper dispatches per listener locale in real time.
+- **Use explicit `delay_after_ticks` values.** Do not assume localized audio files have matching durations unless the asset pipeline guarantees it.
+- **Cancel stale flows on phase reset.** Use `cancel_sequences_by_tag("turn_flow")` or `cancel_sequence("...")` when restarting a turn/round.
+
+Locking policy:
+
+- `SEQUENCE_LOCK_NONE`: no gameplay locking
+- `SEQUENCE_LOCK_GAMEPLAY`: block gameplay actions only, while info/status actions remain available
+- `SEQUENCE_LOCK_ALL`: reserve for rare full-input freezes only
+
+Default rule: use `SEQUENCE_LOCK_GAMEPLAY` for almost every in-game cinematic flow. PlayAural should keep informational actions such as board reads, status checks, scores, and whose-turn available whenever possible.
+
+Bot rule:
+
+- Set `pause_bots=True` for any sequence that should suspend bot input until the sequence finishes.
+- In `on_tick()`, call `self.process_sequences()` before bot logic.
+- Gate bot processing with `if not self.is_sequence_bot_paused(): ...`
+
+Persistence rule:
+
+- Sequences are serialized automatically in `active_sequences`.
+- Any gameplay state the callback needs after restore must already live in dataclass fields or in the callback payload.
+- Never store critical sequence progress in runtime-only fields.
+
+Migration rule:
+
+- New work must prefer `SequenceRunnerMixin` over hand-rolled `event_queue` systems.
+- Existing games should treat old per-game event queues as legacy and migrate to the shared runner when touched.
 
 ### 2.2 File Structure for a New Game
 
@@ -308,6 +399,7 @@ Every `speak_l()` and `broadcast_l()` call **must** include an explicit `buffer=
 - Use `user.play_sound(path)` for player-specific feedback
 - Use `self.play_music(path)` for background music
 - Use `self.schedule_sound(path, delay_ticks)` for timed audio
+- Use `SequenceRunnerMixin` for multi-step cinematic flows that need timed callbacks, save/load safety, or gameplay locking
 - `on_tick()` must call `super().on_tick()` and `self.process_scheduled_sounds()`
 
 ### 6.4 Information Actions

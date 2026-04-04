@@ -1312,85 +1312,13 @@ PlayAural Server
 
     def _show_tables_menu(self, user: NetworkUser, game_type: str) -> None:
         """Show available tables for a game."""
-        all_tables = self._tables.get_tables_by_type(game_type)
-        # Filter: Only show waiting or playing tables (exclude finished)
-        # - Show if host is online (for waiting tables)
-        # - OR table is playing (so players can rejoin)
-        # Filter: Only show tables with at least one online, non-spectator human player
-        tables = []
-        for t in all_tables:
-            if not t.game:
-                continue
-            if t.game.status not in ["waiting", "playing"]:
-                continue
-            
-            # Check for at least one active human player
-            has_active_human = False
-            for member in t.members:
-                if not member.is_spectator and member.username in self._users:
-                    has_active_human = True
-                    break
-            
-            if has_active_human:
-                tables.append(t)
-        
+        items = self._get_tables_menu_items(user, game_type)
         game_class = get_game_class(game_type)
         game_name = (
             Localization.get(user.locale, game_class.get_name_key())
             if game_class
             else game_type
         )
-
-        items = [
-            MenuItem(
-                text=Localization.get(user.locale, "create-table"), id="create_table"
-            )
-        ]
-
-        for table in tables:
-            member_count = len(table.members)
-            member_names = [
-                member.username
-                for member in table.members
-                if member.username != table.host
-            ]
-            members_str = Localization.format_list_and(user.locale, member_names)
-            # Determine status for display
-            if table.game:
-                if table.game.status == "waiting":
-                    status_key = "table-status-waiting"
-                elif table.game.status == "playing":
-                    status_key = "table-status-playing"
-                elif table.game.status == "finished":
-                    status_key = "table-status-finished"
-                else:
-                    status_key = "table-status-waiting"  # fallback
-            else:
-                status_key = "table-status-waiting"  # fallback
-            status_text = Localization.get(user.locale, status_key)
-
-            if member_count == 1:
-                listing_key = "table-listing-game-one-status"
-            elif member_names:
-                listing_key = "table-listing-game-with-status"
-            else:
-                listing_key = "table-listing-game-status"
-            items.append(
-                MenuItem(
-                    text=Localization.get(
-                        user.locale,
-                        listing_key,
-                        game=game_name,
-                        host=table.host,
-                        count=member_count,
-                        members=members_str,
-                        status=status_text,
-                    ),
-                    id=f"table_{table.table_id}",
-                )
-            )
-
-        items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
 
         user.show_menu(
             "tables_menu",
@@ -3345,7 +3273,12 @@ PlayAural Server
             return
 
     def _auto_join_table(
-        self, user: NetworkUser, table: "Table", game_type: str
+        self,
+        user: NetworkUser,
+        table: "Table",
+        game_type: str,
+        *,
+        allow_private_join: bool = False,
     ) -> None:
         """Automatically join a table as player or spectator.
 
@@ -3359,6 +3292,17 @@ PlayAural Server
         if not game:
             user.speak_l("table-not-exists", buffer="system")
             self._nav_refresh(user, self._show_tables_menu, game_type)
+            return
+
+        user_is_member = any(member.username == user.username for member in table.members)
+        if table.is_private and not user_is_member and not allow_private_join:
+            user.speak_l("table-private-invite-only", buffer="system")
+            state = self._user_states.get(user.username, {})
+            menu = state.get("menu")
+            if menu == "active_tables_menu":
+                self._nav_refresh(user, self._show_active_tables_menu)
+            elif menu == "tables_menu":
+                self._nav_refresh(user, self._show_tables_menu, state.get("game_type", game_type))
             return
 
         # Ban check (table-scoped)
@@ -3750,7 +3694,7 @@ PlayAural Server
                 self._restore_menu_from_state(user, prev_state)
                 return
             # _auto_join_table sets _user_states itself, so just call it
-            self._auto_join_table(user, table, table.game_type)
+            self._auto_join_table(user, table, table.game_type, allow_private_join=True)
         else:
             if table and selection_id == "decline":
                 host_user = self._users.get(table.host)

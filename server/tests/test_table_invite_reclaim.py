@@ -6,6 +6,7 @@ import pytest
 from server.auth.auth import AuthManager
 from server.core.server import Server
 from server.games.pig.game import PigGame, PigOptions
+from server.messages.localization import Localization
 from server.persistence.database import Database
 from server.users.test_user import MockUser
 
@@ -203,3 +204,58 @@ class TestTableInviteReclaim:
         member_game_items = self.server._get_tables_menu_items(member, "pig")
         member_ids = {item.id for item in member_game_items if hasattr(item, "id")}
         assert f"table_{private_table.table_id}" in member_ids
+
+    @pytest.mark.asyncio
+    async def test_stale_game_tables_menu_cannot_join_after_table_becomes_private(self):
+        host = self._create_online_user("Host")
+        outsider = self._create_online_user("Outsider")
+
+        table = self.server._tables.create_table("pig", host.username, host)
+        game = PigGame(options=PigOptions(target_score=25))
+        table.game = game
+        game._table = table
+        game.initialize_lobby(host.username, host)
+
+        self.server._show_tables_menu(outsider, "pig")
+        menu_ids = self._get_menu_action_ids(outsider, "tables_menu")
+        assert f"table_{table.table_id}" in menu_ids
+
+        table.is_private = True
+
+        await self.server._handle_tables_selection(
+            outsider,
+            f"table_{table.table_id}",
+            self.server._user_states[outsider.username],
+        )
+
+        assert self.server._tables.find_user_table(outsider.username) is None
+        assert outsider.get_last_spoken() == Localization.get(outsider.locale, "table-private-invite-only")
+        refreshed_ids = self._get_menu_action_ids(outsider, "tables_menu")
+        assert f"table_{table.table_id}" not in refreshed_ids
+
+    @pytest.mark.asyncio
+    async def test_stale_active_tables_menu_cannot_join_after_table_becomes_private(self):
+        host = self._create_online_user("Host")
+        outsider = self._create_online_user("Outsider")
+
+        table = self.server._tables.create_table("pig", host.username, host)
+        game = PigGame(options=PigOptions(target_score=25))
+        table.game = game
+        game._table = table
+        game.initialize_lobby(host.username, host)
+
+        self.server._show_active_tables_menu(outsider)
+        menu_ids = self._get_menu_action_ids(outsider, "active_tables_menu")
+        assert f"table_{table.table_id}" in menu_ids
+
+        table.is_private = True
+
+        await self.server._handle_active_tables_selection(
+            outsider,
+            f"table_{table.table_id}",
+        )
+
+        assert self.server._tables.find_user_table(outsider.username) is None
+        assert outsider.get_last_spoken() == Localization.get(outsider.locale, "table-private-invite-only")
+        refreshed_ids = self._get_menu_action_ids(outsider, "active_tables_menu")
+        assert f"table_{table.table_id}" not in refreshed_ids

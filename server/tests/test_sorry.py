@@ -261,6 +261,17 @@ def test_turn_menu_contains_web_info_actions() -> None:
     assert Localization.get("en", "sorry-check-status") in labels
 
 
+def test_whos_at_table_is_visible_for_web_in_waiting_state() -> None:
+    game = make_game(web_first=True)
+    player = game.players[0]
+
+    action = game.find_action(player, "whos_at_table")
+    assert action is not None
+
+    resolved = game.resolve_action(player, action)
+    assert resolved.visible is True
+
+
 def test_bot_can_finish_scripted_endgame() -> None:
     game = make_game(start=True, bot_second=True)
     bot_player = game.players[1]

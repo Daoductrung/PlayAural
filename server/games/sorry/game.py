@@ -355,7 +355,7 @@ class SorryGame(Game):
     def _is_whos_at_table_hidden(self, player: Player) -> Visibility:
         user = self.get_user(player)
         if user and getattr(user, "client_type", "") == "web":
-            return Visibility.VISIBLE if self.status == "playing" else Visibility.HIDDEN
+            return Visibility.VISIBLE
         return super()._is_whos_at_table_hidden(player)
 
     def _is_check_scores_hidden(self, player: Player) -> Visibility:

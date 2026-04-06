@@ -1,5 +1,13 @@
 Nhật ký thay đổi
 
+Thứ Hai 6 Tháng Tư 2026
+
+Cập nhật máy chủ:
+
+Đã thêm trò chơi xúc xắc mới mang tên Bunko với đầy đủ luật chơi và tài liệu hướng dẫn chi tiết dành cho người mới bắt đầu.
+
+Đã hỗ trợ hoàn chỉnh ngôn ngữ tiếng Việt và tiếng Anh cho toàn bộ nội dung trò chơi.
+
 Thứ Sáu 3 Tháng Tư 2026
 
 Cập nhật máy chủ:

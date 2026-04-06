@@ -1,5 +1,13 @@
 Changelog
 
+Monday 6 April 2026
+
+Server Updates:
+
+Added a new dice game: Bunko, featuring complete gameplay rules and beginner-friendly documentation.
+
+Fully localized the game in both English and Vietnamese.
+
 Friday 3 April 2026
 
 Server Updates:

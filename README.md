@@ -204,7 +204,7 @@ pytest -v                                      # verbose output
 
 ## Game Catalog
 
-29 games across four categories:
+30 games across four categories:
 
 ### Card Games
 
@@ -231,6 +231,7 @@ pytest -v                                      # verbose output
 | Left Right Center | Fast-paced social dice game |
 | Midnight | Build the best hand before midnight |
 | Pig | Simple push-your-luck dice race |
+| Bunko | Score target-number dice matches across a race of fast rounds |
 | Rolling Balls | Draw balls from a pipe for points |
 
 ### Adventure & Board

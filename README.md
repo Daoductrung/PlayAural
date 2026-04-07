@@ -204,7 +204,7 @@ pytest -v                                      # verbose output
 
 ## Game Catalog
 
-30 games across four categories:
+31 games across four categories:
 
 ### Card Games
 
@@ -214,6 +214,7 @@ pytest -v                                      # verbose output
 | Five Card Draw | Traditional draw poker |
 | Blackjack | Classic casino card game against the dealer |
 | Pusoy Dos | Filipino shedding card game |
+| Tien Len | Vietnamese climbing card game with Southern and Northern rule variants |
 | Crazy Eights | Classic shedding card game |
 | Last Card | Uno-style shedding game with stacking, jump-ins, and 20+ customizable house rules |
 | Scopa | Traditional Italian card-capture game |

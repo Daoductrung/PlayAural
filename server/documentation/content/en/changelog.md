@@ -1,5 +1,13 @@
 Changelog
 
+Tuesday 7 April 2026
+
+Server Updates:
+
+Added the highly anticipated card game Tien Len, featuring both Southern and Northern rule variants along with detailed documentation.
+
+Fully localized the game in both English and Vietnamese.
+
 Monday 6 April 2026
 
 Server Updates:

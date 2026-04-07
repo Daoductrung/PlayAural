@@ -1,5 +1,13 @@
 Nhật ký thay đổi
 
+Thứ Ba 7 Tháng Tư 2026
+
+Cập nhật máy chủ:
+
+Đã thêm trò chơi bài rất được mong đợi là Tiến Lên, bao gồm cả hai luật chơi phổ biến là Tiến Lên miền Nam và Tiến Lên miền Bắc với đầy đủ tài liệu hướng dẫn.
+
+Đã hỗ trợ hoàn chỉnh ngôn ngữ tiếng Việt và tiếng Anh cho toàn bộ nội dung trò chơi.
+
 Thứ Hai 6 Tháng Tư 2026
 
 Cập nhật máy chủ:

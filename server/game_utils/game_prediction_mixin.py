@@ -53,6 +53,8 @@ class GamePredictionMixin:
 
         # Format predictions
         lines = [Localization.get(user.locale, "predict-header")]
+        if len(player_ratings) > 2:
+            lines.append(Localization.get(user.locale, "predict-note-multiplayer"))
 
         for rank, (p, rating) in enumerate(player_ratings, 1):
             # Calculate win probability against the field

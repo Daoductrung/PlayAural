@@ -283,6 +283,7 @@ my-stats-score-per-round = Điểm trung bình mỗi vòng: { $value }
 
 predict-outcomes = Dự đoán kết quả
 predict-header = Kết quả dự đoán (theo xếp hạng kỹ năng)
+predict-note-multiplayer = Phần trăm thắng chỉ hiển thị khi đấu 2 người. Nếu có từ 3 người chơi thật trở lên, hệ thống chỉ hiển thị xếp hạng kỹ năng.
 predict-entry = { $rank }. { $player } (xếp hạng: { $rating })
 predict-entry-2p = { $rank }. { $player } (xếp hạng: { $rating }, tỷ lệ thắng { $probability }%)
 predict-unavailable = Dự đoán xếp hạng không khả dụng.

@@ -12,6 +12,11 @@ def _menu_ids(user: MockUser, menu_id: str) -> list[str]:
     return [item.id for item in items if hasattr(item, "id")]
 
 
+def _menu_texts(user: MockUser, menu_id: str) -> list[str]:
+    items = user.get_current_menu_items(menu_id) or []
+    return [item.text for item in items if hasattr(item, "text")]
+
+
 def _make_server(tmp_path) -> Server:
     server = Server(db_path=tmp_path / "test_stats.sqlite")
     server._db.connect()
@@ -125,5 +130,47 @@ def test_blackjack_ui_hides_rating_everywhere_but_rated_games_still_show_it(tmp_
 
         server._show_my_game_stats(user, "pig")
         assert "rating" in _menu_ids(user, "my_game_stats")
+    finally:
+        server._db.close()
+
+
+def test_predict_outcomes_shows_probability_only_in_two_player_matches(tmp_path) -> None:
+    server = _make_server(tmp_path)
+    try:
+        game = PigGame()
+        host_user = MockUser("Host", uuid="predict-host")
+        guest_user = MockUser("Guest", uuid="predict-guest")
+        host_player = game.add_player("Host", host_user)
+        game.add_player("Guest", guest_user)
+        game._table = SimpleNamespace(_db=server._db)
+        game.status = "playing"
+
+        game._action_predict_outcomes(host_player, "predict_outcomes")
+
+        lines = _menu_texts(host_user, "status_box")
+        assert any("%" in line for line in lines)
+        assert not any("2-player matches" in line for line in lines)
+    finally:
+        server._db.close()
+
+
+def test_predict_outcomes_explains_multiplayer_rating_only_mode(tmp_path) -> None:
+    server = _make_server(tmp_path)
+    try:
+        game = PigGame()
+        host_user = MockUser("Host", uuid="predict-host")
+        guest_user = MockUser("Guest", uuid="predict-guest")
+        third_user = MockUser("Third", uuid="predict-third")
+        host_player = game.add_player("Host", host_user)
+        game.add_player("Guest", guest_user)
+        game.add_player("Third", third_user)
+        game._table = SimpleNamespace(_db=server._db)
+        game.status = "playing"
+
+        game._action_predict_outcomes(host_player, "predict_outcomes")
+
+        lines = _menu_texts(host_user, "status_box")
+        assert any("3 or more human players" in line for line in lines)
+        assert not any("% win chance" in line for line in lines)
     finally:
         server._db.close()

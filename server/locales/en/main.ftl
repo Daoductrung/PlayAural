@@ -283,6 +283,7 @@ my-stats-score-per-round = Score per round: { $value }
 
 predict-outcomes = Predict outcomes
 predict-header = Predicted Outcomes (by skill rating)
+predict-note-multiplayer = Win percentages are shown only for 2-player matches. With 3 or more human players, only skill ratings are shown.
 predict-entry = { $rank }. { $player } (rating: { $rating })
 predict-entry-2p = { $rank }. { $player } (rating: { $rating }, { $probability }% win chance)
 predict-unavailable = Rating predictions are not available.

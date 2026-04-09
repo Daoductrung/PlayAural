@@ -103,3 +103,71 @@ def test_play_validations():
     game.execute_action(current, "play_selected")
 
     assert user.get_last_spoken() == "Your combination is lower than the current trick."
+
+
+def test_invalid_combo_reports_specific_error_not_turn_error():
+    game = PusoyDosGame()
+    u1 = MockUser("p1")
+    u2 = MockUser("p2")
+    game.add_player("p1", u1)
+    game.add_player("p2", u2)
+    game.on_start()
+
+    game.intro_wait_ticks = 1
+    game.on_tick()
+
+    current = game.current_player
+    assert current is not None
+    game.is_first_turn = False
+    current.hand = [Card(1, 3, 2), Card(2, 4, 4), Card(3, 6, 1)]
+    current.selected_cards = {1, 2, 3}
+
+    game.execute_action(current, "play_selected")
+
+    user = game.get_user(current)
+    assert user.get_last_spoken() == "The selected cards do not form a valid combination."
+
+
+def test_hand_sorting_rebuilds_in_pusoy_dos_order():
+    game = PusoyDosGame()
+    u1 = MockUser("p1")
+    u2 = MockUser("p2")
+    p1 = game.add_player("p1", u1)
+    game.add_player("p2", u2)
+    game.on_start()
+
+    game.intro_wait_ticks = 1
+    game.on_tick()
+
+    current = game.current_player
+    assert current is p1
+    current.hand = [
+        Card(1, 2, 1),
+        Card(2, 3, 4),
+        Card(3, 1, 3),
+        Card(4, 3, 2),
+        Card(5, 2, 2),
+        Card(6, 3, 3),
+    ]
+
+    game.rebuild_player_menu(current)
+
+    assert [(card.rank, card.suit) for card in current.hand] == [
+        (3, 2),
+        (3, 4),
+        (3, 3),
+        (1, 3),
+        (2, 2),
+        (2, 1),
+    ]
+    turn_set = game.get_action_set(current, "turn")
+    assert turn_set is not None
+    ordered_toggle_ids = [action_id for action_id in turn_set._order if action_id.startswith("toggle_select_")]
+    assert ordered_toggle_ids == [
+        "toggle_select_4",
+        "toggle_select_2",
+        "toggle_select_6",
+        "toggle_select_3",
+        "toggle_select_5",
+        "toggle_select_1",
+    ]

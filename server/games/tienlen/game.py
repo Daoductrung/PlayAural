@@ -464,6 +464,7 @@ class TienLenGame(Game, TurnTimerMixin):
     def _sync_turn_actions(self, player: Player) -> None:
         if not isinstance(player, TienLenPlayer):
             return
+        player.hand = sort_cards(player.hand)
         turn_set = self.get_action_set(player, "turn")
         if not turn_set:
             return
@@ -573,6 +574,7 @@ class TienLenGame(Game, TurnTimerMixin):
 
         for card in selected:
             active_player.hand.remove(card)
+        active_player.hand = sort_cards(active_player.hand)
         active_player.selected_cards.clear()
         self.current_combo = combo
         self.trick_cards = combo.cards[:]
@@ -635,6 +637,7 @@ class TienLenGame(Game, TurnTimerMixin):
             return
         user = self.get_user(player)
         if user:
+            player.hand = sort_cards(player.hand)
             user.speak_l("tienlen-your-hand", buffer="game", cards=read_cards(player.hand, user.locale))
 
     def _action_read_card_counts(self, player: Player, action_id: str) -> None:

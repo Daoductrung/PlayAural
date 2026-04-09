@@ -426,6 +426,7 @@ class PusoyDosGame(Game, TurnTimerMixin):
     def _sync_turn_actions(self, player: Player) -> None:
         if not isinstance(player, PusoyDosPlayer):
             return
+        player.hand = sort_cards(player.hand)
         turn_set = self.get_action_set(player, "turn")
         if not turn_set:
             return
@@ -537,6 +538,7 @@ class PusoyDosGame(Game, TurnTimerMixin):
         # Play is valid!
         for c in selected:
             p.hand.remove(c)
+        p.hand = sort_cards(p.hand)
         p.selected_cards.clear()
 
         self.current_combo = combo
@@ -604,6 +606,7 @@ class PusoyDosGame(Game, TurnTimerMixin):
             return
         user = self.get_user(player)
         if user:
+            player.hand = sort_cards(player.hand)
             user.speak_l("pusoydos-your-hand", buffer="game", cards=read_cards(player.hand, user.locale))
 
     def _action_read_card_counts(self, player: Player, action_id: str) -> None:

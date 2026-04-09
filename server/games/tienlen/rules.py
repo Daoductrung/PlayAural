@@ -137,6 +137,23 @@ class TienLenRuleSet:
             return True
         return self._beats_same_shape_south(play_combo, current_combo)
 
+    def _comparison_error_key(self, play_combo: TienLenCombo, current_combo: TienLenCombo) -> tuple[str, dict]:
+        if play_combo.type_name == current_combo.type_name and play_combo.card_count != current_combo.card_count:
+            return "tienlen-error-wrong-length", {"count": current_combo.card_count}
+
+        if self.variant == NORTHERN_VARIANT:
+            if not self._same_shape(play_combo, current_combo):
+                return "tienlen-error-must-match-type", {}
+            if play_combo.type_name == "pair" and play_combo.cards[0].rank == 2:
+                return "tienlen-error-lower-combo", {}
+            if not self._north_structure_matches(play_combo, current_combo):
+                return "tienlen-error-structure-mismatch", {}
+            return "tienlen-error-lower-combo", {}
+
+        if not self._same_shape(play_combo, current_combo):
+            return "tienlen-error-must-match-type", {}
+        return "tienlen-error-lower-combo", {}
+
     def validate_play(
         self,
         hand: list[Card],
@@ -154,11 +171,12 @@ class TienLenRuleSet:
                 return False, "tienlen-error-cannot-lead-three-consecutive-pairs", {}
         else:
             if has_passed_this_trick and not self.can_bypass_pass_lock(current_combo, combo):
-                return False, "action-not-your-turn", {}
+                if self.variant == SOUTHERN_VARIANT and self.is_two_combo(current_combo):
+                    return False, "tienlen-error-pass-lock-two", {}
+                return False, "tienlen-error-pass-lock", {}
             if not self.combo_beats(combo, current_combo):
-                if combo.card_count != current_combo.card_count and combo.type_name == current_combo.type_name:
-                    return False, "tienlen-error-wrong-length", {"count": current_combo.card_count}
-                return False, "tienlen-error-lower-combo", {}
+                error_key, error_kwargs = self._comparison_error_key(combo, current_combo)
+                return False, error_key, error_kwargs
 
         if is_first_turn:
             has_opening_card = any(card.rank == self.opening_rank and card.suit == self.opening_suit for card in selected_cards)

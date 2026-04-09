@@ -189,6 +189,24 @@ def test_northern_game_rejects_finishing_on_two() -> None:
     assert "cannot finish the hand with 2s" in (user.get_last_spoken() or "")
 
 
+def test_northern_structure_mismatch_reports_specific_error() -> None:
+    game = make_game(start=True, variant=NORTHERN_VARIANT)
+    current = game.current_player
+    assert current is not None
+    game.is_first_turn = False
+    game.current_combo = evaluate_combo([c(10, 5, 3)], NORTHERN_VARIANT)
+    current.hand = [c(1, 8, 4)]
+    current.selected_cards = {1}
+
+    game.execute_action(current, "play_selected")
+
+    user = game.get_user(current)
+    assert isinstance(user, MockUser)
+    assert user.get_last_spoken() == (
+        "In Northern Tien Len, your play must match the required suit or color structure of the current trick."
+    )
+
+
 def test_trick_resets_after_all_other_players_pass() -> None:
     game = make_game(player_count=2, start=True)
     leader = game.players[0]
@@ -205,6 +223,62 @@ def test_trick_resets_after_all_other_players_pass() -> None:
 
     assert game.current_player == leader
     assert game.current_combo is None
+
+
+def test_southern_pass_lock_reports_chop_specific_error() -> None:
+    game = make_game(player_count=3, start=True, variant=SOUTHERN_VARIANT)
+    player1, player2, _ = game.players
+    game.is_first_turn = False
+    game.current_combo = evaluate_combo([c(50, 2, 4)], SOUTHERN_VARIANT)
+    game.trick_winner_id = player1.id
+    game.turn_index = game.turn_player_ids.index(player2.id)
+    player2.passed_this_trick = True
+    player2.hand = [c(1, 5, 4)]
+    player2.selected_cards = {1}
+
+    game._action_play_selected(player2, "play_selected")
+
+    user = game.get_user(player2)
+    assert isinstance(user, MockUser)
+    assert user.get_last_spoken() == (
+        "You already passed on this trick. You may only return with a legal chop against the current 2s."
+    )
+
+
+def test_hand_sorting_rebuilds_in_tien_len_order() -> None:
+    game = make_game(start=True)
+    current = game.current_player
+    assert current is not None
+    current.hand = [
+        c(1, 2, 3),
+        c(2, 3, 2),
+        c(3, 1, 1),
+        c(4, 3, 4),
+        c(5, 2, 4),
+        c(6, 3, 3),
+    ]
+
+    game.rebuild_player_menu(current)
+
+    assert [(card.rank, card.suit) for card in current.hand] == [
+        (3, 4),
+        (3, 2),
+        (3, 3),
+        (1, 1),
+        (2, 4),
+        (2, 3),
+    ]
+    turn_set = game.get_action_set(current, "turn")
+    assert turn_set is not None
+    ordered_toggle_ids = [action_id for action_id in turn_set._order if action_id.startswith("toggle_select_")]
+    assert ordered_toggle_ids == [
+        "toggle_select_4",
+        "toggle_select_2",
+        "toggle_select_6",
+        "toggle_select_3",
+        "toggle_select_5",
+        "toggle_select_1",
+    ]
 
 
 def test_web_info_actions_visible() -> None:

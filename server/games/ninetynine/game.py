@@ -23,7 +23,6 @@ from ...game_utils.cards import (
     card_name,
     card_name_with_article,
     sort_cards,
-    SUIT_NONE,
     N99_RANK_PLUS_10,
     N99_RANK_MINUS_10,
     N99_RANK_PASS,
@@ -50,7 +49,6 @@ TEN_AUTO_THRESHOLD = 90  # Auto-choose -10 when count >= this
 TWO_DIVIDE_THRESHOLD = 49  # Divide by 2 when count > this and even
 
 # Default options
-DEFAULT_HAND_SIZE = 3
 DEFAULT_TOKENS = 9
 
 # Token penalties
@@ -213,17 +211,25 @@ class NinetyNineGame(Game):
         """Announce when a player is skipped."""
         self.broadcast_l("ninetynine-player-skipped", player=player.name)
 
-    def _play_sound_for_player(
-        self, player: NinetyNinePlayer, sound_for_player: str, sound_for_others: str
+    def _play_outcome_sounds(
+        self,
+        *,
+        winners: list[NinetyNinePlayer] | None = None,
+        losers: list[NinetyNinePlayer] | None = None,
+        win_sound: str,
+        lose_sound: str,
     ) -> None:
-        """Play different sounds for a specific player vs everyone else."""
-        for p in self.players:
-            user = self.get_user(p)
-            if user:
-                if p == player:
-                    user.play_sound(sound_for_player)
-                else:
-                    user.play_sound(sound_for_others)
+        """Play winner and loser sounds, with spectators hearing the winner sound."""
+        loser_ids = {player.id for player in losers or []}
+
+        for table_player in self.players:
+            user = self.get_user(table_player)
+            if not user:
+                continue
+            if table_player.id in loser_ids:
+                user.play_sound(lose_sound)
+            else:
+                user.play_sound(win_sound)
 
     def _sort_hand(self, player: NinetyNinePlayer) -> None:
         """Sort a player's hand by rank."""
@@ -301,14 +307,7 @@ class NinetyNineGame(Game):
 
     def create_turn_action_set(self, player: NinetyNinePlayer) -> ActionSet:
         """Create the turn action set for a player."""
-        user = self.get_user(player)
-        locale = user.locale if user else "en"
-
-        action_set = ActionSet(name="turn")
-
-        # Card slot actions will be dynamically created in _update_card_actions
-
-        return action_set
+        return ActionSet(name="turn")
 
     # WEB-SPECIFIC: Target order for Standard Actions
     web_target_order = ["check_count", "check_scores", "whose_turn", "whos_at_table"]
@@ -372,7 +371,7 @@ class NinetyNineGame(Game):
         # Count check
         self.define_keybind(
             "c",
-            Localization.get("en", "ninetynine-check-count"),
+            Localization.get(locale, "ninetynine-check-count"),
             ["check_count"],
             state=KeybindState.ACTIVE,
             include_spectators=True,
@@ -675,8 +674,12 @@ class NinetyNineGame(Game):
         """Handle action cards auto-lose when player has no safe cards."""
         self.broadcast_l("ninetynine-no-valid-cards", player=player.name)
 
-        self._play_sound_for_player(
-            player, "game_pig/win.ogg", "game_ninetynine/lose2.ogg"
+        winners = [alive_player for alive_player in self.alive_players if alive_player != player]
+        self._play_outcome_sounds(
+            winners=winners,
+            losers=[player],
+            win_sound="game_pig/win.ogg",
+            lose_sound="game_ninetynine/lose2.ogg",
         )
 
         player.tokens = max(0, player.tokens - PENALTY_BUST_ACTION)
@@ -976,13 +979,23 @@ class NinetyNineGame(Game):
         others = [p for p in self.alive_players if p != player]
 
         if milestone == "99":
-            self._play_sound_for_player(
-                player, "game_ninetynine/lose2.ogg", "game_pig/win.ogg"
+            self._play_outcome_sounds(
+                winners=[player],
+                losers=others,
+                win_sound="game_pig/win.ogg",
+                lose_sound="game_ninetynine/lose2.ogg",
             )
         else:
-            self._play_sound_for_player(
-                player, "game_ninetynine/lose1_other.ogg", "game_ninetynine/lose1_you.ogg"
-            )
+            for table_player in self.players:
+                user = self.get_user(table_player)
+                if not user:
+                    continue
+                if table_player == player:
+                    user.play_sound("game_ninetynine/lose1_other.ogg")
+                elif table_player in others:
+                    user.play_sound("game_ninetynine/lose1_you.ogg")
+                else:
+                    user.play_sound("game_ninetynine/lose1_other.ogg")
 
         for other in others:
             other.tokens = max(0, other.tokens - amount)
@@ -995,9 +1008,15 @@ class NinetyNineGame(Game):
         self, player: NinetyNinePlayer, amount: int, reason: str
     ) -> None:
         """Player loses tokens (passing through milestone or busting)."""
-        self._play_sound_for_player(
-            player, "game_ninetynine/lose1_you.ogg", "game_ninetynine/lose1_other.ogg"
-        )
+        del reason
+        for table_player in self.players:
+            user = self.get_user(table_player)
+            if not user:
+                continue
+            if table_player == player:
+                user.play_sound("game_ninetynine/lose1_you.ogg")
+            else:
+                user.play_sound("game_ninetynine/lose1_other.ogg")
 
         player.tokens = max(0, player.tokens - amount)
         self._announce_token_loss(player, amount)
@@ -1007,8 +1026,12 @@ class NinetyNineGame(Game):
 
     def _player_busts(self, player: NinetyNinePlayer) -> None:
         """Player went over 99."""
-        self._play_sound_for_player(
-            player, "game_pig/win.ogg", "game_ninetynine/lose2.ogg"
+        winners = [alive_player for alive_player in self.alive_players if alive_player != player]
+        self._play_outcome_sounds(
+            winners=winners,
+            losers=[player],
+            win_sound="game_pig/win.ogg",
+            lose_sound="game_ninetynine/lose2.ogg",
         )
 
         amount = PENALTY_BUST if self.is_standard_rules else PENALTY_BUST_ACTION
@@ -1020,8 +1043,12 @@ class NinetyNineGame(Game):
 
     def _player_out_of_cards(self, player: NinetyNinePlayer) -> None:
         """Player has no cards on their turn."""
-        self._play_sound_for_player(
-            player, "game_pig/win.ogg", "game_ninetynine/lose2.ogg"
+        winners = [alive_player for alive_player in self.alive_players if alive_player != player]
+        self._play_outcome_sounds(
+            winners=winners,
+            losers=[player],
+            win_sound="game_pig/win.ogg",
+            lose_sound="game_ninetynine/lose2.ogg",
         )
 
         player.tokens = max(0, player.tokens - PENALTY_NO_CARDS)
@@ -1195,6 +1222,7 @@ class NinetyNineGame(Game):
     def on_tick(self) -> None:
         """Called every tick."""
         super().on_tick()
+        self.process_scheduled_sounds()
 
         if not self.game_active:
             return
@@ -1219,8 +1247,8 @@ class NinetyNineGame(Game):
                             self._player_out_of_cards(draw_player)
                             return
 
-                        self._update_all_turn_actions()
-                        self.rebuild_all_menus()
+                        self._advance_turn()
+                        return
 
         BotHelper.on_tick(self)
 

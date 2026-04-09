@@ -14,6 +14,7 @@ import json
 from ..games.ninetynine.game import (
     NinetyNineGame,
     NinetyNineOptions,
+    PENALTY_MILESTONE_99,
 )
 from ..game_utils.cards import (
     Card,
@@ -40,7 +41,7 @@ class TestNinetyNineUnit:
 
     @classmethod
     def setup_class(cls):
-        Localization.init(Path("locales"))
+        Localization.init(Path(__file__).parent.parent / "locales")
         Localization.preload_bundles()
 
     def test_game_creation(self):
@@ -86,7 +87,7 @@ class TestCardAndDeck:
 
     @classmethod
     def setup_class(cls):
-        Localization.init(Path("locales"))
+        Localization.init(Path(__file__).parent.parent / "locales")
         Localization.preload_bundles()
 
     def test_card_creation(self):
@@ -333,6 +334,38 @@ class TestMilestones:
         assert not round_ended
         assert self.player2.tokens == 9  # No change
 
+    def test_bust_audio_routes_lose_to_loser_and_win_to_others(self):
+        """The busted player should hear lose, while others and spectators hear win."""
+        spectator_user = MockUser("Spec")
+        spectator = self.game.add_player("Spec", spectator_user)
+        spectator.is_spectator = True
+
+        self.user1.clear_messages()
+        self.user2.clear_messages()
+        spectator_user.clear_messages()
+
+        self.game._player_busts(self.player1)
+
+        assert self.user1.get_sounds_played()[-1] == "game_ninetynine/lose2.ogg"
+        assert self.user2.get_sounds_played()[-1] == "game_pig/win.ogg"
+        assert spectator_user.get_sounds_played()[-1] == "game_pig/win.ogg"
+
+    def test_milestone_99_audio_routes_win_to_scorer_and_lose_to_losers(self):
+        """Landing on 99 should give the scoring player the win sound and losers the lose sound."""
+        spectator_user = MockUser("Spec")
+        spectator = self.game.add_player("Spec", spectator_user)
+        spectator.is_spectator = True
+
+        self.user1.clear_messages()
+        self.user2.clear_messages()
+        spectator_user.clear_messages()
+
+        self.game._others_lose_tokens(self.player1, PENALTY_MILESTONE_99, "99")
+
+        assert self.user1.get_sounds_played()[-1] == "game_pig/win.ogg"
+        assert self.user2.get_sounds_played()[-1] == "game_ninetynine/lose2.ogg"
+        assert spectator_user.get_sounds_played()[-1] == "game_pig/win.ogg"
+
 
 class TestNinetyNinePlayTest:
     """
@@ -426,6 +459,53 @@ class TestNinetyNinePlayTest:
             game.on_tick()
 
         assert not game.game_active
+
+    def test_manual_draw_timeout_advances_turn(self):
+        """Manual draw timeout should not leave the game stuck on the same player."""
+        game = NinetyNineGame(options=NinetyNineOptions(autodraw=False))
+        user1 = MockUser("Alice")
+        user2 = MockUser("Bob")
+        player1 = game.add_player("Alice", user1)
+        player2 = game.add_player("Bob", user2)
+
+        game.setup_keybinds()
+        game.on_start()
+        game.turn_index = game.turn_player_ids.index(player1.id)
+        game.pending_draw_player_id = player1.id
+        game.draw_timeout_ticks = 1
+        player1.hand = [Card(id=99, rank=5, suit=SUIT_HEARTS)]
+
+        game.on_tick()
+
+        assert game.pending_draw_player_id is None
+        assert game.current_player == player2
+
+    def test_action_cards_bot_prefers_forcing_no_safe_response(self):
+        """Bot should prefer a move that leaves the next player with no safe action-card play."""
+        game = NinetyNineGame(options=NinetyNineOptions(rules_variant="action_cards"))
+        bot_user = Bot("Bot1")
+        opp_user = MockUser("Player2")
+        bot_player = game.add_player("Bot1", bot_user)
+        opp_player = game.add_player("Player2", opp_user)
+
+        game.setup_keybinds()
+        game.on_start()
+        game.alive_player_ids = [bot_player.id, opp_player.id]
+        game.set_turn_players([bot_player, opp_player])
+        game.turn_index = 0
+        game.count = 87
+        bot_player.hand = [
+            Card(id=1, rank=1, suit=SUIT_NONE),
+            Card(id=2, rank=9, suit=SUIT_NONE),
+            Card(id=3, rank=N99_RANK_PLUS_10, suit=SUIT_NONE),
+        ]
+        opp_player.hand = [
+            Card(id=4, rank=8, suit=SUIT_NONE),
+            Card(id=5, rank=9, suit=SUIT_NONE),
+            Card(id=6, rank=N99_RANK_PLUS_10, suit=SUIT_NONE),
+        ]
+
+        assert game.bot_think(bot_player) in {"card_slot_2", "card_slot_3"}
 
 
 class TestNinetyNinePersistence:

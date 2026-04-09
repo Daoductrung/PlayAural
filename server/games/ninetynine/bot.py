@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 
 from ...game_utils.cards import (
     Card,
-    SUIT_NONE,
+    N99_RANK_PLUS_10,
     N99_RANK_MINUS_10,
     N99_RANK_PASS,
     N99_RANK_REVERSE,
@@ -27,6 +27,8 @@ BOT_SCORE_WEAK_TRAP = 3000
 BOT_SCORE_SETUP_ZONE = 5000
 BOT_SCORE_SKIP_TRAP = -5000
 BOT_SCORE_BAD_SETUP = -3000
+BOT_SCORE_OPPONENT_NO_SAFE = 9000
+BOT_SCORE_OPPONENT_KILL = 12000
 
 # Bot hoarding penalties (when not in danger)
 BOT_HOARD_ACE = 350
@@ -69,14 +71,19 @@ def bot_think(game: "NinetyNineGame", player: "NinetyNinePlayer") -> str | None:
 
 def _make_choice(game: "NinetyNineGame", player: "NinetyNinePlayer") -> str | None:
     """Bot makes a choice for Ace or Ten."""
+    slot = game.pending_card_index
+    if slot < 0 or slot >= len(player.hand):
+        return None
+    card = player.hand[slot]
+
     if game.pending_choice == "ace":
-        score_11 = _evaluate_count(game, game.count + 11, 1)
-        score_1 = _evaluate_count(game, game.count + 1, 1)
+        score_11 = _score_outcome(game, player, card.rank, game.count + 11)
+        score_1 = _score_outcome(game, player, card.rank, game.count + 1)
         return "choice_1" if score_11 > score_1 else "choice_2"
 
     elif game.pending_choice == "ten":
-        score_plus = _evaluate_count(game, game.count + 10, 10)
-        score_minus = _evaluate_count(game, game.count - 10, 10)
+        score_plus = _score_outcome(game, player, card.rank, game.count + 10)
+        score_minus = _score_outcome(game, player, card.rank, game.count - 10)
         return "choice_1" if score_plus > score_minus else "choice_2"
 
     return None
@@ -101,10 +108,17 @@ def _choose_card(game: "NinetyNineGame", player: "NinetyNinePlayer") -> str | No
 
 def _evaluate_count(game: "NinetyNineGame", new_count: int, card_rank: int) -> int:
     """Evaluate how good a resulting count is for the bot."""
+    return _evaluate_count_from_current(game, game.count, new_count, card_rank)
+
+
+def _evaluate_count_from_current(
+    game: "NinetyNineGame", current_count: int, new_count: int, card_rank: int
+) -> int:
+    """Evaluate a resulting count from an arbitrary starting count."""
     if new_count > MAX_COUNT:
         return BOT_SCORE_BUST
 
-    alive_count = len([p for p in game.players if p.tokens > 0])
+    alive_count = len([p for p in game.players if p.tokens > 0 and not p.is_spectator])
     is_two_player = alive_count == 2
 
     # Check if this is a Skip card
@@ -113,17 +127,16 @@ def _evaluate_count(game: "NinetyNineGame", new_count: int, card_rank: int) -> i
     )
 
     if game.is_standard_rules:
-        return _evaluate_standard(game, new_count, is_two_player, is_skip)
+        return _evaluate_standard(current_count, new_count, is_two_player, is_skip)
     else:
         return _evaluate_action_cards(new_count, is_two_player, is_skip)
 
 
 def _evaluate_standard(
-    game: "NinetyNineGame", new_count: int, is_two_player: bool, is_skip: bool
+    current_count: int, new_count: int, is_two_player: bool, is_skip: bool
 ) -> int:
     """Evaluate count for standard variant."""
     score = 0
-    current_count = game.count
 
     # Hit milestones (highest priority when adding to count)
     if new_count in (MILESTONE_33, MILESTONE_66, MAX_COUNT) and new_count > current_count:
@@ -210,56 +223,33 @@ def _score_card(
 ) -> int:
     """Score a card for bot decision making."""
     rank = card.rank
-    count = game.count
-
-    # Calculate base score from evaluating the resulting count
-    if game.is_standard_rules:
-        base_score = _score_standard_card(game, rank, count)
-    else:
-        base_score = _score_action_cards_card(game, rank, count)
-
-    # Apply hoarding logic
+    outcome_scores = [
+        _score_outcome(game, player, rank, new_count)
+        for new_count in _enumerate_card_outcomes(game, card, game.count)
+    ]
+    base_score = max(outcome_scores, default=BOT_SCORE_BUST)
     base_score += _hoarding_modifier(game, rank)
-
-    # Apply situational bonuses for skip/reverse/pass
     base_score += _special_card_modifier(game, rank)
-
     return base_score
 
 
-def _score_standard_card(game: "NinetyNineGame", rank: int, count: int) -> int:
-    """Score a card for standard variant."""
-    if rank == 1:  # Ace
-        score_11 = _evaluate_count(game, count + 11, rank)
-        score_1 = _evaluate_count(game, count + 1, rank)
-        return max(score_11, score_1)
-    elif rank == 10 and count < TEN_AUTO_THRESHOLD:
-        score_plus = _evaluate_count(game, count + 10, rank)
-        score_minus = _evaluate_count(game, count - 10, rank)
-        return max(score_plus, score_minus)
-    elif rank == 2:
-        new_count = _calculate_two_effect(count)
-        score = _evaluate_count(game, new_count, rank)
-        # Treat doubling (non-divide use of 2) as a last resort.
-        if new_count > count:
-            score -= 8000
-        if new_count < count and count >= 80:
-            score += 200
-        return score
-    elif rank == 9:
-        return _evaluate_count(game, count, rank)
-    else:
-        value = _get_card_value(rank, count)
-        return _evaluate_count(game, count + (value or 0), rank)
+def _score_outcome(
+    game: "NinetyNineGame",
+    player: "NinetyNinePlayer",
+    card_rank: int,
+    new_count: int,
+) -> int:
+    """Score a fully specified play outcome."""
+    score = _evaluate_count(game, new_count, card_rank)
+    score += _pressure_modifier(game, player, card_rank, new_count)
 
+    if player.tokens <= 1:
+        if new_count >= 95:
+            score -= 1200
+        elif new_count >= 90:
+            score -= 600
 
-def _score_action_cards_card(game: "NinetyNineGame", rank: int, count: int) -> int:
-    """Score a card for action cards variant."""
-    if rank == N99_RANK_NINETY_NINE:
-        return _evaluate_count(game, MAX_COUNT, rank)
-    else:
-        value = _get_action_card_value(rank)
-        return _evaluate_count(game, count + (value or 0), rank)
+    return score
 
 
 def _hoarding_modifier(game: "NinetyNineGame", rank: int) -> int:
@@ -308,11 +298,11 @@ def _hoarding_modifier(game: "NinetyNineGame", rank: int) -> int:
 
 def _special_card_modifier(game: "NinetyNineGame", rank: int) -> int:
     """Small situational bonus for control cards (skip/reverse/pass)."""
-    next_player = _next_alive_player(game)
+    next_player = _next_alive_player_after_play(game, game.current_player, rank)
     if not next_player:
         return 0
 
-    alive_count = len([p for p in game.players if p.tokens > 0])
+    alive_count = len([p for p in game.players if p.tokens > 0 and not p.is_spectator])
     low_tokens = next_player.tokens <= 1
 
     if game.is_standard_rules:
@@ -347,6 +337,113 @@ def _next_alive_player(game: "NinetyNineGame") -> "NinetyNinePlayer | None":
     return None
 
 
+def _next_alive_player_after_play(
+    game: "NinetyNineGame",
+    player: "NinetyNinePlayer | None",
+    rank: int,
+) -> "NinetyNinePlayer | None":
+    """Find who would act next after applying this card's control effect."""
+    if not player or player.id not in game.turn_player_ids:
+        return _next_alive_player(game)
+
+    direction = game.turn_direction
+    alive_count = len([p for p in game.players if p.tokens > 0 and not p.is_spectator])
+
+    reverse_applies = (
+        game.is_standard_rules and rank == 4 and alive_count > 2
+    ) or (
+        not game.is_standard_rules and rank == N99_RANK_REVERSE and alive_count > 2
+    )
+    if reverse_applies:
+        direction *= -1
+
+    skips_remaining = 1 if (
+        (game.is_standard_rules and rank == 11)
+        or (not game.is_standard_rules and rank == N99_RANK_SKIP)
+    ) else 0
+
+    idx = game.turn_player_ids.index(player.id)
+    for _ in range(len(game.turn_player_ids) * 2):
+        idx = (idx + direction) % len(game.turn_player_ids)
+        candidate = game.get_player_by_id(game.turn_player_ids[idx])
+        if not candidate or candidate.tokens <= 0 or candidate.is_spectator:
+            continue
+        if skips_remaining > 0:
+            skips_remaining -= 1
+            continue
+        return candidate
+
+    return None
+
+
+def _pressure_modifier(
+    game: "NinetyNineGame",
+    player: "NinetyNinePlayer",
+    card_rank: int,
+    new_count: int,
+) -> int:
+    """Estimate how hard the move makes the next player's turn."""
+    next_player = _next_alive_player_after_play(game, player, card_rank)
+    if not next_player:
+        return 0
+
+    safe_responses = _enumerate_safe_responses(game, next_player, new_count)
+    if not safe_responses:
+        bonus = BOT_SCORE_OPPONENT_KILL if next_player.tokens <= 1 else BOT_SCORE_OPPONENT_NO_SAFE
+        return bonus
+
+    best_response = max(
+        _evaluate_count_from_current(game, new_count, response_count, response_rank)
+        for response_rank, response_count in safe_responses
+    )
+    min_response_count = min(response_count for _, response_count in safe_responses)
+
+    modifier = -(best_response // 4)
+    if min_response_count >= 90:
+        modifier += 500
+    if next_player.tokens <= 1:
+        modifier += 350
+    return modifier
+
+
+def _enumerate_safe_responses(
+    game: "NinetyNineGame",
+    player: "NinetyNinePlayer",
+    current_count: int,
+) -> list[tuple[int, int]]:
+    """Enumerate the next player's safe card outcomes."""
+    safe: list[tuple[int, int]] = []
+    for card in player.hand:
+        for new_count in _enumerate_card_outcomes(game, card, current_count):
+            if new_count <= MAX_COUNT:
+                safe.append((card.rank, new_count))
+    return safe
+
+
+def _enumerate_card_outcomes(
+    game: "NinetyNineGame", card: Card, current_count: int
+) -> list[int]:
+    """Enumerate all legal count outcomes for a single card."""
+    rank = card.rank
+
+    if game.is_standard_rules:
+        if rank == 1:
+            return [current_count + 1] if current_count > 88 else [current_count + 11, current_count + 1]
+        if rank == 2:
+            return [_calculate_two_effect(current_count)]
+        if rank == 9:
+            return [current_count]
+        if rank == 10:
+            return [current_count - 10] if current_count >= TEN_AUTO_THRESHOLD else [current_count + 10, current_count - 10]
+        if rank in (11, 12, 13):
+            return [current_count + 10]
+        return [current_count + _get_card_value(rank)]
+
+    if rank == N99_RANK_NINETY_NINE:
+        return [MAX_COUNT]
+    return [current_count + _get_action_card_value(rank)]
+
+
 def _calculate_two_effect(current_count: int) -> int:
     """Calculate the new count after playing a 2 (standard rules)."""
     if current_count % 2 == 0 and current_count > TWO_DIVIDE_THRESHOLD:
@@ -355,7 +452,7 @@ def _calculate_two_effect(current_count: int) -> int:
         return current_count * 2
 
 
-def _get_card_value(rank: int, current_count: int) -> int:
+def _get_card_value(rank: int) -> int:
     """Get simple card value for standard rules (used by bot scoring)."""
     if 3 <= rank <= 8:
         return rank
@@ -368,8 +465,6 @@ def _get_card_value(rank: int, current_count: int) -> int:
 
 def _get_action_card_value(rank: int) -> int:
     """Get simple card value for action cards (used by bot scoring)."""
-    from ...game_utils.cards import N99_RANK_PLUS_10
-
     if 1 <= rank <= 9:
         return rank
     elif rank == N99_RANK_PLUS_10:

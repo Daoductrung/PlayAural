@@ -204,7 +204,7 @@ pytest -v                                      # verbose output
 
 ## Game Catalog
 
-31 games across four categories:
+32 games across four categories:
 
 ### Card Games
 

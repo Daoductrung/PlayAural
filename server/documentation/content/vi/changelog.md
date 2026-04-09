@@ -1,5 +1,17 @@
 Nhật ký thay đổi
 
+Thứ Năm 9 Tháng Tư 2026
+
+Cập nhật máy chủ:
+
+Đã thêm trò chơi mới mang tên Color Game với đầy đủ tài liệu hướng dẫn chi tiết cho người mới bắt đầu. Trò chơi được hỗ trợ hoàn chỉnh bằng cả tiếng Việt và tiếng Anh.
+
+Cập nhật trò chơi Tiến Lên: Các lá bài trên tay giờ đây sẽ tự động được sắp xếp từ thấp đến cao để bạn dễ dàng chọn lựa. Hệ thống cũng sẽ thông báo chi tiết và rõ ràng hơn khi bạn đánh ra một nước bài không hợp lệ.
+
+Cập nhật trò chơi Pusoy Dos: Tương tự như Tiến Lên, các lá bài trên tay cũng sẽ được tự động sắp xếp từ thấp đến cao.
+
+Cập nhật Bài 99: Đã nâng cấp trí thông minh của người máy lên một chút để tăng tính thử thách, đồng thời tối ưu hóa mã nguồn bên trong giúp trò chơi chạy mượt mà hơn.
+
 Thứ Ba 7 Tháng Tư 2026
 
 Cập nhật máy chủ:

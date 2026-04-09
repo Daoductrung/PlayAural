@@ -1,5 +1,17 @@
 Changelog
 
+Thursday 9 April 2026
+
+Server Updates:
+
+Added a new game called Color Game, complete with comprehensive documentation for beginners. The game is fully localized in both English and Vietnamese.
+
+Tien Len updates: Cards in your hand are now automatically sorted from lowest to highest for easier management. Also added clearer and more detailed voice feedback when you attempt an invalid play.
+
+Pusoy Dos updates: Cards in your hand will now also automatically sort from lowest to highest.
+
+Ninety Nine updates: Improved the bot AI to be slightly smarter and made minor underlying code improvements for better performance.
+
 Tuesday 7 April 2026
 
 Server Updates:

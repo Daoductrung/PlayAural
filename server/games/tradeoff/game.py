@@ -571,7 +571,7 @@ class TradeoffGame(Game):
                 tp.trading_indices.remove(i)
                 user = self.get_user(player)
                 if user:
-                    user.speak_l("tradeoff-keeping", value=value)
+                    user.speak_l("tradeoff-keeping", buffer="game", value=value)
                 self.rebuild_player_menu(player)
                 return
 
@@ -585,7 +585,7 @@ class TradeoffGame(Game):
                 tp.trading_indices.append(i)
                 user = self.get_user(player)
                 if user:
-                    user.speak_l("tradeoff-trading", value=value)
+                    user.speak_l("tradeoff-trading", buffer="game", value=value)
                 self.rebuild_player_menu(player)
                 return
 
@@ -601,11 +601,11 @@ class TradeoffGame(Game):
         if index in tp.trading_indices:
             tp.trading_indices.remove(index)
             if user:
-                user.speak_l("tradeoff-keeping", value=die_value)
+                user.speak_l("tradeoff-keeping", buffer="game", value=die_value)
         else:
             tp.trading_indices.append(index)
             if user:
-                user.speak_l("tradeoff-trading", value=die_value)
+                user.speak_l("tradeoff-trading", buffer="game", value=die_value)
         self.rebuild_player_menu(player)
 
     def _action_confirm_trades(self, player: Player, action_id: str) -> None:
@@ -649,7 +649,7 @@ class TradeoffGame(Game):
                     if not user:
                         continue
                     dice_list_str = Localization.format_list(user.locale, dice_strs)
-                    user.speak_l("tradeoff-player-traded", player=p.name, dice=dice_list_str)
+                    user.speak_l("tradeoff-player-traded", buffer="game", player=p.name, dice=dice_list_str)
             else:
                 self.broadcast_l("tradeoff-player-traded-none", player=p.name)
 
@@ -718,7 +718,7 @@ class TradeoffGame(Game):
             if user:
                 if user.preferences.play_turn_sound:
                     user.play_sound("turn.ogg")
-                user.speak_l("tradeoff-your-turn-take")
+                user.speak_l("tradeoff-your-turn-take", buffer="game")
             if player.is_bot:
                 BotHelper.jolt_bot(player, ticks=random.randint(10, 20))  # nosec B311
 
@@ -761,9 +761,9 @@ class TradeoffGame(Game):
         if tp.hand:
             dice_strs = [str(d) for d in sorted(tp.hand)]
             hand_str = Localization.format_list(user.locale, dice_strs)
-            user.speak_l("tradeoff-hand-display", count=len(tp.hand), dice=hand_str)
+            user.speak_l("tradeoff-hand-display", buffer="game", count=len(tp.hand), dice=hand_str)
         else:
-            user.speak_l("tradeoff-hand-empty")
+            user.speak_l("tradeoff-hand-empty", buffer="game")
 
     def _action_view_pool(self, player: Player, action_id: str) -> None:
         """Speak the current shared pool."""
@@ -773,9 +773,9 @@ class TradeoffGame(Game):
         if self.pool:
             dice_strs = [str(d) for d in sorted(self.pool)]
             pool_str = Localization.format_list(user.locale, dice_strs)
-            user.speak_l("tradeoff-pool-display", count=len(self.pool), dice=pool_str)
+            user.speak_l("tradeoff-pool-display", buffer="game", count=len(self.pool), dice=pool_str)
         else:
-            user.speak_l("tradeoff-pool-empty")
+            user.speak_l("tradeoff-pool-empty", buffer="game")
 
     def _action_view_players(self, player: Player, action_id: str) -> None:
         """Speak each active player's hand and traded dice."""
@@ -793,9 +793,9 @@ class TradeoffGame(Game):
                 traded_str = Localization.format_list(
                     user.locale, [str(d) for d in sorted(tp.traded_dice)]
                 )
-                user.speak_l("tradeoff-player-info", player=p.name, hand=hand_str, traded=traded_str)
+                user.speak_l("tradeoff-player-info", buffer="game", player=p.name, hand=hand_str, traded=traded_str)
             else:
-                user.speak_l("tradeoff-player-info-no-trade", player=p.name, hand=hand_str)
+                user.speak_l("tradeoff-player-info-no-trade", buffer="game", player=p.name, hand=hand_str)
 
     # ==========================================================================
     # Game flow
@@ -861,7 +861,7 @@ class TradeoffGame(Game):
                 dice_str = Localization.format_list(
                     user.locale, [str(d) for d in tp.rolled_dice]
                 )
-                user.speak_l("tradeoff-you-rolled", dice=dice_str)
+                user.speak_l("tradeoff-you-rolled", buffer="game", dice=dice_str)
 
         for p in active_players:
             if p.is_bot:
@@ -936,7 +936,7 @@ class TradeoffGame(Game):
                         points=total_points,
                         sets=sets_str,
                     )
-                    recipient_user.speak(msg)
+                    recipient_user.speak(msg, buffer="game")
             else:
                 self.broadcast_l("tradeoff-no-sets", player=p.name)
 
@@ -992,7 +992,7 @@ class TradeoffGame(Game):
                 user = self.get_user(p)
                 if user:
                     names_str = Localization.format_list_and(user.locale, winner_names)
-                    user.speak_l("tradeoff-winners-tie", players=names_str, score=high_score)
+                    user.speak_l("tradeoff-winners-tie", buffer="game", players=names_str, score=high_score)
 
         self.finish_game()
 

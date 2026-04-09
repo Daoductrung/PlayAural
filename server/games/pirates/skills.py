@@ -347,6 +347,7 @@ class GemSeekerSkill(Skill):
                     gem_name = Localization.get(user.locale, gem_key)
                     user.speak_l(
                         "pirates-gem-seeker-reveal",
+                        buffer="game",
                         gem=gem_name,
                         position=pos,
                         uses=self.get_uses(player)

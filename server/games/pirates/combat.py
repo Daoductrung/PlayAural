@@ -275,6 +275,7 @@ def _push_defender(
         direction_local = Localization.get(attacker_user.locale, direction_key)
         attacker_user.speak_l(
             "pirates-push-you",
+            buffer="game",
             target=defender.name,
             direction=direction_local,
             position=defender.position
@@ -283,6 +284,7 @@ def _push_defender(
         direction_local = Localization.get(defender_user.locale, direction_key)
         defender_user.speak_l(
             "pirates-push-them",
+            buffer="game",
             attacker=attacker.name,
             direction=direction_local,
             position=defender.position
@@ -297,6 +299,7 @@ def _push_defender(
             direction_local = Localization.get(u.locale, direction_key)
             u.speak_l(
                 "pirates-push",
+                buffer="game",
                 attacker=attacker.name,
                 defender=defender.name,
                 direction=direction_local,
@@ -359,6 +362,7 @@ def _attempt_gem_steal(
                 gem_local = Localization.get(attacker_user.locale, gem_name_key)
                 attacker_user.speak_l(
                     "pirates-steal-success-you",
+                    buffer="game",
                     gem=gem_local,
                     target=defender.name
                 )
@@ -366,6 +370,7 @@ def _attempt_gem_steal(
                 gem_local = Localization.get(defender_user.locale, gem_name_key)
                 defender_user.speak_l(
                     "pirates-steal-success-them",
+                    buffer="game",
                     gem=gem_local,
                     attacker=attacker.name
                 )
@@ -379,6 +384,7 @@ def _attempt_gem_steal(
                     gem_local = Localization.get(u.locale, gem_name_key)
                     u.speak_l(
                         "pirates-steal-success",
+                        buffer="game",
                         attacker=attacker.name,
                         gem=gem_local,
                         defender=defender.name,

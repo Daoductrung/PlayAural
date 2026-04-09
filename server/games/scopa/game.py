@@ -674,7 +674,7 @@ class ScopaGame(Game):
             if user:
                 # Localize team name for this user
                 team_name = self.team_manager.get_team_name(team, user.locale)
-                user.speak_l(message_id, player=team_name, **kwargs)
+                user.speak_l(message_id, buffer="game", player=team_name, **kwargs)
 
     def _create_deck(self) -> None:
         """Create and shuffle the deck."""
@@ -1139,9 +1139,9 @@ class ScopaGame(Game):
         if user:
             if self.table_cards:
                 cards_str = read_cards(self.table_cards, user.locale)
-                user.speak(cards_str)
+                user.speak(cards_str, buffer="game")
             else:
-                user.speak_l("scopa-table-empty")
+                user.speak_l("scopa-table-empty", buffer="game")
 
     def _action_view_table_card(self, player: Player, action_id: str) -> None:
         """View a specific table card."""
@@ -1159,16 +1159,16 @@ class ScopaGame(Game):
 
         if num <= len(self.table_cards):
             card = self.table_cards[num - 1]
-            user.speak(card_name(card, user.locale))
+            user.speak(card_name(card, user.locale), buffer="game")
         else:
-            user.speak_l("scopa-no-such-card")
+            user.speak_l("scopa-no-such-card", buffer="game")
 
     def _action_view_captured(self, player: Player, action_id: str) -> None:
         """View captured card count."""
         user = self.get_user(player)
         if user and isinstance(player, ScopaPlayer):
             count = len(player.captured)
-            user.speak_l("scopa-captured-count", count=count)
+            user.speak_l("scopa-captured-count", buffer="game", count=count)
 
     def _action_pause_timer(self, player: Player, action_id: str) -> None:
         """Handle pause timer action (host only)."""

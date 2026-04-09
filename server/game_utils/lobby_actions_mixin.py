@@ -90,7 +90,7 @@ class LobbyActionsMixin:
                 # No names available
                 user = self.get_user(player)
                 if user:
-                    user.speak_l("no-bot-names-available")
+                    user.speak_l("no-bot-names-available", buffer="game")
                 return
 
         bot_user = Bot(bot_name)
@@ -127,7 +127,7 @@ class LobbyActionsMixin:
             if active_players >= self.get_max_players():
                 user = self.get_user(player)
                 if user:
-                    user.speak_l("table-full")
+                    user.speak_l("table-full", buffer="game")
                 return
 
         player.is_spectator = not player.is_spectator
@@ -154,7 +154,7 @@ class LobbyActionsMixin:
         if not user:
             return
         self._pending_actions[player.id] = "leave_game_confirm"
-        user.speak_l("confirm-leave-game")
+        user.speak_l("confirm-leave-game", buffer="game")
         items = [
             MenuItem(text=Localization.get(user.locale, "confirm-no"), id="no"),
             MenuItem(text=Localization.get(user.locale, "confirm-yes"), id="yes"),
@@ -235,7 +235,7 @@ class LobbyActionsMixin:
                 MenuItem(text=Localization.get(user.locale, "go-back"), id="go_back")
             )
             self._actions_menu_open.add(player.id)
-            user.speak_l("context-menu")
+            user.speak_l("context-menu", buffer="game")
             user.show_menu(
                 "actions_menu",
                 items,
@@ -243,7 +243,7 @@ class LobbyActionsMixin:
                 escape_behavior=EscapeBehavior.SELECT_LAST,
             )
         elif user:
-            user.speak_l("no-actions-available")
+            user.speak_l("no-actions-available", buffer="game")
 
     def _action_host_management(self, player: "Player", action_id: str) -> None:
         """Open the server-level host management menu (host only)."""

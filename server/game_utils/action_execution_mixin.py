@@ -50,7 +50,7 @@ class ActionExecutionMixin:
             if resolved.disabled_reason and resolved.disabled_reason != "action-not-available":
                 user = self.get_user(player)
                 if user:
-                    user.speak_l(resolved.disabled_reason)
+                    user.speak_l(resolved.disabled_reason, buffer="game")
             return
 
         # If action requires input and we don't have it yet
@@ -164,7 +164,7 @@ class ActionExecutionMixin:
             if not options:
                 # No options available
                 del self._pending_actions[player.id]
-                user.speak_l("no-options-available")
+                user.speak_l("no-options-available", buffer="game")
                 return
 
             # Check if this is a MenuOption with localized choice labels

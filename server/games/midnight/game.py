@@ -547,7 +547,7 @@ class MidnightGame(Game, DiceGameMixin):
                     if user:
                         names_str = Localization.format_list_and(user.locale, names)
                         user.speak_l(
-                            "midnight-round-tie", players=names_str
+                            "midnight-round-tie", buffer="game", players=names_str
                         )
 
         # Check if game is over

@@ -691,6 +691,7 @@ class PiratesGame(Game):
                 gem_local = Localization.get(u.locale, gem_name)
                 u.speak_l(
                     "pirates-gem-found",
+                    buffer="game",
                     player=player.name,
                     gem=gem_local,
                     value=gem_value
@@ -851,6 +852,7 @@ class PiratesGame(Game):
                 direction_local = Localization.get(u.locale, direction_key)
                 u.speak_l(
                     "pirates-move",
+                    buffer="game",
                     player=player.name,
                     direction=direction_local,
                     position=player.position
@@ -1014,6 +1016,7 @@ class PiratesGame(Game):
         if user:
             user.speak_l(
                 "pirates-moon-brightness",
+                buffer="game",
                 brightness=brightness,
                 collected=self.gems_collected,
                 total=18
@@ -1106,6 +1109,7 @@ class PiratesGame(Game):
                 ocean_local = Localization.get(u.locale, ocean_key) if ocean_key != "Unknown" else "Unknown"
                 u.speak_l(
                     "pirates-portal-success",
+                    buffer="game",
                     player=player.name,
                     ocean=ocean_local,
                     position=new_pos

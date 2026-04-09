@@ -457,18 +457,18 @@ class DiceGameMixin:
         if result is None:
             # Die is locked
             if user:
-                user.speak_l("dice-locked")
+                user.speak_l("dice-locked", buffer="game")
             return
 
         die_val = player.dice.get_value(die_index)
         if result:
             # Now kept
             if user:
-                user.speak_l("dice-keeping", value=die_val)
+                user.speak_l("dice-keeping", buffer="game", value=die_val)
         else:
             # Now unkept
             if user:
-                user.speak_l("dice-rerolling", value=die_val)
+                user.speak_l("dice-rerolling", buffer="game", value=die_val)
 
         self.rebuild_player_menu(player)
 
@@ -490,7 +490,7 @@ class DiceGameMixin:
                 if dice.get_value(i) == value:
                     dice.keep(i)
                     if user:
-                        user.speak_l("dice-keeping", value=value)
+                        user.speak_l("dice-keeping", buffer="game", value=value)
                     self.rebuild_player_menu(player)
                     return
 
@@ -514,7 +514,7 @@ class DiceGameMixin:
                 if dice.get_value(i) == value:
                     dice.unkeep(i)
                     if user:
-                        user.speak_l("dice-rerolling", value=value)
+                        user.speak_l("dice-rerolling", buffer="game", value=value)
                     self.rebuild_player_menu(player)
                     return
 

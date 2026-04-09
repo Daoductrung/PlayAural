@@ -468,10 +468,11 @@ class YahtzeeGame(Game, DiceGameMixin):
                 continue
             cat_name = Localization.get(user.locale, CATEGORY_NAMES[category])
             if recipient == player:
-                user.speak_l("yahtzee-you-scored", points=points, category=cat_name)
+                user.speak_l("yahtzee-you-scored", buffer="game", points=points, category=cat_name)
             else:
                 user.speak_l(
                     "yahtzee-player-scored",
+                    buffer="game",
                     player=player.name,
                     points=points,
                     category=cat_name,
@@ -724,7 +725,7 @@ class YahtzeeGame(Game, DiceGameMixin):
                         "yahtzee-winners-tie",
                         players=names_str,
                         score=high_score,
-                        buffer="table",
+                        buffer="game",
                     )
 
         self._team_manager.commit_round_scores()

@@ -836,6 +836,7 @@ class MileByMileGame(Game):
         if self.is_individual_mode():
             user.speak_l(
                 "milebymile-info-msg-individual",
+                buffer="game",
                 player=player.name,
                 miles=miles,
                 hazards=hazards_str,
@@ -853,6 +854,7 @@ class MileByMileGame(Game):
 
             user.speak_l(
                 "milebymile-info-msg-team",
+                buffer="game",
                 team=team_name,
                 members=member_names,
                 miles=miles,
@@ -910,6 +912,7 @@ class MileByMileGame(Game):
 
             user.speak_l(
                 "milebymile-status",
+                buffer="game",
                 score_info=score_info,
                 miles=race_state.miles,
                 problems=problems_str,
@@ -1864,6 +1867,7 @@ class MileByMileGame(Game):
                 breakdown = Localization.format_list_and(locale, bonus_descriptions)
                 user.speak_l(
                     "milebymile-earned-points",
+                    buffer="game",
                     name=name,
                     score=score,
                     breakdown=breakdown,
@@ -2004,11 +2008,12 @@ class MileByMileGame(Game):
                     user.speak_l("milebymile-karma-clash-you-target", buffer="game")
                 elif p.name == target_name:
                     user.speak_l(
-                        "milebymile-karma-clash-you-attacker", attacker=attacker.name
+                        "milebymile-karma-clash-you-attacker", buffer="game", attacker=attacker.name
                     )
                 else:
                     user.speak_l(
                         "milebymile-karma-clash-others",
+                        buffer="game",
                         attacker=attacker.name,
                         target=target_name,
                     )
@@ -2022,11 +2027,13 @@ class MileByMileGame(Game):
                 elif p.team_index == target_team_idx:
                     user.speak_l(
                         "milebymile-karma-clash-target-team",
+                        buffer="game",
                         team=attacker_team_idx + 1,
                     )
                 else:
                     user.speak_l(
                         "milebymile-karma-clash-other-teams",
+                        buffer="game",
                         attacker=attacker_team_idx + 1,
                         target=target_team_idx + 1,
                     )
@@ -2054,6 +2061,7 @@ class MileByMileGame(Game):
                 else:
                     user.speak_l(
                         "milebymile-karma-shunned-other-team",
+                        buffer="game",
                         team=attacker_team_idx + 1,
                     )
 
@@ -2079,7 +2087,7 @@ class MileByMileGame(Game):
                     user.speak_l("milebymile-false-virtue-your-team", buffer="game")
                 else:
                     user.speak_l(
-                        "milebymile-false-virtue-other-team", team=team_idx + 1
+                        "milebymile-false-virtue-other-team", buffer="game", team=team_idx + 1
                     )
 
     def _broadcast_card_message(self, message_key: str, card: Card, **kwargs) -> None:

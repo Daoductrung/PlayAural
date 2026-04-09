@@ -28,7 +28,7 @@ class GamePredictionMixin:
             return
 
         if not self._table or not self._table._db:
-            user.speak_l("predict-unavailable")
+            user.speak_l("predict-unavailable", buffer="game")
             return
 
         rating_helper = RatingHelper(self._table._db, self.get_type())
@@ -39,7 +39,7 @@ class GamePredictionMixin:
         ]
 
         if len(human_players) < 2:
-            user.speak_l("predict-need-players")
+            user.speak_l("predict-need-players", buffer="game")
             return
 
         # Get ratings for all players

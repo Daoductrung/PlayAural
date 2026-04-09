@@ -854,12 +854,14 @@ class FarkleGame(Game):
             if p == player:
                 user.speak_l(
                     "farkle-you-take-combo",
+                    buffer="game",
                     combo=combo_name,
                     points=points
                 )
             else:
                 user.speak_l(
                     "farkle-takes-combo",
+                    buffer="game",
                     player=player.name,
                     combo=combo_name,
                     points=points
@@ -988,11 +990,12 @@ class FarkleGame(Game):
             farkle_current: FarklePlayer = current  # type: ignore
             user.speak_l(
                 "farkle-turn-score",
+                buffer="game",
                 player=current.name,
                 points=farkle_current.turn_score,
             )
         else:
-            user.speak_l("farkle-no-turn")
+            user.speak_l("farkle-no-turn", buffer="game")
 
     def on_start(self) -> None:
         """Called when the game starts."""

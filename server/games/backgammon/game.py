@@ -649,7 +649,7 @@ class BackgammonGame(Game):
         if move not in legal_moves:
             user = self.get_user(player)
             if user:
-                user.speak_l("backgammon-illegal-move", buffer="system")
+                user.speak_l("backgammon-illegal-move", buffer="game")
             return
 
         self._reset_smart_bot_search()

@@ -889,12 +889,14 @@ class ChaosBearGame(Game):
                 if p.alive:
                     user.speak_l(
                         "chaosbear-status-player-alive",
+                        buffer="game",
                         player=p.name,
                         position=p.position,
                     )
                 else:
                     user.speak_l(
                         "chaosbear-status-player-caught",
+                        buffer="game",
                         player=p.name,
                         position=p.position,
                     )
@@ -902,6 +904,7 @@ class ChaosBearGame(Game):
         # Show bear status
         user.speak_l(
             "chaosbear-status-bear",
+            buffer="game",
             position=self.bear_position,
             energy=self.bear_energy,
         )

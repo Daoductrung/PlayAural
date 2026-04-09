@@ -74,7 +74,7 @@ class EventHandlingMixin:
             if resolved.disabled_reason != "action-not-available":
                 user = self.get_user(player)
                 if user:
-                    user.speak_l(resolved.disabled_reason)
+                    user.speak_l(resolved.disabled_reason, buffer="game")
 
     def _handle_menu_event(self, player: "Player", event: dict) -> None:
         """Handle a menu selection event."""
@@ -127,7 +127,7 @@ class EventHandlingMixin:
             user = self.get_user(player)
             if user:
                 user.remove_menu("status_box")
-                user.speak_l("status-box-closed")
+                user.speak_l("status-box-closed", buffer="game")
                 self._status_box_open.discard(player.id)
                 self.rebuild_player_menu(player)
 
@@ -236,7 +236,7 @@ class EventHandlingMixin:
                             # Speak the disabled reason to the player
                             user = self.get_user(player)
                             if user:
-                                user.speak_l(resolved.disabled_reason)
+                                user.speak_l(resolved.disabled_reason, buffer="game")
 
         # Don't rebuild if action is waiting for input, status box is open, or actions menu is open
         if (

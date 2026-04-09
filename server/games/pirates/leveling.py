@@ -154,6 +154,7 @@ class LevelingSystem(DataClassJSONMixin):
                 if user:
                     user.speak_l(
                         "pirates-level-up-multiple-you",
+                        buffer="game",
                         levels=levels_gained,
                         level=self.level
                     )
@@ -182,6 +183,7 @@ class LevelingSystem(DataClassJSONMixin):
                         skill_names = ", ".join(Localization.get(u.locale, skill.name) for skill in skills_unlocked)
                         u.speak_l(
                             "pirates-skills-unlocked",
+                            buffer="game",
                             player=player_name,
                             skills=skill_names
                         )

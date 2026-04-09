@@ -28,9 +28,9 @@ class GameScoresMixin:
         if user:
             current = self.current_player
             if current:
-                user.speak_l("game-turn-start", player=current.name)
+                user.speak_l("game-turn-start", buffer="game", player=current.name)
             else:
-                user.speak_l("game-no-turn")
+                user.speak_l("game-no-turn", buffer="game")
 
     def _action_whos_at_table(self, player: "Player", action_id: str) -> None:
         """Announce who is at the table."""
@@ -58,14 +58,14 @@ class GameScoresMixin:
 
         count = len(players)
         if count == 0:
-            user.speak_l("table-no-players")
+            user.speak_l("table-no-players", buffer="game")
             return
         names = Localization.format_list_and(user.locale, players)
         key = "table-players-one" if count == 1 else "table-players-many"
-        user.speak_l(key, count=count, players=names)
+        user.speak_l(key, buffer="game", count=count, players=names)
         if spectators:
             spectator_names = Localization.format_list_and(user.locale, spectators)
-            user.speak_l("table-spectators", spectators=spectator_names)
+            user.speak_l("table-spectators", buffer="game", spectators=spectator_names)
 
     def _action_check_scores(self, player: "Player", action_id: str) -> None:
         """Announce scores briefly."""
@@ -82,9 +82,9 @@ class GameScoresMixin:
                 elif hasattr(self.options, "winning_score"):
                     target_score = self.options.winning_score
 
-            user.speak(self.team_manager.format_scores_brief(user.locale, target_score))
+            user.speak(self.team_manager.format_scores_brief(user.locale, target_score), buffer="game")
         else:
-            user.speak_l("no-scores-available")
+            user.speak_l("no-scores-available", buffer="game")
 
     def _action_check_scores_detailed(self, player: "Player", action_id: str) -> None:
         """Show detailed scores in a status box."""
@@ -157,7 +157,7 @@ class GameScoresMixin:
 
         if not content:
             game_name = Localization.get(locale, self.get_name_key())
-            user.speak_l("game-rules-not-available", game=game_name, buffer="system")
+            user.speak_l("game-rules-not-available", game=game_name, buffer="game")
             return
 
         # Parse markdown into status_box lines (same logic as server.py doc viewer)

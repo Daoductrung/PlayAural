@@ -312,7 +312,7 @@ class SnakesAndLaddersGame(Game):
             speech_parts.append(f"{p.name} {sp.position}")
 
         header = Localization.get(user.locale, "snakes-positions-header")
-        user.speak(f"{header} {', '.join(speech_parts)}")
+        user.speak(f"{header} {', '.join(speech_parts)}", buffer="game")
 
 
     def _action_roll(self, player: Player, action_id: str) -> None:

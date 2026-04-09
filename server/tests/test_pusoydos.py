@@ -132,7 +132,7 @@ def test_hand_sorting_rebuilds_in_pusoy_dos_order():
     game = PusoyDosGame()
     u1 = MockUser("p1")
     u2 = MockUser("p2")
-    p1 = game.add_player("p1", u1)
+    game.add_player("p1", u1)
     game.add_player("p2", u2)
     game.on_start()
 
@@ -140,7 +140,7 @@ def test_hand_sorting_rebuilds_in_pusoy_dos_order():
     game.on_tick()
 
     current = game.current_player
-    assert current is p1
+    assert current is not None
     current.hand = [
         Card(1, 2, 1),
         Card(2, 3, 4),

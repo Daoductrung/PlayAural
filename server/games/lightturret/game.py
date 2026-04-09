@@ -287,7 +287,7 @@ class LightTurretGame(Game):
             user = self.get_user(player)
             if user:
                 user.speak_l(
-                    "lightturret-not-enough-coins", have=lt_player.coins, need=10
+                    "lightturret-not-enough-coins", buffer="game", have=lt_player.coins, need=10
                 )
             return
 
@@ -333,6 +333,7 @@ class LightTurretGame(Game):
                 if p.alive:
                     user.speak_l(
                         "lightturret-stats-alive",
+                        buffer="game",
                         player=p.name,
                         power=p.power,
                         light=p.light,
@@ -340,7 +341,7 @@ class LightTurretGame(Game):
                     )
                 else:
                     user.speak_l(
-                        "lightturret-stats-eliminated", player=p.name, light=p.light
+                        "lightturret-stats-eliminated", buffer="game", player=p.name, light=p.light
                     )
 
     def _eliminate_player(self, player: LightTurretPlayer) -> None:

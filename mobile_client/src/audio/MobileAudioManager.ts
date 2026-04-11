@@ -38,7 +38,9 @@ export class MobileAudioManager {
   private musicPlayer: ManagedPlayer | null = null;
   private ambienceIntroPlayer: ManagedPlayer | null = null;
   private ambienceLoopPlayer: ManagedPlayer | null = null;
+  private ambienceOutroPlayer: ManagedPlayer | null = null;
   private ambienceOutroKey: string | null = null;
+  private ambiencePlaybackId = 0;
   private sfxPlayers = new Set<AudioPlayer>();
   private retiringMusicPlayers = new Set<AudioPlayer>();
   private musicVolume = 0.2;
@@ -58,6 +60,7 @@ export class MobileAudioManager {
   private webMusicPlayer: ManagedWebStream | null = null;
   private webAmbienceIntroPlayer: ManagedWebStream | null = null;
   private webAmbienceLoopPlayer: ManagedWebStream | null = null;
+  private webAmbienceOutroPlayer: ManagedWebStream | null = null;
   private webRetiringMusicPlayers = new Set<ManagedWebStream>();
   private webPendingMusicRequest: { looping: boolean; name: string } | null = null;
   private webPendingAmbienceRequest: { intro: string; loop: string; outro: string } | null = null;
@@ -70,7 +73,22 @@ export class MobileAudioManager {
 
     if (Platform.OS !== "web") {
       await setAudioModeAsync({
+        interruptionMode: "mixWithOthers",
+        interruptionModeAndroid: "duckOthers",
         playsInSilentMode: true,
+        shouldPlayInBackground: true,
+        shouldRouteThroughEarpiece: false,
+      });
+
+      const ExpoAv = await import("expo-av");
+      await ExpoAv.Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        interruptionModeAndroid: ExpoAv.InterruptionModeAndroid.DuckOthers,
+        interruptionModeIOS: ExpoAv.InterruptionModeIOS.MixWithOthers,
+        playThroughEarpieceAndroid: false,
+        playsInSilentModeIOS: true,
+        shouldDuckAndroid: false,
+        staysActiveInBackground: true,
       });
     }
 
@@ -120,6 +138,9 @@ export class MobileAudioManager {
     }
     if (this.ambienceIntroPlayer) {
       this.ambienceIntroPlayer.player.volume = this.ambienceVolume;
+    }
+    if (this.ambienceOutroPlayer) {
+      this.ambienceOutroPlayer.player.volume = this.ambienceVolume;
     }
 
     if (this.webAudioContext && this.webAmbienceBus) {
@@ -265,6 +286,7 @@ export class MobileAudioManager {
 
     await this.initialize();
     this.stopAmbience(true);
+    const playbackId = ++this.ambiencePlaybackId;
 
     this.ambienceOutroKey = outro || null;
 
@@ -274,6 +296,9 @@ export class MobileAudioManager {
     }
 
     const startLoop = () => {
+      if (playbackId !== this.ambiencePlaybackId) {
+        return;
+      }
       const loopPlayer = createAudioPlayer(loopSource, 250);
       loopPlayer.loop = true;
       loopPlayer.volume = this.ambienceVolume;
@@ -308,6 +333,8 @@ export class MobileAudioManager {
       return;
     }
 
+    ++this.ambiencePlaybackId;
+
     if (this.ambienceIntroPlayer) {
       this.ambienceIntroPlayer.player.pause();
       this.ambienceIntroPlayer.player.remove();
@@ -320,8 +347,30 @@ export class MobileAudioManager {
       this.ambienceLoopPlayer = null;
     }
 
+    if (this.ambienceOutroPlayer) {
+      this.ambienceOutroPlayer.player.pause();
+      this.ambienceOutroPlayer.player.remove();
+      this.ambienceOutroPlayer = null;
+    }
+
     if (!force && this.ambienceOutroKey) {
-      void this.playSound(this.ambienceOutroKey, { volume: this.ambienceVolume });
+      const outroSource = this.resolveSource(this.ambienceOutroKey);
+      if (!outroSource) {
+        return;
+      }
+      const outroPlayer = createAudioPlayer(outroSource, 80);
+      outroPlayer.volume = this.ambienceVolume;
+      const subscription = outroPlayer.addListener("playbackStatusUpdate", (status: AudioStatus) => {
+        if (status.didJustFinish) {
+          subscription.remove();
+          outroPlayer.remove();
+          if (this.ambienceOutroPlayer?.player === outroPlayer) {
+            this.ambienceOutroPlayer = null;
+          }
+        }
+      });
+      this.ambienceOutroPlayer = { player: outroPlayer, sourceKey: this.ambienceOutroKey };
+      outroPlayer.play();
     }
   }
 
@@ -625,9 +674,13 @@ export class MobileAudioManager {
     }
 
     this.stopWebAmbience(true);
+    const playbackId = ++this.ambiencePlaybackId;
     this.ambienceOutroKey = outro || null;
 
     const startLoop = async (): Promise<boolean> => {
+      if (playbackId !== this.ambiencePlaybackId) {
+        return false;
+      }
       const loopPlayer = await this.createWebStream(loop, true, "ambience");
       if (!loopPlayer) {
         return false;
@@ -672,6 +725,7 @@ export class MobileAudioManager {
 
   private stopWebAmbience(force: boolean): void {
     this.webPendingAmbienceRequest = null;
+    ++this.ambiencePlaybackId;
     if (this.webAmbienceIntroPlayer) {
       this.disposeWebStream(this.webAmbienceIntroPlayer);
       this.webAmbienceIntroPlayer = null;
@@ -682,8 +736,31 @@ export class MobileAudioManager {
       this.webAmbienceLoopPlayer = null;
     }
 
+    if (this.webAmbienceOutroPlayer) {
+      this.disposeWebStream(this.webAmbienceOutroPlayer);
+      this.webAmbienceOutroPlayer = null;
+    }
+
     if (!force && this.ambienceOutroKey) {
-      void this.playWebSound(this.ambienceOutroKey, { volume: this.ambienceVolume });
+      void this.createWebStream(this.ambienceOutroKey, false, "ambience").then((outroPlayer) => {
+        if (!outroPlayer) {
+          return;
+        }
+        this.webAmbienceOutroPlayer = outroPlayer;
+        outroPlayer.element.onended = () => {
+          this.disposeWebStream(outroPlayer);
+          if (this.webAmbienceOutroPlayer === outroPlayer) {
+            this.webAmbienceOutroPlayer = null;
+          }
+        };
+        void outroPlayer.element.play().catch((error) => {
+          console.warn("MobileAudioManager: web ambience outro playback failed.", error);
+          this.disposeWebStream(outroPlayer);
+          if (this.webAmbienceOutroPlayer === outroPlayer) {
+            this.webAmbienceOutroPlayer = null;
+          }
+        });
+      });
     }
   }
 

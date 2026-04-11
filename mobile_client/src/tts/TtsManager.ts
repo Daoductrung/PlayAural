@@ -336,6 +336,7 @@ export class TtsManager {
 
   private replayActiveSpeechForSettingsChange(): void {
     if (!this.activeChannel || !this.activeText) {
+      this.refreshCurrentUiFocusForSettingsChange();
       return;
     }
 
@@ -345,6 +346,26 @@ export class TtsManager {
     this.token += 1;
     this.stopUnderlyingSpeech();
     this.startSpeech(channel, text, { remember });
+  }
+
+  private refreshCurrentUiFocusForSettingsChange(): void {
+    if (this.activeChannel === "announcement" || this.announcementQueue.length > 0) {
+      const deferredText = this.currentUiTextProvider?.() ?? null;
+      if (deferredText) {
+        this.pendingPassiveUiText = deferredText;
+      }
+      return;
+    }
+
+    const text = this.currentUiTextProvider?.() ?? null;
+    if (!text) {
+      return;
+    }
+
+    this.speakUi(text, {
+      interruptAnnouncement: false,
+      interruptUi: true,
+    });
   }
 
   private async ensureWebVoicesLoaded(): Promise<SpeechSynthesisVoice[]> {

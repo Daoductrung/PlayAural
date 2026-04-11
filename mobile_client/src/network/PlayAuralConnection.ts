@@ -9,11 +9,13 @@ type ConnectionHandlers = {
 
 export class PlayAuralConnection {
   private socket: WebSocket | null = null;
+  private intentionallyClosingSocket: WebSocket | null = null;
 
   constructor(private readonly handlers: ConnectionHandlers) {}
 
   connect(serverUrl: string, username: string, password: string, version: string): void {
     this.disconnect();
+    this.intentionallyClosingSocket = null;
 
     const socket = new WebSocket(serverUrl);
     this.socket = socket;
@@ -43,8 +45,15 @@ export class PlayAuralConnection {
     };
 
     socket.onclose = (event) => {
+      const wasIntentional = this.intentionallyClosingSocket === socket;
+      if (wasIntentional) {
+        this.intentionallyClosingSocket = null;
+      }
       if (this.socket === socket) {
         this.socket = null;
+      }
+      if (wasIntentional) {
+        return;
       }
       this.handlers.onClose?.(event.reason || undefined);
     };
@@ -54,6 +63,7 @@ export class PlayAuralConnection {
     if (!this.socket) {
       return;
     }
+    this.intentionallyClosingSocket = this.socket;
     this.socket.close();
     this.socket = null;
   }

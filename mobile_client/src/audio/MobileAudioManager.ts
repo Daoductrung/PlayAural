@@ -31,6 +31,17 @@ type WebSfxHandle = {
   source: AudioBufferSourceNode;
 };
 
+type DesiredMusicRequest = {
+  looping: boolean;
+  name: string;
+};
+
+type DesiredAmbienceRequest = {
+  intro: string;
+  loop: string;
+  outro: string;
+};
+
 const DEBUG_PREFIX = "PLAYAURAL_DEBUG Audio";
 
 export class MobileAudioManager {
@@ -50,6 +61,8 @@ export class MobileAudioManager {
   private nativeSfxPlayers = new Set<unknown>();
   private nativeSourceCache = new Map<string, AudioSource>();
   private nativeSourceLoading = new Map<string, Promise<AudioSource | null>>();
+  private desiredMusicRequest: DesiredMusicRequest | null = null;
+  private desiredAmbienceRequest: DesiredAmbienceRequest | null = null;
 
   private webAudioContext: AudioContext | null = null;
   private webMasterGain: GainNode | null = null;
@@ -121,10 +134,11 @@ export class MobileAudioManager {
   }
 
   setMusicVolume(volume: number): void {
+    const wasMuted = this.musicVolume <= 0;
     this.musicVolume = Math.max(0, Math.min(1, volume));
     if (this.musicVolume <= 0) {
       this.webPendingMusicRequest = null;
-      this.stopMusic(false);
+      this.stopMusic(false, false);
       return;
     }
 
@@ -139,13 +153,18 @@ export class MobileAudioManager {
         0.05,
       );
     }
+
+    if (wasMuted && !this.musicPlayer && this.desiredMusicRequest) {
+      void this.playMusic(this.desiredMusicRequest.name, this.desiredMusicRequest.looping);
+    }
   }
 
   setAmbienceVolume(volume: number): void {
+    const wasMuted = this.ambienceVolume <= 0;
     this.ambienceVolume = Math.max(0, Math.min(1, volume));
     if (this.ambienceVolume <= 0) {
       this.webPendingAmbienceRequest = null;
-      this.stopAmbience(true);
+      this.stopAmbience(true, false);
       return;
     }
 
@@ -164,6 +183,20 @@ export class MobileAudioManager {
         this.ambienceVolume,
         this.webAudioContext.currentTime,
         0.05,
+      );
+    }
+
+    if (
+      wasMuted &&
+      !this.ambienceIntroPlayer &&
+      !this.ambienceLoopPlayer &&
+      !this.ambienceOutroPlayer &&
+      this.desiredAmbienceRequest
+    ) {
+      void this.playAmbience(
+        this.desiredAmbienceRequest.loop,
+        this.desiredAmbienceRequest.intro,
+        this.desiredAmbienceRequest.outro,
       );
     }
   }
@@ -214,9 +247,10 @@ export class MobileAudioManager {
 
   async playMusic(name: string, looping = true): Promise<boolean> {
     this.debug("play-music-request", name);
+    this.desiredMusicRequest = { looping, name };
     if (this.musicVolume <= 0) {
       this.webPendingMusicRequest = null;
-      this.stopMusic(false);
+      this.stopMusic(false, false);
       return false;
     }
     if (Platform.OS === "web") {
@@ -268,7 +302,11 @@ export class MobileAudioManager {
     return true;
   }
 
-  stopMusic(fade = true): void {
+  stopMusic(fade = true, clearRequested = true): void {
+    if (clearRequested) {
+      this.desiredMusicRequest = null;
+    }
+
     if (Platform.OS === "web") {
       this.stopWebMusic(fade);
       return;
@@ -301,9 +339,10 @@ export class MobileAudioManager {
 
   async playAmbience(loop: string, intro = "", outro = ""): Promise<boolean> {
     this.debug("play-ambience-request", loop);
+    this.desiredAmbienceRequest = { intro, loop, outro };
     if (this.ambienceVolume <= 0) {
       this.webPendingAmbienceRequest = null;
-      this.stopAmbience(true);
+      this.stopAmbience(true, false);
       return false;
     }
     if (Platform.OS === "web") {
@@ -311,7 +350,7 @@ export class MobileAudioManager {
     }
 
     await this.initialize();
-    this.stopAmbience(true);
+    this.stopAmbience(true, false);
     const playbackId = ++this.ambiencePlaybackId;
 
     this.ambienceOutroKey = outro || null;
@@ -353,7 +392,11 @@ export class MobileAudioManager {
     return true;
   }
 
-  stopAmbience(force = false): void {
+  stopAmbience(force = false, clearRequested = true): void {
+    if (clearRequested) {
+      this.desiredAmbienceRequest = null;
+    }
+
     if (Platform.OS === "web") {
       this.stopWebAmbience(force);
       return;

@@ -85,7 +85,6 @@ type DialogFocusIndex = number;
 type ChatFocusItem = {
   kind: "input" | "message" | "send";
   text: string;
-  messageIndex?: number;
 };
 
 type DialogAction = {
@@ -171,19 +170,19 @@ function normalizeMenuItems(items: Array<string | MenuItemData>): FocusableMenuI
   return items.map((item) => (typeof item === "string" ? { text: item } : item));
 }
 
-function formatChatMessage(packet: ChatPacket): string {
-  const sender = packet.sender || "Unknown";
+function formatChatMessage(localization: MobileLocalization, packet: ChatPacket): string {
+  const sender = packet.sender?.trim() || localization.t("chat-unknown-sender");
   const message = packet.message || "";
   if (packet.convo === "global") {
-    return `[Global] ${sender}: ${message}`;
+    return localization.t("chat-global", { message, player: sender });
   }
   if (packet.convo === "announcement") {
-    return `${sender}: ${message}`;
+    return localization.t("chat-announcement", { message });
   }
   if (packet.convo === "private" || packet.convo === "pm") {
-    return `[PM] ${sender}: ${message}`;
+    return localization.t("chat-private", { message, player: sender });
   }
-  return `${sender}: ${message}`;
+  return localization.t("chat-local", { message, player: sender });
 }
 
 function nextLinearIndex(current: number, length: number, direction: "up" | "down"): number {
@@ -301,6 +300,7 @@ export function PlayAuralApp() {
 
   const menuStateRef = useRef(menuState);
   const inputStateRef = useRef(inputState);
+  const handleSystemSwipeRef = useRef<((direction: "up" | "down" | "left" | "right") => void) | null>(null);
   const lastPingStartedAtRef = useRef<number | null>(lastPingStartedAt);
   const preferencesRef = useRef<Record<string, unknown>>(preferences);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -672,7 +672,7 @@ export function PlayAuralApp() {
   };
 
   const handleChatPacket = (packet: ChatPacket) => {
-    const message = formatChatMessage(packet);
+    const message = formatChatMessage(localization, packet);
     buffers.add("chat", message);
     setHistoryRevision((value) => value + 1);
 
@@ -1150,8 +1150,8 @@ export function PlayAuralApp() {
   }, [connected, localization, statusText]);
 
   const connection = connectionRef.current;
-  const historyMessages = buffers.getMessages("all").slice().reverse();
-  const chatMessages = buffers.getMessages("chat").slice().reverse();
+  const historyMessages = buffers.getMessages("all").reverse();
+  const chatMessages = buffers.getMessages("chat").reverse();
   const focusedHistoryMessage = historyMessages[historyIndex] ?? null;
   const focusedMenuItem = menuState.items[menuState.focusIndex];
   const focusedDialogButton = dialogState?.buttons[dialogState.focusIndex] ?? null;
@@ -1160,7 +1160,6 @@ export function PlayAuralApp() {
     { kind: "send", text: localization.t("chat-send-button") },
     ...chatMessages.map((message, index) => ({
       kind: "message" as const,
-      messageIndex: index,
       text: message.text,
     })),
   ];
@@ -1489,6 +1488,41 @@ export function PlayAuralApp() {
       menu_id: menuState.menuId || undefined,
       type: "escape",
     });
+  };
+
+  const sendEscapeEquivalent = (
+    menuId: string,
+    escapeBehavior: string,
+    items: FocusableMenuItem[],
+  ) => {
+    if (escapeBehavior === "select_last_option") {
+      const lastIndex = items.length - 1;
+      if (lastIndex >= 0) {
+        const item = items[lastIndex];
+        connection?.send({
+          menu_id: menuId || undefined,
+          selection: lastIndex + 1,
+          selection_id: item?.id,
+          type: "menu",
+        });
+      }
+      return;
+    }
+
+    if (escapeBehavior === "select_first_option") {
+      if (items.length > 0) {
+        const item = items[0];
+        connection?.send({
+          menu_id: menuId || undefined,
+          selection: 1,
+          selection_id: item?.id,
+          type: "menu",
+        });
+      }
+      return;
+    }
+
+    sendEscape();
   };
 
   const openActionsMenu = () => {
@@ -2027,7 +2061,7 @@ export function PlayAuralApp() {
         confirmLogout();
         return;
       }
-      sendEscape();
+      sendEscapeEquivalent(menuState.menuId, menuState.escapeBehavior, menuState.items);
       return;
     }
     if (inputState) {
@@ -2046,6 +2080,8 @@ export function PlayAuralApp() {
     }
   };
 
+  handleSystemSwipeRef.current = handleSystemSwipe;
+
   const handleStopSpeech = () => {
     tts.stop();
     announce(localization.t("gesture-stop-tts"), "system", false);
@@ -2056,13 +2092,13 @@ export function PlayAuralApp() {
       return;
     }
     const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
-      handleSystemSwipe("up");
+      handleSystemSwipeRef.current?.("up");
       return true;
     });
     return () => {
       subscription.remove();
     };
-  }, [handleSystemSwipe]);
+  }, []);
 
   const gestures = useSelfVoicingGestures({
     enabled: true,
@@ -2293,14 +2329,6 @@ export function PlayAuralApp() {
     connection?.connect(serverUrl, username, password, MOBILE_CLIENT_VERSION);
   };
 
-  const disconnect = () => {
-    disableAutoReconnect();
-    connection?.disconnect();
-    stopGameAudio(true);
-    setConnected(false);
-    setStatusText(localization.t("status-disconnected"));
-  };
-
   const submitChat = () => {
     const trimmed = chatDraft.trim();
     if (!trimmed) {
@@ -2469,7 +2497,7 @@ export function PlayAuralApp() {
 
   const renderMainView = () => (
     <View style={styles.panel}>
-      <Text style={styles.panelTitle}>{menuState.menuId || localization.t("mode-main")}</Text>
+      <Text style={styles.panelTitle}>{localization.t("mode-main")}</Text>
       <ScrollView style={styles.scrollArea}>
         {menuState.items.map((item, index) => (
           <Pressable
@@ -2618,8 +2646,12 @@ export function PlayAuralApp() {
           </Pressable>
         ))}
       </ScrollView>
-      {currentMusic ? <Text style={styles.helpText}>Music: {currentMusic}</Text> : null}
-      {currentAmbience ? <Text style={styles.helpText}>Ambience: {currentAmbience}</Text> : null}
+      {currentMusic ? (
+        <Text style={styles.helpText}>{localization.t("current-music-track", { value: currentMusic })}</Text>
+      ) : null}
+      {currentAmbience ? (
+        <Text style={styles.helpText}>{localization.t("current-ambience-track", { value: currentAmbience })}</Text>
+      ) : null}
     </View>
   );
 

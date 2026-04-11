@@ -8,6 +8,7 @@ type GestureCallbacks = {
   onDoubleTap: () => void;
   onDoubleTapHold: () => void;
   onSingleFingerSwipe: (direction: SwipeDirection) => void;
+  onThreeFingerSwipe: (direction: SwipeDirection) => void;
   onThreeFingerTap: () => void;
   onTwoFingerSwipe: (direction: SwipeDirection) => void;
   onTwoFingerTap: () => void;
@@ -105,7 +106,9 @@ export function useSelfVoicingGestures(callbacks: GestureCallbacks) {
 
           const direction = classifySwipe(gestureState);
           if (direction) {
-            if (track.maxTouches >= 2) {
+            if (track.maxTouches >= 3) {
+              callbacksRef.current.onThreeFingerSwipe(direction);
+            } else if (track.maxTouches >= 2) {
               callbacksRef.current.onTwoFingerSwipe(direction);
             } else {
               callbacksRef.current.onSingleFingerSwipe(direction);

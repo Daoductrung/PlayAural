@@ -98,6 +98,8 @@
   "logout-confirm": "Đăng xuất",
   "logout-cancel": "Hủy",
   "logout-complete": "Đã đăng xuất.",
+  "session-kicked": "Bạn đã bị đuổi khỏi máy chủ.",
+  "session-banned": "Tài khoản này đã bị cấm.",
   "footer-gestures-line-1": "Trò chơi có các cử chỉ được tích hợp sẵn, hãy tắt trình đọc màn hình của bạn sau khi kết nối thành công đến trò chơi để có trải nghiệm chơi tốt nhất.",
   "footer-gestures-line-2": "Vuốt 1 ngón để di chuyển. Vuốt lên bằng 2 ngón để quay lại hoặc mở menu hành động. Vuốt sang phải bằng 2 ngón để mở trò chuyện. Vuốt sang trái bằng 2 ngón để mở nhật ký. Vuốt xuống bằng 2 ngón để mở menu phím tắt. Chạm 2 ngón để dừng đọc. Chạm 3 ngón để đọc lại thông báo gần nhất."
 }

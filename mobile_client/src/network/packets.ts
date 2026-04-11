@@ -90,6 +90,11 @@ export type DisconnectPacket = {
   reconnect?: boolean;
 };
 
+export type ForceExitPacket = {
+  type: "force_exit";
+  reason?: string;
+};
+
 export type PlaySoundPacket = {
   type: "play_sound";
   name?: string;
@@ -147,6 +152,7 @@ export type ServerPacket =
   | ChatPacket
   | ClearUiPacket
   | DisconnectPacket
+  | ForceExitPacket
   | LoginFailedPacket
   | MenuPacket
   | PlayAmbiencePacket

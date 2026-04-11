@@ -48,6 +48,8 @@ export class MobileAudioManager {
   private musicTransitionId = 0;
   private musicFadeInterval: ReturnType<typeof setInterval> | null = null;
   private nativeSfxPlayers = new Set<unknown>();
+  private nativeSourceCache = new Map<string, AudioSource>();
+  private nativeSourceLoading = new Map<string, Promise<AudioSource | null>>();
 
   private webAudioContext: AudioContext | null = null;
   private webMasterGain: GainNode | null = null;
@@ -105,17 +107,26 @@ export class MobileAudioManager {
     if (this.webPendingMusicRequest) {
       const pending = this.webPendingMusicRequest;
       this.webPendingMusicRequest = null;
-      await this.playWebMusic(pending.name, pending.looping);
+      if (this.musicVolume > 0) {
+        await this.playWebMusic(pending.name, pending.looping);
+      }
     }
     if (this.webPendingAmbienceRequest) {
       const pending = this.webPendingAmbienceRequest;
       this.webPendingAmbienceRequest = null;
-      await this.playWebAmbience(pending.loop, pending.intro, pending.outro);
+      if (this.ambienceVolume > 0) {
+        await this.playWebAmbience(pending.loop, pending.intro, pending.outro);
+      }
     }
   }
 
   setMusicVolume(volume: number): void {
     this.musicVolume = Math.max(0, Math.min(1, volume));
+    if (this.musicVolume <= 0) {
+      this.webPendingMusicRequest = null;
+      this.stopMusic(false);
+      return;
+    }
 
     if (this.musicPlayer) {
       this.musicPlayer.player.volume = this.musicVolume;
@@ -132,6 +143,11 @@ export class MobileAudioManager {
 
   setAmbienceVolume(volume: number): void {
     this.ambienceVolume = Math.max(0, Math.min(1, volume));
+    if (this.ambienceVolume <= 0) {
+      this.webPendingAmbienceRequest = null;
+      this.stopAmbience(true);
+      return;
+    }
 
     if (this.ambienceLoopPlayer) {
       this.ambienceLoopPlayer.player.volume = this.ambienceVolume;
@@ -174,7 +190,7 @@ export class MobileAudioManager {
       return this.playNativePannedSound(name, options);
     }
 
-    const source = this.resolveSource(name) as AVPlaybackSource | null;
+    const source = await this.resolveNativeSource(name) as AVPlaybackSource | null;
     if (!source) {
       return false;
     }
@@ -198,12 +214,17 @@ export class MobileAudioManager {
 
   async playMusic(name: string, looping = true): Promise<boolean> {
     this.debug("play-music-request", name);
+    if (this.musicVolume <= 0) {
+      this.webPendingMusicRequest = null;
+      this.stopMusic(false);
+      return false;
+    }
     if (Platform.OS === "web") {
       return this.playWebMusic(name, looping);
     }
 
     await this.initialize();
-    const source = this.resolveSource(name);
+    const source = await this.resolveNativeSource(name);
     if (!source) {
       return false;
     }
@@ -280,6 +301,11 @@ export class MobileAudioManager {
 
   async playAmbience(loop: string, intro = "", outro = ""): Promise<boolean> {
     this.debug("play-ambience-request", loop);
+    if (this.ambienceVolume <= 0) {
+      this.webPendingAmbienceRequest = null;
+      this.stopAmbience(true);
+      return false;
+    }
     if (Platform.OS === "web") {
       return this.playWebAmbience(loop, intro, outro);
     }
@@ -290,7 +316,7 @@ export class MobileAudioManager {
 
     this.ambienceOutroKey = outro || null;
 
-    const loopSource = this.resolveSource(loop);
+    const loopSource = await this.resolveNativeSource(loop);
     if (!loopSource) {
       return false;
     }
@@ -306,7 +332,7 @@ export class MobileAudioManager {
       this.ambienceLoopPlayer = { player: loopPlayer, sourceKey: loop };
     };
 
-    const introSource = intro ? this.resolveSource(intro) : null;
+    const introSource = intro ? await this.resolveNativeSource(intro) : null;
     if (introSource) {
       const introPlayer = createAudioPlayer(introSource, 80);
       introPlayer.volume = this.ambienceVolume;
@@ -354,7 +380,11 @@ export class MobileAudioManager {
     }
 
     if (!force && this.ambienceOutroKey) {
-      const outroSource = this.resolveSource(this.ambienceOutroKey);
+      if (this.ambienceVolume <= 0) {
+        this.ambienceOutroKey = null;
+        return;
+      }
+      const outroSource = this.resolveNativeSourceSync(this.ambienceOutroKey);
       if (!outroSource) {
         return;
       }
@@ -381,6 +411,57 @@ export class MobileAudioManager {
       return assetId;
     }
     return null;
+  }
+
+  private async resolveNativeSource(name: string): Promise<AudioSource | null> {
+    const normalized = name.replaceAll("\\", "/");
+    const cached = this.nativeSourceCache.get(normalized);
+    if (cached) {
+      return cached;
+    }
+
+    const loading = this.nativeSourceLoading.get(normalized);
+    if (loading) {
+      return loading;
+    }
+
+    const loadPromise = (async () => {
+      const directSource = this.resolveSource(normalized);
+      if (!directSource) {
+        return null;
+      }
+      if (typeof directSource !== "number") {
+        this.nativeSourceCache.set(normalized, directSource);
+        return directSource;
+      }
+
+      try {
+        const assets = await Asset.loadAsync(directSource);
+        const asset = assets[0] ?? Asset.fromModule(directSource);
+        const resolvedSource: AudioSource =
+          asset.localUri
+            ? { uri: asset.localUri }
+            : asset.uri
+              ? { uri: asset.uri }
+              : directSource;
+        this.nativeSourceCache.set(normalized, resolvedSource);
+        return resolvedSource;
+      } catch (error) {
+        console.warn(`MobileAudioManager: failed to resolve native asset for ${normalized}.`, error);
+        this.nativeSourceCache.set(normalized, directSource);
+        return directSource;
+      } finally {
+        this.nativeSourceLoading.delete(normalized);
+      }
+    })();
+
+    this.nativeSourceLoading.set(normalized, loadPromise);
+    return loadPromise;
+  }
+
+  private resolveNativeSourceSync(name: string): AudioSource | null {
+    const normalized = name.replaceAll("\\", "/");
+    return this.nativeSourceCache.get(normalized) ?? this.resolveSource(normalized);
   }
 
   private async resolveWebUri(name: string): Promise<string | null> {
@@ -471,7 +552,7 @@ export class MobileAudioManager {
     name: string,
     options: { volume?: number; pitch?: number; pan?: number } = {},
   ): Promise<boolean> {
-    const source = this.resolveSource(name) as AVPlaybackSource | null;
+    const source = await this.resolveNativeSource(name) as AVPlaybackSource | null;
     if (!source) {
       return false;
     }
@@ -561,6 +642,11 @@ export class MobileAudioManager {
   }
 
   private async playWebMusic(name: string, looping: boolean): Promise<boolean> {
+    if (this.musicVolume <= 0) {
+      this.webPendingMusicRequest = null;
+      this.stopWebMusic(false);
+      return false;
+    }
     const context = await this.ensureWebAudioReady();
     if (!context) {
       console.warn(`MobileAudioManager: web music context unavailable for ${name}.`);
@@ -667,6 +753,11 @@ export class MobileAudioManager {
   }
 
   private async playWebAmbience(loop: string, intro = "", outro = ""): Promise<boolean> {
+    if (this.ambienceVolume <= 0) {
+      this.webPendingAmbienceRequest = null;
+      this.stopWebAmbience(true);
+      return false;
+    }
     const context = await this.ensureWebAudioReady();
     if (!context) {
       console.warn(`MobileAudioManager: web ambience context unavailable for ${loop}.`);

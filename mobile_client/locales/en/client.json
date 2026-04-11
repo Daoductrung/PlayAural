@@ -98,6 +98,8 @@
   "logout-confirm": "Logout",
   "logout-cancel": "Cancel",
   "logout-complete": "Logged out.",
+  "session-kicked": "You were kicked from the server.",
+  "session-banned": "This account has been banned.",
   "footer-gestures-line-1": "The game has built-in gestures. Please turn off your screen reader after successfully connecting to the game for the best playing experience.",
   "footer-gestures-line-2": "1-finger swipe moves between items. 2-finger swipe up goes back or opens the action menu. 2-finger swipe right opens chat. 2-finger swipe left opens history. 2-finger swipe down opens shortcuts. 2-finger tap stops speech. 3-finger tap repeats the last announcement."
 }

@@ -25,6 +25,7 @@ import type {
   AuthorizeSuccessPacket,
   ChatPacket,
   DisconnectPacket,
+  ForceExitPacket,
   LoginFailedPacket,
   MenuItemData,
   MenuPacket,
@@ -384,11 +385,17 @@ export function PlayAuralApp() {
     if (message === "exit") {
       return localization.t("logout-complete");
     }
+    if (message === "kicked") {
+      return localization.t("session-kicked");
+    }
+    if (message === "banned") {
+      return localization.t("session-banned");
+    }
     return message;
   }, [localization]);
 
-  const isTerminalLogoutReason = useCallback((message: string | undefined) => {
-    return message === "exit" || message === "logged-out";
+  const isTerminalExitReason = useCallback((message: string | undefined) => {
+    return message === "exit" || message === "logged-out" || message === "kicked" || message === "banned";
   }, []);
 
   const clearReconnectTimer = useCallback(() => {
@@ -755,6 +762,34 @@ export function PlayAuralApp() {
     }
   };
 
+  const resetToLoginScreen = useCallback((statusMessage: string, authMessage = statusMessage) => {
+    setConnected(false);
+    setMode("main");
+    setMenuState(defaultMenuState);
+    menuStateRef.current = defaultMenuState;
+    setInputState(null);
+    setInputValue("");
+    setInputOverlayFocus(0);
+    setDialogState(null);
+    setAuthMode("login");
+    setStatusText(statusMessage);
+    setAuthStatusText(authMessage);
+  }, []);
+
+  const handleTerminalSessionExit = useCallback((message: string, announceMessage = true) => {
+    disableAutoReconnect();
+    connectionRef.current?.disconnect();
+    stopGameAudio(true);
+    tts.stop();
+    if (announceMessage) {
+      announce(message, "system");
+    }
+    resetToLoginScreen(message);
+    if (Platform.OS === "android") {
+      BackHandler.exitApp();
+    }
+  }, [announce, disableAutoReconnect, resetToLoginScreen, tts]);
+
   const openDialog = useCallback((nextDialog: Omit<DialogState, "focusIndex">) => {
     setDialogState({
       ...nextDialog,
@@ -903,7 +938,7 @@ export function PlayAuralApp() {
 
         if (packet.type === "disconnect") {
           const disconnectPacket = packet as DisconnectPacket;
-          const shouldExitApplication = isTerminalLogoutReason(disconnectPacket.reason);
+          const shouldExitApplication = isTerminalExitReason(disconnectPacket.reason);
           const reason = localizeSystemMessage(disconnectPacket.reason, "status-disconnected");
           stopGameAudio(true);
           setConnected(false);
@@ -919,17 +954,19 @@ export function PlayAuralApp() {
           }
 
           disableAutoReconnect();
-          setAuthStatusText(reason);
-          setStatusText(reason);
-          announce(reason, "system");
           if (shouldExitApplication) {
-            closeDialog();
-            tts.stop();
-            connectionRef.current?.disconnect();
-            if (Platform.OS === "android") {
-              BackHandler.exitApp();
-            }
+            handleTerminalSessionExit(reason);
+            return;
           }
+          resetToLoginScreen(reason);
+          announce(reason, "system");
+          return;
+        }
+
+        if (packet.type === "force_exit") {
+          const forceExitPacket = packet as ForceExitPacket;
+          const reason = localizeSystemMessage(forceExitPacket.reason, "logout-complete");
+          handleTerminalSessionExit(reason);
           return;
         }
 
@@ -1661,6 +1698,116 @@ export function PlayAuralApp() {
     sendShiftEnter();
   };
 
+  const handleBoundaryJump = (target: "bottom" | "top") => {
+    void audio.handleUserInteraction();
+
+    const boundaryIndex = (length: number) => {
+      if (length <= 0) {
+        return 0;
+      }
+      return target === "top" ? 0 : length - 1;
+    };
+
+    if (dialogState) {
+      setDialogState((current) => {
+        if (!current || current.buttons.length === 0) {
+          return current;
+        }
+        const nextIndex = boundaryIndex(current.buttons.length);
+        const nextText = current.buttons[nextIndex]?.text ?? null;
+        if (nextIndex !== current.focusIndex) {
+          playMenuMoveSound();
+        }
+        speakUserFocus(nextText);
+        return {
+          ...current,
+          focusIndex: nextIndex,
+        };
+      });
+      return;
+    }
+
+    if (inputState) {
+      const nextFocus: InputOverlayFocus = target === "top" ? 0 : 1;
+      setInputOverlayFocus(nextFocus);
+      if (nextFocus !== inputOverlayFocus) {
+        playMenuMoveSound();
+      }
+      speakUserFocus(nextFocus === 0 ? inputState.prompt : inputOverlayButtonText);
+      return;
+    }
+
+    if (!connected) {
+      if (authFocusableItems.length === 0) {
+        return;
+      }
+      const nextIndex = boundaryIndex(authFocusableItems.length);
+      setAuthFocusIndex(nextIndex);
+      if (nextIndex !== authFocusIndex) {
+        playMenuMoveSound();
+      }
+      speakUserFocus(authFocusableItems[nextIndex]?.text);
+      return;
+    }
+
+    if (mode === "shortcuts") {
+      if (shortcutItems.length === 0) {
+        return;
+      }
+      const nextIndex = boundaryIndex(shortcutItems.length);
+      setShortcutFocusIndex(nextIndex);
+      if (nextIndex !== shortcutFocusIndex) {
+        playMenuMoveSound();
+      }
+      speakUserFocus(shortcutItems[nextIndex]?.text);
+      return;
+    }
+
+    if (mode === "history") {
+      if (historyMessages.length === 0) {
+        speakUserFocus(localization.t("history-empty"));
+        return;
+      }
+      const nextIndex = boundaryIndex(historyMessages.length);
+      setHistoryIndex(nextIndex);
+      if (nextIndex !== historyIndex) {
+        playMenuMoveSound();
+      }
+      speakUserFocus(historyMessages[nextIndex]?.text);
+      return;
+    }
+
+    if (mode === "chat") {
+      if (chatFocusItems.length === 0) {
+        return;
+      }
+      const nextIndex = boundaryIndex(chatFocusItems.length);
+      setChatFocusIndex(nextIndex);
+      if (nextIndex !== chatFocusIndex) {
+        playMenuMoveSound();
+      }
+      speakUserFocus(chatFocusItems[nextIndex]?.text);
+      return;
+    }
+
+    setMenuState((previous) => {
+      if (previous.items.length === 0) {
+        return previous;
+      }
+      const nextIndex = boundaryIndex(previous.items.length);
+      if (nextIndex !== previous.focusIndex) {
+        playMenuMoveSound();
+      }
+      speakUserFocus(previous.items[nextIndex]?.text);
+      const nextState = {
+        ...previous,
+        focusIndex: nextIndex,
+      };
+      menuStateRef.current = nextState;
+      return nextState;
+    });
+  };
+
   const handleDirectionalNavigation = (direction: "up" | "down" | "left" | "right") => {
     void audio.handleUserInteraction();
     if (dialogState) {
@@ -1822,22 +1969,7 @@ export function PlayAuralApp() {
   };
 
   const logoutAndExitIfAndroid = () => {
-    disableAutoReconnect();
-    connection?.disconnect();
-    stopGameAudio(true);
-    tts.stop();
-    setConnected(false);
-    setMode("main");
-    setMenuState(defaultMenuState);
-    menuStateRef.current = defaultMenuState;
-    setInputState(null);
-    setInputValue("");
-    setStatusText(localization.t("status-disconnected"));
-    setAuthStatusText(localization.t("logout-complete"));
-    closeDialog();
-    if (Platform.OS === "android") {
-      BackHandler.exitApp();
-    }
+    handleTerminalSessionExit(localization.t("logout-complete"), false);
   };
 
   const confirmLogout = () => {
@@ -1937,6 +2069,15 @@ export function PlayAuralApp() {
     onDoubleTap: handlePrimaryActivate,
     onDoubleTapHold: handleModifiedActivate,
     onSingleFingerSwipe: handleDirectionalNavigation,
+    onThreeFingerSwipe: (direction) => {
+      if (direction === "up") {
+        handleBoundaryJump("top");
+        return;
+      }
+      if (direction === "down") {
+        handleBoundaryJump("bottom");
+      }
+    },
     onThreeFingerTap: handleRepeatLast,
     onTwoFingerSwipe: handleSystemSwipe,
     onTwoFingerTap: handleStopSpeech,
@@ -2049,6 +2190,16 @@ export function PlayAuralApp() {
       if (event.key === "Escape") {
         event.preventDefault();
         handleSystemSwipe("up");
+        return;
+      }
+      if (event.key === "Home") {
+        event.preventDefault();
+        handleBoundaryJump("top");
+        return;
+      }
+      if (event.key === "End") {
+        event.preventDefault();
+        handleBoundaryJump("bottom");
       }
     };
 
@@ -2056,7 +2207,7 @@ export function PlayAuralApp() {
     return () => {
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, [handleDirectionalNavigation, handleModifiedActivate, handlePrimaryActivate, handleSystemSwipe]);
+  }, [handleBoundaryJump, handleDirectionalNavigation, handleModifiedActivate, handlePrimaryActivate, handleSystemSwipe]);
 
   useEffect(() => {
     const focusSpeechOptions = {

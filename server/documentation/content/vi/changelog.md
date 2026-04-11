@@ -1,5 +1,13 @@
 Nhật ký thay đổi
 
+Thứ Bảy 11 Tháng Tư 2026
+
+Cập nhật ứng dụng di động:
+
+Đã chính thức ra mắt ứng dụng di động cho nền tảng PlayAural. Hiện tại, ứng dụng mới chỉ hỗ trợ trên các thiết bị Android.
+
+Đã tích hợp hệ thống tự phát giọng nói (self-voicing) ngay bên trong ứng dụng. Điều này có nghĩa là bạn có thể tắt hẳn trình đọc màn hình của điện thoại mà vẫn chơi game được bình thường. Chúng tôi cũng rất khuyến khích bạn làm như vậy, vì tắt trình đọc màn hình hệ thống sẽ giúp bạn sử dụng các cử chỉ vuốt chạm và thao tác nhanh của trò chơi một cách mượt mà, không bị gián đoạn.
+
 Thứ Năm 9 Tháng Tư 2026
 
 Cập nhật máy chủ:

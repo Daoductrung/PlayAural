@@ -1,5 +1,13 @@
 Changelog
 
+Saturday 11 April 2026
+
+Mobile Client Updates:
+
+Officially launched the PlayAural mobile application. Currently, the app is only available for Android devices.
+
+Integrated a built-in self-voicing feature. This allows you to fully enjoy the game with your device's system screen reader turned off. We highly recommend playing with your system screen reader disabled, as it allows you to use our custom quick gestures smoothly and without any interference.
+
 Thursday 9 April 2026
 
 Server Updates:

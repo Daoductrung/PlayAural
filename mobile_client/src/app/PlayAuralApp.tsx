@@ -311,6 +311,7 @@ export function PlayAuralApp() {
   const allowReconnectRef = useRef(false);
   const expectingReconnectRef = useRef(false);
   const sessionEstablishedRef = useRef(false);
+  const lastPassiveUiSignatureRef = useRef<string | null>(null);
   const credentialsRef = useRef({
     password,
     serverUrl,
@@ -688,6 +689,13 @@ export function PlayAuralApp() {
     }
 
     if (shouldSpeak && !buffers.isMuted("chat")) {
+      let chatSound = "chat.ogg";
+      if (packet.convo === "local" || packet.convo === "table" || packet.convo === "game") {
+        chatSound = "chatlocal.ogg";
+      } else if (packet.convo === "announcement") {
+        chatSound = "notify.ogg";
+      }
+      void audio.playSound(chatSound);
       tts.speakAnnouncement(message);
     }
   };
@@ -1323,6 +1331,58 @@ export function PlayAuralApp() {
     localization,
     menuState.items.length,
     mode,
+  ]);
+
+  const getCurrentUiFocusSignature = useCallback((): string | null => {
+    if (!connected) {
+      return focusedAuthItem
+        ? `auth:${authMode}:${focusedAuthItem.id}:${focusedAuthItem.text}`
+        : null;
+    }
+    if (dialogState && focusedDialogButton) {
+      return `dialog:${dialogState.id}:${dialogState.focusIndex}:${focusedDialogButton.id}:${focusedDialogButton.text}`;
+    }
+    if (inputState && focusedInputOverlayText) {
+      return `input:${inputState.inputId ?? "none"}:${inputOverlayFocus}:${focusedInputOverlayText}`;
+    }
+    if (mode === "main") {
+      const text = focusedMenuItem?.text ?? (menuState.items.length === 0 ? localization.t("menu-empty") : null);
+      if (!text) {
+        return null;
+      }
+      return `main:${menuState.menuId}:${menuState.focusIndex}:${focusedMenuItem?.id ?? "none"}:${text}`;
+    }
+    if (mode === "shortcuts" && focusedShortcutItem) {
+      return `shortcuts:${shortcutFocusIndex}:${focusedShortcutItem.id}:${focusedShortcutItem.text}`;
+    }
+    if (mode === "history" && focusedHistoryMessage) {
+      return `history:${historyIndex}:${focusedHistoryMessage.timestamp}:${focusedHistoryMessage.text}`;
+    }
+    if (mode === "chat" && focusedChatItem) {
+      return `chat:${chatFocusIndex}:${focusedChatItem.kind}:${focusedChatItem.text}`;
+    }
+    return null;
+  }, [
+    authMode,
+    chatFocusIndex,
+    connected,
+    dialogState,
+    focusedAuthItem,
+    focusedChatItem,
+    focusedDialogButton,
+    focusedHistoryMessage,
+    focusedInputOverlayText,
+    focusedMenuItem,
+    focusedShortcutItem,
+    historyIndex,
+    inputOverlayFocus,
+    inputState,
+    localization,
+    menuState.focusIndex,
+    menuState.items.length,
+    menuState.menuId,
+    mode,
+    shortcutFocusIndex,
   ]);
 
   useEffect(() => {
@@ -2251,37 +2311,50 @@ export function PlayAuralApp() {
       interruptUi: false,
     };
 
+    const focusSignature = getCurrentUiFocusSignature();
+    if (!focusSignature || lastPassiveUiSignatureRef.current === focusSignature) {
+      return;
+    }
+
     if (!connected) {
       if (focusedAuthItem?.text) {
+        lastPassiveUiSignatureRef.current = focusSignature;
         tts.speakUi(focusedAuthItem.text, focusSpeechOptions);
       }
       return;
     }
     if (dialogState && focusedDialogButton) {
+      lastPassiveUiSignatureRef.current = focusSignature;
       tts.speakUi(focusedDialogButton.text, focusSpeechOptions);
       return;
     }
     if (inputState && focusedInputOverlayText) {
+      lastPassiveUiSignatureRef.current = focusSignature;
       tts.speakUi(focusedInputOverlayText, focusSpeechOptions);
       return;
     }
     if (mode === "main") {
       if (focusedMenuItem?.text) {
+        lastPassiveUiSignatureRef.current = focusSignature;
         tts.speakUi(focusedMenuItem.text, focusSpeechOptions);
       } else if (menuState.items.length === 0) {
+        lastPassiveUiSignatureRef.current = focusSignature;
         tts.speakUi(localization.t("menu-empty"), focusSpeechOptions);
       }
       return;
     }
     if (mode === "shortcuts" && focusedShortcutItem) {
+      lastPassiveUiSignatureRef.current = focusSignature;
       tts.speakUi(focusedShortcutItem.text, focusSpeechOptions);
       return;
     }
     if (mode === "history" && focusedHistoryMessage) {
+      lastPassiveUiSignatureRef.current = focusSignature;
       tts.speakUi(focusedHistoryMessage.text, focusSpeechOptions);
       return;
     }
     if (mode === "chat" && focusedChatItem) {
+      lastPassiveUiSignatureRef.current = focusSignature;
       tts.speakUi(focusedChatItem.text, focusSpeechOptions);
     }
   }, [
@@ -2302,6 +2375,7 @@ export function PlayAuralApp() {
     chatFocusIndex,
     focusedShortcutItem?.text,
     shortcutFocusIndex,
+    getCurrentUiFocusSignature,
   ]);
 
   const connect = () => {

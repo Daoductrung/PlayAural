@@ -267,7 +267,7 @@ export class TtsManager {
     }
 
     if (channel === "announcement") {
-      this.speakCurrentPassiveFocus();
+      this.speakPendingPassiveFocus();
       return;
     }
 
@@ -295,18 +295,6 @@ export class TtsManager {
       return;
     }
     this.speakUi(pending, {
-      interruptAnnouncement: false,
-      interruptUi: false,
-    });
-  }
-
-  private speakCurrentPassiveFocus(): void {
-    const text = this.pendingPassiveUiText || this.currentUiTextProvider?.();
-    this.pendingPassiveUiText = null;
-    if (!text) {
-      return;
-    }
-    this.speakUi(text, {
       interruptAnnouncement: false,
       interruptUi: false,
     });

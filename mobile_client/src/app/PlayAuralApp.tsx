@@ -3,7 +3,6 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SecureStore from "expo-secure-store";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Alert,
   BackHandler,
   KeyboardAvoidingView,
   Linking,
@@ -47,7 +46,7 @@ import { TtsManager } from "../tts/TtsManager";
 
 const MOBILE_CLIENT_VERSION = "1.0.2";
 const MOBILE_BUILD_STAMP = "2026-04-11 14:18:24 +07:00";
-const DEFAULT_SERVER_URL = "wss://playaural.ddt.one:443";
+const DEFAULT_SERVER_URL = "ws://localhost:8000";
 const APK_DOWNLOAD_URL =
   "https://github.com/Daoductrung/PlayAural/releases/latest/download/PlayAural.apk";
 const CLIENT_CONFIG_STORAGE_KEY = "playaural.mobile.clientConfig";
@@ -80,11 +79,27 @@ type InputState = {
 };
 
 type InputOverlayFocus = 0 | 1;
+type DialogFocusIndex = number;
 
 type ChatFocusItem = {
   kind: "input" | "message" | "send";
   text: string;
   messageIndex?: number;
+};
+
+type DialogAction = {
+  id: "cancel" | "confirm";
+  text: string;
+  variant?: "danger" | "primary" | "secondary";
+  onPress: () => void;
+};
+
+type DialogState = {
+  buttons: DialogAction[];
+  focusIndex: DialogFocusIndex;
+  id: string;
+  message: string;
+  title: string;
 };
 
 type ShortcutActionId =
@@ -211,9 +226,13 @@ function nextGridIndex(
 function serverSpeechRateToExpoRate(value: unknown): number {
   const numeric = typeof value === "number" ? value : Number(value);
   if (!Number.isFinite(numeric)) {
-    return 2;
+    return 1;
   }
-  return clamp(numeric / 50, 0.2, 2.0);
+  const clamped = clamp(numeric, 50, 200);
+  if (clamped <= 100) {
+    return clamped / 100;
+  }
+  return Math.pow(10, (clamped - 100) / 100);
 }
 
 function formatMobileVoiceLabel(name: string, language: string, isDefault: boolean, defaultLabel: string): string {
@@ -250,6 +269,7 @@ export function PlayAuralApp() {
   const [authMode, setAuthMode] = useState<AuthMode>("login");
   const [menuState, setMenuState] = useState<MenuState>(defaultMenuState);
   const [inputState, setInputState] = useState<InputState | null>(null);
+  const [dialogState, setDialogState] = useState<DialogState | null>(null);
   const [inputValue, setInputValue] = useState("");
   const [inputOverlayFocus, setInputOverlayFocus] = useState<InputOverlayFocus>(0);
   const [chatDraft, setChatDraft] = useState("");
@@ -282,6 +302,19 @@ export function PlayAuralApp() {
   const inputStateRef = useRef(inputState);
   const lastPingStartedAtRef = useRef<number | null>(lastPingStartedAt);
   const preferencesRef = useRef<Record<string, unknown>>(preferences);
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reconnectWindowStartedAtRef = useRef<number | null>(null);
+  const reconnectDelayMsRef = useRef(1000);
+  const reconnectAttemptsRef = useRef(0);
+  const manualDisconnectRef = useRef(false);
+  const allowReconnectRef = useRef(false);
+  const expectingReconnectRef = useRef(false);
+  const sessionEstablishedRef = useRef(false);
+  const credentialsRef = useRef({
+    password,
+    serverUrl,
+    username,
+  });
   const updatePromptShownRef = useRef(false);
   const autoLoginAttemptedRef = useRef(false);
   const usernameInputRef = useRef<TextInput | null>(null);
@@ -313,6 +346,14 @@ export function PlayAuralApp() {
     preferencesRef.current = preferences;
   }, [preferences]);
 
+  useEffect(() => {
+    credentialsRef.current = {
+      password,
+      serverUrl,
+      username,
+    };
+  }, [password, serverUrl, username]);
+
   const announce = (text: string, buffer: BufferName = "system", speak = true) => {
     buffers.add(buffer, text);
     setHistoryRevision((value) => value + 1);
@@ -321,9 +362,66 @@ export function PlayAuralApp() {
     }
   };
 
+  const localizeSystemMessage = useCallback((message: string | undefined, fallbackKey = "status-disconnected") => {
+    if (!message) {
+      return localization.t(fallbackKey);
+    }
+    if (message === "Connection error.") {
+      return localization.t("network-connection-error");
+    }
+    if (message === "Malformed server packet.") {
+      return localization.t("network-malformed-packet");
+    }
+    if (message === "Temporary request timed out.") {
+      return localization.t("network-temporary-timeout");
+    }
+    if (message === "Connection closed.") {
+      return localization.t("network-connection-closed");
+    }
+    if (message === "logged-out") {
+      return localization.t("logout-complete");
+    }
+    if (message === "exit") {
+      return localization.t("logout-complete");
+    }
+    return message;
+  }, [localization]);
+
+  const clearReconnectTimer = useCallback(() => {
+    if (!reconnectTimerRef.current) {
+      return;
+    }
+    clearTimeout(reconnectTimerRef.current);
+    reconnectTimerRef.current = null;
+  }, []);
+
+  const resetReconnectState = useCallback(() => {
+    clearReconnectTimer();
+    reconnectWindowStartedAtRef.current = null;
+    reconnectDelayMsRef.current = 1000;
+    reconnectAttemptsRef.current = 0;
+    expectingReconnectRef.current = false;
+  }, [clearReconnectTimer]);
+
+  const disableAutoReconnect = useCallback(() => {
+    allowReconnectRef.current = false;
+    manualDisconnectRef.current = true;
+    sessionEstablishedRef.current = false;
+    resetReconnectState();
+  }, [resetReconnectState]);
+
+  const prepareManualConnect = useCallback(() => {
+    manualDisconnectRef.current = false;
+    resetReconnectState();
+  }, [resetReconnectState]);
+
   useEffect(() => {
     void audio.initialize();
   }, [audio]);
+
+  useEffect(() => () => {
+    clearReconnectTimer();
+  }, [clearReconnectTimer]);
 
   useEffect(() => {
     void loadStoredClientState();
@@ -343,10 +441,11 @@ export function PlayAuralApp() {
     }
 
     autoLoginAttemptedRef.current = true;
+    prepareManualConnect();
     setAuthStatusText(localization.t("auth-auto-login"));
     setStatusText(localization.t("status-connecting"));
     connectionRef.current?.connect(serverUrl, username, password, MOBILE_CLIENT_VERSION);
-  }, [storageReady, connected, serverUrl, username, password]);
+  }, [connected, localization, password, prepareManualConnect, serverUrl, storageReady, username]);
 
   const applyLocale = (locale: string | undefined) => {
     localization.setLocale(locale);
@@ -589,7 +688,61 @@ export function PlayAuralApp() {
     setCurrentAmbience("");
   };
 
+  const queueReconnectAttempt = useCallback((delayMs: number, statusMessage: string, speakMessage = false) => {
+    const { password: reconnectPassword, serverUrl: reconnectServerUrl, username: reconnectUsername } = credentialsRef.current;
+    if (!allowReconnectRef.current || manualDisconnectRef.current || !sessionEstablishedRef.current) {
+      return;
+    }
+    if (!reconnectServerUrl || !reconnectUsername || !reconnectPassword) {
+      return;
+    }
+
+    const now = Date.now();
+    if (reconnectWindowStartedAtRef.current === null) {
+      reconnectWindowStartedAtRef.current = now;
+      reconnectDelayMsRef.current = 1000;
+      reconnectAttemptsRef.current = 0;
+    }
+
+    if (now - reconnectWindowStartedAtRef.current > 60000) {
+      allowReconnectRef.current = false;
+      resetReconnectState();
+      const failedMessage = localization.t("reconnect-failed");
+      setStatusText(failedMessage);
+      setAuthStatusText(failedMessage);
+      announce(failedMessage, "system");
+      return;
+    }
+
+    clearReconnectTimer();
+    setStatusText(statusMessage);
+    if (speakMessage) {
+      announce(statusMessage, "system");
+    }
+
+    reconnectTimerRef.current = setTimeout(() => {
+      reconnectTimerRef.current = null;
+      if (!allowReconnectRef.current || manualDisconnectRef.current || !sessionEstablishedRef.current) {
+        return;
+      }
+
+      reconnectAttemptsRef.current += 1;
+      const attemptMessage = localization.t("reconnect-attempting", {
+        value: reconnectAttemptsRef.current,
+      });
+      setStatusText(attemptMessage);
+      connectionRef.current?.connect(
+        reconnectServerUrl,
+        reconnectUsername,
+        reconnectPassword,
+        MOBILE_CLIENT_VERSION,
+      );
+      reconnectDelayMsRef.current = Math.min(Math.max(reconnectDelayMsRef.current, 1000) * 2, 10000);
+    }, delayMs);
+  }, [announce, clearReconnectTimer, localization, resetReconnectState]);
+
   const exitApplication = () => {
+    disableAutoReconnect();
     connectionRef.current?.disconnect();
     stopGameAudio(true);
     if (Platform.OS === "android") {
@@ -597,28 +750,49 @@ export function PlayAuralApp() {
     }
   };
 
-  const promptMandatoryUpdate = (title: string, message: string) => {
+  const openDialog = useCallback((nextDialog: Omit<DialogState, "focusIndex">) => {
+    setDialogState({
+      ...nextDialog,
+      focusIndex: 0,
+    });
+  }, []);
+
+  const closeDialog = useCallback(() => {
+    setDialogState(null);
+  }, []);
+
+  const promptMandatoryUpdate = (id: string, title: string, message: string) => {
     if (updatePromptShownRef.current) {
       return;
     }
     updatePromptShownRef.current = true;
-    Alert.alert(title, message, [
-      {
-        text: localization.t("update-cancel"),
-        style: "cancel",
-        onPress: () => {
-          exitApplication();
+    openDialog({
+      buttons: [
+        {
+          id: "confirm",
+          onPress: () => {
+            closeDialog();
+            void Linking.openURL(APK_DOWNLOAD_URL).finally(() => {
+              exitApplication();
+            });
+          },
+          text: localization.t("update-confirm"),
+          variant: "primary",
         },
-      },
-      {
-        text: localization.t("update-confirm"),
-        onPress: () => {
-          void Linking.openURL(APK_DOWNLOAD_URL).finally(() => {
+        {
+          id: "cancel",
+          onPress: () => {
+            closeDialog();
             exitApplication();
-          });
+          },
+          text: localization.t("update-cancel"),
+          variant: "secondary",
         },
-      },
-    ]);
+      ],
+      id,
+      message,
+      title,
+    });
   };
 
   const checkVersionGates = (packet: AuthorizeSuccessPacket): boolean => {
@@ -626,6 +800,7 @@ export function PlayAuralApp() {
     if (latestAppVersion && latestAppVersion !== MOBILE_CLIENT_VERSION) {
       setStatusText(localization.t("update-required-status", { value: latestAppVersion }));
       promptMandatoryUpdate(
+        "mandatory-app-update",
         localization.t("update-required-title"),
         localization.t("update-required-message", { value: latestAppVersion }),
       );
@@ -636,6 +811,7 @@ export function PlayAuralApp() {
     if (serverSoundVersion && serverSoundVersion !== bundledSoundVersion) {
       setStatusText(localization.t("sounds-update-required-status", { value: serverSoundVersion }));
       promptMandatoryUpdate(
+        "mandatory-sounds-update",
         localization.t("sounds-update-required-title"),
         localization.t("sounds-update-required-message", {
           current: bundledSoundVersion || localization.t("update-unknown-version"),
@@ -653,11 +829,33 @@ export function PlayAuralApp() {
     connectionRef.current = new PlayAuralConnection({
       onClose: (reason) => {
         setConnected(false);
-        setStatusText(reason || localization.t("status-disconnected"));
+        if (!allowReconnectRef.current || manualDisconnectRef.current || !sessionEstablishedRef.current) {
+          if (reason) {
+            setStatusText(localizeSystemMessage(reason, "status-disconnected"));
+          }
+          return;
+        }
+
+        if (reconnectTimerRef.current) {
+          return;
+        }
+
+        const reconnectMessage = expectingReconnectRef.current
+          ? localization.t("reconnect-server-restarting")
+          : localization.t("connection-lost");
+        setAuthStatusText(reconnectMessage);
+        queueReconnectAttempt(
+          expectingReconnectRef.current ? 3000 : reconnectDelayMsRef.current,
+          reconnectMessage,
+          !expectingReconnectRef.current,
+        );
       },
       onError: (message) => {
-        setStatusText(message);
-        announce(message, "system");
+        const localizedMessage = localizeSystemMessage(message, "network-connection-error");
+        setStatusText(localizedMessage);
+        if (!allowReconnectRef.current || manualDisconnectRef.current || !sessionEstablishedRef.current) {
+          announce(localizedMessage, "system");
+        }
       },
       onOpen: () => {
         setStatusText(localization.t("status-connecting"));
@@ -666,6 +864,11 @@ export function PlayAuralApp() {
         console.info("PLAYAURAL_DEBUG Packet", packet.type);
         if (packet.type === "authorize_success") {
           const authPacket = packet as AuthorizeSuccessPacket;
+          manualDisconnectRef.current = false;
+          allowReconnectRef.current = true;
+          expectingReconnectRef.current = false;
+          sessionEstablishedRef.current = true;
+          resetReconnectState();
           applyLocale(authPacket.locale);
           applyPreferenceUpdates(extractPreferenceUpdates(authPacket));
           setConnected(true);
@@ -674,6 +877,7 @@ export function PlayAuralApp() {
           if (checkVersionGates(authPacket)) {
             return;
           }
+          void audio.playSound("welcome.ogg", { volume: 1 });
           setStatusText(localization.t("status-connected"));
           announce(localization.t("status-connected"), "system");
           return;
@@ -694,9 +898,21 @@ export function PlayAuralApp() {
 
         if (packet.type === "disconnect") {
           const disconnectPacket = packet as DisconnectPacket;
-          const reason = disconnectPacket.reason || localization.t("status-disconnected");
+          const reason = localizeSystemMessage(disconnectPacket.reason, "status-disconnected");
           stopGameAudio(true);
           setConnected(false);
+          if (disconnectPacket.reconnect) {
+            manualDisconnectRef.current = false;
+            allowReconnectRef.current = true;
+            expectingReconnectRef.current = true;
+            sessionEstablishedRef.current = true;
+            const reconnectMessage = localization.t("reconnect-server-restarting");
+            setAuthStatusText(reconnectMessage);
+            queueReconnectAttempt(3000, reconnectMessage, true);
+            return;
+          }
+
+          disableAutoReconnect();
           setAuthStatusText(reason);
           setStatusText(reason);
           announce(reason, "system");
@@ -705,9 +921,13 @@ export function PlayAuralApp() {
 
         if (packet.type === "login_failed") {
           const failurePacket = packet as LoginFailedPacket;
-          const reason = failurePacket.text || failurePacket.reason || localization.t("auth-login-failed");
+          const reason = localizeSystemMessage(
+            failurePacket.text || failurePacket.reason,
+            "auth-login-failed",
+          );
           stopGameAudio(true);
           setConnected(false);
+          disableAutoReconnect();
           setAuthStatusText(reason);
           setStatusText(reason);
           announce(reason, "system");
@@ -883,6 +1103,7 @@ export function PlayAuralApp() {
   const chatMessages = buffers.getMessages("chat").slice().reverse();
   const focusedHistoryMessage = historyMessages[historyIndex] ?? null;
   const focusedMenuItem = menuState.items[menuState.focusIndex];
+  const focusedDialogButton = dialogState?.buttons[dialogState.focusIndex] ?? null;
   const chatFocusItems: ChatFocusItem[] = [
     { kind: "input", text: localization.t("chat-input-focus") },
     { kind: "send", text: localization.t("chat-send-button") },
@@ -1019,6 +1240,9 @@ export function PlayAuralApp() {
     if (!connected) {
       return focusedAuthItem?.text ?? null;
     }
+    if (dialogState && focusedDialogButton) {
+      return focusedDialogButton.text;
+    }
     if (inputState && focusedInputOverlayText) {
       return focusedInputOverlayText;
     }
@@ -1037,7 +1261,9 @@ export function PlayAuralApp() {
     return null;
   }, [
     connected,
+    dialogState,
     focusedAuthItem?.text,
+    focusedDialogButton?.text,
     focusedHistoryMessage?.text,
     focusedChatItem?.text,
     focusedInputOverlayText,
@@ -1063,6 +1289,21 @@ export function PlayAuralApp() {
       tts.setCurrentUiTextProvider(null);
     };
   }, [getCurrentUiFocusText, tts]);
+
+  useEffect(() => {
+    if (!dialogState) {
+      return;
+    }
+    const initialButton = dialogState.buttons[dialogState.focusIndex]?.text ?? "";
+    const dialogIntro = [dialogState.title, dialogState.message, initialButton].filter(Boolean).join(". ");
+    if (!dialogIntro) {
+      return;
+    }
+    tts.speakUi(dialogIntro, {
+      interruptAnnouncement: true,
+      interruptUi: true,
+    });
+  }, [dialogState?.id]);
 
   const focusAuthField = (action: AuthFocusableItem["action"]) => {
     if (action === "focus_username") {
@@ -1331,6 +1572,11 @@ export function PlayAuralApp() {
 
   const handlePrimaryActivate = () => {
     void audio.handleUserInteraction();
+    if (dialogState) {
+      playMenuActivateSound();
+      activateDialogButton();
+      return;
+    }
     if (!connected) {
       playMenuActivateSound();
       activateAuthItem(focusedAuthItem);
@@ -1382,6 +1628,24 @@ export function PlayAuralApp() {
 
   const handleDirectionalNavigation = (direction: "up" | "down" | "left" | "right") => {
     void audio.handleUserInteraction();
+    if (dialogState) {
+      setDialogState((current) => {
+        if (!current || current.buttons.length === 0) {
+          return current;
+        }
+        const delta = direction === "left" || direction === "up" ? -1 : 1;
+        const nextIndex = clamp(current.focusIndex + delta, 0, current.buttons.length - 1);
+        if (nextIndex !== current.focusIndex) {
+          speakUserFocus(current.buttons[nextIndex]?.text);
+          playMenuMoveSound();
+        }
+        return {
+          ...current,
+          focusIndex: nextIndex,
+        };
+      });
+      return;
+    }
     if (inputState) {
       setInputOverlayFocus((current) => {
         const next: InputOverlayFocus = direction === "left" || direction === "up" ? 0 : 1;
@@ -1521,6 +1785,7 @@ export function PlayAuralApp() {
   };
 
   const logoutAndExitIfAndroid = () => {
+    disableAutoReconnect();
     connection?.disconnect();
     stopGameAudio(true);
     setConnected(false);
@@ -1528,27 +1793,48 @@ export function PlayAuralApp() {
     setMenuState(defaultMenuState);
     menuStateRef.current = defaultMenuState;
     setStatusText(localization.t("status-disconnected"));
+    setAuthStatusText(localization.t("logout-complete"));
+    closeDialog();
     if (Platform.OS === "android") {
       BackHandler.exitApp();
     }
   };
 
   const confirmLogout = () => {
-    Alert.alert(localization.t("logout-title"), localization.t("logout-message"), [
-      {
-        style: "cancel",
-        text: localization.t("logout-cancel"),
-      },
-      {
-        onPress: logoutAndExitIfAndroid,
-        style: "destructive",
-        text: localization.t("logout-confirm"),
-      },
-    ]);
+    openDialog({
+      buttons: [
+        {
+          id: "confirm",
+          onPress: logoutAndExitIfAndroid,
+          text: localization.t("logout-confirm"),
+          variant: "danger",
+        },
+        {
+          id: "cancel",
+          onPress: closeDialog,
+          text: localization.t("logout-cancel"),
+          variant: "secondary",
+        },
+      ],
+      id: "logout-confirmation",
+      message: localization.t("logout-message"),
+      title: localization.t("logout-title"),
+    });
+  };
+
+  const activateDialogButton = () => {
+    focusedDialogButton?.onPress();
   };
 
   const handleSystemSwipe = (direction: "up" | "down" | "left" | "right") => {
     void audio.handleUserInteraction();
+    if (dialogState) {
+      if (direction === "up") {
+        const cancelButton = dialogState.buttons.find((button) => button.id === "cancel");
+        cancelButton?.onPress();
+      }
+      return;
+    }
     if (direction === "up") {
       if (closeOverlay()) {
         return;
@@ -1744,6 +2030,10 @@ export function PlayAuralApp() {
       }
       return;
     }
+    if (dialogState && focusedDialogButton) {
+      tts.speakUi(focusedDialogButton.text, focusSpeechOptions);
+      return;
+    }
     if (inputState && focusedInputOverlayText) {
       tts.speakUi(focusedInputOverlayText, focusSpeechOptions);
       return;
@@ -1770,7 +2060,9 @@ export function PlayAuralApp() {
   }, [
     connected,
     authFocusIndex,
+    dialogState,
     focusedAuthItem?.text,
+    focusedDialogButton?.text,
     focusedInputOverlayText,
     inputState,
     mode,
@@ -1792,12 +2084,26 @@ export function PlayAuralApp() {
       announce(message, "system");
       return;
     }
+    try {
+      const parsed = new URL(serverUrl);
+      if (parsed.protocol !== "ws:" && parsed.protocol !== "wss:") {
+        throw new Error("invalid");
+      }
+    } catch {
+      const message = localization.t("network-invalid-url");
+      setAuthStatusText(message);
+      setStatusText(message);
+      announce(message, "system");
+      return;
+    }
+    prepareManualConnect();
     setAuthStatusText("");
     setStatusText(localization.t("status-connecting"));
     connection?.connect(serverUrl, username, password, MOBILE_CLIENT_VERSION);
   };
 
   const disconnect = () => {
+    disableAutoReconnect();
     connection?.disconnect();
     stopGameAudio(true);
     setConnected(false);
@@ -1891,7 +2197,9 @@ export function PlayAuralApp() {
         setResetPassword("");
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : localization.t("auth-request-failed");
+      const message = error instanceof Error
+        ? localizeSystemMessage(error.message, "auth-request-failed")
+        : localization.t("auth-request-failed");
       setAuthStatusText(message);
       announce(message, "system");
     }
@@ -2062,6 +2370,39 @@ export function PlayAuralApp() {
       {currentAmbience ? <Text style={styles.helpText}>Ambience: {currentAmbience}</Text> : null}
     </View>
   );
+
+  const renderDialogOverlay = () => {
+    if (!dialogState) {
+      return null;
+    }
+
+    return (
+      <View style={styles.inputOverlayScreen}>
+        <View style={styles.dialogCard}>
+          <Text style={styles.panelTitle}>{dialogState.title}</Text>
+          <Text style={styles.dialogMessage}>{dialogState.message}</Text>
+          <View style={styles.dialogButtons}>
+            {dialogState.buttons.map((button, index) => (
+              <Pressable
+                key={`${dialogState.id}-${button.id}`}
+                onPress={button.onPress}
+                style={[
+                  button.variant === "danger"
+                    ? styles.buttonDanger
+                    : button.variant === "secondary"
+                      ? styles.buttonSecondary
+                      : styles.button,
+                  index === dialogState.focusIndex ? styles.authFocused : undefined,
+                ]}
+              >
+                <Text style={styles.buttonText}>{button.text}</Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+      </View>
+    );
+  };
 
   const renderOverlay = () => {
     if (mode === "chat") {
@@ -2321,7 +2662,7 @@ export function PlayAuralApp() {
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={styles.container}
       >
-        {inputState ? (
+        {dialogState ? renderDialogOverlay() : inputState ? (
           <View style={styles.inputOverlayScreen}>
             <View style={styles.inputOverlayCard}>
               <Text style={styles.panelTitle}>{inputState.prompt}</Text>
@@ -2459,6 +2800,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
+  buttonDanger: {
+    backgroundColor: "#a33b36",
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
   buttonText: {
     color: "#f6f7fb",
     fontWeight: "600",
@@ -2518,6 +2865,24 @@ const styles = StyleSheet.create({
     maxWidth: 640,
     padding: 16,
     width: "100%",
+  },
+  dialogCard: {
+    backgroundColor: "#1b2430",
+    borderColor: "#3567e3",
+    borderRadius: 14,
+    borderWidth: 1,
+    gap: 14,
+    maxWidth: 640,
+    padding: 16,
+    width: "100%",
+  },
+  dialogMessage: {
+    color: "#d8e0e6",
+    fontSize: 16,
+    lineHeight: 22,
+  },
+  dialogButtons: {
+    gap: 10,
   },
   inputOverlayFocusRing: {
     borderRadius: 12,

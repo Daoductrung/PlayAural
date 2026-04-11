@@ -12,6 +12,15 @@
   "status-disconnected": "\u0110\u00e3 ng\u1eaft k\u1ebft n\u1ed1i.",
   "status-connecting": "\u0110ang k\u1ebft n\u1ed1i.",
   "status-connected": "\u0110\u00e3 k\u1ebft n\u1ed1i!",
+  "connection-lost": "M\u1ea5t k\u1ebft n\u1ed1i. \u0110ang th\u1eed k\u1ebft n\u1ed1i l\u1ea1i.",
+  "reconnect-attempting": "L\u1ea7n k\u1ebft n\u1ed1i l\u1ea1i th\u1ee9 {value}.",
+  "reconnect-server-restarting": "M\u00e1y ch\u1ee7 \u0111ang kh\u1edfi \u0111\u1ed9ng l\u1ea1i. S\u1ebd k\u1ebft n\u1ed1i l\u1ea1i sau.",
+  "reconnect-failed": "Kh\u00f4ng th\u1ec3 k\u1ebft n\u1ed1i l\u1ea1i. Vui l\u00f2ng \u0111\u0103ng nh\u1eadp l\u1ea1i.",
+  "network-connection-error": "M\u00e1y ch\u1ee7 kh\u00f4ng ph\u1ea3n h\u1ed3i.",
+  "network-malformed-packet": "M\u00e1y ch\u1ee7 \u0111\u00e3 g\u1eedi d\u1eef li\u1ec7u kh\u00f4ng h\u1ee3p l\u1ec7.",
+  "network-temporary-timeout": "Y\u00eau c\u1ea7u \u0111\u00e3 h\u1ebft th\u1eddi gian ch\u1edd.",
+  "network-connection-closed": "K\u1ebft n\u1ed1i \u0111\u00e3 b\u1ecb \u0111\u00f3ng.",
+  "network-invalid-url": "\u0110\u1ecba ch\u1ec9 m\u00e1y ch\u1ee7 kh\u00f4ng h\u1ee3p l\u1ec7. H\u00e3y d\u00f9ng ws:// ho\u1eb7c wss://.",
   "gesture-stop-tts": "\u0110\u00e3 d\u1eebng \u0111\u1ecdc.",
   "gesture-no-last": "Ch\u01b0a c\u00f3 th\u00f4ng b\u00e1o tr\u01b0\u1edbc \u0111\u00f3.",
   "chat-input-focus": "\u00d4 nh\u1eadp tr\u00f2 chuy\u1ec7n",
@@ -88,6 +97,7 @@
   "logout-message": "B\u1ea1n c\u00f3 mu\u1ed1n \u0111\u0103ng xu\u1ea5t v\u00e0 \u0111\u00f3ng PlayAural Mobile kh\u00f4ng?",
   "logout-confirm": "\u0110\u0103ng xu\u1ea5t",
   "logout-cancel": "H\u1ee7y",
+  "logout-complete": "\u0110\u00e3 \u0111\u0103ng xu\u1ea5t.",
   "footer-gestures-line-1": "Vu\u1ed1t 1 ng\u00f3n = ph\u00edm m\u0169i t\u00ean. Vu\u1ed1t l\u00ean 2 ng\u00f3n = Escape. Vu\u1ed1t sang ph\u1ea3i 2 ng\u00f3n = Tr\u00f2 chuy\u1ec7n.",
   "footer-gestures-line-2": "Vu\u1ed1t sang tr\u00e1i 2 ng\u00f3n = Nh\u1eadt k\u00fd. Vu\u1ed1t xu\u1ed1ng 2 ng\u00f3n = Ph\u00edm t\u1eaft. Ch\u1ea1m 2 ng\u00f3n = d\u1eebng \u0111\u1ecdc. Ch\u1ea1m 3 ng\u00f3n = \u0111\u1ecdc l\u1ea1i."
 }

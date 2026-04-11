@@ -25,6 +25,8 @@ export type TtsVoiceOption = {
 };
 
 const DEBUG_PREFIX = "PLAYAURAL_DEBUG TTS";
+const MIN_SPEECH_RATE = 0.1;
+const MAX_SPEECH_RATE = 10;
 
 export class TtsManager {
   private lastAnnouncementText = "";
@@ -34,6 +36,7 @@ export class TtsManager {
   private announcementVoice: string | undefined;
   private nativeVoices: Voice[] = [];
   private webVoices: SpeechSynthesisVoice[] = [];
+  private webVoicesReadyPromise: Promise<SpeechSynthesisVoice[]> | null = null;
   private activeChannel: SpeechChannel | null = null;
   private activeText = "";
   private announcementQueue: AnnouncementQueueItem[] = [];
@@ -46,12 +49,14 @@ export class TtsManager {
   }
 
   setRate(rate: number): void {
-    this.rate = Math.max(0.2, Math.min(2.0, rate));
+    this.rate = Math.max(MIN_SPEECH_RATE, Math.min(MAX_SPEECH_RATE, rate));
+    this.replayActiveSpeechForSettingsChange();
   }
 
   setVoice(voice: string | undefined): void {
     this.uiVoice = voice || undefined;
     this.announcementVoice = voice || undefined;
+    this.replayActiveSpeechForSettingsChange();
   }
 
   async setMobileVoice(voice: string | undefined): Promise<void> {
@@ -60,6 +65,10 @@ export class TtsManager {
       this.setVoice(undefined);
       return;
     }
+
+    // Apply the requested identifier immediately so the next utterance uses it
+    // while the async voice list validation resolves.
+    this.setVoice(requestedVoice);
 
     const voices = await this.getAvailableVoiceOptions();
     const found = voices.find((candidate) => candidate.id === requestedVoice);
@@ -73,15 +82,17 @@ export class TtsManager {
 
   setUiVoice(voice: string | undefined): void {
     this.uiVoice = voice || undefined;
+    this.replayActiveSpeechForSettingsChange();
   }
 
   setAnnouncementVoice(voice: string | undefined): void {
     this.announcementVoice = voice || undefined;
+    this.replayActiveSpeechForSettingsChange();
   }
 
   async getAvailableVoiceOptions(): Promise<TtsVoiceOption[]> {
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
-      this.webVoices = window.speechSynthesis.getVoices();
+      this.webVoices = await this.ensureWebVoicesLoaded();
       return this.webVoices.map((voice) => ({
         id: voice.voiceURI || voice.name,
         isDefault: voice.default,
@@ -319,8 +330,61 @@ export class TtsManager {
       return null;
     }
 
-    const voices = window.speechSynthesis.getVoices();
+    const voices = this.webVoices.length > 0 ? this.webVoices : window.speechSynthesis.getVoices();
     return voices.find((candidate) => candidate.voiceURI === targetVoice || candidate.name === targetVoice) ?? null;
+  }
+
+  private replayActiveSpeechForSettingsChange(): void {
+    if (!this.activeChannel || !this.activeText) {
+      return;
+    }
+
+    const channel = this.activeChannel;
+    const text = this.activeText;
+    const remember = channel === "announcement" && this.lastAnnouncementText === text;
+    this.token += 1;
+    this.stopUnderlyingSpeech();
+    this.startSpeech(channel, text, { remember });
+  }
+
+  private async ensureWebVoicesLoaded(): Promise<SpeechSynthesisVoice[]> {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+      return [];
+    }
+
+    const existing = window.speechSynthesis.getVoices();
+    if (existing.length > 0) {
+      return existing;
+    }
+
+    if (this.webVoicesReadyPromise) {
+      return this.webVoicesReadyPromise;
+    }
+
+    this.webVoicesReadyPromise = new Promise<SpeechSynthesisVoice[]>((resolve) => {
+      const finalize = () => {
+        if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+          resolve([]);
+          return;
+        }
+        const voices = window.speechSynthesis.getVoices();
+        window.speechSynthesis.removeEventListener("voiceschanged", onVoicesChanged);
+        this.webVoicesReadyPromise = null;
+        resolve(voices);
+      };
+
+      const onVoicesChanged = () => {
+        const voices = window.speechSynthesis.getVoices();
+        if (voices.length > 0) {
+          finalize();
+        }
+      };
+
+      window.speechSynthesis.addEventListener("voiceschanged", onVoicesChanged);
+      window.setTimeout(finalize, 1500);
+    });
+
+    return this.webVoicesReadyPromise;
   }
 
   private debug(event: string, text: string): void {

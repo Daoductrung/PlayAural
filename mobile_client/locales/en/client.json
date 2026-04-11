@@ -12,6 +12,15 @@
   "status-disconnected": "Disconnected.",
   "status-connecting": "Connecting.",
   "status-connected": "Connected!",
+  "connection-lost": "Connection lost. Reconnecting.",
+  "reconnect-attempting": "Reconnect attempt {value}.",
+  "reconnect-server-restarting": "The server is restarting. Reconnecting shortly.",
+  "reconnect-failed": "Could not reconnect. Please log in again.",
+  "network-connection-error": "The server is not responding.",
+  "network-malformed-packet": "The server sent invalid data.",
+  "network-temporary-timeout": "The request timed out.",
+  "network-connection-closed": "The connection was closed.",
+  "network-invalid-url": "The server address is invalid. Use ws:// or wss://.",
   "gesture-stop-tts": "Speech stopped.",
   "gesture-no-last": "No previous announcement.",
   "chat-input-focus": "Chat input",
@@ -88,6 +97,7 @@
   "logout-message": "Do you want to log out and close PlayAural Mobile?",
   "logout-confirm": "Log out",
   "logout-cancel": "Cancel",
+  "logout-complete": "Logged out.",
   "footer-gestures-line-1": "1-finger swipe = arrows. 2-finger swipe up = Escape. 2-finger swipe right = Chat.",
   "footer-gestures-line-2": "2-finger swipe left = History. 2-finger swipe down = Shortcuts. 2-finger tap = stop speech. 3-finger tap = repeat last."
 }

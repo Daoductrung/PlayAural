@@ -1,52 +1,70 @@
-**Phím tắt toàn cục (Global Keybinds)**
+\*\*Điều khiển toàn cục\*\*
 
-Dưới đây là danh sách các phím tắt chung được sử dụng trong hệ thống PlayAural.
+Tài liệu này giải thích các cách điều khiển dùng chung trong PlayAural. Người chơi trên máy tính chủ yếu dùng phím tắt. Người chơi trên thiết bị di động chủ yếu dùng cử chỉ có sẵn trong ứng dụng. Hai cách này đều giúp bạn đi tới cùng một nhóm tính năng.
 
-**Hệ thống và Âm thanh**
+\*\*Phím tắt trên máy tính\*\*
 
-* **F2:** Thông báo số lượng người dùng đang trực tuyến.
-* **Shift + F2:** Mở danh sách chi tiết người dùng đang trực tuyến.
-* **F4:** Tắt/Bật tiếng của bộ nhớ đệm lịch sử hiện tại (ví dụ: tắt thông báo game để tập trung vào trò chuyện).
-* **F6:** Tắt/Bật tiếng Chat trong bàn.
-* **Shift + F6:** Tắt/Bật tiếng Chat toàn cầu.
-* **F7 / F8:** Giảm / Tăng âm lượng môi trường.
-* **F9 / F10:** Giảm / Tăng âm lượng nhạc.
-* **Alt + P:** Kiểm tra độ trễ mạng (Ping).
-* **Alt + M:** Chuyển tiêu điểm về Menu chính.
-* **Alt + F:** Mở Trung tâm Bạn bè (Friends Hub) — khả dụng ở mọi nơi, kể cả khi đang trong ván chơi.
-* **Alt + O:** Mở Tùy chỉnh (Options) — khả dụng ở mọi nơi, kể cả khi đang trong ván chơi.
+\*\*Hệ thống và âm thanh\*\*
 
-**Điều khiển trong ván chơi**
+\* \*\*F2:\*\* Thông báo số người đang trực tuyến.
+\* \*\*Shift + F2:\*\* Mở danh sách đầy đủ người dùng đang trực tuyến.
+\* \*\*F4:\*\* Tắt hoặc bật tiếng của bộ đệm hiện tại.
+\* \*\*F6:\*\* Tắt hoặc bật tiếng trò chuyện trong bàn.
+\* \*\*Shift + F6:\*\* Tắt hoặc bật tiếng trò chuyện chung.
+\* \*\*F7 / F8:\*\* Giảm hoặc tăng âm lượng môi trường.
+\* \*\*F9 / F10:\*\* Giảm hoặc tăng âm lượng nhạc nền.
+\* \*\*Alt + P:\*\* Kiểm tra độ trễ kết nối.
+\* \*\*Alt + M:\*\* Đưa tiêu điểm về menu chính.
+\* \*\*Alt + F:\*\* Mở mục Bạn bè.
+\* \*\*Alt + O:\*\* Mở mục Tùy chỉnh.
 
-* **Ctrl + M:** Mở Quản lý Phòng (chỉ dành cho chủ phòng; khả dụng trong ván chơi).
-* **Ctrl + I:** Xem Thông tin Trò chơi (hiển thị cài đặt và tùy chọn hiện tại).
-* **Ctrl + U:** Ai đang ở bàn (liệt kê tất cả người chơi và khán giả).
-* **Ctrl + F1:** Cách chơi (mở luật chơi của trò chơi hiện tại).
+\*\*Thông tin bàn và trò chơi\*\*
 
-**Điều hướng Bộ nhớ đệm (Buffer)**
+\* \*\*Ctrl + M:\*\* Mở phần quản lý bàn nếu bạn là chủ bàn.
+\* \*\*Ctrl + I:\*\* Mở phần Thông tin trò chơi.
+\* \*\*Ctrl + U:\*\* Mở phần Ai đang ở bàn.
+\* \*\*Ctrl + F1:\*\* Mở phần Cách chơi.
 
-Các tin nhắn được sắp xếp thành các "bộ nhớ đệm" (thẻ) khác nhau để giữ mọi thứ ngăn nắp (ví dụ: Tất cả tin nhắn, Chỉ trò chuyện, Thông báo trò chơi).
+\*\*Các bộ đệm tin nhắn\*\*
 
-* **Ngoặc vuông trái `[` / Ngoặc vuông phải `]`:** Chuyển sang Bộ nhớ đệm Trước / Kế tiếp.
-* **Shift + `[` / Shift + `]`:** Nhảy đến Bộ nhớ đệm Đầu tiên / Cuối cùng.
-* **Dấu phẩy `,` / Dấu chấm `.`:** Đọc tin nhắn Cũ hơn / Mới hơn trong bộ nhớ đệm hiện tại.
-* **Shift + `,` / Shift + `.`:** Nhảy đến tin nhắn Cũ nhất / Mới nhất trong bộ nhớ đệm hiện tại.
+PlayAural chia tin nhắn thành nhiều bộ đệm để bạn dễ xem riêng tin của trò chơi, phần trò chuyện và các loại thông báo khác.
 
-**Điều hướng Menu**
+\* \*\*`[` / `]`:\*\* Chuyển sang bộ đệm trước hoặc bộ đệm kế tiếp.
+\* \*\*Shift + `[` / Shift + `]`:\*\* Nhảy tới bộ đệm đầu tiên hoặc cuối cùng.
+\* \*\*`,` / `.`:\*\* Đọc tin nhắn trước hoặc sau trong bộ đệm hiện tại.
+\* \*\*Shift + `,` / Shift + `.`:\*\* Nhảy tới tin nhắn cũ nhất hoặc mới nhất trong bộ đệm hiện tại.
 
-Các phím dùng để di chuyển trong danh sách và các menu lựa chọn.
+\*\*Di chuyển trong menu trên máy tính\*\*
 
-* **Các phím mũi tên:** Di chuyển lựa chọn lên, xuống, trái hoặc phải.
-* **Enter:** Kích hoạt mục đang chọn.
-* **Escape:** Quay lại hoặc Đóng Menu.
-* **Các chữ cái (A-Z):** Nhảy nhanh đến các mục bắt đầu bằng chữ cái đó.
+\* \*\*Các phím mũi tên:\*\* Di chuyển trong menu, danh sách và vị trí trên bàn cờ.
+\* \*\*Enter:\*\* Kích hoạt mục đang được chọn.
+\* \*\*Escape:\*\* Quay lại hoặc mở menu hành động.
+\* \*\*Home / End:\*\* Nhảy tới mục đầu tiên hoặc cuối cùng trong danh sách hiện tại.
+\* \*\*Các chữ cái A-Z:\*\* Nhảy nhanh tới những mục bắt đầu bằng chữ tương ứng.
 
-**Người dùng Di động & Web — Thẻ Lối tắt (Shortcuts)**
+\*\*Điều khiển trên di động\*\*
 
-Nếu bạn đang chơi trên thiết bị di động hoặc qua trình duyệt web, bạn có thể không có bàn phím vật lý. Thẻ **Lối tắt** (nằm trong bảng bên cạnh khi đang trong ván chơi) cung cấp các nút truy cập nhanh cho các tính năng toàn cục quan trọng nhất:
+Trò chơi có các cử chỉ được tích hợp sẵn, hãy tắt trình đọc màn hình của bạn sau khi kết nối thành công đến trò chơi để có trải nghiệm chơi tốt nhất.
 
-* **Mở Bạn bè (Open Friends):** Mở Trung tâm Bạn bè, nơi bạn có thể xem danh sách bạn bè, gửi lời mời kết bạn và gửi tin nhắn riêng tư.
-* **Mở Tùy chỉnh (Open Options):** Mở menu Tùy chỉnh, nơi bạn có thể điều chỉnh ngôn ngữ, cài đặt giọng đọc và các tùy chọn khác.
-* **Kiểm tra Ping (Check Ping):** Kiểm tra độ trễ kết nối hiện tại của bạn đến máy chủ.
+Ứng dụng di động có sẵn lời đọc và cách điều hướng riêng. Khi cần nhập văn bản theo cách gốc, chẳng hạn như nhập mật khẩu hoặc soạn tin nhắn, bạn có thể tạm bật lại trình đọc màn hình của hệ thống, sau đó quay lại dùng cử chỉ của trò chơi để tiếp tục chơi.
 
-Các nút này hoạt động giống với phím tắt trên bàn phím tương ứng và khả dụng mọi lúc, kể cả khi bạn đang trong một ván chơi.
+\* \*\*Vuốt một ngón:\*\* Di chuyển giữa các mục. Trong danh sách thông thường, mọi hướng vuốt đều dùng để đổi mục. Trong trò chơi dạng lưới, hướng vuốt trùng với hướng trên bàn cờ.
+\* \*\*Chạm hai lần bằng một ngón:\*\* Kích hoạt mục đang được chọn.
+\* \*\*Chạm hai lần rồi giữ:\*\* Thực hiện thao tác phụ mà một số trò chơi sử dụng.
+\* \*\*Vuốt lên bằng hai ngón:\*\* Quay lại, đóng menu hiện tại, hoặc mở và đóng menu hành động khi đang trong ván.
+\* \*\*Vuốt sang phải bằng hai ngón:\*\* Mở hoặc đóng Trò chuyện.
+\* \*\*Vuốt sang trái bằng hai ngón:\*\* Mở hoặc đóng Nhật ký.
+\* \*\*Vuốt xuống bằng hai ngón:\*\* Mở hoặc đóng Phím tắt.
+\* \*\*Chạm bằng hai ngón:\*\* Dừng lời đọc hiện tại.
+\* \*\*Chạm bằng ba ngón:\*\* Đọc lại thông báo gần nhất.
+\* \*\*Vuốt lên bằng ba ngón:\*\* Nhảy tới mục đầu tiên trong danh sách hiện tại.
+\* \*\*Vuốt xuống bằng ba ngón:\*\* Nhảy tới mục cuối cùng trong danh sách hiện tại.
+
+\*\*Phần Phím tắt trên di động\*\*
+
+Phần Phím tắt giúp người dùng di động mở nhanh các tính năng quan trọng mà không cần rời khỏi bàn đang ngồi.
+
+\* \*\*Tùy chỉnh:\*\* Mở các thiết lập cá nhân.
+\* \*\*Bạn bè:\*\* Mở danh sách bạn bè và các tính năng giao tiếp.
+\* \*\*Kiểm tra độ trễ:\*\* Kiểm tra độ trễ kết nối tới máy chủ.
+\* \*\*Người dùng đang trực tuyến:\*\* Mở danh sách người hiện đang có mặt trên máy chủ.

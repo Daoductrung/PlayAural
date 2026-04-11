@@ -1,52 +1,70 @@
-**Global Keybinds**
+\*\*Global Controls\*\*
 
-Here is a list of general keybinds used within the PlayAural system.
+This guide explains the controls that work across PlayAural. Desktop players mainly use keyboard shortcuts. Mobile players mainly use built-in gestures. Both methods reach the same features.
 
-**System and Audio**
+\*\*Desktop Keyboard Shortcuts\*\*
 
-* **F2:** Announce the number of online users.
-* **Shift + F2:** Open the detailed list of online users.
-* **F4:** Mute/Unmute the current history buffer (e.g., mute game messages to focus on chat).
-* **F6:** Mute/Unmute Table Chat.
-* **Shift + F6:** Mute/Unmute Global Chat.
-* **F7 / F8:** Decrease / Increase Ambience Volume.
-* **F9 / F10:** Decrease / Increase Music Volume.
-* **Alt + P:** Check Network Latency (Ping).
-* **Alt + M:** Focus Main Menu.
-* **Alt + F:** Open Friends Hub (available anywhere, including while in a game).
-* **Alt + O:** Open Options (available anywhere, including while in a game).
+\*\*System and Audio\*\*
 
-**In-Game Controls**
+\* \*\*F2:\*\* Announce how many people are online.
+\* \*\*Shift + F2:\*\* Open the full online users list.
+\* \*\*F4:\*\* Mute or unmute the current message buffer.
+\* \*\*F6:\*\* Mute or unmute table chat.
+\* \*\*Shift + F6:\*\* Mute or unmute global chat.
+\* \*\*F7 / F8:\*\* Decrease or increase ambience volume.
+\* \*\*F9 / F10:\*\* Decrease or increase music volume.
+\* \*\*Alt + P:\*\* Check connection latency.
+\* \*\*Alt + M:\*\* Return focus to the main menu.
+\* \*\*Alt + F:\*\* Open Friends.
+\* \*\*Alt + O:\*\* Open Options.
 
-* **Ctrl + M:** Open Host Management (table hosts only; available during a game).
-* **Ctrl + I:** View Game Info (shows current game settings and options).
-* **Ctrl + U:** Who's at the table (lists all players and spectators).
-* **Ctrl + F1:** How to Play (opens the current game's rules).
+\*\*Table and Game Information\*\*
 
-**Buffer Navigation**
+\* \*\*Ctrl + M:\*\* Open Host Management if you are the table host.
+\* \*\*Ctrl + I:\*\* Open Game Info.
+\* \*\*Ctrl + U:\*\* Open Who's at the table.
+\* \*\*Ctrl + F1:\*\* Open How to Play.
 
-Messages are organized into different "buffers" (tabs) to keep things organized (e.g., All messages, Chats only, Game notifications).
+\*\*Message Buffers\*\*
 
-* **Left Bracket `[` / Right Bracket `]`:** Switch to Previous / Next Buffer.
-* **Shift + Left Bracket `[` / Shift + Right Bracket `]`:** Jump to First / Last Buffer.
-* **Comma `,` / Period `.`:** Read Older / Newer message in current buffer.
-* **Shift + Comma `,` / Shift + Period `.`:** Jump to Oldest / Newest message in current buffer.
+PlayAural groups messages into separate buffers so you can review game messages, chat, and other information more easily.
 
-**Menu Navigation**
+\* \*\*`[` / `]`:\*\* Move to the previous or next buffer.
+\* \*\*Shift + `[` / Shift + `]`:\*\* Jump to the first or last buffer.
+\* \*\*`,` / `.`:\*\* Read the previous or next message in the current buffer.
+\* \*\*Shift + `,` / Shift + `.`:\*\* Jump to the oldest or newest message in the current buffer.
 
-Keys used to navigate through lists and selection menus.
+\*\*Menu Navigation on Desktop\*\*
 
-* **Arrow Keys:** Move selection up, down, left, or right.
-* **Enter:** Activate selected item.
-* **Escape:** Go Back or Close Menu.
-* **Letters (A-Z):** Quickly jump to items starting with that letter.
+\* \*\*Arrow keys:\*\* Move through menus, lists, and board positions.
+\* \*\*Enter:\*\* Activate the focused item.
+\* \*\*Escape:\*\* Go back or open the action menu.
+\* \*\*Home / End:\*\* Jump to the first or last item in the current list.
+\* \*\*Letter keys A-Z:\*\* Jump quickly to items that begin with that letter.
 
-**Mobile & Web Users — Shortcuts Tab**
+\*\*Mobile Controls\*\*
 
-If you are playing on a mobile device or through the web browser, you may not have access to a physical keyboard. The **Shortcuts** tab (found in the side panel during a game) gives you quick-access buttons for the most important global features:
+If you are using the mobile client, it is highly recommended to turn off your screen reader immediately after successfully connecting to the game for the best experience.
 
-* **Open Friends:** Opens the Friends Hub, where you can view your friends list, send friend requests, and send private messages.
-* **Open Options:** Opens the Options menu, where you can adjust language, speech settings, and other preferences.
-* **Check Ping:** Tests your current connection latency to the server.
+The mobile client has its own built-in spoken navigation. You can temporarily turn your system screen reader back on when you need native text entry, such as typing a password or writing a chat message, then return to the built-in gestures for normal play.
 
-These buttons work the same way as their keyboard equivalents and are available at any time, including while you are in an active game.
+\* \*\*1-finger swipe:\*\* Move between items. In ordinary lists, any swipe direction moves through the list. In grid-based games, the swipe direction matches the board direction.
+\* \*\*1-finger double tap:\*\* Activate the focused item.
+\* \*\*1-finger double tap and hold:\*\* Perform the alternate action used by some games.
+\* \*\*2-finger swipe up:\*\* Go back, close the current menu, or open and close the in-game action menu.
+\* \*\*2-finger swipe right:\*\* Open or close Chat.
+\* \*\*2-finger swipe left:\*\* Open or close History.
+\* \*\*2-finger swipe down:\*\* Open or close Shortcuts.
+\* \*\*2-finger tap:\*\* Stop current speech.
+\* \*\*3-finger tap:\*\* Repeat the most recent announcement.
+\* \*\*3-finger swipe up:\*\* Jump to the first item in the current list.
+\* \*\*3-finger swipe down:\*\* Jump to the last item in the current list.
+
+\*\*Shortcuts on Mobile\*\*
+
+The Shortcuts area gives mobile players quick access to important system features without leaving the current table.
+
+\* \*\*Options:\*\* Open your personal settings.
+\* \*\*Friends:\*\* Open your friends and social features.
+\* \*\*Ping server:\*\* Check connection latency.
+\* \*\*Online users:\*\* Open the online users list.

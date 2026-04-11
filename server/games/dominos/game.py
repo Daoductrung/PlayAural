@@ -350,7 +350,7 @@ class DominosGame(Game):
         action_set._order = [aid for aid in action_set._order if aid not in custom_ids] + [
             aid for aid in custom_ids if action_set.get_action(aid)
         ]
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             target_order = [
                 "read_ends",
                 "read_hand",
@@ -368,19 +368,19 @@ class DominosGame(Game):
 
     def _is_whos_at_table_hidden(self, player: Player) -> Visibility:
         user = self.get_user(player)
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             return Visibility.VISIBLE
         return super()._is_whos_at_table_hidden(player)
 
     def _is_whose_turn_hidden(self, player: Player) -> Visibility:
         user = self.get_user(player)
-        if user and getattr(user, "client_type", "") == "web" and self.status == "playing":
+        if self.is_touch_client(user) and self.status == "playing":
             return Visibility.VISIBLE
         return super()._is_whose_turn_hidden(player)
 
     def _is_check_scores_hidden(self, player: Player) -> Visibility:
         user = self.get_user(player)
-        if user and getattr(user, "client_type", "") == "web" and self.status == "playing":
+        if self.is_touch_client(user) and self.status == "playing":
             return Visibility.VISIBLE
         return super()._is_check_scores_hidden(player)
 
@@ -444,7 +444,7 @@ class DominosGame(Game):
 
     def _is_view_chain_hidden(self, player: Player) -> Visibility:
         user = self.get_user(player)
-        if user and getattr(user, "client_type", "") == "web" and self.status == "playing":
+        if self.is_touch_client(user) and self.status == "playing":
             return Visibility.VISIBLE
         return Visibility.HIDDEN
 
@@ -457,7 +457,7 @@ class DominosGame(Game):
 
     def _is_read_hand_hidden(self, player: Player) -> Visibility:
         user = self.get_user(player)
-        if user and getattr(user, "client_type", "") == "web" and self.status == "playing" and not player.is_spectator:
+        if self.is_touch_client(user) and self.status == "playing" and not player.is_spectator:
             return Visibility.VISIBLE
         return Visibility.HIDDEN
 
@@ -468,7 +468,7 @@ class DominosGame(Game):
 
     def _is_read_counts_hidden(self, player: Player) -> Visibility:
         user = self.get_user(player)
-        if user and getattr(user, "client_type", "") == "web" and self.status == "playing":
+        if self.is_touch_client(user) and self.status == "playing":
             return Visibility.VISIBLE
         return Visibility.HIDDEN
 

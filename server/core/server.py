@@ -28,6 +28,11 @@ from ..documentation.manager import DocumentationManager
 from .smtp_mailer import SmtpMailer
 from ..users.bot import Bot
 from ..game_utils.stats_helpers import RatingHelper
+from ..game_utils.client_types import (
+    is_mobile_client_type,
+    is_web_client_type,
+    uses_self_voicing_settings_type,
+)
 from ..game_utils.game_result import GameResult
 
 
@@ -57,6 +62,7 @@ class Server:
         "main_menu", "personal_options_menu", "games_menu", "tables_menu",
         "active_tables_menu", "active_tables_filter_menu", "join_menu",
         "options_menu", "language_menu", "speech_settings_menu", "voice_selection_menu",
+        "mobile_speech_settings_menu", "mobile_tts_engine_menu", "mobile_voice_selection_menu",
         "dice_keeping_style_menu", "saved_tables_menu", "saved_table_actions_menu",
         "leaderboards_menu", "leaderboard_types_menu", "game_leaderboard",
         "my_stats_menu", "my_game_stats", "profile_menu", "gender_menu",
@@ -71,7 +77,7 @@ class Server:
         "unmute_menu", "manage_motd_menu", "view_motd_menu", "logout_confirm_menu",
         "documentation_menu", "doc_games_menu", "doc_viewer", "email_input",
         "bio_input", "send_friend_request_input", "send_pm_input", "music_volume_input",
-        "ambience_volume_input", "speech_rate_input", "waiting_for_approval",
+        "ambience_volume_input", "speech_rate_input", "mobile_tts_rate_input", "waiting_for_approval",
         "smtp_settings_menu", "smtp_encryption_menu", "smtp_setting_input",
         "admin_broadcast_input", "admin_motd_version_input", "admin_motd_input",
         "ban_custom_reason_input", "mute_custom_reason_input",
@@ -630,7 +636,7 @@ PlayAural Server
                     "version": SOUNDS_VERSION,
                     "url": SOUNDS_URL,
                 },
-                "preferences": user.preferences.to_dict(),
+                "preferences": self._preferences_for_client(user),
             }
         )
 
@@ -1665,7 +1671,7 @@ PlayAural Server
             ),
         ])
 
-        if user.client_type != "web":
+        if not uses_self_voicing_settings_type(user.client_type):
             items.append(
                 MenuItem(
                     text=Localization.get(
@@ -1690,9 +1696,13 @@ PlayAural Server
             )
         )
 
-        if user.client_type == "web":
+        if is_web_client_type(user.client_type):
             items.append(
-                MenuItem(text=Localization.get(user.locale, "speech-settings"), id="speech_settings")
+                MenuItem(text=Localization.get(user.locale, "speech-settings"), id="web_speech_settings")
+            )
+        elif is_mobile_client_type(user.client_type):
+            items.append(
+                MenuItem(text=Localization.get(user.locale, "mobile-speech-settings"), id="mobile_speech_settings")
             )
         else:
             items.append(
@@ -1813,7 +1823,11 @@ PlayAural Server
         self._user_states[user.username] = {"menu": "language_menu"}
 
     def _show_speech_settings_menu(self, user: NetworkUser) -> None:
-        """Show speech settings menu (Web only)."""
+        """Show browser speech settings menu."""
+        if not is_web_client_type(user.client_type):
+            self._show_mobile_speech_settings_menu(user)
+            return
+
         prefs = user.preferences
         items = []
 
@@ -1863,6 +1877,10 @@ PlayAural Server
 
     async def _handle_speech_settings_selection(self, user: NetworkUser, selection_id: str) -> None:
         """Handle speech settings menu selection."""
+        if not is_web_client_type(user.client_type):
+            await self._handle_mobile_speech_settings_selection(user, selection_id)
+            return
+
         prefs = user.preferences
 
         if selection_id == "back":
@@ -1908,6 +1926,132 @@ PlayAural Server
         user.preferences.speech_voice = selection_id
         self._save_user_preferences(user)
         self._sync_pref_to_client(user, "speech_voice", selection_id)
+        self._nav_back(user)
+
+    def _show_mobile_speech_settings_menu(self, user: NetworkUser) -> None:
+        """Show mobile speech settings menu."""
+        prefs = user.preferences
+        engine_name = Localization.get(user.locale, "mobile-tts-engine-system")
+        voice_name = (
+            prefs.mobile_tts_voice
+            if prefs.mobile_tts_voice
+            else Localization.get(user.locale, "default-voice")
+        )
+        items = [
+            MenuItem(
+                text=Localization.get(
+                    user.locale,
+                    "mobile-tts-engine-option",
+                    engine=engine_name,
+                ),
+                id="mobile_tts_engine",
+            ),
+            MenuItem(
+                text=Localization.get(
+                    user.locale,
+                    "mobile-tts-voice-option",
+                    voice=voice_name,
+                ),
+                id="mobile_tts_voice",
+            ),
+            MenuItem(
+                text=Localization.get(
+                    user.locale,
+                    "mobile-tts-rate-option",
+                    value=prefs.mobile_tts_rate,
+                ),
+                id="mobile_tts_rate",
+            ),
+            MenuItem(text=Localization.get(user.locale, "back"), id="back"),
+        ]
+        user.show_menu(
+            "mobile_speech_settings_menu",
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self._user_states[user.username] = {"menu": "mobile_speech_settings_menu"}
+
+    async def _handle_mobile_speech_settings_selection(
+        self, user: NetworkUser, selection_id: str
+    ) -> None:
+        """Handle mobile speech settings menu selection."""
+        if selection_id == "back":
+            self._nav_back(user)
+            return
+
+        if selection_id == "mobile_tts_engine":
+            self._nav_push(user, self._show_mobile_tts_engine_menu)
+            return
+
+        if selection_id == "mobile_tts_voice":
+            self._nav_push(user, self._show_mobile_voice_selection_menu)
+            return
+
+        if selection_id == "mobile_tts_rate":
+            user.show_editbox(
+                "mobile_tts_rate_input",
+                Localization.get(user.locale, "mobile-tts-enter-rate"),
+                default_value=str(user.preferences.mobile_tts_rate),
+            )
+            self._enter_input_state(user, "mobile_tts_rate_input")
+
+    def _show_mobile_tts_engine_menu(self, user: NetworkUser) -> None:
+        """Show mobile TTS engine selection menu."""
+        items = [
+            MenuItem(
+                text=Localization.get(user.locale, "mobile-tts-engine-system-selected"),
+                id="engine_system",
+            ),
+            MenuItem(
+                text=Localization.get(user.locale, "mobile-tts-engine-api-note"),
+                id="engine_note",
+            ),
+            MenuItem(text=Localization.get(user.locale, "back"), id="back"),
+        ]
+        user.show_menu(
+            "mobile_tts_engine_menu",
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self._user_states[user.username] = {"menu": "mobile_tts_engine_menu"}
+
+    async def _handle_mobile_tts_engine_selection(
+        self, user: NetworkUser, selection_id: str
+    ) -> None:
+        """Handle mobile TTS engine selection."""
+        if selection_id == "back":
+            self._nav_back(user)
+            return
+        if selection_id == "engine_system":
+            user.preferences.mobile_tts_engine = "system"
+            self._save_user_preferences(user)
+            self._sync_pref_to_client(user, "mobile/tts_engine", "system")
+            self._nav_back(user)
+
+    def _show_mobile_voice_selection_menu(self, user: NetworkUser) -> None:
+        """Show mobile voice selection menu populated by the mobile client."""
+        user.show_menu(
+            "mobile_voice_selection_menu",
+            [MenuItem(text=Localization.get(user.locale, "select-voice"), id="placeholder")],
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self._user_states[user.username] = {"menu": "mobile_voice_selection_menu"}
+
+    async def _handle_mobile_voice_selection(
+        self, user: NetworkUser, selection_id: str
+    ) -> None:
+        """Handle mobile voice selection."""
+        if selection_id == "back":
+            self._nav_back(user)
+            return
+        if selection_id in {"default", "placeholder"}:
+            selection_id = ""
+        user.preferences.mobile_tts_voice = selection_id
+        self._save_user_preferences(user)
+        self._sync_pref_to_client(user, "mobile/tts_voice", selection_id)
         self._nav_back(user)
 
 
@@ -1983,6 +2127,24 @@ PlayAural Server
                 self._nav_refresh(user, self._show_speech_settings_menu)
                 return True
 
+        elif menu_id == "mobile_tts_rate_input":
+            try:
+                if not value or not value.isdigit():
+                     raise ValueError
+                rate = int(value)
+                if 50 <= rate <= 200:
+                    prefs.mobile_tts_rate = rate
+                    self._save_user_preferences(user)
+                    self._sync_pref_to_client(user, "mobile/tts_rate", rate)
+                    self._nav_refresh(user, self._show_mobile_speech_settings_menu)
+                    return True
+                else:
+                    raise ValueError
+            except ValueError:
+                user.speak_l("mobile-tts-invalid-rate", buffer="system")
+                self._nav_refresh(user, self._show_mobile_speech_settings_menu)
+                return True
+
         return False
 
     async def _handle_set_preference(self, client: ClientConnection, packet: dict) -> None:
@@ -2002,6 +2164,8 @@ PlayAural Server
             prefs.mute_global_chat = bool(value)
         elif key == "social/mute_table_chat":
             prefs.mute_table_chat = bool(value)
+        elif key == "gameplay/play_turn_sound":
+            prefs.play_turn_sound = bool(value)
         elif key == "audio/music_volume":
             try:
                 prefs.music_volume = int(value)
@@ -2016,12 +2180,38 @@ PlayAural Server
             prefs.invert_multiline_enter_behavior = bool(value)
         elif key == "interface/play_typing_sounds":
             prefs.play_typing_sounds = bool(value)
+        elif key == "notifications/notify_table_created":
+            prefs.notify_table_created = bool(value)
+        elif key == "notifications/notify_user_presence":
+            prefs.notify_user_presence = bool(value)
+        elif key == "notifications/notify_friend_presence":
+            prefs.notify_friend_presence = bool(value)
+        elif key == "dice/clear_kept_on_roll":
+            prefs.clear_kept_on_roll = bool(value)
+        elif key == "dice/dice_keeping_style":
+            try:
+                prefs.dice_keeping_style = DiceKeepingStyle.from_str(str(value))
+            except ValueError:
+                return
+        elif key == "mobile/tts_engine":
+            prefs.mobile_tts_engine = "system"
+            value = "system"
+        elif key == "mobile/tts_voice":
+            prefs.mobile_tts_voice = str(value or "")
+        elif key == "mobile/tts_rate":
+            try:
+                rate = int(value)
+            except (TypeError, ValueError):
+                return
+            if not 50 <= rate <= 200:
+                return
+            prefs.mobile_tts_rate = rate
+            value = rate
         else:
             return # Unknown key
 
         self._save_user_preferences(user)
-        # If the user is currently looking at the options menu, we should refresh it
-        # But determining that is complex. Updating the backend state is sufficient for next view.
+        self._sync_pref_to_client(user, key, value)
 
     def _show_banned_menu(self, user: NetworkUser, active_ban) -> None:
         """Show banned screen with reason and expiration."""
@@ -2185,6 +2375,12 @@ PlayAural Server
             await self._handle_speech_settings_selection(user, selection_id)
         elif current_menu == "voice_selection_menu":
             await self._handle_voice_selection(user, selection_id)
+        elif current_menu == "mobile_speech_settings_menu":
+            await self._handle_mobile_speech_settings_selection(user, selection_id)
+        elif current_menu == "mobile_tts_engine_menu":
+            await self._handle_mobile_tts_engine_selection(user, selection_id)
+        elif current_menu == "mobile_voice_selection_menu":
+            await self._handle_mobile_voice_selection(user, selection_id)
         elif current_menu == "dice_keeping_style_menu":
             await self._handle_dice_keeping_style_selection(user, selection_id)
         elif current_menu == "saved_tables_menu":
@@ -3023,8 +3219,11 @@ PlayAural Server
         if selection_id == "language":
             self._nav_push(user, self._show_language_menu)
             return
-        elif selection_id == "speech_settings":
+        elif selection_id in {"speech_settings", "web_speech_settings"}:
             self._nav_push(user, self._show_speech_settings_menu)
+            return
+        elif selection_id == "mobile_speech_settings":
+            self._nav_push(user, self._show_mobile_speech_settings_menu)
             return
 
         prefs = user.preferences
@@ -3048,6 +3247,7 @@ PlayAural Server
         elif selection_id == "turn_sound":
             prefs.play_turn_sound = not prefs.play_turn_sound
             self._save_user_preferences(user)
+            self._sync_pref_to_client(user, "gameplay/play_turn_sound", prefs.play_turn_sound)
             self._nav_refresh(user, self._show_options_menu)
         elif selection_id == "mute_global_chat":
             prefs.mute_global_chat = not prefs.mute_global_chat
@@ -3072,18 +3272,22 @@ PlayAural Server
         elif selection_id == "notify_table_created":
             prefs.notify_table_created = not prefs.notify_table_created
             self._save_user_preferences(user)
+            self._sync_pref_to_client(user, "notifications/notify_table_created", prefs.notify_table_created)
             self._nav_refresh(user, self._show_options_menu)
         elif selection_id == "notify_user_presence":
             prefs.notify_user_presence = not prefs.notify_user_presence
             self._save_user_preferences(user)
+            self._sync_pref_to_client(user, "notifications/notify_user_presence", prefs.notify_user_presence)
             self._nav_refresh(user, self._show_options_menu)
         elif selection_id == "notify_friend_presence":
             prefs.notify_friend_presence = not prefs.notify_friend_presence
             self._save_user_preferences(user)
+            self._sync_pref_to_client(user, "notifications/notify_friend_presence", prefs.notify_friend_presence)
             self._nav_refresh(user, self._show_options_menu)
         elif selection_id == "clear_kept":
             prefs.clear_kept_on_roll = not prefs.clear_kept_on_roll
             self._save_user_preferences(user)
+            self._sync_pref_to_client(user, "dice/clear_kept_on_roll", prefs.clear_kept_on_roll)
             self._nav_refresh(user, self._show_options_menu)
         elif selection_id == "dice_keeping_style":
             self._nav_push(user, self._show_dice_keeping_style_menu)
@@ -3119,6 +3323,7 @@ PlayAural Server
             style_key = self.DICE_KEEPING_STYLES.get(style, "dice-keeping-style-indexes")
             style_name = Localization.get(user.locale, style_key)
             user.speak_l("dice-keeping-style-changed", buffer="system", style=style_name)
+            self._sync_pref_to_client(user, "dice/dice_keeping_style", style.value)
             self._nav_back(user)
             return
         # Back or invalid
@@ -3128,6 +3333,26 @@ PlayAural Server
         """Save user preferences to database."""
         prefs_json = json.dumps(user.preferences.to_dict())
         self._db.update_user_preferences(user.username, prefs_json)
+
+    def _preferences_for_client(self, user: NetworkUser) -> dict:
+        """Return preferences relevant to the connecting client type."""
+        prefs = user.preferences.to_dict()
+        if is_web_client_type(user.client_type):
+            prefs.pop("mobile_tts_engine", None)
+            prefs.pop("mobile_tts_rate", None)
+            prefs.pop("mobile_tts_voice", None)
+        elif is_mobile_client_type(user.client_type):
+            prefs.pop("speech_mode", None)
+            prefs.pop("speech_rate", None)
+            prefs.pop("speech_voice", None)
+        else:
+            prefs.pop("speech_mode", None)
+            prefs.pop("speech_rate", None)
+            prefs.pop("speech_voice", None)
+            prefs.pop("mobile_tts_engine", None)
+            prefs.pop("mobile_tts_rate", None)
+            prefs.pop("mobile_tts_voice", None)
+        return prefs
 
     async def _handle_language_selection(
         self, user: NetworkUser, selection_id: str
@@ -5680,6 +5905,12 @@ PlayAural Server
             self._show_language_menu(user)
         elif menu == "speech_settings_menu":
             self._show_speech_settings_menu(user)
+        elif menu == "mobile_speech_settings_menu":
+            self._show_mobile_speech_settings_menu(user)
+        elif menu == "mobile_tts_engine_menu":
+            self._show_mobile_tts_engine_menu(user)
+        elif menu == "mobile_voice_selection_menu":
+            self._show_mobile_voice_selection_menu(user)
         elif menu == "dice_keeping_style_menu":
             self._show_dice_keeping_style_menu(user)
         elif menu == "friends_hub_menu":

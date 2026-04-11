@@ -328,7 +328,7 @@ class NinetyNineGame(Game):
             )
         )
 
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             final_order = []
             for aid in self.web_target_order:
                 if action_set.get_action(aid):
@@ -460,7 +460,7 @@ class NinetyNineGame(Game):
             # WEB-SPECIFIC: For web, force "draw_card" to be the FIRST action
             # This ensures it appears at the top of the menu, above the disabled cards.
             # Python client doesn't need this because it uses keybinds (Space/D).
-            if user and getattr(user, "client_type", "") == "web":
+            if self.is_touch_client(user):
                 if "draw_card" in turn_set._order:
                     turn_set._order.remove("draw_card")
                     turn_set._order.insert(0, "draw_card")
@@ -474,14 +474,14 @@ class NinetyNineGame(Game):
     def _is_whos_at_table_hidden(self, player: "Player") -> Visibility:
         """Override: Visible for Web (always), hidden otherwise."""
         user = self.get_user(player)
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             return Visibility.VISIBLE
         return super()._is_whos_at_table_hidden(player)
 
     def _is_whose_turn_hidden(self, player: "Player") -> Visibility:
         """Override: Visible for Web (Playing only), hidden otherwise."""
         user = self.get_user(player)
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             if self.status == "playing":
                 return Visibility.VISIBLE
             return Visibility.HIDDEN
@@ -490,7 +490,7 @@ class NinetyNineGame(Game):
     def _is_check_scores_hidden(self, player: "Player") -> Visibility:
         """Override: Visible for Web (Playing only), hidden otherwise."""
         user = self.get_user(player)
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             if self.status == "playing":
                 return Visibility.VISIBLE
             return Visibility.HIDDEN
@@ -505,7 +505,7 @@ class NinetyNineGame(Game):
     def _is_check_count_hidden(self, player: Player) -> Visibility:
         """Check count is always hidden (keybind only), unless Web."""
         user = self.get_user(player)
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             return Visibility.VISIBLE
         return Visibility.HIDDEN
 

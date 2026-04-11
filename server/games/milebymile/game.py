@@ -261,7 +261,7 @@ class MileByMileGame(Game):
             )
         )
 
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             final_order = []
             for aid in self.web_target_order:
                 if action_set.get_action(aid):
@@ -395,7 +395,7 @@ class MileByMileGame(Game):
         # 1. Force dirty_trick to the top
         # 2. Force info to the bottom (below cards)
         user = self.get_user(player)
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             if "dirty_trick" in turn_set._order:
                 turn_set._order.remove("dirty_trick")
                 turn_set._order.insert(0, "dirty_trick")
@@ -414,14 +414,14 @@ class MileByMileGame(Game):
     def _is_whos_at_table_hidden(self, player: "Player") -> Visibility:
         """Override: Visible for Web (always), hidden otherwise."""
         user = self.get_user(player)
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             return Visibility.VISIBLE
         return super()._is_whos_at_table_hidden(player)
 
     def _is_whose_turn_hidden(self, player: "Player") -> Visibility:
         """Override: Visible for Web (Playing only), hidden otherwise."""
         user = self.get_user(player)
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             if self.status == "playing":
                 return Visibility.VISIBLE
             return Visibility.HIDDEN
@@ -436,7 +436,7 @@ class MileByMileGame(Game):
     def _is_check_status_hidden(self, player: Player) -> Visibility:
         """Check status is always hidden (triggered by keybind only), unless Web."""
         user = self.get_user(player)
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             return Visibility.VISIBLE
         return Visibility.HIDDEN
 
@@ -454,12 +454,12 @@ class MileByMileGame(Game):
         
         # WEB-SPECIFIC: Identify client type
         user = self.get_user(player)
-        is_web = user and getattr(user, "client_type", "") == "web"
+        is_touch = self.is_touch_client(user)
 
         mbm_player: MileByMilePlayer = player  # type: ignore
         
         # For web, return None (enabled) so button is 'always light', validation moves to handler
-        if is_web:
+        if is_touch:
             return None
 
         if self.dirty_trick_window_team is None:
@@ -474,7 +474,7 @@ class MileByMileGame(Game):
             return Visibility.HIDDEN
 
         user = self.get_user(player)
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             return Visibility.VISIBLE
         return Visibility.HIDDEN
 
@@ -519,7 +519,7 @@ class MileByMileGame(Game):
 
         user = self.get_user(player)
         # Web: Show in Turn Menu
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             if self.status == "playing":
                 return Visibility.VISIBLE
             return Visibility.HIDDEN

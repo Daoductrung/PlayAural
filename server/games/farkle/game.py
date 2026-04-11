@@ -411,7 +411,7 @@ class FarkleGame(Game):
             )
         )
 
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             target_order = ["check_turn_score", "check_scores", "whose_turn", "whos_at_table"]
             new_order = [aid for aid in action_set._order if aid not in target_order]
             for aid in target_order:
@@ -427,7 +427,7 @@ class FarkleGame(Game):
     def _is_check_scores_hidden(self, player: "Player") -> Visibility:
         """Override: Web visible when playing."""
         user = self.get_user(player)
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             if self.status == "playing":
                 return Visibility.VISIBLE
             return Visibility.HIDDEN
@@ -436,7 +436,7 @@ class FarkleGame(Game):
     def _is_whose_turn_hidden(self, player: "Player") -> Visibility:
         """Override: Visible for Web (Playing only), hidden otherwise."""
         user = self.get_user(player)
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             if self.status == "playing":
                 return Visibility.VISIBLE
             return Visibility.HIDDEN
@@ -445,7 +445,7 @@ class FarkleGame(Game):
     def _is_whos_at_table_hidden(self, player: "Player") -> Visibility:
         """Override: Visible for Web (always), hidden otherwise."""
         user = self.get_user(player)
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             return Visibility.VISIBLE
         return super()._is_whos_at_table_hidden(player)
 
@@ -692,7 +692,7 @@ class FarkleGame(Game):
         if self.status != "playing":
             return Visibility.HIDDEN
         user = self.get_user(player)
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             return Visibility.VISIBLE
         return Visibility.HIDDEN
 

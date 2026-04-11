@@ -318,7 +318,7 @@ class PiratesGame(Game):
             )
         )
 
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             final_order = []
             for aid in self.web_target_order:
                 if action_set.get_action(aid):
@@ -502,14 +502,14 @@ class PiratesGame(Game):
     def _is_whos_at_table_hidden(self, player: "Player") -> Visibility:
         """Override: Visible for Web (always), hidden otherwise."""
         user = self.get_user(player)
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             return Visibility.VISIBLE
         return super()._is_whos_at_table_hidden(player)
 
     def _is_whose_turn_hidden(self, player: "Player") -> Visibility:
         """Override: Visible for Web (Playing only), hidden otherwise."""
         user = self.get_user(player)
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             if self.status == "playing":
                 return Visibility.VISIBLE
             return Visibility.HIDDEN
@@ -520,7 +520,7 @@ class PiratesGame(Game):
         if player.is_spectator:
             return Visibility.HIDDEN
         user = self.get_user(player)
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             return Visibility.VISIBLE
         return Visibility.HIDDEN
 

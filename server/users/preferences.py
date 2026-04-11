@@ -30,10 +30,15 @@ class UserPreferences:
     music_volume: int = 20
     ambience_volume: int = 20
 
-    # Speech preferences (Web only)
+    # Web speech preferences
     speech_mode: str = "aria"  # "aria" or "web_speech"
     speech_rate: int = 100
     speech_voice: str = ""  # Voice URI
+
+    # Mobile speech preferences
+    mobile_tts_engine: str = "system"
+    mobile_tts_rate: int = 100
+    mobile_tts_voice: str = ""  # Expo Speech voice identifier
 
     # Social preferences
     mute_global_chat: bool = False
@@ -62,6 +67,9 @@ class UserPreferences:
             "speech_mode": self.speech_mode,
             "speech_rate": self.speech_rate,
             "speech_voice": self.speech_voice,
+            "mobile_tts_engine": self.mobile_tts_engine,
+            "mobile_tts_rate": self.mobile_tts_rate,
+            "mobile_tts_voice": self.mobile_tts_voice,
             "mute_global_chat": self.mute_global_chat,
             "mute_table_chat": self.mute_table_chat,
             "notify_table_created": self.notify_table_created,
@@ -84,6 +92,9 @@ class UserPreferences:
             speech_mode=data.get("speech_mode", "aria"),
             speech_rate=data.get("speech_rate", 100),
             speech_voice=data.get("speech_voice", ""),
+            mobile_tts_engine=data.get("mobile_tts_engine", "system"),
+            mobile_tts_rate=data.get("mobile_tts_rate", 100),
+            mobile_tts_voice=data.get("mobile_tts_voice", ""),
             mute_global_chat=data.get("mute_global_chat", False),
             mute_table_chat=data.get("mute_table_chat", False),
             notify_table_created=data.get("notify_table_created", True),

@@ -1,0 +1,26 @@
+{
+  "expo": {
+    "name": "PlayAural Mobile",
+    "slug": "playaural-mobile",
+    "version": "1.0.2",
+    "orientation": "portrait",
+    "assetBundlePatterns": [
+      "sounds/**/*"
+    ],
+    "android": {
+      "package": "one.ddt.playaural.mobile",
+      "usesCleartextTraffic": true
+    },
+    "ios": {
+      "bundleIdentifier": "one.ddt.playaural.mobile"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "78b37a0f-470d-4c4e-9095-9016fe4c15de"
+      }
+    },
+    "plugins": [
+      "expo-asset"
+    ]
+  }
+}

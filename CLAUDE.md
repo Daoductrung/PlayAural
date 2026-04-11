@@ -1,13 +1,16 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code and other AI assistants working in this repository.
 
 ## Project Overview
 
-PlayAural is an audio-first multiplayer online gaming platform with three components:
-- **`server/`** — Python async WebSocket server with game logic and SQLite persistence
-- **`client/`** — Python wxPython desktop client (accessibility-focused, screen reader support)
-- **`web_client/`** — Vanilla JS PWA web client with ARIA accessibility
+PlayAural is an audio-first multiplayer online gaming platform with four first-party components:
+- **`server/`** — Python async WebSocket server with game logic, auth, tables, persistence, localization, and ratings
+- **`client/`** — Python wxPython desktop client with screen reader-oriented keyboard UX
+- **`web_client/`** — Vanilla JS PWA web client with ARIA support and browser-based audio/TTS
+- **`mobile_client/`** — Expo / React Native / TypeScript mobile client with self-voicing gesture navigation
+
+The project is open source under the **GNU GENERAL PUBLIC LICENSE**. See [LICENSE](LICENSE).
 
 ## Commands
 
@@ -28,339 +31,270 @@ cd server && pytest tests/test_file.py::test_function
 python client/client.py
 ```
 
-### Production Build (Windows)
+### Web Client
+Serve `web_client/` from any HTTP server. For local development:
+```bash
+python -m http.server 8080 --directory web_client
+```
+
+### Mobile Client
+```bash
+cd mobile_client
+cmd /c npm install
+cmd /c npm run generate:sounds
+cmd /c npm run typecheck
+npx expo start
+```
+
+### Production Build (Windows Desktop Client)
 ```bat
 build_prod.bat
 ```
-This runs PyInstaller twice: once for `updater.spec` (updater.exe), then for `PlayAural.spec` (full client bundle with sounds and locales).
-
-### Web Client
-Serve `web_client/` from any HTTP server — it's a static PWA.
 
 ## Architecture
 
 ### Network Protocol
 All communication is WebSocket JSON packets:
 ```python
-Packet(type: str, data: dict)  # PacketType enum defines all message types
+Packet(type: str, data: dict)  # PacketType enum defines the protocol
 ```
-Key packet types: `AUTHORIZE`, `MENU`, `KEYBIND`, `CHAT`, `SPEAK`, `PLAY_SOUND`, `GAME_ACTION`, etc.
 
-**`silent` flag on `chat` packets**: Adding `"silent": True` to a `chat` packet suppresses both the notification sound (`notify.ogg` / `chat.ogg`) and the TTS readout in both the desktop and web clients. The message is still written to the chat log. Use this when the server is also sending an explicit `speak` packet and a `play_sound` packet to take full control over audio output — e.g. the server alert broadcast countdown. Never set `silent` on regular user-visible chat messages.
+Important server-driven packets include:
+- `authorize_success`
+- `login_failed`
+- `menu`
+- `update_menu`
+- `request_input`
+- `speak`
+- `play_sound`
+- `play_music`
+- `play_ambience`
+- `stop_music`
+- `stop_ambience`
+- `chat`
+- `disconnect`
+
+**`silent` flag on `chat` packets**: Adding `"silent": True` suppresses both chat notification sounds and TTS in desktop and web clients. Use it only when the server is also sending explicit `speak` and/or `play_sound` packets to control the audio output precisely.
 
 ### Server Architecture
-- **`server/core/server.py`** — Main orchestrator
-- **`server/network/websocket_server.py`** — Async WebSocket connection management
-- **`server/games/`** — 32 game implementations; each extends an abstract `Game` base class via 14 mixins
-- **`server/game_utils/`** — ~40 shared utility modules (cards, dice, poker logic, turn management, scoring)
-- **`server/auth/`** — Argon2 password hashing, rate limiting
-- **`server/persistence/database.py`** — SQLite (`PlayAural.db`), user accounts, game history, OpenSkill ratings
-- **`server/tables/`** — Table creation, joining, host/guest management, state persistence
-- **`server/administration/`** — Admin and moderation tools
-- **`server/messages/`** — Fluent-based localization
+- **`server/core/server.py`** — Main orchestrator, auth routing, menus, reconnect, moderation, MOTD, presence
+- **`server/network/websocket_server.py`** — Async WebSocket transport
+- **`server/games/`** — 32 registered game implementations
+- **`server/game_utils/`** — shared game mixins and helpers
+- **`server/tables/`** — table lifecycle, save/restore, membership
+- **`server/auth/`** — authentication, CAPTCHA checks, password reset, rate limiting
+- **`server/persistence/database.py`** — SQLite storage for users, leaderboards, ratings, friends, MOTD, and related state
+- **`server/messages/`** — runtime localization engine
+- **`server/locales/`** — Fluent locale files
 
 ### Game Implementation Pattern
-Games use a mixin-based architecture. Each game class inherits from `Game` plus 14 mixins:
-`GameSoundMixin`, `GameCommunicationMixin`, `GameResultMixin`, `GameScoresMixin`,
-`GamePredictionMixin`, `TurnManagementMixin`, `MenuManagementMixin`, `ActionVisibilityMixin`,
-`LobbyActionsMixin`, `EventHandlingMixin`, `ActionSetCreationMixin`, `ActionExecutionMixin`,
-`OptionsHandlerMixin`, `ActionSetSystemMixin`
+Games use a mixin-based architecture. Each game class inherits from `Game`, which brings the standard shared mixins plus `SequenceRunnerMixin`.
 
-Games are dataclasses serialized via Mashumaro for state persistence.
+Key built-in mixins include:
+- `GameSoundMixin`
+- `GameCommunicationMixin`
+- `GameResultMixin`
+- `GameScoresMixin`
+- `GamePredictionMixin`
+- `TurnManagementMixin`
+- `MenuManagementMixin`
+- `ActionVisibilityMixin`
+- `LobbyActionsMixin`
+- `EventHandlingMixin`
+- `ActionSetCreationMixin`
+- `ActionExecutionMixin`
+- `OptionsHandlerMixin`
+- `ActionSetSystemMixin`
+
+Games are dataclasses serialized via Mashumaro for save/restore. All important game state must live in dataclass fields.
 
 #### SequenceRunnerMixin for Cinematic Gameplay Flows
-`Game` now includes `SequenceRunnerMixin`. Use it as the standard way to build delayed, multi-step audio/gameplay sequences instead of per-game `event_queue` tuple schedulers.
+`Game` includes `SequenceRunnerMixin`. It is the standard way to build delayed, multi-step gameplay/audio flows that must survive save/load and avoid deadlocks.
 
 Use it for:
-- movement animations that resolve over several ticks
-- delayed reveal/capture/elimination flows
-- dramatic audio cutscenes
-- any gameplay sequence that must survive save/load cleanly
+- movement animations across ticks
+- delayed reveals, captures, eliminations, and roulette-style sequences
+- cinematic audio flows
+- any legacy `event_queue`-style sequence that is really a timed beat/callback flow
 
 Core primitives:
-- `SequenceOperation.sound_op(path, ...)` for shared sounds
-- `SequenceOperation.localized_sound_op({"en": "...", "vi": "..."}, ...)` for per-locale voice files
-- `SequenceOperation.callback_op("callback_id", payload={...})` for game logic hooks
-- `SequenceBeat(ops=[...], delay_after_ticks=N)` for one timed beat
-- `SequenceBeat.pause(N)` for a pure wait
+- `SequenceOperation.sound_op(path, ...)`
+- `SequenceOperation.localized_sound_op({"en": "...", "vi": "..."}, ...)`
+- `SequenceOperation.callback_op("callback_id", payload={...})`
+- `SequenceBeat(ops=[...], delay_after_ticks=N)`
+- `SequenceBeat.pause(N)`
 
-Typical pattern:
-```python
-self.start_sequence(
-    "turn_flow",
-    [
-        SequenceBeat(
-            ops=[SequenceOperation.sound_op("game_x/start.ogg")],
-            delay_after_ticks=10,
-        ),
-        SequenceBeat(
-            ops=[SequenceOperation.callback_op("apply_effect", {"player_id": player.id})],
-            delay_after_ticks=6,
-        ),
-        SequenceBeat(
-            ops=[SequenceOperation.callback_op("finish_turn")],
-        ),
-    ],
-    tag="turn_flow",
-    lock_scope=self.SEQUENCE_LOCK_GAMEPLAY,
-    pause_bots=True,
-)
-```
-
-Then implement:
-```python
-def on_sequence_callback(self, sequence_id: str, callback_id: str, payload: dict) -> None:
-    if callback_id == "apply_effect":
-        ...
-```
-
-Rules:
-- Keep the helper generic. Game rules belong in the game callback methods, not in the shared runner.
-- Keep payloads Mashumaro-safe. Sequences are serialized in `active_sequences`.
-- Use `callback_op` for all state changes. Audio alone must never be the only thing advancing game logic.
-- Prefer explicit `delay_after_ticks` over inferred audio lengths, especially for localized voice files.
-- Cancel stale flows on turn/round reset with `cancel_sequences_by_tag(...)` or `cancel_sequence(...)`.
-
-Locking:
-- `SEQUENCE_LOCK_NONE`: no input lock
-- `SEQUENCE_LOCK_GAMEPLAY`: block gameplay actions only, keep info/status actions available
-- `SEQUENCE_LOCK_ALL`: rare full freeze, use sparingly
-
-Default rule: use `SEQUENCE_LOCK_GAMEPLAY` for almost all in-game cutscenes. Do not freeze informational actions unless there is a real correctness reason.
-
-Bot integration:
-- Call `self.process_sequences()` in `on_tick()`
-- If the sequence should suspend bot input, pass `pause_bots=True`
-- Gate bot ticking with `if not self.is_sequence_bot_paused(): ...`
-
-Migration rule: if you encounter a hand-rolled per-game `event_queue` used only for delayed gameplay/audio sequencing, replace it with `SequenceRunnerMixin` unless there is a compelling reason not to.
+Standard rule:
+- use `SEQUENCE_LOCK_GAMEPLAY` by default
+- keep info/status actions available unless a full lock is truly necessary
+- call `self.process_sequences()` in `on_tick()`
+- if bots should wait, pass `pause_bots=True` and gate bot ticking with `if not self.is_sequence_bot_paused(): ...`
 
 #### Grid Mixins and Cursor Serialization
-For any game using `GridGameMixin`, the grid state must be declared with Mashumaro-safe types that exactly match the runtime objects:
-
+For any game using `GridGameMixin`, serialized grid fields must use Mashumaro-safe canonical types:
 - `grid_cursors: dict[str, GridCursor]`
 - `grid_row_labels: list[str]`
 - `grid_col_labels: list[str]`
 
-Do **not** annotate `grid_cursors` as `dict[str, tuple[int, int]]`, plain dicts, or any other loose shape, even if the values seem equivalent. Mashumaro generates serializers from the field annotations, so schema drift here can break table save/load with runtime errors during `to_json()`.
+Do not replace mixin-owned serialized types with loose tuples or ad-hoc dicts.
 
-Rule: if the grid mixin owns a serialized state object, use the mixin's canonical type directly. Do not substitute raw tuples for `GridCursor`.
+#### Touch Client Capability Checks
+Use:
+- `server/game_utils/client_types.py`
+- `is_touch_client(user)`
+- `is_touch_client_type(client_type)`
+- `uses_self_voicing_settings(user)`
 
-#### Spectator Action Visibility (`include_spectators`)
+Game logic uses shared touch-client helpers instead of raw `client_type` string checks. Touch-aware action visibility covers:
+- `web`
+- `mobile`
 
-Every `Action` has an `include_spectators: bool = False` field that controls whether spectators can see and execute the action. The default is `False` — spectators are blocked from all actions unless explicitly opted in.
+The menu infrastructure keeps static web-only controls such as the web actions overlay behind explicit web-only guards. Mobile clients do not receive those controls automatically.
 
-Enforcement happens at three layers:
-1. **`ActionSet.get_visible_actions`** — turn menu; filters per-action using `include_spectators`. Spectators see only actions where `include_spectators=True` AND `is_hidden` returns `VISIBLE`.
-2. **`ActionSet.get_enabled_actions`** — actions menu (Escape); spectators see only actions with `include_spectators=True`.
-3. **`ActionExecutionMixin.execute_action`** — defense-in-depth; blocks execution of non-`include_spectators` actions regardless of how the request arrived.
-
-**When adding a new game action**, decide at definition time:
-- `include_spectators=True` — public information readable by any observer (e.g. table state, scores, turn timer, start game for host). The corresponding `define_keybind` call should also have `include_spectators=True`.
-- `include_spectators=False` (default) — player-private actions (e.g. play a card, read your hand, fold, raise, view your captured cards, your seat position). The keybind should also omit `include_spectators` (defaults to `False`).
-
-The `include_spectators` flag on `Action` and `Keybind` must always agree. Inconsistency (action accessible in actions menu but keybind blocked, or vice versa) creates confusing UX.
-
-**Host spectator edge case**: `start_game`, `add_bot`, `remove_bot` are marked `include_spectators=True` so a player who toggles to spectator in the lobby retains host management. Non-host spectators cannot trigger these because the `is_enabled` callbacks gate by host identity (`player.name != self.host`).
-
-Standard/lobby actions already marked `include_spectators=True` in the base class: `show_actions`, `toggle_spectator`, `host_management`, `leave_game`, `start_game`, `add_bot`, `remove_bot`, `whose_turn`, `whos_at_table`, `check_scores`, `check_scores_detailed`, `predict_outcomes`, `game_info`, `game_rules`.
-
-#### Action Set Ordering & Menu Deduplication
-
-`get_all_enabled_actions()` combines action sets in this order: **turn → lobby → options → standard**. The Escape/actions menu displays them in this combined order. Two rules prevent UX issues:
-
-**1. Info/status actions belong in `create_standard_action_set`, not `create_turn_action_set`.**
-Game-specific read-only actions (check hand, view dice, check status, view table, etc.) must be defined in `create_standard_action_set`. Placing them in the turn set causes them to appear *above* the platform's default global actions (leave game, scores, game info) in the Escape menu, breaking consistent ordering across games. They are still accessible via their keybinds regardless of which set they belong to.
-
-**2. Turn actions that should not appear in the Escape menu need `show_in_actions_menu=False`.**
-Core gameplay actions (hit, stand, roll, play card, shoot, etc.) already appear as tappable buttons in the turn menu. Without `show_in_actions_menu=False`, they also appear at the *top* of the Escape/actions menu, pushing global actions down. Set `show_in_actions_menu=False` on any turn action that is already visible in the turn menu and has no reason to appear in the global actions list.
-
-**Summary:**
-- **Turn action set**: Only actions that need to appear as turn menu buttons (play, roll, pass, etc.) with `show_in_actions_menu=False`.
-- **Standard action set**: Info/status actions (check hand, view scores, view table, etc.) — always below default global actions in the Escape menu.
-- **Keybinds**: Work independently of which action set an action belongs to.
-
-#### Turn Management Rules
-- **`set_turn_players(players)`** resets `turn_index` to 0, making `players[0]` the current player immediately.
-- **`advance_turn()`** increments the index. Never call it immediately after `set_turn_players` at the start of a round — that skips the first player.
-- The canonical pattern for starting a round: `set_turn_players(alive_players)` → `announce_turn()` (no `advance_turn` between them). See ChaosBear's `on_start` / `_next_round_step` as the reference.
-- **`get_active_players()`** excludes spectators. Always use it (never iterate `self.players` directly) when building game results, calculating winners, or announcing per-player results.
-
-#### Server-Side Menu Navigation Stack
-
-All server-side menu navigation uses a breadcrumb stack stored in `_user_states[username]["_stack"]`. Four primitives manage it:
-
-- **`_nav_push(user, show_fn, *args)`** — Captures the current state frame, pushes it onto `_stack`, calls `show_fn`, then re-injects the stack. Use for **forward navigation** (opening a sub-menu). Contains the modal-focus guard (see below) — automatically a no-op when any editbox is active.
-- **`_nav_back(user)`** — Pops the top frame and calls `_restore_frame`. If the stack is empty, falls back to the game table or main menu. Use for all **Back** button handlers.
-- **`_nav_refresh(user, show_fn, *args)`** — Saves `_stack`, calls `show_fn`, then re-injects the stack unchanged. Use when an **action completes** and the user stays on the same menu level (e.g. accept friend request → refresh friend requests menu). Never use a bare `_show_*()` call in an action handler — it drops the stack.
-- **`_restore_frame(user, frame, stack)`** — Re-enters the correct show function for a popped frame, then re-injects the remaining stack. Routes `in_game`/`post_game`/etc. to `_return_to_game`; routes all overlay menus (including admin menus) to their show functions. Falls back to game/main-menu for any unrecognised ID.
-
-**Rules:**
-- `_nav_push` = navigate forward (add a frame to history)
-- `_nav_refresh` = stay in place after an action (preserve history)
-- `_nav_back` = go back (pop a frame from history)
-- Never call `_show_*()` directly in an action handler — always use `_nav_refresh` so the stack survives. This applies to **all** action handlers: confirmations, toggle flips, error paths, editbox returns, and fallback/offline paths alike.
-
-#### Editbox Input States (`_enter_input_state`)
-
-Any time the server transitions a user into an editbox, call `_enter_input_state(user, input_id, **extra)` instead of mutating `_user_states` directly. It:
-1. Snapshots the current (stable, non-editbox) state as `_parent_frame`
-2. Sets `_transient = True` in the state
-
-This prevents two classes of bugs:
-
-**Stack corruption**: `_nav_push` checks `_transient` and, when True, pushes `_parent_frame` instead of the unrestorable editbox ID. Editbox states therefore never end up on the nav stack, so `_restore_frame` never needs to handle them.
-
-**Modal-focus desync**: `_nav_push` calls `_user_is_in_input_state(username)` at the top and returns immediately if it returns True. This covers both:
-- Server-side editboxes (`_transient = True`, set by `_enter_input_state`)
-- Game-side editboxes (`_pending_actions[player.id]` set by `_request_action_input`)
-
-Because the guard lives inside `_nav_push` itself — not in individual hotkey handlers — every code path (Alt+F friends hub, Alt+O options, Shift+F2 online users, game keybind actions, future additions) is automatically protected. No per-handler decoration needed or possible to forget.
-
-Use `self.server.enter_input_state(user, input_id, **extra)` from `administration/manager.py` (public alias). Never assign `_user_states[username]["menu"] = "..._input"` directly.
-
-#### Host Management / Transient Server-Side Menus
-The server can push a transient menu (e.g. Host Management) on top of the in-game UI. To prevent `rebuild_all_menus()` from immediately overwriting it when a keybind fires:
-- Add `player.id` to `game._actions_menu_open` **before** pushing the menu to the user.
-- Clear it (`_actions_menu_open.discard(player.id)`) in `_return_to_game()` **before** calling `rebuild_player_menu()`.
-- `rebuild_all_menus()` skips any player whose ID is in `_actions_menu_open`.
-
-`_is_host_management_hidden` always returns `Visibility.HIDDEN` so the action never appears in the turn menu. It remains accessible via the actions menu/Escape (which checks `show_in_actions_menu`, not `visible`) and the `Ctrl+M` keybind (`KeybindState.ALWAYS`, `include_spectators=True`). Non-host spectators receive the `action-not-host` disabled reason from the keybind handler.
-
-#### Universal Redraw Guard (GLOBAL_SYSTEM_MENUS)
-`server.GLOBAL_SYSTEM_MENUS` is a class-level set of menu IDs that represent server-side overlays (friends hub, options, online users, public profile, etc.). Two invariants are enforced:
-
-1. **`rebuild_player_menu` / `update_player_menu`** in `menu_management_mixin.py` return early if `_user_states[username]["menu"]` is in `GLOBAL_SYSTEM_MENUS` **or** `_user_states[username]["_transient"]` is True. This prevents game tick redraws from overwriting an overlay or an active editbox the user is currently viewing.
-2. **`_show_end_screen_to_player`** in `game_result_mixin.py` checks if the player's current state is in `GLOBAL_SYSTEM_MENUS` and, if so, resets it to `{"menu": "in_game", "table_id": ...}` and clears `_actions_menu_open`. This prevents the post-game screen from being unresponsive when the game ends while an overlay is open.
-
-When the `_user_states` assignment must happen **before** `rebuild_all_menus()` or `initialize_lobby()` fires (table creation/join), set state first or the guard will block the initial turn-menu push.
-
-#### Reconnect / Ghost Player Cleanup (`_restore_user_state`)
-When a player reconnects, `_restore_user_state` checks `_tables.find_user_table(username)` and applies the following cleanup rules before restoring game state:
-
-- **Lobby (no active game)**: `table.game is None` → call `table.remove_member(username)` immediately. The player lands on the main menu. Without this, they become a ghost member that the lobby-kick timer later fires on.
-- **Spectator**: remove from `table.members` and call `table.game.remove_spectator(user.uuid)`. Spectators are never auto-restored.
-- **Active player, UUID found**: reattach via `table.attach_user` + `table.game.attach_user`; mark `restored_game = True`. Immediately call `table.game.rebuild_player_menu(player)` after setting `_user_states` — do not rely on the next game tick.
-- **Active player, UUID not found** (inconsistent saved state): call `table.remove_member(username)`. Player lands on the main menu cleanly with no ghost membership.
-
-`table.remove_member` always cleans up `_username_to_table` — no stale mapping remains.
-
-**Non-game state restoration**: when `restored_game = False`, call `self._restore_menu_from_state(user, state)`. This delegates to `_restore_frame`, which is the single canonical router covering every menu ID (including GLOBAL_SYSTEM_MENUS, admin menus, and `main_menu`) and re-injects the saved `_stack`. Never use a hardcoded `elif` chain here — it will always be incomplete and will silently fail for any menu ID not listed.
-
-#### Server Alert Broadcast (`/reboot` and `/stop`)
-The shutdown sequence is a 32-second structured countdown managed by `self._shutdown_task: asyncio.Task | None`.
-
-- **Double-invocation guard**: if `_shutdown_task` is already running (not `None` and not `.done()`), the second command is silently ignored.
-- **Countdown schedule**: broadcast at 30 s and 20 s (full localized sentence + `server_alert_warning.ogg`), then every second from 10 s down to 1 s (raw number only + `server_alert_tick.ogg`).
-- **TTS control**: all countdown chat packets carry `"silent": True` (suppresses both notification sound and TTS in both clients). A separate `{"type": "speak", "text": "..."}` packet drives TTS with the exact desired text — bare number for countdown ticks, full sentence for warnings.
-- **Final phase**: shutdown sound (`server_alert_shutdown.ogg`) + silent chat + explicit `speak` + `disconnect` packet (`"reconnect": true/false`) sent to all approved users, then 2 s sleep, then `stop()` → `os._exit(1)`.
-- **`stop()` order**: tick scheduler → WS server (disconnect handlers fire here) → cancel `_pending_disconnects` tasks → cancel `_shutdown_task` → `_save_tables()` → close DB.
-- **Locale keys**: `server-restarting` (with `$seconds`), `server-restarting-now`, `server-shutting-down` (with `$seconds`), `server-shutting-down-now` — all in both `en` and `vi` FTL files.
-- **Sound files**: `client/sounds/server_alert_warning.ogg`, `server_alert_tick.ogg`, `server_alert_shutdown.ogg`.
-
-#### Game Event / Sound Scheduling
-- Prefer `SequenceRunnerMixin` for delayed gameplay/audio flows.
-- Use `self.schedule_sound(path, delay_ticks)` for simple sound timing that does not need a gameplay callback.
-- Use `SequenceRunnerMixin` when the sound timing must also advance state, lock gameplay actions, or survive save/load mid-sequence.
-- `on_tick()` must call `super().on_tick()`, `self.process_scheduled_sounds()`, and `self.process_sequences()` for games that use sequences.
-- When writing deterministic tests for bot behaviour, use `advance_until(game, condition_fn, max_ticks=500)` rather than fixed tick counts. Combine state conditions with phase checks (e.g. `len(player.live_influences) == 1 and g.turn_phase != "losing_influence"`) to avoid stopping one tick before a post-event fires.
-
-#### Web/Mobile UI Consideration (Mandatory)
-When implementing a new game, always consider the web/mobile client experience alongside the desktop client. Desktop users have keyboard shortcuts for every action, but web/mobile users rely on tappable buttons in the Turn Menu. Key rules:
-- **Time-critical reaction actions** (e.g. buzzer, jump-in, challenge, accept) must be visible as tappable buttons in the Turn Menu during their active windows for web clients. Use `getattr(user, "client_type", "") == "web"` in `is_hidden` callbacks to show them only for web users (desktop users use keybinds).
-- **Utility actions** that desktop users access via keybinds (e.g. sort hand) should also appear in the Turn Menu for web clients.
-- **Turn Menu ordering** matters for screen readers: place reaction buttons first (top), then card/play actions in the middle, then utility buttons (draw, pass, sort) last. Use the `_sync_turn_actions` reordering pattern from LastCard/CrazyEights as the reference.
-- **Standard action ordering for web** must be consistent across all games: game-specific info actions first, then `check_scores` (if applicable), then `whose_turn`, then `whos_at_table`. Add web reordering in `create_standard_action_set` and `_is_check_scores_hidden` visibility override for games that track scores.
-- See `server/games/lastcard/game.py` (`_is_buzzer_hidden`, `_is_jump_in_hidden`, `_is_sort_turn_hidden`, and the web reordering block in `_sync_turn_actions`) for the canonical implementation.
-
-#### TTS Buffer Categorization
-Every `user.speak_l()` and `broadcast_l()` call must carry an explicit `buffer=` parameter. Defaults are wrong in almost every case:
-- `user.speak_l()` defaults to `"misc"` — almost never correct in `server.py`
-- `broadcast_l()` defaults to `"game"` — correct for in-game events only
+#### Web / Mobile UI Consideration (Mandatory)
+When implementing a new game, always consider touch clients alongside desktop users.
 
 Rules:
-- **`buffer="chat"`**: Player-to-player text only (global chat, room chat, private messages).
-- **`buffer="game"`**: All gameplay events — turn announcements, dice rolls, card plays, scores, game state changes. Use for all `broadcast_l` calls inside game files.
-- **`buffer="system"`**: Server-wide announcements, player connections/disconnections, room joins/leaves, host management (kicks, bans, invitations, host-pass), settings confirmations, profile changes, friend events, and all error/validation messages in `server.py`. Most `user.speak_l` calls in `server/core/server.py` belong here.
-- **`buffer="misc"`**: Only for genuinely minor informational messages that fit none of the above.
+- Time-critical reaction actions must be visible as turn-menu buttons for touch clients during their active windows.
+- Utility actions that desktop users access by keybind should also be exposed in the turn menu for touch clients where appropriate.
+- Turn menu ordering matters for screen readers and self-voicing clients:
+  1. reaction buttons
+  2. primary play actions
+  3. multi-select confirmation actions
+  4. utilities such as draw, pass, sort
+- Standard action ordering for touch clients should remain consistent:
+  1. game-specific info actions
+  2. `check_scores`
+  3. `whose_turn`
+  4. `whos_at_table`
 
-Connectivity/membership `broadcast_l` calls in `base.py`, `table.py`, and `lobby_actions_mixin.py` (player-rejoined, table-joined, now-spectating, player-replaced-by-bot, game-resumed, etc.) also use `buffer="system"`.
+Use the shared touch-client helper instead of hardcoding web checks.
+
+#### Spectator Action Visibility (`include_spectators`)
+Every `Action` has `include_spectators: bool = False` by default.
+
+Rules:
+- `include_spectators=True` only for public information or lobby controls that spectators are meant to use
+- `include_spectators=False` for player-private or gameplay-mutating actions
+- the `Action` and its matching `Keybind` must agree on spectator visibility
+
+#### Action Set Ordering and Menu Deduplication
+`get_all_enabled_actions()` combines action sets in this order:
+**turn → lobby → options → standard**
+
+Rules:
+- Info/status actions belong in `create_standard_action_set`, not `create_turn_action_set`
+- Turn-menu actions that should not appear in the Escape/actions list must use `show_in_actions_menu=False`
+
+#### Turn Management Rules
+- `set_turn_players(players)` resets `turn_index` to `0`
+- `advance_turn()` immediately after `set_turn_players(...)` skips the first player and is almost always wrong
+- use `get_active_players()` for gameplay logic, results, and winner calculations
+
+#### Server-Side Navigation Stack
+Server menus use the breadcrumb stack in `_user_states[username]["_stack"]`.
+
+Core primitives:
+- `_nav_push(user, show_fn, *args)` — forward navigation
+- `_nav_back(user)` — go back
+- `_nav_refresh(user, show_fn, *args)` — redraw same level without losing history
+- `_restore_frame(user, frame, stack)` — centralized state restore
+
+Do not call `_show_*()` directly from action handlers. Use `_nav_refresh(...)` so stack history survives.
+
+#### Editbox Input States
+Use `_enter_input_state(user, input_id, **extra)` / `server.enter_input_state(...)` instead of mutating `_user_states` directly. This protects the nav stack and modal focus rules.
+
+#### Reconnect and Ghost Cleanup
+`_restore_user_state` handles reconnect and cleans up stale lobby membership, spectators, and inconsistent table mappings. Reconnect restoration should always route through the centralized restore flow, not custom menu-specific chains.
+
+#### Server Alert Broadcast
+The `/reboot` and `/stop` shutdown countdown is a structured 32-second sequence with:
+- deduplicated task guard
+- warning/tick/shutdown sounds
+- silent chat packets plus explicit `speak` packets
+- reconnect-aware disconnect packets
+
+#### TTS Buffer Categorization
+Every `user.speak_l()` and `broadcast_l()` call must include an explicit `buffer=`:
+- `game` — gameplay events
+- `system` — settings, connection, moderation, errors, room/system events
+- `chat` — chat only
+- `misc` — minor non-chat, non-game informational output
 
 #### Administration Privilege Tiers
+`user.trust_level` tiers:
+- `1` — user
+- `2` — admin
+- `3` — dev
 
-The server has three privilege levels stored as `user.trust_level` (integer):
+Dev-only SMTP configuration is enforced at the menu, routing, and handler levels.
 
-| Level | Role | Capabilities |
-|---|---|---|
-| 1 | **User** | Default; no admin access |
-| 2 | **Admin** | Account approval, promote/demote admins, ban/unban, mute/unmute, kick, broadcast, MOTD |
-| 3 | **Dev** | All admin capabilities plus SMTP configuration; immune from demotion/banning |
-
-The first user to register is automatically promoted to Dev (`trust_level = 3`).
-
-**Dev-only features**: SMTP configuration (`smtp_settings` menu and all sub-menus) is restricted to `trust_level >= 3`. Enforcement is three-layer:
-1. **UI**: `_show_admin_menu` only appends the SMTP menu item when `user.trust_level >= 3`.
-2. **Routing**: the `smtp_settings` selection handler re-checks `trust_level >= 3` and speaks `dev-only-action` + refreshes the admin menu for Admins.
-3. **Defense-in-depth**: `_show_smtp_settings_menu`, `_handle_smtp_settings_selection`, `_handle_smtp_encryption_selection`, and the editbox input handler each guard `trust_level < 3` at the top before touching any data.
-
-When adding a new Dev-only admin action, apply the same three layers; do not rely on menu visibility alone.
-
-#### Server Import Rules
-All imports at module level. No in-function imports anywhere in the server codebase — this rule mirrors the Desktop Client rule and applies equally to `server/core/server.py`, all mixins, and all utility modules.
-
-#### Persistence / Data Lifecycle Reminder
-Whenever adding a new database-backed feature, explicitly decide the data lifecycle: what is stored, how long it should live, how stale rows are cleaned up, and what happens on account deletion. Do not add time-bound or accumulative persistence without a cleanup path and tests that prove it does not leave garbage behind.
+#### Persistence and Data Lifecycle
+Any new persistent feature must define:
+- what is stored
+- how long it lives
+- how stale data is cleaned up
+- what happens on account deletion
+- tests for cleanup behavior
 
 ### Desktop Client Architecture
-- **`client/ui/main_window.py`** — Core UI (2,500+ lines), handles all in-game interaction
-- **`client/network_manager.py`** — WebSocket client, receives packets, dispatches to UI
-- **`client/sound_manager.py`** — Audio playback
-- **`client/config_manager.py`** — User preferences persistence; passwords stored in system keyring (never in JSON)
+- **`client/ui/main_window.py`** — primary desktop UI and gameplay interaction
+- **`client/network_manager.py`** — WebSocket client and packet dispatch
+- **`client/sound_manager.py`** — sound, music, ambience playback
+- **`client/config_manager.py`** — identities, client options, keyring-backed credentials
 - **`client/localization.py`** — Fluent runtime localization
-- **`client/ssl_utils.py`** — Centralized SSL context factory; CA-strict for production (`wss://`), relaxed for localhost
+- **`client/ssl_utils.py`** — SSL context factory
 
-#### Desktop Client Rules
-- **Credentials**: Passwords live exclusively in the OS keyring via `keyring` library. Never write passwords to JSON.
-- **Config file**: All client configuration lives in a single `identities.json` (`%APPDATA%/ddt.one/PlayAural/`). It stores server/account data **and** client options under the top-level `"client_options"` key. Never split config into multiple files.
-- **Auto-login failure**: `on_login_failed` in `main_window.py` disables the `auto_login` flag (via `config_manager.update_account`) for permanent credential errors (`wrong_password`, `user_not_found`). Transient errors (`rate_limit`) leave the flag intact. The `client.py` main loop skips auto-login when `came_from_failure` is True, ensuring the user always sees the error dialog after a failed auto-login.
-- **SSL**: Always use `make_ssl_context(server_url)` from `ssl_utils.py`. Do not construct `ssl.SSLContext` objects inline.
-- **Imports**: All imports at module level. No in-function imports except inside `main()` where CWD must be set first.
-- **Dialogs**: Always call `dlg.ShowModal()` and capture the result before calling `dlg.Destroy()`. Never skip `ShowModal()`.
-- **PyInstaller**: `client/pyproject.toml` is the source of truth for dependencies (not `requirements.txt`). When adding a dependency that uses dynamic imports (e.g. keyring), add `collect_all('pkg')` plus explicit `hiddenimports` to `PlayAural.spec`.
-- **`network.connect()` version parameter**: Always pass `client_version=VERSION` to every `network.connect()` call, including all reconnect paths (`_attempt_silent_reconnect`, `_do_reconnect`). Omitting it defaults to `"0.0.0"`, causing the server to skip `_restore_user_state` and silently drop all menu selections after reconnect (chat still works, making the bug hard to diagnose).
+Desktop rules:
+- passwords live only in OS keyring
+- client config lives in `identities.json`
+- auto-login disables itself on permanent credential failures
+- always pass `client_version=VERSION` on every `network.connect()` path
 
 ### Web Client Architecture
-- **`web_client/game.js`** — Single-file game logic (~3,000 lines), connects to same WebSocket server
-- **`web_client/locales.js`** — i18n strings
-- ARIA live regions for screen reader announcements; service worker for PWA offline support
+- **`web_client/game.js`** — main web client runtime
+- **`web_client/locales.js`** — client-side i18n strings
+- PWA/service-worker support
 
-#### Web Client Rules
-- **XSS**: Never use `innerHTML` with server-controlled content. Use `element.textContent` or DOM API (`createElement` / `appendChild`) for all user/server data.
-- **Credentials**: `pa_pass` lives in `sessionStorage` by default (session-only). When the user checks "Remember Me", write `pa_pass` to `localStorage` and set `localStorage.pa_remember = '1'` as the opt-in flag. Always read `pa_remember` first to determine which store to use for `pa_pass`. `pa_user` always stays in `localStorage`.
-- **TTS cleanup**: On `socket.onclose`, always call `stopTTSKeepAlive()`, clear `ttsTimeout`, flush `ttsQueue = []`, reset `isTTSPlaying = false`, and call `speechSynthesis.cancel()`.
-- **Reconnect state**: `reconnectAttempts` and `reconnectTimer` are initialized in the `GameClient` constructor. Exponential backoff is capped at 30 s with MAX_RETRIES = 5.
+Web rules:
+- never use `innerHTML` with server-controlled content
+- remember-me password storage is opt-in and controlled by `pa_remember`
+- TTS and reconnect cleanup must be complete on disconnect
+- current client version is tracked in `web_client/game.js`
 
-### Server Menu Auto-Refresh Pattern
-The canonical pattern for any menu that displays live data:
+### Mobile Client Architecture
+- **`mobile_client/src/app/PlayAuralApp.tsx`** — main app shell, auth flow, overlays, focus state
+- **`mobile_client/src/network/PlayAuralConnection.ts`** — WebSocket connection and packet handling
+- **`mobile_client/src/audio/MobileAudioManager.ts`** — sound, music, ambience, fade, and crossfade handling
+- **`mobile_client/src/tts/TtsManager.ts`** — self-voicing speech manager
+- **`mobile_client/src/state/BufferStore.ts`** — message buffers/history
+- **`mobile_client/src/gestures/useSelfVoicingGestures.ts`** — gesture recognizer for self-voicing mode
+- **`mobile_client/locales/en/client.json`** / **`mobile_client/locales/vi/client.json`** — mobile UI strings
+- **`mobile_client/sounds/`** — bundled sound pack copied directly from the desktop layout
 
-1. **`_get_<menu>_items(user) -> list[MenuItem]`** — pure data builder, no side effects.
-2. **`_show_<menu>(user)`** — calls `_get_*_items`, then `user.show_menu(...)` and sets `_user_states`. Used for **initial display only**.
-3. **Auto-refresh callbacks** (`on_tables_changed`, `on_user_presence_changed`, `on_friend_requests_changed`) — call `_get_*_items` and then **`user.update_menu(...)`** to push new content without resetting the user's cursor position.
+Mobile rules:
+- the client connects as `client: "mobile"`
+- it is treated as a touch client, not as `web`
+- it is currently CAPTCHA-exempt like the desktop client
+- local config/preferences are persisted with AsyncStorage
+- credentials are stored in SecureStore
+- saved credentials support auto-login with graceful fallback to manual login
+- version and sound-pack mismatches trigger a mandatory APK update prompt
+- the production default server URL is `wss://playaural.ddt.one:443`
+- mobile speech preferences use `mobile_tts_engine`, `mobile_tts_voice`, and `mobile_tts_rate`
+- web speech preferences use `speech_mode`, `speech_voice`, and `speech_rate`
+- browser web-runtime tests expose browser/Web Speech voices, while Android builds expose device TTS voices through Expo Speech
+- unavailable synced mobile voices or engines must fall back to the system default without throwing
 
-**Never call `_show_<menu>()` from a refresh callback** — that triggers `show_menu()` which snaps the user's selection to item #1.
-
-Menus that currently auto-refresh:
-| Menu | Refresh trigger |
-|---|---|
-| `active_tables_menu` | `on_tables_changed` |
-| `tables_menu` (per-game) | `on_tables_changed` |
-| `friends_list_menu` | `on_user_presence_changed`, `on_friend_requests_changed` |
-| `friends_hub_menu` | `on_friend_requests_changed` |
-| `friend_requests_menu` | `on_friend_requests_changed` |
-| `online_users` | `on_user_presence_changed` |
+### Game Counts and Catalog
+The server currently registers **32 games**:
+- card games, dice games, board/adventure games, and social games
+- recent additions include `Bunko`, `Tien Len`, and `Color Game`
 
 ### Key Tech Stack
 - Python 3.11, `asyncio`, `websockets>=12.0`, `mashumaro`, `fluent-compiler`, `openskill`, `argon2-cffi`
-- Desktop: `wxPython>=4.2.0`, `accessible-output2`, `sound-lib`, `keyring>=24.0`
-- Package manager: `uv`
-- Languages: English, Vietnamese (`vi_VN`)
+- Desktop: `wxPython`, `accessible-output2`, `sound-lib`, `keyring`
+- Mobile: `expo`, `react-native`, `expo-audio`, `expo-speech`, `@react-native-async-storage/async-storage`, `expo-secure-store`
+- Package manager: `uv` for Python components, `npm` for the mobile client
+- Languages: English and Vietnamese

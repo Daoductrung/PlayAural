@@ -197,7 +197,7 @@ class SorryGame(Game):
             action_set.add(action)
 
         user = self.get_user(player)
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             target_order = [
                 "check_board",
                 "check_pawns",
@@ -298,7 +298,7 @@ class SorryGame(Game):
         if action_set is None:
             return
         user = self.get_user(player)
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             target_order = [
                 "check_board",
                 "check_pawns",
@@ -328,7 +328,7 @@ class SorryGame(Game):
 
     def _web_visibility(self, player: Player) -> Visibility:
         user = self.get_user(player)
-        if self.status == "playing" and user and getattr(user, "client_type", "") == "web":
+        if self.status == "playing" and self.is_touch_client(user):
             return Visibility.VISIBLE
         return Visibility.HIDDEN
 
@@ -348,19 +348,19 @@ class SorryGame(Game):
 
     def _is_whose_turn_hidden(self, player: Player) -> Visibility:
         user = self.get_user(player)
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             return Visibility.VISIBLE if self.status == "playing" else Visibility.HIDDEN
         return super()._is_whose_turn_hidden(player)
 
     def _is_whos_at_table_hidden(self, player: Player) -> Visibility:
         user = self.get_user(player)
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             return Visibility.VISIBLE
         return super()._is_whos_at_table_hidden(player)
 
     def _is_check_scores_hidden(self, player: Player) -> Visibility:
         user = self.get_user(player)
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             return Visibility.VISIBLE if self.status == "playing" else Visibility.HIDDEN
         return super()._is_check_scores_hidden(player)
 

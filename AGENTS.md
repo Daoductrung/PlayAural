@@ -4,13 +4,14 @@ This document is the authoritative reference for any AI assistant (Claude, Codex
 
 ## 1. Project Overview
 
-PlayAural is an **audio-first multiplayer online gaming platform** with full screen reader support. It has three components:
+PlayAural is an **audio-first multiplayer online gaming platform** with full screen reader support. It has four first-party components:
 
 | Component | Stack | Purpose |
 |-----------|-------|---------|
 | `server/` | Python 3.11, asyncio, WebSocket | Game logic, auth, persistence |
 | `client/` | Python, wxPython | Desktop client (screen reader accessible) |
 | `web_client/` | Vanilla JS PWA | Browser client (ARIA, service worker) |
+| `mobile_client/` | Expo, React Native, TypeScript | Android-first self-voicing mobile client with gesture navigation |
 
 All communication is WebSocket JSON packets: `Packet(type: str, data: dict)`.
 
@@ -380,7 +381,7 @@ def prestart_validate(self) -> list[str | tuple[str, dict]]:
 
 ### 6.1 Core Principle
 
-PlayAural is designed for visually impaired users. **Every game state change must be communicated through audio** — either TTS announcements or sound effects. The UI is navigated entirely by keyboard (desktop) or sequential button taps (web).
+PlayAural is designed for visually impaired users. **Every game state change must be communicated through audio** — either TTS announcements or sound effects. The UI is navigated entirely by keyboard on desktop, by touch-driven turn menus on web, and by self-voicing gesture navigation on mobile.
 
 ### 6.2 TTS Buffer Rules
 
@@ -402,7 +403,18 @@ Every `speak_l()` and `broadcast_l()` call **must** include an explicit `buffer=
 - Use `SequenceRunnerMixin` for multi-step cinematic flows that need timed callbacks, save/load safety, or gameplay locking
 - `on_tick()` must call `super().on_tick()` and `self.process_scheduled_sounds()`
 
-### 6.4 Information Actions
+### 6.4 Client Speech Settings
+
+The server keeps browser speech settings and mobile self-voicing settings separate:
+
+- Web client speech preferences use `speech_mode`, `speech_voice`, and `speech_rate`.
+- Mobile client speech preferences use `mobile_tts_engine`, `mobile_tts_voice`, and `mobile_tts_rate`.
+- `server/core/server.py` filters preferences by client capability before sending them to each client.
+- Mobile TTS settings are stored locally by the mobile app and synchronized with the user's server account.
+- Device voice availability is platform-specific. The mobile client must safely fall back to the system default voice when a synced engine or voice is unavailable.
+- Expo web-runtime testing uses browser Web Speech voices; Android builds use the device TTS service through Expo Speech.
+
+### 6.5 Information Actions
 
 Provide keybind-accessible information actions so players can query game state at any time:
 - Read hand / Read tiles (player-private, `include_spectators=False`)
@@ -416,25 +428,31 @@ Provide keybind-accessible information actions so players can query game state a
 
 Desktop users have keyboard shortcuts. Web/mobile users rely on **tappable buttons in the Turn Menu**. Every game must account for both.
 
-### 7.1 Web Client Detection
+### 7.1 Touch Client Detection
 
 ```python
+from server.game_utils.client_types import is_touch_client
+
 user = self.get_user(player)
-if user and getattr(user, "client_type", "") == "web":
+if user and is_touch_client(user):
     return Visibility.VISIBLE
 ```
 
+Game logic uses `server/game_utils/client_types.py` for touch capability checks. Use `is_touch_client(user)` instead of raw `client_type` string comparisons.
+
 ### 7.2 Time-Critical Reaction Actions
 
-Actions that require fast response (buzzer, challenge, jump-in, accept) **must** be visible as tappable buttons in the Turn Menu during their active windows for web clients. Use `is_hidden` callbacks to conditionally show them:
+Actions that require fast response (buzzer, challenge, jump-in, accept) **must** be visible as tappable buttons in the Turn Menu during their active windows for touch clients. Use `is_hidden` callbacks to conditionally show them:
 
 ```python
+from server.game_utils.client_types import is_touch_client
+
 def _is_buzzer_hidden(self, player: Player) -> Visibility:
     # Desktop users use keybinds — hide from turn menu
     if self.status != "playing" or player.is_spectator:
         return Visibility.HIDDEN
     user = self.get_user(player)
-    if user and getattr(user, "client_type", "") == "web":
+    if user and is_touch_client(user):
         if self._is_reaction_window_active():
             return Visibility.VISIBLE
     return Visibility.HIDDEN
@@ -442,7 +460,7 @@ def _is_buzzer_hidden(self, player: Player) -> Visibility:
 
 ### 7.3 Utility Actions for Web
 
-Actions that desktop users access via keybinds (sort hand, read hand, view board, read counts) should appear in the Turn Menu for web clients. Override their `is_hidden` to return `VISIBLE` when `client_type == "web"`.
+Actions that desktop users access via keybinds (sort hand, read hand, view board, read counts) should appear in the Turn Menu for touch clients. Override their `is_hidden` to return `VISIBLE` when `is_touch_client(user)` is true.
 
 ### 7.4 Turn Menu Ordering
 
@@ -456,8 +474,10 @@ Order matters for screen readers — users navigate sequentially top-to-bottom:
 Implement ordering in `_sync_turn_actions` by manipulating `turn_set._order`:
 
 ```python
+from server.game_utils.client_types import is_touch_client
+
 user = self.get_user(player)
-if user and getattr(user, "client_type", "") == "web":
+if user and is_touch_client(user):
     top = ["buzzer", "challenge"]
     bottom = ["draw", "knock", "sort"]
     card_ids = [aid for aid in turn_set._order if aid.startswith("play_")]
@@ -470,19 +490,21 @@ if user and getattr(user, "client_type", "") == "web":
     )
 ```
 
-### 7.5 Standard Action Ordering for Web
+### 7.5 Standard Action Ordering for Touch Clients
 
-Within the standard action set, web clients must maintain a **consistent ordering** of the platform's base info actions across all games:
+Within the standard action set, touch clients must maintain a **consistent ordering** of the platform's base info actions across all games:
 
 1. **Game-specific info actions** (check status, view table, read hand, etc.) — top
 2. **`check_scores`** (if the game tracks scores) — after game-specific
 3. **`whose_turn`** — after check_scores
 4. **`whos_at_table`** — last
 
-Implement this via web reordering in `create_standard_action_set`:
+Implement this via touch-client reordering in `create_standard_action_set`:
 
 ```python
-if user and getattr(user, "client_type", "") == "web":
+from server.game_utils.client_types import is_touch_client
+
+if user and is_touch_client(user):
     target_order = ["game_specific_action", "check_scores", "whose_turn", "whos_at_table"]
     new_order = [aid for aid in action_set._order if aid not in target_order]
     for aid in target_order:
@@ -491,7 +513,7 @@ if user and getattr(user, "client_type", "") == "web":
     action_set._order = new_order
 ```
 
-For games that track scores, also add a `_is_check_scores_hidden` visibility override (visible for web when playing). See `pig/game.py` or `farkle/game.py` as references.
+For games that track scores, also add a `_is_check_scores_hidden` visibility override (visible for touch clients when playing). See `pig/game.py` or `farkle/game.py` as references.
 
 ---
 
@@ -725,11 +747,11 @@ Use this checklist when implementing a new game. Every item is mandatory.
 - [ ] `prestart_validate` catches invalid combinations
 
 ### Web/Mobile UI
-- [ ] Reaction actions visible in Turn Menu for web clients during active windows
-- [ ] Utility actions (read hand, sort, etc.) visible in Turn Menu for web clients
+- [ ] Reaction actions visible in Turn Menu for touch clients during active windows
+- [ ] Utility actions (read hand, sort, etc.) visible in Turn Menu for touch clients
 - [ ] Turn Menu ordered: reactions → cards/tiles → utilities
-- [ ] Standard actions reordered for web: game-specific → `check_scores` → `whose_turn` → `whos_at_table` (see Section 7.5)
-- [ ] `whose_turn`, `whos_at_table` visible for web clients; `check_scores` visible if game tracks scores
+- [ ] Standard actions reordered for touch clients: game-specific → `check_scores` → `whose_turn` → `whos_at_table` (see Section 7.5)
+- [ ] `whose_turn`, `whos_at_table` visible for touch clients; `check_scores` visible if game tracks scores
 
 ### Audio & Accessibility
 - [ ] Every game state change announced via TTS (`broadcast_l` / `speak_l`)
@@ -754,10 +776,10 @@ Use this checklist when implementing a new game. Every item is mandatory.
 - [ ] Pre-start validation tests
 - [ ] Core gameplay tests (play, draw/knock, scoring)
 - [ ] Bot completion test
-- [ ] Web client visibility tests
+- [ ] Touch-client visibility tests
 - [ ] Keybind collision test
 - [ ] All tests pass: `cd server && pytest tests/test_<game_type>.py`
 
 ### Project Files
-- [ ] Game count updated in `CLAUDE.md`
+- [ ] Game count updated in `CLAUDE.md` and `README.md`
 - [ ] Game added to `README.md` Game Catalog (correct category)

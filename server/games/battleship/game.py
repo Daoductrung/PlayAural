@@ -380,7 +380,7 @@ class BattleshipGame(GridGameMixin, TurnTimerMixin, Game):
         action_set._order = [
             aid for aid in action_set._order if aid not in custom_ids
         ] + [aid for aid in custom_ids if action_set.get_action(aid)]
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             target_order = [
                 "toggle_view", "read_fleet", "read_enemy_fleet",
                 "check_scores", "whose_turn", "whos_at_table",
@@ -1097,7 +1097,7 @@ class BattleshipGame(GridGameMixin, TurnTimerMixin, Game):
         if self.phase == "deploying":
             return Visibility.HIDDEN
         user = self.get_user(player)
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             return Visibility.VISIBLE
         return Visibility.HIDDEN
 
@@ -1140,7 +1140,7 @@ class BattleshipGame(GridGameMixin, TurnTimerMixin, Game):
         if self.status != "playing" or player.is_spectator:
             return Visibility.HIDDEN
         user = self.get_user(player)
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             return Visibility.VISIBLE
         return Visibility.HIDDEN
 
@@ -1198,7 +1198,7 @@ class BattleshipGame(GridGameMixin, TurnTimerMixin, Game):
         if player.is_spectator:
             return Visibility.HIDDEN
         user = self.get_user(player)
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             return Visibility.VISIBLE
         return Visibility.HIDDEN
 
@@ -1208,13 +1208,13 @@ class BattleshipGame(GridGameMixin, TurnTimerMixin, Game):
 
     def _is_whos_at_table_hidden(self, player: Player) -> Visibility:
         user = self.get_user(player)
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             return Visibility.VISIBLE
         return super()._is_whos_at_table_hidden(player)
 
     def _is_whose_turn_hidden(self, player: Player) -> Visibility:
         user = self.get_user(player)
-        if user and getattr(user, "client_type", "") == "web" and self.status == "playing":
+        if self.is_touch_client(user) and self.status == "playing":
             return Visibility.VISIBLE
         return super()._is_whose_turn_hidden(player)
 

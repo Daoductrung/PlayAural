@@ -29,6 +29,10 @@ from ..game_utils.event_handling_mixin import EventHandlingMixin
 from ..game_utils.action_set_creation_mixin import ActionSetCreationMixin
 from ..game_utils.action_execution_mixin import ActionExecutionMixin
 from ..game_utils.action_set_system_mixin import ActionSetSystemMixin
+from ..game_utils.client_types import (
+    is_touch_client as user_is_touch_client,
+    is_touch_client_type,
+)
 from ..ui.keybinds import Keybind
 from ..users.bot import Bot
 
@@ -170,6 +174,19 @@ class Game(
         Note: Estimation state is initialized clean by __post_init__.
         """
         pass
+
+    @staticmethod
+    def is_touch_client_type(client_type: str | None) -> bool:
+        """Return True for touch-oriented clients."""
+        return is_touch_client_type(client_type)
+
+    def is_touch_client(self, user: User | None) -> bool:
+        """Return True if the provided user is on a touch-oriented client."""
+        return bool(user and user_is_touch_client(user))
+
+    def is_touch_player(self, player: Player) -> bool:
+        """Return True if the player's attached user is on a touch-oriented client."""
+        return self.is_touch_client(self.get_user(player))
 
     # Abstract methods games must implement
 

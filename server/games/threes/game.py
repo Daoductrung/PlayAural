@@ -106,10 +106,10 @@ class ThreesGame(Game, DiceGameMixin):
         
         # WEB-SPECIFIC: Identify client type
         user = self.get_user(player)
-        is_web = user and getattr(user, "client_type", "") == "web"
+        is_touch = self.is_touch_client(user)
         
         # For web, return None (enabled) so button is 'always light', validation moves to handler
-        if is_web:
+        if is_touch:
              if self.current_player != player:
                  # Still disable if not turn
                  return "action-not-your-turn"
@@ -136,7 +136,7 @@ class ThreesGame(Game, DiceGameMixin):
         
         # WEB-SPECIFIC: Always visible for web
         user = self.get_user(player)
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
              return Visibility.VISIBLE
 
         if self.current_player != player:
@@ -150,10 +150,10 @@ class ThreesGame(Game, DiceGameMixin):
         
         # WEB-SPECIFIC: Identify client type
         user = self.get_user(player)
-        is_web = user and getattr(user, "client_type", "") == "web"
+        is_touch = self.is_touch_client(user)
         
         # For web, return None (enabled) so button is 'always light', validation moves to handler
-        if is_web:
+        if is_touch:
              if self.current_player != player:
                  # Still disable if not turn
                  return "action-not-your-turn"
@@ -175,7 +175,7 @@ class ThreesGame(Game, DiceGameMixin):
         
         # WEB-SPECIFIC: Always visible for web
         user = self.get_user(player)
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
              return Visibility.VISIBLE
 
         if self.current_player != player:
@@ -263,7 +263,7 @@ class ThreesGame(Game, DiceGameMixin):
         )
 
         # WEB-SPECIFIC: Reorder for Web Clients to put Roll/Bank at the top
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             # Desired order: Roll, Bank, Dice Toggles...
             top_actions = ["roll", "bank"]
             final_order = []
@@ -301,7 +301,7 @@ class ThreesGame(Game, DiceGameMixin):
         )
 
         # WEB-SPECIFIC: Reorder for Web Clients
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             # Reordering Logic
             final_order = []
             for aid in self.web_target_order:
@@ -321,14 +321,14 @@ class ThreesGame(Game, DiceGameMixin):
     def _is_whos_at_table_hidden(self, player: "Player") -> Visibility:
         """Override: Visible for Web (always), hidden otherwise."""
         user = self.get_user(player)
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             return Visibility.VISIBLE
         return super()._is_whos_at_table_hidden(player)
 
     def _is_whose_turn_hidden(self, player: "Player") -> Visibility:
         """Override: Visible for Web (Playing only), hidden otherwise."""
         user = self.get_user(player)
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             if self.status == "playing":
                 return Visibility.VISIBLE
             return Visibility.HIDDEN
@@ -337,7 +337,7 @@ class ThreesGame(Game, DiceGameMixin):
     def _is_check_scores_hidden(self, player: "Player") -> Visibility:
         """Override: Visible for Web (Playing only), hidden otherwise."""
         user = self.get_user(player)
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             if self.status == "playing":
                 return Visibility.VISIBLE
             return Visibility.HIDDEN

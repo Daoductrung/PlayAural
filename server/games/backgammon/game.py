@@ -497,7 +497,7 @@ class BackgammonGame(Game):
         action_set._order = [aid for aid in action_set._order if aid not in local_ids] + [
             aid for aid in local_ids if action_set.get_action(aid)
         ]
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             new_order = [aid for aid in action_set._order if aid not in WEB_STANDARD_ORDER]
             for aid in WEB_STANDARD_ORDER:
                 if action_set.get_action(aid):
@@ -914,26 +914,26 @@ class BackgammonGame(Game):
         if (
             self.status == "playing"
             and user
-            and getattr(user, "client_type", "") == "web"
+            and self.is_touch_client(user)
         ):
             return Visibility.VISIBLE
         return Visibility.HIDDEN
 
     def _is_whose_turn_hidden(self, player: Player) -> Visibility:
         user = self.get_user(player)
-        if user and getattr(user, "client_type", "") == "web" and self.status == "playing":
+        if self.is_touch_client(user) and self.status == "playing":
             return Visibility.VISIBLE
         return super()._is_whose_turn_hidden(player)
 
     def _is_whos_at_table_hidden(self, player: Player) -> Visibility:
         user = self.get_user(player)
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             return Visibility.VISIBLE
         return super()._is_whos_at_table_hidden(player)
 
     def _is_check_scores_hidden(self, player: Player) -> Visibility:
         user = self.get_user(player)
-        if user and getattr(user, "client_type", "") == "web" and self.status == "playing":
+        if self.is_touch_client(user) and self.status == "playing":
             return Visibility.VISIBLE
         return super()._is_check_scores_hidden(player)
 

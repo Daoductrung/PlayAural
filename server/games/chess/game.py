@@ -408,7 +408,7 @@ class ChessGame(GridGameMixin, Game):
         action_set._order = [
             aid for aid in action_set._order if aid not in custom_ids
         ] + [aid for aid in custom_ids if action_set.get_action(aid)]
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             target_order = [
                 "read_board",
                 "check_status",
@@ -1699,13 +1699,13 @@ class ChessGame(GridGameMixin, Game):
 
     def _is_web_client(self, player: Player) -> bool:
         user = self.get_user(player)
-        return bool(user and getattr(user, "client_type", "") == "web")
+        return self.is_touch_client(user)
 
     def _is_read_board_hidden(self, player: Player) -> Visibility:
         if self.status != "playing":
             return Visibility.HIDDEN
         user = self.get_user(player)
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             return Visibility.VISIBLE
         return Visibility.HIDDEN
 
@@ -1713,7 +1713,7 @@ class ChessGame(GridGameMixin, Game):
         if self.status != "playing":
             return Visibility.HIDDEN
         user = self.get_user(player)
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             return Visibility.VISIBLE
         return Visibility.HIDDEN
 
@@ -1820,7 +1820,7 @@ class ChessGame(GridGameMixin, Game):
 
     def _is_whose_turn_hidden(self, player: Player) -> Visibility:
         user = self.get_user(player)
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             if self.status == "playing":
                 return Visibility.VISIBLE
             return Visibility.HIDDEN
@@ -1828,7 +1828,7 @@ class ChessGame(GridGameMixin, Game):
 
     def _is_whos_at_table_hidden(self, player: Player) -> Visibility:
         user = self.get_user(player)
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             return Visibility.VISIBLE
         return super()._is_whos_at_table_hidden(player)
 

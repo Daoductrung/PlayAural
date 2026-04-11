@@ -271,7 +271,7 @@ class HoldemGame(Game, TurnTimerMixin):
 
         # WEB-SPECIFIC: Turn Menu Actions (Restored & Reordered)
         # Only add these for Web clients to avoid duplicates in Python client context menu
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             # 1. Check scores (requested to be below All in)
             action_set.add(
                 Action(
@@ -497,7 +497,7 @@ class HoldemGame(Game, TurnTimerMixin):
         )
 
         # WEB-SPECIFIC: Reorder for Web Clients
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             # Remove actions from standard set as they are now in turn set for Web
             for duplicate_id in ["check_scores", "speak_hand", "speak_table", "speak_hand_value", "check_button", "check_hand_players"]:
                 if action_set.get_action(duplicate_id):
@@ -525,14 +525,14 @@ class HoldemGame(Game, TurnTimerMixin):
     def _is_whos_at_table_hidden(self, player: "Player") -> Visibility:
         """Override: Visible for Web (always), hidden otherwise."""
         user = self.get_user(player)
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             return Visibility.VISIBLE
         return super()._is_whos_at_table_hidden(player)
 
     def _is_whose_turn_hidden(self, player: "Player") -> Visibility:
         """Override: Visible for Web (Playing only), hidden otherwise."""
         user = self.get_user(player)
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             if self.status == "playing":
                 return Visibility.VISIBLE
             return Visibility.HIDDEN
@@ -541,7 +541,7 @@ class HoldemGame(Game, TurnTimerMixin):
     def _is_check_scores_hidden(self, player: "Player") -> Visibility:
         """Override: Visible for Web (Playing only), hidden otherwise."""
         user = self.get_user(player)
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             if self.status == "playing":
                 return Visibility.VISIBLE
             return Visibility.HIDDEN

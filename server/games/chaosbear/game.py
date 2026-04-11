@@ -131,7 +131,7 @@ class ChaosBearGame(Game):
         )
 
         # WEB-SPECIFIC: Reorder for Web Clients
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             target_order = ["check_status", "whose_turn", "whos_at_table"]
             new_order = [aid for aid in action_set._order if aid not in target_order]
             for aid in target_order:
@@ -146,14 +146,14 @@ class ChaosBearGame(Game):
     def _is_whos_at_table_hidden(self, player: "Player") -> Visibility:
         """Override: Visible for Web (always), hidden otherwise."""
         user = self.get_user(player)
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             return Visibility.VISIBLE
         return super()._is_whos_at_table_hidden(player)
 
     def _is_whose_turn_hidden(self, player: "Player") -> Visibility:
         """Override: Visible for Web (Playing only), hidden otherwise."""
         user = self.get_user(player)
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             if self.status == "playing":
                 return Visibility.VISIBLE
             return Visibility.HIDDEN
@@ -256,7 +256,7 @@ class ChaosBearGame(Game):
         
         # Hide for Python/other clients (they have keybinds/menu)
         user = self.get_user(player)
-        if user and getattr(user, "client_type", "") != "web":
+        if not self.is_touch_client(user):
             return Visibility.HIDDEN
 
         return Visibility.VISIBLE

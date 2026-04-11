@@ -34,3 +34,9 @@ errors.log
 .DS_Store
 .claude/
 example/
+mobile_client/node_modules/
+mobile_client/.expo/
+mobile_client/dist/
+.npm-cache/
+.mobile_eas_stage/
+server/pytest-cache-files-*/

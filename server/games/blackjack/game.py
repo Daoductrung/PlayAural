@@ -604,7 +604,7 @@ class BlackjackGame(Game):
         # Returning VISIBLE adds it to BOTH the Actions menu and Turn menu automatically
         # Returning HIDDEN adds it only to the Actions menu (since `get_enabled_actions` ignores `is_hidden`).
         user = self.get_user(player)
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             if self.status == "playing":
                 # Web clients get it in both the Turn menu and Actions menu
                 return Visibility.VISIBLE
@@ -713,7 +713,7 @@ class BlackjackGame(Game):
     def _is_check_scores_hidden(self, player: "Player") -> Visibility:
         """Override: Visible for Web (Playing only), hidden otherwise."""
         user = self.get_user(player)
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             if self.status == "playing":
                 return Visibility.VISIBLE
             return Visibility.HIDDEN
@@ -722,7 +722,7 @@ class BlackjackGame(Game):
     def _is_whose_turn_hidden(self, player: "Player") -> Visibility:
         """Override: Visible for Web (Playing only), hidden otherwise."""
         user = self.get_user(player)
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             if self.status == "playing":
                 return Visibility.VISIBLE
             return Visibility.HIDDEN
@@ -731,7 +731,7 @@ class BlackjackGame(Game):
     def _is_whos_at_table_hidden(self, player: "Player") -> Visibility:
         """Override: Visible for Web (always), hidden otherwise."""
         user = self.get_user(player)
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             return Visibility.VISIBLE
         return super()._is_whos_at_table_hidden(player)
 
@@ -810,7 +810,7 @@ class BlackjackGame(Game):
             action_set.add(action)
 
         # WEB-SPECIFIC: Reorder for Web Clients
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             new_order = [aid for aid in action_set._order if aid not in self.web_target_order]
             for aid in self.web_target_order:
                 if action_set.get_action(aid):

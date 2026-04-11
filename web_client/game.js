@@ -1590,7 +1590,19 @@ class GameClient {
     }
 
     updateTargetVoice() {
-        if (!this.cachedVoices || !this.cachedVoices.length) return;
+        if (!this.preferences.speech_voice) {
+            this.targetVoice = null;
+            return;
+        }
+        if (!this.cachedVoices || !this.cachedVoices.length) {
+            if (window.speechSynthesis) {
+                this.cachedVoices = window.speechSynthesis.getVoices();
+            }
+        }
+        if (!this.cachedVoices || !this.cachedVoices.length) {
+            this.targetVoice = null;
+            return;
+        }
         const found = this.cachedVoices.find(v => v.voiceURI === this.preferences.speech_voice);
         this.targetVoice = found || null;
         if (this.targetVoice) console.log(`Target Voice cached: ${this.targetVoice.name}`);
@@ -1945,7 +1957,7 @@ class GameClient {
 
         // WEB-SPECIFIC: Voice Selection Menu Interception
         if (packet.menu_id === "voice_selection_menu") {
-            const voices = window.speechSynthesis.getVoices();
+            const voices = window.speechSynthesis ? window.speechSynthesis.getVoices() : [];
             newItems = voices.map(voice => ({
                 text: voice.name + (voice.default ? " (Default)" : ""),
                 id: voice.voiceURI // Use URI as ID

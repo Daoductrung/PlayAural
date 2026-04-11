@@ -9,6 +9,7 @@ if TYPE_CHECKING:
 
 from ..users.base import MenuItem, EscapeBehavior
 from ..messages.localization import Localization
+from .client_types import is_touch_client
 
 
 class MenuManagementMixin:
@@ -81,17 +82,14 @@ class MenuManagementMixin:
         for resolved in self.get_all_visible_actions(player):
             items.append(MenuItem(text=resolved.label, id=resolved.action.id))
 
-        # WEB-SPECIFIC: Add static control buttons
-        client_type = getattr(user, "client_type", None)
-        if client_type == "web":
-            # 1. Actions Menu / Context Menu (Top Left)
+        # Touch clients get static table controls in the turn menu.
+        if is_touch_client(user):
             items.append(MenuItem(
                 text=Localization.get(user.locale, "actions-menu"),
                 id="web_actions_menu"
             ))
-            # 2. Leave Table (Bottom Right)
             items.append(MenuItem(
-                text=Localization.get(user.locale, "game-leave"), # Use "game-leave" ("Leave" or "Leave table") 
+                text=Localization.get(user.locale, "game-leave"),
                 id="web_leave_table"
             ))
 
@@ -145,14 +143,12 @@ class MenuManagementMixin:
         for resolved in self.get_all_visible_actions(player):
             items.append(MenuItem(text=resolved.label, id=resolved.action.id))
 
-        # WEB-SPECIFIC: Add static control buttons
-        if getattr(user, "client_type", None) == "web":
-            # 1. Actions Menu / Context Menu (Top Left)
+        # Touch clients get static table controls in the turn menu.
+        if is_touch_client(user):
             items.append(MenuItem(
                 text=Localization.get(user.locale, "actions-menu"),
                 id="web_actions_menu"
             ))
-            # 2. Leave Table (Bottom Right)
             items.append(MenuItem(
                 text=Localization.get(user.locale, "game-leave"),
                 id="web_leave_table"

@@ -128,7 +128,7 @@ class TestAuthSecurity:
         assert client.sent_messages[-1]["error"] == "email_taken"
 
     @pytest.mark.asyncio
-    async def test_python_registration_bypasses_captcha_while_web_requires_it(self, monkeypatch):
+    async def test_python_and_mobile_registration_bypass_captcha_while_web_requires_it(self, monkeypatch):
         calls = []
 
         async def fake_verify(token, remote_ip):
@@ -152,6 +152,21 @@ class TestAuthSecurity:
         assert python_client.sent_messages[-1]["status"] == "success"
         assert calls == []
 
+        mobile_client = MockClient()
+        await self.server._handle_register(
+            mobile_client,
+            {
+                "type": "register",
+                "client": "mobile",
+                "username": "mobileuser",
+                "password": "Password123",
+                "email": "mobile@test.com",
+                "locale": "en",
+            },
+        )
+        assert mobile_client.sent_messages[-1]["status"] == "success"
+        assert calls == []
+
         web_client = MockClient()
         await self.server._handle_register(
             web_client,
@@ -170,7 +185,7 @@ class TestAuthSecurity:
         assert len(calls) == 1
 
     @pytest.mark.asyncio
-    async def test_python_authorize_bypasses_captcha_while_web_requires_it(self, monkeypatch):
+    async def test_python_and_mobile_authorize_bypass_captcha_while_web_requires_it(self, monkeypatch):
         calls = []
 
         async def fake_verify(token, remote_ip):
@@ -195,6 +210,20 @@ class TestAuthSecurity:
         assert python_client.sent_messages[0]["type"] == "authorize_success"
         assert calls == []
 
+        mobile_client = MockClient()
+        await self.server._handle_authorize(
+            mobile_client,
+            {
+                "type": "authorize",
+                "client": "mobile",
+                "username": "authuser",
+                "password": "Password123",
+                "version": "1.0.0",
+            },
+        )
+        assert mobile_client.sent_messages[0]["type"] == "authorize_success"
+        assert calls == []
+
         web_client = MockClient()
         await self.server._handle_authorize(
             web_client,
@@ -212,7 +241,7 @@ class TestAuthSecurity:
         assert len(calls) == 1
 
     @pytest.mark.asyncio
-    async def test_python_password_reset_request_bypasses_captcha_while_web_requires_it(self, monkeypatch):
+    async def test_python_and_mobile_password_reset_request_bypass_captcha_while_web_requires_it(self, monkeypatch):
         calls = []
 
         async def fake_verify(token, remote_ip):
@@ -235,6 +264,22 @@ class TestAuthSecurity:
         assert python_client.sent_messages[-1]["error"] == "smtp_not_configured"
         assert calls == []
 
+        mobile_client = MockClient()
+        await self.server._handle_request_password_reset(
+            mobile_client,
+            {
+                "type": "request_password_reset",
+                "client": "mobile",
+                "email": "reset@test.com",
+                "locale": "en",
+            },
+        )
+        assert mobile_client.sent_messages[-1]["status"] == "error"
+        assert mobile_client.sent_messages[-1]["error"] == "smtp_not_configured"
+        assert calls == []
+
+        self.server._rate_limiter._password_resets.clear()
+
         web_client = MockClient()
         await self.server._handle_request_password_reset(
             web_client,
@@ -250,7 +295,7 @@ class TestAuthSecurity:
         assert len(calls) == 1
 
     @pytest.mark.asyncio
-    async def test_python_submit_reset_code_bypasses_captcha_while_web_requires_it(self, monkeypatch):
+    async def test_python_and_mobile_submit_reset_code_bypass_captcha_while_web_requires_it(self, monkeypatch):
         calls = []
 
         async def fake_verify(token, remote_ip):
@@ -279,6 +324,23 @@ class TestAuthSecurity:
         assert python_client.sent_messages[-1]["status"] == "success"
         assert calls == []
         assert self.server._auth.authenticate("resetuser", "NewPassword123")
+
+        token = self.server._auth.generate_reset_token(user_record.uuid)
+        mobile_client = MockClient()
+        await self.server._handle_submit_reset_code(
+            mobile_client,
+            {
+                "type": "submit_reset_code",
+                "client": "mobile",
+                "email": "reset@test.com",
+                "code": token,
+                "new_password": "MobilePass123",
+                "locale": "en",
+            },
+        )
+        assert mobile_client.sent_messages[-1]["status"] == "success"
+        assert calls == []
+        assert self.server._auth.authenticate("resetuser", "MobilePass123")
 
         token = self.server._auth.generate_reset_token(user_record.uuid)
         web_client = MockClient()

@@ -306,7 +306,7 @@ class TradeoffGame(Game):
 
     def _is_view_hand_hidden(self, player: Player) -> Visibility:
         user = self.get_user(player)
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             if self.status == "playing" and not player.is_spectator:
                 return Visibility.VISIBLE
         return Visibility.HIDDEN
@@ -318,7 +318,7 @@ class TradeoffGame(Game):
 
     def _is_view_pool_hidden(self, player: Player) -> Visibility:
         user = self.get_user(player)
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             if self.status == "playing":
                 return Visibility.VISIBLE
         return Visibility.HIDDEN
@@ -330,7 +330,7 @@ class TradeoffGame(Game):
 
     def _is_view_players_hidden(self, player: Player) -> Visibility:
         user = self.get_user(player)
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             if self.status == "playing":
                 return Visibility.VISIBLE
         return Visibility.HIDDEN
@@ -446,7 +446,7 @@ class TradeoffGame(Game):
             )
         )
 
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             info_actions = ["check_scores", "whose_turn", "whos_at_table"]
             new_order = [aid for aid in action_set._order if aid not in info_actions]
             for aid in info_actions:
@@ -459,7 +459,7 @@ class TradeoffGame(Game):
 
     def _is_check_scores_hidden(self, player: "Player") -> Visibility:
         user = self.get_user(player)
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             if self.status == "playing":
                 return Visibility.VISIBLE
             return Visibility.HIDDEN
@@ -467,7 +467,7 @@ class TradeoffGame(Game):
 
     def _is_whose_turn_hidden(self, player: "Player") -> Visibility:
         user = self.get_user(player)
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             if self.status == "playing":
                 return Visibility.VISIBLE
             return Visibility.HIDDEN
@@ -475,7 +475,7 @@ class TradeoffGame(Game):
 
     def _is_whos_at_table_hidden(self, player: "Player") -> Visibility:
         user = self.get_user(player)
-        if user and getattr(user, "client_type", "") == "web":
+        if self.is_touch_client(user):
             return Visibility.VISIBLE
         return super()._is_whos_at_table_hidden(player)
 

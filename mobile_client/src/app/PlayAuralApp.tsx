@@ -46,7 +46,7 @@ import { TtsManager } from "../tts/TtsManager";
 
 const MOBILE_CLIENT_VERSION = "1.0.2";
 const MOBILE_BUILD_STAMP = "2026-04-11 14:18:24 +07:00";
-const DEFAULT_SERVER_URL = "ws://localhost:8000";
+const DEFAULT_SERVER_URL = "wss://playaural.ddt.one:443";
 const APK_DOWNLOAD_URL =
   "https://github.com/Daoductrung/PlayAural/releases/latest/download/PlayAural.apk";
 const CLIENT_CONFIG_STORAGE_KEY = "playaural.mobile.clientConfig";

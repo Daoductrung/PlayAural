@@ -427,13 +427,11 @@ export function PlayAuralApp() {
     resetReconnectState();
   }, [resetReconnectState]);
 
-  useEffect(() => {
-    void audio.initialize();
-  }, [audio]);
-
   useEffect(() => () => {
     clearReconnectTimer();
-  }, [clearReconnectTimer]);
+    audio.shutdown();
+    tts.stop();
+  }, [audio, clearReconnectTimer, tts]);
 
   useEffect(() => {
     void loadStoredClientState();
@@ -763,7 +761,7 @@ export function PlayAuralApp() {
   const exitApplication = () => {
     disableAutoReconnect();
     connectionRef.current?.disconnect();
-    stopGameAudio(true);
+    audio.shutdown();
     tts.stop();
     if (Platform.OS === "android") {
       BackHandler.exitApp();
@@ -771,6 +769,7 @@ export function PlayAuralApp() {
   };
 
   const resetToLoginScreen = useCallback((statusMessage: string, authMessage = statusMessage) => {
+    audio.shutdown();
     setConnected(false);
     setMode("main");
     setMenuState(defaultMenuState);
@@ -782,12 +781,12 @@ export function PlayAuralApp() {
     setAuthMode("login");
     setStatusText(statusMessage);
     setAuthStatusText(authMessage);
-  }, []);
+  }, [audio]);
 
   const handleTerminalSessionExit = useCallback((message: string, announceMessage = true) => {
     disableAutoReconnect();
     connectionRef.current?.disconnect();
-    stopGameAudio(true);
+    audio.shutdown();
     tts.stop();
     if (announceMessage) {
       announce(message, "system");
@@ -796,7 +795,7 @@ export function PlayAuralApp() {
     if (Platform.OS === "android") {
       BackHandler.exitApp();
     }
-  }, [announce, disableAutoReconnect, resetToLoginScreen, tts]);
+  }, [announce, audio, disableAutoReconnect, resetToLoginScreen, tts]);
 
   const openDialog = useCallback((nextDialog: Omit<DialogState, "focusIndex">) => {
     setDialogState({

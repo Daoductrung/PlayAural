@@ -22,8 +22,8 @@ type TouchTrack = {
 
 const DOUBLE_TAP_WINDOW_MS = 350;
 const DOUBLE_TAP_HOLD_MS = 350;
-const MOVE_TOLERANCE = 8;
-const SWIPE_THRESHOLD = 20;
+const MOVE_TOLERANCE = 4;
+const SWIPE_THRESHOLD = 14;
 
 export function useSelfVoicingGestures(callbacks: GestureCallbacks) {
   const callbacksRef = useRef(callbacks);
@@ -67,6 +67,18 @@ export function useSelfVoicingGestures(callbacks: GestureCallbacks) {
     }, DOUBLE_TAP_HOLD_MS);
   };
 
+  const dispatchSwipe = (direction: SwipeDirection, maxTouches: number) => {
+    if (maxTouches >= 3) {
+      callbacksRef.current.onThreeFingerSwipe(direction);
+      return;
+    }
+    if (maxTouches >= 2) {
+      callbacksRef.current.onTwoFingerSwipe(direction);
+      return;
+    }
+    callbacksRef.current.onSingleFingerSwipe(direction);
+  };
+
   return useMemo(
     () =>
       PanResponder.create({
@@ -95,6 +107,15 @@ export function useSelfVoicingGestures(callbacks: GestureCallbacks) {
             track.moved = true;
             clearHoldTimer();
           }
+          if (track.consumed) {
+            return;
+          }
+          const direction = classifySwipe(gestureState);
+          if (!direction) {
+            return;
+          }
+          track.consumed = true;
+          dispatchSwipe(direction, track.maxTouches);
         },
         onPanResponderRelease: (_event: GestureResponderEvent, gestureState: PanResponderGestureState) => {
           clearHoldTimer();
@@ -106,13 +127,7 @@ export function useSelfVoicingGestures(callbacks: GestureCallbacks) {
 
           const direction = classifySwipe(gestureState);
           if (direction) {
-            if (track.maxTouches >= 3) {
-              callbacksRef.current.onThreeFingerSwipe(direction);
-            } else if (track.maxTouches >= 2) {
-              callbacksRef.current.onTwoFingerSwipe(direction);
-            } else {
-              callbacksRef.current.onSingleFingerSwipe(direction);
-            }
+            dispatchSwipe(direction, track.maxTouches);
             return;
           }
 

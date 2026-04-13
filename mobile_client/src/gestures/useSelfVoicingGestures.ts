@@ -5,6 +5,7 @@ type SwipeDirection = "up" | "down" | "left" | "right";
 
 type GestureCallbacks = {
   enabled: boolean;
+  globalToggleEnabled?: boolean;
   isNativeTextInputTarget?: (target: unknown) => boolean;
   isTextInputEditing?: () => boolean;
   onDoubleTap: () => void;
@@ -12,6 +13,7 @@ type GestureCallbacks = {
   onSingleFingerSwipe: (direction: SwipeDirection) => void;
   onThreeFingerSwipe: (direction: SwipeDirection) => void;
   onThreeFingerTap: () => void;
+  onThreeFingerTripleTap: () => void;
   onTwoFingerSwipe: (direction: SwipeDirection) => void;
   onTwoFingerTap: () => void;
 };
@@ -22,16 +24,28 @@ type TouchTrack = {
   moved: boolean;
 };
 
+type DirectTouchTrack = {
+  maxTouches: number;
+  moved: boolean;
+  startX: number;
+  startY: number;
+};
+
 const DOUBLE_TAP_WINDOW_MS = 350;
 const DOUBLE_TAP_HOLD_MS = 350;
+const THREE_FINGER_TAP_WINDOW_MS = 650;
 const MOVE_TOLERANCE = 4;
 const SWIPE_THRESHOLD = 14;
 
 export function useSelfVoicingGestures(callbacks: GestureCallbacks) {
   const callbacksRef = useRef(callbacks);
   const touchTrackRef = useRef<TouchTrack | null>(null);
+  const directTouchTrackRef = useRef<DirectTouchTrack | null>(null);
   const lastSingleTapAtRef = useRef(0);
+  const lastThreeFingerTapAtRef = useRef(0);
+  const threeFingerTapCountRef = useRef(0);
   const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingThreeFingerTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clearHoldTimer = () => {
     if (holdTimerRef.current) {
@@ -40,11 +54,32 @@ export function useSelfVoicingGestures(callbacks: GestureCallbacks) {
     }
   };
 
+  const clearPendingThreeFingerTapTimer = () => {
+    if (pendingThreeFingerTapTimerRef.current) {
+      clearTimeout(pendingThreeFingerTapTimerRef.current);
+      pendingThreeFingerTapTimerRef.current = null;
+    }
+  };
+
   useEffect(() => {
     callbacksRef.current = callbacks;
   }, [callbacks]);
 
-  useEffect(() => clearHoldTimer, []);
+  useEffect(() => () => {
+    clearHoldTimer();
+    clearPendingThreeFingerTapTimer();
+  }, []);
+
+  const getTouchPoint = (event: GestureResponderEvent): { x: number; y: number } => {
+    const nativeEvent = event.nativeEvent as GestureResponderEvent["nativeEvent"] & {
+      pageX?: number;
+      pageY?: number;
+    };
+    return {
+      x: nativeEvent.pageX ?? nativeEvent.locationX ?? 0,
+      y: nativeEvent.pageY ?? nativeEvent.locationY ?? 0,
+    };
+  };
 
   const classifySwipe = (gestureState: PanResponderGestureState): SwipeDirection | null => {
     const { dx, dy } = gestureState;
@@ -81,6 +116,79 @@ export function useSelfVoicingGestures(callbacks: GestureCallbacks) {
     callbacksRef.current.onSingleFingerSwipe(direction);
   };
 
+  const registerThreeFingerTap = () => {
+    const callbacks = callbacksRef.current;
+    const now = Date.now();
+    if (now - lastThreeFingerTapAtRef.current > THREE_FINGER_TAP_WINDOW_MS) {
+      threeFingerTapCountRef.current = 0;
+    }
+    lastThreeFingerTapAtRef.current = now;
+    threeFingerTapCountRef.current += 1;
+
+    if (threeFingerTapCountRef.current >= 3 && callbacks.globalToggleEnabled !== false) {
+      threeFingerTapCountRef.current = 0;
+      clearPendingThreeFingerTapTimer();
+      callbacks.onThreeFingerTripleTap();
+      return;
+    }
+
+    if (!callbacks.enabled) {
+      return;
+    }
+
+    clearPendingThreeFingerTapTimer();
+    pendingThreeFingerTapTimerRef.current = setTimeout(() => {
+      pendingThreeFingerTapTimerRef.current = null;
+      if (threeFingerTapCountRef.current === 1) {
+        threeFingerTapCountRef.current = 0;
+        callbacksRef.current.onThreeFingerTap();
+      }
+    }, THREE_FINGER_TAP_WINDOW_MS);
+  };
+
+  const handleDirectTouchStart = (event: GestureResponderEvent) => {
+    const touches = event.nativeEvent.touches.length || 1;
+    const point = getTouchPoint(event);
+    const current = directTouchTrackRef.current;
+    if (!current) {
+      directTouchTrackRef.current = {
+        maxTouches: touches,
+        moved: false,
+        startX: point.x,
+        startY: point.y,
+      };
+      return;
+    }
+    current.maxTouches = Math.max(current.maxTouches, touches);
+  };
+
+  const handleDirectTouchMove = (event: GestureResponderEvent) => {
+    const current = directTouchTrackRef.current;
+    if (!current) {
+      return;
+    }
+    current.maxTouches = Math.max(current.maxTouches, event.nativeEvent.touches.length || current.maxTouches);
+    const point = getTouchPoint(event);
+    if (Math.max(Math.abs(point.x - current.startX), Math.abs(point.y - current.startY)) > MOVE_TOLERANCE) {
+      current.moved = true;
+    }
+  };
+
+  const handleDirectTouchEnd = (event: GestureResponderEvent) => {
+    const current = directTouchTrackRef.current;
+    if (!current || event.nativeEvent.touches.length > 0) {
+      return;
+    }
+    directTouchTrackRef.current = null;
+    if (current.maxTouches >= 3 && !current.moved) {
+      registerThreeFingerTap();
+    }
+  };
+
+  const handleDirectTouchCancel = () => {
+    directTouchTrackRef.current = null;
+  };
+
   const isTextInputTarget = (event: GestureResponderEvent): boolean => {
     return callbacksRef.current.isNativeTextInputTarget?.(event.nativeEvent.target) ?? false;
   };
@@ -111,8 +219,8 @@ export function useSelfVoicingGestures(callbacks: GestureCallbacks) {
   };
 
   return useMemo(
-    () =>
-      PanResponder.create({
+    () => {
+      const panResponder = PanResponder.create({
         onMoveShouldSetPanResponder: shouldHandleMoveGesture,
         onMoveShouldSetPanResponderCapture: shouldHandleMoveGesture,
         onPanResponderGrant: (event: GestureResponderEvent) => {
@@ -163,7 +271,6 @@ export function useSelfVoicingGestures(callbacks: GestureCallbacks) {
           }
 
           if (track.maxTouches >= 3) {
-            callbacksRef.current.onThreeFingerTap();
             return;
           }
           if (track.maxTouches === 2) {
@@ -184,11 +291,23 @@ export function useSelfVoicingGestures(callbacks: GestureCallbacks) {
           touchTrackRef.current = null;
         },
         onStartShouldSetPanResponder: shouldHandleStartGesture,
-        // Do not capture the initial touch globally. Native controls such as
-        // Android TextInput must receive the start event to open the soft
-        // keyboard; non-control surfaces can still bubble to the SV responder.
-        onStartShouldSetPanResponderCapture: () => false,
-      }),
+        // Capture non-text controls while SV is active so visible Pressables do
+        // not receive normal taps. TextInput starts must still pass through for
+        // native keyboard activation.
+        onStartShouldSetPanResponderCapture: shouldHandleStartGesture,
+      });
+
+      return {
+        ...panResponder,
+        panHandlers: {
+          ...panResponder.panHandlers,
+          onTouchCancel: handleDirectTouchCancel,
+          onTouchEnd: handleDirectTouchEnd,
+          onTouchMove: handleDirectTouchMove,
+          onTouchStart: handleDirectTouchStart,
+        },
+      };
+    },
     [],
   );
 }

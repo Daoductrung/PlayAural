@@ -31,6 +31,7 @@
   "chat-input-focus": "Ô nhập trò chuyện",
   "chat-input-label": "Ô nhập trò chuyện. Hãy bật trình đọc màn hình của hệ thống tại đây nếu bạn cần nhập văn bản bằng bàn phím gốc.",
   "chat-send-button": "Gửi tin nhắn",
+  "chat-close-button": "Đóng trò chuyện",
   "chat-placeholder": "Nhập tin nhắn, hoặc /g nội dung để gửi ra trò chuyện chung",
   "chat-empty": "Chưa có tin nhắn trò chuyện.",
   "chat-unknown-sender": "Không rõ",
@@ -119,5 +120,5 @@
   "current-music-track": "Nhạc nền: {value}",
   "current-ambience-track": "Môi trường: {value}",
   "footer-gestures-line-1": "Trò chơi có các cử chỉ được tích hợp sẵn, hãy tắt trình đọc màn hình của bạn sau khi kết nối thành công đến trò chơi để có trải nghiệm chơi tốt nhất.",
-  "footer-gestures-line-2": "Vuốt 1 ngón để di chuyển. Vuốt lên bằng 2 ngón để quay lại hoặc mở menu hành động. Vuốt sang phải bằng 2 ngón để mở trò chuyện. Vuốt sang trái bằng 2 ngón để mở nhật ký. Vuốt xuống bằng 2 ngón để mở menu phím tắt. Chạm 2 ngón để dừng đọc. Chạm 3 ngón để đọc lại thông báo gần nhất."
+  "footer-gestures-line-2": "Vuốt 1 ngón để di chuyển. Vuốt lên bằng 2 ngón để quay lại hoặc mở menu hành động. Vuốt sang phải bằng 2 ngón để mở trò chuyện. Vuốt sang trái bằng 2 ngón để mở nhật ký. Vuốt xuống bằng 2 ngón để mở menu phím tắt. Chạm 2 ngón để dừng đọc. Chạm 3 ngón để đọc lại thông báo gần nhất. Chạm nhanh 3 lần bằng 3 ngón để bật hoặc tắt tự đọc."
 }

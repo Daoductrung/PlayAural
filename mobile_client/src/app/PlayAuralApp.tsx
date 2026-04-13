@@ -96,7 +96,7 @@ type InputOverlayFocus = 0 | 1;
 type DialogFocusIndex = number;
 
 type ChatFocusItem = {
-  kind: "input" | "message" | "send";
+  kind: "close" | "input" | "message" | "send";
   text: string;
 };
 
@@ -1425,6 +1425,7 @@ export function PlayAuralApp() {
   const chatFocusItems: ChatFocusItem[] = [
     { kind: "input", text: localization.t("chat-input-focus") },
     { kind: "send", text: localization.t("chat-send-button") },
+    { kind: "close", text: localization.t("chat-close-button") },
     ...chatMessages.map((message, index) => ({
       kind: "message" as const,
       text: message.text,
@@ -1698,8 +1699,11 @@ export function PlayAuralApp() {
       if (focusedChatItem?.kind === "send") {
         return "chat:send";
       }
+      if (focusedChatItem?.kind === "close") {
+        return "chat:close";
+      }
       if (focusedChatItem?.kind === "message") {
-        return `chat:message:${chatFocusIndex}`;
+        return `chat:message:${chatFocusIndex - 3}`;
       }
     }
     return null;
@@ -2187,6 +2191,8 @@ export function PlayAuralApp() {
         chatInputRef.current?.focus();
       } else if (focusedChatItem?.kind === "send") {
         submitChat();
+      } else if (focusedChatItem?.kind === "close") {
+        closeOverlay();
       } else if (focusedChatItem?.kind === "message") {
         speakUserFocus(focusedChatItem.text);
       }
@@ -2599,6 +2605,7 @@ export function PlayAuralApp() {
 
   const gestures = useSelfVoicingGestures({
     enabled: selfVoicingGestureEnabled,
+    globalToggleEnabled: true,
     isNativeTextInputTarget,
     isTextInputEditing,
     onDoubleTap: handlePrimaryActivate,
@@ -2614,6 +2621,7 @@ export function PlayAuralApp() {
       }
     },
     onThreeFingerTap: handleRepeatLast,
+    onThreeFingerTripleTap: toggleSelfVoicing,
     onTwoFingerSwipe: handleSystemSwipe,
     onTwoFingerTap: handleStopSpeech,
   });
@@ -3103,6 +3111,25 @@ export function PlayAuralApp() {
       >
         <Text style={styles.buttonText}>{localization.t("chat-send-button")}</Text>
       </Pressable>
+      <Pressable
+        accessibilityLabel={localization.t("chat-close-button")}
+        accessibilityRole="button"
+        accessible
+        onPress={() => {
+          void audio.handleUserInteraction();
+          closeOverlay();
+        }}
+        onFocus={() => {
+          setChatFocusIndex(2);
+        }}
+        ref={registerAccessibilityNode("chat:close")}
+        style={[
+          styles.buttonSecondary,
+          chatFocusIndex === 2 ? styles.menuItemFocused : undefined,
+        ]}
+      >
+        <Text style={styles.buttonText}>{localization.t("chat-close-button")}</Text>
+      </Pressable>
       <ScrollView style={styles.scrollArea}>
         {chatMessages.map((item, index) => (
           <Pressable
@@ -3111,16 +3138,16 @@ export function PlayAuralApp() {
             accessible
             key={`chat-${item.timestamp}-${index}`}
             onFocus={() => {
-              setChatFocusIndex(index + 2);
+              setChatFocusIndex(index + 3);
             }}
             onPress={() => {
-              setChatFocusIndex(index + 2);
+              setChatFocusIndex(index + 3);
               speakUserFocus(item.text);
             }}
             ref={registerAccessibilityNode(`chat:message:${index}`)}
             style={[
               styles.menuItem,
-              chatFocusIndex === index + 2 ? styles.menuItemFocused : undefined,
+              chatFocusIndex === index + 3 ? styles.menuItemFocused : undefined,
             ]}
           >
             <Text style={styles.historyText}>{item.text}</Text>
@@ -3696,7 +3723,7 @@ export function PlayAuralApp() {
   );
 
   const renderScreenReaderOnlyControls = () => {
-    if (!screenReaderEnabled && !WEB_SCREEN_READER_SUPPORT) {
+    if (Platform.OS === "web" && !screenReaderEnabled && !WEB_SCREEN_READER_SUPPORT) {
       return null;
     }
 
@@ -3706,13 +3733,17 @@ export function PlayAuralApp() {
           selfVoicingEnabled ? "sv-toggle-button-off" : "sv-toggle-button-on",
         )}
         accessibilityRole="button"
+        accessibilityElementsHidden={false}
         accessible
+        collapsable={false}
+        focusable
+        importantForAccessibility="yes"
         onPress={() => {
           void audio.handleUserInteraction();
           toggleSelfVoicing();
         }}
         ref={registerAccessibilityNode("screen-reader:sv-toggle")}
-        style={styles.screenReaderOnly}
+        style={Platform.OS === "web" ? styles.screenReaderOnly : styles.nativeScreenReaderOnlyControl}
       >
         <Text>{localization.t(selfVoicingEnabled ? "sv-toggle-button-off" : "sv-toggle-button-on")}</Text>
       </Pressable>
@@ -3780,7 +3811,7 @@ export function PlayAuralApp() {
   return (
     <SafeAreaView
       style={styles.safeArea}
-      {...(selfVoicingGestureEnabled ? gestures.panHandlers : {})}
+      {...gestures.panHandlers}
     >
       <StatusBar style="light" />
       <KeyboardAvoidingView
@@ -3895,6 +3926,15 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 0,
     width: 1,
+  },
+  nativeScreenReaderOnlyControl: {
+    height: 48,
+    opacity: 0.01,
+    position: "absolute",
+    right: 8,
+    top: 8,
+    width: 48,
+    zIndex: 10,
   },
   title: {
     color: "#f6f7fb",

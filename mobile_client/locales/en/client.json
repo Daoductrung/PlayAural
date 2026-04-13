@@ -31,6 +31,7 @@
   "chat-input-focus": "Chat input",
   "chat-input-label": "Chat input. Turn on your screen reader here if you need native text entry.",
   "chat-send-button": "Send message",
+  "chat-close-button": "Close Chat",
   "chat-placeholder": "Type a message, or /g message to send it globally",
   "chat-empty": "No chat messages yet.",
   "chat-unknown-sender": "Unknown",
@@ -119,5 +120,5 @@
   "current-music-track": "Music: {value}",
   "current-ambience-track": "Ambience: {value}",
   "footer-gestures-line-1": "The game has built-in gestures. Please turn off your screen reader after successfully connecting to the game for the best playing experience.",
-  "footer-gestures-line-2": "1-finger swipe moves between items. 2-finger swipe up goes back or opens the action menu. 2-finger swipe right opens chat. 2-finger swipe left opens history. 2-finger swipe down opens shortcuts. 2-finger tap stops speech. 3-finger tap repeats the last announcement."
+  "footer-gestures-line-2": "1-finger swipe moves between items. 2-finger swipe up goes back or opens the action menu. 2-finger swipe right opens chat. 2-finger swipe left opens history. 2-finger swipe down opens shortcuts. 2-finger tap stops speech. 3-finger tap repeats the last announcement. 3-finger triple-tap toggles self-voicing."
 }

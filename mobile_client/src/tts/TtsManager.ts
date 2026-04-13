@@ -1,6 +1,8 @@
 import * as Speech from "expo-speech";
 import type { Voice } from "expo-speech";
 
+import { ENABLE_CLIENT_DEBUG_LOGS } from "../utils/debug";
+
 type SpeechChannel = "announcement" | "ui";
 
 type SpeechStartOptions = {
@@ -419,7 +421,7 @@ export class TtsManager {
   }
 
   private debug(event: string, text: string): void {
-    if (typeof console === "undefined") {
+    if (!ENABLE_CLIENT_DEBUG_LOGS || typeof console === "undefined") {
       return;
     }
     console.info(DEBUG_PREFIX, event, text ? { text } : "");

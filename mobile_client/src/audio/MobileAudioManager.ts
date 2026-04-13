@@ -4,6 +4,7 @@ import { Asset } from "expo-asset";
 import { Platform } from "react-native";
 
 import { soundManifest } from "../generated/soundManifest";
+import { ENABLE_CLIENT_DEBUG_LOGS } from "../utils/debug";
 
 type ManagedNativePlayer = {
   player: ExpoAudio.Sound;
@@ -1208,7 +1209,7 @@ export class MobileAudioManager {
   }
 
   private debug(event: string, value: string): void {
-    if (typeof console === "undefined") {
+    if (!ENABLE_CLIENT_DEBUG_LOGS || typeof console === "undefined") {
       return;
     }
     console.info(DEBUG_PREFIX, event, value || "");

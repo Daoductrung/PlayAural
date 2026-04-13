@@ -47,7 +47,7 @@ import type {
 import { BufferStore, type BufferName } from "../state/BufferStore";
 import { TtsManager } from "../tts/TtsManager";
 
-const MOBILE_CLIENT_VERSION = "1.0.2";
+const MOBILE_CLIENT_VERSION = "1.0.3";
 const MOBILE_BUILD_STAMP = "2026-04-13 19:05:13 +07:00";
 const DEFAULT_SERVER_URL = "wss://playaural.ddt.one:443";
 const APK_DOWNLOAD_URL =

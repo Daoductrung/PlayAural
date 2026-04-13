@@ -2,7 +2,7 @@
   "expo": {
     "name": "PlayAural Mobile",
     "slug": "playaural-mobile",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "orientation": "portrait",
     "assetBundlePatterns": [
       "sounds/**/*"

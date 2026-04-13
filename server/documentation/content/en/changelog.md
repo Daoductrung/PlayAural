@@ -1,5 +1,25 @@
 Changelog
 
+Monday 13 April 2026
+
+Server Updates:
+
+Added a new game called Battle, complete with comprehensive beginner documentation. The game is fully localized in both English and Vietnamese.
+
+Fixed a bug where the table join sound would sometimes incorrectly play immediately after a game round ended.
+
+Fixed an issue in Backgammon where spectators watching a match would sometimes falsely receive a notification that they were holding the doubling cube.
+
+Fixed an exploit in Crazy Eights where a player, after playing an 8 (wild-card) to change the suit, could quickly play another card of the new suit before the game passed the turn to the next player.
+
+Mobile Client Updates:
+
+Added an option to disable the built-in self-voicing mode and its custom gestures if you prefer to play the game using your device's native system screen reader.
+
+Please note: The button to toggle self-voicing on or off can only be focused and read by your system screen reader; the game's internal self-voicing system cannot see this button.
+
+When self-voicing is turned off, quick swipe gestures for actions like opening the chat or using shortcuts will be displayed as standard on-screen buttons for easy tapping.
+
 Saturday 11 April 2026
 
 Mobile Client Updates:

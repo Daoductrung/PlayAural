@@ -1,5 +1,25 @@
 Nhật ký thay đổi
 
+Thứ Hai 13 Tháng Tư 2026
+
+Cập nhật máy chủ:
+
+Đã thêm trò chơi mới mang tên Đấu Trường Chiến Kỹ với đầy đủ tài liệu hướng dẫn dành cho người mới bắt đầu. Trò chơi này đã được hỗ trợ hoàn chỉnh bằng cả tiếng Việt và tiếng Anh.
+
+Đã khắc phục lỗi âm thanh báo hiệu người chơi tham gia bàn thỉnh thoảng lại phát ra sau mỗi lần kết thúc một ván đấu.
+
+Đã sửa lỗi trong trò chơi Cờ thỏ cáo khiến khán giả đang theo dõi ván đấu thỉnh thoảng lại nhận được thông báo sai rằng họ đang giữ khối nhân đôi điểm.
+
+Đã vá một lỗ hổng trong trò Crazy Eights, ngăn chặn tình trạng người chơi đánh lá 8 (lá bài đổi chất) rồi lập tức bấm nhanh để đánh thêm một lá bài nữa trước khi hệ thống kịp chuyển lượt cho người tiếp theo.
+
+Cập nhật ứng dụng di động:
+
+Đã thêm tùy chọn cho phép bạn tắt chế độ tự phát giọng nói (self-voicing) và các cử chỉ điều hướng tích hợp, dành cho những ai muốn trải nghiệm trò chơi bằng chính trình đọc màn hình mặc định của điện thoại.
+
+Xin lưu ý: Nút bật/tắt chế độ tự phát giọng nói này chỉ có thể được tìm thấy và thao tác bằng trình đọc màn hình của hệ thống, bản thân hệ thống tự phát giọng nói của trò chơi sẽ không thấy được nút này.
+
+Khi bạn tắt chế độ tự phát giọng nói, các thao tác cử chỉ vuốt nhanh như mở trò chuyện hay phím tắt sẽ được chuyển đổi thành các nút bấm thông thường hiển thị trực tiếp trên màn hình để bạn dễ dàng sử dụng.
+
 Thứ Bảy 11 Tháng Tư 2026
 
 Cập nhật ứng dụng di động:

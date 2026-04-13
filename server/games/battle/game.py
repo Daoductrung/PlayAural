@@ -531,6 +531,64 @@ class BattleGame(Game):
             target=self.options.survival_target,
         )
 
+    def _game_mode_label(self, locale: str) -> str:
+        return Localization.get(locale, GAME_MODE_CHOICE_LABELS[self.options.game_mode])
+
+    def _turn_mode_label(self, locale: str) -> str:
+        return Localization.get(locale, TURN_MODE_CHOICE_LABELS[self.options.turn_mode])
+
+    def _arena_difficulty_label(self, locale: str) -> str:
+        return Localization.get(locale, ARENA_DIFFICULTY_CHOICE_LABELS[self.options.arena_difficulty])
+
+    def _mode_status_lines(self, locale: str) -> list[str]:
+        lines = [
+            Localization.get(
+                locale,
+                "battle-status-mode-line",
+                mode=self._game_mode_label(locale),
+                turn_mode=self._turn_mode_label(locale),
+            )
+        ]
+        if self._mode_allows_manual_done():
+            lines.append(
+                Localization.get(
+                    locale,
+                    "battle-status-selection-limit-line",
+                    limit=self._selection_limit_for_mode(),
+                )
+            )
+        if self._is_classic_enemy_mode():
+            lines.append(
+                Localization.get(
+                    locale,
+                    "battle-status-classic-enemy-line",
+                    preset=self._preset_label(locale, self.options.classic_enemy_preset),
+                )
+            )
+        if self._is_arena_mode() or self._survival_options_are_active():
+            lines.append(
+                Localization.get(
+                    locale,
+                    "battle-status-arena-difficulty-line",
+                    difficulty=self._arena_difficulty_label(locale),
+                )
+            )
+        if self._survival_options_are_active():
+            target_value = (
+                Localization.get(locale, "battle-status-target-endless")
+                if self._survival_target_is_endless()
+                else str(self.options.survival_target)
+            )
+            lines.append(
+                Localization.get(
+                    locale,
+                    "battle-status-endurance-options-line",
+                    target=target_value,
+                    heal_percent=self.options.survival_heal_percent,
+                )
+            )
+        return lines
+
     def _broadcast_game_localized(self, key: str, **builder_kwargs) -> None:
         for player in self.players:
             user = self.get_user(player)
@@ -1565,6 +1623,7 @@ class BattleGame(Game):
 
     def _battle_status_lines(self, locale: str, *, detailed: bool, viewer: Player | None = None) -> list[str]:
         lines = [Localization.get(locale, "battle-status-header")]
+        lines.extend(self._mode_status_lines(locale))
         if self.phase == PHASE_SELECTION:
             lines.append(Localization.get(locale, "battle-selection-phase"))
             for active_player in self.get_active_players():
@@ -1575,7 +1634,16 @@ class BattleGame(Game):
         current = self.current_fighter
         if current:
             lines.append(Localization.get(locale, "battle-turn-start", fighter=self._fighter_name(current, locale)))
-        lines.append(Localization.get(locale, "battle-score-summary", fighters=len(self._alive_fighters()), teams=len(self._alive_team_ids()), kills=self.survival_kills))
+        summary_key = "battle-score-summary-endurance" if self._survival_options_are_active() else "battle-score-summary"
+        lines.append(
+            Localization.get(
+                locale,
+                summary_key,
+                fighters=len(self._alive_fighters()),
+                teams=len(self._alive_team_ids()),
+                kills=self.survival_kills,
+            )
+        )
         if self._survival_options_are_active():
             lines.append(self._mode_progress_line(locale, kills=self.survival_kills, wave=self.survival_wave))
         if detailed:

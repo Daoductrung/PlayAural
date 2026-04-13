@@ -475,6 +475,36 @@ def test_non_survival_results_do_not_store_endurance_fields() -> None:
     assert "player_stats" not in result.custom_data
 
 
+def test_status_lines_reflect_current_mode_context() -> None:
+    standard_game = make_game(player_count=2, start=True, game_mode=MODE_ONE_EACH)
+    standard_lines = standard_game._battle_status_lines("en", detailed=False, viewer=standard_game.players[0])
+    assert "Mode: 1 Each. Turn mode: Initiative." in standard_lines
+    assert "The game is still in the fighter selection phase." in standard_lines
+    assert not any("Survival kills" in line for line in standard_lines)
+    assert not any("Arena difficulty:" in line for line in standard_lines)
+
+    endurance_game = make_game(player_count=2, start=True, game_mode=MODE_CLASSIC_SURVIVAL)
+    p1, p2 = endurance_game.players
+    select_and_submit(endurance_game, p1, "novice_boxer")
+    select_and_submit(endurance_game, p2, "boxer")
+    assert advance_until(
+        endurance_game,
+        lambda: endurance_game.phase == PHASE_COMBAT and endurance_game.current_fighter is not None,
+        max_ticks=200,
+    )
+    endurance_game.survival_kills = 3
+
+    endurance_lines = endurance_game._battle_status_lines("en", detailed=False, viewer=p1)
+    assert "Mode: Classic Survival. Turn mode: Initiative." in endurance_lines
+    assert "Classic enemy preset: Novice Boxer." in endurance_lines
+    assert "Arena difficulty: Normal." in endurance_lines
+    assert "Endurance target: endless. Recovery between reinforcements: 0 percent." in endurance_lines
+    assert any(
+        line.endswith("Survival kills: 3.") and "fighters remain across" in line
+        for line in endurance_lines
+    )
+
+
 def test_survival_progress_announces_endless_runs_clearly() -> None:
     game = make_game(player_count=2, start=True, game_mode=MODE_CLASSIC_SURVIVAL)
     p1, p2 = game.players

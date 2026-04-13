@@ -1457,7 +1457,10 @@ class Database:
             FROM player_game_stats pgs
             LEFT JOIN users u ON pgs.player_id = u.uuid
             WHERE pgs.game_type = ? AND pgs.stat_key = ?
-            ORDER BY pgs.stat_value DESC
+            ORDER BY
+                pgs.stat_value DESC,
+                LOWER(COALESCE(u.username, pgs.player_id)) ASC,
+                pgs.player_id ASC
             LIMIT ?
             """,
             (game_type, stat_key, limit),
@@ -1482,7 +1485,11 @@ class Database:
                 ON pgs_w.player_id = pgs_l.player_id AND pgs_w.game_type = pgs_l.game_type AND pgs_l.stat_key = 'losses'
             LEFT JOIN users u ON pgs_w.player_id = u.uuid
             WHERE pgs_w.game_type = ? AND pgs_w.stat_key = 'wins'
-            ORDER BY pgs_w.stat_value DESC
+            ORDER BY
+                pgs_w.stat_value DESC,
+                COALESCE(pgs_l.stat_value, 0) ASC,
+                LOWER(COALESCE(u.username, pgs_w.player_id)) ASC,
+                pgs_w.player_id ASC
             LIMIT ?
             """,
             (game_type, limit),

@@ -284,6 +284,8 @@ my-stats-no-rating = Chưa có xếp hạng kỹ năng
 my-stats-avg-per-turn = Điểm trung bình mỗi lượt: { $value }
 my-stats-best-turn = Lượt đi điểm cao nhất: { $value }
 my-stats-score-per-round = Điểm trung bình mỗi vòng: { $value }
+my-stats-most-enemies-defeated = Số địch hạ gục cao nhất: { $value }
+my-stats-deepest-wave-reached = Đợt vượt sâu nhất: { $value }
 
 predict-outcomes = Dự đoán kết quả
 predict-header = Kết quả dự đoán (theo xếp hạng kỹ năng)

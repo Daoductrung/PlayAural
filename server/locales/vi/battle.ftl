@@ -101,13 +101,20 @@ battle-enemies-arrive = Có { $count } địch mới bước vào đấu trườ
 battle-no-valid-targets = Không có mục tiêu hợp lệ cho kỹ năng đó.
 battle-no-fight-same-team = Mọi người đang ở cùng một đội, nên trận đấu không thể diễn ra.
 
-battle-score-summary = Còn { $fighters } đấu sĩ thuộc { $teams } phe. Số địch đã hạ trong chặng sinh tồn: { $kills }.
+battle-score-summary = Còn { $fighters } đấu sĩ thuộc { $teams } phe.
+battle-score-summary-endurance = Còn { $fighters } đấu sĩ thuộc { $teams } phe. Số địch đã hạ trong chặng sinh tồn: { $kills }.
 battle-survival-progress-target = Chặng sinh tồn. Hạ gục: { $kills }. Mục tiêu: { $target }.
 battle-survival-progress-endless = Chặng sinh tồn vô tận. Hạ gục: { $kills }.
 battle-wave-progress-target = Chặng vượt đợt. Đợt hiện tại: { $wave }. Hạ gục: { $kills }. Mục tiêu: { $target }.
 battle-wave-progress-endless = Chặng vượt đợt vô tận. Đợt hiện tại: { $wave }. Hạ gục: { $kills }.
 
 battle-status-header = Trạng thái Đấu Trường Chiến Kỹ
+battle-status-mode-line = Chế độ chơi: { $mode }. Chế độ lượt: { $turn_mode }.
+battle-status-selection-limit-line = Giới hạn đấu sĩ mỗi người: { $limit }.
+battle-status-classic-enemy-line = Mẫu địch cổ điển: { $preset }.
+battle-status-arena-difficulty-line = Độ khó đấu trường: { $difficulty }.
+battle-status-endurance-options-line = Mục tiêu bền bỉ: { $target }. Hồi phục giữa các đợt tiếp viện: { $heal_percent } phần trăm.
+battle-status-target-endless = vô tận
 battle-roster-header = Danh sách đấu sĩ giao chiến
 battle-allied-roster-header = Đấu sĩ đồng minh
 battle-enemy-roster-header = Đấu sĩ đối phương

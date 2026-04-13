@@ -284,6 +284,8 @@ my-stats-no-rating = No skill rating yet
 my-stats-avg-per-turn = Avg points per turn: { $value }
 my-stats-best-turn = Best single turn: { $value }
 my-stats-score-per-round = Score per round: { $value }
+my-stats-most-enemies-defeated = Most Enemies Defeated: { $value }
+my-stats-deepest-wave-reached = Deepest Wave Reached: { $value }
 
 predict-outcomes = Predict outcomes
 predict-header = Predicted Outcomes (by skill rating)

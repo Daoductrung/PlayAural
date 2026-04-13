@@ -101,13 +101,20 @@ battle-enemies-arrive = { $count } new enemy fighters enter the arena.
 battle-no-valid-targets = No valid targets are available for that move.
 battle-no-fight-same-team = Everyone is on the same team, so no fight can happen.
 
-battle-score-summary = { $fighters } fighters remain across { $teams } teams. Survival kills: { $kills }.
+battle-score-summary = { $fighters } fighters remain across { $teams } teams.
+battle-score-summary-endurance = { $fighters } fighters remain across { $teams } teams. Survival kills: { $kills }.
 battle-survival-progress-target = Survival run. Kills: { $kills }. Target: { $target }.
 battle-survival-progress-endless = Endless survival run. Kills: { $kills }.
 battle-wave-progress-target = Wave run. Current wave: { $wave }. Kills: { $kills }. Target: { $target }.
 battle-wave-progress-endless = Endless wave run. Current wave: { $wave }. Kills: { $kills }.
 
 battle-status-header = Battle status
+battle-status-mode-line = Mode: { $mode }. Turn mode: { $turn_mode }.
+battle-status-selection-limit-line = Fighter limit per player: { $limit }.
+battle-status-classic-enemy-line = Classic enemy preset: { $preset }.
+battle-status-arena-difficulty-line = Arena difficulty: { $difficulty }.
+battle-status-endurance-options-line = Endurance target: { $target }. Recovery between reinforcements: { $heal_percent } percent.
+battle-status-target-endless = endless
 battle-roster-header = Combat roster
 battle-allied-roster-header = Allied fighters
 battle-enemy-roster-header = Enemy fighters

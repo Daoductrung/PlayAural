@@ -218,6 +218,43 @@ def test_battle_custom_leaderboards_and_personal_stats_display_from_saved_result
         server._db.close()
 
 
+def test_battle_custom_leaderboard_orders_higher_kills_first(tmp_path) -> None:
+    server = _make_server(tmp_path)
+    try:
+        higher = server._db.create_user("HigherKills", "hash", trust_level=1)
+        lower = server._db.create_user("LowerKills", "hash", trust_level=1)
+        viewer = MockUser("HigherKills", uuid=higher.uuid)
+
+        server._db.save_game_result(
+            "battle",
+            "2026-03-26T00:00:00",
+            0,
+            [(higher.uuid, "HigherKills", False), (lower.uuid, "LowerKills", False)],
+            {
+                "player_stats": {
+                    higher.uuid: {"survival_kills": 13, "deepest_wave": 2},
+                    lower.uuid: {"survival_kills": 12, "deepest_wave": 3},
+                }
+            },
+        )
+
+        server._show_custom_leaderboard(
+            viewer,
+            "battle",
+            "Battle",
+            {"id": "most_enemies_defeated", "aggregate": "max", "format": "score"},
+        )
+        leaderboard_texts = _menu_texts(viewer, "game_leaderboard")
+        ranked_entries = [text for text in leaderboard_texts if text and text[0].isdigit()]
+
+        assert "HigherKills" in ranked_entries[0]
+        assert "13" in ranked_entries[0]
+        assert "LowerKills" in ranked_entries[1]
+        assert "12" in ranked_entries[1]
+    finally:
+        server._db.close()
+
+
 def test_predict_outcomes_shows_probability_only_in_two_player_matches(tmp_path) -> None:
     server = _make_server(tmp_path)
     try:

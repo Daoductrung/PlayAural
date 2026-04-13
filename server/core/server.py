@@ -4695,7 +4695,7 @@ PlayAural Server
                 if total_denom > 0:
                     value = total_num / total_denom
                     player_scores.append((player_id, player_name, value))
-            player_scores.sort(key=lambda x: x[2], reverse=True)
+            player_scores.sort(key=lambda x: (-x[2], x[1].lower(), x[0]))
             player_scores = player_scores[:10]  # Apply limit for ratio stats
         else:
             # Simple stat

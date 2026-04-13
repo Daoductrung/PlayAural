@@ -5528,7 +5528,9 @@ PlayAural Server
                         await user.connection.send(chat_packet)
             else:
                 # Lobby chat: send to all users who are NOT in a table
-                for user in self._users.values():
+                for user in list(self._users.values()):
+                    if self._users.get(user.username) is not user:
+                        continue
                     if user.approved:
                         # Check if this user is in a table
                         user_table = self._tables.find_user_table(user.username)
@@ -5536,7 +5538,9 @@ PlayAural Server
                             await user.connection.send(chat_packet)
         elif convo == "global":
             # Broadcast to all approved users only
-            for user in self._users.values():
+            for user in list(self._users.values()):
+                if self._users.get(user.username) is not user:
+                    continue
                 if user.approved:
                     await user.connection.send(chat_packet)
 

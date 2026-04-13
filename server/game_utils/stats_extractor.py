@@ -23,6 +23,12 @@ class StatsExtractor:
         if not game_class:
             return updates
 
+        supported_leaderboards = set(game_class.get_supported_leaderboards())
+        supports_games_played = "games_played" in supported_leaderboards
+        supports_wins = "wins" in supported_leaderboards
+        supports_total_score = "total_score" in supported_leaderboards
+        supports_high_score = "high_score" in supported_leaderboards
+
         for p in result.player_results:
             if p.is_bot:
                 continue
@@ -32,7 +38,8 @@ class StatsExtractor:
             updates[player_id] = {}
 
             # games_played
-            updates[player_id]["games_played"] = 1.0
+            if supports_games_played:
+                updates[player_id]["games_played"] = 1.0
 
             # wins/losses
             is_winner = False
@@ -42,10 +49,11 @@ class StatsExtractor:
             elif winner_name == player_name:
                 is_winner = True
 
-            if is_winner:
-                updates[player_id]["wins"] = 1.0
-            else:
-                updates[player_id]["losses"] = 1.0
+            if supports_wins:
+                if is_winner:
+                    updates[player_id]["wins"] = 1.0
+                else:
+                    updates[player_id]["losses"] = 1.0
 
             # scores
             score = final_scores.get(player_name, 0)
@@ -53,9 +61,11 @@ class StatsExtractor:
                 score = final_light.get(player_name, 0)
 
             if score:
-                updates[player_id]["total_score"] = float(score)
-                # Using special suffix '_high' to tell caller to MAX instead of SUM
-                updates[player_id]["high_score_high"] = float(score)
+                if supports_total_score:
+                    updates[player_id]["total_score"] = float(score)
+                if supports_high_score:
+                    # Using special suffix '_high' to tell caller to MAX instead of SUM
+                    updates[player_id]["high_score_high"] = float(score)
 
             # Custom stats
             for config in game_class.get_leaderboard_types():

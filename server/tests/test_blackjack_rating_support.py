@@ -2,6 +2,7 @@ from types import SimpleNamespace
 
 from server.core.server import Server
 from server.game_utils.game_result import GameResult, PlayerResult
+from server.game_utils.stats_extractor import StatsExtractor
 from server.games.blackjack.game import BlackjackGame
 from server.games.pig.game import PigGame
 from server.users.test_user import MockUser
@@ -68,6 +69,51 @@ def test_blackjack_does_not_update_ratings_when_finished(tmp_path) -> None:
         server._db.close()
 
 
+def test_blackjack_results_only_extract_games_played() -> None:
+    game = BlackjackGame()
+    host = game.add_player("Host", MockUser("Host", uuid="blackjack-host"))
+    guest = game.add_player("Guest", MockUser("Guest", uuid="blackjack-guest"))
+    host.chips = 200
+    guest.chips = 50
+
+    result = game.build_game_result()
+
+    assert result.custom_data == {"final_chips": {"Host": 200, "Guest": 50}}
+    assert StatsExtractor.extract_incremental_stats(result) == {
+        "blackjack-host": {"games_played": 1.0},
+        "blackjack-guest": {"games_played": 1.0},
+    }
+
+
+def test_blackjack_saved_results_only_store_games_played_stats(tmp_path) -> None:
+    server = _make_server(tmp_path)
+    try:
+        host = server._db.create_user("Host", "hash", trust_level=1)
+        guest = server._db.create_user("Guest", "hash", trust_level=1)
+
+        server._db.save_game_result(
+            "blackjack",
+            "2026-03-26T00:00:00",
+            0,
+            [(host.uuid, "Host", False), (guest.uuid, "Guest", False)],
+            {"final_chips": {"Host": 200, "Guest": 50}},
+        )
+
+        host_stats = server._db.get_all_player_game_stats(host.uuid, "blackjack")
+        guest_stats = server._db.get_all_player_game_stats(guest.uuid, "blackjack")
+
+        assert host_stats == {"games_played": 1.0}
+        assert guest_stats == {"games_played": 1.0}
+
+        row = server._db._conn.execute(
+            "SELECT custom_data FROM game_results WHERE game_type = 'blackjack'"
+        ).fetchone()
+        assert row is not None
+        assert row["custom_data"] == '{"final_chips": {"Host": 200, "Guest": 50}}'
+    finally:
+        server._db.close()
+
+
 def test_rated_games_still_update_ratings(tmp_path) -> None:
     server = _make_server(tmp_path)
     try:
@@ -130,6 +176,44 @@ def test_blackjack_ui_hides_rating_everywhere_but_rated_games_still_show_it(tmp_
 
         server._show_my_game_stats(user, "pig")
         assert "rating" in _menu_ids(user, "my_game_stats")
+    finally:
+        server._db.close()
+
+
+def test_battle_custom_leaderboards_and_personal_stats_display_from_saved_results(tmp_path) -> None:
+    server = _make_server(tmp_path)
+    try:
+        user = server._db.create_user("StatsUser", "hash", trust_level=1)
+        rival = server._db.create_user("Rival", "hash", trust_level=1)
+        viewer = MockUser("StatsUser", uuid=user.uuid)
+
+        server._db.save_game_result(
+            "battle",
+            "2026-03-26T00:00:00",
+            0,
+            [(user.uuid, "StatsUser", False), (rival.uuid, "Rival", False)],
+            {
+                "player_stats": {
+                    user.uuid: {"survival_kills": 9, "deepest_wave": 4},
+                    rival.uuid: {"survival_kills": 6, "deepest_wave": 2},
+                }
+            },
+        )
+
+        server._show_custom_leaderboard(
+            viewer,
+            "battle",
+            "Battle",
+            {"id": "most_enemies_defeated", "aggregate": "max", "format": "score"},
+        )
+        leaderboard_texts = _menu_texts(viewer, "game_leaderboard")
+        assert any("StatsUser" in text and "9" in text for text in leaderboard_texts)
+
+        server._show_my_game_stats(viewer, "battle")
+        stats_texts = _menu_texts(viewer, "my_game_stats")
+        assert any("Games played: 1" in text for text in stats_texts)
+        assert any("Most Enemies Defeated: 9" in text for text in stats_texts)
+        assert any("Deepest Wave Reached: 4" in text for text in stats_texts)
     finally:
         server._db.close()
 

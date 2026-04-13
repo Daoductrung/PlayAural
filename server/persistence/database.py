@@ -1244,8 +1244,10 @@ class Database:
             for p_id, stats in updates.items():
                 for stat_key, stat_value in stats.items():
                     if stat_key.endswith("_high"):
-                        # For high scores, use MAX
-                        base_key = stat_key[:-5]  # strip '_high'
+                        # Built-in high_score is stored without the helper suffix.
+                        # Custom max leaderboards keep their full stat key so the
+                        # leaderboard and personal-stats queries can read them back.
+                        base_key = "high_score" if stat_key == "high_score_high" else stat_key
                         cursor.execute("""
                             INSERT INTO player_game_stats (player_id, game_type, stat_key, stat_value)
                             VALUES (?, ?, ?, ?)

@@ -246,6 +246,8 @@ leaderboard-type-games-played = Số ván đã chơi
 leaderboard-type-avg-points-per-turn = Điểm trung bình mỗi lượt
 leaderboard-type-best-single-turn = Lượt đi điểm cao nhất
 leaderboard-type-score-per-round = Điểm mỗi vòng
+leaderboard-type-most-enemies-defeated = Số địch hạ gục cao nhất
+leaderboard-type-deepest-wave-reached = Đợt vượt sâu nhất
 
 
 leaderboard-wins-entry = { $rank }: { $player }, { $wins } { $wins ->

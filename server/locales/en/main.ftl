@@ -246,6 +246,8 @@ leaderboard-type-games-played = Games Played
 leaderboard-type-avg-points-per-turn = Avg Points Per Turn
 leaderboard-type-best-single-turn = Best Single Turn
 leaderboard-type-score-per-round = Score Per Round
+leaderboard-type-most-enemies-defeated = Most Enemies Defeated
+leaderboard-type-deepest-wave-reached = Deepest Wave Reached
 
 
 leaderboard-wins-entry = { $rank }: { $player }, { $wins } { $wins ->

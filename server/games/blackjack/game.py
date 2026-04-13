@@ -2467,7 +2467,6 @@ class BlackjackGame(Game):
 
     def build_game_result(self) -> GameResult:
         active = [p for p in self.get_active_players() if isinstance(p, BlackjackPlayer)]
-        winner = max(active, key=lambda p: p.chips, default=None)
         final_chips = {p.name: p.chips for p in active}
 
         return GameResult(
@@ -2483,8 +2482,6 @@ class BlackjackGame(Game):
                 for p in active
             ],
             custom_data={
-                "winner_name": winner.name if winner else None,
-                "winner_chips": winner.chips if winner else 0,
                 "final_chips": final_chips,
             },
         )

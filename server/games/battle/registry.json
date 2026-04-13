@@ -1,0 +1,3608 @@
+{
+  "moves": [
+    {
+      "id": "aircraft_cannon",
+      "name": {
+        "en": "Aircraft Cannon",
+        "vi": "Pháo máy bay"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/aircraft cannon.ogg",
+      "blocks": [
+        {
+          "max": 12,
+          "min": 8,
+          "type": "damage"
+        },
+        {
+          "change": -3,
+          "type": "target_defense"
+        }
+      ]
+    },
+    {
+      "id": "aircraft_machine_gun",
+      "name": {
+        "en": "Aircraft Machine Gun",
+        "vi": "Đại liên máy bay"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/aircraft machine gun.ogg",
+      "blocks": [
+        {
+          "max": 8,
+          "min": 2,
+          "type": "damage"
+        },
+        {
+          "change": 5,
+          "type": "launcher_speed"
+        },
+        {
+          "change": 5,
+          "type": "target_speed"
+        }
+      ]
+    },
+    {
+      "id": "ancient_warhammer",
+      "name": {
+        "en": "Ancient Warhammer",
+        "vi": "Búa chiến cổ đại"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/ancient warhammer.ogg",
+      "blocks": [
+        {
+          "max": 8,
+          "min": 4,
+          "type": "damage"
+        },
+        {
+          "change": 4,
+          "type": "launcher_attack"
+        },
+        {
+          "change": -4,
+          "type": "launcher_speed"
+        }
+      ]
+    },
+    {
+      "id": "animated_sword",
+      "name": {
+        "en": "Animated Sword",
+        "vi": "Kiếm linh"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/animated sword.ogg",
+      "blocks": [
+        {
+          "max": 9,
+          "min": 6,
+          "type": "damage"
+        },
+        {
+          "change": 3,
+          "type": "launcher_attack"
+        }
+      ]
+    },
+    {
+      "id": "armlock",
+      "name": {
+        "en": "Armlock",
+        "vi": "Khóa tay"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/armlock.ogg",
+      "blocks": [
+        {
+          "max": 9,
+          "min": 4,
+          "type": "damage"
+        },
+        {
+          "change": -2,
+          "type": "target_defense"
+        }
+      ]
+    },
+    {
+      "id": "avalanche",
+      "name": {
+        "en": "Avalanche",
+        "vi": "Tuyết lở"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/avalanche.ogg",
+      "blocks": [
+        {
+          "max": 20,
+          "min": 12,
+          "type": "damage"
+        },
+        {
+          "change": -4,
+          "type": "launcher_attack"
+        },
+        {
+          "change": -10,
+          "type": "target_speed"
+        }
+      ]
+    },
+    {
+      "id": "axe_throw",
+      "name": {
+        "en": "Axe Throw",
+        "vi": "Ném rìu"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/axe throw.ogg",
+      "blocks": [
+        {
+          "max": 10,
+          "min": 7,
+          "type": "damage"
+        },
+        {
+          "change": -2,
+          "type": "launcher_attack"
+        },
+        {
+          "change": -10,
+          "type": "target_speed"
+        }
+      ]
+    },
+    {
+      "id": "backhand",
+      "name": {
+        "en": "Backhand",
+        "vi": "Vả ngược"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/backhand.ogg",
+      "blocks": [
+        {
+          "max": 15,
+          "min": 10,
+          "type": "damage"
+        },
+        {
+          "change": -2,
+          "type": "target_defense"
+        },
+        {
+          "change": -10,
+          "type": "target_speed"
+        }
+      ]
+    },
+    {
+      "id": "battle_armor",
+      "name": {
+        "en": "Battle Armor",
+        "vi": "Chiến giáp"
+      },
+      "targeting": "team_only",
+      "sound_path": "battle/mvsounds_named/battle armor.ogg",
+      "blocks": [
+        {
+          "type": "target_defense",
+          "change": 3
+        },
+        {
+          "type": "target_speed",
+          "change": -2
+        }
+      ]
+    },
+    {
+      "id": "battleforge",
+      "name": {
+        "en": "Battleforge",
+        "vi": "Rèn trận"
+      },
+      "targeting": "team_only",
+      "sound_path": "battle/mvsounds_named/battleforge.ogg",
+      "blocks": [
+        {
+          "type": "target_attack",
+          "change": 2
+        },
+        {
+          "type": "target_defense",
+          "change": 1
+        }
+      ]
+    },
+    {
+      "id": "berserk",
+      "name": {
+        "en": "Berserk",
+        "vi": "Cuồng nộ"
+      },
+      "targeting": "self_only",
+      "sound_path": "battle/mvsounds_named/berserk.ogg",
+      "blocks": [
+        {
+          "change": 3,
+          "type": "launcher_attack"
+        },
+        {
+          "change": -3,
+          "type": "launcher_defense"
+        }
+      ]
+    },
+    {
+      "id": "bite",
+      "name": {
+        "en": "Bite",
+        "vi": "Cắn"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/bite.ogg",
+      "blocks": [
+        {
+          "max": 8,
+          "min": 4,
+          "type": "damage"
+        }
+      ]
+    },
+    {
+      "id": "bloody_dagger",
+      "name": {
+        "en": "Bloody Dagger",
+        "vi": "Dao găm đẫm máu"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/bloody dagger.ogg",
+      "blocks": [
+        {
+          "max": 8,
+          "min": 4,
+          "type": "damage"
+        },
+        {
+          "change": -1,
+          "type": "target_attack"
+        }
+      ]
+    },
+    {
+      "id": "body_slam",
+      "name": {
+        "en": "Body Slam",
+        "vi": "Vật toàn thân"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/body slam.ogg",
+      "blocks": [
+        {
+          "max": 12,
+          "min": 8,
+          "type": "damage"
+        },
+        {
+          "change": -3,
+          "type": "target_defense"
+        }
+      ]
+    },
+    {
+      "id": "brain_eat",
+      "name": {
+        "en": "Brain Eat",
+        "vi": "Ăn não"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/brain eat.ogg",
+      "blocks": [
+        {
+          "max": 12,
+          "min": 8,
+          "type": "damage"
+        },
+        {
+          "change": -3,
+          "type": "launcher_attack"
+        },
+        {
+          "change": -2,
+          "type": "launcher_defense"
+        },
+        {
+          "change": -15,
+          "type": "target_speed"
+        }
+      ]
+    },
+    {
+      "id": "brawl",
+      "name": {
+        "en": "Brawl",
+        "vi": "Loạn đả"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/brawl.ogg",
+      "blocks": [
+        {
+          "max": 9,
+          "min": 5,
+          "type": "damage"
+        },
+        {
+          "change": 2,
+          "type": "launcher_attack"
+        },
+        {
+          "change": 2,
+          "type": "launcher_defense"
+        },
+        {
+          "change": 10,
+          "type": "launcher_speed"
+        },
+        {
+          "change": 2,
+          "type": "target_attack"
+        },
+        {
+          "change": 2,
+          "type": "target_defense"
+        },
+        {
+          "change": 10,
+          "type": "target_speed"
+        }
+      ]
+    },
+    {
+      "id": "burning_powder",
+      "name": {
+        "en": "Burning Powder",
+        "vi": "Bột cháy"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/burning powder.ogg",
+      "blocks": [
+        {
+          "max": 8,
+          "min": 4,
+          "type": "damage"
+        },
+        {
+          "change": -3,
+          "type": "target_defense"
+        },
+        {
+          "change": -12,
+          "type": "target_speed"
+        }
+      ]
+    },
+    {
+      "id": "circle",
+      "name": {
+        "en": "Circle",
+        "vi": "Vờn quanh"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/circle.ogg",
+      "blocks": [
+        {
+          "change": 3,
+          "type": "launcher_attack"
+        },
+        {
+          "change": 3,
+          "type": "target_attack"
+        }
+      ]
+    },
+    {
+      "id": "claw",
+      "name": {
+        "en": "Claw",
+        "vi": "Vuốt"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/claw.ogg",
+      "blocks": [
+        {
+          "max": 9,
+          "min": 5,
+          "type": "damage"
+        },
+        {
+          "change": -1,
+          "type": "target_defense"
+        }
+      ]
+    },
+    {
+      "id": "combat_roll",
+      "name": {
+        "en": "Combat Roll",
+        "vi": "Lăn né"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/combat roll.ogg",
+      "blocks": [
+        {
+          "max": 5,
+          "min": 1,
+          "type": "damage"
+        },
+        {
+          "change": 3,
+          "type": "launcher_attack"
+        },
+        {
+          "change": -4,
+          "type": "launcher_defense"
+        },
+        {
+          "change": 12,
+          "type": "launcher_speed"
+        }
+      ]
+    },
+    {
+      "id": "combo_kick",
+      "name": {
+        "en": "Combo Kick",
+        "vi": "Liên hoàn cước"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/combo kick.ogg",
+      "blocks": [
+        {
+          "max": 16,
+          "min": 10,
+          "type": "damage"
+        },
+        {
+          "change": -2,
+          "type": "launcher_attack"
+        },
+        {
+          "change": -2,
+          "type": "launcher_speed"
+        }
+      ]
+    },
+    {
+      "id": "combo_punch",
+      "name": {
+        "en": "Combo Punch",
+        "vi": "Liên hoàn quyền"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/combo punch.ogg",
+      "blocks": [
+        {
+          "max": 12,
+          "min": 8,
+          "type": "damage"
+        },
+        {
+          "change": -1,
+          "type": "launcher_attack"
+        }
+      ]
+    },
+    {
+      "id": "cryosphere",
+      "name": {
+        "en": "Cryosphere",
+        "vi": "Băng cầu"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/cryosphere.ogg",
+      "blocks": [
+        {
+          "max": 10,
+          "min": 6,
+          "type": "damage"
+        },
+        {
+          "change": -2,
+          "type": "launcher_attack"
+        },
+        {
+          "change": -5,
+          "type": "launcher_defense"
+        },
+        {
+          "change": -25,
+          "type": "target_speed"
+        }
+      ]
+    },
+    {
+      "id": "cursed_sword",
+      "name": {
+        "en": "Cursed Sword",
+        "vi": "Kiếm nguyền"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/cursed sword.ogg",
+      "blocks": [
+        {
+          "max": 13,
+          "min": 9,
+          "type": "damage"
+        },
+        {
+          "change": 3,
+          "type": "launcher_attack"
+        },
+        {
+          "change": -3,
+          "type": "launcher_defense"
+        },
+        {
+          "change": -5,
+          "type": "launcher_speed"
+        }
+      ]
+    },
+    {
+      "id": "disruptor_grenade",
+      "name": {
+        "en": "Disruptor Grenade",
+        "vi": "Lựu đạn phá trận"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/disruptor grenade.ogg",
+      "blocks": [
+        {
+          "type": "damage",
+          "min": 9,
+          "max": 13
+        },
+        {
+          "type": "target_attack",
+          "change": -3
+        },
+        {
+          "type": "target_defense",
+          "change": -3
+        },
+        {
+          "type": "launcher_attack",
+          "change": -1
+        }
+      ]
+    },
+    {
+      "id": "dissolving_bomb",
+      "name": {
+        "en": "Dissolving Bomb",
+        "vi": "Bom phân rã"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/dissolving bomb.ogg",
+      "blocks": [
+        {
+          "max": 10,
+          "min": 2,
+          "type": "damage"
+        },
+        {
+          "change": -2,
+          "type": "launcher_attack"
+        },
+        {
+          "change": -4,
+          "type": "target_defense"
+        }
+      ]
+    },
+    {
+      "id": "divine_sphere",
+      "name": {
+        "en": "Divine Sphere",
+        "vi": "Thánh cầu"
+      },
+      "targeting": "team_only",
+      "sound_path": "battle/mvsounds_named/divine sphere.ogg",
+      "blocks": [
+        {
+          "type": "healing",
+          "min": 5,
+          "max": 9
+        },
+        {
+          "type": "target_defense",
+          "change": 2
+        },
+        {
+          "type": "target_speed",
+          "change": 3
+        }
+      ]
+    },
+    {
+      "id": "dizzying_punch",
+      "name": {
+        "en": "Dizzying Punch",
+        "vi": "Đấm choáng"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/dizzying punch.ogg",
+      "blocks": [
+        {
+          "max": 12,
+          "min": 8,
+          "type": "damage"
+        },
+        {
+          "change": -8,
+          "type": "target_speed"
+        }
+      ]
+    },
+    {
+      "id": "drain",
+      "name": {
+        "en": "Drain",
+        "vi": "Hấp huyết"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/drain.ogg",
+      "blocks": [
+        {
+          "max": 12,
+          "min": 10,
+          "percent": 33,
+          "type": "drain"
+        }
+      ]
+    },
+    {
+      "id": "draw_blood",
+      "name": {
+        "en": "Draw Blood",
+        "vi": "Rút máu"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/draw blood.ogg",
+      "blocks": [
+        {
+          "max": 1,
+          "min": 1,
+          "type": "damage"
+        },
+        {
+          "change": -8,
+          "type": "launcher_speed"
+        },
+        {
+          "change": -4,
+          "type": "target_defense"
+        }
+      ]
+    },
+    {
+      "id": "elbow",
+      "name": {
+        "en": "Elbow",
+        "vi": "Đòn chỏ"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/elbow.ogg",
+      "blocks": [
+        {
+          "max": 8,
+          "min": 5,
+          "type": "damage"
+        }
+      ]
+    },
+    {
+      "id": "electric_shock",
+      "name": {
+        "en": "Electric Shock",
+        "vi": "Điện kích"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/electric shock.ogg",
+      "blocks": [
+        {
+          "max": 6,
+          "min": 2,
+          "type": "damage"
+        },
+        {
+          "change": -5,
+          "type": "launcher_defense"
+        },
+        {
+          "change": -20,
+          "type": "target_speed"
+        }
+      ]
+    },
+    {
+      "id": "electric_sphere",
+      "name": {
+        "en": "Electric Sphere",
+        "vi": "Lôi cầu"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/electric sphere.ogg",
+      "blocks": [
+        {
+          "max": 9,
+          "min": 5,
+          "type": "damage"
+        },
+        {
+          "change": -6,
+          "type": "target_speed"
+        }
+      ]
+    },
+    {
+      "id": "electrical_explosion",
+      "name": {
+        "en": "Electrical Explosion",
+        "vi": "Bộc lôi"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/electrical explosion.ogg",
+      "blocks": [
+        {
+          "max": 28,
+          "min": 14,
+          "type": "damage"
+        },
+        {
+          "change": -3,
+          "type": "launcher_attack"
+        },
+        {
+          "change": -3,
+          "type": "launcher_defense"
+        },
+        {
+          "change": -10,
+          "type": "target_speed"
+        }
+      ]
+    },
+    {
+      "id": "electrified_sword",
+      "name": {
+        "en": "Electrified Sword",
+        "vi": "Điện kiếm"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/electrified sword.ogg",
+      "blocks": [
+        {
+          "max": 10,
+          "min": 8,
+          "type": "damage"
+        }
+      ]
+    },
+    {
+      "id": "elven_longbow",
+      "name": {
+        "en": "Elven Longbow",
+        "vi": "Trường cung tiên tộc"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/elven longbow.ogg",
+      "blocks": [
+        {
+          "max": 12,
+          "min": 5,
+          "type": "damage"
+        },
+        {
+          "change": -10,
+          "type": "target_speed"
+        }
+      ]
+    },
+    {
+      "id": "ember",
+      "name": {
+        "en": "Ember",
+        "vi": "Tàn hỏa"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/ember.ogg",
+      "blocks": [
+        {
+          "max": 5,
+          "min": 2,
+          "type": "damage"
+        },
+        {
+          "change": -1,
+          "type": "target_attack"
+        },
+        {
+          "change": -5,
+          "type": "target_speed"
+        }
+      ]
+    },
+    {
+      "id": "explode_from_the_shadows",
+      "name": {
+        "en": "Explode From The Shadows",
+        "vi": "Ảnh bộc"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/explode from the shadows.ogg",
+      "blocks": [
+        {
+          "type": "damage",
+          "min": 18,
+          "max": 26
+        },
+        {
+          "type": "launcher_speed",
+          "change": -35
+        }
+      ]
+    },
+    {
+      "id": "eye_laser",
+      "name": {
+        "en": "Eye Laser",
+        "vi": "Nhãn quang"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/eye_laser.ogg",
+      "blocks": [
+        {
+          "type": "damage",
+          "min": 8,
+          "max": 14
+        },
+        {
+          "type": "target_defense",
+          "change": -4
+        },
+        {
+          "type": "launcher_speed",
+          "change": -4
+        }
+      ]
+    },
+    {
+      "id": "ferocious_bite",
+      "name": {
+        "en": "Ferocious Bite",
+        "vi": "Cắn hung bạo"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/ferocious bite.ogg",
+      "blocks": [
+        {
+          "max": 10,
+          "min": 5,
+          "type": "damage"
+        }
+      ]
+    },
+    {
+      "id": "fiery_war_axe",
+      "name": {
+        "en": "Fiery War Axe",
+        "vi": "Hỏa chiến phủ"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/fiery war axe.ogg",
+      "blocks": [
+        {
+          "max": 9,
+          "min": 5,
+          "type": "damage"
+        },
+        {
+          "change": 2,
+          "type": "launcher_attack"
+        }
+      ]
+    },
+    {
+      "id": "fire_knife",
+      "name": {
+        "en": "Fire Knife",
+        "vi": "Hỏa đao"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/fire knife.ogg",
+      "blocks": [
+        {
+          "max": 14,
+          "min": 2,
+          "type": "damage"
+        },
+        {
+          "change": -1,
+          "type": "launcher_defense"
+        },
+        {
+          "change": 6,
+          "type": "launcher_speed"
+        },
+        {
+          "change": -1,
+          "type": "target_defense"
+        }
+      ]
+    },
+    {
+      "id": "fireball",
+      "name": {
+        "en": "Fireball",
+        "vi": "Hỏa cầu"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/fireball.ogg",
+      "blocks": [
+        {
+          "max": 9,
+          "min": 5,
+          "type": "damage"
+        },
+        {
+          "change": -2,
+          "type": "target_attack"
+        },
+        {
+          "change": -8,
+          "type": "target_speed"
+        }
+      ]
+    },
+    {
+      "id": "fist_barrage",
+      "name": {
+        "en": "Fist Barrage",
+        "vi": "Mưa quyền"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/fist barrage.ogg",
+      "blocks": [
+        {
+          "max": 18,
+          "min": 10,
+          "type": "damage"
+        },
+        {
+          "change": -2,
+          "type": "launcher_attack"
+        },
+        {
+          "change": -1,
+          "type": "target_defense"
+        },
+        {
+          "change": -10,
+          "type": "target_speed"
+        }
+      ]
+    },
+    {
+      "id": "flame_arrow",
+      "name": {
+        "en": "Flame Arrow",
+        "vi": "Hỏa tiễn"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/flame arrow.ogg",
+      "blocks": [
+        {
+          "max": 15,
+          "min": 7,
+          "type": "damage"
+        },
+        {
+          "change": -4,
+          "type": "launcher_attack"
+        },
+        {
+          "change": -3,
+          "type": "target_defense"
+        }
+      ]
+    },
+    {
+      "id": "flame_sword",
+      "name": {
+        "en": "Flame Sword",
+        "vi": "Hỏa kiếm"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/flame sword.ogg",
+      "blocks": [
+        {
+          "max": 9,
+          "min": 5,
+          "type": "damage"
+        },
+        {
+          "change": -7,
+          "type": "launcher_speed"
+        },
+        {
+          "change": -3,
+          "type": "target_defense"
+        }
+      ]
+    },
+    {
+      "id": "flaming_sphere",
+      "name": {
+        "en": "Flaming Sphere",
+        "vi": "Liệt hỏa cầu"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/flaming sphere.ogg",
+      "blocks": [
+        {
+          "max": 11,
+          "min": 5,
+          "type": "damage"
+        },
+        {
+          "change": -2,
+          "type": "launcher_attack"
+        },
+        {
+          "change": -2,
+          "type": "target_attack"
+        }
+      ]
+    },
+    {
+      "id": "flurry_of_blows",
+      "name": {
+        "en": "Flurry Of Blows",
+        "vi": "Bão quyền"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/flurry of blows.ogg",
+      "blocks": [
+        {
+          "max": 15,
+          "min": 11,
+          "type": "damage"
+        },
+        {
+          "change": -1,
+          "type": "launcher_attack"
+        },
+        {
+          "change": -1,
+          "type": "launcher_defense"
+        },
+        {
+          "change": -5,
+          "type": "launcher_speed"
+        }
+      ]
+    },
+    {
+      "id": "flying_kick",
+      "name": {
+        "en": "Flying Kick",
+        "vi": "Phi cước"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/flying kick.ogg",
+      "blocks": [
+        {
+          "max": 12,
+          "min": 8,
+          "type": "damage"
+        },
+        {
+          "change": -3,
+          "type": "launcher_defense"
+        },
+        {
+          "change": 8,
+          "type": "launcher_speed"
+        },
+        {
+          "change": -2,
+          "type": "target_defense"
+        },
+        {
+          "change": 2,
+          "type": "target_speed"
+        }
+      ]
+    },
+    {
+      "id": "frantic_kicking",
+      "name": {
+        "en": "Frantic Kicking",
+        "vi": "Cuồng cước"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/frantic kicking.ogg",
+      "blocks": [
+        {
+          "max": 12,
+          "min": 2,
+          "type": "damage"
+        },
+        {
+          "change": -6,
+          "type": "launcher_defense"
+        },
+        {
+          "change": 20,
+          "type": "launcher_speed"
+        }
+      ]
+    },
+    {
+      "id": "frightening_laugh",
+      "name": {
+        "en": "Frightening Laugh",
+        "vi": "Quỷ tiếu"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/frightening laugh.ogg",
+      "blocks": [
+        {
+          "change": 1,
+          "type": "launcher_defense"
+        },
+        {
+          "change": 3,
+          "type": "launcher_speed"
+        },
+        {
+          "change": -3,
+          "type": "target_defense"
+        },
+        {
+          "change": -10,
+          "type": "target_speed"
+        }
+      ]
+    },
+    {
+      "id": "frozen_dagger",
+      "name": {
+        "en": "Frozen Dagger",
+        "vi": "Băng dao găm"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/frozen dagger.ogg",
+      "blocks": [
+        {
+          "max": 9,
+          "min": 6,
+          "type": "damage"
+        },
+        {
+          "change": -10,
+          "type": "target_speed"
+        }
+      ]
+    },
+    {
+      "id": "ghostly_scream",
+      "name": {
+        "en": "Ghostly Scream",
+        "vi": "Ma thét"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/ghostly scream.ogg",
+      "blocks": [
+        {
+          "max": 12,
+          "min": 8,
+          "type": "damage"
+        },
+        {
+          "change": 3,
+          "type": "launcher_attack"
+        },
+        {
+          "change": -3,
+          "type": "launcher_defense"
+        },
+        {
+          "change": -3,
+          "type": "target_attack"
+        },
+        {
+          "change": 3,
+          "type": "target_defense"
+        }
+      ]
+    },
+    {
+      "id": "grapple",
+      "name": {
+        "en": "Grapple",
+        "vi": "Ôm vật"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/grapple.ogg",
+      "blocks": [
+        {
+          "max": 8,
+          "min": 5,
+          "type": "damage"
+        },
+        {
+          "change": -10,
+          "type": "launcher_speed"
+        },
+        {
+          "change": -10,
+          "type": "target_speed"
+        }
+      ]
+    },
+    {
+      "id": "greater_heal",
+      "name": {
+        "en": "Greater Heal",
+        "vi": "Đại hồi phục"
+      },
+      "targeting": "team_only",
+      "sound_path": "battle/mvsounds_named/greater heal.ogg",
+      "blocks": [
+        {
+          "type": "healing",
+          "min": 12,
+          "max": 18
+        },
+        {
+          "type": "target_speed",
+          "change": 2
+        }
+      ]
+    },
+    {
+      "id": "groundnpound",
+      "name": {
+        "en": "Ground'n'pound",
+        "vi": "Đè đánh"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/ground'n'pound.ogg",
+      "blocks": [
+        {
+          "max": 15,
+          "min": 12,
+          "type": "damage"
+        },
+        {
+          "change": -5,
+          "type": "launcher_defense"
+        },
+        {
+          "change": -3,
+          "type": "target_defense"
+        },
+        {
+          "change": -5,
+          "type": "target_speed"
+        }
+      ]
+    },
+    {
+      "id": "guard_drain",
+      "name": {
+        "en": "Guard Drain",
+        "vi": "Hấp thủ"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/guard drain.ogg",
+      "blocks": [
+        {
+          "change": 3,
+          "type": "launcher_defense"
+        },
+        {
+          "change": -3,
+          "type": "target_defense"
+        }
+      ]
+    },
+    {
+      "id": "gutbuster_punch",
+      "name": {
+        "en": "Gutbuster Punch",
+        "vi": "Đấm vỡ bụng"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/gutbuster punch.ogg",
+      "blocks": [
+        {
+          "type": "damage",
+          "min": 10,
+          "max": 14
+        },
+        {
+          "type": "target_attack",
+          "change": -4
+        },
+        {
+          "type": "launcher_defense",
+          "change": -1
+        }
+      ]
+    },
+    {
+      "id": "hand_grenade",
+      "name": {
+        "en": "Hand Grenade",
+        "vi": "Lựu đạn"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/hand grenade.ogg",
+      "blocks": [
+        {
+          "max": 13,
+          "min": 8,
+          "type": "damage"
+        },
+        {
+          "change": -2,
+          "type": "launcher_attack"
+        },
+        {
+          "change": -2,
+          "type": "launcher_defense"
+        },
+        {
+          "change": -2,
+          "type": "target_defense"
+        }
+      ]
+    },
+    {
+      "id": "haste",
+      "name": {
+        "en": "Haste",
+        "vi": "Gia tốc"
+      },
+      "targeting": "self_only",
+      "sound_path": "battle/mvsounds_named/haste.ogg",
+      "blocks": [
+        {
+          "change": 12,
+          "type": "launcher_speed"
+        }
+      ]
+    },
+    {
+      "id": "headlock",
+      "name": {
+        "en": "Headlock",
+        "vi": "Khóa đầu"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/headlock.ogg",
+      "blocks": [
+        {
+          "type": "damage",
+          "min": 8,
+          "max": 13
+        },
+        {
+          "type": "launcher_defense",
+          "change": 3
+        },
+        {
+          "type": "launcher_speed",
+          "change": -1
+        },
+        {
+          "type": "target_defense",
+          "change": -4
+        },
+        {
+          "type": "target_speed",
+          "change": -8
+        }
+      ]
+    },
+    {
+      "id": "heal",
+      "name": {
+        "en": "Heal",
+        "vi": "Hồi phục"
+      },
+      "targeting": "team_only",
+      "sound_path": "battle/mvsounds_named/heal.ogg",
+      "blocks": [
+        {
+          "type": "healing",
+          "min": 8,
+          "max": 14
+        }
+      ]
+    },
+    {
+      "id": "heavy_taser",
+      "name": {
+        "en": "Heavy Taser",
+        "vi": "Điện kích hạng nặng"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/heavy taser.ogg",
+      "blocks": [
+        {
+          "type": "damage",
+          "min": 7,
+          "max": 11
+        },
+        {
+          "type": "target_speed",
+          "change": -12
+        },
+        {
+          "type": "target_attack",
+          "change": -2
+        },
+        {
+          "type": "launcher_speed",
+          "change": -3
+        }
+      ]
+    },
+    {
+      "id": "howl",
+      "name": {
+        "en": "Howl",
+        "vi": "Tru"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/howl.ogg",
+      "blocks": [
+        {
+          "change": 2,
+          "type": "launcher_attack"
+        },
+        {
+          "change": -2,
+          "type": "target_attack"
+        },
+        {
+          "change": -2,
+          "type": "target_defense"
+        }
+      ]
+    },
+    {
+      "id": "ice_ball",
+      "name": {
+        "en": "Ice Ball",
+        "vi": "Băng đạn"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/ice ball.ogg",
+      "blocks": [
+        {
+          "max": 8,
+          "min": 4,
+          "type": "damage"
+        }
+      ]
+    },
+    {
+      "id": "ice_cube",
+      "name": {
+        "en": "Ice Cube",
+        "vi": "Khối băng"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/ice cube.ogg",
+      "blocks": [
+        {
+          "max": 8,
+          "min": 5,
+          "type": "damage"
+        },
+        {
+          "change": 3,
+          "type": "launcher_attack"
+        },
+        {
+          "change": 3,
+          "type": "launcher_defense"
+        }
+      ]
+    },
+    {
+      "id": "icicle_knife",
+      "name": {
+        "en": "Icicle Knife",
+        "vi": "Dao băng"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/icicle knife.ogg",
+      "blocks": [
+        {
+          "max": 5,
+          "min": 2,
+          "type": "damage"
+        },
+        {
+          "change": -2,
+          "type": "target_attack"
+        },
+        {
+          "change": -5,
+          "type": "target_speed"
+        }
+      ]
+    },
+    {
+      "id": "icicle_sword",
+      "name": {
+        "en": "Icicle Sword",
+        "vi": "Băng kiếm"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/icicle sword.ogg",
+      "blocks": [
+        {
+          "max": 9,
+          "min": 5,
+          "type": "damage"
+        },
+        {
+          "change": -1,
+          "type": "launcher_attack"
+        },
+        {
+          "change": -7,
+          "type": "target_speed"
+        }
+      ]
+    },
+    {
+      "id": "intimidate",
+      "name": {
+        "en": "Intimidate",
+        "vi": "Uy hiếp"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/intimidate.ogg",
+      "blocks": [
+        {
+          "change": 3,
+          "type": "launcher_attack"
+        },
+        {
+          "change": -3,
+          "type": "launcher_defense"
+        },
+        {
+          "change": -3,
+          "type": "target_attack"
+        }
+      ]
+    },
+    {
+      "id": "jaw_punch",
+      "name": {
+        "en": "Jaw Punch",
+        "vi": "Đấm hàm"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/jaw punch.ogg",
+      "blocks": [
+        {
+          "max": 12,
+          "min": 6,
+          "type": "damage"
+        },
+        {
+          "change": -2,
+          "type": "target_defense"
+        }
+      ]
+    },
+    {
+      "id": "knee",
+      "name": {
+        "en": "Knee",
+        "vi": "Lên gối"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/knee.ogg",
+      "blocks": [
+        {
+          "max": 6,
+          "min": 3,
+          "type": "damage"
+        },
+        {
+          "change": -2,
+          "type": "target_attack"
+        }
+      ]
+    },
+    {
+      "id": "knockout_hit",
+      "name": {
+        "en": "Knockout Hit",
+        "vi": "Đòn hạ đo ván"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/knockout hit.ogg",
+      "blocks": [
+        {
+          "max": 30,
+          "min": 10,
+          "type": "damage"
+        },
+        {
+          "change": -5,
+          "type": "launcher_attack"
+        },
+        {
+          "change": -5,
+          "type": "launcher_defense"
+        },
+        {
+          "change": -30,
+          "type": "target_speed"
+        }
+      ]
+    },
+    {
+      "id": "kunai",
+      "name": {
+        "en": "Kunai",
+        "vi": "Phi tiêu Kunai"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/kunai.ogg",
+      "blocks": [
+        {
+          "type": "damage",
+          "min": 6,
+          "max": 9
+        },
+        {
+          "type": "launcher_speed",
+          "change": 4
+        },
+        {
+          "type": "target_defense",
+          "change": -3
+        }
+      ]
+    },
+    {
+      "id": "laser_gun",
+      "name": {
+        "en": "Laser Gun",
+        "vi": "Súng la-de"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/laser gun.ogg",
+      "blocks": [
+        {
+          "max": 18,
+          "min": 5,
+          "type": "damage"
+        },
+        {
+          "change": -6,
+          "type": "launcher_speed"
+        }
+      ]
+    },
+    {
+      "id": "left_hook",
+      "name": {
+        "en": "Left Hook",
+        "vi": "Móc trái"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/left hook.ogg",
+      "blocks": [
+        {
+          "max": 10,
+          "min": 5,
+          "type": "damage"
+        }
+      ]
+    },
+    {
+      "id": "left_jab",
+      "name": {
+        "en": "Left Jab",
+        "vi": "Đấm thẳng trái"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/left jab.ogg",
+      "blocks": [
+        {
+          "max": 10,
+          "min": 5,
+          "type": "damage"
+        }
+      ]
+    },
+    {
+      "id": "leglock",
+      "name": {
+        "en": "Leglock",
+        "vi": "Khóa chân"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/leglock.ogg",
+      "blocks": [
+        {
+          "max": 10,
+          "min": 7,
+          "type": "damage"
+        },
+        {
+          "change": -4,
+          "type": "target_defense"
+        }
+      ]
+    },
+    {
+      "id": "light_jab",
+      "name": {
+        "en": "Light Jab",
+        "vi": "Đấm thẳng nhẹ"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/light jab.ogg",
+      "blocks": [
+        {
+          "max": 8,
+          "min": 3,
+          "type": "damage"
+        }
+      ]
+    },
+    {
+      "id": "lightning_arrow",
+      "name": {
+        "en": "Lightning Arrow",
+        "vi": "Lôi tiễn"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/lightning arrow.ogg",
+      "blocks": [
+        {
+          "max": 8,
+          "min": 4,
+          "type": "damage"
+        },
+        {
+          "change": -1,
+          "type": "target_defense"
+        }
+      ]
+    },
+    {
+      "id": "lightning_bolt",
+      "name": {
+        "en": "Lightning Bolt",
+        "vi": "Tia sét"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/lightning bolt.ogg",
+      "blocks": [
+        {
+          "max": 15,
+          "min": 8,
+          "type": "damage"
+        },
+        {
+          "change": -3,
+          "type": "launcher_attack"
+        },
+        {
+          "change": -10,
+          "type": "target_speed"
+        }
+      ]
+    },
+    {
+      "id": "lions_claw",
+      "name": {
+        "en": "Lions Claw",
+        "vi": "Sư trảo"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/lions claw.ogg",
+      "blocks": [
+        {
+          "max": 13,
+          "min": 10,
+          "type": "damage"
+        },
+        {
+          "change": 3,
+          "type": "launcher_attack"
+        },
+        {
+          "change": -4,
+          "type": "target_speed"
+        }
+      ]
+    },
+    {
+      "id": "locked_in_combat",
+      "name": {
+        "en": "Locked In Combat",
+        "vi": "Khóa giao chiến"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/locked in combat.ogg",
+      "blocks": [
+        {
+          "max": 6,
+          "min": 4,
+          "type": "damage"
+        },
+        {
+          "change": 3,
+          "type": "launcher_attack"
+        },
+        {
+          "change": 10,
+          "type": "launcher_speed"
+        },
+        {
+          "change": 3,
+          "type": "target_attack"
+        },
+        {
+          "change": 10,
+          "type": "target_speed"
+        }
+      ]
+    },
+    {
+      "id": "machine_gun",
+      "name": {
+        "en": "Machine Gun",
+        "vi": "Súng máy"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/machine gun.ogg",
+      "blocks": [
+        {
+          "max": 9,
+          "min": 5,
+          "type": "damage"
+        },
+        {
+          "change": 5,
+          "type": "launcher_speed"
+        }
+      ]
+    },
+    {
+      "id": "magic_deal",
+      "name": {
+        "en": "Magic Deal",
+        "vi": "Ma ước"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/magic deal.ogg",
+      "blocks": [
+        {
+          "change": 3,
+          "type": "launcher_attack"
+        },
+        {
+          "change": 3,
+          "type": "target_attack"
+        }
+      ]
+    },
+    {
+      "id": "magic_shield",
+      "name": {
+        "en": "Magic Shield",
+        "vi": "Khiên phép"
+      },
+      "targeting": "self_only",
+      "sound_path": "battle/mvsounds_named/magic shield.ogg",
+      "blocks": [
+        {
+          "change": 4,
+          "type": "launcher_defense"
+        }
+      ]
+    },
+    {
+      "id": "magic_sphere",
+      "name": {
+        "en": "Magic Sphere",
+        "vi": "Pháp cầu"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/magic sphere.ogg",
+      "blocks": [
+        {
+          "max": 9,
+          "min": 7,
+          "type": "damage"
+        }
+      ]
+    },
+    {
+      "id": "magic_strength",
+      "name": {
+        "en": "Magic Strength",
+        "vi": "Cường lực thuật"
+      },
+      "targeting": "self_only",
+      "sound_path": "battle/mvsounds_named/magic strength.ogg",
+      "blocks": [
+        {
+          "change": 4,
+          "type": "launcher_attack"
+        }
+      ]
+    },
+    {
+      "id": "maul",
+      "name": {
+        "en": "Maul",
+        "vi": "Vồ xé"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/maul.ogg",
+      "blocks": [
+        {
+          "max": 15,
+          "min": 10,
+          "type": "damage"
+        },
+        {
+          "change": -12,
+          "type": "launcher_speed"
+        },
+        {
+          "change": -2,
+          "type": "target_attack"
+        },
+        {
+          "change": -3,
+          "type": "target_defense"
+        }
+      ]
+    },
+    {
+      "id": "meat_cleaver",
+      "name": {
+        "en": "Meat Cleaver",
+        "vi": "Dao phay"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/meat cleaver.ogg",
+      "blocks": [
+        {
+          "max": 15,
+          "min": 10,
+          "percent": 30,
+          "type": "drain"
+        }
+      ]
+    },
+    {
+      "id": "mini_drain",
+      "name": {
+        "en": "Mini Drain",
+        "vi": "Tiểu hấp huyết"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/mini drain.ogg",
+      "blocks": [
+        {
+          "max": 15,
+          "min": 12,
+          "percent": 25,
+          "type": "drain"
+        }
+      ]
+    },
+    {
+      "id": "nightstick",
+      "name": {
+        "en": "Nightstick",
+        "vi": "Dùi cui"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/nightstick.ogg",
+      "blocks": [
+        {
+          "type": "damage",
+          "min": 6,
+          "max": 10
+        },
+        {
+          "type": "target_attack",
+          "change": -2
+        },
+        {
+          "type": "target_speed",
+          "change": -8
+        }
+      ]
+    },
+    {
+      "id": "nose_punch",
+      "name": {
+        "en": "Nose Punch",
+        "vi": "Đấm mũi"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/nose punch.ogg",
+      "blocks": [
+        {
+          "max": 12,
+          "min": 10,
+          "type": "damage"
+        }
+      ]
+    },
+    {
+      "id": "pin_down",
+      "name": {
+        "en": "Pin Down",
+        "vi": "Ghì chặt"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/pin down.ogg",
+      "blocks": [
+        {
+          "max": 13,
+          "min": 10,
+          "type": "damage"
+        },
+        {
+          "change": -5,
+          "type": "launcher_defense"
+        },
+        {
+          "change": -20,
+          "type": "target_speed"
+        }
+      ]
+    },
+    {
+      "id": "plasma_cannon",
+      "name": {
+        "en": "Plasma Cannon",
+        "vi": "Pháo plasma"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/plasma cannon.ogg",
+      "blocks": [
+        {
+          "max": 24,
+          "min": 16,
+          "type": "damage"
+        },
+        {
+          "change": -6,
+          "type": "launcher_defense"
+        }
+      ]
+    },
+    {
+      "id": "poison_bomb",
+      "name": {
+        "en": "Poison Bomb",
+        "vi": "Bom độc"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/poison bomb.ogg",
+      "blocks": [
+        {
+          "max": 10,
+          "min": 1,
+          "type": "damage"
+        },
+        {
+          "change": -2,
+          "type": "launcher_attack"
+        },
+        {
+          "change": -12,
+          "type": "target_speed"
+        }
+      ]
+    },
+    {
+      "id": "power_drain",
+      "name": {
+        "en": "Power Drain",
+        "vi": "Hấp lực"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/power drain.ogg",
+      "blocks": [
+        {
+          "change": 3,
+          "type": "launcher_attack"
+        },
+        {
+          "change": -3,
+          "type": "target_attack"
+        }
+      ]
+    },
+    {
+      "id": "pummel",
+      "name": {
+        "en": "Pummel",
+        "vi": "Nện dồn dập"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/pummel.ogg",
+      "blocks": [
+        {
+          "max": 13,
+          "min": 8,
+          "type": "damage"
+        },
+        {
+          "change": 3,
+          "type": "launcher_defense"
+        },
+        {
+          "change": -5,
+          "type": "launcher_speed"
+        },
+        {
+          "change": -3,
+          "type": "target_defense"
+        },
+        {
+          "change": 3,
+          "type": "target_speed"
+        }
+      ]
+    },
+    {
+      "id": "quick_slash",
+      "name": {
+        "en": "Quick Slash",
+        "vi": "Tốc trảm"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/quick slash.ogg",
+      "blocks": [
+        {
+          "max": 7,
+          "min": 1,
+          "type": "damage"
+        },
+        {
+          "change": 8,
+          "type": "launcher_speed"
+        }
+      ]
+    },
+    {
+      "id": "rain_of_ice",
+      "name": {
+        "en": "Rain Of Ice",
+        "vi": "Mưa băng"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/rain of ice.ogg",
+      "blocks": [
+        {
+          "max": 12,
+          "min": 8,
+          "type": "damage"
+        },
+        {
+          "change": -2,
+          "type": "launcher_attack"
+        },
+        {
+          "change": -3,
+          "type": "launcher_defense"
+        },
+        {
+          "change": -3,
+          "type": "launcher_speed"
+        }
+      ]
+    },
+    {
+      "id": "rain_of_sparks",
+      "name": {
+        "en": "Rain Of Sparks",
+        "vi": "Mưa tia điện"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/rain of sparks.ogg",
+      "blocks": [
+        {
+          "max": 16,
+          "min": 12,
+          "type": "damage"
+        },
+        {
+          "change": -4,
+          "type": "launcher_attack"
+        }
+      ]
+    },
+    {
+      "id": "restrain",
+      "name": {
+        "en": "Restrain",
+        "vi": "Trói buộc"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/restrain.ogg",
+      "blocks": [
+        {
+          "type": "damage",
+          "min": 4,
+          "max": 7
+        },
+        {
+          "type": "target_speed",
+          "change": -12
+        }
+      ]
+    },
+    {
+      "id": "rev_up",
+      "name": {
+        "en": "Rev Up",
+        "vi": "Tăng ga"
+      },
+      "targeting": "self_only",
+      "sound_path": "battle/mvsounds_named/rev up.ogg",
+      "blocks": [
+        {
+          "change": 2,
+          "type": "launcher_attack"
+        },
+        {
+          "change": -2,
+          "type": "launcher_defense"
+        },
+        {
+          "change": 5,
+          "type": "launcher_speed"
+        }
+      ]
+    },
+    {
+      "id": "right_hook",
+      "name": {
+        "en": "Right Hook",
+        "vi": "Móc phải"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/right hook.ogg",
+      "blocks": [
+        {
+          "max": 10,
+          "min": 5,
+          "type": "damage"
+        }
+      ]
+    },
+    {
+      "id": "right_jab",
+      "name": {
+        "en": "Right Jab",
+        "vi": "Đấm thẳng phải"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/right jab.ogg",
+      "blocks": [
+        {
+          "max": 10,
+          "min": 5,
+          "type": "damage"
+        }
+      ]
+    },
+    {
+      "id": "roar",
+      "name": {
+        "en": "Roar",
+        "vi": "Gầm"
+      },
+      "targeting": "self_only",
+      "sound_path": "battle/mvsounds_named/roar.ogg",
+      "blocks": [
+        {
+          "change": 3,
+          "type": "launcher_attack"
+        },
+        {
+          "change": -5,
+          "type": "launcher_speed"
+        }
+      ]
+    },
+    {
+      "id": "rugby_tackle",
+      "name": {
+        "en": "Rugby Tackle",
+        "vi": "Húc Rugby"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/rugby tackle.ogg",
+      "blocks": [
+        {
+          "max": 13,
+          "min": 8,
+          "type": "damage"
+        },
+        {
+          "change": -5,
+          "type": "target_defense"
+        },
+        {
+          "change": 5,
+          "type": "target_speed"
+        }
+      ]
+    },
+    {
+      "id": "run_away",
+      "name": {
+        "en": "Run Away",
+        "vi": "Thoát thân"
+      },
+      "targeting": "self_only",
+      "sound_path": "battle/mvsounds_named/run away.ogg",
+      "blocks": [
+        {
+          "change": -5,
+          "type": "launcher_attack"
+        },
+        {
+          "change": -5,
+          "type": "launcher_defense"
+        },
+        {
+          "change": 20,
+          "type": "launcher_speed"
+        }
+      ]
+    },
+    {
+      "id": "rush_in",
+      "name": {
+        "en": "Rush In",
+        "vi": "Xông vào"
+      },
+      "targeting": "self_only",
+      "sound_path": "battle/mvsounds_named/rush in.ogg",
+      "blocks": [
+        {
+          "change": 4,
+          "type": "launcher_attack"
+        },
+        {
+          "change": -5,
+          "type": "launcher_defense"
+        },
+        {
+          "change": 15,
+          "type": "launcher_speed"
+        }
+      ]
+    },
+    {
+      "id": "sacrifice_for_guard",
+      "name": {
+        "en": "Sacrifice For Guard",
+        "vi": "Hiến sinh thủ"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/sacrifice for guard.ogg",
+      "blocks": [
+        {
+          "max": 15,
+          "min": 10,
+          "type": "damage"
+        },
+        {
+          "change": 5,
+          "type": "launcher_defense"
+        },
+        {
+          "change": 5,
+          "type": "target_defense"
+        }
+      ]
+    },
+    {
+      "id": "sacrifice_for_power",
+      "name": {
+        "en": "Sacrifice For Power",
+        "vi": "Hiến sinh lực"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/sacrifice for power.ogg",
+      "blocks": [
+        {
+          "max": 15,
+          "min": 10,
+          "type": "damage"
+        },
+        {
+          "change": 5,
+          "type": "launcher_attack"
+        },
+        {
+          "change": 5,
+          "type": "target_attack"
+        }
+      ]
+    },
+    {
+      "id": "sacrifice_for_speed",
+      "name": {
+        "en": "Sacrifice For Speed",
+        "vi": "Hiến sinh tốc"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/sacrifice for speed.ogg",
+      "blocks": [
+        {
+          "max": 15,
+          "min": 10,
+          "type": "damage"
+        },
+        {
+          "change": 20,
+          "type": "launcher_speed"
+        },
+        {
+          "change": 20,
+          "type": "target_speed"
+        }
+      ]
+    },
+    {
+      "id": "scratch",
+      "name": {
+        "en": "Scratch",
+        "vi": "Cào xước"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/scratch.ogg",
+      "blocks": [
+        {
+          "max": 9,
+          "min": 3,
+          "type": "damage"
+        }
+      ]
+    },
+    {
+      "id": "seismic_blast",
+      "name": {
+        "en": "Seismic Blast",
+        "vi": "Địa chấn bộc"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/seismic blast.ogg",
+      "blocks": [
+        {
+          "max": 22,
+          "min": 18,
+          "type": "damage"
+        },
+        {
+          "change": -10,
+          "type": "launcher_speed"
+        },
+        {
+          "change": -4,
+          "type": "target_defense"
+        }
+      ]
+    },
+    {
+      "id": "shadowknife",
+      "name": {
+        "en": "Shadowknife",
+        "vi": "Ảnh đao"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/shadowknife.ogg",
+      "blocks": [
+        {
+          "type": "damage",
+          "min": 9,
+          "max": 13
+        },
+        {
+          "type": "target_defense",
+          "change": -2
+        },
+        {
+          "type": "target_speed",
+          "change": -6
+        }
+      ]
+    },
+    {
+      "id": "shotgun",
+      "name": {
+        "en": "Shotgun",
+        "vi": "Súng săn"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/shotgun.ogg",
+      "blocks": [
+        {
+          "max": 16,
+          "min": 6,
+          "type": "damage"
+        },
+        {
+          "change": -2,
+          "type": "launcher_attack"
+        }
+      ]
+    },
+    {
+      "id": "snap_kick",
+      "name": {
+        "en": "Snap Kick",
+        "vi": "Đá chớp"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/snap kick.ogg",
+      "blocks": [
+        {
+          "max": 12,
+          "min": 8,
+          "type": "damage"
+        },
+        {
+          "change": -12,
+          "type": "launcher_speed"
+        },
+        {
+          "change": -4,
+          "type": "target_defense"
+        },
+        {
+          "change": -8,
+          "type": "target_speed"
+        }
+      ]
+    },
+    {
+      "id": "snapping_jaw",
+      "name": {
+        "en": "Snapping Jaw",
+        "vi": "Hàm ngoạm"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/snapping jaw.ogg",
+      "blocks": [
+        {
+          "max": 12,
+          "min": 6,
+          "type": "damage"
+        },
+        {
+          "change": -3,
+          "type": "launcher_defense"
+        },
+        {
+          "change": -3,
+          "type": "launcher_speed"
+        }
+      ]
+    },
+    {
+      "id": "sniper_rifle",
+      "name": {
+        "en": "Sniper Rifle",
+        "vi": "Súng bắn tỉa"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/sniper rifle.ogg",
+      "blocks": [
+        {
+          "max": 15,
+          "min": 12,
+          "type": "damage"
+        },
+        {
+          "change": -8,
+          "type": "launcher_speed"
+        }
+      ]
+    },
+    {
+      "id": "spectral_alteration",
+      "name": {
+        "en": "Spectral Alteration",
+        "vi": "Hồn biến"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/spectral alteration.ogg",
+      "blocks": [
+        {
+          "max": 10,
+          "min": 8,
+          "type": "damage"
+        },
+        {
+          "change": 4,
+          "type": "launcher_attack"
+        },
+        {
+          "change": 4,
+          "type": "launcher_speed"
+        },
+        {
+          "change": 4,
+          "type": "target_attack"
+        },
+        {
+          "change": 4,
+          "type": "target_speed"
+        }
+      ]
+    },
+    {
+      "id": "speed_drain",
+      "name": {
+        "en": "Speed Drain",
+        "vi": "Hấp tốc"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/speed drain.ogg",
+      "blocks": [
+        {
+          "change": 12,
+          "type": "launcher_speed"
+        },
+        {
+          "change": -12,
+          "type": "target_speed"
+        }
+      ]
+    },
+    {
+      "id": "spinning_cut",
+      "name": {
+        "en": "Spinning Cut",
+        "vi": "Toàn phong trảm"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/spinning cut.ogg",
+      "blocks": [
+        {
+          "max": 14,
+          "min": 8,
+          "type": "damage"
+        },
+        {
+          "change": -1,
+          "type": "launcher_attack"
+        },
+        {
+          "change": 5,
+          "type": "launcher_speed"
+        }
+      ]
+    },
+    {
+      "id": "spinning_kick",
+      "name": {
+        "en": "Spinning Kick",
+        "vi": "Đá xoay"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/spinning kick.ogg",
+      "blocks": [
+        {
+          "max": 16,
+          "min": 13,
+          "type": "damage"
+        },
+        {
+          "change": -2,
+          "type": "launcher_attack"
+        },
+        {
+          "change": -2,
+          "type": "launcher_defense"
+        },
+        {
+          "change": -2,
+          "type": "target_attack"
+        },
+        {
+          "change": -5,
+          "type": "target_defense"
+        }
+      ]
+    },
+    {
+      "id": "spinning_punch",
+      "name": {
+        "en": "Spinning Punch",
+        "vi": "Đấm xoay"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/spinning punch.ogg",
+      "blocks": [
+        {
+          "max": 18,
+          "min": 15,
+          "type": "damage"
+        },
+        {
+          "change": -3,
+          "type": "launcher_attack"
+        },
+        {
+          "change": -2,
+          "type": "launcher_defense"
+        },
+        {
+          "change": 3,
+          "type": "launcher_speed"
+        },
+        {
+          "change": -6,
+          "type": "target_speed"
+        }
+      ]
+    },
+    {
+      "id": "spirit_punch",
+      "name": {
+        "en": "Spirit Punch",
+        "vi": "Linh quyền"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/spirit punch.ogg",
+      "blocks": [
+        {
+          "type": "damage",
+          "min": 8,
+          "max": 12
+        },
+        {
+          "type": "launcher_attack",
+          "change": 2
+        },
+        {
+          "type": "target_attack",
+          "change": -2
+        },
+        {
+          "type": "target_speed",
+          "change": -4
+        }
+      ]
+    },
+    {
+      "id": "steel_sword",
+      "name": {
+        "en": "Steel Sword",
+        "vi": "Kiếm thép"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/steel sword.ogg",
+      "blocks": [
+        {
+          "max": 9,
+          "min": 5,
+          "type": "damage"
+        },
+        {
+          "change": 2,
+          "type": "launcher_attack"
+        },
+        {
+          "change": 2,
+          "type": "target_attack"
+        }
+      ]
+    },
+    {
+      "id": "steel_warhammer",
+      "name": {
+        "en": "Steel Warhammer",
+        "vi": "Búa chiến thép"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/steel warhammer.ogg",
+      "blocks": [
+        {
+          "max": 13,
+          "min": 9,
+          "type": "damage"
+        }
+      ]
+    },
+    {
+      "id": "steel_tipped_whip",
+      "name": {
+        "en": "Steel-tipped Whip",
+        "vi": "Roi đầu thép"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/steel-tipped whip.ogg",
+      "blocks": [
+        {
+          "max": 12,
+          "min": 6,
+          "type": "damage"
+        },
+        {
+          "change": 1,
+          "type": "launcher_attack"
+        },
+        {
+          "change": -2,
+          "type": "target_defense"
+        },
+        {
+          "change": -5,
+          "type": "target_speed"
+        }
+      ]
+    },
+    {
+      "id": "stone_punch",
+      "name": {
+        "en": "Stone Punch",
+        "vi": "Thạch quyền"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/stone_punch.ogg",
+      "blocks": [
+        {
+          "type": "damage",
+          "min": 11,
+          "max": 15
+        },
+        {
+          "type": "launcher_defense",
+          "change": 2
+        },
+        {
+          "type": "launcher_speed",
+          "change": -5
+        },
+        {
+          "type": "target_speed",
+          "change": -3
+        }
+      ]
+    },
+    {
+      "id": "sucker_punch",
+      "name": {
+        "en": "Sucker Punch",
+        "vi": "Đấm lén"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/sucker punch.ogg",
+      "blocks": [
+        {
+          "max": 12,
+          "min": 9,
+          "type": "damage"
+        },
+        {
+          "change": -2,
+          "type": "target_defense"
+        }
+      ]
+    },
+    {
+      "id": "suicide_dive",
+      "name": {
+        "en": "Suicide Dive",
+        "vi": "Lao mình cảm tử"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/suicide dive.ogg",
+      "blocks": [
+        {
+          "max": 30,
+          "min": 20,
+          "type": "damage"
+        },
+        {
+          "change": -4,
+          "type": "launcher_attack"
+        },
+        {
+          "change": -4,
+          "type": "launcher_defense"
+        },
+        {
+          "change": -30,
+          "type": "target_speed"
+        }
+      ]
+    },
+    {
+      "id": "super_drain",
+      "name": {
+        "en": "Super Drain",
+        "vi": "Đại hấp huyết"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/super drain.ogg",
+      "blocks": [
+        {
+          "max": 8,
+          "min": 5,
+          "percent": 50,
+          "type": "drain"
+        }
+      ]
+    },
+    {
+      "id": "throw",
+      "name": {
+        "en": "Throw",
+        "vi": "Quăng"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/throw.ogg",
+      "blocks": [
+        {
+          "max": 10,
+          "min": 5,
+          "type": "damage"
+        },
+        {
+          "change": -3,
+          "type": "launcher_attack"
+        },
+        {
+          "change": -3,
+          "type": "target_attack"
+        },
+        {
+          "change": -3,
+          "type": "target_defense"
+        }
+      ]
+    },
+    {
+      "id": "thunder_cloud",
+      "name": {
+        "en": "Thunder Cloud",
+        "vi": "Mây sấm"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/thunder cloud.ogg",
+      "blocks": [
+        {
+          "change": -3,
+          "type": "launcher_defense"
+        },
+        {
+          "change": -10,
+          "type": "launcher_speed"
+        },
+        {
+          "change": -3,
+          "type": "target_defense"
+        },
+        {
+          "change": -20,
+          "type": "target_speed"
+        }
+      ]
+    },
+    {
+      "id": "thunder_wave",
+      "name": {
+        "en": "Thunder Wave",
+        "vi": "Sóng sấm"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/thunder wave.ogg",
+      "blocks": [
+        {
+          "change": -3,
+          "type": "launcher_attack"
+        },
+        {
+          "change": -3,
+          "type": "launcher_defense"
+        },
+        {
+          "change": -10,
+          "type": "launcher_speed"
+        },
+        {
+          "change": -30,
+          "type": "target_speed"
+        }
+      ]
+    },
+    {
+      "id": "thunderbolt",
+      "name": {
+        "en": "Thunderbolt",
+        "vi": "Sét giáng"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/thunderbolt.ogg",
+      "blocks": [
+        {
+          "max": 9,
+          "min": 6,
+          "type": "damage"
+        },
+        {
+          "change": -5,
+          "type": "target_speed"
+        }
+      ]
+    },
+    {
+      "id": "trip",
+      "name": {
+        "en": "Trip",
+        "vi": "Gạt chân"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/trip.ogg",
+      "blocks": [
+        {
+          "max": 9,
+          "min": 4,
+          "type": "damage"
+        },
+        {
+          "change": -2,
+          "type": "launcher_attack"
+        },
+        {
+          "change": 4,
+          "type": "launcher_speed"
+        },
+        {
+          "change": 2,
+          "type": "target_attack"
+        },
+        {
+          "change": 1,
+          "type": "target_speed"
+        }
+      ]
+    },
+    {
+      "id": "uppercut",
+      "name": {
+        "en": "Uppercut",
+        "vi": "Đấm móc lên"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/uppercut.ogg",
+      "blocks": [
+        {
+          "type": "damage",
+          "min": 8,
+          "max": 14
+        },
+        {
+          "type": "launcher_attack",
+          "change": 2
+        },
+        {
+          "type": "launcher_defense",
+          "change": 2
+        },
+        {
+          "type": "target_attack",
+          "change": -2
+        },
+        {
+          "type": "target_defense",
+          "change": -2
+        }
+      ]
+    },
+    {
+      "id": "vampiric_bite",
+      "name": {
+        "en": "Vampiric Bite",
+        "vi": "Huyết nha"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/vampiric bite.ogg",
+      "blocks": [
+        {
+          "type": "drain",
+          "min": 7,
+          "max": 10,
+          "percent": 60
+        }
+      ]
+    },
+    {
+      "id": "volcanic_warhammer",
+      "name": {
+        "en": "Volcanic Warhammer",
+        "vi": "Búa chiến núi lửa"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/volcanic warhammer.ogg",
+      "blocks": [
+        {
+          "max": 15,
+          "min": 10,
+          "type": "damage"
+        },
+        {
+          "change": -5,
+          "type": "target_defense"
+        }
+      ]
+    },
+    {
+      "id": "volley_of_fireballs",
+      "name": {
+        "en": "Volley Of Fireballs",
+        "vi": "Loạt hỏa cầu"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/volley of fireballs.ogg",
+      "blocks": [
+        {
+          "type": "damage",
+          "min": 12,
+          "max": 16
+        },
+        {
+          "type": "launcher_attack",
+          "change": 2
+        }
+      ]
+    },
+    {
+      "id": "vortex_of_the_deceased",
+      "name": {
+        "en": "Vortex Of The Deceased",
+        "vi": "Tử linh xoáy"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/vortex of the deceased.ogg",
+      "blocks": [
+        {
+          "max": 15,
+          "min": 9,
+          "type": "damage"
+        },
+        {
+          "change": -2,
+          "type": "launcher_attack"
+        },
+        {
+          "change": -2,
+          "type": "launcher_defense"
+        },
+        {
+          "change": -2,
+          "type": "launcher_speed"
+        }
+      ]
+    },
+    {
+      "id": "weaken",
+      "name": {
+        "en": "Weaken",
+        "vi": "Suy nhược"
+      },
+      "targeting": "enemies_only",
+      "sound_path": "battle/mvsounds_named/weaken.ogg",
+      "blocks": [
+        {
+          "change": -3,
+          "type": "target_attack"
+        },
+        {
+          "change": -5,
+          "type": "target_speed"
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "id": "novice_boxer",
+      "name": {
+        "en": "Novice Boxer",
+        "vi": "Võ sĩ tập sự"
+      },
+      "health": 50,
+      "attack": 0,
+      "defense": 0,
+      "speed": 100,
+      "move_ids": [
+        "light_jab",
+        "left_jab",
+        "right_jab",
+        "left_hook",
+        "right_hook",
+        "backhand",
+        "uppercut",
+        "snap_kick",
+        "trip",
+        "elbow",
+        "knee"
+      ]
+    },
+    {
+      "id": "boxer",
+      "name": {
+        "en": "Boxer",
+        "vi": "Võ sĩ quyền Anh"
+      },
+      "health": 50,
+      "attack": 1,
+      "defense": 0,
+      "speed": 100,
+      "move_ids": [
+        "light_jab",
+        "right_jab",
+        "left_jab",
+        "nose_punch",
+        "jaw_punch",
+        "spinning_punch",
+        "dizzying_punch",
+        "gutbuster_punch",
+        "knockout_hit",
+        "sucker_punch",
+        "combo_punch",
+        "fist_barrage",
+        "spirit_punch",
+        "stone_punch",
+        "combo_kick",
+        "spinning_kick",
+        "flying_kick",
+        "frantic_kicking",
+        "flurry_of_blows",
+        "body_slam",
+        "throw",
+        "pummel",
+        "brawl"
+      ]
+    },
+    {
+      "id": "the_great_fighter",
+      "name": {
+        "en": "The Great Fighter",
+        "vi": "Đại đấu sĩ"
+      },
+      "health": 60,
+      "attack": 2,
+      "defense": 1,
+      "speed": 100,
+      "move_ids": [
+        "steel_sword",
+        "flame_sword",
+        "icicle_sword",
+        "electrified_sword",
+        "cursed_sword",
+        "animated_sword",
+        "quick_slash",
+        "spinning_cut",
+        "steel_tipped_whip",
+        "volcanic_warhammer",
+        "ancient_warhammer",
+        "steel_warhammer",
+        "fiery_war_axe",
+        "axe_throw",
+        "bloody_dagger",
+        "fire_knife",
+        "frozen_dagger",
+        "icicle_knife",
+        "shadowknife",
+        "kunai",
+        "meat_cleaver",
+        "nightstick"
+      ]
+    },
+    {
+      "id": "fighter_plane",
+      "name": {
+        "en": "Fighter Plane",
+        "vi": "Chiến đấu cơ"
+      },
+      "health": 80,
+      "attack": 3,
+      "defense": 2,
+      "speed": 100,
+      "move_ids": [
+        "aircraft_cannon",
+        "plasma_cannon",
+        "aircraft_machine_gun",
+        "laser_gun",
+        "eye_laser",
+        "machine_gun",
+        "shotgun",
+        "sniper_rifle",
+        "hand_grenade",
+        "heavy_taser",
+        "electric_shock",
+        "electrical_explosion",
+        "disruptor_grenade",
+        "dissolving_bomb",
+        "poison_bomb"
+      ]
+    },
+    {
+      "id": "low_rank_soldier",
+      "name": {
+        "en": "Low-Rank Soldier",
+        "vi": "Binh sĩ cấp thấp"
+      },
+      "health": 50,
+      "attack": 1,
+      "defense": 1,
+      "speed": 100,
+      "move_ids": [
+        "right_hook",
+        "machine_gun",
+        "shotgun",
+        "trip",
+        "combat_roll",
+        "nightstick",
+        "meat_cleaver",
+        "kunai",
+        "restrain",
+        "rush_in",
+        "run_away",
+        "draw_blood",
+        "backhand",
+        "elbow",
+        "knee",
+        "suicide_dive"
+      ]
+    },
+    {
+      "id": "high_rank_soldier",
+      "name": {
+        "en": "High-Rank Soldier",
+        "vi": "Binh sĩ cấp cao"
+      },
+      "health": 70,
+      "attack": 2,
+      "defense": 2,
+      "speed": 100,
+      "move_ids": [
+        "sniper_rifle",
+        "machine_gun",
+        "laser_gun",
+        "hand_grenade",
+        "plasma_cannon",
+        "combat_roll",
+        "battle_armor",
+        "battleforge",
+        "berserk",
+        "rev_up",
+        "haste",
+        "locked_in_combat",
+        "sacrifice_for_power",
+        "sacrifice_for_guard",
+        "sacrifice_for_speed",
+        "magic_deal",
+        "intimidate"
+      ]
+    },
+    {
+      "id": "ghostly_fighter",
+      "name": {
+        "en": "Ghostly Fighter",
+        "vi": "Đấu sĩ ma ảnh"
+      },
+      "health": 45,
+      "attack": 2,
+      "defense": -1,
+      "speed": 100,
+      "move_ids": [
+        "flame_sword",
+        "ancient_warhammer",
+        "steel_tipped_whip",
+        "ghostly_scream",
+        "spectral_alteration",
+        "roar",
+        "frightening_laugh",
+        "brain_eat",
+        "explode_from_the_shadows",
+        "vortex_of_the_deceased",
+        "drain",
+        "mini_drain",
+        "guard_drain",
+        "power_drain",
+        "speed_drain",
+        "super_drain",
+        "vampiric_bite",
+        "weaken",
+        "intimidate",
+        "magic_shield"
+      ]
+    },
+    {
+      "id": "the_alpha_wolf",
+      "name": {
+        "en": "The Alpha Wolf",
+        "vi": "Sói đầu đàn"
+      },
+      "health": 55,
+      "attack": 3,
+      "defense": 0,
+      "speed": 100,
+      "move_ids": [
+        "howl",
+        "circle",
+        "bite",
+        "ferocious_bite",
+        "pin_down",
+        "snapping_jaw",
+        "claw",
+        "scratch",
+        "lions_claw",
+        "maul",
+        "rugby_tackle",
+        "grapple",
+        "headlock",
+        "armlock",
+        "leglock",
+        "groundnpound",
+        "roar",
+        "restrain"
+      ]
+    },
+    {
+      "id": "the_fiery_lion",
+      "name": {
+        "en": "The Fiery Lion",
+        "vi": "Sư tử hỏa diệm"
+      },
+      "health": 65,
+      "attack": 3,
+      "defense": 1,
+      "speed": 100,
+      "move_ids": [
+        "fireball",
+        "flame_arrow",
+        "flaming_sphere",
+        "ember",
+        "ferocious_bite",
+        "roar",
+        "claw",
+        "burning_powder",
+        "volley_of_fireballs",
+        "fire_knife",
+        "fiery_war_axe",
+        "flame_sword",
+        "rain_of_sparks"
+      ]
+    },
+    {
+      "id": "master_mage",
+      "name": {
+        "en": "Master Mage",
+        "vi": "Đại pháp sư"
+      },
+      "health": 40,
+      "attack": 4,
+      "defense": -1,
+      "speed": 100,
+      "move_ids": [
+        "fireball",
+        "ice_ball",
+        "flaming_sphere",
+        "lightning_bolt",
+        "flame_arrow",
+        "lightning_arrow",
+        "cryosphere",
+        "electric_sphere",
+        "elven_longbow",
+        "ice_cube",
+        "rain_of_ice",
+        "avalanche",
+        "magic_sphere",
+        "magic_strength",
+        "magic_shield",
+        "heal",
+        "greater_heal",
+        "divine_sphere",
+        "seismic_blast"
+      ]
+    },
+    {
+      "id": "the_wizardly_warrior",
+      "name": {
+        "en": "The Wizardly Warrior",
+        "vi": "Chiến binh pháp thuật"
+      },
+      "health": 60,
+      "attack": 2,
+      "defense": 2,
+      "speed": 100,
+      "move_ids": [
+        "steel_sword",
+        "ancient_warhammer",
+        "lightning_bolt",
+        "flame_arrow",
+        "body_slam",
+        "roar",
+        "fiery_war_axe",
+        "electrified_sword",
+        "cursed_sword",
+        "animated_sword",
+        "magic_strength",
+        "battle_armor",
+        "thunderbolt",
+        "quick_slash"
+      ]
+    },
+    {
+      "id": "master_of_the_storm",
+      "name": {
+        "en": "Master of the Storm",
+        "vi": "Chúa tể bão giông"
+      },
+      "health": 50,
+      "attack": 4,
+      "defense": 0,
+      "speed": 100,
+      "move_ids": [
+        "thunder_cloud",
+        "thunderbolt",
+        "thunder_wave",
+        "electric_sphere",
+        "electric_shock",
+        "lightning_arrow",
+        "rain_of_sparks",
+        "lightning_bolt",
+        "electrical_explosion",
+        "seismic_blast",
+        "avalanche",
+        "ice_ball",
+        "cryosphere",
+        "heavy_taser"
+      ]
+    }
+  ]
+}

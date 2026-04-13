@@ -5,6 +5,10 @@ import server.game_utils.stats_extractor
 
 class MockGameClass:
     @classmethod
+    def get_supported_leaderboards(cls):
+        return ["wins", "total_score", "high_score", "games_played"]
+
+    @classmethod
     def get_leaderboard_types(cls):
         return [
             {

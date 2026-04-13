@@ -136,3 +136,34 @@ def test_get_top_wins_with_losses(db):
     assert top_wins[0][2] == 1.0 # wins
     assert top_wins[0][3] == 0.0 # losses
 
+
+def test_battle_custom_max_stats_persist_with_correct_keys(db):
+    database, alice, bob = db
+
+    players = [
+        (alice.uuid, "Alice", False),
+        (bob.uuid, "Bob", False),
+    ]
+
+    custom_data = {
+        "player_stats": {
+            alice.uuid: {"survival_kills": 7, "deepest_wave": 4},
+            bob.uuid: {"survival_kills": 5, "deepest_wave": 3},
+        }
+    }
+
+    database.save_game_result("battle", datetime.now().isoformat(), 100, players, custom_data)
+
+    alice_stats = database.get_all_player_game_stats(alice.uuid, "battle")
+    bob_stats = database.get_all_player_game_stats(bob.uuid, "battle")
+
+    assert alice_stats["games_played"] == 1.0
+    assert alice_stats["custom_most_enemies_defeated_high"] == 7.0
+    assert alice_stats["custom_deepest_wave_reached_high"] == 4.0
+    assert "custom_most_enemies_defeated" not in alice_stats
+    assert "custom_deepest_wave_reached" not in alice_stats
+
+    assert bob_stats["games_played"] == 1.0
+    assert bob_stats["custom_most_enemies_defeated_high"] == 5.0
+    assert bob_stats["custom_deepest_wave_reached_high"] == 3.0
+

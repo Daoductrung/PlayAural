@@ -1,8 +1,9 @@
 import { StatusBar } from "expo-status-bar";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SecureStore from "expo-secure-store";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
 import {
+  AccessibilityInfo,
   BackHandler,
   KeyboardAvoidingView,
   Linking,
@@ -14,6 +15,7 @@ import {
   Text,
   TextInput,
   View,
+  findNodeHandle,
 } from "react-native";
 
 import { MobileAudioManager } from "../audio/MobileAudioManager";
@@ -46,15 +48,25 @@ import { BufferStore, type BufferName } from "../state/BufferStore";
 import { TtsManager } from "../tts/TtsManager";
 
 const MOBILE_CLIENT_VERSION = "1.0.2";
-const MOBILE_BUILD_STAMP = "2026-04-11 14:18:24 +07:00";
+const MOBILE_BUILD_STAMP = "2026-04-13 19:05:13 +07:00";
 const DEFAULT_SERVER_URL = "wss://playaural.ddt.one:443";
 const APK_DOWNLOAD_URL =
   "https://github.com/Daoductrung/PlayAural/releases/latest/download/PlayAural.apk";
 const CLIENT_CONFIG_STORAGE_KEY = "playaural.mobile.clientConfig";
 const CLIENT_PASSWORD_STORAGE_KEY = "playaural.mobile.password";
+const CLIENT_SV_STORAGE_KEY = "playaural.mobile.selfVoicing";
+const WEB_SCREEN_READER_SUPPORT = Platform.OS === "web";
+const NATIVE_FOCUS_DELAY_MS = 80;
 
 type AppMode = "chat" | "history" | "main" | "shortcuts";
 type AuthMode = "forgot" | "login" | "register" | "reset";
+
+type ScreenReaderAnnouncement = {
+  id: number;
+  text: string;
+};
+
+type AccessibilityFocusNode = Parameters<typeof findNodeHandle>[0] | { focus?: () => void };
 
 type FocusableMenuItem = {
   id?: string;
@@ -122,6 +134,7 @@ type AuthFocusableItem = {
   action:
     | "clear_saved_account"
     | "connect"
+    | "exit_app"
     | "focus_forgot_email"
     | "focus_password"
     | "focus_register_bio"
@@ -135,6 +148,9 @@ type AuthFocusableItem = {
     | "submit_forgot"
     | "submit_register"
     | "submit_reset"
+    | "switch_forgot"
+    | "switch_login"
+    | "switch_register"
     | "toggle_locale";
   id: string;
   text: string;
@@ -168,6 +184,16 @@ function clamp(value: number, min: number, max: number): number {
 
 function normalizeMenuItems(items: Array<string | MenuItemData>): FocusableMenuItem[] {
   return items.map((item) => (typeof item === "string" ? { text: item } : item));
+}
+
+function getDefaultAuthFocusId(mode: AuthMode): string {
+  if (mode === "forgot") {
+    return "field-forgot-email";
+  }
+  if (mode === "reset") {
+    return "field-reset-email";
+  }
+  return "field-username";
 }
 
 function formatChatMessage(localization: MobileLocalization, packet: ChatPacket): string {
@@ -297,6 +323,13 @@ export function PlayAuralApp() {
   const [chatFocusIndex, setChatFocusIndex] = useState(0);
   const [authFocusIndex, setAuthFocusIndex] = useState(0);
   const [preferences, setPreferences] = useState<Record<string, unknown>>({});
+  const [selfVoicingEnabled, setSelfVoicingEnabled] = useState(true);
+  const [screenReaderEnabled, setScreenReaderEnabled] = useState(WEB_SCREEN_READER_SUPPORT);
+  const [activeTextInputKey, setActiveTextInputKey] = useState<string | null>(null);
+  const [screenReaderAnnouncement, setScreenReaderAnnouncement] = useState<ScreenReaderAnnouncement>({
+    id: 0,
+    text: "",
+  });
 
   const menuStateRef = useRef(menuState);
   const inputStateRef = useRef(inputState);
@@ -312,6 +345,11 @@ export function PlayAuralApp() {
   const expectingReconnectRef = useRef(false);
   const sessionEstablishedRef = useRef(false);
   const lastPassiveUiSignatureRef = useRef<string | null>(null);
+  const authModeInitializedRef = useRef(false);
+  const previousAuthModeRef = useRef<AuthMode | null>(null);
+  const nativeFocusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastNativeFocusKeyRef = useRef<string | null>(null);
+  const accessibilityNodeRefs = useRef(new Map<string, AccessibilityFocusNode>());
   const credentialsRef = useRef({
     password,
     serverUrl,
@@ -355,6 +393,144 @@ export function PlayAuralApp() {
       username,
     };
   }, [password, serverUrl, username]);
+
+  useEffect(() => {
+    tts.setUiEnabled(selfVoicingEnabled);
+    lastPassiveUiSignatureRef.current = null;
+  }, [selfVoicingEnabled, tts]);
+
+  useEffect(() => {
+    let active = true;
+    void AccessibilityInfo.isScreenReaderEnabled()
+      .then((enabled) => {
+        if (!active) {
+          return;
+        }
+        setScreenReaderEnabled(enabled || WEB_SCREEN_READER_SUPPORT);
+      })
+      .catch(() => {
+        if (active) {
+          setScreenReaderEnabled(WEB_SCREEN_READER_SUPPORT);
+        }
+      });
+
+    const subscription = AccessibilityInfo.addEventListener("screenReaderChanged", (enabled) => {
+      setScreenReaderEnabled(enabled || WEB_SCREEN_READER_SUPPORT);
+    });
+
+    return () => {
+      active = false;
+      subscription.remove();
+    };
+  }, []);
+
+  useEffect(() => () => {
+    if (nativeFocusTimerRef.current) {
+      clearTimeout(nativeFocusTimerRef.current);
+      nativeFocusTimerRef.current = null;
+    }
+  }, []);
+
+  const nativeScreenReaderMode = !selfVoicingEnabled && (screenReaderEnabled || WEB_SCREEN_READER_SUPPORT);
+  const selfVoicingInteractionEnabled = selfVoicingEnabled && activeTextInputKey === null;
+
+  useEffect(() => {
+    if (!nativeScreenReaderMode) {
+      lastNativeFocusKeyRef.current = null;
+    }
+  }, [nativeScreenReaderMode]);
+
+  const announceForNativeScreenReader = useCallback((text: string) => {
+    if (!text) {
+      return;
+    }
+    setScreenReaderAnnouncement((current) => ({
+      id: current.id + 1,
+      text,
+    }));
+    if (Platform.OS !== "web") {
+      AccessibilityInfo.announceForAccessibility(text);
+    }
+  }, []);
+
+  const registerAccessibilityNode = useCallback(
+    (key: string, textInputRef?: MutableRefObject<TextInput | null>) =>
+      (node: AccessibilityFocusNode | null) => {
+        if (node) {
+          accessibilityNodeRefs.current.set(key, node);
+        } else {
+          accessibilityNodeRefs.current.delete(key);
+        }
+        if (textInputRef) {
+          textInputRef.current = node as TextInput | null;
+        }
+      },
+    [],
+  );
+
+  const moveNativeAccessibilityFocus = useCallback((key: string | null) => {
+    if (!nativeScreenReaderMode || !key) {
+      return;
+    }
+    if (lastNativeFocusKeyRef.current === key) {
+      return;
+    }
+
+    const node = accessibilityNodeRefs.current.get(key);
+    if (!node) {
+      return;
+    }
+
+    if (nativeFocusTimerRef.current) {
+      clearTimeout(nativeFocusTimerRef.current);
+    }
+
+    nativeFocusTimerRef.current = setTimeout(() => {
+      nativeFocusTimerRef.current = null;
+      lastNativeFocusKeyRef.current = key;
+      if (Platform.OS === "web") {
+        const focusable = node as { focus?: () => void };
+        focusable.focus?.();
+        return;
+      }
+      const reactTag = findNodeHandle(node as Parameters<typeof findNodeHandle>[0]);
+      if (reactTag) {
+        AccessibilityInfo.setAccessibilityFocus(reactTag);
+      }
+    }, NATIVE_FOCUS_DELAY_MS);
+  }, [nativeScreenReaderMode]);
+
+  const handleTextInputFocus = useCallback((key: string, onFocus?: () => void) => {
+    setActiveTextInputKey(key);
+    onFocus?.();
+  }, []);
+
+  const handleTextInputBlur = useCallback((key: string) => {
+    setActiveTextInputKey((current) => (current === key ? null : current));
+  }, []);
+
+  const addHistoryMessage = useCallback((buffer: BufferName, text: string) => {
+    buffers.add(buffer, text);
+    setHistoryRevision((value) => value + 1);
+  }, [buffers]);
+
+  const announceInterfaceFeedback = useCallback(
+    (text: string) => {
+      if (!text) {
+        return;
+      }
+      addHistoryMessage("system", text);
+      if (selfVoicingEnabled) {
+        tts.speakUi(text, {
+          interruptAnnouncement: true,
+          interruptUi: true,
+        });
+        return;
+      }
+      announceForNativeScreenReader(text);
+    },
+    [addHistoryMessage, announceForNativeScreenReader, selfVoicingEnabled, tts],
+  );
 
   const announce = (text: string, buffer: BufferName = "system", speak = true) => {
     buffers.add(buffer, text);
@@ -439,7 +615,7 @@ export function PlayAuralApp() {
 
   useEffect(() => {
     void persistClientState();
-  }, [storageReady, appLocale, preferences, registerEmail, serverUrl, username, password]);
+  }, [storageReady, appLocale, preferences, registerEmail, serverUrl, username, password, selfVoicingEnabled]);
 
   useEffect(() => {
     if (!storageReady || connected || autoLoginAttemptedRef.current) {
@@ -465,9 +641,10 @@ export function PlayAuralApp() {
 
   const loadStoredClientState = async () => {
     try {
-      const [storedConfigRaw, storedPassword] = await Promise.all([
+      const [storedConfigRaw, storedPassword, storedSelfVoicing] = await Promise.all([
         AsyncStorage.getItem(CLIENT_CONFIG_STORAGE_KEY),
         SecureStore.getItemAsync(CLIENT_PASSWORD_STORAGE_KEY),
+        SecureStore.getItemAsync(CLIENT_SV_STORAGE_KEY),
       ]);
 
       let appliedStoredLocale = false;
@@ -500,6 +677,11 @@ export function PlayAuralApp() {
       if (storedPassword) {
         setPassword(storedPassword);
       }
+      if (storedSelfVoicing === "0") {
+        setSelfVoicingEnabled(false);
+      } else if (storedSelfVoicing === "1") {
+        setSelfVoicingEnabled(true);
+      }
     } catch {
       // Ignore storage corruption and fall back to defaults.
     } finally {
@@ -527,6 +709,7 @@ export function PlayAuralApp() {
       } else {
         await SecureStore.deleteItemAsync(CLIENT_PASSWORD_STORAGE_KEY);
       }
+      await SecureStore.setItemAsync(CLIENT_SV_STORAGE_KEY, selfVoicingEnabled ? "1" : "0");
     } catch {
       // Ignore storage write failures in the UI flow.
     }
@@ -547,6 +730,26 @@ export function PlayAuralApp() {
       setAuthStatusText(localization.t("auth-account-clear-failed"));
     }
   };
+
+  const updateSelfVoicing = useCallback((enabled: boolean) => {
+    setSelfVoicingEnabled(enabled);
+    const message = localization.t(enabled ? "sv-enabled-announcement" : "sv-disabled-announcement");
+    addHistoryMessage("system", message);
+    if (enabled) {
+      tts.setUiEnabled(true);
+      tts.speakUi(message, {
+        interruptAnnouncement: true,
+        interruptUi: true,
+      });
+      return;
+    }
+    tts.setUiEnabled(false);
+    announceForNativeScreenReader(message);
+  }, [addHistoryMessage, announceForNativeScreenReader, localization, tts]);
+
+  const toggleSelfVoicing = useCallback(() => {
+    updateSelfVoicing(!selfVoicingEnabled);
+  }, [selfVoicingEnabled, updateSelfVoicing]);
 
   const applyPreferenceUpdates = (updates: Record<string, unknown>) => {
     if (Object.keys(updates).length === 0) {
@@ -765,6 +968,10 @@ export function PlayAuralApp() {
     tts.stop();
     if (Platform.OS === "android") {
       BackHandler.exitApp();
+      return;
+    }
+    if (Platform.OS === "web" && typeof window !== "undefined") {
+      window.close();
     }
   };
 
@@ -1039,7 +1246,7 @@ export function PlayAuralApp() {
           });
           setInputOverlayFocus(0);
           setInputValue(inputPacket.default_value || "");
-          announce(localization.t("input-opened"), "system");
+          announceInterfaceFeedback(localization.t("input-opened"));
           return;
         }
 
@@ -1066,7 +1273,7 @@ export function PlayAuralApp() {
           if (startedAt) {
             const elapsed = Date.now() - startedAt;
             setLastPingStartedAt(null);
-            announce(localization.t("shortcut-ping-result", { value: elapsed }), "system");
+            announceInterfaceFeedback(localization.t("shortcut-ping-result", { value: elapsed }));
           }
           return;
         }
@@ -1283,15 +1490,40 @@ export function PlayAuralApp() {
       });
     }
 
-    items.push(...(["login", "register", "forgot"] as const).map((candidate) => ({
-      action: "toggle_locale" as const,
-      id: `tab-${candidate}`,
-      text: localization.t(`auth-mode-${candidate}`),
-    })));
+    items.push(...([
+      { action: "switch_login" as const, id: "tab-login", text: localization.t("auth-mode-login") },
+      { action: "switch_register" as const, id: "tab-register", text: localization.t("auth-mode-register") },
+      { action: "switch_forgot" as const, id: "tab-forgot", text: localization.t("auth-mode-forgot") },
+    ]));
+    items.push({
+      action: "exit_app",
+      id: "button-exit",
+      text: localization.t("auth-exit"),
+    });
 
     return items;
   }, [appLocale, authMode, connected, localization, password, username]);
   const focusedAuthItem = authFocusableItems[authFocusIndex] ?? null;
+
+  useEffect(() => {
+    if (!activeTextInputKey) {
+      return;
+    }
+    if (activeTextInputKey === "chat:input" && mode !== "chat") {
+      setActiveTextInputKey(null);
+      return;
+    }
+    if (activeTextInputKey === "input:field" && !inputState) {
+      setActiveTextInputKey(null);
+      return;
+    }
+    if (activeTextInputKey.startsWith("auth:")) {
+      const isVisible = !connected && authFocusableItems.some((item) => `auth:${item.id}` === activeTextInputKey);
+      if (!isVisible) {
+        setActiveTextInputKey(null);
+      }
+    }
+  }, [activeTextInputKey, authFocusableItems, connected, inputState, mode]);
 
   const getCurrentUiFocusText = useCallback((): string | null => {
     if (!connected) {
@@ -1384,9 +1616,84 @@ export function PlayAuralApp() {
     shortcutFocusIndex,
   ]);
 
+  const getCurrentNativeFocusKey = useCallback((): string | null => {
+    if (!connected) {
+      return focusedAuthItem ? `auth:${focusedAuthItem.id}` : null;
+    }
+    if (dialogState && focusedDialogButton) {
+      return `dialog:${dialogState.id}:${focusedDialogButton.id}`;
+    }
+    if (inputState) {
+      return inputOverlayFocus === 0 ? "input:field" : "input:action";
+    }
+    if (mode === "main") {
+      return focusedMenuItem ? `menu:${menuState.focusIndex}` : null;
+    }
+    if (mode === "shortcuts" && focusedShortcutItem) {
+      return `shortcut:${focusedShortcutItem.id}`;
+    }
+    if (mode === "history") {
+      return "history:content";
+    }
+    if (mode === "chat") {
+      if (focusedChatItem?.kind === "input") {
+        return "chat:input";
+      }
+      if (focusedChatItem?.kind === "send") {
+        return "chat:send";
+      }
+      if (focusedChatItem?.kind === "message") {
+        return `chat:message:${chatFocusIndex}`;
+      }
+    }
+    return null;
+  }, [
+    chatFocusIndex,
+    connected,
+    dialogState,
+    focusedAuthItem,
+    focusedChatItem,
+    focusedDialogButton,
+    focusedMenuItem,
+    focusedShortcutItem,
+    inputOverlayFocus,
+    inputState,
+    menuState.focusIndex,
+    mode,
+  ]);
+
   useEffect(() => {
     setAuthFocusIndex((current) => clamp(current, 0, Math.max(0, authFocusableItems.length - 1)));
   }, [authFocusableItems]);
+
+  useEffect(() => {
+    if (connected) {
+      authModeInitializedRef.current = false;
+      previousAuthModeRef.current = null;
+      return;
+    }
+
+    if (!authModeInitializedRef.current) {
+      authModeInitializedRef.current = true;
+      previousAuthModeRef.current = authMode;
+      const defaultFocusId = getDefaultAuthFocusId(authMode);
+      const nextIndex = authFocusableItems.findIndex((item) => item.id === defaultFocusId);
+      if (nextIndex >= 0) {
+        setAuthFocusIndex(nextIndex);
+      }
+      return;
+    }
+
+    if (previousAuthModeRef.current !== authMode) {
+      previousAuthModeRef.current = authMode;
+      const defaultFocusId = getDefaultAuthFocusId(authMode);
+      const nextIndex = authFocusableItems.findIndex((item) => item.id === defaultFocusId);
+      if (nextIndex >= 0) {
+        setAuthFocusIndex(nextIndex);
+      }
+      announceInterfaceFeedback(localization.t(`auth-screen-${authMode}`));
+    }
+  }, [announceInterfaceFeedback, authFocusableItems, authMode, connected, localization]);
 
   useEffect(() => {
     setChatFocusIndex((current) => clamp(current, 0, Math.max(0, chatFocusItems.length - 1)));
@@ -1398,6 +1705,28 @@ export function PlayAuralApp() {
       tts.setCurrentUiTextProvider(null);
     };
   }, [getCurrentUiFocusText, tts]);
+
+  useEffect(() => {
+    if (!nativeScreenReaderMode) {
+      return;
+    }
+    moveNativeAccessibilityFocus(getCurrentNativeFocusKey());
+  }, [
+    authFocusIndex,
+    chatFocusIndex,
+    connected,
+    dialogState,
+    getCurrentNativeFocusKey,
+    historyIndex,
+    inputOverlayFocus,
+    inputState,
+    menuState.focusIndex,
+    menuState.menuId,
+    mode,
+    moveNativeAccessibilityFocus,
+    nativeScreenReaderMode,
+    shortcutFocusIndex,
+  ]);
 
   useEffect(() => {
     if (!dialogState) {
@@ -1461,17 +1790,17 @@ export function PlayAuralApp() {
       return;
     }
 
-    if (item.id === "tab-login") {
+    if (item.action === "switch_login") {
       setAuthMode("login");
       setAuthStatusText("");
       return;
     }
-    if (item.id === "tab-register") {
+    if (item.action === "switch_register") {
       setAuthMode("register");
       setAuthStatusText("");
       return;
     }
-    if (item.id === "tab-forgot") {
+    if (item.action === "switch_forgot") {
       setAuthMode("forgot");
       setAuthStatusText("");
       return;
@@ -1499,6 +1828,10 @@ export function PlayAuralApp() {
     }
     if (item.action === "clear_saved_account") {
       void clearSavedAccount();
+      return;
+    }
+    if (item.action === "exit_app") {
+      exitApplication();
       return;
     }
     if (item.action === "toggle_locale") {
@@ -1609,7 +1942,7 @@ export function PlayAuralApp() {
     }
     const name = localization.t(`mode-${mode}`);
     setMode("main");
-    announce(localization.t("overlay-closed", { name }), "system");
+    announceInterfaceFeedback(localization.t("overlay-closed", { name }));
     return true;
   };
 
@@ -1623,7 +1956,7 @@ export function PlayAuralApp() {
       if (resolved === "chat") {
         setChatFocusIndex(0);
       }
-      announce(localization.t(key, { name: localization.t(`mode-${nextMode}`) }), "system");
+      announceInterfaceFeedback(localization.t(key, { name: localization.t(`mode-${nextMode}`) }));
       return resolved;
     });
   };
@@ -1658,7 +1991,7 @@ export function PlayAuralApp() {
     if (shortcut.id === "ping") {
       setLastPingStartedAt(Date.now());
       connection?.send({ type: "ping" });
-      announce(localization.t("shortcut-ping-sent"), "system");
+      announceInterfaceFeedback(localization.t("shortcut-ping-sent"));
       return;
     }
     if (shortcut.id === "list_online") {
@@ -1674,25 +2007,25 @@ export function PlayAuralApp() {
     if (shortcut.id === "music_down") {
       const nextValue = clamp(Math.round(audio.getMusicVolume() * 100) - 10, 0, 100);
       syncPreference("audio/music_volume", nextValue);
-      announce(localization.t("shortcut-music-volume", { value: nextValue }), "system");
+      announceInterfaceFeedback(localization.t("shortcut-music-volume", { value: nextValue }));
       return;
     }
     if (shortcut.id === "music_up") {
       const nextValue = clamp(Math.round(audio.getMusicVolume() * 100) + 10, 0, 100);
       syncPreference("audio/music_volume", nextValue);
-      announce(localization.t("shortcut-music-volume", { value: nextValue }), "system");
+      announceInterfaceFeedback(localization.t("shortcut-music-volume", { value: nextValue }));
       return;
     }
     if (shortcut.id === "ambience_down") {
       const nextValue = clamp(Math.round(audio.getAmbienceVolume() * 100) - 10, 0, 100);
       syncPreference("audio/ambience_volume", nextValue);
-      announce(localization.t("shortcut-ambience-volume", { value: nextValue }), "system");
+      announceInterfaceFeedback(localization.t("shortcut-ambience-volume", { value: nextValue }));
       return;
     }
     if (shortcut.id === "ambience_up") {
       const nextValue = clamp(Math.round(audio.getAmbienceVolume() * 100) + 10, 0, 100);
       syncPreference("audio/ambience_volume", nextValue);
-      announce(localization.t("shortcut-ambience-volume", { value: nextValue }), "system");
+      announceInterfaceFeedback(localization.t("shortcut-ambience-volume", { value: nextValue }));
     }
   };
 
@@ -1706,6 +2039,10 @@ export function PlayAuralApp() {
 
   const speakUserFocus = (text: string | null | undefined) => {
     if (!text) {
+      return;
+    }
+    if (!selfVoicingEnabled) {
+      announceForNativeScreenReader(text);
       return;
     }
     tts.speakUi(text, {
@@ -1729,7 +2066,7 @@ export function PlayAuralApp() {
       text: inputValue,
       type: "editbox",
     });
-    announce(localization.t("input-submitted"), "system");
+    announceInterfaceFeedback(localization.t("input-submitted"));
     setInputState(null);
     setInputValue("");
     setInputOverlayFocus(0);
@@ -2057,7 +2394,7 @@ export function PlayAuralApp() {
   const handleRepeatLast = () => {
     const repeated = tts.repeatLastAnnouncement();
     if (!repeated) {
-      announce(localization.t("gesture-no-last"), "system");
+      announceInterfaceFeedback(localization.t("gesture-no-last"));
     }
   };
 
@@ -2108,7 +2445,7 @@ export function PlayAuralApp() {
         setInputState(null);
         setInputValue("");
         setInputOverlayFocus(0);
-        announce(localization.t("input-cancelled"), "system");
+        announceInterfaceFeedback(localization.t("input-cancelled"));
         return;
       }
       if (connected && mode === "main" && menuState.menuId === "turn_menu") {
@@ -2141,9 +2478,22 @@ export function PlayAuralApp() {
 
   handleSystemSwipeRef.current = handleSystemSwipe;
 
+  const fallbackPrimaryActionLabel = useMemo(() => {
+    if (mode !== "main") {
+      return localization.t("native-fallback-back");
+    }
+    if (menuState.menuId === "turn_menu") {
+      return localization.t("native-fallback-actions");
+    }
+    return localization.t("native-fallback-back");
+  }, [localization, menuState.menuId, mode]);
+
+  const showNativeFallbackButtons =
+    connected && !selfVoicingEnabled && !dialogState && !inputState;
+
   const handleStopSpeech = () => {
     tts.stop();
-    announce(localization.t("gesture-stop-tts"), "system", false);
+    announceInterfaceFeedback(localization.t("gesture-stop-tts"));
   };
 
   useEffect(() => {
@@ -2160,7 +2510,7 @@ export function PlayAuralApp() {
   }, []);
 
   const gestures = useSelfVoicingGestures({
-    enabled: true,
+    enabled: selfVoicingInteractionEnabled,
     onDoubleTap: handlePrimaryActivate,
     onDoubleTapHold: handleModifiedActivate,
     onSingleFingerSwipe: handleDirectionalNavigation,
@@ -2179,7 +2529,7 @@ export function PlayAuralApp() {
   });
 
   useEffect(() => {
-    if (Platform.OS !== "web" || typeof window === "undefined") {
+    if (Platform.OS !== "web" || typeof window === "undefined" || !selfVoicingInteractionEnabled) {
       return;
     }
 
@@ -2302,9 +2652,12 @@ export function PlayAuralApp() {
     return () => {
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, [handleBoundaryJump, handleDirectionalNavigation, handleModifiedActivate, handlePrimaryActivate, handleSystemSwipe]);
+  }, [handleBoundaryJump, handleDirectionalNavigation, handleModifiedActivate, handlePrimaryActivate, handleSystemSwipe, selfVoicingInteractionEnabled]);
 
   useEffect(() => {
+    if (!selfVoicingEnabled) {
+      return;
+    }
     const focusSpeechOptions = {
       interruptAnnouncement: false,
       interruptUi: false,
@@ -2358,6 +2711,7 @@ export function PlayAuralApp() {
     }
   }, [
     connected,
+    selfVoicingEnabled,
     authFocusIndex,
     dialogState,
     focusedAuthItem?.text,
@@ -2381,7 +2735,7 @@ export function PlayAuralApp() {
     if (!serverUrl || !username || !password) {
       const message = localization.t("login-required");
       setAuthStatusText(message);
-      announce(message, "system");
+      announceInterfaceFeedback(message);
       return;
     }
     try {
@@ -2393,7 +2747,7 @@ export function PlayAuralApp() {
       const message = localization.t("network-invalid-url");
       setAuthStatusText(message);
       setStatusText(message);
-      announce(message, "system");
+      announceInterfaceFeedback(message);
       return;
     }
     prepareManualConnect();
@@ -2444,7 +2798,7 @@ export function PlayAuralApp() {
             ? localization.t("auth-register-success")
             : localization.t("auth-register-failed"));
         setAuthStatusText(text);
-        announce(text, "system");
+        announceInterfaceFeedback(text);
         if (registerResponse.status === "success") {
           setAuthMode("login");
           setPassword("");
@@ -2462,7 +2816,7 @@ export function PlayAuralApp() {
             ? localization.t("auth-forgot-success")
             : localization.t("auth-forgot-failed"));
         setAuthStatusText(text);
-        announce(text, "system");
+        announceInterfaceFeedback(text);
         if (forgotResponse.status === "success") {
           setResetEmail(forgotEmail.trim());
           setAuthMode("reset");
@@ -2477,7 +2831,7 @@ export function PlayAuralApp() {
           ? localization.t("auth-reset-success")
           : localization.t("auth-reset-failed"));
       setAuthStatusText(text);
-      announce(text, "system");
+      announceInterfaceFeedback(text);
       if (resetResponse.status === "success") {
         setAuthMode("login");
         if (resetResponse.username) {
@@ -2493,7 +2847,7 @@ export function PlayAuralApp() {
         ? localizeSystemMessage(error.message, "auth-request-failed")
         : localization.t("auth-request-failed");
       setAuthStatusText(message);
-      announce(message, "system");
+      announceInterfaceFeedback(message);
     }
   };
 
@@ -2501,13 +2855,13 @@ export function PlayAuralApp() {
     if (!username.trim() || !password || !registerEmail.trim()) {
       const message = localization.t("auth-register-required");
       setAuthStatusText(message);
-      announce(message, "system");
+      announceInterfaceFeedback(message);
       return;
     }
     if (password !== registerConfirmPassword) {
       const message = localization.t("auth-password-mismatch");
       setAuthStatusText(message);
-      announce(message, "system");
+      announceInterfaceFeedback(message);
       return;
     }
     await requestAuthFlow(
@@ -2528,7 +2882,7 @@ export function PlayAuralApp() {
     if (!forgotEmail.trim()) {
       const message = localization.t("auth-email-required");
       setAuthStatusText(message);
-      announce(message, "system");
+      announceInterfaceFeedback(message);
       return;
     }
     await requestAuthFlow(
@@ -2546,13 +2900,13 @@ export function PlayAuralApp() {
     if (!resetEmail.trim() || !resetCode.trim() || !resetPassword) {
       const message = localization.t("auth-reset-required");
       setAuthStatusText(message);
-      announce(message, "system");
+      announceInterfaceFeedback(message);
       return;
     }
     if (resetPassword !== resetConfirmPassword) {
       const message = localization.t("auth-password-mismatch");
       setAuthStatusText(message);
-      announce(message, "system");
+      announceInterfaceFeedback(message);
       return;
     }
     await requestAuthFlow(
@@ -2602,6 +2956,7 @@ export function PlayAuralApp() {
               playMenuActivateSound();
               sendMenuSelection(item, index);
             }}
+            ref={registerAccessibilityNode(`menu:${index}`)}
             style={[
               styles.menuItem,
               index === menuState.focusIndex ? styles.menuItemFocused : undefined,
@@ -2622,12 +2977,17 @@ export function PlayAuralApp() {
         <TextInput
           onChangeText={setChatDraft}
           onFocus={() => {
-            setChatFocusIndex(0);
+            handleTextInputFocus("chat:input", () => {
+              setChatFocusIndex(0);
+            });
+          }}
+          onBlur={() => {
+            handleTextInputBlur("chat:input");
           }}
           onSubmitEditing={submitChat}
           placeholder={localization.t("chat-placeholder")}
           placeholderTextColor="#7f8a93"
-          ref={chatInputRef}
+          ref={registerAccessibilityNode("chat:input", chatInputRef)}
           style={styles.input}
           value={chatDraft}
         />
@@ -2643,6 +3003,7 @@ export function PlayAuralApp() {
         onFocus={() => {
           setChatFocusIndex(1);
         }}
+        ref={registerAccessibilityNode("chat:send")}
         style={[
           styles.button,
           chatFocusIndex === 1 ? styles.menuItemFocused : undefined,
@@ -2664,6 +3025,7 @@ export function PlayAuralApp() {
               setChatFocusIndex(index + 2);
               speakUserFocus(item.text);
             }}
+            ref={registerAccessibilityNode(`chat:message:${index}`)}
             style={[
               styles.menuItem,
               chatFocusIndex === index + 2 ? styles.menuItemFocused : undefined,
@@ -2682,7 +3044,12 @@ export function PlayAuralApp() {
   const renderHistoryOverlay = () => (
     <View style={styles.panel}>
       <Text style={styles.panelTitle}>{localization.t("mode-history")}</Text>
-      <Text style={styles.historyText}>
+      <Text
+        accessibilityLabel={focusedHistoryMessage?.text ?? localization.t("history-empty")}
+        accessible
+        ref={registerAccessibilityNode("history:content")}
+        style={styles.historyText}
+      >
         {focusedHistoryMessage?.text ?? localization.t("history-empty")}
       </Text>
       <Text style={styles.helpText}>
@@ -2710,6 +3077,7 @@ export function PlayAuralApp() {
               playMenuActivateSound();
               activateShortcut(item);
             }}
+            ref={registerAccessibilityNode(`shortcut:${item.id}`)}
             style={[
               styles.menuItem,
               index === shortcutFocusIndex ? styles.menuItemFocused : undefined,
@@ -2752,6 +3120,7 @@ export function PlayAuralApp() {
                   void audio.handleUserInteraction();
                   button.onPress();
                 }}
+                ref={registerAccessibilityNode(`dialog:${dialogState.id}:${button.id}`)}
                 style={[
                   button.variant === "danger"
                     ? styles.buttonDanger
@@ -2799,6 +3168,7 @@ export function PlayAuralApp() {
             setAuthMode(candidate);
             setAuthStatusText("");
           }}
+          ref={registerAccessibilityNode(`auth:tab-${candidate}`)}
           style={[
             styles.authTab,
             authMode === candidate ? styles.authTabActive : undefined,
@@ -2808,8 +3178,11 @@ export function PlayAuralApp() {
           <Text style={styles.buttonText}>{localization.t(`auth-mode-${candidate}`)}</Text>
         </Pressable>
       ))}
-      {authMode === "reset" ? (
-        <Pressable style={[styles.authTab, styles.authTabActive]}>
+          {authMode === "reset" ? (
+        <Pressable
+          ref={registerAccessibilityNode("auth:tab-reset")}
+          style={[styles.authTab, styles.authTabActive]}
+        >
           <Text style={styles.buttonText}>{localization.t("auth-mode-reset")}</Text>
         </Pressable>
       ) : null}
@@ -2827,11 +3200,16 @@ export function PlayAuralApp() {
               autoCapitalize="none"
               onChangeText={setUsername}
               onFocus={() => {
-                focusAuthItemById("field-username");
+                handleTextInputFocus("auth:field-username", () => {
+                  focusAuthItemById("field-username");
+                });
+              }}
+              onBlur={() => {
+                handleTextInputBlur("auth:field-username");
               }}
               placeholder={localization.t("username")}
               placeholderTextColor="#7f8a93"
-              ref={usernameInputRef}
+              ref={registerAccessibilityNode("auth:field-username", usernameInputRef)}
               style={styles.input}
               value={username}
             />
@@ -2840,11 +3218,16 @@ export function PlayAuralApp() {
             <TextInput
               onChangeText={setPassword}
               onFocus={() => {
-                focusAuthItemById("field-password");
+                handleTextInputFocus("auth:field-password", () => {
+                  focusAuthItemById("field-password");
+                });
+              }}
+              onBlur={() => {
+                handleTextInputBlur("auth:field-password");
               }}
               placeholder={localization.t("password")}
               placeholderTextColor="#7f8a93"
-              ref={passwordInputRef}
+              ref={registerAccessibilityNode("auth:field-password", passwordInputRef)}
               secureTextEntry
               style={styles.input}
               value={password}
@@ -2862,6 +3245,7 @@ export function PlayAuralApp() {
                 void audio.handleUserInteraction();
                 connect();
               }}
+              ref={registerAccessibilityNode("auth:button-connect")}
               style={[styles.button, isAuthFocused("button-connect") ? styles.authFocused : undefined]}
             >
               <Text style={styles.buttonText}>{localization.t("connect")}</Text>
@@ -2880,6 +3264,7 @@ export function PlayAuralApp() {
                   void audio.handleUserInteraction();
                   void clearSavedAccount();
                 }}
+                ref={registerAccessibilityNode("auth:button-clear-account")}
                 style={[
                   styles.buttonSecondary,
                   isAuthFocused("button-clear-account") ? styles.authFocused : undefined,
@@ -2899,11 +3284,16 @@ export function PlayAuralApp() {
               autoCapitalize="none"
               onChangeText={setUsername}
               onFocus={() => {
-                focusAuthItemById("field-username");
+                handleTextInputFocus("auth:field-username", () => {
+                  focusAuthItemById("field-username");
+                });
+              }}
+              onBlur={() => {
+                handleTextInputBlur("auth:field-username");
               }}
               placeholder={localization.t("username")}
               placeholderTextColor="#7f8a93"
-              ref={usernameInputRef}
+              ref={registerAccessibilityNode("auth:field-username", usernameInputRef)}
               style={styles.input}
               value={username}
             />
@@ -2914,11 +3304,16 @@ export function PlayAuralApp() {
               keyboardType="email-address"
               onChangeText={setRegisterEmail}
               onFocus={() => {
-                focusAuthItemById("field-register-email");
+                handleTextInputFocus("auth:field-register-email", () => {
+                  focusAuthItemById("field-register-email");
+                });
+              }}
+              onBlur={() => {
+                handleTextInputBlur("auth:field-register-email");
               }}
               placeholder={localization.t("auth-email")}
               placeholderTextColor="#7f8a93"
-              ref={registerEmailInputRef}
+              ref={registerAccessibilityNode("auth:field-register-email", registerEmailInputRef)}
               style={styles.input}
               value={registerEmail}
             />
@@ -2927,11 +3322,16 @@ export function PlayAuralApp() {
             <TextInput
               onChangeText={setPassword}
               onFocus={() => {
-                focusAuthItemById("field-password");
+                handleTextInputFocus("auth:field-password", () => {
+                  focusAuthItemById("field-password");
+                });
+              }}
+              onBlur={() => {
+                handleTextInputBlur("auth:field-password");
               }}
               placeholder={localization.t("password")}
               placeholderTextColor="#7f8a93"
-              ref={passwordInputRef}
+              ref={registerAccessibilityNode("auth:field-password", passwordInputRef)}
               secureTextEntry
               style={styles.input}
               value={password}
@@ -2941,11 +3341,19 @@ export function PlayAuralApp() {
             <TextInput
               onChangeText={setRegisterConfirmPassword}
               onFocus={() => {
-                focusAuthItemById("field-register-confirm-password");
+                handleTextInputFocus("auth:field-register-confirm-password", () => {
+                  focusAuthItemById("field-register-confirm-password");
+                });
+              }}
+              onBlur={() => {
+                handleTextInputBlur("auth:field-register-confirm-password");
               }}
               placeholder={localization.t("auth-confirm-password")}
               placeholderTextColor="#7f8a93"
-              ref={registerConfirmPasswordInputRef}
+              ref={registerAccessibilityNode(
+                "auth:field-register-confirm-password",
+                registerConfirmPasswordInputRef,
+              )}
               secureTextEntry
               style={styles.input}
               value={registerConfirmPassword}
@@ -2956,11 +3364,16 @@ export function PlayAuralApp() {
               multiline
               onChangeText={setRegisterBio}
               onFocus={() => {
-                focusAuthItemById("field-register-bio");
+                handleTextInputFocus("auth:field-register-bio", () => {
+                  focusAuthItemById("field-register-bio");
+                });
+              }}
+              onBlur={() => {
+                handleTextInputBlur("auth:field-register-bio");
               }}
               placeholder={localization.t("auth-bio")}
               placeholderTextColor="#7f8a93"
-              ref={registerBioInputRef}
+              ref={registerAccessibilityNode("auth:field-register-bio", registerBioInputRef)}
               style={[styles.input, styles.multilineInput]}
               value={registerBio}
             />
@@ -2976,6 +3389,7 @@ export function PlayAuralApp() {
               void audio.handleUserInteraction();
               void submitRegistration();
             }}
+            ref={registerAccessibilityNode("auth:button-register")}
             style={[styles.button, isAuthFocused("button-register") ? styles.authFocused : undefined]}
           >
             <Text style={styles.buttonText}>{localization.t("auth-register-submit")}</Text>
@@ -2991,11 +3405,16 @@ export function PlayAuralApp() {
               keyboardType="email-address"
               onChangeText={setForgotEmail}
               onFocus={() => {
-                focusAuthItemById("field-forgot-email");
+                handleTextInputFocus("auth:field-forgot-email", () => {
+                  focusAuthItemById("field-forgot-email");
+                });
+              }}
+              onBlur={() => {
+                handleTextInputBlur("auth:field-forgot-email");
               }}
               placeholder={localization.t("auth-email")}
               placeholderTextColor="#7f8a93"
-              ref={forgotEmailInputRef}
+              ref={registerAccessibilityNode("auth:field-forgot-email", forgotEmailInputRef)}
               style={styles.input}
               value={forgotEmail}
             />
@@ -3011,6 +3430,7 @@ export function PlayAuralApp() {
               void audio.handleUserInteraction();
               void submitForgotPassword();
             }}
+            ref={registerAccessibilityNode("auth:button-forgot")}
             style={[styles.button, isAuthFocused("button-forgot") ? styles.authFocused : undefined]}
           >
             <Text style={styles.buttonText}>{localization.t("auth-forgot-submit")}</Text>
@@ -3026,11 +3446,16 @@ export function PlayAuralApp() {
               keyboardType="email-address"
               onChangeText={setResetEmail}
               onFocus={() => {
-                focusAuthItemById("field-reset-email");
+                handleTextInputFocus("auth:field-reset-email", () => {
+                  focusAuthItemById("field-reset-email");
+                });
+              }}
+              onBlur={() => {
+                handleTextInputBlur("auth:field-reset-email");
               }}
               placeholder={localization.t("auth-email")}
               placeholderTextColor="#7f8a93"
-              ref={resetEmailInputRef}
+              ref={registerAccessibilityNode("auth:field-reset-email", resetEmailInputRef)}
               style={styles.input}
               value={resetEmail}
             />
@@ -3040,11 +3465,16 @@ export function PlayAuralApp() {
               autoCapitalize="characters"
               onChangeText={setResetCode}
               onFocus={() => {
-                focusAuthItemById("field-reset-code");
+                handleTextInputFocus("auth:field-reset-code", () => {
+                  focusAuthItemById("field-reset-code");
+                });
+              }}
+              onBlur={() => {
+                handleTextInputBlur("auth:field-reset-code");
               }}
               placeholder={localization.t("auth-reset-code")}
               placeholderTextColor="#7f8a93"
-              ref={resetCodeInputRef}
+              ref={registerAccessibilityNode("auth:field-reset-code", resetCodeInputRef)}
               style={styles.input}
               value={resetCode}
             />
@@ -3053,11 +3483,16 @@ export function PlayAuralApp() {
             <TextInput
               onChangeText={setResetPassword}
               onFocus={() => {
-                focusAuthItemById("field-reset-password");
+                handleTextInputFocus("auth:field-reset-password", () => {
+                  focusAuthItemById("field-reset-password");
+                });
+              }}
+              onBlur={() => {
+                handleTextInputBlur("auth:field-reset-password");
               }}
               placeholder={localization.t("auth-new-password")}
               placeholderTextColor="#7f8a93"
-              ref={resetPasswordInputRef}
+              ref={registerAccessibilityNode("auth:field-reset-password", resetPasswordInputRef)}
               secureTextEntry
               style={styles.input}
               value={resetPassword}
@@ -3067,11 +3502,19 @@ export function PlayAuralApp() {
             <TextInput
               onChangeText={setResetConfirmPassword}
               onFocus={() => {
-                focusAuthItemById("field-reset-confirm-password");
+                handleTextInputFocus("auth:field-reset-confirm-password", () => {
+                  focusAuthItemById("field-reset-confirm-password");
+                });
+              }}
+              onBlur={() => {
+                handleTextInputBlur("auth:field-reset-confirm-password");
               }}
               placeholder={localization.t("auth-confirm-password")}
               placeholderTextColor="#7f8a93"
-              ref={resetConfirmPasswordInputRef}
+              ref={registerAccessibilityNode(
+                "auth:field-reset-confirm-password",
+                resetConfirmPasswordInputRef,
+              )}
               secureTextEntry
               style={styles.input}
               value={resetConfirmPassword}
@@ -3088,6 +3531,7 @@ export function PlayAuralApp() {
               void audio.handleUserInteraction();
               void submitResetPassword();
             }}
+            ref={registerAccessibilityNode("auth:button-reset")}
             style={[styles.button, isAuthFocused("button-reset") ? styles.authFocused : undefined]}
           >
             <Text style={styles.buttonText}>{localization.t("auth-reset-submit")}</Text>
@@ -3108,23 +3552,126 @@ export function PlayAuralApp() {
             void audio.handleUserInteraction();
             applyLocale(appLocale === "en" ? "vi" : "en");
           }}
+          ref={registerAccessibilityNode("auth:locale")}
           style={[styles.buttonSecondary, isAuthFocused("locale") ? styles.authFocused : undefined]}
         >
           <Text style={styles.buttonText}>
             {localization.t("locale")}: {appLocale.toUpperCase()}
           </Text>
         </Pressable>
+        <Pressable
+          accessibilityLabel={localization.t("auth-exit")}
+          accessibilityRole="button"
+          accessible
+          onFocus={() => {
+            focusAuthItemById("button-exit");
+          }}
+          onPress={() => {
+            void audio.handleUserInteraction();
+            exitApplication();
+          }}
+          ref={registerAccessibilityNode("auth:button-exit")}
+          style={[styles.buttonDanger, isAuthFocused("button-exit") ? styles.authFocused : undefined]}
+        >
+          <Text style={styles.buttonText}>{localization.t("auth-exit")}</Text>
+        </Pressable>
       </View>
     </View>
   );
 
+  const renderScreenReaderOnlyControls = () => {
+    if (!screenReaderEnabled && !WEB_SCREEN_READER_SUPPORT) {
+      return null;
+    }
+
+    return (
+      <Pressable
+        accessibilityLabel={localization.t(
+          selfVoicingEnabled ? "sv-toggle-button-off" : "sv-toggle-button-on",
+        )}
+        accessibilityRole="button"
+        accessible
+        onPress={() => {
+          void audio.handleUserInteraction();
+          toggleSelfVoicing();
+        }}
+        ref={registerAccessibilityNode("screen-reader:sv-toggle")}
+        style={styles.screenReaderOnly}
+      >
+        <Text>{localization.t(selfVoicingEnabled ? "sv-toggle-button-off" : "sv-toggle-button-on")}</Text>
+      </Pressable>
+    );
+  };
+
+  const renderNativeFallbackBar = () => {
+    if (!showNativeFallbackButtons) {
+      return null;
+    }
+
+    const fallbackButtons = [
+      {
+        id: "primary",
+        label: fallbackPrimaryActionLabel,
+        onPress: () => {
+          void audio.handleUserInteraction();
+          handleSystemSwipe("up");
+        },
+      },
+      {
+        id: "chat",
+        label: localization.t("mode-chat"),
+        onPress: () => {
+          void audio.handleUserInteraction();
+          toggleOverlay("chat");
+        },
+      },
+      {
+        id: "history",
+        label: localization.t("mode-history"),
+        onPress: () => {
+          void audio.handleUserInteraction();
+          toggleOverlay("history");
+        },
+      },
+      {
+        id: "shortcuts",
+        label: localization.t("mode-shortcuts"),
+        onPress: () => {
+          void audio.handleUserInteraction();
+          toggleOverlay("shortcuts");
+        },
+      },
+    ];
+
+    return (
+      <View style={styles.nativeFallbackBar}>
+        {fallbackButtons.map((button) => (
+          <Pressable
+            accessibilityLabel={button.label}
+            accessibilityRole="button"
+            accessible
+            key={button.id}
+            onPress={button.onPress}
+            style={styles.nativeFallbackButton}
+          >
+            <Text style={styles.buttonText}>{button.label}</Text>
+          </Pressable>
+        ))}
+      </View>
+    );
+  };
+
   return (
-    <SafeAreaView style={styles.safeArea} {...gestures.panHandlers}>
+    <SafeAreaView
+      style={styles.safeArea}
+      {...(selfVoicingInteractionEnabled ? gestures.panHandlers : {})}
+    >
       <StatusBar style="light" />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={styles.container}
       >
+        {renderScreenReaderOnlyControls()}
         {dialogState ? renderDialogOverlay() : inputState ? (
           <View style={styles.inputOverlayScreen}>
             <View style={styles.inputOverlayCard}>
@@ -3141,11 +3688,16 @@ export function PlayAuralApp() {
                   multiline={inputState.multiline}
                   onChangeText={setInputValue}
                   onFocus={() => {
-                    setInputOverlayFocus(0);
+                    handleTextInputFocus("input:field", () => {
+                      setInputOverlayFocus(0);
+                    });
+                  }}
+                  onBlur={() => {
+                    handleTextInputBlur("input:field");
                   }}
                   placeholder={inputState.prompt}
                   placeholderTextColor="#7f8a93"
-                  ref={inputOverlayInputRef}
+                  ref={registerAccessibilityNode("input:field", inputOverlayInputRef)}
                   selectTextOnFocus
                   style={[styles.input, inputState.multiline ? styles.multilineInput : undefined]}
                   value={inputValue}
@@ -3162,6 +3714,7 @@ export function PlayAuralApp() {
                   void audio.handleUserInteraction();
                   submitInputOverlay();
                 }}
+                ref={registerAccessibilityNode("input:action")}
                 style={[styles.button, inputOverlayFocus === 1 ? styles.authFocused : undefined]}
               >
                 <Text style={styles.buttonText}>{inputOverlayButtonText}</Text>
@@ -3179,6 +3732,7 @@ export function PlayAuralApp() {
 
             {!connected ? renderAuthCard() : null}
             {renderOverlay()}
+            {renderNativeFallbackBar()}
 
             <View style={styles.footer}>
               <Text style={styles.helpText}>{localization.t("footer-gestures-line-1")}</Text>
@@ -3188,6 +3742,13 @@ export function PlayAuralApp() {
                 {mode}
               </Text>
             </View>
+            <Text
+              accessibilityLiveRegion="polite"
+              key={`screen-reader-announcement-${screenReaderAnnouncement.id}`}
+              style={styles.screenReaderOnly}
+            >
+              {screenReaderAnnouncement.text}
+            </Text>
           </>
         )}
       </KeyboardAvoidingView>
@@ -3207,6 +3768,15 @@ const styles = StyleSheet.create({
   },
   header: {
     gap: 4,
+  },
+  screenReaderOnly: {
+    height: 1,
+    left: -10000,
+    opacity: 0.01,
+    overflow: "hidden",
+    position: "absolute",
+    top: 0,
+    width: 1,
   },
   title: {
     color: "#f6f7fb",
@@ -3366,5 +3936,19 @@ const styles = StyleSheet.create({
   },
   footer: {
     gap: 2,
+  },
+  nativeFallbackBar: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+    justifyContent: "space-between",
+  },
+  nativeFallbackButton: {
+    backgroundColor: "#32414d",
+    borderRadius: 10,
+    flexBasis: "48%",
+    flexGrow: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
   },
 });

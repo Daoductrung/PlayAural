@@ -32,6 +32,7 @@ export class TtsManager {
   private lastAnnouncementText = "";
   private language = "en";
   private rate = 2.0;
+  private uiEnabled = true;
   private uiVoice: string | undefined;
   private announcementVoice: string | undefined;
   private nativeVoices: Voice[] = [];
@@ -120,8 +121,29 @@ export class TtsManager {
     this.currentUiTextProvider = provider;
   }
 
+  setUiEnabled(enabled: boolean): void {
+    if (this.uiEnabled === enabled) {
+      return;
+    }
+
+    this.uiEnabled = enabled;
+    if (!enabled) {
+      this.pendingPassiveUiText = null;
+      if (this.activeChannel === "ui") {
+        this.debug("disable-ui-stop-active-ui", this.activeText);
+        this.activeChannel = null;
+        this.activeText = "";
+        this.token += 1;
+        this.stopUnderlyingSpeech();
+      }
+      return;
+    }
+
+    this.refreshCurrentUiFocusForSettingsChange();
+  }
+
   speakUi(text: string, options: SpeechStartOptions = {}): void {
-    if (!text) {
+    if (!this.uiEnabled || !text) {
       return;
     }
 
@@ -291,7 +313,7 @@ export class TtsManager {
   private speakPendingPassiveFocus(): void {
     const pending = this.pendingPassiveUiText;
     this.pendingPassiveUiText = null;
-    if (!pending) {
+    if (!this.uiEnabled || !pending) {
       return;
     }
     this.speakUi(pending, {

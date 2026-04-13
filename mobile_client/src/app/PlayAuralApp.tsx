@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObjec
 import {
   AccessibilityInfo,
   BackHandler,
+  Keyboard,
   KeyboardAvoidingView,
   Linking,
   Platform,
@@ -349,7 +350,10 @@ export function PlayAuralApp() {
   const previousAuthModeRef = useRef<AuthMode | null>(null);
   const nativeFocusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastNativeFocusKeyRef = useRef<string | null>(null);
+  const activeTextInputKeyRef = useRef<string | null>(activeTextInputKey);
   const accessibilityNodeRefs = useRef(new Map<string, AccessibilityFocusNode>());
+  const textInputTargetByKeyRef = useRef(new Map<string, Set<unknown>>());
+  const textInputTargetsRef = useRef(new Set<unknown>());
   const credentialsRef = useRef({
     password,
     serverUrl,
@@ -432,7 +436,8 @@ export function PlayAuralApp() {
   }, []);
 
   const nativeScreenReaderMode = !selfVoicingEnabled && (screenReaderEnabled || WEB_SCREEN_READER_SUPPORT);
-  const selfVoicingInteractionEnabled = selfVoicingEnabled && activeTextInputKey === null;
+  const selfVoicingGestureEnabled = selfVoicingEnabled;
+  const selfVoicingKeyboardEnabled = selfVoicingEnabled && activeTextInputKey === null;
 
   useEffect(() => {
     if (!nativeScreenReaderMode) {
@@ -456,8 +461,30 @@ export function PlayAuralApp() {
   const registerAccessibilityNode = useCallback(
     (key: string, textInputRef?: MutableRefObject<TextInput | null>) =>
       (node: AccessibilityFocusNode | null) => {
+        if (textInputRef) {
+          const previousTargets = textInputTargetByKeyRef.current.get(key);
+          if (previousTargets) {
+            previousTargets.forEach((target) => {
+              textInputTargetsRef.current.delete(target);
+            });
+            textInputTargetByKeyRef.current.delete(key);
+          }
+        }
         if (node) {
           accessibilityNodeRefs.current.set(key, node);
+          if (textInputRef) {
+            const nextTargets = new Set<unknown>([node]);
+            if (Platform.OS !== "web") {
+              const nativeTarget = findNodeHandle(node as Parameters<typeof findNodeHandle>[0]);
+              if (nativeTarget != null) {
+                nextTargets.add(nativeTarget);
+              }
+            }
+            textInputTargetByKeyRef.current.set(key, nextTargets);
+            nextTargets.forEach((target) => {
+              textInputTargetsRef.current.add(target);
+            });
+          }
         } else {
           accessibilityNodeRefs.current.delete(key);
         }
@@ -501,12 +528,38 @@ export function PlayAuralApp() {
   }, [nativeScreenReaderMode]);
 
   const handleTextInputFocus = useCallback((key: string, onFocus?: () => void) => {
+    activeTextInputKeyRef.current = key;
     setActiveTextInputKey(key);
     onFocus?.();
   }, []);
 
   const handleTextInputBlur = useCallback((key: string) => {
-    setActiveTextInputKey((current) => (current === key ? null : current));
+    setActiveTextInputKey((current) => {
+      if (current !== key) {
+        return current;
+      }
+      activeTextInputKeyRef.current = null;
+      return null;
+    });
+  }, []);
+
+  const isNativeTextInputTarget = useCallback((target: unknown): boolean => {
+    if (textInputTargetsRef.current.has(target)) {
+      return true;
+    }
+    if (Platform.OS !== "web" || typeof Node === "undefined" || !(target instanceof Node)) {
+      return false;
+    }
+    for (const registeredTarget of textInputTargetsRef.current) {
+      if (registeredTarget instanceof Node && registeredTarget.contains(target)) {
+        return true;
+      }
+    }
+    return false;
+  }, []);
+
+  const isTextInputEditing = useCallback((): boolean => {
+    return activeTextInputKeyRef.current !== null;
   }, []);
 
   const addHistoryMessage = useCallback((buffer: BufferName, text: string) => {
@@ -1510,16 +1563,19 @@ export function PlayAuralApp() {
       return;
     }
     if (activeTextInputKey === "chat:input" && mode !== "chat") {
+      activeTextInputKeyRef.current = null;
       setActiveTextInputKey(null);
       return;
     }
     if (activeTextInputKey === "input:field" && !inputState) {
+      activeTextInputKeyRef.current = null;
       setActiveTextInputKey(null);
       return;
     }
     if (activeTextInputKey.startsWith("auth:")) {
       const isVisible = !connected && authFocusableItems.some((item) => `auth:${item.id}` === activeTextInputKey);
       if (!isVisible) {
+        activeTextInputKeyRef.current = null;
         setActiveTextInputKey(null);
       }
     }
@@ -1727,6 +1783,29 @@ export function PlayAuralApp() {
     nativeScreenReaderMode,
     shortcutFocusIndex,
   ]);
+
+  useEffect(() => {
+    if (!inputState || inputState.readOnly) {
+      return;
+    }
+
+    let cancelled = false;
+    const focusInputOverlay = () => {
+      if (cancelled || inputStateRef.current?.inputId !== inputState.inputId) {
+        return;
+      }
+      inputOverlayInputRef.current?.focus();
+    };
+
+    const firstFocusTimer = setTimeout(focusInputOverlay, Platform.OS === "android" ? 120 : 0);
+    const retryFocusTimer = setTimeout(focusInputOverlay, Platform.OS === "android" ? 360 : 80);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(firstFocusTimer);
+      clearTimeout(retryFocusTimer);
+    };
+  }, [inputState?.inputId, inputState?.readOnly]);
 
   useEffect(() => {
     if (!dialogState) {
@@ -2056,6 +2135,9 @@ export function PlayAuralApp() {
       return;
     }
     if (inputState.readOnly) {
+      Keyboard.dismiss();
+      activeTextInputKeyRef.current = null;
+      setActiveTextInputKey((current) => (current === "input:field" ? null : current));
       setInputState(null);
       setInputValue("");
       setInputOverlayFocus(0);
@@ -2067,6 +2149,9 @@ export function PlayAuralApp() {
       type: "editbox",
     });
     announceInterfaceFeedback(localization.t("input-submitted"));
+    Keyboard.dismiss();
+    activeTextInputKeyRef.current = null;
+    setActiveTextInputKey((current) => (current === "input:field" ? null : current));
     setInputState(null);
     setInputValue("");
     setInputOverlayFocus(0);
@@ -2442,6 +2527,9 @@ export function PlayAuralApp() {
         return;
       }
       if (inputState) {
+        Keyboard.dismiss();
+        activeTextInputKeyRef.current = null;
+        setActiveTextInputKey((current) => (current === "input:field" ? null : current));
         setInputState(null);
         setInputValue("");
         setInputOverlayFocus(0);
@@ -2510,7 +2598,9 @@ export function PlayAuralApp() {
   }, []);
 
   const gestures = useSelfVoicingGestures({
-    enabled: selfVoicingInteractionEnabled,
+    enabled: selfVoicingGestureEnabled,
+    isNativeTextInputTarget,
+    isTextInputEditing,
     onDoubleTap: handlePrimaryActivate,
     onDoubleTapHold: handleModifiedActivate,
     onSingleFingerSwipe: handleDirectionalNavigation,
@@ -2529,7 +2619,7 @@ export function PlayAuralApp() {
   });
 
   useEffect(() => {
-    if (Platform.OS !== "web" || typeof window === "undefined" || !selfVoicingInteractionEnabled) {
+    if (Platform.OS !== "web" || typeof window === "undefined" || !selfVoicingKeyboardEnabled) {
       return;
     }
 
@@ -2652,7 +2742,7 @@ export function PlayAuralApp() {
     return () => {
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, [handleBoundaryJump, handleDirectionalNavigation, handleModifiedActivate, handlePrimaryActivate, handleSystemSwipe, selfVoicingInteractionEnabled]);
+  }, [handleBoundaryJump, handleDirectionalNavigation, handleModifiedActivate, handlePrimaryActivate, handleSystemSwipe, selfVoicingKeyboardEnabled]);
 
   useEffect(() => {
     if (!selfVoicingEnabled) {
@@ -2975,6 +3065,7 @@ export function PlayAuralApp() {
       <Text style={styles.helpText}>{localization.t("chat-input-label")}</Text>
       <View style={chatFocusIndex === 0 ? styles.authFieldFocused : undefined}>
         <TextInput
+          accessibilityLabel={localization.t("chat-input-label")}
           onChangeText={setChatDraft}
           onFocus={() => {
             handleTextInputFocus("chat:input", () => {
@@ -2988,6 +3079,7 @@ export function PlayAuralApp() {
           placeholder={localization.t("chat-placeholder")}
           placeholderTextColor="#7f8a93"
           ref={registerAccessibilityNode("chat:input", chatInputRef)}
+          showSoftInputOnFocus
           style={styles.input}
           value={chatDraft}
         />
@@ -3197,6 +3289,7 @@ export function PlayAuralApp() {
         <>
           <View style={isAuthFocused("field-username") ? styles.authFieldFocused : undefined}>
             <TextInput
+              accessibilityLabel={localization.t("username")}
               autoCapitalize="none"
               onChangeText={setUsername}
               onFocus={() => {
@@ -3210,12 +3303,14 @@ export function PlayAuralApp() {
               placeholder={localization.t("username")}
               placeholderTextColor="#7f8a93"
               ref={registerAccessibilityNode("auth:field-username", usernameInputRef)}
+              showSoftInputOnFocus
               style={styles.input}
               value={username}
             />
           </View>
           <View style={isAuthFocused("field-password") ? styles.authFieldFocused : undefined}>
             <TextInput
+              accessibilityLabel={localization.t("password")}
               onChangeText={setPassword}
               onFocus={() => {
                 handleTextInputFocus("auth:field-password", () => {
@@ -3229,6 +3324,7 @@ export function PlayAuralApp() {
               placeholderTextColor="#7f8a93"
               ref={registerAccessibilityNode("auth:field-password", passwordInputRef)}
               secureTextEntry
+              showSoftInputOnFocus
               style={styles.input}
               value={password}
             />
@@ -3281,6 +3377,7 @@ export function PlayAuralApp() {
         <>
           <View style={isAuthFocused("field-username") ? styles.authFieldFocused : undefined}>
             <TextInput
+              accessibilityLabel={localization.t("username")}
               autoCapitalize="none"
               onChangeText={setUsername}
               onFocus={() => {
@@ -3294,12 +3391,14 @@ export function PlayAuralApp() {
               placeholder={localization.t("username")}
               placeholderTextColor="#7f8a93"
               ref={registerAccessibilityNode("auth:field-username", usernameInputRef)}
+              showSoftInputOnFocus
               style={styles.input}
               value={username}
             />
           </View>
           <View style={isAuthFocused("field-register-email") ? styles.authFieldFocused : undefined}>
             <TextInput
+              accessibilityLabel={localization.t("auth-email")}
               autoCapitalize="none"
               keyboardType="email-address"
               onChangeText={setRegisterEmail}
@@ -3314,12 +3413,14 @@ export function PlayAuralApp() {
               placeholder={localization.t("auth-email")}
               placeholderTextColor="#7f8a93"
               ref={registerAccessibilityNode("auth:field-register-email", registerEmailInputRef)}
+              showSoftInputOnFocus
               style={styles.input}
               value={registerEmail}
             />
           </View>
           <View style={isAuthFocused("field-password") ? styles.authFieldFocused : undefined}>
             <TextInput
+              accessibilityLabel={localization.t("password")}
               onChangeText={setPassword}
               onFocus={() => {
                 handleTextInputFocus("auth:field-password", () => {
@@ -3333,12 +3434,14 @@ export function PlayAuralApp() {
               placeholderTextColor="#7f8a93"
               ref={registerAccessibilityNode("auth:field-password", passwordInputRef)}
               secureTextEntry
+              showSoftInputOnFocus
               style={styles.input}
               value={password}
             />
           </View>
           <View style={isAuthFocused("field-register-confirm-password") ? styles.authFieldFocused : undefined}>
             <TextInput
+              accessibilityLabel={localization.t("auth-confirm-password")}
               onChangeText={setRegisterConfirmPassword}
               onFocus={() => {
                 handleTextInputFocus("auth:field-register-confirm-password", () => {
@@ -3355,12 +3458,14 @@ export function PlayAuralApp() {
                 registerConfirmPasswordInputRef,
               )}
               secureTextEntry
+              showSoftInputOnFocus
               style={styles.input}
               value={registerConfirmPassword}
             />
           </View>
           <View style={isAuthFocused("field-register-bio") ? styles.authFieldFocused : undefined}>
             <TextInput
+              accessibilityLabel={localization.t("auth-bio")}
               multiline
               onChangeText={setRegisterBio}
               onFocus={() => {
@@ -3374,6 +3479,7 @@ export function PlayAuralApp() {
               placeholder={localization.t("auth-bio")}
               placeholderTextColor="#7f8a93"
               ref={registerAccessibilityNode("auth:field-register-bio", registerBioInputRef)}
+              showSoftInputOnFocus
               style={[styles.input, styles.multilineInput]}
               value={registerBio}
             />
@@ -3401,6 +3507,7 @@ export function PlayAuralApp() {
         <>
           <View style={isAuthFocused("field-forgot-email") ? styles.authFieldFocused : undefined}>
             <TextInput
+              accessibilityLabel={localization.t("auth-email")}
               autoCapitalize="none"
               keyboardType="email-address"
               onChangeText={setForgotEmail}
@@ -3415,6 +3522,7 @@ export function PlayAuralApp() {
               placeholder={localization.t("auth-email")}
               placeholderTextColor="#7f8a93"
               ref={registerAccessibilityNode("auth:field-forgot-email", forgotEmailInputRef)}
+              showSoftInputOnFocus
               style={styles.input}
               value={forgotEmail}
             />
@@ -3442,6 +3550,7 @@ export function PlayAuralApp() {
         <>
           <View style={isAuthFocused("field-reset-email") ? styles.authFieldFocused : undefined}>
             <TextInput
+              accessibilityLabel={localization.t("auth-email")}
               autoCapitalize="none"
               keyboardType="email-address"
               onChangeText={setResetEmail}
@@ -3456,12 +3565,14 @@ export function PlayAuralApp() {
               placeholder={localization.t("auth-email")}
               placeholderTextColor="#7f8a93"
               ref={registerAccessibilityNode("auth:field-reset-email", resetEmailInputRef)}
+              showSoftInputOnFocus
               style={styles.input}
               value={resetEmail}
             />
           </View>
           <View style={isAuthFocused("field-reset-code") ? styles.authFieldFocused : undefined}>
             <TextInput
+              accessibilityLabel={localization.t("auth-reset-code")}
               autoCapitalize="characters"
               onChangeText={setResetCode}
               onFocus={() => {
@@ -3475,12 +3586,14 @@ export function PlayAuralApp() {
               placeholder={localization.t("auth-reset-code")}
               placeholderTextColor="#7f8a93"
               ref={registerAccessibilityNode("auth:field-reset-code", resetCodeInputRef)}
+              showSoftInputOnFocus
               style={styles.input}
               value={resetCode}
             />
           </View>
           <View style={isAuthFocused("field-reset-password") ? styles.authFieldFocused : undefined}>
             <TextInput
+              accessibilityLabel={localization.t("auth-new-password")}
               onChangeText={setResetPassword}
               onFocus={() => {
                 handleTextInputFocus("auth:field-reset-password", () => {
@@ -3494,12 +3607,14 @@ export function PlayAuralApp() {
               placeholderTextColor="#7f8a93"
               ref={registerAccessibilityNode("auth:field-reset-password", resetPasswordInputRef)}
               secureTextEntry
+              showSoftInputOnFocus
               style={styles.input}
               value={resetPassword}
             />
           </View>
           <View style={isAuthFocused("field-reset-confirm-password") ? styles.authFieldFocused : undefined}>
             <TextInput
+              accessibilityLabel={localization.t("auth-confirm-password")}
               onChangeText={setResetConfirmPassword}
               onFocus={() => {
                 handleTextInputFocus("auth:field-reset-confirm-password", () => {
@@ -3516,6 +3631,7 @@ export function PlayAuralApp() {
                 resetConfirmPasswordInputRef,
               )}
               secureTextEntry
+              showSoftInputOnFocus
               style={styles.input}
               value={resetConfirmPassword}
             />
@@ -3664,7 +3780,7 @@ export function PlayAuralApp() {
   return (
     <SafeAreaView
       style={styles.safeArea}
-      {...(selfVoicingInteractionEnabled ? gestures.panHandlers : {})}
+      {...(selfVoicingGestureEnabled ? gestures.panHandlers : {})}
     >
       <StatusBar style="light" />
       <KeyboardAvoidingView
@@ -3683,6 +3799,7 @@ export function PlayAuralApp() {
                 ]}
               >
                 <TextInput
+                  accessibilityLabel={inputState.prompt}
                   editable={!inputState.readOnly}
                   maxLength={inputState.maxLength}
                   multiline={inputState.multiline}
@@ -3699,6 +3816,7 @@ export function PlayAuralApp() {
                   placeholderTextColor="#7f8a93"
                   ref={registerAccessibilityNode("input:field", inputOverlayInputRef)}
                   selectTextOnFocus
+                  showSoftInputOnFocus={!inputState.readOnly}
                   style={[styles.input, inputState.multiline ? styles.multilineInput : undefined]}
                   value={inputValue}
                 />

@@ -5,6 +5,8 @@ type SwipeDirection = "up" | "down" | "left" | "right";
 
 type GestureCallbacks = {
   enabled: boolean;
+  isNativeTextInputTarget?: (target: unknown) => boolean;
+  isTextInputEditing?: () => boolean;
   onDoubleTap: () => void;
   onDoubleTapHold: () => void;
   onSingleFingerSwipe: (direction: SwipeDirection) => void;
@@ -79,11 +81,40 @@ export function useSelfVoicingGestures(callbacks: GestureCallbacks) {
     callbacksRef.current.onSingleFingerSwipe(direction);
   };
 
+  const isTextInputTarget = (event: GestureResponderEvent): boolean => {
+    return callbacksRef.current.isNativeTextInputTarget?.(event.nativeEvent.target) ?? false;
+  };
+
+  const shouldHandleStartGesture = (event: GestureResponderEvent): boolean => {
+    const callbacks = callbacksRef.current;
+    if (!callbacks.enabled) {
+      return false;
+    }
+    return !isTextInputTarget(event);
+  };
+
+  const shouldHandleMoveGesture = (
+    event: GestureResponderEvent,
+    gestureState: PanResponderGestureState,
+  ): boolean => {
+    const callbacks = callbacksRef.current;
+    if (!callbacks.enabled) {
+      return false;
+    }
+    if (Math.max(Math.abs(gestureState.dx), Math.abs(gestureState.dy)) < SWIPE_THRESHOLD) {
+      return false;
+    }
+    if (isTextInputTarget(event)) {
+      return callbacks.isTextInputEditing?.() ?? false;
+    }
+    return true;
+  };
+
   return useMemo(
     () =>
       PanResponder.create({
-        onMoveShouldSetPanResponder: () => callbacksRef.current.enabled,
-        onMoveShouldSetPanResponderCapture: () => callbacksRef.current.enabled,
+        onMoveShouldSetPanResponder: shouldHandleMoveGesture,
+        onMoveShouldSetPanResponderCapture: shouldHandleMoveGesture,
         onPanResponderGrant: (event: GestureResponderEvent) => {
           const touches = event.nativeEvent.touches.length || 1;
           touchTrackRef.current = {
@@ -152,8 +183,11 @@ export function useSelfVoicingGestures(callbacks: GestureCallbacks) {
           clearHoldTimer();
           touchTrackRef.current = null;
         },
-        onStartShouldSetPanResponder: () => callbacksRef.current.enabled,
-        onStartShouldSetPanResponderCapture: () => callbacksRef.current.enabled,
+        onStartShouldSetPanResponder: shouldHandleStartGesture,
+        // Do not capture the initial touch globally. Native controls such as
+        // Android TextInput must receive the start event to open the soft
+        // keyboard; non-control surfaces can still bubble to the SV responder.
+        onStartShouldSetPanResponderCapture: () => false,
       }),
     [],
   );

@@ -35,7 +35,6 @@ import type {
   PlayAmbiencePacket,
   PlayMusicPacket,
   PlaySoundPacket,
-  PongPacket,
   RegisterResponsePacket,
   RequestInputPacket,
   RequestPasswordResetResponsePacket,
@@ -47,6 +46,7 @@ import type {
 } from "../network/packets";
 import { BufferStore, type BufferName } from "../state/BufferStore";
 import { TtsManager } from "../tts/TtsManager";
+import { ENABLE_CLIENT_DEBUG_LOGS } from "../utils/debug";
 
 const MOBILE_CLIENT_VERSION = "1.0.3.1";
 const MOBILE_BUILD_STAMP = "2026-04-13 22:37:43 +07:00";
@@ -357,7 +357,7 @@ export function PlayAuralApp() {
   const [chatDraft, setChatDraft] = useState("");
   const [statusText, setStatusText] = useState("");
   const [authStatusText, setAuthStatusText] = useState("");
-  const [historyRevision, setHistoryRevision] = useState(0);
+  const [, setHistoryRevision] = useState(0);
   const [historyIndex, setHistoryIndex] = useState(0);
   const [serverUrl, setServerUrl] = useState(DEFAULT_SERVER_URL);
   const [username, setUsername] = useState("");
@@ -1304,7 +1304,9 @@ export function PlayAuralApp() {
         setStatusText(localization.t("status-connecting"));
       },
       onPacket: (packet: ServerPacket) => {
-        console.info("PLAYAURAL_DEBUG Packet", packet.type);
+        if (ENABLE_CLIENT_DEBUG_LOGS) {
+          console.info("PLAYAURAL_DEBUG Packet", packet.type);
+        }
         if (packet.type === "authorize_success") {
           const authPacket = packet as AuthorizeSuccessPacket;
           manualDisconnectRef.current = false;
@@ -1456,7 +1458,6 @@ export function PlayAuralApp() {
         }
 
         if (packet.type === "pong") {
-          const _pongPacket = packet as PongPacket;
           const startedAt = lastPingStartedAtRef.current;
           if (startedAt) {
             const elapsed = Date.now() - startedAt;
@@ -1540,10 +1541,12 @@ export function PlayAuralApp() {
   }
 
   useEffect(() => {
-    console.info("PLAYAURAL_DEBUG App build", {
-      build: MOBILE_BUILD_STAMP,
-      version: MOBILE_CLIENT_VERSION,
-    });
+    if (ENABLE_CLIENT_DEBUG_LOGS) {
+      console.info("PLAYAURAL_DEBUG App build", {
+        build: MOBILE_BUILD_STAMP,
+        version: MOBILE_CLIENT_VERSION,
+      });
+    }
     applyLocale(appLocale);
     setStatusText(localization.t("status-disconnected"));
   }, []);
@@ -1564,7 +1567,7 @@ export function PlayAuralApp() {
     { kind: "input", text: localization.t("chat-input-focus") },
     { kind: "send", text: localization.t("chat-send-button") },
     { kind: "close", text: localization.t("chat-close-button") },
-    ...chatMessages.map((message, index) => ({
+    ...chatMessages.map((message) => ({
       kind: "message" as const,
       text: message.text,
     })),

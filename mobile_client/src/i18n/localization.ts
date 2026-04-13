@@ -23,6 +23,11 @@ export class MobileLocalization {
     return this.locale;
   }
 
+  has(key: string): boolean {
+    const catalog = catalogs[this.locale] as Record<string, string>;
+    return Object.prototype.hasOwnProperty.call(catalog, key) || Object.prototype.hasOwnProperty.call(catalogs.en, key);
+  }
+
   t(key: string, params: Record<string, string | number> = {}): string {
     const catalog = catalogs[this.locale] as Record<string, string>;
     let text = catalog[key] ?? catalogs.en[key as keyof typeof en] ?? key;

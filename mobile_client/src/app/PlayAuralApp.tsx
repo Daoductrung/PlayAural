@@ -48,8 +48,8 @@ import type {
 import { BufferStore, type BufferName } from "../state/BufferStore";
 import { TtsManager } from "../tts/TtsManager";
 
-const MOBILE_CLIENT_VERSION = "1.0.3";
-const MOBILE_BUILD_STAMP = "2026-04-13 19:05:13 +07:00";
+const MOBILE_CLIENT_VERSION = "1.0.3.1";
+const MOBILE_BUILD_STAMP = "2026-04-13 22:37:43 +07:00";
 const DEFAULT_SERVER_URL = "wss://playaural.ddt.one:443";
 const APK_DOWNLOAD_URL =
   "https://github.com/Daoductrung/PlayAural/releases/latest/download/PlayAural.apk";
@@ -58,6 +58,49 @@ const CLIENT_PASSWORD_STORAGE_KEY = "playaural.mobile.password";
 const CLIENT_SV_STORAGE_KEY = "playaural.mobile.selfVoicing";
 const WEB_SCREEN_READER_SUPPORT = Platform.OS === "web";
 const NATIVE_FOCUS_DELAY_MS = 80;
+
+type ServerAuthResponseContext = "login" | "password_reset" | "register" | "reset_code";
+
+const SERVER_AUTH_RESPONSE_KEYS: Record<ServerAuthResponseContext, Record<string, string>> = {
+  login: {
+    captcha_failed: "error-captcha-failed",
+    captcha_missing: "error-captcha-failed",
+    rate_limit: "auth-error-rate-limit",
+    user_not_found: "auth-error-user-not-found",
+    version_mismatch: "auth-error-version-mismatch",
+    wrong_password: "auth-error-wrong-password",
+  },
+  password_reset: {
+    captcha_failed: "error-captcha-failed",
+    captcha_missing: "error-captcha-failed",
+    email_empty: "error-email-empty",
+    rate_limit: "error-rate-limit-login",
+    smtp_error: "error-smtp-send-failed",
+    smtp_not_configured: "error-smtp-not-configured",
+  },
+  register: {
+    captcha_failed: "error-captcha-failed",
+    captcha_missing: "error-captcha-failed",
+    email_empty: "error-email-empty",
+    email_invalid: "error-email-invalid",
+    email_taken: "error-email-taken",
+    password_weak: "auth-error-password-weak",
+    rate_limit: "error-rate-limit-register",
+    server_error: "auth-registration-error",
+    username_invalid_chars: "auth-error-username-invalid-chars",
+    username_length: "auth-error-username-length",
+    username_taken: "auth-username-taken",
+  },
+  reset_code: {
+    captcha_failed: "error-captcha-failed",
+    captcha_missing: "error-captcha-failed",
+    invalid_code: "error-invalid-reset-code",
+    missing_fields: "auth-username-password-required",
+    password_weak: "auth-error-password-weak",
+    rate_limit: "error-rate-limit-login",
+    user_not_found: "error-invalid-reset-code",
+  },
+};
 
 type AppMode = "chat" | "history" | "main" | "shortcuts";
 type AuthMode = "forgot" | "login" | "register" | "reset";
@@ -283,6 +326,18 @@ function extractPreferenceUpdates(packet: UpdatePreferencePacket | AuthorizeSucc
     return { [normalizedKey]: packet.value };
   }
   return {};
+}
+
+function toLocalizationParams(params: Record<string, unknown> | undefined): Record<string, string | number> {
+  const normalized: Record<string, string | number> = {};
+  Object.entries(params ?? {}).forEach(([key, value]) => {
+    if (typeof value === "string" || typeof value === "number") {
+      normalized[key] = value;
+    } else if (typeof value === "boolean") {
+      normalized[key] = value ? "true" : "false";
+    }
+  });
+  return normalized;
 }
 
 export function PlayAuralApp() {
@@ -593,36 +648,113 @@ export function PlayAuralApp() {
     }
   };
 
+  const localizeKnownServerKey = useCallback(
+    (
+      value: string | undefined,
+      context?: ServerAuthResponseContext,
+      params?: Record<string, string | number>,
+    ) => {
+      if (!value) {
+        return "";
+      }
+      const mappedKey = context ? SERVER_AUTH_RESPONSE_KEYS[context][value] : undefined;
+      if (mappedKey) {
+        return localization.t(mappedKey, params);
+      }
+      if (localization.has(value)) {
+        return localization.t(value, params);
+      }
+
+      const normalized = value.replace(/_/g, "-");
+      const candidateKeys = [
+        normalized,
+        `auth-error-${normalized}`,
+        `error-${normalized}`,
+        `auth-${normalized}`,
+      ];
+      for (const key of candidateKeys) {
+        if (localization.has(key)) {
+          return localization.t(key, params);
+        }
+      }
+      return "";
+    },
+    [localization],
+  );
+
+  const localizeServerMessage = useCallback(
+    (
+      message: string | undefined,
+      fallbackKey = "status-disconnected",
+      params?: Record<string, unknown>,
+      context?: ServerAuthResponseContext,
+    ) => {
+      if (!message) {
+        return localization.t(fallbackKey);
+      }
+      const localizationParams = toLocalizationParams(params);
+      const localizedKeyText = localizeKnownServerKey(message, context, localizationParams);
+      if (localizedKeyText) {
+        return localizedKeyText;
+      }
+      if (message === "Connection error.") {
+        return localization.t("network-connection-error");
+      }
+      if (message === "Malformed server packet.") {
+        return localization.t("network-malformed-packet");
+      }
+      if (message === "Temporary request timed out.") {
+        return localization.t("network-temporary-timeout");
+      }
+      if (message === "Connection closed.") {
+        return localization.t("network-connection-closed");
+      }
+      if (message === "logged-out") {
+        return localization.t("logout-complete");
+      }
+      if (message === "exit") {
+        return localization.t("logout-complete");
+      }
+      if (message === "kicked") {
+        return localization.t("session-kicked");
+      }
+      if (message === "banned") {
+        return localization.t("session-banned");
+      }
+      const formatted = message;
+      return Object.entries(localizationParams).reduce(
+        (text, [name, value]) => text.replaceAll(`{${name}}`, String(value)).replaceAll(`{$${name}}`, String(value)),
+        formatted,
+      );
+    },
+    [localization, localizeKnownServerKey],
+  );
+
+  const localizeAuthResponse = useCallback(
+    (
+      response:
+        | RegisterResponsePacket
+        | RequestPasswordResetResponsePacket
+        | SubmitResetCodeResponsePacket,
+      context: Exclude<ServerAuthResponseContext, "login">,
+      successKey: string,
+      failureKey: string,
+    ) => {
+      if (response.status === "success") {
+        return localizeServerMessage(response.text, successKey);
+      }
+      const codeText = localizeKnownServerKey(response.error, context);
+      if (codeText) {
+        return codeText;
+      }
+      return localizeServerMessage(response.text, failureKey, undefined, context);
+    },
+    [localizeKnownServerKey, localizeServerMessage],
+  );
+
   const localizeSystemMessage = useCallback((message: string | undefined, fallbackKey = "status-disconnected") => {
-    if (!message) {
-      return localization.t(fallbackKey);
-    }
-    if (message === "Connection error.") {
-      return localization.t("network-connection-error");
-    }
-    if (message === "Malformed server packet.") {
-      return localization.t("network-malformed-packet");
-    }
-    if (message === "Temporary request timed out.") {
-      return localization.t("network-temporary-timeout");
-    }
-    if (message === "Connection closed.") {
-      return localization.t("network-connection-closed");
-    }
-    if (message === "logged-out") {
-      return localization.t("logout-complete");
-    }
-    if (message === "exit") {
-      return localization.t("logout-complete");
-    }
-    if (message === "kicked") {
-      return localization.t("session-kicked");
-    }
-    if (message === "banned") {
-      return localization.t("session-banned");
-    }
-    return message;
-  }, [localization]);
+    return localizeServerMessage(message, fallbackKey);
+  }, [localizeServerMessage]);
 
   const isTerminalExitReason = useCallback((message: string | undefined) => {
     return message === "exit" || message === "logged-out" || message === "kicked" || message === "banned";
@@ -828,14 +960,18 @@ export function PlayAuralApp() {
   };
 
   const handleSpeakPacket = (packet: SpeakPacket) => {
-    if (!packet.text) {
+    const params = toLocalizationParams(packet.params);
+    const text = packet.key && localization.has(packet.key)
+      ? localization.t(packet.key, params)
+      : localizeServerMessage(packet.text, packet.key || "", params);
+    if (!text) {
       return;
     }
     const buffer = (packet.buffer ?? "misc") as BufferName;
-    buffers.add(buffer, packet.text);
+    buffers.add(buffer, text);
     setHistoryRevision((value) => value + 1);
     if (!packet.muted && !buffers.isMuted(buffer)) {
-      tts.speakAnnouncement(packet.text);
+      tts.speakAnnouncement(text);
     }
   };
 
@@ -1239,10 +1375,9 @@ export function PlayAuralApp() {
 
         if (packet.type === "login_failed") {
           const failurePacket = packet as LoginFailedPacket;
-          const reason = localizeSystemMessage(
-            failurePacket.text || failurePacket.reason,
-            "auth-login-failed",
-          );
+          const reason = failurePacket.reason
+            ? localizeServerMessage(failurePacket.reason, "auth-login-failed", undefined, "login")
+            : localizeServerMessage(failurePacket.text, "auth-login-failed", undefined, "login");
           stopGameAudio(true);
           setConnected(false);
           disableAutoReconnect();
@@ -1333,11 +1468,12 @@ export function PlayAuralApp() {
 
         if (packet.type === "register_response") {
           const response = packet as RegisterResponsePacket;
-          const text =
-            response.text ||
-            (response.status === "success"
-              ? localization.t("auth-register-success")
-              : localization.t("auth-register-failed"));
+          const text = localizeAuthResponse(
+            response,
+            "register",
+            "auth-register-success",
+            "auth-register-failed",
+          );
           setAuthStatusText(text);
           announce(text, "system");
           if (response.status === "success") {
@@ -1351,11 +1487,12 @@ export function PlayAuralApp() {
 
         if (packet.type === "request_password_reset_response") {
           const response = packet as RequestPasswordResetResponsePacket;
-          const text =
-            response.text ||
-            (response.status === "success"
-              ? localization.t("auth-forgot-success")
-              : localization.t("auth-forgot-failed"));
+          const text = localizeAuthResponse(
+            response,
+            "password_reset",
+            "auth-forgot-success",
+            "auth-forgot-failed",
+          );
           setAuthStatusText(text);
           announce(text, "system");
           if (response.status === "success") {
@@ -1367,11 +1504,12 @@ export function PlayAuralApp() {
 
         if (packet.type === "submit_reset_code_response") {
           const response = packet as SubmitResetCodeResponsePacket;
-          const text =
-            response.text ||
-            (response.status === "success"
-              ? localization.t("auth-reset-success")
-              : localization.t("auth-reset-failed"));
+          const text = localizeAuthResponse(
+            response,
+            "reset_code",
+            "auth-reset-success",
+            "auth-reset-failed",
+          );
           setAuthStatusText(text);
           announce(text, "system");
           if (response.status === "success") {
@@ -2890,11 +3028,12 @@ export function PlayAuralApp() {
 
       if (expectedType === "register_response") {
         const registerResponse = response as RegisterResponsePacket;
-        const text =
-          registerResponse.text ||
-          (registerResponse.status === "success"
-            ? localization.t("auth-register-success")
-            : localization.t("auth-register-failed"));
+        const text = localizeAuthResponse(
+          registerResponse,
+          "register",
+          "auth-register-success",
+          "auth-register-failed",
+        );
         setAuthStatusText(text);
         announceInterfaceFeedback(text);
         if (registerResponse.status === "success") {
@@ -2908,11 +3047,12 @@ export function PlayAuralApp() {
 
       if (expectedType === "request_password_reset_response") {
         const forgotResponse = response as RequestPasswordResetResponsePacket;
-        const text =
-          forgotResponse.text ||
-          (forgotResponse.status === "success"
-            ? localization.t("auth-forgot-success")
-            : localization.t("auth-forgot-failed"));
+        const text = localizeAuthResponse(
+          forgotResponse,
+          "password_reset",
+          "auth-forgot-success",
+          "auth-forgot-failed",
+        );
         setAuthStatusText(text);
         announceInterfaceFeedback(text);
         if (forgotResponse.status === "success") {
@@ -2923,11 +3063,12 @@ export function PlayAuralApp() {
       }
 
       const resetResponse = response as SubmitResetCodeResponsePacket;
-      const text =
-        resetResponse.text ||
-        (resetResponse.status === "success"
-          ? localization.t("auth-reset-success")
-          : localization.t("auth-reset-failed"));
+      const text = localizeAuthResponse(
+        resetResponse,
+        "reset_code",
+        "auth-reset-success",
+        "auth-reset-failed",
+      );
       setAuthStatusText(text);
       announceInterfaceFeedback(text);
       if (resetResponse.status === "success") {

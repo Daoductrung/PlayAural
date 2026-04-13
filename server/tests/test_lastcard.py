@@ -2,14 +2,17 @@
 
 import random
 from unittest.mock import patch
+from ..game_utils.actions import Visibility
 from ..games.lastcard.game import (
     LastCardGame, LastCardOptions, LastCardPlayer,
     build_lastcard_deck,
     COLOR_RED, COLOR_BLUE, COLOR_GREEN, COLOR_YELLOW, COLOR_WILD,
     RANK_SKIP, RANK_REVERSE, RANK_DRAW_TWO, RANK_WILD, RANK_WILD_DRAW_FOUR,
+    SOUND_WIN_ROUND, SOUND_LOSE_ROUND,
 )
 from ..game_utils.cards import Card, Deck
 from ..users.bot import Bot
+from ..users.test_user import MockUser
 
 
 # ============================================================================
@@ -337,6 +340,69 @@ def test_choose_color_after_wild():
     game.execute_action(p0, "color_green")
     assert game.current_color == COLOR_GREEN
     assert game.awaiting_color_choice is False
+
+
+def test_color_choice_locks_follow_up_direct_play_until_turn_advances():
+    game = make_game(last_card_callout=False, challenge_wild_draw_four=False, jump_in=False)
+    first = game.add_player("Alice", MockUser("Alice", uuid="p1"))
+    second = game.add_player("Bob", MockUser("Bob", uuid="p2"))
+    start_game(game)
+
+    setup_turn(game, 0, make_card(100, 5, COLOR_RED), COLOR_RED)
+    wild = make_card(200, RANK_WILD, COLOR_WILD)
+    green_three = make_card(201, 3, COLOR_GREEN)
+    first.hand = [wild, green_three]
+    second.hand = [make_card(202, 9, COLOR_BLUE)]
+    game._sync_turn_actions(first)
+
+    game.execute_action(first, f"play_card_{wild.id}")
+    game.execute_action(first, "color_green")
+
+    discard_ids_before = [card.id for card in game.discard_pile]
+    first_user = game.get_user(first)
+    first_user.clear_messages()
+    game.execute_action(first, f"play_card_{green_three.id}")
+
+    assert [card.id for card in first.hand] == [green_three.id]
+    assert [card.id for card in game.discard_pile] == discard_ids_before
+    assert game.color_wait_ticks == 15
+
+
+def test_color_choice_locks_follow_up_multi_play_paths_until_turn_advances():
+    game = make_game(
+        last_card_callout=False,
+        challenge_wild_draw_four=False,
+        jump_in=False,
+        allow_multiple_play=True,
+    )
+    first = game.add_player("Alice", MockUser("Alice", uuid="p1"))
+    second = game.add_player("Bob", MockUser("Bob", uuid="p2"))
+    start_game(game)
+
+    setup_turn(game, 0, make_card(100, 5, COLOR_RED), COLOR_RED)
+    wild = make_card(200, RANK_WILD, COLOR_WILD)
+    green_three = make_card(201, 3, COLOR_GREEN)
+    first.hand = [wild, green_three]
+    second.hand = [make_card(202, 9, COLOR_BLUE)]
+    game._sync_turn_actions(first)
+
+    game.execute_action(first, f"toggle_card_{wild.id}")
+    game.execute_action(first, "play_selected")
+    game.execute_action(first, "color_green")
+
+    discard_ids_before = [card.id for card in game.discard_pile]
+    first_user = game.get_user(first)
+    first_user.clear_messages()
+    game.execute_action(first, f"toggle_card_{green_three.id}")
+    assert first.selected_cards == set()
+
+    first.selected_cards.add(green_three.id)
+    first_user.clear_messages()
+    game.execute_action(first, "play_selected")
+
+    assert [card.id for card in first.hand] == [green_three.id]
+    assert [card.id for card in game.discard_pile] == discard_ids_before
+    assert first.selected_cards == {green_three.id}
 
 
 # ============================================================================
@@ -1366,6 +1432,98 @@ def test_multi_play_wins_round():
     assert game.hand_wait_ticks > 0  # Waiting for next hand
 
 
+def test_non_current_player_turn_menu_still_shows_hand_cards_direct_play():
+    game = make_game(last_card_callout=False, challenge_wild_draw_four=False, jump_in=False)
+    first = game.add_player("Alice", MockUser("Alice", uuid="p1"))
+    second = game.add_player("Bob", MockUser("Bob", uuid="p2"))
+    start_game(game)
+
+    setup_turn(game, 0, make_card(100, 5, COLOR_RED), COLOR_RED)
+    first.hand = [make_card(1, 7, COLOR_RED)]
+    second.hand = [make_card(2, 9, COLOR_BLUE), make_card(3, 4, COLOR_GREEN)]
+    game.rebuild_all_menus()
+
+    assert game._is_play_card_hidden(second, action_id="play_card_2") == Visibility.VISIBLE
+    assert game._is_play_card_hidden(second, action_id="play_card_3") == Visibility.VISIBLE
+    assert game._is_play_card_enabled(second, action_id="play_card_2") is None
+    visible_action_ids = [entry.action.id for entry in game.get_all_visible_actions(second)]
+    assert "play_card_2" in visible_action_ids
+    assert "play_card_3" in visible_action_ids
+
+
+def test_non_current_player_turn_menu_still_shows_hand_cards_multi_play():
+    game = make_game(
+        last_card_callout=False,
+        challenge_wild_draw_four=False,
+        jump_in=False,
+        allow_multiple_play=True,
+    )
+    first = game.add_player("Alice", MockUser("Alice", uuid="p1"))
+    second = game.add_player("Bob", MockUser("Bob", uuid="p2"))
+    start_game(game)
+
+    setup_turn(game, 0, make_card(100, 5, COLOR_RED), COLOR_RED)
+    first.hand = [make_card(1, 7, COLOR_RED)]
+    second.hand = [make_card(2, 9, COLOR_BLUE), make_card(3, 4, COLOR_GREEN)]
+    game.rebuild_all_menus()
+
+    assert game._is_toggle_card_hidden(second, action_id="toggle_card_2") == Visibility.VISIBLE
+    assert game._is_toggle_card_hidden(second, action_id="toggle_card_3") == Visibility.VISIBLE
+    assert game._is_toggle_card_enabled(second, action_id="toggle_card_2") is None
+    visible_action_ids = [entry.action.id for entry in game.get_all_visible_actions(second)]
+    assert "toggle_card_2" in visible_action_ids
+    assert "toggle_card_3" in visible_action_ids
+    assert game._is_play_selected_hidden(second) == Visibility.HIDDEN
+
+
+def test_out_of_turn_visible_card_is_rejected_without_changing_state():
+    game = make_game(last_card_callout=False, challenge_wild_draw_four=False, jump_in=False)
+    first = game.add_player("Alice", MockUser("Alice", uuid="p1"))
+    second = game.add_player("Bob", MockUser("Bob", uuid="p2"))
+    start_game(game)
+
+    setup_turn(game, 0, make_card(100, 5, COLOR_RED), COLOR_RED)
+    first.hand = [make_card(1, 7, COLOR_RED)]
+    second.hand = [make_card(2, 9, COLOR_RED)]
+    game.rebuild_all_menus()
+
+    discard_ids_before = [card.id for card in game.discard_pile]
+    second_user = game.get_user(second)
+    game.execute_action(second, "play_card_2")
+
+    assert [card.id for card in second.hand] == [2]
+    assert [card.id for card in game.discard_pile] == discard_ids_before
+    assert second_user.get_last_spoken() == "It's not your turn."
+
+
+def test_spectators_hear_round_win_sound_while_loser_hears_only_loss_sound():
+    game = make_game(last_card_callout=False, challenge_wild_draw_four=False, jump_in=False)
+    winner = game.add_player("Alice", MockUser("Alice", uuid="p1"))
+    loser = game.add_player("Bob", MockUser("Bob", uuid="p2"))
+    spectator = game.add_spectator("Spec", MockUser("Spec", uuid="p3"))
+    start_game(game)
+
+    winner.hand = []
+    loser.hand = [make_card(200, 7, COLOR_RED)]
+    for player in (winner, loser, spectator):
+        user = game.get_user(player)
+        if user:
+            user.clear_messages()
+
+    game._end_round(winner)
+
+    winner_sounds = game.get_user(winner).get_sounds_played()
+    loser_sounds = game.get_user(loser).get_sounds_played()
+    spectator_sounds = game.get_user(spectator).get_sounds_played()
+
+    assert SOUND_WIN_ROUND in winner_sounds
+    assert SOUND_LOSE_ROUND not in winner_sounds
+    assert SOUND_LOSE_ROUND in loser_sounds
+    assert SOUND_WIN_ROUND not in loser_sounds
+    assert SOUND_WIN_ROUND in spectator_sounds
+    assert SOUND_LOSE_ROUND not in spectator_sounds
+
+
 def test_multi_play_bot_game():
     """Full bot game with multi-play enabled completes."""
     random.seed(789)
@@ -1473,11 +1631,11 @@ def test_spectator_leave_uses_standard_spectator_leave_sound():
 
 
 # ============================================================================
-# Wild card UI: cards hidden during color choice
+# Wild card UI: cards stay visible while turn is locked for color/swap follow-ups
 # ============================================================================
 
-def test_cards_hidden_during_color_choice():
-    """Cards should be hidden when awaiting color choice."""
+def test_cards_visible_but_locked_during_color_choice():
+    """Cards should remain visible during color choice, but cannot be played."""
     game = make_game()
     players = add_bots(game, 3)
     start_game(game)
@@ -1489,15 +1647,17 @@ def test_cards_hidden_during_color_choice():
     game.awaiting_color_choice = True
     game._sync_turn_actions(p)
 
-    # Check that play_card_ and toggle_card_ actions are hidden
-    turn_set = game.get_action_set(p, "turn")
-    for action in turn_set.get_visible_actions(game, p):
-        assert not action.action.id.startswith("play_card_"), "play_card should be hidden during color choice"
-        assert not action.action.id.startswith("toggle_card_"), "toggle_card should be hidden during color choice"
+    assert game._is_play_card_hidden(p, action_id="play_card_200") == Visibility.VISIBLE
+    assert game._is_play_card_enabled(p, action_id="play_card_200") is None
+
+    discard_ids_before = [card.id for card in game.discard_pile]
+    game.execute_action(p, "play_card_200")
+    assert [card.id for card in p.hand] == [200, 201]
+    assert [card.id for card in game.discard_pile] == discard_ids_before
 
 
-def test_cards_hidden_during_swap_target():
-    """Cards should be hidden when awaiting swap target."""
+def test_cards_visible_but_locked_during_swap_target():
+    """Cards should remain visible during swap target selection, but cannot be played."""
     game = make_game()
     players = add_bots(game, 3)
     start_game(game)
@@ -1506,10 +1666,13 @@ def test_cards_hidden_during_swap_target():
     game.awaiting_swap_target = True
     game._sync_turn_actions(p)
 
-    turn_set = game.get_action_set(p, "turn")
-    for action in turn_set.get_visible_actions(game, p):
-        assert not action.action.id.startswith("play_card_"), "play_card should be hidden during swap"
-        assert not action.action.id.startswith("toggle_card_"), "toggle_card should be hidden during swap"
+    assert game._is_play_card_hidden(p, action_id="play_card_200") == Visibility.VISIBLE
+    assert game._is_play_card_enabled(p, action_id="play_card_200") is None
+
+    discard_ids_before = [card.id for card in game.discard_pile]
+    game.execute_action(p, "play_card_200")
+    assert [card.id for card in p.hand] == [200]
+    assert [card.id for card in game.discard_pile] == discard_ids_before
 
 
 # ============================================================================

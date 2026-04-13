@@ -883,12 +883,14 @@ class LastCardGame(Game, TurnTimerMixin):
     # ==========================================================================
 
     def _action_play_card(self, player: Player, action_id: str) -> None:
+        block_reason = self._get_card_action_block_reason(player)
+        if block_reason is not None:
+            user = self.get_user(player)
+            if user:
+                user.speak_l(block_reason, buffer="game")
+            return
         p = self._require_active_player(player)
         if not p:
-            return
-        if self.awaiting_color_choice or self.awaiting_swap_target:
-            return
-        if self.interrupt_phase:
             return
 
         try:
@@ -908,13 +910,13 @@ class LastCardGame(Game, TurnTimerMixin):
     # ==========================================================================
 
     def _action_toggle_card(self, player: Player, action_id: str) -> None:
+        block_reason = self._get_card_action_block_reason(player)
+        if block_reason is not None:
+            user = self.get_user(player)
+            if user:
+                user.speak_l(block_reason, buffer="game")
+            return
         if not isinstance(player, LastCardPlayer):
-            return
-        if player.is_spectator:
-            return
-        if self.current_player != player:
-            return
-        if self.awaiting_color_choice or self.awaiting_swap_target or self.interrupt_phase:
             return
         try:
             card_id = int(action_id.split("_")[-1])
@@ -929,10 +931,14 @@ class LastCardGame(Game, TurnTimerMixin):
         self.update_player_menu(player)
 
     def _action_play_selected(self, player: Player, action_id: str) -> None:
+        block_reason = self._get_card_action_block_reason(player)
+        if block_reason is not None:
+            user = self.get_user(player)
+            if user:
+                user.speak_l(block_reason, buffer="game")
+            return
         p = self._require_active_player(player)
         if not p:
-            return
-        if self.awaiting_color_choice or self.awaiting_swap_target or self.interrupt_phase:
             return
         if not p.selected_cards:
             user = self.get_user(p)
@@ -1398,6 +1404,7 @@ class LastCardGame(Game, TurnTimerMixin):
 
         self.timer.clear()
         self.color_wait_ticks = 15
+        self.rebuild_all_menus()
 
     # ==========================================================================
     # Buzzer action
@@ -1785,6 +1792,8 @@ class LastCardGame(Game, TurnTimerMixin):
             return "action-spectator"
         if self.current_player != player:
             return "action-not-your-turn"
+        if self.color_wait_ticks > 0:
+            return "action-not-available"
         if self.hand_wait_ticks > 0 or self.intro_wait_ticks > 0:
             return "action-wait"
         return None
@@ -1799,18 +1808,14 @@ class LastCardGame(Game, TurnTimerMixin):
         return Visibility.VISIBLE
 
     def _is_play_card_enabled(self, player: Player, *, action_id: str | None = None) -> str | None:
-        if self.awaiting_color_choice or self.awaiting_swap_target:
-            return "action-not-available"
-        if self.interrupt_phase:
-            return "action-not-available"
-        if self.hand_wait_ticks > 0 or self.intro_wait_ticks > 0:
-            return "action-wait"
+        if self.status != "playing":
+            return "action-not-playing"
+        if player.is_spectator:
+            return "action-spectator"
         return None
 
     def _is_play_card_hidden(self, player: Player, *, action_id: str | None = None) -> Visibility:
         if self.status != "playing" or player.is_spectator:
-            return Visibility.HIDDEN
-        if self.awaiting_color_choice or self.awaiting_swap_target:
             return Visibility.HIDDEN
         if self.hand_wait_ticks > 0 or self.intro_wait_ticks > 0:
             return Visibility.HIDDEN
@@ -1830,20 +1835,14 @@ class LastCardGame(Game, TurnTimerMixin):
     # -- Toggle card (multi-play) callbacks --
 
     def _is_toggle_card_enabled(self, player: Player, *, action_id: str | None = None) -> str | None:
-        # Cards are always "enabled" so they remain visible for reading hand,
-        # but toggling is gated in the handler by current-player check
         if self.status != "playing":
             return "action-not-playing"
         if player.is_spectator:
             return "action-spectator"
-        if self.hand_wait_ticks > 0 or self.intro_wait_ticks > 0:
-            return "action-wait"
         return None
 
     def _is_toggle_card_hidden(self, player: Player, *, action_id: str | None = None) -> Visibility:
         if self.status != "playing" or player.is_spectator:
-            return Visibility.HIDDEN
-        if self.awaiting_color_choice or self.awaiting_swap_target:
             return Visibility.HIDDEN
         if self.hand_wait_ticks > 0 or self.intro_wait_ticks > 0:
             return Visibility.HIDDEN
@@ -2141,7 +2140,7 @@ class LastCardGame(Game, TurnTimerMixin):
         return sorted(player.hand, key=lambda c: (COLOR_SORT_ORDER.get(c.suit, 5), c.rank, c.id))
 
     def _is_card_playable(self, card: Card, player: LastCardPlayer | None = None) -> bool:
-        if self.awaiting_color_choice or self.awaiting_swap_target:
+        if self.awaiting_color_choice or self.awaiting_swap_target or self.color_wait_ticks > 0:
             return False
 
         # During stacking, only matching stack cards can be played
@@ -2197,7 +2196,7 @@ class LastCardGame(Game, TurnTimerMixin):
         self.play_sound(SOUND_RESHUFFLE)
 
     def _can_draw(self, player: LastCardPlayer) -> bool:
-        if self.awaiting_color_choice or self.awaiting_swap_target:
+        if self.awaiting_color_choice or self.awaiting_swap_target or self.color_wait_ticks > 0:
             return False
         if self.interrupt_phase:
             return False
@@ -2395,11 +2394,11 @@ class LastCardGame(Game, TurnTimerMixin):
             self.broadcast_l("lastcard-round-end-negative")
 
         # Play sounds
-        for p in active:
+        for p in self.players:
             user = self.get_user(p)
             if not user:
                 continue
-            if p.id == winner.id:
+            if p.is_spectator or p.id == winner.id:
                 user.play_sound(SOUND_WIN_ROUND)
             else:
                 user.play_sound(SOUND_LOSE_ROUND)
@@ -2472,6 +2471,27 @@ class LastCardGame(Game, TurnTimerMixin):
         self.play_sound(SOUND_WIN_GAME)
         self.broadcast_l("lastcard-game-winner", player=winner.name, score=winner.score)
         self.finish_game()
+
+    def _get_visible_card_action_state(self, player: Player) -> str | None:
+        if self.status != "playing":
+            return "action-not-playing"
+        if player.is_spectator:
+            return "action-spectator"
+        if self.current_player != player:
+            return "action-not-your-turn"
+        if self.hand_wait_ticks > 0 or self.intro_wait_ticks > 0:
+            return "action-wait"
+        return None
+
+    def _get_card_action_block_reason(self, player: Player) -> str | None:
+        state = self._get_visible_card_action_state(player)
+        if state is not None:
+            return state
+        if self.awaiting_color_choice or self.awaiting_swap_target or self.color_wait_ticks > 0:
+            return "action-not-available"
+        if self.interrupt_phase:
+            return "action-not-available"
+        return None
 
     def build_game_result(self) -> GameResult:
         active = [p for p in self.players if not p.is_spectator]

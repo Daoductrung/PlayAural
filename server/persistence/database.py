@@ -1458,7 +1458,7 @@ class Database:
             LEFT JOIN users u ON pgs.player_id = u.uuid
             WHERE pgs.game_type = ? AND pgs.stat_key = ?
             ORDER BY
-                pgs.stat_value DESC,
+                CAST(pgs.stat_value AS REAL) DESC,
                 LOWER(COALESCE(u.username, pgs.player_id)) ASC,
                 pgs.player_id ASC
             LIMIT ?
@@ -1486,8 +1486,8 @@ class Database:
             LEFT JOIN users u ON pgs_w.player_id = u.uuid
             WHERE pgs_w.game_type = ? AND pgs_w.stat_key = 'wins'
             ORDER BY
-                pgs_w.stat_value DESC,
-                COALESCE(pgs_l.stat_value, 0) ASC,
+                CAST(pgs_w.stat_value AS REAL) DESC,
+                CAST(COALESCE(pgs_l.stat_value, 0) AS REAL) ASC,
                 LOWER(COALESCE(u.username, pgs_w.player_id)) ASC,
                 pgs_w.player_id ASC
             LIMIT ?
@@ -1504,7 +1504,7 @@ class Database:
         cursor = self._conn.cursor()
         cursor.execute("""
             SELECT p_num.player_id, u.username AS player_name,
-                   p_num.stat_value AS num_value, p_denom.stat_value AS denom_value
+                   CAST(p_num.stat_value AS REAL) AS num_value, CAST(p_denom.stat_value AS REAL) AS denom_value
             FROM player_game_stats p_num
             JOIN player_game_stats p_denom
                 ON p_num.player_id = p_denom.player_id

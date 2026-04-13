@@ -110,6 +110,34 @@ def test_get_top_player_game_stats(db):
     assert top_scores[1][1] == "Bob"
     assert top_scores[1][2] == 50.0
 
+
+def test_get_top_player_game_stats_casts_mixed_storage_types_numerically(db):
+    database, alice, bob = db
+
+    cursor = database._conn.cursor()
+    cursor.execute(
+        """
+        INSERT INTO player_game_stats (player_id, game_type, stat_key, stat_value)
+        VALUES (?, 'battle', 'custom_most_enemies_defeated_high', ?)
+        """,
+        (alice.uuid, "18"),
+    )
+    cursor.execute(
+        """
+        INSERT INTO player_game_stats (player_id, game_type, stat_key, stat_value)
+        VALUES (?, 'battle', 'custom_most_enemies_defeated_high', ?)
+        """,
+        (bob.uuid, 19),
+    )
+    database._conn.commit()
+
+    top_scores = database.get_top_player_game_stats("battle", "custom_most_enemies_defeated_high", limit=10)
+
+    assert top_scores[0][1] == "Bob"
+    assert top_scores[0][2] == 19.0
+    assert top_scores[1][1] == "Alice"
+    assert top_scores[1][2] == 18.0
+
 def test_get_top_wins_with_losses(db):
     database, alice, bob = db
 

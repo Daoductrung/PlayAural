@@ -197,6 +197,7 @@ action-not-your-turn = It's not your turn.
 action-not-playing = The game hasn't started.
 action-spectator = Spectators cannot do this.
 action-not-host = Only the host can do this.
+action-not-available = That action isn't available right now.
 action-game-in-progress = Cannot do this while the game is in progress.
 action-need-more-players = Need more players to start.
 action-table-full = The table is full.

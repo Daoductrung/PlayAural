@@ -1097,15 +1097,21 @@ class BackgammonGame(Game):
     def _cube_line(self, locale: str) -> str:
         owner = self._get_player_by_color(self.cube_owner)
         owner_name = owner.name if owner else Localization.get(locale, "backgammon-cube-centered")
+        current = self._as_backgammon_player(self.current_player)
+        if self._can_anyone_double() and current:
+            can_double = Localization.get(
+                locale,
+                "backgammon-cube-yes",
+                player=current.name,
+            )
+        else:
+            can_double = Localization.get(locale, "backgammon-cube-no")
         return Localization.get(
             locale,
             "backgammon-cube-line",
             value=self.cube_value,
             owner=owner_name,
-            can_double=Localization.get(
-                locale,
-                "backgammon-cube-yes" if self._can_anyone_double() else "backgammon-cube-no",
-            ),
+            can_double=can_double,
         )
 
     def _score_line(self, locale: str) -> str:
@@ -1423,8 +1429,10 @@ class BackgammonGame(Game):
         return total
 
     def _get_player_by_color(self, color: str) -> BackgammonPlayer | None:
+        if color not in COLORS:
+            return None
         for player in self.players:
-            if isinstance(player, BackgammonPlayer) and player.color == color:
+            if isinstance(player, BackgammonPlayer) and not player.is_spectator and player.color == color:
                 return player
         return None
 

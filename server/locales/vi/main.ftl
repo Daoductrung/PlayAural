@@ -197,6 +197,7 @@ action-not-your-turn = Chưa đến lượt của bạn.
 action-not-playing = Trò chơi chưa bắt đầu.
 action-spectator = Khán giả không thể làm điều này.
 action-not-host = Chỉ chủ bàn mới có thể làm điều này.
+action-not-available = Hiện chưa thể thực hiện thao tác này.
 action-game-in-progress = Không thể làm điều này khi trò chơi đang diễn ra.
 action-need-more-players = Cần thêm người chơi để bắt đầu.
 action-table-full = Bàn đã đầy.

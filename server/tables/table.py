@@ -399,19 +399,20 @@ class Table(DataClassJSONMixin):
         new_game.status = "waiting"
         new_game.setup_keybinds()
 
+        def _restore_member(uuid_str: str, name: str, user: "User", *, is_spectator: bool) -> None:
+            """Reattach an existing table member without replaying join side effects."""
+            restored_player = new_game.create_player(uuid_str, name, is_bot=False)
+            restored_player.is_spectator = is_spectator
+            new_game.players.append(restored_player)
+            new_game.attach_user(restored_player.id, user)
+            new_game.setup_player_actions(restored_player)
+
         # 9. Add players back
         for uuid_str, name, user in active_players:
-             new_game.add_player(name, user)
-             # Explicitly set the player ID since add_player uses user.uuid by default
-             player = new_game.get_player_by_name(name)
-             if player:
-                 player.id = uuid_str
+             _restore_member(uuid_str, name, user, is_spectator=False)
 
         for uuid_str, name, user in active_spectators:
-             new_game.add_spectator(name, user)
-             player = new_game.get_player_by_name(name)
-             if player:
-                 player.id = uuid_str
+             _restore_member(uuid_str, name, user, is_spectator=True)
 
         for uuid_str, name, user in active_bots:
              # Use the raw create_player/append logic for bots to perfectly match LobbyActionsMixin

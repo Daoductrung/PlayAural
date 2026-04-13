@@ -283,6 +283,20 @@ def test_turn_info_actions_hidden_for_python_but_visible_for_web() -> None:
         assert web_visible.count(action_id) == 1
 
 
+def test_spectator_cube_announcement_names_the_player_who_can_double() -> None:
+    game = make_game(start=True, match_length=5)
+    spectator_user = MockUser("Watcher", uuid="spectator")
+    spectator = game.add_spectator("Watcher", spectator_user)
+    game.turn_phase = TURN_PHASE_PRE_ROLL
+    game.set_turn_players([game.players[0], game.players[1]])
+
+    game._action_check_cube(spectator, "check_cube")
+
+    assert spectator_user.get_last_spoken() == (
+        "Cube at 1, owner: centered. Doubling is Alice may offer a double now."
+    )
+
+
 def test_advance_to_next_turn_announces_once_and_only_plays_turn_sound_for_active_player() -> None:
     game = make_game(start=True)
     red = game.players[0]

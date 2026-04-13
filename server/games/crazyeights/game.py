@@ -583,10 +583,14 @@ class CrazyEightsGame(Game, TurnTimerMixin):
     # ==========================================================================
 
     def _action_play_card(self, player: Player, action_id: str) -> None:
-        p = self._require_active_player(player)
-        if not p:
+        block_reason = self._get_play_card_block_reason(player)
+        if block_reason is not None:
+            user = self.get_user(player)
+            if user:
+                user.speak_l(block_reason, buffer="game")
             return
-        if self.awaiting_wild_suit:
+        p = player
+        if not isinstance(p, CrazyEightsPlayer):
             return
         try:
             card_id = int(action_id.split("_")[-1])
@@ -613,6 +617,7 @@ class CrazyEightsGame(Game, TurnTimerMixin):
                 return
             self.awaiting_wild_suit = True
             self.start_turn_timer()  # reset timer for suit selection
+            self.rebuild_all_menus()
             if p.is_bot:
                 BotHelper.jolt_bot(p, ticks=random.randint(20, 30))
             return
@@ -640,6 +645,8 @@ class CrazyEightsGame(Game, TurnTimerMixin):
     def _action_draw(self, player: Player, action_id: str) -> None:
         p = self._require_active_player(player)
         if not p:
+            return
+        if self.wild_wait_ticks > 0:
             return
         if not self._can_draw(p):
             return
@@ -672,6 +679,8 @@ class CrazyEightsGame(Game, TurnTimerMixin):
     def _action_pass(self, player: Player, action_id: str) -> None:
         p = self._require_active_player(player)
         if not p:
+            return
+        if self.wild_wait_ticks > 0:
             return
 
         # Check if pass is actually enabled (prevent deadlock if max hand size reached)
@@ -721,6 +730,7 @@ class CrazyEightsGame(Game, TurnTimerMixin):
 
         self.timer.clear()
         self.wild_wait_ticks = 15
+        self.rebuild_all_menus()
         return
 
     def _action_read_top(self, player: Player, action_id: str) -> None:
@@ -776,6 +786,8 @@ class CrazyEightsGame(Game, TurnTimerMixin):
             return "action-spectator"
         if self.current_player != player:
             return "action-not-your-turn"
+        if self.wild_wait_ticks > 0:
+            return "action-not-available"
         if self.hand_wait_ticks > 0:
             return "action-wait-for-hand"
         if self.intro_wait_ticks > 0:
@@ -796,22 +808,16 @@ class CrazyEightsGame(Game, TurnTimerMixin):
         return Visibility.VISIBLE
 
     def _is_play_card_enabled(self, player: Player, *, action_id: str | None = None) -> str | None:
-        if self.awaiting_wild_suit:
-            return "action-not-available"
-        if self.hand_wait_ticks > 0:
-            return "action-wait-for-hand"
-        if self.intro_wait_ticks > 0:
-            return "action-wait-for-intro"
+        if self.status != "playing":
+            return "action-not-playing"
+        if player.is_spectator:
+            return "action-spectator"
         return None
 
     def _is_play_card_hidden(self, player: Player, *, action_id: str | None = None) -> Visibility:
         if self.status != "playing":
             return Visibility.HIDDEN
         if player.is_spectator:
-            return Visibility.HIDDEN
-        if self.hand_wait_ticks > 0:
-            return Visibility.HIDDEN
-        if self.intro_wait_ticks > 0:
             return Visibility.HIDDEN
         if not isinstance(player, CrazyEightsPlayer):
             return Visibility.HIDDEN
@@ -948,7 +954,7 @@ class CrazyEightsGame(Game, TurnTimerMixin):
     def _can_draw(self, player: CrazyEightsPlayer | None) -> bool:
         if not player:
             return False
-        if self.awaiting_wild_suit:
+        if self._is_wild_transition_locked():
             return False
         if self.turn_has_drawn:
             return False
@@ -969,7 +975,7 @@ class CrazyEightsGame(Game, TurnTimerMixin):
         return True
 
     def _is_card_playable(self, card: Card) -> bool:
-        if self.awaiting_wild_suit:
+        if self._is_wild_transition_locked():
             return False
         if card.rank == 8:
             return True
@@ -984,6 +990,26 @@ class CrazyEightsGame(Game, TurnTimerMixin):
 
     def _has_playable_cards(self, player: CrazyEightsPlayer) -> bool:
         return any(self._is_card_playable(card) for card in player.hand)
+
+    def _is_wild_transition_locked(self) -> bool:
+        return self.awaiting_wild_suit or self.wild_wait_ticks > 0
+
+    def _get_play_card_block_reason(self, player: Player) -> str | None:
+        if self.status != "playing":
+            return "action-not-playing"
+        if not isinstance(player, CrazyEightsPlayer):
+            return "action-not-available"
+        if player.is_spectator:
+            return "action-spectator"
+        if self.current_player != player:
+            return "action-not-your-turn"
+        if self._is_wild_transition_locked():
+            return "action-not-available"
+        if self.hand_wait_ticks > 0:
+            return "action-wait-for-hand"
+        if self.intro_wait_ticks > 0:
+            return "action-wait-for-intro"
+        return None
 
     def get_playable_indices(self, player: CrazyEightsPlayer) -> list[int]:
         return [i for i, card in enumerate(player.hand) if self._is_card_playable(card)]

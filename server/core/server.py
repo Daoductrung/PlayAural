@@ -43,6 +43,8 @@ UPDATE_HASH = "" # Optional SHA256
 
 SOUNDS_VERSION = "1"
 SOUNDS_URL = "https://github.com/Daoductrung/PlayAural/releases/latest/download/sounds.zip"
+TABLE_CREATED_NOTIFICATION_SOUND = "table_created.ogg"
+TABLE_INVITE_NOTIFICATION_SOUND = "table_invite.ogg"
 
 # Default paths based on module location
 _MODULE_DIR = Path(__file__).parent.parent
@@ -3426,6 +3428,7 @@ PlayAural Server
                 for u in self._users.values():
                     if u.username != user.username and u.approved and u.preferences.notify_table_created:
                         local_game_name = Localization.get(u.locale, name_key)
+                        u.play_sound(TABLE_CREATED_NOTIFICATION_SOUND)
                         u.speak_l(
                             "table-created-broadcast", 
                             buffer="system",
@@ -3863,7 +3866,7 @@ PlayAural Server
             MenuItem(text=Localization.get(invitee_user.locale, "invite-accept"), id="accept"),
             MenuItem(text=Localization.get(invitee_user.locale, "invite-decline"), id="decline"),
         ]
-        invitee_user.play_sound("invite.ogg")
+        invitee_user.play_sound(TABLE_INVITE_NOTIFICATION_SOUND)
         invitee_user.speak_l("table-invite-received", buffer="system", host=host_user.username, game=game_name)
         invitee_user.show_menu(
             "table_invite_prompt",

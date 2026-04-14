@@ -51,6 +51,50 @@ class TestTableInviteReclaim:
         items = user.get_current_menu_items(menu_id) or []
         return [item.id for item in items if hasattr(item, "id")]
 
+    def _sound_names(self, user: MockUser) -> list[str]:
+        return [message.data["name"] for message in user.messages if message.type == "play_sound"]
+
+    @pytest.mark.asyncio
+    async def test_new_table_created_sound_follows_new_table_notification_preference(self):
+        host = self._create_online_user("Host")
+        listener_on = self._create_online_user("ListenerOn")
+        listener_off = self._create_online_user("ListenerOff")
+        listener_off.preferences.notify_table_created = False
+
+        await self.server._handle_tables_selection(
+            host,
+            "create_table",
+            {"game_type": "pig", "game_name": "Pig"},
+        )
+
+        assert "table_created.ogg" in self._sound_names(listener_on)
+        assert "table_created.ogg" not in self._sound_names(listener_off)
+        assert listener_on.get_last_spoken() == Localization.get(
+            listener_on.locale,
+            "table-created-broadcast",
+            host=host.username,
+            game=Localization.get(listener_on.locale, "game-name-pig"),
+        )
+        assert listener_off.get_last_spoken() is None
+
+    @pytest.mark.asyncio
+    async def test_table_invite_always_plays_invite_notification_sound(self):
+        host = self._create_online_user("Host")
+        guest = self._create_online_user("Guest")
+        table, _ = self._create_started_table(host, guest)
+
+        guest.preferences.notify_table_created = False
+
+        await self.server._send_table_invite(host, table, guest)
+
+        assert "table_invite.ogg" in self._sound_names(guest)
+        assert guest.get_last_spoken() == Localization.get(
+            guest.locale,
+            "table-invite-received",
+            host=host.username,
+            game=Localization.get(guest.locale, "game-name-pig"),
+        )
+
     @pytest.mark.asyncio
     async def test_accepting_invite_reclaims_bot_replaced_seat(self):
         host = self._create_online_user("Host")

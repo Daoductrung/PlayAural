@@ -628,11 +628,11 @@ export class MobileAudioManager {
 
     this.nativeAudioModeLoading = ExpoAudio.setAudioModeAsync({
       allowsRecordingIOS: false,
-      interruptionModeAndroid: InterruptionModeAndroid.DoNotMix,
+      interruptionModeAndroid: InterruptionModeAndroid.DuckOthers,
       interruptionModeIOS: InterruptionModeIOS.MixWithOthers,
       playThroughEarpieceAndroid: false,
       playsInSilentModeIOS: true,
-      shouldDuckAndroid: false,
+      shouldDuckAndroid: true,
       staysActiveInBackground: false,
     }).then(() => {
       this.nativeAudioModeReady = true;

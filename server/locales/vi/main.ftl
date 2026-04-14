@@ -386,6 +386,8 @@ auto-muted-minutes = Bạn đã bị tắt tiếng tạm thời vì spam. Còn {
 auto-muted-applied-seconds = Bạn đã bị tự động tắt tiếng { $seconds } giây vì spam quá mức.
 auto-muted-applied-minutes = Bạn đã bị tự động tắt tiếng { $minutes } phút vì spam quá mức.
 chat-rate-limited = Chậm lại! Bạn đang gửi tin nhắn quá nhanh.
+chat-global-disabled-send = Trò chuyện chung đang bị tắt trong tùy chọn của bạn. Hãy bật lại trò chuyện chung trước khi gửi tin nhắn chung.
+chat-table-disabled-send = Trò chuyện trong bàn đang bị tắt trong tùy chọn của bạn. Hãy bật lại trò chuyện trong bàn trước khi gửi tin nhắn trong bàn.
 admin-spam-alert = Cảnh báo: { $username } đang spam quá mức và đã bị tự động tắt tiếng.
 
 broadcast-announcement = Gửi thông báo

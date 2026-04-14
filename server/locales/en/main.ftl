@@ -386,6 +386,8 @@ auto-muted-minutes = You have been temporarily muted for spamming. { $minutes } 
 auto-muted-applied-seconds = You have been auto-muted for { $seconds } seconds due to excessive chat spam.
 auto-muted-applied-minutes = You have been auto-muted for { $minutes } minutes due to excessive chat spam.
 chat-rate-limited = Slow down! You are sending messages too quickly.
+chat-global-disabled-send = Global chat is disabled in your options. Turn global chat back on before sending global messages.
+chat-table-disabled-send = Table chat is disabled in your options. Turn table chat back on before sending table messages.
 admin-spam-alert = Warning: { $username } is spamming chat excessively and has been auto-muted.
 
 broadcast-announcement = Broadcast Announcement

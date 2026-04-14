@@ -2,6 +2,7 @@ import pytest
 
 from ..auth.chat_rate_limit import ChatRateLimiter
 from ..core.server import Server
+from ..messages.localization import Localization
 from ..tables.manager import TableManager
 from ..users.test_user import MockUser
 
@@ -80,3 +81,109 @@ async def test_chat_broadcast_snapshots_users_when_connection_changes_during_sen
     assert alice_connection.sent[0]["message"] == "hello"
     assert cara_connection.sent[0]["message"] == "hello"
     assert bob_connection.sent == []
+
+
+@pytest.mark.asyncio
+async def test_global_chat_mute_blocks_receiving_global_messages() -> None:
+    server = _make_server()
+    alice_connection = RecordingConnection()
+    bob_connection = RecordingConnection()
+    alice = _make_user("Alice", alice_connection)
+    bob = _make_user("Bob", bob_connection)
+    bob.preferences.mute_global_chat = True
+    server._users = {
+        "Alice": alice,
+        "Bob": bob,
+    }
+
+    await server._handle_chat(
+        DummyClient("Alice"),
+        {
+            "convo": "global",
+            "message": "hello",
+            "type": "chat",
+        },
+    )
+
+    assert alice_connection.sent[0]["message"] == "hello"
+    assert bob_connection.sent == []
+
+
+@pytest.mark.asyncio
+async def test_table_chat_mute_blocks_receiving_local_messages() -> None:
+    server = _make_server()
+    alice_connection = RecordingConnection()
+    bob_connection = RecordingConnection()
+    alice = _make_user("Alice", alice_connection)
+    bob = _make_user("Bob", bob_connection)
+    bob.preferences.mute_table_chat = True
+    server._users = {
+        "Alice": alice,
+        "Bob": bob,
+    }
+
+    await server._handle_chat(
+        DummyClient("Alice"),
+        {
+            "convo": "local",
+            "message": "hello",
+            "type": "chat",
+        },
+    )
+
+    assert alice_connection.sent[0]["message"] == "hello"
+    assert bob_connection.sent == []
+
+
+@pytest.mark.asyncio
+async def test_global_chat_mute_blocks_sending_with_error() -> None:
+    server = _make_server()
+    alice_connection = RecordingConnection()
+    bob_connection = RecordingConnection()
+    alice = _make_user("Alice", alice_connection)
+    bob = _make_user("Bob", bob_connection)
+    alice.preferences.mute_global_chat = True
+    server._users = {
+        "Alice": alice,
+        "Bob": bob,
+    }
+
+    await server._handle_chat(
+        DummyClient("Alice"),
+        {
+            "convo": "global",
+            "message": "hello",
+            "type": "chat",
+        },
+    )
+
+    assert alice_connection.sent == []
+    assert bob_connection.sent == []
+    assert alice.get_last_spoken() == Localization.get(alice.locale, "chat-global-disabled-send")
+
+
+@pytest.mark.asyncio
+async def test_table_chat_mute_blocks_sending_with_error() -> None:
+    server = _make_server()
+    alice_connection = RecordingConnection()
+    bob_connection = RecordingConnection()
+    alice = _make_user("Alice", alice_connection)
+    bob = _make_user("Bob", bob_connection)
+    alice.preferences.mute_table_chat = True
+    server._users = {
+        "Alice": alice,
+        "Bob": bob,
+    }
+
+    await server._handle_chat(
+        DummyClient("Alice"),
+        {
+            "convo": "local",
+            "message": "hello",
+            "type": "chat",
+        },
+    )
+
+    assert alice_connection.sent == []
+    assert bob_connection.sent == []
+    assert alice.get_last_spoken() == Localization.get(alice.locale, "chat-table-disabled-send")

@@ -5513,6 +5513,11 @@ PlayAural Server
              else:
                  pass # Ignore for non-admins
 
+        disabled_key = self._get_disabled_chat_send_key(user, convo)
+        if disabled_key:
+            user.speak_l(disabled_key, buffer="system")
+            return
+
         chat_packet = {
             "type": "chat",
             "convo": convo,
@@ -5527,7 +5532,11 @@ PlayAural Server
             if table:
                 for member_name in [m.username for m in table.members]:
                     user = self._users.get(member_name)
-                    if user and user.approved:  # Only send to approved users
+                    if (
+                        user
+                        and user.approved
+                        and self._can_receive_chat(user, convo)
+                    ):
                         await user.connection.send(chat_packet)
             else:
                 # Lobby chat: send to all users who are NOT in a table
@@ -5537,15 +5546,31 @@ PlayAural Server
                     if user.approved:
                         # Check if this user is in a table
                         user_table = self._tables.find_user_table(user.username)
-                        if not user_table:
+                        if not user_table and self._can_receive_chat(user, convo):
                             await user.connection.send(chat_packet)
         elif convo == "global":
             # Broadcast to all approved users only
             for user in list(self._users.values()):
                 if self._users.get(user.username) is not user:
                     continue
-                if user.approved:
+                if user.approved and self._can_receive_chat(user, convo):
                     await user.connection.send(chat_packet)
+
+    def _get_disabled_chat_send_key(self, user: NetworkUser, convo: str) -> str | None:
+        """Return the localized error key when the sender has disabled this chat channel."""
+        if convo == "global" and user.preferences.mute_global_chat:
+            return "chat-global-disabled-send"
+        if convo in {"local", "table", "game"} and user.preferences.mute_table_chat:
+            return "chat-table-disabled-send"
+        return None
+
+    def _can_receive_chat(self, user: NetworkUser, convo: str) -> bool:
+        """Check per-user chat receive preferences for server-side delivery."""
+        if convo == "global":
+            return not user.preferences.mute_global_chat
+        if convo in {"local", "table", "game"}:
+            return not user.preferences.mute_table_chat
+        return True
 
     def _get_user_role_and_client_text(self, locale: str, user: NetworkUser) -> tuple[str, str]:
         """Get localized role and client type text for a user."""

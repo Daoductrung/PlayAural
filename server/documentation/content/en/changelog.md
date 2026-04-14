@@ -1,5 +1,19 @@
 Changelog
 
+Tuesday 14 April 2026
+
+Server Updates:
+
+Rebalanced the gameplay in Chaos Bear to make matches fairer and more engaging.
+
+Battle game updates: Fixed a rare bug that could cause the game to freeze. Added sound effects for when a fighter is destroyed and when a player is eliminated. Added an sound effect for the overall match victory.
+
+Added detailed skill descriptions directly inside the skill menu for Battle. You can now learn exactly what an ability does right in the middle of the game without needing to read the documentation.
+
+Added an audio notification when a new table is created. This sound is enabled by default, but you can turn it off in the Options menu if you prefer.
+
+Added an audio notification whenever someone invites you to join their table. This invite alert is always on and cannot be disabled to ensure you never miss a request from your friends.
+
 Monday 13 April 2026
 
 Server Updates:

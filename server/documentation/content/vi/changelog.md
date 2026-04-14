@@ -1,5 +1,19 @@
 Nhật ký thay đổi
 
+Thứ Ba 14 Tháng Tư 2026
+
+Cập nhật máy chủ:
+
+Đã cân bằng lại lối chơi trong trò Gấu Cuồng Loạn để các ván đấu trở nên công bằng và hấp dẫn hơn.
+
+Cập nhật trò chơi Đấu Trường Chiến Kỹ: Đã sửa một lỗi hiếm gặp có thể khiến ván đấu bị đóng băng. Đã thêm các hiệu ứng âm thanh khi một đấu sĩ bị tiêu diệt và khi một người chơi bị loại hoàn toàn. Đã thêm âm thanh thông báo khi bạn giành chiến thắng chung cuộc.
+
+Đã thêm phần mô tả chi tiết vào ngay bên trong menu sử dụng kỹ năng của Đấu Trường Chiến Kỹ. Giờ đây bạn có thể hiểu ngay tác dụng của từng chiêu thức trong lúc chơi mà không cần phải mở tài liệu ra xem.
+
+Đã thêm âm thanh thông báo mỗi khi có một bàn chơi mới được tạo. Âm thanh này được bật mặc định, nhưng bạn có thể vào phần Tùy chỉnh để tắt đi nếu muốn.
+
+Đã thêm âm thanh thông báo mỗi khi có người gửi lời mời bạn tham gia bàn chơi. Âm thanh lời mời này sẽ luôn hoạt động và không thể tắt để đảm bảo bạn không bao giờ bỏ lỡ lời gọi từ bạn bè.
+
 Thứ Hai 13 Tháng Tư 2026
 
 Cập nhật máy chủ:

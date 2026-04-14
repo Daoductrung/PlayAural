@@ -1,4 +1,4 @@
-import { Audio as ExpoAudio, InterruptionModeAndroid, InterruptionModeIOS } from "expo-av";
+import { Audio as ExpoAudio, InterruptionModeIOS } from "expo-av";
 import type { AVPlaybackSource, AVPlaybackStatus, AVPlaybackStatusToSet } from "expo-av";
 import { Asset } from "expo-asset";
 import { AppState, Keyboard, Platform } from "react-native";
@@ -628,11 +628,8 @@ export class MobileAudioManager {
 
     this.nativeAudioModeLoading = ExpoAudio.setAudioModeAsync({
       allowsRecordingIOS: false,
-      interruptionModeAndroid: InterruptionModeAndroid.DuckOthers,
       interruptionModeIOS: InterruptionModeIOS.MixWithOthers,
-      playThroughEarpieceAndroid: false,
       playsInSilentModeIOS: true,
-      shouldDuckAndroid: true,
       staysActiveInBackground: false,
     }).then(() => {
       this.nativeAudioModeReady = true;

@@ -1,7 +1,8 @@
-import { Audio as ExpoAudio, InterruptionModeIOS } from "expo-av";
+import { Audio as ExpoAudio, InterruptionModeAndroid, InterruptionModeIOS } from "expo-av";
 import type { AVPlaybackSource, AVPlaybackStatus, AVPlaybackStatusToSet } from "expo-av";
 import { Asset } from "expo-asset";
-import { Platform } from "react-native";
+import { AppState, Keyboard, Platform } from "react-native";
+import type { AppStateStatus } from "react-native";
 
 import { soundManifest } from "../generated/soundManifest";
 import { ENABLE_CLIENT_DEBUG_LOGS } from "../utils/debug";
@@ -37,17 +38,27 @@ type DesiredAmbienceRequest = {
   outro: string;
 };
 
+type AmbiencePhase = "idle" | "intro" | "loop" | "outro";
+
 const DEBUG_PREFIX = "PLAYAURAL_DEBUG Audio";
 
 export class MobileAudioManager {
   private initialized = false;
   private nativeAudioModeReady = false;
   private nativeAudioModeLoading: Promise<void> | null = null;
+  private nativeAppState: AppStateStatus = "active";
+  private nativeAppStateSubscription: ReturnType<typeof AppState.addEventListener> | null = null;
+  private nativeKeyboardHideSubscription: ReturnType<typeof Keyboard.addListener> | null = null;
+  private nativeRecoveryInterval: ReturnType<typeof setInterval> | null = null;
+  private nativeRecoveryTimeout: ReturnType<typeof setTimeout> | null = null;
+  private nativeRecoveryInFlight = false;
+  private nativeRecoveryQueued = false;
   private musicPlayer: ManagedNativePlayer | null = null;
   private ambienceIntroPlayer: ManagedNativePlayer | null = null;
   private ambienceLoopPlayer: ManagedNativePlayer | null = null;
   private ambienceOutroPlayer: ManagedNativePlayer | null = null;
   private ambienceOutroKey: string | null = null;
+  private ambiencePhase: AmbiencePhase = "idle";
   private ambiencePlaybackId = 0;
   private sfxPlayers = new Set<ExpoAudio.Sound>();
   private retiringMusicPlayers = new Set<ExpoAudio.Sound>();
@@ -83,8 +94,10 @@ export class MobileAudioManager {
       return;
     }
 
-    if (Platform.OS === "ios") {
+    if (Platform.OS !== "web") {
+      this.nativeAppState = AppState.currentState ?? "active";
       await this.ensureNativeAudioMode();
+      this.ensureNativeRecoveryObservers();
     }
 
     this.debug("initialize", Platform.OS);
@@ -93,11 +106,13 @@ export class MobileAudioManager {
 
   shutdown(): void {
     this.cancelMusicFade();
+    this.disposeNativeRecoveryObservers();
     ++this.musicTransitionId;
     ++this.ambiencePlaybackId;
     this.desiredMusicRequest = null;
     this.desiredAmbienceRequest = null;
     this.ambienceOutroKey = null;
+    this.ambiencePhase = "idle";
     this.webPendingMusicRequest = null;
     this.webPendingAmbienceRequest = null;
 
@@ -157,6 +172,7 @@ export class MobileAudioManager {
       this.disposeWebSfx(handle);
     }
     this.webSfxRefs.clear();
+    this.initialized = false;
   }
 
   async handleUserInteraction(): Promise<void> {
@@ -293,6 +309,7 @@ export class MobileAudioManager {
       void this.musicPlayer.player.setIsLoopingAsync(looping).catch(() => undefined);
       this.setNativeSoundVolume(this.musicPlayer.player, this.musicVolume);
       void this.musicPlayer.player.playAsync().catch(() => undefined);
+      this.scheduleNativeRecovery("music-repeat-request", 250);
       return true;
     }
 
@@ -337,6 +354,7 @@ export class MobileAudioManager {
         this.cancelMusicFade();
       }
     }, 50);
+    this.scheduleNativeRecovery("music-started", 250);
     return true;
   }
 
@@ -415,6 +433,9 @@ export class MobileAudioManager {
         },
       ).then((loopPlayer) => {
         if (!loopPlayer) {
+          if (playbackId === this.ambiencePlaybackId) {
+            this.ambiencePhase = "idle";
+          }
           return;
         }
         if (playbackId !== this.ambiencePlaybackId) {
@@ -422,6 +443,7 @@ export class MobileAudioManager {
           return;
         }
         this.ambienceLoopPlayer = { player: loopPlayer, sourceKey: loop };
+        this.ambiencePhase = "loop";
       });
     };
 
@@ -455,10 +477,13 @@ export class MobileAudioManager {
         return false;
       }
       this.ambienceIntroPlayer = { player: introPlayer, sourceKey: intro };
+      this.ambiencePhase = "intro";
+      this.scheduleNativeRecovery("ambience-intro-started", 250);
       return true;
     }
 
     startLoop();
+    this.scheduleNativeRecovery("ambience-started", 250);
     return true;
   }
 
@@ -472,6 +497,7 @@ export class MobileAudioManager {
       return;
     }
 
+    const phaseAtStop = this.ambiencePhase;
     ++this.ambiencePlaybackId;
 
     if (this.ambienceIntroPlayer) {
@@ -485,11 +511,16 @@ export class MobileAudioManager {
     }
 
     if (this.ambienceOutroPlayer) {
+      if (!force && phaseAtStop === "outro") {
+        return;
+      }
       this.disposeNativeSound(this.ambienceOutroPlayer.player);
       this.ambienceOutroPlayer = null;
     }
 
-    if (!force && this.ambienceOutroKey) {
+    this.ambiencePhase = "idle";
+
+    if (!force && phaseAtStop === "loop" && this.ambienceOutroKey) {
       if (this.ambienceVolume <= 0) {
         this.ambienceOutroKey = null;
         return;
@@ -518,9 +549,11 @@ export class MobileAudioManager {
           if (this.ambienceOutroPlayer?.player === outroPlayer) {
             this.ambienceOutroPlayer = null;
           }
+          this.ambiencePhase = "idle";
           this.disposeNativeSound(outroPlayer);
         });
         this.ambienceOutroPlayer = { player: outroPlayer, sourceKey: outroKey };
+        this.ambiencePhase = "outro";
       });
     }
   }
@@ -586,7 +619,7 @@ export class MobileAudioManager {
   }
 
   private async ensureNativeAudioMode(): Promise<void> {
-    if (Platform.OS !== "ios" || this.nativeAudioModeReady) {
+    if (Platform.OS === "web" || this.nativeAudioModeReady) {
       return;
     }
     if (this.nativeAudioModeLoading) {
@@ -595,8 +628,11 @@ export class MobileAudioManager {
 
     this.nativeAudioModeLoading = ExpoAudio.setAudioModeAsync({
       allowsRecordingIOS: false,
+      interruptionModeAndroid: InterruptionModeAndroid.DoNotMix,
       interruptionModeIOS: InterruptionModeIOS.MixWithOthers,
+      playThroughEarpieceAndroid: false,
       playsInSilentModeIOS: true,
+      shouldDuckAndroid: false,
       staysActiveInBackground: false,
     }).then(() => {
       this.nativeAudioModeReady = true;
@@ -786,6 +822,198 @@ export class MobileAudioManager {
     }
   }
 
+  private ensureNativeRecoveryObservers(): void {
+    if (Platform.OS === "web") {
+      return;
+    }
+    if (!this.nativeAppStateSubscription) {
+      this.nativeAppStateSubscription = AppState.addEventListener("change", (nextState) => {
+        this.nativeAppState = nextState;
+        if (nextState === "active") {
+          this.scheduleNativeRecovery("app-active", 150);
+        }
+      });
+    }
+    if (Platform.OS === "android" && !this.nativeKeyboardHideSubscription) {
+      this.nativeKeyboardHideSubscription = Keyboard.addListener("keyboardDidHide", () => {
+        this.scheduleNativeRecovery("keyboard-hidden", 150);
+      });
+    }
+    if (!this.nativeRecoveryInterval) {
+      this.nativeRecoveryInterval = setInterval(() => {
+        this.scheduleNativeRecovery("watchdog");
+      }, 1250);
+    }
+  }
+
+  private disposeNativeRecoveryObservers(): void {
+    if (this.nativeRecoveryTimeout) {
+      clearTimeout(this.nativeRecoveryTimeout);
+      this.nativeRecoveryTimeout = null;
+    }
+    if (this.nativeRecoveryInterval) {
+      clearInterval(this.nativeRecoveryInterval);
+      this.nativeRecoveryInterval = null;
+    }
+    this.nativeRecoveryInFlight = false;
+    this.nativeRecoveryQueued = false;
+    this.nativeAppStateSubscription?.remove();
+    this.nativeAppStateSubscription = null;
+    this.nativeKeyboardHideSubscription?.remove();
+    this.nativeKeyboardHideSubscription = null;
+  }
+
+  private scheduleNativeRecovery(reason: string, delayMs = 0): void {
+    if (Platform.OS === "web" || !this.hasDesiredNativePlayback()) {
+      return;
+    }
+    if (delayMs > 0) {
+      if (this.nativeRecoveryTimeout) {
+        clearTimeout(this.nativeRecoveryTimeout);
+      }
+      this.nativeRecoveryTimeout = setTimeout(() => {
+        this.nativeRecoveryTimeout = null;
+        this.triggerNativeRecovery(reason);
+      }, delayMs);
+      return;
+    }
+    this.triggerNativeRecovery(reason);
+  }
+
+  private triggerNativeRecovery(reason: string): void {
+    if (Platform.OS === "web" || !this.hasDesiredNativePlayback()) {
+      return;
+    }
+    if (this.nativeRecoveryInFlight) {
+      this.nativeRecoveryQueued = true;
+      return;
+    }
+    this.nativeRecoveryInFlight = true;
+    void this.reconcileNativePlayback(reason).finally(() => {
+      this.nativeRecoveryInFlight = false;
+      if (this.nativeRecoveryQueued) {
+        this.nativeRecoveryQueued = false;
+        this.triggerNativeRecovery(`${reason}-queued`);
+      }
+    });
+  }
+
+  private hasDesiredNativePlayback(): boolean {
+    if (Platform.OS === "web") {
+      return false;
+    }
+    return (
+      (this.desiredMusicRequest !== null && this.musicVolume > 0) ||
+      (this.desiredAmbienceRequest !== null && this.ambienceVolume > 0)
+    );
+  }
+
+  private async reconcileNativePlayback(reason: string): Promise<void> {
+    if (Platform.OS === "web" || this.nativeAppState !== "active") {
+      return;
+    }
+
+    await this.ensureNativeAudioMode();
+
+    if (this.desiredMusicRequest && this.musicVolume > 0) {
+      await this.reconcileNativeMusic(reason);
+    }
+    if (this.desiredAmbienceRequest && this.ambienceVolume > 0) {
+      await this.reconcileNativeAmbience(reason);
+    }
+  }
+
+  private async reconcileNativeMusic(reason: string): Promise<void> {
+    const desired = this.desiredMusicRequest;
+    if (!desired) {
+      return;
+    }
+    if (!this.musicPlayer || this.musicPlayer.sourceKey !== desired.name) {
+      await this.playMusic(desired.name, desired.looping);
+      return;
+    }
+    const restored = await this.restoreNativePlayer(
+      this.musicPlayer.player,
+      desired.looping,
+      this.musicVolume,
+      `music:${reason}`,
+    );
+    if (!restored && this.musicPlayer) {
+      this.disposeNativeSound(this.musicPlayer.player);
+      this.musicPlayer = null;
+      await this.playMusic(desired.name, desired.looping);
+    }
+  }
+
+  private async reconcileNativeAmbience(reason: string): Promise<void> {
+    const desired = this.desiredAmbienceRequest;
+    if (!desired) {
+      return;
+    }
+    if (this.ambienceIntroPlayer) {
+      const restored = await this.restoreNativePlayer(
+        this.ambienceIntroPlayer.player,
+        false,
+        this.ambienceVolume,
+        `ambience-intro:${reason}`,
+      );
+      if (!restored && this.ambienceIntroPlayer) {
+        this.disposeNativeSound(this.ambienceIntroPlayer.player);
+        this.ambienceIntroPlayer = null;
+        await this.playAmbience(desired.loop, desired.intro, desired.outro);
+      }
+      return;
+    }
+    if (this.ambienceLoopPlayer && this.ambienceLoopPlayer.sourceKey === desired.loop) {
+      const restored = await this.restoreNativePlayer(
+        this.ambienceLoopPlayer.player,
+        true,
+        this.ambienceVolume,
+        `ambience-loop:${reason}`,
+      );
+      if (!restored && this.ambienceLoopPlayer) {
+        this.disposeNativeSound(this.ambienceLoopPlayer.player);
+        this.ambienceLoopPlayer = null;
+        await this.playAmbience(desired.loop, desired.intro, desired.outro);
+      }
+      return;
+    }
+    await this.playAmbience(desired.loop, desired.intro, desired.outro);
+  }
+
+  private async restoreNativePlayer(
+    sound: ExpoAudio.Sound,
+    looping: boolean,
+    volume: number,
+    debugLabel: string,
+  ): Promise<boolean> {
+    try {
+      const status = await sound.getStatusAsync();
+      if (!status.isLoaded) {
+        this.debug("native-restore-unloaded", debugLabel);
+        return false;
+      }
+
+      const targetVolume = Math.max(0, Math.min(1, volume));
+      const tasks: Promise<unknown>[] = [
+        sound.setIsLoopingAsync(looping),
+        sound.setVolumeAsync(targetVolume),
+      ];
+
+      if (!status.isPlaying) {
+        this.debug("native-restore-play", debugLabel);
+        tasks.push(sound.playAsync());
+      }
+
+      await Promise.all(tasks.map((task) => task.catch(() => undefined)));
+      this.nativeSoundVolumes.set(sound, targetVolume);
+      return true;
+    } catch (error) {
+      console.warn(`MobileAudioManager: failed to restore ${debugLabel}.`, error);
+      return false;
+    }
+  }
+
   private async playWebSound(
     name: string,
     options: { volume?: number; pitch?: number; pan?: number } = {},
@@ -970,12 +1198,14 @@ export class MobileAudioManager {
       this.webAmbienceLoopPlayer = loopPlayer;
       try {
         await loopPlayer.element.play();
+        this.ambiencePhase = "loop";
         return true;
       } catch (error) {
         console.warn("MobileAudioManager: web ambience loop playback failed.", error);
         this.webPendingAmbienceRequest = { intro, loop, outro };
         this.disposeWebStream(loopPlayer);
         this.webAmbienceLoopPlayer = null;
+        this.ambiencePhase = "idle";
         return false;
       }
     };
@@ -984,6 +1214,7 @@ export class MobileAudioManager {
       const introPlayer = await this.createWebStream(intro, false, "ambience");
       if (introPlayer) {
         this.webAmbienceIntroPlayer = introPlayer;
+        this.ambiencePhase = "intro";
         introPlayer.element.onended = () => {
           this.disposeWebStream(introPlayer);
           this.webAmbienceIntroPlayer = null;
@@ -997,6 +1228,7 @@ export class MobileAudioManager {
           this.webPendingAmbienceRequest = { intro, loop, outro };
           this.disposeWebStream(introPlayer);
           this.webAmbienceIntroPlayer = null;
+          this.ambiencePhase = "idle";
           return false;
         }
       }
@@ -1007,6 +1239,7 @@ export class MobileAudioManager {
 
   private stopWebAmbience(force: boolean): void {
     this.webPendingAmbienceRequest = null;
+    const phaseAtStop = this.ambiencePhase;
     ++this.ambiencePlaybackId;
     if (this.webAmbienceIntroPlayer) {
       this.disposeWebStream(this.webAmbienceIntroPlayer);
@@ -1019,21 +1252,28 @@ export class MobileAudioManager {
     }
 
     if (this.webAmbienceOutroPlayer) {
+      if (!force && phaseAtStop === "outro") {
+        return;
+      }
       this.disposeWebStream(this.webAmbienceOutroPlayer);
       this.webAmbienceOutroPlayer = null;
     }
 
-    if (!force && this.ambienceOutroKey) {
+    this.ambiencePhase = "idle";
+
+    if (!force && phaseAtStop === "loop" && this.ambienceOutroKey) {
       void this.createWebStream(this.ambienceOutroKey, false, "ambience").then((outroPlayer) => {
         if (!outroPlayer) {
           return;
         }
         this.webAmbienceOutroPlayer = outroPlayer;
+        this.ambiencePhase = "outro";
         outroPlayer.element.onended = () => {
           this.disposeWebStream(outroPlayer);
           if (this.webAmbienceOutroPlayer === outroPlayer) {
             this.webAmbienceOutroPlayer = null;
           }
+          this.ambiencePhase = "idle";
         };
         void outroPlayer.element.play().catch((error) => {
           console.warn("MobileAudioManager: web ambience outro playback failed.", error);
@@ -1041,6 +1281,7 @@ export class MobileAudioManager {
           if (this.webAmbienceOutroPlayer === outroPlayer) {
             this.webAmbienceOutroPlayer = null;
           }
+          this.ambiencePhase = "idle";
         });
       });
     }

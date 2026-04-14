@@ -711,6 +711,36 @@ def test_finish_with_team_result_plays_global_win_sound() -> None:
     assert "game_chaosbear/wingame.ogg" in game.get_user(p2).get_sounds_played()
 
 
+def test_final_health_elimination_plays_death_and_fall_before_win_sound() -> None:
+    game = make_game(start=True, turn_mode=TURN_MODE_ROUND_ROBIN)
+    p1, p2 = game.players
+    select_and_submit(game, p1, "novice_boxer")
+    select_and_submit(game, p2, "boxer")
+    assert advance_until(game, lambda: game.phase == PHASE_COMBAT and game.current_fighter is not None, max_ticks=200)
+
+    attacker = game.current_fighter
+    assert attacker is not None
+    defender = next(fighter for fighter in game.fighters if fighter.id != attacker.id)
+    for player in (p1, p2):
+        game.get_user(player).clear_messages()
+
+    defender.health = 0
+    game._post_move_progression()
+
+    initial_sounds = game.get_user(p1).get_sounds_played()
+    assert initial_sounds == ["game_pig/lose.ogg"]
+    assert "game_chaosbear/wingame.ogg" not in initial_sounds
+    assert game.status == "playing"
+
+    assert advance_until(game, lambda: game.status == "finished", max_ticks=120)
+    sounds = game.get_user(p1).get_sounds_played()
+    death_index = next(index for index, sound in enumerate(sounds) if sound.startswith("battle/death"))
+    fall_index = next(index for index, sound in enumerate(sounds) if sound.startswith("battle/fall"))
+    win_index = sounds.index("game_chaosbear/wingame.ogg")
+
+    assert sounds.index("game_pig/lose.ogg") < death_index < fall_index < win_index
+
+
 def test_status_keybinds_match_mile_by_mile_pattern() -> None:
     game = make_game()
     assert [keybind.actions for keybind in game._keybinds["s"]] == [["battle_read_status"]]

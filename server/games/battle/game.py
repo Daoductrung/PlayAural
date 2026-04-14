@@ -62,6 +62,7 @@ SEQUENCE_TAG_BATTLE_INTRO = "battle_intro"
 SEQUENCE_TAG_BATTLE_TURN = "battle_turn"
 SEQUENCE_TAG_BATTLE_MOVE = "battle_move"
 SEQUENCE_TAG_BATTLE_SPAWN = "battle_spawn"
+SEQUENCE_TAG_BATTLE_ELIMINATION = "battle_elimination"
 
 MIN_ACTIVE_SPEED = 30
 CRIT_DENOMINATOR = 20
@@ -1081,16 +1082,53 @@ class BattleGame(Game):
             amount=change,
         )
 
-    def _play_elimination_audio(self, *, killed: bool) -> None:
-        self.play_sound(SOUND_FIGHTER_LOSE)
-        if not killed:
+    def _build_elimination_audio_beats(self, records: list[dict[str, str | bool]]) -> list[SequenceBeat]:
+        beats: list[SequenceBeat] = []
+        for record in records:
+            beats.append(
+                SequenceBeat(
+                    ops=[SequenceOperation.sound_op(SOUND_FIGHTER_LOSE)],
+                    delay_after_ticks=self._paced_delay_ticks(SOUND_FIGHTER_LOSE),
+                )
+            )
+            if not bool(record.get("killed")):
+                continue
+            death_sound = str(record.get("death_sound") or random.choice(DEATH_SOUND_VARIANTS))
+            fall_sound = str(record.get("fall_sound") or random.choice(FALL_SOUND_VARIANTS))
+            beats.append(
+                SequenceBeat(
+                    ops=[SequenceOperation.sound_op(death_sound)],
+                    delay_after_ticks=self._paced_delay_ticks(death_sound),
+                )
+            )
+            beats.append(
+                SequenceBeat(
+                    ops=[SequenceOperation.sound_op(fall_sound)],
+                    delay_after_ticks=self._paced_delay_ticks(fall_sound),
+                )
+            )
+        return beats
+
+    def _start_elimination_sequence(
+        self,
+        records: list[dict[str, str | bool]],
+        *,
+        callback_id: str = "",
+        payload: dict | None = None,
+    ) -> None:
+        beats = self._build_elimination_audio_beats(records)
+        if callback_id:
+            beats.append(SequenceBeat(ops=[SequenceOperation.callback_op(callback_id, payload or {})]))
+        if not beats:
+            if callback_id:
+                self.on_sequence_callback("", callback_id, payload or {})
             return
-        death_sound = random.choice(DEATH_SOUND_VARIANTS)
-        death_delay = self._paced_delay_ticks(SOUND_FIGHTER_LOSE)
-        self.schedule_sound(death_sound, delay_ticks=death_delay)
-        self.schedule_sound(
-            random.choice(FALL_SOUND_VARIANTS),
-            delay_ticks=death_delay + self._paced_delay_ticks(death_sound),
+        self.start_sequence(
+            f"battle_elimination_{self.turn_number}_{self.sound_scheduler_tick}_{len(self.active_sequences)}",
+            beats,
+            tag=SEQUENCE_TAG_BATTLE_ELIMINATION,
+            lock_scope=self.SEQUENCE_LOCK_GAMEPLAY,
+            pause_bots=True,
         )
 
     def _apply_block(self, launcher: BattleFighter, target: BattleFighter, block: BattleEffectBlock) -> None:
@@ -1113,9 +1151,15 @@ class BattleGame(Game):
         elif block.type == "target_speed":
             self._resolve_stat_change(target, "speed", block.change or 0, target)
 
-    def _resolve_eliminations(self, killer: BattleFighter | None = None) -> tuple[list[BattleFighter], list[BattleFighter]]:
+    def _resolve_eliminations(
+        self,
+        killer: BattleFighter | None = None,
+        *,
+        play_audio: bool = True,
+    ) -> tuple[list[BattleFighter], list[BattleFighter], list[dict[str, str | bool]]]:
         newly_defeated: list[BattleFighter] = []
         newly_defeated_enemies: list[BattleFighter] = []
+        elimination_records: list[dict[str, str | bool]] = []
         for fighter in self.fighters:
             if fighter.eliminated:
                 continue
@@ -1130,7 +1174,14 @@ class BattleGame(Game):
             else:
                 continue
             newly_defeated.append(fighter)
-            self._play_elimination_audio(killed=killed)
+            elimination_records.append(
+                {
+                    "fighter_id": fighter.id,
+                    "killed": killed,
+                    "death_sound": random.choice(DEATH_SOUND_VARIANTS) if killed else "",
+                    "fall_sound": random.choice(FALL_SOUND_VARIANTS) if killed else "",
+                }
+            )
             message_key = "battle-fighter-defeated" if fighter.elimination_reason == "health" else "battle-fighter-incapacitated"
             self._broadcast_game_localized(
                 message_key,
@@ -1139,7 +1190,9 @@ class BattleGame(Game):
             if fighter.is_arena_enemy:
                 newly_defeated_enemies.append(fighter)
                 self.survival_kills += 1
-        return newly_defeated, newly_defeated_enemies
+        if play_audio and elimination_records:
+            self._start_elimination_sequence(elimination_records)
+        return newly_defeated, newly_defeated_enemies, elimination_records
 
     def _check_for_winner(self) -> bool:
         if self._survival_options_are_active() and self.options.survival_target > 0 and self.survival_kills >= self.options.survival_target:
@@ -1198,7 +1251,23 @@ class BattleGame(Game):
         )
 
     def _post_move_progression(self) -> None:
-        _, defeated_enemies = self._resolve_eliminations(self.current_fighter)
+        _, defeated_enemies, elimination_records = self._resolve_eliminations(self.current_fighter, play_audio=False)
+        defeated_enemy_ids = [fighter.id for fighter in defeated_enemies]
+        if elimination_records:
+            self._start_elimination_sequence(
+                elimination_records,
+                callback_id="battle_after_eliminations",
+                payload={"defeated_enemy_ids": defeated_enemy_ids},
+            )
+            return
+        self._continue_after_eliminations(defeated_enemy_ids)
+
+    def _continue_after_eliminations(self, defeated_enemy_ids: list[str]) -> None:
+        defeated_enemies = [
+            fighter
+            for fighter_id in defeated_enemy_ids
+            if (fighter := self._fighter_by_id(fighter_id)) and fighter.is_arena_enemy
+        ]
         if self._check_for_winner():
             return
         if self._is_survival_mode() and defeated_enemies:
@@ -1256,6 +1325,9 @@ class BattleGame(Game):
                 self._apply_block(fighter, target, move.blocks[block_index])
         elif callback_id == "battle_finalize_move":
             self._post_move_progression()
+        elif callback_id == "battle_after_eliminations":
+            defeated_enemy_ids = [str(fighter_id) for fighter_id in payload.get("defeated_enemy_ids", [])]
+            self._continue_after_eliminations(defeated_enemy_ids)
         elif callback_id == "battle_spawn_intro":
             self.broadcast_l("battle-enemies-arrive", buffer="game", count=int(payload.get("count", 0)))
 

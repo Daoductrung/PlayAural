@@ -5,7 +5,7 @@ chaosbear-draw-card = Rút bài
 chaosbear-check-status = Kiểm tra trạng thái
 
 chaosbear-intro-1 = Gấu Cuồng Loạn đã bắt đầu! Tất cả người chơi xuất phát trước gấu 30 ô.
-chaosbear-intro-2 = Gieo xúc xắc để tiến lên, và rút bài tại các ô chia hết cho 5 để nhận hiệu ứng đặc biệt.
+chaosbear-intro-2 = Gieo xúc xắc để tiến lên, và rút bài tại các ô chia hết cho 5 để lao lên 3 ô rồi nhận hiệu ứng đặc biệt.
 chaosbear-intro-3 = Đừng để gấu bắt được bạn!
 
 chaosbear-turn = Lượt của { $player }; ô số { $position }.
@@ -14,11 +14,11 @@ chaosbear-roll = { $player } gieo được { $roll }.
 chaosbear-position = { $player } hiện đang ở ô số { $position }.
 
 chaosbear-draws-card = { $player } rút một lá bài.
-chaosbear-card-impulsion = Tăng tốc! { $player } tiến lên 3 ô đến ô số { $position }!
-chaosbear-card-super-impulsion = Siêu tăng tốc! { $player } tiến lên 5 ô đến ô số { $position }!
-chaosbear-card-tiredness = Mệt mỏi! Năng lượng của gấu giảm 1. Hiện nó còn { $energy } năng lượng.
-chaosbear-card-hunger = Cơn đói! Năng lượng của gấu tăng 1. Hiện nó có { $energy } năng lượng.
-chaosbear-card-backward = Đẩy lùi! { $player } lùi về ô số { $position }.
+chaosbear-card-impulsion = Tăng tốc! { $player } lao lên đến ô số { $position }!
+chaosbear-card-super-impulsion = Siêu tăng tốc! { $player } phóng vọt lên ô số { $position }!
+chaosbear-card-tiredness = Mệt mỏi! { $player } đến ô số { $position }, và năng lượng của gấu giảm xuống còn { $energy }.
+chaosbear-card-hunger = Cơn đói! { $player } đến ô số { $position }, nhưng năng lượng của gấu tăng lên { $energy }.
+chaosbear-card-backward = Đẩy lùi! { $player } mất đà lao lên và vẫn ở ô số { $position }.
 chaosbear-card-random-gift = Quà ngẫu nhiên!
 chaosbear-gift-back = { $player } bị lùi về ô số { $position }.
 chaosbear-gift-forward = { $player } được tiến đến ô số { $position }!

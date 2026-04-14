@@ -30,7 +30,7 @@ On your turn, you roll a single six-sided die (values 1 through 6) and move forw
 
 
 
-However, if you are standing on a position that is a positive multiple of 5 (such as 30, 35, 40, and so on), you have the option to draw a card instead of rolling. Drawing a card ends your turn as well. The card's effect is applied immediately. See the Cards section below for the full list of possible outcomes.
+However, if you are standing on a position that is a positive multiple of 5 (such as 30, 35, 40, and so on), you have the option to draw a card instead of rolling. Drawing a card always gives you a 3-square surge before the card's special effect is applied, and it still ends your turn. See the Cards section below for the full list of possible outcomes.
 
 
 
@@ -62,17 +62,17 @@ The game ends when only one player remains alive. If the bear catches everyone i
 
 Available only on multiples of 5:
 
-\* \*\*Impulsion:\*\* Leap forward 3 squares.
+\* \*\*Impulsion:\*\* After the draw surge, leap forward 3 more squares.
 
-\* \*\*Super Impulsion:\*\* Leap forward 5 squares.
+\* \*\*Super Impulsion:\*\* After the draw surge, leap forward 5 more squares.
 
-\* \*\*Tiredness:\*\* The bear loses 1 energy (minimum 1).
+\* \*\*Tiredness:\*\* Keep the 3-square surge, and the bear loses 1 energy (minimum 1).
 
-\* \*\*Hunger:\*\* The bear gains 1 energy.
+\* \*\*Hunger:\*\* Keep the 3-square surge, but the bear gains 1 energy.
 
-\* \*\*Backward Push:\*\* Shoved back 3 squares (minimum 0).
+\* \*\*Backward Push:\*\* You lose the draw surge and stay where you started.
 
-\* \*\*Random Gift:\*\* Move forward or backward by 1-6 squares (coin flip).
+\* \*\*Random Gift:\*\* After the draw surge, move forward or backward by 1-6 squares (coin flip).
 
 
 
@@ -84,7 +84,7 @@ It's the start of a game. Charlie and Diana are at position 30, and the bear is 
 
 Charlie rolls a 5 and moves to position 35. 
 
-Diana is at 30 (a multiple of 5) and decides to draw a card. She draws \*\*Super Impulsion\*\* and leaps to 35.
+Diana is at 30 (a multiple of 5) and decides to draw a card. She gets the 3-square surge to 33, then draws \*\*Super Impulsion\*\* and leaps to 38.
 
 The bear rolls a 1 + energy of 1, moving to position 2.
 
@@ -92,7 +92,7 @@ The bear rolls a 1 + energy of 1, moving to position 2.
 
 A few rounds later, Charlie is at 45 and Diana is at 42. The bear is at 38 with an energy of 4.
 
-Charlie draws a card and gets \*\*Backward Push\*\*, moving back to 42.
+Charlie draws a card and gets \*\*Backward Push\*\*, losing the surge and staying at 45.
 
 Diana rolls a 1 and moves to 43.
 

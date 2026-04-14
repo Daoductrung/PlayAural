@@ -49,6 +49,7 @@ class ChaosBearGame(Game):
     bear_energy: int = 1
     round_number: int = 0
     players_moved_this_round: int = 0
+    round_start_seat: int = 0
 
     @classmethod
     def get_name(cls) -> str:
@@ -79,6 +80,44 @@ class ChaosBearGame(Game):
     ) -> ChaosBearPlayer:
         """Create a new player."""
         return ChaosBearPlayer(id=player_id, name=name, is_bot=is_bot)
+
+    def _alive_players_in_seat_order(self) -> list[ChaosBearPlayer]:
+        """Return alive players in their original table order."""
+        return [p for p in self.players if p.alive and not p.is_spectator]
+
+    def _seat_index(self, player: ChaosBearPlayer) -> int:
+        """Resolve the player's fixed seat index."""
+        for index, seat_player in enumerate(self.players):
+            if seat_player.id == player.id:
+                return index
+        return 0
+
+    def _build_round_turn_order(self) -> list[ChaosBearPlayer]:
+        """Rotate the round opener so one seat does not always act first."""
+        alive_players = self._alive_players_in_seat_order()
+        if not alive_players:
+            return []
+
+        for offset in range(len(self.players)):
+            seat_index = (self.round_start_seat + offset) % len(self.players)
+            for start_at, player in enumerate(alive_players):
+                if self._seat_index(player) == seat_index:
+                    return alive_players[start_at:] + alive_players[:start_at]
+
+        return alive_players
+
+    def _advance_round_start_seat(self) -> None:
+        """Move the round opener to the next surviving seat."""
+        if not self.players:
+            self.round_start_seat = 0
+            return
+
+        for offset in range(1, len(self.players) + 1):
+            seat_index = (self.round_start_seat + offset) % len(self.players)
+            seat_player = self.players[seat_index]
+            if seat_player.alive and not seat_player.is_spectator:
+                self.round_start_seat = seat_index
+                return
 
     # ==========================================================================
     # Action Sets
@@ -283,7 +322,9 @@ class ChaosBearGame(Game):
 
         # Initialize turn order
         alive_players = self.get_active_players()
-        self.set_turn_players(alive_players)
+        if alive_players:
+            self.round_start_seat = self._seat_index(alive_players[0])
+        self.set_turn_players(self._build_round_turn_order())
 
         # Play music and ambience
         self.play_music("game_chaosbear/music.ogg")
@@ -396,11 +437,13 @@ class ChaosBearGame(Game):
         if not player.alive:
             return None
 
-        # AI: draw card if on multiple of 5, otherwise roll
         if player.position % 5 == 0 and player.position > 0:
-            return "draw_card"
+            gap_to_bear = player.position - self.bear_position
+            if gap_to_bear <= 15 or self.bear_energy >= 4:
+                return "draw_card"
+            if random.random() < 0.5:
+                return "draw_card"
 
-        # Otherwise roll the dice
         return "roll_dice"
 
     def end_turn(self) -> None:
@@ -434,13 +477,11 @@ class ChaosBearGame(Game):
         if self._check_for_winner():
             return
 
-        # Rebuild turn order with alive players
-        alive_players = [p for p in self.players if p.alive and not p.is_spectator]
-        if alive_players:
-            self.set_turn_players(alive_players)
+        self._advance_round_start_seat()
+        round_order = self._build_round_turn_order()
+        if round_order:
+            self.set_turn_players(round_order)
 
-        # set_turn_players already resets turn_index to 0, making the first alive
-        # player current — no advance_turn call needed here.
         self._announce_turn()
         
         self.is_rolling = False
@@ -773,7 +814,8 @@ class ChaosBearGame(Game):
         self.broadcast_l("chaosbear-draws-card", player=player.name)
 
         card = random.randint(0, 5)
-        new_pos = player.position
+        # Drawing gives a short surge so the action is not strictly weaker than rolling.
+        new_pos = player.position + 3
         
         event_delay = 10
         msg_id = ""
@@ -781,7 +823,7 @@ class ChaosBearGame(Game):
         payload: dict[str, object] = {"player_id": player.id}
 
         if card == 0:
-            # Impulsion - forward 3
+            # Impulsion - total forward 6
             new_pos += 3
             self.schedule_sound(
                 f"game_chaosbear/impulsion{random.randint(1, 2)}.ogg", delay_ticks=4
@@ -791,7 +833,7 @@ class ChaosBearGame(Game):
             payload["pos"] = new_pos
             
         elif card == 1:
-            # Super impulsion - forward 5
+            # Super impulsion - total forward 8
             new_pos += 5
             self.schedule_sound(
                 f"game_chaosbear/impulsion{random.randint(1, 2)}.ogg", delay_ticks=4
@@ -801,7 +843,7 @@ class ChaosBearGame(Game):
             payload["pos"] = new_pos
 
         elif card == 2:
-            # Tiredness - bear energy -1
+            # Tiredness - surge forward and reduce bear energy
             new_energy = max(1, self.bear_energy - 1)
             self.schedule_sound(
                 f"game_chaosbear/tiredness{random.randint(1, 2)}.ogg", delay_ticks=4
@@ -810,12 +852,13 @@ class ChaosBearGame(Game):
                 f"game_chaosbear/energydown{random.randint(1, 3)}.ogg", delay_ticks=24
             )
             msg_id = "chaosbear-card-tiredness"
-            kwargs = {"energy": new_energy}
+            kwargs = {"player": player.name, "position": new_pos, "energy": new_energy}
             payload["energy"] = new_energy
+            payload["pos"] = new_pos
             event_delay = 30 # Wait longer for energy sound
 
         elif card == 3:
-            # Hunger - bear energy +1
+            # Hunger - surge forward but increase bear energy
             new_energy = self.bear_energy + 1
             self.schedule_sound(
                 f"game_chaosbear/hunger{random.randint(1, 2)}.ogg", delay_ticks=4
@@ -824,12 +867,13 @@ class ChaosBearGame(Game):
                 f"game_chaosbear/energyup{random.randint(1, 2)}.ogg", delay_ticks=14
             )
             msg_id = "chaosbear-card-hunger"
-            kwargs = {"energy": new_energy}
+            kwargs = {"player": player.name, "position": new_pos, "energy": new_energy}
             payload["energy"] = new_energy
+            payload["pos"] = new_pos
             event_delay = 20
 
         elif card == 4:
-            # Backward push - back 3
+            # Backward push cancels the draw surge
             new_pos = max(0, new_pos - 3)
             self.schedule_sound("game_chaosbear/backpush.ogg", delay_ticks=4)
             msg_id = "chaosbear-card-backward"

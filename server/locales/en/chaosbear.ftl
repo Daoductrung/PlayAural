@@ -5,7 +5,7 @@ chaosbear-draw-card = Draw a card
 chaosbear-check-status = Check status
 
 chaosbear-intro-1 = Chaos Bear has begun! All players start 30 squares ahead of the bear.
-chaosbear-intro-2 = Roll dice to move forward, and draw cards on multiples of 5 to gain special effects.
+chaosbear-intro-2 = Roll dice to move forward, and draw cards on multiples of 5 for a 3-square surge plus a special effect.
 chaosbear-intro-3 = Don't let the bear catch you!
 
 chaosbear-turn = { $player }'s turn; square { $position }.
@@ -14,11 +14,11 @@ chaosbear-roll = { $player } rolled { $roll }.
 chaosbear-position = { $player } is now at square { $position }.
 
 chaosbear-draws-card = { $player } draws a card.
-chaosbear-card-impulsion = Impulsion! { $player } moves forward 3 squares to square { $position }!
-chaosbear-card-super-impulsion = Super impulsion! { $player } moves forward 5 squares to square { $position }!
-chaosbear-card-tiredness = Tiredness! Bear energy minus 1. It now has { $energy } energy.
-chaosbear-card-hunger = Hunger! Bear energy plus 1. It now has { $energy } energy.
-chaosbear-card-backward = Backward push! { $player } moves back to square { $position }.
+chaosbear-card-impulsion = Impulsion! { $player } surges ahead to square { $position }!
+chaosbear-card-super-impulsion = Super impulsion! { $player } rockets ahead to square { $position }!
+chaosbear-card-tiredness = Tiredness! { $player } reaches square { $position }, and bear energy drops to { $energy }.
+chaosbear-card-hunger = Hunger! { $player } reaches square { $position }, but the bear rises to { $energy } energy.
+chaosbear-card-backward = Backward push! { $player } loses the surge and stays at square { $position }.
 chaosbear-card-random-gift = Random gift!
 chaosbear-gift-back = { $player } went back to square { $position }.
 chaosbear-gift-forward = { $player } went forward to square { $position }!

@@ -10,6 +10,12 @@ from ..users.test_user import MockUser
 from ..users.bot import Bot
 
 
+def advance_ticks(game: ChaosBearGame, ticks: int = 60) -> None:
+    """Advance the Chaos Bear game by a bounded number of ticks."""
+    for _ in range(ticks):
+        game.on_tick()
+
+
 class TestChaosBearGameUnit:
     """Unit tests for Chaos Bear game functions."""
 
@@ -182,4 +188,84 @@ class TestChaosBearPersistence:
         assert restored_player2 is not None
         assert restored_player1.position == 34
         assert restored.current_player == restored_player2
+
+
+class TestChaosBearBalance:
+    """Regression tests for Chaos Bear balance adjustments."""
+
+    def test_round_opener_rotates_each_round(self):
+        """The same seat should not always open every round."""
+        game = ChaosBearGame()
+        user1 = MockUser("Alice")
+        user2 = MockUser("Bob")
+        user3 = MockUser("Cara")
+        player1 = game.add_player("Alice", user1)
+        player2 = game.add_player("Bob", user2)
+        player3 = game.add_player("Cara", user3)
+
+        game.on_start()
+        assert game.current_player == player1
+
+        game._next_round_step()
+        assert game.current_player == player2
+
+        game._next_round_step()
+        assert game.current_player == player3
+
+    def test_round_opener_skips_eliminated_seat(self):
+        """Round rotation should skip seats that were caught by the bear."""
+        game = ChaosBearGame()
+        user1 = MockUser("Alice")
+        user2 = MockUser("Bob")
+        user3 = MockUser("Cara")
+        player1 = game.add_player("Alice", user1)
+        player2 = game.add_player("Bob", user2)
+        player3 = game.add_player("Cara", user3)
+
+        game.on_start()
+        assert game.current_player == player1
+
+        player2.alive = False
+        game._next_round_step()
+        assert game.current_player == player3
+
+    def test_tiredness_card_keeps_draw_surge(self):
+        """Energy cards should still advance the player after the draw rebalance."""
+        game = ChaosBearGame()
+        user1 = MockUser("Alice")
+        user2 = MockUser("Bob")
+        player1 = game.add_player("Alice", user1)
+        game.add_player("Bob", user2)
+
+        game.on_start()
+        player1.position = 30
+        game.bear_energy = 3
+
+        with patch("server.games.chaosbear.game.random.randint") as mock_rand:
+            mock_rand.side_effect = [1, 2, 1, 1]
+            game._action_draw_card(player1, "draw_card")
+
+        advance_ticks(game)
+
+        assert player1.position == 33
+        assert game.bear_energy == 2
+
+    def test_backward_push_cancels_draw_surge(self):
+        """Backward push should cancel the surge instead of sending the player behind start."""
+        game = ChaosBearGame()
+        user1 = MockUser("Alice")
+        user2 = MockUser("Bob")
+        player1 = game.add_player("Alice", user1)
+        game.add_player("Bob", user2)
+
+        game.on_start()
+        player1.position = 30
+
+        with patch("server.games.chaosbear.game.random.randint") as mock_rand:
+            mock_rand.side_effect = [1, 4]
+            game._action_draw_card(player1, "draw_card")
+
+        advance_ticks(game)
+
+        assert player1.position == 30
 

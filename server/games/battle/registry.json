@@ -3252,8 +3252,8 @@
         "en": "Novice Boxer",
         "vi": "Võ sĩ tập sự"
       },
-      "health": 50,
-      "attack": 0,
+      "health": 52,
+      "attack": 1,
       "defense": 0,
       "speed": 100,
       "move_ids": [
@@ -3347,10 +3347,10 @@
         "en": "Fighter Plane",
         "vi": "Chiến đấu cơ"
       },
-      "health": 80,
-      "attack": 3,
-      "defense": 2,
-      "speed": 100,
+      "health": 72,
+      "attack": 2,
+      "defense": 1,
+      "speed": 95,
       "move_ids": [
         "aircraft_cannon",
         "plasma_cannon",
@@ -3404,9 +3404,9 @@
         "en": "High-Rank Soldier",
         "vi": "Binh sĩ cấp cao"
       },
-      "health": 70,
-      "attack": 2,
-      "defense": 2,
+      "health": 64,
+      "attack": 1,
+      "defense": 1,
       "speed": 100,
       "move_ids": [
         "sniper_rifle",
@@ -3434,10 +3434,10 @@
         "en": "Ghostly Fighter",
         "vi": "Đấu sĩ ma ảnh"
       },
-      "health": 45,
+      "health": 50,
       "attack": 2,
-      "defense": -1,
-      "speed": 100,
+      "defense": 0,
+      "speed": 105,
       "move_ids": [
         "flame_sword",
         "ancient_warhammer",
@@ -3498,9 +3498,9 @@
         "en": "The Fiery Lion",
         "vi": "Sư tử hỏa diệm"
       },
-      "health": 65,
-      "attack": 3,
-      "defense": 1,
+      "health": 60,
+      "attack": 2,
+      "defense": 0,
       "speed": 100,
       "move_ids": [
         "fireball",
@@ -3524,10 +3524,10 @@
         "en": "Master Mage",
         "vi": "Đại pháp sư"
       },
-      "health": 40,
+      "health": 46,
       "attack": 4,
-      "defense": -1,
-      "speed": 100,
+      "defense": 0,
+      "speed": 105,
       "move_ids": [
         "fireball",
         "ice_ball",

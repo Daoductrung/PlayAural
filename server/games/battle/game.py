@@ -68,6 +68,10 @@ CRIT_DENOMINATOR = 20
 PACE_RATIO_NUMERATOR = 7
 PACE_RATIO_DENOMINATOR = 10
 DEFAULT_SOUND_DURATION_TICKS = 22
+SOUND_FIGHTER_LOSE = "game_pig/lose.ogg"
+SOUND_BATTLE_WIN = "game_chaosbear/wingame.ogg"
+DEATH_SOUND_VARIANTS = [f"battle/death{index}.ogg" for index in range(1, 5)]
+FALL_SOUND_VARIANTS = [f"battle/fall{index}.ogg" for index in range(1, 4)]
 
 STATIC_SOUND_DURATIONS_TICKS = {
     "battle/arena.ogg": 54,
@@ -85,6 +89,15 @@ STATIC_SOUND_DURATIONS_TICKS = {
     "battle/crowds/cheer30.2.ogg": 24,
     "battle/crowds/cheer30.3.ogg": 24,
     "battle/crowds/cheer30.4.ogg": 24,
+    "battle/death1.ogg": 20,
+    "battle/death2.ogg": 20,
+    "battle/death3.ogg": 20,
+    "battle/death4.ogg": 20,
+    "battle/fall1.ogg": 18,
+    "battle/fall2.ogg": 18,
+    "battle/fall3.ogg": 18,
+    SOUND_FIGHTER_LOSE: 22,
+    SOUND_BATTLE_WIN: 28,
 }
 
 GAME_MODE_CHOICE_LABELS = {
@@ -325,9 +338,77 @@ class BattleGame(Game):
         move = get_move_map()[move_id]
         return self._locale_name(move.name, locale)
 
+    def _move_menu_label(self, locale: str, move_id: str) -> str:
+        move = get_move_map()[move_id]
+        return Localization.get(
+            locale,
+            "battle-skill-entry",
+            skill=self._locale_name(move.name, locale),
+            description=self._move_description(locale, move),
+        )
+
     def _preset_label(self, locale: str, preset_id: str) -> str:
         preset = get_preset_map()[preset_id]
         return self._locale_name(preset.name, locale)
+
+    def _move_scope_key(self, move: BattleMove) -> str:
+        return "battle-skill-scope-single"
+
+    def _move_target_key(self, move: BattleMove) -> str:
+        if move.targeting == TARGET_SELF_ONLY:
+            return "battle-skill-target-self"
+        if move.targeting in {TARGET_TEAM_ONLY, TARGET_TEAM_EXCEPT_SELF}:
+            return "battle-skill-target-ally"
+        if move.targeting == TARGET_ENEMIES_ONLY:
+            return "battle-skill-target-enemy"
+        if move.targeting == TARGET_ALL_EXCEPT_SELF:
+            return "battle-skill-target-other-fighter"
+        return "battle-skill-target-any-fighter"
+
+    def _effect_description(self, locale: str, block: BattleEffectBlock) -> str:
+        if block.type == "damage":
+            return Localization.get(locale, "battle-skill-effect-damage", min=block.min or 0, max=block.max or 0)
+        if block.type == "healing":
+            return Localization.get(locale, "battle-skill-effect-healing", min=block.min or 0, max=block.max or 0)
+        if block.type == "drain":
+            return Localization.get(
+                locale,
+                "battle-skill-effect-drain",
+                min=block.min or 0,
+                max=block.max or 0,
+                percent=block.percent or 50,
+            )
+
+        stat_keys = {
+            "launcher_attack": ("battle-skill-effect-raise-own-stat", "battle-skill-effect-lower-own-stat", "attack"),
+            "launcher_defense": ("battle-skill-effect-raise-own-stat", "battle-skill-effect-lower-own-stat", "defense"),
+            "launcher_speed": ("battle-skill-effect-raise-own-stat", "battle-skill-effect-lower-own-stat", "speed"),
+            "target_attack": ("battle-skill-effect-raise-target-stat", "battle-skill-effect-lower-target-stat", "attack"),
+            "target_defense": ("battle-skill-effect-raise-target-stat", "battle-skill-effect-lower-target-stat", "defense"),
+            "target_speed": ("battle-skill-effect-raise-target-stat", "battle-skill-effect-lower-target-stat", "speed"),
+        }
+        effect_meta = stat_keys.get(block.type)
+        if not effect_meta:
+            return Localization.get(locale, "battle-skill-effect-unknown")
+        increase_key, decrease_key, stat_name = effect_meta
+        amount = block.change or 0
+        return Localization.get(
+            locale,
+            increase_key if amount > 0 else decrease_key,
+            stat=Localization.get(locale, f"battle-stat-{stat_name}"),
+            amount=abs(amount),
+        )
+
+    def _move_description(self, locale: str, move: BattleMove) -> str:
+        effects = [self._effect_description(locale, block) for block in move.blocks]
+        effects_text = "; ".join(effect for effect in effects if effect) or Localization.get(locale, "battle-skill-effect-unknown")
+        return Localization.get(
+            locale,
+            "battle-skill-description",
+            scope=Localization.get(locale, self._move_scope_key(move)),
+            target=Localization.get(locale, self._move_target_key(move)),
+            effects=effects_text,
+        )
 
     def _fighter_name(self, fighter: BattleFighter, locale: str) -> str:
         base = self._locale_name(fighter.base_name, locale)
@@ -1000,6 +1081,18 @@ class BattleGame(Game):
             amount=change,
         )
 
+    def _play_elimination_audio(self, *, killed: bool) -> None:
+        self.play_sound(SOUND_FIGHTER_LOSE)
+        if not killed:
+            return
+        death_sound = random.choice(DEATH_SOUND_VARIANTS)
+        death_delay = self._paced_delay_ticks(SOUND_FIGHTER_LOSE)
+        self.schedule_sound(death_sound, delay_ticks=death_delay)
+        self.schedule_sound(
+            random.choice(FALL_SOUND_VARIANTS),
+            delay_ticks=death_delay + self._paced_delay_ticks(death_sound),
+        )
+
     def _apply_block(self, launcher: BattleFighter, target: BattleFighter, block: BattleEffectBlock) -> None:
         if block.type == "damage":
             self._resolve_damage(launcher, target, block)
@@ -1020,21 +1113,24 @@ class BattleGame(Game):
         elif block.type == "target_speed":
             self._resolve_stat_change(target, "speed", block.change or 0, target)
 
-    def _resolve_eliminations(self) -> tuple[list[BattleFighter], list[BattleFighter]]:
+    def _resolve_eliminations(self, killer: BattleFighter | None = None) -> tuple[list[BattleFighter], list[BattleFighter]]:
         newly_defeated: list[BattleFighter] = []
         newly_defeated_enemies: list[BattleFighter] = []
         for fighter in self.fighters:
             if fighter.eliminated:
                 continue
+            killed = False
             if fighter.health <= 0:
                 fighter.eliminated = True
                 fighter.elimination_reason = "health"
+                killed = bool(killer and killer.id != fighter.id)
             elif fighter.speed < MIN_ACTIVE_SPEED:
                 fighter.eliminated = True
                 fighter.elimination_reason = "speed"
             else:
                 continue
             newly_defeated.append(fighter)
+            self._play_elimination_audio(killed=killed)
             message_key = "battle-fighter-defeated" if fighter.elimination_reason == "health" else "battle-fighter-incapacitated"
             self._broadcast_game_localized(
                 message_key,
@@ -1102,7 +1198,7 @@ class BattleGame(Game):
         )
 
     def _post_move_progression(self) -> None:
-        _, defeated_enemies = self._resolve_eliminations()
+        _, defeated_enemies = self._resolve_eliminations(self.current_fighter)
         if self._check_for_winner():
             return
         if self._is_survival_mode() and defeated_enemies:
@@ -1205,6 +1301,7 @@ class BattleGame(Game):
         if self.status != "playing":
             return
         if self.phase == PHASE_SELECTION:
+            self._auto_select_for_bots()
             if self._all_selection_locked():
                 self._start_combat()
             return
@@ -1353,7 +1450,7 @@ class BattleGame(Game):
                         options="_target_options_for_move",
                         bot_select="_bot_select_target_for_move",
                     )
-                turn_set.add(Action(id=f"battle_move_{move_id}", label=self._move_label(locale, move_id), handler="_action_battle_choose_move", is_enabled="_is_battle_choose_move_enabled", is_hidden="_is_battle_choose_move_hidden", input_request=input_request, show_in_actions_menu=False))
+                turn_set.add(Action(id=f"battle_move_{move_id}", label=self._move_menu_label(locale, move_id), handler="_action_battle_choose_move", is_enabled="_is_battle_choose_move_enabled", is_hidden="_is_battle_choose_move_hidden", input_request=input_request, show_in_actions_menu=False))
 
     def _is_battle_selection_action_hidden(self, player: Player) -> Visibility:
         battle_player = self._as_battle_player(player)
@@ -1407,7 +1504,15 @@ class BattleGame(Game):
         preset = get_preset_map().get(preset_id)
         if not preset:
             return action_id
-        label = Localization.get(locale, "battle-pick-preset-label", preset=self._preset_label(locale, preset_id), health=preset.health, attack=preset.attack, defense=preset.defense, speed=preset.speed)
+        label = Localization.get(
+            locale,
+            "battle-pick-preset-label",
+            preset=self._preset_label(locale, preset_id),
+            health=preset.health,
+            attack=preset.attack,
+            defense=preset.defense,
+            speed=preset.speed,
+        )
         if battle_player and preset_id in battle_player.selected_preset_ids:
             return Localization.get(locale, "battle-fighter-selected", fighter=label)
         return Localization.get(locale, "battle-fighter-unselected", fighter=label)
@@ -1752,4 +1857,6 @@ class BattleGame(Game):
 
     def _finish_with_team_result(self, team_id: str) -> None:
         self.winning_team_id = team_id
+        if team_id:
+            self.play_sound(SOUND_BATTLE_WIN)
         self.finish_game()

@@ -7,6 +7,7 @@ from ..games.battle.game import (
     BattleGame,
     BattleOptions,
     DIFFICULTY_PROFESSIONAL,
+    MIN_ACTIVE_SPEED,
     MODE_CLASSIC_ARENA,
     MODE_FREE_FOR_ALL,
     MODE_CLASSIC_SURVIVAL,
@@ -122,10 +123,10 @@ def test_pregame_options_take_effect_in_combat() -> None:
     assert advance_until(arena_game, lambda: arena_game.phase == PHASE_COMBAT and arena_game.current_fighter is not None, max_ticks=200)
     enemy = next(fighter for fighter in arena_game.fighters if fighter.is_arena_enemy)
     assert enemy.base_name.en == "Fighter Plane"
-    assert enemy.health == 130
-    assert enemy.attack == 4
-    assert enemy.defense == 3
-    assert enemy.speed == 130
+    assert enemy.health == 122
+    assert enemy.attack == 3
+    assert enemy.defense == 2
+    assert enemy.speed == 125
 
     round_robin_game = make_game(start=True, turn_mode=TURN_MODE_ROUND_ROBIN)
     select_and_submit(round_robin_game, round_robin_game.players[0], "novice_boxer")
@@ -142,7 +143,7 @@ def test_pregame_options_take_effect_in_combat() -> None:
     ally = next(fighter for fighter in heal_game.fighters if not fighter.is_arena_enemy)
     ally.health = max(1, ally.health - 20)
     heal_game._heal_players_between_waves()
-    assert ally.health == ally.max_health - 8
+    assert ally.health == 45
 
     target_game = make_game(start=True, game_mode=MODE_CLASSIC_SURVIVAL, survival_target=1)
     target_game.players[0].selected_preset_ids = ["novice_boxer"]
@@ -186,6 +187,34 @@ def test_selection_uses_checklist_with_submit_at_bottom() -> None:
     assert visible[-1].action.id == "battle_submit_selection"
 
 
+def test_selection_labels_only_show_preset_stats() -> None:
+    game = make_game(start=True)
+    player = game.players[0]
+
+    label = game._get_battle_preset_toggle_label(player, "battle_toggle_preset_high_rank_soldier")
+
+    assert "Health 64, attack 1, defense 1, speed 100." in label
+    assert "Battle Armor:" not in label
+    assert "Berserk:" not in label
+
+
+def test_move_menu_labels_include_skill_descriptions() -> None:
+    game = make_game(start=True, turn_mode=TURN_MODE_ROUND_ROBIN)
+    p1, p2 = game.players
+    select_and_submit(game, p1, "boxer")
+    select_and_submit(game, p2, "novice_boxer")
+    assert advance_until(game, lambda: game.phase == PHASE_COMBAT and game.current_fighter is not None, max_ticks=200)
+
+    turn_set = game.get_action_set(p1, "turn")
+    assert turn_set is not None
+    visible = turn_set.get_visible_actions(game, p1)
+    spinning_punch = next(entry.label for entry in visible if entry.action.id == "battle_move_spinning_punch")
+
+    assert "Spinning Punch:" in spinning_punch
+    assert "Single-target targeting one enemy." in spinning_punch
+    assert "deal 15 to 18 damage" in spinning_punch
+
+
 def test_selection_advances_into_combat() -> None:
     game = make_game(start=True)
     p1, p2 = game.players
@@ -227,6 +256,18 @@ def test_bot_selection_announces_choices_to_room() -> None:
     spoken = human_user.get_spoken_messages()
     assert any("Player2 selected" in message for message in spoken)
     assert any("Player2 is ready." == message for message in spoken)
+
+
+def test_replaced_player_bot_auto_selects_during_selection() -> None:
+    random.seed(2)
+    game = make_game(start=True)
+    replaced_player = game.players[1]
+
+    game._replace_with_bot(replaced_player)
+
+    assert replaced_player.is_bot is True
+    assert advance_until(game, lambda: replaced_player.selection_locked, max_ticks=50)
+    assert len(replaced_player.selected_preset_ids) == game._selection_limit_for_mode()
 
 
 def test_single_team_selection_finishes_without_hanging() -> None:
@@ -397,7 +438,7 @@ def test_whose_turn_is_contextual_for_selection_and_combat() -> None:
     spoken = game.get_user(p1).get_last_spoken()
     assert spoken is not None
     assert "It is Novice Boxer" in spoken
-    assert "Health 50" in spoken
+    assert "Health 52" in spoken
     assert "Team: Player1's Team" in spoken
 
 
@@ -608,6 +649,68 @@ def test_turn_sound_respects_user_preference() -> None:
     assert "turn.ogg" not in user.get_sounds_played()
 
 
+def test_health_elimination_plays_lose_then_death_and_fall_sounds() -> None:
+    game = make_game(start=True, turn_mode=TURN_MODE_ROUND_ROBIN)
+    p1, p2 = game.players
+    select_and_submit(game, p1, "novice_boxer")
+    select_and_submit(game, p2, "boxer")
+    assert advance_until(game, lambda: game.phase == PHASE_COMBAT and len(game.fighters) == 2, max_ticks=200)
+
+    attacker = game.fighters[0]
+    defender = game.fighters[1]
+    for player in (p1, p2):
+        game.get_user(player).clear_messages()
+
+    defender.health = 0
+    game._resolve_eliminations(attacker)
+    for _ in range(60):
+        game.on_tick()
+
+    sounds = game.get_user(p1).get_sounds_played()
+    assert "game_pig/lose.ogg" in sounds
+    assert any(sound.startswith("battle/death") for sound in sounds)
+    assert any(sound.startswith("battle/fall") for sound in sounds)
+
+
+def test_speed_elimination_only_plays_global_lose_sound() -> None:
+    game = make_game(start=True, turn_mode=TURN_MODE_ROUND_ROBIN)
+    p1, p2 = game.players
+    select_and_submit(game, p1, "novice_boxer")
+    select_and_submit(game, p2, "boxer")
+    assert advance_until(game, lambda: game.phase == PHASE_COMBAT and len(game.fighters) == 2, max_ticks=200)
+
+    attacker = game.fighters[0]
+    defender = game.fighters[1]
+    for player in (p1, p2):
+        game.get_user(player).clear_messages()
+
+    defender.speed = MIN_ACTIVE_SPEED - 1
+    game._resolve_eliminations(attacker)
+    for _ in range(60):
+        game.on_tick()
+
+    sounds = game.get_user(p1).get_sounds_played()
+    assert "game_pig/lose.ogg" in sounds
+    assert not any(sound.startswith("battle/death") for sound in sounds)
+    assert not any(sound.startswith("battle/fall") for sound in sounds)
+
+
+def test_finish_with_team_result_plays_global_win_sound() -> None:
+    game = make_game(start=True, turn_mode=TURN_MODE_ROUND_ROBIN)
+    p1, p2 = game.players
+    select_and_submit(game, p1, "novice_boxer")
+    select_and_submit(game, p2, "boxer")
+    assert advance_until(game, lambda: game.phase == PHASE_COMBAT and len(game.fighters) == 2, max_ticks=200)
+
+    for player in (p1, p2):
+        game.get_user(player).clear_messages()
+
+    game._finish_with_team_result(game.fighters[0].team_id)
+
+    assert "game_chaosbear/wingame.ogg" in game.get_user(p1).get_sounds_played()
+    assert "game_chaosbear/wingame.ogg" in game.get_user(p2).get_sounds_played()
+
+
 def test_status_keybinds_match_mile_by_mile_pattern() -> None:
     game = make_game()
     assert [keybind.actions for keybind in game._keybinds["s"]] == [["battle_read_status"]]
@@ -655,7 +758,7 @@ def test_registry_content_is_fully_localized() -> None:
         key = f"battle-classic-preset-{preset.id.replace('_', '-')}"
         assert Localization.get("vi", key) != Localization.get("en", key)
     assert Localization.get("vi", "game-name-battle") == "Đấu Trường Chiến Kỹ"
-    assert {move.id for move in registry.moves} <= assigned_move_ids
+    assert {move.id for move in registry.moves} == assigned_move_ids
 
 
 def test_bot_game_completes_or_progresses() -> None:

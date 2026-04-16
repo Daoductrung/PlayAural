@@ -169,16 +169,161 @@ EOF
     chmod 600 "$VOICE_ENV_FILE"
 }
 
+VOICE_TLS_CERT_FILE=""
+VOICE_TLS_KEY_FILE=""
+
+cert_matches_domain() {
+    local cert_file="$1"
+    local domain="$2"
+    local san_output subject_output wildcard_domain
+
+    if [ ! -f "$cert_file" ]; then
+        return 1
+    fi
+
+    wildcard_domain=""
+    if [[ "$domain" == *.* ]]; then
+        wildcard_domain="*.${domain#*.}"
+    fi
+
+    san_output="$(openssl x509 -in "$cert_file" -noout -ext subjectAltName 2>/dev/null || true)"
+    if printf '%s\n' "$san_output" | grep -Fqi "DNS:$domain"; then
+        return 0
+    fi
+    if [ -n "$wildcard_domain" ] && printf '%s\n' "$san_output" | grep -Fqi "DNS:$wildcard_domain"; then
+        return 0
+    fi
+
+    subject_output="$(openssl x509 -in "$cert_file" -noout -subject 2>/dev/null || true)"
+    if printf '%s\n' "$subject_output" | grep -Eq "CN[[:space:]]*=[[:space:]]*$domain([,/]|\$)"; then
+        return 0
+    fi
+    if [ -n "$wildcard_domain" ] && printf '%s\n' "$subject_output" | grep -Eq "CN[[:space:]]*=[[:space:]]*\\$wildcard_domain([,/]|\$)"; then
+        return 0
+    fi
+
+    return 1
+}
+
+find_existing_tls_pair() {
+    local cert_file="$1"
+    local key_file="$2"
+    local domain="$3"
+
+    if [ -f "$cert_file" ] && [ -f "$key_file" ] && cert_matches_domain "$cert_file" "$domain"; then
+        VOICE_TLS_CERT_FILE="$cert_file"
+        VOICE_TLS_KEY_FILE="$key_file"
+        return 0
+    fi
+
+    return 1
+}
+
+find_voice_tls_files() {
+    local domain="$1"
+    local entry cert_file key_file
+
+    VOICE_TLS_CERT_FILE=""
+    VOICE_TLS_KEY_FILE=""
+
+    for entry in \
+        "/etc/letsencrypt/live/$domain/fullchain.pem|/etc/letsencrypt/live/$domain/privkey.pem" \
+        "/etc/letsencrypt/live/$domain/cert.pem|/etc/letsencrypt/live/$domain/privkey.pem" \
+        "/home/$domain/ssl.combined|/home/$domain/ssl.key" \
+        "/home/$domain/ssl.cert|/home/$domain/ssl.key" \
+        "/home/$domain/ssl.certfile|/home/$domain/ssl.keyfile"; do
+        cert_file="${entry%%|*}"
+        key_file="${entry#*|}"
+        if find_existing_tls_pair "$cert_file" "$key_file" "$domain"; then
+            return 0
+        fi
+    done
+
+    for cert_file in /etc/letsencrypt/live/*/fullchain.pem /etc/letsencrypt/live/*/cert.pem; do
+        if [ ! -f "$cert_file" ] || ! cert_matches_domain "$cert_file" "$domain"; then
+            continue
+        fi
+        key_file="$(dirname "$cert_file")/privkey.pem"
+        if find_existing_tls_pair "$cert_file" "$key_file" "$domain"; then
+            return 0
+        fi
+    done
+
+    for cert_file in /home/*/ssl.combined /home/*/ssl.cert /home/*/ssl.certfile; do
+        if [ ! -f "$cert_file" ] || ! cert_matches_domain "$cert_file" "$domain"; then
+            continue
+        fi
+        for key_file in \
+            "$(dirname "$cert_file")/ssl.key" \
+            "$(dirname "$cert_file")/ssl.keyfile" \
+            "$(dirname "$cert_file")/privkey.pem"; do
+            if find_existing_tls_pair "$cert_file" "$key_file" "$domain"; then
+                return 0
+            fi
+        done
+    done
+
+    return 1
+}
+
+copy_voice_tls_files_for_livekit() {
+    local domain="$1"
+    local source_cert="$2"
+    local source_key="$3"
+    local safe_domain dest_cert dest_key
+
+    safe_domain="$(printf '%s' "$domain" | tr -c 'A-Za-z0-9_.-' '_')"
+    dest_cert="$CONFIG_DIR/livekit-turn-${safe_domain}.fullchain.pem"
+    dest_key="$CONFIG_DIR/livekit-turn-${safe_domain}.privkey.pem"
+
+    setup_voice_user
+    ensure_config_dir
+
+    if ! cp -f "$source_cert" "$dest_cert"; then
+        say_warn "Could not copy TURN certificate from $source_cert"
+        return 1
+    fi
+
+    if ! cp -f "$source_key" "$dest_key"; then
+        say_warn "Could not copy TURN private key from $source_key"
+        rm -f "$dest_cert"
+        return 1
+    fi
+
+    chown "root:$VOICE_SERVICE_USER" "$dest_cert" "$dest_key"
+    chmod 640 "$dest_cert" "$dest_key"
+
+    VOICE_TLS_CERT_FILE="$dest_cert"
+    VOICE_TLS_KEY_FILE="$dest_key"
+    return 0
+}
+
 write_livekit_config() {
     local public_url="$1"
     local api_key="$2"
     local api_secret="$3"
-    local domain
+    local domain turn_enabled turn_cert turn_key
 
     domain="$(extract_domain_from_url "$public_url")"
     if [ -z "$domain" ]; then
         say_error "Could not extract a domain from: $public_url"
         return 1
+    fi
+
+    turn_enabled="false"
+    turn_cert=""
+    turn_key=""
+    if find_voice_tls_files "$domain"; then
+        if copy_voice_tls_files_for_livekit "$domain" "$VOICE_TLS_CERT_FILE" "$VOICE_TLS_KEY_FILE"; then
+            turn_enabled="true"
+            turn_cert="$VOICE_TLS_CERT_FILE"
+            turn_key="$VOICE_TLS_KEY_FILE"
+            say_ok "Using copied TLS certificate for TURN: $turn_cert"
+        else
+            say_warn "A certificate was found for $domain, but it could not be copied for the LiveKit service user. TURN will be disabled."
+        fi
+    else
+        say_warn "No TLS certificate was found for $domain. TURN will be disabled so LiveKit can start safely."
     fi
 
     cat >"$LIVEKIT_CONFIG_FILE" <<EOF
@@ -194,10 +339,20 @@ rtc:
   use_external_ip: true
 
 turn:
-  enabled: true
+  enabled: $turn_enabled
+EOF
+
+    if [ "$turn_enabled" = "true" ]; then
+        cat >>"$LIVEKIT_CONFIG_FILE" <<EOF
   domain: $domain
   tls_port: 5349
   udp_port: 443
+  cert_file: $turn_cert
+  key_file: $turn_key
+EOF
+    fi
+
+    cat >>"$LIVEKIT_CONFIG_FILE" <<EOF
 
 keys:
   $api_key: $api_secret
@@ -419,6 +574,12 @@ configure_voice_server() {
     say_ok "Voice server configuration saved."
     echo "Public voice URL: $final_url"
     echo "TURN domain:      $final_domain"
+    echo "TURN enabled:     $(awk '/^[[:space:]]*enabled:/ {print $2; exit}' "$LIVEKIT_CONFIG_FILE" 2>/dev/null)"
+    if grep -q '^[[:space:]]*cert_file:' "$LIVEKIT_CONFIG_FILE" 2>/dev/null; then
+        echo "TURN cert:        $(awk '/^[[:space:]]*cert_file:/ {print $2; exit}' "$LIVEKIT_CONFIG_FILE" 2>/dev/null)"
+    else
+        echo "TURN cert:        not found; TURN disabled"
+    fi
     echo "Room prefix:      $input_prefix"
     echo "Token TTL:        $input_ttl seconds"
     echo
@@ -493,7 +654,10 @@ show_voice_config() {
     echo "Token TTL:    ${PLAYAURAL_VOICE_TOKEN_TTL_SECONDS:-900}"
     if [ -f "$LIVEKIT_CONFIG_FILE" ]; then
         echo "LiveKit YAML: $LIVEKIT_CONFIG_FILE"
+        echo "TURN enabled: $(awk '/^[[:space:]]*enabled:/ {print $2; exit}' "$LIVEKIT_CONFIG_FILE" 2>/dev/null)"
         echo "TURN domain:  $(awk '/^[[:space:]]*domain:/ {print $2; exit}' "$LIVEKIT_CONFIG_FILE" 2>/dev/null)"
+        echo "TURN cert:    $(awk '/^[[:space:]]*cert_file:/ {print $2; exit}' "$LIVEKIT_CONFIG_FILE" 2>/dev/null)"
+        echo "TURN key:     $(awk '/^[[:space:]]*key_file:/ {print $2; exit}' "$LIVEKIT_CONFIG_FILE" 2>/dev/null)"
     else
         echo "LiveKit YAML: not configured"
     fi

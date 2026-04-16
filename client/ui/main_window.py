@@ -24,7 +24,7 @@ from config_manager import set_item_in_dict
 from localization import Localization
 from voice_manager import VoiceManager, list_audio_input_devices, resolve_audio_input_device
 
-VERSION = "1.0.3.2"
+VERSION = "1.0.4"
 
 
 class MainWindow(wx.Frame):
@@ -608,7 +608,9 @@ class MainWindow(wx.Frame):
     def on_table_context(self, packet):
         """Track the current table context for exact voice join requests."""
         self.current_table_context_id = packet.get("table_id", "") or ""
-        if not self.current_table_context_id and self.voice_state == "connecting":
+        if not self.current_table_context_id:
+            if self.voice_state in {"connected", "connecting"}:
+                self.cleanup_voice_chat(send_leave=False, announce=False)
             self.voice_requested_context_id = ""
 
     def on_voice_transport_disconnect(self, reason):

@@ -1612,6 +1612,10 @@ class AdministrationManager:
             loc_duration = Localization.get(target_user.locale, duration_locale_key)
             target_user.speak_l("you-have-been-muted", buffer="system", reason=loc_reason, duration=loc_duration)
             target_user.play_sound("accountban.ogg")
+            await self.server._disconnect_user_from_voice(
+                target_username,
+                message_key="voice-status-disconnected",
+            )
 
         self._show_admin_menu(admin)
 

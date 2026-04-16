@@ -1,5 +1,5 @@
 console.log("Game.js initialized.");
-const CLIENT_VERSION = "1.0.3.2";
+const CLIENT_VERSION = "1.0.4";
 
 // reCAPTCHA v3 site key — replace with your production key before launch.
 // When empty, CAPTCHA is skipped entirely (graceful degradation for dev).
@@ -2033,6 +2033,12 @@ class GameClient {
 
             case "table_context":
                 this.currentTableContextId = packet.table_id || "";
+                if (!this.currentTableContextId) {
+                    if (this.voiceState === "connected" || this.voiceState === "connecting") {
+                        this.cleanupVoiceChat(false, false);
+                    }
+                    this.voiceRequestedContextId = "";
+                }
                 break;
 
             case "voice_context_closed":

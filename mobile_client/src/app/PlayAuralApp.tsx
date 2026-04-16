@@ -1118,10 +1118,12 @@ export function PlayAuralApp() {
 
   const leaveVoiceChat = useCallback((options?: {
     announce?: boolean;
+    clearContext?: boolean;
     sendLeave?: boolean;
     statusKey?: string;
   }) => {
     const announceStatus = options?.announce ?? true;
+    const clearContext = options?.clearContext ?? false;
     const sendLeavePacket = options?.sendLeave ?? voicePresenceRegisteredRef.current;
     const statusKey = options?.statusKey ?? "voice-chat-left";
 
@@ -1132,10 +1134,12 @@ export function PlayAuralApp() {
     voiceJoinPendingRef.current = false;
     voice.leave(false);
     setVoiceRequestedContextId("");
-    setVoiceContext({
-      contextId: "",
-      scope: "table",
-    });
+    if (clearContext) {
+      setVoiceContext({
+        contextId: "",
+        scope: "table",
+      });
+    }
     setVoiceMicEnabled(false);
     setVoiceState("disconnected");
     if (announceStatus) {
@@ -1519,6 +1523,7 @@ export function PlayAuralApp() {
       onClose: (reason) => {
         leaveVoiceChat({
           announce: false,
+          clearContext: true,
           sendLeave: false,
           statusKey: "voice-chat-not-connected",
         });
@@ -1594,6 +1599,7 @@ export function PlayAuralApp() {
         if (packet.type === "clear_ui") {
           leaveVoiceChat({
             announce: false,
+            clearContext: true,
             sendLeave: voicePresenceRegisteredRef.current,
             statusKey: "voice-chat-not-connected",
           });
@@ -1610,6 +1616,7 @@ export function PlayAuralApp() {
           const reason = localizeSystemMessage(disconnectPacket.reason, "status-disconnected");
           leaveVoiceChat({
             announce: false,
+            clearContext: true,
             sendLeave: false,
             statusKey: "voice-chat-not-connected",
           });
@@ -1641,6 +1648,7 @@ export function PlayAuralApp() {
           const reason = localizeSystemMessage(forceExitPacket.reason, "logout-complete");
           leaveVoiceChat({
             announce: false,
+            clearContext: true,
             sendLeave: false,
             statusKey: "voice-chat-not-connected",
           });
@@ -1655,6 +1663,7 @@ export function PlayAuralApp() {
             : localizeServerMessage(failurePacket.text, "auth-login-failed", undefined, "login");
           leaveVoiceChat({
             announce: false,
+            clearContext: true,
             sendLeave: false,
             statusKey: "voice-chat-not-connected",
           });
@@ -1764,6 +1773,7 @@ export function PlayAuralApp() {
           ) {
             leaveVoiceChat({
               announce: false,
+              clearContext: true,
               sendLeave: voicePresenceRegisteredRef.current,
               statusKey: "voice-chat-left-table",
             });
@@ -1836,6 +1846,7 @@ export function PlayAuralApp() {
           }
           leaveVoiceChat({
             announce: false,
+            clearContext: true,
             sendLeave: false,
             statusKey: "voice-chat-left-table",
           });
@@ -2593,6 +2604,9 @@ export function PlayAuralApp() {
       }
       if (resolved === "chat") {
         setChatFocusIndex(0);
+      }
+      if (resolved === "history") {
+        setHistoryIndex(0);
       }
       announceInterfaceFeedback(localization.t(key, { name: localization.t(`mode-${nextMode}`) }));
       return resolved;

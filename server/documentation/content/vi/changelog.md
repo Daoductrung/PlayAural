@@ -1,5 +1,29 @@
 Nhật ký thay đổi
 
+Thứ Năm 16 Tháng Tư 2026
+
+Cập nhật máy chủ:
+
+Đã thêm hệ thống trò chuyện thoại thời gian thực trực tiếp ngay trong bàn chơi. Tính năng này chỉ hoạt động khi bạn đã tham gia vào một bàn.
+
+Cách hoạt động của hệ thống thoại: Khi vào bàn, bạn sẽ có tùy chọn tham gia kênh thoại. Khi đồng ý tham gia, bạn sẽ lập tức nghe được mọi người nói chuyện. Tuy nhiên, để bắt đầu thảo luận và trò chuyện cùng mọi người, bạn cần bật micrô của mình lên.
+
+Cập nhật phần mềm trên máy tính:
+
+Đã tích hợp hệ thống trò chuyện thoại. Bạn có thể nhấn tổ hợp phím Alt và V để tập trung con trỏ ngay vào khu vực trò chuyện thoại, hoặc nhấn phím Tab để di chuyển tới đó nếu bạn đang bật trình đọc màn hình trong lúc chơi.
+
+Đã thêm cài đặt chọn thiết bị đầu vào, cho phép bạn lựa chọn micrô yêu thích của mình để sử dụng cho tính năng trò chuyện thoại.
+
+Cập nhật ứng dụng di động:
+
+Đã tích hợp hệ thống trò chuyện thoại. Tính năng này nằm gọn trong thẻ Trò chuyện.
+
+Để truy cập, bạn hãy vuốt sang phải bằng hai ngón tay để mở cuộc trò chuyện nếu đang sử dụng chế độ tự phát giọng nói, hoặc bấm vào nút Trò chuyện trên màn hình nếu bạn đang sử dụng trình đọc màn hình của điện thoại thay vì hệ thống tự phát giọng nói.
+
+Cập nhật phiên bản web:
+
+Đã tích hợp hệ thống trò chuyện thoại. Bạn chỉ cần mở thẻ Trò chuyện trên giao diện máy khách web là sẽ nhìn thấy hệ thống kênh thoại này.
+
 Thứ Ba 14 Tháng Tư 2026
 
 Cập nhật máy chủ:

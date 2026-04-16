@@ -1,5 +1,29 @@
 Changelog
 
+Thursday 16 April 2026
+
+Server Updates:
+
+Added a real-time voice chat system directly inside the game tables. This feature is only active when you are joined at a table.
+
+How it works: Upon joining a table, you will have the option to join the voice chat. Once joined, you can immediately hear other players. However, to speak and participate in the discussion, you need to turn on your microphone.
+
+Desktop Client Updates:
+
+Integrated the new voice chat system. You can press Alt and V to focus directly on the voice chat area, or use the Tab key to navigate to it if you are using a screen reader while in the game.
+
+Added an audio input selection option, allowing you to choose your preferred microphone to use for voice chat.
+
+Mobile Client Updates:
+
+Integrated the voice chat system. This feature is located inside the Chat tab.
+
+To access it, swipe right with two fingers to open the chat if you are using the built-in self-voicing mode, or tap the Chat button if you are using your device's native screen reader instead of self-voicing.
+
+Web Client Updates:
+
+Integrated the voice chat system. Simply open the Chat tab on the web client interface to see the voice chat options.
+
 Tuesday 14 April 2026
 
 Server Updates:

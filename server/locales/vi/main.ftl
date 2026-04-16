@@ -207,6 +207,8 @@ action-no-scores = Chưa có điểm số nào.
 
 music-volume-option = Âm lượng nhạc: { $value }%
 ambience-volume-option = Âm lượng môi trường: { $value }%
+audio-input-device-option = Thiết bị đầu vào âm thanh: { $device }
+audio-input-device-default = Thiết bị đầu vào mặc định của hệ thống
 mute-global-chat-option = Tắt tiếng trò chuyện chung: { $status }
 mute-table-chat-option = Tắt tiếng trò chuyện trong bàn: { $status }
 invert-multiline-enter-option = Đảo ngược phím Enter: { $status }
@@ -587,6 +589,16 @@ host-kick-you = Bạn đã bị { $host } đuổi khỏi bàn.
 host-kick-ban-you = Bạn đã bị { $host } đuổi và cấm khỏi bàn.
 table-you-are-banned = Bạn bị cấm khỏi bàn này.
 table-private-invite-only = Bàn này là riêng tư. Bạn cần được chủ bàn mời để tham gia.
+
+voice-room-table-label = Thoại bàn { $game }
+voice-unavailable = Trò chuyện thoại hiện chưa khả dụng.
+voice-invalid-context = Yêu cầu vào phòng thoại không hợp lệ.
+voice-not-at-table = Bạn chưa tham gia bàn nào. Hãy vào một bàn trước khi bắt đầu trò chuyện thoại.
+voice-not-in-context = Bạn cần ở trong bàn đó trước khi tham gia trò chuyện thoại.
+voice-status-connected = { $player } đã kết nối vào trò chuyện thoại của bàn.
+voice-status-disconnected = { $player } đã ngắt kết nối khỏi trò chuyện thoại.
+voice-status-connection-lost = { $player } bị mất kết nối và đã bị đưa ra khỏi trò chuyện thoại.
+voice-status-left-table = { $player } đã rời bàn và rời khỏi trò chuyện thoại.
 
 error-smtp-not-configured = Tính năng khôi phục mật khẩu hiện đang bị quản trị viên vô hiệu hóa.
 error-email-not-found = Không tìm thấy tài khoản nào với địa chỉ email đó.

@@ -174,6 +174,9 @@ class MockUser(User):
         self.editboxes.clear()
         self.messages.append(Message("clear_ui", {}))
 
+    def set_table_context(self, table_id: str) -> None:
+        self.messages.append(Message("table_context", {"table_id": table_id}))
+
     # Test helper methods
 
     def get_spoken_messages(self) -> list[str]:

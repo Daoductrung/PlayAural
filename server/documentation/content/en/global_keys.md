@@ -24,6 +24,7 @@ This guide explains the controls that work across PlayAural. Desktop players mai
 \* \*\*Ctrl + I:\*\* Open Game Info.
 \* \*\*Ctrl + U:\*\* Open Who's at the table.
 \* \*\*Ctrl + F1:\*\* Open How to Play.
+\* \*\*Alt + V:\*\* Move focus to the Voice Chat area on the desktop client.
 
 \*\*Message Buffers\*\*
 
@@ -57,6 +58,7 @@ The mobile client has its own built-in spoken navigation. You can temporarily tu
 \* \*\*2-finger swipe down:\*\* Open or close Shortcuts.
 \* \*\*2-finger tap:\*\* Stop current speech.
 \* \*\*3-finger tap:\*\* Repeat the most recent announcement.
+\* \*\*3-finger triple tap:\*\* Toggle self-voicing on or off.
 \* \*\*3-finger swipe up:\*\* Jump to the first item in the current list.
 \* \*\*3-finger swipe down:\*\* Jump to the last item in the current list.
 

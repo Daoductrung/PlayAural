@@ -241,6 +241,10 @@ class User(ABC):
         """Clear all menus and editboxes."""
         ...
 
+    def set_table_context(self, table_id: str) -> None:
+        """Notify the client which table context is currently active."""
+        return
+
 
 def generate_uuid() -> str:
     """Generate a new UUID string."""

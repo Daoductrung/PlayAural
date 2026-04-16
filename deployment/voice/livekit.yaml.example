@@ -1,0 +1,19 @@
+port: 7880
+bind_addresses:
+  - ""
+log_level: info
+
+rtc:
+  tcp_port: 7881
+  port_range_start: 50000
+  port_range_end: 50100
+  use_external_ip: true
+
+turn:
+  enabled: true
+  domain: voice.example.com
+  tls_port: 5349
+  udp_port: 443
+
+keys:
+  PLAYAURAL_VOICE_API_KEY: PLAYAURAL_VOICE_API_SECRET

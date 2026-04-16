@@ -1,6 +1,6 @@
 \*\*Chào mừng đến với PlayAural\*\*
 
-PlayAural là nền tảng trò chơi trực tuyến được xây dựng xoay quanh âm thanh, lời đọc và cách điều khiển dễ tiếp cận. Menu, diễn biến trong trò chơi, phần trò chuyện và các thông báo trạng thái đều được trình bày theo cách mà bạn có thể theo dõi mà không cần phụ thuộc vào hình ảnh trên màn hình.
+PlayAural là nền tảng trò chơi trực tuyến được xây dựng xoay quanh âm thanh, lời đọc và cách điều khiển dễ tiếp cận. Menu, diễn biến trong trò chơi, phần trò chuyện, thông báo trạng thái và các tính năng thoại được hỗ trợ đều được trình bày theo cách mà bạn có thể theo dõi mà không cần phụ thuộc vào hình ảnh trên màn hình.
 
 \*\*Bạn có thể chơi bằng cách nào\*\*
 
@@ -25,6 +25,7 @@ Khi đã vào bàn, thông thường bạn có thể:
 \* Mở phần Thông tin trò chơi để nghe các thiết lập hiện tại của bàn.
 \* Mở phần Ai đang ở bàn để biết hiện có những ai.
 \* Trò chuyện với người cùng bàn hoặc gửi tin nhắn riêng.
+\* Tham gia trò chuyện thoại của bàn trên các ứng dụng được hỗ trợ.
 
 \*\*Trò chuyện và các tính năng giao tiếp\*\*
 

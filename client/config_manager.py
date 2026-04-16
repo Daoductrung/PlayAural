@@ -157,7 +157,12 @@ class ConfigManager:
         """Get the canonical default client options."""
         return {
             "interface_language": "en",
-            "audio": {"music_volume": 20, "ambience_volume": 20},
+            "audio": {
+                "music_volume": 20,
+                "ambience_volume": 20,
+                "input_device_id": "",
+                "input_device_name": "",
+            },
             "social": {
                 "mute_global_chat": False,
                 "mute_table_chat": False,

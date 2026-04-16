@@ -17,6 +17,8 @@ dependencies = [
     "requests",
     "psutil",
     "keyring>=24.0",
+    "livekit>=1.1.5",
+    "sounddevice>=0.5.5",
 ]
 
 [project.scripts]

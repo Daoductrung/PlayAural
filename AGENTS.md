@@ -15,9 +15,23 @@ PlayAural is an **audio-first multiplayer online gaming platform** with full scr
 
 All communication is WebSocket JSON packets: `Packet(type: str, data: dict)`.
 
+PlayAural also supports **table-scoped real-time voice chat**. The game server authorizes access and tracks voice membership, while a separate LiveKit-based media service carries the actual audio stream. Voice traffic must never be merged into the gameplay WebSocket transport.
+
 ---
 
 ## 2. Core Architecture
+
+### 2.0 Voice Chat Architecture
+
+Voice chat is server-authorized and context-bound.
+
+- The game server remains the source of truth for whether a user may join a voice context.
+- A voice context is tied to a current gameplay context, currently a table. Clients must not join arbitrary rooms directly.
+- The server issues short-lived `voice_join_info` packets only after validating the caller's current table membership.
+- The server must close voice participation when the user leaves the table, disconnects, or otherwise loses the relevant context.
+- Voice presence is **runtime-only state** tied to the active table lifecycle. Do not introduce persistent database rows for voice membership unless the feature explicitly defines retention, cleanup, and account-deletion behavior.
+- Client packets related to this flow include `table_context`, `voice_join`, `voice_join_info`, `voice_join_error`, `voice_leave`, `voice_leave_ack`, and `voice_context_closed`.
+- The media path is separate from gameplay networking. Keep table logic, packet routing, and voice-service availability checks isolated so a media outage cannot stall the game server.
 
 ### 2.1 Game Class Hierarchy
 
@@ -413,6 +427,14 @@ The server keeps browser speech settings and mobile self-voicing settings separa
 - Mobile TTS settings are stored locally by the mobile app and synchronized with the user's server account.
 - Device voice availability is platform-specific. The mobile client must safely fall back to the system default voice when a synced engine or voice is unavailable.
 - Expo web-runtime testing uses browser Web Speech voices; Android builds use the device TTS service through Expo Speech.
+
+### 6.4b Voice Client Rules
+
+- Voice authorization errors must be localized in both English and Vietnamese everywhere they can surface.
+- Voice status announcements that are intended to behave like table-presence notices should follow the same user-facing delivery style as normal table join/leave announcements.
+- If a client stores a preferred audio input device locally, that preference must fall back safely to the system default when the saved device is unavailable on the current machine.
+- Leaving a table, losing connection, or closing the client must fully tear down voice participation. Do not rely on UI-only cleanup for voice lifecycle correctness.
+- When adding voice-related sounds, keep filenames and trigger points consistent across desktop, web, and mobile sound packs.
 
 ### 6.5 Information Actions
 

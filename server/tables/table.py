@@ -90,12 +90,23 @@ class Table(DataClassJSONMixin):
         if self._server and hasattr(self._server, "on_tables_changed"):
             self._server.on_tables_changed()
 
-    def remove_member(self, username: str) -> None:
+    def remove_member(
+        self,
+        username: str,
+        *,
+        voice_reason: str = "voice-status-left-table",
+    ) -> None:
         """Remove a member from the table."""
         self.members = [m for m in self.members if m.username != username]
         self._users.pop(username, None)
         if self._manager and hasattr(self._manager, "_username_to_table"):
             self._manager._username_to_table.pop(username, None)
+        if self._server and hasattr(self._server, "on_table_member_removed"):
+            self._server.on_table_member_removed(
+                self,
+                username,
+                voice_reason=voice_reason,
+            )
 
         if self.status == "waiting" and username == self.host:
             # Host left/kicked in lobby -> promote new host
@@ -250,7 +261,10 @@ class Table(DataClassJSONMixin):
                                         # In game, treat as disconnect (bot replacement)
                                         self._game.on_player_disconnect(user_record.uuid)
 
-                            self.remove_member(member.username)
+                            self.remove_member(
+                                member.username,
+                                voice_reason="voice-status-connection-lost",
+                            )
                             # Remove from tracker
                             self._member_offline_since.pop(member.username, None)
             

@@ -573,5 +573,10 @@ export const soundManifest: Record<string, number> = {
   "typing4.ogg": require("../../sounds/typing4.ogg"),
   "update_alert.ogg": require("../../sounds/update_alert.ogg"),
   "update_complete.ogg": require("../../sounds/update_complete.ogg"),
+  "voice_join.ogg": require("../../sounds/voice_join.ogg"),
+  "voice_leave.ogg": require("../../sounds/voice_leave.ogg"),
+  "voice_mic_error.ogg": require("../../sounds/voice_mic_error.ogg"),
+  "voice_mic_off.ogg": require("../../sounds/voice_mic_off.ogg"),
+  "voice_mic_on.ogg": require("../../sounds/voice_mic_on.ogg"),
   "welcome.ogg": require("../../sounds/welcome.ogg"),
 };

@@ -439,6 +439,35 @@ main {
     width: 100%;
 }
 
+.voice-chat-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+    border: 1px solid #2d5f35;
+    border-radius: 8px;
+    background: #071a0a;
+}
+
+.voice-chat-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.voice-chat-buttons button {
+    width: auto;
+    min-width: 150px;
+    margin-top: 0;
+    font-size: 1rem;
+}
+
+.voice-chat-status {
+    min-height: 1.4em;
+    color: #bfe8c4;
+    font-size: 0.95rem;
+}
+
 #chat-form input {
     flex: 1;
     font-size: 1.2rem;

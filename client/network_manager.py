@@ -254,3 +254,13 @@ class NetworkManager:
              self.main_window.on_update_preference(packet)
         elif packet_type == "pong":
             self.main_window.on_server_pong(packet)
+        elif packet_type == "voice_join_info":
+            self.main_window.on_voice_join_info(packet)
+        elif packet_type == "voice_join_error":
+            self.main_window.on_voice_join_error(packet)
+        elif packet_type == "voice_leave_ack":
+            self.main_window.on_voice_leave_ack(packet)
+        elif packet_type == "voice_context_closed":
+            self.main_window.on_voice_context_closed(packet)
+        elif packet_type == "table_context":
+            self.main_window.on_table_context(packet)

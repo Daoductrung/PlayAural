@@ -1,0 +1,7 @@
+{
+  "name": "playaural-web-client",
+  "private": true,
+  "dependencies": {
+    "livekit-client": "^2.18.2"
+  }
+}

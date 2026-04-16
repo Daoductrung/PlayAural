@@ -1,8 +1,18 @@
 # PlayAural Mobile Client
 
-The PlayAural mobile client is an Android-first Expo and React Native app for the PlayAural multiplayer game platform. It uses the same WebSocket protocol and sound directory layout as the desktop and web clients, while providing a self-voicing touch interface for mobile play.
+The PlayAural mobile client is an Android-first Expo and React Native application for the PlayAural multiplayer game platform. It uses the same WebSocket protocol and sound directory layout as the other clients while providing self-voicing navigation, gesture-driven gameplay, and accessible text entry for mobile devices.
 
-The client is part of PlayAural and is licensed under the **GNU GENERAL PUBLIC LICENSE**.
+The mobile client is part of PlayAural and is licensed under the **GNU GENERAL PUBLIC LICENSE**.
+
+## Current Scope
+
+The mobile client focuses on:
+
+- self-voicing gameplay and menu navigation
+- synchronized game audio, music, ambience, and TTS
+- account access, saved credentials, and reconnect flow
+- touch-client table interaction shared with the server's menu system
+- table-based real-time voice chat with listen-only join, microphone toggle, and table-context cleanup
 
 ## Features
 
@@ -15,6 +25,7 @@ The client is part of PlayAural and is licensed under the **GNU GENERAL PUBLIC L
 - Bundled sound pack playback with music fades, ambience, sound effects, and positional audio
 - Mobile-specific TTS voice, engine, and rate preferences with safe device fallback
 - Server-synchronized account preferences
+- LiveKit-based table voice chat integrated with the shared server authorization flow
 - Version and sound-pack checks before gameplay
 - Android APK builds through EAS
 
@@ -39,7 +50,8 @@ mobile_client/
 |   |-- i18n/
 |   |-- network/
 |   |-- state/
-|   `-- tts/
+|   |-- tts/
+|   `-- voice/
 `-- tsconfig.json
 ```
 
@@ -90,7 +102,9 @@ cd mobile_client
 npx expo start --web -c
 ```
 
-The web runtime is a development/testing target. Browser TTS voices can differ from Android TTS voices because the browser uses the Web Speech API while Android uses the device TTS service through Expo Speech.
+The web runtime is a development and testing target. Browser TTS voices can differ from Android TTS voices because the browser uses the Web Speech API while Android uses the device TTS service through Expo Speech.
+
+Voice chat UI state and server packet flow can be tested in the web runtime, but native Android routing, microphone permission behavior, and multi-finger gesture behavior still require device or emulator validation.
 
 ## Server Connection
 

@@ -49,6 +49,12 @@ export type AuthorizeSuccessPacket = {
   username: string;
   version: string;
   locale?: string;
+  voice?: {
+    enabled?: boolean;
+    provider?: string;
+    token_ttl_seconds?: number;
+    url?: string;
+  };
   preferences?: Record<string, unknown>;
   update_info?: {
     version?: string;
@@ -147,6 +153,47 @@ export type UpdatePreferencePacket = {
   preferences?: Record<string, unknown>;
 };
 
+export type TableContextPacket = {
+  type: "table_context";
+  table_id?: string;
+};
+
+export type VoiceJoinInfoPacket = {
+  type: "voice_join_info";
+  context_id?: string;
+  expires_at?: number;
+  ice_servers?: unknown[];
+  participant?: {
+    identity?: string;
+    name?: string;
+  };
+  provider?: string;
+  room?: string;
+  room_label?: string;
+  scope?: string;
+  token: string;
+  url: string;
+};
+
+export type VoiceJoinErrorPacket = {
+  type: "voice_join_error";
+  context_id?: string;
+  key?: string;
+  params?: Record<string, unknown>;
+  scope?: string;
+  text?: string;
+};
+
+export type VoiceLeaveAckPacket = {
+  type: "voice_leave_ack";
+};
+
+export type VoiceContextClosedPacket = {
+  type: "voice_context_closed";
+  context_id?: string;
+  scope?: string;
+};
+
 export type ServerPacket =
   | AuthorizeSuccessPacket
   | ChatPacket
@@ -165,8 +212,13 @@ export type ServerPacket =
   | SpeakPacket
   | StopPacket
   | SubmitResetCodeResponsePacket
+  | TableContextPacket
   | UpdateLocalePacket
   | UpdatePreferencePacket
+  | VoiceContextClosedPacket
+  | VoiceJoinErrorPacket
+  | VoiceJoinInfoPacket
+  | VoiceLeaveAckPacket
   | { type: string; [key: string]: unknown };
 
 export type AuthorizePacket = {
@@ -254,6 +306,25 @@ export type SetPreferencePacket = {
   value: boolean | number | string;
 };
 
+export type VoiceJoinPacket = {
+  type: "voice_join";
+  context_id?: string;
+  scope: "table";
+};
+
+export type VoiceLeavePacket = {
+  type: "voice_leave";
+  context_id?: string;
+  scope: "table";
+};
+
+export type VoicePresencePacket = {
+  type: "voice_presence";
+  context_id?: string;
+  scope: "table";
+  state: "connected" | "connection_lost";
+};
+
 export type ClientPacket =
   | AuthorizePacket
   | ChatSendPacket
@@ -267,4 +338,7 @@ export type ClientPacket =
   | RegisterPacket
   | RequestPasswordResetPacket
   | SetPreferencePacket
-  | SubmitResetCodePacket;
+  | SubmitResetCodePacket
+  | VoiceJoinPacket
+  | VoiceLeavePacket
+  | VoicePresencePacket;

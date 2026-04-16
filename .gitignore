@@ -35,6 +35,7 @@ errors.log
 .claude/
 example/
 mobile_client/node_modules/
+web_client/node_modules/
 mobile_client/.expo/
 mobile_client/dist/
 .npm-cache/

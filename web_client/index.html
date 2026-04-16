@@ -42,7 +42,10 @@
             showForgotPassword() { },
             sendChat() { },
             showChatHistory() { },
-            showChatInput() { }
+            showChatInput() { },
+            joinVoiceChat() { },
+            leaveVoiceChat() { },
+            toggleVoiceMic() { }
         };
     </script>
 
@@ -279,6 +282,18 @@
             <div id="content-chat" class="tab-content hidden" role="tabpanel" aria-labelledby="tab-chat">
                 <!-- View 1: Input (Default) -->
                 <div id="chat-input-view">
+                    <section id="voice-chat-controls" class="voice-chat-controls">
+                        <div class="voice-chat-buttons">
+                            <button type="button" id="btn-voice-join" class="secondary-btn"
+                                onclick="Game.joinVoiceChat()">Join Voice Chat</button>
+                            <button type="button" id="btn-voice-leave" class="secondary-btn hidden"
+                                onclick="Game.leaveVoiceChat()">Leave Voice Chat</button>
+                            <button type="button" id="btn-voice-mic" class="secondary-btn hidden"
+                                onclick="Game.toggleVoiceMic()">Turn On Mic</button>
+                        </div>
+                        <div id="voice-chat-status" class="voice-chat-status">Voice Chat not connected.</div>
+                        <div id="voice-chat-audio" class="voice-chat-audio" aria-hidden="true"></div>
+                    </section>
                     <form id="chat-form" onsubmit="return false;">
                         <input type="text" id="chat-input" placeholder="Type a message..." aria-label="Chat Message"
                             autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="send">
@@ -338,6 +353,7 @@
     </dialog>
 
     <script src="locales.js"></script>
+    <script src="node_modules/livekit-client/dist/livekit-client.umd.js"></script>
     <script src="game.js"></script>
     <script>
         // reCAPTCHA v3 — loaded only when a real site key is configured.

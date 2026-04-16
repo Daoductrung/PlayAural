@@ -28,6 +28,7 @@ from ..documentation.manager import DocumentationManager
 from .smtp_mailer import SmtpMailer
 from ..users.bot import Bot
 from ..game_utils.stats_helpers import RatingHelper
+from ..voice import VoiceAuthorizationError, VoiceContext, VoiceService
 from ..game_utils.client_types import (
     is_mobile_client_type,
     is_web_client_type,
@@ -45,6 +46,8 @@ SOUNDS_VERSION = "1"
 SOUNDS_URL = "https://github.com/Daoductrung/PlayAural/releases/latest/download/sounds.zip"
 TABLE_CREATED_NOTIFICATION_SOUND = "table_created.ogg"
 TABLE_INVITE_NOTIFICATION_SOUND = "table_invite.ogg"
+VOICE_CHAT_JOIN_SOUND = "voice_join.ogg"
+VOICE_CHAT_LEAVE_SOUND = "voice_leave.ogg"
 
 # Default paths based on module location
 _MODULE_DIR = Path(__file__).parent.parent
@@ -64,6 +67,7 @@ class Server:
         "main_menu", "personal_options_menu", "games_menu", "tables_menu",
         "active_tables_menu", "active_tables_filter_menu", "join_menu",
         "options_menu", "language_menu", "speech_settings_menu", "voice_selection_menu",
+        "audio_input_device_menu",
         "mobile_speech_settings_menu", "mobile_tts_engine_menu", "mobile_voice_selection_menu",
         "dice_keeping_style_menu", "saved_tables_menu", "saved_table_actions_menu",
         "leaderboards_menu", "leaderboard_types_menu", "game_leaderboard",
@@ -128,6 +132,12 @@ class Server:
         self._pending_invites: dict[str, dict] = {}
         # Active shutdown/reboot countdown task (None when idle)
         self._shutdown_task: asyncio.Task | None = None
+        self._voice = VoiceService.from_env()
+        self._voice_context_resolvers = {
+            "table": self._resolve_table_voice_context,
+        }
+        self._voice_presence_by_user: dict[str, dict[str, str]] = {}
+        self._audio_input_devices_by_user: dict[str, list[dict[str, str]]] = {}
 
         # Initialize admin manager
         self.admin_manager = AdministrationManager(self)
@@ -319,6 +329,7 @@ PlayAural Server
             
             # Clean up chat rate limiter state
             self._chat_rate_limiter.remove_user(client.username)
+            self._audio_input_devices_by_user.pop(client.username, None)
 
             # Cancel any pending invite where this user was the invitee
             if client.username in self._pending_invites:
@@ -326,6 +337,11 @@ PlayAural Server
 
             # Auto-substitute with bot if in a playing game (requested feature)
             table = self._tables.find_user_table(client.username)
+            await self._clear_voice_presence(
+                client.username,
+                "voice-status-connection-lost",
+                table=table,
+            )
             if table and table.game and table.game.status == "playing":
                 # We need the user UUID. The user object is about to be popped, so get it now.
                 if user:
@@ -498,6 +514,14 @@ PlayAural Server
                 await self._handle_broadcast_cmd(client, packet)
             elif packet_type == "set_preference":
                 await self._handle_set_preference(client, packet)
+            elif packet_type == "audio_input_devices":
+                await self._handle_audio_input_devices(client, packet)
+            elif packet_type == "voice_join":
+                await self._handle_voice_join(client, packet)
+            elif packet_type == "voice_presence":
+                await self._handle_voice_presence(client, packet)
+            elif packet_type == "voice_leave":
+                await self._handle_voice_leave(client, packet)
 
     async def _handle_authorize(self, client: ClientConnection, packet: dict) -> None:
         """Handle authorization packet."""
@@ -638,6 +662,7 @@ PlayAural Server
                     "version": SOUNDS_VERSION,
                     "url": SOUNDS_URL,
                 },
+                "voice": self._voice.capability_packet(),
                 "preferences": self._preferences_for_client(user),
             }
         )
@@ -759,10 +784,7 @@ PlayAural Server
                             table.game.attach_user(player.id, user)
 
                             # Set user state so menu selections are handled correctly
-                            self._user_states[username] = {
-                                "menu": "in_game",
-                                "table_id": table.table_id,
-                            }
+                            self._set_in_game_state(user, table.table_id)
 
                             # Immediately push the turn menu so the player sees their
                             # options without waiting for the next game tick.
@@ -1229,6 +1251,7 @@ PlayAural Server
 
     def _show_main_menu(self, user: NetworkUser) -> None:
         """Show the main menu to a user."""
+        user.set_table_context("")
         # Invariant guard: a user must never be in a table while seeing the
         # main menu — that desynchronises table membership from _user_states
         # and causes ghost duplicates.  Log loudly so regressions are caught.
@@ -1622,6 +1645,10 @@ PlayAural Server
         languages = Localization.get_available_languages(user.locale, fallback= user.locale)
         current_lang = languages.get(user.locale, user.locale)
         prefs = user.preferences
+        audio_input_device_name = (
+            prefs.desktop_audio_input_device_name
+            or Localization.get(user.locale, "audio-input-device-default")
+        )
 
         # Turn sound option
         turn_sound_status = Localization.get(
@@ -1661,6 +1688,21 @@ PlayAural Server
                 ),
                 id="ambience_volume",
             ),
+        ])
+
+        if not is_web_client_type(user.client_type) and not is_mobile_client_type(user.client_type):
+            items.append(
+                MenuItem(
+                    text=Localization.get(
+                        user.locale,
+                        "audio-input-device-option",
+                        device=audio_input_device_name,
+                    ),
+                    id="audio_input_device",
+                )
+            )
+
+        items.extend([
             MenuItem(
                 text=Localization.get(
                     user.locale,
@@ -1798,6 +1840,36 @@ PlayAural Server
             escape_behavior=EscapeBehavior.SELECT_LAST,
         )
         self._user_states[user.username] = {"menu": "options_menu"}
+
+    def _show_audio_input_device_menu(self, user: NetworkUser) -> None:
+        """Show the desktop audio input device selection menu."""
+        devices = self._get_audio_input_devices_for_user(user.username)
+        current_device_id = str(user.preferences.desktop_audio_input_device_id or "").strip()
+        selected_position = 1
+        items = [
+            MenuItem(
+                text=Localization.get(user.locale, "audio-input-device-default"),
+                id="audio_input_device_default",
+            )
+        ]
+        for index, device in enumerate(devices, start=2):
+            items.append(
+                MenuItem(
+                    text=device["name"],
+                    id=f"audio_input_device::{device['id']}",
+                )
+            )
+            if current_device_id and device["id"] == current_device_id:
+                selected_position = index
+        items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
+        user.show_menu(
+            "audio_input_device_menu",
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+            position=selected_position,
+        )
+        self._user_states[user.username] = {"menu": "audio_input_device_menu"}
 
     def _show_language_menu(self, user: NetworkUser) -> None:
         """Show language selection menu."""
@@ -2065,6 +2137,54 @@ PlayAural Server
             "value": value
         }))
 
+    def _get_audio_input_devices_for_user(self, username: str) -> list[dict[str, str]]:
+        return list(self._audio_input_devices_by_user.get(username, []))
+
+    def _find_audio_input_device_for_user(
+        self, username: str, device_id: str
+    ) -> dict[str, str] | None:
+        normalized_id = str(device_id or "").strip()
+        if not normalized_id:
+            return None
+        for device in self._get_audio_input_devices_for_user(username):
+            if device.get("id") == normalized_id:
+                return device
+        return None
+
+    def _set_desktop_audio_input_device_preference(
+        self, user: NetworkUser, device_id: str, device_name: str
+    ) -> None:
+        normalized_id = str(device_id or "").strip()
+        normalized_name = str(device_name or "").strip()
+        prefs = user.preferences
+        if (
+            prefs.desktop_audio_input_device_id == normalized_id
+            and prefs.desktop_audio_input_device_name == normalized_name
+        ):
+            return
+        prefs.desktop_audio_input_device_id = normalized_id
+        prefs.desktop_audio_input_device_name = normalized_name
+        self._save_user_preferences(user)
+        self._sync_pref_to_client(user, "audio/input_device_id", normalized_id)
+        self._sync_pref_to_client(user, "audio/input_device_name", normalized_name)
+
+    def _sync_desktop_audio_input_device_fallback(self, user: NetworkUser) -> None:
+        prefs = user.preferences
+        current_id = str(prefs.desktop_audio_input_device_id or "").strip()
+        current_name = str(prefs.desktop_audio_input_device_name or "").strip()
+        if not current_id:
+            if current_name:
+                self._set_desktop_audio_input_device_preference(user, "", "")
+            return
+        match = self._find_audio_input_device_for_user(user.username, current_id)
+        if not match:
+            self._set_desktop_audio_input_device_preference(user, "", "")
+            return
+        if current_name != match.get("name", ""):
+            self._set_desktop_audio_input_device_preference(
+                user, match.get("id", ""), match.get("name", "")
+            )
+
     async def _handle_options_input(
         self, user: NetworkUser, packet: dict, state: dict
     ) -> bool:
@@ -2178,6 +2298,10 @@ PlayAural Server
                 prefs.ambience_volume = int(value)
             except (ValueError, TypeError):
                 return
+        elif key == "audio/input_device_id":
+            prefs.desktop_audio_input_device_id = str(value or "").strip()
+        elif key == "audio/input_device_name":
+            prefs.desktop_audio_input_device_name = str(value or "").strip()
         elif key == "interface/invert_multiline_enter_behavior":
             prefs.invert_multiline_enter_behavior = bool(value)
         elif key == "interface/play_typing_sounds":
@@ -2214,6 +2338,281 @@ PlayAural Server
 
         self._save_user_preferences(user)
         self._sync_pref_to_client(user, key, value)
+
+    async def _handle_audio_input_devices(
+        self, client: ClientConnection, packet: dict
+    ) -> None:
+        """Track the current desktop client's available audio input devices."""
+        username = client.username
+        if not username:
+            return
+        user = self._users.get(username)
+        if not user or user.client_type != "python":
+            return
+
+        normalized_devices: list[dict[str, str]] = []
+        seen_ids: set[str] = set()
+        for raw_device in packet.get("devices", []):
+            if not isinstance(raw_device, dict):
+                continue
+            device_id = str(raw_device.get("id") or "").strip()
+            device_name = str(raw_device.get("name") or "").strip()
+            if not device_id or not device_name or device_id in seen_ids:
+                continue
+            normalized_devices.append({"id": device_id, "name": device_name})
+            seen_ids.add(device_id)
+        self._audio_input_devices_by_user[username] = normalized_devices
+        self._sync_desktop_audio_input_device_fallback(user)
+
+    def _resolve_table_voice_context(self, user: NetworkUser, packet: dict) -> VoiceContext:
+        table_id = str(packet.get("context_id") or packet.get("table_id") or "").strip()
+        table = self._tables.get_table(table_id) if table_id else self._tables.find_user_table(user.username)
+        if not table:
+            raise VoiceAuthorizationError("voice-not-in-context" if table_id else "voice-not-at-table")
+        if not any(member.username == user.username for member in table.members):
+            raise VoiceAuthorizationError("voice-not-in-context")
+        if table_id and table.table_id != table_id:
+            raise VoiceAuthorizationError("voice-not-in-context")
+        game_class = get_game_class(table.game_type)
+        game_name = (
+            Localization.get(user.locale, game_class.get_name_key())
+            if game_class
+            else table.game_type
+        )
+        return VoiceContext(
+            scope="table",
+            context_id=table.table_id,
+            room_label=Localization.get(user.locale, "voice-room-table-label", game=game_name),
+            metadata={
+                "context_id": table.table_id,
+                "scope": "table",
+            },
+        )
+
+    async def _handle_voice_join(self, client: ClientConnection, packet: dict) -> None:
+        user = self._users.get(client.username)
+        if not user:
+            return
+        scope = str(packet.get("scope") or "table").strip().lower()
+        context_id = str(packet.get("context_id") or packet.get("table_id") or "").strip()
+        resolver = self._voice_context_resolvers.get(scope)
+        if not resolver:
+            await self._send_voice_error(
+                user,
+                "voice-invalid-context",
+                scope=scope,
+                context_id=context_id,
+            )
+            return
+        try:
+            context = resolver(user, packet)
+            response = self._voice.create_join_packet(
+                context=context,
+                identity=user.uuid,
+                display_name=user.username,
+                metadata={"username": user.username},
+            )
+        except VoiceAuthorizationError as error:
+            await self._send_voice_error(
+                user,
+                str(error) or "voice-unavailable",
+                scope=scope,
+                context_id=context_id,
+            )
+            return
+        await client.send(response)
+
+    def _set_in_game_state(self, user: NetworkUser, table_id: str) -> None:
+        self._user_states[user.username] = {"menu": "in_game", "table_id": table_id}
+        user.set_table_context(table_id)
+
+    async def _handle_voice_presence(self, client: ClientConnection, packet: dict) -> None:
+        user = self._users.get(client.username)
+        if not user:
+            return
+        state = str(packet.get("state") or "").strip().lower()
+        if state == "connected":
+            await self._register_voice_presence(user, packet)
+        elif state == "connection_lost" and self._voice_presence_matches(
+            user.username,
+            scope=str(packet.get("scope") or "table").strip().lower(),
+            context_id=str(packet.get("context_id") or "").strip(),
+        ):
+            await self._clear_voice_presence(
+                user.username,
+                "voice-status-connection-lost",
+            )
+
+    async def _handle_voice_leave(self, client: ClientConnection, packet: dict) -> None:
+        if self._voice_presence_matches(
+            client.username,
+            scope=str(packet.get("scope") or "table").strip().lower(),
+            context_id=str(packet.get("context_id") or "").strip(),
+        ):
+            await self._clear_voice_presence(
+                client.username,
+                "voice-status-disconnected",
+            )
+        await client.send({"type": "voice_leave_ack"})
+
+    async def _send_voice_error(
+        self,
+        user: NetworkUser,
+        message_key: str,
+        *,
+        scope: str = "table",
+        context_id: str = "",
+    ) -> None:
+        text = Localization.get(user.locale, message_key)
+        await user.connection.send(
+            {
+                "type": "voice_join_error",
+                "key": message_key,
+                "text": text,
+                "scope": scope,
+                "context_id": context_id,
+            }
+        )
+        user.speak_l(message_key, buffer="system")
+
+    async def _register_voice_presence(
+        self,
+        user: NetworkUser,
+        packet: dict,
+    ) -> None:
+        scope = str(packet.get("scope") or "table").strip().lower()
+        resolver = self._voice_context_resolvers.get(scope)
+        if not resolver:
+            return
+        try:
+            context = resolver(user, packet)
+        except VoiceAuthorizationError:
+            return
+
+        existing = self._voice_presence_by_user.get(user.username)
+        if (
+            existing
+            and existing.get("scope") == context.scope
+            and existing.get("context_id") == context.context_id
+        ):
+            return
+        if existing:
+            await self._clear_voice_presence(user.username, "", broadcast=False)
+
+        self._voice_presence_by_user[user.username] = {
+            "scope": context.scope,
+            "context_id": context.context_id,
+        }
+        table = self._tables.get_table(context.context_id) if context.scope == "table" else None
+        await self._broadcast_voice_presence_event(
+            table,
+            user.username,
+            "voice-status-connected",
+        )
+
+    async def _clear_voice_presence(
+        self,
+        username: str,
+        message_key: str,
+        *,
+        table=None,
+        broadcast: bool = True,
+    ) -> bool:
+        presence = self._voice_presence_by_user.pop(username, None)
+        if not presence:
+            return False
+        if table is None and presence.get("scope") == "table":
+            table = self._tables.get_table(presence.get("context_id", ""))
+        if broadcast and message_key:
+            await self._broadcast_voice_presence_event(
+                table,
+                username,
+                message_key,
+            )
+        return True
+
+    def _voice_presence_matches(
+        self,
+        username: str,
+        *,
+        scope: str,
+        context_id: str,
+    ) -> bool:
+        presence = self._voice_presence_by_user.get(username)
+        if not presence:
+            return False
+        if not context_id:
+            return True
+        return (
+            presence.get("scope") == scope
+            and presence.get("context_id") == context_id
+        )
+
+    async def _broadcast_voice_presence_event(
+        self,
+        table,
+        actor_username: str,
+        message_key: str,
+    ) -> None:
+        if not table:
+            return
+        sound_name = (
+            VOICE_CHAT_JOIN_SOUND
+            if message_key == "voice-status-connected"
+            else VOICE_CHAT_LEAVE_SOUND
+        )
+        for member in table.members:
+            user = self._users.get(member.username)
+            if not user or not user.approved:
+                continue
+            user.speak_l(message_key, buffer="system", player=actor_username)
+            if sound_name:
+                user.play_sound(sound_name)
+
+    async def _send_voice_context_closed(
+        self,
+        user: NetworkUser,
+        *,
+        scope: str,
+        context_id: str,
+    ) -> None:
+        await user.connection.send(
+            {
+                "type": "voice_context_closed",
+                "scope": scope,
+                "context_id": context_id,
+            }
+        )
+
+    def on_table_member_removed(
+        self,
+        table,
+        username: str,
+        *,
+        voice_reason: str = "voice-status-left-table",
+    ) -> None:
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return
+        removed_user = self._users.get(username)
+        if removed_user:
+            loop.create_task(
+                self._send_voice_context_closed(
+                    removed_user,
+                    scope="table",
+                    context_id=table.table_id,
+                )
+            )
+        if username not in self._voice_presence_by_user:
+            return
+        loop.create_task(
+            self._clear_voice_presence(
+                username,
+                voice_reason,
+                table=table,
+            )
+        )
 
     def _show_banned_menu(self, user: NetworkUser, active_ban) -> None:
         """Show banned screen with reason and expiration."""
@@ -2254,6 +2653,7 @@ PlayAural Server
     def _show_waiting_for_approval(self, user: NetworkUser) -> None:
         """Show waiting for approval screen to unapproved user."""
         user.speak_l("waiting-for-approval", buffer="system")
+        user.set_table_context("")
         user.clear_ui()
         self._user_states[user.username] = {"menu": "waiting_for_approval"}
 
@@ -2377,6 +2777,8 @@ PlayAural Server
             await self._handle_speech_settings_selection(user, selection_id)
         elif current_menu == "voice_selection_menu":
             await self._handle_voice_selection(user, selection_id)
+        elif current_menu == "audio_input_device_menu":
+            await self._handle_audio_input_device_selection(user, selection_id)
         elif current_menu == "mobile_speech_settings_menu":
             await self._handle_mobile_speech_settings_selection(user, selection_id)
         elif current_menu == "mobile_tts_engine_menu":
@@ -3286,6 +3688,8 @@ PlayAural Server
             self._save_user_preferences(user)
             self._sync_pref_to_client(user, "notifications/notify_friend_presence", prefs.notify_friend_presence)
             self._nav_refresh(user, self._show_options_menu)
+        elif selection_id == "audio_input_device":
+            self._nav_push(user, self._show_audio_input_device_menu)
         elif selection_id == "clear_kept":
             prefs.clear_kept_on_roll = not prefs.clear_kept_on_roll
             self._save_user_preferences(user)
@@ -3295,6 +3699,28 @@ PlayAural Server
             self._nav_push(user, self._show_dice_keeping_style_menu)
         elif selection_id == "back":
             self._nav_back(user)
+
+    async def _handle_audio_input_device_selection(
+        self, user: NetworkUser, selection_id: str
+    ) -> None:
+        """Handle the desktop audio input device submenu."""
+        if selection_id == "back":
+            self._nav_back(user)
+            return
+        if selection_id == "audio_input_device_default":
+            self._set_desktop_audio_input_device_preference(user, "", "")
+            self._nav_back(user)
+            return
+        if selection_id.startswith("audio_input_device::"):
+            device_id = selection_id.removeprefix("audio_input_device::").strip()
+            device = self._find_audio_input_device_for_user(user.username, device_id)
+            if device:
+                self._set_desktop_audio_input_device_preference(
+                    user, device["id"], device["name"]
+                )
+                self._nav_back(user)
+                return
+        self._nav_refresh(user, self._show_audio_input_device_menu)
 
     def _show_dice_keeping_style_menu(self, user: NetworkUser) -> None:
         """Show dice keeping style selection menu."""
@@ -3340,10 +3766,14 @@ PlayAural Server
         """Return preferences relevant to the connecting client type."""
         prefs = user.preferences.to_dict()
         if is_web_client_type(user.client_type):
+            prefs.pop("desktop_audio_input_device_id", None)
+            prefs.pop("desktop_audio_input_device_name", None)
             prefs.pop("mobile_tts_engine", None)
             prefs.pop("mobile_tts_rate", None)
             prefs.pop("mobile_tts_voice", None)
         elif is_mobile_client_type(user.client_type):
+            prefs.pop("desktop_audio_input_device_id", None)
+            prefs.pop("desktop_audio_input_device_name", None)
             prefs.pop("speech_mode", None)
             prefs.pop("speech_rate", None)
             prefs.pop("speech_voice", None)
@@ -3410,10 +3840,7 @@ PlayAural Server
                 # Set in_game state BEFORE initialize_lobby so the universal
                 # GLOBAL_SYSTEM_MENUS guard in rebuild_player_menu lets the
                 # initial turn_menu through (otherwise "tables_menu" blocks it).
-                self._user_states[user.username] = {
-                    "menu": "in_game",
-                    "table_id": table.table_id,
-                }
+                self._set_in_game_state(user, table.table_id)
                 game.initialize_lobby(user.username, user)
 
                 user.speak_l(
@@ -3562,7 +3989,7 @@ PlayAural Server
         # GLOBAL_SYSTEM_MENUS guard lets the initial turn_menu through
         # (the user's previous state — e.g. "tables_menu" — is in
         # GLOBAL_SYSTEM_MENUS and would otherwise block the push).
-        self._user_states[user.username] = {"menu": "in_game", "table_id": table_id}
+        self._set_in_game_state(user, table_id)
 
         if reclaimed_player:
             self._reclaim_bot_replaced_slot(user, table, reclaimed_player)
@@ -3654,7 +4081,7 @@ PlayAural Server
     def _return_to_game(self, user: NetworkUser, table: "Table | None") -> None:
         """Return a user to their in-game state after leaving a host management menu."""
         if table and table.game:
-            self._user_states[user.username] = {"menu": "in_game", "table_id": table.table_id}
+            self._set_in_game_state(user, table.table_id)
             player = table.game.get_player_by_id(user.uuid)
             if player and hasattr(table.game, "rebuild_player_menu"):
                 # Clear the actions-menu-open guard set before rebuilding, so the
@@ -4144,10 +4571,7 @@ PlayAural Server
                         message_key="player-took-over",
                         sound_name="join.ogg",
                     )
-                    self._user_states[user.username] = {
-                        "menu": "in_game",
-                        "table_id": table_id,
-                    }
+                    self._set_in_game_state(user, table_id)
                     return
                 else:
                     # No matching player - join as spectator instead
@@ -4157,10 +4581,7 @@ PlayAural Server
                     game.broadcast_l("now-spectating", buffer="system", player=user.username)
                     game.broadcast_sound("join_spectator.ogg")
                     game.rebuild_all_menus()
-                    self._user_states[user.username] = {
-                        "menu": "in_game",
-                        "table_id": table_id,
-                    }
+                    self._set_in_game_state(user, table_id)
                     return
 
             active_players_count = sum(1 for p in game.players if not p.is_spectator)
@@ -4175,7 +4596,7 @@ PlayAural Server
             game.broadcast_l("table-joined", buffer="system", player=user.username)
             game.broadcast_sound("join.ogg")
             game.rebuild_all_menus()
-            self._user_states[user.username] = {"menu": "in_game", "table_id": table_id}
+            self._set_in_game_state(user, table_id)
 
         elif selection_id == "join_spectator":
             table.add_member(user.username, user, as_spectator=True)
@@ -4184,7 +4605,7 @@ PlayAural Server
             game.broadcast_l("now-spectating", buffer="system", player=user.username)
             game.broadcast_sound("join_spectator.ogg")
             game.rebuild_all_menus()
-            self._user_states[user.username] = {"menu": "in_game", "table_id": table_id}
+            self._set_in_game_state(user, table_id)
 
         elif selection_id == "back":
             self._return_from_join_menu(user, state)
@@ -4307,10 +4728,7 @@ PlayAural Server
                 if member_user:
                     table.add_member(member_username, member_user, as_spectator=False)
                     game.attach_user(player.id, member_user)
-                    self._user_states[member_username] = {
-                        "menu": "in_game",
-                        "table_id": table.table_id,
-                    }
+                    self._set_in_game_state(member_user, table.table_id)
 
         # Setup keybinds (runtime only, not serialized)
         # Action sets are already restored from serialization
@@ -4988,6 +5406,28 @@ PlayAural Server
         """Handle table destruction. Called by TableManager."""
         if not table.game:
             return
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+        if loop:
+            for member in list(table.members):
+                player_user = self._users.get(member.username)
+                if player_user:
+                    loop.create_task(
+                        self._send_voice_context_closed(
+                            player_user,
+                            scope="table",
+                            context_id=table.table_id,
+                        )
+                    )
+                loop.create_task(
+                    self._clear_voice_presence(
+                        member.username,
+                        "voice-status-left-table",
+                        table=table,
+                    )
+                )
         # Return all human players to main menu
         for player in table.game.players:
             if not player.is_bot:
@@ -5937,6 +6377,8 @@ PlayAural Server
             self._show_language_menu(user)
         elif menu == "speech_settings_menu":
             self._show_speech_settings_menu(user)
+        elif menu == "audio_input_device_menu":
+            self._show_audio_input_device_menu(user)
         elif menu == "mobile_speech_settings_menu":
             self._show_mobile_speech_settings_menu(user)
         elif menu == "mobile_tts_engine_menu":

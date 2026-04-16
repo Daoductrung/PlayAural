@@ -207,6 +207,8 @@ action-no-scores = No scores available yet.
 
 music-volume-option = Music Volume: { $value }%
 ambience-volume-option = Ambience Volume: { $value }%
+audio-input-device-option = Audio Input Device: { $device }
+audio-input-device-default = System Default Input Device
 mute-global-chat-option = Mute Global Chat: { $status }
 mute-table-chat-option = Mute Table Chat: { $status }
 invert-multiline-enter-option = Invert Enter Key Behavior: { $status }
@@ -590,6 +592,16 @@ host-kick-you = You have been kicked from the table by { $host }.
 host-kick-ban-you = You have been kicked and banned from the table by { $host }.
 table-you-are-banned = You are banned from this table.
 table-private-invite-only = This table is private. You must receive an invite from the host to join.
+
+voice-room-table-label = { $game } table voice
+voice-unavailable = Voice chat is not available right now.
+voice-invalid-context = That voice room request is invalid.
+voice-not-at-table = You have not joined a table yet. Join a table before starting voice chat.
+voice-not-in-context = You must be at that table before joining its voice chat.
+voice-status-connected = { $player } connected to the table's voice chat.
+voice-status-disconnected = { $player } disconnected from the voice chat.
+voice-status-connection-lost = { $player } lost connection and was removed from the voice chat.
+voice-status-left-table = { $player } left the table and left the voice chat.
 
 error-smtp-not-configured = Password recovery is currently disabled by the administrator.
 error-email-not-found = No account found with that email address.

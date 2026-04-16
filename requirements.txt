@@ -18,6 +18,8 @@ fluent-runtime>=0.4.0
 requests
 psutil
 keyring>=24.0
+livekit>=1.1.5
+sounddevice>=0.5.5
 
 # ── Development / Testing ────────────────────────────────────────────────────
 pytest>=8.0

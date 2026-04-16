@@ -692,6 +692,24 @@ class GameClient {
         this.ttsHistoryLog = document.getElementById('tts-history-log');
         this.chatForm = document.getElementById('chat-form');
         this.chatInput = document.getElementById('chat-input');
+        this.voiceJoinBtn = document.getElementById('btn-voice-join');
+        this.voiceLeaveBtn = document.getElementById('btn-voice-leave');
+        this.voiceMicBtn = document.getElementById('btn-voice-mic');
+        this.voiceStatus = document.getElementById('voice-chat-status');
+        this.voiceAudioContainer = document.getElementById('voice-chat-audio');
+        this.voiceCapability = { enabled: false, provider: "", url: "" };
+        this.currentTableContextId = "";
+        this.voiceRequestedContextId = "";
+        this.voiceJoinGeneration = 0;
+        this.voiceContext = { scope: "table", contextId: "" };
+        this.voiceRoom = null;
+        this.voiceState = "disconnected";
+        this.voiceMicEnabled = false;
+        this.voiceMicTogglePending = null;
+        this.voicePendingJoin = false;
+        this.voicePresenceRegistered = false;
+        this.voiceExpectedDisconnect = false;
+        this.voiceRemoteAudio = new Map();
 
         // Audio Settings
         this.musicVolume = 0.2; // Default 20%
@@ -1026,7 +1044,296 @@ class GameClient {
         }, 100);
     }
 
+    setVoiceStatus(keyOrText, speak = false) {
+        const text = Localization.has(keyOrText) ? Localization.get(keyOrText) : keyOrText;
+        if (this.voiceStatus) this.voiceStatus.textContent = text;
+        if (speak && text) this.speak(text);
+    }
 
+    resolveVoiceMessage(packet, defaultKey = "voice-chat-unavailable") {
+        if (packet && packet.key && Localization.has(packet.key)) {
+            return Localization.get(packet.key, packet.params || {});
+        }
+        if (packet && packet.text) {
+            return packet.text;
+        }
+        return Localization.get(defaultKey);
+    }
+
+    sendVoicePresence(state) {
+        if (!this.socket || this.socket.readyState !== WebSocket.OPEN) return false;
+        this.socket.send(JSON.stringify({
+            type: "voice_presence",
+            state,
+            scope: this.voiceContext.scope || "table",
+            context_id: this.voiceContext.contextId || ""
+        }));
+        return true;
+    }
+
+    updateVoiceUI() {
+        const isConnected = this.voiceState === "connected";
+        const isConnecting = this.voiceState === "connecting";
+        const micBusy = this.voiceMicTogglePending !== null;
+        if (this.voiceJoinBtn) {
+            this.voiceJoinBtn.textContent = isConnecting
+                ? Localization.get("voice-chat-joining")
+                : Localization.get("voice-chat-join");
+            this.voiceJoinBtn.disabled = isConnecting || isConnected;
+            this.voiceJoinBtn.classList.toggle("hidden", isConnected);
+        }
+        if (this.voiceLeaveBtn) {
+            this.voiceLeaveBtn.textContent = Localization.get("voice-chat-leave");
+            this.voiceLeaveBtn.disabled = isConnecting && !this.voiceRoom;
+            this.voiceLeaveBtn.classList.toggle("hidden", !isConnected);
+        }
+        if (this.voiceMicBtn) {
+            this.voiceMicBtn.textContent = this.voiceMicEnabled
+                ? Localization.get("voice-chat-turn-off-mic")
+                : Localization.get("voice-chat-turn-on-mic");
+            this.voiceMicBtn.setAttribute("aria-pressed", this.voiceMicEnabled ? "true" : "false");
+            this.voiceMicBtn.disabled = !isConnected || micBusy;
+            this.voiceMicBtn.classList.toggle("hidden", !isConnected);
+        }
+        if (this.voiceStatus && !this.voiceStatus.textContent) {
+            this.voiceStatus.textContent = Localization.get("voice-chat-not-connected");
+        }
+    }
+
+    joinVoiceChat() {
+        if (this.voiceState === "connected" || this.voicePendingJoin) return;
+        if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
+            this.setVoiceStatus("status-disconnected", true);
+            return;
+        }
+        if (!this.voiceCapability || this.voiceCapability.enabled !== true) {
+            this.setVoiceStatus("voice-chat-unavailable", true);
+            return;
+        }
+        if (!this.currentTableContextId) {
+            this.setVoiceStatus("voice-not-at-table", true);
+            return;
+        }
+        if (!window.LivekitClient || !window.LivekitClient.Room) {
+            this.setVoiceStatus("voice-chat-sdk-missing", true);
+            return;
+        }
+        this.voiceJoinGeneration += 1;
+        this.voiceRequestedContextId = this.currentTableContextId;
+        this.voicePendingJoin = true;
+        this.voiceState = "connecting";
+        this.setVoiceStatus("voice-chat-joining", true);
+        this.updateVoiceUI();
+        this.socket.send(JSON.stringify({
+            type: "voice_join",
+            scope: "table",
+            context_id: this.voiceRequestedContextId
+        }));
+    }
+
+    async connectVoiceChat(packet, joinGeneration) {
+        if (!this.voicePendingJoin && this.voiceState !== "connecting") return;
+        if (this.voiceRequestedContextId && (packet.context_id || "") !== this.voiceRequestedContextId) {
+            return;
+        }
+        const LK = window.LivekitClient;
+        if (!LK || !LK.Room) {
+            this.voicePendingJoin = false;
+            this.voiceState = "disconnected";
+            this.voiceRequestedContextId = "";
+            this.setVoiceStatus("voice-chat-sdk-missing", true);
+            this.updateVoiceUI();
+            return;
+        }
+
+        await this.cleanupVoiceChat(false, false, false);
+        const room = new LK.Room({
+            adaptiveStream: false,
+            dynacast: false,
+        });
+        this.voiceExpectedDisconnect = false;
+        this.voiceRoom = room;
+        this.voiceState = "connecting";
+        this.voiceContext = {
+            scope: packet.scope || "table",
+            contextId: packet.context_id || ""
+        };
+        this.updateVoiceUI();
+
+        room.on("trackSubscribed", (track, publication, participant) => {
+            this.attachVoiceTrack(track, publication, participant);
+        });
+        room.on("trackUnsubscribed", (track, publication) => {
+            this.detachVoiceTrack(track, publication);
+        });
+        room.on("disconnected", () => {
+            const wasConnected = this.voiceState === "connected";
+            const expectedDisconnect = this.voiceExpectedDisconnect;
+            this.voiceExpectedDisconnect = false;
+            this.cleanupVoiceElements();
+            this.voiceRoom = null;
+            this.voicePendingJoin = false;
+            this.voiceMicEnabled = false;
+            this.voiceMicTogglePending = null;
+            this.voiceState = "disconnected";
+            if (wasConnected && !expectedDisconnect && this.voicePresenceRegistered) {
+                this.sendVoicePresence("connection_lost");
+                this.voicePresenceRegistered = false;
+            }
+            this.updateVoiceUI();
+            if (wasConnected) {
+                this.setVoiceStatus("voice-chat-left", false);
+            }
+        });
+
+        try {
+            await room.connect(packet.url, packet.token, {
+                autoSubscribe: true,
+            });
+            if (joinGeneration !== this.voiceJoinGeneration) {
+                room.disconnect();
+                return;
+            }
+            this.voicePendingJoin = false;
+            this.voiceState = "connected";
+            this.voiceMicEnabled = false;
+            this.attachExistingVoiceTracks(room);
+            this.voicePresenceRegistered = this.sendVoicePresence("connected");
+            this.voiceRequestedContextId = "";
+            this.setVoiceStatus("voice-chat-listen-only", true);
+        } catch (err) {
+            console.error("Voice Chat connection failed:", err);
+            await this.cleanupVoiceChat(false, false);
+            this.setVoiceStatus("voice-chat-connect-failed", true);
+        } finally {
+            this.updateVoiceUI();
+        }
+    }
+
+    attachExistingVoiceTracks(room) {
+        if (!room || !room.remoteParticipants) return;
+        room.remoteParticipants.forEach((participant) => {
+            if (!participant.trackPublications) return;
+            participant.trackPublications.forEach((publication) => {
+                if (publication && publication.track) {
+                    this.attachVoiceTrack(publication.track, publication, participant);
+                }
+            });
+        });
+    }
+
+    attachVoiceTrack(track, publication, participant) {
+        if (!track || track.kind !== "audio" || typeof track.attach !== "function") return;
+        const key = publication?.trackSid || track.sid || track.mediaStreamTrack?.id || participant?.identity;
+        if (!key || this.voiceRemoteAudio.has(key)) return;
+        const element = track.attach();
+        element.autoplay = true;
+        element.controls = false;
+        element.dataset.voiceTrack = key;
+        element.setAttribute("aria-hidden", "true");
+        this.voiceRemoteAudio.set(key, element);
+        if (this.voiceAudioContainer) this.voiceAudioContainer.appendChild(element);
+        const playResult = element.play();
+        if (playResult && typeof playResult.catch === "function") {
+            playResult.catch((err) => console.warn("Voice Chat audio playback was blocked:", err));
+        }
+    }
+
+    detachVoiceTrack(track, publication) {
+        const key = publication?.trackSid || track?.sid || track?.mediaStreamTrack?.id;
+        if (!key || !this.voiceRemoteAudio.has(key)) return;
+        const element = this.voiceRemoteAudio.get(key);
+        if (element && element.parentNode) element.parentNode.removeChild(element);
+        this.voiceRemoteAudio.delete(key);
+    }
+
+    cleanupVoiceElements() {
+        this.voiceRemoteAudio.forEach((element) => {
+            if (element && element.parentNode) element.parentNode.removeChild(element);
+        });
+        this.voiceRemoteAudio.clear();
+        if (this.voiceAudioContainer) {
+            while (this.voiceAudioContainer.firstChild) {
+                this.voiceAudioContainer.removeChild(this.voiceAudioContainer.firstChild);
+            }
+        }
+    }
+
+    async cleanupVoiceChat(sendLeave = true, announce = true, cancelJoin = true) {
+        const room = this.voiceRoom;
+        if (cancelJoin && (this.voiceState === "connecting" || this.voicePendingJoin)) {
+            this.voiceJoinGeneration += 1;
+        }
+        this.voicePendingJoin = false;
+        this.voiceMicEnabled = false;
+        this.voiceMicTogglePending = null;
+        this.voiceRequestedContextId = "";
+        this.voiceState = "disconnected";
+        this.voiceRoom = null;
+        this.cleanupVoiceElements();
+        if (room) {
+            this.voiceExpectedDisconnect = true;
+            try {
+                await room.localParticipant?.setMicrophoneEnabled(false);
+            } catch (err) {
+                console.warn("Unable to disable microphone during Voice Chat cleanup:", err);
+            }
+            room.disconnect();
+        }
+        if (sendLeave && this.voicePresenceRegistered && this.socket && this.socket.readyState === WebSocket.OPEN) {
+            this.socket.send(JSON.stringify({
+                type: "voice_leave",
+                scope: this.voiceContext.scope || "table",
+                context_id: this.voiceContext.contextId || ""
+            }));
+        }
+        this.voicePresenceRegistered = false;
+        this.voiceContext = { scope: "table", contextId: "" };
+        if (announce) this.setVoiceStatus("voice-chat-left", true);
+        this.updateVoiceUI();
+    }
+
+    leaveVoiceChat() {
+        this.cleanupVoiceChat(true, true);
+    }
+
+    async toggleVoiceMic() {
+        if (!this.voiceRoom || this.voiceState !== "connected") {
+            this.setVoiceStatus("voice-chat-not-connected", true);
+            return;
+        }
+        if (this.voiceMicTogglePending !== null) {
+            return;
+        }
+        const enable = !this.voiceMicEnabled;
+        if (enable && (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia)) {
+            this.play_sound("voice_mic_error.ogg");
+            this.setVoiceStatus("voice-chat-mic-unsupported", true);
+            return;
+        }
+        this.voiceMicTogglePending = enable;
+        try {
+            await this.voiceRoom.localParticipant.setMicrophoneEnabled(enable);
+            this.voiceMicEnabled = enable;
+            this.play_sound(enable ? "voice_mic_on.ogg" : "voice_mic_off.ogg");
+            this.voiceMicTogglePending = null;
+            this.setVoiceStatus(enable ? "voice-chat-mic-on" : "voice-chat-mic-off", true);
+        } catch (err) {
+            console.error("Voice Chat microphone toggle failed:", err);
+            this.voiceMicEnabled = false;
+            if (enable) {
+                this.play_sound("voice_mic_error.ogg");
+            }
+            this.voiceMicTogglePending = null;
+            if (err && (err.name === "NotAllowedError" || err.name === "PermissionDeniedError")) {
+                this.setVoiceStatus("voice-chat-mic-denied", true);
+            } else {
+                this.setVoiceStatus("voice-chat-connect-failed", true);
+            }
+        } finally {
+            this.updateVoiceUI();
+        }
+    }
 
     addToChatLog(message, sender, senderClass) {
         const container = this.chatHistory;
@@ -1661,6 +1968,14 @@ class GameClient {
                 if (packet.sounds_info && packet.sounds_info.version) {
                     this.soundsVersion = packet.sounds_info.version;
                 }
+                this.voiceCapability = packet.voice || { enabled: false, provider: "", url: "" };
+                this.currentTableContextId = "";
+                this.voiceRequestedContextId = "";
+                this.voiceJoinGeneration = 0;
+                this.voiceContext = { scope: "table", contextId: "" };
+                this.voicePresenceRegistered = false;
+                this.voiceExpectedDisconnect = false;
+                this.updateVoiceUI();
 
                 // Apply server-sent locale if present
                 if (packet.locale && packet.locale !== Localization.locale) {
@@ -1688,6 +2003,54 @@ class GameClient {
                 // 4. Welcome message
                 this.speak_l("welcome", { username: packet.username });
                 this.play_sound("welcome.ogg");
+                break;
+
+            case "voice_join_info":
+                this.connectVoiceChat(packet, this.voiceJoinGeneration);
+                break;
+
+            case "voice_join_error":
+                if (
+                    (packet.context_id || "")
+                    && this.voiceRequestedContextId
+                    && (packet.context_id || "") !== this.voiceRequestedContextId
+                ) {
+                    break;
+                }
+                this.voicePendingJoin = false;
+                this.voiceState = "disconnected";
+                this.voiceMicEnabled = false;
+                this.voiceMicTogglePending = null;
+                this.voiceRequestedContextId = "";
+                this.voicePresenceRegistered = false;
+                this.voiceContext = { scope: "table", contextId: "" };
+                this.updateVoiceUI();
+                this.setVoiceStatus(this.resolveVoiceMessage(packet), false);
+                break;
+
+            case "voice_leave_ack":
+                break;
+
+            case "table_context":
+                this.currentTableContextId = packet.table_id || "";
+                break;
+
+            case "voice_context_closed":
+                if (
+                    this.voiceState === "connecting"
+                    && (packet.scope || "table") === "table"
+                    && (packet.context_id || "") === this.voiceRequestedContextId
+                ) {
+                    this.cleanupVoiceChat(false, false);
+                    break;
+                }
+                if (
+                    this.voiceState !== "disconnected"
+                    && (packet.scope || "table") === (this.voiceContext.scope || "table")
+                    && (packet.context_id || "") === (this.voiceContext.contextId || "")
+                ) {
+                    this.cleanupVoiceChat(false, false);
+                }
                 break;
 
             case "disconnect":
@@ -1754,6 +2117,7 @@ class GameClient {
                 this.removePlaylist(packet.playlist_id);
                 break;
             case "clear_ui": // Also clears playlists
+                this.cleanupVoiceChat(false, false);
                 this.removeAllPlaylists();
                 this.renderMenu({ items: [], grid_enabled: false, grid_width: 1 }); // Clear menu
                 break;
@@ -2465,6 +2829,9 @@ class GameClient {
                         this.disconnectReason = null;
                     }
                 }
+
+                this.cleanupVoiceChat(false, false);
+                this.currentTableContextId = "";
 
                 // Clear active playbacks
                 this.stop_music();
@@ -3249,6 +3616,10 @@ class GameClient {
 
         if (btnViewHistory) btnViewHistory.innerText = Localization.get('btn-view-history');
         if (btnBackToInput) btnBackToInput.innerText = Localization.get('btn-back-to-input');
+        if (this.voiceStatus && this.voiceState === "disconnected") {
+            this.voiceStatus.textContent = Localization.get("voice-chat-not-connected");
+        }
+        this.updateVoiceUI();
 
         // Shortcuts section
         const playersTitle = document.getElementById('players-title');

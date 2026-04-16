@@ -13,6 +13,10 @@
     "generate:sounds": "node scripts/generate-sound-manifest.mjs"
   },
   "dependencies": {
+    "@config-plugins/react-native-webrtc": "^14.0.0",
+    "@livekit/react-native": "^2.10.0",
+    "@livekit/react-native-expo-plugin": "^1.0.2",
+    "@livekit/react-native-webrtc": "^144.0.0",
     "@react-native-async-storage/async-storage": "2.2.0",
     "expo": "~55.0.0",
     "expo-asset": "~55.0.14",
@@ -21,6 +25,7 @@
     "expo-secure-store": "^55.0.13",
     "expo-speech": "^14.0.0",
     "expo-status-bar": "~3.0.8",
+    "livekit-client": "^2.18.3",
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "react-native": "0.83.2",

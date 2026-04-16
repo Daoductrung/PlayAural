@@ -1,32 +1,45 @@
 # -*- mode: python ; coding: utf-8 -*-
 from PyInstaller.utils.hooks import collect_all
 
-datas = [('client/sounds', 'sounds'), ('client/locales', 'locales')]
+
+datas = [("client/sounds", "sounds"), ("client/locales", "locales")]
 binaries = []
-hiddenimports = ['wx', 'sound_lib', 'requests', 'psutil', 'websockets', 'pyperclip', 'fluent.runtime', 'fluent.syntax']
-tmp_ret = collect_all('accessible_output2')
-datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
-tmp_ret = collect_all('sound_lib')
-datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
-tmp_ret = collect_all('requests')
-datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
-tmp_ret = collect_all('fluent')
-datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
-# keyring uses dynamic backend discovery — collect everything so the Windows
-# Credential Manager backend (and its win32ctypes dependency) is bundled.
-tmp_ret = collect_all('keyring')
-datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
+hiddenimports = [
+    "wx",
+    "sound_lib",
+    "requests",
+    "psutil",
+    "websockets",
+    "pyperclip",
+    "fluent.runtime",
+    "fluent.syntax",
+]
+
+for package_name in (
+    "accessible_output2",
+    "sound_lib",
+    "requests",
+    "fluent",
+    "livekit",
+    "sounddevice",
+    "keyring",
+):
+    tmp_ret = collect_all(package_name)
+    datas += tmp_ret[0]
+    binaries += tmp_ret[1]
+    hiddenimports += tmp_ret[2]
+
 hiddenimports += [
-    'keyring.backends',
-    'keyring.backends.Windows',
-    'keyring.backends.fail',
-    'win32ctypes.core',
-    'win32ctypes.pywin32',
+    "keyring.backends",
+    "keyring.backends.Windows",
+    "keyring.backends.fail",
+    "win32ctypes.core",
+    "win32ctypes.pywin32",
 ]
 
 
 a = Analysis(
-    ['client\\client.py'],
+    ["client\\client.py"],
     pathex=[],
     binaries=binaries,
     datas=datas,
@@ -45,7 +58,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name='PlayAural',
+    name="PlayAural",
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -64,5 +77,5 @@ coll = COLLECT(
     strip=False,
     upx=True,
     upx_exclude=[],
-    name='PlayAural',
+    name="PlayAural",
 )

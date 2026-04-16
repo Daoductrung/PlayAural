@@ -1,5 +1,6 @@
 import { StatusBar } from "expo-status-bar";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Audio as ExpoAudio } from "expo-av";
 import * as SecureStore from "expo-secure-store";
 import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
 import {
@@ -41,12 +42,18 @@ import type {
   ServerPacket,
   SpeakPacket,
   SubmitResetCodeResponsePacket,
+  TableContextPacket,
   UpdateLocalePacket,
   UpdatePreferencePacket,
+  VoiceContextClosedPacket,
+  VoiceJoinErrorPacket,
+  VoiceJoinInfoPacket,
+  VoiceLeaveAckPacket,
 } from "../network/packets";
 import { BufferStore, type BufferName } from "../state/BufferStore";
 import { TtsManager } from "../tts/TtsManager";
 import { ENABLE_CLIENT_DEBUG_LOGS } from "../utils/debug";
+import { MobileVoiceManager, type MobileVoiceConnectionState } from "../voice/MobileVoiceManager";
 
 const MOBILE_CLIENT_VERSION = "1.0.3.2";
 const MOBILE_BUILD_STAMP = "2026-04-14 19:37:43 +07:00";
@@ -56,6 +63,7 @@ const APK_DOWNLOAD_URL =
 const CLIENT_CONFIG_STORAGE_KEY = "playaural.mobile.clientConfig";
 const CLIENT_PASSWORD_STORAGE_KEY = "playaural.mobile.password";
 const CLIENT_SV_STORAGE_KEY = "playaural.mobile.selfVoicing";
+const CLIENT_MIC_PERMISSION_REQUESTED_STORAGE_KEY = "playaural.mobile.voiceMicPermissionRequested";
 const WEB_SCREEN_READER_SUPPORT = Platform.OS === "web";
 const NATIVE_FOCUS_DELAY_MS = 80;
 
@@ -139,8 +147,20 @@ type InputOverlayFocus = 0 | 1;
 type DialogFocusIndex = number;
 
 type ChatFocusItem = {
-  kind: "close" | "input" | "message" | "send";
+  kind: "close" | "input" | "message" | "send" | "voiceJoin" | "voiceLeave" | "voiceMic";
   text: string;
+};
+
+type VoiceCapability = {
+  enabled: boolean;
+  provider: string;
+  tokenTtlSeconds: number;
+  url: string;
+};
+
+type VoiceContextState = {
+  contextId: string;
+  scope: "table";
 };
 
 type DialogAction = {
@@ -345,6 +365,7 @@ export function PlayAuralApp() {
   const buffers = useMemo(() => new BufferStore(), []);
   const tts = useMemo(() => new TtsManager(), []);
   const audio = useMemo(() => new MobileAudioManager(), []);
+  const voice = useMemo(() => new MobileVoiceManager(), []);
 
   const [appLocale, setAppLocale] = useState<"en" | "vi">(detectPreferredLocale);
   const [mode, setMode] = useState<AppMode>("main");
@@ -386,12 +407,33 @@ export function PlayAuralApp() {
     id: 0,
     text: "",
   });
+  const [voiceCapability, setVoiceCapability] = useState<VoiceCapability>({
+    enabled: false,
+    provider: "",
+    tokenTtlSeconds: 0,
+    url: "",
+  });
+  const [voiceContext, setVoiceContext] = useState<VoiceContextState>({
+    contextId: "",
+    scope: "table",
+  });
+  const [voiceRequestedContextId, setVoiceRequestedContextId] = useState("");
+  const [voiceStatusText, setVoiceStatusText] = useState("");
+  const [voiceState, setVoiceState] = useState<MobileVoiceConnectionState>("disconnected");
+  const [voiceMicEnabled, setVoiceMicEnabled] = useState(false);
 
   const menuStateRef = useRef(menuState);
   const inputStateRef = useRef(inputState);
   const handleSystemSwipeRef = useRef<((direction: "up" | "down" | "left" | "right") => void) | null>(null);
   const lastPingStartedAtRef = useRef<number | null>(lastPingStartedAt);
   const preferencesRef = useRef<Record<string, unknown>>(preferences);
+  const voiceContextRef = useRef<VoiceContextState>({
+    contextId: "",
+    scope: "table",
+  });
+  const voiceRequestedContextIdRef = useRef("");
+  const voiceStateRef = useRef<MobileVoiceConnectionState>("disconnected");
+  const voiceJoinPendingRef = useRef(false);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectWindowStartedAtRef = useRef<number | null>(null);
   const reconnectDelayMsRef = useRef(1000);
@@ -406,6 +448,7 @@ export function PlayAuralApp() {
   const nativeFocusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastNativeFocusKeyRef = useRef<string | null>(null);
   const activeTextInputKeyRef = useRef<string | null>(activeTextInputKey);
+  const voicePresenceRegisteredRef = useRef(false);
   const accessibilityNodeRefs = useRef(new Map<string, AccessibilityFocusNode>());
   const textInputTargetByKeyRef = useRef(new Map<string, Set<unknown>>());
   const textInputTargetsRef = useRef(new Set<unknown>());
@@ -444,6 +487,18 @@ export function PlayAuralApp() {
   useEffect(() => {
     preferencesRef.current = preferences;
   }, [preferences]);
+
+  useEffect(() => {
+    voiceContextRef.current = voiceContext;
+  }, [voiceContext]);
+
+  useEffect(() => {
+    voiceRequestedContextIdRef.current = voiceRequestedContextId;
+  }, [voiceRequestedContextId]);
+
+  useEffect(() => {
+    voiceStateRef.current = voiceState;
+  }, [voiceState]);
 
   useEffect(() => {
     credentialsRef.current = {
@@ -756,6 +811,43 @@ export function PlayAuralApp() {
     return localizeServerMessage(message, fallbackKey);
   }, [localizeServerMessage]);
 
+  const resolveVoiceStatusText = useCallback((
+    keyOrText: string,
+    params?: Record<string, unknown>,
+  ) => {
+    if (localization.has(keyOrText)) {
+      return localization.t(keyOrText, toLocalizationParams(params));
+    }
+    return localizeServerMessage(keyOrText, "voice-chat-unavailable", params);
+  }, [localization, localizeServerMessage]);
+
+  const setVoiceStatusMessage = useCallback((
+    keyOrText: string,
+    speak = false,
+    params?: Record<string, unknown>,
+  ) => {
+    const text = resolveVoiceStatusText(keyOrText, params);
+    setVoiceStatusText(text);
+
+    if (keyOrText === "voice-chat-mic-on") {
+      void audio.playSound("voice_mic_on.ogg");
+    } else if (keyOrText === "voice-chat-mic-off") {
+      void audio.playSound("voice_mic_off.ogg");
+    } else if (
+      keyOrText === "voice-chat-mic-denied" ||
+      keyOrText === "voice-chat-mic-unsupported" ||
+      keyOrText === "voice-chat-mic-permission-denied"
+    ) {
+      void audio.playSound("voice_mic_error.ogg");
+    }
+
+    if (speak) {
+      announceInterfaceFeedback(text);
+      return;
+    }
+    addHistoryMessage("system", text);
+  }, [addHistoryMessage, announceInterfaceFeedback, audio, resolveVoiceStatusText]);
+
   const isTerminalExitReason = useCallback((message: string | undefined) => {
     return message === "exit" || message === "logged-out" || message === "kicked" || message === "banned";
   }, []);
@@ -790,9 +882,10 @@ export function PlayAuralApp() {
 
   useEffect(() => () => {
     clearReconnectTimer();
+    voice.shutdown();
     audio.shutdown();
     tts.stop();
-  }, [audio, clearReconnectTimer, tts]);
+  }, [audio, clearReconnectTimer, tts, voice]);
 
   useEffect(() => {
     void loadStoredClientState();
@@ -935,6 +1028,149 @@ export function PlayAuralApp() {
   const toggleSelfVoicing = useCallback(() => {
     updateSelfVoicing(!selfVoicingEnabled);
   }, [selfVoicingEnabled, updateSelfVoicing]);
+
+  const sendVoicePresence = useCallback((state: "connected" | "connection_lost") => {
+    const contextId = voiceContextRef.current.contextId;
+    if (!contextId) {
+      return;
+    }
+    connectionRef.current?.send({
+      context_id: contextId,
+      scope: "table",
+      state,
+      type: "voice_presence",
+    });
+  }, []);
+
+  const sendVoiceLeave = useCallback(() => {
+    const contextId = voiceContextRef.current.contextId;
+    if (!contextId) {
+      return;
+    }
+    connectionRef.current?.send({
+      context_id: contextId,
+      scope: "table",
+      type: "voice_leave",
+    });
+  }, []);
+
+  const resetVoiceUiState = useCallback((statusKey = "voice-chat-not-connected") => {
+    voicePresenceRegisteredRef.current = false;
+    voiceJoinPendingRef.current = false;
+    setVoiceRequestedContextId("");
+    setVoiceContext({
+      contextId: "",
+      scope: "table",
+    });
+    setVoiceMicEnabled(false);
+    setVoiceState("disconnected");
+    setVoiceStatusText(resolveVoiceStatusText(statusKey));
+  }, [resolveVoiceStatusText]);
+
+  const ensureVoiceMicrophonePermission = useCallback(async (promptIfNeeded: boolean): Promise<boolean> => {
+    if (Platform.OS === "web") {
+      return true;
+    }
+    try {
+      const existing = await ExpoAudio.getPermissionsAsync();
+      if (existing.granted) {
+        return true;
+      }
+      if (!promptIfNeeded || existing.canAskAgain === false) {
+        return false;
+      }
+      const requested = await ExpoAudio.requestPermissionsAsync();
+      return requested.granted;
+    } catch {
+      return false;
+    }
+  }, []);
+
+  const requestInitialVoicePermission = useCallback(async () => {
+    if (Platform.OS === "web") {
+      return;
+    }
+    try {
+      const alreadyRequested = await AsyncStorage.getItem(CLIENT_MIC_PERMISSION_REQUESTED_STORAGE_KEY);
+      if (alreadyRequested) {
+        return;
+      }
+      await AsyncStorage.setItem(CLIENT_MIC_PERMISSION_REQUESTED_STORAGE_KEY, "1");
+      const granted = await ensureVoiceMicrophonePermission(true);
+      if (!granted) {
+        const message = localization.t("voice-chat-mic-permission-denied");
+        setStatusText(message);
+        setAuthStatusText(message);
+        setVoiceStatusText(message);
+        announceInterfaceFeedback(message);
+      }
+    } catch {
+      // Ignore permission bootstrap storage failures.
+    }
+  }, [announceInterfaceFeedback, ensureVoiceMicrophonePermission, localization]);
+
+  useEffect(() => {
+    if (!storageReady) {
+      return;
+    }
+    void requestInitialVoicePermission();
+  }, [requestInitialVoicePermission, storageReady]);
+
+  const leaveVoiceChat = useCallback((options?: {
+    announce?: boolean;
+    sendLeave?: boolean;
+    statusKey?: string;
+  }) => {
+    const announceStatus = options?.announce ?? true;
+    const sendLeavePacket = options?.sendLeave ?? voicePresenceRegisteredRef.current;
+    const statusKey = options?.statusKey ?? "voice-chat-left";
+
+    if (sendLeavePacket && voicePresenceRegisteredRef.current) {
+      sendVoiceLeave();
+    }
+    voicePresenceRegisteredRef.current = false;
+    voiceJoinPendingRef.current = false;
+    voice.leave(false);
+    setVoiceRequestedContextId("");
+    setVoiceContext({
+      contextId: "",
+      scope: "table",
+    });
+    setVoiceMicEnabled(false);
+    setVoiceState("disconnected");
+    if (announceStatus) {
+      setVoiceStatusMessage(statusKey, true);
+    } else {
+      setVoiceStatusText(resolveVoiceStatusText(statusKey));
+    }
+  }, [resolveVoiceStatusText, sendVoiceLeave, setVoiceStatusMessage, voice]);
+
+  useEffect(() => {
+    voice.setCallbacks({
+      onConnected: () => {
+        voiceJoinPendingRef.current = false;
+        voicePresenceRegisteredRef.current = true;
+        sendVoicePresence("connected");
+      },
+      onDisconnect: () => {
+        voiceJoinPendingRef.current = false;
+        if (voicePresenceRegisteredRef.current) {
+          sendVoicePresence("connection_lost");
+          voicePresenceRegisteredRef.current = false;
+        }
+        setVoiceStatusMessage("voice-chat-connection-lost", true);
+      },
+      onMicState: (enabled) => {
+        setVoiceMicEnabled(enabled);
+      },
+      onState: (nextState) => {
+        setVoiceState(nextState);
+      },
+      onStatus: (messageKeyOrText, speak) => {
+        setVoiceStatusMessage(messageKeyOrText, speak);
+      },
+    });
+  }, [sendVoicePresence, setVoiceStatusMessage, voice]);
 
   const applyPreferenceUpdates = (updates: Record<string, unknown>) => {
     if (Object.keys(updates).length === 0) {
@@ -1153,6 +1389,7 @@ export function PlayAuralApp() {
   const exitApplication = () => {
     disableAutoReconnect();
     connectionRef.current?.disconnect();
+    voice.shutdown();
     audio.shutdown();
     tts.stop();
     if (Platform.OS === "android") {
@@ -1165,7 +1402,15 @@ export function PlayAuralApp() {
   };
 
   const resetToLoginScreen = useCallback((statusMessage: string, authMessage = statusMessage) => {
+    voice.shutdown();
     audio.shutdown();
+    setVoiceCapability({
+      enabled: false,
+      provider: "",
+      tokenTtlSeconds: 0,
+      url: "",
+    });
+    resetVoiceUiState();
     setConnected(false);
     setMode("main");
     setMenuState(defaultMenuState);
@@ -1177,11 +1422,12 @@ export function PlayAuralApp() {
     setAuthMode("login");
     setStatusText(statusMessage);
     setAuthStatusText(authMessage);
-  }, [audio]);
+  }, [audio, resetVoiceUiState, voice]);
 
   const handleTerminalSessionExit = useCallback((message: string, announceMessage = true) => {
     disableAutoReconnect();
     connectionRef.current?.disconnect();
+    voice.shutdown();
     audio.shutdown();
     tts.stop();
     if (announceMessage) {
@@ -1191,7 +1437,7 @@ export function PlayAuralApp() {
     if (Platform.OS === "android") {
       BackHandler.exitApp();
     }
-  }, [announce, audio, disableAutoReconnect, resetToLoginScreen, tts]);
+  }, [announce, audio, disableAutoReconnect, resetToLoginScreen, tts, voice]);
 
   const openDialog = useCallback((nextDialog: Omit<DialogState, "focusIndex">) => {
     setDialogState({
@@ -1271,6 +1517,11 @@ export function PlayAuralApp() {
   if (!connectionRef.current) {
     connectionRef.current = new PlayAuralConnection({
       onClose: (reason) => {
+        leaveVoiceChat({
+          announce: false,
+          sendLeave: false,
+          statusKey: "voice-chat-not-connected",
+        });
         setConnected(false);
         if (!allowReconnectRef.current || manualDisconnectRef.current || !sessionEstablishedRef.current) {
           if (reason) {
@@ -1316,6 +1567,13 @@ export function PlayAuralApp() {
           resetReconnectState();
           applyLocale(authPacket.locale);
           applyPreferenceUpdates(extractPreferenceUpdates(authPacket));
+          setVoiceCapability({
+            enabled: authPacket.voice?.enabled === true,
+            provider: String(authPacket.voice?.provider || ""),
+            tokenTtlSeconds: Number(authPacket.voice?.token_ttl_seconds || 0),
+            url: String(authPacket.voice?.url || ""),
+          });
+          resetVoiceUiState();
           setConnected(true);
           setAuthMode("login");
           setAuthStatusText("");
@@ -1334,6 +1592,11 @@ export function PlayAuralApp() {
         }
 
         if (packet.type === "clear_ui") {
+          leaveVoiceChat({
+            announce: false,
+            sendLeave: voicePresenceRegisteredRef.current,
+            statusKey: "voice-chat-not-connected",
+          });
           setMenuState(defaultMenuState);
           menuStateRef.current = defaultMenuState;
           setInputState(null);
@@ -1345,6 +1608,11 @@ export function PlayAuralApp() {
           const disconnectPacket = packet as DisconnectPacket;
           const shouldExitApplication = isTerminalExitReason(disconnectPacket.reason);
           const reason = localizeSystemMessage(disconnectPacket.reason, "status-disconnected");
+          leaveVoiceChat({
+            announce: false,
+            sendLeave: false,
+            statusKey: "voice-chat-not-connected",
+          });
           stopGameAudio(true);
           setConnected(false);
           if (disconnectPacket.reconnect) {
@@ -1371,6 +1639,11 @@ export function PlayAuralApp() {
         if (packet.type === "force_exit") {
           const forceExitPacket = packet as ForceExitPacket;
           const reason = localizeSystemMessage(forceExitPacket.reason, "logout-complete");
+          leaveVoiceChat({
+            announce: false,
+            sendLeave: false,
+            statusKey: "voice-chat-not-connected",
+          });
           handleTerminalSessionExit(reason);
           return;
         }
@@ -1380,6 +1653,11 @@ export function PlayAuralApp() {
           const reason = failurePacket.reason
             ? localizeServerMessage(failurePacket.reason, "auth-login-failed", undefined, "login")
             : localizeServerMessage(failurePacket.text, "auth-login-failed", undefined, "login");
+          leaveVoiceChat({
+            announce: false,
+            sendLeave: false,
+            statusKey: "voice-chat-not-connected",
+          });
           stopGameAudio(true);
           setConnected(false);
           disableAutoReconnect();
@@ -1437,6 +1715,11 @@ export function PlayAuralApp() {
           setInputOverlayFocus(0);
           setInputValue(inputPacket.default_value || "");
           announceInterfaceFeedback(localization.t("input-opened"));
+          if (Platform.OS !== "web") {
+            requestAnimationFrame(() => {
+              inputOverlayInputRef.current?.focus();
+            });
+          }
           return;
         }
 
@@ -1464,6 +1747,98 @@ export function PlayAuralApp() {
             setLastPingStartedAt(null);
             announceInterfaceFeedback(localization.t("shortcut-ping-result", { value: elapsed }));
           }
+          return;
+        }
+
+        if (packet.type === "table_context") {
+          const contextPacket = packet as TableContextPacket;
+          const contextId = String(contextPacket.table_id || "");
+          const previousContextId = voiceContextRef.current.contextId;
+          if (
+            previousContextId &&
+            contextId !== previousContextId &&
+            (voicePresenceRegisteredRef.current ||
+              voiceJoinPendingRef.current ||
+              voiceStateRef.current === "connected" ||
+              voiceStateRef.current === "connecting")
+          ) {
+            leaveVoiceChat({
+              announce: false,
+              sendLeave: voicePresenceRegisteredRef.current,
+              statusKey: "voice-chat-left-table",
+            });
+          }
+          setVoiceContext({
+            contextId,
+            scope: "table",
+          });
+          return;
+        }
+
+        if (packet.type === "voice_join_info") {
+          const voicePacket = packet as VoiceJoinInfoPacket;
+          const packetContextId = String(voicePacket.context_id || "");
+          if (!voiceJoinPendingRef.current) {
+            return;
+          }
+          if (!packetContextId || packetContextId !== voiceRequestedContextIdRef.current) {
+            return;
+          }
+          voiceJoinPendingRef.current = false;
+          setVoiceContext({
+            contextId: packetContextId,
+            scope: "table",
+          });
+          setVoiceRequestedContextId("");
+          voice.join(voicePacket);
+          return;
+        }
+
+        if (packet.type === "voice_join_error") {
+          const voiceErrorPacket = packet as VoiceJoinErrorPacket;
+          const packetContextId = String(voiceErrorPacket.context_id || "");
+          if (!voiceJoinPendingRef.current) {
+            return;
+          }
+          if (
+            voiceRequestedContextIdRef.current &&
+            packetContextId &&
+            packetContextId !== voiceRequestedContextIdRef.current
+          ) {
+            return;
+          }
+          voiceJoinPendingRef.current = false;
+          setVoiceRequestedContextId("");
+          setVoiceState("disconnected");
+          setVoiceMicEnabled(false);
+          setVoiceStatusMessage(
+            voiceErrorPacket.key || voiceErrorPacket.text || "voice-chat-unavailable",
+            true,
+            voiceErrorPacket.params,
+          );
+          return;
+        }
+
+        if (packet.type === "voice_leave_ack") {
+          setVoiceRequestedContextId("");
+          return;
+        }
+
+        if (packet.type === "voice_context_closed") {
+          const closedPacket = packet as VoiceContextClosedPacket;
+          const closedContextId = String(closedPacket.context_id || "");
+          if (
+            closedContextId &&
+            closedContextId !== voiceContextRef.current.contextId &&
+            closedContextId !== voiceRequestedContextIdRef.current
+          ) {
+            return;
+          }
+          leaveVoiceChat({
+            announce: false,
+            sendLeave: false,
+            statusKey: "voice-chat-left-table",
+          });
           return;
         }
 
@@ -1557,6 +1932,12 @@ export function PlayAuralApp() {
     }
   }, [connected, localization, statusText]);
 
+  useEffect(() => {
+    if (voiceState === "disconnected" && !voiceStatusText) {
+      setVoiceStatusText(localization.t("voice-chat-not-connected"));
+    }
+  }, [localization, voiceState, voiceStatusText]);
+
   const connection = connectionRef.current;
   const historyMessages = buffers.getMessages("all").reverse();
   const chatMessages = buffers.getMessages("chat").reverse();
@@ -1566,6 +1947,22 @@ export function PlayAuralApp() {
   const chatFocusItems: ChatFocusItem[] = [
     { kind: "input", text: localization.t("chat-input-focus") },
     { kind: "send", text: localization.t("chat-send-button") },
+    voiceState === "connected"
+      ? { kind: "voiceLeave", text: localization.t("voice-chat-leave") }
+      : {
+          kind: "voiceJoin",
+          text: voiceState === "connecting"
+            ? localization.t("voice-chat-joining")
+            : localization.t("voice-chat-join"),
+        },
+    ...(voiceState === "connected"
+      ? [{
+          kind: "voiceMic" as const,
+          text: localization.t(
+            voiceMicEnabled ? "voice-chat-turn-off-mic" : "voice-chat-turn-on-mic",
+          ),
+        }]
+      : []),
     { kind: "close", text: localization.t("chat-close-button") },
     ...chatMessages.map((message) => ({
       kind: "message" as const,
@@ -1573,6 +1970,13 @@ export function PlayAuralApp() {
     })),
   ];
   const focusedChatItem = chatFocusItems[chatFocusIndex] ?? null;
+  const sendChatFocusIndex = chatFocusItems.findIndex((item) => item.kind === "send");
+  const voiceJoinChatFocusIndex = chatFocusItems.findIndex((item) => item.kind === "voiceJoin");
+  const voiceLeaveChatFocusIndex = chatFocusItems.findIndex((item) => item.kind === "voiceLeave");
+  const voiceMicChatFocusIndex = chatFocusItems.findIndex((item) => item.kind === "voiceMic");
+  const closeChatFocusIndex = chatFocusItems.findIndex((item) => item.kind === "close");
+  const firstChatMessageFocusIndex = chatFocusItems.findIndex((item) => item.kind === "message");
+  const chatMessageFocusOffset = firstChatMessageFocusIndex >= 0 ? firstChatMessageFocusIndex : chatFocusItems.length;
   const inputOverlayButtonText = localization.t(inputState?.readOnly ? "input-close-button" : "input-submit-button");
   const focusedInputOverlayText =
     inputState === null ? null : inputOverlayFocus === 0 ? inputState.prompt : inputOverlayButtonText;
@@ -1840,11 +2244,20 @@ export function PlayAuralApp() {
       if (focusedChatItem?.kind === "send") {
         return "chat:send";
       }
+      if (focusedChatItem?.kind === "voiceJoin") {
+        return "chat:voiceJoin";
+      }
+      if (focusedChatItem?.kind === "voiceLeave") {
+        return "chat:voiceLeave";
+      }
+      if (focusedChatItem?.kind === "voiceMic") {
+        return "chat:voiceMic";
+      }
       if (focusedChatItem?.kind === "close") {
         return "chat:close";
       }
-      if (focusedChatItem?.kind === "message") {
-        return `chat:message:${chatFocusIndex - 3}`;
+      if (focusedChatItem?.kind === "message" && firstChatMessageFocusIndex >= 0) {
+        return `chat:message:${chatFocusIndex - firstChatMessageFocusIndex}`;
       }
     }
     return null;
@@ -1852,6 +2265,7 @@ export function PlayAuralApp() {
     chatFocusIndex,
     connected,
     dialogState,
+    firstChatMessageFocusIndex,
     focusedAuthItem,
     focusedChatItem,
     focusedDialogButton,
@@ -2332,6 +2746,12 @@ export function PlayAuralApp() {
         chatInputRef.current?.focus();
       } else if (focusedChatItem?.kind === "send") {
         submitChat();
+      } else if (focusedChatItem?.kind === "voiceJoin") {
+        joinVoiceChat();
+      } else if (focusedChatItem?.kind === "voiceLeave") {
+        leaveVoiceChat();
+      } else if (focusedChatItem?.kind === "voiceMic") {
+        void toggleVoiceMicrophone();
       } else if (focusedChatItem?.kind === "close") {
         closeOverlay();
       } else if (focusedChatItem?.kind === "message") {
@@ -2728,7 +3148,6 @@ export function PlayAuralApp() {
 
   const handleStopSpeech = () => {
     tts.stop();
-    announceInterfaceFeedback(localization.t("gesture-stop-tts"));
   };
 
   useEffect(() => {
@@ -3014,6 +3433,53 @@ export function PlayAuralApp() {
     setChatDraft("");
   };
 
+  const joinVoiceChat = useCallback(() => {
+    if (voiceState === "connected" || voiceState === "connecting") {
+      return;
+    }
+    if (!connected) {
+      setVoiceStatusMessage("status-disconnected", true);
+      return;
+    }
+    if (!voiceCapability.enabled) {
+      setVoiceStatusMessage("voice-chat-unavailable", true);
+      return;
+    }
+    const contextId = voiceContextRef.current.contextId;
+    if (!contextId) {
+      setVoiceStatusMessage("voice-not-at-table", true);
+      return;
+    }
+    if (!voice.supported) {
+      setVoiceStatusMessage("voice-chat-sdk-missing", true);
+      return;
+    }
+    voiceJoinPendingRef.current = true;
+    setVoiceRequestedContextId(contextId);
+    setVoiceState("connecting");
+    setVoiceStatusMessage("voice-chat-joining", true);
+    connection?.send({
+      context_id: contextId,
+      scope: "table",
+      type: "voice_join",
+    });
+  }, [connected, connection, setVoiceStatusMessage, voice, voiceCapability.enabled, voiceState]);
+
+  const toggleVoiceMicrophone = useCallback(async () => {
+    if (voiceState !== "connected") {
+      setVoiceStatusMessage("voice-chat-not-connected", true);
+      return;
+    }
+    if (!voiceMicEnabled) {
+      const granted = await ensureVoiceMicrophonePermission(true);
+      if (!granted) {
+        setVoiceStatusMessage("voice-chat-mic-denied", true);
+        return;
+      }
+    }
+    voice.setMicrophoneEnabled(!voiceMicEnabled);
+  }, [ensureVoiceMicrophonePermission, setVoiceStatusMessage, voice, voiceMicEnabled, voiceState]);
+
   const requestAuthFlow = async (
     packet: Record<string, unknown>,
     expectedType: "register_response" | "request_password_reset_response" | "submit_reset_code_response",
@@ -3236,44 +3702,146 @@ export function PlayAuralApp() {
           value={chatDraft}
         />
       </View>
-      <Pressable
-        accessibilityLabel={localization.t("chat-send-button")}
-        accessibilityRole="button"
+      <View style={styles.row}>
+        <Pressable
+          accessibilityLabel={localization.t("chat-send-button")}
+          accessibilityRole="button"
+          accessible
+          onPress={() => {
+            void audio.handleUserInteraction();
+            submitChat();
+          }}
+          onFocus={() => {
+            if (sendChatFocusIndex >= 0) {
+              setChatFocusIndex(sendChatFocusIndex);
+            }
+          }}
+          ref={registerAccessibilityNode("chat:send")}
+          style={[
+            styles.button,
+            styles.chatActionButton,
+            chatFocusIndex === sendChatFocusIndex ? styles.menuItemFocused : undefined,
+          ]}
+        >
+          <Text style={styles.buttonText}>{localization.t("chat-send-button")}</Text>
+        </Pressable>
+        {voiceState === "connected" ? (
+          <Pressable
+            accessibilityLabel={localization.t("voice-chat-leave")}
+            accessibilityRole="button"
+            accessible
+            onPress={() => {
+              void audio.handleUserInteraction();
+              leaveVoiceChat();
+            }}
+            onFocus={() => {
+              if (voiceLeaveChatFocusIndex >= 0) {
+                setChatFocusIndex(voiceLeaveChatFocusIndex);
+              }
+            }}
+            ref={registerAccessibilityNode("chat:voiceLeave")}
+            style={[
+              styles.buttonSecondary,
+              styles.chatActionButton,
+              chatFocusIndex === voiceLeaveChatFocusIndex ? styles.menuItemFocused : undefined,
+            ]}
+          >
+            <Text style={styles.buttonText}>{localization.t("voice-chat-leave")}</Text>
+          </Pressable>
+        ) : (
+          <Pressable
+            accessibilityLabel={
+              voiceState === "connecting"
+                ? localization.t("voice-chat-joining")
+                : localization.t("voice-chat-join")
+            }
+            accessibilityRole="button"
+            accessibilityState={{ disabled: voiceState === "connecting" }}
+            accessible
+            disabled={voiceState === "connecting"}
+            onPress={() => {
+              void audio.handleUserInteraction();
+              joinVoiceChat();
+            }}
+            onFocus={() => {
+              if (voiceJoinChatFocusIndex >= 0) {
+                setChatFocusIndex(voiceJoinChatFocusIndex);
+              }
+            }}
+            ref={registerAccessibilityNode("chat:voiceJoin")}
+            style={[
+              styles.buttonSecondary,
+              styles.chatActionButton,
+              chatFocusIndex === voiceJoinChatFocusIndex ? styles.menuItemFocused : undefined,
+              voiceState === "connecting" ? styles.buttonDisabled : undefined,
+            ]}
+          >
+            <Text style={styles.buttonText}>
+              {voiceState === "connecting"
+                ? localization.t("voice-chat-joining")
+                : localization.t("voice-chat-join")}
+            </Text>
+          </Pressable>
+        )}
+        {voiceState === "connected" ? (
+          <Pressable
+            accessibilityLabel={localization.t(
+              voiceMicEnabled ? "voice-chat-turn-off-mic" : "voice-chat-turn-on-mic",
+            )}
+            accessibilityRole="button"
+            accessibilityState={{ selected: voiceMicEnabled }}
+            accessible
+            onPress={() => {
+              void audio.handleUserInteraction();
+              void toggleVoiceMicrophone();
+            }}
+            onFocus={() => {
+              if (voiceMicChatFocusIndex >= 0) {
+                setChatFocusIndex(voiceMicChatFocusIndex);
+              }
+            }}
+            ref={registerAccessibilityNode("chat:voiceMic")}
+            style={[
+              styles.buttonSecondary,
+              styles.chatActionButton,
+              chatFocusIndex === voiceMicChatFocusIndex ? styles.menuItemFocused : undefined,
+            ]}
+          >
+            <Text style={styles.buttonText}>
+              {localization.t(voiceMicEnabled ? "voice-chat-turn-off-mic" : "voice-chat-turn-on-mic")}
+            </Text>
+          </Pressable>
+        ) : null}
+        <Pressable
+          accessibilityLabel={localization.t("chat-close-button")}
+          accessibilityRole="button"
+          accessible
+          onPress={() => {
+            void audio.handleUserInteraction();
+            closeOverlay();
+          }}
+          onFocus={() => {
+            if (closeChatFocusIndex >= 0) {
+              setChatFocusIndex(closeChatFocusIndex);
+            }
+          }}
+          ref={registerAccessibilityNode("chat:close")}
+          style={[
+            styles.buttonSecondary,
+            styles.chatActionButton,
+            chatFocusIndex === closeChatFocusIndex ? styles.menuItemFocused : undefined,
+          ]}
+        >
+          <Text style={styles.buttonText}>{localization.t("chat-close-button")}</Text>
+        </Pressable>
+      </View>
+      <Text
+        accessibilityLabel={voiceStatusText || localization.t("voice-chat-not-connected")}
         accessible
-        onPress={() => {
-          void audio.handleUserInteraction();
-          submitChat();
-        }}
-        onFocus={() => {
-          setChatFocusIndex(1);
-        }}
-        ref={registerAccessibilityNode("chat:send")}
-        style={[
-          styles.button,
-          chatFocusIndex === 1 ? styles.menuItemFocused : undefined,
-        ]}
+        style={styles.helpText}
       >
-        <Text style={styles.buttonText}>{localization.t("chat-send-button")}</Text>
-      </Pressable>
-      <Pressable
-        accessibilityLabel={localization.t("chat-close-button")}
-        accessibilityRole="button"
-        accessible
-        onPress={() => {
-          void audio.handleUserInteraction();
-          closeOverlay();
-        }}
-        onFocus={() => {
-          setChatFocusIndex(2);
-        }}
-        ref={registerAccessibilityNode("chat:close")}
-        style={[
-          styles.buttonSecondary,
-          chatFocusIndex === 2 ? styles.menuItemFocused : undefined,
-        ]}
-      >
-        <Text style={styles.buttonText}>{localization.t("chat-close-button")}</Text>
-      </Pressable>
+        {voiceStatusText || localization.t("voice-chat-not-connected")}
+      </Text>
       <ScrollView style={styles.scrollArea}>
         {chatMessages.map((item, index) => (
           <Pressable
@@ -3282,16 +3850,16 @@ export function PlayAuralApp() {
             accessible
             key={`chat-${item.timestamp}-${index}`}
             onFocus={() => {
-              setChatFocusIndex(index + 3);
+              setChatFocusIndex(chatMessageFocusOffset + index);
             }}
             onPress={() => {
-              setChatFocusIndex(index + 3);
+              setChatFocusIndex(chatMessageFocusOffset + index);
               speakUserFocus(item.text);
             }}
             ref={registerAccessibilityNode(`chat:message:${index}`)}
             style={[
               styles.menuItem,
-              chatFocusIndex === index + 3 ? styles.menuItemFocused : undefined,
+              chatFocusIndex === chatMessageFocusOffset + index ? styles.menuItemFocused : undefined,
             ]}
           >
             <Text style={styles.historyText}>{item.text}</Text>
@@ -4134,6 +4702,7 @@ const styles = StyleSheet.create({
   },
   row: {
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: 10,
   },
   button: {
@@ -4141,6 +4710,12 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 12,
+  },
+  chatActionButton: {
+    flexShrink: 1,
+  },
+  buttonDisabled: {
+    opacity: 0.55,
   },
   buttonSecondary: {
     backgroundColor: "#32414d",

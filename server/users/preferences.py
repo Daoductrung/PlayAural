@@ -29,6 +29,8 @@ class UserPreferences:
     # Audio preferences
     music_volume: int = 20
     ambience_volume: int = 20
+    desktop_audio_input_device_id: str = ""
+    desktop_audio_input_device_name: str = ""
 
     # Web speech preferences
     speech_mode: str = "aria"  # "aria" or "web_speech"
@@ -64,6 +66,8 @@ class UserPreferences:
             "play_turn_sound": self.play_turn_sound,
             "music_volume": self.music_volume,
             "ambience_volume": self.ambience_volume,
+            "desktop_audio_input_device_id": self.desktop_audio_input_device_id,
+            "desktop_audio_input_device_name": self.desktop_audio_input_device_name,
             "speech_mode": self.speech_mode,
             "speech_rate": self.speech_rate,
             "speech_voice": self.speech_voice,
@@ -89,6 +93,10 @@ class UserPreferences:
             play_turn_sound=data.get("play_turn_sound", True),
             music_volume=data.get("music_volume", 20),
             ambience_volume=data.get("ambience_volume", 20),
+            desktop_audio_input_device_id=data.get("desktop_audio_input_device_id", ""),
+            desktop_audio_input_device_name=data.get(
+                "desktop_audio_input_device_name", ""
+            ),
             speech_mode=data.get("speech_mode", "aria"),
             speech_rate=data.get("speech_rate", 100),
             speech_voice=data.get("speech_voice", ""),

@@ -295,3 +295,11 @@ class NetworkUser(User):
         self._current_menus.clear()
         self._current_editboxes.clear()
         self._queue_packet({"type": "clear_ui"})
+
+    def set_table_context(self, table_id: str) -> None:
+        self._queue_packet(
+            {
+                "type": "table_context",
+                "table_id": table_id,
+            }
+        )

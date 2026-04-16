@@ -10,6 +10,8 @@ PlayAural is an audio-first multiplayer online gaming platform with four first-p
 - **`web_client/`** — Vanilla JS PWA web client with ARIA support and browser-based audio/TTS
 - **`mobile_client/`** — Expo / React Native / TypeScript mobile client with self-voicing gesture navigation
 
+PlayAural also supports table-scoped real-time voice chat. The game server authorizes access and tracks voice membership, while a separate LiveKit-based media service carries the actual audio stream.
+
 The project is open source under the **GNU GENERAL PUBLIC LICENSE**. See [LICENSE](LICENSE).
 
 ## Commands
@@ -73,19 +75,32 @@ Important server-driven packets include:
 - `stop_ambience`
 - `chat`
 - `disconnect`
+- `table_context`
+- `voice_join_info`
+- `voice_join_error`
+- `voice_leave_ack`
+- `voice_context_closed`
 
-**`silent` flag on `chat` packets**: Adding `"silent": True` suppresses both chat notification sounds and TTS in desktop and web clients. Use it only when the server is also sending explicit `speak` and/or `play_sound` packets to control the audio output precisely.
+**`silent` flag on `chat` packets**: Adding `"silent": True` suppresses both chat notification sounds and TTS in the first-party clients. Use it only when the server is also sending explicit `speak` and/or `play_sound` packets to control the audio output precisely.
 
 ### Server Architecture
 - **`server/core/server.py`** — Main orchestrator, auth routing, menus, reconnect, moderation, MOTD, presence
 - **`server/network/websocket_server.py`** — Async WebSocket transport
-- **`server/games/`** — 32 registered game implementations
+- **`server/games/`** — 33 registered game implementations
 - **`server/game_utils/`** — shared game mixins and helpers
 - **`server/tables/`** — table lifecycle, save/restore, membership
 - **`server/auth/`** — authentication, CAPTCHA checks, password reset, rate limiting
 - **`server/persistence/database.py`** — SQLite storage for users, leaderboards, ratings, friends, MOTD, and related state
 - **`server/messages/`** — runtime localization engine
 - **`server/locales/`** — Fluent locale files
+- **`server/voice/`** — voice authorization, token generation, and provider integration
+
+### Voice Chat Architecture
+- Voice chat is scoped to a server-defined context, currently game tables.
+- The PlayAural game server remains the authority for whether a user may join a voice context.
+- The media path is separate from gameplay networking. Gameplay continues over the normal WebSocket connection; live audio flows through the dedicated LiveKit service.
+- The server issues short-lived join packets, binds voice access to the caller's current table context, and closes that voice context when table membership ends.
+- Voice presence is runtime-only state. It is tied to the active table lifecycle and must not create long-lived database rows unless a future feature defines retention and cleanup rules explicitly.
 
 ### Game Implementation Pattern
 Games use a mixin-based architecture. Each game class inherits from `Game`, which brings the standard shared mixins plus `SequenceRunnerMixin`.
@@ -242,6 +257,7 @@ Any new persistent feature must define:
 - **`client/ui/main_window.py`** — primary desktop UI and gameplay interaction
 - **`client/network_manager.py`** — WebSocket client and packet dispatch
 - **`client/sound_manager.py`** — sound, music, ambience playback
+- **`client/voice_manager.py`** — LiveKit voice lifecycle, microphone publishing, and disconnect cleanup
 - **`client/config_manager.py`** — identities, client options, keyring-backed credentials
 - **`client/localization.py`** — Fluent runtime localization
 - **`client/ssl_utils.py`** — SSL context factory
@@ -251,6 +267,8 @@ Desktop rules:
 - client config lives in `identities.json`
 - auto-login disables itself on permanent credential failures
 - always pass `client_version=VERSION` on every `network.connect()` path
+- the desktop voice client runs on its own asyncio loop and must await disconnect/cleanup paths fully
+- the saved audio input device is desktop-only state; if a saved microphone is missing on the current machine, the client must fall back to the system default input device
 
 ### Web Client Architecture
 - **`web_client/game.js`** — main web client runtime
@@ -262,6 +280,7 @@ Web rules:
 - remember-me password storage is opt-in and controlled by `pa_remember`
 - TTS and reconnect cleanup must be complete on disconnect
 - current client version is tracked in `web_client/game.js`
+- table voice chat lives in the Chat area and must keep browser permission handling, ARIA announcements, and voice cleanup in sync with table lifecycle packets
 
 ### Mobile Client Architecture
 - **`mobile_client/src/app/PlayAuralApp.tsx`** — main app shell, auth flow, overlays, focus state
@@ -288,13 +307,13 @@ Mobile rules:
 - unavailable synced mobile voices or engines must fall back to the system default without throwing
 
 ### Game Counts and Catalog
-The server currently registers **32 games**:
+The server currently registers **33 games**:
 - card games, dice games, board/adventure games, and social games
 - recent additions include `Bunko`, `Tien Len`, and `Color Game`
 
 ### Key Tech Stack
 - Python 3.11, `asyncio`, `websockets>=12.0`, `mashumaro`, `fluent-compiler`, `openskill`, `argon2-cffi`
-- Desktop: `wxPython`, `accessible-output2`, `sound-lib`, `keyring`
+- Desktop: `wxPython`, `accessible-output2`, `sound-lib`, `keyring`, `livekit`, `sounddevice`
 - Mobile: `expo`, `react-native`, `expo-audio`, `expo-speech`, `@react-native-async-storage/async-storage`, `expo-secure-store`
 - Package manager: `uv` for Python components, `npm` for the mobile client
 - Languages: English and Vietnamese

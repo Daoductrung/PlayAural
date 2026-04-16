@@ -22,6 +22,7 @@ from network_manager import NetworkManager
 from buffer_system import BufferSystem
 from config_manager import set_item_in_dict
 from localization import Localization
+from voice_manager import VoiceManager, list_audio_input_devices, resolve_audio_input_device
 
 VERSION = "1.0.3.2"
 
@@ -73,6 +74,21 @@ class MainWindow(wx.Frame):
         self.disconnect_reason = None  # Track reason for disconnection
         self._reconnect_delay = 1  # seconds; doubles on each miss, capped at 10
         self._ping_start_time = None  # set by on_ping, cleared by on_server_pong
+        self.voice_capability = {"enabled": False, "provider": "", "url": ""}
+        self.current_table_context_id = ""
+        self.voice_requested_context_id = ""
+        self.voice_context = {"scope": "table", "context_id": ""}
+        self.voice_state = "disconnected"
+        self.voice_mic_enabled = False
+        self.voice_mic_toggle_pending = None
+        self.voice_presence_registered = False
+        self.voice_manager = VoiceManager(
+            on_status=lambda key, speak: wx.CallAfter(self.on_voice_status, key, speak),
+            on_state=lambda state: wx.CallAfter(self.on_voice_state_change, state),
+            on_mic_state=lambda enabled: wx.CallAfter(self.on_voice_mic_state_change, enabled),
+            on_disconnect=lambda reason: wx.CallAfter(self.on_voice_transport_disconnect, reason),
+        )
+        self.available_audio_input_devices = []
 
         # Store user's options
         # Client-side options (from config file, per-server)
@@ -116,6 +132,7 @@ class MainWindow(wx.Frame):
         self._create_ui()
         self._setup_accelerators()
         self._populate_test_data()
+        self.Bind(wx.EVT_CLOSE, self.on_close)
 
         # Language codes map
         self.lang_codes = {"en": "English", "vi": "Vietnamese", "es": "Spanish"}
@@ -132,6 +149,99 @@ class MainWindow(wx.Frame):
 
             self.sound_manager.set_music_volume(music_volume)
             self.sound_manager.set_ambience_volume(ambience_volume)
+
+    def _get_audio_input_device_preferences(self):
+        audio = self.client_options.get("audio", {})
+        return (
+            str(audio.get("input_device_id", "") or "").strip(),
+            str(audio.get("input_device_name", "") or "").strip(),
+        )
+
+    def _set_audio_input_device_preferences(
+        self, device_id, device_name, *, sync_server=False
+    ):
+        current_id, current_name = self._get_audio_input_device_preferences()
+        normalized_id = str(device_id or "").strip()
+        normalized_name = str(device_name or "").strip()
+        if current_id == normalized_id and current_name == normalized_name:
+            return
+        if self.config_manager:
+            self.config_manager.set_client_option(
+                "audio/input_device_id", normalized_id, create_mode=True
+            )
+            self.config_manager.set_client_option(
+                "audio/input_device_name", normalized_name, create_mode=True
+            )
+        set_item_in_dict(
+            self.client_options, "audio/input_device_id", normalized_id, create_mode=True
+        )
+        set_item_in_dict(
+            self.client_options, "audio/input_device_name", normalized_name, create_mode=True
+        )
+        if sync_server and self.connected:
+            if current_id != normalized_id:
+                self.network.send_packet(
+                    {
+                        "type": "set_preference",
+                        "key": "audio/input_device_id",
+                        "value": normalized_id,
+                    }
+                )
+            if current_name != normalized_name:
+                self.network.send_packet(
+                    {
+                        "type": "set_preference",
+                        "key": "audio/input_device_name",
+                        "value": normalized_name,
+                    }
+                )
+
+    def _send_audio_input_devices_to_server(self):
+        if not self.connected:
+            return
+        self.network.send_packet(
+            {
+                "type": "audio_input_devices",
+                "devices": [
+                    {"id": device["id"], "name": device["name"]}
+                    for device in self.available_audio_input_devices
+                ],
+            }
+        )
+
+    def _refresh_audio_input_devices(self, *, sync_server=False):
+        self.available_audio_input_devices = list_audio_input_devices()
+        current_id, current_name = self._get_audio_input_device_preferences()
+        if current_id:
+            device_index, resolved_id, resolved_name, found = resolve_audio_input_device(
+                current_id
+            )
+            if found:
+                if current_name != resolved_name:
+                    self._set_audio_input_device_preferences(
+                        resolved_id, resolved_name, sync_server=sync_server
+                    )
+            else:
+                self._set_audio_input_device_preferences("", "", sync_server=sync_server)
+        elif current_name:
+            self._set_audio_input_device_preferences("", "", sync_server=sync_server)
+        if sync_server:
+            self._send_audio_input_devices_to_server()
+
+    def _get_selected_audio_input_device_index(self):
+        current_id, _ = self._get_audio_input_device_preferences()
+        device_index, resolved_id, resolved_name, found = resolve_audio_input_device(
+            current_id
+        )
+        if not found:
+            if current_id:
+                self._set_audio_input_device_preferences("", "", sync_server=self.connected)
+            return None
+        if current_id and resolved_id:
+            self._set_audio_input_device_preferences(
+                resolved_id, resolved_name, sync_server=self.connected
+            )
+        return device_index
 
     def _create_ui(self):
         """Create the UI components (audio-only, no visual layout)."""
@@ -178,6 +288,22 @@ class MainWindow(wx.Frame):
         self.chat_input = wx.TextCtrl(panel, size=(0, 0), style=wx.TE_PROCESS_ENTER)
         self.chat_input.Bind(wx.EVT_TEXT_ENTER, self.on_chat_enter)
 
+        self.voice_label = wx.StaticText(panel, label=Localization.get("main-voice-label"))
+        self.voice_join_button = wx.Button(
+            panel, label=Localization.get("voice-chat-join"), size=(0, 0)
+        )
+        self.voice_leave_button = wx.Button(
+            panel, label=Localization.get("voice-chat-leave"), size=(0, 0)
+        )
+        self.voice_mic_button = wx.Button(
+            panel, label=Localization.get("voice-chat-turn-on-mic"), size=(0, 0)
+        )
+        self.voice_join_button.Bind(wx.EVT_BUTTON, self.on_voice_join_button)
+        self.voice_leave_button.Bind(wx.EVT_BUTTON, self.on_voice_leave_button)
+        self.voice_mic_button.Bind(wx.EVT_BUTTON, self.on_voice_mic_button)
+        self.voice_leave_button.Hide()
+        self.voice_mic_button.Hide()
+
         # History text - not visible, just exists for data storage
         # No word wrap for better screen reader accessibility
         wx.StaticText(panel, label=Localization.get("main-history-label"))
@@ -192,6 +318,7 @@ class MainWindow(wx.Frame):
         # Create unique IDs for each accelerator
         self.ID_FOCUS_MENU = wx.NewIdRef()
         self.ID_FOCUS_CHAT = wx.NewIdRef()
+        self.ID_FOCUS_VOICE = wx.NewIdRef()
         self.ID_FOCUS_HISTORY = wx.NewIdRef()        
         self.ID_VOLUME_DOWN = wx.NewIdRef()
         self.ID_VOLUME_UP = wx.NewIdRef()
@@ -220,6 +347,7 @@ class MainWindow(wx.Frame):
         common_entries = [
             wx.AcceleratorEntry(wx.ACCEL_ALT, ord("M"), self.ID_FOCUS_MENU),
             wx.AcceleratorEntry(wx.ACCEL_ALT, ord("C"), self.ID_FOCUS_CHAT),
+            wx.AcceleratorEntry(wx.ACCEL_ALT, ord("V"), self.ID_FOCUS_VOICE),
             wx.AcceleratorEntry(wx.ACCEL_ALT, ord("H"), self.ID_FOCUS_HISTORY),
             wx.AcceleratorEntry(wx.ACCEL_NORMAL, wx.WXK_F6, self.ID_TOGGLE_TABLE_CHAT),
             wx.AcceleratorEntry(wx.ACCEL_SHIFT, wx.WXK_F6, self.ID_TOGGLE_GLOBAL_CHAT),
@@ -264,6 +392,7 @@ class MainWindow(wx.Frame):
         # Bind the accelerator events
         self.Bind(wx.EVT_MENU, self.on_focus_menu, id=self.ID_FOCUS_MENU)
         self.Bind(wx.EVT_MENU, self.on_focus_chat, id=self.ID_FOCUS_CHAT)
+        self.Bind(wx.EVT_MENU, self.on_focus_voice, id=self.ID_FOCUS_VOICE)
         self.Bind(wx.EVT_MENU, self.on_focus_history, id=self.ID_FOCUS_HISTORY)
         self.Bind(wx.EVT_MENU, self.on_toggle_table_chat, id=self.ID_TOGGLE_TABLE_CHAT)
         self.Bind(
@@ -303,6 +432,14 @@ class MainWindow(wx.Frame):
         # History starts empty - first message will be "Connecting..."
         pass
 
+    def on_close(self, event):
+        """Clean up background voice resources before the frame closes."""
+        try:
+            self.voice_manager.shutdown()
+        except Exception:
+            pass
+        event.Skip()
+
     def on_focus_menu(self, event):
         """Handle Alt+M shortcut to focus menu list."""
         self.menu_list.SetFocus()
@@ -310,6 +447,258 @@ class MainWindow(wx.Frame):
     def on_focus_chat(self, event):
         """Handle Alt+C shortcut to focus chat input."""
         self.chat_input.SetFocus()
+
+    def on_focus_voice(self, event):
+        """Handle Alt+V shortcut to focus voice chat controls."""
+        self._focus_voice_control()
+
+    def _focus_voice_control(self):
+        if self.voice_state == "connected":
+            self.voice_leave_button.SetFocus()
+        else:
+            self.voice_join_button.SetFocus()
+
+    def update_voice_ui(self):
+        """Update visible Voice Chat controls for the current connection state."""
+        connected = self.voice_state == "connected"
+        connecting = self.voice_state == "connecting"
+        mic_busy = self.voice_mic_toggle_pending is not None
+        focused = wx.Window.FindFocus()
+        restore_voice_focus = focused in {
+            self.voice_join_button,
+            self.voice_leave_button,
+            self.voice_mic_button,
+        }
+        self.voice_label.SetLabel(Localization.get("main-voice-label"))
+        self.voice_join_button.SetLabel(
+            Localization.get("voice-chat-joining")
+            if connecting
+            else Localization.get("voice-chat-join")
+        )
+        self.voice_join_button.Enable(not connected)
+        self.voice_join_button.Show(not connected)
+        self.voice_leave_button.SetLabel(Localization.get("voice-chat-leave"))
+        self.voice_leave_button.Enable(connected)
+        self.voice_leave_button.Show(connected)
+        self.voice_mic_button.SetLabel(
+            Localization.get("voice-chat-turn-off-mic")
+            if self.voice_mic_enabled
+            else Localization.get("voice-chat-turn-on-mic")
+        )
+        self.voice_mic_button.Enable(connected and not mic_busy)
+        self.voice_mic_button.Show(connected)
+        self.Layout()
+        if restore_voice_focus:
+            wx.CallAfter(self._focus_voice_control)
+
+    def on_voice_join_button(self, event):
+        """Request a server-authorized Voice Chat session."""
+        if self.voice_state == "connecting":
+            return
+        if not self.connected:
+            self.on_voice_status("main-disconnected", True)
+            return
+        if not self.voice_manager.supported:
+            self.on_voice_status("voice-chat-sdk-missing", True)
+            return
+        if not self.voice_capability.get("enabled"):
+            self.on_voice_status("voice-chat-unavailable", True)
+            return
+        if not self.current_table_context_id:
+            self.on_voice_status("voice-not-at-table", True)
+            return
+        self.voice_state = "connecting"
+        self.voice_mic_enabled = False
+        self.voice_requested_context_id = self.current_table_context_id
+        self.update_voice_ui()
+        self.on_voice_status("voice-chat-joining", True)
+        if not self.network.send_packet(
+            {
+                "type": "voice_join",
+                "scope": "table",
+                "context_id": self.voice_requested_context_id,
+            }
+        ):
+            self.voice_state = "disconnected"
+            self.voice_requested_context_id = ""
+            self.update_voice_ui()
+            self.on_voice_status("main-disconnected", True)
+
+    def on_voice_leave_button(self, event):
+        """Leave the active Voice Chat session."""
+        if self.voice_state != "connected":
+            self.on_voice_status("voice-chat-not-connected", True)
+            return
+        self.cleanup_voice_chat(send_leave=True, announce=True)
+
+    def on_voice_mic_button(self, event):
+        """Toggle microphone publishing for the active Voice Chat session."""
+        if self.voice_state != "connected":
+            self.on_voice_status("voice-chat-not-connected", True)
+            return
+        if self.voice_mic_toggle_pending is not None:
+            return
+        target_state = not self.voice_mic_enabled
+        input_device = None
+        if target_state:
+            input_device = self._get_selected_audio_input_device_index()
+        self.voice_mic_toggle_pending = target_state
+        self.voice_manager.set_microphone_enabled(
+            target_state, input_device=input_device
+        )
+
+    def on_voice_join_info(self, packet):
+        """Handle server-issued Voice Chat connection details."""
+        if self.voice_state != "connecting":
+            return
+        if (
+            self.voice_requested_context_id
+            and packet.get("context_id", "") != self.voice_requested_context_id
+        ):
+            return
+        self.voice_context = {
+            "scope": packet.get("scope", "table"),
+            "context_id": packet.get("context_id", ""),
+        }
+        self.voice_manager.join(packet)
+
+    def on_voice_join_error(self, packet):
+        """Handle a rejected Voice Chat join request."""
+        packet_context_id = packet.get("context_id", "")
+        if (
+            packet_context_id
+            and self.voice_requested_context_id
+            and packet_context_id != self.voice_requested_context_id
+        ):
+            return
+        self.voice_state = "disconnected"
+        self.voice_mic_enabled = False
+        self.voice_mic_toggle_pending = None
+        self.voice_requested_context_id = ""
+        self.voice_context = {"scope": "table", "context_id": ""}
+        self.voice_presence_registered = False
+        self.update_voice_ui()
+        self.add_history(self._resolve_voice_message(packet), "system", False)
+
+    def on_voice_leave_ack(self, packet):
+        """Handle server acknowledgement for leaving Voice Chat."""
+        pass
+
+    def on_voice_context_closed(self, packet):
+        """Leave Voice Chat when the server ends the current voice context."""
+        if self.voice_state == "disconnected":
+            return
+        packet_scope = packet.get("scope", "table")
+        packet_context_id = packet.get("context_id", "")
+        if (
+            self.voice_state == "connecting"
+            and packet_scope == "table"
+            and packet_context_id
+            and packet_context_id == self.voice_requested_context_id
+        ):
+            self.cleanup_voice_chat(send_leave=False, announce=False)
+            return
+        if (
+            self.voice_context.get("scope", "table") != packet_scope
+            or self.voice_context.get("context_id", "") != packet_context_id
+        ):
+            return
+        self.cleanup_voice_chat(send_leave=False, announce=False)
+
+    def on_table_context(self, packet):
+        """Track the current table context for exact voice join requests."""
+        self.current_table_context_id = packet.get("table_id", "") or ""
+        if not self.current_table_context_id and self.voice_state == "connecting":
+            self.voice_requested_context_id = ""
+
+    def on_voice_transport_disconnect(self, reason):
+        """Tell the server when the voice transport drops unexpectedly."""
+        if not self.voice_presence_registered or not self.connected:
+            return
+        self.voice_presence_registered = False
+        self.network.send_packet(
+            {
+                "type": "voice_presence",
+                "state": reason,
+                "scope": self.voice_context.get("scope", "table"),
+                "context_id": self.voice_context.get("context_id", ""),
+            }
+        )
+
+    def on_voice_status(self, message_key, speak_aloud=True):
+        """Display and optionally speak a localized Voice Chat status message."""
+        if message_key == "voice-chat-mic-denied" and self.voice_mic_toggle_pending:
+            self.sound_manager.play("voice_mic_error.ogg")
+            self.voice_mic_toggle_pending = None
+        text = Localization.get(message_key)
+        self.add_history(text, "system", speak_aloud)
+
+    def _resolve_voice_message(self, packet, default_key="voice-chat-unavailable"):
+        message_key = packet.get("key")
+        if message_key:
+            localized = Localization.get(message_key, **(packet.get("params") or {}))
+            if localized != message_key:
+                return localized
+        message_text = packet.get("text")
+        if message_text:
+            return message_text
+        return Localization.get(default_key)
+
+    def on_voice_state_change(self, state):
+        """Reflect LiveKit connection state in the UI."""
+        previous_state = self.voice_state
+        self.voice_state = state
+        if state != "connected":
+            self.voice_mic_enabled = False
+            self.voice_mic_toggle_pending = None
+            if state == "disconnected":
+                self.voice_requested_context_id = ""
+        if (
+            state == "connected"
+            and previous_state != "connected"
+            and not self.voice_presence_registered
+            and self.connected
+        ):
+            if self.network.send_packet(
+                {
+                    "type": "voice_presence",
+                    "state": "connected",
+                    "scope": self.voice_context.get("scope", "table"),
+                    "context_id": self.voice_context.get("context_id", ""),
+                }
+            ):
+                self.voice_presence_registered = True
+        self.update_voice_ui()
+
+    def on_voice_mic_state_change(self, enabled):
+        """Reflect local microphone state in the UI."""
+        if self.voice_mic_toggle_pending is not None and self.voice_mic_toggle_pending == bool(enabled):
+            sound_name = "voice_mic_on.ogg" if enabled else "voice_mic_off.ogg"
+            self.sound_manager.play(sound_name)
+            self.voice_mic_toggle_pending = None
+        self.voice_mic_enabled = bool(enabled)
+        self.update_voice_ui()
+
+    def cleanup_voice_chat(self, *, send_leave=True, announce=False):
+        """Leave Voice Chat and reset local UI state."""
+        was_connected = self.voice_state == "connected"
+        voice_context = dict(self.voice_context)
+        self.voice_state = "disconnected"
+        self.voice_mic_enabled = False
+        self.voice_mic_toggle_pending = None
+        self.voice_requested_context_id = ""
+        self.voice_context = {"scope": "table", "context_id": ""}
+        self.update_voice_ui()
+        self.voice_manager.leave(notify=announce and was_connected)
+        if send_leave and self.connected and self.voice_presence_registered:
+            self.network.send_packet(
+                {
+                    "type": "voice_leave",
+                    "scope": voice_context.get("scope", "table"),
+                    "context_id": voice_context.get("context_id", ""),
+                }
+            )
+        self.voice_presence_registered = False
 
     def on_focus_history(self, event):
         """Handle Alt+H shortcut to focus history text."""
@@ -403,7 +792,7 @@ class MainWindow(wx.Frame):
     # Options-family menus.
     _OPTIONS_MENU_IDS = frozenset({
         "options_menu", "language_menu", "speech_settings_menu",
-        "voice_selection_menu", "dice_keeping_style_menu",
+        "voice_selection_menu", "audio_input_device_menu", "dice_keeping_style_menu",
         "music_volume_input", "ambience_volume_input",
     })
 
@@ -415,6 +804,7 @@ class MainWindow(wx.Frame):
     def on_open_options(self, event):
         """Handle Alt+O to open the options menu from anywhere."""
         if self.connected and self.current_menu_id not in self._OPTIONS_MENU_IDS:
+            self._refresh_audio_input_devices(sync_server=True)
             self.network.send_packet({"type": "open_options"})
 
     def on_server_pong(self, packet):
@@ -646,8 +1036,8 @@ class MainWindow(wx.Frame):
                 key_name = "enter"
         # Handle letter keys (case insensitive)
         elif 65 <= key_code <= 90:  # A-Z
-            # Alt+P, M, C, H, F, O are handled by accelerator table
-            if event.AltDown() and key_code in [ord("P"), ord("M"), ord("C"), ord("H"), ord("F"), ord("O")]:
+            # Alt+P, M, C, V, H, F, O are handled by accelerator table
+            if event.AltDown() and key_code in [ord("P"), ord("M"), ord("C"), ord("V"), ord("H"), ord("F"), ord("O")]:
                 event.Skip()
                 return
             key_name = chr(key_code).lower()
@@ -1104,6 +1494,8 @@ class MainWindow(wx.Frame):
         if self.network.connected:
             return
 
+        self.cleanup_voice_chat(send_leave=False, announce=False)
+        self.current_table_context_id = ""
         self.connected = False
         self.current_menu_id = None
 
@@ -1172,6 +1564,8 @@ class MainWindow(wx.Frame):
 
     def on_server_disconnect(self, packet):
         """Handle server disconnect packet."""
+        self.cleanup_voice_chat(send_leave=False, announce=False)
+        self.current_table_context_id = ""
         should_reconnect = packet.get("reconnect", False)
 
         if should_reconnect:
@@ -1274,7 +1668,9 @@ class MainWindow(wx.Frame):
         elif key == "audio/ambience_volume":
              if self.sound_manager:
                  self.sound_manager.set_ambience_volume(value / 100.0)
-        
+        elif key == "audio/input_device_id" and not value:
+             self.config_manager.set_client_option("audio/input_device_name", "", create_mode=True)
+
         # Reload full options to be safe
         self.client_options = self.config_manager.get_client_options(self.server_id)
 
@@ -1326,6 +1722,8 @@ class MainWindow(wx.Frame):
         self.is_reconnecting = False
 
         # Stop all looping audio so nothing bleeds past the error dialog.
+        self.cleanup_voice_chat(send_leave=False, announce=False)
+        self.current_table_context_id = ""
         self.sound_manager.stop_music(fade=False)
         self.sound_manager.stop_ambience(force=True)
 
@@ -1385,6 +1783,16 @@ class MainWindow(wx.Frame):
         self.connected = True
         version = packet.get("version", "unknown")
         locale = packet.get("locale", "en")
+        self.voice_capability = packet.get("voice") or {
+            "enabled": False,
+            "provider": "",
+            "url": "",
+        }
+        self.current_table_context_id = ""
+        self.voice_requested_context_id = ""
+        self.voice_context = {"scope": "table", "context_id": ""}
+        self.voice_presence_registered = False
+        self.update_voice_ui()
 
         # Save locale to config
         self.config_manager.set_client_option("interface_language", locale, create_mode=True)
@@ -1407,6 +1815,18 @@ class MainWindow(wx.Frame):
                 self.config_manager.set_client_option("audio/ambience_volume", vol, create_mode=True)
                 if self.sound_manager:
                     self.sound_manager.set_ambience_volume(vol / 100.0)
+            if "desktop_audio_input_device_id" in preferences:
+                self.config_manager.set_client_option(
+                    "audio/input_device_id",
+                    preferences["desktop_audio_input_device_id"],
+                    create_mode=True,
+                )
+            if "desktop_audio_input_device_name" in preferences:
+                self.config_manager.set_client_option(
+                    "audio/input_device_name",
+                    preferences["desktop_audio_input_device_name"],
+                    create_mode=True,
+                )
             
             # Social
             if "mute_global_chat" in preferences:
@@ -1424,6 +1844,9 @@ class MainWindow(wx.Frame):
             if "clear_kept_on_roll" in preferences:
                  # Client might not use this directly yet, but store it
                  self.config_manager.set_client_option("game/clear_kept_on_roll", preferences["clear_kept_on_roll"], create_mode=True)
+
+        self.client_options = self.config_manager.get_client_options(self.server_id)
+        self._refresh_audio_input_devices(sync_server=True)
 
         # Verify if we need to reload localization (though UI is already built)
         # For now, it will apply on next restart, which is what the user asked for.
@@ -2201,6 +2624,9 @@ class MainWindow(wx.Frame):
         grid_enabled = packet.get("grid_enabled", False)
         grid_width = packet.get("grid_width", 1)
 
+        if menu_id == "options_menu":
+            self._refresh_audio_input_devices(sync_server=True)
+
         # Parse items - can be strings or objects with {text, id}
         items = []
         item_ids = []
@@ -2328,6 +2754,8 @@ class MainWindow(wx.Frame):
 
     def on_server_clear_ui(self, packet):
         """Handle clear_ui packet from server."""
+        self.cleanup_voice_chat(send_leave=False, announce=False)
+        self.current_table_context_id = ""
         # Clear menu
         self.menu_list.Clear()
         self.current_menu_id = None
@@ -2419,6 +2847,8 @@ class MainWindow(wx.Frame):
 
         self.disconnect_reason = error_msg
         # Stop looping audio before the window closes.
+        self.cleanup_voice_chat(send_leave=False, announce=False)
+        self.current_table_context_id = ""
         self.sound_manager.stop_music(fade=False)
         self.sound_manager.stop_ambience(force=True)
         self.Close()

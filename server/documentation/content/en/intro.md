@@ -1,6 +1,6 @@
 \*\*Welcome to PlayAural\*\*
 
-PlayAural is an online gaming platform designed around sound, speech, and accessible controls. Menus, game events, chat, and status updates are all presented in a way that can be followed without relying on visual information.
+PlayAural is an online gaming platform designed around sound, speech, and accessible controls. Menus, game events, chat, status updates, and supported voice features are presented in a way that can be followed without relying on visual information.
 
 \*\*Where You Can Play\*\*
 
@@ -25,6 +25,7 @@ When you enter a table, you can usually:
 \* Check Game Info to hear the current table settings.
 \* Use Who's at the table to hear who is present.
 \* Chat with other people at the table or send private messages.
+\* Join the table's voice chat on the PlayAural clients that support voice playback and microphone access.
 
 \*\*Chat and Social Features\*\*
 

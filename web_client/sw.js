@@ -1,4 +1,4 @@
-const CACHE_NAME = 'playaural-v4.03-voice-chat';
+const CACHE_NAME = 'playaural-v4.04-voice-chat';
 
 // Minimal impact: only cache core files to ensure installability
 // We do NOT preload large assets.
@@ -10,7 +10,8 @@ const PRECACHE_URLS = [
     '/style.css',
     '/lang-selector.css',
     '/game.js',
-    '/locales.js'
+    '/locales.js',
+    '/vendor/livekit-client.umd.js'
 ];
 
 // Install Event

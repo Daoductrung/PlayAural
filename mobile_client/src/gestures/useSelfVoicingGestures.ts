@@ -24,18 +24,28 @@ type TouchTrack = {
   moved: boolean;
 };
 
-type DirectTouchTrack = {
+type MultiTouchTrack = {
   consumed: boolean;
-  endX: number;
-  endY: number;
-  maxTouches: number;
+  gestureTouches: 2 | 3;
+  lastX: number;
+  lastY: number;
   moved: boolean;
   startX: number;
   startY: number;
 };
 
+type NativeTouchPoint = {
+  identifier?: number;
+  locationX?: number;
+  locationY?: number;
+  pageX?: number;
+  pageY?: number;
+};
+
 const DOUBLE_TAP_WINDOW_MS = 350;
 const DOUBLE_TAP_HOLD_MS = 350;
+const MULTI_TOUCH_REPEAT_WINDOW_MS = 200;
+const MULTI_TOUCH_DOMINANCE_RATIO = 1.25;
 const THREE_FINGER_TAP_WINDOW_MS = 650;
 const MOVE_TOLERANCE = 4;
 const SWIPE_THRESHOLD = 14;
@@ -43,13 +53,14 @@ const SWIPE_THRESHOLD = 14;
 export function useSelfVoicingGestures(callbacks: GestureCallbacks) {
   const callbacksRef = useRef(callbacks);
   const touchTrackRef = useRef<TouchTrack | null>(null);
-  const directTouchTrackRef = useRef<DirectTouchTrack | null>(null);
+  const directTouchTrackRef = useRef<MultiTouchTrack | null>(null);
   const lastSingleTapAtRef = useRef(0);
   const lastThreeFingerTapAtRef = useRef(0);
   const threeFingerTapCountRef = useRef(0);
   const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingThreeFingerTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const suppressPanReleaseRef = useRef(false);
+  const lastMultiTouchDispatchRef = useRef<{ at: number; key: string } | null>(null);
 
   const clearHoldTimer = () => {
     if (holdTimerRef.current) {
@@ -74,23 +85,97 @@ export function useSelfVoicingGestures(callbacks: GestureCallbacks) {
     clearPendingThreeFingerTapTimer();
   }, []);
 
-  const getTouchPoint = (event: GestureResponderEvent): { x: number; y: number } => {
+  const getTouchArray = (
+    event: GestureResponderEvent,
+    key: "changedTouches" | "touches",
+  ): NativeTouchPoint[] => {
     const nativeEvent = event.nativeEvent as GestureResponderEvent["nativeEvent"] & {
-      pageX?: number;
-      pageY?: number;
+      changedTouches?: NativeTouchPoint[];
+      touches?: NativeTouchPoint[];
     };
+    const touches = nativeEvent[key];
+    return Array.isArray(touches) ? touches : [];
+  };
+
+  const getCentroid = (touches: NativeTouchPoint[]): { x: number; y: number } | null => {
+    if (!touches.length) {
+      return null;
+    }
+    const totals = touches.reduce(
+      (accumulator, touch) => ({
+        x: accumulator.x + (touch.pageX ?? touch.locationX ?? 0),
+        y: accumulator.y + (touch.pageY ?? touch.locationY ?? 0),
+      }),
+      { x: 0, y: 0 },
+    );
     return {
-      x: nativeEvent.pageX ?? nativeEvent.locationX ?? 0,
-      y: nativeEvent.pageY ?? nativeEvent.locationY ?? 0,
+      x: totals.x / touches.length,
+      y: totals.y / touches.length,
     };
   };
 
+  const getActiveTouchPoint = (event: GestureResponderEvent): { count: number; x: number; y: number } | null => {
+    const activeTouches = getTouchArray(event, "touches");
+    const centroid = getCentroid(activeTouches);
+    if (!centroid) {
+      return null;
+    }
+    return {
+      count: activeTouches.length,
+      x: centroid.x,
+      y: centroid.y,
+    };
+  };
+
+  const normalizeMultiTouchCount = (activeTouches: number): 0 | 2 | 3 => {
+    if (activeTouches >= 3) {
+      return 3;
+    }
+    if (activeTouches >= 2) {
+      return 2;
+    }
+    return 0;
+  };
+
+  const beginMultiTouchTrack = (touches: 2 | 3, x: number, y: number): MultiTouchTrack => {
+    return {
+      consumed: false,
+      gestureTouches: touches,
+      lastX: x,
+      lastY: y,
+      moved: false,
+      startX: x,
+      startY: y,
+    };
+  };
+
+  const resetMultiTouchTrack = (track: MultiTouchTrack, touches: 2 | 3, x: number, y: number) => {
+    track.consumed = false;
+    track.gestureTouches = touches;
+    track.lastX = x;
+    track.lastY = y;
+    track.moved = false;
+    track.startX = x;
+    track.startY = y;
+  };
+
   const classifySwipe = (gestureState: PanResponderGestureState): SwipeDirection | null => {
-    return classifySwipeDelta(gestureState.dx, gestureState.dy);
+    const { dx, dy } = gestureState;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < SWIPE_THRESHOLD) {
+      return null;
+    }
+    if (Math.abs(dx) > Math.abs(dy)) {
+      return dx > 0 ? "right" : "left";
+    }
+    return dy > 0 ? "down" : "up";
   };
 
   const classifySwipeDelta = (dx: number, dy: number): SwipeDirection | null => {
     if (Math.max(Math.abs(dx), Math.abs(dy)) < SWIPE_THRESHOLD) {
+      return null;
+    }
+    const minAxis = Math.min(Math.abs(dx), Math.abs(dy));
+    if (minAxis > 0 && Math.max(Math.abs(dx), Math.abs(dy)) / minAxis < MULTI_TOUCH_DOMINANCE_RATIO) {
       return null;
     }
     if (Math.abs(dx) > Math.abs(dy)) {
@@ -112,6 +197,19 @@ export function useSelfVoicingGestures(callbacks: GestureCallbacks) {
   };
 
   const dispatchSwipe = (direction: SwipeDirection, maxTouches: number) => {
+    if (maxTouches >= 2) {
+      const key = `swipe:${maxTouches}:${direction}`;
+      const now = Date.now();
+      const previous = lastMultiTouchDispatchRef.current;
+      if (
+        previous &&
+        previous.key === key &&
+        now - previous.at <= MULTI_TOUCH_REPEAT_WINDOW_MS
+      ) {
+        return;
+      }
+      lastMultiTouchDispatchRef.current = { at: now, key };
+    }
     if (maxTouches >= 3) {
       callbacksRef.current.onThreeFingerSwipe(direction);
       return;
@@ -154,28 +252,25 @@ export function useSelfVoicingGestures(callbacks: GestureCallbacks) {
   };
 
   const handleDirectTouchStart = (event: GestureResponderEvent) => {
-    const touches = event.nativeEvent.touches.length || 1;
-    const point = getTouchPoint(event);
+    const point = getActiveTouchPoint(event);
+    const multiTouchCount = normalizeMultiTouchCount(point?.count ?? 0);
+    if (!point || multiTouchCount === 0) {
+      return;
+    }
     const current = directTouchTrackRef.current;
     if (!current) {
-      directTouchTrackRef.current = {
-        consumed: false,
-        endX: point.x,
-        endY: point.y,
-        maxTouches: touches,
-        moved: false,
-        startX: point.x,
-        startY: point.y,
-      };
+      directTouchTrackRef.current = beginMultiTouchTrack(multiTouchCount, point.x, point.y);
+    } else if (multiTouchCount > current.gestureTouches) {
+      resetMultiTouchTrack(current, multiTouchCount, point.x, point.y);
     } else {
-      current.endX = point.x;
-      current.endY = point.y;
-      current.maxTouches = Math.max(current.maxTouches, touches);
+      current.lastX = point.x;
+      current.lastY = point.y;
     }
-    if (touches >= 2) {
-      suppressPanReleaseRef.current = true;
-      clearHoldTimer();
+    if (touchTrackRef.current) {
+      touchTrackRef.current.consumed = true;
     }
+    suppressPanReleaseRef.current = true;
+    clearHoldTimer();
   };
 
   const handleDirectTouchMove = (event: GestureResponderEvent) => {
@@ -183,10 +278,20 @@ export function useSelfVoicingGestures(callbacks: GestureCallbacks) {
     if (!current) {
       return;
     }
-    current.maxTouches = Math.max(current.maxTouches, event.nativeEvent.touches.length || current.maxTouches);
-    const point = getTouchPoint(event);
-    current.endX = point.x;
-    current.endY = point.y;
+    const point = getActiveTouchPoint(event);
+    if (!point) {
+      return;
+    }
+    const multiTouchCount = normalizeMultiTouchCount(point.count);
+    if (multiTouchCount === 0) {
+      return;
+    }
+    if (multiTouchCount > current.gestureTouches) {
+      resetMultiTouchTrack(current, multiTouchCount, point.x, point.y);
+      return;
+    }
+    current.lastX = point.x;
+    current.lastY = point.y;
     if (Math.max(Math.abs(point.x - current.startX), Math.abs(point.y - current.startY)) > MOVE_TOLERANCE) {
       current.moved = true;
       clearHoldTimer();
@@ -194,16 +299,18 @@ export function useSelfVoicingGestures(callbacks: GestureCallbacks) {
     if (!callbacksRef.current.enabled) {
       return;
     }
-    if (current.consumed || current.maxTouches < 2) {
+    if (current.consumed || multiTouchCount < current.gestureTouches) {
       return;
     }
-    const direction = classifySwipeDelta(current.endX - current.startX, current.endY - current.startY);
+    const dx = current.lastX - current.startX;
+    const dy = current.lastY - current.startY;
+    const direction = classifySwipeDelta(dx, dy);
     if (!direction) {
       return;
     }
     current.consumed = true;
     suppressPanReleaseRef.current = true;
-    dispatchSwipe(direction, current.maxTouches);
+    dispatchSwipe(direction, current.gestureTouches);
   };
 
   const handleDirectTouchEnd = (event: GestureResponderEvent) => {
@@ -211,39 +318,48 @@ export function useSelfVoicingGestures(callbacks: GestureCallbacks) {
     if (!current) {
       return;
     }
-    const point = getTouchPoint(event);
-    current.endX = point.x;
-    current.endY = point.y;
-    if (event.nativeEvent.touches.length > 0) {
+    const activePoint = getActiveTouchPoint(event);
+    const activeMultiTouchCount = normalizeMultiTouchCount(activePoint?.count ?? 0);
+    if (activePoint && activeMultiTouchCount >= current.gestureTouches) {
+      current.lastX = activePoint.x;
+      current.lastY = activePoint.y;
+    }
+    if (getTouchArray(event, "touches").length > 0) {
       return;
     }
     directTouchTrackRef.current = null;
-    if (current.maxTouches < 2) {
-      suppressPanReleaseRef.current = false;
-      return;
-    }
     suppressPanReleaseRef.current = true;
     clearHoldTimer();
     if (current.consumed) {
       return;
     }
-    const direction = classifySwipeDelta(current.endX - current.startX, current.endY - current.startY);
+    const direction = classifySwipeDelta(current.lastX - current.startX, current.lastY - current.startY);
     if (direction && callbacksRef.current.enabled) {
-      dispatchSwipe(direction, current.maxTouches);
+      dispatchSwipe(direction, current.gestureTouches);
       return;
     }
-    if (current.maxTouches >= 3) {
+    if (current.gestureTouches >= 3) {
       registerThreeFingerTap();
       return;
     }
     if (!callbacksRef.current.enabled) {
       return;
     }
+    const now = Date.now();
+    const previous = lastMultiTouchDispatchRef.current;
+    if (
+      previous &&
+      previous.key === `tap:${current.gestureTouches}` &&
+      now - previous.at <= MULTI_TOUCH_REPEAT_WINDOW_MS
+    ) {
+      return;
+    }
+    lastMultiTouchDispatchRef.current = { at: now, key: `tap:${current.gestureTouches}` };
     callbacksRef.current.onTwoFingerTap();
   };
 
   const handleDirectTouchCancel = () => {
-    if (directTouchTrackRef.current?.maxTouches && directTouchTrackRef.current.maxTouches >= 2) {
+    if (directTouchTrackRef.current) {
       suppressPanReleaseRef.current = true;
     }
     directTouchTrackRef.current = null;
@@ -259,6 +375,9 @@ export function useSelfVoicingGestures(callbacks: GestureCallbacks) {
     if (!callbacks.enabled) {
       return false;
     }
+    if ((event.nativeEvent.touches.length || 1) !== 1) {
+      return false;
+    }
     return !isTextInputTarget(event);
   };
 
@@ -268,6 +387,9 @@ export function useSelfVoicingGestures(callbacks: GestureCallbacks) {
   ): boolean => {
     const callbacks = callbacksRef.current;
     if (!callbacks.enabled) {
+      return false;
+    }
+    if ((event.nativeEvent.touches.length || gestureState.numberActiveTouches || 1) !== 1) {
       return false;
     }
     if (Math.max(Math.abs(gestureState.dx), Math.abs(gestureState.dy)) < SWIPE_THRESHOLD) {
@@ -306,6 +428,12 @@ export function useSelfVoicingGestures(callbacks: GestureCallbacks) {
             return;
           }
           track.maxTouches = Math.max(track.maxTouches, event.nativeEvent.touches.length || track.maxTouches);
+          if (track.maxTouches >= 2) {
+            track.consumed = true;
+            suppressPanReleaseRef.current = true;
+            clearHoldTimer();
+            return;
+          }
           if (Math.max(Math.abs(gestureState.dx), Math.abs(gestureState.dy)) > MOVE_TOLERANCE) {
             track.moved = true;
             clearHoldTimer();

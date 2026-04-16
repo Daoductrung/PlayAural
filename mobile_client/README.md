@@ -162,7 +162,73 @@ Regenerate it whenever sound files are added, removed, or renamed:
 cmd /c npm run generate:sounds
 ```
 
-## Android Builds
+## Local Android Builds
+
+PlayAural can be built locally on Windows without using Expo cloud builds. This is useful for fast device testing, gesture debugging, voice-chat verification, and release candidate validation before distribution.
+
+### Local Build Requirements
+
+- Node.js LTS and npm
+- Java 17
+- Android Studio
+- Android SDK Platform 35
+- Android SDK Build-tools 35.0.0
+- Android SDK Platform-tools
+
+The local shell environment must expose:
+
+- `JAVA_HOME`
+- `ANDROID_HOME`
+- `ANDROID_SDK_ROOT`
+- `%JAVA_HOME%\\bin`
+- `%ANDROID_SDK_ROOT%\\platform-tools`
+- `%ANDROID_SDK_ROOT%\\cmdline-tools\\latest\\bin`
+
+After configuring those variables, open a fresh terminal and verify:
+
+```bash
+java -version
+adb version
+sdkmanager --list_installed
+```
+
+The installed SDK list should include `platforms;android-35`, `build-tools;35.0.0`, and `platform-tools`.
+
+### Generate the Native Android Project
+
+The Expo project does not need the generated Android directory in version control. Create or refresh it locally when needed:
+
+```bash
+cd mobile_client
+cmd /c npm install
+npx expo prebuild --platform android
+```
+
+This creates `mobile_client/android/` on the local machine. Treat that directory as generated build infrastructure rather than shared source.
+
+### Build a Local Release APK
+
+From the generated Android directory:
+
+```bash
+cd mobile_client\android
+.\gradlew.bat clean
+.\gradlew.bat assembleRelease
+```
+
+The release APK is written to:
+
+```text
+mobile_client\android\app\build\outputs\apk\release\app-release.apk
+```
+
+### Local Signing
+
+If a developer needs an officially signed APK, the release keystore and signing credentials must be configured locally in the generated Android project. Do not commit keystores, signing passwords, or credential-bearing `gradle.properties` files.
+
+If local signing is not configured, Gradle can still be used for local testing builds, but release-signing setup remains a local responsibility.
+
+### Cloud Builds with EAS
 
 Install and authenticate EAS CLI:
 
@@ -201,6 +267,7 @@ The EAS project id in `app.json` identifies the Expo project used for cloud buil
 The repository tracks source files, configuration files, locale files, and the generated sound manifest. The repository does not track generated build output or dependency folders such as:
 
 - `mobile_client/node_modules/`
+- `mobile_client/android/`
 - `mobile_client/.expo/`
 - `mobile_client/dist/`
 - `.mobile_eas_stage/`

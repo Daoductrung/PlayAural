@@ -24,7 +24,7 @@ from config_manager import set_item_in_dict
 from localization import Localization
 from voice_manager import VoiceManager, list_audio_input_devices, resolve_audio_input_device
 
-VERSION = "1.0.4"
+VERSION = "1.0.4.1"
 
 
 class MainWindow(wx.Frame):

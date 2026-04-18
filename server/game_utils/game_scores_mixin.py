@@ -38,34 +38,66 @@ class GameScoresMixin:
         if not user:
             return
 
-        host_suffix = " " + Localization.get(user.locale, "table-host-suffix")
+        locale = user.locale
+        host_suffix = " " + Localization.get(locale, "table-host-suffix")
+        voice_suffix = " " + Localization.get(locale, "table-voice-chat-suffix")
 
         players = []
         for p in self.players:
             if not p.is_spectator:
-                name = p.name
-                if name == self.host:
-                    name += host_suffix
-                players.append(name)
+                players.append(
+                    self._format_table_presence_name(p, host_suffix, voice_suffix)
+                )
 
         spectators = []
         for p in self.players:
             if p.is_spectator:
-                name = p.name
-                if name == self.host:
-                    name += host_suffix
-                spectators.append(name)
+                spectators.append(
+                    self._format_table_presence_name(p, host_suffix, voice_suffix)
+                )
 
         count = len(players)
         if count == 0:
             user.speak_l("table-no-players", buffer="game")
             return
-        names = Localization.format_list_and(user.locale, players)
+        names = Localization.format_list_and(locale, players)
         key = "table-players-one" if count == 1 else "table-players-many"
         user.speak_l(key, buffer="game", count=count, players=names)
         if spectators:
-            spectator_names = Localization.format_list_and(user.locale, spectators)
+            spectator_names = Localization.format_list_and(locale, spectators)
             user.speak_l("table-spectators", buffer="game", spectators=spectator_names)
+
+    def _format_table_presence_name(
+        self,
+        table_player: "Player",
+        host_suffix: str,
+        voice_suffix: str,
+    ) -> str:
+        """Format a table member for the public presence list."""
+        username = table_player.name
+        name = username
+        if name == self.host:
+            name += host_suffix
+        if not table_player.is_bot and self._is_table_member_in_voice_chat(username):
+            name += voice_suffix
+        return name
+
+    def _is_table_member_in_voice_chat(self, username: str) -> bool:
+        """Return whether a table member currently has voice presence here."""
+        table = getattr(self, "_table", None)
+        if not table:
+            return False
+        server = getattr(table, "_server", None)
+        if not server:
+            return False
+        voice_presence = getattr(server, "_voice_presence_by_user", {})
+        presence = voice_presence.get(username)
+        if not presence:
+            return False
+        return (
+            presence.get("scope") == "table"
+            and presence.get("context_id") == getattr(table, "table_id", None)
+        )
 
     def _action_check_scores(self, player: "Player", action_id: str) -> None:
         """Announce scores briefly."""

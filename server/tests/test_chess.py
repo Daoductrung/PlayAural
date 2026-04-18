@@ -123,6 +123,7 @@ def test_on_start_sets_colors_music_and_turn_sound() -> None:
     assert SOUND_TURN in white_user.get_sounds_played()
     assert SOUND_TURN not in black_user.get_sounds_played()
     assert white_user.menus["turn_menu"]["grid_enabled"] is True
+    assert white_user.menus["turn_menu"]["grid_height"] == 8
     assert white_user.menus["turn_menu"]["grid_width"] == 8
     assert game.white_clock_ticks == 0
     assert game.black_clock_ticks == 0

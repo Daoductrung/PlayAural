@@ -2301,16 +2301,21 @@ class GameClient {
 
     applyMenuLayout(packet) {
         const hasGridEnabled = Object.prototype.hasOwnProperty.call(packet, "grid_enabled");
+        const hasGridHeight = Object.prototype.hasOwnProperty.call(packet, "grid_height");
         const hasGridWidth = Object.prototype.hasOwnProperty.call(packet, "grid_width");
         const gridEnabled = hasGridEnabled
             ? !!packet.grid_enabled
             : this.menuArea.classList.contains('grid-mode');
+        const gridHeight = hasGridHeight
+            ? Math.max(0, parseInt(packet.grid_height, 10) || 0)
+            : Math.max(0, parseInt(this.menuArea.dataset.gridHeight || "0", 10));
         const gridWidth = hasGridWidth
             ? Math.max(1, parseInt(packet.grid_width, 10) || 1)
             : Math.max(1, parseInt(this.menuArea.dataset.gridWidth || "1", 10));
         const menuWrapper = this.menuArea.closest('.tab-content');
 
         this.menuArea.classList.toggle('grid-mode', gridEnabled);
+        this.menuArea.dataset.gridHeight = String(gridHeight);
         this.menuArea.dataset.gridWidth = String(gridWidth);
         if (menuWrapper) {
             menuWrapper.classList.toggle('grid-layout-active', gridEnabled && gridWidth > 1);
@@ -2318,8 +2323,12 @@ class GameClient {
 
         if (gridEnabled && gridWidth > 1) {
             this.menuArea.style.gridTemplateColumns = `repeat(${gridWidth}, minmax(var(--grid-cell-min-width), 1fr))`;
+            this.menuArea.style.gridTemplateRows = gridHeight > 0
+                ? `repeat(${gridHeight}, minmax(0, 1fr))`
+                : '';
         } else {
             this.menuArea.style.gridTemplateColumns = '';
+            this.menuArea.style.gridTemplateRows = '';
         }
     }
 

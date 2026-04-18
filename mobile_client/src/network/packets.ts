@@ -14,6 +14,7 @@ export type MenuPacket = {
   multiletter_enabled?: boolean;
   escape_behavior?: string;
   grid_enabled?: boolean;
+  grid_height?: number;
   grid_width?: number;
 };
 

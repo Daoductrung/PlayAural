@@ -129,6 +129,7 @@ type MenuState = {
   escapeBehavior: string;
   focusIndex: number;
   gridEnabled: boolean;
+  gridHeight: number;
   gridWidth: number;
   items: FocusableMenuItem[];
   menuId: string;
@@ -232,6 +233,7 @@ const defaultMenuState: MenuState = {
   escapeBehavior: "keybind",
   focusIndex: 0,
   gridEnabled: false,
+  gridHeight: 0,
   gridWidth: 1,
   items: [],
   menuId: "",
@@ -413,6 +415,7 @@ export function PlayAuralApp() {
     id: 0,
     text: "",
   });
+  const [mainPanelLayout, setMainPanelLayout] = useState({ height: 0, width: 0 });
   const [voiceCapability, setVoiceCapability] = useState<VoiceCapability>({
     enabled: false,
     provider: "",
@@ -612,7 +615,7 @@ export function PlayAuralApp() {
     [],
   );
 
-  const moveNativeAccessibilityFocus = useCallback((key: string | null) => {
+  const moveNativeAccessibilityFocus = useCallback((key: string | null, attempt = 0) => {
     if (!nativeScreenReaderMode || !key) {
       return;
     }
@@ -622,6 +625,15 @@ export function PlayAuralApp() {
 
     const node = accessibilityNodeRefs.current.get(key);
     if (!node) {
+      if (attempt < 4) {
+        if (nativeFocusTimerRef.current) {
+          clearTimeout(nativeFocusTimerRef.current);
+        }
+        nativeFocusTimerRef.current = setTimeout(() => {
+          nativeFocusTimerRef.current = null;
+          moveNativeAccessibilityFocus(key, attempt + 1);
+        }, NATIVE_FOCUS_DELAY_MS);
+      }
       return;
     }
 
@@ -706,6 +718,10 @@ export function PlayAuralApp() {
     buffers.add(buffer, text);
     setHistoryRevision((value) => value + 1);
     if (speak && !buffers.isMuted(buffer)) {
+      if (Platform.OS !== "web" && nativeScreenReaderMode) {
+        announceForNativeScreenReader(text);
+        return;
+      }
       tts.speakAnnouncement(text, { remember: false });
     }
   };
@@ -1154,13 +1170,15 @@ export function PlayAuralApp() {
     } else {
       setVoiceStatusText(resolveVoiceStatusText(statusKey));
     }
-  }, [resolveVoiceStatusText, sendVoiceLeave, setVoiceStatusMessage, voice]);
+    audio.refreshPlaybackState();
+  }, [audio, resolveVoiceStatusText, sendVoiceLeave, setVoiceStatusMessage, voice]);
 
   useEffect(() => {
     voice.setCallbacks({
       onConnected: () => {
         voiceJoinPendingRef.current = false;
         voicePresenceRegisteredRef.current = true;
+        audio.refreshPlaybackState();
         sendVoicePresence("connected");
       },
       onDisconnect: () => {
@@ -1169,10 +1187,12 @@ export function PlayAuralApp() {
           sendVoicePresence("connection_lost");
           voicePresenceRegisteredRef.current = false;
         }
+        audio.refreshPlaybackState();
         setVoiceStatusMessage("voice-chat-connection-lost", true);
       },
       onMicState: (enabled) => {
         setVoiceMicEnabled(enabled);
+        audio.refreshPlaybackState();
       },
       onState: (nextState) => {
         setVoiceState(nextState);
@@ -1181,7 +1201,7 @@ export function PlayAuralApp() {
         setVoiceStatusMessage(messageKeyOrText, speak);
       },
     });
-  }, [sendVoicePresence, setVoiceStatusMessage, voice]);
+  }, [audio, sendVoicePresence, setVoiceStatusMessage, voice]);
 
   const applyPreferenceUpdates = (updates: Record<string, unknown>) => {
     if (Object.keys(updates).length === 0) {
@@ -1218,6 +1238,10 @@ export function PlayAuralApp() {
     buffers.add(buffer, text);
     setHistoryRevision((value) => value + 1);
     if (!packet.muted && !buffers.isMuted(buffer)) {
+      if (Platform.OS !== "web" && nativeScreenReaderMode) {
+        announceForNativeScreenReader(text);
+        return;
+      }
       tts.speakAnnouncement(text);
     }
   };
@@ -1276,6 +1300,10 @@ export function PlayAuralApp() {
         packet.grid_enabled !== undefined || !isSameMenuId
           ? packet.grid_enabled ?? false
           : previous.gridEnabled,
+      gridHeight:
+        packet.grid_height !== undefined || !isSameMenuId
+          ? packet.grid_height ?? 0
+          : previous.gridHeight,
       gridWidth:
         packet.grid_width !== undefined || !isSameMenuId
           ? packet.grid_width ?? 1
@@ -1985,6 +2013,28 @@ export function PlayAuralApp() {
   const focusedHistoryMessage = historyMessages[historyIndex] ?? null;
   const focusedMenuItem = menuState.items[menuState.focusIndex];
   const focusedDialogButton = dialogState?.buttons[dialogState.focusIndex] ?? null;
+  const menuGridRows = menuState.gridEnabled
+    ? Math.max(1, menuState.gridHeight || Math.ceil(menuState.items.length / Math.max(1, menuState.gridWidth)))
+    : 0;
+  const gridGap = 8;
+  const gridPanelHeightAllowance = 68;
+  const gridContentWidth = Math.max(0, mainPanelLayout.width);
+  const gridContentHeight = Math.max(0, mainPanelLayout.height - gridPanelHeightAllowance);
+  const gridCellWidth =
+    menuState.gridEnabled && menuState.gridWidth > 1 && gridContentWidth > 0
+      ? Math.max(
+          28,
+          Math.floor((gridContentWidth - gridGap * (menuState.gridWidth - 1)) / menuState.gridWidth),
+        )
+      : null;
+  const gridCellHeight =
+    menuState.gridEnabled && menuGridRows > 0 && gridContentHeight > 0
+      ? Math.max(28, Math.floor((gridContentHeight - gridGap * (menuGridRows - 1)) / menuGridRows))
+      : null;
+  const gridCellSize =
+    gridCellWidth !== null && gridCellHeight !== null
+      ? Math.max(28, Math.min(gridCellWidth, gridCellHeight))
+      : null;
   const chatFocusItems: ChatFocusItem[] = [
     { kind: "input", text: localization.t("chat-input-focus") },
     { kind: "send", text: localization.t("chat-send-button") },
@@ -2270,7 +2320,7 @@ export function PlayAuralApp() {
       return inputOverlayFocus === 0 ? "input:field" : "input:action";
     }
     if (mode === "main") {
-      return focusedMenuItem ? `menu:${menuState.focusIndex}` : null;
+      return focusedMenuItem ? `menu:${menuState.menuId}:${menuState.focusIndex}` : null;
     }
     if (mode === "shortcuts" && focusedShortcutItem) {
       return `shortcut:${focusedShortcutItem.id}`;
@@ -2315,6 +2365,7 @@ export function PlayAuralApp() {
     inputOverlayFocus,
     inputState,
     menuState.focusIndex,
+    menuState.menuId,
     mode,
   ]);
 
@@ -3693,49 +3744,114 @@ export function PlayAuralApp() {
   };
 
   const renderMainView = () => (
-    <View style={styles.panel}>
+    <View
+      onLayout={(event) => {
+        const { height, width } = event.nativeEvent.layout;
+        setMainPanelLayout((current) => (
+          current.width === width && current.height === height
+            ? current
+            : { height, width }
+        ));
+      }}
+      style={styles.panel}
+    >
       <Text style={styles.panelTitle}>{localization.t("mode-main")}</Text>
-      <ScrollView style={styles.scrollArea}>
-        {menuState.items.map((item, index) => (
-          <Pressable
-            accessibilityActions={[
-              { name: "activate" },
-              { name: "longpress" },
-            ]}
-            accessibilityLabel={item.text}
-            accessibilityRole="button"
-            accessible
-            key={`${item.id ?? "text"}-${index}`}
-            onAccessibilityAction={(event) => {
-              void audio.handleUserInteraction();
-              focusMenuItemAt(index);
-              if (event.nativeEvent.actionName === "longpress") {
+      {menuState.gridEnabled && menuState.gridWidth > 1 ? (
+        <View style={styles.gridMenuArea}>
+          {menuState.items.map((item, index) => (
+            <Pressable
+              accessibilityActions={[
+                { name: "activate" },
+                { name: "longpress" },
+              ]}
+              accessibilityLabel={item.text}
+              accessibilityRole="button"
+              accessible
+              key={`${item.id ?? "text"}-${index}`}
+              onAccessibilityAction={(event) => {
+                void audio.handleUserInteraction();
+                focusMenuItemAt(index);
+                if (event.nativeEvent.actionName === "longpress") {
+                  playMenuActivateSound();
+                  sendShiftEnter(item);
+                  return;
+                }
                 playMenuActivateSound();
-                sendShiftEnter(item);
-                return;
-              }
-              playMenuActivateSound();
-              sendMenuSelection(item, index);
-            }}
-            onFocus={() => {
-              focusMenuItemAt(index);
-            }}
-            onPress={() => {
-              void audio.handleUserInteraction();
-              focusMenuItemAt(index);
-              playMenuActivateSound();
-              sendMenuSelection(item, index);
-            }}
-            ref={registerAccessibilityNode(`menu:${index}`)}
-            style={[
-              styles.menuItem,
-              index === menuState.focusIndex ? styles.menuItemFocused : undefined,
-            ]}
-          >
-            <Text style={styles.menuText}>{item.text}</Text>
-          </Pressable>
-        ))}
-      </ScrollView>
+                sendMenuSelection(item, index);
+              }}
+              onFocus={() => {
+                focusMenuItemAt(index);
+              }}
+              onPress={() => {
+                void audio.handleUserInteraction();
+                focusMenuItemAt(index);
+                playMenuActivateSound();
+                sendMenuSelection(item, index);
+              }}
+              ref={registerAccessibilityNode(`menu:${menuState.menuId}:${index}`)}
+              style={[
+                styles.menuItem,
+                styles.gridMenuItem,
+                index === menuState.focusIndex ? styles.menuItemFocused : undefined,
+                gridCellSize !== null
+                  ? {
+                      flexBasis: gridCellSize,
+                      minHeight: gridCellSize,
+                      minWidth: gridCellSize,
+                      width: gridCellSize,
+                    }
+                  : {
+                      flexBasis: `${100 / Math.max(1, menuState.gridWidth)}%`,
+                    },
+              ]}
+            >
+              <Text style={styles.menuText}>{item.text}</Text>
+            </Pressable>
+          ))}
+        </View>
+      ) : (
+        <ScrollView style={styles.scrollArea}>
+          {menuState.items.map((item, index) => (
+            <Pressable
+              accessibilityActions={[
+                { name: "activate" },
+                { name: "longpress" },
+              ]}
+              accessibilityLabel={item.text}
+              accessibilityRole="button"
+              accessible
+              key={`${item.id ?? "text"}-${index}`}
+              onAccessibilityAction={(event) => {
+                void audio.handleUserInteraction();
+                focusMenuItemAt(index);
+                if (event.nativeEvent.actionName === "longpress") {
+                  playMenuActivateSound();
+                  sendShiftEnter(item);
+                  return;
+                }
+                playMenuActivateSound();
+                sendMenuSelection(item, index);
+              }}
+              onFocus={() => {
+                focusMenuItemAt(index);
+              }}
+              onPress={() => {
+                void audio.handleUserInteraction();
+                focusMenuItemAt(index);
+                playMenuActivateSound();
+                sendMenuSelection(item, index);
+              }}
+              ref={registerAccessibilityNode(`menu:${menuState.menuId}:${index}`)}
+              style={[
+                styles.menuItem,
+                index === menuState.focusIndex ? styles.menuItemFocused : undefined,
+              ]}
+            >
+              <Text style={styles.menuText}>{item.text}</Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+      )}
     </View>
   );
 
@@ -4810,6 +4926,13 @@ const styles = StyleSheet.create({
   scrollArea: {
     flex: 1,
   },
+  gridMenuArea: {
+    alignContent: "flex-start",
+    flex: 1,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
   menuItem: {
     backgroundColor: "#11161d",
     borderColor: "#263443",
@@ -4817,6 +4940,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginBottom: 8,
     padding: 12,
+  },
+  gridMenuItem: {
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 0,
+    paddingHorizontal: 6,
+    paddingVertical: 6,
   },
   menuItemFocused: {
     borderColor: "#7fd4ff",

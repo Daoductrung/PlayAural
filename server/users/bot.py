@@ -68,6 +68,7 @@ class Bot(User):
         escape_behavior: EscapeBehavior = EscapeBehavior.KEYBIND,
         position: int | None = None,
         grid_enabled: bool = False,
+        grid_height: int = 0,
         grid_width: int = 1,
     ) -> None:
         pass
@@ -80,6 +81,7 @@ class Bot(User):
         selection_id: str | None = None,
         *,
         grid_enabled: bool = False,
+        grid_height: int = 0,
         grid_width: int = 1,
     ) -> None:
         pass

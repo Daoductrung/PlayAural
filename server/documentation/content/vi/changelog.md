@@ -1,5 +1,33 @@
 Nhật ký thay đổi
 
+Chủ Nhật 19 Tháng Tư 2026
+
+Cập nhật máy chủ:
+
+Đã thêm tùy chọn Khởi động lại ván chơi vào menu Quản lý bàn của chủ bàn. Tính năng này rất tiện lợi nếu bạn muốn bắt đầu một ván mới ngay lập tức mà không cần phải giải tán và tạo lại bàn chơi. Khi chọn khởi động lại, mọi cài đặt của bàn và những người chơi đang ngồi trong bàn đều được giữ nguyên an toàn.
+
+Đã sửa lỗi âm thanh môi trường và nhạc nền của bàn chơi trước vẫn tiếp tục phát sau khi bạn đã chuyển sang một bàn chơi mới.
+
+Đã thêm tùy chọn Hủy vào các lá bài yêu cầu đưa ra lựa chọn trong Bài 99. Ví dụ như khi bạn đánh lá 10 hoặc lá Át, giờ đây bạn có thể chọn hủy để đổi ý.
+
+Đã bổ sung thông báo nhắc nhở Chưa đến lượt của bạn nếu bạn thao tác nhầm lúc chưa tới lượt mình trong các trò chơi như Bài 99, Mile by Mile và Scopa.
+
+Cập nhật phần mềm trên máy tính:
+
+Đã khắc phục một lỗi nhỏ ở ô nhập văn bản trò chuyện khi sử dụng bộ gõ tiếng Việt.
+
+Cập nhật ứng dụng di động:
+
+Đã sửa lỗi đôi khi người chơi không thể quay lại màn hình trước đó từ menu hành động trong bàn chơi.
+
+Đã khắc phục tình trạng âm thanh môi trường và nhạc nền bị ngắt đột ngột khi bạn kết nối vào kênh trò chuyện thoại.
+
+Đã sửa lỗi các thông báo trong trò chơi không được gửi đến trình đọc màn hình của điện thoại khi bạn tắt chế độ tự phát giọng nói của ứng dụng.
+
+Đã khắc phục hiện tượng nhảy tiêu điểm của trình đọc màn hình, giúp trải nghiệm ổn định hơn khi bạn tắt chế độ tự phát giọng nói và chơi bằng trình đọc màn hình mặc định.
+
+Đã cải thiện đáng kể hệ thống bàn cờ dạng lưới cho các trò chơi như Tàu chiến hay Cờ vua. Lưới giờ đây sẽ hiển thị chuẩn xác hơn, đồng thời thao tác vuốt tay để di chuyển trong lưới với chế độ tự phát giọng nói cũng mượt mà và trực quan hơn.
+
 Thứ Năm 16 Tháng Tư 2026
 
 Cập nhật máy chủ:

@@ -1,5 +1,33 @@
 Changelog
 
+Sunday 19 April 2026
+
+Server Updates:
+
+Added a new Restart Game option to the Host Management menu. This is highly useful if you want to start a new match immediately without having to leave and recreate the table. When you restart the game, all table settings and current players remain safely in place.
+
+Fixed a bug where ambient sounds and background music from a previous table would sometimes continue playing after you switched to a different table.
+
+Added a Cancel option to cards that require a choice in Ninety Nine, such as the 10 or Ace, allowing you to back out and change your mind.
+
+Added a clear Not your turn voice feedback if you try to make a move when it is not your turn in games like Ninety Nine, Mile by Mile, and Scopa.
+
+Desktop Client Updates:
+
+Fixed a minor issue with the chat input box when using a Vietnamese keyboard.
+
+Mobile Client Updates:
+
+Fixed an issue where players were sometimes unable to navigate back from the in-game action menu.
+
+Fixed a bug where ambient sounds and background music would abruptly cut out when connecting to the voice chat.
+
+Fixed an issue where in-game notifications were not being sent to the device's system screen reader when the built-in self-voicing mode was turned off.
+
+Fixed an issue with the screen reader focus jumping unexpectedly, ensuring a more stable experience when playing with a system screen reader instead of self-voicing.
+
+Significantly improved the grid board system for games like Battleship and Chess. The grid now displays correctly, and the swiping experience to navigate the grid while using self-voicing has been greatly enhanced.
+
 Thursday 16 April 2026
 
 Server Updates:

@@ -1603,6 +1603,7 @@ export function PlayAuralApp() {
             sendLeave: voicePresenceRegisteredRef.current,
             statusKey: "voice-chat-not-connected",
           });
+          stopGameAudio(true);
           setMenuState(defaultMenuState);
           menuStateRef.current = defaultMenuState;
           setInputState(null);
@@ -1763,6 +1764,9 @@ export function PlayAuralApp() {
           const contextPacket = packet as TableContextPacket;
           const contextId = String(contextPacket.table_id || "");
           const previousContextId = voiceContextRef.current.contextId;
+          if (previousContextId && contextId && contextId !== previousContextId) {
+            stopGameAudio(true);
+          }
           if (
             previousContextId &&
             contextId !== previousContextId &&

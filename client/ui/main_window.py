@@ -607,7 +607,16 @@ class MainWindow(wx.Frame):
 
     def on_table_context(self, packet):
         """Track the current table context for exact voice join requests."""
+        previous_context_id = self.current_table_context_id
         self.current_table_context_id = packet.get("table_id", "") or ""
+        if (
+            previous_context_id
+            and self.current_table_context_id
+            and self.current_table_context_id != previous_context_id
+        ):
+            self.sound_manager.remove_all_playlists()
+            self.sound_manager.stop_music(fade=False)
+            self.sound_manager.stop_ambience(force=True)
         if not self.current_table_context_id:
             if self.voice_state in {"connected", "connecting"}:
                 self.cleanup_voice_chat(send_leave=False, announce=False)

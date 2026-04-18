@@ -4187,6 +4187,14 @@ PlayAural Server
         if any(member.username == user.username for member in current_table.members):
             current_table.remove_member(user.username)
 
+        # Direct table transfers bypass the main menu, so explicitly clear the
+        # old table UI and audio state before the next table starts sending its
+        # own context, menus, music, or ambience.
+        user.set_table_context("")
+        user.stop_music()
+        user.stop_ambience()
+        user.clear_ui()
+
     def _return_from_join_menu(self, user: NetworkUser, state: dict) -> None:
         """Return to the appropriate tables menu after join."""
         if state.get("return_menu") == "active_tables_menu":

@@ -2032,7 +2032,17 @@ class GameClient {
                 break;
 
             case "table_context":
+                const previousTableContextId = this.currentTableContextId || "";
                 this.currentTableContextId = packet.table_id || "";
+                if (
+                    previousTableContextId &&
+                    this.currentTableContextId &&
+                    this.currentTableContextId !== previousTableContextId
+                ) {
+                    this.removeAllPlaylists();
+                    this.stop_music();
+                    this.stop_ambience();
+                }
                 if (!this.currentTableContextId) {
                     if (this.voiceState === "connected" || this.voiceState === "connecting") {
                         this.cleanupVoiceChat(false, false);
@@ -2125,6 +2135,8 @@ class GameClient {
             case "clear_ui": // Also clears playlists
                 this.cleanupVoiceChat(false, false);
                 this.removeAllPlaylists();
+                this.stop_music();
+                this.stop_ambience();
                 this.renderMenu({ items: [], grid_enabled: false, grid_width: 1 }); // Clear menu
                 break;
 

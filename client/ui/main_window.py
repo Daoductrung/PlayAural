@@ -109,6 +109,8 @@ class MainWindow(wx.Frame):
         self.current_menu_item_ids = []  # Track item IDs for current menu (parallel to menu items)
         self.current_edit_multiline = False  # Track if current editbox is multiline
         self.current_edit_read_only = False  # Track if current editbox is read-only
+        self._chat_clear_generation = 0
+        self._chat_ime_reset_in_progress = False
 
         # Ping tracking
         self._ping_start_time = None  # Track when ping was sent
@@ -861,21 +863,25 @@ class MainWindow(wx.Frame):
     def on_prev_buffer(self, event):
         """Handle [ key to switch to previous buffer."""
         self.buffer_system.previous_buffer()
+        self._refresh_history_text_from_current_buffer()
         self._announce_buffer_info()
 
     def on_next_buffer(self, event):
         """Handle ] key to switch to next buffer."""
         self.buffer_system.next_buffer()
+        self._refresh_history_text_from_current_buffer()
         self._announce_buffer_info()
 
     def on_first_buffer(self, event):
         """Handle Shift+[ to jump to first buffer."""
         self.buffer_system.first_buffer()
+        self._refresh_history_text_from_current_buffer()
         self._announce_buffer_info()
 
     def on_last_buffer(self, event):
         """Handle Shift+] to jump to last buffer."""
         self.buffer_system.last_buffer()
+        self._refresh_history_text_from_current_buffer()
         self._announce_buffer_info()
 
     def on_older_message(self, event):
@@ -912,6 +918,7 @@ class MainWindow(wx.Frame):
 
         # Save muted buffers to config
         self._save_muted_buffers()
+        self._refresh_history_text_from_current_buffer()
 
         # Announce mute status
         localized_name = self._get_localized_buffer_name(buffer_name)
@@ -937,6 +944,25 @@ class MainWindow(wx.Frame):
             self.speaker.speak(item["text"], interrupt=True)
         else:
             self.speaker.speak(Localization.get("main-buffer-empty"), interrupt=True)
+
+    def _refresh_history_text_from_current_buffer(self):
+        """Refresh the history text control from the selected buffer."""
+        buffer_name = self.buffer_system.get_current_buffer_name()
+        if not buffer_name or buffer_name not in self.buffer_system.buffers:
+            self.history_text.ChangeValue("")
+            return
+        if self.buffer_system.is_muted(buffer_name):
+            self.history_text.ChangeValue("")
+            return
+        items = self.buffer_system.buffers.get(buffer_name, [])
+        text = "\n".join(item["text"] for item in items)
+        if text:
+            text += "\n"
+        self.history_text.ChangeValue(text)
+        self.history_text.SetInsertionPointEnd()
+
+    def _is_message_muted_for_history(self, buffer_name):
+        return self.buffer_system.is_muted("all") or self.buffer_system.is_muted(buffer_name)
 
     def on_char_hook(self, event):
         """Handle character input for game keypresses."""
@@ -1161,7 +1187,8 @@ class MainWindow(wx.Frame):
 
     def on_chat_enter(self, event):
         """Handle chat message send."""
-        message = self.chat_input.GetValue().strip()
+        raw_message = self.chat_input.GetValue()
+        message = raw_message.strip()
         if not message:
             return
         if message.startswith("/"):
@@ -1173,7 +1200,64 @@ class MainWindow(wx.Frame):
         else:
             # Regular chat (context sensitive: table or lobby)
             self.send_chat_message(message)
-        self.chat_input.Clear()
+        self._clear_chat_input_after_send(raw_message)
+
+    def _clear_chat_input_after_send(self, sent_text: str):
+        """Clear chat input after IME/default text-control processing settles."""
+        self._chat_clear_generation += 1
+        generation = self._chat_clear_generation
+        self._set_chat_input_value("")
+        self._reset_chat_input_ime_context(generation)
+        wx.CallAfter(self._finalize_chat_input_clear, generation, sent_text)
+        wx.CallLater(25, self._restore_chat_input_after_ime_reset, generation)
+        wx.CallLater(75, self._finalize_chat_input_clear, generation, sent_text)
+        wx.CallLater(200, self._finalize_chat_input_clear, generation, sent_text)
+
+    def _set_chat_input_value(self, value: str):
+        self.chat_input.ChangeValue(value)
+        self.chat_input.SetInsertionPointEnd()
+        try:
+            self.chat_input.DiscardEdits()
+        except AttributeError:
+            pass
+
+    def _finalize_chat_input_clear(self, generation: int, sent_text: str):
+        if generation != self._chat_clear_generation or not self.chat_input:
+            return
+        current = self.chat_input.GetValue()
+        if not current:
+            self._set_chat_input_value("")
+            return
+        if self._looks_like_stale_chat_ime_commit(current, sent_text):
+            self._set_chat_input_value("")
+
+    def _reset_chat_input_ime_context(self, generation: int):
+        if self._chat_ime_reset_in_progress:
+            return
+        self._chat_ime_reset_in_progress = True
+        self.chat_input.ChangeValue("")
+        self.history_text.SetFocus()
+
+    def _restore_chat_input_after_ime_reset(self, generation: int):
+        if not self._chat_ime_reset_in_progress:
+            return
+        self._chat_ime_reset_in_progress = False
+        if generation != self._chat_clear_generation or not self.chat_input:
+            return
+        self._set_chat_input_value("")
+        self.chat_input.SetFocus()
+
+    @staticmethod
+    def _looks_like_stale_chat_ime_commit(current: str, sent_text: str) -> bool:
+        current_trimmed = current.strip()
+        sent_trimmed = sent_text.strip()
+        if not current_trimmed:
+            return True
+        if current == sent_text or current_trimmed == sent_trimmed:
+            return True
+        if sent_trimmed and current_trimmed and len(current_trimmed) <= 12:
+            return sent_trimmed.endswith(current_trimmed)
+        return False
 
     def send_chat_message(self, message: str):
         """Send chat message to server."""
@@ -1198,10 +1282,18 @@ class MainWindow(wx.Frame):
         # Add to buffer system (automatically adds to "all" as well)
         self.buffer_system.add_item(buffer_name, text)
 
-        # Only update UI if current buffer is not muted
-        if not self.buffer_system.is_muted(
-            self.buffer_system.get_current_buffer_name()
-        ):
+        current_buffer_name = self.buffer_system.get_current_buffer_name()
+        should_show_in_history = (
+            not self._is_message_muted_for_history(buffer_name)
+            and not self.buffer_system.is_muted(current_buffer_name)
+            and (
+                current_buffer_name == buffer_name
+                or current_buffer_name == "all"
+                or (current_buffer_name == "chats" and buffer_name == "chat")
+            )
+        )
+
+        if should_show_in_history:
             current = self.history_text.GetValue()
             if current and not current.endswith("\n"):
                 text = "\n" + text
@@ -1215,14 +1307,11 @@ class MainWindow(wx.Frame):
             # Restore insertion point (prevents auto-scroll to end)
             self.history_text.SetInsertionPoint(old_insertion_point)
 
-            # Only speak if speak_aloud is True
-            if speak_aloud:
-                # Speak the text using TTS
-                # Use interrupt=False to queue messages without interrupting
-                try:
-                    self.speaker.speak(text, interrupt=False)
-                except Exception:
-                    pass
+        if speak_aloud and not self._is_message_muted_for_history(buffer_name):
+            try:
+                self.speaker.speak(text, interrupt=False)
+            except Exception:
+                pass
 
     # List/Edit mode switching methods
 

@@ -13,7 +13,7 @@ import random
 
 from ..base import Game, Player, GameOptions
 from ..registry import register_game
-from ...game_utils.actions import Action, ActionSet, Visibility
+from ...game_utils.actions import Action, ActionSet, MenuInput, Visibility
 from ...game_utils.bot_helper import BotHelper
 from ...game_utils.game_result import GameResult, PlayerResult
 from ...game_utils.cards import (
@@ -33,7 +33,7 @@ from ...game_utils.cards import (
 from ...game_utils.options import BoolOption, IntOption, MenuOption, option_field
 from ...messages.localization import Localization
 from ...ui.keybinds import KeybindState
-from .bot import bot_think as _bot_think
+from .bot import bot_think as _bot_think, _score_outcome
 
 
 # =============================================================================
@@ -393,13 +393,20 @@ class NinetyNineGame(Game):
 
         # Remove old dynamic actions
         turn_set.remove_by_prefix("card_slot_")
-        turn_set.remove("choice_1")
-        turn_set.remove("choice_2")
+        turn_set.remove("resolve_choice")
         turn_set.remove("draw_card")
 
         # Add card slot actions for cards in hand
         for i, card in enumerate(player.hand, 1):
             action_id = f"card_slot_{i}"
+            input_request = None
+            if self._card_requires_manual_choice(card):
+                input_request = MenuInput(
+                    prompt="ninetynine-select-card-choice",
+                    options="_choice_options_for_card",
+                    bot_select="_bot_select_card_choice",
+                    pre_input_check="_pre_input_check_card_choice",
+                )
             turn_set.add(
                 Action(
                     id=action_id,
@@ -407,39 +414,31 @@ class NinetyNineGame(Game):
                     handler="_action_play_card",
                     is_enabled="_is_card_slot_enabled",
                     is_hidden="_is_card_slot_hidden",
+                    input_request=input_request,
                     show_in_actions_menu=False,
                 )
             )
 
-        # Add choice actions if needed
+        # Preserve old pending choice saves by routing them through the same
+        # action_input_menu flow, including a cancel button.
         if has_pending_choice and is_current:
-            if self.pending_choice == "ace":
-                choice_1_label = Localization.get(locale, "ninetynine-ace-add-eleven")
-                choice_2_label = Localization.get(locale, "ninetynine-ace-add-one")
-            elif self.pending_choice == "ten":
-                choice_1_label = Localization.get(locale, "ninetynine-ten-add")
-                choice_2_label = Localization.get(locale, "ninetynine-ten-subtract")
-            else:
-                choice_1_label = Localization.get(locale, "ninetynine-choice-1")
-                choice_2_label = Localization.get(locale, "ninetynine-choice-2")
-
-            turn_set.add(
-                Action(
-                    id="choice_1",
-                    label=choice_1_label,
-                    handler="_action_choice_1",
-                    is_enabled="_is_choice_enabled",
-                    is_hidden="_is_choice_hidden",
-                    show_in_actions_menu=False,
+            pending_options = self._pending_choice_options(player)
+            input_request = None
+            if len(pending_options) > 1:
+                input_request = MenuInput(
+                    prompt="ninetynine-select-card-choice",
+                    options="_pending_choice_options",
+                    bot_select="_bot_select_pending_choice",
+                    pre_input_check="_pre_input_check_pending_choice",
                 )
-            )
             turn_set.add(
                 Action(
-                    id="choice_2",
-                    label=choice_2_label,
-                    handler="_action_choice_2",
+                    id="resolve_choice",
+                    label=self._pending_choice_prompt(locale),
+                    handler="_action_resolve_pending_choice",
                     is_enabled="_is_choice_enabled",
                     is_hidden="_is_choice_hidden",
+                    input_request=input_request,
                     show_in_actions_menu=False,
                 )
             )
@@ -532,11 +531,13 @@ class NinetyNineGame(Game):
             return "action-not-playing"
         if self.current_player != player:
             return "action-not-your-turn"
+        if self.pending_choice is None:
+            return "action-not-available"
         return None
 
     def _is_choice_hidden(self, player: Player) -> Visibility:
         """Choice actions are visible during play."""
-        if self.status != "playing":
+        if self.status != "playing" or self.pending_choice is None:
             return Visibility.HIDDEN
         return Visibility.VISIBLE
 
@@ -560,6 +561,186 @@ class NinetyNineGame(Game):
         """Update turn actions for all players."""
         for player in self.players:
             self._update_turn_actions(player)
+
+    def _card_requires_manual_choice(self, card: Card) -> bool:
+        """Return True only when the card currently has multiple valid outcomes."""
+        choice_type = self._choice_type_for_card(card)
+        if not choice_type:
+            return False
+        return len(self._choice_values_for_type(choice_type)) > 1
+
+    def _choice_values_for_type(self, choice_type: str) -> list[int]:
+        """Get the currently valid numeric outcomes for a choice card."""
+        if choice_type == "ace":
+            return [1] if self.count > ACE_AUTO_THRESHOLD else [11, 1]
+        if choice_type == "ten":
+            return [-10] if self.count >= TEN_AUTO_THRESHOLD else [10, -10]
+        return []
+
+    def _choice_labels_for_values(
+        self, choice_type: str, values: list[int], locale: str
+    ) -> list[str]:
+        """Map currently valid outcomes to localized labels."""
+        if choice_type == "ace":
+            label_map = {
+                11: Localization.get(locale, "ninetynine-ace-add-eleven"),
+                1: Localization.get(locale, "ninetynine-ace-add-one"),
+            }
+            return [label_map[value] for value in values if value in label_map]
+        if choice_type == "ten":
+            label_map = {
+                10: Localization.get(locale, "ninetynine-ten-add"),
+                -10: Localization.get(locale, "ninetynine-ten-subtract"),
+            }
+            return [label_map[value] for value in values if value in label_map]
+        return [
+            Localization.get(locale, "ninetynine-choice-1"),
+            Localization.get(locale, "ninetynine-choice-2"),
+        ]
+
+    def _choice_type_for_card(self, card: Card) -> str | None:
+        """Resolve the card's choice type."""
+        if not self.is_standard_rules:
+            return None
+        if card.rank == 1:
+            return "ace"
+        if card.rank == 10:
+            return "ten"
+        return None
+
+    def _choice_type_for_action(self, player: NinetyNinePlayer) -> str | None:
+        """Resolve the choice type for the currently pending action input."""
+        action_id = self._pending_actions.get(player.id)
+        if not action_id or not action_id.startswith("card_slot_"):
+            return None
+        try:
+            slot = int(action_id.split("_")[-1]) - 1
+        except ValueError:
+            return None
+        if slot < 0 or slot >= len(player.hand):
+            return None
+        return self._choice_type_for_card(player.hand[slot])
+
+    def _choice_options_for_card(self, player: NinetyNinePlayer) -> list[str]:
+        """Build localized options for the currently selected choice card."""
+        user = self.get_user(player)
+        locale = user.locale if user else "en"
+        choice_type = self._choice_type_for_action(player)
+        if not choice_type:
+            return []
+        return self._choice_labels_for_values(
+            choice_type, self._choice_values_for_type(choice_type), locale
+        )
+
+    def _pending_choice_options(self, player: NinetyNinePlayer) -> list[str]:
+        """Build localized options for a legacy saved pending choice."""
+        user = self.get_user(player)
+        locale = user.locale if user else "en"
+        if not self.pending_choice:
+            return []
+        return self._choice_labels_for_values(
+            self.pending_choice,
+            self._choice_values_for_type(self.pending_choice),
+            locale,
+        )
+
+    def _pending_choice_prompt(self, locale: str) -> str:
+        """Get the localized label for an outstanding choice."""
+        if self.pending_choice == "ace":
+            return Localization.get(locale, "ninetynine-ace-choice")
+        if self.pending_choice == "ten":
+            return Localization.get(locale, "ninetynine-ten-choice")
+        return Localization.get(locale, "ninetynine-select-card-choice")
+
+    def _pre_input_check_card_choice(self, player: Player, action_id: str) -> str | None:
+        """Validate before opening a choice dialog from a card click."""
+        if self.status != "playing":
+            return "action-not-playing"
+        if self.current_player != player:
+            return "action-not-your-turn"
+        nn_player: NinetyNinePlayer = player  # type: ignore
+        if self.pending_choice is not None:
+            return "ninetynine-choose-first"
+        if self.pending_draw_player_id == nn_player.id:
+            return "ninetynine-draw-first"
+        return None
+
+    def _pre_input_check_pending_choice(self, player: Player, action_id: str) -> str | None:
+        """Validate before opening a legacy pending choice dialog."""
+        if self.status != "playing":
+            return "action-not-playing"
+        if self.current_player != player:
+            return "action-not-your-turn"
+        if self.pending_choice is None:
+            return "action-not-available"
+        return None
+
+    def _choice_value_from_input(self, choice_type: str, input_value: str, locale: str) -> int | None:
+        """Resolve the numeric effect from the selected localized choice label."""
+        values = self._choice_values_for_type(choice_type)
+        labels = self._choice_labels_for_values(choice_type, values, locale)
+        for value, label in zip(values, labels, strict=False):
+            if input_value == label:
+                return value
+        return None
+
+    def _bot_select_card_choice(self, player: NinetyNinePlayer, options: list[str]) -> str | None:
+        """Pick the best Ace/Ten value for a bot using the current pending action."""
+        action_id = self._pending_actions.get(player.id)
+        if not action_id or not action_id.startswith("card_slot_"):
+            return None
+        try:
+            slot = int(action_id.split("_")[-1]) - 1
+        except ValueError:
+            return None
+        if slot < 0 or slot >= len(player.hand):
+            return None
+
+        card = player.hand[slot]
+        choice_type = self._choice_type_for_card(card)
+        if not choice_type:
+            return None
+
+        locale = "en"
+        if choice_type == "ace":
+            score_11 = _score_outcome(self, player, card.rank, self.count + 11)
+            score_1 = _score_outcome(self, player, card.rank, self.count + 1)
+            labels = self._choice_labels_for_values(
+                choice_type, self._choice_values_for_type(choice_type), locale
+            )
+            return labels[0] if score_11 > score_1 else labels[1]
+
+        if choice_type == "ten":
+            score_plus = _score_outcome(self, player, card.rank, self.count + 10)
+            score_minus = _score_outcome(self, player, card.rank, self.count - 10)
+            labels = self._choice_labels_for_values(
+                choice_type, self._choice_values_for_type(choice_type), locale
+            )
+            return labels[0] if score_plus > score_minus else labels[1]
+
+        return None
+
+    def _bot_select_pending_choice(self, player: NinetyNinePlayer, options: list[str]) -> str | None:
+        """Pick the best option for a legacy pending choice state."""
+        if self.pending_card_index < 0 or self.pending_card_index >= len(player.hand):
+            return None
+        card = player.hand[self.pending_card_index]
+        locale = "en"
+        if self.pending_choice == "ace":
+            score_11 = _score_outcome(self, player, card.rank, self.count + 11)
+            score_1 = _score_outcome(self, player, card.rank, self.count + 1)
+            labels = self._choice_labels_for_values(
+                "ace", self._choice_values_for_type("ace"), locale
+            )
+            return labels[0] if score_11 > score_1 else labels[1]
+        if self.pending_choice == "ten":
+            score_plus = _score_outcome(self, player, card.rank, self.count + 10)
+            score_minus = _score_outcome(self, player, card.rank, self.count - 10)
+            labels = self._choice_labels_for_values(
+                "ten", self._choice_values_for_type("ten"), locale
+            )
+            return labels[0] if score_plus > score_minus else labels[1]
+        return None
 
     # ==========================================================================
     # Game Flow
@@ -736,17 +917,28 @@ class NinetyNineGame(Game):
     # Action Handlers
     # ==========================================================================
 
-    def _action_play_card(self, player: Player, action_id: str) -> None:
+    def _action_play_card(self, player: Player, *args) -> None:
         """Handle playing a card."""
         if not isinstance(player, NinetyNinePlayer):
             return
 
         # Explicitly reject play if it's not their turn (since action is enabled to be visible)
         if self.current_player != player:
+            user = self.get_user(player)
+            if user:
+                user.speak_l("action-not-your-turn", buffer="game")
             return
 
         if self.pending_choice is not None:
             return  # Must make choice first
+
+        if len(args) == 1:
+            action_id = args[0]
+            input_value = None
+        elif len(args) == 2:
+            input_value, action_id = args
+        else:
+            return
 
         # Extract slot number
         try:
@@ -759,29 +951,29 @@ class NinetyNineGame(Game):
 
         card = player.hand[slot]
         old_count = self.count
+        user = self.get_user(player)
+        locale = user.locale if user else "en"
 
         # Calculate value and check if choice is needed
         value = self.calculate_card_value(card, old_count)
 
         # Handle cards that need choice
         if card.rank == 1 and value is None:  # Ace needs choice
-            self.pending_choice = "ace"
-            self.pending_card_index = slot
-            user = self.get_user(player)
-            if user:
-                user.speak_l("ninetynine-ace-choice", buffer="game")
-            self._update_all_turn_actions()
-            self.rebuild_all_menus()
+            resolved_value = None
+            if input_value is not None:
+                resolved_value = self._choice_value_from_input("ace", input_value, locale)
+            if resolved_value is None:
+                return
+            self._play_card(player, slot, card, old_count + resolved_value)
             return
 
         if card.rank == 10 and value is None:  # Ten needs choice
-            self.pending_choice = "ten"
-            self.pending_card_index = slot
-            user = self.get_user(player)
-            if user:
-                user.speak_l("ninetynine-ten-choice", buffer="game")
-            self._update_all_turn_actions()
-            self.rebuild_all_menus()
+            resolved_value = None
+            if input_value is not None:
+                resolved_value = self._choice_value_from_input("ten", input_value, locale)
+            if resolved_value is None:
+                return
+            self._play_card(player, slot, card, old_count + resolved_value)
             return
 
         if card.rank == 2 and self.is_standard_rules:  # 2 card special handling
@@ -798,12 +990,23 @@ class NinetyNineGame(Game):
             value = 0
         self._play_card(player, slot, card, old_count + value)
 
-    def _action_choice_1(self, player: Player, action_id: str) -> None:
-        """Handle first choice option (Add 11 for Ace, Add 10 for Ten)."""
+    def _action_resolve_pending_choice(self, player: Player, *args) -> None:
+        """Resolve a legacy saved Ace/Ten choice through the standard action input menu."""
         if not isinstance(player, NinetyNinePlayer):
             return
 
+        if len(args) == 1:
+            action_id = args[0]
+            input_value = None
+        elif len(args) == 2:
+            input_value, action_id = args
+        else:
+            return
+
         if self.current_player != player or self.pending_choice is None:
+            user = self.get_user(player)
+            if user and self.current_player != player:
+                user.speak_l("action-not-your-turn", buffer="game")
             return
 
         slot = self.pending_card_index
@@ -811,41 +1014,21 @@ class NinetyNineGame(Game):
             return
 
         card = player.hand[slot]
+        user = self.get_user(player)
+        locale = user.locale if user else "en"
+        if input_value is None:
+            available_options = self._pending_choice_options(player)
+            if len(available_options) == 1:
+                input_value = available_options[0]
+        value = self._choice_value_from_input(
+            self.pending_choice,
+            input_value,
+            locale,
+        )
+        if value is None:
+            return
+
         old_count = self.count
-
-        if self.pending_choice == "ace":
-            value = 11
-        elif self.pending_choice == "ten":
-            value = 10
-        else:
-            return
-
-        self.pending_choice = None
-        self.pending_card_index = -1
-        self._play_card(player, slot, card, old_count + value)
-
-    def _action_choice_2(self, player: Player, action_id: str) -> None:
-        """Handle second choice option (Add 1 for Ace, Subtract 10 for Ten)."""
-        if not isinstance(player, NinetyNinePlayer):
-            return
-
-        if self.current_player != player or self.pending_choice is None:
-            return
-
-        slot = self.pending_card_index
-        if slot < 0 or slot >= len(player.hand):
-            return
-
-        card = player.hand[slot]
-        old_count = self.count
-
-        if self.pending_choice == "ace":
-            value = 1
-        elif self.pending_choice == "ten":
-            value = -10
-        else:
-            return
-
         self.pending_choice = None
         self.pending_card_index = -1
         self._play_card(player, slot, card, old_count + value)

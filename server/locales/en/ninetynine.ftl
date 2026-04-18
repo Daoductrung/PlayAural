@@ -53,6 +53,7 @@ ninetynine-ace-add-one = Add 1
 ninetynine-ten-choice = Play 10 as +10 or -10?
 ninetynine-ten-add = Add 10
 ninetynine-ten-subtract = Subtract 10
+ninetynine-select-card-choice = Choose how to play this card.
 ninetynine-choice-1 = Choice 1
 ninetynine-choice-2 = Choice 2
 

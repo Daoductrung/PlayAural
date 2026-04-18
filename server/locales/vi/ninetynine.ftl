@@ -53,6 +53,7 @@ ninetynine-ace-add-one = Cộng 1
 ninetynine-ten-choice = Chọn giá trị cho lá 10: +10 hay -10?
 ninetynine-ten-add = Cộng 10
 ninetynine-ten-subtract = Trừ 10
+ninetynine-select-card-choice = Chọn cách dùng lá bài này.
 ninetynine-choice-1 = Lựa chọn 1
 ninetynine-choice-2 = Lựa chọn 2
 

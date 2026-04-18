@@ -70,23 +70,11 @@ def bot_think(game: "NinetyNineGame", player: "NinetyNinePlayer") -> str | None:
 
 
 def _make_choice(game: "NinetyNineGame", player: "NinetyNinePlayer") -> str | None:
-    """Bot makes a choice for Ace or Ten."""
+    """Route legacy saved pending choices through the shared resolve action."""
     slot = game.pending_card_index
     if slot < 0 or slot >= len(player.hand):
         return None
-    card = player.hand[slot]
-
-    if game.pending_choice == "ace":
-        score_11 = _score_outcome(game, player, card.rank, game.count + 11)
-        score_1 = _score_outcome(game, player, card.rank, game.count + 1)
-        return "choice_1" if score_11 > score_1 else "choice_2"
-
-    elif game.pending_choice == "ten":
-        score_plus = _score_outcome(game, player, card.rank, game.count + 10)
-        score_minus = _score_outcome(game, player, card.rank, game.count - 10)
-        return "choice_1" if score_plus > score_minus else "choice_2"
-
-    return None
+    return "resolve_choice"
 
 
 def _choose_card(game: "NinetyNineGame", player: "NinetyNinePlayer") -> str | None:

@@ -33,6 +33,7 @@ from ..game_utils.cards import (
 from pathlib import Path
 from ..users.test_user import MockUser
 from ..users.bot import Bot
+from ..users.base import MenuItem
 from server.messages.localization import Localization
 
 
@@ -506,6 +507,124 @@ class TestNinetyNinePlayTest:
         ]
 
         assert game.bot_think(bot_player) in {"card_slot_2", "card_slot_3"}
+
+
+class TestNinetyNineChoiceDialogs:
+    """Regression tests for shared choice dialogs and turn checks."""
+
+    def setup_method(self):
+        self.game = NinetyNineGame()
+        self.user1 = MockUser("Alice")
+        self.user2 = MockUser("Bob")
+        self.player1 = self.game.add_player("Alice", self.user1)
+        self.player2 = self.game.add_player("Bob", self.user2)
+        self.game.setup_keybinds()
+        self.game.on_start()
+        self.game.alive_player_ids = [self.player1.id, self.player2.id]
+        self.game.set_turn_players([self.player1, self.player2])
+        self.game.turn_index = 0
+        self.game.count = 50
+        self.player1.hand = []
+        self.player2.hand = [Card(id=999, rank=5, suit=SUIT_HEARTS)]
+        self.game.pending_draw_player_id = None
+        self.game.pending_choice = None
+        self.game.pending_card_index = -1
+        self.game._update_all_turn_actions()
+
+    def _menu_items(self) -> list[MenuItem]:
+        items = self.user1.get_current_menu_items("action_input_menu")
+        assert items is not None
+        assert all(isinstance(item, MenuItem) for item in items)
+        return items  # type: ignore[return-value]
+
+    def test_out_of_turn_choice_card_does_not_open_dialog(self):
+        """Out-of-turn clicks should announce the turn block before opening a choice menu."""
+        self.player1.hand = [Card(id=1, rank=1, suit=SUIT_HEARTS)]
+        self.game.turn_index = 1
+        self.game._update_turn_actions(self.player1)
+        self.user1.clear_messages()
+
+        self.game.execute_action(self.player1, "card_slot_1")
+
+        assert self.user1.get_last_spoken() == "It's not your turn."
+        assert "action_input_menu" not in self.user1.menus
+
+    def test_ace_choice_dialog_includes_cancel(self):
+        """Ace choices should use the shared action input menu with a cancel item."""
+        self.player1.hand = [Card(id=1, rank=1, suit=SUIT_HEARTS)]
+        self.game._update_turn_actions(self.player1)
+
+        self.game.execute_action(self.player1, "card_slot_1")
+
+        items = self._menu_items()
+        assert [item.text for item in items[:-1]] == ["Add 11", "Add 1"]
+        assert items[-1].id == "_cancel"
+
+    def test_ten_choice_dialog_includes_cancel(self):
+        """Ten choices should use the same shared menu flow."""
+        self.player1.hand = [Card(id=10, rank=10, suit=SUIT_HEARTS)]
+        self.game._update_turn_actions(self.player1)
+
+        self.game.execute_action(self.player1, "card_slot_1")
+
+        items = self._menu_items()
+        assert [item.text for item in items[:-1]] == ["Add 10", "Subtract 10"]
+        assert items[-1].id == "_cancel"
+
+    def test_choice_input_resolves_card_play(self):
+        """Submitting a choice should play the card immediately with the selected value."""
+        self.player1.hand = [Card(id=1, rank=1, suit=SUIT_HEARTS)]
+        self.game._update_turn_actions(self.player1)
+
+        self.game.execute_action(self.player1, "card_slot_1", "Add 11")
+
+        assert self.game.count == 61
+        assert all(card.id != 1 for card in self.player1.hand)
+        assert self.game.pending_choice is None
+        assert self.game.current_player == self.player2
+
+    def test_single_valid_choice_auto_selects_instead_of_opening_dialog(self):
+        """Single-outcome Ace plays should not open a choice dialog."""
+        self.game.count = 97
+        self.player1.hand = [Card(id=1, rank=1, suit=SUIT_HEARTS)]
+        self.game._update_turn_actions(self.player1)
+        self.user1.clear_messages()
+
+        self.game.execute_action(self.player1, "card_slot_1")
+
+        assert "action_input_menu" not in self.user1.menus
+        assert self.game.count == 98
+        assert all(card.id != 1 for card in self.player1.hand)
+        assert self.game.current_player == self.player2
+
+    def test_legacy_pending_choice_uses_shared_menu_and_cancel(self):
+        """Saved pending choices should still reopen through the same dialog style."""
+        self.player1.hand = [Card(id=10, rank=10, suit=SUIT_HEARTS)]
+        self.game.pending_choice = "ten"
+        self.game.pending_card_index = 0
+        self.game._update_turn_actions(self.player1)
+
+        action = self.game.get_action_set(self.player1, "turn").get_action("resolve_choice")
+        assert action is not None
+        self.game.execute_action(self.player1, "resolve_choice")
+
+        items = self._menu_items()
+        assert [item.text for item in items[:-1]] == ["Add 10", "Subtract 10"]
+        assert items[-1].id == "_cancel"
+
+    def test_legacy_single_valid_choice_auto_resolves(self):
+        """Saved pending choices with one valid outcome should not reopen a dialog."""
+        self.game.count = 97
+        self.player1.hand = [Card(id=1, rank=1, suit=SUIT_HEARTS)]
+        self.game.pending_choice = "ace"
+        self.game.pending_card_index = 0
+        self.game._update_turn_actions(self.player1)
+
+        self.game.execute_action(self.player1, "resolve_choice")
+
+        assert "action_input_menu" not in self.user1.menus
+        assert self.game.count == 98
+        assert all(card.id != 1 for card in self.player1.hand)
 
 
 class TestNinetyNinePersistence:

@@ -228,6 +228,7 @@ table-players-one = { $count } player: { $players }.
 table-players-many = { $count } players: { $players }.
 table-spectators = Spectators: { $spectators }.
 table-host-suffix = (Host)
+table-voice-chat-suffix = (in voice chat)
 game-leave = Leave
 game-over = Game Over
 game-final-scores = Final Scores

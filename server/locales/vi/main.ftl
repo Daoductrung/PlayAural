@@ -228,6 +228,7 @@ table-players-one = { $count } người chơi: { $players }.
 table-players-many = { $count } người chơi: { $players }.
 table-spectators = Khán giả: { $spectators }.
 table-host-suffix = (Chủ bàn)
+table-voice-chat-suffix = (đang tham gia trò chuyện thoại)
 game-leave = Rời khỏi
 game-over = Kết thúc game
 game-final-scores = Điểm tổng kết

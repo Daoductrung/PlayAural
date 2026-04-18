@@ -5062,6 +5062,84 @@ PlayAural Server
             "game_name": game_name,
         }
 
+    def _get_leaderboard_game_name(
+        self,
+        user: NetworkUser,
+        game_type: str,
+        fallback_name: str = "",
+    ) -> str:
+        """Return the current localized game name for a leaderboard view."""
+        game_class = get_game_class(game_type)
+        if game_class:
+            return Localization.get(user.locale, game_class.get_name_key())
+        return fallback_name
+
+    def _show_leaderboard_for_selection(
+        self,
+        user: NetworkUser,
+        game_type: str,
+        game_name: str,
+        selection_id: str,
+    ) -> bool:
+        """Show the exact leaderboard represented by a type-menu selection ID."""
+        if not self._leaderboard_selection_exists(game_type, selection_id):
+            return False
+        resolved_game_name = self._get_leaderboard_game_name(user, game_type, game_name)
+
+        if selection_id == "type_wins":
+            self._show_wins_leaderboard(user, game_type, resolved_game_name)
+            return True
+        if selection_id == "type_rating":
+            self._show_rating_leaderboard(user, game_type, resolved_game_name)
+            return True
+        if selection_id == "type_total_score":
+            self._show_total_score_leaderboard(user, game_type, resolved_game_name)
+            return True
+        if selection_id == "type_high_score":
+            self._show_high_score_leaderboard(user, game_type, resolved_game_name)
+            return True
+        if selection_id == "type_games_played":
+            self._show_games_played_leaderboard(user, game_type, resolved_game_name)
+            return True
+        if not selection_id.startswith("type_"):
+            return False
+
+        lb_id = selection_id[5:]
+        game_class = get_game_class(game_type)
+        if not game_class:
+            return False
+        for config in game_class.get_leaderboard_types():
+            if config["id"] == lb_id:
+                self._show_custom_leaderboard(
+                    user,
+                    game_type,
+                    resolved_game_name,
+                    config,
+                )
+                return True
+        return False
+
+    def _leaderboard_selection_exists(self, game_type: str, selection_id: str) -> bool:
+        """Return whether a leaderboard type selection ID is valid for a game."""
+        game_class = get_game_class(game_type)
+        if not game_class:
+            return False
+        built_in_map = {
+            "type_wins": "wins",
+            "type_rating": "rating",
+            "type_total_score": "total_score",
+            "type_high_score": "high_score",
+            "type_games_played": "games_played",
+        }
+        supported_types = set(game_class.get_supported_leaderboards())
+        built_in_type = built_in_map.get(selection_id)
+        if built_in_type is not None:
+            return built_in_type in supported_types
+        if not selection_id.startswith("type_"):
+            return False
+        lb_id = selection_id[5:]
+        return any(config["id"] == lb_id for config in game_class.get_leaderboard_types())
+
     def _show_wins_leaderboard(
         self, user: NetworkUser, game_type: str, game_name: str
     ) -> None:
@@ -5105,6 +5183,7 @@ PlayAural Server
             "menu": "game_leaderboard",
             "game_type": game_type,
             "game_name": game_name,
+            "leaderboard_selection_id": "type_wins",
         }
 
     def _show_rating_leaderboard(
@@ -5153,6 +5232,7 @@ PlayAural Server
             "menu": "game_leaderboard",
             "game_type": game_type,
             "game_name": game_name,
+            "leaderboard_selection_id": "type_rating",
         }
 
     def _show_total_score_leaderboard(
@@ -5192,6 +5272,7 @@ PlayAural Server
             "menu": "game_leaderboard",
             "game_type": game_type,
             "game_name": game_name,
+            "leaderboard_selection_id": "type_total_score",
         }
 
     def _show_high_score_leaderboard(
@@ -5231,6 +5312,7 @@ PlayAural Server
             "menu": "game_leaderboard",
             "game_type": game_type,
             "game_name": game_name,
+            "leaderboard_selection_id": "type_high_score",
         }
 
     def _show_games_played_leaderboard(
@@ -5270,6 +5352,7 @@ PlayAural Server
             "menu": "game_leaderboard",
             "game_type": game_type,
             "game_name": game_name,
+            "leaderboard_selection_id": "type_games_played",
         }
 
     def _extract_value_from_path(
@@ -5378,6 +5461,7 @@ PlayAural Server
             "menu": "game_leaderboard",
             "game_type": game_type,
             "game_name": game_name,
+            "leaderboard_selection_id": f"type_{lb_id}",
         }
 
     async def _handle_leaderboards_selection(
@@ -5407,28 +5491,18 @@ PlayAural Server
         game_type = state.get("game_type", "")
         game_name = state.get("game_name", "")
 
-        # Built-in leaderboard types
-        if selection_id == "type_wins":
-            self._nav_push(user, self._show_wins_leaderboard, game_type, game_name)
-        elif selection_id == "type_rating":
-            self._nav_push(user, self._show_rating_leaderboard, game_type, game_name)
-        elif selection_id == "type_total_score":
-            self._nav_push(user, self._show_total_score_leaderboard, game_type, game_name)
-        elif selection_id == "type_high_score":
-            self._nav_push(user, self._show_high_score_leaderboard, game_type, game_name)
-        elif selection_id == "type_games_played":
-            self._nav_push(user, self._show_games_played_leaderboard, game_type, game_name)
-        elif selection_id == "back":
+        if selection_id == "back":
             self._nav_back(user)
-        elif selection_id.startswith("type_"):
-            # Custom leaderboard type - look up config from game class
-            lb_id = selection_id[5:]  # Remove "type_" prefix
-            game_class = get_game_class(game_type)
-            if game_class:
-                for config in game_class.get_leaderboard_types():
-                    if config["id"] == lb_id:
-                        self._nav_push(user, self._show_custom_leaderboard, game_type, game_name, config)
-                        return
+            return
+
+        if self._leaderboard_selection_exists(game_type, selection_id):
+            self._nav_push(
+                user,
+                self._show_leaderboard_for_selection,
+                game_type,
+                game_name,
+                selection_id,
+            )
 
     async def _handle_game_leaderboard_selection(
         self, user: NetworkUser, selection_id: str, state: dict
@@ -6662,8 +6736,13 @@ PlayAural Server
         elif menu == "leaderboard_types_menu":
             self._show_leaderboard_types_menu(user, frame.get("game_type", ""))
         elif menu == "game_leaderboard":
-            # Restore to parent leaderboard type menu (type not stored)
-            self._show_leaderboard_types_menu(user, frame.get("game_type", ""))
+            if not self._show_leaderboard_for_selection(
+                user,
+                frame.get("game_type", ""),
+                frame.get("game_name", ""),
+                frame.get("leaderboard_selection_id", ""),
+            ):
+                self._show_leaderboard_types_menu(user, frame.get("game_type", ""))
         elif menu == "my_stats_menu":
             self._show_my_stats_menu(user)
         elif menu == "my_game_stats":

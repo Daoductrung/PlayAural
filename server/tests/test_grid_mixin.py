@@ -539,7 +539,7 @@ class TestGridMenuKwargs:
     def test_playing_returns_grid_params(self) -> None:
         game = make_game(rows=5, cols=8, start=True)
         kwargs = game._build_grid_menu_kwargs()
-        assert kwargs == {"grid_enabled": True, "grid_width": 8}
+        assert kwargs == {"grid_enabled": True, "grid_height": 5, "grid_width": 8}
 
     def test_waiting_returns_empty(self) -> None:
         game = make_game(rows=5, cols=8, start=False)
@@ -558,6 +558,7 @@ class TestGridMenuKwargs:
         menu_data = user.menus.get("turn_menu")
         assert menu_data is not None
         assert menu_data.get("grid_enabled") is True
+        assert menu_data.get("grid_height") == 4
         assert menu_data.get("grid_width") == 6
 
     def test_grid_params_reach_update_menu_after_cursor_move(self) -> None:
@@ -574,9 +575,11 @@ class TestGridMenuKwargs:
             if message.type == "update_menu"
         )
         assert update_message.data["grid_enabled"] is True
+        assert update_message.data["grid_height"] == 4
         assert update_message.data["grid_width"] == 6
         assert update_message.data["selection_id"] == grid_cell_id(0, 1)
         assert user.menus["turn_menu"]["grid_enabled"] is True
+        assert user.menus["turn_menu"]["grid_height"] == 4
         assert user.menus["turn_menu"]["grid_width"] == 6
 
     def test_non_grid_game_no_grid_params(self) -> None:
@@ -599,10 +602,12 @@ class TestGridMenuKwargs:
         user.update_menu("turn_menu", ["Updated item"], selection_id="item_1")
 
         assert user.menus["turn_menu"]["grid_enabled"] is False
+        assert user.menus["turn_menu"]["grid_height"] == 0
         assert user.menus["turn_menu"]["grid_width"] == 1
         update_message = user.messages[-1]
         assert update_message.type == "update_menu"
         assert update_message.data["grid_enabled"] is False
+        assert update_message.data["grid_height"] == 0
         assert update_message.data["grid_width"] == 1
 
 

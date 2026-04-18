@@ -98,6 +98,7 @@ class MockUser(User):
         escape_behavior: EscapeBehavior = EscapeBehavior.KEYBIND,
         position: int | None = None,
         grid_enabled: bool = False,
+        grid_height: int = 0,
         grid_width: int = 1,
     ) -> None:
         menu_data = {
@@ -106,6 +107,7 @@ class MockUser(User):
             "escape_behavior": escape_behavior,
             "position": position,
             "grid_enabled": grid_enabled,
+            "grid_height": grid_height,
             "grid_width": grid_width,
         }
         self.menus[menu_id] = menu_data
@@ -119,6 +121,7 @@ class MockUser(User):
         selection_id: str | None = None,
         *,
         grid_enabled: bool = False,
+        grid_height: int = 0,
         grid_width: int = 1,
     ) -> None:
         if menu_id in self.menus:
@@ -126,6 +129,7 @@ class MockUser(User):
             if position is not None:
                 self.menus[menu_id]["position"] = position
             self.menus[menu_id]["grid_enabled"] = grid_enabled
+            self.menus[menu_id]["grid_height"] = grid_height
             self.menus[menu_id]["grid_width"] = grid_width
         self.messages.append(
             Message(
@@ -136,6 +140,7 @@ class MockUser(User):
                     "position": position,
                     "selection_id": selection_id,
                     "grid_enabled": grid_enabled,
+                    "grid_height": grid_height,
                     "grid_width": grid_width,
                 },
             )

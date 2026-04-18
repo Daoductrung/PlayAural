@@ -384,6 +384,7 @@ class GridGameMixin:
             return {}
         return {
             "grid_enabled": True,
+            "grid_height": self.grid_rows,
             "grid_width": self.grid_cols,
         }
 

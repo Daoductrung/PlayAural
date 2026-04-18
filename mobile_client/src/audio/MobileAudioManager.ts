@@ -262,6 +262,45 @@ export class MobileAudioManager {
     return this.ambienceVolume;
   }
 
+  refreshPlaybackState(): void {
+    if (Platform.OS === "web") {
+      return;
+    }
+
+    if (this.musicPlayer) {
+      this.setNativeSoundVolume(this.musicPlayer.player, this.musicVolume);
+      void this.musicPlayer.player.playAsync().catch(() => undefined);
+    } else if (this.musicVolume > 0 && this.desiredMusicRequest) {
+      void this.playMusic(this.desiredMusicRequest.name, this.desiredMusicRequest.looping);
+    }
+
+    if (this.ambienceIntroPlayer) {
+      this.setNativeSoundVolume(this.ambienceIntroPlayer.player, this.ambienceVolume);
+      void this.ambienceIntroPlayer.player.playAsync().catch(() => undefined);
+    }
+    if (this.ambienceLoopPlayer) {
+      this.setNativeSoundVolume(this.ambienceLoopPlayer.player, this.ambienceVolume);
+      void this.ambienceLoopPlayer.player.playAsync().catch(() => undefined);
+    }
+    if (this.ambienceOutroPlayer) {
+      this.setNativeSoundVolume(this.ambienceOutroPlayer.player, this.ambienceVolume);
+      void this.ambienceOutroPlayer.player.playAsync().catch(() => undefined);
+    }
+    if (
+      !this.ambienceIntroPlayer &&
+      !this.ambienceLoopPlayer &&
+      !this.ambienceOutroPlayer &&
+      this.ambienceVolume > 0 &&
+      this.desiredAmbienceRequest
+    ) {
+      void this.playAmbience(
+        this.desiredAmbienceRequest.loop,
+        this.desiredAmbienceRequest.intro,
+        this.desiredAmbienceRequest.outro,
+      );
+    }
+  }
+
   async playSound(
     name: string,
     options: { volume?: number; pitch?: number; pan?: number } = {},

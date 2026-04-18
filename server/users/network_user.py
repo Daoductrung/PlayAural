@@ -186,6 +186,7 @@ class NetworkUser(User):
         escape_behavior: EscapeBehavior = EscapeBehavior.KEYBIND,
         position: int | None = None,
         grid_enabled: bool = False,
+        grid_height: int = 0,
         grid_width: int = 1,
     ) -> None:
         converted_items = self._convert_items(items)
@@ -198,6 +199,7 @@ class NetworkUser(User):
             "escape_behavior": escape_str,
             "position": position,
             "grid_enabled": grid_enabled,
+            "grid_height": grid_height,
             "grid_width": grid_width,
         }
 
@@ -208,6 +210,7 @@ class NetworkUser(User):
             "multiletter_enabled": multiletter,
             "escape_behavior": escape_str,
             "grid_enabled": grid_enabled,
+            "grid_height": grid_height,
             "grid_width": grid_width,
         }
         if position is not None:
@@ -223,6 +226,7 @@ class NetworkUser(User):
         selection_id: str | None = None,
         *,
         grid_enabled: bool = False,
+        grid_height: int = 0,
         grid_width: int = 1,
     ) -> None:
         converted_items = self._convert_items(items)
@@ -232,6 +236,7 @@ class NetworkUser(User):
             if position is not None:
                 self._current_menus[menu_id]["position"] = position
             self._current_menus[menu_id]["grid_enabled"] = grid_enabled
+            self._current_menus[menu_id]["grid_height"] = grid_height
             self._current_menus[menu_id]["grid_width"] = grid_width
 
         packet: dict[str, Any] = {
@@ -239,6 +244,7 @@ class NetworkUser(User):
             "menu_id": menu_id,
             "items": converted_items,
             "grid_enabled": grid_enabled,
+            "grid_height": grid_height,
             "grid_width": grid_width,
         }
         if position is not None:

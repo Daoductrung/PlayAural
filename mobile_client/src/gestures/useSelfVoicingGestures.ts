@@ -46,7 +46,8 @@ const DOUBLE_TAP_WINDOW_MS = 350;
 const DOUBLE_TAP_HOLD_MS = 350;
 const MULTI_TOUCH_REPEAT_WINDOW_MS = 200;
 const MULTI_TOUCH_DOMINANCE_RATIO = 1.25;
-const THREE_FINGER_TAP_WINDOW_MS = 650;
+const THREE_FINGER_SINGLE_TAP_DELAY_MS = 700;
+const THREE_FINGER_TRIPLE_TAP_WINDOW_MS = 950;
 const MOVE_TOLERANCE = 4;
 const SWIPE_THRESHOLD = 14;
 
@@ -224,7 +225,7 @@ export function useSelfVoicingGestures(callbacks: GestureCallbacks) {
   const registerThreeFingerTap = () => {
     const callbacks = callbacksRef.current;
     const now = Date.now();
-    if (now - lastThreeFingerTapAtRef.current > THREE_FINGER_TAP_WINDOW_MS) {
+    if (now - lastThreeFingerTapAtRef.current > THREE_FINGER_TRIPLE_TAP_WINDOW_MS) {
       threeFingerTapCountRef.current = 0;
     }
     lastThreeFingerTapAtRef.current = now;
@@ -247,8 +248,12 @@ export function useSelfVoicingGestures(callbacks: GestureCallbacks) {
       if (threeFingerTapCountRef.current === 1) {
         threeFingerTapCountRef.current = 0;
         callbacksRef.current.onThreeFingerTap();
+        return;
       }
-    }, THREE_FINGER_TAP_WINDOW_MS);
+      if (threeFingerTapCountRef.current < 3) {
+        threeFingerTapCountRef.current = 0;
+      }
+    }, THREE_FINGER_SINGLE_TAP_DELAY_MS);
   };
 
   const handleDirectTouchStart = (event: GestureResponderEvent) => {

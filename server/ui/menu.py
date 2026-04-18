@@ -15,6 +15,7 @@ class Menu:
     multiletter: bool = True
     escape_behavior: str = "keybind"
     grid_enabled: bool = False
+    grid_height: int = 0
     grid_width: int = 1
 
 

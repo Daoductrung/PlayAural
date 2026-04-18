@@ -802,11 +802,13 @@ class TestGridIntegration:
         game = make_game(start=True, placement_mode="auto")
         kwargs = game._build_grid_menu_kwargs()
         assert kwargs["grid_enabled"] is True
+        assert kwargs["grid_height"] == 10
         assert kwargs["grid_width"] == 10
 
     def test_grid_size_matches_option(self) -> None:
         game = make_game(start=True, grid_size="8")
         kwargs = game._build_grid_menu_kwargs()
+        assert kwargs["grid_height"] == 8
         assert kwargs["grid_width"] == 8
 
     def test_cursors_initialized(self) -> None:

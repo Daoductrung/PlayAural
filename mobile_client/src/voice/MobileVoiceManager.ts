@@ -171,11 +171,12 @@ export class MobileVoiceManager {
       this.room = null;
       this.setMicState(false);
       this.setState("disconnected");
-      void this.stopNativeAudioSession();
-      if (wasConnected && !expectedDisconnect) {
-        this.callbacks.onDisconnect?.("connection_lost");
-      }
-      this.localDisconnectRequested = false;
+      void this.stopNativeAudioSession().finally(() => {
+        if (wasConnected && !expectedDisconnect) {
+          this.callbacks.onDisconnect?.("connection_lost");
+        }
+        this.localDisconnectRequested = false;
+      });
     });
 
     room.on(RoomEvent.MediaDevicesError, () => {

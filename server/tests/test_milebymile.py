@@ -11,7 +11,7 @@ from ..games.milebymile.game import (
     MileByMileOptions,
     RaceState,
 )
-from ..games.milebymile.cards import HazardType, SafetyType
+from ..games.milebymile.cards import Card, CardType, HazardType, SafetyType
 from ..users.test_user import MockUser
 from ..users.bot import Bot
 
@@ -221,4 +221,28 @@ class TestMileByMilePersistence:
         assert loaded.game_active is True
         assert loaded.current_race == 1
         assert loaded.options.round_distance == 500
+
+
+class TestMileByMileTargetSelectionGuard:
+    def test_out_of_turn_hazard_card_does_not_open_target_selection_menu(self):
+        game = MileByMileGame()
+        users = [MockUser("Alice", uuid="p1"), MockUser("Bob", uuid="p2"), MockUser("Cara", uuid="p3")]
+        players = [game.add_player(user.username, user) for user in users]
+        game.on_start()
+
+        alice, bob, _cara = players
+        alice_user = game.get_user(alice)
+        assert alice_user is not None
+
+        alice.hand = [Card(id=1, card_type=CardType.HAZARD, value=HazardType.STOP)]
+        bob.hand = []
+        game.current_player = bob
+        game._update_turn_actions(alice)
+        alice_user.clear_messages()
+
+        game.execute_action(alice, "card_slot_1")
+
+        assert alice.id not in game._pending_actions
+        assert "action_input_menu" not in alice_user.menus
+        assert alice_user.get_last_spoken() == "It's not your turn."
 

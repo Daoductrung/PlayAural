@@ -212,6 +212,25 @@ def test_draw_mode_auto_knocks_after_exhausting_boneyard() -> None:
     assert [tile.id for tile in player1.hand] == [1, 3]
 
 
+def test_out_of_turn_multi_side_tile_does_not_open_side_selection_menu() -> None:
+    game = make_game(start=True)
+    player1, player2 = game.get_active_players()
+    user1 = game.get_user(player1)
+    assert user1 is not None
+
+    game.current_player = player2
+    set_linear_chain(game, 5, 5)
+    player1.hand = [DominoTile(id=1, left=5, right=2)]
+    game.rebuild_player_menu(player1)
+    user1.clear_messages()
+
+    game.execute_action(player1, "play_tile_1")
+
+    assert player1.id not in game._pending_actions
+    assert "action_input_menu" not in user1.menus
+    assert user1.get_last_spoken() == "It's not your turn."
+
+
 def test_empty_boneyard_no_playable_tiles_resolves_blocked_round_immediately() -> None:
     game = make_game(start=True, draw_mode="draw", target_score=200)
     player1, player2 = game.get_active_players()

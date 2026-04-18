@@ -401,6 +401,34 @@ class TestScopaVariants:
         assert played_card in game.players[0].captured
         assert len(game.table_cards) == 2 # 4 cards on table - 2 captured = 2 left
 
+    def test_out_of_turn_manual_selection_does_not_open_capture_menu(self):
+        game = ScopaGame()
+        game.options.manual_selection = True
+        user1 = MockUser("Player1", uuid="p1")
+        user2 = MockUser("Player2", uuid="p2")
+        game.add_player("Player1", user1)
+        game.add_player("Player2", user2)
+        game.on_start()
+
+        player1, player2 = game.players
+        game.current_player = player2
+        game.table_cards = [
+            Card(id=1, rank=2, suit=1),
+            Card(id=2, rank=3, suit=2),
+            Card(id=3, rank=1, suit=3),
+            Card(id=4, rank=4, suit=4),
+        ]
+        played_card = Card(id=5, rank=5, suit=1)
+        player1.hand = [played_card]
+        game._update_card_actions(player1)
+        user1.clear_messages()
+
+        game.execute_action(player1, f"play_card_{played_card.id}")
+
+        assert player1.id not in game._pending_actions
+        assert "action_input_menu" not in user1.menus
+        assert user1.get_last_spoken() == "It's not your turn."
+
 
 class TestScopaGameFlow:
     """Tests for game flow."""

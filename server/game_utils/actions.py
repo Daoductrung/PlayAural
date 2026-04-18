@@ -31,6 +31,7 @@ class MenuInput(DataClassJSONMixin):
     prompt: str  # Localization key for menu title/prompt
     options: str  # Method name that returns list[str]
     bot_select: str | None = None  # Method name for bot auto-selection
+    pre_input_check: str | None = None  # Method name returning disabled reason key, or None
 
 
 @dataclass

@@ -44,6 +44,7 @@ export class TtsManager {
   private activeText = "";
   private announcementQueue: AnnouncementQueueItem[] = [];
   private token = 0;
+  private speechFallbackTimer: ReturnType<typeof setTimeout> | null = null;
   private currentUiTextProvider: (() => string | null) | null = null;
   private pendingPassiveUiText: string | null = null;
 
@@ -214,6 +215,7 @@ export class TtsManager {
     this.activeChannel = null;
     this.activeText = "";
     this.token += 1;
+    this.clearSpeechFallbackTimer();
     this.stopUnderlyingSpeech();
   }
 
@@ -231,6 +233,7 @@ export class TtsManager {
   }
 
   private startSpeech(channel: SpeechChannel, text: string, options: AnnouncementStartOptions = {}): void {
+    this.clearSpeechFallbackTimer();
     const token = ++this.token;
     this.activeChannel = channel;
     this.activeText = text;
@@ -261,20 +264,26 @@ export class TtsManager {
       return;
     }
 
-    Speech.speak(text, {
-      language: this.language,
-      onDone: () => {
-        this.handleSpeechFinished(channel, token);
-      },
-      onError: () => {
-        this.handleSpeechFinished(channel, token);
-      },
-      onStopped: () => {
-        this.handleSpeechFinished(channel, token);
-      },
-      rate: this.rate,
-      voice: channel === "announcement" ? this.announcementVoice : this.uiVoice,
-    });
+    try {
+      Speech.speak(text, {
+        language: this.language,
+        onDone: () => {
+          this.handleSpeechFinished(channel, token);
+        },
+        onError: () => {
+          this.handleSpeechFinished(channel, token);
+        },
+        onStopped: () => {
+          this.handleSpeechFinished(channel, token);
+        },
+        rate: this.rate,
+        voice: channel === "announcement" ? this.announcementVoice : this.uiVoice,
+      });
+      this.scheduleNativeSpeechFallback(channel, token, text);
+    } catch (error) {
+      this.debug("native-speech-start-error", error instanceof Error ? error.message : String(error));
+      this.handleSpeechFinished(channel, token);
+    }
   }
 
   private handleSpeechFinished(channel: SpeechChannel, token: number): void {
@@ -282,6 +291,7 @@ export class TtsManager {
       return;
     }
 
+    this.clearSpeechFallbackTimer();
     this.debug(`finish-${channel}`, "");
     this.activeChannel = null;
     this.activeText = "";
@@ -324,12 +334,42 @@ export class TtsManager {
     });
   }
 
+  private scheduleNativeSpeechFallback(channel: SpeechChannel, token: number, text: string): void {
+    // Android can drop completion callbacks after native TTS interruptions; avoid blocking the queue forever.
+    const timeoutMs = this.estimateSpeechTimeoutMs(text);
+    this.speechFallbackTimer = setTimeout(() => {
+      this.speechFallbackTimer = null;
+      if (token !== this.token || this.activeChannel !== channel) {
+        return;
+      }
+      this.debug(`timeout-${channel}`, text);
+      this.stopUnderlyingSpeech();
+      this.handleSpeechFinished(channel, token);
+    }, timeoutMs);
+  }
+
+  private clearSpeechFallbackTimer(): void {
+    if (!this.speechFallbackTimer) {
+      return;
+    }
+    clearTimeout(this.speechFallbackTimer);
+    this.speechFallbackTimer = null;
+  }
+
+  private estimateSpeechTimeoutMs(text: string): number {
+    const effectiveRate = Math.max(0.5, Math.sqrt(Math.max(MIN_SPEECH_RATE, this.rate)));
+    const estimated = 5000 + (text.length * 90) / effectiveRate;
+    return Math.max(6000, Math.min(120000, Math.ceil(estimated)));
+  }
+
   private stopUnderlyingSpeech(): void {
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
       window.speechSynthesis.cancel();
       return;
     }
-    Speech.stop();
+    void Speech.stop().catch((error) => {
+      this.debug("native-speech-stop-error", error instanceof Error ? error.message : String(error));
+    });
   }
 
   private resolveWebVoice(channel: SpeechChannel): SpeechSynthesisVoice | null {
@@ -356,6 +396,7 @@ export class TtsManager {
     const text = this.activeText;
     const remember = channel === "announcement" && this.lastAnnouncementText === text;
     this.token += 1;
+    this.clearSpeechFallbackTimer();
     this.stopUnderlyingSpeech();
     this.startSpeech(channel, text, { remember });
   }

@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING, Any
 
 from mashumaro.mixins.json import DataClassJSONMixin
 
+from ..games.registry import get_game_class
+
 if TYPE_CHECKING:
     from ..games.base import Game
     from ..users.base import User
@@ -319,15 +321,13 @@ class Table(DataClassJSONMixin):
         if self._manager:
             self._manager.on_table_destroy(self)
 
-    def reset_game(self) -> None:
+    def reset_game(self, *, preserve_scheduled_sounds: bool = True) -> bool:
         """Reset the table to the lobby state with a completely fresh Game instance."""
         if not self._game:
-            return
-
-        from ..games.registry import get_game_class
+            return False
         game_class = get_game_class(self.game_type)
         if not game_class:
-            return
+            return False
 
         # 1. Store old game state we need
         old_game = self._game
@@ -340,6 +340,7 @@ class Table(DataClassJSONMixin):
         # but not in self._users. We must remove them now to prevent ghost players.
         # We also check the server's master user list to ensure they are actually online.
         valid_members = []
+        invalid_usernames: list[str] = []
         for member in self.members:
             user = self._users.get(member.username)
             if user:
@@ -348,6 +349,17 @@ class Table(DataClassJSONMixin):
                 # Humans must be actively connected to the server
                 if is_bot or (self._server and member.username in self._server._users):
                     valid_members.append(member)
+                    continue
+            invalid_usernames.append(member.username)
+
+        for username in invalid_usernames:
+            self._users.pop(username, None)
+            if self._manager and hasattr(self._manager, "_username_to_table"):
+                self._manager._username_to_table.pop(username, None)
+            if self._server and hasattr(self._server, "_clear_voice_join_authorization"):
+                self._server._clear_voice_join_authorization(username)
+            if self._server and hasattr(self._server, "_voice_presence_by_user"):
+                self._server._voice_presence_by_user.pop(username, None)
         self.members = valid_members
 
         # 3. Track humans, bots, and spectators
@@ -393,7 +405,7 @@ class Table(DataClassJSONMixin):
             else:
                 # No humans left at all
                 self.destroy()
-                return
+                return False
 
         # 5. Instantiate fresh game
         new_game = game_class()
@@ -439,18 +451,38 @@ class Table(DataClassJSONMixin):
         if old_host != self.host:
              new_game.broadcast_l("table-new-host-promoted", buffer="system", player=self.host)
 
-        # 11. Transfer scheduled sounds and sound scheduler tick from old game
-        new_game.scheduled_sounds = list(old_game.scheduled_sounds)
-        new_game.sound_scheduler_tick = old_game.sound_scheduler_tick
+        # 11. Transfer scheduled sounds only for the normal game-over flow.
+        # Manual host restarts must discard every delayed gameplay artifact.
+        if preserve_scheduled_sounds:
+            new_game.scheduled_sounds = list(old_game.scheduled_sounds)
+            new_game.sound_scheduler_tick = old_game.sound_scheduler_tick
 
         # 12. Play waiting lobby music
         new_game.play_music("findgamemus.ogg")
 
-        # 13. Mark old game as destroyed so ticks stop affecting it
+        # 13. Mark and detach old runtime state so ticks or stale callbacks cannot affect the table.
         old_game._destroyed = True
+        if hasattr(old_game, "clear_scheduled_sounds"):
+            old_game.clear_scheduled_sounds()
+        if hasattr(old_game, "cancel_all_sequences"):
+            old_game.cancel_all_sequences()
+        if hasattr(old_game, "_pending_actions"):
+            old_game._pending_actions.clear()
+        if hasattr(old_game, "_actions_menu_open"):
+            old_game._actions_menu_open.clear()
+        if hasattr(old_game, "_status_box_open"):
+            old_game._status_box_open.clear()
+        if hasattr(old_game, "_users"):
+            old_game._users.clear()
+        old_game._table = None
 
         # 14. Sync status
         self.status = "waiting"
+        self.game_json = new_game.to_json()
+        self._last_menu_state_hash = None
+        if self._server and hasattr(self._server, "on_tables_changed"):
+            self._server.on_tables_changed()
+        return True
 
     def save_and_close(self, username: str) -> None:
         """Save game state and close table. Called by game save action."""

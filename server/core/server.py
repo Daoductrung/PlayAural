@@ -50,6 +50,7 @@ TABLE_INVITE_NOTIFICATION_SOUND = "table_invite.ogg"
 VOICE_CHAT_JOIN_SOUND = "voice_join.ogg"
 VOICE_CHAT_LEAVE_SOUND = "voice_leave.ogg"
 VOICE_JOIN_AUTHORIZATION_WINDOW_SECONDS = 120
+HOST_RESTART_CONFIRM_MENU = "host_restart_confirm_menu"
 
 # Default paths based on module location
 _MODULE_DIR = Path(__file__).parent.parent
@@ -90,7 +91,8 @@ class Server:
         "admin_broadcast_input", "admin_motd_version_input", "admin_motd_input",
         "ban_custom_reason_input", "mute_custom_reason_input",
         "host_management_menu", "host_invite_menu", "host_pass_menu",
-        "host_kick_menu", "host_kick_ban_menu", "table_invite_prompt",
+        "host_kick_menu", "host_kick_ban_menu", HOST_RESTART_CONFIRM_MENU,
+        "table_invite_prompt",
     }
 
     # Subset of GLOBAL_SYSTEM_MENUS: menus that are transient overlays shown
@@ -101,7 +103,7 @@ class Server:
     # Add new in-game overlay menus here — nowhere else needs to change.
     IN_GAME_OVERLAY_MENUS = {
         "host_management_menu", "host_invite_menu", "host_pass_menu",
-        "host_kick_menu", "host_kick_ban_menu",
+        "host_kick_menu", "host_kick_ban_menu", HOST_RESTART_CONFIRM_MENU,
     }
 
     def __init__(
@@ -2964,6 +2966,8 @@ PlayAural Server
             await self._handle_host_pass_selection(user, selection_id, state)
         elif current_menu in ("host_kick_menu", "host_kick_ban_menu"):
             await self._handle_host_kick_selection(user, selection_id, state)
+        elif current_menu == HOST_RESTART_CONFIRM_MENU:
+            await self._handle_host_restart_confirm_selection(user, selection_id, state)
         elif current_menu == "table_invite_prompt":
             await self._handle_table_invite_selection(user, selection_id, state)
         elif current_menu == "logout_confirm_menu":
@@ -4252,14 +4256,22 @@ PlayAural Server
         """Build items for the host management menu."""
         locale = user.locale
         privacy_key = "host-management-set-public" if table.is_private else "host-management-set-private"
-        return [
+        items = [
             MenuItem(text=Localization.get(locale, privacy_key), id="toggle_privacy"),
             MenuItem(text=Localization.get(locale, "host-management-invite"), id="invite_friend"),
             MenuItem(text=Localization.get(locale, "host-management-pass-host"), id="pass_host"),
             MenuItem(text=Localization.get(locale, "host-management-kick"), id="kick_player"),
             MenuItem(text=Localization.get(locale, "host-management-kick-ban"), id="kick_ban_player"),
-            MenuItem(text=Localization.get(locale, "back"), id="back"),
         ]
+        if table.game and table.game.status == "playing":
+            items.append(
+                MenuItem(
+                    text=Localization.get(locale, "host-management-restart-game"),
+                    id="restart_game",
+                )
+            )
+        items.append(MenuItem(text=Localization.get(locale, "back"), id="back"))
+        return items
 
     def _show_host_management_menu(self, user: NetworkUser, table: "Table") -> None:
         """Show the host management menu."""
@@ -4306,8 +4318,86 @@ PlayAural Server
         elif selection_id == "kick_ban_player":
             self._show_host_kick_menu(user, table, ban=True)
 
+        elif selection_id == "restart_game":
+            if not table.game or table.game.status != "playing":
+                user.speak_l("host-restart-not-playing", buffer="system")
+                self._nav_refresh(user, self._show_host_management_menu, table)
+                return
+            self._show_host_restart_confirm_menu(user, table)
+
         elif selection_id == "back":
             self._return_to_game(user, table)
+
+    def _show_host_restart_confirm_menu(self, user: NetworkUser, table: "Table") -> None:
+        """Confirm a host-requested table restart."""
+        items = [
+            MenuItem(text=Localization.get(user.locale, "host-restart-confirm"), id=""),
+            MenuItem(text=Localization.get(user.locale, "confirm-no"), id="no"),
+            MenuItem(text=Localization.get(user.locale, "confirm-yes"), id="yes"),
+        ]
+        user.speak_l("host-restart-confirm", buffer="system")
+        user.show_menu(
+            HOST_RESTART_CONFIRM_MENU,
+            items,
+            multiletter=False,
+            escape_behavior=EscapeBehavior.SELECT_FIRST,
+        )
+        self._user_states[user.username] = {
+            "menu": HOST_RESTART_CONFIRM_MENU,
+            "table_id": table.table_id,
+        }
+
+    async def _handle_host_restart_confirm_selection(
+        self,
+        user: NetworkUser,
+        selection_id: str,
+        state: dict,
+    ) -> None:
+        table_id = state.get("table_id")
+        table = self._tables.get_table(table_id)
+
+        if not table or table.host != user.username:
+            self._return_to_game(user, table)
+            return
+
+        if selection_id != "yes":
+            self._nav_refresh(user, self._show_host_management_menu, table)
+            return
+
+        if not table.game or table.game.status != "playing":
+            user.speak_l("host-restart-not-playing", buffer="system")
+            self._nav_refresh(user, self._show_host_management_menu, table)
+            return
+
+        self._restart_table_to_lobby(user, table)
+
+    def _restart_table_to_lobby(self, user: NetworkUser, table: "Table") -> None:
+        old_game = table.game
+        if not old_game:
+            self._return_to_game(user, table)
+            return
+
+        old_game.stop_ambience()
+        if not table.reset_game(preserve_scheduled_sounds=False):
+            self._return_to_game(user, table)
+            return
+
+        game = table.game
+        if not game:
+            self._show_main_menu(user)
+            return
+
+        for member in list(table.members):
+            member_user = self._users.get(member.username)
+            if member_user:
+                self._set_in_game_state(member_user, table.table_id)
+
+        game.broadcast_l(
+            "host-restart-broadcast",
+            buffer="system",
+            player=user.username,
+        )
+        game.rebuild_all_menus()
 
     # --- Invite ---
 
@@ -6505,6 +6595,8 @@ PlayAural Server
                 self._show_host_pass_menu(user, table)
             elif menu in ("host_kick_menu", "host_kick_ban_menu"):
                 self._show_host_kick_menu(user, table, ban=frame.get("ban", False))
+            elif menu == HOST_RESTART_CONFIRM_MENU:
+                self._show_host_restart_confirm_menu(user, table)
             else:
                 self._return_to_game(user, table)
             return  # IN_GAME_OVERLAY_MENUS manage their own state

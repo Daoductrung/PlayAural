@@ -94,6 +94,34 @@ def test_prune_old_records(db):
     assert "mute_expired" not in mutes
     assert "mute_orphan" not in mutes
 
+def test_connect_can_skip_pruning_for_short_cli_operations(tmp_path):
+    db_path = tmp_path / "PlayAural.db"
+    database = Database(db_path)
+    database.connect()
+
+    old_game = datetime.datetime.now() - timedelta(days=40)
+    cursor = database._conn.cursor()
+    cursor.execute(
+        "INSERT INTO game_results (game_type, timestamp, duration_ticks, custom_data) VALUES (?, ?, ?, ?)",
+        ("pig", old_game.isoformat(), 100, "{}"),
+    )
+    database._conn.commit()
+    database.close()
+
+    database = Database(db_path)
+    database.connect(prune=False)
+    cursor = database._conn.cursor()
+    cursor.execute("SELECT COUNT(*) FROM game_results")
+    assert cursor.fetchone()[0] == 1
+    database.close()
+
+    database = Database(db_path)
+    database.connect(prune=True)
+    cursor = database._conn.cursor()
+    cursor.execute("SELECT COUNT(*) FROM game_results")
+    assert cursor.fetchone()[0] == 0
+    database.close()
+
 def test_delete_user_cascades(db):
     db.create_user("Alice", "hash")
     alice = db.get_user("Alice")

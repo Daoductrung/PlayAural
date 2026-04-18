@@ -410,6 +410,24 @@ install_environment() {
     say_ok "Game server environment is ready."
 }
 
+ensure_cli_environment() {
+    setup_system_user
+    if [ ! -x "$VENV_PYTHON" ]; then
+        install_environment
+        return $?
+    fi
+    fix_permissions
+}
+
+run_account_cli() {
+    local command_name="$1"
+    local username="$2"
+    local password="$3"
+    shift 3
+
+    (cd "$SERVER_DIR" && runuser -u "$SERVICE_USER" -- env PLAYAURAL_CLI_PW="$password" "$VENV_PYTHON" "$SERVER_DIR/cli.py" "$command_name" "$username" "$@")
+}
+
 setup_service() {
     setup_system_user
     ensure_config_dir
@@ -808,10 +826,9 @@ clear_logs() {
 }
 
 create_user() {
-    local u_name u_pass
+    local u_name u_pass result
 
-    setup_system_user
-    install_environment || return 1
+    ensure_cli_environment || return 1
 
     echo "--- Create New User ---"
     read -rp "Enter username: " u_name
@@ -823,16 +840,27 @@ create_user() {
 
     read -rsp "Enter password: " u_pass
     echo
+    if [ -z "$u_pass" ]; then
+        say_error "Password cannot be empty."
+        pause_screen
+        return 1
+    fi
 
-    (cd "$SERVER_DIR" && runuser -u "$SERVICE_USER" -- env PLAYAURAL_CLI_PW="$u_pass" "$VENV_PYTHON" "$SERVER_DIR/cli.py" create-user "$u_name")
+    if run_account_cli create-user "$u_name" "$u_pass"; then
+        say_ok "Create user command completed."
+        result=0
+    else
+        say_error "Create user command failed."
+        result=1
+    fi
     pause_screen
+    return "$result"
 }
 
 reset_password() {
-    local u_name u_pass
+    local u_name u_pass result
 
-    setup_system_user
-    install_environment || return 1
+    ensure_cli_environment || return 1
 
     echo "--- Reset Password ---"
     read -rp "Enter username: " u_name
@@ -844,9 +872,21 @@ reset_password() {
 
     read -rsp "Enter new password: " u_pass
     echo
+    if [ -z "$u_pass" ]; then
+        say_error "Password cannot be empty."
+        pause_screen
+        return 1
+    fi
 
-    (cd "$SERVER_DIR" && runuser -u "$SERVICE_USER" -- env PLAYAURAL_CLI_PW="$u_pass" "$VENV_PYTHON" "$SERVER_DIR/cli.py" reset-password "$u_name")
+    if run_account_cli reset-password "$u_name" "$u_pass"; then
+        say_ok "Password reset command completed."
+        result=0
+    else
+        say_error "Password reset command failed."
+        result=1
+    fi
     pause_screen
+    return "$result"
 }
 
 uninstall_voice_service() {

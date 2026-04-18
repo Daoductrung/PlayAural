@@ -28,7 +28,10 @@ Usage examples:
 
 import argparse
 import json
+import os
+import sqlite3
 import sys
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -500,66 +503,83 @@ def cmd_simulate(args):
                     print(f"  {line}")
 
 
+@contextmanager
+def open_auth_database():
+    """Open the production auth database for short CLI account operations."""
+    if HAS_SERVER_PACKAGE:
+        from server.persistence.database import Database
+    else:
+        from persistence.database import Database
+
+    db = Database()
+    try:
+        # CLI account actions should not run historical pruning while the live
+        # server may be writing to the same SQLite file.
+        db.connect(prune=False, timeout=30.0)
+        yield db
+    except sqlite3.OperationalError as exc:
+        if "locked" in str(exc).lower():
+            print(
+                "Error: The database is busy. Please retry in a moment, or stop "
+                "the game server before running this maintenance command."
+            )
+        else:
+            print(f"Error: Database operation failed: {exc}")
+        sys.exit(1)
+    finally:
+        db.close()
+
 
 def cmd_create_user(args):
     """Create a new user."""
-    import os
     password = os.environ.get("PLAYAURAL_CLI_PW")
     if not password:
         print("Error: Password must be provided via PLAYAURAL_CLI_PW environment variable.")
         sys.exit(1)
 
     if HAS_SERVER_PACKAGE:
-        from server.persistence.database import Database
         from server.auth.auth import AuthManager
     else:
-        from persistence.database import Database
         from auth.auth import AuthManager
 
-    db = Database()
-    db.connect()
-    auth = AuthManager(db)
+    with open_auth_database() as db:
+        auth = AuthManager(db)
 
-    print(f"Creating user '{args.username}'...")
-    result = auth.register(args.username, password, args.locale)
-    if result == "ok":
-        print(f"Success: User '{args.username}' created.")
-        user = db.get_user(args.username)
-        if user and user.trust_level >= 2:
-             print("Note: User granted ADMIN privileges (First user).")
-    elif result == "username_taken":
-        print(f"Error: User '{args.username}' already exists.")
-    else:
-        print(f"Error: Registration failed ({result}).")
-    
-    db.close()
+        print(f"Creating user '{args.username}'...")
+        result = auth.register(args.username, password, args.locale)
+        if result == "ok":
+            print(f"Success: User '{args.username}' created.")
+            user = db.get_user(args.username)
+            if user and user.trust_level >= 2:
+                print("Note: User granted ADMIN privileges (First user).")
+        elif result == "username_taken":
+            print(f"Error: User '{args.username}' already exists.")
+            sys.exit(1)
+        else:
+            print(f"Error: Registration failed ({result}).")
+            sys.exit(1)
 
 def cmd_reset_password(args):
     """Reset a user's password."""
-    import os
     password = os.environ.get("PLAYAURAL_CLI_PW")
     if not password:
         print("Error: Password must be provided via PLAYAURAL_CLI_PW environment variable.")
         sys.exit(1)
 
     if HAS_SERVER_PACKAGE:
-        from server.persistence.database import Database
         from server.auth.auth import AuthManager
     else:
-        from persistence.database import Database
         from auth.auth import AuthManager
-    
-    db = Database()
-    db.connect()
-    auth = AuthManager(db)
-    
-    print(f"Resetting password for '{args.username}'...")
-    if auth.reset_password(args.username, password):
-        print(f"Success: Password updated for '{args.username}'.")
-    else:
-        print(f"Error: User '{args.username}' not found.")
-        
-    db.close()
+
+    with open_auth_database() as db:
+        auth = AuthManager(db)
+
+        print(f"Resetting password for '{args.username}'...")
+        if auth.reset_password(args.username, password):
+            print(f"Success: Password updated for '{args.username}'.")
+        else:
+            print(f"Error: User '{args.username}' not found.")
+            sys.exit(1)
 
 def main():
     parser = argparse.ArgumentParser(

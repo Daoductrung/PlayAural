@@ -90,14 +90,16 @@ class Database:
         self.db_path = Path(db_path)
         self._conn: sqlite3.Connection | None = None
 
-    def connect(self) -> None:
+    def connect(self, *, prune: bool = True, timeout: float = 30.0) -> None:
         """Connect to the database and create tables if needed."""
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        self._conn = sqlite3.connect(str(self.db_path))
+        self._conn = sqlite3.connect(str(self.db_path), timeout=timeout)
         self._conn.row_factory = sqlite3.Row
+        self._conn.execute(f"PRAGMA busy_timeout = {int(timeout * 1000)};")
         self._conn.execute("PRAGMA foreign_keys = ON;")
         self._create_tables()
-        self.prune_old_records()
+        if prune:
+            self.prune_old_records()
 
     def close(self) -> None:
         """Close the database connection."""

@@ -457,6 +457,11 @@ class ScopaGame(Game):
             return "action-spectator"
         return None
 
+    def _pre_input_check_manual_capture_selection(self, player: Player, action_id: str) -> str | None:
+        if self.current_player != player:
+            return "action-not-your-turn"
+        return None
+
     def _is_card_action_hidden(self, player: Player) -> Visibility:
         """Card actions are visible for current player during play."""
         if self.status != "playing":
@@ -520,6 +525,7 @@ class ScopaGame(Game):
                             prompt="scopa-manual-select-prompt",
                             options="_capture_options_for_card",
                             bot_select=None,  # bots don't get here because of not player.is_bot
+                            pre_input_check="_pre_input_check_manual_capture_selection",
                         )
 
                 turn_set.add(
@@ -1060,6 +1066,9 @@ class ScopaGame(Game):
 
         # Explicitly reject play if it's not their turn (since action is enabled to be visible)
         if self.current_player != player:
+            user = self.get_user(player)
+            if user:
+                user.speak_l("action-not-your-turn", buffer="game")
             return
 
         if len(args) == 1:

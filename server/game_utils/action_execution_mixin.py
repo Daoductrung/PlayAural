@@ -157,6 +157,13 @@ class ActionExecutionMixin:
             return
 
         req = action.input_request
+        if isinstance(req, MenuInput) and req.pre_input_check:
+            pre_input_check = getattr(self, req.pre_input_check, None)
+            if pre_input_check:
+                disabled_reason = pre_input_check(player, action.id)
+                if disabled_reason:
+                    user.speak_l(disabled_reason, buffer="game")
+                    return
         self._pending_actions[player.id] = action.id
 
         if isinstance(req, MenuInput):

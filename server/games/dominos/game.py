@@ -483,6 +483,11 @@ class DominosGame(Game):
         tile = self._parse_tile_action(dom_player, action_id)
         return None if tile else "action-not-available"
 
+    def _pre_input_check_play_tile(self, player: Player, action_id: str) -> str | None:
+        if self.current_player != player:
+            return "action-not-your-turn"
+        return None
+
     def _is_play_tile_hidden(self, player: Player, *, action_id: str | None = None) -> Visibility:
         if self.status != "playing" or player.is_spectator:
             return Visibility.HIDDEN
@@ -1005,6 +1010,7 @@ class DominosGame(Game):
                     prompt="dominos-select-side",
                     options="_placement_options_for_tile",
                     bot_select="_bot_select_side_for_tile",
+                    pre_input_check="_pre_input_check_play_tile",
                 )
             action_id = self._tile_action_id(tile)
             turn_set.add(

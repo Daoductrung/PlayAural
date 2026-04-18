@@ -369,6 +369,7 @@ class MileByMileGame(Game):
                         prompt="milebymile-select-target",
                         options="_hazard_target_options",
                         bot_select="_bot_select_hazard_target",
+                        pre_input_check="_pre_input_check_card_target_selection",
                     )
 
             # Always show cards in menu, but enable/disable based on state
@@ -496,6 +497,15 @@ class MileByMileGame(Game):
         """Check if card actions are enabled."""
         if self.status != "playing":
             return "action-not-playing"
+        if self._round_timer.is_active:
+            return "milebymile-between-races"
+        return None
+
+    def _pre_input_check_card_target_selection(self, player: Player, action_id: str) -> str | None:
+        if self.status != "playing":
+            return "action-not-playing"
+        if self.current_player != player:
+            return "action-not-your-turn"
         if self._round_timer.is_active:
             return "milebymile-between-races"
         return None
@@ -1146,6 +1156,9 @@ class MileByMileGame(Game):
 
         # Check if it's this player's turn
         if self.current_player != player:
+            user = self.get_user(player)
+            if user:
+                user.speak_l("action-not-your-turn", buffer="game")
             return
 
         # Parse arguments - handler can receive (player, action_id) or (player, input_value, action_id)

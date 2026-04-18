@@ -237,6 +237,12 @@ const defaultMenuState: MenuState = {
   menuId: "",
 };
 
+const PROTECTED_TRANSIENT_MENU_IDS = new Set(["action_input_menu", "actions_menu", "status_box"]);
+
+function isProtectedTransientMenu(menuId: string | undefined): boolean {
+  return menuId !== undefined && PROTECTED_TRANSIENT_MENU_IDS.has(menuId);
+}
+
 function detectPreferredLocale(): "en" | "vi" {
   const deviceLocale = Intl.DateTimeFormat().resolvedOptions().locale?.toLowerCase?.() ?? "en";
   return deviceLocale.startsWith("vi") ? "vi" : "en";
@@ -449,6 +455,7 @@ export function PlayAuralApp() {
   const lastNativeFocusKeyRef = useRef<string | null>(null);
   const activeTextInputKeyRef = useRef<string | null>(activeTextInputKey);
   const voicePresenceRegisteredRef = useRef(false);
+  const transientTurnMenuAllowanceRef = useRef<string | null>(null);
   const accessibilityNodeRefs = useRef(new Map<string, AccessibilityFocusNode>());
   const textInputTargetByKeyRef = useRef(new Map<string, Set<unknown>>());
   const textInputTargetsRef = useRef(new Set<unknown>());
@@ -1223,6 +1230,25 @@ export function PlayAuralApp() {
     const items = normalizeMenuItems(overrideItems ?? packet.items ?? []);
     const itemIds = items.map((item) => item.id);
     const previous = menuStateRef.current;
+    const incomingMenuId = packet.menu_id ?? previous.menuId;
+    const allowTurnMenuFromTransient =
+      transientTurnMenuAllowanceRef.current !== null &&
+      transientTurnMenuAllowanceRef.current === previous.menuId;
+
+    if (
+      incomingMenuId === "turn_menu" &&
+      isProtectedTransientMenu(previous.menuId) &&
+      !allowTurnMenuFromTransient
+    ) {
+      return;
+    }
+
+    if (allowTurnMenuFromTransient && incomingMenuId === "turn_menu") {
+      transientTurnMenuAllowanceRef.current = null;
+    } else if (incomingMenuId !== previous.menuId) {
+      transientTurnMenuAllowanceRef.current = null;
+    }
+
     const isSameMenuId = previous.menuId === (packet.menu_id ?? previous.menuId);
     let position = typeof packet.position === "number" ? packet.position : null;
 
@@ -2516,21 +2542,29 @@ export function PlayAuralApp() {
   };
 
   const sendMenuSelection = (itemOverride?: FocusableMenuItem | null, indexOverride?: number) => {
-    const item = itemOverride ?? menuState.items[menuState.focusIndex];
+    const currentMenuState = menuStateRef.current;
+    const item = itemOverride ?? currentMenuState.items[currentMenuState.focusIndex];
     if (!item) {
       return;
     }
+    if (isProtectedTransientMenu(currentMenuState.menuId)) {
+      transientTurnMenuAllowanceRef.current = currentMenuState.menuId;
+    }
     connection?.send({
-      menu_id: menuState.menuId || undefined,
-      selection: (indexOverride ?? menuState.focusIndex) + 1,
+      menu_id: currentMenuState.menuId || undefined,
+      selection: (indexOverride ?? currentMenuState.focusIndex) + 1,
       selection_id: item.id,
       type: "menu",
     });
   };
 
   const sendEscape = () => {
+    const currentMenuState = menuStateRef.current;
+    if (isProtectedTransientMenu(currentMenuState.menuId)) {
+      transientTurnMenuAllowanceRef.current = currentMenuState.menuId;
+    }
     connection?.send({
-      menu_id: menuState.menuId || undefined,
+      menu_id: currentMenuState.menuId || undefined,
       type: "escape",
     });
   };
@@ -2540,6 +2574,9 @@ export function PlayAuralApp() {
     escapeBehavior: string,
     items: FocusableMenuItem[],
   ) => {
+    if (isProtectedTransientMenu(menuId)) {
+      transientTurnMenuAllowanceRef.current = menuId;
+    }
     if (escapeBehavior === "select_last_option") {
       const lastIndex = items.length - 1;
       if (lastIndex >= 0) {
@@ -2571,8 +2608,9 @@ export function PlayAuralApp() {
   };
 
   const openActionsMenu = () => {
+    const currentMenuState = menuStateRef.current;
     connection?.send({
-      menu_id: menuState.menuId || "turn_menu",
+      menu_id: currentMenuState.menuId || "turn_menu",
       selection: 1,
       selection_id: "web_actions_menu",
       type: "menu",
@@ -2580,7 +2618,8 @@ export function PlayAuralApp() {
   };
 
   const sendShiftEnter = (itemOverride?: FocusableMenuItem | null) => {
-    const item = itemOverride ?? menuState.items[menuState.focusIndex];
+    const currentMenuState = menuStateRef.current;
+    const item = itemOverride ?? currentMenuState.items[currentMenuState.focusIndex];
     connection?.send({
       key: "shift+enter",
       menu_item_id: item?.id ?? null,
@@ -3100,6 +3139,7 @@ export function PlayAuralApp() {
 
   const handleSystemSwipe = (direction: "up" | "down" | "left" | "right") => {
     void audio.handleUserInteraction();
+    const currentMenuState = menuStateRef.current;
     if (dialogState) {
       if (direction === "up") {
         const cancelButton = dialogState.buttons.find((button) => button.id === "cancel");
@@ -3121,16 +3161,20 @@ export function PlayAuralApp() {
         announceInterfaceFeedback(localization.t("input-cancelled"));
         return;
       }
-      if (connected && mode === "main" && menuState.menuId === "turn_menu") {
+      if (connected && mode === "main" && currentMenuState.menuId === "turn_menu") {
         playMenuActivateSound();
         openActionsMenu();
         return;
       }
-      if (connected && mode === "main" && menuState.menuId === "main_menu") {
+      if (connected && mode === "main" && currentMenuState.menuId === "main_menu") {
         confirmLogout();
         return;
       }
-      sendEscapeEquivalent(menuState.menuId, menuState.escapeBehavior, menuState.items);
+      sendEscapeEquivalent(
+        currentMenuState.menuId,
+        currentMenuState.escapeBehavior,
+        currentMenuState.items,
+      );
       return;
     }
     if (inputState) {

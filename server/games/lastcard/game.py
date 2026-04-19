@@ -395,7 +395,7 @@ class LastCardGame(Game, TurnTimerMixin):
 
         bot_user = Bot(bot_name)
         self.add_player(bot_name, bot_user)
-        self.broadcast_l("table-joined", player=bot_name)
+        self.broadcast_l("table-joined", buffer="game", player=bot_name)
         self.broadcast_sound("join.ogg")
         self.rebuild_all_menus()
 
@@ -421,7 +421,7 @@ class LastCardGame(Game, TurnTimerMixin):
             other_humans = any(not p.is_bot and not p.is_spectator and p.id != player.id for p in self.players)
             if other_humans:
                 self._replace_with_bot(player)
-                self.broadcast_l("player-replaced-by-bot", player=player.name)
+                self.broadcast_l("player-replaced-by-bot", buffer="game", player=player.name)
                 self.broadcast_sound("leave.ogg")
                 self.rebuild_all_menus()
                 return
@@ -783,7 +783,7 @@ class LastCardGame(Game, TurnTimerMixin):
         self.consecutive_passes = 0
         self.jump_in_played = False
 
-        self.broadcast_l("lastcard-new-hand", round=self.round)
+        self.broadcast_l("lastcard-new-hand", buffer="game", round=self.round)
         self.play_sound(SOUND_NEW_HAND)
 
         # Build deck
@@ -821,7 +821,7 @@ class LastCardGame(Game, TurnTimerMixin):
             self.discard_pile.append(start_card)
             self.current_color = start_card.suit
             self._broadcast_start_card()
-            self.broadcast_l("lastcard-dealt-cards", cards=hand_size)
+            self.broadcast_l("lastcard-dealt-cards", buffer="game", cards=hand_size)
 
         self._start_turn()
 
@@ -1433,7 +1433,7 @@ class LastCardGame(Game, TurnTimerMixin):
             # The player with 1 card is buzzing — they're safe!
             player.called_last_card = True
             self.play_sound(SOUND_BUZZER_PRESS)
-            self.broadcast_l("lastcard-player-called", player=player.name)
+            self.broadcast_l("lastcard-player-called", buffer="game", player=player.name)
             # Resolve immediately — they called in time
             self.interrupt_timer_ticks = 0
             self._resolve_interrupt()
@@ -1451,7 +1451,7 @@ class LastCardGame(Game, TurnTimerMixin):
                 return
             # Caught! Target draws penalty
             self.play_sound(SOUND_BUZZER_CAUGHT)
-            self.broadcast_l("lastcard-caught", catcher=player.name, target=target.name)
+            self.broadcast_l("lastcard-caught", buffer="game", catcher=player.name, target=target.name)
             self._draw_for_player(target, 2)
             target.called_last_card = True  # Prevent double penalty
             self.interrupt_timer_ticks = 0
@@ -1472,7 +1472,7 @@ class LastCardGame(Game, TurnTimerMixin):
             return
 
         self.play_sound(SOUND_CHALLENGE)
-        self.broadcast_l("lastcard-challenges-wd4", player=player.name)
+        self.broadcast_l("lastcard-challenges-wd4", buffer="game", player=player.name)
 
         wd4_player = self.get_player_by_id(self.interrupt_wd4_player_id)
         if not isinstance(wd4_player, LastCardPlayer):
@@ -1481,14 +1481,14 @@ class LastCardGame(Game, TurnTimerMixin):
         if self.interrupt_wd4_had_matching:
             # Challenge succeeds! WD4 player had matching color
             self.play_sound(SOUND_CHALLENGE_SUCCESS)
-            self.broadcast_l("lastcard-challenge-success", player=wd4_player.name)
+            self.broadcast_l("lastcard-challenge-success", buffer="game", player=wd4_player.name)
             # WD4 player draws 4 instead
             self._draw_for_player(wd4_player, 4)
             self.pending_draw_count = 0
         else:
             # Challenge fails! Challenger draws 6 (4 + 2 penalty)
             self.play_sound(SOUND_CHALLENGE_FAIL)
-            self.broadcast_l("lastcard-challenge-fail", player=player.name)
+            self.broadcast_l("lastcard-challenge-fail", buffer="game", player=player.name)
             self._draw_for_player(player, 6)
             self.skip_next_players(1)
 
@@ -1542,7 +1542,7 @@ class LastCardGame(Game, TurnTimerMixin):
 
         card = matching[0]
         self.play_sound(random.choice(SOUND_INTERCEPT))
-        self.broadcast_l("lastcard-jumped-in", player=player.name)
+        self.broadcast_l("lastcard-jumped-in", buffer="game", player=player.name)
 
         self.interrupt_phase = ""
         self.interrupt_timer_ticks = 0
@@ -1589,7 +1589,7 @@ class LastCardGame(Game, TurnTimerMixin):
     def _do_swap_hands(self, player1: LastCardPlayer, player2: LastCardPlayer) -> None:
         player1.hand, player2.hand = player2.hand, player1.hand
         self.play_sound(SOUND_HAND_CHANGE)
-        self.broadcast_l("lastcard-swapped-hands", player1=player1.name, player2=player2.name)
+        self.broadcast_l("lastcard-swapped-hands", buffer="game", player1=player1.name, player2=player2.name)
 
     def _rotate_all_hands(self) -> None:
         """Rotate all hands in the current turn direction."""
@@ -1604,7 +1604,7 @@ class LastCardGame(Game, TurnTimerMixin):
         for p, h in zip(active, rotated):
             p.hand = h
         self.play_sound(SOUND_HAND_CHANGE)
-        self.broadcast_l("lastcard-hands-rotated")
+        self.broadcast_l("lastcard-hands-rotated", buffer="game")
 
     # ==========================================================================
     # Interrupt timer resolution
@@ -1684,7 +1684,7 @@ class LastCardGame(Game, TurnTimerMixin):
         """Force a player to draw the accumulated stack."""
         count = self.pending_draw_count
         self._draw_for_player(player, count)
-        self.broadcast_l("lastcard-forced-draw", player=player.name, count=count)
+        self.broadcast_l("lastcard-forced-draw", buffer="game", player=player.name, count=count)
         self.play_sound(SOUND_PENALTY_DRAW)
         self.pending_draw_count = 0
         self.pending_draw_is_plus_four = False
@@ -2386,12 +2386,12 @@ class LastCardGame(Game, TurnTimerMixin):
             real_winner = self.get_player_by_id(winner.id)
             if isinstance(real_winner, LastCardPlayer):
                 real_winner.score += total
-            self.broadcast_l("lastcard-round-winner", player=winner.name, points=total)
+            self.broadcast_l("lastcard-round-winner", buffer="game", player=winner.name, points=total)
         else:  # negative
             for p in active:
                 pts = self._hand_points(p.hand)
                 p.score += pts
-            self.broadcast_l("lastcard-round-end-negative")
+            self.broadcast_l("lastcard-round-end-negative", buffer="game")
 
         # Play sounds
         for p in self.players:
@@ -2429,7 +2429,7 @@ class LastCardGame(Game, TurnTimerMixin):
     def _end_round_deadlock(self) -> None:
         """End the round when all players are forced to pass (deck exhausted, no playable cards)."""
         active = [p for p in self.players if not p.is_spectator and isinstance(p, LastCardPlayer)]
-        self.broadcast_l("lastcard-round-deadlock")
+        self.broadcast_l("lastcard-round-deadlock", buffer="game")
 
         # Score by hand points: lowest hand wins (fewest points held)
         if self.options.scoring_mode == "classic":
@@ -2469,7 +2469,7 @@ class LastCardGame(Game, TurnTimerMixin):
 
     def _end_game(self, winner: LastCardPlayer) -> None:
         self.play_sound(SOUND_WIN_GAME)
-        self.broadcast_l("lastcard-game-winner", player=winner.name, score=winner.score)
+        self.broadcast_l("lastcard-game-winner", buffer="game", player=winner.name, score=winner.score)
         self.finish_game()
 
     def _get_visible_card_action_state(self, player: Player) -> str | None:

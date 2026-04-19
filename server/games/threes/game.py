@@ -525,7 +525,7 @@ class ThreesGame(Game, DiceGameMixin):
         """Start a new round."""
         self.current_round += 1
         self.broadcast_l(
-            "threes-round-start",
+            "threes-round-start", buffer="game",
             round=self.current_round,
             total=self.options.total_rounds,
         )
@@ -571,7 +571,7 @@ class ThreesGame(Game, DiceGameMixin):
         if len(winners) == 1:
             self.play_sound("game_pig/win.ogg")
             self.broadcast_l(
-                "threes-winner", player=winners[0].name, score=lowest_score
+                "threes-winner", buffer="game", player=winners[0].name, score=lowest_score
             )
         else:
             # winner_names = " and ".join(w.name for w in winners)

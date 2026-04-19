@@ -169,7 +169,7 @@ class CrazyEightsGame(Game, TurnTimerMixin):
 
         bot_user = Bot(bot_name)
         self.add_player(bot_name, bot_user)
-        self.broadcast_l("table-joined", player=bot_name)
+        self.broadcast_l("table-joined", buffer="game", player=bot_name)
         self.rebuild_all_menus()
 
     def _action_remove_bot(self, player: Player, action_id: str) -> None:
@@ -199,7 +199,7 @@ class CrazyEightsGame(Game, TurnTimerMixin):
             
             if other_humans:
                 self._replace_with_bot(player)
-                self.broadcast_l("player-replaced-by-bot", player=player.name)
+                self.broadcast_l("player-replaced-by-bot", buffer="game", player=player.name)
                 self.play_sound("game_crazyeights/personleave.ogg")
                 self.rebuild_all_menus()
                 return
@@ -494,7 +494,7 @@ class CrazyEightsGame(Game, TurnTimerMixin):
         self.turn_drawn_card = None
         self.consecutive_passes = 0
 
-        self.broadcast_l("crazyeights-new-hand", round=self.round)
+        self.broadcast_l("crazyeights-new-hand", buffer="game", round=self.round)
         self.play_sound("game_crazyeights/newhand.ogg")
 
         # Deal new deck
@@ -528,7 +528,7 @@ class CrazyEightsGame(Game, TurnTimerMixin):
             self.discard_pile.append(start_card)
             self.current_suit = start_card.suit
             self._broadcast_start_card()
-            self.broadcast_l("crazyeights-dealt-cards", cards=7)
+            self.broadcast_l("crazyeights-dealt-cards", buffer="game", cards=7)
         self._start_turn()
 
     def _draw_start_card(self) -> Card | None:
@@ -706,7 +706,7 @@ class CrazyEightsGame(Game, TurnTimerMixin):
 
     def _handle_blocked_game(self, active_players: list[CrazyEightsPlayer]) -> None:
         """Handle a blocked game where everyone passes."""
-        self.broadcast_l("crazyeights-game-blocked")
+        self.broadcast_l("crazyeights-game-blocked", buffer="game")
         # Player with the lowest points in hand wins the blocked round
         winner = min(active_players, key=lambda p: self._hand_points(p.hand))
         self._end_round(winner, last_card=None)
@@ -1307,7 +1307,7 @@ class CrazyEightsGame(Game, TurnTimerMixin):
 
     def _end_game(self, winner: CrazyEightsPlayer) -> None:
         self.play_sound("game_crazyeights/hitmark.ogg")
-        self.broadcast_l("crazyeights-game-winner", player=winner.name, score=winner.score)
+        self.broadcast_l("crazyeights-game-winner", buffer="game", player=winner.name, score=winner.score)
         # Call finish_game() to show results to everyone
         self.finish_game()
 

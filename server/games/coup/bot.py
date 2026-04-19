@@ -249,10 +249,10 @@ class CoupBot(BotHelper):
 
             if not player.live_influences:
                 player.is_dead = True
-                game.broadcast_l("coup-player-eliminated", player=player.name)
+                game.broadcast_l("coup-player-eliminated", buffer="game", player=player.name)
 
             game.play_sound("game_coup/exchange_complete.ogg")
-            game.broadcast_l("coup-exchange-complete", player=player.name)
+            game.broadcast_l("coup-exchange-complete", buffer="game", player=player.name)
             game._end_turn()
             return
 
@@ -272,10 +272,10 @@ class CoupBot(BotHelper):
 
         if not player.live_influences:
             player.is_dead = True
-            game.broadcast_l("coup-player-eliminated", player=player.name)
+            game.broadcast_l("coup-player-eliminated", buffer="game", player=player.name)
 
         game.play_sound("game_coup/exchange_complete.ogg")
-        game.broadcast_l("coup-exchange-complete", player=player.name)
+        game.broadcast_l("coup-exchange-complete", buffer="game", player=player.name)
         game._end_turn()
 
     # ------------------------------------------------------------------

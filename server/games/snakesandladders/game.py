@@ -112,7 +112,7 @@ class SnakesAndLaddersGame(Game):
 
         # Play intro music/sounds (Reuse Pig music)
         self.play_music("game_pig/mus.ogg") 
-        self.broadcast_l("game-snakesandladders-desc")
+        self.broadcast_l("game-snakesandladders-desc", buffer="game")
         
         self._start_turn()
 
@@ -133,8 +133,8 @@ class SnakesAndLaddersGame(Game):
              user.play_sound("turn.ogg")
 
         self.broadcast_l(
-            "snakes-turn", 
-            player=player.name, 
+            "snakes-turn", buffer="game",
+            player=player.name,
             position=player.position
         )
 
@@ -158,14 +158,14 @@ class SnakesAndLaddersGame(Game):
             if player:
                 new_pos = payload["pos"]
                 player.position = new_pos
-                self.broadcast_l("snakes-move", player=player.name, position=new_pos)
+                self.broadcast_l("snakes-move", buffer="game", player=player.name, position=new_pos)
             return
 
         if callback_id == "bounce":
             if player:
                 new_pos = payload["pos"]
                 player.position = new_pos
-                self.broadcast_l("snakes-bounce", player=player.name, position=new_pos)
+                self.broadcast_l("snakes-bounce", buffer="game", player=player.name, position=new_pos)
             return
 
         if callback_id == "ladder":
@@ -173,7 +173,7 @@ class SnakesAndLaddersGame(Game):
                 start = payload["start"]
                 end = payload["end"]
                 player.position = end
-                self.broadcast_l("snakes-ladder", player=player.name, start=start, end=end)
+                self.broadcast_l("snakes-ladder", buffer="game", player=player.name, start=start, end=end)
             return
 
         if callback_id == "snake":
@@ -181,7 +181,7 @@ class SnakesAndLaddersGame(Game):
                 start = payload["start"]
                 end = payload["end"]
                 player.position = end
-                self.broadcast_l("snakes-snake", player=player.name, start=start, end=end)
+                self.broadcast_l("snakes-snake", buffer="game", player=player.name, start=start, end=end)
             return
 
         if callback_id == "win":
@@ -328,7 +328,7 @@ class SnakesAndLaddersGame(Game):
         roll_variant = random.randint(1, 3)
         self.play_sound(f"game_squares/diceroll{roll_variant}.ogg")
         
-        self.broadcast_l("snakes-roll-result", player=player.name, roll=roll)
+        self.broadcast_l("snakes-roll-result", buffer="game", player=player.name, roll=roll)
         
         # Delays
         step_delay_start = 8 # Wait after roll
@@ -467,7 +467,7 @@ class SnakesAndLaddersGame(Game):
         
         # Reuse Pig win sound
         self.play_sound("game_pig/win.ogg")
-        self.broadcast_l("snakes-win", player=winner.name)
+        self.broadcast_l("snakes-win", buffer="game", player=winner.name)
         
         self.finish_game()
 

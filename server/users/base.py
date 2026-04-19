@@ -80,7 +80,7 @@ class User(ABC):
 
         Args:
             text: The message text.
-            buffer: Which buffer to route the message to (misc, activity, chats).
+            buffer: Which buffer to route the message to (game, system, chat, misc).
         """
         ...
 
@@ -90,11 +90,11 @@ class User(ABC):
 
         Args:
             message_id: The message ID from the .ftl file.
-            buffer: Which buffer to route the message to (misc, activity, chats).
+            buffer: Which buffer to route the message to (game, system, chat, misc).
             **kwargs: Variables to substitute into the message.
         """
         text = Localization.get(self.locale, message_id, **kwargs)
-        self.speak(text, buffer)
+        self.speak(text, buffer=buffer)
 
     @abstractmethod
     def play_sound(

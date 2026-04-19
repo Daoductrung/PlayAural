@@ -257,13 +257,13 @@ class LightTurretGame(Game):
         lt_player.coins += gain * 2
 
         self.broadcast_l(
-            "lightturret-shoot-result",
+            "lightturret-shoot-result", buffer="game",
             player=player.name,
             gain=gain,
             light=lt_player.light,
         )
         self.broadcast_l(
-            "lightturret-coins-gained",
+            "lightturret-coins-gained", buffer="game",
             player=player.name,
             coins=gain * 2,
             total=lt_player.coins,
@@ -294,7 +294,7 @@ class LightTurretGame(Game):
         # Deduct coins
         lt_player.coins -= 10
         self.play_sound("game_lightturret/upgrade.ogg")
-        self.broadcast_l("lightturret-buys-upgrade", player=player.name)
+        self.broadcast_l("lightturret-buys-upgrade", buffer="game", player=player.name)
 
         # 25% chance of accident
         if random.randint(0, 3) == 3:
@@ -303,7 +303,7 @@ class LightTurretGame(Game):
             lt_player.light += accident_light
             # Schedule merge sound after delay (5 ticks = 250ms)
             self.schedule_sound("game_lightturret/upgrademerge.ogg", delay_ticks=5)
-            self.broadcast_l("lightturret-upgrade-accident", light=lt_player.light)
+            self.broadcast_l("lightturret-upgrade-accident", buffer="game", light=lt_player.light)
 
             # Check for elimination - schedule explosion at same time as merge
             if lt_player.light > lt_player.power:
@@ -314,7 +314,7 @@ class LightTurretGame(Game):
             power_gain = random.randint(2, 8)
             lt_player.power += power_gain
             self.broadcast_l(
-                "lightturret-power-gained",
+                "lightturret-power-gained", buffer="game",
                 player=player.name,
                 gain=power_gain,
                 power=lt_player.power,
@@ -346,7 +346,7 @@ class LightTurretGame(Game):
 
     def _eliminate_player(self, player: LightTurretPlayer) -> None:
         """Eliminate a player from the game. Sound is scheduled by caller."""
-        self.broadcast_l("lightturret-eliminated", player=player.name)
+        self.broadcast_l("lightturret-eliminated", buffer="game", player=player.name)
         player.alive = False
 
     def on_start(self) -> None:
@@ -373,7 +373,7 @@ class LightTurretGame(Game):
         self.play_sound("game_3cardpoker/roundstart.ogg")
 
         # Game intro
-        self.broadcast_l("lightturret-intro", power=self.options.starting_power)
+        self.broadcast_l("lightturret-intro", buffer="game", power=self.options.starting_power)
 
         # Start first round
         self._start_round()
@@ -493,7 +493,7 @@ class LightTurretGame(Game):
         # True until sounds finish playing (so ticks continue)
         self.status = "finished"
 
-        self.broadcast_l("lightturret-game-over")
+        self.broadcast_l("lightturret-game-over", buffer="game")
 
         # Find max light and count winners
         max_light = 0
@@ -503,11 +503,11 @@ class LightTurretGame(Game):
                 # Announce each player's result
                 if p.alive:
                     self.broadcast_l(
-                        "lightturret-final-alive", player=p.name, light=p.light
+                        "lightturret-final-alive", buffer="game", player=p.name, light=p.light
                     )
                 else:
                     self.broadcast_l(
-                        "lightturret-final-eliminated", player=p.name, light=p.light
+                        "lightturret-final-eliminated", buffer="game", player=p.name, light=p.light
                     )
 
                 if p.light > max_light:
@@ -518,11 +518,11 @@ class LightTurretGame(Game):
 
         # Announce winner or tie
         if len(winners) > 1:
-            self.broadcast_l("lightturret-tie", light=max_light)
+            self.broadcast_l("lightturret-tie", buffer="game", light=max_light)
         elif len(winners) == 1:
             self.play_sound("game_pig/win.ogg")
             self.broadcast_l(
-                "lightturret-winner", player=winners[0].name, light=max_light
+                "lightturret-winner", buffer="game", player=winners[0].name, light=max_light
             )
 
         # Update actions to reflect game ended state

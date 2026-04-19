@@ -209,7 +209,7 @@ class NinetyNineGame(Game):
 
     def on_player_skipped(self, player: Player) -> None:
         """Announce when a player is skipped."""
-        self.broadcast_l("ninetynine-player-skipped", player=player.name)
+        self.broadcast_l("ninetynine-player-skipped", buffer="game", player=player.name)
 
     def _play_outcome_sounds(
         self,
@@ -807,7 +807,7 @@ class NinetyNineGame(Game):
         self.set_turn_players(self.alive_players)
 
         self.play_sound(f"game_cards/shuffle{random.randint(1, 3)}.ogg")
-        self.broadcast_l("ninetynine-round", round=self.round)
+        self.broadcast_l("ninetynine-round", buffer="game", round=self.round)
 
         self._start_turn()
 
@@ -853,7 +853,7 @@ class NinetyNineGame(Game):
 
     def _action_cards_no_safe_cards(self, player: NinetyNinePlayer) -> None:
         """Handle action cards auto-lose when player has no safe cards."""
-        self.broadcast_l("ninetynine-no-valid-cards", player=player.name)
+        self.broadcast_l("ninetynine-no-valid-cards", buffer="game", player=player.name)
 
         winners = [alive_player for alive_player in self.alive_players if alive_player != player]
         self._play_outcome_sounds(
@@ -1268,7 +1268,7 @@ class NinetyNineGame(Game):
 
     def _eliminate_player(self, player: NinetyNinePlayer) -> None:
         """Eliminate a player from the game."""
-        self.broadcast_l("ninetynine-player-eliminated", player=player.name)
+        self.broadcast_l("ninetynine-player-eliminated", buffer="game", player=player.name)
 
         if player.id in self.alive_player_ids:
             self.alive_player_ids.remove(player.id)
@@ -1280,13 +1280,13 @@ class NinetyNineGame(Game):
         if self.is_standard_rules:
             if rank == 4 and len(self.alive_players) > 2:
                 self.reverse_turn_direction()
-                self.broadcast_l("ninetynine-direction-reverses")
+                self.broadcast_l("ninetynine-direction-reverses", buffer="game")
             if rank == 11:  # Jack skips
                 self.skip_next_players(1)
         else:
             if rank == N99_RANK_REVERSE and len(self.alive_players) > 2:
                 self.reverse_turn_direction()
-                self.broadcast_l("ninetynine-direction-reverses")
+                self.broadcast_l("ninetynine-direction-reverses", buffer="game")
             if rank == N99_RANK_SKIP:
                 self.skip_next_players(1)
 
@@ -1302,7 +1302,7 @@ class NinetyNineGame(Game):
         self.play_sound("game_pig/win.ogg")
 
         if winner:
-            self.broadcast_l("ninetynine-player-wins", player=winner.name)
+            self.broadcast_l("ninetynine-player-wins", buffer="game", player=winner.name)
 
         self.finish_game()
 

@@ -52,9 +52,9 @@ class LobbyActionsMixin:
                 # Handle both plain strings and (key, kwargs) tuples
                 if isinstance(error, tuple):
                     error_key, kwargs = error
-                    self.broadcast_l(error_key, **kwargs)
+                    self.broadcast_l(error_key, buffer="game", **kwargs)
                 else:
-                    self.broadcast_l(error)
+                    self.broadcast_l(error, buffer="game")
             return
 
         # Announce game is starting

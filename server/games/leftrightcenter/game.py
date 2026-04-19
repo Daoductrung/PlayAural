@@ -318,7 +318,7 @@ class LeftRightCenterGame(Game):
 
         self.announce_turn()
         if isinstance(player, LeftRightCenterPlayer) and player.chips == 0:
-            self.broadcast_l("lrc-no-chips", player=player.name)
+            self.broadcast_l("lrc-no-chips", buffer="game", player=player.name)
             self.end_turn()
             return
         if player.is_bot:
@@ -398,7 +398,7 @@ class LeftRightCenterGame(Game):
             lrc_player.chips -= left_count
             left_player.chips += left_count
             self.broadcast_l(
-                "lrc-pass-left",
+                "lrc-pass-left", buffer="game",
                 player=lrc_player.name,
                 target=left_player.name,
                 count=left_count,
@@ -413,7 +413,7 @@ class LeftRightCenterGame(Game):
             lrc_player.chips -= right_count
             right_player.chips += right_count
             self.broadcast_l(
-                "lrc-pass-right",
+                "lrc-pass-right", buffer="game",
                 player=lrc_player.name,
                 target=right_player.name,
                 count=right_count,
@@ -428,7 +428,7 @@ class LeftRightCenterGame(Game):
             lrc_player.chips -= center_count
             self.center_pot += center_count
             self.broadcast_l(
-                "lrc-pass-center",
+                "lrc-pass-center", buffer="game",
                 player=lrc_player.name,
                 count=center_count,
             )
@@ -446,7 +446,7 @@ class LeftRightCenterGame(Game):
         players_with_chips = [p for p in active if p.chips > 0]
         if len(players_with_chips) == 1:
             winner = players_with_chips[0]
-            self.broadcast_l("lrc-winner", player=winner.name, count=winner.chips)
+            self.broadcast_l("lrc-winner", buffer="game", player=winner.name, count=winner.chips)
             self.play_sound("game_pig/win.ogg")
             self.finish_game()
             return True

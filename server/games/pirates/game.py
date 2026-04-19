@@ -543,7 +543,7 @@ class PiratesGame(Game):
             outro="game_pirates/am_outro.ogg",
         )
 
-        self.broadcast_l("pirates-welcome")
+        self.broadcast_l("pirates-welcome", buffer="game")
 
         # Select 4 random oceans
         available = list(OCEAN_NAMES)
@@ -570,7 +570,7 @@ class PiratesGame(Game):
         self.total_gems = 18
         self.gems_collected = 0
 
-        self.broadcast_l("pirates-gems-placed", total=self.total_gems)
+        self.broadcast_l("pirates-gems-placed", buffer="game", total=self.total_gems)
 
         # Initialize turn order
         active_players = self.get_active_players()
@@ -591,7 +591,7 @@ class PiratesGame(Game):
         self.golden_moon_active = (self.round % 3 == 0)
         if self.golden_moon_active:
             self.play_sound("game_pirates/goldenmoon.ogg")
-            self.broadcast_l("pirates-golden-moon")
+            self.broadcast_l("pirates-golden-moon", buffer="game")
 
         # Announce first turn
         self._announce_turn()
@@ -612,7 +612,7 @@ class PiratesGame(Game):
                 user.play_sound("turn.ogg")
 
         self.broadcast_l(
-            "pirates-turn",
+            "pirates-turn", buffer="game",
             player=player.name,
             position=player.position
         )
@@ -712,7 +712,7 @@ class PiratesGame(Game):
 
     def _end_game(self) -> None:
         """End the game and determine winner."""
-        self.broadcast_l("pirates-all-gems-collected")
+        self.broadcast_l("pirates-all-gems-collected", buffer="game")
 
         # Find winner by highest score
         active_players = self.get_active_players()
@@ -726,7 +726,7 @@ class PiratesGame(Game):
         winner = random.choice(winners)
 
         self.play_sound("game_pig/win.ogg", volume=80)
-        self.broadcast_l("pirates-winner", player=winner.name, score=winner.score)
+        self.broadcast_l("pirates-winner", buffer="game", player=winner.name, score=winner.score)
 
         # Store winner info for result
         self._winner_name = winner.name
@@ -1076,7 +1076,7 @@ class PiratesGame(Game):
             user = self.get_user(player)
             if user:
                 user.speak_l("pirates-portal-no-ships", buffer="game")
-            self.broadcast_l("pirates-portal-fizzle", player=player.name, exclude=player)
+            self.broadcast_l("pirates-portal-fizzle", buffer="game", player=player.name, exclude=player)
             return "continue"
 
         # Select ocean (bot or human)

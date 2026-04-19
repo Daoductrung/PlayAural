@@ -32,7 +32,7 @@ def score_round(game: "ScopaGame") -> None:
     - 7 of diamonds (1 point)
     - Most sevens (1 point)
     """
-    game.broadcast_l("scopa-scoring-round")
+    game.broadcast_l("scopa-scoring-round", buffer="game")
 
     teams = game.team_manager.get_alive_teams()
     if not teams:
@@ -56,7 +56,7 @@ def score_round(game: "ScopaGame") -> None:
         game.team_manager.add_to_team_round_score(winners[0].members[0], 1)
         game.broadcast_team_l("scopa-most-cards", team=winners[0], count=max_cards)
     else:
-        game.broadcast_l("scopa-most-cards-tie")
+        game.broadcast_l("scopa-most-cards-tie", buffer="game")
 
     # Most diamonds (suit 1)
     diamond_counts = [
@@ -69,7 +69,7 @@ def score_round(game: "ScopaGame") -> None:
             game.team_manager.add_to_team_round_score(winners[0].members[0], 1)
             game.broadcast_team_l("scopa-most-diamonds", team=winners[0], count=max_diamonds)
         else:
-            game.broadcast_l("scopa-most-diamonds-tie")
+            game.broadcast_l("scopa-most-diamonds-tie", buffer="game")
 
     # 7 of diamonds
     seven_diamond_counts = [
@@ -90,7 +90,7 @@ def score_round(game: "ScopaGame") -> None:
                     "scopa-seven-diamonds-multi", team=winners[0], count=max_seven_diamonds
                 )
         else:
-            game.broadcast_l("scopa-seven-diamonds-tie")
+            game.broadcast_l("scopa-seven-diamonds-tie", buffer="game")
 
     if game.options.primiera_scoring:
         # Primiera scoring
@@ -123,7 +123,7 @@ def score_round(game: "ScopaGame") -> None:
                     game.team_manager.add_to_team_round_score(winners[0].members[0], 1)
                     game.broadcast_team_l("scopa-primiera", team=winners[0], score=max_primiera)
                 else:
-                    game.broadcast_l("scopa-primiera-tie")
+                    game.broadcast_l("scopa-primiera-tie", buffer="game")
     else:
         # Most sevens
         seven_counts = [
@@ -136,7 +136,7 @@ def score_round(game: "ScopaGame") -> None:
                 game.team_manager.add_to_team_round_score(winners[0].members[0], 1)
                 game.broadcast_team_l("scopa-most-sevens", team=winners[0], count=max_sevens)
             else:
-                game.broadcast_l("scopa-most-sevens-tie")
+                game.broadcast_l("scopa-most-sevens-tie", buffer="game")
 
     if game.options.napola:
         # Napola: continuous sequence of diamonds starting from Ace
@@ -154,7 +154,7 @@ def score_round(game: "ScopaGame") -> None:
                 game.broadcast_team_l("scopa-napola", team=team, points=napola_points)
 
     # Announce round scores
-    game.broadcast_l("scopa-round-scores")
+    game.broadcast_l("scopa-round-scores", buffer="game")
     for team in teams:
         game.broadcast_team_l(
             "scopa-round-score-line",

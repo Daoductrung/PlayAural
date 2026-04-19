@@ -906,9 +906,11 @@ class MainWindow(wx.Frame):
 
     def _get_localized_buffer_name(self, buffer_name):
         """Get localized name for a standard buffer, or return original if custom."""
-        if buffer_name in ["all", "misc", "chats", "activity", "game", "system", "chat"]:
-            return Localization.get(f"buffer-name-{buffer_name}")
-        return buffer_name
+        normalized_name = self.buffer_system.normalize_buffer_name(buffer_name)
+        localized_name = Localization.get(f"buffer-name-{normalized_name}")
+        if localized_name != f"buffer-name-{normalized_name}":
+            return localized_name
+        return normalized_name
 
     def on_buffer_mute_toggle(self, event):
         """Handle F4 to toggle mute for current buffer."""
@@ -951,7 +953,7 @@ class MainWindow(wx.Frame):
         if not buffer_name or buffer_name not in self.buffer_system.buffers:
             self.history_text.ChangeValue("")
             return
-        if self.buffer_system.is_muted(buffer_name):
+        if self.buffer_system.is_effectively_muted(buffer_name):
             self.history_text.ChangeValue("")
             return
         items = self.buffer_system.buffers.get(buffer_name, [])
@@ -962,7 +964,7 @@ class MainWindow(wx.Frame):
         self.history_text.SetInsertionPointEnd()
 
     def _is_message_muted_for_history(self, buffer_name):
-        return self.buffer_system.is_muted("all") or self.buffer_system.is_muted(buffer_name)
+        return self.buffer_system.is_effectively_muted(buffer_name)
 
     def on_char_hook(self, event):
         """Handle character input for game keypresses."""
@@ -1286,23 +1288,20 @@ class MainWindow(wx.Frame):
         should_show_in_history = (
             not self._is_message_muted_for_history(buffer_name)
             and not self.buffer_system.is_muted(current_buffer_name)
-            and (
-                current_buffer_name == buffer_name
-                or current_buffer_name == "all"
-                or (current_buffer_name == "chats" and buffer_name == "chat")
-            )
+            and self.buffer_system.should_show_message(current_buffer_name, buffer_name)
         )
 
         if should_show_in_history:
             current = self.history_text.GetValue()
+            history_text = text
             if current and not current.endswith("\n"):
-                text = "\n" + text
+                history_text = "\n" + text
 
             # Save current insertion point to prevent auto-scrolling
             old_insertion_point = self.history_text.GetInsertionPoint()
 
             # Append text to history widget
-            self.history_text.AppendText(text + "\n")
+            self.history_text.AppendText(history_text + "\n")
 
             # Restore insertion point (prevents auto-scroll to end)
             self.history_text.SetInsertionPoint(old_insertion_point)
@@ -2415,49 +2414,21 @@ class MainWindow(wx.Frame):
     def on_receive_chat(self, packet):
         """Handle chat packet from server."""
         convo = packet.get("convo")
-        lang = packet.get("language")
-        # For now all chats are in English
-        same_user = packet.get("sender") == self.credentials["username"]
-        """comment out all of this code for now
-        if lang not in self.lang_codes.values():
-            lang = "Other"
-        # If language matches, ignore subscription tracking
-        if (
-            not same_user
-            and lang != self.client_options["social"]["chat_input_language"]
-        ):
-            if convo == "global" or (
-                convo == "local"
-                and self.client_options["social"][
-                    "include_language_filters_for_table_chat"
-                ]
-            ):
-                # Check if the user is ignoring this language
-                if not self.client_options["social"]["language_subscriptions"][lang]:
-                    return
-        end this comment"""
         if convo == "global":
             message = Localization.get("chat-global", player=packet.get("sender"), message=packet.get("message"))
         elif convo == "announcement":
             message = f"{Localization.get('system-announcement')}: {packet.get('message')}"
         else:
             message = Localization.get("chat-local", player=packet.get("sender"), message=packet.get("message"))
-        # Convo doesn't support muting, or the mute flag is disabled
-        if True:
-            """(
-            same_user
-            or convo not in {"global", "local"}
-            or not self.client_options["social"][f"mute_{convo}_chat"]
-        ):"""
-            if not packet.get("silent"):
-                sound = "chat"
-                if convo == "local":
-                    sound += "local"
-                elif convo == "announcement":
-                    sound = "notify"
-                self.sound_manager.play(sound + ".ogg")
-                self.speaker.speak(message)
-        self.add_history(message, "chat", False)
+        should_alert = not packet.get("silent")
+        if should_alert:
+            sound = "chat"
+            if convo == "local":
+                sound += "local"
+            elif convo == "announcement":
+                sound = "notify"
+            self.sound_manager.play(sound + ".ogg")
+        self.add_history(message, "chat", should_alert)
 
     def on_server_play_sound(self, packet):
         """Handle play_sound packet from server."""
@@ -2559,7 +2530,7 @@ class MainWindow(wx.Frame):
         host = packet.get("host")
         game = packet.get("game")
         self.sound_manager.play("notify.ogg")
-        self.add_history(f"{host} is hosting {game}.", "activity")
+        self.add_history(f"{host} is hosting {game}.", "system")
 
     def compute_menu_diff_by_id(self, old_items, new_items, old_ids, new_ids):
         """
@@ -2919,7 +2890,7 @@ class MainWindow(wx.Frame):
         preferences = self._load_preferences()
 
         # Update muted buffers
-        preferences["muted_buffers"] = list(self.buffer_system.get_muted_buffers())
+        preferences["muted_buffers"] = sorted(self.buffer_system.get_muted_buffers())
 
         # Save
         config_dir.mkdir(parents=True, exist_ok=True)

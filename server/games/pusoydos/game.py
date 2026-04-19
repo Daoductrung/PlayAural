@@ -138,7 +138,7 @@ class PusoyDosGame(Game, TurnTimerMixin):
         self.play_music("game_ninetynine/mus.ogg")
         self.play_sound("game_crazyeights/intro.ogg")
         self.intro_wait_ticks = 7 * 20
-        self.broadcast_l("pusoydos-game-start")
+        self.broadcast_l("pusoydos-game-start", buffer="game")
 
     def _start_new_hand(self) -> None:
         self.round += 1
@@ -147,7 +147,7 @@ class PusoyDosGame(Game, TurnTimerMixin):
         self.trick_winner_id = None
         self.trick_cards = []
 
-        self.broadcast_l("pusoydos-new-hand", round=self.round)
+        self.broadcast_l("pusoydos-new-hand", buffer="game", round=self.round)
 
         deck, _ = DeckFactory.standard_deck()
         deck.shuffle()
@@ -867,9 +867,9 @@ class PusoyDosGame(Game, TurnTimerMixin):
                     else:
                         user.play_sound("game_crazyeights/youlose.ogg")
 
-        self.broadcast_l("pusoydos-hand-winner", player=winner.name, amount=total_won)
+        self.broadcast_l("pusoydos-hand-winner", buffer="game", player=winner.name, amount=total_won)
         for name, lost in loser_penalties:
-            self.broadcast_l("pusoydos-hand-loser", player=name, amount=lost)
+            self.broadcast_l("pusoydos-hand-loser", buffer="game", player=name, amount=lost)
 
         # Check if anyone is bankrupt or hit max score limit (if one existed, but it's coin based).
         # For coins, if someone is bankrupt we end game.
@@ -883,7 +883,7 @@ class PusoyDosGame(Game, TurnTimerMixin):
 
     def _end_game(self, final_winner: PusoyDosPlayer) -> None:
         self.play_sound("game_crazyeights/hitmark.ogg")
-        self.broadcast_l("pusoydos-game-over", player=final_winner.name)
+        self.broadcast_l("pusoydos-game-over", buffer="game", player=final_winner.name)
         self.finish_game()
 
     def build_game_result(self) -> GameResult:

@@ -11,6 +11,10 @@ from typing import Dict, List, Set, Tuple, Optional
 class BufferSystem:
     """Manages multiple message buffers for organizing game output."""
 
+    BUFFER_ALIASES = {
+        "chats": "chat",
+    }
+
     def __init__(self):
         """Initialize the buffer system."""
         self.buffers: Dict[str, List[Dict]] = {}  # name -> list of message items
@@ -19,6 +23,11 @@ class BufferSystem:
         self.buffer_positions: Dict[str, int] = {}  # name -> position (0 = newest)
         self.muted_buffers: Set[str] = set()  # set of muted buffer names
 
+    @classmethod
+    def normalize_buffer_name(cls, name: str) -> str:
+        """Return the canonical name for a buffer."""
+        return cls.BUFFER_ALIASES.get(name, name)
+
     def create_buffer(self, name: str) -> None:
         """
         Create a new buffer.
@@ -26,6 +35,7 @@ class BufferSystem:
         Args:
             name: Name of the buffer to create
         """
+        name = self.normalize_buffer_name(name)
         if name not in self.buffers:
             self.buffers[name] = []
             self.buffer_order.append(name)
@@ -39,6 +49,8 @@ class BufferSystem:
             buffer_name: Name of the buffer to add to
             text: Message text to add
         """
+        buffer_name = self.normalize_buffer_name(buffer_name)
+
         # Create buffer if it doesn't exist
         if buffer_name not in self.buffers:
             self.create_buffer(buffer_name)
@@ -171,6 +183,7 @@ class BufferSystem:
         Args:
             buffer_name: Name of buffer to mute/unmute
         """
+        buffer_name = self.normalize_buffer_name(buffer_name)
         if buffer_name in self.muted_buffers:
             self.muted_buffers.remove(buffer_name)
         else:
@@ -186,7 +199,19 @@ class BufferSystem:
         Returns:
             True if buffer is muted, False otherwise
         """
+        buffer_name = self.normalize_buffer_name(buffer_name)
         return buffer_name in self.muted_buffers
+
+    def is_effectively_muted(self, buffer_name: str) -> bool:
+        """Check whether a buffer is muted directly or through the global all buffer."""
+        buffer_name = self.normalize_buffer_name(buffer_name)
+        return self.is_muted("all") or self.is_muted(buffer_name)
+
+    def should_show_message(self, current_buffer_name: str, message_buffer_name: str) -> bool:
+        """Check whether a message belongs in the currently selected buffer view."""
+        current_buffer_name = self.normalize_buffer_name(current_buffer_name)
+        message_buffer_name = self.normalize_buffer_name(message_buffer_name)
+        return current_buffer_name in {"all", message_buffer_name}
 
     def get_muted_buffers(self) -> Set[str]:
         """
@@ -204,6 +229,7 @@ class BufferSystem:
         Args:
             buffer_name: Name of buffer to clear
         """
+        buffer_name = self.normalize_buffer_name(buffer_name)
         if buffer_name in self.buffers:
             self.buffers[buffer_name] = []
             self.buffer_positions[buffer_name] = 0

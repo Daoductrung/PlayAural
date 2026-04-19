@@ -332,9 +332,9 @@ class ChaosBearGame(Game):
         self.play_sound("game_3cardpoker/roundstart.ogg")
 
         # Announce game start (3 messages like v10)
-        self.broadcast_l("chaosbear-intro-1")
-        self.broadcast_l("chaosbear-intro-2")
-        self.broadcast_l("chaosbear-intro-3")
+        self.broadcast_l("chaosbear-intro-1", buffer="game")
+        self.broadcast_l("chaosbear-intro-2", buffer="game")
+        self.broadcast_l("chaosbear-intro-3", buffer="game")
 
         # Rebuild menus and announce first turn
         self.rebuild_all_menus()
@@ -356,7 +356,7 @@ class ChaosBearGame(Game):
             if user and user.preferences.play_turn_sound:
                 user.play_sound("game_squares/begin turn.ogg", volume=50)
 
-        self.broadcast_l("chaosbear-turn", player=player.name, position=player.position)
+        self.broadcast_l("chaosbear-turn", buffer="game", player=player.name, position=player.position)
 
     def on_sequence_callback(
         self,
@@ -376,7 +376,7 @@ class ChaosBearGame(Game):
                 # Only update if alive (might have been caught in rare race condition)
                 if isinstance(player, ChaosBearPlayer) and player.alive:
                     player.position = new_pos
-                    self.broadcast_l("chaosbear-position", player=player.name, position=new_pos)
+                    self.broadcast_l("chaosbear-position", buffer="game", player=player.name, position=new_pos)
 
         elif event_type == "card_effect":
             if player and isinstance(player, ChaosBearPlayer):
@@ -387,32 +387,32 @@ class ChaosBearGame(Game):
                 msg_id = data.get("msg_id")
                 if msg_id:
                     kwargs = data.get("kwargs", {})
-                    self.broadcast_l(msg_id, **kwargs)
+                    self.broadcast_l(msg_id, buffer="game", **kwargs)
 
         elif event_type == "bear_roll_result":
             roll = data["roll"]
             energy = data["energy"]
             total = data["total"]
-            self.broadcast_l("chaosbear-bear-roll", roll=roll, energy=energy, total=total)
+            self.broadcast_l("chaosbear-bear-roll", buffer="game", roll=roll, energy=energy, total=total)
 
         elif event_type == "bear_energy_up":
             energy = data["energy"]
             self.bear_energy = energy
-            self.broadcast_l("chaosbear-bear-energy-up", energy=energy)
+            self.broadcast_l("chaosbear-bear-energy-up", buffer="game", energy=energy)
 
         elif event_type == "bear_move":
             new_pos = data["pos"]
             self.bear_position = new_pos
-            self.broadcast_l("chaosbear-bear-position", position=new_pos)
+            self.broadcast_l("chaosbear-bear-position", buffer="game", position=new_pos)
 
         elif event_type == "bear_feast":
              self.bear_energy = data["energy"]
-             self.broadcast_l("chaosbear-bear-feast")
+             self.broadcast_l("chaosbear-bear-feast", buffer="game")
 
         elif event_type == "player_caught":
              if player and isinstance(player, ChaosBearPlayer):
                  player.alive = False
-                 self.broadcast_l("chaosbear-player-caught", player=player.name)
+                 self.broadcast_l("chaosbear-player-caught", buffer="game", player=player.name)
 
         elif event_type == "next_round":
              self._next_round_step()
@@ -664,7 +664,7 @@ class ChaosBearGame(Game):
 
         self.schedule_sound("game_chaosbear/wingame.ogg", delay_ticks=5)
         self.broadcast_l(
-            "chaosbear-winner", player=winner.name, position=winner.position
+            "chaosbear-winner", buffer="game", player=winner.name, position=winner.position
         )
 
         self.finish_game()
@@ -675,7 +675,7 @@ class ChaosBearGame(Game):
         self._winner_position = position
         self._is_tie = True
 
-        self.broadcast_l("chaosbear-tie", position=position)
+        self.broadcast_l("chaosbear-tie", buffer="game", position=position)
 
         self.finish_game()
 
@@ -762,7 +762,7 @@ class ChaosBearGame(Game):
         roll = random.randint(1, 6)
         
         # Broadcast immediately
-        self.broadcast_l("chaosbear-roll", player=player.name, roll=roll)
+        self.broadcast_l("chaosbear-roll", buffer="game", player=player.name, roll=roll)
 
         # Schedule step sounds
         for i in range(roll):
@@ -811,7 +811,7 @@ class ChaosBearGame(Game):
         self.rebuild_all_menus()
         
         self.play_sound(f"game_chaosbear/draw{random.randint(1, 2)}.ogg")
-        self.broadcast_l("chaosbear-draws-card", player=player.name)
+        self.broadcast_l("chaosbear-draws-card", buffer="game", player=player.name)
 
         card = random.randint(0, 5)
         # Drawing gives a short surge so the action is not strictly weaker than rolling.
@@ -882,7 +882,7 @@ class ChaosBearGame(Game):
 
         else:
             # Random gift - forward/back 1-6
-            self.broadcast_l("chaosbear-card-random-gift")
+            self.broadcast_l("chaosbear-card-random-gift", buffer="game")
             amount = random.randint(1, 6)
             if random.random() < 0.5:
                 new_pos = max(0, new_pos - amount)

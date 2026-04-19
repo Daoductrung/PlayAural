@@ -590,7 +590,7 @@ class FiveCardDrawGame(Game, TurnTimerMixin):
                 p.all_in = True
             self.pot_manager.add_contribution(p.id, pay)
         self._sync_team_scores()
-        self.broadcast_l("draw-antes-posted", amount=ante)
+        self.broadcast_l("draw-antes-posted", buffer="game", amount=ante)
 
     def _deal_cards(self, players: list[FiveCardDrawPlayer], count: int) -> None:
         if not players:
@@ -628,9 +628,9 @@ class FiveCardDrawGame(Game, TurnTimerMixin):
 
     def _announce_betting_round(self) -> None:
         if self.current_bet_round == 1:
-            self.broadcast_l("draw-betting-round-1")
+            self.broadcast_l("draw-betting-round-1", buffer="game")
         else:
-            self.broadcast_l("draw-betting-round-2")
+            self.broadcast_l("draw-betting-round-2", buffer="game")
 
     def _set_turn_by_index(self, start_index: int, order: list[str]) -> None:
         if not order:
@@ -697,7 +697,7 @@ class FiveCardDrawGame(Game, TurnTimerMixin):
         p.folded = True
         self.pot_manager.mark_folded(p.id)
         poker_log.log_fold(self.action_log, p.name)
-        self.broadcast_l("poker-player-folds", player=p.name)
+        self.broadcast_l("poker-player-folds", buffer="game", player=p.name)
         self._after_action()
 
     def _action_call(self, player: Player, action_id: str) -> None:
@@ -713,13 +713,13 @@ class FiveCardDrawGame(Game, TurnTimerMixin):
         self.betting.record_bet(p.id, pay, is_raise=False)
         if to_call == 0:
             poker_log.log_check(self.action_log, p.name)
-            self.broadcast_l("poker-player-checks", player=p.name)
+            self.broadcast_l("poker-player-checks", buffer="game", player=p.name)
         else:
             self.play_sound("game_3cardpoker/bet.ogg")
             poker_log.log_call(self.action_log, p.name, pay)
-            self.broadcast_l("poker-player-calls", player=p.name, amount=pay)
+            self.broadcast_l("poker-player-calls", buffer="game", player=p.name, amount=pay)
         if p.all_in and pay > 0:
-            self.broadcast_l("poker-player-all-in", player=p.name, amount=pay)
+            self.broadcast_l("poker-player-all-in", buffer="game", player=p.name, amount=pay)
         self._sync_team_scores()
         self._after_action()
 
@@ -776,9 +776,9 @@ class FiveCardDrawGame(Game, TurnTimerMixin):
         self.pot_manager.add_contribution(p.id, total)
         self.betting.record_bet(p.id, total, is_raise=True)
         poker_log.log_raise(self.action_log, p.name, total)
-        self.broadcast_l("poker-player-raises", player=p.name, amount=total)
+        self.broadcast_l("poker-player-raises", buffer="game", player=p.name, amount=total)
         if p.all_in:
-            self.broadcast_l("poker-player-all-in", player=p.name, amount=total)
+            self.broadcast_l("poker-player-all-in", buffer="game", player=p.name, amount=total)
         self._sync_team_scores()
         self._after_action()
 
@@ -814,7 +814,7 @@ class FiveCardDrawGame(Game, TurnTimerMixin):
         is_raise = raise_amount >= min_raise and pay > to_call
         self.betting.record_bet(p.id, pay, is_raise=is_raise)
         poker_log.log_all_in(self.action_log, p.name, pay)
-        self.broadcast_l("poker-player-all-in", player=p.name, amount=pay)
+        self.broadcast_l("poker-player-all-in", buffer="game", player=p.name, amount=pay)
         self._sync_team_scores()
         self._after_action()
 
@@ -844,7 +844,7 @@ class FiveCardDrawGame(Game, TurnTimerMixin):
         p.hand = sort_cards(p.hand)
         self._play_draw_sounds(len(indices))
         user = self.get_user(p)
-        self.broadcast_l("draw-player-draws", exclude=p, player=p.name, count=len(indices))
+        self.broadcast_l("draw-player-draws", buffer="game", exclude=p, player=p.name, count=len(indices))
         if user and drawn_cards:
             user.speak_l("draw-you-drew-cards", buffer="game", cards=read_cards(drawn_cards, user.locale))
             user.speak_l("poker-your-hand", buffer="game", cards=read_cards(p.hand, user.locale))
@@ -892,7 +892,7 @@ class FiveCardDrawGame(Game, TurnTimerMixin):
         self._advance_turn()
 
     def _start_draw_phase(self) -> None:
-        self.broadcast_l("draw-begin-draw")
+        self.broadcast_l("draw-begin-draw", buffer="game")
         self.turn_player_ids = [p.id for p in self.get_active_players() if not p.folded]
         self.turn_index = 0
         self._start_turn()
@@ -911,7 +911,7 @@ class FiveCardDrawGame(Game, TurnTimerMixin):
 
     def _showdown(self) -> None:
         self.phase = "showdown"
-        self.broadcast_l("poker-showdown")
+        self.broadcast_l("poker-showdown", buffer="game")
         self._resolve_pots()
         self._announce_showdown_hands(skip_best=True)
         self._queue_new_hand()
@@ -927,9 +927,9 @@ class FiveCardDrawGame(Game, TurnTimerMixin):
         amount_from_others = amount - winner_contribution
         self.play_sound(random.choice(["game_blackjack/win1.ogg", "game_blackjack/win2.ogg", "game_blackjack/win3.ogg"]))
         if amount_from_others > 0:
-            self.broadcast_l("poker-player-wins-pot", player=winner.name, amount=amount_from_others)
+            self.broadcast_l("poker-player-wins-pot", buffer="game", player=winner.name, amount=amount_from_others)
         else:
-            self.broadcast_l("poker-uncalled-bet-returned", player=winner.name, amount=winner_contribution)
+            self.broadcast_l("poker-uncalled-bet-returned", buffer="game", player=winner.name, amount=winner_contribution)
         self._sync_team_scores()
         self._queue_new_hand()
 
@@ -1337,7 +1337,7 @@ class FiveCardDrawGame(Game, TurnTimerMixin):
     def _end_game(self, winner: FiveCardDrawPlayer | None) -> None:
         self.play_sound("game_pig/win.ogg")
         if winner:
-            self.broadcast_l("poker-player-wins-game", player=winner.name)
+            self.broadcast_l("poker-player-wins-game", buffer="game", player=winner.name)
         self.finish_game()
 
     def format_end_screen(self, result: GameResult, locale: str) -> list[str]:

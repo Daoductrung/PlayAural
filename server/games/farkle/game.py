@@ -738,7 +738,7 @@ class FarkleGame(Game):
         else:
             num_dice = len(farkle_player.dice.values)
 
-        self.broadcast_l("farkle-rolls", player=player.name, count=num_dice)
+        self.broadcast_l("farkle-rolls", buffer="game", player=player.name, count=num_dice)
         self.play_sound("game_pig/roll.ogg")
 
         # Jolt bot to pause before next action
@@ -752,13 +752,13 @@ class FarkleGame(Game):
 
         # Announce the roll
         dice_str = ", ".join(str(d) for d in farkle_player.dice.values)
-        self.broadcast_l("farkle-roll-result", dice=dice_str)
+        self.broadcast_l("farkle-roll-result", buffer="game", dice=dice_str)
 
         # Check for farkle
         if not has_scoring_dice(farkle_player.dice.values):
             self.play_sound("game_farkle/farkle.ogg")
             self.broadcast_l(
-                "farkle-farkle", player=player.name, points=farkle_player.turn_score
+                "farkle-farkle", buffer="game", player=player.name, points=farkle_player.turn_score
             )
             # Track turn (farkle = 0 points banked)
             farkle_player.turns_taken += 1
@@ -869,7 +869,7 @@ class FarkleGame(Game):
 
         # Check for hot dice
         if len(farkle_player.banked_dice) == 6 and len(farkle_player.dice.values) == 0:
-            self.broadcast_l("farkle-hot-dice")
+            self.broadcast_l("farkle-hot-dice", buffer="game")
             self.play_sound("game_farkle/hotdice.ogg")
 
         # Mark that we've taken a combo
@@ -963,7 +963,7 @@ class FarkleGame(Game):
         self.play_sound(f"game_farkle/bank{random.randint(1, 3)}.ogg")
 
         self.broadcast_l(
-            "farkle-banks",
+            "farkle-banks", buffer="game",
             player=player.name,
             points=farkle_player.turn_score,
             total=farkle_player.score,
@@ -1034,7 +1034,7 @@ class FarkleGame(Game):
         # Refresh turn order
         self.set_turn_players(self.get_active_players())
 
-        self.broadcast_l("game-round-start", round=self.round)
+        self.broadcast_l("game-round-start", buffer="game", round=self.round)
 
         self._start_turn()
 
@@ -1176,7 +1176,7 @@ class FarkleGame(Game):
             self.play_sound("game_pig/win.ogg")
             winner_farkle: FarklePlayer = winners[0]  # type: ignore
             self.broadcast_l(
-                "farkle-winner", player=winners[0].name, score=winner_farkle.score
+                "farkle-winner", buffer="game", player=winners[0].name, score=winner_farkle.score
             )
             self.finish_game()
         elif len(winners) > 1:

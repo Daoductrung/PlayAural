@@ -281,7 +281,7 @@ class PigGame(Game):
         """Handle roll action."""
         pig_player: PigPlayer = player  # type: ignore
 
-        self.broadcast_l("pig-rolls", player=player.name)
+        self.broadcast_l("pig-rolls", buffer="game", player=player.name)
         self.play_sound("game_pig/roll.ogg")
 
         # Jolt the rolling player to pause before next action
@@ -293,13 +293,13 @@ class PigGame(Game):
             # Bust!
             self.play_sound("game_pig/lose.ogg")
             self.broadcast_l(
-                "pig-bust", player=player.name, points=pig_player.round_score
+                "pig-bust", buffer="game", player=player.name, points=pig_player.round_score
             )
             pig_player.round_score = 0
             self.end_turn()
         else:
             pig_player.round_score += roll
-            self.broadcast_l("pig-roll-result", roll=roll, total=pig_player.round_score)
+            self.broadcast_l("pig-roll-result", buffer="game", roll=roll, total=pig_player.round_score)
             # Menus will be rebuilt automatically after action execution
 
     def _action_bank(self, player: Player, action_id: str) -> None:
@@ -316,7 +316,7 @@ class PigGame(Game):
 
         pig_player.round_score = 0
         self.broadcast_l(
-            "pig-bank-action", player=player.name, points=banked, total=total
+            "pig-bank-action", buffer="game", player=player.name, points=banked, total=total
         )
 
         self.end_turn()
@@ -375,7 +375,7 @@ class PigGame(Game):
         self.set_turn_players(self.get_active_players())
 
         self.play_sound("game_pig/roundstart.ogg")
-        self.broadcast_l("game-round-start", round=self.round)
+        self.broadcast_l("game-round-start", buffer="game", round=self.round)
 
         self._start_turn()
 

@@ -23,6 +23,7 @@ main-disconnected = Disconnected.
 main-voice-label = Voice Chat
 voice-chat-join = Join Voice Chat
 voice-chat-leave = Leave Voice Chat
+voice-chat-mic = Microphone
 voice-chat-turn-on-mic = Turn On Mic
 voice-chat-turn-off-mic = Turn Off Mic
 voice-chat-joining = Joining Voice Chat...

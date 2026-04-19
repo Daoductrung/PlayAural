@@ -23,6 +23,7 @@ main-disconnected = Đã ngắt kết nối.
 main-voice-label = Trò chuyện thoại
 voice-chat-join = Tham gia trò chuyện thoại
 voice-chat-leave = Rời trò chuyện thoại
+voice-chat-mic = Micrô
 voice-chat-turn-on-mic = Bật mic
 voice-chat-turn-off-mic = Tắt mic
 voice-chat-joining = Đang tham gia trò chuyện thoại...

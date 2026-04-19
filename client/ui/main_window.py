@@ -109,8 +109,6 @@ class MainWindow(wx.Frame):
         self.current_menu_item_ids = []  # Track item IDs for current menu (parallel to menu items)
         self.current_edit_multiline = False  # Track if current editbox is multiline
         self.current_edit_read_only = False  # Track if current editbox is read-only
-        self._chat_clear_generation = 0
-        self._chat_ime_reset_in_progress = False
 
         # Ping tracking
         self._ping_start_time = None  # Track when ping was sent
@@ -286,9 +284,7 @@ class MainWindow(wx.Frame):
         self.escape_behavior = "keybind"  # Track escape behavior from server
 
         # Chat input comes before history in tab order
-        wx.StaticText(panel, label=Localization.get("main-chat-label"))
-        self.chat_input = wx.TextCtrl(panel, size=(0, 0), style=wx.TE_PROCESS_ENTER)
-        self.chat_input.Bind(wx.EVT_TEXT_ENTER, self.on_chat_enter)
+        self.chat_label, self.chat_input = self._create_chat_controls(panel)
 
         self.voice_label = wx.StaticText(panel, label=Localization.get("main-voice-label"))
         self.voice_join_button = wx.Button(
@@ -297,23 +293,82 @@ class MainWindow(wx.Frame):
         self.voice_leave_button = wx.Button(
             panel, label=Localization.get("voice-chat-leave"), size=(0, 0)
         )
-        self.voice_mic_button = wx.Button(
-            panel, label=Localization.get("voice-chat-turn-on-mic"), size=(0, 0)
+        self.voice_mic_checkbox = wx.CheckBox(
+            panel, label=Localization.get("voice-chat-mic"), size=(0, 0)
         )
         self.voice_join_button.Bind(wx.EVT_BUTTON, self.on_voice_join_button)
         self.voice_leave_button.Bind(wx.EVT_BUTTON, self.on_voice_leave_button)
-        self.voice_mic_button.Bind(wx.EVT_BUTTON, self.on_voice_mic_button)
+        self.voice_mic_checkbox.Bind(wx.EVT_CHECKBOX, self.on_voice_mic_checkbox)
         self.voice_leave_button.Hide()
-        self.voice_mic_button.Hide()
+        self.voice_mic_checkbox.Hide()
 
         # History text - not visible, just exists for data storage
         # No word wrap for better screen reader accessibility
-        wx.StaticText(panel, label=Localization.get("main-history-label"))
+        self.history_label = wx.StaticText(panel, label=Localization.get("main-history-label"))
         self.history_text = wx.TextCtrl(
             panel, size=(0, 0), style=wx.TE_MULTILINE | wx.TE_READONLY | wx.TE_DONTWRAP
         )
 
         # No sizers, no layout - audio-only interface
+        self._apply_accessibility_labels()
+        self._sync_chat_area_tab_order()
+
+    def _create_chat_input_control(self, parent):
+        """Create the desktop chat entry control."""
+        chat_input = wx.TextCtrl(parent, size=(0, 0), style=wx.TE_PROCESS_ENTER)
+        chat_input.Bind(wx.EVT_TEXT_ENTER, self.on_chat_enter)
+        chat_input.SetName(Localization.get("main-chat-label"))
+        return chat_input
+
+    def _create_chat_controls(self, parent):
+        """Create the chat label and chat input together."""
+        chat_label = wx.StaticText(parent, label=Localization.get("main-chat-label"))
+        chat_input = self._create_chat_input_control(parent)
+        return chat_label, chat_input
+
+    def _apply_accessibility_labels(self):
+        """Apply explicit accessibility names to nonvisual controls."""
+        self.chat_input.SetName(Localization.get("main-chat-label"))
+        self.history_text.SetName(Localization.get("main-history-label"))
+        self.voice_join_button.SetName(self.voice_join_button.GetLabel())
+        self.voice_leave_button.SetName(self.voice_leave_button.GetLabel())
+        self.voice_mic_checkbox.SetName(Localization.get("voice-chat-mic"))
+
+    def _sync_chat_area_tab_order(self):
+        """Keep chat, voice controls, and history in a stable focus order."""
+        self.chat_input.MoveAfterInTabOrder(self.menu_list)
+        self.voice_join_button.MoveAfterInTabOrder(self.chat_input)
+        self.voice_leave_button.MoveAfterInTabOrder(self.voice_join_button)
+        self.voice_mic_checkbox.MoveAfterInTabOrder(self.voice_leave_button)
+        self.history_text.MoveAfterInTabOrder(self.voice_mic_checkbox)
+
+    def _get_non_menu_focus_controls(self):
+        """Return controls whose focus should survive menu refreshes."""
+        return {
+            self.chat_input,
+            self.history_text,
+            self.voice_join_button,
+            self.voice_leave_button,
+            self.voice_mic_checkbox,
+        }
+
+    def _refresh_chat_input_after_send(self):
+        """Replace the chat field with a fresh control to reset IME state."""
+        old_chat_input = self.chat_input
+        old_chat_label = self.chat_label
+        if not old_chat_input:
+            return
+        restore_chat_focus = wx.Window.FindFocus() is old_chat_input
+        parent = old_chat_input.GetParent()
+        self.chat_label, self.chat_input = self._create_chat_controls(parent)
+        self._apply_accessibility_labels()
+        self._sync_chat_area_tab_order()
+        old_chat_label.Hide()
+        old_chat_input.Hide()
+        old_chat_label.Destroy()
+        old_chat_input.Destroy()
+        if restore_chat_focus:
+            self.chat_input.SetFocus()
 
     def _setup_accelerators(self):
         """Setup keyboard accelerators."""
@@ -454,6 +509,30 @@ class MainWindow(wx.Frame):
         """Handle Alt+V shortcut to focus voice chat controls."""
         self._focus_voice_control()
 
+    def _get_voice_focus_target(self):
+        """Return which voice control currently owns focus, if any."""
+        focused = wx.Window.FindFocus()
+        if focused is self.voice_join_button:
+            return "join"
+        if focused is self.voice_leave_button:
+            return "leave"
+        if focused is self.voice_mic_checkbox:
+            return "mic"
+        return None
+
+    def _restore_voice_control_focus(self, target=None):
+        """Restore focus to a specific voice control when it remains available."""
+        if target == "mic" and self.voice_mic_checkbox.IsShown() and self.voice_mic_checkbox.IsEnabled():
+            self.voice_mic_checkbox.SetFocus()
+            return
+        if target == "leave" and self.voice_leave_button.IsShown() and self.voice_leave_button.IsEnabled():
+            self.voice_leave_button.SetFocus()
+            return
+        if target == "join" and self.voice_join_button.IsShown() and self.voice_join_button.IsEnabled():
+            self.voice_join_button.SetFocus()
+            return
+        self._focus_voice_control()
+
     def _focus_voice_control(self):
         if self.voice_state == "connected":
             self.voice_leave_button.SetFocus()
@@ -465,12 +544,7 @@ class MainWindow(wx.Frame):
         connected = self.voice_state == "connected"
         connecting = self.voice_state == "connecting"
         mic_busy = self.voice_mic_toggle_pending is not None
-        focused = wx.Window.FindFocus()
-        restore_voice_focus = focused in {
-            self.voice_join_button,
-            self.voice_leave_button,
-            self.voice_mic_button,
-        }
+        voice_focus_target = self._get_voice_focus_target()
         self.voice_label.SetLabel(Localization.get("main-voice-label"))
         self.voice_join_button.SetLabel(
             Localization.get("voice-chat-joining")
@@ -482,16 +556,14 @@ class MainWindow(wx.Frame):
         self.voice_leave_button.SetLabel(Localization.get("voice-chat-leave"))
         self.voice_leave_button.Enable(connected)
         self.voice_leave_button.Show(connected)
-        self.voice_mic_button.SetLabel(
-            Localization.get("voice-chat-turn-off-mic")
-            if self.voice_mic_enabled
-            else Localization.get("voice-chat-turn-on-mic")
-        )
-        self.voice_mic_button.Enable(connected and not mic_busy)
-        self.voice_mic_button.Show(connected)
+        self.voice_mic_checkbox.SetLabel(Localization.get("voice-chat-mic"))
+        self.voice_mic_checkbox.SetValue(self.voice_mic_enabled)
+        self.voice_mic_checkbox.Enable(connected and not mic_busy)
+        self.voice_mic_checkbox.Show(connected)
+        self._apply_accessibility_labels()
         self.Layout()
-        if restore_voice_focus:
-            wx.CallAfter(self._focus_voice_control)
+        if voice_focus_target is not None:
+            wx.CallAfter(self._restore_voice_control_focus, voice_focus_target)
 
     def on_voice_join_button(self, event):
         """Request a server-authorized Voice Chat session."""
@@ -533,14 +605,18 @@ class MainWindow(wx.Frame):
             return
         self.cleanup_voice_chat(send_leave=True, announce=True)
 
-    def on_voice_mic_button(self, event):
+    def on_voice_mic_checkbox(self, event):
         """Toggle microphone publishing for the active Voice Chat session."""
         if self.voice_state != "connected":
             self.on_voice_status("voice-chat-not-connected", True)
+            self.voice_mic_checkbox.SetValue(self.voice_mic_enabled)
             return
         if self.voice_mic_toggle_pending is not None:
+            self.voice_mic_checkbox.SetValue(self.voice_mic_enabled)
             return
-        target_state = not self.voice_mic_enabled
+        target_state = self.voice_mic_checkbox.GetValue()
+        if target_state == self.voice_mic_enabled:
+            return
         input_device = None
         if target_state:
             input_device = self._get_selected_audio_input_device_index()
@@ -787,6 +863,7 @@ class MainWindow(wx.Frame):
     def on_list_online(self, event):
         """Handle F2 to request list of online users."""
         if self.connected:
+            self._prepare_for_menu_shortcut_navigation()
             self.network.send_packet({"type": "list_online"})
 
     def on_list_online_with_games(self, event):
@@ -794,6 +871,7 @@ class MainWindow(wx.Frame):
         if self.connected:
             if self.current_menu_id == "online_users":
                 return
+            self._prepare_for_menu_shortcut_navigation()
             self.network.send_packet({"type": "list_online_with_games"})
 
     # Friends-family menus: if already inside any of these, suppress re-entry.
@@ -812,13 +890,21 @@ class MainWindow(wx.Frame):
     def on_open_friends_hub(self, event):
         """Handle Alt+F to open the friends hub from anywhere."""
         if self.connected and self.current_menu_id not in self._FRIENDS_MENU_IDS:
+            self._prepare_for_menu_shortcut_navigation()
             self.network.send_packet({"type": "open_friends_hub"})
 
     def on_open_options(self, event):
         """Handle Alt+O to open the options menu from anywhere."""
         if self.connected and self.current_menu_id not in self._OPTIONS_MENU_IDS:
+            self._prepare_for_menu_shortcut_navigation()
             self._refresh_audio_input_devices(sync_server=True)
             self.network.send_packet({"type": "open_options"})
+
+    def _prepare_for_menu_shortcut_navigation(self):
+        """Move keyboard focus back to the menu before opening a global menu."""
+        if self.current_mode == "edit":
+            return
+        self.menu_list.SetFocus()
 
     def on_server_pong(self, packet):
         """Handle pong response from server."""
@@ -1202,64 +1288,7 @@ class MainWindow(wx.Frame):
         else:
             # Regular chat (context sensitive: table or lobby)
             self.send_chat_message(message)
-        self._clear_chat_input_after_send(raw_message)
-
-    def _clear_chat_input_after_send(self, sent_text: str):
-        """Clear chat input after IME/default text-control processing settles."""
-        self._chat_clear_generation += 1
-        generation = self._chat_clear_generation
-        self._set_chat_input_value("")
-        self._reset_chat_input_ime_context(generation)
-        wx.CallAfter(self._finalize_chat_input_clear, generation, sent_text)
-        wx.CallLater(25, self._restore_chat_input_after_ime_reset, generation)
-        wx.CallLater(75, self._finalize_chat_input_clear, generation, sent_text)
-        wx.CallLater(200, self._finalize_chat_input_clear, generation, sent_text)
-
-    def _set_chat_input_value(self, value: str):
-        self.chat_input.ChangeValue(value)
-        self.chat_input.SetInsertionPointEnd()
-        try:
-            self.chat_input.DiscardEdits()
-        except AttributeError:
-            pass
-
-    def _finalize_chat_input_clear(self, generation: int, sent_text: str):
-        if generation != self._chat_clear_generation or not self.chat_input:
-            return
-        current = self.chat_input.GetValue()
-        if not current:
-            self._set_chat_input_value("")
-            return
-        if self._looks_like_stale_chat_ime_commit(current, sent_text):
-            self._set_chat_input_value("")
-
-    def _reset_chat_input_ime_context(self, generation: int):
-        if self._chat_ime_reset_in_progress:
-            return
-        self._chat_ime_reset_in_progress = True
-        self.chat_input.ChangeValue("")
-        self.history_text.SetFocus()
-
-    def _restore_chat_input_after_ime_reset(self, generation: int):
-        if not self._chat_ime_reset_in_progress:
-            return
-        self._chat_ime_reset_in_progress = False
-        if generation != self._chat_clear_generation or not self.chat_input:
-            return
-        self._set_chat_input_value("")
-        self.chat_input.SetFocus()
-
-    @staticmethod
-    def _looks_like_stale_chat_ime_commit(current: str, sent_text: str) -> bool:
-        current_trimmed = current.strip()
-        sent_trimmed = sent_text.strip()
-        if not current_trimmed:
-            return True
-        if current == sent_text or current_trimmed == sent_trimmed:
-            return True
-        if sent_trimmed and current_trimmed and len(current_trimmed) <= 12:
-            return sent_trimmed.endswith(current_trimmed)
-        return False
+        wx.CallAfter(self._refresh_chat_input_after_send)
 
     def send_chat_message(self, message: str):
         """Send chat message to server."""
@@ -2738,14 +2767,16 @@ class MainWindow(wx.Frame):
             self.escape_behavior = packet.get("escape_behavior", "keybind")
 
         # Different menu ID → always clear and rebuild (don't bother with diff)
+        focused = wx.Window.FindFocus()
+        preserve_non_menu_focus = focused in self._get_non_menu_focus_controls()
+
         if not is_same_menu_id:
             self.menu_list.Clear()
             for item in items:
                 self.menu_list.Append(item)
 
             # Set focus first to avoid double announcement
-            focused = wx.Window.FindFocus()
-            if focused != self.chat_input and focused != self.history_text:
+            if not preserve_non_menu_focus:
                 self.menu_list.SetFocus()
 
             # Set initial selection (use position if provided, otherwise 0)
@@ -2794,8 +2825,7 @@ class MainWindow(wx.Frame):
                 self.menu_list.Append(item)
 
             # Set focus first to avoid double announcement
-            focused = wx.Window.FindFocus()
-            if focused != self.chat_input and focused != self.history_text:
+            if not preserve_non_menu_focus:
                 self.menu_list.SetFocus()
 
             # Set initial selection (use position if provided, otherwise 0)

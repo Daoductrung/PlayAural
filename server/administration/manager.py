@@ -17,7 +17,7 @@ def require_admin(func):
     @functools.wraps(func)
     async def wrapper(self, admin, *args, **kwargs):
         if admin.trust_level < 2:
-            admin.speak_l("not-admin-anymore")
+            admin.speak_l("not-admin-anymore", buffer="system")
             self.server._show_main_menu(admin)
             return
         return await func(self, admin, *args, **kwargs)
@@ -41,7 +41,7 @@ class AdministrationManager:
                 continue  # Not an admin
             if exclude_username and username == exclude_username:
                 continue  # Skip the excluded admin
-            user.speak_l(message_id)
+            user.speak_l(message_id, buffer="system")
             user.play_sound(sound)
 
     # ==================== Menu Display Functions ====================
@@ -189,7 +189,7 @@ class AdministrationManager:
 
     def _show_promote_confirm_menu(self, user: NetworkUser, target_username: str) -> None:
         """Show confirmation menu for promoting a user to admin."""
-        user.speak_l("confirm-promote", player=target_username)
+        user.speak_l("confirm-promote", buffer="system", player=target_username)
         items = [
             MenuItem(text=Localization.get(user.locale, "confirm-yes"), id="yes"),
             MenuItem(text=Localization.get(user.locale, "confirm-no"), id="no"),
@@ -207,7 +207,7 @@ class AdministrationManager:
 
     def _show_demote_confirm_menu(self, user: NetworkUser, target_username: str) -> None:
         """Show confirmation menu for demoting an admin."""
-        user.speak_l("confirm-demote", player=target_username)
+        user.speak_l("confirm-demote", buffer="system", player=target_username)
         items = [
             MenuItem(text=Localization.get(user.locale, "confirm-yes"), id="yes"),
             MenuItem(text=Localization.get(user.locale, "confirm-no"), id="no"),
@@ -457,7 +457,7 @@ class AdministrationManager:
     async def _approve_user(self, admin: NetworkUser, username: str) -> None:
         """Approve a pending user account."""
         if self.server.db.approve_user(username):
-            admin.speak_l("account-approved", player=username)
+            admin.speak_l("account-approved", buffer="system", player=username)
 
             # Notify other admins of the account action
             self._notify_admins(
@@ -473,7 +473,7 @@ class AdministrationManager:
                 waiting_state = self.server.user_states.get(username, {})
                 if waiting_state.get("menu") == "waiting_for_approval":
                     # User is online and waiting - welcome them and show main menu
-                    waiting_user.speak_l("account-approved-welcome")
+                    waiting_user.speak_l("account-approved-welcome", buffer="system")
                     waiting_user.play_sound("accountapprove.ogg")
                     self.server._show_main_menu(waiting_user)
 
@@ -486,7 +486,7 @@ class AdministrationManager:
         waiting_user = self.server.users.get(username)
 
         if self.server.db.delete_user(username):
-            admin.speak_l("account-declined", player=username)
+            admin.speak_l("account-declined", buffer="system", player=username)
 
             # Notify other admins of the account action
             self._notify_admins(
@@ -495,7 +495,7 @@ class AdministrationManager:
 
             # If user is online, disconnect them
             if waiting_user:
-                waiting_user.speak_l("account-declined-goodbye")
+                waiting_user.speak_l("account-declined-goodbye", buffer="system")
                 await waiting_user.connection.send({"type": "disconnect", "reconnect": False})
 
         self._show_account_approval_menu(admin)
@@ -515,13 +515,13 @@ class AdministrationManager:
 
         # Always notify the target user with personalized message
         if target_user:
-            target_user.speak_l("promote-announcement-you")
+            target_user.speak_l("promote-announcement-you", buffer="system")
             target_user.play_sound("accountpromoteadmin.ogg")
 
         # Broadcast the announcement to others based on scope
         if broadcast_scope == "nobody":
             # Silent mode - only notify the admin who performed the action
-            admin.speak_l("promote-announcement", player=username)
+            admin.speak_l("promote-announcement", buffer="system", player=username)
             admin.play_sound("accountpromoteadmin.ogg")
         else:
             # Broadcast to all or admins (excluding the target user who already got personalized message)
@@ -547,7 +547,7 @@ class AdministrationManager:
             
         if target_record.trust_level >= 3:
             # Cannot demote developer
-            admin.speak_l("permission-denied") # Fallback or new key
+            admin.speak_l("permission-denied", buffer="system") # Fallback or new key
             return
 
         # Update trust level in database
@@ -560,13 +560,13 @@ class AdministrationManager:
 
         # Always notify the target user with personalized message
         if target_user:
-            target_user.speak_l("demote-announcement-you")
+            target_user.speak_l("demote-announcement-you", buffer="system")
             target_user.play_sound("accountdemoteadmin.ogg")
 
         # Broadcast the announcement to others based on scope
         if broadcast_scope == "nobody":
             # Silent mode - only notify the admin who performed the action
-            admin.speak_l("demote-announcement", player=username)
+            admin.speak_l("demote-announcement", buffer="system", player=username)
             admin.play_sound("accountdemoteadmin.ogg")
         else:
             # Broadcast to all or admins (excluding the target user who already got personalized message)
@@ -596,7 +596,7 @@ class AdministrationManager:
                 continue  # Skip the excluded user
             if broadcast_scope == "admins" and user.trust_level < 2:
                 continue  # Only admins if broadcasting to admins only
-            user.speak_l(message_id, player=player_name)
+            user.speak_l(message_id, buffer="system", player=player_name)
             user.play_sound(sound)
 
     def _show_broadcast_input_menu(self, user: NetworkUser) -> None:
@@ -645,7 +645,7 @@ class AdministrationManager:
                     try:
                         port = int(value.strip())
                     except ValueError:
-                        user.speak_l("invalid-volume")  # Generic invalid number sound
+                        user.speak_l("invalid-volume", buffer="system")  # Generic invalid number sound
                         self._show_smtp_settings_menu(user)
                         return True
                 elif field == "username":
@@ -664,7 +664,7 @@ class AdministrationManager:
                     return True
 
                 self.server.db.update_smtp_config(host, port, username, password, from_email, from_name, encryption_type)
-                user.speak_l("admin-smtp-updated-success")
+                user.speak_l("admin-smtp-updated-success", buffer="system")
             self._show_smtp_settings_menu(user)
             return True
         elif menu_id == "admin_broadcast_input" and input_id == "broadcast_message":
@@ -723,13 +723,13 @@ class AdministrationManager:
                         first_lang = lang_codes[0]
                         self._prompt_motd_language(user, first_lang, lang_codes, {}, version)
                     else:
-                        user.speak_l("error-no-languages")
+                        user.speak_l("error-no-languages", buffer="system")
                         self._show_manage_motd_menu(user)
                 except ValueError:
-                    user.speak_l("invalid-motd-version")
+                    user.speak_l("invalid-motd-version", buffer="system")
                     self._show_manage_motd_menu(user)
             else:
-                user.speak_l("motd-cancelled")
+                user.speak_l("motd-cancelled", buffer="system")
                 self._show_manage_motd_menu(user)
             return True
         elif menu_id == "admin_motd_input" and input_id.startswith("motd_message_"):
@@ -754,7 +754,7 @@ class AdministrationManager:
                 else:
                     # All languages completed, save MOTD
                     self.server.db.create_motd(version, translations)
-                    user.speak_l("motd-created", version=version)
+                    user.speak_l("motd-created", buffer="system", version=version)
 
                     # Live Broadcast to all approved online users
                     for u in self.server.users.values():
@@ -768,7 +768,7 @@ class AdministrationManager:
                     self._show_manage_motd_menu(user)
             else:
                 # Cancelled
-                user.speak_l("motd-cancelled")
+                user.speak_l("motd-cancelled", buffer="system")
                 self._show_manage_motd_menu(user)
             return True
 
@@ -906,7 +906,7 @@ class AdministrationManager:
                     config.host, config.port, config.username, config.password,
                     config.from_email, config.from_name, enc_type
                 )
-                user.speak_l("admin-smtp-updated-success")
+                user.speak_l("admin-smtp-updated-success", buffer="system")
         self._show_smtp_settings_menu(user)
 
     async def _run_smtp_test(self, user: NetworkUser, config, target_email: str) -> None:
@@ -961,7 +961,7 @@ class AdministrationManager:
         elif selection_id == "view":
             active_version = self.server.db.get_highest_motd_version()
             if active_version == 0:
-                user.speak_l("motd-not-exists")
+                user.speak_l("motd-not-exists", buffer="system")
                 self._show_manage_motd_menu(user)
             else:
                 motd_text = self.server.db.get_motd(active_version, user.locale)
@@ -982,10 +982,10 @@ class AdministrationManager:
 
         elif selection_id == "delete":
             if self.server.db.get_highest_motd_version() == 0:
-                user.speak_l("motd-delete-empty")
+                user.speak_l("motd-delete-empty", buffer="system")
             else:
                 self.server.db.delete_motd()
-                user.speak_l("motd-deleted")
+                user.speak_l("motd-deleted", buffer="system")
             self._show_manage_motd_menu(user)
 
         elif selection_id == "back":
@@ -1047,7 +1047,7 @@ class AdministrationManager:
                     print(f"Failed to broadcast to {user.username}: {e}")
 
         # Send confirmation to admin using speak_l (this uses queue, which is fine for local feedback)
-        admin.speak_l("admin-broadcast-sent", count=count)
+        admin.speak_l("admin-broadcast-sent", buffer="system", count=count)
         
         # Also play a confirmation sound for admin locally via queue
         # admin.play_sound("notify.ogg") 
@@ -1100,7 +1100,7 @@ class AdministrationManager:
 
     def _show_kick_confirm_menu(self, user: NetworkUser, target_username: str) -> None:
         """Show confirmation menu for kicking a user."""
-        user.speak_l("kick-confirm", player=target_username)
+        user.speak_l("kick-confirm", buffer="system", player=target_username)
         items = [
             MenuItem(text=Localization.get(user.locale, "confirm-yes"), id="yes"),
             MenuItem(text=Localization.get(user.locale, "confirm-no"), id="no"),
@@ -1122,16 +1122,16 @@ class AdministrationManager:
         # Check if user is online
         target_user = self.server.users.get(target_username)
         if not target_user:
-            admin.speak_l("user-not-online", target=target_username)
+            admin.speak_l("user-not-online", buffer="system", target=target_username)
             return
 
         # Check immunity
         if target_user.trust_level >= 3:
-            admin.speak_l("permission-denied")
+            admin.speak_l("permission-denied", buffer="system")
             return
         
         if admin.trust_level < 3 and target_user.trust_level >= 2:
-             admin.speak_l("permission-denied")
+             admin.speak_l("permission-denied", buffer="system")
              return
 
         # Logic
@@ -1144,12 +1144,12 @@ class AdministrationManager:
         
         for u in self.server.users.values():
             if u.approved:
-                u.speak_l("kick-broadcast", target=target_username, actor=admin.username)
+                u.speak_l("kick-broadcast", buffer="system", target=target_username, actor=admin.username)
                 u.play_sound("kick.ogg")
 
         # 2. Notify Target
         # "you-were-kicked"
-        target_user.speak_l("you-were-kicked", actor=admin.username)
+        target_user.speak_l("you-were-kicked", buffer="system", actor=admin.username)
         
         # 3. Force Exit Target
         await target_user.connection.send({"type": "force_exit", "reason": "kicked"})
@@ -1336,12 +1336,12 @@ class AdministrationManager:
         # Check target user hierarchy again for safety
         target_record = self.server.db.get_user(target_username)
         if not target_record:
-            admin.speak_l("user-not-online", target=target_username)
+            admin.speak_l("user-not-online", buffer="system", target=target_username)
             self._show_admin_menu(admin)
             return
 
         if target_record.trust_level >= 3 or (admin.trust_level < 3 and target_record.trust_level >= 2):
-            admin.speak_l("permission-denied")
+            admin.speak_l("permission-denied", buffer="system")
             self._show_admin_menu(admin)
             return
 
@@ -1357,7 +1357,7 @@ class AdministrationManager:
                     loc_reason = Localization.get(u.locale, reason_key)
 
                 loc_duration = Localization.get(u.locale, duration_locale_key)
-                u.speak_l("ban-broadcast", target=target_username, actor=admin.username, reason=loc_reason, duration=loc_duration)
+                u.speak_l("ban-broadcast", buffer="system", target=target_username, actor=admin.username, reason=loc_reason, duration=loc_duration)
                 u.play_sound("accountban.ogg")
 
         # If the banned player is mid-game, substitute with a bot NOW — before
@@ -1415,7 +1415,7 @@ class AdministrationManager:
             # Broadcast
             for u in self.server.users.values():
                 if u.approved:
-                    u.speak_l("unban-broadcast", target=target_username, actor=admin.username)
+                    u.speak_l("unban-broadcast", buffer="system", target=target_username, actor=admin.username)
                     u.play_sound("accountban.ogg") # Requested to use same sound
 
         self._show_unban_menu(admin)

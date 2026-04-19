@@ -102,9 +102,7 @@ class NetworkUser(User):
         return messages
 
     def speak(self, text: str, buffer: str = "misc") -> None:
-        packet = {"type": "speak", "text": text}
-        if buffer != "misc":
-            packet["buffer"] = buffer
+        packet = {"type": "speak", "text": text, "buffer": buffer}
         self._queue_packet(packet)
 
     def speak_l(self, message_id: str, buffer: str = "misc", **kwargs) -> None:
@@ -120,11 +118,10 @@ class NetworkUser(User):
             "type": "speak",
             "text": text,        # Result of server translation (or key if missing)
             "key": message_id,   # The raw key
-            "params": kwargs     # The params for client-side functionality
+            "params": kwargs,    # The params for client-side functionality
+            "buffer": buffer,
         }
-        if buffer != "misc":
-            packet["buffer"] = buffer
-            
+
         self._queue_packet(packet)
 
     def play_sound(

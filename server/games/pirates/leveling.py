@@ -117,7 +117,7 @@ class LevelingSystem(DataClassJSONMixin):
         self.xp += xp_gained
 
         # Announce XP gain
-        game.broadcast_l("pirates-xp-gained", xp=xp_gained)
+        game.broadcast_l("pirates-xp-gained", buffer="game", xp=xp_gained)
 
         # Get skill manager for this player to check unlocks
         player = game.get_player_by_id(self.user_id)
@@ -145,7 +145,7 @@ class LevelingSystem(DataClassJSONMixin):
                 if user:
                     user.speak_l("pirates-level-up-you", buffer="game", level=self.level)
                 game.broadcast_l(
-                    "pirates-level-up",
+                    "pirates-level-up", buffer="game",
                     player=player_name,
                     level=self.level,
                     exclude=player
@@ -159,7 +159,7 @@ class LevelingSystem(DataClassJSONMixin):
                         level=self.level
                     )
                 game.broadcast_l(
-                    "pirates-level-up-multiple",
+                    "pirates-level-up-multiple", buffer="game",
                     player=player_name,
                     levels=levels_gained,
                     level=self.level,

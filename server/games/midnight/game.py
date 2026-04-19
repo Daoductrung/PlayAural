@@ -413,7 +413,7 @@ class MidnightGame(Game, DiceGameMixin):
         self.set_turn_players(self.get_active_players())
 
         self.play_sound("game_pig/roundstart.ogg")
-        self.broadcast_l("game-round-start", round=self.round)
+        self.broadcast_l("game-round-start", buffer="game", round=self.round)
 
         # Reset all players for new round
         for player in self.get_active_players():
@@ -523,7 +523,7 @@ class MidnightGame(Game, DiceGameMixin):
 
         if not qualified_players:
             # No one qualified
-            self.broadcast_l("midnight-all-disqualified")
+            self.broadcast_l("midnight-all-disqualified", buffer="game")
         else:
             high_score = max(p.round_score for p in qualified_players)
             winners = [p for p in qualified_players if p.round_score == high_score]
@@ -534,7 +534,7 @@ class MidnightGame(Game, DiceGameMixin):
                 winner.round_wins += 1
                 self.play_sound("game_pig/bank.ogg")
                 self.broadcast_l(
-                    "midnight-round-winner", player=winner.name
+                    "midnight-round-winner", buffer="game", player=winner.name
                 )
             else:
                 # Tie
@@ -569,7 +569,7 @@ class MidnightGame(Game, DiceGameMixin):
             # Single game winner
             self.play_sound("game_pig/win.ogg")
             self.broadcast_l(
-                "midnight-game-winner", player=winners[0].name, wins=max_wins
+                "midnight-game-winner", buffer="game", player=winners[0].name, wins=max_wins
             )
         else:
             # Game tie

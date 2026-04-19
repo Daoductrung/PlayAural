@@ -651,7 +651,7 @@ class TradeoffGame(Game):
                     dice_list_str = Localization.format_list(user.locale, dice_strs)
                     user.speak_l("tradeoff-player-traded", buffer="game", player=p.name, dice=dice_list_str)
             else:
-                self.broadcast_l("tradeoff-player-traded-none", player=p.name)
+                self.broadcast_l("tradeoff-player-traded-none", buffer="game", player=p.name)
 
         if self.pool:
             self._start_taking_phase()
@@ -834,7 +834,7 @@ class TradeoffGame(Game):
             tp.dice_taken_count = 0
             tp.round_score = 0
 
-        self.broadcast_l("tradeoff-round-start", round=self.round)
+        self.broadcast_l("tradeoff-round-start", buffer="game", round=self.round)
         self._start_iteration()
 
     def _start_iteration(self) -> None:
@@ -843,7 +843,7 @@ class TradeoffGame(Game):
         self.phase = "trading"
         self.pool = []
 
-        self.broadcast_l("tradeoff-iteration", iteration=self.iteration)
+        self.broadcast_l("tradeoff-iteration", buffer="game", iteration=self.iteration)
 
         active_players = self.get_active_players()
         for p in active_players:
@@ -938,19 +938,19 @@ class TradeoffGame(Game):
                     )
                     recipient_user.speak(msg, buffer="game")
             else:
-                self.broadcast_l("tradeoff-no-sets", player=p.name)
+                self.broadcast_l("tradeoff-no-sets", buffer="game", player=p.name)
 
             self._team_manager.add_to_team_round_score(p.name, total_points)
 
         self._team_manager.commit_round_scores()
 
         # Announce round summary
-        self.broadcast_l("tradeoff-round-scores", round=self.round)
+        self.broadcast_l("tradeoff-round-scores", buffer="game", round=self.round)
         for p in active_players:
             tp: TradeoffPlayer = p  # type: ignore
             total = self._get_player_score(p.name)
             self.broadcast_l(
-                "tradeoff-score-line",
+                "tradeoff-score-line", buffer="game",
                 player=p.name,
                 round_points=tp.round_score,
                 total=total,
@@ -965,7 +965,7 @@ class TradeoffGame(Game):
                 best_score = score
                 leader = p
         if leader:
-            self.broadcast_l("tradeoff-leader", player=leader.name, score=best_score)
+            self.broadcast_l("tradeoff-leader", buffer="game", player=leader.name, score=best_score)
 
         # Check for winner
         for p in active_players:
@@ -985,7 +985,7 @@ class TradeoffGame(Game):
         self.play_sound("game_pig/win.ogg")
 
         if len(winners) == 1:
-            self.broadcast_l("tradeoff-winner", player=winners[0].name, score=high_score)
+            self.broadcast_l("tradeoff-winner", buffer="game", player=winners[0].name, score=high_score)
         else:
             winner_names = [w.name for w in winners]
             for p in self.players:

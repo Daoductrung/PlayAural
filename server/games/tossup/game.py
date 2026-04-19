@@ -461,7 +461,7 @@ class TossUpGame(Game):
         self.set_turn_players(self.get_active_players())
 
         self.play_sound("game_pig/roundstart.ogg")
-        self.broadcast_l("game-round-start", round=self.round)
+        self.broadcast_l("game-round-start", buffer="game", round=self.round)
 
         self._start_turn()
 
@@ -483,7 +483,7 @@ class TossUpGame(Game):
         user = self.get_user(player)
         if user and user.preferences.play_turn_sound:
             user.play_sound("turn.ogg")
-        self.broadcast_l("tossup-turn-start", player=player.name, score=current_score)
+        self.broadcast_l("tossup-turn-start", buffer="game", player=player.name, score=current_score)
 
         # Set up bot target if this is a bot's turn
         if player.is_bot:
@@ -611,7 +611,7 @@ class TossUpGame(Game):
             # Single winner!
             self.play_sound("game_pig/win.ogg")
             self.broadcast_l(
-                "tossup-winner", player=winners[0].name, score=high_score
+                "tossup-winner", buffer="game", player=winners[0].name, score=high_score
             )
             self.finish_game()
         elif len(winners) > 1:

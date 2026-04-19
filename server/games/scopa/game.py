@@ -703,7 +703,7 @@ class ScopaGame(Game):
         self.table_cards = []
 
         # Announce round
-        self.broadcast_l("game-round-start", round=self.current_round)
+        self.broadcast_l("game-round-start", buffer="game", round=self.current_round)
 
         # Rotate dealer (rightmost/last player, moves left/decreases)
         active_players = self.get_active_players()
@@ -750,7 +750,7 @@ class ScopaGame(Game):
         if self.table_cards:
             self._broadcast_cards_l("scopa-initial-table", cards=self.table_cards)
         else:
-            self.broadcast_l("scopa-no-initial-table")
+            self.broadcast_l("scopa-no-initial-table", buffer="game")
 
         # Set starting player (player after dealer)
         if active_players:
@@ -774,7 +774,7 @@ class ScopaGame(Game):
 
         # Announce deal counter
         self.broadcast_l(
-            "game-deal-counter", current=self._current_deal, total=self._total_deals
+            "game-deal-counter", buffer="game", current=self._current_deal, total=self._total_deals
         )
 
         cards_to_deal = self.options.cards_per_deal
@@ -922,11 +922,11 @@ class ScopaGame(Game):
         if self.table_cards and self.last_capture_player_id:
             last_capturer = self.get_player_by_id(self.last_capture_player_id)
             if last_capturer:
-                self.broadcast_l("scopa-remaining-cards", player=last_capturer.name)
+                self.broadcast_l("scopa-remaining-cards", buffer="game", player=last_capturer.name)
                 last_capturer.captured.extend(self.table_cards)
                 self.table_cards = []
 
-        self.broadcast_l("game-round-end", round=self.current_round)
+        self.broadcast_l("game-round-end", buffer="game", round=self.current_round)
 
         # Score the round
         if self.options.scopa_mechanic != "only_scopas":

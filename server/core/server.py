@@ -4893,7 +4893,7 @@ PlayAural Server
                     missing_players.append(member_username)
 
         if missing_players:
-            user.speak_l("missing-players", players=", ".join(missing_players))
+            user.speak_l("missing-players", buffer="system", players=", ".join(missing_players))
             self._nav_back(user)
             return
 
@@ -5993,14 +5993,14 @@ PlayAural Server
 
         # 1. Online Check
         if not target_user or not target_user.approved:
-            sender.speak_l("pm-error-offline", username=target_username)
+            sender.speak_l("pm-error-offline", buffer="system", username=target_username)
             sender.play_sound("accounterror.ogg")
             return
 
         # 2. Friend Check
         friend_uuids = self._db.get_friends(sender.uuid)
         if target_user.uuid not in friend_uuids:
-            sender.speak_l("pm-error-not-friends")
+            sender.speak_l("pm-error-not-friends", buffer="system")
             sender.play_sound("accounterror.ogg")
             return
 
@@ -6890,9 +6890,9 @@ PlayAural Server
         
         users_str = Localization.format_list_and(user.locale, online)
         if count == 1:
-            user.speak_l("online-users-one", users=users_str)
+            user.speak_l("online-users-one", buffer="system", users=users_str)
         else:
-            user.speak_l("online-users-many", count=count, users=users_str)
+            user.speak_l("online-users-many", buffer="system", count=count, users=users_str)
 
     async def _handle_list_online_with_games(self, client: ClientConnection) -> None:
         """Handle request for online users list with game info."""

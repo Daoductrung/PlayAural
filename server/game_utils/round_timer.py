@@ -105,7 +105,7 @@ class RoundTimer:
         if self._game.round_timer_state == self.COUNTING:
             # Pause the countdown
             self._game.round_timer_state = self.PAUSED
-            self._game.broadcast_l(self._pause_message, player=player_name or "")
+            self._game.broadcast_l(self._pause_message, buffer="game", player=player_name or "")
         elif self._game.round_timer_state == self.PAUSED:
             # Skip to next round
             self._game.round_timer_state = self.IDLE

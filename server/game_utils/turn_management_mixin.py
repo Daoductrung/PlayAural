@@ -94,7 +94,7 @@ class TurnManagementMixin:
         Args:
             player: The player who was skipped.
         """
-        self.broadcast_l("game-player-skipped", player=player.name)
+        self.broadcast_l("game-player-skipped", buffer="game", player=player.name)
 
     def reverse_turn_direction(self) -> None:
         """Reverse the turn direction (forward <-> backward)."""
@@ -124,7 +124,7 @@ class TurnManagementMixin:
             user.play_sound(turn_sound)
 
         # Broadcast turn announcement to all players
-        self.broadcast_l("game-turn-start", player=player.name)
+        self.broadcast_l("game-turn-start", buffer="game", player=player.name)
 
     @property
     def turn_players(self) -> list["Player"]:

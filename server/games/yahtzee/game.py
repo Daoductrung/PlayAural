@@ -653,7 +653,7 @@ class YahtzeeGame(Game, DiceGameMixin):
 
     def _start_game(self) -> None:
         self.current_game += 1
-        self.broadcast_l("game-round-start", round=self.current_game)
+        self.broadcast_l("game-round-start", buffer="game", round=self.current_game)
         self.set_turn_players(self.get_active_players())
         self._start_turn()
 
@@ -714,7 +714,7 @@ class YahtzeeGame(Game, DiceGameMixin):
         self.play_sound("game_pig/win.ogg")
 
         if len(winners) == 1:
-            self.broadcast_l("yahtzee-winner", player=winners[0].name, score=high_score)
+            self.broadcast_l("yahtzee-winner", buffer="game", player=winners[0].name, score=high_score)
         else:
             winner_names = [w.name for w in winners]
             for p in self.players:

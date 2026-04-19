@@ -105,7 +105,7 @@ def do_attack(
     if defender_user:
         defender_user.speak_l("pirates-attack-incoming", buffer="game", attacker=attacker.name)
     game.broadcast_l(
-        "pirates-attack-fired",
+        "pirates-attack-fired", buffer="game",
         attacker=attacker.name,
         defender=defender.name,
         exclude=attacker
@@ -117,20 +117,20 @@ def do_attack(
 
     # Roll attack
     attack_roll = random.randint(1, 6)
-    game.broadcast_l("pirates-attack-roll", roll=attack_roll)
+    game.broadcast_l("pirates-attack-roll", buffer="game", roll=attack_roll)
 
     if attack_bonus > 0:
-        game.broadcast_l("pirates-attack-bonus", bonus=attack_bonus)
+        game.broadcast_l("pirates-attack-bonus", buffer="game", bonus=attack_bonus)
         attack_roll += attack_bonus
 
     # Roll defense
     defense_roll = random.randint(1, 6)
     if defender_user:
         defender_user.speak_l("pirates-defense-roll", buffer="game", roll=defense_roll)
-    game.broadcast_l("pirates-defense-roll-others", player=defender.name, roll=defense_roll, exclude=defender)
+    game.broadcast_l("pirates-defense-roll-others", buffer="game", player=defender.name, roll=defense_roll, exclude=defender)
 
     if defense_bonus > 0:
-        game.broadcast_l("pirates-defense-bonus", bonus=defense_bonus)
+        game.broadcast_l("pirates-defense-bonus", buffer="game", bonus=defense_bonus)
         defense_roll += defense_bonus
 
     # Calculate XP multiplier
@@ -149,7 +149,7 @@ def do_attack(
         if defender_user:
             defender_user.speak_l("pirates-attack-hit-them", buffer="game", attacker=attacker.name)
         game.broadcast_l(
-            "pirates-attack-hit",
+            "pirates-attack-hit", buffer="game",
             attacker=attacker.name,
             defender=defender.name,
             exclude=attacker
@@ -183,7 +183,7 @@ def do_attack(
         if defender_user:
             defender_user.speak_l("pirates-attack-miss-them", buffer="game")
         game.broadcast_l(
-            "pirates-attack-miss",
+            "pirates-attack-miss", buffer="game",
             attacker=attacker.name,
             defender=defender.name,
             exclude=attacker
@@ -328,13 +328,13 @@ def _attempt_gem_steal(
     Returns:
         True if steal was successful
     """
-    game.broadcast_l("pirates-steal-attempt", attacker=attacker.name)
+    game.broadcast_l("pirates-steal-attempt", buffer="game", attacker=attacker.name)
 
     steal_roll = random.randint(1, 6) + attack_bonus
     defend_roll = random.randint(1, 6) + defense_bonus
 
     game.broadcast_l(
-        "pirates-steal-rolls",
+        "pirates-steal-rolls", buffer="game",
         steal=steal_roll,
         defend=defend_roll
     )
@@ -391,7 +391,7 @@ def _attempt_gem_steal(
                     )
             return True
     else:
-        game.broadcast_l("pirates-steal-failed")
+        game.broadcast_l("pirates-steal-failed", buffer="game")
         return False
 
     return False

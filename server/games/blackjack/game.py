@@ -975,7 +975,7 @@ class BlackjackGame(Game):
         if dealer_blackjack and self.options.dealer_peeks_blackjack:
             self._reveal_dealer_hand()
             self.play_sound(SOUND_BLACKJACK)
-            self.broadcast_l("blackjack-dealer-blackjack")
+            self.broadcast_l("blackjack-dealer-blackjack", buffer="game")
             self._settle_hand()
             return
 
@@ -1019,7 +1019,7 @@ class BlackjackGame(Game):
     def _start_insurance_phase(self, players: list[BlackjackPlayer]) -> None:
         self.phase = "insurance"
         self.timer.clear()
-        self.broadcast_l("blackjack-insurance-offer")
+        self.broadcast_l("blackjack-insurance-offer", buffer="game")
         for player in players:
             player.insurance_decision_done = not self._player_needs_insurance_decision(player)
 
@@ -1086,7 +1086,7 @@ class BlackjackGame(Game):
         if dealer_blackjack and self.options.dealer_peeks_blackjack:
             self._reveal_dealer_hand()
             self.play_sound(SOUND_BLACKJACK)
-            self.broadcast_l("blackjack-dealer-blackjack")
+            self.broadcast_l("blackjack-dealer-blackjack", buffer="game")
             self._settle_hand()
             return
 
@@ -2083,7 +2083,7 @@ class BlackjackGame(Game):
     def _start_between_hands(self) -> None:
         self.awaiting_next_bets = True
         self.next_hand_wait_ticks = 0
-        self.broadcast_l("blackjack-hand-start", hand=self.hand_number + 1)
+        self.broadcast_l("blackjack-hand-start", buffer="game", hand=self.hand_number + 1)
         self.play_sound(SOUND_ROUND_START)
 
         default_bet = self._clamp_table_bet(self.options.base_bet)

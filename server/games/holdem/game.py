@@ -599,7 +599,7 @@ class HoldemGame(Game, TurnTimerMixin):
         self.blind_timer_ticks -= 1
         if self.blind_timer_ticks == 0:
             self.blinds_raise_next_hand = True
-            self.broadcast_l("poker-blinds-raise-next-hand")
+            self.broadcast_l("poker-blinds-raise-next-hand", buffer="game")
 
     def _advance_blind_level(self) -> None:
         if not self.blinds_raise_next_hand:
@@ -663,7 +663,7 @@ class HoldemGame(Game, TurnTimerMixin):
                 p.all_in = True
             self.pot_manager.add_contribution(p.id, pay)
         self._sync_team_scores()
-        self.broadcast_l("holdem-antes-posted", amount=ante)
+        self.broadcast_l("holdem-antes-posted", buffer="game", amount=ante)
 
     def _current_ante(self) -> int:
         if self.options.ante <= 0:
@@ -693,7 +693,7 @@ class HoldemGame(Game, TurnTimerMixin):
         self.pot_manager.add_contribution(sb_player.id, sb_pay)
         self.pot_manager.add_contribution(bb_player.id, bb_pay)
         self._sync_team_scores()
-        self.broadcast_l("holdem-blinds-posted", sb=sb_pay, bb=bb_pay)
+        self.broadcast_l("holdem-blinds-posted", buffer="game", sb=sb_pay, bb=bb_pay)
 
     def _deal_hole_cards(self, players: list[HoldemPlayer]) -> None:
         if not players:
@@ -876,7 +876,7 @@ class HoldemGame(Game, TurnTimerMixin):
         p.folded = True
         self.pot_manager.mark_folded(p.id)
         poker_log.log_fold(self.action_log, p.name)
-        self.broadcast_l("poker-player-folds", player=p.name)
+        self.broadcast_l("poker-player-folds", buffer="game", player=p.name)
         self._after_action()
 
     def _action_call(self, player: Player, action_id: str) -> None:
@@ -892,13 +892,13 @@ class HoldemGame(Game, TurnTimerMixin):
         self.betting.record_bet(p.id, pay, is_raise=False)
         if to_call == 0:
             poker_log.log_check(self.action_log, p.name)
-            self.broadcast_l("poker-player-checks", player=p.name)
+            self.broadcast_l("poker-player-checks", buffer="game", player=p.name)
         else:
             self.play_sound("game_3cardpoker/bet.ogg")
             poker_log.log_call(self.action_log, p.name, pay)
-            self.broadcast_l("poker-player-calls", player=p.name, amount=pay)
+            self.broadcast_l("poker-player-calls", buffer="game", player=p.name, amount=pay)
         if p.all_in and pay > 0:
-            self.broadcast_l("poker-player-all-in", player=p.name, amount=pay)
+            self.broadcast_l("poker-player-all-in", buffer="game", player=p.name, amount=pay)
         self._sync_team_scores()
         self._after_action()
 
@@ -955,9 +955,9 @@ class HoldemGame(Game, TurnTimerMixin):
         self.pot_manager.add_contribution(p.id, total)
         self.betting.record_bet(p.id, total, is_raise=True)
         poker_log.log_raise(self.action_log, p.name, total)
-        self.broadcast_l("poker-player-raises", player=p.name, amount=total)
+        self.broadcast_l("poker-player-raises", buffer="game", player=p.name, amount=total)
         if p.all_in:
-            self.broadcast_l("poker-player-all-in", player=p.name, amount=total)
+            self.broadcast_l("poker-player-all-in", buffer="game", player=p.name, amount=total)
         self._sync_team_scores()
         self._after_action()
 
@@ -992,7 +992,7 @@ class HoldemGame(Game, TurnTimerMixin):
         is_raise = raise_amount >= min_raise and pay > to_call
         self.betting.record_bet(p.id, pay, is_raise=is_raise)
         poker_log.log_all_in(self.action_log, p.name, pay)
-        self.broadcast_l("poker-player-all-in", player=p.name, amount=pay)
+        self.broadcast_l("poker-player-all-in", buffer="game", player=p.name, amount=pay)
         self._sync_team_scores()
         self._after_action()
 
@@ -1035,7 +1035,7 @@ class HoldemGame(Game, TurnTimerMixin):
 
     def _showdown(self) -> None:
         self.phase = "showdown"
-        self.broadcast_l("poker-showdown")
+        self.broadcast_l("poker-showdown", buffer="game")
         self._resolve_pots()
         self._announce_showdown_hands(skip_best=True)
         self._advance_blind_level()
@@ -1052,9 +1052,9 @@ class HoldemGame(Game, TurnTimerMixin):
         amount_from_others = amount - winner_contribution
         self.play_sound(random.choice(["game_blackjack/win1.ogg", "game_blackjack/win2.ogg", "game_blackjack/win3.ogg"]))
         if amount_from_others > 0:
-            self.broadcast_l("poker-player-wins-pot", player=winner.name, amount=amount_from_others)
+            self.broadcast_l("poker-player-wins-pot", buffer="game", player=winner.name, amount=amount_from_others)
         else:
-            self.broadcast_l("poker-uncalled-bet-returned", player=winner.name, amount=winner_contribution)
+            self.broadcast_l("poker-uncalled-bet-returned", buffer="game", player=winner.name, amount=winner_contribution)
         self._sync_team_scores()
         self._advance_blind_level()
         self._queue_new_hand()
@@ -1438,7 +1438,7 @@ class HoldemGame(Game, TurnTimerMixin):
     def _end_game(self, winner: HoldemPlayer | None) -> None:
         self.play_sound("game_pig/win.ogg")
         if winner:
-            self.broadcast_l("poker-player-wins-game", player=winner.name)
+            self.broadcast_l("poker-player-wins-game", buffer="game", player=winner.name)
         self.finish_game()
 
     def format_end_screen(self, result: GameResult, locale: str) -> list[str]:

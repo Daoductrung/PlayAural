@@ -1272,14 +1272,14 @@ class MileByMileGame(Game):
         # Announce
         if self.is_individual_mode():
             self.broadcast_l(
-                "milebymile-plays-distance-individual",
+                "milebymile-plays-distance-individual", buffer="game",
                 player=player.name,
                 distance=distance,
                 total=race_state.miles,
             )
         else:
             self.broadcast_l(
-                "milebymile-plays-distance-team",
+                "milebymile-plays-distance-team", buffer="game",
                 player=player.name,
                 distance=distance,
                 total=race_state.miles,
@@ -1295,21 +1295,21 @@ class MileByMileGame(Game):
             ):
                 if self.is_individual_mode():
                     self.broadcast_l(
-                        "milebymile-journey-complete-perfect-individual",
+                        "milebymile-journey-complete-perfect-individual", buffer="game",
                         player=player.name,
                     )
                 else:
                     self.broadcast_l(
-                        "milebymile-journey-complete-perfect-team", team=player.team_index + 1
+                        "milebymile-journey-complete-perfect-team", buffer="game", team=player.team_index + 1
                     )
             else:
                 if self.is_individual_mode():
                     self.broadcast_l(
-                        "milebymile-journey-complete-individual", player=player.name
+                        "milebymile-journey-complete-individual", buffer="game", player=player.name
                     )
                 else:
                     self.broadcast_l(
-                        "milebymile-journey-complete-team", team=player.team_index + 1
+                        "milebymile-journey-complete-team", buffer="game", team=player.team_index + 1
                     )
 
             self.play_sound("game_milebymile/winround.ogg")
@@ -1617,7 +1617,7 @@ class MileByMileGame(Game):
             self.deck.add_all(self.discard_pile)
             self.discard_pile = []
             self.deck.shuffle()
-            self.broadcast_l("milebymile-deck-reshuffled")
+            self.broadcast_l("milebymile-deck-reshuffled", buffer="game")
             self.play_sound(f"game_cards/shuffle{random.randint(1, 3)}.ogg")
 
         if self.options.rig_game == "no_duplicates":
@@ -1709,7 +1709,7 @@ class MileByMileGame(Game):
         # Play shuffle sound (like Scopa)
         shuffle_sound = random.choice(["shuffle1.ogg", "shuffle2.ogg", "shuffle3.ogg"])
         self.play_sound(f"game_cards/{shuffle_sound}")
-        self.broadcast_l("milebymile-new-race")
+        self.broadcast_l("milebymile-new-race", buffer="game")
 
         # Start first turn
         self.reset_turn_order()
@@ -1776,7 +1776,7 @@ class MileByMileGame(Game):
                     max_miles = race_state.miles
                     winning_team_idx = team_idx
 
-        self.broadcast_l("milebymile-race-complete")
+        self.broadcast_l("milebymile-race-complete", buffer="game")
 
         # Calculate and announce scores
         self._calculate_race_scores(winning_team_idx)
@@ -1887,7 +1887,7 @@ class MileByMileGame(Game):
                 )
 
         # Announce total scores
-        self.broadcast_l("milebymile-total-scores")
+        self.broadcast_l("milebymile-total-scores", buffer="game")
         for team_idx in range(self.get_num_teams()):
             # Manually broadcast to support per-user localization of team name
             for p in self.players:
@@ -1916,13 +1916,13 @@ class MileByMileGame(Game):
         winner_score = self.get_team_score(winner_idx)
 
         if self.is_individual_mode():
-            self.broadcast_l("milebymile-wins-individual", player=winner_team.members[0])
+            self.broadcast_l("milebymile-wins-individual", buffer="game", player=winner_team.members[0])
         else:
             members_str = ", ".join(winner_team.members)
             self.broadcast_l(
-                "milebymile-wins-team", team=winner_idx + 1, members=members_str
+                "milebymile-wins-team", buffer="game", team=winner_idx + 1, members=members_str
             )
-        self.broadcast_l("milebymile-final-score", score=winner_score)
+        self.broadcast_l("milebymile-final-score", buffer="game", score=winner_score)
 
         self.finish_game()
 

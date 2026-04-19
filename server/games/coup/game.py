@@ -820,7 +820,7 @@ class CoupGame(Game):
         coup_player.coins += 1
 
         self.play_sound("game_coup/income.ogg")
-        self.broadcast_l("coup-takes-income", player=player.name)
+        self.broadcast_l("coup-takes-income", buffer="game", player=player.name)
 
         self._end_turn()
 
@@ -840,7 +840,7 @@ class CoupGame(Game):
 
         coup_player.coins -= 7
         self.play_sound("game_coup/coup.ogg")
-        self.broadcast_l("coup-plays-coup", player=player.name, target=target.name)
+        self.broadcast_l("coup-plays-coup", buffer="game", player=player.name, target=target.name)
 
         duration = self.get_audio_duration_ticks("coup.ogg")
         self._start_resolution_callback(
@@ -900,21 +900,21 @@ class CoupGame(Game):
         # Play claim sound and broadcast
         if action == "tax":
             self.play_sound("game_coup/claim_duke.ogg")
-            self.broadcast_l("coup-claims-tax", player=player.name)
+            self.broadcast_l("coup-claims-tax", buffer="game", player=player.name)
         elif action == "foreign_aid":
             # no character claimed, just standard action. Sound plays on resolution.
-            self.broadcast_l("coup-claims-foreign-aid", player=player.name)
+            self.broadcast_l("coup-claims-foreign-aid", buffer="game", player=player.name)
         elif action == "assassinate":
             self.play_sound("game_coup/claim_assassin.ogg")
-            self.broadcast_l("coup-claims-assassinate", player=player.name, target=target.name if target else "")
+            self.broadcast_l("coup-claims-assassinate", buffer="game", player=player.name, target=target.name if target else "")
         elif action == "steal":
             self.play_sound("game_coup/claim_captain.ogg")
-            self.broadcast_l("coup-claims-steal", player=player.name, target=target.name if target else "")
+            self.broadcast_l("coup-claims-steal", buffer="game", player=player.name, target=target.name if target else "")
         elif action == "exchange":
             self.play_sound("game_coup/claim_ambassador.ogg")
-            self.broadcast_l("coup-claims-exchange", player=player.name)
+            self.broadcast_l("coup-claims-exchange", buffer="game", player=player.name)
 
-        self.broadcast_l("coup-waiting-for-reactions")
+        self.broadcast_l("coup-waiting-for-reactions", buffer="game")
         self.rebuild_all_menus()
         # Jolt bots heavily so they don't react instantly
         BotHelper.jolt_bots(self, ticks=random.randint(40, 80)) # 2-4 seconds delay
@@ -935,7 +935,7 @@ class CoupGame(Game):
         self.play_sound("game_coup/challenge.ogg")
         claimer = self.get_player_by_id(self.active_claimer_id)
 
-        self.broadcast_l("coup-challenges", challenger=player.name, target=claimer.name)
+        self.broadcast_l("coup-challenges", buffer="game", challenger=player.name, target=claimer.name)
 
         duration = self.get_audio_duration_ticks("challenge.ogg")
         self._start_resolution_callback(
@@ -958,19 +958,19 @@ class CoupGame(Game):
         # Depends on what is blocked
         if self.active_action == "foreign_aid":
             self.play_sound("game_coup/claim_duke.ogg") # Claiming Duke to block
-            self.broadcast_l("coup-blocks-foreign-aid", blocker=player.name, target=claimer.name)
+            self.broadcast_l("coup-blocks-foreign-aid", buffer="game", blocker=player.name, target=claimer.name)
             if player.id in self.player_claims:
                 self.player_claims[player.id].add("duke")
         elif self.active_action == "assassinate":
             self.play_sound("game_coup/claim_contessa.ogg") # Claiming Contessa
-            self.broadcast_l("coup-blocks-assassinate", blocker=player.name, target=claimer.name)
+            self.broadcast_l("coup-blocks-assassinate", buffer="game", blocker=player.name, target=claimer.name)
             if player.id in self.player_claims:
                 self.player_claims[player.id].add("contessa")
         elif self.active_action == "steal":
             # For steal, might be Captain or Ambassador. For simplicity, just use Ambassador claim sound
             # or Captain claim sound randomly, or let's just say they claim to block.
             self.play_sound("game_coup/claim_ambassador.ogg")
-            self.broadcast_l("coup-blocks-steal", blocker=player.name, target=claimer.name)
+            self.broadcast_l("coup-blocks-steal", buffer="game", blocker=player.name, target=claimer.name)
             if player.id in self.player_claims:
                 # Add a generic 'ambassador' claim for UI/Bot tracking purposes when stealing is blocked.
                 self.player_claims[player.id].add("ambassador")
@@ -982,7 +982,7 @@ class CoupGame(Game):
         self.interrupt_duration_ticks = self.interrupt_timer_ticks
         self.passed_players = set()
 
-        self.broadcast_l("coup-waiting-for-reactions")
+        self.broadcast_l("coup-waiting-for-reactions", buffer="game")
         self.rebuild_all_menus()
         BotHelper.jolt_bots(self, ticks=random.randint(40, 80))
 
@@ -1146,8 +1146,8 @@ class CoupGame(Game):
                 self._next_action_after_lose = "resolve_action"
             else:
                 self._next_action_after_lose = "end_turn"
-                self.broadcast_l("coup-bluff-wrong", challenger=player.name)
-                self.broadcast_l("coup-block-successful", blocker=claimer.name)
+                self.broadcast_l("coup-bluff-wrong", buffer="game", challenger=player.name)
+                self.broadcast_l("coup-block-successful", buffer="game", blocker=claimer.name)
                 # We will just play the block success sound alongside the challenge success.
                 # Technically we should maybe sequentialize this, but both are short.
 
@@ -1161,14 +1161,14 @@ class CoupGame(Game):
             # Challenge succeeds!
             self.play_sound("game_coup/challengefail.ogg")
             duration = self.get_audio_duration_ticks("challengefail.ogg")
-            self.broadcast_l("coup-challenge-succeeded", player=claimer.name)
+            self.broadcast_l("coup-challenge-succeeded", buffer="game", player=claimer.name)
 
             if self.turn_phase == "action_declared":
                 self._next_action_after_lose = "end_turn"
             elif self.turn_phase == "waiting_block":
                 self._next_action_after_lose = "resolve_action"
 
-            self.broadcast_l("coup-bluff-called", player=claimer.name)
+            self.broadcast_l("coup-bluff-called", buffer="game", player=claimer.name)
 
             self._start_resolution_callback(
                 "post_challenge_lose_influence",
@@ -1212,7 +1212,7 @@ class CoupGame(Game):
                     self.is_resolving = True
                     self.rebuild_all_menus()
                     blocker = self.get_player_by_id(self.active_claimer_id)
-                    self.broadcast_l("coup-block-successful", blocker=blocker.name if blocker else "Someone")
+                    self.broadcast_l("coup-block-successful", buffer="game", blocker=blocker.name if blocker else "Someone")
                     sound_file = ""
                     if self.active_action == "foreign_aid":
                         sound_file = "block_duke.ogg"
@@ -1234,7 +1234,7 @@ class CoupGame(Game):
 
     def _resolve_action(self) -> None:
         """Resolves the active action after no challenges/blocks occur or they fail."""
-        self.broadcast_l("coup-action-resolves")
+        self.broadcast_l("coup-action-resolves", buffer="game")
         player = self.get_player_by_id(self.original_claimer_id)
         target = self.get_player_by_id(self.active_target_id)
 
@@ -1245,13 +1245,13 @@ class CoupGame(Game):
         if self.active_action == "foreign_aid":
             player.coins += 2
             self.play_sound("game_coup/foreign_aid.ogg")
-            self.broadcast_l("coup-takes-foreign-aid", player=player.name)
+            self.broadcast_l("coup-takes-foreign-aid", buffer="game", player=player.name)
             self._end_turn()
 
         elif self.active_action == "tax":
             player.coins += 3
             self.play_sound("game_coup/tax.ogg")
-            self.broadcast_l("coup-takes-tax", player=player.name)
+            self.broadcast_l("coup-takes-tax", buffer="game", player=player.name)
             self._end_turn()
 
         elif self.active_action == "assassinate":
@@ -1260,7 +1260,7 @@ class CoupGame(Game):
 
             sound_file = "assassinate.ogg"
             self.play_sound(f"game_coup/{sound_file}")
-            self.broadcast_l("coup-assassinates", player=player.name, target=target.name if target else "")
+            self.broadcast_l("coup-assassinates", buffer="game", player=player.name, target=target.name if target else "")
 
             duration = self.get_audio_duration_ticks(sound_file)
             self._start_resolution_callback(
@@ -1275,12 +1275,12 @@ class CoupGame(Game):
                 target.coins -= stolen
             player.coins += stolen
             self.play_sound("game_coup/steal.ogg")
-            self.broadcast_l("coup-steals", player=player.name, target=target.name if target else "", amount=stolen)
+            self.broadcast_l("coup-steals", buffer="game", player=player.name, target=target.name if target else "", amount=stolen)
             self._end_turn()
 
         elif self.active_action == "exchange":
             self.play_sound("game_coup/exchange_start.ogg")
-            self.broadcast_l("coup-exchanges", player=player.name)
+            self.broadcast_l("coup-exchanges", buffer="game", player=player.name)
 
             # Draw up to 2 cards; track how many were actually drawn so the
             # return phase requires exactly that many back.
@@ -1302,7 +1302,7 @@ class CoupGame(Game):
             if drawn == 0:
                 # Deck was empty — nothing to exchange, just end turn
                 self.play_sound("game_coup/exchange_complete.ogg")
-                self.broadcast_l("coup-exchange-complete", player=player.name)
+                self.broadcast_l("coup-exchange-complete", buffer="game", player=player.name)
                 self._end_turn()
                 return
 
@@ -1343,7 +1343,7 @@ class CoupGame(Game):
         # If the player has no live cards left after returning, they're dead.
         if not coup_player.live_influences:
             coup_player.is_dead = True
-            self.broadcast_l("coup-player-eliminated", player=player.name)
+            self.broadcast_l("coup-player-eliminated", buffer="game", player=player.name)
             self.return_count = 0
             self._end_turn()
             return
@@ -1353,7 +1353,7 @@ class CoupGame(Game):
         if self.return_count >= self._exchange_draw_count:
             self.return_count = 0
             self.play_sound("game_coup/exchange_complete.ogg")
-            self.broadcast_l("coup-exchange-complete", player=player.name)
+            self.broadcast_l("coup-exchange-complete", buffer="game", player=player.name)
             self._end_turn()
         else:
             self.rebuild_all_menus()
@@ -1381,7 +1381,7 @@ class CoupGame(Game):
             # Mark them dead so they cannot remain "immortal".
             if not player.is_dead:
                 player.is_dead = True
-                self.broadcast_l("coup-player-eliminated", player=player.name)
+                self.broadcast_l("coup-player-eliminated", buffer="game", player=player.name)
             self._post_lose_influence()
             return
         elif len(live) == 1:
@@ -1392,7 +1392,7 @@ class CoupGame(Game):
             player.reveal_influence(0)
             self._broadcast_card_message("coup-loses-influence", live[0].character, player=player.name)
             if player.is_dead:
-                self.broadcast_l("coup-player-eliminated", player=player.name)
+                self.broadcast_l("coup-player-eliminated", buffer="game", player=player.name)
             self._post_lose_influence()
         else:
             # Need to pick — use _losing_player_id so active_target_id is never overwritten
@@ -1431,7 +1431,7 @@ class CoupGame(Game):
         coup_player.reveal_influence(idx)
         self._broadcast_card_message("coup-loses-influence", char, player=player.name)
         if coup_player.is_dead:
-            self.broadcast_l("coup-player-eliminated", player=player.name)
+            self.broadcast_l("coup-player-eliminated", buffer="game", player=player.name)
 
         duration = self.get_audio_duration_ticks(sound_file)
         self._start_resolution_callback(
@@ -1456,7 +1456,7 @@ class CoupGame(Game):
         """End the game."""
         self.play_sound("game_chaosbear/wingame.ogg")
         if winner:
-            self.broadcast_l("game-winner", player=winner.name)
+            self.broadcast_l("game-winner", buffer="game", player=winner.name)
         self.finish_game()
 
     def build_game_result(self) -> GameResult:

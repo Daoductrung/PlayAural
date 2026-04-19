@@ -68,6 +68,20 @@ def test_game_registered_and_defaults() -> None:
     assert game.options.match_length == "1"
 
 
+def test_tienlen_uses_ninetynine_background_music_on_start() -> None:
+    game = make_game()
+    first_user = game.get_user(game.players[0])
+    assert isinstance(first_user, MockUser)
+
+    game.on_start()
+
+    assert any(
+        message.type == "play_music"
+        and message.data["name"] == "game_ninetynine/mus.ogg"
+        for message in first_user.messages
+    )
+
+
 def test_southern_combo_evaluation_supports_straights_and_consecutive_pairs() -> None:
     straight = evaluate_combo([c(1, 3, 4), c(2, 4, 2), c(3, 5, 1)], SOUTHERN_VARIANT)
     doi_thong = evaluate_combo(

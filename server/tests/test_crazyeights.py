@@ -24,6 +24,32 @@ def test_crazyeights_options_defaults():
     assert game.options.turn_timer == "0"
 
 
+def test_spectator_is_excluded_from_crazyeights_scores_after_start():
+    game = CrazyEightsGame()
+    alice_user = MockUser("Alice", uuid="p1")
+    bob_user = MockUser("Bob", uuid="p2")
+    watcher_user = MockUser("Watcher", uuid="p3")
+
+    alice = game.add_player("Alice", alice_user)
+    bob = game.add_player("Bob", bob_user)
+    watcher = game.add_player("Watcher", watcher_user)
+    watcher.is_spectator = True
+
+    game.on_start()
+    alice.score = 12
+    bob.score = 4
+    game._sync_team_scores()
+
+    alice_user.clear_messages()
+    game._action_check_scores(alice, "check_scores")
+
+    spoken = alice_user.get_last_spoken()
+    assert spoken is not None
+    assert "Alice: 12/500" in spoken
+    assert "Bob: 4/500" in spoken
+    assert "Watcher" not in spoken
+
+
 def test_crazyeights_bot_game_completes():
     options = CrazyEightsOptions(winning_score=50)
     game = CrazyEightsGame(options=options)

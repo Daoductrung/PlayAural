@@ -722,8 +722,9 @@ class LastCardGame(Game, TurnTimerMixin):
         self._sync_table_status()
         self.play_music(SOUND_MUSIC)
 
+        active_players = self.get_active_players()
         self._team_manager.team_mode = "individual"
-        self._team_manager.setup_teams([p.name for p in self.players])
+        self._team_manager.setup_teams([p.name for p in active_players])
         self._sync_team_scores()
 
         self.intro_wait_ticks = 3 * 20
@@ -2530,7 +2531,7 @@ class LastCardGame(Game, TurnTimerMixin):
     def _sync_team_scores(self) -> None:
         for team in self._team_manager.teams:
             team.total_score = 0
-        for p in self.players:
+        for p in self.get_active_players():
             team = self._team_manager.get_team(p.name)
             if team and isinstance(p, LastCardPlayer):
                 team.total_score = p.score

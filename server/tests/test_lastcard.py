@@ -125,6 +125,32 @@ def test_options_defaults():
     assert game.options.max_hand_size == 0
 
 
+def test_spectator_is_excluded_from_lastcard_scores_after_start():
+    game = make_game()
+    alice_user = MockUser("Alice", uuid="p1")
+    bob_user = MockUser("Bob", uuid="p2")
+    watcher_user = MockUser("Watcher", uuid="p3")
+
+    alice = game.add_player("Alice", alice_user)
+    bob = game.add_player("Bob", bob_user)
+    watcher = game.add_player("Watcher", watcher_user)
+    watcher.is_spectator = True
+
+    game.on_start()
+    alice.score = 15
+    bob.score = 6
+    game._sync_team_scores()
+
+    alice_user.clear_messages()
+    game._action_check_scores(alice, "check_scores")
+
+    spoken = alice_user.get_last_spoken()
+    assert spoken is not None
+    assert "Alice: 15/500" in spoken
+    assert "Bob: 6/500" in spoken
+    assert "Watcher" not in spoken
+
+
 def test_leaderboards():
     assert LastCardGame.get_supported_leaderboards() == ["wins", "rating", "games_played"]
 

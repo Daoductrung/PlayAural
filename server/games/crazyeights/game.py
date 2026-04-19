@@ -453,8 +453,9 @@ class CrazyEightsGame(Game, TurnTimerMixin):
         # Replace main menu music with a silent track for this game.
         self.play_music("game_uno/music.ogg")
 
+        active_players = self.get_active_players()
         self._team_manager.team_mode = "individual"
-        self._team_manager.setup_teams([p.name for p in self.players])
+        self._team_manager.setup_teams([p.name for p in active_players])
         self._sync_team_scores()
 
         self.play_sound("game_crazyeights/intro.ogg")
@@ -1348,7 +1349,7 @@ class CrazyEightsGame(Game, TurnTimerMixin):
     def _sync_team_scores(self) -> None:
         for team in self._team_manager.teams:
             team.total_score = 0
-        for p in self.players:
+        for p in self.get_active_players():
             team = self._team_manager.get_team(p.name)
             if team and isinstance(p, CrazyEightsPlayer):
                 team.total_score = p.score

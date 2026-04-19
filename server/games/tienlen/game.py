@@ -181,7 +181,7 @@ class TienLenGame(Game, TurnTimerMixin):
         self._team_manager.setup_teams([player.name for player in self.get_active_players()])
         self._sync_team_scores()
 
-        self.play_music("game_crazyeights/mus.ogg")
+        self.play_music("game_ninetynine/mus.ogg")
         self.play_sound("game_crazyeights/intro.ogg")
         self.intro_wait_ticks = 7 * 20
         self.broadcast_l("tienlen-game-start", buffer="game")

@@ -341,14 +341,7 @@ class CrazyEightsGame(Game, TurnTimerMixin):
                 "whose_turn",
                 "whos_at_table",
             ]
-            # Keep existing items that are NOT in the target list
-            new_order = [aid for aid in action_set._order if aid not in target_order]
-            # Append target items if they exist in the set
-            for aid in target_order:
-                if action_set.get_action(aid):
-                    new_order.append(aid)
-
-            action_set._order = new_order
+            self._order_touch_standard_actions(action_set, target_order)
 
         return action_set
 

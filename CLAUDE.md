@@ -183,7 +183,7 @@ Rules:
   3. `whose_turn`
   4. `whos_at_table`
 
-Use the shared touch-client helper instead of hardcoding web checks.
+Use `self._order_touch_standard_actions(action_set, target_order)` for touch standard-action ordering in `create_standard_action_set` and any dynamic `_sync_standard_actions` path. The target list contains the game-specific info actions followed by `check_scores`, `whose_turn`, and `whos_at_table`; the helper preserves other actions above that group and appends only actions that exist. Do not duplicate manual `new_order` or `final_order` loops for this standard-action pattern, and keep desktop ordering separate from touch-only ordering.
 
 #### Spectator Action Visibility (`include_spectators`)
 Every `Action` has `include_spectators: bool = False` by default.

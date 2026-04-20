@@ -430,11 +430,7 @@ class TienLenGame(Game, TurnTimerMixin):
                 "whose_turn",
                 "whos_at_table",
             ]
-            new_order = [action_id for action_id in action_set._order if action_id not in target_order]
-            for action_id in target_order:
-                if action_set.get_action(action_id):
-                    new_order.append(action_id)
-            action_set._order = new_order
+            self._order_touch_standard_actions(action_set, target_order)
 
         return action_set
 

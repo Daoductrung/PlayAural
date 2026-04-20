@@ -10,6 +10,7 @@ from ..game_utils.client_types import (
 from ..games.battleship.game import BattleshipGame, BattleshipOptions
 from ..games.chess.game import ChessGame, ChessOptions
 from ..games.ludo.game import LudoGame
+from ..games.milebymile.game import MileByMileGame
 from ..messages.localization import Localization
 from ..users.test_user import MockUser
 
@@ -61,6 +62,35 @@ def test_ludo_mobile_standard_actions_follow_touch_order() -> None:
     ]
     assert "web_actions_menu" in visible_ids
     assert "web_leave_table" in visible_ids
+
+
+def test_milebymile_touch_info_stays_above_bottom_status_actions() -> None:
+    game = MileByMileGame()
+    game.setup_keybinds()
+    u1 = MockUser("Alice", uuid="p1")
+    u2 = MockUser("Bob", uuid="p2")
+    u1.client_type = "mobile"
+    p1 = game.add_player("Alice", u1)
+    game.add_player("Bob", u2)
+    game.host = "Alice"
+    game.on_start()
+
+    action_set = game.create_standard_action_set(p1)
+    order = action_set._order
+
+    assert order.index("check_status") < order.index("info")
+    assert order.index("info") < order.index("whose_turn")
+    assert order[-2:] == ["whose_turn", "whos_at_table"]
+
+    game.rebuild_player_menu(p1)
+    visible_ids = [
+        item.id
+        for item in u1.menus["turn_menu"]["items"]
+        if getattr(item, "id", None)
+    ]
+    assert visible_ids.index("check_status") < visible_ids.index("info")
+    assert visible_ids.index("info") < visible_ids.index("whose_turn")
+    assert visible_ids.index("whose_turn") < visible_ids.index("whos_at_table")
 
 
 def test_chess_mobile_standard_actions_are_visible_once() -> None:

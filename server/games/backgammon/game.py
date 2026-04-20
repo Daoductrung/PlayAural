@@ -498,11 +498,7 @@ class BackgammonGame(Game):
             aid for aid in local_ids if action_set.get_action(aid)
         ]
         if self.is_touch_client(user):
-            new_order = [aid for aid in action_set._order if aid not in WEB_STANDARD_ORDER]
-            for aid in WEB_STANDARD_ORDER:
-                if action_set.get_action(aid):
-                    new_order.append(aid)
-            action_set._order = new_order
+            self._order_touch_standard_actions(action_set, WEB_STANDARD_ORDER)
 
     def _start_new_game(self, *, initial: bool = False) -> None:
         self.board = BackgammonBoard(points=list(INITIAL_POINTS))

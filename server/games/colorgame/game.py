@@ -773,11 +773,7 @@ class ColorGameGame(Game):
                 "whose_turn",
                 "whos_at_table",
             ]
-            new_order = [aid for aid in action_set._order if aid not in target_order]
-            for aid in target_order:
-                if action_set.get_action(aid):
-                    new_order.append(aid)
-            action_set._order = new_order
+            self._order_touch_standard_actions(action_set, target_order)
 
         return action_set
 

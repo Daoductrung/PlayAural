@@ -1486,11 +1486,7 @@ class BattleGame(Game):
         action_set._order = [aid for aid in action_set._order if aid not in custom_ids] + [aid for aid in custom_ids if action_set.get_action(aid)]
         if self.is_touch_client(user):
             target_order = ["battle_read_status", "battle_read_status_detailed", "battle_read_roster", "battle_read_allied_fighters", "battle_read_enemy_fighters", "whose_turn", "whos_at_table"]
-            new_order = [aid for aid in action_set._order if aid not in target_order]
-            for aid in target_order:
-                if action_set.get_action(aid):
-                    new_order.append(aid)
-            action_set._order = new_order
+            self._order_touch_standard_actions(action_set, target_order)
 
     def _sync_turn_actions(self, player: Player) -> None:
         battle_player = self._as_battle_player(player)

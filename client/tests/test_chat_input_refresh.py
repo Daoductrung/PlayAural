@@ -2,9 +2,16 @@ import ast
 from pathlib import Path
 
 
+def _main_window_source_path() -> Path:
+    return Path(__file__).resolve().parents[1] / "ui" / "main_window.py"
+
+
+def _main_window_source() -> str:
+    return _main_window_source_path().read_text(encoding="utf-8")
+
+
 def _get_main_window_class() -> ast.ClassDef:
-    source_path = Path(__file__).resolve().parents[1] / "ui" / "main_window.py"
-    module = ast.parse(source_path.read_text(encoding="utf-8"))
+    module = ast.parse(_main_window_source())
     for node in module.body:
         if isinstance(node, ast.ClassDef) and node.name == "MainWindow":
             return node
@@ -62,21 +69,6 @@ def _has_wx_callafter_target(function: ast.FunctionDef, method_name: str) -> boo
     return False
 
 
-def _has_wx_find_focus_call(function: ast.FunctionDef) -> bool:
-    for node in ast.walk(function):
-        if (
-            isinstance(node, ast.Call)
-            and isinstance(node.func, ast.Attribute)
-            and node.func.attr == "FindFocus"
-            and isinstance(node.func.value, ast.Attribute)
-            and node.func.value.attr == "Window"
-            and isinstance(node.func.value.value, ast.Name)
-            and node.func.value.value.id == "wx"
-        ):
-            return True
-    return False
-
-
 def _contains_wx_constructor_call(function: ast.FunctionDef, constructor_name: str) -> bool:
     for node in ast.walk(function):
         if (
@@ -105,13 +97,11 @@ def _contains_attribute_call(function: ast.FunctionDef, attribute_name: str, met
     return False
 
 
-def _contains_name_call(function: ast.FunctionDef, local_name: str, method_name: str) -> bool:
+def _has_any_attribute_call(function: ast.FunctionDef, method_name: str) -> bool:
     for node in ast.walk(function):
         if (
             isinstance(node, ast.Call)
             and isinstance(node.func, ast.Attribute)
-            and isinstance(node.func.value, ast.Name)
-            and node.func.value.id == local_name
             and node.func.attr == method_name
         ):
             return True
@@ -141,29 +131,34 @@ def test_global_menu_shortcuts_prepare_menu_focus_before_sending_packets():
         assert _has_method_call(function, "_prepare_for_menu_shortcut_navigation")
 
 
-def test_chat_send_refreshes_input_in_place_after_enter():
+def test_desktop_client_uses_visible_wx_layout():
+    source = _main_window_source()
+    create_ui = _get_main_window_function("_create_ui")
+
+    assert "size=(1, 1)" not in source
+    assert "size=(0, 0)" not in source
+    assert "audio-only" not in source
+    assert _contains_wx_constructor_call(create_ui, "BoxSizer")
+    assert _has_any_attribute_call(create_ui, "SetSizer")
+
+
+def test_chat_send_uses_clear_instead_of_recreating_the_input():
     function = _get_main_window_function("on_chat_enter")
-    assert _has_wx_callafter_target(function, "_refresh_chat_input_after_send")
+
+    assert _contains_attribute_call(function, "chat_input", "Clear")
+    assert not _has_wx_callafter_target(function, "_refresh_chat_input_after_send")
 
 
-def test_chat_refresh_rebuilds_control_and_restores_tab_order():
-    function = _get_main_window_function("_refresh_chat_input_after_send")
-    assert _has_method_call(function, "_create_chat_controls")
-    assert _has_method_call(function, "_apply_accessibility_labels")
-    assert _has_method_call(function, "_sync_chat_area_tab_order")
-    assert _has_wx_find_focus_call(function)
-    assert _contains_attribute_call(function, "chat_input", "SetFocus")
+def test_visibility_changes_refresh_the_visible_layout():
+    for function_name in ("update_voice_ui", "switch_to_edit_mode", "switch_to_list_mode"):
+        function = _get_main_window_function(function_name)
+        assert _has_method_call(function, "_layout_main_panel")
 
 
-def test_chat_input_control_sets_explicit_accessibility_name():
-    function = _get_main_window_function("_create_chat_input_control")
-    assert _contains_name_call(function, "chat_input", "SetName")
-
-
-def test_chat_controls_are_created_as_a_label_and_input_pair():
-    function = _get_main_window_function("_create_chat_controls")
-    assert _contains_wx_constructor_call(function, "StaticText")
-    assert _has_method_call(function, "_create_chat_input_control")
+def test_chat_and_history_controls_set_explicit_accessibility_names():
+    function = _get_main_window_function("_apply_accessibility_labels")
+    assert _contains_attribute_call(function, "chat_input", "SetName")
+    assert _contains_attribute_call(function, "history_text", "SetName")
 
 
 def test_non_menu_focus_controls_include_voice_controls():
@@ -182,8 +177,11 @@ def test_voice_ui_restores_the_same_voice_control_when_possible():
     assert _has_wx_callafter_target(function, "_restore_voice_control_focus")
 
 
-def test_legacy_chat_focus_bounce_helpers_are_removed():
+def test_legacy_chat_recreation_and_focus_bounce_helpers_are_removed():
     method_names = _main_window_method_names()
+    assert "_refresh_chat_input_after_send" not in method_names
+    assert "_create_chat_input_control" not in method_names
+    assert "_create_chat_controls" not in method_names
     assert "_clear_chat_input_after_send" not in method_names
     assert "_set_chat_input_value" not in method_names
     assert "_finalize_chat_input_clear" not in method_names
@@ -194,6 +192,4 @@ def test_legacy_chat_focus_bounce_helpers_are_removed():
 
 
 def test_legacy_voice_mic_button_name_is_removed():
-    source_path = Path(__file__).resolve().parents[1] / "ui" / "main_window.py"
-    source = source_path.read_text(encoding="utf-8")
-    assert "voice_mic_button" not in source
+    assert "voice_mic_button" not in _main_window_source()

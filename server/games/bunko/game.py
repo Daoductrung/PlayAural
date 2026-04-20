@@ -401,14 +401,7 @@ class BunkoGame(Game):
 
         user = self.get_user(player)
         if self.is_touch_client(user):
-            ordered = []
-            for action_id in self.web_target_order:
-                if action_set.get_action(action_id):
-                    ordered.append(action_id)
-            for action_id in action_set._order:
-                if action_id not in self.web_target_order:
-                    ordered.append(action_id)
-            action_set._order = ordered
+            self._order_touch_standard_actions(action_set, self.web_target_order)
 
         return action_set
 

@@ -179,11 +179,7 @@ class LudoGame(Game):
 
         # WEB-SPECIFIC: Reorder for Web Clients
         if self.is_touch_client(user):
-            new_order = [aid for aid in action_set._order if aid not in self.web_target_order]
-            for aid in self.web_target_order:
-                if action_set.get_action(aid):
-                    new_order.append(aid)
-            action_set._order = new_order
+            self._order_touch_standard_actions(action_set, self.web_target_order)
         else:
             # Desktop: put check_board last in standard actions
             if action.id in action_set._order:

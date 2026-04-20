@@ -218,7 +218,13 @@ class MileByMileGame(Game):
         return action_set
 
     # WEB-SPECIFIC: Target order for Standard Actions
-    web_target_order = ["check_status", "whose_turn", "whos_at_table"]
+    web_target_order = [
+        "check_status",
+        "check_status_detailed",
+        "info",
+        "whose_turn",
+        "whos_at_table",
+    ]
 
     def create_standard_action_set(self, player: Player) -> ActionSet:
         action_set = super().create_standard_action_set(player)
@@ -262,14 +268,7 @@ class MileByMileGame(Game):
         )
 
         if self.is_touch_client(user):
-            final_order = []
-            for aid in self.web_target_order:
-                if action_set.get_action(aid):
-                    final_order.append(aid)
-            for aid in action_set._order:
-                if aid not in self.web_target_order:
-                    final_order.append(aid)
-            action_set._order = final_order
+            self._order_touch_standard_actions(action_set, self.web_target_order)
 
         return action_set
 

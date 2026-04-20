@@ -424,9 +424,7 @@ class ChessGame(GridGameMixin, Game):
                 "whose_turn",
                 "whos_at_table",
             ]
-            action_set._order = [
-                aid for aid in action_set._order if aid not in target_order
-            ] + [aid for aid in target_order if action_set.get_action(aid)]
+            self._order_touch_standard_actions(action_set, target_order)
 
     def setup_keybinds(self) -> None:
         super().setup_keybinds()

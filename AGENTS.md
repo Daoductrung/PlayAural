@@ -514,26 +514,28 @@ if user and is_touch_client(user):
 
 ### 7.5 Standard Action Ordering for Touch Clients
 
-Within the standard action set, touch clients must maintain a **consistent ordering** of the platform's base info actions across all games:
+Within the standard action set, touch clients must maintain a **consistent ordering** of touch-visible information actions across all games:
 
-1. **Game-specific info actions** (check status, view table, read hand, etc.) — top
-2. **`check_scores`** (if the game tracks scores) — after game-specific
-3. **`whose_turn`** — after check_scores
+1. **Game-specific info actions** (check status, view table, read hand, etc.) — above shared table status actions
+2. **`check_scores`** (if the game tracks scores) — after game-specific info actions
+3. **`whose_turn`** — after scores/status info
 4. **`whos_at_table`** — last
 
-Implement this via touch-client reordering in `create_standard_action_set`:
+Implement this via the shared helper in any touch-client standard-action ordering path. This applies to `create_standard_action_set` and to any dynamic `_sync_standard_actions` method that rebuilds or reorders standard actions:
 
 ```python
-from server.game_utils.client_types import is_touch_client
-
-if user and is_touch_client(user):
-    target_order = ["game_specific_action", "check_scores", "whose_turn", "whos_at_table"]
-    new_order = [aid for aid in action_set._order if aid not in target_order]
-    for aid in target_order:
-        if action_set.get_action(aid):
-            new_order.append(aid)
-    action_set._order = new_order
+user = self.get_user(player)
+if self.is_touch_client(user):
+    target_order = [
+        "game_specific_action",
+        "check_scores",
+        "whose_turn",
+        "whos_at_table",
+    ]
+    self._order_touch_standard_actions(action_set, target_order)
 ```
+
+The helper preserves non-target actions above the touch info group and appends only actions that exist in the set. Do not duplicate custom `new_order` / `final_order` loops for this standard-action pattern. Desktop ordering is separate and must not be changed by touch-only reordering.
 
 For games that track scores, also add a `_is_check_scores_hidden` visibility override (visible for touch clients when playing). See `pig/game.py` or `farkle/game.py` as references.
 

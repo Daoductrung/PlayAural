@@ -197,6 +197,18 @@ class ActionSetCreationMixin:
         )
         return action_set
 
+    def _order_touch_standard_actions(
+        self, action_set: ActionSet, target_order: list[str]
+    ) -> None:
+        """Move touch-client standard actions to the bottom in a stable order."""
+        target_ids = set(target_order)
+        action_set._order = [
+            action_id for action_id in action_set._order if action_id not in target_ids
+        ]
+        action_set._order.extend(
+            action_id for action_id in target_order if action_set.get_action(action_id)
+        )
+
     def setup_keybinds(self) -> None:
         """Define all keybinds for the game."""
         # Lobby keybinds

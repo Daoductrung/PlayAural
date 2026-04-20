@@ -25,6 +25,9 @@ from localization import Localization
 from voice_manager import VoiceManager, list_audio_input_devices, resolve_audio_input_device
 
 VERSION = "1.0.4.1"
+WINDOW_SIZE = (980, 720)
+WINDOW_MIN_SIZE = (760, 520)
+MENU_MIN_WIDTH = 280
 
 
 class MainWindow(wx.Frame):
@@ -42,8 +45,9 @@ class MainWindow(wx.Frame):
         super().__init__(
             parent=None,
             title=Localization.get("main-window-title", version=VERSION),
-            size=(1, 1),  # Minimal size for audio-only interface
+            size=WINDOW_SIZE,
         )
+        self.SetMinSize(WINDOW_MIN_SIZE)
 
         # Store credentials
         self.credentials = credentials or {}
@@ -244,16 +248,15 @@ class MainWindow(wx.Frame):
         return device_index
 
     def _create_ui(self):
-        """Create the UI components (audio-only, no visual layout)."""
-        # Main panel - no sizing needed
-        panel = wx.Panel(self)
+        """Create the visible desktop UI components."""
+        self.main_panel = wx.Panel(self)
+        panel = self.main_panel
 
         # Menu label and list - labels help screen readers
         self.menu_label = wx.StaticText(panel, label=Localization.get("main-menu-label"))
         self.menu_list = MenuList(
             panel,
             sound_manager=self.sound_manager,
-            size=(0, 0),
             style=wx.LB_SINGLE | wx.WANTS_CHARS,
         )
         # Bind to activation events to handle menu selections
@@ -264,7 +267,7 @@ class MainWindow(wx.Frame):
 
         # Edit mode input - initially hidden, replaces menu list when in edit mode
         self.edit_label = wx.StaticText(panel, label=Localization.get("main-edit-label"))
-        self.edit_input = wx.TextCtrl(panel, size=(0, 0), style=wx.TE_PROCESS_ENTER)
+        self.edit_input = wx.TextCtrl(panel, style=wx.TE_PROCESS_ENTER)
         self.edit_input.Bind(wx.EVT_TEXT_ENTER, self.on_edit_enter)
         self.edit_input.Bind(wx.EVT_CHAR, self.on_edit_char)
         self.edit_input.Bind(wx.EVT_KEY_DOWN, self.on_edit_key_down)
@@ -273,7 +276,7 @@ class MainWindow(wx.Frame):
 
         # Multiline edit input - for longer text
         self.edit_input_multiline = wx.TextCtrl(
-            panel, size=(0, 0), style=wx.TE_MULTILINE | wx.TE_DONTWRAP
+            panel, style=wx.TE_MULTILINE | wx.TE_DONTWRAP
         )
         self.edit_input_multiline.Bind(wx.EVT_CHAR, self.on_edit_multiline_char)
         self.edit_input_multiline.Bind(wx.EVT_KEY_DOWN, self.on_edit_key_down)
@@ -284,17 +287,19 @@ class MainWindow(wx.Frame):
         self.escape_behavior = "keybind"  # Track escape behavior from server
 
         # Chat input comes before history in tab order
-        self.chat_label, self.chat_input = self._create_chat_controls(panel)
+        self.chat_label = wx.StaticText(panel, label=Localization.get("main-chat-label"))
+        self.chat_input = wx.TextCtrl(panel, style=wx.TE_PROCESS_ENTER)
+        self.chat_input.Bind(wx.EVT_TEXT_ENTER, self.on_chat_enter)
 
         self.voice_label = wx.StaticText(panel, label=Localization.get("main-voice-label"))
         self.voice_join_button = wx.Button(
-            panel, label=Localization.get("voice-chat-join"), size=(0, 0)
+            panel, label=Localization.get("voice-chat-join")
         )
         self.voice_leave_button = wx.Button(
-            panel, label=Localization.get("voice-chat-leave"), size=(0, 0)
+            panel, label=Localization.get("voice-chat-leave")
         )
         self.voice_mic_checkbox = wx.CheckBox(
-            panel, label=Localization.get("voice-chat-mic"), size=(0, 0)
+            panel, label=Localization.get("voice-chat-mic")
         )
         self.voice_join_button.Bind(wx.EVT_BUTTON, self.on_voice_join_button)
         self.voice_leave_button.Bind(wx.EVT_BUTTON, self.on_voice_leave_button)
@@ -302,32 +307,57 @@ class MainWindow(wx.Frame):
         self.voice_leave_button.Hide()
         self.voice_mic_checkbox.Hide()
 
-        # History text - not visible, just exists for data storage
-        # No word wrap for better screen reader accessibility
+        # No word wrap for better screen reader accessibility.
         self.history_label = wx.StaticText(panel, label=Localization.get("main-history-label"))
         self.history_text = wx.TextCtrl(
-            panel, size=(0, 0), style=wx.TE_MULTILINE | wx.TE_READONLY | wx.TE_DONTWRAP
+            panel, style=wx.TE_MULTILINE | wx.TE_READONLY | wx.TE_DONTWRAP
         )
 
-        # No sizers, no layout - audio-only interface
+        left_sizer = wx.BoxSizer(wx.VERTICAL)
+        left_sizer.Add(self.menu_label, 0, wx.ALL, 4)
+        left_sizer.Add(self.menu_list, 1, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 4)
+        left_sizer.Add(self.edit_label, 0, wx.ALL, 4)
+        left_sizer.Add(self.edit_input, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 4)
+        left_sizer.Add(
+            self.edit_input_multiline,
+            1,
+            wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM,
+            4,
+        )
+
+        voice_controls = wx.BoxSizer(wx.HORIZONTAL)
+        voice_controls.Add(self.voice_join_button, 0, wx.RIGHT, 4)
+        voice_controls.Add(self.voice_leave_button, 0, wx.RIGHT, 4)
+        voice_controls.Add(self.voice_mic_checkbox, 0, wx.ALIGN_CENTER_VERTICAL)
+
+        right_sizer = wx.BoxSizer(wx.VERTICAL)
+        right_sizer.Add(self.chat_label, 0, wx.ALL, 4)
+        right_sizer.Add(self.chat_input, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 4)
+        right_sizer.Add(self.voice_label, 0, wx.LEFT | wx.RIGHT | wx.TOP, 4)
+        right_sizer.Add(voice_controls, 0, wx.ALL, 4)
+        right_sizer.Add(self.history_label, 0, wx.LEFT | wx.RIGHT | wx.TOP, 4)
+        right_sizer.Add(
+            self.history_text,
+            1,
+            wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM,
+            4,
+        )
+
+        main_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        main_sizer.Add(left_sizer, 0, wx.EXPAND | wx.ALL, 4)
+        main_sizer.Add(right_sizer, 1, wx.EXPAND | wx.ALL, 4)
+        panel.SetSizer(main_sizer)
+        frame_sizer = wx.BoxSizer(wx.VERTICAL)
+        frame_sizer.Add(panel, 1, wx.EXPAND)
+        self.SetSizer(frame_sizer)
+        self.menu_list.SetMinSize((MENU_MIN_WIDTH, -1))
+
         self._apply_accessibility_labels()
         self._sync_chat_area_tab_order()
-
-    def _create_chat_input_control(self, parent):
-        """Create the desktop chat entry control."""
-        chat_input = wx.TextCtrl(parent, size=(0, 0), style=wx.TE_PROCESS_ENTER)
-        chat_input.Bind(wx.EVT_TEXT_ENTER, self.on_chat_enter)
-        chat_input.SetName(Localization.get("main-chat-label"))
-        return chat_input
-
-    def _create_chat_controls(self, parent):
-        """Create the chat label and chat input together."""
-        chat_label = wx.StaticText(parent, label=Localization.get("main-chat-label"))
-        chat_input = self._create_chat_input_control(parent)
-        return chat_label, chat_input
+        self._layout_main_panel()
 
     def _apply_accessibility_labels(self):
-        """Apply explicit accessibility names to nonvisual controls."""
+        """Apply explicit accessibility names to primary controls."""
         self.chat_input.SetName(Localization.get("main-chat-label"))
         self.history_text.SetName(Localization.get("main-history-label"))
         self.voice_join_button.SetName(self.voice_join_button.GetLabel())
@@ -352,23 +382,10 @@ class MainWindow(wx.Frame):
             self.voice_mic_checkbox,
         }
 
-    def _refresh_chat_input_after_send(self):
-        """Replace the chat field with a fresh control to reset IME state."""
-        old_chat_input = self.chat_input
-        old_chat_label = self.chat_label
-        if not old_chat_input:
-            return
-        restore_chat_focus = wx.Window.FindFocus() is old_chat_input
-        parent = old_chat_input.GetParent()
-        self.chat_label, self.chat_input = self._create_chat_controls(parent)
-        self._apply_accessibility_labels()
-        self._sync_chat_area_tab_order()
-        old_chat_label.Hide()
-        old_chat_input.Hide()
-        old_chat_label.Destroy()
-        old_chat_input.Destroy()
-        if restore_chat_focus:
-            self.chat_input.SetFocus()
+    def _layout_main_panel(self):
+        """Refresh the frame layout after control visibility changes."""
+        self.main_panel.Layout()
+        self.Layout()
 
     def _setup_accelerators(self):
         """Setup keyboard accelerators."""
@@ -561,7 +578,7 @@ class MainWindow(wx.Frame):
         self.voice_mic_checkbox.Enable(connected and not mic_busy)
         self.voice_mic_checkbox.Show(connected)
         self._apply_accessibility_labels()
-        self.Layout()
+        self._layout_main_panel()
         if voice_focus_target is not None:
             wx.CallAfter(self._restore_voice_control_focus, voice_focus_target)
 
@@ -1288,7 +1305,7 @@ class MainWindow(wx.Frame):
         else:
             # Regular chat (context sensitive: table or lobby)
             self.send_chat_message(message)
-        wx.CallAfter(self._refresh_chat_input_after_send)
+        self.chat_input.Clear()
 
     def send_chat_message(self, message: str):
         """Send chat message to server."""
@@ -1375,6 +1392,8 @@ class MainWindow(wx.Frame):
             self.edit_label.SetLabel(prompt)
         else:
             self.edit_label.SetLabel("&Edit")
+        self.edit_input.SetName(self.edit_label.GetLabel())
+        self.edit_input_multiline.SetName(self.edit_label.GetLabel())
 
         # Choose which edit control to use
         if multiline:
@@ -1405,6 +1424,7 @@ class MainWindow(wx.Frame):
             self.current_edit_multiline = False
 
         self.edit_label.Show()
+        self._layout_main_panel()
 
         self.current_mode = "edit"
         self.edit_mode_callback = callback
@@ -1425,6 +1445,7 @@ class MainWindow(wx.Frame):
         # Show menu list and label
         self.menu_list.Show()
         self.menu_label.Show()
+        self._layout_main_panel()
         self.menu_list.SetFocus()
 
         self.current_mode = "list"

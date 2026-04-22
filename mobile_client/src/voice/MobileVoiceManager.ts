@@ -78,6 +78,10 @@ export class MobileVoiceManager {
     void this.setMicrophoneEnabledInternal(enabled);
   }
 
+  refreshAudioSession(): void {
+    void this.refreshAudioSessionInternal();
+  }
+
   shutdown(): void {
     this.nextIntent();
     void this.leaveInternal(false);
@@ -334,15 +338,7 @@ export class MobileVoiceManager {
       return;
     }
 
-    await liveKitNative.AudioSession.configureAudio({
-      android: {
-        preferredOutputList: ["bluetooth", "headset", "speaker", "earpiece"],
-        audioTypeOptions: liveKitNative.AndroidAudioTypePresets.communication,
-      },
-      ios: {
-        defaultOutput: "speaker",
-      },
-    });
+    await liveKitNative.AudioSession.configureAudio(this.getNativeAudioConfiguration(liveKitNative));
     await liveKitNative.AudioSession.startAudioSession();
     this.nativeAudioSessionStarted = true;
   }
@@ -358,5 +354,40 @@ export class MobileVoiceManager {
     } finally {
       this.nativeAudioSessionStarted = false;
     }
+  }
+
+  private async refreshAudioSessionInternal(): Promise<void> {
+    const liveKitNative = this.getNativeLiveKitModule();
+    if (!liveKitNative || !this.room || Platform.OS === "web") {
+      return;
+    }
+
+    try {
+      await liveKitNative.AudioSession.configureAudio(this.getNativeAudioConfiguration(liveKitNative));
+      await liveKitNative.AudioSession.startAudioSession();
+      this.nativeAudioSessionStarted = true;
+    } catch {
+      // Ignore audio-session refresh failures; the existing room state remains authoritative.
+    }
+  }
+
+  private getNativeAudioConfiguration(liveKitNative: NativeLiveKitModule) {
+    const preferredOutputList: Array<"bluetooth" | "headset" | "speaker" | "earpiece"> = [
+      "bluetooth",
+      "headset",
+      "speaker",
+      "earpiece",
+    ];
+    const defaultOutput: "speaker" = "speaker";
+
+    return {
+      android: {
+        preferredOutputList,
+        audioTypeOptions: liveKitNative.AndroidAudioTypePresets.communication,
+      },
+      ios: {
+        defaultOutput,
+      },
+    };
   }
 }

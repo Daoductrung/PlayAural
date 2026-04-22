@@ -5,6 +5,7 @@ import * as SecureStore from "expo-secure-store";
 import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
 import {
   AccessibilityInfo,
+  AppState,
   BackHandler,
   Keyboard,
   KeyboardAvoidingView,
@@ -21,6 +22,7 @@ import {
 } from "react-native";
 
 import { MobileAudioManager } from "../audio/MobileAudioManager";
+import { androidForegroundService } from "../background/AndroidForegroundService";
 import { useSelfVoicingGestures } from "../gestures/useSelfVoicingGestures";
 import { bundledSoundVersion } from "../generated/soundManifest";
 import { MobileLocalization } from "../i18n/localization";
@@ -202,7 +204,6 @@ type AuthFocusableItem = {
     | "exit_app"
     | "focus_forgot_email"
     | "focus_password"
-    | "focus_register_bio"
     | "focus_register_confirm_password"
     | "focus_register_email"
     | "focus_reset_code"
@@ -389,13 +390,22 @@ function toLocalizationParams(params: Record<string, unknown> | undefined): Reco
 }
 
 export function PlayAuralApp() {
-  const localization = useMemo(() => new MobileLocalization(), []);
+  const initialLocale = useMemo<"en" | "vi">(() => detectPreferredLocale(), []);
+  const localization = useMemo(() => {
+    const instance = new MobileLocalization();
+    instance.setLocale(initialLocale);
+    return instance;
+  }, [initialLocale]);
   const buffers = useMemo(() => new BufferStore(), []);
-  const tts = useMemo(() => new TtsManager(), []);
+  const tts = useMemo(() => {
+    const instance = new TtsManager();
+    instance.setLanguage(initialLocale);
+    return instance;
+  }, [initialLocale]);
   const audio = useMemo(() => new MobileAudioManager(), []);
   const voice = useMemo(() => new MobileVoiceManager(), []);
 
-  const [appLocale, setAppLocale] = useState<"en" | "vi">(detectPreferredLocale);
+  const [appLocale, setAppLocale] = useState<"en" | "vi">(initialLocale);
   const [mode, setMode] = useState<AppMode>("main");
   const [authMode, setAuthMode] = useState<AuthMode>("login");
   const [menuState, setMenuState] = useState<MenuState>(defaultMenuState);
@@ -403,8 +413,9 @@ export function PlayAuralApp() {
   const [dialogState, setDialogState] = useState<DialogState | null>(null);
   const [inputValue, setInputValue] = useState("");
   const [inputOverlayFocus, setInputOverlayFocus] = useState<InputOverlayFocus>(0);
+  const [appState, setAppState] = useState(AppState.currentState);
   const [chatDraft, setChatDraft] = useState("");
-  const [statusText, setStatusText] = useState("");
+  const [statusText, setStatusText] = useState(() => localization.t("status-disconnected"));
   const [authStatusText, setAuthStatusText] = useState("");
   const [, setHistoryRevision] = useState(0);
   const [historyIndex, setHistoryIndex] = useState(0);
@@ -412,7 +423,6 @@ export function PlayAuralApp() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [registerEmail, setRegisterEmail] = useState("");
-  const [registerBio, setRegisterBio] = useState("");
   const [registerConfirmPassword, setRegisterConfirmPassword] = useState("");
   const [forgotEmail, setForgotEmail] = useState("");
   const [resetEmail, setResetEmail] = useState("");
@@ -447,7 +457,7 @@ export function PlayAuralApp() {
     scope: "table",
   });
   const [voiceRequestedContextId, setVoiceRequestedContextId] = useState("");
-  const [voiceStatusText, setVoiceStatusText] = useState("");
+  const [voiceStatusText, setVoiceStatusText] = useState(() => localization.t("voice-chat-not-connected"));
   const [voiceState, setVoiceState] = useState<MobileVoiceConnectionState>("disconnected");
   const [voiceMicEnabled, setVoiceMicEnabled] = useState(false);
 
@@ -471,12 +481,15 @@ export function PlayAuralApp() {
   const allowReconnectRef = useRef(false);
   const expectingReconnectRef = useRef(false);
   const sessionEstablishedRef = useRef(false);
+  const appStateRef = useRef(appState);
   const lastPassiveUiSignatureRef = useRef<string | null>(null);
   const authModeInitializedRef = useRef(false);
   const previousAuthModeRef = useRef<AuthMode | null>(null);
   const nativeFocusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastNativeFocusKeyRef = useRef<string | null>(null);
   const activeTextInputKeyRef = useRef<string | null>(activeTextInputKey);
+  const longPressConsumedRef = useRef<string | null>(null);
+  const longPressResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const voicePresenceRegisteredRef = useRef(false);
   const transientTurnMenuAllowanceRef = useRef<string | null>(null);
   const accessibilityNodeRefs = useRef(new Map<string, AccessibilityFocusNode>());
@@ -493,7 +506,6 @@ export function PlayAuralApp() {
   const passwordInputRef = useRef<TextInput | null>(null);
   const registerEmailInputRef = useRef<TextInput | null>(null);
   const registerConfirmPasswordInputRef = useRef<TextInput | null>(null);
-  const registerBioInputRef = useRef<TextInput | null>(null);
   const forgotEmailInputRef = useRef<TextInput | null>(null);
   const resetEmailInputRef = useRef<TextInput | null>(null);
   const resetCodeInputRef = useRef<TextInput | null>(null);
@@ -515,6 +527,10 @@ export function PlayAuralApp() {
   }, [lastPingStartedAt]);
 
   useEffect(() => {
+    appStateRef.current = appState;
+  }, [appState]);
+
+  useEffect(() => {
     preferencesRef.current = preferences;
   }, [preferences]);
 
@@ -529,6 +545,21 @@ export function PlayAuralApp() {
   useEffect(() => {
     voiceStateRef.current = voiceState;
   }, [voiceState]);
+
+  useEffect(() => {
+    if (Platform.OS === "web") {
+      return;
+    }
+    audio.setNativeAudioMutationListener(() => {
+      if (voiceStateRef.current !== "connected" && voiceStateRef.current !== "connecting") {
+        return;
+      }
+      voice.refreshAudioSession();
+    });
+    return () => {
+      audio.setNativeAudioMutationListener(null);
+    };
+  }, [audio, voice]);
 
   useEffect(() => {
     credentialsRef.current = {
@@ -921,6 +952,11 @@ export function PlayAuralApp() {
 
   useEffect(() => () => {
     clearReconnectTimer();
+    if (longPressResetTimerRef.current) {
+      clearTimeout(longPressResetTimerRef.current);
+      longPressResetTimerRef.current = null;
+    }
+    void androidForegroundService.stop();
     voice.shutdown();
     audio.shutdown();
     tts.stop();
@@ -951,9 +987,10 @@ export function PlayAuralApp() {
   }, [connected, localization, password, prepareManualConnect, serverUrl, storageReady, username]);
 
   const applyLocale = (locale: string | undefined) => {
-    localization.setLocale(locale);
-    tts.setLanguage(locale || "en");
-    setAppLocale(localization.getLocale());
+    const resolvedLocale = locale === "vi" ? "vi" : "en";
+    localization.setLocale(resolvedLocale);
+    tts.setLanguage(resolvedLocale);
+    setAppLocale(resolvedLocale);
   };
 
   const loadStoredClientState = async () => {
@@ -1456,6 +1493,68 @@ export function PlayAuralApp() {
     }, delayMs);
   }, [announce, clearReconnectTimer, localization, resetReconnectState]);
 
+  useEffect(() => {
+    if (Platform.OS === "web") {
+      return;
+    }
+    const subscription = AppState.addEventListener("change", (nextState) => {
+      const previousState = appStateRef.current;
+      appStateRef.current = nextState;
+      setAppState(nextState);
+      if (nextState !== "active" && previousState === "active") {
+        audio.refreshPlaybackState();
+        voice.refreshAudioSession();
+      }
+      if (nextState === "active" && previousState !== "active") {
+        audio.refreshPlaybackState();
+        voice.refreshAudioSession();
+        if (
+          !connected &&
+          !reconnectTimerRef.current &&
+          allowReconnectRef.current &&
+          !manualDisconnectRef.current &&
+          sessionEstablishedRef.current
+        ) {
+          queueReconnectAttempt(0, localization.t("status-connecting"));
+        }
+      }
+    });
+    return () => {
+      subscription.remove();
+    };
+  }, [audio, connected, localization, queueReconnectAttempt, voice]);
+
+  useEffect(() => {
+    if (Platform.OS !== "android") {
+      return;
+    }
+
+    const hasVoiceSession = voiceState === "connected" || voiceState === "connecting";
+    const hasAudibleMusic = Boolean(currentMusic) && audio.getMusicVolume() > 0;
+    const hasAudibleAmbience = Boolean(currentAmbience) && audio.getAmbienceVolume() > 0;
+    const shouldUseMicrophoneService = voiceMicEnabled && hasVoiceSession;
+    const shouldUsePlaybackService =
+      !shouldUseMicrophoneService &&
+      (hasVoiceSession || (appState !== "active" && (hasAudibleMusic || hasAudibleAmbience)));
+
+    if (!shouldUseMicrophoneService && !shouldUsePlaybackService) {
+      void androidForegroundService.stop();
+      return;
+    }
+
+    const messageKey = shouldUseMicrophoneService
+      ? "background-service-voice-mic"
+      : hasVoiceSession
+        ? "background-service-voice"
+        : "background-service-audio";
+
+    void androidForegroundService.sync({
+      message: localization.t(messageKey),
+      serviceType: shouldUseMicrophoneService ? "microphone" : "mediaPlayback",
+      title: localization.t("background-service-title"),
+    });
+  }, [appState, audio, currentAmbience, currentMusic, localization, voiceMicEnabled, voiceState]);
+
   const exitApplication = () => {
     disableAutoReconnect();
     connectionRef.current?.disconnect();
@@ -1474,6 +1573,8 @@ export function PlayAuralApp() {
   const resetToLoginScreen = useCallback((statusMessage: string, authMessage = statusMessage) => {
     voice.shutdown();
     audio.shutdown();
+    setCurrentMusic("");
+    setCurrentAmbience("");
     setVoiceCapability({
       enabled: false,
       provider: "",
@@ -1937,7 +2038,6 @@ export function PlayAuralApp() {
             setAuthMode("login");
             setPassword("");
             setRegisterConfirmPassword("");
-            setRegisterBio("");
           }
           return;
         }
@@ -2154,7 +2254,7 @@ export function PlayAuralApp() {
 
     if (authMode === "login") {
       items.push({ action: "focus_password", id: "field-password", text: localization.t("password") });
-      items.push({ action: "connect", id: "button-connect", text: localization.t("connect") });
+      items.push({ action: "connect", id: "button-connect", text: localization.t("auth-login-submit") });
       if (username || password) {
         items.push({
           action: "clear_saved_account",
@@ -2174,7 +2274,6 @@ export function PlayAuralApp() {
         id: "field-register-confirm-password",
         text: localization.t("auth-confirm-password"),
       });
-      items.push({ action: "focus_register_bio", id: "field-register-bio", text: localization.t("auth-bio") });
       items.push({
         action: "submit_register",
         id: "button-register",
@@ -2529,10 +2628,6 @@ export function PlayAuralApp() {
       registerConfirmPasswordInputRef.current?.focus();
       return;
     }
-    if (action === "focus_register_bio") {
-      registerBioInputRef.current?.focus();
-      return;
-    }
     if (action === "focus_forgot_email") {
       forgotEmailInputRef.current?.focus();
       return;
@@ -2718,6 +2813,46 @@ export function PlayAuralApp() {
     });
   };
 
+  const getLongPressToken = (item: FocusableMenuItem, index: number) =>
+    `${menuStateRef.current.menuId}:${index}:${item.id ?? "text"}`;
+
+  const handleMenuItemLongPress = (item: FocusableMenuItem, index: number) => {
+    if (selfVoicingEnabled) {
+      return;
+    }
+    void audio.handleUserInteraction();
+    focusMenuItemAt(index);
+    const token = getLongPressToken(item, index);
+    longPressConsumedRef.current = token;
+    if (longPressResetTimerRef.current) {
+      clearTimeout(longPressResetTimerRef.current);
+    }
+    longPressResetTimerRef.current = setTimeout(() => {
+      if (longPressConsumedRef.current === token) {
+        longPressConsumedRef.current = null;
+      }
+      longPressResetTimerRef.current = null;
+    }, 3000);
+    playMenuActivateSound();
+    sendShiftEnter(item);
+  };
+
+  const handleMenuItemPress = (item: FocusableMenuItem, index: number) => {
+    void audio.handleUserInteraction();
+    focusMenuItemAt(index);
+    const token = getLongPressToken(item, index);
+    if (longPressConsumedRef.current === token) {
+      longPressConsumedRef.current = null;
+      if (longPressResetTimerRef.current) {
+        clearTimeout(longPressResetTimerRef.current);
+        longPressResetTimerRef.current = null;
+      }
+      return;
+    }
+    playMenuActivateSound();
+    sendMenuSelection(item, index);
+  };
+
   const closeOverlay = () => {
     if (mode === "main") {
       return false;
@@ -2776,7 +2911,6 @@ export function PlayAuralApp() {
     if (shortcut.id === "ping") {
       setLastPingStartedAt(Date.now());
       connection?.send({ type: "ping" });
-      announceInterfaceFeedback(localization.t("shortcut-ping-sent"));
       return;
     }
     if (shortcut.id === "list_online") {
@@ -3661,7 +3795,6 @@ export function PlayAuralApp() {
           setAuthMode("login");
           setPassword("");
           setRegisterConfirmPassword("");
-          setRegisterBio("");
         }
         return;
       }
@@ -3726,7 +3859,6 @@ export function PlayAuralApp() {
     }
     await requestAuthFlow(
       {
-        bio: registerBio.trim(),
         client: "mobile",
         email: registerEmail.trim(),
         locale: appLocale,
@@ -3791,6 +3923,7 @@ export function PlayAuralApp() {
       accessibilityLabel={item.text}
       accessibilityRole="button"
       accessible
+      delayLongPress={350}
       key={`${item.id ?? "text"}-${index}`}
       onAccessibilityAction={(event) => {
         void audio.handleUserInteraction();
@@ -3806,11 +3939,11 @@ export function PlayAuralApp() {
       onFocus={() => {
         focusMenuItemAt(index);
       }}
+      onLongPress={() => {
+        handleMenuItemLongPress(item, index);
+      }}
       onPress={() => {
-        void audio.handleUserInteraction();
-        focusMenuItemAt(index);
-        playMenuActivateSound();
-        sendMenuSelection(item, index);
+        handleMenuItemPress(item, index);
       }}
       ref={registerAccessibilityNode(`menu:${menuState.menuId}:${index}`)}
       style={[
@@ -3937,6 +4070,7 @@ export function PlayAuralApp() {
               accessibilityLabel={item.text}
               accessibilityRole="button"
               accessible
+              delayLongPress={350}
               key={`${item.id ?? "text"}-${index}`}
               onAccessibilityAction={(event) => {
                 void audio.handleUserInteraction();
@@ -3952,11 +4086,11 @@ export function PlayAuralApp() {
               onFocus={() => {
                 focusMenuItemAt(index);
               }}
+              onLongPress={() => {
+                handleMenuItemLongPress(item, index);
+              }}
               onPress={() => {
-                void audio.handleUserInteraction();
-                focusMenuItemAt(index);
-                playMenuActivateSound();
-                sendMenuSelection(item, index);
+                handleMenuItemPress(item, index);
               }}
               ref={registerAccessibilityNode(`menu:${menuState.menuId}:${index}`)}
               style={[
@@ -4366,7 +4500,7 @@ export function PlayAuralApp() {
           </View>
           <View style={styles.row}>
             <Pressable
-              accessibilityLabel={localization.t("connect")}
+              accessibilityLabel={localization.t("auth-login-submit")}
               accessibilityRole="button"
               accessible
               onFocus={() => {
@@ -4379,7 +4513,7 @@ export function PlayAuralApp() {
               ref={registerAccessibilityNode("auth:button-connect")}
               style={[styles.button, isAuthFocused("button-connect") ? styles.authFocused : undefined]}
             >
-              <Text style={styles.buttonText}>{localization.t("connect")}</Text>
+              <Text style={styles.buttonText}>{localization.t("auth-login-submit")}</Text>
             </Pressable>
           </View>
           {username || password ? (
@@ -4496,27 +4630,6 @@ export function PlayAuralApp() {
               showSoftInputOnFocus
               style={styles.input}
               value={registerConfirmPassword}
-            />
-          </View>
-          <View style={isAuthFocused("field-register-bio") ? styles.authFieldFocused : undefined}>
-            <TextInput
-              accessibilityLabel={localization.t("auth-bio")}
-              multiline
-              onChangeText={setRegisterBio}
-              onFocus={() => {
-                handleTextInputFocus("auth:field-register-bio", () => {
-                  focusAuthItemById("field-register-bio");
-                });
-              }}
-              onBlur={() => {
-                handleTextInputBlur("auth:field-register-bio");
-              }}
-              placeholder={localization.t("auth-bio")}
-              placeholderTextColor="#7f8a93"
-              ref={registerAccessibilityNode("auth:field-register-bio", registerBioInputRef)}
-              showSoftInputOnFocus
-              style={[styles.input, styles.multilineInput]}
-              value={registerBio}
             />
           </View>
           <Pressable

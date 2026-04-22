@@ -39,7 +39,8 @@
         {
           "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone for table voice chat."
         }
-      ]
+      ],
+      "./plugins/withPlayAuralBackgroundService"
     ]
   }
 }

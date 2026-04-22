@@ -1,6 +1,8 @@
 import { registerRootComponent } from "expo";
 import { Platform } from "react-native";
 
+import { initializeAndroidForegroundService } from "./src/background/AndroidForegroundService";
+
 const globalScope = globalThis as typeof globalThis & {
   DOMException?: typeof DOMException;
   __PLAYAURAL_NATIVE_VOICE_BOOTSTRAP_ERROR__?: string;
@@ -24,6 +26,9 @@ function ensureDomExceptionPolyfill(): void {
 ensureDomExceptionPolyfill();
 
 if (Platform.OS !== "web") {
+  if (Platform.OS === "android") {
+    initializeAndroidForegroundService();
+  }
   try {
     const { registerGlobals } =
       require("@livekit/react-native") as typeof import("@livekit/react-native");

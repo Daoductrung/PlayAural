@@ -86,7 +86,7 @@ Important server-driven packets include:
 ### Server Architecture
 - **`server/core/server.py`** — Main orchestrator, auth routing, menus, reconnect, moderation, MOTD, presence
 - **`server/network/websocket_server.py`** — Async WebSocket transport
-- **`server/games/`** — 33 registered game implementations
+- **`server/games/`** — 34 registered game implementations
 - **`server/game_utils/`** — shared game mixins and helpers
 - **`server/tables/`** — table lifecycle, save/restore, membership
 - **`server/auth/`** — authentication, CAPTCHA checks, password reset, rate limiting
@@ -307,9 +307,9 @@ Mobile rules:
 - unavailable synced mobile voices or engines must fall back to the system default without throwing
 
 ### Game Counts and Catalog
-The server currently registers **33 games**:
+The server currently registers **34 games**:
 - card games, dice games, board/adventure games, and social games
-- recent additions include `Bunko`, `Tien Len`, and `Color Game`
+- recent additions include `Bunko`, `Tien Len`, `Color Game`, and `Citadels`
 
 ### Key Tech Stack
 - Python 3.11, `asyncio`, `websockets>=12.0`, `mashumaro`, `fluent-compiler`, `openskill`, `argon2-cffi`

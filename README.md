@@ -38,9 +38,9 @@ PlayAural is designed so the full state of the platform can be followed without 
 
 ## Game Catalog
 
-PlayAural currently includes **33 games** across multiple categories:
+PlayAural currently includes **34 games** across multiple categories:
 
-- Card games such as Blackjack, Last Card, Crazy Eights, Pusoy Dos, Tien Len, Scopa, Ninety Nine, and Mile by Mile
+- Card games such as Blackjack, Last Card, Crazy Eights, Pusoy Dos, Tien Len, Scopa, Ninety Nine, Mile by Mile, and Citadels
 - Dice games such as Farkle, Bunko, Yahtzee, Pig, Left Right Center, and Color Game
 - Board and strategy games such as Chess, Battleship, Backgammon, Sorry!, Ludo, Snakes and Ladders, and Dominos
 - Social and bluffing games such as Coup

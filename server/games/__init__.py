@@ -37,6 +37,7 @@ from .bunko.game import BunkoGame
 from .tienlen.game import TienLenGame
 from .colorgame.game import ColorGameGame
 from .battle.game import BattleGame
+from .citadels.game import CitadelsGame
 
 __all__ = [
     "Game",
@@ -76,4 +77,5 @@ __all__ = [
     "TienLenGame",
     "ColorGameGame",
     "BattleGame",
+    "CitadelsGame",
 ]

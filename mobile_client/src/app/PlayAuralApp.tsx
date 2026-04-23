@@ -550,16 +550,8 @@ export function PlayAuralApp() {
     if (Platform.OS === "web") {
       return;
     }
-    audio.setNativeAudioMutationListener(() => {
-      if (voiceStateRef.current !== "connected" && voiceStateRef.current !== "connecting") {
-        return;
-      }
-      voice.refreshAudioSession();
-    });
-    return () => {
-      audio.setNativeAudioMutationListener(null);
-    };
-  }, [audio, voice]);
+    voice.configureIdleAudioProfile();
+  }, [voice]);
 
   useEffect(() => {
     credentialsRef.current = {

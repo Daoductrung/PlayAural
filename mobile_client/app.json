@@ -27,7 +27,7 @@
         "@livekit/react-native-expo-plugin",
         {
           "android": {
-            "audioType": "communication"
+            "audioType": "media"
           },
           "ios": {
             "enableMultitaskingCameraAccess": false

@@ -78,6 +78,10 @@ export class MobileVoiceManager {
     void this.setMicrophoneEnabledInternal(enabled);
   }
 
+  configureIdleAudioProfile(): void {
+    void this.configureIdleAudioProfileInternal();
+  }
+
   refreshAudioSession(): void {
     void this.refreshAudioSessionInternal();
   }
@@ -176,6 +180,7 @@ export class MobileVoiceManager {
       this.setMicState(false);
       this.setState("disconnected");
       void this.stopNativeAudioSession().finally(() => {
+        this.configureIdleAudioProfile();
         if (wasConnected && !expectedDisconnect) {
           this.callbacks.onDisconnect?.("connection_lost");
         }
@@ -231,6 +236,7 @@ export class MobileVoiceManager {
     this.connected = false;
     this.cleanupWebAudioElements();
     await this.stopNativeAudioSession();
+    await this.configureIdleAudioProfileInternal();
     this.setMicState(false);
     this.setState("disconnected");
     if (notify) {
@@ -368,6 +374,23 @@ export class MobileVoiceManager {
       this.nativeAudioSessionStarted = true;
     } catch {
       // Ignore audio-session refresh failures; the existing room state remains authoritative.
+    }
+  }
+
+  private async configureIdleAudioProfileInternal(): Promise<void> {
+    const liveKitNative = this.getNativeLiveKitModule();
+    if (!liveKitNative || Platform.OS === "web") {
+      return;
+    }
+
+    try {
+      await liveKitNative.AudioSession.configureAudio({
+        android: {
+          audioTypeOptions: liveKitNative.AndroidAudioTypePresets.media,
+        },
+      });
+    } catch {
+      // Ignore idle-profile restore failures; they should not block gameplay audio.
     }
   }
 

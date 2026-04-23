@@ -1,5 +1,27 @@
 Changelog
 
+Thursday 23 April 2026
+
+Server Updates:
+
+Added a new game called Citadels, complete with comprehensive documentation. The game is fully localized in both English and Vietnamese.
+
+Desktop Client Updates:
+
+Optimized the underlying code for the user interface. This improves background performance and stability without affecting your current user experience.
+
+Mobile Client Updates:
+
+Fixed an issue where the network latency ping check would not return any results if the built-in self-voicing mode was turned off.
+
+Fixed a bug that prevented players from discarding cards in Mile by Mile. You can now discard cards by using the screen reader's long-press gesture (typically a double tap and hold with one finger).
+
+Optimized device language detection for a more seamless experience the very first time you launch the app.
+
+Optimized network connection threads for better stability and responsiveness.
+
+Added experimental support to allow the game to keep running in the background. Please note that this may not work exactly as expected on all devices yet and will receive further optimizations over time.
+
 Sunday 19 April 2026
 
 Server Updates:

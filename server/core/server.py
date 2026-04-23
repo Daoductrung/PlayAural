@@ -38,8 +38,8 @@ from ..game_utils.client_types import (
 from ..game_utils.game_result import GameResult
 
 
-VERSION = "1.0.4.1"
-LATEST_CLIENT_VERSION = "1.0.4.1"
+VERSION = "1.0.4.2"
+LATEST_CLIENT_VERSION = "1.0.4.2"
 UPDATE_URL = "https://github.com/Daoductrung/PlayAural/releases/latest/download/PlayAural.zip"
 UPDATE_HASH = "" # Optional SHA256
 

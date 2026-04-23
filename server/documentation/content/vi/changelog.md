@@ -1,5 +1,27 @@
 Nhật ký thay đổi
 
+Thứ Năm 23 Tháng Tư 2026
+
+Cập nhật máy chủ:
+
+Đã thêm trò chơi mới mang tên Thành Phố Trung Cổ (Citadels) với đầy đủ tài liệu hướng dẫn. Trò chơi này đã được hỗ trợ hoàn chỉnh bằng cả tiếng Việt và tiếng Anh.
+
+Cập nhật phần mềm trên máy tính:
+
+Đã tối ưu hóa mã nguồn giao diện của trò chơi. Nâng cấp này giúp phần mềm hoạt động trơn tru hơn ở hệ thống nền mà hoàn toàn không làm thay đổi trải nghiệm hay thói quen sử dụng của bạn.
+
+Cập nhật ứng dụng di động:
+
+Đã sửa lỗi tính năng kiểm tra độ trễ mạng không hiển thị kết quả khi bạn tắt chế độ tự phát giọng nói.
+
+Đã sửa lỗi không thể bỏ bài trong trò chơi Mile by Mile. Giờ đây bạn có thể thao tác bỏ bài bằng cử chỉ nhấn giữ của trình đọc màn hình (thông thường là chạm đúp và giữ bằng một ngón tay).
+
+Đã cải thiện khả năng tự động nhận diện ngôn ngữ của thiết bị mượt mà hơn trong lần đầu tiên bạn mở ứng dụng.
+
+Đã tối ưu hóa các luồng kết nối, giúp ứng dụng duy trì mạng ổn định và phản hồi tốt hơn.
+
+Đã thử nghiệm cho phép trò chơi tiếp tục chạy ngầm khi bạn ẩn ứng dụng. Xin lưu ý rằng tính năng này có thể chưa hoạt động như mong muốn trên một số dòng máy nhất định và chúng tôi sẽ tiếp tục tối ưu hóa thêm trong thời gian tới.
+
 Chủ Nhật 19 Tháng Tư 2026
 
 Cập nhật máy chủ:

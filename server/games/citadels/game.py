@@ -17,6 +17,8 @@ from ...game_utils.sequence_runner_mixin import SequenceBeat, SequenceOperation
 from ...messages.localization import Localization
 from ...ui.keybinds import KeybindState
 
+from .bot import bot_think as citadels_bot_think
+
 
 PHASE_SELECTION = "selection_phase"
 PHASE_RANK_RESOLUTION = "rank_resolution_phase"
@@ -845,6 +847,19 @@ class CitadelsGame(Game):
         if self.status == "playing" and self.current_player and self.current_player.is_bot:
             BotHelper.on_tick(self)
 
+    def _replace_with_bot(self, player: Player) -> None:
+        was_current = self.current_player == player
+        was_selection_picker = self.phase == PHASE_SELECTION and self._selection_player() == player
+        super()._replace_with_bot(player)
+        if self.status != "playing" or not player.is_bot:
+            return
+        player.bot_pending_action = None
+        if was_selection_picker:
+            self.set_turn_players([player])
+        if was_current or was_selection_picker or self.current_player == player:
+            self.rebuild_all_menus()
+            self._schedule_bot_turn(player)
+
     def _start_selection_phase(self) -> None:
         self.phase = PHASE_SELECTION
         self.turn_subphase = SUBPHASE_NORMAL
@@ -1087,15 +1102,25 @@ class CitadelsGame(Game):
 
     def _complete_round_cleanup(self) -> None:
         if self._any_completed_city():
+            winner = self._winner_player()
+            winner_id = winner.id if winner is not None else ""
             self._start_resolution_sequence(
                 "citadels_game_end",
                 [
                     SequenceBeat(
-                        ops=[SequenceOperation.sound_op(SOUND_WIN)],
+                        ops=[
+                            SequenceOperation.sound_op(SOUND_WIN),
+                            SequenceOperation.callback_op(
+                                "announce_winner",
+                                {"winner_id": winner_id},
+                            ),
+                        ],
                         delay_after_ticks=self._paced_delay_ticks(SOUND_WIN),
                     ),
                     SequenceBeat(
-                        ops=[SequenceOperation.callback_op("finish_game")],
+                        ops=[
+                            SequenceOperation.callback_op("finish_game")
+                        ],
                     ),
                 ],
                 tag="citadels_game_end",
@@ -2052,11 +2077,12 @@ class CitadelsGame(Game):
         if not cit_player or not user:
             return
         if cit_player.selected_character_rank is None:
-            user.speak_l("citadels-character-none", buffer="game")
+            user.speak_l("citadels-character-none", buffer="game", gold=cit_player.gold)
         else:
             user.speak_l(
                 "citadels-character-line",
                 buffer="game",
+                gold=cit_player.gold,
                 rank=cit_player.selected_character_rank,
                 character=self._character_name(cit_player.selected_character_rank, user.locale),
             )
@@ -2166,8 +2192,14 @@ class CitadelsGame(Game):
         if callback_id == "round_cleanup_king_heir":
             self._apply_round_cleanup_king_heir(payload)
             return
+        if callback_id == "announce_winner":
+            winner = self.get_player_by_id(payload.get("winner_id", ""))
+            if isinstance(winner, CitadelsPlayer):
+                self.broadcast_l("game-winner", buffer="game", player=winner.name)
+            return
         if callback_id == "finish_game":
             self.finish_game()
+            return
 
     def _handle_skipped_rank(self, payload: dict) -> None:
         rank = int(payload.get("rank", 0))
@@ -2401,10 +2433,6 @@ class CitadelsGame(Game):
     def _after_turn_state_change(self, player: CitadelsPlayer) -> None:
         self._refresh_menus_for_focus(player)
         self._schedule_bot_turn(player)
-
-    def _player_locale(self, player: Player) -> str:
-        user = self.get_user(player)
-        return user.locale if user else "en"
 
     def _build_district_deck(self) -> list[DistrictCard]:
         deck: list[DistrictCard] = []
@@ -2734,15 +2762,7 @@ class CitadelsGame(Game):
         return base + best_bonus
 
     def _standings_lines(self, locale: str) -> list[str]:
-        players = [p for p in self.get_active_players() if isinstance(p, CitadelsPlayer)]
-        players.sort(
-            key=lambda p: (
-                self._score_city(p),
-                p.revealed_character_rank if p.revealed_character_rank is not None else -1,
-                p.gold,
-            ),
-            reverse=True,
-        )
+        players = self._ranked_players_for_results()
         return [
             Localization.get(
                 locale,
@@ -2756,6 +2776,28 @@ class CitadelsGame(Game):
             )
             for index, player in enumerate(players, 1)
         ]
+
+    def _final_ranking_key(self, player: CitadelsPlayer) -> tuple[int, int, int]:
+        return (
+            self._score_city(player),
+            player.revealed_character_rank if player.revealed_character_rank is not None else -1,
+            player.gold,
+        )
+
+    def _ranked_players_for_results(
+        self,
+        players: list[CitadelsPlayer] | None = None,
+    ) -> list[CitadelsPlayer]:
+        participants = (
+            players
+            if players is not None
+            else [p for p in self.get_active_players() if isinstance(p, CitadelsPlayer)]
+        )
+        return sorted(participants, key=self._final_ranking_key, reverse=True)
+
+    def _winner_player(self) -> CitadelsPlayer | None:
+        ranked = self._ranked_players_for_results()
+        return ranked[0] if ranked else None
 
     def _status_lines(self, locale: str, *, detailed: bool) -> list[str]:
         lines = [Localization.get(locale, "citadels-status-header")]
@@ -2818,15 +2860,7 @@ class CitadelsGame(Game):
 
     def build_game_result(self) -> GameResult:
         players = [p for p in self.get_active_players() if isinstance(p, CitadelsPlayer)]
-        sorted_players = sorted(
-            players,
-            key=lambda p: (
-                self._score_city(p),
-                p.revealed_character_rank if p.revealed_character_rank is not None else -1,
-                p.gold,
-            ),
-            reverse=True,
-        )
+        sorted_players = self._ranked_players_for_results(players)
         winner = sorted_players[0] if sorted_players else None
         final_scores = {player.name: self._score_city(player) for player in players}
         team_rankings = [
@@ -2880,138 +2914,4 @@ class CitadelsGame(Game):
         cit_player = self._as_citadels_player(player)
         if not cit_player:
             return None
-        if self.phase == PHASE_SELECTION:
-            return self._bot_choose_character(cit_player)
-        if self.phase != PHASE_TURN or self.current_player != cit_player:
-            return None
-        if self.turn_subphase == SUBPHASE_ASSASSIN_TARGET:
-            targets = self._assassin_target_ranks()
-            return f"assassinate_target_{self._bot_pick_assassin_target(targets)}" if targets else None
-        if self.turn_subphase == SUBPHASE_THIEF_TARGET:
-            targets = self._thief_target_ranks()
-            return f"thief_target_{self._bot_pick_thief_target(targets)}" if targets else None
-        if self.turn_subphase == SUBPHASE_DRAW_KEEP:
-            return f"keep_draw_{self.pending_draw_choices[0].id}" if self.pending_draw_choices else None
-        if self.turn_subphase == SUBPHASE_MAGICIAN_SWAP:
-            targets = self._swap_targets()
-            if not targets:
-                self.turn_subphase = SUBPHASE_NORMAL
-                return None
-            target = max(targets, key=lambda other: len(other.hand))
-            return f"magician_swap_target_{target.id}"
-        if self.turn_subphase == SUBPHASE_MAGICIAN_REDRAW:
-            if not self.selected_card_ids:
-                for card in cit_player.hand[:-2]:
-                    self.selected_card_ids.append(card.id)
-                if not self.selected_card_ids and cit_player.hand:
-                    self.selected_card_ids.append(cit_player.hand[0].id)
-            return "confirm_magician_redraw" if self.selected_card_ids else "cancel_magician_redraw"
-        if self.turn_subphase == SUBPHASE_LABORATORY:
-            if cit_player.hand:
-                worst = min(cit_player.hand, key=lambda card: (card.cost, card.name))
-                return f"laboratory_discard_{worst.id}"
-            return None
-        if self.turn_subphase == SUBPHASE_WARLORD_TARGET:
-            targets = self._warlord_targets()
-            if not targets:
-                self.turn_subphase = SUBPHASE_NORMAL
-                return None
-            owner, district = max(targets, key=lambda item: (item[1].cost, len(item[0].city)))
-            return f"warlord_destroy_target_{owner.id}_{district.id}"
-        if self.turn_subphase == SUBPHASE_THIEVES_DEN:
-            card = self._find_hand_card(cit_player, self.pending_build_card_id)
-            if not card:
-                return "cancel_thieves_den_payment"
-            needed_cards = max(0, self._effective_build_cost(cit_player, card) - cit_player.gold)
-            if needed_cards > 0:
-                cheapest = [hand_card for hand_card in sorted(cit_player.hand, key=lambda entry: (entry.cost, entry.name)) if hand_card.id != card.id]
-                self.selected_card_ids = [hand_card.id for hand_card in cheapest[:needed_cards]]
-            return "confirm_thieves_den_payment"
-
-        if not self.turn_resource_taken:
-            rank = cit_player.revealed_character_rank
-            if rank == CHARACTER_ASSASSIN and self.killed_rank is None:
-                self.turn_subphase = SUBPHASE_ASSASSIN_TARGET
-                self.rebuild_all_menus()
-                return None
-            if rank == CHARACTER_THIEF and self.robbed_rank is None:
-                self.turn_subphase = SUBPHASE_THIEF_TARGET
-                self.rebuild_all_menus()
-                return None
-            if any(self._can_attempt_build(cit_player, card) for card in cit_player.hand):
-                return "draw_cards" if len(cit_player.hand) < 2 else "take_gold"
-            return "draw_cards"
-
-        if self._is_collect_income_enabled(cit_player) is None and self._income_amount(cit_player, cit_player.revealed_character_rank or 0) > 0:
-            return "collect_income"
-        if self._is_use_smithy_enabled(cit_player) is None and len(cit_player.hand) < 2:
-            return "use_smithy"
-        if self._is_magician_mode_enabled(cit_player) is None:
-            richest = max(self._swap_targets(), key=lambda other: len(other.hand), default=None)
-            if richest and len(richest.hand) > len(cit_player.hand) + 1:
-                return "magician_swap_mode"
-            if cit_player.hand:
-                return "magician_redraw"
-        if self._is_use_laboratory_enabled(cit_player) is None and cit_player.gold < 2 and len(cit_player.hand) > 2:
-            return "use_laboratory"
-        if self._is_warlord_destroy_mode_enabled(cit_player) is None:
-            return "warlord_destroy_mode"
-        buildable = [card for card in cit_player.hand if self._can_attempt_build(cit_player, card)]
-        if buildable:
-            best = max(buildable, key=lambda card: (card.cost, card.effect_key != "", random.random()))
-            return f"build_{best.id}"
-        return "end_turn"
-
-    def _bot_choose_character(self, player: CitadelsPlayer) -> str | None:
-        options = self._selection_options_for_player(player)
-        if not options:
-            return None
-        standings = sorted(
-            [p for p in self.get_active_players() if isinstance(p, CitadelsPlayer)],
-            key=lambda other: self._score_city(other),
-            reverse=True,
-        )
-        leader = standings[0] if standings else None
-        priorities = [
-            CHARACTER_WARLORD,
-            CHARACTER_ARCHITECT,
-            CHARACTER_MERCHANT,
-            CHARACTER_KING,
-            CHARACTER_THIEF,
-            CHARACTER_ASSASSIN,
-            CHARACTER_MAGICIAN,
-            CHARACTER_BISHOP,
-            CHARACTER_QUEEN,
-        ]
-        if leader == player:
-            priorities = [
-                CHARACTER_ARCHITECT,
-                CHARACTER_KING,
-                CHARACTER_BISHOP,
-                CHARACTER_MERCHANT,
-                CHARACTER_MAGICIAN,
-                CHARACTER_WARLORD,
-                CHARACTER_ASSASSIN,
-                CHARACTER_THIEF,
-                CHARACTER_QUEEN,
-            ]
-        for rank in priorities:
-            if rank in options:
-                return f"select_character_{rank}"
-        return f"select_character_{options[0]}"
-
-    def _bot_pick_assassin_target(self, targets: list[int]) -> int:
-        for rank in [CHARACTER_WARLORD, CHARACTER_ARCHITECT, CHARACTER_MERCHANT, CHARACTER_KING, CHARACTER_MAGICIAN, CHARACTER_THIEF, CHARACTER_BISHOP, CHARACTER_QUEEN]:
-            if rank in targets:
-                return rank
-        return targets[0]
-
-    def _bot_pick_thief_target(self, targets: list[int]) -> int:
-        richest_rank = None
-        richest_gold = -1
-        for rank in targets:
-            owner = self._player_with_rank(rank)
-            if owner and owner.gold > richest_gold:
-                richest_rank = rank
-                richest_gold = owner.gold
-        return richest_rank if richest_rank is not None else targets[0]
+        return citadels_bot_think(self, cit_player)

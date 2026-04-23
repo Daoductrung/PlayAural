@@ -128,8 +128,8 @@ citadels-hand-empty = Your hand is empty.
 citadels-cities-header = Cities at the table
 citadels-city-empty = no districts
 citadels-city-line = { $player }: { $count } districts, { $gold } gold, { $score } points. { $districts }
-citadels-character-none = You do not currently hold a character.
-citadels-character-line = Rank { $rank }: { $character }
+citadels-character-none = You do not currently hold a character. You have { $gold } gold.
+citadels-character-line = Rank { $rank }: { $character }. You have { $gold } gold.
 citadels-discards-none = none
 citadels-faceup-discards-line = Faceup discarded characters: { $characters }
 

@@ -128,8 +128,8 @@ citadels-hand-empty = Tay bài của bạn trống.
 citadels-cities-header = Các thành phố trên bàn
 citadels-city-empty = chưa có công trình nào
 citadels-city-line = { $player }: { $count } công trình, { $gold } vàng, { $score } điểm. { $districts }
-citadels-character-none = Hiện tại bạn chưa giữ nhân vật nào.
-citadels-character-line = Hạng { $rank }: { $character }
+citadels-character-none = Hiện tại bạn chưa giữ nhân vật nào. Bạn có { $gold } vàng.
+citadels-character-line = Hạng { $rank }: { $character }. Bạn có { $gold } vàng.
 citadels-discards-none = không có
 citadels-faceup-discards-line = Các nhân vật bị bỏ lộ: { $characters }
 

@@ -208,6 +208,22 @@ def test_seven_player_last_picker_can_choose_the_initial_facedown_rank() -> None
     assert set(options) == {CHARACTER_WARLORD, game.initial_facedown_rank}
 
 
+def test_replaced_player_bot_auto_selects_character_during_selection() -> None:
+    random.seed(7)
+    game = make_game(start=True)
+    replaced = game.current_player
+    assert replaced is not None
+
+    game._replace_with_bot(replaced)
+
+    assert replaced.is_bot is True
+    assert advance_until(
+        game,
+        lambda: isinstance(replaced.selected_character_rank, int) and game.selection_index >= 1,
+        max_ticks=200,
+    )
+
+
 def test_assassin_target_skips_the_rank_with_sequence_sound() -> None:
     game = make_game(start=True)
     assassin, victim, next_player = game.players[:3]
@@ -602,6 +618,21 @@ def test_dynamic_target_and_toggle_menus_focus_the_expected_item() -> None:
     assert warlord_updates[-1].data.get("selection_id") == f"warlord_destroy_target_{target.id}_663"
 
 
+def test_read_character_announces_character_and_current_gold() -> None:
+    game = make_game(start=True)
+    player = game.players[0]
+    user = game.get_user(player)
+    assert user is not None
+
+    player.selected_character_rank = CHARACTER_KING
+    player.gold = 6
+    user.clear_messages()
+
+    game.execute_action(player, "read_character")
+
+    assert user.get_spoken_messages()[-1] == "Rank 4: King. You have 6 gold."
+
+
 def test_canceling_swap_submenu_restores_focus_to_parent_menu_top_action() -> None:
     game = make_game(start=True)
     player = game.players[0]
@@ -762,6 +793,7 @@ def test_city_completion_sound_only_triggers_on_threshold_and_final_win_waits_fo
     assert user.get_sounds_played() == [SOUND_WIN]
     assert game.status != "finished"
     assert advance_until(game, lambda: game.status == "finished", max_ticks=200)
+    assert user.get_last_spoken() == "Player1 wins!"
 
 
 def test_touch_standard_actions_follow_the_shared_touch_order() -> None:
@@ -842,3 +874,31 @@ def test_bot_game_completes_without_deadlock() -> None:
     random.seed(0)
     game = make_game(player_count=4, start=True, bot_all=True)
     assert advance_until(game, lambda: game.status == "finished", max_ticks=20000)
+
+
+def test_assassin_bot_targeting_is_not_locked_to_warlord() -> None:
+    game = make_game(start=True)
+    assassin, king, merchant, warlord = game.players[:4]
+    assassin.is_bot = True
+    assassin.selected_character_rank = CHARACTER_ASSASSIN
+    assassin.revealed_character_rank = CHARACTER_ASSASSIN
+    king.selected_character_rank = CHARACTER_KING
+    king.city = [make_card(900 + index, "Castle", 4, DISTRICT_NOBLE) for index in range(6)]
+    king.gold = 5
+    merchant.selected_character_rank = CHARACTER_MERCHANT
+    merchant.gold = 7
+    warlord.selected_character_rank = CHARACTER_WARLORD
+    warlord.gold = 2
+    game.phase = "turn_phase"
+    game.turn_subphase = SUBPHASE_ASSASSIN_TARGET
+    game.set_turn_players([assassin])
+
+    picks: set[str] = set()
+    for seed in range(20):
+        random.seed(seed)
+        action_id = game.bot_think(assassin)
+        assert action_id is not None
+        picks.add(action_id)
+
+    assert len(picks) >= 2
+    assert any(not action_id.endswith(str(CHARACTER_WARLORD)) for action_id in picks)

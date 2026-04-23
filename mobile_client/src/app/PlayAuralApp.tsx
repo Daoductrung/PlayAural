@@ -1916,7 +1916,7 @@ export function PlayAuralApp() {
           if (startedAt) {
             const elapsed = Date.now() - startedAt;
             setLastPingStartedAt(null);
-            announceInterfaceFeedback(localization.t("shortcut-ping-result", { value: elapsed }));
+            announce(localization.t("shortcut-ping-result", { value: elapsed }), "system", true);
           }
           return;
         }

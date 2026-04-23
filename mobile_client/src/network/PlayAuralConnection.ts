@@ -9,18 +9,21 @@ type ConnectionHandlers = {
 
 export class PlayAuralConnection {
   private socket: WebSocket | null = null;
-  private intentionallyClosingSocket: WebSocket | null = null;
+  private readonly intentionallyClosingSockets = new Set<WebSocket>();
+  private readonly closeWaiters = new Map<WebSocket, Set<() => void>>();
 
   constructor(private readonly handlers: ConnectionHandlers) {}
 
   connect(serverUrl: string, username: string, password: string, version: string): void {
     this.disconnect();
-    this.intentionallyClosingSocket = null;
 
     const socket = new WebSocket(serverUrl);
     this.socket = socket;
 
     socket.onopen = () => {
+      if (this.socket !== socket) {
+        return;
+      }
       this.handlers.onOpen?.();
       this.send({
         client: "mobile",
@@ -32,6 +35,9 @@ export class PlayAuralConnection {
     };
 
     socket.onmessage = (event) => {
+      if (this.socket !== socket) {
+        return;
+      }
       try {
         const packet = JSON.parse(String(event.data)) as ServerPacket;
         this.handlers.onPacket(packet);
@@ -41,18 +47,20 @@ export class PlayAuralConnection {
     };
 
     socket.onerror = () => {
+      if (this.socket !== socket || this.intentionallyClosingSockets.has(socket)) {
+        return;
+      }
       this.handlers.onError?.("Connection error.");
     };
 
     socket.onclose = (event) => {
-      const wasIntentional = this.intentionallyClosingSocket === socket;
-      if (wasIntentional) {
-        this.intentionallyClosingSocket = null;
-      }
-      if (this.socket === socket) {
+      const wasIntentional = this.intentionallyClosingSockets.delete(socket);
+      const wasActive = this.socket === socket;
+      if (wasActive) {
         this.socket = null;
       }
-      if (wasIntentional) {
+      this.resolveCloseWaiters(socket);
+      if (wasIntentional || !wasActive) {
         return;
       }
       this.handlers.onClose?.(event.reason || undefined);
@@ -60,12 +68,38 @@ export class PlayAuralConnection {
   }
 
   disconnect(): void {
-    if (!this.socket) {
-      return;
+    this.closeSocket(this.socket);
+  }
+
+  disconnectAndWait(timeoutMs = 1500): Promise<void> {
+    const socket = this.socket;
+    if (!socket) {
+      return Promise.resolve();
     }
-    this.intentionallyClosingSocket = this.socket;
-    this.socket.close();
-    this.socket = null;
+    return new Promise((resolve) => {
+      let settled = false;
+      const finish = () => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        clearTimeout(timeoutHandle);
+        const waiters = this.closeWaiters.get(socket);
+        if (waiters) {
+          waiters.delete(finish);
+          if (waiters.size === 0) {
+            this.closeWaiters.delete(socket);
+          }
+        }
+        resolve();
+      };
+      const timeoutHandle = setTimeout(finish, timeoutMs);
+      this.addCloseWaiter(socket, finish);
+      this.closeSocket(socket);
+      if (socket.readyState === WebSocket.CLOSED) {
+        finish();
+      }
+    });
   }
 
   send(packet: ClientPacket): void {
@@ -128,5 +162,46 @@ export class PlayAuralConnection {
         }
       };
     });
+  }
+
+  private addCloseWaiter(socket: WebSocket, waiter: () => void): void {
+    const existing = this.closeWaiters.get(socket);
+    if (existing) {
+      existing.add(waiter);
+      return;
+    }
+    this.closeWaiters.set(socket, new Set([waiter]));
+  }
+
+  private resolveCloseWaiters(socket: WebSocket): void {
+    const waiters = this.closeWaiters.get(socket);
+    if (!waiters) {
+      return;
+    }
+    this.closeWaiters.delete(socket);
+    for (const waiter of waiters) {
+      waiter();
+    }
+  }
+
+  private closeSocket(socket: WebSocket | null): void {
+    if (!socket) {
+      return;
+    }
+    this.intentionallyClosingSockets.add(socket);
+    if (this.socket === socket) {
+      this.socket = null;
+    }
+    if (socket.readyState === WebSocket.CLOSED) {
+      this.intentionallyClosingSockets.delete(socket);
+      this.resolveCloseWaiters(socket);
+      return;
+    }
+    try {
+      socket.close();
+    } catch {
+      this.intentionallyClosingSockets.delete(socket);
+      this.resolveCloseWaiters(socket);
+    }
   }
 }

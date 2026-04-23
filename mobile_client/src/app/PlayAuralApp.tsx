@@ -1555,20 +1555,22 @@ export function PlayAuralApp() {
     });
   }, [appState, audio, currentAmbience, currentMusic, localization, voiceMicEnabled, voiceState]);
 
-  const exitApplication = () => {
+  const exitApplication = useCallback(() => {
     disableAutoReconnect();
-    connectionRef.current?.disconnect();
-    voice.shutdown();
-    audio.shutdown();
-    tts.stop();
-    if (Platform.OS === "android") {
-      BackHandler.exitApp();
-      return;
-    }
-    if (Platform.OS === "web" && typeof window !== "undefined") {
-      window.close();
-    }
-  };
+    const disconnectPromise = connectionRef.current?.disconnectAndWait(1500) ?? Promise.resolve();
+    void disconnectPromise.finally(() => {
+      voice.shutdown();
+      audio.shutdown();
+      tts.stop();
+      if (Platform.OS === "android") {
+        BackHandler.exitApp();
+        return;
+      }
+      if (Platform.OS === "web" && typeof window !== "undefined") {
+        window.close();
+      }
+    });
+  }, [audio, disableAutoReconnect, tts, voice]);
 
   const resetToLoginScreen = useCallback((statusMessage: string, authMessage = statusMessage) => {
     voice.shutdown();
@@ -1597,18 +1599,18 @@ export function PlayAuralApp() {
 
   const handleTerminalSessionExit = useCallback((message: string, announceMessage = true) => {
     disableAutoReconnect();
-    connectionRef.current?.disconnect();
-    voice.shutdown();
-    audio.shutdown();
-    tts.stop();
     if (announceMessage) {
       announce(message, "system");
     }
     resetToLoginScreen(message);
-    if (Platform.OS === "android") {
-      BackHandler.exitApp();
-    }
-  }, [announce, audio, disableAutoReconnect, resetToLoginScreen, tts, voice]);
+    const disconnectPromise = connectionRef.current?.disconnectAndWait(1500) ?? Promise.resolve();
+    void disconnectPromise.finally(() => {
+      tts.stop();
+      if (Platform.OS === "android") {
+        BackHandler.exitApp();
+      }
+    });
+  }, [announce, disableAutoReconnect, resetToLoginScreen, tts]);
 
   const openDialog = useCallback((nextDialog: Omit<DialogState, "focusIndex">) => {
     setDialogState({

@@ -110,6 +110,7 @@ community-rules = Nội quy cộng đồng
 global-keys = Điều khiển toàn cục
 game-rules = Luật chơi
 changelog = Nhật ký thay đổi
+donation = Quyên góp
 document-not-found = Không tìm thấy tài liệu.
 help = Trợ giúp
 

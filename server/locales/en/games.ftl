@@ -110,6 +110,7 @@ community-rules = Community Rules
 global-keys = Global Controls
 game-rules = Game Rules
 changelog = Changelog
+donation = Donation
 document-not-found = Document not found.
 help = Help
 

@@ -583,6 +583,7 @@ host-invite-already-pending = An invite is already pending for that friend.
 host-invite-friend-busy = That friend is already in a game.
 host-invite-declined = { $player } declined your table invite.
 table-invite-received = { $host } has invited you to their { $game } table.
+table-invite-queued = { $host } invited you to their { $game } table. Finish your current input to respond.
 table-invite-expired = The table invite has expired.
 invite-accept = Accept Invite
 invite-decline = Decline Invite

@@ -48,6 +48,7 @@ class ActionSetCreationMixin:
                     prompt="enter-bot-name",
                     default="",
                     bot_input="_bot_input_add_bot",
+                    should_prompt="_should_prompt_add_bot",
                 ),
                 include_spectators=True,
             )

@@ -11,15 +11,11 @@ from ..users.base import MenuItem, EscapeBehavior
 from ..users.bot import Bot
 from ..messages.localization import Localization
 from ..documentation.manager import DocumentationManager
-
-
-# Default bot names available for selection
-BOT_NAMES = [
-    "Alice", "Bob", "Charlie", "Diana", "Eve", "Frank", "Grace", "Henry",
-    "Ivy", "Jack", "Kate", "Leo", "Mia", "Noah", "Olivia", "Pete",
-    "Quinn", "Rose", "Sam", "Tina", "Uma", "Vic", "Wendy", "Xander",
-    "Yara", "Zack",
-]
+from .bot_names import (
+    generate_unique_bot_name,
+    normalize_bot_name,
+    validate_custom_bot_name,
+)
 
 
 class LobbyActionsMixin:
@@ -65,33 +61,43 @@ class LobbyActionsMixin:
 
     def _bot_input_add_bot(self, player: "Player") -> str | None:
         """Get bot name for add_bot action."""
-        return next(
-            (
-                n
-                for n in BOT_NAMES
-                if n.lower() not in {x.name.lower() for x in self.players}
-            ),
-            None,
-        )
+        return generate_unique_bot_name(self._existing_player_names())
+
+    def _should_prompt_add_bot(self, player: "Player") -> bool:
+        """Return whether the host wants to type custom bot names."""
+        user = self.get_user(player)
+        return bool(user and user.preferences.allow_custom_bot_names)
+
+    def _existing_player_names(self) -> list[str]:
+        """Return every current table player/spectator display name."""
+        return [p.name for p in self.players]
+
+    def _resolve_add_bot_name(
+        self,
+        player: "Player",
+        requested_name: str,
+    ) -> str | None:
+        """Resolve and validate the bot name for the add_bot action."""
+        if self._should_prompt_add_bot(player):
+            bot_name = normalize_bot_name(requested_name)
+            error_key = validate_custom_bot_name(
+                bot_name,
+                self._existing_player_names(),
+            )
+            if error_key:
+                user = self.get_user(player)
+                if user:
+                    user.speak_l(error_key, buffer="game")
+                return None
+            return bot_name
+
+        return generate_unique_bot_name(self._existing_player_names())
 
     def _action_add_bot(self, player: "Player", bot_name: str, action_id: str) -> None:
         """Add a bot with the selected name."""
-        # If blank, use an available name from the list
-        if not bot_name.strip():
-            bot_name = next(
-                (
-                    n
-                    for n in BOT_NAMES
-                    if n.lower() not in {x.name.lower() for x in self.players}
-                ),
-                None,
-            )
-            if not bot_name:
-                # No names available
-                user = self.get_user(player)
-                if user:
-                    user.speak_l("no-bot-names-available", buffer="game")
-                return
+        bot_name = self._resolve_add_bot_name(player, bot_name)
+        if bot_name is None:
+            return
 
         bot_user = Bot(bot_name)
         bot_player = self.create_player(bot_user.uuid, bot_name, is_bot=True)

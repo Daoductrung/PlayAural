@@ -24,7 +24,8 @@ from ..game_utils.sequence_runner_mixin import SequenceRunnerMixin, SequenceStat
 from ..game_utils.turn_management_mixin import TurnManagementMixin
 from ..game_utils.menu_management_mixin import MenuManagementMixin
 from ..game_utils.action_visibility_mixin import ActionVisibilityMixin
-from ..game_utils.lobby_actions_mixin import LobbyActionsMixin, BOT_NAMES
+from ..game_utils.lobby_actions_mixin import LobbyActionsMixin
+from ..game_utils.bot_names import get_valid_bot_name_pool
 from ..game_utils.event_handling_mixin import EventHandlingMixin
 from ..game_utils.action_set_creation_mixin import ActionSetCreationMixin
 from ..game_utils.action_execution_mixin import ActionExecutionMixin
@@ -35,6 +36,8 @@ from ..game_utils.client_types import (
 )
 from ..ui.keybinds import Keybind
 from ..users.bot import Bot
+
+BOT_NAMES = get_valid_bot_name_pool()
 
 
 @dataclass

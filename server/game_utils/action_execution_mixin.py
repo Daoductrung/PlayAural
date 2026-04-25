@@ -66,9 +66,12 @@ class ActionExecutionMixin:
                 if input_value is None:
                     return  # Bot couldn't provide input
             else:
-                # For humans, request input and store pending action
-                self._request_action_input(action, player)
-                return
+                if not self._should_prompt_for_action_input(action, player):
+                    input_value = self._get_default_action_input(action, player)
+                else:
+                    # For humans, request input and store pending action
+                    self._request_action_input(action, player)
+                    return
 
         # Look up the handler method by name on this game object
         handler = getattr(self, action.handler, None)
@@ -92,6 +95,31 @@ class ActionExecutionMixin:
         finally:
             # Clean up context
             self._action_context.pop(player.id, None)
+
+    def _should_prompt_for_action_input(
+        self, action: Action, player: "Player"
+    ) -> bool:
+        """Return whether a human player should be prompted for action input."""
+        req = action.input_request
+        if isinstance(req, EditboxInput):
+            should_prompt = req.should_prompt or f"_should_prompt_{action.id}"
+            method = getattr(self, should_prompt, None)
+            if method:
+                return bool(method(player))
+        return True
+
+    def _get_default_action_input(
+        self, action: Action, player: "Player"
+    ) -> str | None:
+        """Return default input for a human action when prompting is skipped."""
+        req = action.input_request
+        if isinstance(req, EditboxInput):
+            return req.default
+        if isinstance(req, MenuInput):
+            options = self._get_menu_options_for_action(action, player)
+            if options:
+                return options[0]
+        return None
 
     def get_action_context(self, player: "Player") -> "ActionContext":
         """Get the current action context for a player (for use in handlers)."""

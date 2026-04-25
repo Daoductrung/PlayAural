@@ -1837,6 +1837,17 @@ PlayAural Server
             MenuItem(
                 text=Localization.get(
                     user.locale,
+                    "custom-bot-names-option",
+                    status=Localization.get(
+                        user.locale,
+                        "option-on" if prefs.allow_custom_bot_names else "option-off",
+                    ),
+                ),
+                id="custom_bot_names",
+            ),
+            MenuItem(
+                text=Localization.get(
+                    user.locale,
                     "dice-keeping-style-option",
                     style=Localization.get(
                         user.locale, self.DICE_KEEPING_STYLES.get(prefs.dice_keeping_style, "dice-keeping-style-indexes")
@@ -2333,6 +2344,8 @@ PlayAural Server
                 prefs.dice_keeping_style = DiceKeepingStyle.from_str(str(value))
             except ValueError:
                 return
+        elif key == "gameplay/allow_custom_bot_names":
+            prefs.allow_custom_bot_names = bool(value)
         elif key == "mobile/tts_engine":
             prefs.mobile_tts_engine = "system"
             value = "system"
@@ -3814,6 +3827,15 @@ PlayAural Server
             self._nav_refresh(user, self._show_options_menu)
         elif selection_id == "audio_input_device":
             self._nav_push(user, self._show_audio_input_device_menu)
+        elif selection_id == "custom_bot_names":
+            prefs.allow_custom_bot_names = not prefs.allow_custom_bot_names
+            self._save_user_preferences(user)
+            self._sync_pref_to_client(
+                user,
+                "gameplay/allow_custom_bot_names",
+                prefs.allow_custom_bot_names,
+            )
+            self._nav_refresh(user, self._show_options_menu)
         elif selection_id == "clear_kept":
             prefs.clear_kept_on_roll = not prefs.clear_kept_on_roll
             self._save_user_preferences(user)

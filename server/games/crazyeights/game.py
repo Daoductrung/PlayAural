@@ -150,22 +150,9 @@ class CrazyEightsGame(Game, TurnTimerMixin):
         return player
 
     def _action_add_bot(self, player: Player, bot_name: str, action_id: str) -> None:
-        if not bot_name.strip():
-            from ...game_utils.lobby_actions_mixin import BOT_NAMES
-
-            bot_name = next(
-                (
-                    n
-                    for n in BOT_NAMES
-                    if n.lower() not in {x.name.lower() for x in self.players}
-                ),
-                None,
-            )
-            if not bot_name:
-                user = self.get_user(player)
-                if user:
-                    user.speak_l("no-bot-names-available", buffer="game")
-                return
+        bot_name = self._resolve_add_bot_name(player, bot_name)
+        if bot_name is None:
+            return
 
         bot_user = Bot(bot_name)
         self.add_player(bot_name, bot_user)

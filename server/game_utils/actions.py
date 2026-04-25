@@ -39,13 +39,14 @@ class EditboxInput(DataClassJSONMixin):
     """
     Request text input before action executes.
 
-    The bot_input is a method name (string) that will be looked up
-    on the game object at execution time.
+    The bot_input and should_prompt fields are method names (strings) that
+    will be looked up on the game object at execution time.
     """
 
     prompt: str  # Localization key for prompt
     default: str = ""  # Default value (static string only now)
     bot_input: str | None = None  # Method name for bot auto-input
+    should_prompt: str | None = None  # Method name returning whether humans need input
 
 
 @dataclass

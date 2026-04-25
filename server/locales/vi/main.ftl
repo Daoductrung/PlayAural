@@ -156,6 +156,7 @@ option-off = Tắt
 
 turn-sound-option = Âm thanh báo lượt: { $status }
 
+custom-bot-names-option = Tên bot tùy chỉnh: { $status }
 clear-kept-option = Xóa xúc xắc đã giữ khi gieo: { $status }
 option-notify-table-created-on = Thông báo khi có bàn mới: Bật
 option-notify-table-created-off = Thông báo khi có bàn mới: Tắt
@@ -171,6 +172,9 @@ dice-keeping-style-values = Theo giá trị
 cancel = Hủy
 no-bot-names-available = Không có tên bot nào.
 enter-bot-name = Nhập tên bot
+bot-name-invalid-length = Tên bot phải dài từ 3 đến 30 ký tự.
+bot-name-invalid-characters = Tên bot chỉ được dùng chữ cái, số và khoảng trắng.
+bot-name-already-used = Tên bot đó đã được dùng trong bàn này.
 no-options-available = Không có tùy chọn nào.
 no-scores-available = Chưa có điểm số.
 

@@ -156,6 +156,7 @@ option-off = Off
 
 turn-sound-option = Turn sound: { $status }
 
+custom-bot-names-option = Custom bot names: { $status }
 clear-kept-option = Clear kept dice when rolling: { $status }
 option-notify-table-created-on = Notify when table created: On
 option-notify-table-created-off = Notify when table created: Off
@@ -171,6 +172,9 @@ dice-keeping-style-values = Dice values
 cancel = Cancel
 no-bot-names-available = No bot names available.
 enter-bot-name = Enter bot name
+bot-name-invalid-length = Bot names must be 3 to 30 characters.
+bot-name-invalid-characters = Bot names can only contain letters, numbers, and spaces.
+bot-name-already-used = That bot name is already in use at this table.
 no-options-available = No options available.
 no-scores-available = No scores available.
 

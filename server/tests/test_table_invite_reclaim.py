@@ -143,6 +143,40 @@ class TestTableInviteReclaim:
         self.server._cancel_invite(guest.username)
 
     @pytest.mark.asyncio
+    async def test_transient_private_message_input_escape_restores_parent_and_deferred_invite(self):
+        host = self._create_online_user("Host")
+        guest = self._create_online_user("Guest")
+        friend = self._create_online_user("Friend")
+        table, _ = self._create_started_table(host, friend)
+
+        self.server._user_states[guest.username] = {
+            "menu": "friend_actions_menu",
+            "target_username": friend.username,
+        }
+        guest.show_editbox(
+            "send_pm_input",
+            Localization.get(guest.locale, "enter-pm-message", username=friend.username),
+            multiline=True,
+        )
+        self.server._enter_input_state(guest, "send_pm_input", target_username=friend.username)
+
+        await self.server._send_table_invite(host, table, guest)
+        client = SimpleNamespace(username=guest.username, authenticated=True)
+        await self.server._on_client_message(
+            client,
+            {"type": "escape", "menu_id": "send_pm_input"},
+        )
+
+        state = self.server._user_states[guest.username]
+        assert state["menu"] == "table_invite_prompt"
+        assert state["prev_state"]["menu"] == "friend_actions_menu"
+        assert state["prev_state"]["target_username"] == friend.username
+        assert self.server._pending_invites[guest.username]["deferred"] is False
+        assert "table_invite_prompt" in guest.menus
+
+        self.server._cancel_invite(guest.username)
+
+    @pytest.mark.asyncio
     async def test_accepting_invite_reclaims_bot_replaced_seat(self):
         host = self._create_online_user("Host")
         guest = self._create_online_user("Guest")

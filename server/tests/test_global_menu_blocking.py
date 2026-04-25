@@ -4,6 +4,7 @@ import pytest
 
 from ..core.server import Server
 from ..games.pig.game import PigGame
+from ..messages.localization import Localization
 from ..users.test_user import MockUser
 
 
@@ -85,5 +86,85 @@ async def test_open_friends_blocked_while_status_box_open() -> None:
 
         assert server._user_states[host.username]["menu"] == "friends_hub_menu"
         assert "friends_hub_menu" in host.menus
+    finally:
+        server._db.close()
+
+
+@pytest.mark.asyncio
+async def test_server_editbox_escape_cancels_without_validation_error() -> None:
+    server = Server(db_path=":memory:")
+    server._db.connect()
+    try:
+        user = MockUser("Alice", uuid="p1")
+        server._users[user.username] = user
+        server._user_states[user.username] = {"menu": "options_menu"}
+        server._enter_input_state(user, "music_volume_input")
+
+        await server._on_client_message(
+            SimpleNamespace(username=user.username, authenticated=True),
+            {"type": "escape", "menu_id": "music_volume_input"},
+        )
+
+        assert server._user_states[user.username]["menu"] == "options_menu"
+        assert "options_menu" in user.menus
+        assert user.get_last_spoken() != Localization.get(user.locale, "invalid-volume")
+    finally:
+        server._db.close()
+
+
+@pytest.mark.asyncio
+async def test_blank_option_editbox_submission_cancels_without_validation_error() -> None:
+    server = Server(db_path=":memory:")
+    server._db.connect()
+    try:
+        user = MockUser("Alice", uuid="p1")
+        server._users[user.username] = user
+        server._user_states[user.username] = {"menu": "options_menu"}
+        server._enter_input_state(user, "music_volume_input")
+
+        await server._on_client_message(
+            SimpleNamespace(username=user.username, authenticated=True),
+            {
+                "type": "editbox",
+                "input_id": "music_volume_input",
+                "text": "",
+            },
+        )
+
+        assert server._user_states[user.username]["menu"] == "options_menu"
+        assert "options_menu" in user.menus
+        assert user.get_last_spoken() != Localization.get(user.locale, "invalid-volume")
+    finally:
+        server._db.close()
+
+
+def test_game_action_input_escape_cancels_pending_editbox() -> None:
+    server, _host, _guest, _table, game, host_player = _make_playing_game_server()
+    try:
+        game._pending_actions[host_player.id] = "roll"
+
+        game.handle_event(
+            host_player,
+            {"type": "escape", "menu_id": "action_input_editbox"},
+        )
+
+        assert host_player.id not in game._pending_actions
+        assert "turn_menu" in game.get_user(host_player).menus
+    finally:
+        server._db.close()
+
+
+def test_game_action_input_escape_cancels_pending_menu() -> None:
+    server, _host, _guest, _table, game, host_player = _make_playing_game_server()
+    try:
+        game._pending_actions[host_player.id] = "roll"
+
+        game.handle_event(
+            host_player,
+            {"type": "escape", "menu_id": "action_input_menu"},
+        )
+
+        assert host_player.id not in game._pending_actions
+        assert "turn_menu" in game.get_user(host_player).menus
     finally:
         server._db.close()

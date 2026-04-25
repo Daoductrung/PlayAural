@@ -45,9 +45,10 @@ type NativeTouchPoint = {
 const DOUBLE_TAP_WINDOW_MS = 350;
 const DOUBLE_TAP_HOLD_MS = 350;
 const MULTI_TOUCH_REPEAT_WINDOW_MS = 200;
+const MULTI_TOUCH_PAN_RELEASE_SUPPRESSION_MS = 120;
 const MULTI_TOUCH_DOMINANCE_RATIO = 1.25;
-const THREE_FINGER_SINGLE_TAP_DELAY_MS = 700;
-const THREE_FINGER_TRIPLE_TAP_WINDOW_MS = 950;
+const THREE_FINGER_TAP_RESOLUTION_DELAY_MS = 1100;
+const THREE_FINGER_TAP_MAX_GAP_MS = 1250;
 const MOVE_TOLERANCE = 4;
 const SWIPE_THRESHOLD = 14;
 
@@ -61,6 +62,7 @@ export function useSelfVoicingGestures(callbacks: GestureCallbacks) {
   const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingThreeFingerTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const suppressPanReleaseRef = useRef(false);
+  const suppressPanReleaseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastMultiTouchDispatchRef = useRef<{ at: number; key: string } | null>(null);
 
   const clearHoldTimer = () => {
@@ -77,6 +79,22 @@ export function useSelfVoicingGestures(callbacks: GestureCallbacks) {
     }
   };
 
+  const clearSuppressPanReleaseTimer = () => {
+    if (suppressPanReleaseTimerRef.current) {
+      clearTimeout(suppressPanReleaseTimerRef.current);
+      suppressPanReleaseTimerRef.current = null;
+    }
+  };
+
+  const suppressNextPanRelease = () => {
+    suppressPanReleaseRef.current = true;
+    clearSuppressPanReleaseTimer();
+    suppressPanReleaseTimerRef.current = setTimeout(() => {
+      suppressPanReleaseRef.current = false;
+      suppressPanReleaseTimerRef.current = null;
+    }, MULTI_TOUCH_PAN_RELEASE_SUPPRESSION_MS);
+  };
+
   useEffect(() => {
     callbacksRef.current = callbacks;
   }, [callbacks]);
@@ -84,6 +102,7 @@ export function useSelfVoicingGestures(callbacks: GestureCallbacks) {
   useEffect(() => () => {
     clearHoldTimer();
     clearPendingThreeFingerTapTimer();
+    clearSuppressPanReleaseTimer();
   }, []);
 
   const getTouchArray = (
@@ -225,15 +244,15 @@ export function useSelfVoicingGestures(callbacks: GestureCallbacks) {
   const registerThreeFingerTap = () => {
     const callbacks = callbacksRef.current;
     const now = Date.now();
-    if (now - lastThreeFingerTapAtRef.current > THREE_FINGER_TRIPLE_TAP_WINDOW_MS) {
+    if (now - lastThreeFingerTapAtRef.current > THREE_FINGER_TAP_MAX_GAP_MS) {
       threeFingerTapCountRef.current = 0;
     }
     lastThreeFingerTapAtRef.current = now;
     threeFingerTapCountRef.current += 1;
+    clearPendingThreeFingerTapTimer();
 
     if (threeFingerTapCountRef.current >= 3 && callbacks.globalToggleEnabled !== false) {
       threeFingerTapCountRef.current = 0;
-      clearPendingThreeFingerTapTimer();
       callbacks.onThreeFingerTripleTap();
       return;
     }
@@ -242,18 +261,14 @@ export function useSelfVoicingGestures(callbacks: GestureCallbacks) {
       return;
     }
 
-    clearPendingThreeFingerTapTimer();
     pendingThreeFingerTapTimerRef.current = setTimeout(() => {
       pendingThreeFingerTapTimerRef.current = null;
-      if (threeFingerTapCountRef.current === 1) {
-        threeFingerTapCountRef.current = 0;
+      const tapCount = threeFingerTapCountRef.current;
+      threeFingerTapCountRef.current = 0;
+      if (tapCount === 1) {
         callbacksRef.current.onThreeFingerTap();
-        return;
       }
-      if (threeFingerTapCountRef.current < 3) {
-        threeFingerTapCountRef.current = 0;
-      }
-    }, THREE_FINGER_SINGLE_TAP_DELAY_MS);
+    }, THREE_FINGER_TAP_RESOLUTION_DELAY_MS);
   };
 
   const handleDirectTouchStart = (event: GestureResponderEvent) => {
@@ -274,7 +289,7 @@ export function useSelfVoicingGestures(callbacks: GestureCallbacks) {
     if (touchTrackRef.current) {
       touchTrackRef.current.consumed = true;
     }
-    suppressPanReleaseRef.current = true;
+    suppressNextPanRelease();
     clearHoldTimer();
   };
 
@@ -314,7 +329,7 @@ export function useSelfVoicingGestures(callbacks: GestureCallbacks) {
       return;
     }
     current.consumed = true;
-    suppressPanReleaseRef.current = true;
+    suppressNextPanRelease();
     dispatchSwipe(direction, current.gestureTouches);
   };
 
@@ -329,11 +344,18 @@ export function useSelfVoicingGestures(callbacks: GestureCallbacks) {
       current.lastX = activePoint.x;
       current.lastY = activePoint.y;
     }
-    if (getTouchArray(event, "touches").length > 0) {
+    const remainingTouches = getTouchArray(event, "touches");
+    if (remainingTouches.length > 0) {
       return;
     }
+    const changedTouches = getTouchArray(event, "changedTouches");
+    const finalCentroid = changedTouches.length >= current.gestureTouches ? getCentroid(changedTouches) : null;
+    if (finalCentroid) {
+      current.lastX = finalCentroid.x;
+      current.lastY = finalCentroid.y;
+    }
     directTouchTrackRef.current = null;
-    suppressPanReleaseRef.current = true;
+    suppressNextPanRelease();
     clearHoldTimer();
     if (current.consumed) {
       return;
@@ -365,7 +387,7 @@ export function useSelfVoicingGestures(callbacks: GestureCallbacks) {
 
   const handleDirectTouchCancel = () => {
     if (directTouchTrackRef.current) {
-      suppressPanReleaseRef.current = true;
+      suppressNextPanRelease();
     }
     directTouchTrackRef.current = null;
     clearHoldTimer();
@@ -413,13 +435,17 @@ export function useSelfVoicingGestures(callbacks: GestureCallbacks) {
         onMoveShouldSetPanResponderCapture: shouldHandleMoveGesture,
         onPanResponderGrant: (event: GestureResponderEvent) => {
           const touches = event.nativeEvent.touches.length || 1;
+          if (touches === 1 && suppressPanReleaseRef.current) {
+            clearSuppressPanReleaseTimer();
+            suppressPanReleaseRef.current = false;
+          }
           touchTrackRef.current = {
             consumed: false,
             maxTouches: touches,
             moved: false,
           };
           if (touches >= 2) {
-            suppressPanReleaseRef.current = true;
+            suppressNextPanRelease();
           }
           if (touches === 1 && Date.now() - lastSingleTapAtRef.current <= DOUBLE_TAP_WINDOW_MS) {
             beginHoldDetection();
@@ -435,7 +461,7 @@ export function useSelfVoicingGestures(callbacks: GestureCallbacks) {
           track.maxTouches = Math.max(track.maxTouches, event.nativeEvent.touches.length || track.maxTouches);
           if (track.maxTouches >= 2) {
             track.consumed = true;
-            suppressPanReleaseRef.current = true;
+            suppressNextPanRelease();
             clearHoldTimer();
             return;
           }
@@ -458,6 +484,7 @@ export function useSelfVoicingGestures(callbacks: GestureCallbacks) {
           const track = touchTrackRef.current;
           touchTrackRef.current = null;
           if (suppressPanReleaseRef.current) {
+            clearSuppressPanReleaseTimer();
             suppressPanReleaseRef.current = false;
             return;
           }
@@ -489,6 +516,7 @@ export function useSelfVoicingGestures(callbacks: GestureCallbacks) {
         },
         onPanResponderTerminate: () => {
           clearHoldTimer();
+          clearSuppressPanReleaseTimer();
           touchTrackRef.current = null;
           suppressPanReleaseRef.current = false;
         },

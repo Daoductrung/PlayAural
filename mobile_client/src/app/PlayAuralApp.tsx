@@ -2964,17 +2964,35 @@ export function PlayAuralApp() {
     });
   };
 
+  const clearInputOverlay = () => {
+    Keyboard.dismiss();
+    activeTextInputKeyRef.current = null;
+    inputStateRef.current = null;
+    setActiveTextInputKey((current) => (current === "input:field" ? null : current));
+    setInputState(null);
+    setInputValue("");
+    setInputOverlayFocus(0);
+  };
+
+  const cancelInputOverlay = () => {
+    const currentInput = inputStateRef.current;
+    if (!currentInput) {
+      return;
+    }
+    connection?.send({
+      menu_id: currentInput.inputId || undefined,
+      type: "escape",
+    });
+    clearInputOverlay();
+    announceInterfaceFeedback(localization.t("input-cancelled"));
+  };
+
   const submitInputOverlay = () => {
     if (!inputState) {
       return;
     }
     if (inputState.readOnly) {
-      Keyboard.dismiss();
-      activeTextInputKeyRef.current = null;
-      setActiveTextInputKey((current) => (current === "input:field" ? null : current));
-      setInputState(null);
-      setInputValue("");
-      setInputOverlayFocus(0);
+      clearInputOverlay();
       return;
     }
     connection?.send({
@@ -2983,12 +3001,7 @@ export function PlayAuralApp() {
       type: "editbox",
     });
     announceInterfaceFeedback(localization.t("input-submitted"));
-    Keyboard.dismiss();
-    activeTextInputKeyRef.current = null;
-    setActiveTextInputKey((current) => (current === "input:field" ? null : current));
-    setInputState(null);
-    setInputValue("");
-    setInputOverlayFocus(0);
+    clearInputOverlay();
   };
 
   const handlePrimaryActivate = () => {
@@ -3370,13 +3383,7 @@ export function PlayAuralApp() {
         return;
       }
       if (inputState) {
-        Keyboard.dismiss();
-        activeTextInputKeyRef.current = null;
-        setActiveTextInputKey((current) => (current === "input:field" ? null : current));
-        setInputState(null);
-        setInputValue("");
-        setInputOverlayFocus(0);
-        announceInterfaceFeedback(localization.t("input-cancelled"));
+        cancelInputOverlay();
         return;
       }
       if (connected && mode === "main" && currentMenuState.menuId === "turn_menu") {

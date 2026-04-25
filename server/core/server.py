@@ -500,8 +500,10 @@ PlayAural Server
             if packet_type == "menu":
                 await self._handle_menu(client, packet)
             elif packet_type == "escape":
-                packet["selection_id"] = "back"
-                await self._handle_menu(client, packet)
+                await self._handle_menu(
+                    client,
+                    {**packet, "type": "menu", "selection_id": "back"},
+                )
             elif packet_type == "keybind":
                 await self._handle_keybind(client, packet)
             elif packet_type == "editbox":
@@ -2216,78 +2218,68 @@ PlayAural Server
         value = packet.get("text", packet.get("value"))
         prefs = user.preferences
 
-        if menu_id == "music_volume_input":
-            try:
-                # Validate input
-                if not value or not value.isdigit():
-                     raise ValueError
-                vol = int(value)
-                if 0 <= vol <= 100:
-                    prefs.music_volume = vol
-                    self._save_user_preferences(user)
-                    self._sync_pref_to_client(user, "audio/music_volume", vol)
-                    self._nav_refresh(user, self._show_options_menu)
-                    return True
-                else:
-                    raise ValueError
-            except ValueError:
-                user.speak_l("invalid-volume", buffer="system")
-                self._nav_refresh(user, self._show_options_menu)
-                return True
+        numeric_inputs = {
+            "music_volume_input": (
+                "music_volume",
+                "audio/music_volume",
+                0,
+                100,
+                "invalid-volume",
+                self._show_options_menu,
+            ),
+            "ambience_volume_input": (
+                "ambience_volume",
+                "audio/ambience_volume",
+                0,
+                100,
+                "invalid-volume",
+                self._show_options_menu,
+            ),
+            "speech_rate_input": (
+                "speech_rate",
+                "speech_rate",
+                50,
+                300,
+                "invalid-rate",
+                self._show_speech_settings_menu,
+            ),
+            "mobile_tts_rate_input": (
+                "mobile_tts_rate",
+                "mobile/tts_rate",
+                50,
+                200,
+                "mobile-tts-invalid-rate",
+                self._show_mobile_speech_settings_menu,
+            ),
+        }
 
-        elif menu_id == "ambience_volume_input":
-            try:
-                if not value or not value.isdigit():
-                     raise ValueError
-                vol = int(value)
-                if 0 <= vol <= 100:
-                    prefs.ambience_volume = vol
-                    self._save_user_preferences(user)
-                    self._sync_pref_to_client(user, "audio/ambience_volume", vol)
-                    self._nav_refresh(user, self._show_options_menu)
-                    return True
-                else:
-                    raise ValueError
-            except ValueError:
-                user.speak_l("invalid-volume", buffer="system")
-                self._nav_refresh(user, self._show_options_menu)
+        if menu_id in numeric_inputs:
+            (
+                preference_name,
+                sync_key,
+                minimum,
+                maximum,
+                invalid_key,
+                restore_menu,
+            ) = numeric_inputs[menu_id]
+            if value is None or str(value).strip() == "":
+                self._cancel_input_state(user, state)
                 return True
-
-        elif menu_id == "speech_rate_input":
             try:
-                if not value or not value.isdigit():
-                     raise ValueError
-                rate = int(value)
-                if 50 <= rate <= 300:
-                    prefs.speech_rate = rate
-                    self._save_user_preferences(user)
-                    self._sync_pref_to_client(user, "speech_rate", rate)
-                    self._nav_refresh(user, self._show_speech_settings_menu)
-                    return True
-                else:
+                numeric_value = str(value).strip()
+                if not numeric_value.isdigit():
                     raise ValueError
-            except ValueError:
-                user.speak_l("invalid-rate", buffer="system")
-                self._nav_refresh(user, self._show_speech_settings_menu)
-                return True
-
-        elif menu_id == "mobile_tts_rate_input":
-            try:
-                if not value or not value.isdigit():
-                     raise ValueError
-                rate = int(value)
-                if 50 <= rate <= 200:
-                    prefs.mobile_tts_rate = rate
-                    self._save_user_preferences(user)
-                    self._sync_pref_to_client(user, "mobile/tts_rate", rate)
-                    self._nav_refresh(user, self._show_mobile_speech_settings_menu)
-                    return True
-                else:
+                parsed_value = int(numeric_value)
+                if not minimum <= parsed_value <= maximum:
                     raise ValueError
+                setattr(prefs, preference_name, parsed_value)
+                self._save_user_preferences(user)
+                self._sync_pref_to_client(user, sync_key, parsed_value)
+                self._nav_refresh(user, restore_menu)
             except ValueError:
-                user.speak_l("mobile-tts-invalid-rate", buffer="system")
-                self._nav_refresh(user, self._show_mobile_speech_settings_menu)
-                return True
+                user.speak_l(invalid_key, buffer="system")
+                self._nav_refresh(user, restore_menu)
+            return True
 
         return False
 
@@ -2838,6 +2830,10 @@ PlayAural Server
 
         state = self._user_states.get(username, {})
         current_menu = state.get("menu")
+
+        if state.get("_transient") and selection_id == "back":
+            self._cancel_input_state(user, state)
+            return
 
         # Check if user is in a system lockdown menu. If so, intercept before game logic.
         if current_menu == "banned_menu":
@@ -5907,6 +5903,11 @@ PlayAural Server
 
         # Handle system menu input
         if user:
+            if packet.get("cancelled") or packet.get("cancel"):
+                if user_state.get("_transient"):
+                    self._cancel_input_state(user, user_state)
+                return
+
             # Try admin handler
             if await self.admin_manager.handle_input(user, packet, user_state):
                 return
@@ -6612,6 +6613,21 @@ PlayAural Server
 
     # Public alias so external modules (e.g. administration/manager.py) can call it.
     enter_input_state = _enter_input_state
+
+    def _cancel_input_state(self, user: NetworkUser, state: dict | None = None) -> None:
+        """Cancel a transient server-side editbox and restore its stable parent."""
+        username = user.username
+        current = state or self._user_states.get(username, {})
+        parent_frame = {
+            k: v for k, v in (current.get("_parent_frame") or {}).items()
+            if k not in ("_stack", "_transient", "_parent_frame")
+        }
+        if not parent_frame:
+            self._nav_back(user)
+            return
+        stack = list(current.get("_stack", []))
+        self._user_states[username] = {**parent_frame, "_stack": stack}
+        self._restore_frame(user, parent_frame, stack)
 
     def _user_has_blocking_modal_state(self, username: str) -> bool:
         """Return True if forward navigation must be blocked for the user.

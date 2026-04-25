@@ -113,6 +113,7 @@ class MainWindow(wx.Frame):
         self.current_menu_item_ids = []  # Track item IDs for current menu (parallel to menu items)
         self.current_edit_multiline = False  # Track if current editbox is multiline
         self.current_edit_read_only = False  # Track if current editbox is read-only
+        self.current_edit_input_id = None  # Track server input ID for Escape cancellation
 
         # Ping tracking
         self._ping_start_time = None  # Track when ping was sent
@@ -1368,6 +1369,7 @@ class MainWindow(wx.Frame):
         multiline=False,
         read_only=False,
         max_length=None,
+        input_id=None,
     ):
         """
         Switch from list mode to edit mode.
@@ -1379,6 +1381,7 @@ class MainWindow(wx.Frame):
             multiline: Whether to use a multiline editbox
             read_only: Whether the editbox is read-only
             max_length: Optional maximum length for the text input
+            input_id: Server input ID used for cancellation
         """
         if self.current_mode == "edit":
             return  # Already in edit mode
@@ -1429,6 +1432,7 @@ class MainWindow(wx.Frame):
         self.current_mode = "edit"
         self.edit_mode_callback = callback
         self.current_edit_read_only = read_only
+        self.current_edit_input_id = input_id
 
         # Don't speak prompt - screen reader will announce it when focusing the editbox
 
@@ -1450,6 +1454,18 @@ class MainWindow(wx.Frame):
 
         self.current_mode = "list"
         self.edit_mode_callback = None
+        self.current_edit_input_id = None
+        self.current_edit_read_only = False
+
+    def cancel_edit_mode(self):
+        """Cancel the active editbox without submitting an empty value."""
+        if self.connected and self.current_edit_input_id:
+            self.network.send_packet(
+                {"type": "escape", "menu_id": self.current_edit_input_id}
+            )
+        elif self.edit_mode_callback:
+            self.edit_mode_callback("")
+        self.switch_to_list_mode()
 
     def on_edit_enter(self, event):
         """Handle Enter key in edit mode input."""
@@ -1471,10 +1487,8 @@ class MainWindow(wx.Frame):
         key_code = event.GetKeyCode()
         
         if key_code == wx.WXK_ESCAPE:
-             if self.edit_mode_callback:
-                 self.edit_mode_callback("")
-             self.switch_to_list_mode()
-             return
+            self.cancel_edit_mode()
+            return
 
         event.Skip()
 
@@ -2859,7 +2873,7 @@ class MainWindow(wx.Frame):
     def on_server_request_input(self, packet):
         """Handle request_input packet from server."""
         prompt = packet.get("prompt", "Enter text:")
-        input_id = packet.get("input_id", None)
+        input_id = packet.get("input_id") or packet.get("id") or packet.get("menu_id")
         default_value = packet.get("default_value", "")
         multiline = packet.get("multiline", False)
         read_only = packet.get("read_only", False)
@@ -2872,7 +2886,15 @@ class MainWindow(wx.Frame):
                 event_packet["input_id"] = input_id
             self.network.send_packet(event_packet)
 
-        self.switch_to_edit_mode(prompt, on_submit, default_value, multiline, read_only, max_length)
+        self.switch_to_edit_mode(
+            prompt,
+            on_submit,
+            default_value,
+            multiline,
+            read_only,
+            max_length,
+            input_id,
+        )
 
     def on_server_clear_ui(self, packet):
         """Handle clear_ui packet from server."""

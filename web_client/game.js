@@ -2954,16 +2954,29 @@ class GameClient {
         input.style.userSelect = 'text';
         input.setAttribute('inputmode', packet.multiline ? 'text' : 'text');
 
+        const cancelInput = () => {
+            this.sendEscape(packet.input_id);
+            this.menuArea.innerHTML = "";
+        };
+
         const submitBtn = document.createElement('button');
         submitBtn.innerText = Localization.get("input-submit");
         submitBtn.className = "primary-btn";
         submitBtn.style.marginTop = "10px";
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.innerText = Localization.get("common-cancel");
+        cancelBtn.className = "secondary-btn";
+        cancelBtn.style.marginTop = "10px";
 
         // Enable Enter key to submit
         input.onkeydown = (e) => {
             if (e.key === 'Enter' && !packet.multiline) {
                 e.preventDefault();
                 submitBtn.click();
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                cancelInput();
             }
         };
 
@@ -2995,10 +3008,12 @@ class GameClient {
             // Clear UI immediately - server will send new menu packet
             this.menuArea.innerHTML = "";
         };
+        cancelBtn.onclick = cancelInput;
 
         wrapper.appendChild(input);
         wrapper.appendChild(document.createElement('br'));
         wrapper.appendChild(submitBtn);
+        wrapper.appendChild(cancelBtn);
         this.menuArea.appendChild(wrapper);
 
         // iOS Safari requires a short delay before focus/select to reliably

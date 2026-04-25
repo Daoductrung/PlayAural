@@ -31,6 +31,12 @@ class EventHandlingMixin:
         if event_type == "menu":
             self._handle_menu_event(player, event)
 
+        elif event_type == "escape":
+            self._handle_menu_event(
+                player,
+                {**event, "type": "menu", "selection_id": "back"},
+            )
+
         elif event_type == "editbox":
             self._handle_editbox_event(player, event)
 
@@ -146,9 +152,12 @@ class EventHandlingMixin:
             # Handle action input menu selection
             if player.id in self._pending_actions:
                 action_id = self._pending_actions.pop(player.id)
-                if selection_id != "_cancel":
+                if selection_id not in ("_cancel", "back"):
                     # Execute the action with the selected input
                     self.execute_action(player, action_id, selection_id)
+            self.rebuild_player_menu(player)
+        elif menu_id == "action_input_editbox":
+            self._pending_actions.pop(player.id, None)
             self.rebuild_player_menu(player)
         elif menu_id == "leave_game_confirm":
             user = self.get_user(player)
@@ -175,7 +184,7 @@ class EventHandlingMixin:
             # Handle action input editbox submission
             if player.id in self._pending_actions:
                 action_id = self._pending_actions.pop(player.id)
-                if text:  # Non-empty input
+                if text and not event.get("cancelled") and not event.get("cancel"):
                     self.execute_action(player, action_id, text)
             self.rebuild_player_menu(player)
 

@@ -780,30 +780,27 @@ PlayAural Server
                     # Active player rejoining
                     player = table.game.get_player_by_id(user.uuid)
                     if player:
-                        # Update player's bot status in case they were replaced
-                        player.is_bot = False
-
-                        # Rejoin table - use same approach as _restore_saved_table
-                        table.attach_user(username, user)
-
                         # Check status: if game is finished, we don't rebuild state, we let them see the table menu
                         if table.game.status != "finished":
                             restored_game = True
 
-                            # Restore humanity if they were replaced by a bot
                             if player.is_bot:
-                                player.is_bot = False
-                                table.game.broadcast_l("player-rejoined", buffer="system", player=player.name)
+                                self._reclaim_bot_replaced_slot(user, table, player)
+                            else:
+                                # Set user state before any menu rebuild so the initial
+                                # turn menu is accepted by the in-game routing guard.
+                                self._set_in_game_state(user, table.table_id)
 
-                            table.game.attach_user(player.id, user)
+                                # Rejoin table - use same approach as _restore_saved_table
+                                table.attach_user(username, user)
+                                table.game.attach_user(player.id, user)
 
-                            # Set user state so menu selections are handled correctly
-                            self._set_in_game_state(user, table.table_id)
-
-                            # Immediately push the turn menu so the player sees their
-                            # options without waiting for the next game tick.
-                            if hasattr(table.game, "rebuild_player_menu"):
-                                table.game.rebuild_player_menu(player)
+                                # Immediately push the turn menu so the player sees their
+                                # options without waiting for the next game tick.
+                                if hasattr(table.game, "rebuild_player_menu"):
+                                    table.game.rebuild_player_menu(player)
+                        else:
+                            table.attach_user(username, user)
                     else:
                         # Player's uuid is not in the game (should not normally happen, but
                         # can occur if the game was saved in an inconsistent state).  Remove
@@ -4177,6 +4174,7 @@ PlayAural Server
         if not game:
             return
 
+        self._set_in_game_state(user, table.table_id)
         reclaimed_player.is_bot = False
         reclaimed_player.replaced_human = False
         game._users.pop(reclaimed_player.id, None)
@@ -4868,7 +4866,6 @@ PlayAural Server
                         message_key="player-took-over",
                         sound_name="join.ogg",
                     )
-                    self._set_in_game_state(user, table_id)
                     return
                 else:
                     # No matching player - join as spectator instead

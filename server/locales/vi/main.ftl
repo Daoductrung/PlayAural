@@ -107,7 +107,6 @@ table-full = Bàn đã đầy.
 player-replaced-by-bot = { $player } đã thoát và được thay thế bằng Bot.
 player-reclaimed-from-bot = { $player } đã kết nối lại và lấy lại vị trí của mình.
 player-took-over = { $player } đã thay thế Bot.
-player-rejoined = { $player } đã vào lại trò chơi.
 spectator-joined = Đã tham gia bàn của { $host } với tư cách khán giả.
 
 spectate = Xem

@@ -107,7 +107,6 @@ table-full = Table is full.
 player-replaced-by-bot = { $player } left and was replaced by a bot.
 player-reclaimed-from-bot = { $player } reconnected and reclaimed their seat.
 player-took-over = { $player } took over from the bot.
-player-rejoined = { $player } has rejoined the game.
 spectator-joined = Joined { $host }'s table as a spectator.
 
 spectate = Spectate

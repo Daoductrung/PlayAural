@@ -186,7 +186,6 @@ class CrazyEightsGame(Game, TurnTimerMixin):
             
             if other_humans:
                 self._replace_with_bot(player)
-                self.broadcast_l("player-replaced-by-bot", buffer="game", player=player.name)
                 self.play_sound("game_crazyeights/personleave.ogg")
                 self.rebuild_all_menus()
                 return

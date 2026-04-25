@@ -29,7 +29,12 @@ class TestTableInviteReclaim:
         os.unlink(self.temp_file.name)
 
     def _create_online_user(self, username: str) -> MockUser:
-        self.db.create_user(username, "Password123")
+        self.db.create_user(
+            username,
+            "Password123",
+            approved=True,
+            email=f"{username.lower()}@example.com",
+        )
         record = self.db.get_user(username)
         assert record is not None
         user = MockUser(username, uuid=record.uuid)
@@ -194,6 +199,8 @@ class TestTableInviteReclaim:
 
         await self.server._send_table_invite(host, table, guest)
         state = self.server._user_states[guest.username]
+        host.clear_messages()
+        guest.clear_messages()
         await self.server._handle_table_invite_selection(guest, "accept", state)
 
         reclaimed = game.get_player_by_id(guest.uuid)
@@ -206,6 +213,9 @@ class TestTableInviteReclaim:
         assert self.server._tables.find_user_table(guest.username) is table
         assert sum(1 for member in table.members if member.username == guest.username) == 1
         assert sum(1 for player in game.players if player.name == guest.username) == 1
+        expected = Localization.get(guest.locale, "player-reclaimed-from-bot", player=guest.username)
+        assert expected in host.get_spoken_messages()
+        assert expected in guest.get_spoken_messages()
 
     @pytest.mark.asyncio
     async def test_accepting_invite_reattaches_existing_table_member(self):
@@ -222,6 +232,8 @@ class TestTableInviteReclaim:
 
         await self.server._send_table_invite(host, table, guest)
         state = self.server._user_states[guest.username]
+        host.clear_messages()
+        guest.clear_messages()
         await self.server._handle_table_invite_selection(guest, "accept", state)
 
         reclaimed = game.get_player_by_id(guest.uuid)
@@ -233,6 +245,75 @@ class TestTableInviteReclaim:
         assert table.get_user(guest.username) is guest
         assert self.server._tables.find_user_table(guest.username) is table
         assert sum(1 for member in table.members if member.username == guest.username) == 1
+        expected = Localization.get(guest.locale, "player-reclaimed-from-bot", player=guest.username)
+        assert expected in host.get_spoken_messages()
+        assert expected in guest.get_spoken_messages()
+
+    def test_login_restore_reclaims_bot_replaced_seat_and_announces(self):
+        host = self._create_online_user("Host")
+        guest = self._create_online_user("Guest")
+        table, game = self._create_started_table(host, guest)
+
+        guest_player = game.get_player_by_id(guest.uuid)
+        assert guest_player is not None
+
+        game._replace_with_bot(guest_player)
+        table._users.pop(guest.username, None)
+        host.clear_messages()
+        guest.clear_messages()
+
+        self.server._restore_user_state(guest, guest.username)
+
+        reclaimed = game.get_player_by_id(guest.uuid)
+        assert reclaimed is not None
+        assert reclaimed.is_bot is False
+        assert reclaimed.replaced_human is False
+        assert reclaimed.is_spectator is False
+        assert game.get_user(reclaimed) is guest
+        assert table.get_user(guest.username) is guest
+        assert self.server._tables.find_user_table(guest.username) is table
+        assert self.server._user_states[guest.username] == {
+            "menu": "in_game",
+            "table_id": table.table_id,
+        }
+        expected = Localization.get(guest.locale, "player-reclaimed-from-bot", player=guest.username)
+        assert expected in host.get_spoken_messages()
+        assert expected in guest.get_spoken_messages()
+
+    @pytest.mark.asyncio
+    async def test_join_player_reclaims_bot_replaced_seat_before_menu_rebuild(self):
+        host = self._create_online_user("Host")
+        guest = self._create_online_user("Guest")
+        table, game = self._create_started_table(host, guest)
+
+        guest_player = game.get_player_by_id(guest.uuid)
+        assert guest_player is not None
+
+        game._perform_leave_game(guest_player)
+        table.remove_member(guest.username)
+        host.clear_messages()
+        guest.clear_messages()
+
+        await self.server._handle_join_selection(
+            guest,
+            "join_player",
+            {"table_id": table.table_id, "game_type": "pig"},
+        )
+
+        reclaimed = game.get_player_by_id(guest.uuid)
+        assert reclaimed is not None
+        assert reclaimed.is_bot is False
+        assert reclaimed.replaced_human is False
+        assert reclaimed.is_spectator is False
+        assert game.get_user(reclaimed) is guest
+        assert table.get_user(guest.username) is guest
+        assert self.server._user_states[guest.username] == {
+            "menu": "in_game",
+            "table_id": table.table_id,
+        }
+        expected = Localization.get(guest.locale, "player-took-over", player=guest.username)
+        assert expected in host.get_spoken_messages()
+        assert expected in guest.get_spoken_messages()
 
     @pytest.mark.asyncio
     async def test_friend_join_reclaims_bot_replaced_seat(self):
@@ -245,6 +326,8 @@ class TestTableInviteReclaim:
 
         game._perform_leave_game(guest_player)
         table.remove_member(guest.username)
+        host.clear_messages()
+        guest.clear_messages()
 
         await self.server._handle_friend_actions_selection(
             guest,
@@ -261,6 +344,9 @@ class TestTableInviteReclaim:
         assert table.get_user(guest.username) is guest
         assert self.server._tables.find_user_table(guest.username) is table
         assert sum(1 for member in table.members if member.username == guest.username) == 1
+        expected = Localization.get(guest.locale, "player-reclaimed-from-bot", player=guest.username)
+        assert expected in host.get_spoken_messages()
+        assert expected in guest.get_spoken_messages()
 
     @pytest.mark.asyncio
     async def test_friend_join_switches_active_tables_via_leave_logic(self):

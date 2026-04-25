@@ -413,7 +413,6 @@ class LastCardGame(Game, TurnTimerMixin):
             other_humans = any(not p.is_bot and not p.is_spectator and p.id != player.id for p in self.players)
             if other_humans:
                 self._replace_with_bot(player)
-                self.broadcast_l("player-replaced-by-bot", buffer="game", player=player.name)
                 self.broadcast_sound("leave.ogg")
                 self.rebuild_all_menus()
                 return

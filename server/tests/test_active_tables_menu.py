@@ -1,7 +1,6 @@
 ﻿from pathlib import Path
 
 from ..core.server import Server
-from ..tables.manager import TableManager
 from ..users.test_user import MockUser
 from ..messages.localization import Localization
 
@@ -18,12 +17,10 @@ def _menu_texts(user: MockUser, menu_id: str) -> list[str]:
 
 
 def _make_server() -> Server:
-    Localization.init(Path(__file__).resolve().parents[1] / "locales")
-    server = Server.__new__(Server)
-    server._tables = TableManager()
-    server._user_states = {}
-    server._users = {}
-    return server
+    return Server(
+        db_path=":memory:",
+        locales_dir=Path(__file__).resolve().parents[1] / "locales",
+    )
 
 
 def test_active_tables_menu_lists_members_without_host() -> None:

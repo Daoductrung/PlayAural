@@ -1,4 +1,4 @@
-﻿"""Tests for Scopa game implementation."""
+"""Tests for Scopa game implementation."""
 
 from pathlib import Path
 
@@ -151,7 +151,7 @@ class TestScopaGameUnit:
         game_class = GameRegistry.get("scopa")
         assert game_class is not None
         assert game_class.get_name() == "Scopa"
-        assert game_class.get_category() == "category-card-games"
+        assert game_class.get_category() == "cards"
 
     def test_game_creation(self):
         """Test creating a new game."""

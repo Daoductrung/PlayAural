@@ -1,5 +1,4 @@
 game-name-pig = Pig
-pig-category = Dice Games
 
 pig-roll = Roll the die
 pig-bank = Bank { $points } points

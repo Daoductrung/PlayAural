@@ -1,4 +1,4 @@
-﻿"""
+"""
 Tests for the Threes game.
 """
 
@@ -17,7 +17,7 @@ class TestThreesGameUnit:
         game = ThreesGame()
         assert game.get_name() == "Threes"
         assert game.get_type() == "threes"
-        assert game.get_category() == "category-dice-games"
+        assert game.get_category() == "dice"
         assert game.get_min_players() == 2
         assert game.get_max_players() == 8
 

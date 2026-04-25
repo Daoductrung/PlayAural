@@ -1,4 +1,4 @@
-﻿"""
+"""
 Integration tests for PlayAural.
 
 Tests larger chunks of server code working together.
@@ -205,11 +205,114 @@ class TestGameRegistryIntegration:
 
     def test_get_by_category(self):
         """Test getting games by category."""
+        from ..games.categories import CATEGORY_DICE, GAME_CATEGORY_IDS
         from ..games.pig.game import PigGame
 
         categories = GameRegistry.get_by_category()
-        assert "category-dice-games" in categories
-        assert PigGame in categories["category-dice-games"]
+        assert CATEGORY_DICE in categories
+        assert PigGame in categories[CATEGORY_DICE]
+        assert set(categories).issubset(GAME_CATEGORY_IDS)
+
+    def test_registered_games_use_known_backend_categories(self):
+        """Test that registered games declare supported backend category ids."""
+        from .. import games as registered_games
+        from ..games.categories import GAME_CATEGORY_IDS
+
+        assert registered_games.GameRegistry is GameRegistry
+
+        for game_class in GameRegistry.get_all():
+            assert game_class.get_category() in GAME_CATEGORY_IDS
+
+    def test_registered_game_category_assignments(self):
+        """Test canonical backend category assignments for all registered games."""
+        from .. import games as registered_games
+
+        assert registered_games.GameRegistry is GameRegistry
+
+        expected_categories = {
+            "backgammon": "board",
+            "battle": "arcade",
+            "battleship": "board",
+            "blackjack": "cards",
+            "bunko": "dice",
+            "chaosbear": "arcade",
+            "chess": "board",
+            "citadels": "cards",
+            "colorgame": "dice",
+            "coup": "cards",
+            "crazyeights": "cards",
+            "dominos": "board",
+            "farkle": "dice",
+            "fivecarddraw": "poker",
+            "holdem": "poker",
+            "lastcard": "cards",
+            "leftrightcenter": "dice",
+            "lightturret": "arcade",
+            "ludo": "board",
+            "midnight": "dice",
+            "milebymile": "cards",
+            "ninetynine": "cards",
+            "pig": "dice",
+            "pirates": "board",
+            "pusoydos": "cards",
+            "rollingballs": "misc",
+            "scopa": "cards",
+            "snakesandladders": "board",
+            "sorry": "board",
+            "threes": "dice",
+            "tienlen": "cards",
+            "tossup": "dice",
+            "tradeoff": "dice",
+            "yahtzee": "dice",
+        }
+
+        actual_categories = {
+            game_class.get_type(): game_class.get_category()
+            for game_class in GameRegistry.get_all()
+        }
+        assert actual_categories == expected_categories
+
+    def test_play_menu_uses_flat_game_list(self):
+        """Test that the Play menu does not expose category selection."""
+        from .. import games as registered_games
+        from ..core.server import Server
+
+        assert registered_games.GameRegistry is GameRegistry
+
+        server = Server(db_path=":memory:")
+        user = MockUser("Viewer")
+        server._show_games_list_menu(user)
+
+        items = user.get_current_menu_items("games_menu") or []
+        item_ids = [item.id for item in items if hasattr(item, "id")]
+
+        assert "game_pig" in item_ids
+        assert item_ids[-1] == "back"
+        assert all(
+            item_id == "back" or item_id.startswith("game_")
+            for item_id in item_ids
+        )
+
+    def test_leaderboards_menu_uses_flat_game_list(self):
+        """Test that leaderboards game selection does not depend on categories."""
+        from .. import games as registered_games
+        from ..core.server import Server
+
+        assert registered_games.GameRegistry is GameRegistry
+
+        server = Server(db_path=":memory:")
+        user = MockUser("Viewer")
+        server._show_leaderboards_menu(user)
+
+        items = user.get_current_menu_items("leaderboards_menu") or []
+        item_ids = [item.id for item in items if hasattr(item, "id")]
+
+        assert "lb_pig" in item_ids
+        assert item_ids[-1] == "back"
+        assert all(
+            item_id == "back" or item_id.startswith("lb_")
+            for item_id in item_ids
+        )
 
 
 class TestFullGameFlow:

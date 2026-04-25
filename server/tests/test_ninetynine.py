@@ -1,4 +1,4 @@
-﻿"""
+"""
 Tests for the Ninety Nine game.
 
 Following the testing strategy:
@@ -50,7 +50,7 @@ class TestNinetyNineUnit:
         game = NinetyNineGame()
         assert game.get_name() == "Ninety Nine"
         assert game.get_type() == "ninetynine"
-        assert game.get_category() == "category-card-games"
+        assert game.get_category() == "cards"
         assert game.get_min_players() == 2
         assert game.get_max_players() == 6
 

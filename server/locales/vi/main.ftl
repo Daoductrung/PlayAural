@@ -1,10 +1,3 @@
-category-card-games = Game bài
-category-dice-games = Game xúc xắc
-category-board-games = Game bàn cờ
-category-rb-play-center = Trung tâm RB Play
-category-poker = Poker
-category-uncategorized = Chưa phân loại
-
 auth-username-password-required = Yêu cầu tên đăng nhập và mật khẩu.
 auth-registration-success = Đăng ký thành công! Giờ bạn có thể đăng nhập.
 auth-username-taken = Tên đăng nhập đã có người dùng. Vui lòng chọn tên khác.

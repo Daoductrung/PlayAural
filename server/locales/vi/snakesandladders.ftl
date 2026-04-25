@@ -1,6 +1,5 @@
 game-name-snakesandladders = Rắn và Thang
 game-snakesandladders-desc = Cuộc đua cổ điển đến ô 100! Leo thang và tránh rắn.
-category-board-games = Game bàn cờ
 
 snakes-roll = Gieo xúc xắc
 

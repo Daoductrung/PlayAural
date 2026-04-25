@@ -195,12 +195,14 @@ Every game must implement these `@classmethod` methods:
 |--------|---------|---------|
 | `get_name()` | `str` — English display name | `"Dominos"` |
 | `get_type()` | `str` — type identifier (lowercase) | `"dominos"` |
-| `get_category()` | `str` — category localization key | `"category-board-games"` |
+| `get_category()` | `str` — backend category id | `"board"` |
 | `get_min_players()` | `int` | `2` |
 | `get_max_players()` | `int` | `4` |
 | `get_supported_leaderboards()` | `list[str]` | `["wins", "rating", "games_played"]` |
 
-Available categories: `category-card-games`, `category-dice-games`, `category-board-games`, `category-poker`, `category-rb-play-center`, `category-uncategorized`.
+Available backend categories: `cards`, `dice`, `board`, `poker`, `arcade`, `misc`.
+
+Game categories are backend metadata for management and future extensibility. The Play menu is intentionally a flat localized game list; do not add category-selection UI or category locale strings unless a future feature explicitly makes categories user-facing.
 
 ### 2.4 Required Instance Methods
 

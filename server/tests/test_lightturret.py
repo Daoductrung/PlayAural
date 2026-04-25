@@ -1,4 +1,4 @@
-﻿"""
+"""
 Tests for the Light Turret game.
 """
 
@@ -21,7 +21,7 @@ class TestLightTurretGameUnit:
         game = LightTurretGame()
         assert game.get_name() == "Light Turret"
         assert game.get_type() == "lightturret"
-        assert game.get_category() == "category-rb-play-center"
+        assert game.get_category() == "arcade"
         assert game.get_min_players() == 2
         assert game.get_max_players() == 4
 

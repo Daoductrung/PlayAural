@@ -1,4 +1,4 @@
-﻿import json
+import json
 
 from ..games.holdem.game import HoldemGame, HoldemOptions
 from ..users.test_user import MockUser
@@ -10,7 +10,7 @@ def test_holdem_game_creation():
     assert game.get_name() == "Texas Hold'em"
     assert game.get_name_key() == "game-name-holdem"
     assert game.get_type() == "holdem"
-    assert game.get_category() == "category-poker"
+    assert game.get_category() == "poker"
     assert game.get_min_players() == 2
     assert game.get_max_players() == 12
 

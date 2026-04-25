@@ -1,6 +1,5 @@
 game-name-snakesandladders = Snakes and Ladders
 game-snakesandladders-desc = The classic race to 100! Climb ladders and avoid snakes.
-category-board-games = Board Games
 
 snakes-roll = Roll Dice
 

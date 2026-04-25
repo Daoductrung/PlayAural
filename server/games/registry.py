@@ -2,6 +2,8 @@
 
 from typing import Type, TYPE_CHECKING
 
+from .categories import normalize_category
+
 if TYPE_CHECKING:
     from .base import Game
 
@@ -32,7 +34,7 @@ class GameRegistry:
         """Get games organized by category."""
         categories: dict[str, list[Type["Game"]]] = {}
         for game_class in cls._games.values():
-            category = game_class.get_category()
+            category = normalize_category(game_class.get_category())
             if category not in categories:
                 categories[category] = []
             categories[category].append(game_class)

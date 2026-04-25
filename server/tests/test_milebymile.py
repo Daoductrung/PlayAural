@@ -1,4 +1,4 @@
-﻿"""
+"""
 Tests for the Mile by Mile game.
 """
 
@@ -24,7 +24,7 @@ class TestMileByMileGameUnit:
         game = MileByMileGame()
         assert game.get_name() == "Mile by Mile"
         assert game.get_type() == "milebymile"
-        assert game.get_category() == "category-card-games"
+        assert game.get_category() == "cards"
         assert game.get_min_players() == 2
         assert game.get_max_players() == 9
 

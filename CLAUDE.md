@@ -308,7 +308,8 @@ Mobile rules:
 
 ### Game Counts and Catalog
 The server currently registers **34 games**:
-- card games, dice games, board/adventure games, and social games
+- backend category ids are `cards`, `dice`, `board`, `poker`, `arcade`, and `misc`
+- categories are management metadata only; the Play menu remains a flat localized game list
 - recent additions include `Bunko`, `Tien Len`, `Color Game`, and `Citadels`
 
 ### Key Tech Stack

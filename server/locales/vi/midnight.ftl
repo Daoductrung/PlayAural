@@ -1,5 +1,4 @@
 game-name-midnight = 1-4-24
-midnight-category = Game xúc xắc
 
 midnight-roll = Gieo xúc xắc
 midnight-keep-die = Giữ { $value }

@@ -1,4 +1,4 @@
-﻿import json
+import json
 
 from ..games.fivecarddraw.game import FiveCardDrawGame, FiveCardDrawOptions
 from ..users.test_user import MockUser
@@ -10,7 +10,7 @@ def test_draw_game_creation():
     assert game.get_name() == "Five Card Draw"
     assert game.get_name_key() == "game-name-fivecarddraw"
     assert game.get_type() == "fivecarddraw"
-    assert game.get_category() == "category-poker"
+    assert game.get_category() == "poker"
     assert game.get_min_players() == 2
     assert game.get_max_players() == 5
 

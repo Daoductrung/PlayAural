@@ -1,4 +1,4 @@
-﻿"""
+"""
 Tests for the Pig game.
 
 Following the testing strategy:
@@ -24,7 +24,7 @@ class TestPigGameUnit:
         game = PigGame()
         assert game.get_name() == "Pig"
         assert game.get_type() == "pig"
-        assert game.get_category() == "category-dice-games"
+        assert game.get_category() == "dice"
         assert game.get_min_players() == 2
         assert game.get_max_players() == 4
 

@@ -1,10 +1,3 @@
-category-card-games = Card Games
-category-dice-games = Dice Games
-category-board-games = Board Games
-category-rb-play-center = RB Play Center
-category-poker = Poker
-category-uncategorized = Uncategorized
-
 auth-username-password-required = Username and password are required.
 auth-registration-success = Registration successful! You can now log in with your credentials.
 auth-username-taken = Username already taken. Please choose a different username.

@@ -103,7 +103,7 @@ def test_game_creation():
     assert game.get_name() == "Last Card"
     assert game.get_name_key() == "game-name-lastcard"
     assert game.get_type() == "lastcard"
-    assert game.get_category() == "category-card-games"
+    assert game.get_category() == "cards"
     assert game.get_min_players() == 2
     assert game.get_max_players() == 10
 

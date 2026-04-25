@@ -1,4 +1,4 @@
-﻿"""
+"""
 Tests for the Toss Up game.
 
 Following the testing strategy:
@@ -24,7 +24,7 @@ class TestTossUpGameUnit:
         game = TossUpGame()
         assert game.get_name() == "Toss Up"
         assert game.get_type() == "tossup"
-        assert game.get_category() == "category-dice-games"
+        assert game.get_category() == "dice"
         assert game.get_min_players() == 2
         assert game.get_max_players() == 8
 

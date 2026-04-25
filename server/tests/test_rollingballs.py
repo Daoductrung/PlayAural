@@ -38,7 +38,7 @@ class TestRollingBallsUnit:
         game = RollingBallsGame()
         assert game.get_name() == "Rolling Balls"
         assert game.get_type() == "rollingballs"
-        assert game.get_category() == "category-uncategorized"
+        assert game.get_category() == "misc"
         assert game.get_min_players() == 2
         assert game.get_max_players() == 4
 

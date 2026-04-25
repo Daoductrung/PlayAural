@@ -173,7 +173,7 @@ class BackgammonGame(Game):
 
     @classmethod
     def get_category(cls) -> str:
-        return "category-board-games"
+        return "board"
 
     @classmethod
     def get_min_players(cls) -> int:

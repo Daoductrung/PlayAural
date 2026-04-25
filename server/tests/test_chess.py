@@ -97,7 +97,7 @@ class TestRegistration:
     def test_class_methods(self) -> None:
         assert ChessGame.get_name() == "Chess"
         assert ChessGame.get_type() == "chess"
-        assert ChessGame.get_category() == "category-board-games"
+        assert ChessGame.get_category() == "board"
         assert ChessGame.get_min_players() == 2
         assert ChessGame.get_max_players() == 2
         assert ChessGame.get_supported_leaderboards() == ["wins", "rating", "games_played"]

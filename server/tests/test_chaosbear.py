@@ -1,4 +1,4 @@
-﻿"""
+"""
 Tests for the Chaos Bear game.
 """
 
@@ -24,7 +24,7 @@ class TestChaosBearGameUnit:
         game = ChaosBearGame()
         assert game.get_name() == "Chaos Bear"
         assert game.get_type() == "chaosbear"
-        assert game.get_category() == "category-rb-play-center"
+        assert game.get_category() == "arcade"
         assert game.get_min_players() == 2
         assert game.get_max_players() == 4
 

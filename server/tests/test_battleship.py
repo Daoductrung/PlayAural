@@ -116,7 +116,7 @@ class TestRegistration:
     def test_class_methods(self) -> None:
         assert BattleshipGame.get_name() == "Battleship"
         assert BattleshipGame.get_type() == "battleship"
-        assert BattleshipGame.get_category() == "category-board-games"
+        assert BattleshipGame.get_category() == "board"
         assert BattleshipGame.get_min_players() == 2
         assert BattleshipGame.get_max_players() == 2
         assert BattleshipGame.get_name_key() == "game-name-battleship"

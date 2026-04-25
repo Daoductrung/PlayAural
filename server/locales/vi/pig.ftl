@@ -1,5 +1,4 @@
 game-name-pig = Pig
-pig-category = Game xúc xắc
 
 pig-roll = Gieo xúc xắc
 pig-bank = Chốt { $points } điểm

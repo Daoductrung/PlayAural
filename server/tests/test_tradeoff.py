@@ -1,4 +1,4 @@
-﻿"""
+"""
 Tests for the Tradeoff game.
 """
 
@@ -234,7 +234,7 @@ class TestTradeoffGameUnit:
         game = TradeoffGame()
         assert game.get_name() == "Tradeoff"
         assert game.get_type() == "tradeoff"
-        assert game.get_category() == "category-dice-games"
+        assert game.get_category() == "dice"
         assert game.get_min_players() == 2
         assert game.get_max_players() == 8
 

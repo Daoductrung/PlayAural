@@ -152,7 +152,7 @@ class FiveCardDrawGame(Game, TurnTimerMixin):
 
     @classmethod
     def get_category(cls) -> str:
-        return "category-poker"
+        return "poker"
 
     @classmethod
     def get_min_players(cls) -> int:

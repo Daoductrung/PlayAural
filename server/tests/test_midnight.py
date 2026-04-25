@@ -1,4 +1,4 @@
-﻿"""
+"""
 Tests for the 1-4-24 (Midnight) game.
 
 Following the testing strategy:
@@ -24,7 +24,7 @@ class TestMidnightGameUnit:
         game = MidnightGame()
         assert game.get_name() == "1-4-24"
         assert game.get_type() == "midnight"
-        assert game.get_category() == "category-dice-games"
+        assert game.get_category() == "dice"
         assert game.get_min_players() == 2
         assert game.get_max_players() == 6
 

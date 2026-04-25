@@ -47,7 +47,7 @@ def test_blackjack_game_creation() -> None:
     assert game.get_name() == "Blackjack"
     assert game.get_name_key() == "game-name-blackjack"
     assert game.get_type() == "blackjack"
-    assert game.get_category() == "category-card-games"
+    assert game.get_category() == "cards"
     assert game.get_min_players() == 1
     assert game.get_max_players() == 7
 

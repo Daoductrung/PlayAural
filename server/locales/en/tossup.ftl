@@ -1,5 +1,4 @@
 game-name-tossup = Toss Up
-tossup-category = Dice Games
 
 tossup-roll-first = Roll { $count } dice
 tossup-roll-remaining = Roll { $count } remaining dice

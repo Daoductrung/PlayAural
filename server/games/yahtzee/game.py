@@ -232,7 +232,7 @@ class YahtzeeGame(Game, DiceGameMixin):
 
     @classmethod
     def get_category(cls) -> str:
-        return "category-dice-games"
+        return "dice"
 
     @classmethod
     def get_min_players(cls) -> int:

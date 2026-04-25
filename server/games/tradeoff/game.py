@@ -110,7 +110,7 @@ class TradeoffGame(Game):
 
     @classmethod
     def get_category(cls) -> str:
-        return "category-dice-games"
+        return "dice"
 
     def _get_player_score(self, player_name: str) -> int:
         """Get a player's total score from the team manager."""

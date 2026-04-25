@@ -15,13 +15,14 @@ class Localization:
     """
 
     _bundles: dict[str, FluentBundle] = {}
+    _bundle_cache_by_dir: dict[Path, dict[str, FluentBundle]] = {}
     _locales_dir: Path | None = None
 
     @classmethod
     def init(cls, locales_dir: Path | str) -> None:
         """Initialize the localization system with a locales directory."""
-        cls._locales_dir = Path(locales_dir)
-        cls._bundles = {}
+        cls._locales_dir = Path(locales_dir).resolve()
+        cls._bundles = cls._bundle_cache_by_dir.setdefault(cls._locales_dir, {})
 
     @classmethod
     def preload_bundles(cls) -> None:

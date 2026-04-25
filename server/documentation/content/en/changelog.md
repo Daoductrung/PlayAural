@@ -236,7 +236,7 @@ Wednesday 25 March 2026
 
 Welcome to the first version of PlayAural. This is an audio-first online gaming platform designed to be fully accessible for blind players.
 
-Added 25 different games across four categories, including card games like Ninety Nine, dice games, adventure games like Battleship, and social games like Coup.
+Added 25 different games across several game families, including card games like Ninety Nine, dice games, adventure games like Battleship, and social games like Coup.
 
 Added a desktop application with native screen reader support and low latency.
 

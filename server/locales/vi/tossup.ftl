@@ -1,5 +1,4 @@
 game-name-tossup = Toss Up
-tossup-category = Game xúc xắc
 
 tossup-roll-first = Gieo { $count } xúc xắc
 tossup-roll-remaining = Gieo { $count } xúc xắc còn lại

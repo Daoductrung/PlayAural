@@ -1,5 +1,4 @@
 game-name-threes = Threes
-threes-category = Game xúc xắc
 
 threes-roll = Gieo xúc xắc
 threes-bank = Chốt và dừng lượt

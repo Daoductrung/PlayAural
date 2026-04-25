@@ -67,7 +67,7 @@ class TestRegistration:
     def test_class_methods_and_defaults(self) -> None:
         assert BackgammonGame.get_name() == "Backgammon"
         assert BackgammonGame.get_type() == "backgammon"
-        assert BackgammonGame.get_category() == "category-board-games"
+        assert BackgammonGame.get_category() == "board"
         assert BackgammonGame.get_min_players() == 2
         assert BackgammonGame.get_max_players() == 2
         assert BackgammonGame.get_supported_leaderboards() == ["wins", "rating", "games_played"]

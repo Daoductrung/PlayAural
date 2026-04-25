@@ -285,7 +285,7 @@ class BattleGame(Game):
 
     @classmethod
     def get_category(cls) -> str:
-        return "category-rb-play-center"
+        return "arcade"
 
     @classmethod
     def get_min_players(cls) -> int:

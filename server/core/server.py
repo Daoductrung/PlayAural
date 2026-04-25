@@ -1317,21 +1317,19 @@ PlayAural Server
         user.stop_ambience()
         self._user_states[user.username] = {"menu": "main_menu"}
 
-    def _show_games_list_menu(self, user: NetworkUser) -> None:
-        """Show flat list of all games."""
-        games = GameRegistry.get_all()
-        # Sort games by localized name
-        # We need to get pairs of (game, name) to sort
+    def _get_localized_game_list(self, user: NetworkUser) -> list[tuple[type, str]]:
+        """Return all registered games sorted by localized display name."""
         game_list = []
-        for game_class in games:
+        for game_class in GameRegistry.get_all():
             name = Localization.get(user.locale, game_class.get_name_key())
             game_list.append((game_class, name))
-        
-        # Sort by name
-        game_list.sort(key=lambda x: x[1])
+        game_list.sort(key=lambda item: item[1].casefold())
+        return game_list
 
+    def _show_games_list_menu(self, user: NetworkUser) -> None:
+        """Show flat list of all games."""
         items = []
-        for game_class, name in game_list:
+        for game_class, name in self._get_localized_game_list(user):
             items.append(MenuItem(text=name, id=f"game_{game_class.get_type()}"))
         items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
 
@@ -1342,25 +1340,6 @@ PlayAural Server
             escape_behavior=EscapeBehavior.SELECT_LAST,
         )
         self._user_states[user.username] = {"menu": "games_menu"}
-
-    def _show_games_menu(self, user: NetworkUser, category: str) -> None:
-        """Show games in a category."""
-        categories = GameRegistry.get_by_category()
-        games = categories.get(category, [])
-
-        items = []
-        for game_class in games:
-            game_name = Localization.get(user.locale, game_class.get_name_key())
-            items.append(MenuItem(text=game_name, id=f"game_{game_class.get_type()}"))
-        items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
-
-        user.show_menu(
-            "games_menu",
-            items,
-            multiletter=True,
-            escape_behavior=EscapeBehavior.SELECT_LAST,
-        )
-        self._user_states[user.username] = {"menu": "games_menu", "category": category}
 
     def _show_tables_menu(self, user: NetworkUser, game_type: str) -> None:
         """Show available tables for a game."""
@@ -3634,19 +3613,10 @@ PlayAural Server
 
     def _show_game_rules_menu(self, user: NetworkUser) -> None:
         """Show list of games to read rules for."""
-        games = GameRegistry.get_all()
-        # Sort games by localized name
-        game_list = []
-        for game_class in games:
-            name = Localization.get(user.locale, game_class.get_name_key())
-            game_list.append((game_class, name))
-        game_list.sort(key=lambda x: x[1])
-
-        items = []
-        for game_class, name in game_list:
-             # Using game type as doc_id suffix: games/scopa
-            items.append(MenuItem(text=name, id=f"games/{game_class.get_type()}"))
-            
+        items = [
+            MenuItem(text=name, id=f"games/{game_class.get_type()}")
+            for game_class, name in self._get_localized_game_list(user)
+        ]
         items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
 
         user.show_menu(
@@ -5039,16 +5009,12 @@ PlayAural Server
 
     def _show_leaderboards_menu(self, user: NetworkUser) -> None:
         """Show leaderboards game selection menu."""
-        categories = GameRegistry.get_by_category()
         items = []
 
-        # Add all games from all categories
-        for category_key in sorted(categories.keys()):
-            for game_class in categories[category_key]:
-                game_name = Localization.get(user.locale, game_class.get_name_key())
-                items.append(
-                    MenuItem(text=game_name, id=f"lb_{game_class.get_type()}")
-                )
+        for game_class, game_name in self._get_localized_game_list(user):
+            items.append(
+                MenuItem(text=game_name, id=f"lb_{game_class.get_type()}")
+            )
 
         items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
 
@@ -5594,20 +5560,15 @@ PlayAural Server
 
     def _show_my_stats_menu(self, user: NetworkUser) -> None:
         """Show game selection menu for personal stats (only games user has played)."""
-        categories = GameRegistry.get_by_category()
         items = []
 
-        # Add only games where the user has stats
-        for category_key in sorted(categories.keys()):
-            for game_class in categories[category_key]:
-                game_type = game_class.get_type()
-                # Check if user has played this game
-                stats = self._db.get_all_player_game_stats(user.uuid, game_type)
-                if stats and stats.get("games_played", 0) > 0:
-                    game_name = Localization.get(user.locale, game_class.get_name_key())
-                    items.append(
-                        MenuItem(text=game_name, id=f"stats_{game_type}")
-                    )
+        for game_class, game_name in self._get_localized_game_list(user):
+            game_type = game_class.get_type()
+            stats = self._db.get_all_player_game_stats(user.uuid, game_type)
+            if stats and stats.get("games_played", 0) > 0:
+                items.append(
+                    MenuItem(text=game_name, id=f"stats_{game_type}")
+                )
 
         if not items:
             items.append(MenuItem(text=Localization.get(user.locale, "my-stats-no-games"), id=""))
@@ -6807,11 +6768,7 @@ PlayAural Server
         elif menu == "public_profile_menu":
             self._show_public_profile(user, frame.get("target_username", ""))
         elif menu == "games_menu":
-            category = frame.get("category")
-            if category:
-                self._show_games_menu(user, category)
-            else:
-                self._show_games_list_menu(user)
+            self._show_games_list_menu(user)
         elif menu == "tables_menu":
             self._show_tables_menu(user, frame.get("game_type", ""))
         elif menu == "active_tables_menu":

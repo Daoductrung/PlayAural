@@ -58,7 +58,7 @@ def test_game_registered_and_defaults() -> None:
     game = BunkoGame()
     assert game.get_name() == "Bunko"
     assert game.get_type() == "bunko"
-    assert game.get_category() == "category-dice-games"
+    assert game.get_category() == "dice"
     assert game.get_min_players() == 2
     assert game.get_max_players() == 6
     assert game.get_supported_leaderboards() == ["wins", "rating", "games_played"]

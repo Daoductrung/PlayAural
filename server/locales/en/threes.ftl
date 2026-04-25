@@ -1,5 +1,4 @@
 game-name-threes = Threes
-threes-category = Dice Games
 
 threes-roll = Roll the dice
 threes-bank = Bank and end turn

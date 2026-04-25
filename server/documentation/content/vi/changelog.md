@@ -236,7 +236,7 @@ Thứ Tư 25 Tháng Ba 2026
 
 Chào mừng bạn đến với phiên bản đầu tiên của PlayAural. Đây là một nền tảng giải trí ưu tiên âm thanh, được thiết kế để hoàn toàn tiếp cận cho người mù.
 
-Đã thêm 25 trò chơi đa dạng thuộc bốn thể loại, bao gồm game bài như Bài 99, game xúc xắc, game chiến thuật như Tàu chiến, và game tương tác xã hội như Đảo chính.
+Đã thêm 25 trò chơi đa dạng thuộc nhiều nhóm trò chơi, bao gồm game bài như Bài 99, game xúc xắc, game chiến thuật như Tàu chiến, và game tương tác xã hội như Đảo chính.
 
 Đã thêm phần mềm trên máy tính với độ trễ thấp và tương thích mượt mà với các trình đọc màn hình.
 

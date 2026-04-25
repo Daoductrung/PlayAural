@@ -6,12 +6,18 @@ from pathlib import Path
 
 @pytest.fixture
 def mock_server():
-    server = Server(db_path=":memory:")
+    server = Server(
+        db_path=":memory:",
+        locales_dir=Path(__file__).resolve().parents[1] / "locales",
+    )
     server._db.connect()
     server._db.initialize_trust_levels()
-    Localization.init(Path("locales"))
+    Localization.init(Path(__file__).resolve().parents[1] / "locales")
     Localization.preload_bundles()
-    return server
+    try:
+        yield server
+    finally:
+        server._db.close()
 
 @pytest.mark.asyncio
 async def test_active_tables_filter_toggle(mock_server):

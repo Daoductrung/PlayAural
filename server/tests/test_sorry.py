@@ -60,7 +60,7 @@ class TestRegistration:
     def test_class_methods_and_defaults(self) -> None:
         assert SorryGame.get_name() == "Sorry!"
         assert SorryGame.get_type() == "sorry"
-        assert SorryGame.get_category() == "category-board-games"
+        assert SorryGame.get_category() == "board"
         assert SorryGame.get_min_players() == 2
         assert SorryGame.get_max_players() == 4
         assert SorryGame.get_supported_leaderboards() == ["wins", "rating", "games_played"]

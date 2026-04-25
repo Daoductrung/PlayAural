@@ -120,7 +120,7 @@ async def test_motd_admin_flow(mock_server):
     # 7. Admin clicks Delete again (empty delete check)
     user.speak_l = MagicMock()
     await server._handle_menu(user.connection, {"selection_id": "delete"})
-    user.speak_l.assert_called_with("motd-delete-empty")
+    user.speak_l.assert_called_with("motd-delete-empty", buffer="system")
 
 @pytest.mark.asyncio
 async def test_motd_login_interception(mock_server):

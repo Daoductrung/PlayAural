@@ -19,7 +19,7 @@ class TestSnakesGameUnit:
         game = SnakesAndLaddersGame()
         assert game.get_name() == "Snakes and Ladders"
         assert game.get_type() == "snakesandladders"
-        assert game.get_category() == "category-board-games"
+        assert game.get_category() == "board"
         assert game.get_min_players() == 2
         assert game.get_max_players() == 4
         assert game.WINNING_SQUARE == 100

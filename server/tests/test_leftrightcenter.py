@@ -1,4 +1,4 @@
-﻿"""
+"""
 Tests for the Left Right Center game.
 """
 
@@ -16,7 +16,7 @@ def test_game_creation():
     game = LeftRightCenterGame()
     assert game.get_name() == "Left Right Center"
     assert game.get_type() == "leftrightcenter"
-    assert game.get_category() == "category-dice-games"
+    assert game.get_category() == "dice"
     assert game.get_min_players() == 2
     assert game.get_max_players() == 20
 

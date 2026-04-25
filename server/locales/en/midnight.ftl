@@ -1,5 +1,4 @@
 game-name-midnight = 1-4-24
-midnight-category = Dice Games
 
 midnight-roll = Roll the dice
 midnight-keep-die = Keep { $value }

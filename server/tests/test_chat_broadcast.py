@@ -187,3 +187,30 @@ async def test_table_chat_mute_blocks_sending_with_error() -> None:
     assert alice_connection.sent == []
     assert bob_connection.sent == []
     assert alice.get_last_spoken() == Localization.get(alice.locale, "chat-table-disabled-send")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("message", ["/stop", "/reboot", "/kick Bob"])
+async def test_non_admin_slash_commands_do_not_broadcast_as_chat(message: str) -> None:
+    server = _make_server()
+    alice_connection = RecordingConnection()
+    bob_connection = RecordingConnection()
+    alice = _make_user("Alice", alice_connection)
+    bob = _make_user("Bob", bob_connection)
+    server._users = {
+        "Alice": alice,
+        "Bob": bob,
+    }
+    server._shutdown_task = None
+
+    await server._handle_chat(
+        DummyClient("Alice"),
+        {
+            "convo": "global",
+            "message": message,
+            "type": "chat",
+        },
+    )
+
+    assert alice_connection.sent == []
+    assert bob_connection.sent == []

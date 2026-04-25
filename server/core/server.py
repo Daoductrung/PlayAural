@@ -132,7 +132,7 @@ class Server:
         self._users: dict[str, NetworkUser] = {}  # username -> NetworkUser
         self._user_states: dict[str, dict] = {}  # username -> UI state
         self._pending_disconnects: dict[str, asyncio.Task] = {} # username -> broadcast task
-        # Pending table invites: invitee_username -> {table_id, host_username, task}
+        # Pending table invites: invitee_username -> {table_id, host_username, task, deferred, game_name}
         self._pending_invites: dict[str, dict] = {}
         # Active shutdown/reboot countdown task (None when idle)
         self._shutdown_task: asyncio.Task | None = None
@@ -530,6 +530,10 @@ PlayAural Server
                 await self._handle_voice_presence(client, packet)
             elif packet_type == "voice_leave":
                 await self._handle_voice_leave(client, packet)
+
+            user = self._users.get(client.username)
+            if user:
+                self._maybe_show_deferred_table_invite(user)
 
     async def _handle_authorize(self, client: ClientConnection, packet: dict) -> None:
         """Handle authorization packet."""
@@ -4495,16 +4499,49 @@ PlayAural Server
             else table.game_type
         )
 
+        self._pending_invites[invitee_name] = {
+            "table_id": table.table_id,
+            "host_username": host_user.username,
+            "game_name": game_name,
+            "task": asyncio.create_task(self._expire_invite(invitee_name, table.table_id)),
+            "deferred": False,
+        }
+        if self._user_has_blocking_modal_state(invitee_name):
+            self._pending_invites[invitee_name]["deferred"] = True
+            invitee_user.play_sound(TABLE_INVITE_NOTIFICATION_SOUND)
+            invitee_user.speak_l(
+                "table-invite-queued",
+                buffer="system",
+                host=host_user.username,
+                game=game_name,
+            )
+            return
+
+        self._show_table_invite_prompt(invitee_user, self._pending_invites[invitee_name])
+
+    def _show_table_invite_prompt(
+        self,
+        invitee_user: NetworkUser,
+        invite: dict,
+    ) -> None:
+        """Display a pending table invite prompt, preserving its existing expiry timer."""
+        invitee_name = invitee_user.username
+        table_id = invite.get("table_id", "")
+        host_username = invite.get("host_username", "")
+        game_name = invite.get("game_name", "")
         prev_state = self._user_states.get(invitee_name, {})
+
         self._user_states[invitee_name] = {
             "menu": "table_invite_prompt",
-            "table_id": table.table_id,
+            "table_id": table_id,
             "prev_state": prev_state,
         }
 
         invite_text = Localization.get(
-            invitee_user.locale, "table-invite-received",
-            host=host_user.username, game=game_name,
+            invitee_user.locale,
+            "table-invite-received",
+            host=host_username,
+            game=game_name,
         )
         items = [
             MenuItem(text=invite_text, id=""),  # Static info line (unclickable)
@@ -4512,7 +4549,12 @@ PlayAural Server
             MenuItem(text=Localization.get(invitee_user.locale, "invite-decline"), id="decline"),
         ]
         invitee_user.play_sound(TABLE_INVITE_NOTIFICATION_SOUND)
-        invitee_user.speak_l("table-invite-received", buffer="system", host=host_user.username, game=game_name)
+        invitee_user.speak_l(
+            "table-invite-received",
+            buffer="system",
+            host=host_username,
+            game=game_name,
+        )
         invitee_user.show_menu(
             "table_invite_prompt",
             items,
@@ -4520,18 +4562,33 @@ PlayAural Server
             escape_behavior=EscapeBehavior.SELECT_LAST,
         )
 
-        task = asyncio.create_task(self._expire_invite(invitee_name, table.table_id))
-        self._pending_invites[invitee_name] = {
-            "table_id": table.table_id,
-            "host_username": host_user.username,
-            "task": task,
-        }
+        if not invite.get("task"):
+            invite["task"] = asyncio.create_task(self._expire_invite(invitee_name, table_id))
+        invite["deferred"] = False
+
+    def _maybe_show_deferred_table_invite(self, user: NetworkUser) -> bool:
+        """Show a queued table invite once the user's current modal UI is gone."""
+        invite = self._pending_invites.get(user.username)
+        if not invite or not invite.get("deferred"):
+            return False
+        if self._user_has_blocking_modal_state(user.username):
+            return False
+
+        table_id = invite.get("table_id", "")
+        table = self._tables.get_table(table_id)
+        if not table or not table.game or self._tables.find_user_table(user.username):
+            self._cancel_invite(user.username)
+            user.speak_l("table-invite-expired", buffer="system")
+            return True
+
+        self._show_table_invite_prompt(user, invite)
+        return True
 
     async def _expire_invite(self, invitee_name: str, table_id: str) -> None:
         """Auto-expire an invite after 30 seconds."""
         try:
             await asyncio.sleep(30.0)
-            self._pending_invites.pop(invitee_name, None)
+            invite = self._pending_invites.pop(invitee_name, None)
             invitee_user = self._users.get(invitee_name)
             if not invitee_user:
                 return
@@ -4540,6 +4597,8 @@ PlayAural Server
                 invitee_user.speak_l("table-invite-expired", buffer="system")
                 prev_state = state.get("prev_state", {})
                 self._restore_menu_from_state(invitee_user, prev_state)
+            elif invite and invite.get("deferred"):
+                invitee_user.speak_l("table-invite-expired", buffer="system")
         except asyncio.CancelledError:
             pass
 
@@ -4547,7 +4606,9 @@ PlayAural Server
         """Cancel a pending invite and stop its expiry task."""
         invite = self._pending_invites.pop(invitee_name, None)
         if invite:
-            invite["task"].cancel()
+            task = invite.get("task")
+            if task:
+                task.cancel()
 
     async def _handle_table_invite_selection(
         self, user: NetworkUser, selection_id: str, state: dict
@@ -6240,7 +6301,7 @@ PlayAural Server
                 return
             else:
                  # Fake command not found for non-admins to avoid revealing existence
-                 pass
+                 return
 
         elif message.startswith("/kick"):
              # Kick command
@@ -6249,15 +6310,14 @@ PlayAural Server
              if user and user.trust_level >= 2:
                  parts = message.split(" ", 1)
                  if len(parts) < 2:
-                     user.speak_l("usage-kick", buffer="system") # Need to add this key or just speak generic
-                     # Or just ignore if empty
+                     user.speak_l("usage-kick", buffer="system")
                      return
                  
                  target_name = parts[1].strip()
                  await self.admin_manager.kick_user(user, target_name, show_menu=False)
                  return
              else:
-                 pass # Ignore for non-admins
+                 return
 
         disabled_key = self._get_disabled_chat_send_key(user, convo)
         if disabled_key:

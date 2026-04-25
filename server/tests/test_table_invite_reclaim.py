@@ -1,5 +1,6 @@
 import os
 import tempfile
+from types import SimpleNamespace
 
 import pytest
 
@@ -22,6 +23,8 @@ class TestTableInviteReclaim:
         self.server._auth = AuthManager(self.db)
 
     def teardown_method(self):
+        for invitee_name in list(self.server._pending_invites):
+            self.server._cancel_invite(invitee_name)
         self.db.close()
         os.unlink(self.temp_file.name)
 
@@ -94,6 +97,50 @@ class TestTableInviteReclaim:
             host=host.username,
             game=Localization.get(guest.locale, "game-name-pig"),
         )
+
+    @pytest.mark.asyncio
+    async def test_table_invite_waits_until_private_message_input_finishes(self):
+        host = self._create_online_user("Host")
+        guest = self._create_online_user("Guest")
+        friend = self._create_online_user("Friend")
+        table, _ = self._create_started_table(host, friend)
+
+        self.db.send_friend_request(guest.uuid, friend.uuid)
+        self.db.send_friend_request(friend.uuid, guest.uuid)
+
+        self.server._user_states[guest.username] = {"menu": "friend_actions_menu", "target_username": friend.username}
+        guest.show_editbox(
+            "send_pm_input",
+            Localization.get(guest.locale, "enter-pm-message", username=friend.username),
+            multiline=True,
+        )
+        self.server._enter_input_state(guest, "send_pm_input", target_username=friend.username)
+
+        await self.server._send_table_invite(host, table, guest)
+
+        assert self.server._user_states[guest.username]["menu"] == "send_pm_input"
+        assert self.server._pending_invites[guest.username]["deferred"] is True
+        assert self.server._pending_invites[guest.username]["task"] is not None
+        assert "table_invite_prompt" not in guest.menus
+        assert guest.get_last_spoken() == Localization.get(
+            guest.locale,
+            "table-invite-queued",
+            host=host.username,
+            game=Localization.get(guest.locale, "game-name-pig"),
+        )
+
+        client = SimpleNamespace(username=guest.username, authenticated=True)
+        await self.server._on_client_message(client, {"type": "editbox", "text": "hello"})
+
+        state = self.server._user_states[guest.username]
+        assert state["menu"] == "table_invite_prompt"
+        assert state["prev_state"]["menu"] == "friend_actions_menu"
+        assert state["prev_state"]["target_username"] == friend.username
+        assert self.server._pending_invites[guest.username]["deferred"] is False
+        assert self.server._pending_invites[guest.username]["task"] is not None
+        assert "table_invite_prompt" in guest.menus
+
+        self.server._cancel_invite(guest.username)
 
     @pytest.mark.asyncio
     async def test_accepting_invite_reclaims_bot_replaced_seat(self):

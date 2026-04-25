@@ -1,4 +1,4 @@
-const CACHE_NAME = 'playaural-v4.04-voice-chat';
+const CACHE_NAME = 'playaural-v1.0.4.3';
 
 // Minimal impact: only cache core files to ensure installability
 // We do NOT preload large assets.

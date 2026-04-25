@@ -24,7 +24,7 @@ from config_manager import set_item_in_dict
 from localization import Localization
 from voice_manager import VoiceManager, list_audio_input_devices, resolve_audio_input_device
 
-VERSION = "1.0.4.2"
+VERSION = "1.0.4.3"
 WINDOW_SIZE = (980, 720)
 WINDOW_MIN_SIZE = (760, 520)
 MENU_MIN_WIDTH = 280

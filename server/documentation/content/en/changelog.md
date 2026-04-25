@@ -1,5 +1,25 @@
 Changelog
 
+Sunday 26 April 2026
+
+Server Updates:
+
+Fixed a menu bug that occurred when receiving a table invite while you were typing in an input box, such as changing a value in the Options or typing a private message. The system will now safely hold the invite and display it only after you finish your current task.
+
+Changed how bots are added to a table. Adding a bot will now automatically assign it a random name, saving you time. If you prefer to name them yourself, you can enable the Custom bot names feature in the Options.
+
+Added new rules for bot names: You cannot have two bots with the exact same name at a table. When creating a custom name, it must be between 3 and 30 characters long.
+
+Fixed an issue where the game failed to announce when a player reclaimed their seat. If you disconnected and a bot took over, rejoining your seat will now send a clear announcement to the entire table.
+
+Fixed a minor issue where invalid slash commands would accidentally be broadcast as regular chat messages.
+
+Mobile Client Updates:
+
+Fixed an issue where canceling an input prompt, like backing out of a private message without typing anything, would cause the menu to freeze or break.
+
+Optimized gesture handling, making swipes and screen interactions much smoother and more reliable when using the built-in self-voicing mode.
+
 Thursday 23 April 2026
 
 Server Updates:

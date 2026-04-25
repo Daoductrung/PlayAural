@@ -1,5 +1,5 @@
 console.log("Game.js initialized.");
-const CLIENT_VERSION = "1.0.4.2";
+const CLIENT_VERSION = "1.0.4.3";
 
 // reCAPTCHA v3 site key — replace with your production key before launch.
 // When empty, CAPTCHA is skipped entirely (graceful degradation for dev).

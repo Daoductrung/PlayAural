@@ -1,5 +1,25 @@
 Nhật ký thay đổi
 
+Chủ Nhật 26 Tháng Tư 2026
+
+Cập nhật máy chủ:
+
+Đã sửa lỗi hiển thị menu khi nhận lời mời chơi. Trước đây, nếu bạn đang nhập dữ liệu như thay đổi cấu hình trong Tùy chỉnh hoặc nhắn tin riêng mà có lời mời đến, menu sẽ bị lỗi. Giờ đây, hệ thống sẽ tạm giữ lời mời này lại và hiển thị ngay sau khi bạn thao tác xong, đảm bảo mọi thứ không bị gián đoạn.
+
+Đã thay đổi cách thêm bot vào bàn chơi để tiết kiệm thời gian. Khi bạn chọn thêm bot, trò chơi sẽ tự động tạo một tên ngẫu nhiên. Nếu bạn muốn tự đặt tên, hãy bật tính năng Tên bot tùy chỉnh trong phần Tùy chỉnh.
+
+Đã áp dụng quy tắc mới: Mỗi bàn chơi không thể có hai bot trùng tên nhau. Khi bạn tự đặt tên, tên bot phải có độ dài từ 3 đến 30 ký tự.
+
+Đã sửa lỗi thiếu thông báo khi người chơi quay lại ván đấu. Nếu bạn bị rớt mạng và bot đánh thay, khi bạn kết nối lại để giành lấy vị trí của mình thì những người chơi khác sẽ nhận được thông báo rõ ràng thay vì im lặng như trước.
+
+Đã sửa một lỗi nhỏ khiến các lệnh gạch chéo không hợp lệ vô tình bị gửi đi như một tin nhắn trò chuyện bình thường.
+
+Cập nhật ứng dụng di động:
+
+Đã khắc phục lỗi treo toàn bộ menu khi bạn thao tác hủy nhập liệu, ví dụ như đang định gõ tin nhắn riêng nhưng đổi ý và bấm nút quay lại.
+
+Đã tối ưu hóa hệ thống nhận diện cử chỉ, giúp các thao tác vuốt chạm trong chế độ tự phát giọng nói trở nên mượt mà và ổn định hơn rất nhiều.
+
 Thứ Năm 23 Tháng Tư 2026
 
 Cập nhật máy chủ:

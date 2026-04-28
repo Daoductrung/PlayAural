@@ -20,26 +20,26 @@ n99-card-skip = تخطي
 n99-card-ninety-nine = تسعة وتسعون
 
 ninetynine-you-lose-tokens = فقدت { $amount } { $amount ->
-    [one] رمزاً
-    [two] رمزين
-    [few] رموز
-    *[other] رمزاً
+    [one] نقطة
+    [two] نقطتين
+    [few] نقاط
+    *[other] نقطة
     }.
 ninetynine-player-loses-tokens = يفقد { $player } { $amount } { $amount ->
-    [one] رمزاً
-    [two] رمزين
-    [few] رموز
-    *[other] رمزاً
+    [one] نقطة
+    [two] نقطتين
+    [few] نقاط
+    *[other] نقطة
     }.
 
 ninetynine-player-eliminated = تم إقصاء { $player }!
 
 ninetynine-player-wins = { $player } يفوز باللعبة!
 ninetynine-end-score = { $rank }. { $player }: { $tokens } { $tokens ->
-    [one] رمز
-    [two] رمزان
-    [few] رموز
-    *[other] رمزاً
+    [one] نقطة واحدة
+    [two] نقطتين
+    [few] نقاط
+    *[other] نقطة
     }
 
 ninetynine-you-deal = أنت من يوزع البطاقات.
@@ -66,9 +66,9 @@ ninetynine-choice-2 = الخيار 2
 ninetynine-draw-card = سحب بطاقة
 ninetynine-draw-prompt = يرجى سحب بطاقة.
 
-ninetynine-set-tokens = رموز البداية: { $tokens }
-ninetynine-enter-tokens = أدخل عدد رموز البداية:
-ninetynine-option-changed-tokens = تم ضبط رموز البداية على { $tokens }.
+ninetynine-set-tokens = نقاط البداية: { $tokens }
+ninetynine-enter-tokens = أدخل عدد نقاط البداية:
+ninetynine-option-changed-tokens = تم ضبط نقاط البداية على { $tokens }.
 ninetynine-set-rules = متغير القواعد: { $rules }
 ninetynine-select-rules = اختر متغير القواعد
 ninetynine-option-changed-rules = تم ضبط متغير القواعد على { $rules }.

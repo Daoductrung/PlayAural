@@ -21,13 +21,12 @@ import {
   View,
   findNodeHandle,
 } from "react-native";
-import * as Updates from "expo-updates";
 
 import { MobileAudioManager } from "../audio/MobileAudioManager";
 import { androidForegroundService } from "../background/AndroidForegroundService";
 import { useSelfVoicingGestures } from "../gestures/useSelfVoicingGestures";
 import { bundledSoundVersion } from "../generated/soundManifest";
-import { MobileLocalization } from "../i18n/localization";
+import { MobileLocalization, type MobileLocale } from "../i18n/localization";
 import { PlayAuralConnection } from "../network/PlayAuralConnection";
 import type {
   AuthorizeSuccessPacket,
@@ -225,7 +224,7 @@ type AuthFocusableItem = {
 };
 
 type StoredClientConfig = {
-  appLocale: "en" | "vi" | "ar";
+  appLocale: MobileLocale;
   preferences: Record<string, unknown>;
   registerEmail: string;
   serverUrl: string;
@@ -252,7 +251,7 @@ function isProtectedTransientMenu(menuId: string | undefined): boolean {
   return menuId !== undefined && PROTECTED_TRANSIENT_MENU_IDS.has(menuId);
 }
 
-function detectPreferredLocale(): "en" | "vi" | "ar" {
+function detectPreferredLocale(): MobileLocale {
   const deviceLocale = Intl.DateTimeFormat().resolvedOptions().locale?.toLowerCase?.() ?? "en";
   if (deviceLocale.startsWith("vi")) {
     return "vi";
@@ -398,7 +397,7 @@ function toLocalizationParams(params: Record<string, unknown> | undefined): Reco
 }
 
 export function PlayAuralApp() {
-  const initialLocale = useMemo<"en" | "vi">(() => detectPreferredLocale(), []);
+  const initialLocale = useMemo(() => detectPreferredLocale(), []);
   const localization = useMemo(() => {
     const instance = new MobileLocalization();
     instance.setLocale(initialLocale);
@@ -413,7 +412,7 @@ export function PlayAuralApp() {
   const audio = useMemo(() => new MobileAudioManager(), []);
   const voice = useMemo(() => new MobileVoiceManager(), []);
 
-  const [appLocale, setAppLocale] = useState<"en" | "vi" | "ar">(initialLocale);
+  const [appLocale, setAppLocale] = useState<MobileLocale>(initialLocale);
   const [mode, setMode] = useState<AppMode>("main");
   const [authMode, setAuthMode] = useState<AuthMode>("login");
   const [menuState, setMenuState] = useState<MenuState>(defaultMenuState);

@@ -10,12 +10,15 @@ import os
 
 from ..persistence.database import Database
 from ..auth.auth import AuthManager
+from ..core.server import Server
+from ..documentation.manager import DocumentationManager
 from ..tables.manager import TableManager
 from ..tables.table import Table
 from ..users.test_user import MockUser
 from ..users.bot import Bot
 from ..games.pig.game import PigGame, PigOptions
 from ..games.registry import GameRegistry, get_game_class
+from ..messages.localization import Localization
 
 
 class TestDatabaseIntegration:
@@ -314,6 +317,49 @@ class TestGameRegistryIntegration:
             item_id == "back" or item_id.startswith("lb_")
             for item_id in item_ids
         )
+
+
+class TestDocumentationIntegration:
+    """Test documentation discovery and menu presentation."""
+
+    def test_contact_documentation_is_listed_and_localized(self):
+        """Test that the dedicated contact page is discoverable in both locales."""
+        manager = DocumentationManager.get_instance()
+        categories = manager.get_all_categories("en")
+
+        assert categories["contact"] == "contact"
+        assert Localization.get("en", categories["contact"]) == "Contact"
+        assert Localization.get("vi", categories["contact"]) == "Liên hệ"
+
+        en_doc = manager.get_document("contact", "en")
+        vi_doc = manager.get_document("contact", "vi")
+
+        assert en_doc is not None
+        assert vi_doc is not None
+        for doc in (en_doc, vi_doc):
+            assert "trung@ddt.one" in doc
+            assert "@daoductrung" in doc
+            assert "https://ddt.one/contact" in doc
+
+    def test_contact_page_appears_in_documentation_menu(self):
+        """Test that users can open the contact page from the documentation menu."""
+        server = Server(db_path=":memory:")
+
+        en_user = MockUser("EnglishViewer")
+        server._show_documentation_menu(en_user)
+        en_items = en_user.get_current_menu_items("documentation_menu") or []
+        en_labels = {
+            item.id: item.text for item in en_items if hasattr(item, "id")
+        }
+        assert en_labels["contact"] == "Contact"
+
+        vi_user = MockUser("VietnameseViewer", locale="vi")
+        server._show_documentation_menu(vi_user)
+        vi_items = vi_user.get_current_menu_items("documentation_menu") or []
+        vi_labels = {
+            item.id: item.text for item in vi_items if hasattr(item, "id")
+        }
+        assert vi_labels["contact"] == "Liên hệ"
 
 
 class TestFullGameFlow:

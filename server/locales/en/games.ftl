@@ -111,6 +111,7 @@ global-keys = Global Controls
 game-rules = Game Rules
 changelog = Changelog
 donation = Donation
+contact = Contact
 document-not-found = Document not found.
 help = Help
 

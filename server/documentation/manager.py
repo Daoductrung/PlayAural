@@ -70,4 +70,5 @@ class DocumentationManager:
             "global_keys": "global-keys",
             "changelog": "changelog",
             "donation": "donation",
+            "contact": "contact",
         }

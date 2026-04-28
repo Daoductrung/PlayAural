@@ -111,6 +111,7 @@ global-keys = Điều khiển toàn cục
 game-rules = Luật chơi
 changelog = Nhật ký thay đổi
 donation = Quyên góp
+contact = Liên hệ
 document-not-found = Không tìm thấy tài liệu.
 help = Trợ giúp
 

@@ -1,5 +1,17 @@
 Nhật ký thay đổi
 
+Thứ Bảy 2 Tháng Năm 2026
+
+Cập nhật máy chủ:
+
+Đã cải thiện tính năng xem điểm chỉn chu và rõ ràng hơn. Thay vì dùng chung một từ ngữ cho mọi trò chơi, hệ thống giờ đây sẽ đọc chính xác loại điểm đặc trưng của từng trò (ví dụ như trong trò Mile by Mile hay Cờ thỏ cáo) và được đọc rành mạch theo từng người chơi hoặc từng đội.
+
+Đã thêm tính năng sắp xếp đội hình dành cho chủ phòng. Trong các trò chơi hỗ trợ đánh theo đội (như Dominos, Mile by Mile, Pig và Scopa), chủ phòng giờ đây có thể tự do thay đổi và chọn thành viên cho từng đội trước khi bắt đầu ván đấu.
+
+Đã sửa lỗi hiển thị tên khi kiểm tra điểm. Nếu có người chơi bị ngắt kết nối hoặc rời bàn và bot vào đánh thay, bảng điểm giờ đây sẽ hiển thị đúng tên của bot đang chơi thay vì hiển thị tên của người chơi đã tạm rời đi.
+
+Đã thêm một hộp thoại xác nhận trước khi xóa bạn bè. Điều này giúp ngăn chặn việc bạn lỡ tay bấm nhầm và vô tình xóa ai đó khỏi danh sách bạn bè của mình.
+
 Thứ Tư 29 Tháng Tư 2026
 
 Cập nhật máy chủ:

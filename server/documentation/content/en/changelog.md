@@ -1,5 +1,17 @@
 Changelog
 
+Saturday 2 May 2026
+
+Server Updates:
+
+Improved the score checking feature to be more precise. Instead of using generic terms, the system now announces the exact score units specific to each game (such as in Mile by Mile or Backgammon), clearly organized by player or team.
+
+Added a team arrangement feature for the table host. In supported team games (like Dominos, Mile by Mile, Pig, and Scopa), the host can now easily swap and assign team members before starting the match.
+
+Fixed a name display bug when checking scores. If a player disconnects or leaves and a bot takes over their seat, the score check will now correctly display the replacement bot's name instead of the disconnected human's name.
+
+Added a confirmation dialog before deleting a friend. This safety step ensures you do not accidentally remove someone from your friends list with a misclick.
+
 Wednesday 29 April 2026
 
 Server Updates:

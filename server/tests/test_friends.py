@@ -2,7 +2,7 @@ import pytest
 from unittest.mock import MagicMock
 from server.auth.auth import AuthManager
 from server.persistence.database import Database
-from server.core.server import Server
+from server.core.server import FRIEND_REMOVE_CONFIRM_MENU, Server
 from server.users.network_user import NetworkUser
 import tempfile
 import os
@@ -55,6 +55,21 @@ class TestFriendsSystem:
     def teardown_method(self):
         self.db.close()
         os.unlink(self.temp_file.name)
+
+    def _create_friendship(self):
+        self.db.create_user("Alice", "hash")
+        self.db.create_user("Bob", "hash")
+        alice = self.db.get_user("Alice")
+        bob = self.db.get_user("Bob")
+        self.db.send_friend_request(alice.uuid, bob.uuid)
+        self.db.accept_friend_request(alice.uuid, bob.uuid)
+        return alice, bob
+
+    def _make_network_user(self, username: str, uuid: str) -> NetworkUser:
+        client = MockClient(f"127.0.0.1:{10000 + len(self.server._users)}")
+        user = NetworkUser(username, "en", client, uuid=uuid, approved=True)
+        self.server._users[username] = user
+        return user
 
     def test_send_request_and_duplicate(self):
         self.db.create_user("alice", "hash")
@@ -174,3 +189,159 @@ class TestFriendsSystem:
         items = self.server._get_friends_list_menu_items(bob_user)
 
         assert any(item.id == "friend_Alice" and "In Lobby" in item.text for item in items)
+
+    @pytest.mark.asyncio
+    async def test_remove_friend_prompts_before_deleting(self):
+        alice, bob = self._create_friendship()
+        alice_user = self._make_network_user(alice.username, alice.uuid)
+        self.server._user_states[alice.username] = {
+            "menu": "friend_actions_menu",
+            "target_username": bob.username,
+            "_stack": [
+                {"menu": "friends_hub_menu"},
+                {"menu": "friends_list_menu"},
+            ],
+        }
+
+        await self.server._handle_friend_actions_selection(
+            alice_user,
+            "remove_friend",
+            self.server._user_states[alice.username],
+        )
+
+        assert bob.uuid in self.db.get_friends(alice.uuid)
+        state = self.server._user_states[alice.username]
+        assert state["menu"] == FRIEND_REMOVE_CONFIRM_MENU
+        assert state["target_username"] == bob.username
+
+        messages = alice_user.get_queued_messages()
+        assert any(
+            msg.get("type") == "speak" and msg.get("key") == "friend-remove-confirm"
+            for msg in messages
+        )
+        menu = next(msg for msg in messages if msg.get("type") == "menu")
+        assert menu["menu_id"] == FRIEND_REMOVE_CONFIRM_MENU
+        assert menu["escape_behavior"] == "select_last_option"
+        assert [item["id"] for item in menu["items"]] == ["yes", "no"]
+
+    @pytest.mark.asyncio
+    async def test_remove_friend_cancel_keeps_friendship_and_returns_to_actions(self):
+        alice, bob = self._create_friendship()
+        alice_user = self._make_network_user(alice.username, alice.uuid)
+        self.server._user_states[alice.username] = {
+            "menu": "friend_actions_menu",
+            "target_username": bob.username,
+            "_stack": [
+                {"menu": "friends_hub_menu"},
+                {"menu": "friends_list_menu"},
+            ],
+        }
+        await self.server._handle_friend_actions_selection(
+            alice_user,
+            "remove_friend",
+            self.server._user_states[alice.username],
+        )
+
+        await self.server._handle_friend_remove_confirm_selection(
+            alice_user,
+            "no",
+            self.server._user_states[alice.username],
+        )
+
+        assert bob.uuid in self.db.get_friends(alice.uuid)
+        state = self.server._user_states[alice.username]
+        assert state["menu"] == "friend_actions_menu"
+        assert state["target_username"] == bob.username
+
+    @pytest.mark.asyncio
+    async def test_remove_friend_confirm_deletes_and_notifies_both_users(self):
+        alice, bob = self._create_friendship()
+        alice_user = self._make_network_user(alice.username, alice.uuid)
+        bob_user = self._make_network_user(bob.username, bob.uuid)
+        self.server._user_states[alice.username] = {
+            "menu": "friend_actions_menu",
+            "target_username": bob.username,
+            "_stack": [
+                {"menu": "friends_hub_menu"},
+                {"menu": "friends_list_menu"},
+            ],
+        }
+        await self.server._handle_friend_actions_selection(
+            alice_user,
+            "remove_friend",
+            self.server._user_states[alice.username],
+        )
+        alice_user.get_queued_messages()
+
+        await self.server._handle_friend_remove_confirm_selection(
+            alice_user,
+            "yes",
+            self.server._user_states[alice.username],
+        )
+
+        assert bob.uuid not in self.db.get_friends(alice.uuid)
+        state = self.server._user_states[alice.username]
+        assert state["menu"] == "friends_list_menu"
+        assert state.get("_stack") == [{"menu": "friends_hub_menu"}]
+
+        alice_messages = alice_user.get_queued_messages()
+        assert any(
+            msg.get("type") == "speak" and msg.get("key") == "friend-removed-success"
+            for msg in alice_messages
+        )
+        assert any(
+            msg.get("type") == "play_sound"
+            and msg.get("name") == "friend_removed.ogg"
+            for msg in alice_messages
+        )
+
+        bob_messages = bob_user.get_queued_messages()
+        assert any(
+            msg.get("type") == "speak" and msg.get("key") == "friend-removed-notify"
+            for msg in bob_messages
+        )
+        assert any(
+            msg.get("type") == "play_sound"
+            and msg.get("name") == "friend_removed.ogg"
+            for msg in bob_messages
+        )
+
+    @pytest.mark.asyncio
+    async def test_remove_friend_confirm_does_not_delete_new_pending_request(self):
+        alice, bob = self._create_friendship()
+        alice_user = self._make_network_user(alice.username, alice.uuid)
+        self.server._user_states[alice.username] = {
+            "menu": "friend_actions_menu",
+            "target_username": bob.username,
+            "_stack": [
+                {"menu": "friends_hub_menu"},
+                {"menu": "friends_list_menu"},
+            ],
+        }
+        await self.server._handle_friend_actions_selection(
+            alice_user,
+            "remove_friend",
+            self.server._user_states[alice.username],
+        )
+        alice_user.get_queued_messages()
+
+        self.db.remove_friendship(alice.uuid, bob.uuid)
+        self.db.send_friend_request(bob.uuid, alice.uuid)
+
+        await self.server._handle_friend_remove_confirm_selection(
+            alice_user,
+            "yes",
+            self.server._user_states[alice.username],
+        )
+
+        assert bob.uuid in self.db.get_pending_incoming_requests(alice.uuid)
+        messages = alice_user.get_queued_messages()
+        assert any(
+            msg.get("type") == "speak" and msg.get("key") == "friend-remove-not-friends"
+            for msg in messages
+        )
+        assert not any(
+            msg.get("type") == "play_sound"
+            and msg.get("name") == "friend_removed.ogg"
+            for msg in messages
+        )

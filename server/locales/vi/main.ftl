@@ -412,10 +412,6 @@ motd-broadcast = Thông báo mới: { $message }
 error-no-languages = Lỗi: Không tìm thấy ngôn ngữ.
 ok = OK
 
-milebymile-rig-none = Không
-milebymile-rig-no-duplicates = Không trùng lặp
-milebymile-rig-2x-attacks = Tấn công x2
-milebymile-rig-2x-defenses = Phòng thủ x2
 admin-broadcast-sent = Đã gửi thông báo đến { $count } người dùng.
 
 unknown-player = Người chơi không xác định
@@ -521,6 +517,8 @@ friend-actions-title = Hành động cho { $username }
 view-profile = Xem hồ sơ
 join-table = Tham gia bàn
 remove-friend = Xóa bạn
+friend-remove-confirm = Xóa { $username } khỏi danh sách bạn bè của bạn?
+friend-remove-not-friends = { $username } không còn trong danh sách bạn bè của bạn.
 already-in-table = Bạn đã ở trong bàn này rồi.
 friend-removed-success = Đã xóa { $username } khỏi danh sách bạn bè của bạn.
 friend-removed-notify = { $username } đã xóa bạn khỏi danh sách bạn bè.

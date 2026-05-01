@@ -10,6 +10,10 @@ milebymile-toggle-reshuffle = Reshuffle discard pile: { $enabled }
 milebymile-toggle-karma = Karma rule: { $enabled }
 milebymile-set-rig = Deck rigging: { $rig }
 milebymile-select-rig = Select deck rigging option
+milebymile-rig-none = None
+milebymile-rig-no-duplicates = No Duplicates
+milebymile-rig-2x-attacks = 2x Attacks
+milebymile-rig-2x-defenses = 2x Defenses
 
 milebymile-option-changed-distance = Race distance set to { $miles } miles.
 milebymile-option-changed-winning = Winning score set to { $score } points.

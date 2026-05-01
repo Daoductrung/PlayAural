@@ -10,6 +10,10 @@ milebymile-toggle-reshuffle = Xào lại bài đã bỏ: { $enabled }
 milebymile-toggle-karma = Luật Nghiệp chướng: { $enabled }
 milebymile-set-rig = Sắp xếp bộ bài: { $rig }
 milebymile-select-rig = Chọn kiểu sắp xếp bộ bài
+milebymile-rig-none = Không
+milebymile-rig-no-duplicates = Không trùng lặp
+milebymile-rig-2x-attacks = Tấn công x2
+milebymile-rig-2x-defenses = Phòng thủ x2
 
 milebymile-option-changed-distance = Quãng đường đua được đặt là { $miles } dặm.
 milebymile-option-changed-winning = Điểm thắng được đặt là { $score } điểm.

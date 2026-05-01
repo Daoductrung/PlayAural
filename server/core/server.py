@@ -52,6 +52,7 @@ VOICE_CHAT_JOIN_SOUND = "voice_join.ogg"
 VOICE_CHAT_LEAVE_SOUND = "voice_leave.ogg"
 VOICE_JOIN_AUTHORIZATION_WINDOW_SECONDS = 120
 HOST_RESTART_CONFIRM_MENU = "host_restart_confirm_menu"
+FRIEND_REMOVE_CONFIRM_MENU = "friend_remove_confirm_menu"
 
 # Default paths based on module location
 _MODULE_DIR = Path(__file__).parent.parent
@@ -78,7 +79,8 @@ class Server:
         "my_stats_menu", "my_game_stats", "profile_menu", "gender_menu",
         "bio_actions_menu", "email_confirm_menu", "friends_hub_menu",
         "friends_list_menu", "friend_actions_menu", "friend_requests_menu",
-        "friend_request_actions_menu", "public_profile_menu", "online_users",
+        "friend_request_actions_menu", FRIEND_REMOVE_CONFIRM_MENU,
+        "public_profile_menu", "online_users",
         "online_user_actions_menu", "admin_menu", "account_approval_menu",
         "pending_user_actions_menu", "promote_admin_menu", "demote_admin_menu",
         "promote_confirm_menu", "demote_confirm_menu", "kick_menu", "kick_confirm_menu",
@@ -2927,6 +2929,10 @@ PlayAural Server
             await self._handle_friends_list_selection(user, selection_id)
         elif current_menu == "friend_actions_menu":
             await self._handle_friend_actions_selection(user, selection_id, state)
+        elif current_menu == FRIEND_REMOVE_CONFIRM_MENU:
+            await self._handle_friend_remove_confirm_selection(
+                user, selection_id, state
+            )
         elif current_menu == "friend_requests_menu":
             await self._handle_friend_requests_selection(user, selection_id)
         elif current_menu == "friend_request_actions_menu":
@@ -3156,6 +3162,9 @@ PlayAural Server
             self._nav_back(user)
         elif selection_id.startswith("friend_"):
             target_username = selection_id[7:]
+            if not self._get_current_friend_record(user, target_username):
+                self._nav_refresh(user, self._show_friends_list_menu)
+                return
             self._nav_push(user, self._show_friend_actions_menu, target_username)
 
     def _show_friend_actions_menu(self, user: NetworkUser, target_username: str) -> None:
@@ -3174,7 +3183,8 @@ PlayAural Server
                 if not table.is_private or user_is_member:
                     items.append(MenuItem(text=Localization.get(user.locale, "join-table"), id="join_table"))
 
-        items.append(MenuItem(text=Localization.get(user.locale, "remove-friend"), id="remove_friend"))
+        if self._find_current_friend_record(user, target_username):
+            items.append(MenuItem(text=Localization.get(user.locale, "remove-friend"), id="remove_friend"))
         items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
 
         user.show_menu(
@@ -3196,8 +3206,9 @@ PlayAural Server
 
         if selection_id == "back":
             self._nav_back(user)
+            return
 
-        elif selection_id == "view_profile":
+        if selection_id == "view_profile":
             self._nav_push(user, self._show_public_profile, target_username)
 
         elif selection_id == "send_pm":
@@ -3234,23 +3245,130 @@ PlayAural Server
                 self._nav_refresh(user, self._show_friend_actions_menu, target_username)
 
         elif selection_id == "remove_friend":
-            target_record = self._db.get_user(target_username)
-            if target_record:
-                self._db.remove_friendship(user.uuid, target_record.uuid)
-                user.speak_l("friend-removed-success", buffer="system", username=target_username)
-                user.play_sound("friend_removed.ogg")
+            target_record = self._get_current_friend_record(user, target_username)
+            if not target_record:
+                self._nav_refresh(user, self._show_friend_actions_menu, target_username)
+                return
+            target_username = target_record.username
+            self._nav_push(user, self._show_friend_remove_confirm_menu, target_username)
 
-                # Notify target
-                target_user = self._users.get(target_username)
-                if target_user:
-                    target_user.speak_l("friend-removed-notify", buffer="system", username=user.username)
-                    target_user.play_sound("friend_removed.ogg")
-                else:
-                    self._db.add_notification(target_record.uuid, user.username, "friend_removed")
+    def _find_current_friend_record(
+        self, user: NetworkUser, target_username: str
+    ):
+        target_record = self._db.get_user(target_username)
+        if target_record and target_record.uuid in self._db.get_friends(user.uuid):
+            return target_record
+        return None
 
-                self.on_friend_requests_changed(target_record.uuid)
+    def _get_current_friend_record(
+        self, user: NetworkUser, target_username: str
+    ):
+        """Return the accepted friend record for this target, or notify and return None."""
+        target_record = self._db.get_user(target_username)
+        if not target_record:
+            user.speak_l("unknown-player", buffer="system")
+            return None
+        if not self._find_current_friend_record(user, target_username):
+            user.speak_l(
+                "friend-remove-not-friends",
+                buffer="system",
+                username=target_record.username,
+            )
+            return None
+        return target_record
 
+    def _show_friend_remove_confirm_menu(
+        self, user: NetworkUser, target_username: str
+    ) -> None:
+        """Show a confirmation prompt before removing a friend."""
+        target_record = self._get_current_friend_record(user, target_username)
+        if not target_record:
+            self._show_friends_list_menu(user)
+            return
+
+        user.speak_l(
+            "friend-remove-confirm",
+            buffer="system",
+            username=target_record.username,
+        )
+        items = [
+            MenuItem(text=Localization.get(user.locale, "confirm-yes"), id="yes"),
+            MenuItem(text=Localization.get(user.locale, "confirm-no"), id="no"),
+        ]
+        user.show_menu(
+            FRIEND_REMOVE_CONFIRM_MENU,
+            items,
+            multiletter=False,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self._user_states[user.username] = {
+            "menu": FRIEND_REMOVE_CONFIRM_MENU,
+            "target_username": target_record.username,
+        }
+
+    async def _handle_friend_remove_confirm_selection(
+        self, user: NetworkUser, selection_id: str, state: dict
+    ) -> None:
+        """Handle confirmation before removing a friend."""
+        target_username = state.get("target_username", "")
+        if selection_id == "yes" and target_username:
+            self._perform_remove_friend(user, target_username)
+            self._return_after_friend_remove_confirm(user)
+        else:
             self._nav_back(user)
+
+    def _perform_remove_friend(
+        self, user: NetworkUser, target_username: str
+    ) -> bool:
+        """Remove a friendship and notify both sides when applicable."""
+        target_record = self._get_current_friend_record(user, target_username)
+        if not target_record:
+            return False
+
+        if not self._db.remove_friendship(user.uuid, target_record.uuid):
+            user.speak_l(
+                "friend-remove-not-friends",
+                buffer="system",
+                username=target_record.username,
+            )
+            return False
+
+        user.speak_l(
+            "friend-removed-success",
+            buffer="system",
+            username=target_record.username,
+        )
+        user.play_sound("friend_removed.ogg")
+
+        target_user = self._users.get(target_record.username)
+        if target_user:
+            target_user.speak_l(
+                "friend-removed-notify",
+                buffer="system",
+                username=user.username,
+            )
+            target_user.play_sound("friend_removed.ogg")
+        else:
+            self._db.add_notification(
+                target_record.uuid,
+                user.username,
+                "friend_removed",
+            )
+
+        self.on_friend_requests_changed(target_record.uuid)
+        return True
+
+    def _return_after_friend_remove_confirm(self, user: NetworkUser) -> None:
+        """Return to the friends list, skipping the stale friend-actions frame."""
+        state = self._user_states.setdefault(user.username, {})
+        stack = list(state.get("_stack", []))
+        if stack and stack[-1].get("menu") == "friend_actions_menu":
+            stack.pop()
+        state["_stack"] = stack
+        if stack:
+            self._nav_back(user)
+        else:
+            self._show_friends_list_menu(user)
 
     def _get_friend_requests_menu_items(self, user: NetworkUser) -> list[MenuItem]:
         """Build menu items for the friend requests menu."""
@@ -6837,6 +6955,10 @@ PlayAural Server
             self._show_friends_list_menu(user)
         elif menu == "friend_actions_menu":
             self._show_friend_actions_menu(user, frame.get("target_username", ""))
+        elif menu == FRIEND_REMOVE_CONFIRM_MENU:
+            self._show_friend_remove_confirm_menu(
+                user, frame.get("target_username", "")
+            )
         elif menu == "friend_requests_menu":
             self._show_friend_requests_menu(user)
         elif menu == "friend_request_actions_menu":

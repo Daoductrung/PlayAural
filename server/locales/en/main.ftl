@@ -412,10 +412,6 @@ motd-broadcast = New Message of the Day: { $message }
 error-no-languages = Error: No languages found.
 ok = OK
 
-milebymile-rig-none = None
-milebymile-rig-no-duplicates = No Duplicates
-milebymile-rig-2x-attacks = 2x Attacks
-milebymile-rig-2x-defenses = 2x Defenses
 admin-broadcast-sent = Broadcast sent to { $count } users.
 
 unknown-player = Unknown player
@@ -521,6 +517,8 @@ friend-actions-title = Actions for { $username }
 view-profile = View Profile
 join-table = Join Table
 remove-friend = Remove Friend
+friend-remove-confirm = Remove { $username } from your friends list?
+friend-remove-not-friends = { $username } is no longer in your friends list.
 already-in-table = You are already in this table.
 friend-removed-success = { $username } has been removed from your friends list.
 friend-removed-notify = { $username } has removed you from their friends list.

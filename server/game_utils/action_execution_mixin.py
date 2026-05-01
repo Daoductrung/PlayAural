@@ -3,8 +3,9 @@
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from ..games.base import Player, ActionContext
+    from .player import Player
 
+from .action_context import ActionContext
 from .actions import Action, MenuInput, EditboxInput
 from .options import get_option_meta, MenuOption
 from ..users.base import MenuItem, EscapeBehavior
@@ -78,11 +79,8 @@ class ActionExecutionMixin:
         if not handler:
             return
 
-        # Import here to avoid circular dependency at module level
-        from ..games.base import ActionContext as AC
-
         # Store context for handlers that need it (e.g., keybind-triggered actions)
-        self._action_context[player.id] = context or AC()
+        self._action_context[player.id] = context or ActionContext()
 
         try:
             # Execute the action handler (always pass action_id for context)
@@ -123,9 +121,6 @@ class ActionExecutionMixin:
 
     def get_action_context(self, player: "Player") -> "ActionContext":
         """Get the current action context for a player (for use in handlers)."""
-        # Import here to avoid circular dependency at module level
-        from ..games.base import ActionContext
-
         return self._action_context.get(player.id, ActionContext())
 
     def _get_menu_options_for_action(

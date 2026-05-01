@@ -163,6 +163,28 @@ class MileByMileGame(Game):
             return self._team_manager.teams[team_index].total_score
         return 0
 
+    def _format_status_score_info(self, name: str, score: int, locale: str) -> str:
+        """Format a localized score segment for status readouts."""
+        target = self.options.winning_score
+        unit_count = target if target else score
+        unit = Localization.get(locale, self.get_score_unit_key(), count=unit_count)
+        if target:
+            return Localization.get(
+                locale,
+                "game-score-line-target",
+                player=name,
+                score=score,
+                target=target,
+                unit=unit,
+            )
+        return Localization.get(
+            locale,
+            "game-score-line",
+            player=name,
+            score=score,
+            unit=unit,
+        )
+
     def add_team_score(self, team_index: int, points: int) -> None:
         """Add points to a team's score."""
         if team_index < len(self._team_manager.teams):
@@ -902,22 +924,7 @@ class MileByMileGame(Game):
             else:
                 safeties_str = none_str
 
-            # Use global score format for consistency
-            if self.options.winning_score:
-                score_info = Localization.get(
-                    locale,
-                    "game-score-line-target",
-                    player=name,
-                    score=score,
-                    target=self.options.winning_score,
-                )
-            else:
-                score_info = Localization.get(
-                    locale,
-                    "game-score-line",
-                    player=name,
-                    score=score,
-                )
+            score_info = self._format_status_score_info(name, score, locale)
 
             user.speak_l(
                 "milebymile-status",
@@ -963,23 +970,7 @@ class MileByMileGame(Game):
             else:
                 safeties_str = none_str
 
-            # Add team status line using uniform format
-            # Use global score format for consistency
-            if self.options.winning_score:
-                score_info = Localization.get(
-                    locale,
-                    "game-score-line-target",
-                    player=name,
-                    score=score,
-                    target=self.options.winning_score,
-                )
-            else:
-                score_info = Localization.get(
-                    locale,
-                    "game-score-line",
-                    player=name,
-                    score=score,
-                )
+            score_info = self._format_status_score_info(name, score, locale)
             
             line = Localization.get(
                 locale,

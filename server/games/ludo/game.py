@@ -92,6 +92,7 @@ class LudoGame(Game):
 
     players: list[LudoPlayer] = field(default_factory=list)
     options: LudoOptions = field(default_factory=LudoOptions)
+    score_unit_key = "game-score-unit-tokens-home"
 
     last_roll: int = 0
     consecutive_sixes: int = 0

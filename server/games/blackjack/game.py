@@ -358,6 +358,7 @@ class BlackjackGame(Game):
     players: list[BlackjackPlayer] = field(default_factory=list)
     options: BlackjackOptions = field(default_factory=BlackjackOptions)
     deck: Deck | None = None
+    score_unit_key = "game-score-unit-chips"
     dealer_hand: list[Card] = field(default_factory=list)
     hand_number: int = 0
     phase: str = "lobby"

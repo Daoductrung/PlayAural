@@ -10,11 +10,12 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from .actions import Action, ActionSet, Visibility
+from ..messages.localization import Localization
 from ..ui.keybinds import KeybindState
 from ..users.preferences import DiceKeepingStyle
 
 if TYPE_CHECKING:
-    from ..games.base import Player
+    from .player import Player
 
 
 class DiceGameMixin:
@@ -374,11 +375,9 @@ class DiceGameMixin:
         if die_val is None:
             return f"Die {die_index + 1}"
         if player.dice.is_locked(die_index):
-             from ..messages.localization import Localization
-             return Localization.get(locale, "dice-status-label-locked", value=die_val)
+            return Localization.get(locale, "dice-status-label-locked", value=die_val)
         if player.dice.is_kept(die_index):
-             from ..messages.localization import Localization
-             return Localization.get(locale, "dice-status-label-kept", value=die_val)
+            return Localization.get(locale, "dice-status-label-kept", value=die_val)
         return str(die_val)
 
     # Single toggle handler for all dice (extracts index from action ID)

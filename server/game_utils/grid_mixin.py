@@ -18,11 +18,12 @@ from typing import TYPE_CHECKING
 
 from mashumaro.mixins.json import DataClassJSONMixin
 
-from .actions import Action, ActionSet, Visibility
+from .actions import Action, Visibility
 from ..messages.localization import Localization
+from ..ui.keybinds import KeybindState
 
 if TYPE_CHECKING:
-    from ..games.base import Player
+    from .player import Player
     from ..users.base import User
 
 
@@ -309,8 +310,6 @@ class GridGameMixin:
         These server-side keybinds are a fallback for the select action
         and for any client that doesn't support native grid mode.
         """
-        from ..ui.keybinds import KeybindState
-
         self.define_keybind(
             "enter", "Select cell", ["grid_select"],
             state=KeybindState.ACTIVE,

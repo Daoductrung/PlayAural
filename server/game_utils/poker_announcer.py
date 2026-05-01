@@ -10,7 +10,8 @@ from .cards import read_cards
 from .poker_evaluator import describe_hand
 
 if TYPE_CHECKING:
-    from ..games.base import Game, Player
+    from ..games.base import Game
+    from .player import Player
 
 
 def announce_pot_winners(

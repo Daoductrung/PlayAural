@@ -5,15 +5,12 @@ Provides Team dataclass and TeamManager for handling team assignments,
 scoring, and elimination (for inverse game modes).
 """
 
+import re
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
 
 from mashumaro.mixins.json import DataClassJSONMixin
 
 from ..messages.localization import Localization
-
-if TYPE_CHECKING:
-    pass
 
 
 @dataclass
@@ -22,8 +19,8 @@ class Team(DataClassJSONMixin):
 
     index: int  # Team number (0-based)
     members: list[str] = field(default_factory=list)  # Player names
-    round_score: int = 0  # Points earned this round
-    total_score: int = 0  # Total points across rounds
+    round_score: int = 0  # Score earned this round
+    total_score: int = 0  # Total score across rounds
     eliminated: bool = False  # For inverse mode
 
 
@@ -116,13 +113,13 @@ class TeamManager(DataClassJSONMixin):
         return [player_name]
 
     def add_to_team_score(self, player_name: str, points: int) -> None:
-        """Add points to a player's team total score."""
+        """Add a score amount to a player's team total."""
         team = self.get_team(player_name)
         if team:
             team.total_score += points
 
     def add_to_team_round_score(self, player_name: str, points: int) -> None:
-        """Add points to a player's team round score."""
+        """Add a score amount to a player's team round total."""
         team = self.get_team(player_name)
         if team:
             team.round_score += points
@@ -262,8 +259,6 @@ class TeamManager(DataClassJSONMixin):
         Returns:
             Internal team mode string.
         """
-        import re
-
         # Check for "Individual" in any language by checking if it's a known individual string
         # We'll check against the English version and also check if there are no digits
         if "individual" in display.lower() or not any(char.isdigit() for char in display):
@@ -404,24 +399,65 @@ class TeamManager(DataClassJSONMixin):
     # Score Formatting
     # ==========================================================================
 
-    def format_scores_brief(self, locale: str = "en", target_score: int | None = None) -> str:
+    def _format_score_line(
+        self,
+        team: Team,
+        locale: str,
+        target_score: int | None,
+        score_unit_key: str,
+    ) -> str:
+        """Format one score line with a localized, game-provided unit."""
+        name = self.get_team_name(team, locale)
+        unit_count = target_score if target_score is not None else team.total_score
+        unit = Localization.get(locale, score_unit_key, count=unit_count)
+        if target_score is not None:
+            return Localization.get(
+                locale,
+                "game-score-line-target",
+                player=name,
+                score=team.total_score,
+                target=target_score,
+                unit=unit,
+            )
+        return Localization.get(
+            locale,
+            "game-score-line",
+            player=name,
+            score=team.total_score,
+            unit=unit,
+        )
+
+    def format_scores_brief(
+        self,
+        locale: str = "en",
+        target_score: int | None = None,
+        score_unit_key: str = "game-score-unit-points",
+    ) -> str:
         """
         Format scores as a brief single-line string for speaking.
 
-        Returns something like: "Alice: 5. Bob: 3. Charlie: 1."
-        Or with target: "Alice: 5/100. Bob: 3/100."
+        Returns something like: "Alice: 5 points. Bob: 3 points."
+        The unit comes from ``score_unit_key`` and may be chips, tokens, rounds, etc.
         """
         sorted_teams = self.get_sorted_teams(by_score=True, descending=True)
         parts = []
         for team in sorted_teams:
-            name = self.get_team_name(team, locale)
-            if target_score is not None:
-                parts.append(f"{name}: {team.total_score}/{target_score}")
-            else:
-                parts.append(f"{name}: {team.total_score}")
+            parts.append(
+                self._format_score_line(
+                    team,
+                    locale,
+                    target_score,
+                    score_unit_key,
+                )
+            )
         return ". ".join(parts) + "."
 
-    def format_scores_detailed(self, locale: str = "en", target_score: int | None = None) -> list[str]:
+    def format_scores_detailed(
+        self,
+        locale: str = "en",
+        target_score: int | None = None,
+        score_unit_key: str = "game-score-unit-points",
+    ) -> list[str]:
         """
         Format scores as a list of lines for a status box.
 
@@ -435,18 +471,12 @@ class TeamManager(DataClassJSONMixin):
         sorted_teams = self.get_sorted_teams(by_score=True, descending=True)
         lines = []
         for team in sorted_teams:
-            name = self.get_team_name(team, locale)
-            if target_score is not None:
-                lines.append(
-                    Localization.get(
-                        locale,
-                        "game-score-line-target",
-                        player=name,
-                        score=team.total_score,
-                        target=target_score,
-                    )
+            lines.append(
+                self._format_score_line(
+                    team,
+                    locale,
+                    target_score,
+                    score_unit_key,
                 )
-            else:
-                score_str = Localization.get(locale, "game-points", count=team.total_score)
-                lines.append(f"{name}: {score_str}")
+            )
         return lines

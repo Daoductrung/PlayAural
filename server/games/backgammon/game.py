@@ -736,8 +736,28 @@ class BackgammonGame(Game):
 
     def _action_check_scores(self, player: Player, action_id: str) -> None:
         user = self.get_user(player)
-        if user:
-            user.speak(self._score_line(user.locale), buffer="game")
+        if not user:
+            return
+        red = self._get_player_by_color(COLOR_RED)
+        white = self._get_player_by_color(COLOR_WHITE)
+        if red and white:
+            user.speak_l(
+                "backgammon-score-detail",
+                buffer="game",
+                player=red.name,
+                score=self.score_red,
+            )
+            user.speak_l(
+                "backgammon-score-detail",
+                buffer="game",
+                player=white.name,
+                score=self.score_white,
+            )
+        user.speak_l(
+            "backgammon-score-target",
+            buffer="game",
+            points=self.options.match_length,
+        )
 
     def _action_check_scores_detailed(self, player: Player, action_id: str) -> None:
         user = self.get_user(player)
@@ -932,6 +952,12 @@ class BackgammonGame(Game):
         if self.is_touch_client(user) and self.status == "playing":
             return Visibility.VISIBLE
         return super()._is_check_scores_hidden(player)
+
+    def _is_check_scores_enabled(self, player: Player) -> str | None:
+        return None if self.status == "playing" else "action-not-playing"
+
+    def _is_check_scores_detailed_enabled(self, player: Player) -> str | None:
+        return None if self.status == "playing" else "action-not-playing"
 
     def _advance_to_next_turn(self) -> None:
         self._reset_smart_bot_search()

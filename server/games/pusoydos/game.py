@@ -79,6 +79,7 @@ class PusoyDosOptions(GameOptions):
 class PusoyDosGame(Game, TurnTimerMixin):
     players: list[PusoyDosPlayer] = field(default_factory=list)
     options: PusoyDosOptions = field(default_factory=PusoyDosOptions)
+    score_unit_key = "game-score-unit-coins"
 
     current_combo: Combo | None = None
     trick_winner_id: str | None = None

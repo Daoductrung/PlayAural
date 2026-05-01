@@ -68,6 +68,21 @@ def test_game_registered_and_defaults() -> None:
     assert game.options.match_length == "1"
 
 
+def test_tienlen_match_length_targets_best_of_series() -> None:
+    assert (
+        TienLenGame(options=TienLenOptions(match_length="1")).get_score_target()
+        == 1
+    )
+    assert (
+        TienLenGame(options=TienLenOptions(match_length="3")).get_score_target()
+        == 2
+    )
+    assert (
+        TienLenGame(options=TienLenOptions(match_length="5")).get_score_target()
+        == 3
+    )
+
+
 def test_tienlen_uses_ninetynine_background_music_on_start() -> None:
     game = make_game()
     first_user = game.get_user(game.players[0])

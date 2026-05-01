@@ -3,7 +3,7 @@
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from ..games.base import Player
+    from .player import Player
     from ..users.base import User
 
 from .stats_helpers import RatingHelper

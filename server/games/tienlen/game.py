@@ -104,6 +104,7 @@ class TienLenOptions(GameOptions):
 class TienLenGame(Game, TurnTimerMixin):
     players: list[TienLenPlayer] = field(default_factory=list)
     options: TienLenOptions = field(default_factory=TienLenOptions)
+    score_unit_key = "game-score-unit-hand-wins"
 
     current_combo: TienLenCombo | None = None
     trick_winner_id: str | None = None
@@ -148,7 +149,10 @@ class TienLenGame(Game, TurnTimerMixin):
         return TienLenPlayer(id=player_id, name=name, is_bot=is_bot)
 
     def _target_hand_wins(self) -> int:
-        return int(self.options.match_length)
+        return (int(self.options.match_length) // 2) + 1
+
+    def get_score_target(self) -> int | None:
+        return self._target_hand_wins()
 
     @property
     def timer_warning_sound(self) -> str:

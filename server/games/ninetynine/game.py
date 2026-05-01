@@ -133,6 +133,7 @@ class NinetyNineGame(Game):
 
     players: list[NinetyNinePlayer] = field(default_factory=list)
     options: NinetyNineOptions = field(default_factory=NinetyNineOptions)
+    score_unit_key = "game-score-unit-ninetynine-tokens"
 
     # Game state
     deck: Deck = field(default_factory=Deck)

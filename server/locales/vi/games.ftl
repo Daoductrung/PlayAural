@@ -3,11 +3,35 @@ game-round-end = Vòng { $round } hoàn tất.
 game-turn-start = Lượt của { $player }.
 game-no-turn = Hiện không phải lượt của ai.
 
-game-score-line = { $player }: { $score } điểm
-game-score-line-target = { $player }: { $score }/{ $target } điểm
-game-points = { $count } { $count ->
+game-score-line = { $player }: { $score } { $unit }
+game-score-line-target = { $player }: { $score }/{ $target } { $unit }
+game-score-unit-points = { $count ->
     [one] điểm
    *[other] điểm
+}
+game-score-unit-chips = { $count ->
+    [one] chip
+   *[other] chip
+}
+game-score-unit-coins = { $count ->
+    [one] xu
+   *[other] xu
+}
+game-score-unit-ninetynine-tokens = { $count ->
+    [one] thẻ
+   *[other] thẻ
+}
+game-score-unit-tokens-home = { $count ->
+    [one] quân về đích
+   *[other] quân về đích
+}
+game-score-unit-pawns-home = { $count ->
+    [one] quân về nhà
+   *[other] quân về nhà
+}
+game-score-unit-hand-wins = { $count ->
+    [one] ván thắng
+   *[other] ván thắng
 }
 game-final-scores-header = Điểm tổng kết:
 

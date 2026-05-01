@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any
 from mashumaro.mixins.json import DataClassJSONMixin
 
 if TYPE_CHECKING:
-    from ..games.base import Player
+    from .player import Player
 
 
 @dataclass

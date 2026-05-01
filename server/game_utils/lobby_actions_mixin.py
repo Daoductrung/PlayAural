@@ -1,16 +1,14 @@
 """Mixin providing lobby action handlers for games."""
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from ..games.base import Player
     from ..users.base import User
-    from .actions import ResolvedAction
 
 from ..users.base import MenuItem, EscapeBehavior
 from ..users.bot import Bot
 from ..messages.localization import Localization
-from ..documentation.manager import DocumentationManager
+from .player import Player
 from .bot_names import (
     generate_unique_bot_name,
     get_valid_bot_name_pool,
@@ -383,9 +381,6 @@ class LobbyActionsMixin:
         self, player_id: str, name: str, is_bot: bool = False
     ) -> "Player":
         """Create a new player. Override in subclasses for custom player types."""
-        # Import here to avoid circular dependency at module level
-        from ..games.base import Player
-
         return Player(id=player_id, name=name, is_bot=is_bot)
 
     def add_player(self, name: str, user: "User") -> "Player":

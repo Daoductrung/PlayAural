@@ -246,3 +246,21 @@ class TestMileByMileTargetSelectionGuard:
         assert "action_input_menu" not in alice_user.menus
         assert alice_user.get_last_spoken() == "It's not your turn."
 
+
+def test_status_score_format_includes_localized_unit() -> None:
+    game = MileByMileGame()
+    alice_user = MockUser("Alice", locale="vi", uuid="p1")
+    bob_user = MockUser("Bob", locale="vi", uuid="p2")
+    alice = game.add_player("Alice", alice_user)
+    game.add_player("Bob", bob_user)
+    game.on_start()
+    game._team_manager.teams[0].total_score = 0
+    alice_user.clear_messages()
+
+    game._action_check_status(alice, "check_status")
+
+    spoken = alice_user.get_spoken_messages()
+    assert spoken
+    assert "unit" not in spoken[0]
+    assert "điểm" in spoken[0]
+

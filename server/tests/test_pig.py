@@ -180,9 +180,10 @@ class TestPigGameActions:
 
         self.game.execute_action(self.player1, "check_scores")
 
-        # Check that score message was spoken
+        # Check that one score message was spoken per player.
         spoken = self.user1.get_spoken_messages()
-        assert any("30" in msg and "20" in msg for msg in spoken)
+        assert any("30" in msg for msg in spoken)
+        assert any("20" in msg for msg in spoken)
 
     def test_requires_turn(self):
         """Test that turn-required actions are only available on your turn."""

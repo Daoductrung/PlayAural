@@ -54,6 +54,7 @@ class LeftRightCenterGame(Game):
 
     players: list[LeftRightCenterPlayer] = field(default_factory=list)
     options: LeftRightCenterOptions = field(default_factory=LeftRightCenterOptions)
+    score_unit_key = "game-score-unit-chips"
     center_pot: int = 0
     turn_delay_ticks: int = 0
 

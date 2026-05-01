@@ -9,7 +9,8 @@ from typing import TYPE_CHECKING
 from mashumaro.mixins.json import DataClassJSONMixin
 
 if TYPE_CHECKING:
-    from ..games.base import Game, Player
+    from ..games.base import Game
+    from .player import Player
 
 
 class Visibility(str, Enum):

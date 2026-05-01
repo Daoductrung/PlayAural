@@ -3,7 +3,7 @@
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from ..games.base import Player
+    from .player import Player
     from ..users.base import User
     from .teams import TeamManager
 
@@ -21,6 +21,24 @@ class GameScoresMixin:
         - self.get_user(player) -> User | None
         - self.status_box(player, lines)
     """
+
+    def get_score_unit_key(self) -> str:
+        """Return the localization key for this game's scoreboard unit."""
+        return getattr(self, "score_unit_key", "game-score-unit-points")
+
+    def get_score_target(self) -> int | None:
+        """Return the configured score target, if the game exposes one."""
+        if not hasattr(self, "options"):
+            return None
+        if hasattr(self.options, "target_score"):
+            return self.options.target_score
+        if hasattr(self.options, "winning_score"):
+            return self.options.winning_score
+        return None
+
+    def supports_score_actions(self) -> bool:
+        """Return whether the shared score actions have score lines to report."""
+        return bool(self.team_manager.teams)
 
     def _action_whose_turn(self, player: "Player", action_id: str) -> None:
         """Announce whose turn it is."""
@@ -105,16 +123,14 @@ class GameScoresMixin:
         if not user:
             return
 
-        if self.team_manager.teams:
-            # Check for target score in options
-            target_score = None
-            if hasattr(self, "options"):
-                if hasattr(self.options, "target_score"):
-                    target_score = self.options.target_score
-                elif hasattr(self.options, "winning_score"):
-                    target_score = self.options.winning_score
-
-            user.speak(self.team_manager.format_scores_brief(user.locale, target_score), buffer="game")
+        if self.supports_score_actions():
+            lines = self.team_manager.format_scores_detailed(
+                user.locale,
+                self.get_score_target(),
+                score_unit_key=self.get_score_unit_key(),
+            )
+            for line in lines:
+                user.speak(line, buffer="game")
         else:
             user.speak_l("no-scores-available", buffer="game")
 
@@ -124,19 +140,18 @@ class GameScoresMixin:
         if not user:
             return
 
-        if self.team_manager.teams:
-            # Check for target score in options
-            target_score = None
-            if hasattr(self, "options"):
-                if hasattr(self.options, "target_score"):
-                    target_score = self.options.target_score
-                elif hasattr(self.options, "winning_score"):
-                    target_score = self.options.winning_score
-
-            lines = self.team_manager.format_scores_detailed(user.locale, target_score)
+        if self.supports_score_actions():
+            lines = self.team_manager.format_scores_detailed(
+                user.locale,
+                self.get_score_target(),
+                score_unit_key=self.get_score_unit_key(),
+            )
             self.status_box(player, lines)
         else:
-            self.status_box(player, ["No scores available."])
+            self.status_box(
+                player,
+                [Localization.get(user.locale, "no-scores-available")],
+            )
 
     def _action_game_info(self, player: "Player", action_id: str) -> None:
         """Show current game settings/options to the player."""

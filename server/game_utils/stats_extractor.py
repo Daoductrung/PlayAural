@@ -1,5 +1,6 @@
-from typing import Any
 from .game_result import GameResult
+from ..games import registry as game_registry
+
 
 class StatsExtractor:
     """Utility class to extract stats from GameResult for updating player_game_stats."""
@@ -18,8 +19,7 @@ class StatsExtractor:
         final_scores = result.custom_data.get("final_scores", {})
         final_light = result.custom_data.get("final_light", {})
 
-        from ..games.registry import get_game_class
-        game_class = get_game_class(result.game_type)
+        game_class = game_registry.get_game_class(result.game_type)
         if not game_class:
             return updates
 

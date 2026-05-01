@@ -30,10 +30,12 @@ from typing import Any, Callable, TYPE_CHECKING
 from mashumaro.mixins.json import DataClassJSONMixin
 
 from .actions import Action, ActionSet, EditboxInput, MenuInput
+from .teams import TeamManager
 from ..messages.localization import Localization
 
 if TYPE_CHECKING:
-    from ..games.base import Game, Player
+    from ..games.base import Game
+    from .player import Player
 
 
 @dataclass
@@ -273,8 +275,6 @@ class TeamModeOption(MenuOption):
 
     def get_localized_choice(self, value: str, locale: str) -> str:
         """Convert internal team mode format to localized display format."""
-        from .teams import TeamManager
-
         return TeamManager.format_team_mode_for_display(value, locale)
 
 
@@ -501,7 +501,7 @@ class OptionsHandlerMixin:
                 kwargs = meta.get_change_kwargs_localized(value, user.locale)
             else:
                 kwargs = meta.get_change_kwargs(value)
-            user.speak_l(meta.change_msg, "system", **kwargs)
+            user.speak_l(meta.change_msg, buffer="system", **kwargs)
 
     # Generic option action handlers (extract option_name from action_id)
 

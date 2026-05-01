@@ -9,7 +9,8 @@ This is a stateless helper that operates on serialized Player fields:
 from typing import TYPE_CHECKING, Callable
 
 if TYPE_CHECKING:
-    from ..games.base import Game, Player
+    from ..games.base import Game
+    from .player import Player
 
 
 class BotHelper:

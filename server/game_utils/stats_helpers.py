@@ -53,7 +53,7 @@ class LeaderboardHelper:
             Sorted list of LeaderboardEntry (highest first)
 
         Example:
-            # Total points scored across all Pig games
+            # Total score accumulated across all Pig games
             leaderboard = LeaderboardHelper.build_from_results(
                 results,
                 score_extractor=lambda r, pid: r.custom_data.get("final_scores", {}).get(pid),

@@ -121,6 +121,7 @@ class FiveCardDrawGame(Game, TurnTimerMixin):
     players: list[FiveCardDrawPlayer] = field(default_factory=list)
     options: FiveCardDrawOptions = field(default_factory=FiveCardDrawOptions)
     deck: Deck | None = None
+    score_unit_key = "game-score-unit-chips"
     discard_pile: list[Card] = field(default_factory=list)
     pot_manager: PokerPotManager = field(default_factory=PokerPotManager)
     betting: PokerBettingRound | None = None

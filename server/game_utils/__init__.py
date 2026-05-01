@@ -4,6 +4,8 @@ from .actions import Action, ActionSet, MenuInput, EditboxInput
 from .dice import DiceSet, roll_dice, roll_die
 from .dice_game_mixin import DiceGameMixin
 from .game_result import GameResult, PlayerResult
+from .player import Player
+from .action_context import ActionContext
 from .stats_helpers import LeaderboardHelper, LeaderboardEntry, RatingHelper, PlayerRating
 from .game_sound_mixin import GameSoundMixin
 from .game_communication_mixin import GameCommunicationMixin
@@ -32,6 +34,8 @@ __all__ = [
     "DiceGameMixin",
     "GameResult",
     "PlayerResult",
+    "Player",
+    "ActionContext",
     "LeaderboardHelper",
     "LeaderboardEntry",
     "RatingHelper",

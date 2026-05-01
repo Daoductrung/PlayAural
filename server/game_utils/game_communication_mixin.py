@@ -3,7 +3,8 @@
 from typing import TYPE_CHECKING, Callable
 
 if TYPE_CHECKING:
-    from ..games.base import Game, Player
+    from ..games.base import Game
+    from .player import Player
     from ..users.base import User
 
 from ..messages.localization import Localization

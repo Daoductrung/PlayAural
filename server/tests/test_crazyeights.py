@@ -43,11 +43,10 @@ def test_spectator_is_excluded_from_crazyeights_scores_after_start():
     alice_user.clear_messages()
     game._action_check_scores(alice, "check_scores")
 
-    spoken = alice_user.get_last_spoken()
-    assert spoken is not None
-    assert "Alice: 12/500" in spoken
-    assert "Bob: 4/500" in spoken
-    assert "Watcher" not in spoken
+    spoken = alice_user.get_spoken_messages()
+    assert any("Alice: 12/500" in message for message in spoken)
+    assert any("Bob: 4/500" in message for message in spoken)
+    assert all("Watcher" not in message for message in spoken)
 
 
 def test_crazyeights_bot_game_completes():

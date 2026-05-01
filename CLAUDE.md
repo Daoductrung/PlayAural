@@ -123,6 +123,8 @@ Key built-in mixins include:
 
 Games are dataclasses serialized via Mashumaro for save/restore. All important game state must live in dataclass fields.
 
+The canonical shared player and action-context types live in `server/game_utils/player.py` and `server/game_utils/action_context.py`. Game modules can use the re-exports from `server/games/base.py`, but they must not create duplicate base `Player` or ad-hoc action context classes.
+
 #### SequenceRunnerMixin for Cinematic Gameplay Flows
 `Game` includes `SequenceRunnerMixin`. It is the standard way to build delayed, multi-step gameplay/audio flows that must survive save/load and avoid deadlocks.
 
@@ -205,6 +207,21 @@ Rules:
 - `set_turn_players(players)` resets `turn_index` to `0`
 - `advance_turn()` immediately after `set_turn_players(...)` skips the first player and is almost always wrong
 - use `get_active_players()` for gameplay logic, results, and winner calculations
+
+#### Score Management and Units
+Shared score display is handled by `GameScoresMixin` and `TeamManager`.
+
+Rules:
+- games that use default score actions must keep `TeamManager` synchronized with their authoritative score state
+- games with non-point score units must set `score_unit_key` to a localized `game-score-unit-*` key
+- score unit keys live in both `server/locales/en/games.ftl` and `server/locales/vi/games.ftl`, unless an existing shared unit key already matches the game
+- score unit strings should use Fluent plural/select rules and receive the formatter's `count` value
+- games whose target score is not stored as `options.target_score` or `options.winning_score` should override `get_score_target()`
+- games with custom non-`TeamManager` scoring should override `supports_score_actions()`, `_action_check_scores`, and `_action_check_scores_detailed` as one coherent set
+- scoreless games should not claim score support; their score buttons stay hidden and `s` / `shift+s` are silently ignored
+- brief score checks speak one TTS message per player/team in the `game` buffer instead of one combined sentence
+- detailed score checks use a status box with one line per player/team unless the game has a stronger custom detail view
+- score units are display text only; leaderboards, ratings, personal statistics, and `GameResult.custom_data` continue to store numeric values in their established schema
 
 #### Server-Side Navigation Stack
 Server menus use the breadcrumb stack in `_user_states[username]["_stack"]`.

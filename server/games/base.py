@@ -30,51 +30,17 @@ from ..game_utils.event_handling_mixin import EventHandlingMixin
 from ..game_utils.action_set_creation_mixin import ActionSetCreationMixin
 from ..game_utils.action_execution_mixin import ActionExecutionMixin
 from ..game_utils.action_set_system_mixin import ActionSetSystemMixin
+from ..game_utils.action_context import ActionContext
 from ..game_utils.client_types import (
     is_touch_client as user_is_touch_client,
     is_touch_client_type,
 )
+from ..game_utils.player import Player
 from ..ui.keybinds import Keybind
 from ..users.bot import Bot
 from .categories import CATEGORY_MISC
 
 BOT_NAMES = get_valid_bot_name_pool()
-
-
-@dataclass
-class ActionContext:
-    """Context passed to action handlers when triggered by keybind."""
-
-    menu_item_id: str | None = None  # ID of selected menu item when keybind pressed
-    menu_index: int | None = None  # 1-based index of selected menu item
-    from_keybind: bool = (
-        False  # True if triggered by keybind, False if by menu selection
-    )
-
-
-@dataclass
-class Player(DataClassJSONMixin):
-    """
-    A player in a game.
-
-    This is a dataclass that gets serialized with the game state.
-    The user field is not serialized - it's reattached on load.
-    """
-
-    id: str  # UUID - unique identifier (from user.uuid for humans, generated for bots)
-    name: str  # Display name
-    is_bot: bool = False
-    replaced_human: bool = False  # True if this slot was a human who disconnected and was replaced by a bot
-    replaced_human_name: str = ""  # Original human name while a replacement bot holds this slot
-    replacement_bot_name: str = ""  # Visible bot name while this slot is being auto-played
-    is_spectator: bool = False
-    # Bot AI state (serialized for persistence)
-    bot_think_ticks: int = 0  # Ticks until bot can act
-    bot_pending_action: str | None = None  # Action to execute when ready
-    bot_target: int | None = None  # Game-specific target (e.g., score to reach)
-
-    # Synchronization
-    reconnect_grace_ticks: int = 0  # Ticks to ignore input after reconnecting
 
 
 # Re-export GameOptions from options module for backwards compatibility

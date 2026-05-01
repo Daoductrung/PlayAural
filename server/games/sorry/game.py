@@ -76,6 +76,7 @@ class SorryOptions(GameOptions):
 class SorryGame(Game):
     players: list[SorryPlayer] = field(default_factory=list)
     options: SorryOptions = field(default_factory=SorryOptions)
+    score_unit_key = "game-score-unit-pawns-home"
 
     game_state: SorryGameState = field(default_factory=SorryGameState)
     winner_name: str = ""

@@ -3,7 +3,7 @@
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from ..games.base import Player
+    from .player import Player
 
 from .actions import Action, ActionSet, EditboxInput
 from ..messages.localization import Localization

@@ -161,6 +161,7 @@ class HoldemGame(Game, TurnTimerMixin):
     players: list[HoldemPlayer] = field(default_factory=list)
     options: HoldemOptions = field(default_factory=HoldemOptions)
     deck: Deck | None = None
+    score_unit_key = "game-score-unit-chips"
     community: list[Card] = field(default_factory=list)
     pot_manager: PokerPotManager = field(default_factory=PokerPotManager)
     betting: PokerBettingRound | None = None

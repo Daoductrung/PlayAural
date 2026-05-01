@@ -231,6 +231,8 @@ class MyGamePlayer(Player):
 
 Data model classes (cards, tiles, tokens) must also be `@dataclass` with `DataClassJSONMixin` for serialization.
 
+The shared base `Player` type lives in `server/game_utils/player.py` and is re-exported by `server/games/base.py` for game modules. The shared `ActionContext` type lives in `server/game_utils/action_context.py`. Reuse these canonical types instead of creating duplicate local base classes or ad-hoc context objects.
+
 ---
 
 ## 3. Action System
@@ -579,6 +581,22 @@ def bot_think(self, player: Player) -> str | None:
 - `BotHelper.on_tick` decrements ticks and calls `bot_think` → `execute_action`
 - In tests, use `advance_until(game, condition_fn, max_ticks=500)` instead of fixed tick counts
 
+### 8.3 Score Management
+
+The shared score actions are provided by `GameScoresMixin` and `TeamManager`. Games that use the default score actions must keep `TeamManager` synchronized with the authoritative game state before scores are read or results are built.
+
+Rules:
+
+- The default scoreboard unit is localized points. Any game whose score is not points must set a class attribute such as `score_unit_key = "game-score-unit-chips"` and either reuse an existing global unit key or define a new one in both `server/locales/en/games.ftl` and `server/locales/vi/games.ftl`.
+- Score unit strings must use Fluent plural/select syntax when the language requires it. The shared formatter passes `count`, so unit labels such as points, chips, tokens, rounds, coins, and pawns can be localized correctly.
+- If a game has a target score in `options.target_score` or `options.winning_score`, the default `get_score_target()` handles it. Override `get_score_target()` only when the target is stored elsewhere or computed from multiple options.
+- If a game has custom scoring that does not use `TeamManager`, override `supports_score_actions()`, `_action_check_scores`, and `_action_check_scores_detailed` together. Do not expose score actions unless they have meaningful score lines to report.
+- Scoreless games should leave `TeamManager` empty and should not override score support. In scoreless games, the score buttons are hidden and the `s` / `shift+s` keybinds must be silently ignored.
+- Brief score checks must speak one line per player/team in the `"game"` buffer. Do not combine every player's score into one long TTS message.
+- Detailed score checks should use `status_box(player, lines)` with one line per player/team unless the game has a stronger established detail view.
+- Any code that formats `game-score-line` or `game-score-line-target` directly must pass the localized `unit` variable. Prefer `TeamManager.format_scores_detailed(...)` or a small game helper over open-coded formatting.
+- Score display units are presentation only. Leaderboards, ratings, personal statistics, and `GameResult.custom_data` must continue to store numeric values in their existing schema.
+
 ---
 
 ## 9. Localization
@@ -620,6 +638,7 @@ game-name-<type> = <English Name>
 - Use Fluent plurals for countable nouns: `{ $count -> [one] tile *[other] tiles }`
 - Use `Localization.get(locale, key, **kwargs)` for formatting
 - Use `Localization.format_list_and(locale, items)` for joining lists with localized "and"
+- Add shared score unit labels to `server/locales/<locale>/games.ftl` when multiple games can reuse them. Add game-specific unit labels only when the wording is unique to that game.
 
 ---
 
@@ -679,7 +698,7 @@ def advance_until(game, condition, max_ticks=400) -> bool:
 - Game registration and default options
 - Pre-start validation (valid and invalid cases)
 - Core gameplay mechanics (play, draw, pass/knock)
-- Scoring (round win, blocked round, team mode)
+- Scoring (round win, blocked round, team mode, score units, scoreless hotkey behavior when applicable)
 - Bot AI completes a game without infinite loops
 - Web client turn menu visibility and ordering
 - Keybind registration (no reserved key collisions)
@@ -755,6 +774,8 @@ Use this checklist when implementing a new game. Every item is mandatory.
 - [ ] Bot game tested to completion — no infinite loops
 - [ ] `build_game_result` uses `get_active_players()` for player list
 - [ ] `prestart_validate` checks team mode and any option conflicts
+- [ ] Score actions use one TTS line per player/team and the correct localized score unit
+- [ ] Scoreless games hide score actions and silently ignore `s` / `shift+s`
 
 ### Actions & Keybinds
 - [ ] `setup_keybinds` calls `super().setup_keybinds()` first
@@ -790,6 +811,7 @@ Use this checklist when implementing a new game. Every item is mandatory.
 - [ ] All option keys, action labels, gameplay messages in both locales
 - [ ] All keys in EN file have corresponding keys in VI file
 - [ ] Option `choice_labels` keys defined in both locales
+- [ ] Custom score units define or reuse localized `game-score-unit-*` keys in both EN and VI
 
 ### Documentation
 - [ ] EN and VI documentation files in `server/documentation/content/`

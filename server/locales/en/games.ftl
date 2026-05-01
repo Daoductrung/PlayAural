@@ -3,11 +3,35 @@ game-round-end = Round { $round } complete.
 game-turn-start = { $player }'s turn.
 game-no-turn = No one's turn right now.
 
-game-score-line = { $player }: { $score } points
-game-score-line-target = { $player }: { $score }/{ $target } points
-game-points = { $count } { $count ->
+game-score-line = { $player }: { $score } { $unit }
+game-score-line-target = { $player }: { $score }/{ $target } { $unit }
+game-score-unit-points = { $count ->
     [one] point
    *[other] points
+}
+game-score-unit-chips = { $count ->
+    [one] chip
+   *[other] chips
+}
+game-score-unit-coins = { $count ->
+    [one] coin
+   *[other] coins
+}
+game-score-unit-ninetynine-tokens = { $count ->
+    [one] token
+   *[other] tokens
+}
+game-score-unit-tokens-home = { $count ->
+    [one] token home
+   *[other] tokens home
+}
+game-score-unit-pawns-home = { $count ->
+    [one] pawn home
+   *[other] pawns home
+}
+game-score-unit-hand-wins = { $count ->
+    [one] hand win
+   *[other] hand wins
 }
 game-final-scores-header = Final Scores:
 

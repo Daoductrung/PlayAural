@@ -3,7 +3,9 @@
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from ..games.base import Player, ActionContext
+    from .player import Player
+
+from .action_context import ActionContext
 
 
 class EventHandlingMixin:
@@ -61,9 +63,6 @@ class EventHandlingMixin:
         context_data = event.get("context", {})
         menu_item_id = context_data.get("menu_item_id")
         
-        # Import here to avoid circular dependency
-        from ..games.base import ActionContext
-
         context = ActionContext(
             menu_item_id=menu_item_id,
             # We could add more context if needed
@@ -210,9 +209,6 @@ class EventHandlingMixin:
 
         # Check if player is a spectator
         is_spectator = self._is_player_spectator(player)
-
-        # Import here to avoid circular dependency at module level
-        from ..games.base import ActionContext
 
         # Build context for action handlers
         context = ActionContext(

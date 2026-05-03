@@ -218,7 +218,7 @@ class DominosGame(Game):
 
     @classmethod
     def get_category(cls) -> str:
-        return "board"
+        return "cards"
 
     @classmethod
     def get_min_players(cls) -> int:

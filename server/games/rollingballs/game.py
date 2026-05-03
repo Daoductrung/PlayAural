@@ -159,7 +159,7 @@ class RollingBallsGame(Game):
 
     @classmethod
     def get_category(cls) -> str:
-        return "cards"
+        return "misc"
 
     @classmethod
     def get_min_players(cls) -> int:

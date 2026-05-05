@@ -2241,6 +2241,14 @@ PlayAural Server
         value = packet.get("text", packet.get("value"))
         prefs = user.preferences
 
+        parent_menu = (state.get("_parent_frame") or {}).get("menu")
+
+        restore_menu_for_volume = (
+            self._show_audio_submenu
+            if parent_menu == "options_audio_submenu"
+            else self._show_options_menu
+        )
+
         numeric_inputs = {
             "music_volume_input": (
                 "music_volume",
@@ -2248,7 +2256,7 @@ PlayAural Server
                 0,
                 100,
                 "invalid-volume",
-                self._show_options_menu,
+                restore_menu_for_volume,
             ),
             "ambience_volume_input": (
                 "ambience_volume",
@@ -2256,7 +2264,7 @@ PlayAural Server
                 0,
                 100,
                 "invalid-volume",
-                self._show_options_menu,
+                restore_menu_for_volume,
             ),
             "voice_volume_input": (
                 "voice_volume",
@@ -2264,7 +2272,7 @@ PlayAural Server
                 10,
                 100,
                 "invalid-volume",
-                self._show_options_menu,
+                restore_menu_for_volume,
             ),
             "speech_rate_input": (
                 "speech_rate",

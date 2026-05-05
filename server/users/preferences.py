@@ -27,7 +27,7 @@ class UserPreferences:
     play_turn_sound: bool = True  # Play sound when it's your turn
 
     # Audio preferences
-    music_volume: int = 20
+    music_volume: int = 10
     ambience_volume: int = 20
     voice_volume: int = 80  # 10-100 range (not 0 to avoid complete muting)
     desktop_audio_input_device_id: str = ""
@@ -97,7 +97,7 @@ class UserPreferences:
         """Create from dictionary."""
         return cls(
             play_turn_sound=data.get("play_turn_sound", True),
-            music_volume=data.get("music_volume", 20),
+            music_volume=data.get("music_volume", 10),
             ambience_volume=data.get("ambience_volume", 20),
             voice_volume=data.get("voice_volume", 80),
             desktop_audio_input_device_id=data.get("desktop_audio_input_device_id", ""),

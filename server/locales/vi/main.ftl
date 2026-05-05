@@ -203,11 +203,16 @@ action-no-bots = Không có bot nào để xóa.
 action-bots-cannot = Bot không thể làm điều này.
 action-no-scores = Chưa có điểm số nào.
 
+options-category-audio = Âm thanh
+options-category-accessibility = Hỗ trợ tiếp cận
+options-category-notifications = Thông báo
+options-category-game = Trò chơi
+
 music-volume-option = Âm lượng nhạc: { $value }%
 ambience-volume-option = Âm lượng môi trường: { $value }%
 voice-volume-option = Âm lượng trò chuyện thoại: { $value }%
 audio-input-device-option = Thiết bị đầu vào âm thanh: { $device }
-audio-input-device-default = Thiết bị đầu vào mặc định của hệ thống
+
 mute-global-chat-option = Tắt tiếng trò chuyện chung: { $status }
 mute-table-chat-option = Tắt tiếng trò chuyện trong bàn: { $status }
 invert-multiline-enter-option = Đảo ngược phím Enter: { $status }

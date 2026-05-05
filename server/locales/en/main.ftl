@@ -203,11 +203,16 @@ action-no-bots = There are no bots to remove.
 action-bots-cannot = Bots cannot do this.
 action-no-scores = No scores available yet.
 
+options-category-audio = Audio
+options-category-accessibility = Accessibility
+options-category-notifications = Notifications
+options-category-game = Game
+
 music-volume-option = Music Volume: { $value }%
 ambience-volume-option = Ambience Volume: { $value }%
 voice-volume-option = Voice Chat Volume: { $value }%
 audio-input-device-option = Audio Input Device: { $device }
-audio-input-device-default = System Default Input Device
+
 mute-global-chat-option = Mute Global Chat: { $status }
 mute-table-chat-option = Mute Table Chat: { $status }
 invert-multiline-enter-option = Invert Enter Key Behavior: { $status }

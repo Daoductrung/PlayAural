@@ -1645,58 +1645,41 @@ PlayAural Server
 
     def _show_options_menu(self, user: NetworkUser) -> None:
         """Show options menu."""
-        languages = Localization.get_available_languages(user.locale, fallback= user.locale)
+        languages = Localization.get_available_languages(user.locale, fallback=user.locale)
         current_lang = languages.get(user.locale, user.locale)
         prefs = user.preferences
+
         audio_input_device_name = (
             prefs.desktop_audio_input_device_name
             or Localization.get(user.locale, "audio-input-device-default")
         )
 
-        # Turn sound option
-        turn_sound_status = Localization.get(
-            user.locale,
-            "option-on" if prefs.play_turn_sound else "option-off",
-        )
-
-        # Clear kept dice option
-        clear_kept_status = Localization.get(
-            user.locale,
-            "option-on" if prefs.clear_kept_on_roll else "option-off",
-        )
-
-        # Dice keeping style option
-        style_key = self.DICE_KEEPING_STYLES.get(
-            prefs.dice_keeping_style, "dice-keeping-style-indexes"
-        )
-        dice_style_name = Localization.get(user.locale, style_key)
-        
         items = []
 
-        # 1. Audio & Media
+        # ── Language ─────────────────────────────────────────────────────────────
+        # Placed at the very top, outside any category.
+        items.append(
+            MenuItem(
+                text=Localization.get(user.locale, "language-option", language=current_lang),
+                id="language",
+            )
+        )
+
+        # ── Audio ─────────────────────────────────────────────────────────────────
+        items.append(
+            MenuItem(text=Localization.get(user.locale, "options-category-audio"), id="--category-audio")
+        )
         items.extend([
             MenuItem(
-                text=Localization.get(
-                    user.locale,
-                    "music-volume-option",
-                    value=prefs.music_volume,
-                ),
+                text=Localization.get(user.locale, "music-volume-option", value=prefs.music_volume),
                 id="music_volume",
             ),
             MenuItem(
-                text=Localization.get(
-                    user.locale,
-                    "ambience-volume-option",
-                    value=prefs.ambience_volume,
-                ),
+                text=Localization.get(user.locale, "ambience-volume-option", value=prefs.ambience_volume),
                 id="ambience_volume",
             ),
             MenuItem(
-                text=Localization.get(
-                    user.locale,
-                    "voice-volume-option",
-                    value=prefs.voice_volume,
-                ),
+                text=Localization.get(user.locale, "voice-volume-option", value=prefs.voice_volume),
                 id="voice_volume",
             ),
         ])
@@ -1704,16 +1687,12 @@ PlayAural Server
         if not is_web_client_type(user.client_type) and not is_mobile_client_type(user.client_type):
             items.append(
                 MenuItem(
-                    text=Localization.get(
-                        user.locale,
-                        "audio-input-device-option",
-                        device=audio_input_device_name,
-                    ),
+                    text=Localization.get(user.locale, "audio-input-device-option", device=audio_input_device_name),
                     id="audio_input_device",
                 )
             )
 
-        items.extend([
+        items.append(
             MenuItem(
                 text=Localization.get(
                     user.locale,
@@ -1723,8 +1702,8 @@ PlayAural Server
                     ),
                 ),
                 id="turn_sound",
-            ),
-        ])
+            )
+        )
 
         if not uses_self_voicing_settings_type(user.client_type):
             items.append(
@@ -1741,13 +1720,10 @@ PlayAural Server
                 )
             )
 
-        # 2. Accessibility & Interface
+        # ── Accessibility ───────────────────────────────────────────────────────
         items.append(
             MenuItem(
-                text=Localization.get(
-                    user.locale, "language-option", language=current_lang
-                ),
-                id="language",
+                text=Localization.get(user.locale, "options-category-accessibility"), id="--category-accessibility"
             )
         )
 
@@ -1774,7 +1750,12 @@ PlayAural Server
                 )
             )
 
-        # 3. Social & Notifications
+        # ── Notifications ───────────────────────────────────────────────────────
+        items.append(
+            MenuItem(
+                text=Localization.get(user.locale, "options-category-notifications"), id="--category-notifications"
+            )
+        )
         items.extend([
             MenuItem(
                 text=Localization.get(
@@ -1799,27 +1780,36 @@ PlayAural Server
             MenuItem(
                 text=Localization.get(
                     user.locale,
-                    "option-notify-user-presence-on" if prefs.notify_user_presence else "option-notify-user-presence-off"
+                    "option-notify-user-presence-on"
+                    if prefs.notify_user_presence
+                    else "option-notify-user-presence-off",
                 ),
                 id="notify_user_presence",
             ),
             MenuItem(
                 text=Localization.get(
                     user.locale,
-                    "option-notify-friend-presence-on" if prefs.notify_friend_presence else "option-notify-friend-presence-off"
+                    "option-notify-friend-presence-on"
+                    if prefs.notify_friend_presence
+                    else "option-notify-friend-presence-off",
                 ),
                 id="notify_friend_presence",
             ),
             MenuItem(
                 text=Localization.get(
                     user.locale,
-                    "option-notify-table-created-on" if prefs.notify_table_created else "option-notify-table-created-off"
+                    "option-notify-table-created-on"
+                    if prefs.notify_table_created
+                    else "option-notify-table-created-off",
                 ),
                 id="notify_table_created",
             ),
         ])
 
-        # 4. Gameplay Preferences
+        # ── Game ─────────────────────────────────────────────────────────────────
+        items.append(
+            MenuItem(text=Localization.get(user.locale, "options-category-game"), id="--category-game")
+        )
         items.extend([
             MenuItem(
                 text=Localization.get(
@@ -1837,7 +1827,10 @@ PlayAural Server
                     user.locale,
                     "dice-keeping-style-option",
                     style=Localization.get(
-                        user.locale, self.DICE_KEEPING_STYLES.get(prefs.dice_keeping_style, "dice-keeping-style-indexes")
+                        user.locale,
+                        self.DICE_KEEPING_STYLES.get(
+                            prefs.dice_keeping_style, "dice-keeping-style-indexes"
+                        ),
                     ),
                 ),
                 id="dice_keeping_style",
@@ -1852,8 +1845,9 @@ PlayAural Server
                 ),
                 id="clear_kept",
             ),
-            MenuItem(text=Localization.get(user.locale, "back"), id="back"),
         ])
+
+        items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
 
         user.show_menu(
             "options_menu",
@@ -3868,6 +3862,10 @@ PlayAural Server
         self, user: NetworkUser, selection_id: str
     ) -> None:
         """Handle options menu selection."""
+        # Category headers are non-interactive separators – ignore selection.
+        if selection_id and selection_id.startswith("--category-"):
+            return
+
         if selection_id == "language":
             self._nav_push(user, self._show_language_menu)
             return

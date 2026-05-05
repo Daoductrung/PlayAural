@@ -86,7 +86,7 @@ Important server-driven packets include:
 ### Server Architecture
 - **`server/core/server.py`** — Main orchestrator, auth routing, menus, reconnect, moderation, MOTD, presence
 - **`server/network/websocket_server.py`** — Async WebSocket transport
-- **`server/games/`** — 35 registered game implementations
+- **`server/games/`** — 36 registered game implementations
 - **`server/game_utils/`** — shared game mixins and helpers
 - **`server/tables/`** — table lifecycle, save/restore, membership
 - **`server/auth/`** — authentication, CAPTCHA checks, password reset, rate limiting
@@ -336,10 +336,10 @@ Mobile rules:
 - unavailable synced mobile voices or engines must fall back to the system default without throwing
 
 ### Game Counts and Catalog
-The server currently registers **35 games**:
+The server currently registers **36 games**:
 - backend category ids are `cards`, `dice`, `board`, `poker`, `arcade`, and `misc`
 - categories are management metadata only; the Play menu remains a flat localized game list
-- recent additions include `Bunko`, `Tien Len`, `Color Game`, `Citadels`, and `Dead Man's Deck`
+- recent additions include `Tien Len`, `Color Game`, `Citadels`, `Dead Man's Deck`, and `Dead Man's Poker`
 
 ### Key Tech Stack
 - Python 3.11, `asyncio`, `websockets>=12.0`, `mashumaro`, `fluent-compiler`, `openskill`, `argon2-cffi`

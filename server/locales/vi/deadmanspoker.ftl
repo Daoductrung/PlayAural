@@ -1,0 +1,92 @@
+game-name-deadmanspoker = Poker Tử Thần
+
+deadmanspoker-call = Theo
+deadmanspoker-match-all-in = Theo tất tay
+deadmanspoker-fold = Bỏ bài
+deadmanspoker-coward-fold = Bỏ non
+deadmanspoker-switch-card = Đổi bài
+deadmanspoker-all-in = Tất tay
+deadmanspoker-read-hand = Đọc bài riêng
+deadmanspoker-read-community-cards = Đọc bài chung
+deadmanspoker-read-hand-value = Đọc sức mạnh tay bài
+deadmanspoker-read-table = Đọc tình hình bàn
+deadmanspoker-read-card-counts = Đọc số lá bài
+deadmanspoker-read-revolvers = Đọc rủi ro ổ đạn
+
+deadmanspoker-action-sequence-running = Hãy chờ diễn biến hiện tại kết thúc.
+deadmanspoker-action-eliminated = Bạn đã bị loại.
+deadmanspoker-action-folded = Bạn đã rời khỏi ván bài này.
+deadmanspoker-not-decision-phase = Lúc này bạn không thể làm việc đó.
+deadmanspoker-max-bullets = Bạn đã đặt tối đa số đạn cho ván này.
+deadmanspoker-no-opponents = Không còn đối thủ nào trong ván bài này.
+deadmanspoker-already-matched-all-in = Bạn đã theo mức tất tay rồi.
+deadmanspoker-coward-used = Bạn đã dùng Bỏ non trong trận này.
+deadmanspoker-coward-first-decision-only = Bỏ non chỉ dùng được ở quyết định đầu tiên của một ván bài.
+deadmanspoker-fold-first-decision-use-coward = Bỏ bài thường không dùng được ở quyết định đầu tiên khi chỉ có 1 viên đạn. Chỉ Bỏ non mới rời ván được ở thời điểm đó.
+deadmanspoker-switch-not-now = Lúc này bạn không thể đổi bài.
+deadmanspoker-switch-used = Bạn đã đổi bài trong trận này rồi.
+deadmanspoker-switch-too-late = Đã quá muộn để đổi bài.
+deadmanspoker-switch-no-cards = Bạn không có lá bài riêng nào để đổi.
+deadmanspoker-switch-no-deck = Bộ bài không còn đủ lá thay thế.
+deadmanspoker-switch-choice-missing = Lá thay thế đó không còn khả dụng.
+
+deadmanspoker-match-start = Poker Tử Thần bắt đầu. Mỗi viên đạn trên bàn là một lời cược bằng mạng sống.
+deadmanspoker-hand-start = Ván { $hand }. Mỗi người còn sống đặt viên đạn đầu tiên.
+deadmanspoker-community-arrives = Năm lá bài chung được đặt úp trên bàn.
+deadmanspoker-your-hand = Bài riêng của bạn: { $cards }.
+deadmanspoker-hand-empty = Bạn không còn lá bài nào.
+deadmanspoker-round-stage = Vòng cược { $round_stage }.
+deadmanspoker-community-revealed = Bài chung vừa lật: { $cards }. Trên bàn: { $table }.
+deadmanspoker-player-calls = { $player } theo và đặt thêm { $added } viên đạn lên bàn. Tổng đã đặt: { $total }.
+deadmanspoker-player-matches-all-in = { $player } theo tất tay với { $added } viên đạn. Tổng đã đặt: { $total }.
+deadmanspoker-player-all-in = { $player } tất tay và đẩy thêm { $added } viên đạn lên bàn. Tổng đã đặt: { $total }.
+deadmanspoker-player-folds = { $player } bỏ bài và phải đối mặt với ổ đạn chứa { $bullets } viên.
+deadmanspoker-player-coward-folds = { $player } dùng Bỏ non và đối mặt với ổ đạn chứa 1 viên.
+deadmanspoker-switch-select-card = Chọn lá bài riêng muốn đổi.
+deadmanspoker-switch-card-option = Đổi { $card }
+deadmanspoker-switch-candidates = Các lá thay thế: { $cards }.
+deadmanspoker-choose-switch-placeholder = Lá thay thế { $index }
+deadmanspoker-choose-switch-card = Chọn { $card }
+deadmanspoker-player-switches = { $player } đổi một lá bài riêng và bỏ lá { $card }.
+deadmanspoker-private-reveal = { $player } lật { $cards }. Tay bài mạnh nhất: { $hand }.
+deadmanspoker-showdown-winners = { $players } thắng so bài với { $hand }.
+deadmanspoker-showdown-tie-no-penalty = Màn so bài hòa. Ván này không ai phải bóp cò.
+deadmanspoker-hand-winner = { $player } thắng ván bài vì không còn ai tranh chấp.
+deadmanspoker-hand-no-winner = Ván bài này không có người thắng.
+
+deadmanspoker-roulette-start = Màn bóp cò bắt đầu cho { $players }.
+deadmanspoker-load-bullets = { $player } nạp { $bullets } viên đạn.
+deadmanspoker-roulette-survived = Khoang rỗng. { $player } sống sót sau khi liều mạng với { $bullets } viên đạn.
+deadmanspoker-player-eliminated = Súng nổ. { $player } gục xuống sau khi liều mạng với { $bullets } viên đạn.
+deadmanspoker-player-wins = { $player } là người sống sót cuối cùng và thắng Poker Tử Thần.
+deadmanspoker-no-winner = Không xác định được người thắng.
+deadmanspoker-you-are-eliminated = Bạn đã bị loại khỏi trận này.
+
+deadmanspoker-table-hand = Ván { $hand }, vòng cược { $round_stage }.
+deadmanspoker-table-community = Bài chung: { $cards }. Bài úp: { $hidden }.
+deadmanspoker-community-status = Bài chung: { $cards }. Bài úp: { $hidden }.
+deadmanspoker-table-turn = Lượt hiện tại: { $player }.
+deadmanspoker-table-no-turn = Hiện không ai đang có lượt.
+deadmanspoker-table-player = { $player }: đã đặt { $bullets } viên đạn, { $status }.
+deadmanspoker-community-none = chưa lật lá nào
+deadmanspoker-hidden-community = { $count } lá úp
+deadmanspoker-status-active = còn trong ván
+deadmanspoker-status-folded = đã bỏ bài
+deadmanspoker-status-eliminated = đã gục
+deadmanspoker-status-waiting = đang chờ
+
+deadmanspoker-card-count-line = { $player }: còn { $count } lá.
+deadmanspoker-card-count-eliminated = { $player }: đã gục.
+
+deadmanspoker-revolvers-header = Rủi ro ổ đạn
+deadmanspoker-revolver-status = { $player }: đã đặt { $bullets } viên đạn; { $risk }.
+deadmanspoker-revolver-eliminated = { $player }: đã gục.
+deadmanspoker-risk-none = chưa có rủi ro bóp cò
+deadmanspoker-risk-normal = nguy cơ chết { $bullets } trên 8
+deadmanspoker-risk-eight = nguy cơ chết 95 phần trăm, 5 phần trăm cơ hội thoát chết
+
+deadmanspoker-results-header = Kết quả Poker Tử Thần
+deadmanspoker-results-winner = Người sống sót: { $player }.
+deadmanspoker-results-survived = còn sống
+deadmanspoker-results-eliminated = đã gục
+deadmanspoker-results-line = { $player }: { $status }, thắng { $hands } ván, tất tay { $allins } lần, sống sót sau { $survivals } lần bóp cò, đã liều { $bullets } viên đạn.

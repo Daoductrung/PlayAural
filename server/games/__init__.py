@@ -39,6 +39,7 @@ from .colorgame.game import ColorGameGame
 from .battle.game import BattleGame
 from .citadels.game import CitadelsGame
 from .deadmansdeck.game import DeadMansDeckGame
+from .deadmanspoker.game import DeadMansPokerGame
 
 __all__ = [
     "Game",
@@ -80,4 +81,5 @@ __all__ = [
     "BattleGame",
     "CitadelsGame",
     "DeadMansDeckGame",
+    "DeadMansPokerGame",
 ]

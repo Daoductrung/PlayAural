@@ -2,7 +2,7 @@
   "expo": {
     "name": "PlayAural Mobile",
     "slug": "playaural-mobile",
-    "version": "1.0.4.3",
+    "version": "1.0.4.4",
     "newArchEnabled": false,
     "orientation": "portrait",
     "assetBundlePatterns": [
@@ -10,7 +10,7 @@
     ],
     "android": {
       "package": "one.ddt.playaural.mobile",
-      "versionCode": 10403,
+      "versionCode": 10404,
       "usesCleartextTraffic": true
     },
     "ios": {

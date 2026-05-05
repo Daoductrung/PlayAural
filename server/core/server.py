@@ -7054,6 +7054,14 @@ PlayAural Server
             self._show_mobile_voice_selection_menu(user)
         elif menu == "dice_keeping_style_menu":
             self._show_dice_keeping_style_menu(user)
+        elif menu == "options_audio_submenu":
+            self._show_audio_submenu(user)
+        elif menu == "options_accessibility_submenu":
+            self._show_accessibility_submenu(user)
+        elif menu == "options_notifications_submenu":
+            self._show_notifications_submenu(user)
+        elif menu == "options_game_submenu":
+            self._show_game_submenu(user)
         elif menu == "friends_hub_menu":
             self._show_friends_hub_menu(user)
         elif menu == "friends_list_menu":

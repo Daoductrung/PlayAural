@@ -25,6 +25,12 @@ from ..users.network_user import NetworkUser
 from ..users.base import MenuItem, EscapeBehavior
 from ..users.preferences import UserPreferences, DiceKeepingStyle
 from ..games.registry import GameRegistry, get_game_class
+from ..games.categories import (
+    CATEGORY_FILTER_ALL,
+    GAME_CATEGORY_IDS,
+    GAME_CATEGORY_ORDER,
+    normalize_categories,
+)
 from ..messages.localization import Localization
 from ..documentation.manager import DocumentationManager
 from .smtp_mailer import SmtpMailer
@@ -92,7 +98,7 @@ class Server:
     # This prevents active games from swallowing interactions meant for global overlays (like options or online list).
     GLOBAL_SYSTEM_MENUS = {
         "main_menu", "personal_options_menu", "games_menu", "tables_menu",
-        "active_tables_menu", "active_tables_filter_menu", "join_menu",
+        "game_category_filter_menu", "active_tables_menu", "active_tables_filter_menu", "join_menu",
         *OPTIONS_MENU_IDS,
         "saved_tables_menu", "saved_table_actions_menu",
         "leaderboards_menu", "leaderboard_types_menu", "game_leaderboard",
@@ -1269,10 +1275,13 @@ PlayAural Server
         """Send the list of available games to the client."""
         games = []
         for game_class in GameRegistry.get_all():
+            game_categories = normalize_categories(game_class.get_categories())
             games.append(
                 {
                     "type": game_class.get_type(),
                     "name": game_class.get_name(),
+                    "category": game_categories[0],
+                    "categories": list(game_categories),
                 }
             )
 
@@ -1340,19 +1349,70 @@ PlayAural Server
         user.stop_ambience()
         self._user_states[user.username] = {"menu": "main_menu"}
 
-    def _get_localized_game_list(self, user: NetworkUser) -> list[tuple[type, str]]:
-        """Return all registered games sorted by localized display name."""
+    def _get_game_category_filter(self, user: NetworkUser) -> str:
+        """Return the user's selected Play-menu category filter, sanitized."""
+        selected = user.preferences.game_category_filter
+        if selected == CATEGORY_FILTER_ALL or selected in GAME_CATEGORY_IDS:
+            return selected
+        return CATEGORY_FILTER_ALL
+
+    def _get_game_category_label(self, locale: str, category_id: str) -> str:
+        """Return the localized display label for a Play-menu category."""
+        if category_id == CATEGORY_FILTER_ALL:
+            return Localization.get(locale, "game-category-all")
+        return Localization.get(locale, f"game-category-{category_id}")
+
+    def _get_game_category_counts(self) -> dict[str, int]:
+        """Return dynamic game counts for every Play-menu category filter."""
+        counts = {category_id: 0 for category_id in GAME_CATEGORY_ORDER}
+        all_game_types: set[str] = set()
+        for game_class in GameRegistry.get_all():
+            all_game_types.add(game_class.get_type())
+            for category_id in normalize_categories(game_class.get_categories()):
+                counts[category_id] = counts.get(category_id, 0) + 1
+        counts[CATEGORY_FILTER_ALL] = len(all_game_types)
+        return counts
+
+    def _get_localized_game_list(
+        self, user: NetworkUser, category_filter: str | None = None
+    ) -> list[tuple[type, str]]:
+        """Return registered games sorted by localized display name."""
+        selected_filter = category_filter or self._get_game_category_filter(user)
         game_list = []
         for game_class in GameRegistry.get_all():
+            if (
+                selected_filter != CATEGORY_FILTER_ALL
+                and selected_filter not in normalize_categories(game_class.get_categories())
+            ):
+                continue
             name = Localization.get(user.locale, game_class.get_name_key())
             game_list.append((game_class, name))
         game_list.sort(key=lambda item: item[1].casefold())
         return game_list
 
     def _show_games_list_menu(self, user: NetworkUser) -> None:
-        """Show flat list of all games."""
-        items = []
-        for game_class, name in self._get_localized_game_list(user):
+        """Show list of games with the user's selected category filter."""
+        selected_filter = self._get_game_category_filter(user)
+        category_name = self._get_game_category_label(user.locale, selected_filter)
+        items = [
+            MenuItem(
+                text=Localization.get(
+                    user.locale, "game-category-filter", category=category_name
+                ),
+                id="toggle_category_filter",
+            )
+        ]
+
+        games = self._get_localized_game_list(user, selected_filter)
+        if not games:
+            items.append(
+                MenuItem(
+                    text=Localization.get(user.locale, "no-games-in-category"),
+                    id="no_games_msg",
+                )
+            )
+
+        for game_class, name in games:
             items.append(MenuItem(text=name, id=f"game_{game_class.get_type()}"))
         items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
 
@@ -1363,6 +1423,32 @@ PlayAural Server
             escape_behavior=EscapeBehavior.SELECT_LAST,
         )
         self._user_states[user.username] = {"menu": "games_menu"}
+
+    def _show_game_category_filter_menu(self, user: NetworkUser) -> None:
+        """Show menu to select the Play-menu category filter."""
+        counts = self._get_game_category_counts()
+        category_ids = (CATEGORY_FILTER_ALL, *GAME_CATEGORY_ORDER)
+        items = [
+            MenuItem(
+                text=Localization.get(
+                    user.locale,
+                    "game-category-filter-option",
+                    category=self._get_game_category_label(user.locale, category_id),
+                    count=counts.get(category_id, 0),
+                ),
+                id=f"category_{category_id}",
+            )
+            for category_id in category_ids
+        ]
+        items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
+
+        user.show_menu(
+            "game_category_filter_menu",
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self._user_states[user.username] = {"menu": "game_category_filter_menu"}
 
     def _show_tables_menu(self, user: NetworkUser, game_type: str) -> None:
         """Show available tables for a game."""
@@ -2953,6 +3039,8 @@ PlayAural Server
             await self._handle_personal_options_selection(user, selection_id)
         elif current_menu == "games_menu":
             await self._handle_games_selection(user, selection_id, state)
+        elif current_menu == "game_category_filter_menu":
+            await self._handle_game_category_filter_selection(user, selection_id)
         elif current_menu == "tables_menu":
             await self._handle_tables_selection(user, selection_id, state)
         elif current_menu == "active_tables_menu":
@@ -4173,11 +4261,40 @@ PlayAural Server
         self, user: NetworkUser, selection_id: str, state: dict
     ) -> None:
         """Handle game selection."""
-        if selection_id.startswith("game_"):
+        if selection_id == "toggle_category_filter":
+            self._nav_push(user, self._show_game_category_filter_menu)
+        elif selection_id == "no_games_msg":
+            return
+        elif selection_id.startswith("game_"):
             game_type = selection_id[5:]  # Remove "game_" prefix
             self._nav_push(user, self._show_tables_menu, game_type)
         elif selection_id == "back":
             self._nav_back(user)
+
+    async def _handle_game_category_filter_selection(
+        self, user: NetworkUser, selection_id: str
+    ) -> None:
+        """Handle Play-menu category filter selection."""
+        if selection_id.startswith("category_"):
+            category_id = selection_id[9:]
+            if category_id != CATEGORY_FILTER_ALL and category_id not in GAME_CATEGORY_IDS:
+                category_id = CATEGORY_FILTER_ALL
+
+            user.preferences.game_category_filter = category_id
+            self._save_user_preferences(user)
+
+            category_name = self._get_game_category_label(user.locale, category_id)
+            user.speak_l(
+                "game-category-filter",
+                buffer="system",
+                category=category_name,
+            )
+            self._nav_back(user)
+            return
+
+        elif selection_id == "back":
+            self._nav_back(user)
+            return
 
     async def _handle_tables_selection(
         self, user: NetworkUser, selection_id: str, state: dict
@@ -7104,6 +7221,8 @@ PlayAural Server
             self._show_public_profile(user, frame.get("target_username", ""))
         elif menu == "games_menu":
             self._show_games_list_menu(user)
+        elif menu == "game_category_filter_menu":
+            self._show_game_category_filter_menu(user)
         elif menu == "tables_menu":
             self._show_tables_menu(user, frame.get("game_type", ""))
         elif menu == "active_tables_menu":

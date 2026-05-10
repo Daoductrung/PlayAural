@@ -200,9 +200,11 @@ Every game must implement these `@classmethod` methods:
 | `get_max_players()` | `int` | `4` |
 | `get_supported_leaderboards()` | `list[str]` | `["wins", "rating", "games_played"]` |
 
-Available backend categories: `cards`, `dice`, `board`, `poker`, `arcade`, `misc`.
+Available categories: `cards`, `dice`, `board`, `poker`, `arcade`, `misc`.
 
-Game categories are backend metadata for management and future extensibility. The Play menu is intentionally a flat localized game list; do not add category-selection UI or category locale strings unless a future feature explicitly makes categories user-facing.
+Game categories are used for backend management and for the user-facing Play menu category filter. Every category shown to users must have localized labels in both EN and VI locale files. The Play menu filter displays dynamic counts, so new games only need correct category metadata; do not hardcode category counts in UI strings or tests.
+
+Games normally return one category from `get_category()`. If a future game naturally belongs to multiple categories, override `get_categories()` and return unique category ids. Keep `get_category()` as the primary category for compatibility with existing tests, management tools, and metadata exports.
 
 ### 2.4 Required Instance Methods
 

@@ -38,7 +38,7 @@ from ..game_utils.client_types import (
 from ..game_utils.player import Player
 from ..ui.keybinds import Keybind
 from ..users.bot import Bot
-from .categories import CATEGORY_MISC
+from .categories import CATEGORY_MISC, normalize_category
 
 BOT_NAMES = get_valid_bot_name_pool()
 
@@ -186,6 +186,11 @@ class Game(
     def get_category(cls) -> str:
         """Return the backend category id for this game."""
         return CATEGORY_MISC
+
+    @classmethod
+    def get_categories(cls) -> tuple[str, ...]:
+        """Return all backend category ids this game belongs to."""
+        return (normalize_category(cls.get_category()),)
 
     @classmethod
     def get_min_players(cls) -> int:

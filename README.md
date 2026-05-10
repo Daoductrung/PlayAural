@@ -47,6 +47,8 @@ PlayAural currently includes **36 games** across backend categories:
 - Original arcade-style titles such as Battle, Chaos Bear, Light Turret, and Pirates of the Lost Seas
 - Miscellaneous originals such as Rolling Balls
 
+The Play menu includes a persisted category filter with dynamic game counts so players can quickly narrow the catalog by genre.
+
 ## Voice Chat
 
 PlayAural separates voice authorization from media transport.

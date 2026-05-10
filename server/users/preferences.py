@@ -54,6 +54,7 @@ class UserPreferences:
     invert_multiline_enter_behavior: bool = False
     play_typing_sounds: bool = True
     active_tables_filter: str = "all"  # "all", "waiting", "playing"
+    game_category_filter: str = "all"  # "all" or a game category id
 
     # Gameplay preferences
     allow_custom_bot_names: bool = False
@@ -87,6 +88,7 @@ class UserPreferences:
             "invert_multiline_enter_behavior": self.invert_multiline_enter_behavior,
             "play_typing_sounds": self.play_typing_sounds,
             "active_tables_filter": self.active_tables_filter,
+            "game_category_filter": self.game_category_filter,
             "allow_custom_bot_names": self.allow_custom_bot_names,
             "clear_kept_on_roll": self.clear_kept_on_roll,
             "dice_keeping_style": self.dice_keeping_style.value,
@@ -118,6 +120,7 @@ class UserPreferences:
             invert_multiline_enter_behavior=data.get("invert_multiline_enter_behavior", False),
             play_typing_sounds=data.get("play_typing_sounds", True),
             active_tables_filter=data.get("active_tables_filter", "all"),
+            game_category_filter=data.get("game_category_filter", "all"),
             allow_custom_bot_names=data.get("allow_custom_bot_names", False),
             clear_kept_on_roll=data.get("clear_kept_on_roll", False),
             dice_keeping_style=DiceKeepingStyle.from_str(

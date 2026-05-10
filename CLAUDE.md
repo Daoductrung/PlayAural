@@ -337,8 +337,9 @@ Mobile rules:
 
 ### Game Counts and Catalog
 The server currently registers **36 games**:
-- backend category ids are `cards`, `dice`, `board`, `poker`, `arcade`, and `misc`
-- categories are management metadata only; the Play menu remains a flat localized game list
+- category ids are `cards`, `dice`, `board`, `poker`, `arcade`, and `misc`
+- the Play menu exposes a persisted category filter with dynamic per-category game counts
+- games usually expose one category through `get_category()`, while `get_categories()` supports future multi-category games
 - recent additions include `Tien Len`, `Color Game`, `Citadels`, `Dead Man's Deck`, and `Dead Man's Poker`
 
 ### Key Tech Stack

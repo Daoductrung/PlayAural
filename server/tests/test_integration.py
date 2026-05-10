@@ -225,6 +225,7 @@ class TestGameRegistryIntegration:
 
         for game_class in GameRegistry.get_all():
             assert game_class.get_category() in GAME_CATEGORY_IDS
+            assert set(game_class.get_categories()).issubset(GAME_CATEGORY_IDS)
 
     def test_registered_game_category_assignments(self):
         """Test canonical backend category assignments for all registered games."""
@@ -277,8 +278,8 @@ class TestGameRegistryIntegration:
         }
         assert actual_categories == expected_categories
 
-    def test_play_menu_uses_flat_game_list(self):
-        """Test that the Play menu does not expose category selection."""
+    def test_play_menu_exposes_category_filter_and_filtered_game_list(self):
+        """Test that the Play menu exposes and applies the persisted category filter."""
         from .. import games as registered_games
         from ..core.server import Server
 
@@ -291,12 +292,63 @@ class TestGameRegistryIntegration:
         items = user.get_current_menu_items("games_menu") or []
         item_ids = [item.id for item in items if hasattr(item, "id")]
 
+        assert item_ids[0] == "toggle_category_filter"
         assert "game_pig" in item_ids
         assert item_ids[-1] == "back"
         assert all(
-            item_id == "back" or item_id.startswith("game_")
+            item_id in {"toggle_category_filter", "back", "no_games_msg"}
+            or item_id.startswith("game_")
             for item_id in item_ids
         )
+
+        user.preferences.game_category_filter = "dice"
+        server._show_games_list_menu(user)
+
+        filtered_items = user.get_current_menu_items("games_menu") or []
+        filtered_ids = [item.id for item in filtered_items if hasattr(item, "id")]
+        assert "game_pig" in filtered_ids
+        assert "game_holdem" not in filtered_ids
+
+    def test_play_menu_category_filter_counts_are_dynamic(self):
+        """Test that category filter options show dynamic counts."""
+        from .. import games as registered_games
+        from ..core.server import Server
+        from ..games.categories import CATEGORY_FILTER_ALL, GAME_CATEGORY_ORDER
+
+        assert registered_games.GameRegistry is GameRegistry
+
+        server = Server(db_path=":memory:")
+        user = MockUser("Viewer")
+        counts = server._get_game_category_counts()
+        server._show_game_category_filter_menu(user)
+
+        items = user.get_current_menu_items("game_category_filter_menu") or []
+        options = {item.id: item.text for item in items if hasattr(item, "id")}
+
+        assert options[f"category_{CATEGORY_FILTER_ALL}"] == f"All ({counts[CATEGORY_FILTER_ALL]})"
+        for category_id in GAME_CATEGORY_ORDER:
+            label = Localization.get("en", f"game-category-{category_id}")
+            assert options[f"category_{category_id}"] == f"{label} ({counts[category_id]})"
+
+    def test_game_registry_supports_multi_category_games(self, monkeypatch):
+        """Test that registry category grouping is ready for multi-category games."""
+        from .. import games as registered_games
+        from ..games.categories import CATEGORY_DICE, CATEGORY_MISC
+        from ..games.pig.game import PigGame
+
+        assert registered_games.GameRegistry is GameRegistry
+
+        monkeypatch.setattr(
+            PigGame,
+            "get_categories",
+            classmethod(lambda cls: (CATEGORY_DICE, CATEGORY_MISC, CATEGORY_DICE)),
+        )
+        categories = GameRegistry.get_by_category()
+
+        assert PigGame in categories[CATEGORY_DICE]
+        assert PigGame in categories[CATEGORY_MISC]
+        assert categories[CATEGORY_DICE].count(PigGame) == 1
+        assert categories[CATEGORY_MISC].count(PigGame) == 1
 
     def test_leaderboards_menu_uses_flat_game_list(self):
         """Test that leaderboards game selection does not depend on categories."""

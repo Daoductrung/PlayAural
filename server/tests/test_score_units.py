@@ -12,7 +12,6 @@ from ..games.leftrightcenter.game import LeftRightCenterGame
 from ..games.ludo.game import LudoGame
 from ..games.deadmansdeck.game import DeadMansDeckGame
 from ..games.ninetynine.game import NinetyNineGame
-from ..games.pusoydos.game import PusoyDosGame
 from ..games.sorry.game import SorryGame
 from ..games.tienlen.game import TienLenGame
 from ..messages.localization import Localization
@@ -84,7 +83,6 @@ def test_team_manager_uses_target_score_for_target_unit_pluralization() -> None:
         (LeftRightCenterGame, "game-score-unit-chips"),
         (LudoGame, "game-score-unit-tokens-home"),
         (NinetyNineGame, "game-score-unit-ninetynine-tokens"),
-        (PusoyDosGame, "game-score-unit-coins"),
         (SorryGame, "game-score-unit-pawns-home"),
         (TienLenGame, "game-score-unit-hand-wins"),
     ],
@@ -133,12 +131,6 @@ def test_games_with_non_point_scores_declare_score_unit(game_cls, unit_key) -> N
             ["1. Bob: 2 thẻ", "2. Alice: 1 thẻ"],
         ),
         (
-            PusoyDosGame,
-            {"final_scores": {"Alice": 1, "Bob": 2}},
-            ["1. Bob: 2 coins", "2. Alice: 1 coin"],
-            ["1. Bob: 2 xu", "2. Alice: 1 xu"],
-        ),
-        (
             SorryGame,
             {"final_scores": {"Alice": 1, "Bob": 2}},
             ["1. Bob: 2 pawns home", "2. Alice: 1 pawn home"],
@@ -184,7 +176,6 @@ def test_custom_score_unit_end_screens_use_game_terms(
         LeftRightCenterGame,
         LudoGame,
         NinetyNineGame,
-        PusoyDosGame,
         SorryGame,
         TienLenGame,
     ],

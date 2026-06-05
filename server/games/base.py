@@ -139,6 +139,9 @@ class Game(
         self._actions_menu_open: set[str] = set()  # player_ids with actions menu open
         self._destroyed: bool = False  # Whether game has been destroyed
         self._last_game_result = None  # Stored for end-screen restoration
+        # Per-player transcript of table events (runtime-only). Games that want a
+        # reviewable history call record_transcript_event(); see get_transcript().
+        self._transcripts: dict[str, list[dict[str, str]]] = {}
 
     def rebuild_runtime_state(self) -> None:
         """
@@ -152,6 +155,26 @@ class Game(
         Note: Estimation state is initialized clean by __post_init__.
         """
         pass
+
+    def _reset_transcripts(self) -> None:
+        """Initialize transcript storage for seated players."""
+        self._transcripts = {
+            player.id: [] for player in self.players if not player.is_spectator
+        }
+
+    def record_transcript_event(
+        self, player: "Player | None", text: str, buffer: str = "table"
+    ) -> None:
+        """Store a transcript entry for a player."""
+        if not player or player.is_spectator:
+            return
+        self._transcripts.setdefault(player.id, []).append(
+            {"text": text, "buffer": buffer}
+        )
+
+    def get_transcript(self, player_id: str) -> list[dict[str, str]]:
+        """Return the transcript history for a player."""
+        return list(self._transcripts.get(player_id, []))
 
     @staticmethod
     def is_touch_client_type(client_type: str | None) -> bool:

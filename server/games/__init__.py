@@ -40,6 +40,12 @@ from .battle.game import BattleGame
 from .citadels.game import CitadelsGame
 from .deadmansdeck.game import DeadMansDeckGame
 from .deadmanspoker.game import DeadMansPokerGame
+from .metalpipe.game import MetalPipeGame
+from .nine.game import NineGame
+from .senet.game import SenetGame
+from .humanitycards.game import HumanityCardsGame
+from .twentyone.game import TwentyOneGame
+from .ageofheroes.game import AgeOfHeroesGame
 
 __all__ = [
     "Game",
@@ -82,4 +88,10 @@ __all__ = [
     "CitadelsGame",
     "DeadMansDeckGame",
     "DeadMansPokerGame",
+    "MetalPipeGame",
+    "NineGame",
+    "SenetGame",
+    "HumanityCardsGame",
+    "TwentyOneGame",
+    "AgeOfHeroesGame",
 ]

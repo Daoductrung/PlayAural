@@ -1,75 +1,141 @@
+# Backgammon localization
+
 game-name-backgammon = Backgammon
 
-backgammon-set-match-length = Match length: { $points }
-backgammon-enter-match-length = Enter the match length (1-25)
-backgammon-option-changed-match-length = Match length set to { $points }.
-backgammon-set-bot-strategy = Bot strategy: { $strategy }
-backgammon-select-bot-strategy = Select a bot strategy
-backgammon-option-changed-bot-strategy = Bot strategy set to { $strategy }.
-backgammon-bot-simple = Simple
-backgammon-bot-smart = Smart
-backgammon-bot-random = Random
+# Colors
+backgammon-color-red = red
+backgammon-color-white = white
 
-backgammon-roll-dice = Roll dice
-backgammon-offer-double = Offer double
-backgammon-accept-double = Accept double
-backgammon-drop-double = Drop double
-backgammon-undo-move = Undo last move
-backgammon-read-board = Read board
-backgammon-check-status = Check status
-backgammon-check-pip = Check pip count
-backgammon-check-cube = Check cube
-backgammon-check-dice = Check dice
+# Menu helpers
+backgammon-unavailable = unavailable
 
+# Game start
+backgammon-game-started = { $red } plays Red, { $white } plays White.
 backgammon-opening-roll = Opening roll: { $red } rolls { $red_die }, { $white } rolls { $white_die }.
-backgammon-opening-tie = Both players rolled { $die }. Rolling again.
+backgammon-opening-tie = Both rolled { $die }, re-rolling.
 backgammon-opening-winner = { $player } goes first with { $die1 } and { $die2 }.
+
+# Dice
 backgammon-roll = { $player } rolls { $die1 } and { $die2 }.
+
+# No moves
 backgammon-no-moves = { $player } has no legal moves.
-backgammon-double-offered = { $player } offers a double to { $value }.
-backgammon-double-accepted = { $player } accepts. The cube is now { $value }.
-backgammon-double-dropped = { $player } drops the double.
-backgammon-game-won = { $player } wins this game for { $points } point{ $points ->
+
+# Move commentary (shorthand)
+backgammon-move-normal = { $src } to { $dest }, { $remain } { $count }.
+backgammon-move-emptying = Emptying { $src } to { $dest }, { $count }.
+backgammon-move-hit = { $src } to capture on { $dest }, { $remain }.
+backgammon-move-emptying-hit = Emptying { $src } to capture on { $dest }.
+backgammon-move-bar = Bar to { $dest }, { $count }.
+backgammon-move-bar-hit = Bar to capture on { $dest }, { $count }.
+backgammon-move-bearoff = Bearing off from { $src }, { $remain }.
+
+# Verbose move commentary
+backgammon-verbose-move-normal = { $is_self ->
+    [yes] You move a checker from point { $src } to point { $dest }.
+    *[no] { $player } moves a checker from point { $src } to point { $dest }.
+} { $src_count ->
+    [0] Point { $src } is now empty, { $dest_count } on point { $dest }.
+    *[other] { $src_count } now on point { $src }, { $dest_count } on point { $dest }.
+}
+backgammon-verbose-move-hit = { $is_self ->
+    [yes] You move a checker from point { $src } to capture { $opponent }'s checker on point { $dest }.
+    [spectator] { $player } moves a checker from point { $src } to capture { $opponent }'s checker on point { $dest }.
+    *[no] { $player } moves a checker from point { $src } to capture your checker on point { $dest }.
+} { $src_count ->
+    [0] Point { $src } is now empty.
+    *[other] { $src_count } remaining on point { $src }.
+}
+backgammon-verbose-move-bar = { $is_self ->
+    [yes] You enter from the bar to point { $dest }.
+    *[no] { $player } enters from the bar to point { $dest }.
+} { $dest_count } now on point { $dest }.
+backgammon-verbose-move-bar-hit = { $is_self ->
+    [yes] You enter from the bar to capture { $opponent }'s checker on point { $dest }.
+    [spectator] { $player } enters from the bar to capture { $opponent }'s checker on point { $dest }.
+    *[no] { $player } enters from the bar to capture your checker on point { $dest }.
+}
+backgammon-verbose-move-bearoff = { $is_self ->
+    [yes] You bear off from point { $src }.
+    *[no] { $player } bears off from point { $src }.
+} { $src_count ->
+    [0] Point { $src } is now empty.
+    *[other] { $src_count } remaining on point { $src }.
+}
+
+# Doubling
+backgammon-doubles = { $player } doubles to { $value }.
+backgammon-accepts = { $player } accepts.
+backgammon-drops = { $player } drops.
+backgammon-accept = Accept
+backgammon-drop = Drop
+
+# Point labels
+backgammon-point-empty = { $point }
+backgammon-point-empty-selected = { $point } selected
+backgammon-point-occupied = { $point } { $color }, { $count }
+backgammon-point-occupied-selected = { $point } { $color }, { $count } selected
+
+# Action labels
+backgammon-label-double = Double
+backgammon-label-undo = Undo
+
+# Selection feedback
+backgammon-selected-point = Selected point { $point }, { $count } checkers.
+backgammon-selected-bar = Selected bar.
+backgammon-deselected = Deselected.
+backgammon-no-checkers-there = No checkers there.
+backgammon-not-your-checkers = Those are not your checkers.
+backgammon-no-moves-from-here = No legal moves from here.
+backgammon-must-enter-from-bar = Must enter from bar first.
+backgammon-illegal-move = Illegal move.
+backgammon-bearoff-blocked = You can't bear off from the { $point }-point with a { $die }, because there are checkers on your { $blocking_point }-point.
+backgammon-bearoff-no-die = You can't bear off from the { $point }-point with your remaining dice ({ $die }).
+backgammon-nothing-to-undo = Nothing to undo.
+backgammon-undone = Move undone.
+backgammon-cannot-double = You can't double right now.
+backgammon-cannot-undo = Nothing to undo.
+backgammon-not-doubling-phase = No double to respond to.
+
+# Info keybinds
+backgammon-check-status = Status
+backgammon-check-cube = Cube
+backgammon-check-pip = Pip count
+backgammon-check-score = Score
+backgammon-check-dice = Dice
+backgammon-status = Red bar: { $bar_red }. White bar: { $bar_white }. Red off: { $off_red }. White off: { $off_white }.
+backgammon-dice = { $dice }
+backgammon-dice-none = No dice.
+backgammon-cube-status = Cube at { $value }. { $owner ->
+    [center] Centered, either player may double.
+    *[other] Owned by { $owner }.
+} { $can_double ->
+    [yes] Doubling is available now.
+    [crawford] This is a Crawford game, no doubling allowed.
+    *[no] Doubling is not available right now.
+}
+backgammon-cube-no-match = No doubling cube in single games.
+backgammon-pip-count = Red pip count: { $red_pip }. White pip count: { $white_pip }.
+backgammon-match-score = { $red } { $red_score }, { $white } { $white_score }. Match to { $match_length }. Cube: { $cube }.
+
+# Scoring
+backgammon-wins-game = { $player } wins { $points } point{ $points ->
     [one] {""}
-   *[other] s
+    *[other] s
 }.
 backgammon-new-game = Starting game { $number }.
-backgammon-crawford = Crawford game. The doubling cube is disabled this game.
-backgammon-match-winner = { $player } wins the match.
-backgammon-end-score = { $red } { $red_score }, { $white } { $white_score }. Match to { $match_length }.
+backgammon-match-winner = { $player } wins the match!
+backgammon-end-score = { $red } { $red_score } - { $white } { $white_score }. Match to { $match_length }.
+backgammon-crawford = Crawford game: no doubling this game.
 
-backgammon-announcement-move = { $player } moves from { $source } to { $dest } using { $die }.
-backgammon-announcement-hit = { $player } moves from { $source } to hit on { $dest } using { $die }.
-backgammon-announcement-bear-off = { $player } bears off from { $source } using { $die }.
-backgammon-move-undone = Move undone.
+# Difficulty levels
+backgammon-difficulty-random = Random
+backgammon-difficulty-simple = Simple
 
-backgammon-move-label = Move { $source } to { $dest } using { $die }
-backgammon-move-label-hit = Hit from { $source } to { $dest } using { $die }
-backgammon-move-label-bear-off = Bear off from { $source } using { $die }
-
-backgammon-bar = bar
-backgammon-board-header = Backgammon board
-backgammon-board-point = Point { $point }: { $state }.
-backgammon-point-empty = empty
-backgammon-point-occupied = { $player } { $count }
-
-backgammon-status-line = { $red }: bar { $red_bar }, borne off { $red_off }. { $white }: bar { $white_bar }, borne off { $white_off }.
-backgammon-pip-line = Pip count. { $red }: { $red_pip }. { $white }: { $white_pip }.
-backgammon-cube-centered = centered
-backgammon-cube-yes = { $player } may offer a double now
-backgammon-cube-no = No double may be offered right now
-backgammon-cube-line = Cube at { $value }, owner: { $owner }. Doubling is { $can_double }.
-backgammon-dice-line = Remaining dice: { $dice }.
-backgammon-dice-none = No dice remain.
-backgammon-score-line = Score: { $red } { $red_score }, { $white } { $white_score }. Match to { $match_length }.
-backgammon-scores-header = Match score
-backgammon-score-detail = { $player }: { $score }
-backgammon-score-target = Target: { $points }
-backgammon-turn-preroll = { $player } is up and has not rolled yet.
-backgammon-waiting-for-double-response = { $player } offered a double. Waiting for { $responder }.
-
-backgammon-cannot-roll = You cannot roll right now.
-backgammon-cannot-double = You cannot offer a double right now.
-backgammon-no-double-pending = There is no double to respond to.
-backgammon-no-move-to-undo = There is no move to undo.
-backgammon-illegal-move = That move is not legal.
+# Options
+backgammon-option-match-length = Match length: { $match_length }
+backgammon-option-select-match-length = Set match length (1-25)
+backgammon-option-changed-match-length = Match length set to { $match_length }.
+backgammon-option-bot-difficulty = Bot difficulty: { $bot_difficulty }
+backgammon-option-select-bot-difficulty = Select bot difficulty
+backgammon-option-changed-bot-difficulty = Bot difficulty set to { $bot_difficulty }.

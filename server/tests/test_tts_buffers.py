@@ -1,6 +1,6 @@
 from types import SimpleNamespace
 
-from server.games.backgammon.game import BackgammonGame, TURN_PHASE_MOVING
+from server.games.backgammon.game import BackgammonGame
 from server.games.farkle.game import FarkleGame
 from server.games.pig.game import PigGame
 from server.games.tradeoff.game import TradeoffGame
@@ -100,14 +100,15 @@ def test_backgammon_illegal_move_uses_game_buffer() -> None:
     game.host = "Red"
     game.on_start()
 
-    game.turn_phase = TURN_PHASE_MOVING
+    game.game_state.turn_phase = "moving"
     current = game.current_player
     assert current is not None
     current_user = game.get_user(current)
     assert current_user is not None
 
     before = len(current_user.messages)
-    game._action_move_option(current, "move_p0_p0_6")
+    # An impossible source/destination forces the illegal-move feedback path.
+    game._try_apply_move_direct(current, 0, 0)
 
     spoken = _spoken_since(current_user, before)
     assert spoken[-1]["buffer"] == "game"

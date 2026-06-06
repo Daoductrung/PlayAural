@@ -15,6 +15,8 @@ from ..games.ninetynine.game import (
     NinetyNineGame,
     NinetyNineOptions,
     PENALTY_MILESTONE_99,
+    ROUND_TRANSITION_TAG,
+    ROUND_TRANSITION_TICKS,
 )
 from ..game_utils.cards import (
     Card,
@@ -81,6 +83,20 @@ class TestNinetyNineUnit:
         assert game.options.starting_tokens == 5
         assert game.options.hand_size == 5
         assert game.options.rules_variant == "action_cards"
+
+    def test_prestart_validate_rejects_impossible_deal(self):
+        """Hand size must fit the selected deck before the game starts."""
+        game = NinetyNineGame(options=NinetyNineOptions(hand_size=13))
+        for name in ["Alice", "Bob", "Carol", "Dan", "Eve"]:
+            game.add_player(name, MockUser(name))
+
+        errors = game.prestart_validate()
+
+        assert any(
+            isinstance(error, tuple)
+            and error[0] == "ninetynine-error-too-many-cards"
+            for error in errors
+        )
 
 
 class TestCardAndDeck:
@@ -508,6 +524,112 @@ class TestNinetyNinePlayTest:
 
         assert game.bot_think(bot_player) in {"card_slot_2", "card_slot_3"}
 
+    def test_eliminated_players_are_not_dealt_next_round(self):
+        """Eliminated players should not keep stale hands or rejoin new rounds."""
+        game = NinetyNineGame()
+        users = [MockUser(name) for name in ["Alice", "Bob", "Carol"]]
+        players = [game.add_player(user.username, user) for user in users]
+        game.setup_keybinds()
+        game.on_start()
+
+        eliminated = players[2]
+        eliminated.tokens = 0
+        eliminated.hand = [Card(id=900, rank=5, suit=SUIT_HEARTS)]
+        game._eliminate_player(eliminated)
+        game._start_round()
+
+        assert eliminated.hand == []
+        assert eliminated.id not in game.alive_player_ids
+        assert eliminated.id not in game.turn_player_ids
+        assert all(len(player.hand) == game.options.hand_size for player in players[:2])
+
+    def test_round_start_rotates_to_random_alive_player(self, monkeypatch):
+        """Each round should keep seating order but choose a random first player."""
+        game = NinetyNineGame()
+        players = [
+            game.add_player(name, MockUser(name))
+            for name in ["Alice", "Bob", "Carol", "Dan"]
+        ]
+        game.status = "playing"
+        game.game_active = True
+        for player in players:
+            player.tokens = game.options.starting_tokens
+        monkeypatch.setattr(game, "_choose_round_start_index", lambda count: 2)
+
+        game._start_round()
+
+        assert game.turn_player_ids == [p.id for p in players[2:] + players[:2]]
+
+    def test_round_transition_waits_before_starting_next_round(self):
+        """Round-ending plays should pause before the next deal."""
+        game = NinetyNineGame()
+        user1 = MockUser("Alice")
+        user2 = MockUser("Bob")
+        player1 = game.add_player("Alice", user1)
+        player2 = game.add_player("Bob", user2)
+        game.setup_keybinds()
+        game.on_start()
+        game.alive_player_ids = [player1.id, player2.id]
+        game.set_turn_players([player1, player2])
+        game.turn_index = 0
+        game.count = 95
+        player1.hand = [Card(id=901, rank=12, suit=SUIT_HEARTS)]
+        player2.hand = [Card(id=902, rank=5, suit=SUIT_HEARTS)]
+        round_before = game.round
+
+        game.execute_action(player1, "card_slot_1")
+
+        assert game.round == round_before
+        assert game.has_active_sequence(tag=ROUND_TRANSITION_TAG)
+
+        for _ in range(ROUND_TRANSITION_TICKS - 1):
+            game.on_tick()
+        assert game.round == round_before
+
+        game.on_tick()
+        assert game.round == round_before + 1
+        assert not game.has_active_sequence(tag=ROUND_TRANSITION_TAG)
+
+    def test_menu_rebuild_refreshes_card_labels_for_reclaimed_locale(self):
+        """Rebuilt dynamic card actions should use the currently attached user locale."""
+        from ..game_utils.cards import card_name
+
+        game = NinetyNineGame()
+        user = MockUser("Alice", locale="vi")
+        opponent_user = MockUser("Bob")
+        player = game.add_player("Alice", user)
+        opponent = game.add_player("Bob", opponent_user)
+        game.setup_keybinds()
+        game.on_start()
+        game.alive_player_ids = [player.id, opponent.id]
+        game.set_turn_players([player, opponent])
+        card = Card(id=903, rank=1, suit=SUIT_HEARTS)
+        player.hand = [card]
+
+        game._users.pop(player.id, None)
+        game._update_turn_actions(player)
+        action = game.get_action_set(player, "turn").get_action("card_slot_1")
+        assert action is not None
+        assert action.label == card_name(card, "en")
+
+        game.attach_user(player.id, user)
+        game.rebuild_player_menu(player)
+        items = user.get_current_menu_items("turn_menu")
+        check_count_action = game.get_action_set(player, "standard").get_action("check_count")
+
+        assert items is not None
+        assert any(
+            isinstance(item, MenuItem)
+            and item.id == "card_slot_1"
+            and item.text == card_name(card, "vi")
+            for item in items
+        )
+        assert check_count_action is not None
+        assert (
+            game.resolve_action(player, check_count_action).label
+            == Localization.get("vi", "ninetynine-check-count")
+        )
+
 
 class TestNinetyNineChoiceDialogs:
     """Regression tests for shared choice dialogs and turn checks."""
@@ -625,6 +747,26 @@ class TestNinetyNineChoiceDialogs:
         assert "action_input_menu" not in self.user1.menus
         assert self.game.count == 98
         assert all(card.id != 1 for card in self.player1.hand)
+
+    def test_subtract_ten_floors_at_zero(self):
+        """Negative-value plays should never push the count below zero."""
+        self.game.count = 5
+        self.player1.hand = [Card(id=10, rank=10, suit=SUIT_HEARTS)]
+        self.game._update_turn_actions(self.player1)
+
+        self.game.execute_action(self.player1, "card_slot_1", "Subtract 10")
+
+        assert self.game.count == 0
+
+    def test_corrupt_negative_count_is_repaired_before_two_effect(self):
+        """A stale negative count should not be doubled into a larger negative value."""
+        self.game.count = -7_104_963_754_562
+        self.player1.hand = [Card(id=2, rank=2, suit=SUIT_HEARTS)]
+        self.game._update_turn_actions(self.player1)
+
+        self.game.execute_action(self.player1, "card_slot_1")
+
+        assert self.game.count == 0
 
 
 class TestNinetyNinePersistence:

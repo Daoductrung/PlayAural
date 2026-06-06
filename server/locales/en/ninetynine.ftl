@@ -10,6 +10,7 @@ ninetynine-player-plays = { $player } plays { $card }. The count is now { $count
 
 ninetynine-direction-reverses = The direction of play reverses!
 
+ninetynine-you-skipped = You are skipped.
 ninetynine-player-skipped = { $player } is skipped.
 
 n99-card-plus-10 = +10
@@ -28,8 +29,10 @@ ninetynine-player-loses-tokens = { $player } loses { $amount } { $amount ->
     *[other] tokens
 }.
 
+ninetynine-you-eliminated = You have been eliminated!
 ninetynine-player-eliminated = { $player } has been eliminated!
 
+ninetynine-you-win = You win the game!
 ninetynine-player-wins = { $player } wins the game!
 ninetynine-end-score = { $rank }. { $player }: { $tokens } { $tokens ->
     [one] token
@@ -42,9 +45,12 @@ ninetynine-player-deals = { $player } deals out the cards.
 ninetynine-you-draw = You draw { $card }.
 ninetynine-player-draws = { $player } draws a card.
 
+ninetynine-you-no-valid-cards = You have no cards that won't go over 99!
+ninetynine-player-no-valid-cards = { $player } has no cards that won't go over 99!
 ninetynine-no-valid-cards = { $player } has no cards that won't go over 99!
 
 ninetynine-current-count = The count is { $count }.
+ninetynine-next-round-wait = The next round will start in { $seconds } seconds.
 
 ninetynine-ace-choice = Play Ace as +1 or +11?
 ninetynine-ace-add-eleven = Add 11
@@ -80,4 +86,6 @@ ninetynine-rules-variant-action-cards = Action Cards
 
 ninetynine-choose-first = You need to make a choice first.
 ninetynine-draw-first = You need to draw a card first.
+ninetynine-round-transition-waiting = Waiting for the next round to start.
+ninetynine-error-too-many-cards = Too many cards needed: { $players } players × { $hand_size } cards exceeds the { $deck_size }-card deck.
 ninetynine-check-count = Check count

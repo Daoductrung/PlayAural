@@ -10,6 +10,7 @@ ninetynine-player-plays = { $player } đánh lá { $card }. Tổng điểm giờ
 
 ninetynine-direction-reverses = Chiều chơi bị đảo ngược!
 
+ninetynine-you-skipped = Bạn bị mất lượt.
 ninetynine-player-skipped = { $player } bị mất lượt.
 
 n99-card-plus-10 = +10
@@ -28,8 +29,10 @@ ninetynine-player-loses-tokens = { $player } mất { $amount } { $amount ->
    *[other] thẻ
 }.
 
+ninetynine-you-eliminated = Bạn đã bị loại!
 ninetynine-player-eliminated = { $player } đã bị loại!
 
+ninetynine-you-win = Bạn thắng trò chơi!
 ninetynine-player-wins = { $player } thắng trò chơi!
 ninetynine-end-score = { $rank }. { $player }: { $tokens } { $tokens ->
     [one] thẻ
@@ -42,9 +45,12 @@ ninetynine-player-deals = { $player } chia bài.
 ninetynine-you-draw = Bạn rút lá { $card }.
 ninetynine-player-draws = { $player } rút một lá bài.
 
+ninetynine-you-no-valid-cards = Bạn không có lá bài nào để tổng điểm không vượt quá 99!
+ninetynine-player-no-valid-cards = { $player } không có lá bài nào để tổng điểm không vượt quá 99!
 ninetynine-no-valid-cards = { $player } không có lá bài nào để tổng điểm không vượt quá 99!
 
 ninetynine-current-count = Tổng điểm hiện tại là { $count }.
+ninetynine-next-round-wait = Vòng tiếp theo sẽ bắt đầu sau { $seconds } giây.
 
 ninetynine-ace-choice = Chọn giá trị cho lá Át: +1 hay +11?
 ninetynine-ace-add-eleven = Cộng 11
@@ -80,4 +86,6 @@ ninetynine-rules-variant-action-cards = Lá Bài Hành Động
 
 ninetynine-choose-first = Bạn cần đưa ra lựa chọn trước.
 ninetynine-draw-first = Bạn cần rút bài trước.
+ninetynine-round-transition-waiting = Đang chờ vòng tiếp theo bắt đầu.
+ninetynine-error-too-many-cards = Cần chia quá nhiều bài: { $players } người chơi × { $hand_size } lá vượt quá bộ bài { $deck_size } lá.
 ninetynine-check-count = Kiểm tra tổng điểm

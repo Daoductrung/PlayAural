@@ -103,6 +103,8 @@ def _evaluate_count_from_current(
     game: "NinetyNineGame", current_count: int, new_count: int, card_rank: int
 ) -> int:
     """Evaluate a resulting count from an arbitrary starting count."""
+    current_count = _floor_count(current_count)
+    new_count = _floor_count(new_count)
     if new_count > MAX_COUNT:
         return BOT_SCORE_BUST
 
@@ -228,6 +230,7 @@ def _score_outcome(
     new_count: int,
 ) -> int:
     """Score a fully specified play outcome."""
+    new_count = _floor_count(new_count)
     score = _evaluate_count(game, new_count, card_rank)
     score += _pressure_modifier(game, player, card_rank, new_count)
 
@@ -242,7 +245,7 @@ def _score_outcome(
 
 def _hoarding_modifier(game: "NinetyNineGame", rank: int) -> int:
     """Calculate hoarding modifier for a card."""
-    count = game.count
+    count = _floor_count(game.count)
 
     if game.is_standard_rules:
         in_danger = (28 <= count <= 32) or (61 <= count <= 65) or count >= 88
@@ -400,10 +403,11 @@ def _enumerate_safe_responses(
     current_count: int,
 ) -> list[tuple[int, int]]:
     """Enumerate the next player's safe card outcomes."""
+    current_count = _floor_count(current_count)
     safe: list[tuple[int, int]] = []
     for card in player.hand:
         for new_count in _enumerate_card_outcomes(game, card, current_count):
-            if new_count <= MAX_COUNT:
+            if 0 <= new_count <= MAX_COUNT:
                 safe.append((card.rank, new_count))
     return safe
 
@@ -412,28 +416,54 @@ def _enumerate_card_outcomes(
     game: "NinetyNineGame", card: Card, current_count: int
 ) -> list[int]:
     """Enumerate all legal count outcomes for a single card."""
+    current_count = _floor_count(current_count)
     rank = card.rank
 
     if game.is_standard_rules:
         if rank == 1:
-            return [current_count + 1] if current_count > 88 else [current_count + 11, current_count + 1]
+            return (
+                [_new_count_with_delta(current_count, 1)]
+                if current_count > 88
+                else [
+                    _new_count_with_delta(current_count, 11),
+                    _new_count_with_delta(current_count, 1),
+                ]
+            )
         if rank == 2:
             return [_calculate_two_effect(current_count)]
         if rank == 9:
             return [current_count]
         if rank == 10:
-            return [current_count - 10] if current_count >= TEN_AUTO_THRESHOLD else [current_count + 10, current_count - 10]
+            return (
+                [_new_count_with_delta(current_count, -10)]
+                if current_count >= TEN_AUTO_THRESHOLD
+                else [
+                    _new_count_with_delta(current_count, 10),
+                    _new_count_with_delta(current_count, -10),
+                ]
+            )
         if rank in (11, 12, 13):
-            return [current_count + 10]
-        return [current_count + _get_card_value(rank)]
+            return [_new_count_with_delta(current_count, 10)]
+        return [_new_count_with_delta(current_count, _get_card_value(rank))]
 
     if rank == N99_RANK_NINETY_NINE:
         return [MAX_COUNT]
-    return [current_count + _get_action_card_value(rank)]
+    return [_new_count_with_delta(current_count, _get_action_card_value(rank))]
+
+
+def _floor_count(value: int) -> int:
+    """Keep bot simulations aligned with the game count invariant."""
+    return max(0, value)
+
+
+def _new_count_with_delta(current_count: int, delta: int) -> int:
+    """Apply a card delta without simulating impossible negative counts."""
+    return _floor_count(current_count + delta)
 
 
 def _calculate_two_effect(current_count: int) -> int:
     """Calculate the new count after playing a 2 (standard rules)."""
+    current_count = _floor_count(current_count)
     if current_count % 2 == 0 and current_count > TWO_DIVIDE_THRESHOLD:
         return current_count // 2
     else:

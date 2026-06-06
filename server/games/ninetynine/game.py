@@ -31,6 +31,7 @@ from ...game_utils.cards import (
     N99_RANK_NINETY_NINE,
 )
 from ...game_utils.options import BoolOption, IntOption, MenuOption, option_field
+from ...game_utils.sequence_runner_mixin import SequenceBeat, SequenceOperation
 from ...messages.localization import Localization
 from ...ui.keybinds import KeybindState
 from .bot import bot_think as _bot_think, _score_outcome
@@ -41,6 +42,7 @@ from .bot import bot_think as _bot_think, _score_outcome
 # =============================================================================
 
 # Count thresholds
+MIN_COUNT = 0
 MAX_COUNT = 99
 MILESTONE_33 = 33
 MILESTONE_66 = 66
@@ -61,6 +63,11 @@ PENALTY_NO_CARDS = 3  # Running out of cards
 
 # Draw timeout (manual draw mode)
 DRAW_TIMEOUT_TICKS = 200  # 10 seconds at 20 ticks/sec
+ROUND_TRANSITION_TICKS = 200
+ROUND_TRANSITION_SECONDS = 10
+ROUND_TRANSITION_SEQUENCE_ID = "ninetynine_round_transition"
+ROUND_TRANSITION_TAG = "ninetynine_round_transition"
+START_ROUND_CALLBACK = "ninetynine_start_round"
 
 
 @dataclass
@@ -191,7 +198,7 @@ class NinetyNineGame(Game):
         """Get players who still have tokens."""
         return [
             p for p in self.players
-            if p.id in self.alive_player_ids and not p.is_spectator
+            if p.id in self.alive_player_ids and p.tokens > 0 and not p.is_spectator
         ]
 
     @property
@@ -210,7 +217,12 @@ class NinetyNineGame(Game):
 
     def on_player_skipped(self, player: Player) -> None:
         """Announce when a player is skipped."""
-        self.broadcast_l("ninetynine-player-skipped", buffer="game", player=player.name)
+        self.broadcast_personal_l(
+            player,
+            "ninetynine-you-skipped",
+            "ninetynine-player-skipped",
+            buffer="game",
+        )
 
     def _play_outcome_sounds(
         self,
@@ -236,6 +248,40 @@ class NinetyNineGame(Game):
         """Sort a player's hand by rank."""
         player.hand = sort_cards(player.hand, by_suit=False)
 
+    def _deck_size_for_options(self) -> int:
+        """Return the deck size implied by the selected rules variant."""
+        return 52 if self.is_standard_rules else 60
+
+    def _floor_count(self, value: int) -> int:
+        """Keep the running count from ever becoming negative."""
+        return max(MIN_COUNT, value)
+
+    def _normalize_count_floor(self) -> int:
+        """Repair a stale negative count and return the playable count."""
+        self.count = self._floor_count(self.count)
+        return self.count
+
+    def _new_count_with_delta(self, current_count: int, delta: int) -> int:
+        """Apply a card value without allowing the count to underflow."""
+        return self._floor_count(current_count + delta)
+
+    def _is_alive_player(self, player: Player) -> bool:
+        """Return whether a player is still eligible to act in this game."""
+        return (
+            isinstance(player, NinetyNinePlayer)
+            and player.id in self.alive_player_ids
+            and player.tokens > 0
+            and not player.is_spectator
+        )
+
+    def _is_round_transition_active(self) -> bool:
+        """Return whether the game is waiting before the next round."""
+        return self.has_active_sequence(tag=ROUND_TRANSITION_TAG)
+
+    def _choose_round_start_index(self, player_count: int) -> int:
+        """Choose a random alive player to start the new round."""
+        return random.randrange(player_count) if player_count > 1 else 0
+
     # ==========================================================================
     # Card Value Calculation
     # ==========================================================================
@@ -245,6 +291,7 @@ class NinetyNineGame(Game):
         Calculate the value a card adds to the count.
         Returns None if player choice is needed or special handling required.
         """
+        current_count = self._floor_count(current_count)
         rank = card.rank
 
         if self.is_standard_rules:
@@ -297,6 +344,7 @@ class NinetyNineGame(Game):
 
     def calculate_two_effect(self, current_count: int) -> int:
         """Calculate the new count after playing a 2 (standard rules)."""
+        current_count = self._floor_count(current_count)
         if current_count % 2 == 0 and current_count > TWO_DIVIDE_THRESHOLD:
             return current_count // 2
         else:
@@ -325,6 +373,7 @@ class NinetyNineGame(Game):
                 handler="_action_check_count",
                 is_enabled="_is_check_count_enabled",
                 is_hidden="_is_check_count_hidden",
+                get_label="_get_check_count_label",
                 include_spectators=True,
             )
         )
@@ -333,6 +382,46 @@ class NinetyNineGame(Game):
             self._order_touch_standard_actions(action_set, self.web_target_order)
 
         return action_set
+
+    def prestart_validate(self) -> list[str | tuple[str, dict]]:
+        """Validate option combinations before the game starts."""
+        errors = list(super().prestart_validate())
+        player_count = len(self.get_active_players())
+        cards_needed = player_count * self.options.hand_size
+        deck_size = self._deck_size_for_options()
+        if cards_needed > deck_size:
+            errors.append(
+                (
+                    "ninetynine-error-too-many-cards",
+                    {
+                        "players": player_count,
+                        "hand_size": self.options.hand_size,
+                        "deck_size": deck_size,
+                    },
+                )
+            )
+        return errors
+
+    def rebuild_player_menu(self, player: Player) -> None:
+        """Refresh localized dynamic card labels before rebuilding the menu."""
+        if isinstance(player, NinetyNinePlayer):
+            self._update_turn_actions(player)
+        super().rebuild_player_menu(player)
+
+    def update_player_menu(
+        self, player: Player, selection_id: str | None = None
+    ) -> None:
+        """Refresh localized dynamic card labels before preserving menu focus."""
+        if isinstance(player, NinetyNinePlayer):
+            self._update_turn_actions(player)
+        super().update_player_menu(player, selection_id)
+
+    def _on_replacement_slot_reclaimed(
+        self, bot_name: str, human_name: str
+    ) -> None:
+        """Refresh dynamic player actions when a human reclaims a bot seat."""
+        super()._on_replacement_slot_reclaimed(bot_name, human_name)
+        self._update_all_turn_actions()
 
     def setup_keybinds(self) -> None:
         """Define all keybinds for the game."""
@@ -389,6 +478,13 @@ class NinetyNineGame(Game):
         turn_set.remove_by_prefix("card_slot_")
         turn_set.remove("resolve_choice")
         turn_set.remove("draw_card")
+
+        if (
+            self.status != "playing"
+            or self._is_round_transition_active()
+            or not self._is_alive_player(player)
+        ):
+            return
 
         # Add card slot actions for cards in hand
         for i, card in enumerate(player.hand, 1):
@@ -502,10 +598,21 @@ class NinetyNineGame(Game):
             return Visibility.VISIBLE
         return Visibility.HIDDEN
 
+    def _get_check_count_label(self, player: Player, action_id: str) -> str:
+        """Get the localized label for checking the current count."""
+        del action_id
+        user = self.get_user(player)
+        locale = user.locale if user else "en"
+        return Localization.get(locale, "ninetynine-check-count")
+
     def _is_card_slot_enabled(self, player: Player) -> str | None:
         """Check if card slot actions are enabled. (Keep explicitly visible so UI displays them out-of-turn)"""
         if self.status != "playing":
             return "action-not-playing"
+        if self._is_round_transition_active():
+            return "ninetynine-round-transition-waiting"
+        if not self._is_alive_player(player):
+            return "action-not-available"
         if self.pending_choice is not None:
             return "ninetynine-choose-first"
         nn_player: NinetyNinePlayer = player  # type: ignore
@@ -515,7 +622,11 @@ class NinetyNineGame(Game):
 
     def _is_card_slot_hidden(self, player: Player) -> Visibility:
         """Card slots are visible during play."""
-        if self.status != "playing":
+        if (
+            self.status != "playing"
+            or self._is_round_transition_active()
+            or not self._is_alive_player(player)
+        ):
             return Visibility.HIDDEN
         return Visibility.VISIBLE
 
@@ -523,6 +634,10 @@ class NinetyNineGame(Game):
         """Check if choice actions are enabled."""
         if self.status != "playing":
             return "action-not-playing"
+        if self._is_round_transition_active():
+            return "ninetynine-round-transition-waiting"
+        if not self._is_alive_player(player):
+            return "action-not-available"
         if self.current_player != player:
             return "action-not-your-turn"
         if self.pending_choice is None:
@@ -531,7 +646,12 @@ class NinetyNineGame(Game):
 
     def _is_choice_hidden(self, player: Player) -> Visibility:
         """Choice actions are visible during play."""
-        if self.status != "playing" or self.pending_choice is None:
+        if (
+            self.status != "playing"
+            or self._is_round_transition_active()
+            or not self._is_alive_player(player)
+            or self.pending_choice is None
+        ):
             return Visibility.HIDDEN
         return Visibility.VISIBLE
 
@@ -539,11 +659,19 @@ class NinetyNineGame(Game):
         """Check if draw action is enabled."""
         if self.status != "playing":
             return "action-not-playing"
+        if self._is_round_transition_active():
+            return "ninetynine-round-transition-waiting"
+        if not self._is_alive_player(player):
+            return "action-not-available"
         return None
 
     def _is_draw_hidden(self, player: Player) -> Visibility:
         """Draw action is visible during play."""
-        if self.status != "playing":
+        if (
+            self.status != "playing"
+            or self._is_round_transition_active()
+            or not self._is_alive_player(player)
+        ):
             return Visibility.HIDDEN
         return Visibility.VISIBLE
 
@@ -554,7 +682,8 @@ class NinetyNineGame(Game):
     def _update_all_turn_actions(self) -> None:
         """Update turn actions for all players."""
         for player in self.players:
-            self._update_turn_actions(player)
+            if isinstance(player, NinetyNinePlayer):
+                self._update_turn_actions(player)
 
     def _card_requires_manual_choice(self, card: Card) -> bool:
         """Return True only when the card currently has multiple valid outcomes."""
@@ -565,10 +694,11 @@ class NinetyNineGame(Game):
 
     def _choice_values_for_type(self, choice_type: str) -> list[int]:
         """Get the currently valid numeric outcomes for a choice card."""
+        count = self._floor_count(self.count)
         if choice_type == "ace":
-            return [1] if self.count > ACE_AUTO_THRESHOLD else [11, 1]
+            return [1] if count > ACE_AUTO_THRESHOLD else [11, 1]
         if choice_type == "ten":
-            return [-10] if self.count >= TEN_AUTO_THRESHOLD else [10, -10]
+            return [-10] if count >= TEN_AUTO_THRESHOLD else [10, -10]
         return []
 
     def _choice_labels_for_values(
@@ -650,6 +780,10 @@ class NinetyNineGame(Game):
         """Validate before opening a choice dialog from a card click."""
         if self.status != "playing":
             return "action-not-playing"
+        if self._is_round_transition_active():
+            return "ninetynine-round-transition-waiting"
+        if not self._is_alive_player(player):
+            return "action-not-available"
         if self.current_player != player:
             return "action-not-your-turn"
         nn_player: NinetyNinePlayer = player  # type: ignore
@@ -663,6 +797,10 @@ class NinetyNineGame(Game):
         """Validate before opening a legacy pending choice dialog."""
         if self.status != "playing":
             return "action-not-playing"
+        if self._is_round_transition_active():
+            return "ninetynine-round-transition-waiting"
+        if not self._is_alive_player(player):
+            return "action-not-available"
         if self.current_player != player:
             return "action-not-your-turn"
         if self.pending_choice is None:
@@ -697,16 +835,26 @@ class NinetyNineGame(Game):
 
         locale = "en"
         if choice_type == "ace":
-            score_11 = _score_outcome(self, player, card.rank, self.count + 11)
-            score_1 = _score_outcome(self, player, card.rank, self.count + 1)
+            current_count = self._floor_count(self.count)
+            score_11 = _score_outcome(
+                self, player, card.rank, self._new_count_with_delta(current_count, 11)
+            )
+            score_1 = _score_outcome(
+                self, player, card.rank, self._new_count_with_delta(current_count, 1)
+            )
             labels = self._choice_labels_for_values(
                 choice_type, self._choice_values_for_type(choice_type), locale
             )
             return labels[0] if score_11 > score_1 else labels[1]
 
         if choice_type == "ten":
-            score_plus = _score_outcome(self, player, card.rank, self.count + 10)
-            score_minus = _score_outcome(self, player, card.rank, self.count - 10)
+            current_count = self._floor_count(self.count)
+            score_plus = _score_outcome(
+                self, player, card.rank, self._new_count_with_delta(current_count, 10)
+            )
+            score_minus = _score_outcome(
+                self, player, card.rank, self._new_count_with_delta(current_count, -10)
+            )
             labels = self._choice_labels_for_values(
                 choice_type, self._choice_values_for_type(choice_type), locale
             )
@@ -721,15 +869,25 @@ class NinetyNineGame(Game):
         card = player.hand[self.pending_card_index]
         locale = "en"
         if self.pending_choice == "ace":
-            score_11 = _score_outcome(self, player, card.rank, self.count + 11)
-            score_1 = _score_outcome(self, player, card.rank, self.count + 1)
+            current_count = self._floor_count(self.count)
+            score_11 = _score_outcome(
+                self, player, card.rank, self._new_count_with_delta(current_count, 11)
+            )
+            score_1 = _score_outcome(
+                self, player, card.rank, self._new_count_with_delta(current_count, 1)
+            )
             labels = self._choice_labels_for_values(
                 "ace", self._choice_values_for_type("ace"), locale
             )
             return labels[0] if score_11 > score_1 else labels[1]
         if self.pending_choice == "ten":
-            score_plus = _score_outcome(self, player, card.rank, self.count + 10)
-            score_minus = _score_outcome(self, player, card.rank, self.count - 10)
+            current_count = self._floor_count(self.count)
+            score_plus = _score_outcome(
+                self, player, card.rank, self._new_count_with_delta(current_count, 10)
+            )
+            score_minus = _score_outcome(
+                self, player, card.rank, self._new_count_with_delta(current_count, -10)
+            )
             labels = self._choice_labels_for_values(
                 "ten", self._choice_values_for_type("ten"), locale
             )
@@ -768,6 +926,7 @@ class NinetyNineGame(Game):
 
     def _start_round(self) -> None:
         """Start a new round."""
+        self.cancel_sequences_by_tag(ROUND_TRANSITION_TAG)
         self.round += 1
         self.count = 0
         self.turn_direction = 1
@@ -785,30 +944,75 @@ class NinetyNineGame(Game):
 
         # Update alive players list
         self.alive_player_ids = [
-            p.id for p in self.get_active_players() if p.tokens > 0
+            p.id
+            for p in self.get_active_players()
+            if isinstance(p, NinetyNinePlayer) and p.tokens > 0
         ]
+
+        # Clear every hand first so eliminated players cannot keep stale cards
+        # or stale touch-menu entries from earlier rounds.
+        for player in self.players:
+            if isinstance(player, NinetyNinePlayer):
+                player.hand = []
 
         # Deal cards to alive players
         for player in self.alive_players:
-            player.hand = []
             for _ in range(self.options.hand_size):
                 card = self.deck.draw_one()
                 if card:
                     player.hand.append(card)
             self._sort_hand(player)
 
-        # Set turn order to alive players
-        self.set_turn_players(self.alive_players)
+        # Set turn order to alive players, rotating the first turn randomly.
+        round_players = list(self.alive_players)
+        if round_players:
+            start_index = self._choose_round_start_index(len(round_players))
+            round_players = round_players[start_index:] + round_players[:start_index]
+        self.set_turn_players(round_players)
 
         self.play_sound(f"game_cards/shuffle{random.randint(1, 3)}.ogg")
         self.broadcast_l("ninetynine-round", buffer="game", round=self.round)
 
         self._start_turn()
 
+    def _schedule_next_round(self) -> None:
+        """Pause briefly before starting the next round."""
+        if not self.game_active:
+            return
+
+        self.pending_choice = None
+        self.pending_card_index = -1
+        self.pending_draw_player_id = None
+        self.draw_timeout_ticks = 0
+        self.cancel_sequences_by_tag(ROUND_TRANSITION_TAG)
+        self.broadcast_l(
+            "ninetynine-next-round-wait",
+            buffer="game",
+            seconds=ROUND_TRANSITION_SECONDS,
+        )
+        self.start_sequence(
+            ROUND_TRANSITION_SEQUENCE_ID,
+            [
+                SequenceBeat.pause(ROUND_TRANSITION_TICKS),
+                SequenceBeat(
+                    ops=[SequenceOperation.callback_op(START_ROUND_CALLBACK)]
+                ),
+            ],
+            tag=ROUND_TRANSITION_TAG,
+            lock_scope=self.SEQUENCE_LOCK_GAMEPLAY,
+            pause_bots=True,
+        )
+        self._update_all_turn_actions()
+        self.rebuild_all_menus()
+
     def _start_turn(self) -> None:
         """Start a player's turn."""
+        self._normalize_count_floor()
         player = self.current_player
         if not player:
+            return
+        if not isinstance(player, NinetyNinePlayer) or not self._is_alive_player(player):
+            self._advance_turn()
             return
 
         # Check if player has cards
@@ -833,21 +1037,27 @@ class NinetyNineGame(Game):
 
     def _has_safe_card(self, player: NinetyNinePlayer) -> bool:
         """Check if player has any card that won't make them go over 99 (action cards)."""
+        current_count = self._floor_count(self.count)
         for card in player.hand:
             if card.rank == N99_RANK_NINETY_NINE:
                 return True
 
-            value = self.calculate_card_value(card, self.count)
+            value = self.calculate_card_value(card, current_count)
             if value is not None:
-                new_count = self.count + value
-                if new_count <= MAX_COUNT:
+                new_count = self._new_count_with_delta(current_count, value)
+                if MIN_COUNT <= new_count <= MAX_COUNT:
                     return True
 
         return False
 
     def _action_cards_no_safe_cards(self, player: NinetyNinePlayer) -> None:
         """Handle action cards auto-lose when player has no safe cards."""
-        self.broadcast_l("ninetynine-no-valid-cards", buffer="game", player=player.name)
+        self.broadcast_personal_l(
+            player,
+            "ninetynine-you-no-valid-cards",
+            "ninetynine-player-no-valid-cards",
+            buffer="game",
+        )
 
         winners = [alive_player for alive_player in self.alive_players if alive_player != player]
         self._play_outcome_sounds(
@@ -865,12 +1075,28 @@ class NinetyNineGame(Game):
 
         self._check_game_end()
         if self.game_active:
-            self._start_round()
+            self._schedule_next_round()
 
     def _advance_turn(self) -> None:
         """Advance to the next player's turn."""
         if not self.alive_players:
             return
+
+        current_id = self.current_player.id if self.current_player else ""
+        valid_ids = [
+            pid
+            for pid in self.turn_player_ids
+            if (player := self.get_player_by_id(pid)) is not None
+            and self._is_alive_player(player)
+        ]
+        if not valid_ids:
+            return
+        if valid_ids != self.turn_player_ids:
+            self.turn_player_ids = valid_ids
+            if current_id in self.turn_player_ids:
+                self.turn_index = self.turn_player_ids.index(current_id)
+            else:
+                self.turn_index %= len(self.turn_player_ids)
 
         # Handle skip using base class mechanism
         while self.turn_skip_count > 0:
@@ -887,7 +1113,7 @@ class NinetyNineGame(Game):
         attempts = 0
         while attempts < len(self.turn_player_ids):
             player = self.current_player
-            if player and player.tokens > 0:
+            if player and self._is_alive_player(player):
                 break
             self.turn_index = (self.turn_index + self.turn_direction) % len(self.turn_player_ids)
             attempts += 1
@@ -914,6 +1140,8 @@ class NinetyNineGame(Game):
     def _action_play_card(self, player: Player, *args) -> None:
         """Handle playing a card."""
         if not isinstance(player, NinetyNinePlayer):
+            return
+        if self._is_round_transition_active() or not self._is_alive_player(player):
             return
 
         # Explicitly reject play if it's not their turn (since action is enabled to be visible)
@@ -944,7 +1172,7 @@ class NinetyNineGame(Game):
             return
 
         card = player.hand[slot]
-        old_count = self.count
+        old_count = self._normalize_count_floor()
         user = self.get_user(player)
         locale = user.locale if user else "en"
 
@@ -958,7 +1186,12 @@ class NinetyNineGame(Game):
                 resolved_value = self._choice_value_from_input("ace", input_value, locale)
             if resolved_value is None:
                 return
-            self._play_card(player, slot, card, old_count + resolved_value)
+            self._play_card(
+                player,
+                slot,
+                card,
+                self._new_count_with_delta(old_count, resolved_value),
+            )
             return
 
         if card.rank == 10 and value is None:  # Ten needs choice
@@ -967,7 +1200,12 @@ class NinetyNineGame(Game):
                 resolved_value = self._choice_value_from_input("ten", input_value, locale)
             if resolved_value is None:
                 return
-            self._play_card(player, slot, card, old_count + resolved_value)
+            self._play_card(
+                player,
+                slot,
+                card,
+                self._new_count_with_delta(old_count, resolved_value),
+            )
             return
 
         if card.rank == 2 and self.is_standard_rules:  # 2 card special handling
@@ -982,11 +1220,13 @@ class NinetyNineGame(Game):
         # Normal card play
         if value is None:
             value = 0
-        self._play_card(player, slot, card, old_count + value)
+        self._play_card(player, slot, card, self._new_count_with_delta(old_count, value))
 
     def _action_resolve_pending_choice(self, player: Player, *args) -> None:
         """Resolve a legacy saved Ace/Ten choice through the standard action input menu."""
         if not isinstance(player, NinetyNinePlayer):
+            return
+        if self._is_round_transition_active() or not self._is_alive_player(player):
             return
 
         if len(args) == 1:
@@ -1022,10 +1262,10 @@ class NinetyNineGame(Game):
         if value is None:
             return
 
-        old_count = self.count
+        old_count = self._normalize_count_floor()
         self.pending_choice = None
         self.pending_card_index = -1
-        self._play_card(player, slot, card, old_count + value)
+        self._play_card(player, slot, card, self._new_count_with_delta(old_count, value))
 
     def _play_card(
         self,
@@ -1035,7 +1275,11 @@ class NinetyNineGame(Game):
         new_count: int,
     ) -> None:
         """Play a card with the calculated new count."""
-        old_count = self.count
+        if self._is_round_transition_active() or not self._is_alive_player(player):
+            return
+
+        old_count = self._normalize_count_floor()
+        new_count = self._floor_count(new_count)
         value = new_count - old_count
 
         # Remove card from hand
@@ -1082,7 +1326,7 @@ class NinetyNineGame(Game):
             return
 
         if round_ended:
-            self._start_round()
+            self._schedule_next_round()
             return
 
         # Apply special card effects (reverse, skip)
@@ -1220,6 +1464,9 @@ class NinetyNineGame(Game):
 
     def _player_out_of_cards(self, player: NinetyNinePlayer) -> None:
         """Player has no cards on their turn."""
+        if not self._is_alive_player(player):
+            return
+
         winners = [alive_player for alive_player in self.alive_players if alive_player != player]
         self._play_outcome_sounds(
             winners=winners,
@@ -1236,7 +1483,7 @@ class NinetyNineGame(Game):
 
         self._check_game_end()
         if self.game_active:
-            self._start_round()
+            self._schedule_next_round()
 
     def _announce_token_loss(self, player: NinetyNinePlayer, amount: int) -> None:
         """Announce token loss."""
@@ -1262,10 +1509,23 @@ class NinetyNineGame(Game):
 
     def _eliminate_player(self, player: NinetyNinePlayer) -> None:
         """Eliminate a player from the game."""
-        self.broadcast_l("ninetynine-player-eliminated", buffer="game", player=player.name)
+        self.broadcast_personal_l(
+            player,
+            "ninetynine-you-eliminated",
+            "ninetynine-player-eliminated",
+            buffer="game",
+        )
 
         if player.id in self.alive_player_ids:
             self.alive_player_ids.remove(player.id)
+        player.hand = []
+        if self.pending_draw_player_id == player.id:
+            self.pending_draw_player_id = None
+            self.draw_timeout_ticks = 0
+        if self.current_player == player:
+            self.pending_choice = None
+            self.pending_card_index = -1
+        self._update_turn_actions(player)
 
     def _apply_special_effects(self, player: NinetyNinePlayer, card: Card) -> None:
         """Apply special card effects (reverse, skip)."""
@@ -1293,10 +1553,16 @@ class NinetyNineGame(Game):
 
     def _end_game(self, winner: NinetyNinePlayer | None) -> None:
         """End the game with a winner."""
+        self.cancel_sequences_by_tag(ROUND_TRANSITION_TAG)
         self.play_sound("game_pig/win.ogg")
 
         if winner:
-            self.broadcast_l("ninetynine-player-wins", buffer="game", player=winner.name)
+            self.broadcast_personal_l(
+                winner,
+                "ninetynine-you-win",
+                "ninetynine-player-wins",
+                buffer="game",
+            )
 
         self.finish_game()
 
@@ -1356,6 +1622,8 @@ class NinetyNineGame(Game):
         """Handle manual card draw."""
         if not isinstance(player, NinetyNinePlayer):
             return
+        if self._is_round_transition_active() or not self._is_alive_player(player):
+            return
 
         if self.pending_draw_player_id != player.id:
             return
@@ -1388,6 +1656,7 @@ class NinetyNineGame(Game):
 
     def _action_check_count(self, player: Player, action_id: str) -> None:
         """Announce the current count."""
+        self._normalize_count_floor()
         user = self.get_user(player)
         if user:
             user.speak_l("ninetynine-current-count", buffer="game", count=self.count)
@@ -1396,12 +1665,25 @@ class NinetyNineGame(Game):
     # Bot AI
     # ==========================================================================
 
+    def on_sequence_callback(
+        self, sequence_id: str, callback_id: str, payload: dict
+    ) -> None:
+        """Handle delayed round-transition callbacks."""
+        if callback_id == START_ROUND_CALLBACK:
+            if self.game_active:
+                self._start_round()
+            return
+        super().on_sequence_callback(sequence_id, callback_id, payload)
+
     def on_tick(self) -> None:
         """Called every tick."""
         super().on_tick()
         self.process_scheduled_sounds()
+        self.process_sequences()
 
         if not self.game_active:
+            return
+        if self.is_sequence_bot_paused():
             return
 
         # Handle pending draw

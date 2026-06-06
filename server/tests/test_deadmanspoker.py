@@ -137,6 +137,13 @@ def finish_decision_round(game: DeadMansPokerGame) -> None:
         assert advance_until(game, lambda: not game.active_sequences, max_ticks=1200)
 
 
+def advance_to_flop(game: DeadMansPokerGame) -> None:
+    finish_decision_round(game)
+    assert game.phase == PHASE_DECISION
+    assert game.round_stage == 2
+    assert game.revealed_community_count == 3
+
+
 def test_game_registration_and_metadata() -> None:
     game_cls = GameRegistry.get("deadmanspoker")
     assert game_cls is DeadMansPokerGame
@@ -268,14 +275,19 @@ def test_call_adds_bullet_and_announces_with_sound() -> None:
     assert player is not None
     user = game.get_user(player)
     assert user is not None
+    other = next(table_player for table_player in game.players if table_player != player)
+    other_user = game.get_user(other)
+    assert other_user is not None
     user.clear_messages()
+    other_user.clear_messages()
 
     game.execute_action(player, "call")
 
     assert player.committed_bullets == 2
     assert "game_deadmanspoker/call.ogg" in sound_names(user)
     assert any(sound in sound_names(user) for sound in SOUND_PLACE_BULLETS)
-    assert any("calls" in text for text in speech_texts(user))
+    assert any("You call" in text for text in speech_texts(user))
+    assert any(f"{player.name} calls" in text for text in speech_texts(other_user))
 
 
 def test_read_hand_and_hand_value_are_separate_actions() -> None:
@@ -396,6 +408,17 @@ def test_switch_replacement_flow_keeps_turn_available() -> None:
     assert any(card_name(discarded, "en") in text for text in speech_texts(other_user))
 
 
+def test_switch_card_resets_each_hand() -> None:
+    game = make_game(2)
+    start_to_decision(game)
+    for player in game.players:
+        player.used_switch = True
+
+    game._start_new_hand()
+
+    assert all(not player.used_switch for player in game.players)
+
+
 def test_normal_fold_first_decision_requires_coward_fold() -> None:
     game = make_game(2)
     start_to_decision(game)
@@ -404,6 +427,20 @@ def test_normal_fold_first_decision_requires_coward_fold() -> None:
 
     assert game._is_fold_enabled(player) == "deadmanspoker-fold-first-decision-use-coward"
     assert game._is_coward_fold_enabled(player) is None
+
+
+def test_all_in_is_blocked_until_flop() -> None:
+    game = make_game(2)
+    start_to_decision(game)
+    player = game.current_player
+    assert player is not None
+
+    assert game._is_all_in_enabled(player) == "deadmanspoker-all-in-too-early"
+
+    advance_to_flop(game)
+    player = game.current_player
+    assert player is not None
+    assert game._is_all_in_enabled(player) is None
 
 
 def test_coward_fold_is_one_use_and_only_risks_one_bullet(monkeypatch) -> None:
@@ -428,6 +465,7 @@ def test_coward_fold_is_one_use_and_only_risks_one_bullet(monkeypatch) -> None:
 def test_all_in_response_fold_can_award_uncontested_hand(monkeypatch) -> None:
     game = make_game(2)
     start_to_decision(game)
+    advance_to_flop(game)
     initiator = game.current_player
     assert initiator is not None
     monkeypatch.setattr(random, "random", lambda: 0.99)
@@ -453,10 +491,12 @@ def test_all_in_response_fold_can_award_uncontested_hand(monkeypatch) -> None:
 def test_all_in_places_added_bullets_together() -> None:
     game = make_game(2)
     start_to_decision(game)
+    advance_to_flop(game)
     initiator = game.current_player
     assert initiator is not None
     user = game.get_user(initiator)
     assert user is not None
+    committed_before = initiator.committed_bullets
     user.clear_messages()
 
     game.execute_action(initiator, "all_in")
@@ -466,7 +506,7 @@ def test_all_in_places_added_bullets_together() -> None:
         for message in user.messages
         if message.type == "play_sound" and message.data["name"] in SOUND_PLACE_BULLETS
     ]
-    assert len(immediate_bullet_sounds) == MAX_BULLETS - 1
+    assert len(immediate_bullet_sounds) == MAX_BULLETS - committed_before
 
 
 def test_folded_players_are_batched_before_roulette(monkeypatch) -> None:
@@ -501,12 +541,11 @@ def test_folded_players_are_batched_before_roulette(monkeypatch) -> None:
 def test_pending_fold_batch_resumes_all_in_flow(monkeypatch) -> None:
     game = make_game(3)
     start_to_decision(game)
+    advance_to_flop(game)
     monkeypatch.setattr(random, "random", lambda: 0.99)
 
     first_folder = game.current_player
     assert first_folder is not None
-    first_folder.acted_this_hand = True
-    first_folder.committed_bullets = 2
     game.execute_action(first_folder, "fold")
     assert advance_until(game, lambda: not game.active_sequences, max_ticks=1000)
 
@@ -557,6 +596,35 @@ def test_showdown_tie_has_no_roulette_sequence() -> None:
 
     assert not game.has_active_sequence(tag="deadmanspoker_roulette")
     assert all(not player.eliminated for player in game.players)
+
+
+def test_showdown_win_counts_as_hand_win_in_results() -> None:
+    game = make_game(2)
+    game.status = "playing"
+    game.game_active = True
+    game.hand_number = 1
+    winner = game.players[0]
+    loser = game.players[1]
+    game.community = [
+        Card(id=1, rank=10, suit=1),
+        Card(id=2, rank=11, suit=1),
+        Card(id=3, rank=12, suit=1),
+        Card(id=4, rank=2, suit=2),
+        Card(id=5, rank=3, suit=3),
+    ]
+    game.revealed_community_count = 5
+    winner.hand = [Card(id=6, rank=13, suit=1), Card(id=7, rank=1, suit=1)]
+    loser.hand = [Card(id=8, rank=9, suit=2), Card(id=9, rank=9, suit=3)]
+    for player in game.players:
+        player.active_in_hand = True
+        player.committed_bullets = 2
+
+    game._resolve_showdown()
+
+    assert winner.showdowns_won == 1
+    assert winner.hands_won == 1
+    result = game.build_game_result()
+    assert result.custom_data["player_stats"][winner.name]["hands_won"] == 1
 
 
 def test_roulette_uses_eight_bullet_god_save_rule(monkeypatch) -> None:
@@ -663,6 +731,7 @@ def test_showdown_reveals_private_cards_two_seconds_apart() -> None:
 def test_active_sequences_are_serialization_safe() -> None:
     game = make_game(2)
     start_to_decision(game)
+    advance_to_flop(game)
     actor = game.current_player
     assert actor is not None
 
@@ -675,6 +744,25 @@ def test_active_sequences_are_serialization_safe() -> None:
     assert restored.active_sequences
     assert restored_actor is not None
     assert restored_actor.committed_bullets == MAX_BULLETS
+
+
+def test_hand_start_message_distinguishes_all_alive_from_survivors() -> None:
+    game = make_game(2)
+    game.status = "playing"
+    game.game_active = True
+    user = game.get_user(game.players[0])
+    assert user is not None
+    user.clear_messages()
+
+    game.hand_number = 1
+    game.on_sequence_callback("test", "announce_hand_start", {})
+    assert any("Everyone commits" in text for text in speech_texts(user))
+
+    game.players[1].eliminated = True
+    user.clear_messages()
+    game.hand_number = 2
+    game.on_sequence_callback("test", "announce_hand_start", {})
+    assert any("Each survivor commits" in text for text in speech_texts(user))
 
 
 def test_localization_and_documentation_are_present() -> None:

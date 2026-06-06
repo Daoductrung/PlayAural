@@ -322,6 +322,36 @@ class DeadMansPokerGame(Game):
     def _random_gunshot_sound(self) -> str:
         return random.choice(SOUND_GUNSHOTS)  # nosec B311
 
+    def _broadcast_personal_l_with_locale_args(
+        self,
+        actor: DeadMansPokerPlayer,
+        personal_message_id: str,
+        others_message_id: str,
+        args_for_locale,
+        *,
+        buffer: str = "game",
+    ) -> None:
+        """Broadcast a first-person line to actor and third-person line to others."""
+        for listener in self.players:
+            user = self.get_user(listener)
+            if not user:
+                continue
+            kwargs = args_for_locale(user.locale)
+            if listener == actor:
+                user.speak_l(personal_message_id, buffer=buffer, **kwargs)
+            else:
+                user.speak_l(
+                    others_message_id,
+                    buffer=buffer,
+                    player=actor.name,
+                    **kwargs,
+                )
+
+    def _award_hand_win(self, player: DeadMansPokerPlayer | None) -> None:
+        """Record one hand win for a player."""
+        if player:
+            player.hands_won += 1
+
     def _sort_private_hand(self, hand: list[Card]) -> list[Card]:
         return sorted(hand, key=lambda card: (14 if card.rank == 1 else card.rank, card.suit), reverse=True)
 
@@ -418,6 +448,7 @@ class DeadMansPokerGame(Game):
             player.committed_bullets = STARTING_BULLETS
             player.acted_this_round = False
             player.acted_this_hand = False
+            player.used_switch = False
             player.matched_all_in = False
 
         for _ in range(HAND_SIZE):
@@ -823,6 +854,8 @@ class DeadMansPokerGame(Game):
         dmp_player: DeadMansPokerPlayer = player  # type: ignore[assignment]
         if self.phase != PHASE_DECISION:
             return "deadmanspoker-not-decision-phase"
+        if self.round_stage < 2 or self.revealed_community_count < 3:
+            return "deadmanspoker-all-in-too-early"
         if dmp_player.committed_bullets >= MAX_BULLETS:
             return "deadmanspoker-max-bullets"
         if len(self.active_hand_players) <= 1:
@@ -1374,27 +1407,73 @@ class DeadMansPokerGame(Game):
             loser.active_in_hand = False
             loser.folded_this_hand = True
 
+        if not losers:
+            self._announce_showdown_winners(winners, best_score, award_hand=False)
+            self.broadcast_l("deadmanspoker-showdown-tie-no-penalty", buffer="game")
+            self._start_new_hand()
+            return
+
+        for winner in winners:
+            self._award_hand_win(winner)
+        self._announce_showdown_winners(winners, best_score, award_hand=True)
+
+        self.pending_roulette_ids = [player.id for player in losers]
+        self.pending_roulette_context = "showdown"
+        self._start_pending_roulette()
+
+    def _announce_showdown_winners(
+        self,
+        winners: list[DeadMansPokerPlayer],
+        best_score: tuple[int, tuple[int, ...]],
+        *,
+        award_hand: bool,
+    ) -> None:
+        """Announce showdown winners with first-person wording where applicable."""
+        if not winners:
+            return
+        winner_ids = {winner.id for winner in winners}
+        winner_names = [winner.name for winner in winners]
         for listener in self.players:
             user = self.get_user(listener)
             if not user:
                 continue
             best_text = describe_hand(best_score, user.locale)
-            winner_names = Localization.format_list_and(user.locale, [p.name for p in winners])
+            if isinstance(listener, DeadMansPokerPlayer) and listener.id in winner_ids:
+                other_winners = [
+                    winner.name for winner in winners if winner.id != listener.id
+                ]
+                if other_winners:
+                    user.speak_l(
+                        "deadmanspoker-showdown-you-tie-win",
+                        buffer="game",
+                        players=Localization.format_list_and(
+                            user.locale,
+                            other_winners,
+                        ),
+                        hand=best_text,
+                    )
+                else:
+                    user.speak_l(
+                        "deadmanspoker-showdown-you-win",
+                        buffer="game",
+                        hand=best_text,
+                    )
+                continue
+
             user.speak_l(
                 "deadmanspoker-showdown-winners",
                 buffer="game",
-                players=winner_names,
+                players=Localization.format_list_and(user.locale, winner_names),
                 hand=best_text,
             )
-
-        if not losers:
-            self.broadcast_l("deadmanspoker-showdown-tie-no-penalty", buffer="game")
-            self._start_new_hand()
-            return
-
-        self.pending_roulette_ids = [player.id for player in losers]
-        self.pending_roulette_context = "showdown"
-        self._start_pending_roulette()
+        if award_hand:
+            for winner in winners:
+                self.broadcast_personal_l(
+                    winner,
+                    "deadmanspoker-you-win-showdown-hand",
+                    "deadmanspoker-player-wins-showdown-hand",
+                    buffer="game",
+                )
 
     def _start_hand_win_sequence(self, winner: DeadMansPokerPlayer | None) -> None:
         self.phase = PHASE_HAND_CLEANUP
@@ -1613,8 +1692,15 @@ class DeadMansPokerGame(Game):
             self._start_new_hand()
             return
         if callback_id == "announce_hand_start":
+            active_count = len(self.get_active_players())
+            alive_count = len(self.alive_players)
+            message_id = (
+                "deadmanspoker-hand-start-all-alive"
+                if active_count == alive_count
+                else "deadmanspoker-hand-start-survivors"
+            )
             self.broadcast_l(
-                "deadmanspoker-hand-start",
+                message_id,
                 buffer="game",
                 hand=self.hand_number,
             )
@@ -1634,13 +1720,25 @@ class DeadMansPokerGame(Game):
             )
             return
         if callback_id == "announce_call":
-            self._announce_player_commit(payload, "deadmanspoker-player-calls")
+            self._announce_player_commit(
+                payload,
+                "deadmanspoker-you-call",
+                "deadmanspoker-player-calls",
+            )
             return
         if callback_id == "announce_match_all_in":
-            self._announce_player_commit(payload, "deadmanspoker-player-matches-all-in")
+            self._announce_player_commit(
+                payload,
+                "deadmanspoker-you-match-all-in",
+                "deadmanspoker-player-matches-all-in",
+            )
             return
         if callback_id == "announce_all_in":
-            self._announce_player_commit(payload, "deadmanspoker-player-all-in")
+            self._announce_player_commit(
+                payload,
+                "deadmanspoker-you-all-in",
+                "deadmanspoker-player-all-in",
+            )
             return
         if callback_id == "finish_normal_call":
             self._finish_normal_call(str(payload.get("player_id", "")))
@@ -1652,10 +1750,18 @@ class DeadMansPokerGame(Game):
             self._finish_all_in_call(str(payload.get("player_id", "")))
             return
         if callback_id == "announce_fold":
-            self._announce_fold(payload, "deadmanspoker-player-folds")
+            self._announce_fold(
+                payload,
+                "deadmanspoker-you-fold",
+                "deadmanspoker-player-folds",
+            )
             return
         if callback_id == "announce_coward_fold":
-            self._announce_fold(payload, "deadmanspoker-player-coward-folds")
+            self._announce_fold(
+                payload,
+                "deadmanspoker-you-coward-fold",
+                "deadmanspoker-player-coward-folds",
+            )
             return
         if callback_id == "finish_fold":
             self._finish_fold(
@@ -1705,8 +1811,13 @@ class DeadMansPokerGame(Game):
             player_id = str(payload.get("player_id", ""))
             winner = self.get_player_by_id(player_id) if player_id else None
             if isinstance(winner, DeadMansPokerPlayer):
-                winner.hands_won += 1
-                self.broadcast_l("deadmanspoker-hand-winner", buffer="game", player=winner.name)
+                self._award_hand_win(winner)
+                self.broadcast_personal_l(
+                    winner,
+                    "deadmanspoker-you-win-hand",
+                    "deadmanspoker-hand-winner",
+                    buffer="game",
+                )
             else:
                 self.broadcast_l("deadmanspoker-hand-no-winner", buffer="game")
             return
@@ -1717,7 +1828,12 @@ class DeadMansPokerGame(Game):
         if callback_id == "announce_game_over":
             winner = self.get_player_by_id(self.winner_id) if self.winner_id else None
             if winner:
-                self.broadcast_l("deadmanspoker-player-wins", buffer="game", player=winner.name)
+                self.broadcast_personal_l(
+                    winner,
+                    "deadmanspoker-you-win-game",
+                    "deadmanspoker-player-wins",
+                    buffer="game",
+                )
             else:
                 self.broadcast_l("deadmanspoker-no-winner", buffer="game")
             return
@@ -1740,26 +1856,38 @@ class DeadMansPokerGame(Game):
                 cards=read_cards(player.hand, user.locale),
             )
 
-    def _announce_player_commit(self, payload: dict, key: str) -> None:
+    def _announce_player_commit(
+        self,
+        payload: dict,
+        personal_key: str,
+        others_key: str,
+    ) -> None:
         player = self.get_player_by_id(str(payload.get("player_id", "")))
         if not isinstance(player, DeadMansPokerPlayer):
             return
-        self.broadcast_l(
-            key,
+        self.broadcast_personal_l(
+            player,
+            personal_key,
+            others_key,
             buffer="game",
-            player=player.name,
             added=int(payload.get("added", 0)),
             total=player.committed_bullets,
         )
 
-    def _announce_fold(self, payload: dict, key: str) -> None:
+    def _announce_fold(
+        self,
+        payload: dict,
+        personal_key: str,
+        others_key: str,
+    ) -> None:
         player = self.get_player_by_id(str(payload.get("player_id", "")))
         if not isinstance(player, DeadMansPokerPlayer):
             return
-        self.broadcast_l(
-            key,
+        self.broadcast_personal_l(
+            player,
+            personal_key,
+            others_key,
             buffer="game",
-            player=player.name,
             bullets=player.committed_bullets,
         )
 
@@ -1770,16 +1898,14 @@ class DeadMansPokerGame(Game):
         rank = int(payload.get("discarded_rank", 0))
         suit = int(payload.get("discarded_suit", 0))
         discarded = Card(id=0, rank=rank, suit=suit) if rank and suit else None
-        for listener in self.players:
-            user = self.get_user(listener)
-            if not user:
-                continue
-            user.speak_l(
-                "deadmanspoker-player-switches",
-                buffer="game",
-                player=player.name,
-                card=card_name(discarded, user.locale) if discarded else "",
-            )
+        self._broadcast_personal_l_with_locale_args(
+            player,
+            "deadmanspoker-you-switch",
+            "deadmanspoker-player-switches",
+            lambda locale: {
+                "card": card_name(discarded, locale) if discarded else "",
+            },
+        )
 
     def _reveal_community_cards(self, count: int) -> None:
         if count <= 0:
@@ -1805,28 +1931,25 @@ class DeadMansPokerGame(Game):
         player = self.get_player_by_id(player_id)
         if not isinstance(player, DeadMansPokerPlayer):
             return
-        for listener in self.players:
-            user = self.get_user(listener)
-            if not user:
-                continue
-            cards = read_cards(player.hand, user.locale)
-            hand_text = describe_partial_hand(player.hand + self.community, user.locale)
-            user.speak_l(
-                "deadmanspoker-private-reveal",
-                buffer="game",
-                player=player.name,
-                cards=cards,
-                hand=hand_text,
-            )
+        self._broadcast_personal_l_with_locale_args(
+            player,
+            "deadmanspoker-your-private-reveal",
+            "deadmanspoker-private-reveal",
+            lambda locale: {
+                "cards": read_cards(player.hand, locale),
+                "hand": describe_partial_hand(player.hand + self.community, locale),
+            },
+        )
 
     def _announce_load_bullets(self, payload: dict) -> None:
         player = self.get_player_by_id(str(payload.get("player_id", "")))
-        if not player:
+        if not isinstance(player, DeadMansPokerPlayer):
             return
-        self.broadcast_l(
+        self.broadcast_personal_l(
+            player,
+            "deadmanspoker-you-load-bullets",
             "deadmanspoker-load-bullets",
             buffer="game",
-            player=player.name,
             bullets=int(payload.get("bullets", 0)),
         )
 
@@ -1838,10 +1961,11 @@ class DeadMansPokerGame(Game):
         player.bullets_risked += player.committed_bullets
         bullets = player.committed_bullets
         player.committed_bullets = 0
-        self.broadcast_l(
+        self.broadcast_personal_l(
+            player,
+            "deadmanspoker-you-roulette-survived",
             "deadmanspoker-roulette-survived",
             buffer="game",
-            player=player.name,
             bullets=bullets,
         )
 
@@ -1856,10 +1980,11 @@ class DeadMansPokerGame(Game):
         player.active_in_hand = False
         player.folded_this_hand = True
         player.hand.clear()
-        self.broadcast_l(
+        self.broadcast_personal_l(
+            player,
+            "deadmanspoker-you-eliminated",
             "deadmanspoker-player-eliminated",
             buffer="game",
-            player=player.name,
             bullets=bullets,
         )
 

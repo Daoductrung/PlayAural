@@ -103,7 +103,7 @@ Use it when your opening cards look terrible and you do not want the danger to g
 
 \*\*Switch Card\*\*
 
-Switch Card can be used once per match.
+Switch Card can be used once per hand.
 
 You choose one of your two private cards. The game then offers three replacement cards. Choose one replacement, and that card becomes part of your private hand.
 
@@ -116,6 +116,8 @@ You cannot switch after the final community card is revealed, and you cannot swi
 \*\*All-In\*\*
 
 All-in means you push your committed bullets up to 8.
+
+All-in is available only from betting round 2 onward, after the first three community cards have been revealed. The opening round is for the first commitment decisions, so players cannot immediately force the table to 8 bullets before anyone sees the flop.
 
 When someone goes all-in, normal betting stops. Every other active player must choose:
 

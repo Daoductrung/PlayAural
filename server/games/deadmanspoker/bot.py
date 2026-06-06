@@ -114,6 +114,8 @@ def _should_all_in(
     strength: int,
     risk: float,
 ) -> bool:
+    if game.round_stage < 2 or game.revealed_community_count < 3:
+        return False
     if player.committed_bullets >= MAX_BULLETS:
         return False
     opponents = len(game.active_hand_players) - 1

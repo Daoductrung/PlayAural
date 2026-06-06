@@ -17,6 +17,7 @@ from ..games.ninetynine.game import (
     PENALTY_MILESTONE_99,
     ROUND_TRANSITION_TAG,
     ROUND_TRANSITION_TICKS,
+    DRAW_TIMEOUT_TICKS,
 )
 from ..game_utils.cards import (
     Card,
@@ -496,6 +497,45 @@ class TestNinetyNinePlayTest:
 
         assert game.pending_draw_player_id is None
         assert game.current_player == player2
+
+    def test_milestone_elimination_does_not_wedge_manual_draw(self):
+        """A player eliminated by a milestone-pass penalty on their own play must
+        not become the pending-draw player (manual draw would then hang forever).
+
+        Crossing 66 costs the mover a token; if it was their last, they are
+        eliminated while the round continues. Three players keep the game alive
+        so the bug — installing the dead player as pending_draw — is reachable.
+        """
+        game = NinetyNineGame(options=NinetyNineOptions(autodraw=False))
+        users = [MockUser(n) for n in ["Alice", "Bob", "Carol"]]
+        players = [game.add_player(u.username, u) for u in users]
+        game.setup_keybinds()
+        game.on_start()
+        game.alive_player_ids = [p.id for p in players]
+        game.set_turn_players(players)
+        game.turn_index = 0
+        game.count = 63
+        players[0].tokens = 1  # one token: passing 66 eliminates them
+        for p in players[1:]:
+            p.tokens = 3
+        # A plain 5 takes 63 -> 68, passing the 66 milestone.
+        players[0].hand = [Card(id=901, rank=5, suit=SUIT_HEARTS)]
+        game._update_turn_actions(players[0])
+
+        game.execute_action(players[0], "card_slot_1")
+
+        # Eliminated, round still live, and crucially not left as pending draw.
+        assert players[0].tokens == 0
+        assert players[0].id not in game.alive_player_ids
+        assert game.game_active
+        assert game.pending_draw_player_id != players[0].id
+        # Turn has moved on to a living player who can actually act.
+        assert game.current_player in players[1:]
+        # Ticking must not spin on a dead drawer: with the seat vacated the only
+        # pending draw left is None, so on_tick simply waits for the live player.
+        for _ in range(DRAW_TIMEOUT_TICKS + 5):
+            game.on_tick()
+        assert game.current_player in players[1:]
 
     def test_action_cards_bot_prefers_forcing_no_safe_response(self):
         """Bot should prefer a move that leaves the next player with no safe action-card play."""

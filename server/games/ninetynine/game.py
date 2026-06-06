@@ -1366,6 +1366,18 @@ class NinetyNineGame(Game):
         # Apply special card effects (reverse, skip)
         self._apply_special_effects(player, card)
 
+        # A milestone *pass* penalty on this very play can cost the player their
+        # last token and eliminate them while the round still continues (e.g.
+        # crossing 66 leaves the count at 67 but does not end the round). Such a
+        # player must never be dealt a replacement card, and — fatally in manual
+        # draw — must never become the pending-draw player: a dead player's
+        # _action_draw_card no-ops, so the draw never resolves, the turn never
+        # advances, and the game wedges forever. Just move past them.
+        if not self._is_alive_player(player):
+            self._update_all_turn_actions()
+            self._advance_turn()
+            return
+
         # Handle card drawing
         if self.options.autodraw:
             drawn = self._draw_card()

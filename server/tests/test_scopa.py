@@ -15,6 +15,23 @@ _locales_dir = Path(__file__).parent.parent / "locales"
 Localization.init(_locales_dir)
 
 
+def make_scopa_game(player_count: int = 2, touch: bool = False) -> ScopaGame:
+    game = ScopaGame()
+    game.setup_keybinds()
+    for index in range(player_count):
+        name = f"Player{index + 1}"
+        user = MockUser(name, uuid=f"p{index + 1}")
+        if touch:
+            user.client_type = "web"
+        game.add_player(name, user)
+    game.host = "Player1"
+    return game
+
+
+def speech_texts(user: MockUser) -> list[str]:
+    return [message.data["text"] for message in user.messages if message.type == "speak"]
+
+
 class TestCardUtility:
     """Tests for card utility functions."""
 
@@ -174,6 +191,7 @@ class TestScopaGameUnit:
         assert options.cards_per_deal == 3
         assert options.number_of_decks == 1
         assert options.escoba is False
+        assert options.primiera_scoring is True
         assert options.team_mode == "individual"
 
     def test_serialization(self):
@@ -314,10 +332,19 @@ class TestScopaVariants:
         game.add_player("Player2", user2)
         game.on_start()
 
-        # Player1 has a 7 (21 pts)
-        game.players[0].captured = [Card(id=1, rank=7, suit=0)]
-        # Player2 has a 6 (18 pts)
-        game.players[1].captured = [Card(id=2, rank=6, suit=0)]
+        # Player1 has stronger best cards in all four suits.
+        game.players[0].captured = [
+            Card(id=1, rank=7, suit=1),
+            Card(id=2, rank=7, suit=2),
+            Card(id=3, rank=7, suit=3),
+            Card(id=4, rank=7, suit=4),
+        ]
+        game.players[1].captured = [
+            Card(id=5, rank=6, suit=1),
+            Card(id=6, rank=6, suit=2),
+            Card(id=7, rank=6, suit=3),
+            Card(id=8, rank=6, suit=4),
+        ]
 
         score_round(game)
 
@@ -326,6 +353,21 @@ class TestScopaVariants:
         team2 = game.team_manager.get_team("Player2")
         # team1 might have 2 points (most cards tie, diamonds tie, sevens/primiera 1)
         assert team1.round_score > team2.round_score
+
+    def test_primiera_requires_cards_in_all_four_suits(self):
+        from ..games.scopa.scoring import score_round
+        game = make_scopa_game(2)
+        game.on_start()
+
+        game.players[0].captured = [Card(id=1, rank=7, suit=1)]
+        game.players[1].captured = [Card(id=2, rank=6, suit=2)]
+        user1 = game.get_user(game.players[0])
+        assert user1 is not None
+        user1.clear_messages()
+
+        score_round(game)
+
+        assert "No one has captured cards in all four suits" in "\n".join(speech_texts(user1))
 
     def test_napola_scoring(self):
         from ..games.scopa.scoring import score_round
@@ -357,6 +399,99 @@ class TestScopaVariants:
         game.options.asso_piglia_tutto = True
         errors = game.prestart_validate()
         assert "scopa-error-conflict-escoba-asso" in errors
+
+    def test_instant_win_conflicts_with_inverse_mode(self):
+        game = ScopaGame()
+        game.options.instant_win_scopas = True
+        game.options.inverse_scopa = True
+
+        errors = game.prestart_validate()
+
+        assert "scopa-error-conflict-instant-inverse" in errors
+
+    def test_instant_win_conflicts_with_no_scopas_mode(self):
+        game = ScopaGame()
+        game.options.instant_win_scopas = True
+        game.options.scopa_mechanic = "no_scopas"
+
+        errors = game.prestart_validate()
+
+        assert "scopa-error-conflict-instant-no-scopas" in errors
+
+    def test_team_card_scoring_false_scores_individual_piles(self):
+        from ..games.scopa.scoring import score_round
+        game = make_scopa_game(4)
+        game.options.team_mode = "2v2"
+        game.options.team_card_scoring = False
+        game.options.primiera_scoring = False
+        game.on_start()
+
+        # Team 1 has more pooled cards, but Player1 has the largest individual pile.
+        game.players[0].captured = [Card(id=i, rank=2, suit=2) for i in range(5)]
+        game.players[1].captured = [Card(id=10 + i, rank=3, suit=2) for i in range(4)]
+        game.players[2].captured = []
+        game.players[3].captured = [Card(id=20 + i, rank=4, suit=2) for i in range(4)]
+
+        score_round(game)
+
+        assert game.team_manager.teams[0].round_score == 1
+        assert game.team_manager.teams[1].round_score == 0
+
+    def test_instant_win_on_scopa_finishes_immediately(self):
+        game = make_scopa_game(2)
+        game.options.instant_win_scopas = True
+        game.options.target_score = 99
+        game.on_start()
+
+        player = game.players[0]
+        other = game.players[1]
+        played_card = Card(id=100, rank=5, suit=1)
+        player.hand = [played_card]
+        other.hand = [Card(id=101, rank=1, suit=2)]
+        game.table_cards = [Card(id=102, rank=2, suit=3), Card(id=103, rank=3, suit=4)]
+        game.deck.cards = [Card(id=104, rank=4, suit=1)]
+        game.current_player = player
+        game._update_card_actions(player)
+
+        game.execute_action(player, f"play_card_{played_card.id}")
+
+        assert game.status == "finished"
+        team = game.team_manager.get_team(player.name)
+        assert team is not None
+        assert team.total_score == 1
+
+    def test_inverse_result_uses_recorded_winner(self):
+        game = make_scopa_game(3)
+        game.options.inverse_scopa = True
+        game.on_start()
+
+        game.team_manager.teams[0].total_score = 20
+        game.team_manager.teams[1].total_score = 12
+        game.team_manager.teams[2].total_score = 3
+        game.winner_team_index = game.team_manager.teams[2].index
+
+        result = game.build_game_result()
+
+        assert result.custom_data["winner_name"] == "Player3"
+        assert result.custom_data["winner_score"] == 3
+        assert result.custom_data["team_rankings"][0]["members"] == ["Player3"]
+
+    def test_touch_standard_info_actions_are_visible_and_ordered(self):
+        game = make_scopa_game(2, touch=True)
+        game.on_start()
+        player = game.players[0]
+        action_set = game.create_standard_action_set(player)
+
+        resolved = action_set.resolve_actions(game, player)
+        visible_ids = [action.action.id for action in resolved if action.enabled and action.visible]
+
+        assert "view_table" in visible_ids
+        assert "view_captured" in visible_ids
+        assert "view_table_card_1" not in visible_ids
+        assert visible_ids.index("view_table") < visible_ids.index("check_scores")
+        assert visible_ids.index("view_captured") < visible_ids.index("check_scores")
+        assert visible_ids.index("check_scores") < visible_ids.index("whose_turn")
+        assert visible_ids.index("whose_turn") < visible_ids.index("whos_at_table")
 
     def test_manual_selection_trigger(self):
         game = ScopaGame()

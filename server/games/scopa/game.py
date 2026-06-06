@@ -35,7 +35,7 @@ from ...ui.keybinds import KeybindState
 
 # Modular components
 from .capture import find_captures, select_best_capture, get_capture_hint
-from .scoring import score_round, check_winner, declare_winner
+from .scoring import score_round, check_winner, declare_winner, announce_round_scores
 from .bot import bot_think
 
 
@@ -167,7 +167,7 @@ class ScopaOptions(GameOptions):
     )
     primiera_scoring: bool = option_field(
         BoolOption(
-            default=False,
+            default=True,
             value_key="enabled",
             label="scopa-toggle-primiera",
             change_msg="scopa-option-changed-primiera",
@@ -207,6 +207,7 @@ class ScopaGame(Game):
     current_round: int = 0
     _current_deal: int = 0  # Current deal number in round
     _total_deals: int = 0  # Total deals in round
+    winner_team_index: int | None = None
 
     def __post_init__(self):
         """Initialize runtime state."""
@@ -284,7 +285,13 @@ class ScopaGame(Game):
     # create_options_action_set as the base class handles it automatically
 
     # WEB-SPECIFIC: Target order for Standard Actions
-    web_target_order = ["view_table", "view_captured", "check_scores", "whose_turn", "whos_at_table"]
+    web_target_order = [
+        "view_table",
+        "view_captured",
+        "check_scores",
+        "whose_turn",
+        "whos_at_table",
+    ]
 
     def create_standard_action_set(self, player: Player) -> ActionSet:
         action_set = super().create_standard_action_set(player)
@@ -297,7 +304,7 @@ class ScopaGame(Game):
                 label=Localization.get(locale, "scopa-view-table"),
                 handler="_action_view_table",
                 is_enabled="_is_view_enabled",
-                is_hidden="_is_view_hidden",
+                is_hidden="_is_public_info_hidden",
                 include_spectators=True,
             )
         )
@@ -307,7 +314,7 @@ class ScopaGame(Game):
                 label=Localization.get(locale, "scopa-view-captured"),
                 handler="_action_view_captured",
                 is_enabled="_is_view_enabled",
-                is_hidden="_is_view_hidden",
+                is_hidden="_is_private_info_hidden",
             )
         )
         for i in range(10):
@@ -318,7 +325,7 @@ class ScopaGame(Game):
                     label=Localization.get(locale, "scopa-view-table-card", index=card_idx),
                     handler="_action_view_table_card",
                     is_enabled="_is_view_enabled",
-                    is_hidden="_is_view_hidden",
+                    is_hidden="_is_keybind_only_hidden",
                     include_spectators=True,
                 )
             )
@@ -381,9 +388,22 @@ class ScopaGame(Game):
             return "action-not-playing"
         return None
 
-    def _is_view_hidden(self, player: Player) -> Visibility:
-        """View actions are always hidden (keybind only)."""
+    def _is_keybind_only_hidden(self, player: Player) -> Visibility:
+        """Hide actions that are intended only for keyboard shortcuts."""
         return Visibility.HIDDEN
+
+    def _is_public_info_hidden(self, player: Player) -> Visibility:
+        """Public info actions are visible in touch-client action menus."""
+        user = self.get_user(player)
+        if self.is_touch_client(user) and self.status == "playing":
+            return Visibility.VISIBLE
+        return Visibility.HIDDEN
+
+    def _is_private_info_hidden(self, player: Player) -> Visibility:
+        """Private info actions are visible to active touch-client players."""
+        if player.is_spectator:
+            return Visibility.HIDDEN
+        return self._is_public_info_hidden(player)
 
     # WEB-SPECIFIC: Visibility Overrides
 
@@ -411,24 +431,6 @@ class ScopaGame(Game):
                 return Visibility.VISIBLE
             return Visibility.HIDDEN
         return super()._is_check_scores_hidden(player)
-
-    def _is_check_table_hidden(self, player: "Player") -> Visibility:
-        """Override: Visible for Web (Playing only), hidden otherwise."""
-        user = self.get_user(player)
-        if self.is_touch_client(user):
-            if self.status == "playing":
-                return Visibility.VISIBLE
-            return Visibility.HIDDEN
-        return Visibility.HIDDEN
-
-    def _is_check_captured_hidden(self, player: "Player") -> Visibility:
-        """Override: Visible for Web (Playing only), hidden otherwise."""
-        user = self.get_user(player)
-        if self.is_touch_client(user):
-            if self.status == "playing":
-                return Visibility.VISIBLE
-            return Visibility.HIDDEN
-        return Visibility.HIDDEN
 
     def _is_pause_timer_enabled(self, player: Player) -> str | None:
         """Pause timer is enabled for host when timer is active."""
@@ -581,6 +583,15 @@ class ScopaGame(Game):
         if self.options.escoba and self.options.asso_piglia_tutto:
             errors.append("scopa-error-conflict-escoba-asso")
 
+        if self.options.instant_win_scopas and self.options.inverse_scopa:
+            errors.append("scopa-error-conflict-instant-inverse")
+
+        if (
+            self.options.instant_win_scopas
+            and self.options.scopa_mechanic == "no_scopas"
+        ):
+            errors.append("scopa-error-conflict-instant-no-scopas")
+
         # Validate team mode for current player count
         team_mode_error = self._validate_team_mode(self.options.team_mode)
         if team_mode_error:
@@ -613,6 +624,7 @@ class ScopaGame(Game):
         self._sync_table_status()
         self.game_active = True
         self.current_round = 0
+        self.winner_team_index = None
 
         # Setup teams
         active_players = self.get_active_players()
@@ -655,6 +667,66 @@ class ScopaGame(Game):
                 if card is not None:
                     msg_kwargs["card"] = card_name(card, user.locale)
                 user.speak_l(message_id, buffer=buffer, **msg_kwargs)
+
+    def _broadcast_personal_cards_l(
+        self,
+        player: ScopaPlayer,
+        personal_message_id: str,
+        others_message_id: str,
+        cards: list[Card] | None = None,
+        card: Card | None = None,
+        buffer: str = "game",
+        **kwargs,
+    ) -> None:
+        """Broadcast first-person and third-person card messages per locale."""
+        for table_player in self.players:
+            user = self.get_user(table_player)
+            if not user:
+                continue
+
+            msg_kwargs = dict(kwargs)
+            if cards is not None:
+                msg_kwargs["cards"] = read_cards(cards, user.locale)
+            if card is not None:
+                msg_kwargs["card"] = card_name(card, user.locale)
+
+            if table_player is player:
+                user.speak_l(personal_message_id, buffer=buffer, **msg_kwargs)
+            else:
+                user.speak_l(
+                    others_message_id,
+                    buffer=buffer,
+                    player=player.name,
+                    **msg_kwargs,
+                )
+
+    def _broadcast_team_personal_l(
+        self,
+        team: Team,
+        personal_message_id: str,
+        team_message_id: str,
+        others_message_id: str,
+        buffer: str = "game",
+        **kwargs,
+    ) -> None:
+        """Broadcast first-person team messages to the scoring side."""
+        for table_player in self.players:
+            user = self.get_user(table_player)
+            if not user:
+                continue
+
+            if table_player.name in team.members:
+                message_id = (
+                    team_message_id if len(team.members) > 1 else personal_message_id
+                )
+                user.speak_l(message_id, buffer=buffer, **kwargs)
+            else:
+                user.speak_l(
+                    others_message_id,
+                    buffer=buffer,
+                    player=self.team_manager.get_team_name(team, user.locale),
+                    **kwargs,
+                )
 
     def broadcast_team_l(
         self,
@@ -798,7 +870,7 @@ class ScopaGame(Game):
 
     def _execute_capture(
         self, player: ScopaPlayer, played_card: Card, captured: list[Card]
-    ) -> None:
+    ) -> bool:
         """Execute a capture."""
         # Remove captured cards from table
         for card in captured:
@@ -811,21 +883,18 @@ class ScopaGame(Game):
 
         # Play capture sound with pitch based on cards captured
         num_captured = len(captured)
-        # Ace sweeps with Asso piglia tutto do not count as a scopa if table_cards > 0 originally
-        # Also need to check if the table actually had non-aces
-        # If the option is on, and the played card is an ace, and the capture length > 1 (or capture length == 1 but it's not an ace, wait, find_captures handles the logic)
-        # We can just say: if asso_piglia_tutto and card is Ace, and there wasn't an Ace on table: no scopa
-        # A simpler check:
         is_scopa = len(self.table_cards) == 0
 
         if self.options.asso_piglia_tutto and played_card.rank == 1:
-            # Check if there was an ace in the captured cards
+            # Variant ace sweeps only count as scopa when an ace was actually captured.
             if not any(c.rank == 1 for c in captured):
                 is_scopa = False
 
-        if is_scopa and len(self.deck.cards) == 0 and all(len(p.hand) == 0 for p in self.get_active_players()):
-             # Last play of the deal never counts as a scopa in standard Italian rules
-             is_scopa = False
+        if is_scopa and len(self.deck.cards) == 0 and all(
+            len(p.hand) == 0 for p in self.get_active_players()
+        ):
+            # Last play of the deal never counts as a scopa in standard Italian rules.
+            is_scopa = False
 
         if is_scopa:
             pitch = 200  # 2x for scopa
@@ -839,44 +908,28 @@ class ScopaGame(Game):
         suffix_key = None
         if is_scopa:
             if self.options.scopa_mechanic != "no_scopas":
-                suffix_key = "scopa-scopa-suffix"
-                # Award point to team
-                self.team_manager.add_to_team_score(player.name, 1)
+                # Award point to team for the current round.
+                self.team_manager.add_to_team_round_score(player.name, 1)
             else:
                 suffix_key = "scopa-clear-table-suffix"
 
-        # Send per-user localized capture messages
-        for p in self.players:
-            usr = self.get_user(p)
-            if not usr:
-                continue
+        if is_scopa and self.options.scopa_mechanic != "no_scopas":
+            personal_message_id = "scopa-you-capture-scopa"
+            others_message_id = "scopa-player-captures-scopa"
+        elif suffix_key == "scopa-clear-table-suffix":
+            personal_message_id = "scopa-you-capture-clear"
+            others_message_id = "scopa-player-captures-clear"
+        else:
+            personal_message_id = "scopa-you-capture"
+            others_message_id = "scopa-player-captures"
 
-            captured_str = read_cards(captured, usr.locale)
-            card_str = card_name(played_card, usr.locale)
-            suffix = Localization.get(usr.locale, suffix_key) if suffix_key else ""
-
-            if p is player:
-                msg = (
-                    Localization.get(
-                        usr.locale,
-                        "scopa-you-collect",
-                        cards=captured_str,
-                        card=card_str,
-                    )
-                    + suffix
-                )
-            else:
-                msg = (
-                    Localization.get(
-                        usr.locale,
-                        "scopa-player-collects",
-                        player=player.name,
-                        cards=captured_str,
-                        card=card_str,
-                    )
-                    + suffix
-                )
-            usr.speak(msg, buffer="game")
+        self._broadcast_personal_cards_l(
+            player,
+            personal_message_id,
+            others_message_id,
+            cards=captured,
+            card=played_card,
+        )
 
         # Check for instant win
         if (
@@ -885,9 +938,18 @@ class ScopaGame(Game):
             and self.options.instant_win_scopas
         ):
             team = self.team_manager.get_team(player.name)
-            if team and team.total_score >= self.options.target_score:
+            if team:
+                self.team_manager.commit_round_scores()
+                self._broadcast_team_personal_l(
+                    team,
+                    "scopa-you-instant-win",
+                    "scopa-your-team-instant-win",
+                    "scopa-instant-win",
+                )
                 declare_winner(self, team)
-                return
+                return True
+
+        return False
 
     def _end_turn(self) -> None:
         """Handle end of a player's turn."""
@@ -913,8 +975,13 @@ class ScopaGame(Game):
         # Give remaining table cards to last capturer
         if self.table_cards and self.last_capture_player_id:
             last_capturer = self.get_player_by_id(self.last_capture_player_id)
-            if last_capturer:
-                self.broadcast_l("scopa-remaining-cards", buffer="game", player=last_capturer.name)
+            if isinstance(last_capturer, ScopaPlayer):
+                self._broadcast_personal_cards_l(
+                    last_capturer,
+                    "scopa-you-get-remaining-cards",
+                    "scopa-player-gets-remaining-cards",
+                    cards=self.table_cards,
+                )
                 last_capturer.captured.extend(self.table_cards)
                 self.table_cards = []
 
@@ -923,6 +990,8 @@ class ScopaGame(Game):
         # Score the round
         if self.options.scopa_mechanic != "only_scopas":
             score_round(self)
+        else:
+            announce_round_scores(self)
 
         # Commit round scores to total
         self.team_manager.commit_round_scores()
@@ -943,7 +1012,19 @@ class ScopaGame(Game):
 
     def build_game_result(self) -> GameResult:
         """Build the game result with Scopa-specific data."""
-        sorted_teams = self.team_manager.get_sorted_teams(by_score=True, descending=True)
+        if self.options.inverse_scopa:
+            sorted_teams = sorted(
+                self.team_manager.teams,
+                key=lambda team: (
+                    team.index != self.winner_team_index,
+                    team.total_score,
+                ),
+            )
+        else:
+            sorted_teams = self.team_manager.get_sorted_teams(
+                by_score=True,
+                descending=True,
+            )
 
         # Build final scores and team data
         final_scores = {}
@@ -951,14 +1032,25 @@ class ScopaGame(Game):
         for team in sorted_teams:
             name = self.team_manager.get_team_name(team)
             final_scores[name] = team.total_score
-            team_rankings.append({
-                "index": team.index,
-                "members": team.members,
-                "score": team.total_score,
-                "name": name # fallback
-            })
+            team_rankings.append(
+                {
+                    "index": team.index,
+                    "members": team.members,
+                    "score": team.total_score,
+                    "name": name,  # fallback
+                }
+            )
 
-        winner = sorted_teams[0] if sorted_teams else None
+        winner = next(
+            (
+                team
+                for team in self.team_manager.teams
+                if team.index == self.winner_team_index
+            ),
+            None,
+        )
+        if winner is None:
+            winner = sorted_teams[0] if sorted_teams else None
 
         winner_ids = []
         if winner:
@@ -987,7 +1079,7 @@ class ScopaGame(Game):
                 "winner_score": winner.total_score if winner else 0,
                 "final_scores": final_scores,
                 "team_rankings": team_rankings,
-                "rounds_played": self.round,
+                "rounds_played": self.current_round,
                 "target_score": self.options.target_score,
                 "team_mode": self.options.team_mode,
             },
@@ -1089,7 +1181,12 @@ class ScopaGame(Game):
         play_sound = random.choice(["play1.ogg", "play2.ogg", "play3.ogg", "play4.ogg"])
         self.play_sound(f"game_cards/{play_sound}")
 
-        captures = find_captures(self.table_cards, card.rank, self.options.escoba, self.options.asso_piglia_tutto)
+        captures = find_captures(
+            self.table_cards,
+            card.rank,
+            self.options.escoba,
+            self.options.asso_piglia_tutto,
+        )
 
         if captures:
             if input_value is not None:
@@ -1118,17 +1215,17 @@ class ScopaGame(Game):
             else:
                 best_capture = select_best_capture(captures)
 
-            self._execute_capture(player, card, best_capture)
+            if self._execute_capture(player, card, best_capture):
+                return
         else:
             # No capture, card goes to table
             self.table_cards.append(card)
 
-            user = self.get_user(player)
-            if user:
-                user.speak_l("scopa-you-put-down", buffer="game", card=card_name(card, user.locale))
-
-            self._broadcast_cards_l(
-                "scopa-player-puts-down", card=card, player=player.name, exclude=player
+            self._broadcast_personal_cards_l(
+                player,
+                "scopa-you-put-down",
+                "scopa-player-puts-down",
+                card=card,
             )
 
         BotHelper.jolt_bots(self, ticks=random.randint(8, 15))

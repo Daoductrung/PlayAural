@@ -26,7 +26,7 @@ Scopa is played with a standard deck with the picture cards removed (40 cards to
 
 3\. \*\*Priority:\*\* A rank match always takes priority over a sum combination.
 
-4\. \*\*Scopa:\*\* If you clear the entire table with a single capture, you score a \*\*"Scopa"\*\* (1 bonus point).
+4\. \*\*Scopa:\*\* If you clear the entire table with a single capture, you score a \*\*"Scopa"\*\* (1 bonus point). A sweep made by the final card of the round does not score as a Scopa.
 
 
 
@@ -46,9 +46,9 @@ At the end of each round, 1 point is awarded for each of the following (no point
 
 \* \*\*7 of Diamonds:\*\* Captured the specific 7 of Diamonds card.
 
-\* \*\*Most Sevens:\*\* Captured the most 7s.
+\* \*\*Primiera:\*\* Highest primiera total using your best captured card in each suit. A side must have at least one card in all four suits to be eligible. The primiera values are 7=21, 6=18, Ace=16, 5=15, 4=14, 3=13, 2=12, and higher cards=10.
 
-\* \*\*Scopas:\*\* 1 point for every time you cleared the table during play.
+\* \*\*Scopas:\*\* 1 point for every valid table sweep during play.
 
 
 
@@ -62,13 +62,13 @@ At the end of each round, 1 point is awarded for each of the following (no point
 
 \* \*\*Team Mode:\*\* Play individually or in teams.
 
-\* \*\*Team Card Scoring:\*\* Whether team members' captured cards are pooled for scoring (default on).
+\* \*\*Team Card Scoring:\*\* Whether team members' captured cards are pooled for scoring (default on). If disabled in a team game, each player's captured pile is evaluated separately, and any points that player wins are added to that player's team.
 
 \* \*\*Show Capture Hints:\*\* Display which table cards can be captured with each hand card (default off).
 
 \* \*\*Scopa Mechanic:\*\* Normal, No Scopas (table sweeps do not score), or Only Scopas (only sweep points count).
 
-\* \*\*Instant Win Scopas:\*\* Whether clearing the table instantly wins the round (default off).
+\* \*\*Instant Win Scopas:\*\* Whether a valid Scopa immediately wins the game (default off). This cannot be combined with No Scopas or Inverse Scopa.
 
 
 
@@ -78,13 +78,13 @@ At the end of each round, 1 point is awarded for each of the following (no point
 
 \* \*\*Asso piglia tutto (Ace takes all):\*\* Playing an Ace sweeps all cards currently on the table (this sweep usually does not count as a Scopa point). If there is already an Ace on the table, it only captures that Ace. This mode cannot be enabled alongside Escoba.
 
-\* \*\*Primiera Scoring:\*\* Replaces the "Most Sevens" scoring rule with traditional Primiera scoring (7=21 pts, 6=18 pts, Ace=16 pts, 5=15 pts, 4=14 pts, 3=13 pts, 2=12 pts, face cards=10 pts). Calculate your best card in each of the 4 suits.
+\* \*\*Traditional Primiera Scoring:\*\* Enabled by default for standard Scopa. If disabled, the game uses the simpler "Most Sevens" scoring variant instead.
 
 \* \*\*Napola:\*\* Earn bonus points for capturing an uninterrupted sequence of Diamond cards starting from the Ace (Ace, 2, 3 of Diamonds = 3 points; up to 10 points for all Diamonds).
 
 \* \*\*Escoba Mode:\*\* Captures are made when the played card and table cards sum to exactly 15.
 
-\* \*\*Inverse Scopa:\*\* Reaching the target score eliminates you; the last player standing wins.
+\* \*\*Inverse Scopa:\*\* Reaching the target score eliminates you; the last player standing wins. This cannot be combined with Instant Win Scopas.
 
 
 

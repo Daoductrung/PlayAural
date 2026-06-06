@@ -48,6 +48,7 @@ def pref_field(meta: PrefMeta) -> Any:
 
 # Declarative game-preference categories, in Game Options menu order.
 PREF_CATEGORIES: list[tuple[str, str]] = [
+    ("display", "pref-category-display"),
     ("sounds", "pref-category-sounds"),
     ("gameplay", "pref-category-gameplay"),
     ("dice", "pref-category-dice"),
@@ -57,6 +58,18 @@ PREF_CATEGORIES: list[tuple[str, str]] = [
 @dataclass
 class UserPreferences:
     """User preferences that persist across sessions."""
+
+    # Display preferences (declarative -> Game Options)
+    brief_announcements: bool = pref_field(
+        PrefMeta(
+            category="display",
+            label="pref-set-brief-announcements",
+            change_msg="pref-changed-brief-announcements",
+            description="pref-desc-brief-announcements",
+            kind="bool",
+            default=False,
+        )
+    )
 
     # Sound preferences (declarative -> Game Options)
     play_turn_sound: bool = pref_field(
@@ -162,6 +175,7 @@ class UserPreferences:
     def to_dict(self) -> dict:
         """Convert to dictionary for storage."""
         return {
+            "brief_announcements": self.brief_announcements,
             "play_turn_sound": self.play_turn_sound,
             "music_volume": self.music_volume,
             "ambience_volume": self.ambience_volume,
@@ -194,6 +208,7 @@ class UserPreferences:
     def from_dict(cls, data: dict) -> "UserPreferences":
         """Create from dictionary."""
         return cls(
+            brief_announcements=data.get("brief_announcements", False),
             play_turn_sound=data.get("play_turn_sound", True),
             music_volume=data.get("music_volume", 10),
             ambience_volume=data.get("ambience_volume", 20),

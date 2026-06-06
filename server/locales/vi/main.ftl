@@ -176,6 +176,10 @@ general-options = Tùy chỉnh chung
 game-options = Tùy chỉnh trò chơi
 
 # Tùy chỉnh trò chơi (khai báo, có ghi đè theo từng trò chơi)
+pref-category-display = Hiển thị
+pref-set-brief-announcements = Thông báo ngắn gọn: { $status }
+pref-changed-brief-announcements = Thông báo ngắn gọn { $status }.
+pref-desc-brief-announcements = Rút ngắn thông báo nước đi và sự kiện trong trò chơi; tắt để nghe lời tường thuật đầy đủ hơn.
 pref-category-sounds = Âm thanh
 pref-category-gameplay = Lối chơi
 pref-category-dice = Xúc xắc

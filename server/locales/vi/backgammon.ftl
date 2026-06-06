@@ -136,5 +136,3 @@ backgammon-option-changed-match-length = Độ dài trận đã được đặt 
 backgammon-option-bot-difficulty = Độ khó bot: { $bot_difficulty }
 backgammon-option-select-bot-difficulty = Chọn độ khó bot
 backgammon-option-changed-bot-difficulty = Độ khó bot đã được đặt thành { $bot_difficulty }.
-backgammon-option-verbose-announcements = Thông báo chi tiết: { $enabled }
-backgammon-option-changed-verbose-announcements = Thông báo chi tiết { $enabled }.

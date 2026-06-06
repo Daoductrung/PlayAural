@@ -176,6 +176,10 @@ general-options = General options
 game-options = Game options
 
 # Game Options (declarative preferences with per-game overrides)
+pref-category-display = Display
+pref-set-brief-announcements = Brief announcements: { $status }
+pref-changed-brief-announcements = Brief announcements { $status }.
+pref-desc-brief-announcements = Shorten in-game move and event announcements; turn off for fuller spoken commentary.
 pref-category-sounds = Sounds
 pref-category-gameplay = Gameplay
 pref-category-dice = Dice

@@ -6,6 +6,7 @@ from ..users.preferences import UserPreferences, DiceKeepingStyle, PREF_CATEGORI
 # The exact key set web/mobile clients read from preferences.to_dict(). Migrating
 # game prefs to the declarative engine must NOT change this set.
 EXPECTED_TO_DICT_KEYS = {
+    "brief_announcements",
     "play_turn_sound", "music_volume", "ambience_volume", "voice_volume",
     "desktop_audio_input_device_id", "desktop_audio_input_device_name",
     "speech_mode", "speech_rate", "speech_voice",
@@ -25,7 +26,7 @@ def test_to_dict_key_set_is_stable() -> None:
 
 def test_declarative_categories_and_fields() -> None:
     cats = {c for c, _ in PREF_CATEGORIES}
-    assert cats == {"sounds", "gameplay", "dice"}
+    assert cats == {"display", "sounds", "gameplay", "dice"}
     assert [n for n, _ in UserPreferences.get_fields_for_category("dice")] == [
         "clear_kept_on_roll",
         "dice_keeping_style",

@@ -139,5 +139,3 @@ backgammon-option-changed-match-length = Match length set to { $match_length }.
 backgammon-option-bot-difficulty = Bot difficulty: { $bot_difficulty }
 backgammon-option-select-bot-difficulty = Select bot difficulty
 backgammon-option-changed-bot-difficulty = Bot difficulty set to { $bot_difficulty }.
-backgammon-option-verbose-announcements = Verbose announcements: { $enabled }
-backgammon-option-changed-verbose-announcements = Verbose announcements { $enabled }.

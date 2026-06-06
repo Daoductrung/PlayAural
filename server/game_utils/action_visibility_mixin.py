@@ -61,6 +61,8 @@ class ActionVisibilityMixin:
         """Check if start_game action is hidden."""
         if self.status != "waiting" or self.team_arrangement_active:
             return Visibility.HIDDEN
+        if self.get_active_player_count() < self.get_min_players():
+            return Visibility.HIDDEN
         return Visibility.VISIBLE
 
     def _is_confirm_team_arrangement_enabled(self, player: "Player") -> str | None:

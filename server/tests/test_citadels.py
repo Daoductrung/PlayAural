@@ -142,6 +142,20 @@ def test_prestart_validation_enforces_four_to_eight_players() -> None:
     assert make_game(player_count=4).prestart_validate() == []
 
 
+def test_start_game_hidden_and_disabled_when_too_few_players() -> None:
+    from ..game_utils.actions import Visibility
+
+    too_few = make_game(player_count=2)
+    host = too_few.players[0]
+    assert too_few._is_start_game_hidden(host) == Visibility.HIDDEN
+    assert too_few._is_start_game_enabled(host) == "action-need-more-players"
+
+    enough = make_game(player_count=4)
+    host = enough.players[0]
+    assert enough._is_start_game_hidden(host) == Visibility.VISIBLE
+    assert enough._is_start_game_enabled(host) is None
+
+
 def test_selection_setup_uses_correct_discard_counts_and_queen_only_at_eight() -> None:
     game4 = make_game(player_count=4, start=True)
     assert len(game4.faceup_discarded_ranks) == 2

@@ -4,9 +4,9 @@ Humanity Cards Game Implementation for PlayAural.
 A party game where a judge reads a black card prompt and other players
 submit white cards to fill in blanks. The judge picks the funniest submission.
 
-Ported from PlayPalace v11. PlayAural lacks a MultiSelectOption type, so the
-fine-grained per-pack selection of the original is replaced with a MenuOption
-that selects a preset pack *group* (Base Set, All Packs, etc.). See _PORT_NOTES.
+Ported from PlayPalace v11. Card pack selection uses a MultiSelectOption: the
+preset pack groups (Base Set, All Packs, Family Edition, etc.) become the
+navigable group layer, and each group exposes per-pack on/off toggles.
 """
 
 from dataclasses import dataclass, field
@@ -23,6 +23,8 @@ from ...game_utils.game_result import GameResult, PlayerResult
 from ...game_utils.options import (
     IntOption,
     MenuOption,
+    MultiSelectOption,
+    multi_select_field,
     option_field,
 )
 from ...messages.localization import Localization
@@ -104,9 +106,10 @@ def get_pack_groups() -> dict[str, list[str]]:
     return groups
 
 
-def get_pack_group_names() -> list[str]:
-    """Get the list of selectable pack-group names for the options menu."""
-    return list(get_pack_groups().keys())
+def _get_default_packs() -> list[str]:
+    """Get the default selected packs (the Base Set group)."""
+    groups = get_pack_groups()
+    return list(groups.get("Base Set", get_pack_names()[:1]))
 
 
 # ==========================================================================
@@ -164,14 +167,16 @@ class HumanityCardsOptions(GameOptions):
             change_msg="hc-option-changed-hand-size",
         )
     )
-    card_packs: str = option_field(
-        MenuOption(
-            default="Base Set",
-            choices=get_pack_group_names(),
-            value_key="mode",
+    card_packs: list[str] = multi_select_field(
+        MultiSelectOption(
+            default=_get_default_packs(),
+            choices=get_pack_names,
             label="hc-set-card-packs",
-            prompt="hc-select-card-packs",
             change_msg="hc-option-changed-card-packs",
+            description="hc-desc-card-packs",
+            min_selected=1,
+            show_bulk_actions=True,
+            groups=get_pack_groups,
         )
     )
     czar_selection: str = option_field(
@@ -262,16 +267,8 @@ class HumanityCardsGame(Game):
     # ==========================================================================
 
     def _get_active_packs(self) -> list[str]:
-        """Resolve the selected pack group to its list of pack names."""
-        groups = get_pack_groups()
-        group_name = self.options.card_packs
-        if group_name in groups:
-            return list(groups[group_name])
-        # Fallback to Base Set, then first pack
-        if "Base Set" in groups:
-            return list(groups["Base Set"])
-        all_names = get_pack_names()
-        return all_names[:1] if all_names else []
+        """Get the list of selected pack names."""
+        return list(self.options.card_packs)
 
     def _build_decks(self) -> None:
         """Build white and black decks from selected packs."""

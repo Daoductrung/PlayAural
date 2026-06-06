@@ -72,9 +72,8 @@ rb-set-reshuffle-penalty = Điểm phạt khi xóc lại ống: { $points }
 rb-enter-reshuffle-penalty = Nhập điểm phạt khi xóc lại ống (từ 0 đến 5):
 rb-option-changed-reshuffle-penalty = Điểm phạt xóc lại ống đã được đặt là { $points }.
 
-rb-set-ball-pack = Bộ bóng: { $pack }
-rb-select-ball-pack = Chọn chủ đề bộ bóng muốn chơi:
-rb-option-changed-ball-pack = Bộ bóng đã được đặt là { $pack }.
+rb-set-ball-packs = Bộ bóng (đã chọn { $count } trên { $total })
+rb-option-changed-ball-packs = Đã thay đổi lựa chọn bộ bóng.
 
 # Lý do hành động bị vô hiệu hóa
 rb-not-enough-balls = Không còn đủ bóng trong ống.

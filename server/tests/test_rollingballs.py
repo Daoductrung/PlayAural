@@ -94,9 +94,9 @@ class TestRollingBallsUnit:
         assert "rb-pack-vietnam" in names
 
     def test_default_ball_pack_option(self):
-        """Test default ball pack option is the first available pack."""
+        """Test default ball pack selection is the first available pack."""
         game = RollingBallsGame()
-        assert game.options.ball_pack == get_pack_names()[0]
+        assert game.options.ball_packs == [get_pack_names()[0]]
 
     def test_fill_pipe_2_players(self):
         """Test pipe filling with 2 players."""
@@ -131,7 +131,7 @@ class TestRollingBallsUnit:
         """Test that pipe balls come from the selected pack."""
         random.seed(42)
         game = RollingBallsGame(
-            options=RollingBallsOptions(ball_pack="rb-pack-international")
+            options=RollingBallsOptions(ball_packs=["rb-pack-international"])
         )
         user1 = MockUser("Alice")
         user2 = MockUser("Bob")
@@ -141,8 +141,8 @@ class TestRollingBallsUnit:
 
         packs = load_ball_packs()
         combined_pack: dict[str, int] = {}
-        pack_name = game.options.ball_pack
-        combined_pack.update(packs[pack_name])
+        for pack_name in game.options.ball_packs:
+            combined_pack.update(packs[pack_name])
         for ball in game.pipe:
             assert isinstance(ball["description_key"], str)
             assert len(ball["description_key"]) > 0
@@ -153,7 +153,7 @@ class TestRollingBallsUnit:
         """Test that pipe balls come from a different pack when selected."""
         random.seed(42)
         game = RollingBallsGame(
-            options=RollingBallsOptions(ball_pack="rb-pack-vietnam")
+            options=RollingBallsOptions(ball_packs=["rb-pack-vietnam"])
         )
         user1 = MockUser("Alice")
         user2 = MockUser("Bob")

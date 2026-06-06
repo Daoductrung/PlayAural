@@ -72,9 +72,8 @@ rb-set-reshuffle-penalty = Reshuffle penalty: { $points }
 rb-enter-reshuffle-penalty = Enter reshuffle penalty (0-5):
 rb-option-changed-reshuffle-penalty = Reshuffle penalty set to { $points }.
 
-rb-set-ball-pack = Ball pack: { $pack }
-rb-select-ball-pack = Select the ball pack to use:
-rb-option-changed-ball-pack = Ball pack set to { $pack }.
+rb-set-ball-packs = Ball packs ({ $count } of { $total } selected)
+rb-option-changed-ball-packs = Ball pack selection changed.
 
 # Disabled reasons
 rb-not-enough-balls = Not enough balls in the pipe.

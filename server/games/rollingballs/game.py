@@ -16,7 +16,12 @@ from ..registry import register_game
 from ...game_utils.actions import Action, ActionSet, Visibility
 from ...game_utils.bot_helper import BotHelper
 from ...game_utils.game_result import GameResult, PlayerResult
-from ...game_utils.options import IntOption, MenuOption, option_field
+from ...game_utils.options import (
+    IntOption,
+    MultiSelectOption,
+    multi_select_field,
+    option_field,
+)
 from ...game_utils.teams import TeamManager
 from ...messages.localization import Localization
 from ...ui.keybinds import KeybindState
@@ -35,17 +40,13 @@ def load_ball_packs() -> dict[str, dict[str, int]]:
             _ball_packs = json.load(f)
     return _ball_packs
 
-def get_pack_names(game=None, player=None) -> list[str]:
+def get_pack_names() -> list[str]:
     """Get available pack IDs."""
-    packs = list(load_ball_packs().keys())
-    return packs + ["rb-pack-all"]
+    return list(load_ball_packs().keys())
 
 def get_pack_labels() -> dict[str, str]:
-    """Get localization keys for ball packs."""
-    packs = list(load_ball_packs().keys())
-    labels = {pack: pack for pack in packs}
-    labels["rb-pack-all"] = "rb-pack-all"
-    return labels
+    """Get localization keys for ball packs (each pack id is its own loc key)."""
+    return {pack: pack for pack in load_ball_packs().keys()}
 
 @dataclass
 class RollingBallsPlayer(Player):
@@ -117,15 +118,15 @@ class RollingBallsOptions(GameOptions):
             change_msg="rb-option-changed-reshuffle-penalty",
         )
     )
-    ball_pack: str = option_field(
-        MenuOption(
-            default="rb-pack-international",
-            value_key="pack",
-            choices=lambda g, p: get_pack_names(),
+    ball_packs: list[str] = multi_select_field(
+        MultiSelectOption(
+            default=[get_pack_names()[0]],
+            choices=get_pack_names,
             choice_labels=get_pack_labels(),
-            label="rb-set-ball-pack",
-            prompt="rb-select-ball-pack",
-            change_msg="rb-option-changed-ball-pack",
+            label="rb-set-ball-packs",
+            change_msg="rb-option-changed-ball-packs",
+            min_selected=1,
+            show_bulk_actions=True,
         )
     )
 
@@ -227,9 +228,7 @@ class RollingBallsGame(Game):
 
     def _get_active_packs(self) -> list[str]:
         """Get list of active pack IDs."""
-        if self.options.ball_pack == "rb-pack-all":
-            return list(load_ball_packs().keys())
-        return [self.options.ball_pack]
+        return list(self.options.ball_packs)
 
     def fill_pipe(self) -> int:
         """Fill the pipe with balls based on player count."""

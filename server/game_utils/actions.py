@@ -212,7 +212,14 @@ class ActionSet(DataClassJSONMixin):
     def get_visible_actions(
         self, game: "Game", player: "Player"
     ) -> list[ResolvedAction]:
-        """Get enabled, visible actions for the turn menu.
+        """Get visible actions for the turn menu.
+
+        Visibility and enabled are independent states: a disabled-but-visible
+        action stays in the menu (callers may flag it as unavailable). This
+        keeps persistent controls — notably the backgammon board grid, whose
+        points disable on the opponent's turn — present across turn changes, so
+        a player's grid focus keeps its anchor instead of collapsing to the
+        first cell when the menu repopulates.
 
         Spectators never receive turn-menu buttons — they access permitted
         actions via the actions menu (Escape) and keybinds instead.
@@ -220,7 +227,7 @@ class ActionSet(DataClassJSONMixin):
         return [
             ra
             for ra in self.resolve_actions(game, player)
-            if ra.enabled and ra.visible
+            if ra.visible
             and not (player.is_spectator and not ra.action.include_spectators)
         ]
 

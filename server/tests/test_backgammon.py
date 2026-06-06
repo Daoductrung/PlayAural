@@ -710,3 +710,54 @@ class TestSquareSounds:
         resolved = action_set.resolve_action(game, red, action)
         assert resolved.sound == game._get_point_sound(red, f"point_{occupied}")
         assert resolved.sound is not None
+
+
+# ==========================================================================
+# Board persistence across turns (focus-anchor regression)
+# ==========================================================================
+
+
+class TestBoardPersistsOffTurn:
+    """The 24-point grid must stay in every player's turn menu even when it is
+    not their turn (the points disable, but must not vanish). If the board
+    collapses to zero items off-turn, the desktop client loses its focus anchor
+    and snaps the cursor to the first cell when the menu repopulates at turn
+    start — the "focus teleports to square 13" bug. Guards the real cause, which
+    lives in get_visible_actions, not in the rebuild-vs-update turn-pass call.
+    """
+
+    def _point_ids(self, game, player):
+        return {
+            ra.action.id
+            for ra in game.get_all_visible_actions(player)
+            if ra.action.id.startswith("point_")
+        }
+
+    def test_off_turn_board_keeps_all_24_points(self):
+        game = make_game(start=True)
+        gs = game.game_state
+        gs.opening_roll = False
+        red = next(p for p in game.players if p.color == "red")
+        white = next(p for p in game.players if p.color == "white")
+
+        gs.current_color = "red"
+        gs.turn_phase = "moving"
+        # The off-turn player (white) must still see the whole board.
+        assert len(self._point_ids(game, white)) == 24
+        # And the on-turn player, of course.
+        assert len(self._point_ids(game, red)) == 24
+
+    def test_off_turn_points_are_disabled_but_visible(self):
+        game = make_game(start=True)
+        gs = game.game_state
+        gs.opening_roll = False
+        white = next(p for p in game.players if p.color == "white")
+
+        gs.current_color = "red"
+        gs.turn_phase = "moving"
+        action_set = game.create_turn_action_set(white)
+        resolved = action_set.resolve_action(
+            game, white, action_set.get_action("point_0")
+        )
+        assert resolved.visible is True
+        assert resolved.enabled is False  # not white's turn

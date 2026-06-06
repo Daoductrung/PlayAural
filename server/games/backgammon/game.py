@@ -1129,8 +1129,10 @@ class BackgammonGame(Game):
             if opp_player.is_bot:
                 BotHelper.jolt_bot(opp_player, ticks=random.randint(5, 10))  # nosec B311
 
-        # Use a focus-preserving update (not a full re-show) so the receiving
-        # player's grid focus doesn't jump to the first cell at turn start.
+        # A focus-preserving update (not a full re-show) of the already-shown
+        # board. The grid persists for both players across the turn change (see
+        # get_visible_actions: off-turn points disable but stay visible), so the
+        # receiving player's cursor keeps its anchor instead of resetting.
         self.update_all_menus()
 
     # ==========================================================================

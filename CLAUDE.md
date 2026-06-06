@@ -225,17 +225,25 @@ Consequences:
   the server drives through `rebuild_player_menu`) must use the `rebuild_*` path.
 - Every in-play refresh of an already-shown menu should use the `update_*` path,
   or the player's focus snaps back to the first item.
-- This bites hardest at turn transitions and whenever turn-specific actions
-  appear/disappear: persistent actions shift position and, on a `show_menu`, the
-  cursor jumps to the top. For a persistent grid such as the backgammon board
-  (visible throughout play), each player holds a live focus during the
-  opponent's turn, so a turn-pass `rebuild_all_menus()` yanks the *receiving*
-  player to the first cell at the start of their turn.
-- Fix: refresh turn transitions and in-play state changes with the focus-
-  preserving `update_all_menus()`. Where the action list legitimately changes
-  shape and a fixed landing spot is preferable, the alternative is to jump focus
-  deliberately to the top at the start of the user's turn — choose one, don't
-  leave focus to chance.
+- The client follows focus by item *identity*: across a same-menu refresh it
+  keeps the cursor on the item with the same id, even if it shifted position.
+  The anchor only breaks when that id leaves the menu — then focus falls back to
+  the clamped slot, or to the first item if the menu had emptied. So a
+  persistent control must stay *present* across refreshes to keep its anchor.
+- This bit the backgammon board hard. The 24 grid points are a persistent grid,
+  but `get_visible_actions` once dropped *disabled* actions — and a point
+  disables on the opponent's turn (`_is_point_enabled` → "not your turn"). So
+  the off-turn player's board collapsed to zero items mid-opponent-turn,
+  destroying the focus anchor; when it repopulated at their turn start the
+  cursor had nowhere to land and snapped to the first cell ("focus teleports to
+  square 13"). The fix was in `get_visible_actions`, which now keeps
+  disabled-but-visible actions — *not* in the rebuild-vs-update turn-pass call,
+  which was a red herring that misled an earlier attempt.
+- Still prefer the focus-preserving `update_*` path for in-play refreshes and
+  `rebuild_*` only for a genuine first display. Where the action list legitimately
+  changes shape and a fixed landing spot is preferable, the alternative is to
+  jump focus deliberately to the top at the start of the user's turn — choose
+  one, don't leave focus to chance.
 
 #### Score Management and Units
 Shared score display is handled by `GameScoresMixin` and `TeamManager`.

@@ -725,8 +725,10 @@ def test_architect_bonus_draws_two_and_allows_three_builds() -> None:
         assert advance_until(game, lambda: not game.has_active_sequence(), max_ticks=120)
 
     assert len(architect.city) == 3
-    assert game.turn_builds_made == 3
-    assert game._may_build_more() is False
+    # It built to the three-district limit with two cards still in hand, proving
+    # the architect's raised limit (not an empty hand) is what capped it. The
+    # turn then auto-ends, since nothing buildable remains.
+    assert len(architect.hand) == 2
 
 
 def test_bishop_blocks_warlord_targets_until_the_bishop_is_killed() -> None:
@@ -918,6 +920,50 @@ def test_brief_announcements_strip_ranks_from_selection_menu_labels() -> None:
     # The character name itself survives -- only the rank prefix is gone.
     character_names = {game._character_name(r, "en") for r in BASE_CHARACTER_RANKS + [CHARACTER_QUEEN]}
     assert all(label in character_names for label in labels)
+
+
+def test_turn_auto_ends_for_human_when_no_actions_remain() -> None:
+    game = make_game(start=True)
+    advance_until(game, lambda: not game.has_active_sequence(), max_ticks=100)
+    player = game.players[0]  # a human MockUser, not a bot
+    nxt = game.players[1]
+    reset_turn_state(game)
+    game.current_rank = CHARACTER_ASSASSIN
+    player.selected_character_rank = CHARACTER_ASSASSIN
+    nxt.selected_character_rank = CHARACTER_BISHOP  # claims a later rank to receive the turn
+    game.set_turn_players([player])
+    player.revealed_character_rank = CHARACTER_ASSASSIN  # no income, no post-resource ability
+    player.hand = []
+    player.gold = 2
+    game.turn_resource_taken = True
+    game.rebuild_all_menus()
+
+    assert game.current_player is player
+    assert game._is_end_turn_enabled(player) is None
+    assert game._has_optional_turn_action(player) is False
+    # Nothing but end-turn is left, so the next tick finishes the turn for them
+    # and resolution advances to the next claimed rank.
+    game.on_tick()
+    assert game.current_player is nxt
+
+
+def test_turn_does_not_auto_end_while_an_action_is_available() -> None:
+    game = make_game(start=True)
+    advance_until(game, lambda: not game.has_active_sequence(), max_ticks=100)
+    player = game.players[0]
+    reset_turn_state(game)
+    game.current_rank = CHARACTER_ASSASSIN
+    game.set_turn_players([player])
+    player.revealed_character_rank = CHARACTER_ASSASSIN
+    player.gold = 5
+    player.hand = [make_card(700, "Tavern", 1, DISTRICT_TRADE)]  # affordable -> buildable
+    game.turn_resource_taken = True
+    game.rebuild_all_menus()
+
+    assert game._has_optional_turn_action(player) is True
+    game.on_tick()
+    # Declining an available build is the player's call; the turn stays put.
+    assert game.current_player is player
 
 
 def test_unclaimed_characters_announced_as_one_sentence() -> None:

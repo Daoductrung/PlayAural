@@ -854,6 +854,7 @@ class CitadelsGame(Game):
         self.process_sequences()
         if self.is_sequence_bot_paused():
             return
+        self._maybe_auto_end_human_turn()
         if self.status == "playing" and self.current_player and self.current_player.is_bot:
             BotHelper.on_tick(self)
 
@@ -1710,6 +1711,49 @@ class CitadelsGame(Game):
 
     def _action_end_turn(self, player: Player, action_id: str) -> None:
         _ = player, action_id
+        self._finish_turn()
+
+    def _has_optional_turn_action(self, player: CitadelsPlayer) -> bool:
+        """Whether the player has any gameplay choice left besides ending the turn.
+
+        Mirrors the optional actions the bot weighs after taking its resource:
+        income, the magician's swap/redraw, laboratory, smithy, the warlord's
+        demolition, and building any affordable district (build-limit aware).
+        """
+        if self._is_collect_income_enabled(player) is None:
+            return True
+        if self._is_magician_swap_mode_enabled(player) is None:
+            return True
+        if self._is_magician_redraw_enabled(player) is None:
+            return True
+        if self._is_use_laboratory_enabled(player) is None:
+            return True
+        if self._is_use_smithy_enabled(player) is None:
+            return True
+        if self._is_warlord_destroy_mode_enabled(player) is None:
+            return True
+        return any(self._can_attempt_build(player, card) for card in player.hand)
+
+    def _maybe_auto_end_human_turn(self) -> None:
+        """End a human's turn automatically once nothing but end-turn remains.
+
+        Declining an available build or ability is a real choice, so the manual
+        button stays whenever any optional action exists. But when the required
+        resource is taken and no option is left, the button would be pure
+        friction for a screen-reader user — so we finish the turn for them. Bots
+        keep their own paced end-turn logic; sequences must have fully cleared.
+        """
+        player = self.current_player
+        if not isinstance(player, CitadelsPlayer) or player.is_bot:
+            return
+        if self.is_sequence_gameplay_locked():
+            return
+        # end_turn being enabled already means PHASE_TURN, SUBPHASE_NORMAL, and
+        # the resource is taken; we only add "and nothing optional is left".
+        if self._is_end_turn_enabled(player) is not None:
+            return
+        if self._has_optional_turn_action(player):
+            return
         self._finish_turn()
 
     def _gameplay_locked_reason(self) -> str | None:

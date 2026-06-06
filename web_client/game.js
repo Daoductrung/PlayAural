@@ -2450,11 +2450,15 @@ class GameClient {
         // --- Diffing Logic (Same Menu ID) ---
         const buttons = Array.from(this.menuArea.children).filter(el => el.classList.contains('menu-item'));
 
-        // Record focused index before DOM mutations so we can clamp if the list shrinks
+        // Record the focused item's identity (and index) before DOM mutations.
+        // The diff rewrites buttons in place by index, so to follow the focused
+        // item we must remember its id and re-find it afterwards.
         let oldFocusIndex = -1;
+        let oldFocusId = null;
         const focusedEl = document.activeElement;
-        if (focusedEl && this.menuArea.contains(focusedEl)) {
+        if (focusedEl && this.menuArea.contains(focusedEl) && focusedEl.classList.contains('menu-item')) {
             oldFocusIndex = buttons.indexOf(focusedEl);
+            oldFocusId = focusedEl.dataset.id || null;
         }
 
         // 1. Update existing or append new
@@ -2507,21 +2511,36 @@ class GameClient {
         }
 
         // Cursor management after diff (matches Python client):
-        // - Server sent explicit position → focus that button.
-        // - Focused button removed (list shrank) → clamp to min(oldIndex, lastIndex).
-        // - Otherwise → leave focus unchanged (stationary index).
+        // - Server sent explicit position/selection_id → focus that button.
+        // - Otherwise follow the focused item by IDENTITY: the in-place diff
+        //   reuses DOM nodes by index, so find whichever button now carries the
+        //   previously focused id and move to it. Fall back to the clamped
+        //   numerical slot only when that id is gone (or the items have no ids).
         if (targetPosition != null) {
             const updatedBtns = this.menuArea.querySelectorAll('.menu-item');
             if (updatedBtns.length > 0 && targetPosition >= 0 && targetPosition < updatedBtns.length) {
                 updatedBtns[targetPosition].focus();
             }
-        } else if (newItems.length > 0 && !this.menuArea.contains(document.activeElement)) {
+        } else if (newItems.length > 0) {
             const updatedBtns = this.menuArea.querySelectorAll('.menu-item');
             if (updatedBtns.length > 0) {
-                const clampedIdx = oldFocusIndex >= 0
-                    ? Math.min(oldFocusIndex, updatedBtns.length - 1)
-                    : 0;
-                updatedBtns[clampedIdx].focus();
+                let targetIdx = -1;
+                if (oldFocusId != null) {
+                    targetIdx = Array.from(updatedBtns).findIndex(b => b.dataset.id === oldFocusId);
+                }
+                if (targetIdx < 0 && !this.menuArea.contains(document.activeElement)) {
+                    // Identity lost AND focus left the menu: keep the old slot, clamped.
+                    targetIdx = oldFocusIndex >= 0
+                        ? Math.min(oldFocusIndex, updatedBtns.length - 1)
+                        : 0;
+                }
+                if (
+                    targetIdx >= 0 &&
+                    targetIdx < updatedBtns.length &&
+                    updatedBtns[targetIdx] !== document.activeElement
+                ) {
+                    updatedBtns[targetIdx].focus();
+                }
             }
         }
     }

@@ -2876,20 +2876,26 @@ class MainWindow(wx.Frame):
             # Apply diff operations (screen reader friendly)
             self.apply_menu_diff(operations)
 
-            # Cursor stays stationary at its current numerical index.  Items may
-            # shift around it but the focused slot never changes due to remote
-            # insertions or deletions elsewhere in the list — identical to the web
-            # client's positional-overwrite behaviour.  Clamp only when the list
-            # shrank and the old index is now out of range.
-            # The server can force an explicit jump via the `position` field.
+            # Cursor follows the focused item by IDENTITY: if the item the user
+            # was on still exists after the refresh, move to its new index — even
+            # if it shifted because the list reordered or grew/shrank elsewhere.
+            # Only fall back to the clamped numerical slot when that id is gone
+            # (or the items have no ids). The server can force an explicit jump
+            # via the `position`/`selection_id` field.
             if position is not None and 0 <= position < len(items):
                 self.menu_list.SetSelection(position)
             elif len(items) > 0:
-                target = (
-                    min(old_selection, len(items) - 1)
-                    if old_selection != wx.NOT_FOUND
-                    else 0
+                old_focused_id = (
+                    old_item_ids[old_selection]
+                    if 0 <= old_selection < len(old_item_ids)
+                    else None
                 )
+                if old_focused_id is not None and old_focused_id in item_ids:
+                    target = item_ids.index(old_focused_id)
+                elif old_selection != wx.NOT_FOUND:
+                    target = min(old_selection, len(items) - 1)
+                else:
+                    target = 0
                 if self.menu_list.GetSelection() != target:
                     self.menu_list.SetSelection(target)
         else:

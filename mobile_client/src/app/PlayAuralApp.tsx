@@ -484,7 +484,6 @@ export function PlayAuralApp() {
   const sessionEstablishedRef = useRef(false);
   const appStateRef = useRef(appState);
   const lastPassiveUiSignatureRef = useRef<string | null>(null);
-  const lastMenuSoundKeyRef = useRef<string | null>(null);
   const authModeInitializedRef = useRef(false);
   const previousAuthModeRef = useRef<AuthMode | null>(null);
   const nativeFocusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -2721,20 +2720,6 @@ export function PlayAuralApp() {
     }
   };
 
-  const focusMenuItemAt = (index: number) => {
-    setMenuState((previous) => {
-      if (previous.focusIndex === index) {
-        return previous;
-      }
-      const nextState = {
-        ...previous,
-        focusIndex: clamp(index, 0, Math.max(0, previous.items.length - 1)),
-      };
-      menuStateRef.current = nextState;
-      return nextState;
-    });
-  };
-
   const sendMenuSelection = (itemOverride?: FocusableMenuItem | null, indexOverride?: number) => {
     const currentMenuState = menuStateRef.current;
     const item = itemOverride ?? currentMenuState.items[currentMenuState.focusIndex];
@@ -2957,8 +2942,29 @@ export function PlayAuralApp() {
     }
   };
 
-  const playMenuMoveSound = () => {
+  // Match desktop: an item-specific highlight sound replaces the generic click.
+  const playMenuMoveSound = (item?: FocusableMenuItem | null) => {
+    if (item?.sound) {
+      void audio.playSound(item.sound);
+      return;
+    }
     void audio.playSound("menuclick.ogg", { volume: 0.5 });
+  };
+
+  const focusMenuItemAt = (index: number) => {
+    setMenuState((previous) => {
+      const nextIndex = clamp(index, 0, Math.max(0, previous.items.length - 1));
+      if (previous.focusIndex === nextIndex) {
+        return previous;
+      }
+      playMenuMoveSound(previous.items[nextIndex]);
+      const nextState = {
+        ...previous,
+        focusIndex: nextIndex,
+      };
+      menuStateRef.current = nextState;
+      return nextState;
+    });
   };
 
   const playMenuActivateSound = () => {
@@ -3181,7 +3187,7 @@ export function PlayAuralApp() {
       }
       const nextIndex = boundaryIndex(previous.items.length);
       if (nextIndex !== previous.focusIndex) {
-        playMenuMoveSound();
+        playMenuMoveSound(previous.items[nextIndex]);
       }
       speakUserFocus(previous.items[nextIndex]?.text);
       const nextState = {
@@ -3339,7 +3345,7 @@ export function PlayAuralApp() {
       };
       if (nextIndex !== previous.focusIndex) {
         speakUserFocus(previous.items[nextIndex]?.text);
-        playMenuMoveSound();
+        playMenuMoveSound(previous.items[nextIndex]);
       }
       menuStateRef.current = nextState;
       return nextState;
@@ -3690,28 +3696,6 @@ export function PlayAuralApp() {
     shortcutFocusIndex,
     getCurrentUiFocusSignature,
   ]);
-
-  // Per-item highlight sound (e.g. backgammon board squares), played as the
-  // cursor lands on an item — independent of self-voicing, since it is an audio
-  // cue rather than speech. Keyed on focus position so a board refresh under a
-  // stationary cursor does not replay it; items without a sound stay silent.
-  useEffect(() => {
-    if (!connected || mode !== "main") {
-      lastMenuSoundKeyRef.current = null;
-      return;
-    }
-    if (!focusedMenuItem) {
-      return;
-    }
-    const key = `${menuState.menuId}:${menuState.focusIndex}`;
-    if (key === lastMenuSoundKeyRef.current) {
-      return;
-    }
-    lastMenuSoundKeyRef.current = key;
-    if (focusedMenuItem.sound) {
-      void audio.playSound(focusedMenuItem.sound);
-    }
-  }, [audio, connected, mode, menuState.menuId, menuState.focusIndex, focusedMenuItem]);
 
   const connect = () => {
     if (!serverUrl || !username || !password) {

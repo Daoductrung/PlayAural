@@ -6,6 +6,7 @@ import pytest
 
 from ..games.dominos.game import (
     BRANCH_ORDER,
+    DOMINO_SET_MAX_PIPS,
     DominosGame,
     DominosOptions,
     DominoTile,
@@ -74,7 +75,7 @@ def test_dominos_game_registration_and_defaults() -> None:
     assert game_class.get_type() == "dominos"
     assert game_class.get_category() == "cards"
     assert game_class.get_min_players() == 2
-    assert game_class.get_max_players() == 4
+    assert game_class.get_max_players() == 12
 
     options = DominosOptions()
     assert options.target_score == 100
@@ -91,12 +92,53 @@ def test_prestart_validation_rejects_invalid_team_mode() -> None:
 
 
 @pytest.mark.parametrize(
+    ("domino_set", "player_count", "selected_pip", "required_pip"),
+    [
+        ("double6", 6, 6, 9),
+        ("double9", 8, 9, 12),
+    ],
+)
+def test_prestart_validation_rejects_domino_set_without_enough_tiles(
+    domino_set: str, player_count: int, selected_pip: int, required_pip: int
+) -> None:
+    game = make_game(player_count=player_count, domino_set=domino_set)
+
+    errors = game.prestart_validate()
+
+    assert (
+        "dominos-error-set-too-small",
+        {"players": player_count, "selected_pip": selected_pip, "required_pip": required_pip},
+    ) in errors
+
+
+@pytest.mark.parametrize(
+    ("domino_set", "player_count"),
+    [
+        ("double6", 5),
+        ("double9", 7),
+        ("double12", 12),
+    ],
+)
+def test_prestart_validation_allows_largest_supported_table_for_each_set(
+    domino_set: str, player_count: int
+) -> None:
+    game = make_game(player_count=player_count, domino_set=domino_set)
+
+    assert game.prestart_validate() == []
+
+
+@pytest.mark.parametrize(
     ("domino_set", "player_count", "expected_hand_size"),
     [
         ("double6", 2, 7),
         ("double6", 4, 5),
+        ("double6", 5, 5),
         ("double9", 2, 10),
         ("double9", 4, 7),
+        ("double9", 7, 7),
+        ("double12", 2, 12),
+        ("double12", 4, 10),
+        ("double12", 12, 7),
     ],
 )
 def test_round_start_deals_expected_hand_sizes(
@@ -105,6 +147,8 @@ def test_round_start_deals_expected_hand_sizes(
     game = make_game(player_count=player_count, start=True, domino_set=domino_set)
     hand_sizes = sorted(len(player.hand) for player in game.get_active_players())
     assert hand_sizes == [expected_hand_size - 1] + [expected_hand_size] * (player_count - 1)
+    max_pip = DOMINO_SET_MAX_PIPS[domino_set]
+    assert sum(hand_sizes) + len(game.boneyard) + 1 == DominosGame._tile_count_for_max_pip(max_pip)
 
 
 def test_spinner_opening_creates_four_open_ends() -> None:
@@ -118,27 +162,70 @@ def test_spinner_opening_creates_four_open_ends() -> None:
     assert game.open_ends == {branch: 4 for branch in BRANCH_ORDER}
 
 
-def test_round_winner_opening_rule_uses_previous_round_winner() -> None:
+def test_spinner_integrity_restores_four_branches_from_stale_flag() -> None:
+    game = make_game(start=True)
+    player1, _player2 = game.get_active_players()
+    opening = DominoTile(id=100, left=4, right=4)
+    playable = DominoTile(id=101, left=4, right=2)
+    game._place_opening_tile(opening)
+    game.spinner_active = False
+    game.open_ends = {"left": 4, "right": 4}
+    player1.hand = [playable]
+    game.current_player = player1
+
+    legal = game._legal_destinations(playable)
+    game._execute_play(player1, playable, "up")
+
+    assert legal == BRANCH_ORDER
+    assert game.spinner_active is True
+    assert set(game.open_ends) == set(BRANCH_ORDER)
+    assert game.open_ends["up"] == 2
+
+
+def test_round_winner_opening_rule_selects_player_without_forcing_tile() -> None:
     game = make_game(player_count=2, opening_rule="round_winner")
     player1, player2 = game.get_active_players()
     player1.hand = [DominoTile(id=1, left=1, right=1), DominoTile(id=2, left=6, right=5)]
     player2.hand = [DominoTile(id=3, left=6, right=6)]
     game.previous_round_winner_id = player1.id
 
-    opener, tile = game._select_opening_play([player1, player2], 6)
+    opener, tile = game._select_opening_assignment([player1, player2], 6)
 
     assert opener == player1
-    assert tile.id == 2
+    assert tile is None
+
+
+def test_previous_round_winner_manually_opens_with_chosen_tile() -> None:
+    game = make_game(player_count=2, opening_rule="round_winner")
+    player1, player2 = game.get_active_players()
+    game.status = "playing"
+    game.game_active = True
+    game._setup_teams()
+    game.previous_round_winner_id = player1.id
+
+    game._start_round()
+
+    assert game.center_tile is None
+    assert game.current_player == player1
+    assert len(player1.hand) == 7
+    assert len(player2.hand) == 7
+
+    chosen = min(player1.hand, key=lambda tile: (tile.pip_total, tile.id))
+    game._action_play_tile(player1, f"play_tile_{chosen.id}")
+
+    assert game.center_tile == chosen
+    assert chosen not in player1.hand
+    assert game.current_player == player2
 
 
 def test_option_labels_localize_choice_values() -> None:
-    options = DominosOptions(domino_set="double9", opening_rule="set_max_double", spinner_enabled=True)
+    options = DominosOptions(domino_set="double12", opening_rule="set_max_double", spinner_enabled=True)
     english = options.format_options_summary("en")
     vietnamese = options.format_options_summary("vi")
 
-    assert any("Double-9" in line for line in english)
+    assert any("Double-12" in line for line in english)
     assert any("Highest set double" in line for line in english)
-    assert any("Bộ đôi chín" in line for line in vietnamese)
+    assert any("Bộ đôi mười hai" in line for line in vietnamese)
     assert any("Quân bò cao nhất của bộ" in line for line in vietnamese)
     assert not any("domino_set" in line or "opening_rule" in line for line in english + vietnamese)
 

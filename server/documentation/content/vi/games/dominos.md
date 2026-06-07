@@ -2,7 +2,7 @@
 
 
 
-Đô-mi-nô là trò chơi ghép dây bằng quân cờ hình chữ nhật. Trò chơi hỗ trợ từ 2 đến 4 người, có thể chia thành hai đội khi đủ 4 người, dùng bộ đôi sáu hoặc bộ đôi chín, có hai lối chơi là Rút và Chặn, cho phép chọn cách mở ván, cho phép mở bốn nhánh từ quân bò đầu tiên, và tính điểm theo tổng số chấm còn lại trên tay đối phương.
+Đô-mi-nô là trò ghép dây cổ điển của PlayAural. Trò chơi hỗ trợ 2 đến 12 người, có thể chơi cá nhân hoặc chia đội, dùng bộ Đôi-6, Đôi-9 hoặc Đôi-12, có hai lối chơi Rút và Chặn, cho phép chọn luật mở ván, có tùy chọn quân bò mở đầu tạo bốn nhánh, và tính điểm theo tổng số chấm còn lại trên tay đối phương.
 
 
 
@@ -10,19 +10,23 @@
 
 
 
-Mỗi ván bắt đầu bằng một bộ cờ đã được xáo. Với bộ đôi sáu, mỗi người nhận 7 quân nếu chơi 2 người, hoặc 5 quân nếu chơi 3 hay 4 người. Với bộ đôi chín, mỗi người nhận 10 quân nếu chơi 2 người, hoặc 7 quân nếu chơi 3 hay 4 người. Tất cả quân chưa chia tạo thành chồng quân dư để bốc.
+Mỗi ván bắt đầu bằng một bộ quân đã được xáo. Với bộ Đôi-6, mỗi người nhận 7 quân nếu chơi 2 người, hoặc 5 quân nếu có từ 3 người trở lên. Với bộ Đôi-9, mỗi người nhận 10 quân nếu chơi 2 người, hoặc 7 quân nếu có từ 3 người trở lên. Với bộ Đôi-12, mỗi người nhận 12 quân nếu chơi 2 người, 10 quân nếu chơi 3 hoặc 4 người, hoặc 7 quân nếu chơi từ 5 đến 12 người. Tất cả quân chưa chia tạo thành chồng quân dư để bốc.
 
 
 
-Một quân mở ván sẽ được đặt xuống tự động theo luật mở đầu đã chọn. Sau đó, người chơi lần lượt đánh từng quân vào các đầu hở của dây bằng cách ghép số chấm trùng nhau.
+Bộ quân được chọn phải đủ lớn cho số người đang ngồi ở bàn. Với cách chia mặc định ở trên, bộ Đôi-6 hỗ trợ tối đa 5 người, bộ Đôi-9 hỗ trợ tối đa 7 người, và bộ Đôi-12 hỗ trợ tối đa 12 người. Nếu không đủ quân để chia, trò chơi sẽ chặn bắt đầu ván và báo rõ bộ nhỏ nhất cần dùng.
 
 
 
-Nếu quân mở ván là quân bò và luật mở bốn nhánh đang bật, quân đó trở thành tâm dây và bàn cờ có thể phát triển theo bốn hướng: trái, phải, trên và dưới. Nếu không, dây chỉ mở rộng ở hai đầu trái và phải như thường lệ.
+Một số luật mở đầu xác định sẵn quân phải mở ván; quân đó sẽ được đặt xuống tự động. Những luật chọn người dẫn ván, như Người chơi ngẫu nhiên và Người thắng ván trước, sẽ trao lượt đầu cho người đó để họ tự chọn quân mở ván. Sau khi quân mở ván được đặt xuống, người chơi lần lượt đánh từng quân vào các đầu hở của dây bằng cách ghép số chấm trùng nhau.
 
 
 
-Người đầu tiên đánh hết quân trên tay sẽ thắng ván. Nếu không ai còn nước đánh hợp lệ, ván bị chặn và sẽ được phân định bằng số chấm còn lại trên tay mỗi bên.
+Nếu quân mở ván là quân bò và luật mở bốn nhánh đang bật, quân đó trở thành tâm xoay của dây cờ. Khi đó bàn có thể phát triển theo bốn hướng: trái, phải, trên và dưới. Nếu không, dây chỉ mở rộng ở hai đầu trái và phải như thường lệ.
+
+
+
+Người đầu tiên đánh hết quân trên tay sẽ thắng ván. Nếu không ai còn nước đánh hợp lệ, ván bị chặn và được phân định bằng tổng số chấm còn giữ trên tay mỗi bên.
 
 
 
@@ -34,15 +38,15 @@ Chủ bàn có thể chọn một trong các luật mở đầu sau:
 
 
 
-\* \*\*Quân bò lớn nhất:\*\* Người giữ quân bò cao nhất sẽ mở ván.
+\* \*\*Quân bò lớn nhất:\*\* Quân bò cao nhất trong tay mọi người sẽ tự động mở ván.
 
-\* \*\*Quân lớn nhất:\*\* Quân có tổng số chấm cao nhất sẽ mở ván.
+\* \*\*Quân lớn nhất:\*\* Quân có tổng số chấm cao nhất sẽ tự động mở ván.
 
-\* \*\*Quân bò cao nhất của bộ:\*\* Quân bò cao nhất thuộc bộ đang dùng sẽ mở ván nếu có người giữ. Nếu không ai có quân đó, trò chơi quay về luật Quân bò lớn nhất.
+\* \*\*Quân bò cao nhất của bộ:\*\* Quân bò cao nhất thuộc bộ đang dùng sẽ tự động mở ván nếu có người giữ. Nếu không ai có quân đó, trò chơi quay về luật Quân bò lớn nhất.
 
-\* \*\*Người chơi ngẫu nhiên:\*\* Một người được chọn ngẫu nhiên sẽ mở ván bằng quân có tổng số chấm cao nhất trên tay mình.
+\* \*\*Người chơi ngẫu nhiên:\*\* Một người được chọn ngẫu nhiên sẽ dẫn ván và tự chọn quân mở đầu.
 
-\* \*\*Người thắng ván trước:\*\* Người thắng ván trước mở ván bằng quân có tổng số chấm cao nhất trên tay mình.
+\* \*\*Người thắng ván trước:\*\* Người thắng ván trước sẽ dẫn ván và tự chọn quân mở đầu. Ở ván đầu tiên, hoặc sau một ván bị chặn hòa điểm, trò chơi quay về luật Quân bò lớn nhất.
 
 
 
@@ -74,7 +78,7 @@ Khi ván bị chặn, bên thắng được xác định theo tổng số chấm
 
 \* \*\*Đấu riêng:\*\* Người có tổng số chấm thấp nhất thắng ván.
 
-\* \*\*Đấu đội hai đấu hai:\*\* Đội có tổng số chấm cộng lại thấp nhất thắng ván.
+\* \*\*Đấu đội:\*\* Đội có tổng số chấm cộng lại thấp nhất thắng ván.
 
 
 
@@ -110,13 +114,13 @@ Trước khi bắt đầu trận đấu, chủ bàn có thể chỉnh các mục
 
 \* \*\*Chế độ:\*\* Chọn lối chơi Rút hoặc Chặn. Mặc định: Rút.
 
-\* \*\*Bộ cờ:\*\* Chọn bộ đôi sáu hoặc bộ đôi chín. Mặc định: Bộ đôi sáu.
+\* \*\*Bộ quân:\*\* Chọn bộ Đôi-6, Đôi-9 hoặc Đôi-12. Mặc định: Đôi-6. Bộ Đôi-6 hỗ trợ tối đa 5 người, bộ Đôi-9 hỗ trợ tối đa 7 người, và bộ Đôi-12 hỗ trợ tối đa 12 người.
 
 \* \*\*Mở bốn nhánh:\*\* Quy định quân bò mở đầu có tạo ra bốn đầu đánh hay không. Mặc định: Bật.
 
-\* \*\*Luật mở đầu:\*\* Chọn cách xác định quân mở ván ở mỗi vòng. Mặc định: Quân bò lớn nhất.
+\* \*\*Luật mở đầu:\*\* Chọn cách xác định nước mở ván ở mỗi vòng. Mặc định: Quân bò lớn nhất.
 
-\* \*\*Chế độ đội:\*\* Đấu riêng, hoặc chia thành hai đội khi đủ 4 người.
+\* \*\*Chế độ đội:\*\* Đấu riêng, hoặc dùng bất kỳ cách chia đội đều nào hợp lệ với số người hiện tại.
 
 
 

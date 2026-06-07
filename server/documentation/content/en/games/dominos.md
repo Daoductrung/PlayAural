@@ -2,7 +2,7 @@
 
 
 
-Dominos is PlayAural's classic line-building domino game. It supports 2 to 4 players, optional 2v2 teams, Double-6 and Double-9 sets, Draw and Block rules, configurable opening rules, optional four-way spinner openings, and standard leftover-pip scoring.
+Dominos is PlayAural's classic line-building domino game. It supports 2 to 12 players, optional team play, Double-6, Double-9, and Double-12 sets, Draw and Block rules, configurable opening rules, optional four-way spinner openings, and standard leftover-pip scoring.
 
 
 
@@ -10,11 +10,15 @@ Dominos is PlayAural's classic line-building domino game. It supports 2 to 4 pla
 
 
 
-Each round begins with a shuffled domino set. In a Double-6 game, each player receives 7 tiles in a 2-player match or 5 tiles in a 3- or 4-player match. In a Double-9 game, each player receives 10 tiles in a 2-player match or 7 tiles in a 3- or 4-player match. All undealt tiles form the boneyard.
+Each round begins with a shuffled domino set. In a Double-6 game, each player receives 7 tiles in a 2-player match or 5 tiles with 3 or more players. In a Double-9 game, each player receives 10 tiles with 2 players or 7 tiles with 3 or more players. In a Double-12 game, each player receives 12 tiles with 2 players, 10 tiles with 3 or 4 players, or 7 tiles with 5 to 12 players. All undealt tiles form the boneyard.
 
 
 
-One opening tile is placed automatically according to the selected opening rule. After that, players take turns adding one tile at a time to the open ends of the chain by matching numbers.
+The selected domino set must have enough tiles for the current table size. With the default hand sizes above, Double-6 supports up to 5 players, Double-9 supports up to 7 players, and Double-12 supports up to 12 players. If the selected set is too small, the game blocks the start and tells the host the smallest set that can support the seated players.
+
+
+
+Some opening rules identify a required opening tile; that tile is placed automatically. Player-led opening rules, such as Random player and Previous round winner, give that player the first turn so they can choose the tile they want to use. After the opening tile is placed, players take turns adding one tile at a time to the open ends of the chain by matching numbers.
 
 
 
@@ -34,15 +38,15 @@ The host can choose one of these opening rules:
 
 
 
-\* \*\*Highest double:\*\* The highest double held by any player opens the round.
+\* \*\*Highest double:\*\* The highest double held by any player opens the round automatically.
 
-\* \*\*Highest tile:\*\* The tile with the highest pip total opens the round.
+\* \*\*Highest tile:\*\* The tile with the highest pip total opens the round automatically.
 
-\* \*\*Highest set double:\*\* The maximum double of the chosen set opens if someone holds it. If not, the game falls back to Highest double.
+\* \*\*Highest set double:\*\* The maximum double of the chosen set opens automatically if someone holds it. If not, the game falls back to Highest double.
 
-\* \*\*Random player:\*\* A random player opens with the highest tile in their hand.
+\* \*\*Random player:\*\* A random player leads the round and manually chooses the opening tile.
 
-\* \*\*Previous round winner:\*\* The player who won the previous round opens with the highest tile in their hand.
+\* \*\*Previous round winner:\*\* The player who won the previous round leads the round and manually chooses the opening tile. On the first round, or after a tied blocked round, the game falls back to Highest double.
 
 
 
@@ -74,7 +78,7 @@ When a round is blocked, the winner is determined by the lowest total pip value 
 
 \* \*\*Individual mode:\*\* The player with the lowest pip total wins the round.
 
-\* \*\*2v2 mode:\*\* The team with the lowest combined pip total wins the round.
+\* \*\*Team mode:\*\* The team with the lowest combined pip total wins the round.
 
 
 
@@ -110,13 +114,13 @@ The host can adjust the following settings before the match starts:
 
 \* \*\*Mode:\*\* Choose Draw or Block rules. Default: Draw.
 
-\* \*\*Domino Set:\*\* Choose Double-6 or Double-9. Default: Double-6.
+\* \*\*Domino Set:\*\* Choose Double-6, Double-9, or Double-12. Default: Double-6. Double-6 supports up to 5 players, Double-9 supports up to 7 players, and Double-12 supports up to 12 players.
 
 \* \*\*Spinner:\*\* Controls whether an opening double creates a four-way spinner. Default: On.
 
 \* \*\*Opening Rule:\*\* Chooses how each round starts. Default: Highest double.
 
-\* \*\*Team Mode:\*\* Play individually, or use 2v2 teams when four players are seated.
+\* \*\*Team Mode:\*\* Play individually, or use any valid even team arrangement supported by the current player count.
 
 
 

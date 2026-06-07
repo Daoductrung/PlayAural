@@ -398,6 +398,38 @@ class TestMileByMileTouchOrdering:
             "info"
         )
 
+    def test_dirty_trick_hidden_for_touch_client_before_game_starts(self):
+        """Dirty Trick button must not appear for touch clients in the lobby."""
+        game = MileByMileGame()
+        alice_user = MockUser("Alice", uuid="p1")
+        alice_user.client_type = "web"
+        bob_user = MockUser("Bob", uuid="p2")
+        alice = game.add_player("Alice", alice_user)
+        game.add_player("Bob", bob_user)
+
+        # Status is "waiting" — game not started yet
+        assert game.status != "playing"
+        lobby_action_ids = {
+            entry.action.id for entry in game.get_all_visible_actions(alice)
+        }
+        assert "dirty_trick" not in lobby_action_ids
+
+    def test_dirty_trick_visible_for_touch_client_during_active_play(self):
+        """Dirty Trick button must be visible for touch clients once gameplay starts."""
+        game = MileByMileGame()
+        alice_user = MockUser("Alice", uuid="p1")
+        alice_user.client_type = "web"
+        bob_user = MockUser("Bob", uuid="p2")
+        alice = game.add_player("Alice", alice_user)
+        game.add_player("Bob", bob_user)
+        game.on_start()
+
+        assert game.status == "playing"
+        playing_action_ids = {
+            entry.action.id for entry in game.get_all_visible_actions(alice)
+        }
+        assert "dirty_trick" in playing_action_ids
+
 
 class TestMileByMileBroadcastsAndOptions:
     def test_hazard_broadcasts_use_actor_and_target_context(self):

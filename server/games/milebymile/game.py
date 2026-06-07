@@ -568,13 +568,15 @@ class MileByMileGame(Game):
         return None
 
     def _is_dirty_trick_hidden(self, player: Player) -> Visibility:
-        """Dirty trick is hidden (keybind only), unless Web."""
+        """Dirty trick is hidden (keybind only), unless Web during active gameplay."""
         if player.is_spectator:
             return Visibility.HIDDEN
 
         user = self.get_user(player)
         if self.is_touch_client(user):
-            return Visibility.VISIBLE
+            if self.status == "playing":
+                return Visibility.VISIBLE
+            return Visibility.HIDDEN
         return Visibility.HIDDEN
 
     def _is_junk_card_enabled(self, player: Player) -> str | None:

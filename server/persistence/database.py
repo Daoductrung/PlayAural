@@ -398,6 +398,109 @@ class Database:
         if deleted_games > 0 or deleted_saves > 0 or deleted_bans > 0 or deleted_requests > 0 or deleted_notifications > 0 or deleted_mutes > 0 or deleted_tokens > 0:
              print(f"Database Pruning: Cleaned up {deleted_games} game_results, {deleted_saves} saved_tables, {deleted_bans} bans, {deleted_requests} friend requests, {deleted_notifications} notifications, {deleted_expired_mutes} expired mutes, {deleted_orphaned_mutes} orphaned mutes, {deleted_tokens} expired tokens.")
 
+    def prune_unregistered_game_data(
+        self,
+        valid_game_types: set[str] | list[str] | tuple[str, ...],
+    ) -> dict[str, int]:
+        """Delete persisted data for game types that are no longer registered.
+
+        This is intentionally allow-list based: only rows whose game_type is
+        outside the current registry are removed, and an empty registry is a
+        no-op to avoid destructive cleanup during a startup/import failure.
+        """
+        valid = sorted({game_type for game_type in valid_game_types if game_type})
+        counts = {
+            "tables": 0,
+            "saved_tables": 0,
+            "game_results": 0,
+            "game_result_players": 0,
+            "orphaned_game_result_players": 0,
+            "player_game_stats": 0,
+            "player_ratings": 0,
+        }
+        logger = logging.getLogger("playaural.db.prune")
+        if not valid:
+            logger.warning(
+                "Skipped unregistered-game cleanup because the registered game list was empty."
+            )
+            return counts
+
+        placeholders = ", ".join("?" for _ in valid)
+        not_registered = f"NOT IN ({placeholders})"
+        params = tuple(valid)
+        cursor = self._conn.cursor()
+        self._conn.execute("PRAGMA foreign_keys = ON;")
+
+        with self._conn:
+            cursor.execute(
+                f"DELETE FROM tables WHERE game_type {not_registered}",
+                params,
+            )
+            counts["tables"] = cursor.rowcount
+
+            cursor.execute(
+                f"DELETE FROM saved_tables WHERE game_type {not_registered}",
+                params,
+            )
+            counts["saved_tables"] = cursor.rowcount
+
+            cursor.execute(
+                f"DELETE FROM player_game_stats WHERE game_type {not_registered}",
+                params,
+            )
+            counts["player_game_stats"] = cursor.rowcount
+
+            cursor.execute(
+                f"DELETE FROM player_ratings WHERE game_type {not_registered}",
+                params,
+            )
+            counts["player_ratings"] = cursor.rowcount
+
+            cursor.execute(
+                f"""
+                SELECT COUNT(*) AS count
+                FROM game_result_players
+                WHERE result_id IN (
+                    SELECT id FROM game_results WHERE game_type {not_registered}
+                )
+                """,
+                params,
+            )
+            counts["game_result_players"] = cursor.fetchone()["count"] or 0
+
+            cursor.execute(
+                f"DELETE FROM game_results WHERE game_type {not_registered}",
+                params,
+            )
+            counts["game_results"] = cursor.rowcount
+
+            cursor.execute(
+                """
+                DELETE FROM game_result_players
+                WHERE NOT EXISTS (
+                    SELECT 1
+                    FROM game_results
+                    WHERE game_results.id = game_result_players.result_id
+                )
+                """
+            )
+            counts["orphaned_game_result_players"] = cursor.rowcount
+
+        if any(counts.values()):
+            logger.info(
+                "Unregistered-game cleanup removed: %s",
+                ", ".join(f"{key}={value}" for key, value in counts.items()),
+            )
+            print(
+                "Database Pruning: Removed stale unregistered game data "
+                + ", ".join(f"{key}={value}" for key, value in counts.items())
+                + "."
+            )
+        else:
+            logger.info("Unregistered-game cleanup: 0 records deleted.")
+
+        return counts
+
     # User operations
 
     def get_user_by_email(self, email: str) -> UserRecord | None:

@@ -250,6 +250,9 @@ PlayAural Server
 
         # Connect to database
         self._db.connect()
+        self._db.prune_unregistered_game_data(
+            {game_class.get_type() for game_class in GameRegistry.get_all()}
+        )
         self._auth = AuthManager(self._db)
 
         # Initialize trust levels for users

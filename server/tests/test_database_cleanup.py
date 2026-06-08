@@ -122,6 +122,134 @@ def test_connect_can_skip_pruning_for_short_cli_operations(tmp_path):
     assert cursor.fetchone()[0] == 0
     database.close()
 
+def test_prune_unregistered_game_data_removes_only_stale_game_types(db):
+    cursor = db._conn.cursor()
+
+    cursor.execute(
+        """
+        INSERT INTO tables (table_id, game_type, host, members_json, game_json, status)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        ("valid-table", "pig", "Alice", "[]", "{}", "waiting"),
+    )
+    cursor.execute(
+        """
+        INSERT INTO tables (table_id, game_type, host, members_json, game_json, status)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        ("stale-table", "lastcard", "Alice", "[]", "{}", "waiting"),
+    )
+    cursor.execute(
+        """
+        INSERT INTO saved_tables
+            (username, save_name, game_type, game_json, members_json, saved_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        ("Alice", "Pig Save", "pig", "{}", "[]", "2026-01-01T00:00:00"),
+    )
+    cursor.execute(
+        """
+        INSERT INTO saved_tables
+            (username, save_name, game_type, game_json, members_json, saved_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        ("Alice", "Last Card Save", "lastcard", "{}", "[]", "2026-01-01T00:00:00"),
+    )
+    cursor.execute(
+        """
+        INSERT INTO game_results (game_type, timestamp, duration_ticks, custom_data)
+        VALUES (?, ?, ?, ?)
+        """,
+        ("pig", "2026-01-01T00:00:00", 100, "{}"),
+    )
+    valid_result_id = cursor.lastrowid
+    cursor.execute(
+        """
+        INSERT INTO game_results (game_type, timestamp, duration_ticks, custom_data)
+        VALUES (?, ?, ?, ?)
+        """,
+        ("lastcard", "2026-01-01T00:00:00", 100, "{}"),
+    )
+    stale_result_id = cursor.lastrowid
+    cursor.execute(
+        """
+        INSERT INTO game_result_players (result_id, player_id, player_name, is_bot)
+        VALUES (?, ?, ?, ?)
+        """,
+        (valid_result_id, "p1", "Alice", 0),
+    )
+    cursor.execute(
+        """
+        INSERT INTO game_result_players (result_id, player_id, player_name, is_bot)
+        VALUES (?, ?, ?, ?)
+        """,
+        (stale_result_id, "p2", "Bob", 0),
+    )
+    cursor.execute(
+        """
+        INSERT INTO player_game_stats (player_id, game_type, stat_key, stat_value)
+        VALUES (?, ?, ?, ?)
+        """,
+        ("p1", "pig", "wins", 2),
+    )
+    cursor.execute(
+        """
+        INSERT INTO player_game_stats (player_id, game_type, stat_key, stat_value)
+        VALUES (?, ?, ?, ?)
+        """,
+        ("p2", "lastcard", "wins", 3),
+    )
+    cursor.execute(
+        "INSERT INTO player_ratings (player_id, game_type, mu, sigma) VALUES (?, ?, ?, ?)",
+        ("p1", "pig", 25.0, 8.0),
+    )
+    cursor.execute(
+        "INSERT INTO player_ratings (player_id, game_type, mu, sigma) VALUES (?, ?, ?, ?)",
+        ("p2", "lastcard", 28.0, 7.0),
+    )
+    db._conn.commit()
+
+    counts = db.prune_unregistered_game_data({"pig", "uno"})
+
+    assert counts["tables"] == 1
+    assert counts["saved_tables"] == 1
+    assert counts["game_results"] == 1
+    assert counts["game_result_players"] == 1
+    assert counts["player_game_stats"] == 1
+    assert counts["player_ratings"] == 1
+
+    for table_name in (
+        "tables",
+        "saved_tables",
+        "game_results",
+        "player_game_stats",
+        "player_ratings",
+    ):
+        cursor.execute(f"SELECT DISTINCT game_type FROM {table_name}")
+        assert [row[0] for row in cursor.fetchall()] == ["pig"]
+
+    cursor.execute("SELECT result_id FROM game_result_players")
+    assert [row[0] for row in cursor.fetchall()] == [valid_result_id]
+
+
+def test_prune_unregistered_game_data_empty_allowlist_is_noop(db):
+    cursor = db._conn.cursor()
+    cursor.execute(
+        """
+        INSERT INTO player_game_stats (player_id, game_type, stat_key, stat_value)
+        VALUES (?, ?, ?, ?)
+        """,
+        ("p1", "lastcard", "wins", 1),
+    )
+    db._conn.commit()
+
+    counts = db.prune_unregistered_game_data(set())
+
+    assert not any(counts.values())
+    cursor.execute("SELECT game_type FROM player_game_stats")
+    assert [row[0] for row in cursor.fetchall()] == ["lastcard"]
+
+
 def test_delete_user_cascades(db):
     db.create_user("Alice", "hash")
     alice = db.get_user("Alice")

@@ -193,6 +193,16 @@ class MidnightGame(Game, DiceGameMixin):
             return Visibility.HIDDEN
         return Visibility.VISIBLE
 
+    def _first_visible_dice_toggle_action_id(self, player: Player) -> str | None:
+        return next(
+            (
+                resolved.action.id
+                for resolved in self.get_all_visible_actions(player)
+                if resolved.action.id.startswith("toggle_die_")
+            ),
+            None,
+        )
+
     def _action_roll(self, player: Player, action_id: str) -> None:
         """Handle roll action."""
         midnight_player: MidnightPlayer = player  # type: ignore
@@ -220,7 +230,10 @@ class MidnightGame(Game, DiceGameMixin):
         if player.is_bot:
             BotHelper.jolt_bot(player, ticks=random.randint(10, 20))
 
-        self.rebuild_all_menus()
+        self.rebuild_player_menu(
+            midnight_player,
+            focus=self._first_visible_dice_toggle_action_id(midnight_player),
+        )
 
     # ==========================================================================
     # Bank action

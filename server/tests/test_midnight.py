@@ -258,6 +258,28 @@ class TestMidnightGameActions:
         toggle_actions = [id for id in visible_ids if id.startswith("toggle_die_")]
         assert len(toggle_actions) > 0
 
+    def test_roll_focuses_first_selectable_die(self):
+        """Test that rolling focuses the first dice keep option."""
+        random.seed(42)
+
+        self.game.execute_action(self.player1, "roll")
+
+        assert self.user1.menus["turn_menu"]["selection_id"] == "toggle_die_0"
+
+    def test_later_roll_focuses_first_unlocked_die(self):
+        """Test that focus skips locked dice after later rolls."""
+        random.seed(42)
+        self.game.execute_action(self.player1, "roll")
+        self.game.execute_action(self.player1, "toggle_die_0")
+
+        self.game.execute_action(self.player1, "roll")
+
+        menu = self.user1.menus["turn_menu"]
+        visible_ids = [item.id for item in menu["items"] if getattr(item, "id", None)]
+        assert "toggle_die_0" not in visible_ids
+        assert "toggle_die_1" in visible_ids
+        assert menu["selection_id"] == "toggle_die_1"
+
     def test_requires_turn(self):
         """Test that turn-required actions are only available on your turn."""
         p1_actions = self.game.get_all_visible_actions(self.player1)

@@ -506,6 +506,41 @@ class TestLudoActions:
         assert menu["selection_id"] == "move_token_1"
         assert self.u2.menus["turn_menu"]["selection_id"] is None
 
+    def test_no_move_roll_does_not_focus_roll_button(self, monkeypatch):
+        def fixed_randint(start: int, end: int) -> int:
+            if (start, end) == (1, 6):
+                return 3
+            return start
+
+        monkeypatch.setattr("server.games.ludo.game.random.randint", fixed_randint)
+
+        self.game._action_roll_dice(self.p1, "roll_dice")
+
+        assert self.u1.menus["turn_menu"]["selection_id"] is None
+        for _ in range(40):
+            self.game.on_tick()
+            if not self.game.active_sequences:
+                break
+        assert self.game.current_player == self.p2
+        assert self.u1.menus["turn_menu"]["selection_id"] is None
+
+    def test_auto_move_roll_does_not_focus_roll_button(self, monkeypatch):
+        self.p1.tokens[0].state = "track"
+        self.p1.tokens[0].position = 5
+
+        def fixed_randint(start: int, end: int) -> int:
+            if (start, end) == (1, 6):
+                return 3
+            return start
+
+        monkeypatch.setattr("server.games.ludo.game.random.randint", fixed_randint)
+
+        self.game._action_roll_dice(self.p1, "roll_dice")
+
+        assert self.game.active_sequences
+        assert self.u1.menus["turn_menu"]["selection_id"] is None
+        assert self.u2.menus["turn_menu"]["selection_id"] is None
+
     def test_selecting_move_token_focuses_roll_button(self):
         self.p1.tokens[0].state = "track"
         self.p1.tokens[0].position = 5

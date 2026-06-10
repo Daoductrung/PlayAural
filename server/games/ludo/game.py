@@ -731,7 +731,6 @@ class LudoGame(Game):
                 lock_scope=self.SEQUENCE_LOCK_GAMEPLAY,
                 pause_bots=True,
             )
-            self._rebuild_all_menus_with_player_focus(ludo_player, "roll_dice")
             return
 
         if len(moveable) == 1:
@@ -740,7 +739,6 @@ class LudoGame(Game):
                 moveable[0][1],
                 include_dice_sound=dice_sound,
             )
-            self._rebuild_all_menus_with_player_focus(ludo_player, "roll_dice")
             return
 
         # Multiple tokens can move — present choice (is_rolling stays True

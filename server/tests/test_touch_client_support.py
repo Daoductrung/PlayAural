@@ -180,7 +180,7 @@ def _new_game_with_players(game_cls, player_count: int, client_type: str = "mobi
         (
             SenetGame,
             2,
-            ["check_status", "check_sticks", "check_score", "whose_turn", "whos_at_table"],
+            ["check_status", "check_sticks", "check_scores", "whose_turn", "whos_at_table"],
         ),
         (
             TwentyOneGame,
@@ -238,7 +238,7 @@ def test_new_games_touch_standard_actions_follow_touch_order(
         (NineGame, 2, ["check_sequences_status", "check_hand_counts_status"]),
         (PusoyDosGame, 3, ["check_trick", "read_hand", "read_card_counts", "check_turn_timer"]),
         (RollingBallsGame, 2, ["view_pipe", "reshuffle"]),
-        (SenetGame, 2, ["check_status", "check_sticks", "check_score"]),
+        (SenetGame, 2, ["check_status", "check_sticks"]),
         (
             TwentyOneGame,
             2,

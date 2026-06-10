@@ -64,7 +64,6 @@ senet-wins-other = { $player } thắng! Tất cả quân của họ đã vượt
 # Nhãn hành động
 senet-check-status = Trạng thái
 senet-check-sticks = Kết quả que
-senet-check-score = Điểm số
 senet-next-piece = Quân tiếp theo
 senet-previous-piece = Quân trước
 senet-score = { $p1 }: { $off1 } quân. { $p2 }: { $off2 } quân.

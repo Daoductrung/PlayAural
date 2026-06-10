@@ -90,6 +90,7 @@ Người đầu tiên đưa cả năm quân của mình ra ngoài sẽ thắng v
 \* \*\*E:\*\* Đọc trạng thái ván cờ — số quân đã ra ngoài, giai đoạn hiện tại, và kết quả hiện tại.
 \* \*\*C:\*\* Đọc kết quả của lần tung que hiện tại.
 \* \*\*S:\*\* Đọc điểm số, số quân mỗi người đã đưa ra ngoài.
+\* \*\*Shift+S:\*\* Mở bảng điểm chi tiết.
 \* \*\*T:\*\* Kiểm tra đang đến lượt ai.
 
 \*\*Mẹo chiến thuật\*\*

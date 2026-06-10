@@ -102,6 +102,43 @@ def test_ctrl_navigation_before_throw_explains_throw_requirement() -> None:
     assert Localization.get("en", "action-not-your-turn") not in user.get_spoken_messages()
 
 
+def test_score_shortcuts_use_standard_s_keys() -> None:
+    game = make_game(start=True)
+    player = game.current_player
+    assert player is not None
+    user = game.get_user(player)
+    assert user is not None
+    p1 = game._get_player_by_num(1)
+    p2 = game._get_player_by_num(2)
+    expected = Localization.get(
+        "en",
+        "senet-score",
+        p1=p1.name if p1 else "?",
+        off1=game.game_state.off[1],
+        p2=p2.name if p2 else "?",
+        off2=game.game_state.off[2],
+    )
+
+    assert [keybind.actions for keybind in game._keybinds["s"]] == [["check_scores"]]
+    assert [keybind.actions for keybind in game._keybinds["shift+s"]] == [
+        ["check_scores_detailed"]
+    ]
+    assert "v" not in game._keybinds
+
+    user.clear_messages()
+    game.handle_event(player, {"type": "keybind", "key": "s"})
+    assert expected in user.get_spoken_messages()
+
+    user.clear_messages()
+    game.handle_event(player, {"type": "keybind", "key": "s", "shift": True})
+    status_items = user.get_current_menu_items("status_box") or []
+    assert [item.text for item in status_items] == [expected]
+
+    user.clear_messages()
+    game.handle_event(player, {"type": "keybind", "key": "v"})
+    assert expected not in user.get_spoken_messages()
+
+
 def test_special_houses_before_horus_are_safe_from_capture() -> None:
     state = SenetGameState(board=[0] * 30)
     state.board[HOUSE_REBIRTH - 2] = 1

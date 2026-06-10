@@ -64,7 +64,6 @@ senet-wins-other = { $player } wins! All of their pieces have crossed the final 
 # Action labels
 senet-check-status = Status
 senet-check-sticks = Sticks
-senet-check-score = Score
 senet-next-piece = Next piece
 senet-previous-piece = Previous piece
 senet-score = { $p1 }: { $off1 } off. { $p2 }: { $off2 } off.

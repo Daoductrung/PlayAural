@@ -185,14 +185,6 @@ class SenetGame(Game):
                 is_hidden="_is_touch_info_hidden",
                 include_spectators=True,
             ),
-            Action(
-                id="check_score",
-                label=Localization.get(locale, "senet-check-score"),
-                handler="_action_check_score",
-                is_enabled="_is_info_enabled",
-                is_hidden="_is_touch_info_hidden",
-                include_spectators=True,
-            ),
         ]
         for action in info_actions:
             action_set.add(action)
@@ -203,7 +195,7 @@ class SenetGame(Game):
                 [
                     "check_status",
                     "check_sticks",
-                    "check_score",
+                    "check_scores",
                     "whose_turn",
                     "whos_at_table",
                 ],
@@ -224,13 +216,6 @@ class SenetGame(Game):
             "c",
             Localization.get("en", "senet-check-sticks"),
             ["check_sticks"],
-            state=KeybindState.ACTIVE,
-            include_spectators=True,
-        )
-        self.define_keybind(
-            "v",
-            Localization.get("en", "senet-check-score"),
-            ["check_score"],
             state=KeybindState.ACTIVE,
             include_spectators=True,
         )
@@ -798,28 +783,56 @@ class SenetGame(Game):
         else:
             user.speak_l("senet-sticks-none", buffer="game")
 
-    def _action_check_score(self, player: Player, action_id: str) -> None:
-        user = self.get_user(player)
-        if not user:
-            return
+    def _score_kwargs(self) -> dict:
         gs = self.game_state
         p1 = self._get_player_by_num(1)
         p2 = self._get_player_by_num(2)
-        user.speak_l(
-            "senet-score",
-            buffer="game",
-            p1=p1.name if p1 else "?",
-            off1=gs.off[1],
-            p2=p2.name if p2 else "?",
-            off2=gs.off[2],
+        return {
+            "p1": p1.name if p1 else "?",
+            "off1": gs.off[1],
+            "p2": p2.name if p2 else "?",
+            "off2": gs.off[2],
+        }
+
+    def _action_check_scores(self, player: Player, action_id: str) -> None:
+        user = self.get_user(player)
+        if not user:
+            return
+        user.speak_l("senet-score", buffer="game", **self._score_kwargs())
+
+    def _action_check_scores_detailed(self, player: Player, action_id: str) -> None:
+        user = self.get_user(player)
+        if not user:
+            return
+        self.status_box(
+            player,
+            [
+                Localization.get(
+                    user.locale,
+                    "senet-score",
+                    **self._score_kwargs(),
+                )
+            ],
         )
 
     # ======================================================================
-    # Score actions: Senet uses its own status/score info actions.
+    # Score actions: Senet uses standard score action IDs with custom output.
     # ======================================================================
 
     def supports_score_actions(self) -> bool:
         return False
+
+    def _is_check_scores_enabled(self, player: Player) -> str | None:
+        return self._is_info_enabled(player)
+
+    def _is_check_scores_detailed_enabled(self, player: Player) -> str | None:
+        return self._is_info_enabled(player)
+
+    def _is_check_scores_hidden(self, player: Player) -> Visibility:
+        user = self.get_user(player)
+        if self.status == "playing" and self.is_touch_client(user):
+            return Visibility.VISIBLE
+        return super()._is_check_scores_hidden(player)
 
     # ======================================================================
     # Leave handling

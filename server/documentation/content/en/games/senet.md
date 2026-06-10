@@ -90,6 +90,7 @@ The first player to bear off all five of their pieces wins the game.
 \* \*\*E:\*\* Read game status — pieces borne off, the current phase, and the current roll.
 \* \*\*C:\*\* Read the result of the current stick throw.
 \* \*\*S:\*\* Read the score, the count of pieces each player has borne off.
+\* \*\*Shift+S:\*\* Open the detailed score view.
 \* \*\*T:\*\* Check whose turn it is.
 
 \*\*Strategy Tips\*\*

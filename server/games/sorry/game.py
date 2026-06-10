@@ -1071,14 +1071,24 @@ class SorryGame(Game):
                 pawn=pawn_index,
             )
 
-    def _apply_selected_move(self, player: Player, move: SorryMove, card_face: str) -> None:
+    def _apply_selected_move(
+        self,
+        player: Player,
+        move: SorryMove,
+        card_face: str,
+        *,
+        focus_after_move: bool = False,
+    ) -> None:
         player_state = self._get_player_state(player)
         if player_state is None:
             return
         captures = apply_move(self.game_state, player_state, move, self._get_rules_profile())
         self._sync_player_counts()
         self.game_state.turn_phase = "resolving"
-        self.rebuild_all_menus(focus="draw_card", focus_player=player)
+        if focus_after_move:
+            self.rebuild_all_menus(focus="draw_card", focus_player=player)
+        else:
+            self.rebuild_all_menus()
         self.start_sequence(
             "turn_flow",
             self._build_move_sequence(player, move, card_face, captures),
@@ -1106,14 +1116,25 @@ class SorryGame(Game):
         discard_current_card(self.game_state)
         self._end_turn_after_card(card_face)
 
-    def _enter_choose_split(self, player: Player, move: SorryMove) -> None:
+    def _enter_choose_split(
+        self,
+        player: Player,
+        move: SorryMove,
+        *,
+        focus_after_auto_apply: bool = False,
+    ) -> None:
         self.game_state.turn_phase = "choose_split"
         self.game_state.split_pawn_a = move.pawn_index
         self.game_state.split_pawn_b = move.secondary_pawn_index
         options = self._get_current_split_options(player)
         if len(options) == 1 and self.options.auto_apply_single_move:
             card_face = self.game_state.current_card or "0"
-            self._apply_selected_move(player, options[0], card_face)
+            self._apply_selected_move(
+                player,
+                options[0],
+                card_face,
+                focus_after_move=focus_after_auto_apply,
+            )
             return
         user = self.get_user(player)
         if user:
@@ -1219,10 +1240,15 @@ class SorryGame(Game):
         move = active_moves[slot - 1]
 
         if move.move_type == "split7_pick":
-            self._enter_choose_split(player, move)
+            self._enter_choose_split(player, move, focus_after_auto_apply=True)
             return
 
-        self._apply_selected_move(player, move, self.game_state.current_card or "0")
+        self._apply_selected_move(
+            player,
+            move,
+            self.game_state.current_card or "0",
+            focus_after_move=True,
+        )
 
     def _action_check_board(self, player: Player, action_id: str) -> None:
         _ = action_id

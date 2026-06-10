@@ -354,6 +354,52 @@ def test_draw_announcement_waits_for_audio_queue() -> None:
     assert user.menus["turn_menu"]["selection_id"] == "move_slot_1"
 
 
+def test_auto_move_after_draw_does_not_focus_draw_card() -> None:
+    game = make_game(start=True)
+    player = game.players[0]
+    user = game.get_user(player)
+    assert user is not None
+    player_state = game.game_state.player_states[player.id]
+    player_state.pawns[0].zone = "track"
+    player_state.pawns[0].track_position = 5
+    game.game_state.draw_pile = ["3"]
+
+    game._action_draw_card(player, "draw_card")
+
+    assert advance_until(
+        game,
+        lambda: player_state.pawns[0].zone == "track"
+        and player_state.pawns[0].track_position == 8,
+        max_ticks=30,
+    )
+    assert game.active_sequences
+    assert user.menus["turn_menu"]["selection_id"] is None
+
+    assert advance_until(
+        game,
+        lambda: not game.active_sequences and game.current_player != player,
+        max_ticks=120,
+    )
+    assert user.menus["turn_menu"]["selection_id"] is None
+
+
+def test_no_move_after_draw_does_not_focus_draw_card() -> None:
+    game = make_game(start=True)
+    player = game.players[0]
+    user = game.get_user(player)
+    assert user is not None
+    game.game_state.draw_pile = ["3"]
+
+    game._action_draw_card(player, "draw_card")
+
+    assert advance_until(
+        game,
+        lambda: not game.active_sequences and game.current_player != player,
+        max_ticks=60,
+    )
+    assert user.menus["turn_menu"]["selection_id"] is None
+
+
 def test_selecting_move_focuses_draw_card() -> None:
     game = make_game(start=True)
     player = game.players[0]

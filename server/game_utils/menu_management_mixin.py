@@ -74,6 +74,33 @@ class MenuManagementMixin:
         - self.get_all_visible_actions(player) -> list[ResolvedAction]
     """
 
+    def __init_subclass__(cls, **kwargs) -> None:
+        super().__init_subclass__(**kwargs)
+        for name in SEALED_MENU_ORCHESTRATORS:
+            if name in cls.__dict__:
+                raise TypeError(
+                    f"{cls.__module__}.{cls.__qualname__} overrides {name}(), "
+                    "which is a sealed menu orchestrator.\n"
+                    "The orchestrators own the focus-steal guards (status "
+                    "boxes, actions menus, global system menus, pending "
+                    "inputs), bot/finished/destroyed handling, and focus "
+                    "scoping. Per-game overrides of them repeatedly "
+                    "reintroduced focus-stealing and menu-clobbering bugs "
+                    "(see CLAUDE.md, 'Menu Focus on Refresh and Turn "
+                    "Transitions').\n"
+                    "Customize through a sanctioned hook instead:\n"
+                    "  - before_menu_build(player): sync dynamic action sets "
+                    "before any menu paint\n"
+                    "  - build_menu_items(player, user): supply custom "
+                    "MenuItem lists / grid layouts\n"
+                    "  - request_menu_focus(player, action_id): land focus "
+                    "on an item at the next full rebuild\n"
+                    "  - defer_next_rebuild_to_update(): keep a delayed full "
+                    "repaint focus-preserving\n"
+                    "See server/game_utils/menu_management_mixin.py for the "
+                    "hook contracts."
+                )
+
     # ------------------------------------------------------------------
     # Hooks (override these in games; never the orchestrators below)
     # ------------------------------------------------------------------
@@ -123,11 +150,11 @@ class MenuManagementMixin:
     def request_menu_focus(self, player: "Player", action_id: str) -> None:
         """Land the cursor on ``action_id`` at the next full-table rebuild.
 
-        The intent is per-player, survives until the next
+        The intent is per-player and used-or-discarded at the next
         ``rebuild_all_menus()`` (including one triggered later by the
-        sequence runner), and is consumed exactly once — so a delayed repaint
-        cannot produce a second screen-reader jump. An explicit ``focus``
-        argument passed to ``rebuild_all_menus`` takes precedence.
+        sequence runner): it is consumed at most once, so a delayed repaint
+        cannot produce a second screen-reader jump, and an explicit ``focus``
+        argument passed to ``rebuild_all_menus`` supersedes it entirely.
         """
         self._pending_menu_focus[player.id] = action_id
 
@@ -246,6 +273,10 @@ class MenuManagementMixin:
             return
 
         for player in self.players:
+            # A pending focus intent is used-or-discarded at every full
+            # rebuild: an explicit focus supersedes it, and it never survives
+            # to a later rebuild where it could cause a stale cursor jump.
+            pending_focus = self._pending_menu_focus.pop(player.id, None)
             player_focus = (
                 focus
                 if focus is not None
@@ -253,15 +284,8 @@ class MenuManagementMixin:
                 else None
             )
             if player_focus is None:
-                player_focus = self._pending_menu_focus.pop(player.id, None)
-            # Only forward focus when set: games that still override
-            # rebuild_player_menu with a (self, player) signature would break
-            # on an unconditional focus= kwarg. This goes away once the
-            # sealing tripwire guarantees no overrides exist.
-            if player_focus is None:
-                self.rebuild_player_menu(player)
-            else:
-                self.rebuild_player_menu(player, focus=player_focus)
+                player_focus = pending_focus
+            self.rebuild_player_menu(player, focus=player_focus)
 
     def update_player_menu(
         self, player: "Player", selection_id: str | None = None

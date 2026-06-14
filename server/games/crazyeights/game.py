@@ -34,6 +34,14 @@ TURN_TIMER_LABELS = {
     "0": "crazyeights-timer-unlimited",
 }
 
+WILD_TRANSITION_TICKS = 15
+SUIT_ACTIONS = (
+    ("suit_clubs", 2),
+    ("suit_diamonds", 1),
+    ("suit_hearts", 3),
+    ("suit_spades", 4),
+)
+
 
 @dataclass
 class CrazyEightsOptions(GameOptions):
@@ -413,6 +421,8 @@ class CrazyEightsGame(Game, TurnTimerMixin):
         turn_set.remove_by_prefix("play_card_")
         turn_set.remove("draw")
         turn_set.remove("pass")
+        for action_id, _ in SUIT_ACTIONS:
+            turn_set.remove(action_id)
         if self.status != "playing" or player.is_spectator:
             return
         if self.hand_wait_ticks > 0 or self.intro_wait_ticks > 0:
@@ -432,6 +442,17 @@ class CrazyEightsGame(Game, TurnTimerMixin):
                     is_enabled="_is_play_card_enabled",
                     is_hidden="_is_play_card_hidden",
                     get_label="_get_card_label",
+                    show_in_actions_menu=False,
+                )
+            )
+        for action_id, suit in SUIT_ACTIONS:
+            turn_set.add(
+                Action(
+                    id=action_id,
+                    label=self._suit_name(suit, self._player_locale(player)),
+                    handler="_action_choose_suit",
+                    is_enabled="_is_suit_choice_enabled",
+                    is_hidden="_is_suit_choice_hidden",
                     show_in_actions_menu=False,
                 )
             )
@@ -520,18 +541,21 @@ class CrazyEightsGame(Game, TurnTimerMixin):
         self.broadcast_l("crazyeights-new-hand", buffer="game", round=self.round)
         self.play_sound("game_crazyeights/newhand.ogg")
 
-        # Deal new deck
-        self.deck, _ = DeckFactory.standard_deck(num_decks=2)
+        active_players = [p for p in self.players if not p.is_spectator]
+
+        # Standard Crazy Eights uses one deck through five players, then two.
+        self.deck, _ = DeckFactory.standard_deck(
+            num_decks=self._deck_count(len(active_players))
+        )
         self.discard_pile = []
         self.current_suit = None
 
-        active_players = [p for p in self.players if not p.is_spectator]
         self.set_turn_players(active_players, reset_index=False)
         for p in active_players:
             p.hand = []
 
-        # Deal 7 cards to each
-        for _ in range(7):
+        cards_per_player = self._cards_per_player(len(active_players))
+        for _ in range(cards_per_player):
             for p in active_players:
                 card = self.deck.draw_one()
                 if card:
@@ -551,8 +575,16 @@ class CrazyEightsGame(Game, TurnTimerMixin):
             self.discard_pile.append(start_card)
             self.current_suit = start_card.suit
             self._broadcast_start_card()
-            self.broadcast_l("crazyeights-dealt-cards", buffer="game", cards=7)
+            self.broadcast_l(
+                "crazyeights-dealt-cards", buffer="game", cards=cards_per_player
+            )
         self._start_turn()
+
+    def _cards_per_player(self, player_count: int) -> int:
+        return 7 if player_count == 2 else 5
+
+    def _deck_count(self, player_count: int) -> int:
+        return 2 if player_count > 5 else 1
 
     def _draw_start_card(self) -> Card | None:
         while True:
@@ -623,6 +655,15 @@ class CrazyEightsGame(Game, TurnTimerMixin):
         if not card:
             return
         if not self._is_card_playable(card):
+            user = self.get_user(p)
+            if user:
+                user.speak_l(
+                    "crazyeights-error-card-not-playable",
+                    buffer="game",
+                    card=self.format_card(card, user.locale),
+                    top=self.format_top_card(user.locale),
+                    suit=self._suit_name(self.current_suit or card.suit, user.locale),
+                )
             return
 
         p.hand.remove(card)
@@ -640,7 +681,7 @@ class CrazyEightsGame(Game, TurnTimerMixin):
                 return
             self.awaiting_wild_suit = True
             self.start_turn_timer()  # reset timer for suit selection
-            self.refresh_menus()
+            self.request_menu_focus(p, "suit_clubs")
             if p.is_bot:
                 BotHelper.jolt_bot(p, ticks=random.randint(20, 30))
             return
@@ -746,14 +787,14 @@ class CrazyEightsGame(Game, TurnTimerMixin):
         self.current_suit = suit
         self.awaiting_wild_suit = False
         self.play_sound("game_crazyeights/morf.ogg")
-        self.schedule_sound(self._suit_sound(suit), delay_ticks=15)
-        self._broadcast_suit_chosen(suit)
+        self.schedule_sound(self._suit_sound(suit), delay_ticks=WILD_TRANSITION_TICKS)
+        self._broadcast_suit_chosen(p, suit)
         if p.is_bot:
             BotHelper.jolt_bot(p, ticks=random.randint(20, 30))
 
         self.timer.clear()
-        self.wild_wait_ticks = 15
-        self.refresh_menus()
+        self.wild_wait_ticks = WILD_TRANSITION_TICKS
+        self.refresh_menus(p)
         return
 
     def _action_read_top(self, player: Player, action_id: str) -> None:
@@ -772,7 +813,14 @@ class CrazyEightsGame(Game, TurnTimerMixin):
             if p.is_spectator:
                 continue
             if isinstance(p, CrazyEightsPlayer):
-                parts.append(f"{p.name} {len(p.hand)}")
+                parts.append(
+                    Localization.get(
+                        locale,
+                        "crazyeights-count-entry",
+                        player=p.name,
+                        count=len(p.hand),
+                    )
+                )
         deck_count = self.deck.size()
         if deck_count > 0:
             parts.append(Localization.get(locale, "crazyeights-deck-count", count=deck_count))
@@ -810,7 +858,7 @@ class CrazyEightsGame(Game, TurnTimerMixin):
         if self.current_player != player:
             return "action-not-your-turn"
         if self.wild_wait_ticks > 0:
-            return "action-not-available"
+            return "crazyeights-error-wild-transition"
         if self.hand_wait_ticks > 0:
             return "action-wait-for-hand"
         if self.intro_wait_ticks > 0:
@@ -831,10 +879,9 @@ class CrazyEightsGame(Game, TurnTimerMixin):
         return Visibility.VISIBLE
 
     def _is_play_card_enabled(self, player: Player, *, action_id: str | None = None) -> str | None:
-        if self.status != "playing":
-            return "action-not-playing"
-        if player.is_spectator:
-            return "action-spectator"
+        block_reason = self._get_play_card_block_reason(player)
+        if block_reason is not None:
+            return block_reason
         return None
 
     def _is_play_card_hidden(self, player: Player, *, action_id: str | None = None) -> Visibility:
@@ -857,7 +904,7 @@ class CrazyEightsGame(Game, TurnTimerMixin):
 
     def _is_draw_enabled(self, player: Player) -> str | None:
         if self.awaiting_wild_suit:
-            return "action-not-available"
+            return "crazyeights-error-choose-suit-first"
         if self._is_turn_action_enabled(player) is not None:
             return self._is_turn_action_enabled(player)
         if not isinstance(player, CrazyEightsPlayer):
@@ -879,7 +926,7 @@ class CrazyEightsGame(Game, TurnTimerMixin):
 
     def _is_pass_enabled(self, player: Player) -> str | None:
         if self.awaiting_wild_suit:
-            return "action-not-available"
+            return "crazyeights-error-choose-suit-first"
         if self._is_turn_action_enabled(player) is not None:
             return self._is_turn_action_enabled(player)
         if isinstance(player, CrazyEightsPlayer) and self._has_playable_cards(player):
@@ -950,18 +997,12 @@ class CrazyEightsGame(Game, TurnTimerMixin):
         return super()._is_check_scores_hidden(player)
 
     def _is_read_top_enabled(self, player: Player) -> str | None:
-        if self.awaiting_wild_suit:
-            return "action-not-available"
         return self._is_check_enabled(player)
 
     def _is_check_scores_enabled(self, player: Player) -> str | None:
-        if self.awaiting_wild_suit:
-            return "action-not-available"
         return super()._is_check_scores_enabled(player)
 
     def _is_check_scores_detailed_enabled(self, player: Player) -> str | None:
-        if self.awaiting_wild_suit:
-            return "action-not-available"
         return super()._is_check_scores_detailed_enabled(player)
 
     def _is_suit_choice_hidden(self, player: Player) -> Visibility:
@@ -1026,8 +1067,10 @@ class CrazyEightsGame(Game, TurnTimerMixin):
             return "action-spectator"
         if self.current_player != player:
             return "action-not-your-turn"
-        if self._is_wild_transition_locked():
-            return "action-not-available"
+        if self.awaiting_wild_suit:
+            return "crazyeights-error-choose-suit-first"
+        if self.wild_wait_ticks > 0:
+            return "crazyeights-error-wild-transition"
         if self.hand_wait_ticks > 0:
             return "action-wait-for-hand"
         if self.intro_wait_ticks > 0:
@@ -1213,7 +1256,7 @@ class CrazyEightsGame(Game, TurnTimerMixin):
             if card.rank == 8:
                 total += 50
             elif card.rank in (11, 12, 13):
-                total += 20
+                total += 10
             elif card.rank == 1:
                 total += 1
             else:
@@ -1244,13 +1287,21 @@ class CrazyEightsGame(Game, TurnTimerMixin):
                 if points_parts
                 else Localization.get(user.locale, "crazyeights-round-details-none")
             )
-            user.speak_l(
-                "crazyeights-round-summary",
-                buffer="game",
-                player=winner.name,
-                details=details,
-                total=total,
-            )
+            if p.id == winner.id:
+                user.speak_l(
+                    "crazyeights-round-summary-you",
+                    buffer="game",
+                    details=details,
+                    total=total,
+                )
+            else:
+                user.speak_l(
+                    "crazyeights-round-summary",
+                    buffer="game",
+                    player=winner.name,
+                    details=details,
+                    total=total,
+                )
 
     def _broadcast_start_card(self) -> None:
         dealer = (
@@ -1263,47 +1314,88 @@ class CrazyEightsGame(Game, TurnTimerMixin):
             user = self.get_user(p)
             if not user:
                 continue
-            user.speak_l(
-                "crazyeights-start-card",
-                buffer="game",
-                player=dealer_name,
-                card=self.format_top_card(user.locale),
-            )
+            if dealer and p.id == dealer.id:
+                user.speak_l(
+                    "crazyeights-start-card-you",
+                    buffer="game",
+                    card=self.format_top_card(user.locale),
+                )
+            else:
+                user.speak_l(
+                    "crazyeights-start-card",
+                    buffer="game",
+                    player=dealer_name,
+                    card=self.format_top_card(user.locale),
+                )
 
-    def _broadcast_suit_chosen(self, suit: int) -> None:
+    def _broadcast_suit_chosen(self, player: CrazyEightsPlayer, suit: int) -> None:
         for p in self.players:
             user = self.get_user(p)
             if not user:
                 continue
             suit_name = self._suit_name(suit, user.locale)
-            user.speak_l("crazyeights-suit-chosen", buffer="game", suit=suit_name)
+            if p.id == player.id:
+                user.speak_l(
+                    "crazyeights-you-choose-suit", buffer="game", suit=suit_name
+                )
+            else:
+                user.speak_l(
+                    "crazyeights-player-chooses-suit",
+                    buffer="game",
+                    player=player.name,
+                    suit=suit_name,
+                )
 
     def _broadcast_play(self, player: CrazyEightsPlayer, card: Card) -> None:
         for p in self.players:
             user = self.get_user(p)
             if not user:
                 continue
-            user.speak_l(
-                "crazyeights-player-plays",
-                buffer="game",
-                player=player.name,
-                card=self.format_card(card, user.locale),
-            )
+            if p.id == player.id:
+                user.speak_l(
+                    "crazyeights-you-play",
+                    buffer="game",
+                    card=self.format_card(card, user.locale),
+                )
+            else:
+                user.speak_l(
+                    "crazyeights-player-plays",
+                    buffer="game",
+                    player=player.name,
+                    card=self.format_card(card, user.locale),
+                )
 
     def _broadcast_draw(self, player: CrazyEightsPlayer, count: int) -> None:
-        key = "crazyeights-player-draws-one" if count == 1 else "crazyeights-player-draws-many"
         for p in self.players:
             user = self.get_user(p)
             if not user:
                 continue
-            user.speak_l(key, buffer="game", player=player.name, count=count)
+            if p.id == player.id:
+                key = (
+                    "crazyeights-you-draw-one"
+                    if count == 1
+                    else "crazyeights-you-draw-many"
+                )
+                user.speak_l(key, buffer="game", count=count)
+            else:
+                key = (
+                    "crazyeights-player-draws-one"
+                    if count == 1
+                    else "crazyeights-player-draws-many"
+                )
+                user.speak_l(key, buffer="game", player=player.name, count=count)
 
     def _broadcast_pass(self, player: CrazyEightsPlayer) -> None:
         for p in self.players:
             user = self.get_user(p)
             if not user:
                 continue
-            user.speak_l("crazyeights-player-passes", buffer="game", player=player.name)
+            if p.id == player.id:
+                user.speak_l("crazyeights-you-pass", buffer="game")
+            else:
+                user.speak_l(
+                    "crazyeights-player-passes", buffer="game", player=player.name
+                )
 
     def _play_round_end_sounds(
         self,
@@ -1330,7 +1422,21 @@ class CrazyEightsGame(Game, TurnTimerMixin):
 
     def _end_game(self, winner: CrazyEightsPlayer) -> None:
         self.play_sound("game_crazyeights/hitmark.ogg")
-        self.broadcast_l("crazyeights-game-winner", buffer="game", player=winner.name, score=winner.score)
+        for p in self.players:
+            user = self.get_user(p)
+            if not user:
+                continue
+            if p.id == winner.id:
+                user.speak_l(
+                    "crazyeights-game-winner-you", buffer="game", score=winner.score
+                )
+            else:
+                user.speak_l(
+                    "crazyeights-game-winner",
+                    buffer="game",
+                    player=winner.name,
+                    score=winner.score,
+                )
         # Call finish_game() to show results to everyone
         self.finish_game()
 
@@ -1389,9 +1495,9 @@ class CrazyEightsGame(Game, TurnTimerMixin):
         if card.rank == 8:
             sound = "game_crazyeights/discwild.ogg"
         elif card.rank == 11:
-            sound = "game_crazyeights/discskip.ogg"
-        elif card.rank == 12:
             sound = "game_crazyeights/discrev.ogg"
+        elif card.rank == 12:
+            sound = "game_crazyeights/discskip.ogg"
         elif card.rank == 13:
             sound = "game_crazyeights/discdraw.ogg"
         

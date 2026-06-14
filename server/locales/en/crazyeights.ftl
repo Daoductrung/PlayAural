@@ -12,10 +12,12 @@ crazyeights-draw = Draw
 crazyeights-pass = Pass
 crazyeights-read-top = Read top card
 crazyeights-read-counts = Read card counts
+crazyeights-count-entry = { $player }: { $count }
 crazyeights-deck-count = deck { $count }
 crazyeights-game-blocked = The game is blocked! No one can play.
 
 crazyeights-new-hand = Round { $round }.
+crazyeights-start-card-you = You turn up { $card }.
 crazyeights-start-card = { $player } turns up { $card }.
 crazyeights-wild-played = { $player } played a Wild 8.
 
@@ -29,19 +31,31 @@ crazyeights-skip = Skip of { $suit }
 crazyeights-draw-two = Draw Two of { $suit }
 
 crazyeights-suit-chosen = Suit is now { $suit }.
+crazyeights-you-choose-suit = You choose { $suit }. The next player must follow that suit or play another Wild 8.
+crazyeights-player-chooses-suit = { $player } chooses { $suit }. The next player must follow that suit or play another Wild 8.
 
-crazyeights-round-summary = { $player } wins. { $details }. { $player } gains { $total }.
+crazyeights-round-summary = { $player } wins the round. { $details }. { $player } gains { $total } points.
+crazyeights-round-summary-you = You win the round. { $details }. You gain { $total } points.
 crazyeights-round-details-none = No points were taken from opponents.
 crazyeights-round-winner = { $player } wins { $points } points. { $detail }
 crazyeights-round-points-from = { $points } from { $player }
 crazyeights-dealt-cards = Everyone is dealt in with { $cards } cards.
 
-crazyeights-game-winner = { $player } wins with { $score } points.
+crazyeights-game-winner = { $player } wins the game with { $score } points.
+crazyeights-game-winner-you = You win the game with { $score } points.
 
+crazyeights-you-play = You play { $card }.
 crazyeights-player-plays = { $player } plays { $card }.
+crazyeights-you-draw-one = You draw a card.
+crazyeights-you-draw-many = You draw { $count } cards.
 crazyeights-player-draws-one = { $player } draws a card.
 crazyeights-player-draws-many = { $player } draws { $count } cards.
+crazyeights-you-pass = You pass.
 crazyeights-player-passes = { $player } passes.
+
+crazyeights-error-choose-suit-first = Choose a suit for the Wild 8 before taking another action.
+crazyeights-error-wild-transition = Wait for the chosen suit to take effect before playing another card.
+crazyeights-error-card-not-playable = You cannot play { $card }. The top card is { $top }, and the active suit is { $suit }; play that suit, match the rank, or play a Wild 8.
 
 crazyeights-line-format = { $rank }. { $player }: { $score }
 

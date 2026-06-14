@@ -14,7 +14,7 @@ Players take turns matching the top card of the discard pile by suit or rank, us
 
 
 
-The game supports 2 to 8 players and uses two standard 52-card decks shuffled together. Each round, every player is dealt 5 cards, and a starting card is turned face-up from the deck to begin the discard pile. This starting card will always be a numbered card (never a wild or face card).
+The game supports 2 to 8 players. It uses one standard 52-card deck for up to 5 players and two decks for larger tables. Each round, 2-player games deal 7 cards to each player; games with 3 or more players deal 5 cards each. A starting card is turned face-up from the deck to begin the discard pile. This starting card will always be a numbered card (never a wild or face card).
 
 
 
@@ -28,11 +28,11 @@ On your turn, you must play a card from your hand that matches either the suit o
 
 \* \*\*Wild 8:\*\* Eights can be played on top of anything, at any time. When you play a Wild 8, you choose the suit that the next player must follow.
 
-\* \*\*Skip:\*\* Skips the next player's turn entirely.
+\* \*\*Queen (Skip):\*\* Skips the next player's turn entirely.
 
-\* \*\*Reverse:\*\* Reverses the direction of play. In a two-player game, it simply skips the other player.
+\* \*\*Jack (Reverse):\*\* Reverses the direction of play. In a two-player game, it simply skips the other player.
 
-\* \*\*Draw Two:\*\* Forces the next player to draw 2 cards and lose their turn.
+\* \*\*King (Draw Two):\*\* Forces the next player to draw 2 cards and lose their turn.
 
 
 
@@ -52,7 +52,7 @@ When a player empties their hand, they score points based on the cards remaining
 
 \* \*\*8's (Wild):\*\* 50 points each
 
-\* \*\*Skips, Reverses, and Draw Twos:\*\* 20 points each
+\* \*\*Jacks, Queens, and Kings:\*\* 10 points each
 
 \* \*\*Aces:\*\* 1 point each
 

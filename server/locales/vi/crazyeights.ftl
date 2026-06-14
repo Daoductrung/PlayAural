@@ -12,10 +12,12 @@ crazyeights-draw = Rút bài
 crazyeights-pass = Bỏ lượt
 crazyeights-read-top = Đọc lá bài trên cùng
 crazyeights-read-counts = Đọc số lượng bài
+crazyeights-count-entry = { $player }: { $count } lá
 crazyeights-deck-count = bộ bài { $count }
 crazyeights-game-blocked = Trò chơi bị chặn! Không ai có thể đánh tiếp.
 
 crazyeights-new-hand = Vòng { $round }.
+crazyeights-start-card-you = Bạn lật lá { $card }.
 crazyeights-start-card = { $player } lật lá { $card }.
 crazyeights-wild-played = { $player } đánh lá 8 Đổi màu.
 
@@ -29,19 +31,31 @@ crazyeights-skip = Mất lượt { $suit }
 crazyeights-draw-two = Rút Hai { $suit }
 
 crazyeights-suit-chosen = Chất bài bây giờ là { $suit }.
+crazyeights-you-choose-suit = Bạn chọn { $suit }. Người kế tiếp phải theo chất này hoặc đánh một lá 8 Đổi màu khác.
+crazyeights-player-chooses-suit = { $player } chọn { $suit }. Người kế tiếp phải theo chất này hoặc đánh một lá 8 Đổi màu khác.
 
-crazyeights-round-summary = { $player } thắng. { $details }. { $player } nhận được { $total }.
+crazyeights-round-summary = { $player } thắng vòng này. { $details }. { $player } nhận được { $total } điểm.
+crazyeights-round-summary-you = Bạn thắng vòng này. { $details }. Bạn nhận được { $total } điểm.
 crazyeights-round-details-none = Không lấy được điểm nào từ đối thủ.
 crazyeights-round-winner = { $player } thắng { $points } điểm. { $detail }
 crazyeights-round-points-from = { $points } từ { $player }
 crazyeights-dealt-cards = Mỗi người được chia { $cards } lá bài.
 
-crazyeights-game-winner = { $player } chiến thắng với { $score } điểm.
+crazyeights-game-winner = { $player } thắng cả ván với { $score } điểm.
+crazyeights-game-winner-you = Bạn thắng cả ván với { $score } điểm.
 
+crazyeights-you-play = Bạn đánh { $card }.
 crazyeights-player-plays = { $player } đánh { $card }.
+crazyeights-you-draw-one = Bạn rút một lá bài.
+crazyeights-you-draw-many = Bạn rút { $count } lá bài.
 crazyeights-player-draws-one = { $player } rút một lá bài.
 crazyeights-player-draws-many = { $player } rút { $count } lá bài.
+crazyeights-you-pass = Bạn bỏ lượt.
 crazyeights-player-passes = { $player } bỏ lượt.
+
+crazyeights-error-choose-suit-first = Hãy chọn chất cho lá 8 Đổi màu trước khi làm hành động khác.
+crazyeights-error-wild-transition = Hãy chờ chất vừa chọn có hiệu lực rồi mới đánh lá tiếp theo.
+crazyeights-error-card-not-playable = Bạn không thể đánh { $card }. Lá trên cùng là { $top }, chất hiện tại là { $suit }; hãy đánh đúng chất, đúng hạng, hoặc đánh một lá 8 Đổi màu.
 
 crazyeights-line-format = { $rank }. { $player }: { $score }
 

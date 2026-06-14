@@ -325,6 +325,62 @@ def test_targeted_draw_lock_only_locks_chosen_opponent() -> None:
     assert game._draws_locked_for(p1) is False
 
 
+def test_single_target_card_prompts_then_hits_chosen_opponent() -> None:
+    from ..games.twentyone.game import MODIFIER_RAISE_2
+
+    game, players = make_started_game_n(3)
+    p0, p1, p2 = players
+    base = game.options.base_bet
+    p0.modifiers = [MODIFIER_RAISE_2]
+    game.turn_index = 0  # p0 to act
+
+    # Play the card: with two opponents this should stash and prompt, not resolve.
+    options = game._options_for_play_modifier(p0)
+    game._action_play_modifier(p0, options[0], "play_modifier")
+    assert p0.id in game.pending_target_modifier
+    assert MODIFIER_RAISE_2 in p0.modifiers  # not spent yet
+
+    # Choose p2 as the target.
+    game._action_select_target(p0, p2.id, "select_target")
+    assert p0.id not in game.pending_target_modifier
+    # raise_2 lands on p2 only (raise grants a reward card, so just check the bet).
+    assert game._current_bet(p2) == base + 2
+    assert game._current_bet(p1) == base
+
+
+def test_single_target_card_skips_prompt_with_one_opponent() -> None:
+    from ..games.twentyone.game import MODIFIER_RAISE_2
+
+    game, _, _ = make_started_game()
+    alice, bob = game.players
+    alice.modifiers = [MODIFIER_RAISE_2]
+    base = game.options.base_bet
+
+    options = game._options_for_play_modifier(alice)
+    game._action_play_modifier(alice, options[0], "play_modifier")
+
+    # Only one opponent: resolves immediately, no pending target prompt.
+    assert alice.id not in game.pending_target_modifier
+    assert MODIFIER_RAISE_2 not in alice.modifiers  # spent
+    assert game._current_bet(bob) == base + 2
+
+
+def test_select_target_cancel_keeps_card() -> None:
+    from ..games.twentyone.game import MODIFIER_RAISE_2
+
+    game, players = make_started_game_n(3)
+    p0 = players[0]
+    p0.modifiers = [MODIFIER_RAISE_2]
+    game.turn_index = 0
+
+    options = game._options_for_play_modifier(p0)
+    game._action_play_modifier(p0, options[0], "play_modifier")
+    game._action_select_target(p0, "_cancel", "select_target")
+
+    assert p0.id not in game.pending_target_modifier
+    assert p0.modifiers == [MODIFIER_RAISE_2]  # card not spent on cancel
+
+
 def test_table_effect_lists_stay_in_sync_on_expiry() -> None:
     from ..games.twentyone.game import MODIFIER_GUARD, TABLE_EFFECT_LIMIT
 

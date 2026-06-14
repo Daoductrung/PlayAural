@@ -225,6 +225,22 @@ TARGETED_TABLE_EFFECTS = {
     MODIFIER_MIND_TAX_PLUS,
 }
 
+# One-shot change cards that act on a single chosen opponent (resolve
+# immediately, no lasting table effect).
+ONE_SHOT_TARGET_MODIFIERS = {
+    MODIFIER_SCRAP,
+    MODIFIER_SWAP_DRAW,
+    MODIFIER_HEX_DRAW,
+    MODIFIER_AID_RIVAL,
+    MODIFIER_BREAK,
+    MODIFIER_BREAK_PLUS,
+}
+
+# Every change card whose effect lands on one chosen opponent. With 3+ players
+# these prompt the actor to pick a target; with a single opponent the choice is
+# implicit and no prompt is shown.
+SINGLE_TARGET_MODIFIERS = TARGETED_TABLE_EFFECTS | ONE_SHOT_TARGET_MODIFIERS
+
 TABLE_EFFECT_LIMIT = 5
 LocalizedArgsFactory = Callable[[str], dict[str, object]]
 CardAnnouncement = tuple[str, str, LocalizedArgsFactory]
@@ -379,6 +395,9 @@ class TwentyOneGame(ActionGuardMixin, Game):
     pending_round_winner_ids: tuple[str, ...] = ()
     pending_round_target: int = 21
     modifier_used_since_last_stand_resolution: bool = False
+    # When a single-target card is awaiting its target pick, the index of that
+    # card in the actor's hand is stashed here (per player id).
+    pending_target_modifier: dict[str, int] = field(default_factory=dict)
 
     @classmethod
     def get_name(cls) -> str:
@@ -544,6 +563,22 @@ class TwentyOneGame(ActionGuardMixin, Game):
                     prompt="twentyone-select-change-card",
                     options="_options_for_play_modifier",
                     bot_select="_bot_select_play_modifier",
+                ),
+                show_in_actions_menu=False,
+            )
+        )
+        action_set.add(
+            Action(
+                id="select_target",
+                label=Localization.get(locale, "twentyone-select-target"),
+                handler="_action_select_target",
+                is_enabled="_is_select_target_enabled",
+                is_hidden="_is_select_target_hidden",
+                input_request=MenuInput(
+                    prompt="twentyone-select-target-prompt",
+                    options="_target_options",
+                    bot_select="_bot_select_target",
+                    option_label="_target_option_label",
                 ),
                 show_in_actions_menu=False,
             )
@@ -929,14 +964,123 @@ class TwentyOneGame(ActionGuardMixin, Game):
             self._play_sound_for_player(p, SOUND_ACTION_FAIL)
             self._speak_unplayable_modifier(p, modifier)
             return
-        p.modifiers.pop(choice_index)
 
-        opponent = self._opponent_of(p)
+        # Single-target cards need a target when more than one opponent exists.
+        # Stash the chosen card and prompt for the target instead of resolving.
+        opponents = self._opponents_of(p)
+        if modifier in SINGLE_TARGET_MODIFIERS and len(opponents) > 1:
+            self.pending_target_modifier[p.id] = choice_index
+            self._request_select_target(p)
+            return
+
+        # Otherwise resolve now against the sole opponent (or no target).
+        p.modifiers.pop(choice_index)
+        self._resolve_played_modifier(p, modifier, opponents[0] if opponents else None)
+
+    def _request_select_target(self, player: TwentyOnePlayer) -> None:
+        """Prompt the actor to choose which opponent a stashed card hits."""
+        if player.is_bot:
+            options = self._target_options(player)
+            chosen = self._bot_select_target(player, options) if options else None
+            self._action_select_target(
+                player, chosen if chosen is not None else "", "select_target"
+            )
+            return
+        action = self.find_action(player, "select_target")
+        if action:
+            self._request_action_input(action, player)
+
+    def _action_select_target(
+        self, player: Player, selected: str, action_id: str
+    ) -> None:
+        p = player if isinstance(player, TwentyOnePlayer) else None
+        if not p:
+            return
+        choice_index = self.pending_target_modifier.pop(p.id, None)
+        if choice_index is None:
+            return
+        if selected == "_cancel" or not selected:
+            # Player backed out; the card was never spent, so just refresh.
+            self.refresh_menus()
+            return
+        if choice_index < 0 or choice_index >= len(p.modifiers):
+            self.refresh_menus()
+            return
+
+        target = self.get_player_by_id(self._extract_target_id(selected))
+        if not isinstance(target, TwentyOnePlayer):
+            self.refresh_menus()
+            return
+
+        modifier = p.modifiers.pop(choice_index)
+        self._resolve_played_modifier(p, modifier, target)
+
+    def _is_select_target_enabled(self, player: Player) -> str | None:
+        if player.id not in self.pending_target_modifier:
+            return "action-not-available"
+        return None
+
+    def _is_select_target_hidden(self, player: Player) -> Visibility:
+        if player.id in self.pending_target_modifier:
+            return Visibility.VISIBLE
+        return Visibility.HIDDEN
+
+    def _target_options(self, player: Player) -> list[str]:
+        p = player if isinstance(player, TwentyOnePlayer) else None
+        if not p:
+            return []
+        # Option VALUES are raw opponent ids; the menu shows _target_option_label.
+        return [opponent.id for opponent in self._opponents_of(p)]
+
+    def _target_option_label(self, player: Player, option_value: str) -> str:
+        locale = self._player_locale(player)
+        opponent = self.get_player_by_id(option_value)
+        if not isinstance(opponent, TwentyOnePlayer):
+            return option_value
+        shown_cards = self._opponent_visible_cards(opponent)
+        shown_total = sum(card.rank for card in shown_cards)
+        return Localization.get(
+            locale,
+            "twentyone-target-option",
+            player=opponent.name,
+            hp=opponent.hp,
+            shown_total=shown_total,
+        )
+
+    @staticmethod
+    def _extract_target_id(option_value: str) -> str:
+        return option_value.strip()
+
+    def _bot_select_target(self, player: Player, options: list[str]) -> str | None:
+        p = player if isinstance(player, TwentyOnePlayer) else None
+        if not p or not options:
+            return None
+        # Aim at the most threatening opponent: highest visible total, then
+        # lowest HP as a tiebreak.
+        opponents = self._opponents_of(p)
+        if not opponents:
+            return None
+        threat = max(
+            opponents,
+            key=lambda o: (
+                sum(card.rank for card in self._opponent_visible_cards(o)),
+                -o.hp,
+            ),
+        )
+        return threat.id if threat.id in options else options[0]
+
+    def _resolve_played_modifier(
+        self,
+        p: TwentyOnePlayer,
+        modifier: str,
+        opponent: TwentyOnePlayer | None,
+    ) -> None:
+        locale = self._player_locale(p)
         my_bet_before = self._current_bet(p)
         opp_bet_before = self._current_bet(opponent) if opponent else my_bet_before
         self._play_modifier_sound(modifier)
         self._clear_pending_stands()
-        if any(self._modifier_help(locale, modifier) for locale in ("en", "vi")):
+        if any(self._modifier_help(loc, modifier) for loc in ("en", "vi")):
             self._broadcast_personal_l_with_locale_args(
                 p,
                 "twentyone-you-play-modifier",
@@ -953,7 +1097,7 @@ class TwentyOneGame(ActionGuardMixin, Game):
                 "twentyone-player-plays-modifier-no-desc",
                 lambda locale: {"modifier": self._render_modifier(locale, modifier)},
             )
-        self._resolve_modifier(p, modifier)
+        self._resolve_modifier(p, modifier, target=opponent)
         p.turn_modifier_plays += 1
         self._handle_mind_tax_break(p)
         self.modifier_used_since_last_stand_resolution = True
@@ -1212,6 +1356,7 @@ class TwentyOneGame(ActionGuardMixin, Game):
         self.round_number += 1
         self.next_round_wait_ticks = 0
         self._clear_pending_round_resolution()
+        self.pending_target_modifier.clear()
         self.modifier_used_since_last_stand_resolution = False
         self.play_sound(SOUND_ROUND_START, volume=70)
 

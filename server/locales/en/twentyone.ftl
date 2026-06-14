@@ -1,6 +1,9 @@
 game-name-twentyone = 21 (Survival Rules)
 twentyone-play-change-card = Play Change Card
 twentyone-select-change-card = Select change card
+twentyone-select-target = Select target
+twentyone-select-target-prompt = Choose which opponent to target:
+twentyone-target-option = { $player } ({ $hp } HP, showing { $shown_total })
 twentyone-check-status = Check 21 status
 twentyone-change-card-guide = Change Card Guide
 twentyone-read-opponent-face-up = Read opponent face-up cards

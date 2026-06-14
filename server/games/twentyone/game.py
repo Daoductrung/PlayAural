@@ -343,10 +343,13 @@ class TwentyOneGame(ActionGuardMixin, Game):
     round_starter_index: int = 0
     next_round_wait_ticks: int = 0
     round_resolution_wait_ticks: int = 0
-    pending_round_player_ids: tuple[str, str] | None = None
-    pending_round_totals: tuple[int, int] = (0, 0)
+    # Round resolution state. These describe every alive player at settle time,
+    # not just two, so 3+ player games resolve correctly. They are serialized,
+    # so keep them JSON-friendly (lists/dicts of primitives).
+    pending_round_player_ids: tuple[str, ...] | None = None
+    pending_round_totals: tuple[int, ...] = ()
+    pending_round_winner_ids: tuple[str, ...] = ()
     pending_round_target: int = 21
-    pending_round_outcome: str | None = None
     modifier_used_since_last_stand_resolution: bool = False
 
     @classmethod
@@ -371,7 +374,7 @@ class TwentyOneGame(ActionGuardMixin, Game):
 
     @classmethod
     def get_max_players(cls) -> int:
-        return 2
+        return 4
 
     @classmethod
     def get_supported_leaderboards(cls) -> list[str]:
@@ -961,8 +964,7 @@ class TwentyOneGame(ActionGuardMixin, Game):
             effects=table_text,
         )
         user.speak_l("twentyone-check-status-guide-hint", buffer="game")
-        opponent = self._opponent_of(p)
-        if opponent:
+        for opponent in self._opponents_of(p):
             shown_cards = self._opponent_visible_cards(opponent)
             shown_text = (
                 ", ".join(str(card.rank) for card in shown_cards) if shown_cards else none_text
@@ -1009,29 +1011,27 @@ class TwentyOneGame(ActionGuardMixin, Game):
         user = self.get_user(p)
         if not user:
             return
-        opponent = self._opponent_of(p)
-        if not opponent:
+        opponents = self._opponents_of(p)
+        if not opponents:
             self._play_sound_for_player(p, SOUND_ACTION_FAIL)
             user.speak_l("twentyone-no-opponent-available", buffer="game")
             return
 
-        shown_cards = self._opponent_visible_cards(opponent)
-        shown_text = (
-            ", ".join(str(card.rank) for card in shown_cards)
-            if shown_cards
-            else Localization.get(
-                self._player_locale(p),
-                "twentyone-none",
+        locale = self._player_locale(p)
+        none_text = Localization.get(locale, "twentyone-none")
+        for opponent in opponents:
+            shown_cards = self._opponent_visible_cards(opponent)
+            shown_text = (
+                ", ".join(str(card.rank) for card in shown_cards) if shown_cards else none_text
             )
-        )
-        shown_total = sum(card.rank for card in shown_cards)
-        user.speak_l(
-            "twentyone-opponent-face-up-response",
-            buffer="game",
-            player=opponent.name,
-            shown_cards=shown_text,
-            shown_total=shown_total,
-        )
+            shown_total = sum(card.rank for card in shown_cards)
+            user.speak_l(
+                "twentyone-opponent-face-up-response",
+                buffer="game",
+                player=opponent.name,
+                shown_cards=shown_text,
+                shown_total=shown_total,
+            )
 
     def _action_read_current_hand(self, player: Player, action_id: str) -> None:
         p = player if isinstance(player, TwentyOnePlayer) else None
@@ -1065,19 +1065,22 @@ class TwentyOneGame(ActionGuardMixin, Game):
             return
 
         my_bet = self._current_bet(p)
-        opponent = self._opponent_of(p)
-        if not opponent:
+        opponents = self._opponents_of(p)
+        if not opponents:
             self._play_sound_for_player(p, SOUND_ACTION_FAIL)
             user.speak_l("twentyone-read-bet-response-single", buffer="game", bet=my_bet)
             return
-        opponent_bet = self._current_bet(opponent)
+
+        locale = self._player_locale(p)
+        entries = [(p, my_bet)] + [(opp, self._current_bet(opp)) for opp in opponents]
+        bets_text = ". ".join(
+            Localization.get(locale, "twentyone-read-bet-line", player=who.name, bet=amount)
+            for who, amount in entries
+        )
         user.speak_l(
             "twentyone-read-bet-response",
             buffer="game",
-            player=p.name,
-            my_bet=my_bet,
-            opponent=opponent.name,
-            opponent_bet=opponent_bet,
+            bets=bets_text,
         )
 
     def _action_read_active_effects(self, player: Player, action_id: str) -> None:
@@ -1090,8 +1093,8 @@ class TwentyOneGame(ActionGuardMixin, Game):
 
         locale = self._player_locale(p)
         my_effects = self._render_modifier_list(locale, p.table_modifiers)
-        opponent = self._opponent_of(p)
-        if not opponent:
+        opponents = self._opponents_of(p)
+        if not opponents:
             user.speak_l(
                 "twentyone-active-effects-single",
                 buffer="game",
@@ -1100,14 +1103,20 @@ class TwentyOneGame(ActionGuardMixin, Game):
             )
             return
 
-        opponent_effects = self._render_modifier_list(locale, opponent.table_modifiers)
+        entries = [(p, my_effects)] + [
+            (opp, self._render_modifier_list(locale, opp.table_modifiers))
+            for opp in opponents
+        ]
+        lines_text = ". ".join(
+            Localization.get(
+                locale, "twentyone-active-effects-line", player=who.name, effects=effects
+            )
+            for who, effects in entries
+        )
         user.speak_l(
-            "twentyone-active-effects-both",
+            "twentyone-active-effects-all",
             buffer="game",
-            player=p.name,
-            my_effects=my_effects,
-            opponent=opponent.name,
-            opponent_effects=opponent_effects,
+            lines=lines_text,
         )
 
     def on_start(self) -> None:
@@ -1153,7 +1162,7 @@ class TwentyOneGame(ActionGuardMixin, Game):
                         return
             if self.next_round_wait_ticks > 0:
                 self.next_round_wait_ticks -= 1
-            if self.next_round_wait_ticks <= 0 and self.pending_round_outcome is None:
+            if self.next_round_wait_ticks <= 0 and self.pending_round_player_ids is None:
                 self._start_round(rotate_starter=True)
             return
 
@@ -1269,40 +1278,39 @@ class TwentyOneGame(ActionGuardMixin, Game):
             return
 
         self.phase = "between_rounds"
-        p1, p2 = players[0], players[1]
         target = self._current_target()
-        total_1 = self._hand_total(p1)
-        total_2 = self._hand_total(p2)
-        bust_1 = total_1 > target
-        bust_2 = total_2 > target
+        totals = [self._hand_total(p) for p in players]
 
-        self._announce_round_reveals(p1, p2)
+        self._announce_round_reveals(*players)
         self.broadcast_l(
             "twentyone-round-totals",
             target=target,
-            player1=p1.name,
-            total1=total_1,
-            player2=p2.name,
-            total2=total_2, buffer="game",
+            totals=self._format_round_totals(players, totals),
+            buffer="game",
         )
 
-        outcome = self._resolve_round_outcome(total_1, total_2, target)
-        self.pending_round_player_ids = (p1.id, p2.id)
-        self.pending_round_totals = (total_1, total_2)
+        winner_ids = self._resolve_round_outcome(players, totals, target)
+        self.pending_round_player_ids = tuple(p.id for p in players)
+        self.pending_round_totals = tuple(totals)
+        self.pending_round_winner_ids = tuple(winner_ids)
         self.pending_round_target = target
-        self.pending_round_outcome = outcome
         self.round_resolution_wait_ticks = BETWEEN_ROUND_RESOLVE_DELAY_TICKS
 
         configured_wait = max(0, self.options.next_round_wait_ticks)
         self.next_round_wait_ticks = max(BETWEEN_ROUND_WAIT_TICKS, configured_wait)
         self.refresh_menus()
 
+    def _format_round_totals(
+        self, players: list[TwentyOnePlayer], totals: list[int]
+    ) -> str:
+        return ", ".join(f"{p.name} {total}" for p, total in zip(players, totals))
+
     def _clear_pending_round_resolution(self) -> None:
         self.round_resolution_wait_ticks = 0
         self.pending_round_player_ids = None
-        self.pending_round_totals = (0, 0)
+        self.pending_round_totals = ()
+        self.pending_round_winner_ids = ()
         self.pending_round_target = 21
-        self.pending_round_outcome = None
 
     def _announce_round_reveals(self, *players: TwentyOnePlayer) -> None:
         for player in players:
@@ -1318,61 +1326,59 @@ class TwentyOneGame(ActionGuardMixin, Game):
 
     def _resolve_pending_round(self) -> None:
         player_ids = self.pending_round_player_ids
-        outcome = self.pending_round_outcome
-        if not player_ids or outcome is None:
+        if not player_ids:
             self._clear_pending_round_resolution()
             return
 
-        p1 = self.get_player_by_id(player_ids[0])
-        p2 = self.get_player_by_id(player_ids[1])
-        if not isinstance(p1, TwentyOnePlayer) or not isinstance(p2, TwentyOnePlayer):
-            self._clear_pending_round_resolution()
-            return
+        players: list[TwentyOnePlayer] = []
+        for pid in player_ids:
+            candidate = self.get_player_by_id(pid)
+            if not isinstance(candidate, TwentyOnePlayer):
+                self._clear_pending_round_resolution()
+                return
+            players.append(candidate)
 
         target = self.pending_round_target
-        total_1, total_2 = self.pending_round_totals
-        bust_1 = total_1 > target
-        bust_2 = total_2 > target
+        totals = list(self.pending_round_totals)
+        winner_ids = set(self.pending_round_winner_ids)
+        busts = {p.id: total > target for p, total in zip(players, totals)}
 
-        if outcome == "p1_wins":
-            self._apply_round_loss_damage(p2)
-            self._broadcast_personal_l(
-                p1,
-                "twentyone-you-win-round",
-                "twentyone-player-wins-round",
-            )
-        elif outcome == "p2_wins":
-            self._apply_round_loss_damage(p1)
-            self._broadcast_personal_l(
-                p2,
-                "twentyone-you-win-round",
-                "twentyone-player-wins-round",
-            )
-        else:
-            self._apply_round_loss_damage(p1)
-            self._apply_round_loss_damage(p2)
+        winners = [p for p in players if p.id in winner_ids]
+        losers = [p for p in players if p.id not in winner_ids]
+
+        # Everyone but the winner(s) takes damage equal to their current bet.
+        for loser in losers:
+            self._apply_round_loss_damage(loser)
+
+        # Announce the result from each player's perspective.
+        if not winners:
+            # Exact tie for best total: nobody wins, everyone takes damage.
             self.broadcast_l("twentyone-round-draw-damage", buffer="game")
-        self._play_round_outcome_sounds(outcome, p1, p2, total_1, total_2, bust_1, bust_2)
-        self._apply_round_end_change_card_effects(p1, p2)
+        else:
+            for winner in winners:
+                self._broadcast_personal_l(
+                    winner,
+                    "twentyone-you-win-round",
+                    "twentyone-player-wins-round",
+                )
 
-        if bust_1 and bust_2:
+        self._play_round_outcome_sounds(players, winner_ids, totals, target)
+        self._apply_round_end_change_card_effects(players)
+
+        # Bust call-outs.
+        busted = [p for p in players if busts[p.id]]
+        if len(busted) == len(players) and players:
             self.broadcast_l("twentyone-both-busted-closer", buffer="game")
-            self._play_sound_for_player(p1, SOUND_BUST)
-            self._play_sound_for_player(p2, SOUND_BUST)
-        elif bust_1:
-            self._broadcast_personal_l(
-                p1,
-                "twentyone-you-busted",
-                "twentyone-player-busted",
-            )
-            self._play_sound_for_player(p1, SOUND_BUST)
-        elif bust_2:
-            self._broadcast_personal_l(
-                p2,
-                "twentyone-you-busted",
-                "twentyone-player-busted",
-            )
-            self._play_sound_for_player(p2, SOUND_BUST)
+            for p in busted:
+                self._play_sound_for_player(p, SOUND_BUST)
+        else:
+            for p in busted:
+                self._broadcast_personal_l(
+                    p,
+                    "twentyone-you-busted",
+                    "twentyone-player-busted",
+                )
+                self._play_sound_for_player(p, SOUND_BUST)
 
         self._sync_hp_scores()
         self._clear_pending_round_resolution()
@@ -1406,26 +1412,35 @@ class TwentyOneGame(ActionGuardMixin, Game):
             current.bot_think_ticks = BOT_DRAW_STAND_DELAY_TICKS
 
     @staticmethod
-    def _resolve_round_outcome(total_1: int, total_2: int, target: int) -> str:
-        bust_1 = total_1 > target
-        bust_2 = total_2 > target
-        if bust_1 and not bust_2:
-            return "p2_wins"
-        if bust_2 and not bust_1:
-            return "p1_wins"
-        if bust_1 and bust_2:
-            diff_1 = abs(total_1 - target)
-            diff_2 = abs(total_2 - target)
-            if diff_1 < diff_2:
-                return "p1_wins"
-            if diff_2 < diff_1:
-                return "p2_wins"
-            return "draw"
-        if total_1 > total_2:
-            return "p1_wins"
-        if total_2 > total_1:
-            return "p2_wins"
-        return "draw"
+    def _resolve_round_outcome(
+        players: list[TwentyOnePlayer], totals: list[int], target: int
+    ) -> list[str]:
+        """Return the id(s) of the round winner.
+
+        Winner is closest to the target without busting. If every player busts,
+        the closest to the target wins. A unique best total wins outright; an
+        exact tie for best means nobody wins (everyone takes damage), matching
+        the original two-player rule where equal totals were a draw.
+        """
+        if not players:
+            return []
+
+        entries = list(zip(players, totals))
+        non_bust = [(p, total) for p, total in entries if total <= target]
+        pool = non_bust if non_bust else entries
+
+        # Among the pool, "best" = closest to target. For non-bust that is the
+        # highest total; for the all-bust pool it is the smallest distance.
+        def distance(total: int) -> int:
+            return abs(target - total)
+
+        best_distance = min(distance(total) for _p, total in pool)
+        best = [p for p, total in pool if distance(total) == best_distance]
+
+        # Unique best wins; a tie for best is a draw (no winner).
+        if len(best) == 1:
+            return [best[0].id]
+        return []
 
     def _apply_round_loss_damage(self, loser: TwentyOnePlayer) -> None:
         if MODIFIER_ESCAPE_ROUTE in loser.table_modifiers:
@@ -1479,30 +1494,43 @@ class TwentyOneGame(ActionGuardMixin, Game):
 
     def _play_round_outcome_sounds(
         self,
-        outcome: str,
-        p1: TwentyOnePlayer,
-        p2: TwentyOnePlayer,
-        total_1: int,
-        total_2: int,
-        bust_1: bool,
-        bust_2: bool,
+        players: list[TwentyOnePlayer],
+        winner_ids: set[str],
+        totals: list[int],
+        target: int,
     ) -> None:
-        if outcome == "draw" and bust_1 and bust_2:
-            self._play_sound_for_player(p1, SOUND_DOUBLE_BUST_DRAW)
-            self._play_sound_for_player(p2, SOUND_DOUBLE_BUST_DRAW)
+        busts = {p.id: total > target for p, total in zip(players, totals)}
+
+        # No winner: a draw. Everyone busting gets the double-bust cue.
+        if not winner_ids:
+            all_bust = all(busts.values()) and bool(players)
+            for p in players:
+                self._play_sound_for_player(
+                    p, SOUND_DOUBLE_BUST_DRAW if all_bust else SOUND_ROUND_DRAW
+                )
             return
 
-        close_margin = abs(total_1 - total_2) <= 1 and not (bust_1 or bust_2)
-        if outcome == "p1_wins":
-            self._play_sound_for_player(p1, SOUND_CLOSE_WIN if close_margin else SOUND_ROUND_WIN)
-            self._play_sound_for_player(p2, SOUND_CLOSE_LOSE if close_margin else SOUND_ROUND_LOSE)
-            return
-        if outcome == "p2_wins":
-            self._play_sound_for_player(p2, SOUND_CLOSE_WIN if close_margin else SOUND_ROUND_WIN)
-            self._play_sound_for_player(p1, SOUND_CLOSE_LOSE if close_margin else SOUND_ROUND_LOSE)
-            return
-        self._play_sound_for_player(p1, SOUND_ROUND_DRAW)
-        self._play_sound_for_player(p2, SOUND_ROUND_DRAW)
+        # A round is "close" when the winning margin over the best loser is <= 1
+        # and nobody busted, mirroring the original two-player feel.
+        non_bust_totals = [total for p, total in zip(players, totals) if not busts[p.id]]
+        winner_total = max(
+            (total for p, total in zip(players, totals) if p.id in winner_ids),
+            default=0,
+        )
+        runner_up = max(
+            (t for t in non_bust_totals if t < winner_total), default=winner_total
+        )
+        close_margin = (winner_total - runner_up) <= 1 and not any(busts.values())
+
+        for p in players:
+            if p.id in winner_ids:
+                self._play_sound_for_player(
+                    p, SOUND_CLOSE_WIN if close_margin else SOUND_ROUND_WIN
+                )
+            else:
+                self._play_sound_for_player(
+                    p, SOUND_CLOSE_LOSE if close_margin else SOUND_ROUND_LOSE
+                )
 
     def _play_sound_for_player(
         self, player: TwentyOnePlayer, sound_name: str, *, volume: int = 100
@@ -2349,6 +2377,9 @@ class TwentyOneGame(ActionGuardMixin, Game):
                 return other
         return None
 
+    def _opponents_of(self, player: TwentyOnePlayer) -> list[TwentyOnePlayer]:
+        return [other for other in self._alive_players() if other.id != player.id]
+
     def _both_players_standing(self) -> bool:
         players = self._alive_players()
         if len(players) < 2:
@@ -2678,36 +2709,40 @@ class TwentyOneGame(ActionGuardMixin, Game):
             )
 
     def _apply_round_end_change_card_effects(
-        self, p1: TwentyOnePlayer, p2: TwentyOnePlayer
+        self, players: list[TwentyOnePlayer]
     ) -> None:
-        for owner, target in ((p1, p2), (p2, p1)):
-            if MODIFIER_MIND_TAX_PLUS in owner.table_modifiers and target.modifiers:
-                count = len(target.modifiers)
-                self._discard_random_modifiers(target, count, announce_sound=True)
-                self._broadcast_personal_l_with_locale_args(
-                    target,
-                    "twentyone-you-discard-all-change-cards",
-                    "twentyone-player-discards-all-change-cards",
-                    lambda locale: {
-                        "count": count,
-                        "effect": self._render_modifier(locale, MODIFIER_MIND_TAX_PLUS),
-                    },
-                )
-                continue
-
-            if MODIFIER_MIND_TAX in owner.table_modifiers and target.modifiers:
-                count = len(target.modifiers) // 2
-                if count > 0:
+        # Each owner's mind-tax effects apply to every other player. (Target
+        # locking arrives in a later phase; until then these hit all opponents.)
+        for owner in players:
+            targets = [p for p in players if p.id != owner.id]
+            for target in targets:
+                if MODIFIER_MIND_TAX_PLUS in owner.table_modifiers and target.modifiers:
+                    count = len(target.modifiers)
                     self._discard_random_modifiers(target, count, announce_sound=True)
                     self._broadcast_personal_l_with_locale_args(
                         target,
-                        "twentyone-you-discard-change-cards",
-                        "twentyone-player-discards-change-cards",
-                        lambda locale: {
+                        "twentyone-you-discard-all-change-cards",
+                        "twentyone-player-discards-all-change-cards",
+                        lambda locale, count=count: {
                             "count": count,
-                            "effect": self._render_modifier(locale, MODIFIER_MIND_TAX),
+                            "effect": self._render_modifier(locale, MODIFIER_MIND_TAX_PLUS),
                         },
                     )
+                    continue
+
+                if MODIFIER_MIND_TAX in owner.table_modifiers and target.modifiers:
+                    count = len(target.modifiers) // 2
+                    if count > 0:
+                        self._discard_random_modifiers(target, count, announce_sound=True)
+                        self._broadcast_personal_l_with_locale_args(
+                            target,
+                            "twentyone-you-discard-change-cards",
+                            "twentyone-player-discards-change-cards",
+                            lambda locale, count=count: {
+                                "count": count,
+                                "effect": self._render_modifier(locale, MODIFIER_MIND_TAX),
+                            },
+                        )
 
     def _trigger_harvest_rewards(self) -> None:
         for player in self._alive_players():

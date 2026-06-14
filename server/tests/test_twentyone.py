@@ -231,3 +231,70 @@ def test_change_card_menu_preserves_all_hand_indexes_with_unplayable_cards() -> 
 
     assert alice.modifiers == [MODIFIER_BREAK, MODIFIER_TARGET_24]
     assert any("no active table effects" in text for text in speech_texts(alice_user))
+
+
+# ---------------------------------------------------------------------------
+# Multiplayer (3+ players)
+# ---------------------------------------------------------------------------
+
+
+def make_started_game_n(count: int) -> tuple[TwentyOneGame, list]:
+    """Start a game with `count` players, all at 10 HP, in the turns phase."""
+    game = TwentyOneGame()
+    game.setup_keybinds()
+    for i in range(count):
+        game.add_player(f"P{i}", MockUser(f"P{i}", uuid=f"p{i}"))
+    game.host = "P0"
+    for player in game.players:
+        player.hp = 10
+    game.status = "playing"
+    game.game_active = True
+    game.phase = "turns"
+    game.set_turn_players(list(game.players))
+    return game, list(game.players)
+
+
+def test_supports_up_to_four_players() -> None:
+    assert TwentyOneGame.get_max_players() == 4
+
+
+def test_round_outcome_unique_best_non_bust_wins() -> None:
+    game, players = make_started_game_n(3)
+    # Totals 19, 20, 22 with target 21: 20 is the unique closest non-bust.
+    winners = game._resolve_round_outcome(players, [19, 20, 22], 21)
+    assert winners == [players[1].id]
+
+
+def test_round_outcome_tie_for_best_is_a_draw() -> None:
+    game, players = make_started_game_n(3)
+    # Two players tie at 21 (target); a tie for best means no winner.
+    winners = game._resolve_round_outcome(players, [21, 21, 18], 21)
+    assert winners == []
+
+
+def test_round_outcome_all_bust_closest_wins() -> None:
+    game, players = make_started_game_n(3)
+    # Everyone over 21: 22 is closest to the target.
+    winners = game._resolve_round_outcome(players, [25, 22, 30], 21)
+    assert winners == [players[1].id]
+
+
+def test_settle_round_damages_all_non_winners() -> None:
+    game, players = make_started_game_n(3)
+    p0, p1, p2 = players
+    # Give each a deterministic hand: p1 wins at 20, others lose.
+    p0.hand = [Card(id=1, rank=9, suit=0), Card(id=2, rank=10, suit=0)]  # 19
+    p1.hand = [Card(id=3, rank=10, suit=0), Card(id=4, rank=10, suit=0)]  # 20
+    p2.hand = [Card(id=5, rank=10, suit=0), Card(id=6, rank=10, suit=0), Card(id=7, rank=5, suit=0)]  # 25 bust
+    for p in players:
+        p.stand_pending = True
+
+    game._settle_round()
+    assert game.pending_round_winner_ids == (p1.id,)
+
+    # Resolve the pending round and check only non-winners lost HP.
+    game.round_resolution_wait_ticks = 1
+    game._resolve_pending_round()
+    assert p1.hp == 10  # winner unharmed
+    assert p0.hp < 10  # non-winners took damage
+    assert p2.hp < 10

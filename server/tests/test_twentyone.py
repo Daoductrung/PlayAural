@@ -298,3 +298,41 @@ def test_settle_round_damages_all_non_winners() -> None:
     assert p1.hp == 10  # winner unharmed
     assert p0.hp < 10  # non-winners took damage
     assert p2.hp < 10
+
+
+def test_targeted_raise_only_affects_chosen_opponent() -> None:
+    from ..games.twentyone.game import MODIFIER_RAISE_2
+
+    game, players = make_started_game_n(3)
+    p0, p1, p2 = players
+    base = game.options.base_bet
+
+    # p0 plays raise_2 targeting p2 specifically.
+    game._place_table_effect(p0, MODIFIER_RAISE_2, target=p2)
+
+    # Only p2's incoming bet/damage should rise; p1 stays at base.
+    assert game._current_bet(p2) == base + 2
+    assert game._current_bet(p1) == base
+
+
+def test_targeted_draw_lock_only_locks_chosen_opponent() -> None:
+    game, players = make_started_game_n(3)
+    p0, p1, p2 = players
+
+    game._place_table_effect(p0, MODIFIER_DRAW_SILENCE, target=p2)
+
+    assert game._draws_locked_for(p2) is True
+    assert game._draws_locked_for(p1) is False
+
+
+def test_table_effect_lists_stay_in_sync_on_expiry() -> None:
+    from ..games.twentyone.game import MODIFIER_GUARD, TABLE_EFFECT_LIMIT
+
+    game, players = make_started_game_n(2)
+    p0 = players[0]
+    # Overflow the table beyond the limit; both parallel lists must stay aligned.
+    for _ in range(TABLE_EFFECT_LIMIT + 2):
+        game._place_table_effect(p0, MODIFIER_GUARD)
+
+    assert len(p0.table_modifiers) == TABLE_EFFECT_LIMIT
+    assert len(p0.table_modifier_targets) == len(p0.table_modifiers)

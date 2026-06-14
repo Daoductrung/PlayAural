@@ -202,6 +202,29 @@ OPPONENT_DRAW_MODIFIERS = {
     MODIFIER_HEX_DRAW,
 }
 
+# Persistent table effects that act ON a chosen opponent. When played in a 3+
+# player game the actor picks one opponent and the effect remembers them (stored
+# in table_modifier_targets), so its damage/lock keeps hitting that same player
+# until it expires. Self effects (guard, salvage, arcane_cache, target changes)
+# are NOT in this set and store target None.
+TARGETED_TABLE_EFFECTS = {
+    MODIFIER_RAISE_1,
+    MODIFIER_RAISE_2,
+    MODIFIER_RAISE_2_PLUS,
+    MODIFIER_PRECISION_DRAW_PLUS,
+    MODIFIER_BREAK_SHIELDS,
+    MODIFIER_BREAK_SHIELDS_PLUS,
+    MODIFIER_HAND_TAX,
+    MODIFIER_HAND_TAX_PLUS,
+    MODIFIER_DARK_BARGAIN,
+    MODIFIER_EXACT_21_SURGE,
+    MODIFIER_DRAW_SILENCE,
+    MODIFIER_ALL_IN_SILENCE,
+    MODIFIER_LOCKDOWN,
+    MODIFIER_MIND_TAX,
+    MODIFIER_MIND_TAX_PLUS,
+}
+
 TABLE_EFFECT_LIMIT = 5
 LocalizedArgsFactory = Callable[[str], dict[str, object]]
 CardAnnouncement = tuple[str, str, LocalizedArgsFactory]
@@ -323,6 +346,11 @@ class TwentyOnePlayer(Player):
     hp: int = 0
     modifiers: list[str] = field(default_factory=list)
     table_modifiers: list[str] = field(default_factory=list)
+    # Parallel to table_modifiers: the player id each persistent effect targets,
+    # or None for self / table-wide effects. Kept in lock-step with
+    # table_modifiers so every mutation of one updates the other. Stored as plain
+    # strings/None to stay serialization-friendly.
+    table_modifier_targets: list[str | None] = field(default_factory=list)
     stand_pending: bool = False
     last_drawn_card_id: int | None = None
     turn_modifier_plays: int = 0
@@ -1140,7 +1168,7 @@ class TwentyOneGame(ActionGuardMixin, Game):
             player.hp = max(1, self.options.starting_health)
             player.hand.clear()
             player.modifiers.clear()
-            player.table_modifiers.clear()
+            self._clear_table_effects(player)
             player.stand_pending = False
             player.last_drawn_card_id = None
             player.turn_modifier_plays = 0
@@ -1191,7 +1219,7 @@ class TwentyOneGame(ActionGuardMixin, Game):
 
         for player in alive:
             player.hand.clear()
-            player.table_modifiers.clear()
+            self._clear_table_effects(player)
             player.stand_pending = False
             player.last_drawn_card_id = None
             player.turn_modifier_plays = 0
@@ -1444,7 +1472,7 @@ class TwentyOneGame(ActionGuardMixin, Game):
 
     def _apply_round_loss_damage(self, loser: TwentyOnePlayer) -> None:
         if MODIFIER_ESCAPE_ROUTE in loser.table_modifiers:
-            loser.table_modifiers.remove(MODIFIER_ESCAPE_ROUTE)
+            self._remove_table_effect_by_value(loser, MODIFIER_ESCAPE_ROUTE)
             self.play_sound(SOUND_EFFECT_EXPIRE, volume=70)
             self._broadcast_personal_l_with_locale_args(
                 loser,
@@ -1967,23 +1995,31 @@ class TwentyOneGame(ActionGuardMixin, Game):
             return -20.0
         return -1.0
 
-    def _resolve_modifier(self, player: TwentyOnePlayer, modifier: str) -> None:
-        opponent = self._opponent_of(player)
+    def _resolve_modifier(
+        self,
+        player: TwentyOnePlayer,
+        modifier: str,
+        target: TwentyOnePlayer | None = None,
+    ) -> None:
+        # `target` is the opponent the actor chose for this card. Defaults to the
+        # first opponent so 2-player games (and callers that don't pick) behave
+        # exactly as before.
+        opponent = target if target is not None else self._opponent_of(player)
         if not opponent:
             return
 
         if modifier == MODIFIER_RAISE_1:
-            self._place_table_effect(player, modifier)
+            self._place_table_effect(player, modifier, target=opponent)
             self._give_random_modifiers(player, 1, announce=True)
             return
 
         if modifier == MODIFIER_RAISE_2:
-            self._place_table_effect(player, modifier)
+            self._place_table_effect(player, modifier, target=opponent)
             self._give_random_modifiers(player, 1, announce=True)
             return
 
         if modifier == MODIFIER_RAISE_2_PLUS:
-            self._place_table_effect(player, modifier)
+            self._place_table_effect(player, modifier, target=opponent)
             removed = self._extract_last_drawn_card(opponent)
             if removed:
                 self._return_card_to_top_of_deck(removed)
@@ -2004,7 +2040,7 @@ class TwentyOneGame(ActionGuardMixin, Game):
                     "twentyone-player-removes-defend-effects",
                     count=removed_count,
                 )
-            self._place_table_effect(player, modifier)
+            self._place_table_effect(player, modifier, target=opponent)
             return
 
         if modifier == MODIFIER_BREAK_SHIELDS_PLUS:
@@ -2016,7 +2052,7 @@ class TwentyOneGame(ActionGuardMixin, Game):
                     "twentyone-player-removes-defend-effects",
                     count=removed_count,
                 )
-            self._place_table_effect(player, modifier)
+            self._place_table_effect(player, modifier, target=opponent)
             return
 
         if modifier == MODIFIER_SHARED_CACHE:
@@ -2124,7 +2160,7 @@ class TwentyOneGame(ActionGuardMixin, Game):
             return
 
         if modifier == MODIFIER_ARCANE_CACHE:
-            self._place_table_effect(player, modifier)
+            self._place_table_effect(player, modifier, target=opponent)
             self._give_random_modifiers(player, 3, announce=True)
             return
 
@@ -2161,7 +2197,7 @@ class TwentyOneGame(ActionGuardMixin, Game):
             return
 
         if modifier == MODIFIER_DARK_BARGAIN:
-            self._place_table_effect(player, modifier)
+            self._place_table_effect(player, modifier, target=opponent)
             discard_count = len(player.modifiers) // 2
             self._discard_random_modifiers(player, discard_count, announce_sound=True)
             if self._draws_locked_for(player):
@@ -2202,7 +2238,7 @@ class TwentyOneGame(ActionGuardMixin, Game):
             return
 
         if modifier in TABLE_EFFECT_MODIFIERS:
-            self._place_table_effect(player, modifier)
+            self._place_table_effect(player, modifier, target=opponent)
             if modifier in TARGET_VALUE_MODIFIERS:
                 self.broadcast_l("twentyone-target-changed", target=self._current_target(), buffer="game")
             return
@@ -2228,7 +2264,7 @@ class TwentyOneGame(ActionGuardMixin, Game):
             if opponent.table_modifiers:
                 count = len(opponent.table_modifiers)
                 had_lockdown = MODIFIER_LOCKDOWN in opponent.table_modifiers
-                opponent.table_modifiers.clear()
+                self._clear_table_effects(opponent)
                 self._play_sound_for_player(player, SOUND_CONTROL_SUCCESS)
                 if had_lockdown:
                     self.play_sound(SOUND_LOCKDOWN_END, volume=70)
@@ -2245,13 +2281,13 @@ class TwentyOneGame(ActionGuardMixin, Game):
 
         if modifier == MODIFIER_LOCKDOWN:
             if opponent.table_modifiers:
-                opponent.table_modifiers.clear()
+                self._clear_table_effects(opponent)
                 self._broadcast_personal_l(
                     player,
                     "twentyone-you-clear-effects",
                     "twentyone-player-clears-effects",
                 )
-            self._place_table_effect(player, modifier)
+            self._place_table_effect(player, modifier, target=opponent)
             self.play_sound(SOUND_LOCKDOWN_APPLY, volume=75)
             return
 
@@ -2282,7 +2318,7 @@ class TwentyOneGame(ActionGuardMixin, Game):
             return
 
         if modifier == MODIFIER_PRECISION_DRAW_PLUS:
-            self._place_table_effect(player, modifier)
+            self._place_table_effect(player, modifier, target=opponent)
             if self._draws_locked_for(player):
                 self._play_sound_for_player(player, SOUND_ACTION_FAIL)
                 self._announce_draw_locked(player)
@@ -2335,12 +2371,12 @@ class TwentyOneGame(ActionGuardMixin, Game):
             return
 
         if modifier in TARGET_VALUE_MODIFIERS:
-            self._place_table_effect(player, modifier)
+            self._place_table_effect(player, modifier, target=opponent)
             self.broadcast_l("twentyone-target-changed", target=self._current_target(), buffer="game")
             return
 
         if modifier == MODIFIER_SALVAGE:
-            self._place_table_effect(player, modifier)
+            self._place_table_effect(player, modifier, target=opponent)
             return
 
         if modifier == MODIFIER_AID_RIVAL:
@@ -2411,32 +2447,37 @@ class TwentyOneGame(ActionGuardMixin, Game):
 
     def _current_bet(self, player: TwentyOnePlayer) -> int:
         base = max(0, self.options.base_bet)
-        opponent = self._opponent_of(player)
-        if not opponent:
+        opponents = self._opponents_of(player)
+        if not opponents:
             return base
 
+        # Sum every opponent's raise/tax effects that are aimed at this player.
         increase = 0
-        for modifier in opponent.table_modifiers:
-            if modifier == MODIFIER_RAISE_1:
-                increase += 1
-            elif modifier == MODIFIER_RAISE_2:
-                increase += 2
-            elif modifier == MODIFIER_RAISE_2_PLUS:
-                increase += 2
-            elif modifier == MODIFIER_PRECISION_DRAW_PLUS:
-                increase += 5
-            elif modifier == MODIFIER_BREAK_SHIELDS:
-                increase += 3
-            elif modifier == MODIFIER_BREAK_SHIELDS_PLUS:
-                increase += 5
-            elif modifier == MODIFIER_HAND_TAX:
-                increase += len(player.modifiers) // 2
-            elif modifier == MODIFIER_HAND_TAX_PLUS:
-                increase += len(player.modifiers)
-            elif modifier == MODIFIER_DARK_BARGAIN:
-                increase += 10
-            elif modifier == MODIFIER_EXACT_21_SURGE and self._hand_total(opponent) == 21:
-                increase += 21
+        for opponent in opponents:
+            for modifier, target_id in self._table_effect_pairs(opponent):
+                # None target = legacy/untargeted effect that hits any opponent.
+                if target_id is not None and target_id != player.id:
+                    continue
+                if modifier == MODIFIER_RAISE_1:
+                    increase += 1
+                elif modifier == MODIFIER_RAISE_2:
+                    increase += 2
+                elif modifier == MODIFIER_RAISE_2_PLUS:
+                    increase += 2
+                elif modifier == MODIFIER_PRECISION_DRAW_PLUS:
+                    increase += 5
+                elif modifier == MODIFIER_BREAK_SHIELDS:
+                    increase += 3
+                elif modifier == MODIFIER_BREAK_SHIELDS_PLUS:
+                    increase += 5
+                elif modifier == MODIFIER_HAND_TAX:
+                    increase += len(player.modifiers) // 2
+                elif modifier == MODIFIER_HAND_TAX_PLUS:
+                    increase += len(player.modifiers)
+                elif modifier == MODIFIER_DARK_BARGAIN:
+                    increase += 10
+                elif modifier == MODIFIER_EXACT_21_SURGE and self._hand_total(opponent) == 21:
+                    increase += 21
 
         reduction = 0
         self_penalty = 0
@@ -2448,17 +2489,20 @@ class TwentyOneGame(ActionGuardMixin, Game):
             elif modifier == MODIFIER_ARCANE_CACHE:
                 self_penalty += 1
 
+        # "game over" is global pressure on everyone but its owner.
         global_pressure = 0
         for participant in self._alive_players():
+            if participant.id == player.id:
+                continue
             global_pressure += participant.table_modifiers.count(MODIFIER_ALL_IN_SILENCE) * 100
 
         return max(0, base + increase - reduction + self_penalty + global_pressure)
 
     def _modifiers_locked_for(self, player: TwentyOnePlayer) -> bool:
-        opponent = self._opponent_of(player)
-        if not opponent:
-            return False
-        return MODIFIER_LOCKDOWN in opponent.table_modifiers
+        return any(
+            self._has_effect_targeting(opponent, MODIFIER_LOCKDOWN, player)
+            for opponent in self._opponents_of(player)
+        )
 
     def _playable_modifiers(self, player: TwentyOnePlayer) -> list[str]:
         return [
@@ -2602,16 +2646,33 @@ class TwentyOneGame(ActionGuardMixin, Game):
             reason=reason,
         )
 
-    def _place_table_effect(self, player: TwentyOnePlayer, modifier: str) -> None:
+    def _place_table_effect(
+        self,
+        player: TwentyOnePlayer,
+        modifier: str,
+        target: TwentyOnePlayer | None = None,
+    ) -> None:
         if modifier in TARGET_VALUE_MODIFIERS:
             for p in self._alive_players():
-                p.table_modifiers = [
-                    t for t in p.table_modifiers if t not in TARGET_VALUE_MODIFIERS
-                ]
+                self._set_table_modifiers(
+                    p,
+                    [
+                        (mod, tid)
+                        for mod, tid in self._table_effect_pairs(p)
+                        if mod not in TARGET_VALUE_MODIFIERS
+                    ],
+                )
 
+        # Only targeted effects remember a victim; self / table-wide effects
+        # always store None even if a target is passed in.
+        target_id = (
+            target.id if (target is not None and modifier in TARGETED_TABLE_EFFECTS) else None
+        )
         player.table_modifiers.append(modifier)
+        player.table_modifier_targets.append(target_id)
         while len(player.table_modifiers) > TABLE_EFFECT_LIMIT:
             removed = player.table_modifiers.pop(0)
+            player.table_modifier_targets.pop(0)
             self.play_sound(SOUND_EFFECT_EXPIRE, volume=70)
             if removed == MODIFIER_LOCKDOWN:
                 self.play_sound(SOUND_LOCKDOWN_END, volume=70)
@@ -2619,23 +2680,63 @@ class TwentyOneGame(ActionGuardMixin, Game):
                 player,
                 "twentyone-your-effect-expires",
                 "twentyone-player-effect-expires",
-                lambda locale: {"effect": self._render_modifier(locale, removed)},
+                lambda locale, removed=removed: {
+                    "effect": self._render_modifier(locale, removed)
+                },
             )
 
     @staticmethod
-    def _pop_last_table_effect(player: TwentyOnePlayer) -> str | None:
+    def _table_effect_pairs(player: TwentyOnePlayer) -> list[tuple[str, str | None]]:
+        """The table effects as (modifier, target_id) pairs, kept in sync."""
+        targets = player.table_modifier_targets
+        return [
+            (mod, targets[i] if i < len(targets) else None)
+            for i, mod in enumerate(player.table_modifiers)
+        ]
+
+    @staticmethod
+    def _set_table_modifiers(
+        player: TwentyOnePlayer, pairs: list[tuple[str, str | None]]
+    ) -> None:
+        player.table_modifiers = [mod for mod, _tid in pairs]
+        player.table_modifier_targets = [tid for _mod, tid in pairs]
+
+    def _clear_table_effects(self, player: TwentyOnePlayer) -> None:
+        player.table_modifiers.clear()
+        player.table_modifier_targets.clear()
+
+    def _remove_table_effect_by_value(
+        self, player: TwentyOnePlayer, modifier: str
+    ) -> bool:
+        """Remove the first instance of `modifier` and its paired target."""
+        try:
+            index = player.table_modifiers.index(modifier)
+        except ValueError:
+            return False
+        player.table_modifiers.pop(index)
+        if index < len(player.table_modifier_targets):
+            player.table_modifier_targets.pop(index)
+        return True
+
+    def _pop_last_table_effect(self, player: TwentyOnePlayer) -> str | None:
         if not player.table_modifiers:
             return None
+        if player.table_modifier_targets:
+            player.table_modifier_targets.pop()
         return player.table_modifiers.pop()
 
     def _draw_lock_effect_for(self, player: TwentyOnePlayer) -> str | None:
-        opponent = self._opponent_of(player)
-        if not opponent:
+        opponents = self._opponents_of(player)
+        if not opponents:
             return None
-        if MODIFIER_ALL_IN_SILENCE in opponent.table_modifiers:
-            return MODIFIER_ALL_IN_SILENCE
-        if MODIFIER_DRAW_SILENCE in opponent.table_modifiers:
-            return MODIFIER_DRAW_SILENCE
+        # "game over" locks everyone's draws; "no draw for you!" locks only its
+        # chosen target.
+        for opponent in opponents:
+            if MODIFIER_ALL_IN_SILENCE in opponent.table_modifiers:
+                return MODIFIER_ALL_IN_SILENCE
+        for opponent in opponents:
+            if self._has_effect_targeting(opponent, MODIFIER_DRAW_SILENCE, player):
+                return MODIFIER_DRAW_SILENCE
         return None
 
     def _draws_locked_for(self, player: TwentyOnePlayer) -> bool:
@@ -2654,13 +2755,13 @@ class TwentyOneGame(ActionGuardMixin, Game):
 
     def _remove_guard_effects(self, player: TwentyOnePlayer, *, limit: int) -> int:
         removed = 0
-        retained: list[str] = []
-        for effect in player.table_modifiers:
+        retained: list[tuple[str, str | None]] = []
+        for effect, target_id in self._table_effect_pairs(player):
             if effect in (MODIFIER_GUARD, MODIFIER_GUARD_PLUS) and removed < limit:
                 removed += 1
                 continue
-            retained.append(effect)
-        player.table_modifiers = retained
+            retained.append((effect, target_id))
+        self._set_table_modifiers(player, retained)
         return removed
 
     @staticmethod
@@ -2680,33 +2781,38 @@ class TwentyOneGame(ActionGuardMixin, Game):
         return self.deck.cards.pop(highest_index)
 
     def _handle_mind_tax_break(self, actor: TwentyOnePlayer) -> None:
-        owner = self._opponent_of(actor)
-        if not owner:
-            return
+        # A mind-tax breaks when the player it targets plays enough cards in a
+        # turn. Find any opponent holding such an effect aimed at the actor.
+        breaks = (
+            (MODIFIER_MIND_TAX, 2),
+            (MODIFIER_MIND_TAX_PLUS, 3),
+        )
+        for effect, threshold in breaks:
+            if actor.turn_modifier_plays < threshold:
+                continue
+            for owner in self._opponents_of(actor):
+                if not self._has_effect_targeting(owner, effect, actor):
+                    continue
+                self._remove_table_effect_by_value(owner, effect)
+                self.play_sound(SOUND_EFFECT_EXPIRE, volume=70)
+                self._broadcast_personal_l_with_locale_args(
+                    owner,
+                    "twentyone-your-effect-breaks",
+                    "twentyone-player-effect-breaks",
+                    lambda locale, effect=effect: {
+                        "effect": self._render_modifier(locale, effect)
+                    },
+                )
 
-        if actor.turn_modifier_plays >= 2 and MODIFIER_MIND_TAX in owner.table_modifiers:
-            owner.table_modifiers.remove(MODIFIER_MIND_TAX)
-            self.play_sound(SOUND_EFFECT_EXPIRE, volume=70)
-            self._broadcast_personal_l_with_locale_args(
-                owner,
-                "twentyone-your-effect-breaks",
-                "twentyone-player-effect-breaks",
-                lambda locale: {
-                    "effect": self._render_modifier(locale, MODIFIER_MIND_TAX)
-                },
-            )
-
-        if actor.turn_modifier_plays >= 3 and MODIFIER_MIND_TAX_PLUS in owner.table_modifiers:
-            owner.table_modifiers.remove(MODIFIER_MIND_TAX_PLUS)
-            self.play_sound(SOUND_EFFECT_EXPIRE, volume=70)
-            self._broadcast_personal_l_with_locale_args(
-                owner,
-                "twentyone-your-effect-breaks",
-                "twentyone-player-effect-breaks",
-                lambda locale: {
-                    "effect": self._render_modifier(locale, MODIFIER_MIND_TAX_PLUS)
-                },
-            )
+    def _has_effect_targeting(
+        self, owner: TwentyOnePlayer, modifier: str, target: TwentyOnePlayer
+    ) -> bool:
+        # A None target means the effect was placed without an explicit victim
+        # (e.g. legacy two-player state); treat it as hitting any opponent.
+        return any(
+            mod == modifier and (tid == target.id or tid is None)
+            for mod, tid in self._table_effect_pairs(owner)
+        )
 
     def _apply_round_end_change_card_effects(
         self, players: list[TwentyOnePlayer]

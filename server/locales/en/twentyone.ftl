@@ -201,6 +201,12 @@ twentyone-you-play-modifier = You play { $modifier }. { $description }
 twentyone-player-plays-modifier = { $player } plays { $modifier }. { $description }
 twentyone-you-play-modifier-no-desc = You play { $modifier }.
 twentyone-player-plays-modifier-no-desc = { $player } plays { $modifier }.
+# Target-naming variants, used in 3+ player games so everyone hears who a
+# single-target card was aimed at.
+twentyone-you-play-modifier-on = You play { $modifier } on { $target }. { $description }
+twentyone-player-plays-modifier-on = { $player } plays { $modifier } on { $target }. { $description }
+twentyone-you-play-modifier-on-no-desc = You play { $modifier } on { $target }.
+twentyone-player-plays-modifier-on-no-desc = { $player } plays { $modifier } on { $target }.
 twentyone-your-last-face-up-returned = Your last face-up card returns to top of deck.
 twentyone-player-last-face-up-returned = { $player }'s last face-up card returns to top of deck.
 twentyone-last-face-up-returned = { $player }'s last face-up card returns to top of deck.

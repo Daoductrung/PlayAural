@@ -1075,12 +1075,55 @@ class TwentyOneGame(ActionGuardMixin, Game):
         modifier: str,
         opponent: TwentyOnePlayer | None,
     ) -> None:
-        locale = self._player_locale(p)
         my_bet_before = self._current_bet(p)
         opp_bet_before = self._current_bet(opponent) if opponent else my_bet_before
         self._play_modifier_sound(modifier)
         self._clear_pending_stands()
-        if any(self._modifier_help(loc, modifier) for loc in ("en", "vi")):
+        self._announce_modifier_play(p, modifier, opponent)
+        self._resolve_modifier(p, modifier, target=opponent)
+        self._finish_modifier_play(p, opponent, my_bet_before, opp_bet_before)
+
+    def _announce_modifier_play(
+        self,
+        p: TwentyOnePlayer,
+        modifier: str,
+        opponent: TwentyOnePlayer | None,
+    ) -> None:
+        has_desc = any(self._modifier_help(loc, modifier) for loc in ("en", "vi"))
+        # Name the victim only when the card targets one of several opponents,
+        # so the choice is visible to the table. Otherwise keep the plain form.
+        name_target = (
+            opponent is not None
+            and modifier in SINGLE_TARGET_MODIFIERS
+            and len(self._opponents_of(p)) > 1
+        )
+
+        if name_target:
+            personal, others = (
+                ("twentyone-you-play-modifier-on", "twentyone-player-plays-modifier-on")
+                if has_desc
+                else (
+                    "twentyone-you-play-modifier-on-no-desc",
+                    "twentyone-player-plays-modifier-on-no-desc",
+                )
+            )
+            self._broadcast_personal_l_with_locale_args(
+                p,
+                personal,
+                others,
+                lambda locale: {
+                    "modifier": self._render_modifier(locale, modifier),
+                    "target": opponent.name,
+                    **(
+                        {"description": self._modifier_help(locale, modifier)}
+                        if has_desc
+                        else {}
+                    ),
+                },
+            )
+            return
+
+        if has_desc:
             self._broadcast_personal_l_with_locale_args(
                 p,
                 "twentyone-you-play-modifier",
@@ -1097,7 +1140,14 @@ class TwentyOneGame(ActionGuardMixin, Game):
                 "twentyone-player-plays-modifier-no-desc",
                 lambda locale: {"modifier": self._render_modifier(locale, modifier)},
             )
-        self._resolve_modifier(p, modifier, target=opponent)
+
+    def _finish_modifier_play(
+        self,
+        p: TwentyOnePlayer,
+        opponent: TwentyOnePlayer | None,
+        my_bet_before: int,
+        opp_bet_before: int,
+    ) -> None:
         p.turn_modifier_plays += 1
         self._handle_mind_tax_break(p)
         self.modifier_used_since_last_stand_resolution = True

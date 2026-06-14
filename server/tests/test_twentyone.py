@@ -365,6 +365,42 @@ def test_single_target_card_skips_prompt_with_one_opponent() -> None:
     assert game._current_bet(bob) == base + 2
 
 
+def test_target_named_in_announcement_with_multiple_opponents() -> None:
+    from ..games.twentyone.game import MODIFIER_RAISE_2
+
+    game, players = make_started_game_n(3)
+    p0, _p1, p2 = players
+    p0.modifiers = [MODIFIER_RAISE_2]
+    game.turn_index = 0
+    user2 = game.get_user(p2)
+    user2.messages.clear()
+
+    options = game._options_for_play_modifier(p0)
+    game._action_play_modifier(p0, options[0], "play_modifier")
+    game._action_select_target(p0, p2.id, "select_target")
+
+    # A bystander hears who the card was aimed at.
+    speech = " ".join(speech_texts(user2))
+    assert "on" in speech and p2.name in speech
+
+
+def test_target_not_named_with_single_opponent() -> None:
+    from ..games.twentyone.game import MODIFIER_RAISE_2
+
+    game, alice_user, bob_user = make_started_game()
+    alice, bob = game.players
+    alice.modifiers = [MODIFIER_RAISE_2]
+    bob_user.messages.clear()
+
+    options = game._options_for_play_modifier(alice)
+    game._action_play_modifier(alice, options[0], "play_modifier")
+
+    # Two-player game keeps the plain phrasing (no "on <name>").
+    speech = " ".join(speech_texts(bob_user))
+    assert "plays" in speech
+    assert " on " not in speech
+
+
 def test_select_target_cancel_keeps_card() -> None:
     from ..games.twentyone.game import MODIFIER_RAISE_2
 

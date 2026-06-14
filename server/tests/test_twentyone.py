@@ -359,9 +359,10 @@ def test_single_target_card_skips_prompt_with_one_opponent() -> None:
     options = game._options_for_play_modifier(alice)
     game._action_play_modifier(alice, options[0], "play_modifier")
 
-    # Only one opponent: resolves immediately, no pending target prompt.
+    # Only one opponent: resolves immediately, no pending target prompt, and the
+    # raise lands on the sole opponent. (raise_2 grants a random reward card, so
+    # assert on the effect, not the exact remaining hand.)
     assert alice.id not in game.pending_target_modifier
-    assert MODIFIER_RAISE_2 not in alice.modifiers  # spent
     assert game._current_bet(bob) == base + 2
 
 

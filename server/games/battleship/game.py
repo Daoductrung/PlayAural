@@ -1,4 +1,4 @@
-"""Battleship (Tàu Chiến) — classic naval combat on a 2D grid."""
+"""Battleship - classic naval combat on a 2D grid."""
 
 from __future__ import annotations
 
@@ -317,8 +317,37 @@ class BattleshipGame(GridGameMixin, TurnTimerMixin, Game):
         return BattleshipPlayer(id=player_id, name=name, is_bot=is_bot)
 
     def prestart_validate(self) -> list[str | tuple[str, dict]]:
-        errors: list[str | tuple[str, dict]] = []
-        errors.extend(super().prestart_validate())
+        errors: list[str | tuple[str, dict]] = list(super().prestart_validate())
+
+        grid_size = str(self.options.grid_size)
+        if grid_size not in GRID_SIZE_CHOICES:
+            errors.append(("battleship-error-invalid-grid-size", {"size": grid_size}))
+        else:
+            size = int(grid_size)
+            fleet_cells = sum(ship_size for _, ship_size in FLEET)
+            largest_ship = max(ship_size for _, ship_size in FLEET)
+            minimum = 1
+            while minimum < largest_ship or minimum * minimum < fleet_cells:
+                minimum += 1
+            if size < minimum:
+                errors.append((
+                    "battleship-error-grid-too-small",
+                    {"size": size, "minimum": minimum},
+                ))
+
+        placement_mode = str(self.options.placement_mode)
+        if placement_mode not in PLACEMENT_CHOICES:
+            errors.append((
+                "battleship-error-invalid-placement-mode",
+                {"mode": placement_mode},
+            ))
+
+        turn_timer = str(self.options.turn_timer)
+        if turn_timer not in {"0", "30", "45", "60"}:
+            errors.append((
+                "battleship-error-invalid-turn-timer",
+                {"seconds": turn_timer},
+            ))
         return errors
 
     # ------------------------------------------------------------------ #
@@ -326,8 +355,6 @@ class BattleshipGame(GridGameMixin, TurnTimerMixin, Game):
     # ------------------------------------------------------------------ #
 
     def create_turn_action_set(self, player: BattleshipPlayer) -> ActionSet:
-        user = self.get_user(player)
-        locale = user.locale if user else "en"
         action_set = ActionSet(name="turn")
 
         # Grid cell actions (from mixin)
@@ -424,7 +451,9 @@ class BattleshipGame(GridGameMixin, TurnTimerMixin, Game):
         bp = self._as_bp(player)
         if not bp:
             return
-        # No special reordering needed — grid cells only
+        # Grid cells stay as the only turn-menu actions. During manual
+        # deployment, orientation is handled in a small isolated menu so the
+        # player does not have to navigate the full grid while choosing bearing.
 
     def _sync_standard_actions(self, player: Player) -> None:
         standard_set = self.get_action_set(player, "standard")
@@ -433,7 +462,7 @@ class BattleshipGame(GridGameMixin, TurnTimerMixin, Game):
         self._apply_standard_action_order(standard_set, self.get_user(player))
 
     def _handle_menu_event(self, player: Player, event: dict) -> None:
-        """Handle orientation sub-menu selection."""
+        """Handle the isolated orientation selection menu."""
         menu_id = event.get("menu_id")
         selection_id = event.get("selection_id", "")
 
@@ -444,7 +473,6 @@ class BattleshipGame(GridGameMixin, TurnTimerMixin, Game):
                 self.refresh_menus(player)
                 return
             if selection_id == "_cancel" or not selection_id:
-                # Cancel — reset pending and return to grid
                 self.placing_orientation_pending[bp.id] = False
                 self.refresh_menus(bp)
                 return
@@ -700,7 +728,9 @@ class BattleshipGame(GridGameMixin, TurnTimerMixin, Game):
         if ship_idx >= len(FLEET):
             return
 
-        # Store selected position and show orientation sub-menu
+        # Store selected position and show an isolated orientation menu.
+        # Keeping bearing selection out of the full grid makes manual
+        # deployment much easier to navigate with a screen reader.
         self.placing_row[bp.id] = row
         self.placing_col[bp.id] = col
         self.placing_orientation_pending[bp.id] = True
@@ -714,16 +744,29 @@ class BattleshipGame(GridGameMixin, TurnTimerMixin, Game):
             size=str(ship_size),
         )
 
-        # Show proper orientation selection sub-menu
-        self._pending_actions[bp.id] = "orient_placement"
-        h_label = Localization.get(user.locale, "battleship-orient-horizontal")
-        v_label = Localization.get(user.locale, "battleship-orient-vertical")
-        cancel_label = Localization.get(user.locale, "cancel")
+        ship_name = Localization.get(user.locale, f"battleship-ship-{ship_key}")
         items = [
-            MenuItem(text=h_label, id="horizontal"),
-            MenuItem(text=v_label, id="vertical"),
-            MenuItem(text=cancel_label, id="_cancel"),
+            MenuItem(
+                text=Localization.get(
+                    user.locale,
+                    "battleship-orient-horizontal-at",
+                    ship=ship_name,
+                    coord=coord,
+                ),
+                id="horizontal",
+            ),
+            MenuItem(
+                text=Localization.get(
+                    user.locale,
+                    "battleship-orient-vertical-at",
+                    ship=ship_name,
+                    coord=coord,
+                ),
+                id="vertical",
+            ),
+            MenuItem(text=Localization.get(user.locale, "cancel"), id="_cancel"),
         ]
+        self._pending_actions[bp.id] = "orient_placement"
         user.show_menu(
             "orient_menu",
             items,
@@ -758,7 +801,8 @@ class BattleshipGame(GridGameMixin, TurnTimerMixin, Game):
                 coord=coord,
                 orientation=Localization.get(user.locale, orientation_key),
             )
-            # Reset orientation pending so they can pick again
+            # Return to the grid; the player can select the same coordinate
+            # again if they want to try the other bearing.
             self.placing_orientation_pending[bp.id] = False
             self.refresh_menus(bp)
             return
@@ -819,8 +863,22 @@ class BattleshipGame(GridGameMixin, TurnTimerMixin, Game):
     ) -> None:
         """Handle firing a shot during battle phase."""
         if self.shot_pending_ticks > 0:
+            user = self.get_user(bp)
+            if user:
+                user.speak_l("battleship-shot-in-flight", buffer="game")
             return
         if self.current_player != bp:
+            user = self.get_user(bp)
+            if user:
+                current_name = self.current_player.name if self.current_player else ""
+                if current_name:
+                    user.speak_l(
+                        "battleship-not-your-turn",
+                        buffer="game",
+                        player=current_name,
+                    )
+                else:
+                    user.speak_l("battleship-wait-for-turn", buffer="game")
             return
         if bp.viewing_own:
             user = self.get_user(bp)
@@ -832,7 +890,8 @@ class BattleshipGame(GridGameMixin, TurnTimerMixin, Game):
         if bp.shot_board[row][col] != CELL_EMPTY:
             user = self.get_user(bp)
             if user:
-                user.speak_l("battleship-already-shot", buffer="game")
+                coord = self._grid_cell_coordinate(row, col)
+                user.speak_l("battleship-already-shot", buffer="game", coord=coord)
             return
 
         self._fire_shot(bp, row, col)
@@ -854,15 +913,27 @@ class BattleshipGame(GridGameMixin, TurnTimerMixin, Game):
         self.shot_pending_col = col
         self.shot_pending_ticks = FIRE_DELAY_TICKS
 
+    def _clear_pending_shot(self) -> None:
+        self.shot_pending_player_id = ""
+        self.shot_pending_row = -1
+        self.shot_pending_col = -1
+        self.shot_pending_ticks = 0
+
     def _resolve_shot(self) -> None:
         """Resolve a pending shot after the fire delay has elapsed."""
+        pending_player_id = self.shot_pending_player_id
+        row = self.shot_pending_row
+        col = self.shot_pending_col
+        self._clear_pending_shot()
+
+        if row < 0 or col < 0 or row >= self.grid_rows or col >= self.grid_cols:
+            return
+
         bp = self._as_bp(
-            self.get_player_by_id(self.shot_pending_player_id),
+            self.get_player_by_id(pending_player_id),
         )
         if not bp:
             return
-        row = self.shot_pending_row
-        col = self.shot_pending_col
 
         opponent = _get_opponent(self, bp)
         if not opponent:
@@ -1205,6 +1276,23 @@ class BattleshipGame(GridGameMixin, TurnTimerMixin, Game):
     # ------------------------------------------------------------------ #
     # Whose turn / scores overrides for web visibility                    #
     # ------------------------------------------------------------------ #
+
+    def _action_whose_turn(self, player: Player, action_id: str) -> None:
+        user = self.get_user(player)
+        if not user:
+            return
+        if self.status == "playing" and self.phase == "deploying":
+            user.speak_l("battleship-deploy-status-header", buffer="game")
+            for active in self.get_active_players():
+                bp = self._as_bp(active)
+                if not bp:
+                    continue
+                perspective = "self" if bp.id == player.id else "other"
+                readiness = "ready" if bp.deploy_ready else "not-ready"
+                key = f"battleship-deploy-status-{readiness}-{perspective}"
+                user.speak_l(key, buffer="game", player=bp.name)
+            return
+        super()._action_whose_turn(player, action_id)
 
     def _is_whos_at_table_hidden(self, player: Player) -> Visibility:
         user = self.get_user(player)

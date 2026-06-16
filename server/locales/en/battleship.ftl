@@ -30,6 +30,12 @@ battleship-timer-30 = 30 seconds
 battleship-timer-45 = 45 seconds
 battleship-timer-60 = 60 seconds
 
+# Setup validation
+battleship-error-invalid-grid-size = Combat zone size { $size } is not supported.
+battleship-error-grid-too-small = The { $size } by { $size } combat zone is too small for the full fleet. Use at least { $minimum } by { $minimum }.
+battleship-error-invalid-placement-mode = Deployment mode { $mode } is not supported.
+battleship-error-invalid-turn-timer = Turn timer { $seconds } is not supported.
+
 # Ship names
 battleship-ship-carrier = Carrier
 battleship-ship-battleship = Battleship
@@ -45,6 +51,8 @@ battleship-vertical = Vertical
 # Actions
 battleship-orient-horizontal = Deploy Horizontal
 battleship-orient-vertical = Deploy Vertical
+battleship-orient-horizontal-at = Deploy { $ship } horizontally at { $coord }
+battleship-orient-vertical-at = Deploy { $ship } vertically at { $coord }
 battleship-toggle-view = Switch Grid
 battleship-read-fleet = Fleet Status
 battleship-read-enemy-fleet = Enemy Fleet Intel
@@ -59,32 +67,40 @@ battleship-deploy-done = Fleet deployed. Standing by for the enemy.
 battleship-deploy-complete = Deployment complete.
 battleship-select-cell-first = Select a coordinate on the grid first.
 battleship-deploy-in-progress = Deployment still in progress.
+battleship-deploy-status-header = Ship placement phase.
+battleship-deploy-status-ready-self = You are ready.
+battleship-deploy-status-ready-other = { $player } is ready.
+battleship-deploy-status-not-ready-self = You are not ready yet.
+battleship-deploy-status-not-ready-other = { $player } is not ready yet.
 
 # Battle phase
 battleship-battle-start = All ships in position. Commence firing!
 
 # Hit — first-person (shooter), second-person (target), third-person (spectator)
-battleship-hit-self = Firing on { $coord }. Direct hit!
+battleship-hit-self = You fire on { $coord }. Direct hit!
 battleship-hit-target = { $player } fires on your { $coord }. Direct hit!
 battleship-hit-spectator = { $player } fires on { $target }'s { $coord }. Direct hit!
 
 # Miss — first/second/third
-battleship-miss-self = Firing on { $coord }. Missed.
+battleship-miss-self = You fire on { $coord }. Missed.
 battleship-miss-target = { $player } fires on your { $coord }. Missed.
 battleship-miss-spectator = { $player } fires on { $target }'s { $coord }. Missed.
 
 # Sunk — first/second/third
-battleship-sunk-self = Enemy { $ship } destroyed!
+battleship-sunk-self = You sank the enemy { $ship }!
 battleship-sunk-target = { $player } sank your { $ship }!
 battleship-sunk-spectator = { $player } sank { $target }'s { $ship }!
 
 # Victory — first/second/third
-battleship-victory-self = Victory! All enemy vessels have been sunk.
+battleship-victory-self = You win! All enemy vessels have been sunk.
 battleship-victory-target = { $player } wins! All your vessels have been sunk.
 battleship-victory-spectator = { $player } wins! All of { $target }'s vessels have been sunk.
 
-battleship-already-shot = Already fired on this coordinate.
-battleship-switch-to-shots = Viewing your own waters. Press V to switch to the target grid.
+battleship-shot-in-flight = A shell is still in flight. Wait for the result before firing again.
+battleship-not-your-turn = It is not your turn to fire. Wait for { $player } to choose a coordinate.
+battleship-wait-for-turn = Wait for the next firing order before choosing a coordinate.
+battleship-already-shot = You already fired on { $coord }. Choose an uncharted coordinate.
+battleship-switch-to-shots = You are viewing your own waters, so firing is blocked. Press V to switch to the target grid.
 battleship-timeout-fire = Time's up! Auto-firing on { $coord }.
 
 # View toggle

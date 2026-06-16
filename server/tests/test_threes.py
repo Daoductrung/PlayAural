@@ -42,6 +42,33 @@ class TestThreesGameUnit:
         game = ThreesGame(options=options)
         assert game.options.total_rounds == 10
 
+    def test_round_scores_are_spoken_as_separate_lines(self):
+        """Round score summaries should be replayable one player at a time."""
+        game = ThreesGame(options=ThreesOptions(total_rounds=1))
+        alice_user = MockUser("Alice")
+        bob_user = MockUser("Bob")
+        alice = game.add_player("Alice", alice_user)
+        bob = game.add_player("Bob", bob_user)
+        assert isinstance(alice, ThreesPlayer)
+        assert isinstance(bob, ThreesPlayer)
+        alice.total_score = 3
+        bob.total_score = 5
+        game.current_round = 1
+        alice_user.clear_messages()
+        bob_user.clear_messages()
+
+        game._end_round()
+
+        assert alice_user.get_spoken_messages()[:3] == [
+            "Round 1 scores:",
+            "Alice: 3",
+            "Bob: 5",
+        ]
+        assert not any(
+            "Round 1 scores: Alice: 3" in message
+            for message in alice_user.get_spoken_messages()
+        )
+
     def test_serialization(self):
         """Test that game state can be serialized and deserialized."""
         game = ThreesGame()

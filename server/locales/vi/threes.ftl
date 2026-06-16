@@ -20,7 +20,7 @@ threes-you-shot-moon = Chạm tới mặt trăng! Bạn được -30 điểm!
 threes-shot-moon = { $player } đã chạm tới mặt trăng và được -30 điểm!
 
 threes-round-start = Vòng { $round } trên { $total }.
-threes-round-scores = Điểm vòng { $round }: { $scores }
+threes-round-scores-header = Điểm vòng { $round }:
 
 threes-winner = { $player } thắng với { $score } điểm!
 threes-tie = { $players } hòa nhau với { $score } điểm!

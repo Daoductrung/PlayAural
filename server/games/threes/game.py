@@ -497,18 +497,13 @@ class ThreesGame(Game, DiceGameMixin):
             (p.name, p.total_score) for p in self.players if isinstance(p, ThreesPlayer)
         ]
         scores.sort(key=lambda x: x[1])  # Sort by score (lowest first)
-        
-        # scores_str = ", ".join(f"{name}: {score}" for name, score in scores)
-        
+
         for player in self.players:
             user = self.get_user(player)
             if user:
-                parts = []
+                user.speak_l("threes-round-scores-header", buffer="game", round=self.current_round)
                 for name, score in scores:
-                    parts.append(Localization.get(user.locale, "threes-score-pair", player=name, score=score))
-                
-                scores_str = Localization.format_list(user.locale, parts)
-                user.speak_l("threes-round-scores", buffer="game", round=self.current_round, scores=scores_str)
+                    user.speak_l("threes-score-pair", buffer="game", player=name, score=score)
 
         # Check if game is over
         if self.current_round >= self.options.total_rounds:

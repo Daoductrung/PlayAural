@@ -20,7 +20,7 @@ threes-you-shot-moon = Shooting the moon! You scored -30 points!
 threes-shot-moon = { $player } shot the moon and scored -30 points!
 
 threes-round-start = Round { $round } of { $total }.
-threes-round-scores = Round { $round } scores: { $scores }
+threes-round-scores-header = Round { $round } scores:
 
 threes-winner = { $player } wins with { $score } points!
 threes-tie = { $players } tie with { $score } points!

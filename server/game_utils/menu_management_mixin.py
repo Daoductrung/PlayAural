@@ -375,6 +375,7 @@ class MenuManagementMixin:
         """
         user = self.get_user(player)
         if user:
+            self._actions_menu_open.discard(player.id)
             self._live_status_boxes.pop(player.id, None)
             items, grid_kwargs = self._normalize_status_box_content(
                 lines,
@@ -409,6 +410,7 @@ class MenuManagementMixin:
         if not user:
             return
 
+        self._actions_menu_open.discard(player.id)
         self._live_status_boxes[player.id] = LiveStatusBoxState(
             box_id=box_id,
             builder=builder,

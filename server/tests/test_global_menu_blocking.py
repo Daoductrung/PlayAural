@@ -216,6 +216,43 @@ async def test_host_management_keybind_defers_while_status_box_open() -> None:
 
 
 @pytest.mark.asyncio
+async def test_rules_keybind_from_actions_menu_restores_turn_menu_after_status_close() -> None:
+    server, host, _guest, _table, game, host_player = _make_playing_game_server()
+    try:
+        game._action_show_actions_menu(host_player, "show_actions_menu")
+        assert host_player.id in game._actions_menu_open
+        assert "actions_menu" in host.menus
+
+        await server._handle_keybind(
+            SimpleNamespace(username=host.username),
+            {"type": "keybind", "key": "ctrl+f1"},
+        )
+
+        assert host_player.id not in game._actions_menu_open
+        assert host_player.id in game._status_box_open
+        assert "status_box" in host.menus
+
+        host.clear_messages()
+        await server._handle_menu(
+            SimpleNamespace(username=host.username),
+            {
+                "type": "menu",
+                "menu_id": "status_box",
+                "selection_id": "status_box:line:0",
+            },
+        )
+
+        assert host_player.id not in game._status_box_open
+        assert "status_box" not in host.menus
+        assert any(
+            message.type == "show_menu" and message.data.get("menu_id") == "turn_menu"
+            for message in host.messages
+        )
+    finally:
+        server._db.close()
+
+
+@pytest.mark.asyncio
 async def test_active_game_input_blocks_navigation_without_deferring() -> None:
     server, host, _guest, _table, game, host_player = _make_playing_game_server()
     try:

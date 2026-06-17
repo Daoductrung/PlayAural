@@ -256,6 +256,7 @@ class EventHandlingMixin:
                 if action:
                     resolved = self.resolve_action(player, action)
                     if resolved.enabled:
+                        self._actions_menu_open.discard(player.id)
                         self.execute_action(player, action_id, context=context)
                         executed_any = True
                     elif resolved.disabled_reason:

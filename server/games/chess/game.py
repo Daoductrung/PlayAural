@@ -28,6 +28,7 @@ if TYPE_CHECKING:
 COLOR_WHITE = "white"
 COLOR_BLACK = "black"
 PIECE_TYPES = ("pawn", "knight", "bishop", "rook", "queen", "king")
+MAX_UNDO_HISTORY = 1
 
 MUSIC_PATH = "game_coup/music.ogg"
 SOUND_TURN = "game_squares/begin turn.ogg"
@@ -258,6 +259,10 @@ class ChessGame(GridGameMixin, Game):
     def rebuild_runtime_state(self) -> None:
         super().rebuild_runtime_state()
         self._chess_bot_jobs = {}
+
+    def finish_game(self, show_end_screen: bool = True) -> None:
+        self._clear_transient_request_state()
+        super().finish_game(show_end_screen=show_end_screen)
 
     @classmethod
     def get_name(cls) -> str:
@@ -651,6 +656,24 @@ class ChessGame(GridGameMixin, Game):
     def _has_pending_response(self) -> bool:
         return bool(self.draw_offer_from or self.undo_request_from)
 
+    def _clear_transient_request_state(self) -> None:
+        self.draw_offer_from = ""
+        self.undo_request_from = ""
+        self.undo_history.clear()
+        self.pending_undo_snapshot = None
+        self._pending_actions.clear()
+        self._pending_action_return_focus.clear()
+        for job in self._chess_bot_jobs.values():
+            future = getattr(job, "future", None)
+            if future is not None:
+                future.cancel()
+        self._chess_bot_jobs.clear()
+
+    def _push_undo_snapshot(self, snapshot: ChessUndoSnapshot) -> None:
+        self.undo_history.append(snapshot)
+        if len(self.undo_history) > MAX_UNDO_HISTORY:
+            del self.undo_history[:-MAX_UNDO_HISTORY]
+
     def _get_response_player_for(self, requester_id: str) -> ChessPlayer | None:
         if not requester_id:
             return None
@@ -840,6 +863,7 @@ class ChessGame(GridGameMixin, Game):
         self.draw_offer_from = ""
         self.undo_request_from = ""
         self.pending_undo_snapshot = None
+        self.undo_history.clear()
         player = self._get_player_by_color(self.current_color)
         if player and player.id in self.turn_player_ids:
             self.turn_index = self.turn_player_ids.index(player.id)
@@ -1130,6 +1154,9 @@ class ChessGame(GridGameMixin, Game):
             return
 
         self._execute_move_full(chess_player, from_sq, to_sq, promotion=promotion)
+        return_focus = self.get_action_context(player).menu_item_id
+        if return_focus and self.status == "playing" and not self.promotion_pending:
+            self.request_menu_focus(chess_player, return_focus)
 
     def _reopen_type_move_input(self, player: ChessPlayer) -> None:
         action = self.find_action(player, "type_move")
@@ -1810,7 +1837,7 @@ class ChessGame(GridGameMixin, Game):
             )
         )
         self.position_history.append(self._get_position_hash())
-        self.undo_history.append(snapshot)
+        self._push_undo_snapshot(snapshot)
         self.pending_undo_snapshot = None
 
         opponent = self._get_player_by_color(opponent_color)
@@ -2045,9 +2072,7 @@ class ChessGame(GridGameMixin, Game):
         if self.status != "playing" or chess_player is None or player.is_spectator:
             return Visibility.HIDDEN
         user = self.get_user(player)
-        if not self.is_touch_client(user):
-            return Visibility.HIDDEN
-        if self._is_type_move_enabled(player) is None:
+        if self.is_touch_client(user):
             return Visibility.VISIBLE
         return Visibility.HIDDEN
 
@@ -2156,17 +2181,21 @@ class ChessGame(GridGameMixin, Game):
         return Visibility.HIDDEN
 
     def _is_request_undo_enabled(self, player: Player) -> str | None:
+        chess_player = self._as_chess_player(player)
         if self.status != "playing":
             return "action-not-playing"
+        if chess_player is None or player.is_spectator:
+            return "action-not-available"
         if (
             not self.options.allow_undo_requests
             or self.promotion_pending
             or self._has_pending_response()
             or not self.undo_history
+            or not self.move_history
         ):
             return "action-not-available"
-        if player != self.current_player:
-            return "action-not-your-turn"
+        if self.move_history[-1].color != chess_player.color:
+            return "action-not-available"
         return None
 
     def _is_request_undo_hidden(self, player: Player) -> Visibility:

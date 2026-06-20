@@ -514,6 +514,62 @@ def test_type_move_is_touch_visible_in_standard_utility_order() -> None:
     assert visible_ids.index("type_move") < visible_ids.index("read_board")
 
 
+def test_type_move_stays_touch_visible_when_not_players_turn() -> None:
+    game = make_game(start=True)
+    white = game.players[0]
+    black = game.players[1]
+    white_user = game.get_user(white)
+    black_user = game.get_user(black)
+    white_user.client_type = "web"
+    black_user.client_type = "web"
+
+    game.refresh_menus(black)
+    game.flush_menus()
+
+    black_ids = [
+        item.id
+        for item in black_user.menus["turn_menu"]["items"]
+        if getattr(item, "id", None)
+    ]
+    assert "type_move" in black_ids
+    assert game._is_type_move_enabled(black) == "action-not-your-turn"
+
+    game.execute_action(white, "type_move", "e2e4")
+    game.flush_menus()
+
+    white_ids = [
+        item.id
+        for item in white_user.menus["turn_menu"]["items"]
+        if getattr(item, "id", None)
+    ]
+    assert "type_move" in white_ids
+    assert game._is_type_move_enabled(white) == "action-not-your-turn"
+
+
+def test_type_move_touch_input_returns_focus_to_type_move() -> None:
+    game = make_game(start=True)
+    white = game.players[0]
+    user = game.get_user(white)
+    user.client_type = "web"
+
+    game.refresh_menus(white)
+    game.flush_menus()
+    game.handle_event(
+        white,
+        {"type": "menu", "menu_id": "turn_menu", "selection_id": "type_move"},
+    )
+    assert "action_input_editbox" in user.editboxes
+
+    game.handle_event(
+        white,
+        {"type": "editbox", "input_id": "action_input_editbox", "text": "e2e4"},
+    )
+    game.flush_menus()
+
+    assert game.board[notation_to_index("e4")] is not None
+    assert user.menus["turn_menu"]["selection_id"] == "type_move"
+
+
 def test_desktop_hides_web_only_utility_actions() -> None:
     game = make_game_with_options(
         start=True,
@@ -831,15 +887,110 @@ def test_undo_request_restores_previous_position() -> None:
     assert game.board[notation_to_index("e4")] is not None
     assert game.current_color == COLOR_BLACK
 
-    game._action_request_undo(black, "request_undo")
-    assert game.undo_request_from == black.id
+    assert game._is_request_undo_enabled(white) is None
+    assert game._is_request_undo_enabled(black) == "action-not-available"
 
-    game._action_accept_undo(white, "accept_undo")
+    game._action_request_undo(white, "request_undo")
+    assert game.undo_request_from == white.id
+
+    game._action_accept_undo(black, "accept_undo")
 
     assert game.board[notation_to_index("e2")] is not None
     assert game.board[notation_to_index("e4")] is None
     assert game.current_color == COLOR_WHITE
     assert not game.move_history
+
+
+def test_undo_request_visible_to_last_mover_after_their_move() -> None:
+    game = make_game_with_options(start=True, allow_undo_requests=True)
+    white = game.players[0]
+    black = game.players[1]
+    white_user = game.get_user(white)
+    black_user = game.get_user(black)
+    white_user.client_type = "web"
+    black_user.client_type = "web"
+
+    select_square(game, white, "e2")
+    select_square(game, white, "e4")
+    game.flush_menus()
+
+    white_ids = [
+        item.id
+        for item in white_user.menus["turn_menu"]["items"]
+        if getattr(item, "id", None)
+    ]
+    black_ids = [
+        item.id
+        for item in black_user.menus["turn_menu"]["items"]
+        if getattr(item, "id", None)
+    ]
+    assert "request_undo" in white_ids
+    assert "request_undo" not in black_ids
+
+
+def test_undo_history_keeps_only_latest_snapshot() -> None:
+    game = make_game_with_options(start=True, allow_undo_requests=True)
+    white = game.players[0]
+    black = game.players[1]
+
+    game.execute_action(white, "type_move", "e2e4")
+    assert len(game.undo_history) == 1
+    game.execute_action(black, "type_move", "e7e5")
+    assert len(game.undo_history) == 1
+    game.execute_action(white, "type_move", "g1f3")
+    assert len(game.undo_history) == 1
+
+    game._action_request_undo(white, "request_undo")
+    game._action_accept_undo(black, "accept_undo")
+
+    assert game.board[notation_to_index("g1")] is not None
+    assert game.board[notation_to_index("f3")] is None
+    assert game.board[notation_to_index("e4")] is not None
+    assert game.board[notation_to_index("e5")] is not None
+    assert len(game.move_history) == 2
+    assert game.undo_history == []
+
+
+def test_accept_undo_clears_legacy_extra_snapshots() -> None:
+    game = make_game_with_options(start=True, allow_undo_requests=True)
+    white = game.players[0]
+    black = game.players[1]
+
+    game.execute_action(white, "type_move", "e2e4")
+    game.execute_action(black, "type_move", "e7e5")
+    latest_snapshot = game.undo_history[-1]
+    game.undo_history = [game._make_undo_snapshot(), latest_snapshot]
+
+    game._action_request_undo(black, "request_undo")
+    game._action_accept_undo(white, "accept_undo")
+
+    assert game.undo_history == []
+    assert game.board[notation_to_index("e7")] is not None
+    assert game.board[notation_to_index("e5")] is None
+
+
+def test_undo_and_pending_input_state_clear_when_game_finishes() -> None:
+    game = make_game_with_options(start=True, allow_undo_requests=True)
+    white = game.players[0]
+
+    game.execute_action(white, "type_move", "e2e4")
+    game.draw_offer_from = white.id
+    game.undo_request_from = white.id
+    game.pending_undo_snapshot = game._make_undo_snapshot()
+    game._pending_actions[white.id] = "type_move"
+    game._pending_action_return_focus[white.id] = "type_move"
+    game._chess_bot_jobs[white.id] = object()
+
+    game.finish_game(show_end_screen=False)
+
+    assert game.status == "finished"
+    assert game.draw_offer_from == ""
+    assert game.undo_request_from == ""
+    assert game.undo_history == []
+    assert game.pending_undo_snapshot is None
+    assert game._pending_actions == {}
+    assert game._pending_action_return_focus == {}
+    assert game._chess_bot_jobs == {}
 
 
 def test_undo_accept_shortcut_does_not_accept_draw() -> None:
@@ -853,14 +1004,14 @@ def test_undo_accept_shortcut_does_not_accept_draw() -> None:
 
     select_square(game, white, "e2")
     select_square(game, white, "e4")
-    game._action_request_undo(black, "request_undo")
+    game._action_request_undo(white, "request_undo")
 
-    assert game.undo_request_from == black.id
+    assert game.undo_request_from == white.id
     assert game.draw_offer_from == ""
-    assert game._is_draw_response_enabled(white) == "action-not-available"
-    assert game._is_undo_response_enabled(white) is None
+    assert game._is_draw_response_enabled(black) == "action-not-available"
+    assert game._is_undo_response_enabled(black) is None
 
-    game.handle_event(white, {"type": "keybind", "key": "y"})
+    game.handle_event(black, {"type": "keybind", "key": "y"})
     game.flush_menus()
 
     assert game.status == "playing"
@@ -883,14 +1034,14 @@ def test_undo_request_cannot_be_answered_by_draw_actions_directly() -> None:
 
     select_square(game, white, "e2")
     select_square(game, white, "e4")
-    game._action_request_undo(black, "request_undo")
+    game._action_request_undo(white, "request_undo")
 
-    game.execute_action(white, "accept_draw")
+    game.execute_action(black, "accept_draw")
     game.flush_menus()
 
     assert game.status == "playing"
     assert game.draw_reason == ""
-    assert game.undo_request_from == black.id
+    assert game.undo_request_from == white.id
     assert game.board[notation_to_index("e4")] is not None
 
 
@@ -928,8 +1079,8 @@ def test_undo_request_can_be_declined() -> None:
 
     select_square(game, white, "e2")
     select_square(game, white, "e4")
-    game._action_request_undo(black, "request_undo")
-    game._action_decline_undo(white, "decline_undo")
+    game._action_request_undo(white, "request_undo")
+    game._action_decline_undo(black, "decline_undo")
 
     assert game.status == "playing"
     assert game.undo_request_from == ""

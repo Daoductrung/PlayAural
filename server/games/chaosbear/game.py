@@ -40,6 +40,8 @@ class ChaosBearGame(Game):
     If the bear catches you, you're out! Last player alive wins.
     """
 
+    relevant_preferences = ["brief_announcements"]
+
     players: list[ChaosBearPlayer] = field(default_factory=list)
 
     # Game Logic State
@@ -151,22 +153,86 @@ class ChaosBearGame(Game):
             return
         user = self.get_user(player)
         if user:
-            user.speak_l(reason, buffer="game")
+            payload = {}
+            if (
+                reason
+                in {
+                    "chaosbear-error-roll-caught",
+                    "chaosbear-error-draw-caught",
+                }
+                and isinstance(player, ChaosBearPlayer)
+            ):
+                payload["position"] = player.position
+                payload["bear_position"] = self.bear_position
+            user.speak_l(reason, buffer="game", **payload)
+
+    def _wants_brief(self, user) -> bool:
+        return bool(
+            user
+            and user.preferences.get_effective(
+                "brief_announcements", game_type=self.get_type()
+            )
+        )
 
     def _broadcast_runner_event(
         self,
         player: ChaosBearPlayer,
         personal_message_id: str,
         others_message_id: str,
+        *,
+        brief_personal_message_id: str | None = None,
+        brief_others_message_id: str | None = None,
         **kwargs,
     ) -> None:
-        self.broadcast_personal_l(
-            player,
-            personal_message_id,
-            others_message_id,
-            buffer="game",
-            **kwargs,
-        )
+        for listener in self.players:
+            user = self.get_user(listener)
+            if not user:
+                continue
+
+            is_actor = listener.id == player.id
+            key = personal_message_id if is_actor else others_message_id
+            if self._wants_brief(user):
+                if is_actor and brief_personal_message_id:
+                    key = brief_personal_message_id
+                elif not is_actor and brief_others_message_id:
+                    key = brief_others_message_id
+
+            payload = dict(kwargs)
+            if not is_actor:
+                payload["player"] = player.name
+            user.speak_l(key, buffer="game", **payload)
+
+    def _broadcast_global_event(
+        self,
+        message_id: str,
+        *,
+        brief_message_id: str | None = None,
+        **kwargs,
+    ) -> None:
+        """Broadcast a global chase event with listener-specific verbosity."""
+        for listener in self.players:
+            user = self.get_user(listener)
+            if not user:
+                continue
+            key = (
+                brief_message_id
+                if brief_message_id and self._wants_brief(user)
+                else message_id
+            )
+            user.speak_l(key, buffer="game", **kwargs)
+
+    def _announce_intro(self) -> None:
+        """Announce the start of the chase once per listener."""
+        for listener in self.players:
+            user = self.get_user(listener)
+            if not user:
+                continue
+            if self._wants_brief(user):
+                user.speak_l("chaosbear-intro-brief", buffer="game")
+                continue
+            user.speak_l("chaosbear-intro-1", buffer="game")
+            user.speak_l("chaosbear-intro-2", buffer="game")
+            user.speak_l("chaosbear-intro-3", buffer="game")
 
     # ==========================================================================
     # Action Sets
@@ -281,15 +347,17 @@ class ChaosBearGame(Game):
     def _is_roll_dice_enabled(self, player: Player) -> str | None:
         """Check if roll dice action is enabled."""
         if self.status != "playing":
-            return "action-not-playing"
+            return "chaosbear-error-roll-not-playing"
         if not isinstance(player, ChaosBearPlayer):
             return "action-not-available"
+        if self.current_player is None:
+            return "chaosbear-error-roll-no-turn"
         if self.current_player != player:
-            return "action-not-your-turn"
+            return "chaosbear-error-roll-not-your-turn"
         if self.is_rolling or self.is_sequence_gameplay_locked():
-            return "chaosbear-action-in-progress"
+            return "chaosbear-error-roll-resolving"
         if not player.alive:
-            return "chaosbear-you-are-caught"
+            return "chaosbear-error-roll-caught"
         return None
 
     def _is_turn_action_visible(self, player: Player) -> Visibility:
@@ -314,18 +382,20 @@ class ChaosBearGame(Game):
     def _is_draw_card_enabled(self, player: Player) -> str | None:
         """Check if draw card action is enabled."""
         if self.status != "playing":
-            return "action-not-playing"
+            return "chaosbear-error-draw-not-playing"
         if not isinstance(player, ChaosBearPlayer):
             return "action-not-available"
+        if self.current_player is None:
+            return "chaosbear-error-draw-no-turn"
         if self.current_player != player:
-            return "action-not-your-turn"
+            return "chaosbear-error-draw-not-your-turn"
         if self.is_rolling or self.is_sequence_gameplay_locked():
-            return "chaosbear-action-in-progress"
+            return "chaosbear-error-draw-resolving"
         if not player.alive:
-            return "chaosbear-you-are-caught"
+            return "chaosbear-error-draw-caught"
         can_draw = player.position % 5 == 0 and player.position > 0
         if not can_draw:
-            return "chaosbear-not-on-multiple"
+            return "chaosbear-error-draw-not-on-multiple"
         return None
 
     def _is_draw_card_hidden(self, player: Player) -> Visibility:
@@ -335,7 +405,7 @@ class ChaosBearGame(Game):
     def _is_check_status_enabled(self, player: Player) -> str | None:
         """Check if check status action is enabled."""
         if self.status != "playing":
-            return "action-not-playing"
+            return "chaosbear-error-status-not-playing"
         return None
 
     def _is_check_status_hidden(self, player: Player) -> Visibility:
@@ -387,10 +457,7 @@ class ChaosBearGame(Game):
         self.play_ambience("game_chaosbear/amloop.ogg")
         self.play_sound("game_3cardpoker/roundstart.ogg")
 
-        # Announce game start (3 messages like v10)
-        self.broadcast_l("chaosbear-intro-1", buffer="game")
-        self.broadcast_l("chaosbear-intro-2", buffer="game")
-        self.broadcast_l("chaosbear-intro-3", buffer="game")
+        self._announce_intro()
 
         # Rebuild menus and announce first turn
         self.refresh_menus()
@@ -417,6 +484,8 @@ class ChaosBearGame(Game):
                 player,
                 "chaosbear-turn-you",
                 "chaosbear-turn-other",
+                brief_personal_message_id="chaosbear-turn-you-brief",
+                brief_others_message_id="chaosbear-turn-other-brief",
                 position=player.position,
                 gap=self._gap_to_bear(player.position),
             )
@@ -443,6 +512,8 @@ class ChaosBearGame(Game):
                         player,
                         "chaosbear-position-you",
                         "chaosbear-position-other",
+                        brief_personal_message_id="chaosbear-position-you-brief",
+                        brief_others_message_id="chaosbear-position-other-brief",
                         position=new_pos,
                         gap=self._gap_to_bear(new_pos),
                     )
@@ -457,10 +528,20 @@ class ChaosBearGame(Game):
                 others_msg_id = data.get("others_msg_id")
                 kwargs = dict(data.get("kwargs") or {})
                 if personal_msg_id and others_msg_id:
+                    brief_personal_msg_id = data.get("brief_personal_msg_id")
+                    brief_others_msg_id = data.get("brief_others_msg_id")
                     self._broadcast_runner_event(
                         player,
                         str(personal_msg_id),
                         str(others_msg_id),
+                        brief_personal_message_id=(
+                            str(brief_personal_msg_id)
+                            if brief_personal_msg_id
+                            else None
+                        ),
+                        brief_others_message_id=(
+                            str(brief_others_msg_id) if brief_others_msg_id else None
+                        ),
                         **kwargs,
                     )
                 else:
@@ -473,9 +554,9 @@ class ChaosBearGame(Game):
             roll = data["roll"]
             energy = data["energy"]
             total = data["total"]
-            self.broadcast_l(
+            self._broadcast_global_event(
                 "chaosbear-bear-roll",
-                buffer="game",
+                brief_message_id="chaosbear-bear-roll-brief",
                 roll=roll,
                 energy=energy,
                 total=total,
@@ -484,20 +565,26 @@ class ChaosBearGame(Game):
         elif event_type == "bear_energy_up":
             energy = data["energy"]
             self.bear_energy = energy
-            self.broadcast_l("chaosbear-bear-energy-up", buffer="game", energy=energy)
+            self._broadcast_global_event(
+                "chaosbear-bear-energy-up",
+                brief_message_id="chaosbear-bear-energy-up-brief",
+                energy=energy,
+            )
 
         elif event_type == "bear_move":
             new_pos = data["pos"]
             self.bear_position = new_pos
-            self.broadcast_l(
-                "chaosbear-bear-position", buffer="game", position=new_pos
+            self._broadcast_global_event(
+                "chaosbear-bear-position",
+                brief_message_id="chaosbear-bear-position-brief",
+                position=new_pos,
             )
 
         elif event_type == "bear_feast":
             self.bear_energy = data["energy"]
-            self.broadcast_l(
+            self._broadcast_global_event(
                 "chaosbear-bear-feast",
-                buffer="game",
+                brief_message_id="chaosbear-bear-feast-brief",
                 energy=self.bear_energy,
             )
 
@@ -508,6 +595,8 @@ class ChaosBearGame(Game):
                     player,
                     "chaosbear-you-caught",
                     "chaosbear-player-caught",
+                    brief_personal_message_id="chaosbear-you-caught-brief",
+                    brief_others_message_id="chaosbear-player-caught-brief",
                     position=player.position,
                     bear_position=self.bear_position,
                 )
@@ -772,6 +861,8 @@ class ChaosBearGame(Game):
                 winner,
                 "chaosbear-distance-winner-you",
                 "chaosbear-distance-winner-other",
+                brief_personal_message_id="chaosbear-distance-winner-you-brief",
+                brief_others_message_id="chaosbear-distance-winner-other-brief",
                 position=winner.position,
             )
         else:
@@ -779,6 +870,8 @@ class ChaosBearGame(Game):
                 winner,
                 "chaosbear-winner-you",
                 "chaosbear-winner-other",
+                brief_personal_message_id="chaosbear-winner-you-brief",
+                brief_others_message_id="chaosbear-winner-other-brief",
                 position=winner.position,
             )
 
@@ -805,8 +898,13 @@ class ChaosBearGame(Game):
                     winner.name for winner in winners if winner.id != listener.id
                 ]
                 if other_names:
+                    key = (
+                        "chaosbear-tie-you-brief"
+                        if self._wants_brief(user)
+                        else "chaosbear-tie-you"
+                    )
                     user.speak_l(
-                        "chaosbear-tie-you",
+                        key,
                         buffer="game",
                         position=position,
                         players=Localization.format_list_and(
@@ -814,15 +912,25 @@ class ChaosBearGame(Game):
                         ),
                     )
                 else:
+                    key = (
+                        "chaosbear-tie-brief"
+                        if self._wants_brief(user)
+                        else "chaosbear-tie"
+                    )
                     user.speak_l(
-                        "chaosbear-tie",
+                        key,
                         buffer="game",
                         position=position,
                         players=names,
                     )
             else:
+                key = (
+                    "chaosbear-tie-brief"
+                    if self._wants_brief(user)
+                    else "chaosbear-tie"
+                )
                 user.speak_l(
-                    "chaosbear-tie",
+                    key,
                     buffer="game",
                     position=position,
                     players=names,
@@ -1009,6 +1117,8 @@ class ChaosBearGame(Game):
             player,
             "chaosbear-roll-you",
             "chaosbear-roll-other",
+            brief_personal_message_id="chaosbear-roll-you-brief",
+            brief_others_message_id="chaosbear-roll-other-brief",
             roll=roll,
         )
 
@@ -1063,6 +1173,8 @@ class ChaosBearGame(Game):
             player,
             "chaosbear-draw-card-you",
             "chaosbear-draw-card-other",
+            brief_personal_message_id="chaosbear-draw-card-you-brief",
+            brief_others_message_id="chaosbear-draw-card-other-brief",
         )
 
         card = random.randint(0, 5)
@@ -1072,6 +1184,8 @@ class ChaosBearGame(Game):
         event_delay = 10
         personal_msg_id = ""
         others_msg_id = ""
+        brief_personal_msg_id = ""
+        brief_others_msg_id = ""
         kwargs = {}
         payload: dict[str, object] = {"player_id": player.id}
 
@@ -1083,6 +1197,8 @@ class ChaosBearGame(Game):
             )
             personal_msg_id = "chaosbear-card-impulsion-you"
             others_msg_id = "chaosbear-card-impulsion-other"
+            brief_personal_msg_id = "chaosbear-card-impulsion-you-brief"
+            brief_others_msg_id = "chaosbear-card-impulsion-other-brief"
             kwargs = {"position": new_pos, "gap": self._gap_to_bear(new_pos)}
             payload["pos"] = new_pos
 
@@ -1094,6 +1210,8 @@ class ChaosBearGame(Game):
             )
             personal_msg_id = "chaosbear-card-super-impulsion-you"
             others_msg_id = "chaosbear-card-super-impulsion-other"
+            brief_personal_msg_id = "chaosbear-card-super-impulsion-you-brief"
+            brief_others_msg_id = "chaosbear-card-super-impulsion-other-brief"
             kwargs = {"position": new_pos, "gap": self._gap_to_bear(new_pos)}
             payload["pos"] = new_pos
 
@@ -1108,6 +1226,8 @@ class ChaosBearGame(Game):
             )
             personal_msg_id = "chaosbear-card-tiredness-you"
             others_msg_id = "chaosbear-card-tiredness-other"
+            brief_personal_msg_id = "chaosbear-card-tiredness-you-brief"
+            brief_others_msg_id = "chaosbear-card-tiredness-other-brief"
             kwargs = {
                 "position": new_pos,
                 "gap": self._gap_to_bear(new_pos),
@@ -1128,6 +1248,8 @@ class ChaosBearGame(Game):
             )
             personal_msg_id = "chaosbear-card-hunger-you"
             others_msg_id = "chaosbear-card-hunger-other"
+            brief_personal_msg_id = "chaosbear-card-hunger-you-brief"
+            brief_others_msg_id = "chaosbear-card-hunger-other-brief"
             kwargs = {
                 "position": new_pos,
                 "gap": self._gap_to_bear(new_pos),
@@ -1143,6 +1265,8 @@ class ChaosBearGame(Game):
             self.schedule_sound("game_chaosbear/backpush.ogg", delay_ticks=4)
             personal_msg_id = "chaosbear-card-backward-you"
             others_msg_id = "chaosbear-card-backward-other"
+            brief_personal_msg_id = "chaosbear-card-backward-you-brief"
+            brief_others_msg_id = "chaosbear-card-backward-other-brief"
             kwargs = {"position": new_pos, "gap": self._gap_to_bear(new_pos)}
             payload["pos"] = new_pos
 
@@ -1152,6 +1276,8 @@ class ChaosBearGame(Game):
                 player,
                 "chaosbear-card-random-gift-you",
                 "chaosbear-card-random-gift-other",
+                brief_personal_message_id="chaosbear-card-random-gift-you-brief",
+                brief_others_message_id="chaosbear-card-random-gift-other-brief",
             )
             amount = random.randint(1, 6)
             if random.random() < 0.5:
@@ -1159,6 +1285,8 @@ class ChaosBearGame(Game):
                 self.schedule_sound("game_chaosbear/backpush.ogg", delay_ticks=4)
                 personal_msg_id = "chaosbear-gift-back-you"
                 others_msg_id = "chaosbear-gift-back-other"
+                brief_personal_msg_id = "chaosbear-gift-back-you-brief"
+                brief_others_msg_id = "chaosbear-gift-back-other-brief"
             else:
                 new_pos += amount
                 self.schedule_sound(
@@ -1167,6 +1295,8 @@ class ChaosBearGame(Game):
                 )
                 personal_msg_id = "chaosbear-gift-forward-you"
                 others_msg_id = "chaosbear-gift-forward-other"
+                brief_personal_msg_id = "chaosbear-gift-forward-you-brief"
+                brief_others_msg_id = "chaosbear-gift-forward-other-brief"
             kwargs = {
                 "position": new_pos,
                 "gap": self._gap_to_bear(new_pos),
@@ -1176,6 +1306,8 @@ class ChaosBearGame(Game):
 
         payload["personal_msg_id"] = personal_msg_id
         payload["others_msg_id"] = others_msg_id
+        payload["brief_personal_msg_id"] = brief_personal_msg_id
+        payload["brief_others_msg_id"] = brief_others_msg_id
         payload["kwargs"] = kwargs
 
         self.start_sequence(

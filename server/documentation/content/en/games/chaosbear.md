@@ -1,112 +1,77 @@
 \*\*Chaos Bear\*\*
 
+Chaos Bear is a fast chase game for 2 to 4 players. Everyone starts ahead of the bear and tries to stay out of reach for as long as possible.
 
+The last runner still alive wins. If the bear catches everyone in the same bear turn, the player or players who reached the farthest square share the distance result.
 
-Chaos Bear is a push-your-luck chase game for 2 to 4 players. You and your fellow players are being pursued by an increasingly energetic bear, and your goal is simple: don't get caught.
+\*\*Starting the Chase\*\*
 
+The chase uses an open-ended track. Players begin at square 30. The bear begins at square 0 with 1 energy.
 
+Each round has two parts:
 
-Each round, players roll a die to sprint forward along a number line. The bear then takes its own turn, rolling to close the gap. As the game goes on, the bear accumulates energy, making it faster and harder to outrun. If the bear reaches your position, you're out. The last player still running wins -- or, if everyone gets caught in the same bear turn, the system declares a tie for the players who made it the furthest.
+\* Every surviving player takes one turn.
 
+\* After all surviving players have acted, the bear moves.
 
+The first player changes from round to round so the same seat does not always move first.
 
-Drawing cards on special squares adds a layer of chaos to the proceedings, with effects ranging from a helpful boost forward to an unfortunate shove backward -- or even meddling with the bear's energy level.
+\*\*Taking a Turn\*\*
 
+On your turn, choose one action:
 
+\* \*\*Roll dice:\*\* Roll one six-sided die and move forward by the number rolled.
 
-\*\*Gameplay\*\*
+\* \*\*Draw a card:\*\* Available only when you are standing on a positive multiple of 5, such as 30, 35, or 40. Drawing gives you a 3-square surge, then applies the card effect.
 
+After you roll or draw, your turn ends.
 
+\*\*Chaos Cards\*\*
 
-The game takes place on an infinite track. All players begin at position 30, while the bear starts at position 0. The game is divided into rounds; each round, every surviving player takes one turn, and then the bear moves.
+Cards can help you, hurt you, or change the bear's energy:
 
+\* \*\*Impulsion:\*\* After the 3-square draw surge, move 3 more squares forward.
 
+\* \*\*Super Impulsion:\*\* After the 3-square draw surge, move 5 more squares forward.
 
-\*\*Player Turns\*\*
+\* \*\*Tiredness:\*\* Keep the 3-square draw surge. The bear loses 1 energy, but never drops below 1.
 
+\* \*\*Hunger:\*\* Keep the 3-square draw surge. The bear gains 1 energy.
 
+\* \*\*Backward Push:\*\* Lose the 3-square draw surge and stay on your original square.
 
-On your turn, you roll a single six-sided die (values 1 through 6) and move forward that many squares. Your turn then ends.
-
-
-
-However, if you are standing on a position that is a positive multiple of 5 (such as 30, 35, 40, and so on), you have the option to draw a card instead of rolling. Drawing a card always gives you a 3-square surge before the card's special effect is applied, and it still ends your turn. See the Cards section below for the full list of possible outcomes.
-
-
+\* \*\*Random Gift:\*\* After the 3-square draw surge, move forward or backward by 1 to 6 squares.
 
 \*\*The Bear's Turn\*\*
 
+After every surviving player has acted, the bear rolls a three-sided die and adds its current energy. The total is how many squares the bear moves.
 
+If the bear rolls 3, its energy increases by 1. That new energy does not help the bear move until a later bear turn.
 
-After all surviving players have moved, the bear moves. The bear rolls a die (1 through 3) and adds its current energy to the roll. 
-
-\* \*\*Exception:\*\* If the bear rolls a 3, its energy increases by 1, but that extra point of energy does not count toward movement on this turn.
-
-
-
-The bear's energy starts at 1 and never drops below 1. If the bear's new position is equal to or greater than any player's position, those players are eliminated. After catching players, the bear loses 3 energy (minimum 1) as it slows down.
-
-
+If the bear reaches or passes your square, you are caught and leave the chase. When the bear catches at least one runner, it slows down and loses 3 energy, but its energy never goes below 1.
 
 \*\*Winning\*\*
 
+You win by being the only runner still alive after the bear moves.
 
+If the bear catches every remaining runner in the same bear turn, the game checks who reached the farthest square. A single farthest runner wins the distance tiebreaker. If multiple runners reached that same farthest square, they tie.
 
-The game ends when only one player remains alive. If the bear catches everyone in a single turn, the system declares a tie for the players who reached the furthest position.
+\*\*Customizable Options\*\*
 
+Chaos Bear uses fixed table rules so everyone gets the same quick chase experience.
 
+\*\*Personal Game Options\*\*
 
-\*\*Cards\*\*
+\* \*\*Brief Announcements:\*\* Uses shorter turn, movement, card, bear, caught, and result messages while keeping the important square, gap, roll, and energy values.
 
+\*\*Checking the Chase\*\*
 
-
-Available only on multiples of 5:
-
-\* \*\*Impulsion:\*\* After the draw surge, leap forward 3 more squares.
-
-\* \*\*Super Impulsion:\*\* After the draw surge, leap forward 5 more squares.
-
-\* \*\*Tiredness:\*\* Keep the 3-square surge, and the bear loses 1 energy (minimum 1).
-
-\* \*\*Hunger:\*\* Keep the 3-square surge, but the bear gains 1 energy.
-
-\* \*\*Backward Push:\*\* You lose the draw surge and stay where you started.
-
-\* \*\*Random Gift:\*\* After the draw surge, move forward or backward by 1-6 squares (coin flip).
-
-
-
-\*\*Example Turn\*\*
-
-
-
-It's the start of a game. Charlie and Diana are at position 30, and the bear is at 0.
-
-Charlie rolls a 5 and moves to position 35. 
-
-Diana is at 30 (a multiple of 5) and decides to draw a card. She gets the 3-square surge to 33, then draws \*\*Super Impulsion\*\* and leaps to 38.
-
-The bear rolls a 1 + energy of 1, moving to position 2.
-
-
-
-A few rounds later, Charlie is at 45 and Diana is at 42. The bear is at 38 with an energy of 4.
-
-Charlie draws a card and gets \*\*Backward Push\*\*, losing the surge and staying at 45.
-
-Diana rolls a 1 and moves to 43.
-
-The bear rolls a 3. Its energy increases to 5, but it moves 3 + 4 = 7 to position 45. The bear has passed both Charlie and Diana. Since Charlie reached position 45 and Diana only reached 43, Charlie is declared the winner in a tiebreaker!
-
-
+\*\*Check status\*\* opens a live panel with the current round, whose turn it is, each runner's square and distance ahead of the bear, caught runners, and the bear's square and energy.
 
 \*\*Keyboard Shortcuts\*\*
-
-
 
 \* \*\*R:\*\* Roll the dice.
 
 \* \*\*D:\*\* Draw a card.
 
-\* \*\*C:\*\* Check the status of all players and the bear.
-
+\* \*\*C:\*\* Check status.

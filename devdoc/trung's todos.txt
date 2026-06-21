@@ -20,4 +20,4 @@ unban menu: display detailed info for banned users (reason, duration, banned by,
 add a quick search box to large menus (e.g. ban user list)
 better performance optimization for menus with 1000+ items
 admin table management: actions to cancel/join tables strictly for debugging and admin oversight
-global turn announcement: announce "your turn" instead of the player's name when it's your turn
+[x] global turn announcement: announce "your turn" instead of the player's name when it's your turn - completed by @Daoductrung

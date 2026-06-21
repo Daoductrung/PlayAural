@@ -32,6 +32,35 @@ class AdministrationManager:
     def __init__(self, server: "Server"):
         self.server = server
 
+    def _return_to_admin_root(
+        self, user: NetworkUser, focus_id: str | None = None
+    ) -> None:
+        """Return to the top-level Admin menu without discarding outer navigation."""
+        username = user.username
+        current = self.server.user_states.get(username, {})
+        stack = list(current.get("_stack", []))
+        parent_stack: list[dict[str, Any]] = []
+        admin_frame: dict[str, Any] | None = None
+
+        for frame in stack:
+            if frame.get("menu") == "admin_menu":
+                admin_frame = frame
+                break
+            parent_stack.append(frame)
+
+        restore_frame = dict(admin_frame or {"menu": "admin_menu"})
+        if focus_id:
+            restore_frame["_restore_focus_id"] = focus_id
+            restore_frame["_last_selection_id"] = focus_id
+            restore_frame.pop("_restore_focus_position", None)
+            restore_frame.pop("_last_selection_position", None)
+
+        self._show_admin_menu(user)
+        state = self.server.user_states.get(username)
+        if state is not None:
+            state["_stack"] = parent_stack
+            self.server._restore_menu_focus(user, restore_frame)
+
     def _notify_admins(
         self, message_id: str, sound: str, exclude_username: str | None = None
     ) -> None:
@@ -229,6 +258,7 @@ class AdministrationManager:
             MenuItem(text=Localization.get(user.locale, "broadcast-to-all"), id="all"),
             MenuItem(text=Localization.get(user.locale, "broadcast-to-admins"), id="admins"),
             MenuItem(text=Localization.get(user.locale, "broadcast-to-nobody"), id="nobody"),
+            MenuItem(text=Localization.get(user.locale, "back"), id="back"),
         ]
         user.show_menu(
             "broadcast_choice_menu",
@@ -288,7 +318,7 @@ class AdministrationManager:
              await self._handle_manage_motd_selection(user, selection_id, state)
         elif current_menu == "view_motd_menu":
              if selection_id == "back":
-                 self._show_manage_motd_menu(user)
+                 self.server._nav_back(user)
         elif current_menu == "smtp_settings_menu":
              await self._handle_smtp_settings_selection(user, selection_id)
         elif current_menu == "smtp_encryption_menu":
@@ -299,28 +329,28 @@ class AdministrationManager:
     ) -> None:
         """Handle admin menu selection."""
         if selection_id == "account_approval":
-            self._show_account_approval_menu(user)
+            self.server._nav_push(user, self._show_account_approval_menu)
         elif selection_id == "promote_admin":
-            self._show_promote_admin_menu(user)
+            self.server._nav_push(user, self._show_promote_admin_menu)
         elif selection_id == "demote_admin":
-            self._show_demote_admin_menu(user)
+            self.server._nav_push(user, self._show_demote_admin_menu)
         elif selection_id == "ban_user":
-            self._show_ban_menu(user)
+            self.server._nav_push(user, self._show_ban_menu)
         elif selection_id == "unban_user":
-            self._show_unban_menu(user)
+            self.server._nav_push(user, self._show_unban_menu)
         elif selection_id == "mute_user":
-            self._show_mute_menu(user)
+            self.server._nav_push(user, self._show_mute_menu)
         elif selection_id == "unmute_user":
-            self._show_unmute_menu(user)
+            self.server._nav_push(user, self._show_unmute_menu)
         elif selection_id == "kick_user":
-            self._show_kick_menu(user)
+            self.server._nav_push(user, self._show_kick_menu)
         elif selection_id == "broadcast_announcement":
             self._show_broadcast_input_menu(user)
         elif selection_id == "manage_motd":
-            self._show_manage_motd_menu(user)
+            self.server._nav_push(user, self._show_manage_motd_menu)
         elif selection_id == "smtp_settings":
             if user.trust_level >= 3:
-                self._show_smtp_settings_menu(user)
+                self.server._nav_push(user, self._show_smtp_settings_menu)
             else:
                 user.speak_l("dev-only-action", buffer="system")
                 self.server._nav_refresh(user, self._show_admin_menu)
@@ -332,10 +362,12 @@ class AdministrationManager:
     ) -> None:
         """Handle account approval menu selection."""
         if selection_id == "back":
-            self._show_admin_menu(user)
+            self.server._nav_back(user)
         elif selection_id.startswith("pending_"):
             pending_username = selection_id[8:]  # Remove "pending_" prefix
-            self._show_pending_user_actions_menu(user, pending_username)
+            self.server._nav_push(
+                user, self._show_pending_user_actions_menu, pending_username
+            )
 
     async def _handle_pending_user_actions_selection(
         self, user: NetworkUser, selection_id: str, state: dict
@@ -343,7 +375,7 @@ class AdministrationManager:
         """Handle pending user actions menu selection."""
         pending_username = state.get("pending_username")
         if not pending_username:
-            self._show_account_approval_menu(user)
+            self.server._nav_back(user)
             return
 
         if selection_id == "approve":
@@ -351,27 +383,27 @@ class AdministrationManager:
         elif selection_id == "decline":
             await self._decline_user(user, pending_username)
         elif selection_id == "back":
-            self._show_account_approval_menu(user)
+            self.server._nav_back(user)
 
     async def _handle_promote_admin_selection(
         self, user: NetworkUser, selection_id: str
     ) -> None:
         """Handle promote admin menu selection."""
         if selection_id == "back":
-            self._show_admin_menu(user)
+            self.server._nav_back(user)
         elif selection_id.startswith("promote_"):
             target_username = selection_id[8:]  # Remove "promote_" prefix
-            self._show_promote_confirm_menu(user, target_username)
+            self.server._nav_push(user, self._show_promote_confirm_menu, target_username)
 
     async def _handle_demote_admin_selection(
         self, user: NetworkUser, selection_id: str
     ) -> None:
         """Handle demote admin menu selection."""
         if selection_id == "back":
-            self._show_admin_menu(user)
+            self.server._nav_back(user)
         elif selection_id.startswith("demote_"):
             target_username = selection_id[7:]  # Remove "demote_" prefix
-            self._show_demote_confirm_menu(user, target_username)
+            self.server._nav_push(user, self._show_demote_confirm_menu, target_username)
 
     async def _handle_promote_confirm_selection(
         self, user: NetworkUser, selection_id: str, state: dict
@@ -379,15 +411,17 @@ class AdministrationManager:
         """Handle promote confirmation menu selection."""
         target_username = state.get("target_username")
         if not target_username:
-            self._show_promote_admin_menu(user)
+            self.server._nav_back(user)
             return
 
         if selection_id == "yes":
             # Show broadcast choice menu
-            self._show_broadcast_choice_menu(user, "promote", target_username)
+            self.server._nav_push(
+                user, self._show_broadcast_choice_menu, "promote", target_username
+            )
         else:
             # No or back - return to promote admin menu
-            self._show_promote_admin_menu(user)
+            self.server._nav_back(user)
 
     async def _handle_demote_confirm_selection(
         self, user: NetworkUser, selection_id: str, state: dict
@@ -395,25 +429,27 @@ class AdministrationManager:
         """Handle demote confirmation menu selection."""
         target_username = state.get("target_username")
         if not target_username:
-            self._show_demote_admin_menu(user)
+            self.server._nav_back(user)
             return
 
         if selection_id == "yes":
             # Show broadcast choice menu
-            self._show_broadcast_choice_menu(user, "demote", target_username)
+            self.server._nav_push(
+                user, self._show_broadcast_choice_menu, "demote", target_username
+            )
         else:
             # No or back - return to demote admin menu
-            self._show_demote_admin_menu(user)
+            self.server._nav_back(user)
 
     async def _handle_kick_selection(
         self, user: NetworkUser, selection_id: str
     ) -> None:
         """Handle kick user menu selection."""
         if selection_id == "back":
-            self._show_admin_menu(user)
+            self.server._nav_back(user)
         elif selection_id.startswith("kick_"):
             target_username = selection_id[5:]  # Remove "kick_" prefix
-            self._show_kick_confirm_menu(user, target_username)
+            self.server._nav_push(user, self._show_kick_confirm_menu, target_username)
 
     async def _handle_kick_confirm_selection(
         self, user: NetworkUser, selection_id: str, state: dict
@@ -421,7 +457,7 @@ class AdministrationManager:
         """Handle kick confirmation menu selection."""
         target_username = state.get("target_username")
         if not target_username:
-            self._show_kick_menu(user)
+            self.server._nav_back(user)
             return
 
         if selection_id == "yes":
@@ -430,7 +466,7 @@ class AdministrationManager:
             # No or back - return to kick menu
             # Or return to admin menu directly? Usually back to list is better to verify safety.
             # But here "No" usually means "Cancel action".
-            self._show_kick_menu(user)
+            self.server._nav_back(user)
 
     async def _handle_broadcast_choice_selection(
         self, user: NetworkUser, selection_id: str, state: dict
@@ -439,8 +475,12 @@ class AdministrationManager:
         action = state.get("action")
         target_username = state.get("target_username")
 
+        if selection_id == "back":
+            self.server._nav_back(user)
+            return
+
         if not action or not target_username:
-            self._show_admin_menu(user)
+            self._return_to_admin_root(user)
             return
 
         # Determine broadcast scope: "all", "admins", or "nobody"
@@ -477,7 +517,7 @@ class AdministrationManager:
                     waiting_user.play_sound("accountapprove.ogg")
                     self.server._show_main_menu(waiting_user)
 
-        self._show_account_approval_menu(admin)
+        self.server._nav_back(admin)
 
     @require_admin
     async def _decline_user(self, admin: NetworkUser, username: str) -> None:
@@ -498,7 +538,7 @@ class AdministrationManager:
                 waiting_user.speak_l("account-declined-goodbye", buffer="system")
                 await waiting_user.connection.send({"type": "disconnect", "reconnect": False})
 
-        self._show_account_approval_menu(admin)
+        self.server._nav_back(admin)
 
     @require_admin
     async def _promote_to_admin(
@@ -533,7 +573,7 @@ class AdministrationManager:
                 exclude_username=username,
             )
 
-        self._show_admin_menu(admin)
+        self._return_to_admin_root(admin, "promote_admin")
 
     @require_admin
     async def _demote_from_admin(
@@ -578,7 +618,7 @@ class AdministrationManager:
                 exclude_username=username,
             )
 
-        self._show_admin_menu(admin)
+        self._return_to_admin_root(admin, "demote_admin")
 
     def _broadcast_admin_change(
         self,
@@ -646,7 +686,7 @@ class AdministrationManager:
                         port = int(value.strip())
                     except ValueError:
                         user.speak_l("invalid-volume", buffer="system")  # Generic invalid number sound
-                        self._show_smtp_settings_menu(user)
+                        self.server._restore_input_parent(user, state)
                         return True
                 elif field == "username":
                     username = value.strip()
@@ -659,20 +699,20 @@ class AdministrationManager:
                 elif field == "test_email":
                     if value.strip():
                         await self._run_smtp_test(user, config, value.strip())
-                    else:
-                        self._show_smtp_settings_menu(user)
+                    self.server._restore_input_parent(user, state)
                     return True
 
                 self.server.db.update_smtp_config(host, port, username, password, from_email, from_name, encryption_type)
                 user.speak_l("admin-smtp-updated-success", buffer="system")
-            self._show_smtp_settings_menu(user)
+            self.server._restore_input_parent(user, state)
             return True
         elif menu_id == "admin_broadcast_input" and input_id == "broadcast_message":
             if value:
-                await self.perform_broadcast(user, value)
+                await self.perform_broadcast(user, value, show_menu=False)
+                self.server._restore_input_parent(user, state)
             else:
                 # Cancelled or empty
-                self._show_admin_menu(user)
+                self.server._restore_input_parent(user, state)
             return True
         elif menu_id == "ban_custom_reason_input" and input_id == "ban_custom_reason_input":
             if value:
@@ -682,15 +722,15 @@ class AdministrationManager:
                     # Prefix with CUSTOM_ to easily identify raw strings later
                     await self._perform_ban(user, target_username, duration, f"CUSTOM_{value}")
                 else:
-                    self._show_admin_menu(user)
+                    self._return_to_admin_root(user, "ban_user")
             else:
                 # Go back to reason selection if cancelled or empty
                 target_username = state.get("target_username")
                 duration = state.get("duration")
                 if target_username and duration:
-                    self._show_ban_reason_menu(user, target_username, duration)
+                    self.server._restore_input_parent(user, state)
                 else:
-                    self._show_admin_menu(user)
+                    self._return_to_admin_root(user, "ban_user")
             return True
         elif menu_id == "mute_custom_reason_input" and input_id == "mute_custom_reason_input":
             if value:
@@ -699,14 +739,14 @@ class AdministrationManager:
                 if target_username and duration:
                     await self._perform_mute(user, target_username, duration, f"CUSTOM_{value}")
                 else:
-                    self._show_admin_menu(user)
+                    self._return_to_admin_root(user, "mute_user")
             else:
                 target_username = state.get("target_username")
                 duration = state.get("duration")
                 if target_username and duration:
-                    self._show_mute_reason_menu(user, target_username, duration)
+                    self.server._restore_input_parent(user, state)
                 else:
-                    self._show_admin_menu(user)
+                    self._return_to_admin_root(user, "mute_user")
             return True
         elif menu_id == "admin_motd_version_input" and input_id == "motd_version":
             if value:
@@ -724,13 +764,13 @@ class AdministrationManager:
                         self._prompt_motd_language(user, first_lang, lang_codes, {}, version)
                     else:
                         user.speak_l("error-no-languages", buffer="system")
-                        self._show_manage_motd_menu(user)
+                        self.server._restore_input_parent(user, state)
                 except ValueError:
                     user.speak_l("invalid-motd-version", buffer="system")
-                    self._show_manage_motd_menu(user)
+                    self.server._restore_input_parent(user, state)
             else:
                 user.speak_l("motd-cancelled", buffer="system")
-                self._show_manage_motd_menu(user)
+                self.server._restore_input_parent(user, state)
             return True
         elif menu_id == "admin_motd_input" and input_id.startswith("motd_message_"):
             language = input_id.split("motd_message_")[1]
@@ -765,11 +805,11 @@ class AdministrationManager:
                             # Use "system" buffer
                             u.speak_l("motd-broadcast", buffer="system", message=motd_text)
 
-                    self._show_manage_motd_menu(user)
+                    self.server._restore_input_parent(user, state)
             else:
                 # Cancelled
                 user.speak_l("motd-cancelled", buffer="system")
-                self._show_manage_motd_menu(user)
+                self.server._restore_input_parent(user, state)
             return True
 
         return False
@@ -822,11 +862,11 @@ class AdministrationManager:
             self.server._nav_back(user)
             return
         if selection_id == "back":
-            self._show_admin_menu(user)
+            self.server._nav_back(user)
             return
 
         if selection_id == "set_encryption":
-            self._show_smtp_encryption_menu(user)
+            self.server._nav_push(user, self._show_smtp_encryption_menu)
             return
 
         if selection_id == "test_connection":
@@ -895,7 +935,7 @@ class AdministrationManager:
             self.server._nav_back(user)
             return
         if selection_id == "back":
-            self._show_smtp_settings_menu(user)
+            self.server._nav_back(user)
             return
 
         if selection_id.startswith("enc_"):
@@ -907,7 +947,7 @@ class AdministrationManager:
                     config.from_email, config.from_name, enc_type
                 )
                 user.speak_l("admin-smtp-updated-success", buffer="system")
-        self._show_smtp_settings_menu(user)
+        self.server._nav_back(user)
 
     async def _run_smtp_test(self, user: NetworkUser, config, target_email: str) -> None:
         """Run the actual SMTP test."""
@@ -926,8 +966,6 @@ class AdministrationManager:
         else:
             user.speak_l("smtp-test-failed", buffer="system", error=error)
 
-        self._show_smtp_settings_menu(user)
-
 
     def _show_manage_motd_menu(self, user: NetworkUser) -> None:
         """Show the manage MOTD menu."""
@@ -944,6 +982,31 @@ class AdministrationManager:
             escape_behavior=EscapeBehavior.SELECT_LAST,
         )
         self.server.user_states[user.username] = {"menu": "manage_motd_menu"}
+
+    def _show_view_motd_menu(self, user: NetworkUser) -> None:
+        """Show the active MOTD text as a read-only menu."""
+        active_version = self.server.db.get_highest_motd_version()
+        motd_text = (
+            self.server.db.get_motd(active_version, user.locale)
+            if active_version
+            else ""
+        )
+        if not motd_text:
+            motd_text = "Missing MOTD"
+
+        items = [
+            MenuItem(text=line, id=f"line_{index}")
+            for index, line in enumerate(motd_text.split("\n"))
+        ]
+        items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
+
+        user.show_menu(
+            "view_motd_menu",
+            items,
+            multiletter=False,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self.server.user_states[user.username] = {"menu": "view_motd_menu"}
 
     async def _handle_manage_motd_selection(
         self, user: NetworkUser, selection_id: str, state: dict
@@ -962,23 +1025,9 @@ class AdministrationManager:
             active_version = self.server.db.get_highest_motd_version()
             if active_version == 0:
                 user.speak_l("motd-not-exists", buffer="system")
-                self._show_manage_motd_menu(user)
+                self.server._nav_refresh(user, self._show_manage_motd_menu)
             else:
-                motd_text = self.server.db.get_motd(active_version, user.locale)
-                if not motd_text:
-                    motd_text = "Missing MOTD"
-
-                # Split by newlines into a menu
-                items = [MenuItem(text=line, id=f"line_{i}") for i, line in enumerate(motd_text.split('\n'))]
-                items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
-
-                user.show_menu(
-                    "view_motd_menu",
-                    items,
-                    multiletter=False,
-                    escape_behavior=EscapeBehavior.SELECT_LAST,
-                )
-                self.server.user_states[user.username] = {"menu": "view_motd_menu"}
+                self.server._nav_push(user, self._show_view_motd_menu)
 
         elif selection_id == "delete":
             if self.server.db.get_highest_motd_version() == 0:
@@ -986,10 +1035,10 @@ class AdministrationManager:
             else:
                 self.server.db.delete_motd()
                 user.speak_l("motd-deleted", buffer="system")
-            self._show_manage_motd_menu(user)
+            self.server._nav_refresh(user, self._show_manage_motd_menu)
 
         elif selection_id == "back":
-            self._show_admin_menu(user)
+            self.server._nav_back(user)
 
     def _prompt_motd_language(self, user: NetworkUser, current_lang: str, pending_languages: list[str], translations: dict, version: int) -> None:
         """Prompt admin for MOTD text for a specific language."""
@@ -1015,7 +1064,7 @@ class AdministrationManager:
         message = message.strip()
         if not message:
             if show_menu:
-                self._show_admin_menu(admin)
+                self._return_to_admin_root(admin, "broadcast_announcement")
             return
 
         # Prepare packets
@@ -1053,7 +1102,7 @@ class AdministrationManager:
         # admin.play_sound("notify.ogg") 
         
         if show_menu:
-            self._show_admin_menu(admin)
+            self._return_to_admin_root(admin, "broadcast_announcement")
 
     # ==================== Kick System ====================
 
@@ -1123,16 +1172,22 @@ class AdministrationManager:
         target_user = self.server.users.get(target_username)
         if not target_user:
             admin.speak_l("user-not-online", buffer="system", target=target_username)
+            if show_menu:
+                self.server._nav_back(admin)
             return
 
         # Check immunity
         if target_user.trust_level >= 3:
             admin.speak_l("permission-denied", buffer="system")
+            if show_menu:
+                self.server._nav_back(admin)
             return
         
         if admin.trust_level < 3 and target_user.trust_level >= 2:
-             admin.speak_l("permission-denied", buffer="system")
-             return
+            admin.speak_l("permission-denied", buffer="system")
+            if show_menu:
+                self.server._nav_back(admin)
+            return
 
         # Logic
         # 1. Broadcast Global Message (Chat + Sound)
@@ -1158,7 +1213,7 @@ class AdministrationManager:
 
         # 4. Return Admin to Menu
         if show_menu:
-            self._show_admin_menu(admin)
+            self._return_to_admin_root(admin, "kick_user")
 
     async def _kick_disconnect_delay(self, user):
          await asyncio.sleep(1.0)
@@ -1209,10 +1264,10 @@ class AdministrationManager:
 
     async def _handle_ban_selection(self, user: NetworkUser, selection_id: str) -> None:
         if selection_id == "back":
-            self._show_admin_menu(user)
+            self.server._nav_back(user)
         elif selection_id.startswith("ban_"):
             target_username = selection_id[4:]
-            self._show_ban_duration_menu(user, target_username)
+            self.server._nav_push(user, self._show_ban_duration_menu, target_username)
 
     def _show_ban_duration_menu(self, user: NetworkUser, target_username: str) -> None:
         """Show duration options for banning."""
@@ -1241,17 +1296,19 @@ class AdministrationManager:
 
     async def _handle_ban_duration_selection(self, user: NetworkUser, selection_id: str, state: dict) -> None:
         if selection_id == "back":
-            self._show_ban_menu(user)
+            self.server._nav_back(user)
             return
 
         target_username = state.get("target_username")
         if not target_username:
-            self._show_admin_menu(user)
+            self.server._nav_back(user)
             return
 
         if selection_id.startswith("duration_"):
             duration = selection_id[9:]
-            self._show_ban_reason_menu(user, target_username, duration)
+            self.server._nav_push(
+                user, self._show_ban_reason_menu, target_username, duration
+            )
 
     def _show_ban_reason_menu(self, user: NetworkUser, target_username: str, duration: str) -> None:
         """Show reason options for banning."""
@@ -1280,16 +1337,16 @@ class AdministrationManager:
         if selection_id == "back":
             target_username = state.get("target_username")
             if target_username:
-                self._show_ban_duration_menu(user, target_username)
+                self.server._nav_back(user)
             else:
-                self._show_admin_menu(user)
+                self._return_to_admin_root(user, "ban_user")
             return
 
         target_username = state.get("target_username")
         duration = state.get("duration")
 
         if not target_username or not duration:
-            self._show_admin_menu(user)
+            self._return_to_admin_root(user, "ban_user")
             return
 
         if selection_id == "reason_custom":
@@ -1337,12 +1394,12 @@ class AdministrationManager:
         target_record = self.server.db.get_user(target_username)
         if not target_record:
             admin.speak_l("user-not-online", buffer="system", target=target_username)
-            self._show_admin_menu(admin)
+            self._return_to_admin_root(admin, "ban_user")
             return
 
         if target_record.trust_level >= 3 or (admin.trust_level < 3 and target_record.trust_level >= 2):
             admin.speak_l("permission-denied", buffer="system")
-            self._show_admin_menu(admin)
+            self._return_to_admin_root(admin, "ban_user")
             return
 
         # Write to database
@@ -1380,7 +1437,7 @@ class AdministrationManager:
             await target_user.connection.send({"type": "force_exit", "reason": "banned"})
             asyncio.create_task(self._kick_disconnect_delay(target_user))
 
-        self._show_admin_menu(admin)
+        self._return_to_admin_root(admin, "ban_user")
 
     def _show_unban_menu(self, user: NetworkUser) -> None:
         """Show list of banned users."""
@@ -1404,7 +1461,7 @@ class AdministrationManager:
 
     async def _handle_unban_selection(self, user: NetworkUser, selection_id: str) -> None:
         if selection_id == "back":
-            self._show_admin_menu(user)
+            self.server._nav_back(user)
         elif selection_id.startswith("unban_"):
             target_username = selection_id[6:]
             await self._perform_unban(user, target_username)
@@ -1418,7 +1475,7 @@ class AdministrationManager:
                     u.speak_l("unban-broadcast", buffer="system", target=target_username, actor=admin.username)
                     u.play_sound("accountban.ogg") # Requested to use same sound
 
-        self._show_unban_menu(admin)
+        self.server._nav_refresh(admin, self._show_unban_menu)
 
     # ==================== Mute / Unmute ====================
 
@@ -1459,10 +1516,10 @@ class AdministrationManager:
 
     async def _handle_mute_selection(self, user: NetworkUser, selection_id: str) -> None:
         if selection_id == "back":
-            self._show_admin_menu(user)
+            self.server._nav_back(user)
         elif selection_id.startswith("mute_"):
             target_username = selection_id[5:]
-            self._show_mute_duration_menu(user, target_username)
+            self.server._nav_push(user, self._show_mute_duration_menu, target_username)
 
     def _show_mute_duration_menu(self, user: NetworkUser, target_username: str) -> None:
         """Show duration options for muting."""
@@ -1490,17 +1547,19 @@ class AdministrationManager:
 
     async def _handle_mute_duration_selection(self, user: NetworkUser, selection_id: str, state: dict) -> None:
         if selection_id == "back":
-            self._show_mute_menu(user)
+            self.server._nav_back(user)
             return
 
         target_username = state.get("target_username")
         if not target_username:
-            self._show_admin_menu(user)
+            self.server._nav_back(user)
             return
 
         if selection_id.startswith("duration_"):
             duration = selection_id[9:]
-            self._show_mute_reason_menu(user, target_username, duration)
+            self.server._nav_push(
+                user, self._show_mute_reason_menu, target_username, duration
+            )
 
     def _show_mute_reason_menu(self, user: NetworkUser, target_username: str, duration: str) -> None:
         """Show reason options for muting."""
@@ -1528,16 +1587,16 @@ class AdministrationManager:
         if selection_id == "back":
             target_username = state.get("target_username")
             if target_username:
-                self._show_mute_duration_menu(user, target_username)
+                self.server._nav_back(user)
             else:
-                self._show_admin_menu(user)
+                self._return_to_admin_root(user, "mute_user")
             return
 
         target_username = state.get("target_username")
         duration = state.get("duration")
 
         if not target_username or not duration:
-            self._show_admin_menu(user)
+            self._return_to_admin_root(user, "mute_user")
             return
 
         if selection_id == "reason_custom":
@@ -1581,12 +1640,12 @@ class AdministrationManager:
         target_record = self.server.db.get_user(target_username)
         if not target_record:
             admin.speak_l("user-not-found", buffer="system")
-            self._show_admin_menu(admin)
+            self._return_to_admin_root(admin, "mute_user")
             return
 
         if target_record.trust_level >= 3 or (admin.trust_level < 3 and target_record.trust_level >= 2):
             admin.speak_l("permission-denied", buffer="system")
-            self._show_admin_menu(admin)
+            self._return_to_admin_root(admin, "mute_user")
             return
 
         # Write to database
@@ -1617,7 +1676,7 @@ class AdministrationManager:
                 message_key="voice-status-disconnected",
             )
 
-        self._show_admin_menu(admin)
+        self._return_to_admin_root(admin, "mute_user")
 
     def _show_unmute_menu(self, user: NetworkUser) -> None:
         """Show list of muted users."""
@@ -1641,7 +1700,7 @@ class AdministrationManager:
 
     async def _handle_unmute_selection(self, user: NetworkUser, selection_id: str) -> None:
         if selection_id == "back":
-            self._show_admin_menu(user)
+            self.server._nav_back(user)
         elif selection_id.startswith("unmute_"):
             target_username = selection_id[7:]
             await self._perform_unmute(user, target_username)
@@ -1659,4 +1718,4 @@ class AdministrationManager:
             if target_user:
                 target_user.speak_l("you-have-been-unmuted", buffer="system")
 
-        self._show_unmute_menu(admin)
+        self.server._nav_refresh(admin, self._show_unmute_menu)

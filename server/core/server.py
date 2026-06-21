@@ -7520,9 +7520,14 @@ PlayAural Server
         """
         username = user.username
         current = self._user_states.get(username, {})
+        parent_source = (
+            current.get("_parent_frame")
+            if current.get("_transient") and current.get("_parent_frame")
+            else current
+        )
         # Snapshot the stable parent state (strip navigation bookkeeping keys)
         parent_frame = {
-            k: v for k, v in current.items()
+            k: v for k, v in parent_source.items()
             if k not in ("_stack", "_transient", "_parent_frame")
         }
         state = self._user_states.setdefault(username, {})
@@ -7974,7 +7979,7 @@ PlayAural Server
         elif menu == "manage_motd_menu":
             self.admin_manager._show_manage_motd_menu(user)
         elif menu == "view_motd_menu":
-            self.admin_manager._show_manage_motd_menu(user)  # dynamic content; fall back to parent
+            self.admin_manager._show_view_motd_menu(user)
         elif menu == "smtp_settings_menu":
             self.admin_manager._show_smtp_settings_menu(user)
         elif menu == "smtp_encryption_menu":

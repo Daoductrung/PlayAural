@@ -15,6 +15,7 @@ class TurnManagementMixin:
         - self.turn_index: int
         - self.turn_direction: int
         - self.turn_skip_count: int
+        - self.players: list[Player]
         - self.get_player_by_id(player_id) -> Player | None
         - self.get_user(player) -> User | None
         - self.broadcast_l(message_id, **kwargs)
@@ -112,8 +113,53 @@ class TurnManagementMixin:
         if announce:
             self.announce_turn()
 
+    turn_announcement_personal_key = "game-turn-start-you"
+    turn_announcement_others_key = "game-turn-start-player"
+    no_turn_announcement_key = "game-no-turn"
+
+    def _is_turn_listener(self, listener: "Player", current: "Player") -> bool:
+        """Return whether the listener is the player whose turn is active."""
+        return listener is current or listener.id == current.id
+
+    def speak_turn_l(
+        self,
+        listener: "Player",
+        current: "Player | None" = None,
+        *,
+        buffer: str = "game",
+    ) -> None:
+        """Speak the current turn to one listener with the correct perspective."""
+        user = self.get_user(listener)
+        if not user:
+            return
+
+        turn_player = current if current is not None else self.current_player
+        if not turn_player:
+            user.speak_l(self.no_turn_announcement_key, buffer=buffer)
+            return
+
+        if self._is_turn_listener(listener, turn_player):
+            user.speak_l(self.turn_announcement_personal_key, buffer=buffer)
+        else:
+            user.speak_l(
+                self.turn_announcement_others_key,
+                buffer=buffer,
+                player=turn_player.name,
+            )
+
+    def broadcast_turn_l(
+        self,
+        current: "Player | None" = None,
+        *,
+        buffer: str = "game",
+    ) -> None:
+        """Broadcast the current turn with first-person text for the actor."""
+        turn_player = current if current is not None else self.current_player
+        for listener in self.players:
+            self.speak_turn_l(listener, turn_player, buffer=buffer)
+
     def announce_turn(self, turn_sound: str = "turn.ogg") -> None:
-        """Announce the current player's turn with sound and message."""
+        """Announce the current player's turn with sound and perspective-aware text."""
         player = self.current_player
         if not player:
             return
@@ -123,8 +169,7 @@ class TurnManagementMixin:
         if user and user.preferences.play_turn_sound:
             user.play_sound(turn_sound)
 
-        # Broadcast turn announcement to all players
-        self.broadcast_l("game-turn-start", buffer="game", player=player.name)
+        self.broadcast_turn_l(player, buffer="game")
 
     @property
     def turn_players(self) -> list["Player"]:

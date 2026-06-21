@@ -1,6 +1,8 @@
 game-round-start = Round { $round }.
 game-round-end = Round { $round } complete.
-game-turn-start = { $player }'s turn.
+game-turn-start = It is { $player }'s turn.
+game-turn-start-you = It is your turn.
+game-turn-start-player = It is { $player }'s turn.
 game-no-turn = No one's turn right now.
 
 game-score-line = { $player }: { $score } { $unit }

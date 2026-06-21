@@ -288,7 +288,9 @@ dice-not-rolled = Bạn chưa gieo xúc xắc.
 dice-locked = Viên xúc xắc này đã bị khóa.
 dice-no-dice = Không có xúc xắc nào.
 
-game-turn-start = Lượt của { $player }.
+game-turn-start = Đến lượt { $player }.
+game-turn-start-you = Đến lượt bạn.
+game-turn-start-player = Đến lượt { $player }.
 game-no-turn = Hiện không phải lượt của ai.
 table-no-players = Không có người chơi.
 table-players-one = { $count } người chơi: { $players }.

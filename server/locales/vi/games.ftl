@@ -1,6 +1,8 @@
 game-round-start = Vòng { $round }.
 game-round-end = Vòng { $round } hoàn tất.
-game-turn-start = Lượt của { $player }.
+game-turn-start = Đến lượt { $player }.
+game-turn-start-you = Đến lượt bạn.
+game-turn-start-player = Đến lượt { $player }.
 game-no-turn = Hiện không phải lượt của ai.
 
 game-score-line = { $player }: { $score } { $unit }

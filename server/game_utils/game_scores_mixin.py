@@ -19,6 +19,7 @@ class GameScoresMixin:
         - self.team_manager: TeamManager
         - self.players: list[Player]
         - self.get_user(player) -> User | None
+        - self.speak_turn_l(listener, current, buffer=...)
         - self.status_box(player, lines)
         - self.live_status_box(player, box_id, builder)
     """
@@ -57,7 +58,7 @@ class GameScoresMixin:
         if user:
             current = self.current_player
             if current:
-                user.speak_l("game-turn-start", buffer="game", player=current.name)
+                self.speak_turn_l(player, current, buffer="game")
             else:
                 user.speak_l("game-no-turn", buffer="game")
 

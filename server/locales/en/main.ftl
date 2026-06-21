@@ -288,7 +288,9 @@ dice-not-rolled = You haven't rolled yet.
 dice-locked = This die is locked.
 dice-no-dice = No dice available.
 
-game-turn-start = { $player }'s turn.
+game-turn-start = It is { $player }'s turn.
+game-turn-start-you = It is your turn.
+game-turn-start-player = It is { $player }'s turn.
 game-no-turn = No one's turn right now.
 table-no-players = No players.
 table-players-one = { $count } player: { $players }.

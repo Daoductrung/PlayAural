@@ -515,7 +515,7 @@ speech-rate-option = Tốc độ đọc: { $value }%
 speech-voice-option = Giọng đọc: { $voice }
 select-voice = Chọn giọng đọc
 enter-speech-rate = Nhập tốc độ đọc (50-300)
-invalid-rate = Tốc độ không hợp lệ. Vui lòng nhập số từ 50 đến 300.
+invalid-rate = Tốc độ đọc không hợp lệ. Vui lòng dùng giá trị từ 50 đến 300.
 mode-aria = Aria-live
 mode-web-speech = Web Speech API
 default-voice = Giọng mặc định
@@ -527,7 +527,7 @@ mobile-tts-engine-api-note = Bản này dùng bộ máy đọc do Android quản
 mobile-tts-voice-option = Giọng đọc di động: { $voice }
 mobile-tts-rate-option = Tốc độ đọc di động: { $value }%
 mobile-tts-enter-rate = Nhập tốc độ đọc di động (50-200)
-mobile-tts-invalid-rate = Tốc độ không hợp lệ. Vui lòng nhập số từ 50 đến 200.
+mobile-tts-invalid-rate = Tốc độ đọc di động không hợp lệ. Vui lòng dùng giá trị từ 50 đến 200.
 
 player-kicked-offline = Người chơi { $player } đã bị đuổi (ngoại tuyến).
 game-paused-host-disconnect = Game tạm dừng. Đang chờ chủ bàn { $player } kết nối lại...

@@ -73,6 +73,7 @@ OPTIONS_MENU_IDS = frozenset(
         "pref_choices_menu",
         "language_menu",
         "speech_settings_menu",
+        "speech_rate_selection_menu",
         "voice_selection_menu",
         "audio_input_device_menu",
         "mobile_speech_settings_menu",
@@ -124,6 +125,30 @@ VOLUME_SETTING_SPECS = {
 VOLUME_SETTING_BY_SYNC_KEY = {
     spec["sync_key"]: volume_type
     for volume_type, spec in VOLUME_SETTING_SPECS.items()
+}
+SPEECH_RATE_SETTING_SPECS = {
+    "speech_rate": {
+        "field": "speech_rate",
+        "sync_key": "speech_rate",
+        "minimum": 50,
+        "maximum": 300,
+        "step": 10,
+        "default": 100,
+        "invalid_key": "invalid-rate",
+    },
+    "mobile_tts_rate": {
+        "field": "mobile_tts_rate",
+        "sync_key": "mobile/tts_rate",
+        "minimum": 50,
+        "maximum": 200,
+        "step": 10,
+        "default": 100,
+        "invalid_key": "mobile-tts-invalid-rate",
+    },
+}
+SPEECH_RATE_SETTING_BY_SYNC_KEY = {
+    spec["sync_key"]: rate_type
+    for rate_type, spec in SPEECH_RATE_SETTING_SPECS.items()
 }
 
 # Default paths based on module location
@@ -2049,6 +2074,94 @@ PlayAural Server
             "volume_type": volume_type,
         }
 
+    def _get_speech_rate_choices(
+        self,
+        rate_type: str,
+        *,
+        include_value: int | None = None,
+    ) -> list[int]:
+        spec = SPEECH_RATE_SETTING_SPECS.get(rate_type)
+        if not spec:
+            return []
+        choices = set(range(spec["minimum"], spec["maximum"] + 1, spec["step"]))
+        if (
+            isinstance(include_value, int)
+            and spec["minimum"] <= include_value <= spec["maximum"]
+        ):
+            choices.add(include_value)
+        return sorted(choices)
+
+    def _coerce_valid_speech_rate_value(
+        self,
+        rate_type: str,
+        value: Any,
+        *,
+        allowed_choices: list[int] | None = None,
+    ) -> int | None:
+        spec = SPEECH_RATE_SETTING_SPECS.get(rate_type)
+        if not spec:
+            return None
+        try:
+            parsed = int(value)
+        except (TypeError, ValueError):
+            return None
+        choices = allowed_choices or self._get_speech_rate_choices(rate_type)
+        if parsed not in choices:
+            return None
+        return parsed
+
+    def _speech_rate_choice_label(
+        self,
+        user: NetworkUser,
+        value: int,
+        current_value: int,
+    ) -> str:
+        label = Localization.get(user.locale, "volume-choice-percent", value=value)
+        if value == current_value:
+            return Localization.get(user.locale, "volume-choice-current", label=label)
+        return label
+
+    def _show_speech_rate_selection_menu(
+        self,
+        user: NetworkUser,
+        rate_type: str,
+    ) -> None:
+        """Show valid speech speed levels for web or mobile TTS."""
+        spec = SPEECH_RATE_SETTING_SPECS.get(rate_type)
+        if not spec:
+            if is_mobile_client_type(user.client_type):
+                self._show_mobile_speech_settings_menu(user)
+            else:
+                self._show_speech_settings_menu(user)
+            return
+
+        try:
+            current_value = int(getattr(user.preferences, spec["field"], spec["default"]))
+        except (TypeError, ValueError):
+            current_value = spec["default"]
+        choices = self._get_speech_rate_choices(rate_type, include_value=current_value)
+        items = [
+            MenuItem(
+                text=self._speech_rate_choice_label(user, choice, current_value),
+                id=f"rate_{choice}",
+            )
+            for choice in choices
+        ]
+        items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
+        position = choices.index(current_value) + 1 if current_value in choices else None
+        user.show_menu(
+            "speech_rate_selection_menu",
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+            position=position,
+        )
+        self._user_states[user.username] = {
+            "menu": "speech_rate_selection_menu",
+            "speech_rate_type": rate_type,
+            "speech_rate_choices": choices,
+        }
+
     def _show_accessibility_submenu(self, user: NetworkUser) -> None:
         """Accessibility submenu."""
         prefs = user.preferences
@@ -2474,12 +2587,7 @@ PlayAural Server
             self._nav_refresh(user, self._show_speech_settings_menu)
         
         elif selection_id == "speech_rate":
-            user.show_editbox(
-                "speech_rate_input",
-                Localization.get(user.locale, "enter-speech-rate"),
-                default_value=str(prefs.speech_rate),
-            )
-            self._enter_input_state(user, "speech_rate_input")
+            self._nav_push(user, self._show_speech_rate_selection_menu, "speech_rate")
         
         elif selection_id == "speech_voice":
             # Send an empty menu with a specific ID.
@@ -2582,12 +2690,11 @@ PlayAural Server
             return
 
         if selection_id == "mobile_tts_rate":
-            user.show_editbox(
-                "mobile_tts_rate_input",
-                Localization.get(user.locale, "mobile-tts-enter-rate"),
-                default_value=str(user.preferences.mobile_tts_rate),
+            self._nav_push(
+                user,
+                self._show_speech_rate_selection_menu,
+                "mobile_tts_rate",
             )
-            self._enter_input_state(user, "mobile_tts_rate_input")
 
     def _show_mobile_tts_engine_menu(self, user: NetworkUser) -> None:
         """Show mobile TTS engine selection menu."""
@@ -2785,6 +2892,13 @@ PlayAural Server
                 return
             setattr(prefs, VOLUME_SETTING_SPECS[volume_type]["field"], parsed_volume)
             value = parsed_volume
+        elif key in SPEECH_RATE_SETTING_BY_SYNC_KEY:
+            rate_type = SPEECH_RATE_SETTING_BY_SYNC_KEY[key]
+            parsed_rate = self._coerce_valid_speech_rate_value(rate_type, value)
+            if parsed_rate is None:
+                return
+            setattr(prefs, SPEECH_RATE_SETTING_SPECS[rate_type]["field"], parsed_rate)
+            value = parsed_rate
         elif key == "audio/input_device_id":
             prefs.desktop_audio_input_device_id = str(value or "").strip()
         elif key == "audio/input_device_name":
@@ -2815,15 +2929,6 @@ PlayAural Server
             value = "system"
         elif key == "mobile/tts_voice":
             prefs.mobile_tts_voice = str(value or "")
-        elif key == "mobile/tts_rate":
-            try:
-                rate = int(value)
-            except (TypeError, ValueError):
-                return
-            if not 50 <= rate <= 200:
-                return
-            prefs.mobile_tts_rate = rate
-            value = rate
         else:
             return # Unknown key
 
@@ -3409,6 +3514,8 @@ PlayAural Server
             await self._handle_language_selection(user, selection_id)
         elif current_menu == "speech_settings_menu":
             await self._handle_speech_settings_selection(user, selection_id)
+        elif current_menu == "speech_rate_selection_menu":
+            await self._handle_speech_rate_selection(user, selection_id, state)
         elif current_menu == "voice_selection_menu":
             await self._handle_voice_selection(user, selection_id, packet)
         elif current_menu == "audio_input_device_menu":
@@ -4357,6 +4464,41 @@ PlayAural Server
         if value is None:
             user.speak_l("invalid-volume", buffer="system")
             self._nav_refresh(user, self._show_volume_selection_menu, volume_type)
+            return
+
+        setattr(user.preferences, spec["field"], value)
+        self._save_user_preferences(user)
+        self._sync_pref_to_client(user, spec["sync_key"], value)
+        self._nav_back(user)
+
+    async def _handle_speech_rate_selection(
+        self,
+        user: NetworkUser,
+        selection_id: str,
+        state: dict,
+    ) -> None:
+        """Handle a selected speech speed from the dynamic rate menu."""
+        if selection_id == "back":
+            self._nav_back(user)
+            return
+
+        rate_type = state.get("speech_rate_type", "")
+        spec = SPEECH_RATE_SETTING_SPECS.get(rate_type)
+        if not spec or not selection_id.startswith("rate_"):
+            self._nav_back(user)
+            return
+
+        allowed_choices = state.get("speech_rate_choices")
+        if not isinstance(allowed_choices, list):
+            allowed_choices = None
+        value = self._coerce_valid_speech_rate_value(
+            rate_type,
+            selection_id.removeprefix("rate_"),
+            allowed_choices=allowed_choices,
+        )
+        if value is None:
+            user.speak_l(spec["invalid_key"], buffer="system")
+            self._nav_refresh(user, self._show_speech_rate_selection_menu, rate_type)
             return
 
         setattr(user.preferences, spec["field"], value)
@@ -7707,8 +7849,8 @@ PlayAural Server
         Three disjoint cases are covered:
 
         1. **Server-side editbox** (_transient=True): set by _enter_input_state
-           whenever the server shows an editbox for things like volume, speech
-           rate, friend requests, profile fields, admin inputs, etc.
+           whenever the server shows an editbox for things like friend
+           requests, profile fields, admin inputs, etc.
 
         2. **Game-side editbox** (_pending_actions): set by the game's
            _request_action_input when an action needs player text or menu input
@@ -7894,6 +8036,10 @@ PlayAural Server
             self._show_language_menu(user)
         elif menu == "speech_settings_menu":
             self._show_speech_settings_menu(user)
+        elif menu == "speech_rate_selection_menu":
+            self._show_speech_rate_selection_menu(
+                user, frame.get("speech_rate_type", "")
+            )
         elif menu == "audio_input_device_menu":
             self._show_audio_input_device_menu(user)
         elif menu == "mobile_speech_settings_menu":

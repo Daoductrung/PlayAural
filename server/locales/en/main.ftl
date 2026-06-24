@@ -515,7 +515,7 @@ speech-rate-option = Speech Rate: { $value }%
 speech-voice-option = Voice: { $voice }
 select-voice = Select Voice
 enter-speech-rate = Enter speech rate (50-300)
-invalid-rate = Invalid rate. Please enter a number between 50 and 300.
+invalid-rate = Invalid speech rate. Use a value between 50 and 300.
 mode-aria = Aria-live
 mode-web-speech = Web Speech API
 default-voice = Default Voice
@@ -527,7 +527,7 @@ mobile-tts-engine-api-note = Android engine selection is managed by system setti
 mobile-tts-voice-option = Mobile Voice: { $voice }
 mobile-tts-rate-option = Mobile Speech Rate: { $value }%
 mobile-tts-enter-rate = Enter mobile speech rate (50-200)
-mobile-tts-invalid-rate = Invalid rate. Please enter a number between 50 and 200.
+mobile-tts-invalid-rate = Invalid mobile speech rate. Use a value between 50 and 200.
 
 player-kicked-offline = Player { $player } has been kicked (offline).
 game-paused-host-disconnect = Game paused. Waiting for host { $player } to reconnect...

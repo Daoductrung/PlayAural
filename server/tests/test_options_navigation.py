@@ -184,6 +184,30 @@ async def test_set_preference_rejects_invalid_volume_steps(tmp_path) -> None:
             {"key": "audio/sound_volume", "value": 60},
         )
         assert user.preferences.sound_volume == 60
+
+        await server._handle_set_preference(
+            client,
+            {"key": "speech_rate", "value": 125},
+        )
+        assert user.preferences.speech_rate == 100
+
+        await server._handle_set_preference(
+            client,
+            {"key": "speech_rate", "value": 130},
+        )
+        assert user.preferences.speech_rate == 130
+
+        await server._handle_set_preference(
+            client,
+            {"key": "mobile/tts_rate", "value": 205},
+        )
+        assert user.preferences.mobile_tts_rate == 100
+
+        await server._handle_set_preference(
+            client,
+            {"key": "mobile/tts_rate", "value": 180},
+        )
+        assert user.preferences.mobile_tts_rate == 180
     finally:
         server._db.close()
 
@@ -299,7 +323,7 @@ async def test_action_close_uses_position_when_parent_item_disappears(tmp_path) 
 
 
 @pytest.mark.asyncio
-async def test_completed_editbox_action_restores_parent_focus(tmp_path) -> None:
+async def test_speech_rate_selection_menu_restores_parent_focus(tmp_path) -> None:
     server, user = _make_server(tmp_path)
     try:
         user.client_type = "web"
@@ -313,19 +337,96 @@ async def test_completed_editbox_action_restores_parent_focus(tmp_path) -> None:
                 "selection_id": "speech_rate",
             },
         )
-        assert _current_menu(server, user.username) == "speech_rate_input"
+        assert _current_menu(server, user.username) == "speech_rate_selection_menu"
+        state = _user_state(server, user.username)
+        assert state.get("speech_rate_type") == "speech_rate"
+        item_ids = [item.id for item in user.menus["speech_rate_selection_menu"]["items"]]
+        assert item_ids[:2] == ["rate_50", "rate_60"]
+        assert item_ids[-2:] == ["rate_300", "back"]
 
-        await server._handle_editbox(
+        await server._handle_menu(
             SimpleNamespace(username=user.username),
             {
-                "type": "editbox",
-                "input_id": "speech_rate_input",
-                "text": "125",
+                "type": "menu",
+                "menu_id": "speech_rate_selection_menu",
+                "selection_id": "rate_150",
             },
         )
 
+        assert user.preferences.speech_rate == 150
         assert _current_menu(server, user.username) == "speech_settings_menu"
         assert user.menus["speech_settings_menu"]["selection_id"] == "speech_rate"
+    finally:
+        server._db.close()
+
+
+@pytest.mark.asyncio
+async def test_mobile_tts_rate_selection_menu_restores_parent_focus(tmp_path) -> None:
+    server, user = _make_server(tmp_path)
+    try:
+        user.client_type = "mobile"
+        server._show_mobile_speech_settings_menu(user)
+        await server._handle_menu(
+            SimpleNamespace(username=user.username),
+            {
+                "type": "menu",
+                "menu_id": "mobile_speech_settings_menu",
+                "selection": 3,
+                "selection_id": "mobile_tts_rate",
+            },
+        )
+        assert _current_menu(server, user.username) == "speech_rate_selection_menu"
+        state = _user_state(server, user.username)
+        assert state.get("speech_rate_type") == "mobile_tts_rate"
+        item_ids = [item.id for item in user.menus["speech_rate_selection_menu"]["items"]]
+        assert item_ids[:2] == ["rate_50", "rate_60"]
+        assert item_ids[-2:] == ["rate_200", "back"]
+
+        await server._handle_menu(
+            SimpleNamespace(username=user.username),
+            {
+                "type": "menu",
+                "menu_id": "speech_rate_selection_menu",
+                "selection_id": "rate_180",
+            },
+        )
+
+        assert user.preferences.mobile_tts_rate == 180
+        assert _current_menu(server, user.username) == "mobile_speech_settings_menu"
+        assert user.menus["mobile_speech_settings_menu"]["selection_id"] == "mobile_tts_rate"
+    finally:
+        server._db.close()
+
+
+@pytest.mark.asyncio
+async def test_speech_rate_menu_preserves_legacy_off_step_current_value(tmp_path) -> None:
+    server, user = _make_server(tmp_path)
+    try:
+        user.client_type = "web"
+        user.preferences.speech_rate = 125
+        server._show_speech_settings_menu(user)
+
+        await server._handle_menu(
+            SimpleNamespace(username=user.username),
+            {
+                "type": "menu",
+                "menu_id": "speech_settings_menu",
+                "selection_id": "speech_rate",
+            },
+        )
+
+        item_ids = [item.id for item in user.menus["speech_rate_selection_menu"]["items"]]
+        assert "rate_125" in item_ids
+        await server._handle_menu(
+            SimpleNamespace(username=user.username),
+            {
+                "type": "menu",
+                "menu_id": "speech_rate_selection_menu",
+                "selection_id": "rate_125",
+            },
+        )
+        assert user.preferences.speech_rate == 125
+        assert _current_menu(server, user.username) == "speech_settings_menu"
     finally:
         server._db.close()
 
@@ -569,6 +670,28 @@ async def test_restore_frame_volume_selection_menu(tmp_path) -> None:
         item_ids = [item.id for item in user.menus["volume_selection_menu"]["items"]]
         assert "volume_0" not in item_ids
         assert item_ids[0] == "volume_10"
+        assert server._user_states[user.username]["_stack"] == stack
+    finally:
+        server._db.close()
+
+
+@pytest.mark.asyncio
+async def test_restore_frame_speech_rate_selection_menu(tmp_path) -> None:
+    server, user = _make_server(tmp_path)
+    try:
+        user.client_type = "web"
+        server._show_speech_settings_menu(user)
+        stack = list(_stack(server, user.username))
+        server._restore_frame(
+            user,
+            {"menu": "speech_rate_selection_menu", "speech_rate_type": "speech_rate"},
+            stack,
+        )
+        assert _current_menu(server, user.username) == "speech_rate_selection_menu"
+        assert _user_state(server, user.username).get("speech_rate_type") == "speech_rate"
+        item_ids = [item.id for item in user.menus["speech_rate_selection_menu"]["items"]]
+        assert item_ids[0] == "rate_50"
+        assert item_ids[-2:] == ["rate_300", "back"]
         assert server._user_states[user.username]["_stack"] == stack
     finally:
         server._db.close()

@@ -5878,9 +5878,17 @@ PlayAural Server
             ]
         candidates = []
         if table.game:
-            for p in table.game.players:
-                if not p.is_bot and not p.is_spectator and p.name != user.username:
-                    candidates.append(p.name)
+            for row in self._table_member_rows(table):
+                player = row.get("player")
+                if (
+                    row["kind"] == "user"
+                    and player
+                    and not getattr(player, "is_bot", False)
+                    and not row["is_spectator"]
+                    and row["name"] != user.username
+                    and row.get("is_online")
+                ):
+                    candidates.append(row["name"])
         if not candidates:
             items.append(MenuItem(text=Localization.get(locale, "host-pass-no-candidates"), id=""))
         else:
@@ -5912,7 +5920,12 @@ PlayAural Server
             return False
 
         target = table.game.get_player_by_name(new_host_name)
-        if target and not target.is_bot and not target.is_spectator:
+        if (
+            target
+            and not target.is_bot
+            and not target.is_spectator
+            and self._is_table_member_online(new_host_name)
+        ):
             table.host = new_host_name
             table.game.host = new_host_name
             table.game.broadcast_l("host-passed", buffer="system", player=new_host_name)
@@ -5922,6 +5935,23 @@ PlayAural Server
 
         user.speak_l("host-pass-failed", buffer="system")
         return False
+
+    def _find_table_roster_player(self, table: "Table", target_name: str) -> Any | None:
+        """Resolve a roster-visible human name to its current game player."""
+        game = table.game
+        if not game:
+            return None
+        target = game.get_player_by_name(target_name)
+        if target:
+            return target
+        target_key = bot_name_key(target_name)
+        for player in game.players:
+            if (
+                getattr(player, "replaced_human", False)
+                and bot_name_key(getattr(player, "replaced_human_name", "")) == target_key
+            ):
+                return player
+        return None
 
     async def _handle_host_pass_selection(
         self, user: NetworkUser, selection_id: str, state: dict
@@ -5964,10 +5994,23 @@ PlayAural Server
             ]
         candidates = []
         if table.game:
-            for p in table.game.players:
-                if not p.is_bot and p.name != user.username:
-                    label = f"{p.name} {spectator_suffix}" if p.is_spectator else p.name
-                    candidates.append((p.name, label))
+            for row in self._table_member_rows(table):
+                if row["kind"] != "user" or row["name"] == user.username:
+                    continue
+                if not row.get("player"):
+                    continue
+                if row.get("is_replaced_by_bot") or not row.get("is_online"):
+                    label = Localization.get(
+                        locale,
+                        "table-member-entry",
+                        player=row["name"],
+                        status=self._table_member_status_text(locale, row),
+                    )
+                elif row["is_spectator"]:
+                    label = f"{row['name']} {spectator_suffix}"
+                else:
+                    label = row["name"]
+                candidates.append((row["name"], label))
         if not candidates:
             items.append(MenuItem(text=Localization.get(locale, "host-kick-no-candidates"), id=""))
         else:
@@ -6008,8 +6051,15 @@ PlayAural Server
             user.speak_l("action-not-host", buffer="system")
             return False
 
-        target_player = table.game.get_player_by_name(target_name)
-        if not target_player or target_player.is_bot or target_name == user.username:
+        target_player = self._find_table_roster_player(table, target_name)
+        is_replacement_takeover = bool(
+            target_player and getattr(target_player, "replaced_human", False)
+        )
+        if (
+            not target_player
+            or (target_player.is_bot and not is_replacement_takeover)
+            or target_name == user.username
+        ):
             user.speak_l("host-kick-invalid-target", buffer="system")
             return False
 
@@ -6033,6 +6083,12 @@ PlayAural Server
                 target_player,
                 is_bot=False,
                 is_spectator=True,
+            )
+        elif is_replacement_takeover:
+            table.game.play_table_leave_sound(
+                target_player,
+                is_bot=False,
+                is_spectator=False,
             )
         elif table.game.status == "waiting":
             table.game.remove_player(target_player.id)
@@ -6096,9 +6152,42 @@ PlayAural Server
         rows: list[dict[str, Any]] = []
         seen_users: set[str] = set()
         game = table.game
+        members_by_key = {
+            bot_name_key(member.username): member
+            for member in table.members
+        }
 
         if game:
             for player in game.players:
+                replaced_human_name = getattr(player, "replaced_human_name", "")
+                replaced_member = (
+                    members_by_key.get(bot_name_key(replaced_human_name))
+                    if replaced_human_name
+                    else None
+                )
+                if getattr(player, "is_bot", False) and replaced_member:
+                    human_name = replaced_member.username
+                    seen_users.add(bot_name_key(human_name))
+                    rows.append(
+                        {
+                            "kind": "user",
+                            "id": human_name,
+                            "name": human_name,
+                            "is_bot": False,
+                            "is_spectator": replaced_member.is_spectator,
+                            "is_host": human_name == table.host,
+                            "is_online": self._is_table_member_online(human_name),
+                            "in_voice_chat": self._is_table_member_in_voice_chat(
+                                table,
+                                human_name,
+                            ),
+                            "is_replaced_by_bot": True,
+                            "replacement_bot_name": player.name,
+                            "player": player,
+                        }
+                    )
+                    continue
+
                 if getattr(player, "is_bot", False):
                     rows.append(
                         {
@@ -6108,12 +6197,16 @@ PlayAural Server
                             "is_bot": True,
                             "is_spectator": False,
                             "is_host": False,
+                            "is_online": True,
+                            "in_voice_chat": False,
+                            "is_replaced_by_bot": False,
+                            "replacement_bot_name": "",
                             "player": player,
                         }
                     )
                     continue
 
-                seen_users.add(player.name)
+                seen_users.add(bot_name_key(player.name))
                 rows.append(
                     {
                         "kind": "user",
@@ -6122,12 +6215,19 @@ PlayAural Server
                         "is_bot": False,
                         "is_spectator": getattr(player, "is_spectator", False),
                         "is_host": player.name == table.host,
+                        "is_online": self._is_table_member_online(player.name),
+                        "in_voice_chat": self._is_table_member_in_voice_chat(
+                            table,
+                            player.name,
+                        ),
+                        "is_replaced_by_bot": False,
+                        "replacement_bot_name": "",
                         "player": player,
                     }
                 )
 
         for member in table.members:
-            if member.username in seen_users:
+            if bot_name_key(member.username) in seen_users:
                 continue
             rows.append(
                 {
@@ -6137,25 +6237,79 @@ PlayAural Server
                     "is_bot": False,
                     "is_spectator": member.is_spectator,
                     "is_host": member.username == table.host,
+                    "is_online": self._is_table_member_online(member.username),
+                    "in_voice_chat": self._is_table_member_in_voice_chat(
+                        table,
+                        member.username,
+                    ),
+                    "is_replaced_by_bot": False,
+                    "replacement_bot_name": "",
                     "player": None,
                 }
             )
 
-        rows.sort(key=lambda row: (row["kind"] == "bot", row["name"].lower()))
+        rows.sort(
+            key=lambda row: (
+                bool(row.get("is_spectator")),
+                row["kind"] == "bot",
+                row["kind"] == "user" and not row.get("is_online", True),
+                row["name"].lower(),
+            )
+        )
         return rows
+
+    def _is_table_member_online(self, username: str) -> bool:
+        """Return whether a human table member currently has a live server user."""
+        username_key = bot_name_key(username)
+        return any(bot_name_key(name) == username_key for name in self._users)
+
+    def _is_table_member_in_voice_chat(self, table: "Table", username: str) -> bool:
+        """Return whether a human table member is in this table's voice chat."""
+        username_key = bot_name_key(username)
+        for presence_username, presence in self._voice_presence_by_user.items():
+            if bot_name_key(presence_username) != username_key:
+                continue
+            return (
+                presence.get("scope") == "table"
+                and presence.get("context_id") == table.table_id
+            )
+        return False
 
     def _table_member_status_text(self, locale: str, row: dict[str, Any]) -> str:
         """Return all concurrent table statuses for one roster row."""
-        status_keys: list[str] = []
+        statuses: list[str] = []
         if row.get("is_host"):
-            status_keys.append("table-member-status-host")
+            statuses.append(Localization.get(locale, "table-member-status-host"))
         if row.get("is_bot"):
-            status_keys.append("table-member-status-bot")
+            statuses.append(Localization.get(locale, "table-member-status-bot"))
         elif row.get("is_spectator"):
-            status_keys.append("table-member-status-spectator")
+            statuses.append(Localization.get(locale, "table-member-status-spectator"))
         else:
-            status_keys.append("table-member-status-player")
-        statuses = [Localization.get(locale, key) for key in status_keys]
+            statuses.append(Localization.get(locale, "table-member-status-player"))
+        if row["kind"] == "user":
+            statuses.append(
+                Localization.get(
+                    locale,
+                    (
+                        "table-member-status-online"
+                        if row.get("is_online")
+                        else "table-member-status-offline"
+                    ),
+                )
+            )
+            if row.get("in_voice_chat"):
+                statuses.append(
+                    Localization.get(locale, "table-member-status-voice-chat")
+                )
+            replacement_bot = row.get("replacement_bot_name")
+            if row.get("is_replaced_by_bot") and replacement_bot:
+                statuses.append(
+                    Localization.get(
+                        locale,
+                        "table-member-status-bot-takeover",
+                        bot=replacement_bot,
+                    )
+                )
         return Localization.format_list_and(locale, statuses)
 
     def _get_table_members_menu_items(
@@ -6165,7 +6319,11 @@ PlayAural Server
         locale = user.locale
         rows = self._table_member_rows(table)
         total = len(rows)
-        bot_count = sum(1 for row in rows if row["is_bot"])
+        bot_count = sum(
+            1
+            for row in rows
+            if row["is_bot"] or row.get("is_replaced_by_bot")
+        )
         real_count = total - bot_count
         spectator_count = sum(1 for row in rows if row["is_spectator"])
         active_count = total - spectator_count
@@ -6277,12 +6435,13 @@ PlayAural Server
                     )
                 )
             elif not row["is_spectator"]:
-                items.append(
-                    MenuItem(
-                        text=Localization.get(locale, "host-management-pass-host"),
-                        id="table_pass_host",
+                if row.get("is_online") and not row.get("is_replaced_by_bot"):
+                    items.append(
+                        MenuItem(
+                            text=Localization.get(locale, "host-management-pass-host"),
+                            id="table_pass_host",
+                        )
                     )
-                )
                 items.append(
                     MenuItem(
                         text=Localization.get(locale, "host-management-kick"),

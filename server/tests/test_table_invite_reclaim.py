@@ -807,6 +807,106 @@ class TestTableInviteReclaim:
 
         assert self.server._user_states[host.username]["menu"] == TABLE_MEMBERS_MENU
 
+    def test_table_roster_sorts_players_before_spectators_and_shows_voice_status(self):
+        host = self._create_online_user("Host")
+        guest = self._create_online_user("Guest")
+        spectator = self._create_online_user("AaronSpectator")
+        table, game = self._create_waiting_table(
+            host,
+            guest,
+            PigGame(options=PigOptions(target_score=25)),
+        )
+        table.add_member(spectator.username, spectator, as_spectator=True)
+        game.add_spectator(spectator.username, spectator)
+        self.server._voice_presence_by_user[guest.username] = {
+            "scope": "table",
+            "context_id": table.table_id,
+        }
+
+        self.server._show_table_members_menu(host, table)
+
+        roster_items = host.get_current_menu_items(TABLE_MEMBERS_MENU) or []
+        row_texts = [
+            item.text
+            for item in roster_items
+            if item.text not in {"Back"} and not item.text.startswith("Table summary")
+        ]
+        positions = {
+            text.split(":", 1)[0]: index
+            for index, text in enumerate(row_texts)
+        }
+        assert positions[guest.username] < positions[spectator.username]
+        assert positions[host.username] < positions[spectator.username]
+        guest_row = next(text for text in row_texts if text.startswith(f"{guest.username}:"))
+        spectator_row = next(
+            text for text in row_texts if text.startswith(f"{spectator.username}:")
+        )
+        assert "Player" in guest_row
+        assert "Online" in guest_row
+        assert "in voice chat" in guest_row
+        assert "Spectator" in spectator_row
+        assert "Online" in spectator_row
+
+    @pytest.mark.asyncio
+    async def test_table_roster_shows_offline_replaced_player_and_takeover_bot(self):
+        host = self._create_online_user("Host")
+        guest = self._create_online_user("Guest")
+        table, game = self._create_started_table(host, guest)
+        guest_player = game.get_player_by_id(guest.uuid)
+        assert guest_player is not None
+
+        assert game._replace_with_bot(guest_player) is True
+        replacement_bot_name = guest_player.name
+        self.server._users.pop(guest.username, None)
+
+        self.server._show_table_members_menu(host, table)
+        roster_items = host.get_current_menu_items(TABLE_MEMBERS_MENU) or []
+        row_texts = [item.text for item in roster_items]
+        assert "1 bot" in roster_items[0].text
+        guest_row = next(text for text in row_texts if text.startswith(f"{guest.username}:"))
+        assert "Player" in guest_row
+        assert "Offline" in guest_row
+        assert f"bot playing on their behalf: {replacement_bot_name}" in guest_row
+        assert not any(
+            text.startswith(f"{replacement_bot_name}:")
+            for text in row_texts
+        )
+
+        self.server._show_host_kick_menu(host, table, ban=False)
+        host_kick_items = host.get_current_menu_items("host_kick_menu") or []
+        kick_row = next(
+            item.text for item in host_kick_items if item.id == f"kick_{guest.username}"
+        )
+        assert "Offline" in kick_row
+        assert f"bot playing on their behalf: {replacement_bot_name}" in kick_row
+
+        self.server._show_table_members_menu(host, table)
+
+        await self.server._handle_table_members_selection(
+            host,
+            f"table_member_user_{guest.username}",
+            self.server._user_states[host.username],
+        )
+        action_ids = self._get_menu_action_ids(host, TABLE_MEMBER_ACTIONS_MENU)
+        assert "table_pass_host" not in action_ids
+        assert "table_kick" in action_ids
+        assert "table_kick_ban" in action_ids
+
+        await self.server._handle_table_member_actions_selection(
+            host,
+            "table_kick",
+            self.server._user_states[host.username],
+        )
+
+        assert not any(member.username == guest.username for member in table.members)
+        refreshed_items = host.get_current_menu_items(TABLE_MEMBERS_MENU) or []
+        refreshed_texts = [item.text for item in refreshed_items]
+        assert not any(text.startswith(f"{guest.username}:") for text in refreshed_texts)
+        assert any(
+            text.startswith(f"{replacement_bot_name}:")
+            for text in refreshed_texts
+        )
+
     @pytest.mark.asyncio
     async def test_table_roster_bot_actions_remove_selected_bot(self):
         host = self._create_online_user("Host")

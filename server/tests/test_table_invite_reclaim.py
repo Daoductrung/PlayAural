@@ -745,15 +745,26 @@ class TestTableInviteReclaim:
 
         assert self.server._user_states[host.username]["menu"] == TABLE_MEMBERS_MENU
         roster_items = host.get_current_menu_items(TABLE_MEMBERS_MENU) or []
-        assert roster_items[0].id == ""
+        roster_ids = [item.id for item in roster_items if hasattr(item, "id")]
+        assert roster_items[0].id == "table_members_summary"
         assert "Table summary" in roster_items[0].text
+        assert roster_ids[-1] == "back"
+        assert "" not in roster_ids
+        assert len(roster_ids) == len(set(roster_ids))
         own_row = next(item for item in roster_items if item.text.startswith("Host:"))
-        assert own_row.id == ""
+        assert own_row.id == f"table_member_self_{host.username}"
         assert "Host" in own_row.text
         assert "Player" in own_row.text
         assert f"table_member_user_{guest.username}" in [
             item.id for item in roster_items if hasattr(item, "id")
         ]
+
+        await self.server._handle_table_members_selection(
+            host,
+            roster_items[0].id,
+            self.server._user_states[host.username],
+        )
+        assert self.server._user_states[host.username]["menu"] == TABLE_MEMBERS_MENU
 
         await self.server._handle_table_members_selection(
             host,
@@ -795,17 +806,34 @@ class TestTableInviteReclaim:
         self.server._show_table_members_menu(host, table)
         roster_items = host.get_current_menu_items(TABLE_MEMBERS_MENU) or []
         own_row = next(item for item in roster_items if item.text.startswith("Host:"))
-        assert own_row.id == ""
+        assert own_row.id == f"table_member_self_{host.username}"
         assert "Host" in own_row.text
         assert "Spectator" in own_row.text
 
         await self.server._handle_table_members_selection(
             host,
-            f"table_member_user_{host.username}",
+            own_row.id,
             self.server._user_states[host.username],
         )
 
         assert self.server._user_states[host.username]["menu"] == TABLE_MEMBERS_MENU
+
+    def test_table_roster_empty_rows_still_has_back_and_stable_ids(self, monkeypatch):
+        host = self._create_online_user("Host")
+        guest = self._create_online_user("Guest")
+        table, _ = self._create_waiting_table(
+            host,
+            guest,
+            PigGame(options=PigOptions(target_score=25)),
+        )
+        monkeypatch.setattr(self.server, "_table_member_rows", lambda _table: [])
+
+        self.server._show_table_members_menu(host, table)
+
+        roster_items = host.get_current_menu_items(TABLE_MEMBERS_MENU) or []
+        roster_ids = [item.id for item in roster_items if hasattr(item, "id")]
+        assert roster_ids == ["table_members_summary", "table_members_empty", "back"]
+        assert "No table members" in roster_items[1].text
 
     def test_table_roster_sorts_players_before_spectators_and_shows_voice_status(self):
         host = self._create_online_user("Host")

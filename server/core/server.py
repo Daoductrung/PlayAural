@@ -6140,10 +6140,9 @@ PlayAural Server
 
         target_name = selection_id[5:]
 
-        self._perform_host_kick(user, table, target_name, is_ban=is_ban)
-
-        # Redisplay updated kick menu so host can act on remaining players
-        self._nav_refresh(user, self._show_host_kick_menu, table, ban=is_ban)
+        changed = self._perform_host_kick(user, table, target_name, is_ban=is_ban)
+        if not changed:
+            self._nav_refresh(user, self._show_host_kick_menu, table, ban=is_ban)
 
     # --- Interactive table presence menu ---
 
@@ -6339,35 +6338,44 @@ PlayAural Server
                     active=active_count,
                     spectators=spectator_count,
                 ),
-                id="",
+                id="table_members_summary",
             )
         ]
 
-        for row in rows:
-            status = self._table_member_status_text(locale, row)
-            is_self = (
-                row["kind"] == "user"
-                and row["name"].lower() == user.username.lower()
-            )
-            if is_self:
-                item_id = ""
-            else:
-                item_id = (
-                    f"table_member_bot_{row['id']}"
-                    if row["kind"] == "bot"
-                    else f"table_member_user_{row['id']}"
-                )
+        if not rows:
             items.append(
                 MenuItem(
-                    text=Localization.get(
-                        locale,
-                        "table-member-entry",
-                        player=row["name"],
-                        status=status,
-                    ),
-                    id=item_id,
+                    text=Localization.get(locale, "table-members-empty"),
+                    id="table_members_empty",
                 )
             )
+        else:
+            for row in rows:
+                status = self._table_member_status_text(locale, row)
+                is_self = (
+                    row["kind"] == "user"
+                    and row["name"].lower() == user.username.lower()
+                )
+                item_id = (
+                    f"table_member_self_{row['id']}"
+                    if is_self
+                    else (
+                        f"table_member_bot_{row['id']}"
+                        if row["kind"] == "bot"
+                        else f"table_member_user_{row['id']}"
+                    )
+                )
+                items.append(
+                    MenuItem(
+                        text=Localization.get(
+                            locale,
+                            "table-member-entry",
+                            player=row["name"],
+                            status=status,
+                        ),
+                        id=item_id,
+                    )
+                )
 
         items.append(MenuItem(text=Localization.get(locale, "back"), id="back"))
         return items
@@ -6493,7 +6501,7 @@ PlayAural Server
                         "table-member-no-actions",
                         player=target_name,
                     ),
-                    id="",
+                    id="table_member_no_actions",
                 )
             )
         items.append(MenuItem(text=Localization.get(locale, "back"), id="back"))
@@ -6547,6 +6555,12 @@ PlayAural Server
             self._nav_back(user)
             return
         if not selection_id:
+            return
+        if selection_id in {"table_members_summary", "table_members_empty"}:
+            self._nav_refresh(user, self._show_table_members_menu, table)
+            return
+        if selection_id.startswith("table_member_self_"):
+            self._nav_refresh(user, self._show_table_members_menu, table)
             return
 
         if selection_id.startswith("table_member_user_"):
@@ -6631,44 +6645,49 @@ PlayAural Server
         target_name = row["name"]
 
         if selection_id == "table_pass_host":
+            changed = False
             if row["kind"] != "user" or row["is_spectator"]:
                 user.speak_l("host-pass-failed", buffer="system")
             else:
-                self._perform_host_pass(user, table, target_name)
-            self._nav_refresh(
-                user,
-                self._show_table_member_actions_menu,
-                table,
-                target_kind,
-                target_id,
-            )
+                changed = self._perform_host_pass(user, table, target_name)
+            if not changed:
+                self._nav_refresh(
+                    user,
+                    self._show_table_member_actions_menu,
+                    table,
+                    target_kind,
+                    target_id,
+                )
         elif selection_id == "table_kick":
-            self._perform_host_kick(user, table, target_name, is_ban=False)
-            self._nav_refresh(
-                user,
-                self._show_table_member_actions_menu,
-                table,
-                target_kind,
-                target_id,
-            )
+            changed = self._perform_host_kick(user, table, target_name, is_ban=False)
+            if not changed:
+                self._nav_refresh(
+                    user,
+                    self._show_table_member_actions_menu,
+                    table,
+                    target_kind,
+                    target_id,
+                )
         elif selection_id == "table_kick_ban":
-            self._perform_host_kick(user, table, target_name, is_ban=True)
-            self._nav_refresh(
-                user,
-                self._show_table_member_actions_menu,
-                table,
-                target_kind,
-                target_id,
-            )
+            changed = self._perform_host_kick(user, table, target_name, is_ban=True)
+            if not changed:
+                self._nav_refresh(
+                    user,
+                    self._show_table_member_actions_menu,
+                    table,
+                    target_kind,
+                    target_id,
+                )
         elif selection_id == "table_remove_bot":
-            self._perform_remove_table_bot(user, table, target_id)
-            self._nav_refresh(
-                user,
-                self._show_table_member_actions_menu,
-                table,
-                target_kind,
-                target_id,
-            )
+            changed = self._perform_remove_table_bot(user, table, target_id)
+            if not changed:
+                self._nav_refresh(
+                    user,
+                    self._show_table_member_actions_menu,
+                    table,
+                    target_kind,
+                    target_id,
+                )
         elif selection_id == "view_profile" and row["kind"] == "user":
             self._nav_push(user, self._show_public_profile, target_name)
         elif selection_id == "send_friend_request" and row["kind"] == "user":

@@ -308,6 +308,7 @@ table-spectators = Khán giả: { $spectators }.
 table-host-suffix = (Chủ bàn)
 table-voice-chat-suffix = (đang tham gia trò chuyện thoại)
 table-members-summary = Tóm tắt bàn: { $total } chỗ; { $real } người thật, { $bots } bot; { $active } đang tham gia, { $spectators } đang xem.
+table-members-empty = Hiện chưa có ai được liệt kê ở bàn này. Hãy dùng Quay lại để trở về và làm mới màn hình bàn.
 table-member-entry = { $player }: { $status }
 table-member-status-host = Chủ bàn
 table-member-status-player = Người chơi

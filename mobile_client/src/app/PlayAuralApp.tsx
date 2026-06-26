@@ -84,10 +84,6 @@ const WEB_SCREEN_READER_SUPPORT = Platform.OS === "web";
 const NATIVE_FOCUS_DELAY_MS = 80;
 const NATIVE_FOCUS_MAX_ATTEMPTS = 8;
 const NATIVE_MENU_FOCUS_REQUEST_TTL_MS = 3000;
-const NATIVE_SCREEN_READER_ANNOUNCEMENT_MIN_DELAY_MS = 900;
-const NATIVE_SCREEN_READER_ANNOUNCEMENT_MAX_DELAY_MS = 7000;
-const NATIVE_SCREEN_READER_ANNOUNCEMENT_CHAR_MS = 45;
-const NATIVE_SCREEN_READER_DUPLICATE_WINDOW_MS = 700;
 const NATIVE_FOCUS_RESET_GUARD_MS = 900;
 
 type ServerAuthResponseContext = "login" | "password_reset" | "register" | "reset_code";
@@ -474,17 +470,6 @@ function formatTextInputSpeech(
   });
 }
 
-function estimateNativeScreenReaderAnnouncementDelay(text: string): number {
-  const estimated =
-    NATIVE_SCREEN_READER_ANNOUNCEMENT_MIN_DELAY_MS +
-    text.length * NATIVE_SCREEN_READER_ANNOUNCEMENT_CHAR_MS;
-  return clamp(
-    estimated,
-    NATIVE_SCREEN_READER_ANNOUNCEMENT_MIN_DELAY_MS,
-    NATIVE_SCREEN_READER_ANNOUNCEMENT_MAX_DELAY_MS,
-  );
-}
-
 function getGridVisualLabel(text: string, cellSize: number | null): string {
   if (cellSize !== null && cellSize < 10) {
     return "";
@@ -633,11 +618,6 @@ export function PlayAuralApp() {
   const nativeMenuFocusRequestedAtRef = useRef(0);
   const programmaticNativeFocusKeyRef = useRef<string | null>(null);
   const programmaticNativeFocusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const nativeScreenReaderAnnouncementQueueRef = useRef<string[]>([]);
-  const nativeScreenReaderAnnouncementTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const nativeScreenReaderAnnouncementActiveRef = useRef(false);
-  const nativeScreenReaderAnnouncementGenerationRef = useRef(0);
-  const nativeScreenReaderLastAnnouncementRef = useRef({ at: 0, text: "" });
   const activeTextInputKeyRef = useRef<string | null>(activeTextInputKey);
   const longPressConsumedRef = useRef<string | null>(null);
   const longPressResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -719,9 +699,6 @@ export function PlayAuralApp() {
 
   useEffect(() => {
     tts.setUiEnabled(selfVoicingEnabled);
-    if (!selfVoicingEnabled) {
-      tts.stop();
-    }
     lastPassiveUiSignatureRef.current = null;
   }, [selfVoicingEnabled, tts]);
 
@@ -767,10 +744,6 @@ export function PlayAuralApp() {
       clearTimeout(programmaticNativeFocusTimerRef.current);
       programmaticNativeFocusTimerRef.current = null;
     }
-    if (nativeScreenReaderAnnouncementTimerRef.current) {
-      clearTimeout(nativeScreenReaderAnnouncementTimerRef.current);
-      nativeScreenReaderAnnouncementTimerRef.current = null;
-    }
   }, []);
 
   const nativeScreenReaderMode = !selfVoicingEnabled && (screenReaderEnabled || WEB_SCREEN_READER_SUPPORT);
@@ -810,64 +783,9 @@ export function PlayAuralApp() {
     }
   }, []);
 
-  const clearNativeScreenReaderAnnouncementQueue = useCallback(() => {
-    nativeScreenReaderAnnouncementGenerationRef.current += 1;
-    nativeScreenReaderAnnouncementQueueRef.current = [];
-    nativeScreenReaderAnnouncementActiveRef.current = false;
-    if (nativeScreenReaderAnnouncementTimerRef.current) {
-      clearTimeout(nativeScreenReaderAnnouncementTimerRef.current);
-      nativeScreenReaderAnnouncementTimerRef.current = null;
-    }
-  }, []);
-
-  const processNativeScreenReaderAnnouncementQueue = useCallback(() => {
-    if (nativeScreenReaderAnnouncementActiveRef.current) {
-      return;
-    }
-
-    const next = nativeScreenReaderAnnouncementQueueRef.current.shift();
-    if (!next) {
-      return;
-    }
-
-    const now = Date.now();
-    const last = nativeScreenReaderLastAnnouncementRef.current;
-    if (
-      next === last.text &&
-      now - last.at < NATIVE_SCREEN_READER_DUPLICATE_WINDOW_MS
-    ) {
-      processNativeScreenReaderAnnouncementQueue();
-      return;
-    }
-
-    nativeScreenReaderLastAnnouncementRef.current = { at: now, text: next };
-    nativeScreenReaderAnnouncementActiveRef.current = true;
-    const generation = nativeScreenReaderAnnouncementGenerationRef.current;
-    postNativeScreenReaderAnnouncement(next);
-
-    nativeScreenReaderAnnouncementTimerRef.current = setTimeout(() => {
-      if (generation !== nativeScreenReaderAnnouncementGenerationRef.current) {
-        return;
-      }
-      nativeScreenReaderAnnouncementTimerRef.current = null;
-      nativeScreenReaderAnnouncementActiveRef.current = false;
-      processNativeScreenReaderAnnouncementQueue();
-    }, estimateNativeScreenReaderAnnouncementDelay(next));
-  }, [postNativeScreenReaderAnnouncement]);
-
-  const queueNativeScreenReaderAnnouncement = useCallback((text: string) => {
-    const cleanText = text.trim();
-    if (!cleanText) {
-      return;
-    }
-    nativeScreenReaderAnnouncementQueueRef.current.push(cleanText);
-    processNativeScreenReaderAnnouncementQueue();
-  }, [processNativeScreenReaderAnnouncementQueue]);
-
   const announceForNativeScreenReader = useCallback((text: string) => {
-    clearNativeScreenReaderAnnouncementQueue();
     postNativeScreenReaderAnnouncement(text);
-  }, [clearNativeScreenReaderAnnouncementQueue, postNativeScreenReaderAnnouncement]);
+  }, [postNativeScreenReaderAnnouncement]);
 
   const clearScheduledNativeFocus = useCallback((key?: string | null) => {
     if (!key || pendingNativeAccessibilityFocusKeyRef.current === key) {
@@ -940,7 +858,6 @@ export function PlayAuralApp() {
       focusKey !== scheduledFocusKey &&
       Date.now() - scheduledAt <= NATIVE_FOCUS_RESET_GUARD_MS
     ) {
-      clearNativeScreenReaderAnnouncementQueue();
       return;
     }
     pendingNativeAccessibilityFocusKeyRef.current = null;
@@ -955,22 +872,16 @@ export function PlayAuralApp() {
       clearTimeout(nativeFocusTargetReleaseTimerRef.current);
       nativeFocusTargetReleaseTimerRef.current = null;
     }
-    clearNativeScreenReaderAnnouncementQueue();
-  }, [clearNativeScreenReaderAnnouncementQueue, nativeScreenReaderMode]);
+  }, [nativeScreenReaderMode]);
 
   const speakServerAnnouncement = useCallback(
     (text: string, options?: { remember?: boolean }) => {
       if (!text) {
         return;
       }
-      if (selfVoicingEnabled) {
-        tts.speakAnnouncement(text, options);
-        return;
-      }
-      tts.stop();
-      queueNativeScreenReaderAnnouncement(text);
+      tts.speakAnnouncement(text, options);
     },
-    [queueNativeScreenReaderAnnouncement, selfVoicingEnabled, tts],
+    [tts],
   );
 
   const registerAccessibilityNode = useCallback(
@@ -1505,7 +1416,6 @@ export function PlayAuralApp() {
       return;
     }
     tts.setUiEnabled(false);
-    tts.stop();
     announceForNativeScreenReader(message);
   }, [addHistoryMessage, announceForNativeScreenReader, localization, tts]);
 

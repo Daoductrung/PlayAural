@@ -148,6 +148,7 @@ export class TtsManager {
         this.activeText = "";
         this.token += 1;
         this.stopUnderlyingSpeech();
+        this.startNextAnnouncement();
       }
       return;
     }

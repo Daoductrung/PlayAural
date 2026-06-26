@@ -317,6 +317,7 @@ table-members-summary = Table summary: { $total } { $total ->
     [one] bot
    *[other] bots
 }; { $active } active, { $spectators } spectating.
+table-members-empty = No table members are currently listed. Use Back to return and refresh the table view.
 table-member-entry = { $player }: { $status }
 table-member-status-host = Host
 table-member-status-player = Player

@@ -779,13 +779,23 @@ export function PlayAuralApp() {
         text,
       }));
     } else {
-      AccessibilityInfo.announceForAccessibility(text);
+      const announceWithOptions = (
+        AccessibilityInfo as typeof AccessibilityInfo & {
+          announceForAccessibilityWithOptions?: (announcement: string, options: { queue?: boolean }) => void;
+        }
+      ).announceForAccessibilityWithOptions;
+      if (announceWithOptions) {
+        announceWithOptions(text, { queue: false });
+      } else {
+        AccessibilityInfo.announceForAccessibility(text);
+      }
     }
   }, []);
 
   const announceForNativeScreenReader = useCallback((text: string) => {
+    tts.stopAnnouncements();
     postNativeScreenReaderAnnouncement(text);
-  }, [postNativeScreenReaderAnnouncement]);
+  }, [postNativeScreenReaderAnnouncement, tts]);
 
   const clearScheduledNativeFocus = useCallback((key?: string | null) => {
     if (!key || pendingNativeAccessibilityFocusKeyRef.current === key) {
@@ -860,6 +870,7 @@ export function PlayAuralApp() {
     ) {
       return;
     }
+    tts.stopAnnouncements();
     pendingNativeAccessibilityFocusKeyRef.current = null;
     pendingNativeAccessibilityFocusQueuedAtRef.current = 0;
     nativeFocusTargetKeyRef.current = null;
@@ -872,14 +883,17 @@ export function PlayAuralApp() {
       clearTimeout(nativeFocusTargetReleaseTimerRef.current);
       nativeFocusTargetReleaseTimerRef.current = null;
     }
-  }, [nativeScreenReaderMode]);
+  }, [nativeScreenReaderMode, tts]);
 
   const speakServerAnnouncement = useCallback(
     (text: string, options?: { remember?: boolean }) => {
       if (!text) {
         return;
       }
-      tts.speakAnnouncement(text, options);
+      tts.speakAnnouncement(text, {
+        ...options,
+        flushNativeQueue: nativeScreenReaderModeRef.current,
+      });
     },
     [tts],
   );

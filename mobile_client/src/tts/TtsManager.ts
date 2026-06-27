@@ -11,10 +11,12 @@ type SpeechStartOptions = {
 };
 
 type AnnouncementStartOptions = {
+  flushNativeQueue?: boolean;
   remember?: boolean;
 };
 
 type AnnouncementQueueItem = {
+  flushNativeQueue: boolean;
   remember: boolean;
   text: string;
 };
@@ -202,6 +204,7 @@ export class TtsManager {
 
     this.debug("speak-announcement-request", text);
     this.announcementQueue.push({
+      flushNativeQueue: options.flushNativeQueue ?? false,
       remember: options.remember ?? true,
       text,
     });
@@ -222,6 +225,20 @@ export class TtsManager {
   stop(): void {
     this.debug("stop", "");
     this.announcementQueue = [];
+    this.pendingPassiveUiText = null;
+    this.activeChannel = null;
+    this.activeText = "";
+    this.token += 1;
+    this.clearSpeechFallbackTimer();
+    this.stopUnderlyingSpeech();
+  }
+
+  stopAnnouncements(): void {
+    this.debug("stop-announcements", "");
+    this.announcementQueue = [];
+    if (this.activeChannel !== "announcement") {
+      return;
+    }
     this.pendingPassiveUiText = null;
     this.activeChannel = null;
     this.activeText = "";
@@ -272,6 +289,25 @@ export class TtsManager {
       };
 
       window.speechSynthesis.speak(utterance);
+      return;
+    }
+
+    if (options.flushNativeQueue) {
+      void Speech.stop()
+        .catch((error) => {
+          this.debug("native-speech-flush-error", error instanceof Error ? error.message : String(error));
+        })
+        .finally(() => {
+          this.startNativeSpeech(channel, token, text);
+        });
+      return;
+    }
+
+    this.startNativeSpeech(channel, token, text);
+  }
+
+  private startNativeSpeech(channel: SpeechChannel, token: number, text: string): void {
+    if (token !== this.token || this.activeChannel !== channel || this.activeText !== text) {
       return;
     }
 
@@ -329,7 +365,10 @@ export class TtsManager {
       return false;
     }
 
-    this.startSpeech("announcement", next.text, { remember: next.remember });
+    this.startSpeech("announcement", next.text, {
+      flushNativeQueue: next.flushNativeQueue,
+      remember: next.remember,
+    });
     return true;
   }
 

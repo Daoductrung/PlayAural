@@ -2,7 +2,7 @@
 
 
 
-Twenty One (Survival Rules) is a two-player card game where you try to get closer to a target number — usually 21 — than your opponent without going over. Unlike standard blackjack, this is a survival game: each player has hit points, and you play round after round until someone runs out.
+Twenty One (Survival Rules) is a two-to-four-player card game where you try to get closer to a target number — usually 21 — than the other players without going over. Unlike standard blackjack, this is a survival game: each player has hit points, and you play round after round until only one survivor remains.
 
 
 
@@ -10,27 +10,27 @@ Twenty One (Survival Rules) is a two-player card game where you try to get close
 
 
 
-The game is played in rounds. Each round, both players are dealt two cards from a deck numbered 1 through 11. Your first card is your hidden hole card, visible only to you. Your second card is face-up for both players to see.
+The game is played in rounds. Each round, every active player is dealt two cards from a deck numbered 1 through 11. Your first card is your hidden hole card, visible only to you. Your second card is face-up for everyone to see.
 
 
 
-On your turn you may hit (draw another face-up card), stand (lock in your total), or play a change card from your hand. Hitting has a chance to award you an additional random change card. If the deck is empty, or if an opponent's draw-blocking effect is active, you cannot hit and should stand or use another legal action.
+On your turn you may hit (draw another face-up card), stand (lock in your total), or play a change card from your hand. Hitting has a chance to award you an additional random change card. If the deck is empty, or if a draw-blocking effect is aimed at you, you cannot hit and should stand or use another legal action.
 
 
 
-A round ends when both players stand. Both hidden cards are revealed, then totals are compared against the current target. The player closer to the target without going over wins. If one player busts (exceeds the target) and the other does not, the non-busted player wins. If both bust, whoever is closer to the target wins. If totals are exactly tied, both players take damage.
+A round ends when every active player has stood. Hidden cards are revealed, then totals are compared against the current target. The closest non-busted player wins. If everyone busts, whoever is closest to the target wins. If the best total is tied, nobody wins the round and every player takes damage.
 
 
 
-\*\*Important:\*\* if either player hits or plays a change card after one player has already stood, that standing player's stand is cancelled and they must act again. You cannot safely lock in and ignore what your opponent does.
+\*\*Important:\*\* if anyone hits or plays a change card after another player has already stood, all standing players are unlocked and must act again. You cannot safely lock in and ignore what the table does.
 
 
 
-The loser of a round takes damage equal to the current bet value. The bet starts at the base bet (default 1) and can be raised or reduced by change-card effects. When a player's HP reaches zero, they are eliminated and the other player wins the game.
+Every non-winner of a round takes damage equal to their current bet value. The bet starts at the base bet (default 1) and can be raised or reduced by change-card effects. When a player's HP reaches zero, they are eliminated. The last remaining player wins the game.
 
 
 
-At the start of each round, both players receive a number of random change cards (default 1 per round). Each time you hit and draw a card there is also a chance (default 35 percent) of receiving an additional random change card.
+At the start of each round, every active player receives a number of random change cards (default 1 per round). Each time you hit and draw a card there is also a chance (default 35 percent) of receiving an additional random change card.
 
 
 
@@ -47,6 +47,8 @@ The deck contains cards ranked 1 through 11, with one copy of each rank per deck
 
 
 Change cards are the tactical heart of the game. On your turn, instead of hitting or standing, you may play one change card from your hand. The play menu shows all change cards in your hand; cards that cannot currently resolve include a reason in the menu, and selecting one explains exactly why it cannot be played. Some are instant effects that resolve immediately and are discarded. Others are table effects that persist for the rest of the round. Each player can have up to 5 table effects active at once; if you add a sixth, your oldest effect is removed.
+
+In games with three or four players, Change Cards that affect one opponent ask you to choose a target. The target menu lists only legal targets, with each opponent's HP and visible total. Once a table effect is placed, status readouts say who it is aimed at.
 
 
 
@@ -86,7 +88,7 @@ Press \*\*C\*\* or select \*\*Change Card Guide\*\* from the actions menu to ope
 
 \* \*\*Change-up enhanced:\*\* Discard 1 of your change cards, then receive 4 new random change cards.
 
-\* \*\*Change is good:\*\* Both players gain 1 change card.
+\* \*\*Change is good:\*\* You and one chosen opponent each gain 1 change card.
 
 \* \*\*Glitched draw:\*\* Discard 1 random change card; force your opponent to draw the highest available number card. Requires at least 1 other change card to pay the cost.
 
@@ -140,11 +142,11 @@ Press \*\*C\*\* or select \*\*Change Card Guide\*\* from the actions menu to ope
 
 \*\*Target Modifiers (table effects):\*\*
 
-\* \*\*Target 17:\*\* Set the round target to 17 for both players.
+\* \*\*Target 17:\*\* Set the round target to 17 for all players.
 
-\* \*\*Target 24:\*\* Set the round target to 24 for both players.
+\* \*\*Target 24:\*\* Set the round target to 24 for all players.
 
-\* \*\*Target 27:\*\* Set the round target to 27 for both players.
+\* \*\*Target 27:\*\* Set the round target to 27 for all players.
 
 \* Only one target modifier can be in effect at once. Playing a new target modifier removes the existing one.
 
@@ -162,7 +164,7 @@ Press \*\*C\*\* or select \*\*Change Card Guide\*\* from the actions menu to ope
 
 \* \*\*No draw for you!:\*\* While active, your opponent cannot draw number cards from hits or change-card effects (table effect).
 
-\* \*\*Game over:\*\* While active, both players' damage is increased by 100 and your opponent cannot draw number cards (table effect).
+\* \*\*Game over:\*\* While active, your damage and the chosen opponent's damage are both increased by 100, and that opponent cannot draw number cards (table effect).
 
 
 
@@ -218,19 +220,19 @@ Your opponent takes 2 damage (base bet 1, plus 1 from your Raise one). They drop
 
 \* \*\*3:\*\* Play Change Card (opens a menu to choose which change card to play).
 
-\* \*\*4:\*\* Check 21 status (announces target, HP, current bet, your hand, change cards in hand, and active effects; also shows your opponent's visible information).
+\* \*\*4:\*\* Check 21 status (announces target, HP, current bet, your hand, change cards in hand, and active effects; also shows each opponent's visible information).
 
 \* \*\*C:\*\* Change Card Guide (opens a status box listing every change card and its description).
 
-\* \*\*O:\*\* Read opponent face-up cards (announces what your opponent is showing and their visible total).
+\* \*\*O:\*\* Read opponent face-up cards (announces what each opponent is showing and their visible total).
 
 \* \*\*R:\*\* Read current hand (announces your cards and total).
 
 \* \*\*W:\*\* Read current bets (announces the effective bet for each player after modifier adjustments).
 
-\* \*\*E:\*\* Read active effects (announces the table effects active for both players).
+\* \*\*E:\*\* Read active effects (announces every active player's table effects, including targets where relevant).
 
-\* \*\*S:\*\* Check scores (shows current HP for both players).
+\* \*\*S:\*\* Check scores (shows current HP for each active player).
 
 \* \*\*Shift+S:\*\* Detailed scores.
 

@@ -232,6 +232,7 @@ ONE_SHOT_TARGET_MODIFIERS = {
     MODIFIER_SWAP_DRAW,
     MODIFIER_HEX_DRAW,
     MODIFIER_AID_RIVAL,
+    MODIFIER_SHARED_CACHE,
     MODIFIER_BREAK,
     MODIFIER_BREAK_PLUS,
 }
@@ -727,6 +728,24 @@ class TwentyOneGame(ActionGuardMixin, Game):
             return Localization.get(locale, "twentyone-none")
         return ", ".join(self._render_modifier(locale, modifier) for modifier in modifiers)
 
+    def _render_table_effect_list(self, locale: str, player: TwentyOnePlayer) -> str:
+        pairs = self._table_effect_pairs(player)
+        if not pairs:
+            return Localization.get(locale, "twentyone-none")
+        rendered: list[str] = []
+        for modifier, target_id in pairs:
+            effect = self._render_modifier(locale, modifier)
+            target = self.get_player_by_id(target_id) if target_id else None
+            if isinstance(target, TwentyOnePlayer):
+                effect = Localization.get(
+                    locale,
+                    "twentyone-effect-targeted",
+                    effect=effect,
+                    target=target.name,
+                )
+            rendered.append(effect)
+        return ", ".join(rendered)
+
     @staticmethod
     def _render_card(locale: str, card: Card) -> str:
         return f"{card_name(card, locale)} ({card.rank})"
@@ -979,8 +998,16 @@ class TwentyOneGame(ActionGuardMixin, Game):
 
     def _request_select_target(self, player: TwentyOnePlayer) -> None:
         """Prompt the actor to choose which opponent a stashed card hits."""
+        modifier = self._pending_target_modifier_id(player)
+        options = self._target_options(player)
+        if not modifier or not options:
+            self.pending_target_modifier.pop(player.id, None)
+            if modifier:
+                self._play_sound_for_player(player, SOUND_ACTION_FAIL)
+                self._speak_unplayable_modifier(player, modifier)
+            self.refresh_menus(player)
+            return
         if player.is_bot:
-            options = self._target_options(player)
             chosen = self._bot_select_target(player, options) if options else None
             self._action_select_target(
                 player, chosen if chosen is not None else "", "select_target"
@@ -1008,11 +1035,31 @@ class TwentyOneGame(ActionGuardMixin, Game):
             return
 
         target = self.get_player_by_id(self._extract_target_id(selected))
-        if not isinstance(target, TwentyOnePlayer):
+        if not isinstance(target, TwentyOnePlayer) or target.id == p.id:
+            self._play_sound_for_player(p, SOUND_ACTION_FAIL)
+            self._speak_private_l(p, "twentyone-target-selection-invalid")
             self.refresh_menus()
             return
 
-        modifier = p.modifiers.pop(choice_index)
+        modifier = p.modifiers[choice_index]
+        reason = self._modifier_unplayable_reason(
+            p,
+            modifier,
+            self._player_locale(p),
+            target=target,
+        )
+        if reason:
+            self._play_sound_for_player(p, SOUND_ACTION_FAIL)
+            self._speak_private_l(
+                p,
+                "twentyone-change-card-not-playable",
+                card=self._render_modifier(self._player_locale(p), modifier),
+                reason=reason,
+            )
+            self.refresh_menus()
+            return
+
+        p.modifiers.pop(choice_index)
         self._resolve_played_modifier(p, modifier, target)
 
     def _is_select_target_enabled(self, player: Player) -> str | None:
@@ -1029,8 +1076,17 @@ class TwentyOneGame(ActionGuardMixin, Game):
         p = player if isinstance(player, TwentyOnePlayer) else None
         if not p:
             return []
+        modifier = self._pending_target_modifier_id(p)
+        if not modifier:
+            return []
+        locale = self._player_locale(p)
         # Option VALUES are raw opponent ids; the menu shows _target_option_label.
-        return [opponent.id for opponent in self._opponents_of(p)]
+        return [
+            opponent.id
+            for opponent in self._opponents_of(p)
+            if self._modifier_unplayable_reason(p, modifier, locale, target=opponent)
+            is None
+        ]
 
     def _target_option_label(self, player: Player, option_value: str) -> str:
         locale = self._player_locale(player)
@@ -1055,19 +1111,38 @@ class TwentyOneGame(ActionGuardMixin, Game):
         p = player if isinstance(player, TwentyOnePlayer) else None
         if not p or not options:
             return None
-        # Aim at the most threatening opponent: highest visible total, then
-        # lowest HP as a tiebreak.
-        opponents = self._opponents_of(p)
+        modifier = self._pending_target_modifier_id(p)
+        opponents = [opponent for opponent in self._opponents_of(p) if opponent.id in options]
         if not opponents:
             return None
-        threat = max(
-            opponents,
-            key=lambda o: (
-                sum(card.rank for card in self._opponent_visible_cards(o)),
-                -o.hp,
-            ),
-        )
-        return threat.id if threat.id in options else options[0]
+        if modifier in (MODIFIER_AID_RIVAL, MODIFIER_SHARED_CACHE):
+            # These help the target, so prefer the least threatening valid opponent.
+            target = min(
+                opponents,
+                key=lambda o: (
+                    sum(card.rank for card in self._opponent_visible_cards(o)),
+                    o.hp,
+                ),
+            )
+        else:
+            # Harmful cards aim at the most threatening opponent: highest visible
+            # total, then lowest HP as a tiebreak.
+            target = max(
+                opponents,
+                key=lambda o: (
+                    sum(card.rank for card in self._opponent_visible_cards(o)),
+                    -o.hp,
+                ),
+            )
+        return target.id
+
+    def _pending_target_modifier_id(self, player: TwentyOnePlayer) -> str | None:
+        choice_index = self.pending_target_modifier.get(player.id)
+        if choice_index is None:
+            return None
+        if choice_index < 0 or choice_index >= len(player.modifiers):
+            return None
+        return player.modifiers[choice_index]
 
     def _resolve_played_modifier(
         self,
@@ -1173,7 +1248,7 @@ class TwentyOneGame(ActionGuardMixin, Game):
         none_text = Localization.get(locale, "twentyone-none")
         hand_text = ", ".join(str(card.rank) for card in p.hand) if p.hand else none_text
         modifiers_text = self._render_modifier_list(locale, p.modifiers)
-        table_text = self._render_modifier_list(locale, p.table_modifiers)
+        table_text = self._render_table_effect_list(locale, p)
         user.speak_l(
             "twentyone-check-status-response",
             buffer="game",
@@ -1314,7 +1389,7 @@ class TwentyOneGame(ActionGuardMixin, Game):
             return
 
         locale = self._player_locale(p)
-        my_effects = self._render_modifier_list(locale, p.table_modifiers)
+        my_effects = self._render_table_effect_list(locale, p)
         opponents = self._opponents_of(p)
         if not opponents:
             user.speak_l(
@@ -1326,7 +1401,7 @@ class TwentyOneGame(ActionGuardMixin, Game):
             return
 
         entries = [(p, my_effects)] + [
-            (opp, self._render_modifier_list(locale, opp.table_modifiers))
+            (opp, self._render_table_effect_list(locale, opp))
             for opp in opponents
         ]
         lines_text = ". ".join(
@@ -2673,6 +2748,8 @@ class TwentyOneGame(ActionGuardMixin, Game):
                     increase += 10
                 elif modifier == MODIFIER_EXACT_21_SURGE and self._hand_total(opponent) == 21:
                     increase += 21
+                elif modifier == MODIFIER_ALL_IN_SILENCE:
+                    increase += 100
 
         reduction = 0
         self_penalty = 0
@@ -2683,15 +2760,10 @@ class TwentyOneGame(ActionGuardMixin, Game):
                 reduction += 2
             elif modifier == MODIFIER_ARCANE_CACHE:
                 self_penalty += 1
+            elif modifier == MODIFIER_ALL_IN_SILENCE:
+                self_penalty += 100
 
-        # "game over" is global pressure on everyone but its owner.
-        global_pressure = 0
-        for participant in self._alive_players():
-            if participant.id == player.id:
-                continue
-            global_pressure += participant.table_modifiers.count(MODIFIER_ALL_IN_SILENCE) * 100
-
-        return max(0, base + increase - reduction + self_penalty + global_pressure)
+        return max(0, base + increase - reduction + self_penalty)
 
     def _modifiers_locked_for(self, player: TwentyOnePlayer) -> bool:
         return any(
@@ -2710,7 +2782,12 @@ class TwentyOneGame(ActionGuardMixin, Game):
         return self._modifier_unplayable_reason(player, modifier, "en") is None
 
     def _modifier_unplayable_reason(
-        self, player: TwentyOnePlayer, modifier: str, locale: str
+        self,
+        player: TwentyOnePlayer,
+        modifier: str,
+        locale: str,
+        *,
+        target: TwentyOnePlayer | None = None,
     ) -> str | None:
         if self._modifiers_locked_for(player):
             return Localization.get(
@@ -2721,7 +2798,15 @@ class TwentyOneGame(ActionGuardMixin, Game):
         if modifier not in MODIFIER_POOL:
             return Localization.get(locale, "twentyone-unplayable-unknown-change-card")
 
-        opponent = self._opponent_of(player)
+        opponents = self._opponents_of(player)
+        target_opponent = None
+        if target is not None:
+            target_opponent = next(
+                (opponent for opponent in opponents if opponent.id == target.id),
+                None,
+            )
+            if target_opponent is None:
+                return Localization.get(locale, "twentyone-unplayable-no-opponent")
 
         if modifier in SELF_DRAW_MODIFIERS:
             if self._draws_locked_for(player):
@@ -2738,14 +2823,6 @@ class TwentyOneGame(ActionGuardMixin, Game):
                 return Localization.get(
                     locale, "twentyone-unplayable-table-full", limit=TABLE_EFFECT_LIMIT
                 )
-
-        if modifier in OPPONENT_DRAW_MODIFIERS:
-            if not opponent:
-                return Localization.get(locale, "twentyone-unplayable-no-opponent")
-            if self._draws_locked_for(opponent):
-                return Localization.get(locale, "twentyone-unplayable-target-draw-locked")
-            if not self.deck or self.deck.is_empty():
-                return Localization.get(locale, "twentyone-unplayable-empty-deck")
 
         if modifier == MODIFIER_BREAK_SHIELDS:
             count = self._count_defense_effects(player)
@@ -2791,18 +2868,50 @@ class TwentyOneGame(ActionGuardMixin, Game):
                 return Localization.get(
                     locale, "twentyone-unplayable-table-full", limit=TABLE_EFFECT_LIMIT
                 )
-            return None
+            if modifier not in SINGLE_TARGET_MODIFIERS:
+                return None
 
-        if not opponent:
-            return Localization.get(locale, "twentyone-unplayable-no-opponent")
+        if modifier in SINGLE_TARGET_MODIFIERS:
+            if not opponents:
+                return Localization.get(locale, "twentyone-unplayable-no-opponent")
+            if target_opponent is not None:
+                return self._target_modifier_unplayable_reason(
+                    player, modifier, target_opponent, locale
+                )
+            if len(opponents) == 1:
+                return self._target_modifier_unplayable_reason(
+                    player, modifier, opponents[0], locale
+                )
+            if any(
+                self._target_modifier_unplayable_reason(player, modifier, opponent, locale)
+                is None
+                for opponent in opponents
+            ):
+                return None
+            return Localization.get(locale, "twentyone-unplayable-no-valid-target")
 
-        if modifier == MODIFIER_SCRAP:
-            if self._peek_last_drawn_card(opponent) is None:
-                return Localization.get(locale, "twentyone-unplayable-no-opponent-face-up")
-            return None
         if modifier == MODIFIER_RECYCLE:
             if self._peek_last_drawn_card(player) is None:
                 return Localization.get(locale, "twentyone-unplayable-no-own-face-up")
+            return None
+
+        return None
+
+    def _target_modifier_unplayable_reason(
+        self,
+        player: TwentyOnePlayer,
+        modifier: str,
+        opponent: TwentyOnePlayer,
+        locale: str,
+    ) -> str | None:
+        if modifier in OPPONENT_DRAW_MODIFIERS:
+            if self._draws_locked_for(opponent):
+                return Localization.get(locale, "twentyone-unplayable-target-draw-locked")
+            if not self.deck or self.deck.is_empty():
+                return Localization.get(locale, "twentyone-unplayable-empty-deck")
+        if modifier == MODIFIER_SCRAP:
+            if self._peek_last_drawn_card(opponent) is None:
+                return Localization.get(locale, "twentyone-unplayable-no-opponent-face-up")
             return None
         if modifier == MODIFIER_SWAP_DRAW:
             has_own = self._peek_last_drawn_card(player) is not None
@@ -2924,10 +3033,10 @@ class TwentyOneGame(ActionGuardMixin, Game):
         opponents = self._opponents_of(player)
         if not opponents:
             return None
-        # "game over" locks everyone's draws; "no draw for you!" locks only its
-        # chosen target.
+        # Legacy None targets hit any opponent; new multiplayer effects hit only
+        # the chosen target.
         for opponent in opponents:
-            if MODIFIER_ALL_IN_SILENCE in opponent.table_modifiers:
+            if self._has_effect_targeting(opponent, MODIFIER_ALL_IN_SILENCE, player):
                 return MODIFIER_ALL_IN_SILENCE
         for opponent in opponents:
             if self._has_effect_targeting(opponent, MODIFIER_DRAW_SILENCE, player):
@@ -3012,38 +3121,40 @@ class TwentyOneGame(ActionGuardMixin, Game):
     def _apply_round_end_change_card_effects(
         self, players: list[TwentyOnePlayer]
     ) -> None:
-        # Each owner's mind-tax effects apply to every other player. (Target
-        # locking arrives in a later phase; until then these hit all opponents.)
+        # Legacy None targets hit every opponent; new multiplayer mind-tax
+        # effects hit only the chosen target.
         for owner in players:
             targets = [p for p in players if p.id != owner.id]
-            for target in targets:
-                if MODIFIER_MIND_TAX_PLUS in owner.table_modifiers and target.modifiers:
-                    count = len(target.modifiers)
+            for effect, target_id in self._table_effect_pairs(owner):
+                if effect not in (MODIFIER_MIND_TAX, MODIFIER_MIND_TAX_PLUS):
+                    continue
+                for target in targets:
+                    if target_id is not None and target.id != target_id:
+                        continue
+                    if not target.modifiers:
+                        continue
+                    if effect == MODIFIER_MIND_TAX_PLUS:
+                        count = len(target.modifiers)
+                    else:
+                        count = len(target.modifiers) // 2
+                    if count <= 0:
+                        continue
                     self._discard_random_modifiers(target, count, announce_sound=True)
+                    if effect == MODIFIER_MIND_TAX_PLUS:
+                        personal = "twentyone-you-discard-all-change-cards"
+                        others = "twentyone-player-discards-all-change-cards"
+                    else:
+                        personal = "twentyone-you-discard-change-cards"
+                        others = "twentyone-player-discards-change-cards"
                     self._broadcast_personal_l_with_locale_args(
                         target,
-                        "twentyone-you-discard-all-change-cards",
-                        "twentyone-player-discards-all-change-cards",
-                        lambda locale, count=count: {
+                        personal,
+                        others,
+                        lambda locale, count=count, effect=effect: {
                             "count": count,
-                            "effect": self._render_modifier(locale, MODIFIER_MIND_TAX_PLUS),
+                            "effect": self._render_modifier(locale, effect),
                         },
                     )
-                    continue
-
-                if MODIFIER_MIND_TAX in owner.table_modifiers and target.modifiers:
-                    count = len(target.modifiers) // 2
-                    if count > 0:
-                        self._discard_random_modifiers(target, count, announce_sound=True)
-                        self._broadcast_personal_l_with_locale_args(
-                            target,
-                            "twentyone-you-discard-change-cards",
-                            "twentyone-player-discards-change-cards",
-                            lambda locale, count=count: {
-                                "count": count,
-                                "effect": self._render_modifier(locale, MODIFIER_MIND_TAX),
-                            },
-                        )
 
     def _trigger_harvest_rewards(self) -> None:
         for player in self._alive_players():

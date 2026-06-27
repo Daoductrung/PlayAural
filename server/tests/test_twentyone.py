@@ -1,13 +1,17 @@
 """Tests for 21 (Survival Rules)."""
 
 from pathlib import Path
+import re
 
 from ..game_utils.cards import Card, Deck
 from ..game_utils.options import IntOption
 from ..games.twentyone.game import (
+    MODIFIER_ALL_IN_SILENCE,
     MODIFIER_BREAK,
     MODIFIER_DRAW_2,
     MODIFIER_DRAW_SILENCE,
+    MODIFIER_MIND_TAX,
+    MODIFIER_SHARED_CACHE,
     MODIFIER_TARGET_24,
     TwentyOneGame,
     TwentyOneOptions,
@@ -46,6 +50,24 @@ def make_started_game(**option_overrides) -> tuple[TwentyOneGame, MockUser, Mock
 
 def speech_texts(user: MockUser) -> list[str]:
     return [message.data["text"] for message in user.messages if message.type == "speak"]
+
+
+def ftl_messages(text: str) -> dict[str, set[str]]:
+    messages: dict[str, set[str]] = {}
+    current_key: str | None = None
+    current_lines: list[str] = []
+    for line in text.splitlines():
+        match = re.match(r"^([A-Za-z0-9_-]+)\s*=", line)
+        if match:
+            if current_key is not None:
+                messages[current_key] = set(re.findall(r"\$([A-Za-z0-9_-]+)", "\n".join(current_lines)))
+            current_key = match.group(1)
+            current_lines = [line]
+        elif current_key is not None:
+            current_lines.append(line)
+    if current_key is not None:
+        messages[current_key] = set(re.findall(r"\$([A-Za-z0-9_-]+)", "\n".join(current_lines)))
+    return messages
 
 
 def test_twentyone_documented_options_are_host_configurable() -> None:
@@ -325,6 +347,20 @@ def test_targeted_draw_lock_only_locks_chosen_opponent() -> None:
     assert game._draws_locked_for(p1) is False
 
 
+def test_all_in_silence_targets_one_opponent_and_keeps_owner_risk() -> None:
+    game, players = make_started_game_n(3)
+    p0, p1, p2 = players
+    base = game.options.base_bet
+
+    game._place_table_effect(p0, MODIFIER_ALL_IN_SILENCE, target=p2)
+
+    assert game._draws_locked_for(p2) is True
+    assert game._draws_locked_for(p1) is False
+    assert game._current_bet(p0) == base + 100
+    assert game._current_bet(p2) == base + 100
+    assert game._current_bet(p1) == base
+
+
 def test_single_target_card_prompts_then_hits_chosen_opponent() -> None:
     from ..games.twentyone.game import MODIFIER_RAISE_2
 
@@ -346,6 +382,79 @@ def test_single_target_card_prompts_then_hits_chosen_opponent() -> None:
     # raise_2 lands on p2 only (raise grants a reward card, so just check the bet).
     assert game._current_bet(p2) == base + 2
     assert game._current_bet(p1) == base
+
+
+def test_target_options_filter_to_legal_opponents() -> None:
+    from ..games.twentyone.game import MODIFIER_RAISE_2
+
+    game, players = make_started_game_n(3)
+    p0, p1, p2 = players
+    p0.modifiers = [MODIFIER_BREAK]
+    p2.table_modifiers = [MODIFIER_RAISE_2]
+    p2.table_modifier_targets = [None]
+    game.turn_index = 0
+
+    options = game._options_for_play_modifier(p0)
+    game._action_play_modifier(p0, options[0], "play_modifier")
+
+    assert game._target_options(p0) == [p2.id]
+    game._action_select_target(p0, p2.id, "select_target")
+    assert p2.table_modifiers == []
+    assert p1.table_modifiers == []
+
+
+def test_invalid_selected_target_does_not_spend_card() -> None:
+    game, players = make_started_game_n(3)
+    p0, p1, _p2 = players
+    p0.modifiers = [MODIFIER_BREAK]
+    game.pending_target_modifier[p0.id] = 0
+
+    game._action_select_target(p0, p1.id, "select_target")
+
+    assert p0.modifiers == [MODIFIER_BREAK]
+    assert p0.id not in game.pending_target_modifier
+
+
+def test_shared_cache_rewards_chosen_opponent_only() -> None:
+    game, players = make_started_game_n(3)
+    p0, p1, p2 = players
+    p0.modifiers = [MODIFIER_SHARED_CACHE]
+    p1.modifiers = []
+    p2.modifiers = []
+    game.turn_index = 0
+
+    options = game._options_for_play_modifier(p0)
+    game._action_play_modifier(p0, options[0], "play_modifier")
+    game._action_select_target(p0, p2.id, "select_target")
+
+    assert len(p0.modifiers) == 1
+    assert p1.modifiers == []
+    assert len(p2.modifiers) == 1
+
+
+def test_mind_tax_only_hits_chosen_target_at_round_end() -> None:
+    game, players = make_started_game_n(3)
+    p0, p1, p2 = players
+    p1.modifiers = [MODIFIER_DRAW_2, MODIFIER_DRAW_2]
+    p2.modifiers = [MODIFIER_DRAW_2, MODIFIER_DRAW_2, MODIFIER_DRAW_2]
+    game._place_table_effect(p0, MODIFIER_MIND_TAX, target=p2)
+
+    game._apply_round_end_change_card_effects(players)
+
+    assert len(p1.modifiers) == 2
+    assert len(p2.modifiers) == 2
+
+
+def test_targeted_effects_render_their_target_in_status_reads() -> None:
+    from ..games.twentyone.game import MODIFIER_RAISE_2
+
+    game, players = make_started_game_n(3)
+    p0, _p1, p2 = players
+    game._place_table_effect(p0, MODIFIER_RAISE_2, target=p2)
+
+    rendered = game._render_table_effect_list("en", p0)
+
+    assert "on P2" in rendered
 
 
 def test_single_target_card_skips_prompt_with_one_opponent() -> None:
@@ -429,3 +538,10 @@ def test_table_effect_lists_stay_in_sync_on_expiry() -> None:
 
     assert len(p0.table_modifiers) == TABLE_EFFECT_LIMIT
     assert len(p0.table_modifier_targets) == len(p0.table_modifiers)
+
+
+def test_twentyone_locale_key_and_variable_parity() -> None:
+    en_text = (_locales_dir / "en" / "twentyone.ftl").read_text(encoding="utf-8")
+    vi_text = (_locales_dir / "vi" / "twentyone.ftl").read_text(encoding="utf-8")
+
+    assert ftl_messages(en_text) == ftl_messages(vi_text)

@@ -2,7 +2,7 @@
 
 
 
-Hai Mươi Mốt (Luật Sinh Tồn) là trò chơi bài hai người, nơi bạn cố gắng đạt tổng điểm gần với con số mục tiêu — thường là 21 — hơn đối thủ mà không được vượt quá. Khác với blackjack thông thường, đây là trò chơi sinh tồn: mỗi người chơi có điểm máu, và bạn thi đấu từng vòng cho đến khi ai đó cạn máu.
+Hai Mươi Mốt (Luật Sinh Tồn) là trò chơi bài dành cho hai đến bốn người, nơi bạn cố gắng đạt tổng điểm gần với con số mục tiêu — thường là 21 — hơn những người chơi khác mà không được vượt quá. Khác với blackjack thông thường, đây là trò chơi sinh tồn: mỗi người chơi có điểm máu, và bạn thi đấu từng vòng cho đến khi chỉ còn một người sống sót.
 
 
 
@@ -10,27 +10,27 @@ Hai Mươi Mốt (Luật Sinh Tồn) là trò chơi bài hai người, nơi bạ
 
 
 
-Trò chơi diễn ra theo từng vòng. Đầu mỗi vòng, cả hai người chơi được chia hai lá bài từ bộ bài được đánh số từ 1 đến 11. Lá bài đầu tiên là lá bài ẩn chỉ bạn mới thấy được. Lá bài thứ hai là lá bài lộ, cả hai người đều nhìn thấy.
+Trò chơi diễn ra theo từng vòng. Đầu mỗi vòng, mỗi người chơi còn sống được chia hai lá bài từ bộ bài được đánh số từ 1 đến 11. Lá bài đầu tiên là lá bài ẩn chỉ bạn mới thấy được. Lá bài thứ hai là lá bài lộ, mọi người đều nhìn thấy.
 
 
 
-Đến lượt của mình, bạn có thể rút thêm (thêm một lá bài lộ vào tay), dừng lại (chốt tổng điểm), hoặc chơi một lá Biến từ tay. Mỗi lần rút thêm có cơ hội nhận thêm một lá Biến ngẫu nhiên. Nếu bộ bài đã hết, hoặc đối thủ đang có hiệu ứng chặn rút, bạn không thể rút thêm và nên dừng hoặc chọn một hành động hợp lệ khác.
+Đến lượt của mình, bạn có thể rút thêm (thêm một lá bài lộ vào tay), dừng lại (chốt tổng điểm), hoặc chơi một lá Biến từ tay. Mỗi lần rút thêm có cơ hội nhận thêm một lá Biến ngẫu nhiên. Nếu bộ bài đã hết, hoặc có hiệu ứng chặn rút đang nhắm vào bạn, bạn không thể rút thêm và nên dừng hoặc chọn một hành động hợp lệ khác.
 
 
 
-Vòng kết thúc khi cả hai người chơi đều dừng. Hai lá úp được lật cho mọi người biết, rồi tổng điểm được so sánh với con số mục tiêu. Người chơi có tổng gần hơn mà không vượt quá sẽ thắng. Nếu một người vượt quá (vỡ bài) còn người kia không vượt, người không vỡ thắng. Nếu cả hai cùng vỡ, người gần mục tiêu hơn thắng. Nếu tổng điểm bằng nhau, cả hai người cùng chịu sát thương.
+Vòng kết thúc khi tất cả người chơi còn sống đều dừng. Các lá úp được lật cho mọi người biết, rồi tổng điểm được so sánh với con số mục tiêu. Người không bị quắc và gần mục tiêu nhất sẽ thắng. Nếu tất cả đều quắc, ai gần mục tiêu nhất thì thắng. Nếu nhóm dẫn đầu bằng điểm nhau, không ai thắng vòng đó và mọi người đều chịu sát thương.
 
 
 
-\*\*Lưu ý quan trọng:\*\* Nếu một trong hai người rút thêm hoặc chơi lá Biến sau khi người kia đã dừng, trạng thái dừng của người đó sẽ bị hủy và họ phải hành động lại. Bạn không thể an toàn chốt điểm rồi bỏ qua những gì đối thủ làm.
+\*\*Lưu ý quan trọng:\*\* Nếu bất kỳ ai rút thêm hoặc chơi lá Biến sau khi người khác đã dừng, tất cả người đang dừng sẽ bị mở khóa và phải hành động lại. Bạn không thể an toàn chốt điểm rồi bỏ qua những gì cả bàn làm.
 
 
 
-Người thua trong một vòng sẽ chịu sát thương bằng giá trị cược hiện tại. Cược ban đầu bằng với cược cơ bản (mặc định là 1) và có thể tăng hoặc giảm nhờ hiệu ứng lá Biến. Khi điểm máu của một người về 0, họ bị loại và người còn lại thắng trận.
+Mỗi người không thắng vòng sẽ chịu sát thương bằng giá trị cược hiện tại của mình. Cược ban đầu bằng với cược cơ bản (mặc định là 1) và có thể tăng hoặc giảm nhờ hiệu ứng lá Biến. Khi điểm máu của một người về 0, họ bị loại. Người sống sót cuối cùng thắng trận.
 
 
 
-Đầu mỗi vòng, cả hai người chơi nhận một số lá Biến ngẫu nhiên (mặc định 1 lá mỗi vòng). Mỗi lần rút thêm bài số cũng có cơ hội (mặc định 35 phần trăm) nhận thêm một lá Biến ngẫu nhiên.
+Đầu mỗi vòng, mỗi người chơi còn sống nhận một số lá Biến ngẫu nhiên (mặc định 1 lá mỗi vòng). Mỗi lần rút thêm bài số cũng có cơ hội (mặc định 35 phần trăm) nhận thêm một lá Biến ngẫu nhiên.
 
 
 
@@ -47,6 +47,8 @@ Bộ bài gồm các lá bài được xếp hạng từ 1 đến 11, mỗi hạ
 
 
 Lá Biến là phần chiến thuật cốt lõi của trò chơi. Thay vì rút thêm hay dừng, bạn có thể chơi một lá Biến từ tay. Menu chơi hiển thị toàn bộ Lá Biến trên tay bạn; lá nào chưa thể dùng sẽ có lý do ngay trong menu, và nếu bạn chọn lá đó, trò chơi sẽ giải thích chính xác vì sao nó chưa đánh được. Một số lá có hiệu lực tức thì rồi bị loại khỏi ván. Số khác là hiệu ứng bàn kéo dài đến hết vòng. Mỗi người chơi chỉ có thể có tối đa 5 hiệu ứng bàn cùng lúc; nếu thêm lá thứ sáu, hiệu ứng cũ nhất bị xóa.
+
+Trong ván có ba hoặc bốn người, các lá Biến tác động lên một đối thủ sẽ yêu cầu bạn chọn mục tiêu. Menu mục tiêu chỉ liệt kê những đối thủ hợp lệ, kèm máu và tổng điểm đang lộ của họ. Khi hiệu ứng bàn đã được đặt, các thao tác đọc trạng thái sẽ nói rõ hiệu ứng đó đang nhắm vào ai.
 
 
 
@@ -86,7 +88,7 @@ Nhấn \*\*C\*\* hoặc chọn \*\*Hướng dẫn lá Biến\*\* trong menu hàn
 
 \* \*\*Đổi mới tăng cường:\*\* Bỏ 1 lá Biến, sau đó nhận 4 lá Biến ngẫu nhiên mới.
 
-\* \*\*Đổi thay là tốt:\*\* Cả hai người chơi đều nhận 1 lá Biến.
+\* \*\*Đổi thay là tốt:\*\* Bạn và một đối thủ được chọn mỗi người nhận 1 lá Biến.
 
 \* \*\*Rút lỗi:\*\* Bỏ 1 lá Biến ngẫu nhiên; buộc đối thủ rút lá bài số cao nhất hiện có. Yêu cầu có ít nhất 1 lá Biến khác để trả chi phí.
 
@@ -140,11 +142,11 @@ Nhấn \*\*C\*\* hoặc chọn \*\*Hướng dẫn lá Biến\*\* trong menu hàn
 
 \*\*Thay đổi mục tiêu (hiệu ứng bàn):\*\*
 
-\* \*\*Mục tiêu 17:\*\* Đặt mục tiêu vòng về 17 cho cả hai người chơi.
+\* \*\*Mục tiêu 17:\*\* Đặt mục tiêu vòng về 17 cho tất cả người chơi.
 
-\* \*\*Mục tiêu 24:\*\* Đặt mục tiêu vòng về 24 cho cả hai người chơi.
+\* \*\*Mục tiêu 24:\*\* Đặt mục tiêu vòng về 24 cho tất cả người chơi.
 
-\* \*\*Mục tiêu 27:\*\* Đặt mục tiêu vòng về 27 cho cả hai người chơi.
+\* \*\*Mục tiêu 27:\*\* Đặt mục tiêu vòng về 27 cho tất cả người chơi.
 
 \* Chỉ một lá thay đổi mục tiêu có thể hoạt động cùng lúc. Chơi lá mới sẽ thay thế lá cũ.
 
@@ -162,7 +164,7 @@ Nhấn \*\*C\*\* hoặc chọn \*\*Hướng dẫn lá Biến\*\* trong menu hàn
 
 \* \*\*Đừng hòng rút bài!:\*\* Trong khi hoạt động, đối thủ không thể rút bài số từ việc rút thêm hay hiệu ứng lá Biến (hiệu ứng bàn).
 
-\* \*\*Tàn cuộc:\*\* Trong khi hoạt động, sát thương của cả hai người chơi tăng thêm 100 và đối thủ không thể rút bài số (hiệu ứng bàn).
+\* \*\*Tàn cuộc:\*\* Trong khi hoạt động, sát thương của bạn và đối thủ được chọn đều tăng thêm 100, và đối thủ đó không thể rút bài số (hiệu ứng bàn).
 
 
 
@@ -218,19 +220,19 @@ Lan chịu 2 sát thương (cược cơ bản 1, cộng 1 từ Tăng một của
 
 \* \*\*3:\*\* Chơi lá Biến (mở menu để chọn lá muốn chơi).
 
-\* \*\*4:\*\* Kiểm tra trạng thái 21 (thông báo mục tiêu, máu, cược hiện tại, tay bài, lá Biến trong tay và hiệu ứng đang hoạt động; cũng hiển thị thông tin có thể nhìn thấy của đối thủ).
+\* \*\*4:\*\* Kiểm tra trạng thái 21 (thông báo mục tiêu, máu, cược hiện tại, tay bài, lá Biến trong tay và hiệu ứng đang hoạt động; cũng hiển thị thông tin có thể nhìn thấy của từng đối thủ).
 
 \* \*\*C:\*\* Hướng dẫn lá Biến (mở hộp trạng thái liệt kê từng lá Biến và mô tả).
 
-\* \*\*O:\*\* Đọc bài lộ của đối thủ (thông báo những gì đối thủ đang hiện và tổng điểm có thể nhìn thấy của họ).
+\* \*\*O:\*\* Đọc bài lộ của đối thủ (thông báo những gì từng đối thủ đang hiện và tổng điểm có thể nhìn thấy của họ).
 
 \* \*\*R:\*\* Đọc tay bài hiện tại (thông báo các lá bài và tổng điểm của bạn).
 
 \* \*\*W:\*\* Đọc cược hiện tại (thông báo mức cược hiệu lực của mỗi người sau khi tính hiệu ứng).
 
-\* \*\*E:\*\* Đọc hiệu ứng đang hoạt động (thông báo hiệu ứng bàn đang hoạt động của cả hai người chơi).
+\* \*\*E:\*\* Đọc hiệu ứng đang hoạt động (thông báo hiệu ứng bàn của mọi người chơi còn sống, bao gồm mục tiêu nếu có).
 
-\* \*\*S:\*\* Kiểm tra điểm số (hiển thị máu hiện tại của cả hai người chơi).
+\* \*\*S:\*\* Kiểm tra điểm số (hiển thị máu hiện tại của từng người chơi còn sống).
 
 \* \*\*Shift+S:\*\* Điểm số chi tiết.
 

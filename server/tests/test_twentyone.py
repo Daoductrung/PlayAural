@@ -231,3 +231,201 @@ def test_change_card_menu_preserves_all_hand_indexes_with_unplayable_cards() -> 
 
     assert alice.modifiers == [MODIFIER_BREAK, MODIFIER_TARGET_24]
     assert any("no active table effects" in text for text in speech_texts(alice_user))
+
+
+# ---------------------------------------------------------------------------
+# Multiplayer (3+ players)
+# ---------------------------------------------------------------------------
+
+
+def make_started_game_n(count: int) -> tuple[TwentyOneGame, list]:
+    """Start a game with `count` players, all at 10 HP, in the turns phase."""
+    game = TwentyOneGame()
+    game.setup_keybinds()
+    for i in range(count):
+        game.add_player(f"P{i}", MockUser(f"P{i}", uuid=f"p{i}"))
+    game.host = "P0"
+    for player in game.players:
+        player.hp = 10
+    game.status = "playing"
+    game.game_active = True
+    game.phase = "turns"
+    game.set_turn_players(list(game.players))
+    return game, list(game.players)
+
+
+def test_supports_up_to_four_players() -> None:
+    assert TwentyOneGame.get_max_players() == 4
+
+
+def test_round_outcome_unique_best_non_bust_wins() -> None:
+    game, players = make_started_game_n(3)
+    # Totals 19, 20, 22 with target 21: 20 is the unique closest non-bust.
+    winners = game._resolve_round_outcome(players, [19, 20, 22], 21)
+    assert winners == [players[1].id]
+
+
+def test_round_outcome_tie_for_best_is_a_draw() -> None:
+    game, players = make_started_game_n(3)
+    # Two players tie at 21 (target); a tie for best means no winner.
+    winners = game._resolve_round_outcome(players, [21, 21, 18], 21)
+    assert winners == []
+
+
+def test_round_outcome_all_bust_closest_wins() -> None:
+    game, players = make_started_game_n(3)
+    # Everyone over 21: 22 is closest to the target.
+    winners = game._resolve_round_outcome(players, [25, 22, 30], 21)
+    assert winners == [players[1].id]
+
+
+def test_settle_round_damages_all_non_winners() -> None:
+    game, players = make_started_game_n(3)
+    p0, p1, p2 = players
+    # Give each a deterministic hand: p1 wins at 20, others lose.
+    p0.hand = [Card(id=1, rank=9, suit=0), Card(id=2, rank=10, suit=0)]  # 19
+    p1.hand = [Card(id=3, rank=10, suit=0), Card(id=4, rank=10, suit=0)]  # 20
+    p2.hand = [Card(id=5, rank=10, suit=0), Card(id=6, rank=10, suit=0), Card(id=7, rank=5, suit=0)]  # 25 bust
+    for p in players:
+        p.stand_pending = True
+
+    game._settle_round()
+    assert game.pending_round_winner_ids == (p1.id,)
+
+    # Resolve the pending round and check only non-winners lost HP.
+    game.round_resolution_wait_ticks = 1
+    game._resolve_pending_round()
+    assert p1.hp == 10  # winner unharmed
+    assert p0.hp < 10  # non-winners took damage
+    assert p2.hp < 10
+
+
+def test_targeted_raise_only_affects_chosen_opponent() -> None:
+    from ..games.twentyone.game import MODIFIER_RAISE_2
+
+    game, players = make_started_game_n(3)
+    p0, p1, p2 = players
+    base = game.options.base_bet
+
+    # p0 plays raise_2 targeting p2 specifically.
+    game._place_table_effect(p0, MODIFIER_RAISE_2, target=p2)
+
+    # Only p2's incoming bet/damage should rise; p1 stays at base.
+    assert game._current_bet(p2) == base + 2
+    assert game._current_bet(p1) == base
+
+
+def test_targeted_draw_lock_only_locks_chosen_opponent() -> None:
+    game, players = make_started_game_n(3)
+    p0, p1, p2 = players
+
+    game._place_table_effect(p0, MODIFIER_DRAW_SILENCE, target=p2)
+
+    assert game._draws_locked_for(p2) is True
+    assert game._draws_locked_for(p1) is False
+
+
+def test_single_target_card_prompts_then_hits_chosen_opponent() -> None:
+    from ..games.twentyone.game import MODIFIER_RAISE_2
+
+    game, players = make_started_game_n(3)
+    p0, p1, p2 = players
+    base = game.options.base_bet
+    p0.modifiers = [MODIFIER_RAISE_2]
+    game.turn_index = 0  # p0 to act
+
+    # Play the card: with two opponents this should stash and prompt, not resolve.
+    options = game._options_for_play_modifier(p0)
+    game._action_play_modifier(p0, options[0], "play_modifier")
+    assert p0.id in game.pending_target_modifier
+    assert MODIFIER_RAISE_2 in p0.modifiers  # not spent yet
+
+    # Choose p2 as the target.
+    game._action_select_target(p0, p2.id, "select_target")
+    assert p0.id not in game.pending_target_modifier
+    # raise_2 lands on p2 only (raise grants a reward card, so just check the bet).
+    assert game._current_bet(p2) == base + 2
+    assert game._current_bet(p1) == base
+
+
+def test_single_target_card_skips_prompt_with_one_opponent() -> None:
+    from ..games.twentyone.game import MODIFIER_RAISE_2
+
+    game, _, _ = make_started_game()
+    alice, bob = game.players
+    alice.modifiers = [MODIFIER_RAISE_2]
+    base = game.options.base_bet
+
+    options = game._options_for_play_modifier(alice)
+    game._action_play_modifier(alice, options[0], "play_modifier")
+
+    # Only one opponent: resolves immediately, no pending target prompt, and the
+    # raise lands on the sole opponent. (raise_2 grants a random reward card, so
+    # assert on the effect, not the exact remaining hand.)
+    assert alice.id not in game.pending_target_modifier
+    assert game._current_bet(bob) == base + 2
+
+
+def test_target_named_in_announcement_with_multiple_opponents() -> None:
+    from ..games.twentyone.game import MODIFIER_RAISE_2
+
+    game, players = make_started_game_n(3)
+    p0, _p1, p2 = players
+    p0.modifiers = [MODIFIER_RAISE_2]
+    game.turn_index = 0
+    user2 = game.get_user(p2)
+    user2.messages.clear()
+
+    options = game._options_for_play_modifier(p0)
+    game._action_play_modifier(p0, options[0], "play_modifier")
+    game._action_select_target(p0, p2.id, "select_target")
+
+    # A bystander hears who the card was aimed at.
+    speech = " ".join(speech_texts(user2))
+    assert "on" in speech and p2.name in speech
+
+
+def test_target_not_named_with_single_opponent() -> None:
+    from ..games.twentyone.game import MODIFIER_RAISE_2
+
+    game, alice_user, bob_user = make_started_game()
+    alice, bob = game.players
+    alice.modifiers = [MODIFIER_RAISE_2]
+    bob_user.messages.clear()
+
+    options = game._options_for_play_modifier(alice)
+    game._action_play_modifier(alice, options[0], "play_modifier")
+
+    # Two-player game keeps the plain phrasing (no "on <name>").
+    speech = " ".join(speech_texts(bob_user))
+    assert "plays" in speech
+    assert " on " not in speech
+
+
+def test_select_target_cancel_keeps_card() -> None:
+    from ..games.twentyone.game import MODIFIER_RAISE_2
+
+    game, players = make_started_game_n(3)
+    p0 = players[0]
+    p0.modifiers = [MODIFIER_RAISE_2]
+    game.turn_index = 0
+
+    options = game._options_for_play_modifier(p0)
+    game._action_play_modifier(p0, options[0], "play_modifier")
+    game._action_select_target(p0, "_cancel", "select_target")
+
+    assert p0.id not in game.pending_target_modifier
+    assert p0.modifiers == [MODIFIER_RAISE_2]  # card not spent on cancel
+
+
+def test_table_effect_lists_stay_in_sync_on_expiry() -> None:
+    from ..games.twentyone.game import MODIFIER_GUARD, TABLE_EFFECT_LIMIT
+
+    game, players = make_started_game_n(2)
+    p0 = players[0]
+    # Overflow the table beyond the limit; both parallel lists must stay aligned.
+    for _ in range(TABLE_EFFECT_LIMIT + 2):
+        game._place_table_effect(p0, MODIFIER_GUARD)
+
+    assert len(p0.table_modifiers) == TABLE_EFFECT_LIMIT
+    assert len(p0.table_modifier_targets) == len(p0.table_modifiers)

@@ -252,7 +252,9 @@ SOUND_ROUND_RESOLVE = "game_cards/small_shuffle.ogg"
 SOUND_TURN = "game_3cardpoker/turn.ogg"
 SOUND_HIT = "game_cards/draw3.ogg"
 SOUND_STAND = "game_blackjack/stand.ogg"
-SOUND_OPPONENT_STAND = "game_pig/turn.ogg"
+# Observers should hear a stand cue here, not a turn-notification cue. Reusing
+# a turn asset makes non-active players think the turn sound leaked to them.
+SOUND_OPPONENT_STAND = "game_blackjack/stand.ogg"
 SOUND_CHANGE_MENU_OPEN = "menuclick.ogg"
 SOUND_PLAY_CHANGE_CARD = "game_cards/play1.ogg"
 SOUND_MOD_RAISE = "game_3cardpoker/bet.ogg"
@@ -373,6 +375,18 @@ class TwentyOnePlayer(Player):
     turn_modifier_plays: int = 0
 
 
+@dataclass(frozen=True)
+class TwentyOneBotOpponentAssessment:
+    """Bot-only summary of one opponent's round and match pressure."""
+
+    player: TwentyOnePlayer
+    visible_total: int
+    estimated_total: float
+    total_strength: float
+    round_threat: float
+    match_threat: float
+
+
 @dataclass
 @register_game
 class TwentyOneGame(ActionGuardMixin, Game):
@@ -441,23 +455,35 @@ class TwentyOneGame(ActionGuardMixin, Game):
     def create_player(self, player_id: str, name: str, is_bot: bool = False) -> TwentyOnePlayer:
         return TwentyOnePlayer(id=player_id, name=name, is_bot=is_bot)
 
-    def _is_turn_action_enabled(self, player: Player) -> str | None:
-        error = self.guard_turn_action_enabled(player)
-        if error:
-            return error
+    def _turn_action_error(
+        self, player: Player, action: str
+    ) -> str | tuple[str, dict] | None:
+        if self.status != "playing":
+            return "action-not-playing"
+        if player.is_spectator:
+            return "action-spectator"
+        if isinstance(player, TwentyOnePlayer) and player.hp <= 0:
+            return f"twentyone-error-{action}-eliminated"
         if self.phase != "turns":
-            return "action-not-available"
+            return f"twentyone-error-{action}-between-rounds"
+        if self.current_player != player:
+            current = self.current_player
+            if isinstance(current, TwentyOnePlayer):
+                return (f"twentyone-error-{action}-not-your-turn", {"player": current.name})
+            return f"twentyone-error-{action}-no-active-turn"
         return None
 
     def _is_turn_action_hidden(self, player: Player) -> Visibility:
+        if self.status == "playing" and not player.is_spectator:
+            return Visibility.VISIBLE
         return self.turn_action_visibility(
             player,
             require_current_player=False,
             extra_condition=self.phase == "turns",
         )
 
-    def _is_hit_enabled(self, player: Player) -> str | None:
-        error = self._is_turn_action_enabled(player)
+    def _is_hit_enabled(self, player: Player) -> str | tuple[str, dict] | None:
+        error = self._turn_action_error(player, "draw")
         if error:
             return error
         p = player if isinstance(player, TwentyOnePlayer) else None
@@ -467,19 +493,24 @@ class TwentyOneGame(ActionGuardMixin, Game):
             return "twentyone-deck-empty-must-stand"
         return None
 
-    def _is_play_modifier_enabled(self, player: Player) -> str | None:
-        error = self._is_turn_action_enabled(player)
+    def _is_stand_enabled(self, player: Player) -> str | tuple[str, dict] | None:
+        return self._turn_action_error(player, "stand")
+
+    def _is_play_modifier_enabled(self, player: Player) -> str | tuple[str, dict] | None:
+        error = self._turn_action_error(player, "play-change-card")
         if error:
             return error
         p = player if isinstance(player, TwentyOnePlayer) else None
         if not p:
             return "action-not-available"
         if not p.modifiers:
-            return "action-not-available"
+            return "twentyone-error-no-change-cards"
         return None
 
     def _is_play_modifier_hidden(self, player: Player) -> Visibility:
         p = player if isinstance(player, TwentyOnePlayer) else None
+        if p and self.status == "playing" and not player.is_spectator:
+            return Visibility.VISIBLE
         if not p or not p.modifiers:
             return Visibility.HIDDEN
         return self._is_turn_action_hidden(player)
@@ -548,7 +579,7 @@ class TwentyOneGame(ActionGuardMixin, Game):
                 id="stand",
                 label=Localization.get(locale, "blackjack-stand"),
                 handler="_action_stand",
-                is_enabled="_is_turn_action_enabled",
+                is_enabled="_is_stand_enabled",
                 is_hidden="_is_turn_action_hidden",
                 show_in_actions_menu=False,
             )
@@ -580,6 +611,7 @@ class TwentyOneGame(ActionGuardMixin, Game):
                     options="_target_options",
                     bot_select="_bot_select_target",
                     option_label="_target_option_label",
+                    initial_selection="_initial_target_selection",
                 ),
                 show_in_actions_menu=False,
             )
@@ -1103,38 +1135,26 @@ class TwentyOneGame(ActionGuardMixin, Game):
             shown_total=shown_total,
         )
 
+    def _initial_target_selection(self, player: Player, options: list[str]) -> str | None:
+        return options[0] if options else None
+
     @staticmethod
     def _extract_target_id(option_value: str) -> str:
         return option_value.strip()
+
+    def _on_action_input_cancelled(self, player: Player, action_id: str) -> None:
+        if action_id == "select_target":
+            self.pending_target_modifier.pop(player.id, None)
 
     def _bot_select_target(self, player: Player, options: list[str]) -> str | None:
         p = player if isinstance(player, TwentyOnePlayer) else None
         if not p or not options:
             return None
         modifier = self._pending_target_modifier_id(p)
-        opponents = [opponent for opponent in self._opponents_of(p) if opponent.id in options]
-        if not opponents:
+        if not modifier:
             return None
-        if modifier in (MODIFIER_AID_RIVAL, MODIFIER_SHARED_CACHE):
-            # These help the target, so prefer the least threatening valid opponent.
-            target = min(
-                opponents,
-                key=lambda o: (
-                    sum(card.rank for card in self._opponent_visible_cards(o)),
-                    o.hp,
-                ),
-            )
-        else:
-            # Harmful cards aim at the most threatening opponent: highest visible
-            # total, then lowest HP as a tiebreak.
-            target = max(
-                opponents,
-                key=lambda o: (
-                    sum(card.rank for card in self._opponent_visible_cards(o)),
-                    -o.hp,
-                ),
-            )
-        return target.id
+        target = self._bot_preferred_target_for_modifier(p, modifier, options)
+        return target.id if target else None
 
     def _pending_target_modifier_id(self, player: TwentyOnePlayer) -> str | None:
         choice_index = self.pending_target_modifier.get(player.id)
@@ -1964,16 +1984,52 @@ class TwentyOneGame(ActionGuardMixin, Game):
     def bot_think(self, player: TwentyOnePlayer) -> str | None:
         return compute_bot_think(self, player)
 
-    @staticmethod
-    def _bot_choose_hit_or_stand(
-        opponent: TwentyOnePlayer,
-        total: int,
-        opp_total: float,
-        target: int,
-    ) -> str:
-        if total < target - 2:
+    def _bot_choose_hit_or_stand(self, player: TwentyOnePlayer) -> str:
+        target = self._current_target()
+        total = self._hand_total(player)
+        if total >= target:
+            return "stand"
+
+        if self._draws_locked_for(player) or not self.deck or self.deck.is_empty():
+            return "stand"
+
+        gap = target - total
+        safe_probability = self._bot_safe_draw_probability(player)
+        if safe_probability <= 0:
+            return "stand"
+
+        likely_losing = self._bot_is_likely_losing(player)
+        confident_winning = self._bot_is_confident_winning(player)
+        assessments = self._bot_assess_opponents(player)
+        my_strength = self._bot_total_strength(total, target)
+        standing_threat = any(
+            assessment.player.stand_pending
+            and assessment.total_strength >= my_strength - 0.25
+            for assessment in assessments
+        )
+        current_bet = self._current_bet(player)
+        lethal_loss = current_bet >= max(1, player.hp)
+
+        if likely_losing:
+            if gap >= 7:
+                return "hit"
+            threshold = 0.18 if standing_threat else 0.25
+            if lethal_loss:
+                threshold -= 0.08
+            if gap <= 2:
+                threshold += 0.10
+            return "hit" if safe_probability >= threshold else "stand"
+
+        if confident_winning:
+            # Do not disturb a likely winning hand unless there is a large,
+            # unusually safe gap and nobody has locked a threatening total.
+            if gap >= 6 and safe_probability >= 0.70 and not standing_threat:
+                return "hit"
+            return "stand"
+
+        if gap >= 6 and safe_probability >= 0.50:
             return "hit"
-        if opponent.stand_pending and total < opp_total and total <= target:
+        if gap >= 4 and safe_probability >= 0.34:
             return "hit"
         return "stand"
 
@@ -1982,19 +2038,10 @@ class TwentyOneGame(ActionGuardMixin, Game):
         if not playable:
             return None
 
-        opponent = self._opponent_of(player)
-        if not opponent:
-            return playable[0]
-
         target = self._current_target()
         total = self._hand_total(player)
-        estimated_opp_total = self._bot_estimate_opponent_total(player, opponent)
-        likely_losing = self._bot_is_likely_losing(
-            player, opponent, total, estimated_opp_total, target
-        )
-        confident_winning = self._bot_is_confident_winning(
-            player, opponent, total, estimated_opp_total, target
-        )
+        likely_losing = self._bot_is_likely_losing(player)
+        confident_winning = self._bot_is_confident_winning(player)
         needs_new_cards = self._bot_needs_new_change_cards(
             player, playable, likely_losing, confident_winning
         )
@@ -2002,6 +2049,9 @@ class TwentyOneGame(ActionGuardMixin, Game):
         best_modifier: str | None = None
         best_score = 0.0
         for modifier in playable:
+            opponent = self._bot_preferred_target_for_modifier(player, modifier)
+            if modifier in SINGLE_TARGET_MODIFIERS and opponent is None:
+                continue
             score = self._bot_modifier_score(
                 player,
                 opponent,
@@ -2030,12 +2080,13 @@ class TwentyOneGame(ActionGuardMixin, Game):
         self, player: TwentyOnePlayer, opponent: TwentyOnePlayer
     ) -> float:
         counts = {rank: max(0, self.options.deck_count) for rank in range(1, 12)}
-        for card in player.hand:
-            if counts.get(card.rank, 0) > 0:
-                counts[card.rank] -= 1
-        for card in self._opponent_visible_cards(opponent):
-            if counts.get(card.rank, 0) > 0:
-                counts[card.rank] -= 1
+        for other in self._alive_players():
+            known_cards = (
+                other.hand if other.id == player.id else self._opponent_visible_cards(other)
+            )
+            for card in known_cards:
+                if counts.get(card.rank, 0) > 0:
+                    counts[card.rank] -= 1
 
         remaining = sum(counts.values())
         if remaining <= 0:
@@ -2043,37 +2094,212 @@ class TwentyOneGame(ActionGuardMixin, Game):
         weighted = sum(rank * count for rank, count in counts.items())
         return weighted / remaining
 
-    def _bot_is_likely_losing(
-        self,
-        player: TwentyOnePlayer,
-        opponent: TwentyOnePlayer,
-        total: int,
-        estimated_opp_total: float,
-        target: int,
-    ) -> bool:
+    def _bot_is_likely_losing(self, player: TwentyOnePlayer) -> bool:
+        target = self._current_target()
+        total = self._hand_total(player)
         if total > target:
             return True
-        if opponent.stand_pending and estimated_opp_total > total:
-            return True
-        if total + 1.0 < estimated_opp_total:
-            return True
-        return player.hp <= opponent.hp and total < target - 3
 
-    @staticmethod
-    def _bot_is_confident_winning(
-        player: TwentyOnePlayer,
-        opponent: TwentyOnePlayer,
-        total: int,
-        estimated_opp_total: float,
-        target: int,
-    ) -> bool:
+        assessments = self._bot_assess_opponents(player)
+        if not assessments:
+            return False
+
+        my_strength = self._bot_total_strength(total, target)
+        if any(
+            assessment.player.stand_pending
+            and assessment.total_strength >= my_strength - 0.25
+            for assessment in assessments
+        ):
+            return True
+
+        best_opponent = max(assessment.total_strength for assessment in assessments)
+        if best_opponent >= my_strength + 0.75:
+            return True
+
+        if len(assessments) >= 2 and total <= target - 5:
+            return any(assessment.estimated_total <= target for assessment in assessments)
+
+        return (
+            self._current_bet(player) >= max(1, player.hp)
+            and best_opponent >= my_strength - 0.25
+        )
+
+    def _bot_is_confident_winning(self, player: TwentyOnePlayer) -> bool:
+        target = self._current_target()
+        total = self._hand_total(player)
         if total > target:
             return False
-        if opponent.stand_pending:
-            return total >= estimated_opp_total
-        if total >= target - 1 and total >= estimated_opp_total + 1:
+
+        assessments = self._bot_assess_opponents(player)
+        if not assessments:
             return True
-        return player.hp > opponent.hp and total >= estimated_opp_total + 2
+
+        my_strength = self._bot_total_strength(total, target)
+        for assessment in assessments:
+            if (
+                assessment.player.stand_pending
+                and assessment.total_strength >= my_strength - 0.25
+            ):
+                return False
+            if (
+                not assessment.player.stand_pending
+                and assessment.total_strength >= my_strength - 1.0
+            ):
+                return False
+
+        return total >= target - 2 or all(
+            assessment.total_strength <= my_strength - 2.0 for assessment in assessments
+        )
+
+    def _bot_assess_opponents(
+        self, player: TwentyOnePlayer
+    ) -> list[TwentyOneBotOpponentAssessment]:
+        target = self._current_target()
+        assessments: list[TwentyOneBotOpponentAssessment] = []
+        for opponent in self._opponents_of(player):
+            visible_total = sum(card.rank for card in self._opponent_visible_cards(opponent))
+            estimated_total = self._bot_estimate_opponent_total(player, opponent)
+            total_strength = self._bot_total_strength(estimated_total, target)
+            round_threat = (
+                total_strength
+                + (8.0 if opponent.stand_pending else 0.0)
+                + min(5.0, len(opponent.modifiers) * 0.8)
+                + min(4.0, len(opponent.table_modifiers) * 0.6)
+                + (1.0 if not self._draws_locked_for(opponent) else -2.0)
+                + visible_total * 0.05
+            )
+            match_threat = (
+                opponent.hp * 1.6
+                + len(opponent.modifiers) * 1.2
+                + len(opponent.table_modifiers) * 1.0
+                - self._current_bet(opponent) * 0.25
+            )
+            assessments.append(
+                TwentyOneBotOpponentAssessment(
+                    player=opponent,
+                    visible_total=visible_total,
+                    estimated_total=estimated_total,
+                    total_strength=total_strength,
+                    round_threat=round_threat,
+                    match_threat=match_threat,
+                )
+            )
+        return assessments
+
+    @staticmethod
+    def _bot_total_strength(total: float, target: int) -> float:
+        distance = abs(target - total)
+        if total <= target:
+            return 100.0 - distance
+        # A busted hand can still matter if everybody busts, but any live hand
+        # should dominate it.
+        return 45.0 - distance
+
+    def _bot_safe_draw_probability(self, player: TwentyOnePlayer) -> float:
+        if not self.deck or not self.deck.cards:
+            return 0.0
+        gap = self._current_target() - self._hand_total(player)
+        if gap <= 0:
+            return 0.0
+        safe = sum(1 for card in self.deck.cards if card.rank <= gap)
+        return safe / len(self.deck.cards)
+
+    def _bot_round_position_score(self, player: TwentyOnePlayer, target: int) -> float:
+        total = self._hand_total(player)
+        my_strength = self._bot_total_strength(total, target)
+        opponent_strengths = [
+            self._bot_total_strength(self._bot_estimate_opponent_total(player, opponent), target)
+            for opponent in self._opponents_of(player)
+        ]
+        if not opponent_strengths:
+            return my_strength
+        best_opponent = max(opponent_strengths)
+        tied_best = sum(
+            1 for strength in opponent_strengths if abs(strength - my_strength) < 0.5
+        )
+        tie_penalty = 8.0 if tied_best else 0.0
+        return my_strength - best_opponent - tie_penalty
+
+    def _bot_target_change_score(self, player: TwentyOnePlayer, new_target: int) -> float:
+        current_target = self._current_target()
+        if new_target == current_target:
+            return -10.0
+        return self._bot_round_position_score(player, new_target) - self._bot_round_position_score(
+            player, current_target
+        )
+
+    def _bot_preferred_target_for_modifier(
+        self,
+        player: TwentyOnePlayer,
+        modifier: str,
+        option_ids: list[str] | None = None,
+    ) -> TwentyOnePlayer | None:
+        option_set = set(option_ids or [])
+        opponents = [
+            opponent
+            for opponent in self._opponents_of(player)
+            if not option_set or opponent.id in option_set
+        ]
+        if modifier in SINGLE_TARGET_MODIFIERS:
+            opponents = [
+                opponent
+                for opponent in opponents
+                if self._modifier_unplayable_reason(player, modifier, "en", target=opponent)
+                is None
+            ]
+        if not opponents:
+            return None
+
+        assessments = {
+            assessment.player.id: assessment
+            for assessment in self._bot_assess_opponents(player)
+        }
+
+        def pressure(opponent: TwentyOnePlayer) -> float:
+            assessment = assessments.get(opponent.id)
+            if not assessment:
+                return 0.0
+            return assessment.round_threat + assessment.match_threat
+
+        if modifier in (MODIFIER_AID_RIVAL, MODIFIER_SHARED_CACHE):
+            return min(
+                opponents,
+                key=lambda opponent: (
+                    pressure(opponent),
+                    opponent.hp,
+                    len(opponent.modifiers),
+                ),
+            )
+
+        if modifier in (MODIFIER_BREAK, MODIFIER_BREAK_PLUS, MODIFIER_LOCKDOWN):
+            return max(
+                opponents,
+                key=lambda opponent: (
+                    len(opponent.table_modifiers) * 4.0
+                    + len(opponent.modifiers) * 1.5
+                    + pressure(opponent),
+                    opponent.hp,
+                ),
+            )
+
+        if modifier in (MODIFIER_SCRAP, MODIFIER_SWAP_DRAW, MODIFIER_HEX_DRAW):
+            return max(
+                opponents,
+                key=lambda opponent: (
+                    pressure(opponent),
+                    sum(card.rank for card in self._opponent_visible_cards(opponent)),
+                    opponent.hp,
+                ),
+            )
+
+        return max(
+            opponents,
+            key=lambda opponent: (
+                pressure(opponent),
+                opponent.hp,
+                -self._current_bet(opponent),
+            ),
+        )
 
     def _bot_needs_new_change_cards(
         self,
@@ -2144,7 +2370,7 @@ class TwentyOneGame(ActionGuardMixin, Game):
     def _bot_modifier_score(
         self,
         player: TwentyOnePlayer,
-        opponent: TwentyOnePlayer,
+        opponent: TwentyOnePlayer | None,
         modifier: str,
         total: int,
         target: int,
@@ -2154,8 +2380,29 @@ class TwentyOneGame(ActionGuardMixin, Game):
         needs_new_cards: bool,
     ) -> float:
         gap = target - total
-        opponent_last = self._peek_last_drawn_card(opponent)
+        opponent_last = self._peek_last_drawn_card(opponent) if opponent else None
         own_last = self._peek_last_drawn_card(player)
+        current_bet = self._current_bet(player)
+        lethal_loss = current_bet >= max(1, player.hp)
+        opponent_assessment = None
+        if opponent:
+            opponent_assessment = next(
+                (
+                    assessment
+                    for assessment in self._bot_assess_opponents(player)
+                    if assessment.player.id == opponent.id
+                ),
+                None,
+            )
+        opponent_pressure = (
+            opponent_assessment.round_threat + opponent_assessment.match_threat
+            if opponent_assessment
+            else 0.0
+        )
+        target_likely_loses = (
+            opponent_assessment is not None
+            and self._bot_total_strength(total, target) > opponent_assessment.total_strength + 0.5
+        )
 
         if modifier == MODIFIER_REDRAFT:
             return 7.0 if needs_new_cards else -8.0
@@ -2163,25 +2410,37 @@ class TwentyOneGame(ActionGuardMixin, Game):
             return 8.0 if needs_new_cards else -8.0
 
         if modifier == MODIFIER_GUARD:
-            return 9.0 if likely_losing else -3.0
+            return 9.0 if likely_losing or lethal_loss else -3.0
         if modifier == MODIFIER_GUARD_PLUS:
-            return 10.0 if likely_losing else -3.0
+            return 10.0 if likely_losing or lethal_loss else -3.0
 
         if modifier == MODIFIER_RAISE_1:
-            return 6.0 if confident_winning else -4.0
+            return (
+                6.0 + opponent_pressure / 25.0
+                if confident_winning or target_likely_loses
+                else -4.0
+            )
         if modifier == MODIFIER_RAISE_2:
-            return 7.0 if confident_winning else -4.0
+            return (
+                7.0 + opponent_pressure / 25.0
+                if confident_winning or target_likely_loses
+                else -4.0
+            )
         if modifier == MODIFIER_RAISE_2_PLUS:
-            return 8.0 if confident_winning else -4.0
+            return (
+                8.0 + (opponent_last.rank / 10.0 if opponent_last else 0.0)
+                if confident_winning or target_likely_loses
+                else -4.0
+            )
 
         if modifier == MODIFIER_PRECISION_DRAW:
-            return 8.0 if gap > 0 else -4.0
+            return 8.5 if gap > 0 and not confident_winning else -4.0
         if modifier == MODIFIER_PRECISION_DRAW_PLUS:
             if gap > 0:
-                return 8.5
+                return 9.0 + (opponent_pressure / 30.0 if opponent else 0.0)
             return 6.0 if confident_winning else -3.0
         if modifier == MODIFIER_PRIME_DRAW:
-            return 7.5 if gap > 0 else -4.0
+            return 8.0 if gap > 0 or needs_new_cards else -4.0
 
         if modifier in (
             MODIFIER_DRAW_2,
@@ -2197,70 +2456,136 @@ class TwentyOneGame(ActionGuardMixin, Game):
             if rank > gap:
                 return -5.0
             closeness = 1.0 if rank == gap else 0.0
-            return 6.0 + closeness
+            return 6.0 + closeness + (1.5 if likely_losing else 0.0)
 
         if modifier == MODIFIER_TARGET_24:
-            return 9.0 if total > target else -5.0
+            return self._bot_target_change_score(player, 24)
         if modifier == MODIFIER_TARGET_27:
-            return 9.5 if total > target + 2 else -6.0
+            return self._bot_target_change_score(player, 27)
         if modifier == MODIFIER_TARGET_17:
-            return 3.0 if confident_winning and total >= 17 else -6.0
+            return self._bot_target_change_score(player, 17)
 
         if modifier == MODIFIER_SCRAP:
-            if opponent_last and likely_losing:
-                return 6.0 + (opponent_last.rank / 20.0)
+            if opponent_last and opponent_assessment:
+                without_last = opponent_assessment.estimated_total - opponent_last.rank
+                target_loss = opponent_assessment.total_strength - self._bot_total_strength(
+                    without_last, target
+                )
+                if target_loss > 0:
+                    return 5.0 + target_loss / 3.0 + opponent_pressure / 35.0
             return -2.0
         if modifier == MODIFIER_RECYCLE:
             if own_last and total > target:
                 return 8.0
+            if own_last and likely_losing:
+                projected = total - own_last.rank
+                if self._bot_total_strength(projected, target) > self._bot_total_strength(
+                    total, target
+                ):
+                    return 6.0
             return -3.0
         if modifier == MODIFIER_SWAP_DRAW:
-            if own_last and opponent_last and opponent_last.rank > own_last.rank and likely_losing:
-                return 7.0
+            if own_last and opponent_last and opponent_assessment:
+                projected_total = total - own_last.rank + opponent_last.rank
+                projected_opp = (
+                    opponent_assessment.estimated_total - opponent_last.rank + own_last.rank
+                )
+                my_gain = self._bot_total_strength(
+                    projected_total, target
+                ) - self._bot_total_strength(total, target)
+                opp_loss = opponent_assessment.total_strength - self._bot_total_strength(
+                    projected_opp, target
+                )
+                if my_gain > max(2.0, -opp_loss * 1.5):
+                    return 5.5 + my_gain / 3.0 + max(0.0, opp_loss) / 4.0
             return -3.0
 
         if modifier == MODIFIER_BREAK:
-            return 6.5 if likely_losing and opponent.table_modifiers else -2.0
+            return (
+                6.5 + len(opponent.table_modifiers)
+                if opponent and opponent.table_modifiers
+                else -2.0
+            )
         if modifier == MODIFIER_BREAK_PLUS:
-            return 7.0 if likely_losing and opponent.table_modifiers else -2.0
+            return (
+                7.5 + len(opponent.table_modifiers)
+                if opponent and opponent.table_modifiers
+                else -2.0
+            )
         if modifier == MODIFIER_LOCKDOWN:
-            if likely_losing and opponent.modifiers:
-                return 7.5
-            return 4.0 if confident_winning and opponent.modifiers else -2.0
+            if opponent and (opponent.modifiers or opponent.table_modifiers):
+                return 7.5 + opponent_pressure / 30.0
+            return -2.0
 
         if modifier == MODIFIER_BREAK_SHIELDS:
-            return 7.0 if confident_winning else -3.0
+            return (
+                7.0 + opponent_pressure / 35.0
+                if confident_winning or target_likely_loses
+                else -3.0
+            )
         if modifier == MODIFIER_BREAK_SHIELDS_PLUS:
-            return 8.0 if confident_winning else -3.0
+            return (
+                8.0 + opponent_pressure / 35.0
+                if confident_winning or target_likely_loses
+                else -3.0
+            )
         if modifier == MODIFIER_SHARED_CACHE:
-            return 2.0 if likely_losing else -3.0
+            return 2.5 if needs_new_cards and len(player.modifiers) <= 2 else -3.0
         if modifier == MODIFIER_HAND_TAX:
-            return 7.0 if confident_winning else -3.0
+            return (
+                6.0 + len(opponent.modifiers)
+                if opponent and (confident_winning or target_likely_loses)
+                else -3.0
+            )
         if modifier == MODIFIER_HAND_TAX_PLUS:
-            return 8.0 if confident_winning else -3.0
+            return (
+                7.0 + len(opponent.modifiers)
+                if opponent and (confident_winning or target_likely_loses)
+                else -3.0
+            )
         if modifier == MODIFIER_MIND_TAX:
-            return 6.5 if likely_losing else -2.0
+            return 6.0 + len(opponent.modifiers) / 2.0 if opponent and opponent.modifiers else -2.0
         if modifier == MODIFIER_MIND_TAX_PLUS:
-            return 7.0 if likely_losing else -2.0
+            return 7.0 + len(opponent.modifiers) / 2.0 if opponent and opponent.modifiers else -2.0
         if modifier == MODIFIER_ARCANE_CACHE:
-            return 7.5 if needs_new_cards else -2.0
+            return 7.5 if needs_new_cards and current_bet < max(3, player.hp) else -2.0
         if modifier == MODIFIER_HEX_DRAW:
-            return -8.0
+            if not opponent_assessment or not self.deck or not self.deck.cards:
+                return -8.0
+            highest_rank = max(card.rank for card in self.deck.cards)
+            projected = opponent_assessment.estimated_total + highest_rank
+            target_loss = opponent_assessment.total_strength - self._bot_total_strength(
+                projected, target
+            )
+            return 7.0 + target_loss / 3.0 if target_loss > 0 else -8.0
         if modifier == MODIFIER_DARK_BARGAIN:
-            return 8.0 if confident_winning else -5.0
+            if gap > 0:
+                return 8.5 + (opponent_pressure / 35.0 if opponent else 0.0)
+            return 5.0 if confident_winning else -5.0
         if modifier == MODIFIER_ESCAPE_ROUTE:
-            return 6.0 if likely_losing else -1.0
+            return 8.0 if likely_losing or lethal_loss else -1.0
         if modifier == MODIFIER_EXACT_21_SURGE:
-            return 9.0 if total == 21 else -4.0
+            return 10.0 + opponent_pressure / 35.0 if total == 21 and opponent else -4.0
         if modifier == MODIFIER_ROUND_ERASE:
-            return 8.0 if likely_losing else -8.0
+            return 10.0 if likely_losing and (lethal_loss or total > target) else -8.0
         if modifier == MODIFIER_DRAW_SILENCE:
-            return 6.0 if confident_winning else -1.0
+            if opponent and confident_winning and not opponent.stand_pending:
+                return 7.0 + opponent_pressure / 35.0
+            return -1.0
         if modifier == MODIFIER_ALL_IN_SILENCE:
-            return 9.0 if confident_winning else -9.0
+            if opponent and total == target and self._bot_is_confident_winning(player):
+                return 12.0 + opponent_pressure / 30.0
+            return -9.0
 
         if modifier == MODIFIER_SALVAGE:
-            return 2.0 if likely_losing else -2.0
+            table_modifier_pressure = sum(
+                len(opponent.modifiers) for opponent in self._opponents_of(player)
+            )
+            return (
+                3.0 + min(3.0, table_modifier_pressure * 0.25)
+                if not likely_losing
+                else -2.0
+            )
         if modifier == MODIFIER_AID_RIVAL:
             return -20.0
         return -1.0

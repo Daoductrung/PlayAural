@@ -11,8 +11,11 @@ from ..games.twentyone.game import (
     MODIFIER_DRAW_2,
     MODIFIER_DRAW_SILENCE,
     MODIFIER_MIND_TAX,
+    MODIFIER_RAISE_2,
     MODIFIER_SHARED_CACHE,
+    MODIFIER_SWAP_DRAW,
     MODIFIER_TARGET_24,
+    SOUND_TURN,
     TwentyOneGame,
     TwentyOneOptions,
 )
@@ -50,6 +53,13 @@ def make_started_game(**option_overrides) -> tuple[TwentyOneGame, MockUser, Mock
 
 def speech_texts(user: MockUser) -> list[str]:
     return [message.data["text"] for message in user.messages if message.type == "speak"]
+
+
+def menu_item_ids(user: MockUser, menu_id: str) -> list[str | None]:
+    menu = user.menus.get(menu_id)
+    if not menu:
+        return []
+    return [getattr(item, "id", None) for item in menu["items"]]
 
 
 def ftl_messages(text: str) -> dict[str, set[str]]:
@@ -210,6 +220,149 @@ def test_bot_stands_when_deck_is_empty() -> None:
     game.set_turn_players([bot_player, human])
 
     assert game.bot_think(bot_player) == "stand"
+
+
+def test_turn_sound_only_plays_for_current_player_and_respects_preference() -> None:
+    game, alice_user, bob_user = make_started_game()
+    alice, _bob = game.players
+    game.turn_index = 0
+    alice_user.preferences.play_turn_sound = True
+    bob_user.preferences.play_turn_sound = True
+    alice_user.messages.clear()
+    bob_user.messages.clear()
+
+    game.announce_turn(turn_sound=SOUND_TURN)
+
+    assert SOUND_TURN in alice_user.get_sounds_played()
+    assert SOUND_TURN not in bob_user.get_sounds_played()
+
+    alice_user.preferences.play_turn_sound = False
+    alice_user.messages.clear()
+    bob_user.messages.clear()
+
+    game.announce_turn(turn_sound=SOUND_TURN)
+
+    assert SOUND_TURN not in alice_user.get_sounds_played()
+    assert SOUND_TURN not in bob_user.get_sounds_played()
+    assert any("It is your turn." in text for text in speech_texts(alice_user))
+    assert any(f"It is {alice.name}'s turn." in text for text in speech_texts(bob_user))
+
+
+def test_turn_handoff_does_not_play_turn_sound_for_bystanders() -> None:
+    game, players = make_started_game_n(3)
+    p0, p1, p2 = players
+    user0 = game.get_user(p0)
+    user1 = game.get_user(p1)
+    user2 = game.get_user(p2)
+    assert user0 is not None
+    assert user1 is not None
+    assert user2 is not None
+    p0.hand = [Card(id=1, rank=9, suit=0), Card(id=2, rank=8, suit=0)]
+    game.turn_index = 0
+    for user in (user0, user1, user2):
+        user.preferences.play_turn_sound = True
+        user.messages.clear()
+
+    game._action_stand(p0, "stand")
+
+    assert SOUND_TURN not in user0.get_sounds_played()
+    assert SOUND_TURN in user1.get_sounds_played()
+    assert SOUND_TURN not in user2.get_sounds_played()
+    assert not any(
+        sound == "turn.ogg" or sound.endswith("/turn.ogg") or "begin turn" in sound
+        for sound in user2.get_sounds_played()
+    )
+
+
+def test_bot_hits_when_later_multiplayer_opponent_is_a_standing_threat() -> None:
+    game, players = make_started_game_n(3)
+    bot, weak_opponent, strong_opponent = players
+    bot.hand = [Card(id=1, rank=10, suit=0), Card(id=2, rank=9, suit=0)]
+    weak_opponent.hand = [Card(id=3, rank=1, suit=0), Card(id=4, rank=2, suit=0)]
+    strong_opponent.hand = [
+        Card(id=5, rank=1, suit=0),
+        Card(id=6, rank=9, suit=0),
+        Card(id=7, rank=5, suit=0),
+    ]
+    weak_opponent.stand_pending = True
+    strong_opponent.stand_pending = True
+    game.deck = Deck(
+        cards=[
+            Card(id=8, rank=1, suit=0),
+            Card(id=9, rank=2, suit=0),
+            Card(id=10, rank=11, suit=0),
+        ]
+    )
+
+    assert game._bot_choose_hit_or_stand(bot) == "hit"
+
+
+def test_bot_stands_when_leading_all_multiplayer_opponents() -> None:
+    game, players = make_started_game_n(4)
+    bot, p1, p2, p3 = players
+    bot.hand = [Card(id=1, rank=10, suit=0), Card(id=2, rank=10, suit=0)]
+    p1.hand = [Card(id=3, rank=1, suit=0), Card(id=4, rank=4, suit=0)]
+    p2.hand = [Card(id=5, rank=1, suit=0), Card(id=6, rank=5, suit=0)]
+    p3.hand = [Card(id=7, rank=1, suit=0), Card(id=8, rank=6, suit=0)]
+    game.deck = Deck(cards=[Card(id=9, rank=1, suit=0), Card(id=10, rank=2, suit=0)])
+
+    assert game._bot_choose_hit_or_stand(bot) == "stand"
+
+
+def test_bot_targets_strongest_valid_opponent_for_harmful_change_card() -> None:
+    game, players = make_started_game_n(3)
+    bot, weak_opponent, strong_opponent = players
+    bot.modifiers = [MODIFIER_DRAW_SILENCE]
+    weak_opponent.hand = [Card(id=1, rank=1, suit=0), Card(id=2, rank=2, suit=0)]
+    weak_opponent.hp = 4
+    strong_opponent.hand = [
+        Card(id=3, rank=1, suit=0),
+        Card(id=4, rank=9, suit=0),
+        Card(id=5, rank=5, suit=0),
+    ]
+    strong_opponent.hp = 12
+    game.pending_target_modifier[bot.id] = 0
+
+    assert (
+        game._bot_select_target(bot, [weak_opponent.id, strong_opponent.id])
+        == strong_opponent.id
+    )
+
+
+def test_bot_targets_weakest_valid_opponent_for_shared_cache() -> None:
+    game, players = make_started_game_n(3)
+    bot, weak_opponent, strong_opponent = players
+    bot.modifiers = [MODIFIER_SHARED_CACHE]
+    weak_opponent.hand = [Card(id=1, rank=1, suit=0), Card(id=2, rank=2, suit=0)]
+    weak_opponent.hp = 3
+    strong_opponent.hand = [
+        Card(id=3, rank=1, suit=0),
+        Card(id=4, rank=9, suit=0),
+        Card(id=5, rank=5, suit=0),
+    ]
+    strong_opponent.hp = 12
+    game.pending_target_modifier[bot.id] = 0
+
+    assert (
+        game._bot_select_target(bot, [weak_opponent.id, strong_opponent.id])
+        == weak_opponent.id
+    )
+
+
+def test_bot_values_swap_when_own_last_card_caused_a_bust() -> None:
+    game, _, _ = make_started_game()
+    bot, opponent = game.players
+    bot.hand = [
+        Card(id=1, rank=10, suit=0),
+        Card(id=2, rank=4, suit=0),
+        Card(id=3, rank=10, suit=0),
+    ]
+    bot.last_drawn_card_id = 3
+    opponent.hand = [Card(id=4, rank=5, suit=0), Card(id=5, rank=2, suit=0)]
+    opponent.last_drawn_card_id = 5
+    bot.modifiers = [MODIFIER_SWAP_DRAW]
+
+    assert game._bot_choose_modifier_to_play(bot) == MODIFIER_SWAP_DRAW
 
 
 def test_change_card_menu_shows_blocked_cards_and_reports_reason() -> None:
@@ -384,6 +537,46 @@ def test_single_target_card_prompts_then_hits_chosen_opponent() -> None:
     assert game._current_bet(p1) == base
 
 
+def test_target_selection_menu_focuses_first_target_after_second_card() -> None:
+    game, players = make_started_game_n(3)
+    p0, p1, p2 = players
+    user0 = game.get_user(p0)
+    assert user0 is not None
+    p0.modifiers = [MODIFIER_TARGET_24, MODIFIER_RAISE_2]
+    game.turn_index = 0
+
+    options = game._options_for_play_modifier(p0)
+    game._action_play_modifier(p0, options[1], "play_modifier")
+
+    assert user0.menus["action_input_menu"]["selection_id"] == p1.id
+    assert menu_item_ids(user0, "action_input_menu")[:2] == [p1.id, p2.id]
+
+
+def test_target_selection_cancel_clears_pending_target_prompt() -> None:
+    game, players = make_started_game_n(3)
+    p0 = players[0]
+    p0.modifiers = [MODIFIER_RAISE_2]
+    game.turn_index = 0
+
+    options = game._options_for_play_modifier(p0)
+    game._action_play_modifier(p0, options[0], "play_modifier")
+    assert p0.id in game.pending_target_modifier
+
+    game.handle_event(
+        p0,
+        {
+            "type": "menu",
+            "menu_id": "action_input_menu",
+            "selection_id": "_cancel",
+        },
+    )
+
+    assert p0.id not in game.pending_target_modifier
+    visible_ids = [resolved.action.id for resolved in game.get_all_visible_actions(p0)]
+    assert "select_target" not in visible_ids
+    assert p0.modifiers == [MODIFIER_RAISE_2]
+
+
 def test_target_options_filter_to_legal_opponents() -> None:
     from ..games.twentyone.game import MODIFIER_RAISE_2
 
@@ -525,6 +718,78 @@ def test_select_target_cancel_keeps_card() -> None:
 
     assert p0.id not in game.pending_target_modifier
     assert p0.modifiers == [MODIFIER_RAISE_2]  # card not spent on cancel
+
+
+def test_core_actions_remain_visible_between_rounds_for_desktop_and_touch() -> None:
+    game, players = make_started_game_n(3)
+    p0 = players[0]
+    user0 = game.get_user(p0)
+    assert user0 is not None
+    game.phase = "between_rounds"
+
+    for client_type in ("python", "mobile"):
+        user0.client_type = client_type
+        game.refresh_menus(p0)
+        game.flush_menus()
+
+        assert menu_item_ids(user0, "turn_menu")[:3] == [
+            "hit",
+            "stand",
+            "play_modifier",
+        ]
+
+
+def test_touch_play_change_card_with_empty_inventory_explains_state() -> None:
+    game, players = make_started_game_n(2)
+    p0 = players[0]
+    user0 = game.get_user(p0)
+    assert user0 is not None
+    user0.client_type = "mobile"
+    p0.modifiers = []
+    game.turn_index = 0
+    user0.messages.clear()
+
+    game.handle_event(
+        p0,
+        {"type": "menu", "menu_id": "turn_menu", "selection_id": "play_modifier"},
+    )
+
+    assert any("do not have any Change Cards" in text for text in speech_texts(user0))
+
+
+def test_touch_draw_between_rounds_explains_state() -> None:
+    game, players = make_started_game_n(2)
+    p0 = players[0]
+    user0 = game.get_user(p0)
+    assert user0 is not None
+    user0.client_type = "mobile"
+    game.phase = "between_rounds"
+    user0.messages.clear()
+
+    game.handle_event(
+        p0,
+        {"type": "menu", "menu_id": "turn_menu", "selection_id": "hit"},
+    )
+
+    assert any("round is resolving" in text for text in speech_texts(user0))
+
+
+def test_touch_stand_when_eliminated_explains_state() -> None:
+    game, players = make_started_game_n(3)
+    p0 = players[0]
+    user0 = game.get_user(p0)
+    assert user0 is not None
+    user0.client_type = "mobile"
+    p0.hp = 0
+    game.turn_index = 1
+    user0.messages.clear()
+
+    game.handle_event(
+        p0,
+        {"type": "menu", "menu_id": "turn_menu", "selection_id": "stand"},
+    )
+
+    assert any("eliminated from this match" in text for text in speech_texts(user0))
 
 
 def test_table_effect_lists_stay_in_sync_on_expiry() -> None:

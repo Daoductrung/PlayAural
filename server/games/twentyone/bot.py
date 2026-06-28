@@ -13,13 +13,9 @@ def bot_think(game: "TwentyOneGame", player: "TwentyOnePlayer") -> str | None:
     if game.phase != "turns" or game.current_player != player:
         return None
 
-    opponent = game._opponent_of(player)
-    if not opponent:
+    opponents = game._opponents_of(player)
+    if not opponents:
         return "stand"
-
-    target = game._current_target()
-    total = game._hand_total(player)
-    estimated_opp_total = game._bot_estimate_opponent_total(player, opponent)
 
     if not game._modifiers_locked_for(player) and player.modifiers:
         if game._bot_choose_modifier_to_play(player):
@@ -29,4 +25,4 @@ def bot_think(game: "TwentyOneGame", player: "TwentyOnePlayer") -> str | None:
     if game._draws_locked_for(player) or not game.deck or game.deck.is_empty():
         return "stand"
 
-    return game._bot_choose_hit_or_stand(opponent, total, estimated_opp_total, target)
+    return game._bot_choose_hit_or_stand(player)

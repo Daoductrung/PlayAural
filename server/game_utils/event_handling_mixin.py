@@ -182,7 +182,11 @@ class EventHandlingMixin:
             if player.id in self._pending_actions:
                 action_id = self._pending_actions.pop(player.id)
                 return_focus = self._pending_action_return_focus.pop(player.id, None)
-                if not cancelled:
+                if cancelled:
+                    cancel_hook = getattr(self, "_on_action_input_cancelled", None)
+                    if cancel_hook:
+                        cancel_hook(player, action_id)
+                else:
                     # Execute the action with the selected input
                     context = (
                         ActionContext(menu_item_id=return_focus)

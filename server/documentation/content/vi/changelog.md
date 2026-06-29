@@ -1,5 +1,23 @@
 Nhật ký thay đổi
 
+Thứ Hai 29 Tháng Sáu 2026
+
+Tính năng mới:
+- Hai Mươi Mốt (Luật Sinh Tồn) giờ hỗ trợ từ hai đến bốn người chơi, với kết quả sinh tồn cho mọi người còn sống và lựa chọn mục tiêu cho các Lá Biến tác động lên đối thủ.
+- Quản trị giờ có Quản lý nguồn máy chủ để lên lịch khởi động lại máy chủ hoặc tắt máy chủ với lý do rõ ràng, lý do tùy chỉnh đa ngôn ngữ, cảnh báo đếm ngược, và các lần khởi động lại theo lịch giữ nguyên bàn đang chơi trong khi máy khách tự kết nối lại.
+- Các menu máy chủ có danh sách lớn giờ hỗ trợ tìm kiếm và chia trang 100 mục, kèm thông tin phạm vi trang và các nút Trang đầu, Trang trước, Trang sau, và Trang cuối.
+- Bỏ cấm người dùng và Bỏ tắt tiếng người dùng giờ hiển thị thời điểm hết hạn, thời gian còn lại, lý do, và admin thực hiện của từng lệnh đang có hiệu lực.
+
+Sửa lỗi:
+- Ai đang ở trong bàn giờ xếp người chơi đang hoạt động trước khán giả và báo rõ trạng thái Trực tuyến, Ngoại tuyến, đang trong trò chuyện thoại, và bot đang chơi thay.
+- Ai đang ở trong bàn và các menu danh sách bàn liên quan giờ luôn giữ được nút Quay lại, tránh trạng thái menu bị trùng hoặc trống, và giữ tiêu điểm ổn định khi làm mới.
+- Danh sách người chơi trực tuyến và các danh sách tự làm mới khác giờ cập nhật mà không nhân đôi dòng, không làm hỏng Escape hoặc Quay lại, và không giành tiêu điểm khi bạn đang điều hướng.
+- Chế độ TalkBack trên di động giờ đọc thông báo máy chủ nhạy hơn, ngắt lời đọc cũ khi bạn di chuyển tiêu điểm, và tránh đọc trễ hoặc lặp lại thông báo.
+- Người máy trong Hai Mươi Mốt (Luật Sinh Tồn) giờ chọn chiến thuật tốt hơn trong trận hai, ba, và bốn người; các nút hành động, menu chọn mục tiêu, tiêu điểm, và âm báo lượt cũng ổn định hơn.
+- Xúc xắc màu giờ giữ xác nhận Tất tay trong đúng menu cược của màu đã chọn để bạn có thể chọn lại đúng mục Tất tay đó để xác nhận.
+- Cờ cá ngựa giờ giải thích rằng bạn phải đi một quân trước khi gieo tiếp nếu lượt gieo trước đã tạo ra nước đi hợp lệ.
+- Sorry! giờ giải thích rằng bạn phải chọn một nước đi hợp lệ trước khi rút tiếp sau khi đã rút thẻ.
+
 Thứ Sáu 26 Tháng Sáu 2026
 
 Tính năng mới:

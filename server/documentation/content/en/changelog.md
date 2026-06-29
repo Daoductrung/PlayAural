@@ -1,5 +1,23 @@
 Changelog
 
+Monday 29 June 2026
+
+New Additions:
+- 21 (Survival Rules) now supports two to four players, with survival results across every remaining player and target choices for Change Cards that affect an opponent.
+- Administration now includes Server Power Management for scheduling reboots or shutdowns with clear reasons, multilingual custom reasons, countdown warnings, and planned reboots that preserve active tables while clients reconnect.
+- Large server menus now support search and 100-item pages with clear page ranges, First page, Previous page, Next page, and Last page controls.
+- Unban User and Unmute User now show each active penalty's expiration, remaining time, reason, and issuing admin.
+
+Bug Fixes:
+- Who's at the table now lists active players before spectators and clearly reports online, offline, voice chat, and bot takeover status.
+- Who's at the table and related roster menus now keep Back available, avoid duplicate or empty menu states, and preserve focus during refreshes.
+- Online Players and other auto-refreshing lists now update without duplicating rows, losing Escape or Back behavior, or stealing focus while you are navigating.
+- Mobile TalkBack mode now keeps server announcements responsive, interrupts old speech when you move focus, and avoids delayed or repeated messages.
+- 21 (Survival Rules) bots now make stronger choices in two-, three-, and four-player matches, and its action buttons, target menus, focus handling, and turn sound behave more consistently.
+- Color Game now keeps all-in confirmation inside the selected color's betting menu so you can press the same All-in choice again to confirm.
+- Ludo now explains that you must move a piece before rolling again when a roll has already produced a legal move.
+- Sorry! now explains that you must choose a legal move before drawing again after a card has already been drawn.
+
 Friday 26 June 2026
 
 New Additions:

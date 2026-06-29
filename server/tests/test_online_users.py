@@ -83,6 +83,20 @@ def test_online_users_menu_renders_current_user_as_read_only() -> None:
     assert own_item.id == "readonly_online_Viewer"
 
 
+@pytest.mark.asyncio
+async def test_online_users_menu_initial_open_focuses_first_player() -> None:
+    server = _make_server()
+    viewer = MockUser("Viewer")
+    alice = MockUser("Alice")
+    server._users = {"Viewer": viewer, "Alice": alice}
+
+    await server._handle_list_online_with_games(DummyClient("Viewer"))
+
+    ids = _menu_ids(viewer, "online_users")
+    assert ids[1] == "online_Alice"
+    assert viewer.menus["online_users"]["position"] == 2
+
+
 def test_client_platform_sanitizer_bounds_untrusted_display_text() -> None:
     sanitized = Server._sanitize_client_platform("<Windows>\n<script>AMD64</script>" * 3)
     assert sanitized.startswith("Windows scriptAMD64/script")
@@ -134,7 +148,7 @@ async def test_online_users_menu_pages_large_lists() -> None:
     ids = _menu_ids(viewer, "online_users")
     assert len([item_id for item_id in ids if item_id.startswith("online_")]) == 100
     assert "online_User100" not in ids
-    assert "refresh" in ids
+    assert "refresh" not in ids
     assert "page_next" in ids
     assert "page_last" in ids
 
@@ -161,7 +175,7 @@ def test_online_users_menu_hides_page_navigation_for_single_page() -> None:
     server._show_online_users_menu(viewer)
 
     ids = _menu_ids(viewer, "online_users")
-    assert "refresh" in ids
+    assert "refresh" not in ids
     assert "page_summary" not in ids
     assert "page_first" not in ids
     assert "page_previous" not in ids
@@ -183,7 +197,7 @@ async def test_online_users_refresh_preserves_focus_and_speaks_confirmation() ->
     )
 
     ids = _menu_ids(viewer, "online_users")
-    assert ids == ["back", "readonly_online_Viewer", "refresh"]
+    assert ids == ["back", "readonly_online_Viewer"]
     assert viewer.menus["online_users"]["position"] is None
     assert viewer.get_last_spoken() == "List refreshed."
 

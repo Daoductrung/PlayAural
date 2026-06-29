@@ -172,7 +172,9 @@ class AdministrationManager:
                 focus_position = len(items) + 1
             for target in targets.items:
                 items.append(MenuItem(text=target, id=f"{action_prefix}_{target}"))
-            items.extend(pagination_menu_items(user.locale, targets))
+            items.extend(
+                pagination_menu_items(user.locale, targets, include_refresh=True)
+            )
         elif query:
             items.append(
                 MenuItem(
@@ -180,10 +182,14 @@ class AdministrationManager:
                     id="",
                 )
             )
-            items.extend(pagination_menu_items(user.locale, targets))
+            items.extend(
+                pagination_menu_items(user.locale, targets, include_refresh=True)
+            )
         else:
             items.append(MenuItem(text=Localization.get(user.locale, empty_key), id=""))
-            items.extend(pagination_menu_items(user.locale, targets))
+            items.extend(
+                pagination_menu_items(user.locale, targets, include_refresh=True)
+            )
 
         items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
         user.show_menu(
@@ -491,6 +497,20 @@ class AdministrationManager:
             page_size=ADMIN_TARGET_PAGE_SIZE,
         )
 
+    def refresh_account_approval_menus(self, *, exclude_username: str = "") -> None:
+        """Refresh open account-approval lists after the pending queue changes."""
+        for username, user in self.server.users.items():
+            if username == exclude_username:
+                continue
+            state = self.server.user_states.get(username, {})
+            if state.get("menu") != "account_approval_menu":
+                continue
+            self.server._nav_refresh(
+                user,
+                self._show_account_approval_menu,
+                state.get("account_approval_page", 1),
+            )
+
     def _show_account_approval_menu(
         self, user: NetworkUser, page: int = 1, *, focus_page_start: bool = False
     ) -> None:
@@ -501,7 +521,9 @@ class AdministrationManager:
         focus_position: int | None = None
         if not pending.items:
             items.append(MenuItem(text=Localization.get(user.locale, "no-pending-accounts"), id=""))
-            items.extend(pagination_menu_items(user.locale, pending))
+            items.extend(
+                pagination_menu_items(user.locale, pending, include_refresh=True)
+            )
         else:
             if focus_page_start:
                 focus_position = len(items) + 1
@@ -522,7 +544,9 @@ class AdministrationManager:
                         id="page_summary",
                     )
                 )
-            items.extend(pagination_menu_items(user.locale, pending))
+            items.extend(
+                pagination_menu_items(user.locale, pending, include_refresh=True)
+            )
         items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
 
         user.show_menu(
@@ -923,6 +947,7 @@ class AdministrationManager:
                     waiting_user.play_sound("accountapprove.ogg")
                     self.server._show_main_menu(waiting_user)
 
+        self.refresh_account_approval_menus(exclude_username=admin.username)
         self.server._nav_back(admin)
 
     @require_admin
@@ -944,6 +969,7 @@ class AdministrationManager:
                 waiting_user.speak_l("account-declined-goodbye", buffer="system")
                 await waiting_user.connection.send({"type": "disconnect", "reconnect": False})
 
+        self.refresh_account_approval_menus(exclude_username=admin.username)
         self.server._nav_back(admin)
 
     @require_admin

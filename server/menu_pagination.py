@@ -150,14 +150,18 @@ def paginate_sequence(
 def pagination_menu_items(
     locale: str,
     page_data: PaginatedMenuPage[Any],
+    *,
+    include_refresh: bool = False,
 ) -> list[MenuItem]:
     """Build standard accessible pagination controls for a server menu."""
-    controls = [
-        MenuItem(
-            text=Localization.get(locale, "menu-page-refresh"),
-            id=MENU_PAGE_REFRESH,
+    controls: list[MenuItem] = []
+    if include_refresh and page_data.total > 0:
+        controls.append(
+            MenuItem(
+                text=Localization.get(locale, "menu-page-refresh"),
+                id=MENU_PAGE_REFRESH,
+            )
         )
-    ]
     if page_data.total_pages <= 1:
         return controls
 

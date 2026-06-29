@@ -235,7 +235,7 @@ class TestFriendsSystem:
         ids = latest_menu_ids(alice_user.get_queued_messages())
         assert len([item_id for item_id in ids if item_id.startswith("friend_")]) == 100
         assert "friend_Friend100" not in ids
-        assert "refresh" in ids
+        assert "refresh" not in ids
         assert "page_next" in ids
 
         await self.server._handle_friends_list_selection(

@@ -342,7 +342,7 @@ async def test_friend_requests_menu_pages_large_pending_lists(tmp_path) -> None:
         ids = _menu_ids(user, "friend_requests_menu")
         assert len([item_id for item_id in ids if item_id.startswith("req_")]) == 100
         assert "req_Requester100" not in ids
-        assert "refresh" in ids
+        assert "refresh" not in ids
         assert "page_next" in ids
 
         await server._handle_friend_requests_selection(
@@ -380,7 +380,7 @@ async def test_saved_tables_menu_pages_large_lists(tmp_path) -> None:
         ids = _menu_ids(user, "saved_tables_menu")
         assert len([item_id for item_id in ids if item_id.startswith("saved_")]) == 100
         assert f"saved_{last_record_id}" in ids
-        assert "refresh" in ids
+        assert "refresh" not in ids
         assert "page_next" in ids
 
         await server._handle_saved_tables_selection(

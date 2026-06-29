@@ -1434,6 +1434,7 @@ PlayAural Server
             # Notify admins of new account request (only if user needs approval)
             if needs_approval:
                 self._notify_admins("account-request", "accountrequest.ogg")
+                self.admin_manager.refresh_account_approval_menus()
         elif reg_result == "username_taken":
             await client.send({
                 "type": "register_response",
@@ -1823,9 +1824,7 @@ PlayAural Server
                     id="page_summary",
                 )
             )
-            items.extend(pagination_menu_items(user.locale, page_data))
-        else:
-            items.extend(pagination_menu_items(user.locale, page_data))
+        items.extend(pagination_menu_items(user.locale, page_data))
 
         items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
         return items, page_data
@@ -1951,9 +1950,7 @@ PlayAural Server
                     id="page_summary",
                 )
             )
-            items.extend(pagination_menu_items(user.locale, page_data))
-        else:
-            items.extend(pagination_menu_items(user.locale, page_data))
+        items.extend(pagination_menu_items(user.locale, page_data))
         items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
         return items, page_data
 
@@ -9859,7 +9856,7 @@ PlayAural Server
         if not user:
             return
 
-        self._nav_push(user, self._show_online_users_menu)
+        self._nav_push(user, self._show_online_users_menu, 1, focus_page_start=True)
 
     async def _handle_open_friends_hub(self, client: ClientConnection) -> None:
         """Handle Alt+F global hotkey: open the friends hub from any context."""

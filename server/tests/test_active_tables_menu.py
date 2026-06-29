@@ -96,7 +96,7 @@ def test_table_lists_page_large_results() -> None:
     table_ids = _menu_ids(viewer, "tables_menu")
     assert len([item_id for item_id in table_ids if item_id.startswith("table_")]) == 100
     assert f"table_{last_table_id}" not in table_ids
-    assert "refresh" in table_ids
+    assert "refresh" not in table_ids
     assert "page_next" in table_ids
 
     __import__("asyncio").run(
@@ -116,7 +116,7 @@ def test_table_lists_page_large_results() -> None:
     active_ids = _menu_ids(viewer, "active_tables_menu")
     assert len([item_id for item_id in active_ids if item_id.startswith("table_")]) == 100
     assert f"table_{last_table_id}" not in active_ids
-    assert "refresh" in active_ids
+    assert "refresh" not in active_ids
     assert "page_next" in active_ids
 
     __import__("asyncio").run(

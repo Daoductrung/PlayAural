@@ -16,6 +16,7 @@ def _make_admin_server(tmp_path):
     server = Server(db_path=tmp_path / "admin_nav.sqlite")
     server._db.connect()
     record = server._db.create_user("Admin", "hash", trust_level=3)
+    server._db.approve_user("Admin")
     admin = MockUser("Admin", uuid=record.uuid)
     admin.trust_level = 3
     server._users[admin.username] = admin
@@ -124,6 +125,37 @@ async def test_admin_account_approval_menu_pages_pending_accounts(tmp_path) -> N
         assert _current_menu(server, admin.username) == "account_approval_menu"
         assert server._user_states[admin.username]["account_approval_page"] == 2
         assert admin.menus["account_approval_menu"]["selection_id"] == "pending_Pending100"
+    finally:
+        server._db.close()
+
+
+def test_admin_empty_paginated_menus_do_not_show_manual_refresh(tmp_path) -> None:
+    server, admin = _make_admin_server(tmp_path)
+    try:
+        server.admin_manager._show_account_approval_menu(admin)
+        approval_ids = _menu_item_ids(admin, "account_approval_menu")
+        assert "refresh" not in approval_ids
+
+        server.admin_manager._show_ban_menu(admin)
+        ban_ids = _menu_item_ids(admin, "ban_menu")
+        assert "refresh" not in ban_ids
+    finally:
+        server._db.close()
+
+
+def test_account_approval_list_auto_refreshes_when_pending_queue_changes(tmp_path) -> None:
+    server, admin = _make_admin_server(tmp_path)
+    try:
+        server.admin_manager._show_account_approval_menu(admin)
+        assert "pending_NewPlayer" not in _menu_item_ids(admin, "account_approval_menu")
+
+        server._db.create_user("NewPlayer", "hash")
+        server.admin_manager.refresh_account_approval_menus()
+
+        ids = _menu_item_ids(admin, "account_approval_menu")
+        assert "pending_NewPlayer" in ids
+        assert "refresh" in ids
+        assert admin.menus["account_approval_menu"]["position"] is None
     finally:
         server._db.close()
 

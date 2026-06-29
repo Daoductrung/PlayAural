@@ -10,6 +10,7 @@ ludo-roll = { $player } gieo được { $roll }.
 ludo-you-roll = Bạn gieo được { $roll }.
 ludo-no-moves = { $player } không có nước đi hợp lệ.
 ludo-you-no-moves = Bạn không có nước đi hợp lệ.
+ludo-error-roll-pending-move = Bạn đã gieo xúc xắc và đang có nước đi hợp lệ. Hãy đi một quân có thể đi trước khi gieo tiếp.
 ludo-you-enter-board =
     { $brief ->
         [yes] { $safe ->

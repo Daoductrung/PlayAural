@@ -431,6 +431,40 @@ class ColorGameGame(Game):
         }.get(kind, "colorgame-quick-bet-preset")
         return Localization.get(locale, key, amount=amount)
 
+    def _quick_bet_initial_selection(
+        self, player: ColorGamePlayer, options: list[str]
+    ) -> str | None:
+        action_id = self._pending_actions.get(player.id, "")
+        color = action_id.removeprefix("set_bet_")
+        if color not in COLORS:
+            return None
+
+        prefix = f"{QUICK_BET_ALL_IN}:{color}:"
+        if (
+            player.pending_risky_action.startswith(prefix)
+            and player.risky_confirm_ticks > 0
+        ):
+            amount = player.pending_risky_action.removeprefix(prefix)
+            option_id = f"{QUICK_BET_ALL_IN}:{amount}"
+            if option_id in options:
+                return option_id
+        return None
+
+    def _reopen_quick_bet_menu(
+        self, player: ColorGamePlayer, color: str
+    ) -> None:
+        if color not in COLORS:
+            return
+        action = self.find_action(player, f"set_bet_{color}")
+        if action:
+            self._request_action_input(action, player)
+
+    def _on_action_input_cancelled(
+        self, player: ColorGamePlayer, action_id: str
+    ) -> None:
+        if action_id.startswith("set_bet_"):
+            self._clear_risky_confirmation(player)
+
     def _live_players(self) -> list[ColorGamePlayer]:
         return [
             player
@@ -969,6 +1003,7 @@ class ColorGameGame(Game):
                         prompt="colorgame-select-quick-bet",
                         options="_quick_bet_options",
                         option_label="_quick_bet_option_label",
+                        initial_selection="_quick_bet_initial_selection",
                     ),
                     show_in_actions_menu=False,
                 )
@@ -1096,6 +1131,7 @@ class ColorGameGame(Game):
     ) -> None:
         color = action_id.removeprefix("set_bet_")
         if input_value == QUICK_BET_CUSTOM:
+            self._clear_risky_confirmation(player)
             self.execute_action(player, f"custom_bet_{color}")
             return
         if input_value == QUICK_BET_CLEAR:
@@ -1125,7 +1161,7 @@ class ColorGameGame(Game):
                 color=self._color_name(self._player_locale(player), color),
             )
         ):
-            self.request_menu_focus(player, action_id)
+            self._reopen_quick_bet_menu(player, color)
             return
 
         self._apply_color_bet(player, color, amount)

@@ -32,6 +32,7 @@ sorry-card-none = no active card
 sorry-card-sorry = Sorry!
 sorry-choose-move = Choose a move.
 sorry-choose-split = Choose how to split 7.
+sorry-error-draw-pending-move = You already drew a card. Choose one of the available moves for that card before drawing again.
 
 sorry-game-started = Sorry begins. Players: { $players }.
 sorry-draw-announcement = { $player } draws { $card }.

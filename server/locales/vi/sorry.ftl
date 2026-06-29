@@ -32,6 +32,7 @@ sorry-card-none = chưa có thẻ nào
 sorry-card-sorry = Sorry!
 sorry-choose-move = Hãy chọn một nước đi.
 sorry-choose-split = Hãy chọn cách chia 7.
+sorry-error-draw-pending-move = Bạn đã rút thẻ rồi. Hãy chọn một nước đi hợp lệ của thẻ đó trước khi rút tiếp.
 
 sorry-game-started = Ván Sorry bắt đầu. Người chơi: { $players }.
 sorry-draw-announcement = { $player } rút được thẻ { $card }.

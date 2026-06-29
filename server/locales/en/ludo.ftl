@@ -10,6 +10,7 @@ ludo-roll = { $player } rolls a { $roll }.
 ludo-you-roll = You roll a { $roll }.
 ludo-no-moves = { $player } has no valid moves.
 ludo-you-no-moves = You have no valid moves.
+ludo-error-roll-pending-move = You already rolled and have a valid move. Move one of your available tokens before rolling again.
 ludo-you-enter-board =
     { $brief ->
         [yes] { $safe ->

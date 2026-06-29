@@ -375,6 +375,8 @@ class SorryGame(Game):
         if self.is_sequence_gameplay_locked():
             return "action-not-available"
         if self.game_state.turn_phase != "draw":
+            if self.game_state.turn_phase in {"choose_move", "choose_split"}:
+                return "sorry-error-draw-pending-move"
             return "action-not-available"
         return None
 

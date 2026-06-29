@@ -302,6 +302,32 @@ def test_draw_card_visible_but_disabled_out_of_turn() -> None:
     assert actions["draw_card"].disabled_reason == "action-not-your-turn"
 
 
+def test_draw_card_pending_move_speaks_contextual_error() -> None:
+    game = make_game(start=True)
+    player = game.current_player
+    assert player is not None
+    user = game.get_user(player)
+    assert user is not None
+    game.game_state.current_card = "1"
+    game.game_state.turn_phase = "choose_move"
+    user.clear_messages()
+
+    visible = {resolved.action.id: resolved for resolved in game.get_all_visible_actions(player)}
+    assert "draw_card" in visible
+    assert visible["draw_card"].enabled is False
+    assert visible["draw_card"].disabled_reason == "sorry-error-draw-pending-move"
+
+    game.handle_event(
+        player,
+        {"type": "menu", "menu_id": "turn_menu", "selection_id": "draw_card"},
+    )
+
+    assert user.get_last_spoken() == (
+        "You already drew a card. Choose one of the available moves for that "
+        "card before drawing again."
+    )
+
+
 def test_turn_menu_contains_web_info_actions() -> None:
     game = make_game(start=True, web_first=True)
     player = game.players[0]

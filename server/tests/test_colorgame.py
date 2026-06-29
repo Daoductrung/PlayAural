@@ -244,6 +244,69 @@ def test_all_in_respects_risky_action_confirmation() -> None:
     assert player.pending_risky_action == ""
 
 
+def test_all_in_confirmation_keeps_color_menu_open_for_repeat() -> None:
+    game = make_game(start=True)
+    player = game.players[0]
+    user = game.get_user(player)
+    assert isinstance(user, MockUser)
+
+    game.execute_action(player, "set_bet_red")
+    game.handle_event(
+        player,
+        {
+            "type": "menu",
+            "menu_id": "action_input_menu",
+            "selection_id": "all_in:20",
+        },
+    )
+
+    assert player.current_bets == {}
+    assert player.pending_risky_action == "all_in:red:20"
+    assert game._pending_actions[player.id] == "set_bet_red"
+    assert user.menus["action_input_menu"]["selection_id"] == "all_in:20"
+
+    game.handle_event(
+        player,
+        {
+            "type": "menu",
+            "menu_id": "action_input_menu",
+            "selection_id": "all_in:20",
+        },
+    )
+
+    assert player.current_bets == {"red": 20}
+    assert player.pending_risky_action == ""
+    assert player.id not in game._pending_actions
+
+
+def test_cancelled_all_in_confirmation_clears_pending_risky_action() -> None:
+    game = make_game(start=True)
+    player = game.players[0]
+
+    game.execute_action(player, "set_bet_red")
+    game.handle_event(
+        player,
+        {
+            "type": "menu",
+            "menu_id": "action_input_menu",
+            "selection_id": "all_in:20",
+        },
+    )
+    game.handle_event(
+        player,
+        {
+            "type": "menu",
+            "menu_id": "action_input_menu",
+            "selection_id": "_cancel",
+        },
+    )
+
+    assert player.current_bets == {}
+    assert player.pending_risky_action == ""
+    assert player.risky_confirm_ticks == 0
+    assert player.id not in game._pending_actions
+
+
 def test_all_in_confirmation_can_be_disabled_per_player() -> None:
     game = make_game(start=True)
     player = game.players[0]

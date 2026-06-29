@@ -62,6 +62,33 @@ class TestLudoUnit:
 
         assert game._is_check_board_enabled(player) == "action-not-playing"
 
+    def test_roll_dice_pending_move_speaks_contextual_error(self):
+        game = LudoGame()
+        alice_user = MockUser("Alice")
+        game.add_player("Alice", alice_user)
+        game.add_player("Bob", MockUser("Bob"))
+        game.on_start()
+        game.flush_menus()
+        player = game.current_player
+        assert isinstance(player, LudoPlayer)
+        player.move_options = {0: "Move token 1"}
+        alice_user.clear_messages()
+
+        visible = {resolved.action.id: resolved for resolved in game.get_all_visible_actions(player)}
+        assert "roll_dice" in visible
+        assert visible["roll_dice"].enabled is False
+        assert visible["roll_dice"].disabled_reason == "ludo-error-roll-pending-move"
+
+        game.handle_event(
+            player,
+            {"type": "menu", "menu_id": "turn_menu", "selection_id": "roll_dice"},
+        )
+
+        assert alice_user.get_last_spoken() == (
+            "You already rolled and have a valid move. Move one of your "
+            "available tokens before rolling again."
+        )
+
     def test_end_screen_uses_tokens_home_unit_from_result(self):
         game = LudoGame()
         alice = game.add_player("Alice", MockUser("Alice"))

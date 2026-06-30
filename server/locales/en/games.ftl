@@ -82,9 +82,6 @@ team-arrangement-player-missing = That player is no longer available for team ar
 team-arrangement-same-team = Choose someone from a different team.
 team-arrangement-swap-failed = Could not swap those team members.
 
-option-on = on
-option-off = off
-
 status-box-closed = Status information closed.
 
 game-leave = Leave game

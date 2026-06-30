@@ -82,9 +82,6 @@ team-arrangement-player-missing = Người chơi đó không còn trong phiên s
 team-arrangement-same-team = Hãy chọn một người ở đội khác.
 team-arrangement-swap-failed = Không thể đổi chỗ hai thành viên đội đó.
 
-option-on = bật
-option-off = tắt
-
 status-box-closed = Đã đóng thông tin trạng thái.
 
 game-leave = Rời trò chơi

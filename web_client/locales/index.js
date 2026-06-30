@@ -1,27 +1,39 @@
-export const DEFAULT_LOCALE = "en";
+import { DEFAULT_LOCALE, LOCALE_METADATA } from "./manifest.js";
 
-export const AVAILABLE_LOCALES = {
-  en: "English",
-  vi: "Tiếng Việt",
-};
+export { DEFAULT_LOCALE, LOCALE_METADATA };
 
-const LOADERS = {
-  en: () => import("./en.js"),
-  vi: () => import("./vi.js"),
-};
+export const AVAILABLE_LOCALES = Object.fromEntries(
+  Object.entries(LOCALE_METADATA).map(([code, metadata]) => [
+    code,
+    metadata.nativeName || metadata.name || code,
+  ]),
+);
 
 export function normalizeLocale(locale) {
-  const requested = String(locale || DEFAULT_LOCALE).trim().toLowerCase();
-  if (LOADERS[requested]) {
+  const requested = String(locale || DEFAULT_LOCALE)
+    .trim()
+    .replaceAll("_", "-")
+    .toLowerCase();
+  if (Object.prototype.hasOwnProperty.call(LOCALE_METADATA, requested)) {
     return requested;
   }
-  const language = requested.split(/[-_]/)[0];
-  return LOADERS[language] ? language : DEFAULT_LOCALE;
+  const language = requested.split("-")[0];
+  return Object.prototype.hasOwnProperty.call(LOCALE_METADATA, language)
+    ? language
+    : DEFAULT_LOCALE;
+}
+
+async function loadCatalog(locale) {
+  const normalized = normalizeLocale(locale);
+  if (!Object.prototype.hasOwnProperty.call(LOCALE_METADATA, normalized)) {
+    throw new Error(`Unsupported locale: ${locale}`);
+  }
+  const module = await import(`./${normalized}.js`);
+  return module.default || {};
 }
 
 export async function loadLocaleBundle(locale) {
-  const fallbackModule = await LOADERS[DEFAULT_LOCALE]();
-  const fallback = fallbackModule.default || {};
+  const fallback = await loadCatalog(DEFAULT_LOCALE);
   const normalized = normalizeLocale(locale);
   if (normalized === DEFAULT_LOCALE) {
     return {
@@ -32,10 +44,10 @@ export async function loadLocaleBundle(locale) {
   }
 
   try {
-    const module = await LOADERS[normalized]();
+    const catalog = await loadCatalog(normalized);
     return {
       locale: normalized,
-      messages: { ...fallback, ...(module.default || {}) },
+      messages: { ...fallback, ...catalog },
       fallback,
     };
   } catch {

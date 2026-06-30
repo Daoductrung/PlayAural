@@ -68,6 +68,7 @@ python -m http.server 8080 --directory web_client
 cd mobile_client
 cmd /c npm install
 cmd /c npm run generate:sounds
+cmd /c npm run generate:locales
 cmd /c npm run typecheck
 npx expo start
 ```
@@ -483,6 +484,15 @@ Any new persistent feature must define:
   it for native review rather than treating it as final.
 - Prefer writing the `en` strings before the game/feature code — it forces the
   flow to be planned and every announcement to be enumerated up front.
+- Locale discovery, language selection, and fallback must remain dynamic. Do
+  not hardcode feature branches for specific language codes; add new languages
+  through locale files and the appropriate metadata/registry layer. Missing
+  translated strings and missing translated documentation must fall back to
+  English, never to raw keys or empty manuals.
+- Validate server Fluent changes with `server/tools/compare_locales.py`. The
+  tool reports missing and obsolete files/keys, plus variable, select/plural
+  arm, and attribute mismatches. Obsolete target keys are cleanup work, not
+  harmless leftovers.
 
 #### String Localization & Contextual Broadcasting Standard (Mandatory)
 
@@ -549,6 +559,9 @@ game experience, not a developer changelog.
 - Keep EN and VI documentation synchronized in structure, meaning, terminology,
   and attribution. Vietnamese manuals should be natural, friendly, and aligned
   with the matching `.ftl` terminology.
+- Community translation work must follow `TRANSLATING.md`: preserve variables,
+  maintain first-person/third-person key parity, keep documentation
+  player-facing, and update language contributor metadata.
 
 ### Desktop Client Architecture
 - **`client/ui/main_window.py`** — primary desktop UI and gameplay interaction
@@ -577,7 +590,7 @@ Desktop rules:
 - **`web_client/keybinds.js`** — desktop-style keyboard shortcuts, menu navigation, grid movement, buffer controls, and global command routing
 - **`web_client/ui/menus.js`** — menu rendering, stable item identity, keyboard/touch selection, grid layout, type navigation, context actions, and iOS-friendly pointer activation
 - **`web_client/ui/history.js`** — capped/coalesced history rendering, buffer switching, screen-reader announcements, and mobile history presentation
-- **`web_client/locales/index.js`**, **`web_client/locales/en.js`**, and **`web_client/locales/vi.js`** — client-side locale loading and EN/VI UI strings
+- **`web_client/locales/manifest.js`**, **`web_client/locales/index.js`**, and locale catalog files — client-side locale metadata, dynamic loading, and UI strings
 - **`web_client/sw.js`** — PWA service worker and static shell cache
 
 Web rules:
@@ -622,6 +635,10 @@ Mobile rules:
 - web speech preferences use `speech_mode`, `speech_voice`, and `speech_rate`
 - browser web-runtime tests expose browser/Web Speech voices, while Android builds expose device TTS voices through Expo Speech
 - unavailable synced mobile voices or engines must fall back to the system default without throwing
+- mobile locale catalogs are loaded through `mobile_client/src/i18n/localeCatalogs.ts`; update `mobile_client/locales/metadata.json` and run `cmd /c npm run generate:locales` when adding a mobile language
+- server locale directories must include `metadata.json` for translator credit
+  and official/community status. Keep `languages.ftl` for viewer-localized
+  language names; metadata complements it and does not replace it.
 
 ### Game Counts and Catalog
 The server currently registers **42 games**:
@@ -635,4 +652,4 @@ The server currently registers **42 games**:
 - Desktop: `wxPython`, `accessible-output2`, `sound-lib`, `keyring`, `livekit`, `sounddevice`
 - Mobile: `expo`, `react-native`, `expo-audio`, `expo-speech`, `@react-native-async-storage/async-storage`, `expo-secure-store`
 - Package manager: `uv` for Python components, `npm` for the mobile client
-- Languages: English and Vietnamese
+- Languages: English and Vietnamese are official defaults; partial community translations fall back to English

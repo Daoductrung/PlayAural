@@ -2523,27 +2523,33 @@ PlayAural Server
             MenuItem(
                 text=Localization.get(
                     user.locale,
-                    "option-notify-user-presence-on"
-                    if prefs.notify_user_presence
-                    else "option-notify-user-presence-off",
+                    "option-notify-user-presence",
+                    status=Localization.get(
+                        user.locale,
+                        "option-on" if prefs.notify_user_presence else "option-off",
+                    ),
                 ),
                 id="notify_user_presence",
             ),
             MenuItem(
                 text=Localization.get(
                     user.locale,
-                    "option-notify-friend-presence-on"
-                    if prefs.notify_friend_presence
-                    else "option-notify-friend-presence-off",
+                    "option-notify-friend-presence",
+                    status=Localization.get(
+                        user.locale,
+                        "option-on" if prefs.notify_friend_presence else "option-off",
+                    ),
                 ),
                 id="notify_friend_presence",
             ),
             MenuItem(
                 text=Localization.get(
                     user.locale,
-                    "option-notify-table-created-on"
-                    if prefs.notify_table_created
-                    else "option-notify-table-created-off",
+                    "option-notify-table-created",
+                    status=Localization.get(
+                        user.locale,
+                        "option-on" if prefs.notify_table_created else "option-off",
+                    ),
                 ),
                 id="notify_table_created",
             ),
@@ -2787,21 +2793,65 @@ PlayAural Server
         )
         self._user_states[user.username] = {"menu": "audio_input_device_menu"}
 
+    def _format_language_menu_entry(
+        self,
+        user: NetworkUser,
+        lang_code: str,
+        lang_name: str,
+        localized_name: str,
+    ) -> str:
+        """Format one language row with translator metadata."""
+        if localized_name != lang_name:
+            language_display = f"{localized_name} ({lang_name})"
+        else:
+            language_display = lang_name
+
+        metadata = Localization.get_locale_metadata(lang_code)
+        if metadata.available and metadata.translators:
+            translators = Localization.format_list_and(
+                user.locale,
+                list(metadata.translators),
+            )
+            entry = Localization.get(
+                user.locale,
+                "language-menu-entry",
+                language=language_display,
+                official="true" if metadata.official else "false",
+                translators=translators,
+            )
+        else:
+            entry = Localization.get(
+                user.locale,
+                "language-menu-entry-missing-metadata",
+                language=language_display,
+            )
+
+        if lang_code == user.locale:
+            return Localization.get(
+                user.locale,
+                "language-menu-current-entry",
+                entry=entry,
+            )
+        return entry
+
     def _show_language_menu(self, user: NetworkUser) -> None:
         """Show language selection menu."""
-        # Get languages in their native names and in user's locale for comparison
-        languages = Localization.get_available_languages(fallback = user.locale)
-        localized_languages = Localization.get_available_languages(user.locale, fallback= user.locale)
+        # Get languages in their native names and in user's locale for comparison.
+        languages = Localization.get_available_languages(fallback=user.locale)
+        localized_languages = Localization.get_available_languages(
+            user.locale,
+            fallback=user.locale,
+        )
 
         items = []
         for lang_code, lang_name in languages.items():
-            prefix = "* " if lang_code == user.locale else ""
             localized_name = localized_languages.get(lang_code, lang_name)
-            # Show localized name first, then native name in parentheses if different
-            if localized_name != lang_name:
-                display = f"{prefix}{localized_name} ({lang_name})"
-            else:
-                display = f"{prefix}{lang_name}"
+            display = self._format_language_menu_entry(
+                user,
+                lang_code,
+                lang_name,
+                localized_name,
+            )
             items.append(MenuItem(text=display, id=f"lang_{lang_code}"))
         items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
         user.show_menu(
@@ -5481,7 +5531,15 @@ PlayAural Server
                 lang_code = selection_id[5:]
                 user.set_locale(lang_code)
                 self._db.update_user_locale(user.username, lang_code)
-                user.speak_l("language-changed", buffer="system", language=Localization.get(lang_code, f"language-{lang_code}"))
+                language_name = Localization.get_available_languages(
+                    lang_code,
+                    fallback=lang_code,
+                ).get(lang_code, lang_code)
+                user.speak_l(
+                    "language-changed",
+                    buffer="system",
+                    language=language_name,
+                )
                 
                 # Send packet to update client config immediately
                 await user.connection.send({

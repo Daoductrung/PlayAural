@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
+from ..messages.localization import DEFAULT_LOCALE
+
 
 @dataclass(frozen=True)
 class DocumentationEntry:
@@ -25,7 +27,7 @@ TOP_LEVEL_DOCUMENTS: tuple[DocumentationEntry, ...] = (
 
 
 class DocumentationManager:
-    """Load documentation content with safe IDs, caching, and English fallback."""
+    """Load documentation content with safe IDs, caching, and default fallback."""
 
     _instance: DocumentationManager | None = None
 
@@ -47,19 +49,20 @@ class DocumentationManager:
         """Return the ordered top-level documentation pages."""
         return TOP_LEVEL_DOCUMENTS
 
-    def get_all_categories(self, locale: str = "en") -> dict[str, str]:
+    def get_all_categories(self, locale: str = DEFAULT_LOCALE) -> dict[str, str]:
         """Backward-compatible mapping of top-level document IDs to label keys."""
         return {
             entry.doc_id: entry.label_key
             for entry in self.get_top_level_documents()
         }
 
-    def get_document(self, doc_id: str, locale: str = "en") -> str | None:
+    def get_document(self, doc_id: str, locale: str = DEFAULT_LOCALE) -> str | None:
         """
         Get raw markdown content by canonical document ID.
 
         Document IDs are extensionless POSIX-style paths such as ``intro`` or
-        ``games/scopa``. Localized documents fall back to English when missing.
+        ``games/scopa``. Localized documents fall back to the default locale
+        when missing.
         """
         safe_doc_id = self.normalize_doc_id(doc_id)
         if safe_doc_id is None:
@@ -69,12 +72,12 @@ class DocumentationManager:
         content = self._load_file(safe_doc_id, locale)
         if content is not None:
             return content
-        if locale != "en":
-            return self._load_file(safe_doc_id, "en")
+        if locale != DEFAULT_LOCALE:
+            return self._load_file(safe_doc_id, DEFAULT_LOCALE)
         return None
 
-    def document_exists(self, doc_id: str, locale: str = "en") -> bool:
-        """Return whether a document exists in the requested locale or English."""
+    def document_exists(self, doc_id: str, locale: str = DEFAULT_LOCALE) -> bool:
+        """Return whether a document exists in the locale or default locale."""
         return self.get_document(doc_id, locale) is not None
 
     def render_markdown_lines(self, content: str) -> list[str]:
@@ -114,12 +117,31 @@ class DocumentationManager:
         return path.as_posix()
 
     def normalize_locale(self, locale: str) -> str:
-        """Return a filesystem-safe locale segment, falling back to English."""
+        """Return an installed filesystem-safe locale or the default locale."""
         if not isinstance(locale, str) or not locale:
-            return "en"
-        if any(ch in locale for ch in ("/", "\\", ".", "\x00")):
-            return "en"
-        return locale
+            return DEFAULT_LOCALE
+        normalized = locale.strip().replace("_", "-").lower()
+        if any(ch in normalized for ch in ("/", "\\", ".", "\x00")):
+            return DEFAULT_LOCALE
+        if not all(ch.isalnum() or ch == "-" for ch in normalized):
+            return DEFAULT_LOCALE
+
+        installed = self._installed_locales()
+        if normalized in installed:
+            return normalized
+        base = normalized.split("-", 1)[0]
+        if base in installed:
+            return base
+        return DEFAULT_LOCALE
+
+    def _installed_locales(self) -> set[str]:
+        if not self.base_path.exists():
+            return {DEFAULT_LOCALE}
+        return {
+            locale_dir.name
+            for locale_dir in self.base_path.iterdir()
+            if locale_dir.is_dir()
+        } or {DEFAULT_LOCALE}
 
     def _load_file(self, doc_id: str, locale: str) -> str | None:
         """Load a single canonical document file from disk or cache."""

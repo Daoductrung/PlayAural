@@ -43,7 +43,7 @@ Other common commands:
 cd server && python -m server
 python client/client.py
 python -m http.server 8080 --directory web_client
-cd mobile_client && cmd /c npm install && cmd /c npm run generate:sounds
+cd mobile_client && cmd /c npm install && cmd /c npm run generate:sounds && cmd /c npm run generate:locales
 cd mobile_client && cmd /c npm run typecheck && npx expo start
 ```
 
@@ -222,6 +222,13 @@ players.
   provisional and should be flagged for native review when quality matters.
 - Prefer writing locale keys before feature code so every announcement path is
   planned.
+- Locale discovery and fallback must stay dynamic. Do not hardcode language
+  branches in feature code; new languages should be added through locale files
+  and metadata/registry layers. Missing translated strings or documentation
+  must fall back to English rather than exposing raw keys to players.
+- Validate server Fluent changes with `server/tools/compare_locales.py`; it
+  reports missing keys, obsolete keys, variables, select/plural arms, and
+  attributes. Do not leave obsolete target keys behind after refactors.
 
 ### String Localization & Contextual Broadcasting Standard
 
@@ -264,6 +271,9 @@ player-facing tone.
 - Keep EN/VI documentation synchronized in structure, meaning, terminology, and
   attribution. Vietnamese docs should be natural and friendly, with terminology
   aligned to the matching `.ftl` strings.
+- Community translation work must follow `TRANSLATING.md`, including variable
+  preservation, perspective-key parity, documentation fallback, and contributor
+  credit metadata.
 
 ## Scores, Leaderboards, and Teams
 
@@ -336,6 +346,13 @@ per-game shutdown hooks.
 - Web speech prefs are `speech_mode`, `speech_voice`, `speech_rate`.
 - Mobile speech prefs are `mobile_tts_engine`, `mobile_tts_voice`,
   `mobile_tts_rate`; unavailable synced voices/engines must fall back safely.
+- Web locale catalogs are loaded through `web_client/locales/manifest.js` and
+  `index.js`; mobile locale catalogs are loaded through the generated
+  `mobile_client/src/i18n/localeCatalogs.ts` registry. Keep registry metadata
+  synchronized when adding languages.
+- Server locale directories must include `metadata.json` for translator credit
+  and official/community status. Keep `languages.ftl` for localized language
+  names; do not replace viewer-localized names with metadata-only labels.
 - Mobile connects as `client: "mobile"`, is treated as touch, uses SecureStore
   for credentials, AsyncStorage for local prefs, and must enforce mandatory APK
   updates on version/sound-pack mismatch.

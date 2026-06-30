@@ -15,6 +15,9 @@ class Localization:
     _locale = "en"
     _fallback_locale = "en"
     _locales_dir: Path | None = None
+    _message_aliases = {
+        "voice-unavailable": "voice-chat-unavailable",
+    }
 
     @classmethod
     def init(cls, locales_dir: Path | None = None, locale: str = "en"):
@@ -77,19 +80,20 @@ class Localization:
         """Get a localized message."""
         if not cls._bundle:
             return message_id
-            
-        if not cls._bundle.has_message(message_id):
+
+        lookup_id = cls._message_aliases.get(message_id, message_id)
+        if not cls._bundle.has_message(lookup_id):
             return message_id
             
         try:
-            message = cls._bundle.get_message(message_id)
+            message = cls._bundle.get_message(lookup_id)
             if message and message.value:
                 val, errors = cls._bundle.format_pattern(message.value, kwargs)
                 if errors:
-                    LOGGER.warning("Fluent errors for %s: %s", message_id, errors)
+                    LOGGER.warning("Fluent errors for %s: %s", lookup_id, errors)
                     return val or message_id
                 return val
             return message_id
         except Exception as e:
-            LOGGER.warning("Error formatting %s: %s", message_id, e)
+            LOGGER.warning("Error formatting %s: %s", lookup_id, e)
             return message_id

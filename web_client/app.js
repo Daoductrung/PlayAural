@@ -3,7 +3,7 @@ import { createAudioEngine } from "./audio.js";
 import { installKeybinds } from "./keybinds.js";
 import { createNetworkClient, loadPacketValidator } from "./network.js";
 import { createStore } from "./store.js";
-import { AVAILABLE_LOCALES, DEFAULT_LOCALE, loadLocaleBundle } from "./locales/index.js";
+import { AVAILABLE_LOCALES, DEFAULT_LOCALE, loadLocaleBundle, normalizeLocale } from "./locales/index.js";
 import { createHistoryView } from "./ui/history.js";
 import { createMenuView } from "./ui/menus.js";
 
@@ -29,6 +29,9 @@ const WEB_SPEECH_PREF_MAX = 300;
 const WEB_SPEECH_RATE_MIN = 0.1;
 const WEB_SPEECH_RATE_NORMAL = 1;
 const WEB_SPEECH_RATE_MAX = 10;
+const MESSAGE_ALIASES = {
+  "voice-unavailable": "voice-chat-unavailable",
+};
 const RECAPTCHA_SITE_KEY = String(
   window.PLAYAURAL_RECAPTCHA_SITE_KEY || window.RECAPTCHA_SITE_KEY || "",
 ).trim();
@@ -227,6 +230,10 @@ const Localization = {
   strings: {},
   fallback: {},
 
+  resolveKey(key) {
+    return MESSAGE_ALIASES[key] || key;
+  },
+
   async load(locale) {
     const bundle = await loadLocaleBundle(locale);
     this.locale = bundle.locale;
@@ -237,15 +244,17 @@ const Localization = {
   },
 
   has(key) {
-    return Object.prototype.hasOwnProperty.call(this.strings, key)
-      || Object.prototype.hasOwnProperty.call(this.fallback, key);
+    const lookupKey = this.resolveKey(key);
+    return Object.prototype.hasOwnProperty.call(this.strings, lookupKey)
+      || Object.prototype.hasOwnProperty.call(this.fallback, lookupKey);
   },
 
   get(key, params = {}) {
     if (!key) {
       return "";
     }
-    let value = this.strings[key] ?? this.fallback[key] ?? key;
+    const lookupKey = this.resolveKey(key);
+    let value = this.strings[lookupKey] ?? this.fallback[lookupKey] ?? key;
     for (const [name, raw] of Object.entries(params || {})) {
       const replacement = String(raw);
       value = value
@@ -1231,7 +1240,7 @@ class PlayAuralWebApp {
       return;
     }
     const previous = this.elements.languageSelect.value || storageGet(LANG_KEY) || DEFAULT_LOCALE;
-    const normalized = String(previous).toLowerCase().split(/[-_]/)[0];
+    const normalized = normalizeLocale(previous);
     this.elements.languageSelect.replaceChildren();
     for (const [code, label] of Object.entries(AVAILABLE_LOCALES)) {
       const option = document.createElement("option");
@@ -3126,10 +3135,18 @@ class PlayAuralWebApp {
     this.preferences[flatKey] = nextValue;
     this.saveLocalConfig();
     this.send({ type: "set_preference", key: serverKey, value: nextValue });
-    const messageKey = isGlobal
-      ? (nextValue ? "main-global-chat-muted" : "main-global-chat-unmuted")
-      : (nextValue ? "main-table-chat-muted" : "main-table-chat-unmuted");
-    this.speak(messageKey, { buffer: "system", noHistory: true });
+    const scopeKey = isGlobal ? "main-chat-scope-global" : "main-chat-scope-table";
+    const statusKey = nextValue
+      ? "main-chat-mute-state-muted"
+      : "main-chat-mute-state-unmuted";
+    this.speak("main-chat-mute-status", {
+      params: {
+        scope: Localization.get(scopeKey),
+        status: Localization.get(statusKey),
+      },
+      buffer: "system",
+      noHistory: true,
+    });
   }
 
   handlePong() {

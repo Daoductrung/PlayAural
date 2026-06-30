@@ -10,7 +10,8 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
-    "generate:sounds": "node scripts/generate-sound-manifest.mjs"
+    "generate:sounds": "node scripts/generate-sound-manifest.mjs",
+    "generate:locales": "node scripts/generate-locale-registry.mjs"
   },
   "dependencies": {
     "@config-plugins/react-native-webrtc": "^14.0.0",

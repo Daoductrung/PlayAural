@@ -1,4 +1,4 @@
-const CACHE_NAME = "playaural-web-v1.0.4.7-shell-2";
+const CACHE_NAME = "playaural-web-v1.0.4.7-shell-3";
 
 const PRECACHE_URLS = [
   "./",
@@ -13,6 +13,7 @@ const PRECACHE_URLS = [
   "./keybinds.js",
   "./network.js",
   "./store.js",
+  "./locales/manifest.js",
   "./locales/index.js",
   "./locales/en.js",
   "./locales/vi.js",

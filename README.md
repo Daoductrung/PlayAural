@@ -14,7 +14,7 @@ PlayAural is built upon the open-source foundation of [PlayPalace](https://githu
 - Audio-first gameplay with TTS and sound cues for menus, turns, results, and status changes
 - Online multiplayer tables with hosts, spectators, bots, scores, saves, and reconnect handling
 - Desktop, web, and mobile clients using the same WebSocket game protocol
-- English and Vietnamese localization across the platform
+- English and Vietnamese localization across the platform, with safe English fallback for partial community translations
 - Table-based real-time voice chat across the first-party clients, authorized by the game server and carried by a dedicated media service
 
 ## Platform Components
@@ -58,12 +58,16 @@ PlayAural separates voice authorization from media transport.
 - The server issues short-lived join tokens and keeps voice membership tied to table context.
 - Voice presence announcements and related sounds are synchronized with the normal table lifecycle.
 
-## Languages
+## Supported Languages
 
-PlayAural currently supports:
+PlayAural currently supports the following languages:
 
-- English
-- Vietnamese
+- English (EN) - official default language, maintained by the PlayAural core team
+- Vietnamese (VI) - official default language, maintained by Trung and the PlayAural core team
+
+Community translators should follow [TRANSLATING.md](TRANSLATING.md). Partial
+translations are supported safely: missing strings and missing translated
+documentation fall back to English rather than displaying raw translation keys.
 
 ## Repository Layout
 
@@ -80,7 +84,7 @@ The browser client is a standalone PWA served from `web_client/`.
 - `game.js` defines the web client version and bootstraps the runtime.
 - `app.js`, `store.js`, `network.js`, `audio.js`, `a11y.js`, and `keybinds.js` handle the client shell, WebSocket protocol, state, sound, speech, accessibility announcements, and keyboard commands.
 - `ui/menus.js` and `ui/history.js` render the active game menu and message history with stable focus, touch activation, capped buffers, and coalesced updates for mobile performance.
-- `locales/en.js` and `locales/vi.js` provide browser-client UI strings.
+- `locales/manifest.js`, `locales/index.js`, and the locale catalog files provide browser-client UI strings and language metadata.
 - `sw.js` provides the PWA shell cache for offline startup assets.
 
 The web client uses the same server packets as the desktop and mobile clients. It supports single-line and multiline server input requests, browser Web Speech voice selection with a default voice option, ARIA live announcements at the end of the reading order, local sound/music/ambience playback, and LiveKit table voice chat authorized by the game server.

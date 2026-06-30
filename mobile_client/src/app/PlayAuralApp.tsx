@@ -35,7 +35,7 @@ import { requestAndroidBatteryOptimizationExemptionOnce } from "../background/An
 import { androidForegroundService } from "../background/AndroidForegroundService";
 import { useSelfVoicingGestures } from "../gestures/useSelfVoicingGestures";
 import { bundledSoundVersion } from "../generated/soundManifest";
-import { MobileLocalization } from "../i18n/localization";
+import { MobileLocalization, resolveMobileLocale, type MobileLocale } from "../i18n/localization";
 import { PlayAuralConnection } from "../network/PlayAuralConnection";
 import { clientAuthMetadata } from "../network/clientInfo";
 import type {
@@ -248,7 +248,7 @@ type AuthFocusableItem = {
 };
 
 type StoredClientConfig = {
-  appLocale: "en" | "vi";
+  appLocale: MobileLocale;
   preferences: Record<string, unknown>;
   registerEmail: string;
   serverUrl: string;
@@ -292,9 +292,9 @@ function menuItemAccessibilityKey(menuId: string, item: { id?: string } | undefi
   return `menu:${menuId}:${identity}`;
 }
 
-function detectPreferredLocale(): "en" | "vi" {
+function detectPreferredLocale(): MobileLocale {
   const deviceLocale = Intl.DateTimeFormat().resolvedOptions().locale?.toLowerCase?.() ?? "en";
-  return deviceLocale.startsWith("vi") ? "vi" : "en";
+  return resolveMobileLocale(deviceLocale);
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -509,7 +509,7 @@ function toLocalizationParams(params: Record<string, unknown> | undefined): Reco
 }
 
 export function PlayAuralApp() {
-  const initialLocale = useMemo<"en" | "vi">(() => detectPreferredLocale(), []);
+  const initialLocale = useMemo<MobileLocale>(() => detectPreferredLocale(), []);
   const localization = useMemo(() => {
     const instance = new MobileLocalization();
     instance.setLocale(initialLocale);
@@ -524,7 +524,7 @@ export function PlayAuralApp() {
   const audio = useMemo(() => new MobileAudioManager(), []);
   const voice = useMemo(() => new MobileVoiceManager(), []);
 
-  const [appLocale, setAppLocale] = useState<"en" | "vi">(initialLocale);
+  const [appLocale, setAppLocale] = useState<MobileLocale>(initialLocale);
   const [mode, setMode] = useState<AppMode>("main");
   const [authMode, setAuthMode] = useState<AuthMode>("login");
   const [menuState, setMenuState] = useState<MenuState>(defaultMenuState);
@@ -1305,8 +1305,7 @@ export function PlayAuralApp() {
   }, [connected, localization, password, prepareManualConnect, serverUrl, storageReady, username]);
 
   const applyLocale = (locale: string | undefined) => {
-    const resolvedLocale = locale === "vi" ? "vi" : "en";
-    localization.setLocale(resolvedLocale);
+    const resolvedLocale = localization.setLocale(locale);
     tts.setLanguage(resolvedLocale);
     setAppLocale(resolvedLocale);
   };
@@ -1333,7 +1332,7 @@ export function PlayAuralApp() {
           setForgotEmail(storedConfig.registerEmail);
           setResetEmail(storedConfig.registerEmail);
         }
-        if (storedConfig.appLocale === "en" || storedConfig.appLocale === "vi") {
+        if (typeof storedConfig.appLocale === "string") {
           applyLocale(storedConfig.appLocale);
           appliedStoredLocale = true;
         }
@@ -2766,7 +2765,7 @@ export function PlayAuralApp() {
     }
 
     const items: AuthFocusableItem[] = [
-      { action: "toggle_locale", id: "locale", text: `${localization.t("locale")}: ${appLocale.toUpperCase()}` },
+      { action: "toggle_locale", id: "locale", text: `${localization.t("locale")}: ${localization.getLocaleLabel(appLocale)}` },
       { action: "focus_username", id: "field-username", text: localization.t("username") },
     ];
 
@@ -3216,7 +3215,7 @@ export function PlayAuralApp() {
       return;
     }
     if (item.action === "toggle_locale") {
-      applyLocale(appLocale === "en" ? "vi" : "en");
+      applyLocale(localization.nextLocale(appLocale));
     }
   };
 
@@ -5375,7 +5374,7 @@ export function PlayAuralApp() {
       {authStatusText ? <Text style={styles.helpText}>{authStatusText}</Text> : null}
       <View style={styles.row}>
         <Pressable
-          accessibilityLabel={`${localization.t("locale")}: ${appLocale.toUpperCase()}`}
+          accessibilityLabel={`${localization.t("locale")}: ${localization.getLocaleLabel(appLocale)}`}
           accessibilityRole="button"
           accessible
           onFocus={() => {
@@ -5383,13 +5382,13 @@ export function PlayAuralApp() {
           }}
           onPress={() => {
             void audio.handleUserInteraction();
-            applyLocale(appLocale === "en" ? "vi" : "en");
+            applyLocale(localization.nextLocale(appLocale));
           }}
           ref={registerAccessibilityNode("auth:locale")}
           style={[styles.buttonSecondary, isAuthFocused("locale") ? styles.authFocused : undefined]}
         >
           <Text style={styles.buttonText}>
-            {localization.t("locale")}: {appLocale.toUpperCase()}
+            {localization.t("locale")}: {localization.getLocaleLabel(appLocale)}
           </Text>
         </Pressable>
         <Pressable

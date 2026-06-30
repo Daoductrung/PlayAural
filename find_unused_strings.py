@@ -1,17 +1,20 @@
 import os
 import re
 import glob
+import json
 
 # Configuration
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 SERVER_LOCALES_DIR = os.path.join(PROJECT_ROOT, "server", "locales", "en")
 CLIENT_LOCALES_DIR = os.path.join(PROJECT_ROOT, "client", "locales", "en")
-WEB_CLIENT_LOCALES_FILE = os.path.join(PROJECT_ROOT, "web_client", "locales.js")
+WEB_CLIENT_LOCALES_DIR = os.path.join(PROJECT_ROOT, "web_client", "locales")
+MOBILE_CLIENT_LOCALES_FILE = os.path.join(PROJECT_ROOT, "mobile_client", "locales", "en", "client.json")
 
 SCAN_DIRS = [
     os.path.join(PROJECT_ROOT, "server"),
     os.path.join(PROJECT_ROOT, "client"),
     os.path.join(PROJECT_ROOT, "web_client"),
+    os.path.join(PROJECT_ROOT, "mobile_client"),
 ]
 
 SKIP_DIRS = [
@@ -21,10 +24,14 @@ SKIP_DIRS = [
     "venv",
     "env",
     "locales", # Skip scanning definition files for usage
+    "generated", # Skip generated manifests
 ]
 
 SKIP_FILES = [
-    "locales.js", # Skip scanning definition file for usage
+    "en.js", # Skip scanning definition files for usage
+    "vi.js", # Skip scanning definition files for usage
+    "manifest.js", # Skip locale metadata
+    "localeCatalogs.ts", # Skip generated locale registry
     "find_unused_strings.py", # Skip self
     "architecture_overview.md", # Skip documentation
     "development_guidelines.md", # Skip documentation
@@ -32,7 +39,7 @@ SKIP_FILES = [
     "implementation_plan.md" # Skip documentation
 ]
 
-EXTENSIONS = [".py", ".js", ".html", ".css"]
+EXTENSIONS = [".py", ".js", ".html", ".css", ".ts", ".tsx"]
 
 def parse_ftl(file_path):
     """Extract keys from an FTL file."""
@@ -50,23 +57,28 @@ def parse_ftl(file_path):
         print(f"Error parsing FTL {file_path}: {e}")
     return keys
 
-def parse_js_locales(file_path):
-    """Extract keys from locales.js file."""
+def parse_js_locale_file(file_path):
+    """Extract keys from a web locale catalog file."""
     keys = []
     try:
         with open(file_path, "r", encoding="utf-8") as f:
             content = f.read()
-            # Look for "en": { ... } block manually or just regex all "key": "value"
-            # Since keys are unique across the app usually, we can regex all strings strictly
-            # "key-name": 
-            # We assume structure is "key": "value"
             matches = re.findall(r'"([a-zA-Z0-9_-]+)":\s*["{]', content)
-            
-            # Filter out language keys like "en", "vi" if they are caught
-            filtered_keys = [k for k in matches if k not in ["en", "vi"]]
-            keys.extend(filtered_keys)
+            keys.extend(matches)
     except Exception as e:
-        print(f"Error parsing JS locales {file_path}: {e}")
+        print(f"Error parsing JS locale file {file_path}: {e}")
+    return keys
+
+def parse_json_locale_file(file_path):
+    """Extract keys from a JSON locale catalog file."""
+    keys = []
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            if isinstance(data, dict):
+                keys.extend(str(key) for key in data.keys())
+    except Exception as e:
+        print(f"Error parsing JSON locale file {file_path}: {e}")
     return keys
 
 def get_all_source_files():
@@ -132,11 +144,18 @@ def main():
             all_keys[f"client/locales/en/{filename}"] = keys
             print(f"Found {len(keys)} keys in client/{filename}")
 
-    # Web JS
-    if os.path.exists(WEB_CLIENT_LOCALES_FILE):
-        keys = parse_js_locales(WEB_CLIENT_LOCALES_FILE)
-        all_keys["web_client/locales.js"] = keys
-        print(f"Found {len(keys)} keys in locales.js")
+    # Web JS source catalog
+    web_source_file = os.path.join(WEB_CLIENT_LOCALES_DIR, "en.js")
+    if os.path.exists(web_source_file):
+        keys = parse_js_locale_file(web_source_file)
+        all_keys["web_client/locales/en.js"] = keys
+        print(f"Found {len(keys)} keys in web_client/locales/en.js")
+
+    # Mobile JSON source catalog
+    if os.path.exists(MOBILE_CLIENT_LOCALES_FILE):
+        keys = parse_json_locale_file(MOBILE_CLIENT_LOCALES_FILE)
+        all_keys["mobile_client/locales/en/client.json"] = keys
+        print(f"Found {len(keys)} keys in mobile_client/locales/en/client.json")
 
     # Flatten keys for checking
     flat_keys = []

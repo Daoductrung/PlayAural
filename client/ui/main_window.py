@@ -1071,8 +1071,9 @@ class MainWindow(wx.Frame):
         # Toggle it
         current_state = not current_state
         # Announce
-        status = Localization.get("main-table-chat-muted") if current_state else Localization.get("main-table-chat-unmuted")
-        self.speaker.speak(status)
+        self.speaker.speak(
+            self._format_chat_mute_status("main-chat-scope-table", current_state)
+        )
         self.modify_option_value("social/mute_table_chat", current_state)
 
     def on_toggle_global_chat(self, event):
@@ -1086,9 +1087,23 @@ class MainWindow(wx.Frame):
         # Toggle it
         current_state = not current_state
         # Announce
-        status = Localization.get("main-global-chat-muted") if current_state else Localization.get("main-global-chat-unmuted")
-        self.speaker.speak(status)
+        self.speaker.speak(
+            self._format_chat_mute_status("main-chat-scope-global", current_state)
+        )
         self.modify_option_value("social/mute_global_chat", current_state)
+
+    def _format_chat_mute_status(self, scope_key: str, muted: bool) -> str:
+        """Return the localized chat mute/unmute announcement."""
+        status_key = (
+            "main-chat-mute-state-muted"
+            if muted
+            else "main-chat-mute-state-unmuted"
+        )
+        return Localization.get(
+            "main-chat-mute-status",
+            scope=Localization.get(scope_key),
+            status=Localization.get(status_key),
+        )
 
     # Buffer navigation event handlers
 

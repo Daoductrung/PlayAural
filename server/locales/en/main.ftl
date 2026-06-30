@@ -152,6 +152,13 @@ close-menu = Close
 language = Language
 language-option = Language: { $language }
 language-changed = Language set to { $language }.
+language-menu-entry =
+    { $official ->
+        [true] { $language }. Official PlayAural language. Translators: { $translators }.
+       *[false] { $language }. Community translation. Translators: { $translators }.
+    }
+language-menu-entry-missing-metadata = { $language }. Translator metadata unavailable.
+language-menu-current-entry = Current: { $entry }
 
 option-on = On
 option-off = Off
@@ -170,12 +177,9 @@ turn-sound-option = Turn sound: { $status }
 custom-bot-names-option = Custom bot names: { $status }
 confirm-destructive-option = Confirm risky actions: { $status }
 clear-kept-option = Clear kept dice when rolling: { $status }
-option-notify-table-created-on = Notify when table created: On
-option-notify-table-created-off = Notify when table created: Off
-option-notify-user-presence-on = User online/offline notifications: On
-option-notify-user-presence-off = User online/offline notifications: Off
-option-notify-friend-presence-on = Friend online/offline notifications: On
-option-notify-friend-presence-off = Friend online/offline notifications: Off
+option-notify-table-created = Notify when table created: { $status }
+option-notify-user-presence = User online/offline notifications: { $status }
+option-notify-friend-presence = Friend online/offline notifications: { $status }
 dice-keeping-style-option = Dice keeping style: { $style }
 dice-keeping-style-changed = Dice keeping style set to { $style }.
 dice-keeping-style-indexes = Dice indexes
@@ -294,13 +298,7 @@ enter-voice-volume = Enter voice chat volume (10-100)
 invalid-volume = Invalid volume.
 
 dice-not-rolled = You haven't rolled yet.
-dice-locked = This die is locked.
 dice-no-dice = No dice available.
-
-game-turn-start = It is { $player }'s turn.
-game-turn-start-you = It is your turn.
-game-turn-start-player = It is { $player }'s turn.
-game-no-turn = No one's turn right now.
 table-no-players = No players.
 table-players-one = { $count } player: { $players }.
 table-players-many = { $count } players: { $players }.
@@ -330,15 +328,12 @@ table-member-status-bot-takeover = bot playing on their behalf: { $bot }
 table-member-no-actions = No available actions for { $player }.
 table-member-left = That person is no longer at this table.
 table-member-bot-left = That bot is no longer at this table.
-game-leave = Leave
 game-over = Game Over
 game-final-scores = Final Scores
 game-points = { $count } { $count ->
     [one] point
    *[other] points
 }
-status-box-closed = Closed.
-play = Play
 
 leaderboards = Leaderboards
 leaderboard-no-data = No leaderboard data yet for this game.
@@ -548,14 +543,11 @@ motd-broadcast = New Message of the Day: { $message }
 error-no-languages = Error: No languages found.
 ok = OK
 
-admin-broadcast-sent = Broadcast sent to { $count } users.
-
 unknown-player = Unknown player
 
 logout-confirm-title = Are you sure you want to logout and exit the game?
 logout-confirm-yes = Yes, logout
 logout-confirm-no = No, stay
-goodbye = Goodbye!
 
 system-name = System
 server-restarting = Server is restarting in { $seconds } seconds...
@@ -644,7 +636,6 @@ mobile-tts-invalid-rate = Invalid mobile speech rate. Use a value between 50 and
 player-kicked-offline = Player { $player } has been kicked (offline).
 game-paused-host-disconnect = Game paused. Waiting for { $player } to reconnect...
 game-resumed = { $player } reconnected. Game resumed!
-new-host = New host: { $player }
 
 auth-error-username-length = Username must be between 3 and 30 characters.
 auth-error-username-invalid-chars = Username may only contain letters, numbers, and spaces (no consecutive spaces, and no special characters).
@@ -692,7 +683,7 @@ error-bio-length = Bio must not exceed 250 characters.
 error-captcha-failed = Verification failed. Please try again.
 error-rate-limit-login = Too many failed login attempts. Please try again in 15 minutes.
 error-rate-limit-register = You have reached the maximum number of account registrations for today.
-auth-error-rate-limit = Too many failed login attempts. Please try again in 15 minutes.
+auth-error-rate-limit = { error-rate-limit-login }
 
 friends-my-friends = My Friends
 friends-pending-requests = Pending Requests ({ $count })

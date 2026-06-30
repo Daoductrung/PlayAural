@@ -37,6 +37,15 @@ def test_declarative_categories_and_fields() -> None:
     assert UserPreferences.get_pref_meta("dice_keeping_style").kind == "menu"
 
 
+def test_declarative_game_preferences_have_descriptions() -> None:
+    missing = [
+        name
+        for name, meta in UserPreferences.get_pref_fields()
+        if not meta.description
+    ]
+    assert missing == []
+
+
 def test_dice_preferences_are_exposed_only_by_games_that_use_them() -> None:
     assert GameRegistry.get_games_for_preference("clear_kept_on_roll") == [
         "yahtzee"

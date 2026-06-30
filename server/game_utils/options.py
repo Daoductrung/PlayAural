@@ -82,6 +82,28 @@ class OptionMeta:
         """
         raise NotImplementedError
 
+    def _format_default(self, locale: str) -> str:
+        """Return the option's default value in player-facing form."""
+        return str(self.default)
+
+    def get_description(
+        self,
+        locale: str,
+        current_value: Any,
+        *,
+        game: "Game | None" = None,
+        player: "Player | None" = None,
+    ) -> str:
+        """Return explicit or generated help text for this option."""
+        if self.description:
+            return Localization.get(locale, self.description)
+        return Localization.get(
+            locale,
+            "option-desc-generic",
+            label=self.get_label(locale, current_value),
+            default=self._format_default(locale),
+        )
+
 
 @dataclass
 class IntOption(OptionMeta):
@@ -133,6 +155,25 @@ class IntOption(OptionMeta):
             return True, int_val
         except ValueError:
             return False, value
+
+    def get_description(
+        self,
+        locale: str,
+        current_value: Any,
+        *,
+        game: "Game | None" = None,
+        player: "Player | None" = None,
+    ) -> str:
+        if self.description:
+            return Localization.get(locale, self.description)
+        return Localization.get(
+            locale,
+            "option-desc-integer",
+            label=self.get_label(locale, current_value),
+            min=self.min_val,
+            max=self.max_val,
+            default=self._format_default(locale),
+        )
 
 
 @dataclass
@@ -187,6 +228,25 @@ class FloatOption(OptionMeta):
             return True, float_val
         except ValueError:
             return False, value
+
+    def get_description(
+        self,
+        locale: str,
+        current_value: Any,
+        *,
+        game: "Game | None" = None,
+        player: "Player | None" = None,
+    ) -> str:
+        if self.description:
+            return Localization.get(locale, self.description)
+        return Localization.get(
+            locale,
+            "option-desc-number",
+            label=self.get_label(locale, current_value),
+            min=self.min_val,
+            max=self.max_val,
+            default=self._format_default(locale),
+        )
 
 
 @dataclass
@@ -264,6 +324,48 @@ class MenuOption(OptionMeta):
             return self.choices(game, player)
         return list(self.choices)
 
+    def _format_default(self, locale: str) -> str:
+        return self.get_localized_choice(str(self.default), locale)
+
+    def _localized_choices_for_description(
+        self,
+        locale: str,
+        game: "Game | None",
+        player: "Player | None",
+    ) -> str:
+        try:
+            choices = (
+                self.get_choices(game, player)
+                if game is not None
+                else list(self.choices)
+            )
+        except TypeError:
+            choices = list(self.choices) if not callable(self.choices) else []
+        localized = [
+            self.get_localized_choice(str(choice), locale) for choice in choices
+        ]
+        if not localized:
+            return Localization.get(locale, "option-desc-no-choices")
+        return Localization.format_list_or(locale, localized)
+
+    def get_description(
+        self,
+        locale: str,
+        current_value: Any,
+        *,
+        game: "Game | None" = None,
+        player: "Player | None" = None,
+    ) -> str:
+        if self.description:
+            return Localization.get(locale, self.description)
+        return Localization.get(
+            locale,
+            "option-desc-menu",
+            label=self.get_label(locale, current_value),
+            choices=self._localized_choices_for_description(locale, game, player),
+            default=self._format_default(locale),
+        )
+
 
 @dataclass
 class TeamModeOption(MenuOption):
@@ -330,6 +432,26 @@ class BoolOption(OptionMeta):
     def validate_and_convert(self, value: str) -> tuple[bool, Any]:
         # For bool options, we just flip the value
         return True, value.lower() in ("true", "1", "yes")
+
+    def _format_default(self, locale: str) -> str:
+        return Localization.get(locale, "option-on" if self.default else "option-off")
+
+    def get_description(
+        self,
+        locale: str,
+        current_value: Any,
+        *,
+        game: "Game | None" = None,
+        player: "Player | None" = None,
+    ) -> str:
+        if self.description:
+            return Localization.get(locale, self.description)
+        return Localization.get(
+            locale,
+            "option-desc-bool",
+            label=self.get_label(locale, current_value),
+            default=self._format_default(locale),
+        )
 
 
 @dataclass
@@ -420,6 +542,42 @@ class MultiSelectOption(OptionMeta):
     def validate_and_convert(self, value: str) -> tuple[bool, Any]:
         """Not used for multi-select (toggles are handled individually)."""
         return True, value
+
+    def _format_choice_list(self, locale: str, values: list[str]) -> str:
+        localized = [self.get_localized_choice(str(value), locale) for value in values]
+        if not localized:
+            return Localization.get(locale, "option-desc-none-selected")
+        return Localization.format_list_and(locale, localized)
+
+    def _format_default(self, locale: str) -> str:
+        default_values = list(self.default) if isinstance(self.default, list) else []
+        return self._format_choice_list(locale, default_values)
+
+    def get_description(
+        self,
+        locale: str,
+        current_value: Any,
+        *,
+        game: "Game | None" = None,
+        player: "Player | None" = None,
+    ) -> str:
+        if self.description:
+            return Localization.get(locale, self.description)
+        selected = list(current_value) if isinstance(current_value, list) else []
+        max_text = (
+            Localization.get(locale, "option-desc-no-maximum")
+            if self.max_selected <= 0
+            else str(self.max_selected)
+        )
+        return Localization.get(
+            locale,
+            "option-desc-multiselect",
+            label=self.get_label(locale, current_value),
+            selected=self._format_choice_list(locale, selected),
+            default=self._format_default(locale),
+            min=self.min_selected,
+            max=max_text,
+        )
 
 
 def option_field(
@@ -780,8 +938,8 @@ class OptionsHandlerMixin:
         """Speak an option's description when space is pressed on it.
 
         Extracts the option name from the focused menu item id (e.g. set_X /
-        toggle_X) and speaks its OptionMeta.description if one is defined.
-        Returns True if a description was spoken.
+        toggle_X) and speaks explicit option help or a code-derived fallback.
+        Returns True if help was spoken.
         """
         if not hasattr(self, "options"):
             return False
@@ -793,12 +951,24 @@ class OptionsHandlerMixin:
         if option_name is None:
             return False
         meta = get_option_meta(type(self.options), option_name)
-        if meta is None or not meta.description:
+        if meta is None:
             return False
         user = self.get_user(player)
         if not user:
             return False
-        user.speak_l(meta.description, buffer="system")
+        current_value = getattr(self.options, option_name, meta.default)
+        if meta.description:
+            user.speak_l(meta.description, buffer="system")
+        else:
+            user.speak(
+                meta.get_description(
+                    user.locale,
+                    current_value,
+                    game=self,
+                    player=player,
+                ),
+                buffer="system",
+            )
         return True
 
     def _handle_option_change(self, option_name: str, value: str) -> None:

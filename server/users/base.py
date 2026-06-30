@@ -28,14 +28,21 @@ class MenuItem:
     text: str
     id: str | None = None
     sound: str | None = None  # Sound played when this item is highlighted
+    description: str | None = None  # Fluent key spoken when requesting row help
 
     def to_dict(self) -> dict[str, Any] | str:
-        if self.id is not None or self.sound is not None:
+        if (
+            self.id is not None
+            or self.sound is not None
+            or self.description is not None
+        ):
             data: dict[str, Any] = {"text": self.text}
             if self.id is not None:
                 data["id"] = self.id
             if self.sound is not None:
                 data["sound"] = self.sound
+            if self.description is not None:
+                data["description"] = self.description
             return data
         return self.text
 

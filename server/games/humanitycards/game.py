@@ -160,6 +160,7 @@ class HumanityCardsOptions(GameOptions):
             label="hc-set-winning-score",
             prompt="hc-enter-winning-score",
             change_msg="hc-option-changed-winning-score",
+            description="hc-desc-winning-score",
         )
     )
     hand_size: int = option_field(
@@ -171,6 +172,7 @@ class HumanityCardsOptions(GameOptions):
             label="hc-set-hand-size",
             prompt="hc-enter-hand-size",
             change_msg="hc-option-changed-hand-size",
+            description="hc-desc-hand-size",
         )
     )
     card_packs: list[str] = multi_select_field(
@@ -193,6 +195,7 @@ class HumanityCardsOptions(GameOptions):
             label="hc-set-czar-selection",
             prompt="hc-select-czar-selection",
             change_msg="hc-option-changed-czar-selection",
+            description="hc-desc-czar-selection",
             choice_labels={
                 "Rotating": "hc-czar-rotating",
                 "Random": "hc-czar-random",
@@ -209,6 +212,7 @@ class HumanityCardsOptions(GameOptions):
             label="hc-set-num-judges",
             prompt="hc-enter-num-judges",
             change_msg="hc-option-changed-num-judges",
+            description="hc-desc-num-judges",
         )
     )
 

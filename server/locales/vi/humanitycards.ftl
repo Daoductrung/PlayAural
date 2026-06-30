@@ -4,24 +4,26 @@ game-name-humanitycards = Cards Against Humanity
 
 # Tùy chọn
 hc-set-winning-score = Điểm để thắng: { $score }
-hc-desc-winning-score = Số điểm cần để giành chiến thắng
+hc-desc-winning-score = Số lá bài thắng mà một người chơi cần giành được để thắng cả ván.
 hc-enter-winning-score = Nhập điểm để thắng:
 hc-option-changed-winning-score = Điểm để thắng đã đặt thành { $score }.
 
 hc-set-hand-size = Số bài trên tay: { $count }
-hc-desc-hand-size = Số lá bài trên tay
+hc-desc-hand-size = Số lá bài trả lời mỗi người chơi giữ sau mỗi lần bốc bù. Tay bài lớn hơn có nhiều lựa chọn hơn nhưng vòng chơi có thể kéo dài hơn.
 hc-enter-hand-size = Nhập số bài trên tay:
 hc-option-changed-hand-size = Số bài trên tay đã đặt thành { $count }.
 
 hc-set-card-packs = Bộ bài (đã chọn { $count } trên { $total })
-hc-desc-card-packs = Chọn bộ bài sẽ dùng
+hc-desc-card-packs = Chọn các bộ bài câu hỏi và câu trả lời sẽ được xào vào ván. Phải giữ lại ít nhất một bộ bài.
 hc-option-changed-card-packs = Đã thay đổi lựa chọn bộ bài.
 
 hc-set-czar-selection = Cách chọn trọng tài: { $mode }
+hc-desc-czar-selection = Quy định ai làm trọng tài mỗi vòng: luân phiên theo chỗ ngồi, chọn ngẫu nhiên, hoặc người vừa thắng vòng gần nhất.
 hc-select-czar-selection = Chọn cách chỉ định trọng tài
 hc-option-changed-czar-selection = Cách chọn trọng tài đã đặt thành { $mode }.
 
 hc-set-num-judges = Số trọng tài: { $count }
+hc-desc-num-judges = Số trọng tài cùng chấm mỗi vòng. Khi có nhiều trọng tài, họ phải thống nhất theo luồng chấm của trò chơi trước khi chọn người thắng.
 hc-enter-num-judges = Nhập số trọng tài:
 hc-option-changed-num-judges = Số trọng tài đã đặt thành { $count }.
 

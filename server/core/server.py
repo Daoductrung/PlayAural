@@ -2233,18 +2233,22 @@ PlayAural Server
             MenuItem(
                 text=Localization.get(user.locale, "language-option", language=current_lang),
                 id="language",
+                description="general-desc-language",
             ),
             MenuItem(
                 text=Localization.get(user.locale, "options-category-audio"),
                 id="options_audio",
+                description="general-desc-audio",
             ),
             MenuItem(
                 text=Localization.get(user.locale, "options-category-accessibility"),
                 id="options_accessibility",
+                description="general-desc-accessibility",
             ),
             MenuItem(
                 text=Localization.get(user.locale, "options-category-notifications"),
                 id="options_notifications",
+                description="general-desc-notifications",
             ),
             MenuItem(text=Localization.get(user.locale, "back"), id="back"),
         ]
@@ -2268,18 +2272,22 @@ PlayAural Server
             MenuItem(
                 text=Localization.get(user.locale, "music-volume-option", value=prefs.music_volume),
                 id="music_volume",
+                description="general-desc-music-volume",
             ),
             MenuItem(
                 text=Localization.get(user.locale, "sound-volume-option", value=prefs.sound_volume),
                 id="sound_volume",
+                description="general-desc-sound-volume",
             ),
             MenuItem(
                 text=Localization.get(user.locale, "ambience-volume-option", value=prefs.ambience_volume),
                 id="ambience_volume",
+                description="general-desc-ambience-volume",
             ),
             MenuItem(
                 text=Localization.get(user.locale, "voice-volume-option", value=prefs.voice_volume),
                 id="voice_volume",
+                description="general-desc-voice-volume",
             ),
         ]
         if not is_web_client_type(user.client_type) and not is_mobile_client_type(user.client_type):
@@ -2287,6 +2295,7 @@ PlayAural Server
                 MenuItem(
                     text=Localization.get(user.locale, "audio-input-device-option", device=audio_input_device_name),
                     id="audio_input_device",
+                    description="general-desc-audio-input-device",
                 )
             )
         if not uses_self_voicing_settings_type(user.client_type):
@@ -2301,6 +2310,7 @@ PlayAural Server
                         ),
                     ),
                     id="play_typing_sounds",
+                    description="general-desc-play-typing-sounds",
                 )
             )
         items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
@@ -2465,12 +2475,20 @@ PlayAural Server
         prefs = user.preferences
         if is_web_client_type(user.client_type):
             items = [
-                MenuItem(text=Localization.get(user.locale, "speech-settings"), id="web_speech_settings"),
+                MenuItem(
+                    text=Localization.get(user.locale, "speech-settings"),
+                    id="web_speech_settings",
+                    description="general-desc-web-speech-settings",
+                ),
                 MenuItem(text=Localization.get(user.locale, "back"), id="back"),
             ]
         elif is_mobile_client_type(user.client_type):
             items = [
-                MenuItem(text=Localization.get(user.locale, "mobile-speech-settings"), id="mobile_speech_settings"),
+                MenuItem(
+                    text=Localization.get(user.locale, "mobile-speech-settings"),
+                    id="mobile_speech_settings",
+                    description="general-desc-mobile-speech-settings",
+                ),
                 MenuItem(text=Localization.get(user.locale, "back"), id="back"),
             ]
         else:
@@ -2485,6 +2503,7 @@ PlayAural Server
                         ),
                     ),
                     id="invert_multiline_enter",
+                    description="general-desc-invert-multiline-enter",
                 ),
                 MenuItem(text=Localization.get(user.locale, "back"), id="back"),
             ]
@@ -2509,6 +2528,7 @@ PlayAural Server
                     ),
                 ),
                 id="mute_global_chat",
+                description="general-desc-mute-global-chat",
             ),
             MenuItem(
                 text=Localization.get(
@@ -2519,6 +2539,7 @@ PlayAural Server
                     ),
                 ),
                 id="mute_table_chat",
+                description="general-desc-mute-table-chat",
             ),
             MenuItem(
                 text=Localization.get(
@@ -2530,6 +2551,7 @@ PlayAural Server
                     ),
                 ),
                 id="notify_user_presence",
+                description="general-desc-notify-user-presence",
             ),
             MenuItem(
                 text=Localization.get(
@@ -2541,6 +2563,7 @@ PlayAural Server
                     ),
                 ),
                 id="notify_friend_presence",
+                description="general-desc-notify-friend-presence",
             ),
             MenuItem(
                 text=Localization.get(
@@ -2552,6 +2575,7 @@ PlayAural Server
                     ),
                 ),
                 id="notify_table_created",
+                description="general-desc-notify-table-created",
             ),
             MenuItem(text=Localization.get(user.locale, "back"), id="back"),
         ]
@@ -2879,7 +2903,8 @@ PlayAural Server
                 "speech-mode-option",
                 status=Localization.get(user.locale, mode_key)
             ),
-            id="speech_mode"
+            id="speech_mode",
+            description="general-desc-speech-mode",
         ))
 
         # Speech Rate
@@ -2889,7 +2914,8 @@ PlayAural Server
                 "speech-rate-option",
                 value=prefs.speech_rate
             ),
-            id="speech_rate"
+            id="speech_rate",
+            description="general-desc-speech-rate",
         ))
 
         # Speech Voice
@@ -2902,7 +2928,8 @@ PlayAural Server
                 "speech-voice-option",
                 voice=voice_name
             ),
-            id="speech_voice"
+            id="speech_voice",
+            description="general-desc-speech-voice",
         ))
 
         items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
@@ -2996,6 +3023,7 @@ PlayAural Server
                     engine=engine_name,
                 ),
                 id="mobile_tts_engine",
+                description="general-desc-mobile-tts-engine",
             ),
             MenuItem(
                 text=Localization.get(
@@ -3004,6 +3032,7 @@ PlayAural Server
                     voice=voice_name,
                 ),
                 id="mobile_tts_voice",
+                description="general-desc-mobile-tts-voice",
             ),
             MenuItem(
                 text=Localization.get(
@@ -3012,6 +3041,7 @@ PlayAural Server
                     value=prefs.mobile_tts_rate,
                 ),
                 id="mobile_tts_rate",
+                description="general-desc-mobile-tts-rate",
             ),
             MenuItem(text=Localization.get(user.locale, "back"), id="back"),
         ]
@@ -4175,11 +4205,31 @@ PlayAural Server
     def _show_personal_options_menu(self, user: NetworkUser) -> None:
         """Show the personal and options sub-menu."""
         items = [
-            MenuItem(text=Localization.get(user.locale, "profile"), id="profile"),
-            MenuItem(text=Localization.get(user.locale, "friends"), id="friends"),
-            MenuItem(text=Localization.get(user.locale, "my-stats"), id="my_stats"),
-            MenuItem(text=Localization.get(user.locale, "general-options"), id="options"),
-            MenuItem(text=Localization.get(user.locale, "game-options"), id="game_options"),
+            MenuItem(
+                text=Localization.get(user.locale, "profile"),
+                id="profile",
+                description="general-desc-profile",
+            ),
+            MenuItem(
+                text=Localization.get(user.locale, "friends"),
+                id="friends",
+                description="general-desc-friends",
+            ),
+            MenuItem(
+                text=Localization.get(user.locale, "my-stats"),
+                id="my_stats",
+                description="general-desc-my-stats",
+            ),
+            MenuItem(
+                text=Localization.get(user.locale, "general-options"),
+                id="options",
+                description="general-desc-general-options",
+            ),
+            MenuItem(
+                text=Localization.get(user.locale, "game-options"),
+                id="game_options",
+                description="general-desc-game-options",
+            ),
             MenuItem(text=Localization.get(user.locale, "back"), id="back")
         ]
         user.show_menu(
@@ -5395,6 +5445,44 @@ PlayAural Server
         if not meta or not meta.description:
             return False
         user.speak_l(meta.description, buffer="system")
+        return True
+
+    def _menu_item_description_key(
+        self,
+        user: NetworkUser,
+        current_menu: str | None,
+        menu_item_id: str,
+    ) -> str | None:
+        """Return the active menu row's description key, if that exact row has one."""
+        if not current_menu or not menu_item_id:
+            return None
+        menu_state = self._current_menu_state(user, current_menu)
+        if not menu_state:
+            return None
+        for item in menu_state.get("items", []):
+            if isinstance(item, dict):
+                item_id = item.get("id")
+                description = item.get("description")
+            elif isinstance(item, MenuItem):
+                item_id = item.id
+                description = item.description
+            else:
+                continue
+            if item_id == menu_item_id and isinstance(description, str):
+                return description.strip() or None
+        return None
+
+    def _speak_menu_item_description(
+        self,
+        user: NetworkUser,
+        current_menu: str | None,
+        menu_item_id: str,
+    ) -> bool:
+        """Speak help attached to the exact active menu row."""
+        description = self._menu_item_description_key(user, current_menu, menu_item_id)
+        if not description:
+            return False
+        user.speak_l(description, buffer="system")
         return True
 
     async def _handle_game_options_selection(self, user: NetworkUser, selection_id: str) -> None:
@@ -8513,19 +8601,27 @@ PlayAural Server
         state = self._user_states.get(username, {})
         current_menu = state.get("menu")
 
-        # In a Game Options preference menu, space speaks the focused pref's
-        # description (an accessibility aid); it is otherwise inert there.
-        if user and current_menu in ("pref_category_menu", "pref_detail_menu"):
+        if user and current_menu in self.GLOBAL_SYSTEM_MENUS:
             key = (packet.get("key") or "").lower()
             menu_item_id = packet.get("menu_item_id")
             packet_menu = packet.get("menu_id")
-            if (
-                key == "space"
-                and menu_item_id
-                and (not packet_menu or packet_menu == current_menu)
-                and self._speak_pref_description(user, current_menu, menu_item_id)
+            if key == "space" and menu_item_id and (
+                not packet_menu or packet_menu == current_menu
             ):
-                return
+                # Menu-row descriptions are explicit metadata on the active
+                # item.  Game preference rows still use their declarative
+                # preference metadata so generic Back/reset rows stay silent.
+                if self._speak_menu_item_description(
+                    user, current_menu, menu_item_id
+                ):
+                    return
+                if (
+                    current_menu in ("pref_category_menu", "pref_detail_menu")
+                    and self._speak_pref_description(
+                        user, current_menu, menu_item_id
+                    )
+                ):
+                    return
 
         if current_menu not in self.GLOBAL_SYSTEM_MENUS:
             table = self._tables.find_user_table(username)
@@ -10080,6 +10176,7 @@ PlayAural Server
                         text=str(item.get("text", "")),
                         id=item.get("id"),
                         sound=item.get("sound"),
+                        description=item.get("description"),
                     )
                 )
             else:

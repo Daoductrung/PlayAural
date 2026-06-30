@@ -26,6 +26,23 @@ def _menu_ids(user: MockUser, menu_id: str) -> list[str]:
     return [item.id for item in items]
 
 
+async def _press_space_on(
+    server: Server,
+    user: MockUser,
+    menu_id: str,
+    menu_item_id: str,
+) -> None:
+    await server._handle_keybind(
+        SimpleNamespace(username=user.username),
+        {
+            "type": "keybind",
+            "key": "space",
+            "menu_id": menu_id,
+            "menu_item_id": menu_item_id,
+        },
+    )
+
+
 def _make_server(tmp_path):
     server = Server(db_path=tmp_path / "options_nav.sqlite")
     server._db.connect()
@@ -41,6 +58,50 @@ def _make_server(tmp_path):
 # ─────────────────────────────────────────────────────────────────────────────
 # General Options submenus
 # ─────────────────────────────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_space_speaks_general_option_row_description_only_for_active_row(tmp_path) -> None:
+    server, user = _make_server(tmp_path)
+    try:
+        server._show_personal_options_menu(user)
+        user.clear_messages()
+
+        await _press_space_on(server, user, "personal_options_menu", "options")
+        spoken = user.get_spoken_messages()
+        assert spoken
+        assert "language, audio, accessibility" in spoken[-1]
+
+        user.clear_messages()
+        await _press_space_on(server, user, "personal_options_menu", "back")
+        assert user.get_spoken_messages() == []
+
+        user.clear_messages()
+        await _press_space_on(server, user, "wrong_menu", "options")
+        assert user.get_spoken_messages() == []
+    finally:
+        server._db.close()
+
+
+@pytest.mark.asyncio
+async def test_space_speaks_general_options_submenu_descriptions(tmp_path) -> None:
+    server, user = _make_server(tmp_path)
+    try:
+        await server._handle_open_options(SimpleNamespace(username=user.username))
+        await server._handle_options_selection(user, "options_audio")
+        assert _current_menu(server, user.username) == "options_audio_submenu"
+
+        user.clear_messages()
+        await _press_space_on(server, user, "options_audio_submenu", "play_typing_sounds")
+        spoken = user.get_spoken_messages()
+        assert spoken
+        assert "typing sounds" in spoken[-1]
+
+        user.clear_messages()
+        await _press_space_on(server, user, "options_audio_submenu", "back")
+        assert user.get_spoken_messages() == []
+    finally:
+        server._db.close()
+
 
 @pytest.mark.asyncio
 async def test_options_audio_submenu_toggle_stays_in_audio_submenu(tmp_path) -> None:

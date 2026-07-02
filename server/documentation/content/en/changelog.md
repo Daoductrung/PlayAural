@@ -1,5 +1,22 @@
 Changelog
 
+Friday 3 July 2026
+
+New Additions:
+- Ninety Nine now matches Scopa's between-round countdown controls, so hosts can pause the wait or begin the next round immediately.
+- Game setup options now include clearer help text in English and Vietnamese, with consistent wording for defaults, ranges, and choices across the manuals and option menus.
+- Language selection now shows clearer supported-language information, including translator credit and official/community status where available.
+
+Bug Fixes:
+- Who's at the table and member-action menus no longer require extra Back presses after blocked or stale actions, and offline replacement or bot-removal rows behave more reliably.
+- Language and documentation fallback are safer across server, web, and mobile, so partial translations stay readable and missing documents fall back to English instead of exposing raw keys or blank pages.
+- Option and preference help now follows the exact row you are focused on and ignores Back or stale menu packets.
+- Scopa now handles invalid opening layouts, Asso piglia tutto sweeps, tied target-score situations, active-player scoring piles, and conflicting setup options more accurately.
+- Scopa score checks during a hand are shorter, reporting pending Scopa points without projected totals.
+- Ninety Nine now keeps the top discard safe when recycling the deck, reports empty manual draws clearly, keeps out-of-turn hand controls stable for touch users, and documents that 33/66 milestone penalties apply only when the total is raised up to those numbers.
+- Crazy Eights now moves focus to the best next hand card after choosing a suit for a Wild 8, with a safe fallback to the main action menu.
+- Crazy Eights blocked-hand scoring now awards only the differences from the lowest hand, and forced-draw messages now match the number of cards actually drawn.
+
 Monday 29 June 2026
 
 New Additions:

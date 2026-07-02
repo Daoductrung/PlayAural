@@ -1,5 +1,22 @@
 Nhật ký thay đổi
 
+Thứ Sáu 3 Tháng Bảy 2026
+
+Tính năng mới:
+- Chín mươi chín giờ có các nút tạm dừng và bắt đầu ngay trong khoảng chờ ngắn giữa các vòng giống Scopa, để chủ bàn có thể tạm dừng đồng hồ đếm ngược hoặc bắt đầu vòng tiếp theo ngay.
+- Các tùy chọn thiết lập trò chơi giờ có phần trợ giúp rõ hơn bằng tiếng Anh và tiếng Việt, với cách viết thống nhất cho giá trị mặc định, phạm vi, và lựa chọn trong cả tài liệu lẫn menu tùy chọn.
+- Menu chọn ngôn ngữ giờ hiển thị thông tin ngôn ngữ được hỗ trợ rõ hơn, gồm ghi công người dịch và trạng thái bản dịch chính thức/cộng đồng khi có.
+
+Sửa lỗi:
+- Ai đang ở trong bàn và các menu hành động thành viên không còn cần bấm Quay lại thêm sau thao tác bị chặn hoặc menu cũ; các dòng thay thế người ngoại tuyến và xóa bot cũng ổn định hơn.
+- Cơ chế dự phòng ngôn ngữ và tài liệu trên máy chủ, web, và di động an toàn hơn, nên bản dịch còn thiếu vẫn đọc được và tài liệu thiếu sẽ trở về tiếng Anh thay vì hiện khóa thô hoặc trang trống.
+- Trợ giúp tùy chọn và tùy chỉnh giờ chỉ đọc đúng dòng bạn đang đặt tiêu điểm, và bỏ qua nút Quay lại hoặc gói menu cũ không còn hợp lệ.
+- Scopa giờ xử lý chính xác hơn bố cục bài mở đầu không hợp lệ, các lần quét bàn của Asso piglia tutto, tình huống nhiều bên hòa tại mốc điểm mục tiêu, bài đã ăn của người chơi đang hoạt động, và các tổ hợp tùy chọn thiết lập xung đột.
+- Khi kiểm tra điểm giữa vòng, Scopa giờ nói ngắn gọn hơn: chỉ báo điểm Scopa đang chờ tính, không đọc thêm tổng điểm dự đoán.
+- Chín mươi chín giờ giữ lại lá trên cùng của chồng bài bỏ khi xào lại bộ bài, báo rõ khi không còn lá để rút thủ công, giữ các nút bài ngoài lượt ổn định cho người chơi cảm ứng, và tài liệu đã nói rõ phạt mốc 33/66 chỉ áp dụng khi tổng điểm được nâng lên các mốc đó.
+- Crazy Eights giờ đưa tiêu điểm tới lá bài phù hợp nhất tiếp theo trên tay sau khi bạn chọn chất cho một lá 8 Đổi màu; nếu không có lá phù hợp, tiêu điểm trở về mục đầu tiên trong menu hành động chính.
+- Điểm khi Crazy Eights bị chặn giờ chỉ tính phần chênh lệch so với tay ít điểm nhất, và thông báo rút bắt buộc giờ khớp số lá thật sự được rút.
+
 Thứ Hai 29 Tháng Sáu 2026
 
 Tính năng mới:

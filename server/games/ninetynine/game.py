@@ -31,7 +31,7 @@ from ...game_utils.cards import (
     N99_RANK_NINETY_NINE,
 )
 from ...game_utils.options import BoolOption, IntOption, MenuOption, option_field
-from ...game_utils.sequence_runner_mixin import SequenceBeat, SequenceOperation
+from ...game_utils.round_timer import RoundTimer
 from ...messages.localization import Localization
 from ...ui.keybinds import KeybindState
 from .bot import bot_think as _bot_think, _score_outcome
@@ -63,9 +63,7 @@ PENALTY_NO_CARDS = 3  # Running out of cards
 
 # Draw timeout (manual draw mode)
 DRAW_TIMEOUT_TICKS = 200  # 10 seconds at 20 ticks/sec
-ROUND_TRANSITION_TICKS = 200
 ROUND_TRANSITION_SECONDS = 10
-ROUND_TRANSITION_SEQUENCE_ID = "ninetynine_round_transition"
 ROUND_TRANSITION_TAG = "ninetynine_round_transition"
 START_ROUND_CALLBACK = "ninetynine_start_round"
 
@@ -190,6 +188,29 @@ class NinetyNineGame(Game):
             tokens=self.options.starting_tokens,
         )
 
+    def __post_init__(self) -> None:
+        """Initialize runtime-only helpers."""
+        super().__post_init__()
+        self._round_timer = RoundTimer(self, delay_seconds=ROUND_TRANSITION_SECONDS)
+
+    def rebuild_runtime_state(self) -> None:
+        """Rebuild runtime-only helpers after deserialization."""
+        super().rebuild_runtime_state()
+        self._round_timer = RoundTimer(self, delay_seconds=ROUND_TRANSITION_SECONDS)
+
+    def on_round_timer_ready(self) -> None:
+        """Start the next round when the between-round timer finishes."""
+        if self.game_active:
+            self._start_round()
+
+    def _get_round_timer(self) -> RoundTimer:
+        """Return the round timer, rebuilding it for legacy restored objects."""
+        timer = getattr(self, "_round_timer", None)
+        if timer is None:
+            timer = RoundTimer(self, delay_seconds=ROUND_TRANSITION_SECONDS)
+            self._round_timer = timer
+        return timer
+
     @property
     def alive_players(self) -> list[NinetyNinePlayer]:
         """Get players who still have tokens."""
@@ -264,7 +285,9 @@ class NinetyNineGame(Game):
 
     def _is_round_transition_active(self) -> bool:
         """Return whether the game is waiting before the next round."""
-        return self.has_active_sequence(tag=ROUND_TRANSITION_TAG)
+        return self._get_round_timer().is_active or self.has_active_sequence(
+            tag=ROUND_TRANSITION_TAG
+        )
 
     def _choose_round_start_index(self, player_count: int) -> int:
         """Choose a random alive player to start the new round."""
@@ -344,7 +367,20 @@ class NinetyNineGame(Game):
 
     def create_turn_action_set(self, player: NinetyNinePlayer) -> ActionSet:
         """Create the turn action set for a player."""
-        return ActionSet(name="turn")
+        user = self.get_user(player)
+        locale = user.locale if user else "en"
+
+        action_set = ActionSet(name="turn")
+        action_set.add(
+            Action(
+                id="pause_timer",
+                label=Localization.get(locale, "ninetynine-pause-timer"),
+                handler="_action_pause_timer",
+                is_enabled="_is_pause_timer_enabled",
+                is_hidden="_is_pause_timer_hidden",
+            )
+        )
+        return action_set
 
     # WEB-SPECIFIC: Target order for Standard Actions
     web_target_order = ["check_count", "check_scores", "whose_turn", "whos_at_table"]
@@ -425,6 +461,12 @@ class NinetyNineGame(Game):
             ["check_count"],
             state=KeybindState.ACTIVE,
             include_spectators=True,
+        )
+        self.define_keybind(
+            "p",
+            Localization.get(locale, "ninetynine-pause-timer"),
+            ["pause_timer"],
+            state=KeybindState.ACTIVE,
         )
 
     def _define_card_keybinds(self) -> None:
@@ -614,6 +656,18 @@ class NinetyNineGame(Game):
         locale = user.locale if user else "en"
         return Localization.get(locale, "ninetynine-check-count")
 
+    def _is_pause_timer_enabled(self, player: Player) -> str | None:
+        """Pause timer is enabled for the host during the next-round wait."""
+        if player.name != self.host:
+            return "action-not-host"
+        if not self._get_round_timer().is_active:
+            return "ninetynine-timer-not-active"
+        return None
+
+    def _is_pause_timer_hidden(self, player: Player) -> Visibility:
+        """Keep the host timer control keybind-only, matching Scopa."""
+        return Visibility.HIDDEN
+
     def _is_card_slot_enabled(self, player: Player) -> str | None:
         """Check if card slot actions are enabled. (Keep explicitly visible so UI displays them out-of-turn)"""
         if self.status != "playing":
@@ -622,6 +676,8 @@ class NinetyNineGame(Game):
             return "ninetynine-round-transition-waiting"
         if not self._is_alive_player(player):
             return "action-not-available"
+        if self.current_player != player:
+            return "action-not-your-turn"
         if self.pending_choice is not None:
             return "ninetynine-choose-first"
         return None
@@ -933,6 +989,7 @@ class NinetyNineGame(Game):
 
     def _start_round(self) -> None:
         """Start a new round."""
+        self._get_round_timer().stop()
         self.cancel_sequences_by_tag(ROUND_TRANSITION_TAG)
         self.round += 1
         self.count = 0
@@ -998,18 +1055,7 @@ class NinetyNineGame(Game):
             buffer="game",
             seconds=ROUND_TRANSITION_SECONDS,
         )
-        self.start_sequence(
-            ROUND_TRANSITION_SEQUENCE_ID,
-            [
-                SequenceBeat.pause(ROUND_TRANSITION_TICKS),
-                SequenceBeat(
-                    ops=[SequenceOperation.callback_op(START_ROUND_CALLBACK)]
-                ),
-            ],
-            tag=ROUND_TRANSITION_TAG,
-            lock_scope=self.SEQUENCE_LOCK_GAMEPLAY,
-            pause_bots=True,
-        )
+        self._get_round_timer().start()
         self._update_all_turn_actions()
         self.refresh_menus()
 
@@ -1130,13 +1176,17 @@ class NinetyNineGame(Game):
         self._start_turn()
 
     def _draw_card(self) -> Card | None:
-        """Draw a card, reshuffling if needed (silently like v10)."""
+        """Draw a card, recycling older discards while preserving the top discard."""
         if self.deck.is_empty():
             if not self.discard_pile:
                 return None
-            # Reshuffle discard pile into deck
-            self.deck.cards = self.discard_pile[:]
-            self.discard_pile = []
+            top_discard = self.discard_pile[-1]
+            recycle_cards = self.discard_pile[:-1]
+            if not recycle_cards:
+                return None
+            # Preserve the live top discard and recycle only older discards.
+            self.deck.cards = recycle_cards
+            self.discard_pile = [top_discard]
             self.deck.shuffle()
 
         return self.deck.draw_one()
@@ -1574,6 +1624,7 @@ class NinetyNineGame(Game):
 
     def _end_game(self, winner: NinetyNinePlayer | None) -> None:
         """End the game with a winner."""
+        self._get_round_timer().stop()
         self.cancel_sequences_by_tag(ROUND_TRANSITION_TAG)
         self.play_sound("game_pig/win.ogg")
 
@@ -1676,6 +1727,10 @@ class NinetyNineGame(Game):
                 drawn_slot_id = f"card_slot_{player.hand.index(drawn) + 1}"
             except ValueError:
                 drawn_slot_id = None
+        else:
+            user = self.get_user(player)
+            if user:
+                user.speak_l("ninetynine-no-card-to-draw", buffer="game")
 
         player.draw_timeout_ticks = 0
         # Focus-preserving refresh: the drawer is a background player and the
@@ -1696,6 +1751,11 @@ class NinetyNineGame(Game):
         user = self.get_user(player)
         if user:
             user.speak_l("ninetynine-current-count", buffer="game", count=self.count)
+
+    def _action_pause_timer(self, player: Player, action_id: str) -> None:
+        """Handle host pause/skip for the between-round timer."""
+        if player.name == self.host:
+            self._get_round_timer().toggle_pause(player.name)
 
     # ==========================================================================
     # Bot AI
@@ -1719,7 +1779,9 @@ class NinetyNineGame(Game):
 
         if not self.game_active:
             return
-        if self.is_sequence_bot_paused():
+
+        self._get_round_timer().on_tick()
+        if self._is_round_transition_active() or self.is_sequence_bot_paused():
             return
 
         # Service per-player manual-draw windows. The turn has already advanced,

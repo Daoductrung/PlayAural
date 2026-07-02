@@ -22,7 +22,7 @@ Trong lượt của mình, bạn đánh một lá bài để thay đổi tổng 
 
 
 
-Vòng chơi kết thúc khi có người đẩy tổng điểm vượt quá 99 (bị "nổ"), hoặc khi có người không còn bài để đánh. Người mắc lỗi sẽ mất thẻ, một vòng mới bắt đầu cho đến khi tìm ra người thắng cuộc.
+Vòng chơi kết thúc khi có người đẩy tổng điểm vượt quá 99 (bị "nổ"), dừng đúng ở 99 trong biến thể tiêu chuẩn, hoặc không còn bài để đánh. Người mắc lỗi sẽ mất thẻ, rồi có một đồng hồ ngắn trước khi vòng mới bắt đầu.
 
 
 
@@ -36,7 +36,7 @@ Vòng chơi kết thúc khi có người đẩy tổng điểm vượt quá 99 (
 
 \* \*\*2:\*\* Nếu tổng điểm là số chẵn và trên 49, lá 2 sẽ chia đôi tổng điểm. Ngược lại, nó sẽ nhân đôi tổng điểm.
 
-\* \*\*3 đến 8:\*\* Cộng giá trị con số tương ứng.
+\* \*\*3, 5 đến 8:\*\* Cộng giá trị con số tương ứng.
 
 \* \*\*9:\*\* Thẻ bỏ lượt (cộng 0 điểm).
 
@@ -69,6 +69,8 @@ Sử dụng bộ bài 60 lá đặc biệt (1-9 và các lá chức năng):
 \* \*\*Dừng đúng mức 33 hoặc 66:\*\* Tất cả những người chơi khác mất 1 thẻ.
 
 \* \*\*Vượt qua mức 33 hoặc 66:\*\* Bạn bị mất 1 thẻ.
+
+\* \*\*Giảm xuống đến hoặc qua mốc 33 hoặc 66:\*\* Không ai mất thẻ. Các mốc này chỉ tính khi tổng điểm tăng lên từ phía dưới, nên chia đôi 66 xuống 33 bằng lá 2 sẽ không phạt những người chơi khác.
 
 \* \*\*Dừng đúng mức 99:\*\* Tất cả những người chơi khác mất 2 thẻ và vòng chơi kết thúc.
 
@@ -104,3 +106,4 @@ Người chơi bắt đầu với một số lượng thẻ (mặc định là 9
 
 \* \*\*Dấu cách hoặc D:\*\* Rút một lá bài (khi chế độ rút bài thủ công được bật).
 
+\* \*\*P:\*\* Chỉ chủ bàn dùng được trong lúc chờ vòng mới: tạm dừng đồng hồ. Nhấn P lần nữa khi đồng hồ đang tạm dừng để bắt đầu vòng tiếp theo ngay.

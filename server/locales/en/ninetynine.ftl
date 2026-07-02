@@ -65,6 +65,7 @@ ninetynine-choice-2 = Choice 2
 
 ninetynine-draw-card = Draw card
 ninetynine-draw-prompt = Please draw a card.
+ninetynine-no-card-to-draw = No card is available to draw. Continue with your current hand.
 
 ninetynine-set-tokens = Starting tokens: { $tokens }
 ninetynine-enter-tokens = Enter number of starting tokens:
@@ -90,5 +91,7 @@ ninetynine-rules-variant-action-cards = Action Cards
 
 ninetynine-choose-first = You need to make a choice first.
 ninetynine-round-transition-waiting = Waiting for the next round to start.
+ninetynine-pause-timer = Pause timer
+ninetynine-timer-not-active = The round timer is not active.
 ninetynine-error-too-many-cards = Too many cards needed: { $players } players × { $hand_size } cards exceeds the { $deck_size }-card deck.
 ninetynine-check-count = Check count

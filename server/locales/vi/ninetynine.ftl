@@ -65,6 +65,7 @@ ninetynine-choice-2 = Lựa chọn 2
 
 ninetynine-draw-card = Rút bài
 ninetynine-draw-prompt = Vui lòng rút một lá bài.
+ninetynine-no-card-to-draw = Không có lá bài nào để rút. Hãy tiếp tục với các lá hiện có trên tay.
 
 ninetynine-set-tokens = Số thẻ ban đầu: { $tokens }
 ninetynine-enter-tokens = Nhập số thẻ ban đầu:
@@ -90,5 +91,7 @@ ninetynine-rules-variant-action-cards = Lá Bài Hành Động
 
 ninetynine-choose-first = Bạn cần đưa ra lựa chọn trước.
 ninetynine-round-transition-waiting = Đang chờ vòng tiếp theo bắt đầu.
+ninetynine-pause-timer = Tạm dừng đồng hồ
+ninetynine-timer-not-active = Đồng hồ vòng chơi không hoạt động.
 ninetynine-error-too-many-cards = Cần chia quá nhiều bài: { $players } người chơi × { $hand_size } lá vượt quá bộ bài { $deck_size } lá.
 ninetynine-check-count = Kiểm tra tổng điểm

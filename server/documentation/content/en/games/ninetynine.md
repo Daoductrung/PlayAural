@@ -22,7 +22,7 @@ On your turn, you play one card from your hand to modify the running count. Most
 
 
 
-The round ends when someone pushes the count over 99 (a "bust"), or until someone has no cards left. The offending player loses tokens, and a new round begins.
+The round ends when someone pushes the count over 99 (a "bust"), lands exactly on 99 in the standard variant, or has no cards left. The offending player loses tokens, then a short timer runs before the next round begins.
 
 
 
@@ -36,7 +36,7 @@ The round ends when someone pushes the count over 99 (a "bust"), or until someon
 
 \* \*\*2:\*\* If the count is even and above 49, it divides the count by 2. Otherwise, it doubles it.
 
-\* \*\*3-8:\*\* Adds face value.
+\* \*\*3, 5-8:\*\* Adds face value.
 
 \* \*\*9:\*\* Pass card (adds 0).
 
@@ -69,6 +69,8 @@ Uses a 60-card deck (1-9 and special cards):
 \* \*\*Landing exactly on 33 or 66:\*\* Every other player loses 1 token.
 
 \* \*\*Passing through 33 or 66:\*\* You lose 1 token.
+
+\* \*\*Moving downward to or past 33 or 66:\*\* No one loses tokens. These milestones only count when the total increases from below, so halving 66 down to 33 with a 2 does not penalize the other players.
 
 \* \*\*Landing exactly on 99:\*\* Every other player loses 2 tokens, and the round ends.
 
@@ -104,3 +106,4 @@ Players start with a pool of tokens (default 9). When a player reaches 0 tokens,
 
 \* \*\*Space or D:\*\* Draw a card (if manual draw is enabled).
 
+\* \*\*P:\*\* Host only, during the next-round timer: pause the timer. Press P again while paused to start the next round immediately.

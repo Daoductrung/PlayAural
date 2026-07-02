@@ -15,8 +15,7 @@ from ..games.ninetynine.game import (
     NinetyNineGame,
     NinetyNineOptions,
     PENALTY_MILESTONE_99,
-    ROUND_TRANSITION_TAG,
-    ROUND_TRANSITION_TICKS,
+    ROUND_TRANSITION_SECONDS,
     DRAW_TIMEOUT_TICKS,
 )
 from ..game_utils.cards import (
@@ -353,6 +352,40 @@ class TestMilestones:
         assert not round_ended
         assert self.player2.tokens == 9  # No change
 
+    def test_two_halving_66_to_33_has_no_milestone_penalty(self):
+        """Moving down to 33 from 66 should not penalize or add extra chatter."""
+        self.player1.tokens = 9
+        self.player2.tokens = 9
+        self.user1.clear_messages()
+        self.user2.clear_messages()
+
+        round_ended = self.game._check_milestones(
+            self.player1, old_count=66, new_count=33, value=-33, card_rank=2
+        )
+
+        assert not round_ended
+        assert self.player1.tokens == 9
+        assert self.player2.tokens == 9
+        assert self.user1.get_spoken_messages() == []
+        assert self.user2.get_spoken_messages() == []
+
+    def test_negative_crossing_66_has_no_milestone_penalty(self):
+        """Moving down past 66 should not trigger milestone token loss."""
+        self.player1.tokens = 9
+        self.player2.tokens = 9
+        self.user1.clear_messages()
+        self.user2.clear_messages()
+
+        round_ended = self.game._check_milestones(
+            self.player1, old_count=75, new_count=65, value=-10, card_rank=10
+        )
+
+        assert not round_ended
+        assert self.player1.tokens == 9
+        assert self.player2.tokens == 9
+        assert self.user1.get_spoken_messages() == []
+        assert self.user2.get_spoken_messages() == []
+
     def test_bust_audio_routes_lose_to_loser_and_win_to_others(self):
         """The busted player should hear lose, while others and spectators hear win."""
         spectator_user = MockUser("Spec")
@@ -384,6 +417,29 @@ class TestMilestones:
         assert self.user1.get_sounds_played()[-1] == "game_pig/win.ogg"
         assert self.user2.get_sounds_played()[-1] == "game_ninetynine/lose2.ogg"
         assert spectator_user.get_sounds_played()[-1] == "game_pig/win.ogg"
+
+    def test_draw_recycles_older_discards_and_preserves_top_discard(self):
+        """When the stock is empty, the live top discard should not be redrawn."""
+        older_discard_1 = Card(id=501, rank=5, suit=SUIT_HEARTS)
+        older_discard_2 = Card(id=502, rank=6, suit=SUIT_HEARTS)
+        top_discard = Card(id=503, rank=7, suit=SUIT_HEARTS)
+        self.game.deck.cards = []
+        self.game.discard_pile = [older_discard_1, older_discard_2, top_discard]
+
+        drawn = self.game._draw_card()
+
+        assert drawn in {older_discard_1, older_discard_2}
+        assert drawn != top_discard
+        assert self.game.discard_pile == [top_discard]
+
+    def test_draw_returns_none_when_only_top_discard_remains(self):
+        """A lone live discard should stay in place until another card is played."""
+        top_discard = Card(id=504, rank=7, suit=SUIT_HEARTS)
+        self.game.deck.cards = []
+        self.game.discard_pile = [top_discard]
+
+        assert self.game._draw_card() is None
+        assert self.game.discard_pile == [top_discard]
 
 
 class TestNinetyNinePlayTest:
@@ -587,6 +643,29 @@ class TestNinetyNinePlayTest:
                 sel = msg.data.get("selection_id")
         assert sel == expected_slot
 
+    def test_manual_draw_without_available_card_speaks_feedback(self):
+        """A manual draw that cannot recycle any card should not fail silently."""
+        game = NinetyNineGame(options=NinetyNineOptions(autodraw=False))
+        user1 = MockUser("Alice")
+        user2 = MockUser("Bob")
+        player1 = game.add_player("Alice", user1)
+        player2 = game.add_player("Bob", user2)
+        game.setup_keybinds()
+        game.on_start()
+        game.flush_menus()
+        game.alive_player_ids = [player1.id, player2.id]
+        game.deck.cards = []
+        game.discard_pile = [Card(id=910, rank=7, suit=SUIT_HEARTS)]
+        player1.draw_timeout_ticks = DRAW_TIMEOUT_TICKS
+        user1.clear_messages()
+
+        game._action_draw_card(player1, "draw_card")
+
+        assert player1.draw_timeout_ticks == 0
+        assert user1.get_last_spoken() == (
+            "No card is available to draw. Continue with your current hand."
+        )
+
     def test_milestone_elimination_does_not_wedge_manual_draw(self):
         """A player eliminated by a milestone-pass penalty on their own play must
         not be left holding an open draw window that strands the round.
@@ -719,17 +798,94 @@ class TestNinetyNinePlayTest:
         game.execute_action(player1, "card_slot_1")
 
         assert game.round == round_before
-        assert game.has_active_sequence(tag=ROUND_TRANSITION_TAG)
+        assert game.round_timer_state == "counting"
+        assert game.round_timer_ticks == ROUND_TRANSITION_SECONDS * 20
+        assert game.active_sequences == []
 
-        for _ in range(ROUND_TRANSITION_TICKS - 1):
+        for _ in range(game.round_timer_ticks - 1):
             game.on_tick()
             game.flush_menus()
         assert game.round == round_before
+        assert game.round_timer_state == "counting"
 
         game.on_tick()
         game.flush_menus()
         assert game.round == round_before + 1
-        assert not game.has_active_sequence(tag=ROUND_TRANSITION_TAG)
+        assert game.round_timer_state == "idle"
+        assert game.round_timer_ticks == 0
+
+    def test_host_can_pause_and_skip_round_transition_timer(self):
+        """The host can pause the next-round timer and press P again to skip it."""
+        game = NinetyNineGame()
+        user1 = MockUser("Alice")
+        user2 = MockUser("Bob")
+        player1 = game.add_player("Alice", user1)
+        player2 = game.add_player("Bob", user2)
+        game.host = "Alice"
+        game.setup_keybinds()
+        game.on_start()
+        game.flush_menus()
+        round_before = game.round
+
+        game._schedule_next_round()
+        assert game._is_pause_timer_enabled(player1) is None
+        assert game._is_pause_timer_enabled(player2) == "action-not-host"
+        ticks_before_pause = game.round_timer_ticks
+
+        user1.clear_messages()
+        game._action_pause_timer(player1, "pause_timer")
+
+        assert game.round_timer_state == "paused"
+        assert game.round_timer_ticks == ticks_before_pause
+        assert user1.get_last_spoken() == (
+            "Alice has paused the game (press p to start the next round)."
+        )
+
+        for _ in range(5):
+            game.on_tick()
+            game.flush_menus()
+
+        assert game.round == round_before
+        assert game.round_timer_state == "paused"
+        assert game.round_timer_ticks == ticks_before_pause
+
+        game._action_pause_timer(player1, "pause_timer")
+        game.flush_menus()
+
+        assert game.round == round_before + 1
+        assert game.round_timer_state == "idle"
+        assert game.round_timer_ticks == 0
+
+    def test_paused_round_timer_survives_restore(self):
+        """A restored paused timer should stay paused until the host skips it."""
+        game = NinetyNineGame()
+        user1 = MockUser("Alice")
+        user2 = MockUser("Bob")
+        player1 = game.add_player("Alice", user1)
+        game.add_player("Bob", user2)
+        game.host = "Alice"
+        game.setup_keybinds()
+        game.on_start()
+        game._schedule_next_round()
+        game._action_pause_timer(player1, "pause_timer")
+        round_before = game.round
+        ticks_before_restore = game.round_timer_ticks
+
+        restored = NinetyNineGame.from_json(game.to_json())
+        restored.rebuild_runtime_state()
+
+        for _ in range(5):
+            restored.on_tick()
+
+        assert restored.round == round_before
+        assert restored.round_timer_state == "paused"
+        assert restored.round_timer_ticks == ticks_before_restore
+
+        restored._action_pause_timer(restored.players[0], "pause_timer")
+
+        assert restored.round == round_before + 1
+        assert restored.round_timer_state == "idle"
+        assert restored.round_timer_ticks == 0
 
     def test_menu_rebuild_refreshes_card_labels_for_reclaimed_locale(self):
         """Rebuilt dynamic card actions should use the currently attached user locale."""
@@ -813,6 +969,23 @@ class TestNinetyNineChoiceDialogs:
 
         assert self.user1.get_last_spoken() == "It's not your turn."
         assert "action_input_menu" not in self.user1.menus
+
+    def test_out_of_turn_card_actions_are_visible_but_disabled(self):
+        """Hand cards should anchor focus without appearing currently playable."""
+        self.player1.hand = [Card(id=5, rank=5, suit=SUIT_HEARTS)]
+        self.game.turn_index = 1
+        self.game._update_turn_actions(self.player1)
+
+        action_set = self.game.get_action_set(self.player1, "turn")
+        assert action_set is not None
+        action = action_set.get_action("card_slot_1")
+        assert action is not None
+
+        resolved = action_set.resolve_action(self.game, self.player1, action)
+
+        assert resolved.visible is True
+        assert resolved.enabled is False
+        assert resolved.disabled_reason == "action-not-your-turn"
 
     def test_ace_choice_dialog_includes_cancel(self):
         """Ace choices should use the shared action input menu with a cancel item."""

@@ -433,13 +433,7 @@ class CrazyEightsGame(Game, TurnTimerMixin):
             return
         if self.hand_wait_ticks > 0 or self.intro_wait_ticks > 0:
             return
-        nonwild_cards = sorted(
-            (card for card in player.hand if card.rank != 8),
-            key=lambda c: (SUIT_SORT_ORDER.get(c.suit, 4), -c.rank, c.id),
-        )
-        wild_cards = [card for card in player.hand if card.rank == 8]
-        ordered_cards = nonwild_cards + wild_cards
-        for card in ordered_cards:
+        for card in self._ordered_hand_cards(player):
             turn_set.add(
                 Action(
                     id=f"play_card_{card.id}",
@@ -780,9 +774,38 @@ class CrazyEightsGame(Game, TurnTimerMixin):
     def _handle_blocked_game(self, active_players: list[CrazyEightsPlayer]) -> None:
         """Handle a blocked game where everyone passes."""
         self.broadcast_l("crazyeights-game-blocked", buffer="game")
-        # Player with the lowest points in hand wins the blocked round
-        winner = min(active_players, key=lambda p: self._hand_points(p.hand))
-        self._end_round(winner, last_card=None)
+        self._end_blocked_round(active_players)
+
+    def _end_blocked_round(self, active_players: list[CrazyEightsPlayer]) -> None:
+        if not active_players:
+            return
+        hand_scores = [(player, self._hand_points(player.hand)) for player in active_players]
+        lowest_score = min(score for _, score in hand_scores)
+        winner = next(player for player, score in hand_scores if score == lowest_score)
+        points_from = [
+            (player, score - lowest_score)
+            for player, score in hand_scores
+            if player.id != winner.id and score > lowest_score
+        ]
+        total = sum(score for _, score in points_from)
+
+        real_winner = self.get_player_by_id(winner.id)
+        if isinstance(real_winner, CrazyEightsPlayer):
+            real_winner.score += total
+
+        self._sync_team_scores()
+        self._announce_round_points(winner, points_from, total)
+        self._play_round_end_sounds(winner, points_from, total)
+
+        if (
+            isinstance(real_winner, CrazyEightsPlayer)
+            and real_winner.score >= self.options.winning_score
+        ):
+            self._end_game(real_winner)
+            return
+
+        self.hand_wait_ticks = 5 * 20
+        self.refresh_menus()
 
     def _action_choose_suit(self, player: Player, action_id: str) -> None:
         p = self._require_active_player(player)
@@ -804,7 +827,7 @@ class CrazyEightsGame(Game, TurnTimerMixin):
 
         self.timer.clear()
         self.wild_wait_ticks = WILD_TRANSITION_TICKS
-        self.refresh_menus(p)
+        self._focus_after_suit_choice(p, suit)
         return
 
     def _action_read_top(self, player: Player, action_id: str) -> None:
@@ -1134,12 +1157,35 @@ class CrazyEightsGame(Game, TurnTimerMixin):
             self.skip_next_players(1)
 
     def _draw_for_player(self, player: CrazyEightsPlayer, count: int) -> None:
+        drawn_count = 0
         for _ in range(count):
             card = self._draw_card()
             if card:
                 player.hand.append(card)
-        if count > 0:
-            self._broadcast_draw(player, count)
+                drawn_count += 1
+        if drawn_count > 0:
+            self._broadcast_draw(player, drawn_count)
+
+    def _ordered_hand_cards(self, player: CrazyEightsPlayer) -> list[Card]:
+        nonwild_cards = sorted(
+            (card for card in player.hand if card.rank != 8),
+            key=lambda c: (SUIT_SORT_ORDER.get(c.suit, 4), -c.rank, c.id),
+        )
+        wild_cards = [card for card in player.hand if card.rank == 8]
+        return nonwild_cards + wild_cards
+
+    def _focus_after_suit_choice(self, player: CrazyEightsPlayer, suit: int) -> None:
+        for card in self._ordered_hand_cards(player):
+            if card.rank != 8 and card.suit == suit:
+                self.request_menu_focus(player, f"play_card_{card.id}")
+                return
+
+        self._sync_turn_actions(player)
+        visible_actions = self.get_all_visible_actions(player)
+        if visible_actions:
+            self.request_menu_focus(player, visible_actions[0].action.id)
+        else:
+            self.refresh_menus(player)
 
     def _next_player(self) -> CrazyEightsPlayer | None:
         if not self.turn_player_ids:

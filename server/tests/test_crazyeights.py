@@ -5,6 +5,7 @@ from ..games.crazyeights.game import (
     CrazyEightsGame,
     CrazyEightsOptions,
     CrazyEightsPlayer,
+    WILD_TRANSITION_TICKS,
 )
 from ..messages.localization import Localization
 from ..tables.table import Table
@@ -268,6 +269,99 @@ def test_playing_eight_focuses_first_suit_below_hand_cards():
     assert turn_updates[-1].data.get("selection_id") == "suit_clubs"
 
 
+def test_choose_suit_focuses_first_matching_remaining_card():
+    game = CrazyEightsGame()
+    game.setup_keybinds()
+    alice = MockUser("Alice", uuid="p1")
+    alice.client_type = "mobile"
+    bob = MockUser("Bob", uuid="p2")
+    first = game.add_player("Alice", alice)
+    second = game.add_player("Bob", bob)
+    game.status = "playing"
+    game.game_active = True
+    game.discard_pile = [Card(suit=3, rank=5, id=100)]
+    first.hand = [
+        Card(suit=2, rank=8, id=1),
+        Card(suit=3, rank=7, id=2),
+        Card(suit=1, rank=9, id=3),
+        Card(suit=1, rank=4, id=4),
+    ]
+    second.hand = [Card(suit=4, rank=7, id=5)]
+    game.set_turn_players([first, second])
+    game.current_suit = game.top_card.suit
+    game.refresh_menus()
+    game.flush_menus()
+
+    game.execute_action(first, "play_card_1")
+    game.flush_menus()
+    alice.clear_messages()
+
+    game.execute_action(first, "suit_diamonds")
+    game.flush_menus()
+
+    assert game.awaiting_wild_suit is False
+    assert game.wild_wait_ticks == WILD_TRANSITION_TICKS
+    turn_updates = [
+        message
+        for message in alice.messages
+        if message.type in {"show_menu", "update_menu"}
+        and message.data.get("menu_id") == "turn_menu"
+    ]
+    assert turn_updates[-1].data.get("selection_id") == "play_card_3"
+
+
+def test_choose_suit_falls_back_to_first_visible_item_without_matching_card():
+    game = CrazyEightsGame()
+    game.setup_keybinds()
+    alice = MockUser("Alice", uuid="p1")
+    alice.client_type = "mobile"
+    bob = MockUser("Bob", uuid="p2")
+    first = game.add_player("Alice", alice)
+    second = game.add_player("Bob", bob)
+    game.status = "playing"
+    game.game_active = True
+    game.discard_pile = [Card(suit=3, rank=5, id=100)]
+    first.hand = [
+        Card(suit=2, rank=8, id=1),
+        Card(suit=3, rank=7, id=2),
+        Card(suit=4, rank=9, id=3),
+    ]
+    second.hand = [Card(suit=4, rank=7, id=4)]
+    game.set_turn_players([first, second])
+    game.current_suit = game.top_card.suit
+    game.refresh_menus()
+    game.flush_menus()
+
+    game.execute_action(first, "play_card_1")
+    game.flush_menus()
+    alice.clear_messages()
+
+    game.execute_action(first, "suit_diamonds")
+    game.flush_menus()
+
+    item_ids = [item.id for item in alice.menus["turn_menu"]["items"]]
+    assert item_ids[0] == "play_card_2"
+    turn_updates = [
+        message
+        for message in alice.messages
+        if message.type in {"show_menu", "update_menu"}
+        and message.data.get("menu_id") == "turn_menu"
+    ]
+    assert turn_updates[-1].data.get("selection_id") == "play_card_2"
+
+    alice.clear_messages()
+    for _ in range(WILD_TRANSITION_TICKS):
+        game.on_tick()
+        game.flush_menus()
+
+    assert all(
+        message.data.get("selection_id") is None
+        for message in alice.messages
+        if message.type in {"show_menu", "update_menu"}
+        and message.data.get("menu_id") == "turn_menu"
+    )
+
+
 def test_wild_suit_shortcuts_use_numbers_without_read_score_collisions():
     game = CrazyEightsGame()
     game.setup_keybinds()
@@ -467,3 +561,49 @@ def test_skip_and_reverse_use_matching_sounds():
         "game_crazyeights/discrev.ogg",
         "game_crazyeights/discskip.ogg",
     ]
+
+
+def test_forced_draw_announces_only_cards_actually_drawn():
+    game = CrazyEightsGame()
+    alice = MockUser("Alice", uuid="p1")
+    bob = MockUser("Bob", uuid="p2")
+    game.add_player("Alice", alice)
+    second = game.add_player("Bob", bob)
+    older_discard = Card(id=10, rank=5, suit=1)
+    top_discard = Card(id=11, rank=9, suit=2)
+    game.deck.cards = []
+    game.discard_pile = [older_discard, top_discard]
+    alice.clear_messages()
+    bob.clear_messages()
+
+    game._draw_for_player(second, 2)
+
+    assert second.hand == [older_discard]
+    assert game.discard_pile == [top_discard]
+    assert bob.get_last_spoken() == "You draw a card."
+    assert alice.get_last_spoken() == "Bob draws a card."
+
+
+def test_blocked_hand_scores_only_differences_from_lowest_hand():
+    game = CrazyEightsGame()
+    alice = MockUser("Alice", uuid="p1")
+    bob = MockUser("Bob", uuid="p2")
+    carol = MockUser("Carol", uuid="p3")
+    first = game.add_player("Alice", alice)
+    second = game.add_player("Bob", bob)
+    third = game.add_player("Carol", carol)
+    game.status = "playing"
+    game.game_active = True
+    first.hand = [Card(id=1, rank=5, suit=1)]
+    second.hand = [Card(id=2, rank=10, suit=2)]
+    third.hand = [Card(id=3, rank=13, suit=3), Card(id=4, rank=4, suit=4)]
+    game.set_turn_players([first, second, third])
+    alice.clear_messages()
+
+    game._handle_blocked_game([first, second, third])
+
+    assert first.score == 14
+    assert second.score == 0
+    assert third.score == 0
+    assert game.hand_wait_ticks == 100
+    assert "You gain 14 points" in alice.get_last_spoken()

@@ -42,6 +42,8 @@ On your turn, you must play a card from your hand that matches either the suit o
 
 If you have no playable cards, you must draw one card from the deck. If the drawn card is playable, you can play it immediately. If not, you pass and your turn ends. You cannot draw if you already have a playable card in your hand.
 
+If the stock and recyclable discard cards are exhausted and everyone passes, the hand is blocked. The player with the lowest point value in hand wins that blocked hand and scores only the differences between their hand value and each higher opponent hand.
+
 
 
 \*\*Scoring\*\*

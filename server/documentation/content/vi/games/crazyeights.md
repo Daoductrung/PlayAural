@@ -42,6 +42,8 @@ Trong lượt của mình, bạn phải đánh một lá bài khớp với chấ
 
 Nếu bạn không có lá bài nào có thể đánh được, bạn phải rút một lá từ xấp bài. Nếu lá bài vừa rút có thể đánh được, bạn có tùy chọn đánh nó ngay lập tức. Nếu không, bạn bỏ lượt. Bạn không được phép rút bài nếu trên tay vẫn còn lá bài có thể đánh được.
 
+Nếu xấp bài rút và các lá bài bỏ có thể xáo lại đều đã hết, và mọi người đều bỏ lượt, ván bài bị chặn. Người có tổng điểm bài trên tay thấp nhất thắng ván bị chặn đó và chỉ nhận phần chênh lệch giữa điểm bài của mình với từng đối thủ có điểm cao hơn.
+
 
 
 \*\*Cách tính điểm\*\*

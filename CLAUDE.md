@@ -247,6 +247,26 @@ exactly two calls on `MenuManagementMixin`:
   sequence-runner repaint can never double-jump the cursor, and other
   players' repaints never carry the actor's focus.
 
+These per-player entry points are the supported mechanism for strictly
+isolated, per-client menu replacement. Use them, or the framework-owned
+per-player action-input/status overlays, when an action should change only the
+actor's UI: for example, replacing Player A's card list with a "choose suit"
+menu while Player B's menu receives no packet at all. This isolation is a
+powerful accessibility tool for touch and screen-reader users because it avoids
+unrelated focus churn on other clients.
+
+It is not an absolute, always-on rule. Before modifying an existing game or
+creating a new one, first understand the full gameplay flow and audience for
+the state change. Deliberately classify each menu update:
+- private/individual transition: repaint or focus only the affected player;
+- public table-state change: refresh every affected player, and use a
+  table-wide `refresh_menus()` only when other players' visible choices,
+  information, or turn affordances genuinely changed.
+
+Do not blindly convert table-wide refreshes to player-only refreshes, and do
+not blindly mark everyone dirty for actor-only choice menus. The correct scope
+is part of the game rule/UX design.
+
 One sealed flush point builds and sends: `flush_menus()`, called by the
 framework only — at the end of every `Game.handle_event()` and once per
 server tick (after game ticks, before the packet flush). Games never call

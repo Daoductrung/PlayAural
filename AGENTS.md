@@ -113,6 +113,16 @@ Game code does not paint turn menus directly. It records turn-menu intent with:
 - `refresh_menus(player=None)`: mark one player or everyone dirty.
 - `request_menu_focus(player, action_id)`: one-shot focus jump for one player.
 
+Per-client isolated rendering is supported and important for individualized
+flows: use `refresh_menus(player)`, `request_menu_focus(player, action_id)`, or
+framework-owned per-player input/status overlays when only that player should
+see a menu replacement. This is a deliberate tool, not an always-on rule.
+Before modifying or creating a game, understand the gameplay flow and decide
+whether a change is private to the actor or reflects public table state. Use
+strict per-player isolation for private/action-specific transitions such as
+choosing a suit after a card play; use table-wide refreshes when other players'
+visible choices or public information genuinely changed.
+
 Status overlays are the sanctioned exception: use `status_box(...)` for static
 snapshots and `live_status_box(...)` for dynamic state panels. Games still must
 not call `user.show_menu()` / `user.update_menu()` directly.

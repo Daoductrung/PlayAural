@@ -1,5 +1,29 @@
 Changelog
 
+Saturday 4 July 2026
+
+New Additions:
+
+* Mile by Mile now includes Delayed Action scoring for trips completed after the draw pile runs out, with scoring summaries and documentation updated.
+* Tien Len now uses starting coins as a bankroll: players who reach 0 coins are eliminated, and the last player with coins wins.
+
+Improvements:
+
+* UNO is cleaner on every device: desktop players use U, touch players get UNO pinned at the top of the turn menu, and Wild color choices move focus to a useful card or menu item.
+* UNO interception penalties, score checks, starter-card announcements, color-choice announcements, and card-count checks are shorter and clearer.
+* Battle bots now choose strong fighters and moves with more variety while still making tactical attack and support choices.
+* Tien Len round flow now has cleaner audio-first announcements.
+
+Bug Fixes:
+
+* Gameplay and table menus now recover more reliably after status boxes, leave confirmations, stale actions, reconnects, restores, and accepted table invites, so players are less likely to see blank or stuck menus.
+* UNO now applies official starter-card effects for Skip, Reverse, Draw Two, and Wild, and returns Wild Draw Four to the deck before flipping a new starter card.
+* UNO callouts now let players catch a missed UNO before the next play or draw, and invalid UNO attempts give clearer feedback.
+* Mile by Mile Safety cards now clear matching active hazards more accurately, and final results now report the correct winning score and race distance.
+* Battle no longer blocks setup with hidden team settings after switching away from Team Battle.
+* Tien Len now recognizes more standard Southern instant-win hands, including dragon straight, four 2s, and three consecutive triples.
+* Tien Len now follows stricter first-hand opening and chopping rules.
+
 Friday 3 July 2026
 
 New Additions:
@@ -350,11 +374,11 @@ New Additions:
 
 Bug Fixes:
 
-* Desktop interface internals were optimized for smoother and more stable play.
+* Desktop interface now plays more smoothly and reliably.
 * Mobile ping checks now return results when self-voicing is off.
 * Mobile players can now discard Mile by Mile cards with the screen reader long-press gesture.
 * Mobile device language detection is smoother on first launch.
-* Mobile network connection threads are more stable and responsive.
+* Mobile network connection is more stable and responsive.
 
 Sunday 19 April 2026
 

@@ -41,6 +41,7 @@ Miền Nam là biến thể thoáng và giàu chiến thuật hơn.
 \* Tứ quý hoặc ba đôi thông chặt được một Heo lẻ.
 \* Tứ quý hoặc bốn đôi thông chặt được đôi Heo.
 \* Năm đôi thông chặt được ba Heo.
+\* Hàng cùng loại nhưng cao hơn có thể chặt hàng thấp hơn, ví dụ ba đôi thông cao hơn chặt ba đôi thông thấp hơn.
 \* Tứ quý hoặc bốn đôi thông chặt được ba đôi thông.
 \* Bốn đôi thông chặt được tứ quý.
 \* Một bộ chặt hợp lệ có thể nhảy vào ngoài lượt và cũng có thể giúp người đã bỏ lượt quay lại vòng chặn.
@@ -54,6 +55,10 @@ Ngay sau khi chia bài, người chơi Tiến Lên Miền Nam có thể tới tr
 \* \*\*Ba sám cô thông:\*\* ba hạng liên tiếp, mỗi hạng có ít nhất ba lá, không tính Heo.
 \* \*\*Tứ quý Heo:\*\* đủ cả bốn lá Heo.
 \* \*\*Sảnh rồng:\*\* có đủ mỗi hạng từ 3 đến Xì.
+\* \*\*Sáu đôi thông:\*\* sáu hạng liên tiếp trở lên, mỗi hạng có ít nhất hai lá, không tính Heo.
+\* \*\*Bốn sám cô:\*\* bốn hạng có ít nhất ba lá mỗi hạng.
+\* \*\*Hai tứ quý:\*\* hai hạng riêng biệt có đủ cả bốn chất.
+\* \*\*Đồng màu:\*\* 12 lá trở lên cùng màu đỏ hoặc cùng màu đen.
 
 \*\*Tiến Lên Miền Bắc / Tú Lơ Khơ\*\*
 
@@ -69,21 +74,26 @@ Miền Bắc chặt chẽ hơn nhiều.
 
 \*\*Cách Tính Xu\*\*
 
-PlayAural dùng xu ảo để thay cho luật ăn tiền ngoài đời. Mỗi người bắt đầu với số xu đã chọn. Ai còn 0 xu sẽ bị loại, và người cuối cùng còn xu sẽ thắng trận.
+PlayAural dùng xu ảo để thay cho luật ăn tiền ngoài đời. Mỗi người bắt đầu với số xu đã chọn. Cộng trừ dùng đơn vị cược 10 xu. Ai còn 0 xu sẽ bị loại, và người cuối cùng còn xu sẽ thắng trận.
 
-Mỗi ván được cộng trừ như sau:
+Trong ván thường, người về nhất nhận xu theo hạng của những người còn lại:
 
-\* \*\*2 người:\*\* nhất +20 xu, chót -20 xu.
-\* \*\*3 người:\*\* nhất +30 xu, nhì -10 xu, chót -20 xu.
-\* \*\*4 người:\*\* nhất +20 xu, nhì +10 xu, ba -10 xu, chót -20 xu.
-\* \*\*Tới trắng:\*\* bỏ qua cộng trừ theo hạng. Người tới trắng nhận 20 xu từ mỗi đối thủ; mỗi đối thủ mất 20 xu.
+\* \*\*2 người:\*\* chót trả 10 xu cho nhất.
+\* \*\*3 người:\*\* nhì trả 10 xu cho nhất; chót trả 20 xu cho nhất.
+\* \*\*4 người:\*\* nhì trả 10 xu cho nhất; ba trả 20 xu cho nhất; chót trả 30 xu cho nhất.
 
-Nếu người chơi không đủ xu để trả, số xu dừng ở 0 và người đó bị loại trước ván tiếp theo.
+Các khoản phạt thêm cũng được tính:
+
+\* \*\*Chặt:\*\* khi một người chặt Heo hoặc chặt hàng, người bị chặt trả xu cho người chặt.
+\* \*\*Thối:\*\* khi cộng trừ cuối ván, Heo, tứ quý, và đôi thông còn trên tay bị phạt xu cho người về nhất.
+\* \*\*Tới trắng:\*\* bỏ qua cộng trừ theo hạng. Mỗi đối thủ trả xu cho người tới trắng theo loại bài, từ 20 xu cho sáu đôi đến 90 xu cho sảnh rồng.
+
+Nếu người chơi không đủ xu để trả, họ trả hết phần có thể, dừng ở 0 xu và bị loại trước ván tiếp theo.
 
 \*\*Tùy Chọn Trò Chơi\*\*
 
 \* \*\*Biến thể:\*\* Chọn Tiến Lên Miền Nam hoặc Tiến Lên Miền Bắc (mặc định Tiến Lên Miền Nam).
-\* \*\*Xu khởi đầu:\*\* Chọn vốn xu ban đầu của mỗi người (mặc định 50 xu, lựa chọn: 50, 100, hoặc 200 xu).
+\* \*\*Xu khởi đầu:\*\* Chọn vốn xu ban đầu của mỗi người (mặc định 50 xu, lựa chọn: 20, 50, 100, hoặc 200 xu).
 \* \*\*Thời gian mỗi lượt:\*\* Chọn giới hạn thời gian mỗi lượt (mặc định Không giới hạn, lựa chọn: 10, 15, 20, 30, 45, 60 hoặc 90 giây, hoặc Không giới hạn).
 
 \*\*Phím Tắt\*\*

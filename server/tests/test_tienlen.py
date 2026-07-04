@@ -54,6 +54,18 @@ def make_game(
     return game
 
 
+def prepare_active_game(game: TienLenGame) -> TienLenGame:
+    game.status = "playing"
+    game.game_active = True
+    game.set_turn_players(game.players)
+    for index, active_player in enumerate(game.players):
+        active_player.hand = [c(900 + index, 5 + index, 4)]
+    game._team_manager.team_mode = "individual"
+    game._team_manager.setup_teams([player.name for player in game.get_active_players()])
+    game._sync_team_scores()
+    return game
+
+
 def advance_until(game: TienLenGame, condition, max_ticks: int = 600) -> bool:
     for _ in range(max_ticks):
         if condition():
@@ -72,6 +84,7 @@ def test_game_registered_and_defaults() -> None:
 
 
 def test_tienlen_match_length_sets_starting_coins_without_score_target() -> None:
+    assert TienLenGame(options=TienLenOptions(match_length="20"))._starting_coins() == 20
     assert TienLenGame(options=TienLenOptions(match_length="50"))._starting_coins() == 50
     assert TienLenGame(options=TienLenOptions(match_length="100"))._starting_coins() == 100
     assert TienLenGame(options=TienLenOptions(match_length="200"))._starting_coins() == 200
@@ -157,6 +170,25 @@ def test_southern_chop_matrix() -> None:
     assert rules.combo_beats(bon_doi_thong, tu_quy) is True
 
 
+def test_southern_higher_hang_counts_as_chop() -> None:
+    rules = get_rules(SOUTHERN_VARIANT)
+    lower_ba_doi_thong = evaluate_combo(
+        [c(1, 4, 4), c(2, 4, 2), c(3, 5, 4), c(4, 5, 2), c(5, 6, 4), c(6, 6, 2)],
+        SOUTHERN_VARIANT,
+    )
+    higher_ba_doi_thong = evaluate_combo(
+        [c(7, 7, 4), c(8, 7, 2), c(9, 8, 4), c(10, 8, 2), c(11, 9, 4), c(12, 9, 2)],
+        SOUTHERN_VARIANT,
+    )
+    lower_tu_quy = evaluate_combo([c(13, 5, 4), c(14, 5, 2), c(15, 5, 1), c(16, 5, 3)], SOUTHERN_VARIANT)
+    higher_tu_quy = evaluate_combo([c(17, 9, 4), c(18, 9, 2), c(19, 9, 1), c(20, 9, 3)], SOUTHERN_VARIANT)
+
+    assert lower_ba_doi_thong and higher_ba_doi_thong and lower_tu_quy and higher_tu_quy
+    assert rules.is_chop(higher_ba_doi_thong, lower_ba_doi_thong) is True
+    assert rules.can_bypass_pass_lock(lower_ba_doi_thong, higher_ba_doi_thong) is True
+    assert rules.is_chop(higher_tu_quy, lower_tu_quy) is True
+
+
 def test_northern_single_requires_matching_structure_and_pair_of_twos_is_special() -> None:
     rules = get_rules(NORTHERN_VARIANT)
     heart_five = evaluate_combo([c(1, 5, 3)], NORTHERN_VARIANT)
@@ -171,6 +203,16 @@ def test_northern_single_requires_matching_structure_and_pair_of_twos_is_special
     assert rules.combo_beats(spade_eight, heart_five) is False
     assert rules.combo_beats(pair_twos, normal_pair) is True
     assert rules.combo_beats(pair_twos, lower_pair_twos) is True
+
+
+def test_northern_higher_tu_quy_counts_as_chop_without_pass_bypass() -> None:
+    rules = get_rules(NORTHERN_VARIANT)
+    lower_tu_quy = evaluate_combo([c(1, 5, 4), c(2, 5, 2), c(3, 5, 1), c(4, 5, 3)], NORTHERN_VARIANT)
+    higher_tu_quy = evaluate_combo([c(5, 9, 4), c(6, 9, 2), c(7, 9, 1), c(8, 9, 3)], NORTHERN_VARIANT)
+
+    assert lower_tu_quy and higher_tu_quy
+    assert rules.is_chop(higher_tu_quy, lower_tu_quy) is True
+    assert rules.can_bypass_pass_lock(lower_tu_quy, higher_tu_quy) is False
 
 
 def test_northern_cannot_finish_on_two() -> None:
@@ -294,6 +336,174 @@ def test_trick_resets_after_all_other_players_pass() -> None:
     game.execute_action(follower, "pass")
 
     assert game.current_player == leader
+    assert game.current_combo is None
+
+
+def test_passed_player_does_not_steal_lead_when_straight_goes_unbeaten() -> None:
+    game = make_game(player_count=4, start=True, variant=SOUTHERN_VARIANT)
+    player_a, player_b, player_c, player_d = game.players
+    game.set_turn_players([player_b, player_a, player_d, player_c])
+    game.turn_index = 0
+    game.is_first_turn = False
+    game.current_combo = None
+    game.trick_winner_id = None
+    game.trick_cards = []
+    game.trick_play_id = 0
+    game.trick_lead_fallback_id = None
+
+    for player in (player_a, player_d, player_c):
+        user = game.get_user(player)
+        assert isinstance(user, MockUser)
+        user._preferences.confirm_destructive_actions = False
+
+    player_b.hand = [
+        c(1, 3, 4),
+        c(2, 4, 4),
+        c(3, 5, 4),
+        c(4, 6, 4),
+        c(5, 7, 4),
+        c(6, 8, 4),
+        c(7, 9, 4),
+    ]
+    player_b.selected_cards = {1, 2, 3, 4, 5, 6}
+    player_a.hand = [c(8, 10, 4)]
+    player_d.hand = [c(9, 11, 4)]
+    player_c.hand = [c(10, 12, 4)]
+    player_c.passed_this_trick = True
+
+    game.execute_action(player_b, "play_selected")
+    assert game.current_player == player_a
+
+    game.execute_action(player_a, "pass")
+    assert game.current_player == player_d
+
+    game.execute_action(player_d, "pass")
+
+    assert game.current_player == player_b
+    assert game.current_combo is None
+    assert all(not player.passed_this_trick for player in (player_a, player_b, player_c, player_d))
+
+
+def test_unpassed_player_must_act_before_straight_resolves() -> None:
+    game = make_game(player_count=4, start=True, variant=SOUTHERN_VARIANT)
+    player_a, player_b, player_c, player_d = game.players
+    game.set_turn_players([player_b, player_a, player_d, player_c])
+    game.turn_index = 0
+    game.is_first_turn = False
+    game.current_combo = None
+    game.trick_winner_id = None
+    game.trick_cards = []
+    game.trick_play_id = 0
+    game.trick_lead_fallback_id = None
+
+    for player in (player_a, player_d):
+        user = game.get_user(player)
+        assert isinstance(user, MockUser)
+        user._preferences.confirm_destructive_actions = False
+
+    player_b.hand = [
+        c(1, 3, 4),
+        c(2, 4, 4),
+        c(3, 5, 4),
+        c(4, 6, 4),
+        c(5, 7, 4),
+        c(6, 8, 4),
+        c(7, 9, 4),
+    ]
+    player_b.selected_cards = {1, 2, 3, 4, 5, 6}
+    player_a.hand = [c(8, 10, 4)]
+    player_d.hand = [c(9, 11, 4)]
+    player_c.hand = [c(10, 12, 4)]
+
+    game.execute_action(player_b, "play_selected")
+    game.execute_action(player_a, "pass")
+    game.execute_action(player_d, "pass")
+
+    assert game.current_player == player_c
+    assert game.current_combo is not None
+
+
+def test_next_active_player_leads_when_unbeaten_player_finished() -> None:
+    game = make_game(player_count=4, start=True, variant=SOUTHERN_VARIANT)
+    player_a, player_b, player_c, player_d = game.players
+    game.set_turn_players([player_b, player_a, player_d, player_c])
+    game.turn_index = 0
+    game.is_first_turn = False
+    game.current_combo = None
+    game.trick_winner_id = None
+    game.trick_cards = []
+    game.trick_play_id = 0
+    game.trick_lead_fallback_id = None
+
+    for player in (player_a, player_d, player_c):
+        user = game.get_user(player)
+        assert isinstance(user, MockUser)
+        user._preferences.confirm_destructive_actions = False
+
+    player_b.hand = [
+        c(1, 3, 4),
+        c(2, 4, 4),
+        c(3, 5, 4),
+        c(4, 6, 4),
+        c(5, 7, 4),
+        c(6, 8, 4),
+    ]
+    player_b.selected_cards = {1, 2, 3, 4, 5, 6}
+    player_a.hand = [c(8, 10, 4)]
+    player_d.hand = [c(9, 11, 4)]
+    player_c.hand = [c(10, 12, 4)]
+    player_c.passed_this_trick = True
+
+    game.execute_action(player_b, "play_selected")
+    assert game.finishing_order_ids == [player_b.id]
+    assert game.current_player == player_a
+
+    game.execute_action(player_a, "pass")
+    game.execute_action(player_d, "pass")
+
+    assert game.current_player == player_a
+    assert game.current_combo is None
+
+
+def test_passed_player_gets_current_chop_window_before_two_resolves() -> None:
+    game = make_game(player_count=4, start=True, variant=SOUTHERN_VARIANT)
+    player_a, player_b, player_c, player_d = game.players
+    game.set_turn_players([player_b, player_a, player_d, player_c])
+    game.turn_index = 0
+    game.is_first_turn = False
+    game.current_combo = None
+    game.trick_winner_id = None
+    game.trick_cards = []
+    game.trick_play_id = 0
+    game.trick_lead_fallback_id = None
+
+    for player in (player_a, player_d, player_c):
+        user = game.get_user(player)
+        assert isinstance(user, MockUser)
+        user._preferences.confirm_destructive_actions = False
+
+    player_b.hand = [c(1, 2, 4), c(2, 9, 4)]
+    player_b.selected_cards = {1}
+    player_a.hand = [c(3, 10, 4)]
+    player_d.hand = [c(4, 11, 4)]
+    player_c.hand = [
+        c(5, 6, 4),
+        c(6, 6, 2),
+        c(7, 6, 1),
+        c(8, 6, 3),
+    ]
+    player_c.passed_this_trick = True
+
+    game.execute_action(player_b, "play_selected")
+    game.execute_action(player_a, "pass")
+    game.execute_action(player_d, "pass")
+
+    assert game.current_player == player_c
+    assert game.current_combo is not None
+
+    game.execute_action(player_c, "pass")
+
+    assert game.current_player == player_b
     assert game.current_combo is None
 
 
@@ -436,7 +646,7 @@ def test_web_info_actions_visible() -> None:
     waiting_actions = {entry.action.id for entry in waiting_game.get_all_visible_actions(waiting_player)}
     assert "whos_at_table" in waiting_actions
 
-    active_game = make_game(web_first=True, start=True)
+    active_game = prepare_active_game(make_game(web_first=True))
     active_player = active_game.players[0]
     active_actions = {entry.action.id for entry in active_game.get_all_visible_actions(active_player)}
     assert "check_trick" in active_actions
@@ -445,7 +655,7 @@ def test_web_info_actions_visible() -> None:
 
 
 def test_touch_standard_actions_keep_game_info_before_shared_status() -> None:
-    game = make_game(web_first=True, start=True)
+    game = prepare_active_game(make_game(web_first=True))
     player = game.players[0]
 
     action_ids = [entry.action.id for entry in game.get_all_enabled_actions(player)]
@@ -487,8 +697,8 @@ def test_two_player_hand_settles_bankroll_coins() -> None:
     game._player_finishes(player1)
 
     assert game.hand_wait_ticks > 0
-    assert player1.coins == 70
-    assert player2.coins == 30
+    assert player1.coins == 60
+    assert player2.coins == 40
     assert game.hand_winner_id == player1.id
 
 
@@ -518,23 +728,23 @@ def test_southern_instant_win_reasons_include_common_an_trang_hands() -> None:
     assert game._instant_win_reason(player) == "tienlen-instant-three-consecutive-triples"
 
     player.hand = [
-        c(1, 3, 4), c(2, 3, 2),
-        c(3, 5, 4), c(4, 5, 2),
-        c(5, 7, 4), c(6, 7, 2),
-        c(7, 9, 4), c(8, 9, 2),
-        c(9, 11, 4), c(10, 11, 2),
-        c(11, 13, 4), c(12, 13, 2),
+        c(1, 3, 4), c(2, 3, 1),
+        c(3, 5, 4), c(4, 5, 3),
+        c(5, 7, 4), c(6, 7, 1),
+        c(7, 9, 4), c(8, 9, 3),
+        c(9, 11, 4), c(10, 11, 1),
+        c(11, 13, 4), c(12, 13, 3),
         c(13, 1, 3),
     ]
     assert game._instant_win_reason(player) == "tienlen-instant-six-pairs"
 
     player.hand = [
-        c(21, 3, 4), c(22, 3, 2),
-        c(23, 4, 4), c(24, 4, 2),
-        c(25, 5, 4), c(26, 5, 2),
-        c(27, 6, 4), c(28, 6, 2),
-        c(29, 7, 4), c(30, 7, 2),
-        c(31, 9, 4), c(32, 11, 2), c(33, 1, 3),
+        c(21, 3, 4), c(22, 3, 1),
+        c(23, 4, 2), c(24, 4, 3),
+        c(25, 5, 4), c(26, 5, 1),
+        c(27, 6, 2), c(28, 6, 3),
+        c(29, 7, 4), c(30, 7, 1),
+        c(31, 9, 4), c(32, 11, 1), c(33, 1, 3),
     ]
     assert game._instant_win_reason(player) == "tienlen-instant-five-consecutive-pairs"
 
@@ -555,11 +765,156 @@ def test_instant_win_settles_as_per_opponent_payment() -> None:
     assert game.hand_wait_ticks > 0
 
 
+def test_additional_southern_instant_win_reasons() -> None:
+    game = make_game(player_count=2, variant=SOUTHERN_VARIANT)
+    player = game.players[0]
+
+    player.hand = [
+        c(1, 3, 4), c(2, 3, 2),
+        c(3, 4, 4), c(4, 4, 2),
+        c(5, 5, 4), c(6, 5, 2),
+        c(7, 6, 4), c(8, 6, 2),
+        c(9, 7, 4), c(10, 7, 2),
+        c(11, 8, 4), c(12, 8, 2),
+        c(13, 10, 3),
+    ]
+    assert game._instant_win_reason(player) == "tienlen-instant-six-consecutive-pairs"
+
+    player.hand = [
+        c(20, 3, 4), c(21, 3, 2), c(22, 3, 1),
+        c(23, 5, 4), c(24, 5, 2), c(25, 5, 1),
+        c(26, 7, 4), c(27, 7, 2), c(28, 7, 1),
+        c(29, 9, 4), c(30, 9, 2), c(31, 9, 1),
+        c(32, 13, 3),
+    ]
+    assert game._instant_win_reason(player) == "tienlen-instant-four-triples"
+
+    player.hand = [
+        c(40, 4, 4), c(41, 4, 2), c(42, 4, 1), c(43, 4, 3),
+        c(44, 9, 4), c(45, 9, 2), c(46, 9, 1), c(47, 9, 3),
+        c(48, 5, 4), c(49, 7, 2), c(50, 11, 1), c(51, 13, 3), c(52, 1, 4),
+    ]
+    assert game._instant_win_reason(player) == "tienlen-instant-two-four-of-a-kind"
+
+    player.hand = [
+        c(60, 3, 4), c(61, 4, 2), c(62, 5, 4), c(63, 6, 2), c(64, 7, 4),
+        c(65, 8, 2), c(66, 9, 4), c(67, 10, 2), c(68, 11, 4), c(69, 12, 2),
+        c(70, 13, 4), c(71, 13, 2), c(72, 2, 3),
+    ]
+    assert game._instant_win_reason(player) == "tienlen-instant-same-color"
+
+
+def test_chop_payment_is_settled_with_hand() -> None:
+    game = make_game(player_count=3, start=True, variant=SOUTHERN_VARIANT)
+    player1, player2, player3 = game.players
+    game.set_turn_players([player1, player2, player3])
+    game.turn_index = 1
+    game.is_first_turn = False
+    game.current_combo = evaluate_combo([c(90, 2, 3)], SOUTHERN_VARIANT)
+    game.trick_winner_id = player1.id
+    player1.hand = [c(91, 9, 4)]
+    player2.hand = [c(92, 10, 4)]
+    player3.hand = [
+        c(1, 5, 4), c(2, 5, 2),
+        c(3, 6, 4), c(4, 6, 2),
+        c(5, 7, 4), c(6, 7, 2),
+    ]
+    player3.selected_cards = {card.id for card in player3.hand}
+
+    game.execute_action(player3, "play_selected")
+
+    assert [(payment.payer_id, payment.receiver_id, payment.amount) for payment in game.hand_payments] == [
+        (player1.id, player3.id, 20)
+    ]
+
+    game.finishing_order_ids = [player3.id, player2.id, player1.id]
+    player3.hand = []
+    game._finish_hand()
+
+    assert player1.coins == 10
+    assert player2.coins == 40
+    assert player3.coins == 100
+
+
+def test_same_shape_hang_chop_payment_is_settled() -> None:
+    game = make_game(player_count=3, start=True, variant=SOUTHERN_VARIANT)
+    player1, player2, player3 = game.players
+    game.set_turn_players([player1, player2, player3])
+    game.turn_index = 2
+    game.is_first_turn = False
+    game.current_combo = evaluate_combo(
+        [c(90, 4, 4), c(91, 4, 2), c(92, 5, 4), c(93, 5, 2), c(94, 6, 4), c(95, 6, 2)],
+        SOUTHERN_VARIANT,
+    )
+    game.trick_winner_id = player1.id
+    game.trick_play_id = 1
+    player1.hand = [c(96, 10, 4)]
+    player2.hand = [c(97, 11, 4)]
+    player3.hand = [
+        c(1, 7, 4), c(2, 7, 2),
+        c(3, 8, 4), c(4, 8, 2),
+        c(5, 9, 4), c(6, 9, 2),
+    ]
+    player3.passed_this_trick = True
+    player3.passed_combo_turn = 0
+    player3.selected_cards = {card.id for card in player3.hand}
+
+    game.execute_action(player3, "play_selected")
+
+    assert [(payment.payer_id, payment.receiver_id, payment.amount) for payment in game.hand_payments] == [
+        (player1.id, player3.id, 10)
+    ]
+
+
+def test_pending_payment_and_chop_window_state_survive_save_reload() -> None:
+    game = make_game(player_count=3, start=True, variant=SOUTHERN_VARIANT)
+    player1, player2, player3 = game.players
+    game.set_turn_players([player1, player2, player3])
+    game.turn_index = 1
+    game.trick_play_id = 7
+    game.trick_lead_fallback_id = player2.id
+    game.current_combo = evaluate_combo([c(90, 2, 3)], SOUTHERN_VARIANT)
+    game.trick_winner_id = player1.id
+    player2.passed_this_trick = True
+    player2.passed_combo_turn = 7
+    game._add_hand_payment(player1, player3, 20)
+
+    restored = TienLenGame.from_json(game.to_json())
+    restored_player2 = restored.players[1]
+
+    assert restored.trick_play_id == 7
+    assert restored.trick_lead_fallback_id == player2.id
+    assert restored_player2.passed_this_trick is True
+    assert restored_player2.passed_combo_turn == 7
+    assert [
+        (payment.payer_id, payment.receiver_id, payment.amount)
+        for payment in restored.hand_payments
+    ] == [(player1.id, player3.id, 20)]
+
+
+def test_leftover_twos_and_hang_pay_first_place() -> None:
+    game = make_game(player_count=2, start=True, variant=SOUTHERN_VARIANT)
+    player1, player2 = game.players
+    player1.hand = []
+    player2.hand = [
+        c(1, 2, 3),
+        c(2, 5, 4), c(3, 5, 2),
+        c(4, 6, 4), c(5, 6, 2),
+        c(6, 7, 4), c(7, 7, 2),
+    ]
+    game.finishing_order_ids = []
+
+    game._player_finishes(player1)
+
+    assert player1.coins == 90
+    assert player2.coins == 10
+
+
 def test_bankroll_eliminates_zero_coin_players_and_ends_at_last_standing() -> None:
     game = make_game(player_count=2, start=True, match_length="50", variant=SOUTHERN_VARIANT)
     player1, player2 = game.players
     player1.coins = 50
-    player2.coins = 20
+    player2.coins = 10
     player1.hand = []
     player2.hand = [c(2, 6, 4)]
     game.finishing_order_ids = []

@@ -5,6 +5,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 import random
 
+from mashumaro.mixins.json import DataClassJSONMixin
+
 from ..base import Game, Player, GameOptions
 from ..registry import register_game
 from ...game_utils.actions import Action, ActionSet, Visibility
@@ -48,8 +50,9 @@ VARIANT_LABELS = {
     NORTHERN_VARIANT: "tienlen-variant-north",
 }
 
-MATCH_CHOICES = ["50", "100", "200"]
+MATCH_CHOICES = ["20", "50", "100", "200"]
 MATCH_LABELS = {
+    "20": "tienlen-target-20",
     "50": "tienlen-target-50",
     "100": "tienlen-target-100",
     "200": "tienlen-target-200",
@@ -61,19 +64,20 @@ LEGACY_MATCH_TARGETS = {
     "5": 200,
 }
 
-PLACEMENT_COIN_PAYMENTS = {
-    2: [20, -20],
-    3: [30, -10, -20],
-    4: [20, 10, -10, -20],
+STAKE_COINS = 10
+INSTANT_WIN_PAYMENT_UNITS = {
+    "tienlen-instant-dragon": 9,
+    "tienlen-instant-six-consecutive-pairs": 8,
+    "tienlen-instant-four-triples": 7,
+    "tienlen-instant-two-four-of-a-kind": 6,
+    "tienlen-instant-same-color": 5,
+    "tienlen-instant-three-consecutive-triples": 5,
+    "tienlen-instant-five-consecutive-pairs": 4,
+    "tienlen-instant-four-twos": 3,
+    "tienlen-instant-six-pairs": 2,
 }
-
-INSTANT_WIN_PAYMENT = 20
 INSTANT_WIN_REASON_PRIORITY = {
-    "tienlen-instant-four-twos": 5,
-    "tienlen-instant-dragon": 4,
-    "tienlen-instant-three-consecutive-triples": 3,
-    "tienlen-instant-five-consecutive-pairs": 2,
-    "tienlen-instant-six-pairs": 1,
+    reason: units for reason, units in INSTANT_WIN_PAYMENT_UNITS.items()
 }
 
 SOUND_MUSIC = "game_ninetynine/mus.ogg"
@@ -114,7 +118,15 @@ class TienLenPlayer(Player):
     hand_wins: int = 0
     eliminated: bool = False
     passed_this_trick: bool = False
+    passed_combo_turn: int = 0
     pass_confirm_ticks: int = 0
+
+
+@dataclass
+class TienLenPayment(DataClassJSONMixin):
+    payer_id: str
+    receiver_id: str
+    amount: int
 
 
 @dataclass
@@ -167,6 +179,9 @@ class TienLenGame(Game, TurnTimerMixin):
     current_combo: TienLenCombo | None = None
     trick_winner_id: str | None = None
     trick_cards: list[Card] = field(default_factory=list)
+    trick_play_id: int = 0
+    trick_lead_fallback_id: str | None = None
+    hand_payments: list[TienLenPayment] = field(default_factory=list)
     hand_winner_id: str | None = None
     finishing_order_ids: list[str] = field(default_factory=list)
     is_first_turn: bool = True
@@ -281,6 +296,7 @@ class TienLenGame(Game, TurnTimerMixin):
         self.current_combo = None
         self.trick_winner_id = None
         self.trick_cards = []
+        self.hand_payments = []
         self.hand_winner_id = None
         self.finishing_order_ids = []
 
@@ -293,6 +309,7 @@ class TienLenGame(Game, TurnTimerMixin):
                 player.hand = []
                 player.selected_cards.clear()
                 player.passed_this_trick = False
+                player.passed_combo_turn = 0
                 player.pass_confirm_ticks = 0
 
         self._team_manager.team_mode = "individual"
@@ -306,6 +323,20 @@ class TienLenGame(Game, TurnTimerMixin):
     def _six_pairs(self, hand: list[Card]) -> bool:
         rank_counts = Counter(card.rank for card in hand)
         return sum(count // 2 for count in rank_counts.values()) == 6
+
+    def _six_consecutive_pairs(self, hand: list[Card]) -> bool:
+        return self._longest_consecutive_pair_run(hand) >= 6
+
+    def _four_triples(self, hand: list[Card]) -> bool:
+        return sum(1 for count in Counter(card.rank for card in hand).values() if count >= 3) >= 4
+
+    def _two_four_of_a_kind(self, hand: list[Card]) -> bool:
+        return sum(1 for count in Counter(card.rank for card in hand).values() if count == 4) >= 2
+
+    def _same_color_instant(self, hand: list[Card]) -> bool:
+        black_count = sum(1 for card in hand if card.suit in (2, 4))
+        red_count = sum(1 for card in hand if card.suit in (1, 3))
+        return black_count >= 12 or red_count >= 12
 
     def _four_twos(self, hand: list[Card]) -> bool:
         return sum(1 for card in hand if card.rank == 2) == 4
@@ -331,35 +362,44 @@ class TienLenGame(Game, TurnTimerMixin):
         return False
 
     def _five_consecutive_pairs(self, hand: list[Card]) -> bool:
+        return self._longest_consecutive_pair_run(hand) >= 5
+
+    def _longest_consecutive_pair_run(self, hand: list[Card]) -> int:
         pair_strengths = sorted(
             get_rank_strength(rank)
             for rank, count in Counter(card.rank for card in hand).items()
             if count >= 2 and rank != 2
         )
+        if not pair_strengths:
+            return 0
+        longest = 1
         run_length = 1
         for previous, current in zip(pair_strengths, pair_strengths[1:]):
             if current == previous + 1:
                 run_length += 1
-                if run_length >= 5:
-                    return True
+                longest = max(longest, run_length)
             else:
                 run_length = 1
-        return False
+        return longest
 
     def _instant_win_reason(self, player: TienLenPlayer) -> str | None:
         if self.options.variant != SOUTHERN_VARIANT:
             return None
-        if self._four_twos(player.hand):
-            return "tienlen-instant-four-twos"
-        if self._dragon_sequence(player.hand):
-            return "tienlen-instant-dragon"
-        if self._three_consecutive_triples(player.hand):
-            return "tienlen-instant-three-consecutive-triples"
-        if self._five_consecutive_pairs(player.hand):
-            return "tienlen-instant-five-consecutive-pairs"
-        if self._six_pairs(player.hand):
-            return "tienlen-instant-six-pairs"
-        return None
+        reason_checks = {
+            "tienlen-instant-dragon": self._dragon_sequence(player.hand),
+            "tienlen-instant-six-consecutive-pairs": self._six_consecutive_pairs(player.hand),
+            "tienlen-instant-four-triples": self._four_triples(player.hand),
+            "tienlen-instant-two-four-of-a-kind": self._two_four_of_a_kind(player.hand),
+            "tienlen-instant-same-color": self._same_color_instant(player.hand),
+            "tienlen-instant-three-consecutive-triples": self._three_consecutive_triples(player.hand),
+            "tienlen-instant-five-consecutive-pairs": self._five_consecutive_pairs(player.hand),
+            "tienlen-instant-four-twos": self._four_twos(player.hand),
+            "tienlen-instant-six-pairs": self._six_pairs(player.hand),
+        }
+        reasons = [reason for reason, matched in reason_checks.items() if matched]
+        if not reasons:
+            return None
+        return max(reasons, key=lambda reason: INSTANT_WIN_REASON_PRIORITY.get(reason, 0))
 
     def _find_instant_winner(
         self, players: list[TienLenPlayer]
@@ -416,12 +456,16 @@ class TienLenGame(Game, TurnTimerMixin):
         self.current_combo = None
         self.trick_winner_id = None
         self.trick_cards = []
+        self.trick_play_id = 0
+        self.trick_lead_fallback_id = None
+        self.hand_payments = []
         self.finishing_order_ids = []
 
         for player in self._all_tienlen_players():
             player.hand = []
             player.selected_cards.clear()
             player.passed_this_trick = False
+            player.passed_combo_turn = 0
             player.pass_confirm_ticks = 0
 
         deck, _ = DeckFactory.standard_deck()
@@ -494,43 +538,12 @@ class TienLenGame(Game, TurnTimerMixin):
             return
 
         if self.trick_winner_id == player.id:
-            self.current_combo = None
-            self.trick_cards = []
-            self.trick_winner_id = None
-            for active_player in self._tienlen_players():
-                active_player.passed_this_trick = False
-        elif player.passed_this_trick and not (
-            self.options.variant == SOUTHERN_VARIANT
-            and self.current_combo is not None
-            and self._rules().has_chop_window(self.current_combo)
-        ):
-            if self._all_available_players_passed():
-                self.current_combo = None
-                self.trick_cards = []
-                self.trick_winner_id = None
-                for active_player in self._tienlen_players():
-                    active_player.passed_this_trick = False
-            else:
-                self.advance_turn(announce=False)
-                self._start_turn()
-                return
+            self._clear_current_trick()
+        elif self._all_available_players_passed():
+            self._lead_after_unbeaten_combo()
+            return
 
-        if self._all_available_players_passed():
-            winner = self.get_player_by_id(self.trick_winner_id)
-            if isinstance(winner, TienLenPlayer) and winner.id in self.turn_player_ids:
-                self.current_player = winner
-                self._start_turn()
-                return
-            self.current_combo = None
-            self.trick_cards = []
-            self.trick_winner_id = None
-            for active_player in self._tienlen_players():
-                active_player.passed_this_trick = False
-
-        if player.passed_this_trick and self.current_combo is not None and not (
-            self.options.variant == SOUTHERN_VARIANT
-            and self._rules().has_chop_window(self.current_combo)
-        ):
+        if player.passed_this_trick and not self._can_passed_player_act_on_current_combo(player):
             self.advance_turn(announce=False)
             self._start_turn()
             return
@@ -551,7 +564,211 @@ class TienLenGame(Game, TurnTimerMixin):
             eligible = [player for player in remaining if player.id != self.trick_winner_id]
         else:
             eligible = remaining
-        return bool(eligible) and all(player.passed_this_trick for player in eligible)
+        return bool(eligible) and all(
+            self._has_player_declined_current_combo(player) for player in eligible
+        )
+
+    def _has_current_chop_window(self) -> bool:
+        return (
+            self.options.variant == SOUTHERN_VARIANT
+            and self.current_combo is not None
+            and self._rules().has_chop_window(self.current_combo)
+        )
+
+    def _has_player_declined_current_combo(self, player: TienLenPlayer) -> bool:
+        if self.current_combo is None:
+            return False
+        if self._has_current_chop_window():
+            return self.trick_play_id > 0 and player.passed_combo_turn == self.trick_play_id
+        return player.passed_this_trick
+
+    def _can_passed_player_act_on_current_combo(self, player: TienLenPlayer) -> bool:
+        return (
+            self._has_current_chop_window()
+            and not self._has_player_declined_current_combo(player)
+        )
+
+    def _ensure_trick_play_marker(self) -> None:
+        if self.current_combo is not None and self.trick_play_id <= 0:
+            self.trick_play_id = 1
+
+    def _clear_current_trick(self) -> None:
+        self.current_combo = None
+        self.trick_cards = []
+        self.trick_winner_id = None
+        self.trick_play_id = 0
+        self.trick_lead_fallback_id = None
+        for active_player in self._tienlen_players():
+            active_player.passed_this_trick = False
+            active_player.passed_combo_turn = 0
+
+    def _next_player_with_cards_after(self, player_id: str | None) -> TienLenPlayer | None:
+        if not self.turn_player_ids:
+            return None
+        try:
+            start_index = self.turn_player_ids.index(player_id or "")
+        except ValueError:
+            start_index = self.turn_index
+        for offset in range(1, len(self.turn_player_ids) + 1):
+            candidate = self.get_player_by_id(
+                self.turn_player_ids[(start_index + offset) % len(self.turn_player_ids)]
+            )
+            if (
+                isinstance(candidate, TienLenPlayer)
+                and candidate.hand
+                and candidate.id not in self.finishing_order_ids
+                and not candidate.eliminated
+            ):
+                return candidate
+        return None
+
+    def _lead_after_unbeaten_combo(self) -> None:
+        winner = self.get_player_by_id(self.trick_winner_id)
+        leader: TienLenPlayer | None = None
+        if (
+            isinstance(winner, TienLenPlayer)
+            and winner.id in self.turn_player_ids
+            and winner.hand
+            and winner.id not in self.finishing_order_ids
+            and not winner.eliminated
+        ):
+            leader = winner
+        else:
+            fallback = self.get_player_by_id(self.trick_lead_fallback_id)
+            if (
+                isinstance(fallback, TienLenPlayer)
+                and fallback.id in self.turn_player_ids
+                and fallback.hand
+                and fallback.id not in self.finishing_order_ids
+                and not fallback.eliminated
+            ):
+                leader = fallback
+            else:
+                leader = self._next_player_with_cards_after(self.trick_winner_id)
+        self._clear_current_trick()
+        if leader:
+            self.current_player = leader
+        self._start_turn()
+
+    def _add_hand_payment(
+        self,
+        payer: TienLenPlayer,
+        receiver: TienLenPlayer,
+        amount: int,
+    ) -> None:
+        if amount <= 0 or payer.id == receiver.id:
+            return
+        self.hand_payments.append(TienLenPayment(payer.id, receiver.id, amount))
+
+    def _two_penalty_units(self, card: Card) -> int:
+        return 2 if card.suit in (1, 3) else 1
+
+    def _consecutive_pair_penalty_units(self, hand: list[Card]) -> int:
+        pair_strengths = sorted(
+            get_rank_strength(rank)
+            for rank, count in Counter(card.rank for card in hand).items()
+            if count >= 2 and rank != 2
+        )
+        if not pair_strengths:
+            return 0
+        units = 0
+        run_length = 1
+        for previous, current in zip(pair_strengths, pair_strengths[1:]):
+            if current == previous + 1:
+                run_length += 1
+            else:
+                units += self._consecutive_pair_run_units(run_length)
+                run_length = 1
+        units += self._consecutive_pair_run_units(run_length)
+        return units
+
+    def _consecutive_pair_run_units(self, run_length: int) -> int:
+        if run_length < 3:
+            return 0
+        if run_length == 3:
+            return 1
+        if run_length == 4:
+            return 4
+        return run_length
+
+    def _combo_penalty_units(self, combo: TienLenCombo) -> int:
+        units = sum(self._two_penalty_units(card) for card in combo.cards if card.rank == 2)
+        if combo.type_name == "four_of_a_kind":
+            units += 3
+        elif combo.type_name == "consecutive_pairs":
+            units += self._consecutive_pair_run_units(combo.pair_count)
+        return units
+
+    def _leftover_penalty_amount(self, player: TienLenPlayer) -> int:
+        units = sum(self._two_penalty_units(card) for card in player.hand if card.rank == 2)
+        rank_counts = Counter(card.rank for card in player.hand)
+        units += 3 * sum(1 for rank, count in rank_counts.items() if rank != 2 and count == 4)
+        if self.options.variant == SOUTHERN_VARIANT:
+            units += self._consecutive_pair_penalty_units(player.hand)
+        return units * STAKE_COINS
+
+    def _record_chop_payment(
+        self,
+        chopper: TienLenPlayer,
+        chopped: TienLenPlayer,
+        chopped_combo: TienLenCombo,
+    ) -> None:
+        amount = self._combo_penalty_units(chopped_combo) * STAKE_COINS
+        if amount <= 0:
+            return
+        self._add_hand_payment(chopped, chopper, amount)
+        self._broadcast_chop_payment(chopper, chopped, amount)
+
+    def _add_rank_payments(self, ordered: list[TienLenPlayer]) -> None:
+        if not ordered:
+            return
+        winner = ordered[0]
+        for place, payer in enumerate(ordered[1:], 2):
+            self._add_hand_payment(payer, winner, (place - 1) * STAKE_COINS)
+
+    def _add_instant_win_payments(
+        self,
+        winner: TienLenPlayer,
+        ordered: list[TienLenPlayer],
+        reason_key: str,
+    ) -> None:
+        amount = INSTANT_WIN_PAYMENT_UNITS.get(reason_key, 2) * STAKE_COINS
+        for player in ordered:
+            if player.id != winner.id:
+                self._add_hand_payment(player, winner, amount)
+
+    def _add_leftover_penalties(
+        self,
+        winner: TienLenPlayer,
+        ordered: list[TienLenPlayer],
+    ) -> None:
+        for player in ordered[1:]:
+            amount = self._leftover_penalty_amount(player)
+            if amount <= 0:
+                continue
+            self._add_hand_payment(player, winner, amount)
+            self._broadcast_leftover_penalty(player, amount)
+
+    def _settle_hand_payments(self, players: list[TienLenPlayer]) -> dict[str, int]:
+        deltas = {player.id: 0 for player in players}
+        balances = {player.id: player.coins for player in players}
+        players_by_id = {player.id: player for player in players}
+        for payment in self.hand_payments:
+            payer = players_by_id.get(payment.payer_id)
+            receiver = players_by_id.get(payment.receiver_id)
+            if not payer or not receiver:
+                continue
+            paid = min(payment.amount, balances[payer.id])
+            if paid <= 0:
+                continue
+            balances[payer.id] -= paid
+            balances[receiver.id] += paid
+            deltas[payer.id] -= paid
+            deltas[receiver.id] += paid
+        for player in players:
+            player.coins = balances[player.id]
+        self.hand_payments = []
+        return deltas
 
     def on_tick(self) -> None:
         super().on_tick()
@@ -885,6 +1102,8 @@ class TienLenGame(Game, TurnTimerMixin):
             return
 
         rules = self._rules()
+        previous_combo = self.current_combo
+        previous_winner = self.get_player_by_id(self.trick_winner_id)
         is_valid, error_key, error_kwargs = rules.validate_play(
             active_player.hand,
             selected,
@@ -901,14 +1120,26 @@ class TienLenGame(Game, TurnTimerMixin):
             self._send_error(active_player, "tienlen-error-invalid-combo")
             return
 
+        if (
+            previous_combo is not None
+            and isinstance(previous_winner, TienLenPlayer)
+            and rules.is_chop(combo, previous_combo)
+        ):
+            self._record_chop_payment(active_player, previous_winner, previous_combo)
+
         for card in selected:
             active_player.hand.remove(card)
         active_player.hand = sort_cards(active_player.hand)
         active_player.selected_cards.clear()
         active_player.pass_confirm_ticks = 0
+        active_player.passed_this_trick = False
+        active_player.passed_combo_turn = 0
         self.current_combo = combo
         self.trick_cards = combo.cards[:]
         self.trick_winner_id = active_player.id
+        self.trick_play_id += 1
+        next_player = self._next_player_with_cards_after(active_player.id)
+        self.trick_lead_fallback_id = next_player.id if next_player else None
         self.is_first_turn = False
 
         if len(selected) > 1:
@@ -952,7 +1183,9 @@ class TienLenGame(Game, TurnTimerMixin):
                     active_player.pass_confirm_ticks = 200
                     user.speak_l("tienlen-confirm-pass", buffer="game")
                     return
+        self._ensure_trick_play_marker()
         active_player.passed_this_trick = True
+        active_player.passed_combo_turn = self.trick_play_id
         active_player.pass_confirm_ticks = 0
         active_player.selected_cards.clear()
         self._broadcast_pass(active_player)
@@ -1240,6 +1473,49 @@ class TienLenGame(Game, TurnTimerMixin):
                 "tienlen-player-passes",
             )
 
+    def _broadcast_chop_payment(
+        self,
+        chopper: TienLenPlayer,
+        chopped: TienLenPlayer,
+        amount: int,
+    ) -> None:
+        for table_player in self.players:
+            user = self.get_user(table_player)
+            if not user:
+                continue
+            if table_player.id == chopper.id:
+                user.speak_l(
+                    "tienlen-you-chop-payment",
+                    buffer="game",
+                    player=chopped.name,
+                    amount=amount,
+                )
+            elif table_player.id == chopped.id:
+                user.speak_l(
+                    "tienlen-you-are-chopped-payment",
+                    buffer="game",
+                    player=chopper.name,
+                    amount=amount,
+                )
+            else:
+                user.speak_l(
+                    "tienlen-player-chop-payment",
+                    buffer="game",
+                    chopper=chopper.name,
+                    chopped=chopped.name,
+                    amount=amount,
+                )
+
+    def _broadcast_leftover_penalty(self, player: TienLenPlayer, amount: int) -> None:
+        for table_player in self.players:
+            self._speak_actor_message(
+                player,
+                table_player,
+                "tienlen-you-leftover-penalty",
+                "tienlen-player-leftover-penalty",
+                amount=amount,
+            )
+
     def _sync_team_scores(self) -> None:
         for team in self._team_manager.teams:
             team.total_score = 0
@@ -1325,22 +1601,15 @@ class TienLenGame(Game, TurnTimerMixin):
         if not ordered:
             return
 
-        deltas: dict[str, int] = {}
+        winner = instant_winner or ordered[0]
         if instant_winner:
-            for player in ordered:
-                if player.id == instant_winner.id:
-                    deltas[player.id] = INSTANT_WIN_PAYMENT * (len(ordered) - 1)
-                else:
-                    deltas[player.id] = -INSTANT_WIN_PAYMENT
+            if instant_reason_key:
+                self._add_instant_win_payments(instant_winner, ordered, instant_reason_key)
         else:
-            payments = PLACEMENT_COIN_PAYMENTS.get(len(ordered), [])
-            for index, player in enumerate(ordered):
-                deltas[player.id] = payments[index] if index < len(payments) else 0
+            self._add_rank_payments(ordered)
+            self._add_leftover_penalties(winner, ordered)
 
-        for player in ordered:
-            player.coins = max(0, player.coins + deltas[player.id])
-
-        winner = ordered[0]
+        deltas = self._settle_hand_payments(ordered)
         self.hand_winner_id = None if instant_winner else winner.id
         self._sync_team_scores()
 

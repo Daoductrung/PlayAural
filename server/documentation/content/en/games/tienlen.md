@@ -41,6 +41,7 @@ Southern Tien Len is the looser, more tactical variant.
 \* A four-of-a-kind or three consecutive pairs can chop a single 2.
 \* A four-of-a-kind or four consecutive pairs can chop a pair of 2s.
 \* Five consecutive pairs can chop three 2s.
+\* A higher chopping combination of the same shape can chop a lower one, such as higher three consecutive pairs over lower three consecutive pairs.
 \* A four-of-a-kind or four consecutive pairs can chop three consecutive pairs.
 \* Four consecutive pairs can chop a four-of-a-kind.
 \* Legal chops may be used to jump in out of turn and may also let a player return after passing.
@@ -54,6 +55,10 @@ At the deal, Southern hands can win immediately with:
 \* \*\*Three consecutive triples:\*\* three consecutive ranks with at least three cards of each rank, excluding 2s.
 \* \*\*Four 2s:\*\* all four 2s.
 \* \*\*Dragon straight:\*\* at least one card of every rank from 3 through Ace.
+\* \*\*Six consecutive pairs:\*\* six or more consecutive ranks with at least two cards of each rank, excluding 2s.
+\* \*\*Four triples:\*\* four ranks with at least three cards of each rank.
+\* \*\*Two four-of-a-kind sets:\*\* two separate ranks with all four suits.
+\* \*\*Same color:\*\* 12 or more cards that are all red or all black.
 
 \*\*Northern Tien Len\*\*
 
@@ -69,21 +74,26 @@ Northern Tien Len is stricter.
 
 \*\*Scoring\*\*
 
-PlayAural uses virtual coins instead of real-money settlement. Each player starts with the selected number of coins. Players who reach 0 coins are eliminated, and the last player with coins wins the match.
+PlayAural uses virtual coins instead of real-money settlement. Each player starts with the selected number of coins. Settlements use 10-coin stake units. Players who reach 0 coins are eliminated, and the last player with coins wins the match.
 
-For each hand:
+For normal hands, first place receives rank payments from the other players:
 
-\* \*\*2 players:\*\* 1st +20 coins, last -20 coins.
-\* \*\*3 players:\*\* 1st +30 coins, 2nd -10 coins, last -20 coins.
-\* \*\*4 players:\*\* 1st +20 coins, 2nd +10 coins, 3rd -10 coins, last -20 coins.
-\* \*\*Instant win:\*\* normal placement settlement is skipped. The instant winner gains 20 coins from each opponent; each opponent loses 20 coins.
+\* \*\*2 players:\*\* last pays 10 coins to first.
+\* \*\*3 players:\*\* 2nd pays 10 coins to first; last pays 20 coins to first.
+\* \*\*4 players:\*\* 2nd pays 10 coins to first; 3rd pays 20 coins to first; last pays 30 coins to first.
 
-If a player does not have enough coins to pay a loss, their total stops at 0 and they are eliminated before the next hand.
+Extra betting penalties also apply:
+
+\* \*\*Chops:\*\* when a player chops 2s or a chopping combination, the chopped player pays the chopper.
+\* \*\*Leftovers:\*\* at hand settlement, remaining 2s, four-of-a-kind, and Southern consecutive-pair chopping cards pay penalties to the first-place finisher.
+\* \*\*Instant wins:\*\* normal rank settlement is skipped. Each opponent pays the instant winner according to the instant-win hand, from 20 coins for six pairs up to 90 coins for a dragon straight.
+
+If a player does not have enough coins to pay a transfer, they pay as much as they can, stop at 0, and are eliminated before the next hand.
 
 \*\*Game Options\*\*
 
 \* \*\*Variant:\*\* Choose Southern Tien Len or Northern Tien Len (default Southern Tien Len).
-\* \*\*Starting Coins:\*\* Choose each player's starting bankroll (default 50 coins, choices: 50, 100, or 200 coins).
+\* \*\*Starting Coins:\*\* Choose each player's starting bankroll (default 50 coins, choices: 20, 50, 100, or 200 coins).
 \* \*\*Turn Timer:\*\* Choose the per-turn time limit (default Unlimited, choices: 10, 15, 20, 30, 45, 60, or 90 seconds, or Unlimited).
 
 \*\*Keyboard Shortcuts\*\*

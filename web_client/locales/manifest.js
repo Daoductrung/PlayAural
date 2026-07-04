@@ -13,4 +13,10 @@ export const LOCALE_METADATA = {
     contributors: ["Trung", "PlayAural core team"],
     official: true,
   },
+  fa: {
+    name: "Persian",
+    nativeName: "فارسی",
+    contributors: ["Hamid Rezaei"],
+    official: false,
+  },
 };

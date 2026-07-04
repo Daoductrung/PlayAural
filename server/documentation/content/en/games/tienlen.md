@@ -82,11 +82,33 @@ For normal hands, first place receives rank payments from the other players:
 \* \*\*3 players:\*\* 2nd pays 10 coins to first; last pays 20 coins to first.
 \* \*\*4 players:\*\* 2nd pays 10 coins to first; 3rd pays 20 coins to first; last pays 30 coins to first.
 
-Extra betting penalties also apply:
+Chop payments go from the chopped player to the chopper:
 
-\* \*\*Chops:\*\* when a player chops 2s or a chopping combination, the chopped player pays the chopper.
-\* \*\*Leftovers:\*\* at hand settlement, remaining 2s, four-of-a-kind, and Southern consecutive-pair chopping cards pay penalties to the first-place finisher.
-\* \*\*Instant wins:\*\* normal rank settlement is skipped. Each opponent pays the instant winner according to the instant-win hand, from 20 coins for six pairs up to 90 coins for a dragon straight.
+\* \*\*Black 2:\*\* 10 coins.
+\* \*\*Red 2:\*\* 20 coins.
+\* \*\*Multiple 2s:\*\* add each 2 separately, so two black 2s are 20 coins, one black plus one red is 30 coins, and two red 2s are 40 coins.
+\* \*\*Three consecutive pairs:\*\* 10 coins.
+\* \*\*Four consecutive pairs:\*\* 40 coins.
+\* \*\*Five or more consecutive pairs:\*\* 10 coins per pair in the run.
+\* \*\*Four-of-a-kind:\*\* 30 coins.
+
+Leftover penalties, also called thối, are paid to the first-place finisher at hand settlement:
+
+\* Any 2s still in hand use the same black 2 / red 2 values above.
+\* Four-of-a-kind still in hand costs 30 coins.
+\* In Southern mode, consecutive-pair chopping cards still in hand use the same three-pair, four-pair, and five-or-more-pair values above.
+
+Instant wins skip rank payments and leftover penalties. Each opponent pays the instant winner:
+
+\* \*\*Six pairs:\*\* 20 coins.
+\* \*\*Four 2s:\*\* 30 coins.
+\* \*\*Five consecutive pairs:\*\* 40 coins.
+\* \*\*Three consecutive triples:\*\* 50 coins.
+\* \*\*Same color:\*\* 50 coins.
+\* \*\*Two four-of-a-kind sets:\*\* 60 coins.
+\* \*\*Four triples:\*\* 70 coins.
+\* \*\*Six consecutive pairs:\*\* 80 coins.
+\* \*\*Dragon straight:\*\* 90 coins.
 
 If a player does not have enough coins to pay a transfer, they pay as much as they can, stop at 0, and are eliminated before the next hand.
 

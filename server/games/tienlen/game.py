@@ -109,6 +109,19 @@ SOUND_INSTANT_WIN = "game_coup/challengesuccess.ogg"
 SOUND_SPECIAL_CHOP = "game_crazyeights/hitmark.ogg"
 SOUND_ELIMINATED = "game_uno/loseround.ogg"
 
+PAYMENT_REASON_RANK = "rank"
+PAYMENT_REASON_CHOP = "chop"
+PAYMENT_REASON_LEFTOVER = "leftover"
+PAYMENT_REASON_INSTANT = "instant"
+PAYMENT_REASON_ADJUSTMENT = "adjustment"
+PAYMENT_REASON_ORDER = [
+    PAYMENT_REASON_RANK,
+    PAYMENT_REASON_CHOP,
+    PAYMENT_REASON_LEFTOVER,
+    PAYMENT_REASON_INSTANT,
+    PAYMENT_REASON_ADJUSTMENT,
+]
+
 
 @dataclass
 class TienLenPlayer(Player):
@@ -127,6 +140,7 @@ class TienLenPayment(DataClassJSONMixin):
     payer_id: str
     receiver_id: str
     amount: int
+    reason: str = PAYMENT_REASON_ADJUSTMENT
 
 
 @dataclass
@@ -655,10 +669,11 @@ class TienLenGame(Game, TurnTimerMixin):
         payer: TienLenPlayer,
         receiver: TienLenPlayer,
         amount: int,
+        reason: str = PAYMENT_REASON_ADJUSTMENT,
     ) -> None:
         if amount <= 0 or payer.id == receiver.id:
             return
-        self.hand_payments.append(TienLenPayment(payer.id, receiver.id, amount))
+        self.hand_payments.append(TienLenPayment(payer.id, receiver.id, amount, reason))
 
     def _two_penalty_units(self, card: Card) -> int:
         return 2 if card.suit in (1, 3) else 1
@@ -716,7 +731,7 @@ class TienLenGame(Game, TurnTimerMixin):
         amount = self._combo_penalty_units(chopped_combo) * STAKE_COINS
         if amount <= 0:
             return
-        self._add_hand_payment(chopped, chopper, amount)
+        self._add_hand_payment(chopped, chopper, amount, PAYMENT_REASON_CHOP)
         self._broadcast_chop_payment(chopper, chopped, amount)
 
     def _add_rank_payments(self, ordered: list[TienLenPlayer]) -> None:
@@ -724,7 +739,7 @@ class TienLenGame(Game, TurnTimerMixin):
             return
         winner = ordered[0]
         for place, payer in enumerate(ordered[1:], 2):
-            self._add_hand_payment(payer, winner, (place - 1) * STAKE_COINS)
+            self._add_hand_payment(payer, winner, (place - 1) * STAKE_COINS, PAYMENT_REASON_RANK)
 
     def _add_instant_win_payments(
         self,
@@ -735,7 +750,7 @@ class TienLenGame(Game, TurnTimerMixin):
         amount = INSTANT_WIN_PAYMENT_UNITS.get(reason_key, 2) * STAKE_COINS
         for player in ordered:
             if player.id != winner.id:
-                self._add_hand_payment(player, winner, amount)
+                self._add_hand_payment(player, winner, amount, PAYMENT_REASON_INSTANT)
 
     def _add_leftover_penalties(
         self,
@@ -746,11 +761,15 @@ class TienLenGame(Game, TurnTimerMixin):
             amount = self._leftover_penalty_amount(player)
             if amount <= 0:
                 continue
-            self._add_hand_payment(player, winner, amount)
+            self._add_hand_payment(player, winner, amount, PAYMENT_REASON_LEFTOVER)
             self._broadcast_leftover_penalty(player, amount)
 
-    def _settle_hand_payments(self, players: list[TienLenPlayer]) -> dict[str, int]:
+    def _settle_hand_payments(
+        self,
+        players: list[TienLenPlayer],
+    ) -> tuple[dict[str, int], dict[str, dict[str, int]]]:
         deltas = {player.id: 0 for player in players}
+        breakdowns = {player.id: {} for player in players}
         balances = {player.id: player.coins for player in players}
         players_by_id = {player.id: player for player in players}
         for payment in self.hand_payments:
@@ -765,10 +784,13 @@ class TienLenGame(Game, TurnTimerMixin):
             balances[receiver.id] += paid
             deltas[payer.id] -= paid
             deltas[receiver.id] += paid
+            reason = payment.reason if payment.reason in PAYMENT_REASON_ORDER else PAYMENT_REASON_ADJUSTMENT
+            breakdowns[payer.id][reason] = breakdowns[payer.id].get(reason, 0) - paid
+            breakdowns[receiver.id][reason] = breakdowns[receiver.id].get(reason, 0) + paid
         for player in players:
             player.coins = balances[player.id]
         self.hand_payments = []
-        return deltas
+        return deltas, breakdowns
 
     def on_tick(self) -> None:
         super().on_tick()
@@ -1609,7 +1631,7 @@ class TienLenGame(Game, TurnTimerMixin):
             self._add_rank_payments(ordered)
             self._add_leftover_penalties(winner, ordered)
 
-        deltas = self._settle_hand_payments(ordered)
+        deltas, breakdowns = self._settle_hand_payments(ordered)
         self.hand_winner_id = None if instant_winner else winner.id
         self._sync_team_scores()
 
@@ -1623,15 +1645,20 @@ class TienLenGame(Game, TurnTimerMixin):
                 "tienlen-you-win-hand",
                 "tienlen-player-wins-hand",
             )
-        for index, player in enumerate(ordered, 1):
-            self.broadcast_l(
-                "tienlen-hand-settlement-line",
-                buffer="game",
-                place=index,
-                player=player.name,
-                change=self._format_coin_delta(deltas[player.id]),
-                total=player.coins,
-            )
+        for table_player in self.players:
+            user = self.get_user(table_player)
+            if not user:
+                continue
+            for index, player in enumerate(ordered, 1):
+                user.speak_l(
+                    "tienlen-hand-settlement-line",
+                    buffer="game",
+                    place=index,
+                    player=player.name,
+                    breakdown=self._format_settlement_breakdown(player, breakdowns, user.locale),
+                    net=self._format_coin_delta(deltas[player.id]),
+                    total=player.coins,
+                )
 
         newly_eliminated = [
             player
@@ -1705,6 +1732,29 @@ class TienLenGame(Game, TurnTimerMixin):
         if delta > 0:
             return f"+{delta}"
         return str(delta)
+
+    def _format_settlement_breakdown(
+        self,
+        player: TienLenPlayer,
+        breakdowns: dict[str, dict[str, int]],
+        locale: str,
+    ) -> str:
+        parts = []
+        player_breakdown = breakdowns.get(player.id, {})
+        for reason in PAYMENT_REASON_ORDER:
+            amount = player_breakdown.get(reason, 0)
+            if amount == 0:
+                continue
+            parts.append(
+                Localization.get(
+                    locale,
+                    f"tienlen-settlement-{reason}",
+                    change=self._format_coin_delta(amount),
+                )
+            )
+        if not parts:
+            return Localization.get(locale, "tienlen-settlement-no-change")
+        return "; ".join(parts)
 
     def build_game_result(self) -> GameResult:
         active_players = [player for player in self.players if not player.is_spectator]

@@ -82,11 +82,33 @@ Trong ván thường, người về nhất nhận xu theo hạng của những n
 \* \*\*3 người:\*\* nhì trả 10 xu cho nhất; chót trả 20 xu cho nhất.
 \* \*\*4 người:\*\* nhì trả 10 xu cho nhất; ba trả 20 xu cho nhất; chót trả 30 xu cho nhất.
 
-Các khoản phạt thêm cũng được tính:
+Tiền chặt được trả từ người bị chặt cho người chặt:
 
-\* \*\*Chặt:\*\* khi một người chặt Heo hoặc chặt hàng, người bị chặt trả xu cho người chặt.
-\* \*\*Thối:\*\* khi cộng trừ cuối ván, Heo, tứ quý, và đôi thông còn trên tay bị phạt xu cho người về nhất.
-\* \*\*Tới trắng:\*\* bỏ qua cộng trừ theo hạng. Mỗi đối thủ trả xu cho người tới trắng theo loại bài, từ 20 xu cho sáu đôi đến 90 xu cho sảnh rồng.
+\* \*\*Heo đen:\*\* 10 xu.
+\* \*\*Heo đỏ:\*\* 20 xu.
+\* \*\*Nhiều Heo:\*\* cộng từng lá Heo riêng, nên hai Heo đen là 20 xu, một Heo đen và một Heo đỏ là 30 xu, hai Heo đỏ là 40 xu.
+\* \*\*Ba đôi thông:\*\* 10 xu.
+\* \*\*Bốn đôi thông:\*\* 40 xu.
+\* \*\*Năm đôi thông trở lên:\*\* 10 xu cho mỗi đôi trong dây.
+\* \*\*Tứ quý:\*\* 30 xu.
+
+Phạt thối được trả cho người về nhất khi cộng trừ cuối ván:
+
+\* Heo còn trên tay dùng đúng mức Heo đen / Heo đỏ ở trên.
+\* Tứ quý còn trên tay bị phạt 30 xu.
+\* Trong Miền Nam, đôi thông dùng để chặt còn trên tay dùng đúng mức ba đôi, bốn đôi, và năm đôi thông trở lên ở trên.
+
+Tới trắng bỏ qua cộng trừ theo hạng và không tính phạt thối. Mỗi đối thủ trả cho người tới trắng:
+
+\* \*\*Sáu đôi:\*\* 20 xu.
+\* \*\*Tứ quý Heo:\*\* 30 xu.
+\* \*\*Năm đôi thông:\*\* 40 xu.
+\* \*\*Ba sám cô thông:\*\* 50 xu.
+\* \*\*Đồng màu:\*\* 50 xu.
+\* \*\*Hai tứ quý:\*\* 60 xu.
+\* \*\*Bốn sám cô:\*\* 70 xu.
+\* \*\*Sáu đôi thông:\*\* 80 xu.
+\* \*\*Sảnh rồng:\*\* 90 xu.
 
 Nếu người chơi không đủ xu để trả, họ trả hết phần có thể, dừng ở 0 xu và bị loại trước ván tiếp theo.
 

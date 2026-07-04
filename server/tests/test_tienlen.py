@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 import random
 
 from ..games.registry import GameRegistry
@@ -58,8 +59,11 @@ def prepare_active_game(game: TienLenGame) -> TienLenGame:
     game.status = "playing"
     game.game_active = True
     game.set_turn_players(game.players)
+    starting_coins = game._starting_coins()
     for index, active_player in enumerate(game.players):
         active_player.hand = [c(900 + index, 5 + index, 4)]
+        active_player.coins = starting_coins
+        active_player.eliminated = False
     game._team_manager.team_mode = "individual"
     game._team_manager.setup_teams([player.name for player in game.get_active_players()])
     game._sync_team_scores()
@@ -666,7 +670,7 @@ def test_touch_standard_actions_keep_game_info_before_shared_status() -> None:
 
 
 def test_player_finishing_does_not_end_hand_until_places_are_known() -> None:
-    game = make_game(player_count=3, start=True, variant=SOUTHERN_VARIANT)
+    game = prepare_active_game(make_game(player_count=3, variant=SOUTHERN_VARIANT))
     player1, player2, player3 = game.players
     game.set_turn_players([player1, player2, player3])
     game.turn_index = 0
@@ -750,8 +754,10 @@ def test_southern_instant_win_reasons_include_common_an_trang_hands() -> None:
 
 
 def test_instant_win_settles_as_per_opponent_payment() -> None:
-    game = make_game(player_count=3, start=True, variant=SOUTHERN_VARIANT)
+    game = make_game(player_count=3, variant=SOUTHERN_VARIANT)
     player1, player2, player3 = game.players
+    for player in game.players:
+        player.coins = 50
     player1.hand = [c(index, 3 + (index // 2), 4 if index % 2 == 0 else 2) for index in range(12)]
     player1.hand.append(c(99, 1, 3))
     player2.hand = [c(200, 5, 4)]
@@ -805,7 +811,7 @@ def test_additional_southern_instant_win_reasons() -> None:
 
 
 def test_chop_payment_is_settled_with_hand() -> None:
-    game = make_game(player_count=3, start=True, variant=SOUTHERN_VARIANT)
+    game = prepare_active_game(make_game(player_count=3, variant=SOUTHERN_VARIANT))
     player1, player2, player3 = game.players
     game.set_turn_players([player1, player2, player3])
     game.turn_index = 1
@@ -834,6 +840,26 @@ def test_chop_payment_is_settled_with_hand() -> None:
     assert player1.coins == 10
     assert player2.coins == 40
     assert player3.coins == 100
+
+
+def test_settlement_breakdown_explains_offsetting_chop_and_rank_payments() -> None:
+    game = make_game(player_count=2, start=True, variant=SOUTHERN_VARIANT)
+    player1, player2 = game.players
+    user1 = game.get_user(player1)
+    assert isinstance(user1, MockUser)
+    user1.clear_messages()
+    game._add_hand_payment(player2, player1, 10, "chop")
+    player1.hand = [c(1, 5, 4)]
+    player2.hand = []
+    game.finishing_order_ids = [player2.id, player1.id]
+
+    game._finish_hand()
+
+    messages = user1.get_spoken_messages()
+    assert "Player2 takes first place." in messages
+    assert "Coin settlement follows" not in " ".join(messages)
+    assert "1. Player2: placing +10; chops -10; net 0; total 50." in messages
+    assert "2. Player1: placing -10; chops +10; net 0; total 50." in messages
 
 
 def test_same_shape_hang_chop_payment_is_settled() -> None:
@@ -890,6 +916,19 @@ def test_pending_payment_and_chop_window_state_survive_save_reload() -> None:
         (payment.payer_id, payment.receiver_id, payment.amount)
         for payment in restored.hand_payments
     ] == [(player1.id, player3.id, 20)]
+
+
+def test_legacy_pending_payment_without_reason_restores_safely() -> None:
+    game = make_game(player_count=2, start=True, variant=SOUTHERN_VARIANT)
+    player1, player2 = game.players
+    game._add_hand_payment(player1, player2, 10)
+    payload = json.loads(game.to_json())
+    del payload["hand_payments"][0]["reason"]
+
+    restored = TienLenGame.from_json(json.dumps(payload))
+
+    assert len(restored.hand_payments) == 1
+    assert restored.hand_payments[0].reason == "adjustment"
 
 
 def test_leftover_twos_and_hang_pay_first_place() -> None:

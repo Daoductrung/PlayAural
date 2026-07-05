@@ -1,5 +1,21 @@
 Changelog
 
+Sunday 5 July 2026
+
+New Additions:
+
+* Tien Len now includes a 20-coin starting bankroll option for quick matches.
+
+Improvements:
+
+* Tien Len end-hand summaries now give a concise breakdown of rank payments, chops, leftover 2s and special combinations, instant wins, net change, and final coin totals.
+* Menu focus is steadier on desktop, web, and mobile: when the focused row disappears, focus now moves to the next useful menu item instead of jumping by old position.
+
+Bug Fixes:
+
+* Tien Len now keeps players who passed locked out of the current trick until it clears, while still allowing valid Southern chop responses.
+* Tien Len coin payouts now handle rank payments, chops, leftover penalties, instant wins, and players with low coin totals more accurately.
+
 Saturday 4 July 2026
 
 New Additions:

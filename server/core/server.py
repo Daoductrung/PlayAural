@@ -64,8 +64,8 @@ from ..game_utils.bot_names import bot_name_key
 from ..game_utils.game_result import GameResult
 
 
-VERSION = "1.0.4.7"
-LATEST_CLIENT_VERSION = "1.0.4.7"
+VERSION = "1.0.4.8"
+LATEST_CLIENT_VERSION = "1.0.4.8"
 UPDATE_URL = "https://github.com/Daoductrung/PlayAural/releases/latest/download/PlayAural.zip"
 UPDATE_HASH = "" # Optional SHA256
 

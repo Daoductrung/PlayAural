@@ -1,5 +1,21 @@
 Nhật ký thay đổi
 
+Chủ Nhật 5 Tháng Bảy 2026
+
+Tính năng mới:
+
+* Tiến Lên có thêm tùy chọn 20 xu khởi đầu cho các trận nhanh.
+
+Cải thiện:
+
+* Tổng kết cuối ván trong Tiến Lên giờ hiển thị gọn từng phần: tiền hạng, tiền chặt, phạt thối Heo và hàng, tới trắng, thay đổi ròng, và tổng xu cuối cùng.
+* Tiêu điểm menu trên phần mềm máy tính, web, và di động ổn định hơn: khi dòng đang được chọn biến mất, tiêu điểm chuyển tới mục hữu ích kế tiếp thay vì nhảy theo vị trí cũ.
+
+Sửa lỗi:
+
+* Tiến Lên giờ giữ đúng trạng thái bỏ lượt trong vòng chặn hiện tại cho đến khi bàn dọn vòng, đồng thời vẫn cho phép các lượt chặt hợp lệ theo luật Miền Nam.
+* Tính xu trong Tiến Lên giờ xử lý chính xác hơn tiền hạng, tiền chặt, phạt thối, tới trắng, và trường hợp người chơi còn ít xu.
+
 Thứ Bảy 4 Tháng Bảy 2026
 
 Tính năng mới:

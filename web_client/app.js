@@ -6,6 +6,7 @@ import { createStore } from "./store.js";
 import { AVAILABLE_LOCALES, DEFAULT_LOCALE, loadLocaleBundle, normalizeLocale } from "./locales/index.js";
 import { createHistoryView } from "./ui/history.js";
 import { createMenuView } from "./ui/menus.js";
+import { resolveMenuFocusIndex, stableMenuItemId } from "./ui/menuFocus.js";
 
 const CLIENT_VERSION = String(window.PLAYAURAL_WEB_VERSION || "1.0.4.7");
 const WEB_CLIENT_CONFIG = window.PLAYAURAL_WEB_CONFIG || {};
@@ -2679,21 +2680,29 @@ class PlayAuralWebApp {
     });
 
     const previousMenu = this.store.state.currentMenu;
-    const oldFocusedId = this.focusedMenuItemId() || previousMenu.items[previousMenu.selection]?.id || "";
-    let selection = 0;
+    const focusedId = this.focusedMenuItemId();
+    const focusedIndex = focusedId
+      ? previousMenu.items.findIndex((item) => stableMenuItemId(item) === focusedId)
+      : -1;
+    const previousFocusIndex = focusedIndex >= 0 ? focusedIndex : previousMenu.selection;
+    let explicitIndex = null;
     if (packet.selection_id !== undefined && packet.selection_id !== null) {
       const index = items.findIndex((item) => item.id === packet.selection_id);
       if (index >= 0) {
-        selection = index;
+        explicitIndex = index;
       }
     } else if (packet.position !== undefined && packet.position !== null) {
-      selection = clampNumber(packet.position, 0, Math.max(0, items.length - 1), 0);
-    } else if (previousMenu.menuId === packet.menu_id && oldFocusedId) {
-      const index = items.findIndex((item) => item.id === oldFocusedId);
-      selection = index >= 0 ? index : clampNumber(previousMenu.selection, 0, Math.max(0, items.length - 1), 0);
-    } else if (previousMenu.menuId === packet.menu_id) {
-      selection = clampNumber(previousMenu.selection, 0, Math.max(0, items.length - 1), 0);
+      explicitIndex = packet.position;
     }
+    const selection = resolveMenuFocusIndex(
+      previousMenu.items,
+      items,
+      previousFocusIndex,
+      {
+        sameMenu: previousMenu.menuId === packet.menu_id,
+        explicitIndex,
+      },
+    );
 
     const title = packet.title || this.titleFromMenuId(packet.menu_id);
     const shouldFocus = this.shouldFocusMenuAfterPacket(previousMenu.menuId, packet.menu_id);

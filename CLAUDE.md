@@ -303,17 +303,17 @@ Status overlays are the sanctioned exception: use `status_box(...)` or
 All three first-party clients treat a menu packet for the menu they are
 already displaying as an in-place diff: the cursor follows the focused item
 by *identity*, with no announcement and no reset. Focus resets come from
-menu-identity changes (turn_menu → status_box → turn_menu), from the focused
-item leaving the list, or from an explicit `selection_id` — never from a
-repaint itself. (The old `rebuild_*`-resets / `update_*`-preserves doctrine
-was stale; the verb never mattered on any client, which is why the names are
-gone.)
+menu-identity changes (turn_menu -> status_box -> turn_menu), from an explicit
+`selection_id`, or from a same-menu update where no stable old item survives -
+never from a repaint itself. (The old `rebuild_*`-resets /
+`update_*`-preserves doctrine was stale; the verb never mattered on any client,
+which is why the names are gone.)
 
 Consequences that still matter when designing a menu:
-- The anchor only breaks when the focused item's id leaves the menu — then
-  focus falls back to the clamped slot, or the first item if the menu
-  emptied. A persistent control must stay *present* across refreshes to keep
-  its anchor.
+- When the focused item's id leaves the menu, clients fall forward to the next
+  surviving item from the old logical order, then backward to the previous
+  surviving item, and only then to a clamped numeric fallback. A persistent
+  control must stay *present* across refreshes to keep its exact anchor.
 - This bit the backgammon board hard. The 24 grid points are a persistent
   grid, but `get_visible_actions` once dropped *disabled* actions — and a
   point disables on the opponent's turn. The off-turn player's board

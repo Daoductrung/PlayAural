@@ -143,10 +143,13 @@ Customize painting through:
 
 Client focus doctrine:
 
-- Same-menu repaint preserves focus by item id; `NetworkUser` skips identical
-  same-menu repaints with no focus directive.
-- Anchors break only when the focused item leaves the menu, the menu identity
-  changes, or `selection_id` explicitly jumps focus.
+- Same-menu repaint preserves focus by item id; if the focused item leaves the
+  menu, clients fall forward to the next surviving item from the old logical
+  order, then backward to the previous surviving item, and only then to a
+  clamped numeric fallback. `NetworkUser` skips identical same-menu repaints
+  with no focus directive.
+- Anchors reset only when the menu identity changes, no stable old item
+  survives, or `selection_id` explicitly jumps focus.
 - Keep disabled-but-visible persistent controls when they anchor touch or screen
   reader focus. Use `request_menu_focus` only for deliberate action-driven jumps.
 - The Escape/actions menu auto-refreshes in place through sealed

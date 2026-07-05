@@ -1,0 +1,129 @@
+game-name-chaosbear = خرس آشوب
+
+chaosbear-roll-dice = انداختن تاس
+chaosbear-draw-card = کشیدن کارت
+chaosbear-check-status = مشاهده‌ی وضعیت
+chaosbear-action-in-progress = قبل از اقدام مجدد، منتظر پایان حرکت فعلی تعقیب باشید.
+chaosbear-error-roll-not-playing = نمی‌توانید تاس بیندازید چون تعقیب خرس آشوب هنوز شروع نشده است.
+chaosbear-error-roll-no-turn = نمی‌توانید تاس بیندازید چون تعقیب در حال حاضر بین نوبت‌ها است. منتظر اعلام دوندۀ بعدی باشید.
+chaosbear-error-roll-not-your-turn = نمی‌توانید در حال حاضر تاس بیندازید چون دوندۀ دیگری نوبت را در تعقیب دارد.
+chaosbear-error-roll-resolving = نمی‌توانید دوباره تاس بیندازید چون حرکت فعلی تعقیب هنوز در حال انجام است.
+chaosbear-error-roll-caught = نمی‌توانید تاس بیندازید چون خرس قبلاً شما را در خانۀ { $position } گرفته است. خرس در خانۀ { $bear_position } است.
+chaosbear-error-draw-not-playing = نمی‌توانید کارت آشوب بکشید چون تعقیب خرس آشوب هنوز شروع نشده است.
+chaosbear-error-draw-no-turn = نمی‌توانید کارت آشوب بکشید چون تعقیب در حال حاضر بین نوبت‌ها است. منتظر اعلام دوندۀ بعدی باشید.
+chaosbear-error-draw-not-your-turn = نمی‌توانید در حال حاضر کارت آشوب بکشید چون دوندۀ دیگری نوبت را در تعقیب دارد.
+chaosbear-error-draw-resolving = نمی‌توانید کارت آشوب دیگری بکشید چون حرکت فعلی تعقیب هنوز در حال انجام است.
+chaosbear-error-draw-caught = نمی‌توانید کارت آشوب بکشید چون خرس قبلاً شما را در خانۀ { $position } گرفته است. خرس در خانۀ { $bear_position } است.
+chaosbear-error-draw-not-on-multiple = فقط زمانی می‌توانید کارت آشوب بکشید که روی مضرب مثبت ۵ ایستاده‌اید. قبل از کشیدن، به خانۀ مناسب بروید.
+chaosbear-error-status-not-playing = می‌توانید وضعیت خرس آشوب را پس از شروع تعقیب بررسی کنید.
+
+chaosbear-intro-1 = خرس آشوب آغاز شد! همه‌ی بازیکنان ۳۰ خانه از خرس جلوتر شروع می‌کنند.
+chaosbear-intro-2 = برای حرکت به جلو تاس بیندازید و در مضرب‌های ۵ کارت بکشید تا جهش ۳ خانه‌ای به همراه یک اثر ویژه داشته باشید.
+chaosbear-intro-3 = نگذارید خرس شما را بگیرد!
+chaosbear-intro-brief = خرس آشوب آغاز شد. از خانۀ ۳۰ شروع کنید؛ از خرس جلوتر بمانید.
+
+chaosbear-turn-you = نوبت شما. شما در خانۀ { $position } هستید، { $gap } خانه از خرس جلوترید.
+chaosbear-turn-other = نوبت { $player }. او در خانۀ { $position } است، { $gap } خانه از خرس جلوتر است.
+chaosbear-turn = نوبت { $player }؛ خانۀ { $position }.
+chaosbear-turn-you-brief = نوبت شما: خانۀ { $position }، فاصله { $gap }.
+chaosbear-turn-other-brief = { $player }: خانۀ { $position }، فاصله { $gap }.
+
+chaosbear-roll-you = شما { $roll } انداختید.
+chaosbear-roll-other = { $player } { $roll } انداخت.
+chaosbear-roll = { $player } { $roll } انداخت.
+chaosbear-roll-you-brief = انداختید { $roll }.
+chaosbear-roll-other-brief = { $player } { $roll } انداخت.
+chaosbear-position-you = به خانۀ { $position } رسیدید، { $gap } خانه از خرس جلوترید.
+chaosbear-position-other = { $player } به خانۀ { $position } رسید، { $gap } خانه از خرس جلوتر است.
+chaosbear-position = { $player } اکنون در خانۀ { $position } است.
+chaosbear-position-you-brief = خانۀ { $position }، فاصله { $gap }.
+chaosbear-position-other-brief = { $player }: خانۀ { $position }، فاصله { $gap }.
+
+chaosbear-draw-card-you = شما یک کارت آشوب می‌کشید.
+chaosbear-draw-card-other = { $player } یک کارت آشوب می‌کشد.
+chaosbear-draws-card = { $player } یک کارت می‌کشد.
+chaosbear-draw-card-you-brief = شما می‌کشید.
+chaosbear-draw-card-other-brief = { $player } می‌کشد.
+chaosbear-card-impulsion-you = فشار! شما به خانۀ { $position } جهش می‌کنید، { $gap } خانه از خرس جلوترید.
+chaosbear-card-impulsion-other = فشار! { $player } به خانۀ { $position } جهش می‌کند، { $gap } خانه از خرس جلوتر است.
+chaosbear-card-impulsion = فشار! { $player } به خانۀ { $position } جهش می‌کند!
+chaosbear-card-impulsion-you-brief = فشار: خانۀ { $position }، فاصله { $gap }.
+chaosbear-card-impulsion-other-brief = فشار { $player }: خانۀ { $position }، فاصله { $gap }.
+chaosbear-card-super-impulsion-you = فشار فوق‌العاده! شما به خانۀ { $position } پرتاب می‌شوید، { $gap } خانه از خرس جلوترید.
+chaosbear-card-super-impulsion-other = فشار فوق‌العاده! { $player } به خانۀ { $position } پرتاب می‌شود، { $gap } خانه از خرس جلوتر است.
+chaosbear-card-super-impulsion = فشار فوق‌العاده! { $player } به خانۀ { $position } پرتاب می‌شود!
+chaosbear-card-super-impulsion-you-brief = فشار فوق‌العاده: خانۀ { $position }، فاصله { $gap }.
+chaosbear-card-super-impulsion-other-brief = فشار فوق‌العاده { $player }: خانۀ { $position }، فاصله { $gap }.
+chaosbear-card-tiredness-you = خستگی! به خانۀ { $position } رسیدید، { $gap } خانه از خرس جلوترید، و انرژی خرس به { $energy } کاهش یافت.
+chaosbear-card-tiredness-other = خستگی! { $player } به خانۀ { $position } رسید، { $gap } خانه از خرس جلوتر است، و انرژی خرس به { $energy } کاهش یافت.
+chaosbear-card-tiredness = خستگی! { $player } به خانۀ { $position } رسید، و انرژی خرس به { $energy } کاهش یافت.
+chaosbear-card-tiredness-you-brief = خستگی: خانۀ { $position }، انرژی خرس { $energy }.
+chaosbear-card-tiredness-other-brief = خستگی { $player }: خانۀ { $position }، انرژی خرس { $energy }.
+chaosbear-card-hunger-you = گرسنگی! به خانۀ { $position } رسیدید، { $gap } خانه از خرس جلوترید، اما انرژی خرس به { $energy } افزایش یافت.
+chaosbear-card-hunger-other = گرسنگی! { $player } به خانۀ { $position } رسید، { $gap } خانه از خرس جلوتر است، اما انرژی خرس به { $energy } افزایش یافت.
+chaosbear-card-hunger = گرسنگی! { $player } به خانۀ { $position } رسید، اما انرژی خرس به { $energy } افزایش یافت.
+chaosbear-card-hunger-you-brief = گرسنگی: خانۀ { $position }، انرژی خرس { $energy }.
+chaosbear-card-hunger-other-brief = گرسنگی { $player }: خانۀ { $position }، انرژی خرس { $energy }.
+chaosbear-card-backward-you = عقب‌رانی! جهش ۳ خانه‌ای را از دست می‌دهید و در خانۀ { $position } می‌مانید، { $gap } خانه از خرس جلوترید.
+chaosbear-card-backward-other = عقب‌رانی! { $player } جهش ۳ خانه‌ای را از دست می‌دهد و در خانۀ { $position } می‌ماند، { $gap } خانه از خرس جلوتر است.
+chaosbear-card-backward = عقب‌رانی! { $player } جهش را از دست می‌دهد و در خانۀ { $position } می‌ماند.
+chaosbear-card-backward-you-brief = عقب‌رانی: خانۀ { $position }، فاصله { $gap }.
+chaosbear-card-backward-other-brief = عقب‌رانی { $player }: خانۀ { $position }، فاصله { $gap }.
+chaosbear-card-random-gift-you = هدیه‌ی تصادفی! کارت شما هنوز تصمیم می‌گیرد که به شما کمک کند یا آسیب برساند.
+chaosbear-card-random-gift-other = هدیه‌ی تصادفی! کارت { $player } هنوز تصمیم می‌گیرد که به او کمک کند یا آسیب برساند.
+chaosbear-card-random-gift = هدیه‌ی تصادفی!
+chaosbear-card-random-gift-you-brief = هدیه‌ی تصادفی.
+chaosbear-card-random-gift-other-brief = هدیه‌ی تصادفی { $player }.
+chaosbear-gift-back-you = هدیه‌ی تصادفی علیه شما می‌چرخد و شما را { $amount } خانه به عقب به خانۀ { $position } می‌کشاند، { $gap } خانه از خرس جلوترید.
+chaosbear-gift-back-other = هدیه‌ی تصادفی علیه { $player } می‌چرخد و او را { $amount } خانه به عقب به خانۀ { $position } می‌کشاند، { $gap } خانه از خرس جلوتر است.
+chaosbear-gift-back = { $player } به خانۀ { $position } بازگشت.
+chaosbear-gift-back-you-brief = عقب‌رانی هدیه { $amount }: خانۀ { $position }، فاصله { $gap }.
+chaosbear-gift-back-other-brief = عقب‌رانی هدیه { $player } { $amount }: خانۀ { $position }، فاصله { $gap }.
+chaosbear-gift-forward-you = هدیه‌ی تصادفی به شما کمک می‌کند و شما را { $amount } خانه به جلو به خانۀ { $position } می‌کشاند، { $gap } خانه از خرس جلوترید.
+chaosbear-gift-forward-other = هدیه‌ی تصادفی به { $player } کمک می‌کند و او را { $amount } خانه به جلو به خانۀ { $position } می‌کشاند، { $gap } خانه از خرس جلوتر است.
+chaosbear-gift-forward = { $player } به خانۀ { $position } رفت!
+chaosbear-gift-forward-you-brief = جلو‌رانی هدیه { $amount }: خانۀ { $position }، فاصله { $gap }.
+chaosbear-gift-forward-other-brief = جلو‌رانی هدیه { $player } { $amount }: خانۀ { $position }، فاصله { $gap }.
+
+chaosbear-bear-roll = خرس { $roll } به اضافۀ انرژی { $energy } خود = { $total } انداخت.
+chaosbear-bear-energy-up = خرس ۳ انداخت و ۱ انرژی به دست آورد. انرژی آن اکنون { $energy } است.
+chaosbear-bear-position = خرس اکنون در خانۀ { $position } است!
+chaosbear-you-caught = خرس به خانۀ { $bear_position } رسید و شما را در خانۀ { $position } گرفت. شما از تعقیب خارج شدید.
+chaosbear-player-caught = خرس به خانۀ { $bear_position } رسید و { $player } را در خانۀ { $position } گرفت. { $player } از تعقیب خارج شد.
+chaosbear-bear-feast = خرس پس از گرفتن دونده‌ها کند می‌شود. انرژی آن اکنون { $energy } است.
+chaosbear-bear-roll-brief = خرس { $roll } + { $energy } = { $total } انداخت.
+chaosbear-bear-energy-up-brief = انرژی خرس { $energy }.
+chaosbear-bear-position-brief = خانۀ خرس { $position }.
+chaosbear-you-caught-brief = در خانۀ { $position } گرفتار شدید. شما خارج شدید.
+chaosbear-player-caught-brief = { $player } در خانۀ { $position } گرفتار شد.
+chaosbear-bear-feast-brief = خرس کند شد: انرژی { $energy }.
+
+chaosbear-status-header = وضعیت تعقیب
+chaosbear-status-round = دور { $round }
+chaosbear-status-turn = نوبت: { $player } در خانۀ { $position }، { $gap } خانه از خرس جلوتر.
+chaosbear-status-no-turn = در حال حاضر هیچ دونده‌ای نوبت ندارد.
+chaosbear-status-player-alive = { $player }: خانۀ { $position }، { $gap } خانه از خرس جلوتر.
+chaosbear-status-player-caught = { $player }: در خانۀ { $position } گرفتار شد.
+chaosbear-status-bear = خرس در خانۀ { $position } با انرژی { $energy } است.
+
+chaosbear-winner-you = شما برنده شدید! از خرس جلوتر ماندید و به خانۀ { $position } رسیدید.
+chaosbear-winner-other = { $player } برنده شد! از خرس جلوتر ماند و به خانۀ { $position } رسید.
+chaosbear-winner = { $player } برنده شد! به خانۀ { $position } رسید!
+chaosbear-winner-you-brief = شما در خانۀ { $position } برنده شدید.
+chaosbear-winner-other-brief = { $player } در خانۀ { $position } برنده شد.
+chaosbear-distance-winner-you = شما برندۀ تساوی فاصله در خانۀ { $position } پس از اینکه خرس همه را گرفت.
+chaosbear-distance-winner-other = { $player } برندۀ تساوی فاصله در خانۀ { $position } پس از اینکه خرس همه را گرفت.
+chaosbear-distance-winner-you-brief = شما برندۀ تساوی فاصله در خانۀ { $position } هستید.
+chaosbear-distance-winner-other-brief = { $player } برندۀ تساوی فاصله در خانۀ { $position } است.
+chaosbear-tie-you = شما در فاصله‌ی پیشرو با { $players } در خانۀ { $position } مساوی می‌شوید پس از اینکه خرس همه را می‌گیرد.
+chaosbear-tie = تساوی فاصله در خانۀ { $position }: { $players } پس از رسیدن به پیشروی یکسان با هم گرفتار می‌شوند.
+chaosbear-tie-you-brief = تساوی در خانۀ { $position } با { $players }.
+chaosbear-tie-brief = تساوی فاصله در خانۀ { $position }: { $players }.
+
+chaosbear-you-are-caught = شما توسط خرس گرفتار شده‌اید.
+chaosbear-not-on-multiple = فقط زمانی می‌توانید کارت آشوب بکشید که روی مضرب مثبت ۵ ایستاده‌اید.
+
+chaosbear-final-positions = موقعیت‌های نهایی
+chaosbear-line-format = { $rank }. { $player }: { $position } خانه ({ $status })
+chaosbear-status-caught = گرفتار شد
+chaosbear-status-survived = جان سالم به در برد

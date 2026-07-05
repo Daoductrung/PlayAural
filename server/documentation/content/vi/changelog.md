@@ -1,10 +1,50 @@
 Nhật ký thay đổi
 
+Chủ Nhật 5 Tháng Bảy 2026
+
+Tính năng mới:
+
+* Tiến Lên có thêm tùy chọn 20 xu khởi đầu cho các trận nhanh.
+
+Cải thiện:
+
+* Tổng kết cuối ván trong Tiến Lên giờ hiển thị gọn từng phần: tiền hạng, tiền chặt, phạt thối Heo và hàng, tới trắng, thay đổi ròng, và tổng xu cuối cùng.
+* Tiêu điểm menu trên phần mềm máy tính, web, và di động ổn định hơn: khi dòng đang được chọn biến mất, tiêu điểm chuyển tới mục hữu ích kế tiếp thay vì nhảy theo vị trí cũ.
+
+Sửa lỗi:
+
+* Tiến Lên giờ giữ đúng trạng thái bỏ lượt trong vòng chặn hiện tại cho đến khi bàn dọn vòng, đồng thời vẫn cho phép các lượt chặt hợp lệ theo luật Miền Nam.
+* Tính xu trong Tiến Lên giờ xử lý chính xác hơn tiền hạng, tiền chặt, phạt thối, tới trắng, và trường hợp người chơi còn ít xu.
+
+Thứ Bảy 4 Tháng Bảy 2026
+
+Tính năng mới:
+
+* Đường Đua Nghìn Dặm giờ có điểm Về đích muộn khi hoàn thành chuyến đi sau khi chồng rút đã hết bài, kèm tóm tắt điểm và tài liệu đã cập nhật.
+* Tiến Lên giờ dùng Xu khởi đầu như vốn xu: ai còn 0 xu sẽ bị loại, và người cuối cùng còn xu sẽ thắng trận.
+
+Cải thiện:
+
+* UNO gọn hơn trên từng thiết bị: trên máy tính dùng phím U, trên thiết bị cảm ứng nút UNO được ghim ở đầu menu lượt, và sau khi chọn màu của lá Đổi màu, tiêu điểm chuyển tới lá phù hợp hoặc mục menu hữu ích.
+* Điểm phạt Cướp lượt, kiểm tra điểm, thông báo lá mở đầu, chọn màu, và đọc số lá trong UNO giờ ngắn gọn và rõ hơn.
+* Người máy trong Đấu Trường Chiến Kỹ giờ chọn đấu sĩ và chiêu mạnh đa dạng hơn nhưng vẫn biết tấn công và hỗ trợ chiến thuật.
+* Luồng ván trong Tiến Lên giờ có thông báo gọn hơn theo hướng ưu tiên âm thanh.
+
+Sửa lỗi:
+
+* Menu trong bàn giờ phục hồi ổn định hơn sau màn hình trạng thái, xác nhận rời bàn, thao tác cũ, kết nối lại, khôi phục bàn, và chấp nhận lời mời bàn, nên ít gặp menu trống hoặc bị kẹt hơn.
+* UNO giờ áp dụng hiệu ứng lá mở đầu chính thức cho Mất lượt, Đảo chiều, Rút Hai, và Đổi màu; Đổi màu Rút Bốn được trả lại vào bộ bài trước khi lật lá mở đầu mới.
+* UNO giờ cho phép bắt lỗi quên hô UNO trước khi người kế tiếp đánh hoặc rút bài, và các lượt hô hoặc bắt lỗi UNO không hợp lệ có phản hồi rõ hơn.
+* Đường Đua Nghìn Dặm giờ cho Lá bảo hộ dọn đúng các Sự cố đang có, và kết quả cuối ván hiển thị đúng điểm thắng cùng quãng đường chặng đua.
+* Đấu Trường Chiến Kỹ không còn bị chặn thiết lập bởi Chế độ đội ẩn sau khi chuyển khỏi Đấu đội.
+* Tiến Lên giờ nhận đúng thêm các thế tới trắng chuẩn của miền Nam, gồm sảnh rồng, tứ quý Heo, và ba sám cô thông.
+* Tiến Lên giờ bám sát hơn luật khai ván đầu và luật chặt, gồm tứ quý chặt được đôi Heo.
+
 Thứ Sáu 3 Tháng Bảy 2026
 
 Tính năng mới:
 
-* Chín mươi chín giờ có các nút tạm dừng và bắt đầu ngay trong khoảng chờ ngắn giữa các vòng giống Scopa, để chủ bàn có thể tạm dừng đồng hồ đếm ngược hoặc bắt đầu vòng tiếp theo ngay.
+* Chín mươi chín giờ đây có các nút tạm dừng và bắt đầu ngay trong khoảng chờ ngắn giữa các vòng giống Scopa, để chủ bàn có thể tạm dừng đồng hồ đếm ngược hoặc bắt đầu vòng tiếp theo ngay.
 * Các tùy chọn thiết lập trò chơi giờ có phần trợ giúp rõ hơn bằng tiếng Anh và tiếng Việt, với cách viết thống nhất cho giá trị mặc định, phạm vi, và lựa chọn trong cả tài liệu lẫn menu tùy chọn.
 * Menu chọn ngôn ngữ giờ hiển thị thông tin ngôn ngữ được hỗ trợ rõ hơn, gồm ghi công người dịch và trạng thái bản dịch chính thức/cộng đồng khi có.
 
@@ -14,7 +54,7 @@ Sửa lỗi:
 * Cơ chế dự phòng ngôn ngữ và tài liệu trên máy chủ, web, và di động an toàn hơn, nên bản dịch còn thiếu vẫn đọc được và tài liệu thiếu sẽ trở về tiếng Anh thay vì hiện khóa thô hoặc trang trống.
 * Trợ giúp tùy chọn và tùy chỉnh giờ chỉ đọc đúng dòng bạn đang đặt tiêu điểm, và bỏ qua nút Quay lại hoặc gói menu cũ không còn hợp lệ.
 * Scopa giờ xử lý chính xác hơn bố cục bài mở đầu không hợp lệ, các lần quét bàn của Asso piglia tutto, tình huống nhiều bên hòa tại mốc điểm mục tiêu, bài đã ăn của người chơi đang hoạt động, và các tổ hợp tùy chọn thiết lập xung đột.
-* Chín mươi chín giờ giữ lại lá trên cùng của chồng bài bỏ khi xào lại bộ bài, báo rõ khi không còn lá để rút thủ công, giữ các nút bài ngoài lượt ổn định cho người chơi cảm ứng, và tài liệu đã nói rõ phạt mốc 33/66 chỉ áp dụng khi tổng điểm được nâng lên các mốc đó.
+* Chín mươi chín giờ đây giữ lại lá trên cùng của chồng bài bỏ khi xào lại bộ bài, báo rõ khi không còn lá để rút thủ công, giữ các nút bài ngoài lượt ổn định cho người chơi cảm ứng, và tài liệu đã nói rõ phạt mốc 33/66 chỉ áp dụng khi tổng điểm được nâng lên các mốc đó.
 * Crazy Eights giờ đưa tiêu điểm tới lá bài phù hợp nhất tiếp theo trên tay sau khi bạn chọn chất cho một lá 8 Đổi màu; nếu không có lá phù hợp, tiêu điểm trở về mục đầu tiên trong menu hành động chính.
 * Điểm khi Crazy Eights bị chặn giờ chỉ tính phần chênh lệch so với tay ít điểm nhất, và thông báo rút bắt buộc giờ khớp số lá thật sự được rút.
 
@@ -231,7 +271,7 @@ Sửa lỗi:
 
 * Scopa giờ có luật rõ hơn, lời nhắc tốt hơn, và thông báo tự nhiên hơn.
 * Blackjack giờ có luật rõ hơn, lời nhắc tốt hơn, và thông báo tự nhiên hơn.
-* Chín mươi chín giờ có luật rõ hơn, lời nhắc tốt hơn, và thông báo tự nhiên hơn.
+* Chín mươi chín giờ đây có luật rõ hơn, lời nhắc tốt hơn, và thông báo tự nhiên hơn.
 * Đường Đua Nghìn Dặm giờ có luật rõ hơn, lời nhắc tốt hơn, và thông báo tự nhiên hơn.
 * Đô-mi-nô giờ có luật rõ hơn, lời nhắc tốt hơn, và thông báo tự nhiên hơn.
 * 21 giờ có luật rõ hơn, lời nhắc tốt hơn, và thông báo tự nhiên hơn.
@@ -244,9 +284,9 @@ Sửa lỗi:
 * Cờ thỏ cáo giờ có luật rõ hơn, lời nhắc tốt hơn, và thông báo tự nhiên hơn.
 * Thành Phố Trung Cổ giờ có luật rõ hơn, lời nhắc tốt hơn, và thông báo tự nhiên hơn.
 * Blackjack giờ bỏ qua người chơi phá sản, dùng chip nhất quán, khóa tiền cược khi xác nhận, và giãn cách lượt rút bài của nhà cái.
-* Chín mươi chín giờ loại người chơi đã bị loại khỏi các lượt chia bài sau.
-* Chín mươi chín giờ bắt đầu vòng mới với người đi đầu ngẫu nhiên và có nhịp nghỉ ngắn giữa các vòng.
-* Chín mươi chín giờ khôi phục menu đã dịch đúng hơn sau khi kết nối lại.
+* Chín mươi chín giờ đây loại người chơi đã bị loại khỏi các lượt chia bài sau.
+* Chín mươi chín giờ đây bắt đầu vòng mới với người đi đầu ngẫu nhiên và có nhịp nghỉ ngắn giữa các vòng.
+* Chín mươi chín giờ đây khôi phục menu đã dịch đúng hơn sau khi kết nối lại.
 * Chín mươi chín đã sửa lỗi hiếm khiến tổng điểm tăng vượt mức hợp lệ.
 * Poker Tử Thần giờ theo dõi số vòng thắng lúc so bài chính xác hơn và đọc các ván hòa rõ hơn.
 * Poker Tử Thần giờ cho đổi bài một lần mỗi ván và chặn Tất tay ở vòng đầu.
@@ -354,7 +394,7 @@ Sửa lỗi:
 * Kiểm tra độ trễ mạng trên di động giờ có kết quả khi tắt chế độ tự đọc.
 * Người chơi di động giờ có thể bỏ bài trong Đường Đua Nghìn Dặm bằng cử chỉ nhấn giữ của trình đọc màn hình.
 * Nhận diện ngôn ngữ thiết bị trên di động mượt hơn trong lần mở đầu tiên.
-* Luồng kết nối mạng trên di động ổn định và phản hồi tốt hơn.
+* Kết nối mạng trên di động ổn định và phản hồi tốt hơn.
 
 Chủ Nhật 19 Tháng Tư 2026
 
@@ -362,7 +402,7 @@ Tính năng mới:
 
 * Quản lý bàn giờ có Khởi động lại ván chơi để đưa bàn về phòng chờ mà không cần tạo lại bàn.
 * Các lá lựa chọn trong Chín mươi chín như 10 và Át giờ có Hủy.
-* Chín mươi chín giờ có phản hồi Chưa đến lượt của bạn rõ ràng.
+* Chín mươi chín giờ đây có phản hồi Chưa đến lượt của bạn rõ ràng.
 * Đường Đua Nghìn Dặm giờ có phản hồi Chưa đến lượt của bạn rõ ràng.
 * Scopa giờ có phản hồi Chưa đến lượt của bạn rõ ràng.
 
@@ -433,7 +473,7 @@ Sửa lỗi:
 
 * Tiến Lên giờ sắp xếp bài từ thấp đến cao và phản hồi rõ hơn khi đánh bài không hợp lệ.
 * Pusoy Dos giờ sắp xếp bài từ thấp đến cao.
-* Người máy trong Chín mươi chín giờ ra quyết định tự nhiên hơn.
+* Người máy trong Chín mươi chín giờ đây ra quyết định tự nhiên hơn.
 
 Thứ Ba 7 Tháng Tư 2026
 

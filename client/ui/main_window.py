@@ -2,6 +2,7 @@
 
 import wx
 from .menu_list import MenuList
+from .menu_focus import resolve_menu_focus_index
 import accessible_output2.outputs.auto as auto_output
 import sys
 import os
@@ -24,7 +25,7 @@ from config_manager import set_item_in_dict
 from localization import Localization
 from voice_manager import VoiceManager, list_audio_input_devices, resolve_audio_input_device
 
-VERSION = "1.0.4.7"
+VERSION = "1.0.4.8"
 WINDOW_SIZE = (980, 720)
 WINDOW_MIN_SIZE = (760, 520)
 MENU_MIN_WIDTH = 280
@@ -3042,12 +3043,17 @@ class MainWindow(wx.Frame):
             if not preserve_non_menu_focus:
                 self.menu_list.SetFocus()
 
-            # Set initial selection (use position if provided, otherwise 0)
+            # Set initial selection (use explicit focus if provided, otherwise 0)
             if len(items) > 0:
-                if position is not None and 0 <= position < len(items):
-                    self.menu_list.SetSelection(position)
-                else:
-                    self.menu_list.SetSelection(0)
+                self.menu_list.SetSelection(
+                    resolve_menu_focus_index(
+                        [],
+                        item_ids,
+                        0,
+                        same_menu=False,
+                        explicit_index=position,
+                    )
+                )
 
         # Same menu ID → use diff algorithm to minimize screen reader disruption
         elif self.menu_list.GetCount() > 0:
@@ -3065,29 +3071,16 @@ class MainWindow(wx.Frame):
             # Apply diff operations (screen reader friendly)
             self.apply_menu_diff(operations)
 
-            # Cursor follows the focused item by IDENTITY: if the item the user
-            # was on still exists after the refresh, move to its new index — even
-            # if it shifted because the list reordered or grew/shrank elsewhere.
-            # Only fall back to the clamped numerical slot when that id is gone
-            # (or the items have no ids). The server can force an explicit jump
-            # via the `position`/`selection_id` field.
-            if position is not None and 0 <= position < len(items):
-                self.menu_list.SetSelection(position)
-            elif len(items) > 0:
-                old_focused_id = (
-                    old_item_ids[old_selection]
-                    if 0 <= old_selection < len(old_item_ids)
-                    else None
+            # Preserve by item identity; if the focused row disappeared, land
+            # on the next surviving row from the old logical order.
+            if len(items) > 0:
+                target = resolve_menu_focus_index(
+                    old_item_ids,
+                    item_ids,
+                    old_selection,
+                    same_menu=True,
+                    explicit_index=position,
                 )
-                if (
-                    old_focused_id
-                    and item_ids.count(old_focused_id) == 1
-                ):
-                    target = item_ids.index(old_focused_id)
-                elif old_selection != wx.NOT_FOUND:
-                    target = min(old_selection, len(items) - 1)
-                else:
-                    target = 0
                 if self.menu_list.GetSelection() != target:
                     self.menu_list.SetSelection(target)
         else:
@@ -3100,12 +3093,17 @@ class MainWindow(wx.Frame):
             if not preserve_non_menu_focus:
                 self.menu_list.SetFocus()
 
-            # Set initial selection (use position if provided, otherwise 0)
+            # Set initial selection (use explicit focus if provided, otherwise 0)
             if len(items) > 0:
-                if position is not None and 0 <= position < len(items):
-                    self.menu_list.SetSelection(position)
-                else:
-                    self.menu_list.SetSelection(0)
+                self.menu_list.SetSelection(
+                    resolve_menu_focus_index(
+                        [],
+                        item_ids,
+                        0,
+                        same_menu=False,
+                        explicit_index=position,
+                    )
+                )
 
         # Attach per-item highlight sounds (e.g. backgammon board squares).
         # Done after the list reaches its final shape so indices line up.

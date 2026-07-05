@@ -66,8 +66,38 @@ class LobbyActionsMixin:
             self._dismiss_all_end_screens()
         self.broadcast_l("game-starting", buffer="system")
         self.on_start()
+        self._focus_initial_gameplay_menu_items()
         self._clear_team_arrangement_state()
         self._sync_table_status()
+
+    def _focus_initial_gameplay_menu_items(self) -> None:
+        """Queue a one-shot focus reset to the first active menu row.
+
+        The waiting lobby and active game both use ``turn_menu``. Without an
+        explicit start-of-game focus directive, clients correctly preserve a
+        surviving lobby utility such as ``whos_at_table`` into the first active
+        menu. At the exact lobby->playing transition, the more useful landing
+        is the first rendered gameplay row (cards, board cells, or primary
+        actions). Mid-game refreshes continue to use normal client restoration.
+        """
+        if self.status != "playing":
+            return
+
+        for player in self.players:
+            if player.is_bot:
+                continue
+
+            user = self.get_user(player)
+            if not user:
+                continue
+
+            self.before_menu_build(player)
+            build = self.build_menu_items(player, user)
+            for item in build.items:
+                item_id = getattr(item, "id", None)
+                if item_id:
+                    self.request_menu_focus(player, item_id)
+                    break
 
     def _broadcast_start_errors(
         self,

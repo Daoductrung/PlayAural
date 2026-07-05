@@ -38,6 +38,7 @@ import { bundledSoundVersion } from "../generated/soundManifest";
 import { MobileLocalization, resolveMobileLocale, type MobileLocale } from "../i18n/localization";
 import { PlayAuralConnection } from "../network/PlayAuralConnection";
 import { clientAuthMetadata } from "../network/clientInfo";
+import { resolveMenuFocusIndex } from "./menuFocus";
 import type {
   AuthorizeSuccessPacket,
   ChatPacket,
@@ -71,7 +72,7 @@ import { TtsManager, type TtsVoiceOption } from "../tts/TtsManager";
 import { ENABLE_CLIENT_DEBUG_LOGS } from "../utils/debug";
 import { MobileVoiceManager, type MobileVoiceConnectionState } from "../voice/MobileVoiceManager";
 
-const MOBILE_CLIENT_VERSION = "1.0.4.7";
+const MOBILE_CLIENT_VERSION = "1.0.4.8";
 const MOBILE_BUILD_STAMP = "2026-06-26 11:56:39 +07:00";
 const DEFAULT_SERVER_URL = "wss://playaural.ddt.one:443";
 const APK_DOWNLOAD_URL =
@@ -1722,22 +1723,15 @@ export function PlayAuralApp() {
       }
     }
 
-    let focusIndex: number;
-    if (position !== null && items.length > 0) {
-      // Server-specified landing (position or selection_id) wins.
-      focusIndex = clamp(position, 0, items.length - 1);
-    } else if (isSameMenuId && items.length > 0) {
-      // Follow the focused item by IDENTITY across the refresh: if the item the
-      // cursor was on still exists, move to its new index even when the list
-      // reordered or grew/shrank. Fall back to the clamped numerical slot only
-      // when that id is gone (or the items have no ids).
-      const prevId = previous.items[previous.focusIndex]?.id;
-      const movedIndex = prevId != null ? itemIds.indexOf(prevId) : -1;
-      focusIndex =
-        movedIndex >= 0 ? movedIndex : clamp(previous.focusIndex, 0, items.length - 1);
-    } else {
-      focusIndex = 0;
-    }
+    const focusIndex = resolveMenuFocusIndex(
+      previous.items,
+      items,
+      previous.focusIndex,
+      {
+        explicitIndex: position,
+        sameMenu: isSameMenuId,
+      },
+    );
 
     const nextMenuState: MenuState = {
       escapeBehavior:

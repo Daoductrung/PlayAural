@@ -31,9 +31,10 @@ Games customize what gets painted through these hooks:
   grid layout kwargs (e.g. the backgammon/senet board grids).
 
 Clients preserve the user's cursor by item identity across a same-menu
-repaint, so a flush without a queued focus intent is always
-focus-preserving; focus only moves when an intent says so, and each intent
-fires at most once.
+repaint. If the focused item disappeared, clients fall to the next surviving
+logical neighbor from the old menu, then the previous one, before using a
+numeric fallback. A flush without a queued focus intent never resets focus just
+because a repaint happened, and each explicit focus intent fires at most once.
 """
 
 from collections.abc import Callable, Sequence
@@ -193,8 +194,8 @@ class MenuManagementMixin:
         at the end of the current ``handle_event()`` and once per server
         tick, so over-marking costs one set insert, never a packet or a
         Fluent render. A repaint without a queued focus intent preserves
-        every player's cursor (clients follow item identity), so the safe
-        habit — refresh after any state change — is also the cheap habit.
+        every player's cursor by stable menu identity when possible, so the
+        safe habit - refresh after any state change - is also the cheap habit.
         """
         if player is None:
             self._menu_dirty_all = True
@@ -276,8 +277,9 @@ class MenuManagementMixin:
         """Build and send one player's turn menu (sealed; flush-internal).
 
         Always sends the full show form; clients treat a same-id menu packet
-        as an in-place diff that preserves focus by item identity, so this
-        never resets a cursor. ``focus`` (an item id) is the player's
+        as an in-place diff that preserves focus by item identity or nearest
+        surviving logical neighbor, so this never resets a cursor merely
+        because a repaint happened. ``focus`` (an item id) is the player's
         consumed focus intent, delivered as an explicit selection.
         """
         self.before_menu_build(player)

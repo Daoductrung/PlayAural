@@ -5,10 +5,10 @@ tienlen-select-variant = Select Tien Len variant:
 tienlen-option-changed-variant = Variant set to { $choice }.
 tienlen-desc-variant = Chooses Southern or Northern Tiến Lên rules.
 
-tienlen-set-coin-target = Coin target: { $choice }
-tienlen-select-coin-target = Select match coin target:
-tienlen-option-changed-coin-target = Coin target set to { $choice }.
-tienlen-desc-match-length = Coin target for ending the Tiến Lên match: 50, 100, or 200 coins (default 50).
+tienlen-set-coin-target = Starting coins: { $choice }
+tienlen-select-coin-target = Select starting coins:
+tienlen-option-changed-coin-target = Starting coins set to { $choice }.
+tienlen-desc-match-length = Starting bankroll for each player. Settlements use 10-coin stake units; players at 0 coins are eliminated.
 
 tienlen-set-turn-timer = Turn Timer: { $choice }
 tienlen-select-turn-timer = Select turn timer duration:
@@ -17,6 +17,7 @@ tienlen-desc-turn-timer = Optional time limit for each Tiến Lên turn: Unlimit
 
 tienlen-variant-south = Southern Tien Len
 tienlen-variant-north = Northern Tien Len
+tienlen-target-20 = 20 coins
 tienlen-target-50 = 50 coins
 tienlen-target-100 = 100 coins
 tienlen-target-200 = 200 coins
@@ -64,19 +65,31 @@ tienlen-error-must-play = You cannot pass when starting a new trick.
 tienlen-error-cannot-finish-on-two = In Northern Tien Len, you cannot finish the hand with 2s or leave only 2s behind.
 tienlen-error-not-your-turn-chop = It is not your turn. In Southern Tien Len you may only jump in with a selected legal chop.
 tienlen-error-already-finished = You have already finished this hand.
+tienlen-error-opening-card-required = The opening play must include { $card }.
+tienlen-error-invalid-variant = Select a supported Tien Len variant.
+tienlen-error-invalid-starting-coins = Select a supported starting coin amount.
+tienlen-error-invalid-turn-timer = Select a supported turn timer.
 
 tienlen-you-play-single = You play { $card }.
 tienlen-player-plays-single = { $player } plays { $card }.
 tienlen-you-play-combo = You play { $combo }: { $cards }.
 tienlen-player-plays-combo = { $player } plays { $combo }: { $cards }.
+tienlen-you-one-card = You have one card left.
+tienlen-one-card = { $player } has one card left.
 tienlen-you-pass = You pass and are locked out until this trick clears.
 tienlen-player-passes = { $player } passes and is locked out until this trick clears.
+tienlen-you-chop-payment = You chop { $player }. { $amount } coins pending.
+tienlen-you-are-chopped-payment = { $player } chops you. { $amount } coins pending.
+tienlen-player-chop-payment = { $chopper } chops { $chopped }. { $amount } coins pending.
+tienlen-you-leftover-penalty = You pay { $amount } coins for leftover 2s or chopping cards.
+tienlen-player-leftover-penalty = { $player } pays { $amount } coins for leftover 2s or chopping cards.
 tienlen-you-finish-place = You emptied your hand and take place { $place } for this hand.
 tienlen-player-finishes-place = { $player } empties their hand and takes place { $place } for this hand.
 tienlen-trick-empty = The trick is empty.
 tienlen-trick-status = { $player } is leading with { $combo }: { $cards }.
 tienlen-your-hand = Your hand: { $cards }.
 tienlen-card-count-line = { $player } has { $count } cards
+tienlen-card-count-eliminated-line = { $player } is eliminated
 
 tienlen-combo-single = single
 tienlen-combo-pair = pair
@@ -87,13 +100,32 @@ tienlen-combo-consecutive_pairs = consecutive pairs
 
 tienlen-instant-six-pairs = six pairs
 tienlen-instant-five-consecutive-pairs = five consecutive pairs
+tienlen-instant-three-consecutive-triples = three consecutive triples
+tienlen-instant-four-twos = four 2s
+tienlen-instant-dragon = dragon straight
+tienlen-instant-six-consecutive-pairs = six consecutive pairs
+tienlen-instant-four-triples = four triples
+tienlen-instant-two-four-of-a-kind = two four-of-a-kind sets
+tienlen-instant-same-color = 12 cards of one color
 tienlen-you-instant-win = You have an instant win with { $reason }.
 tienlen-player-instant-wins = { $player } has an instant win with { $reason }.
-tienlen-you-win-hand = You take first place for this hand. Coin settlement follows.
-tienlen-player-wins-hand = { $player } takes first place for this hand. Coin settlement follows.
-tienlen-hand-settlement-line = Place { $place }: { $player } { $change } coins, now { $total } coins.
-tienlen-you-win-match = You win the Tien Len match with { $coins } coins.
-tienlen-player-wins-match = { $player } wins the Tien Len match with { $coins } coins.
+tienlen-you-win-hand = You take first place.
+tienlen-player-wins-hand = { $player } takes first place.
+tienlen-settlement-rank = placing { $change }
+tienlen-settlement-chop = chops { $change }
+tienlen-settlement-leftover = leftovers { $change }
+tienlen-settlement-instant = instant win { $change }
+tienlen-settlement-adjustment = adjustment { $change }
+tienlen-settlement-no-change = no change
+tienlen-hand-settlement-line = { $place }. { $player }: { $breakdown }; net { $net }; total { $total }.
+tienlen-you-eliminated = You are out of coins and eliminated.
+tienlen-player-eliminated = { $player } is out of coins and eliminated.
+tienlen-players-remaining = { $count ->
+    [one] 1 player remains.
+   *[other] { $count } players remain.
+}
+tienlen-you-win-match = You win the Tien Len match with { $coins } coins left.
+tienlen-player-wins-match = { $player } wins the Tien Len match with { $coins } coins left.
 tienlen-line-format = { $rank }. { $player }: { $score ->
     [one] 1 coin
    *[other] { $score } coins

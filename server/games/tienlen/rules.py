@@ -49,14 +49,23 @@ class TienLenRuleSet:
     def can_bypass_pass_lock(self, current_combo: TienLenCombo, play_combo: TienLenCombo) -> bool:
         if self.variant != SOUTHERN_VARIANT:
             return False
-        return self._beats_special(play_combo, current_combo)
+        return self.is_chop(play_combo, current_combo)
 
     def can_play_out_of_turn(self, current_combo: TienLenCombo, play_combo: TienLenCombo) -> bool:
         if self.variant != SOUTHERN_VARIANT:
             return False
         if not self.is_special_cutter(play_combo):
             return False
-        return self._beats_special(play_combo, current_combo)
+        return self.is_chop(play_combo, current_combo)
+
+    def is_chop(self, play_combo: TienLenCombo, current_combo: TienLenCombo) -> bool:
+        if self._beats_special(play_combo, current_combo):
+            return True
+        if not (self.is_special_cutter(play_combo) and self.is_special_cutter(current_combo)):
+            return False
+        if self.variant == NORTHERN_VARIANT:
+            return self._beats_same_shape_north(play_combo, current_combo)
+        return self._beats_same_shape_south(play_combo, current_combo)
 
     def has_chop_window(self, current_combo: TienLenCombo) -> bool:
         if self.variant != SOUTHERN_VARIANT:
@@ -117,7 +126,9 @@ class TienLenRuleSet:
             )
 
         if current_combo.type_name == "pair" and all(card.rank == 2 for card in current_combo.cards):
-            return play_combo.type_name == "consecutive_pairs" and play_combo.pair_count >= 4
+            return play_combo.type_name == "four_of_a_kind" or (
+                play_combo.type_name == "consecutive_pairs" and play_combo.pair_count >= 4
+            )
 
         if current_combo.type_name == "triple" and all(card.rank == 2 for card in current_combo.cards):
             return play_combo.type_name == "consecutive_pairs" and play_combo.pair_count >= 5

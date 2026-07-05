@@ -204,7 +204,7 @@ def test_menu_diff_uses_only_non_empty_unique_ids_for_identity():
     assert "_menu_ids_are_unique_and_stable" in source
     assert "all(isinstance(item_id, str) and item_id for item_id in item_ids)" in source
     assert _has_method_call(compute_diff, "_menu_ids_are_unique_and_stable")
-    assert "item_ids.count(old_focused_id) == 1" in source
+    assert "resolve_menu_focus_index" in source
 
 
 def test_legacy_chat_recreation_and_focus_bounce_helpers_are_removed():

@@ -365,6 +365,73 @@ class TestPostGameMenuState:
         assert not game._end_screen_open_player_ids
         assert game._last_game_result is None
 
+    def test_starting_game_focuses_first_active_turn_menu_item(self) -> None:
+        game = make_game()
+        host = game.players[0]
+        user = game.get_user(host)
+        assert isinstance(user, MockUser)
+
+        game.refresh_menus()
+        game.flush_menus()
+        user.clear_messages()
+
+        game.handle_event(
+            host,
+            {
+                "type": "menu",
+                "menu_id": "turn_menu",
+                "selection_id": "start_game",
+            },
+        )
+
+        assert game.status == "playing"
+        menu = user.menus["turn_menu"]
+        first_item = menu["items"][0]
+        assert menu["selection_id"] == first_item.id
+        assert first_item.id == "roll"
+
+    def test_starting_game_focuses_each_player_independently(self) -> None:
+        game = make_game()
+        host, guest = game.players
+        host_user = game.get_user(host)
+        guest_user = game.get_user(guest)
+        assert isinstance(host_user, MockUser)
+        assert isinstance(guest_user, MockUser)
+
+        game.handle_event(
+            host,
+            {
+                "type": "menu",
+                "menu_id": "turn_menu",
+                "selection_id": "start_game",
+            },
+        )
+
+        assert host_user.menus["turn_menu"]["selection_id"] == "roll"
+        assert guest_user.menus["turn_menu"]["selection_id"] == "roll"
+
+    def test_start_focus_reset_is_one_shot(self) -> None:
+        game = make_game()
+        host = game.players[0]
+        user = game.get_user(host)
+        assert isinstance(user, MockUser)
+
+        game.handle_event(
+            host,
+            {
+                "type": "menu",
+                "menu_id": "turn_menu",
+                "selection_id": "start_game",
+            },
+        )
+        assert user.menus["turn_menu"]["selection_id"] == "roll"
+
+        user.clear_messages()
+        game.refresh_menus(host)
+        game.flush_menus()
+
+        assert turn_menu_messages(user)[-1].data["selection_id"] is None
+
 
 class TestPersistentStartAction:
     def test_start_stays_visible_before_minimum_players_join(self) -> None:

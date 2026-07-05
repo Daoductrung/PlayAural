@@ -118,6 +118,9 @@ def _special_targets(hand: list[Card], current_combo: TienLenCombo, variant: str
             results.extend(_generate_consecutive_pairs(hand))
 
     if variant == SOUTHERN_VARIANT and current_combo.type_name == "pair" and all(card.rank == 2 for card in current_combo.cards):
+        for cards in groups.values():
+            if len(cards) == 4:
+                results.append(cards[:])
         results.extend(_generate_consecutive_pairs(hand, exact_pairs=4))
 
     if variant == SOUTHERN_VARIANT and current_combo.type_name == "triple" and all(card.rank == 2 for card in current_combo.cards):
@@ -220,8 +223,11 @@ def bot_think(game: "TienLenGame", player: "TienLenPlayer") -> list[int]:
     if not candidates:
         return []
 
+    required_opening_card = game._opening_required_card(player)
     legal: list[TienLenCombo] = []
     for combo in candidates:
+        if required_opening_card and required_opening_card not in combo.cards:
+            continue
         is_valid, _, _ = rules.validate_play(
             hand,
             combo.cards,

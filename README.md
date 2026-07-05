@@ -64,6 +64,7 @@ PlayAural currently supports the following languages:
 
 - English (EN) - official default language, maintained by the PlayAural core team
 - Vietnamese (VI) - official default language, maintained by Trung and the PlayAural core team
+- Persian (FA) - community translation, maintained by Hamid Rezaei
 
 Community translators should follow [TRANSLATING.md](TRANSLATING.md). Partial
 translations are supported safely: missing strings and missing translated

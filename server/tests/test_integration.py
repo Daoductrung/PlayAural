@@ -275,6 +275,7 @@ class TestGameRegistryIntegration:
             "tradeoff": "dice",
             "twentyone": "cards",
             "uno": "cards",
+            "fivefieldkono": "board",
             "yahtzee": "dice",
         }
 

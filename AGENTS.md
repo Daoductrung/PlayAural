@@ -190,10 +190,18 @@ Rules:
 keybinds use `KeybindState.ACTIVE`; lobby-only actions use `IDLE`; truly global
 actions use `ALWAYS`.
 
-Reserved base/client keys: `enter`, `escape`, `b`, `shift+b`, `f3`, `t`, `s`,
-`shift+s`, `ctrl+m`, `ctrl+q`, `ctrl+u`, `ctrl+s`, `ctrl+r`, `ctrl+i`,
-`ctrl+f1`. Do not reuse them for game-specific actions unless deliberately
-matching the standard behavior.
+Keybinds are scoped by state. The same physical key may be reused across
+non-overlapping states when the actions cannot both be active. For example, the
+base `b` Add bot binding is `IDLE`, so a game may safely bind `b` to an
+`ACTIVE` gameplay action, as UNO does. Likewise, `enter` can start a lobby game
+while idle and select a grid cell while active.
+
+Base/client bindings to respect: `enter`, `escape`, `b`, `shift+b`, `f3`, `t`,
+`s`, `shift+s`, `ctrl+m`, `ctrl+q`, `ctrl+u`, `ctrl+s`, `ctrl+r`, `ctrl+i`,
+`ctrl+f1`. Do not reuse `ALWAYS` bindings or same-state base/client bindings
+for unrelated game-specific actions unless deliberately matching the standard
+behavior. When reusing a key across states, keep the scope explicit and add
+coverage for the intended separation.
 
 ## Options
 

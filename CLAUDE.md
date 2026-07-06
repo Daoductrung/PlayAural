@@ -228,6 +228,28 @@ Rules:
 - Info/status actions belong in `create_standard_action_set`, not `create_turn_action_set`
 - Turn-menu actions that should not appear in the Escape/actions list must use `show_in_actions_menu=False`
 
+#### Keybind State Scoping
+`setup_keybinds()` must call `super().setup_keybinds()` first. Gameplay
+keybinds use `KeybindState.ACTIVE`, lobby-only actions use `IDLE`, and truly
+global actions use `ALWAYS`.
+
+Keybind dispatch is state-scoped: `IDLE` bindings are available only while
+`game.status != "playing"`, `ACTIVE` bindings are available only while
+`game.status == "playing"`, and `ALWAYS` bindings are available in both states.
+Because state is part of the binding scope, the same physical key may be reused
+across non-overlapping states. For example, the base `b` Add bot binding is
+`IDLE`, so a game may safely bind `b` to an `ACTIVE` gameplay action without
+conflicting, as UNO does. Likewise, `enter` can start the game while idle and
+select a grid cell while active.
+
+Base/client bindings to respect include `enter`, `escape`, `b`, `shift+b`,
+`f3`, `t`, `s`, `shift+s`, `ctrl+m`, `ctrl+q`, `ctrl+u`, `ctrl+s`, `ctrl+r`,
+`ctrl+i`, and `ctrl+f1`. Do not reuse `ALWAYS` bindings or same-state
+base/client bindings for unrelated game-specific actions unless the behavior is
+deliberately shared or overridden. When reusing a key across states, keep the
+scope explicit, keep matching `Action`/`Keybind` spectator visibility aligned,
+and add tests or clear coverage for the intended state separation.
+
 #### Turn Management Rules
 - `set_turn_players(players)` resets `turn_index` to `0`
 - `advance_turn()` immediately after `set_turn_players(...)` skips the first player and is almost always wrong

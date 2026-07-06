@@ -198,3 +198,74 @@ def test_cell_label_reads_coordinate():
     p1 = game._get_player_by_num(1)
     label = game.get_cell_label(0, 0, p1, "en")
     assert "A1" in label
+
+
+# ----------------------------------------------------------------------------
+# Task 4: turn interaction
+# ----------------------------------------------------------------------------
+
+
+def test_two_step_select_then_move():
+    game = make_kono(start=True)
+    p = game._get_player_by_num(game.state.current_player_num)
+    move = generate_legal_moves(game.state, p.player_num)[0]
+    sr, sc = divmod(move.source, 5)
+    dr, dc = divmod(move.destination, 5)
+
+    game.on_grid_select(p, sr, sc)          # select piece
+    assert game.selected_square.get(p.id) == move.source
+    game.on_grid_select(p, dr, dc)          # move
+    game.flush_menus()
+    assert game.state.board[move.destination] is not None
+    assert game.state.board[move.source] is None
+    assert p.id not in game.selected_square
+    assert game.state.current_player_num != p.player_num
+
+
+def test_reselecting_same_square_deselects():
+    game = make_kono(start=True)
+    p = game._get_player_by_num(game.state.current_player_num)
+    move = generate_legal_moves(game.state, p.player_num)[0]
+    sr, sc = divmod(move.source, 5)
+    game.on_grid_select(p, sr, sc)
+    game.on_grid_select(p, sr, sc)
+    assert p.id not in game.selected_square
+
+
+def test_win_by_completion_finishes_game():
+    game = make_kono(start=True)
+    p = game._get_player_by_num(1)
+    game.state.board = [None] * 25
+    targets = sorted(TARGET_CELLS[1])
+    for idx in targets[:6]:
+        game.state.board[idx] = Piece(owner_id=p.id, owner_num=1)
+    last = targets[6]                       # 24 = (4,4)
+    lr, lc = divmod(last, 5)
+    src = (lr - 1) * 5 + (lc - 1 if lc > 0 else lc + 1)   # (3,3) = 18
+    game.state.board[src] = Piece(owner_id=p.id, owner_num=1)
+    game.state.current_player_num = 1
+    game.current_player = p
+    game.on_grid_select(p, *divmod(src, 5))
+    game.on_grid_select(p, lr, lc)
+    game.flush_menus()
+    assert game.winner_num == 1
+    assert game.win_reason == "completed"
+    assert game.status == "finished"
+
+
+def test_stuck_opponent_loses():
+    game = make_kono(start=True)
+    p1 = game._get_player_by_num(1)
+    p2 = game._get_player_by_num(2)
+    game.state.board = [None] * 25
+    # P1 can move; P2 has a single piece stuck on the far edge (row 0).
+    game.state.board[cell_index(2, 2)] = Piece(owner_id=p1.id, owner_num=1)
+    game.state.board[cell_index(0, 2)] = Piece(owner_id=p2.id, owner_num=2)
+    game.state.current_player_num = 1
+    game.current_player = p1
+    game.on_grid_select(p1, 2, 2)
+    game.on_grid_select(p1, 3, 3)
+    game.flush_menus()
+    assert game.winner_num == 1
+    assert game.win_reason == "stuck"
+    assert game.status == "finished"

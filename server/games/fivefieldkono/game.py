@@ -9,16 +9,33 @@ from ..base import Game, GameOptions, Player
 from ..registry import register_game
 from ...game_utils.actions import Visibility
 from ...game_utils.bot_helper import BotHelper
-from ...game_utils.grid_mixin import GridCursor, GridGameMixin
+from ...game_utils.grid_mixin import GridCursor, GridGameMixin, grid_cell_id
 from ...messages.localization import Localization
 from .bot import bot_think
-from .moves import legal_destinations
+from .moves import (
+    Move,
+    apply_move,
+    has_any_legal_move,
+    is_winner,
+    legal_destinations,
+)
 from .state import (
+    PIECES_PER_PLAYER,
+    TARGET_CELLS,
     FiveFieldKonoState,
     build_initial_state,
     cell_index,
     cell_rowcol,
+    opponent_num,
+    player_piece_cells,
 )
+
+
+SOUND_PICKUP = "game_chess/pickup.ogg"
+SOUND_SETDOWN = "game_chess/setdown.ogg"
+SOUND_MOVE = "game_squares/step1.ogg"
+SOUND_TURN = "game_squares/begin turn.ogg"
+SOUND_WIN = "game_pig/win.ogg"
 
 
 @dataclass
@@ -196,3 +213,143 @@ class FiveFieldKonoGame(GridGameMixin, Game):
         if self.status != "playing":
             return Visibility.HIDDEN
         return Visibility.VISIBLE
+
+    # ---- interaction ----
+    def on_grid_select(self, player: Player, row: int, col: int) -> None:
+        if self.status != "playing":
+            return
+        kp = self._as_kono_player(player)
+        index = cell_index(row, col)
+        if (
+            kp
+            and not kp.is_spectator
+            and self.winner_num == 0
+            and self.current_player is not None
+            and player.id == self.current_player.id
+            and self.state.current_player_num == kp.player_num
+        ):
+            self._handle_select(kp, index)
+            return
+        self._announce_cell(player, index)
+
+    def _announce_cell(self, player: Player, index: int) -> None:
+        user = self.get_user(player)
+        if not user:
+            return
+        piece = self.state.board[index]
+        coord = self._coord(index)
+        if piece is None:
+            user.speak_l("ffk-cell-empty", buffer="game", coord=coord)
+        elif piece.owner_id == player.id:
+            user.speak_l("ffk-cell-own", buffer="game", coord=coord)
+        else:
+            owner = self._get_player_by_num(piece.owner_num)
+            user.speak_l(
+                "ffk-cell-opponent",
+                buffer="game",
+                coord=coord,
+                owner=owner.name if owner else "?",
+            )
+
+    def _handle_select(self, player: FiveFieldKonoPlayer, index: int) -> None:
+        user = self.get_user(player)
+        if not user:
+            return
+        piece = self.state.board[index]
+        selected = self.selected_square.get(player.id)
+
+        # Clicking the already-selected piece clears the selection.
+        if selected is not None and selected == index:
+            self.selected_square.pop(player.id, None)
+            user.play_sound(SOUND_SETDOWN)
+            user.speak_l("ffk-selection-cleared", buffer="game")
+            self.refresh_menus(player)
+            return
+
+        # Select a piece, or switch the selection to another own piece.
+        if selected is None or (piece is not None and piece.owner_id == player.id):
+            if piece is None or piece.owner_id != player.id:
+                user.speak_l("ffk-select-own-piece", buffer="game")
+                return
+            dests = legal_destinations(self.state.board, index, player.player_num)
+            if not dests:
+                user.speak_l("ffk-piece-no-moves", buffer="game")
+                return
+            self.selected_square[player.id] = index
+            user.play_sound(SOUND_PICKUP)
+            user.speak_l(
+                "ffk-piece-selected",
+                buffer="game",
+                coord=self._coord(index),
+                count=len(dests),
+            )
+            row, col = cell_rowcol(index)
+            self.request_menu_focus(player, grid_cell_id(row, col))
+            self.refresh_menus(player)
+            return
+
+        if index not in legal_destinations(
+            self.state.board, selected, player.player_num
+        ):
+            user.play_sound(SOUND_SETDOWN)
+            user.speak_l("ffk-illegal-move", buffer="game")
+            self.refresh_menus(player)
+            return
+
+        self._commit_move(player, Move(source=selected, destination=index))
+
+    def _commit_move(self, player: FiveFieldKonoPlayer, move: Move) -> None:
+        from_coord = self._coord(move.source)
+        to_coord = self._coord(move.destination)
+        self.last_move = [move.source, move.destination]
+        apply_move(self.state, move)
+        self.selected_square.pop(player.id, None)
+        self.bot_move_targets.pop(player.id, None)
+        self.broadcast_sound(SOUND_MOVE)
+        self.broadcast_personal_l(
+            player,
+            "ffk-move-you",
+            "ffk-move-other",
+            buffer="game",
+            **{"from": from_coord, "to": to_coord},
+        )
+        if is_winner(self.state, player.player_num):
+            self.win_reason = "completed"
+            self._handle_win(player)
+            return
+        self._end_turn(player)
+
+    def _end_turn(self, mover: FiveFieldKonoPlayer) -> None:
+        opp_num = opponent_num(mover.player_num)
+        opp = self._get_player_by_num(opp_num)
+        self.state.current_player_num = opp_num
+        if opp:
+            self.current_player = opp
+        # Stuck rule: opponent with no legal move at turn start loses.
+        if not has_any_legal_move(self.state, opp_num):
+            self.win_reason = "stuck"
+            self._handle_win(mover)
+            return
+        self.announce_turn(turn_sound=SOUND_TURN)
+        self.refresh_menus()
+        BotHelper.jolt_bots(self, ticks=random.randint(3, 6))
+
+    def _handle_win(self, winner: FiveFieldKonoPlayer) -> None:
+        self.winner_num = winner.player_num
+        self.winner_name = winner.name
+        if self.win_reason == "stuck":
+            self.broadcast_personal_l(
+                winner,
+                "ffk-win-stuck-you",
+                "ffk-win-stuck-other",
+                buffer="game",
+            )
+        else:
+            self.broadcast_personal_l(
+                winner,
+                "ffk-win-you",
+                "ffk-win-other",
+                buffer="game",
+            )
+        self.broadcast_sound(SOUND_WIN)
+        self.finish_game()

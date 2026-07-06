@@ -11,3 +11,21 @@ ffk-cell-own = { $coord }, your piece.
 ffk-cell-opponent = { $coord }, { $owner }'s piece.
 ffk-cell-selected = { $label } Selected.
 ffk-cell-move-target = { $coord }, move here.
+
+# Selection & movement
+ffk-select-own-piece = Select one of your own pieces first.
+ffk-piece-no-moves = That piece has no legal moves.
+ffk-piece-selected = Selected { $coord }. { $count } { $count ->
+    [one] move
+   *[other] moves
+} available.
+ffk-selection-cleared = Selection cleared.
+ffk-illegal-move = That is not a legal move for the selected piece.
+ffk-move-you = You move from { $from } to { $to }.
+ffk-move-other = { $player } moves from { $from } to { $to }.
+
+# Win / loss
+ffk-win-you = You moved all your pieces home and won!
+ffk-win-other = { $player } moved all their pieces home and won.
+ffk-win-stuck-you = Your opponent has no legal moves. You win!
+ffk-win-stuck-other = { $player } wins: you have no legal moves left.

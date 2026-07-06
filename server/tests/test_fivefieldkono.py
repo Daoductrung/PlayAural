@@ -299,3 +299,36 @@ def test_last_move_action_reports_none_then_move():
 def test_supports_score_actions_false():
     game = make_kono(start=True)
     assert game.supports_score_actions() is False
+
+
+# ----------------------------------------------------------------------------
+# Task 6: bot
+# ----------------------------------------------------------------------------
+
+
+def test_bot_returns_legal_grid_action():
+    game = make_kono(start=True)
+    p = game._get_player_by_num(game.state.current_player_num)
+    from ..games.fivefieldkono.bot import bot_think
+    action_id = bot_think(game, p)
+    assert action_id is not None and action_id.startswith("grid_cell_")
+
+
+def test_bot_plays_full_game_to_terminal():
+    import random as _r
+    _r.seed(1234)
+    game = make_kono(start=True)
+    from ..games.fivefieldkono.bot import choose_move
+    for _ in range(1000):
+        if game.status != "playing":
+            break
+        num = game.state.current_player_num
+        p = game._get_player_by_num(num)
+        moves = generate_legal_moves(game.state, num)
+        assert moves, "stuck should have ended the game"
+        mv = choose_move(game.state, num)
+        assert mv in moves
+        game.on_grid_select(p, *divmod(mv.source, 5))
+        game.on_grid_select(p, *divmod(mv.destination, 5))
+        game.flush_menus()
+    assert game.status == "finished"

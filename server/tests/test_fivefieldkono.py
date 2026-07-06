@@ -269,3 +269,33 @@ def test_stuck_opponent_loses():
     assert game.winner_num == 1
     assert game.win_reason == "stuck"
     assert game.status == "finished"
+
+
+# ----------------------------------------------------------------------------
+# Task 5: info actions
+# ----------------------------------------------------------------------------
+
+
+def test_progress_action_counts_home_pieces():
+    game = make_kono(start=True)
+    p1 = game._get_player_by_num(1)
+    user = game.get_user(p1)
+    user.clear_messages()
+    game._action_check_progress(p1, "check_progress")
+    # At game start no P1 pieces sit on opponent target cells -> "0 of 7".
+    expected = Localization.get("en", "ffk-progress", home=0, total=7)
+    assert expected in user.get_spoken_messages()
+
+
+def test_last_move_action_reports_none_then_move():
+    game = make_kono(start=True)
+    p = game._get_player_by_num(game.state.current_player_num)
+    user = game.get_user(p)
+    user.clear_messages()
+    game._action_check_last_move(p, "check_last_move")
+    assert Localization.get("en", "ffk-last-move-none") in user.get_spoken_messages()
+
+
+def test_supports_score_actions_false():
+    game = make_kono(start=True)
+    assert game.supports_score_actions() is False

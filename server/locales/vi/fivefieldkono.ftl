@@ -26,3 +26,11 @@ ffk-win-you = Bạn đã đưa tất cả quân về đích và chiến thắng!
 ffk-win-other = { $player } đã đưa tất cả quân về đích và chiến thắng.
 ffk-win-stuck-you = Đối thủ không còn nước đi. Bạn thắng!
 ffk-win-stuck-other = { $player } thắng: bạn không còn nước đi hợp lệ.
+
+# Hành động thông tin
+ffk-check-board = Xem bàn cờ
+ffk-check-progress = Tiến độ của tôi
+ffk-check-last-move = Nước đi cuối
+ffk-progress = { $home } trên { $total } quân đã về đích.
+ffk-last-move = Nước đi cuối: { $from } đến { $to }.
+ffk-last-move-none = Chưa có nước đi nào.

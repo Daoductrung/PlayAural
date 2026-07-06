@@ -29,3 +29,11 @@ ffk-win-you = You moved all your pieces home and won!
 ffk-win-other = { $player } moved all their pieces home and won.
 ffk-win-stuck-you = Your opponent has no legal moves. You win!
 ffk-win-stuck-other = { $player } wins: you have no legal moves left.
+
+# Info actions
+ffk-check-board = Review board
+ffk-check-progress = My progress
+ffk-check-last-move = Last move
+ffk-progress = { $home } of { $total } pieces home.
+ffk-last-move = Last move: { $from } to { $to }.
+ffk-last-move-none = No moves have been made yet.

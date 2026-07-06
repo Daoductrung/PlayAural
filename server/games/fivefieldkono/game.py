@@ -7,10 +7,11 @@ from dataclasses import dataclass, field
 
 from ..base import Game, GameOptions, Player
 from ..registry import register_game
-from ...game_utils.actions import Visibility
+from ...game_utils.actions import Action, ActionSet, Visibility
 from ...game_utils.bot_helper import BotHelper
 from ...game_utils.grid_mixin import GridCursor, GridGameMixin, grid_cell_id
 from ...messages.localization import Localization
+from ...ui.keybinds import KeybindState
 from .bot import bot_think
 from .moves import (
     Move,
@@ -353,3 +354,122 @@ class FiveFieldKonoGame(GridGameMixin, Game):
             )
         self.broadcast_sound(SOUND_WIN)
         self.finish_game()
+
+    # ---- info actions ----
+    def create_standard_action_set(self, player: Player) -> ActionSet:
+        action_set = super().create_standard_action_set(player)
+        locale = self._player_locale(player)
+        user = self.get_user(player)
+        info = [
+            ("check_board", "ffk-check-board", "_action_check_board"),
+            ("check_progress", "ffk-check-progress", "_action_check_progress"),
+            ("check_last_move", "ffk-check-last-move", "_action_check_last_move"),
+        ]
+        for action_id, label_key, handler in info:
+            action_set.add(
+                Action(
+                    id=action_id,
+                    label=Localization.get(locale, label_key),
+                    handler=handler,
+                    is_enabled="_is_info_enabled",
+                    is_hidden="_is_touch_info_hidden",
+                    include_spectators=True,
+                )
+            )
+        if self.is_touch_client(user):
+            self._order_touch_standard_actions(
+                action_set,
+                [
+                    "check_board",
+                    "check_progress",
+                    "check_last_move",
+                    "whose_turn",
+                    "whos_at_table",
+                ],
+            )
+        return action_set
+
+    def setup_keybinds(self) -> None:
+        super().setup_keybinds()
+        self.setup_grid_keybinds()
+        self.define_keybind(
+            "b",
+            Localization.get("en", "ffk-check-board"),
+            ["check_board"],
+            state=KeybindState.ACTIVE,
+            include_spectators=True,
+        )
+        self.define_keybind(
+            "p",
+            Localization.get("en", "ffk-check-progress"),
+            ["check_progress"],
+            state=KeybindState.ACTIVE,
+            include_spectators=True,
+        )
+        self.define_keybind(
+            "l",
+            Localization.get("en", "ffk-check-last-move"),
+            ["check_last_move"],
+            state=KeybindState.ACTIVE,
+            include_spectators=True,
+        )
+
+    def supports_score_actions(self) -> bool:
+        return False
+
+    def _is_info_enabled(self, player: Player) -> str | None:
+        if self.status != "playing":
+            return "action-not-playing"
+        return None
+
+    def _is_touch_info_hidden(self, player: Player) -> Visibility:
+        user = self.get_user(player)
+        if self.status == "playing" and self.is_touch_client(user):
+            return Visibility.VISIBLE
+        return Visibility.HIDDEN
+
+    def _board_lines(self, locale: str, viewer: Player) -> list[str]:
+        lines: list[str] = []
+        for row in range(self.grid_rows):
+            for col in range(self.grid_cols):
+                lines.append(self.get_cell_label(row, col, viewer, locale))
+        return lines
+
+    def _action_check_board(self, player: Player, action_id: str) -> None:
+        user = self.get_user(player)
+        if not user:
+            return
+        self.live_status_box(
+            player,
+            "ffk_board",
+            lambda p, live_user: self._board_lines(live_user.locale, p),
+        )
+
+    def _action_check_progress(self, player: Player, action_id: str) -> None:
+        user = self.get_user(player)
+        kp = self._as_kono_player(player)
+        if not user or not kp:
+            return
+        home = len(
+            player_piece_cells(self.state, player.id)
+            & set(TARGET_CELLS[kp.player_num])
+        )
+        user.speak_l(
+            "ffk-progress", buffer="game", home=home, total=PIECES_PER_PLAYER
+        )
+
+    def _action_check_last_move(self, player: Player, action_id: str) -> None:
+        user = self.get_user(player)
+        if not user:
+            return
+        if len(self.last_move) == 2:
+            user.speak_l(
+                "ffk-last-move",
+                buffer="game",
+                **{
+                    "from": self._coord(self.last_move[0]),
+                    "to": self._coord(self.last_move[1]),
+                },
+            )
+        else:
+            user.speak_l("ffk-last-move-none", buffer="game")

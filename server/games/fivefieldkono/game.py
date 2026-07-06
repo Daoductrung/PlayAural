@@ -355,6 +355,15 @@ class FiveFieldKonoGame(GridGameMixin, Game):
         self.broadcast_sound(SOUND_WIN)
         self.finish_game()
 
+    # ---- turn action set (board cells + navigation/select) ----
+    def create_turn_action_set(self, player: FiveFieldKonoPlayer) -> ActionSet:
+        action_set = ActionSet(name="turn")
+        for action in self.build_grid_actions(player):
+            action_set.add(action)
+        for action in self.build_grid_nav_actions():
+            action_set.add(action)
+        return action_set
+
     # ---- info actions ----
     def create_standard_action_set(self, player: Player) -> ActionSet:
         action_set = super().create_standard_action_set(player)

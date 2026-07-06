@@ -302,6 +302,42 @@ def test_supports_score_actions_false():
 
 
 # ----------------------------------------------------------------------------
+# Regression: moves must be reachable through the action/menu dispatch path
+# (the real client sends grid_cell_<r>_<c> action ids, not on_grid_select).
+# ----------------------------------------------------------------------------
+
+from ..game_utils.grid_mixin import grid_cell_id  # noqa: E402
+
+
+def test_turn_menu_exposes_grid_cells_and_select():
+    game = make_kono(start=True)
+    p = game._get_player_by_num(game.state.current_player_num)
+    action_ids = {r.action.id for r in game.get_all_visible_actions(p)}
+    assert any(
+        a.startswith("grid_cell_") for a in action_ids
+    ), "no board cells in turn menu"
+    assert game.find_action(p, "grid_select") is not None, "no Enter/select action"
+
+
+def test_move_through_action_dispatch():
+    game = make_kono(start=True)
+    p = game._get_player_by_num(game.state.current_player_num)
+    move = generate_legal_moves(game.state, p.player_num)[0]
+    src_id = grid_cell_id(*divmod(move.source, 5))
+    dst_id = grid_cell_id(*divmod(move.destination, 5))
+    assert game.find_action(p, src_id) is not None, "source cell action not registered"
+
+    game.execute_action(p, src_id)   # select the piece
+    game.flush_menus()
+    assert game.selected_square.get(p.id) == move.source
+
+    game.execute_action(p, dst_id)   # move to the destination
+    game.flush_menus()
+    assert game.state.board[move.destination] is not None
+    assert game.state.board[move.source] is None
+
+
+# ----------------------------------------------------------------------------
 # Task 6: bot
 # ----------------------------------------------------------------------------
 

@@ -54,3 +54,93 @@ def test_cell_index_roundtrip_and_opponent():
     assert cell_index(1, 4) == 9
     assert cell_rowcol(9) == (1, 4)
     assert opponent_num(1) == 2 and opponent_num(2) == 1
+
+
+# ----------------------------------------------------------------------------
+# Task 2: moves
+# ----------------------------------------------------------------------------
+
+from ..games.fivefieldkono.moves import (  # noqa: E402
+    Move,
+    apply_move,
+    generate_legal_moves,
+    has_any_legal_move,
+    is_winner,
+    legal_destinations,
+)
+from ..games.fivefieldkono.state import (  # noqa: E402
+    FiveFieldKonoState,
+    Piece,
+)
+
+
+def _empty_state():
+    return FiveFieldKonoState(board=[None] * 25, current_player_num=1)
+
+
+def test_forward_diagonals_only_for_p1():
+    state = _empty_state()
+    src = cell_index(2, 2)  # C3, index 12
+    state.board[src] = Piece(owner_id="p1", owner_num=1)
+    dests = set(legal_destinations(state.board, src, 1))
+    # P1 moves to row+1 diagonals only: (3,1)=16 and (3,3)=18
+    assert dests == {cell_index(3, 1), cell_index(3, 3)}
+
+
+def test_forward_diagonals_only_for_p2():
+    state = _empty_state()
+    src = cell_index(2, 2)
+    state.board[src] = Piece(owner_id="p2", owner_num=2)
+    dests = set(legal_destinations(state.board, src, 2))
+    # P2 moves to row-1 diagonals only: (1,1)=6 and (1,3)=8
+    assert dests == {cell_index(1, 1), cell_index(1, 3)}
+
+
+def test_blocked_destination_is_illegal():
+    state = _empty_state()
+    src = cell_index(2, 2)
+    state.board[src] = Piece(owner_id="p1", owner_num=1)
+    state.board[cell_index(3, 1)] = Piece(owner_id="p1", owner_num=1)  # own blocks
+    state.board[cell_index(3, 3)] = Piece(owner_id="p2", owner_num=2)  # opp blocks
+    assert legal_destinations(state.board, src, 1) == []
+
+
+def test_edge_column_has_single_diagonal():
+    state = _empty_state()
+    src = cell_index(2, 0)  # A3, col 0 -> only (3,1)
+    state.board[src] = Piece(owner_id="p1", owner_num=1)
+    assert set(legal_destinations(state.board, src, 1)) == {cell_index(3, 1)}
+
+
+def test_apply_move_moves_piece():
+    state = _empty_state()
+    src = cell_index(2, 2)
+    dst = cell_index(3, 3)
+    state.board[src] = Piece(owner_id="p1", owner_num=1)
+    apply_move(state, Move(source=src, destination=dst))
+    assert state.board[src] is None
+    assert state.board[dst].owner_id == "p1"
+
+
+def test_win_when_all_pieces_on_targets():
+    state = _empty_state()
+    for idx in TARGET_CELLS[1]:
+        state.board[idx] = Piece(owner_id="p1", owner_num=1)
+    assert is_winner(state, 1) is True
+
+
+def test_stuck_player_has_no_moves():
+    state = _empty_state()
+    # A single P1 piece at top row can never move forward (row+1 off board).
+    state.board[cell_index(4, 2)] = Piece(owner_id="p1", owner_num=1)
+    assert has_any_legal_move(state, 1) is False
+
+
+def test_generate_legal_moves_from_initial_state():
+    state = build_initial_state("p1", "p2")
+    p1_moves = generate_legal_moves(state, 1)
+    # Row-1 has empty gaps at 6,7,8, so every P1 start piece has at least one
+    # empty forward diagonal at the opening.
+    assert {m.source for m in p1_moves} == set(START_CELLS[1])
+    # Player 2 mirrors: every P2 start piece can also move at the opening.
+    assert {m.source for m in generate_legal_moves(state, 2)} == set(START_CELLS[2])

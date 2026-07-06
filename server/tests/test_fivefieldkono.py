@@ -144,3 +144,57 @@ def test_generate_legal_moves_from_initial_state():
     assert {m.source for m in p1_moves} == set(START_CELLS[1])
     # Player 2 mirrors: every P2 start piece can also move at the opening.
     assert {m.source for m in generate_legal_moves(state, 2)} == set(START_CELLS[2])
+
+
+# ----------------------------------------------------------------------------
+# Task 3: game skeleton, registration, rendering
+# ----------------------------------------------------------------------------
+
+from ..games import GameRegistry  # noqa: E402
+from ..games.fivefieldkono.game import (  # noqa: E402
+    FiveFieldKonoGame,
+    FiveFieldKonoOptions,
+)
+from ..users.test_user import MockUser  # noqa: E402
+
+
+def make_kono(*, start: bool = False, player_count: int = 2) -> FiveFieldKonoGame:
+    game = FiveFieldKonoGame(options=FiveFieldKonoOptions())
+    game.setup_keybinds()
+    for index in range(player_count):
+        name = f"Player{index + 1}"
+        game.add_player(name, MockUser(name, uuid=f"p{index + 1}"))
+    game.host = "Player1"
+    if start:
+        game.on_start()
+    return game
+
+
+def test_game_is_registered():
+    assert GameRegistry.get("fivefieldkono") is FiveFieldKonoGame
+
+
+def test_metadata():
+    assert FiveFieldKonoGame.get_type() == "fivefieldkono"
+    assert FiveFieldKonoGame.get_category() == "board"
+    assert FiveFieldKonoGame.get_min_players() == 2
+    assert FiveFieldKonoGame.get_max_players() == 2
+
+
+def test_on_start_sets_up_board_and_grid():
+    game = make_kono(start=True)
+    assert game.status == "playing"
+    assert game.grid_rows == 5 and game.grid_cols == 5
+    assert sum(1 for c in game.state.board if c is not None) == 14
+    assert game.current_player is not None
+
+
+def test_game_name_localized():
+    assert Localization.get("en", "game-name-fivefieldkono") == "Five Field Kono"
+
+
+def test_cell_label_reads_coordinate():
+    game = make_kono(start=True)
+    p1 = game._get_player_by_num(1)
+    label = game.get_cell_label(0, 0, p1, "en")
+    assert "A1" in label

@@ -46,6 +46,7 @@ from .humanitycards.game import HumanityCardsGame
 from .twentyone.game import TwentyOneGame
 from .ageofheroes.game import AgeOfHeroesGame
 from .uno.game import UnoGame
+from .fivefieldkono.game import FiveFieldKonoGame
 
 __all__ = [
     "Game",
@@ -94,4 +95,5 @@ __all__ = [
     "TwentyOneGame",
     "AgeOfHeroesGame",
     "UnoGame",
+    "FiveFieldKonoGame",
 ]

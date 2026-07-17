@@ -249,6 +249,7 @@ class TestGameRegistryIntegration:
             "deadmansdeck": "cards",
             "deadmanspoker": "poker",
             "dominos": "cards",
+            "explodingkittens": "cards",
             "farkle": "dice",
             "fivecarddraw": "poker",
             "holdem": "poker",

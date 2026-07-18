@@ -27,6 +27,15 @@ def is_critical_problem(hazard: str) -> bool:
 
 
 @dataclass
+class DirtyTrickWindow(DataClassJSONMixin):
+    """A serialized opportunity to counter one recently played hazard."""
+
+    team_index: int
+    hazard: str
+    ticks: int
+
+
+@dataclass
 class RaceState(DataClassJSONMixin):
     """Per-team race state for Mile by Mile (resets each race)."""
 

@@ -62,7 +62,7 @@ These provide permanent protection for the rest of the race and grant an extra t
 
 \*\*Dirty Tricks (Coup Fourré)\*\*
 
-When an opponent plays a hazard on you, ordinary play pauses for a \*\*7-second window\*\*. During that time, play the matching safety card from your hand by pressing \*\*D\*\*. This blocks the hazard, earns 300 bonus points at the end of the race, and gives you the next turn immediately. If you respond out of turn, you first draw a replacement for the safety, then draw normally to begin your awarded turn. If nobody responds, play continues when the window expires.
+When an opponent plays a hazard on you, a \*\*7-second response window\*\* opens while ordinary play continues. During that time, play the matching safety card from your hand by pressing \*\*D\*\*. This blocks the hazard, earns 300 bonus points at the end of the race, and awards you a turn. You draw a replacement for the safety immediately. If another player's turn is already underway, they finish that turn before your awarded turn begins and you draw normally. Each recent hazard keeps its own response window, so one response never cancels another team's opportunity. If nobody responds, the window simply expires without interrupting play.
 
 During that window, you may also select the matching safety card directly from your hand. It will automatically be treated as a Dirty Trick, not as a normal safety play.
 

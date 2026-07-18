@@ -20,6 +20,7 @@ from ...messages.localization import Localization
 from ...ui.keybinds import KeybindState
 from ...users.base import EscapeBehavior, MenuItem
 
+from .bot import MileByMileBotStrategy
 from .cards import (
     Card,
     Deck,
@@ -32,7 +33,7 @@ from .cards import (
 )
 from .options import MileByMileOptions
 from .player import MileByMilePlayer
-from .state import RaceState, is_critical_problem
+from .state import DirtyTrickWindow, RaceState, is_critical_problem
 
 # Hand size
 HAND_SIZE = 6
@@ -66,7 +67,10 @@ class MileByMileGame(Game):
     race_winner_team_index: int | None = None
     race_completed_after_deck_exhausted: bool = False
 
-    # Dirty trick window
+    # Dirty trick windows. The singular fields mirror the newest window for
+    # backward-compatible save restoration.
+    dirty_trick_windows: list[DirtyTrickWindow] = field(default_factory=list)
+    dirty_trick_bonus_turn_player_ids: list[str] = field(default_factory=list)
     dirty_trick_window_team: int | None = None
     dirty_trick_window_hazard: str | None = None
     dirty_trick_window_ticks: int = 0
@@ -79,11 +83,17 @@ class MileByMileGame(Game):
         """Initialize runtime state."""
         super().__post_init__()
         self._round_timer = RoundTimer(self, delay_seconds=10.0)
+        self._legacy_dirty_trick_turn_advance = False
+        self._migrate_legacy_dirty_trick_window()
 
     def rebuild_runtime_state(self) -> None:
         """Rebuild non-serialized state after deserialization."""
         super().rebuild_runtime_state()
         self._round_timer = RoundTimer(self, delay_seconds=10.0)
+        self._migrate_legacy_dirty_trick_window()
+        if self._legacy_dirty_trick_turn_advance:
+            self._legacy_dirty_trick_turn_advance = False
+            self._end_turn()
 
     @classmethod
     def get_name(cls) -> str:
@@ -248,6 +258,66 @@ class MileByMileGame(Game):
                     **kwargs,
                 )
 
+    def _broadcast_actor_team_l(
+        self,
+        actor: MileByMilePlayer,
+        personal_message_id: str,
+        teammate_message_id: str,
+        opponent_message_id: str,
+        **kwargs,
+    ) -> None:
+        """Broadcast an action with actor, teammate, and opponent perspectives."""
+        for listener in self.players:
+            user = self.get_user(listener)
+            if not user:
+                continue
+            if listener == actor:
+                key = personal_message_id
+                params = kwargs
+            elif (
+                isinstance(listener, MileByMilePlayer)
+                and not listener.is_spectator
+                and listener.team_index == actor.team_index
+            ):
+                key = teammate_message_id
+                params = {"player": actor.name, **kwargs}
+            else:
+                key = opponent_message_id
+                params = {"player": actor.name, **kwargs}
+            user.speak_l(key, buffer="game", **params)
+
+    def _broadcast_actor_team_card_l(
+        self,
+        actor: MileByMilePlayer,
+        personal_message_id: str,
+        teammate_message_id: str,
+        opponent_message_id: str,
+        card: Card,
+        **kwargs,
+    ) -> None:
+        """Broadcast a localized card with team-aware listener wording."""
+        for listener in self.players:
+            user = self.get_user(listener)
+            if not user:
+                continue
+            params = {
+                "card": self._get_localized_card_name(card, user.locale),
+                **kwargs,
+            }
+            if listener == actor:
+                key = personal_message_id
+            elif (
+                isinstance(listener, MileByMilePlayer)
+                and not listener.is_spectator
+                and listener.team_index == actor.team_index
+            ):
+                key = teammate_message_id
+                params["player"] = actor.name
+            else:
+                key = opponent_message_id
+                params["player"] = actor.name
+            user.speak_l(key, buffer="game", **params)
+
     def _broadcast_team_l(
         self,
         team_index: int,
@@ -262,6 +332,7 @@ class MileByMileGame(Game):
                 continue
             if (
                 isinstance(listener, MileByMilePlayer)
+                and not listener.is_spectator
                 and listener.team_index == team_index
             ):
                 user.speak_l(personal_message_id, buffer="game", **kwargs)
@@ -563,9 +634,12 @@ class MileByMileGame(Game):
         if is_touch:
             return None
 
-        if self.dirty_trick_window_team is None:
+        if not self.dirty_trick_windows:
             return "milebymile-no-dirty-trick-window"
-        if mbm_player.team_index != self.dirty_trick_window_team:
+        if not any(
+            window.team_index == mbm_player.team_index
+            for window in self.dirty_trick_windows
+        ):
             return "milebymile-not-your-dirty-trick"
         return None
 
@@ -587,8 +661,6 @@ class MileByMileGame(Game):
             return "action-not-playing"
         if self._round_timer.is_active:
             return "milebymile-between-races"
-        if self.dirty_trick_window_team is not None:
-            return "milebymile-dirty-trick-wait"
         if self.current_player != player:
             return "action-not-your-turn"
         return None
@@ -608,14 +680,6 @@ class MileByMileGame(Game):
             return "action-not-playing"
         if self._round_timer.is_active:
             return "milebymile-between-races"
-        if (
-            isinstance(player, MileByMilePlayer)
-            and action_id
-            and self._action_is_matching_dirty_trick_card(player, action_id)
-        ):
-            return None
-        if self.dirty_trick_window_team is not None:
-            return "milebymile-dirty-trick-wait"
         return None
 
     def _pre_input_check_card_target_selection(self, player: Player, action_id: str) -> str | None:
@@ -1305,49 +1369,123 @@ class MileByMileGame(Game):
 
         return lines
 
+    def _migrate_legacy_dirty_trick_window(self) -> None:
+        """Restore an active reaction saved before multi-window support."""
+        if (
+            not self.dirty_trick_windows
+            and self.dirty_trick_window_team is not None
+            and self.dirty_trick_window_hazard
+            and self.dirty_trick_window_ticks > 0
+        ):
+            self.dirty_trick_windows.append(
+                DirtyTrickWindow(
+                    team_index=self.dirty_trick_window_team,
+                    hazard=self.dirty_trick_window_hazard,
+                    ticks=self.dirty_trick_window_ticks,
+                )
+            )
+            self._legacy_dirty_trick_turn_advance = (
+                self.game_active and self.status == "playing"
+            )
+        self._sync_legacy_dirty_trick_window()
+
+    def _sync_legacy_dirty_trick_window(self) -> None:
+        """Mirror the newest reaction into the legacy singular fields."""
+        if self.dirty_trick_windows:
+            newest = self.dirty_trick_windows[-1]
+            self.dirty_trick_window_team = newest.team_index
+            self.dirty_trick_window_hazard = newest.hazard
+            self.dirty_trick_window_ticks = newest.ticks
+            return
+        self.dirty_trick_window_team = None
+        self.dirty_trick_window_hazard = None
+        self.dirty_trick_window_ticks = 0
+        self._clear_stale_dirty_trick_bot_actions()
+
+    def _open_dirty_trick_window(self, team_index: int, hazard: str) -> None:
+        """Open an independent asynchronous response opportunity."""
+        for window in self.dirty_trick_windows:
+            if window.team_index == team_index and window.hazard == hazard:
+                window.ticks = DIRTY_TRICK_WINDOW_TICKS
+                self._sync_legacy_dirty_trick_window()
+                return
+        self.dirty_trick_windows.append(
+            DirtyTrickWindow(
+                team_index=team_index,
+                hazard=hazard,
+                ticks=DIRTY_TRICK_WINDOW_TICKS,
+            )
+        )
+        self._sync_legacy_dirty_trick_window()
+
+    def _matching_dirty_trick_window(
+        self,
+        player: MileByMilePlayer,
+        card: Card,
+    ) -> DirtyTrickWindow | None:
+        """Return the newest reaction that this Safety can answer."""
+        if card.card_type != CardType.SAFETY:
+            return None
+        for window in reversed(self.dirty_trick_windows):
+            if (
+                window.team_index == player.team_index
+                and HAZARD_TO_SAFETY.get(window.hazard) == card.value
+            ):
+                return window
+        return None
+
     def _action_dirty_trick(self, player: Player, action_id: str) -> None:
         """Handle dirty trick (Coup Fourré) attempt."""
         if not isinstance(player, MileByMilePlayer):
             return
 
         # Explicit validation (moved from is_enabled for web clients)
-        if self.dirty_trick_window_team is None:
+        if not self.dirty_trick_windows:
             user = self.get_user(player)
             if user:
                 user.speak_l("milebymile-no-dirty-trick-window", buffer="game")
             return
 
-        race_state = self.get_player_race_state(player)
-        if not race_state or self.dirty_trick_window_team != player.team_index:
-             user = self.get_user(player)
-             if user:
-                 user.speak_l("milebymile-not-your-dirty-trick", buffer="game")
-             return
-
-        hazard = self.dirty_trick_window_hazard
-        if not hazard:
-            return
-
-        # Find matching safety in hand
-        blocking_safety = HAZARD_TO_SAFETY.get(hazard)
-        if not blocking_safety:
+        team_windows = [
+            window
+            for window in self.dirty_trick_windows
+            if window.team_index == player.team_index
+        ]
+        if not team_windows:
+            user = self.get_user(player)
+            if user:
+                user.speak_l("milebymile-not-your-dirty-trick", buffer="game")
             return
 
         safety_card = None
         card_index = -1
-        for i, card in enumerate(player.hand):
-            if card.card_type == CardType.SAFETY and card.value == blocking_safety:
-                safety_card = card
-                card_index = i
+        selected_window = None
+        for window in reversed(team_windows):
+            blocking_safety = HAZARD_TO_SAFETY.get(window.hazard)
+            for index, card in enumerate(player.hand):
+                if (
+                    card.card_type == CardType.SAFETY
+                    and card.value == blocking_safety
+                ):
+                    safety_card = card
+                    card_index = index
+                    selected_window = window
+                    break
+            if safety_card:
                 break
 
-        if not safety_card:
+        if not safety_card or not selected_window:
             user = self.get_user(player)
             if user:
                 user.speak_l("milebymile-no-matching-safety", buffer="game")
             return
 
-        self._play_dirty_trick_safety(player, card_index, safety_card)
+        self._play_dirty_trick_safety(
+            player,
+            card_index,
+            safety_card,
+            selected_window,
+        )
 
     def _is_matching_dirty_trick_safety(
         self,
@@ -1355,16 +1493,7 @@ class MileByMileGame(Game):
         card: Card,
     ) -> bool:
         """Return whether this card can answer the active dirty-trick window."""
-        if card.card_type != CardType.SAFETY:
-            return False
-        if self.dirty_trick_window_team is None:
-            return False
-        if self.dirty_trick_window_team != player.team_index:
-            return False
-        hazard = self.dirty_trick_window_hazard
-        if not hazard:
-            return False
-        return HAZARD_TO_SAFETY.get(hazard) == card.value
+        return self._matching_dirty_trick_window(player, card) is not None
 
     def _action_is_matching_dirty_trick_card(
         self,
@@ -1385,20 +1514,51 @@ class MileByMileGame(Game):
         player: MileByMilePlayer,
         slot: int,
         card: Card,
+        window: DirtyTrickWindow | None = None,
     ) -> None:
-        """Play a matching safety as a dirty trick and close the reaction window."""
-        self._play_safety(player, slot, card, is_dirty_trick=True)
-        self._clear_dirty_trick_window()
-        self.current_player = player
-        # The first draw replaced the out-of-turn Safety. Start the awarded
-        # complete turn with its own draw, skipping intervening players.
-        self._start_turn()
+        """Resolve a reaction without interrupting the active player's action."""
+        selected_window = window or self._matching_dirty_trick_window(player, card)
+        if selected_window is None:
+            return
 
-    def _clear_dirty_trick_window(self) -> None:
-        """Clear the active hazard-response window without changing turns."""
+        active_player = self.current_player
+        self._play_safety(
+            player,
+            slot,
+            card,
+            is_dirty_trick=True,
+            dirty_trick_hazard=selected_window.hazard,
+        )
+        self.dirty_trick_windows = [
+            pending
+            for pending in self.dirty_trick_windows
+            if not (
+                pending.team_index == player.team_index
+                and HAZARD_TO_SAFETY.get(pending.hazard) == card.value
+            )
+        ]
+        self._sync_legacy_dirty_trick_window()
+        self._clear_stale_dirty_trick_bot_actions()
+
+        if active_player is not None and active_player != player:
+            self.dirty_trick_bonus_turn_player_ids.append(player.id)
+        elif player.is_bot:
+            BotHelper.jolt_bot(player, ticks=random.randint(30, 40))
+
+        self._update_all_turn_actions()
+        self.refresh_menus(player)
+        if active_player is not None and active_player != player:
+            self.refresh_menus(active_player)
+        elif not player.hand:
+            self._end_turn()
+
+    def _clear_dirty_trick_windows(self) -> None:
+        """Clear every pending hazard response."""
+        self.dirty_trick_windows = []
         self.dirty_trick_window_team = None
         self.dirty_trick_window_hazard = None
         self.dirty_trick_window_ticks = 0
+        self._clear_stale_dirty_trick_bot_actions()
 
     def _get_target_display_string(self, team_idx: int, race_state: "RaceState", locale: str) -> str:
         """Get localized display string for a target team."""
@@ -1498,7 +1658,8 @@ class MileByMileGame(Game):
     def _bot_select_hazard_target(
         self, player: Player, options: list[str]
     ) -> str | None:
-        """Bot selects hazard target - picks team with most miles."""
+        """Select the opponent where the pending hazard has the most value."""
+        del options
         if not isinstance(player, MileByMilePlayer):
             return None
 
@@ -1522,22 +1683,17 @@ class MileByMileGame(Game):
         if not target_indices:
             return None
 
-        # Pick target with most miles
-        best_idx = max(target_indices, key=lambda i: self.race_states[i].miles)
+        best_idx = MileByMileBotStrategy(self).choose_hazard_target(
+            player,
+            card,
+            target_indices,
+        )
+        if best_idx is None:
+            return None
         race_state = self.race_states[best_idx]
-        
-        # We need to return the string that matches what options would provide
-        # But bots don't really have a locale, so existing logic effectively assumes 'en'
-        # or the format string match.
-        # Since _play_hazard uses the text to lookup, we should match standard behavior.
-        # Let's default to English for bots, or maybe the host's locale?
-        # A simpler way is to just generate it using 'en' since bot actions 
-        # usually pass internal checks, but here the 'input' is the string itself when passed to _action_play_card.
-        # Wait, usually bot input is passed directly to _action handler.
-        # If _action_play_card expects the string, we need to match it.
-        # But bots don't see menus, so they should return the formatted string.
-        # Let's use English for safety.
-        return self._get_target_display_string(best_idx, race_state, "en")
+        user = self.get_user(player)
+        locale = user.locale if user else "en"
+        return self._get_target_display_string(best_idx, race_state, locale)
 
     def _action_play_card(self, player: Player, *args) -> None:
         """Handle playing a card from hand.
@@ -1573,12 +1729,6 @@ class MileByMileGame(Game):
             self._play_dirty_trick_safety(player, slot, card)
             return
 
-        if self.dirty_trick_window_team is not None:
-            user = self.get_user(player)
-            if user:
-                user.speak_l("milebymile-dirty-trick-wait", buffer="game")
-            return
-
         # Check if it's this player's turn. Dirty tricks are the exception above.
         if self.current_player != player:
             user = self.get_user(player)
@@ -1612,12 +1762,6 @@ class MileByMileGame(Game):
     def _action_junk_card(self, player: Player, action_id: str) -> None:
         """Handle discarding the currently selected card (shift+enter or backspace keybind)."""
         if not isinstance(player, MileByMilePlayer):
-            return
-
-        if self.dirty_trick_window_team is not None:
-            user = self.get_user(player)
-            if user:
-                user.speak_l("milebymile-dirty-trick-wait", buffer="game")
             return
 
         # Check if it's this player's turn
@@ -1703,9 +1847,10 @@ class MileByMileGame(Game):
                 total=race_state.miles,
             )
         else:
-            self._broadcast_actor_l(
+            self._broadcast_actor_team_l(
                 player,
                 "milebymile-you-play-distance-team",
+                "milebymile-teammate-plays-distance-team",
                 "milebymile-plays-distance-team",
                 distance=distance,
                 total=race_state.miles,
@@ -1860,20 +2005,17 @@ class MileByMileGame(Game):
         if attacker_shunned:
             self._announce_attacker_shunned(player, player.team_index)
 
-        # Open dirty trick window
-        self.dirty_trick_window_team = target_idx
-        self.dirty_trick_window_hazard = card.value
-        self.dirty_trick_window_ticks = DIRTY_TRICK_WINDOW_TICKS
+        # Open a response opportunity without delaying ordinary turn flow.
+        self._open_dirty_trick_window(target_idx, card.value)
 
         # Schedule bot dirty trick check
         for member_name in target_team.members:
             member = self._get_player_by_name(member_name)
             if member and member.is_bot:
-                BotHelper.jolt_bot(member, ticks=random.randint(12, 18))
+                if member.bot_pending_action != "dirty_trick":
+                    BotHelper.jolt_bot(member, ticks=random.randint(12, 18))
 
-        # The hazard response resolves before ordinary turn progression.
-        self._update_all_turn_actions()
-        self.refresh_menus(player)
+        self._end_turn()
 
     def _play_remedy(self, player: MileByMilePlayer, slot: int, card: Card) -> None:
         """Play a remedy card."""
@@ -1903,12 +2045,21 @@ class MileByMileGame(Game):
             race_state.remove_problem(HazardType.ACCIDENT)
             self.play_sound(f"game_milebymile/repair{random.randint(1, 2)}.ogg")
 
-        self._broadcast_actor_card_l(
-            player,
-            "milebymile-you-play-card",
-            "milebymile-plays-card",
-            card,
-        )
+        if self.is_individual_mode():
+            self._broadcast_actor_card_l(
+                player,
+                "milebymile-you-play-card",
+                "milebymile-plays-card",
+                card,
+            )
+        else:
+            self._broadcast_actor_team_card_l(
+                player,
+                "milebymile-you-play-team-card",
+                "milebymile-teammate-plays-team-card",
+                "milebymile-opponent-plays-team-card",
+                card,
+            )
         self.discard_pile.append(card)
         self._end_turn()
 
@@ -1918,6 +2069,7 @@ class MileByMileGame(Game):
         slot: int,
         card: Card,
         is_dirty_trick: bool = False,
+        dirty_trick_hazard: str | None = None,
     ) -> None:
         """Play a safety card."""
         race_state = self.get_player_race_state(player)
@@ -1929,23 +2081,41 @@ class MileByMileGame(Game):
 
         if is_dirty_trick:
             race_state.dirty_trick_count += 1
-            self._broadcast_actor_card_l(
-                player,
-                "milebymile-you-play-dirty-trick",
-                "milebymile-plays-dirty-trick",
-                card,
-            )
+            if self.is_individual_mode():
+                self._broadcast_actor_card_l(
+                    player,
+                    "milebymile-you-play-dirty-trick",
+                    "milebymile-plays-dirty-trick",
+                    card,
+                )
+            else:
+                self._broadcast_actor_team_card_l(
+                    player,
+                    "milebymile-you-play-dirty-trick-team",
+                    "milebymile-teammate-plays-dirty-trick-team",
+                    "milebymile-opponent-plays-dirty-trick-team",
+                    card,
+                )
             self.play_sound("mention.ogg")
 
-            self._discard_countered_hazard(race_state)
+            self._discard_countered_hazard(race_state, dirty_trick_hazard)
             self._apply_safety_protection(race_state, card.value)
         else:
-            self._broadcast_actor_card_l(
-                player,
-                "milebymile-you-play-card",
-                "milebymile-plays-card",
-                card,
-            )
+            if self.is_individual_mode():
+                self._broadcast_actor_card_l(
+                    player,
+                    "milebymile-you-play-card",
+                    "milebymile-plays-card",
+                    card,
+                )
+            else:
+                self._broadcast_actor_team_card_l(
+                    player,
+                    "milebymile-you-play-team-card",
+                    "milebymile-teammate-plays-team-card",
+                    "milebymile-opponent-plays-team-card",
+                    card,
+                )
             self.play_sound(f"game_cards/play{random.randint(1, 4)}.ogg")
 
             # Safety-specific sounds
@@ -1983,9 +2153,12 @@ class MileByMileGame(Game):
             if player.is_bot:
                 BotHelper.jolt_bot(player, ticks=random.randint(30, 40))
 
-    def _discard_countered_hazard(self, race_state: RaceState) -> None:
+    def _discard_countered_hazard(
+        self,
+        race_state: RaceState,
+        hazard: str | None,
+    ) -> None:
         """Move the Hazard cancelled by a dirty trick to the discard pile."""
-        hazard = self.dirty_trick_window_hazard
         if not hazard:
             return
         for index in range(len(race_state.battle_pile) - 1, -1, -1):
@@ -2142,7 +2315,8 @@ class MileByMileGame(Game):
         self.current_race += 1
         self.race_winner_team_index = None
         self.race_completed_after_deck_exhausted = False
-        self._clear_dirty_trick_window()
+        self._clear_dirty_trick_windows()
+        self.dirty_trick_bonus_turn_player_ids = []
 
         # Reset race states for new race
         for race_state in self.race_states:
@@ -2199,7 +2373,11 @@ class MileByMileGame(Game):
         self.announce_turn()
 
         if player.is_bot:
-            BotHelper.jolt_bot(player, ticks=random.randint(30, 50))
+            if self._bot_dirty_trick_action(player):
+                if player.bot_pending_action != "dirty_trick":
+                    player.bot_think_ticks = min(player.bot_think_ticks, 18)
+            else:
+                BotHelper.jolt_bot(player, ticks=random.randint(30, 50))
 
         self._update_all_turn_actions()
         self.refresh_menus()
@@ -2210,13 +2388,12 @@ class MileByMileGame(Game):
         if self._round_timer.is_active:
             return
 
-        # Hazard responses resolve before the attacker yields the turn.
-        if self.dirty_trick_window_team is not None:
-            return
-
         # Check for race end
         if self.race_winner_team_index is not None:
             self._end_race()
+            return
+
+        if self._start_pending_dirty_trick_bonus_turn():
             return
 
         # End the race once neither the deck nor a permitted reshuffle can
@@ -2231,12 +2408,41 @@ class MileByMileGame(Game):
                 return
 
         # Advance to next player
-        BotHelper.jolt_bots(self, ticks=random.randint(15, 25))
+        dirty_trick_bot_ids = self._dirty_trick_bot_responder_ids()
+        ordinary_bots = [
+            player
+            for player in self.players
+            if player.id not in dirty_trick_bot_ids
+        ]
+        BotHelper.jolt_bots(
+            self,
+            ticks=random.randint(15, 25),
+            players=ordinary_bots,
+        )
         self.advance_turn(announce=False)
         self._start_turn()
 
+    def _start_pending_dirty_trick_bonus_turn(self) -> bool:
+        """Start the next queued turn awarded by an asynchronous response."""
+        active_ids = {player.id for player in self.get_active_players()}
+        while self.dirty_trick_bonus_turn_player_ids:
+            player_id = self.dirty_trick_bonus_turn_player_ids.pop(0)
+            player = self.get_player_by_id(player_id)
+            if (
+                not isinstance(player, MileByMilePlayer)
+                or player.id not in active_ids
+            ):
+                continue
+            self.current_player = player
+            self._start_turn()
+            return True
+        return False
+
     def _end_race(self) -> None:
         """End the current race and calculate scores."""
+        self._clear_dirty_trick_windows()
+        self.dirty_trick_bonus_turn_player_ids = []
+
         # Find winner (team index with most miles if no one reached target)
         winning_team_idx: int | None = self.race_winner_team_index
         if winning_team_idx is None:
@@ -2488,9 +2694,9 @@ class MileByMileGame(Game):
                 user = self.get_user(p)
                 if not user:
                     continue
-                if p.team_index == attacker_team_idx:
+                if not p.is_spectator and p.team_index == attacker_team_idx:
                     user.speak_l("milebymile-karma-clash-your-team", buffer="game")
-                elif p.team_index == target_team_idx:
+                elif not p.is_spectator and p.team_index == target_team_idx:
                     user.speak_l(
                         "milebymile-karma-clash-target-team",
                         buffer="game",
@@ -2522,7 +2728,7 @@ class MileByMileGame(Game):
                 user = self.get_user(p)
                 if not user:
                     continue
-                if p.team_index == attacker_team_idx:
+                if not p.is_spectator and p.team_index == attacker_team_idx:
                     user.speak_l("milebymile-karma-shunned-your-team", buffer="game")
                 else:
                     user.speak_l(
@@ -2545,16 +2751,12 @@ class MileByMileGame(Game):
                 else:
                     user.speak_l("milebymile-false-virtue-other", buffer="game", player=player.name)
         else:
-            for p in self.players:
-                user = self.get_user(p)
-                if not user:
-                    continue
-                if p.team_index == team_idx:
-                    user.speak_l("milebymile-false-virtue-your-team", buffer="game")
-                else:
-                    user.speak_l(
-                        "milebymile-false-virtue-other-team", buffer="game", team=team_idx + 1
-                    )
+            self._broadcast_actor_team_l(
+                player,
+                "milebymile-false-virtue-you",
+                "milebymile-false-virtue-teammate",
+                "milebymile-false-virtue-opponent",
+            )
 
     def _announce_hazard_played(
         self,
@@ -2603,6 +2805,7 @@ class MileByMileGame(Game):
                     )
                 elif (
                     isinstance(listener, MileByMilePlayer)
+                    and not listener.is_spectator
                     and listener.team_index == target_idx
                 ):
                     user.speak_l(
@@ -2634,38 +2837,88 @@ class MileByMileGame(Game):
         # Handle round timer
         self._round_timer.on_tick()
 
-        # Hazard responses pause ordinary play and may come from an out-of-turn bot.
-        if self.dirty_trick_window_team is not None:
-            if self.dirty_trick_window_ticks > 0:
-                self.dirty_trick_window_ticks -= 1
-            if self.dirty_trick_window_ticks <= 0:
-                self._clear_dirty_trick_window()
-                self._end_turn()
-                return
-            self._process_dirty_trick_bot()
-            return
+        if self.dirty_trick_windows:
+            for window in self.dirty_trick_windows:
+                window.ticks -= 1
+            self.dirty_trick_windows = [
+                window for window in self.dirty_trick_windows if window.ticks > 0
+            ]
+            self._sync_legacy_dirty_trick_window()
+            self._clear_stale_dirty_trick_bot_actions()
 
+        current_bot_reserved = self._process_dirty_trick_bots()
+        if current_bot_reserved:
+            return
         BotHelper.on_tick(self)
 
-    def _process_dirty_trick_bot(self) -> bool:
-        """Give target-team bots a chance to answer the active hazard."""
-        for player in self.get_active_players():
-            if (
-                not isinstance(player, MileByMilePlayer)
-                or not player.is_bot
-                or player.team_index != self.dirty_trick_window_team
-            ):
+    def _process_dirty_trick_bots(self) -> bool:
+        """Process one eligible bot responder per team without pausing play."""
+        current = self.current_player
+        processed_ids: set[str] = set()
+        current_bot_reserved = False
+        active_players = self.get_active_players()
+        for window in reversed(self.dirty_trick_windows):
+            blocking_safety = HAZARD_TO_SAFETY.get(window.hazard)
+            responder = next(
+                (
+                    player
+                    for player in active_players
+                    if isinstance(player, MileByMilePlayer)
+                    and player.is_bot
+                    and player.id not in processed_ids
+                    and player.team_index == window.team_index
+                    and any(
+                        card.card_type == CardType.SAFETY
+                        and card.value == blocking_safety
+                        for card in player.hand
+                    )
+                ),
+                None,
+            )
+            if responder is None:
                 continue
-            acted = BotHelper.process_bot_action(
-                player,
-                lambda player=player: self.bot_think(player),
-                lambda action_id, player=player: self.execute_action(
-                    player, action_id
+            processed_ids.add(responder.id)
+            BotHelper.process_bot_action(
+                responder,
+                lambda responder=responder: self._bot_dirty_trick_action(responder),
+                lambda action_id, responder=responder: self.execute_action(
+                    responder, action_id
                 ),
             )
-            if acted:
-                return True
-        return False
+            if responder == current:
+                current_bot_reserved = True
+        return current_bot_reserved
+
+    def _dirty_trick_bot_responder_ids(self) -> set[str]:
+        """Return bots whose reaction countdown must survive ordinary turns."""
+        return {
+            player.id
+            for player in self.get_active_players()
+            if isinstance(player, MileByMilePlayer)
+            and player.is_bot
+            and self._bot_dirty_trick_action(player) is not None
+        }
+
+    def _clear_stale_dirty_trick_bot_actions(self) -> None:
+        """Discard queued bot reactions whose matching window has closed."""
+        for player in self.get_active_players():
+            if (
+                isinstance(player, MileByMilePlayer)
+                and player.is_bot
+                and player.bot_pending_action == "dirty_trick"
+                and self._bot_dirty_trick_action(player) is None
+            ):
+                player.bot_pending_action = None
+
+    def _bot_dirty_trick_action(
+        self,
+        player: MileByMilePlayer,
+    ) -> str | None:
+        """Return the response action while this bot still has a matching Safety."""
+        for card in player.hand:
+            if self._matching_dirty_trick_window(player, card) is not None:
+                return "dirty_trick"
+        return None
 
     def bot_think(self, player: MileByMilePlayer) -> str | None:
         """Bot AI decision making."""
@@ -2673,19 +2926,9 @@ class MileByMileGame(Game):
         if self._round_timer.is_active:
             return None
 
-        # Check for dirty trick opportunity first
-        if self.dirty_trick_window_team is not None:
-            if player.team_index == self.dirty_trick_window_team:
-                hazard = self.dirty_trick_window_hazard
-                blocking_safety = HAZARD_TO_SAFETY.get(hazard) if hazard else None
-                if blocking_safety:
-                    for card in player.hand:
-                        if (
-                            card.card_type == CardType.SAFETY
-                            and card.value == blocking_safety
-                        ):
-                            return "dirty_trick"
-            return None
+        dirty_trick_action = self._bot_dirty_trick_action(player)
+        if dirty_trick_action:
+            return dirty_trick_action
 
         # Not our turn? Skip
         if self.current_player != player:
@@ -2695,95 +2938,8 @@ class MileByMileGame(Game):
         return self._bot_choose_card(player)
 
     def _bot_choose_card(self, player: MileByMilePlayer) -> str | None:
-        """Bot card selection logic."""
-        if not player.hand:
-            return None
-
-        race_state = self.get_player_race_state(player)
-        if not race_state:
-            return None
-
-        target_distance = self.options.round_distance
-        distance_needed = target_distance - race_state.miles
-        is_endgame = distance_needed <= 200
-
-        # Score each card
-        best_slot = 0
-        best_priority = -1
-
-        for i, card in enumerate(player.hand):
-            priority = self._bot_score_card(
-                player, card, race_state, distance_needed, is_endgame
-            )
-            if priority > best_priority:
-                best_priority = priority
-                best_slot = i
-
-        return f"card_slot_{best_slot + 1}"
-
-    def _bot_score_card(
-        self,
-        player: MileByMilePlayer,
-        card: Card,
-        race_state: RaceState,
-        distance_needed: int,
-        is_endgame: bool,
-    ) -> int:
-        """Score a card for bot decision making."""
-        if card.card_type == CardType.DISTANCE:
-            if not self._can_play_card(player, card):
-                return 100
-
-            distance = card.distance
-            if is_endgame:
-                if distance == distance_needed:
-                    return 5000  # Perfect finish
-                elif distance > distance_needed:
-                    if self.options.only_allow_perfect_crossing:
-                        return 50
-                    return 4000  # Finish anyway
-                else:
-                    return 1000 + distance
-            return 1000 + distance
-
-        elif card.card_type == CardType.REMEDY:
-            if card.value == RemedyType.ROLL and race_state.has_problem(HazardType.STOP):
-                if not race_state.has_safety(SafetyType.RIGHT_OF_WAY):
-                    return 3000
-            if card.value == RemedyType.END_OF_LIMIT and race_state.has_problem(
-                HazardType.SPEED_LIMIT
-            ):
-                return 2800
-            if self._can_play_card(player, card):
-                return 2500
-            return 150
-
-        elif card.card_type == CardType.SAFETY:
-            if race_state.has_safety(card.value):
-                return 50
-            if is_endgame and distance_needed <= 100:
-                return 1500
-            return 2000
-
-        elif card.card_type == CardType.HAZARD:
-            if not self._can_play_card(player, card):
-                return 200
-            if self.options.karma_rule and race_state.has_karma:
-                # Prefer not attacking if we have karma and can play distance
-                has_playable_distance = any(
-                    c.card_type == CardType.DISTANCE and self._can_play_card(player, c)
-                    for c in player.hand
-                )
-                if has_playable_distance:
-                    return 50
-            return 800
-
-        elif card.card_type == CardType.SPECIAL:
-            if card.value == "false_virtue" and not race_state.has_karma:
-                return 1800
-            return 50
-
-        return 100
+        """Choose a card through the strategic public-information evaluator."""
+        return MileByMileBotStrategy(self).choose_card_action(player)
 
     def build_game_result(self) -> GameResult:
         """Build the game result for Mile by Mile."""

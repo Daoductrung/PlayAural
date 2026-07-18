@@ -34,7 +34,6 @@ milebymile-desc-rig-game = Biến thể thành phần bộ bài: bình thường
 milebymile-status = { $score_info }, { $miles } dặm, Sự cố: { $problems }, Bảo vệ: { $safeties }
 
 milebymile-no-matching-safety = Bạn không có lá bảo vệ tương ứng!
-milebymile-dirty-trick-wait = Hãy chờ phản hồi Phản đòn.
 milebymile-cant-play = Bạn không thể đánh { $card } vì { $reason }.
 milebymile-unplayable-card-menu-title = Lá này không đánh được
 milebymile-unplayable-discard-question = Bạn không thể đánh { $card } vì { $reason }. Bạn muốn bỏ lá này không?
@@ -48,6 +47,7 @@ milebymile-select-target = Chọn mục tiêu
 milebymile-you-play-distance-individual = Bạn đánh { $distance } dặm, tổng cộng { $total } dặm.
 milebymile-plays-distance-individual = { $player } đánh { $distance } dặm, tổng cộng { $total } dặm.
 milebymile-you-play-distance-team = Bạn đánh { $distance } dặm; đội bạn đạt { $total } dặm.
+milebymile-teammate-plays-distance-team = { $player } đánh { $distance } dặm; đội bạn đạt { $total } dặm.
 milebymile-plays-distance-team = { $player } đánh { $distance } dặm; đội của họ đạt { $total } dặm.
 
 milebymile-you-complete-perfect-individual = Bạn về đích đúng cự ly!
@@ -60,16 +60,22 @@ milebymile-your-team-completes = Đội bạn về đích!
 milebymile-journey-complete-team = Đội { $team } về đích!
 
 milebymile-you-play-hazard-individual = Bạn đánh { $card } vào { $target }.
-milebymile-hazard-played-on-you = { $player } đánh { $card } vào bạn.
+milebymile-hazard-played-on-you = { $player } đánh { $card } vào bạn. Bạn có 7 giây để phản đòn.
 milebymile-plays-hazard-individual = { $player } đánh { $card } vào { $target }.
 milebymile-you-play-hazard-team = Bạn đánh { $card } vào Đội { $team }.
-milebymile-hazard-played-on-your-team = { $player } đánh { $card } vào đội bạn.
+milebymile-hazard-played-on-your-team = { $player } đánh { $card } vào đội bạn. Đội bạn có 7 giây để phản đòn.
 milebymile-plays-hazard-team = { $player } đánh { $card } vào Đội { $team }.
 
 milebymile-you-play-card = Bạn đánh { $card }.
 milebymile-plays-card = { $player } đánh { $card }.
+milebymile-you-play-team-card = Bạn đánh { $card } cho đội mình.
+milebymile-teammate-plays-team-card = { $player } đánh { $card } cho đội bạn.
+milebymile-opponent-plays-team-card = { $player } đánh { $card } cho đội của họ.
 milebymile-you-play-dirty-trick = Bạn phản đòn bằng { $card }!
 milebymile-plays-dirty-trick = { $player } phản đòn bằng { $card }!
+milebymile-you-play-dirty-trick-team = Bạn phản đòn bằng { $card } cho đội mình!
+milebymile-teammate-plays-dirty-trick-team = { $player } phản đòn bằng { $card } cho đội bạn!
+milebymile-opponent-plays-dirty-trick-team = { $player } phản đòn bằng { $card } cho đội của họ!
 
 milebymile-deck-reshuffled = Chồng bỏ đã được xào lại vào chồng rút.
 
@@ -105,7 +111,7 @@ milebymile-karma-clash-you-target = Bạn và mục tiêu đều còn Nghiệp! 
 milebymile-karma-clash-you-attacker = Bạn và { $attacker } đều còn Nghiệp! Đòn tấn công bị hóa giải; cả hai mất Nghiệp.
 milebymile-karma-clash-others = { $attacker } và { $target } đều còn Nghiệp! Đòn tấn công bị hóa giải; cả hai mất Nghiệp.
 milebymile-karma-clash-your-team = Đội bạn và mục tiêu đều còn Nghiệp! Đòn tấn công bị hóa giải; cả hai bên mất Nghiệp.
-milebymile-karma-clash-target-team = Bạn và Đội { $team } đều còn Nghiệp! Đòn tấn công bị hóa giải; cả hai bên mất Nghiệp.
+milebymile-karma-clash-target-team = Đội bạn và Đội { $team } đều còn Nghiệp! Đòn tấn công bị hóa giải; cả hai bên mất Nghiệp.
 milebymile-karma-clash-other-teams = Đội { $attacker } và Đội { $target } đều còn Nghiệp! Đòn tấn công bị hóa giải; cả hai đội mất Nghiệp.
 
 milebymile-karma-shunned-you = Bạn mất Nghiệp vì tấn công!
@@ -115,8 +121,8 @@ milebymile-karma-shunned-other-team = Đội { $team } mất Nghiệp vì tấn 
 
 milebymile-false-virtue-you = Bạn đánh Đạo đức giả và lấy lại Nghiệp!
 milebymile-false-virtue-other = { $player } đánh Đạo đức giả và lấy lại Nghiệp!
-milebymile-false-virtue-your-team = Đội bạn đánh Đạo đức giả và lấy lại Nghiệp!
-milebymile-false-virtue-other-team = Đội { $team } đánh Đạo đức giả và lấy lại Nghiệp!
+milebymile-false-virtue-teammate = { $player } đánh Đạo đức giả; đội bạn lấy lại Nghiệp!
+milebymile-false-virtue-opponent = { $player } đánh Đạo đức giả; đội của họ lấy lại Nghiệp!
 
 milebymile-none = không có
 

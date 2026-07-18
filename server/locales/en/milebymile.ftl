@@ -34,7 +34,6 @@ milebymile-desc-rig-game = Optional deck composition variant: normal, no duplica
 milebymile-status = { $score_info }, { $miles } miles, Problems: { $problems }, Safeties: { $safeties }
 
 milebymile-no-matching-safety = You don't have the matching safety card!
-milebymile-dirty-trick-wait = Wait for the Dirty Trick response.
 milebymile-cant-play = You can't play { $card } because { $reason }.
 milebymile-unplayable-card-menu-title = Card cannot be played
 milebymile-unplayable-discard-question = You cannot play { $card } because { $reason }. Do you want to discard it?
@@ -48,6 +47,7 @@ milebymile-select-target = Select a target
 milebymile-you-play-distance-individual = You play { $distance } miles, and are now at { $total } miles.
 milebymile-plays-distance-individual = { $player } plays { $distance } miles, and is now at { $total } miles.
 milebymile-you-play-distance-team = You play { $distance } miles; your team is now at { $total } miles.
+milebymile-teammate-plays-distance-team = { $player } plays { $distance } miles; your team is now at { $total } miles.
 milebymile-plays-distance-team = { $player } plays { $distance } miles; their team is now at { $total } miles.
 
 milebymile-you-complete-perfect-individual = You complete the journey with a perfect crossing!
@@ -60,16 +60,22 @@ milebymile-your-team-completes = Your team completes the journey!
 milebymile-journey-complete-team = Team { $team } has completed the journey!
 
 milebymile-you-play-hazard-individual = You play { $card } on { $target }.
-milebymile-hazard-played-on-you = { $player } plays { $card } on you.
+milebymile-hazard-played-on-you = { $player } plays { $card } on you. You have 7 seconds to counter.
 milebymile-plays-hazard-individual = { $player } plays { $card } on { $target }.
 milebymile-you-play-hazard-team = You play { $card } on Team { $team }.
-milebymile-hazard-played-on-your-team = { $player } plays { $card } on your team.
+milebymile-hazard-played-on-your-team = { $player } plays { $card } on your team. Your team has 7 seconds to counter.
 milebymile-plays-hazard-team = { $player } plays { $card } on Team { $team }.
 
 milebymile-you-play-card = You play { $card }.
 milebymile-plays-card = { $player } plays { $card }.
+milebymile-you-play-team-card = You play { $card } for your team.
+milebymile-teammate-plays-team-card = { $player } plays { $card } for your team.
+milebymile-opponent-plays-team-card = { $player } plays { $card } for their team.
 milebymile-you-play-dirty-trick = You play { $card } as a Dirty Trick!
 milebymile-plays-dirty-trick = { $player } plays { $card } as a Dirty Trick!
+milebymile-you-play-dirty-trick-team = You play { $card } as a Dirty Trick for your team!
+milebymile-teammate-plays-dirty-trick-team = { $player } plays { $card } as a Dirty Trick for your team!
+milebymile-opponent-plays-dirty-trick-team = { $player } plays { $card } as a Dirty Trick for their team!
 
 milebymile-deck-reshuffled = Discard pile shuffled back into deck.
 
@@ -105,7 +111,7 @@ milebymile-karma-clash-you-target = You and your target are both shunned! The at
 milebymile-karma-clash-you-attacker = You and { $attacker } are both shunned! The attack is neutralized.
 milebymile-karma-clash-others = { $attacker } and { $target } are both shunned! The attack is neutralized.
 milebymile-karma-clash-your-team = Your team and your target are both shunned! The attack is neutralized.
-milebymile-karma-clash-target-team = You and Team { $team } are both shunned! The attack is neutralized.
+milebymile-karma-clash-target-team = Your team and Team { $team } are both shunned! The attack is neutralized.
 milebymile-karma-clash-other-teams = Team { $attacker } and Team { $target } are both shunned! The attack is neutralized.
 
 milebymile-karma-shunned-you = You have been shunned for your aggression! Your karma is lost.
@@ -115,8 +121,8 @@ milebymile-karma-shunned-other-team = Team { $team } has been shunned for its ag
 
 milebymile-false-virtue-you = You play False Virtue and regain your karma!
 milebymile-false-virtue-other = { $player } plays False Virtue and regains their karma!
-milebymile-false-virtue-your-team = Your team plays False Virtue and regains its karma!
-milebymile-false-virtue-other-team = Team { $team } plays False Virtue and regains its karma!
+milebymile-false-virtue-teammate = { $player } plays False Virtue; your team regains its karma!
+milebymile-false-virtue-opponent = { $player } plays False Virtue; their team regains its karma!
 
 milebymile-none = none
 

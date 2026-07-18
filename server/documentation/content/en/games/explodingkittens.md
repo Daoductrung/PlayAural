@@ -73,6 +73,8 @@ When Advanced combos is on, any matching title except Exploding Kitten can form 
 
 When Advanced combos is off, only matching pairs of Cat Cards are allowed. Combos may be Noped. If only one opponent has cards, that opponent is selected automatically.
 
+Players with empty hands cannot be targeted by Favor or a combo. If a target spends their last card during the Nope chain and the action still takes effect, Favor and pairs finish without a transfer, while three of a kind reports that the requested card was not found.
+
 This game uses Original Edition cards. Expansion cards and the older five-different-card combo are not included.
 
 \*\*Private and Public Information\*\*

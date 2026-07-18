@@ -53,6 +53,7 @@ from server.games.explodingkittens.game import (
 from server.games.explodingkittens.state import (
     ACTION_ATTACK,
     ACTION_FAVOR,
+    ACTION_PAIR,
     ACTION_TRIPLE,
     PHASE_COMBO,
     PHASE_DEFUSE,
@@ -721,7 +722,7 @@ def test_all_eligible_players_passing_resolves_immediately() -> None:
     assert game.current_player == second
 
 
-def test_other_players_get_turn_feedback_during_private_combo_selection() -> None:
+def test_other_players_get_contextual_feedback_during_private_combo_selection() -> None:
     game = make_game(3)
     start_with_current(game)
     actor, observer, _ = game.players
@@ -733,9 +734,199 @@ def test_other_players_get_turn_feedback_during_private_combo_selection() -> Non
     user.clear_messages()
     execute(game, observer, "draw_card")
 
-    assert speech(user) == ["It's not your turn."]
+    assert speech(user) == ["Waiting for Player1 to finish selecting a combo."]
     assert game.phase == PHASE_COMBO
     assert game.current_player == actor
+
+
+def test_pending_phase_errors_identify_the_action_and_responsible_player() -> None:
+    game = make_game(3)
+    start_with_current(game)
+    actor, target, observer = game.players
+
+    game.phase = PHASE_COMBO
+    assert game._action_in_progress_error(actor) == (
+        "explodingkittens-error-finish-combo"
+    )
+    assert game._action_in_progress_error(observer) == (
+        "explodingkittens-error-waiting-combo",
+        {"player": actor.name},
+    )
+
+    game.pending_action = PendingAction(kind=ACTION_FAVOR, actor_id=actor.id)
+    game.phase = PHASE_TARGET
+    assert game._action_in_progress_error(actor) == (
+        "explodingkittens-error-choose-target",
+        {"action": "Favor"},
+    )
+    assert game._action_in_progress_error(observer) == (
+        "explodingkittens-error-waiting-target",
+        {"player": actor.name, "action": "Favor"},
+    )
+
+    game.pending_action = PendingAction(
+        kind=ACTION_TRIPLE,
+        actor_id=actor.id,
+        target_id=target.id,
+    )
+    game.phase = PHASE_REQUEST
+    assert game._action_in_progress_error(actor) == (
+        "explodingkittens-error-choose-request",
+        {"target": target.name},
+    )
+    assert game._action_in_progress_error(observer) == (
+        "explodingkittens-error-waiting-request",
+        {"player": actor.name, "target": target.name},
+    )
+
+    game.pending_action = PendingAction(kind=ACTION_ATTACK, actor_id=actor.id)
+    game.phase = PHASE_NOPE
+    assert game._action_in_progress_error(actor) == (
+        "explodingkittens-error-waiting-nope-you",
+        {"action": "Attack"},
+    )
+    assert game._action_in_progress_error(observer) == (
+        "explodingkittens-error-waiting-nope-player",
+        {"player": actor.name, "action": "Attack"},
+    )
+
+    game.pending_action = PendingAction(
+        kind=ACTION_FAVOR,
+        actor_id=actor.id,
+        target_id=target.id,
+    )
+    game.phase = PHASE_FAVOR_GIVE
+    assert game._action_in_progress_error(actor) == (
+        "explodingkittens-error-waiting-favor-you",
+        {"target": target.name},
+    )
+    assert game._action_in_progress_error(target) == (
+        "explodingkittens-error-give-favor-card",
+        {"player": actor.name},
+    )
+    assert game._action_in_progress_error(observer) == (
+        "explodingkittens-error-waiting-favor-player",
+        {"target": target.name, "player": actor.name},
+    )
+
+    game.pending_action = None
+    game.decision_player_id = actor.id
+    game.drawn_kitten = card(949, EXPLODING_KITTEN)
+    game.phase = PHASE_DEFUSE
+    assert game._action_in_progress_error(actor) == (
+        "explodingkittens-error-choose-defuse"
+    )
+    assert game._action_in_progress_error(observer) == (
+        "explodingkittens-error-waiting-defuse",
+        {"player": actor.name},
+    )
+
+    game.phase = PHASE_REINSERT
+    assert game._action_in_progress_error(actor) == (
+        "explodingkittens-error-choose-reinsert"
+    )
+    assert game._action_in_progress_error(observer) == (
+        "explodingkittens-error-waiting-reinsert",
+        {"player": actor.name},
+    )
+
+    game.phase = PHASE_RESOLVING
+    assert game._action_in_progress_error(actor) == (
+        "explodingkittens-error-kitten-reveal-you"
+    )
+    assert game._action_in_progress_error(observer) == (
+        "explodingkittens-error-kitten-reveal-player",
+        {"player": actor.name},
+    )
+
+
+def test_favor_pending_feedback_matches_actor_target_and_observer_roles() -> None:
+    game = make_game(3)
+    start_with_current(game)
+    actor, target, observer = game.players
+    actor.hand = [card(940, FAVOR), card(941, SKIP)]
+    target.hand = [card(942, DEFUSE), card(943, SKIP)]
+    observer.hand = [card(944, ATTACK)]
+
+    execute(game, actor, "play_card_940")
+    execute(game, actor, f"target_{target.id}")
+    resolve_nope(game)
+    for seated in game.players:
+        game.get_user(seated).clear_messages()
+
+    execute(game, actor, "play_card_941")
+    execute(game, target, "draw_card")
+    execute(game, observer, "draw_card")
+
+    assert speech(game.get_user(actor)) == [
+        "Waiting for Player2 to give you a card."
+    ]
+    assert speech(game.get_user(target)) == [
+        "Choose a card to give Player1."
+    ]
+    assert speech(game.get_user(observer)) == [
+        "Waiting for Player2 to give Player1 a card."
+    ]
+    assert game.phase == PHASE_FAVOR_GIVE
+
+
+def test_live_table_status_uses_contextual_favor_state_for_each_listener() -> None:
+    game = make_game(3)
+    start_with_current(game)
+    actor, target, observer = game.players
+    game.pending_action = PendingAction(
+        kind=ACTION_FAVOR,
+        actor_id=actor.id,
+        target_id=target.id,
+    )
+    game.phase = PHASE_FAVOR_GIVE
+
+    def phase_text(player) -> str:
+        user = game.get_user(player)
+        status = game._build_table_status(player, user)
+        return next(item.text for item in status.items if item.id == "phase")
+
+    assert phase_text(actor) == "Waiting for Player2 to give you a card."
+    assert phase_text(target) == "Choose a card to give Player1."
+    assert phase_text(observer) == "Waiting for Player2 to give Player1 a card."
+
+
+def test_cancel_keybind_cannot_abort_committed_or_resolved_actions() -> None:
+    attack = make_game(2)
+    start_with_current(attack)
+    actor, _ = attack.players
+    attack_card = card(945, ATTACK)
+    actor.hand = [attack_card]
+
+    execute(attack, actor, f"play_card_{attack_card.id}")
+    pending = attack.pending_action
+    attack.get_user(actor).clear_messages()
+    execute(attack, actor, "cancel_selection")
+
+    assert attack.phase == PHASE_NOPE
+    assert attack.pending_action is pending
+    assert speech(attack.get_user(actor)) == [
+        "Your Attack is waiting for Nope responses."
+    ]
+
+    favor = make_game(2)
+    start_with_current(favor)
+    actor, target = favor.players
+    favor_card = card(946, FAVOR)
+    actor.hand = [favor_card]
+    target.hand = [card(947, DEFUSE), card(948, SKIP)]
+
+    execute(favor, actor, f"play_card_{favor_card.id}")
+    resolve_nope(favor)
+    pending = favor.pending_action
+    favor.get_user(actor).clear_messages()
+    execute(favor, actor, "cancel_selection")
+
+    assert favor.phase == PHASE_FAVOR_GIVE
+    assert favor.pending_action is pending
+    assert speech(favor.get_user(actor)) == [
+        "Waiting for Player2 to give you a card."
+    ]
 
 
 def test_favor_target_privately_chooses_the_card() -> None:
@@ -1018,6 +1209,114 @@ def test_empty_targets_block_favor_and_combo_flows() -> None:
     assert no_target.phase == PHASE_NORMAL
     execute(no_target, actor, "start_combo")
     assert no_target.phase == PHASE_NORMAL
+
+
+def test_target_menu_excludes_empty_hands() -> None:
+    game = make_game(4, touch=True)
+    start_with_current(game)
+    actor, empty, first_target, second_target = game.players
+    actor.hand = [card(980, FAVOR)]
+    empty.hand = []
+    first_target.hand = [card(981, SKIP)]
+    second_target.hand = [card(982, ATTACK)]
+
+    execute(game, actor, "play_card_980")
+    game.flush_menus()
+
+    assert game.phase == PHASE_TARGET
+    assert f"target_{empty.id}" not in menu_ids(game.get_user(actor))
+    assert f"target_{first_target.id}" in menu_ids(game.get_user(actor))
+    assert f"target_{second_target.id}" in menu_ids(game.get_user(actor))
+
+
+def test_favor_resolves_cleanly_if_target_nopes_with_their_last_card() -> None:
+    game = make_game(2)
+    start_with_current(game)
+    actor, target = game.players
+    actor.hand = [card(983, FAVOR), card(984, NOPE)]
+    target.hand = [card(985, NOPE)]
+
+    execute(game, actor, "play_card_983")
+    execute(game, target, "play_card_985")
+    execute(game, actor, "play_card_984")
+    for seated in game.players:
+        game.get_user(seated).clear_messages()
+    resolve_nope(game)
+
+    assert game.phase == PHASE_NORMAL
+    assert game.pending_action is None
+    assert target.hand == []
+    assert speech(game.get_user(actor)) == [
+        "Your Favor takes effect, but Player2 has no card to give."
+    ]
+    assert speech(game.get_user(target)) == [
+        "Player1's Favor takes effect, but you have no card to give."
+    ]
+
+
+def test_pair_resolves_cleanly_if_target_nopes_with_their_last_card() -> None:
+    game = make_game(2)
+    start_with_current(game)
+    actor, target = game.players
+    actor.hand = [
+        card(986, BEARD_CAT),
+        card(987, BEARD_CAT),
+        card(988, NOPE),
+    ]
+    target.hand = [card(989, NOPE)]
+
+    execute(game, actor, "start_combo")
+    execute(game, actor, "play_card_986")
+    execute(game, actor, "play_card_987")
+    execute(game, actor, "confirm_combo")
+    execute(game, target, "play_card_989")
+    execute(game, actor, "play_card_988")
+    for seated in game.players:
+        game.get_user(seated).clear_messages()
+    resolve_nope(game)
+
+    assert game.phase == PHASE_NORMAL
+    assert game.pending_action is None
+    assert target.hand == []
+    assert sound_names(game.get_user(actor)) == [SOUND_COMBO_MISS]
+    assert speech(game.get_user(actor)) == [
+        "Your pair takes effect, but Player2 has no card to take."
+    ]
+    assert speech(game.get_user(target)) == [
+        "Player1's pair takes effect, but you have no card to take."
+    ]
+
+
+def test_triple_reports_a_miss_if_target_nopes_with_their_last_card() -> None:
+    game = make_game(2)
+    start_with_current(game)
+    actor, target = game.players
+    actor.hand = [
+        card(990, BEARD_CAT),
+        card(991, BEARD_CAT),
+        card(992, BEARD_CAT),
+        card(993, NOPE),
+    ]
+    target.hand = [card(994, NOPE)]
+
+    execute(game, actor, "start_combo")
+    for card_id in (990, 991, 992):
+        execute(game, actor, f"play_card_{card_id}")
+    execute(game, actor, "confirm_combo")
+    execute(game, actor, "request_attack")
+    execute(game, target, "play_card_994")
+    execute(game, actor, "play_card_993")
+    for seated in game.players:
+        game.get_user(seated).clear_messages()
+    resolve_nope(game)
+
+    assert game.phase == PHASE_NORMAL
+    assert game.pending_action is None
+    assert target.hand == []
+    assert sound_names(game.get_user(actor)) == [SOUND_COMBO_MISS]
+    assert speech(game.get_user(actor)) == [
+        "Player2 does not have the requested Attack."
+    ]
 
 
 def test_combo_button_is_hidden_when_no_combo_is_available() -> None:
@@ -1725,6 +2024,63 @@ def test_phase_and_action_state_survive_serialization() -> None:
     assert restored.pending_action.actor_id == actor.id
     assert restored.pending_action.card_ids == [1020]
     assert restored.options.nope_response_seconds == "20"
+
+
+def test_restored_empty_favor_handoff_cannot_strand_the_game() -> None:
+    game = make_game(2)
+    start_with_current(game)
+    actor, target = game.players
+    favor = card(1021, FAVOR)
+    actor.hand = [card(1022, SKIP)]
+    target.hand = []
+    game.discard_pile = [favor]
+    game.pending_action = PendingAction(
+        kind=ACTION_FAVOR,
+        actor_id=actor.id,
+        card_ids=[favor.id],
+        target_id=target.id,
+    )
+    game.phase = PHASE_FAVOR_GIVE
+
+    restored = ExplodingKittensGame.from_json(game.to_json())
+    restored.rebuild_runtime_state()
+
+    assert restored.phase == PHASE_NORMAL
+    assert restored.pending_action is None
+    assert restored.current_player.id == actor.id
+    assert restored.discard_pile == [favor]
+
+
+@pytest.mark.parametrize("kitten_already_in_deck", [False, True])
+def test_stale_kitten_recovery_preserves_exactly_one_copy(
+    kitten_already_in_deck: bool,
+) -> None:
+    game = make_game(2)
+    start_with_current(game)
+    kitten = card(1023, EXPLODING_KITTEN)
+    game.deck = (
+        [kitten, card(1024, SKIP)]
+        if kitten_already_in_deck
+        else [card(1024, SKIP)]
+    )
+    game.drawn_kitten = kitten
+    game.decision_player_id = "missing-player"
+    game.phase = PHASE_DEFUSE
+
+    restored = ExplodingKittensGame.from_json(game.to_json())
+    restored.rebuild_runtime_state()
+    all_cards = (
+        restored.deck
+        + restored.discard_pile
+        + restored.removed_cards
+        + [held for player in restored.players for held in player.hand]
+    )
+
+    assert restored.phase == PHASE_NORMAL
+    assert restored.drawn_kitten is None
+    assert restored.decision_player_id == ""
+    assert sum(card.id == kitten.id for card in all_cards) == 1
+    assert restored.deck[0] == kitten
 
 
 def test_nope_chain_and_timer_survive_serialization() -> None:

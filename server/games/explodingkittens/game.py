@@ -230,6 +230,11 @@ class ExplodingKittensGame(Game):
     def supports_score_actions(self) -> bool:
         return False
 
+    def rebuild_runtime_state(self) -> None:
+        """Repair restored private phases before play resumes."""
+        super().rebuild_runtime_state()
+        self._repair_pending_state(announce=False)
+
     def create_player(
         self, player_id: str, name: str, is_bot: bool = False
     ) -> ExplodingKittensPlayer:
@@ -410,6 +415,9 @@ class ExplodingKittensGame(Game):
         self.process_scheduled_sounds()
         self.process_sequences()
         if not self.game_active or self.is_sequence_bot_paused():
+            return
+
+        if self._repair_pending_state():
             return
 
         if (
@@ -720,21 +728,126 @@ class ExplodingKittensGame(Game):
             and not player.eliminated
         )
 
-    def _private_action_owner_id(self) -> str:
-        if self.phase == PHASE_COMBO and self.current_player:
-            return self.current_player.id
-        if self.phase in (PHASE_TARGET, PHASE_REQUEST) and self.pending_action:
-            return self.pending_action.actor_id
-        if self.phase == PHASE_FAVOR_GIVE and self.pending_action:
-            return self.pending_action.target_id
-        if self.phase in (PHASE_DEFUSE, PHASE_REINSERT):
-            return self.decision_player_id
-        return ""
+    def _action_in_progress_error(
+        self,
+        player: Player,
+        *,
+        locale: str | None = None,
+    ) -> str | tuple[str, dict]:
+        """Describe the exact private or resolving state blocking an action."""
+        if locale is None:
+            user = self.get_user(player)
+            locale = user.locale if user else "en"
 
-    def _action_in_progress_error(self, player: Player) -> str:
-        owner_id = self._private_action_owner_id()
-        if owner_id and owner_id != player.id:
-            return "action-not-your-turn"
+        if self.phase == PHASE_STARTING:
+            return "explodingkittens-game-starting-wait"
+
+        if self.phase == PHASE_COMBO:
+            actor = self.current_player
+            if actor and actor.id == player.id:
+                return "explodingkittens-error-finish-combo"
+            if actor:
+                return (
+                    "explodingkittens-error-waiting-combo",
+                    {"player": actor.name},
+                )
+
+        pending = self.pending_action
+        actor = (
+            self.get_player_by_id(pending.actor_id)
+            if pending is not None
+            else None
+        )
+        action = (
+            self._pending_action_name(pending, locale)
+            if pending is not None
+            else ""
+        )
+
+        if self.phase == PHASE_TARGET and pending is not None:
+            if actor and actor.id == player.id:
+                return (
+                    "explodingkittens-error-choose-target",
+                    {"action": action},
+                )
+            if actor:
+                return (
+                    "explodingkittens-error-waiting-target",
+                    {"player": actor.name, "action": action},
+                )
+
+        if self.phase == PHASE_REQUEST and pending is not None:
+            target = self.get_player_by_id(pending.target_id)
+            target_name = target.name if target else ""
+            if actor and actor.id == player.id:
+                return (
+                    "explodingkittens-error-choose-request",
+                    {"target": target_name},
+                )
+            if actor:
+                return (
+                    "explodingkittens-error-waiting-request",
+                    {"player": actor.name, "target": target_name},
+                )
+
+        if self.phase == PHASE_NOPE and pending is not None and actor:
+            if actor.id == player.id:
+                return (
+                    "explodingkittens-error-waiting-nope-you",
+                    {"action": action},
+                )
+            return (
+                "explodingkittens-error-waiting-nope-player",
+                {"player": actor.name, "action": action},
+            )
+
+        if self.phase == PHASE_FAVOR_GIVE and pending is not None:
+            target = self.get_player_by_id(pending.target_id)
+            if actor and target and target.id == player.id:
+                return (
+                    "explodingkittens-error-give-favor-card",
+                    {"player": actor.name},
+                )
+            if actor and target and actor.id == player.id:
+                return (
+                    "explodingkittens-error-waiting-favor-you",
+                    {"target": target.name},
+                )
+            if actor and target:
+                return (
+                    "explodingkittens-error-waiting-favor-player",
+                    {"target": target.name, "player": actor.name},
+                )
+
+        decision_player = self.get_player_by_id(self.decision_player_id)
+        if self.phase == PHASE_DEFUSE:
+            if decision_player and decision_player.id == player.id:
+                return "explodingkittens-error-choose-defuse"
+            if decision_player:
+                return (
+                    "explodingkittens-error-waiting-defuse",
+                    {"player": decision_player.name},
+                )
+
+        if self.phase == PHASE_REINSERT:
+            if decision_player and decision_player.id == player.id:
+                return "explodingkittens-error-choose-reinsert"
+            if decision_player:
+                return (
+                    "explodingkittens-error-waiting-reinsert",
+                    {"player": decision_player.name},
+                )
+
+        if self.phase == PHASE_RESOLVING:
+            if self.drawn_kitten is not None and decision_player:
+                if decision_player.id == player.id:
+                    return "explodingkittens-error-kitten-reveal-you"
+                return (
+                    "explodingkittens-error-kitten-reveal-player",
+                    {"player": decision_player.name},
+                )
+            return "explodingkittens-error-action-resolving"
+
         return "explodingkittens-error-action-in-progress"
 
     def _base_play_error(self, player: Player) -> str | None:
@@ -771,7 +884,7 @@ class ExplodingKittensGame(Game):
 
     def _is_play_card_enabled(
         self, player: Player, *, action_id: str | None = None
-    ) -> str | None:
+    ) -> str | tuple[str, dict] | None:
         error = self._base_play_error(player)
         if error:
             return error
@@ -855,7 +968,7 @@ class ExplodingKittensGame(Game):
             return Localization.get(locale, "explodingkittens-give-card-label", card=name)
         return name
 
-    def _is_draw_enabled(self, player: Player) -> str | None:
+    def _is_draw_enabled(self, player: Player) -> str | tuple[str, dict] | None:
         error = self._base_play_error(player)
         if error:
             return error
@@ -889,7 +1002,9 @@ class ExplodingKittensGame(Game):
     def _has_combo(self, player: ExplodingKittensPlayer) -> bool:
         return bool(self._combo_kinds(player))
 
-    def _is_start_combo_enabled(self, player: Player) -> str | None:
+    def _is_start_combo_enabled(
+        self, player: Player
+    ) -> str | tuple[str, dict] | None:
         error = self._is_draw_enabled(player)
         if error:
             return error
@@ -910,7 +1025,9 @@ class ExplodingKittensGame(Game):
             return Visibility.HIDDEN
         return Visibility.VISIBLE
 
-    def _is_confirm_combo_enabled(self, player: Player) -> str | None:
+    def _is_confirm_combo_enabled(
+        self, player: Player
+    ) -> str | tuple[str, dict] | None:
         error = self._base_play_error(player)
         if error:
             return error
@@ -934,7 +1051,9 @@ class ExplodingKittensGame(Game):
             return Visibility.VISIBLE
         return Visibility.HIDDEN
 
-    def _is_combo_command_enabled(self, player: Player) -> str | None:
+    def _is_combo_command_enabled(
+        self, player: Player
+    ) -> str | tuple[str, dict] | None:
         """Validate the phase-specific combo operation bound to C."""
         if self.phase == PHASE_COMBO and self.current_player == player:
             return self._is_confirm_combo_enabled(player)
@@ -943,8 +1062,12 @@ class ExplodingKittensGame(Game):
     def _is_combo_command_hidden(self, player: Player) -> Visibility:
         return Visibility.HIDDEN
 
-    def _is_cancel_enabled(self, player: Player) -> str | None:
-        if self.pending_action and player.id == self.pending_action.actor_id:
+    def _is_cancel_enabled(self, player: Player) -> str | tuple[str, dict] | None:
+        if (
+            self.phase in (PHASE_TARGET, PHASE_REQUEST)
+            and self.pending_action
+            and player.id == self.pending_action.actor_id
+        ):
             return None
         if self.phase == PHASE_COMBO and self.current_player == player:
             return None
@@ -1003,7 +1126,9 @@ class ExplodingKittensGame(Game):
             return Visibility.VISIBLE
         return Visibility.HIDDEN
 
-    def _defuse_decision_error(self, player: Player) -> str | None:
+    def _defuse_decision_error(
+        self, player: Player
+    ) -> str | tuple[str, dict] | None:
         error = self._base_play_error(player)
         if error:
             return error
@@ -1011,7 +1136,9 @@ class ExplodingKittensGame(Game):
             return self._action_in_progress_error(player)
         return None
 
-    def _is_use_defuse_enabled(self, player: Player) -> str | None:
+    def _is_use_defuse_enabled(
+        self, player: Player
+    ) -> str | tuple[str, dict] | None:
         error = self._defuse_decision_error(player)
         if error:
             return error
@@ -1021,7 +1148,9 @@ class ExplodingKittensGame(Game):
             return "explodingkittens-error-no-defuse"
         return None
 
-    def _is_accept_explosion_enabled(self, player: Player) -> str | None:
+    def _is_accept_explosion_enabled(
+        self, player: Player
+    ) -> str | tuple[str, dict] | None:
         return self._defuse_decision_error(player)
 
     def _is_defuse_choice_hidden(self, player: Player) -> Visibility:
@@ -1029,7 +1158,9 @@ class ExplodingKittensGame(Game):
             return Visibility.VISIBLE
         return Visibility.HIDDEN
 
-    def _is_target_enabled(self, player: Player, *, action_id: str | None = None) -> str | None:
+    def _is_target_enabled(
+        self, player: Player, *, action_id: str | None = None
+    ) -> str | tuple[str, dict] | None:
         if self.phase != PHASE_TARGET or not self.pending_action or player.id != self.pending_action.actor_id:
             return self._action_in_progress_error(player)
         target = self._target_for_action(action_id)
@@ -1042,7 +1173,9 @@ class ExplodingKittensGame(Game):
             return Visibility.VISIBLE
         return Visibility.HIDDEN
 
-    def _is_request_enabled(self, player: Player, *, action_id: str | None = None) -> str | None:
+    def _is_request_enabled(
+        self, player: Player, *, action_id: str | None = None
+    ) -> str | tuple[str, dict] | None:
         if self.phase != PHASE_REQUEST or not self.pending_action or player.id != self.pending_action.actor_id:
             return self._action_in_progress_error(player)
         kind = self._kind_for_request_action(action_id)
@@ -1055,7 +1188,9 @@ class ExplodingKittensGame(Game):
             return Visibility.VISIBLE
         return Visibility.HIDDEN
 
-    def _is_reinsert_enabled(self, player: Player, *, action_id: str | None = None) -> str | None:
+    def _is_reinsert_enabled(
+        self, player: Player, *, action_id: str | None = None
+    ) -> str | tuple[str, dict] | None:
         if self.phase != PHASE_REINSERT or player.id != self.decision_player_id or self.drawn_kitten is None:
             return self._action_in_progress_error(player)
         position = self._position_for_action(action_id)
@@ -1316,7 +1451,7 @@ class ExplodingKittensGame(Game):
             or self.drawn_kitten is None
             or self.decision_player_id != player.id
         ):
-            self._cancel_stale_action()
+            self._reset_stale_kitten_flow()
             return
         if any(held.kind == DEFUSE for held in player.hand):
             self.phase = PHASE_DEFUSE
@@ -1346,11 +1481,16 @@ class ExplodingKittensGame(Game):
             or self.drawn_kitten is None
             or self.decision_player_id != player.id
         ):
-            self._cancel_stale_action()
+            self._reset_stale_kitten_flow()
             return
         defuse = next((card for card in player.hand if card.id == card_id), None)
         if defuse is None or defuse.kind != DEFUSE:
-            self._cancel_stale_action()
+            if any(card.kind == DEFUSE for card in player.hand):
+                self.phase = PHASE_DEFUSE
+                self.request_menu_focus(player, "use_defuse")
+                self.refresh_menus()
+            else:
+                self._start_explosion_sequence(player)
             return
         player.hand.remove(defuse)
         self.discard_pile.append(defuse)
@@ -1385,7 +1525,7 @@ class ExplodingKittensGame(Game):
 
     def _start_explosion_sequence(self, player: ExplodingKittensPlayer) -> None:
         if self.drawn_kitten is None or self.decision_player_id != player.id:
-            self._cancel_stale_action()
+            self._reset_stale_kitten_flow()
             return
         explosion_sound = random.choice(SOUND_EXPLOSIONS)  # nosec B311
         if len(self.alive_players) <= 2:
@@ -1563,8 +1703,12 @@ class ExplodingKittensGame(Game):
             self._resolve_favor_request(actor, pending)
         elif pending.kind == ACTION_PAIR:
             target = self.get_player_by_id(pending.target_id)
-            if not isinstance(target, ExplodingKittensPlayer) or not target.hand:
+            if not isinstance(target, ExplodingKittensPlayer) or target.eliminated:
                 self._cancel_stale_action()
+                return
+            if not target.hand:
+                self.play_sound(SOUND_COMBO_MISS)
+                self._finish_empty_target_action(actor, target, "pair")
                 return
             card_id = random.choice(target.hand).id  # nosec B311
             self.play_sound(self._random_draw_sound())
@@ -1658,8 +1802,11 @@ class ExplodingKittensGame(Game):
         self, actor: ExplodingKittensPlayer, pending: PendingAction
     ) -> None:
         target = self.get_player_by_id(pending.target_id)
-        if not isinstance(target, ExplodingKittensPlayer) or target.eliminated or not target.hand:
+        if not isinstance(target, ExplodingKittensPlayer) or target.eliminated:
             self._cancel_stale_action()
+            return
+        if not target.hand:
+            self._finish_empty_target_action(actor, target, "favor")
             return
         if len(target.hand) == 1:
             self._give_favor_card(target, target.hand[0])
@@ -1711,8 +1858,11 @@ class ExplodingKittensGame(Game):
         card_id: int = 0,
     ) -> None:
         target = self.get_player_by_id(pending.target_id)
-        if not isinstance(target, ExplodingKittensPlayer) or target.eliminated or not target.hand:
+        if not isinstance(target, ExplodingKittensPlayer) or target.eliminated:
             self._cancel_stale_action()
+            return
+        if not target.hand:
+            self._finish_empty_target_action(actor, target, "pair")
             return
         card = next((held for held in target.hand if held.id == card_id), None)
         if card is None and not card_id:
@@ -1890,6 +2040,163 @@ class ExplodingKittensGame(Game):
             )
         self.finish_game()
 
+    def _repair_pending_state(self, *, announce: bool = True) -> bool:
+        """Resolve impossible restored or externally changed private states."""
+        pending_phases = {
+            PHASE_TARGET,
+            PHASE_REQUEST,
+            PHASE_NOPE,
+            PHASE_FAVOR_GIVE,
+        }
+        if self.phase in pending_phases and self.pending_action is None:
+            self._cancel_stale_action()
+            return True
+
+        pending = self.pending_action
+        if pending is not None and self.phase in pending_phases:
+            actor = self.get_player_by_id(pending.actor_id)
+            if not isinstance(actor, ExplodingKittensPlayer) or actor.eliminated:
+                self._cancel_stale_action()
+                return True
+
+            if self.phase in (PHASE_TARGET, PHASE_REQUEST):
+                held_ids = {card.id for card in actor.hand}
+                expected_kind = (
+                    {ACTION_FAVOR, ACTION_PAIR, ACTION_TRIPLE}
+                    if self.phase == PHASE_TARGET
+                    else {ACTION_TRIPLE}
+                )
+                if (
+                    pending.kind not in expected_kind
+                    or not pending.card_ids
+                    or any(card_id not in held_ids for card_id in pending.card_ids)
+                ):
+                    self._cancel_stale_action()
+                    return True
+
+            if self.phase in (PHASE_NOPE, PHASE_FAVOR_GIVE):
+                discard_ids = {card.id for card in self.discard_pile}
+                valid_kinds = {
+                    ACTION_ATTACK,
+                    ACTION_SKIP,
+                    ACTION_FAVOR,
+                    ACTION_SHUFFLE,
+                    ACTION_SEE_FUTURE,
+                    ACTION_PAIR,
+                    ACTION_TRIPLE,
+                }
+                if (
+                    pending.kind not in valid_kinds
+                    or not pending.card_ids
+                    or any(
+                        card_id not in discard_ids
+                        for card_id in pending.card_ids
+                    )
+                ):
+                    self._cancel_stale_action()
+                    return True
+
+            if self.phase == PHASE_TARGET and not self._valid_targets(actor):
+                if announce:
+                    self._speak_error(
+                        actor,
+                        "explodingkittens-error-no-target-with-cards",
+                    )
+                self._cancel_stale_action()
+                return True
+
+            if self.phase == PHASE_REQUEST:
+                target = self.get_player_by_id(pending.target_id)
+                if (
+                    not isinstance(target, ExplodingKittensPlayer)
+                    or target.eliminated
+                    or not target.hand
+                ):
+                    if announce:
+                        self._speak_error(
+                            actor,
+                            "explodingkittens-error-no-target-with-cards",
+                        )
+                    self._cancel_stale_action()
+                    return True
+
+            if self.phase == PHASE_FAVOR_GIVE:
+                target = self.get_player_by_id(pending.target_id)
+                if (
+                    pending.kind != ACTION_FAVOR
+                    or not isinstance(target, ExplodingKittensPlayer)
+                    or target.eliminated
+                ):
+                    self._cancel_stale_action()
+                    return True
+                if not target.hand:
+                    self._finish_empty_target_action(
+                        actor,
+                        target,
+                        "favor",
+                        announce=announce,
+                    )
+                    return True
+                if len(target.hand) == 1:
+                    self._give_favor_card(target, target.hand[0])
+                    return True
+
+        if self.phase in (PHASE_DEFUSE, PHASE_REINSERT):
+            decision_player = self.get_player_by_id(self.decision_player_id)
+            if (
+                not isinstance(decision_player, ExplodingKittensPlayer)
+                or decision_player.eliminated
+                or self.drawn_kitten is None
+            ):
+                self._reset_stale_kitten_flow()
+                return True
+            if self.phase == PHASE_DEFUSE and not any(
+                card.kind == DEFUSE for card in decision_player.hand
+            ):
+                self._start_explosion_sequence(decision_player)
+                return True
+            if self.phase == PHASE_REINSERT and not self.deck:
+                self._reinsert_kitten(decision_player, 0)
+                return True
+
+        return False
+
+    def _finish_empty_target_action(
+        self,
+        actor: ExplodingKittensPlayer,
+        target: ExplodingKittensPlayer,
+        method: str,
+        *,
+        announce: bool = True,
+    ) -> None:
+        """Finish a valid Favor or pair after its target spends the last card."""
+        if announce:
+            self._announce_empty_target(actor, target, method)
+        self.pending_action = None
+        self.phase = PHASE_NORMAL
+        self.refresh_menus()
+
+    def _reset_stale_kitten_flow(self) -> None:
+        """Conserve a drawn Kitten when an invalid decision state is recovered."""
+        if self.drawn_kitten is not None:
+            occupied_ids = {
+                card.id
+                for card in (
+                    self.deck
+                    + self.discard_pile
+                    + self.removed_cards
+                    + [held for seated in self.players for held in seated.hand]
+                )
+            }
+            if self.drawn_kitten.id not in occupied_ids:
+                self.deck.insert(0, self.drawn_kitten)
+            self._clear_future_knowledge()
+        self.drawn_kitten = None
+        self.decision_player_id = ""
+        self.pending_action = None
+        self.phase = PHASE_NORMAL
+        self.refresh_menus()
+
     def _cancel_stale_action(self) -> None:
         for player in self.alive_players:
             player.selected_card_ids.clear()
@@ -2024,17 +2331,20 @@ class ExplodingKittensGame(Game):
                     id="turn",
                 )
             )
-        visible_phase = self.phase
-        private_owner_id = ""
-        if self.phase == PHASE_COMBO and self.current_player:
-            private_owner_id = self.current_player.id
-        elif self.phase in (PHASE_TARGET, PHASE_REQUEST) and self.pending_action:
-            private_owner_id = self.pending_action.actor_id
-        if private_owner_id and player.id != private_owner_id:
-            visible_phase = PHASE_NORMAL
+        phase_reason = self._action_in_progress_error(player, locale=locale)
+        if self.phase == PHASE_NORMAL:
+            phase_text = Localization.get(locale, "explodingkittens-phase-normal")
+        elif isinstance(phase_reason, tuple):
+            phase_text = Localization.get(
+                locale,
+                phase_reason[0],
+                **phase_reason[1],
+            )
+        else:
+            phase_text = Localization.get(locale, phase_reason)
         items.append(
             MenuItem(
-                text=Localization.get(locale, f"explodingkittens-phase-{visible_phase.replace('_', '-')}"),
+                text=phase_text,
                 id="phase",
             )
         )
@@ -2333,6 +2643,30 @@ class ExplodingKittensGame(Game):
                     player=actor.name,
                     target=target.name,
                 )
+
+    def _announce_empty_target(
+        self,
+        actor: ExplodingKittensPlayer,
+        target: ExplodingKittensPlayer,
+        method: str,
+    ) -> None:
+        """Announce a valid Favor or pair that has no card left to transfer."""
+        for listener in self.players:
+            user = self.get_user(listener)
+            if not user:
+                continue
+            if listener.id == actor.id:
+                key = f"explodingkittens-{method}-empty-you"
+            elif listener.id == target.id:
+                key = f"explodingkittens-{method}-empty-target"
+            else:
+                key = f"explodingkittens-{method}-empty-public"
+            user.speak_l(
+                key,
+                buffer="game",
+                player=actor.name,
+                target=target.name,
+            )
 
     def _announce_triple_miss(
         self,

@@ -60,7 +60,7 @@ Người bắt đầu hành động không thể Phủ Nhận hành động củ
 
 Trò chơi luôn mở cửa sổ phản hồi và không tiết lộ người khác có thật sự giữ lá Phủ Nhận hay không. Trò chơi báo lá hoặc bộ vừa được đánh trước, rồi báo kết quả khi cửa sổ đóng.
 
-Bạn có thể kích hoạt trực tiếp lá Phủ Nhận trên tay hoặc dùng lệnh Đánh Lá Phủ Nhận. Trên thiết bị cảm ứng, Đánh Lá Phủ Nhận và Bỏ Qua được ghim phía trên bài trên tay trong lúc phản hồi. Người chơi máy tính dùng phím N và P, nên hai lệnh này không xuất hiện trong trình đơn lượt trên máy tính.
+Bạn có thể kích hoạt trực tiếp lá Phủ Nhận trên tay hoặc dùng lệnh Đánh Lá Phủ Nhận. Trên thiết bị cảm ứng, Đánh Lá Phủ Nhận và Bỏ Qua nằm ngay sau bài trên tay trong lúc phản hồi. Người chơi máy tính dùng phím N và P, nên hai lệnh này không xuất hiện trong trình đơn lượt trên máy tính.
 
 \*\*Các Bộ Cùng Tên\*\*
 
@@ -86,13 +86,13 @@ Những thông tin sau chỉ dành riêng cho bạn:
 
 Cả bàn có thể nghe các lá đã đánh, chuỗi Phủ Nhận, hành động có hiệu lực hay bị hủy, lượt rút, Gỡ Bom, người phát nổ, số lá trên tay, lượt hiện tại và số lượt còn lại. Khi lấy ngẫu nhiên, chỉ hai người liên quan biết lá nào đã được lấy.
 
-Dùng Đọc Bài Trên Tay để nghe lại bài riêng. Đọc Chồng Rút và Chồng Bỏ cho biết số lá trong hai chồng cùng lá bỏ trên cùng. Đọc Tình Hình Bàn mở bảng công khai trực tiếp gồm lượt hiện tại, giai đoạn công khai, số lá và trạng thái của từng người. Trong cửa sổ Phủ Nhận, Kiểm Tra Thời Gian Phủ Nhận sẽ báo thời gian phản hồi còn lại.
+Đọc Chồng Rút và Chồng Bỏ cho biết số lá trong hai chồng cùng lá bỏ trên cùng. Đọc Tình Hình Bàn mở bảng công khai trực tiếp gồm lượt hiện tại, giai đoạn công khai, số lá và trạng thái của từng người. Dùng Đọc Bài Trên Tay để nghe lại bài riêng. Trong cửa sổ Phủ Nhận, Kiểm Tra Thời Gian Phủ Nhận sẽ báo thời gian phản hồi còn lại.
 
 \*\*Tùy Chọn Trò Chơi\*\*
 
-\* \*\*Ván Nhanh:\*\* Chỉ dùng được với 2 hoặc 3 người. Sau khi chia bài và thêm các lá Gỡ Bom dự phòng, trò chơi bỏ ngẫu nhiên một phần ba chồng rút còn lại trước khi thêm Mèo Nổ. Mặc định là Tắt.
-\* \*\*Bộ Cùng Tên Nâng Cao:\*\* Cho phép đánh đôi mọi loại bài cùng tên và mở thêm bộ ba. Khi Tắt, chỉ có đôi Lá Mèo cùng tên. Mặc định là Bật.
-\* \*\*Thời Gian Phản Hồi Phủ Nhận:\*\* Chọn 5, 10, 15 hoặc 20 giây. Mỗi lá Phủ Nhận sẽ đặt lại toàn bộ thời gian. Mặc định là 10 giây.
+\* \*\*Ván Nhanh:\*\* Với 2 hoặc 3 người, bỏ ngẫu nhiên một phần ba chồng rút trước khi thêm các lá Mèo Nổ (mặc định tắt).
+\* \*\*Bộ Cùng Tên Nâng Cao:\*\* Cho phép đánh đôi mọi loại bài cùng tên và ghép bộ ba cùng tên. Khi tắt, chỉ có thể đánh đôi Lá Mèo cùng tên (mặc định bật).
+\* \*\*Thời Gian Phản Hồi Phủ Nhận:\*\* Thời gian phản hồi sau một hành động hoặc lá Phủ Nhận: 2, 3, 5, 10, 15 hoặc 20 giây. Mỗi lá Phủ Nhận sẽ đặt lại thời gian (mặc định 10 giây).
 
 \*\*Phím Tắt Bàn Phím\*\*
 

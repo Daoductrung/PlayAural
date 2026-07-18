@@ -2,15 +2,17 @@ game-name-explodingkittens = Exploding Kittens
 
 explodingkittens-set-fast-game = Faster game: { $enabled }
 explodingkittens-option-changed-fast-game = Faster game set to { $enabled }.
-explodingkittens-option-fast-game-description = For two or three players, removes one third of the draw pile before adding the Exploding Kittens.
+explodingkittens-option-fast-game-description = For 2 or 3 players, randomly removes one third of the draw pile before adding the Exploding Kittens (default off).
 explodingkittens-error-fast-game-player-count = Faster game is available only with two or three players.
 explodingkittens-set-advanced-combos = Advanced combos: { $enabled }
 explodingkittens-option-changed-advanced-combos = Advanced combos set to { $enabled }.
-explodingkittens-option-advanced-combos-description = Extends pairs to every matching title and enables three of a kind. Matching Cat pairs remain available when this is off.
+explodingkittens-option-advanced-combos-description = Allows matching pairs of any card title and three-of-a-kind combos. When off, only matching Cat pairs are available (default on).
 explodingkittens-set-nope-response = Nope response time: { $time }
 explodingkittens-select-nope-response = Choose the Nope response time.
 explodingkittens-option-changed-nope-response = Nope response time set to { $time }.
-explodingkittens-option-nope-response-description = Sets how long players have to respond whenever an action or Nope is played.
+explodingkittens-option-nope-response-description = How long players have to respond after an action or Nope: 2, 3, 5, 10, 15, or 20 seconds. Every Nope restarts the timer (default 10 seconds).
+explodingkittens-nope-response-2 = 2 seconds
+explodingkittens-nope-response-3 = 3 seconds
 explodingkittens-nope-response-5 = 5 seconds
 explodingkittens-nope-response-10 = 10 seconds
 explodingkittens-nope-response-15 = 15 seconds
@@ -77,6 +79,7 @@ explodingkittens-error-no-target-with-cards = No other player has a card to give
 explodingkittens-error-invalid-combo = Select exactly two or three cards with the same name.
 explodingkittens-error-invalid-cat-pair = Select exactly two matching Cat Cards.
 explodingkittens-error-not-nope-window = There is no action for you to Nope now.
+explodingkittens-error-nothing-to-pass = There is nothing for you to pass right now.
 explodingkittens-error-already-passed-nope = You already passed this Nope window.
 explodingkittens-error-nope-own-action = You cannot Nope your own action. Wait for another player to respond.
 explodingkittens-error-nope-own-nope = You cannot Nope the Nope you just played. Wait for another player to respond.
@@ -87,6 +90,7 @@ explodingkittens-error-invalid-request = That card cannot be requested.
 explodingkittens-error-invalid-position = That reinsertion position is no longer available.
 
 explodingkittens-game-started = Exploding Kittens begins with { $players } players and { $cards } cards in the draw pile.
+explodingkittens-game-starting-wait = Please wait for the game to start.
 explodingkittens-hand = { $count ->
     [one] Your card: { $cards }.
    *[other] Your { $count } cards: { $cards }.
@@ -98,10 +102,15 @@ explodingkittens-combo-selection-count = { $count ->
 }
 explodingkittens-you-play-card = You play { $card }.
 explodingkittens-player-plays-card = { $player } plays { $card }.
+explodingkittens-you-play-targeted-card = You play { $card } against { $target }.
+explodingkittens-player-plays-targeted-card = { $player } plays { $card } against { $target }.
+explodingkittens-player-targets-you-with-card = { $player } targets you with { $card }.
 explodingkittens-you-play-pair = You play a { $card } pair against { $target }.
 explodingkittens-player-plays-pair = { $player } plays a { $card } pair against { $target }.
+explodingkittens-player-plays-pair-target = { $player } plays a { $card } pair against you.
 explodingkittens-you-play-triple = You play three { $card } cards against { $target } and request { $request }.
 explodingkittens-player-plays-triple = { $player } plays three { $card } cards against { $target } and requests { $request }.
+explodingkittens-player-plays-triple-target = { $player } plays three { $card } cards against you and requests { $request }.
 explodingkittens-you-play-nope = You play Nope.
 explodingkittens-player-plays-nope = { $player } plays Nope.
 explodingkittens-you-pass-nope = You pass.

@@ -63,7 +63,7 @@ from .state import (
 INITIAL_ACTION_CARDS = 7
 TICKS_PER_SECOND = 20
 DEFAULT_NOPE_RESPONSE_SECONDS = "10"
-NOPE_RESPONSE_CHOICES = ["5", "10", "15", "20"]
+NOPE_RESPONSE_CHOICES = ["2", "3", "5", "10", "15", "20"]
 NOPE_RESPONSE_LABELS = {
     value: f"explodingkittens-nope-response-{value}"
     for value in NOPE_RESPONSE_CHOICES
@@ -307,7 +307,10 @@ class ExplodingKittensGame(Game):
             "explodingkittens_game_start",
             [
                 SequenceBeat(
-                    ops=[SequenceOperation.sound_op(SOUND_GAME_START)],
+                    ops=[
+                        SequenceOperation.sound_op(SOUND_GAME_START),
+                        SequenceOperation.callback_op("announce_start_wait"),
+                    ],
                     delay_after_ticks=GAME_START_DELAY_TICKS,
                 ),
                 SequenceBeat(
@@ -427,7 +430,12 @@ class ExplodingKittensGame(Game):
         payload: dict,
     ) -> None:
         del sequence_id
-        if callback_id == "prepare_match":
+        if callback_id == "announce_start_wait":
+            self.broadcast_l(
+                "explodingkittens-game-starting-wait",
+                buffer="game",
+            )
+        elif callback_id == "prepare_match":
             self._prepare_match()
         elif callback_id == "announce_match_start":
             self._announce_match_start(str(payload.get("shuffle_sound", "")))
@@ -527,14 +535,6 @@ class ExplodingKittensGame(Game):
         locale = user.locale if user else "en"
         for action_id, label, handler, enabled, hidden, spectators in (
             (
-                "read_hand",
-                "explodingkittens-action-read-hand",
-                "_action_read_hand",
-                "_is_private_info_enabled",
-                "_is_private_info_hidden",
-                False,
-            ),
-            (
                 "read_piles",
                 "explodingkittens-action-read-piles",
                 "_action_read_piles",
@@ -549,6 +549,14 @@ class ExplodingKittensGame(Game):
                 "_is_public_info_enabled",
                 "_is_public_info_hidden",
                 True,
+            ),
+            (
+                "read_hand",
+                "explodingkittens-action-read-hand",
+                "_action_read_hand",
+                "_is_private_info_enabled",
+                "_is_private_info_hidden",
+                False,
             ),
             (
                 "check_nope_timer",
@@ -573,9 +581,9 @@ class ExplodingKittensGame(Game):
             self._order_touch_standard_actions(
                 action_set,
                 [
-                    "read_hand",
                     "read_piles",
                     "read_table",
+                    "read_hand",
                     "check_nope_timer",
                     "whose_turn",
                     "whos_at_table",
@@ -697,7 +705,7 @@ class ExplodingKittensGame(Game):
             action_set._order = card_ids + ["confirm_combo", "cancel_selection"]
         elif self.phase == PHASE_NOPE and self._is_nope_responder(player):
             reactions = ["play_nope", "pass_nope"] if self.is_touch_client(user) else []
-            action_set._order = reactions + card_ids
+            action_set._order = card_ids + reactions
         else:
             action_set._order = card_ids + ["start_combo", "draw_card"]
 
@@ -711,6 +719,23 @@ class ExplodingKittensGame(Game):
             and not player.is_spectator
             and not player.eliminated
         )
+
+    def _private_action_owner_id(self) -> str:
+        if self.phase == PHASE_COMBO and self.current_player:
+            return self.current_player.id
+        if self.phase in (PHASE_TARGET, PHASE_REQUEST) and self.pending_action:
+            return self.pending_action.actor_id
+        if self.phase == PHASE_FAVOR_GIVE and self.pending_action:
+            return self.pending_action.target_id
+        if self.phase in (PHASE_DEFUSE, PHASE_REINSERT):
+            return self.decision_player_id
+        return ""
+
+    def _action_in_progress_error(self, player: Player) -> str:
+        owner_id = self._private_action_owner_id()
+        if owner_id and owner_id != player.id:
+            return "action-not-your-turn"
+        return "explodingkittens-error-action-in-progress"
 
     def _base_play_error(self, player: Player) -> str | None:
         if self.status != "playing" or not self.game_active:
@@ -783,7 +808,7 @@ class ExplodingKittensGame(Game):
             return self._is_nope_enabled(player)
 
         if self.phase != PHASE_NORMAL:
-            return "explodingkittens-error-action-in-progress"
+            return self._action_in_progress_error(player)
         if self.current_player != player:
             return "action-not-your-turn"
         if card.kind == DEFUSE:
@@ -835,7 +860,7 @@ class ExplodingKittensGame(Game):
         if error:
             return error
         if self.phase != PHASE_NORMAL:
-            return "explodingkittens-error-action-in-progress"
+            return self._action_in_progress_error(player)
         if self.current_player != player:
             return "action-not-your-turn"
         if not self.deck:
@@ -890,7 +915,7 @@ class ExplodingKittensGame(Game):
         if error:
             return error
         if self.phase != PHASE_COMBO or self.current_player != player:
-            return "explodingkittens-error-action-in-progress"
+            return self._action_in_progress_error(player)
         if not isinstance(player, ExplodingKittensPlayer):
             return "explodingkittens-error-invalid-combo"
         cards = [card for card in player.hand if card.id in player.selected_card_ids]
@@ -923,7 +948,7 @@ class ExplodingKittensGame(Game):
             return None
         if self.phase == PHASE_COMBO and self.current_player == player:
             return None
-        return "explodingkittens-error-action-in-progress"
+        return self._action_in_progress_error(player)
 
     def _is_cancel_hidden(self, player: Player) -> Visibility:
         if self.phase == PHASE_COMBO and self.current_player == player:
@@ -963,7 +988,14 @@ class ExplodingKittensGame(Game):
         return None
 
     def _is_pass_nope_enabled(self, player: Player) -> str | None:
-        return self._nope_response_error(player)
+        error = self._nope_response_error(player)
+        if error in {
+            "explodingkittens-error-not-nope-window",
+            "explodingkittens-error-nope-own-action",
+            "explodingkittens-error-nope-own-nope",
+        }:
+            return "explodingkittens-error-nothing-to-pass"
+        return error
 
     def _is_nope_hidden(self, player: Player) -> Visibility:
         user = self.get_user(player)
@@ -976,7 +1008,7 @@ class ExplodingKittensGame(Game):
         if error:
             return error
         if self.phase != PHASE_DEFUSE or player.id != self.decision_player_id:
-            return "explodingkittens-error-action-in-progress"
+            return self._action_in_progress_error(player)
         return None
 
     def _is_use_defuse_enabled(self, player: Player) -> str | None:
@@ -999,7 +1031,7 @@ class ExplodingKittensGame(Game):
 
     def _is_target_enabled(self, player: Player, *, action_id: str | None = None) -> str | None:
         if self.phase != PHASE_TARGET or not self.pending_action or player.id != self.pending_action.actor_id:
-            return "explodingkittens-error-action-in-progress"
+            return self._action_in_progress_error(player)
         target = self._target_for_action(action_id)
         if target is None or target not in self._valid_targets(player):
             return "explodingkittens-error-invalid-target"
@@ -1012,7 +1044,7 @@ class ExplodingKittensGame(Game):
 
     def _is_request_enabled(self, player: Player, *, action_id: str | None = None) -> str | None:
         if self.phase != PHASE_REQUEST or not self.pending_action or player.id != self.pending_action.actor_id:
-            return "explodingkittens-error-action-in-progress"
+            return self._action_in_progress_error(player)
         kind = self._kind_for_request_action(action_id)
         if kind not in REQUESTABLE_KINDS:
             return "explodingkittens-error-invalid-request"
@@ -1025,7 +1057,7 @@ class ExplodingKittensGame(Game):
 
     def _is_reinsert_enabled(self, player: Player, *, action_id: str | None = None) -> str | None:
         if self.phase != PHASE_REINSERT or player.id != self.decision_player_id or self.drawn_kitten is None:
-            return "explodingkittens-error-action-in-progress"
+            return self._action_in_progress_error(player)
         position = self._position_for_action(action_id)
         if position is None or not 0 <= position <= len(self.deck):
             return "explodingkittens-error-invalid-position"
@@ -1460,7 +1492,12 @@ class ExplodingKittensGame(Game):
             target = self.get_player_by_id(pending.target_id)
             self._broadcast_combo(actor, target, cards[0], pending.requested_kind)
         else:
-            self._broadcast_card_play(actor, cards[0])
+            target: Player | None = None
+            if pending.kind == ACTION_FAVOR:
+                target = self.get_player_by_id(pending.target_id)
+            elif pending.kind == ACTION_ATTACK:
+                target = self._next_alive_after(pending.actor_id)
+            self._broadcast_card_play(actor, cards[0], target)
         self.phase = PHASE_NOPE
         pending.timer_ticks = self._nope_window_ticks()
         pending.passed_player_ids.clear()
@@ -1743,6 +1780,20 @@ class ExplodingKittensGame(Game):
             self.turn_index = (self.turn_index + 1) % len(self.turn_player_ids)
             candidate = self.current_player
             if isinstance(candidate, ExplodingKittensPlayer) and not candidate.eliminated:
+                return candidate
+        return None
+
+    def _next_alive_after(self, actor_id: str) -> ExplodingKittensPlayer | None:
+        if actor_id not in self.turn_player_ids:
+            return None
+        index = self.turn_player_ids.index(actor_id)
+        alive_by_id = {player.id: player for player in self.alive_players}
+        for offset in range(1, len(self.turn_player_ids) + 1):
+            candidate_id = self.turn_player_ids[
+                (index + offset) % len(self.turn_player_ids)
+            ]
+            candidate = alive_by_id.get(candidate_id)
+            if candidate:
                 return candidate
         return None
 
@@ -2172,14 +2223,39 @@ class ExplodingKittensGame(Game):
             )
 
     def _broadcast_card_play(
-        self, actor: ExplodingKittensPlayer, card: ExplodingKittensCard
+        self,
+        actor: ExplodingKittensPlayer,
+        card: ExplodingKittensCard,
+        target: Player | None = None,
     ) -> None:
         for listener in self.players:
             user = self.get_user(listener)
             if not user:
                 continue
             name = card_name(card, user.locale)
-            if listener.id == actor.id:
+            if target and listener.id == actor.id:
+                user.speak_l(
+                    "explodingkittens-you-play-targeted-card",
+                    buffer="game",
+                    card=name,
+                    target=target.name,
+                )
+            elif target and listener.id == target.id:
+                user.speak_l(
+                    "explodingkittens-player-targets-you-with-card",
+                    buffer="game",
+                    player=actor.name,
+                    card=name,
+                )
+            elif target:
+                user.speak_l(
+                    "explodingkittens-player-plays-targeted-card",
+                    buffer="game",
+                    player=actor.name,
+                    card=name,
+                    target=target.name,
+                )
+            elif listener.id == actor.id:
                 user.speak_l("explodingkittens-you-play-card", buffer="game", card=name)
             else:
                 user.speak_l(
@@ -2209,6 +2285,13 @@ class ExplodingKittensGame(Game):
             suffix = "triple" if requested_kind else "pair"
             if listener.id == actor.id:
                 user.speak_l(f"explodingkittens-you-play-{suffix}", buffer="game", **kwargs)
+            elif target and listener.id == target.id:
+                user.speak_l(
+                    f"explodingkittens-player-plays-{suffix}-target",
+                    buffer="game",
+                    player=actor.name,
+                    **kwargs,
+                )
             else:
                 user.speak_l(
                     f"explodingkittens-player-plays-{suffix}",

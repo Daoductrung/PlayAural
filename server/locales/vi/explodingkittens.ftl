@@ -2,15 +2,17 @@ game-name-explodingkittens = Mèo Nổ
 
 explodingkittens-set-fast-game = Ván nhanh: { $enabled }
 explodingkittens-option-changed-fast-game = Ván nhanh đã chuyển thành { $enabled }.
-explodingkittens-option-fast-game-description = Với hai hoặc ba người, bỏ một phần ba chồng rút trước khi thêm các lá Mèo Nổ.
+explodingkittens-option-fast-game-description = Với 2 hoặc 3 người, bỏ ngẫu nhiên một phần ba chồng rút trước khi thêm các lá Mèo Nổ (mặc định tắt).
 explodingkittens-error-fast-game-player-count = Ván nhanh chỉ dùng được với hai hoặc ba người chơi.
 explodingkittens-set-advanced-combos = Bộ cùng tên nâng cao: { $enabled }
 explodingkittens-option-changed-advanced-combos = Bộ cùng tên nâng cao đã chuyển thành { $enabled }.
-explodingkittens-option-advanced-combos-description = Cho phép đánh đôi mọi loại bài cùng tên và mở thêm bộ ba. Khi tắt, vẫn có thể đánh đôi Lá Mèo cùng tên.
+explodingkittens-option-advanced-combos-description = Cho phép đánh đôi mọi loại bài cùng tên và ghép bộ ba cùng tên. Khi tắt, chỉ có thể đánh đôi Lá Mèo cùng tên (mặc định bật).
 explodingkittens-set-nope-response = Thời gian phản hồi Phủ Nhận: { $time }
 explodingkittens-select-nope-response = Chọn thời gian phản hồi Phủ Nhận.
 explodingkittens-option-changed-nope-response = Thời gian phản hồi Phủ Nhận đã chuyển thành { $time }.
-explodingkittens-option-nope-response-description = Quy định thời gian để người chơi phản hồi sau mỗi hành động hoặc lá Phủ Nhận.
+explodingkittens-option-nope-response-description = Thời gian phản hồi sau một hành động hoặc lá Phủ Nhận: 2, 3, 5, 10, 15 hoặc 20 giây. Mỗi lá Phủ Nhận sẽ đặt lại thời gian (mặc định 10 giây).
+explodingkittens-nope-response-2 = 2 giây
+explodingkittens-nope-response-3 = 3 giây
 explodingkittens-nope-response-5 = 5 giây
 explodingkittens-nope-response-10 = 10 giây
 explodingkittens-nope-response-15 = 15 giây
@@ -77,6 +79,7 @@ explodingkittens-error-no-target-with-cards = Không còn người chơi nào kh
 explodingkittens-error-invalid-combo = Hãy chọn đúng hai hoặc ba lá cùng tên.
 explodingkittens-error-invalid-cat-pair = Hãy chọn đúng hai Lá Mèo cùng tên.
 explodingkittens-error-not-nope-window = Hiện không có hành động nào để bạn Phủ Nhận.
+explodingkittens-error-nothing-to-pass = Hiện không có gì để bạn bỏ qua.
 explodingkittens-error-already-passed-nope = Bạn đã bỏ qua cửa sổ Phủ Nhận này.
 explodingkittens-error-nope-own-action = Bạn không thể Phủ Nhận hành động của chính mình. Chỉ có thể đáp lại sau khi người khác đánh Phủ Nhận.
 explodingkittens-error-nope-own-nope = Bạn không thể Phủ Nhận lá Phủ Nhận vừa đánh. Hãy chờ người khác đánh Phủ Nhận.
@@ -87,6 +90,7 @@ explodingkittens-error-invalid-request = Không thể yêu cầu lá đó.
 explodingkittens-error-invalid-position = Vị trí đặt lại đó không còn hợp lệ.
 
 explodingkittens-game-started = Mèo Nổ bắt đầu với { $players } người và { $cards } lá trong chồng rút.
+explodingkittens-game-starting-wait = Vui lòng chờ trò chơi bắt đầu.
 explodingkittens-hand = { $count ->
     [one] Lá bài của bạn: { $cards }.
    *[other] Bạn có { $count } lá: { $cards }.
@@ -98,10 +102,15 @@ explodingkittens-combo-selection-count = { $count ->
 }
 explodingkittens-you-play-card = Bạn đánh lá { $card }.
 explodingkittens-player-plays-card = { $player } đánh lá { $card }.
+explodingkittens-you-play-targeted-card = Bạn đánh lá { $card } vào { $target }.
+explodingkittens-player-plays-targeted-card = { $player } đánh lá { $card } vào { $target }.
+explodingkittens-player-targets-you-with-card = { $player } dùng lá { $card } nhắm vào bạn.
 explodingkittens-you-play-pair = Bạn đánh đôi { $card } vào { $target }.
 explodingkittens-player-plays-pair = { $player } đánh đôi { $card } vào { $target }.
+explodingkittens-player-plays-pair-target = { $player } đánh đôi { $card } vào bạn.
 explodingkittens-you-play-triple = Bạn đánh bộ ba { $card } vào { $target } và yêu cầu lá { $request }.
 explodingkittens-player-plays-triple = { $player } đánh bộ ba { $card } vào { $target } và yêu cầu lá { $request }.
+explodingkittens-player-plays-triple-target = { $player } đánh bộ ba { $card } vào bạn và yêu cầu lá { $request }.
 explodingkittens-you-play-nope = Bạn đánh lá Phủ Nhận.
 explodingkittens-player-plays-nope = { $player } đánh lá Phủ Nhận.
 explodingkittens-you-pass-nope = Bạn bỏ qua cửa sổ Phủ Nhận.

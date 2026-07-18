@@ -60,7 +60,7 @@ The player who started the action cannot Nope their own action. If another playe
 
 The game always opens the response window and never reveals whether another player actually holds a Nope. It first announces the card or combo, then announces the result when the window closes.
 
-You can activate a Nope directly from your hand or use the Play Nope command. Touch clients pin Play Nope and Pass above the hand during the response window. Desktop players use N and P, so those two commands are not shown in the desktop turn menu.
+You can activate a Nope directly from your hand or use the Play Nope command. Touch clients place Play Nope and Pass immediately after the hand during the response window. Desktop players use N and P, so those two commands are not shown in the desktop turn menu.
 
 \*\*Matching Combos\*\*
 
@@ -86,13 +86,13 @@ The following information is private:
 
 Everyone can hear played cards, Nope chains, whether actions succeed or are canceled, draws, Defuses, explosions, hand counts, whose turn it is, and how many turns remain. A random steal reveals the stolen card only to the two players involved.
 
-Use Read hand to review your cards. Read draw and discard piles reports both pile sizes and the top discard. Read table opens a live public view containing the current turn, public phase, hand counts, and player status. During a Nope window, Check Nope time reports the remaining response time.
+Read draw and discard piles reports both pile sizes and the top discard. Read table opens a live public view containing the current turn, public phase, hand counts, and player status. Use Read hand to review your cards. During a Nope window, Check Nope time reports the remaining response time.
 
 \*\*Game Options\*\*
 
-\* \*\*Faster game:\*\* Available only with 2 or 3 players. After dealing and adding the extra Defuses, the game removes one third of the remaining draw pile before adding the Exploding Kittens. The default is Off.
-\* \*\*Advanced combos:\*\* Allows pairs of any matching title and enables three of a kind. When Off, only matching Cat pairs are available. The default is On.
-\* \*\*Nope response time:\*\* Choose 5, 10, 15, or 20 seconds. Every Nope restarts the full timer. The default is 10 seconds.
+\* \*\*Faster game:\*\* For 2 or 3 players, randomly removes one third of the draw pile before adding the Exploding Kittens (default off).
+\* \*\*Advanced combos:\*\* Allows matching pairs of any card title and three-of-a-kind combos. When off, only matching Cat pairs are available (default on).
+\* \*\*Nope response time:\*\* How long players have to respond after an action or Nope: 2, 3, 5, 10, 15, or 20 seconds. Every Nope restarts the timer (default 10 seconds).
 
 \*\*Keyboard Shortcuts\*\*
 

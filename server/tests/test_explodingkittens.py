@@ -12,6 +12,7 @@ from server.games.explodingkittens.cards import (
     ATTACK,
     BEARD_CAT,
     CARD_COUNTS,
+    CATTERMELON,
     DEFUSE,
     EXPLODING_KITTEN,
     FAVOR,
@@ -50,6 +51,9 @@ from server.games.explodingkittens.game import (
     ExplodingKittensGame,
 )
 from server.games.explodingkittens.state import (
+    ACTION_ATTACK,
+    ACTION_FAVOR,
+    ACTION_TRIPLE,
     PHASE_COMBO,
     PHASE_DEFUSE,
     PHASE_FAVOR_GIVE,
@@ -61,6 +65,7 @@ from server.games.explodingkittens.state import (
     PHASE_RESOLVING,
     PHASE_STARTING,
     PHASE_TARGET,
+    PendingAction,
 )
 from server.games.registry import GameRegistry
 from server.messages.localization import Localization
@@ -273,9 +278,10 @@ def test_room_options_default_to_official_rules_and_validate_nope_time() -> None
     game = make_game(2)
     assert game.options.advanced_combos
     assert game.options.nope_response_seconds == "10"
-    for seconds in ("5", "10", "15", "20"):
+    for seconds in ("2", "3", "5", "10", "15", "20"):
         game.options.nope_response_seconds = seconds
         assert game.prestart_validate() == []
+        assert game._nope_window_ticks() == int(seconds) * 20
     game.options.nope_response_seconds = "30"
     assert game.prestart_validate() == ["explodingkittens-error-invalid-nope-response"]
 
@@ -287,6 +293,10 @@ def test_game_start_opens_after_ten_seconds_while_intro_can_keep_playing() -> No
     assert game.deck == []
     assert all(not player.hand for player in game.players)
     assert game.is_sequence_gameplay_locked()
+    for player in game.players:
+        user = game.get_user(player)
+        assert sound_names(user) == [SOUND_GAME_START]
+        assert speech(user) == ["Please wait for the game to start."]
 
     assert GAME_START_DELAY_TICKS == 200
     assert GAME_START_DELAY_TICKS < AUDIO_DURATIONS_TICKS[SOUND_GAME_START]
@@ -310,6 +320,7 @@ def test_game_start_opens_after_ten_seconds_while_intro_can_keep_playing() -> No
             message.type == "play_music" and message.data["name"] == SOUND_MUSIC
             for message in user.messages
         )
+        assert speech(user).count("Please wait for the game to start.") == 1
 
 
 def test_audio_assets_match_all_clients_and_measured_sequence_durations() -> None:
@@ -665,6 +676,38 @@ def test_nope_errors_identify_own_action_own_nope_and_previous_pass() -> None:
     )
 
 
+def test_pass_uses_pass_specific_feedback_outside_a_response_window() -> None:
+    game = make_game(2)
+    start_with_current(game)
+    player = game.players[0]
+    user = game.get_user(player)
+
+    user.clear_messages()
+    execute(game, player, "pass_nope")
+    assert speech(user) == ["There is nothing for you to pass right now."]
+
+    user.clear_messages()
+    execute(game, player, "play_nope")
+    assert speech(user) == ["There is no action for you to Nope now."]
+
+
+def test_nope_window_does_not_reveal_nope_less_hands_by_auto_passing() -> None:
+    game = make_game(3)
+    start_with_current(game)
+    actor, second, third = game.players
+    actor.hand = [card(953, ATTACK)]
+    second.hand = [card(954, SKIP)]
+    third.hand = [card(955, FAVOR)]
+
+    execute(game, actor, "play_card_953")
+
+    assert game.phase == PHASE_NOPE
+    assert game.pending_action is not None
+    assert game.pending_action.passed_player_ids == []
+    assert game._nope_responder_ids() == {second.id, third.id}
+    assert game.pending_action.timer_ticks == game._nope_window_ticks()
+
+
 def test_all_eligible_players_passing_resolves_immediately() -> None:
     game = make_game(3)
     start_with_current(game)
@@ -676,6 +719,23 @@ def test_all_eligible_players_passing_resolves_immediately() -> None:
     execute(game, third, "pass_nope")
     assert game.phase == PHASE_NORMAL
     assert game.current_player == second
+
+
+def test_other_players_get_turn_feedback_during_private_combo_selection() -> None:
+    game = make_game(3)
+    start_with_current(game)
+    actor, observer, _ = game.players
+    actor.hand = [card(956, BEARD_CAT), card(957, BEARD_CAT)]
+    observer.hand = [card(958, SKIP)]
+
+    execute(game, actor, "start_combo")
+    user = game.get_user(observer)
+    user.clear_messages()
+    execute(game, observer, "draw_card")
+
+    assert speech(user) == ["It's not your turn."]
+    assert game.phase == PHASE_COMBO
+    assert game.current_player == actor
 
 
 def test_favor_target_privately_chooses_the_card() -> None:
@@ -1091,6 +1151,71 @@ def test_favor_resolution_announces_private_choice_without_repeating_play() -> N
     )
 
 
+def test_targeted_plays_notify_actor_target_and_observers_immediately() -> None:
+    attack = make_game(3)
+    start_with_current(attack)
+    actor, target, observer = attack.players
+    actor.hand = [card(988, ATTACK)]
+    for player in attack.players:
+        attack.get_user(player).clear_messages()
+
+    execute(attack, actor, "play_card_988")
+
+    assert "You play Attack against Player2." in speech(attack.get_user(actor))
+    assert "Player1 targets you with Attack." in speech(attack.get_user(target))
+    assert (
+        "Player1 plays Attack against Player2."
+        in speech(attack.get_user(observer))
+    )
+
+    favor = make_game(3)
+    start_with_current(favor)
+    actor, target, observer = favor.players
+    actor.hand = [card(989, FAVOR)]
+    target.hand = [card(990, SKIP)]
+    observer.hand = [card(991, DEFUSE)]
+    execute(favor, actor, "play_card_989")
+    for player in favor.players:
+        favor.get_user(player).clear_messages()
+
+    execute(favor, actor, f"target_{target.id}")
+
+    assert "You play Favor against Player2." in speech(favor.get_user(actor))
+    assert "Player1 targets you with Favor." in speech(favor.get_user(target))
+    assert (
+        "Player1 plays Favor against Player2."
+        in speech(favor.get_user(observer))
+    )
+
+    combo = make_game(3)
+    start_with_current(combo)
+    actor, target, observer = combo.players
+    actor.hand = [card(992, BEARD_CAT), card(993, BEARD_CAT)]
+    target.hand = [card(994, SKIP)]
+    observer.hand = [card(995, ATTACK)]
+    execute(combo, actor, "start_combo")
+    execute(combo, actor, "play_card_992")
+    execute(combo, actor, "play_card_993")
+    execute(combo, actor, "confirm_combo")
+    for player in combo.players:
+        combo.get_user(player).clear_messages()
+
+    execute(combo, actor, f"target_{target.id}")
+
+    assert (
+        "You play a Beard Cat pair against Player2."
+        in speech(combo.get_user(actor))
+    )
+    assert (
+        "Player1 plays a Beard Cat pair against you."
+        in speech(combo.get_user(target))
+    )
+    assert (
+        "Player1 plays a Beard Cat pair against Player2."
+        in speech(combo.get_user(observer))
+    )
+
+
 def test_kitten_reveal_defuse_and_reinsert_are_distinct_timed_phases() -> None:
     game = make_game(2)
     start_with_current(game)
@@ -1363,7 +1488,7 @@ def test_private_combo_transition_sends_no_menu_packet_to_other_clients() -> Non
     assert network_menu_packets(users[1]) == []
 
 
-def test_touch_nope_actions_are_pinned_above_the_hand() -> None:
+def test_touch_nope_actions_follow_the_hand_cards() -> None:
     game = make_game(2, touch=True)
     start_with_current(game)
     actor, responder = game.players
@@ -1372,9 +1497,35 @@ def test_touch_nope_actions_are_pinned_above_the_hand() -> None:
     execute(game, actor, "play_card_1010")
     game.flush_menus()
     ids = menu_ids(game.get_user(responder))
-    assert ids[:2] == ["play_nope", "pass_nope"]
+    assert ids[:4] == [
+        "play_card_1012",
+        "play_card_1011",
+        "play_nope",
+        "pass_nope",
+    ]
     execute(game, responder, "check_nope_timer")
     assert "10 seconds remain." in speech(game.get_user(responder))
+
+
+def test_information_actions_use_the_requested_desktop_and_touch_order() -> None:
+    expected = ["read_piles", "read_table", "read_hand"]
+
+    desktop = make_game(2)
+    start_with_current(desktop)
+    desktop_actions = [
+        resolved.action.id
+        for resolved in desktop.get_all_enabled_actions(desktop.players[0])
+    ]
+    assert [
+        action_id for action_id in desktop_actions if action_id in expected
+    ] == expected
+
+    touch = make_game(2, touch=True)
+    start_with_current(touch)
+    touch_actions = menu_ids(touch.get_user(touch.players[0]))
+    assert [
+        action_id for action_id in touch_actions if action_id in expected
+    ] == expected
 
 
 def test_desktop_nope_actions_are_keybind_only_and_remain_usable() -> None:
@@ -1402,7 +1553,11 @@ def test_nope_resolution_removes_touch_reactions_for_see_future_and_favor() -> N
     future.deck = [card(1018, SKIP), card(1019, ATTACK)]
     execute(future, actor, "play_card_1016")
     future.flush_menus()
-    assert menu_ids(future.get_user(responder))[:2] == ["play_nope", "pass_nope"]
+    assert menu_ids(future.get_user(responder))[:3] == [
+        "play_card_1017",
+        "play_nope",
+        "pass_nope",
+    ]
     resolve_nope(future)
     future.flush_menus()
     assert "play_nope" not in menu_ids(future.get_user(responder))
@@ -1423,6 +1578,134 @@ def test_nope_resolution_removes_touch_reactions_for_see_future_and_favor() -> N
     assert favor.phase == PHASE_FAVOR_GIVE
     assert "play_nope" not in menu_ids(favor.get_user(observer))
     assert "pass_nope" not in menu_ids(favor.get_user(observer))
+
+
+def test_bot_uses_known_future_without_wasting_defenses_on_a_safe_draw() -> None:
+    game = make_game(2)
+    start_with_current(game)
+    bot = game.players[0]
+    kitten = card(1100, EXPLODING_KITTEN)
+    safe = card(1101, FAVOR)
+    game.deck = [kitten, safe]
+    bot.known_future_card_ids = [kitten.id, safe.id]
+
+    bot.hand = [
+        card(1102, ATTACK),
+        card(1103, SKIP),
+        card(1104, SHUFFLE),
+        card(1105, DEFUSE),
+    ]
+    assert game.bot_think(bot) == "play_card_1102"
+    bot.hand = [card(1103, SKIP), card(1104, SHUFFLE), card(1105, DEFUSE)]
+    assert game.bot_think(bot) == "play_card_1103"
+    bot.hand = [card(1104, SHUFFLE), card(1105, DEFUSE)]
+    assert game.bot_think(bot) == "play_card_1104"
+    bot.hand = [card(1105, DEFUSE)]
+    assert game.bot_think(bot) == "draw_card"
+
+    game.deck = [safe, kitten]
+    bot.known_future_card_ids = [safe.id, kitten.id]
+    bot.hand = [card(1106, ATTACK), card(1107, SKIP), card(1108, SHUFFLE)]
+    assert game.bot_think(bot) == "draw_card"
+
+
+def test_bot_uses_probability_to_investigate_and_avoid_material_draw_risk() -> None:
+    game = make_game(3)
+    start_with_current(game)
+    bot = game.players[0]
+    game.deck = [card(1110 + index, SKIP) for index in range(10)]
+    bot.known_future_card_ids.clear()
+    bot.hand = [card(1120, SEE_FUTURE), card(1121, DEFUSE)]
+    assert game.bot_think(bot) == "play_card_1120"
+
+    bot.hand = [card(1122, ATTACK), card(1123, DEFUSE)]
+    assert game.bot_think(bot) == "play_card_1122"
+
+
+def test_bot_values_combos_targets_and_requests_from_public_probabilities() -> None:
+    game = make_game(3)
+    start_with_current(game)
+    bot, strong_target, weak_target = game.players
+    bot.hand = [
+        card(1130, BEARD_CAT),
+        card(1131, BEARD_CAT),
+        card(1132, BEARD_CAT),
+    ]
+    strong_target.hand = [card(1140 + index, SKIP) for index in range(7)]
+    weak_target.hand = [card(1150, ATTACK)]
+
+    assert game.bot_think(bot) == "start_combo"
+    assert bot.bot_combo_kind == "triple"
+    assert bot.bot_combo_card_ids == [1130, 1131, 1132]
+
+    game.pending_action = PendingAction(
+        kind=ACTION_TRIPLE,
+        actor_id=bot.id,
+        card_ids=list(bot.bot_combo_card_ids),
+    )
+    game.phase = PHASE_TARGET
+    assert game.bot_think(bot) == f"target_{strong_target.id}"
+
+    game.pending_action.target_id = strong_target.id
+    game.phase = PHASE_REQUEST
+    assert game.bot_think(bot) == "request_defuse"
+
+
+def test_bot_preserves_defenses_and_existing_combos_when_giving_favor() -> None:
+    game = make_game(2)
+    start_with_current(game)
+    actor, bot = game.players
+    bot.hand = [
+        card(1160, BEARD_CAT),
+        card(1161, CATTERMELON),
+        card(1162, CATTERMELON),
+        card(1163, ATTACK),
+        card(1164, DEFUSE),
+    ]
+    game.pending_action = PendingAction(
+        kind=ACTION_FAVOR,
+        actor_id=actor.id,
+        target_id=bot.id,
+    )
+    game.phase = PHASE_FAVOR_GIVE
+
+    assert game.bot_think(bot) == "play_card_1160"
+
+
+def test_bot_nope_decisions_follow_the_underlying_action_impact() -> None:
+    game = make_game(3)
+    start_with_current(game)
+    actor, victim, observer = game.players
+    victim.hand = [card(1170, NOPE)]
+    observer.hand = [card(1171, NOPE)]
+    game.pending_action = PendingAction(kind=ACTION_ATTACK, actor_id=actor.id)
+    game.phase = PHASE_NOPE
+
+    assert game.bot_think(victim) == "play_nope"
+    assert game.bot_think(observer) == "pass_nope"
+
+    game.pending_action = PendingAction(
+        kind=ACTION_ATTACK,
+        actor_id=observer.id,
+        nope_count=1,
+        last_nope_player_id=actor.id,
+    )
+    assert game.bot_think(observer) == "play_nope"
+
+
+def test_bot_reinsertion_accounts_for_remaining_attack_turns(monkeypatch) -> None:
+    game = make_game(2)
+    start_with_current(game)
+    bot = game.players[0]
+    game.phase = PHASE_REINSERT
+    game.decision_player_id = bot.id
+    game.deck = [card(1180 + index, SKIP) for index in range(5)]
+    monkeypatch.setattr(random, "random", lambda: 0.0)
+
+    game.turns_remaining = 3
+    assert game.bot_think(bot) == "insert_2"
+    game.turns_remaining = 1
+    assert game.bot_think(bot) == "insert_0"
 
 
 def test_phase_and_action_state_survive_serialization() -> None:
@@ -1506,13 +1789,21 @@ def test_kitten_reveal_gate_survives_serialization() -> None:
     assert not restored.active_sequences
 
 
-@pytest.mark.parametrize("advanced_combos", [False, True])
+@pytest.mark.parametrize(
+    ("player_count", "advanced_combos"),
+    [(2, False), (2, True), (3, True), (4, True), (5, True)],
+)
 def test_bots_can_complete_a_match_without_hidden_input_prompts(
+    player_count: int,
     advanced_combos: bool,
 ) -> None:
-    random.seed(77 + int(advanced_combos))
-    game = make_bot_game(2)
+    random.seed(77 + player_count * 10 + int(advanced_combos))
+    game = make_bot_game(player_count)
     game.options.advanced_combos = advanced_combos
+    if player_count == 4:
+        game.options.nope_response_seconds = "3"
+    elif player_count == 5:
+        game.options.nope_response_seconds = "2"
     game.on_start()
     for _ in range(30000):
         if not game.game_active:
@@ -1559,10 +1850,20 @@ def test_result_ranking_places_later_eliminations_higher() -> None:
 def test_locales_docs_keybinds_and_audio_source_are_complete() -> None:
     en = ROOT / "server/locales/en/explodingkittens.ftl"
     vi = ROOT / "server/locales/vi/explodingkittens.ftl"
+    en_manual = ROOT / "server/documentation/content/en/games/explodingkittens.md"
     vi_manual = ROOT / "server/documentation/content/vi/games/explodingkittens.md"
     assert locale_keys(en) == locale_keys(vi)
-    assert (ROOT / "server/documentation/content/en/games/explodingkittens.md").exists()
+    assert en_manual.exists()
     assert vi_manual.exists()
+    option_description_keys = (
+        "explodingkittens-option-fast-game-description",
+        "explodingkittens-option-advanced-combos-description",
+        "explodingkittens-option-nope-response-description",
+    )
+    for locale, manual in (("en", en_manual), ("vi", vi_manual)):
+        manual_text = manual.read_text(encoding="utf-8")
+        for key in option_description_keys:
+            assert Localization.get(locale, key) in manual_text
     assert Localization.get("vi", "game-name-explodingkittens") == "Mèo Nổ"
     assert Localization.get("fa", "game-name-explodingkittens") == "Exploding Kittens"
     vi_terms = {
@@ -1608,5 +1909,11 @@ def test_actor_and_observer_receive_correct_perspectives() -> None:
 
     execute(game, actor, "play_card_1030")
 
-    assert any(text == "You play Attack." for text in speech(game.get_user(actor)))
-    assert any(text == "Player1 plays Attack." for text in speech(game.get_user(observer)))
+    assert any(
+        text == "You play Attack against Player2."
+        for text in speech(game.get_user(actor))
+    )
+    assert any(
+        text == "Player1 targets you with Attack."
+        for text in speech(game.get_user(observer))
+    )

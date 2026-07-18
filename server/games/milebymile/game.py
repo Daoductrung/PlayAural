@@ -36,6 +36,7 @@ from .state import RaceState, is_critical_problem
 
 # Hand size
 HAND_SIZE = 6
+DIRTY_TRICK_WINDOW_TICKS = 7 * 20
 UNPLAYABLE_REASON_OPTION = "read_unplayable_reason"
 UNPLAYABLE_DISCARD_OPTION = "discard_unplayable_card"
 
@@ -584,44 +585,58 @@ class MileByMileGame(Game):
         """Check if junk card action is enabled."""
         if self.status != "playing":
             return "action-not-playing"
-        if self.current_player != player:
-            return "action-not-your-turn"
         if self._round_timer.is_active:
             return "milebymile-between-races"
+        if self.dirty_trick_window_team is not None:
+            return "milebymile-dirty-trick-wait"
+        if self.current_player != player:
+            return "action-not-your-turn"
         return None
 
     def _is_junk_card_hidden(self, player: Player) -> Visibility:
         """Junk card is always hidden (keybind only)."""
         return Visibility.HIDDEN
 
-    def _is_card_action_enabled(self, player: Player) -> str | None:
+    def _is_card_action_enabled(
+        self,
+        player: Player,
+        *,
+        action_id: str | None = None,
+    ) -> str | None:
         """Check if card actions are enabled."""
         if self.status != "playing":
             return "action-not-playing"
         if self._round_timer.is_active:
             return "milebymile-between-races"
+        if (
+            isinstance(player, MileByMilePlayer)
+            and action_id
+            and self._action_is_matching_dirty_trick_card(player, action_id)
+        ):
+            return None
+        if self.dirty_trick_window_team is not None:
+            return "milebymile-dirty-trick-wait"
         return None
 
     def _pre_input_check_card_target_selection(self, player: Player, action_id: str) -> str | None:
-        if self.status != "playing":
-            return "action-not-playing"
+        disabled_reason = self._is_card_action_enabled(player, action_id=action_id)
+        if disabled_reason:
+            return disabled_reason
         if self.current_player != player:
             return "action-not-your-turn"
-        if self._round_timer.is_active:
-            return "milebymile-between-races"
         return None
 
     def _pre_input_check_unplayable_card(self, player: Player, action_id: str) -> str | None:
         """Validate before opening the unplayable-card discard prompt."""
-        if self.status != "playing":
-            return "action-not-playing"
-        if self._round_timer.is_active:
-            return "milebymile-between-races"
         if not isinstance(player, MileByMilePlayer):
             return "action-not-playing"
-        if self._action_is_matching_dirty_trick_card(player, action_id):
-            return None
-        if self.current_player != player:
+        disabled_reason = self._is_card_action_enabled(player, action_id=action_id)
+        if disabled_reason:
+            return disabled_reason
+        if (
+            self.current_player != player
+            and not self._action_is_matching_dirty_trick_card(player, action_id)
+        ):
             return "action-not-your-turn"
         return None
 
@@ -1373,6 +1388,14 @@ class MileByMileGame(Game):
     ) -> None:
         """Play a matching safety as a dirty trick and close the reaction window."""
         self._play_safety(player, slot, card, is_dirty_trick=True)
+        self._clear_dirty_trick_window()
+        self.current_player = player
+        # The first draw replaced the out-of-turn Safety. Start the awarded
+        # complete turn with its own draw, skipping intervening players.
+        self._start_turn()
+
+    def _clear_dirty_trick_window(self) -> None:
+        """Clear the active hazard-response window without changing turns."""
         self.dirty_trick_window_team = None
         self.dirty_trick_window_hazard = None
         self.dirty_trick_window_ticks = 0
@@ -1550,6 +1573,12 @@ class MileByMileGame(Game):
             self._play_dirty_trick_safety(player, slot, card)
             return
 
+        if self.dirty_trick_window_team is not None:
+            user = self.get_user(player)
+            if user:
+                user.speak_l("milebymile-dirty-trick-wait", buffer="game")
+            return
+
         # Check if it's this player's turn. Dirty tricks are the exception above.
         if self.current_player != player:
             user = self.get_user(player)
@@ -1583,6 +1612,12 @@ class MileByMileGame(Game):
     def _action_junk_card(self, player: Player, action_id: str) -> None:
         """Handle discarding the currently selected card (shift+enter or backspace keybind)."""
         if not isinstance(player, MileByMilePlayer):
+            return
+
+        if self.dirty_trick_window_team is not None:
+            user = self.get_user(player)
+            if user:
+                user.speak_l("milebymile-dirty-trick-wait", buffer="game")
             return
 
         # Check if it's this player's turn
@@ -1828,7 +1863,7 @@ class MileByMileGame(Game):
         # Open dirty trick window
         self.dirty_trick_window_team = target_idx
         self.dirty_trick_window_hazard = card.value
-        self.dirty_trick_window_ticks = 140  # 7 seconds at 20 ticks/sec
+        self.dirty_trick_window_ticks = DIRTY_TRICK_WINDOW_TICKS
 
         # Schedule bot dirty trick check
         for member_name in target_team.members:
@@ -1836,7 +1871,9 @@ class MileByMileGame(Game):
             if member and member.is_bot:
                 BotHelper.jolt_bot(member, ticks=random.randint(12, 18))
 
-        self._end_turn()
+        # The hazard response resolves before ordinary turn progression.
+        self._update_all_turn_actions()
+        self.refresh_menus(player)
 
     def _play_remedy(self, player: MileByMilePlayer, slot: int, card: Card) -> None:
         """Play a remedy card."""
@@ -1900,6 +1937,7 @@ class MileByMileGame(Game):
             )
             self.play_sound("mention.ogg")
 
+            self._discard_countered_hazard(race_state)
             self._apply_safety_protection(race_state, card.value)
         else:
             self._broadcast_actor_card_l(
@@ -1934,13 +1972,30 @@ class MileByMileGame(Game):
                 card_name = self._get_localized_card_name(new_card, user.locale)
                 user.speak_l("milebymile-you-drew", buffer="game", card=card_name)
 
-        self._update_turn_actions(player)
-        self.refresh_menus(player)
-        # Don't end turn - safety grants extra turn
+        if not is_dirty_trick:
+            if not player.hand:
+                self._end_turn()
+                return
+            self._update_all_turn_actions()
+            self.announce_turn()
+            self.refresh_menus(player)
+            # Don't end turn: this draw begins the Safety's extra turn.
+            if player.is_bot:
+                BotHelper.jolt_bot(player, ticks=random.randint(30, 40))
 
-        # Jolt bot to think about next play
-        if player.is_bot:
-            BotHelper.jolt_bot(player, ticks=random.randint(30, 40))
+    def _discard_countered_hazard(self, race_state: RaceState) -> None:
+        """Move the Hazard cancelled by a dirty trick to the discard pile."""
+        hazard = self.dirty_trick_window_hazard
+        if not hazard:
+            return
+        for index in range(len(race_state.battle_pile) - 1, -1, -1):
+            played_card = race_state.battle_pile[index]
+            if (
+                played_card.card_type == CardType.HAZARD
+                and played_card.value == hazard
+            ):
+                self.discard_pile.append(race_state.battle_pile.pop(index))
+                return
 
     def _apply_safety_protection(self, race_state: RaceState, safety: str) -> None:
         """Cancel active hazards covered by a newly played safety."""
@@ -2087,6 +2142,7 @@ class MileByMileGame(Game):
         self.current_race += 1
         self.race_winner_team_index = None
         self.race_completed_after_deck_exhausted = False
+        self._clear_dirty_trick_window()
 
         # Reset race states for new race
         for race_state in self.race_states:
@@ -2133,6 +2189,11 @@ class MileByMileGame(Game):
             if user:
                 card_name = self._get_localized_card_name(card, user.locale)
                 user.speak_l("milebymile-you-drew", buffer="game", card=card_name)
+        elif not player.hand:
+            # Once no draw source remains, empty-handed players have no legal
+            # play. Skip them so the final cards can be played out normally.
+            self._end_turn()
+            return
 
         # Announce turn
         self.announce_turn()
@@ -2149,14 +2210,21 @@ class MileByMileGame(Game):
         if self._round_timer.is_active:
             return
 
+        # Hazard responses resolve before the attacker yields the turn.
+        if self.dirty_trick_window_team is not None:
+            return
+
         # Check for race end
         if self.race_winner_team_index is not None:
             self._end_race()
             return
 
-        # Check for deck exhaustion (when reshuffling is disabled)
-        if self.deck.is_empty() and not self.options.reshuffle_discard_pile:
-            # No cards left to draw and can't reshuffle - check if all hands empty
+        # End the race once neither the deck nor a permitted reshuffle can
+        # provide a card and every hand has been played out.
+        draw_source_exhausted = self.deck.is_empty() and (
+            not self.options.reshuffle_discard_pile or not self.discard_pile
+        )
+        if draw_source_exhausted:
             all_empty = all(len(p.hand) == 0 for p in self.get_active_players())
             if all_empty:
                 self._end_race()
@@ -2566,14 +2634,38 @@ class MileByMileGame(Game):
         # Handle round timer
         self._round_timer.on_tick()
 
-        # Handle dirty trick window
-        if self.dirty_trick_window_ticks > 0:
-            self.dirty_trick_window_ticks -= 1
+        # Hazard responses pause ordinary play and may come from an out-of-turn bot.
+        if self.dirty_trick_window_team is not None:
+            if self.dirty_trick_window_ticks > 0:
+                self.dirty_trick_window_ticks -= 1
             if self.dirty_trick_window_ticks <= 0:
-                self.dirty_trick_window_team = None
-                self.dirty_trick_window_hazard = None
+                self._clear_dirty_trick_window()
+                self._end_turn()
+                return
+            self._process_dirty_trick_bot()
+            return
 
         BotHelper.on_tick(self)
+
+    def _process_dirty_trick_bot(self) -> bool:
+        """Give target-team bots a chance to answer the active hazard."""
+        for player in self.get_active_players():
+            if (
+                not isinstance(player, MileByMilePlayer)
+                or not player.is_bot
+                or player.team_index != self.dirty_trick_window_team
+            ):
+                continue
+            acted = BotHelper.process_bot_action(
+                player,
+                lambda player=player: self.bot_think(player),
+                lambda action_id, player=player: self.execute_action(
+                    player, action_id
+                ),
+            )
+            if acted:
+                return True
+        return False
 
     def bot_think(self, player: MileByMilePlayer) -> str | None:
         """Bot AI decision making."""
@@ -2593,6 +2685,7 @@ class MileByMileGame(Game):
                             and card.value == blocking_safety
                         ):
                             return "dirty_trick"
+            return None
 
         # Not our turn? Skip
         if self.current_player != player:

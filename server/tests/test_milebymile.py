@@ -262,6 +262,191 @@ class TestMileByMileTargetSelectionGuard:
 
 
 class TestMileByMileDirtyTricks:
+    def test_out_of_turn_dirty_trick_replaces_safety_then_draws_for_extra_turn(self):
+        game = MileByMileGame()
+        alice = game.add_player("Alice", MockUser("Alice", uuid="p1"))
+        bob = game.add_player("Bob", MockUser("Bob", uuid="p2"))
+        game.on_start()
+
+        hazard = Card(id=8990, card_type=CardType.HAZARD, value=HazardType.FLAT_TIRE)
+        safety = Card(
+            id=8991,
+            card_type=CardType.SAFETY,
+            value=SafetyType.PUNCTURE_PROOF,
+        )
+        fillers = [
+            Card(id=8992 + index, card_type=CardType.DISTANCE, value="25")
+            for index in range(5)
+        ]
+        replacement = Card(id=8997, card_type=CardType.DISTANCE, value="50")
+        turn_draw = Card(id=8998, card_type=CardType.DISTANCE, value="75")
+        alice.hand = [hazard]
+        bob.hand = [safety, *fillers]
+        game.deck.cards = [replacement, turn_draw]
+        bob_state = game.get_player_race_state(bob)
+        assert bob_state is not None
+        bob_state.problems = []
+        game.current_player = alice
+        game._update_all_turn_actions()
+
+        game.execute_action(alice, "card_slot_1")
+        game.execute_action(bob, "card_slot_1")
+
+        assert game.current_player == bob
+        assert len(bob.hand) == 7
+        assert replacement in bob.hand
+        assert turn_draw in bob.hand
+        assert game.deck.is_empty()
+        assert hazard in game.discard_pile
+        assert hazard not in bob_state.battle_pile
+
+    def test_team_dirty_trick_refreshes_shared_state_and_grants_extra_turn(self):
+        game = MileByMileGame()
+        game.options.team_mode = "2v2"
+        users = [
+            MockUser(f"Player{i + 1}", uuid=f"p{i + 1}") for i in range(4)
+        ]
+        players = [game.add_player(user.username, user) for user in users]
+        game.on_start()
+
+        attacker, current_target, _attacker_partner, safety_player = players
+        assert attacker.team_index == players[2].team_index
+        assert current_target.team_index == safety_player.team_index
+
+        hazard = Card(id=9000, card_type=CardType.HAZARD, value=HazardType.FLAT_TIRE)
+        teammate_distance = Card(id=9001, card_type=CardType.DISTANCE, value="25")
+        safety = Card(
+            id=9002,
+            card_type=CardType.SAFETY,
+            value=SafetyType.PUNCTURE_PROOF,
+        )
+        responder_distance = Card(id=9003, card_type=CardType.DISTANCE, value="50")
+        attacker.hand = [hazard]
+        current_target.hand = [teammate_distance]
+        safety_player.hand = [safety, responder_distance]
+        game.deck.cards = []
+        target_state = game.get_player_race_state(current_target)
+        assert target_state is not None
+        target_state.problems = []
+        game.current_player = attacker
+        game._update_all_turn_actions()
+
+        game.execute_action(attacker, "card_slot_1")
+
+        assert game.current_player == attacker
+        assert game.dirty_trick_window_team == current_target.team_index
+        assert target_state.can_play_distance() is False
+
+        game.execute_action(safety_player, "card_slot_1")
+
+        assert game.current_player == safety_player
+        assert game.dirty_trick_window_team is None
+        assert target_state.can_play_distance() is True
+        teammate_action = game.find_action(current_target, "card_slot_1")
+        responder_action = game.find_action(safety_player, "card_slot_1")
+        assert teammate_action is not None and teammate_action.input_request is None
+        assert responder_action is not None and responder_action.input_request is None
+
+        game.execute_action(safety_player, "card_slot_1")
+
+        assert target_state.miles == 50
+        assert responder_distance not in safety_player.hand
+
+    def test_dirty_trick_window_blocks_play_until_response_time_expires(self):
+        game = MileByMileGame()
+        alice_user = MockUser("Alice", uuid="p1")
+        bob_user = MockUser("Bob", uuid="p2")
+        alice = game.add_player("Alice", alice_user)
+        bob = game.add_player("Bob", bob_user)
+        game.on_start()
+
+        hazard = Card(id=9010, card_type=CardType.HAZARD, value=HazardType.STOP)
+        waiting_card = Card(id=9011, card_type=CardType.SAFETY, value=SafetyType.EXTRA_TANK)
+        alice.hand = [hazard, waiting_card]
+        bob.hand = [Card(id=9012, card_type=CardType.DISTANCE, value="25")]
+        game.deck.cards = []
+        bob_state = game.get_player_race_state(bob)
+        assert bob_state is not None
+        bob_state.problems = []
+        game.current_player = alice
+        game._update_all_turn_actions()
+
+        game.execute_action(alice, "card_slot_1")
+
+        assert game.current_player == alice
+        assert game.dirty_trick_window_ticks > 0
+        alice_user.clear_messages()
+        game.execute_action(alice, "card_slot_1")
+        assert alice_user.get_last_spoken() == "Wait for the Dirty Trick response."
+        assert waiting_card in alice.hand
+
+        game.dirty_trick_window_ticks = 1
+        game.on_tick()
+
+        assert game.dirty_trick_window_team is None
+        assert game.current_player == bob
+
+    def test_out_of_turn_bot_can_play_team_dirty_trick(self):
+        game = MileByMileGame()
+        game.options.team_mode = "2v2"
+        attacker = game.add_player("Alice", MockUser("Alice", uuid="p1"))
+        game.add_player("Bob", MockUser("Bob", uuid="p2"))
+        game.add_player("Cara", MockUser("Cara", uuid="p3"))
+        safety_bot = game.add_player("Bot", Bot("Bot"))
+        game.on_start()
+
+        hazard = Card(id=9020, card_type=CardType.HAZARD, value=HazardType.OUT_OF_GAS)
+        safety = Card(id=9021, card_type=CardType.SAFETY, value=SafetyType.EXTRA_TANK)
+        attacker.hand = [hazard]
+        safety_bot.hand = [
+            safety,
+            Card(id=9022, card_type=CardType.DISTANCE, value="25"),
+        ]
+        game.deck.cards = []
+        target_state = game.get_player_race_state(safety_bot)
+        assert target_state is not None
+        target_state.problems = []
+        game.current_player = attacker
+        game._update_all_turn_actions()
+
+        game.execute_action(attacker, "card_slot_1")
+        safety_bot.bot_think_ticks = 0
+        game.on_tick()
+        game.on_tick()
+
+        assert game.dirty_trick_window_team is None
+        assert game.current_player == safety_bot
+        assert SafetyType.EXTRA_TANK in target_state.safeties
+
+    def test_dirty_trick_window_survives_save_and_resumes_turn_once(self):
+        game = MileByMileGame()
+        alice = game.add_player("Alice", MockUser("Alice", uuid="p1"))
+        bob = game.add_player("Bob", MockUser("Bob", uuid="p2"))
+        game.on_start()
+
+        hazard = Card(id=9030, card_type=CardType.HAZARD, value=HazardType.STOP)
+        alice.hand = [hazard]
+        bob.hand = [Card(id=9031, card_type=CardType.DISTANCE, value="25")]
+        game.deck.cards = []
+        bob_state = game.get_player_race_state(bob)
+        assert bob_state is not None
+        bob_state.problems = []
+        game.current_player = alice
+        game._update_all_turn_actions()
+        game.execute_action(alice, "card_slot_1")
+        game.dirty_trick_window_ticks = 1
+
+        restored = MileByMileGame.from_json(game.to_json())
+        restored.rebuild_runtime_state()
+        restored.on_tick()
+
+        assert restored.dirty_trick_window_team is None
+        assert restored.current_player is not None
+        assert restored.current_player.name == "Bob"
+        turn_index = restored.turn_index
+        restored.on_tick()
+        assert restored.turn_index == turn_index
+
     def test_normal_safety_cancels_matching_hazard_and_restores_movement(self):
         game = MileByMileGame()
         alice_user = MockUser("Alice", uuid="p1")
@@ -271,7 +456,10 @@ class TestMileByMileDirtyTricks:
         game.on_start()
 
         safety = Card(id=1000, card_type=CardType.SAFETY, value=SafetyType.EXTRA_TANK)
-        alice.hand = [safety]
+        alice.hand = [
+            safety,
+            Card(id=1003, card_type=CardType.DISTANCE, value="25"),
+        ]
         alice_state = game.get_player_race_state(alice)
         assert alice_state is not None
         alice_state.problems = [HazardType.OUT_OF_GAS, HazardType.STOP]
@@ -310,6 +498,44 @@ class TestMileByMileDirtyTricks:
         assert HazardType.STOP in alice_state.problems
         assert alice_state.can_play_distance() is False
 
+    def test_team_safety_rebuilds_teammate_distance_action(self):
+        game = MileByMileGame()
+        game.options.team_mode = "2v2"
+        players = [
+            game.add_player(
+                f"Player{index + 1}",
+                MockUser(f"Player{index + 1}", uuid=f"p{index + 1}"),
+            )
+            for index in range(4)
+        ]
+        game.on_start()
+        safety_player, _opponent, teammate, _other_opponent = players
+
+        safety = Card(
+            id=1010,
+            card_type=CardType.SAFETY,
+            value=SafetyType.EXTRA_TANK,
+        )
+        follow_up = Card(id=1011, card_type=CardType.DISTANCE, value="25")
+        teammate_distance = Card(id=1012, card_type=CardType.DISTANCE, value="50")
+        safety_player.hand = [safety, follow_up]
+        teammate.hand = [teammate_distance]
+        game.deck.cards = []
+        shared_state = game.get_player_race_state(safety_player)
+        assert shared_state is not None
+        shared_state.problems = [HazardType.OUT_OF_GAS, HazardType.STOP]
+        game.current_player = safety_player
+        game._update_all_turn_actions()
+        blocked_action = game.find_action(teammate, "card_slot_1")
+        assert blocked_action is not None and blocked_action.input_request is not None
+
+        game.execute_action(safety_player, "card_slot_1")
+
+        refreshed_action = game.find_action(teammate, "card_slot_1")
+        assert game.current_player == safety_player
+        assert shared_state.can_play_distance() is True
+        assert refreshed_action is not None and refreshed_action.input_request is None
+
     def test_playing_matching_safety_card_normally_counts_as_dirty_trick(self):
         game = MileByMileGame()
         alice_user = MockUser("Alice", uuid="p1")
@@ -342,6 +568,66 @@ class TestMileByMileDirtyTricks:
         assert safety in game.protections_pile
         assert any("You play Puncture Proof as a Dirty Trick" in text for text in speech_texts(bob_user))
         assert any("Bob plays Puncture Proof as a Dirty Trick" in text for text in speech_texts(alice_user))
+
+
+class TestMileByMileExhaustedDraws:
+    def test_safety_with_no_remaining_card_does_not_strand_extra_turn(self):
+        game = MileByMileGame()
+        alice = game.add_player("Alice", MockUser("Alice", uuid="p1"))
+        bob = game.add_player("Bob", MockUser("Bob", uuid="p2"))
+        game.on_start()
+
+        safety = Card(
+            id=1090,
+            card_type=CardType.SAFETY,
+            value=SafetyType.EXTRA_TANK,
+        )
+        alice.hand = [safety]
+        bob.hand = [Card(id=1091, card_type=CardType.DISTANCE, value="25")]
+        game.deck.cards = []
+        game.discard_pile = []
+        alice_state = game.get_player_race_state(alice)
+        assert alice_state is not None
+        alice_state.problems = [HazardType.OUT_OF_GAS, HazardType.STOP]
+        game.current_player = alice
+        game._update_all_turn_actions()
+
+        game.execute_action(alice, "card_slot_1")
+
+        assert game.current_player == bob
+
+    def test_empty_hand_is_skipped_when_no_draw_source_remains(self):
+        game = MileByMileGame()
+        alice = game.add_player("Alice", MockUser("Alice", uuid="p1"))
+        bob = game.add_player("Bob", MockUser("Bob", uuid="p2"))
+        game.on_start()
+
+        alice.hand = []
+        bob.hand = [Card(id=1100, card_type=CardType.DISTANCE, value="25")]
+        game.deck.cards = []
+        game.discard_pile = []
+        game.current_player = alice
+
+        game._start_turn()
+
+        assert game.current_player == bob
+        assert game._round_timer.is_active is False
+
+    def test_race_ends_when_all_hands_and_draw_sources_are_empty(self):
+        game = MileByMileGame()
+        alice = game.add_player("Alice", MockUser("Alice", uuid="p1"))
+        bob = game.add_player("Bob", MockUser("Bob", uuid="p2"))
+        game.on_start()
+
+        alice.hand = []
+        bob.hand = []
+        game.deck.cards = []
+        game.discard_pile = []
+        game.current_player = alice
+
+        game._start_turn()
+
+        assert game._round_timer.is_active is True
 
 
 class TestMileByMileUnplayableCardMenu:

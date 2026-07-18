@@ -34,6 +34,7 @@ milebymile-desc-rig-game = Biến thể thành phần bộ bài: bình thường
 milebymile-status = { $score_info }, { $miles } dặm, Sự cố: { $problems }, Bảo vệ: { $safeties }
 
 milebymile-no-matching-safety = Bạn không có lá bảo vệ tương ứng!
+milebymile-dirty-trick-wait = Hãy chờ phản hồi Phản đòn.
 milebymile-cant-play = Bạn không thể đánh { $card } vì { $reason }.
 milebymile-unplayable-card-menu-title = Lá này không đánh được
 milebymile-unplayable-discard-question = Bạn không thể đánh { $card } vì { $reason }. Bạn muốn bỏ lá này không?

@@ -34,6 +34,7 @@ milebymile-desc-rig-game = Optional deck composition variant: normal, no duplica
 milebymile-status = { $score_info }, { $miles } miles, Problems: { $problems }, Safeties: { $safeties }
 
 milebymile-no-matching-safety = You don't have the matching safety card!
+milebymile-dirty-trick-wait = Wait for the Dirty Trick response.
 milebymile-cant-play = You can't play { $card } because { $reason }.
 milebymile-unplayable-card-menu-title = Card cannot be played
 milebymile-unplayable-discard-question = You cannot play { $card } because { $reason }. Do you want to discard it?

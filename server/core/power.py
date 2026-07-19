@@ -12,6 +12,7 @@ from time import monotonic
 from typing import TYPE_CHECKING
 
 from ..messages.localization import Localization
+from ..messages.localized_content import localized_text_for_locale
 
 if TYPE_CHECKING:
     from ..users.network_user import NetworkUser
@@ -325,13 +326,11 @@ class ServerPowerManager:
 
     @staticmethod
     def _custom_reason_for_locale(locale: str, translations: dict[str, str]) -> str:
-        reason = translations.get(locale) or translations.get("en")
-        if reason:
-            return reason
-        for value in translations.values():
-            if value:
-                return value
-        return Localization.get(locale, "server-power-reason-unspecified")
+        return localized_text_for_locale(
+            locale,
+            translations,
+            default=Localization.get(locale, "server-power-reason-unspecified"),
+        )
 
     @staticmethod
     def format_duration(locale: str, seconds: int) -> str:

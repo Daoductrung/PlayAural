@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from dataclasses import dataclass
 
+from ..messages.localization import DEFAULT_LOCALE, Localization
 from ..tables.table import Table
 
 
@@ -1442,26 +1443,25 @@ class Database:
         """Get a motd message for a specific version and language."""
         cursor = self._conn.cursor()
         try:
-            cursor.execute(
-                "SELECT message FROM motd WHERE version = ? AND language = ?",
-                (version, language)
+            requested = (
+                Localization.normalize_locale_code(language) or DEFAULT_LOCALE
             )
-            row = cursor.fetchone()
-            if row:
-                return row["message"]
-
-            # Fallback to English
-            cursor.execute(
-                "SELECT message FROM motd WHERE version = ? AND language = 'en'",
-                (version,)
+            candidates = dict.fromkeys(
+                (requested, requested.split("-", 1)[0], DEFAULT_LOCALE)
             )
-            row = cursor.fetchone()
-            if row:
-                return row["message"]
+            for candidate in candidates:
+                cursor.execute(
+                    "SELECT message FROM motd WHERE version = ? AND language = ?",
+                    (version, candidate),
+                )
+                row = cursor.fetchone()
+                if row:
+                    return row["message"]
 
             # Fallback to any language
             cursor.execute(
-                "SELECT message FROM motd WHERE version = ? LIMIT 1",
+                "SELECT message FROM motd WHERE version = ? "
+                "ORDER BY language LIMIT 1",
                 (version,)
             )
             row = cursor.fetchone()
@@ -1484,18 +1484,27 @@ class Database:
 
     def create_motd(self, version: int, translations: dict[str, str]) -> None:
         """Create a new motd version with translations and delete old versions."""
-        cursor = self._conn.cursor()
-
-        # Delete existing MOTDs
-        self.delete_motd()
-
+        clean_translations: dict[str, str] = {}
         for language, message in translations.items():
-            cursor.execute(
+            locale = Localization.normalize_locale_code(language)
+            if locale and isinstance(message, str) and message.strip():
+                clean_translations[locale] = message
+        if version <= 0 or not clean_translations:
+            raise ValueError("MOTD requires a positive version and translations")
+        cursor = self._conn.cursor()
+        try:
+            cursor.execute("DELETE FROM motd")
+            cursor.executemany(
                 "INSERT INTO motd (version, language, message) VALUES (?, ?, ?)",
-                (version, language, message)
+                [
+                    (version, language, message)
+                    for language, message in clean_translations.items()
+                ],
             )
-
-        self._conn.commit()
+            self._conn.commit()
+        except sqlite3.Error:
+            self._conn.rollback()
+            raise
 
     def delete_motd(self) -> None:
         """Delete all motd records."""

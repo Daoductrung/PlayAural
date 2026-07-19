@@ -19,7 +19,11 @@ from .power import (
     ServerPowerManager,
 )
 from .tick import TickScheduler
-from ..administration.manager import ADMIN_MENU_IDS, AdministrationManager
+from ..administration.manager import (
+    ADMIN_LOCALIZED_TEXT_MENU,
+    ADMIN_MENU_IDS,
+    AdministrationManager,
+)
 from ..network.websocket_server import WebSocketServer, ClientConnection
 from ..persistence.database import Database
 from ..auth.auth import AuthManager, is_valid_email
@@ -39,6 +43,7 @@ from ..games.categories import (
     normalize_categories,
 )
 from ..messages.localization import Localization
+from ..messages.localized_content import localized_penalty_reason_for_locale
 from ..menu_pagination import (
     DEFAULT_MENU_PAGE_SIZE,
     MENU_PAGE_IDS,
@@ -1226,8 +1231,8 @@ PlayAural Server
         """Show the forced-read MOTD menu."""
         user.speak_l("motd-announcement", buffer="system")
         items = []
-        for i, line in enumerate(message.split('\n')):
-            items.append(MenuItem(text=line, id=f"line_{i}"))
+        for line in message.split('\n'):
+            items.append(MenuItem(text=line, id=""))
         items.append(MenuItem(text=Localization.get(user.locale, "ok"), id="ok"))
 
         user.show_menu(
@@ -3836,10 +3841,9 @@ PlayAural Server
         user.speak_l("banned-menu-title", buffer="system")
 
         # Format reason
-        if active_ban.reason_key.startswith("CUSTOM_"):
-            loc_reason = active_ban.reason_key[7:]
-        else:
-            loc_reason = Localization.get(user.locale, active_ban.reason_key)
+        loc_reason = localized_penalty_reason_for_locale(
+            user.locale, active_ban.reason_key
+        )
 
         # Format expiration
         if not active_ban.expires_at:
@@ -3854,8 +3858,8 @@ PlayAural Server
                 expires_text = Localization.get(user.locale, "banned-expires", expires=active_ban.expires_at)
 
         items = [
-            MenuItem(text=Localization.get(user.locale, "banned-reason", reason=loc_reason), id="info_reason"),
-            MenuItem(text=expires_text, id="info_expires"),
+            MenuItem(text=Localization.get(user.locale, "banned-reason", reason=loc_reason), id=""),
+            MenuItem(text=expires_text, id=""),
             MenuItem(text=Localization.get(user.locale, "disconnect"), id="disconnect"),
         ]
 
@@ -4166,6 +4170,8 @@ PlayAural Server
             await self._handle_online_user_actions_selection(user, selection_id, state)
         elif current_menu in ADMIN_MENU_IDS:
             if user.trust_level < 2:
+                user.speak_l("not-admin-anymore", buffer="system")
+                self._show_main_menu(user)
                 return
             await self.admin_manager.handle_menu_selection(user, selection_id, current_menu, state)
         elif current_menu == "host_management_menu":
@@ -10041,6 +10047,17 @@ PlayAural Server
                 )
             else:
                 self.admin_manager._show_server_power_menu(user)
+        elif menu == ADMIN_LOCALIZED_TEXT_MENU:
+            purpose = str(frame.get("localized_text_purpose") or "")
+            if purpose:
+                self.admin_manager._show_admin_localized_text_menu(
+                    user,
+                    purpose,
+                    dict(frame.get("localized_text_translations", {}) or {}),
+                    dict(frame.get("localized_text_context", {}) or {}),
+                )
+            else:
+                self.admin_manager._show_admin_menu(user)
         elif menu == "smtp_settings_menu":
             self.admin_manager._show_smtp_settings_menu(user)
         elif menu == "smtp_encryption_menu":

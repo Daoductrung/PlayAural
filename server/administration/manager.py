@@ -8,7 +8,14 @@ from typing import TYPE_CHECKING, Any
 
 from ..users.network_user import NetworkUser
 from ..users.base import MenuItem, EscapeBehavior
-from ..messages.localization import Localization
+from ..messages.localization import DEFAULT_LOCALE, Localization
+from ..messages.localized_content import (
+    encode_localized_custom_text,
+    localized_penalty_reason_for_locale,
+    localized_text_for_locale,
+    normalize_localized_text,
+    normalize_localized_value,
+)
 from ..persistence.database import BanRecord, MuteRecord
 from ..core.power import (
     POWER_MAX_CUSTOM_DELAY_MINUTES,
@@ -32,6 +39,48 @@ if TYPE_CHECKING:
 
 ADMIN_TARGET_PAGE_SIZE = DEFAULT_MENU_PAGE_SIZE
 ADMIN_TARGET_SEARCH_INPUT = "admin_target_search_input"
+ADMIN_LOCALIZED_TEXT_MENU = "admin_localized_text_menu"
+ADMIN_LOCALIZED_TEXT_INPUT = "admin_localized_text_input"
+
+
+@dataclass(frozen=True)
+class AdminLocalizedTextSpec:
+    """Presentation and validation rules for one localized admin workflow."""
+
+    subject_key: str
+    submit_key: str
+    multiline: bool
+    max_length: int
+    required_trust_level: int = 2
+
+
+ADMIN_LOCALIZED_TEXT_SPECS = {
+    "motd": AdminLocalizedTextSpec(
+        subject_key="admin-localized-text-subject-motd",
+        submit_key="admin-localized-text-publish-motd",
+        multiline=True,
+        max_length=4000,
+    ),
+    "power": AdminLocalizedTextSpec(
+        subject_key="admin-localized-text-subject-power",
+        submit_key="admin-localized-text-continue",
+        multiline=False,
+        max_length=500,
+        required_trust_level=3,
+    ),
+    "ban": AdminLocalizedTextSpec(
+        subject_key="admin-localized-text-subject-ban",
+        submit_key="admin-localized-text-apply-ban",
+        multiline=False,
+        max_length=200,
+    ),
+    "mute": AdminLocalizedTextSpec(
+        subject_key="admin-localized-text-subject-mute",
+        submit_key="admin-localized-text-apply-mute",
+        multiline=False,
+        max_length=200,
+    ),
+}
 
 ADMIN_MENU_IDS = {
     "admin_menu",
@@ -58,16 +107,13 @@ ADMIN_MENU_IDS = {
     "server_power_delay_menu",
     "server_power_reason_menu",
     "server_power_confirm_menu",
+    ADMIN_LOCALIZED_TEXT_MENU,
     "smtp_settings_menu",
     "smtp_encryption_menu",
     "smtp_setting_input",
     "admin_broadcast_input",
-    "admin_motd_version_input",
-    "admin_motd_input",
+    ADMIN_LOCALIZED_TEXT_INPUT,
     "server_power_custom_delay_input",
-    "server_power_custom_reason_input",
-    "ban_custom_reason_input",
-    "mute_custom_reason_input",
     ADMIN_TARGET_SEARCH_INPUT,
 }
 
@@ -99,6 +145,354 @@ class AdministrationManager:
 
     def __init__(self, server: "Server"):
         self.server = server
+
+    def _localized_text_locale_groups(
+        self, display_locale: str
+    ) -> tuple[list[tuple[str, str]], list[tuple[str, str]]]:
+        """Return metadata-driven required and optional editor locales."""
+        languages = Localization.get_available_languages(display_locale)
+        official_codes = set(Localization.official_locale_codes())
+        if DEFAULT_LOCALE in languages:
+            official_codes.add(DEFAULT_LOCALE)
+        official = [
+            (code, name) for code, name in languages.items() if code in official_codes
+        ]
+        community = [
+            (code, name) for code, name in languages.items() if code not in official_codes
+        ]
+        return official, community
+
+    def _require_localized_text_access(
+        self, user: NetworkUser, spec: AdminLocalizedTextSpec
+    ) -> bool:
+        """Revalidate access whenever a reusable admin editor is used."""
+        if user.trust_level >= spec.required_trust_level:
+            return True
+        if user.trust_level < 2:
+            user.speak_l("not-admin-anymore", buffer="system")
+            self.server._show_main_menu(user)
+        else:
+            user.speak_l("dev-only-action", buffer="system")
+            self._return_to_admin_root(user)
+        return False
+
+    def _show_admin_localized_text_menu(
+        self,
+        user: NetworkUser,
+        purpose: str,
+        translations: dict[str, str] | None = None,
+        context: dict[str, Any] | None = None,
+        *,
+        focus_id: str | None = None,
+    ) -> None:
+        """Show the reusable form-like editor for administrator-authored text."""
+        spec = ADMIN_LOCALIZED_TEXT_SPECS.get(purpose)
+        if spec is None:
+            self._return_to_admin_root(user)
+            return
+        if not self._require_localized_text_access(user, spec):
+            return
+        official, community = self._localized_text_locale_groups(user.locale)
+        if not official or not any(code == DEFAULT_LOCALE for code, _ in official):
+            user.speak_l("error-no-languages", buffer="system")
+            self.server._nav_back(user)
+            return
+
+        values = normalize_localized_text(
+            translations,
+            max_length=spec.max_length,
+            multiline=spec.multiline,
+        )
+        editor_context = dict(context or {})
+        subject = Localization.get(user.locale, spec.subject_key)
+        default_name = dict(official).get(DEFAULT_LOCALE, DEFAULT_LOCALE)
+        items = [
+            MenuItem(
+                text=Localization.get(
+                    user.locale,
+                    "admin-localized-text-instructions",
+                    subject=subject,
+                    fallback=default_name,
+                ),
+                id="",
+            )
+        ]
+        if purpose == "motd":
+            try:
+                version = int(editor_context.get("version", 0) or 0)
+            except (TypeError, ValueError):
+                version = 0
+                editor_context["version"] = version
+            items.append(
+                MenuItem(
+                    text=Localization.get(
+                        user.locale,
+                        "admin-localized-text-motd-version",
+                        version=version,
+                    ),
+                    id="localized_text_version",
+                )
+            )
+
+        items.append(
+            MenuItem(
+                text=Localization.get(
+                    user.locale, "admin-localized-text-official-heading"
+                ),
+                id="",
+            )
+        )
+        for code, name in official:
+            status_key = (
+                "admin-localized-text-required-set"
+                if values.get(code)
+                else "admin-localized-text-required-missing"
+            )
+            items.append(
+                MenuItem(
+                    text=Localization.get(
+                        user.locale,
+                        "admin-localized-text-field",
+                        language=name,
+                        status=Localization.get(user.locale, status_key),
+                    ),
+                    id=f"localized_text_locale_{code}",
+                )
+            )
+
+        if community:
+            items.append(
+                MenuItem(
+                    text=Localization.get(
+                        user.locale, "admin-localized-text-community-heading"
+                    ),
+                    id="",
+                )
+            )
+            for code, name in community:
+                status_key = (
+                    "admin-localized-text-optional-set"
+                    if values.get(code)
+                    else "admin-localized-text-optional-fallback"
+                )
+                items.append(
+                    MenuItem(
+                        text=Localization.get(
+                            user.locale,
+                            "admin-localized-text-field",
+                            language=name,
+                            status=Localization.get(user.locale, status_key),
+                        ),
+                        id=f"localized_text_locale_{code}",
+                    )
+                )
+
+        items.extend(
+            [
+                MenuItem(
+                    text=Localization.get(user.locale, spec.submit_key),
+                    id="localized_text_submit",
+                ),
+                MenuItem(text=Localization.get(user.locale, "back"), id="back"),
+            ]
+        )
+        user.show_menu(
+            ADMIN_LOCALIZED_TEXT_MENU,
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+            selection_id=focus_id,
+        )
+        self.server.user_states[user.username] = {
+            "menu": ADMIN_LOCALIZED_TEXT_MENU,
+            "localized_text_purpose": purpose,
+            "localized_text_translations": values,
+            "localized_text_context": editor_context,
+        }
+
+    def _refresh_admin_localized_text_with_focus(
+        self,
+        user: NetworkUser,
+        purpose: str,
+        translations: dict[str, str],
+        context: dict[str, Any],
+        focus_id: str,
+    ) -> None:
+        """Refresh the editor and persist its deliberate validation focus."""
+        current = self.server.user_states.get(user.username, {})
+        current["_last_selection_id"] = focus_id
+        current.pop("_last_selection_position", None)
+        self.server._nav_refresh(
+            user,
+            self._show_admin_localized_text_menu,
+            purpose,
+            translations,
+            context,
+            focus_id=focus_id,
+        )
+
+    async def _handle_admin_localized_text_selection(
+        self, user: NetworkUser, selection_id: str, state: dict[str, Any]
+    ) -> None:
+        """Edit or complete one reusable localized-text form."""
+        if selection_id == "back":
+            self.server._nav_back(user)
+            return
+        purpose = str(state.get("localized_text_purpose") or "")
+        spec = ADMIN_LOCALIZED_TEXT_SPECS.get(purpose)
+        if spec is None:
+            self._return_to_admin_root(user)
+            return
+        if not self._require_localized_text_access(user, spec):
+            return
+        translations = dict(state.get("localized_text_translations") or {})
+        context = dict(state.get("localized_text_context") or {})
+
+        if selection_id == "localized_text_version" and purpose == "motd":
+            try:
+                current_version = int(context.get("version", 0) or 0)
+            except (TypeError, ValueError):
+                current_version = 0
+            user.show_editbox(
+                ADMIN_LOCALIZED_TEXT_INPUT,
+                Localization.get(user.locale, "motd-version-prompt"),
+                default_value=str(current_version),
+                multiline=False,
+            )
+            self.server.enter_input_state(
+                user,
+                ADMIN_LOCALIZED_TEXT_INPUT,
+                localized_text_field="version",
+                localized_text_purpose=purpose,
+            )
+            return
+
+        if selection_id.startswith("localized_text_locale_"):
+            language = selection_id.removeprefix("localized_text_locale_")
+            languages = Localization.get_available_languages(user.locale)
+            if language not in languages:
+                return
+            subject = Localization.get(user.locale, spec.subject_key)
+            user.show_editbox(
+                ADMIN_LOCALIZED_TEXT_INPUT,
+                Localization.get(
+                    user.locale,
+                    "admin-localized-text-prompt",
+                    subject=subject,
+                    language=languages[language],
+                    max=spec.max_length,
+                ),
+                default_value=translations.get(language, ""),
+                multiline=spec.multiline,
+                max_length=spec.max_length,
+            )
+            self.server.enter_input_state(
+                user,
+                ADMIN_LOCALIZED_TEXT_INPUT,
+                localized_text_field="locale",
+                localized_text_language=language,
+                localized_text_purpose=purpose,
+            )
+            return
+
+        if selection_id == "localized_text_submit":
+            await self._complete_admin_localized_text(
+                user, purpose, translations, context
+            )
+
+    async def _complete_admin_localized_text(
+        self,
+        user: NetworkUser,
+        purpose: str,
+        translations: dict[str, str],
+        context: dict[str, Any],
+    ) -> None:
+        """Validate and dispatch one localized administrator action."""
+        spec = ADMIN_LOCALIZED_TEXT_SPECS[purpose]
+        values = normalize_localized_text(
+            translations,
+            max_length=spec.max_length,
+            multiline=spec.multiline,
+        )
+        official, _community = self._localized_text_locale_groups(user.locale)
+        missing = [(code, name) for code, name in official if not values.get(code)]
+        if missing:
+            user.speak_l(
+                "admin-localized-text-missing-required",
+                buffer="system",
+                languages=Localization.format_list_and(
+                    user.locale, [name for _code, name in missing]
+                ),
+            )
+            self._refresh_admin_localized_text_with_focus(
+                user,
+                purpose,
+                values,
+                context,
+                f"localized_text_locale_{missing[0][0]}",
+            )
+            return
+
+        if purpose == "motd":
+            try:
+                version = int(context.get("version", 0) or 0)
+            except (TypeError, ValueError):
+                version = 0
+            if version <= 0:
+                user.speak_l("invalid-motd-version", buffer="system")
+                self._refresh_admin_localized_text_with_focus(
+                    user,
+                    purpose,
+                    values,
+                    context,
+                    "localized_text_version",
+                )
+                return
+            self.server.db.create_motd(version, values)
+            user.speak_l("motd-created", buffer="system", version=version)
+            for recipient in self.server.users.values():
+                if not recipient.approved:
+                    continue
+                motd_text = localized_text_for_locale(recipient.locale, values)
+                recipient.play_sound("notify.ogg")
+                recipient.speak_l(
+                    "motd-broadcast", buffer="system", message=motd_text
+                )
+            self.server._nav_back(user)
+            return
+
+        if purpose == "power":
+            action = str(context.get("power_action") or "")
+            try:
+                delay_seconds = int(context.get("power_delay_seconds") or 0)
+            except (TypeError, ValueError):
+                delay_seconds = 0
+            if (
+                action not in {PowerAction.REBOOT.value, PowerAction.SHUTDOWN.value}
+                or delay_seconds <= 0
+            ):
+                self._return_to_admin_root(user, "server_power")
+                return
+            self.server._nav_push(
+                user,
+                self._show_server_power_confirm_menu,
+                action,
+                delay_seconds,
+                "custom",
+                values,
+            )
+            return
+
+        target_username = str(context.get("target_username") or "")
+        duration = str(context.get("duration") or "")
+        if not target_username or not duration:
+            self._return_to_admin_root(user, f"{purpose}_user")
+            return
+        reason = encode_localized_custom_text(values)
+        if purpose == "ban":
+            await self._perform_ban(user, target_username, duration, reason)
+        elif purpose == "mute":
+            await self._perform_mute(user, target_username, duration, reason)
 
     def _return_to_admin_root(
         self, user: NetworkUser, focus_id: str | None = None
@@ -417,23 +811,6 @@ class AdministrationManager:
             page_size=ADMIN_TARGET_PAGE_SIZE,
         )
 
-    def _penalty_reason_text(self, locale: str, reason_key: str | None) -> str:
-        raw_reason = str(reason_key or "").strip()
-        if not raw_reason:
-            return Localization.get(locale, "admin-penalty-reason-unknown")
-
-        if raw_reason.startswith("CUSTOM_"):
-            custom_reason = raw_reason[7:].strip().replace("\n", " ")[:200]
-            return custom_reason or Localization.get(
-                locale,
-                "admin-penalty-reason-unknown",
-            )
-
-        localized = Localization.get(locale, raw_reason)
-        if not localized or localized == raw_reason:
-            return Localization.get(locale, "admin-penalty-reason-unknown")
-        return localized
-
     def _penalty_admin_text(self, locale: str, admin_username: str | None) -> str:
         admin_name = str(admin_username or "").strip()
         if admin_name:
@@ -497,7 +874,7 @@ class AdministrationManager:
                 "admin-active-ban-entry",
                 username=record.username,
                 expires=self._penalty_expiry_text(locale, record.expires_at),
-                reason=self._penalty_reason_text(locale, record.reason_key),
+                reason=localized_penalty_reason_for_locale(locale, record.reason_key),
                 admin=self._penalty_admin_text(locale, record.admin_username),
             ),
         )
@@ -510,7 +887,7 @@ class AdministrationManager:
                 "admin-active-mute-entry",
                 username=record.username,
                 expires=self._penalty_expiry_text(locale, record.expires_at),
-                reason=self._penalty_reason_text(locale, record.reason),
+                reason=localized_penalty_reason_for_locale(locale, record.reason),
                 admin=self._penalty_admin_text(locale, record.admin_username),
             ),
         )
@@ -871,6 +1248,8 @@ class AdministrationManager:
              await self._handle_server_power_reason_selection(user, selection_id, state)
         elif current_menu == "server_power_confirm_menu":
              await self._handle_server_power_confirm_selection(user, selection_id, state)
+        elif current_menu == ADMIN_LOCALIZED_TEXT_MENU:
+             await self._handle_admin_localized_text_selection(user, selection_id, state)
         elif current_menu == "smtp_settings_menu":
              await self._handle_smtp_settings_selection(user, selection_id)
         elif current_menu == "smtp_encryption_menu":
@@ -1340,139 +1719,65 @@ class AdministrationManager:
                 delay_seconds,
             )
             return True
-        elif (
-            menu_id == "server_power_custom_reason_input"
-            and input_id.startswith("server_power_reason_")
-        ):
-            if not self._require_dev_power(user):
+        elif menu_id == ADMIN_LOCALIZED_TEXT_INPUT:
+            parent = dict(state.get("_parent_frame") or {})
+            if parent.get("menu") != ADMIN_LOCALIZED_TEXT_MENU:
+                self._return_to_admin_root(user)
                 return True
-            language = input_id.split("server_power_reason_", 1)[1]
-            action = str(state.get("power_action") or "")
-            delay_seconds = int(state.get("power_delay_seconds") or 0)
-            pending_languages = list(state.get("pending_languages", []))
-            translations = dict(state.get("translations", {}))
-            if not value:
+            purpose = str(parent.get("localized_text_purpose") or "")
+            spec = ADMIN_LOCALIZED_TEXT_SPECS.get(purpose)
+            if spec is None or purpose != state.get("localized_text_purpose"):
+                self._return_to_admin_root(user)
+                return True
+            if not self._require_localized_text_access(user, spec):
+                return True
+            if input_id != ADMIN_LOCALIZED_TEXT_INPUT:
                 self.server._restore_input_parent(user, state)
                 return True
-            translations[language] = str(value).strip()
-            if language in pending_languages:
-                pending_languages.remove(language)
-            if pending_languages:
-                self._prompt_power_reason_language(
-                    user,
-                    pending_languages[0],
-                    pending_languages,
-                    translations,
-                    action,
-                    delay_seconds,
-                )
-            else:
-                self.server._restore_input_parent(user, state)
-                self.server._nav_push(
-                    user,
-                    self._show_server_power_confirm_menu,
-                    action,
-                    delay_seconds,
-                    "custom",
-                    translations,
-                )
-            return True
-        elif menu_id == "ban_custom_reason_input" and input_id == "ban_custom_reason_input":
-            if value:
-                target_username = state.get("target_username")
-                duration = state.get("duration")
-                if target_username and duration:
-                    # Prefix with CUSTOM_ to easily identify raw strings later
-                    await self._perform_ban(user, target_username, duration, f"CUSTOM_{value}")
-                else:
-                    self._return_to_admin_root(user, "ban_user")
-            else:
-                # Go back to reason selection if cancelled or empty
-                target_username = state.get("target_username")
-                duration = state.get("duration")
-                if target_username and duration:
-                    self.server._restore_input_parent(user, state)
-                else:
-                    self._return_to_admin_root(user, "ban_user")
-            return True
-        elif menu_id == "mute_custom_reason_input" and input_id == "mute_custom_reason_input":
-            if value:
-                target_username = state.get("target_username")
-                duration = state.get("duration")
-                if target_username and duration:
-                    await self._perform_mute(user, target_username, duration, f"CUSTOM_{value}")
-                else:
-                    self._return_to_admin_root(user, "mute_user")
-            else:
-                target_username = state.get("target_username")
-                duration = state.get("duration")
-                if target_username and duration:
-                    self.server._restore_input_parent(user, state)
-                else:
-                    self._return_to_admin_root(user, "mute_user")
-            return True
-        elif menu_id == "admin_motd_version_input" and input_id == "motd_version":
-            if value:
+            field = str(state.get("localized_text_field") or "")
+            context = dict(parent.get("localized_text_context") or {})
+            translations = dict(parent.get("localized_text_translations") or {})
+            raw_value = str(value or "")
+
+            if field == "version" and purpose == "motd":
                 try:
-                    version = int(value)
+                    version = int(raw_value.strip())
                     if version <= 0:
                         raise ValueError
-
-                    # Start prompting languages
-                    languages = Localization.get_available_languages()
-                    lang_codes = list(languages.keys())
-
-                    if lang_codes:
-                        first_lang = lang_codes[0]
-                        self._prompt_motd_language(user, first_lang, lang_codes, {}, version)
-                    else:
-                        user.speak_l("error-no-languages", buffer="system")
-                        self.server._restore_input_parent(user, state)
                 except ValueError:
                     user.speak_l("invalid-motd-version", buffer="system")
                     self.server._restore_input_parent(user, state)
-            else:
-                user.speak_l("motd-cancelled", buffer="system")
-                self.server._restore_input_parent(user, state)
-            return True
-        elif menu_id == "admin_motd_input" and input_id.startswith("motd_message_"):
-            language = input_id.split("motd_message_")[1]
-            if value:
-                # Save input
-                translations = state.get("translations", {})
-                translations[language] = value
-                state["translations"] = translations
-
-                version = state.get("version", 1)
-
-                # Get remaining languages
-                pending_languages = state.get("pending_languages", [])
-                if language in pending_languages:
-                    pending_languages.remove(language)
-
-                if pending_languages:
-                    # Prompt for next language
-                    next_lang = pending_languages[0]
-                    self._prompt_motd_language(user, next_lang, pending_languages, translations, version)
-                else:
-                    # All languages completed, save MOTD
-                    self.server.db.create_motd(version, translations)
-                    user.speak_l("motd-created", buffer="system", version=version)
-
-                    # Live Broadcast to all approved online users
-                    for u in self.server.users.values():
-                        if u.approved:
-                            motd_text = translations.get(u.locale, translations.get("en", list(translations.values())[0]))
-                            u.play_sound("notify.ogg")
-                            # We prefix it explicitly for clarity, but standard speak is fine
-                            # Use "system" buffer
-                            u.speak_l("motd-broadcast", buffer="system", message=motd_text)
-
+                    return True
+                context["version"] = version
+                parent["localized_text_context"] = context
+            elif field == "locale":
+                language = str(state.get("localized_text_language") or "")
+                if language not in Localization.available_locale_codes():
                     self.server._restore_input_parent(user, state)
+                    return True
+                text = normalize_localized_value(
+                    raw_value,
+                    multiline=spec.multiline,
+                )
+                if len(text) > spec.max_length:
+                    user.speak_l(
+                        "admin-localized-text-too-long",
+                        buffer="system",
+                        max=spec.max_length,
+                    )
+                    self.server._restore_input_parent(user, state)
+                    return True
+                if text:
+                    translations[language] = text
+                else:
+                    translations.pop(language, None)
+                parent["localized_text_translations"] = translations
             else:
-                # Cancelled
-                user.speak_l("motd-cancelled", buffer="system")
                 self.server._restore_input_parent(user, state)
+                return True
+
+            state["_parent_frame"] = parent
+            self.server._restore_input_parent(user, state)
             return True
 
         return False
@@ -1862,19 +2167,15 @@ class AdministrationManager:
             self._return_to_admin_root(user, "server_power")
             return
         if selection_id == "reason_custom":
-            languages = Localization.get_available_languages()
-            pending = list(languages.keys())
-            if not pending:
-                user.speak_l("error-no-languages", buffer="system")
-                self.server._nav_back(user)
-                return
-            self._prompt_power_reason_language(
+            self.server._nav_push(
                 user,
-                pending[0],
-                pending,
+                self._show_admin_localized_text_menu,
+                "power",
                 {},
-                action,
-                delay_seconds,
+                {
+                    "power_action": action,
+                    "power_delay_seconds": delay_seconds,
+                },
             )
             return
         if selection_id.startswith("reason_"):
@@ -1887,35 +2188,6 @@ class AdministrationManager:
                 reason_id,
                 {},
             )
-
-    def _prompt_power_reason_language(
-        self,
-        user: NetworkUser,
-        language: str,
-        pending_languages: list[str],
-        translations: dict[str, str],
-        action: str,
-        delay_seconds: int,
-    ) -> None:
-        languages = Localization.get_available_languages(user.locale)
-        language_name = languages.get(language, language)
-        user.show_editbox(
-            f"server_power_reason_{language}",
-            Localization.get(
-                user.locale,
-                "server-power-custom-reason-prompt",
-                language=language_name,
-            ),
-            multiline=True,
-        )
-        self.server.enter_input_state(
-            user,
-            "server_power_custom_reason_input",
-            pending_languages=list(pending_languages),
-            translations=dict(translations),
-            power_action=action,
-            power_delay_seconds=delay_seconds,
-        )
 
     def _show_server_power_confirm_menu(
         self,
@@ -2029,11 +2301,11 @@ class AdministrationManager:
             else ""
         )
         if not motd_text:
-            motd_text = "Missing MOTD"
+            motd_text = Localization.get(user.locale, "motd-not-exists")
 
         items = [
-            MenuItem(text=line, id=f"line_{index}")
-            for index, line in enumerate(motd_text.split("\n"))
+            MenuItem(text=line, id="")
+            for line in motd_text.split("\n")
         ]
         items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
 
@@ -2050,13 +2322,13 @@ class AdministrationManager:
     ) -> None:
         """Handle MOTD management selection."""
         if selection_id == "create_update":
-            # First prompt for version number
-            user.show_editbox(
-                "motd_version",
-                Localization.get(user.locale, "motd-version-prompt"),
-                multiline=False,
+            self.server._nav_push(
+                user,
+                self._show_admin_localized_text_menu,
+                "motd",
+                {},
+                {"version": self.server.db.get_highest_motd_version() + 1},
             )
-            self.server.enter_input_state(user, "admin_motd_version_input")
 
         elif selection_id == "view":
             active_version = self.server.db.get_highest_motd_version()
@@ -2076,23 +2348,6 @@ class AdministrationManager:
 
         elif selection_id == "back":
             self.server._nav_back(user)
-
-    def _prompt_motd_language(self, user: NetworkUser, current_lang: str, pending_languages: list[str], translations: dict, version: int) -> None:
-        """Prompt admin for MOTD text for a specific language."""
-        languages = Localization.get_available_languages(user.locale)
-        lang_name = languages.get(current_lang, current_lang)
-
-        user.show_editbox(
-            f"motd_message_{current_lang}",
-            Localization.get(user.locale, "motd-prompt", language=lang_name),
-            multiline=True,
-        )
-        self.server.enter_input_state(
-            user, "admin_motd_input",
-            pending_languages=pending_languages,
-            translations=translations,
-            version=version,
-        )
 
     @require_admin
     async def perform_broadcast(self, admin: NetworkUser, message: str, show_menu: bool = True) -> None:
@@ -2354,15 +2609,12 @@ class AdministrationManager:
             return
 
         if selection_id == "reason_custom":
-            user.show_editbox(
-                "ban_custom_reason_input",
-                Localization.get(user.locale, "enter-custom-ban-reason"),
-                multiline=False,
-            )
-            self.server.enter_input_state(
-                user, "ban_custom_reason_input",
-                target_username=target_username,
-                duration=duration,
+            self.server._nav_push(
+                user,
+                self._show_admin_localized_text_menu,
+                "ban",
+                {},
+                {"target_username": target_username, "duration": duration},
             )
         elif selection_id.startswith("reason_"):
             # Internal reason keys are formatted like "reason-spam"
@@ -2412,10 +2664,9 @@ class AdministrationManager:
         # Broadcast
         for u in self.server.users.values():
             if u.approved:
-                if reason_key.startswith("CUSTOM_"):
-                    loc_reason = reason_key[7:].strip().replace("\n", " ")[:200]
-                else:
-                    loc_reason = Localization.get(u.locale, reason_key)
+                loc_reason = localized_penalty_reason_for_locale(
+                    u.locale, reason_key
+                )
 
                 loc_duration = Localization.get(u.locale, duration_locale_key)
                 u.speak_l("ban-broadcast", buffer="system", target=target_username, actor=admin.username, reason=loc_reason, duration=loc_duration)
@@ -2607,15 +2858,12 @@ class AdministrationManager:
             return
 
         if selection_id == "reason_custom":
-            user.show_editbox(
-                "mute_custom_reason_input",
-                Localization.get(user.locale, "enter-custom-mute-reason"),
-                multiline=False,
-            )
-            self.server.enter_input_state(
-                user, "mute_custom_reason_input",
-                target_username=target_username,
-                duration=duration,
+            self.server._nav_push(
+                user,
+                self._show_admin_localized_text_menu,
+                "mute",
+                {},
+                {"target_username": target_username, "duration": duration},
             )
         elif selection_id.startswith("reason_"):
             reason_key = selection_id.replace("_", "-")
@@ -2661,20 +2909,18 @@ class AdministrationManager:
         # Broadcast to admins
         for u in self.server.users.values():
             if u.trust_level >= 2:
-                if reason_key.startswith("CUSTOM_"):
-                    loc_reason = reason_key[7:].strip().replace("\n", " ")[:200]
-                else:
-                    loc_reason = Localization.get(u.locale, reason_key)
+                loc_reason = localized_penalty_reason_for_locale(
+                    u.locale, reason_key
+                )
                 loc_duration = Localization.get(u.locale, duration_locale_key)
                 u.speak_l("mute-broadcast", buffer="system", target=target_username, actor=admin.username, reason=loc_reason, duration=loc_duration)
 
         # Notify the muted user if they are online
         target_user = self.server.users.get(target_username)
         if target_user:
-            if reason_key.startswith("CUSTOM_"):
-                loc_reason = reason_key[7:].strip().replace("\n", " ")[:200]
-            else:
-                loc_reason = Localization.get(target_user.locale, reason_key)
+            loc_reason = localized_penalty_reason_for_locale(
+                target_user.locale, reason_key
+            )
             loc_duration = Localization.get(target_user.locale, duration_locale_key)
             target_user.speak_l("you-have-been-muted", buffer="system", reason=loc_reason, duration=loc_duration)
             target_user.play_sound("accountban.ogg")

@@ -161,12 +161,14 @@ class MockUser(User):
         *,
         multiline: bool = False,
         read_only: bool = False,
+        max_length: int | None = None,
     ) -> None:
         editbox_data = {
             "prompt": prompt,
             "default_value": default_value,
             "multiline": multiline,
             "read_only": read_only,
+            "max_length": max_length,
         }
         self.editboxes[input_id] = editbox_data
         self.messages.append(

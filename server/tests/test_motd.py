@@ -38,6 +38,7 @@ def test_motd_creation_and_retrieval(db: Database):
     vi_motd = db.get_active_motd("vi")
     assert vi_motd[0] == 1
     assert vi_motd[1] == "Xin chao"
+    assert db.get_active_motd("vi-VN")[1] == "Xin chao"
 
     # Check fallback to en for unknown language
     es_motd = db.get_active_motd("es")
@@ -68,3 +69,14 @@ def test_motd_deletion(db: Database):
     db.delete_motd()
     assert db.get_highest_motd_version() == 0
     assert db.get_active_motd("en") is None
+
+
+def test_invalid_motd_does_not_replace_active_content(db: Database):
+    db.create_motd(1, {"en": "Existing"})
+
+    with pytest.raises(ValueError):
+        db.create_motd(2, {})
+    with pytest.raises(ValueError):
+        db.create_motd(2, {"en": "   "})
+
+    assert db.get_active_motd("en") == (1, "Existing")

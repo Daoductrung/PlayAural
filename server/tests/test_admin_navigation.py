@@ -453,33 +453,40 @@ async def test_admin_editbox_cancel_restores_admin_focus_and_back_path(tmp_path)
 
 
 @pytest.mark.asyncio
-async def test_admin_sequential_editbox_cancel_restores_stable_parent(tmp_path) -> None:
+async def test_admin_translation_editbox_cancel_restores_editor_and_back_path(
+    tmp_path,
+) -> None:
     server, admin = _make_admin_server(tmp_path)
     try:
         await _select(server, admin, "main_menu", "administration")
         await _select(server, admin, "admin_menu", "manage_motd")
         await _select(server, admin, "manage_motd_menu", "create_update")
-        assert _current_menu(server, admin.username) == "admin_motd_version_input"
+        assert _current_menu(server, admin.username) == "admin_localized_text_menu"
 
-        await server._handle_editbox(
-            SimpleNamespace(username=admin.username),
-            {
-                "type": "editbox",
-                "input_id": "motd_version",
-                "text": "1",
-            },
+        await _select(
+            server,
+            admin,
+            "admin_localized_text_menu",
+            "localized_text_locale_en",
         )
-        assert _current_menu(server, admin.username) == "admin_motd_input"
+        assert _current_menu(server, admin.username) == "admin_localized_text_input"
 
         await server._handle_editbox(
             SimpleNamespace(username=admin.username),
             {
                 "type": "editbox",
-                "input_id": "motd_message_en",
+                "input_id": "admin_localized_text_input",
                 "cancelled": True,
             },
         )
 
+        assert _current_menu(server, admin.username) == "admin_localized_text_menu"
+        assert (
+            admin.menus["admin_localized_text_menu"]["selection_id"]
+            == "localized_text_locale_en"
+        )
+
+        await _select(server, admin, "admin_localized_text_menu", "back")
         assert _current_menu(server, admin.username) == "manage_motd_menu"
         assert admin.menus["manage_motd_menu"]["selection_id"] == "create_update"
     finally:

@@ -4,8 +4,6 @@ from unittest.mock import MagicMock, AsyncMock
 from server.core.server import Server
 from server.auth.auth import AuthManager
 from server.users.network_user import NetworkUser
-from server.messages.localization import Localization
-from server.persistence.database import Database
 
 @pytest.fixture
 def mock_server(tmp_path):
@@ -13,17 +11,6 @@ def mock_server(tmp_path):
     server = Server(db_path=tmp_path / "test_db.sqlite")
     server._db.connect()
     server._auth = AuthManager(server._db)
-
-    # Mock localization for tests. The autouse _isolate_localization fixture
-    # snapshots and restores this class state, so wiping it here cannot leak to
-    # other tests; we still null it explicitly to force raw-key output in this
-    # flow.
-    Localization._locales_dir = None
-    Localization._bundles = {}
-
-    # Let's mock Localization.get_available_languages directly
-    orig_get_available = Localization.get_available_languages
-    Localization.get_available_languages = MagicMock(return_value={"en": "English", "vi": "Vietnamese"})
 
     # Init user
     server._db.create_user("admin_user", "hash", "en", 2, True)
@@ -36,7 +23,6 @@ def mock_server(tmp_path):
     yield server, user
 
     # Teardown
-    Localization.get_available_languages = orig_get_available
     server._db.close()
 
 @pytest.mark.asyncio
@@ -53,51 +39,48 @@ async def test_motd_admin_flow(mock_server):
     # 2. Admin clicks Create/Update MOTD
     await server._handle_menu(user.connection, {"selection_id": "create_update"})
 
-    # Verify we are prompted for the version
-    assert server._user_states["admin_user"]["menu"] == "admin_motd_version_input"
+    assert server._user_states["admin_user"]["menu"] == "admin_localized_text_menu"
+    assert server._user_states["admin_user"]["localized_text_context"] == {
+        "version": 1
+    }
 
-    # Simulate invalid version input
+    # Invalid version input returns to the editor without losing the draft.
+    await server._handle_menu(
+        user.connection, {"selection_id": "localized_text_version"}
+    )
     await server._handle_editbox(user.connection, {
-        "input_id": "motd_version",
+        "input_id": "admin_localized_text_input",
         "text": "abc"
     })
 
-    # Verify it bounces back to manage menu
-    assert server._user_states["admin_user"]["menu"] == "manage_motd_menu"
+    assert server._user_states["admin_user"]["menu"] == "admin_localized_text_menu"
+    assert server._user_states["admin_user"]["localized_text_context"]["version"] == 1
 
-    # Click Create/Update again
-    await server._handle_menu(user.connection, {"selection_id": "create_update"})
-
-    # Simulate valid version input
+    await server._handle_menu(
+        user.connection, {"selection_id": "localized_text_version"}
+    )
     await server._handle_editbox(user.connection, {
-        "input_id": "motd_version",
+        "input_id": "admin_localized_text_input",
         "text": "2"
     })
 
-    # Verify we are prompted for the first language (en or vi depending on dict order, mocked as en, vi)
-    assert server._user_states["admin_user"]["menu"] == "admin_motd_input"
-    assert "pending_languages" in server._user_states["admin_user"]
-    # Which language? Check the keys from mock
-    pending = server._user_states["admin_user"]["pending_languages"]
-    first_lang = pending[0] if pending else "en"
+    # Official languages are edited in any order; the community locale is skipped.
+    for language in ("vi", "en"):
+        await server._handle_menu(
+            user.connection,
+            {"selection_id": f"localized_text_locale_{language}"},
+        )
+        await server._handle_editbox(
+            user.connection,
+            {
+                "input_id": "admin_localized_text_input",
+                "text": f"Message for {language}",
+            },
+        )
 
-    # 3. Simulate input for the first language via editbox
-    await server._handle_editbox(user.connection, {
-        "input_id": f"motd_message_{first_lang}",
-        "text": f"Message for {first_lang}"
-    })
-
-    # Verify we are prompted for the next language
-    assert server._user_states["admin_user"]["menu"] == "admin_motd_input"
-    pending = server._user_states["admin_user"]["pending_languages"]
-    assert len(pending) == 1
-    second_lang = pending[0]
-
-    # 4. Simulate input for the second language via editbox
-    await server._handle_editbox(user.connection, {
-        "input_id": f"motd_message_{second_lang}",
-        "text": f"Message for {second_lang}"
-    })
+    await server._handle_menu(
+        user.connection, {"selection_id": "localized_text_submit"}
+    )
 
     # Verify MOTD is created and we are back to manage_motd_menu
     assert server._user_states["admin_user"]["menu"] == "manage_motd_menu"
@@ -105,11 +88,16 @@ async def test_motd_admin_flow(mock_server):
     # Check DB
     version = server._db.get_highest_motd_version()
     assert version == 2
-    assert server._db.get_motd(version, first_lang) == f"Message for {first_lang}"
+    assert server._db.get_motd(version, "en") == "Message for en"
+    assert server._db.get_motd(version, "vi") == "Message for vi"
+    assert server._db.get_motd(version, "fa") == "Message for en"
 
     # 5. Admin clicks View
     await server._handle_menu(user.connection, {"selection_id": "view"})
     assert server._user_states["admin_user"]["menu"] == "view_motd_menu"
+    motd_items = user._current_menus["view_motd_menu"]["items"]
+    assert all(item.get("id") == "" for item in motd_items[:-1])
+    assert motd_items[-1].get("id") == "back"
 
     # Admin clicks back from view
     await server._handle_menu(user.connection, {"selection_id": "back"})
@@ -170,9 +158,12 @@ async def test_motd_login_interception(mock_server):
     # Verify user was intercepted and shown MOTD menu because 2 != 5
     assert server._user_states["test_user"]["menu"] == "motd_menu"
     assert server._user_states["test_user"]["motd_version"] == 2
+    test_network_user = server._users["test_user"]
+    motd_items = test_network_user._current_menus["motd_menu"]["items"]
+    assert all(item.get("id") == "" for item in motd_items[:-1])
+    assert motd_items[-1].get("id") == "ok"
 
     # Simulate clicking OK
-    test_network_user = server._users["test_user"]
     await server._handle_menu(test_network_user.connection, {"selection_id": "ok"})
 
     # Verify user is sent to main menu and DB is updated to 2

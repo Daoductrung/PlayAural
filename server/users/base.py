@@ -233,6 +233,7 @@ class User(ABC):
         *,
         multiline: bool = False,
         read_only: bool = False,
+        max_length: int | None = None,
     ) -> None:
         """
         Display an editbox to the user.
@@ -243,6 +244,7 @@ class User(ABC):
             default_value: Default text in the editbox.
             multiline: Whether to use a multiline editbox.
             read_only: Whether the editbox is read-only.
+            max_length: Optional maximum number of input characters.
         """
         ...
 

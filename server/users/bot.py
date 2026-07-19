@@ -105,6 +105,7 @@ class Bot(User):
         *,
         multiline: bool = False,
         read_only: bool = False,
+        max_length: int | None = None,
     ) -> None:
         pass
 

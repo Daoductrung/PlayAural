@@ -62,19 +62,29 @@ class Localization:
         for locale_code in cls.available_locale_codes():
             cls._get_bundle(locale_code)
 
+    @staticmethod
+    def _normalize_locale_candidate(locale: str | None) -> str:
+        """Return a normalized locale code, or an empty string if malformed."""
+        if not isinstance(locale, str):
+            return ""
+        normalized = locale.strip().replace("_", "-").lower()
+        if not normalized or "\x00" in normalized:
+            return ""
+        if any(ch in normalized for ch in ("/", "\\", ".")):
+            return ""
+        if not all(ch.isalnum() or ch == "-" for ch in normalized):
+            return ""
+        return normalized
+
     @classmethod
     def _sanitize_locale(cls, locale: str | None) -> str:
         """Return a safe normalized locale code suitable for lookup only."""
-        if not isinstance(locale, str):
-            return DEFAULT_LOCALE
-        normalized = locale.strip().replace("_", "-").lower()
-        if not normalized or "\x00" in normalized:
-            return DEFAULT_LOCALE
-        if any(ch in normalized for ch in ("/", "\\", ".")):
-            return DEFAULT_LOCALE
-        if not all(ch.isalnum() or ch == "-" for ch in normalized):
-            return DEFAULT_LOCALE
-        return normalized
+        return cls._normalize_locale_candidate(locale) or DEFAULT_LOCALE
+
+    @classmethod
+    def normalize_locale_code(cls, locale: str | None) -> str:
+        """Return a safe locale code, or an empty string when malformed."""
+        return cls._normalize_locale_candidate(locale)
 
     @classmethod
     def available_locale_codes(cls) -> list[str]:
@@ -89,6 +99,15 @@ class Localization:
         pinned = [code for code in PINNED_LOCALES if code in codes]
         community = [code for code in codes if code not in PINNED_LOCALES]
         return pinned + community
+
+    @classmethod
+    def official_locale_codes(cls) -> list[str]:
+        """Return installed locales marked official in their metadata."""
+        return [
+            code
+            for code in cls.available_locale_codes()
+            if cls.get_locale_metadata(code).official
+        ]
 
     @classmethod
     def _coerce_string_tuple(cls, value) -> tuple[str, ...]:

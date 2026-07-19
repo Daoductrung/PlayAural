@@ -2075,9 +2075,6 @@ class ExplodingKittensGame(Game):
             return
         self.phase = PHASE_GAME_OVER
         self.winner_id = winner.id if winner else ""
-        for player in self.players:
-            if isinstance(player, ExplodingKittensPlayer):
-                self._clear_strategy_memory(player)
         self.play_sound(SOUND_GAME_OVER)
         if winner:
             self._broadcast_actor(

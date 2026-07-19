@@ -9,6 +9,7 @@ import struct
 
 import pytest
 
+from server.core.server import Server
 from server.games.explodingkittens.cards import (
     ATTACK,
     BEARD_CAT,
@@ -2369,11 +2370,29 @@ def test_game_over_sound_winner_and_result_are_dispatched_together() -> None:
     )
 
 
-def test_game_over_clears_all_strategy_memory() -> None:
-    game = make_game(2)
-    start_with_current(game)
-    winner = game.players[1]
-    for index, player in enumerate(game.players):
+def test_finished_table_replaces_all_strategy_memory_with_fresh_players(
+    monkeypatch,
+) -> None:
+    server = Server(db_path=":memory:")
+    alice = MockUser("Alice", uuid="alice")
+    bob = MockUser("Bob", uuid="bob")
+    server._users = {alice.username: alice, bob.username: bob}
+    table = server._tables.create_table("explodingkittens", alice.username, alice)
+    old_game = ExplodingKittensGame()
+    table.game = old_game
+    old_game._table = table
+    server._set_in_game_state(alice, table.table_id)
+    old_game.initialize_lobby(alice.username, alice)
+    table.add_member(bob.username, bob)
+    old_game.add_player(bob.username, bob)
+    server._set_in_game_state(bob, table.table_id)
+    old_game.status = "playing"
+    old_game.game_active = True
+    old_game._sync_table_status()
+    monkeypatch.setattr(old_game, "_persist_result", lambda result: None)
+    winner = old_game.players[1]
+
+    for index, player in enumerate(old_game.players):
         player.known_future_card_ids = [1300 + index]
         player.known_kitten_positions = {1400 + index: index}
         player.played_card_counts = {ATTACK: index + 1}
@@ -2382,16 +2401,19 @@ def test_game_over_clears_all_strategy_memory() -> None:
         player.bot_planned_target_id = winner.id
         player.bot_requested_kind = DEFUSE
 
-    game._end_game(winner)
+    old_game._end_game(winner)
 
-    for player in game.players:
-        assert player.known_future_card_ids == []
-        assert player.known_kitten_positions == {}
-        assert player.played_card_counts == {}
-        assert player.bot_combo_kind == ""
-        assert player.bot_combo_card_ids == []
-        assert player.bot_planned_target_id == ""
-        assert player.bot_requested_kind == ""
+    new_game = table.game
+    assert new_game is not old_game
+    assert old_game._destroyed
+    assert table.status == "waiting"
+    assert all(player.known_future_card_ids == [] for player in new_game.players)
+    assert all(player.known_kitten_positions == {} for player in new_game.players)
+    assert all(player.played_card_counts == {} for player in new_game.players)
+    assert all(player.bot_combo_kind == "" for player in new_game.players)
+    assert all(player.bot_combo_card_ids == [] for player in new_game.players)
+    assert all(player.bot_planned_target_id == "" for player in new_game.players)
+    assert all(player.bot_requested_kind == "" for player in new_game.players)
 
 
 def test_result_ranking_places_later_eliminations_higher() -> None:

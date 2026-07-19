@@ -13,6 +13,8 @@ class ExplodingKittensPlayer(Player):
     hand: list[ExplodingKittensCard] = field(default_factory=list)
     selected_card_ids: list[int] = field(default_factory=list)
     known_future_card_ids: list[int] = field(default_factory=list)
+    known_kitten_positions: dict[int, int] = field(default_factory=dict)
+    played_card_counts: dict[str, int] = field(default_factory=dict)
     eliminated: bool = False
     elimination_order: int = 0
     bot_combo_kind: str = ""

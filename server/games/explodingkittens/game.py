@@ -302,10 +302,9 @@ class ExplodingKittensGame(Game):
         for player in active:
             player.hand.clear()
             player.selected_card_ids.clear()
-            player.known_future_card_ids.clear()
             player.eliminated = False
             player.elimination_order = 0
-            self._clear_bot_plan(player)
+            self._clear_strategy_memory(player)
 
         shuffle_sound = self._random_shuffle_sound()
         self.start_sequence(
@@ -1358,6 +1357,7 @@ class ExplodingKittensGame(Game):
             return
         player.hand.remove(card)
         self.discard_pile.append(card)
+        self._record_played_cards(player, [card])
         pending.nope_count += 1
         pending.last_nope_player_id = player.id
         pending.passed_player_ids.clear()
@@ -1494,6 +1494,7 @@ class ExplodingKittensGame(Game):
             return
         player.hand.remove(defuse)
         self.discard_pile.append(defuse)
+        self._record_played_cards(player, [defuse])
         self._broadcast_actor(
             player,
             "explodingkittens-you-defuse",
@@ -1566,11 +1567,13 @@ class ExplodingKittensGame(Game):
     def _reinsert_kitten(self, player: ExplodingKittensPlayer, position: int) -> None:
         if self.drawn_kitten is None:
             return
+        kitten = self.drawn_kitten
         self.play_sound(SOUND_REINSERT)
-        self.deck.insert(position, self.drawn_kitten)
+        self.deck.insert(position, kitten)
         self.drawn_kitten = None
         self.decision_player_id = ""
         self._clear_future_knowledge()
+        player.known_kitten_positions[kitten.id] = position
         self._broadcast_actor(
             player,
             "explodingkittens-you-reinsert-kitten",
@@ -1593,6 +1596,7 @@ class ExplodingKittensGame(Game):
         for card in cards:
             actor.hand.remove(card)
             self.discard_pile.append(card)
+        self._record_played_cards(actor, cards)
         actor.selected_card_ids.clear()
         self._clear_bot_plan(actor)
         self._play_committed_cards(len(cards))
@@ -1979,6 +1983,7 @@ class ExplodingKittensGame(Game):
             self.removed_cards.append(kitten)
         player.selected_card_ids.clear()
         player.known_future_card_ids.clear()
+        player.known_kitten_positions.clear()
         player.eliminated = True
         self.elimination_counter += 1
         player.elimination_order = self.elimination_counter
@@ -2012,9 +2017,25 @@ class ExplodingKittensGame(Game):
             elif player.known_future_card_ids:
                 player.known_future_card_ids.clear()
 
+            updated_positions: dict[int, int] = {}
+            for card_id, position in player.known_kitten_positions.items():
+                if position == 0:
+                    if card_id != drawn.id:
+                        updated_positions.clear()
+                        break
+                    continue
+                next_position = position - 1
+                if (
+                    next_position < len(self.deck)
+                    and self.deck[next_position].id == card_id
+                ):
+                    updated_positions[card_id] = next_position
+            player.known_kitten_positions = updated_positions
+
     def _clear_future_knowledge(self) -> None:
         for player in self.alive_players:
             player.known_future_card_ids.clear()
+            player.known_kitten_positions.clear()
 
     def _known_future_cards(
         self, player: ExplodingKittensPlayer
@@ -2026,11 +2047,37 @@ class ExplodingKittensGame(Game):
             known.append(self.deck[index])
         return known
 
+    def _known_kitten_positions(
+        self, player: ExplodingKittensPlayer
+    ) -> dict[int, int]:
+        """Return valid private Kitten placements remembered by one player."""
+        return {
+            card_id: position
+            for card_id, position in player.known_kitten_positions.items()
+            if 0 <= position < len(self.deck)
+            and self.deck[position].id == card_id
+            and self.deck[position].kind == EXPLODING_KITTEN
+        }
+
+    @staticmethod
+    def _record_played_cards(
+        player: ExplodingKittensPlayer,
+        cards: list[ExplodingKittensCard],
+    ) -> None:
+        """Record public card plays for fair opponent modeling after save/load."""
+        for card in cards:
+            player.played_card_counts[card.kind] = (
+                player.played_card_counts.get(card.kind, 0) + 1
+            )
+
     def _end_game(self, winner: ExplodingKittensPlayer | None) -> None:
         if self.phase == PHASE_GAME_OVER or self.status == "finished":
             return
         self.phase = PHASE_GAME_OVER
         self.winner_id = winner.id if winner else ""
+        for player in self.players:
+            if isinstance(player, ExplodingKittensPlayer):
+                self._clear_strategy_memory(player)
         self.play_sound(SOUND_GAME_OVER)
         if winner:
             self._broadcast_actor(
@@ -2411,6 +2458,13 @@ class ExplodingKittensGame(Game):
             player.bot_combo_card_ids.clear()
         player.bot_planned_target_id = ""
         player.bot_requested_kind = ""
+
+    def _clear_strategy_memory(self, player: ExplodingKittensPlayer) -> None:
+        """Discard game-local knowledge and unfinished bot decisions."""
+        player.known_future_card_ids.clear()
+        player.known_kitten_positions.clear()
+        player.played_card_counts.clear()
+        self._clear_bot_plan(player)
 
     # ------------------------------------------------------------------
     # Localization-aware communication and parsing helpers

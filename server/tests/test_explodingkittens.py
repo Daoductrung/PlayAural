@@ -1,6 +1,7 @@
 """Rule, accessibility, persistence, and bot tests for Exploding Kittens."""
 
 from collections import Counter
+import json
 import math
 from pathlib import Path
 import random
@@ -2007,6 +2008,178 @@ def test_bot_reinsertion_accounts_for_remaining_attack_turns(monkeypatch) -> Non
     assert game.bot_think(bot) == "insert_0"
 
 
+def test_bot_stacks_attack_even_when_the_next_draw_is_known_safe() -> None:
+    game = make_game(2)
+    start_with_current(game)
+    bot = game.players[0]
+    safe = card(1186, FAVOR)
+    game.deck = [safe, card(1187, EXPLODING_KITTEN)]
+    bot.known_future_card_ids = [safe.id]
+    bot.hand = [card(1188, ATTACK), card(1189, SEE_FUTURE), card(1190, DEFUSE)]
+    game.turns_remaining = 3
+    game.attack_obligation = True
+
+    assert game.bot_think(bot) == "play_card_1188"
+
+
+def test_bot_does_not_shuffle_a_genuinely_unknown_deck() -> None:
+    game = make_game(2)
+    start_with_current(game)
+    bot = game.players[0]
+    bot.hand = [card(1191, SHUFFLE), card(1192, DEFUSE)]
+    bot.known_future_card_ids.clear()
+    bot.known_kitten_positions.clear()
+    game.deck = [
+        card(1193, EXPLODING_KITTEN),
+        card(1194, SKIP),
+        card(1195, FAVOR),
+        card(1196, ATTACK),
+    ]
+
+    assert game.bot_think(bot) == "draw_card"
+
+
+def test_bot_can_shuffle_to_erase_an_opponents_future_knowledge() -> None:
+    game = make_game(2)
+    start_with_current(game)
+    bot, opponent = game.players
+    game.deck = [
+        card(1197, FAVOR),
+        card(1198, SKIP),
+        card(1199, EXPLODING_KITTEN),
+        card(1200, ATTACK),
+        card(1201, NOPE),
+        card(1202, SEE_FUTURE),
+        card(1203, SHUFFLE),
+        card(1204, CATTERMELON),
+        card(1205, BEARD_CAT),
+        card(1206, FAVOR),
+    ]
+    opponent.known_future_card_ids = [1197, 1198, 1199]
+    opponent.hand = [card(1207, DEFUSE), card(1208, NOPE), card(1209, ATTACK)]
+    bot.hand = [card(1210, SHUFFLE), card(1211, DEFUSE)]
+
+    assert game.bot_think(bot) == "play_card_1210"
+
+
+def test_private_reinsertion_knowledge_tracks_draws_save_load_and_shuffle() -> None:
+    game = make_game(2)
+    start_with_current(game)
+    bot, opponent = game.players
+    kitten = card(1200, EXPLODING_KITTEN)
+    first = card(1201, FAVOR)
+    second = card(1202, SKIP)
+    game.deck = [first, second]
+    game.drawn_kitten = kitten
+    game.decision_player_id = bot.id
+    game.phase = PHASE_REINSERT
+
+    game._reinsert_kitten(bot, 2)
+    assert bot.known_kitten_positions == {kitten.id: 2}
+    assert opponent.known_kitten_positions == {}
+
+    drawn = game.deck.pop(0)
+    game._consume_known_top(drawn)
+    assert bot.known_kitten_positions == {kitten.id: 1}
+    bot.played_card_counts[ATTACK] = 2
+
+    restored = ExplodingKittensGame.from_json(game.to_json())
+    restored.rebuild_runtime_state()
+    restored_bot = restored.get_player_by_id(bot.id)
+    assert restored_bot.known_kitten_positions == {kitten.id: 1}
+    assert restored_bot.played_card_counts == {ATTACK: 2}
+
+    restored._clear_future_knowledge()
+    assert restored_bot.known_kitten_positions == {}
+
+
+def test_new_bot_knowledge_fields_are_backward_compatible_with_old_saves() -> None:
+    game = make_game(2)
+    start_with_current(game)
+    payload = json.loads(game.to_json())
+    for player_data in payload["players"]:
+        player_data.pop("known_kitten_positions", None)
+        player_data.pop("played_card_counts", None)
+
+    restored = ExplodingKittensGame.from_json(json.dumps(payload))
+
+    assert all(player.known_kitten_positions == {} for player in restored.players)
+    assert all(player.played_card_counts == {} for player in restored.players)
+
+
+def test_bot_uses_only_visible_information_for_combo_and_request_choices() -> None:
+    games = [make_game(3), make_game(3)]
+    decisions: list[tuple[str, str, str]] = []
+    hidden_hands = [
+        ([DEFUSE, NOPE, ATTACK, SKIP], [FAVOR, SHUFFLE]),
+        ([FAVOR, SHUFFLE, SEE_FUTURE, BEARD_CAT], [DEFUSE, NOPE]),
+    ]
+    hidden_decks = [
+        [EXPLODING_KITTEN, SKIP, FAVOR, ATTACK],
+        [ATTACK, FAVOR, SKIP, EXPLODING_KITTEN],
+    ]
+
+    for game, hands, deck_kinds in zip(games, hidden_hands, hidden_decks):
+        start_with_current(game)
+        bot, large_target, small_target = game.players
+        bot.hand = [
+            card(1210, CATTERMELON),
+            card(1211, CATTERMELON),
+            card(1212, CATTERMELON),
+        ]
+        large_target.hand = [
+            card(1220 + index, kind) for index, kind in enumerate(hands[0])
+        ]
+        small_target.hand = [
+            card(1230 + index, kind) for index, kind in enumerate(hands[1])
+        ]
+        game.deck = [
+            card(1240 + index, kind) for index, kind in enumerate(deck_kinds)
+        ]
+
+        combo_action = game.bot_think(bot)
+        game.pending_action = PendingAction(
+            kind=ACTION_TRIPLE,
+            actor_id=bot.id,
+            card_ids=list(bot.bot_combo_card_ids),
+        )
+        game.phase = PHASE_TARGET
+        target_action = game.bot_think(bot)
+        game.pending_action.target_id = large_target.id
+        game.phase = PHASE_REQUEST
+        request_action = game.bot_think(bot)
+        decisions.append((combo_action, target_action, request_action))
+
+    assert decisions[0] == decisions[1]
+
+
+def test_bot_can_weaponize_a_known_kitten_after_opponent_spends_defuse() -> None:
+    game = make_game(2)
+    start_with_current(game)
+    bot, opponent = game.players
+    kitten = card(1250, EXPLODING_KITTEN)
+    game.deck = [kitten, card(1251, FAVOR), card(1252, SKIP)]
+    bot.known_future_card_ids = [kitten.id]
+    bot.hand = [card(1253, SHUFFLE), card(1254, DEFUSE), card(1255, DEFUSE)]
+    opponent.hand = [card(1256, FAVOR)]
+    opponent.played_card_counts[DEFUSE] = 1
+
+    assert game.bot_think(bot) == "draw_card"
+
+
+def test_bot_recovers_a_stale_combo_plan_instead_of_looping() -> None:
+    game = make_game(2)
+    start_with_current(game)
+    bot, target = game.players
+    bot.hand = [card(1260, BEARD_CAT), card(1261, BEARD_CAT)]
+    target.hand = [card(1262, DEFUSE), card(1263, NOPE)]
+    bot.bot_combo_card_ids = [9999]
+    game.phase = PHASE_COMBO
+
+    assert game.bot_think(bot) == "play_card_1260"
+    assert bot.bot_combo_card_ids == [1260, 1261]
+
+
 def test_phase_and_action_state_survive_serialization() -> None:
     game = make_game(3)
     game.options.nope_response_seconds = "20"
@@ -2146,20 +2319,27 @@ def test_kitten_reveal_gate_survives_serialization() -> None:
 
 
 @pytest.mark.parametrize(
-    ("player_count", "advanced_combos"),
-    [(2, False), (2, True), (3, True), (4, True), (5, True)],
+    ("player_count", "advanced_combos", "fast_game", "nope_seconds"),
+    [
+        (2, False, False, "5"),
+        (2, True, True, "2"),
+        (3, False, True, "3"),
+        (3, True, False, "10"),
+        (4, True, False, "3"),
+        (5, True, False, "2"),
+    ],
 )
 def test_bots_can_complete_a_match_without_hidden_input_prompts(
     player_count: int,
     advanced_combos: bool,
+    fast_game: bool,
+    nope_seconds: str,
 ) -> None:
     random.seed(77 + player_count * 10 + int(advanced_combos))
     game = make_bot_game(player_count)
     game.options.advanced_combos = advanced_combos
-    if player_count == 4:
-        game.options.nope_response_seconds = "3"
-    elif player_count == 5:
-        game.options.nope_response_seconds = "2"
+    game.options.fast_game = fast_game
+    game.options.nope_response_seconds = nope_seconds
     game.on_start()
     for _ in range(30000):
         if not game.game_active:
@@ -2187,6 +2367,31 @@ def test_game_over_sound_winner_and_result_are_dispatched_together() -> None:
         text.startswith("You are the last player standing")
         for text in speech(game.get_user(winner))
     )
+
+
+def test_game_over_clears_all_strategy_memory() -> None:
+    game = make_game(2)
+    start_with_current(game)
+    winner = game.players[1]
+    for index, player in enumerate(game.players):
+        player.known_future_card_ids = [1300 + index]
+        player.known_kitten_positions = {1400 + index: index}
+        player.played_card_counts = {ATTACK: index + 1}
+        player.bot_combo_kind = "pair"
+        player.bot_combo_card_ids = [1500 + index]
+        player.bot_planned_target_id = winner.id
+        player.bot_requested_kind = DEFUSE
+
+    game._end_game(winner)
+
+    for player in game.players:
+        assert player.known_future_card_ids == []
+        assert player.known_kitten_positions == {}
+        assert player.played_card_counts == {}
+        assert player.bot_combo_kind == ""
+        assert player.bot_combo_card_ids == []
+        assert player.bot_planned_target_id == ""
+        assert player.bot_requested_kind == ""
 
 
 def test_result_ranking_places_later_eliminations_higher() -> None:

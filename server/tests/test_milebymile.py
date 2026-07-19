@@ -369,7 +369,7 @@ class TestMileByMileDirtyTricks:
         assert target_state.miles == 75
         assert responder_distance not in safety_player.hand
 
-    def test_dirty_trick_window_keeps_normal_play_running_until_it_expires(self):
+    def test_matching_remedy_closes_dirty_trick_window_immediately(self):
         game = MileByMileGame()
         alice_user = MockUser("Alice", uuid="p1")
         bob_user = MockUser("Bob", uuid="p2")
@@ -404,14 +404,208 @@ class TestMileByMileDirtyTricks:
         assert remedy not in bob.hand
         assert HazardType.STOP not in bob_state.problems
         assert game.current_player == alice
-        assert len(game.dirty_trick_windows) == 1
-
-        game.dirty_trick_windows[0].ticks = 1
-        game.on_tick()
-
+        assert game.dirty_trick_windows == []
         assert game.dirty_trick_window_team is None
-        assert game.current_player == alice
         assert waiting_card in alice.hand
+
+    def test_team_remedy_wins_race_against_later_dirty_trick(self):
+        game = MileByMileGame()
+        game.options.team_mode = "2v2"
+        players = [
+            game.add_player(
+                f"Player{index + 1}",
+                MockUser(f"Player{index + 1}", uuid=f"p{index + 1}"),
+            )
+            for index in range(4)
+        ]
+        attacker, remedy_player, next_player, safety_player = players
+        hazard = Card(
+            id=9013,
+            card_type=CardType.HAZARD,
+            value=HazardType.FLAT_TIRE,
+        )
+        remedy = Card(
+            id=9014,
+            card_type=CardType.REMEDY,
+            value=RemedyType.SPARE_TIRE,
+        )
+        safety = Card(
+            id=9015,
+            card_type=CardType.SAFETY,
+            value=SafetyType.PUNCTURE_PROOF,
+        )
+        game.on_start()
+        attacker.hand = [hazard]
+        remedy_player.hand = [remedy]
+        next_player.hand = [
+            Card(id=9016, card_type=CardType.DISTANCE, value="25")
+        ]
+        safety_player.hand = [safety]
+        game.deck.cards = []
+        target_state = game.get_player_race_state(remedy_player)
+        assert target_state is not None
+        target_state.problems = []
+        game.current_player = attacker
+        game._update_all_turn_actions()
+
+        game.execute_action(attacker, "card_slot_1")
+        stale_window = game.dirty_trick_windows[0]
+        game.execute_action(remedy_player, "card_slot_1")
+        game.execute_action(safety_player, "card_slot_1")
+        game._play_dirty_trick_safety(
+            safety_player,
+            0,
+            safety,
+            stale_window,
+        )
+
+        assert game.current_player == next_player
+        assert game.dirty_trick_windows == []
+        assert target_state.dirty_trick_count == 0
+        assert HazardType.FLAT_TIRE not in target_state.problems
+        assert safety in safety_player.hand
+        assert SafetyType.PUNCTURE_PROOF not in target_state.safeties
+
+    def test_team_dirty_trick_wins_race_against_later_remedy(self):
+        game = MileByMileGame()
+        game.options.team_mode = "2v2"
+        players = [
+            game.add_player(
+                f"Player{index + 1}",
+                MockUser(f"Player{index + 1}", uuid=f"p{index + 1}"),
+            )
+            for index in range(4)
+        ]
+        attacker, remedy_player, _next_player, safety_player = players
+        hazard = Card(
+            id=9017,
+            card_type=CardType.HAZARD,
+            value=HazardType.FLAT_TIRE,
+        )
+        remedy = Card(
+            id=9018,
+            card_type=CardType.REMEDY,
+            value=RemedyType.SPARE_TIRE,
+        )
+        safety = Card(
+            id=9019,
+            card_type=CardType.SAFETY,
+            value=SafetyType.PUNCTURE_PROOF,
+        )
+        game.on_start()
+        attacker.hand = [hazard]
+        remedy_player.hand = [remedy]
+        safety_player.hand = [safety]
+        game.deck.cards = []
+        target_state = game.get_player_race_state(remedy_player)
+        assert target_state is not None
+        target_state.problems = []
+        game.current_player = attacker
+        game._update_all_turn_actions()
+
+        game.execute_action(attacker, "card_slot_1")
+        game.execute_action(safety_player, "card_slot_1")
+
+        assert game.current_player == remedy_player
+        assert game.dirty_trick_windows == []
+        assert target_state.dirty_trick_count == 1
+        assert HazardType.FLAT_TIRE not in target_state.problems
+        assert SafetyType.PUNCTURE_PROOF in target_state.safeties
+        assert remedy in remedy_player.hand
+        assert game._can_play_card(remedy_player, remedy) is False
+
+    def test_remedy_closes_only_its_matching_window(self):
+        game = MileByMileGame()
+        alice = game.add_player("Alice", MockUser("Alice", uuid="p1"))
+        bob = game.add_player("Bob", MockUser("Bob", uuid="p2"))
+        game.on_start()
+        remedy = Card(
+            id=9033,
+            card_type=CardType.REMEDY,
+            value=RemedyType.SPARE_TIRE,
+        )
+        alice.hand = [
+            Card(id=9034, card_type=CardType.DISTANCE, value="25")
+        ]
+        bob.hand = [remedy]
+        game.deck.cards = []
+        bob_state = game.get_player_race_state(bob)
+        assert bob_state is not None
+        bob_state.problems = [
+            HazardType.FLAT_TIRE,
+            HazardType.SPEED_LIMIT,
+            HazardType.STOP,
+        ]
+        game._open_dirty_trick_window(bob.team_index, HazardType.FLAT_TIRE)
+        game._open_dirty_trick_window(bob.team_index, HazardType.SPEED_LIMIT)
+        game.current_player = bob
+        game._update_all_turn_actions()
+
+        game.execute_action(bob, "card_slot_1")
+
+        assert [
+            window.hazard for window in game.dirty_trick_windows
+        ] == [HazardType.SPEED_LIMIT]
+        assert HazardType.FLAT_TIRE not in bob_state.problems
+        assert HazardType.SPEED_LIMIT in bob_state.problems
+
+    def test_remedy_clears_queued_team_bot_reaction(self):
+        game = MileByMileGame()
+        game.options.team_mode = "2v2"
+        attacker = game.add_player("Alice", MockUser("Alice", uuid="p1"))
+        remedy_player = game.add_player("Bob", MockUser("Bob", uuid="p2"))
+        game.add_player("Cara", MockUser("Cara", uuid="p3"))
+        safety_bot = game.add_player("Bot", Bot("Bot"))
+        game.on_start()
+        hazard = Card(
+            id=9035,
+            card_type=CardType.HAZARD,
+            value=HazardType.OUT_OF_GAS,
+        )
+        remedy = Card(
+            id=9036,
+            card_type=CardType.REMEDY,
+            value=RemedyType.GASOLINE,
+        )
+        safety = Card(
+            id=9037,
+            card_type=CardType.SAFETY,
+            value=SafetyType.EXTRA_TANK,
+        )
+        attacker.hand = [hazard]
+        remedy_player.hand = [remedy]
+        safety_bot.hand = [safety]
+        game.deck.cards = []
+        target_state = game.get_player_race_state(remedy_player)
+        assert target_state is not None
+        target_state.problems = []
+        game.current_player = attacker
+        game._update_all_turn_actions()
+
+        game.execute_action(attacker, "card_slot_1")
+        safety_bot.bot_pending_action = "dirty_trick"
+        game.execute_action(remedy_player, "card_slot_1")
+
+        assert game.dirty_trick_windows == []
+        assert safety_bot.bot_pending_action is None
+        assert safety in safety_bot.hand
+        assert target_state.dirty_trick_count == 0
+
+    def test_restore_prunes_window_for_already_resolved_hazard(self):
+        game = MileByMileGame()
+        game.add_player("Alice", MockUser("Alice", uuid="p1"))
+        bob = game.add_player("Bob", MockUser("Bob", uuid="p2"))
+        game.on_start()
+        bob_state = game.get_player_race_state(bob)
+        assert bob_state is not None
+        bob_state.remove_problem(HazardType.STOP)
+        game._open_dirty_trick_window(bob.team_index, HazardType.STOP)
+
+        restored = MileByMileGame.from_json(game.to_json())
+        restored.rebuild_runtime_state()
+
+        assert restored.dirty_trick_windows == []
+        assert restored.dirty_trick_window_team is None
 
     def test_out_of_turn_bot_can_play_team_dirty_trick(self):
         game = MileByMileGame()
@@ -478,6 +672,9 @@ class TestMileByMileDirtyTricks:
             safety_bot.team_index,
             HazardType.OUT_OF_GAS,
         )
+        safety_bot_state = game.get_player_race_state(safety_bot)
+        assert safety_bot_state is not None
+        safety_bot_state.add_problem(HazardType.OUT_OF_GAS)
         safety_bot.bot_think_ticks = 5
         safety_bot.bot_pending_action = None
         game.current_player = actor
@@ -648,6 +845,10 @@ class TestMileByMileDirtyTricks:
 
     def test_independent_dirty_trick_windows_expire_separately(self):
         game = MileByMileGame()
+        game.race_states = [
+            RaceState(problems=[HazardType.FLAT_TIRE]),
+            RaceState(problems=[HazardType.STOP]),
+        ]
         game.dirty_trick_windows = [
             DirtyTrickWindow(
                 team_index=0,

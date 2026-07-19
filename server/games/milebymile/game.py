@@ -91,6 +91,8 @@ class MileByMileGame(Game):
         super().rebuild_runtime_state()
         self._round_timer = RoundTimer(self, delay_seconds=10.0)
         self._migrate_legacy_dirty_trick_window()
+        if self.game_active and self.status == "playing":
+            self._prune_inactive_dirty_trick_windows()
         if self._legacy_dirty_trick_turn_advance:
             self._legacy_dirty_trick_turn_advance = False
             self._end_turn()
@@ -634,11 +636,16 @@ class MileByMileGame(Game):
         if is_touch:
             return None
 
-        if not self.dirty_trick_windows:
+        active_windows = [
+            window
+            for window in self.dirty_trick_windows
+            if self._is_dirty_trick_window_active(window)
+        ]
+        if not active_windows:
             return "milebymile-no-dirty-trick-window"
         if not any(
             window.team_index == mbm_player.team_index
-            for window in self.dirty_trick_windows
+            for window in active_windows
         ):
             return "milebymile-not-your-dirty-trick"
         return None
@@ -1418,6 +1425,51 @@ class MileByMileGame(Game):
         )
         self._sync_legacy_dirty_trick_window()
 
+    def _is_dirty_trick_window_active(self, window: DirtyTrickWindow) -> bool:
+        """Return whether a reaction still points to an unresolved Hazard."""
+        race_state = self.get_race_state(window.team_index)
+        return (
+            window.ticks > 0
+            and race_state is not None
+            and race_state.has_problem(window.hazard)
+        )
+
+    def _prune_inactive_dirty_trick_windows(self) -> None:
+        """Discard expired or already-resolved reaction opportunities."""
+        active_windows = [
+            window
+            for window in self.dirty_trick_windows
+            if self._is_dirty_trick_window_active(window)
+        ]
+        if len(active_windows) == len(self.dirty_trick_windows):
+            return
+        self.dirty_trick_windows = active_windows
+        self._sync_legacy_dirty_trick_window()
+        if self.dirty_trick_windows:
+            self._clear_stale_dirty_trick_bot_actions()
+
+    def _close_dirty_trick_windows_for_hazards(
+        self,
+        team_index: int,
+        hazards: set[str],
+    ) -> None:
+        """Close one team's reactions after those Hazards are resolved."""
+        if not hazards:
+            return
+        remaining_windows = [
+            window
+            for window in self.dirty_trick_windows
+            if not (
+                window.team_index == team_index and window.hazard in hazards
+            )
+        ]
+        if len(remaining_windows) == len(self.dirty_trick_windows):
+            return
+        self.dirty_trick_windows = remaining_windows
+        self._sync_legacy_dirty_trick_window()
+        if self.dirty_trick_windows:
+            self._clear_stale_dirty_trick_bot_actions()
+
     def _matching_dirty_trick_window(
         self,
         player: MileByMilePlayer,
@@ -1428,7 +1480,8 @@ class MileByMileGame(Game):
             return None
         for window in reversed(self.dirty_trick_windows):
             if (
-                window.team_index == player.team_index
+                self._is_dirty_trick_window_active(window)
+                and window.team_index == player.team_index
                 and HAZARD_TO_SAFETY.get(window.hazard) == card.value
             ):
                 return window
@@ -1438,6 +1491,8 @@ class MileByMileGame(Game):
         """Handle dirty trick (Coup Fourré) attempt."""
         if not isinstance(player, MileByMilePlayer):
             return
+
+        self._prune_inactive_dirty_trick_windows()
 
         # Explicit validation (moved from is_enabled for web clients)
         if not self.dirty_trick_windows:
@@ -1518,7 +1573,13 @@ class MileByMileGame(Game):
     ) -> None:
         """Resolve a reaction without interrupting the active player's action."""
         selected_window = window or self._matching_dirty_trick_window(player, card)
-        if selected_window is None:
+        if (
+            selected_window is None
+            or selected_window not in self.dirty_trick_windows
+            or not self._is_dirty_trick_window_active(selected_window)
+            or selected_window.team_index != player.team_index
+            or HAZARD_TO_SAFETY.get(selected_window.hazard) != card.value
+        ):
             return
 
         active_player = self.current_player
@@ -1538,7 +1599,8 @@ class MileByMileGame(Game):
             )
         ]
         self._sync_legacy_dirty_trick_window()
-        self._clear_stale_dirty_trick_bot_actions()
+        if self.dirty_trick_windows:
+            self._clear_stale_dirty_trick_bot_actions()
 
         if active_player is not None and active_player != player:
             self.dirty_trick_bonus_turn_player_ids.append(player.id)
@@ -2023,6 +2085,7 @@ class MileByMileGame(Game):
         if not race_state:
             return
 
+        problems_before = set(race_state.problems)
         player.hand.pop(slot)
         race_state.battle_pile.append(card)
 
@@ -2044,6 +2107,12 @@ class MileByMileGame(Game):
         elif remedy == RemedyType.REPAIRS:
             race_state.remove_problem(HazardType.ACCIDENT)
             self.play_sound(f"game_milebymile/repair{random.randint(1, 2)}.ogg")
+
+        resolved_hazards = problems_before.difference(race_state.problems)
+        self._close_dirty_trick_windows_for_hazards(
+            player.team_index,
+            resolved_hazards,
+        )
 
         if self.is_individual_mode():
             self._broadcast_actor_card_l(
@@ -2837,6 +2906,7 @@ class MileByMileGame(Game):
         # Handle round timer
         self._round_timer.on_tick()
 
+        self._prune_inactive_dirty_trick_windows()
         if self.dirty_trick_windows:
             for window in self.dirty_trick_windows:
                 window.ticks -= 1
@@ -2844,7 +2914,8 @@ class MileByMileGame(Game):
                 window for window in self.dirty_trick_windows if window.ticks > 0
             ]
             self._sync_legacy_dirty_trick_window()
-            self._clear_stale_dirty_trick_bot_actions()
+            if self.dirty_trick_windows:
+                self._clear_stale_dirty_trick_bot_actions()
 
         current_bot_reserved = self._process_dirty_trick_bots()
         if current_bot_reserved:

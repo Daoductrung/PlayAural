@@ -10,6 +10,7 @@ import struct
 import pytest
 
 from server.core.server import Server
+from server.games.explodingkittens import bot as exploding_bot
 from server.games.explodingkittens.cards import (
     ATTACK,
     BEARD_CAT,
@@ -23,6 +24,7 @@ from server.games.explodingkittens.cards import (
     SHUFFLE,
     SKIP,
     ExplodingKittensCard,
+    active_defuse_count,
     build_full_deck,
 )
 from server.games.explodingkittens.game import (
@@ -1994,6 +1996,32 @@ def test_bot_nope_decisions_follow_the_underlying_action_impact() -> None:
     assert game.bot_think(observer) == "play_nope"
 
 
+def test_bot_preserves_nope_when_it_can_stack_an_incoming_attack() -> None:
+    game = make_game(2)
+    start_with_current(game)
+    actor, bot = game.players
+    bot.hand = [card(1172, ATTACK), card(1173, NOPE), card(1174, DEFUSE)]
+    game.pending_action = PendingAction(kind=ACTION_ATTACK, actor_id=actor.id)
+    game.phase = PHASE_NOPE
+
+    assert game.bot_think(bot) == "pass_nope"
+
+    game.pending_action.nope_count = 1
+    game.pending_action.last_nope_player_id = actor.id
+    assert game.bot_think(bot) == "play_nope"
+
+
+@pytest.mark.parametrize(
+    ("player_count", "expected"),
+    [(2, 4), (3, 5), (4, 6), (5, 6)],
+)
+def test_active_defuse_count_matches_public_setup_rules(
+    player_count: int,
+    expected: int,
+) -> None:
+    assert active_defuse_count(player_count) == expected
+
+
 def test_bot_reinsertion_accounts_for_remaining_attack_turns(monkeypatch) -> None:
     game = make_game(2)
     start_with_current(game)
@@ -2023,6 +2051,36 @@ def test_bot_stacks_attack_even_when_the_next_draw_is_known_safe() -> None:
     assert game.bot_think(bot) == "play_card_1188"
 
 
+def test_bot_preserves_attack_when_every_forced_draw_is_known_safe() -> None:
+    game = make_game(2)
+    start_with_current(game)
+    bot = game.players[0]
+    safe_cards = [card(1300 + index, FAVOR) for index in range(3)]
+    kitten = card(1303, EXPLODING_KITTEN)
+    game.deck = [*safe_cards, kitten]
+    bot.known_future_card_ids = [card.id for card in safe_cards]
+    bot.hand = [card(1304, ATTACK), card(1305, DEFUSE)]
+    game.turns_remaining = 3
+    game.attack_obligation = True
+
+    assert game.bot_think(bot) == "draw_card"
+
+
+def test_bot_detects_a_kitten_beyond_the_first_forced_draw() -> None:
+    game = make_game(2)
+    start_with_current(game)
+    bot = game.players[0]
+    safe = card(1306, FAVOR)
+    kitten = card(1307, EXPLODING_KITTEN)
+    game.deck = [safe, kitten, card(1308, SKIP)]
+    bot.known_future_card_ids = [safe.id, kitten.id]
+    bot.hand = [card(1309, ATTACK), card(1310, DEFUSE)]
+    game.turns_remaining = 2
+    game.attack_obligation = True
+
+    assert game.bot_think(bot) == "play_card_1309"
+
+
 def test_bot_does_not_shuffle_a_genuinely_unknown_deck() -> None:
     game = make_game(2)
     start_with_current(game)
@@ -2038,6 +2096,47 @@ def test_bot_does_not_shuffle_a_genuinely_unknown_deck() -> None:
     ]
 
     assert game.bot_think(bot) == "draw_card"
+
+
+def test_bot_never_wastes_shuffle_on_a_singleton_deck() -> None:
+    game = make_game(2)
+    start_with_current(game)
+    bot = game.players[0]
+    kitten = card(1193, EXPLODING_KITTEN)
+    game.deck = [kitten]
+    bot.known_future_card_ids = [kitten.id]
+    bot.hand = [card(1194, SHUFFLE), card(1195, DEFUSE)]
+
+    assert game.bot_think(bot) == "draw_card"
+
+
+def test_bot_mixes_only_near_equivalent_actions(monkeypatch) -> None:
+    monkeypatch.setattr(
+        random,
+        "choices",
+        lambda population, **kwargs: [population[-1]],
+    )
+
+    close = [(10.0, "draw_card"), (9.5, "play_card_1")]
+    decisive = [(10.0, "draw_card"), (8.0, "play_card_1")]
+
+    assert exploding_bot._mixed_choice(close) == "play_card_1"
+    assert exploding_bot._mixed_choice(decisive) == "draw_card"
+
+
+def test_bot_saves_nope_against_low_expected_value_pair() -> None:
+    game = make_game(2)
+    start_with_current(game)
+    actor, bot = game.players
+    bot.hand = [card(1196, NOPE), *[card(1200 + index, BEARD_CAT) for index in range(8)]]
+    game.pending_action = PendingAction(
+        kind=ACTION_PAIR,
+        actor_id=actor.id,
+        target_id=bot.id,
+    )
+    game.phase = PHASE_NOPE
+
+    assert game.bot_think(bot) == "pass_nope"
 
 
 def test_bot_can_shuffle_to_erase_an_opponents_future_knowledge() -> None:
@@ -2061,6 +2160,41 @@ def test_bot_can_shuffle_to_erase_an_opponents_future_knowledge() -> None:
     bot.hand = [card(1210, SHUFFLE), card(1211, DEFUSE)]
 
     assert game.bot_think(bot) == "play_card_1210"
+
+
+@pytest.mark.parametrize("secret_position", [0, 5, 9])
+def test_bot_shuffles_after_opponent_reinsertion_without_peeking_at_depth(
+    secret_position: int,
+) -> None:
+    game = make_game(2)
+    start_with_current(game)
+    bot, opponent = game.players
+    kitten = card(1270, EXPLODING_KITTEN)
+    game.deck = [card(1271 + index, FAVOR) for index in range(9)]
+    game.deck.insert(secret_position, kitten)
+    opponent.known_kitten_positions = {kitten.id: secret_position}
+    opponent.hand = [card(1281, DEFUSE), card(1282, NOPE), card(1283, ATTACK)]
+    bot.hand = [card(1284, SHUFFLE), card(1285, DEFUSE)]
+
+    assert game.bot_think(bot) == "play_card_1284"
+
+
+def test_bot_attack_evaluation_does_not_read_opponent_private_knowledge() -> None:
+    games = [make_game(2), make_game(2)]
+    actions: list[str] = []
+    for index, game in enumerate(games):
+        start_with_current(game)
+        bot, opponent = game.players
+        kitten = card(1290, EXPLODING_KITTEN)
+        safe = card(1291, FAVOR)
+        game.deck = [safe, kitten]
+        bot.hand = [card(1292, ATTACK), card(1293, DEFUSE)]
+        if index:
+            opponent.known_future_card_ids = [safe.id, kitten.id]
+            opponent.known_kitten_positions = {kitten.id: 1}
+        actions.append(game.bot_think(bot))
+
+    assert actions[0] == actions[1]
 
 
 def test_private_reinsertion_knowledge_tracks_draws_save_load_and_shuffle() -> None:

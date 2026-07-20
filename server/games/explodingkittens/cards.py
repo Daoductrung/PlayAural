@@ -59,6 +59,25 @@ CARD_SORT_ORDER = {
     EXPLODING_KITTEN: 99,
 }
 
+FIVE_PLAYER_GAME_SIZE = 5
+FIVE_PLAYER_EXTRA_DEFUSES = 1
+STANDARD_EXTRA_DEFUSES = 2
+SEE_FUTURE_CARD_COUNT = 3
+
+
+def extra_defuse_count(player_count: int) -> int:
+    """Return the number of Defuses shuffled into the draw pile at setup."""
+    return (
+        FIVE_PLAYER_EXTRA_DEFUSES
+        if player_count == FIVE_PLAYER_GAME_SIZE
+        else STANDARD_EXTRA_DEFUSES
+    )
+
+
+def active_defuse_count(player_count: int) -> int:
+    """Return the publicly known total Defuses active at game setup."""
+    return min(CARD_COUNTS[DEFUSE], player_count + extra_defuse_count(player_count))
+
 
 @dataclass(frozen=True)
 class ExplodingKittensCard(DataClassJSONMixin):

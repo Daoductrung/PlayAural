@@ -31,6 +31,8 @@ from .cards import (
     SHUFFLE,
     SKIP,
     ExplodingKittensCard,
+    SEE_FUTURE_CARD_COUNT,
+    extra_defuse_count,
     build_full_deck,
     card_name,
     sort_cards,
@@ -391,7 +393,7 @@ class ExplodingKittensGame(Game):
             player.hand.append(defuses.pop())
             player.hand[:] = sort_cards(player.hand)
 
-        extra_defuses = 1 if len(players) == 5 else 2
+        extra_defuses = extra_defuse_count(len(players))
         working.extend(defuses[:extra_defuses])
         self.removed_cards.extend(defuses[extra_defuses:])
 
@@ -1779,7 +1781,7 @@ class ExplodingKittensGame(Game):
         actor: ExplodingKittensPlayer,
         pending: PendingAction,
     ) -> None:
-        cards = self.deck[:3]
+        cards = self.deck[:SEE_FUTURE_CARD_COUNT]
         actor.known_future_card_ids = [card.id for card in cards]
         for listener in self.players:
             user = self.get_user(listener)

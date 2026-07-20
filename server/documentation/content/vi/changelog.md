@@ -1,11 +1,21 @@
 Nhật ký thay đổi
 
+Thứ Hai 20 Tháng Bảy 2026
+
+Cải thiện:
+
+* Bot trong Mèo Nổ giờ khó đoán và khó đánh bại hơn nhiều. Chỉ dùng thông tin mà người chơi có thể biết, bot tính nguy cơ qua toàn bộ các lượt rút bắt buộc, chồng Tấn Công, cân nhắc đánh hoặc giữ Phủ Nhận, tận dụng bộ cùng tên, chọn mục tiêu có lợi, dùng Xáo Bài để xóa kiến thức của đối thủ về các lá sắp tới hoặc vị trí Mèo Nổ vừa đặt lại, không lãng phí Xáo Bài khi chồng rút chỉ còn một lá, và đặt Mèo Nổ ở độ sâu chiến lược nhưng luôn thay đổi.
+* Thời gian phản hồi Phủ Nhận trong Mèo Nổ giờ có thêm mức 2 và 3 giây; trò chơi cũng hướng dẫn rõ ràng hơn khi chọn bộ cùng tên, mục tiêu, lá muốn lấy, lá đưa theo Xin Bài, cách xử lý Gỡ Bom và vị trí đặt lại Mèo Nổ. Nếu mục tiêu hết bài trong lúc một hành động đang chờ, hành động sẽ kết thúc gọn gàng và ván chơi tiếp tục; ván được khôi phục cũng tiếp tục an toàn nếu trước đó còn lựa chọn chưa hoàn tất.
+* Đường Đua Ngàn Dặm giờ giữ riêng từng cơ hội Phản đòn 7 giây trong khi lượt chơi thông thường vẫn tiếp tục. Lá khắc phục tương ứng chỉ đóng cơ hội đó; lá bảo vệ hoặc lá khắc phục hợp lệ đến trước sẽ quyết định kết quả; lượt được thưởng bắt đầu sau khi lượt hiện tại kết thúc. Thông báo trong Chế độ đội cũng nêu rõ hơn người vừa hành động.
+* Bot trong Đường Đua Ngàn Dặm giờ biết tính toán việc về đích đúng cự ly, điểm chặng đua và điểm trận, Sự cố, lá khắc phục, Lá bảo vệ, Phản đòn, Nghiệp, đồng đội, chồng rút và chồng bỏ để đánh hoặc bỏ bài khôn ngoan hơn.
+* Quản trị giờ có một màn hình chung để nhập bản dịch cho thông báo trong ngày, lý do tắt hoặc khởi động lại máy chủ, lý do cấm tùy chỉnh và lý do tắt tiếng tùy chỉnh. Các ngôn ngữ chính thức bắt buộc phải có nội dung, còn ngôn ngữ cộng đồng có thể dùng ngôn ngữ dự phòng để mỗi người nhận thông báo phù hợp.
+
 Thứ Bảy 18 Tháng Bảy 2026
 
 Tính năng mới:
 
-* Mèo Nổ đã được thêm cho 2 đến 5 người chơi với trọn bộ Cơ Bản 56 lá, người máy có chiến thuật, các tùy chọn Ván Nhanh và Bộ Cùng Tên Nâng Cao, Thời Gian Phản Hồi Phủ Nhận có thể điều chỉnh, âm thanh riêng, cùng tài liệu cho người mới bằng tiếng Anh và tiếng Việt.
-* Tiếng Ba Tư đã được bổ sung trên máy chủ, phần mềm máy tính, web, và di động, kèm bản dịch nội dung trò chơi và tài liệu dành cho người chơi.
+* Mèo Nổ đã được thêm cho 2 đến 5 người chơi với trọn bộ Cơ Bản 56 lá, bot có chiến thuật, các tùy chọn Ván nhanh và Bộ cùng tên nâng cao, Thời gian phản hồi Phủ Nhận có thể điều chỉnh, âm thanh riêng, cùng tài liệu cho người mới bằng tiếng Anh và tiếng Việt.
+* Tiếng Ba Tư đã được bổ sung trên máy chủ, phần mềm máy tính, web, và di động. Khi trò chơi hoặc tài liệu mới chưa có bản dịch, nội dung sẽ dùng bản tiếng Anh.
 
 Cải thiện:
 

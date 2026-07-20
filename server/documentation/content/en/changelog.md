@@ -1,11 +1,21 @@
 Changelog
 
+Monday 20 July 2026
+
+Improvements:
+
+* Exploding Kittens bots are now much harder to read and beat. Using only information a player could know, they weigh danger across every forced draw, stack Attacks, choose when to play or save Nopes, exploit combos, target opponents strategically, shuffle to erase an opponent's knowledge of upcoming cards or a recent Kitten placement, never waste a Shuffle on a one-card draw pile, and return defused Kittens at strategically varied depths.
+* Exploding Kittens now offers 2- and 3-second Nope response times and gives clearer guidance while choosing combos, targets, requested cards, Favor gifts, Defuse responses, and Kitten positions. If a target runs out of cards while an action is waiting, the action finishes cleanly and play continues; restored matches also recover safely from unfinished choices.
+* Mile by Mile now keeps each 7-second Dirty Trick opportunity open while ordinary play continues. A matching remedy closes only that opportunity, the first valid Safety or remedy decides the result when both are played almost together, and earned turns begin after the current turn finishes. Team announcements also identify the player who acted more clearly.
+* Mile by Mile bots now plan around exact finishes, race and match scores, Hazards, remedies, Safeties, Dirty Tricks, Karma, teammates, and the draw and discard piles, leading to stronger plays and discards.
+* Administration now provides one translation screen for the Message of the Day, planned server restart or shutdown reasons, and custom ban or mute reasons. Official languages are required, while community languages may use a fallback so notices reach each player in a suitable language.
+
 Saturday 18 July 2026
 
 New Additions:
 
 * Exploding Kittens has been added for 2 to 5 players with the complete 56-card Original Edition game, strategic bots, Faster game and Advanced combos options, configurable Nope response time, dedicated audio, and beginner guides in English and Vietnamese.
-* Persian is now available across the server, desktop, web, and mobile, with translated game text and player guides.
+* Persian is now available across the server, desktop, web, and mobile. When a newer game or guide has not yet been translated, its content falls back to English.
 
 Improvements:
 

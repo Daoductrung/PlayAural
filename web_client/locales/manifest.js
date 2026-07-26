@@ -19,4 +19,10 @@ export const LOCALE_METADATA = {
     contributors: ["Hamid Rezaei"],
     official: false,
   },
+  es: {
+    name: "Spanish",
+    nativeName: "Español",
+    contributors: ["UnDuende"],
+    official: false,
+  },
 };

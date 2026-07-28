@@ -111,7 +111,7 @@ Important server-driven packets include:
 ### Server Architecture
 - **`server/core/server.py`** — Main orchestrator, auth routing, menus, reconnect, moderation, MOTD, presence
 - **`server/network/websocket_server.py`** — Async WebSocket transport
-- **`server/games/`** — 43 registered game implementations
+- **`server/games/`** — 44 registered game implementations
 - **`server/game_utils/`** — shared game mixins and helpers
 - **`server/tables/`** — table lifecycle, save/restore, membership
 - **`server/auth/`** — authentication, CAPTCHA checks, password reset, rate limiting
@@ -165,6 +165,9 @@ Core primitives:
 - `SequenceOperation.callback_op("callback_id", payload={...})`
 - `SequenceBeat(ops=[...], delay_after_ticks=N)`
 - `SequenceBeat.pause(N)`
+- `SequenceBeat.after_audio(duration_ticks, wait_ratio=..., ops=[...])` for
+  dynamic delays before the following beat that remain correct when an asset
+  is replaced; add a following beat when the sequence must remain active
 
 Standard rule:
 - use `SEQUENCE_LOCK_GAMEPLAY` by default
@@ -683,11 +686,11 @@ Mobile rules:
   language names; metadata complements it and does not replace it.
 
 ### Game Counts and Catalog
-The server currently registers **43 games**:
+The server currently registers **44 games**:
 - category ids are `cards`, `dice`, `board`, `poker`, `arcade`, and `misc`
 - the Play menu exposes a persisted category filter with dynamic per-category game counts
 - games usually expose one category through `get_category()`, while `get_categories()` supports future multi-category games
-- recent additions include `Metal Pipe`, `Nine`, `Senet`, `Cards Against Humanity`, `21`, `Age of Heroes`, `UNO`, and `Exploding Kittens`
+- recent additions include `Metal Pipe`, `Nine`, `Senet`, `Cards Against Humanity`, `21`, `Age of Heroes`, `UNO`, `Exploding Kittens`, and `BANG! The Bullet`
 
 ### Key Tech Stack
 - Python 3.11, `asyncio`, `websockets>=12.0`, `mashumaro`, `fluent-runtime`, `openskill`, `argon2-cffi`

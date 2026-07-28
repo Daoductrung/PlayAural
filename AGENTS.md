@@ -49,7 +49,7 @@ cd mobile_client && cmd /c npm run typecheck && npx expo start
 
 ## Core Architecture
 
-- `server/games/` currently registers 43 games. Categories are `cards`, `dice`,
+- `server/games/` currently registers 44 games. Categories are `cards`, `dice`,
   `board`, `poker`, `arcade`, and `misc`; user-facing category labels must be
   localized. The Play menu uses dynamic counts, not hardcoded category counts.
 - Games are `@dataclass` classes registered with `@register_game`, inherit from
@@ -80,6 +80,10 @@ Rules:
 
 - Build explicit `SequenceBeat` lists with `sound_op`, `localized_sound_op`,
   and `callback_op`.
+- Use `SequenceBeat.after_audio(duration_ticks, wait_ratio=...)` when the next
+  beat should overlap a measured asset; the ratio delays the following beat,
+  so add a following beat when the sequence must remain active. Keep duration
+  data-driven instead of hardcoding replacement-sensitive delays.
 - State changes happen in callbacks, not because a sound played.
 - Payloads must be Mashumaro-safe primitives, lists, dicts, or safe dataclasses.
 - Prefer `SEQUENCE_LOCK_GAMEPLAY`; keep info/status actions available.

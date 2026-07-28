@@ -42,7 +42,11 @@ class GameCommunicationMixin:
                 continue
             user = self.get_user(player)
             if user:
-                user.speak_l(message_id, buffer, **kwargs)
+                user.speak_l(
+                    message_id,
+                    buffer,
+                    **self._resolve_broadcast_kwargs(user.locale, kwargs),
+                )
 
     def broadcast_personal_l(
         self,
@@ -67,14 +71,33 @@ class GameCommunicationMixin:
         """
         user = self.get_user(player)
         if user:
-            user.speak_l(personal_message_id, buffer, **kwargs)
+            user.speak_l(
+                personal_message_id,
+                buffer,
+                **self._resolve_broadcast_kwargs(user.locale, kwargs),
+            )
 
         for p in self.players:
             if p is player:
                 continue
             u = self.get_user(p)
             if u:
-                u.speak_l(others_message_id, buffer, player=player.name, **kwargs)
+                localized = self._resolve_broadcast_kwargs(u.locale, kwargs)
+                u.speak_l(
+                    others_message_id,
+                    buffer,
+                    player=player.name,
+                    **localized,
+                )
+
+    @staticmethod
+    def _resolve_broadcast_kwargs(locale: str, kwargs: dict) -> dict:
+        """Resolve locale-builder callables for one broadcast recipient."""
+
+        return {
+            name: value(locale) if callable(value) else value
+            for name, value in kwargs.items()
+        }
 
     def label_l(self, message_id: str) -> Callable[["Game", "Player"], str]:
         """

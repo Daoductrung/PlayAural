@@ -760,20 +760,6 @@ class BattleGame(Game):
             )
         return lines
 
-    def _broadcast_game_localized(self, key: str, **builder_kwargs) -> None:
-        for player in self.players:
-            user = self.get_user(player)
-            if not user:
-                continue
-            kwargs = self._localized_kwargs(user.locale, builder_kwargs)
-            user.speak_l(key, buffer="game", **kwargs)
-
-    def _localized_kwargs(self, locale: str, builder_kwargs: dict) -> dict:
-        return {
-            name: value(locale) if callable(value) else value
-            for name, value in builder_kwargs.items()
-        }
-
     def _broadcast_actor_localized(
         self,
         actor: Player | None,
@@ -781,14 +767,16 @@ class BattleGame(Game):
         public_key: str,
         **builder_kwargs,
     ) -> None:
-        actor_id = actor.id if actor else ""
-        for recipient in self.players:
-            user = self.get_user(recipient)
-            if not user:
-                continue
-            key = personal_key if actor_id and recipient.id == actor_id else public_key
-            kwargs = self._localized_kwargs(user.locale, builder_kwargs)
-            user.speak_l(key, buffer="game", **kwargs)
+        if actor:
+            self.broadcast_personal_l(
+                actor,
+                personal_key,
+                public_key,
+                buffer="game",
+                **builder_kwargs,
+            )
+        else:
+            self.broadcast_l(public_key, buffer="game", **builder_kwargs)
 
     def _broadcast_fighter_localized(
         self,
@@ -802,7 +790,7 @@ class BattleGame(Game):
             if not user:
                 continue
             key = personal_key if subject.owner_player_id and recipient.id == subject.owner_player_id else public_key
-            kwargs = self._localized_kwargs(user.locale, builder_kwargs)
+            kwargs = self._resolve_broadcast_kwargs(user.locale, builder_kwargs)
             user.speak_l(key, buffer="game", **kwargs)
 
     def prestart_validate(self) -> list[str | tuple[str, dict]]:
@@ -900,7 +888,6 @@ class BattleGame(Game):
             player,
             "battle-selection-locked-you",
             "battle-selection-locked-player",
-            player=player.name,
         )
 
     def _choose_bot_roster(self, selection_count: int) -> list[str]:
@@ -2131,7 +2118,6 @@ class BattleGame(Game):
             player,
             "battle-selected-fighters-you",
             "battle-selected-fighters-player",
-            player=player.name,
             fighters=lambda locale: self._preset_list_label(locale, selected_ids),
         )
 
@@ -2181,7 +2167,6 @@ class BattleGame(Game):
             player,
             "battle-selection-locked-you",
             "battle-selection-locked-player",
-            player=player.name,
         )
         self.refresh_menus()
 

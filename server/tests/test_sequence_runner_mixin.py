@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+import pytest
+
 from ..game_utils.actions import ActionSet
 from ..game_utils.game_result import GameResult
 from ..game_utils.options import GameOptions
@@ -211,3 +213,59 @@ def test_zero_delay_sequence_yields_after_budget_instead_of_looping_forever() ->
     advance_ticks(game, 1)
     assert len(game.callback_log) == len(beats)
     assert game.has_active_sequence(sequence_id="budget") is False
+
+
+def test_sequence_beat_scales_audio_delay_by_ratio() -> None:
+    operation = SequenceOperation.sound_op("test/tone.ogg")
+
+    beat = SequenceBeat.after_audio(
+        7,
+        wait_ratio=0.5,
+        ops=[operation],
+    )
+
+    assert beat.ops == [operation]
+    assert beat.delay_after_ticks == 4
+    assert SequenceBeat.audio_delay_ticks(10, wait_ratio=0.6) == 6
+    assert SequenceBeat.audio_delay_ticks(10) == 10
+    assert SequenceBeat.audio_delay_ticks(10, wait_ratio=1.1) == 11
+    assert SequenceBeat.audio_delay_ticks(10, wait_ratio=0.0) == 0
+
+
+@pytest.mark.parametrize(
+    ("duration_ticks", "wait_ratio"),
+    [
+        (-1, 0.5),
+        (10, -0.1),
+        (10, float("inf")),
+        (10, float("nan")),
+    ],
+)
+def test_sequence_beat_rejects_invalid_audio_delay(
+    duration_ticks: int,
+    wait_ratio: float,
+) -> None:
+    with pytest.raises(ValueError):
+        SequenceBeat.after_audio(duration_ticks, wait_ratio=wait_ratio)
+
+
+def test_zero_ratio_and_empty_sequences_finish_immediately() -> None:
+    game = make_game()
+
+    game.start_sequence(
+        "zero_ratio",
+        [
+            SequenceBeat.after_audio(
+                100,
+                wait_ratio=0.0,
+                ops=[SequenceOperation.callback_op("zero")],
+            )
+        ],
+        lock_scope=game.SEQUENCE_LOCK_GAMEPLAY,
+        pause_bots=True,
+    )
+    game.start_sequence("empty", [])
+
+    assert game.callback_log == ["zero_ratio:zero:"]
+    assert game.has_active_sequence(sequence_id="zero_ratio") is False
+    assert game.has_active_sequence(sequence_id="empty") is False

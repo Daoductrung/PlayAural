@@ -15,6 +15,7 @@ class MockClient:
         self.address = address
         self.username = None
         self.authenticated = False
+        self.retired = False
         self.closed = False
 
     async def send(self, message):
@@ -39,6 +40,10 @@ class DummyWebSocketServer:
         client = self._clients_by_address.get(address)
         if client is not None:
             self._clients_by_username[username] = client
+
+    def unregister_client_username(self, username, client):
+        if self._clients_by_username.get(username) is client:
+            self._clients_by_username.pop(username, None)
 
 class TestFriendsSystem:
     def setup_method(self):

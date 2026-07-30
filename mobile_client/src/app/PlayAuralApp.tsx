@@ -1896,6 +1896,28 @@ export function PlayAuralApp() {
     audio.stopAll(800);
   };
 
+  const resetRuntimeUiForSession = useCallback((sendVoiceLeave: boolean) => {
+    leaveVoiceChat({
+      announce: false,
+      clearContext: true,
+      sendLeave: sendVoiceLeave,
+      statusKey: "voice-chat-not-connected",
+    });
+    audio.stopAll(800);
+    Keyboard.dismiss();
+    activeTextInputKeyRef.current = null;
+    setActiveTextInputKey(null);
+    transientTurnMenuAllowanceRef.current = null;
+    nativeMenuFocusOnNextPacketRef.current = false;
+    nativeMenuFocusRequestedAtRef.current = 0;
+    clearScheduledNativeFocus();
+    setMenuState(defaultMenuState);
+    menuStateRef.current = defaultMenuState;
+    setInputState(null);
+    inputStateRef.current = null;
+    setInputValue("");
+  }, [audio, clearScheduledNativeFocus, leaveVoiceChat]);
+
   const queueReconnectAttempt = useCallback((delayMs: number, statusMessage: string, speakMessage = false) => {
     const { password: reconnectPassword, serverUrl: reconnectServerUrl, username: reconnectUsername } = credentialsRef.current;
     if (!allowReconnectRef.current || manualDisconnectRef.current || !sessionEstablishedRef.current) {
@@ -2213,6 +2235,11 @@ export function PlayAuralApp() {
         }
         if (packet.type === "authorize_success") {
           const authPacket = packet as AuthorizeSuccessPacket;
+          if (authPacket.reset_ui === true) {
+            // Reset the previous socket before emitting this session's welcome
+            // feedback, so teardown cannot cancel the fresh speech or SFX.
+            resetRuntimeUiForSession(false);
+          }
           manualDisconnectRef.current = false;
           allowReconnectRef.current = true;
           expectingReconnectRef.current = false;
@@ -2246,25 +2273,7 @@ export function PlayAuralApp() {
         }
 
         if (packet.type === "clear_ui") {
-          leaveVoiceChat({
-            announce: false,
-            clearContext: true,
-            sendLeave: voicePresenceRegisteredRef.current,
-            statusKey: "voice-chat-not-connected",
-          });
-          stopGameAudio();
-          Keyboard.dismiss();
-          activeTextInputKeyRef.current = null;
-          setActiveTextInputKey(null);
-          transientTurnMenuAllowanceRef.current = null;
-          nativeMenuFocusOnNextPacketRef.current = false;
-          nativeMenuFocusRequestedAtRef.current = 0;
-          clearScheduledNativeFocus();
-          setMenuState(defaultMenuState);
-          menuStateRef.current = defaultMenuState;
-          setInputState(null);
-          inputStateRef.current = null;
-          setInputValue("");
+          resetRuntimeUiForSession(voicePresenceRegisteredRef.current);
           return;
         }
 

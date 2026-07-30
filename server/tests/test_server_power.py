@@ -20,6 +20,9 @@ class DummyClient:
     def __init__(self, username: str):
         self.username = username
         self.address = ("127.0.0.1", 0)
+        self.authenticated = True
+        self.retired = False
+        self.session_ready = True
 
     async def send(self, packet: dict) -> None:
         return None

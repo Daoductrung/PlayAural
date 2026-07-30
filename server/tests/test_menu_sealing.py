@@ -180,6 +180,56 @@ class TestRecordAndFlush:
         )
         assert len(turn_menu_messages(user1)) >= 1
 
+    def test_session_handover_rebuilds_touch_menu_without_reconnect_grace(self) -> None:
+        game = make_game()
+        player = game.players[0]
+        game.status = "playing"
+        player.reconnect_grace_ticks = 7
+        replacement = MockUser("Player1", uuid=player.id)
+        replacement.client_type = "mobile"
+
+        game.attach_user(player.id, replacement, session_handover=True)
+        game.restore_session_ui(player)
+        game.flush_menus()
+
+        item_ids = [
+            item.id
+            for item in replacement.get_current_menu_items("turn_menu") or []
+        ]
+        assert "web_actions_menu" in item_ids
+        assert "web_leave_table" in item_ids
+        assert player.reconnect_grace_ticks == 7
+
+    def test_session_handover_rebuilds_pending_editbox(self) -> None:
+        game = make_game()
+        player = game.players[0]
+        original = game.get_user(player)
+        original.preferences.allow_custom_bot_names = True
+        game.execute_action(player, "add_bot")
+        assert player.id in game._pending_actions
+
+        replacement = MockUser("Player1", uuid=player.id)
+        replacement.preferences.allow_custom_bot_names = True
+        game.attach_user(player.id, replacement, session_handover=True)
+        game.restore_session_ui(player)
+
+        assert player.id in game._pending_actions
+        assert "action_input_editbox" in replacement.editboxes
+
+    def test_session_handover_dismisses_unrestorable_static_status_box(self) -> None:
+        game = make_game()
+        player = game.players[0]
+        game.status_box(player, ["Snapshot"])
+        assert player.id in game._status_box_open
+
+        replacement = MockUser("Player1", uuid=player.id)
+        game.attach_user(player.id, replacement, session_handover=True)
+        game.restore_session_ui(player)
+        game.flush_menus()
+
+        assert player.id not in game._status_box_open
+        assert replacement.get_current_menu_items("turn_menu") is not None
+
 
 class TestPostGameMenuState:
     def test_end_screen_actions_are_ordered_leave_then_return(self) -> None:

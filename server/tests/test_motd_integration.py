@@ -126,9 +126,10 @@ async def test_motd_login_interception(mock_server):
 
     # Since we bypass network auth for tests, let's call _handle_authorize logic manually
     client = MagicMock()
-    client.username = "test_user"
+    client.username = None
     client.ip_address = "127.0.0.1"
-    client.authenticated = True
+    client.authenticated = False
+    client.retired = False
     client.send = AsyncMock()
     client.close = AsyncMock()
 
@@ -185,6 +186,7 @@ async def test_motd_reconnect_game_state(mock_server):
     client.username = "gamer"
     client.ip_address = "127.0.0.1"
     client.authenticated = True
+    client.retired = False
     client.send = AsyncMock()
     client.close = AsyncMock()
 
@@ -222,10 +224,12 @@ async def test_motd_reconnect_game_state(mock_server):
 
     # 4. User reconnects
     new_client = MagicMock()
-    new_client.username = "gamer"
+    new_client.username = None
     new_client.ip_address = "127.0.0.1"
-    new_client.authenticated = True
+    new_client.authenticated = False
+    new_client.retired = False
     new_client.send = AsyncMock()
+    new_client.close = AsyncMock()
 
     from server.core.server import LATEST_CLIENT_VERSION
     packet = {

@@ -2063,6 +2063,11 @@ class MainWindow(wx.Frame):
 
     def on_authorize_success(self, packet):
         """Handle authorization success from server."""
+        if packet.get("reset_ui", False):
+            # Reset stale menus, editboxes, voice, and managed game audio
+            # before the fresh session's welcome feedback is emitted.
+            self.on_server_clear_ui({})
+
         # Reset reconnect flags on success instead of restarting
         if self.is_reconnecting or self.expecting_reconnect:
             self.is_reconnecting = False

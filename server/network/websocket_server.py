@@ -1,9 +1,10 @@
 """WebSocket server for client connections."""
 
+import asyncio
 import http
 import json
 import ssl
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Callable, Coroutine
 import websockets
@@ -66,11 +67,45 @@ class ClientConnection:
     ip_address: str = ""
     username: str | None = None
     authenticated: bool = False
+    retired: bool = False
+    session_ready: bool = False
+    _send_lock: asyncio.Lock = field(
+        default_factory=asyncio.Lock,
+        init=False,
+        repr=False,
+        compare=False,
+    )
 
     async def send(self, packet: dict) -> None:
-        """Send a packet to this client."""
+        """Send one packet without interleaving concurrent writers."""
         try:
-            await self.websocket.send(json.dumps(packet))
+            async with self._send_lock:
+                if self.retired:
+                    return
+                await self.websocket.send(json.dumps(packet))
+        except websockets.exceptions.ConnectionClosed:
+            pass
+
+    async def send_control(self, packet: dict) -> None:
+        """Send a terminal control packet to a retired connection."""
+        try:
+            async with self._send_lock:
+                await self.websocket.send(json.dumps(packet))
+        except websockets.exceptions.ConnectionClosed:
+            pass
+
+    async def send_many(self, packets: list[dict]) -> None:
+        """Send an ordered batch while holding the connection send lock."""
+        if not packets:
+            return
+        try:
+            async with self._send_lock:
+                if self.retired:
+                    return
+                for packet in packets:
+                    if self.retired:
+                        return
+                    await self.websocket.send(json.dumps(packet))
         except websockets.exceptions.ConnectionClosed:
             pass
 
@@ -249,7 +284,7 @@ class WebSocketServer:
             async for message in websocket:
                 try:
                     packet = json.loads(message)
-                    if self._on_message:
+                    if isinstance(packet, dict) and self._on_message:
                         await self._on_message(client, packet)
                 except json.JSONDecodeError:
                     pass  # Ignore malformed messages
@@ -257,8 +292,12 @@ class WebSocketServer:
         except websockets.exceptions.ConnectionClosed:
             pass
         finally:
-            del self._clients[address]
-            if client.username:
+            if self._clients.get(address) is client:
+                self._clients.pop(address, None)
+            if (
+                client.username
+                and self._username_to_client.get(client.username) is client
+            ):
                 self._username_to_client.pop(client.username, None)
             if self._on_disconnect:
                 await self._on_disconnect(client)
@@ -268,23 +307,45 @@ class WebSocketServer:
     ) -> None:
         """Broadcast a packet to all authenticated clients."""
         for client in list(self._clients.values()):
-            if client.authenticated and client != exclude:
+            if (
+                client.authenticated
+                and client.session_ready
+                and not client.retired
+                and client != exclude
+            ):
                 await client.send(packet)
 
     def register_client_username(self, address: str, username: str) -> None:
         """Register a username for a connected client after successful authentication."""
         client = self._clients.get(address)
-        if client:
+        if client and not client.retired:
             self._username_to_client[username] = client
+
+    def unregister_client_username(
+        self,
+        username: str,
+        client: ClientConnection,
+    ) -> None:
+        """Remove a username mapping only when ``client`` still owns it."""
+        if self._username_to_client.get(username) is client:
+            self._username_to_client.pop(username, None)
 
     async def send_to_user(self, username: str, packet: dict) -> bool:
         """Send a packet to a specific user."""
         client = self._username_to_client.get(username)
-        if client:
+        if (
+            client
+            and client.authenticated
+            and client.session_ready
+            and not client.retired
+        ):
             await client.send(packet)
             return True
         return False
 
     def get_client_by_username(self, username: str) -> ClientConnection | None:
         """Get a client by username."""
-        return self._username_to_client.get(username)
+        client = self._username_to_client.get(username)
+        if client and not client.retired:
+            return client
+        return None

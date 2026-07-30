@@ -15,17 +15,31 @@ class VoiceRateLimiter:
 
     BUCKET_CAPACITY = 2
     REFILL_RATE = 0.25  # 1 token every 4 seconds
+    IDLE_RETENTION_SECONDS = 300.0
+    PRUNE_INTERVAL_SECONDS = 60.0
 
     def __init__(self) -> None:
         self._buckets: dict[str, _VoiceBucket] = {}
+        self._last_prune = time.monotonic()
+
+    def _prune_inactive(self, now: float) -> None:
+        """Bound runtime state while retaining limits across reconnects."""
+        if now - self._last_prune < self.PRUNE_INTERVAL_SECONDS:
+            return
+        self._last_prune = now
+        for username, bucket in list(self._buckets.items()):
+            if now - bucket.last_activity > self.IDLE_RETENTION_SECONDS:
+                self._buckets.pop(username, None)
 
     def try_consume(self, username: str) -> bool:
+        now = time.monotonic()
+        self._prune_inactive(now)
         bucket = self._buckets.get(username)
         if bucket is None:
             bucket = _VoiceBucket(self.BUCKET_CAPACITY)
             self._buckets[username] = bucket
 
-        now = time.monotonic()
+        bucket.last_activity = now
         elapsed = now - bucket.last_refill
         bucket.tokens = min(
             self.BUCKET_CAPACITY,
@@ -43,8 +57,9 @@ class VoiceRateLimiter:
 
 
 class _VoiceBucket:
-    __slots__ = ("tokens", "last_refill")
+    __slots__ = ("tokens", "last_refill", "last_activity")
 
     def __init__(self, capacity: float) -> None:
         self.tokens = capacity
         self.last_refill = time.monotonic()
+        self.last_activity = self.last_refill

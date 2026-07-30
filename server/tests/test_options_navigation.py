@@ -55,6 +55,44 @@ def _make_server(tmp_path):
     return server, user
 
 
+def test_restore_state_replaces_web_only_menu_on_mobile(tmp_path) -> None:
+    server, user = _make_server(tmp_path)
+    try:
+        user.client_type = "mobile"
+        state = {
+            "menu": "voice_selection_menu",
+            "_stack": [
+                {"menu": "in_game", "table_id": "table-1"},
+                {"menu": "options_accessibility_submenu"},
+            ],
+        }
+
+        normalized = server._normalize_restore_state_for_client(user, state)
+
+        assert normalized["menu"] == "options_accessibility_submenu"
+        assert normalized["_stack"][0] == {
+            "menu": "in_game",
+            "table_id": "table-1",
+        }
+    finally:
+        server._db.close()
+
+
+def test_restore_state_replaces_mobile_rate_menu_on_desktop(tmp_path) -> None:
+    server, user = _make_server(tmp_path)
+    try:
+        state = {
+            "menu": "speech_rate_selection_menu",
+            "speech_rate_type": "mobile_tts_rate",
+        }
+
+        normalized = server._normalize_restore_state_for_client(user, state)
+
+        assert normalized == {"menu": "options_accessibility_submenu"}
+    finally:
+        server._db.close()
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # General Options submenus
 # ─────────────────────────────────────────────────────────────────────────────

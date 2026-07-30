@@ -553,8 +553,20 @@ class Game(
 
     # Player management
 
-    def attach_user(self, player_id: str, user: User) -> None:
-        """Attach a user to a player by ID."""
+    def attach_user(
+        self,
+        player_id: str,
+        user: User,
+        *,
+        session_handover: bool = False,
+    ) -> None:
+        """Attach a user to a player by ID.
+
+        ``session_handover`` replaces one live device with another without
+        treating the player as having left gameplay. Authoritative timers and
+        sequences continue, active audio is replayed, and no reconnect grace or
+        table-wide resume announcement is introduced.
+        """
         self._users[player_id] = user
         # Play current music/ambience for the joining user
         for state in self.active_audio.values():
@@ -592,8 +604,13 @@ class Game(
 
                 # Normal reconnects keep a short sync grace. Planned reboot
                 # restores use a table-level grace with explicit feedback, so
-                # do not leave a second silent per-player block behind.
-                player.reconnect_grace_ticks = 0 if power_restore_active else 20
+                # do not leave a second silent per-player block behind. A live
+                # session handover never disconnected from authoritative game
+                # state and therefore must not reset or extend this gate.
+                if not session_handover:
+                    player.reconnect_grace_ticks = (
+                        0 if power_restore_active else 20
+                    )
 
                 # Count humans including this new one (already in _users).
                 # During planned reboot restore grace, the table owns the
@@ -603,7 +620,11 @@ class Game(
                     for p in self.players
                     if not p.is_bot and not p.is_spectator and p.id in self._users
                 )
-                if human_count == 1 and not power_restore_active:
+                if (
+                    human_count == 1
+                    and not power_restore_active
+                    and not session_handover
+                ):
                     self.broadcast_l(
                         "game-resumed",
                         buffer="system",

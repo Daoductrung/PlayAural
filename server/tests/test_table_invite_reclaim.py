@@ -85,6 +85,44 @@ class TestTableInviteReclaim:
         game.setup_player_actions(bot_player)
         return bot_player
 
+    def test_live_mobile_to_desktop_handover_rebuilds_global_overlay(self):
+        host = self._create_online_user("Host")
+        guest = self._create_online_user("Guest")
+        table, game = self._create_started_table(host, guest)
+        player = game.get_player_by_id(host.uuid)
+        assert player is not None
+        player.reconnect_grace_ticks = 6
+        host.client_type = "mobile"
+        self.server._user_states[host.username] = {
+            "menu": "mobile_voice_selection_menu",
+            "_stack": [
+                {"menu": "in_game", "table_id": table.table_id},
+                {"menu": "options_accessibility_submenu"},
+            ],
+        }
+
+        replacement = MockUser(host.username, uuid=host.uuid)
+        replacement.client_type = "python"
+        self.server._users[host.username] = replacement
+        self.server._restore_user_state(
+            replacement,
+            host.username,
+            session_handover=True,
+        )
+
+        assert table.get_user(host.username) is replacement
+        assert game.get_user(player) is replacement
+        assert player.reconnect_grace_ticks == 6
+        assert (
+            self.server._user_states[host.username]["menu"]
+            == "options_accessibility_submenu"
+        )
+        item_ids = self._get_menu_action_ids(
+            replacement,
+            "options_accessibility_submenu",
+        )
+        assert item_ids == ["invert_multiline_enter", "back"]
+
     @pytest.mark.asyncio
     async def test_new_table_created_sound_follows_new_table_notification_preference(self):
         host = self._create_online_user("Host")
@@ -230,7 +268,12 @@ class TestTableInviteReclaim:
             game=Localization.get(guest.locale, "game-name-pig"),
         )
 
-        client = SimpleNamespace(username=guest.username, authenticated=True)
+        client = SimpleNamespace(
+            username=guest.username,
+            authenticated=True,
+            retired=False,
+        )
+        guest.connection = client
         await self.server._on_client_message(client, {"type": "editbox", "text": "hello"})
 
         state = self.server._user_states[guest.username]
@@ -262,7 +305,12 @@ class TestTableInviteReclaim:
         self.server._enter_input_state(guest, "send_pm_input", target_username=friend.username)
 
         await self.server._send_table_invite(host, table, guest)
-        client = SimpleNamespace(username=guest.username, authenticated=True)
+        client = SimpleNamespace(
+            username=guest.username,
+            authenticated=True,
+            retired=False,
+        )
+        guest.connection = client
         await self.server._on_client_message(
             client,
             {"type": "escape", "menu_id": "send_pm_input"},
@@ -607,8 +655,13 @@ class TestTableInviteReclaim:
         host = self._create_online_user("Host")
         guest = self._create_online_user("Guest")
         table, game = self._create_started_table(host, guest)
-        guest.connection = object()
-        client = SimpleNamespace(username=guest.username, address="guest-client")
+        client = SimpleNamespace(
+            username=guest.username,
+            address="guest-client",
+            authenticated=True,
+            retired=False,
+        )
+        guest.connection = client
         host.clear_messages()
 
         await self.server._on_client_disconnect(client)
@@ -630,7 +683,12 @@ class TestTableInviteReclaim:
         host = self._create_online_user("Host")
         guest = self._create_online_user("Guest")
         table, game = self._create_started_table(host, guest)
-        client = SimpleNamespace(username=guest.username, address="guest-client")
+        client = SimpleNamespace(
+            username=guest.username,
+            address="guest-client",
+            authenticated=True,
+            retired=False,
+        )
         guest.connection = client
 
         await self.server._on_client_disconnect(client)

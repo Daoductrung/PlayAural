@@ -388,6 +388,19 @@ per-game shutdown hooks.
   input state instead of mutating `_user_states`.
 - Reconnect restoration and ghost cleanup must route through centralized restore
   code.
+- Account handover is serialized per canonical username. Only the exact
+  connection owned by the current `NetworkUser` may dispatch packets or run
+  disconnect cleanup; stale sockets and callbacks must be harmless.
+- Credential verification, password-reset eviction, moderation eviction, and
+  account deletion must use that same account lock so a checked credential
+  cannot install a session after its account or password changed.
+- Never transfer rendered menus or editboxes between sessions. Rebuild UI from
+  authoritative server/game intent using the replacement client's capabilities;
+  device-only frames fall back to a valid shared parent.
+- A live device handover does not pause authoritative timers/sequences, trigger
+  bot substitution, add reconnect grace, or reset rate limits. Replay active
+  audio layers to the new session, retire old output queues, and keep transient
+  resume state bounded with explicit cleanup.
 - Web client must never use `innerHTML` with server-controlled content.
 - Web client code is modular: `game.js` is only the version/bootstrap entry;
   runtime logic belongs in `app.js`, `store.js`, `network.js`, `audio.js`,

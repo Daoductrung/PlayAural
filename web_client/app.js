@@ -2302,6 +2302,11 @@ class PlayAuralWebApp {
   }
 
   handleAuthorizeSuccess(packet) {
+    if (packet.reset_ui === true) {
+      // Clear the prior socket's rendered/runtime state before welcome speech
+      // and audio, so the reset cannot cancel fresh-session feedback.
+      this.cleanupRuntime(true);
+    }
     this.sessionEstablished = true;
     this.shouldReconnect = true;
     this.manualDisconnect = false;

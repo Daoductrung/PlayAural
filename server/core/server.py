@@ -7,6 +7,7 @@ import re
 import signal
 import sys
 import unicodedata
+import weakref
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable
@@ -83,6 +84,7 @@ VOICE_CHAT_JOIN_SOUND = "voice_join.ogg"
 VOICE_CHAT_LEAVE_SOUND = "voice_leave.ogg"
 ONLINE_USERS_PAGE_SIZE = DEFAULT_MENU_PAGE_SIZE
 VOICE_JOIN_AUTHORIZATION_WINDOW_SECONDS = 120
+SESSION_STATE_RETENTION_SECONDS = 300
 HOST_RESTART_CONFIRM_MENU = "host_restart_confirm_menu"
 FRIEND_REMOVE_CONFIRM_MENU = "friend_remove_confirm_menu"
 TABLE_MEMBERS_MENU = "table_members_menu"
@@ -259,6 +261,11 @@ class Server:
         self._users: dict[str, NetworkUser] = {}  # username -> NetworkUser
         self._user_states: dict[str, dict] = {}  # username -> UI state
         self._pending_disconnects: dict[str, asyncio.Task] = {} # username -> broadcast task
+        self._session_locks: weakref.WeakValueDictionary[
+            str,
+            asyncio.Lock,
+        ] = weakref.WeakValueDictionary()
+        self._pending_session_state_cleanups: dict[str, asyncio.Task] = {}
         # Pending table invites: invitee_username -> {table_id, host_username, task, deferred, game_name}
         self._pending_invites: dict[str, dict] = {}
         # One deferred forward navigation per user while a read-only game
@@ -439,6 +446,9 @@ PlayAural Server
         for task in list(self._pending_disconnects.values()):
             task.cancel()
         self._pending_disconnects.clear()
+        for task in list(self._pending_session_state_cleanups.values()):
+            task.cancel()
+        self._pending_session_state_cleanups.clear()
 
         if clear_table_checkpoints:
             self._db.delete_all_tables()
@@ -585,12 +595,55 @@ PlayAural Server
     def _flush_user_messages(self) -> None:
         """Send all queued messages for all users."""
         for username, user in list(self._users.items()):
+            if not self._ws_server:
+                continue
+            client = self._ws_server.get_client_by_username(username)
+            if not (
+                client
+                and user.connection is client
+                and client.authenticated
+                and not getattr(client, "retired", False)
+                and getattr(client, "session_ready", True)
+            ):
+                continue
             messages = user.get_queued_messages()
-            if messages and self._ws_server:
-                client = self._ws_server.get_client_by_username(username)
-                if client:
-                    for msg in messages:
-                        asyncio.create_task(client.send(msg))
+            if not messages:
+                continue
+            sender = getattr(client, "send_many", None)
+            if sender:
+                asyncio.create_task(sender(messages))
+            else:
+                for message in messages:
+                    asyncio.create_task(client.send(message))
+
+    def _session_lock_for(self, username: str) -> asyncio.Lock:
+        """Return a casing-stable account lock without retaining idle locks."""
+        key = username.casefold()
+        lock = self._session_locks.get(key)
+        if lock is None:
+            lock = asyncio.Lock()
+            self._session_locks[key] = lock
+        return lock
+
+    def _active_user_for_client(
+        self,
+        client: ClientConnection,
+    ) -> NetworkUser | None:
+        """Return the user only when this exact transport owns the session."""
+        if (
+            not client.authenticated
+            or getattr(client, "retired", False)
+            or not client.username
+        ):
+            return None
+        user = self._users.get(client.username)
+        if (
+            not user
+            or not getattr(user, "active", True)
+            or user.connection is not client
+        ):
+            return None
+        return user
 
     async def _on_client_connect(self, client: ClientConnection) -> None:
         """Handle new client connection."""
@@ -599,44 +652,43 @@ PlayAural Server
     async def _on_client_disconnect(self, client: ClientConnection) -> None:
         """Handle client disconnection."""
         print(f"Client disconnected: {client.address}")
-        if client.username:
-            # Check if the disconnecting user is an admin before cleanup
-            user = self._users.get(client.username)
-            is_admin = user and user.trust_level >= 2
+        username = client.username
+        if not username:
+            return
 
-            # Check if user is banned (we don't want offline broadcast for them)
-            # We must check the database directly in case the user state was already
-            # cleaned up or not fully initialized, ensuring we never broadcast for banned users.
-            is_banned = False
-            active_ban = self._db.get_active_ban(client.username)
-            if active_ban:
-                is_banned = True
+        async with self._session_lock_for(username):
+            user = self._active_user_for_client(client)
+            if not user:
+                # A replaced socket's close callback must never mutate the new
+                # owner's table, voice, invitation, UI, or rate-limit state.
+                return
 
-            # Broadcast offline announcement to all users with appropriate sound
-            if user and user.trust_level >= 3:
+            active_ban = self._db.get_active_ban(username)
+            if user.trust_level >= 3:
                 offline_sound = "offlinedev.ogg"
-            elif is_admin:
+            elif user.trust_level >= 2:
                 offline_sound = "offlineadmin.ogg"
             else:
                 offline_sound = "offline.ogg"
-            # Clean up users immediately so they can rejoin
-            # Table cleanup is now handled by Table.on_tick timeout
-            # and visibility is hidden immediately by menu filtering.
-            
-            # Clean up chat rate limiter state
-            self._chat_rate_limiter.remove_user(client.username)
-            self._voice_rate_limiter.remove_user(client.username)
-            self._clear_voice_join_authorization(client.username)
-            self._audio_input_devices_by_user.pop(client.username, None)
 
-            # Cancel any pending invite where this user was the invitee
-            if client.username in self._pending_invites:
-                self._cancel_invite(client.username)
+            client.authenticated = False
+            client.retired = True
+            if self._ws_server:
+                self._ws_server.unregister_client_username(username, client)
+            deactivator = getattr(user, "deactivate", None)
+            if deactivator:
+                deactivator()
+            self._users.pop(username, None)
+            self._deferred_navigation.pop(username, None)
+            self._clear_voice_join_authorization(username)
+            self._audio_input_devices_by_user.pop(username, None)
 
-            # Auto-substitute with bot if in a playing game (requested feature)
-            table = self._tables.find_user_table(client.username)
+            if username in self._pending_invites:
+                self._cancel_invite(username)
+
+            table = self._tables.find_user_table(username)
             await self._clear_voice_presence(
-                client.username,
+                username,
                 "voice-status-connection-lost",
                 table=table,
             )
@@ -646,45 +698,175 @@ PlayAural Server
                 and table.game
                 and table.game.status == "playing"
             ):
-                # We need the user UUID. The user object is about to be popped, so get it now.
-                if user:
-                    table.game.on_player_disconnect(user.uuid)
+                table.game.on_player_disconnect(user.uuid)
 
-            # Clean up user state immediately so they can rejoin
-            # FIX: Only remove from memory if the currently registered user actually belongs to this disconnecting client object
-            if user and user.connection == client:
-                self._users.pop(client.username, None)
-                self._user_states.pop(client.username, None)
-                self._deferred_navigation.pop(client.username, None)
+            cleanup = self._pending_session_state_cleanups.pop(username, None)
+            if cleanup:
+                cleanup.cancel()
+            self._pending_session_state_cleanups[username] = asyncio.create_task(
+                self._expire_disconnected_session_state(username)
+            )
 
-            # Schedule delayed offline broadcast to prevent spam on quick reconnects
-            # Only broadcast if this client was actually the active one AND not banned
-            if (
-                not self.power_manager.is_finalizing
-                and user
-                and user.connection == client
-                and not is_banned
-            ):
-                task = asyncio.create_task(self._delayed_offline_broadcast(
-                    client.username, user.uuid, offline_sound, user.trust_level
-                ))
-                self._pending_disconnects[client.username] = task
+            if not self.power_manager.is_finalizing and not active_ban:
+                task = asyncio.create_task(
+                    self._delayed_offline_broadcast(
+                        username,
+                        user.uuid,
+                        offline_sound,
+                        user.trust_level,
+                    )
+                )
+                previous = self._pending_disconnects.pop(username, None)
+                if previous:
+                    previous.cancel()
+                self._pending_disconnects[username] = task
 
-    async def _delayed_offline_broadcast(self, username: str, user_uuid: str, sound: str, trust_level: int) -> None:
-        """Wait briefly then broadcast offline message if user hasn't reconnected."""
+    async def _expire_disconnected_session_state(self, username: str) -> None:
+        """Prune resumable runtime UI state after its bounded grace period."""
+        task = asyncio.current_task()
         try:
-            await asyncio.sleep(2.0) # 2 seconds grace period
-            
-            # If we are here, user hasn't reconnected (or task wasn't cancelled)
-            self._pending_disconnects.pop(username, None)
-            
-            # Broadcast
-            self._broadcast_presence_l("user-offline", username, user_uuid, sound, trust_level)
-            
+            await asyncio.sleep(SESSION_STATE_RETENTION_SECONDS)
+            async with self._session_lock_for(username):
+                if (
+                    username not in self._users
+                    and self._pending_session_state_cleanups.get(username) is task
+                ):
+                    self._user_states.pop(username, None)
+                    self._deferred_navigation.pop(username, None)
         except asyncio.CancelledError:
-            # User reconnected in time
             pass
         finally:
+            if self._pending_session_state_cleanups.get(username) is task:
+                self._pending_session_state_cleanups.pop(username, None)
+
+    async def _retire_account_session_locked(
+        self,
+        username: str,
+    ) -> tuple[NetworkUser | None, ClientConnection | None]:
+        """Retire the current owner while the canonical account lock is held."""
+        user = self._users.get(username)
+        if not user:
+            return None, None
+
+        client = getattr(user, "connection", None)
+        if client:
+            client.authenticated = False
+            if self._ws_server:
+                self._ws_server.unregister_client_username(
+                    username,
+                    client,
+                )
+        deactivator = getattr(user, "deactivate", None)
+        if deactivator:
+            deactivator()
+        if self._users.get(username) is user:
+            self._users.pop(username, None)
+
+        pending = self._pending_disconnects.pop(username, None)
+        if pending:
+            pending.cancel()
+        cleanup = self._pending_session_state_cleanups.pop(username, None)
+        if cleanup:
+            cleanup.cancel()
+        self._user_states.pop(username, None)
+        self._deferred_navigation.pop(username, None)
+        self._clear_voice_join_authorization(username)
+        self._audio_input_devices_by_user.pop(username, None)
+        if username in self._pending_invites:
+            self._cancel_invite(username)
+
+        table = self._tables.find_user_table(username)
+        await self._clear_voice_presence(
+            username,
+            "voice-status-connection-lost",
+            table=table,
+        )
+        if (
+            not self.power_manager.is_finalizing
+            and table
+            and table.game
+            and table.game.status == "playing"
+        ):
+            table.game.on_player_disconnect(user.uuid)
+
+        if client:
+            client.retired = True
+        return user, client
+
+    @staticmethod
+    async def _close_retired_session(
+        client: ClientConnection | None,
+        packet: dict,
+    ) -> None:
+        """Deliver one terminal packet and close a retired transport."""
+        if not client:
+            return
+        sender = getattr(client, "send_control", client.send)
+        await sender(packet)
+        await client.close()
+
+    async def _evict_account_session(
+        self,
+        username: str,
+        packet: dict,
+    ) -> NetworkUser | None:
+        """Atomically evict an account for a security or moderation event."""
+        async with self._session_lock_for(username):
+            user, client = await self._retire_account_session_locked(username)
+
+        await self._close_retired_session(client, packet)
+        if user:
+            self.on_user_presence_changed()
+        return user
+
+    async def _delete_account_and_evict(
+        self,
+        username: str,
+        packet: dict,
+    ) -> bool:
+        """Serialize account deletion with login and retire any live owner."""
+        async with self._session_lock_for(username):
+            if not self._db.delete_user(username):
+                return False
+            user, client = await self._retire_account_session_locked(username)
+            self._chat_rate_limiter.remove_user(username)
+            self._voice_rate_limiter.remove_user(username)
+
+        await self._close_retired_session(client, packet)
+        if user:
+            self.on_user_presence_changed()
+        return True
+
+    async def _delayed_offline_broadcast(
+        self,
+        username: str,
+        user_uuid: str,
+        sound: str,
+        trust_level: int,
+    ) -> None:
+        """Wait briefly then broadcast offline message if user hasn't reconnected."""
+        task = asyncio.current_task()
+        try:
+            await asyncio.sleep(2.0)
+            async with self._session_lock_for(username):
+                if (
+                    username in self._users
+                    or self._pending_disconnects.get(username) is not task
+                ):
+                    return
+                self._pending_disconnects.pop(username, None)
+                self._broadcast_presence_l(
+                    "user-offline",
+                    username,
+                    user_uuid,
+                    sound,
+                    trust_level,
+                )
+        except asyncio.CancelledError:
+            pass
+        finally:
+            if self._pending_disconnects.get(username) is task:
+                self._pending_disconnects.pop(username, None)
             self.on_user_presence_changed()
 
     def _broadcast_presence_l(
@@ -795,87 +977,134 @@ PlayAural Server
         if packet_type == "authorize":
             await self._handle_authorize(client, packet)
         elif packet_type == "register":
-            await self._handle_register(client, packet)
+            if (
+                not client.authenticated
+                and not client.username
+                and not getattr(client, "retired", False)
+            ):
+                await self._handle_register(client, packet)
         elif packet_type == "request_password_reset":
-            await self._handle_request_password_reset(client, packet)
+            if (
+                not client.authenticated
+                and not client.username
+                and not getattr(client, "retired", False)
+            ):
+                await self._handle_request_password_reset(client, packet)
         elif packet_type == "submit_reset_code":
-            await self._handle_submit_reset_code(client, packet)
+            if (
+                not client.authenticated
+                and not client.username
+                and not getattr(client, "retired", False)
+            ):
+                await self._handle_submit_reset_code(client, packet)
         elif not client.authenticated:
             # Ignore non-auth packets from unauthenticated clients
             return
-        elif packet_type == "ping":
-            # Always allow ping to keep connection alive
-            await self._handle_ping(client)
         else:
-            user = self._users.get(client.username)
-
-            if self.power_manager.is_finalizing:
-                if user and user.approved:
-                    user.speak_l(
-                        "server-power-finalizing-input-blocked",
-                        buffer="system",
-                    )
+            username = client.username
+            if not username:
                 return
-
-            if user:
-                # Check if user is in lockdown state (banned)
-                state = self._user_states.get(client.username, {})
-                if state.get("menu") == "banned_menu":
-                    # Banned users can only interact with the banned menu (Disconnect)
-                    if packet_type == "menu":
-                        await self._handle_menu(client, packet)
+            async with self._session_lock_for(username):
+                # Recheck after taking the account lock. A device takeover may
+                # have retired this socket while its packet was waiting.
+                user = self._active_user_for_client(client)
+                if not user:
                     return
+                await self._handle_authenticated_message(
+                    client,
+                    user,
+                    packet,
+                )
 
-                # For all other packets, check if user is approved
-                if not user.approved:
-                    # Unapproved users can only ping - drop all other packets
-                    return
+    async def _handle_authenticated_message(
+        self,
+        client: ClientConnection,
+        user: NetworkUser,
+        packet: dict,
+    ) -> None:
+        """Dispatch one packet for the currently owning account session."""
+        packet_type = packet.get("type")
+        if packet_type == "ping":
+            await self._handle_ping(client)
+            return
 
+        if self.power_manager.is_finalizing:
+            if user.approved:
+                user.speak_l(
+                    "server-power-finalizing-input-blocked",
+                    buffer="system",
+                )
+            return
+
+        state = self._user_states.get(user.username, {})
+        if state.get("menu") == "banned_menu":
             if packet_type == "menu":
                 await self._handle_menu(client, packet)
-            elif packet_type == "escape":
-                await self._handle_menu(
-                    client,
-                    {**packet, "type": "menu", "selection_id": "back"},
-                )
-            elif packet_type == "keybind":
-                await self._handle_keybind(client, packet)
-            elif packet_type == "editbox":
-                await self._handle_editbox(client, packet)
-            elif packet_type == "read_documentation":
-                 await self._handle_read_documentation(client, packet)
-            elif packet_type == "chat":
-                await self._handle_chat(client, packet)
-            elif packet_type == "list_online":
-                await self._handle_list_online(client)
-            elif packet_type == "list_online_with_games":
-                await self._handle_list_online_with_games(client)
-            elif packet_type == "open_friends_hub":
-                await self._handle_open_friends_hub(client)
-            elif packet_type == "open_admin_menu":
-                await self._handle_open_admin_menu(client)
-            elif packet_type == "open_options":
-                await self._handle_open_options(client)
-            elif packet_type == "broadcast_cmd":
-                await self._handle_broadcast_cmd(client, packet)
-            elif packet_type == "set_preference":
-                await self._handle_set_preference(client, packet)
-            elif packet_type == "audio_input_devices":
-                await self._handle_audio_input_devices(client, packet)
-            elif packet_type == "voice_join":
-                await self._handle_voice_join(client, packet)
-            elif packet_type == "voice_presence":
-                await self._handle_voice_presence(client, packet)
-            elif packet_type == "voice_leave":
-                await self._handle_voice_leave(client, packet)
+            return
 
-            user = self._users.get(client.username)
-            if user:
-                self._maybe_run_deferred_navigation(user)
-                self._maybe_show_deferred_table_invite(user)
+        if not user.approved:
+            return
+
+        if packet_type == "menu":
+            await self._handle_menu(client, packet)
+        elif packet_type == "escape":
+            await self._handle_menu(
+                client,
+                {**packet, "type": "menu", "selection_id": "back"},
+            )
+        elif packet_type == "keybind":
+            await self._handle_keybind(client, packet)
+        elif packet_type == "editbox":
+            await self._handle_editbox(client, packet)
+        elif packet_type == "read_documentation":
+            await self._handle_read_documentation(client, packet)
+        elif packet_type == "chat":
+            await self._handle_chat(client, packet)
+        elif packet_type == "list_online":
+            await self._handle_list_online(client)
+        elif packet_type == "list_online_with_games":
+            await self._handle_list_online_with_games(client)
+        elif packet_type == "open_friends_hub":
+            await self._handle_open_friends_hub(client)
+        elif packet_type == "open_admin_menu":
+            await self._handle_open_admin_menu(client)
+        elif packet_type == "open_options":
+            await self._handle_open_options(client)
+        elif packet_type == "broadcast_cmd":
+            await self._handle_broadcast_cmd(client, packet)
+        elif packet_type == "set_preference":
+            await self._handle_set_preference(client, packet)
+        elif packet_type == "audio_input_devices":
+            await self._handle_audio_input_devices(client, packet)
+        elif packet_type == "voice_join":
+            await self._handle_voice_join(client, packet)
+        elif packet_type == "voice_presence":
+            await self._handle_voice_presence(client, packet)
+        elif packet_type == "voice_leave":
+            await self._handle_voice_leave(client, packet)
+
+        current_user = self._users.get(user.username)
+        if current_user is user:
+            self._maybe_run_deferred_navigation(user)
+            self._maybe_show_deferred_table_invite(user)
 
     async def _handle_authorize(self, client: ClientConnection, packet: dict) -> None:
         """Handle authorization packet."""
+        if client.authenticated or client.username or getattr(client, "retired", False):
+            if not getattr(client, "retired", False):
+                await client.send(
+                    {
+                        "type": "disconnect",
+                        "reason": Localization.get(
+                            str(packet.get("locale") or "en"),
+                            "auth-kicked-logged-in-elsewhere",
+                        ),
+                        "reconnect": False,
+                    }
+                )
+            await client.close()
+            return
+
         username = packet.get("username", "")
         password = packet.get("password", "")
         client_type = self._get_auth_client_type(packet)
@@ -907,68 +1136,138 @@ PlayAural Server
         # WEB CLIENT: Strict validation
         # If version mismatch, send 'login_failed' so it shows the error message.
         if client_type == "web" and client_version != VERSION:
-             print(f"Login failed for {username} (Web): Version mismatch (Server: {VERSION}, Client: {client_version})")
-             await client.send({
-                 "type": "login_failed",
-                 "reason": "version_mismatch",
-                 "text": f"Version mismatch. Server: {VERSION}, Client: {client_version}"
-             })
-             await client.close()
-             return
+            print(
+                f"Login failed for {username} (Web): Version mismatch "
+                f"(Server: {VERSION}, Client: {client_version})"
+            )
+            await client.send({
+                "type": "login_failed",
+                "reason": "version_mismatch",
+                "text": (
+                    f"Version mismatch. Server: {VERSION}, "
+                    f"Client: {client_version}"
+                ),
+            })
+            await client.close()
+            return
 
         # PYTHON CLIENT:
         # We proceed to authenticate and send 'authorize_success' so it receives 'update_info'.
         # The logic at the end of this function will prevent sending the game list, triggering the update dialog.
 
-        # Try to authenticate
-        if not self._auth.authenticate(username, password):
-            # Record failed login
-            self._rate_limiter.record_failed_login(client.ip_address)
+        # Resolve the canonical lock key before authenticating. Password
+        # verification and activation share this lock with password resets and
+        # account deletion, so a credential result can never become stale
+        # while it waits to install a session.
+        candidate_record = self._auth.get_user(username)
+        canonical_username = (
+            candidate_record.username if candidate_record else username
+        )
+        old_client = None
+        old_disconnect_packet = None
+        auth_failure_reason = None
+        async with self._session_lock_for(canonical_username):
+            if not self._auth.authenticate(username, password):
+                auth_failure_reason = (
+                    "wrong_password"
+                    if self._auth.get_user(username)
+                    else "user_not_found"
+                )
+            else:
+                user_record = self._auth.get_user(username)
+                if not user_record:
+                    auth_failure_reason = "user_not_found"
+                else:
+                    canonical_username = user_record.username
+                    old_client, old_disconnect_packet = (
+                        await self._activate_authenticated_session(
+                            client,
+                            canonical_username=canonical_username,
+                            client_type=client_type,
+                            client_platform=client_platform,
+                            client_version=client_version,
+                            user_record=user_record,
+                        )
+                    )
 
-            # Determine specific failure reason
-            reason = "wrong_password"
-            if not self._auth.get_user(username):
-                reason = "user_not_found"
-            
+        if auth_failure_reason:
+            self._rate_limiter.record_failed_login(client.ip_address)
             await client.send(
                 {
                     "type": "login_failed",
-                    "reason": reason,
+                    "reason": auth_failure_reason,
                     "reconnect": False,
                 }
             )
             return
 
-        # Success - clear failed logins for this IP
         self._rate_limiter.clear_failed_logins(client.ip_address)
 
-        # Normalize to the canonical username stored in the database.
-        # The users table is case-insensitive, but all in-memory presence maps
-        # use exact string keys, so we must not keep the raw login casing here.
-        user_record = self._auth.get_user(username)
-        canonical_username = user_record.username if user_record else username
+        # Close outside the account lock. Its disconnect callback takes the
+        # same lock and will observe that the replacement session owns it.
+        if old_client:
+            sender = getattr(old_client, "send_control", old_client.send)
+            if old_disconnect_packet:
+                await sender(old_disconnect_packet)
+            await old_client.close()
 
+    async def _activate_authenticated_session(
+        self,
+        client: ClientConnection,
+        *,
+        canonical_username: str,
+        client_type: str,
+        client_platform: str,
+        client_version: str,
+        user_record: Any,
+    ) -> tuple[ClientConnection | None, dict | None]:
+        """Atomically retire any prior owner and activate ``client``."""
         # Update last login date
         self._db.update_user_last_login(canonical_username)
 
-        # Check if user is already connected
+        old_user = self._users.get(canonical_username)
         old_client = self._ws_server.get_client_by_username(canonical_username)
+        if not old_client and old_user:
+            old_client = old_user.connection
+        session_handover = bool(old_client and old_client is not client)
+        old_disconnect_packet = None
+
         if old_client and old_client != client:
             old_locale = user_record.locale if user_record else "en"
-            # Send strictly recognized disconnect message to prevent auto-reconnect loop
-            await old_client.send({
+            old_client.authenticated = False
+            if self._ws_server:
+                self._ws_server.unregister_client_username(
+                    canonical_username,
+                    old_client,
+                )
+            if old_user and old_user.connection is old_client:
+                old_user.deactivate()
+
+            # Voice media is session-bound. The old client receives the normal
+            # non-reconnecting disconnect packet and the new device may obtain
+            # a fresh LiveKit authorization if the user chooses to rejoin.
+            table = self._tables.find_user_table(canonical_username)
+            await self._clear_voice_presence(
+                canonical_username,
+                "voice-status-connection-lost",
+                table=table,
+            )
+            self._audio_input_devices_by_user.pop(canonical_username, None)
+            old_disconnect_packet = {
                 "type": "disconnect",
-                "reason": Localization.get(old_locale, "auth-kicked-logged-in-elsewhere"),
-                "reconnect": False
-            })
-            # Close old connection
-            await old_client.close()
-            # Remove from users dict to ensure clean state for new connection
-            self._users.pop(canonical_username, None)
+                "reason": Localization.get(
+                    old_locale,
+                    "auth-kicked-logged-in-elsewhere",
+                ),
+                "reconnect": False,
+            }
+            old_client.retired = True
 
         # Authentication successful
         client.username = canonical_username
         client.authenticated = True
+        client.retired = False
+        client.session_ready = False
         self._ws_server.register_client_username(client.address, canonical_username)
 
         # Create network user with preferences and persistent UUID
@@ -991,7 +1290,9 @@ PlayAural Server
             client_platform=client_platform,
             uuid=user_uuid,
             preferences=preferences,
-            trust_level=trust_level, approved=is_approved
+            trust_level=trust_level,
+            approved=is_approved,
+            session_handover_pending=session_handover,
         )
         self._users[canonical_username] = user
 
@@ -1002,6 +1303,48 @@ PlayAural Server
             pending_task.cancel()
             # We skip broadcasting "online" because we cancelled the "offline"
             # Effectively silencing the flap.
+        state_cleanup = self._pending_session_state_cleanups.pop(
+            canonical_username,
+            None,
+        )
+        if state_cleanup:
+            state_cleanup.cancel()
+
+        active_ban = self._db.get_active_ban(canonical_username)
+        if client_version == LATEST_CLIENT_VERSION:
+            if active_ban:
+                self._show_banned_menu(user, active_ban)
+            elif not user.approved:
+                self._show_waiting_for_approval(user)
+            else:
+                active_motd = self._db.get_active_motd(user.locale)
+                motd_version = active_motd[0] if active_motd else 0
+                user_motd_version = (
+                    user_record.motd_version if user_record else 0
+                )
+                if (
+                    active_motd
+                    and motd_version != user_motd_version
+                ):
+                    self._show_motd_menu(
+                        user,
+                        active_motd[1],
+                        motd_version,
+                    )
+                else:
+                    # This is synchronous and happens before the first network
+                    # await. A live device switch therefore transfers the
+                    # game/user attachment immediately while the old socket is
+                    # already barred from input. Timers and sequences continue,
+                    # and any output produced during authentication queues for
+                    # the new owner instead of disappearing into a stale user.
+                    self._restore_user_state(
+                        user,
+                        canonical_username,
+                        session_handover=session_handover,
+                    )
+                    self._maybe_run_deferred_navigation(user)
+                    self._maybe_show_deferred_table_invite(user)
 
         # Send success response
         # MUST generate this packet first so client considers itself "logged in"
@@ -1022,11 +1365,9 @@ PlayAural Server
                 },
                 "voice": self._voice.capability_packet(),
                 "preferences": self._preferences_for_client(user),
+                "reset_ui": True,
             }
         )
-
-        # Check if user is banned before broadcasting presence
-        active_ban = self._db.get_active_ban(canonical_username)
 
         if not active_ban:
             # Broadcast online announcement to all users with appropriate sound
@@ -1040,55 +1381,155 @@ PlayAural Server
                 online_sound = "online.ogg"
 
             # Only broadcast if we didn't cancel a pending disconnect (debounce)
-            if not pending_task:
-                 self._broadcast_presence_l("user-online", canonical_username, user_uuid, online_sound, trust_level)
-                 self.on_user_presence_changed()
+            if not pending_task and not session_handover:
+                self._broadcast_presence_l(
+                    "user-online",
+                    canonical_username,
+                    user_uuid,
+                    online_sound,
+                    trust_level,
+                )
+                self.on_user_presence_changed()
 
-                 # If user is a developer or admin, announce that as well
-                 if trust_level >= 3:
-                      await self._broadcast_dev_announcement(canonical_username)
-                 elif trust_level >= 2:
-                      await self._broadcast_admin_announcement(canonical_username)
+                # If user is a developer or admin, announce that as well
+                if trust_level >= 3:
+                    await self._broadcast_dev_announcement(canonical_username)
+                elif trust_level >= 2:
+                    await self._broadcast_admin_announcement(canonical_username)
+            elif session_handover:
+                # The account stayed online, but observers may be displaying
+                # client type/platform metadata that changed with the device.
+                self.on_user_presence_changed()
 
-        # Check client version (variable already set above for the web-client check)
-        if client_version != LATEST_CLIENT_VERSION:
-            # If version mismatch, do NOT send game list.
-            # The client will prompt for update.
-            return
+        # Outdated desktop/mobile clients receive update metadata but never the
+        # game catalog or restored UI. First-party Web clients were rejected
+        # before authentication because they cannot self-update this way.
+        if client_version == LATEST_CLIENT_VERSION:
+            await self._send_game_list(client)
 
-        # Send game list
-        await self._send_game_list(client)
+        client.session_ready = True
+        return (
+            old_client if session_handover else None,
+            old_disconnect_packet,
+        )
 
-        # Re-use the ban result already fetched above
-        if active_ban:
-            self._show_banned_menu(user, active_ban)
-            return
+    def _normalize_restore_frame_for_client(
+        self,
+        user: NetworkUser,
+        frame: dict,
+    ) -> dict:
+        """Return a restorable frame compatible with the new client type."""
+        normalized = {
+            key: value
+            for key, value in frame.items()
+            if key not in {"_stack", "_parent_frame"}
+        }
+        if normalized.get("_transient"):
+            parent = frame.get("_parent_frame")
+            if isinstance(parent, dict) and parent:
+                return self._normalize_restore_frame_for_client(user, parent)
+            return {"menu": "main_menu"}
+        normalized.pop("_transient", None)
 
-        # Check if user is approved
-        if not user.approved:
-            # User needs approval - show waiting screen
-            self._show_waiting_for_approval(user)
-            return
+        menu = str(normalized.get("menu") or "")
+        is_web = is_web_client_type(user.client_type)
+        is_mobile = is_mobile_client_type(user.client_type)
+        is_desktop = not is_web and not is_mobile
 
-        # Check MOTD
-        active_motd = self._db.get_active_motd(user.locale)
-        motd_version = active_motd[0] if active_motd else 0
-        user_motd_version = user_record.motd_version if user_record else 0
+        if menu == "audio_input_device_menu" and not is_desktop:
+            return {"menu": "options_audio_submenu"}
 
-        if motd_version != user_motd_version and active_motd:
-            # User has not acknowledged the active MOTD version. Show it to them.
-            self._show_motd_menu(user, active_motd[1], motd_version)
-            return
+        web_only = {
+            "speech_settings_menu",
+            "voice_selection_menu",
+            "speech_rate_input",
+        }
+        mobile_only = {
+            "mobile_speech_settings_menu",
+            "mobile_tts_engine_menu",
+            "mobile_voice_selection_menu",
+            "mobile_tts_rate_input",
+        }
+        if menu in web_only and not is_web:
+            return {"menu": "options_accessibility_submenu"}
+        if menu in mobile_only and not is_mobile:
+            return {"menu": "options_accessibility_submenu"}
 
-        self._restore_user_state(user, canonical_username)
+        if menu == "speech_rate_selection_menu":
+            rate_type = normalized.get("speech_rate_type")
+            if (
+                (rate_type == "speech_rate" and not is_web)
+                or (rate_type == "mobile_tts_rate" and not is_mobile)
+                or rate_type not in SPEECH_RATE_SETTING_SPECS
+            ):
+                return {"menu": "options_accessibility_submenu"}
 
-    def _restore_user_state(self, user: NetworkUser, username: str) -> None:
+        return normalized
+
+    def _normalize_restore_state_for_client(
+        self,
+        user: NetworkUser,
+        state: dict,
+    ) -> dict:
+        """Normalize a current frame and its navigation history."""
+        normalized = self._normalize_restore_frame_for_client(user, state)
+        stack = []
+        for raw_frame in state.get("_stack", []):
+            if not isinstance(raw_frame, dict):
+                continue
+            frame = self._normalize_restore_frame_for_client(user, raw_frame)
+            if not stack or stack[-1] != frame:
+                stack.append(frame)
+        if stack:
+            normalized["_stack"] = stack
+        return normalized
+
+    @staticmethod
+    def _restore_state_originates_in_game(state: dict, table_id: str) -> bool:
+        """Whether a global overlay was opened from this active table."""
+        frames = [state, *state.get("_stack", [])]
+        for frame in frames:
+            if not isinstance(frame, dict):
+                continue
+            if frame.get("menu") not in {
+                "in_game",
+                "waiting_room",
+                "spectating",
+                "post_game",
+                "game_over",
+            }:
+                continue
+            frame_table_id = str(frame.get("table_id") or "")
+            if not frame_table_id or frame_table_id == table_id:
+                return True
+        return False
+
+    def _restore_user_state(
+        self,
+        user: NetworkUser,
+        username: str,
+        *,
+        session_handover: bool | None = None,
+    ) -> None:
         """Restore user state or show main menu after successful login."""
+        if session_handover is None:
+            session_handover = bool(
+                getattr(user, "session_handover_pending", False)
+            )
+
         # Enforce mandatory email requirement (also intercept if email is invalid format)
         user_record = self._db.get_user(username)
         if user_record and not is_valid_email(user_record.email):
             self._show_mandatory_email_menu(user)
             return
+        handover_completer = getattr(user, "complete_session_handover", None)
+        if handover_completer:
+            handover_completer()
+
+        saved_state = self._normalize_restore_state_for_client(
+            user,
+            self._user_states.get(username, {}),
+        )
 
         # Check if user is in a table
         table = self._tables.find_user_table(username)
@@ -1110,9 +1551,11 @@ PlayAural Server
                         is_spectator = member.is_spectator
                         break
 
-                if is_spectator:
+                if is_spectator and not session_handover:
                     # OPTIMIZATION: Spectators should NOT be automatically restored to the table.
-                    # If they reconnect, they should land in the main menu.
+                    # If they reconnect after actually going offline, they land
+                    # in the main menu. A live session handover remains attached
+                    # and rebuilds its spectator UI on the replacement device.
                     # We remove them from the table to clean up the stale session.
                     table.remove_member(username)
 
@@ -1137,12 +1580,27 @@ PlayAural Server
 
                                 # Rejoin table - use same approach as _restore_saved_table
                                 table.attach_user(username, user)
-                                table.game.attach_user(player.id, user)
+                                table.game.attach_user(
+                                    player.id,
+                                    user,
+                                    session_handover=session_handover,
+                                )
 
-                                # Mark the turn menu for repaint; the per-tick
-                                # flush sends it within the same tick as today.
-                                if hasattr(table.game, "refresh_menus"):
-                                    table.game.refresh_menus(player)
+                                current_menu = saved_state.get("menu")
+                                restore_global_overlay = (
+                                    current_menu in self.GLOBAL_SYSTEM_MENUS
+                                    and self._restore_state_originates_in_game(
+                                        saved_state,
+                                        table.table_id,
+                                    )
+                                )
+                                if restore_global_overlay:
+                                    self._restore_menu_from_state(
+                                        user,
+                                        saved_state,
+                                    )
+                                else:
+                                    table.game.restore_session_ui(player)
                                     self._flush_game_menus_now(table.game)
                                 if table.is_power_restore_grace_active():
                                     user.speak_l(
@@ -1152,6 +1610,11 @@ PlayAural Server
                                     )
                         else:
                             table.attach_user(username, user)
+                            table.game.attach_user(
+                                player.id,
+                                user,
+                                session_handover=session_handover,
+                            )
                     else:
                         # Player's uuid is not in the game (should not normally happen, but
                         # can occur if the game was saved in an inconsistent state).  Remove
@@ -1169,8 +1632,21 @@ PlayAural Server
             # IDs (main_menu, GLOBAL_SYSTEM_MENUS, admin menus, etc.) and also
             # re-injects the saved _stack so the user can navigate back
             # naturally.  No hardcoded elif chain needed here.
-            state = self._user_states.get(username, {})
-            self._restore_menu_from_state(user, state)
+            invite = self._pending_invites.get(username)
+            if (
+                session_handover
+                and saved_state.get("menu") == "table_invite_prompt"
+                and invite
+            ):
+                previous = saved_state.get("prev_state", {})
+                self._user_states[username] = (
+                    self._normalize_restore_state_for_client(user, previous)
+                    if isinstance(previous, dict)
+                    else {"menu": "main_menu"}
+                )
+                self._show_table_invite_prompt(user, invite)
+            else:
+                self._restore_menu_from_state(user, saved_state)
 
     def _show_mandatory_email_menu(self, user: NetworkUser) -> None:
         """Show the mandatory email setup menu."""
@@ -1412,16 +1888,17 @@ PlayAural Server
             self._auth.clear_reset_token(user_record.uuid)
 
             # Check if user is currently online and kick them
-            if self._ws_server:
-                online_client = self._ws_server.get_client_by_username(user_record.username)
-                if online_client:
-                     await online_client.send({
-                         "type": "disconnect",
-                         "reason": Localization.get(user_record.locale, "auth-kicked-logged-in-elsewhere"), # Close enough reason
-                         "reconnect": False
-                     })
-                     await online_client.close()
-                     self._users.pop(user_record.username, None)
+            await self._evict_account_session(
+                user_record.username,
+                {
+                    "type": "disconnect",
+                    "reason": Localization.get(
+                        user_record.locale,
+                        "auth-kicked-logged-in-elsewhere",
+                    ),
+                    "reconnect": False,
+                },
+            )
 
             await client.send({
                 "type": "submit_reset_code_response",
@@ -2456,6 +2933,15 @@ PlayAural Server
         rate_type: str,
     ) -> None:
         """Show valid speech speed levels for web or mobile TTS."""
+        if (
+            (rate_type == "speech_rate" and not is_web_client_type(user.client_type))
+            or (
+                rate_type == "mobile_tts_rate"
+                and not is_mobile_client_type(user.client_type)
+            )
+        ):
+            self._show_accessibility_submenu(user)
+            return
         spec = SPEECH_RATE_SETTING_SPECS.get(rate_type)
         if not spec:
             if is_mobile_client_type(user.client_type):
@@ -2810,6 +3296,11 @@ PlayAural Server
 
     def _show_audio_input_device_menu(self, user: NetworkUser) -> None:
         """Show the desktop audio input device selection menu."""
+        if is_web_client_type(user.client_type) or is_mobile_client_type(
+            user.client_type
+        ):
+            self._show_audio_submenu(user)
+            return
         devices = self._get_audio_input_devices_for_user(user.username)
         current_device_id = str(user.preferences.desktop_audio_input_device_id or "").strip()
         selected_position = 1
@@ -2986,18 +3477,25 @@ PlayAural Server
             self._nav_push(user, self._show_speech_rate_selection_menu, "speech_rate")
         
         elif selection_id == "speech_voice":
-            # Send an empty menu with a specific ID.
-            # The Web Client will intercept this ID and populate it with available voices.
-            # When selected, it will send the voice URI as selection_id to _handle_voice_selection.
-            def _show_voice_selection_menu(u: NetworkUser) -> None:
-                u.show_menu(
-                    "voice_selection_menu",
-                    [MenuItem(text=Localization.get(u.locale, "select-voice"), id="placeholder")],
-                    multiletter=True,
-                    escape_behavior=EscapeBehavior.SELECT_LAST,
+            self._nav_push(user, self._show_web_voice_selection_menu)
+
+    def _show_web_voice_selection_menu(self, user: NetworkUser) -> None:
+        """Show the browser-populated Web Speech voice menu."""
+        if not is_web_client_type(user.client_type):
+            self._show_accessibility_submenu(user)
+            return
+        user.show_menu(
+            "voice_selection_menu",
+            [
+                MenuItem(
+                    text=Localization.get(user.locale, "select-voice"),
+                    id="placeholder",
                 )
-                self._user_states[u.username] = {"menu": "voice_selection_menu"}
-            self._nav_push(user, _show_voice_selection_menu)
+            ],
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self._user_states[user.username] = {"menu": "voice_selection_menu"}
 
     async def _handle_voice_selection(
         self,
@@ -3029,6 +3527,9 @@ PlayAural Server
 
     def _show_mobile_speech_settings_menu(self, user: NetworkUser) -> None:
         """Show mobile speech settings menu."""
+        if not is_mobile_client_type(user.client_type):
+            self._show_accessibility_submenu(user)
+            return
         prefs = user.preferences
         engine_name = Localization.get(user.locale, "mobile-tts-engine-system")
         voice_name = (
@@ -3099,6 +3600,9 @@ PlayAural Server
 
     def _show_mobile_tts_engine_menu(self, user: NetworkUser) -> None:
         """Show mobile TTS engine selection menu."""
+        if not is_mobile_client_type(user.client_type):
+            self._show_accessibility_submenu(user)
+            return
         items = [
             MenuItem(
                 text=Localization.get(user.locale, "mobile-tts-engine-system-selected"),
@@ -3133,6 +3637,9 @@ PlayAural Server
 
     def _show_mobile_voice_selection_menu(self, user: NetworkUser) -> None:
         """Show mobile voice selection menu populated by the mobile client."""
+        if not is_mobile_client_type(user.client_type):
+            self._show_accessibility_submenu(user)
+            return
         user.show_menu(
             "mobile_voice_selection_menu",
             [MenuItem(text=Localization.get(user.locale, "select-voice"), id="placeholder")],
@@ -9790,6 +10297,8 @@ PlayAural Server
             self._show_language_menu(user)
         elif menu == "speech_settings_menu":
             self._show_speech_settings_menu(user)
+        elif menu == "voice_selection_menu":
+            self._show_web_voice_selection_menu(user)
         elif menu == "speech_rate_selection_menu":
             self._show_speech_rate_selection_menu(
                 user, frame.get("speech_rate_type", "")

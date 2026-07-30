@@ -514,6 +514,24 @@ Use `_enter_input_state(user, input_id, **extra)` / `server.enter_input_state(..
 #### Reconnect and Ghost Cleanup
 `_restore_user_state` handles reconnect and cleans up stale lobby membership, spectators, and inconsistent table mappings. Reconnect restoration should always route through the centralized restore flow, not custom menu-specific chains.
 
+Session ownership is the exact `ClientConnection` held by the current
+`NetworkUser`, not merely a matching username or authenticated flag. Serialize
+authorization, authenticated packet dispatch, disconnect cleanup, and external
+security eviction per canonical username. A retired socket's late packet,
+queued send, transport-finally callback, or voice event must be harmless to its
+successor. Credential verification and account/password deletion or eviction
+must share the same account lock so a checked credential cannot become stale
+before session activation.
+
+Never copy rendered menus or editboxes across sessions. Rebuild UI from
+authoritative server/game intent against the replacement client's capabilities,
+normalizing device-only navigation frames to a valid shared parent. A live
+device handover keeps authoritative timers and sequences running, replays active
+audio layers, preserves reconstructable gameplay overlays, does not substitute
+bots or add reconnect grace, and does not reset chat/voice rate limits. Retired
+`NetworkUser` output queues are inert, and retained reconnect UI state has a
+bounded runtime cleanup lifecycle.
+
 #### Server Alert Broadcast
 Scheduled server power alerts use:
 - deduplicated task guard

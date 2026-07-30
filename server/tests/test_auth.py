@@ -1,9 +1,11 @@
 import pytest
 from server.auth.auth import AuthManager
 from server.persistence.database import Database
-from server.core.server import Server
+from server.core.server import LATEST_CLIENT_VERSION, Server
+from server.users.network_user import NetworkUser
 import tempfile
 import os
+import asyncio
 
 class MockClient:
     def __init__(self):
@@ -12,6 +14,7 @@ class MockClient:
         self.address = "127.0.0.1:12345"
         self.username = None
         self.authenticated = False
+        self.retired = False
         self.closed = False
 
     async def send(self, message):
@@ -36,6 +39,10 @@ class DummyWebSocketServer:
         client = self._clients_by_address.get(address)
         if client is not None:
             self._clients_by_username[username] = client
+
+    def unregister_client_username(self, username, client):
+        if self._clients_by_username.get(username) is client:
+            self._clients_by_username.pop(username, None)
 
 
 class TestAuthSecurity:
@@ -504,3 +511,323 @@ class TestAuthSecurity:
         assert first_client.sent_messages[-1]["type"] == "disconnect"
         assert second_client.username == "Alice"
         assert self.server._ws_server.get_client_by_username("Alice") is second_client
+
+    @pytest.mark.asyncio
+    async def test_retired_session_disconnect_cannot_clean_up_replacement(self):
+        self.server._auth.register("Alice", "Password123")
+
+        first_client = MockClient()
+        second_client = MockClient()
+        second_client.address = "127.0.0.1:23456"
+        self.server._ws_server.bind_client(first_client)
+        self.server._ws_server.bind_client(second_client)
+
+        auth_packet = {
+            "type": "authorize",
+            "client": "python",
+            "username": "Alice",
+            "password": "Password123",
+            "version": "1.0.0",
+        }
+        await self.server._handle_authorize(first_client, auth_packet)
+        await self.server._handle_authorize(second_client, auth_packet)
+
+        replacement = self.server._users["Alice"]
+        self.server._user_states["Alice"] = {"menu": "options_menu"}
+        self.server._voice_presence_by_user["Alice"] = {
+            "scope": "table",
+            "context_id": "test-table",
+        }
+        self.server._audio_input_devices_by_user["Alice"] = [
+            {"id": "mic", "name": "Microphone"}
+        ]
+
+        await self.server._on_client_disconnect(first_client)
+
+        assert self.server._users["Alice"] is replacement
+        assert replacement.connection is second_client
+        assert self.server._user_states["Alice"] == {"menu": "options_menu"}
+        assert "Alice" in self.server._voice_presence_by_user
+        assert "Alice" in self.server._audio_input_devices_by_user
+
+    @pytest.mark.asyncio
+    async def test_retired_session_packets_cannot_mutate_replacement(self):
+        self.server._auth.register("Alice", "Password123")
+
+        first_client = MockClient()
+        second_client = MockClient()
+        second_client.address = "127.0.0.1:23456"
+        self.server._ws_server.bind_client(first_client)
+        self.server._ws_server.bind_client(second_client)
+
+        auth_packet = {
+            "type": "authorize",
+            "client": "python",
+            "username": "Alice",
+            "password": "Password123",
+            "version": "1.0.0",
+        }
+        await self.server._handle_authorize(first_client, auth_packet)
+        await self.server._handle_authorize(second_client, auth_packet)
+
+        ping_clients = []
+
+        async def record_ping(client):
+            ping_clients.append(client)
+
+        self.server._handle_ping = record_ping
+        # Even if a stale transport object is maliciously toggled back to an
+        # authenticated-looking state, object ownership remains authoritative.
+        first_client.authenticated = True
+        first_client.retired = False
+        await self.server._on_client_message(first_client, {"type": "ping"})
+        await self.server._on_client_message(second_client, {"type": "ping"})
+
+        assert ping_clients == [second_client]
+
+    @pytest.mark.asyncio
+    async def test_account_management_packets_require_pristine_preauth_socket(self):
+        calls = []
+
+        async def record_call(client, packet):
+            calls.append((client, packet["type"]))
+
+        self.server._handle_register = record_call
+        self.server._handle_request_password_reset = record_call
+        self.server._handle_submit_reset_code = record_call
+
+        active_client = MockClient()
+        active_client.username = "Alice"
+        active_client.authenticated = True
+        retired_client = MockClient()
+        retired_client.retired = True
+        for packet_type in (
+            "register",
+            "request_password_reset",
+            "submit_reset_code",
+        ):
+            await self.server._on_client_message(
+                active_client,
+                {"type": packet_type},
+            )
+            await self.server._on_client_message(
+                retired_client,
+                {"type": packet_type},
+            )
+
+        assert calls == []
+
+        fresh_client = MockClient()
+        for packet_type in (
+            "register",
+            "request_password_reset",
+            "submit_reset_code",
+        ):
+            await self.server._on_client_message(
+                fresh_client,
+                {"type": packet_type},
+            )
+
+        assert [packet_type for _, packet_type in calls] == [
+            "register",
+            "request_password_reset",
+            "submit_reset_code",
+        ]
+
+    @pytest.mark.asyncio
+    async def test_motd_defers_but_preserves_live_handover_semantics(self):
+        record = self.db.create_user(
+            "Alice",
+            "Password123",
+            approved=True,
+            email="alice@example.com",
+        )
+        self.db.create_motd(1, {"en": "Important update"})
+        self.server._auth.authenticate = lambda username, password: True
+
+        old_client = MockClient()
+        old_client.username = record.username
+        old_client.authenticated = True
+        old_client.session_ready = True
+        self.server._ws_server.bind_client(old_client)
+        self.server._ws_server.register_client_username(
+            old_client.address,
+            record.username,
+        )
+        old_user = NetworkUser(
+            record.username,
+            record.locale,
+            old_client,
+            uuid=record.uuid,
+            approved=True,
+        )
+        self.server._users[record.username] = old_user
+        self.server._user_states[record.username] = {"menu": "main_menu"}
+
+        new_client = MockClient()
+        new_client.address = "127.0.0.1:23456"
+        self.server._ws_server.bind_client(new_client)
+        presence_refreshes = 0
+
+        def record_presence_refresh():
+            nonlocal presence_refreshes
+            presence_refreshes += 1
+
+        self.server.on_user_presence_changed = record_presence_refresh
+        await self.server._handle_authorize(
+            new_client,
+            {
+                "type": "authorize",
+                "client": "mobile",
+                "username": record.username,
+                "password": "Password123",
+                "version": LATEST_CLIENT_VERSION,
+            },
+        )
+
+        new_user = self.server._users[record.username]
+        assert new_user.session_handover_pending is True
+        assert self.server._user_states[record.username]["menu"] == "motd_menu"
+        assert presence_refreshes == 1
+
+        await self.server._handle_motd_selection(
+            new_user,
+            "ok",
+            self.server._user_states[record.username],
+        )
+
+        assert new_user.session_handover_pending is False
+        assert self.server._user_states[record.username]["menu"] == "main_menu"
+
+    @pytest.mark.asyncio
+    async def test_disconnect_does_not_reset_account_rate_limits(self):
+        self.server._auth.register("Alice", "Password123")
+        client = MockClient()
+        self.server._ws_server.bind_client(client)
+        await self.server._handle_authorize(
+            client,
+            {
+                "type": "authorize",
+                "client": "python",
+                "username": "Alice",
+                "password": "Password123",
+                "version": "1.0.0",
+            },
+        )
+
+        for _ in range(self.server._chat_rate_limiter.BUCKET_CAPACITY):
+            assert self.server._chat_rate_limiter.try_consume("Alice")[0]
+        assert not self.server._chat_rate_limiter.try_consume("Alice")[0]
+        assert self.server._voice_rate_limiter.try_consume("Alice")
+        assert self.server._voice_rate_limiter.try_consume("Alice")
+        assert not self.server._voice_rate_limiter.try_consume("Alice")
+
+        await self.server._on_client_disconnect(client)
+
+        assert not self.server._chat_rate_limiter.try_consume("Alice")[0]
+        assert not self.server._voice_rate_limiter.try_consume("Alice")
+        for task in self.server._pending_disconnects.values():
+            task.cancel()
+        for task in self.server._pending_session_state_cleanups.values():
+            task.cancel()
+
+    @pytest.mark.asyncio
+    async def test_simultaneous_authorizations_leave_exactly_one_owner(self):
+        self.server._auth.register("Alice", "Password123")
+        first_client = MockClient()
+        second_client = MockClient()
+        second_client.address = "127.0.0.1:23456"
+        self.server._ws_server.bind_client(first_client)
+        self.server._ws_server.bind_client(second_client)
+        packet = {
+            "type": "authorize",
+            "client": "python",
+            "username": "Alice",
+            "password": "Password123",
+            "version": "1.0.0",
+        }
+
+        await asyncio.gather(
+            self.server._handle_authorize(first_client, packet),
+            self.server._handle_authorize(second_client, packet),
+        )
+
+        winner = self.server._ws_server.get_client_by_username("Alice")
+        assert winner in {first_client, second_client}
+        assert self.server._users["Alice"].connection is winner
+        loser = second_client if winner is first_client else first_client
+        assert loser.closed is True
+        assert loser.retired is True
+        assert winner.retired is False
+
+    @pytest.mark.asyncio
+    async def test_account_deletion_invalidates_login_waiting_on_session_lock(self):
+        self.server._auth.register("Alice", "Password123")
+        client = MockClient()
+        self.server._ws_server.bind_client(client)
+        packet = {
+            "type": "authorize",
+            "client": "python",
+            "username": "Alice",
+            "password": "Password123",
+            "version": "1.0.0",
+        }
+
+        account_lock = self.server._session_lock_for("Alice")
+        await account_lock.acquire()
+        delete_task = asyncio.create_task(
+            self.server._delete_account_and_evict(
+                "Alice",
+                {
+                    "type": "disconnect",
+                    "reason": "Account deleted",
+                    "reconnect": False,
+                },
+            )
+        )
+        await asyncio.sleep(0)
+        authorize_task = asyncio.create_task(
+            self.server._handle_authorize(client, packet)
+        )
+        await asyncio.sleep(0)
+        account_lock.release()
+
+        deleted, _ = await asyncio.gather(delete_task, authorize_task)
+
+        assert deleted is True
+        assert self.db.get_user("Alice") is None
+        assert "Alice" not in self.server._users
+        assert client.authenticated is False
+        assert client.sent_messages[-1]["type"] == "login_failed"
+        assert client.sent_messages[-1]["reason"] == "user_not_found"
+
+    @pytest.mark.asyncio
+    async def test_output_is_held_until_session_restore_is_ready(self):
+        client = MockClient()
+        client.username = "Alice"
+        client.authenticated = True
+        client.session_ready = False
+        self.server._ws_server.bind_client(client)
+        self.server._ws_server.register_client_username(
+            client.address,
+            client.username,
+        )
+        user = NetworkUser("Alice", "en", client)
+        self.server._users["Alice"] = user
+        user.speak("Held during handover", buffer="system")
+
+        self.server._flush_user_messages()
+        await asyncio.sleep(0)
+        assert client.sent_messages == []
+        assert len(user._message_queue) == 1
+
+        client.session_ready = True
+        self.server._flush_user_messages()
+        await asyncio.sleep(0)
+        assert client.sent_messages == [
+            {
+                "type": "speak",
+                "text": "Held during handover",
+                "buffer": "system",
+            }
+        ]

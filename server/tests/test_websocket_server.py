@@ -9,7 +9,7 @@ import socket
 import pytest
 import websockets
 
-from ..network.websocket_server import WebSocketServer
+from ..network.websocket_server import ClientConnection, WebSocketServer
 
 
 HOST = "127.0.0.1"
@@ -87,3 +87,48 @@ async def test_valid_websocket_handshake_still_succeeds() -> None:
         await asyncio.wait_for(disconnected.wait(), timeout=1)
     finally:
         await server.stop()
+
+
+@pytest.mark.asyncio
+async def test_non_object_json_is_ignored_without_ending_connection() -> None:
+    port = _get_free_port()
+    received = []
+    message_received = asyncio.Event()
+
+    async def on_message(_client, packet) -> None:
+        received.append(packet)
+        message_received.set()
+
+    server = WebSocketServer(
+        host=HOST,
+        port=port,
+        on_message=on_message,
+    )
+    await server.start()
+
+    try:
+        async with websockets.connect(
+            f"ws://{HOST}:{port}",
+            proxy=None,
+        ) as websocket:
+            await websocket.send("[]")
+            await websocket.send('{"type":"ping"}')
+            await asyncio.wait_for(message_received.wait(), timeout=1)
+    finally:
+        await server.stop()
+
+    assert received == [{"type": "ping"}]
+
+
+def test_username_unregister_is_identity_safe() -> None:
+    server = WebSocketServer(host=HOST, port=0)
+    first = ClientConnection(websocket=None, address="first")
+    second = ClientConnection(websocket=None, address="second")
+    server._clients[first.address] = first
+    server._clients[second.address] = second
+
+    server.register_client_username(first.address, "Alice")
+    server.register_client_username(second.address, "Alice")
+    server.unregister_client_username("Alice", first)
+
+    assert server.get_client_by_username("Alice") is second

@@ -69,6 +69,7 @@ export type AuthorizeSuccessPacket = {
     url?: string;
   };
   preferences?: Record<string, unknown>;
+  reset_ui?: boolean;
   update_info?: {
     version?: string;
     url?: string;

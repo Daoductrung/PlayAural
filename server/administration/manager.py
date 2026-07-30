@@ -1,7 +1,6 @@
 """Administration functionality for the PlayAural server."""
 
 import functools
-import asyncio
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
@@ -1478,6 +1477,7 @@ class AdministrationManager:
                     # User is online and waiting - welcome them and show main menu
                     waiting_user.speak_l("account-approved-welcome", buffer="system")
                     waiting_user.play_sound("accountapprove.ogg")
+                    waiting_user.complete_session_handover()
                     self.server._show_main_menu(waiting_user)
 
         self.refresh_account_approval_menus(exclude_username=admin.username)
@@ -1486,21 +1486,26 @@ class AdministrationManager:
     @require_admin
     async def _decline_user(self, admin: NetworkUser, username: str) -> None:
         """Decline and delete a pending user account."""
-        # Check if the user is online first
-        waiting_user = self.server.users.get(username)
-
-        if self.server.db.delete_user(username):
+        target_record = self.server.db.get_user(username)
+        target_locale = target_record.locale if target_record else "en"
+        deleted = await self.server._delete_account_and_evict(
+            username,
+            {
+                "type": "disconnect",
+                "reason": Localization.get(
+                    target_locale,
+                    "account-declined-goodbye",
+                ),
+                "reconnect": False,
+            },
+        )
+        if deleted:
             admin.speak_l("account-declined", buffer="system", player=username)
 
             # Notify other admins of the account action
             self._notify_admins(
                 "account-action", "accountactionnotify.ogg", exclude_username=admin.username
             )
-
-            # If user is online, disconnect them
-            if waiting_user:
-                waiting_user.speak_l("account-declined-goodbye", buffer="system")
-                await waiting_user.connection.send({"type": "disconnect", "reconnect": False})
 
         self.refresh_account_approval_menus(exclude_username=admin.username)
         self.server._nav_back(admin)
@@ -2460,38 +2465,23 @@ class AdministrationManager:
                 self.server._nav_back(admin)
             return
 
-        # Logic
-        # 1. Broadcast Global Message (Chat + Sound)
-        # "kick-broadcast" = "{target} was kicked by {actor}."
-        kick_msg = Localization.get(admin.locale, "kick-broadcast", target=target_username, actor=admin.username) # Use admin locale for raw log, or better: localize per client
-        
-        # We need a broadcast method that handles parameters. _broadcast_presence_l is close but fixed keys.
-        # Let's manually iterate to localize properly.
-        
+        # Broadcast the moderation event in each listener's locale.
         for u in self.server.users.values():
             if u.approved:
                 u.speak_l("kick-broadcast", buffer="system", target=target_username, actor=admin.username)
                 u.play_sound("kick.ogg")
 
-        # 2. Notify Target
-        # "you-were-kicked"
-        target_user.speak_l("you-were-kicked", buffer="system", actor=admin.username)
-        
-        # 3. Force Exit Target
-        await target_user.connection.send({"type": "force_exit", "reason": "kicked"})
-        # Failsafe disconnect
-        asyncio.create_task(self._kick_disconnect_delay(target_user))
+        # 2. Atomically evict the exact current account owner. This serializes
+        # moderation against a simultaneous device handover and makes the old
+        # socket incapable of mutating game/session state before it closes.
+        await self.server._evict_account_session(
+            target_username,
+            {"type": "force_exit", "reason": "kicked"},
+        )
 
-        # 4. Return Admin to Menu
+        # 3. Return Admin to Menu
         if show_menu:
             self._return_to_admin_root(admin, "kick_user")
-
-    async def _kick_disconnect_delay(self, user):
-         await asyncio.sleep(1.0)
-         try:
-             await user.connection.close(1000, "Kicked")
-         except Exception:
-             pass
 
     # ==================== Ban System ====================
 
@@ -2672,25 +2662,12 @@ class AdministrationManager:
                 u.speak_l("ban-broadcast", buffer="system", target=target_username, actor=admin.username, reason=loc_reason, duration=loc_duration)
                 u.play_sound("accountban.ogg")
 
-        # If the banned player is mid-game, substitute with a bot NOW — before
-        # popping them from _users.  _on_client_disconnect guards bot substitution
-        # with `if user:`, which will be False once we pop, so we must do it here.
-        target_user = self.server.users.get(target_username)
-        if target_user:
-            table = self.server._tables.find_user_table(target_username)
-            if table and table.game and table.game.status == "playing":
-                table.game.on_player_disconnect(target_user.uuid)
-
-        # Evict from memory immediately so the user cannot receive further broadcasts
-        # or be treated as online, regardless of whether the network send succeeds.
-        target_user = self.server.users.pop(target_username, None)
-        # _on_client_disconnect skips _user_states.pop when user is already gone from
-        # _users (its guard is `if user and user.connection == client`).  Clean it up
-        # here so the entry does not linger until the next server restart.
-        self.server._user_states.pop(target_username, None)
-        if target_user:
-            await target_user.connection.send({"type": "force_exit", "reason": "banned"})
-            asyncio.create_task(self._kick_disconnect_delay(target_user))
+        # Centralized eviction serializes this moderation action against device
+        # handover and prevents stale close callbacks from touching a successor.
+        await self.server._evict_account_session(
+            target_username,
+            {"type": "force_exit", "reason": "banned"},
+        )
 
         self._return_to_admin_root(admin, "ban_user")
 

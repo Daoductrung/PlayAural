@@ -39,6 +39,7 @@ class NetworkUser(User):
         preferences: UserPreferences | None = None,
         trust_level: int = 1,
         approved: bool = False,
+        session_handover_pending: bool = False,
     ):
         self._uuid = uuid or generate_uuid()
         self._username = username
@@ -49,6 +50,8 @@ class NetworkUser(User):
         self._preferences = preferences or UserPreferences()
         self._trust_level = trust_level
         self._approved = approved
+        self._active = True
+        self._session_handover_pending = session_handover_pending
         self._message_queue: list[dict[str, Any]] = []
 
         # Track current UI state for session resumption
@@ -113,8 +116,33 @@ class NetworkUser(User):
     def connection(self) -> "ClientConnection":
         return self._connection
 
+    @property
+    def active(self) -> bool:
+        """Whether this runtime user still owns a live account session."""
+        return self._active
+
+    def deactivate(self) -> None:
+        """Retire this runtime user and discard unsent session output."""
+        self._active = False
+        self._session_handover_pending = False
+        self._message_queue.clear()
+        self._current_menus.clear()
+        self._current_editboxes.clear()
+        self._last_menu_packet_id = None
+
+    @property
+    def session_handover_pending(self) -> bool:
+        """Whether a forced login screen still precedes live state restore."""
+        return self._session_handover_pending
+
+    def complete_session_handover(self) -> None:
+        """Mark deferred live-session restoration as complete."""
+        self._session_handover_pending = False
+
     def _queue_packet(self, packet: dict[str, Any]) -> None:
         """Queue a packet to be sent to the client."""
+        if not self._active:
+            return
         self._message_queue.append(packet)
 
     def get_queued_messages(self) -> list[dict[str, Any]]:
@@ -128,6 +156,9 @@ class NetworkUser(User):
         to police their own rebuild calls. All non-menu packets, and menus with
         distinct ids, pass through untouched and in order.
         """
+        if not self._active:
+            self._message_queue.clear()
+            return []
         messages = self._message_queue
         self._message_queue = []
 

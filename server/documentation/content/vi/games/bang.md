@@ -95,7 +95,7 @@ PlayAural luôn giải quyết một đòn đánh theo thứ tự rõ ràng, k�
 2. Nếu có thể thử Thùng gỗ, mục tiêu chọn dùng hoặc bỏ qua. Thử thành công bù được 1 hiệu ứng Trượt!; thử thất bại chuyển sang bước chống đỡ thường mà không lấn mất tiếng trúng đòn sau đó.
 3. Mục tiêu dùng đủ cách phòng thủ cần thiết hoặc nhận đòn. Menu nêu rõ còn cần gì và chỉ hiện những phản ứng hợp lệ đúng lúc đó.
 4. Nếu mất máu, âm thanh va chạm phù hợp vang lên và hệ thống báo lượng máu mới. Nếu đây là đòn chí mạng, Bia cùng năng lực Sid Ketchum được giải quyết trước khi xác nhận bị hạ.
-5. Khi một người thật sự bị hạ, tiếng trúng đòn chí mạng phải dứt hẳn rồi tiếng ngã mới vang lên. Việc thu hoặc bỏ bài, thưởng hạ Kẻ cướp, phạt Cảnh trưởng và xét thắng đều chờ tiếng ngã kết thúc. Hồn ma của Thị trấn ma biến mất cuối lượt không phải vừa trúng đòn chí mạng nên không có tiếng ngã.
+5. Khi một người thật sự bị hạ, tiếng ngã bắt đầu sau khoảng một phần ba thời lượng của tiếng trúng đòn chí mạng, tạo độ chồng âm tự nhiên. Tiếng ngã không làm chậm việc thu hoặc bỏ bài, thưởng hạ Kẻ cướp, phạt Cảnh trưởng, chuyển lượt hay xét thắng. Nếu nhiều người cùng bị hạ, các tiếng ngã được giãn nhẹ để không chồng khít. Hồn ma của Thị trấn ma biến mất cuối lượt không phải vừa trúng đòn chí mạng nên không có tiếng ngã.
 
 Trong Quyết đấu, khoảng cách, Thùng gỗ và Trượt! đều không dùng được. Người bị thách ra BANG! trước. Mỗi lá BANG! bị bỏ phát tiếng khẩu Súng đang có hiệu lực của chính người trả lời. Nếu một bên chịu thua khi chưa ai bỏ BANG!, súng của đối thủ vẫn nổ trước tiếng đạn trúng người thua. Nếu vừa có người bỏ BANG!, chính phát đó là phát quyết định và không bị phát lại.
 

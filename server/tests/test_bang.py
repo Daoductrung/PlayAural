@@ -43,6 +43,7 @@ from server.games.bang.state import (
     PHASE_DISCARD,
     PHASE_GAME_OVER,
     PHASE_PLAY,
+    PHASE_RESOLVING,
     PHASE_STARTING,
     PHASE_START_TURN,
     BangDecision,
@@ -822,6 +823,8 @@ def test_audio_overlap_profiles_stay_in_the_requested_cinematic_band():
     assert 0.30 <= bang_audio.WAIT_RATIO_FAILED_DEFENSE <= 0.60
     assert bang_audio.WAIT_RATIO_BARRAGE_LEAD == 0.0
     assert bang_audio.WAIT_RATIO_FULL_CUE == 1.0
+    assert bang_audio.LETHAL_FALL_TRIGGER_RATIO == pytest.approx(0.30)
+    assert bang_audio.ELIMINATION_FALL_STAGGER_TICKS == 1
 
 
 def test_game_intro_delays_the_first_turn_by_ten_seconds():
@@ -2222,9 +2225,11 @@ def test_failed_barrel_cue_is_staggered_before_the_hit_sound():
     assert f"{target.name} loses 1 life" in observer_text
 
 
-def test_lethal_impact_finishes_before_elimination_fall():
+def test_lethal_fall_starts_at_thirty_percent_without_blocking_resolution():
     game = start_game(5, seed=152)
     target = next(player for player in game.players if player.role == ROLE_OUTLAW)
+    for player in game.players:
+        player.character = "bart_cassidy"
     target.life = 1
     target.hand.clear()
     target.in_play.clear()
@@ -2251,7 +2256,10 @@ def test_lethal_impact_finishes_before_elimination_fall():
         bang_audio.SOUND_ELIMINATION_FALLS
     )
 
-    wait_ticks = bang_audio.sound_ticks(impact)
+    wait_ticks = SequenceBeat.audio_delay_ticks(
+        bang_audio.sound_ticks(impact),
+        wait_ratio=bang_audio.LETHAL_FALL_TRIGGER_RATIO,
+    )
     for _ in range(wait_ticks - 1):
         game.on_tick()
     assert not target.eliminated
@@ -2266,21 +2274,18 @@ def test_lethal_impact_finishes_before_elimination_fall():
         for sound in sound_names(game)
         if sound in bang_audio.SOUND_ELIMINATION_FALLS
     )
-    assert game.effect_stack[-1].stage == "fall"
     assert any(
         "eliminated" in text
         for text in speech_texts(game, game.players.index(target))
     )
-
-    for _ in range(bang_audio.sound_ticks(fall_sound) - 1):
-        game.on_tick()
-    assert game.effect_stack[-1].stage == "fall"
-
-    game.on_tick()
+    assert fall_sound in bang_audio.SOUND_ELIMINATION_FALLS
+    assert not game.effect_stack
     assert not game.has_active_sequence(tag="bang_elimination_fall")
+    assert not game.is_sequence_gameplay_locked()
+    assert not game.is_sequence_bot_paused()
 
 
-def test_victory_and_elimination_rewards_wait_for_the_fall():
+def test_victory_and_elimination_rewards_continue_when_the_fall_starts():
     game = start_game(4, seed=171)
     sheriff = next(
         player for player in game.players if player.role == ROLE_SHERIFF
@@ -2289,6 +2294,7 @@ def test_victory_and_elimination_rewards_wait_for_the_fall():
         player for player in game.players if player.role == ROLE_OUTLAW
     )
     for player in game.players:
+        player.character = "bart_cassidy"
         if (
             player.id != target.id
             and player.role in {ROLE_OUTLAW, ROLE_RENEGADE}
@@ -2319,33 +2325,126 @@ def test_victory_and_elimination_rewards_wait_for_the_fall():
         for sound in sound_names(game)
         if sound in bang_audio.SOUND_IMPACT_BULLET_BODY
     )
-    for _ in range(bang_audio.sound_ticks(impact)):
+    wait_ticks = SequenceBeat.audio_delay_ticks(
+        bang_audio.sound_ticks(impact),
+        wait_ratio=bang_audio.LETHAL_FALL_TRIGGER_RATIO,
+    )
+    for _ in range(wait_ticks):
         game.on_tick()
 
     assert target.eliminated
-    assert not game.winner_ids
-    assert game.has_active_sequence(tag="bang_elimination_fall")
-    assert bang_audio.SOUND_WIN not in sound_names(game)
-    assert not sheriff.hand
-
-    fall_sound = next(
-        sound
-        for sound in sound_names(game)
-        if sound in bang_audio.SOUND_ELIMINATION_FALLS
-    )
-    for _ in range(bang_audio.sound_ticks(fall_sound)):
-        game.on_tick()
-
     assert game.winner_ids
+    assert not game.has_active_sequence(tag="bang_elimination_fall")
+    assert not game.is_sequence_bot_paused()
     assert bang_audio.SOUND_WIN in sound_names(game)
     assert len(sheriff.hand) == 3
+    fall_index = next(
+        index
+        for index, sound in enumerate(sound_names(game))
+        if sound in bang_audio.SOUND_ELIMINATION_FALLS
+    )
+    win_index = sound_names(game).index(bang_audio.SOUND_WIN)
+    assert fall_index < win_index
 
 
-def test_elimination_fall_sequence_survives_json_round_trip():
-    game = start_game(5, seed=172)
+def test_simultaneous_eliminations_stagger_falls_without_delaying_victory():
+    game = start_game(4, seed=172)
+    sheriff = next(
+        player for player in game.players if player.role == ROLE_SHERIFF
+    )
+    enemies = [
+        player
+        for player in game.players
+        if player.role in {ROLE_OUTLAW, ROLE_RENEGADE}
+    ]
+    already_out, first_victim, second_victim = enemies
+    already_out.life = 0
+    already_out.eliminated = True
+    already_out.role_revealed = True
+    for player in game.players:
+        player.character = "bart_cassidy"
+    for victim in (first_victim, second_victim):
+        victim.life = 0
+        victim.hand.clear()
+        victim.in_play.clear()
+    game.phase = PHASE_RESOLVING
+    game.clear_scheduled_sounds()
+    game.effect_stack = [
+        BangEffect(
+            kind="elimination",
+            target_id=second_victim.id,
+            source=DamageSource(kind="high_noon"),
+            data={"fall_trigger_tick": game.sound_scheduler_tick},
+        ),
+        BangEffect(
+            kind="elimination",
+            target_id=first_victim.id,
+            source=DamageSource(kind="high_noon"),
+            data={"fall_trigger_tick": game.sound_scheduler_tick},
+        ),
+    ]
+    clear_user_messages(game)
+
+    trigger_tick = game.sound_scheduler_tick
+    game._continue_effects()
+
+    assert first_victim.eliminated
+    assert second_victim.eliminated
+    assert game.winner_ids == [sheriff.id]
+    assert not game.game_active
+    assert not game.effect_stack
+    assert not game.has_active_sequence(tag="bang_elimination_fall")
+    assert not game.is_sequence_bot_paused()
+    assert len(
+        [
+            sound
+            for sound in sound_names(game)
+            if sound in bang_audio.SOUND_ELIMINATION_FALLS
+        ]
+    ) == 1
+    pending_falls = [
+        scheduled
+        for scheduled in game.scheduled_sounds
+        if scheduled[1] in bang_audio.SOUND_ELIMINATION_FALLS
+    ]
+    assert len(pending_falls) == 1
+    assert pending_falls[0][0] == (
+        trigger_tick + bang_audio.ELIMINATION_FALL_STAGGER_TICKS
+    )
+    observer_text = " ".join(speech_texts(game, game.players.index(sheriff)))
+    assert first_victim.name in observer_text
+    assert second_victim.name in observer_text
+
+    game.on_tick()
+    assert len(
+        [
+            sound
+            for sound in sound_names(game)
+            if sound in bang_audio.SOUND_ELIMINATION_FALLS
+        ]
+    ) == 1
+    game.on_tick()
+    assert len(
+        [
+            sound
+            for sound in sound_names(game)
+            if sound in bang_audio.SOUND_ELIMINATION_FALLS
+        ]
+    ) == 2
+    assert not [
+        scheduled
+        for scheduled in game.scheduled_sounds
+        if scheduled[1] in bang_audio.SOUND_ELIMINATION_FALLS
+    ]
+
+
+def test_elimination_fall_trigger_survives_json_round_trip():
+    game = start_game(5, seed=173)
     target = next(
         player for player in game.players if player.role == ROLE_OUTLAW
     )
+    for player in game.players:
+        player.character = "bart_cassidy"
     target.life = 1
     target.hand.clear()
     target.in_play.clear()
@@ -2358,34 +2457,76 @@ def test_elimination_fall_sequence_survives_json_round_trip():
         )
     )
     game._continue_effects()
-    impact = next(
-        sound
-        for sound in sound_names(game)
-        if sound == bang_audio.SOUND_IMPACT_GENERIC
-    )
-    for _ in range(bang_audio.sound_ticks(impact)):
-        game.on_tick()
 
-    assert target.eliminated
-    assert game.has_active_sequence(tag="bang_elimination_fall")
+    damage = game.effect_stack[-1]
+    assert damage.kind == "damage"
+    trigger_tick = int(damage.data["fall_trigger_tick"])
+    assert game.sound_scheduler_tick < trigger_tick
+
     restored = BangGame.from_json(game.to_json())
     restored.rebuild_runtime_state()
     restored_target = restored.get_player_by_id(target.id)
-
     assert restored_target is not None
-    assert restored_target.eliminated
-    assert restored.effect_stack[-1].stage == "fall"
-    assert restored.has_active_sequence(tag="bang_elimination_fall")
+    assert not restored_target.eliminated
+    assert int(restored.effect_stack[-1].data["fall_trigger_tick"]) == trigger_tick
 
-    tick_until(
-        restored,
-        lambda: (
-            not restored.effect_stack
-            and not restored.has_active_sequence(
-                tag="bang_elimination_fall"
-            )
-        ),
+    tick_until(restored, lambda: restored_target.eliminated)
+
+    assert restored.sound_scheduler_tick >= trigger_tick
+    assert not restored.has_active_sequence(tag="bang_elimination_fall")
+    assert not restored.effect_stack
+
+
+def test_game_over_preserves_a_pending_staggered_fall():
+    game = start_game(4, seed=174)
+    winner = next(
+        player for player in game.players if player.role == ROLE_SHERIFF
     )
+    game.clear_scheduled_sounds()
+    game._play_or_schedule_elimination_fall()
+    game._play_or_schedule_elimination_fall()
+    pending_before = [
+        scheduled
+        for scheduled in game.scheduled_sounds
+        if scheduled[1] in bang_audio.SOUND_ELIMINATION_FALLS
+    ]
+    assert len(pending_before) == 1
+
+    game._end_game([winner], ROLE_SHERIFF)
+
+    pending_after = [
+        scheduled
+        for scheduled in game.scheduled_sounds
+        if scheduled[1] in bang_audio.SOUND_ELIMINATION_FALLS
+    ]
+    assert pending_after == pending_before
+
+
+def test_legacy_blocking_fall_stage_resumes_after_save_upgrade():
+    game = start_game(5, seed=175)
+    target = next(
+        player for player in game.players if player.role == ROLE_OUTLAW
+    )
+    target.life = 0
+    target.eliminated = True
+    target.hand.clear()
+    target.in_play.clear()
+    frame = BangEffect(
+        kind="elimination",
+        stage="fall",
+        target_id=target.id,
+        data={"after_fall_stage": "discard"},
+    )
+    game.effect_stack = [frame]
+    game.decision = None
+    game.cancel_all_sequences()
+
+    game._continue_elimination(frame)
+    assert frame.stage == "discard"
+    game._continue_effects()
+
+    assert not game.effect_stack
+    assert not game.decision
 
 
 def test_partial_shot_response_announces_the_remaining_requirement():
@@ -4567,7 +4708,7 @@ def test_safe_dynamite_transfer_is_the_only_fuse_path():
     assert any(in_play.card is dynamite for in_play in recipient.in_play)
 
 
-def test_lethal_dynamite_aftermath_finishes_before_the_fall():
+def test_lethal_dynamite_fall_starts_at_thirty_percent_of_aftermath():
     game = start_game(4, seed=201)
     player = game.current_player
     dynamite = make_card(
@@ -4609,8 +4750,9 @@ def test_lethal_dynamite_aftermath_finishes_before_the_fall():
     assert player.life == 0
     assert not player.eliminated
     aftermath_started_tick = game.sound_scheduler_tick
-    deadline = aftermath_started_tick + bang_audio.sound_ticks(
-        bang_audio.SOUND_DYNAMITE_AFTERMATH
+    deadline = aftermath_started_tick + SequenceBeat.audio_delay_ticks(
+        bang_audio.sound_ticks(bang_audio.SOUND_DYNAMITE_AFTERMATH),
+        wait_ratio=bang_audio.LETHAL_FALL_TRIGGER_RATIO,
     )
     while game.sound_scheduler_tick < deadline - 1:
         game.on_tick()
@@ -4624,6 +4766,8 @@ def test_lethal_dynamite_aftermath_finishes_before_the_fall():
     assert set(sound_names(game)) & set(
         bang_audio.SOUND_ELIMINATION_FALLS
     )
+    assert not game.has_active_sequence(tag="bang_elimination_fall")
+    assert not game.is_sequence_bot_paused()
 
 
 def test_sniper_audio_sequence_survives_json_round_trip():
@@ -4799,7 +4943,7 @@ def test_manuals_are_synchronized_and_cover_accessible_play():
         "Turn-changing events",
         "Choosing a target commits the play immediately",
         "the first turn starts ten seconds",
-        "the fall sound begins",
+        "fall begins about one-third",
         "Hear who is currently at the table",
     ):
         assert required in en
@@ -4812,7 +4956,7 @@ def test_manuals_are_synchronized_and_cover_accessible_play():
         "Biến cố đổi luật",
         "Chọn mục tiêu là chốt nước đi ngay",
         "lượt đầu bắt đầu sau đó 10 giây",
-        "tiếng ngã mới vang lên",
+        "tiếng ngã bắt đầu",
         "Nghe danh sách người hiện có ở bàn",
     ):
         assert required in vi

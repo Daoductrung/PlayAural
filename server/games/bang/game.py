@@ -133,6 +133,7 @@ class BangGame(Game):
     winner_ids: list[str] = field(default_factory=list)
     winning_side: str = ""
     audio_sequence_serial: int = 0
+    last_elimination_fall_tick: int = -1
     final_showdown_music_started: bool = False
 
     @classmethod
@@ -271,6 +272,7 @@ class BangGame(Game):
         self.winner_ids.clear()
         self.winning_side = ""
         self.audio_sequence_serial = 0
+        self.last_elimination_fall_tick = -1
         self.final_showdown_music_started = False
         self.clear_scheduled_sounds()
         self.cancel_all_sequences()
@@ -470,6 +472,23 @@ class BangGame(Game):
             pause_bots=True,
         )
         return True
+
+    def _play_or_schedule_elimination_fall(self) -> None:
+        """Emit a fall without blocking, spacing concurrent deaths by one tick."""
+
+        fall_sound = self._random_sound(game_audio.SOUND_ELIMINATION_FALLS)
+        current_tick = self.sound_scheduler_tick
+        target_tick = max(
+            current_tick,
+            self.last_elimination_fall_tick
+            + game_audio.ELIMINATION_FALL_STAGGER_TICKS,
+        )
+        self.last_elimination_fall_tick = target_tick
+        delay_ticks = target_tick - current_tick
+        if delay_ticks:
+            self.schedule_sound(fall_sound, delay_ticks=delay_ticks)
+        else:
+            self.play_sound(fall_sound)
 
     def _effective_weapon_kind(self, player: BangPlayer) -> str:
         weapon = self._equipped_weapon(player)
@@ -3602,10 +3621,15 @@ class BangGame(Game):
                         card_kind=cards.DYNAMITE,
                     ),
                     data={
-                        "impact_finished_tick": (
+                        "fall_trigger_tick": (
                             self.sound_scheduler_tick
-                            + game_audio.sound_ticks(
-                                game_audio.SOUND_DYNAMITE_AFTERMATH
+                            + SequenceBeat.audio_delay_ticks(
+                                game_audio.sound_ticks(
+                                    game_audio.SOUND_DYNAMITE_AFTERMATH
+                                ),
+                                wait_ratio=(
+                                    game_audio.LETHAL_FALL_TRIGGER_RATIO
+                                ),
                             )
                         )
                     },
@@ -4584,8 +4608,12 @@ class BangGame(Game):
             target.life -= frame.amount
             impact_ticks = self._play_damage_impact(frame.source)
             if impact_ticks:
-                frame.data["impact_finished_tick"] = (
-                    self.sound_scheduler_tick + impact_ticks
+                frame.data["fall_trigger_tick"] = (
+                    self.sound_scheduler_tick
+                    + SequenceBeat.audio_delay_ticks(
+                        impact_ticks,
+                        wait_ratio=game_audio.LETHAL_FALL_TRIGGER_RATIO,
+                    )
                 )
             self._announce_damage(target, frame.amount, frame.source)
             frame.stage = "lethal" if target.life <= 0 else "survived"
@@ -4615,8 +4643,13 @@ class BangGame(Game):
                     target_id=target.id,
                     source=frame.source,
                     data={
-                        "fall_not_before_tick": int(
-                            frame.data.get("impact_finished_tick", 0)
+                        "fall_trigger_tick": int(
+                            frame.data.get(
+                                "fall_trigger_tick",
+                                # Backward compatibility for an in-flight save
+                                # created before proportional fall triggering.
+                                frame.data.get("impact_finished_tick", 0),
+                            )
                         )
                     },
                 )
@@ -4632,7 +4665,14 @@ class BangGame(Game):
             return
         if frame.stage == "start":
             if self._wait_until_effect_tick(
-                int(frame.data.get("fall_not_before_tick", 0))
+                int(
+                    frame.data.get(
+                        "fall_trigger_tick",
+                        # Backward compatibility for an elimination frame
+                        # saved under the former full-impact wait.
+                        frame.data.get("fall_not_before_tick", 0),
+                    )
+                )
             ):
                 return
             victim.life = 0
@@ -4675,27 +4715,15 @@ class BangGame(Game):
                 frame.stage = str(frame.data["after_fall_stage"])
                 self.refresh_menus()
                 return
-            frame.stage = "fall"
-            fall_sound = self._random_sound(
-                game_audio.SOUND_ELIMINATION_FALLS
-            )
-            self.start_sequence(
-                self._next_audio_sequence_id("elimination_fall"),
-                [
-                    SequenceBeat.after_audio(
-                        game_audio.sound_ticks(fall_sound),
-                        wait_ratio=game_audio.WAIT_RATIO_FULL_CUE,
-                        ops=[SequenceOperation.sound_op(fall_sound)],
-                    ),
-                    SequenceBeat(),
-                ],
-                tag="bang_elimination_fall",
-                lock_scope=self.SEQUENCE_LOCK_GAMEPLAY,
-                pause_bots=True,
-            )
+            self._play_or_schedule_elimination_fall()
+            frame.stage = str(frame.data["after_fall_stage"])
             self.refresh_menus()
-            return
+            # Fall playback is deliberately fire-and-forget. Continue through
+            # card disposal, rewards, penalties, and victory in this same
+            # interpreter pass.
         if frame.stage == "fall":
+            # Backward compatibility for saves made while the former blocking
+            # fall sequence was active.
             frame.stage = str(
                 frame.data.get("after_fall_stage", "discard")
             )
@@ -5518,7 +5546,14 @@ class BangGame(Game):
         if self.resolving_card:
             self._discard(self.resolving_card.card)
             self.resolving_card = None
+        pending_elimination_falls = [
+            scheduled
+            for scheduled in self.scheduled_sounds
+            if len(scheduled) > 1
+            and scheduled[1] in game_audio.SOUND_ELIMINATION_FALLS
+        ]
         self.clear_scheduled_sounds()
+        self.scheduled_sounds.extend(pending_elimination_falls)
         self.cancel_all_sequences()
         self.play_sound(game_audio.SOUND_WIN)
         winner_names = [winner.name for winner in winners]

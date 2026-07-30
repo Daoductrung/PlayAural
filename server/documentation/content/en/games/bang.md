@@ -95,7 +95,7 @@ PlayAural resolves one attack in a stable order, even when a bot answers immedia
 2. If a Barrel check is available, the target chooses whether to use it. A successful check stops one required Missed! effect; a failed check continues to the normal response without hiding the later hit sound.
 3. The target supplies the required defense or accepts the hit. The menu names the current requirement and shows only responses that are legal in that exact state.
 4. If life is lost, the matching impact plays and the new life total is announced. If the hit is lethal, Beer and Sid Ketchum recovery are resolved before elimination.
-5. On a real elimination, the lethal impact finishes before the fall sound begins. Card collection or discarding, Outlaw rewards, Sheriff penalties, and the victory check wait until that fall finishes. A Ghost Town ghost leaving at turn end is not a new lethal hit and has no fall cue.
+5. On a real elimination, the fall begins about one-third of the way through the lethal impact, so both cues overlap naturally. The fall never holds up card collection or discarding, Outlaw rewards, Sheriff penalties, turn flow, or the victory check. Falls from eliminations resolved together are spaced slightly apart. A Ghost Town ghost leaving at turn end is not a new lethal hit and has no fall cue.
 
 During Duel, range, Barrel, and Missed! do not apply. The challenged player answers first. Every discarded BANG! uses that responder's active Weapon sound. If a player loses before any BANG! is discarded, the opponent's Weapon fires before the body impact. If a BANG! was just discarded, that shot is the decisive shot and is not played twice.
 

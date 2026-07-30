@@ -25,6 +25,7 @@ WAIT_RATIO_FAILED_DEFENSE = 0.55
 WAIT_RATIO_IMPACT = 0.10
 WAIT_RATIO_SHORT_CUE = 0.05
 WAIT_RATIO_FULL_CUE = 1.00
+LETHAL_FALL_TRIGGER_RATIO = 0.30
 
 # SequenceRunner ticks at 20 Hz, so one or two ticks gives Saloon a compact
 # 50-100 ms human stagger while remaining save/load deterministic.
@@ -32,6 +33,9 @@ SALOON_STAGGER_MIN_TICKS = 1
 SALOON_STAGGER_MAX_TICKS = 2
 SALOON_PAN_LEFT = -70
 SALOON_PAN_RIGHT = 70
+# Consecutive eliminations keep their falls 50 ms apart without blocking the
+# rules interpreter or depending on the duration of any fall asset.
+ELIMINATION_FALL_STAGGER_TICKS = 1
 
 SOUND_CARD_DRAW = tuple(f"game_cards/draw{index}.ogg" for index in range(1, 5))
 SOUND_CARD_PLAY = tuple(f"game_cards/play{index}.ogg" for index in range(1, 5))

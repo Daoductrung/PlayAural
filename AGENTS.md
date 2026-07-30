@@ -231,6 +231,34 @@ Audio-first is mandatory. Every important state change needs TTS and/or sound.
   `chat` for chat only, `misc` for minor non-game informational output.
 - Use `play_sound`, `user.play_sound`, `play_music`, ambience helpers, scheduled
   sounds, or sequences as appropriate.
+- All server-driven SFX, music, and ambience use the versioned `audio` command
+  contract in `server/audio.py`. Do not add separate packet types or
+  client-specific routing. Asset paths and command values must be validated.
+- Looping SFX use stable handles and explicit stop; music supports fade
+  pause/resume/stop; ambience uses independent `global`, `player`, or `context`
+  scope plus a stable layer. Switching music or one ambience layer crossfades
+  without disturbing unrelated layers.
+- Ambience stems may define any combination of intro, loop, and outro assets.
+  With seamless stem playback, intro-to-loop and loop-to-outro are contiguous
+  boundaries with no fade or crossfade; fades apply only to starting, replacing,
+  pausing, or forcibly stopping independent sources. An ambience stop uses an
+  immediate no-fade loop-to-outro splice by default so long loops cannot leak
+  across a game or table teardown. Use `outro_mode="boundary"` only when the
+  caller deliberately accepts finishing the current loop iteration at its
+  authored seam. Game completion stops every ambience layer, and table exit
+  uses `stop_all` with `play_outros=True`. Reconnect replay joins the loop and
+  never repeats an already-heard intro.
+- Named buses, priority/max-instance limits, and source-lifetime ducking are
+  protocol data, not game/client hardcoding. User volume remains the master.
+  Async loads and fades must be generation-guarded against stale resurrection.
+- Ducking is a dormant, opt-in capability. Do not add `ducking` to first-party
+  gameplay commands until a future feature deliberately enables and tunes it;
+  keep zero-duck defaults behaviorally identical to an engine without ducking.
+- Persist only replayable layers in `active_audio` with recipient and paused
+  state. It follows the containing table/save retention and deletion lifecycle;
+  explicit stops, resets, transfers, and replacements prune stale state.
+  One-shots and mixer state are runtime-only. Gameplay WebSockets carry audio
+  control JSON only; LiveKit remains the separate voice-media path.
 - Provide information actions for state queries such as hand, board/table,
   counts, status, scores, and whose turn.
 

@@ -427,6 +427,15 @@ class Table(DataClassJSONMixin):
                 self._manager._username_to_table.pop(username, None)
 
         if self._game:
+            removed_player_ids = [
+                player.id
+                for player in self._game.players
+                if not (
+                    player.is_bot
+                    or player.name not in offline_usernames
+                    or getattr(player, "replaced_human_name", "")
+                )
+            ]
             self._game.players = [
                 player
                 for player in self._game.players
@@ -434,6 +443,8 @@ class Table(DataClassJSONMixin):
                 or player.name not in offline_usernames
                 or getattr(player, "replaced_human_name", "")
             ]
+            for player_id in removed_player_ids:
+                self._game.prune_audio_recipient(player_id)
             for player_id in list(self._game.player_action_sets):
                 if not self._game.get_player_by_id(player_id):
                     self._game.player_action_sets.pop(player_id, None)

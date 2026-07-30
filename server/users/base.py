@@ -7,6 +7,12 @@ from typing import TYPE_CHECKING, Any
 import uuid as uuid_module
 
 from ..messages.localization import Localization
+from ..audio import (
+    AudioCommand,
+    DEFAULT_AMBIENCE_FADE_MS,
+    DEFAULT_MUSIC_FADE_MS,
+    new_audio_handle,
+)
 
 if TYPE_CHECKING:
     from .preferences import UserPreferences
@@ -110,52 +116,256 @@ class User(ABC):
         self.speak(text, buffer=buffer)
 
     @abstractmethod
+    def send_audio_command(self, command: AudioCommand) -> None:
+        """Deliver one validated audio command to this user."""
+        ...
+
     def play_sound(
-        self, name: str, volume: int = 100, pan: int = 0, pitch: int = 100
+        self,
+        name: str,
+        volume: int = 100,
+        pan: int = 0,
+        pitch: int = 100,
+        *,
+        loop: bool = False,
+        handle: str = "",
+        bus: str = "sfx",
+        fade_in_ms: int = 0,
+        fade_out_ms: int = 0,
+        priority: int = 0,
+        max_instances: int = 0,
+        ducking: dict[str, int] | None = None,
+        scope: str = "global",
+        context: str = "",
+        layer: str = "main",
+    ) -> str:
+        """Play an effect and return its optional lifecycle handle."""
+        resolved_handle = handle or (new_audio_handle("sfx") if loop else "")
+        self.send_audio_command(
+            AudioCommand(
+                command="play",
+                kind="sfx",
+                asset=name,
+                handle=resolved_handle,
+                bus=bus,
+                scope=scope,
+                context=context,
+                layer=layer,
+                loop=loop,
+                volume=volume,
+                pan=pan,
+                pitch=pitch,
+                fade_in_ms=fade_in_ms,
+                fade_out_ms=fade_out_ms,
+                priority=priority,
+                max_instances=max_instances,
+                ducking=ducking or {},
+            )
+        )
+        return resolved_handle
+
+    def stop_sound(self, handle: str, *, fade_ms: int = 0) -> None:
+        """Stop one managed sound effect without affecting other instances."""
+        self.send_audio_command(
+            AudioCommand(
+                command="stop",
+                kind="sfx",
+                handle=handle,
+                fade_out_ms=fade_ms,
+            )
+        )
+
+    def play_music(
+        self,
+        name: str,
+        looping: bool = True,
+        *,
+        handle: str = "music",
+        bus: str = "music",
+        fade_in_ms: int = DEFAULT_MUSIC_FADE_MS,
+        fade_out_ms: int = DEFAULT_MUSIC_FADE_MS,
+        priority: int = 0,
+        ducking: dict[str, int] | None = None,
+        scope: str = "global",
+        context: str = "",
+        layer: str = "main",
+    ) -> str:
+        """Play or crossfade a music layer and return its stable handle."""
+        self.send_audio_command(
+            AudioCommand(
+                command="play",
+                kind="music",
+                asset=name,
+                handle=handle,
+                bus=bus,
+                scope=scope,
+                context=context,
+                layer=layer,
+                loop=looping,
+                fade_in_ms=fade_in_ms,
+                fade_out_ms=fade_out_ms,
+                priority=priority,
+                ducking=ducking or {},
+            )
+        )
+        return handle
+
+    def pause_music(
+        self, *, handle: str = "music", fade_ms: int = DEFAULT_MUSIC_FADE_MS
     ) -> None:
-        """
-        Play a sound effect.
+        """Fade and pause music, preserving its playback position."""
+        self.send_audio_command(
+            AudioCommand(
+                command="pause",
+                kind="music",
+                handle=handle,
+                fade_out_ms=fade_ms,
+            )
+        )
 
-        Args:
-            name: Sound filename.
-            volume: Volume 0-100.
-            pan: Pan -100 to 100.
-            pitch: Pitch 0-200, where 100 is normal.
-        """
-        ...
+    def resume_music(
+        self, *, handle: str = "music", fade_ms: int = DEFAULT_MUSIC_FADE_MS
+    ) -> None:
+        """Resume paused music with a fade-in."""
+        self.send_audio_command(
+            AudioCommand(
+                command="resume",
+                kind="music",
+                handle=handle,
+                fade_in_ms=fade_ms,
+            )
+        )
 
-    @abstractmethod
-    def play_music(self, name: str, looping: bool = True) -> None:
-        """
-        Play background music.
+    def stop_music(
+        self, *, handle: str = "music", fade_ms: int = DEFAULT_MUSIC_FADE_MS
+    ) -> None:
+        """Fade and stop music."""
+        self.send_audio_command(
+            AudioCommand(
+                command="stop",
+                kind="music",
+                handle=handle,
+                fade_out_ms=fade_ms,
+            )
+        )
 
-        Args:
-            name: Music filename.
-            looping: Whether to loop the music.
-        """
-        ...
+    def play_ambience(
+        self,
+        loop: str,
+        intro: str = "",
+        outro: str = "",
+        *,
+        handle: str = "",
+        bus: str = "ambience",
+        fade_in_ms: int = DEFAULT_AMBIENCE_FADE_MS,
+        fade_out_ms: int = DEFAULT_AMBIENCE_FADE_MS,
+        volume: int = 100,
+        priority: int = 0,
+        ducking: dict[str, int] | None = None,
+        play_intro: bool = True,
+        seamless: bool = True,
+        scope: str = "global",
+        context: str = "",
+        layer: str = "environment",
+    ) -> str:
+        """Play or crossfade one independently scoped ambience layer."""
+        resolved_handle = handle or f"ambience:{scope}:{context or 'default'}:{layer}"
+        self.send_audio_command(
+            AudioCommand(
+                command="play",
+                kind="ambience",
+                asset=loop,
+                handle=resolved_handle,
+                bus=bus,
+                scope=scope,
+                context=context,
+                layer=layer,
+                loop=True,
+                intro=intro,
+                outro=outro,
+                play_intro=play_intro,
+                seamless=seamless,
+                volume=volume,
+                fade_in_ms=fade_in_ms,
+                fade_out_ms=fade_out_ms,
+                priority=priority,
+                ducking=ducking or {},
+            )
+        )
+        return resolved_handle
 
-    @abstractmethod
-    def stop_music(self) -> None:
-        """Stop background music."""
-        ...
+    def stop_ambience(
+        self,
+        *,
+        handle: str = "",
+        fade_ms: int = DEFAULT_AMBIENCE_FADE_MS,
+        play_outro: bool = True,
+        outro_mode: str = "immediate",
+        scope: str = "global",
+        context: str = "",
+        layer: str = "environment",
+    ) -> None:
+        """Fade and stop an ambience handle or scoped layer."""
+        self.send_audio_command(
+            AudioCommand(
+                command="stop",
+                kind="ambience",
+                handle=handle,
+                scope=scope,
+                context=context,
+                layer=layer,
+                fade_out_ms=fade_ms,
+                play_outro=play_outro,
+                outro_mode=outro_mode,
+            )
+        )
 
-    @abstractmethod
-    def play_ambience(self, loop: str, intro: str = "", outro: str = "") -> None:
-        """
-        Play ambient background sound.
+    def stop_all_ambience(
+        self,
+        *,
+        fade_ms: int = DEFAULT_AMBIENCE_FADE_MS,
+        play_outro: bool = True,
+        outro_mode: str = "immediate",
+    ) -> None:
+        """Stop every ambience layer while preserving configured outros."""
+        self.send_audio_command(
+            AudioCommand(
+                command="stop",
+                kind="ambience",
+                all_layers=True,
+                fade_out_ms=fade_ms,
+                play_outro=play_outro,
+                outro_mode=outro_mode,
+            )
+        )
 
-        Args:
-            loop: Looping ambient sound filename.
-            intro: Optional intro sound played once before loop.
-            outro: Optional outro sound played when stopping.
-        """
-        ...
+    def set_audio_bus(self, bus: str, gain: int, *, fade_ms: int = 0) -> None:
+        """Set a server-controlled bus gain without changing user preferences."""
+        self.send_audio_command(
+            AudioCommand(
+                command="set_bus",
+                bus=bus,
+                volume=gain,
+                fade_in_ms=fade_ms,
+            )
+        )
 
-    @abstractmethod
-    def stop_ambience(self) -> None:
-        """Stop ambient background sound."""
-        ...
+    def stop_all_audio(
+        self,
+        *,
+        fade_ms: int = 0,
+        play_outros: bool = False,
+        outro_mode: str = "immediate",
+    ) -> None:
+        """Stop all server-controlled audio for this user."""
+        self.send_audio_command(
+            AudioCommand(
+                command="stop_all",
+                fade_out_ms=fade_ms,
+                play_outros=play_outros,
+                outro_mode=outro_mode,
+            )
+        )
 
     @abstractmethod
     def show_menu(

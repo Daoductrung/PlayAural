@@ -814,9 +814,7 @@ class MainWindow(wx.Frame):
             and self.current_table_context_id
             and self.current_table_context_id != previous_context_id
         ):
-            self.sound_manager.remove_all_playlists()
-            self.sound_manager.stop_music(fade=False)
-            self.sound_manager.stop_ambience(force=True)
+            self.sound_manager.stop_all(fade_ms=800)
         if not self.current_table_context_id:
             if self.voice_state in {"connected", "connecting"}:
                 self.cleanup_voice_chat(send_leave=False, announce=False)
@@ -1723,49 +1721,6 @@ class MainWindow(wx.Frame):
         # Allow all other keys (including plain Enter for newlines in editable mode)
         event.Skip()
 
-    # Sound and music methods (for server calls via CallAfter)
-
-    def play_sound(self, sound_name, volume=1.0, pan=0.0, pitch=1.0):
-        """
-        Play a sound effect (called via CallAfter for non-blocking).
-
-        Args:
-            sound_name: Name of sound file (in sounds/ folder)
-            volume: Volume 0.0-1.0
-            pan: Pan -1.0 to 1.0
-            pitch: Pitch multiplier
-        """
-        wx.CallAfter(self.sound_manager.play, sound_name, volume, pan, pitch)
-
-    def play_music(
-        self, music_name: str, looping: bool = True, fade_out_old: bool = True
-    ):
-        """
-        Play background music (called via CallAfter for non-blocking).
-
-        Args:
-            music_name: Name of music file (in sounds/ folder)
-            looping: whether to loop the music
-            fade_out_old: Whether to fade out current music
-        """
-        wx.CallAfter(self.sound_manager.music, music_name, looping, fade_out_old)
-
-    def stop_music(self, fade=True):
-        """Stop background music."""
-        wx.CallAfter(self.sound_manager.stop_music, fade)
-
-    def set_music_volume(self, volume):
-        """Set music volume 0.0-1.0."""
-        wx.CallAfter(self.sound_manager.set_music_volume, volume)
-
-    def set_menuclick_sound(self, sound_name):
-        """Set the menu click sound (server command)."""
-        self.sound_manager.set_menuclick_sound(sound_name)
-
-    def set_menuenter_sound(self, sound_name):
-        """Set the menu enter/activate sound (server command)."""
-        self.sound_manager.set_menuenter_sound(sound_name)
-
     # Network methods
 
     def _auto_connect(self):
@@ -2060,8 +2015,7 @@ class MainWindow(wx.Frame):
         # Stop all looping audio so nothing bleeds past the error dialog.
         self.cleanup_voice_chat(send_leave=False, announce=False)
         self.current_table_context_id = ""
-        self.sound_manager.stop_music(fade=False)
-        self.sound_manager.stop_ambience(force=True)
+        self.sound_manager.stop_all(fade_ms=800)
 
         # Build error message
         # Use provided message only - do not append stale last_server_message
@@ -2203,8 +2157,8 @@ class MainWindow(wx.Frame):
         # Verify if we need to reload localization (though UI is already built)
         # For now, it will apply on next restart, which is what the user asked for.
 
-        # Stop connection loop and play welcome sound
-        self.sound_manager.stop_music(fade=False)
+        # Fade the connection loop before the welcome cue.
+        self.sound_manager.stop_music()
         self.sound_manager.play("welcome.ogg", volume=1.0)
 
         # Check for updates
@@ -2244,8 +2198,7 @@ class MainWindow(wx.Frame):
             )
             
             # Stop existing music and play download loop
-            self.sound_manager.stop_music(fade=False)
-            self.sound_manager.music("download_loop.ogg", looping=True, fade_out_old=False)
+            self.sound_manager.music("download_loop.ogg", looping=True)
             
             # Start download in thread
             self.download_thread = threading.Thread(target=self._download_update, args=(update_info,), daemon=True)
@@ -2708,101 +2661,9 @@ class MainWindow(wx.Frame):
             self.sound_manager.play(sound + ".ogg")
         self.add_history(message, "chat", should_alert)
 
-    def on_server_play_sound(self, packet):
-        """Handle play_sound packet from server."""
-        sound = packet.get("name", packet.get("sound", ""))  # Server sends "name"
-        volume = packet.get("volume", 100) / 100.0  # Convert 0-100 to 0.0-1.0
-        pan = packet.get("pan", 0) / 100.0  # Convert -100 to 100 to -1.0 to 1.0
-        pitch = packet.get("pitch", 100) / 100.0  # Convert 0-200 to 0.0-2.0
-        if sound:
-            self.sound_manager.play(sound, volume, pan, pitch)
-
-    def on_server_play_music(self, packet):
-        """Handle play_music packet from server."""
-        music = packet.get("name", packet.get("music", ""))  # Server sends "name"
-        looping = packet.get(
-            "looping", True
-        )  # Default to True for backwards compatibility
-        if music:
-            self.sound_manager.music(music, looping=looping)
-
-    def on_server_play_ambience(self, packet):
-        """Handle play_ambience packet from server."""
-        intro = packet.get("intro")
-        loop = packet.get("loop")
-        outro = packet.get("outro")
-        if loop:  # Loop is required
-            self.sound_manager.ambience(intro, loop, outro)
-
-    def on_server_stop_ambience(self, packet):
-        """Handle stop_ambience packet from server."""
-        self.sound_manager.stop_ambience()
-
-    def on_server_add_playlist(self, packet):
-        """Handle add_playlist packet from server."""
-        playlist_id = packet.get(
-            "playlist_id", "music_playlist"
-        )  # Default to backward-compatible ID
-        tracks = packet.get("tracks", [])
-        audio_type = packet.get("audio_type", "music")  # Default to music
-        shuffle_tracks = packet.get("shuffle_tracks", False)
-        repeats = packet.get("repeats", 1)  # Default to 1 repeat
-        auto_start = packet.get("auto_start", True)
-        auto_remove = packet.get("auto_remove", True)  # Default to True
-        if tracks:
-            self.sound_manager.add_playlist(
-                playlist_id,
-                tracks,
-                audio_type,
-                shuffle_tracks,
-                repeats,
-                auto_start,
-                auto_remove,
-            )
-
-    def on_server_start_playlist(self, packet):
-        """Handle start_playlist packet from server."""
-        playlist_id = packet.get("playlist_id", "music_playlist")
-        playlist = self.sound_manager.get_playlist(playlist_id)
-        if playlist and not playlist.is_active:
-            playlist.is_active = True
-            playlist._play_next_track()
-
-    def on_server_remove_playlist(self, packet):
-        """Handle remove_playlist packet from server."""
-        playlist_id = packet.get("playlist_id", "music_playlist")
-        self.sound_manager.remove_playlist(playlist_id)
-
-    def on_server_get_playlist_duration(self, packet):
-        """Handle get_playlist_duration packet from server."""
-        playlist_id = packet.get("playlist_id", "music_playlist")
-        duration_type = packet.get(
-            "duration_type", "total"
-        )  # "total", "elapsed", or "remaining"
-        request_id = packet.get("request_id")
-
-        playlist = self.sound_manager.get_playlist(playlist_id)
-        duration = 0
-
-        if playlist:
-            if duration_type == "total":
-                result = playlist.get_total_duration()
-                duration = result if result is not None else 0
-            elif duration_type == "elapsed":
-                duration = playlist.get_elapsed_duration()
-            elif duration_type == "remaining":
-                duration = playlist.get_remaining_duration()
-
-        # Send response back to server
-        if request_id:
-            response = {
-                "type": "playlist_duration_response",
-                "request_id": request_id,
-                "playlist_id": playlist_id,
-                "duration_type": duration_type,
-                "duration": duration,
-            }
-            self.network.send_packet(response)
+    def on_server_audio(self, packet):
+        """Route one validated lifecycle command into the audio engine."""
+        self.sound_manager.handle_audio_command(packet)
 
     def on_table_create(self, packet):
         host = packet.get("host")
@@ -3156,11 +3017,7 @@ class MainWindow(wx.Frame):
         # Switch to list mode if in edit mode
         if self.current_mode == "edit":
             self.switch_to_list_mode()
-        # Remove all playlists when leaving game
-        self.sound_manager.remove_all_playlists()
-        # Stop music and ambience when leaving game
-        self.sound_manager.stop_music(fade=True)
-        self.sound_manager.stop_ambience(force=False)
+        self.sound_manager.stop_all(fade_ms=800)
 
     def on_server_game_list(self, packet):
         """Handle game_list packet from server."""
@@ -3243,6 +3100,5 @@ class MainWindow(wx.Frame):
         # Stop looping audio before the window closes.
         self.cleanup_voice_chat(send_leave=False, announce=False)
         self.current_table_context_id = ""
-        self.sound_manager.stop_music(fade=False)
-        self.sound_manager.stop_ambience(force=True)
+        self.sound_manager.stop_all(fade_ms=0)
         self.Close()

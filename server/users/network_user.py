@@ -5,6 +5,7 @@ from typing import Any, TYPE_CHECKING
 from .base import User, MenuItem, EscapeBehavior, generate_uuid
 from .preferences import UserPreferences
 from ..messages.localization import Localization
+from ..audio import AudioCommand
 
 if TYPE_CHECKING:
     from ..network.websocket_server import ClientConnection
@@ -53,7 +54,7 @@ class NetworkUser(User):
         # Track current UI state for session resumption
         self._current_menus: dict[str, dict[str, Any]] = {}
         self._current_editboxes: dict[str, dict[str, Any]] = {}
-        self._current_music: dict[str, Any] | None = None
+        self._audio_sequence = 0
         # The menu_id of the last menu packet queued for this client, or None
         # when a non-menu UI (editbox, clear_ui) has taken the screen since.
         # Clients display one menu at a time, so this is what the client is
@@ -201,45 +202,12 @@ class NetworkUser(User):
 
         self._queue_packet(packet)
 
-    def play_sound(
-        self, name: str, volume: int = 100, pan: int = 0, pitch: int = 100
-    ) -> None:
-        self._queue_packet(
-            {
-                "type": "play_sound",
-                "name": name,
-                "volume": volume,
-                "pan": pan,
-                "pitch": pitch,
-            }
-        )
-
-    def play_music(self, name: str, looping: bool = True) -> None:
-        self._current_music = {"name": name, "looping": looping}
-        self._queue_packet(
-            {
-                "type": "play_music",
-                "name": name,
-                "looping": looping,
-            }
-        )
-
-    def stop_music(self) -> None:
-        self._current_music = None
-        self._queue_packet({"type": "stop_music"})
-
-    def play_ambience(self, loop: str, intro: str = "", outro: str = "") -> None:
-        self._queue_packet(
-            {
-                "type": "play_ambience",
-                "intro": intro,
-                "loop": loop,
-                "outro": outro,
-            }
-        )
-
-    def stop_ambience(self) -> None:
-        self._queue_packet({"type": "stop_ambience"})
+    def send_audio_command(self, command: AudioCommand) -> None:
+        """Queue an ordered command from the unified audio protocol."""
+        self._audio_sequence += 1
+        packet = command.to_packet()
+        packet["sequence"] = self._audio_sequence
+        self._queue_packet(packet)
 
     def _convert_items(self, items: list[str | MenuItem]) -> list[str | dict]:
         """Convert MenuItem objects to dicts for JSON serialization."""

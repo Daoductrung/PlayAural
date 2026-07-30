@@ -1,46 +1,72 @@
-import { Audio as ExpoAudio, InterruptionModeAndroid, InterruptionModeIOS } from "expo-av";
-import type { AVPlaybackSource, AVPlaybackStatus, AVPlaybackStatusToSet } from "expo-av";
+import {
+  Audio as ExpoAudio,
+  InterruptionModeAndroid,
+  InterruptionModeIOS,
+} from "expo-av";
+import type {
+  AVPlaybackSource,
+  AVPlaybackStatus,
+  AVPlaybackStatusToSet,
+} from "expo-av";
+import {
+  createAudioPlaylist,
+  setAudioModeAsync as setModernAudioModeAsync,
+} from "expo-audio";
+import type {
+  AudioPlaylist,
+  AudioPlaylistStatus,
+  AudioSource as ModernAudioSource,
+} from "expo-audio";
 import { Asset } from "expo-asset";
 import { requireNativeModule } from "expo-modules-core";
 import { Platform } from "react-native";
 
 import { soundManifest } from "../generated/soundManifest";
-import { ENABLE_CLIENT_DEBUG_LOGS } from "../utils/debug";
+import type { AudioCommandPacket, AudioKind } from "../network/packets";
 
-type ManagedNativePlayer = {
-  player: ExpoAudio.Sound;
-  sourceKey: string;
-};
-
-type ManagedWebStream = {
-  element: HTMLAudioElement;
-  gainNode: GainNode;
-  sourceKey: string;
-  sourceNode: MediaElementAudioSourceNode;
-};
-
-type WebBusName = "ambience" | "music";
-
-type WebSfxHandle = {
-  gain: GainNode;
-  panner: StereoPannerNode | null;
-  source: AudioBufferSourceNode;
-};
-
-type DesiredMusicRequest = {
-  looping: boolean;
-  name: string;
-};
-
-type DesiredAmbienceRequest = {
-  intro: string;
-  loop: string;
+type CommandAudioSource = {
+  active: boolean;
+  asset: string;
+  baseVolume: number;
+  bus: string;
+  createdAt: number;
+  ducking: Map<string, number>;
+  envelope: number;
+  fadeToken: number;
+  generation: number;
+  handle: string;
+  key: string;
+  kind: AudioKind;
+  nativePlayer: ExpoAudio.Sound | null;
+  nativeStem: NativeStemState | null;
   outro: string;
+  paused: boolean;
+  priority: number;
+  target: string;
+  webGain: GainNode | null;
+  webNode: AudioBufferSourceNode | MediaElementAudioSourceNode | null;
+  webNodes: Set<AudioBufferSourceNode>;
+  webStem: WebStemState | null;
+  webElement: HTMLAudioElement | null;
+  webPanner: StereoPannerNode | null;
 };
 
-type AmbiencePhase = "idle" | "intro" | "loop" | "outro";
+type NativeStemState = {
+  loopIndex: number;
+  outroIndex: number;
+  outroRequested: boolean;
+  playlist: AudioPlaylist;
+  statusSubscription: { remove(): void };
+  trackSubscription: { remove(): void };
+};
 
-const DEBUG_PREFIX = "PLAYAURAL_DEBUG Audio";
+type WebStemState = {
+  loopDuration: number;
+  loopNode: AudioBufferSourceNode;
+  loopStartedAt: number;
+  outroBuffer: AudioBuffer | null;
+  outroScheduled: boolean;
+};
 
 type AndroidNativeAudioMode = {
   interruptionModeAndroid: number;
@@ -52,6 +78,15 @@ type ExponentAVModule = {
   setAudioMode(mode: AndroidNativeAudioMode): Promise<void>;
 };
 
+const AUDIO_PROTOCOL_VERSION = 1;
+const MAX_ACTIVE_EFFECTS = 64;
+const MAX_ACTIVE_LAYERS = 32;
+const MAX_CACHED_EFFECTS = 128;
+const MAX_CACHED_BUFFER_BYTES = 96 * 1024 * 1024;
+const MAX_CACHED_ASSET_URIS = 512;
+const MAX_GENERATION_ENTRIES = 512;
+const MAX_FADE_MS = 60_000;
+
 const exponentAV = Platform.OS === "android"
   ? requireNativeModule<ExponentAVModule>("ExponentAV")
   : null;
@@ -60,26 +95,13 @@ export class MobileAudioManager {
   private initialized = false;
   private nativeAudioModeReady = false;
   private nativeAudioModeLoading: Promise<void> | null = null;
-  private musicPlayer: ManagedNativePlayer | null = null;
-  private ambienceIntroPlayer: ManagedNativePlayer | null = null;
-  private ambienceLoopPlayer: ManagedNativePlayer | null = null;
-  private ambienceOutroPlayer: ManagedNativePlayer | null = null;
-  private ambienceOutroKey: string | null = null;
-  private ambiencePhase: AmbiencePhase = "idle";
-  private ambiencePlaybackId = 0;
-  private sfxPlayers = new Set<ExpoAudio.Sound>();
-  private retiringMusicPlayers = new Set<ExpoAudio.Sound>();
   private musicVolume = 0.2;
-  private soundVolume = 1.0;
+  private soundVolume = 1;
   private ambienceVolume = 0.3;
-  private musicTransitionId = 0;
-  private musicFadeInterval: ReturnType<typeof setInterval> | null = null;
+
   private nativeSourceCache = new Map<string, AVPlaybackSource>();
   private nativeSourceLoading = new Map<string, Promise<AVPlaybackSource | null>>();
   private nativeSoundVolumes = new WeakMap<ExpoAudio.Sound, number>();
-  private nativeSfxBaseVolumes = new WeakMap<ExpoAudio.Sound, number>();
-  private desiredMusicRequest: DesiredMusicRequest | null = null;
-  private desiredAmbienceRequest: DesiredAmbienceRequest | null = null;
 
   private webAudioContext: AudioContext | null = null;
   private webMasterGain: GainNode | null = null;
@@ -87,97 +109,44 @@ export class MobileAudioManager {
   private webSfxBus: GainNode | null = null;
   private webAmbienceBus: GainNode | null = null;
   private webBufferCache = new Map<string, AudioBuffer>();
+  private webBufferCacheBytes = 0;
   private webBufferLoading = new Map<string, Promise<AudioBuffer | null>>();
-  private webSfxRefs = new Set<WebSfxHandle>();
-  private webMusicPlayer: ManagedWebStream | null = null;
-  private webAmbienceIntroPlayer: ManagedWebStream | null = null;
-  private webAmbienceLoopPlayer: ManagedWebStream | null = null;
-  private webAmbienceOutroPlayer: ManagedWebStream | null = null;
-  private webRetiringMusicPlayers = new Set<ManagedWebStream>();
-  private webPendingMusicRequest: { looping: boolean; name: string } | null = null;
-  private webPendingAmbienceRequest: { intro: string; loop: string; outro: string } | null = null;
   private webUriCache = new Map<string, string>();
+  private webCommandBuses = new Map<
+    string,
+    { bus: string; kind: AudioKind; node: GainNode }
+  >();
+
+  private commandSources = new Map<string, CommandAudioSource>();
+  private commandHandles = new Map<string, string>();
+  private commandTargets = new Map<string, string>();
+  private commandTargetGenerations = new Map<string, number>();
+  private commandGenerations = new Map<string, number>();
+  private commandBusGains = new Map<string, number>();
+  private commandBusFadeTokens = new Map<string, number>();
+  private commandDucking = new Map<string, Map<string, number>>();
+  private stateListener: (() => void) | null = null;
 
   async initialize(): Promise<void> {
     if (this.initialized) {
       return;
     }
-
     if (Platform.OS !== "web") {
       await this.ensureNativeAudioMode();
     }
-
-    this.debug("initialize", Platform.OS);
     this.initialized = true;
   }
 
   shutdown(): void {
-    this.cancelMusicFade();
-    ++this.musicTransitionId;
-    ++this.ambiencePlaybackId;
-    this.desiredMusicRequest = null;
-    this.desiredAmbienceRequest = null;
-    this.ambienceOutroKey = null;
-    this.ambiencePhase = "idle";
-    this.webPendingMusicRequest = null;
-    this.webPendingAmbienceRequest = null;
-
-    for (const player of this.retiringMusicPlayers) {
-      this.disposeNativeSound(player);
-    }
-    this.retiringMusicPlayers.clear();
-
-    for (const player of this.sfxPlayers) {
-      this.disposeNativeSound(player);
-    }
-    this.sfxPlayers.clear();
-
-    if (this.musicPlayer) {
-      this.disposeNativeSound(this.musicPlayer.player);
-      this.musicPlayer = null;
-    }
-    if (this.ambienceIntroPlayer) {
-      this.disposeNativeSound(this.ambienceIntroPlayer.player);
-      this.ambienceIntroPlayer = null;
-    }
-    if (this.ambienceLoopPlayer) {
-      this.disposeNativeSound(this.ambienceLoopPlayer.player);
-      this.ambienceLoopPlayer = null;
-    }
-    if (this.ambienceOutroPlayer) {
-      this.disposeNativeSound(this.ambienceOutroPlayer.player);
-      this.ambienceOutroPlayer = null;
-    }
-
-    if (this.webMusicPlayer) {
-      this.disposeWebStream(this.webMusicPlayer);
-      this.webMusicPlayer = null;
-    }
-    if (this.webAmbienceIntroPlayer) {
-      this.disposeWebStream(this.webAmbienceIntroPlayer);
-      this.webAmbienceIntroPlayer = null;
-    }
-    if (this.webAmbienceLoopPlayer) {
-      this.disposeWebStream(this.webAmbienceLoopPlayer);
-      this.webAmbienceLoopPlayer = null;
-    }
-    if (this.webAmbienceOutroPlayer) {
-      this.disposeWebStream(this.webAmbienceOutroPlayer);
-      this.webAmbienceOutroPlayer = null;
-    }
-    for (const player of this.webRetiringMusicPlayers) {
-      this.disposeWebStream(player);
-    }
-    this.webRetiringMusicPlayers.clear();
-    for (const handle of this.webSfxRefs) {
+    this.stopAllManagedAudio(0);
+    for (const record of this.webCommandBuses.values()) {
       try {
-        handle.source.stop();
+        record.node.disconnect();
       } catch {
-        // Ignore stop races for already-ended web sounds.
+        // Ignore already-disconnected command buses.
       }
-      this.disposeWebSfx(handle);
     }
-    this.webSfxRefs.clear();
+    this.webCommandBuses.clear();
     this.initialized = false;
   }
 
@@ -185,110 +154,33 @@ export class MobileAudioManager {
     if (Platform.OS !== "web") {
       return;
     }
-    this.debug("user-interaction", "");
     await this.ensureWebAudioReady();
-    if (this.webPendingMusicRequest) {
-      const pending = this.webPendingMusicRequest;
-      this.webPendingMusicRequest = null;
-      if (this.musicVolume > 0) {
-        await this.playWebMusic(pending.name, pending.looping);
-      }
-    }
-    if (this.webPendingAmbienceRequest) {
-      const pending = this.webPendingAmbienceRequest;
-      this.webPendingAmbienceRequest = null;
-      if (this.ambienceVolume > 0) {
-        await this.playWebAmbience(pending.loop, pending.intro, pending.outro);
+    for (const source of this.commandSources.values()) {
+      if (source.active && !source.paused && source.webElement?.paused) {
+        void source.webElement.play().catch(() => undefined);
       }
     }
   }
 
   setMusicVolume(volume: number): void {
-    const wasMuted = this.musicVolume <= 0;
-    this.musicVolume = Math.max(0, Math.min(1, volume));
-    if (this.musicVolume <= 0) {
-      this.webPendingMusicRequest = null;
-      this.stopMusic(false, false);
-      return;
-    }
-
-    if (this.musicPlayer) {
-      this.setNativeSoundVolume(this.musicPlayer.player, this.musicVolume);
-    }
-
-    if (this.webAudioContext && this.webMusicBus) {
-      this.webMusicBus.gain.setTargetAtTime(
-        this.musicVolume,
-        this.webAudioContext.currentTime,
-        0.05,
-      );
-    }
-
-    if (wasMuted && !this.musicPlayer && this.desiredMusicRequest) {
-      void this.playMusic(this.desiredMusicRequest.name, this.desiredMusicRequest.looping);
-    }
+    this.musicVolume = this.clamp(volume, 0, 1, 0.2);
+    this.setWebMasterBus(this.webMusicBus, this.musicVolume);
+    this.refreshMix();
+    this.stateListener?.();
   }
 
   setAmbienceVolume(volume: number): void {
-    const wasMuted = this.ambienceVolume <= 0;
-    this.ambienceVolume = Math.max(0, Math.min(1, volume));
-    if (this.ambienceVolume <= 0) {
-      this.webPendingAmbienceRequest = null;
-      this.stopAmbience(true, false);
-      return;
-    }
-
-    if (this.ambienceLoopPlayer) {
-      this.setNativeSoundVolume(this.ambienceLoopPlayer.player, this.ambienceVolume);
-    }
-    if (this.ambienceIntroPlayer) {
-      this.setNativeSoundVolume(this.ambienceIntroPlayer.player, this.ambienceVolume);
-    }
-    if (this.ambienceOutroPlayer) {
-      this.setNativeSoundVolume(this.ambienceOutroPlayer.player, this.ambienceVolume);
-    }
-
-    if (this.webAudioContext && this.webAmbienceBus) {
-      this.webAmbienceBus.gain.setTargetAtTime(
-        this.ambienceVolume,
-        this.webAudioContext.currentTime,
-        0.05,
-      );
-    }
-
-    if (
-      wasMuted &&
-      !this.ambienceIntroPlayer &&
-      !this.ambienceLoopPlayer &&
-      !this.ambienceOutroPlayer &&
-      this.desiredAmbienceRequest
-    ) {
-      void this.playAmbience(
-        this.desiredAmbienceRequest.loop,
-        this.desiredAmbienceRequest.intro,
-        this.desiredAmbienceRequest.outro,
-      );
-    }
+    this.ambienceVolume = this.clamp(volume, 0, 1, 0.3);
+    this.setWebMasterBus(this.webAmbienceBus, this.ambienceVolume);
+    this.refreshMix();
+    this.stateListener?.();
   }
 
   setSoundVolume(volume: number): void {
-    const parsed = Number(volume);
-    this.soundVolume = Number.isFinite(parsed) ? Math.max(0.1, Math.min(1, parsed)) : 1.0;
-
-    for (const sound of this.sfxPlayers) {
-      const baseVolume = this.nativeSfxBaseVolumes.get(sound) ?? 1;
-      const effectiveVolume = Math.max(0, Math.min(1, baseVolume * this.soundVolume));
-      this.nativeSoundVolumes.set(sound, effectiveVolume);
-      void sound.setVolumeAsync(effectiveVolume).catch(() => undefined);
-    }
-
-    if (this.webAudioContext && this.webSfxBus) {
-      this.webSfxBus.gain.setTargetAtTime(
-        this.soundVolume,
-        this.webAudioContext.currentTime,
-        0.05,
-      );
-    }
+    this.soundVolume = this.clamp(volume, 0, 1, 1);
+    this.setWebMasterBus(this.webSfxBus, this.soundVolume);
+    this.refreshMix();
+    this.stateListener?.();
   }
 
   getMusicVolume(): number {
@@ -299,42 +191,45 @@ export class MobileAudioManager {
     return this.ambienceVolume;
   }
 
+  getSoundVolume(): number {
+    return this.soundVolume;
+  }
+
+  setStateListener(listener: (() => void) | null): void {
+    this.stateListener = listener;
+    listener?.();
+  }
+
+  getActiveLayerAssets(kind: "music" | "ambience"): string[] {
+    return [...this.commandSources.values()]
+      .filter((source) => source.active && source.kind === kind)
+      .sort((left, right) => left.createdAt - right.createdAt)
+      .map((source) => source.asset);
+  }
+
+  hasAudibleManagedLayers(): boolean {
+    return [...this.commandSources.values()].some((source) => (
+      source.active
+      && !source.paused
+      && source.kind !== "sfx"
+      && source.baseVolume > 0
+      && this.masterGain(source.kind) > 0
+      && (this.commandBusGains.get(source.bus) ?? 1) > 0
+    ));
+  }
+
   refreshPlaybackState(): void {
+    this.refreshMix();
     if (Platform.OS === "web") {
       return;
     }
-
-    if (this.musicPlayer) {
-      this.setNativeSoundVolume(this.musicPlayer.player, this.musicVolume);
-      void this.musicPlayer.player.playAsync().catch(() => undefined);
-    } else if (this.musicVolume > 0 && this.desiredMusicRequest) {
-      void this.playMusic(this.desiredMusicRequest.name, this.desiredMusicRequest.looping);
-    }
-
-    if (this.ambienceIntroPlayer) {
-      this.setNativeSoundVolume(this.ambienceIntroPlayer.player, this.ambienceVolume);
-      void this.ambienceIntroPlayer.player.playAsync().catch(() => undefined);
-    }
-    if (this.ambienceLoopPlayer) {
-      this.setNativeSoundVolume(this.ambienceLoopPlayer.player, this.ambienceVolume);
-      void this.ambienceLoopPlayer.player.playAsync().catch(() => undefined);
-    }
-    if (this.ambienceOutroPlayer) {
-      this.setNativeSoundVolume(this.ambienceOutroPlayer.player, this.ambienceVolume);
-      void this.ambienceOutroPlayer.player.playAsync().catch(() => undefined);
-    }
-    if (
-      !this.ambienceIntroPlayer &&
-      !this.ambienceLoopPlayer &&
-      !this.ambienceOutroPlayer &&
-      this.ambienceVolume > 0 &&
-      this.desiredAmbienceRequest
-    ) {
-      void this.playAmbience(
-        this.desiredAmbienceRequest.loop,
-        this.desiredAmbienceRequest.intro,
-        this.desiredAmbienceRequest.outro,
-      );
+    for (const source of this.commandSources.values()) {
+      if (source.nativePlayer && !source.paused) {
+        void source.nativePlayer.playAsync().catch(() => undefined);
+      }
+      if (source.nativeStem && !source.paused) {
+        source.nativeStem.playlist.play();
+      }
     }
   }
 
@@ -342,341 +237,1262 @@ export class MobileAudioManager {
     name: string,
     options: { volume?: number; pitch?: number; pan?: number } = {},
   ): Promise<boolean> {
-    this.debug("play-sound-request", name);
-    if (Platform.OS === "web") {
-      return this.playWebSound(name, options);
+    const asset = this.normalizeAsset(name);
+    if (!asset) {
+      return false;
     }
-
-    await this.initialize();
-    return this.playNativeSound(name, options);
+    return this.playManagedEffect({
+      type: "audio",
+      version: AUDIO_PROTOCOL_VERSION,
+      command: "play",
+      kind: "sfx",
+      asset,
+      volume: (options.volume ?? 1) * 100,
+      pitch: (options.pitch ?? 1) * 100,
+      pan: (options.pan ?? 0) * 100,
+      priority: 100,
+    });
   }
 
-  async playMusic(name: string, looping = true): Promise<boolean> {
-    this.debug("play-music-request", name);
-    this.desiredMusicRequest = { looping, name };
-    if (this.musicVolume <= 0) {
-      this.webPendingMusicRequest = null;
-      this.stopMusic(false, false);
+  async handleAudioCommand(packet: AudioCommandPacket): Promise<boolean> {
+    if (!packet || typeof packet !== "object" || Array.isArray(packet)) {
       return false;
     }
-    if (Platform.OS === "web") {
-      return this.playWebMusic(name, looping);
-    }
-
-    await this.initialize();
-    const transitionId = ++this.musicTransitionId;
-    const source = await this.resolveNativeSource(name);
-    if (!source) {
+    if (packet.version !== AUDIO_PROTOCOL_VERSION) {
       return false;
     }
-    if (this.musicPlayer?.sourceKey === name) {
-      this.cancelMusicFade();
-      void this.musicPlayer.player.setIsLoopingAsync(looping).catch(() => undefined);
-      this.setNativeSoundVolume(this.musicPlayer.player, this.musicVolume);
-      void this.musicPlayer.player.playAsync().catch(() => undefined);
-      return true;
+    for (const value of [
+      packet.handle,
+      packet.bus,
+      packet.context,
+      packet.layer,
+    ]) {
+      if (value && !this.validId(value)) {
+        return false;
+      }
     }
+    if (!["global", "player", "context"].includes(packet.scope ?? "global")) {
+      return false;
+    }
+    const outroMode = packet.outro_mode ?? "immediate";
+    if (!["immediate", "boundary"].includes(outroMode)) {
+      return false;
+    }
+    if (
+      packet.all_layers
+      && (
+        packet.command !== "stop"
+        || packet.kind !== "ambience"
+        || packet.handle
+      )
+    ) {
+      return false;
+    }
+    if (packet.play_outros && packet.command !== "stop_all") {
+      return false;
+    }
+    const ducking = packet.ducking ?? {};
+    if (
+      typeof ducking !== "object"
+      || Array.isArray(ducking)
+      || Object.keys(ducking).length > 32
+    ) {
+      return false;
+    }
+    if (Object.keys(ducking).some((bus) => !this.validId(bus))) {
+      return false;
+    }
+    switch (packet.command) {
+      case "play":
+        if (
+          !packet.kind
+          || !["sfx", "music", "ambience"].includes(packet.kind)
+          || !this.normalizeAsset(packet.asset || "")
+        ) {
+          return false;
+        }
+        return packet.kind === "sfx"
+          ? this.playManagedEffect(packet)
+          : this.playManagedLayer(packet);
+      case "stop":
+        if (
+          !packet.kind
+          || !["sfx", "music", "ambience"].includes(packet.kind)
+          || (["sfx", "music"].includes(packet.kind) && !packet.handle)
+        ) {
+          return false;
+        }
+        this.stopManagedCommand(packet, false);
+        return true;
+      case "pause":
+        if (packet.kind !== "music" || !packet.handle) {
+          return false;
+        }
+        this.stopManagedCommand(packet, true);
+        return true;
+      case "resume":
+        if (packet.kind !== "music" || !packet.handle) {
+          return false;
+        }
+        this.resumeManagedCommand(packet);
+        return true;
+      case "set_bus":
+        if (!packet.bus) {
+          return false;
+        }
+        this.setCommandBusGain(
+          packet.bus,
+          this.clamp(packet.volume, 0, 100, 100) / 100,
+          packet.fade_in_ms ?? 0,
+        );
+        return true;
+      case "stop_all":
+        this.stopAllManagedAudio(
+          packet.fade_out_ms ?? 0,
+          packet.play_outros === true,
+          outroMode,
+        );
+        return true;
+      default:
+        return false;
+    }
+  }
 
-    const player = await this.createNativeSound(
-      source,
-      {
-        isLooping: looping,
-        progressUpdateIntervalMillis: 250,
-        shouldPlay: true,
-        volume: 0,
-      },
+  stopAll(fadeMs = 800): void {
+    this.stopAllManagedAudio(fadeMs);
+  }
+
+  private clamp(
+    value: unknown,
+    minimum: number,
+    maximum: number,
+    fallback: number,
+  ): number {
+    const parsed = Number(value);
+    return Math.max(
+      minimum,
+      Math.min(maximum, Number.isFinite(parsed) ? parsed : fallback),
     );
-    if (!player) {
-      return false;
-    }
-    if (transitionId !== this.musicTransitionId) {
-      this.disposeNativeSound(player);
-      return false;
-    }
-    const nextMusicPlayer = { player, sourceKey: name };
-    const previousMusicPlayer = this.musicPlayer;
-    this.musicPlayer = nextMusicPlayer;
-    if (previousMusicPlayer) {
-      this.retiringMusicPlayers.add(previousMusicPlayer.player);
-    }
-
-    this.cancelMusicFade();
-    this.musicFadeInterval = setInterval(() => {
-      if (transitionId !== this.musicTransitionId) {
-        this.cancelMusicFade();
-        return;
-      }
-
-      const step = 0.05;
-      const currentVolume = this.getTargetNativePlayerVolume(nextMusicPlayer.player);
-      const nextVolume = Math.min(this.musicVolume, currentVolume + step);
-      this.setNativeSoundVolume(nextMusicPlayer.player, nextVolume);
-
-      this.fadeRetiringMusicPlayers(step);
-
-      if (nextVolume >= this.musicVolume && this.retiringMusicPlayers.size === 0) {
-        this.cancelMusicFade();
-      }
-    }, 50);
-    return true;
   }
 
-  stopMusic(fade = true, clearRequested = true): void {
-    if (clearRequested) {
-      this.desiredMusicRequest = null;
+  private normalizeAsset(name: string): string {
+    const normalized = String(name || "").trim().replaceAll("\\", "/");
+    if (
+      !normalized
+      || normalized.length > 256
+      || normalized.startsWith("/")
+      || normalized.includes(":")
+      || normalized.includes("?")
+      || normalized.includes("#")
+      || normalized.split("/").some(
+        (part) => !part || part === "." || part === "..",
+      )
+    ) {
+      return "";
     }
-
-    if (Platform.OS === "web") {
-      this.stopWebMusic(fade);
-      return;
-    }
-
-    if (!this.musicPlayer) {
-      if (!fade) {
-        this.cancelMusicFade();
-        this.clearRetiringMusicPlayers();
-      }
-      return;
-    }
-
-    const current = this.musicPlayer;
-    this.musicPlayer = null;
-    ++this.musicTransitionId;
-    if (!fade) {
-      this.cancelMusicFade();
-      this.disposeNativeSound(current.player);
-      this.clearRetiringMusicPlayers();
-      return;
-    }
-
-    this.retiringMusicPlayers.add(current.player);
-    this.cancelMusicFade();
-    this.musicFadeInterval = setInterval(() => {
-      this.fadeRetiringMusicPlayers(0.05);
-      if (this.retiringMusicPlayers.size === 0) {
-        this.cancelMusicFade();
-      }
-    }, 50);
+    return normalized;
   }
 
-  async playAmbience(loop: string, intro = "", outro = ""): Promise<boolean> {
-    this.debug("play-ambience-request", loop);
-    this.desiredAmbienceRequest = { intro, loop, outro };
-    if (this.ambienceVolume <= 0) {
-      this.webPendingAmbienceRequest = null;
-      this.stopAmbience(true, false);
-      return false;
-    }
-    if (Platform.OS === "web") {
-      return this.playWebAmbience(loop, intro, outro);
-    }
+  private validId(value: string): boolean {
+    return /^[A-Za-z0-9_.:-]{1,128}$/.test(value);
+  }
 
-    await this.initialize();
-    this.stopAmbience(true, false);
-    const playbackId = ++this.ambiencePlaybackId;
+  private target(packet: AudioCommandPacket): string {
+    return `${packet.kind ?? ""}:${packet.scope ?? "global"}:${packet.context ?? ""}:${packet.layer ?? "main"}`;
+  }
 
-    this.ambienceOutroKey = outro || null;
-
-    const loopSource = await this.resolveNativeSource(loop);
-    if (!loopSource) {
-      return false;
-    }
-
-    const startLoop = () => {
-      if (playbackId !== this.ambiencePlaybackId) {
-        return;
-      }
-      void this.createNativeSound(
-        loopSource,
-        {
-          isLooping: true,
-          progressUpdateIntervalMillis: 250,
-          shouldPlay: true,
-          volume: this.ambienceVolume,
-        },
-      ).then((loopPlayer) => {
-        if (!loopPlayer) {
-          if (playbackId === this.ambiencePlaybackId) {
-            this.ambiencePhase = "idle";
-          }
-          return;
-        }
-        if (playbackId !== this.ambiencePlaybackId) {
-          this.disposeNativeSound(loopPlayer);
-          return;
-        }
-        this.ambienceLoopPlayer = { player: loopPlayer, sourceKey: loop };
-        this.ambiencePhase = "loop";
-      });
-    };
-
-    const introSource = intro ? await this.resolveNativeSource(intro) : null;
-    if (introSource) {
-      let introPlayerRef: ExpoAudio.Sound | null = null;
-      const introPlayer = await this.createNativeSound(
-        introSource,
-        {
-          isLooping: false,
-          progressUpdateIntervalMillis: 80,
-          shouldPlay: true,
-          volume: this.ambienceVolume,
-        },
-        () => {
-          if (this.ambienceIntroPlayer?.player === introPlayerRef) {
-            this.ambienceIntroPlayer = null;
-          }
-          if (introPlayerRef) {
-            this.disposeNativeSound(introPlayerRef);
-          }
-          startLoop();
-        },
+  private nextGeneration(handle: string): number {
+    const next = (this.commandGenerations.get(handle) ?? 0) + 1;
+    this.commandGenerations.delete(handle);
+    this.commandGenerations.set(handle, next);
+    while (this.commandGenerations.size > MAX_GENERATION_ENTRIES) {
+      const removable = [...this.commandGenerations.keys()].find(
+        (candidate) => !this.commandHandles.has(candidate),
       );
-      if (!introPlayer) {
-        return false;
+      if (!removable) {
+        break;
       }
-      introPlayerRef = introPlayer;
-      if (playbackId !== this.ambiencePlaybackId) {
-        this.disposeNativeSound(introPlayer);
-        return false;
-      }
-      this.ambienceIntroPlayer = { player: introPlayer, sourceKey: intro };
-      this.ambiencePhase = "intro";
-      return true;
+      this.commandGenerations.delete(removable);
     }
+    return next;
+  }
 
-    startLoop();
+  private nextTargetGeneration(target: string): number {
+    const next = (this.commandTargetGenerations.get(target) ?? 0) + 1;
+    this.commandTargetGenerations.delete(target);
+    this.commandTargetGenerations.set(target, next);
+    while (this.commandTargetGenerations.size > MAX_GENERATION_ENTRIES) {
+      const removable = [...this.commandTargetGenerations.keys()].find(
+        (candidate) => !this.commandTargets.has(candidate),
+      );
+      if (!removable) {
+        break;
+      }
+      this.commandTargetGenerations.delete(removable);
+    }
+    return next;
+  }
+
+  private masterGain(kind: AudioKind): number {
+    if (kind === "music") {
+      return this.musicVolume;
+    }
+    if (kind === "ambience") {
+      return this.ambienceVolume;
+    }
+    return this.soundVolume;
+  }
+
+  private duckGain(bus: string): number {
+    let gain = 1;
+    for (const request of this.commandDucking.values()) {
+      gain = Math.min(gain, request.get(bus) ?? 1);
+    }
+    return gain;
+  }
+
+  private outputGain(source: CommandAudioSource): number {
+    const mix = source.baseVolume
+      * (this.commandBusGains.get(source.bus) ?? 1)
+      * this.duckGain(source.bus)
+      * source.envelope;
+    return Platform.OS === "web" ? mix : mix * this.masterGain(source.kind);
+  }
+
+  private setCommandBusGain(
+    bus: string,
+    destination: number,
+    durationMs: number,
+  ): void {
+    const duration = this.clamp(durationMs, 0, MAX_FADE_MS, 0);
+    const start = this.commandBusGains.get(bus) ?? 1;
+    const token = (this.commandBusFadeTokens.get(bus) ?? 0) + 1;
+    this.commandBusFadeTokens.set(bus, token);
+    if (!duration) {
+      this.commandBusGains.set(bus, destination);
+      this.refreshMix();
+      return;
+    }
+    const started = Date.now();
+    const timer = setInterval(() => {
+      if (this.commandBusFadeTokens.get(bus) !== token) {
+        clearInterval(timer);
+        return;
+      }
+      const ratio = Math.min(1, (Date.now() - started) / duration);
+      this.commandBusGains.set(
+        bus,
+        start + ((destination - start) * ratio),
+      );
+      this.refreshMix();
+      if (ratio >= 1) {
+        clearInterval(timer);
+      }
+    }, 25);
+  }
+
+  private setAbsoluteVolume(
+    source: CommandAudioSource,
+    volume: number,
+  ): void {
+    const bounded = this.clamp(volume, 0, 1, 0);
+    if (source.nativePlayer) {
+      this.setNativeSoundVolume(source.nativePlayer, bounded);
+    }
+    if (source.nativeStem) {
+      source.nativeStem.playlist.volume = bounded;
+    }
+    if (source.webGain && this.webAudioContext) {
+      source.webGain.gain.setValueAtTime(
+        bounded,
+        this.webAudioContext.currentTime,
+      );
+    }
+  }
+
+  private refreshMix(): void {
+    for (const source of this.commandSources.values()) {
+      if (!source.paused) {
+        this.setAbsoluteVolume(source, this.outputGain(source));
+      }
+    }
+  }
+
+  private setWebMasterBus(bus: GainNode | null, value: number): void {
+    if (bus && this.webAudioContext) {
+      bus.gain.setTargetAtTime(value, this.webAudioContext.currentTime, 0.05);
+    }
+  }
+
+  private async webBus(kind: AudioKind, bus: string): Promise<GainNode | null> {
+    const context = await this.ensureWebAudioReady();
+    if (!context) {
+      return null;
+    }
+    const key = `${kind}:${bus}`;
+    const cached = this.webCommandBuses.get(key);
+    if (cached) {
+      return cached.node;
+    }
+    const parent = kind === "sfx"
+      ? this.webSfxBus
+      : kind === "music"
+        ? this.webMusicBus
+        : this.webAmbienceBus;
+    if (!parent) {
+      return null;
+    }
+    const node = context.createGain();
+    node.gain.value = 1;
+    node.connect(parent);
+    this.webCommandBuses.set(key, { bus, kind, node });
+    return node;
+  }
+
+  private register(source: CommandAudioSource): void {
+    this.commandSources.set(source.key, source);
+    this.commandHandles.set(source.handle, source.key);
+    if (source.target) {
+      this.commandTargets.set(source.target, source.key);
+    }
+    if (source.ducking.size) {
+      this.commandDucking.set(source.key, source.ducking);
+      this.refreshMix();
+    }
+    this.stateListener?.();
+  }
+
+  private dispose(key: string): void {
+    const source = this.commandSources.get(key);
+    if (!source) {
+      return;
+    }
+    source.active = false;
+    this.commandSources.delete(key);
+    this.commandDucking.delete(key);
+    if (this.commandHandles.get(source.handle) === key) {
+      this.commandHandles.delete(source.handle);
+    }
+    if (source.target && this.commandTargets.get(source.target) === key) {
+      this.commandTargets.delete(source.target);
+    }
+    if (source.nativePlayer) {
+      this.disposeNativeSound(source.nativePlayer);
+    }
+    if (source.nativeStem) {
+      source.nativeStem.statusSubscription.remove();
+      source.nativeStem.trackSubscription.remove();
+      source.nativeStem.playlist.destroy();
+      source.nativeStem = null;
+    }
+    if (source.webElement) {
+      source.webElement.onended = null;
+      source.webElement.pause();
+      source.webElement.currentTime = 0;
+    } else {
+      for (const node of source.webNodes) {
+        try {
+          node.stop();
+        } catch {
+          // A sibling stem segment may already have ended.
+        }
+      }
+    }
+    for (const node of source.webNodes) {
+      try {
+        node.disconnect();
+      } catch {
+        // Ignore double-disconnect races.
+      }
+    }
+    try {
+      source.webNode?.disconnect();
+    } catch {
+      // Ignore double-disconnect races.
+    }
+    try {
+      source.webPanner?.disconnect();
+    } catch {
+      // Ignore double-disconnect races.
+    }
+    try {
+      source.webGain?.disconnect();
+    } catch {
+      // Ignore double-disconnect races.
+    }
+    this.refreshMix();
+    this.stateListener?.();
+  }
+
+  private fade(
+    source: CommandAudioSource,
+    destination: number,
+    durationMs: number,
+    onComplete?: () => void,
+  ): void {
+    const duration = this.clamp(durationMs, 0, MAX_FADE_MS, 0);
+    const start = source.envelope;
+    source.fadeToken += 1;
+    const fadeToken = source.fadeToken;
+    if (!duration) {
+      source.envelope = destination;
+      this.setAbsoluteVolume(source, this.outputGain(source));
+      onComplete?.();
+      return;
+    }
+    const started = Date.now();
+    const timer = setInterval(() => {
+      if (!source.active || source.fadeToken !== fadeToken) {
+        clearInterval(timer);
+        return;
+      }
+      const ratio = Math.min(1, (Date.now() - started) / duration);
+      source.envelope = start + ((destination - start) * ratio);
+      this.setAbsoluteVolume(source, this.outputGain(source));
+      if (ratio >= 1) {
+        clearInterval(timer);
+        onComplete?.();
+      }
+    }, 25);
+  }
+
+  private stopKey(
+    key: string,
+    fadeMs: number,
+    pause: boolean,
+    playOutro: boolean,
+    outroMode: "immediate" | "boundary" = "immediate",
+  ): void {
+    const source = this.commandSources.get(key);
+    if (!source) {
+      return;
+    }
+    const seamlessStem = Boolean(source.nativeStem || source.webStem);
+    if (
+      playOutro
+      && source.outro
+      && seamlessStem
+      && (
+        this.scheduleNativeStemOutro(source, outroMode)
+        || this.scheduleWebStemOutro(source, outroMode)
+      )
+    ) {
+      return;
+    }
+    if (pause) {
+      source.paused = true;
+    }
+    this.fade(source, 0, fadeMs, () => {
+      if (!source.active) {
+        return;
+      }
+      if (pause) {
+        if (source.nativePlayer) {
+          void source.nativePlayer.pauseAsync().catch(() => undefined);
+        }
+        source.nativeStem?.playlist.pause();
+        source.webElement?.pause();
+        this.stateListener?.();
+        return;
+      }
+      const outro = playOutro && !seamlessStem ? source.outro : "";
+      const { kind, bus, baseVolume } = source;
+      this.dispose(key);
+      if (outro) {
+        const handle = `outro:${Date.now()}:${Math.random()}`;
+        const generation = this.nextGeneration(handle);
+        void this.createSource(
+          {
+            type: "audio",
+            version: AUDIO_PROTOCOL_VERSION,
+            command: "play",
+            kind,
+            asset: outro,
+            handle,
+            bus,
+            volume: baseVolume * 100,
+          },
+          outro,
+          handle,
+          generation,
+          "",
+          false,
+        );
+      }
+    });
+  }
+
+  private detachSourceHandle(source: CommandAudioSource): void {
+    if (this.commandHandles.get(source.handle) === source.key) {
+      this.commandHandles.delete(source.handle);
+    }
+    this.stateListener?.();
+  }
+
+  private scheduleNativeStemOutro(
+    source: CommandAudioSource,
+    mode: "immediate" | "boundary",
+  ): boolean {
+    const stem = source.nativeStem;
+    if (
+      !stem
+      || stem.outroRequested
+      || stem.outroIndex < 0
+      || stem.playlist.currentIndex !== stem.loopIndex
+    ) {
+      return false;
+    }
+    stem.outroRequested = true;
+    stem.playlist.loop = "none";
+    source.asset = source.outro;
+    source.outro = "";
+    this.detachSourceHandle(source);
+    if (mode === "immediate") {
+      stem.playlist.skipTo(stem.outroIndex);
+      stem.playlist.play();
+    }
     return true;
   }
 
-  stopAmbience(force = false, clearRequested = true): void {
-    if (clearRequested) {
-      this.desiredAmbienceRequest = null;
+  private scheduleWebStemOutro(
+    source: CommandAudioSource,
+    mode: "immediate" | "boundary",
+  ): boolean {
+    const context = this.webAudioContext;
+    const stem = source.webStem;
+    if (
+      !context
+      || !source.webGain
+      || !stem?.outroBuffer
+      || stem.outroScheduled
+      || context.currentTime < stem.loopStartedAt
+      || stem.loopDuration <= 0
+    ) {
+      return false;
     }
-
-    if (Platform.OS === "web") {
-      this.stopWebAmbience(force);
-      return;
+    const elapsed = Math.max(0, context.currentTime - stem.loopStartedAt);
+    const cycles = Math.floor(elapsed / stem.loopDuration) + 1;
+    const boundary = mode === "boundary"
+      ? stem.loopStartedAt + (cycles * stem.loopDuration)
+      : context.currentTime + 0.02;
+    const outroNode = context.createBufferSource();
+    outroNode.buffer = stem.outroBuffer;
+    outroNode.connect(source.webGain);
+    try {
+      stem.loopNode.stop(boundary);
+      outroNode.start(boundary);
+    } catch {
+      outroNode.disconnect();
+      return false;
     }
-
-    const phaseAtStop = this.ambiencePhase;
-    ++this.ambiencePlaybackId;
-
-    if (this.ambienceIntroPlayer) {
-      this.disposeNativeSound(this.ambienceIntroPlayer.player);
-      this.ambienceIntroPlayer = null;
-    }
-
-    if (this.ambienceLoopPlayer) {
-      this.disposeNativeSound(this.ambienceLoopPlayer.player);
-      this.ambienceLoopPlayer = null;
-    }
-
-    if (this.ambienceOutroPlayer) {
-      if (!force && phaseAtStop === "outro") {
-        return;
-      }
-      this.disposeNativeSound(this.ambienceOutroPlayer.player);
-      this.ambienceOutroPlayer = null;
-    }
-
-    this.ambiencePhase = "idle";
-
-    if (!force && phaseAtStop === "loop" && this.ambienceOutroKey) {
-      if (this.ambienceVolume <= 0) {
-        this.ambienceOutroKey = null;
-        return;
-      }
-      const outroSource = this.resolveNativeSourceSync(this.ambienceOutroKey);
-      if (!outroSource) {
-        return;
-      }
-      const outroKey = this.ambienceOutroKey;
-      void this.createNativeSound(
-        outroSource,
-        {
-          isLooping: false,
-          progressUpdateIntervalMillis: 80,
-          shouldPlay: true,
-          volume: this.ambienceVolume,
-        },
-      ).then((outroPlayer) => {
-        if (!outroPlayer) {
-          return;
-        }
-        outroPlayer.setOnPlaybackStatusUpdate((status: AVPlaybackStatus) => {
-          if (!status.isLoaded || !status.didJustFinish) {
-            return;
-          }
-          if (this.ambienceOutroPlayer?.player === outroPlayer) {
-            this.ambienceOutroPlayer = null;
-          }
-          this.ambiencePhase = "idle";
-          this.disposeNativeSound(outroPlayer);
-        });
-        this.ambienceOutroPlayer = { player: outroPlayer, sourceKey: outroKey };
-        this.ambiencePhase = "outro";
-      });
-    }
+    source.webNodes.add(outroNode);
+    stem.outroScheduled = true;
+    source.asset = source.outro;
+    source.outro = "";
+    this.detachSourceHandle(source);
+    outroNode.addEventListener("ended", () => {
+      this.dispose(source.key);
+    }, { once: true });
+    return true;
   }
 
-  private resolveSource(name: string): AVPlaybackSource | null {
-    const normalized = name.replaceAll("\\", "/");
-    const assetId = soundManifest[normalized];
-    if (typeof assetId === "number") {
-      return assetId;
+  private modernNativeSource(name: string): ModernAudioSource | null {
+    const source = this.resolveSource(name);
+    if (typeof source === "number") {
+      return source;
+    }
+    if (source && typeof source === "object" && "uri" in source) {
+      return { uri: String(source.uri) };
     }
     return null;
   }
 
-  private async resolveNativeSource(name: string): Promise<AVPlaybackSource | null> {
-    const normalized = name.replaceAll("\\", "/");
-    const cached = this.nativeSourceCache.get(normalized);
-    if (cached) {
-      return cached;
+  private async createNativeStemSource(
+    packet: AudioCommandPacket,
+    handle: string,
+    generation: number,
+    target: string,
+    targetGeneration: number,
+  ): Promise<CommandAudioSource | null> {
+    await this.initialize();
+    const isCurrent = () => (
+      this.commandGenerations.get(handle) === generation
+      && this.commandTargetGenerations.get(target) === targetGeneration
+    );
+    if (!isCurrent()) {
+      return null;
+    }
+    const intro = packet.play_intro === false
+      ? ""
+      : this.normalizeAsset(packet.intro || "");
+    const loop = this.normalizeAsset(packet.asset || "");
+    const outro = this.normalizeAsset(packet.outro || "");
+    const introSource = intro ? this.modernNativeSource(intro) : null;
+    const loopSource = this.modernNativeSource(loop);
+    const outroSource = outro ? this.modernNativeSource(outro) : null;
+    if (!loopSource) {
+      return null;
+    }
+    const playlistSources: ModernAudioSource[] = [];
+    if (introSource) {
+      playlistSources.push(introSource);
+    }
+    const loopIndex = playlistSources.length;
+    playlistSources.push(loopSource);
+    const outroIndex = outroSource ? playlistSources.length : -1;
+    if (outroSource) {
+      playlistSources.push(outroSource);
+    }
+    const playlist = createAudioPlaylist({
+      sources: playlistSources,
+      updateInterval: 50,
+      loop: introSource || packet.loop === false ? "none" : "single",
+    });
+    const key = `${handle}:${Date.now()}:${Math.random()}`;
+    const kind: AudioKind = "ambience";
+    const source: CommandAudioSource = {
+      active: true,
+      asset: loop,
+      baseVolume: this.clamp(packet.volume, 0, 100, 100) / 100,
+      bus: String(packet.bus || kind),
+      createdAt: Date.now(),
+      ducking: new Map(
+        Object.entries(packet.ducking ?? {}).map(([bus, gain]) => [
+          bus,
+          this.clamp(gain, 0, 100, 100) / 100,
+        ]),
+      ),
+      envelope: packet.fade_in_ms ? 0 : 1,
+      fadeToken: 0,
+      generation,
+      handle,
+      key,
+      kind,
+      nativePlayer: null,
+      nativeStem: null,
+      outro,
+      paused: false,
+      priority: this.clamp(packet.priority, -100, 100, 0),
+      target,
+      webGain: null,
+      webNode: null,
+      webNodes: new Set(),
+      webStem: null,
+      webElement: null,
+      webPanner: null,
+    };
+    const trackSubscription = playlist.addListener(
+      "trackChanged",
+      ({ currentIndex }: { currentIndex: number }) => {
+        const stem = source.nativeStem;
+        if (!source.active || !stem) {
+          return;
+        }
+        if (
+          currentIndex === stem.loopIndex
+          && !stem.outroRequested
+          && packet.loop !== false
+        ) {
+          playlist.loop = "single";
+        } else if (currentIndex === stem.outroIndex) {
+          playlist.loop = "none";
+        }
+      },
+    );
+    const statusSubscription = playlist.addListener(
+      "playlistStatusUpdate",
+      (status: AudioPlaylistStatus) => {
+        if (source.active && status.didJustFinish) {
+          this.dispose(key);
+        }
+      },
+    );
+    source.nativeStem = {
+      loopIndex,
+      outroIndex,
+      outroRequested: false,
+      playlist,
+      statusSubscription,
+      trackSubscription,
+    };
+    if (!isCurrent()) {
+      statusSubscription.remove();
+      trackSubscription.remove();
+      playlist.destroy();
+      return null;
+    }
+    playlist.volume = this.outputGain(source);
+    this.register(source);
+    playlist.play();
+    if (packet.fade_in_ms) {
+      this.fade(source, 1, packet.fade_in_ms);
+    }
+    return source;
+  }
+
+  private async createWebStemSource(
+    packet: AudioCommandPacket,
+    handle: string,
+    generation: number,
+    target: string,
+    targetGeneration: number,
+  ): Promise<CommandAudioSource | null> {
+    const context = await this.ensureWebAudioReady();
+    const isCurrent = () => (
+      this.commandGenerations.get(handle) === generation
+      && this.commandTargetGenerations.get(target) === targetGeneration
+    );
+    if (!context || !isCurrent()) {
+      return null;
+    }
+    const intro = packet.play_intro === false
+      ? ""
+      : this.normalizeAsset(packet.intro || "");
+    const loop = this.normalizeAsset(packet.asset || "");
+    const outro = this.normalizeAsset(packet.outro || "");
+    const [introBuffer, loopBuffer, outroBuffer] = await Promise.all([
+      intro ? this.loadWebBuffer(intro) : Promise.resolve(null),
+      this.loadWebBuffer(loop),
+      outro ? this.loadWebBuffer(outro) : Promise.resolve(null),
+    ]);
+    const bus = await this.webBus("ambience", String(packet.bus || "ambience"));
+    if (!loopBuffer || !bus || !isCurrent()) {
+      return null;
+    }
+    const gain = context.createGain();
+    gain.connect(bus);
+    const introNode = introBuffer ? context.createBufferSource() : null;
+    const loopNode = context.createBufferSource();
+    const startAt = context.currentTime + 0.03;
+    const loopStartedAt = startAt + (introBuffer?.duration || 0);
+    if (introNode) {
+      introNode.buffer = introBuffer;
+      introNode.connect(gain);
+    }
+    loopNode.buffer = loopBuffer;
+    loopNode.loop = packet.loop !== false;
+    loopNode.connect(gain);
+    const key = `${handle}:${Date.now()}:${Math.random()}`;
+    const webNodes = new Set<AudioBufferSourceNode>([loopNode]);
+    if (introNode) {
+      webNodes.add(introNode);
+    }
+    const source: CommandAudioSource = {
+      active: true,
+      asset: loop,
+      baseVolume: this.clamp(packet.volume, 0, 100, 100) / 100,
+      bus: String(packet.bus || "ambience"),
+      createdAt: Date.now(),
+      ducking: new Map(
+        Object.entries(packet.ducking ?? {}).map(([busName, duckGain]) => [
+          busName,
+          this.clamp(duckGain, 0, 100, 100) / 100,
+        ]),
+      ),
+      envelope: packet.fade_in_ms ? 0 : 1,
+      fadeToken: 0,
+      generation,
+      handle,
+      key,
+      kind: "ambience",
+      nativePlayer: null,
+      nativeStem: null,
+      outro,
+      paused: false,
+      priority: this.clamp(packet.priority, -100, 100, 0),
+      target,
+      webGain: gain,
+      webNode: loopNode,
+      webNodes,
+      webStem: {
+        loopDuration: loopBuffer.duration,
+        loopNode,
+        loopStartedAt,
+        outroBuffer,
+        outroScheduled: false,
+      },
+      webElement: null,
+      webPanner: null,
+    };
+    gain.gain.value = this.outputGain(source);
+    this.register(source);
+    introNode?.start(startAt);
+    loopNode.start(loopStartedAt);
+    if (!loopNode.loop) {
+      loopNode.addEventListener("ended", () => this.dispose(key), { once: true });
+    }
+    if (packet.fade_in_ms) {
+      this.fade(source, 1, packet.fade_in_ms);
+    }
+    return source;
+  }
+
+  private async createSource(
+    packet: AudioCommandPacket,
+    asset: string,
+    handle: string,
+    generation: number,
+    target: string,
+    looping: boolean,
+    onEnded?: () => void,
+    targetGeneration?: number,
+  ): Promise<CommandAudioSource | null> {
+    const kind = packet.kind;
+    if (!kind) {
+      return null;
+    }
+    const key = `${handle}:${Date.now()}:${Math.random()}`;
+    const isCurrent = () => (
+      this.commandGenerations.get(handle) === generation
+      && (
+        !target
+        || targetGeneration === undefined
+        || this.commandTargetGenerations.get(target) === targetGeneration
+      )
+    );
+    const source: CommandAudioSource = {
+      active: true,
+      asset,
+      baseVolume: this.clamp(packet.volume, 0, 100, 100) / 100,
+      bus: String(packet.bus || kind),
+      createdAt: Date.now(),
+      ducking: new Map(
+        Object.entries(packet.ducking ?? {}).map(([bus, gain]) => [
+          bus,
+          this.clamp(gain, 0, 100, 100) / 100,
+        ]),
+      ),
+      envelope: packet.fade_in_ms ? 0 : 1,
+      fadeToken: 0,
+      generation,
+      handle,
+      key,
+      kind,
+      nativePlayer: null,
+      nativeStem: null,
+      outro: this.normalizeAsset(packet.outro || ""),
+      paused: false,
+      priority: this.clamp(packet.priority, -100, 100, 0),
+      target,
+      webGain: null,
+      webNode: null,
+      webNodes: new Set(),
+      webStem: null,
+      webElement: null,
+      webPanner: null,
+    };
+
+    if (Platform.OS === "web") {
+      const context = await this.ensureWebAudioReady();
+      const bus = await this.webBus(kind, source.bus);
+      if (!context || !bus || !isCurrent()) {
+        return null;
+      }
+      const gain = context.createGain();
+      gain.gain.value = this.outputGain(source);
+      source.webGain = gain;
+      if (kind === "sfx") {
+        const buffer = await this.loadWebBuffer(asset);
+        if (!buffer || !isCurrent()) {
+          gain.disconnect();
+          return null;
+        }
+        const node = context.createBufferSource();
+        node.buffer = buffer;
+        node.loop = looping;
+        node.playbackRate.value = this.clamp(packet.pitch, 25, 400, 100) / 100;
+        const panner = typeof context.createStereoPanner === "function"
+          ? context.createStereoPanner()
+          : null;
+        if (panner) {
+          panner.pan.value = this.clamp(packet.pan, -100, 100, 0) / 100;
+          node.connect(panner);
+          panner.connect(gain);
+        } else {
+          node.connect(gain);
+        }
+        gain.connect(bus);
+        source.webNode = node;
+        source.webNodes.add(node);
+        source.webPanner = panner;
+        this.register(source);
+        node.onended = () => {
+          this.dispose(key);
+          onEnded?.();
+        };
+        node.start();
+      } else {
+        const uri = await this.resolveWebUri(asset);
+        if (!uri || !isCurrent()) {
+          gain.disconnect();
+          return null;
+        }
+        const element = new Audio(uri);
+        element.loop = looping;
+        element.preload = "auto";
+        const node = context.createMediaElementSource(element);
+        node.connect(gain);
+        gain.connect(bus);
+        source.webElement = element;
+        source.webNode = node;
+        this.register(source);
+        element.onended = () => {
+          this.dispose(key);
+          onEnded?.();
+        };
+        void element.play().catch(() => undefined);
+      }
+    } else {
+      await this.initialize();
+      const resolved = await this.resolveNativeSource(asset);
+      if (!resolved || !isCurrent()) {
+        return null;
+      }
+      const player = await this.createNativeSound(
+        resolved,
+        {
+          isLooping: looping,
+          progressUpdateIntervalMillis: 100,
+          rate: kind === "sfx"
+            ? this.clamp(packet.pitch, 25, 400, 100) / 100
+            : 1,
+          shouldCorrectPitch: true,
+          shouldPlay: false,
+          volume: this.outputGain(source),
+          ...(kind === "sfx" && Platform.OS === "android"
+            ? {
+                androidImplementation: "MediaPlayer" as const,
+                audioPan: this.clamp(packet.pan, -100, 100, 0) / 100,
+              }
+            : {}),
+        },
+      );
+      if (!player || !isCurrent()) {
+        if (player) {
+          this.disposeNativeSound(player);
+        }
+        return null;
+      }
+      source.nativePlayer = player;
+      this.register(source);
+      player.setOnPlaybackStatusUpdate((status: AVPlaybackStatus) => {
+        if (!status.isLoaded || !status.didJustFinish) {
+          return;
+        }
+        player.setOnPlaybackStatusUpdate(null);
+        this.dispose(key);
+        onEnded?.();
+      });
+      void player.playAsync().catch(() => this.dispose(key));
     }
 
-    const loading = this.nativeSourceLoading.get(normalized);
+    if (packet.fade_in_ms) {
+      this.fade(source, 1, packet.fade_in_ms);
+    }
+    return source;
+  }
+
+  private enforceEffectLimit(
+    packet: AudioCommandPacket,
+    asset: string,
+  ): boolean {
+    const effects = [...this.commandSources.values()].filter(
+      (source) => source.kind === "sfx",
+    );
+    const matching = effects.filter((source) => source.asset === asset);
+    const limit = this.clamp(packet.max_instances, 0, MAX_ACTIVE_EFFECTS, 0);
+    const pool = limit && matching.length >= limit
+      ? matching
+      : effects.length >= MAX_ACTIVE_EFFECTS
+        ? effects
+        : [];
+    if (!pool.length) {
+      return true;
+    }
+    pool.sort((left, right) => (
+      left.priority - right.priority || left.createdAt - right.createdAt
+    ));
+    const incomingPriority = this.clamp(packet.priority, -100, 100, 0);
+    if (pool[0].priority > incomingPriority) {
+      return false;
+    }
+    this.stopKey(pool[0].key, 0, false, false);
+    return true;
+  }
+
+  private async playManagedEffect(packet: AudioCommandPacket): Promise<boolean> {
+    const asset = this.normalizeAsset(packet.asset || "");
+    if (!asset || !this.enforceEffectLimit(packet, asset)) {
+      return false;
+    }
+    const handle = String(
+      packet.handle || `sfx:${Date.now()}:${Math.random()}`,
+    );
+    const generation = this.nextGeneration(handle);
+    const oldKey = this.commandHandles.get(handle);
+    if (oldKey) {
+      this.stopKey(oldKey, packet.fade_out_ms ?? 0, false, false);
+    }
+    return Boolean(await this.createSource(
+      packet,
+      asset,
+      handle,
+      generation,
+      "",
+      Boolean(packet.loop),
+    ));
+  }
+
+  private async playManagedLayer(packet: AudioCommandPacket): Promise<boolean> {
+    const kind = packet.kind;
+    const asset = this.normalizeAsset(packet.asset || "");
+    if (!kind || !asset) {
+      return false;
+    }
+    const target = this.target(packet);
+    const layers = [...this.commandSources.values()].filter(
+      (source) => source.kind !== "sfx",
+    );
+    if (!this.commandTargets.has(target) && layers.length >= MAX_ACTIVE_LAYERS) {
+      layers.sort((left, right) => (
+        left.priority - right.priority || left.createdAt - right.createdAt
+      ));
+      const incomingPriority = this.clamp(packet.priority, -100, 100, 0);
+      if (layers[0].priority > incomingPriority) {
+        return false;
+      }
+      this.stopKey(layers[0].key, 0, false, false);
+    }
+    const handle = String(packet.handle || `${kind}:${target}`);
+    const generation = this.nextGeneration(handle);
+    const targetGeneration = this.nextTargetGeneration(target);
+    const oldKey = this.commandTargets.get(target);
+    if (oldKey) {
+      this.commandTargets.delete(target);
+      this.stopKey(oldKey, packet.fade_out_ms ?? 0, false, false);
+    }
+    const intro = kind === "ambience" && packet.play_intro !== false
+      ? this.normalizeAsset(packet.intro || "")
+      : "";
+    const outro = kind === "ambience"
+      ? this.normalizeAsset(packet.outro || "")
+      : "";
+    if (
+      kind === "ambience"
+      && packet.seamless !== false
+      && (intro || outro)
+    ) {
+      return Boolean(
+        Platform.OS === "web"
+          ? await this.createWebStemSource(
+              packet,
+              handle,
+              generation,
+              target,
+              targetGeneration,
+            )
+          : await this.createNativeStemSource(
+              packet,
+              handle,
+              generation,
+              target,
+              targetGeneration,
+            ),
+      );
+    }
+    if (!intro) {
+      return Boolean(await this.createSource(
+        packet,
+        asset,
+        handle,
+        generation,
+        target,
+        packet.loop ?? true,
+        undefined,
+        targetGeneration,
+      ));
+    }
+    return Boolean(await this.createSource(
+      { ...packet, outro: "" },
+      intro,
+      handle,
+      generation,
+      target,
+      false,
+      () => {
+        if (
+          this.commandGenerations.get(handle) === generation
+          && this.commandTargetGenerations.get(target) === targetGeneration
+        ) {
+          void this.createSource(
+            packet,
+            asset,
+            handle,
+            generation,
+            target,
+            packet.loop ?? true,
+            undefined,
+            targetGeneration,
+          );
+        }
+      },
+      targetGeneration,
+    ));
+  }
+
+  private stopManagedCommand(packet: AudioCommandPacket, pause: boolean): void {
+    const outroMode = packet.outro_mode ?? "immediate";
+    if (!pause && packet.kind === "ambience" && packet.all_layers) {
+      for (const target of [...this.commandTargetGenerations.keys()]) {
+        if (target.startsWith("ambience:")) {
+          this.nextTargetGeneration(target);
+        }
+      }
+      for (const source of [...this.commandSources.values()]) {
+        if (source.kind !== "ambience") {
+          continue;
+        }
+        this.nextGeneration(source.handle);
+        this.stopKey(
+          source.key,
+          packet.fade_out_ms ?? 0,
+          false,
+          packet.play_outro !== false,
+          outroMode,
+        );
+      }
+      return;
+    }
+    const handle = String(packet.handle || "");
+    const target = !handle && packet.kind ? this.target(packet) : "";
+    if (target && !pause) {
+      this.nextTargetGeneration(target);
+    }
+    const key = handle
+      ? this.commandHandles.get(handle)
+      : target
+        ? this.commandTargets.get(target)
+        : undefined;
+    if (!key) {
+      if (handle) {
+        this.nextGeneration(handle);
+      }
+      return;
+    }
+    const source = this.commandSources.get(key);
+    if (!source) {
+      return;
+    }
+    if (!pause) {
+      this.nextGeneration(source.handle);
+    }
+    this.stopKey(
+      key,
+      packet.fade_out_ms ?? 0,
+      pause,
+      !pause && source.kind === "ambience" && packet.play_outro !== false,
+      outroMode,
+    );
+  }
+
+  private resumeManagedCommand(packet: AudioCommandPacket): void {
+    const key = this.commandHandles.get(String(packet.handle || ""));
+    const source = key ? this.commandSources.get(key) : null;
+    if (!source?.paused) {
+      return;
+    }
+    source.paused = false;
+    this.setAbsoluteVolume(source, this.outputGain(source));
+    if (source.nativePlayer) {
+      void source.nativePlayer.playAsync().catch(() => undefined);
+    }
+    source.nativeStem?.playlist.play();
+    if (source.webElement) {
+      void source.webElement.play().catch(() => undefined);
+    }
+    this.fade(source, 1, packet.fade_in_ms ?? 0);
+    this.stateListener?.();
+  }
+
+  private stopAllManagedAudio(
+    fadeMs: number,
+    playOutros = false,
+    outroMode: "immediate" | "boundary" = "immediate",
+  ): void {
+    for (const handle of [...this.commandGenerations.keys()]) {
+      this.nextGeneration(handle);
+    }
+    for (const target of [...this.commandTargetGenerations.keys()]) {
+      this.nextTargetGeneration(target);
+    }
+    for (const source of [...this.commandSources.values()]) {
+      this.stopKey(
+        source.key,
+        fadeMs,
+        false,
+        playOutros && source.kind === "ambience",
+        outroMode,
+      );
+    }
+  }
+
+  private resolveSource(name: string): AVPlaybackSource | null {
+    const assetId = soundManifest[name];
+    return typeof assetId === "number" ? assetId : null;
+  }
+
+  private async resolveNativeSource(
+    name: string,
+  ): Promise<AVPlaybackSource | null> {
+    const cached = this.nativeSourceCache.get(name);
+    if (cached) {
+      this.nativeSourceCache.delete(name);
+      this.nativeSourceCache.set(name, cached);
+      return cached;
+    }
+    const loading = this.nativeSourceLoading.get(name);
     if (loading) {
       return loading;
     }
-
     const loadPromise = (async () => {
-      const directSource = this.resolveSource(normalized);
-      if (!directSource) {
-        return null;
-      }
-      if (typeof directSource !== "number") {
-        this.nativeSourceCache.set(normalized, directSource);
-        return directSource;
-      }
-
       try {
-        const assets = await Asset.loadAsync(directSource);
-        const asset = assets[0] ?? Asset.fromModule(directSource);
-        const resolvedSource: AVPlaybackSource =
-          asset.localUri
-            ? { uri: asset.localUri }
-            : asset.uri
-              ? { uri: asset.uri }
-              : directSource;
-        this.nativeSourceCache.set(normalized, resolvedSource);
-        return resolvedSource;
+        const direct = this.resolveSource(name);
+        if (!direct) {
+          return null;
+        }
+        if (typeof direct !== "number") {
+          this.cacheNativeSource(name, direct);
+          return direct;
+        }
+        const assets = await Asset.loadAsync(direct);
+        const asset = assets[0] ?? Asset.fromModule(direct);
+        const resolved: AVPlaybackSource = asset.localUri
+          ? { uri: asset.localUri }
+          : asset.uri
+            ? { uri: asset.uri }
+            : direct;
+        this.cacheNativeSource(name, resolved);
+        return resolved;
       } catch (error) {
-        console.warn(`MobileAudioManager: failed to resolve native asset for ${normalized}.`, error);
-        this.nativeSourceCache.set(normalized, directSource);
-        return directSource;
+        console.warn(`MobileAudioManager: failed to resolve ${name}.`, error);
+        return this.resolveSource(name);
       } finally {
-        this.nativeSourceLoading.delete(normalized);
+        this.nativeSourceLoading.delete(name);
       }
     })();
-
-    this.nativeSourceLoading.set(normalized, loadPromise);
+    this.nativeSourceLoading.set(name, loadPromise);
     return loadPromise;
   }
 
-  private resolveNativeSourceSync(name: string): AVPlaybackSource | null {
-    const normalized = name.replaceAll("\\", "/");
-    return this.nativeSourceCache.get(normalized) ?? this.resolveSource(normalized);
+  private cacheNativeSource(name: string, source: AVPlaybackSource): void {
+    this.nativeSourceCache.set(name, source);
+    while (this.nativeSourceCache.size > MAX_CACHED_ASSET_URIS) {
+      const oldest = this.nativeSourceCache.keys().next().value;
+      if (oldest === undefined) {
+        break;
+      }
+      this.nativeSourceCache.delete(oldest);
+    }
   }
 
   private async ensureNativeAudioMode(): Promise<void> {
@@ -686,59 +1502,60 @@ export class MobileAudioManager {
     if (this.nativeAudioModeLoading) {
       return this.nativeAudioModeLoading;
     }
-
-    this.nativeAudioModeLoading = (Platform.OS === "android"
-      ? this.ensureAndroidAudioMode()
-      : ExpoAudio.setAudioModeAsync({
-          allowsRecordingIOS: false,
-          interruptionModeIOS: InterruptionModeIOS.MixWithOthers,
-          playsInSilentModeIOS: true,
-          staysActiveInBackground: true,
-        })
+    this.nativeAudioModeLoading = (
+      Platform.OS === "android"
+        ? this.ensureAndroidAudioMode()
+        : Promise.all([
+            ExpoAudio.setAudioModeAsync({
+              allowsRecordingIOS: false,
+              interruptionModeIOS: InterruptionModeIOS.MixWithOthers,
+              playsInSilentModeIOS: true,
+              staysActiveInBackground: true,
+            }),
+            setModernAudioModeAsync({
+              allowsRecording: false,
+              interruptionMode: "mixWithOthers",
+              playsInSilentMode: true,
+              shouldPlayInBackground: true,
+              shouldRouteThroughEarpiece: false,
+            }),
+          ]).then(() => undefined)
     ).then(() => {
       this.nativeAudioModeReady = true;
     }).finally(() => {
       this.nativeAudioModeLoading = null;
     });
-
     return this.nativeAudioModeLoading;
   }
 
   private async ensureAndroidAudioMode(): Promise<void> {
-    if (!exponentAV) {
-      return;
-    }
-
-    await exponentAV.setAudioMode({
-      // expo-av Android has no mix-with-others mode; this is its least disruptive focus mode.
-      interruptionModeAndroid: InterruptionModeAndroid.DuckOthers,
-      shouldDuckAndroid: true,
-      staysActiveInBackground: true,
-    });
+    await Promise.all([
+      exponentAV?.setAudioMode({
+        interruptionModeAndroid: InterruptionModeAndroid.DuckOthers,
+        shouldDuckAndroid: true,
+        staysActiveInBackground: true,
+      }) ?? Promise.resolve(),
+      setModernAudioModeAsync({
+        allowsRecording: false,
+        interruptionMode: "duckOthers",
+        playsInSilentMode: true,
+        shouldPlayInBackground: true,
+        shouldRouteThroughEarpiece: false,
+      }),
+    ]);
   }
 
   private async createNativeSound(
     source: AVPlaybackSource,
     status: AVPlaybackStatusToSet,
-    onFinished?: () => void,
   ): Promise<ExpoAudio.Sound | null> {
     const sound = new ExpoAudio.Sound();
-    if (onFinished) {
-      sound.setOnPlaybackStatusUpdate((playbackStatus: AVPlaybackStatus) => {
-        if (!playbackStatus.isLoaded || !playbackStatus.didJustFinish) {
-          return;
-        }
-        sound.setOnPlaybackStatusUpdate(null);
-        onFinished();
-      });
-    }
-
     try {
       await sound.loadAsync(source, status);
       this.nativeSoundVolumes.set(sound, status.volume ?? 1);
       return sound;
     } catch (error) {
-      console.warn("MobileAudioManager: native sound load failed.", error);
+      console.warn("MobileAudioManager: native audio load failed.", error);
       sound.setOnPlaybackStatusUpdate(null);
       void sound.unloadAsync().catch(() => undefined);
       return null;
@@ -747,598 +1564,165 @@ export class MobileAudioManager {
 
   private disposeNativeSound(sound: ExpoAudio.Sound): void {
     this.nativeSoundVolumes.delete(sound);
-    this.nativeSfxBaseVolumes.delete(sound);
     sound.setOnPlaybackStatusUpdate(null);
     void sound.unloadAsync().catch(() => undefined);
   }
 
-  private setNativeSoundVolume(sound: ExpoAudio.Sound, volume: number): void {
-    const clamped = Math.max(0, Math.min(1, volume));
-    this.nativeSoundVolumes.set(sound, clamped);
-    void sound.setVolumeAsync(clamped).catch(() => undefined);
-  }
-
-  private getTargetNativePlayerVolume(sound: ExpoAudio.Sound): number {
-    return this.nativeSoundVolumes.get(sound) ?? 0;
-  }
-
-  private async resolveWebUri(name: string): Promise<string | null> {
-    const normalized = name.replaceAll("\\", "/");
-    const cached = this.webUriCache.get(normalized);
-    if (cached) {
-      return cached;
-    }
-    const assetId = (soundManifest as Record<string, unknown>)[normalized];
-    if (!assetId) {
-      console.warn(`MobileAudioManager: web asset not found for ${normalized}.`);
-      return null;
-    }
-
-    try {
-      if (typeof assetId === "string") {
-        this.webUriCache.set(normalized, assetId);
-        this.debug("web-uri-resolved-string", normalized);
-        return assetId;
-      }
-
-      if (typeof assetId === "object") {
-        const candidate = assetId as {
-          default?: string | { uri?: string };
-          src?: string;
-          uri?: string;
-        };
-        const resolvedObjectUri =
-          candidate.uri ||
-          candidate.src ||
-          (typeof candidate.default === "string" ? candidate.default : candidate.default?.uri) ||
-          null;
-        if (resolvedObjectUri) {
-          this.webUriCache.set(normalized, resolvedObjectUri);
-          this.debug("web-uri-resolved-object", normalized);
-          return resolvedObjectUri;
-        }
-      }
-
-      if (typeof assetId !== "number") {
-        console.warn(`MobileAudioManager: unsupported web asset shape for ${normalized}.`);
-        return null;
-      }
-
-      const assets = await Asset.loadAsync(assetId);
-      const asset = assets[0] ?? Asset.fromModule(assetId);
-      const resolved = asset.localUri ?? asset.uri ?? null;
-      if (!resolved) {
-        console.warn(`MobileAudioManager: resolved empty web uri for ${normalized}.`);
-        return null;
-      }
-      this.webUriCache.set(normalized, resolved);
-      return resolved;
-    } catch (error) {
-      console.warn(`MobileAudioManager: failed to resolve web uri for ${normalized}.`, error);
-      return null;
-    }
-  }
-
-  private cancelMusicFade(): void {
-    if (this.musicFadeInterval) {
-      clearInterval(this.musicFadeInterval);
-      this.musicFadeInterval = null;
-    }
-  }
-
-  private fadeRetiringMusicPlayers(step: number): void {
-    for (const player of [...this.retiringMusicPlayers]) {
-      const nextVolume = Math.max(0, this.getTargetNativePlayerVolume(player) - step);
-      this.setNativeSoundVolume(player, nextVolume);
-      if (nextVolume <= 0.001) {
-        this.disposeNativeSound(player);
-        this.retiringMusicPlayers.delete(player);
-      }
-    }
-  }
-
-  private clearRetiringMusicPlayers(): void {
-    for (const player of this.retiringMusicPlayers) {
-      this.disposeNativeSound(player);
-    }
-    this.retiringMusicPlayers.clear();
-  }
-
-  private async playNativeSound(
-    name: string,
-    options: { volume?: number; pitch?: number; pan?: number } = {},
-  ): Promise<boolean> {
-    const source = await this.resolveNativeSource(name);
-    if (!source) {
-      return false;
-    }
-
-    const sound = new ExpoAudio.Sound();
-    const baseVolume = Math.max(0, Math.min(1, options.volume ?? 1));
-    const volume = Math.max(0, Math.min(1, baseVolume * this.soundVolume));
-    const pitch = options.pitch && options.pitch > 0 ? options.pitch : 1;
-    const pan = this.normalizePan(options.pan ?? 0);
-    const initialStatus: AVPlaybackStatusToSet = {
-      isLooping: false,
-      progressUpdateIntervalMillis: 100,
-      rate: pitch,
-      shouldCorrectPitch: true,
-      shouldPlay: true,
-      volume,
-      ...(Platform.OS === "android"
-        ? {
-            androidImplementation: "MediaPlayer" as const,
-            audioPan: pan,
-          }
-        : {}),
-    };
-
-    sound.setOnPlaybackStatusUpdate((status: AVPlaybackStatus) => {
-      if (!status.isLoaded) {
-        return;
-      }
-      if (status.didJustFinish) {
-        sound.setOnPlaybackStatusUpdate(null);
-        this.sfxPlayers.delete(sound);
-        this.nativeSoundVolumes.delete(sound);
-        this.nativeSfxBaseVolumes.delete(sound);
-        void sound.unloadAsync();
-      }
-    });
-
-    try {
-      await sound.loadAsync(source, initialStatus);
-      this.nativeSoundVolumes.set(sound, volume);
-      this.nativeSfxBaseVolumes.set(sound, baseVolume);
-      this.sfxPlayers.add(sound);
-      return true;
-    } catch (error) {
-      console.warn("MobileAudioManager: native sound playback failed.", error);
-      sound.setOnPlaybackStatusUpdate(null);
-      void sound.unloadAsync().catch(() => undefined);
-      return false;
-    }
-  }
-
-  private async playWebSound(
-    name: string,
-    options: { volume?: number; pitch?: number; pan?: number } = {},
-  ): Promise<boolean> {
-    const context = await this.ensureWebAudioReady();
-    const bus = this.webSfxBus;
-    if (!context || !bus) {
-      console.warn(`MobileAudioManager: web sound context unavailable for ${name}.`);
-      return false;
-    }
-
-    const buffer = await this.loadWebBuffer(name);
-    if (!buffer) {
-      console.warn(`MobileAudioManager: web sound buffer unavailable for ${name}.`);
-      return false;
-    }
-
-    const source = context.createBufferSource();
-    source.buffer = buffer;
-    source.playbackRate.value = options.pitch && options.pitch > 0 ? options.pitch : 1;
-
-    const gain = context.createGain();
-    gain.gain.value = Math.max(0, Math.min(1, options.volume ?? 1));
-
-    const panner = typeof context.createStereoPanner === "function"
-      ? context.createStereoPanner()
-      : null;
-    if (panner) {
-      panner.pan.value = this.normalizePan(options.pan ?? 0);
-      source.connect(panner);
-      panner.connect(gain);
-    } else {
-      source.connect(gain);
-    }
-
-    gain.connect(bus);
-    const handle: WebSfxHandle = { gain, panner, source };
-    this.webSfxRefs.add(handle);
-    source.onended = () => {
-      this.disposeWebSfx(handle);
-    };
-    source.start(0);
-    this.debug("play-sound-started", name);
-    return true;
-  }
-
-  private async playWebMusic(name: string, looping: boolean): Promise<boolean> {
-    if (this.musicVolume <= 0) {
-      this.webPendingMusicRequest = null;
-      this.stopWebMusic(false);
-      return false;
-    }
-    const context = await this.ensureWebAudioReady();
-    if (!context) {
-      console.warn(`MobileAudioManager: web music context unavailable for ${name}.`);
-      return false;
-    }
-
-    if (this.webMusicPlayer?.sourceKey === name) {
-      this.webMusicPlayer.element.loop = looping;
-      this.cancelMusicFade();
-      try {
-        await this.webMusicPlayer.element.play();
-        return true;
-      } catch (error) {
-        console.warn("MobileAudioManager: web music resume failed.", error);
-        return false;
-      }
-    }
-
-    const nextPlayer = await this.createWebStream(name, looping, "music");
-    if (!nextPlayer) {
-      return false;
-    }
-
-    nextPlayer.gainNode.gain.value = 0;
-    try {
-      await nextPlayer.element.play();
-    } catch (error) {
-      console.warn("MobileAudioManager: web music playback failed.", error);
-      this.webPendingMusicRequest = { looping, name };
-      this.disposeWebStream(nextPlayer);
-      return false;
-    }
-
-    const previousMusicPlayer = this.webMusicPlayer;
-    this.webMusicPlayer = nextPlayer;
-    const transitionId = ++this.musicTransitionId;
-    if (previousMusicPlayer) {
-      this.webRetiringMusicPlayers.add(previousMusicPlayer);
-    }
-
-    this.cancelMusicFade();
-    this.musicFadeInterval = setInterval(() => {
-      if (transitionId !== this.musicTransitionId) {
-        this.cancelMusicFade();
-        return;
-      }
-
-      const step = 0.05;
-      const nextVolume = Math.min(1, nextPlayer.gainNode.gain.value + step);
-      nextPlayer.gainNode.gain.value = nextVolume;
-
-      for (const player of [...this.webRetiringMusicPlayers]) {
-        const faded = Math.max(0, player.gainNode.gain.value - step);
-        player.gainNode.gain.value = faded;
-        if (faded <= 0.001) {
-          this.disposeWebStream(player);
-          this.webRetiringMusicPlayers.delete(player);
-        }
-      }
-
-      if (nextVolume >= 1 && this.webRetiringMusicPlayers.size === 0) {
-        this.cancelMusicFade();
-      }
-    }, 50);
-
-    return true;
-  }
-
-  private stopWebMusic(fade: boolean): void {
-    this.webPendingMusicRequest = null;
-    if (!this.webMusicPlayer) {
-      return;
-    }
-
-    const current = this.webMusicPlayer;
-    this.webMusicPlayer = null;
-    ++this.musicTransitionId;
-
-    if (!fade) {
-      this.cancelMusicFade();
-      this.disposeWebStream(current);
-      for (const player of this.webRetiringMusicPlayers) {
-        this.disposeWebStream(player);
-      }
-      this.webRetiringMusicPlayers.clear();
-      return;
-    }
-
-    this.webRetiringMusicPlayers.add(current);
-    this.cancelMusicFade();
-    this.musicFadeInterval = setInterval(() => {
-      for (const player of [...this.webRetiringMusicPlayers]) {
-        const nextVolume = Math.max(0, player.gainNode.gain.value - 0.05);
-        player.gainNode.gain.value = nextVolume;
-        if (nextVolume <= 0.001) {
-          this.disposeWebStream(player);
-          this.webRetiringMusicPlayers.delete(player);
-        }
-      }
-      if (this.webRetiringMusicPlayers.size === 0) {
-        this.cancelMusicFade();
-      }
-    }, 50);
-  }
-
-  private async playWebAmbience(loop: string, intro = "", outro = ""): Promise<boolean> {
-    if (this.ambienceVolume <= 0) {
-      this.webPendingAmbienceRequest = null;
-      this.stopWebAmbience(true);
-      return false;
-    }
-    const context = await this.ensureWebAudioReady();
-    if (!context) {
-      console.warn(`MobileAudioManager: web ambience context unavailable for ${loop}.`);
-      return false;
-    }
-
-    this.stopWebAmbience(true);
-    const playbackId = ++this.ambiencePlaybackId;
-    this.ambienceOutroKey = outro || null;
-
-    const startLoop = async (): Promise<boolean> => {
-      if (playbackId !== this.ambiencePlaybackId) {
-        return false;
-      }
-      const loopPlayer = await this.createWebStream(loop, true, "ambience");
-      if (!loopPlayer) {
-        return false;
-      }
-      this.webAmbienceLoopPlayer = loopPlayer;
-      try {
-        await loopPlayer.element.play();
-        this.ambiencePhase = "loop";
-        return true;
-      } catch (error) {
-        console.warn("MobileAudioManager: web ambience loop playback failed.", error);
-        this.webPendingAmbienceRequest = { intro, loop, outro };
-        this.disposeWebStream(loopPlayer);
-        this.webAmbienceLoopPlayer = null;
-        this.ambiencePhase = "idle";
-        return false;
-      }
-    };
-
-    if (intro) {
-      const introPlayer = await this.createWebStream(intro, false, "ambience");
-      if (introPlayer) {
-        this.webAmbienceIntroPlayer = introPlayer;
-        this.ambiencePhase = "intro";
-        introPlayer.element.onended = () => {
-          this.disposeWebStream(introPlayer);
-          this.webAmbienceIntroPlayer = null;
-          void startLoop();
-        };
-        try {
-          await introPlayer.element.play();
-          return true;
-        } catch (error) {
-          console.warn("MobileAudioManager: web ambience intro playback failed.", error);
-          this.webPendingAmbienceRequest = { intro, loop, outro };
-          this.disposeWebStream(introPlayer);
-          this.webAmbienceIntroPlayer = null;
-          this.ambiencePhase = "idle";
-          return false;
-        }
-      }
-    }
-
-    return startLoop();
-  }
-
-  private stopWebAmbience(force: boolean): void {
-    this.webPendingAmbienceRequest = null;
-    const phaseAtStop = this.ambiencePhase;
-    ++this.ambiencePlaybackId;
-    if (this.webAmbienceIntroPlayer) {
-      this.disposeWebStream(this.webAmbienceIntroPlayer);
-      this.webAmbienceIntroPlayer = null;
-    }
-
-    if (this.webAmbienceLoopPlayer) {
-      this.disposeWebStream(this.webAmbienceLoopPlayer);
-      this.webAmbienceLoopPlayer = null;
-    }
-
-    if (this.webAmbienceOutroPlayer) {
-      if (!force && phaseAtStop === "outro") {
-        return;
-      }
-      this.disposeWebStream(this.webAmbienceOutroPlayer);
-      this.webAmbienceOutroPlayer = null;
-    }
-
-    this.ambiencePhase = "idle";
-
-    if (!force && phaseAtStop === "loop" && this.ambienceOutroKey) {
-      void this.createWebStream(this.ambienceOutroKey, false, "ambience").then((outroPlayer) => {
-        if (!outroPlayer) {
-          return;
-        }
-        this.webAmbienceOutroPlayer = outroPlayer;
-        this.ambiencePhase = "outro";
-        outroPlayer.element.onended = () => {
-          this.disposeWebStream(outroPlayer);
-          if (this.webAmbienceOutroPlayer === outroPlayer) {
-            this.webAmbienceOutroPlayer = null;
-          }
-          this.ambiencePhase = "idle";
-        };
-        void outroPlayer.element.play().catch((error) => {
-          console.warn("MobileAudioManager: web ambience outro playback failed.", error);
-          this.disposeWebStream(outroPlayer);
-          if (this.webAmbienceOutroPlayer === outroPlayer) {
-            this.webAmbienceOutroPlayer = null;
-          }
-          this.ambiencePhase = "idle";
-        });
-      });
-    }
+  private setNativeSoundVolume(
+    sound: ExpoAudio.Sound,
+    volume: number,
+  ): void {
+    const bounded = this.clamp(volume, 0, 1, 0);
+    this.nativeSoundVolumes.set(sound, bounded);
+    void sound.setVolumeAsync(bounded).catch(() => undefined);
   }
 
   private async ensureWebAudioReady(): Promise<AudioContext | null> {
     if (typeof window === "undefined") {
       return null;
     }
-
     if (!this.webAudioContext) {
-      const AudioContextClass =
-        window.AudioContext ||
-        (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      const AudioContextClass = window.AudioContext
+        || (window as typeof window & {
+          webkitAudioContext?: typeof AudioContext;
+        }).webkitAudioContext;
       if (!AudioContextClass) {
-        console.warn("MobileAudioManager: browser does not provide AudioContext.");
         return null;
       }
-
       this.webAudioContext = new AudioContextClass();
       this.webMasterGain = this.webAudioContext.createGain();
       this.webMusicBus = this.webAudioContext.createGain();
       this.webSfxBus = this.webAudioContext.createGain();
       this.webAmbienceBus = this.webAudioContext.createGain();
-
       this.webMasterGain.connect(this.webAudioContext.destination);
       this.webMusicBus.connect(this.webMasterGain);
       this.webSfxBus.connect(this.webMasterGain);
       this.webAmbienceBus.connect(this.webMasterGain);
-
       this.webMasterGain.gain.value = 1;
       this.webMusicBus.gain.value = this.musicVolume;
       this.webSfxBus.gain.value = this.soundVolume;
       this.webAmbienceBus.gain.value = this.ambienceVolume;
     }
-
     if (this.webAudioContext.state === "suspended") {
-      try {
-        await this.webAudioContext.resume();
-      } catch (error) {
-        console.warn("MobileAudioManager: failed to resume AudioContext.", error);
-      }
+      await this.webAudioContext.resume().catch(() => undefined);
     }
-
     return this.webAudioContext;
   }
 
-  private async loadWebBuffer(name: string): Promise<AudioBuffer | null> {
-    const normalized = name.replaceAll("\\", "/");
-    const cached = this.webBufferCache.get(normalized);
+  private async resolveWebUri(name: string): Promise<string | null> {
+    const cached = this.webUriCache.get(name);
     if (cached) {
+      this.webUriCache.delete(name);
+      this.webUriCache.set(name, cached);
       return cached;
     }
+    const assetId = (soundManifest as Record<string, unknown>)[name];
+    if (!assetId) {
+      return null;
+    }
+    try {
+      if (typeof assetId === "string") {
+        this.cacheWebUri(name, assetId);
+        return assetId;
+      }
+      if (typeof assetId === "object") {
+        const candidate = assetId as {
+          default?: string | { uri?: string };
+          src?: string;
+          uri?: string;
+        };
+        const uri = candidate.uri
+          || candidate.src
+          || (typeof candidate.default === "string"
+            ? candidate.default
+            : candidate.default?.uri)
+          || null;
+        if (uri) {
+          this.cacheWebUri(name, uri);
+        }
+        return uri;
+      }
+      if (typeof assetId !== "number") {
+        return null;
+      }
+      const assets = await Asset.loadAsync(assetId);
+      const asset = assets[0] ?? Asset.fromModule(assetId);
+      const uri = asset.localUri ?? asset.uri ?? null;
+      if (uri) {
+        this.cacheWebUri(name, uri);
+      }
+      return uri;
+    } catch (error) {
+      console.warn(`MobileAudioManager: failed to resolve web ${name}.`, error);
+      return null;
+    }
+  }
 
-    const loading = this.webBufferLoading.get(normalized);
+  private cacheWebUri(name: string, uri: string): void {
+    this.webUriCache.set(name, uri);
+    while (this.webUriCache.size > MAX_CACHED_ASSET_URIS) {
+      const oldest = this.webUriCache.keys().next().value;
+      if (oldest === undefined) {
+        break;
+      }
+      this.webUriCache.delete(oldest);
+    }
+  }
+
+  private async loadWebBuffer(name: string): Promise<AudioBuffer | null> {
+    const cached = this.webBufferCache.get(name);
+    if (cached) {
+      this.webBufferCache.delete(name);
+      this.webBufferCache.set(name, cached);
+      return cached;
+    }
+    const loading = this.webBufferLoading.get(name);
     if (loading) {
       return loading;
     }
-
     const loadPromise = (async () => {
       const context = await this.ensureWebAudioReady();
-      const uri = await this.resolveWebUri(normalized);
+      const uri = await this.resolveWebUri(name);
       if (!context || !uri) {
         return null;
       }
-
       try {
         const response = await fetch(uri);
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}`);
         }
-        const arrayBuffer = await response.arrayBuffer();
-        const decoded = await context.decodeAudioData(arrayBuffer.slice(0));
-        this.webBufferCache.set(normalized, decoded);
-        this.debug("web-buffer-loaded", normalized);
+        const decoded = await context.decodeAudioData(
+          (await response.arrayBuffer()).slice(0),
+        );
+        this.webBufferCache.set(name, decoded);
+        this.webBufferCacheBytes += (
+          decoded.length * decoded.numberOfChannels * 4
+        );
+        while (
+          this.webBufferCache.size > MAX_CACHED_EFFECTS
+          || this.webBufferCacheBytes > MAX_CACHED_BUFFER_BYTES
+        ) {
+          const oldest = this.webBufferCache.keys().next().value;
+          if (oldest === undefined) {
+            break;
+          }
+          const oldestBuffer = this.webBufferCache.get(oldest);
+          if (oldestBuffer) {
+            this.webBufferCacheBytes -= (
+              oldestBuffer.length * oldestBuffer.numberOfChannels * 4
+            );
+          }
+          this.webBufferCache.delete(oldest);
+        }
         return decoded;
       } catch (error) {
-        console.warn(`MobileAudioManager: failed to load web sound ${normalized}.`, error);
+        console.warn(`MobileAudioManager: failed to load ${name}.`, error);
         return null;
       } finally {
-        this.webBufferLoading.delete(normalized);
+        this.webBufferLoading.delete(name);
       }
     })();
-
-    this.webBufferLoading.set(normalized, loadPromise);
+    this.webBufferLoading.set(name, loadPromise);
     return loadPromise;
-  }
-
-  private async createWebStream(
-    name: string,
-    looping: boolean,
-    bus: WebBusName,
-  ): Promise<ManagedWebStream | null> {
-    const context = await this.ensureWebAudioReady();
-    const uri = await this.resolveWebUri(name);
-    const busNode = bus === "music" ? this.webMusicBus : this.webAmbienceBus;
-    if (!context || !uri || !busNode) {
-      return null;
-    }
-
-    const element = new Audio(uri);
-    element.loop = looping;
-    element.preload = "auto";
-
-    try {
-      const sourceNode = context.createMediaElementSource(element);
-      const gainNode = context.createGain();
-      gainNode.gain.value = 1;
-      sourceNode.connect(gainNode);
-      gainNode.connect(busNode);
-      return {
-        element,
-        gainNode,
-        sourceKey: name,
-        sourceNode,
-      };
-    } catch (error) {
-      console.warn(`MobileAudioManager: failed to create web stream for ${name}.`, error);
-      return null;
-    }
-  }
-
-  private disposeWebStream(stream: ManagedWebStream): void {
-    stream.element.pause();
-    stream.element.currentTime = 0;
-    stream.element.onended = null;
-    try {
-      stream.sourceNode.disconnect();
-    } catch {
-      // Ignore double-disconnect cleanup on ended/stop races.
-    }
-    try {
-      stream.gainNode.disconnect();
-    } catch {
-      // Ignore double-disconnect cleanup on ended/stop races.
-    }
-  }
-
-  private disposeWebSfx(handle: WebSfxHandle): void {
-    try {
-      handle.source.disconnect();
-    } catch {
-      // Ignore double-disconnect cleanup on ended/stop races.
-    }
-    try {
-      handle.gain.disconnect();
-    } catch {
-      // Ignore double-disconnect cleanup on ended/stop races.
-    }
-    try {
-      handle.panner?.disconnect();
-    } catch {
-      // Ignore double-disconnect cleanup on ended/stop races.
-    }
-    this.webSfxRefs.delete(handle);
-  }
-
-  private normalizePan(value: number): number {
-    if (!Number.isFinite(value)) {
-      return 0;
-    }
-    if (Math.abs(value) > 1) {
-      return Math.max(-1, Math.min(1, value / 100));
-    }
-    return Math.max(-1, Math.min(1, value));
-  }
-
-  private debug(event: string, value: string): void {
-    if (!ENABLE_CLIENT_DEBUG_LOGS || typeof console === "undefined") {
-      return;
-    }
-    console.info(DEBUG_PREFIX, event, value || "");
   }
 }

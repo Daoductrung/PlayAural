@@ -211,22 +211,8 @@ class NetworkManager:
             self.main_window.on_authorize_success(packet)
         elif packet_type == "speak":
             self.main_window.on_server_speak(packet)
-        elif packet_type == "play_sound":
-            self.main_window.on_server_play_sound(packet)
-        elif packet_type == "play_music":
-            self.main_window.on_server_play_music(packet)
-        elif packet_type == "play_ambience":
-            self.main_window.on_server_play_ambience(packet)
-        elif packet_type == "stop_ambience":
-            self.main_window.on_server_stop_ambience(packet)
-        elif packet_type == "add_playlist":
-            self.main_window.on_server_add_playlist(packet)
-        elif packet_type == "start_playlist":
-            self.main_window.on_server_start_playlist(packet)
-        elif packet_type == "remove_playlist":
-            self.main_window.on_server_remove_playlist(packet)
-        elif packet_type == "get_playlist_duration":
-            self.main_window.on_server_get_playlist_duration(packet)
+        elif packet_type == "audio":
+            self.main_window.on_server_audio(packet)
         elif packet_type == "menu":
             self.main_window.on_server_menu(packet)
         elif packet_type == "request_input":

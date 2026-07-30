@@ -108,7 +108,12 @@ async def test_host_restart_requires_confirmation_and_resets_to_clean_lobby() ->
 
     for user in (alice, bob):
         message_types = _message_types(user)
-        assert "stop_ambience" in message_types
+        assert "audio" in message_types
+        assert any(
+            message.type == "audio"
+            and message.data.get("command") == "stop_all"
+            for message in user.messages
+        )
         assert any(
             message.type == "play_music"
             and message.data.get("name") == "findgamemus.ogg"

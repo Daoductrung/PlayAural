@@ -19,11 +19,7 @@ class PacketType(Enum):
     # Server to client
     AUTHORIZE_SUCCESS = "authorize_success"
     SPEAK = "speak"
-    PLAY_SOUND = "play_sound"
-    PLAY_MUSIC = "play_music"
-    STOP_MUSIC = "stop_music"
-    PLAY_AMBIENCE = "play_ambience"
-    STOP_AMBIENCE = "stop_ambience"
+    AUDIO = "audio"
     MENU_RESPONSE = "menu"
     REQUEST_INPUT = "request_input"
     CLEAR_UI = "clear_ui"

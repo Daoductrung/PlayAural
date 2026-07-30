@@ -41,6 +41,7 @@ import { clientAuthMetadata } from "../network/clientInfo";
 import { resolveMenuFocusIndex } from "./menuFocus";
 import type {
   AuthorizeSuccessPacket,
+  AudioCommandPacket,
   ChatPacket,
   DisconnectPacket,
   ForceExitPacket,
@@ -48,9 +49,6 @@ import type {
   MenuItemData,
   MenuPacket,
   MenuSelectionPacket,
-  PlayAmbiencePacket,
-  PlayMusicPacket,
-  PlaySoundPacket,
   RegisterResponsePacket,
   RemoveEditboxPacket,
   RemoveMenuPacket,
@@ -73,7 +71,7 @@ import { ENABLE_CLIENT_DEBUG_LOGS } from "../utils/debug";
 import { MobileVoiceManager, type MobileVoiceConnectionState } from "../voice/MobileVoiceManager";
 
 const MOBILE_CLIENT_VERSION = "1.0.4.9";
-const MOBILE_BUILD_STAMP = "2026-06-26 11:56:39 +07:00";
+const MOBILE_BUILD_STAMP = "2026-07-31 00:13:47 +07:00";
 const DEFAULT_SERVER_URL = "wss://playaural.ddt.one:443";
 const APK_DOWNLOAD_URL =
   "https://github.com/Daoductrung/PlayAural/releases/latest/download/PlayAural.apk";
@@ -549,8 +547,7 @@ export function PlayAuralApp() {
   const [resetCode, setResetCode] = useState("");
   const [resetPassword, setResetPassword] = useState("");
   const [resetConfirmPassword, setResetConfirmPassword] = useState("");
-  const [currentMusic, setCurrentMusic] = useState("");
-  const [currentAmbience, setCurrentAmbience] = useState("");
+  const [audioRevision, setAudioRevision] = useState(0);
   const [connected, setConnected] = useState(false);
   const [storageReady, setStorageReady] = useState(false);
   const [lastPingStartedAt, setLastPingStartedAt] = useState<number | null>(null);
@@ -580,6 +577,14 @@ export function PlayAuralApp() {
   const [voiceStatusText, setVoiceStatusText] = useState(() => localization.t("voice-chat-not-connected"));
   const [voiceState, setVoiceState] = useState<MobileVoiceConnectionState>("disconnected");
   const [voiceMicEnabled, setVoiceMicEnabled] = useState(false);
+  const currentMusic = useMemo(
+    () => audio.getActiveLayerAssets("music").join(", "),
+    [audio, audioRevision],
+  );
+  const currentAmbience = useMemo(
+    () => audio.getActiveLayerAssets("ambience").join(", "),
+    [audio, audioRevision],
+  );
 
   const menuStateRef = useRef(menuState);
   const inputStateRef = useRef(inputState);
@@ -646,6 +651,15 @@ export function PlayAuralApp() {
   const resetConfirmPasswordInputRef = useRef<TextInput | null>(null);
   const inputOverlayInputRef = useRef<TextInput | null>(null);
   const chatInputRef = useRef<TextInput | null>(null);
+
+  useEffect(() => {
+    audio.setStateListener(() => {
+      setAudioRevision((value) => value + 1);
+    });
+    return () => {
+      audio.setStateListener(null);
+    };
+  }, [audio]);
 
   useEffect(() => {
     menuStateRef.current = menuState;
@@ -1878,11 +1892,8 @@ export function PlayAuralApp() {
     }
   };
 
-  const stopGameAudio = (forceAmbience = true) => {
-    audio.stopMusic(false);
-    audio.stopAmbience(forceAmbience);
-    setCurrentMusic("");
-    setCurrentAmbience("");
+  const stopGameAudio = () => {
+    audio.stopAll(800);
   };
 
   const queueReconnectAttempt = useCallback((delayMs: number, statusMessage: string, speakMessage = false) => {
@@ -1975,12 +1986,11 @@ export function PlayAuralApp() {
     }
 
     const hasVoiceSession = voiceState === "connected" || voiceState === "connecting";
-    const hasAudibleMusic = Boolean(currentMusic) && audio.getMusicVolume() > 0;
-    const hasAudibleAmbience = Boolean(currentAmbience) && audio.getAmbienceVolume() > 0;
+    const hasAudibleManagedAudio = audio.hasAudibleManagedLayers();
     const shouldUseMicrophoneService = voiceMicEnabled && hasVoiceSession;
     const shouldUsePlaybackService =
       !shouldUseMicrophoneService &&
-      (hasVoiceSession || (appState !== "active" && (hasAudibleMusic || hasAudibleAmbience)));
+      (hasVoiceSession || (appState !== "active" && hasAudibleManagedAudio));
     const shouldUseGameplayService =
       !shouldUseMicrophoneService &&
       !shouldUsePlaybackService &&
@@ -2008,7 +2018,7 @@ export function PlayAuralApp() {
           : "dataSync",
       title: localization.t("background-service-title"),
     });
-  }, [appState, audio, connected, currentAmbience, currentMusic, localization, voiceMicEnabled, voiceState]);
+  }, [appState, audio, audioRevision, connected, localization, voiceMicEnabled, voiceState]);
 
   const exitApplication = useCallback(() => {
     disableAutoReconnect();
@@ -2042,8 +2052,6 @@ export function PlayAuralApp() {
     nativeMenuFocusRequestedAtRef.current = 0;
     clearScheduledNativeFocus();
     setActiveTextInputKey(null);
-    setCurrentMusic("");
-    setCurrentAmbience("");
     setVoiceCapability({
       enabled: false,
       provider: "",
@@ -2244,7 +2252,7 @@ export function PlayAuralApp() {
             sendLeave: voicePresenceRegisteredRef.current,
             statusKey: "voice-chat-not-connected",
           });
-          stopGameAudio(true);
+          stopGameAudio();
           Keyboard.dismiss();
           activeTextInputKeyRef.current = null;
           setActiveTextInputKey(null);
@@ -2270,7 +2278,7 @@ export function PlayAuralApp() {
             sendLeave: false,
             statusKey: "voice-chat-not-connected",
           });
-          stopGameAudio(true);
+          stopGameAudio();
           setConnected(false);
           if (disconnectPacket.reconnect) {
             manualDisconnectRef.current = false;
@@ -2317,7 +2325,7 @@ export function PlayAuralApp() {
             sendLeave: false,
             statusKey: "voice-chat-not-connected",
           });
-          stopGameAudio(true);
+          stopGameAudio();
           setConnected(false);
           disableAutoReconnect();
           setAuthStatusText(reason);
@@ -2341,33 +2349,9 @@ export function PlayAuralApp() {
           return;
         }
 
-        if (packet.type === "play_ambience") {
-          const ambiencePacket = packet as PlayAmbiencePacket;
-          setCurrentAmbience(ambiencePacket.loop || "");
-          void audio.playAmbience(
-            ambiencePacket.loop || "",
-            ambiencePacket.intro || "",
-            ambiencePacket.outro || "",
-          );
-          return;
-        }
-
-        if (packet.type === "play_music") {
-          const musicPacket = packet as PlayMusicPacket;
-          setCurrentMusic(musicPacket.name || "");
-          void audio.playMusic(musicPacket.name || "", musicPacket.looping ?? true);
-          return;
-        }
-
-        if (packet.type === "play_sound") {
-          const soundPacket = packet as PlaySoundPacket;
-          if (soundPacket.name) {
-            void audio.playSound(soundPacket.name, {
-              pan: (soundPacket.pan ?? 0) / 100,
-              pitch: (soundPacket.pitch ?? 100) / 100,
-              volume: (soundPacket.volume ?? 100) / 100,
-            });
-          }
+        if (packet.type === "audio") {
+          const audioPacket = packet as AudioCommandPacket;
+          void audio.handleAudioCommand(audioPacket);
           return;
         }
 
@@ -2400,18 +2384,6 @@ export function PlayAuralApp() {
           return;
         }
 
-        if (packet.type === "stop_ambience") {
-          setCurrentAmbience("");
-          audio.stopAmbience();
-          return;
-        }
-
-        if (packet.type === "stop_music") {
-          setCurrentMusic("");
-          audio.stopMusic();
-          return;
-        }
-
         if (packet.type === "pong") {
           const startedAt = lastPingStartedAtRef.current;
           if (startedAt) {
@@ -2427,7 +2399,7 @@ export function PlayAuralApp() {
           const contextId = String(contextPacket.table_id || "");
           const previousContextId = voiceContextRef.current.contextId;
           if (previousContextId && contextId && contextId !== previousContextId) {
-            stopGameAudio(true);
+            stopGameAudio();
           }
           if (
             previousContextId &&

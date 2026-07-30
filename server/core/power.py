@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 
 from ..messages.localization import Localization
 from ..messages.localized_content import localized_text_for_locale
+from ..audio import AudioCommand
 
 if TYPE_CHECKING:
     from ..users.network_user import NetworkUser
@@ -273,13 +274,7 @@ class ServerPowerManager:
                 "silent": True,
             },
             {"type": "speak", "text": speak_text, "buffer": "system"},
-            {
-                "type": "play_sound",
-                "name": sound,
-                "volume": 100,
-                "pan": 0,
-                "pitch": 100,
-            },
+            AudioCommand(command="play", kind="sfx", asset=sound).to_packet(),
         ]
         if disconnect:
             packets.append(

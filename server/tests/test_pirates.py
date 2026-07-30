@@ -127,6 +127,32 @@ def test_start_places_gems_and_crews_on_distinct_empty_spaces() -> None:
     assert all(game.charted_tiles[position] for position in player_spaces)
 
 
+def test_pirates_ambience_stem_has_complete_teardown_metadata() -> None:
+    game, _, users = make_game()
+    ambience = next(
+        state
+        for state in game.active_audio.values()
+        if state.kind == "ambience"
+    )
+
+    assert ambience.asset == "game_pirates/amloop.ogg"
+    assert ambience.intro == "game_pirates/am_intro.ogg"
+    assert ambience.outro == "game_pirates/am_outro.ogg"
+    assert ambience.seamless is True
+
+    for user in users:
+        user.clear_messages()
+    game.stop_all_ambience()
+
+    for user in users:
+        packet = user.messages[-1].data
+        assert packet["command"] == "stop"
+        assert packet["kind"] == "ambience"
+        assert packet["all_layers"] is True
+        assert packet.get("play_outro", True) is True
+        assert packet.get("outro_mode", "immediate") == "immediate"
+
+
 def test_leveling_threshold_and_golden_moon_multiplier() -> None:
     game, (player, _), _ = make_game()
 

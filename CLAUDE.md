@@ -93,11 +93,7 @@ Important server-driven packets include:
 - `update_menu`
 - `request_input`
 - `speak`
-- `play_sound`
-- `play_music`
-- `play_ambience`
-- `stop_music`
-- `stop_ambience`
+- `audio`
 - `chat`
 - `disconnect`
 - `table_context`
@@ -106,7 +102,58 @@ Important server-driven packets include:
 - `voice_leave_ack`
 - `voice_context_closed`
 
-**`silent` flag on `chat` packets**: Adding `"silent": True` suppresses both chat notification sounds and TTS in the first-party clients. Use it only when the server is also sending explicit `speak` and/or `play_sound` packets to control the audio output precisely.
+**`silent` flag on `chat` packets**: Adding `"silent": True` suppresses both chat notification sounds and TTS in the first-party clients. Use it only when the server is also sending explicit `speak` and/or `audio` packets to control the output precisely.
+
+### Audio Control Protocol
+
+Server-controlled SFX, music, and ambience use the single versioned `audio`
+packet. Do not add per-feature packet types or client-specific audio branches.
+The server validates relative asset paths, ids, numeric ranges, commands,
+kinds, and scopes through `server/audio.py`; clients validate again before
+loading an asset.
+
+- Commands are `play`, `stop`, `pause`, `resume`, `set_bus`, and `stop_all`.
+- Kinds are `sfx`, `music`, and `ambience`. A named bus may be added without
+  changing the protocol and inherits its kind's user-volume preference.
+- Stable handles own lifecycle. Looping SFX must keep the returned/provided
+  handle and stop it explicitly. Stop/pause/resume are idempotent.
+- Music and ambience replacement use simultaneous fade-out/fade-in. Pausing
+  music preserves position. Never reintroduce abrupt server-driven stops.
+- Ambience is keyed by `scope + context + layer`: `global`, `player`, or
+  `context` scopes may coexist, and changing one layer must not stop another.
+- Ambience assets may be a simple loop or a segmented stem with optional intro
+  and outro. When `seamless` is enabled, intro-to-loop and loop-to-outro are
+  contiguous same-stem boundaries: never fade or crossfade those transitions.
+  External fades still apply to starting, replacing, pausing, or force-stopping
+  independent sources. Normal stop uses an immediate no-fade splice from the
+  active loop into its outro, matching legacy teardown behavior and preventing
+  a long loop from surviving into another UI context. `outro_mode="boundary"`
+  is an explicit opt-in for content whose caller can wait until the current
+  loop iteration reaches its authored seam. Game completion stops all ambience
+  layers; table-to-main-menu teardown uses `stop_all` with
+  `play_outros=True`, while hard resets/transfers may suppress outros to avoid
+  overlap with the next table context. Reconnect replay starts at the loop and
+  does not replay an intro that the table already heard.
+- `priority` and `max_instances` bound SFX pressure. `ducking` temporarily
+  lowers named buses for the life of its source and restores them on every
+  completion/stop/error path. User volume remains the master gain.
+- Ducking is implemented but dormant and strictly opt-in. First-party gameplay
+  must not send non-empty `ducking` maps until a future feature explicitly
+  adopts and tunes it. Empty/default ducking must have no audible side effects.
+- Async clients must generation-guard asset loads and fades so a late load or
+  retiring source cannot resurrect, silence, or replace a newer command.
+- Replayable music, ambience, and explicitly persistent SFX loops live in the
+  game's Mashumaro-safe `active_audio` state, including recipient ids and
+  paused state. One-shots and client mixer state are runtime-only. Old
+  `current_music`/`current_ambience` fields are read-migration bridges for
+  pre-protocol saves and must not become a second playback authority.
+- `active_audio` has the same lifespan and retention as its containing
+  table/game save. Explicit stop, phase reset, table transfer, and game
+  replacement remove stale entries; deleting the containing save/table or
+  account-owned data deletes it as part of that existing lifecycle. Schema
+  migration reads the legacy current-track fields only when unified state is
+  absent.
+- Gameplay WebSockets carry control JSON only. Voice media remains on LiveKit.
 
 ### Server Architecture
 - **`server/core/server.py`** — Main orchestrator, auth routing, menus, reconnect, moderation, MOTD, presence
@@ -627,7 +674,7 @@ Desktop rules:
 
 ### Web Client Architecture
 - **`web_client/game.js`** — version marker and bootstrap entry that imports the modular runtime
-- **`web_client/app.js`** — main runtime, auth flow, packet dispatch, menu/input orchestration, speech preferences, playlists, and voice-chat coordination
+- **`web_client/app.js`** — main runtime, auth flow, packet dispatch, menu/input orchestration, speech preferences, and voice-chat coordination
 - **`web_client/store.js`** — UI state store for connection state, current menu, capped history buffers, pending input state, and server option data
 - **`web_client/network.js`** — WebSocket connection, packet validation, reconnect-safe send handling, and protocol dispatch boundaries
 - **`web_client/audio.js`** — browser audio engine for effects, music, ambience, volume/mute state, sound-pack versioning, effect preloading, and stale-effect protection
@@ -641,7 +688,7 @@ Desktop rules:
 Web rules:
 - never use `innerHTML` with server-controlled content
 - remember-me password storage is opt-in and controlled by `pa_remember`
-- TTS, Web Speech queues, playlists, voice chat, pending inputs, and reconnect
+- TTS, Web Speech queues, audio handles, voice chat, pending inputs, and reconnect
   state must be cleaned up on disconnect
 - current client version is tracked in `web_client/game.js`
 - server `request_input` packets determine single-line versus multiline web

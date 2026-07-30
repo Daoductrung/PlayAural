@@ -61,6 +61,7 @@ try:
     from messages.localization import Localization  # noqa: E402
     from games.registry import GameRegistry, get_game_class  # noqa: E402
     from games.base import Game, BOT_NAMES  # noqa: E402
+    from audio import AudioCommand  # noqa: E402
     from users.base import User, generate_uuid  # noqa: E402
     from users.bot import Bot  # noqa: E402
 except ImportError:
@@ -69,6 +70,7 @@ except ImportError:
     from server.messages.localization import Localization  # noqa: E402
     from server.games.registry import GameRegistry, get_game_class  # noqa: E402
     from server.games.base import Game, BOT_NAMES  # noqa: E402
+    from server.audio import AudioCommand  # noqa: E402
     from server.users.base import User, generate_uuid  # noqa: E402
     from server.users.bot import Bot  # noqa: E402
 
@@ -117,22 +119,9 @@ class SpectatorUser(User):
     def speak(self, text: str, buffer: str = "misc") -> None:
         self._log(text)
 
-    def play_sound(
-        self, name: str, volume: int = 100, pan: int = 0, pitch: int = 100
-    ) -> None:
-        self._sounds.append({"tick": self._tick, "sound": name})
-
-    def play_music(self, name: str, looping: bool = True) -> None:
-        pass  # Ignore music
-
-    def stop_music(self) -> None:
-        pass
-
-    def play_ambience(self, loop: str, intro: str = "", outro: str = "") -> None:
-        pass  # Ignore ambience
-
-    def stop_ambience(self) -> None:
-        pass
+    def send_audio_command(self, command: AudioCommand) -> None:
+        if command.command == "play" and command.kind == "sfx":
+            self._sounds.append({"tick": self._tick, "sound": command.asset})
 
     def show_menu(self, menu_id: str, items: list, **kwargs) -> None:
         # Extract text from MenuItem objects
@@ -187,12 +176,17 @@ class CapturingBot(Bot):
     def speak(self, text: str, buffer: str = "misc") -> None:
         self.captured_speech.append(text)
 
-    def play_sound(
-        self, name: str, volume: int = 100, pan: int = 0, pitch: int = 100
-    ) -> None:
-        self.captured_sounds.append(
-            {"tick": self._tick, "sound": name, "volume": volume, "pan": pan, "pitch": pitch}
-        )
+    def send_audio_command(self, command: AudioCommand) -> None:
+        if command.command == "play" and command.kind == "sfx":
+            self.captured_sounds.append(
+                {
+                    "tick": self._tick,
+                    "sound": command.asset,
+                    "volume": command.volume,
+                    "pan": command.pan,
+                    "pitch": command.pitch,
+                }
+            )
 
     def show_menu(self, menu_id: str, items: list, **kwargs) -> None:
         item_texts = []

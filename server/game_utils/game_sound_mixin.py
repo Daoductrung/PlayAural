@@ -1,6 +1,16 @@
 """Mixin providing sound scheduling and playback for games."""
 
-from typing import TYPE_CHECKING
+from collections.abc import Callable, Iterable
+from dataclasses import replace
+from typing import TYPE_CHECKING, Any
+
+from ..audio import (
+    AudioCommand,
+    AudioPlaybackState,
+    DEFAULT_AMBIENCE_FADE_MS,
+    DEFAULT_MUSIC_FADE_MS,
+    new_audio_handle,
+)
 
 if TYPE_CHECKING:
     from .player import Player
@@ -85,20 +95,299 @@ class GameSoundMixin:
     # Sound Playback
     # ==========================================================================
 
-    def broadcast_sound(
-        self, name: str, volume: int = 100, pan: int = 0, pitch: int = 100
+    def _audio_recipients(
+        self, audience: Any = None
+    ) -> tuple[list["User"], list[str]]:
+        """Resolve users once so every command has a deterministic audience."""
+        if audience is None:
+            candidates: Iterable[Any] = self.players
+        elif isinstance(audience, Iterable) and not isinstance(
+            audience, (str, bytes)
+        ):
+            candidates = audience
+        else:
+            candidates = (audience,)
+
+        public_audience = audience is None
+        users: list["User"] = []
+        player_ids: list[str] = []
+        seen_users: set[str] = set()
+        seen_players: set[str] = set()
+        for candidate in candidates:
+            player_id = getattr(candidate, "id", "")
+            if not player_id and hasattr(candidate, "send_audio_command"):
+                candidate_id = str(getattr(candidate, "uuid", ""))
+                if any(player.id == candidate_id for player in self.players):
+                    player_id = candidate_id
+            if (
+                not public_audience
+                and player_id
+                and str(player_id) not in seen_players
+            ):
+                normalized_player_id = str(player_id)
+                seen_players.add(normalized_player_id)
+                player_ids.append(normalized_player_id)
+
+            user = (
+                candidate
+                if hasattr(candidate, "send_audio_command")
+                else self.get_user(candidate)
+            )
+            if not user:
+                continue
+            user_id = str(getattr(user, "uuid", id(user)))
+            if user_id in seen_users:
+                continue
+            seen_users.add(user_id)
+            users.append(user)
+        return users, [] if public_audience else player_ids
+
+    @staticmethod
+    def _audio_state_key(
+        command: AudioCommand, recipient_ids: list[str]
+    ) -> str:
+        if command.kind == "sfx":
+            recipients = ",".join(sorted(recipient_ids))
+            return (
+                f"sfx:{command.handle}:{recipients}"
+                if recipients
+                else f"sfx:{command.handle}"
+            )
+        recipients = ",".join(sorted(recipient_ids)) or "*"
+        return (
+            f"{command.kind}:{command.scope}:{command.context}:"
+            f"{command.layer}:{recipients}"
+        )
+
+    def _dispatch_audio(
+        self,
+        command: AudioCommand,
+        *,
+        audience: Any = None,
+        persist: bool = False,
+    ) -> str:
+        users, recipient_ids = self._audio_recipients(audience)
+        for user in users:
+            user.send_audio_command(command)
+        if persist:
+            self.active_audio[self._audio_state_key(command, recipient_ids)] = (
+                AudioPlaybackState.from_command(command, recipient_ids)
+            )
+            self._sync_legacy_audio_fields()
+        return command.handle
+
+    def _sync_legacy_audio_fields(self) -> None:
+        """Mirror canonical state into old save fields for rolling upgrades.
+
+        ``active_audio`` remains the only playback authority. These fields are
+        written solely so older server builds can still read a newly saved
+        table during a rollback.
+        """
+        music = next(
+            (
+                state
+                for state in self.active_audio.values()
+                if state.kind == "music"
+                and state.scope == "global"
+                and not state.context
+                and state.layer == "main"
+                and not state.recipient_ids
+            ),
+            None,
+        )
+        ambience = next(
+            (
+                state
+                for state in self.active_audio.values()
+                if state.kind == "ambience"
+                and state.scope == "global"
+                and not state.context
+                and state.layer == "environment"
+                and not state.recipient_ids
+            ),
+            None,
+        )
+        self.current_music = music.asset if music else ""
+        self.current_ambience = ambience.asset if ambience else ""
+        self.current_ambience_outro = ambience.outro if ambience else ""
+
+    def prune_audio_recipient(self, player_id: str) -> None:
+        """Remove a departed player from private replayable audio state."""
+        rebuilt: dict[str, AudioPlaybackState] = {}
+        for state in self.active_audio.values():
+            if player_id not in state.recipient_ids:
+                rebuilt[self._audio_state_key(
+                    state.to_command(), state.recipient_ids
+                )] = state
+                continue
+            state.recipient_ids = [
+                recipient
+                for recipient in state.recipient_ids
+                if recipient != player_id
+            ]
+            if state.recipient_ids:
+                rebuilt[self._audio_state_key(
+                    state.to_command(), state.recipient_ids
+                )] = state
+        self.active_audio = rebuilt
+        self._sync_legacy_audio_fields()
+
+    def _remove_audio_states(
+        self,
+        predicate: Callable[[AudioPlaybackState], bool],
+        recipient_ids: list[str] | None,
     ) -> None:
-        """Play a sound for all players."""
-        for player in self.players:
-            user = self.get_user(player)
-            if user:
-                user.play_sound(name, volume, pan, pitch)
+        """Remove matching public state or only the selected private recipients."""
+        recipients = None if recipient_ids is None else set(recipient_ids)
+        rebuilt: dict[str, AudioPlaybackState] = {}
+        for state in self.active_audio.values():
+            if not predicate(state):
+                rebuilt[self._audio_state_key(
+                    state.to_command(), state.recipient_ids
+                )] = state
+                continue
+            if recipients is None:
+                continue
+            # An explicit audience never mutates public replay state. Public
+            # layers have no exclusion list and must be stopped publicly.
+            if not state.recipient_ids:
+                rebuilt[self._audio_state_key(
+                    state.to_command(), state.recipient_ids
+                )] = state
+                continue
+            remaining = [
+                recipient
+                for recipient in state.recipient_ids
+                if recipient not in recipients
+            ]
+            if remaining:
+                retained = replace(state, recipient_ids=remaining)
+                rebuilt[self._audio_state_key(
+                    retained.to_command(), retained.recipient_ids
+                )] = retained
+        self.active_audio = rebuilt
+
+    def _set_audio_pause_state(
+        self,
+        predicate: Callable[[AudioPlaybackState], bool],
+        paused: bool,
+        recipient_ids: list[str] | None,
+    ) -> None:
+        """Update pause state, splitting a multi-recipient private layer safely."""
+        recipients = None if recipient_ids is None else set(recipient_ids)
+        rebuilt: dict[str, AudioPlaybackState] = {}
+        for state in self.active_audio.values():
+            if not predicate(state):
+                rebuilt[self._audio_state_key(
+                    state.to_command(), state.recipient_ids
+                )] = state
+                continue
+            if recipients is None:
+                updated = replace(state, paused=paused)
+                rebuilt[self._audio_state_key(
+                    updated.to_command(), updated.recipient_ids
+                )] = updated
+                continue
+            if not state.recipient_ids:
+                rebuilt[self._audio_state_key(
+                    state.to_command(), state.recipient_ids
+                )] = state
+                continue
+            affected = [
+                recipient
+                for recipient in state.recipient_ids
+                if recipient in recipients
+            ]
+            remaining = [
+                recipient
+                for recipient in state.recipient_ids
+                if recipient not in recipients
+            ]
+            if affected:
+                updated = replace(state, recipient_ids=affected, paused=paused)
+                rebuilt[self._audio_state_key(
+                    updated.to_command(), updated.recipient_ids
+                )] = updated
+            if remaining:
+                retained = replace(state, recipient_ids=remaining)
+                rebuilt[self._audio_state_key(
+                    retained.to_command(), retained.recipient_ids
+                )] = retained
+        self.active_audio = rebuilt
+
+    def broadcast_sound(
+        self,
+        name: str,
+        volume: int = 100,
+        pan: int = 0,
+        pitch: int = 100,
+        *,
+        loop: bool = False,
+        handle: str = "",
+        bus: str = "sfx",
+        fade_in_ms: int = 0,
+        fade_out_ms: int = 0,
+        priority: int = 0,
+        max_instances: int = 0,
+        ducking: dict[str, int] | None = None,
+        audience: Any = None,
+        scope: str = "global",
+        context: str = "",
+        layer: str = "main",
+        persist: bool = False,
+    ) -> str:
+        """Play an effect for an audience and optionally retain a loop."""
+        resolved_handle = handle or (new_audio_handle("sfx") if loop else "")
+        command = AudioCommand(
+            command="play",
+            kind="sfx",
+            asset=name,
+            handle=resolved_handle,
+            bus=bus,
+            scope=scope,
+            context=context,
+            layer=layer,
+            loop=loop,
+            volume=volume,
+            pan=pan,
+            pitch=pitch,
+            fade_in_ms=fade_in_ms,
+            fade_out_ms=fade_out_ms,
+            priority=priority,
+            max_instances=max_instances,
+            ducking=ducking or {},
+        )
+        return self._dispatch_audio(
+            command, audience=audience, persist=persist and loop
+        )
 
     def play_sound(
-        self, name: str, volume: int = 100, pan: int = 0, pitch: int = 100
+        self,
+        name: str,
+        volume: int = 100,
+        pan: int = 0,
+        pitch: int = 100,
+        **kwargs: Any,
+    ) -> str:
+        """Alias for :meth:`broadcast_sound`."""
+        return self.broadcast_sound(name, volume, pan, pitch, **kwargs)
+
+    def stop_sound(
+        self, handle: str, *, fade_ms: int = 0, audience: Any = None
     ) -> None:
-        """Alias for broadcast_sound."""
-        self.broadcast_sound(name, volume, pan, pitch)
+        """Stop one managed loop by handle."""
+        command = AudioCommand(
+            command="stop",
+            kind="sfx",
+            handle=handle,
+            fade_out_ms=fade_ms,
+        )
+        _, recipient_ids = self._audio_recipients(audience)
+        self._dispatch_audio(command, audience=audience)
+        self._remove_audio_states(
+            lambda state: state.kind == "sfx" and state.handle == handle,
+            None if audience is None else recipient_ids,
+        )
 
     def _table_presence_flags(
         self,
@@ -146,28 +435,268 @@ class GameSoundMixin:
         )
         self.broadcast_sound("leave_spectator.ogg" if spectator else "leave.ogg")
 
-    def play_music(self, name: str, looping: bool = True) -> None:
-        """Play music for all players and store as current."""
-        self.current_music = name
-        for player in self.players:
-            user = self.get_user(player)
-            if user:
-                user.play_music(name, looping)
+    def play_music(
+        self,
+        name: str,
+        looping: bool = True,
+        *,
+        handle: str = "music",
+        bus: str = "music",
+        fade_in_ms: int = DEFAULT_MUSIC_FADE_MS,
+        fade_out_ms: int = DEFAULT_MUSIC_FADE_MS,
+        priority: int = 0,
+        ducking: dict[str, int] | None = None,
+        audience: Any = None,
+        scope: str = "global",
+        context: str = "",
+        layer: str = "main",
+    ) -> str:
+        """Play or crossfade an independently addressable music layer."""
+        command = AudioCommand(
+            command="play",
+            kind="music",
+            asset=name,
+            handle=handle,
+            bus=bus,
+            scope=scope,
+            context=context,
+            layer=layer,
+            loop=looping,
+            fade_in_ms=fade_in_ms,
+            fade_out_ms=fade_out_ms,
+            priority=priority,
+            ducking=ducking or {},
+        )
+        return self._dispatch_audio(command, audience=audience, persist=True)
 
-    def play_ambience(self, loop: str, intro: str = "", outro: str = "") -> None:
-        """Play ambient sound for all players."""
-        self.current_ambience = loop
-        self.current_ambience_outro = outro
-        for player in self.players:
-            user = self.get_user(player)
-            if user:
-                user.play_ambience(loop, intro, outro)
+    def pause_music(
+        self,
+        *,
+        handle: str = "music",
+        fade_ms: int = DEFAULT_MUSIC_FADE_MS,
+        audience: Any = None,
+    ) -> None:
+        """Fade and pause a music handle."""
+        command = AudioCommand(
+            command="pause",
+            kind="music",
+            handle=handle,
+            fade_out_ms=fade_ms,
+        )
+        _, recipient_ids = self._audio_recipients(audience)
+        self._dispatch_audio(command, audience=audience)
+        self._set_audio_pause_state(
+            lambda state: state.kind == "music" and state.handle == handle,
+            True,
+            None if audience is None else recipient_ids,
+        )
 
-    def stop_ambience(self) -> None:
-        """Stop ambient sound for all players."""
-        self.current_ambience = ""
-        self.current_ambience_outro = ""
-        for player in self.players:
-            user = self.get_user(player)
-            if user:
-                user.stop_ambience()
+    def resume_music(
+        self,
+        *,
+        handle: str = "music",
+        fade_ms: int = DEFAULT_MUSIC_FADE_MS,
+        audience: Any = None,
+    ) -> None:
+        """Resume a paused music handle with a fade."""
+        command = AudioCommand(
+            command="resume",
+            kind="music",
+            handle=handle,
+            fade_in_ms=fade_ms,
+        )
+        _, recipient_ids = self._audio_recipients(audience)
+        self._dispatch_audio(command, audience=audience)
+        self._set_audio_pause_state(
+            lambda state: state.kind == "music" and state.handle == handle,
+            False,
+            None if audience is None else recipient_ids,
+        )
+
+    def stop_music(
+        self,
+        *,
+        handle: str = "music",
+        fade_ms: int = DEFAULT_MUSIC_FADE_MS,
+        audience: Any = None,
+    ) -> None:
+        """Fade and stop a music handle."""
+        command = AudioCommand(
+            command="stop",
+            kind="music",
+            handle=handle,
+            fade_out_ms=fade_ms,
+        )
+        _, recipient_ids = self._audio_recipients(audience)
+        self._dispatch_audio(command, audience=audience)
+        self._remove_audio_states(
+            lambda state: state.kind == "music" and state.handle == handle,
+            None if audience is None else recipient_ids,
+        )
+        self._sync_legacy_audio_fields()
+
+    def play_ambience(
+        self,
+        loop: str,
+        intro: str = "",
+        outro: str = "",
+        *,
+        handle: str = "",
+        bus: str = "ambience",
+        fade_in_ms: int = DEFAULT_AMBIENCE_FADE_MS,
+        fade_out_ms: int = DEFAULT_AMBIENCE_FADE_MS,
+        volume: int = 100,
+        priority: int = 0,
+        ducking: dict[str, int] | None = None,
+        play_intro: bool = True,
+        seamless: bool = True,
+        audience: Any = None,
+        scope: str = "global",
+        context: str = "",
+        layer: str = "environment",
+    ) -> str:
+        """Play or crossfade a global, private, or contextual ambience layer."""
+        resolved_handle = handle or f"ambience:{scope}:{context or 'default'}:{layer}"
+        command = AudioCommand(
+            command="play",
+            kind="ambience",
+            asset=loop,
+            handle=resolved_handle,
+            bus=bus,
+            scope=scope,
+            context=context,
+            layer=layer,
+            loop=True,
+            intro=intro,
+            outro=outro,
+            play_intro=play_intro,
+            seamless=seamless,
+            volume=volume,
+            fade_in_ms=fade_in_ms,
+            fade_out_ms=fade_out_ms,
+            priority=priority,
+            ducking=ducking or {},
+        )
+        return self._dispatch_audio(command, audience=audience, persist=True)
+
+    def play_private_ambience(
+        self, player: "Player", loop: str, **kwargs: Any
+    ) -> str:
+        """Convenience API for a player-specific ambience layer."""
+        return self.play_ambience(
+            loop,
+            audience=player,
+            scope="player",
+            context=player.id,
+            **kwargs,
+        )
+
+    def stop_ambience(
+        self,
+        *,
+        handle: str = "",
+        fade_ms: int = DEFAULT_AMBIENCE_FADE_MS,
+        play_outro: bool = True,
+        outro_mode: str = "immediate",
+        audience: Any = None,
+        scope: str = "global",
+        context: str = "",
+        layer: str = "environment",
+    ) -> None:
+        """Fade and stop an ambience handle or scoped layer."""
+        command = AudioCommand(
+            command="stop",
+            kind="ambience",
+            handle=handle,
+            scope=scope,
+            context=context,
+            layer=layer,
+            fade_out_ms=fade_ms,
+            play_outro=play_outro,
+            outro_mode=outro_mode,
+        )
+        _, recipient_ids = self._audio_recipients(audience)
+        self._dispatch_audio(command, audience=audience)
+        self._remove_audio_states(
+            lambda state: (
+                state.kind == "ambience"
+                and (
+                    (handle and state.handle == handle)
+                    or (
+                        not handle
+                        and state.scope == scope
+                        and state.context == context
+                        and state.layer == layer
+                    )
+                )
+            ),
+            None if audience is None else recipient_ids,
+        )
+        self._sync_legacy_audio_fields()
+
+    def stop_all_ambience(
+        self,
+        *,
+        fade_ms: int = DEFAULT_AMBIENCE_FADE_MS,
+        play_outro: bool = True,
+        outro_mode: str = "immediate",
+        audience: Any = None,
+    ) -> None:
+        """Stop every ambience layer, preserving configured outros."""
+        command = AudioCommand(
+            command="stop",
+            kind="ambience",
+            all_layers=True,
+            fade_out_ms=fade_ms,
+            play_outro=play_outro,
+            outro_mode=outro_mode,
+        )
+        _, recipient_ids = self._audio_recipients(audience)
+        self._dispatch_audio(command, audience=audience)
+        self._remove_audio_states(
+            lambda state: state.kind == "ambience",
+            None if audience is None else recipient_ids,
+        )
+        self._sync_legacy_audio_fields()
+
+    def set_audio_bus(
+        self, bus: str, gain: int, *, fade_ms: int = 0, audience: Any = None
+    ) -> None:
+        """Set a named mix bus for an audience."""
+        self._dispatch_audio(
+            AudioCommand(
+                command="set_bus",
+                bus=bus,
+                volume=gain,
+                fade_in_ms=fade_ms,
+            ),
+            audience=audience,
+        )
+
+    def stop_all_audio(
+        self,
+        *,
+        fade_ms: int = 0,
+        play_outros: bool = False,
+        outro_mode: str = "immediate",
+        audience: Any = None,
+    ) -> None:
+        """Stop every server-controlled source and clear reconnect state."""
+        _, recipient_ids = self._audio_recipients(audience)
+        self._dispatch_audio(
+            AudioCommand(
+                command="stop_all",
+                fade_out_ms=fade_ms,
+                play_outros=play_outros,
+                outro_mode=outro_mode,
+            ),
+            audience=audience,
+        )
+        if audience is None:
+            self.active_audio.clear()
+        else:
+            self._remove_audio_states(
+                lambda state: True,
+                recipient_ids,
+            )
+        self._sync_legacy_audio_fields()

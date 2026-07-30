@@ -632,75 +632,6 @@ class WebSpeechManager {
   }
 }
 
-class Playlist {
-  constructor(app, id, tracks = [], options = {}) {
-    this.app = app;
-    this.id = id;
-    this.tracks = Array.isArray(tracks) ? tracks.slice() : [];
-    this.audioType = options.audio_type || "music";
-    this.shuffle = Boolean(options.shuffle);
-    this.repeats = options.repeats ?? true;
-    this.autoRemove = Boolean(options.auto_remove);
-    this.index = 0;
-    this.running = false;
-  }
-
-  start() {
-    if (!this.tracks.length) {
-      return;
-    }
-    this.running = true;
-    this.index = 0;
-    if (this.shuffle) {
-      for (let i = this.tracks.length - 1; i > 0; i -= 1) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [this.tracks[i], this.tracks[j]] = [this.tracks[j], this.tracks[i]];
-      }
-    }
-    this.playNext();
-  }
-
-  stop() {
-    this.running = false;
-    if (this.audioType === "music") {
-      this.app.audio.stopMusic();
-    } else if (this.audioType === "ambience") {
-      this.app.audio.stopAmbience();
-    }
-  }
-
-  playNext() {
-    if (!this.running || !this.tracks.length) {
-      return;
-    }
-    if (this.index >= this.tracks.length) {
-      if (!this.repeats) {
-        this.running = false;
-        if (this.autoRemove) {
-          this.app.removePlaylist(this.id);
-        }
-        return;
-      }
-      this.index = 0;
-    }
-    const track = this.tracks[this.index];
-    this.index += 1;
-    const onEnded = () => this.playNext();
-    const name = typeof track === "string" ? track : (track?.name || track?.filename || "");
-    if (!name) {
-      this.playNext();
-      return;
-    }
-    if (this.audioType === "sound") {
-      this.app.audio.playSound({ name, onEnded });
-    } else if (this.audioType === "ambience") {
-      this.app.audio.playAmbience({ loop: name });
-    } else {
-      this.app.audio.playMusic({ name, looping: false, onEnded });
-    }
-  }
-}
-
 class VoiceChatManager {
   constructor(app) {
     this.app = app;
@@ -738,9 +669,7 @@ class VoiceChatManager {
     const previous = this.currentTableContextId || "";
     this.currentTableContextId = tableId || "";
     if (previous && this.currentTableContextId && previous !== this.currentTableContextId) {
-      this.app.removeAllPlaylists();
-      this.app.audio.stopMusic();
-      this.app.audio.stopAmbience();
+      this.app.audio.stopAll(800);
     }
     if (!this.currentTableContextId) {
       if (this.state === "connected" || this.state === "connecting") {
@@ -1104,7 +1033,6 @@ class PlayAuralWebApp {
     this.focusMenuOnNextPacket = false;
     this.pendingInput = null;
     this.pingStart = null;
-    this.playlists = {};
     this.connectionStatusMessage = "status-disconnected";
     this.connectionStatusParams = {};
     this.connectionStatusError = false;
@@ -2201,8 +2129,7 @@ class PlayAuralWebApp {
 
   cleanupRuntime(full = false) {
     this.voice.cleanup(false, false);
-    this.removeAllPlaylists();
-    this.audio.stopAll();
+    this.audio.stopAll(800);
     this.webSpeech.cancel();
     this.hideInlineInput();
     this.webActionsItem = null;
@@ -2308,29 +2235,8 @@ class PlayAuralWebApp {
       case "force_exit":
         this.handleForceExit(packet);
         break;
-      case "play_sound":
-        this.audio.playSound(packet);
-        break;
-      case "play_music":
-        this.audio.playMusic(packet);
-        break;
-      case "stop_music":
-        this.audio.stopMusic();
-        break;
-      case "play_ambience":
-        this.audio.playAmbience(packet);
-        break;
-      case "stop_ambience":
-        this.audio.stopAmbience();
-        break;
-      case "add_playlist":
-        this.addPlaylist(packet);
-        break;
-      case "start_playlist":
-        this.startPlaylist(packet.playlist_id);
-        break;
-      case "remove_playlist":
-        this.removePlaylist(packet.playlist_id);
+      case "audio":
+        this.audio.handleAudioCommand(packet);
         break;
       case "clear_ui":
         this.cleanupRuntime(true);
@@ -2355,9 +2261,6 @@ class PlayAuralWebApp {
         break;
       case "update_preference":
         this.handlePreferenceUpdate(packet);
-        break;
-      case "get_playlist_duration":
-        this.handlePlaylistDurationRequest(packet);
         break;
       case "pong":
         this.handlePong();
@@ -3189,54 +3092,6 @@ class PlayAuralWebApp {
       this.webSpeech.applyPreferences();
     }
     this.saveLocalConfig();
-  }
-
-  addPlaylist(packet) {
-    const id = packet.playlist_id || "music_playlist";
-    this.removePlaylist(id);
-    const playlist = new Playlist(this, id, packet.tracks, {
-      audio_type: packet.audio_type,
-      shuffle: packet.shuffle_tracks,
-      repeats: packet.repeats,
-      auto_remove: packet.auto_remove,
-    });
-    this.playlists[id] = playlist;
-    if (packet.auto_start) {
-      playlist.start();
-    }
-  }
-
-  startPlaylist(id) {
-    const playlist = this.playlists[id];
-    if (playlist) {
-      playlist.start();
-    }
-  }
-
-  removePlaylist(id) {
-    if (this.playlists[id]) {
-      this.playlists[id].stop();
-      delete this.playlists[id];
-    }
-  }
-
-  removeAllPlaylists() {
-    for (const id of Object.keys(this.playlists)) {
-      this.removePlaylist(id);
-    }
-  }
-
-  handlePlaylistDurationRequest(packet) {
-    if (!packet.playlist_id || !this.playlists[packet.playlist_id]) {
-      return;
-    }
-    this.send({
-      type: "playlist_duration_response",
-      request_id: packet.request_id,
-      playlist_id: packet.playlist_id,
-      duration_type: packet.duration_type,
-      duration: 0,
-    });
   }
 
   isStandalone() {

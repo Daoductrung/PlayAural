@@ -1634,6 +1634,14 @@ PlayAural Server
     def _show_main_menu(self, user: NetworkUser) -> None:
         """Show the main menu to a user."""
         user.set_table_context("")
+        # Tear down every table-owned source before starting menu music.
+        # Ambience outros use immediate no-fade splices so a long loop cannot
+        # survive into the main menu while waiting for its next boundary.
+        user.stop_all_audio(
+            fade_ms=800,
+            play_outros=True,
+            outro_mode="immediate",
+        )
         if user.username in self._voice_presence_by_user:
             try:
                 asyncio.get_running_loop().create_task(
@@ -1685,7 +1693,6 @@ PlayAural Server
             escape_behavior=EscapeBehavior.SELECT_LAST,
         )
         user.play_music("mainmus.ogg")
-        user.stop_ambience()
         self._user_states[user.username] = {"menu": "main_menu"}
 
     def _get_game_category_filter(self, user: NetworkUser) -> str:
@@ -6143,8 +6150,7 @@ PlayAural Server
         # old table UI and audio state before the next table starts sending its
         # own context, menus, music, or ambience.
         user.set_table_context("")
-        user.stop_music()
-        user.stop_ambience()
+        user.stop_all_audio(fade_ms=800)
         user.clear_ui()
 
     def _return_from_join_menu(self, user: NetworkUser, state: dict) -> None:
@@ -6359,7 +6365,7 @@ PlayAural Server
             self._return_to_game(user, table)
             return
 
-        old_game.stop_ambience()
+        old_game.stop_all_audio(fade_ms=800)
         if not table.reset_game(preserve_scheduled_sounds=False):
             self._return_to_game(user, table)
             return

@@ -1,25 +1,21 @@
-# Custom utility from Zarvox, allowing for playing sounds for ui events with seemless integration.
-
 import wx
-import wx.adv
-
-default_sounds_path = "sounds"
 
 
-def play_sound(name: str, blocking: bool = False):
-    try:
-        sound = wx.adv.Sound(name + ".wav")
-        if sound.IsOk():
-            sound.Play(wx.adv.SOUND_SYNC if blocking else wx.adv.SOUND_ASYNC)
-    except Exception as e:
-        print("Sound error:", e)
+UI_CUE_ASSETS = {
+    "element_focus": "menuclick.ogg",
+    "button_press": "menuenter.ogg",
+    "error": "accounterror.ogg",
+    "checkbox_on": "menuclick.ogg",
+    "checkbox_off": "menuclick.ogg",
+    "list_move": "menuclick.ogg",
+    "checkbox_list_on": "checkbox_list_on.wav",
+    "checkbox_list_off": "checkbox_list_off.wav",
+    "dropdown_move": "menuclick.ogg",
+}
 
 
 class SoundBindingsMixin:
-    """
-    Add sound cues for ui event interactions:
-      - For any frame, panel, or dialog, add this class along with it. Then simply call 'self.bind_sounds()' after controls have been added to apply it.
-    """
+    """Route accessible wx control cues through the shared audio engine."""
 
     def bind_sounds(self, enable_focus: bool = False, *, recursion: int = None):
         """
@@ -33,16 +29,21 @@ class SoundBindingsMixin:
         # if recursion is negative, don't bind any events. Useful for controlling exactly which controls have sounds.
         self.bind_sfx_to_area(self, recursion)
 
-    def audio_settings(self, *, sounds_path: str = None, block: bool = False):
-        if sounds_path is None:
-            sounds_path = default_sounds_path
+    def audio_settings(self):
+        sound_manager = getattr(self, "sound_manager", None)
 
-        def play_sfx(name: str, blocking: bool = None, *, path: str = None):
-            """Play sound using defaults unless caller explicitly overrides."""
-            return play_sound(
-                f"{sounds_path}/{name}" if path is None else f"{path}/{name}",
-                block if blocking is None else blocking,
-            )
+        def play_sfx(name: str):
+            """Play a UI cue on the shared SFX master and dedicated UI bus."""
+            asset = UI_CUE_ASSETS.get(name)
+            if sound_manager and asset:
+                return sound_manager.play(
+                    asset,
+                    volume=0.5,
+                    bus="ui",
+                    priority=100,
+                    max_instances=2,
+                )
+            return None
 
         self.play_sfx = play_sfx
 

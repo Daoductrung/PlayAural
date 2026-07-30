@@ -60,9 +60,9 @@ class GameResultMixin:
         self._end_screen_open_player_ids.clear()
         self._persist_result(result)
 
-        # Stop ambience — clients handle outro playback automatically
-        # when they receive a non-force stop_ambience packet
-        self.stop_ambience()
+        # Stop every ambience layer. Clients splice configured outros without
+        # waiting for a potentially long loop iteration to finish.
+        self.stop_all_ambience()
 
         # Show end screen
         if show_end_screen:

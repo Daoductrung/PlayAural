@@ -350,8 +350,8 @@ class TestFriendsSystem:
             for msg in alice_messages
         )
         assert any(
-            msg.get("type") == "play_sound"
-            and msg.get("name") == "friend_removed.ogg"
+            msg.get("type") == "audio"
+            and msg.get("asset") == "friend_removed.ogg"
             for msg in alice_messages
         )
 
@@ -361,8 +361,8 @@ class TestFriendsSystem:
             for msg in bob_messages
         )
         assert any(
-            msg.get("type") == "play_sound"
-            and msg.get("name") == "friend_removed.ogg"
+            msg.get("type") == "audio"
+            and msg.get("asset") == "friend_removed.ogg"
             for msg in bob_messages
         )
 
@@ -401,7 +401,7 @@ class TestFriendsSystem:
             for msg in messages
         )
         assert not any(
-            msg.get("type") == "play_sound"
-            and msg.get("name") == "friend_removed.ogg"
+            msg.get("type") == "audio"
+            and msg.get("asset") == "friend_removed.ogg"
             for msg in messages
         )

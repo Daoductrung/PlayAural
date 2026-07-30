@@ -122,7 +122,7 @@ class ClientOptionsDialog(wx.Dialog, uisound.SoundBindingsMixin):
         self.sound_spin = wx.SpinCtrl(
             panel,
             value=str(int(self.preferences.sound_volume * 100)),
-            min=10, max=100,
+            min=0, max=100,
         )
         self.sound_spin.Bind(wx.EVT_SPINCTRL, self.on_sound_spin_change)
         self.sound_spin.Bind(wx.EVT_TEXT, self.on_sound_spin_change)

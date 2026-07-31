@@ -790,9 +790,9 @@ class BangGame(Game):
         locale = user.locale if user else "en"
         specs = (
             (
-                "read_hand",
-                "bang-action-read-hand",
-                "_action_read_hand",
+                "read_life",
+                "bang-action-read-life",
+                "_action_read_life",
                 "_is_private_info_enabled",
                 False,
             ),
@@ -800,13 +800,6 @@ class BangGame(Game):
                 "read_role",
                 "bang-action-read-role",
                 "_action_read_role",
-                "_is_private_info_enabled",
-                False,
-            ),
-            (
-                "read_life",
-                "bang-action-read-life",
-                "_action_read_life",
                 "_is_private_info_enabled",
                 False,
             ),
@@ -838,6 +831,13 @@ class BangGame(Game):
                 "_is_public_info_enabled",
                 True,
             ),
+            (
+                "read_hand",
+                "bang-action-read-hand",
+                "_action_read_hand",
+                "_is_private_info_enabled",
+                False,
+            ),
         )
         for action_id, label, handler, enabled, spectators in specs:
             action_set.add(
@@ -851,16 +851,11 @@ class BangGame(Game):
                 )
             )
         if self.is_touch_client(user):
+            info_action_ids = [action_id for action_id, *_ in specs]
             self._order_touch_standard_actions(
                 action_set,
                 [
-                    "read_hand",
-                    "read_role",
-                    "read_life",
-                    "read_distances",
-                    "read_piles",
-                    "read_event",
-                    "read_table",
+                    *info_action_ids,
                     "whose_turn",
                     "whos_at_table",
                 ],
@@ -7877,6 +7872,22 @@ class BangGame(Game):
             if self.is_touch_client(user)
             else Visibility.HIDDEN
         )
+
+    def _is_whose_turn_hidden(self, player: Player) -> Visibility:
+        user = self.get_user(player)
+        if self.is_touch_client(user):
+            return (
+                Visibility.VISIBLE
+                if self.status == "playing"
+                else Visibility.HIDDEN
+            )
+        return super()._is_whose_turn_hidden(player)
+
+    def _is_whos_at_table_hidden(self, player: Player) -> Visibility:
+        user = self.get_user(player)
+        if self.is_touch_client(user):
+            return Visibility.VISIBLE
+        return super()._is_whos_at_table_hidden(player)
 
     def _action_read_hand(self, player: Player, action_id: str) -> None:
         del action_id

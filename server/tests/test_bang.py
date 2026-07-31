@@ -3809,26 +3809,77 @@ def test_elimination_and_victory_use_listener_specific_perspectives():
     )
 
 
-def test_touch_standard_info_order_and_no_score_actions():
+@pytest.mark.parametrize("client_type", ["mobile", "web"])
+def test_touch_standard_info_order_and_no_score_actions(
+    client_type: str,
+):
     game = start_game(4, seed=13, touch=True)
     player = game.players[0]
+    user = game.get_user(player)
+    assert isinstance(user, MockUser)
+    user.client_type = client_type
     action_set = game.get_action_set(player, "standard")
     assert action_set is not None
     order = action_set._order
     expected = [
-        "read_hand",
-        "read_role",
         "read_life",
+        "read_role",
         "read_distances",
         "read_piles",
         "read_event",
         "read_table",
+        "read_hand",
         "whose_turn",
         "whos_at_table",
     ]
     assert [action_id for action_id in order if action_id in expected] == expected
+    visible = [
+        resolved.action.id
+        for resolved in action_set.get_visible_actions(game, player)
+    ]
+    assert [
+        action_id for action_id in visible if action_id in expected
+    ] == expected
+    game.refresh_menus(player)
+    game.flush_menus()
+    rendered = list(turn_menu_items(game, 0))
+    assert [
+        action_id for action_id in rendered if action_id in expected
+    ] == expected
     assert "check_scores" not in order
     assert "check_scores_detailed" not in order
+
+
+def test_desktop_actions_menu_uses_the_same_bang_info_order():
+    game = start_game(4, seed=13)
+    player = game.players[0]
+    action_set = game.get_action_set(player, "standard")
+    assert action_set is not None
+    expected = [
+        "read_life",
+        "read_role",
+        "read_distances",
+        "read_piles",
+        "read_event",
+        "read_table",
+        "read_hand",
+    ]
+    enabled = [
+        resolved.action.id
+        for resolved in action_set.get_enabled_actions(game, player)
+    ]
+    assert [action_id for action_id in enabled if action_id in expected] == expected
+    user = game.get_user(player)
+    assert isinstance(user, MockUser)
+    game._action_show_actions_menu(player, "show_actions")
+    rendered = [
+        item.id
+        for item in user.menus["actions_menu"]["items"]
+        if item.id
+    ]
+    assert [
+        action_id for action_id in rendered if action_id in expected
+    ] == expected
 
 
 def test_read_piles_has_active_public_shortcut():
@@ -4597,10 +4648,18 @@ def test_sniper_sequence_synchronizes_aim_fire_tts_and_casing():
     assert game.decision and game.decision.kind == "missed"
 
 
-def test_russian_roulette_prepares_fully_before_opening_defense():
-    game = start_game(4, seed=97)
+@pytest.mark.parametrize(
+    ("player_count", "expected_role"),
+    [(4, ROLE_SHERIFF), (3, ROLE_DEPUTY)],
+)
+def test_russian_roulette_prepares_fully_before_opening_defense(
+    player_count: int,
+    expected_role: str,
+):
+    game = start_game(player_count, seed=97)
     target = game._event_anchor()
     assert target is not None
+    assert target.role == expected_role
     missed = make_card(2691, cards.MISSED)
     target.hand = [missed]
     target.in_play.clear()
@@ -4654,6 +4713,45 @@ def test_russian_roulette_prepares_fully_before_opening_defense():
     assert set(sound_names(game)) & set(
         bang_audio.SOUND_CARD_DISCARD
     )
+
+
+def test_russian_roulette_moves_clockwise_and_stops_at_first_failure():
+    game = start_game(4, seed=105)
+    anchor = game._event_anchor()
+    assert anchor is not None
+    order = [anchor, *game._clockwise_after(anchor, exclude_actor=True)]
+    defender, casualty, spared = order[:3]
+    missed = make_card(2696, cards.MISSED)
+    defender.hand = [missed]
+    for player in order:
+        player.in_play.clear()
+    casualty.character = "willy_the_kid"
+    casualty.hand.clear()
+    spared.hand.clear()
+    starting_life = {player.id: player.life for player in order}
+    game.effect_stack.clear()
+    game.decision = None
+    game._push_effect(
+        BangEffect(
+            kind="russian_roulette",
+            player_ids=[player.id for player in order],
+        )
+    )
+
+    game._continue_effects()
+
+    assert game.decision is not None
+    assert game.decision.kind == "missed"
+    assert game.decision.player_id == defender.id
+    game._use_decision_card(defender, missed)
+    tick_until(
+        game,
+        lambda: not game.effect_stack and game.decision is None,
+    )
+
+    assert defender.life == starting_life[defender.id]
+    assert casualty.life == starting_life[casualty.id] - 2
+    assert spared.life == starting_life[spared.id]
 
 
 def test_dynamite_explosion_and_aftermath_sync_with_damage_tts():

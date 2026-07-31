@@ -882,6 +882,49 @@ def test_game_intro_delays_the_first_turn_by_ten_seconds():
     )
 
 
+def test_lobby_music_is_stopped_before_bang_intro_and_delayed_bgm():
+    game = make_game(4)
+    game.options.event_rules = NO_EVENTS
+    game.play_music("test/waiting_music.ogg")
+    clear_user_messages(game)
+
+    game._start_game_from_lobby()
+
+    user = game.get_user(game.players[0])
+    assert isinstance(user, MockUser)
+    stop_index = next(
+        index
+        for index, message in enumerate(user.messages)
+        if message.type == "stop_music"
+    )
+    intro_index = next(
+        index
+        for index, message in enumerate(user.messages)
+        if (
+            message.type == "play_sound"
+            and message.data.get("name") == bang_audio.SOUND_GAME_INTRO
+        )
+    )
+    assert stop_index < intro_index
+    assert not [
+        message
+        for message in user.messages
+        if (
+            message.type == "play_music"
+            and message.data.get("name") == bang_audio.SOUND_MUSIC_GAMEPLAY
+        )
+    ]
+
+    for _ in range(bang_audio.GAME_START_DELAY_TICKS):
+        game.on_tick()
+
+    assert any(
+        message.type == "play_music"
+        and message.data.get("name") == bang_audio.SOUND_MUSIC_GAMEPLAY
+        for message in user.messages
+    )
+
+
 def test_intro_delay_survives_json_round_trip():
     game = make_game(4)
     game.options.event_rules = NO_EVENTS

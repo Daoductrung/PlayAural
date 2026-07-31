@@ -695,6 +695,13 @@ class Table(DataClassJSONMixin):
 
         # 1. Store old game state we need
         old_game = self._game
+        # A waiting lobby never owns background audio. This is normally a
+        # no-op because finish_game() already retired replayable sources, but
+        # it also makes direct/framework resets safe and leak-free.
+        old_game.stop_replayable_audio(
+            fade_ms=0,
+            play_ambience_outros=False,
+        )
         old_options = None
         if hasattr(old_game, "options"):
             old_options = old_game.options
@@ -830,10 +837,7 @@ class Table(DataClassJSONMixin):
         if hasattr(new_game, "_import_end_screen_state"):
             new_game._import_end_screen_state(end_screen_state)
 
-        # 13. Play waiting lobby music
-        new_game.play_music("findgamemus.ogg")
-
-        # 14. Mark and detach old runtime state so ticks or stale callbacks cannot affect the table.
+        # 13. Mark and detach old runtime state so ticks or stale callbacks cannot affect the table.
         old_game._destroyed = True
         if hasattr(old_game, "clear_scheduled_sounds"):
             old_game.clear_scheduled_sounds()
@@ -849,7 +853,7 @@ class Table(DataClassJSONMixin):
             old_game._users.clear()
         old_game._table = None
 
-        # 15. Sync status
+        # 14. Sync status
         self.status = "waiting"
         self.game_json = new_game.to_json()
         self._last_menu_state_hash = None

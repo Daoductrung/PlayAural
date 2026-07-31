@@ -60,9 +60,14 @@ class GameResultMixin:
         self._end_screen_open_player_ids.clear()
         self._persist_result(result)
 
-        # Stop every ambience layer. Clients splice configured outros without
-        # waiting for a potentially long loop iteration to finish.
-        self.stop_all_ambience()
+        # Retire every replayable game-owned source while allowing untracked
+        # one-shot victory cues to finish. Ambience stems splice directly to
+        # their authored outros without waiting for a long loop boundary.
+        self.stop_replayable_audio(
+            fade_ms=0,
+            play_ambience_outros=True,
+            outro_mode="immediate",
+        )
 
         # Show end screen
         if show_end_screen:

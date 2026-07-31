@@ -129,6 +129,7 @@ class NetworkUser(User):
         self._current_menus.clear()
         self._current_editboxes.clear()
         self._last_menu_packet_id = None
+        self._runtime_audio_states = {}
 
     @property
     def session_handover_pending(self) -> bool:
@@ -235,6 +236,9 @@ class NetworkUser(User):
 
     def send_audio_command(self, command: AudioCommand) -> None:
         """Queue an ordered command from the unified audio protocol."""
+        if not self._active:
+            return
+        self._record_audio_command(command)
         self._audio_sequence += 1
         packet = command.to_packet()
         packet["sequence"] = self._audio_sequence

@@ -881,6 +881,11 @@ class SoundManager:
         looping: bool = True,
         fade_out_old: bool = True,
         *,
+        handle: str = "music",
+        bus: str = "music",
+        scope: str = "global",
+        context: str = "",
+        layer: str = "main",
         fade_in_ms: int = 800,
         fade_out_ms: int = 800,
     ):
@@ -888,15 +893,30 @@ class SoundManager:
             {
                 "kind": "music",
                 "asset": music_name,
-                "handle": "music",
-                "bus": "music",
-                "scope": "global",
-                "layer": "main",
+                "handle": handle,
+                "bus": bus,
+                "scope": scope,
+                "context": context,
+                "layer": layer,
                 "loop": looping,
                 "fade_in_ms": fade_in_ms if fade_out_old else 0,
                 "fade_out_ms": fade_out_ms if fade_out_old else 0,
             }
         )
+
+    def has_managed_audio(
+        self,
+        kind: str,
+        *,
+        handle: str,
+        asset: str = "",
+    ) -> bool:
+        """Return whether one matching managed source is still active."""
+        with self._lock:
+            source = self._sources.get(handle)
+            if not source:
+                return False
+            return source.kind == kind and (not asset or source.asset == asset)
 
     def pause_music(self, fade_ms=800, handle="music"):
         self._stop_handle(handle, fade_ms=fade_ms, pause=True)

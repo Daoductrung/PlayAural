@@ -55,6 +55,29 @@ def _make_server(tmp_path):
     return server, user
 
 
+def test_returning_to_main_menu_preserves_existing_music(tmp_path) -> None:
+    server, user = _make_server(tmp_path)
+    try:
+        server._nav_push(user, server._show_personal_options_menu)
+        user.clear_messages()
+
+        server._nav_back(user)
+
+        assert _current_menu(server, user.username) == "main_menu"
+        assert not [
+            message
+            for message in user.messages
+            if message.type in {"play_music", "stop_music", "audio"}
+        ]
+        assert user.has_managed_audio(
+            "music",
+            handle="music",
+            asset="mainmus.ogg",
+        )
+    finally:
+        server._db.close()
+
+
 def test_restore_state_replaces_web_only_menu_on_mobile(tmp_path) -> None:
     server, user = _make_server(tmp_path)
     try:

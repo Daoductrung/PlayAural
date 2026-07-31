@@ -7,6 +7,49 @@ from ..games.pirates.game import PiratesGame
 from ..users.test_user import MockUser
 
 
+@pytest.mark.asyncio
+async def test_creating_table_relinquishes_main_menu_music() -> None:
+    server = Server(db_path=":memory:")
+    server._db.connect()
+    try:
+        alice = MockUser("Alice", uuid="alice")
+        server._users = {alice.username: alice}
+        server._show_main_menu(alice)
+        alice.clear_messages()
+
+        await server._handle_tables_selection(
+            alice,
+            "create_table",
+            {
+                "game_type": "pig",
+                "game_name": "Pig",
+            },
+        )
+
+        table = server._tables.find_user_table(alice.username)
+        assert table is not None
+        assert table.game is not None
+        assert table.game.status == "waiting"
+        assert table.game.current_music == ""
+        assert any(
+            message.type == "stop_music"
+            and message.data.get("handle") == "music"
+            and message.data.get("fade_out_ms", 0) == 0
+            for message in alice.messages
+        )
+        assert not alice.has_managed_audio(
+            "music",
+            handle="music",
+            asset="mainmus.ogg",
+        )
+        assert not any(
+            message.type == "play_music"
+            for message in alice.messages
+        )
+    finally:
+        server._db.close()
+
+
 class _CurrentTableGame:
     def __init__(self, user: MockUser):
         self.status = "playing"

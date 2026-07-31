@@ -210,6 +210,122 @@ def test_network_audio_packets_are_unified_and_ordered() -> None:
     ]
 
 
+def test_runtime_audio_ownership_tracks_replacements_and_teardown() -> None:
+    user = MockUser("Alice")
+
+    user.play_music("mainmus.ogg")
+    assert user.has_managed_audio(
+        "music",
+        handle="music",
+        asset="mainmus.ogg",
+    )
+
+    user.play_music(
+        "game_pig/mus.ogg",
+        handle="round:music",
+    )
+    assert not user.has_managed_audio(
+        "music",
+        handle="music",
+        asset="mainmus.ogg",
+    )
+    assert user.has_managed_audio(
+        "music",
+        handle="round:music",
+        asset="game_pig/mus.ogg",
+    )
+
+    user.stop_all_audio()
+    assert not user.has_managed_audio(
+        "music",
+        handle="round:music",
+        asset="game_pig/mus.ogg",
+    )
+
+
+def test_game_start_stops_waiting_music_before_game_music(
+    pig_game_with_players,
+) -> None:
+    game, alice, bob = pig_game_with_players
+    game.host = "Alice"
+    game.play_music("test/waiting_music.ogg")
+    alice.clear_messages()
+    bob.clear_messages()
+
+    game._start_game_from_lobby()
+
+    for user in (alice, bob):
+        stop_index = next(
+            index
+            for index, message in enumerate(user.messages)
+            if message.type == "stop_music"
+        )
+        play_index = next(
+            index
+            for index, message in enumerate(user.messages)
+            if (
+                message.type == "play_music"
+                and message.data.get("name") == "game_pig/mus.ogg"
+            )
+        )
+        assert stop_index < play_index
+    assert game.current_music == "game_pig/mus.ogg"
+
+
+def test_replayable_audio_teardown_preserves_unmanaged_one_shots(
+    pig_game_with_players,
+) -> None:
+    game, alice, bob = pig_game_with_players
+    game.play_sound("test/victory.ogg")
+    loop_handle = game.play_sound(
+        "test/countdown.ogg",
+        loop=True,
+        handle="round:countdown",
+        persist=True,
+    )
+    game.play_music("test/game_music.ogg")
+    ambience_handle = game.play_ambience(
+        "test/room_loop.ogg",
+        outro="test/room_outro.ogg",
+    )
+    alice.clear_messages()
+    bob.clear_messages()
+
+    game.stop_replayable_audio(
+        fade_ms=0,
+        play_ambience_outros=True,
+    )
+
+    for user in (alice, bob):
+        stops = [
+            message.data
+            for message in user.messages
+            if message.type in {"audio", "stop_music", "stop_ambience"}
+            and message.data.get("command") == "stop"
+        ]
+        assert {
+            (packet.get("kind"), packet.get("handle"))
+            for packet in stops
+        } == {
+            ("sfx", loop_handle),
+            ("music", "music"),
+            ("ambience", ambience_handle),
+        }
+        ambience_stop = next(
+            packet
+            for packet in stops
+            if packet.get("kind") == "ambience"
+        )
+        assert ambience_stop.get("play_outro", True) is True
+        assert not any(
+            message.data.get("command") == "stop_all"
+            for message in user.messages
+        )
+    assert game.active_audio == {}
+    assert game.current_music == ""
+    assert game.current_ambience == ""
+
+
 def test_game_managed_effect_can_be_stopped_by_handle(
     pig_game_with_players,
 ) -> None:
@@ -302,6 +418,29 @@ def test_music_pause_state_survives_serialization(pig_game_with_players) -> None
     )
     assert restored_state.paused is True
     assert alice.messages[-1].data["command"] == "pause"
+
+
+def test_waiting_restore_discards_legacy_and_unified_audio_state(
+    pig_game_with_players,
+) -> None:
+    game, alice, _ = pig_game_with_players
+    game.status = "waiting"
+    game.play_music("legacy/waiting_music.ogg")
+    game.play_ambience("test/waiting_room.ogg")
+
+    restored = PigGame.from_json(game.to_json())
+    restored.rebuild_runtime_state()
+    restored_user = MockUser("Alice", uuid=alice.uuid)
+    restored.attach_user(alice.uuid, restored_user)
+
+    assert restored.active_audio == {}
+    assert restored.current_music == ""
+    assert restored.current_ambience == ""
+    assert restored.current_ambience_outro == ""
+    assert not any(
+        message.type in {"play_music", "play_ambience", "audio"}
+        for message in restored_user.messages
+    )
 
 
 def test_private_managed_effect_stop_preserves_other_audiences(

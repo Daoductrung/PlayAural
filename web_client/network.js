@@ -143,7 +143,7 @@ export function createNetworkClient({ validator, onStatus, onPacket, onError }) 
   let ws = null;
 
   function isConnected() {
-    return ws && ws.readyState === WebSocket.OPEN;
+    return Boolean(ws && ws.readyState === WebSocket.OPEN);
   }
 
   function send(packet) {
@@ -172,7 +172,16 @@ export function createNetworkClient({ validator, onStatus, onPacket, onError }) 
     disconnect();
 
     onStatus("connecting");
-    const socket = new WebSocket(serverUrl);
+    let socket;
+    try {
+      socket = new WebSocket(serverUrl);
+    } catch {
+      ws = null;
+      onStatus("error");
+      onError("network-error-websocket");
+      onStatus("disconnected");
+      return false;
+    }
     ws = socket;
 
     socket.addEventListener("open", () => {
@@ -219,6 +228,7 @@ export function createNetworkClient({ validator, onStatus, onPacket, onError }) 
       onStatus("error");
       onError("network-error-websocket");
     });
+    return true;
   }
 
   return {

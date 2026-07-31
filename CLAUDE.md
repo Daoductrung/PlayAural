@@ -118,7 +118,8 @@ loading an asset.
 - Stable handles own lifecycle. Looping SFX must keep the returned/provided
   handle and stop it explicitly. Stop/pause/resume are idempotent.
 - Music and ambience replacement use simultaneous fade-out/fade-in. Pausing
-  music preserves position. Never reintroduce abrupt server-driven stops.
+  music preserves position. Abrupt music stops are reserved for strict
+  lifecycle boundaries where audio must not survive into the next context.
 - Ambience is keyed by `scope + context + layer`: `global`, `player`, or
   `context` scopes may coexist, and changing one layer must not stop another.
 - Ambience assets may be a simple loop or a segmented stem with optional intro
@@ -129,11 +130,15 @@ loading an asset.
   active loop into its outro, matching legacy teardown behavior and preventing
   a long loop from surviving into another UI context. `outro_mode="boundary"`
   is an explicit opt-in for content whose caller can wait until the current
-  loop iteration reaches its authored seam. Game completion stops all ambience
-  layers; table-to-main-menu teardown uses `stop_all` with
-  `play_outros=True`, while hard resets/transfers may suppress outros to avoid
-  overlap with the next table context. Reconnect replay starts at the loop and
-  does not replay an intro that the table already heard.
+  loop iteration reaches its authored seam. Waiting lobbies never own
+  background music, whether initially created or entered after completion or a
+  manual reset. Game completion and reset use `stop_replayable_audio` to retire
+  music, ambience, and persistent looping SFX without interrupting untracked
+  one-shot result cues; ambience may finish through its authored outro.
+  Table-to-main-menu teardown uses `stop_all` with `play_outros=True`, while
+  hard resets/transfers may suppress outros to avoid overlap with the next table
+  context. Reconnect replay starts at the loop and does not replay an intro that
+  the table already heard.
 - `priority` and `max_instances` bound SFX pressure. `ducking` temporarily
   lowers named buses for the life of its source and restores them on every
   completion/stop/error path. User volume remains the master gain.

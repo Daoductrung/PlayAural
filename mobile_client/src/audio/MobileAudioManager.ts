@@ -74,6 +74,20 @@ type AndroidNativeAudioMode = {
   staysActiveInBackground: boolean;
 };
 
+type MusicPlaybackOptions = Pick<
+  AudioCommandPacket,
+  | "bus"
+  | "context"
+  | "fade_in_ms"
+  | "fade_out_ms"
+  | "handle"
+  | "layer"
+  | "loop"
+  | "priority"
+  | "scope"
+  | "volume"
+>;
+
 type ExponentAVModule = {
   setAudioMode(mode: AndroidNativeAudioMode): Promise<void>;
 };
@@ -122,6 +136,7 @@ export class MobileAudioManager {
   private commandTargets = new Map<string, string>();
   private commandTargetGenerations = new Map<string, number>();
   private commandGenerations = new Map<string, number>();
+  private commandPausedMusicHandles = new Set<string>();
   private commandBusGains = new Map<string, number>();
   private commandBusFadeTokens = new Map<string, number>();
   private commandDucking = new Map<string, Map<string, number>>();
@@ -251,6 +266,35 @@ export class MobileAudioManager {
       pitch: (options.pitch ?? 1) * 100,
       pan: (options.pan ?? 0) * 100,
       priority: 100,
+    });
+  }
+
+  playMusic(
+    name: string,
+    options: MusicPlaybackOptions = {},
+  ): Promise<boolean> {
+    return this.handleAudioCommand({
+      ...options,
+      type: "audio",
+      version: AUDIO_PROTOCOL_VERSION,
+      command: "play",
+      kind: "music",
+      asset: name,
+      bus: options.bus ?? "music",
+      handle: options.handle ?? "music",
+      layer: options.layer ?? "main",
+      loop: options.loop ?? true,
+    });
+  }
+
+  stopMusic(handle = "music", fadeMs = 800): Promise<boolean> {
+    return this.handleAudioCommand({
+      type: "audio",
+      version: AUDIO_PROTOCOL_VERSION,
+      command: "stop",
+      kind: "music",
+      handle,
+      fade_out_ms: fadeMs,
     });
   }
 
@@ -1135,12 +1179,16 @@ export class MobileAudioManager {
         gain.connect(bus);
         source.webElement = element;
         source.webNode = node;
+        source.paused = kind === "music"
+          && this.commandPausedMusicHandles.has(handle);
         this.register(source);
         element.onended = () => {
           this.dispose(key);
           onEnded?.();
         };
-        void element.play().catch(() => undefined);
+        if (!source.paused) {
+          void element.play().catch(() => undefined);
+        }
       }
     } else {
       await this.initialize();
@@ -1174,6 +1222,8 @@ export class MobileAudioManager {
         return null;
       }
       source.nativePlayer = player;
+      source.paused = kind === "music"
+        && this.commandPausedMusicHandles.has(handle);
       this.register(source);
       player.setOnPlaybackStatusUpdate((status: AVPlaybackStatus) => {
         if (!status.isLoaded || !status.didJustFinish) {
@@ -1183,10 +1233,12 @@ export class MobileAudioManager {
         this.dispose(key);
         onEnded?.();
       });
-      void player.playAsync().catch(() => this.dispose(key));
+      if (!source.paused) {
+        void player.playAsync().catch(() => this.dispose(key));
+      }
     }
 
-    if (packet.fade_in_ms) {
+    if (packet.fade_in_ms && !source.paused) {
       this.fade(source, 1, packet.fade_in_ms);
     }
     return source;
@@ -1264,6 +1316,9 @@ export class MobileAudioManager {
       this.stopKey(layers[0].key, 0, false, false);
     }
     const handle = String(packet.handle || `${kind}:${target}`);
+    if (kind === "music") {
+      this.commandPausedMusicHandles.delete(handle);
+    }
     const generation = this.nextGeneration(handle);
     const targetGeneration = this.nextTargetGeneration(target);
     const oldKey = this.commandTargets.get(target);
@@ -1364,6 +1419,11 @@ export class MobileAudioManager {
       return;
     }
     const handle = String(packet.handle || "");
+    if (pause && handle) {
+      this.commandPausedMusicHandles.add(handle);
+    } else if (handle) {
+      this.commandPausedMusicHandles.delete(handle);
+    }
     const target = !handle && packet.kind ? this.target(packet) : "";
     if (target && !pause) {
       this.nextTargetGeneration(target);
@@ -1374,7 +1434,7 @@ export class MobileAudioManager {
         ? this.commandTargets.get(target)
         : undefined;
     if (!key) {
-      if (handle) {
+      if (handle && !pause) {
         this.nextGeneration(handle);
       }
       return;
@@ -1396,7 +1456,9 @@ export class MobileAudioManager {
   }
 
   private resumeManagedCommand(packet: AudioCommandPacket): void {
-    const key = this.commandHandles.get(String(packet.handle || ""));
+    const handle = String(packet.handle || "");
+    this.commandPausedMusicHandles.delete(handle);
+    const key = this.commandHandles.get(handle);
     const source = key ? this.commandSources.get(key) : null;
     if (!source?.paused) {
       return;
@@ -1419,6 +1481,7 @@ export class MobileAudioManager {
     playOutros = false,
     outroMode: "immediate" | "boundary" = "immediate",
   ): void {
+    this.commandPausedMusicHandles.clear();
     for (const handle of [...this.commandGenerations.keys()]) {
       this.nextGeneration(handle);
     }

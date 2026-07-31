@@ -700,3 +700,47 @@ class GameSoundMixin:
                 recipient_ids,
             )
         self._sync_legacy_audio_fields()
+
+    def stop_replayable_audio(
+        self,
+        *,
+        fade_ms: int = 0,
+        play_ambience_outros: bool = True,
+        outro_mode: str = "immediate",
+    ) -> None:
+        """Stop every tracked layer without interrupting untracked one-shots.
+
+        Game and lobby lifecycle boundaries use this instead of ``stop_all`` so
+        victory cues that are already playing may finish while music, ambience,
+        and managed looping effects are retired deterministically.
+        """
+        states = list(self.active_audio.values())
+        for state in states:
+            audience = None
+            if state.recipient_ids:
+                recipient_ids = set(state.recipient_ids)
+                audience = [
+                    player
+                    for player in self.players
+                    if player.id in recipient_ids
+                ]
+            self._dispatch_audio(
+                AudioCommand(
+                    command="stop",
+                    kind=state.kind,
+                    handle=state.handle,
+                    scope=state.scope,
+                    context=state.context,
+                    layer=state.layer,
+                    fade_out_ms=fade_ms,
+                    play_outro=(
+                        play_ambience_outros
+                        if state.kind == "ambience"
+                        else True
+                    ),
+                    outro_mode=outro_mode,
+                ),
+                audience=audience,
+            )
+        self.active_audio.clear()
+        self._sync_legacy_audio_fields()

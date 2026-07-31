@@ -245,9 +245,11 @@ Audio-first is mandatory. Every important state change needs TTS and/or sound.
   immediate no-fade loop-to-outro splice by default so long loops cannot leak
   across a game or table teardown. Use `outro_mode="boundary"` only when the
   caller deliberately accepts finishing the current loop iteration at its
-  authored seam. Game completion stops every ambience layer, and table exit
-  uses `stop_all` with `play_outros=True`. Reconnect replay joins the loop and
-  never repeats an already-heard intro.
+  authored seam. Waiting lobbies never own background music. Game completion
+  and reset retire every replayable layer: ambience may finish through its
+  authored outro, while already-playing one-shot result cues may complete.
+  Table exit uses `stop_all` with `play_outros=True`. Reconnect replay joins the
+  loop and never repeats an already-heard intro.
 - Named buses, priority/max-instance limits, and source-lifetime ducking are
   protocol data, not game/client hardcoding. User volume remains the master.
   Async loads and fades must be generation-guarded against stale resurrection.

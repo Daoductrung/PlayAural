@@ -29,6 +29,9 @@ VERSION = "1.0.4.9"
 WINDOW_SIZE = (980, 720)
 WINDOW_MIN_SIZE = (760, 520)
 MENU_MIN_WIDTH = 280
+CONNECTION_AUDIO_ASSET = "connectloop.ogg"
+CONNECTION_AUDIO_HANDLE = "client:connection"
+CONNECTION_AUDIO_LAYER = "connection"
 
 
 class MainWindow(wx.Frame):
@@ -1723,14 +1726,39 @@ class MainWindow(wx.Frame):
 
     # Network methods
 
+    def _start_connection_audio(self):
+        """Start the client-owned connection layer without restarting it."""
+        if self.sound_manager.has_managed_audio(
+            "music",
+            handle=CONNECTION_AUDIO_HANDLE,
+            asset=CONNECTION_AUDIO_ASSET,
+        ):
+            return
+        self.sound_manager.music(
+            CONNECTION_AUDIO_ASSET,
+            looping=True,
+            fade_out_old=False,
+            handle=CONNECTION_AUDIO_HANDLE,
+            layer=CONNECTION_AUDIO_LAYER,
+            fade_in_ms=0,
+            fade_out_ms=0,
+        )
+
+    def _stop_connection_audio(self, fade_ms=800):
+        """Stop only connection feedback, preserving unrelated music layers."""
+        self.sound_manager.stop_music(
+            fade=bool(fade_ms),
+            fade_ms=fade_ms,
+            handle=CONNECTION_AUDIO_HANDLE,
+        )
+
     def _auto_connect(self):
         """Auto-connect to server using login credentials."""
         username = self.credentials.get("username", "Guest")
         password = self.credentials.get("password", "")
         server_url = self.credentials.get("server_url", "wss://playaural.ddt.one")
 
-        # Play connection loop sound
-        self.sound_manager.music("connectloop.ogg")
+        self._start_connection_audio()
 
         self.add_history(Localization.get("main-connecting-to", url=server_url))
         if self.network.connect(server_url, username, password, client_version=VERSION):
@@ -1780,6 +1808,8 @@ class MainWindow(wx.Frame):
 
         # Unexpected disconnect - Try smart reconnect
         if not self.is_reconnecting:
+            self.sound_manager.stop_all(fade_ms=0)
+            self._start_connection_audio()
             self.is_reconnecting = True
             self.reconnect_start_time = time.time()
             self.speaker.speak(Localization.get("main-attempting-reconnect"), interrupt=True)
@@ -1989,6 +2019,7 @@ class MainWindow(wx.Frame):
                 attempt=self.reconnect_attempts,
             )
         )
+        self._start_connection_audio()
         self.network.disconnect()
 
         if self.network.connect(server_url, username, password, client_version=VERSION):
@@ -2162,8 +2193,8 @@ class MainWindow(wx.Frame):
         # Verify if we need to reload localization (though UI is already built)
         # For now, it will apply on next restart, which is what the user asked for.
 
-        # Fade the connection loop before the welcome cue.
-        self.sound_manager.stop_music()
+        # Fade only the client-owned connection loop before the welcome cue.
+        self._stop_connection_audio()
         self.sound_manager.play("welcome.ogg", volume=1.0)
 
         # Check for updates

@@ -134,6 +134,92 @@ runButton.addEventListener("click", async () => {
     engine.handleAudioCommand(command({ command: "stop_all", asset: undefined }));
     await waitFor(() => engine.getDiagnostics().sourceCount === 0, "stop all");
 
+    const originalMediaPlay = HTMLMediaElement.prototype.play;
+    HTMLMediaElement.prototype.play = function rejectMediaPlayback() {
+      return Promise.reject(new DOMException("Synthetic media failure", "NotAllowedError"));
+    };
+    engine.handleAudioCommand(command({
+      kind: "music",
+      asset: "game_bang/music_gameplay.ogg",
+      handle: "test:bang-music-fallback",
+      layer: "fallback-test",
+      loop: true,
+      fade_in_ms: 0,
+      fade_out_ms: 0,
+    }));
+    HTMLMediaElement.prototype.play = originalMediaPlay;
+    await waitFor(
+      () => engine.getDiagnostics().bufferedMusicCount === 1,
+      "delayed music Web Audio fallback",
+      12000,
+    );
+    engine.handleAudioCommand(command({
+      command: "stop",
+      kind: "music",
+      asset: undefined,
+      handle: "test:bang-music-fallback",
+      fade_out_ms: 0,
+    }));
+    await waitFor(
+      () => engine.getDiagnostics().sourceCount === 0,
+      "buffered music fallback cleanup",
+    );
+
+    HTMLMediaElement.prototype.play = function rejectPausedMediaPlayback() {
+      return Promise.reject(new DOMException("Synthetic media failure", "NotAllowedError"));
+    };
+    engine.handleAudioCommand(command({
+      kind: "music",
+      asset: "game_bang/music_gameplay.ogg",
+      handle: "test:pending-pause",
+      layer: "pending-pause-test",
+      loop: true,
+      fade_in_ms: 0,
+      fade_out_ms: 0,
+    }));
+    engine.handleAudioCommand(command({
+      command: "pause",
+      kind: "music",
+      asset: undefined,
+      handle: "test:pending-pause",
+      fade_out_ms: 0,
+    }));
+    HTMLMediaElement.prototype.play = originalMediaPlay;
+    await waitFor(
+      () => (
+        engine.getDiagnostics().pendingCount === 1
+        && engine.getDiagnostics().sourceCount === 0
+      ),
+      "paused pending music remains dormant",
+    );
+    HTMLMediaElement.prototype.play = function rejectResumedMediaPlayback() {
+      return Promise.reject(new DOMException("Synthetic media failure", "NotAllowedError"));
+    };
+    engine.handleAudioCommand(command({
+      command: "resume",
+      kind: "music",
+      asset: undefined,
+      handle: "test:pending-pause",
+      fade_in_ms: 0,
+    }));
+    HTMLMediaElement.prototype.play = originalMediaPlay;
+    await waitFor(
+      () => engine.getDiagnostics().bufferedMusicCount === 1,
+      "pending music resumes through Web Audio fallback",
+      12000,
+    );
+    engine.handleAudioCommand(command({
+      command: "stop",
+      kind: "music",
+      asset: undefined,
+      handle: "test:pending-pause",
+      fade_out_ms: 0,
+    }));
+    await waitFor(
+      () => engine.getDiagnostics().sourceCount === 0,
+      "resumed pending music cleanup",
+    );
+
     engine.handleAudioCommand(command({
       kind: "ambience",
       asset: "menuclick.ogg",

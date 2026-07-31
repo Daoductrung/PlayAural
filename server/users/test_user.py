@@ -68,6 +68,7 @@ class MockUser(User):
 
     def send_audio_command(self, command: AudioCommand) -> None:
         """Capture commands while keeping legacy game assertions concise."""
+        self._record_audio_command(command)
         packet = command.to_packet()
         operation = command.command
         if operation == "play" and command.kind == "sfx" and not command.loop:

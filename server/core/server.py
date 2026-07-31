@@ -82,6 +82,7 @@ TABLE_CREATED_NOTIFICATION_SOUND = "table_created.ogg"
 TABLE_INVITE_NOTIFICATION_SOUND = "table_invite.ogg"
 VOICE_CHAT_JOIN_SOUND = "voice_join.ogg"
 VOICE_CHAT_LEAVE_SOUND = "voice_leave.ogg"
+MAIN_MENU_MUSIC = "mainmus.ogg"
 ONLINE_USERS_PAGE_SIZE = DEFAULT_MENU_PAGE_SIZE
 VOICE_JOIN_AUTHORIZATION_WINDOW_SECONDS = 120
 SESSION_STATE_RETENTION_SECONDS = 300
@@ -2111,14 +2112,22 @@ PlayAural Server
     def _show_main_menu(self, user: NetworkUser) -> None:
         """Show the main menu to a user."""
         user.set_table_context("")
-        # Tear down every table-owned source before starting menu music.
-        # Ambience outros use immediate no-fade splices so a long loop cannot
-        # survive into the main menu while waiting for its next boundary.
-        user.stop_all_audio(
-            fade_ms=800,
-            play_outros=True,
-            outro_mode="immediate",
+        menu_music_is_continuing = user.has_managed_audio(
+            "music",
+            handle="music",
+            asset=MAIN_MENU_MUSIC,
         )
+        if not menu_music_is_continuing:
+            # Tear down every table-owned source before starting menu music.
+            # Ambience outros use immediate no-fade splices so a long loop
+            # cannot survive into the main menu while waiting for its next
+            # boundary. Normal navigation back to this menu keeps ownership
+            # of the already-running music and therefore never restarts it.
+            user.stop_all_audio(
+                fade_ms=800,
+                play_outros=True,
+                outro_mode="immediate",
+            )
         if user.username in self._voice_presence_by_user:
             try:
                 asyncio.get_running_loop().create_task(
@@ -2169,7 +2178,8 @@ PlayAural Server
             multiletter=True,
             escape_behavior=EscapeBehavior.SELECT_LAST,
         )
-        user.play_music("mainmus.ogg")
+        if not menu_music_is_continuing:
+            user.play_music(MAIN_MENU_MUSIC)
         self._user_states[user.username] = {"menu": "main_menu"}
 
     def _get_game_category_filter(self, user: NetworkUser) -> str:
@@ -4027,6 +4037,11 @@ PlayAural Server
     def _set_in_game_state(self, user: NetworkUser, table_id: str) -> None:
         self._user_states[user.username] = {"menu": "in_game", "table_id": table_id}
         user.set_table_context(table_id)
+
+    @staticmethod
+    def _prepare_user_for_table_audio(user: NetworkUser) -> None:
+        """Relinquish menu/lobby music before any table audio can be replayed."""
+        user.stop_music(fade_ms=0)
 
     def _set_game_over_state(self, user: NetworkUser, table_id: str) -> None:
         self._user_states[user.username] = {
@@ -6284,6 +6299,7 @@ PlayAural Server
 
         if selection_id == "create_table":
             table = self._tables.create_table(game_type, user.username, user)
+            self._prepare_user_for_table_audio(user)
 
             # Create game immediately and initialize lobby
             game_class = get_game_class(game_type)
@@ -6505,6 +6521,7 @@ PlayAural Server
                 if not table.add_member(user.username, user, as_spectator=False):
                     user.speak_l("table-name-already-used", buffer="system")
                     return
+                self._prepare_user_for_table_audio(user)
                 joined_player = game.add_player(user.username, user)
                 self._set_in_game_state(user, table_id)
                 game.broadcast_l("table-joined", buffer="system", player=user.username)
@@ -6516,6 +6533,7 @@ PlayAural Server
                 if not table.add_member(user.username, user, as_spectator=True):
                     user.speak_l("table-name-already-used", buffer="system")
                     return
+                self._prepare_user_for_table_audio(user)
                 joined_player = game.add_spectator(user.username, user)
                 self._set_in_game_state(user, table_id)
                 user.speak_l("spectator-joined", buffer="system", host=table.host)
@@ -6591,6 +6609,7 @@ PlayAural Server
             user.speak_l("table-name-already-used", buffer="system")
             return
 
+        self._prepare_user_for_table_audio(user)
         self._set_in_game_state(user, table.table_id)
         bot_name = reclaimed_player.name
         human_name = reclaimed_player.replaced_human_name or user.username
@@ -6872,7 +6891,7 @@ PlayAural Server
             self._return_to_game(user, table)
             return
 
-        old_game.stop_all_audio(fade_ms=800)
+        old_game.stop_all_audio(fade_ms=0)
         if not table.reset_game(preserve_scheduled_sounds=False):
             self._return_to_game(user, table)
             return
@@ -8292,6 +8311,7 @@ PlayAural Server
                 member_user = self._users.get(member_username)
                 if member_user:
                     table.add_member(member_username, member_user, as_spectator=False)
+                    self._prepare_user_for_table_audio(member_user)
                     game.attach_user(player.id, member_user)
                     self._set_in_game_state(member_user, table.table_id)
 

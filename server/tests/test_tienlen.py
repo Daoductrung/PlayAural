@@ -46,12 +46,17 @@ def make_game(
         game.add_player(name, user)
     game.host = "Player1"
     if start:
-        game.on_start()
-        for _ in range(5):
-            if game.hand_wait_ticks == 0 or game.status != "playing":
-                break
-            game.hand_wait_ticks = 1
-            game.on_tick()
+        random_state = random.getstate()
+        random.seed(0)
+        try:
+            game.on_start()
+            for _ in range(5):
+                if game.hand_wait_ticks == 0 or game.status != "playing":
+                    break
+                game.hand_wait_ticks = 1
+                game.on_tick()
+        finally:
+            random.setstate(random_state)
     return game
 
 

@@ -120,6 +120,64 @@ class User(ABC):
         """Deliver one validated audio command to this user."""
         ...
 
+    def _record_audio_command(self, command: AudioCommand) -> None:
+        """Mirror managed command ownership for this runtime user.
+
+        This state is deliberately runtime-only.  It lets framework navigation
+        avoid restarting an already-owned layer without assuming anything
+        about a specific client backend.  A replacement connection receives a
+        fresh ``User`` instance, so reconnect restoration still replays every
+        authoritative layer.
+        """
+        states = getattr(self, "_runtime_audio_states", None)
+        if states is None:
+            states = {}
+            self._runtime_audio_states = states
+
+        if command.command == "stop_all":
+            states.clear()
+            return
+
+        if command.command == "play" and command.handle:
+            for key, state in list(states.items()):
+                if (
+                    state.kind == command.kind
+                    and state.scope == command.scope
+                    and state.context == command.context
+                    and state.layer == command.layer
+                ):
+                    states.pop(key, None)
+            states[(command.kind, command.handle)] = command
+            return
+
+        if command.command != "stop":
+            return
+
+        if command.handle:
+            states.pop((command.kind, command.handle), None)
+            return
+
+        for key, state in list(states.items()):
+            if (
+                state.kind == command.kind
+                and state.scope == command.scope
+                and state.context == command.context
+                and state.layer == command.layer
+            ):
+                states.pop(key, None)
+
+    def has_managed_audio(
+        self,
+        kind: str,
+        *,
+        handle: str,
+        asset: str = "",
+    ) -> bool:
+        """Return whether this live client session owns a matching layer."""
+        states = getattr(self, "_runtime_audio_states", {})
+        state = states.get((kind, handle))
+        return bool(state and (not asset or state.asset == asset))
+
     def play_sound(
         self,
         name: str,

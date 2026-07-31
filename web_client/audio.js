@@ -71,8 +71,9 @@ export function createAudioEngine(options = {}) {
   const effectBufferSizes = new Map();
   let effectBufferBytes = 0;
   const pendingEffects = [];
-  let pendingMusic = null;
+  const pendingMusic = new Map();
   const pendingAmbiences = new Map();
+  const pausedMusicHandles = new Set();
 
   let soundBaseUrl = options.soundBaseUrl || "./sounds/";
   let soundVersion = String(options.soundVersion || "");
@@ -206,8 +207,10 @@ export function createAudioEngine(options = {}) {
         pendingEffects.splice(index, 1);
       }
     }
-    if (pendingMusic?.handle === resolved) {
-      pendingMusic = null;
+    for (const [target, packet] of pendingMusic) {
+      if (packet.handle === resolved) {
+        pendingMusic.delete(target);
+      }
     }
     for (const [target, packet] of pendingAmbiences) {
       if (packet.handle === resolved) {
@@ -300,6 +303,20 @@ export function createAudioEngine(options = {}) {
       setOutputValue(source, 0);
     }
     if (!completed || !source.active) {
+      return;
+    }
+    if (pause && source.buffer && context) {
+      const elapsed = Math.max(0, context.currentTime - source.startedAt);
+      source.bufferOffset = source.loop && source.buffer.duration > 0
+        ? elapsed % source.buffer.duration
+        : Math.min(elapsed, source.buffer.duration);
+      source.nodeToken += 1;
+      for (const node of source.nodes) {
+        try { node.stop(); } catch { /* already stopped */ }
+        try { node.disconnect(); } catch { /* already disconnected */ }
+      }
+      source.nodes.clear();
+      source.node = null;
       return;
     }
     if (pause && source.audio) {
@@ -580,17 +597,29 @@ export function createAudioEngine(options = {}) {
   }
 
   function safePlay(source, pending) {
-    const result = source.audio.play();
-    if (result?.catch) {
-      result.catch(() => {
-        if (source.active) {
-          pending();
-        }
-      });
+    try {
+      const result = source.audio.play();
+      if (result?.catch) {
+        result.catch(() => {
+          if (source.active) {
+            pending(source);
+          }
+        });
+      }
+    } catch {
+      if (source.active) {
+        pending(source);
+      }
     }
   }
 
-  function playElement(packet, target = "", generation = null, onEnded = null) {
+  function playElement(
+    packet,
+    target = "",
+    generation = null,
+    onEnded = null,
+    onPlaybackFailure = null,
+  ) {
     const created = createElement(packet.asset);
     if (!created) {
       return null;
@@ -635,6 +664,10 @@ export function createAudioEngine(options = {}) {
       nodes: new Set(),
       seamless: false,
       stem: null,
+      buffer: null,
+      bufferOffset: 0,
+      startedAt: 0,
+      nodeToken: 0,
     };
     setOutputValue(source, packet.fade_in_ms ? 0 : baseVolume);
     register(source);
@@ -642,10 +675,18 @@ export function createAudioEngine(options = {}) {
       cleanup(key);
       onEnded?.();
     }, { once: true });
-    audio.addEventListener("error", () => cleanup(key), { once: true });
-    safePlay(source, () => {
+    let playbackFailureHandled = false;
+    const handlePlaybackFailure = () => {
+      if (playbackFailureHandled || !source.active) {
+        return;
+      }
+      playbackFailureHandled = true;
+      if (onPlaybackFailure) {
+        onPlaybackFailure(source);
+        return;
+      }
       if (kind === "music") {
-        pendingMusic = { ...packet, handle };
+        pendingMusic.set(target || targetOf(packet), { ...packet, handle });
       } else if (kind === "ambience") {
         pendingAmbiences.set(target, { ...packet, handle });
       } else if (pendingEffects.length < MAX_PENDING_EFFECTS) {
@@ -655,11 +696,125 @@ export function createAudioEngine(options = {}) {
           _generation: expectedGeneration,
         });
       }
-    });
+      try { audio.pause(); } catch { /* playback never started */ }
+      cleanup(key);
+    };
+    audio.addEventListener("error", handlePlaybackFailure, { once: true });
+    safePlay(source, handlePlaybackFailure);
     if (packet.fade_in_ms) {
       fade(source, baseVolume, packet.fade_in_ms);
     }
     return source;
+  }
+
+  function startBufferedLayerNode(source, offset = 0) {
+    if (!context || !source.buffer || !source.active) {
+      return false;
+    }
+    const node = context.createBufferSource();
+    node.buffer = source.buffer;
+    node.loop = source.loop;
+    node.connect(source.output);
+    const boundedOffset = source.buffer.duration > 0
+      ? Math.min(Math.max(0, offset), source.buffer.duration)
+      : 0;
+    source.nodeToken += 1;
+    const nodeToken = source.nodeToken;
+    source.node = node;
+    source.nodes.add(node);
+    source.startedAt = context.currentTime - boundedOffset;
+    node.addEventListener("ended", () => {
+      source.nodes.delete(node);
+      if (
+        source.active
+        && !source.paused
+        && !source.loop
+        && source.nodeToken === nodeToken
+      ) {
+        cleanup(source.key);
+      }
+    }, { once: true });
+    try {
+      node.start(0, boundedOffset);
+      return true;
+    } catch {
+      source.nodes.delete(node);
+      try { node.disconnect(); } catch { /* not connected */ }
+      return false;
+    }
+  }
+
+  async function playBufferedLayer(
+    packet,
+    target,
+    handle,
+    generation,
+    targetGeneration,
+  ) {
+    if (!context) {
+      return false;
+    }
+    if (context.state !== "running") {
+      pendingMusic.set(target, { ...packet, handle });
+      return true;
+    }
+    const buffer = await loadEffect(packet.asset);
+    if (
+      !buffer
+      || generations.get(handle) !== generation
+      || targetGenerations.get(target) !== targetGeneration
+    ) {
+      return false;
+    }
+    if (pausedMusicHandles.has(handle)) {
+      pendingMusic.set(target, { ...packet, handle });
+      return true;
+    }
+    const output = context.createGain();
+    const bus = String(packet.bus || "music");
+    const baseVolume = clamp(packet.volume, 0, 100, 100) / 100;
+    output.gain.value = packet.fade_in_ms ? 0 : baseVolume;
+    output.connect(busNode("music", bus));
+    const key = sourceId();
+    const source = {
+      key,
+      handle,
+      generation,
+      kind: "music",
+      bus,
+      asset: packet.asset,
+      priority: clamp(packet.priority, -100, 100, 0),
+      createdAt: performance.now(),
+      baseVolume,
+      node: null,
+      output,
+      panner: null,
+      audio: null,
+      target,
+      outro: "",
+      ducking: normalizeDucking(packet.ducking),
+      active: true,
+      paused: false,
+      mixLevel: packet.fade_in_ms ? 0 : baseVolume,
+      fadeToken: 0,
+      nodes: new Set(),
+      seamless: false,
+      stem: null,
+      buffer,
+      bufferOffset: 0,
+      startedAt: 0,
+      nodeToken: 0,
+      loop: packet.loop !== false,
+    };
+    register(source);
+    if (!startBufferedLayerNode(source)) {
+      cleanup(key);
+      return false;
+    }
+    if (packet.fade_in_ms) {
+      fade(source, baseVolume, packet.fade_in_ms);
+    }
+    return true;
   }
 
   async function playBufferedStem(
@@ -746,6 +901,10 @@ export function createAudioEngine(options = {}) {
         outroRequestedAt: 0,
         outroStartsAt: 0,
       },
+      buffer: null,
+      bufferOffset: 0,
+      startedAt: 0,
+      nodeToken: 0,
     };
     register(source);
     if (introNode) {
@@ -807,8 +966,14 @@ export function createAudioEngine(options = {}) {
       stopKey(layers[0].key, 0);
     }
     const handle = String(packet.handle || `${kind}:${target}`);
+    if (kind === "music") {
+      pausedMusicHandles.delete(handle);
+    }
     const generation = nextGeneration(handle);
     const targetGeneration = nextTargetGeneration(target);
+    if (kind === "music") {
+      pendingMusic.delete(target);
+    }
     retireTarget(target, packet.fade_out_ms || 0);
     const normalized = {
       ...packet,
@@ -841,7 +1006,52 @@ export function createAudioEngine(options = {}) {
       return handle;
     }
     if (!intro) {
-      playElement(normalized, target, generation);
+      const fallbackToBufferedMusic = kind === "music"
+        ? (failedSource) => {
+            if (
+              generations.get(handle) !== generation
+              || targetGenerations.get(target) !== targetGeneration
+            ) {
+              return;
+            }
+            if (pausedMusicHandles.has(handle) || failedSource.paused) {
+              void stopKey(failedSource.key, 0).then(() => {
+                if (
+                  pausedMusicHandles.has(handle)
+                  && generations.get(handle) === generation
+                  && targetGenerations.get(target) === targetGeneration
+                ) {
+                  pendingMusic.set(target, normalized);
+                }
+              });
+              return;
+            }
+            void stopKey(failedSource.key, 0).then(() => (
+              playBufferedLayer(
+                normalized,
+                target,
+                handle,
+                generation,
+                targetGeneration,
+              )
+            )).then((played) => {
+              if (
+                !played
+                && generations.get(handle) === generation
+                && targetGenerations.get(target) === targetGeneration
+              ) {
+                pendingMusic.set(target, normalized);
+              }
+            });
+          }
+        : null;
+      playElement(
+        normalized,
+        target,
+        generation,
+        null,
+        fallbackToBufferedMusic,
+      );
       return handle;
     }
     playElement(
@@ -889,6 +1099,7 @@ export function createAudioEngine(options = {}) {
     outro = false,
     outroMode = "immediate",
   ) {
+    pausedMusicHandles.delete(String(handle));
     cancelPendingHandle(handle);
     const key = handles.get(String(handle));
     if (!key) {
@@ -901,10 +1112,10 @@ export function createAudioEngine(options = {}) {
 
   function stopMusic(fadeMs = 800, handle = "music") {
     stopHandle(handle, fadeMs);
-    pendingMusic = null;
   }
 
   function pauseMusic(fadeMs = 800, handle = "music") {
+    pausedMusicHandles.add(String(handle));
     const key = handles.get(handle);
     if (key) {
       stopKey(key, fadeMs, { pause: true });
@@ -914,18 +1125,41 @@ export function createAudioEngine(options = {}) {
   function resumeMusic(fadeMs = 800, handle = "music") {
     const key = handles.get(handle);
     const source = key ? sources.get(key) : null;
+    pausedMusicHandles.delete(String(handle));
+    if (!source) {
+      for (const [target, packet] of pendingMusic) {
+        if (packet.handle !== handle) {
+          continue;
+        }
+        pendingMusic.delete(target);
+        playMusic({ ...packet, fade_in_ms: fadeMs });
+        return;
+      }
+    }
     if (!source?.paused || !source.audio) {
+      if (!source?.paused || !source.buffer) {
+        return;
+      }
+      source.paused = false;
+      if (!startBufferedLayerNode(source, source.bufferOffset)) {
+        cleanup(source.key);
+        return;
+      }
+      fade(source, source.baseVolume, fadeMs);
       return;
     }
     source.paused = false;
     safePlay(source, () => {
-      pendingMusic = {
+      pendingMusic.set(source.target || targetOf({
+        kind: "music",
+        layer: "main",
+      }), {
         kind: "music",
         asset: source.asset,
         handle,
         bus: source.bus,
         loop: source.audio.loop,
-      };
+      });
     });
     fade(source, source.baseVolume, fadeMs);
   }
@@ -1118,9 +1352,13 @@ export function createAudioEngine(options = {}) {
   }
 
   function retryPendingPlayback() {
-    if (pendingMusic) {
-      const packet = pendingMusic;
-      pendingMusic = null;
+    const queuedMusic = [...pendingMusic.entries()];
+    pendingMusic.clear();
+    for (const [target, packet] of queuedMusic) {
+      if (pausedMusicHandles.has(String(packet.handle || "music"))) {
+        pendingMusic.set(target, packet);
+        continue;
+      }
       playMusic(packet);
     }
     for (const packet of pendingAmbiences.values()) {
@@ -1204,9 +1442,10 @@ export function createAudioEngine(options = {}) {
     fadeMs = 0,
     { playOutros = false, outroMode = "immediate" } = {},
   ) {
-    pendingMusic = null;
+    pendingMusic.clear();
     pendingAmbiences.clear();
     pendingEffects.length = 0;
+    pausedMusicHandles.clear();
     for (const handle of [...generations.keys()]) {
       nextGeneration(handle);
     }
@@ -1239,8 +1478,11 @@ export function createAudioEngine(options = {}) {
       pausedCount: [...sources.values()].filter((source) => source.paused).length,
       duckRequestCount: duckRequests.size,
       pendingCount: pendingEffects.length
-        + (pendingMusic ? 1 : 0)
+        + pendingMusic.size
         + pendingAmbiences.size,
+      bufferedMusicCount: [...sources.values()].filter(
+        (source) => source.kind === "music" && source.buffer,
+      ).length,
       buses: Object.freeze(Object.fromEntries(busGains)),
       stemCount: [...sources.values()].filter((source) => source.stem).length,
       scheduledOutroCount: [...sources.values()].filter(

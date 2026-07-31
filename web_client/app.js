@@ -24,6 +24,9 @@ const RECONNECT_WINDOW_MS = 30000;
 const RECONNECT_INITIAL_DELAY_MS = 1000;
 const RECONNECT_MAX_DELAY_MS = 10000;
 const SERVER_RESTART_RECONNECT_DELAY_MS = 3000;
+const CONNECTION_AUDIO_ASSET = "connectloop.ogg";
+const CONNECTION_AUDIO_HANDLE = "client:connection";
+const CONNECTION_AUDIO_LAYER = "connection";
 const WEB_SPEECH_PREF_MIN = 10;
 const WEB_SPEECH_PREF_NORMAL = 100;
 const WEB_SPEECH_PREF_MAX = 300;
@@ -1036,6 +1039,7 @@ class PlayAuralWebApp {
     this.connectionStatusMessage = "status-disconnected";
     this.connectionStatusParams = {};
     this.connectionStatusError = false;
+    this.connectionAudioActive = false;
     this.deferredPrompt = null;
     this.isIOS = (
       /iPad|iPhone|iPod/.test(navigator.userAgent)
@@ -1945,12 +1949,14 @@ class PlayAuralWebApp {
       return;
     }
     if (status === "connecting") {
+      this.startConnectionAudio();
       if (!reconnecting) {
         this.updateConnectionStatus("status-connecting");
       }
       return;
     }
     if (status === "error") {
+      this.stopConnectionAudio();
       if (!this.isReconnectEligible()) {
         this.updateConnectionStatus("status-connection-error", true);
       }
@@ -1969,6 +1975,30 @@ class PlayAuralWebApp {
         this.showAuth();
       }
     }
+  }
+
+  startConnectionAudio() {
+    if (this.connectionAudioActive) {
+      return;
+    }
+    this.connectionAudioActive = true;
+    this.audio.playMusic({
+      asset: CONNECTION_AUDIO_ASSET,
+      bus: "music",
+      fade_in_ms: 0,
+      fade_out_ms: 0,
+      handle: CONNECTION_AUDIO_HANDLE,
+      layer: CONNECTION_AUDIO_LAYER,
+      loop: true,
+    });
+  }
+
+  stopConnectionAudio(fadeMs = 0) {
+    if (!this.connectionAudioActive) {
+      return;
+    }
+    this.connectionAudioActive = false;
+    this.audio.stopMusic(fadeMs, CONNECTION_AUDIO_HANDLE);
   }
 
   handleNetworkError(message, params = {}) {
@@ -2129,6 +2159,7 @@ class PlayAuralWebApp {
 
   cleanupRuntime(full = false) {
     this.voice.cleanup(false, false);
+    this.connectionAudioActive = false;
     this.audio.stopAll(800);
     this.webSpeech.cancel();
     this.hideInlineInput();
@@ -2283,12 +2314,14 @@ class PlayAuralWebApp {
     this.sessionEstablished = false;
     this.resetReconnectState();
     const message = this.authResponseMessage(packet, "", "auth-error-wrong-password");
+    this.stopConnectionAudio();
     this.localError(message, this.elements.loginStatus);
     this.network.disconnect();
     this.showAuthPanel("login");
   }
 
   handleRegisterResponse(packet) {
+    this.stopConnectionAudio();
     const success = this.authResponseSucceeded(packet);
     const message = this.authResponseMessage(packet, "auth-registration-success");
     this.setAuthStatus(message, this.elements.registerStatus, !success);
@@ -2302,6 +2335,7 @@ class PlayAuralWebApp {
   }
 
   handleAuthorizeSuccess(packet) {
+    this.stopConnectionAudio();
     if (packet.reset_ui === true) {
       // Clear the prior socket's rendered/runtime state before welcome speech
       // and audio, so the reset cannot cancel fresh-session feedback.

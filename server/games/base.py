@@ -175,7 +175,14 @@ class Game(
 
         Note: Estimation state is initialized clean by __post_init__.
         """
-        pass
+        # Waiting lobbies are intentionally silent. Drop replayable audio from
+        # older saves/checkpoints so a pre-change lobby track cannot return
+        # when users attach to the restored game.
+        if self.status == "waiting":
+            self.active_audio.clear()
+            self.current_music = ""
+            self.current_ambience = ""
+            self.current_ambience_outro = ""
 
     def _reset_transcripts(self) -> None:
         """Initialize transcript storage for seated players."""

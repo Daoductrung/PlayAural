@@ -180,6 +180,33 @@ def test_paused_music_remains_managed_and_resumes(monkeypatch):
     assert music.stream.volume == pytest.approx(manager.music_volume)
 
 
+def test_client_owned_music_layer_is_independently_addressable(monkeypatch):
+    sound_manager = _load_sound_manager_module(monkeypatch)
+    manager = sound_manager.SoundManager()
+    connection = manager.music(
+        "connectloop.ogg",
+        handle="client:connection",
+        layer="connection",
+        fade_in_ms=0,
+    )
+    game = manager.music("game.ogg", fade_in_ms=0)
+
+    assert manager.has_managed_audio(
+        "music",
+        handle="client:connection",
+        asset="connectloop.ogg",
+    )
+    manager.stop_music(fade=False, handle="client:connection")
+
+    assert connection.stream.stopped is True
+    assert game.stream.stopped is False
+    assert manager.has_managed_audio(
+        "music",
+        handle="music",
+        asset="game.ogg",
+    )
+
+
 def test_replacing_managed_effect_retires_old_source(monkeypatch):
     sound_manager = _load_sound_manager_module(monkeypatch)
     manager = sound_manager.SoundManager()

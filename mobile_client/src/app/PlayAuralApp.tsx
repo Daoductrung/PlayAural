@@ -84,6 +84,9 @@ const NATIVE_FOCUS_DELAY_MS = 80;
 const NATIVE_FOCUS_MAX_ATTEMPTS = 8;
 const NATIVE_MENU_FOCUS_REQUEST_TTL_MS = 3000;
 const NATIVE_FOCUS_RESET_GUARD_MS = 900;
+const CONNECTION_AUDIO_ASSET = "connectloop.ogg";
+const CONNECTION_AUDIO_HANDLE = "client:connection";
+const CONNECTION_AUDIO_LAYER = "connection";
 
 type ServerAuthResponseContext = "login" | "password_reset" | "register" | "reset_code";
 
@@ -603,6 +606,7 @@ export function PlayAuralApp() {
   const reconnectWindowStartedAtRef = useRef<number | null>(null);
   const reconnectDelayMsRef = useRef(1000);
   const reconnectAttemptsRef = useRef(0);
+  const connectionAudioActiveRef = useRef(false);
   const manualDisconnectRef = useRef(false);
   const allowReconnectRef = useRef(false);
   const expectingReconnectRef = useRef(false);
@@ -1283,6 +1287,29 @@ export function PlayAuralApp() {
     resetReconnectState();
   }, [resetReconnectState]);
 
+  const startConnectionAudio = useCallback(() => {
+    if (connectionAudioActiveRef.current) {
+      return;
+    }
+    connectionAudioActiveRef.current = true;
+    void audio.playMusic(CONNECTION_AUDIO_ASSET, {
+      bus: "music",
+      fade_in_ms: 0,
+      fade_out_ms: 0,
+      handle: CONNECTION_AUDIO_HANDLE,
+      layer: CONNECTION_AUDIO_LAYER,
+      loop: true,
+    });
+  }, [audio]);
+
+  const stopConnectionAudio = useCallback((fadeMs = 0) => {
+    if (!connectionAudioActiveRef.current) {
+      return;
+    }
+    connectionAudioActiveRef.current = false;
+    void audio.stopMusic(CONNECTION_AUDIO_HANDLE, fadeMs);
+  }, [audio]);
+
   useEffect(() => () => {
     clearReconnectTimer();
     if (longPressResetTimerRef.current) {
@@ -1893,6 +1920,7 @@ export function PlayAuralApp() {
   };
 
   const stopGameAudio = () => {
+    connectionAudioActiveRef.current = false;
     audio.stopAll(800);
   };
 
@@ -1903,6 +1931,7 @@ export function PlayAuralApp() {
       sendLeave: sendVoiceLeave,
       statusKey: "voice-chat-not-connected",
     });
+    connectionAudioActiveRef.current = false;
     audio.stopAll(800);
     Keyboard.dismiss();
     activeTextInputKeyRef.current = null;
@@ -2197,6 +2226,7 @@ export function PlayAuralApp() {
           sendLeave: false,
           statusKey: "voice-chat-not-connected",
         });
+        stopGameAudio();
         setConnected(false);
         if (!allowReconnectRef.current || manualDisconnectRef.current || !sessionEstablishedRef.current) {
           if (reason) {
@@ -2220,11 +2250,15 @@ export function PlayAuralApp() {
         );
       },
       onError: (message) => {
+        stopConnectionAudio();
         const localizedMessage = localizeSystemMessage(message, "network-connection-error");
         setStatusText(localizedMessage);
         if (!allowReconnectRef.current || manualDisconnectRef.current || !sessionEstablishedRef.current) {
           announce(localizedMessage, "system");
         }
+      },
+      onConnecting: () => {
+        startConnectionAudio();
       },
       onOpen: () => {
         setStatusText(localization.t("status-connecting"));
@@ -2235,6 +2269,7 @@ export function PlayAuralApp() {
         }
         if (packet.type === "authorize_success") {
           const authPacket = packet as AuthorizeSuccessPacket;
+          stopConnectionAudio();
           if (authPacket.reset_ui === true) {
             // Reset the previous socket before emitting this session's welcome
             // feedback, so teardown cannot cancel the fresh speech or SFX.
@@ -2334,6 +2369,7 @@ export function PlayAuralApp() {
             sendLeave: false,
             statusKey: "voice-chat-not-connected",
           });
+          stopConnectionAudio();
           stopGameAudio();
           setConnected(false);
           disableAutoReconnect();

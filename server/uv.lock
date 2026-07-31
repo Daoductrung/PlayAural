@@ -254,7 +254,7 @@ wheels = [
 
 [[package]]
 name = "playaural-server"
-version = "1.0.4.9"
+version = "1.0.4.10"
 source = { editable = "." }
 dependencies = [
     { name = "argon2-cffi" },

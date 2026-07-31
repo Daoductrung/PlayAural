@@ -586,7 +586,7 @@ wheels = [
 
 [[package]]
 name = "playaural-client"
-version = "1.0.4.9"
+version = "1.0.4.10"
 source = { editable = "." }
 dependencies = [
     { name = "accessible-output2" },

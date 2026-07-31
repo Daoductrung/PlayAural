@@ -37,7 +37,10 @@ import { useSelfVoicingGestures } from "../gestures/useSelfVoicingGestures";
 import { bundledSoundVersion } from "../generated/soundManifest";
 import { MobileLocalization, resolveMobileLocale, type MobileLocale } from "../i18n/localization";
 import { PlayAuralConnection } from "../network/PlayAuralConnection";
-import { clientAuthMetadata } from "../network/clientInfo";
+import {
+  clientAuthMetadata,
+  getClientReleasePlatform,
+} from "../network/clientInfo";
 import { resolveMenuFocusIndex } from "./menuFocus";
 import type {
   AuthorizeSuccessPacket,
@@ -70,11 +73,9 @@ import { TtsManager, type TtsVoiceOption } from "../tts/TtsManager";
 import { ENABLE_CLIENT_DEBUG_LOGS } from "../utils/debug";
 import { MobileVoiceManager, type MobileVoiceConnectionState } from "../voice/MobileVoiceManager";
 
-const MOBILE_CLIENT_VERSION = "1.0.4.9";
+const MOBILE_CLIENT_VERSION = "1.0.4.10";
 const MOBILE_BUILD_STAMP = "2026-07-31 00:13:47 +07:00";
 const DEFAULT_SERVER_URL = "wss://playaural.ddt.one:443";
-const APK_DOWNLOAD_URL =
-  "https://github.com/Daoductrung/PlayAural/releases/latest/download/PlayAural.apk";
 const CLIENT_CONFIG_STORAGE_KEY = "playaural.mobile.clientConfig";
 const CLIENT_PASSWORD_STORAGE_KEY = "playaural.mobile.password";
 const CLIENT_SV_STORAGE_KEY = "playaural.mobile.selfVoicing";
@@ -87,6 +88,28 @@ const NATIVE_FOCUS_RESET_GUARD_MS = 900;
 const CONNECTION_AUDIO_ASSET = "connectloop.ogg";
 const CONNECTION_AUDIO_HANDLE = "client:connection";
 const CONNECTION_AUDIO_LAYER = "connection";
+
+type ReleaseDownloadInfo = {
+  target?: string;
+  url?: string;
+};
+
+function releaseDownloadUrl(info: ReleaseDownloadInfo | undefined): string {
+  const expectedTarget = getClientReleasePlatform();
+  const target = String(info?.target || "").trim().toLowerCase();
+  const url = String(info?.url || "").trim();
+
+  if (
+    target === expectedTarget
+    && /^https:\/\/\S+$/i.test(url)
+  ) {
+    return url;
+  }
+
+  // Untargeted legacy metadata may contain a desktop archive, so it must not
+  // be opened by a mobile client.
+  return "";
+}
 
 type ServerAuthResponseContext = "login" | "password_reset" | "register" | "reset_code";
 
@@ -2153,7 +2176,12 @@ export function PlayAuralApp() {
     setDialogState(null);
   }, []);
 
-  const promptMandatoryUpdate = (id: string, title: string, message: string) => {
+  const promptMandatoryUpdate = (
+    id: string,
+    title: string,
+    message: string,
+    downloadUrl: string,
+  ) => {
     if (updatePromptShownRef.current) {
       return;
     }
@@ -2164,9 +2192,13 @@ export function PlayAuralApp() {
           id: "confirm",
           onPress: () => {
             closeDialog();
-            void Linking.openURL(APK_DOWNLOAD_URL).finally(() => {
+            if (downloadUrl) {
+              void Linking.openURL(downloadUrl).finally(() => {
+                exitApplication();
+              });
+            } else {
               exitApplication();
-            });
+            }
           },
           text: localization.t("update-confirm"),
           variant: "primary",
@@ -2195,6 +2227,7 @@ export function PlayAuralApp() {
         "mandatory-app-update",
         localization.t("update-required-title"),
         localization.t("update-required-message", { value: latestAppVersion }),
+        releaseDownloadUrl(packet.update_info),
       );
       return true;
     }
@@ -2209,6 +2242,7 @@ export function PlayAuralApp() {
           current: bundledSoundVersion || localization.t("update-unknown-version"),
           latest: serverSoundVersion,
         }),
+        releaseDownloadUrl(packet.sounds_info),
       );
       return true;
     }

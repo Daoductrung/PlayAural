@@ -1,7 +1,12 @@
 import pytest
 from server.auth.auth import AuthManager
 from server.persistence.database import Database
-from server.core.server import Server, VERSION, WELCOME_SOUND
+from server.core.server import (
+    ANDROID_UPDATE_URL,
+    Server,
+    VERSION,
+    WELCOME_SOUND,
+)
 from server.users.network_user import NetworkUser
 import tempfile
 import os
@@ -508,8 +513,11 @@ class TestAuthSecurity:
         assert update_packet["type"] == "authorize_success"
         assert update_packet["username"] == "Alice"
         assert update_packet["update_info"]["version"] == VERSION
-        assert update_packet["update_info"]["url"]
+        assert update_packet["update_info"]["target"] == "android"
+        assert update_packet["update_info"]["url"] == ANDROID_UPDATE_URL
         assert update_packet["sounds_info"]["version"]
+        assert update_packet["sounds_info"]["target"] == "android"
+        assert update_packet["sounds_info"]["url"] == ANDROID_UPDATE_URL
         assert update_packet["reset_ui"] is True
         assert outdated_client.username is None
         assert outdated_client.authenticated is False
@@ -520,6 +528,42 @@ class TestAuthSecurity:
 
         await self.server._on_client_message(outdated_client, {"type": "ping"})
         assert len(outdated_client.sent_messages) == 1
+
+    @pytest.mark.parametrize(
+        (
+            "client_type",
+            "client_platform",
+            "release_platform",
+            "expected_target",
+            "available",
+        ),
+        [
+            ("python", "Windows 11 x86_64", "windows", "windows", True),
+            ("python", "macOS 15 arm64", "macos", "macos", False),
+            ("mobile", "Android 16 (API 36)", "android", "android", True),
+            # A browser running on Windows is still a web deployment.
+            ("web", "Windows", "windows", "web", False),
+        ],
+    )
+    def test_release_metadata_selects_only_the_calling_client_artifact(
+        self,
+        client_type,
+        client_platform,
+        release_platform,
+        expected_target,
+        available,
+    ):
+        metadata = self.server._client_release_metadata(
+            client_type=client_type,
+            client_platform=client_platform,
+            release_platform=release_platform,
+        )
+
+        assert metadata["version"] == VERSION
+        assert metadata["update_info"]["target"] == expected_target
+        assert metadata["update_info"]["available"] is available
+        assert metadata["sounds_info"]["target"] == expected_target
+        assert metadata["sounds_info"]["available"] is available
 
     @pytest.mark.parametrize("client_type", ["python", "web", "mobile"])
     @pytest.mark.asyncio

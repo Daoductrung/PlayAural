@@ -72,12 +72,17 @@ export type AuthorizeSuccessPacket = {
   reset_ui?: boolean;
   update_info?: {
     version?: string;
+    target?: string;
+    available?: boolean;
     url?: string;
     hash?: string;
   };
   sounds_info?: {
     version?: string;
+    target?: string;
+    available?: boolean;
     url?: string;
+    hash?: string;
   };
 };
 
@@ -250,6 +255,7 @@ export type AuthorizePacket = {
   version: string;
   client: "mobile";
   platform?: string;
+  release_platform?: string;
 };
 
 export type RegisterPacket = {
@@ -261,6 +267,7 @@ export type RegisterPacket = {
   bio?: string;
   client: "mobile";
   platform?: string;
+  release_platform?: string;
 };
 
 export type RequestPasswordResetPacket = {
@@ -269,6 +276,7 @@ export type RequestPasswordResetPacket = {
   locale: string;
   client: "mobile";
   platform?: string;
+  release_platform?: string;
 };
 
 export type SubmitResetCodePacket = {
@@ -279,6 +287,7 @@ export type SubmitResetCodePacket = {
   locale: string;
   client: "mobile";
   platform?: string;
+  release_platform?: string;
 };
 
 export type MenuSelectionPacket = {

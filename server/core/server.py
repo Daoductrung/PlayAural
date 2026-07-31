@@ -20,6 +20,11 @@ from .power import (
     ScheduledPowerOperation,
     ServerPowerManager,
 )
+from .release_artifacts import (
+    ReleaseArtifacts,
+    freeze_release_registry,
+    resolve_release_target,
+)
 from .tick import TickScheduler
 from ..administration.manager import (
     ADMIN_LOCALIZED_TEXT_MENU,
@@ -71,12 +76,39 @@ from ..game_utils.bot_names import bot_name_key
 from ..game_utils.game_result import GameResult
 
 
-VERSION = "1.0.4.9"
+VERSION = "1.0.4.10"
+# Temporary 1.0.4.9 updater compatibility constants. Keep these exact names
+# and values through the 1.0.4.10 release.
 UPDATE_URL = "https://github.com/Daoductrung/PlayAural/releases/latest/download/PlayAural.zip"
 UPDATE_HASH = "" # Optional SHA256
 
 SOUNDS_VERSION = "4"
 SOUNDS_URL = "https://github.com/Daoductrung/PlayAural/releases/latest/download/sounds.zip"
+ANDROID_UPDATE_URL = "https://github.com/Daoductrung/PlayAural/releases/latest/download/PlayAural.apk"
+
+CLIENT_RELEASE_ARTIFACTS = freeze_release_registry(
+    {
+        "windows": ReleaseArtifacts(
+            target="windows",
+            update_url=UPDATE_URL,
+            sounds_url=SOUNDS_URL,
+            update_hash=UPDATE_HASH,
+        ),
+        # Mobile sounds ship inside the APK, so either version gate downloads
+        # the same complete Android artifact.
+        "android": ReleaseArtifacts(
+            target="android",
+            update_url=ANDROID_UPDATE_URL,
+            sounds_url=ANDROID_UPDATE_URL,
+        ),
+        # Explicit placeholders keep unsupported/future targets visible in one
+        # registry without ever sending another platform's installer.
+        "macos": ReleaseArtifacts(target="macos"),
+        "linux": ReleaseArtifacts(target="linux"),
+        "ios": ReleaseArtifacts(target="ios"),
+        "web": ReleaseArtifacts(target="web"),
+    }
+)
 MAX_CLIENT_VOICE_IDENTIFIER_LENGTH = 512
 TABLE_CREATED_NOTIFICATION_SOUND = "table_created.ogg"
 TABLE_INVITE_NOTIFICATION_SOUND = "table_invite.ogg"
@@ -1048,19 +1080,24 @@ PlayAural Server
             return True, ""
         return await verify_captcha(packet.get("captcha_token", ""), client.ip_address)
 
-    def _client_release_metadata(self) -> dict[str, Any]:
-        """Return the canonical release and capability handshake fields."""
+    def _client_release_metadata(
+        self,
+        *,
+        client_type: str,
+        client_platform: str = "",
+        release_platform: object = "",
+    ) -> dict[str, Any]:
+        """Return release metadata selected for one authenticated client."""
+        release_target = resolve_release_target(
+            client_type,
+            release_platform,
+            client_platform,
+        )
+        artifacts = CLIENT_RELEASE_ARTIFACTS[release_target]
         return {
             "version": VERSION,
-            "update_info": {
-                "version": VERSION,
-                "url": UPDATE_URL,
-                "hash": UPDATE_HASH,
-            },
-            "sounds_info": {
-                "version": SOUNDS_VERSION,
-                "url": SOUNDS_URL,
-            },
+            "update_info": artifacts.update_packet(VERSION),
+            "sounds_info": artifacts.sounds_packet(SOUNDS_VERSION),
             "voice": self._voice.capability_packet(),
             "reset_ui": True,
         }
@@ -1204,6 +1241,7 @@ PlayAural Server
         password = packet.get("password", "")
         client_type = self._get_auth_client_type(packet)
         client_platform = self._get_auth_client_platform(packet)
+        release_platform = packet.get("release_platform", "")
 
         if client_type not in {"python", "web", "mobile"}:
             await client.send(
@@ -1290,7 +1328,11 @@ PlayAural Server
                             "type": "authorize_success",
                             "username": canonical_username,
                             "locale": user_record.locale or "en",
-                            **self._client_release_metadata(),
+                            **self._client_release_metadata(
+                                client_type=client_type,
+                                client_platform=client_platform,
+                                release_platform=release_platform,
+                            ),
                             "preferences": {},
                         }
                     else:
@@ -1300,6 +1342,7 @@ PlayAural Server
                                 canonical_username=canonical_username,
                                 client_type=client_type,
                                 client_platform=client_platform,
+                                release_platform=release_platform,
                                 user_record=user_record,
                             )
                         )
@@ -1340,6 +1383,7 @@ PlayAural Server
         client_type: str,
         client_platform: str,
         user_record: Any,
+        release_platform: object = "",
     ) -> tuple[ClientConnection | None, dict | None]:
         """Atomically retire any prior owner and activate a current client."""
         # Update last login date
@@ -1482,7 +1526,11 @@ PlayAural Server
                 "type": "authorize_success",
                 "username": canonical_username,
                 "locale": user.locale,
-                **self._client_release_metadata(),
+                **self._client_release_metadata(
+                    client_type=client_type,
+                    client_platform=client_platform,
+                    release_platform=release_platform,
+                ),
                 "preferences": self._preferences_for_client(user),
             }
         )

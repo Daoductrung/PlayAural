@@ -133,6 +133,7 @@ function clientAuthMetadata() {
   const platform = detectClientPlatform();
   return {
     client: "web",
+    release_platform: "web",
     ...(platform ? { platform } : {}),
   };
 }

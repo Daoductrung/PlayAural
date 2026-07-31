@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import platform
 import sys
+from collections.abc import Mapping
+from urllib.parse import urlsplit
 
 
 def _compact(text: str) -> str:
@@ -62,10 +64,56 @@ def get_client_platform_label() -> str:
     return _compact(" ".join(part for part in parts if part))[:60]
 
 
+def get_client_release_platform() -> str:
+    """Return the canonical platform key used to select release artifacts."""
+    system = _compact(platform.system()).lower()
+    if system == "windows":
+        return "windows"
+    if system == "darwin":
+        return "macos"
+    if system == "linux":
+        return "linux"
+    return "unknown"
+
+
 def client_auth_metadata(client: str = "python") -> dict[str, str]:
     """Return standardized client metadata for auth-related packets."""
-    metadata = {"client": client}
+    metadata = {
+        "client": client,
+        "release_platform": get_client_release_platform(),
+    }
     platform_label = get_client_platform_label()
     if platform_label:
         metadata["platform"] = platform_label
     return metadata
+
+
+def get_release_download_url(info: object) -> str:
+    """Return a safe download URL addressed to this desktop platform.
+
+    Packets from the immediately preceding server release have no target. They
+    are accepted only by Windows, which was the only distributed desktop build.
+    """
+    if not isinstance(info, Mapping):
+        return ""
+
+    current_target = get_client_release_platform()
+    packet_target = _compact(info.get("target", "")).lower()
+    if packet_target:
+        if packet_target != current_target:
+            return ""
+    elif current_target != "windows":
+        return ""
+
+    url = _compact(info.get("url", ""))
+    if not url:
+        return ""
+    parsed = urlsplit(url)
+    if (
+        parsed.scheme.lower() != "https"
+        or not parsed.netloc
+        or parsed.username is not None
+        or parsed.password is not None
+    ):
+        return ""
+    return url

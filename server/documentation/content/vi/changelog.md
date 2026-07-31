@@ -1,11 +1,26 @@
 Nhật ký thay đổi
 
+Thứ Sáu 31 Tháng Bảy 2026
+
+Tính năng mới:
+
+* BANG! Miền Tây Khói Lửa đã được thêm cho 3 đến 8 người chơi. Chủ bàn có thể tắt Bài và nhân vật mở rộng để dùng bộ 80 lá với 19 nhân vật dành cho 4 đến 7 người hoặc để bật tùy chọn này cho bộ 120 lá với 34 nhân vật dành cho 3 đến 8 người, đồng thời có thể bật Nhóm Giữa trưa, Nhóm Một nắm bài, hoặc Trộn hai nhóm. Trò chơi có màn đấu súng giấu thân phận, luật ba người công khai thân phận, bot có chiến thuật, âm thanh miền Tây riêng, cùng tài liệu cho người mới bằng tiếng Anh và tiếng Việt.
+
+Cải thiện:
+
+* Hiệu ứng âm thanh, nhạc nền và âm thanh môi trường giờ hoạt động nhất quán trên phần mềm máy tính, web, và di động. Hiệu ứng lặp dừng cùng sự kiện đang dùng chúng, nhạc và môi trường chuyển đổi mượt mà, còn âm thanh môi trường có thể chạy liền mạch qua đoạn mở đầu, vòng lặp, và đoạn kết. Khi kết nối lại, bạn nghe đúng không gian âm thanh đang diễn ra mà không phát lại đoạn mở đầu; khi rời hoặc kết thúc bàn, đoạn kết đã được soạn vẫn có thể phát xong mà âm thanh không theo bạn về menu.
+* Nhạc menu chính giờ tiếp tục phát khi bạn đi qua Chơi, Cá nhân và Tùy chỉnh, cùng các menu con. Phòng chờ luôn yên lặng, mọi máy khách đều có âm thanh báo kết nối, và đoạn mở ván bắt đầu mà không bị nhạc menu hoặc phòng chờ phát chồng lên.
+* Khi cùng một tài khoản chuyển sang thiết bị khác, bàn hiện tại, thời gian lượt, sự kiện đang diễn ra, và âm thanh đang phát vẫn được giữ nguyên; các nút điều khiển được dựng lại đúng cho phần mềm máy tính, web, hoặc di động mới. Thiết bị cũ ngắt kết nối an toàn mà người chơi không bị bot chơi thay tạm thời.
+* Thông báo trực tuyến và ngoại tuyến giờ chặn các lần lặp dồn dập cùng những lần kết nối lại rất nhanh, tôn trọng Tùy chỉnh thông báo của từng người kể cả khi Quản trị viên hoặc Nhà phát triển xuất hiện, và ưu tiên âm thanh Quản trị viên hoặc Nhà phát triển thay cho âm thanh bạn bè thông thường nếu người đó là bạn.
+
+Sửa lỗi:
+
+* Sau khi đăng nhập, hệ thống không còn mở lại nhầm xác nhận Đăng xuất hoặc lời xác nhận chỉ dùng một lần khác; âm thanh chào mừng cũng phát đúng một lần vào đúng thời điểm trên phần mềm máy tính, web, và di động.
+
 Thứ Hai 20 Tháng Bảy 2026
 
 Cải thiện:
 
-* Bot trong Mèo Nổ giờ khó đoán và khó đánh bại hơn nhiều. Chỉ dùng thông tin mà người chơi có thể biết, bot tính nguy cơ qua toàn bộ các lượt rút bắt buộc, chồng Tấn Công, cân nhắc đánh hoặc giữ Phủ Nhận, tận dụng bộ cùng tên, chọn mục tiêu có lợi, dùng Xáo Bài để xóa kiến thức của đối thủ về các lá sắp tới hoặc vị trí Mèo Nổ vừa đặt lại, không lãng phí Xáo Bài khi chồng rút chỉ còn một lá, và đặt Mèo Nổ ở độ sâu chiến lược nhưng luôn thay đổi.
-* Thời gian phản hồi Phủ Nhận trong Mèo Nổ giờ có thêm mức 2 và 3 giây; trò chơi cũng hướng dẫn rõ ràng hơn khi chọn bộ cùng tên, mục tiêu, lá muốn lấy, lá đưa theo Xin Bài, cách xử lý Gỡ Bom và vị trí đặt lại Mèo Nổ. Nếu mục tiêu hết bài trong lúc một hành động đang chờ, hành động sẽ kết thúc gọn gàng và ván chơi tiếp tục; ván được khôi phục cũng tiếp tục an toàn nếu trước đó còn lựa chọn chưa hoàn tất.
 * Đường Đua Ngàn Dặm giờ giữ riêng từng cơ hội Phản đòn 7 giây trong khi lượt chơi thông thường vẫn tiếp tục. Lá khắc phục tương ứng chỉ đóng cơ hội đó; lá bảo vệ hoặc lá khắc phục hợp lệ đến trước sẽ quyết định kết quả; lượt được thưởng bắt đầu sau khi lượt hiện tại kết thúc. Thông báo trong Chế độ đội cũng nêu rõ hơn người vừa hành động.
 * Bot trong Đường Đua Ngàn Dặm giờ biết tính toán việc về đích đúng cự ly, điểm chặng đua và điểm trận, Sự cố, lá khắc phục, Lá bảo vệ, Phản đòn, Nghiệp, đồng đội, chồng rút và chồng bỏ để đánh hoặc bỏ bài khôn ngoan hơn.
 * Quản trị giờ có một màn hình chung để nhập bản dịch cho thông báo trong ngày, lý do tắt hoặc khởi động lại máy chủ, lý do cấm tùy chỉnh và lý do tắt tiếng tùy chỉnh. Các ngôn ngữ chính thức bắt buộc phải có nội dung, còn ngôn ngữ cộng đồng có thể dùng ngôn ngữ dự phòng để mỗi người nhận thông báo phù hợp.
@@ -14,7 +29,7 @@ Thứ Bảy 18 Tháng Bảy 2026
 
 Tính năng mới:
 
-* Mèo Nổ đã được thêm cho 2 đến 5 người chơi với trọn bộ Cơ Bản 56 lá, bot có chiến thuật, các tùy chọn Ván nhanh và Bộ cùng tên nâng cao, Thời gian phản hồi Phủ Nhận có thể điều chỉnh, âm thanh riêng, cùng tài liệu cho người mới bằng tiếng Anh và tiếng Việt.
+* Mèo Nổ đã được thêm cho 2 đến 5 người chơi với trọn bộ Cơ Bản 56 lá; bot có chiến thuật cao nhưng chỉ dùng thông tin người chơi có thể biết; các tùy chọn Ván nhanh và Bộ cùng tên nâng cao; Thời gian phản hồi Phủ Nhận 2, 3, 5, 10, 15 hoặc 20 giây; hướng dẫn rõ khi chọn bộ cùng tên, mục tiêu, Xin Bài, Gỡ Bom và vị trí đặt lại Mèo Nổ; âm thanh riêng; khả năng khôi phục an toàn ván chưa hoàn tất; cùng tài liệu cho người mới bằng tiếng Anh và tiếng Việt.
 * Tiếng Ba Tư đã được bổ sung trên máy chủ, phần mềm máy tính, web, và di động. Khi trò chơi hoặc tài liệu mới chưa có bản dịch, nội dung sẽ dùng bản tiếng Anh.
 
 Cải thiện:

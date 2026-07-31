@@ -3,7 +3,10 @@ import { Platform } from "react-native";
 export type ClientAuthMetadata = {
   client: "mobile";
   platform?: string;
+  release_platform: ClientReleasePlatform;
 };
+
+export type ClientReleasePlatform = "android" | "ios" | "web" | "unknown";
 
 const ANDROID_API_VERSION_NAMES: Record<number, string> = {
   23: "6.0",
@@ -81,10 +84,18 @@ export function getClientPlatformLabel(): string {
   return nativePlatformLabel().slice(0, 60);
 }
 
+export function getClientReleasePlatform(): ClientReleasePlatform {
+  if (Platform.OS === "android" || Platform.OS === "ios" || Platform.OS === "web") {
+    return Platform.OS;
+  }
+  return "unknown";
+}
+
 export function clientAuthMetadata(): ClientAuthMetadata {
   const platform = getClientPlatformLabel();
   return {
     client: "mobile",
+    release_platform: getClientReleasePlatform(),
     ...(platform ? { platform } : {}),
   };
 }

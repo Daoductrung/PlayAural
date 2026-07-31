@@ -7,6 +7,8 @@ import accessible_output2.outputs.auto as auto_output
 import sys
 import os
 import json
+import shutil
+import tempfile
 from pathlib import Path
 import requests
 import zipfile
@@ -18,6 +20,7 @@ import time
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from . import slash_commands
 from auth_error_messages import get_login_failure_message, is_credential_error
+from client_info import get_release_download_url
 from sound_manager import SoundManager
 from network_manager import NetworkManager
 from buffer_system import BufferSystem
@@ -2206,7 +2209,13 @@ class MainWindow(wx.Frame):
         if update_info:
             server_ver = update_info.get("version")
             if server_ver and server_ver != VERSION:
-                wx.CallAfter(self._prompt_update, update_info)
+                download_url = get_release_download_url(update_info)
+                if not download_url:
+                    wx.CallAfter(self._show_update_unavailable, server_ver)
+                    return
+                selected_update = dict(update_info)
+                selected_update["url"] = download_url
+                wx.CallAfter(self._prompt_update, selected_update)
                 return
 
         # Check for sounds update if app update is not needed
@@ -2217,6 +2226,17 @@ class MainWindow(wx.Frame):
         # Notify user (but don't speak redundantly)
         # self.speaker.speak(Localization.get("main-connected"))
         self.add_history(Localization.get("main-connected-version", version=version))
+
+    def _show_update_unavailable(self, version):
+        """Explain that this platform has no configured automatic artifact."""
+        self.sound_manager.play("update_alert.ogg")
+        wx.MessageBox(
+            Localization.get("update-unavailable-message", version=version),
+            Localization.get("update-available-title"),
+            wx.OK | wx.ICON_ERROR,
+        )
+        self.Close()
+        wx.GetApp().ExitMainLoop()
 
     def _prompt_update(self, update_info):
         """Prompt user to update."""
@@ -2253,9 +2273,6 @@ class MainWindow(wx.Frame):
         """Download update file."""
         # Imports already at module level
 
-        url = update_info.get("url")
-        import tempfile
-        
         url = update_info.get("url")
         # Use temp directory for download to avoid permission issues
         temp_dir = tempfile.gettempdir()
@@ -2414,9 +2431,6 @@ class MainWindow(wx.Frame):
                 
                 if os.path.exists(updater_exe):
                     # Copy to temp to avoid file locking on overwrite
-                    import shutil
-                    import tempfile
-                    
                     temp_dir = tempfile.gettempdir()
                     # Use unique name to avoid conflicts or permission issues on temp
                     temp_updater = os.path.join(temp_dir, f"playaural_updater_{pid}.exe")
@@ -2457,7 +2471,7 @@ class MainWindow(wx.Frame):
     def _check_sounds_update(self, sounds_info):
         """Check if sounds update is needed."""
         server_sounds_ver = str(sounds_info.get("version", ""))
-        sounds_url = sounds_info.get("url")
+        sounds_url = get_release_download_url(sounds_info)
 
         if not server_sounds_ver or not sounds_url:
             return
@@ -2473,7 +2487,9 @@ class MainWindow(wx.Frame):
             pass
 
         if server_sounds_ver != local_sounds_ver:
-            self._prompt_sounds_update(sounds_info)
+            selected_sounds = dict(sounds_info)
+            selected_sounds["url"] = sounds_url
+            self._prompt_sounds_update(selected_sounds)
 
     def _prompt_sounds_update(self, sounds_info):
         """Prompt user to update sounds."""
@@ -2500,8 +2516,6 @@ class MainWindow(wx.Frame):
     def _download_and_extract_sounds(self, sounds_info):
         """Download sounds update and launch updater."""
         url = sounds_info.get("url")
-
-        import tempfile
 
         temp_dir = tempfile.gettempdir()
         target_zip = os.path.join(temp_dir, f"playaural_sounds_{int(time.time())}.zip")

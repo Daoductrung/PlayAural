@@ -30,4 +30,5 @@ class BangPlayer(Player):
     handcuffs_suit: str = ""
     molly_deferred_draws: int = 0
     vendetta_extra_turn: bool = False
+    abandoned_mine_draw_from_discard: bool = False
     bot_role_suspicion: dict[str, int] = field(default_factory=dict)

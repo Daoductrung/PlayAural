@@ -17,7 +17,7 @@ bang-card-barrel-description = Blue card. When a shot targets you, each active B
 bang-card-beer = Beer
 bang-card-beer-description = Regain one life, including while saving yourself at zero life. At maximum life, or when only two players remain, you may play Beer but it is discarded without effect.
 bang-card-bible = Bible
-bang-card-bible-description = Green card. Place it in front of you. Starting on a later turn, discard it as one Missed! effect, then draw one card.
+bang-card-bible-description = Green card. Place it in front of you. Starting on a later turn, discard it as one Missed! effect, then draw one card; if that shot still needs a defense, an eligible card just drawn may be used immediately.
 bang-card-binocular = Binocular
 bang-card-binocular-description = Blue card. You see every other player at a distance reduced by one, to a minimum of one.
 bang-card-brawl = Brawl
@@ -204,7 +204,7 @@ bang-event-new-identity-description = At turn start, optionally become your publ
 bang-event-fistful-of-cards = A Fistful of Cards
 bang-event-fistful-of-cards-description = At turn start, face one avoidable BANG! for each card in your hand.
 bang-event-abandoned-mine = Abandoned Mine
-bang-event-abandoned-mine-description = Phase-one draws come from discards; end-turn excess cards go face down on the draw pile.
+bang-event-abandoned-mine-description = If the discard pile holds the full phase-one draw, take every required card from it and put end-turn excess cards face down on the draw pile. If it is short, draw and discard normally.
 bang-event-ambush = Ambush
 bang-event-ambush-description = Base distance between every two players is one; modifiers still apply.
 bang-event-blood-brothers = Blood Brothers
@@ -214,7 +214,7 @@ bang-event-dead-man-description = The first eliminated player returns once on th
 bang-event-hard-liquor = Hard Liquor
 bang-event-hard-liquor-description = A player may skip phase one to regain one life.
 bang-event-lasso = Lasso
-bang-event-lasso-description = Cards in play have no effect.
+bang-event-lasso-description = Cards in play have no effect. They remain in place, and Jail and Dynamite do not perform turn-start checks.
 bang-event-law-of-the-west = Law of the West
 bang-event-law-of-the-west-description = Reveal the second phase-one card and play it during phase two if possible.
 bang-event-peyote = Peyote
@@ -311,12 +311,6 @@ bang-confirm-ranch = { $selected ->
     [one] Confirm Ranch exchange — 1 card
    *[other] Confirm Ranch exchange — { $selected } cards
 }
-bang-confirm-discard-order = { $selected ->
-    [0] Confirm the current discard order
-    [one] Confirm discard order — 1 card first
-   *[other] Confirm discard order — { $selected } cards first
-}
-
 bang-choice-use-barrel = Use a Barrel check
 bang-choice-unavailable = Unavailable choice
 bang-choice-skip-barrel = Skip remaining Barrel checks
@@ -335,6 +329,9 @@ bang-choice-draw-deck = Draw from the deck
 bang-choice-draw-discard = Take the top discard
 bang-choice-red = Guess red
 bang-choice-black = Guess black
+bang-choice-finish-elimination-discard = Finish with the current menu order
+bang-elimination-discard-next = Discard next: { $card}
+bang-elimination-discard-next-in-play = Discard next from in play: { $card}
 
 bang-game-started = BANG! begins.
 bang-intro-history = High noon settles over the town; every hand drifts toward a holster.
@@ -483,6 +480,10 @@ bang-player-black-jack-succeeds = Black Jack grants { $player } an extra draw.
 bang-you-are-eliminated = You are eliminated. Your role was { $role}.
 bang-you-eliminate-player = You eliminate { $target}, the { $role}.
 bang-player-is-eliminated = { $player } is eliminated as the { $role}.
+bang-you-order-elimination-card = You place { $card } next in the discard pile.
+bang-player-orders-elimination-card = { $player } places { $card } next in the discard pile.
+bang-you-finish-elimination-discard = You discard the remaining cards in menu order: { $cards}.
+bang-player-finishes-elimination-discard = { $player } discards the remaining cards in menu order: { $cards}.
 bang-you-claim-outlaw-reward = You eliminated an Outlaw and draw three reward cards.
 bang-player-claims-outlaw-reward = { $player } eliminated an Outlaw and draws three reward cards.
 bang-you-suffer-sheriff-penalty = You eliminated a Deputy and discard every card you have.
@@ -620,9 +621,9 @@ bang-prompt-general-store = { $count ->
 bang-prompt-target-card = { $target}: choose a random hand card or an in-play card to { $mode}.
 bang-prompt-ricochet = Respond to { $source}: play one Missed! effect or let { $card } be discarded.
 bang-prompt-vulture = Choose Vulture Sam's next card from { $player}.
-bang-prompt-elimination-discard = { $selected ->
-    [0] Choose any cards to place first in the discard pile, or confirm the current order.
-   *[other] { $selected } of { $total } placed first; choose another or confirm.
+bang-prompt-elimination-discard = { $remaining ->
+    [one] 1 card remains. Choose it for the discard pile, or finish with the current menu order.
+   *[other] { $remaining } cards remain. Choose the next card for the discard pile, or finish with the current menu order.
 }
 bang-prompt-daltons = The Daltons: choose one blue card in front of you to discard immediately.
 bang-you-discard-daltons = You discard { $card } for The Daltons.
@@ -631,7 +632,7 @@ bang-prompt-blood-brothers = Lose 1 non-final life to heal a player, or skip.
 bang-prompt-new-identity = Keep your character, or switch to your alternate at two life.
 bang-prompt-vera-custer = Choose a living character to copy until your next turn.
 bang-prompt-hard-liquor = Draw normally, or skip drawing to regain 1 life.
-bang-prompt-jesse-jones = Draw from the deck, or take 1 random hand card from a player.
+bang-prompt-jesse-jones = Draw normally, or take 1 random hand card from a player.
 bang-prompt-pedro-ramirez = Take the top discard, or draw from the deck.
 bang-prompt-pat-brennan = Draw normally, or take 1 card from play.
 bang-prompt-kit-carlson = Choose the examined card to { $action}.

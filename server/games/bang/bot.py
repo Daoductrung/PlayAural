@@ -530,7 +530,7 @@ def _choose_decision_action(
         green = decision.data.get("green_card_ids", [])
         if green:
             return f"use_in_play_{green[0]}"
-    if decision.kind in {"discard_excess", "elimination_discard"}:
+    if decision.kind == "discard_excess":
         if len(decision.selected_card_ids) < decision.required:
             available = [
                 card
@@ -547,6 +547,8 @@ def _choose_decision_action(
                 )
                 return f"play_card_{chosen.id}"
         return "confirm_selection"
+    if decision.kind == "elimination_discard":
+        return "choice_finish_elimination_discard"
     if decision.kind == "ranch":
         return "confirm_selection"
     if decision.kind == "blood_brothers":

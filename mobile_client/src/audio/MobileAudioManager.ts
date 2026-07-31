@@ -1580,7 +1580,6 @@ export class MobileAudioManager {
               interruptionMode: "mixWithOthers",
               playsInSilentMode: true,
               shouldPlayInBackground: true,
-              shouldRouteThroughEarpiece: false,
             }),
           ]).then(() => undefined)
     ).then(() => {
@@ -1600,10 +1599,12 @@ export class MobileAudioManager {
       }) ?? Promise.resolve(),
       setModernAudioModeAsync({
         allowsRecording: false,
-        interruptionMode: "duckOthers",
+        // ExpoAV remains the single Android audio-focus coordinator. The
+        // playlist engine only supplies gapless ambience stems and must not
+        // compete with accessibility speech or change the system output route.
+        interruptionMode: "mixWithOthers",
         playsInSilentMode: true,
         shouldPlayInBackground: true,
-        shouldRouteThroughEarpiece: false,
       }),
     ]);
   }

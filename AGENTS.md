@@ -256,6 +256,12 @@ Audio-first is mandatory. Every important state change needs TTS and/or sound.
 - Ducking is a dormant, opt-in capability. Do not add `ducking` to first-party
   gameplay commands until a future feature deliberately enables and tunes it;
   keep zero-duck defaults behaviorally identical to an engine without ducking.
+- Android playback must preserve the system-selected wired, Bluetooth, or
+  speaker route; game-audio setup must never force speakerphone routing. Keep
+  ExpoAV as the single audio-focus coordinator, and retain the guarded
+  `expo-audio` native routing patch applied by the mobile `postinstall` script.
+  Android must build `expo-audio` from that guarded local source, not its
+  otherwise-unpatched precompiled artifact.
 - Persist only replayable layers in `active_audio` with recipient and paused
   state. It follows the containing table/save retention and deletion lifecycle;
   explicit stops, resets, transfers, and replacements prune stale state.

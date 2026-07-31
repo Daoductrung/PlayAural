@@ -145,6 +145,14 @@ loading an asset.
 - Ducking is implemented but dormant and strictly opt-in. First-party gameplay
   must not send non-empty `ducking` maps until a future feature explicitly
   adopts and tunes it. Empty/default ducking must have no audible side effects.
+- Android playback must preserve the system-selected wired, Bluetooth, or
+  speaker route; game-audio setup must never force speakerphone routing. ExpoAV
+  is the single audio-focus coordinator. The modern `expo-audio` playlist path
+  mixes without requesting a competing focus lease, and its guarded native
+  routing patch is applied by the mobile `postinstall` script. Keep the patch
+  and its fail-closed regression test until upstream provides the same behavior.
+  Android autolinking must build `expo-audio` from that guarded local source;
+  the default precompiled artifact does not contain the fix.
 - Async clients must generation-guard asset loads and fades so a late load or
   retiring source cannot resurrect, silence, or replace a newer command.
 - Replayable music, ambience, and explicitly persistent SFX loops live in the

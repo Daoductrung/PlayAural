@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from ..core.server import Server
+from ..core.server import NON_RESUMABLE_ACTION_MENUS, Server
 from ..users.test_user import MockUser
 
 
@@ -117,6 +117,83 @@ def test_restore_state_replaces_mobile_rate_menu_on_desktop(tmp_path) -> None:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Session restore normalization
+# ─────────────────────────────────────────────────────────────────────────────
+
+@pytest.mark.parametrize("menu_id", sorted(NON_RESUMABLE_ACTION_MENUS))
+def test_restore_state_unwinds_stale_action_intent_menus(
+    tmp_path,
+    menu_id: str,
+) -> None:
+    server, user = _make_server(tmp_path)
+    try:
+        state = {
+            "menu": menu_id,
+            "_stack": [
+                {
+                    "menu": "main_menu",
+                    "_last_selection_id": "logout",
+                    "_last_selection_position": 8,
+                    "_restore_focus_id": "logout",
+                    "_restore_focus_position": 8,
+                },
+            ],
+        }
+
+        normalized = server._normalize_restore_state_for_client(user, state)
+
+        assert normalized == {"menu": "main_menu"}
+    finally:
+        server._db.close()
+
+
+def test_restore_state_prunes_stale_action_intent_from_history(tmp_path) -> None:
+    server, user = _make_server(tmp_path)
+    try:
+        state = {
+            "menu": "documentation_menu",
+            "_stack": [
+                {
+                    "menu": "main_menu",
+                    "_last_selection_id": "logout",
+                    "_restore_focus_id": "logout",
+                },
+                {"menu": "logout_confirm_menu"},
+            ],
+        }
+
+        normalized = server._normalize_restore_state_for_client(user, state)
+
+        assert normalized == {
+            "menu": "documentation_menu",
+            "_stack": [{"menu": "main_menu"}],
+        }
+    finally:
+        server._db.close()
+
+
+def test_same_session_email_confirmation_restore_keeps_pending_address(
+    tmp_path,
+) -> None:
+    server, user = _make_server(tmp_path)
+    try:
+        server._restore_frame(
+            user,
+            {
+                "menu": "email_confirm_menu",
+                "pending_email": "updated@example.com",
+            },
+            [],
+        )
+
+        assert _user_state(server, user.username)["pending_email"] == (
+            "updated@example.com"
+        )
+        assert _current_menu(server, user.username) == "email_confirm_menu"
+    finally:
+        server._db.close()
+
+
 # General Options submenus
 # ─────────────────────────────────────────────────────────────────────────────
 

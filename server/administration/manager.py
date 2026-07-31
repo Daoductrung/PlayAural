@@ -2372,11 +2372,9 @@ class AdministrationManager:
             "message": message, # Raw message, client adds prefix
         }
         
-        # Sound packet is no longer needed as client plays sound for "announcement" convo
-        # But we previously added it to force sound. Since we updated client, we can remove it.
-        # However, to support older clients (if any), we could keep it, but user said "Ensure System Announcement exists in en and vi".
-        # This implies client update is expected. Let's remove the redundancy to be clean.
-        
+        # Current clients own the single announcement cue; the server sends no
+        # duplicate sound packet.
+
         count = 0
         total_online = len(self.server.users)
         

@@ -315,7 +315,10 @@ def test_game_start_opens_after_ten_seconds_while_intro_can_keep_playing() -> No
     assert all(len(player.hand) == 8 for player in game.players)
     assert not game.active_sequences
     assert game.phase == PHASE_NORMAL
-    assert game.current_music == SOUND_MUSIC
+    assert any(
+        state.kind == "music" and state.asset == SOUND_MUSIC
+        for state in game.active_audio.values()
+    )
     for player in game.players:
         user = game.get_user(player)
         sounds = sound_names(user)

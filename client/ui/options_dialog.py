@@ -12,10 +12,8 @@ class ClientOptionsDialog(wx.Dialog, uisound.SoundBindingsMixin):
         self,
         parent,
         config_manager,
-        server_id,
         lang_codes,
         sound_manager=None,
-        client_options=None,
         voice_manager=None,
     ):
         """Initialize the client options dialog.
@@ -23,10 +21,8 @@ class ClientOptionsDialog(wx.Dialog, uisound.SoundBindingsMixin):
         Args:
             parent: Parent window
             config_manager: ConfigManager instance
-            server_id: Legacy argument, kept for compatibility but not used for overrides
             lang_codes: The iso language codes
             sound_manager: SoundManager instance (optional, for applying volume changes)
-            client_options: Reference to main window's client_options dict (optional, will be updated on save)
             voice_manager: VoiceManager instance (optional, for applying voice volume changes)
         """
         super().__init__(
@@ -36,7 +32,6 @@ class ClientOptionsDialog(wx.Dialog, uisound.SoundBindingsMixin):
         )
 
         self.config_manager = config_manager
-        self.server_id = server_id
         self.lang_codes = lang_codes
         self.sound_manager = sound_manager
         self.voice_manager = voice_manager

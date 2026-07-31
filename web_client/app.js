@@ -8,7 +8,7 @@ import { createHistoryView } from "./ui/history.js";
 import { createMenuView } from "./ui/menus.js";
 import { resolveMenuFocusIndex, stableMenuItemId } from "./ui/menuFocus.js";
 
-const CLIENT_VERSION = String(window.PLAYAURAL_WEB_VERSION || "1.0.4.9");
+const CLIENT_VERSION = String(window.PLAYAURAL_WEB_VERSION || "");
 const WEB_CLIENT_CONFIG = window.PLAYAURAL_WEB_CONFIG || {};
 const DEFAULT_SERVER_URL = String(
   WEB_CLIENT_CONFIG.serverUrl
@@ -956,7 +956,7 @@ class VoiceChatManager {
     }
     const enable = !this.micEnabled;
     if (enable && (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia)) {
-      this.app.audio.playSound({ name: "voice_mic_error.ogg" });
+      this.app.audio.playSound({ asset: "voice_mic_error.ogg" });
       this.setStatus("voice-chat-mic-unsupported", true);
       return;
     }
@@ -965,13 +965,13 @@ class VoiceChatManager {
     try {
       await this.room.localParticipant.setMicrophoneEnabled(enable);
       this.micEnabled = enable;
-      this.app.audio.playSound({ name: enable ? "voice_mic_on.ogg" : "voice_mic_off.ogg" });
+      this.app.audio.playSound({ asset: enable ? "voice_mic_on.ogg" : "voice_mic_off.ogg" });
       this.setStatus(enable ? "voice-chat-mic-on" : "voice-chat-mic-off", true);
     } catch (error) {
       console.warn("Voice Chat microphone toggle failed:", error);
       this.micEnabled = false;
       if (enable) {
-        this.app.audio.playSound({ name: "voice_mic_error.ogg" });
+        this.app.audio.playSound({ asset: "voice_mic_error.ogg" });
       }
       if (error && (error.name === "NotAllowedError" || error.name === "PermissionDeniedError")) {
         this.setStatus("voice-chat-mic-denied", true);
@@ -1068,7 +1068,7 @@ class PlayAuralWebApp {
       listEl: this.elements.menuList,
       onActivate: (item, index) => this.activateMenuItem(item, index),
       onSelectionSound: (item) => this.playSelectionSound(item),
-      onActivateSound: () => this.audio.playSound({ name: "menuenter.ogg", volume: 50 }),
+      onActivateSound: () => this.audio.playSound({ asset: "menuenter.ogg", volume: 50 }),
       onBoundaryRepeat: (text) => {
         if (text) {
           this.speak(text, { buffer: "misc", assertive: true, noHistory: true });
@@ -2297,7 +2297,7 @@ class PlayAuralWebApp {
         this.handlePong();
         break;
       case "table_create":
-        this.audio.playSound({ name: "notify.ogg" });
+        this.audio.playSound({ asset: "notify.ogg" });
         if (this.preferences.notify_table_created !== false) {
           this.speak(Localization.get("table-created-notify"), { buffer: "system" });
         }
@@ -2337,8 +2337,8 @@ class PlayAuralWebApp {
   handleAuthorizeSuccess(packet) {
     this.stopConnectionAudio();
     if (packet.reset_ui === true) {
-      // Clear the prior socket's rendered/runtime state before welcome speech
-      // and audio, so the reset cannot cancel fresh-session feedback.
+      // Clear the prior socket's rendered/runtime state before the server
+      // releases this session's ordered UI and audio packets.
       this.cleanupRuntime(true);
     }
     this.sessionEstablished = true;
@@ -2357,8 +2357,6 @@ class PlayAuralWebApp {
     }
     if (packet.sounds_info?.version) {
       this.audio.setSoundVersion(packet.sounds_info.version);
-    } else if (packet.sounds_version) {
-      this.audio.setSoundVersion(packet.sounds_version);
     }
     if (packet.locale && packet.locale !== Localization.locale) {
       Localization.load(packet.locale).then(() => this.applyLocalization());
@@ -2375,7 +2373,6 @@ class PlayAuralWebApp {
       params: { username: this.lastUser },
       buffer: "system",
     });
-    this.audio.playSound({ name: "welcome.ogg" });
   }
 
   handleServerDisconnect(packet) {
@@ -2488,7 +2485,7 @@ class PlayAuralWebApp {
     const display = `${prefix}: ${packet.message || ""}`;
     const outputAllowed = this.historyView.addEntry(display, { buffer: "chat", announce: false });
     if (shouldSpeak && outputAllowed) {
-      this.audio.playSound({ name: soundName });
+      this.audio.playSound({ asset: soundName });
       this.speak(speakText, { buffer: "chat", noHistory: true });
     }
   }
@@ -2735,9 +2732,9 @@ class PlayAuralWebApp {
 
   playSelectionSound(item) {
     if (item?.sound) {
-      this.audio.playSound({ name: item.sound });
+      this.audio.playSound({ asset: item.sound });
     } else {
-      this.audio.playSound({ name: "menuclick.ogg", volume: 50 });
+      this.audio.playSound({ asset: "menuclick.ogg", volume: 50 });
     }
     if (this.preferences.speech_mode === "web_speech" && item?.text) {
       this.webSpeech.speakNow(item.text);
@@ -2776,7 +2773,7 @@ class PlayAuralWebApp {
       const item = menu.items[index];
       if (item) {
         this.focusMenuOnNextPacket = true;
-        this.audio.playSound({ name: "menuenter.ogg", volume: 50 });
+        this.audio.playSound({ asset: "menuenter.ogg", volume: 50 });
         this.send({
           type: "menu",
           menu_id: menu.menuId,
@@ -2866,7 +2863,7 @@ class PlayAuralWebApp {
       return;
     }
     const soundNum = Math.floor(Math.random() * 4) + 1;
-    this.audio.playSound({ name: `typing${soundNum}.ogg`, volume: 50 });
+    this.audio.playSound({ asset: `typing${soundNum}.ogg`, volume: 50 });
   }
 
   handleInlineInputKeydown(event) {
@@ -2976,7 +2973,6 @@ class PlayAuralWebApp {
       type: "editbox",
       input_id: this.pendingInput.input_id,
       text: value,
-      value,
     });
     this.hideInlineInput();
     this.focusMenuOnNextPacket = true;
@@ -2990,9 +2986,7 @@ class PlayAuralWebApp {
       type: "editbox",
       input_id: this.pendingInput.input_id,
       text: "",
-      value: "",
       cancelled: true,
-      cancel: true,
     });
     this.hideInlineInput();
     this.focusMenuOnNextPacket = true;
@@ -3071,7 +3065,7 @@ class PlayAuralWebApp {
       return;
     }
     this.pingStart = Date.now();
-    this.audio.playSound({ name: "pingstart.ogg" });
+    this.audio.playSound({ asset: "pingstart.ogg" });
     this.send({ type: "ping" });
   }
 
@@ -3106,7 +3100,7 @@ class PlayAuralWebApp {
     }
     const latency = Date.now() - this.pingStart;
     this.pingStart = null;
-    this.audio.playSound({ name: "pingstop.ogg" });
+    this.audio.playSound({ asset: "pingstop.ogg" });
     this.speak("main-ping-result", {
       params: { value: latency },
       buffer: "system",

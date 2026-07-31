@@ -269,7 +269,10 @@ def test_game_start_stops_waiting_music_before_game_music(
             )
         )
         assert stop_index < play_index
-    assert game.current_music == "game_pig/mus.ogg"
+    assert any(
+        state.kind == "music" and state.asset == "game_pig/mus.ogg"
+        for state in game.active_audio.values()
+    )
 
 
 def test_replayable_audio_teardown_preserves_unmanaged_one_shots(
@@ -441,6 +444,48 @@ def test_waiting_restore_discards_legacy_and_unified_audio_state(
         message.type in {"play_music", "play_ambience", "audio"}
         for message in restored_user.messages
     )
+
+
+def test_playing_restore_migrates_legacy_tracks_once(
+    pig_game_with_players,
+) -> None:
+    game, alice, _ = pig_game_with_players
+    game.status = "playing"
+    game.active_audio.clear()
+    game.current_music = "legacy/round_music.ogg"
+    game.current_ambience = "legacy/room_loop.ogg"
+    game.current_ambience_outro = "legacy/room_outro.ogg"
+
+    restored = PigGame.from_json(game.to_json())
+    restored.rebuild_runtime_state()
+
+    assert restored.current_music == ""
+    assert restored.current_ambience == ""
+    assert restored.current_ambience_outro == ""
+    states = list(restored.active_audio.values())
+    assert {
+        (state.kind, state.asset, state.outro)
+        for state in states
+    } == {
+        ("music", "legacy/round_music.ogg", ""),
+        (
+            "ambience",
+            "legacy/room_loop.ogg",
+            "legacy/room_outro.ogg",
+        ),
+    }
+
+    restored_user = MockUser("Alice", uuid=alice.uuid)
+    restored.attach_user(alice.uuid, restored_user)
+    replayed_assets = {
+        message.data.get("asset")
+        for message in restored_user.messages
+        if message.data.get("command") == "play"
+    }
+    assert replayed_assets == {
+        "legacy/round_music.ogg",
+        "legacy/room_loop.ogg",
+    }
 
 
 def test_private_managed_effect_stop_preserves_other_audiences(

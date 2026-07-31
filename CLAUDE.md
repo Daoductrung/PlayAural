@@ -528,6 +528,17 @@ successor. Credential verification and account/password deletion or eviction
 must share the same account lock so a checked credential cannot become stale
 before session activation.
 
+First-party releases update the server and all clients in lockstep. Installing
+an authenticated session requires an exact client/server version match.
+Outdated native clients may receive the credential-verified
+`authorize_success` update bootstrap required by the deployed mandatory
+updater, but that transport must never own a `NetworkUser`, replace a live
+session, emit presence, or dispatch gameplay. Reject outdated Web clients
+before authentication. Do not retain obsolete packet-field aliases between
+first-party builds. This rule does not remove database, account preference,
+local config, table, checkpoint, or saved-game migrations: persisted data
+survives a release and must still load safely.
+
 Never copy rendered menus or editboxes across sessions. Rebuild UI from
 authoritative server/game intent against the replacement client's capabilities,
 normalizing device-only navigation frames to a valid shared parent. A live

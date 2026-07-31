@@ -2,7 +2,11 @@ import pytest
 from unittest.mock import MagicMock
 from server.auth.auth import AuthManager
 from server.persistence.database import Database
-from server.core.server import FRIEND_REMOVE_CONFIRM_MENU, Server
+from server.core.server import (
+    FRIEND_REMOVE_CONFIRM_MENU,
+    Server,
+    VERSION,
+)
 from server.users.network_user import NetworkUser
 import tempfile
 import os
@@ -185,7 +189,7 @@ class TestFriendsSystem:
                 "client": "python",
                 "username": "alice",
                 "password": "Password123",
-                "version": "1.0.0",
+                "version": VERSION,
             },
         )
 

@@ -921,7 +921,7 @@ export function createAudioEngine(options = {}) {
   }
 
   async function playSound(packet) {
-    const asset = validAsset(packet.asset || packet.name || packet.sound);
+    const asset = validAsset(packet.asset);
     if (!asset) {
       return "";
     }
@@ -1071,12 +1071,12 @@ export function createAudioEngine(options = {}) {
     return playLayer({
       ...packet,
       kind: "music",
-      asset: packet.asset || packet.name || packet.music,
+      asset: packet.asset,
       handle: packet.handle || "music",
       layer: packet.layer || "main",
       fade_in_ms: packet.fade_in_ms ?? 800,
       fade_out_ms: packet.fade_out_ms ?? 800,
-      loop: packet.loop ?? packet.looping ?? true,
+      loop: packet.loop ?? true,
     });
   }
 
@@ -1084,7 +1084,7 @@ export function createAudioEngine(options = {}) {
     return playLayer({
       ...packet,
       kind: "ambience",
-      asset: packet.asset || packet.loop,
+      asset: packet.asset,
       layer: packet.layer || "environment",
       fade_in_ms: packet.fade_in_ms ?? 1200,
       fade_out_ms: packet.fade_out_ms ?? 1200,

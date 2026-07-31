@@ -549,28 +549,20 @@ class ConfigManager:
             server["last_account_id"] = account_id
         self.save_identities()
 
-    def get_client_options(self, server_id: Optional[str] = None) -> Dict[str, Any]:
-        """Get client options.
-
-        Args:
-            server_id: Legacy argument, ignored.
-
-        Returns:
-            Client options dict
-        """
+    def get_client_options(self) -> Dict[str, Any]:
+        """Return a copy of the global client options."""
         return self._deep_copy(
             self.identities.get("client_options", self._get_default_client_options())
         )
 
     def set_client_option(
-        self, key_path: str, value: Any, server_id: Optional[str] = None, *, create_mode: bool = False
+        self, key_path: str, value: Any, *, create_mode: bool = False
     ):
         """Set a client option.
 
         Args:
             key_path: Path to the option (e.g., "audio/music_volume")
             value: Option value
-            server_id: Legacy argument, ignored.
             create_mode: If True, create intermediate dictionaries as needed
         """
         if "client_options" not in self.identities:

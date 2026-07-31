@@ -161,44 +161,24 @@ class SoundManager:
         if not path:
             return None
         try:
-            try:
-                creator = getattr(self.sound_cacher, "create", None)
-                if creator is not None and not start:
-                    stream_obj = creator(
-                        path,
-                        pan=pan,
-                        volume=volume,
-                        pitch=pitch,
-                        looping=looping,
-                        pinned=True,
-                    )
-                else:
-                    stream_obj = self.sound_cacher.play(
-                        path,
-                        pan=pan,
-                        volume=volume,
-                        pitch=pitch,
-                        looping=looping,
-                        pinned=True,
-                    )
-                    if not start:
-                        try:
-                            stream_obj.pause()
-                        except Exception:
-                            self._stop_stream(stream_obj)
-            except TypeError:
-                # Compatibility with older sound_cacher builds and lightweight
-                # test doubles. Set looping immediately after construction.
-                stream_obj = self.sound_cacher.play(
-                    path, pan=pan, volume=volume, pitch=pitch
+            if not start:
+                stream_obj = self.sound_cacher.create(
+                    path,
+                    pan=pan,
+                    volume=volume,
+                    pitch=pitch,
+                    looping=looping,
+                    pinned=True,
                 )
-                if stream_obj is not None:
-                    stream_obj.looping = looping
-                    if not start:
-                        try:
-                            stream_obj.pause()
-                        except Exception:
-                            self._stop_stream(stream_obj)
+            else:
+                stream_obj = self.sound_cacher.play(
+                    path,
+                    pan=pan,
+                    volume=volume,
+                    pitch=pitch,
+                    looping=looping,
+                    pinned=True,
+                )
             if stream_obj is not None:
                 self.sound_cacher.pin(stream_obj)
             return stream_obj

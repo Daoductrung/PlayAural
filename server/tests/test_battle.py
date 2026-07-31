@@ -135,8 +135,15 @@ def test_on_start_enters_selection_phase() -> None:
     game = make_game(start=True)
     assert game.status == "playing"
     assert game.phase == PHASE_SELECTION
-    assert game.current_music == "battle/fightmus.ogg"
-    assert game.current_ambience == "battle/crowds/ambience_reserves_selections.ogg"
+    assert any(
+        state.kind == "music" and state.asset == "battle/fightmus.ogg"
+        for state in game.active_audio.values()
+    )
+    assert any(
+        state.kind == "ambience"
+        and state.asset == "battle/crowds/ambience_reserves_selections.ogg"
+        for state in game.active_audio.values()
+    )
 
 
 def test_pregame_options_take_effect_in_combat() -> None:

@@ -23,8 +23,7 @@ class GameSoundMixin:
     Expects on the Game class:
         - self.scheduled_sounds: list
         - self.sound_scheduler_tick: int
-        - self.current_music: str
-        - self.current_ambience: str
+        - self.active_audio: dict[str, AudioPlaybackState]
         - self.players: list[Player]
         - self.get_user(player) -> User | None
     """
@@ -173,43 +172,47 @@ class GameSoundMixin:
             self.active_audio[self._audio_state_key(command, recipient_ids)] = (
                 AudioPlaybackState.from_command(command, recipient_ids)
             )
-            self._sync_legacy_audio_fields()
         return command.handle
 
-    def _sync_legacy_audio_fields(self) -> None:
-        """Mirror canonical state into old save fields for rolling upgrades.
+    def migrate_legacy_audio_state(self) -> None:
+        """Migrate pre-protocol current-track fields into canonical state once."""
+        if not self.active_audio:
+            legacy_commands = []
+            if self.current_music:
+                legacy_commands.append(
+                    AudioCommand(
+                        command="play",
+                        kind="music",
+                        asset=self.current_music,
+                        handle="music",
+                        bus="music",
+                        loop=True,
+                    )
+                )
+            if self.current_ambience:
+                legacy_commands.append(
+                    AudioCommand(
+                        command="play",
+                        kind="ambience",
+                        asset=self.current_ambience,
+                        handle="ambience:global:default:environment",
+                        bus="ambience",
+                        layer="environment",
+                        loop=True,
+                        outro=self.current_ambience_outro,
+                        play_intro=False,
+                    )
+                )
+            for command in legacy_commands:
+                self.active_audio[self._audio_state_key(command, [])] = (
+                    AudioPlaybackState.from_command(command, [])
+                )
 
-        ``active_audio`` remains the only playback authority. These fields are
-        written solely so older server builds can still read a newly saved
-        table during a rollback.
-        """
-        music = next(
-            (
-                state
-                for state in self.active_audio.values()
-                if state.kind == "music"
-                and state.scope == "global"
-                and not state.context
-                and state.layer == "main"
-                and not state.recipient_ids
-            ),
-            None,
-        )
-        ambience = next(
-            (
-                state
-                for state in self.active_audio.values()
-                if state.kind == "ambience"
-                and state.scope == "global"
-                and not state.context
-                and state.layer == "environment"
-                and not state.recipient_ids
-            ),
-            None,
-        )
-        self.current_music = music.asset if music else ""
-        self.current_ambience = ambience.asset if ambience else ""
-        self.current_ambience_outro = ambience.outro if ambience else ""
+        # Retain the dataclass fields only so old save JSON can deserialize.
+        # Current releases never write a second representation of audio state.
+        self.current_music = ""
+        self.current_ambience = ""
+        self.current_ambience_outro = ""
 
     def prune_audio_recipient(self, player_id: str) -> None:
         """Remove a departed player from private replayable audio state."""
@@ -230,7 +233,6 @@ class GameSoundMixin:
                     state.to_command(), state.recipient_ids
                 )] = state
         self.active_audio = rebuilt
-        self._sync_legacy_audio_fields()
 
     def _remove_audio_states(
         self,
@@ -533,7 +535,6 @@ class GameSoundMixin:
             lambda state: state.kind == "music" and state.handle == handle,
             None if audience is None else recipient_ids,
         )
-        self._sync_legacy_audio_fields()
 
     def play_ambience(
         self,
@@ -632,7 +633,6 @@ class GameSoundMixin:
             ),
             None if audience is None else recipient_ids,
         )
-        self._sync_legacy_audio_fields()
 
     def stop_all_ambience(
         self,
@@ -657,7 +657,6 @@ class GameSoundMixin:
             lambda state: state.kind == "ambience",
             None if audience is None else recipient_ids,
         )
-        self._sync_legacy_audio_fields()
 
     def set_audio_bus(
         self, bus: str, gain: int, *, fade_ms: int = 0, audience: Any = None
@@ -699,7 +698,6 @@ class GameSoundMixin:
                 lambda state: True,
                 recipient_ids,
             )
-        self._sync_legacy_audio_fields()
 
     def stop_replayable_audio(
         self,
@@ -743,4 +741,3 @@ class GameSoundMixin:
                 audience=audience,
             )
         self.active_audio.clear()
-        self._sync_legacy_audio_fields()

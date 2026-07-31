@@ -18,15 +18,15 @@ from auth_error_messages import get_login_failure_message
 from client_info import client_auth_metadata
 from localization import Localization
 from ssl_utils import make_ssl_context
+from version import VERSION
 
 
 class LoginDialog(wx.Dialog):
     """Login dialog with simplified flow."""
 
-    def __init__(self, parent=None, disconnect_message=None, version="1.0.0"):
+    def __init__(self, parent=None, disconnect_message=None):
         """Initialize the login dialog."""
         super().__init__(parent, title=Localization.get("login-title"), size=(450, 450))
-        self.version = version
 
         if disconnect_message:
             wx.CallAfter(lambda: wx.MessageBox(
@@ -677,7 +677,7 @@ class LoginDialog(wx.Dialog):
                     "type": "authorize",
                     "username": username,
                     "password": password,
-                    "version": self.version,
+                    "version": VERSION,
                 }))
                 
                 # Wait for response

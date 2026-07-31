@@ -24,8 +24,8 @@ from buffer_system import BufferSystem
 from config_manager import set_item_in_dict
 from localization import Localization
 from voice_manager import VoiceManager, list_audio_input_devices, resolve_audio_input_device
+from version import VERSION
 
-VERSION = "1.0.4.9"
 WINDOW_SIZE = (980, 720)
 WINDOW_MIN_SIZE = (760, 520)
 MENU_MIN_WIDTH = 280
@@ -100,14 +100,14 @@ class MainWindow(wx.Frame):
         self.available_audio_input_devices = []
 
         # Store user's options
-        # Client-side options (from config file, per-server)
+        # Client-side options from the local global configuration.
         self.client_options = {}
         # Server-side options (received from server on login)
         self.server_options = {}
 
-        # Load client-side options for this server
+        # Load client-side options.
         if self.config_manager and self.server_id:
-            self.client_options = self.config_manager.get_client_options(self.server_id)
+            self.client_options = self.config_manager.get_client_options()
             # Apply initial volumes from client options
             self._apply_client_audio_options()
 
@@ -929,7 +929,11 @@ class MainWindow(wx.Frame):
     def modify_option_value(self, key_path: str, value, *, create_mode: bool = True) -> bool:
         if not self.config_manager or not self.server_id:
             return False
-        self.config_manager.set_client_option(key_path, value, self.server_id, create_mode= create_mode)
+        self.config_manager.set_client_option(
+            key_path,
+            value,
+            create_mode=create_mode,
+        )
         # Update local cache
         set_item_in_dict(self.client_options, key_path, value, create_mode= create_mode)
         
@@ -1989,7 +1993,7 @@ class MainWindow(wx.Frame):
             self.config_manager.set_client_option("audio/input_device_name", "", create_mode=True)
 
         # Reload full options to be safe
-        self.client_options = self.config_manager.get_client_options(self.server_id)
+        self.client_options = self.config_manager.get_client_options()
 
     def _do_reconnect(self, server_url, username, password):
         """Actually perform the reconnection attempt."""
@@ -2096,7 +2100,7 @@ class MainWindow(wx.Frame):
         """Handle authorization success from server."""
         if packet.get("reset_ui", False):
             # Reset stale menus, editboxes, voice, and managed game audio
-            # before the fresh session's welcome feedback is emitted.
+            # before ordered session UI/audio packets are released by the server.
             self.on_server_clear_ui({})
 
         # Reset reconnect flags on success instead of restarting
@@ -2187,15 +2191,15 @@ class MainWindow(wx.Frame):
                  # Client might not use this directly yet, but store it
                  self.config_manager.set_client_option("game/clear_kept_on_roll", preferences["clear_kept_on_roll"], create_mode=True)
 
-        self.client_options = self.config_manager.get_client_options(self.server_id)
+        self.client_options = self.config_manager.get_client_options()
         self._refresh_audio_input_devices(sync_server=True)
 
         # Verify if we need to reload localization (though UI is already built)
         # For now, it will apply on next restart, which is what the user asked for.
 
-        # Fade only the client-owned connection loop before the welcome cue.
+        # Fade only the client-owned connection loop. The server queues the
+        # welcome cue after authoritative session audio restoration.
         self._stop_connection_audio()
-        self.sound_manager.play("welcome.ogg", volume=1.0)
 
         # Check for updates
         update_info = packet.get("update_info")
@@ -2619,14 +2623,13 @@ class MainWindow(wx.Frame):
     def send_client_options_to_server(self):
         """Send server profile client options to the server.
 
-        Sends only the server-specific options (not defaults) to inform
-        the server of the client's preferences.
+        Sends the current local client options to inform the server of the
+        client's preferences.
         """
         if not self.connected or not self.config_manager or not self.server_id:
             return
 
-        # Get server profile options (defaults + overrides merged)
-        options = self.config_manager.get_client_options(self.server_id)
+        options = self.config_manager.get_client_options()
 
         self.network.send_packet({
             "type": "client_options",
@@ -2649,10 +2652,8 @@ class MainWindow(wx.Frame):
         dlg = ClientOptionsDialog(
             self,
             self.config_manager,
-            self.server_id,
             self.lang_codes,
             self.sound_manager,
-            self.client_options,
             self.voice_manager,
         )
 

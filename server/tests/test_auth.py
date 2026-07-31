@@ -1,7 +1,7 @@
 import pytest
 from server.auth.auth import AuthManager
 from server.persistence.database import Database
-from server.core.server import LATEST_CLIENT_VERSION, Server
+from server.core.server import Server, VERSION, WELCOME_SOUND
 from server.users.network_user import NetworkUser
 import tempfile
 import os
@@ -259,7 +259,7 @@ class TestAuthSecurity:
                 "client": "python",
                 "username": "authuser",
                 "password": "Password123",
-                "version": "1.0.0",
+                "version": VERSION,
             },
         )
         assert python_client.sent_messages[0]["type"] == "authorize_success"
@@ -273,7 +273,7 @@ class TestAuthSecurity:
                 "client": "mobile",
                 "username": "authuser",
                 "password": "Password123",
-                "version": "1.0.0",
+                "version": VERSION,
             },
         )
         assert mobile_client.sent_messages[0]["type"] == "authorize_success"
@@ -287,7 +287,7 @@ class TestAuthSecurity:
                 "client": "web",
                 "username": "authuser",
                 "password": "Password123",
-                "version": "1.0.0",
+                "version": VERSION,
             },
         )
         assert web_client.sent_messages[-1]["type"] == "login_failed"
@@ -430,7 +430,7 @@ class TestAuthSecurity:
                     "client": "python",
                     "username": username,
                     "password": wrong_password,
-                    "version": "1.0.0",
+                    "version": VERSION,
                 },
             )
             assert client.sent_messages[-1]["type"] == "login_failed"
@@ -444,7 +444,7 @@ class TestAuthSecurity:
                 "client": "python",
                 "username": username,
                 "password": correct_password,
-                "version": "1.0.0",
+                "version": VERSION,
             },
         )
         assert blocked_client.sent_messages[-1]["type"] == "login_failed"
@@ -464,7 +464,7 @@ class TestAuthSecurity:
                 "client": "python",
                 "username": "alice",
                 "password": "Password123",
-                "version": "1.0.0",
+                "version": VERSION,
             },
         )
 
@@ -474,6 +474,153 @@ class TestAuthSecurity:
         assert self.server._ws_server.get_client_by_username("Alice") is client
         assert client.sent_messages[0]["type"] == "authorize_success"
         assert client.sent_messages[0]["username"] == "Alice"
+
+    @pytest.mark.asyncio
+    async def test_outdated_native_client_gets_updater_without_owning_session(self):
+        self.server._auth.register("Alice", "Password123")
+        current_client = MockClient()
+        outdated_client = MockClient()
+        outdated_client.address = "127.0.0.1:23456"
+        self.server._ws_server.bind_client(current_client)
+        self.server._ws_server.bind_client(outdated_client)
+
+        current_packet = {
+            "type": "authorize",
+            "client": "python",
+            "username": "Alice",
+            "password": "Password123",
+            "version": VERSION,
+        }
+        await self.server._handle_authorize(current_client, current_packet)
+        current_user = self.server._users["Alice"]
+
+        await self.server._handle_authorize(
+            outdated_client,
+            {
+                **current_packet,
+                "client": "mobile",
+                "version": "0.0.1",
+            },
+        )
+
+        assert len(outdated_client.sent_messages) == 1
+        update_packet = outdated_client.sent_messages[0]
+        assert update_packet["type"] == "authorize_success"
+        assert update_packet["username"] == "Alice"
+        assert update_packet["update_info"]["version"] == VERSION
+        assert update_packet["update_info"]["url"]
+        assert update_packet["sounds_info"]["version"]
+        assert update_packet["reset_ui"] is True
+        assert outdated_client.username is None
+        assert outdated_client.authenticated is False
+        assert outdated_client.retired is True
+        assert current_client.closed is False
+        assert self.server._users["Alice"] is current_user
+        assert self.server._ws_server.get_client_by_username("Alice") is current_client
+
+        await self.server._on_client_message(outdated_client, {"type": "ping"})
+        assert len(outdated_client.sent_messages) == 1
+
+    @pytest.mark.parametrize("client_type", ["python", "web", "mobile"])
+    @pytest.mark.asyncio
+    async def test_authorize_unwinds_logout_prompt_and_orders_welcome_audio(
+        self,
+        client_type,
+    ):
+        record = self.db.create_user(
+            "Alice",
+            "hash",
+            approved=True,
+            email="alice@example.com",
+        )
+        self.server._user_states[record.username] = {
+            "menu": "logout_confirm_menu",
+            "_stack": [
+                {
+                    "menu": "main_menu",
+                    "_last_selection_id": "logout",
+                    "_restore_focus_id": "logout",
+                },
+            ],
+        }
+        client = MockClient()
+        self.server._ws_server.bind_client(client)
+
+        await self.server._activate_authenticated_session(
+            client,
+            canonical_username=record.username,
+            client_type=client_type,
+            client_platform="test",
+            user_record=record,
+        )
+
+        assert client.sent_messages[0]["type"] == "authorize_success"
+        restored_state = self.server._user_states[record.username]
+        assert restored_state["menu"] == "main_menu"
+        assert restored_state.get("_stack", []) == []
+        assert "_last_selection_id" not in restored_state
+        assert "_restore_focus_id" not in restored_state
+
+        queued = self.server._users[record.username].get_queued_messages()
+        welcome_indexes = [
+            index
+            for index, packet in enumerate(queued)
+            if (
+                packet.get("type") == "audio"
+                and packet.get("command") == "play"
+                and packet.get("kind") == "sfx"
+                and packet.get("asset") == WELCOME_SOUND
+            )
+        ]
+        assert len(welcome_indexes) == 1
+        welcome_index = welcome_indexes[0]
+        assert queued[welcome_index]["priority"] == 100
+        assert queued[welcome_index]["max_instances"] == 1
+        assert any(
+            index < welcome_index
+            and packet.get("type") == "audio"
+            and packet.get("command") == "stop_all"
+            for index, packet in enumerate(queued)
+        )
+        assert any(
+            index < welcome_index
+            and packet.get("type") == "audio"
+            and packet.get("command") == "play"
+            and packet.get("kind") == "music"
+            for index, packet in enumerate(queued)
+        )
+        assert not any(
+            index > welcome_index
+            and packet.get("type") == "audio"
+            and packet.get("command") == "stop_all"
+            for index, packet in enumerate(queued)
+        )
+
+    @pytest.mark.asyncio
+    async def test_confirmed_logout_discards_resumable_ui_state(self):
+        client = MockClient()
+        user = NetworkUser("Alice", "en", client, approved=True)
+        self.server._users[user.username] = user
+        self.server._user_states[user.username] = {
+            "menu": "logout_confirm_menu",
+            "_stack": [{"menu": "main_menu"}],
+        }
+        self.server._deferred_navigation[user.username] = (
+            self.server._show_main_menu,
+            (),
+            {},
+        )
+
+        async def skip_failsafe(_user):
+            return None
+
+        self.server._failsafe_close = skip_failsafe
+        await self.server._handle_logout_confirm_selection(user, "yes")
+        await asyncio.sleep(0)
+
+        assert client.sent_messages == [{"type": "force_exit"}]
+        assert user.username not in self.server._user_states
+        assert user.username not in self.server._deferred_navigation
 
     @pytest.mark.asyncio
     async def test_authorize_kicks_existing_session_across_case_variants(self):
@@ -492,7 +639,7 @@ class TestAuthSecurity:
                 "client": "python",
                 "username": "Alice",
                 "password": "Password123",
-                "version": "1.0.0",
+                "version": VERSION,
             },
         )
 
@@ -503,7 +650,7 @@ class TestAuthSecurity:
                 "client": "python",
                 "username": "alice",
                 "password": "Password123",
-                "version": "1.0.0",
+                "version": VERSION,
             },
         )
 
@@ -527,7 +674,7 @@ class TestAuthSecurity:
             "client": "python",
             "username": "Alice",
             "password": "Password123",
-            "version": "1.0.0",
+            "version": VERSION,
         }
         await self.server._handle_authorize(first_client, auth_packet)
         await self.server._handle_authorize(second_client, auth_packet)
@@ -565,7 +712,7 @@ class TestAuthSecurity:
             "client": "python",
             "username": "Alice",
             "password": "Password123",
-            "version": "1.0.0",
+            "version": VERSION,
         }
         await self.server._handle_authorize(first_client, auth_packet)
         await self.server._handle_authorize(second_client, auth_packet)
@@ -681,7 +828,7 @@ class TestAuthSecurity:
                 "client": "mobile",
                 "username": record.username,
                 "password": "Password123",
-                "version": LATEST_CLIENT_VERSION,
+                "version": VERSION,
             },
         )
 
@@ -711,7 +858,7 @@ class TestAuthSecurity:
                 "client": "python",
                 "username": "Alice",
                 "password": "Password123",
-                "version": "1.0.0",
+                "version": VERSION,
             },
         )
 
@@ -744,7 +891,7 @@ class TestAuthSecurity:
             "client": "python",
             "username": "Alice",
             "password": "Password123",
-            "version": "1.0.0",
+            "version": VERSION,
         }
 
         await asyncio.gather(
@@ -770,7 +917,7 @@ class TestAuthSecurity:
             "client": "python",
             "username": "Alice",
             "password": "Password123",
-            "version": "1.0.0",
+            "version": VERSION,
         }
 
         account_lock = self.server._session_lock_for("Alice")

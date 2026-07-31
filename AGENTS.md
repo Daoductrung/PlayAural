@@ -396,6 +396,14 @@ per-game shutdown hooks.
 - Credential verification, password-reset eviction, moderation eviction, and
   account deletion must use that same account lock so a checked credential
   cannot install a session after its account or password changed.
+- First-party releases update the server and all clients in lockstep. Only an
+  exact server/client version match may install an authenticated session.
+  Outdated native clients may receive the credential-verified update bootstrap
+  needed by their mandatory updater, but must never own a `NetworkUser`,
+  displace a current session, broadcast presence, or dispatch gameplay. Reject
+  outdated Web clients before authentication. Do not add old packet-field
+  aliases; retained account/config/table/save migrations remain required
+  because persistent data survives releases.
 - Never transfer rendered menus or editboxes between sessions. Rebuild UI from
   authoritative server/game intent using the replacement client's capabilities;
   device-only frames fall back to a valid shared parent.

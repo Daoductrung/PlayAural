@@ -6,6 +6,7 @@ import logging
 import re
 import signal
 import sys
+import time
 import unicodedata
 import weakref
 from datetime import datetime
@@ -71,7 +72,6 @@ from ..game_utils.game_result import GameResult
 
 
 VERSION = "1.0.4.9"
-LATEST_CLIENT_VERSION = "1.0.4.9"
 UPDATE_URL = "https://github.com/Daoductrung/PlayAural/releases/latest/download/PlayAural.zip"
 UPDATE_HASH = "" # Optional SHA256
 
@@ -83,13 +83,63 @@ TABLE_INVITE_NOTIFICATION_SOUND = "table_invite.ogg"
 VOICE_CHAT_JOIN_SOUND = "voice_join.ogg"
 VOICE_CHAT_LEAVE_SOUND = "voice_leave.ogg"
 MAIN_MENU_MUSIC = "mainmus.ogg"
+WELCOME_SOUND = "welcome.ogg"
 ONLINE_USERS_PAGE_SIZE = DEFAULT_MENU_PAGE_SIZE
 VOICE_JOIN_AUTHORIZATION_WINDOW_SECONDS = 120
 SESSION_STATE_RETENTION_SECONDS = 300
+PRESENCE_OFFLINE_GRACE_SECONDS = 2.0
+PRESENCE_DUPLICATE_WINDOW_SECONDS = 5.0
+PRESENCE_EVENT_RETENTION_SECONDS = 300.0
+MAX_RECENT_PRESENCE_EVENTS = 4096
+PRESENCE_EVENT_SPECS = {
+    True: {
+        "message": "user-online",
+        "friend_message": "friend-online",
+        "sounds": {
+            "user": "online.ogg",
+            "friend": "onlinefriend.ogg",
+            "admin": "onlineadmin.ogg",
+            "developer": "onlinedev.ogg",
+        },
+    },
+    False: {
+        "message": "user-offline",
+        "friend_message": "friend-offline",
+        "sounds": {
+            "user": "offline.ogg",
+            "friend": "offlinefriend.ogg",
+            "admin": "offlineadmin.ogg",
+            "developer": "offlinedev.ogg",
+        },
+    },
+}
+PRESENCE_PRIVILEGED_SOUND_ROLES = (
+    (3, "developer"),
+    (2, "admin"),
+)
 HOST_RESTART_CONFIRM_MENU = "host_restart_confirm_menu"
 FRIEND_REMOVE_CONFIRM_MENU = "friend_remove_confirm_menu"
 TABLE_MEMBERS_MENU = "table_members_menu"
 TABLE_MEMBER_ACTIONS_MENU = "table_member_actions_menu"
+NON_RESUMABLE_ACTION_MENUS = frozenset(
+    {
+        "broadcast_choice_menu",
+        "demote_confirm_menu",
+        "email_confirm_menu",
+        FRIEND_REMOVE_CONFIRM_MENU,
+        HOST_RESTART_CONFIRM_MENU,
+        "kick_confirm_menu",
+        "logout_confirm_menu",
+        "promote_confirm_menu",
+        "server_power_confirm_menu",
+    }
+)
+RESTORE_FOCUS_FIELDS = (
+    "_last_selection_id",
+    "_last_selection_position",
+    "_restore_focus_id",
+    "_restore_focus_position",
+)
 OPTIONS_MENU_IDS = frozenset(
     {
         "options_menu",
@@ -262,6 +312,9 @@ class Server:
         self._users: dict[str, NetworkUser] = {}  # username -> NetworkUser
         self._user_states: dict[str, dict] = {}  # username -> UI state
         self._pending_disconnects: dict[str, asyncio.Task] = {} # username -> broadcast task
+        # Runtime-only, bounded debounce state. Presence events are derived
+        # from live sessions and must never be persisted with account data.
+        self._recent_presence_events: dict[str, tuple[bool, float]] = {}
         self._session_locks: weakref.WeakValueDictionary[
             str,
             asyncio.Lock,
@@ -447,6 +500,7 @@ PlayAural Server
         for task in list(self._pending_disconnects.values()):
             task.cancel()
         self._pending_disconnects.clear()
+        self._recent_presence_events.clear()
         for task in list(self._pending_session_state_cleanups.values()):
             task.cancel()
         self._pending_session_state_cleanups.clear()
@@ -665,12 +719,6 @@ PlayAural Server
                 return
 
             active_ban = self._db.get_active_ban(username)
-            if user.trust_level >= 3:
-                offline_sound = "offlinedev.ogg"
-            elif user.trust_level >= 2:
-                offline_sound = "offlineadmin.ogg"
-            else:
-                offline_sound = "offline.ogg"
 
             client.authenticated = False
             client.retired = True
@@ -713,7 +761,6 @@ PlayAural Server
                     self._delayed_offline_broadcast(
                         username,
                         user.uuid,
-                        offline_sound,
                         user.trust_level,
                     )
                 )
@@ -842,13 +889,12 @@ PlayAural Server
         self,
         username: str,
         user_uuid: str,
-        sound: str,
         trust_level: int,
     ) -> None:
         """Wait briefly then broadcast offline message if user hasn't reconnected."""
         task = asyncio.current_task()
         try:
-            await asyncio.sleep(2.0)
+            await asyncio.sleep(PRESENCE_OFFLINE_GRACE_SECONDS)
             async with self._session_lock_for(username):
                 if (
                     username in self._users
@@ -856,12 +902,11 @@ PlayAural Server
                 ):
                     return
                 self._pending_disconnects.pop(username, None)
-                self._broadcast_presence_l(
-                    "user-offline",
+                self._broadcast_presence(
                     username,
                     user_uuid,
-                    sound,
-                    trust_level,
+                    trust_level=trust_level,
+                    is_online=False,
                 )
         except asyncio.CancelledError:
             pass
@@ -870,53 +915,95 @@ PlayAural Server
                 self._pending_disconnects.pop(username, None)
             self.on_user_presence_changed()
 
-    def _broadcast_presence_l(
-        self, message_id: str, player_name: str, player_uuid: str, default_sound: str, target_trust_level: int = 1
-    ) -> None:
-        """Broadcast a localized presence announcement to all approved online users with sound."""
-        is_online_event = (message_id == "user-online")
-        friend_message_id = "friend-online" if is_online_event else "friend-offline"
-        friend_sound = "onlinefriend.ogg" if is_online_event else "offlinefriend.ogg"
+    def _claim_presence_event(self, player_uuid: str, is_online: bool) -> bool:
+        """Atomically debounce duplicate presence events for one account.
 
-        # Optimization: Fetch the connected player's friends once to avoid N+1 queries.
-        # The database returns a list of UUIDs for friends.
-        connecting_player_friends_uuids = set(self._db.get_friends(player_uuid))
+        Opposite transitions always pass so a genuine offline/online cycle is
+        never hidden. Repeated identical events extend the quiet window, which
+        prevents a faulty or racing caller from producing periodic bursts.
+        """
+        now = time.monotonic()
+        key = str(player_uuid)
+        previous = self._recent_presence_events.get(key)
+        if (
+            previous is not None
+            and previous[0] == is_online
+            and now - previous[1] < PRESENCE_DUPLICATE_WINDOW_SECONDS
+        ):
+            self._recent_presence_events.pop(key, None)
+            self._recent_presence_events[key] = (is_online, now)
+            return False
 
-        for user in self._users.values():
+        self._recent_presence_events.pop(key, None)
+        self._recent_presence_events[key] = (is_online, now)
+
+        cutoff = now - PRESENCE_EVENT_RETENTION_SECONDS
+        stale_keys = [
+            event_key
+            for event_key, (_, recorded_at) in self._recent_presence_events.items()
+            if recorded_at < cutoff
+        ]
+        for event_key in stale_keys:
+            self._recent_presence_events.pop(event_key, None)
+        while len(self._recent_presence_events) > MAX_RECENT_PRESENCE_EVENTS:
+            oldest_key = next(iter(self._recent_presence_events))
+            self._recent_presence_events.pop(oldest_key, None)
+        return True
+
+    @staticmethod
+    def _presence_sound_role(*, trust_level: int, is_friend: bool) -> str:
+        """Resolve the highest-priority sound role for a presence event."""
+        for minimum_trust, role in PRESENCE_PRIVILEGED_SOUND_ROLES:
+            if trust_level >= minimum_trust:
+                return role
+        return "friend" if is_friend else "user"
+
+    def _broadcast_presence(
+        self,
+        player_name: str,
+        player_uuid: str,
+        *,
+        trust_level: int,
+        is_online: bool,
+    ) -> bool:
+        """Send one preference-aware localized presence event.
+
+        Friend messaging takes precedence when enabled. Privileged role audio
+        takes precedence over friend audio, while every recipient still opts in
+        through either the friend or general presence preference.
+        """
+        if not self._claim_presence_event(player_uuid, is_online):
+            return False
+
+        spec = PRESENCE_EVENT_SPECS[is_online]
+        friend_uuids = set(self._db.get_friends(player_uuid))
+
+        for user in tuple(self._users.values()):
             if not user.approved:
                 continue
 
-            # Check if this connected user's UUID is in the joining/leaving player's friend list.
-            # Friendship is bidirectional, so checking one side is sufficient.
-            is_friend = False
-            if user.preferences.notify_friend_presence:
-                is_friend = user.uuid in connecting_player_friends_uuids
-
-            if is_friend:
-                # Play friend priority notification
-                user.speak_l(friend_message_id, buffer="system", player=player_name)
-                user.play_sound(friend_sound)
+            use_friend_notification = (
+                user.preferences.notify_friend_presence
+                and user.uuid in friend_uuids
+            )
+            if use_friend_notification:
+                message_id = spec["friend_message"]
+            elif user.preferences.notify_user_presence:
+                message_id = spec["message"]
             else:
-                # If target is a normal user (trust level < 2) and this user has general presence notifications off, skip
-                if target_trust_level < 2 and not user.preferences.notify_user_presence:
-                    continue
-                # Use "system" buffer for joins/parts
-                user.speak_l(message_id, buffer="system", player=player_name)
-                # Play default sound
-                user.play_sound(default_sound)
+                continue
 
-    async def _broadcast_admin_announcement(self, admin_name: str) -> None:
-        """Broadcast an admin announcement to all approved online users."""
-        for user in self._users.values():
-            if user.approved:
-                user.speak_l("admin-announcement-broadcast", buffer="system", admin=admin_name)
-
-    async def _broadcast_dev_announcement(self, dev_name: str) -> None:
-        """Broadcast a developer announcement to all approved online users."""
-        for user in self._users.values():
-            if not user.approved:
-                continue  # Don't send broadcasts to unapproved users
-            user.speak_l("dev-announcement-broadcast", buffer="system", dev=dev_name)
+            sound_role = self._presence_sound_role(
+                trust_level=trust_level,
+                is_friend=use_friend_notification,
+            )
+            user.speak_l(
+                str(message_id),
+                buffer="system",
+                player=player_name,
+            )
+            user.play_sound(spec["sounds"][sound_role])
+        return True
 
     def _notify_admins(self, message_id: str, sound: str) -> None:
         """Notify all online admins (trust level >= 2) with a message and sound."""
@@ -926,16 +1013,8 @@ PlayAural Server
                 user.play_sound(sound)
 
     def _get_auth_client_type(self, packet: dict) -> str:
-        """Return the normalized client type for auth-related packets.
-
-        If the packet doesn't specify a client type, treat it as ``python``.
-        """
-        client_type = str(
-            packet.get("client", packet.get("client_type", "python"))
-        ).strip().lower()
-        if client_type == "desktop":
-            client_type = "python"
-        return client_type or "python"
+        """Return the canonical client type from an auth-related packet."""
+        return str(packet.get("client", "")).strip().lower()
 
     @staticmethod
     def _sanitize_client_platform(value: object) -> str:
@@ -954,9 +1033,7 @@ PlayAural Server
 
     def _get_auth_client_platform(self, packet: dict) -> str:
         """Return sanitized optional platform metadata for online presence."""
-        return self._sanitize_client_platform(
-            packet.get("platform", packet.get("client_platform", ""))
-        )
+        return self._sanitize_client_platform(packet.get("platform", ""))
 
     async def _verify_captcha_if_required(
         self, client: ClientConnection, packet: dict
@@ -967,9 +1044,26 @@ PlayAural Server
         token. The desktop client cannot, so it relies on the existing server
         rate limits and validation rules instead.
         """
-        if self._get_auth_client_type(packet) != "web":
+        if self._get_auth_client_type(packet) in {"python", "mobile"}:
             return True, ""
         return await verify_captcha(packet.get("captcha_token", ""), client.ip_address)
+
+    def _client_release_metadata(self) -> dict[str, Any]:
+        """Return the canonical release and capability handshake fields."""
+        return {
+            "version": VERSION,
+            "update_info": {
+                "version": VERSION,
+                "url": UPDATE_URL,
+                "hash": UPDATE_HASH,
+            },
+            "sounds_info": {
+                "version": SOUNDS_VERSION,
+                "url": SOUNDS_URL,
+            },
+            "voice": self._voice.capability_packet(),
+            "reset_ui": True,
+        }
 
     async def _on_client_message(self, client: ClientConnection, packet: dict) -> None:
         """Handle incoming message from client."""
@@ -1111,6 +1205,17 @@ PlayAural Server
         client_type = self._get_auth_client_type(packet)
         client_platform = self._get_auth_client_platform(packet)
 
+        if client_type not in {"python", "web", "mobile"}:
+            await client.send(
+                {
+                    "type": "login_failed",
+                    "reason": "version_mismatch",
+                    "reconnect": False,
+                }
+            )
+            await client.close()
+            return
+
         # Rate limit check (brute force protection)
         if not self._rate_limiter.is_login_allowed(client.ip_address):
             await client.send({
@@ -1131,8 +1236,7 @@ PlayAural Server
             await client.close()
             return
 
-        # Check version if provided
-        client_version = packet.get("version", "0.0.0")
+        client_version = str(packet.get("version", ""))
 
         # WEB CLIENT: Strict validation
         # If version mismatch, send 'login_failed' so it shows the error message.
@@ -1152,10 +1256,6 @@ PlayAural Server
             await client.close()
             return
 
-        # PYTHON CLIENT:
-        # We proceed to authenticate and send 'authorize_success' so it receives 'update_info'.
-        # The logic at the end of this function will prevent sending the game list, triggering the update dialog.
-
         # Resolve the canonical lock key before authenticating. Password
         # verification and activation share this lock with password resets and
         # account deletion, so a credential result can never become stale
@@ -1167,6 +1267,7 @@ PlayAural Server
         old_client = None
         old_disconnect_packet = None
         auth_failure_reason = None
+        update_bootstrap_packet = None
         async with self._session_lock_for(canonical_username):
             if not self._auth.authenticate(username, password):
                 auth_failure_reason = (
@@ -1180,16 +1281,28 @@ PlayAural Server
                     auth_failure_reason = "user_not_found"
                 else:
                     canonical_username = user_record.username
-                    old_client, old_disconnect_packet = (
-                        await self._activate_authenticated_session(
-                            client,
-                            canonical_username=canonical_username,
-                            client_type=client_type,
-                            client_platform=client_platform,
-                            client_version=client_version,
-                            user_record=user_record,
+                    if client_version != VERSION:
+                        # Native clients need the existing authorize-success
+                        # shape to launch their mandatory updater. This is an
+                        # update-only bootstrap: it never installs an online
+                        # user, owns an account session, or accepts gameplay.
+                        update_bootstrap_packet = {
+                            "type": "authorize_success",
+                            "username": canonical_username,
+                            "locale": user_record.locale or "en",
+                            **self._client_release_metadata(),
+                            "preferences": {},
+                        }
+                    else:
+                        old_client, old_disconnect_packet = (
+                            await self._activate_authenticated_session(
+                                client,
+                                canonical_username=canonical_username,
+                                client_type=client_type,
+                                client_platform=client_platform,
+                                user_record=user_record,
+                            )
                         )
-                    )
 
         if auth_failure_reason:
             self._rate_limiter.record_failed_login(client.ip_address)
@@ -1203,6 +1316,13 @@ PlayAural Server
             return
 
         self._rate_limiter.clear_failed_logins(client.ip_address)
+
+        if update_bootstrap_packet:
+            await client.send(update_bootstrap_packet)
+            # Keep the transport available long enough for the deployed native
+            # client to open its updater, but make every later send/input inert.
+            client.retired = True
+            return
 
         # Close outside the account lock. Its disconnect callback takes the
         # same lock and will observe that the replacement session owns it.
@@ -1219,10 +1339,9 @@ PlayAural Server
         canonical_username: str,
         client_type: str,
         client_platform: str,
-        client_version: str,
         user_record: Any,
     ) -> tuple[ClientConnection | None, dict | None]:
-        """Atomically retire any prior owner and activate ``client``."""
+        """Atomically retire any prior owner and activate a current client."""
         # Update last login date
         self._db.update_user_last_login(canonical_username)
 
@@ -1312,40 +1431,49 @@ PlayAural Server
             state_cleanup.cancel()
 
         active_ban = self._db.get_active_ban(canonical_username)
-        if client_version == LATEST_CLIENT_VERSION:
-            if active_ban:
-                self._show_banned_menu(user, active_ban)
-            elif not user.approved:
-                self._show_waiting_for_approval(user)
-            else:
-                active_motd = self._db.get_active_motd(user.locale)
-                motd_version = active_motd[0] if active_motd else 0
-                user_motd_version = (
-                    user_record.motd_version if user_record else 0
+        if active_ban:
+            self._show_banned_menu(user, active_ban)
+        elif not user.approved:
+            self._show_waiting_for_approval(user)
+        else:
+            active_motd = self._db.get_active_motd(user.locale)
+            motd_version = active_motd[0] if active_motd else 0
+            user_motd_version = (
+                user_record.motd_version if user_record else 0
+            )
+            if (
+                active_motd
+                and motd_version != user_motd_version
+            ):
+                self._show_motd_menu(
+                    user,
+                    active_motd[1],
+                    motd_version,
                 )
-                if (
-                    active_motd
-                    and motd_version != user_motd_version
-                ):
-                    self._show_motd_menu(
-                        user,
-                        active_motd[1],
-                        motd_version,
-                    )
-                else:
-                    # This is synchronous and happens before the first network
-                    # await. A live device switch therefore transfers the
-                    # game/user attachment immediately while the old socket is
-                    # already barred from input. Timers and sequences continue,
-                    # and any output produced during authentication queues for
-                    # the new owner instead of disappearing into a stale user.
-                    self._restore_user_state(
-                        user,
-                        canonical_username,
-                        session_handover=session_handover,
-                    )
-                    self._maybe_run_deferred_navigation(user)
-                    self._maybe_show_deferred_table_invite(user)
+            else:
+                # This is synchronous and happens before the first network
+                # await. A live device switch therefore transfers the
+                # game/user attachment immediately while the old socket is
+                # already barred from input. Timers and sequences continue,
+                # and any output produced during authentication queues for
+                # the new owner instead of disappearing into a stale user.
+                self._restore_user_state(
+                    user,
+                    canonical_username,
+                    session_handover=session_handover,
+                )
+                self._maybe_run_deferred_navigation(user)
+                self._maybe_show_deferred_table_invite(user)
+
+        # Queue the session cue after UI restoration. Restoring the main menu
+        # may first stop stale managed audio and start its music, so placing the
+        # cue here prevents a later teardown command from cancelling it. The
+        # queue remains gated until authorize_success has reached the client.
+        user.play_sound(
+            WELCOME_SOUND,
+            priority=100,
+            max_instances=1,
+        )
 
         # Send success response
         # MUST generate this packet first so client considers itself "logged in"
@@ -1353,60 +1481,30 @@ PlayAural Server
             {
                 "type": "authorize_success",
                 "username": canonical_username,
-                "version": VERSION,
                 "locale": user.locale,
-                "update_info": {
-                    "version": LATEST_CLIENT_VERSION,
-                    "url": UPDATE_URL,
-                    "hash": UPDATE_HASH,
-                },
-                "sounds_info": {
-                    "version": SOUNDS_VERSION,
-                    "url": SOUNDS_URL,
-                },
-                "voice": self._voice.capability_packet(),
+                **self._client_release_metadata(),
                 "preferences": self._preferences_for_client(user),
-                "reset_ui": True,
             }
         )
 
         if not active_ban:
-            # Broadcast online announcement to all users with appropriate sound
-            # We do this AFTER authorize_success so the client is ready to receive/play it.
-            # This fixes the "no self sound" issue.
-            if trust_level >= 3:
-                online_sound = "onlinedev.ogg"
-            elif trust_level >= 2:
-                online_sound = "onlineadmin.ogg"
-            else:
-                online_sound = "online.ogg"
-
-            # Only broadcast if we didn't cancel a pending disconnect (debounce)
+            # Broadcast only after authorize_success so every selected
+            # recipient, including the connecting account when opted in, can
+            # render and play the ordered event.
             if not pending_task and not session_handover:
-                self._broadcast_presence_l(
-                    "user-online",
+                self._broadcast_presence(
                     canonical_username,
                     user_uuid,
-                    online_sound,
-                    trust_level,
+                    trust_level=trust_level,
+                    is_online=True,
                 )
                 self.on_user_presence_changed()
-
-                # If user is a developer or admin, announce that as well
-                if trust_level >= 3:
-                    await self._broadcast_dev_announcement(canonical_username)
-                elif trust_level >= 2:
-                    await self._broadcast_admin_announcement(canonical_username)
             elif session_handover:
                 # The account stayed online, but observers may be displaying
                 # client type/platform metadata that changed with the device.
                 self.on_user_presence_changed()
 
-        # Outdated desktop/mobile clients receive update metadata but never the
-        # game catalog or restored UI. First-party Web clients were rejected
-        # before authentication because they cannot self-update this way.
-        if client_version == LATEST_CLIENT_VERSION:
-            await self._send_game_list(client)
+        await self._send_game_list(client)
 
         client.session_ready = True
         return (
@@ -1472,11 +1570,38 @@ PlayAural Server
         user: NetworkUser,
         state: dict,
     ) -> dict:
-        """Normalize a current frame and its navigation history."""
-        normalized = self._normalize_restore_frame_for_client(user, state)
+        """Normalize safe resumable intent for the replacement client.
+
+        Confirmation and action-intent menus are valid only in the session
+        where the user explicitly opened them. Resuming one after a disconnect
+        can turn an old Enter/activate event into a destructive action, so
+        reconnect restoration unwinds to the nearest stable parent instead.
+        """
+        source = state if isinstance(state, dict) else {}
+        raw_stack_value = source.get("_stack", [])
+        raw_stack = (
+            [frame for frame in raw_stack_value if isinstance(frame, dict)]
+            if isinstance(raw_stack_value, list)
+            else []
+        )
+        abandoned_action = False
+        while source.get("menu") in NON_RESUMABLE_ACTION_MENUS:
+            abandoned_action = True
+            source = raw_stack.pop() if raw_stack else {"menu": "main_menu"}
+
+        normalized = self._normalize_restore_frame_for_client(user, source)
+        if abandoned_action:
+            for field in RESTORE_FOCUS_FIELDS:
+                normalized.pop(field, None)
+
         stack = []
-        for raw_frame in state.get("_stack", []):
-            if not isinstance(raw_frame, dict):
+        for raw_frame in raw_stack:
+            if raw_frame.get("menu") in NON_RESUMABLE_ACTION_MENUS:
+                if stack:
+                    stable_parent = dict(stack[-1])
+                    for field in RESTORE_FOCUS_FIELDS:
+                        stable_parent.pop(field, None)
+                    stack[-1] = stable_parent
                 continue
             frame = self._normalize_restore_frame_for_client(user, raw_frame)
             if not stack or stack[-1] != frame:
@@ -3527,8 +3652,7 @@ PlayAural Server
             if not voice_value:
                 return
         else:
-            # Legacy web clients sent the browser voice URI directly.
-            voice_value = self._coerce_client_voice_identifier(selection_id)
+            return
 
         user.preferences.speech_voice = voice_value
         self._save_user_preferences(user)
@@ -3676,8 +3800,7 @@ PlayAural Server
             if not voice_value:
                 return
         else:
-            # Legacy mobile clients sent the Expo voice identifier directly.
-            voice_value = self._coerce_client_voice_identifier(selection_id)
+            return
 
         user.preferences.mobile_tts_voice = voice_value
         self._save_user_preferences(user)
@@ -3754,7 +3877,7 @@ PlayAural Server
         """Handle input from options menu editbox."""
         menu_id = state.get("menu")
         input_id = packet.get("input_id")
-        value = packet.get("text", packet.get("value"))
+        value = packet.get("text")
         prefs = user.preferences
 
         numeric_inputs = {
@@ -3898,7 +4021,7 @@ PlayAural Server
         self._sync_desktop_audio_input_device_fallback(user)
 
     def _resolve_table_voice_context(self, user: NetworkUser, packet: dict) -> VoiceContext:
-        table_id = str(packet.get("context_id") or packet.get("table_id") or "").strip()
+        table_id = str(packet.get("context_id") or "").strip()
         table = self._tables.get_table(table_id) if table_id else self._tables.find_user_table(user.username)
         if not table:
             raise VoiceAuthorizationError("voice-not-in-context" if table_id else "voice-not-at-table")
@@ -4001,7 +4124,7 @@ PlayAural Server
             await self._send_voice_error(user, message_key, **params)
             return
         scope = str(packet.get("scope") or "table").strip().lower()
-        context_id = str(packet.get("context_id") or packet.get("table_id") or "").strip()
+        context_id = str(packet.get("context_id") or "").strip()
         resolver = self._voice_context_resolvers.get(scope)
         if not resolver:
             await self._send_voice_error(
@@ -5694,6 +5817,12 @@ PlayAural Server
     ) -> None:
         """Handle logout confirmation selection."""
         if selection_id == "yes":
+            # An intentional logout must never leave a resumable confirmation
+            # behind for the next login. Unexpected disconnects still retain
+            # stable navigation state through the normal bounded lifecycle.
+            self._user_states.pop(user.username, None)
+            self._deferred_navigation.pop(user.username, None)
+
             # Send force_exit command
             # The client will speak "Goodbye" and sys.exit(0), checking self.quitting to avoid reconnects
             await user.connection.send({"type": "force_exit"})
@@ -9271,7 +9400,7 @@ PlayAural Server
 
         # Handle system menu input
         if user:
-            if packet.get("cancelled") or packet.get("cancel"):
+            if packet.get("cancelled"):
                 if user_state.get("_transient"):
                     self._cancel_input_state(user, user_state)
                 return
@@ -9286,7 +9415,7 @@ PlayAural Server
 
             # Profile inputs
             menu_id = user_state.get("menu")
-            value = packet.get("text", packet.get("value", ""))
+            value = packet.get("text", "")
 
             if menu_id == "email_input":
                 value = value.strip()
@@ -9834,7 +9963,9 @@ PlayAural Server
             "online_users",
             items,
             multiletter=True,
-            escape_behavior=EscapeBehavior.ESCAPE_EVENT, # Legacy client compat: emit raw escape packet to be caught globally
+            # The explicit event lets every current client preserve this
+            # menu's server-owned Back behavior across live presence repaints.
+            escape_behavior=EscapeBehavior.ESCAPE_EVENT,
             position=(
                 self._first_menu_item_position(
                     items,
@@ -10426,7 +10557,7 @@ PlayAural Server
             else:
                 self._show_documentation_menu(user)
         elif menu == "email_confirm_menu":
-            new_email = frame.get("new_email", "")
+            new_email = frame.get("pending_email", "")
             if new_email:
                 self._show_email_confirm_menu(user, new_email)
             else:

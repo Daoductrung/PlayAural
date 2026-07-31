@@ -33,7 +33,7 @@ class NetworkUser(User):
         username: str,
         locale: str,
         connection: "ClientConnection",
-        client_type: str = "python",  # Default to python client for legacy compatibility
+        client_type: str = "python",
         client_platform: str = "",
         uuid: str | None = None,
         preferences: UserPreferences | None = None,

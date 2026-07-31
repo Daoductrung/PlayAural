@@ -2271,8 +2271,8 @@ export function PlayAuralApp() {
           const authPacket = packet as AuthorizeSuccessPacket;
           stopConnectionAudio();
           if (authPacket.reset_ui === true) {
-            // Reset the previous socket before emitting this session's welcome
-            // feedback, so teardown cannot cancel the fresh speech or SFX.
+            // Reset the previous socket before the server releases this
+            // session's ordered UI and audio packets.
             resetRuntimeUiForSession(false);
           }
           manualDisconnectRef.current = false;
@@ -2296,7 +2296,6 @@ export function PlayAuralApp() {
           if (checkVersionGates(authPacket)) {
             return;
           }
-          void audio.playSound("welcome.ogg", { volume: 1 });
           setStatusText(localization.t("status-connected"));
           announce(localization.t("status-connected"), "system");
           return;

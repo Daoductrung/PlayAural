@@ -1,6 +1,6 @@
 [project]
 name = "playaural-server"
-version = "1.0.0"
+version = "1.0.4.9"
 description = "PlayAural Game Server"
 readme = "../README.md"
 requires-python = ">=3.11"

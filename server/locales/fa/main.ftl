@@ -8,8 +8,6 @@ auth-error-user-not-found = کاربر وجود ندارد.
 auth-kicked-logged-in-elsewhere = شما قطع شدید زیرا حساب کاربری شما از دستگاه دیگری وارد شده است.
 
 chat-global = { $player } در کانال عمومی می‌گوید: { $message }
-dev-announcement-broadcast = { $dev } یکی از توسعه‌دهندگان PlayAural است.
-admin-announcement-broadcast = { $admin } یکی از مدیران PlayAural است.
 
 admin-smtp-updated-success = تنظیمات SMTP با موفقیت به‌روز شد
 admin-smtp-settings = تنظیمات SMTP

@@ -97,9 +97,10 @@ class Game(
     game_active: bool = False
     status: str = "waiting"  # waiting, playing, finished
     host: str = ""  # Username of the host
-    current_music: str = ""  # Currently playing music track
-    current_ambience: str = ""  # Currently playing ambience loop
-    current_ambience_outro: str = ""  # Outro for the currently playing ambience loop
+    # Read-only migration inputs retained so pre-protocol saves deserialize.
+    current_music: str = ""
+    current_ambience: str = ""
+    current_ambience_outro: str = ""
     # Canonical reconnect/save state for independently managed audio layers.
     # The three fields above remain a read-migration bridge for older saves.
     active_audio: dict[str, AudioPlaybackState] = field(default_factory=dict)
@@ -183,6 +184,8 @@ class Game(
             self.current_music = ""
             self.current_ambience = ""
             self.current_ambience_outro = ""
+        else:
+            self.migrate_legacy_audio_state()
 
     def _reset_transcripts(self) -> None:
         """Initialize transcript storage for seated players."""
@@ -582,18 +585,6 @@ class Game(
             user.send_audio_command(state.to_command(replay=True))
             if state.paused and state.kind == "music":
                 user.pause_music(handle=state.handle, fade_ms=0)
-        # Backward-compatible read migration for saves created before the
-        # unified audio state existed. New mutations populate active_audio.
-        if not self.active_audio:
-            if self.current_music:
-                user.play_music(self.current_music, fade_in_ms=0)
-            if self.current_ambience:
-                user.play_ambience(
-                    self.current_ambience,
-                    outro=self.current_ambience_outro,
-                    fade_in_ms=0,
-                )
-            
         # Check for game resume (if this was a paused-table reconnect scenario).
         if self.status == "playing":
             player = self.get_player_by_id(player_id)

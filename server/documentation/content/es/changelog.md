@@ -1,10 +1,16 @@
 Registro de cambios
 
+Sábado 1 de agosto de 2026
+
+Mejoras:
+
+* En Android, la música, el ambiente, y los efectos en bucle ahora se mantienen sonando durante todo el tiempo que el juego lo requiera. Con TalkBack activo, el audio del juego también permanece en los audífonos con cable, el dispositivo Bluetooth, o el altavoz del teléfono seleccionados por el sistema, en lugar de alternar entre salidas.
+
 Viernes 31 de julio de 2026
 
 Novedades:
 
-* Se añadió BANG! La Bala para 3 a 8 jugadores. Los anfitriones pueden desactivar las cartas y personajes Expandidos para el juego clásico de 80 cartas y 19 personajes para 4 a 7 jugadores, o dejarlos activados para el juego de 120 cartas y 34 personajes para 3 a 8, y pueden añadir Duelo al Mediodía, Un Puñado de Cartas, o eventos mixtos de cambio de turno. El juego incluye enfrentamientos de rol oculto, roles públicos para las reglas especiales de tres jugadores, bots estratégicos, audio dedicado del Oeste, y guías para principiantes en inglés y vietnamita.
+* Se añadió BANG! La Bala para 3 a 8 jugadores. Los anfitriones pueden desactivar las cartas y personajes Expandidos para el juego clásico de 80 cartas y 19 personajes para 4 a 7 jugadores, o dejarlos activados para el juego de 120 cartas y 34 personajes para 3 a 8, y pueden añadir Sólo ante el peligro, Por un puñado de cartas, o eventos mixtos de cambio de turno. El juego incluye enfrentamientos de rol oculto, roles públicos para las reglas especiales de tres jugadores, bots estratégicos, audio dedicado del Oeste, y guías para principiantes en inglés y vietnamita.
 
 Mejoras:
 
@@ -12,6 +18,7 @@ Mejoras:
 * La música del menú principal ahora continúa mientras te mueves entre Jugar, Personal y Opciones, y sus submenús. Las salas de espera siempre están en silencio, cada cliente ofrece audio de conexión, y las introducciones de juego comienzan sin que suene música del menú o de la sala de espera encima.
 * Mover la misma cuenta a otro dispositivo ahora mantiene intactos la mesa actual, los temporizadores de turno, los eventos de juego en curso, y el audio activo, mientras se reconstruyen los controles correctos para el nuevo cliente de escritorio, web, o móvil. El dispositivo anterior se desconecta de forma segura sin reemplazar temporalmente al jugador por un bot.
 * Las alertas de conexión y desconexión ahora suprimen duplicados rápidos y reconexiones breves, respetan la configuración de notificaciones de cada oyente incluso para administradores y desarrolladores, y usan el sonido de administrador o desarrollador en lugar del sonido genérico de amigo cuando esa persona es un amigo.
+* Los avisos de actualización ahora usan la descarga correcta para Windows o Android en lugar de abrir el paquete de otra plataforma. Si no hay una descarga disponible para la plataforma actual, el cliente lo explica con claridad.
 
 Corrección de errores:
 

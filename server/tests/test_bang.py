@@ -39,6 +39,7 @@ from server.games.bang.game import (
     ROLE_SHERIFF,
     BangGame,
 )
+from server.games.bang.player import BangPlayer
 from server.games.bang.state import (
     PHASE_DISCARD,
     PHASE_GAME_OVER,
@@ -177,6 +178,31 @@ def clear_user_messages(game: BangGame) -> None:
         user = game.get_user(player)
         if isinstance(user, MockUser):
             user.clear_messages()
+
+
+def prepare_draw_phase(
+    game: BangGame,
+    player: BangPlayer,
+    *,
+    character: str,
+    event: str = "",
+    deck: list[BangCard] | None = None,
+    discard_pile: list[BangCard] | None = None,
+) -> None:
+    """Build a deterministic active turn immediately before phase one."""
+
+    player.character = character
+    player.hand.clear()
+    game.game_active = True
+    game.status = "playing"
+    game.set_turn_players(game.players)
+    game.current_player = player
+    game.current_event = event
+    if deck is not None:
+        game.deck = list(deck)
+    if discard_pile is not None:
+        game.discard_pile = list(discard_pile)
+    clear_user_messages(game)
 
 
 def tick_until(
@@ -543,6 +569,7 @@ def test_abandoned_mine_redirects_kit_carlsons_draw_without_using_his_ability():
     first_draw = make_card(1313, cards.DUEL)
     game.deck = [deck_card]
     game.discard_pile = [lower_discard, second_draw, first_draw]
+    clear_user_messages(game)
 
     game._start_draw_phase(player)
 
@@ -551,6 +578,9 @@ def test_abandoned_mine_redirects_kit_carlsons_draw_without_using_his_ability():
     assert [card.id for card in game.discard_pile] == [1311]
     assert [card.id for card in game.deck] == [1310]
     assert player.abandoned_mine_draw_from_discard
+    observer_text = " ".join(speech_texts(game, 1))
+    assert "Duel, 2 of clubs" in observer_text
+    assert "Beer, 2 of clubs" in observer_text
     restored = BangGame.from_json(game.to_json())
     restored_player = restored.get_player_by_id(player.id)
     assert restored_player.abandoned_mine_draw_from_discard
@@ -588,6 +618,7 @@ def test_abandoned_mine_uses_a_short_discard_pile_before_the_draw_pile():
     lone_discard = make_card(1317, cards.DUEL)
     game.deck = [first_draw, second_draw, deck_tail]
     game.discard_pile = [lone_discard]
+    clear_user_messages(game)
 
     game._start_draw_phase(player)
 
@@ -595,6 +626,9 @@ def test_abandoned_mine_uses_a_short_discard_pile_before_the_draw_pile():
     assert game.deck == [second_draw, deck_tail]
     assert game.discard_pile == []
     assert player.abandoned_mine_draw_from_discard
+    observer_text = " ".join(speech_texts(game, 1))
+    assert "Duel, 2 of clubs" in observer_text
+    assert "BANG!, 2 of clubs" not in observer_text
 
 
 def test_abandoned_mine_feeds_claus_from_discard_then_draw_pile():
@@ -611,6 +645,7 @@ def test_abandoned_mine_feeds_claus_from_discard_then_draw_pile():
     discards = [make_card(1330 + index, cards.MISSED) for index in range(3)]
     game.deck = list(deck_cards)
     game.discard_pile = list(discards)
+    clear_user_messages(game)
 
     game._start_draw_phase(player)
 
@@ -625,6 +660,22 @@ def test_abandoned_mine_feeds_claus_from_discard_then_draw_pile():
     assert game.deck == deck_cards[2:]
     assert game.discard_pile == []
     assert player.abandoned_mine_draw_from_discard
+    assert game._top_effect().data["public_draw_card_ids"] == [
+        discards[2].id,
+        discards[1].id,
+        discards[0].id,
+    ]
+    restored = BangGame.from_json(game.to_json())
+    assert restored._top_effect().data["public_draw_card_ids"] == [
+        discards[2].id,
+        discards[1].id,
+        discards[0].id,
+    ]
+
+    game._action_choose_item(player, f"choice_claus_{discards[2].id}")
+
+    observer_text = " ".join(speech_texts(game, 2))
+    assert "Missed!, 2 of clubs" in observer_text
 
 
 def test_abandoned_mine_replaces_pat_brennans_draw_choice():
@@ -1011,6 +1062,7 @@ def test_audio_overlap_profiles_stay_in_the_requested_cinematic_band():
 
 
 def test_game_intro_delays_the_first_turn_by_ten_seconds():
+    random.seed(101)
     game = make_game(4)
     game.options.event_rules = NO_EVENTS
     clear_user_messages(game)
@@ -1109,6 +1161,7 @@ def test_lobby_music_is_stopped_before_bang_intro_and_delayed_bgm():
 
 
 def test_intro_delay_survives_json_round_trip():
+    random.seed(101)
     game = make_game(4)
     game.options.event_rules = NO_EVENTS
     game.on_start()
@@ -4297,6 +4350,174 @@ def test_general_store_reveal_and_each_public_pick_are_announced():
         f"{actor.name} takes BANG!, 2 of clubs from General Store"
         in pick_text
     )
+
+
+def test_peyote_publicly_reveals_correct_and_wrong_guesses():
+    game = make_game(4)
+    player = game.players[0]
+    correct = make_card(
+        2515,
+        cards.BANG,
+        rank="7",
+        suit=cards.HEARTS,
+    )
+    wrong = make_card(
+        2516,
+        cards.MISSED,
+        rank="8",
+        suit=cards.SPADES,
+    )
+    prepare_draw_phase(
+        game,
+        player,
+        character="rose_doolan",
+        event="peyote",
+        deck=[correct, wrong],
+    )
+
+    game._start_draw_phase(player)
+    assert game.decision and game.decision.kind == "peyote"
+    game._action_choose_item(player, "choice_guess_red")
+    assert game.decision and game.decision.kind == "peyote"
+    game._action_choose_item(player, "choice_guess_red")
+
+    assert player.hand == [correct]
+    assert game.discard_pile[-1] is wrong
+    for index in range(len(game.players)):
+        text = " ".join(speech_texts(game, index))
+        assert "BANG!, 7 of hearts" in text
+        assert "Missed!, 8 of spades" in text
+        assert "correct" in text
+        assert "wrong" in text
+
+
+def test_normal_and_kit_carlson_draws_remain_private_to_the_drawer():
+    game = make_game(4)
+    player = game.players[0]
+    first = make_card(2517, cards.BANG, rank="9", suit=cards.HEARTS)
+    second = make_card(2518, cards.MISSED, rank="10", suit=cards.CLUBS)
+    prepare_draw_phase(
+        game,
+        player,
+        character="rose_doolan",
+        deck=[first, second],
+    )
+
+    game._start_draw_phase(player)
+
+    player_text = " ".join(speech_texts(game, 0))
+    observer_text = " ".join(speech_texts(game, 1))
+    assert "BANG!, 9 of hearts" in player_text
+    assert "Missed!, 10 of clubs" in player_text
+    assert "BANG!, 9 of hearts" not in observer_text
+    assert "Missed!, 10 of clubs" not in observer_text
+    assert f"{player.name} draws 2 cards" in observer_text
+
+    game = make_game(4)
+    player = game.players[0]
+    inspected = [
+        make_card(2519, cards.BANG, rank="J", suit=cards.HEARTS),
+        make_card(2520, cards.MISSED, rank="Q", suit=cards.CLUBS),
+        make_card(2521, cards.BEER, rank="K", suit=cards.DIAMONDS),
+    ]
+    prepare_draw_phase(
+        game,
+        player,
+        character="kit_carlson",
+        deck=inspected,
+    )
+
+    game._start_draw_phase(player)
+
+    assert game.decision and game.decision.kind == "kit_return"
+    game.refresh_menus()
+    game.flush_menus()
+    observer_items = turn_menu_items(game, 1)
+    assert all(not item_id.startswith("choice_kit_") for item_id in observer_items)
+    game._action_choose_item(player, f"choice_kit_{inspected[2].id}")
+
+    observer_text = " ".join(speech_texts(game, 1))
+    assert f"{player.name} draws 2 cards" in observer_text
+    for card in inspected:
+        assert cards.card_label(card, "en") not in observer_text
+
+
+def test_jesse_jones_hides_stolen_and_deck_card_identities_from_observers():
+    game = make_game(4)
+    player, target = game.players[:2]
+    stolen = make_card(2522, cards.BANG, rank="A", suit=cards.SPADES)
+    deck_card = make_card(2523, cards.BEER, rank="2", suit=cards.HEARTS)
+    target.hand = [stolen]
+    prepare_draw_phase(
+        game,
+        player,
+        character="jesse_jones",
+        deck=[deck_card],
+    )
+
+    game._start_draw_phase(player)
+    assert game.decision and game.decision.kind == "jesse_jones"
+    game._action_choose_player(player, f"choose_player_{target.id}")
+
+    assert stolen in player.hand
+    assert deck_card in player.hand
+    target_text = " ".join(speech_texts(game, 1))
+    observer_text = " ".join(speech_texts(game, 2))
+    assert "BANG!, ace of spades" in target_text
+    assert "hidden card" in observer_text
+    assert "BANG!, ace of spades" not in observer_text
+    assert "Beer, 2 of hearts" not in observer_text
+
+
+def test_pedro_ramirez_preserves_public_discard_and_private_deck_visibility():
+    game = make_game(4)
+    player = game.players[0]
+    public_card = make_card(2524, cards.DUEL, rank="3", suit=cards.CLUBS)
+    private_card = make_card(2525, cards.BEER, rank="4", suit=cards.HEARTS)
+    prepare_draw_phase(
+        game,
+        player,
+        character="pedro_ramirez",
+        deck=[private_card],
+        discard_pile=[public_card],
+    )
+
+    game._start_draw_phase(player)
+    assert game.decision and game.decision.kind == "pedro_ramirez"
+    game._action_choose_item(player, "choice_draw_from_discard")
+
+    observer_text = " ".join(speech_texts(game, 1))
+    assert "Duel, 3 of clubs" in observer_text
+    assert "Beer, 4 of hearts" not in observer_text
+    assert f"{player.name} draws 1 card" in observer_text
+
+
+def test_pat_brennan_take_is_public_but_claus_gift_is_private():
+    game = make_game(4)
+    player, owner = game.players[:2]
+    public_card = make_card(
+        2526,
+        cards.BARREL,
+        rank="5",
+        suit=cards.SPADES,
+        border=cards.BLUE,
+    )
+    owner.in_play = [BangInPlayCard(public_card)]
+    prepare_draw_phase(game, player, character="pat_brennan")
+
+    game._start_draw_phase(player)
+    assert game.decision and game.decision.kind == "pat_brennan"
+    game._action_choose_item(player, f"choice_in_play_{public_card.id}")
+
+    observer_text = " ".join(speech_texts(game, 2))
+    assert "Barrel, 5 of spades" in observer_text
+
+    hidden = make_card(2527, cards.BANG, rank="6", suit=cards.DIAMONDS)
+    clear_user_messages(game)
+    game._announce_claus_gift(player, owner, hidden, public=False)
+    observer_text = " ".join(speech_texts(game, 2))
+    assert "hidden card" in observer_text
+    assert "BANG!, 6 of diamonds" not in observer_text
 
 
 def test_elimination_and_victory_use_listener_specific_perspectives():

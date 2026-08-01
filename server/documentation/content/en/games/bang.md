@@ -169,7 +169,7 @@ Life shown below is the character's normal maximum before the Sheriff's bonus.
 \* \*\*Kit Carlson — 4 life:\*\* Look at the top three cards, keep the required draw count, and return the rest to the top without changing their relative order.
 \* \*\*Lucky Duke — 4 life:\*\* Reveal two cards for every draw check and choose which result counts.
 \* \*\*Paul Regret — 3 life:\*\* Every other player sees Paul at distance +1.
-\* \*\*Pedro Ramirez — 4 life:\*\* The first normal draw may come from the top of the discard pile.
+\* \*\*Pedro Ramirez — 4 life:\*\* The first normal draw may be the face-up top card of the discard pile.
 \* \*\*Rose Doolan — 4 life:\*\* Sees every other player at distance -1, to a minimum of 1.
 \* \*\*Sid Ketchum — 4 life:\*\* Between completed card effects, even outside his turn, discard exactly two hand cards to regain one life. He may also do this during his own lethal recovery, but cannot interrupt an unresolved card or choice.
 \* \*\*Slab the Killer — 4 life:\*\* Each BANG! card requires two Missed! effects.
@@ -219,14 +219,14 @@ When events are enabled, the first event is revealed at the start of the Sheriff
 
 \*\*Fistful event family\*\*
 
-\* \*\*Abandoned Mine:\*\* During phase one, take cards from the top of the discard pile until it is empty, then finish the required draw from the draw pile. At phase three, put excess hand cards face down on top of the draw pile, even when the discard pile started empty or ran out.
+\* \*\*Abandoned Mine:\*\* During phase one, take the face-up cards from the top of the discard pile until it is empty, then finish the required draw from the draw pile. At phase three, put excess hand cards face down on top of the draw pile, even when the discard pile started empty or ran out.
 \* \*\*Ambush:\*\* Base distance between every pair of players is 1; modifiers still apply.
 \* \*\*Blood Brothers:\*\* At turn start, optionally lose one non-final life so another injured living player regains one. No prompt appears if nobody can be healed.
 \* \*\*Dead Man:\*\* The first eliminated player returns once, at that player's next turn, with two life and two cards, then performs the normal draw step.
 \* \*\*Hard Liquor:\*\* Instead of normal drawing, regain one life. At full life the skipped draw heals nothing.
 \* \*\*Lasso:\*\* Cards in play have no effect, but remain in place and may still be targeted. Jail and Dynamite stay with their owners and do not perform their turn-start checks until Lasso is replaced.
 \* \*\*Law of the West:\*\* Reveal the second normal draw and play it during the play phase if it still has a legal play. It cannot be spent as another action's extra cost.
-\* \*\*Peyote:\*\* Replace normal drawing with repeated red-or-black guesses. Keep each correctly guessed card; the first wrong guess is discarded and ends the draw.
+\* \*\*Peyote:\*\* Replace normal drawing with repeated red-or-black guesses. Reveal every guessed card to the whole table. Keep each correctly guessed card; the first wrong guess is discarded and ends the draw.
 \* \*\*Ranch:\*\* Once after drawing, discard any number of hand cards and draw the same number.
 \* \*\*Ricochet:\*\* Discard BANG! cards to attack cards in play at any distance. The owner may use one Missed! effect—including a successful Barrel or Jourdonnais check—to save each attacked card.
 \* \*\*Russian Roulette:\*\* Starting with the Sheriff, or Deputy at 3 players, players move clockwise and each supply one Missed! effect. If everyone succeeds, the roulette continues around the table again; the first failure loses two life and ends it. The target order is fixed by seating, not randomly selected.

@@ -169,7 +169,7 @@ Lượng máu ghi dưới đây là mức tối đa thường của nhân vật,
 \* \*\*Kit Carlson — 4 máu:\*\* Xem 3 lá đầu, giữ đủ số lá cần rút rồi đặt phần còn lại lên đầu chồng mà không đổi thứ tự tương đối.
 \* \*\*Lucky Duke — 4 máu:\*\* Mỗi lần thử vận lật 2 lá và chọn kết quả muốn dùng.
 \* \*\*Paul Regret — 3 máu:\*\* Khi người khác nhìn Paul, khoảng cách tăng 1.
-\* \*\*Pedro Ramirez — 4 máu:\*\* Lá đầu tiên rút bình thường có thể lấy từ đỉnh chồng bỏ.
+\* \*\*Pedro Ramirez — 4 máu:\*\* Lá đầu tiên rút bình thường có thể là lá ngửa trên cùng chồng bỏ.
 \* \*\*Rose Doolan — 4 máu:\*\* Khi nhìn người khác, khoảng cách giảm 1 nhưng không thấp hơn 1.
 \* \*\*Sid Ketchum — 4 máu:\*\* Giữa hai hiệu ứng bài đã giải quyết xong, kể cả ngoài lượt, bỏ đúng 2 lá trên tay để hồi 1 máu. Sid cũng làm được khi chính mình đang hấp hối, nhưng không được chen ngang một lá bài hoặc lựa chọn chưa xong.
 \* \*\*Slab the Killer — 4 máu:\*\* Mỗi lá BANG! cần 2 hiệu ứng Trượt! mới né được.
@@ -219,14 +219,14 @@ Khi bật biến cố, lá đầu tiên xuất hiện đầu lượt thứ hai c
 
 \*\*Nhóm biến cố Một nắm bài\*\*
 
-\* \*\*Mỏ bỏ hoang:\*\* Khi rút đầu lượt, lấy bài trên cùng của chồng bỏ tới khi chồng này hết rồi lấy phần còn thiếu từ chồng rút. Ở bước bỏ bài cuối lượt, úp bài dư lên đầu chồng rút, kể cả khi chồng bỏ vốn trống hoặc đã hết giữa chừng.
+\* \*\*Mỏ bỏ hoang:\*\* Khi rút đầu lượt, lấy các lá ngửa trên cùng của chồng bỏ tới khi chồng này hết rồi lấy phần còn thiếu từ chồng rút. Ở bước bỏ bài cuối lượt, úp bài dư lên đầu chồng rút, kể cả khi chồng bỏ vốn trống hoặc đã hết giữa chừng.
 \* \*\*Phục kích:\*\* Khoảng cách gốc giữa mọi cặp người là 1; hiệu chỉnh khác vẫn tính.
 \* \*\*Anh em kết nghĩa:\*\* Đầu lượt, có thể trả 1 máu không phải điểm cuối để một người còn sống đang bị thương hồi 1 máu. Nếu không ai hồi được, menu không hỏi thừa.
 \* \*\*Kẻ chết trở về:\*\* Người đầu tiên bị hạ được trở lại đúng một lần ở lượt kế tiếp của mình, với 2 máu và 2 lá, rồi vẫn thực hiện bước rút bình thường.
 \* \*\*Rượu mạnh:\*\* Bỏ bước rút bình thường để hồi 1 máu. Nếu đang đầy máu, vẫn mất lượt rút mà không hồi gì.
 \* \*\*Thòng lọng:\*\* Mọi lá trước mặt mất hiệu lực nhưng vẫn nằm đó và vẫn có thể bị nhắm tới. Nhà giam cùng Thuốc nổ ở nguyên chỗ và không thử vận đầu lượt cho tới khi Thòng lọng bị thay thế.
 \* \*\*Luật miền Tây:\*\* Công khai lá thứ hai rút bình thường và phải đánh nó trong lượt nếu vẫn còn nước hợp lệ. Không được dùng lá này làm phí trả thêm cho nước khác.
-\* \*\*Xương rồng gây ảo giác:\*\* Thay bước rút bằng chuỗi đoán đỏ hoặc đen. Đoán đúng thì giữ lá và đoán tiếp; lần đầu đoán sai, lá bị bỏ và chuỗi dừng.
+\* \*\*Xương rồng gây ảo giác:\*\* Thay bước rút bằng chuỗi đoán đỏ hoặc đen và lật công khai từng lá cho cả bàn. Đoán đúng thì giữ lá và đoán tiếp; lần đầu đoán sai, lá bị bỏ và chuỗi dừng.
 \* \*\*Trang trại:\*\* Một lần sau khi rút, bỏ bao nhiêu lá trên tay tùy ý rồi rút bù đúng bấy nhiêu.
 \* \*\*Đạn nảy:\*\* Bỏ BANG! để bắn một lá trước mặt ở bất kỳ khoảng cách nào. Chủ lá có thể dùng 1 hiệu ứng Trượt!—kể cả lần thử Thùng gỗ hoặc năng lực Jourdonnais thành công—để cứu từng lá bị bắn.
 \* \*\*Cò quay Nga:\*\* Bắt đầu từ Cảnh trưởng, hoặc Phó cảnh trưởng ở bàn 3 người, lần lượt theo chiều kim đồng hồ dùng 1 hiệu ứng Trượt!. Nếu mọi người đều thành công, vòng quay tiếp tục đi quanh bàn; người đầu tiên thất bại mất 2 máu và dừng vòng quay. Thứ tự mục tiêu cố định theo chỗ ngồi, không chọn ngẫu nhiên.

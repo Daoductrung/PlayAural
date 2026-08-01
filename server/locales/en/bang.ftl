@@ -218,7 +218,7 @@ bang-event-lasso-description = Cards in play have no effect. They remain in plac
 bang-event-law-of-the-west = Law of the West
 bang-event-law-of-the-west-description = Reveal the second phase-one card and play it during phase two if possible.
 bang-event-peyote = Peyote
-bang-event-peyote-description = Instead of drawing, repeatedly guess red or black; keep correct cards and stop on a miss.
+bang-event-peyote-description = Instead of drawing, repeatedly guess red or black and reveal each card to everyone; keep correct cards and stop on a miss.
 bang-event-ranch = Ranch
 bang-event-ranch-description = Once after phase one, discard any number of hand cards and draw the same number.
 bang-event-ricochet = Ricochet
@@ -455,6 +455,10 @@ bang-player-draws-cards = { $count ->
     [one] { $player } draws 1 card.
    *[other] { $player } draws { $count } cards.
 }
+bang-player-draws-public-cards = { $count ->
+    [one] { $player } draws the face-up card { $cards}.
+   *[other] { $player } draws the face-up cards { $cards}.
+}
 bang-you-discard-excess = You discard { $cards } and end your turn.
 bang-player-discards-excess = { $count ->
     [one] { $player } discards 1 excess card and ends their turn.
@@ -503,6 +507,7 @@ bang-player-collects-hidden-vulture-card = { $player } collects a hidden card fr
 bang-claus-gives-you-card = { $player } gives you { $card}.
 bang-you-give-claus-card = You give { $card } to { $target}.
 bang-claus-gives-hidden-card = { $player } gives a hidden card to { $target}.
+bang-claus-gives-public-card = { $player } gives the face-up card { $card } to { $target}.
 bang-your-peyote-result = You reveal { $card}; your guess is { $correct ->
     [yes] correct
    *[no] wrong

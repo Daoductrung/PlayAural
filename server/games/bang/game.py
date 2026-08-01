@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import random
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
@@ -6359,7 +6360,7 @@ class BangGame(Game):
         if frame.stage == "after_special_first":
             if frame.data.get("pat_done"):
                 for _ in range(max(0, self._phase_one_draw_modifier())):
-                    card = self._draw_phase_one(player)
+                    card = self._draw_phase_one(player, frame)
                     if card:
                         self._give_drawn_card(player, card, frame)
                 player.hand[:] = sort_cards(player.hand)
@@ -6377,7 +6378,7 @@ class BangGame(Game):
                 inspect = [
                     card
                     for _ in range(3)
-                    if (card := self._draw_phase_one(player))
+                    if (card := self._draw_phase_one(player, frame))
                 ]
                 self.revealed_cards = inspect
                 if count >= len(inspect):
@@ -6404,7 +6405,7 @@ class BangGame(Game):
                 self.general_store_cards = [
                     card
                     for _ in range(self._phase_one_cards_to_take(player))
-                    if (card := self._draw_phase_one(player))
+                    if (card := self._draw_phase_one(player, frame))
                 ]
                 targets = self._clockwise_after(player, exclude_actor=True)
                 frame.player_ids = [target.id for target in targets]
@@ -6412,7 +6413,7 @@ class BangGame(Game):
                 frame.stage = "claus_give"
                 return
             for _ in range(max(0, count - already)):
-                card = self._draw_phase_one(player)
+                card = self._draw_phase_one(player, frame)
                 if card:
                     self._give_drawn_card(player, card, frame)
             if (
@@ -6432,7 +6433,7 @@ class BangGame(Game):
                     cards.HEARTS,
                     cards.DIAMONDS,
                 }:
-                    bonus = self._draw_phase_one(player)
+                    bonus = self._draw_phase_one(player, frame)
                     if bonus:
                         self._give_drawn_card(player, bonus, frame)
                         self.broadcast_personal_l(
@@ -6472,7 +6473,7 @@ class BangGame(Game):
             frame.stage = "after_draw"
             return
         if frame.stage == "after_draw":
-            self._announce_phase_draw(player, frame.card_ids)
+            self._announce_phase_draw(player, frame)
             if (
                 self.current_event == "law_of_the_west"
                 and len(frame.card_ids) >= 2
@@ -6576,10 +6577,28 @@ class BangGame(Game):
         frame.data["drawn_count"] = int(frame.data.get("drawn_count", 0)) + 1
         self._play_card_draw_sound()
 
-    def _draw_phase_one(self, player: BangPlayer) -> BangCard | None:
+    def _draw_phase_one(
+        self,
+        player: BangPlayer,
+        frame: BangEffect,
+    ) -> BangCard | None:
         if player.abandoned_mine_draw_from_discard and self.discard_pile:
-            return self.discard_pile.pop()
+            card = self.discard_pile.pop()
+            self._mark_public_draw(frame, card)
+            return card
         return self._draw_one()
+
+    @staticmethod
+    def _public_draw_card_ids(frame: BangEffect) -> list[int]:
+        public_ids = frame.data.get("public_draw_card_ids", [])
+        return public_ids if isinstance(public_ids, list) else []
+
+    @classmethod
+    def _mark_public_draw(cls, frame: BangEffect, card: BangCard) -> None:
+        public_ids = cls._public_draw_card_ids(frame)
+        frame.data["public_draw_card_ids"] = public_ids
+        if card.id not in public_ids:
+            public_ids.append(card.id)
 
     def _start_discard_phase(self, player: BangPlayer) -> None:
         limit = (
@@ -6854,9 +6873,14 @@ class BangGame(Game):
             elif decision.kind == "pedro_ramirez":
                 card = self._draw_one()
             else:
-                card = self._draw_phase_one(player)
+                card = self._draw_phase_one(player, frame)
             if card:
                 self._give_drawn_card(player, card, frame)
+                if (
+                    decision.kind == "pedro_ramirez"
+                    and item_id == "draw_from_discard"
+                ):
+                    self._mark_public_draw(frame, card)
             self.decision = None
             self._continue_effects()
             return
@@ -6936,7 +6960,12 @@ class BangGame(Game):
                 target.hand.append(card)
                 target.hand[:] = sort_cards(target.hand)
                 self._play_card_draw_sound()
-                self._announce_claus_gift(player, target, card)
+                self._announce_claus_gift(
+                    player,
+                    target,
+                    card,
+                    public=card.id in self._public_draw_card_ids(frame),
+                )
             frame.index += 1
             self.decision = None
             self._continue_effects()
@@ -7862,33 +7891,67 @@ class BangGame(Game):
     def _announce_phase_draw(
         self,
         player: BangPlayer,
-        card_ids: list[int],
+        frame: BangEffect,
     ) -> None:
         drawn = [
             card
-            for card_id in card_ids
+            for card_id in frame.card_ids
             if (card := self._card_in_hand(player, card_id))
         ]
         if not drawn:
             return
-        self._announce_drawn_cards(player, drawn)
+        self._announce_drawn_cards(
+            player,
+            drawn,
+            public_card_ids=self._public_draw_card_ids(frame),
+        )
 
     def _announce_drawn_cards(
         self,
         player: BangPlayer,
         drawn: list[BangCard],
+        *,
+        public_card_ids: Sequence[int] = (),
     ) -> None:
-        self.broadcast_personal_l(
-            player,
-            "bang-you-draw-cards",
-            "bang-player-draws-cards",
-            buffer="game",
-            count=len(drawn),
-            cards=lambda locale: Localization.format_list_and(
-                locale,
-                [card_label(card, locale) for card in drawn],
-            ),
-        )
+        public_id_set = set(public_card_ids)
+        public_cards = [card for card in drawn if card.id in public_id_set]
+        hidden_count = len(drawn) - len(public_cards)
+        for listener in self.players:
+            user = self.get_user(listener)
+            if not user:
+                continue
+            if listener.id == player.id:
+                user.speak_l(
+                    "bang-you-draw-cards",
+                    buffer="game",
+                    count=len(drawn),
+                    cards=Localization.format_list_and(
+                        user.locale,
+                        [card_label(card, user.locale) for card in drawn],
+                    ),
+                )
+                continue
+            if public_cards:
+                user.speak_l(
+                    "bang-player-draws-public-cards",
+                    buffer="game",
+                    player=player.name,
+                    count=len(public_cards),
+                    cards=Localization.format_list_and(
+                        user.locale,
+                        [
+                            card_label(card, user.locale)
+                            for card in public_cards
+                        ],
+                    ),
+                )
+            if hidden_count:
+                user.speak_l(
+                    "bang-player-draws-cards",
+                    buffer="game",
+                    player=player.name,
+                    count=hidden_count,
+                )
 
     def _announce_card_transfer(
         self,
@@ -7997,6 +8060,8 @@ class BangGame(Game):
         claus: BangPlayer,
         target: BangPlayer,
         card: BangCard,
+        *,
+        public: bool,
     ) -> None:
         target_user = self.get_user(target)
         if target_user:
@@ -8019,11 +8084,20 @@ class BangGame(Game):
                 continue
             user = self.get_user(observer)
             if user:
+                kwargs = {
+                    "player": claus.name,
+                    "target": target.name,
+                }
+                if public:
+                    kwargs["card"] = card_label(card, user.locale)
                 user.speak_l(
-                    "bang-claus-gives-hidden-card",
+                    (
+                        "bang-claus-gives-public-card"
+                        if public
+                        else "bang-claus-gives-hidden-card"
+                    ),
                     buffer="game",
-                    player=claus.name,
-                    target=target.name,
+                    **kwargs,
                 )
 
     def _announce_peyote(

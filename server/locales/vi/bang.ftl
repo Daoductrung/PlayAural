@@ -218,7 +218,7 @@ bang-event-lasso-description = Mọi lá trước mặt đều mất hiệu lự
 bang-event-law-of-the-west = Luật miền Tây
 bang-event-law-of-the-west-description = Lá thứ hai rút ở đầu lượt được công khai và phải đánh trong lượt nếu vẫn còn nước hợp lệ.
 bang-event-peyote = Xương rồng gây ảo giác
-bang-event-peyote-description = Thay vì rút bình thường, liên tục đoán đỏ hoặc đen; đoán đúng thì giữ lá và đoán tiếp, đoán sai thì dừng.
+bang-event-peyote-description = Thay vì rút bình thường, liên tục đoán đỏ hoặc đen rồi lật công khai từng lá; đoán đúng thì giữ lá và đoán tiếp, đoán sai thì dừng.
 bang-event-ranch = Trang trại
 bang-event-ranch-description = Một lần sau khi rút đầu lượt, bỏ bao nhiêu lá trên tay tùy ý rồi rút bù đúng bấy nhiêu.
 bang-event-ricochet = Đạn nảy
@@ -455,6 +455,10 @@ bang-player-draws-cards = { $count ->
     [one] { $player } rút 1 lá.
    *[other] { $player } rút { $count } lá.
 }
+bang-player-draws-public-cards = { $count ->
+    [one] { $player } rút lá ngửa { $cards}.
+   *[other] { $player } rút các lá ngửa { $cards}.
+}
 bang-you-discard-excess = Bạn bỏ { $cards } rồi kết thúc lượt.
 bang-player-discards-excess = { $count ->
     [one] { $player } bỏ 1 lá thừa rồi kết thúc lượt.
@@ -503,6 +507,7 @@ bang-player-collects-hidden-vulture-card = { $player } nhặt một lá kín t�
 bang-claus-gives-you-card = { $player } trao cho bạn { $card}.
 bang-you-give-claus-card = Bạn trao { $card } cho { $target}.
 bang-claus-gives-hidden-card = { $player } trao một lá kín cho { $target}.
+bang-claus-gives-public-card = { $player } trao lá ngửa { $card } cho { $target}.
 bang-your-peyote-result = Bạn lật { $card}; bạn đoán { $correct ->
     [yes] đúng
    *[no] sai

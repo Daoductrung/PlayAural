@@ -1,10 +1,16 @@
 Changelog
 
+Saturday 1 August 2026
+
+Improvements:
+
+* On Android, music, ambience, and looping effects now keep playing for as long as the game requires. With TalkBack active, game audio also stays on the system-selected wired headphones, Bluetooth device, or phone speaker instead of flickering between outputs.
+
 Friday 31 July 2026
 
 New Additions:
 
-* BANG! The Bullet has been added for 3 to 8 players. Hosts can turn Expanded cards and characters off for the classic 80-card, 19-character game for 4 to 7 players or leave it on for the 120-card, 34-character game for 3 to 8, and may add High Noon, A Fistful of Cards, or mixed turn-changing events. The game includes hidden-role showdowns, public roles for the special three-player rules, strategic bots, dedicated Western audio, and beginner guides in English and Vietnamese.
+* BANG! The Bullet has been added for 3 to 8 players. Hosts can turn Expanded cards and characters off for the classic 80-card, 19-character game for 4 to 7 players or leave it on for the 120-card, 34-character game for 3 to 8, and may add High Noon, A Fistful of Cards, or mixed turn-changing events. The game includes faithful base and expanded rules, hidden-role showdowns, public roles for the special three-player rules, guided private card choices and rule-required public reveals, accessible information and reaction menus for keyboard and touch screens, strategic bots, dedicated Western audio, and beginner guides in English and Vietnamese.
 
 Improvements:
 
@@ -12,6 +18,7 @@ Improvements:
 * Main-menu music now continues while moving through Play, Personal and Options, and their submenus. Waiting rooms are always quiet, every client provides connection audio, and game introductions begin without menu or waiting-room music playing over them.
 * Moving the same account to another device now keeps the current table, turn timers, ongoing game events, and active audio intact while rebuilding the correct controls for the new desktop, web, or mobile client. The previous device disconnects safely without temporarily replacing the player with a bot.
 * Online and offline alerts now suppress rapid duplicates and brief reconnects, respect each listener's notification settings even for administrators and developers, and use the administrator or developer sound instead of the generic friend sound when that person is a friend.
+* Update prompts now use the correct download for Windows or Android instead of opening another platform's package. If a download is not available for the current platform, the client explains this clearly.
 
 Bug Fixes:
 

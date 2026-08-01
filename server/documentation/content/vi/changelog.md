@@ -1,10 +1,16 @@
 Nhật ký thay đổi
 
+Thứ Bảy 1 Tháng Tám 2026
+
+Cải thiện:
+
+* Trên Android, nhạc nền, âm thanh môi trường, và hiệu ứng lặp giờ tiếp tục phát trong suốt thời gian trò chơi yêu cầu. Khi TalkBack đang bật, âm thanh trò chơi cũng giữ đúng tai nghe có dây, thiết bị Bluetooth, hoặc loa điện thoại do hệ thống chọn thay vì chập chờn chuyển qua lại giữa các đầu ra.
+
 Thứ Sáu 31 Tháng Bảy 2026
 
 Tính năng mới:
 
-* BANG! Miền Tây Khói Lửa đã được thêm cho 3 đến 8 người chơi. Chủ bàn có thể tắt Bài và nhân vật mở rộng để dùng bộ 80 lá với 19 nhân vật dành cho 4 đến 7 người hoặc để bật tùy chọn này cho bộ 120 lá với 34 nhân vật dành cho 3 đến 8 người, đồng thời có thể bật Nhóm Giữa trưa, Nhóm Một nắm bài, hoặc Trộn hai nhóm. Trò chơi có màn đấu súng giấu thân phận, luật ba người công khai thân phận, bot có chiến thuật, âm thanh miền Tây riêng, cùng tài liệu cho người mới bằng tiếng Anh và tiếng Việt.
+* BANG! Miền Tây Khói Lửa đã được thêm cho 3 đến 8 người chơi. Chủ bàn có thể tắt Bài và nhân vật mở rộng để dùng bộ 80 lá với 19 nhân vật dành cho 4 đến 7 người hoặc để bật tùy chọn này cho bộ 120 lá với 34 nhân vật dành cho 3 đến 8 người, đồng thời có thể bật Nhóm Giữa trưa, Nhóm Một nắm bài, hoặc Trộn hai nhóm. Trò chơi bám sát luật cơ bản và luật mở rộng, có màn đấu súng giấu thân phận, luật ba người công khai thân phận, lựa chọn bài kín có hướng dẫn và chỉ lật công khai khi luật yêu cầu, menu thông tin và đối phó dễ dùng bằng bàn phím lẫn cảm ứng, bot có chiến thuật, âm thanh miền Tây riêng, cùng tài liệu cho người mới bằng tiếng Anh và tiếng Việt.
 
 Cải thiện:
 
@@ -12,6 +18,7 @@ Cải thiện:
 * Nhạc menu chính giờ tiếp tục phát khi bạn đi qua Chơi, Cá nhân và Tùy chỉnh, cùng các menu con. Phòng chờ luôn yên lặng, mọi máy khách đều có âm thanh báo kết nối, và đoạn mở ván bắt đầu mà không bị nhạc menu hoặc phòng chờ phát chồng lên.
 * Khi cùng một tài khoản chuyển sang thiết bị khác, bàn hiện tại, thời gian lượt, sự kiện đang diễn ra, và âm thanh đang phát vẫn được giữ nguyên; các nút điều khiển được dựng lại đúng cho phần mềm máy tính, web, hoặc di động mới. Thiết bị cũ ngắt kết nối an toàn mà người chơi không bị bot chơi thay tạm thời.
 * Thông báo trực tuyến và ngoại tuyến giờ chặn các lần lặp dồn dập cùng những lần kết nối lại rất nhanh, tôn trọng Tùy chỉnh thông báo của từng người kể cả khi Quản trị viên hoặc Nhà phát triển xuất hiện, và ưu tiên âm thanh Quản trị viên hoặc Nhà phát triển thay cho âm thanh bạn bè thông thường nếu người đó là bạn.
+* Lời nhắc cập nhật giờ dùng đúng bản tải xuống cho Windows hoặc Android thay vì mở gói của nền tảng khác. Nếu chưa có bản tải xuống cho nền tảng hiện tại, máy khách sẽ giải thích rõ ràng.
 
 Sửa lỗi:
 

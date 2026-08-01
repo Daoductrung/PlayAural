@@ -76,9 +76,9 @@ from ..game_utils.bot_names import bot_name_key
 from ..game_utils.game_result import GameResult
 
 
-VERSION = "1.0.4.10"
-# Temporary 1.0.4.9 updater compatibility constants. Keep these exact names
-# and values through the 1.0.4.10 release.
+VERSION = "1.0.4.11"
+# Legacy native-updater compatibility constants. Retain these exact names and
+# values until an explicit compatibility cleanup removes them.
 UPDATE_URL = "https://github.com/Daoductrung/PlayAural/releases/latest/download/PlayAural.zip"
 UPDATE_HASH = "" # Optional SHA256
 

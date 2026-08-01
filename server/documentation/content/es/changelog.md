@@ -1,11 +1,26 @@
 Registro de cambios
 
+Viernes 31 de julio de 2026
+
+Novedades:
+
+* Se añadió BANG! La Bala para 3 a 8 jugadores. Los anfitriones pueden desactivar las cartas y personajes Expandidos para el juego clásico de 80 cartas y 19 personajes para 4 a 7 jugadores, o dejarlos activados para el juego de 120 cartas y 34 personajes para 3 a 8, y pueden añadir Duelo al Mediodía, Un Puñado de Cartas, o eventos mixtos de cambio de turno. El juego incluye enfrentamientos de rol oculto, roles públicos para las reglas especiales de tres jugadores, bots estratégicos, audio dedicado del Oeste, y guías para principiantes en inglés y vietnamita.
+
+Mejoras:
+
+* Los efectos de sonido, la música y el ambiente ahora se comportan de forma consistente en escritorio, web, y móvil. Los efectos en bucle se detienen junto con el evento que los origina, la música y el ambiente cambian con suavidad, y el sonido ambiental puede fluir sin interrupciones a través de una introducción, un bucle, y un final. Reconectarse restaura el paisaje sonoro en vivo sin repetir su apertura, mientras que salir o terminar una mesa permite que los finales diseñados terminen sin que el audio te siga de vuelta a los menús.
+* La música del menú principal ahora continúa mientras te mueves entre Jugar, Personal y Opciones, y sus submenús. Las salas de espera siempre están en silencio, cada cliente ofrece audio de conexión, y las introducciones de juego comienzan sin que suene música del menú o de la sala de espera encima.
+* Mover la misma cuenta a otro dispositivo ahora mantiene intactos la mesa actual, los temporizadores de turno, los eventos de juego en curso, y el audio activo, mientras se reconstruyen los controles correctos para el nuevo cliente de escritorio, web, o móvil. El dispositivo anterior se desconecta de forma segura sin reemplazar temporalmente al jugador por un bot.
+* Las alertas de conexión y desconexión ahora suprimen duplicados rápidos y reconexiones breves, respetan la configuración de notificaciones de cada oyente incluso para administradores y desarrolladores, y usan el sonido de administrador o desarrollador en lugar del sonido genérico de amigo cuando esa persona es un amigo.
+
+Corrección de errores:
+
+* Iniciar sesión ya no restaura un antiguo aviso de Cerrar sesión u otra confirmación de un solo uso, y el sonido de bienvenida ahora suena una sola vez en el momento correcto en escritorio, web, y móvil.
+
 Lunes 20 de julio de 2026
 
 Mejoras:
 
-* Los bots de Gatitos Explosivos ahora son mucho más difíciles de leer y vencer. Usando solo información que un jugador podría saber, sopesan el peligro en cada robo forzado, acumulan Ataques, eligen cuándo jugar o guardar Nopes, aprovechan combos, apuntan a oponentes de forma estratégica, barajan para borrar el conocimiento de un oponente sobre las próximas cartas o la colocación reciente de un Gatito, nunca desperdician un Barajar en un mazo de una sola carta, y devuelven los Gatitos desactivados a profundidades variadas estratégicamente.
-* Gatitos Explosivos ahora ofrece tiempos de respuesta Nope de 2 y 3 segundos y da una guía más clara al elegir combos, objetivos, cartas pedidas, regalos de Favor, respuestas de Desactivar, y posiciones de Gatito. Si un objetivo se queda sin cartas mientras una acción está esperando, la acción termina limpiamente y el juego continúa; las partidas restauradas también se recuperan de forma segura de elecciones sin terminar.
 * 1000 Millas ahora mantiene abierta cada oportunidad de Jugada Sucia de 7 segundos mientras el juego normal continúa. Un remedio correspondiente cierra solo esa oportunidad, el primer Seguro o remedio válido decide el resultado cuando ambos se juegan casi al mismo tiempo, y los turnos ganados comienzan después de que termina el turno actual. Los anuncios de equipo también identifican con más claridad al jugador que actuó.
 * Los bots de 1000 Millas ahora planean en torno a llegadas exactas, puntuaciones de carrera y partida, Peligros, remedios, Seguros, Jugadas Sucias, Karma, compañeros de equipo, y los mazos de robo y descarte, lo que produce jugadas y descartes más fuertes.
 * Administración ahora ofrece una sola pantalla de traducción para el Mensaje del día, los motivos de reinicio o apagado planificado del servidor, y los motivos personalizados de baneo o silencio. Los idiomas oficiales son obligatorios, mientras que los idiomas de la comunidad pueden usar un valor de respaldo para que los avisos lleguen a cada jugador en un idioma adecuado.

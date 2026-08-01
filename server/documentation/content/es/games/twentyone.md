@@ -74,29 +74,29 @@ Presiona \*\*C\*\* o selecciona \*\*Guía de cartas de cambio\*\* en el menú de
 
 \* \*\*Eliminar mejorado:\*\* Destruye todos los efectos de mesa de tu oponente (instantáneo).
 
-\* \*\*Eliminar doble mejorado:\*\* Limpia todos los efectos de mesa del oponente e impide que tu oponente juegue cartas de cambio por el resto de la ronda (efecto de mesa).
+\* \*\*Eliminar doble mejorado:\*\* Elimina todos los efectos de mesa del oponente e impide que tu oponente juegue cartas de cambio por el resto de la ronda (efecto de mesa).
 
-\* \*\*Ofensiva defensiva:\*\* Requiere al menos 3 de tus propios efectos de defender activos. Quita hasta 3 efectos de defender de tu mesa; el daño al oponente sube +3 mientras esté activo.
+\* \*\*Ofensiva defensiva:\*\* Requiere al menos 3 de tus propios efectos de Defender activos. Elimina hasta 3 efectos de Defender de tu mesa; daño al oponente +3 mientras esté activo.
 
-\* \*\*Ofensiva defensiva mejorada:\*\* Requiere al menos 2 de tus propios efectos de defender activos. Quita hasta 2 efectos de defender; el daño al oponente sube +5 mientras esté activo.
+\* \*\*Ofensiva defensiva mejorada:\*\* Requiere al menos 2 de tus propios efectos de Defender activos. Elimina hasta 2 efectos de Defender; daño al oponente +5 mientras esté activo.
 
-\* \*\*Costo del cambio:\*\* Mientras esté activo, el daño al oponente aumenta según la mitad de la cantidad de cartas de cambio en su mano (efecto de mesa).
+\* \*\*Costo del cambio:\*\* Mientras esté activo, el daño al oponente aumenta según la mitad del número de cartas de cambio en su mano (efecto de mesa).
 
-\* \*\*Costo del cambio mejorado:\*\* Mientras esté activo, el daño al oponente aumenta según su cantidad total de cartas de cambio (efecto de mesa).
+\* \*\*Costo del cambio mejorado:\*\* Mientras esté activo, el daño al oponente aumenta según la totalidad de sus cartas de cambio (efecto de mesa).
 
-\* \*\*Cambio por cambiar:\*\* Al final de la ronda, el oponente descarta la mitad de sus cartas de cambio. Caduca antes si el oponente juega 2 cartas de cambio en un turno (efecto de mesa).
+\* \*\*Cambio por el cambio mismo:\*\* Al final de la ronda, el oponente descarta la mitad de sus cartas de cambio. Expira antes si el oponente juega 2 cartas de cambio en un mismo turno (efecto de mesa).
 
-\* \*\*Cambio por cambiar mejorado:\*\* Al final de la ronda, el oponente descarta todas sus cartas de cambio. Caduca antes si el oponente juega 3 cartas de cambio en un turno (efecto de mesa).
+\* \*\*Cambio por el cambio mismo mejorado:\*\* Al final de la ronda, el oponente descarta todas sus cartas de cambio. Expira antes si el oponente juega 3 cartas de cambio en un mismo turno (efecto de mesa).
 
 \*\*Robo de precisión (efectos instantáneos y de mesa):\*\*
 
-\* \*\*Mejor robo:\*\* Busca en el mazo y roba la mejor carta disponible para llegar al objetivo actual sin pasarte. Si ya estás en o por encima del objetivo, roba la carta que más te acerque.
+\* \*\*Mejor robo:\*\* Busca en el mazo y roba la mejor carta disponible para acercarte al objetivo actual sin pasarte. Si ya estás en el objetivo o por encima, roba la carta que más te acerque.
 
-\* \*\*Mejor robo y subir cinco:\*\* Mejor robo, y también coloca un efecto de mesa que aumenta el daño al oponente en 5 durante la ronda. Muy poderoso.
+\* \*\*Mejor robo y subir cinco:\*\* Mejor robo, y además coloca un efecto de mesa que aumenta el daño al oponente en 5 durante la ronda. Muy poderoso.
 
 \* \*\*Mejor robo con cambio:\*\* Mejor robo, y ganas 2 cartas de cambio.
 
-\* \*\*Trato oscuro:\*\* Descarta la mitad de tus cartas de cambio, y luego roba tu mejor carta; aumenta el daño al oponente en 10 mientras esté activo (efecto de mesa). Requiere al menos 2 otras cartas de cambio.
+\* \*\*Trato oscuro:\*\* Descarta la mitad de tus cartas de cambio, luego roba tu mejor carta; aumenta el daño al oponente en 10 mientras esté activo (efecto de mesa). Requiere al menos otras 2 cartas de cambio.
 
 \*\*Modificadores de objetivo (efectos de mesa):\*\*
 
@@ -106,37 +106,37 @@ Presiona \*\*C\*\* o selecciona \*\*Guía de cartas de cambio\*\* en el menú de
 
 \* \*\*Objetivo 27:\*\* Establece el objetivo de la ronda en 27 para todos los jugadores.
 
-\* Solo puede haber un modificador de objetivo en efecto a la vez. Jugar un nuevo modificador de objetivo elimina el anterior.
+\* Solo puede haber un modificador de objetivo activo a la vez. Jugar un nuevo modificador de objetivo elimina el existente.
 
 \*\*Otros:\*\*
 
 \* \*\*Abrazar el cambio:\*\* Cada vez que se juega cualquier carta de cambio, ganas 1 carta de cambio. Esto se activa por cada carta de cambio jugada mientras esté activo (efecto de mesa).
 
-\* \*\*Caballo de troya:\*\* Tu oponente roba su mejor carta disponible para el objetivo actual. Esto ayuda a tu oponente, no a ti. Puedes recibirla al azar; usa Renovación para descartarla.
+\* \*\*Caballo de Troya:\*\* Tu oponente roba su mejor carta disponible para el objetivo actual. Esto ayuda a tu oponente, no a ti. Puedes recibirla al azar; usa Renovación para deshacerte de ella.
 
 \* \*\*21 en 21:\*\* Mientras el total de tu mano sea exactamente 21, el daño al oponente aumenta en 21 (efecto de mesa).
 
-\* \*\*No:\*\* Cancela la ronda actual de inmediato y comienza una nueva (instantáneo).
+\* \*\*Nop:\*\* Cancela la ronda actual de inmediato y comienza una nueva (instantáneo).
 
-\* \*\*¡Sin robo para ti!:\*\* Mientras esté activo, tu oponente no puede robar cartas numéricas de pedir carta ni de efectos de cartas de cambio (efecto de mesa).
+\* \*\*¡Sin robo para ti!:\*\* Mientras esté activo, tu oponente no puede robar cartas numéricas por pedir carta ni por efectos de cartas de cambio (efecto de mesa).
 
-\* \*\*Fin del juego:\*\* Mientras esté activo, tu daño y el del oponente elegido aumentan ambos en 100, y ese oponente no puede robar cartas numéricas (efecto de mesa).
+\* \*\*Se acabó el juego:\*\* Mientras esté activo, tu daño y el del oponente elegido aumentan ambos en 100, y ese oponente no puede robar cartas numéricas (efecto de mesa).
 
-\*\*Opciones de partida\*\*
+\*\*Opciones de juego\*\*
 
-El anfitrión puede configurar lo siguiente en la mesa antes de empezar:
+El anfitrión puede configurar estos ajustes en la mesa antes de comenzar:
 
-\* \*\*Vida inicial:\*\* Cuántos PV tiene cada jugador al empezar (por defecto 10, rango de 1 a 100).
+\* \*\*Vida inicial:\*\* Cuántos PV tiene cada jugador al empezar (por defecto 10, rango 1-100).
 
-\* \*\*Apuesta base:\*\* El daño base infligido al perdedor de la ronda antes de los ajustes de modificadores. Si se pone en 0, el juego igual debe tener una forma de generar daño mediante cartas de cambio; una configuración con apuesta base 0, cartas de cambio iniciales 0, y probabilidad de robar carta de cambio 0 por ciento se bloquea porque nunca podría terminar (por defecto 1, rango de 0 a 50).
+\* \*\*Apuesta base:\*\* El daño base infligido al perdedor de la ronda antes de los ajustes por modificadores. Si se establece en 0, el juego debe seguir teniendo alguna forma de generar daño mediante cartas de cambio; una configuración con apuesta base 0, cartas de cambio iniciales 0, y probabilidad de robo de carta de cambio 0 por ciento queda bloqueada porque nunca podría terminar (por defecto 1, rango 0-50).
 
-\* \*\*Cartas de cambio iniciales por ronda:\*\* Cuántas cartas de cambio aleatorias recibe cada jugador al inicio de cada ronda (por defecto 1, rango de 0 a 10).
+\* \*\*Cartas de cambio iniciales por ronda:\*\* Cuántas cartas de cambio aleatorias recibe cada jugador al inicio de cada ronda (por defecto 1, rango 0-10).
 
-\* \*\*Probabilidad de robar carta de cambio:\*\* El porcentaje de probabilidad de ganar una carta de cambio aleatoria cada vez que pides carta (por defecto 35 por ciento, rango de 0 a 100 por ciento).
+\* \*\*Probabilidad de robar carta de cambio:\*\* El porcentaje de probabilidad de ganar una carta de cambio aleatoria cada vez que pides carta (por defecto 35 por ciento, rango 0-100 por ciento).
 
-\* \*\*Número de barajas:\*\* Cuántas copias del mazo del 1 al 11 se barajan juntas en cada ronda. Una baraja significa 11 cartas en total; más barajas significa más cartas y menos previsibilidad (por defecto 1, rango de 1 a 10).
+\* \*\*Número de barajas:\*\* Cuántas copias del mazo del 1 al 11 se barajan juntas cada ronda. Una baraja significa 11 cartas en total; más barajas significan más cartas y menos previsibilidad (por defecto 1, rango 1-10).
 
-\*\*Ejemplo de ronda\*\*
+\*\*Ronda de ejemplo\*\*
 
 Ambos jugadores empiezan con 10 PV. La apuesta base es 1 y el objetivo es 21.
 
@@ -144,17 +144,17 @@ Te reparten un 7 oculto y un 9 boca arriba. Tu total es 16. Tu oponente muestra 
 
 También recibes una carta de cambio aleatoria: Defender.
 
-Es tu turno. Decides pedir carta y robas un 3, llevando tu total a 19. También recibes una carta de cambio aleatoria del robo: Subir uno.
+Es tu turno. Decides pedir carta y robas un 3, llevando tu total a 19. También recibes una carta de cambio aleatoria por el robo: Subir uno.
 
 Juegas Subir uno como efecto de mesa. Tu oponente ahora recibirá 2 de daño en lugar de 1 si pierde esta ronda. Jugar la carta de cambio también te otorga otra carta de cambio aleatoria.
 
 Tu oponente pide carta y roba un 6. Sus cartas boca arriba ahora suman 11. Se planta.
 
-Estás conforme con 19, así que también te plantas. Ambos jugadores se han plantado; la ronda se resuelve.
+Estás satisfecho con 19, así que también te plantas. Ambos jugadores se plantaron; la ronda se resuelve.
 
 Tu oponente revela su carta oculta: un 4. Su total es 15. Estás más cerca de 21 sin pasarte, así que ganas la ronda.
 
-Tu oponente recibe 2 de daño (apuesta base 1, más 1 de tu Subir uno). Baja a 8 PV. Comienza una nueva ronda.
+Tu oponente recibe 2 de daño (apuesta base 1, más 1 por tu Subir uno). Baja a 8 PV. Comienza una nueva ronda.
 
 \*\*Atajos de teclado\*\*
 
@@ -162,20 +162,20 @@ Tu oponente recibe 2 de daño (apuesta base 1, más 1 de tu Subir uno). Baja a 8
 
 \* \*\*2:\*\* Plantarse (fijar tu total).
 
-\* \*\*3:\*\* Jugar Carta de Cambio (abre un menú para elegir qué carta de cambio jugar).
+\* \*\*3:\*\* Jugar carta de cambio (abre un menú para elegir qué carta de cambio jugar).
 
 \* \*\*4:\*\* Ver estado de 21 (anuncia el objetivo, PV, apuesta actual, tu mano, cartas de cambio en mano, y efectos activos; también muestra la información visible de cada oponente).
 
 \* \*\*C:\*\* Guía de cartas de cambio (abre un panel de estado que lista todas las cartas de cambio y su descripción).
 
-\* \*\*O:\*\* Leer cartas visibles del oponente (anuncia qué muestra cada oponente y su total visible).
+\* \*\*O:\*\* Leer cartas visibles del oponente (anuncia lo que muestra cada oponente y su total visible).
 
 \* \*\*R:\*\* Leer mano actual (anuncia tus cartas y tu total).
 
-\* \*\*W:\*\* Leer apuestas actuales (anuncia la apuesta efectiva de cada jugador después de los ajustes de modificadores).
+\* \*\*W:\*\* Leer apuestas actuales (anuncia la apuesta efectiva de cada jugador tras los ajustes de modificadores).
 
-\* \*\*E:\*\* Leer efectos activos (anuncia los efectos de mesa de cada jugador activo, incluidos los objetivos cuando corresponda).
+\* \*\*E:\*\* Leer efectos activos (anuncia los efectos de mesa de cada jugador activo, incluyendo los objetivos cuando corresponda).
 
 \* \*\*S:\*\* Ver puntuaciones (muestra los PV actuales de cada jugador activo).
 
-\* \*\*Mayús+S:\*\* Puntuaciones detalladas.
+\* \*\*Shift+S:\*\* Puntuaciones detalladas.

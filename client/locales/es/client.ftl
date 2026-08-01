@@ -181,6 +181,7 @@ sounds-update-error = Error al actualizar los sonidos: { $error }
 sounds-update-file-lock = No se pueden actualizar los sonidos porque los archivos están en uso. Reinicia el juego manualmente para aplicar los cambios.
 
 update-checking = Buscando actualizaciones...
+update-unavailable-message = Se requiere la versión { $version }, pero no hay una descarga automática disponible para esta plataforma. Por favor obtén una compilación compatible desde la página de lanzamientos de PlayAural.
 update-cancelled = Se canceló la actualización. El juego se cerrará.
 
 main-restarting = Reiniciando...

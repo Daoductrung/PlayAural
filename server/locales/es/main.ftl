@@ -8,8 +8,6 @@ auth-error-user-not-found = El usuario no existe.
 auth-kicked-logged-in-elsewhere = Se cerró tu sesión porque tu cuenta se inició desde otro dispositivo.
 
 chat-global = { $player } dice en el chat global: { $message }
-dev-announcement-broadcast = { $dev } es desarrollador de PlayAural.
-admin-announcement-broadcast = { $admin } es administrador de PlayAural.
 
 admin-smtp-updated-success = Configuración SMTP actualizada correctamente
 admin-smtp-settings = Configuración SMTP

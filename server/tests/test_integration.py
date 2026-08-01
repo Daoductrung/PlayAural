@@ -236,6 +236,7 @@ class TestGameRegistryIntegration:
         expected_categories = {
             "ageofheroes": "cards",
             "backgammon": "board",
+            "bang": "cards",
             "battle": "arcade",
             "battleship": "board",
             "blackjack": "cards",

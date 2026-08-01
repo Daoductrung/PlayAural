@@ -3,6 +3,7 @@
 from typing import TYPE_CHECKING
 
 from .base import User, MenuItem, EscapeBehavior, generate_uuid
+from ..audio import AudioCommand
 
 if TYPE_CHECKING:
     pass
@@ -49,21 +50,7 @@ class Bot(User):
         # per game; the base implementation would pay Localization.get each time.
         pass
 
-    def play_sound(
-        self, name: str, volume: int = 100, pan: int = 0, pitch: int = 100
-    ) -> None:
-        pass
-
-    def play_music(self, name: str, looping: bool = True) -> None:
-        pass
-
-    def stop_music(self) -> None:
-        pass
-
-    def play_ambience(self, loop: str, intro: str = "", outro: str = "") -> None:
-        pass
-
-    def stop_ambience(self) -> None:
+    def send_audio_command(self, command: AudioCommand) -> None:
         pass
 
     def show_menu(

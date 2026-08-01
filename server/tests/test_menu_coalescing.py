@@ -39,7 +39,9 @@ def test_non_menu_packets_preserved_in_order():
 
     msgs = user.get_queued_messages()
     # The earlier turn_menu repaint is dropped; speaks and the sound keep order.
-    assert [m["type"] for m in msgs] == ["speak", "play_sound", "menu", "speak"]
+    assert [m["type"] for m in msgs] == ["speak", "audio", "menu", "speak"]
+    assert msgs[1]["command"] == "play"
+    assert msgs[1]["kind"] == "sfx"
     assert msgs[0]["text"] == "one"
     assert msgs[-1]["text"] == "two"
 

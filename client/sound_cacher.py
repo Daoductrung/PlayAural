@@ -1,35 +1,47 @@
 import ctypes
+from collections import OrderedDict
+import logging
+
 from sound_lib import output, stream
+
+MAX_CACHED_SOUNDS = 128
+MAX_CACHED_SOUND_BYTES = 96 * 1024 * 1024
+
 
 class SoundCacher:
     def __init__(self):
-        self.cache = {}
+        self.cache = OrderedDict()
         self.refs = []  # so sound objects don't get eaten by the gc
-        # Initialize Output here, lazily
+        self.ref_files = {}
+        self.pinned = set()
         try:
-             # Store output reference to keep it alive
-             self.output = output.Output()
+            self.output = output.Output()
         except Exception as e:
-             # Check if it's "already initialized" (BASS_ERROR_ALREADY = 14)
-             # sound_lib raises BassError. logic: if str(e) contains "14" or similar
-             error_str = str(e)
-             if "14" in error_str or "already initialized" in error_str:
-                 import logging
-                 logging.getLogger("playaural").info("SoundCacher: BASS already initialized, proceeding.")
-                 # If already initialized, we don't need to do anything, 
-                 # BUT we might need an Output object? 
-                 # sound_lib.output.Output() calls BASS_Init. 
-                 # If we can't create it, we might be fine if BASS is already live.
-                 pass
-             else:
-                 import logging
-                 logging.getLogger("playaural").error(f"Failed to initialize sound_lib Output: {e}")
-                 raise e
+            error_text = str(e)
+            if "14" in error_text or "already initialized" in error_text:
+                logging.getLogger("playaural").info(
+                    "SoundCacher: BASS was already initialized; reusing it."
+                )
+            else:
+                logging.getLogger("playaural").error(
+                    "Failed to initialize sound_lib output: %s", e
+                )
+                raise
 
-    def play(self, file_name, pan=0.0, volume=1.0, pitch=1.0):
+    def create(
+        self,
+        file_name,
+        pan=0.0,
+        volume=1.0,
+        pitch=1.0,
+        looping=False,
+        pinned=False,
+    ):
         if file_name not in self.cache:
             with open(file_name, "rb") as f:
                 self.cache[file_name] = ctypes.create_string_buffer(f.read())
+        else:
+            self.cache.move_to_end(file_name)
         sound = stream.FileStream(
             mem=True, file=self.cache[file_name], length=len(self.cache[file_name])
         )
@@ -39,12 +51,57 @@ class SoundCacher:
             sound.volume = volume
         if pitch != 1.0:
             sound.set_frequency(int(sound.get_frequency() * pitch))
-        sound.play()
-        self.clean()
+        sound.looping = bool(looping)
         self.refs.append(sound)
+        self.ref_files[id(sound)] = file_name
+        if pinned:
+            self.pinned.add(id(sound))
+        self.clean()
+        self._trim_cache()
+        return sound
+
+    def play(
+        self,
+        file_name,
+        pan=0.0,
+        volume=1.0,
+        pitch=1.0,
+        looping=False,
+        pinned=False,
+    ):
+        sound = self.create(
+            file_name,
+            pan=pan,
+            volume=volume,
+            pitch=pitch,
+            looping=looping,
+            pinned=pinned,
+        )
+        sound.play()
         return sound
 
     def clean(self):
         for sound in self.refs[:]:
-            if not sound.is_playing:
+            if id(sound) not in self.pinned and not sound.is_playing:
                 self.refs.remove(sound)
+                self.ref_files.pop(id(sound), None)
+
+    def pin(self, sound):
+        self.pinned.add(id(sound))
+
+    def unpin(self, sound):
+        self.pinned.discard(id(sound))
+        self.clean()
+        self._trim_cache()
+
+    def _trim_cache(self):
+        active_files = set(self.ref_files.values())
+        for file_name in list(self.cache):
+            cache_bytes = sum(len(buffer) for buffer in self.cache.values())
+            if (
+                len(self.cache) <= MAX_CACHED_SOUNDS
+                and cache_bytes <= MAX_CACHED_SOUND_BYTES
+            ):
+                break
+            if file_name not in active_files:
+                self.cache.pop(file_name, None)

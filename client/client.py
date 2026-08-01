@@ -27,13 +27,12 @@ logging.basicConfig(
     # We do not output to a file to prevent cluttering the user directory
 )
 
-version = "1.0.4.9"
-
 def main():
     """Main entry point for the PlayAural client."""
     # Move imports here to ensure CWD is set first
     from ui import MainWindow
     from ui.login_dialog import LoginDialog
+    from version import VERSION
     
     app = wx.App(False)
     
@@ -47,7 +46,7 @@ def main():
     
     from localization import Localization
     logging.getLogger("playaural").info(
-        f"Starting PlayAural Client v{version} (Locale: {locale})"
+        f"Starting PlayAural Client v{VERSION} (Locale: {locale})"
     )
     Localization.init(locale=locale)
 
@@ -55,7 +54,7 @@ def main():
     
     while True:
         # Show login dialog
-        login_dialog = LoginDialog(disconnect_message=disconnect_message, version=version)
+        login_dialog = LoginDialog(disconnect_message=disconnect_message)
 
         credentials = None
         came_from_failure = bool(disconnect_message)

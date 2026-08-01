@@ -162,6 +162,22 @@ Regenerate it whenever sound files are added, removed, or renamed:
 cmd /c npm run generate:sounds
 ```
 
+### Android Audio Routing Guard
+
+`npm install` applies a guarded Expo Audio native patch that prevents the
+gapless ambience playlist engine from overriding Android's selected wired,
+Bluetooth, earpiece, or speaker route. The patch is intentionally fail-closed:
+if an Expo Audio upgrade changes the affected native implementation, install
+fails so the routing behavior must be reviewed before a build can ship. Android
+autolinking also compiles Expo Audio from this guarded local source instead of
+using Expo's otherwise-unpatched precompiled artifact.
+
+Validate the installed dependency and the patch's regression cases with:
+
+```bash
+cmd /c npm run test:android-audio-routing
+```
+
 ## Local Android Builds
 
 PlayAural can be built locally on Windows without using Expo cloud builds. This is useful for fast device testing, gesture debugging, voice-chat verification, and release candidate validation before distribution.

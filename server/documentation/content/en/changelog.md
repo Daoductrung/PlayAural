@@ -1,11 +1,33 @@
 Changelog
 
+Saturday 1 August 2026
+
+Improvements:
+
+* On Android, music, ambience, and looping effects now keep playing for as long as the game requires. With TalkBack active, game audio also stays on the system-selected wired headphones, Bluetooth device, or phone speaker instead of flickering between outputs.
+
+Friday 31 July 2026
+
+New Additions:
+
+* BANG! The Bullet has been added for 3 to 8 players. Hosts can turn Expanded cards and characters off for the classic 80-card, 19-character game for 4 to 7 players or leave it on for the 120-card, 34-character game for 3 to 8, and may add High Noon, A Fistful of Cards, or mixed turn-changing events. The game includes faithful base and expanded rules, hidden-role showdowns, public roles for the special three-player rules, guided private card choices and rule-required public reveals, accessible information and reaction menus for keyboard and touch screens, strategic bots, dedicated Western audio, and beginner guides in English and Vietnamese.
+
+Improvements:
+
+* Sound effects, music, and ambience now behave consistently across desktop, web, and mobile. Looping effects stop with the event that owns them, music and ambience change smoothly, and environmental sound can move seamlessly through an introduction, loop, and ending. Reconnecting restores the live soundscape without replaying its opening, while leaving or ending a table lets authored endings finish without audio following you back to the menus.
+* Main-menu music now continues while moving through Play, Personal and Options, and their submenus. Waiting rooms are always quiet, every client provides connection audio, and game introductions begin without menu or waiting-room music playing over them.
+* Moving the same account to another device now keeps the current table, turn timers, ongoing game events, and active audio intact while rebuilding the correct controls for the new desktop, web, or mobile client. The previous device disconnects safely without temporarily replacing the player with a bot.
+* Online and offline alerts now suppress rapid duplicates and brief reconnects, respect each listener's notification settings even for administrators and developers, and use the administrator or developer sound instead of the generic friend sound when that person is a friend.
+* Update prompts now use the correct download for Windows or Android instead of opening another platform's package. If a download is not available for the current platform, the client explains this clearly.
+
+Bug Fixes:
+
+* Logging in no longer restores an old Logout or other one-time confirmation prompt, and the welcome sound now plays once at the correct time on desktop, web, and mobile.
+
 Monday 20 July 2026
 
 Improvements:
 
-* Exploding Kittens bots are now much harder to read and beat. Using only information a player could know, they weigh danger across every forced draw, stack Attacks, choose when to play or save Nopes, exploit combos, target opponents strategically, shuffle to erase an opponent's knowledge of upcoming cards or a recent Kitten placement, never waste a Shuffle on a one-card draw pile, and return defused Kittens at strategically varied depths.
-* Exploding Kittens now offers 2- and 3-second Nope response times and gives clearer guidance while choosing combos, targets, requested cards, Favor gifts, Defuse responses, and Kitten positions. If a target runs out of cards while an action is waiting, the action finishes cleanly and play continues; restored matches also recover safely from unfinished choices.
 * Mile by Mile now keeps each 7-second Dirty Trick opportunity open while ordinary play continues. A matching remedy closes only that opportunity, the first valid Safety or remedy decides the result when both are played almost together, and earned turns begin after the current turn finishes. Team announcements also identify the player who acted more clearly.
 * Mile by Mile bots now plan around exact finishes, race and match scores, Hazards, remedies, Safeties, Dirty Tricks, Karma, teammates, and the draw and discard piles, leading to stronger plays and discards.
 * Administration now provides one translation screen for the Message of the Day, planned server restart or shutdown reasons, and custom ban or mute reasons. Official languages are required, while community languages may use a fallback so notices reach each player in a suitable language.
@@ -14,7 +36,7 @@ Saturday 18 July 2026
 
 New Additions:
 
-* Exploding Kittens has been added for 2 to 5 players with the complete 56-card Original Edition game, strategic bots, Faster game and Advanced combos options, configurable Nope response time, dedicated audio, and beginner guides in English and Vietnamese.
+* Exploding Kittens has been added for 2 to 5 players with the complete 56-card Original Edition game; highly strategic bots that use only information a player could know; Faster game and Advanced combos options; configurable 2-, 3-, 5-, 10-, 15-, or 20-second Nope responses; clear guided choices for combos, targets, Favors, Defuses, and Kitten placement; dedicated audio; safe restoration of unfinished matches; and beginner guides in English and Vietnamese.
 * Persian is now available across the server, desktop, web, and mobile. When a newer game or guide has not yet been translated, its content falls back to English.
 
 Improvements:

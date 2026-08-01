@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
@@ -76,7 +77,7 @@ class SequenceOperation(DataClassJSONMixin):
 
 @dataclass
 class SequenceBeat(DataClassJSONMixin):
-    """A group of operations that execute together, then wait."""
+    """Operations that execute together, followed by a next-beat delay."""
 
     ops: list[SequenceOperation] = field(default_factory=list)
     delay_after_ticks: int = 0
@@ -84,6 +85,38 @@ class SequenceBeat(DataClassJSONMixin):
     @classmethod
     def pause(cls, delay_after_ticks: int) -> "SequenceBeat":
         return cls(delay_after_ticks=delay_after_ticks)
+
+    @staticmethod
+    def audio_delay_ticks(
+        duration_ticks: int,
+        *,
+        wait_ratio: float = 1.0,
+    ) -> int:
+        """Scale a measured audio duration into a deterministic beat delay."""
+
+        if duration_ticks < 0:
+            raise ValueError("duration_ticks must not be negative")
+        if not math.isfinite(wait_ratio) or wait_ratio < 0.0:
+            raise ValueError("wait_ratio must be finite and nonnegative")
+        return math.ceil(duration_ticks * wait_ratio)
+
+    @classmethod
+    def after_audio(
+        cls,
+        duration_ticks: int,
+        *,
+        wait_ratio: float = 1.0,
+        ops: list[SequenceOperation] | None = None,
+    ) -> "SequenceBeat":
+        """Build a beat whose next-beat delay scales with an audio asset."""
+
+        return cls(
+            ops=list(ops or []),
+            delay_after_ticks=cls.audio_delay_ticks(
+                duration_ticks,
+                wait_ratio=wait_ratio,
+            ),
+        )
 
 
 @dataclass
@@ -233,6 +266,9 @@ class SequenceRunnerMixin:
     def _process_sequence(self, sequence_id: str, *, current_tick: int) -> None:
         sequence = self._get_sequence(sequence_id)
         if sequence is None:
+            return
+        if sequence.current_index >= len(sequence.beats):
+            self.cancel_sequence(sequence_id)
             return
 
         beats_processed = 0

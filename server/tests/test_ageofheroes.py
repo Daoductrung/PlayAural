@@ -68,7 +68,10 @@ def test_main_action_hidden_when_disabled() -> None:
 def test_ageofheroes_uses_coup_background_music() -> None:
     game = make_started_game()
 
-    assert game.current_music == "game_coup/music.ogg"
+    assert any(
+        state.kind == "music" and state.asset == "game_coup/music.ogg"
+        for state in game.active_audio.values()
+    )
 
 
 def test_build_action_hidden_when_unaffordable() -> None:

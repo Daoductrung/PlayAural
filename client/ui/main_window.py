@@ -7,6 +7,8 @@ import accessible_output2.outputs.auto as auto_output
 import sys
 import os
 import json
+import shutil
+import tempfile
 from pathlib import Path
 import requests
 import zipfile
@@ -18,17 +20,21 @@ import time
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from . import slash_commands
 from auth_error_messages import get_login_failure_message, is_credential_error
+from client_info import get_release_download_url
 from sound_manager import SoundManager
 from network_manager import NetworkManager
 from buffer_system import BufferSystem
 from config_manager import set_item_in_dict
 from localization import Localization
 from voice_manager import VoiceManager, list_audio_input_devices, resolve_audio_input_device
+from version import VERSION
 
-VERSION = "1.0.4.9"
 WINDOW_SIZE = (980, 720)
 WINDOW_MIN_SIZE = (760, 520)
 MENU_MIN_WIDTH = 280
+CONNECTION_AUDIO_ASSET = "connectloop.ogg"
+CONNECTION_AUDIO_HANDLE = "client:connection"
+CONNECTION_AUDIO_LAYER = "connection"
 
 
 class MainWindow(wx.Frame):
@@ -97,14 +103,14 @@ class MainWindow(wx.Frame):
         self.available_audio_input_devices = []
 
         # Store user's options
-        # Client-side options (from config file, per-server)
+        # Client-side options from the local global configuration.
         self.client_options = {}
         # Server-side options (received from server on login)
         self.server_options = {}
 
-        # Load client-side options for this server
+        # Load client-side options.
         if self.config_manager and self.server_id:
-            self.client_options = self.config_manager.get_client_options(self.server_id)
+            self.client_options = self.config_manager.get_client_options()
             # Apply initial volumes from client options
             self._apply_client_audio_options()
 
@@ -814,9 +820,7 @@ class MainWindow(wx.Frame):
             and self.current_table_context_id
             and self.current_table_context_id != previous_context_id
         ):
-            self.sound_manager.remove_all_playlists()
-            self.sound_manager.stop_music(fade=False)
-            self.sound_manager.stop_ambience(force=True)
+            self.sound_manager.stop_all(fade_ms=800)
         if not self.current_table_context_id:
             if self.voice_state in {"connected", "connecting"}:
                 self.cleanup_voice_chat(send_leave=False, announce=False)
@@ -928,7 +932,11 @@ class MainWindow(wx.Frame):
     def modify_option_value(self, key_path: str, value, *, create_mode: bool = True) -> bool:
         if not self.config_manager or not self.server_id:
             return False
-        self.config_manager.set_client_option(key_path, value, self.server_id, create_mode= create_mode)
+        self.config_manager.set_client_option(
+            key_path,
+            value,
+            create_mode=create_mode,
+        )
         # Update local cache
         set_item_in_dict(self.client_options, key_path, value, create_mode= create_mode)
         
@@ -1723,50 +1731,33 @@ class MainWindow(wx.Frame):
         # Allow all other keys (including plain Enter for newlines in editable mode)
         event.Skip()
 
-    # Sound and music methods (for server calls via CallAfter)
-
-    def play_sound(self, sound_name, volume=1.0, pan=0.0, pitch=1.0):
-        """
-        Play a sound effect (called via CallAfter for non-blocking).
-
-        Args:
-            sound_name: Name of sound file (in sounds/ folder)
-            volume: Volume 0.0-1.0
-            pan: Pan -1.0 to 1.0
-            pitch: Pitch multiplier
-        """
-        wx.CallAfter(self.sound_manager.play, sound_name, volume, pan, pitch)
-
-    def play_music(
-        self, music_name: str, looping: bool = True, fade_out_old: bool = True
-    ):
-        """
-        Play background music (called via CallAfter for non-blocking).
-
-        Args:
-            music_name: Name of music file (in sounds/ folder)
-            looping: whether to loop the music
-            fade_out_old: Whether to fade out current music
-        """
-        wx.CallAfter(self.sound_manager.music, music_name, looping, fade_out_old)
-
-    def stop_music(self, fade=True):
-        """Stop background music."""
-        wx.CallAfter(self.sound_manager.stop_music, fade)
-
-    def set_music_volume(self, volume):
-        """Set music volume 0.0-1.0."""
-        wx.CallAfter(self.sound_manager.set_music_volume, volume)
-
-    def set_menuclick_sound(self, sound_name):
-        """Set the menu click sound (server command)."""
-        self.sound_manager.set_menuclick_sound(sound_name)
-
-    def set_menuenter_sound(self, sound_name):
-        """Set the menu enter/activate sound (server command)."""
-        self.sound_manager.set_menuenter_sound(sound_name)
-
     # Network methods
+
+    def _start_connection_audio(self):
+        """Start the client-owned connection layer without restarting it."""
+        if self.sound_manager.has_managed_audio(
+            "music",
+            handle=CONNECTION_AUDIO_HANDLE,
+            asset=CONNECTION_AUDIO_ASSET,
+        ):
+            return
+        self.sound_manager.music(
+            CONNECTION_AUDIO_ASSET,
+            looping=True,
+            fade_out_old=False,
+            handle=CONNECTION_AUDIO_HANDLE,
+            layer=CONNECTION_AUDIO_LAYER,
+            fade_in_ms=0,
+            fade_out_ms=0,
+        )
+
+    def _stop_connection_audio(self, fade_ms=800):
+        """Stop only connection feedback, preserving unrelated music layers."""
+        self.sound_manager.stop_music(
+            fade=bool(fade_ms),
+            fade_ms=fade_ms,
+            handle=CONNECTION_AUDIO_HANDLE,
+        )
 
     def _auto_connect(self):
         """Auto-connect to server using login credentials."""
@@ -1774,8 +1765,7 @@ class MainWindow(wx.Frame):
         password = self.credentials.get("password", "")
         server_url = self.credentials.get("server_url", "wss://playaural.ddt.one")
 
-        # Play connection loop sound
-        self.sound_manager.music("connectloop.ogg")
+        self._start_connection_audio()
 
         self.add_history(Localization.get("main-connecting-to", url=server_url))
         if self.network.connect(server_url, username, password, client_version=VERSION):
@@ -1825,6 +1815,8 @@ class MainWindow(wx.Frame):
 
         # Unexpected disconnect - Try smart reconnect
         if not self.is_reconnecting:
+            self.sound_manager.stop_all(fade_ms=0)
+            self._start_connection_audio()
             self.is_reconnecting = True
             self.reconnect_start_time = time.time()
             self.speaker.speak(Localization.get("main-attempting-reconnect"), interrupt=True)
@@ -2004,7 +1996,7 @@ class MainWindow(wx.Frame):
             self.config_manager.set_client_option("audio/input_device_name", "", create_mode=True)
 
         # Reload full options to be safe
-        self.client_options = self.config_manager.get_client_options(self.server_id)
+        self.client_options = self.config_manager.get_client_options()
 
     def _do_reconnect(self, server_url, username, password):
         """Actually perform the reconnection attempt."""
@@ -2034,6 +2026,7 @@ class MainWindow(wx.Frame):
                 attempt=self.reconnect_attempts,
             )
         )
+        self._start_connection_audio()
         self.network.disconnect()
 
         if self.network.connect(server_url, username, password, client_version=VERSION):
@@ -2060,8 +2053,7 @@ class MainWindow(wx.Frame):
         # Stop all looping audio so nothing bleeds past the error dialog.
         self.cleanup_voice_chat(send_leave=False, announce=False)
         self.current_table_context_id = ""
-        self.sound_manager.stop_music(fade=False)
-        self.sound_manager.stop_ambience(force=True)
+        self.sound_manager.stop_all(fade_ms=800)
 
         # Build error message
         # Use provided message only - do not append stale last_server_message
@@ -2109,6 +2101,11 @@ class MainWindow(wx.Frame):
 
     def on_authorize_success(self, packet):
         """Handle authorization success from server."""
+        if packet.get("reset_ui", False):
+            # Reset stale menus, editboxes, voice, and managed game audio
+            # before ordered session UI/audio packets are released by the server.
+            self.on_server_clear_ui({})
+
         # Reset reconnect flags on success instead of restarting
         if self.is_reconnecting or self.expecting_reconnect:
             self.is_reconnecting = False
@@ -2197,22 +2194,28 @@ class MainWindow(wx.Frame):
                  # Client might not use this directly yet, but store it
                  self.config_manager.set_client_option("game/clear_kept_on_roll", preferences["clear_kept_on_roll"], create_mode=True)
 
-        self.client_options = self.config_manager.get_client_options(self.server_id)
+        self.client_options = self.config_manager.get_client_options()
         self._refresh_audio_input_devices(sync_server=True)
 
         # Verify if we need to reload localization (though UI is already built)
         # For now, it will apply on next restart, which is what the user asked for.
 
-        # Stop connection loop and play welcome sound
-        self.sound_manager.stop_music(fade=False)
-        self.sound_manager.play("welcome.ogg", volume=1.0)
+        # Fade only the client-owned connection loop. The server queues the
+        # welcome cue after authoritative session audio restoration.
+        self._stop_connection_audio()
 
         # Check for updates
         update_info = packet.get("update_info")
         if update_info:
             server_ver = update_info.get("version")
             if server_ver and server_ver != VERSION:
-                wx.CallAfter(self._prompt_update, update_info)
+                download_url = get_release_download_url(update_info)
+                if not download_url:
+                    wx.CallAfter(self._show_update_unavailable, server_ver)
+                    return
+                selected_update = dict(update_info)
+                selected_update["url"] = download_url
+                wx.CallAfter(self._prompt_update, selected_update)
                 return
 
         # Check for sounds update if app update is not needed
@@ -2223,6 +2226,17 @@ class MainWindow(wx.Frame):
         # Notify user (but don't speak redundantly)
         # self.speaker.speak(Localization.get("main-connected"))
         self.add_history(Localization.get("main-connected-version", version=version))
+
+    def _show_update_unavailable(self, version):
+        """Explain that this platform has no configured automatic artifact."""
+        self.sound_manager.play("update_alert.ogg")
+        wx.MessageBox(
+            Localization.get("update-unavailable-message", version=version),
+            Localization.get("update-available-title"),
+            wx.OK | wx.ICON_ERROR,
+        )
+        self.Close()
+        wx.GetApp().ExitMainLoop()
 
     def _prompt_update(self, update_info):
         """Prompt user to update."""
@@ -2244,8 +2258,7 @@ class MainWindow(wx.Frame):
             )
             
             # Stop existing music and play download loop
-            self.sound_manager.stop_music(fade=False)
-            self.sound_manager.music("download_loop.ogg", looping=True, fade_out_old=False)
+            self.sound_manager.music("download_loop.ogg", looping=True)
             
             # Start download in thread
             self.download_thread = threading.Thread(target=self._download_update, args=(update_info,), daemon=True)
@@ -2260,9 +2273,6 @@ class MainWindow(wx.Frame):
         """Download update file."""
         # Imports already at module level
 
-        url = update_info.get("url")
-        import tempfile
-        
         url = update_info.get("url")
         # Use temp directory for download to avoid permission issues
         temp_dir = tempfile.gettempdir()
@@ -2421,9 +2431,6 @@ class MainWindow(wx.Frame):
                 
                 if os.path.exists(updater_exe):
                     # Copy to temp to avoid file locking on overwrite
-                    import shutil
-                    import tempfile
-                    
                     temp_dir = tempfile.gettempdir()
                     # Use unique name to avoid conflicts or permission issues on temp
                     temp_updater = os.path.join(temp_dir, f"playaural_updater_{pid}.exe")
@@ -2464,7 +2471,7 @@ class MainWindow(wx.Frame):
     def _check_sounds_update(self, sounds_info):
         """Check if sounds update is needed."""
         server_sounds_ver = str(sounds_info.get("version", ""))
-        sounds_url = sounds_info.get("url")
+        sounds_url = get_release_download_url(sounds_info)
 
         if not server_sounds_ver or not sounds_url:
             return
@@ -2480,7 +2487,9 @@ class MainWindow(wx.Frame):
             pass
 
         if server_sounds_ver != local_sounds_ver:
-            self._prompt_sounds_update(sounds_info)
+            selected_sounds = dict(sounds_info)
+            selected_sounds["url"] = sounds_url
+            self._prompt_sounds_update(selected_sounds)
 
     def _prompt_sounds_update(self, sounds_info):
         """Prompt user to update sounds."""
@@ -2507,8 +2516,6 @@ class MainWindow(wx.Frame):
     def _download_and_extract_sounds(self, sounds_info):
         """Download sounds update and launch updater."""
         url = sounds_info.get("url")
-
-        import tempfile
 
         temp_dir = tempfile.gettempdir()
         target_zip = os.path.join(temp_dir, f"playaural_sounds_{int(time.time())}.zip")
@@ -2630,14 +2637,13 @@ class MainWindow(wx.Frame):
     def send_client_options_to_server(self):
         """Send server profile client options to the server.
 
-        Sends only the server-specific options (not defaults) to inform
-        the server of the client's preferences.
+        Sends the current local client options to inform the server of the
+        client's preferences.
         """
         if not self.connected or not self.config_manager or not self.server_id:
             return
 
-        # Get server profile options (defaults + overrides merged)
-        options = self.config_manager.get_client_options(self.server_id)
+        options = self.config_manager.get_client_options()
 
         self.network.send_packet({
             "type": "client_options",
@@ -2660,10 +2666,8 @@ class MainWindow(wx.Frame):
         dlg = ClientOptionsDialog(
             self,
             self.config_manager,
-            self.server_id,
             self.lang_codes,
             self.sound_manager,
-            self.client_options,
             self.voice_manager,
         )
 
@@ -2708,101 +2712,9 @@ class MainWindow(wx.Frame):
             self.sound_manager.play(sound + ".ogg")
         self.add_history(message, "chat", should_alert)
 
-    def on_server_play_sound(self, packet):
-        """Handle play_sound packet from server."""
-        sound = packet.get("name", packet.get("sound", ""))  # Server sends "name"
-        volume = packet.get("volume", 100) / 100.0  # Convert 0-100 to 0.0-1.0
-        pan = packet.get("pan", 0) / 100.0  # Convert -100 to 100 to -1.0 to 1.0
-        pitch = packet.get("pitch", 100) / 100.0  # Convert 0-200 to 0.0-2.0
-        if sound:
-            self.sound_manager.play(sound, volume, pan, pitch)
-
-    def on_server_play_music(self, packet):
-        """Handle play_music packet from server."""
-        music = packet.get("name", packet.get("music", ""))  # Server sends "name"
-        looping = packet.get(
-            "looping", True
-        )  # Default to True for backwards compatibility
-        if music:
-            self.sound_manager.music(music, looping=looping)
-
-    def on_server_play_ambience(self, packet):
-        """Handle play_ambience packet from server."""
-        intro = packet.get("intro")
-        loop = packet.get("loop")
-        outro = packet.get("outro")
-        if loop:  # Loop is required
-            self.sound_manager.ambience(intro, loop, outro)
-
-    def on_server_stop_ambience(self, packet):
-        """Handle stop_ambience packet from server."""
-        self.sound_manager.stop_ambience()
-
-    def on_server_add_playlist(self, packet):
-        """Handle add_playlist packet from server."""
-        playlist_id = packet.get(
-            "playlist_id", "music_playlist"
-        )  # Default to backward-compatible ID
-        tracks = packet.get("tracks", [])
-        audio_type = packet.get("audio_type", "music")  # Default to music
-        shuffle_tracks = packet.get("shuffle_tracks", False)
-        repeats = packet.get("repeats", 1)  # Default to 1 repeat
-        auto_start = packet.get("auto_start", True)
-        auto_remove = packet.get("auto_remove", True)  # Default to True
-        if tracks:
-            self.sound_manager.add_playlist(
-                playlist_id,
-                tracks,
-                audio_type,
-                shuffle_tracks,
-                repeats,
-                auto_start,
-                auto_remove,
-            )
-
-    def on_server_start_playlist(self, packet):
-        """Handle start_playlist packet from server."""
-        playlist_id = packet.get("playlist_id", "music_playlist")
-        playlist = self.sound_manager.get_playlist(playlist_id)
-        if playlist and not playlist.is_active:
-            playlist.is_active = True
-            playlist._play_next_track()
-
-    def on_server_remove_playlist(self, packet):
-        """Handle remove_playlist packet from server."""
-        playlist_id = packet.get("playlist_id", "music_playlist")
-        self.sound_manager.remove_playlist(playlist_id)
-
-    def on_server_get_playlist_duration(self, packet):
-        """Handle get_playlist_duration packet from server."""
-        playlist_id = packet.get("playlist_id", "music_playlist")
-        duration_type = packet.get(
-            "duration_type", "total"
-        )  # "total", "elapsed", or "remaining"
-        request_id = packet.get("request_id")
-
-        playlist = self.sound_manager.get_playlist(playlist_id)
-        duration = 0
-
-        if playlist:
-            if duration_type == "total":
-                result = playlist.get_total_duration()
-                duration = result if result is not None else 0
-            elif duration_type == "elapsed":
-                duration = playlist.get_elapsed_duration()
-            elif duration_type == "remaining":
-                duration = playlist.get_remaining_duration()
-
-        # Send response back to server
-        if request_id:
-            response = {
-                "type": "playlist_duration_response",
-                "request_id": request_id,
-                "playlist_id": playlist_id,
-                "duration_type": duration_type,
-                "duration": duration,
-            }
-            self.network.send_packet(response)
+    def on_server_audio(self, packet):
+        """Route one validated lifecycle command into the audio engine."""
+        self.sound_manager.handle_audio_command(packet)
 
     def on_table_create(self, packet):
         host = packet.get("host")
@@ -3156,11 +3068,7 @@ class MainWindow(wx.Frame):
         # Switch to list mode if in edit mode
         if self.current_mode == "edit":
             self.switch_to_list_mode()
-        # Remove all playlists when leaving game
-        self.sound_manager.remove_all_playlists()
-        # Stop music and ambience when leaving game
-        self.sound_manager.stop_music(fade=True)
-        self.sound_manager.stop_ambience(force=False)
+        self.sound_manager.stop_all(fade_ms=800)
 
     def on_server_game_list(self, packet):
         """Handle game_list packet from server."""
@@ -3243,6 +3151,5 @@ class MainWindow(wx.Frame):
         # Stop looping audio before the window closes.
         self.cleanup_voice_chat(send_leave=False, announce=False)
         self.current_table_context_id = ""
-        self.sound_manager.stop_music(fade=False)
-        self.sound_manager.stop_ambience(force=True)
+        self.sound_manager.stop_all(fade_ms=0)
         self.Close()

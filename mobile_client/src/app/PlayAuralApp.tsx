@@ -37,10 +37,14 @@ import { useSelfVoicingGestures } from "../gestures/useSelfVoicingGestures";
 import { bundledSoundVersion } from "../generated/soundManifest";
 import { MobileLocalization, resolveMobileLocale, type MobileLocale } from "../i18n/localization";
 import { PlayAuralConnection } from "../network/PlayAuralConnection";
-import { clientAuthMetadata } from "../network/clientInfo";
+import {
+  clientAuthMetadata,
+  getClientReleasePlatform,
+} from "../network/clientInfo";
 import { resolveMenuFocusIndex } from "./menuFocus";
 import type {
   AuthorizeSuccessPacket,
+  AudioCommandPacket,
   ChatPacket,
   DisconnectPacket,
   ForceExitPacket,
@@ -48,9 +52,6 @@ import type {
   MenuItemData,
   MenuPacket,
   MenuSelectionPacket,
-  PlayAmbiencePacket,
-  PlayMusicPacket,
-  PlaySoundPacket,
   RegisterResponsePacket,
   RemoveEditboxPacket,
   RemoveMenuPacket,
@@ -72,11 +73,9 @@ import { TtsManager, type TtsVoiceOption } from "../tts/TtsManager";
 import { ENABLE_CLIENT_DEBUG_LOGS } from "../utils/debug";
 import { MobileVoiceManager, type MobileVoiceConnectionState } from "../voice/MobileVoiceManager";
 
-const MOBILE_CLIENT_VERSION = "1.0.4.9";
-const MOBILE_BUILD_STAMP = "2026-06-26 11:56:39 +07:00";
+const MOBILE_CLIENT_VERSION = "1.0.4.11";
+const MOBILE_BUILD_STAMP = "2026-07-31 00:13:47 +07:00";
 const DEFAULT_SERVER_URL = "wss://playaural.ddt.one:443";
-const APK_DOWNLOAD_URL =
-  "https://github.com/Daoductrung/PlayAural/releases/latest/download/PlayAural.apk";
 const CLIENT_CONFIG_STORAGE_KEY = "playaural.mobile.clientConfig";
 const CLIENT_PASSWORD_STORAGE_KEY = "playaural.mobile.password";
 const CLIENT_SV_STORAGE_KEY = "playaural.mobile.selfVoicing";
@@ -86,6 +85,31 @@ const NATIVE_FOCUS_DELAY_MS = 80;
 const NATIVE_FOCUS_MAX_ATTEMPTS = 8;
 const NATIVE_MENU_FOCUS_REQUEST_TTL_MS = 3000;
 const NATIVE_FOCUS_RESET_GUARD_MS = 900;
+const CONNECTION_AUDIO_ASSET = "connectloop.ogg";
+const CONNECTION_AUDIO_HANDLE = "client:connection";
+const CONNECTION_AUDIO_LAYER = "connection";
+
+type ReleaseDownloadInfo = {
+  target?: string;
+  url?: string;
+};
+
+function releaseDownloadUrl(info: ReleaseDownloadInfo | undefined): string {
+  const expectedTarget = getClientReleasePlatform();
+  const target = String(info?.target || "").trim().toLowerCase();
+  const url = String(info?.url || "").trim();
+
+  if (
+    target === expectedTarget
+    && /^https:\/\/\S+$/i.test(url)
+  ) {
+    return url;
+  }
+
+  // Untargeted legacy metadata may contain a desktop archive, so it must not
+  // be opened by a mobile client.
+  return "";
+}
 
 type ServerAuthResponseContext = "login" | "password_reset" | "register" | "reset_code";
 
@@ -549,8 +573,7 @@ export function PlayAuralApp() {
   const [resetCode, setResetCode] = useState("");
   const [resetPassword, setResetPassword] = useState("");
   const [resetConfirmPassword, setResetConfirmPassword] = useState("");
-  const [currentMusic, setCurrentMusic] = useState("");
-  const [currentAmbience, setCurrentAmbience] = useState("");
+  const [audioRevision, setAudioRevision] = useState(0);
   const [connected, setConnected] = useState(false);
   const [storageReady, setStorageReady] = useState(false);
   const [lastPingStartedAt, setLastPingStartedAt] = useState<number | null>(null);
@@ -580,6 +603,14 @@ export function PlayAuralApp() {
   const [voiceStatusText, setVoiceStatusText] = useState(() => localization.t("voice-chat-not-connected"));
   const [voiceState, setVoiceState] = useState<MobileVoiceConnectionState>("disconnected");
   const [voiceMicEnabled, setVoiceMicEnabled] = useState(false);
+  const currentMusic = useMemo(
+    () => audio.getActiveLayerAssets("music").join(", "),
+    [audio, audioRevision],
+  );
+  const currentAmbience = useMemo(
+    () => audio.getActiveLayerAssets("ambience").join(", "),
+    [audio, audioRevision],
+  );
 
   const menuStateRef = useRef(menuState);
   const inputStateRef = useRef(inputState);
@@ -598,6 +629,7 @@ export function PlayAuralApp() {
   const reconnectWindowStartedAtRef = useRef<number | null>(null);
   const reconnectDelayMsRef = useRef(1000);
   const reconnectAttemptsRef = useRef(0);
+  const connectionAudioActiveRef = useRef(false);
   const manualDisconnectRef = useRef(false);
   const allowReconnectRef = useRef(false);
   const expectingReconnectRef = useRef(false);
@@ -646,6 +678,15 @@ export function PlayAuralApp() {
   const resetConfirmPasswordInputRef = useRef<TextInput | null>(null);
   const inputOverlayInputRef = useRef<TextInput | null>(null);
   const chatInputRef = useRef<TextInput | null>(null);
+
+  useEffect(() => {
+    audio.setStateListener(() => {
+      setAudioRevision((value) => value + 1);
+    });
+    return () => {
+      audio.setStateListener(null);
+    };
+  }, [audio]);
 
   useEffect(() => {
     menuStateRef.current = menuState;
@@ -1269,6 +1310,29 @@ export function PlayAuralApp() {
     resetReconnectState();
   }, [resetReconnectState]);
 
+  const startConnectionAudio = useCallback(() => {
+    if (connectionAudioActiveRef.current) {
+      return;
+    }
+    connectionAudioActiveRef.current = true;
+    void audio.playMusic(CONNECTION_AUDIO_ASSET, {
+      bus: "music",
+      fade_in_ms: 0,
+      fade_out_ms: 0,
+      handle: CONNECTION_AUDIO_HANDLE,
+      layer: CONNECTION_AUDIO_LAYER,
+      loop: true,
+    });
+  }, [audio]);
+
+  const stopConnectionAudio = useCallback((fadeMs = 0) => {
+    if (!connectionAudioActiveRef.current) {
+      return;
+    }
+    connectionAudioActiveRef.current = false;
+    void audio.stopMusic(CONNECTION_AUDIO_HANDLE, fadeMs);
+  }, [audio]);
+
   useEffect(() => () => {
     clearReconnectTimer();
     if (longPressResetTimerRef.current) {
@@ -1878,12 +1942,33 @@ export function PlayAuralApp() {
     }
   };
 
-  const stopGameAudio = (forceAmbience = true) => {
-    audio.stopMusic(false);
-    audio.stopAmbience(forceAmbience);
-    setCurrentMusic("");
-    setCurrentAmbience("");
+  const stopGameAudio = () => {
+    connectionAudioActiveRef.current = false;
+    audio.stopAll(800);
   };
+
+  const resetRuntimeUiForSession = useCallback((sendVoiceLeave: boolean) => {
+    leaveVoiceChat({
+      announce: false,
+      clearContext: true,
+      sendLeave: sendVoiceLeave,
+      statusKey: "voice-chat-not-connected",
+    });
+    connectionAudioActiveRef.current = false;
+    audio.stopAll(800);
+    Keyboard.dismiss();
+    activeTextInputKeyRef.current = null;
+    setActiveTextInputKey(null);
+    transientTurnMenuAllowanceRef.current = null;
+    nativeMenuFocusOnNextPacketRef.current = false;
+    nativeMenuFocusRequestedAtRef.current = 0;
+    clearScheduledNativeFocus();
+    setMenuState(defaultMenuState);
+    menuStateRef.current = defaultMenuState;
+    setInputState(null);
+    inputStateRef.current = null;
+    setInputValue("");
+  }, [audio, clearScheduledNativeFocus, leaveVoiceChat]);
 
   const queueReconnectAttempt = useCallback((delayMs: number, statusMessage: string, speakMessage = false) => {
     const { password: reconnectPassword, serverUrl: reconnectServerUrl, username: reconnectUsername } = credentialsRef.current;
@@ -1975,12 +2060,11 @@ export function PlayAuralApp() {
     }
 
     const hasVoiceSession = voiceState === "connected" || voiceState === "connecting";
-    const hasAudibleMusic = Boolean(currentMusic) && audio.getMusicVolume() > 0;
-    const hasAudibleAmbience = Boolean(currentAmbience) && audio.getAmbienceVolume() > 0;
+    const hasAudibleManagedAudio = audio.hasAudibleManagedLayers();
     const shouldUseMicrophoneService = voiceMicEnabled && hasVoiceSession;
     const shouldUsePlaybackService =
       !shouldUseMicrophoneService &&
-      (hasVoiceSession || (appState !== "active" && (hasAudibleMusic || hasAudibleAmbience)));
+      (hasVoiceSession || (appState !== "active" && hasAudibleManagedAudio));
     const shouldUseGameplayService =
       !shouldUseMicrophoneService &&
       !shouldUsePlaybackService &&
@@ -2008,7 +2092,7 @@ export function PlayAuralApp() {
           : "dataSync",
       title: localization.t("background-service-title"),
     });
-  }, [appState, audio, connected, currentAmbience, currentMusic, localization, voiceMicEnabled, voiceState]);
+  }, [appState, audio, audioRevision, connected, localization, voiceMicEnabled, voiceState]);
 
   const exitApplication = useCallback(() => {
     disableAutoReconnect();
@@ -2042,8 +2126,6 @@ export function PlayAuralApp() {
     nativeMenuFocusRequestedAtRef.current = 0;
     clearScheduledNativeFocus();
     setActiveTextInputKey(null);
-    setCurrentMusic("");
-    setCurrentAmbience("");
     setVoiceCapability({
       enabled: false,
       provider: "",
@@ -2094,7 +2176,12 @@ export function PlayAuralApp() {
     setDialogState(null);
   }, []);
 
-  const promptMandatoryUpdate = (id: string, title: string, message: string) => {
+  const promptMandatoryUpdate = (
+    id: string,
+    title: string,
+    message: string,
+    downloadUrl: string,
+  ) => {
     if (updatePromptShownRef.current) {
       return;
     }
@@ -2105,9 +2192,13 @@ export function PlayAuralApp() {
           id: "confirm",
           onPress: () => {
             closeDialog();
-            void Linking.openURL(APK_DOWNLOAD_URL).finally(() => {
+            if (downloadUrl) {
+              void Linking.openURL(downloadUrl).finally(() => {
+                exitApplication();
+              });
+            } else {
               exitApplication();
-            });
+            }
           },
           text: localization.t("update-confirm"),
           variant: "primary",
@@ -2136,6 +2227,7 @@ export function PlayAuralApp() {
         "mandatory-app-update",
         localization.t("update-required-title"),
         localization.t("update-required-message", { value: latestAppVersion }),
+        releaseDownloadUrl(packet.update_info),
       );
       return true;
     }
@@ -2150,6 +2242,7 @@ export function PlayAuralApp() {
           current: bundledSoundVersion || localization.t("update-unknown-version"),
           latest: serverSoundVersion,
         }),
+        releaseDownloadUrl(packet.sounds_info),
       );
       return true;
     }
@@ -2167,6 +2260,7 @@ export function PlayAuralApp() {
           sendLeave: false,
           statusKey: "voice-chat-not-connected",
         });
+        stopGameAudio();
         setConnected(false);
         if (!allowReconnectRef.current || manualDisconnectRef.current || !sessionEstablishedRef.current) {
           if (reason) {
@@ -2190,11 +2284,15 @@ export function PlayAuralApp() {
         );
       },
       onError: (message) => {
+        stopConnectionAudio();
         const localizedMessage = localizeSystemMessage(message, "network-connection-error");
         setStatusText(localizedMessage);
         if (!allowReconnectRef.current || manualDisconnectRef.current || !sessionEstablishedRef.current) {
           announce(localizedMessage, "system");
         }
+      },
+      onConnecting: () => {
+        startConnectionAudio();
       },
       onOpen: () => {
         setStatusText(localization.t("status-connecting"));
@@ -2205,6 +2303,12 @@ export function PlayAuralApp() {
         }
         if (packet.type === "authorize_success") {
           const authPacket = packet as AuthorizeSuccessPacket;
+          stopConnectionAudio();
+          if (authPacket.reset_ui === true) {
+            // Reset the previous socket before the server releases this
+            // session's ordered UI and audio packets.
+            resetRuntimeUiForSession(false);
+          }
           manualDisconnectRef.current = false;
           allowReconnectRef.current = true;
           expectingReconnectRef.current = false;
@@ -2226,7 +2330,6 @@ export function PlayAuralApp() {
           if (checkVersionGates(authPacket)) {
             return;
           }
-          void audio.playSound("welcome.ogg", { volume: 1 });
           setStatusText(localization.t("status-connected"));
           announce(localization.t("status-connected"), "system");
           return;
@@ -2238,25 +2341,7 @@ export function PlayAuralApp() {
         }
 
         if (packet.type === "clear_ui") {
-          leaveVoiceChat({
-            announce: false,
-            clearContext: true,
-            sendLeave: voicePresenceRegisteredRef.current,
-            statusKey: "voice-chat-not-connected",
-          });
-          stopGameAudio(true);
-          Keyboard.dismiss();
-          activeTextInputKeyRef.current = null;
-          setActiveTextInputKey(null);
-          transientTurnMenuAllowanceRef.current = null;
-          nativeMenuFocusOnNextPacketRef.current = false;
-          nativeMenuFocusRequestedAtRef.current = 0;
-          clearScheduledNativeFocus();
-          setMenuState(defaultMenuState);
-          menuStateRef.current = defaultMenuState;
-          setInputState(null);
-          inputStateRef.current = null;
-          setInputValue("");
+          resetRuntimeUiForSession(voicePresenceRegisteredRef.current);
           return;
         }
 
@@ -2270,7 +2355,7 @@ export function PlayAuralApp() {
             sendLeave: false,
             statusKey: "voice-chat-not-connected",
           });
-          stopGameAudio(true);
+          stopGameAudio();
           setConnected(false);
           if (disconnectPacket.reconnect) {
             manualDisconnectRef.current = false;
@@ -2317,7 +2402,8 @@ export function PlayAuralApp() {
             sendLeave: false,
             statusKey: "voice-chat-not-connected",
           });
-          stopGameAudio(true);
+          stopConnectionAudio();
+          stopGameAudio();
           setConnected(false);
           disableAutoReconnect();
           setAuthStatusText(reason);
@@ -2341,33 +2427,9 @@ export function PlayAuralApp() {
           return;
         }
 
-        if (packet.type === "play_ambience") {
-          const ambiencePacket = packet as PlayAmbiencePacket;
-          setCurrentAmbience(ambiencePacket.loop || "");
-          void audio.playAmbience(
-            ambiencePacket.loop || "",
-            ambiencePacket.intro || "",
-            ambiencePacket.outro || "",
-          );
-          return;
-        }
-
-        if (packet.type === "play_music") {
-          const musicPacket = packet as PlayMusicPacket;
-          setCurrentMusic(musicPacket.name || "");
-          void audio.playMusic(musicPacket.name || "", musicPacket.looping ?? true);
-          return;
-        }
-
-        if (packet.type === "play_sound") {
-          const soundPacket = packet as PlaySoundPacket;
-          if (soundPacket.name) {
-            void audio.playSound(soundPacket.name, {
-              pan: (soundPacket.pan ?? 0) / 100,
-              pitch: (soundPacket.pitch ?? 100) / 100,
-              volume: (soundPacket.volume ?? 100) / 100,
-            });
-          }
+        if (packet.type === "audio") {
+          const audioPacket = packet as AudioCommandPacket;
+          void audio.handleAudioCommand(audioPacket);
           return;
         }
 
@@ -2400,18 +2462,6 @@ export function PlayAuralApp() {
           return;
         }
 
-        if (packet.type === "stop_ambience") {
-          setCurrentAmbience("");
-          audio.stopAmbience();
-          return;
-        }
-
-        if (packet.type === "stop_music") {
-          setCurrentMusic("");
-          audio.stopMusic();
-          return;
-        }
-
         if (packet.type === "pong") {
           const startedAt = lastPingStartedAtRef.current;
           if (startedAt) {
@@ -2427,7 +2477,7 @@ export function PlayAuralApp() {
           const contextId = String(contextPacket.table_id || "");
           const previousContextId = voiceContextRef.current.contextId;
           if (previousContextId && contextId && contextId !== previousContextId) {
-            stopGameAudio(true);
+            stopGameAudio();
           }
           if (
             previousContextId &&

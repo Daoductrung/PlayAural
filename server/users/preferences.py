@@ -106,8 +106,8 @@ class UserPreferences:
     mute_global_chat: bool = False
     mute_table_chat: bool = False
     notify_table_created: bool = True  # Notify when a new table is created
-    notify_user_presence: bool = False # Notify when normal users connect/disconnect
-    notify_friend_presence: bool = True # Notify when accepted friends connect/disconnect
+    notify_user_presence: bool = False  # Notify for non-friend users
+    notify_friend_presence: bool = True  # Notify for accepted friends
 
     # Interface preferences
     invert_multiline_enter_behavior: bool = False

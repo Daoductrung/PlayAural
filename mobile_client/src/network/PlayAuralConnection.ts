@@ -2,6 +2,7 @@ import type { ClientPacket, ServerPacket } from "./packets";
 import { clientAuthMetadata } from "./clientInfo";
 
 type ConnectionHandlers = {
+  onConnecting?: () => void;
   onClose?: (reason?: string) => void;
   onError?: (message: string) => void;
   onOpen?: () => void;
@@ -17,8 +18,16 @@ export class PlayAuralConnection {
 
   connect(serverUrl: string, username: string, password: string, version: string): void {
     this.disconnect();
+    this.handlers.onConnecting?.();
 
-    const socket = new WebSocket(serverUrl);
+    let socket: WebSocket;
+    try {
+      socket = new WebSocket(serverUrl);
+    } catch {
+      this.handlers.onError?.("Connection error.");
+      this.handlers.onClose?.();
+      return;
+    }
     this.socket = socket;
 
     socket.onopen = () => {

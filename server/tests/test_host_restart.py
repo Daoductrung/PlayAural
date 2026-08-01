@@ -53,6 +53,40 @@ def _make_playing_table():
     return server, table, game, alice, bob
 
 
+def test_game_completion_resets_to_a_silent_waiting_lobby() -> None:
+    _server, table, old_game, alice, bob = _make_playing_table()
+    old_game.play_music("test/game_music.ogg")
+    old_game.play_sound("test/victory.ogg")
+    old_game._persist_result = lambda result: None
+    alice.clear_messages()
+    bob.clear_messages()
+
+    old_game.finish_game(show_end_screen=False)
+
+    new_game = table.game
+    assert new_game is not None
+    assert new_game is not old_game
+    assert table.status == "waiting"
+    assert new_game.status == "waiting"
+    assert new_game.current_music == ""
+    assert new_game.active_audio == {}
+    for user in (alice, bob):
+        assert any(
+            message.type == "stop_music"
+            and message.data.get("handle") == "music"
+            for message in user.messages
+        )
+        assert not any(
+            message.type == "play_music"
+            for message in user.messages
+        )
+        assert not any(
+            message.type == "audio"
+            and message.data.get("command") == "stop_all"
+            for message in user.messages
+        )
+
+
 @pytest.mark.asyncio
 async def test_host_restart_requires_confirmation_and_resets_to_clean_lobby() -> None:
     server, table, old_game, alice, bob = _make_playing_table()
@@ -89,7 +123,7 @@ async def test_host_restart_requires_confirmation_and_resets_to_clean_lobby() ->
     assert new_game.scheduled_sounds == []
     assert new_game.sound_scheduler_tick == 0
     assert new_game.current_ambience == ""
-    assert new_game.current_music == "findgamemus.ogg"
+    assert new_game.current_music == ""
     assert old_game._destroyed is True
     assert old_game.scheduled_sounds == []
     assert old_game._users == {}
@@ -108,10 +142,14 @@ async def test_host_restart_requires_confirmation_and_resets_to_clean_lobby() ->
 
     for user in (alice, bob):
         message_types = _message_types(user)
-        assert "stop_ambience" in message_types
+        assert "audio" in message_types
         assert any(
+            message.type == "audio"
+            and message.data.get("command") == "stop_all"
+            for message in user.messages
+        )
+        assert not any(
             message.type == "play_music"
-            and message.data.get("name") == "findgamemus.ogg"
             for message in user.messages
         )
         assert any(

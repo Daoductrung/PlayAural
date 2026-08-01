@@ -93,11 +93,7 @@ Important server-driven packets include:
 - `update_menu`
 - `request_input`
 - `speak`
-- `play_sound`
-- `play_music`
-- `play_ambience`
-- `stop_music`
-- `stop_ambience`
+- `audio`
 - `chat`
 - `disconnect`
 - `table_context`
@@ -106,12 +102,76 @@ Important server-driven packets include:
 - `voice_leave_ack`
 - `voice_context_closed`
 
-**`silent` flag on `chat` packets**: Adding `"silent": True` suppresses both chat notification sounds and TTS in the first-party clients. Use it only when the server is also sending explicit `speak` and/or `play_sound` packets to control the audio output precisely.
+**`silent` flag on `chat` packets**: Adding `"silent": True` suppresses both chat notification sounds and TTS in the first-party clients. Use it only when the server is also sending explicit `speak` and/or `audio` packets to control the output precisely.
+
+### Audio Control Protocol
+
+Server-controlled SFX, music, and ambience use the single versioned `audio`
+packet. Do not add per-feature packet types or client-specific audio branches.
+The server validates relative asset paths, ids, numeric ranges, commands,
+kinds, and scopes through `server/audio.py`; clients validate again before
+loading an asset.
+
+- Commands are `play`, `stop`, `pause`, `resume`, `set_bus`, and `stop_all`.
+- Kinds are `sfx`, `music`, and `ambience`. A named bus may be added without
+  changing the protocol and inherits its kind's user-volume preference.
+- Stable handles own lifecycle. Looping SFX must keep the returned/provided
+  handle and stop it explicitly. Stop/pause/resume are idempotent.
+- Music and ambience replacement use simultaneous fade-out/fade-in. Pausing
+  music preserves position. Abrupt music stops are reserved for strict
+  lifecycle boundaries where audio must not survive into the next context.
+- Ambience is keyed by `scope + context + layer`: `global`, `player`, or
+  `context` scopes may coexist, and changing one layer must not stop another.
+- Ambience assets may be a simple loop or a segmented stem with optional intro
+  and outro. When `seamless` is enabled, intro-to-loop and loop-to-outro are
+  contiguous same-stem boundaries: never fade or crossfade those transitions.
+  External fades still apply to starting, replacing, pausing, or force-stopping
+  independent sources. Normal stop uses an immediate no-fade splice from the
+  active loop into its outro, matching legacy teardown behavior and preventing
+  a long loop from surviving into another UI context. `outro_mode="boundary"`
+  is an explicit opt-in for content whose caller can wait until the current
+  loop iteration reaches its authored seam. Waiting lobbies never own
+  background music, whether initially created or entered after completion or a
+  manual reset. Game completion and reset use `stop_replayable_audio` to retire
+  music, ambience, and persistent looping SFX without interrupting untracked
+  one-shot result cues; ambience may finish through its authored outro.
+  Table-to-main-menu teardown uses `stop_all` with `play_outros=True`, while
+  hard resets/transfers may suppress outros to avoid overlap with the next table
+  context. Reconnect replay starts at the loop and does not replay an intro that
+  the table already heard.
+- `priority` and `max_instances` bound SFX pressure. `ducking` temporarily
+  lowers named buses for the life of its source and restores them on every
+  completion/stop/error path. User volume remains the master gain.
+- Ducking is implemented but dormant and strictly opt-in. First-party gameplay
+  must not send non-empty `ducking` maps until a future feature explicitly
+  adopts and tunes it. Empty/default ducking must have no audible side effects.
+- Android playback must preserve the system-selected wired, Bluetooth, or
+  speaker route; game-audio setup must never force speakerphone routing. ExpoAV
+  is the single audio-focus coordinator. The modern `expo-audio` playlist path
+  mixes without requesting a competing focus lease, and its guarded native
+  routing patch is applied by the mobile `postinstall` script. Keep the patch
+  and its fail-closed regression test until upstream provides the same behavior.
+  Android autolinking must build `expo-audio` from that guarded local source;
+  the default precompiled artifact does not contain the fix.
+- Async clients must generation-guard asset loads and fades so a late load or
+  retiring source cannot resurrect, silence, or replace a newer command.
+- Replayable music, ambience, and explicitly persistent SFX loops live in the
+  game's Mashumaro-safe `active_audio` state, including recipient ids and
+  paused state. One-shots and client mixer state are runtime-only. Old
+  `current_music`/`current_ambience` fields are read-migration bridges for
+  pre-protocol saves and must not become a second playback authority.
+- `active_audio` has the same lifespan and retention as its containing
+  table/game save. Explicit stop, phase reset, table transfer, and game
+  replacement remove stale entries; deleting the containing save/table or
+  account-owned data deletes it as part of that existing lifecycle. Schema
+  migration reads the legacy current-track fields only when unified state is
+  absent.
+- Gameplay WebSockets carry control JSON only. Voice media remains on LiveKit.
 
 ### Server Architecture
 - **`server/core/server.py`** — Main orchestrator, auth routing, menus, reconnect, moderation, MOTD, presence
 - **`server/network/websocket_server.py`** — Async WebSocket transport
-- **`server/games/`** — 43 registered game implementations
+- **`server/games/`** — 44 registered game implementations
 - **`server/game_utils/`** — shared game mixins and helpers
 - **`server/tables/`** — table lifecycle, save/restore, membership
 - **`server/auth/`** — authentication, CAPTCHA checks, password reset, rate limiting
@@ -165,6 +225,9 @@ Core primitives:
 - `SequenceOperation.callback_op("callback_id", payload={...})`
 - `SequenceBeat(ops=[...], delay_after_ticks=N)`
 - `SequenceBeat.pause(N)`
+- `SequenceBeat.after_audio(duration_ticks, wait_ratio=..., ops=[...])` for
+  dynamic delays before the following beat that remain correct when an asset
+  is replaced; add a following beat when the sequence must remain active
 
 Standard rule:
 - use `SEQUENCE_LOCK_GAMEPLAY` by default
@@ -464,6 +527,35 @@ Use `_enter_input_state(user, input_id, **extra)` / `server.enter_input_state(..
 #### Reconnect and Ghost Cleanup
 `_restore_user_state` handles reconnect and cleans up stale lobby membership, spectators, and inconsistent table mappings. Reconnect restoration should always route through the centralized restore flow, not custom menu-specific chains.
 
+Session ownership is the exact `ClientConnection` held by the current
+`NetworkUser`, not merely a matching username or authenticated flag. Serialize
+authorization, authenticated packet dispatch, disconnect cleanup, and external
+security eviction per canonical username. A retired socket's late packet,
+queued send, transport-finally callback, or voice event must be harmless to its
+successor. Credential verification and account/password deletion or eviction
+must share the same account lock so a checked credential cannot become stale
+before session activation.
+
+First-party releases update the server and all clients in lockstep. Installing
+an authenticated session requires an exact client/server version match.
+Outdated native clients may receive the credential-verified
+`authorize_success` update bootstrap required by the deployed mandatory
+updater, but that transport must never own a `NetworkUser`, replace a live
+session, emit presence, or dispatch gameplay. Reject outdated Web clients
+before authentication. Do not retain obsolete packet-field aliases between
+first-party builds. This rule does not remove database, account preference,
+local config, table, checkpoint, or saved-game migrations: persisted data
+survives a release and must still load safely.
+
+Never copy rendered menus or editboxes across sessions. Rebuild UI from
+authoritative server/game intent against the replacement client's capabilities,
+normalizing device-only navigation frames to a valid shared parent. A live
+device handover keeps authoritative timers and sequences running, replays active
+audio layers, preserves reconstructable gameplay overlays, does not substitute
+bots or add reconnect grace, and does not reset chat/voice rate limits. Retired
+`NetworkUser` output queues are inert, and retained reconnect UI state has a
+bounded runtime cleanup lifecycle.
+
 #### Server Alert Broadcast
 Scheduled server power alerts use:
 - deduplicated task guard
@@ -624,7 +716,7 @@ Desktop rules:
 
 ### Web Client Architecture
 - **`web_client/game.js`** — version marker and bootstrap entry that imports the modular runtime
-- **`web_client/app.js`** — main runtime, auth flow, packet dispatch, menu/input orchestration, speech preferences, playlists, and voice-chat coordination
+- **`web_client/app.js`** — main runtime, auth flow, packet dispatch, menu/input orchestration, speech preferences, and voice-chat coordination
 - **`web_client/store.js`** — UI state store for connection state, current menu, capped history buffers, pending input state, and server option data
 - **`web_client/network.js`** — WebSocket connection, packet validation, reconnect-safe send handling, and protocol dispatch boundaries
 - **`web_client/audio.js`** — browser audio engine for effects, music, ambience, volume/mute state, sound-pack versioning, effect preloading, and stale-effect protection
@@ -638,7 +730,7 @@ Desktop rules:
 Web rules:
 - never use `innerHTML` with server-controlled content
 - remember-me password storage is opt-in and controlled by `pa_remember`
-- TTS, Web Speech queues, playlists, voice chat, pending inputs, and reconnect
+- TTS, Web Speech queues, audio handles, voice chat, pending inputs, and reconnect
   state must be cleaned up on disconnect
 - current client version is tracked in `web_client/game.js`
 - server `request_input` packets determine single-line versus multiline web
@@ -683,11 +775,11 @@ Mobile rules:
   language names; metadata complements it and does not replace it.
 
 ### Game Counts and Catalog
-The server currently registers **43 games**:
+The server currently registers **44 games**:
 - category ids are `cards`, `dice`, `board`, `poker`, `arcade`, and `misc`
 - the Play menu exposes a persisted category filter with dynamic per-category game counts
 - games usually expose one category through `get_category()`, while `get_categories()` supports future multi-category games
-- recent additions include `Metal Pipe`, `Nine`, `Senet`, `Cards Against Humanity`, `21`, `Age of Heroes`, `UNO`, and `Exploding Kittens`
+- recent additions include `Metal Pipe`, `Nine`, `Senet`, `Cards Against Humanity`, `21`, `Age of Heroes`, `UNO`, `Exploding Kittens`, and `BANG! The Bullet`
 
 ### Key Tech Stack
 - Python 3.11, `asyncio`, `websockets>=12.0`, `mashumaro`, `fluent-runtime`, `openskill`, `argon2-cffi`

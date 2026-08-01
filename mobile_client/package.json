@@ -1,6 +1,6 @@
 {
   "name": "playaural-mobile-client",
-  "version": "1.0.4.9",
+  "version": "1.0.4.11",
   "private": true,
   "license": "GPL-2.0-only",
   "main": "index.ts",
@@ -10,6 +10,10 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
+    "postinstall": "npm run patch:android-audio-routing",
+    "patch:android-audio-routing": "node scripts/patch-expo-audio-routing.mjs",
+    "test:android-audio-routing": "node --test tests/android-audio-routing.test.mjs",
+    "test:audio-lifecycle": "node --test tests/mobile-audio-lifecycle.test.mjs",
     "generate:sounds": "node scripts/generate-sound-manifest.mjs",
     "generate:locales": "node scripts/generate-locale-registry.mjs"
   },
@@ -22,20 +26,29 @@
     "@supersami/rn-foreground-service": "^2.2.5",
     "expo": "~55.0.0",
     "expo-asset": "~55.0.14",
-    "expo-audio": "^0.4.8",
+    "expo-audio": "~55.0.16",
     "expo-av": "^16.0.8",
-    "expo-secure-store": "^55.0.13",
-    "expo-speech": "^14.0.0",
-    "expo-status-bar": "~3.0.8",
+    "expo-secure-store": "~55.0.16",
+    "expo-speech": "~55.0.16",
+    "expo-status-bar": "~55.0.6",
     "livekit-client": "^2.18.3",
     "react": "19.2.0",
     "react-dom": "19.2.0",
-    "react-native": "0.83.4",
+    "react-native": "0.83.10",
     "react-native-web": "^0.21.0"
   },
   "devDependencies": {
     "@types/react": "^19.1.16",
     "babel-preset-expo": "^55.0.16",
     "typescript": "^5.9.3"
+  },
+  "expo": {
+    "autolinking": {
+      "android": {
+        "buildFromSource": [
+          "expo-audio"
+        ]
+      }
+    }
   }
 }

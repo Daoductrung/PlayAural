@@ -29,15 +29,46 @@ class ChatRateLimiter:
         5: 120,   # Second mute: 2 minutes
     }
     AUTO_MUTE_SEVERE = 300  # 6+ strikes: 5 minutes
+    IDLE_RETENTION_SECONDS = 600.0
+    PRUNE_INTERVAL_SECONDS = 60.0
 
     def __init__(self):
         self._buckets: dict[str, _UserBucket] = {}
+        self._last_prune = time.monotonic()
+
+    def _prune_inactive(self, now: float) -> None:
+        """Bound runtime state without making reconnect a limiter bypass."""
+        if now - self._last_prune < self.PRUNE_INTERVAL_SECONDS:
+            return
+        self._last_prune = now
+        for username, bucket in list(self._buckets.items()):
+            if bucket.strikes > 0 and bucket.last_strike_time:
+                decay_count = int(
+                    (now - bucket.last_strike_time)
+                    / self.STRIKE_DECAY_INTERVAL
+                )
+                if decay_count > 0:
+                    bucket.strikes = max(0, bucket.strikes - decay_count)
+                    bucket.last_strike_time = now
+                    if bucket.strikes < 6:
+                        bucket.admin_notified = False
+            mute_active = bool(bucket.muted_until and now < bucket.muted_until)
+            if (
+                not mute_active
+                and bucket.strikes == 0
+                and now - bucket.last_activity > self.IDLE_RETENTION_SECONDS
+            ):
+                self._buckets.pop(username, None)
 
     def get_bucket(self, username: str) -> "_UserBucket":
         """Get or create a bucket for a user."""
+        now = time.monotonic()
+        self._prune_inactive(now)
         if username not in self._buckets:
             self._buckets[username] = _UserBucket(self.BUCKET_CAPACITY)
-        return self._buckets[username]
+        bucket = self._buckets[username]
+        bucket.last_activity = now
+        return bucket
 
     def try_consume(self, username: str) -> tuple[bool, str | None]:
         """
@@ -71,6 +102,8 @@ class ChatRateLimiter:
             if decay_count > 0:
                 bucket.strikes = max(0, bucket.strikes - decay_count)
                 bucket.last_strike_time = now
+                if bucket.strikes < 6:
+                    bucket.admin_notified = False
 
         # Try to consume a token
         if bucket.tokens >= 1.0:
@@ -96,12 +129,14 @@ class ChatRateLimiter:
 
     def is_muted(self, username: str) -> tuple[bool, int]:
         """Check if a user is currently auto-muted. Returns (muted, remaining_seconds)."""
+        now = time.monotonic()
+        self._prune_inactive(now)
         if username not in self._buckets:
             return False, 0
         bucket = self._buckets[username]
+        bucket.last_activity = now
         if not bucket.muted_until:
             return False, 0
-        now = time.monotonic()
         if now >= bucket.muted_until:
             bucket.muted_until = None
             return False, 0
@@ -120,7 +155,7 @@ class ChatRateLimiter:
             self._buckets[username].admin_notified = True
 
     def remove_user(self, username: str) -> None:
-        """Remove a user's bucket (on disconnect)."""
+        """Explicitly remove a user's runtime limiter state."""
         self._buckets.pop(username, None)
 
 
@@ -134,6 +169,7 @@ class _UserBucket:
         "last_strike_time",
         "muted_until",
         "admin_notified",
+        "last_activity",
     )
 
     def __init__(self, capacity: float):
@@ -143,3 +179,4 @@ class _UserBucket:
         self.last_strike_time: float | None = None
         self.muted_until: float | None = None
         self.admin_notified: bool = False
+        self.last_activity: float = self.last_refill

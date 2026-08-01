@@ -55,6 +55,7 @@ from .client_types import is_touch_client
 SEALED_MENU_ORCHESTRATORS = (
     "refresh_menus",
     "flush_menus",
+    "restore_session_ui",
     "_paint_player_menu",
     "_is_menu_refresh_blocked",
 )
@@ -346,6 +347,45 @@ class MenuManagementMixin:
             selection_id=focus,
             **build.grid_kwargs,
         )
+
+    def restore_session_ui(self, player: "Player") -> None:
+        """Rebuild the current gameplay UI for a replacement client session.
+
+        Runtime intent is authoritative; rendered client state is not copied
+        between devices. Reconstructable overlays are painted again against the
+        new user's capabilities. A static status box has no retained builder, so
+        it is dismissed and gameplay resumes at its recorded opener.
+        """
+        if self._destroyed:
+            return
+
+        if player.id in self._status_box_open:
+            if player.id in self._live_status_boxes:
+                self._paint_live_status_box(player, focus_id=None)
+                return
+            self._status_box_open.discard(player.id)
+            focus = self._status_box_return_focus.pop(player.id, None)
+            if focus:
+                self.request_menu_focus(player, focus)
+
+        pending_action_id = self._pending_actions.get(player.id)
+        if pending_action_id == "leave_game_confirm":
+            self._action_leave_game(player, pending_action_id)
+            return
+        if pending_action_id:
+            action = self.find_action(player, pending_action_id)
+            if action and action.input_request is not None:
+                self._request_action_input(action, player)
+                if player.id in self._pending_actions:
+                    return
+            self._pending_actions.pop(player.id, None)
+            self._pending_action_return_focus.pop(player.id, None)
+
+        if player.id in self._actions_menu_open:
+            self._paint_actions_menu(player)
+            return
+
+        self.refresh_menus(player)
 
     # ------------------------------------------------------------------
     # Status boxes

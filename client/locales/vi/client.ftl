@@ -164,6 +164,7 @@ goodbye = Tạm biệt!
 
 update-available-title = Có bản cập nhật mới
 update-available-message = Đã có phiên bản mới ({ $version }). Bạn có muốn cập nhật ngay không?
+update-unavailable-message = Bạn cần phiên bản { $version }, nhưng hiện chưa có bản tải xuống tự động cho nền tảng này. Vui lòng tải bản dựng được hỗ trợ từ trang phát hành PlayAural.
 update-downloading = Đang tải bản cập nhật: { $percent }%
 update-downloading-size = Đang tải xuống... { $size } MB
 update-complete = Tải xuống hoàn tất. Đang khởi động lại...

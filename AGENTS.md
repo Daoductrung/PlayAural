@@ -49,7 +49,7 @@ cd mobile_client && cmd /c npm run typecheck && npx expo start
 
 ## Core Architecture
 
-- `server/games/` currently registers 43 games. Categories are `cards`, `dice`,
+- `server/games/` currently registers 44 games. Categories are `cards`, `dice`,
   `board`, `poker`, `arcade`, and `misc`; user-facing category labels must be
   localized. The Play menu uses dynamic counts, not hardcoded category counts.
 - Games are `@dataclass` classes registered with `@register_game`, inherit from
@@ -80,6 +80,10 @@ Rules:
 
 - Build explicit `SequenceBeat` lists with `sound_op`, `localized_sound_op`,
   and `callback_op`.
+- Use `SequenceBeat.after_audio(duration_ticks, wait_ratio=...)` when the next
+  beat should overlap a measured asset; the ratio delays the following beat,
+  so add a following beat when the sequence must remain active. Keep duration
+  data-driven instead of hardcoding replacement-sensitive delays.
 - State changes happen in callbacks, not because a sound played.
 - Payloads must be Mashumaro-safe primitives, lists, dicts, or safe dataclasses.
 - Prefer `SEQUENCE_LOCK_GAMEPLAY`; keep info/status actions available.
@@ -227,6 +231,42 @@ Audio-first is mandatory. Every important state change needs TTS and/or sound.
   `chat` for chat only, `misc` for minor non-game informational output.
 - Use `play_sound`, `user.play_sound`, `play_music`, ambience helpers, scheduled
   sounds, or sequences as appropriate.
+- All server-driven SFX, music, and ambience use the versioned `audio` command
+  contract in `server/audio.py`. Do not add separate packet types or
+  client-specific routing. Asset paths and command values must be validated.
+- Looping SFX use stable handles and explicit stop; music supports fade
+  pause/resume/stop; ambience uses independent `global`, `player`, or `context`
+  scope plus a stable layer. Switching music or one ambience layer crossfades
+  without disturbing unrelated layers.
+- Ambience stems may define any combination of intro, loop, and outro assets.
+  With seamless stem playback, intro-to-loop and loop-to-outro are contiguous
+  boundaries with no fade or crossfade; fades apply only to starting, replacing,
+  pausing, or forcibly stopping independent sources. An ambience stop uses an
+  immediate no-fade loop-to-outro splice by default so long loops cannot leak
+  across a game or table teardown. Use `outro_mode="boundary"` only when the
+  caller deliberately accepts finishing the current loop iteration at its
+  authored seam. Waiting lobbies never own background music. Game completion
+  and reset retire every replayable layer: ambience may finish through its
+  authored outro, while already-playing one-shot result cues may complete.
+  Table exit uses `stop_all` with `play_outros=True`. Reconnect replay joins the
+  loop and never repeats an already-heard intro.
+- Named buses, priority/max-instance limits, and source-lifetime ducking are
+  protocol data, not game/client hardcoding. User volume remains the master.
+  Async loads and fades must be generation-guarded against stale resurrection.
+- Ducking is a dormant, opt-in capability. Do not add `ducking` to first-party
+  gameplay commands until a future feature deliberately enables and tunes it;
+  keep zero-duck defaults behaviorally identical to an engine without ducking.
+- Android playback must preserve the system-selected wired, Bluetooth, or
+  speaker route; game-audio setup must never force speakerphone routing. Keep
+  ExpoAV as the single audio-focus coordinator, and retain the guarded
+  `expo-audio` native routing patch applied by the mobile `postinstall` script.
+  Android must build `expo-audio` from that guarded local source, not its
+  otherwise-unpatched precompiled artifact.
+- Persist only replayable layers in `active_audio` with recipient and paused
+  state. It follows the containing table/save retention and deletion lifecycle;
+  explicit stops, resets, transfers, and replacements prune stale state.
+  One-shots and mixer state are runtime-only. Gameplay WebSockets carry audio
+  control JSON only; LiveKit remains the separate voice-media path.
 - Provide information actions for state queries such as hand, board/table,
   counts, status, scores, and whose turn.
 
@@ -356,6 +396,27 @@ per-game shutdown hooks.
   input state instead of mutating `_user_states`.
 - Reconnect restoration and ghost cleanup must route through centralized restore
   code.
+- Account handover is serialized per canonical username. Only the exact
+  connection owned by the current `NetworkUser` may dispatch packets or run
+  disconnect cleanup; stale sockets and callbacks must be harmless.
+- Credential verification, password-reset eviction, moderation eviction, and
+  account deletion must use that same account lock so a checked credential
+  cannot install a session after its account or password changed.
+- First-party releases update the server and all clients in lockstep. Only an
+  exact server/client version match may install an authenticated session.
+  Outdated native clients may receive the credential-verified update bootstrap
+  needed by their mandatory updater, but must never own a `NetworkUser`,
+  displace a current session, broadcast presence, or dispatch gameplay. Reject
+  outdated Web clients before authentication. Do not add old packet-field
+  aliases; retained account/config/table/save migrations remain required
+  because persistent data survives releases.
+- Never transfer rendered menus or editboxes between sessions. Rebuild UI from
+  authoritative server/game intent using the replacement client's capabilities;
+  device-only frames fall back to a valid shared parent.
+- A live device handover does not pause authoritative timers/sequences, trigger
+  bot substitution, add reconnect grace, or reset rate limits. Replay active
+  audio layers to the new session, retire old output queues, and keep transient
+  resume state bounded with explicit cleanup.
 - Web client must never use `innerHTML` with server-controlled content.
 - Web client code is modular: `game.js` is only the version/bootstrap entry;
   runtime logic belongs in `app.js`, `store.js`, `network.js`, `audio.js`,

@@ -64,6 +64,11 @@ class LobbyActionsMixin:
         """Start gameplay after all lobby-only preparation has completed."""
         if hasattr(self, "_dismiss_all_end_screens"):
             self._dismiss_all_end_screens()
+        # Enforce a clean music boundary before on_start() can dispatch an
+        # intro, ambience, or immediate game track. This also protects delayed
+        # intros if a future extension temporarily owns the music handle while
+        # preparing a game.
+        self.stop_music(fade_ms=0)
         self.broadcast_l("game-starting", buffer="system")
         self.on_start()
         self._focus_initial_gameplay_menu_items()

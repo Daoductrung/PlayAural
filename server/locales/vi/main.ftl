@@ -8,8 +8,6 @@ auth-error-user-not-found = Người dùng không tồn tại.
 auth-kicked-logged-in-elsewhere = Bạn đã bị ngắt kết nối vì tài khoản của bạn vừa được đăng nhập từ một thiết bị khác.
 
 chat-global = { $player } nói chung: { $message }
-dev-announcement-broadcast = { $dev } là nhà phát triển của PlayAural.
-admin-announcement-broadcast = { $admin } là quản trị viên của PlayAural.
 
 admin-smtp-updated-success = Đã cập nhật thiết lập SMTP thành công
 admin-smtp-settings = Cài đặt SMTP

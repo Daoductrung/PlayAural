@@ -2,7 +2,11 @@ import pytest
 from unittest.mock import MagicMock
 from server.auth.auth import AuthManager
 from server.persistence.database import Database
-from server.core.server import FRIEND_REMOVE_CONFIRM_MENU, Server
+from server.core.server import (
+    FRIEND_REMOVE_CONFIRM_MENU,
+    Server,
+    VERSION,
+)
 from server.users.network_user import NetworkUser
 import tempfile
 import os
@@ -15,6 +19,7 @@ class MockClient:
         self.address = address
         self.username = None
         self.authenticated = False
+        self.retired = False
         self.closed = False
 
     async def send(self, message):
@@ -39,6 +44,10 @@ class DummyWebSocketServer:
         client = self._clients_by_address.get(address)
         if client is not None:
             self._clients_by_username[username] = client
+
+    def unregister_client_username(self, username, client):
+        if self._clients_by_username.get(username) is client:
+            self._clients_by_username.pop(username, None)
 
 class TestFriendsSystem:
     def setup_method(self):
@@ -180,7 +189,7 @@ class TestFriendsSystem:
                 "client": "python",
                 "username": "alice",
                 "password": "Password123",
-                "version": "1.0.0",
+                "version": VERSION,
             },
         )
 
@@ -350,8 +359,8 @@ class TestFriendsSystem:
             for msg in alice_messages
         )
         assert any(
-            msg.get("type") == "play_sound"
-            and msg.get("name") == "friend_removed.ogg"
+            msg.get("type") == "audio"
+            and msg.get("asset") == "friend_removed.ogg"
             for msg in alice_messages
         )
 
@@ -361,8 +370,8 @@ class TestFriendsSystem:
             for msg in bob_messages
         )
         assert any(
-            msg.get("type") == "play_sound"
-            and msg.get("name") == "friend_removed.ogg"
+            msg.get("type") == "audio"
+            and msg.get("asset") == "friend_removed.ogg"
             for msg in bob_messages
         )
 
@@ -401,7 +410,7 @@ class TestFriendsSystem:
             for msg in messages
         )
         assert not any(
-            msg.get("type") == "play_sound"
-            and msg.get("name") == "friend_removed.ogg"
+            msg.get("type") == "audio"
+            and msg.get("asset") == "friend_removed.ogg"
             for msg in messages
         )

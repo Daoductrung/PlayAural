@@ -164,6 +164,7 @@ goodbye = Goodbye!
 
 update-available-title = Update Available
 update-available-message = A new version ({ $version }) is available. Do you want to update now?
+update-unavailable-message = Version { $version } is required, but an automatic download is not available for this platform. Please obtain a supported build from the PlayAural releases page.
 update-downloading = Downloading update: { $percent }%
 update-downloading-size = Downloading... { $size } MB
 update-complete = Download complete. Restarting...

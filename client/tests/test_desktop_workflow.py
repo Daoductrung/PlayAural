@@ -28,3 +28,21 @@ def test_main_window_applies_server_locale_without_restart_prompt():
     assert 'self._apply_locale_change(packet.get("locale", "en"))' in source
     assert "Localization.set_locale(locale)" in source
     assert "options-restart-required-message" not in source
+
+
+def test_welcome_sound_has_one_server_ordering_authority():
+    repo_root = CLIENT_DIR.parent
+    client_handlers = [
+        CLIENT_DIR / "ui" / "main_window.py",
+        repo_root / "web_client" / "app.js",
+        repo_root / "mobile_client" / "src" / "app" / "PlayAuralApp.tsx",
+    ]
+
+    for handler in client_handlers:
+        source = handler.read_text(encoding="utf-8")
+        assert "playSound(\"welcome.ogg\"" not in source
+        assert 'playSound({ name: "welcome.ogg"' not in source
+        assert 'sound_manager.play("welcome.ogg"' not in source
+
+    for pack in ("client", "web_client", "mobile_client"):
+        assert (repo_root / pack / "sounds" / "welcome.ogg").is_file()

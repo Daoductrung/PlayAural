@@ -496,9 +496,15 @@ async def test_server_editbox_escape_cancels_without_validation_error() -> None:
         server._users[user.username] = user
         server._user_states[user.username] = {"menu": "options_menu"}
         server._enter_input_state(user, "speech_rate_input")
+        client = SimpleNamespace(
+            username=user.username,
+            authenticated=True,
+            retired=False,
+        )
+        user.connection = client
 
         await server._on_client_message(
-            SimpleNamespace(username=user.username, authenticated=True),
+            client,
             {"type": "escape", "menu_id": "speech_rate_input"},
         )
 
@@ -518,9 +524,15 @@ async def test_blank_option_editbox_submission_cancels_without_validation_error(
         server._users[user.username] = user
         server._user_states[user.username] = {"menu": "options_menu"}
         server._enter_input_state(user, "speech_rate_input")
+        client = SimpleNamespace(
+            username=user.username,
+            authenticated=True,
+            retired=False,
+        )
+        user.connection = client
 
         await server._on_client_message(
-            SimpleNamespace(username=user.username, authenticated=True),
+            client,
             {
                 "type": "editbox",
                 "input_id": "speech_rate_input",

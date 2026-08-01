@@ -69,14 +69,20 @@ export type AuthorizeSuccessPacket = {
     url?: string;
   };
   preferences?: Record<string, unknown>;
+  reset_ui?: boolean;
   update_info?: {
     version?: string;
+    target?: string;
+    available?: boolean;
     url?: string;
     hash?: string;
   };
   sounds_info?: {
     version?: string;
+    target?: string;
+    available?: boolean;
     url?: string;
+    hash?: string;
   };
 };
 
@@ -114,29 +120,38 @@ export type ForceExitPacket = {
   reason?: string;
 };
 
-export type PlaySoundPacket = {
-  type: "play_sound";
-  name?: string;
+export type AudioKind = "sfx" | "music" | "ambience";
+export type AudioCommandName = "play" | "stop" | "pause" | "resume" | "set_bus" | "stop_all";
+
+export type AudioCommandPacket = {
+  type: "audio";
+  version: 1;
+  command: AudioCommandName;
+  kind?: AudioKind;
+  asset?: string;
+  handle?: string;
+  bus?: string;
+  scope?: "global" | "player" | "context";
+  context?: string;
+  layer?: string;
+  loop?: boolean;
+  intro?: string;
+  outro?: string;
+  play_intro?: boolean;
+  play_outro?: boolean;
+  play_outros?: boolean;
+  outro_mode?: "immediate" | "boundary";
+  all_layers?: boolean;
+  seamless?: boolean;
   volume?: number;
   pan?: number;
   pitch?: number;
-};
-
-export type PlayMusicPacket = {
-  type: "play_music";
-  name?: string;
-  looping?: boolean;
-};
-
-export type PlayAmbiencePacket = {
-  type: "play_ambience";
-  intro?: string;
-  loop?: string;
-  outro?: string;
-};
-
-export type StopPacket = {
-  type: "stop_music" | "stop_ambience";
+  fade_in_ms?: number;
+  fade_out_ms?: number;
+  priority?: number;
+  max_instances?: number;
+  ducking?: Record<string, number>;
+  sequence?: number;
 };
 
 export type ClearUiPacket = {
@@ -208,6 +223,7 @@ export type VoiceContextClosedPacket = {
 };
 
 export type ServerPacket =
+  | AudioCommandPacket
   | AuthorizeSuccessPacket
   | ChatPacket
   | ClearUiPacket
@@ -215,9 +231,6 @@ export type ServerPacket =
   | ForceExitPacket
   | LoginFailedPacket
   | MenuPacket
-  | PlayAmbiencePacket
-  | PlayMusicPacket
-  | PlaySoundPacket
   | PongPacket
   | RegisterResponsePacket
   | RemoveEditboxPacket
@@ -225,7 +238,6 @@ export type ServerPacket =
   | RequestPasswordResetResponsePacket
   | RequestInputPacket
   | SpeakPacket
-  | StopPacket
   | SubmitResetCodeResponsePacket
   | TableContextPacket
   | UpdateLocalePacket
@@ -243,6 +255,7 @@ export type AuthorizePacket = {
   version: string;
   client: "mobile";
   platform?: string;
+  release_platform?: string;
 };
 
 export type RegisterPacket = {
@@ -254,6 +267,7 @@ export type RegisterPacket = {
   bio?: string;
   client: "mobile";
   platform?: string;
+  release_platform?: string;
 };
 
 export type RequestPasswordResetPacket = {
@@ -262,6 +276,7 @@ export type RequestPasswordResetPacket = {
   locale: string;
   client: "mobile";
   platform?: string;
+  release_platform?: string;
 };
 
 export type SubmitResetCodePacket = {
@@ -272,6 +287,7 @@ export type SubmitResetCodePacket = {
   locale: string;
   client: "mobile";
   platform?: string;
+  release_platform?: string;
 };
 
 export type MenuSelectionPacket = {

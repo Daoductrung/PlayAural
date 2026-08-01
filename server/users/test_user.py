@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from .base import User, MenuItem, EscapeBehavior, generate_uuid
+from ..audio import AudioCommand
 
 
 @dataclass
@@ -65,29 +66,67 @@ class MockUser(User):
     def speak(self, text: str, buffer: str = "misc") -> None:
         self.messages.append(Message("speak", {"text": text, "buffer": buffer}))
 
-    def play_sound(
-        self, name: str, volume: int = 100, pan: int = 0, pitch: int = 100
-    ) -> None:
-        self.messages.append(
-            Message(
-                "play_sound",
-                {"name": name, "volume": volume, "pan": pan, "pitch": pitch},
+    def send_audio_command(self, command: AudioCommand) -> None:
+        """Capture commands while keeping legacy game assertions concise."""
+        self._record_audio_command(command)
+        packet = command.to_packet()
+        operation = command.command
+        if operation == "play" and command.kind == "sfx" and not command.loop:
+            self.messages.append(
+                Message(
+                    "play_sound",
+                    {
+                        **packet,
+                        "name": command.asset,
+                        "volume": command.volume,
+                        "pan": command.pan,
+                        "pitch": command.pitch,
+                    },
+                )
             )
-        )
-
-    def play_music(self, name: str, looping: bool = True) -> None:
-        self.messages.append(Message("play_music", {"name": name, "looping": looping}))
-
-    def stop_music(self) -> None:
-        self.messages.append(Message("stop_music", {}))
-
-    def play_ambience(self, loop: str, intro: str = "", outro: str = "") -> None:
-        self.messages.append(
-            Message("play_ambience", {"loop": loop, "intro": intro, "outro": outro})
-        )
-
-    def stop_ambience(self) -> None:
-        self.messages.append(Message("stop_ambience", {}))
+            return
+        if operation == "play" and command.kind == "music":
+            self.messages.append(
+                Message(
+                    "play_music",
+                    {
+                        **packet,
+                        "name": command.asset,
+                        "looping": command.loop,
+                    },
+                )
+            )
+            return
+        if operation == "stop" and command.kind == "music":
+            self.messages.append(Message("stop_music", packet))
+            return
+        if (
+            operation == "play"
+            and command.kind == "ambience"
+            and command.scope == "global"
+            and not command.context
+            and command.layer == "environment"
+        ):
+            self.messages.append(
+                Message(
+                    "play_ambience",
+                    {
+                        **packet,
+                        "loop": command.asset,
+                    },
+                )
+            )
+            return
+        if (
+            operation == "stop"
+            and command.kind == "ambience"
+            and command.scope == "global"
+            and not command.context
+            and command.layer == "environment"
+        ):
+            self.messages.append(Message("stop_ambience", packet))
+            return
+        self.messages.append(Message("audio", packet))
 
     def show_menu(
         self,

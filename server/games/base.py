@@ -16,6 +16,7 @@ from ..game_utils.options import (
 from ..game_utils.game_result import GameResult, PlayerResult
 from ..game_utils.teams import TeamManager
 from ..game_utils.game_sound_mixin import GameSoundMixin
+from ..audio import AudioPlaybackState
 from ..game_utils.game_communication_mixin import GameCommunicationMixin
 from ..game_utils.game_result_mixin import GameResultMixin
 from ..game_utils.game_scores_mixin import GameScoresMixin
@@ -96,9 +97,13 @@ class Game(
     game_active: bool = False
     status: str = "waiting"  # waiting, playing, finished
     host: str = ""  # Username of the host
-    current_music: str = ""  # Currently playing music track
-    current_ambience: str = ""  # Currently playing ambience loop
-    current_ambience_outro: str = ""  # Outro for the currently playing ambience loop
+    # Read-only migration inputs retained so pre-protocol saves deserialize.
+    current_music: str = ""
+    current_ambience: str = ""
+    current_ambience_outro: str = ""
+    # Canonical reconnect/save state for independently managed audio layers.
+    # The three fields above remain a read-migration bridge for older saves.
+    active_audio: dict[str, AudioPlaybackState] = field(default_factory=dict)
     turn_index: int = 0  # Current turn index (serialized for persistence)
     turn_direction: int = 1  # Turn direction: 1 = forward, -1 = reverse
     turn_skip_count: int = 0  # Number of players to skip on next advance
@@ -171,7 +176,16 @@ class Game(
 
         Note: Estimation state is initialized clean by __post_init__.
         """
-        pass
+        # Waiting lobbies are intentionally silent. Drop replayable audio from
+        # older saves/checkpoints so a pre-change lobby track cannot return
+        # when users attach to the restored game.
+        if self.status == "waiting":
+            self.active_audio.clear()
+            self.current_music = ""
+            self.current_ambience = ""
+            self.current_ambience_outro = ""
+        else:
+            self.migrate_legacy_audio_state()
 
     def _reset_transcripts(self) -> None:
         """Initialize transcript storage for seated players."""
@@ -455,6 +469,7 @@ class Game(
         # Clean up game-specific state
         self.player_action_sets.pop(player_id, None)
         self._users.pop(player_id, None)
+        self.prune_audio_recipient(player_id)
         discard_end_screen = getattr(self, "_discard_end_screen_player_id", None)
         if discard_end_screen:
             discard_end_screen(player_id)
@@ -482,6 +497,7 @@ class Game(
         # Clean up game-specific state
         self.player_action_sets.pop(player_id, None)
         self._users.pop(player_id, None)
+        self.prune_audio_recipient(player_id)
         discard_end_screen = getattr(self, "_discard_end_screen_player_id", None)
         if discard_end_screen:
             discard_end_screen(player_id)
@@ -547,17 +563,28 @@ class Game(
 
     # Player management
 
-    def attach_user(self, player_id: str, user: User) -> None:
-        """Attach a user to a player by ID."""
+    def attach_user(
+        self,
+        player_id: str,
+        user: User,
+        *,
+        session_handover: bool = False,
+    ) -> None:
+        """Attach a user to a player by ID.
+
+        ``session_handover`` replaces one live device with another without
+        treating the player as having left gameplay. Authoritative timers and
+        sequences continue, active audio is replayed, and no reconnect grace or
+        table-wide resume announcement is introduced.
+        """
         self._users[player_id] = user
         # Play current music/ambience for the joining user
-        if self.current_music:
-            user.play_music(self.current_music)
-        if self.current_ambience:
-            user.play_ambience(
-                self.current_ambience, outro=self.current_ambience_outro,
-            )
-            
+        for state in self.active_audio.values():
+            if state.recipient_ids and player_id not in state.recipient_ids:
+                continue
+            user.send_audio_command(state.to_command(replay=True))
+            if state.paused and state.kind == "music":
+                user.pause_music(handle=state.handle, fade_ms=0)
         # Check for game resume (if this was a paused-table reconnect scenario).
         if self.status == "playing":
             player = self.get_player_by_id(player_id)
@@ -575,8 +602,13 @@ class Game(
 
                 # Normal reconnects keep a short sync grace. Planned reboot
                 # restores use a table-level grace with explicit feedback, so
-                # do not leave a second silent per-player block behind.
-                player.reconnect_grace_ticks = 0 if power_restore_active else 20
+                # do not leave a second silent per-player block behind. A live
+                # session handover never disconnected from authoritative game
+                # state and therefore must not reset or extend this gate.
+                if not session_handover:
+                    player.reconnect_grace_ticks = (
+                        0 if power_restore_active else 20
+                    )
 
                 # Count humans including this new one (already in _users).
                 # During planned reboot restore grace, the table owns the
@@ -586,7 +618,11 @@ class Game(
                     for p in self.players
                     if not p.is_bot and not p.is_spectator and p.id in self._users
                 )
-                if human_count == 1 and not power_restore_active:
+                if (
+                    human_count == 1
+                    and not power_restore_active
+                    and not session_handover
+                ):
                     self.broadcast_l(
                         "game-resumed",
                         buffer="system",

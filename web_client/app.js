@@ -8,7 +8,7 @@ import { createHistoryView } from "./ui/history.js";
 import { createMenuView } from "./ui/menus.js";
 import { resolveMenuFocusIndex, stableMenuItemId } from "./ui/menuFocus.js";
 
-const CLIENT_VERSION = String(window.PLAYAURAL_WEB_VERSION || "1.0.4.9");
+const CLIENT_VERSION = String(window.PLAYAURAL_WEB_VERSION || "");
 const WEB_CLIENT_CONFIG = window.PLAYAURAL_WEB_CONFIG || {};
 const DEFAULT_SERVER_URL = String(
   WEB_CLIENT_CONFIG.serverUrl
@@ -24,6 +24,9 @@ const RECONNECT_WINDOW_MS = 30000;
 const RECONNECT_INITIAL_DELAY_MS = 1000;
 const RECONNECT_MAX_DELAY_MS = 10000;
 const SERVER_RESTART_RECONNECT_DELAY_MS = 3000;
+const CONNECTION_AUDIO_ASSET = "connectloop.ogg";
+const CONNECTION_AUDIO_HANDLE = "client:connection";
+const CONNECTION_AUDIO_LAYER = "connection";
 const WEB_SPEECH_PREF_MIN = 10;
 const WEB_SPEECH_PREF_NORMAL = 100;
 const WEB_SPEECH_PREF_MAX = 300;
@@ -130,6 +133,7 @@ function clientAuthMetadata() {
   const platform = detectClientPlatform();
   return {
     client: "web",
+    release_platform: "web",
     ...(platform ? { platform } : {}),
   };
 }
@@ -632,75 +636,6 @@ class WebSpeechManager {
   }
 }
 
-class Playlist {
-  constructor(app, id, tracks = [], options = {}) {
-    this.app = app;
-    this.id = id;
-    this.tracks = Array.isArray(tracks) ? tracks.slice() : [];
-    this.audioType = options.audio_type || "music";
-    this.shuffle = Boolean(options.shuffle);
-    this.repeats = options.repeats ?? true;
-    this.autoRemove = Boolean(options.auto_remove);
-    this.index = 0;
-    this.running = false;
-  }
-
-  start() {
-    if (!this.tracks.length) {
-      return;
-    }
-    this.running = true;
-    this.index = 0;
-    if (this.shuffle) {
-      for (let i = this.tracks.length - 1; i > 0; i -= 1) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [this.tracks[i], this.tracks[j]] = [this.tracks[j], this.tracks[i]];
-      }
-    }
-    this.playNext();
-  }
-
-  stop() {
-    this.running = false;
-    if (this.audioType === "music") {
-      this.app.audio.stopMusic();
-    } else if (this.audioType === "ambience") {
-      this.app.audio.stopAmbience();
-    }
-  }
-
-  playNext() {
-    if (!this.running || !this.tracks.length) {
-      return;
-    }
-    if (this.index >= this.tracks.length) {
-      if (!this.repeats) {
-        this.running = false;
-        if (this.autoRemove) {
-          this.app.removePlaylist(this.id);
-        }
-        return;
-      }
-      this.index = 0;
-    }
-    const track = this.tracks[this.index];
-    this.index += 1;
-    const onEnded = () => this.playNext();
-    const name = typeof track === "string" ? track : (track?.name || track?.filename || "");
-    if (!name) {
-      this.playNext();
-      return;
-    }
-    if (this.audioType === "sound") {
-      this.app.audio.playSound({ name, onEnded });
-    } else if (this.audioType === "ambience") {
-      this.app.audio.playAmbience({ loop: name });
-    } else {
-      this.app.audio.playMusic({ name, looping: false, onEnded });
-    }
-  }
-}
-
 class VoiceChatManager {
   constructor(app) {
     this.app = app;
@@ -738,9 +673,7 @@ class VoiceChatManager {
     const previous = this.currentTableContextId || "";
     this.currentTableContextId = tableId || "";
     if (previous && this.currentTableContextId && previous !== this.currentTableContextId) {
-      this.app.removeAllPlaylists();
-      this.app.audio.stopMusic();
-      this.app.audio.stopAmbience();
+      this.app.audio.stopAll(800);
     }
     if (!this.currentTableContextId) {
       if (this.state === "connected" || this.state === "connecting") {
@@ -1024,7 +957,7 @@ class VoiceChatManager {
     }
     const enable = !this.micEnabled;
     if (enable && (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia)) {
-      this.app.audio.playSound({ name: "voice_mic_error.ogg" });
+      this.app.audio.playSound({ asset: "voice_mic_error.ogg" });
       this.setStatus("voice-chat-mic-unsupported", true);
       return;
     }
@@ -1033,13 +966,13 @@ class VoiceChatManager {
     try {
       await this.room.localParticipant.setMicrophoneEnabled(enable);
       this.micEnabled = enable;
-      this.app.audio.playSound({ name: enable ? "voice_mic_on.ogg" : "voice_mic_off.ogg" });
+      this.app.audio.playSound({ asset: enable ? "voice_mic_on.ogg" : "voice_mic_off.ogg" });
       this.setStatus(enable ? "voice-chat-mic-on" : "voice-chat-mic-off", true);
     } catch (error) {
       console.warn("Voice Chat microphone toggle failed:", error);
       this.micEnabled = false;
       if (enable) {
-        this.app.audio.playSound({ name: "voice_mic_error.ogg" });
+        this.app.audio.playSound({ asset: "voice_mic_error.ogg" });
       }
       if (error && (error.name === "NotAllowedError" || error.name === "PermissionDeniedError")) {
         this.setStatus("voice-chat-mic-denied", true);
@@ -1104,10 +1037,10 @@ class PlayAuralWebApp {
     this.focusMenuOnNextPacket = false;
     this.pendingInput = null;
     this.pingStart = null;
-    this.playlists = {};
     this.connectionStatusMessage = "status-disconnected";
     this.connectionStatusParams = {};
     this.connectionStatusError = false;
+    this.connectionAudioActive = false;
     this.deferredPrompt = null;
     this.isIOS = (
       /iPad|iPhone|iPod/.test(navigator.userAgent)
@@ -1136,7 +1069,7 @@ class PlayAuralWebApp {
       listEl: this.elements.menuList,
       onActivate: (item, index) => this.activateMenuItem(item, index),
       onSelectionSound: (item) => this.playSelectionSound(item),
-      onActivateSound: () => this.audio.playSound({ name: "menuenter.ogg", volume: 50 }),
+      onActivateSound: () => this.audio.playSound({ asset: "menuenter.ogg", volume: 50 }),
       onBoundaryRepeat: (text) => {
         if (text) {
           this.speak(text, { buffer: "misc", assertive: true, noHistory: true });
@@ -2017,12 +1950,14 @@ class PlayAuralWebApp {
       return;
     }
     if (status === "connecting") {
+      this.startConnectionAudio();
       if (!reconnecting) {
         this.updateConnectionStatus("status-connecting");
       }
       return;
     }
     if (status === "error") {
+      this.stopConnectionAudio();
       if (!this.isReconnectEligible()) {
         this.updateConnectionStatus("status-connection-error", true);
       }
@@ -2041,6 +1976,30 @@ class PlayAuralWebApp {
         this.showAuth();
       }
     }
+  }
+
+  startConnectionAudio() {
+    if (this.connectionAudioActive) {
+      return;
+    }
+    this.connectionAudioActive = true;
+    this.audio.playMusic({
+      asset: CONNECTION_AUDIO_ASSET,
+      bus: "music",
+      fade_in_ms: 0,
+      fade_out_ms: 0,
+      handle: CONNECTION_AUDIO_HANDLE,
+      layer: CONNECTION_AUDIO_LAYER,
+      loop: true,
+    });
+  }
+
+  stopConnectionAudio(fadeMs = 0) {
+    if (!this.connectionAudioActive) {
+      return;
+    }
+    this.connectionAudioActive = false;
+    this.audio.stopMusic(fadeMs, CONNECTION_AUDIO_HANDLE);
   }
 
   handleNetworkError(message, params = {}) {
@@ -2201,8 +2160,8 @@ class PlayAuralWebApp {
 
   cleanupRuntime(full = false) {
     this.voice.cleanup(false, false);
-    this.removeAllPlaylists();
-    this.audio.stopAll();
+    this.connectionAudioActive = false;
+    this.audio.stopAll(800);
     this.webSpeech.cancel();
     this.hideInlineInput();
     this.webActionsItem = null;
@@ -2308,29 +2267,8 @@ class PlayAuralWebApp {
       case "force_exit":
         this.handleForceExit(packet);
         break;
-      case "play_sound":
-        this.audio.playSound(packet);
-        break;
-      case "play_music":
-        this.audio.playMusic(packet);
-        break;
-      case "stop_music":
-        this.audio.stopMusic();
-        break;
-      case "play_ambience":
-        this.audio.playAmbience(packet);
-        break;
-      case "stop_ambience":
-        this.audio.stopAmbience();
-        break;
-      case "add_playlist":
-        this.addPlaylist(packet);
-        break;
-      case "start_playlist":
-        this.startPlaylist(packet.playlist_id);
-        break;
-      case "remove_playlist":
-        this.removePlaylist(packet.playlist_id);
+      case "audio":
+        this.audio.handleAudioCommand(packet);
         break;
       case "clear_ui":
         this.cleanupRuntime(true);
@@ -2356,14 +2294,11 @@ class PlayAuralWebApp {
       case "update_preference":
         this.handlePreferenceUpdate(packet);
         break;
-      case "get_playlist_duration":
-        this.handlePlaylistDurationRequest(packet);
-        break;
       case "pong":
         this.handlePong();
         break;
       case "table_create":
-        this.audio.playSound({ name: "notify.ogg" });
+        this.audio.playSound({ asset: "notify.ogg" });
         if (this.preferences.notify_table_created !== false) {
           this.speak(Localization.get("table-created-notify"), { buffer: "system" });
         }
@@ -2380,12 +2315,14 @@ class PlayAuralWebApp {
     this.sessionEstablished = false;
     this.resetReconnectState();
     const message = this.authResponseMessage(packet, "", "auth-error-wrong-password");
+    this.stopConnectionAudio();
     this.localError(message, this.elements.loginStatus);
     this.network.disconnect();
     this.showAuthPanel("login");
   }
 
   handleRegisterResponse(packet) {
+    this.stopConnectionAudio();
     const success = this.authResponseSucceeded(packet);
     const message = this.authResponseMessage(packet, "auth-registration-success");
     this.setAuthStatus(message, this.elements.registerStatus, !success);
@@ -2399,6 +2336,12 @@ class PlayAuralWebApp {
   }
 
   handleAuthorizeSuccess(packet) {
+    this.stopConnectionAudio();
+    if (packet.reset_ui === true) {
+      // Clear the prior socket's rendered/runtime state before the server
+      // releases this session's ordered UI and audio packets.
+      this.cleanupRuntime(true);
+    }
     this.sessionEstablished = true;
     this.shouldReconnect = true;
     this.manualDisconnect = false;
@@ -2415,8 +2358,6 @@ class PlayAuralWebApp {
     }
     if (packet.sounds_info?.version) {
       this.audio.setSoundVersion(packet.sounds_info.version);
-    } else if (packet.sounds_version) {
-      this.audio.setSoundVersion(packet.sounds_version);
     }
     if (packet.locale && packet.locale !== Localization.locale) {
       Localization.load(packet.locale).then(() => this.applyLocalization());
@@ -2433,7 +2374,6 @@ class PlayAuralWebApp {
       params: { username: this.lastUser },
       buffer: "system",
     });
-    this.audio.playSound({ name: "welcome.ogg" });
   }
 
   handleServerDisconnect(packet) {
@@ -2546,7 +2486,7 @@ class PlayAuralWebApp {
     const display = `${prefix}: ${packet.message || ""}`;
     const outputAllowed = this.historyView.addEntry(display, { buffer: "chat", announce: false });
     if (shouldSpeak && outputAllowed) {
-      this.audio.playSound({ name: soundName });
+      this.audio.playSound({ asset: soundName });
       this.speak(speakText, { buffer: "chat", noHistory: true });
     }
   }
@@ -2793,9 +2733,9 @@ class PlayAuralWebApp {
 
   playSelectionSound(item) {
     if (item?.sound) {
-      this.audio.playSound({ name: item.sound });
+      this.audio.playSound({ asset: item.sound });
     } else {
-      this.audio.playSound({ name: "menuclick.ogg", volume: 50 });
+      this.audio.playSound({ asset: "menuclick.ogg", volume: 50 });
     }
     if (this.preferences.speech_mode === "web_speech" && item?.text) {
       this.webSpeech.speakNow(item.text);
@@ -2834,7 +2774,7 @@ class PlayAuralWebApp {
       const item = menu.items[index];
       if (item) {
         this.focusMenuOnNextPacket = true;
-        this.audio.playSound({ name: "menuenter.ogg", volume: 50 });
+        this.audio.playSound({ asset: "menuenter.ogg", volume: 50 });
         this.send({
           type: "menu",
           menu_id: menu.menuId,
@@ -2924,7 +2864,7 @@ class PlayAuralWebApp {
       return;
     }
     const soundNum = Math.floor(Math.random() * 4) + 1;
-    this.audio.playSound({ name: `typing${soundNum}.ogg`, volume: 50 });
+    this.audio.playSound({ asset: `typing${soundNum}.ogg`, volume: 50 });
   }
 
   handleInlineInputKeydown(event) {
@@ -3034,7 +2974,6 @@ class PlayAuralWebApp {
       type: "editbox",
       input_id: this.pendingInput.input_id,
       text: value,
-      value,
     });
     this.hideInlineInput();
     this.focusMenuOnNextPacket = true;
@@ -3048,9 +2987,7 @@ class PlayAuralWebApp {
       type: "editbox",
       input_id: this.pendingInput.input_id,
       text: "",
-      value: "",
       cancelled: true,
-      cancel: true,
     });
     this.hideInlineInput();
     this.focusMenuOnNextPacket = true;
@@ -3129,7 +3066,7 @@ class PlayAuralWebApp {
       return;
     }
     this.pingStart = Date.now();
-    this.audio.playSound({ name: "pingstart.ogg" });
+    this.audio.playSound({ asset: "pingstart.ogg" });
     this.send({ type: "ping" });
   }
 
@@ -3164,7 +3101,7 @@ class PlayAuralWebApp {
     }
     const latency = Date.now() - this.pingStart;
     this.pingStart = null;
-    this.audio.playSound({ name: "pingstop.ogg" });
+    this.audio.playSound({ asset: "pingstop.ogg" });
     this.speak("main-ping-result", {
       params: { value: latency },
       buffer: "system",
@@ -3189,54 +3126,6 @@ class PlayAuralWebApp {
       this.webSpeech.applyPreferences();
     }
     this.saveLocalConfig();
-  }
-
-  addPlaylist(packet) {
-    const id = packet.playlist_id || "music_playlist";
-    this.removePlaylist(id);
-    const playlist = new Playlist(this, id, packet.tracks, {
-      audio_type: packet.audio_type,
-      shuffle: packet.shuffle_tracks,
-      repeats: packet.repeats,
-      auto_remove: packet.auto_remove,
-    });
-    this.playlists[id] = playlist;
-    if (packet.auto_start) {
-      playlist.start();
-    }
-  }
-
-  startPlaylist(id) {
-    const playlist = this.playlists[id];
-    if (playlist) {
-      playlist.start();
-    }
-  }
-
-  removePlaylist(id) {
-    if (this.playlists[id]) {
-      this.playlists[id].stop();
-      delete this.playlists[id];
-    }
-  }
-
-  removeAllPlaylists() {
-    for (const id of Object.keys(this.playlists)) {
-      this.removePlaylist(id);
-    }
-  }
-
-  handlePlaylistDurationRequest(packet) {
-    if (!packet.playlist_id || !this.playlists[packet.playlist_id]) {
-      return;
-    }
-    this.send({
-      type: "playlist_duration_response",
-      request_id: packet.request_id,
-      playlist_id: packet.playlist_id,
-      duration_type: packet.duration_type,
-      duration: 0,
-    });
   }
 
   isStandalone() {

@@ -2,16 +2,14 @@
   "expo": {
     "name": "PlayAural Mobile",
     "slug": "playaural-mobile",
-    "version": "1.0.4.9",
-    "newArchEnabled": false,
+    "version": "1.0.4.11",
     "orientation": "portrait",
     "assetBundlePatterns": [
       "sounds/**/*"
     ],
     "android": {
       "package": "one.ddt.playaural.mobile",
-      "versionCode": 10409,
-      "usesCleartextTraffic": true
+      "versionCode": 10411
     },
     "ios": {
       "bundleIdentifier": "one.ddt.playaural.mobile"
@@ -23,6 +21,13 @@
     },
     "plugins": [
       "expo-asset",
+      [
+        "expo-audio",
+        {
+          "enableBackgroundPlayback": true,
+          "recordAudioAndroid": false
+        }
+      ],
       [
         "@livekit/react-native-expo-plugin",
         {
@@ -40,7 +45,8 @@
           "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone for table voice chat."
         }
       ],
-      "./plugins/withPlayAuralBackgroundService"
+      "./plugins/withPlayAuralBackgroundService",
+      "expo-secure-store"
     ]
   }
 }

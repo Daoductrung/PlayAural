@@ -186,7 +186,7 @@ Lượng máu ghi dưới đây là mức tối đa thường của nhân vật,
 \* \*\*Herb Hunter — 4 máu:\*\* Rút 2 lá mỗi khi một người khác bị hạ.
 \* \*\*José Delgado — 4 máu:\*\* Mỗi lượt tối đa 2 lần, bỏ 1 lá xanh lam trên tay để rút 2 lá.
 \* \*\*Molly Stark — 4 máu:\*\* Ngoài lượt của mình, rút bù sau khi đánh hoặc tự nguyện bỏ BANG!, Trượt! hay Bia trên tay. Lách đạn và lá đã nằm trước mặt không được tính; bài bỏ trong Quyết đấu chỉ rút bù sau khi cuộc đấu xong.
-\* \*\*Pat Brennan — 4 máu:\*\* Thay bước rút bình thường bằng việc lấy đúng 1 lá đang nằm trước mặt bất kỳ người nào.
+\* \*\*Pat Brennan — 4 máu:\*\* Thay bước rút bình thường bằng việc lấy đúng 1 lá đang nằm trước mặt bất kỳ người nào. Tàu vào ga vẫn cho rút thêm 1 lá; Mỏ bỏ hoang và Xương rồng gây ảo giác thay thế lựa chọn này.
 \* \*\*Pixie Pete — 3 máu:\*\* Ở bước rút bình thường, rút 3 lá.
 \* \*\*Sean Mallory — 3 máu:\*\* Cuối lượt được giữ tối đa 10 lá thay vì theo lượng máu.
 \* \*\*Tequila Joe — 4 máu:\*\* Mỗi lá Bia tự đánh hồi 2 máu thay vì 1.
@@ -219,7 +219,7 @@ Khi bật biến cố, lá đầu tiên xuất hiện đầu lượt thứ hai c
 
 \*\*Nhóm biến cố Một nắm bài\*\*
 
-\* \*\*Mỏ bỏ hoang:\*\* Nếu chồng bỏ có đủ toàn bộ số lá cần rút bình thường, lấy tất cả từ đó; bài dư cuối lượt sau đó được úp lên đầu chồng rút. Nếu chồng bỏ thiếu bài, lấy toàn bộ lượt rút từ chồng rút và cuối lượt bỏ bài như thường.
+\* \*\*Mỏ bỏ hoang:\*\* Khi rút đầu lượt, lấy bài trên cùng của chồng bỏ tới khi chồng này hết rồi lấy phần còn thiếu từ chồng rút. Ở bước bỏ bài cuối lượt, úp bài dư lên đầu chồng rút, kể cả khi chồng bỏ vốn trống hoặc đã hết giữa chừng.
 \* \*\*Phục kích:\*\* Khoảng cách gốc giữa mọi cặp người là 1; hiệu chỉnh khác vẫn tính.
 \* \*\*Anh em kết nghĩa:\*\* Đầu lượt, có thể trả 1 máu không phải điểm cuối để một người còn sống đang bị thương hồi 1 máu. Nếu không ai hồi được, menu không hỏi thừa.
 \* \*\*Kẻ chết trở về:\*\* Người đầu tiên bị hạ được trở lại đúng một lần ở lượt kế tiếp của mình, với 2 máu và 2 lá, rồi vẫn thực hiện bước rút bình thường.
@@ -228,8 +228,8 @@ Khi bật biến cố, lá đầu tiên xuất hiện đầu lượt thứ hai c
 \* \*\*Luật miền Tây:\*\* Công khai lá thứ hai rút bình thường và phải đánh nó trong lượt nếu vẫn còn nước hợp lệ. Không được dùng lá này làm phí trả thêm cho nước khác.
 \* \*\*Xương rồng gây ảo giác:\*\* Thay bước rút bằng chuỗi đoán đỏ hoặc đen. Đoán đúng thì giữ lá và đoán tiếp; lần đầu đoán sai, lá bị bỏ và chuỗi dừng.
 \* \*\*Trang trại:\*\* Một lần sau khi rút, bỏ bao nhiêu lá trên tay tùy ý rồi rút bù đúng bấy nhiêu.
-\* \*\*Đạn nảy:\*\* Bỏ BANG! để bắn một lá trước mặt ở bất kỳ khoảng cách nào. Chủ lá có thể dùng 1 hiệu ứng Trượt! để cứu từng lá bị bắn.
-\* \*\*Cò quay Nga:\*\* Bắt đầu từ Cảnh trưởng, hoặc Phó cảnh trưởng ở bàn 3 người, lần lượt theo chiều kim đồng hồ dùng 1 hiệu ứng Trượt!. Người đầu tiên thất bại mất 2 máu và vòng quay dừng. Thứ tự mục tiêu cố định theo chỗ ngồi, không được chọn ngẫu nhiên.
+\* \*\*Đạn nảy:\*\* Bỏ BANG! để bắn một lá trước mặt ở bất kỳ khoảng cách nào. Chủ lá có thể dùng 1 hiệu ứng Trượt!—kể cả lần thử Thùng gỗ hoặc năng lực Jourdonnais thành công—để cứu từng lá bị bắn.
+\* \*\*Cò quay Nga:\*\* Bắt đầu từ Cảnh trưởng, hoặc Phó cảnh trưởng ở bàn 3 người, lần lượt theo chiều kim đồng hồ dùng 1 hiệu ứng Trượt!. Nếu mọi người đều thành công, vòng quay tiếp tục đi quanh bàn; người đầu tiên thất bại mất 2 máu và dừng vòng quay. Thứ tự mục tiêu cố định theo chỗ ngồi, không chọn ngẫu nhiên.
 \* \*\*Xạ thủ:\*\* Bỏ 2 lá BANG! để bắn một người trong tầm súng; nạn nhân cần 2 hiệu ứng Trượt!.
 \* \*\*Thẩm phán:\*\* Không ai được đặt lá xanh lam hoặc lá đặt chờ trước mặt.
 \* \*\*Báo thù:\*\* Cuối lượt, thử vận; lật Cơ thì được thêm 1 lượt. Lượt thêm không kích hoạt Báo thù lần nữa.

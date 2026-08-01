@@ -1049,8 +1049,9 @@ class BangGame(Game):
         elif choice_ids:
             action_set._order = (
                 ["input_prompt"]
-                + choice_ids
                 + hand_ids
+                + green_ids
+                + choice_ids
                 + selection_controls
             )
         elif self.decision and self.decision.player_id == player.id:
@@ -4135,47 +4136,13 @@ class BangGame(Game):
                     game_audio.SOUND_IMPACT_WOOD_BARREL
                 )
                 self.play_sound(sound)
-                attacker = self.get_player_by_id(
-                    frame.source.player_id or frame.actor_id
-                )
-                if isinstance(attacker, BangPlayer) and attacker.id != target.id:
-                    self._broadcast_actor_target_l(
-                        attacker,
-                        target,
-                        "bang-your-target-barrel-succeeds",
-                        "bang-your-barrel-succeeds",
-                        "bang-player-barrel-succeeds",
-                    )
-                else:
-                    self.broadcast_personal_l(
-                        target,
-                        "bang-your-barrel-succeeds",
-                        "bang-player-barrel-succeeds",
-                        buffer="game",
-                    )
+                self._announce_barrel_result(target, frame, succeeded=True)
             else:
                 sound = self._random_sound(
                     game_audio.SOUND_DEFENSE_BARREL_FAIL
                 )
                 self.play_sound(sound)
-                attacker = self.get_player_by_id(
-                    frame.source.player_id or frame.actor_id
-                )
-                if isinstance(attacker, BangPlayer) and attacker.id != target.id:
-                    self._broadcast_actor_target_l(
-                        attacker,
-                        target,
-                        "bang-your-target-barrel-fails",
-                        "bang-your-barrel-fails",
-                        "bang-player-barrel-fails",
-                    )
-                else:
-                    self.broadcast_personal_l(
-                        target,
-                        "bang-your-barrel-fails",
-                        "bang-player-barrel-fails",
-                        buffer="game",
-                    )
+                self._announce_barrel_result(target, frame, succeeded=False)
             frame.stage = "barrel"
             self._stagger_effect_audio(
                 game_audio.sound_ticks(sound),
@@ -4511,11 +4478,57 @@ class BangGame(Game):
             not isinstance(actor, BangPlayer)
             or not isinstance(target, BangPlayer)
             or not found
+            or found[0].id != target.id
         ):
             self._pop_effect()
             return
         if frame.stage == "start":
+            frame.data["barrels_remaining"] = self._barrel_chances(target)
+            frame.stage = "barrel"
+        if frame.stage == "barrel":
+            if int(frame.data.get("barrels_remaining", 0)) > 0:
+                self.decision = BangDecision(
+                    kind="barrel",
+                    player_id=target.id,
+                    prompt_key="bang-prompt-barrel",
+                    item_ids=["use_barrel", "skip_barrels"],
+                    data={"effect_depth": len(self.effect_stack)},
+                )
+                self._focus_decision(target)
+                return
             frame.stage = "response"
+        if frame.stage == "barrel_draw":
+            result = self._draw_check_result(
+                frame,
+                target,
+                purpose="barrel",
+                suit=cards.HEARTS,
+            )
+            if result is None:
+                return
+            if result:
+                sound = self._random_sound(
+                    game_audio.SOUND_IMPACT_WOOD_BARREL
+                )
+                self.play_sound(sound)
+                self._announce_ricochet_saved(target, cards.BARREL, frame)
+                self._pop_effect()
+            else:
+                sound = self._random_sound(
+                    game_audio.SOUND_DEFENSE_BARREL_FAIL
+                )
+                self.play_sound(sound)
+                self._announce_barrel_result(target, frame, succeeded=False)
+                frame.stage = "barrel"
+            self._stagger_effect_audio(
+                game_audio.sound_ticks(sound),
+                wait_ratio=(
+                    game_audio.WAIT_RATIO_SHORT_CUE
+                    if result
+                    else game_audio.WAIT_RATIO_FAILED_DEFENSE
+                ),
+            )
+            return
         if frame.stage == "response":
             hand_ids = [
                 card.id
@@ -6202,7 +6215,16 @@ class BangGame(Game):
         if frame.data.get("stop"):
             self._pop_effect()
             return
-        while frame.index < len(frame.player_ids):
+        if not any(
+            isinstance(player := self.get_player_by_id(player_id), BangPlayer)
+            and self._player_in_play(player)
+            for player_id in frame.player_ids
+        ):
+            self._pop_effect()
+            return
+        while True:
+            if frame.index >= len(frame.player_ids):
+                frame.index = 0
             target = self.get_player_by_id(frame.player_ids[frame.index])
             frame.index += 1
             if not isinstance(target, BangPlayer) or not self._player_in_play(target):
@@ -6216,7 +6238,6 @@ class BangGame(Game):
                 stop_parent_on_hit=True,
             )
             return
-        self._pop_effect()
 
     def _continue_fistful(self, frame: BangEffect) -> None:
         target = self.get_player_by_id(frame.target_id)
@@ -6236,11 +6257,8 @@ class BangGame(Game):
 
     def _start_draw_phase(self, player: BangPlayer) -> None:
         self.phase = PHASE_DRAW
-        required = self._phase_one_cards_to_take(player)
         player.abandoned_mine_draw_from_discard = (
             self.current_event == "abandoned_mine"
-            and required > 0
-            and len(self.discard_pile) >= required
         )
         self._push_effect(
             BangEffect(
@@ -6270,7 +6288,6 @@ class BangGame(Game):
             return
         if frame.stage == "after_hard_liquor":
             if frame.data.get("skip_draw"):
-                player.abandoned_mine_draw_from_discard = False
                 frame.stage = "after_draw"
             else:
                 frame.stage = "choose_draw"
@@ -6316,7 +6333,10 @@ class BangGame(Game):
                 self._focus_decision(player)
                 frame.stage = "after_special_first"
                 return
-            if self._has_ability(player, "pat_brennan"):
+            if (
+                self._has_ability(player, "pat_brennan")
+                and self.current_event != "abandoned_mine"
+            ):
                 item_ids = ["draw_normally"]
                 item_ids.extend(
                     f"in_play_{in_play.card.id}"
@@ -6338,6 +6358,11 @@ class BangGame(Game):
             return
         if frame.stage == "after_special_first":
             if frame.data.get("pat_done"):
+                for _ in range(max(0, self._phase_one_draw_modifier())):
+                    card = self._draw_phase_one(player)
+                    if card:
+                        self._give_drawn_card(player, card, frame)
+                player.hand[:] = sort_cards(player.hand)
                 frame.stage = "after_draw"
                 return
             frame.stage = "draw_cards"
@@ -6521,15 +6546,23 @@ class BangGame(Game):
             base = 3
         else:
             base = 2
+        return max(0, base + self._phase_one_draw_modifier())
+
+    def _phase_one_draw_modifier(self) -> int:
         if self.current_event == "thirst":
-            base -= 1
-        elif self.current_event == "train_arrival":
-            base += 1
-        return max(0, base)
+            return -1
+        if self.current_event == "train_arrival":
+            return 1
+        return 0
 
     def _phase_one_cards_to_take(self, player: BangPlayer) -> int:
         if self._has_ability(player, "claus_the_saint"):
-            return len(self.players_in_play) + 1
+            return max(
+                0,
+                len(self.players_in_play)
+                + 1
+                + self._phase_one_draw_modifier(),
+            )
         return self._phase_one_draw_count(player)
 
     def _give_drawn_card(
@@ -6831,7 +6864,6 @@ class BangGame(Game):
             if item_id == "draw_normally":
                 frame.data["pat_done"] = False
             elif item_id.startswith("in_play_"):
-                player.abandoned_mine_draw_from_discard = False
                 found = self._in_play_by_id(self._card_id_from_action(item_id))
                 if found:
                     owner, in_play = found
@@ -7213,10 +7245,14 @@ class BangGame(Game):
             focus = f"play_card_{self.decision.card_ids[0]}"
         elif self.decision.player_ids:
             focus = f"choose_player_{self.decision.player_ids[0]}"
-        elif self.decision.item_ids:
-            focus = f"choice_{self.decision.item_ids[0]}"
         elif self.decision.card_ids:
             focus = f"play_card_{self.decision.card_ids[0]}"
+        else:
+            green_ids = self.decision.data.get("green_card_ids")
+            if isinstance(green_ids, list) and green_ids:
+                focus = f"use_in_play_{green_ids[0]}"
+            elif self.decision.item_ids:
+                focus = f"choice_{self.decision.item_ids[0]}"
         if focus:
             self.request_menu_focus(player, focus)
         else:
@@ -7563,7 +7599,7 @@ class BangGame(Game):
     def _announce_ricochet_saved(
         self,
         player: BangPlayer,
-        response: BangCard,
+        response: BangCard | str,
         frame: BangEffect,
     ) -> None:
         found = self._in_play_by_id(frame.card_ids[0]) if frame.card_ids else None
@@ -7578,7 +7614,48 @@ class BangGame(Game):
             "bang-player-saves-ricochet-card",
             attacker=attacker.name,
             card=lambda locale: card_label(found[1].card, locale),
-            response=lambda locale: card_label(response, locale),
+            response=lambda locale: (
+                card_label(response, locale)
+                if isinstance(response, BangCard)
+                else card_name(response, locale)
+            ),
+        )
+
+    def _announce_barrel_result(
+        self,
+        target: BangPlayer,
+        frame: BangEffect,
+        *,
+        succeeded: bool,
+    ) -> None:
+        keys = (
+            (
+                "bang-your-target-barrel-succeeds",
+                "bang-your-barrel-succeeds",
+                "bang-player-barrel-succeeds",
+            )
+            if succeeded
+            else (
+                "bang-your-target-barrel-fails",
+                "bang-your-barrel-fails",
+                "bang-player-barrel-fails",
+            )
+        )
+        attacker = self.get_player_by_id(
+            frame.source.player_id or frame.actor_id
+        )
+        if isinstance(attacker, BangPlayer) and attacker.id != target.id:
+            self._broadcast_actor_target_l(
+                attacker,
+                target,
+                *keys,
+            )
+            return
+        self.broadcast_personal_l(
+            target,
+            keys[1],
+            keys[2],
+            buffer="game",
         )
 
     def _announce_ricochet_discarded(

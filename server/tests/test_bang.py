@@ -572,7 +572,7 @@ def test_abandoned_mine_redirects_kit_carlsons_draw_without_using_his_ability():
     assert not player.abandoned_mine_draw_from_discard
 
 
-def test_abandoned_mine_falls_back_wholly_when_discards_are_insufficient():
+def test_abandoned_mine_uses_a_short_discard_pile_before_the_draw_pile():
     game = make_game(4)
     player = game.players[0]
     player.character = "bart_cassidy"
@@ -591,13 +591,13 @@ def test_abandoned_mine_falls_back_wholly_when_discards_are_insufficient():
 
     game._start_draw_phase(player)
 
-    assert {card.id for card in player.hand} == {1314, 1315}
-    assert game.deck == [deck_tail]
-    assert game.discard_pile == [lone_discard]
-    assert not player.abandoned_mine_draw_from_discard
+    assert {card.id for card in player.hand} == {1314, 1317}
+    assert game.deck == [second_draw, deck_tail]
+    assert game.discard_pile == []
+    assert player.abandoned_mine_draw_from_discard
 
 
-def test_abandoned_mine_uses_claus_full_draw_as_its_source_requirement():
+def test_abandoned_mine_feeds_claus_from_discard_then_draw_pile():
     game = make_game(4)
     player = game.players[0]
     player.character = "claus_the_saint"
@@ -615,10 +615,96 @@ def test_abandoned_mine_uses_claus_full_draw_as_its_source_requirement():
     game._start_draw_phase(player)
 
     assert game.decision and game.decision.kind == "claus_give"
-    assert game.general_store_cards == deck_cards[:5]
-    assert game.deck == deck_cards[5:]
-    assert game.discard_pile == discards
-    assert not player.abandoned_mine_draw_from_discard
+    assert game.general_store_cards == [
+        discards[2],
+        discards[1],
+        discards[0],
+        deck_cards[0],
+        deck_cards[1],
+    ]
+    assert game.deck == deck_cards[2:]
+    assert game.discard_pile == []
+    assert player.abandoned_mine_draw_from_discard
+
+
+def test_abandoned_mine_replaces_pat_brennans_draw_choice():
+    game = make_game(4)
+    player = game.players[0]
+    owner = game.players[1]
+    player.character = "pat_brennan"
+    player.life = player.max_life = 4
+    player.hand.clear()
+    protected = make_card(1340, cards.BARREL, border=cards.BLUE)
+    owner.in_play = [BangInPlayCard(protected)]
+    first = make_card(1341, cards.BANG)
+    second = make_card(1342, cards.MISSED)
+    game.discard_pile = [second, first]
+    game.game_active = True
+    game.set_turn_players(game.players)
+    game.current_player = player
+    game.current_event = "abandoned_mine"
+
+    game._start_draw_phase(player)
+
+    assert game.decision is None
+    assert {card.id for card in player.hand} == {first.id, second.id}
+    assert owner.in_play == [BangInPlayCard(protected)]
+
+
+@pytest.mark.parametrize(
+    ("event", "expected_deck_draws"),
+    [("", 0), ("thirst", 0), ("train_arrival", 1)],
+)
+def test_pat_brennan_draw_replacement_respects_draw_count_events(
+    event: str,
+    expected_deck_draws: int,
+):
+    game = make_game(4)
+    player = game.players[0]
+    owner = game.players[1]
+    player.character = "pat_brennan"
+    player.life = player.max_life = 4
+    player.hand.clear()
+    in_play_card = make_card(1350, cards.MUSTANG, border=cards.BLUE)
+    owner.in_play = [BangInPlayCard(in_play_card)]
+    deck_cards = [
+        make_card(1351, cards.BANG),
+        make_card(1352, cards.MISSED),
+    ]
+    game.deck = list(deck_cards)
+    game.game_active = True
+    game.set_turn_players(game.players)
+    game.current_player = player
+    game.current_event = event
+
+    game._start_draw_phase(player)
+
+    assert game.decision and game.decision.kind == "pat_brennan"
+    game._action_choose_item(
+        player,
+        f"choice_in_play_{in_play_card.id}",
+    )
+
+    assert in_play_card in player.hand
+    assert owner.in_play == []
+    assert sum(card in player.hand for card in deck_cards) == expected_deck_draws
+    assert len(game.deck) == len(deck_cards) - expected_deck_draws
+
+
+@pytest.mark.parametrize(
+    ("event", "expected"),
+    [("", 5), ("thirst", 4), ("train_arrival", 6)],
+)
+def test_claus_the_saint_draw_total_respects_draw_count_events(
+    event: str,
+    expected: int,
+):
+    game = make_game(4)
+    player = game.players[0]
+    player.character = "claus_the_saint"
+    game.current_event = event
+
+    assert game._phase_one_cards_to_take(player) == expected
 
 
 def test_three_player_deputy_is_the_event_reveal_anchor():
@@ -2035,6 +2121,8 @@ def test_ricochet_auto_selects_the_only_card_of_the_selected_owner():
     game._action_choose_player(actor, f"choose_player_{first.id}")
     assert game.play_intent is None
     assert cost in game.discard_pile
+    assert game.decision and game.decision.kind == "barrel"
+    game._resolve_item_decision(first, "skip_barrels")
     tick_until(game, lambda: first_card in game.discard_pile)
     assert first_card in game.discard_pile
     assert not first.in_play
@@ -2065,6 +2153,8 @@ def test_ricochet_impact_only_plays_when_the_target_card_is_hit():
 
     game._start_ricochet(actor, target, protected.id)
 
+    assert game.decision and game.decision.kind == "barrel"
+    game._resolve_item_decision(target, "skip_barrels")
     assert game.decision and game.decision.kind == "ricochet"
     assert not set(sound_names(game)) & set(bang_audio.SOUND_IMPACT_RICOCHET)
     clear_user_messages(game)
@@ -2072,6 +2162,107 @@ def test_ricochet_impact_only_plays_when_the_target_card_is_hit():
 
     assert target.in_play[0].card == protected
     assert not set(sound_names(game)) & set(bang_audio.SOUND_IMPACT_RICOCHET)
+
+
+@pytest.mark.parametrize("defense", ["barrel", "jourdonnais"])
+def test_successful_barrel_effect_saves_a_card_from_ricochet(defense: str):
+    game = start_game(4, seed=181)
+    actor = game.current_player
+    target = game._clockwise_after(actor, exclude_actor=True)[0]
+    protected = make_card(2245, cards.MUSTANG, border=cards.BLUE)
+    target.character = (
+        "jourdonnais" if defense == "jourdonnais" else "bart_cassidy"
+    )
+    target.in_play = [BangInPlayCard(protected)]
+    if defense == "barrel":
+        target.in_play.append(
+            BangInPlayCard(
+                make_card(2246, cards.BARREL, border=cards.BLUE)
+            )
+        )
+    target.hand.clear()
+    heart = make_card(2247, cards.BANG, suit=cards.HEARTS)
+    game.deck = [heart, *game.deck]
+    game.decision = None
+    game.effect_stack.clear()
+    game.phase = PHASE_PLAY
+    clear_user_messages(game)
+
+    game._start_ricochet(actor, target, protected.id)
+
+    assert game.decision and game.decision.kind == "barrel"
+    game._resolve_item_decision(target, "use_barrel")
+    tick_until(game, lambda: not game.effect_stack)
+
+    assert any(in_play.card == protected for in_play in target.in_play)
+    assert heart in game.discard_pile
+    assert not set(sound_names(game)) & set(bang_audio.SOUND_IMPACT_RICOCHET)
+    assert any(
+        "You save Mustang" in text and "Barrel" in text
+        for text in speech_texts(game, game.players.index(target))
+    )
+
+
+def test_ricochet_barrel_choice_survives_json_round_trip():
+    game = start_game(4, seed=183)
+    actor = game.current_player
+    target = game._clockwise_after(actor, exclude_actor=True)[0]
+    target.character = "lucky_duke"
+    protected = make_card(2248, cards.MUSTANG, border=cards.BLUE)
+    barrel = make_card(2249, cards.BARREL, border=cards.BLUE)
+    target.in_play = [BangInPlayCard(protected), BangInPlayCard(barrel)]
+    target.hand.clear()
+    heart = make_card(2250, cards.BANG, suit=cards.HEARTS)
+    spade = make_card(2251, cards.MISSED, suit=cards.SPADES)
+    game.deck = [heart, spade, *game.deck]
+    game.decision = None
+    game.effect_stack.clear()
+    game.phase = PHASE_PLAY
+
+    game._start_ricochet(actor, target, protected.id)
+    assert game.decision and game.decision.kind == "barrel"
+    game._resolve_item_decision(target, "use_barrel")
+    assert game.decision and game.decision.kind == "draw_check"
+
+    restored = BangGame.from_json(game.to_json())
+    restored.rebuild_runtime_state()
+    restored_target = restored.get_player_by_id(target.id)
+    assert isinstance(restored_target, type(target))
+    assert restored.decision and restored.decision.kind == "draw_check"
+    assert [card.id for card in restored.revealed_cards] == [heart.id, spade.id]
+
+    restored._resolve_item_decision(restored_target, "draw_result_0")
+    tick_until(restored, lambda: not restored.effect_stack)
+
+    assert any(
+        in_play.card.id == protected.id for in_play in restored_target.in_play
+    )
+    assert {heart.id, spade.id} <= {
+        card.id for card in restored.discard_pile
+    }
+
+
+def test_ricochet_rejects_a_restored_card_owned_by_the_wrong_target():
+    game = start_game(4, seed=184)
+    actor = game.current_player
+    target, owner = game._clockwise_after(actor, exclude_actor=True)[:2]
+    protected = make_card(2252, cards.MUSTANG, border=cards.BLUE)
+    owner.in_play = [BangInPlayCard(protected)]
+    game.decision = None
+    game.effect_stack = [
+        BangEffect(
+            kind="ricochet",
+            actor_id=actor.id,
+            target_id=target.id,
+            card_ids=[protected.id],
+        )
+    ]
+
+    game._continue_effects()
+
+    assert game.decision is None
+    assert game.effect_stack == []
+    assert owner.in_play == [BangInPlayCard(protected)]
 
 
 def test_slabs_real_bang_requires_two_missed_effects():
@@ -3216,6 +3407,78 @@ def test_in_play_use_buttons_match_their_actual_interaction_window():
         actor,
         action_id=f"use_in_play_{proactive.id}",
     ) is Visibility.HIDDEN
+
+
+@pytest.mark.parametrize("touch", [False, True])
+@pytest.mark.parametrize(
+    "kind",
+    [
+        cards.BIBLE,
+        cards.IRON_PLATE,
+        cards.SOMBRERO,
+        cards.TEN_GALLON_HAT,
+    ],
+)
+def test_ready_green_defenses_are_rendered_before_taking_the_hit(
+    kind: str,
+    touch: bool,
+):
+    game = start_game(4, seed=3, touch=touch)
+    actor = game.current_player
+    target = game._clockwise_after(actor, exclude_actor=True)[0]
+    defense = make_card(2392, kind, border=cards.GREEN)
+    target.hand.clear()
+    target.in_play = [
+        BangInPlayCard(defense, usable_after_turn=game.turn_serial)
+    ]
+    game.current_event = ""
+    game.effect_stack.clear()
+    game.decision = None
+    game.play_intent = None
+    game.phase = PHASE_PLAY
+
+    game._start_shot(actor, target, source_kind="bang_card", required=1)
+    game.flush_menus()
+
+    action_id = f"use_in_play_{defense.id}"
+    target_index = game.players.index(target)
+    items = list(turn_menu_items(game, target_index))
+    assert items[:3] == ["input_prompt", action_id, "choice_take_hit"]
+    user = game.get_user(target)
+    assert isinstance(user, MockUser)
+    assert user.menus["turn_menu"]["selection_id"] == action_id
+
+
+def test_hand_and_in_play_defenses_precede_the_damage_fallback():
+    game = start_game(4, seed=4)
+    actor = game.current_player
+    target = game._clockwise_after(actor, exclude_actor=True)[0]
+    missed = make_card(2393, cards.MISSED)
+    plate = make_card(2394, cards.IRON_PLATE, border=cards.GREEN)
+    target.hand = [missed]
+    target.in_play = [
+        BangInPlayCard(plate, usable_after_turn=game.turn_serial)
+    ]
+    game.current_event = ""
+    game.effect_stack.clear()
+    game.decision = None
+    game.play_intent = None
+    game.phase = PHASE_PLAY
+
+    game._start_shot(actor, target, source_kind="bang_card", required=1)
+    game.flush_menus()
+
+    target_index = game.players.index(target)
+    items = list(turn_menu_items(game, target_index))
+    assert items[:4] == [
+        "input_prompt",
+        f"play_card_{missed.id}",
+        f"use_in_play_{plate.id}",
+        "choice_take_hit",
+    ]
+    user = game.get_user(target)
+    assert isinstance(user, MockUser)
+    assert user.menus["turn_menu"]["selection_id"] == f"play_card_{missed.id}"
 
 
 def test_targeted_shot_splits_event_notice_from_one_complete_instruction():
@@ -5049,6 +5312,66 @@ def test_russian_roulette_moves_clockwise_and_stops_at_first_failure():
     assert defender.life == starting_life[defender.id]
     assert casualty.life == starting_life[casualty.id] - 2
     assert spared.life == starting_life[spared.id]
+
+
+def test_russian_roulette_continues_after_everyone_survives_one_lap():
+    game = start_game(4, seed=106)
+    anchor = game._event_anchor()
+    assert anchor is not None
+    order = [anchor, *game._clockwise_after(anchor, exclude_actor=True)]
+    responses: dict[str, list[BangCard]] = {}
+    next_id = 2697
+    for player in order:
+        response = make_card(next_id, cards.MISSED)
+        next_id += 1
+        responses[player.id] = [response]
+        player.hand = [response]
+        player.in_play.clear()
+    anchor_extra = make_card(next_id, cards.MISSED)
+    responses[anchor.id].append(anchor_extra)
+    anchor.hand.append(anchor_extra)
+    casualty = order[1]
+    casualty.character = "willy_the_kid"
+    starting_life = {player.id: player.life for player in order}
+    game.effect_stack.clear()
+    game.decision = None
+    game._push_effect(
+        BangEffect(
+            kind="russian_roulette",
+            player_ids=[player.id for player in order],
+        )
+    )
+
+    for player in order:
+        tick_until(
+            game,
+            lambda player=player: (
+                game.decision is not None
+                and game.decision.player_id == player.id
+            ),
+        )
+        game._use_decision_card(player, responses[player.id][0])
+
+    tick_until(
+        game,
+        lambda: (
+            game.decision is not None
+            and game.decision.player_id == anchor.id
+        ),
+    )
+    assert game.decision and game.decision.card_ids == [anchor_extra.id]
+    game._use_decision_card(anchor, anchor_extra)
+    tick_until(
+        game,
+        lambda: not game.effect_stack and game.decision is None,
+    )
+
+    assert anchor.life == starting_life[anchor.id]
+    assert casualty.life == starting_life[casualty.id] - 2
+    assert all(
+        player.life == starting_life[player.id]
+        for player in order[2:]
+    )
 
 
 def test_dynamite_explosion_and_aftermath_sync_with_damage_tts():

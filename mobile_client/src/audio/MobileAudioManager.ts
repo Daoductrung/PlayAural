@@ -23,6 +23,7 @@ import { Platform } from "react-native";
 
 import { soundManifest } from "../generated/soundManifest";
 import type { AudioCommandPacket, AudioKind } from "../network/packets";
+import { isTerminalNativePlaybackStatus } from "./playbackLifecycle";
 
 type CommandAudioSource = {
   active: boolean;
@@ -1226,7 +1227,7 @@ export class MobileAudioManager {
         && this.commandPausedMusicHandles.has(handle);
       this.register(source);
       player.setOnPlaybackStatusUpdate((status: AVPlaybackStatus) => {
-        if (!status.isLoaded || !status.didJustFinish) {
+        if (!isTerminalNativePlaybackStatus(status)) {
           return;
         }
         player.setOnPlaybackStatusUpdate(null);

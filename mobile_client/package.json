@@ -13,6 +13,7 @@
     "postinstall": "npm run patch:android-audio-routing",
     "patch:android-audio-routing": "node scripts/patch-expo-audio-routing.mjs",
     "test:android-audio-routing": "node --test tests/android-audio-routing.test.mjs",
+    "test:audio-lifecycle": "node --test tests/mobile-audio-lifecycle.test.mjs",
     "generate:sounds": "node scripts/generate-sound-manifest.mjs",
     "generate:locales": "node scripts/generate-locale-registry.mjs"
   },

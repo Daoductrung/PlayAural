@@ -17,6 +17,8 @@ Tu rol secreto te indica a quién debes proteger o eliminar. En mesas de 4 a 8 j
 
 Las cantidades de roles son: Sheriff, Renegado, y dos Forajidos con 4 jugadores; se añade un Alguacil con 5; un tercer Forajido con 6; un segundo Alguacil con 7; con 8 jugadores se usa un Sheriff, dos Alguaciles, tres Forajidos, y dos Renegados.
 
+Asestar el golpe final al Sheriff no basta por sí solo para que un Renegado gane. El Renegado gana solo cuando el Sheriff es eliminado y ese Renegado es el único superviviente. Si cualquier otro jugador sigue en juego cuando cae el Sheriff, ganan los Forajidos, incluso si todos los Forajidos ya habían sido eliminados antes.
+
 Con 3 jugadores, el Alguacil, el Forajido, y el Renegado son todos públicos. El objetivo asignado del Alguacil es el Renegado, el del Renegado es el Forajido, y el del Forajido es el Alguacil. Elimina personalmente a tu objetivo asignado para ganar de inmediato. Si eliminas personalmente al oponente equivocado, robas tres cartas y los dos jugadores finales continúan hasta que solo quede uno con vida. El Alguacil toma el primer turno.
 
 \*\*Lo que necesitas saber primero\*\*
@@ -85,7 +87,7 @@ Si el objetivo aporta muy pocos efectos ¡Fallaste!, pierde una vida. El Duelo e
 
 En cero o menos vidas, juega suficientes Cervezas de tu mano o usa la habilidad de Sid Ketchum las veces necesarias para volver por encima de cero. La Cerveza puede jugarse con la vida al máximo pero se descarta sin curar. La Cerveza tampoco tiene efecto de curación cuando solo quedan dos jugadores. Saloon y Tequila siguen funcionando con dos jugadores. La vida nunca supera la vida máxima.
 
-Un jugador eliminado revela su rol y descarta todas sus cartas, a menos que Vulture Sam las recoja. El jugador responsable de eliminar a un Forajido roba tres cartas. Si el Sheriff elimina a un Alguacil, el Sheriff descarta toda su mano y todas sus cartas en juego; un Sheriff que también es Vulture Sam recoge primero, y luego paga la penalización. El daño autoinfligido en un Duelo no tiene un oponente responsable.
+Un jugador eliminado revela su rol y descarta todas sus cartas, a menos que Vulture Sam las recoja. Cuando se descartan las cartas, el jugador eliminado elige su orden exacto tanto en la mano como en las cartas en juego, una carta a la vez; Finalizar usa el orden restante del menú. El jugador responsable de eliminar a un Forajido roba tres cartas. Si el Sheriff elimina a un Alguacil, el Sheriff descarta toda su mano y todas sus cartas en juego; un Sheriff que también es Vulture Sam recoge primero, y luego paga la penalización. El daño autoinfligido en un Duelo no tiene un oponente responsable.
 
 \*\*Cómo se resuelve el sonido del combate\*\*
 
@@ -142,7 +144,7 @@ Durante ¡Indios!, todos los demás jugadores se resuelven en sentido horario. U
 
 \*\*Cartas verdes de uso diferido\*\*
 
-\* \*\*Biblia:\*\* Descártala como un efecto ¡Fallaste!, luego roba una carta.
+\* \*\*Biblia:\*\* Descártala como un efecto ¡Fallaste!, luego roba una carta. Si ese mismo disparo todavía necesita otro efecto ¡Fallaste!, una carta elegible recién robada por la Biblia puede usarse de inmediato.
 \* \*\*Placa de Hierro, Sombrero, y Sombrero de Diez Galones:\*\* Descártala como un efecto ¡Fallaste!.
 \* \*\*Rifle de Búfalo:\*\* Elige y dispara a cualquier otro jugador, sin importar la distancia.
 \* \*\*Can Can:\*\* Elige a otro jugador para que pierda una carta elegida en juego o una carta de mano al azar.
@@ -184,7 +186,7 @@ La vida indicada abajo es el máximo normal del personaje antes del bono del She
 \* \*\*Herb Hunter — 4 vidas:\*\* Roba dos cartas cada vez que otro jugador es eliminado.
 \* \*\*José Delgado — 4 vidas:\*\* Hasta dos veces por turno, descarta una carta azul de mano para robar dos cartas.
 \* \*\*Molly Stark — 4 vidas:\*\* Fuera de su turno, roba una carta de reemplazo después de jugar o descartar voluntariamente ¡BANG!, ¡Fallaste!, o Cerveza desde la mano. Esquivar y las cartas ya en juego no califican; los reemplazos de Duelo esperan hasta que el Duelo termine.
-\* \*\*Pat Brennan — 4 vidas:\*\* En lugar del robo normal, toma exactamente una carta en juego de cualquier jugador.
+\* \*\*Pat Brennan — 4 vidas:\*\* En lugar del robo normal, toma exactamente una carta en juego de cualquier jugador. Llegada del Tren añade después su robo adicional, mientras que Mina Abandonada y Peyote reemplazan esta elección.
 \* \*\*Pixie Pete — 3 vidas:\*\* Roba tres cartas en la fase de robo normal.
 \* \*\*Sean Mallory — 3 vidas:\*\* Tiene un límite de mano de 10 al final del turno en lugar de su vida actual.
 \* \*\*Tequila Joe — 4 vidas:\*\* Cada Cerveza que juega restaura dos vidas en lugar de una.
@@ -217,17 +219,17 @@ Cuando los eventos están activados, el primer evento se revela al inicio del se
 
 \*\*Familia de eventos de Por un puñado de cartas\*\*
 
-\* \*\*Mina Abandonada:\*\* Los robos normales provienen de la pila de descarte cuando es posible; las cartas sobrantes descartadas al final del turno van boca abajo sobre la pila de robo.
+\* \*\*Mina Abandonada:\*\* Durante la fase uno, toma las cartas boca arriba de la cima de la pila de descarte hasta que se vacíe, y luego completa el robo requerido desde la pila de robo. En la fase tres, coloca las cartas de mano sobrantes boca abajo sobre la pila de robo, incluso cuando la pila de descarte empezó vacía o se agotó.
 \* \*\*Emboscada:\*\* La distancia base entre cada par de jugadores es 1; los modificadores siguen aplicándose.
 \* \*\*Hermanos de Sangre:\*\* Al inicio del turno, opcionalmente pierde una vida no final para que otro jugador vivo y herido recupere una. No aparece ningún aviso si nadie puede ser curado.
 \* \*\*El Muerto:\*\* El primer jugador eliminado regresa una vez, en su siguiente turno, con dos vidas y dos cartas, y luego realiza el paso de robo normal.
 \* \*\*Licor Fuerte:\*\* En lugar de robar con normalidad, recupera una vida. Con la vida al máximo, el robo omitido no cura nada.
-\* \*\*Lazo:\*\* Las cartas en juego no tienen efecto, pero permanecen en su lugar y aún pueden ser objetivo.
+\* \*\*Lazo:\*\* Las cartas en juego no tienen efecto, pero permanecen en su lugar y aún pueden ser objetivo. La Cárcel y la Dinamita se quedan con sus dueños y no realizan sus verificaciones de inicio de turno hasta que se reemplace el Lazo.
 \* \*\*La Ley del Oeste:\*\* Revela el segundo robo normal y juégalo durante la fase de juego si todavía tiene una jugada legal. No puede usarse como costo adicional de otra acción.
-\* \*\*Peyote:\*\* Reemplaza el robo normal por adivinanzas repetidas de rojo o negro. Conserva cada carta adivinada correctamente; la primera adivinanza equivocada se descarta y termina el robo.
+\* \*\*Peyote:\*\* Reemplaza el robo normal por adivinanzas repetidas de rojo o negro. Revela cada carta adivinada a toda la mesa. Conserva cada carta adivinada correctamente; la primera adivinanza equivocada se descarta y termina el robo.
 \* \*\*Rancho:\*\* Una vez después de robar, descarta cualquier cantidad de cartas de mano y roba la misma cantidad.
-\* \*\*Rebote:\*\* Descarta cartas ¡BANG! para atacar cartas en juego a cualquier distancia. El dueño puede gastar un efecto ¡Fallaste! para salvar cada carta atacada.
-\* \*\*Ruleta Rusa:\*\* Empezando por el Sheriff, o el Alguacil con 3 jugadores, los jugadores avanzan en sentido horario y cada uno aporta un efecto ¡Fallaste!. El primer fallo pierde dos vidas y termina la ruleta.
+\* \*\*Rebote:\*\* Descarta cartas ¡BANG! para atacar cartas en juego a cualquier distancia. El dueño puede usar un efecto ¡Fallaste! —incluyendo una verificación exitosa de Barril o de Jourdonnais— para salvar cada carta atacada.
+\* \*\*Ruleta Rusa:\*\* Empezando por el Sheriff, o el Alguacil con 3 jugadores, los jugadores avanzan en sentido horario y cada uno aporta un efecto ¡Fallaste!. Si todos tienen éxito, la ruleta continúa dando otra vuelta a la mesa; el primer fallo pierde dos vidas y la termina. El orden de objetivos queda fijado por la posición en la mesa, no se elige al azar.
 \* \*\*Francotirador:\*\* Descarta dos cartas ¡BANG! para dispararle a un jugador dentro del alcance del arma; el objetivo necesita dos efectos ¡Fallaste!.
 \* \*\*El Juez:\*\* Ningún jugador puede colocar una carta azul o verde en juego.
 \* \*\*Vendetta:\*\* Al final del turno, Corazones en una verificación de robo otorga un turno extra. El turno extra no puede volver a activar Vendetta.

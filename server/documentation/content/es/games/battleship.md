@@ -107,4 +107,3 @@ El anfitrión puede ajustar la siguiente configuración antes de que empiece la 
 \* \*\*F:\*\* Leer el estado de tu flota: qué naves están intactas, dañadas, o hundidas.
 
 \* \*\*E:\*\* Leer información de la flota enemiga: cuántas naves has hundido hasta ahora.
-

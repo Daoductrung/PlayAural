@@ -109,4 +109,3 @@ Una vez que los cuatro han enviado, Alicia entra a la fase de juicio. Escucha lo
 \* \*\*S:\*\* Consultar puntuaciones.
 
 \* \*\*Mayús+S:\*\* Ver puntuaciones detalladas.
-

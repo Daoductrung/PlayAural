@@ -93,4 +93,3 @@ La partida continúa hasta que un jugador alcanza la puntuación para ganar (con
 \*\*Al elegir un palo después de un Ocho:\*\*
 
 \* \*\*1:\*\* Tréboles | \*\*2:\*\* Diamantes | \*\*3:\*\* Corazones | \*\*4:\*\* Picas
-

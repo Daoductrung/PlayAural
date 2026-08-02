@@ -20,7 +20,7 @@ En cada carrera, todos los jugadores empiezan detenidos. Debes jugar una \*\*Ví
 
 \*\*Cartas de distancia\*\*
 
-Estas suman millas a tu total: 25, 50, 75, 100, y 200 millas. 
+Estas suman millas a tu total: 25, 50, 75, 100, y 200 millas.
 
 \* \*\*Movimiento:\*\* Solo puedes jugar estas cuando estás en movimiento (sin peligros activos ni paradas).
 
@@ -129,4 +129,3 @@ Si seleccionas una carta que no se puede jugar en este momento, el juego explica
 \* \*\*S:\*\* Ver estado.
 
 \* \*\*Mayús+S:\*\* Panel de estado detallado.
-

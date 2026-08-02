@@ -10,7 +10,7 @@ Coup es un juego intenso de deducción, engaño, y maniobras políticas. Eres el
 
 
 
-El juego se juega con una baraja de 15 cartas, compuesta por 3 copias de cada uno de los 5 personajes: Duque, Asesino, Capitán, Embajador, y Condesa. 
+El juego se juega con una baraja de 15 cartas, compuesta por 3 copias de cada uno de los 5 personajes: Duque, Asesino, Capitán, Embajador, y Condesa.
 
 
 
@@ -30,7 +30,7 @@ En tu turno, puedes realizar exactamente \*\*una\*\* acción. Si la acción requ
 
 \* \*\*Ayuda Extranjera:\*\* Toma 2 monedas de la tesorería. Cualquiera puede bloquearla declarando que tiene al Duque.
 
-\* \*\*Golpe de Estado:\*\* Paga 7 monedas para lanzar un Golpe de Estado contra otro jugador. Ese jugador pierde de inmediato una carta. Un Golpe de Estado no se puede bloquear ni desafiar. 
+\* \*\*Golpe de Estado:\*\* Paga 7 monedas para lanzar un Golpe de Estado contra otro jugador. Ese jugador pierde de inmediato una carta. Un Golpe de Estado no se puede bloquear ni desafiar.
 
 
 
@@ -56,7 +56,7 @@ Cada vez que un jugador declara un personaje para realizar una acción o bloquea
 
 
 
-\* \*\*Desafiar:\*\* Si crees que alguien está mintiendo, puedes desafiarlo. 
+\* \*\*Desafiar:\*\* Si crees que alguien está mintiendo, puedes desafiarlo.
 
 &nbsp;   \* Si \*\*decía la verdad\*\*, revela la carta declarada, la vuelve a barajar en el mazo, y roba una carta nueva. ¡Tú, el retador, pierdes una carta por equivocarte!
 
@@ -107,4 +107,3 @@ El anfitrión puede configurar lo siguiente en la mesa antes de empezar:
 \* \*\*H:\*\* Ver Mano (te recuerda tus cartas boca abajo actuales).
 
 \* \*\*L:\*\* Ver Mesa (lista todas las cartas eliminadas y reveladas en la mesa).
-

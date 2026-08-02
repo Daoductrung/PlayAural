@@ -17,7 +17,7 @@ bang-card-barrel-description = Carta azul. Cuando un disparo te tiene como objet
 bang-card-beer = Cerveza
 bang-card-beer-description = Recupera una vida, incluso al salvarte a ti mismo con cero vidas. Con la vida al máximo, o cuando solo quedan dos jugadores, puedes jugar Cerveza pero se descarta sin efecto.
 bang-card-bible = Biblia
-bang-card-bible-description = Carta verde. Colócala frente a ti. A partir de un turno posterior, descártala como un efecto ¡Fallaste!, luego roba una carta.
+bang-card-bible-description = Carta verde. Colócala frente a ti. A partir de un turno posterior, descártala como un efecto ¡Fallaste!, luego roba una carta; si ese disparo todavía necesita una defensa, una carta elegible recién robada puede usarse de inmediato.
 bang-card-binocular = Prismáticos
 bang-card-binocular-description = Carta azul. Ves a todos los demás jugadores a una distancia reducida en uno, con un mínimo de uno.
 bang-card-brawl = Riña
@@ -204,7 +204,7 @@ bang-event-new-identity-description = Al inicio del turno, opcionalmente convié
 bang-event-fistful-of-cards = Por un puñado de cartas
 bang-event-fistful-of-cards-description = Al inicio del turno, enfrenta un ¡BANG! evitable por cada carta en tu mano.
 bang-event-abandoned-mine = Mina Abandonada
-bang-event-abandoned-mine-description = Las cartas robadas en la fase uno provienen de los descartes; las cartas sobrantes al final del turno van boca abajo sobre la pila de robo.
+bang-event-abandoned-mine-description = Durante la fase uno, roba de la pila de descarte hasta que se vacíe, y luego termina desde la pila de robo. Las cartas sobrantes al final del turno van boca abajo sobre la pila de robo.
 bang-event-ambush = Emboscada
 bang-event-ambush-description = La distancia base entre cada dos jugadores es uno; los modificadores siguen aplicándose.
 bang-event-blood-brothers = Hermanos de Sangre
@@ -214,11 +214,11 @@ bang-event-dead-man-description = El primer jugador eliminado regresa una vez, e
 bang-event-hard-liquor = Licor Fuerte
 bang-event-hard-liquor-description = Un jugador puede saltarse la fase uno para recuperar una vida.
 bang-event-lasso = Lazo
-bang-event-lasso-description = Las cartas en juego no tienen efecto.
+bang-event-lasso-description = Las cartas en juego no tienen efecto. Permanecen en su lugar, y la Cárcel y la Dinamita no realizan verificaciones de inicio de turno.
 bang-event-law-of-the-west = La Ley del Oeste
 bang-event-law-of-the-west-description = Revela la segunda carta de la fase uno y juégala durante la fase dos si es posible.
 bang-event-peyote = Peyote
-bang-event-peyote-description = En lugar de robar, adivina repetidamente rojo o negro; conserva las cartas acertadas y detente al fallar.
+bang-event-peyote-description = En lugar de robar, adivina repetidamente rojo o negro y revela cada carta a la vista de todos; conserva las cartas acertadas y detente al fallar.
 bang-event-ranch = Rancho
 bang-event-ranch-description = Una vez después de la fase uno, descarta cualquier cantidad de cartas de mano y roba la misma cantidad.
 bang-event-ricochet = Rebote
@@ -311,12 +311,6 @@ bang-confirm-ranch = { $selected ->
     [one] Confirmar intercambio de Rancho — 1 carta
    *[other] Confirmar intercambio de Rancho — { $selected } cartas
 }
-bang-confirm-discard-order = { $selected ->
-    [0] Confirmar el orden de descarte actual
-    [one] Confirmar orden de descarte — 1 carta primero
-   *[other] Confirmar orden de descarte — { $selected } cartas primero
-}
-
 bang-choice-use-barrel = Usar una verificación de Barril
 bang-choice-unavailable = Elección no disponible
 bang-choice-skip-barrel = Omitir las verificaciones de Barril restantes
@@ -335,6 +329,9 @@ bang-choice-draw-deck = Robar del mazo
 bang-choice-draw-discard = Tomar la carta superior del descarte
 bang-choice-red = Adivinar rojo
 bang-choice-black = Adivinar negro
+bang-choice-finish-elimination-discard = Finalizar con el orden actual del menú
+bang-elimination-discard-next = Descartar a continuación: { $card}
+bang-elimination-discard-next-in-play = Descartar a continuación desde en juego: { $card}
 
 bang-game-started = Comienza ¡BANG!.
 bang-intro-history = El mediodía cae sobre el pueblo; cada mano se acerca a su pistolera.
@@ -458,6 +455,10 @@ bang-player-draws-cards = { $count ->
     [one] { $player } roba 1 carta.
    *[other] { $player } roba { $count } cartas.
 }
+bang-player-draws-public-cards = { $count ->
+    [one] { $player } roba la carta boca arriba { $cards}.
+   *[other] { $player } roba las cartas boca arriba { $cards}.
+}
 bang-you-discard-excess = Descartas { $cards } y terminas tu turno.
 bang-player-discards-excess = { $count ->
     [one] { $player } descarta 1 carta sobrante y termina su turno.
@@ -483,6 +484,10 @@ bang-player-black-jack-succeeds = Black Jack le otorga a { $player } un robo ext
 bang-you-are-eliminated = Quedas eliminado. Tu rol era { $role}.
 bang-you-eliminate-player = Eliminas a { $target}, el { $role}.
 bang-player-is-eliminated = { $player } es eliminado como el { $role}.
+bang-you-order-elimination-card = Colocas { $card } a continuación en la pila de descarte.
+bang-player-orders-elimination-card = { $player } coloca { $card } a continuación en la pila de descarte.
+bang-you-finish-elimination-discard = Descartas las cartas restantes en el orden del menú: { $cards}.
+bang-player-finishes-elimination-discard = { $player } descarta las cartas restantes en el orden del menú: { $cards}.
 bang-you-claim-outlaw-reward = Eliminaste a un Forajido y robas tres cartas de recompensa.
 bang-player-claims-outlaw-reward = { $player } eliminó a un Forajido y roba tres cartas de recompensa.
 bang-you-suffer-sheriff-penalty = Eliminaste a un Alguacil y descartas todas tus cartas.
@@ -502,6 +507,7 @@ bang-player-collects-hidden-vulture-card = { $player } recoge una carta oculta d
 bang-claus-gives-you-card = { $player } te da { $card}.
 bang-you-give-claus-card = Le das { $card } a { $target}.
 bang-claus-gives-hidden-card = { $player } le da una carta oculta a { $target}.
+bang-claus-gives-public-card = { $player } le da la carta boca arriba { $card } a { $target}.
 bang-your-peyote-result = Revelas { $card}; tu suposición es { $correct ->
     [yes] correcta
    *[no] incorrecta
@@ -620,9 +626,9 @@ bang-prompt-general-store = { $count ->
 bang-prompt-target-card = { $target}: elige una carta de mano al azar o una carta en juego para { $mode}.
 bang-prompt-ricochet = Responde a { $source}: juega un efecto ¡Fallaste! o deja que { $card } sea descartada.
 bang-prompt-vulture = Elige la siguiente carta de Vulture Sam de { $player}.
-bang-prompt-elimination-discard = { $selected ->
-    [0] Elige cartas para colocar primero en la pila de descarte, o confirma el orden actual.
-   *[other] { $selected } de { $total } colocadas primero; elige otra o confirma.
+bang-prompt-elimination-discard = { $remaining ->
+    [one] Queda 1 carta. Elígela para la pila de descarte, o termina con el orden actual del menú.
+   *[other] Quedan { $remaining } cartas. Elige la siguiente carta para la pila de descarte, o termina con el orden actual del menú.
 }
 bang-prompt-daltons = Los Dalton: elige una carta azul frente a ti para descartar de inmediato.
 bang-you-discard-daltons = Descartas { $card } por Los Dalton.
@@ -631,7 +637,7 @@ bang-prompt-blood-brothers = Pierde 1 vida no final para curar a un jugador, u o
 bang-prompt-new-identity = Conserva tu personaje, o cambia a tu alternativo con dos vidas.
 bang-prompt-vera-custer = Elige un personaje vivo para copiar hasta tu siguiente turno.
 bang-prompt-hard-liquor = Roba con normalidad, u omite el robo para recuperar 1 vida.
-bang-prompt-jesse-jones = Roba del mazo, o toma 1 carta de mano al azar de un jugador.
+bang-prompt-jesse-jones = Roba con normalidad, o toma 1 carta de mano al azar de un jugador.
 bang-prompt-pedro-ramirez = Toma la carta superior del descarte, o roba del mazo.
 bang-prompt-pat-brennan = Roba con normalidad, o toma 1 carta en juego.
 bang-prompt-kit-carlson = Elige qué hacer con la carta examinada: { $action}.

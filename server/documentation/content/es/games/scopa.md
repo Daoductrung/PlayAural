@@ -99,4 +99,3 @@ Los puntos de Escoba se registran durante la mano y se muestran en las consultas
 \* \*\*1-9 y 0:\*\* Ver una carta específica de la mesa por su posición.
 
 \* \*\*S:\*\* Consultar puntuaciones actuales.
-

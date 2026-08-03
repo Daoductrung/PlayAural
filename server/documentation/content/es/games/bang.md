@@ -169,7 +169,7 @@ La vida indicada abajo es el máximo normal del personaje antes del bono del She
 \* \*\*Kit Carlson — 4 vidas:\*\* Mira las tres cartas superiores, conserva la cantidad de robo requerida, y devuelve el resto a la cima sin cambiar su orden relativo.
 \* \*\*Lucky Duke — 4 vidas:\*\* Revela dos cartas en cada verificación de robo y elige cuál resultado cuenta.
 \* \*\*Paul Regret — 3 vidas:\*\* Todos los demás jugadores ven a Paul a distancia +1.
-\* \*\*Pedro Ramirez — 4 vidas:\*\* El primer robo normal puede venir de la cima de la pila de descarte.
+\* \*\*Pedro Ramirez — 4 vidas:\*\* El primer robo normal puede venir de la carta superior boca arriba de la pila de descarte.
 \* \*\*Rose Doolan — 4 vidas:\*\* Ve a todos los demás jugadores a distancia -1, con un mínimo de 1.
 \* \*\*Sid Ketchum — 4 vidas:\*\* Entre efectos de carta ya resueltos, incluso fuera de su turno, descarta exactamente dos cartas de mano para recuperar una vida. También puede hacerlo durante su propia recuperación letal, pero no puede interrumpir una carta o elección sin resolver.
 \* \*\*Slab the Killer — 4 vidas:\*\* Cada carta ¡BANG! requiere dos efectos ¡Fallaste!.

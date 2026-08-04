@@ -159,10 +159,11 @@ citadels-thief-target-line = { $brief ->
    *[no] Robar rango { $rank }: { $character }
 }
 citadels-magician-swap-line = Intercambiar con { $player } ({ $cards } cartas)
-citadels-warlord-target-line = Destruir { $district } de { $player } por { $cost } de oro. { $description }
-citadels-build-card-line = Construir { $district } ({ $cost } de oro). { $description }
-citadels-build-card-disabled-line = No se puede construir { $district } ({ $cost } de oro): { $reason } { $description }
+citadels-warlord-target-line = Destruir { $district } de { $player } por { $cost } de oro
+citadels-build-card-line = Construir { $district } ({ $cost } de oro)
+citadels-build-card-disabled-line = No se puede construir { $district } ({ $cost } de oro): { $reason }
 citadels-district-line = { $district }, costo { $cost }, { $type }. { $description }
+citadels-district-menu-line = { $district }, costo { $cost }, { $type }
 citadels-toggle-selected = Seleccionado: { $district }, costo { $cost }
 citadels-toggle-not-selected = No seleccionado: { $district }, costo { $cost }
 

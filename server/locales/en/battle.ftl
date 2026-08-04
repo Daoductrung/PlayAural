@@ -88,7 +88,6 @@ battle-fighter-selected = Selected: { $fighter }
 battle-fighter-unselected = Not selected: { $fighter }
 battle-submit-selection = Submit selection. Selected { $count } of { $limit }.
 battle-submit-selection-required = Submit selection. Selected { $count } of { $required } required.
-battle-skill-entry = { $skill }: { $description }.
 battle-skill-description = { $scope } targeting { $target }. { $effects }
 battle-skill-scope-single = Single-target
 battle-skill-target-self = yourself

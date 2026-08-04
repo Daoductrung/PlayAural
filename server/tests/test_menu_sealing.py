@@ -632,6 +632,36 @@ class TestStatusBoxes:
             "status_box:line:2",
         ]
 
+    def test_status_box_menu_items_keep_preference_aware_hints(self) -> None:
+        game = make_game()
+        player = game.players[0]
+        user = game.get_user(player)
+
+        game.status_box(
+            player,
+            [MenuItem(text="Card name", description="Card rules text.")],
+        )
+        item = user.menus["status_box"]["items"][0]
+        assert item.text == "Card name: Card rules text."
+        assert item.description == "Card rules text."
+
+        game.handle_event(
+            player,
+            {
+                "type": "menu",
+                "menu_id": "status_box",
+                "selection_id": item.id,
+            },
+        )
+        user.preferences.show_menu_hints = False
+        game.status_box(
+            player,
+            [MenuItem(text="Card name", description="Card rules text.")],
+        )
+        item = user.menus["status_box"]["items"][0]
+        assert item.text == "Card name"
+        assert item.description == "Card rules text."
+
     def test_live_status_box_refreshes_open_box_through_menu_flush(self) -> None:
         game = make_game()
         p1 = game.players[0]

@@ -166,7 +166,7 @@ class MenuManagementMixin:
         """
         items: list[MenuItem] = []
         for resolved in self.get_all_visible_actions(player):
-            items.append(MenuItem(text=resolved.label, id=resolved.action.id))
+            items.append(resolved.to_menu_item())
 
         # Touch clients get static table controls in the turn menu.
         if is_touch_client(user):
@@ -413,6 +413,9 @@ class MenuManagementMixin:
                     text=raw_item.text,
                     id=raw_item.id or f"{fallback_id_prefix}:line:{index}",
                     sound=raw_item.sound,
+                    description=raw_item.description,
+                    description_key=raw_item.description_key,
+                    description_kwargs=raw_item.description_kwargs,
                 )
             else:
                 item = MenuItem(

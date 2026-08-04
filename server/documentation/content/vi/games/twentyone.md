@@ -52,7 +52,7 @@ Trong ván có ba hoặc bốn người, các lá Biến tác động lên một
 
 
 
-Nhấn \*\*C\*\* hoặc chọn \*\*Hướng dẫn lá Biến\*\* trong menu hành động để mở hộp trạng thái liệt kê từng lá Biến và mô tả của nó. Mô tả cũng được đọc to mỗi khi bạn chọn lá từ menu chơi.
+Nhấn \*\*C\*\* hoặc chọn \*\*Hướng dẫn lá Biến\*\* trong menu hành động để mở hộp trạng thái liệt kê từng lá Biến và mô tả của nó. Khi bật \*\*Gợi ý trong menu\*\*, mỗi lựa chọn trong menu đánh bài cũng kèm mô tả và lý do nếu lá đó tạm thời chưa dùng được. Khi tắt Gợi ý trong menu, các lựa chọn chỉ còn số thứ tự và tên lá ngắn gọn; nếu vẫn chọn một lá chưa dùng được, trò chơi sẽ giải thích chính xác nguyên nhân.
 
 
 

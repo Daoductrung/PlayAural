@@ -393,15 +393,6 @@ class BattleGame(Game):
         move = get_move_map()[move_id]
         return self._locale_name(move.name, locale)
 
-    def _move_menu_label(self, locale: str, move_id: str) -> str:
-        move = get_move_map()[move_id]
-        return Localization.get(
-            locale,
-            "battle-skill-entry",
-            skill=self._locale_name(move.name, locale),
-            description=self._move_description(locale, move),
-        )
-
     def _preset_label(self, locale: str, preset_id: str) -> str:
         preset = get_preset_map()[preset_id]
         return self._locale_name(preset.name, locale)
@@ -1960,7 +1951,18 @@ class BattleGame(Game):
                         options="_target_options_for_move",
                         bot_select="_bot_select_target_for_move",
                     )
-                turn_set.add(Action(id=f"battle_move_{move_id}", label=self._move_menu_label(locale, move_id), handler="_action_battle_choose_move", is_enabled="_is_battle_choose_move_enabled", is_hidden="_is_battle_choose_move_hidden", input_request=input_request, show_in_actions_menu=False))
+                turn_set.add(
+                    Action(
+                        id=f"battle_move_{move_id}",
+                        label=self._move_label(locale, move_id),
+                        description=self._move_description(locale, move),
+                        handler="_action_battle_choose_move",
+                        is_enabled="_is_battle_choose_move_enabled",
+                        is_hidden="_is_battle_choose_move_hidden",
+                        input_request=input_request,
+                        show_in_actions_menu=False,
+                    )
+                )
 
     def _is_battle_selection_action_hidden(self, player: Player) -> Visibility:
         battle_player = self._as_battle_player(player)

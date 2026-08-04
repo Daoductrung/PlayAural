@@ -9,6 +9,8 @@ from typing import TYPE_CHECKING
 
 from mashumaro.mixins.json import DataClassJSONMixin
 
+from ..users.base import MenuItem
+
 if TYPE_CHECKING:
     from ..games.base import Game
     from .player import Player
@@ -43,8 +45,9 @@ class MenuInput(DataClassJSONMixin):
     """
     Request menu selection before action executes.
 
-    The options and bot_select are method names (strings) that will be
-    looked up on the game object at execution time.
+    Callback fields are method names looked up on the game object at execution
+    time. ``option_label`` and ``option_description`` receive the player and
+    raw option value and return localized row content.
     """
 
     prompt: str  # Localization key for menu title/prompt
@@ -52,6 +55,7 @@ class MenuInput(DataClassJSONMixin):
     bot_select: str | None = None  # Method name for bot auto-selection
     pre_input_check: str | None = None  # Method name returning disabled reason, or None
     option_label: str | None = None  # Optional method name for localized option labels
+    option_description: str | None = None  # Optional localized help callback
     initial_selection: str | None = None  # Optional method name returning option id to focus
 
 
@@ -91,6 +95,8 @@ class Action(DataClassJSONMixin):
     - get_sound: (self, player, *, action_id: str = None) -> str | None
       Returns the sound played when this item is highlighted, or None.
       The action_id kwarg is optional and passed if the method signature accepts it.
+    - get_description: (self, player, action_id) -> str | None
+      Returns localized descriptive help for the menu row.
     """
 
     id: str
@@ -100,6 +106,8 @@ class Action(DataClassJSONMixin):
     is_hidden: str  # Method name (e.g., "_is_roll_hidden")
     get_label: str | None = None  # Optional method name (e.g., "_get_roll_label")
     get_sound: str | None = None  # Optional method name (e.g., "_get_point_sound")
+    description: str | None = None  # Static localized menu help
+    get_description: str | None = None  # Optional dynamic description callback
     input_request: MenuInput | EditboxInput | None = None
     show_in_actions_menu: bool = True
     include_spectators: bool = False  # Whether spectators can see/execute this action
@@ -120,6 +128,16 @@ class ResolvedAction:
     disabled_reason: str | tuple[str, dict] | None  # Localization key if disabled, None if enabled
     visible: bool
     sound: str | None = None  # Sound to play when this item is highlighted
+    description: str | None = None  # Localized descriptive help
+
+    def to_menu_item(self, *, text: str | None = None) -> MenuItem:
+        """Convert the resolved action through the shared menu-row API."""
+        return MenuItem(
+            text=self.label if text is None else text,
+            id=self.action.id,
+            sound=self.sound,
+            description=self.description,
+        )
 
 
 @dataclass
@@ -203,6 +221,12 @@ class ActionSet(DataClassJSONMixin):
                 else:
                     sound = method(player)
 
+        description = action.description
+        if action.get_description:
+            method = getattr(game, action.get_description, None)
+            if method:
+                description = method(player, action.id)
+
         return ResolvedAction(
             action=action,
             label=label,
@@ -210,6 +234,7 @@ class ActionSet(DataClassJSONMixin):
             disabled_reason=disabled_reason,
             visible=visible,
             sound=sound,
+            description=description,
         )
 
     def resolve_actions(

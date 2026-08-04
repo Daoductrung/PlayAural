@@ -88,7 +88,6 @@ battle-fighter-selected = Đã chọn: { $fighter }
 battle-fighter-unselected = Chưa chọn: { $fighter }
 battle-submit-selection = Gửi lựa chọn. Đã chọn { $count } trên { $limit }.
 battle-submit-selection-required = Gửi lựa chọn. Đã chọn { $count } trên { $required } bắt buộc.
-battle-skill-entry = { $skill }: { $description }.
 battle-skill-description = { $scope } nhắm vào { $target }. { $effects }
 battle-skill-scope-single = Đơn mục tiêu
 battle-skill-target-self = bản thân

@@ -245,11 +245,16 @@ class NetworkUser(User):
         self._queue_packet(packet)
 
     def _convert_items(self, items: list[str | MenuItem]) -> list[str | dict]:
-        """Convert MenuItem objects to dicts for JSON serialization."""
+        """Render menu hints and convert rows for JSON serialization."""
         result = []
         for item in items:
             if isinstance(item, MenuItem):
-                result.append(item.to_dict())
+                result.append(
+                    item.to_dict(
+                        locale=self.locale,
+                        show_description=self.preferences.show_menu_hints,
+                    )
+                )
             else:
                 result.append(item)
         return result

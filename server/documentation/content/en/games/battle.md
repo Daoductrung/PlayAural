@@ -21,6 +21,7 @@ Battle is a turn-based combat game where you build a small roster of preset figh
 \* \*\*Turn order:\*\* if the table uses \*\*Initiative\*\*, the next fighter is chosen through a speed-weighted initiative roll. If the table uses \*\*Round Robin\*\*, fighters take turns in a repeating order.
 \* \*\*Stats matter:\*\* attack makes offensive skills stronger, defense softens incoming damage, and speed helps determine turn flow and can also decide whether a fighter stays active.
 \* \*\*Single-target combat:\*\* every skill in the current ruleset affects one target at a time. There are no area-of-effect skills.
+\* \*\*Skill descriptions:\*\* with \*\*Menu Hints\*\* on, each skill row includes its target type and effects. Turn Menu Hints off under \*\*Personal and Options > General options > Accessibility\*\* if you prefer skill rows to contain names only.
 \* \*\*Classic vs Mixed enemy pools:\*\* in several solo or endurance modes, \*\*Classic\*\* means enemy fighters all come from one chosen preset, while \*\*Mixed\*\* means enemies are drawn at random from the full bundled roster.
 
 \*\*Modes\*\*

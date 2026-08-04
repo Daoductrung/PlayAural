@@ -385,9 +385,12 @@ def test_every_card_has_detailed_english_and_vietnamese_ui_text():
         for index, kind in enumerate(sorted(kinds), 1):
             key = f"bang-card-{kind.replace('_', '-')}-description"
             assert Localization.has_message(locale, key)
-            detail = cards.card_detail_label(make_card(index, kind), locale)
-            assert cards.card_name(kind, locale) in detail
-            assert Localization.get(locale, key) in detail
+            card = make_card(index, kind)
+            assert cards.card_name(kind, locale) in cards.card_label(card, locale)
+            assert cards.card_description(card, locale) == Localization.get(
+                locale,
+                key,
+            )
 
 
 def test_hand_hotkey_is_concise_while_card_rows_keep_full_descriptions():
@@ -435,6 +438,15 @@ def test_hand_hotkey_is_concise_while_card_rows_keep_full_descriptions():
     assert "Brown shot card" in items[f"play_card_{bang.id}"]
     assert "Blue Weapon" in items[f"play_card_{weapon.id}"]
 
+    user.preferences.show_menu_hints = False
+    game.refresh_menus(player)
+    game.flush_menus()
+    items = turn_menu_items(game, game.players.index(player))
+    assert items[f"play_card_{bang.id}"].startswith("Shot card:")
+    assert "Brown shot card" not in items[f"play_card_{bang.id}"]
+    assert items[f"play_card_{weapon.id}"].startswith("Weapon to equip:")
+    assert "Blue Weapon" not in items[f"play_card_{weapon.id}"]
+
 
 @pytest.mark.parametrize("locale", ["en", "vi"])
 def test_bang_strings_and_nested_readouts_have_no_double_periods(locale):
@@ -462,10 +474,9 @@ def test_bang_strings_and_nested_readouts_have_no_double_periods(locale):
                 ),
             ]
         )
-    rendered.extend(
-        cards.card_detail_label(card, locale)
-        for card in cards.build_deck(include_extended_cards=True)
-    )
+    for card in cards.build_deck(include_extended_cards=True):
+        rendered.append(cards.card_label(card, locale))
+        rendered.append(cards.card_description(card, locale))
     assert all(".." not in text for text in rendered)
 
 
@@ -1498,16 +1509,15 @@ def test_weapon_and_bang_menu_labels_distinguish_equipping_from_firing():
     bang = make_card(1203, cards.BANG)
     weapon = make_card(1204, cards.WINCHESTER, border=cards.BLUE)
 
-    assert cards.card_play_label(bang, "en").startswith("Shot card:")
-    assert "Fire at one player" in cards.card_play_label(bang, "en")
-    assert cards.card_play_label(weapon, "en").startswith("Weapon to equip:")
-    assert "Equip it for range 5" in cards.card_play_label(weapon, "en")
-    assert "permanent Colt" not in cards.card_play_label(weapon, "en")
-    assert cards.card_play_label(bang, "vi").startswith("Lá khai hỏa:")
-    assert cards.card_play_label(weapon, "vi").startswith("Trang bị súng:")
-    assert not cards.card_detail_label(weapon, "en").startswith(
-        "Weapon to equip:"
-    )
+    assert cards.card_play_name(bang, "en").startswith("Shot card:")
+    assert "Fire at one player" not in cards.card_play_name(bang, "en")
+    assert "Fire at one player" in cards.card_description(bang, "en")
+    assert cards.card_play_name(weapon, "en").startswith("Weapon to equip:")
+    assert "Equip it for range 5" not in cards.card_play_name(weapon, "en")
+    assert "Equip it for range 5" in cards.card_description(weapon, "en")
+    assert "permanent Colt" not in cards.card_description(weapon, "en")
+    assert cards.card_play_name(bang, "vi").startswith("Lá khai hỏa:")
+    assert cards.card_play_name(weapon, "vi").startswith("Trang bị súng:")
 
 
 def test_equipping_weapon_announces_range_and_replacement_to_all_audiences():

@@ -3,6 +3,8 @@ export type SpeechBuffer = "all" | "chat" | "game" | "system" | "misc";
 export type MenuItemData = {
   id?: string;
   text: string;
+  label?: string;
+  description?: string;
   sound?: string;
   selection_value?: string | null;
 };

@@ -375,8 +375,9 @@ def test_change_card_menu_shows_blocked_cards_and_reports_reason() -> None:
 
     options = game._options_for_play_modifier(alice)
 
-    assert len(options) == 1
-    assert "unavailable:" in options[0]
+    assert options == ["1"]
+    assert game._modifier_option_label(alice, "1") == "1: draw 2"
+    assert "unavailable:" in game._modifier_option_description(alice, "1")
     assert game._is_play_modifier_enabled(alice) is None
 
     game._action_play_modifier(alice, options[0], "play_modifier")
@@ -397,15 +398,48 @@ def test_change_card_menu_preserves_all_hand_indexes_with_unplayable_cards() -> 
 
     options = game._options_for_play_modifier(alice)
 
-    assert len(options) == 2
-    assert options[0].startswith("1:")
-    assert "unavailable:" in options[0]
-    assert options[1].startswith("2:")
+    assert options == ["1", "2"]
+    assert game._modifier_option_label(alice, "1") == "1: delete"
+    assert "unavailable:" in game._modifier_option_description(alice, "1")
+    assert game._modifier_option_label(alice, "2") == "2: target 24"
 
     game._action_play_modifier(alice, options[0], "play_modifier")
 
     assert alice.modifiers == [MODIFIER_BREAK, MODIFIER_TARGET_24]
     assert any("no active table effects" in text for text in speech_texts(alice_user))
+
+
+def test_change_card_descriptions_follow_menu_hint_preference() -> None:
+    game, alice_user, _ = make_started_game()
+    alice, bob = game.players
+    alice.modifiers = [MODIFIER_DRAW_2]
+    bob.table_modifiers = [MODIFIER_DRAW_SILENCE]
+
+    game.execute_action(alice, "play_modifier")
+    item = next(
+        item
+        for item in alice_user.get_current_menu_items("action_input_menu")
+        if item.id == "1"
+    )
+    assert "draw-blocking effect" in item.text
+
+    game.handle_event(
+        alice,
+        {
+            "type": "menu",
+            "menu_id": "action_input_menu",
+            "selection_id": "_cancel",
+        },
+    )
+    alice_user.preferences.show_menu_hints = False
+    game.execute_action(alice, "play_modifier")
+    item = next(
+        item
+        for item in alice_user.get_current_menu_items("action_input_menu")
+        if item.id == "1"
+    )
+    assert item.text == "1: draw 2"
+    assert "draw-blocking effect" in item.description
 
 
 # ---------------------------------------------------------------------------

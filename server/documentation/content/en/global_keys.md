@@ -2,6 +2,12 @@
 
 This guide explains the controls that work across PlayAural. Desktop players mainly use keyboard shortcuts. Mobile players mainly use built-in gestures. Both methods reach the same features.
 
+\*\*Menu Hints\*\*
+
+Menu items that have extra help include that description in the item by default, so moving through the menu reads both the choice and what it does. To use shorter menu items, open \*\*Personal and Options > General options > Accessibility > Menu Hints\*\* and turn the setting off. This preference applies to system menus, game setup options, and game choices that provide descriptions on every client.
+
+When Menu Hints are off, desktop users can press \*\*Space\*\* on a described system or game-setup option to hear its help without activating it. Space keeps its normal game shortcut during an active game. You can turn Menu Hints on again whenever you want descriptions included automatically.
+
 \*\*Desktop Keyboard Shortcuts\*\*
 
 \*\*System and Audio\*\*

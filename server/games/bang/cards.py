@@ -339,31 +339,14 @@ def card_description(kind_or_card: str | BangCard, locale: str) -> str:
     )
 
 
-def card_detail_label(card: BangCard, locale: str) -> str:
-    """Return a neutral complete label with identity and rules text."""
-
-    return Localization.get(
-        locale,
-        "bang-card-detail",
-        card=card_label(card, locale),
-        description=card_description(card, locale),
-    )
-
-
-def card_play_label(card: BangCard, locale: str) -> str:
-    """Return a complete hand-play label with the card's action context."""
-
-    detail_key = "bang-card-detail"
+def card_play_name(card: BangCard, locale: str) -> str:
+    """Return concise action-aware identity without the rules description."""
+    label = card_label(card, locale)
     if card.kind == BANG:
-        detail_key = "bang-card-detail-bang"
-    elif card.kind in WEAPONS:
-        detail_key = "bang-card-detail-weapon"
-    return Localization.get(
-        locale,
-        detail_key,
-        card=card_label(card, locale),
-        description=card_description(card, locale),
-    )
+        return Localization.get(locale, "bang-card-play-bang", card=label)
+    if card.kind in WEAPONS:
+        return Localization.get(locale, "bang-card-play-weapon", card=label)
+    return label
 
 
 def sort_cards(cards: list[BangCard]) -> list[BangCard]:

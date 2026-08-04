@@ -261,7 +261,7 @@ def test_selection_labels_only_show_preset_stats() -> None:
     assert "Berserk:" not in label
 
 
-def test_move_menu_labels_include_skill_descriptions() -> None:
+def test_move_menu_hints_follow_the_global_preference() -> None:
     game = make_game(start=True, turn_mode=TURN_MODE_ROUND_ROBIN)
     p1, p2 = game.players
     select_and_submit(game, p1, "boxer")
@@ -271,11 +271,34 @@ def test_move_menu_labels_include_skill_descriptions() -> None:
     turn_set = game.get_action_set(p1, "turn")
     assert turn_set is not None
     visible = turn_set.get_visible_actions(game, p1)
-    spinning_punch = next(entry.label for entry in visible if entry.action.id == "battle_move_spinning_punch")
+    spinning_punch = next(
+        entry
+        for entry in visible
+        if entry.action.id == "battle_move_spinning_punch"
+    )
 
-    assert "Spinning Punch:" in spinning_punch
-    assert "Single-target targeting one enemy." in spinning_punch
-    assert "deal 15 to 18 damage" in spinning_punch
+    assert spinning_punch.label == "Spinning Punch"
+    assert "Single-target targeting one enemy." in spinning_punch.description
+    assert "deal 15 to 18 damage" in spinning_punch.description
+
+    game.refresh_menus(p1)
+    game.flush_menus()
+    menu_item = next(
+        item
+        for item in game.get_user(p1).get_current_menu_items("turn_menu")
+        if item.id == "battle_move_spinning_punch"
+    )
+    assert "Single-target targeting one enemy." in menu_item.text
+
+    game.get_user(p1).preferences.show_menu_hints = False
+    game.refresh_menus(p1)
+    game.flush_menus()
+    menu_item = next(
+        item
+        for item in game.get_user(p1).get_current_menu_items("turn_menu")
+        if item.id == "battle_move_spinning_punch"
+    )
+    assert menu_item.text == "Spinning Punch"
 
 
 def test_selection_advances_into_combat() -> None:

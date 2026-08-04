@@ -313,8 +313,7 @@ class SenetGame(Game):
         grid_items: list[MenuItem] = []
         other_items: list[MenuItem] = []
         for resolved in self.get_all_visible_actions(player):
-            label = resolved.label
-            item = MenuItem(text=label, id=resolved.action.id)
+            item = resolved.to_menu_item()
             if resolved.action.id.startswith("sq_"):
                 grid_items.append(item)
             else:

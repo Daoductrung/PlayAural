@@ -579,7 +579,7 @@ def test_unique_district_scoring_and_keep_protection_work() -> None:
     assert game._score_city(player) == 14
 
 
-def test_district_descriptions_appear_in_hand_build_and_warlord_labels() -> None:
+def test_district_descriptions_use_menu_hint_metadata() -> None:
     game = make_game(start=True)
     player = game.players[0]
     target = game.players[1]
@@ -594,7 +594,8 @@ def test_district_descriptions_appear_in_hand_build_and_warlord_labels() -> None
     game.turn_resource_taken = True
     build_action = game.find_action(player, "build_650")
     assert build_action is not None
-    assert "Once per turn, discard a card from your hand to gain 2 gold." in build_action.label
+    assert "Once per turn" not in build_action.label
+    assert "Once per turn, discard a card from your hand to gain 2 gold." in build_action.description
 
     target.city = [laboratory]
     begin_turn(game, player, CHARACTER_WARLORD)
@@ -603,7 +604,17 @@ def test_district_descriptions_appear_in_hand_build_and_warlord_labels() -> None
     game.execute_action(player, "warlord_destroy_mode")
     destroy_action = game.find_action(player, f"warlord_destroy_target_{target.id}_650")
     assert destroy_action is not None
-    assert "Once per turn, discard a card from your hand to gain 2 gold." in destroy_action.label
+    assert "Once per turn" not in destroy_action.label
+    assert "Once per turn, discard a card from your hand to gain 2 gold." in destroy_action.description
+
+    game.refresh_menus(player)
+    game.flush_menus()
+    destroy_item = next(
+        item
+        for item in game.get_user(player).get_current_menu_items("turn_menu")
+        if item.id == f"warlord_destroy_target_{target.id}_650"
+    )
+    assert "Once per turn, discard a card from your hand to gain 2 gold." in destroy_item.text
 
 
 def test_dynamic_target_and_toggle_menus_focus_the_expected_item() -> None:

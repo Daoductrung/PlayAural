@@ -636,7 +636,11 @@ class CitadelsGame(Game):
                 turn_set.add(
                     Action(
                         id=action_id,
-                        label=self._district_line(card, locale),
+                        label=self._district_menu_line(card, locale),
+                        description=self._district_effect_description(
+                            card,
+                            locale,
+                        ),
                         handler="_action_keep_draw_card",
                         is_enabled="_is_keep_draw_card_enabled",
                         is_hidden="_is_dynamic_turn_action_hidden",
@@ -677,7 +681,11 @@ class CitadelsGame(Game):
                     turn_set.add(
                         Action(
                             id=action_id,
-                            label=self._district_line(card, locale),
+                            label=self._district_menu_line(card, locale),
+                            description=self._district_effect_description(
+                                card,
+                                locale,
+                            ),
                             handler="_action_laboratory_discard",
                             is_enabled="_is_laboratory_discard_enabled",
                             is_hidden="_is_dynamic_turn_action_hidden",
@@ -700,7 +708,10 @@ class CitadelsGame(Game):
                             player=owner.name,
                             district=self._district_name(district, locale),
                             cost=max(0, self._warlord_destroy_cost(owner, district)),
-                            description=self._district_effect_description(district, locale),
+                        ),
+                        description=self._district_effect_description(
+                            district,
+                            locale,
                         ),
                         handler="_action_warlord_destroy",
                         is_enabled="_is_warlord_destroy_target_enabled",
@@ -781,8 +792,11 @@ class CitadelsGame(Game):
                             label_key,
                             district=self._district_name(card, locale),
                             cost=self._effective_build_cost(cit_player, card),
-                            description=self._district_effect_description(card, locale),
                             reason=disabled_reason or "",
+                        ),
+                        description=self._district_effect_description(
+                            card,
+                            locale,
                         ),
                         handler="_action_build_card",
                         is_enabled="_is_build_card_enabled",
@@ -2849,6 +2863,16 @@ class CitadelsGame(Game):
             cost=card.cost,
             type=self._district_type_name(card.district_type, locale),
             description=self._district_effect_description(card, locale),
+        )
+
+    def _district_menu_line(self, card: DistrictCard, locale: str) -> str:
+        """Return concise district identity for interactive menu rows."""
+        return Localization.get(
+            locale,
+            "citadels-district-menu-line",
+            district=self._district_name(card, locale),
+            cost=card.cost,
+            type=self._district_type_name(card.district_type, locale),
         )
 
     def _toggle_line(self, locale: str, card: DistrictCard, selected: bool) -> str:

@@ -141,8 +141,17 @@ class MockUser(User):
         grid_height: int = 0,
         grid_width: int = 1,
     ) -> None:
+        rendered_items = [
+            item.rendered(
+                self.locale,
+                show_description=self.preferences.show_menu_hints,
+            )
+            if isinstance(item, MenuItem)
+            else item
+            for item in items
+        ]
         menu_data = {
-            "items": items,
+            "items": rendered_items,
             "multiletter": multiletter,
             "escape_behavior": escape_behavior,
             "position": position,
@@ -165,8 +174,17 @@ class MockUser(User):
         grid_height: int = 0,
         grid_width: int = 1,
     ) -> None:
+        rendered_items = [
+            item.rendered(
+                self.locale,
+                show_description=self.preferences.show_menu_hints,
+            )
+            if isinstance(item, MenuItem)
+            else item
+            for item in items
+        ]
         if menu_id in self.menus:
-            self.menus[menu_id]["items"] = items
+            self.menus[menu_id]["items"] = rendered_items
             if position is not None:
                 self.menus[menu_id]["position"] = position
             self.menus[menu_id]["grid_enabled"] = grid_enabled
@@ -177,7 +195,7 @@ class MockUser(User):
                 "update_menu",
                 {
                     "menu_id": menu_id,
-                    "items": items,
+                    "items": rendered_items,
                     "position": position,
                     "selection_id": selection_id,
                     "grid_enabled": grid_enabled,

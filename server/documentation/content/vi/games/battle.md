@@ -21,6 +21,7 @@
 \* \*\*Thứ tự ra tay:\*\* nếu bàn dùng \*\*Tranh quyền ra tay\*\*, người ra đòn tiếp theo được chọn theo lượt tung sáng kiến có tính đến tốc độ. Nếu bàn dùng \*\*Lần lượt theo vòng\*\*, các đấu sĩ sẽ đi theo thứ tự lặp lại.
 \* \*\*Chỉ số rất quan trọng:\*\* tấn công giúp đòn đánh mạnh hơn, phòng thủ giúp giảm sát thương nhận vào, còn tốc độ ảnh hưởng đến nhịp ra tay và cũng có thể quyết định một đấu sĩ còn đủ khả năng chiến đấu hay không.
 \* \*\*Giao chiến một mục tiêu:\*\* trong luật hiện tại, mỗi chiêu thức chỉ tác động lên một mục tiêu tại một thời điểm. Không có chiêu đánh lan toàn nhóm.
+\* \*\*Mô tả chiêu thức:\*\* khi bật \*\*Gợi ý trong menu\*\*, mỗi dòng chiêu thức cho biết luôn loại mục tiêu và các hiệu ứng. Nếu chỉ muốn nghe tên chiêu, hãy tắt Gợi ý trong menu tại \*\*Cá nhân và Tùy chỉnh > Tùy chỉnh chung > Hỗ trợ tiếp cận\*\*.
 \* \*\*Cổ điển và Hỗn hợp:\*\* trong nhiều chế độ đấu với máy, \*\*Cổ điển\*\* nghĩa là địch đều sinh ra từ một mẫu đã chọn sẵn, còn \*\*Hỗn hợp\*\* nghĩa là địch được rút ngẫu nhiên từ toàn bộ kho đấu sĩ.
 
 \*\*Các Chế Độ\*\*

@@ -26,10 +26,10 @@ from .bot import choose_action as choose_bot_action
 from .cards import (
     BangCard,
     BangInPlayCard,
-    card_detail_label,
+    card_description,
     card_label,
     card_name,
-    card_play_label,
+    card_play_name,
     sort_cards,
 )
 from .characters import (
@@ -947,11 +947,12 @@ class BangGame(Game):
             action_set.add(
                 Action(
                     id=f"play_card_{card.id}",
-                    label=card_play_label(card, locale),
+                    label=card_play_name(card, locale),
                     handler="_action_play_card",
                     is_enabled="_is_play_card_enabled",
                     is_hidden="_is_play_card_hidden",
                     get_label="_get_play_card_label",
+                    get_description="_get_card_action_description",
                     show_in_actions_menu=False,
                 )
             )
@@ -962,11 +963,12 @@ class BangGame(Game):
                     label=Localization.get(
                         locale,
                         "bang-use-card",
-                        card=card_detail_label(in_play.card, locale),
+                        card=card_label(in_play.card, locale),
                     ),
                     handler="_action_use_in_play",
                     is_enabled="_is_use_in_play_enabled",
                     is_hidden="_is_use_in_play_hidden",
+                    get_description="_get_card_action_description",
                     show_in_actions_menu=False,
                 )
             )
@@ -1022,6 +1024,7 @@ class BangGame(Game):
                         is_enabled="_is_choice_enabled",
                         is_hidden="_is_choice_hidden",
                         get_label="_get_choice_item_label",
+                        get_description="_get_card_action_description",
                         show_in_actions_menu=False,
                     )
                 )
@@ -1592,7 +1595,7 @@ class BangGame(Game):
             return action_id
         user = self.get_user(player)
         locale = user.locale if user else "en"
-        detail_label = card_detail_label(card, locale)
+        concise_label = card_label(card, locale)
         if (
             self.decision
             and self.decision.player_id == player.id
@@ -1601,7 +1604,7 @@ class BangGame(Game):
             return Localization.get(
                 locale,
                 "bang-elimination-discard-next",
-                card=detail_label,
+                card=concise_label,
             )
         selected = bool(
             self.play_intent and card.id in self.play_intent.selected_card_ids
@@ -1614,7 +1617,7 @@ class BangGame(Game):
                     if selected
                     else "bang-discard-card-unselected"
                 ),
-                card=detail_label,
+                card=concise_label,
             )
         if (
             self.play_intent
@@ -1632,15 +1635,61 @@ class BangGame(Game):
                     if selected
                     else "bang-unselected-card"
                 ),
-                card=detail_label,
+                card=concise_label,
             )
         if self.decision and self.decision.player_id == player.id:
             return Localization.get(
                 locale,
                 "bang-response-card",
-                card=detail_label,
+                card=concise_label,
             )
-        return card_play_label(card, locale)
+        return card_play_name(card, locale)
+
+    def _choice_card(self, item_id: str) -> BangCard | None:
+        """Return the card represented by a dynamic choice row."""
+        if item_id.startswith(("store_", "claus_", "kit_")):
+            card_id = self._card_id_from_action(item_id)
+            pools = self.general_store_cards + self.revealed_cards
+            return next((card for card in pools if card.id == card_id), None)
+        if item_id.startswith("draw_result_"):
+            index = self._card_id_from_action(item_id)
+            if 0 <= index < len(self.revealed_cards):
+                return self.revealed_cards[index]
+        if item_id.startswith("in_play_"):
+            found = self._in_play_by_id(self._card_id_from_action(item_id))
+            return found[1].card if found else None
+        return None
+
+    def _get_card_action_description(
+        self,
+        player: Player,
+        action_id: str,
+    ) -> str | None:
+        """Resolve card rules text for any hand, in-play, or choice row."""
+        if not isinstance(player, BangPlayer):
+            return None
+        card: BangCard | None = None
+        if action_id.startswith("play_card_"):
+            card = self._card_in_hand(
+                player,
+                self._card_id_from_action(action_id),
+            )
+        elif action_id.startswith("use_in_play_"):
+            card_id = self._card_id_from_action(action_id)
+            card = next(
+                (
+                    in_play.card
+                    for in_play in player.in_play
+                    if in_play.card.id == card_id
+                ),
+                None,
+            )
+        elif action_id.startswith("choice_"):
+            card = self._choice_card(action_id.removeprefix("choice_"))
+        if not card:
+            return None
+        user = self.get_user(player)
+        return card_description(card, user.locale if user else "en")
 
     def _is_use_in_play_hidden(
         self,
@@ -7327,14 +7376,12 @@ class BangGame(Game):
         if item_id.startswith("suit_"):
             return cards.suit_name(item_id.removeprefix("suit_"), locale)
         if item_id.startswith(("store_", "claus_", "kit_")):
-            card_id = self._card_id_from_action(item_id)
-            pools = self.general_store_cards + self.revealed_cards
-            card = next((held for held in pools if held.id == card_id), None)
-            return card_detail_label(card, locale) if card else item_id
+            card = self._choice_card(item_id)
+            return card_label(card, locale) if card else item_id
         if item_id.startswith("draw_result_"):
-            index = self._card_id_from_action(item_id)
-            if 0 <= index < len(self.revealed_cards):
-                return card_detail_label(self.revealed_cards[index], locale)
+            card = self._choice_card(item_id)
+            if card:
+                return card_label(card, locale)
         if item_id.startswith("in_play_"):
             found = self._in_play_by_id(self._card_id_from_action(item_id))
             if found:
@@ -7347,13 +7394,13 @@ class BangGame(Game):
                     return Localization.get(
                         locale,
                         "bang-elimination-discard-next-in-play",
-                        card=card_detail_label(in_play.card, locale),
+                        card=card_label(in_play.card, locale),
                     )
                 return Localization.get(
                     locale,
                     "bang-in-play-choice",
                     player=owner.name,
-                    card=card_detail_label(in_play.card, locale),
+                    card=card_label(in_play.card, locale),
                 )
         return Localization.get(locale, "bang-choice-unavailable")
 

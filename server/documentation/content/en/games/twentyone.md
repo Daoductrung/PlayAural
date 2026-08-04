@@ -52,7 +52,7 @@ In games with three or four players, Change Cards that affect one opponent ask y
 
 
 
-Press \*\*C\*\* or select \*\*Change Card Guide\*\* from the actions menu to open a status box listing every change card and its description. The description is also read aloud whenever a change card is selected from the play menu.
+Press \*\*C\*\* or select \*\*Change Card Guide\*\* from the actions menu to open a status box listing every change card and its description. With \*\*Menu Hints\*\* on, each choice in the play menu also includes its description and any reason it is currently unavailable. With Menu Hints off, those choices use short indexed card names; selecting an unavailable card still explains exactly why it cannot be played.
 
 
 

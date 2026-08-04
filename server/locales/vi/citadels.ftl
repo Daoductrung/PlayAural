@@ -159,10 +159,11 @@ citadels-thief-target-line = { $brief ->
    *[no] Cướp hạng { $rank }: { $character }
 }
 citadels-magician-swap-line = Đổi với { $player } ({ $cards } lá)
-citadels-warlord-target-line = Phá { $district } của { $player } với giá { $cost } vàng. { $description }
-citadels-build-card-line = Xây { $district } ({ $cost } vàng). { $description }
-citadels-build-card-disabled-line = Không thể xây { $district } ({ $cost } vàng): { $reason } { $description }
+citadels-warlord-target-line = Phá { $district } của { $player } với giá { $cost } vàng
+citadels-build-card-line = Xây { $district } ({ $cost } vàng)
+citadels-build-card-disabled-line = Không thể xây { $district } ({ $cost } vàng): { $reason }
 citadels-district-line = { $district }, giá { $cost }, loại { $type }. { $description }
+citadels-district-menu-line = { $district }, giá { $cost }, loại { $type }
 citadels-toggle-selected = Đã chọn: { $district }, giá { $cost }
 citadels-toggle-not-selected = Chưa chọn: { $district }, giá { $cost }
 

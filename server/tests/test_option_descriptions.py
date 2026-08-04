@@ -1,7 +1,7 @@
-"""Tests for the space-to-describe option feature.
+"""Tests for automatic and on-demand game-option descriptions.
 
-Pressing space while an option is focused in the lobby/options menu speaks
-custom or generated option help; during play, space remains a game keybind.
+Menu hints include custom or generated help in lobby rows by default. Turning
+them off keeps Space-to-describe support while preserving active-game keybinds.
 """
 
 from pathlib import Path
@@ -127,7 +127,7 @@ def _option_action_id(option_name: str, meta) -> str:
     return f"set_{option_name}"
 
 
-def test_every_declarative_game_option_produces_spoken_help() -> None:
+def test_every_declarative_game_option_produces_localized_help() -> None:
     missing: list[str] = []
     for locale in ("en", "vi"):
         for game_type in sorted(GameRegistry._games):
@@ -141,16 +141,39 @@ def test_every_declarative_game_option_produces_spoken_help() -> None:
             user._locale = locale
             player = game.add_player("Alice", user)
             for option_name, meta in options.get_option_metas().items():
-                before = len(user.get_spoken_messages())
                 action_id = _option_action_id(option_name, meta)
-                if not game._speak_option_description(player, action_id):
-                    missing.append(f"{locale}:{game_type}.{option_name}")
-                    continue
-                spoken = user.get_spoken_messages()
-                if len(spoken) <= before or spoken[-1] == meta.description:
+                description = game._option_description_text(player, action_id)
+                if not description or description == meta.description:
                     missing.append(f"{locale}:{game_type}.{option_name}")
 
     assert not missing
+
+
+def test_menu_hints_control_inline_option_help_without_removing_space_help() -> None:
+    game, user, player = _make_game("en")
+    game.refresh_menus(player)
+    game.flush_menus()
+
+    item = next(
+        item
+        for item in user.get_current_menu_items("turn_menu")
+        if item.id == "set_game_mode"
+    )
+    assert "win rounds to go out" in item.text
+
+    user.preferences.show_menu_hints = False
+    game.refresh_menus(player)
+    game.flush_menus()
+    item = next(
+        item
+        for item in user.get_current_menu_items("turn_menu")
+        if item.id == "set_game_mode"
+    )
+    assert "win rounds to go out" not in item.text
+
+    user.clear_messages()
+    _space(game, player, "set_game_mode")
+    assert "win rounds to go out" in user.get_spoken_messages()[-1]
 
 
 def test_every_declarative_game_option_has_custom_description_key() -> None:

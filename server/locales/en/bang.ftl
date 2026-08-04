@@ -7,9 +7,8 @@ bang-role-renegade = Renegade
 bang-role-hidden = hidden role
 
 bang-card-label = { $card }, { $playing_card }
-bang-card-detail = { $card }. { $description }
-bang-card-detail-bang = Shot card: { $card}. { $description }
-bang-card-detail-weapon = Weapon to equip: { $card}. { $description }
+bang-card-play-bang = Shot card: { $card }
+bang-card-play-weapon = Weapon to equip: { $card }
 bang-card-bang = BANG!
 bang-card-bang-description = Brown shot card. Fire at one player within your current weapon range. Normally only one BANG! may be played per turn.
 bang-card-barrel = Barrel

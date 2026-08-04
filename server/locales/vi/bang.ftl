@@ -7,9 +7,8 @@ bang-role-renegade = Tay phản trắc
 bang-role-hidden = thân phận chưa lộ
 
 bang-card-label = { $card}, { $playing_card }
-bang-card-detail = { $card}. { $description }
-bang-card-detail-bang = Lá khai hỏa: { $card}. { $description }
-bang-card-detail-weapon = Trang bị súng: { $card}. { $description }
+bang-card-play-bang = Lá khai hỏa: { $card }
+bang-card-play-weapon = Trang bị súng: { $card }
 bang-card-bang = BANG!
 bang-card-bang-description = Lá nâu khai hỏa. Bắn một người trong tầm súng hiện tại. Thông thường mỗi lượt chỉ được dùng 1 lá BANG!.
 bang-card-barrel = Thùng gỗ

@@ -796,6 +796,21 @@ class GameOptions(DataClassJSONMixin):
                 continue
             current_value = getattr(self, name)
             action = meta.create_action(name, game, player, current_value, locale)
+            description_getter = getattr(
+                game,
+                "_option_description_text",
+                None,
+            )
+            action.description = (
+                description_getter(player, name)
+                if description_getter
+                else meta.get_description(
+                    locale,
+                    current_value,
+                    game=game,
+                    player=player,
+                )
+            )
             action_set.add(action)
 
     @staticmethod
@@ -939,48 +954,47 @@ class OptionsHandlerMixin:
         """Return the standard custom description key for a game option."""
         return f"{game_type}-desc-{option_name.replace('_', '-')}"
 
-    def _speak_option_description(self, player: "Player", menu_item_id: str) -> bool:
-        """Speak an option's description when space is pressed on it.
-
-        Extracts the option name from the focused menu item id (e.g. set_X /
-        toggle_X) and speaks explicit, convention-based, or generated help.
-        Returns True if help was spoken.
-        """
+    def _option_description_text(
+        self,
+        player: "Player",
+        menu_item_id: str,
+    ) -> str | None:
+        """Resolve localized option help for the shared menu-hint API."""
         if not hasattr(self, "options"):
-            return False
+            return None
         option_name = None
         for prefix in ("set_", "toggle_", "group_", "multiselect_"):
             if menu_item_id.startswith(prefix):
                 option_name = menu_item_id[len(prefix):]
                 break
+        if option_name is None and get_option_meta(
+            type(self.options),
+            menu_item_id,
+        ):
+            option_name = menu_item_id
         if option_name is None:
-            return False
+            return None
         meta = get_option_meta(type(self.options), option_name)
         if meta is None:
-            return False
+            return None
         user = self.get_user(player)
         if not user:
-            return False
+            return None
         current_value = getattr(self.options, option_name, meta.default)
         if meta.description:
-            user.speak_l(meta.description, buffer="system")
-        else:
-            description_key = self._conventional_option_description_key(
-                self.get_type(), option_name
-            )
-            if Localization.has_message(user.locale, description_key):
-                user.speak_l(description_key, buffer="system")
-            else:
-                user.speak(
-                    meta.get_description(
-                        user.locale,
-                        current_value,
-                        game=self,
-                        player=player,
-                    ),
-                    buffer="system",
-                )
-        return True
+            return Localization.get(user.locale, meta.description)
+        description_key = self._conventional_option_description_key(
+            self.get_type(),
+            option_name,
+        )
+        if Localization.has_message(user.locale, description_key):
+            return Localization.get(user.locale, description_key)
+        return meta.get_description(
+            user.locale,
+            current_value,
+            game=self,
+            player=player,
+        )
 
     def _option_description_key(self, option_name: str) -> str | None:
         """Return the explicit or conventional description key for an option."""

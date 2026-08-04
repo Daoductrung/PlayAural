@@ -110,6 +110,7 @@ class UserPreferences:
     notify_friend_presence: bool = True  # Notify for accepted friends
 
     # Interface preferences
+    show_menu_hints: bool = True
     invert_multiline_enter_behavior: bool = False
     play_typing_sounds: bool = True
     active_tables_filter: str = "all"  # "all", "waiting", "playing"
@@ -195,6 +196,7 @@ class UserPreferences:
             "notify_table_created": self.notify_table_created,
             "notify_user_presence": self.notify_user_presence,
             "notify_friend_presence": self.notify_friend_presence,
+            "show_menu_hints": self.show_menu_hints,
             "invert_multiline_enter_behavior": self.invert_multiline_enter_behavior,
             "play_typing_sounds": self.play_typing_sounds,
             "active_tables_filter": self.active_tables_filter,
@@ -231,6 +233,7 @@ class UserPreferences:
             notify_table_created=data.get("notify_table_created", True),
             notify_user_presence=data.get("notify_user_presence", False),
             notify_friend_presence=data.get("notify_friend_presence", True),
+            show_menu_hints=data.get("show_menu_hints", True),
             invert_multiline_enter_behavior=data.get("invert_multiline_enter_behavior", False),
             play_typing_sounds=data.get("play_typing_sounds", True),
             active_tables_filter=data.get("active_tables_filter", "all"),

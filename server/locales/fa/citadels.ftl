@@ -159,10 +159,11 @@ citadels-thief-target-line = { $brief ->
    *[no] دزدی از رتبه‌ی { $rank }: { $character }
 }
 citadels-magician-swap-line = تعویض با { $player } ({ $cards } کارت)
-citadels-warlord-target-line = نابودی { $district } { $player } با هزینه‌ی { $cost } طلا. { $description }
-citadels-build-card-line = ساخت { $district } (هزینه‌ی { $cost } طلا). { $description }
-citadels-build-card-disabled-line = نمی‌توان { $district } را ساخت (هزینه‌ی { $cost } طلا): { $reason } { $description }
+citadels-warlord-target-line = نابودی { $district } { $player } با هزینه‌ی { $cost } طلا
+citadels-build-card-line = ساخت { $district } (هزینه‌ی { $cost } طلا)
+citadels-build-card-disabled-line = نمی‌توان { $district } را ساخت (هزینه‌ی { $cost } طلا): { $reason }
 citadels-district-line = { $district }، هزینه‌ی { $cost }، { $type }. { $description }
+citadels-district-menu-line = { $district }، هزینه‌ی { $cost }، { $type }
 citadels-toggle-selected = انتخاب شد: { $district }، هزینه‌ی { $cost }
 citadels-toggle-not-selected = انتخاب نشد: { $district }، هزینه‌ی { $cost }
 

@@ -7,9 +7,8 @@ bang-role-renegade = Renegado
 bang-role-hidden = rol oculto
 
 bang-card-label = { $card }, { $playing_card }
-bang-card-detail = { $card }. { $description }
-bang-card-detail-bang = Carta de disparo: { $card}. { $description }
-bang-card-detail-weapon = Arma para equipar: { $card}. { $description }
+bang-card-play-bang = Carta de disparo: { $card }
+bang-card-play-weapon = Arma para equipar: { $card }
 bang-card-bang = ¡BANG!
 bang-card-bang-description = Carta de disparo marrón. Dispara a un jugador dentro del alcance de tu arma actual. Normalmente solo se puede jugar un ¡BANG! por turno.
 bang-card-barrel = Barril

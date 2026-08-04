@@ -621,11 +621,7 @@ class BackgammonGame(Game):
         point_items: list[MenuItem] = []
         other_items: list[MenuItem] = []
         for resolved in self.get_all_visible_actions(player):
-            item = MenuItem(
-                text=resolved.label,
-                id=resolved.action.id,
-                sound=resolved.sound,
-            )
+            item = resolved.to_menu_item()
             if resolved.action.id.startswith("point_"):
                 point_items.append(item)
             else:

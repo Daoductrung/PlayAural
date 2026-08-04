@@ -229,6 +229,13 @@ class ActionExecutionMixin:
             option_label_method = None
             if isinstance(req, MenuInput) and req.option_label:
                 option_label_method = getattr(self, req.option_label, None)
+            option_description_method = None
+            if isinstance(req, MenuInput) and req.option_description:
+                option_description_method = getattr(
+                    self,
+                    req.option_description,
+                    None,
+                )
             initial_selection = None
             if isinstance(req, MenuInput) and req.initial_selection:
                 initial_selection_method = getattr(self, req.initial_selection, None)
@@ -248,7 +255,18 @@ class ActionExecutionMixin:
                     display_text = option_label_method(player, opt)
                 else:
                     display_text = opt
-                items.append(MenuItem(text=display_text, id=opt))
+                description = (
+                    option_description_method(player, opt)
+                    if option_description_method
+                    else None
+                )
+                items.append(
+                    MenuItem(
+                        text=display_text,
+                        id=opt,
+                        description=description,
+                    )
+                )
 
             items.append(
                 MenuItem(text=Localization.get(user.locale, "cancel"), id="_cancel")

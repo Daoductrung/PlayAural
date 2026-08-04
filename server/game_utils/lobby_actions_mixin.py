@@ -782,7 +782,7 @@ class LobbyActionsMixin:
             keybind_key = self._get_keybind_for_action(resolved.action.id)
             if keybind_key:
                 label += f" ({keybind_key.upper()})"
-            items.append(MenuItem(text=label, id=resolved.action.id))
+            items.append(resolved.to_menu_item(text=label))
 
         items.append(
             MenuItem(text=Localization.get(user.locale, "go-back"), id="go_back")

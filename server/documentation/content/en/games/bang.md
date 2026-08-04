@@ -249,7 +249,7 @@ Use Read current event or press E whenever an event changes; PlayAural reads the
 
 \*\*Information and accessible play\*\*
 
-Read your hand and in-play cards privately announces your hand first, then your own face-up cards. These short lists contain names, ranks, and suits but no rules descriptions. The action remains available outside your turn, including while another player is choosing. Full card descriptions stay in the card action rows where you decide what to play or use.
+Read your hand and in-play cards privately announces your hand first, then your own face-up cards. These short lists contain names, ranks, and suits but no rules descriptions. The action remains available outside your turn, including while another player is choosing. When \*\*Menu Hints\*\* are on, the card rows where you decide what to play or use also include each card's full rules description. Turning Menu Hints off keeps the action context, card name, rank, and suit while hiding that extra rules text.
 
 Read distances opens a live status panel. Its first row shows your current Weapon and range; the other stable rows show your distance to each player still in play. Read the table opens a separate live public panel with the active turn, current event, life, hand counts, characters, revealed roles, weapons, and only the names of cards in play. Both panels update while open without forcing you to remember a long spoken list.
 

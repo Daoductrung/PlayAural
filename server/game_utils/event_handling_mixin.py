@@ -267,15 +267,18 @@ class EventHandlingMixin:
         if event.get("alt") and not key.startswith("alt+"):
             key = f"alt+{key}"
 
-        # In the lobby/options menu, space speaks the focused option's
-        # description (when one exists) instead of acting as a game keybind.
+        # In a waiting lobby, Space speaks help attached to the focused
+        # action. During play it remains available to game keybinds.
         if (
             key == "space"
             and getattr(self, "status", "playing") != "playing"
             and menu_item_id
         ):
-            handler = getattr(self, "_speak_option_description", None)
-            if handler and handler(player, menu_item_id):
+            action = self.find_action(player, menu_item_id)
+            resolved = self.resolve_action(player, action) if action else None
+            user = self.get_user(player)
+            if resolved and resolved.description and user:
+                user.speak(resolved.description, buffer="system")
                 return
 
         # Look up keybinds for this key

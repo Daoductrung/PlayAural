@@ -2,6 +2,12 @@
 
 Tài liệu này giải thích các cách điều khiển dùng chung trong PlayAural. Người chơi trên máy tính chủ yếu dùng phím tắt. Người chơi trên thiết bị di động chủ yếu dùng cử chỉ có sẵn trong ứng dụng. Hai cách này đều giúp bạn đi tới cùng một nhóm tính năng.
 
+\*\*Gợi ý trong menu\*\*
+
+Theo mặc định, mục menu nào có phần trợ giúp sẽ đọc luôn phần mô tả sau tên mục, nhờ vậy bạn vừa biết lựa chọn là gì vừa biết nó có tác dụng gì. Nếu muốn menu ngắn gọn hơn, hãy mở \*\*Cá nhân và Tùy chỉnh > Tùy chỉnh chung > Hỗ trợ tiếp cận > Gợi ý trong menu\*\* rồi tắt tùy chọn này. Thiết lập được áp dụng trên mọi thiết bị cho menu hệ thống, tùy chọn trước ván và các lựa chọn trong trò chơi có kèm mô tả.
+
+Khi tắt Gợi ý trong menu, người dùng máy tính vẫn có thể nhấn \*\*Space\*\* tại một mục hệ thống hoặc tùy chọn trước ván có mô tả để nghe phần trợ giúp mà không kích hoạt mục đó. Trong lúc ván đang diễn ra, Space vẫn giữ chức năng phím tắt của trò chơi. Bạn có thể bật lại Gợi ý trong menu bất cứ lúc nào để phần mô tả tự xuất hiện.
+
 \*\*Phím tắt trên máy tính\*\*
 
 \*\*Hệ thống và âm thanh\*\*

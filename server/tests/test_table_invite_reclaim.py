@@ -121,7 +121,11 @@ class TestTableInviteReclaim:
             replacement,
             "options_accessibility_submenu",
         )
-        assert item_ids == ["invert_multiline_enter", "back"]
+        assert item_ids == [
+            "show_menu_hints",
+            "invert_multiline_enter",
+            "back",
+        ]
 
     @pytest.mark.asyncio
     async def test_new_table_created_sound_follows_new_table_notification_preference(self):

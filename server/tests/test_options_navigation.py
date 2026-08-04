@@ -1,6 +1,7 @@
 """Test options navigation: General Options submenus, Game Options (declarative
 preferences with per-game overrides), and editbox restore paths."""
 
+import json
 from types import SimpleNamespace
 
 import pytest
@@ -291,6 +292,48 @@ async def test_options_accessibility_toggle_stays_in_accessibility_submenu(tmp_p
 
         await server._handle_accessibility_submenu_selection(user, "back")
         assert _current_menu(server, user.username) == "options_menu"
+    finally:
+        server._db.close()
+
+
+@pytest.mark.asyncio
+async def test_menu_hints_toggle_updates_all_rows_and_persists(tmp_path) -> None:
+    server, user = _make_server(tmp_path)
+    try:
+        await server._handle_open_options(SimpleNamespace(username=user.username))
+        await server._handle_options_selection(user, "options_accessibility")
+
+        hint_toggle = next(
+            item
+            for item in user.get_current_menu_items("options_accessibility_submenu")
+            if item.id == "show_menu_hints"
+        )
+        assert "Show available descriptions directly in menu rows" in hint_toggle.text
+
+        await server._handle_accessibility_submenu_selection(user, "show_menu_hints")
+
+        assert user.preferences.show_menu_hints is False
+        assert _current_menu(server, user.username) == "options_accessibility_submenu"
+        hint_toggle = next(
+            item
+            for item in user.get_current_menu_items("options_accessibility_submenu")
+            if item.id == "show_menu_hints"
+        )
+        assert hint_toggle.text == "Menu Hints: Off"
+        saved = json.loads(server._db.get_user(user.username).preferences_json)
+        assert saved["show_menu_hints"] is False
+
+        server._show_personal_options_menu(user)
+        general_options = next(
+            item
+            for item in user.get_current_menu_items("personal_options_menu")
+            if item.id == "options"
+        )
+        assert "language, audio, accessibility" not in general_options.text
+
+        user.clear_messages()
+        await _press_space_on(server, user, "personal_options_menu", "options")
+        assert "language, audio, accessibility" in user.get_spoken_messages()[-1]
     finally:
         server._db.close()
 

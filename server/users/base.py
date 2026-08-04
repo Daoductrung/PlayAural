@@ -29,26 +29,108 @@ class EscapeBehavior(Enum):
 
 @dataclass
 class MenuItem:
-    """A menu item with text and optional ID."""
+    """A menu row with optional sound and reusable descriptive help.
+
+    ``description`` is already-localized text. ``description_key`` is the
+    equivalent Fluent-backed form for framework menus. Callers set one or the
+    other; the user layer resolves and displays the hint consistently for
+    every client according to the account's menu-hints preference.
+    """
 
     text: str
     id: str | None = None
     sound: str | None = None  # Sound played when this item is highlighted
-    description: str | None = None  # Fluent key spoken when requesting row help
+    description: str | None = None
+    description_key: str | None = None
+    description_kwargs: dict[str, Any] | None = None
 
-    def to_dict(self) -> dict[str, Any] | str:
+    def __post_init__(self) -> None:
+        if self.description is not None and self.description_key is not None:
+            raise ValueError(
+                "MenuItem accepts description or description_key, not both"
+            )
+
+    def resolved_description(self, locale: str) -> str | None:
+        """Return localized row help without exposing a Fluent key."""
+        if self.description is not None:
+            return self.description.strip() or None
+        if self.description_key is None:
+            return None
+        text = Localization.get(
+            locale,
+            self.description_key,
+            **(self.description_kwargs or {}),
+        )
+        return text.strip() or None
+
+    def display_text(self, locale: str, *, show_description: bool) -> str:
+        """Render the row label under the global menu-hints policy."""
+        description = self.resolved_description(locale)
+        return self._display_text(
+            locale,
+            description,
+            show_description=show_description,
+        )
+
+    def _display_text(
+        self,
+        locale: str,
+        description: str | None,
+        *,
+        show_description: bool,
+    ) -> str:
+        """Combine a label and an already-resolved hint."""
+        if not show_description or not description:
+            return self.text
+        return Localization.get(
+            locale,
+            "menu-item-with-hint",
+            label=self.text,
+            hint=description,
+        )
+
+    def rendered(self, locale: str, *, show_description: bool) -> "MenuItem":
+        """Return a display-ready copy while retaining on-demand help."""
+        description = self.resolved_description(locale)
+        return MenuItem(
+            text=self._display_text(
+                locale,
+                description,
+                show_description=show_description,
+            ),
+            id=self.id,
+            sound=self.sound,
+            description=description,
+        )
+
+    def to_dict(
+        self,
+        *,
+        locale: str = "en",
+        show_description: bool = False,
+    ) -> dict[str, Any] | str:
+        description = self.resolved_description(locale)
         if (
             self.id is not None
             or self.sound is not None
-            or self.description is not None
+            or description is not None
         ):
-            data: dict[str, Any] = {"text": self.text}
+            data: dict[str, Any] = {
+                "text": self._display_text(
+                    locale,
+                    description,
+                    show_description=show_description,
+                )
+            }
             if self.id is not None:
                 data["id"] = self.id
             if self.sound is not None:
                 data["sound"] = self.sound
-            if self.description is not None:
-                data["description"] = self.description
+            if description is not None:
+                # ``label`` keeps restoration idempotent after the rendered
+                # text has been stored in NetworkUser's current-menu state.
+                data["label"] = self.text
+                data["description"] = description
             return data
         return self.text
 

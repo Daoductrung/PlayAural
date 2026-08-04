@@ -595,6 +595,8 @@ class TwentyOneGame(ActionGuardMixin, Game):
                     prompt="twentyone-select-change-card",
                     options="_options_for_play_modifier",
                     bot_select="_bot_select_play_modifier",
+                    option_label="_modifier_option_label",
+                    option_description="_modifier_option_description",
                 ),
                 show_in_actions_menu=False,
             )
@@ -872,24 +874,53 @@ class TwentyOneGame(ActionGuardMixin, Game):
         p = player if isinstance(player, TwentyOnePlayer) else None
         if not p:
             return []
+        return [str(index) for index in range(1, len(p.modifiers) + 1)]
+
+    def _modifier_option_label(self, player: Player, option_value: str) -> str:
+        p = player if isinstance(player, TwentyOnePlayer) else None
+        choice_number = self._parse_modifier_option(option_value)
+        if not p or choice_number is None:
+            return option_value
+        choice_index = choice_number - 1
+        if choice_index < 0 or choice_index >= len(p.modifiers):
+            return option_value
+        label = self._render_modifier(
+            self._player_locale(p),
+            p.modifiers[choice_index],
+        )
+        return f"{choice_number}: {label}"
+
+    def _modifier_option_description(
+        self,
+        player: Player,
+        option_value: str,
+    ) -> str | None:
+        p = player if isinstance(player, TwentyOnePlayer) else None
+        choice_number = self._parse_modifier_option(option_value)
+        if not p or choice_number is None:
+            return None
+        choice_index = choice_number - 1
+        if choice_index < 0 or choice_index >= len(p.modifiers):
+            return None
         locale = self._player_locale(p)
-        options: list[str] = []
-        for display_index, modifier in enumerate(p.modifiers, start=1):
-            label = self._render_modifier(locale, modifier)
-            description = self._modifier_help(locale, modifier)
-            reason = self._modifier_unplayable_reason(p, modifier, locale)
-            if description:
-                description = self._menu_help_text(label, description)
-            if reason:
-                unavailable = Localization.get(
-                    locale, "twentyone-change-card-unavailable", reason=reason
-                )
-                description = f"{description} - {unavailable}" if description else unavailable
-            if description:
-                options.append(f"{display_index}:{label} - {description}")
-            else:
-                options.append(f"{display_index}:{label}")
-        return options
+        modifier = p.modifiers[choice_index]
+        label = self._render_modifier(locale, modifier)
+        description = self._modifier_help(locale, modifier)
+        if description:
+            description = self._menu_help_text(label, description)
+        reason = self._modifier_unplayable_reason(p, modifier, locale)
+        if reason:
+            unavailable = Localization.get(
+                locale,
+                "twentyone-change-card-unavailable",
+                reason=reason,
+            )
+            return (
+                f"{description} - {unavailable}"
+                if description
+                else unavailable
+            )
+        return description or None
 
     def _bot_select_play_modifier(self, player: Player, options: list[str]) -> str | None:
         p = player if isinstance(player, TwentyOnePlayer) else None
@@ -898,16 +929,13 @@ class TwentyOneGame(ActionGuardMixin, Game):
         modifier = self._bot_choose_modifier_to_play(p)
         if not modifier:
             return None
-        for index, held_modifier in enumerate(p.modifiers):
+        for index, held_modifier in enumerate(p.modifiers, start=1):
             if held_modifier != modifier:
                 continue
             if not self._is_single_modifier_playable(p, held_modifier):
                 continue
-            option_prefix = f"{index + 1}:"
-            return next(
-                (option for option in options if option.startswith(option_prefix)),
-                None,
-            )
+            option_value = str(index)
+            return option_value if option_value in options else None
         return None
 
     @staticmethod

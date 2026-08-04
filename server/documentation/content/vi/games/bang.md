@@ -249,7 +249,7 @@ Khi biến cố đổi, hãy chọn Nghe biến cố hiện tại hoặc nhấn 
 
 \*\*Thông tin và cách chơi dễ tiếp cận\*\*
 
-Nghe bài trên tay và trước mặt báo riêng bài trên tay trước, sau đó báo các lá ngửa của chính bạn. Hai danh sách gọn này chỉ đọc tên, hạng và chất, không đọc phần mô tả. Hành động luôn dùng được ngoài lượt, kể cả khi người khác đang chọn. Muốn nghe mô tả đầy đủ, hãy duyệt dòng của lá bài trong menu nơi bạn quyết định đánh hoặc dùng lá đó.
+Nghe bài trên tay và trước mặt báo riêng bài trên tay trước, sau đó báo các lá ngửa của chính bạn. Hai danh sách gọn này chỉ đọc tên, hạng và chất, không đọc phần mô tả. Hành động luôn dùng được ngoài lượt, kể cả khi người khác đang chọn. Khi bật \*\*Gợi ý trong menu\*\*, dòng bài tại nơi bạn quyết định đánh hoặc dùng lá sẽ kèm toàn bộ mô tả luật của lá đó. Khi tắt Gợi ý trong menu, dòng bài vẫn giữ loại hành động, tên, hạng và chất nhưng bỏ phần luật chi tiết.
 
 Xem khoảng cách và tầm súng mở một bảng tự cập nhật. Dòng đầu cho biết khẩu Súng cùng tầm hiện tại; mỗi dòng sau cho biết khoảng cách từ bạn tới một người còn trong ván. Xem toàn bàn mở một bảng công khai khác, gồm người đang có lượt, biến cố hiện tại, máu, số bài trên tay, nhân vật, thân phận đã lộ, Súng và chỉ tên các lá trước mặt. Hai bảng luôn cập nhật trong lúc đang mở, nên bạn có thể xem lại từng dòng mà không cần nhớ một câu đọc dài.
 

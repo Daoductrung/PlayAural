@@ -14,7 +14,7 @@ EXPECTED_TO_DICT_KEYS = {
     "mobile_tts_engine", "mobile_tts_rate", "mobile_tts_voice",
     "mute_global_chat", "mute_table_chat", "notify_table_created",
     "notify_user_presence", "notify_friend_presence",
-    "invert_multiline_enter_behavior", "play_typing_sounds",
+    "show_menu_hints", "invert_multiline_enter_behavior", "play_typing_sounds",
     "active_tables_filter", "game_category_filter",
     "allow_custom_bot_names", "confirm_destructive_actions",
     "clear_kept_on_roll", "dice_keeping_style", "game_overrides",
@@ -23,6 +23,15 @@ EXPECTED_TO_DICT_KEYS = {
 
 def test_to_dict_key_set_is_stable() -> None:
     assert set(UserPreferences().to_dict().keys()) == EXPECTED_TO_DICT_KEYS
+
+
+def test_menu_hints_default_on_and_round_trip() -> None:
+    assert UserPreferences.from_dict({}).show_menu_hints is True
+
+    preferences = UserPreferences(show_menu_hints=False)
+    restored = UserPreferences.from_dict(preferences.to_dict())
+
+    assert restored.show_menu_hints is False
 
 
 def test_declarative_categories_and_fields() -> None:

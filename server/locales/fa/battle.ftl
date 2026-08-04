@@ -88,7 +88,6 @@ battle-fighter-selected = انتخاب شد: { $fighter }
 battle-fighter-unselected = انتخاب نشد: { $fighter }
 battle-submit-selection = ثبت انتخاب. { $count } از { $limit } انتخاب شد.
 battle-submit-selection-required = ثبت انتخاب. { $count } از { $required } مورد نیاز انتخاب شد.
-battle-skill-entry = { $skill }: { $description }.
 battle-skill-description = محدوده‌ی { $scope } با هدف { $target }. { $effects }
 battle-skill-scope-single = تک‌هدف
 battle-skill-target-self = خودتان

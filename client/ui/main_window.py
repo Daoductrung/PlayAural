@@ -2900,7 +2900,8 @@ class MainWindow(wx.Frame):
         if menu_id == "options_menu":
             self._refresh_audio_input_devices(sync_server=True)
 
-        # Parse items - can be strings or objects with {text, id, sound}
+        # Parse items. Server-only label/description metadata may also be
+        # present; every client renders the preference-aware text field.
         items = []
         item_ids = []
         item_sounds = []

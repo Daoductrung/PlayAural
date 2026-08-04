@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any
 
 from ..users.network_user import NetworkUser
 from ..users.base import MenuItem, EscapeBehavior
+from ..users.identity import username_key
 from ..messages.localization import DEFAULT_LOCALE, Localization
 from ..messages.localized_content import (
     encode_localized_custom_text,
@@ -791,7 +792,7 @@ class AdministrationManager:
     def _search_kick_targets(
         self, user: NetworkUser, query: str, page: int
     ) -> PaginatedMenuPage[str]:
-        term = query.strip().lower()
+        term = username_key(query)
         targets = []
         for target in self.server.users.values():
             if target.username == user.username:
@@ -800,10 +801,10 @@ class AdministrationManager:
                 continue
             if user.trust_level < 3 and target.trust_level >= 2:
                 continue
-            if term and term not in target.username.lower():
+            if term and term not in username_key(target.username):
                 continue
             targets.append(target.username)
-        targets.sort(key=str.lower)
+        targets.sort(key=lambda username: (username_key(username), username))
         return paginate_sequence(
             targets,
             page,
@@ -2442,6 +2443,20 @@ class AdministrationManager:
     @require_admin
     async def kick_user(self, admin: NetworkUser, target_username: str, show_menu: bool = True) -> None:
         """Kick a user from the server."""
+        resolution = self.server.db.resolve_user(target_username)
+        if resolution.ambiguous:
+            admin.speak_l(
+                "username-ambiguous",
+                buffer="system",
+                username=target_username,
+            )
+            if show_menu:
+                self.server._nav_back(admin)
+            return
+        target_record = resolution.user
+        if target_record:
+            target_username = target_record.username
+
         # Check if user is online
         target_user = self.server.users.get(target_username)
         if not target_user:
@@ -2640,6 +2655,7 @@ class AdministrationManager:
             admin.speak_l("user-not-online", buffer="system", target=target_username)
             self._return_to_admin_root(admin, "ban_user")
             return
+        target_username = target_record.username
 
         if target_record.trust_level >= 3 or (admin.trust_level < 3 and target_record.trust_level >= 2):
             admin.speak_l("permission-denied", buffer="system")
@@ -2872,6 +2888,7 @@ class AdministrationManager:
             admin.speak_l("user-not-found", buffer="system")
             self._return_to_admin_root(admin, "mute_user")
             return
+        target_username = target_record.username
 
         if target_record.trust_level >= 3 or (admin.trust_level < 3 and target_record.trust_level >= 2):
             admin.speak_l("permission-denied", buffer="system")

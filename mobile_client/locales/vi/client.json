@@ -158,6 +158,7 @@
   "auth-registration-error": "Đăng ký thất bại do lỗi máy chủ. Vui lòng thử lại.",
   "auth-error-wrong-password": "Sai mật khẩu.",
   "auth-error-user-not-found": "Người dùng không tồn tại.",
+  "auth-error-username-ambiguous": "Có nhiều tài khoản cũ trùng với cách viết này khi không phân biệt chữ hoa chữ thường. Hãy nhập đúng từng ký tự như tên đã đăng ký.",
   "auth-error-version-mismatch": "Phiên bản không khớp. Máy chủ đã được cập nhật lên phiên bản mới. Vui lòng cập nhật ứng dụng để tiếp tục.",
   "auth-error-username-length": "Tên đăng nhập phải dài từ 3 đến 30 ký tự.",
   "auth-error-username-invalid-chars": "Tên đăng nhập chỉ được chứa chữ cái, chữ số và dấu cách. Không dùng nhiều dấu cách liên tiếp hoặc ký tự đặc biệt.",

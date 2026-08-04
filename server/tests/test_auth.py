@@ -11,6 +11,7 @@ from server.users.network_user import NetworkUser
 import tempfile
 import os
 import asyncio
+import uuid
 
 class MockClient:
     def __init__(self):
@@ -116,6 +117,58 @@ class TestAuthSecurity:
         assert user is not None
 
     @pytest.mark.asyncio
+    async def test_vietnamese_username_with_spaces_registers_and_logs_in_canonically(self):
+        register_client = MockClient()
+        await self.server._handle_register(
+            register_client,
+            {
+                "username": "  Nguyễn Văn An  ",
+                "password": "Password123",
+                "email": "nguyen.van.an@example.com",
+                "locale": "vi",
+            },
+        )
+
+        assert register_client.sent_messages[-1]["status"] == "success"
+        record = self.db.get_user("nguyễn văn an")
+        assert record is not None
+        assert record.username == "Nguyễn Văn An"
+
+        login_client = MockClient()
+        self.server._ws_server.bind_client(login_client)
+        await self.server._handle_authorize(
+            login_client,
+            {
+                "type": "authorize",
+                "client": "python",
+                "username": "nguyễn văn an",
+                "password": "Password123",
+                "version": VERSION,
+            },
+        )
+
+        assert login_client.username == "Nguyễn Văn An"
+        assert login_client.sent_messages[0]["username"] == "Nguyễn Văn An"
+
+    @pytest.mark.asyncio
+    async def test_registration_rejects_consecutive_internal_spaces(self):
+        client = MockClient()
+
+        await self.server._handle_register(
+            client,
+            {
+                "username": "Nguyễn  Văn An",
+                "password": "Password123",
+                "email": "double-space@example.com",
+                "locale": "vi",
+            },
+        )
+
+        assert client.sent_messages[-1]["status"] == "error"
+        assert client.sent_messages[-1]["error"] == "username_invalid_chars"
+        assert self.db.get_user("Nguyễn Văn An") is None
+
+    @pytest.mark.asyncio
     async def test_registration_rejects_generated_bot_name(self):
         client = MockClient()
         packet = {
@@ -162,6 +215,20 @@ class TestAuthSecurity:
 
         assert result == "username_reserved_bot"
         assert self.db.get_user("Omega Alpha") is None
+
+    @pytest.mark.parametrize(
+        ("username", "expected"),
+        [
+            ("ab", "username_length"),
+            ("Nguyễn  Văn", "username_invalid_chars"),
+            ("invalid-name", "username_invalid_chars"),
+        ],
+    )
+    def test_auth_manager_applies_shared_username_validation(
+        self, username, expected
+    ):
+        assert self.server._auth.register(username, "Password123") == expected
+        assert self.db.get_user(username) is None
 
     @pytest.mark.asyncio
     async def test_email_mandatory_registration(self):
@@ -479,6 +546,73 @@ class TestAuthSecurity:
         assert self.server._ws_server.get_client_by_username("Alice") is client
         assert client.sent_messages[0]["type"] == "authorize_success"
         assert client.sent_messages[0]["username"] == "Alice"
+
+    @pytest.mark.asyncio
+    async def test_ambiguous_legacy_username_requires_exact_spelling(self):
+        password_hash = self.server._auth.hash_password("Password123")
+        self.db.create_user("Straße", password_hash, approved=True)
+        self.db._conn.execute(
+            """
+            INSERT INTO users (
+                username, username_key, password_hash, uuid, approved
+            ) VALUES (?, ?, ?, ?, 1)
+            """,
+            ("STRASSE", "strasse", password_hash, str(uuid.uuid4())),
+        )
+        self.db._conn.commit()
+
+        ambiguous_client = MockClient()
+        await self.server._handle_authorize(
+            ambiguous_client,
+            {
+                "type": "authorize",
+                "client": "python",
+                "username": "strasse",
+                "password": "Password123",
+                "version": VERSION,
+            },
+        )
+
+        assert ambiguous_client.sent_messages[-1] == {
+            "type": "login_failed",
+            "reason": "username_ambiguous",
+            "reconnect": False,
+        }
+        assert not self.server._users
+
+        exact_client = MockClient()
+        exact_client.address = "127.0.0.1:23456"
+        self.server._ws_server.bind_client(exact_client)
+        await self.server._handle_authorize(
+            exact_client,
+            {
+                "type": "authorize",
+                "client": "python",
+                "username": "STRASSE",
+                "password": "Password123",
+                "version": VERSION,
+            },
+        )
+
+        assert exact_client.username == "STRASSE"
+        assert exact_client.sent_messages[0]["username"] == "STRASSE"
+
+        other_exact_client = MockClient()
+        other_exact_client.address = "127.0.0.1:34567"
+        self.server._ws_server.bind_client(other_exact_client)
+        await self.server._handle_authorize(
+            other_exact_client,
+            {
+                "type": "authorize",
+                "client": "python",
+                "username": "Straße",
+                "password": "Password123",
+                "version": VERSION,
+            },
+        )
+
+        assert other_exact_client.username == "Straße"
+        assert set(self.server._users) == {"Straße", "STRASSE"}
 
     @pytest.mark.asyncio
     async def test_outdated_native_client_gets_updater_without_owning_session(self):
@@ -834,7 +968,7 @@ class TestAuthSecurity:
             email="alice@example.com",
         )
         self.db.create_motd(1, {"en": "Important update"})
-        self.server._auth.authenticate = lambda username, password: True
+        self.server._auth.verify_password = lambda password, password_hash: True
 
         old_client = MockClient()
         old_client.username = record.username

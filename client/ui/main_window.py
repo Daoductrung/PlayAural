@@ -2101,6 +2101,23 @@ class MainWindow(wx.Frame):
 
     def on_authorize_success(self, packet):
         """Handle authorization success from server."""
+        canonical_username = packet.get("username")
+        if isinstance(canonical_username, str) and canonical_username:
+            previous_username = self.credentials.get("username")
+            self.credentials["username"] = canonical_username
+            account_id = self.credentials.get("account_id")
+            if (
+                previous_username != canonical_username
+                and self.config_manager
+                and self.server_id
+                and account_id
+            ):
+                self.config_manager.update_account(
+                    self.server_id,
+                    account_id,
+                    username=canonical_username,
+                )
+
         if packet.get("reset_ui", False):
             # Reset stale menus, editboxes, voice, and managed game audio
             # before ordered session UI/audio packets are released by the server.

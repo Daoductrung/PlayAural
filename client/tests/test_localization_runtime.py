@@ -32,3 +32,14 @@ def test_set_locale_reloads_client_bundle_without_restart(tmp_path):
     assert Localization.current_locale() == "vi"
     assert Localization.get("dynamic-label") == "Nhãn tiếng Việt"
     assert Localization.get("fallback-only") == "Fallback value"
+
+
+def test_inaccurate_community_username_help_falls_back_to_english():
+    Localization.init(locales_dir=CLIENT_DIR / "locales", locale="es")
+    try:
+        assert Localization.get("reg-username-help") == (
+            "Use letters, numbers, and single spaces. Vietnamese names are "
+            "supported; do not use consecutive spaces or special characters."
+        )
+    finally:
+        Localization.set_locale("en")

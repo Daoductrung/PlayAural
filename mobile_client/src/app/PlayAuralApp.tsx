@@ -119,6 +119,7 @@ const SERVER_AUTH_RESPONSE_KEYS: Record<ServerAuthResponseContext, Record<string
     captcha_missing: "error-captcha-failed",
     rate_limit: "auth-error-rate-limit",
     user_not_found: "auth-error-user-not-found",
+    username_ambiguous: "auth-error-username-ambiguous",
     version_mismatch: "auth-error-version-mismatch",
     wrong_password: "auth-error-wrong-password",
   },
@@ -2304,6 +2305,10 @@ export function PlayAuralApp() {
         if (packet.type === "authorize_success") {
           const authPacket = packet as AuthorizeSuccessPacket;
           stopConnectionAudio();
+          if (authPacket.username) {
+            credentialsRef.current.username = authPacket.username;
+            setUsername(authPacket.username);
+          }
           if (authPacket.reset_ui === true) {
             // Reset the previous socket before the server releases this
             // session's ordered UI and audio packets.

@@ -143,7 +143,7 @@ async def test_motd_login_interception(mock_server):
     }
 
     # Mock auth check
-    server._auth.authenticate = MagicMock(return_value=True)
+    server._auth.verify_password = MagicMock(return_value=True)
     server._ws_server = MagicMock()
     server._ws_server.get_client_by_username = MagicMock(return_value=None)
     server._rate_limiter = MagicMock()
@@ -239,7 +239,7 @@ async def test_motd_reconnect_game_state(mock_server):
         "version": VERSION
     }
 
-    server._auth.authenticate = MagicMock(return_value=True)
+    server._auth.verify_password = MagicMock(return_value=True)
     server._ws_server = MagicMock()
     server._ws_server.get_client_by_username = MagicMock(return_value=None)
 

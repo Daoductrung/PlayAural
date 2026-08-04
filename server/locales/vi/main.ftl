@@ -5,6 +5,7 @@ auth-username-reserved-bot = Tên này được dành riêng cho bot PlayAural. 
 auth-registration-error = Đăng ký thất bại do lỗi máy chủ. Vui lòng thử lại.
 auth-error-wrong-password = Sai mật khẩu.
 auth-error-user-not-found = Người dùng không tồn tại.
+username-ambiguous = Có nhiều tài khoản cũ trùng với “{ $username }” khi không phân biệt chữ hoa chữ thường. Hãy nhập đúng từng ký tự như tên đã đăng ký.
 auth-kicked-logged-in-elsewhere = Bạn đã bị ngắt kết nối vì tài khoản của bạn vừa được đăng nhập từ một thiết bị khác.
 
 chat-global = { $player } nói chung: { $message }

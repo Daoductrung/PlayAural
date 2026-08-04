@@ -159,6 +159,7 @@ export default {
 
   "auth-error-wrong-password": "Sai mật khẩu.",
   "auth-error-user-not-found": "Người dùng không tồn tại.",
+  "auth-error-username-ambiguous": "Có nhiều tài khoản cũ trùng với cách viết này khi không phân biệt chữ hoa chữ thường. Hãy nhập đúng từng ký tự như tên đã đăng ký.",
   "auth-error-version-mismatch": "Phiên bản không khớp. Máy chủ đã được cập nhật. Vui lòng tải lại trang, hoặc xóa bộ nhớ đệm của trình duyệt rồi thử lại.",
   "auth-error-captcha-unavailable": "Không thể bắt đầu xác minh vì reCAPTCHA bị chặn hoặc tải không thành công. Vui lòng cho phép reCAPTCHA cho trang này rồi thử lại.",
   "auth-error-captcha-execute-failed": "Không thể hoàn tất xác minh. Vui lòng tải lại trang rồi thử lại.",

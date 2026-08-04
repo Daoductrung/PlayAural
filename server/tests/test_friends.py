@@ -214,6 +214,112 @@ class TestFriendsSystem:
         finally:
             table.destroy()
 
+    def test_friend_request_resolves_case_variant_to_registered_name(self):
+        self.db.create_user("Alice", "hash")
+        self.db.create_user("Nguyễn Văn An", "hash")
+        alice = self.db.get_user("Alice")
+        target = self.db.get_user("nguyễn văn an")
+        alice_user = self._make_network_user(alice.username, alice.uuid)
+
+        status = self.server._send_friend_request_to_record(alice_user, target)
+        messages = alice_user.get_queued_messages()
+
+        assert status == "sent"
+        assert self.db.get_pending_incoming_requests(target.uuid) == [alice.uuid]
+        assert any(
+            packet.get("key") == "friend-request-sent"
+            and packet.get("params", {}).get("username") == "Nguyễn Văn An"
+            for packet in messages
+        )
+
+    @pytest.mark.asyncio
+    async def test_friend_request_input_resolves_spaced_case_variant(self):
+        self.db.create_user("Alice", "hash")
+        self.db.create_user("Nguyễn Văn An", "hash")
+        alice = self.db.get_user("Alice")
+        target = self.db.get_user("Nguyễn Văn An")
+        alice_user = self._make_network_user(alice.username, alice.uuid)
+        alice_user.connection.username = alice.username
+        self.server._user_states[alice.username] = {
+            "menu": "send_friend_request_input",
+        }
+        self.server._restore_input_parent = MagicMock()
+
+        await self.server._handle_editbox(
+            alice_user.connection,
+            {"text": "nguyễn văn an"},
+        )
+
+        assert self.db.get_pending_incoming_requests(target.uuid) == [alice.uuid]
+        assert any(
+            packet.get("key") == "friend-request-sent"
+            and packet.get("params", {}).get("username") == "Nguyễn Văn An"
+            for packet in alice_user.get_queued_messages()
+        )
+        self.server._restore_input_parent.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_private_message_to_self_accepts_case_variant_without_friendship(self):
+        self.db.create_user("Trung", "hash")
+        record = self.db.get_user("Trung")
+        user = self._make_network_user(record.username, record.uuid)
+
+        await self.server._deliver_private_message(user, "trung", "Remember this")
+        messages = user.get_queued_messages()
+        speech = [packet for packet in messages if packet.get("type") == "speak"]
+
+        assert [packet.get("key") for packet in speech] == ["pm-sent-content"]
+        assert speech[0]["params"] == {
+            "username": "Trung",
+            "message": "Remember this",
+        }
+
+    @pytest.mark.asyncio
+    async def test_private_message_command_parses_full_spaced_username(self):
+        self.db.create_user("Nguyễn Văn An", "hash")
+        record = self.db.get_user("Nguyễn Văn An")
+        user = self._make_network_user(record.username, record.uuid)
+        user.connection.username = record.username
+
+        await self.server._handle_chat(
+            user.connection,
+            {
+                "convo": "local",
+                "message": "@nguyễn văn an Ghi chú cho tôi",
+            },
+        )
+        messages = user.get_queued_messages()
+
+        assert any(
+            packet.get("key") == "pm-sent-content"
+            and packet.get("params") == {
+                "username": "Nguyễn Văn An",
+                "message": "Ghi chú cho tôi",
+            }
+            for packet in messages
+        )
+
+    @pytest.mark.asyncio
+    async def test_private_message_resolves_friend_case_variant_canonically(self):
+        alice, bob = self._create_friendship()
+        alice_user = self._make_network_user(alice.username, alice.uuid)
+        bob_user = self._make_network_user(bob.username, bob.uuid)
+
+        await self.server._deliver_private_message(alice_user, "bob", "Hello")
+        sender_messages = alice_user.get_queued_messages()
+        recipient_messages = bob_user.get_queued_messages()
+
+        assert any(
+            packet.get("key") == "pm-sent-content"
+            and packet.get("params", {}).get("username") == "Bob"
+            for packet in sender_messages
+        )
+        assert any(
+            packet.get("key") == "pm-received"
+            and packet.get("params", {}).get("username") == "Alice"
+            for packet in recipient_messages
+        )
+
     @pytest.mark.asyncio
     async def test_friends_list_pages_large_results(self):
         self.db.create_user("Alice", "hash")

@@ -811,8 +811,16 @@ def cmd_reset_password(args):
         auth = AuthManager(db)
 
         print(f"Resetting password for '{args.username}'...")
-        if auth.reset_password(args.username, password):
-            print(f"Success: Password updated for '{args.username}'.")
+        resolution = db.resolve_user(args.username)
+        if resolution.ambiguous:
+            print(
+                "Error: More than one legacy account matches that spelling. "
+                "Enter the exact registered spelling."
+            )
+            sys.exit(1)
+        user = resolution.user
+        if user and auth.reset_password(user.username, password):
+            print(f"Success: Password updated for '{user.username}'.")
         else:
             print(f"Error: User '{args.username}' not found.")
             sys.exit(1)

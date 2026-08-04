@@ -208,6 +208,9 @@ class NetworkManager:
         if packet_type == "update_locale":
              self.main_window.on_update_locale(packet)
         elif packet_type == "authorize_success":
+            canonical_username = packet.get("username")
+            if isinstance(canonical_username, str) and canonical_username:
+                self.username = canonical_username
             self.main_window.on_authorize_success(packet)
         elif packet_type == "speak":
             self.main_window.on_server_speak(packet)

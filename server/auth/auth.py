@@ -10,8 +10,10 @@ import logging
 
 try:
     from ..game_utils.bot_names import is_reserved_bot_name
+    from ..users.identity import username_validation_error
 except ImportError:  # pragma: no cover - supports direct server/cli imports
     from game_utils.bot_names import is_reserved_bot_name
+    from users.identity import username_validation_error
 
 if TYPE_CHECKING:
     from ..persistence.database import Database, UserRecord
@@ -60,28 +62,37 @@ class AuthManager:
         Returns "ok" on success, or an error key:
         - "username_taken" if the username already exists
         - "username_reserved_bot" if the username is reserved for generated bots
+        - "username_length" or "username_invalid_chars" if the name is invalid
         - "db_error" if the INSERT failed unexpectedly
         The first user ever registered becomes a developer (trust level 3) and is auto-approved.
         """
+        validation_error = username_validation_error(username)
+        if validation_error:
+            return validation_error
         if self._db.user_exists(username):
             return "username_taken"
         if is_reserved_bot_name(username):
             return "username_reserved_bot"
 
-        # Check if this is the first user - they become developer and are auto-approved
-        is_first_user = self._db.get_user_count() == 0
-        trust_level = 3 if is_first_user else 1
-        approved = True  # Auto-approve all users as requested
-
         password_hash = self.hash_password(password)
-        result = self._db.create_user(username, password_hash, locale, trust_level, approved, email, bio)
+        result = self._db.create_user(
+            username,
+            password_hash,
+            locale,
+            1,
+            True,
+            email,
+            bio,
+            promote_first_user=True,
+        )
         if result is None:
-            # IntegrityError — could be race condition or unexpected constraint
+            # Another connection may have claimed the same lookup key while
+            # this process was hashing the password.
             if self._db.user_exists(username):
                 return "username_taken"
             return "db_error"
 
-        if is_first_user:
+        if result.trust_level >= 3:
             logging.info(f"User '{username}' is the first user and has been granted developer (trust level 3).")
 
         return "ok"
@@ -130,11 +141,12 @@ class AuthManager:
 
         Returns True if successful, False if user doesn't exist.
         """
-        if not self._db.user_exists(username):
+        user = self._db.get_user(username)
+        if not user:
             return False
 
         password_hash = self.hash_password(new_password)
-        self._db.update_user_password(username, password_hash)
+        self._db.update_user_password(user.username, password_hash)
         return True
 
     def get_user(self, username: str) -> "UserRecord | None":
@@ -143,11 +155,11 @@ class AuthManager:
 
     def create_session(self, username: str) -> str:
         """Create a session token for a user, normalizing to the canonical database username."""
-        token = secrets.token_hex(32)
         user = self._db.get_user(username)
-        # Store the exact casing from the database if the user exists
-        canonical_username = user.username if user else username
-        self._sessions[token] = canonical_username
+        if not user:
+            raise ValueError("Cannot create a session for an unresolved username")
+        token = secrets.token_hex(32)
+        self._sessions[token] = user.username
         return token
 
     def validate_session(self, token: str) -> str | None:
@@ -160,7 +172,13 @@ class AuthManager:
 
     def invalidate_user_sessions(self, username: str) -> None:
         """Invalidate all sessions for a user."""
-        to_remove = [t for t, u in self._sessions.items() if u.lower() == username.lower()]
+        user = self._db.get_user(username)
+        canonical_username = user.username if user else username
+        to_remove = [
+            token
+            for token, session_username in self._sessions.items()
+            if session_username == canonical_username
+        ]
         for token in to_remove:
             del self._sessions[token]
 

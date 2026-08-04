@@ -95,7 +95,6 @@ reg-dialog-title = Crear cuenta de Play Aural
 reg-title = Crear cuenta nueva
 reg-info = Crea un nombre de usuario y una contraseña para empezar a jugar.
 reg-username-label = Nombre de usuario:
-reg-username-help = Solo letras, números, guiones bajos y guiones
 reg-email-label = Correo electrónico:
 reg-password-label = Contraseña:
 reg-confirm-password-label = Confirmar contraseña:

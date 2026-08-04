@@ -17,6 +17,9 @@ def setup_module():
 def test_get_login_failure_message_maps_known_reasons():
     assert get_login_failure_message("wrong_password") == "Incorrect password."
     assert get_login_failure_message("user_not_found") == "User does not exist."
+    assert get_login_failure_message("username_ambiguous").startswith(
+        "More than one legacy account matches"
+    )
     assert (
         get_login_failure_message("rate_limit")
         == "Too many failed login attempts. Please try again in 15 minutes."
@@ -30,4 +33,5 @@ def test_get_login_failure_message_falls_back_for_unknown_reason():
 def test_is_credential_error_only_matches_stored_credential_failures():
     assert is_credential_error("wrong_password") is True
     assert is_credential_error("user_not_found") is True
+    assert is_credential_error("username_ambiguous") is True
     assert is_credential_error("rate_limit") is False

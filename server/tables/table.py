@@ -105,14 +105,13 @@ class Table(DataClassJSONMixin):
         self, username: str, user: "User", as_spectator: bool = False
     ) -> bool:
         """Add a member to the table."""
-        username_key = bot_name_key(username)
         user_uuid = getattr(user, "uuid", None)
 
-        # Check if already a member. Table membership is keyed by canonical
-        # account name, but comparisons must be case-insensitive to match the
-        # database and bot-name rules.
+        # Canonical account names are exact runtime identities. Folded names
+        # are used only by has_name_conflict() to keep bot/display labels
+        # distinguishable; they must never merge two legacy user accounts.
         for member in self.members:
-            if bot_name_key(member.username) != username_key:
+            if member.username != username:
                 continue
 
             existing_user = self._users.get(member.username)
@@ -168,12 +167,13 @@ class Table(DataClassJSONMixin):
             if bot_name_key(member.username) != username_key:
                 continue
             member_user = self._users.get(member.username)
+            member_uuid = getattr(member_user, "uuid", None)
+            if not member_uuid and self._db:
+                member_record = self._db.get_user(member.username)
+                member_uuid = getattr(member_record, "uuid", None)
             if (
                 allowed_user_uuid
-                and (
-                    not member_user
-                    or getattr(member_user, "uuid", None) == allowed_user_uuid
-                )
+                and member_uuid == allowed_user_uuid
             ):
                 continue
             return True

@@ -159,6 +159,7 @@ export default {
 
   "auth-error-wrong-password": "Incorrect password.",
   "auth-error-user-not-found": "User does not exist.",
+  "auth-error-username-ambiguous": "More than one legacy account matches this spelling. Enter the exact registered spelling.",
   "auth-error-version-mismatch": "Client version mismatch. The server has been updated. Please refresh this page, or clear your browser cache and try again.",
   "auth-error-captcha-unavailable": "Verification could not start because reCAPTCHA was blocked or failed to load. Please allow reCAPTCHA for this site, then try again.",
   "auth-error-captcha-execute-failed": "Verification could not complete. Please reload the page and try again.",

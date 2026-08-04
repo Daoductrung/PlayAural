@@ -1741,6 +1741,7 @@ class PlayAuralWebApp {
     const map = {
       wrong_password: "auth-error-wrong-password",
       user_not_found: "auth-error-user-not-found",
+      username_ambiguous: "auth-error-username-ambiguous",
       version_mismatch: "auth-error-version-mismatch",
       rate_limit: "auth-error-rate-limit",
       captcha_missing: "auth-error-captcha-unavailable",
@@ -2355,6 +2356,9 @@ class PlayAuralWebApp {
     this.voice.setCapability(packet.voice || { enabled: false, provider: "", url: "" });
     if (packet.username) {
       this.lastUser = packet.username;
+      if (this.elements.username) {
+        this.elements.username.value = packet.username;
+      }
     }
     if (packet.sounds_info?.version) {
       this.audio.setSoundVersion(packet.sounds_info.version);

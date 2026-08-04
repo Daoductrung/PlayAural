@@ -1,7 +1,6 @@
 """Tests for the mute CRUD operations in the database."""
 
 import pytest
-import uuid
 import datetime
 from datetime import timedelta
 from server.persistence.database import Database
@@ -18,12 +17,7 @@ def db():
 
 def _create_user(db, username, password="test123"):
     """Helper to create a user in the database."""
-    user_uuid = str(uuid.uuid4())
-    db._conn.execute(
-        "INSERT INTO users (uuid, username, password_hash, trust_level, approved) VALUES (?, ?, ?, 1, 1)",
-        (user_uuid, username, password),
-    )
-    db._conn.commit()
+    db.create_user(username, password, approved=True)
 
 
 class TestMuteUser:

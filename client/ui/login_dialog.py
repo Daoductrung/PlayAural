@@ -21,6 +21,27 @@ from ssl_utils import make_ssl_context
 from version import VERSION
 
 
+def _find_saved_account_id(
+    accounts: dict[str, dict],
+    entered_username: str,
+    canonical_username: str,
+    preferred_account_id: str | None = None,
+) -> str | None:
+    """Match only spellings known to belong to this successful login.
+
+    An arbitrary folded match is unsafe because separate legacy accounts can
+    share one Unicode case-fold key.
+    """
+    matching_ids = []
+    for account_id, account_data in accounts.items():
+        stored_username = str(account_data.get("username") or "")
+        if stored_username in {entered_username, canonical_username}:
+            matching_ids.append(account_id)
+    if preferred_account_id in matching_ids:
+        return preferred_account_id
+    return matching_ids[0] if matching_ids else None
+
+
 class LoginDialog(wx.Dialog):
     """Login dialog with simplified flow."""
 
@@ -585,7 +606,7 @@ class LoginDialog(wx.Dialog):
         if not self or not self.panel: 
             return
 
-        if result is True:
+        if isinstance(result, dict) and result.get("type") == "authorize_success":
             try:
                 self.status_text.SetLabel(Localization.get("login-info-success"))
                 self.panel.Layout()
@@ -593,23 +614,25 @@ class LoginDialog(wx.Dialog):
                 return # UI dead
 
             try:
-                # Find if account with this username already exists to prevent duplicates
-                target_account_id = self.account_id
-                
-                # If we don't have an ID yet (manual login), search for username
-                if not target_account_id:
-                    accounts = self.config_manager.get_server_accounts(self.server_id)
-                    for acc_id, acc_data in accounts.items():
-                        if acc_data.get("username") == username:
-                            target_account_id = acc_id
-                            break
+                canonical_username = str(result.get("username") or username)
+                # Reuse only an entry proven to represent this successful
+                # login. The currently selected account must never be
+                # overwritten merely because it was selected before a manual
+                # login for another username.
+                accounts = self.config_manager.get_server_accounts(self.server_id)
+                target_account_id = _find_saved_account_id(
+                    accounts,
+                    username,
+                    canonical_username,
+                    preferred_account_id=self.account_id,
+                )
                 
                 if target_account_id:
                     # Update existing
                     self.config_manager.update_account(
                         self.server_id, 
                         target_account_id, 
-                        username=username, 
+                        username=canonical_username,
                         password=password,
                         auto_login=auto_login_val
                     )
@@ -618,15 +641,17 @@ class LoginDialog(wx.Dialog):
                     # Add new
                     new_account_id = self.config_manager.add_account(
                         self.server_id,
-                        username,
+                        canonical_username,
                         password,
                         auto_login=auto_login_val
                     )
                     if new_account_id:
+                         target_account_id = new_account_id
                          self.config_manager.set_last_account(self.server_id, new_account_id)
                 
                 # Set this values for get_credentials
-                self.username = username
+                self.account_id = target_account_id
+                self.username = canonical_username
                 self.password = password
                 
                 self.EndModal(wx.ID_OK)
@@ -686,7 +711,7 @@ class LoginDialog(wx.Dialog):
                     data = json.loads(response)
                     
                     if data.get("type") == "authorize_success":
-                        return True
+                        return data
                     elif data.get("type") == "login_failed":
                         return data
                     else:

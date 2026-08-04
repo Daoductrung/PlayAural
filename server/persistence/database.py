@@ -10,6 +10,14 @@ from dataclasses import dataclass
 
 from ..messages.localization import DEFAULT_LOCALE, Localization
 from ..tables.table import Table
+from ..users.identity import normalize_username, username_key
+
+
+_USER_RECORD_COLUMNS = (
+    "id, username, password_hash, uuid, locale, preferences_json, "
+    "trust_level, approved, email, bio, motd_version, gender, "
+    "registration_date, last_login_date"
+)
 
 
 @dataclass
@@ -30,6 +38,14 @@ class UserRecord:
     gender: str = "Not set"
     registration_date: str = ""
     last_login_date: str = ""
+
+
+@dataclass(frozen=True)
+class UsernameResolution:
+    """Result of resolving one user-supplied username spelling."""
+
+    user: UserRecord | None = None
+    ambiguous: bool = False
 
 
 @dataclass
@@ -153,6 +169,12 @@ class Database:
     def _connect_once(self, *, prune: bool, timeout: float) -> None:
         self._conn = sqlite3.connect(str(self.db_path), timeout=timeout)
         self._conn.row_factory = sqlite3.Row
+        self._conn.create_function(
+            "USERNAME_KEY",
+            1,
+            username_key,
+            deterministic=True,
+        )
         self._conn.execute(f"PRAGMA busy_timeout = {int(timeout * 1000)};")
         self._conn.execute("PRAGMA foreign_keys = ON;")
         self._verify_database_integrity()
@@ -239,6 +261,7 @@ class Database:
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 username TEXT COLLATE NOCASE UNIQUE NOT NULL,
+                username_key TEXT NOT NULL,
                 password_hash TEXT NOT NULL,
                 uuid TEXT NOT NULL,
                 locale TEXT DEFAULT 'en',
@@ -253,6 +276,7 @@ class Database:
                 last_login_date TEXT DEFAULT ''
             )
         """)
+        self._migrate_username_lookup_keys(cursor)
 
         # Tables table (game tables)
         cursor.execute("""
@@ -459,6 +483,10 @@ class Database:
             ON users(uuid)
         """)
         cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_users_username_key
+            ON users(username_key)
+        """)
+        cursor.execute("""
             CREATE INDEX IF NOT EXISTS idx_saved_tables_user_saved_at
             ON saved_tables(username, saved_at DESC)
         """)
@@ -493,6 +521,32 @@ class Database:
             f"ALTER TABLE {self._quote_identifier(table_name)} "
             f"ADD COLUMN {self._quote_identifier(column_name)} {definition}"
         )
+
+    def _migrate_username_lookup_keys(self, cursor: sqlite3.Cursor) -> None:
+        """Install and backfill the canonical lookup column for older databases.
+
+        This method and its single call are the complete compatibility bridge.
+        Normal runtime queries rely directly on the populated column. Once all
+        supported installations are known to contain it, this method and call
+        can be removed together; the column, index, and write path remain part
+        of the permanent schema.
+
+        The index is deliberately non-unique. Historical databases can contain
+        Unicode names that SQLite's ASCII-only NOCASE collation considered
+        distinct. Resolution handles those legacy collisions safely while new
+        registrations reject creating more of them.
+        """
+        self._ensure_column(cursor, "users", "username_key", "TEXT")
+        stale_predicate = (
+            "WHERE username_key IS NULL "
+            "OR username_key != USERNAME_KEY(username)"
+        )
+        cursor.execute(f"SELECT 1 FROM users {stale_predicate} LIMIT 1")
+        if cursor.fetchone() is not None:
+            cursor.execute(
+                "UPDATE users SET username_key = USERNAME_KEY(username) "
+                f"{stale_predicate}"
+            )
 
     def prune_old_records(self) -> None:
         """
@@ -556,7 +610,7 @@ class Database:
             WHERE NOT EXISTS (
                 SELECT 1
                 FROM users
-                WHERE users.username = mutes.username
+                WHERE users.username = mutes.username COLLATE BINARY
             )
         """)
         deleted_orphaned_mutes = cursor.rowcount
@@ -877,88 +931,163 @@ class Database:
 
     # User operations
 
+    @staticmethod
+    def _user_record_from_row(row: sqlite3.Row) -> UserRecord:
+        return UserRecord(
+            id=row["id"],
+            username=row["username"],
+            password_hash=row["password_hash"],
+            uuid=row["uuid"],
+            locale=row["locale"] or "en",
+            preferences_json=row["preferences_json"] or "{}",
+            trust_level=row["trust_level"] if row["trust_level"] is not None else 1,
+            approved=bool(row["approved"]) if row["approved"] is not None else False,
+            email=row["email"] or "",
+            bio=row["bio"] or "",
+            motd_version=row["motd_version"] if "motd_version" in row.keys() else 0,
+            gender=row["gender"] if "gender" in row.keys() else "Not set",
+            registration_date=(
+                row["registration_date"] if "registration_date" in row.keys() else ""
+            ),
+            last_login_date=(
+                row["last_login_date"] if "last_login_date" in row.keys() else ""
+            ),
+        )
+
     def get_user_by_email(self, email: str) -> UserRecord | None:
         """Get a user by email (case-insensitive)."""
         if not email:
             return None
         cursor = self._conn.cursor()
         cursor.execute(
-            "SELECT id, username, password_hash, uuid, locale, preferences_json, trust_level, approved, email, bio, motd_version, gender, registration_date, last_login_date FROM users WHERE LOWER(email) = LOWER(?)",
+            f"SELECT {_USER_RECORD_COLUMNS} FROM users "
+            "WHERE LOWER(email) = LOWER(?)",
             (email,),
         )
         row = cursor.fetchone()
-        if row:
-            return UserRecord(
-                id=row["id"],
-                username=row["username"],
-                password_hash=row["password_hash"],
-                uuid=row["uuid"],
-                locale=row["locale"] or "en",
-                preferences_json=row["preferences_json"] or "{}",
-                trust_level=row["trust_level"] if row["trust_level"] is not None else 1,
-                approved=bool(row["approved"]) if row["approved"] is not None else False,
-                email=row["email"] or "",
-                bio=row["bio"] or "",
-                motd_version=row["motd_version"] if "motd_version" in row.keys() else 0,
-                gender=row["gender"] if "gender" in row.keys() else "Not set",
-                registration_date=row["registration_date"] if "registration_date" in row.keys() else "",
-                last_login_date=row["last_login_date"] if "last_login_date" in row.keys() else "",
-            )
-        return None
+        return self._user_record_from_row(row) if row else None
 
-    def get_user(self, username: str) -> UserRecord | None:
-        """Get a user by username (case-insensitive)."""
+    def resolve_user(self, username: str) -> UsernameResolution:
+        """Resolve exact spelling first, then one unambiguous folded match."""
+        entered = str(username or "").strip()
+        normalized = normalize_username(entered)
+        lookup_key = username_key(normalized)
+        if not entered or not lookup_key:
+            return UsernameResolution()
+
         cursor = self._conn.cursor()
         cursor.execute(
-            "SELECT id, username, password_hash, uuid, locale, preferences_json, trust_level, approved, email, bio, motd_version, gender, registration_date, last_login_date FROM users WHERE username = ?",
-            (username,),
+            f"SELECT {_USER_RECORD_COLUMNS} FROM users "
+            "WHERE username = ? COLLATE BINARY LIMIT 1",
+            (entered,),
         )
-        row = cursor.fetchone()
-        if row:
-            return UserRecord(
-                id=row["id"],
-                username=row["username"],
-                password_hash=row["password_hash"],
-                uuid=row["uuid"],
-                locale=row["locale"] or "en",
-                preferences_json=row["preferences_json"] or "{}",
-                trust_level=row["trust_level"] if row["trust_level"] is not None else 1,
-                approved=bool(row["approved"]) if row["approved"] is not None else False,
-                email=row["email"] or "",
-                bio=row["bio"] or "",
-                motd_version=row["motd_version"] if "motd_version" in row.keys() else 0,
-                gender=row["gender"] if "gender" in row.keys() else "Not set",
-                registration_date=row["registration_date"] if "registration_date" in row.keys() else "",
-                last_login_date=row["last_login_date"] if "last_login_date" in row.keys() else "",
+        exact_row = cursor.fetchone()
+        if exact_row:
+            return UsernameResolution(user=self._user_record_from_row(exact_row))
+
+        if normalized != entered:
+            cursor.execute(
+                f"SELECT {_USER_RECORD_COLUMNS} FROM users "
+                "WHERE username = ? COLLATE BINARY LIMIT 1",
+                (normalized,),
             )
-        return None
+            normalized_row = cursor.fetchone()
+            if normalized_row:
+                return UsernameResolution(
+                    user=self._user_record_from_row(normalized_row)
+                )
+
+        cursor.execute(
+            f"SELECT {_USER_RECORD_COLUMNS} FROM users "
+            "WHERE username_key = ? ORDER BY id LIMIT 2",
+            (lookup_key,),
+        )
+        rows = cursor.fetchall()
+        if len(rows) == 1:
+            return UsernameResolution(user=self._user_record_from_row(rows[0]))
+        return UsernameResolution(ambiguous=len(rows) > 1)
+
+    def get_user(self, username: str) -> UserRecord | None:
+        """Get a user by exact or unambiguous Unicode-insensitive username."""
+        return self.resolve_user(username).user
 
     def create_user(
-        self, username: str, password_hash: str, locale: str = "en", trust_level: int = 1, approved: bool = False, email: str = "", bio: str = ""
+        self,
+        username: str,
+        password_hash: str,
+        locale: str = "en",
+        trust_level: int = 1,
+        approved: bool = False,
+        email: str = "",
+        bio: str = "",
+        promote_first_user: bool = False,
     ) -> UserRecord | None:
-        """Create a new user with a generated UUID. Returns None if username is already taken."""
+        """Atomically create a user unless its Unicode lookup key is taken.
+
+        When ``promote_first_user`` is true, the empty-database check and
+        developer promotion happen under the same cross-process write lock as
+        the insert. This prevents simultaneous registrations from creating
+        more than one first-account developer.
+        """
+        username = normalize_username(username)
+        lookup_key = username_key(username)
+        if not username or not lookup_key:
+            return None
         user_uuid = str(uuid_module.uuid4())
         now_iso = datetime.now().isoformat()
         cursor = self._conn.cursor()
         try:
+            # Serialize the key check and insert across server/CLI processes.
+            # The legacy username column's NOCASE constraint covers ASCII only.
+            cursor.execute("BEGIN IMMEDIATE")
             cursor.execute(
-                "INSERT INTO users (username, password_hash, uuid, locale, trust_level, approved, email, bio, registration_date, last_login_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (username, password_hash, user_uuid, locale, trust_level, 1 if approved else 0, email, bio, now_iso, ""),
+                "SELECT 1 FROM users WHERE username_key = ? LIMIT 1",
+                (lookup_key,),
             )
-        except sqlite3.IntegrityError as e:
+            if cursor.fetchone() is not None:
+                self._conn.rollback()
+                return None
+            effective_trust_level = trust_level
+            effective_approved = approved
+            if promote_first_user:
+                cursor.execute("SELECT 1 FROM users LIMIT 1")
+                if cursor.fetchone() is None:
+                    effective_trust_level = 3
+                    effective_approved = True
+            cursor.execute(
+                "INSERT INTO users (username, username_key, password_hash, uuid, locale, trust_level, approved, email, bio, registration_date, last_login_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    username,
+                    lookup_key,
+                    password_hash,
+                    user_uuid,
+                    locale,
+                    effective_trust_level,
+                    1 if effective_approved else 0,
+                    email,
+                    bio,
+                    now_iso,
+                    "",
+                ),
+            )
+            self._conn.commit()
+        except (sqlite3.IntegrityError, sqlite3.OperationalError) as exc:
+            self._conn.rollback()
             logging.getLogger("playaural.db").warning(
-                "IntegrityError creating user '%s': %s", username, e
+                "Database error creating user '%s': %s", username, exc
             )
             return None
-        self._conn.commit()
+        except sqlite3.DatabaseError:
+            self._conn.rollback()
+            raise
         return UserRecord(
             id=cursor.lastrowid,
             username=username,
             password_hash=password_hash,
             uuid=user_uuid,
             locale=locale,
-            trust_level=trust_level,
-            approved=approved,
+            trust_level=effective_trust_level,
+            approved=effective_approved,
             email=email,
             bio=bio,
             registration_date=now_iso,
@@ -966,9 +1095,15 @@ class Database:
         )
 
     def user_exists(self, username: str) -> bool:
-        """Check if a user exists (case-insensitive)."""
+        """Check for any exact or folded match, including legacy collisions."""
+        lookup_key = username_key(username)
+        if not lookup_key:
+            return False
         cursor = self._conn.cursor()
-        cursor.execute("SELECT 1 FROM users WHERE username = ?", (username,))
+        cursor.execute(
+            "SELECT 1 FROM users WHERE username_key = ? LIMIT 1",
+            (lookup_key,),
+        )
         return cursor.fetchone() is not None
 
     def email_exists(self, email: str, exclude_username: str | None = None) -> bool:
@@ -977,76 +1112,71 @@ class Database:
             return False  # Empty emails shouldn't trigger "taken" errors
         cursor = self._conn.cursor()
         if exclude_username:
+            excluded_user = self.get_user(exclude_username)
+            excluded_id = excluded_user.id if excluded_user else -1
             cursor.execute(
-                "SELECT 1 FROM users WHERE LOWER(email) = LOWER(?) AND username != ?",
-                (email, exclude_username),
+                "SELECT 1 FROM users WHERE LOWER(email) = LOWER(?) AND id != ?",
+                (email, excluded_id),
             )
         else:
             cursor.execute("SELECT 1 FROM users WHERE LOWER(email) = LOWER(?)", (email,))
         return cursor.fetchone() is not None
 
-    def update_user_locale(self, username: str, locale: str) -> None:
-        """Update a user's locale."""
+    def _update_user_value(self, username: str, column: str, value: object) -> bool:
+        """Update one allowlisted account field after safe identity resolution."""
+        allowed_columns = {
+            "locale",
+            "preferences_json",
+            "password_hash",
+            "email",
+            "bio",
+            "gender",
+            "last_login_date",
+            "trust_level",
+            "motd_version",
+            "approved",
+        }
+        if column not in allowed_columns:
+            raise ValueError(f"Unsupported user column: {column}")
+        user = self.get_user(username)
+        if not user:
+            return False
         cursor = self._conn.cursor()
         cursor.execute(
-            "UPDATE users SET locale = ? WHERE username = ?", (locale, username)
+            f"UPDATE users SET {column} = ? WHERE id = ?",
+            (value, user.id),
         )
         self._conn.commit()
+        return cursor.rowcount > 0
+
+    def update_user_locale(self, username: str, locale: str) -> None:
+        """Update a user's locale."""
+        self._update_user_value(username, "locale", locale)
 
     def update_user_preferences(self, username: str, preferences_json: str) -> None:
         """Update a user's preferences."""
-        cursor = self._conn.cursor()
-        cursor.execute(
-            "UPDATE users SET preferences_json = ? WHERE username = ?",
-            (preferences_json, username),
-        )
-        self._conn.commit()
+        self._update_user_value(username, "preferences_json", preferences_json)
 
     def update_user_password(self, username: str, password_hash: str) -> None:
         """Update a user's password hash."""
-        cursor = self._conn.cursor()
-        cursor.execute(
-            "UPDATE users SET password_hash = ? WHERE username = ?",
-            (password_hash, username),
-        )
-        self._conn.commit()
+        self._update_user_value(username, "password_hash", password_hash)
 
     def update_user_email(self, username: str, email: str) -> None:
         """Update a user's email."""
-        cursor = self._conn.cursor()
-        cursor.execute(
-            "UPDATE users SET email = ? WHERE username = ?",
-            (email, username),
-        )
-        self._conn.commit()
+        self._update_user_value(username, "email", email)
 
     def update_user_bio(self, username: str, bio: str) -> None:
         """Update a user's bio."""
-        cursor = self._conn.cursor()
-        cursor.execute(
-            "UPDATE users SET bio = ? WHERE username = ?",
-            (bio, username),
-        )
-        self._conn.commit()
+        self._update_user_value(username, "bio", bio)
 
     def update_user_gender(self, username: str, gender: str) -> None:
         """Update a user's gender."""
-        cursor = self._conn.cursor()
-        cursor.execute(
-            "UPDATE users SET gender = ? WHERE username = ?",
-            (gender, username),
-        )
-        self._conn.commit()
+        self._update_user_value(username, "gender", gender)
 
     def update_user_last_login(self, username: str) -> None:
         """Update a user's last login date."""
         now_iso = datetime.now().isoformat()
-        cursor = self._conn.cursor()
-        cursor.execute(
-            "UPDATE users SET last_login_date = ? WHERE username = ?",
-            (now_iso, username),
-        )
-        self._conn.commit()
+        self._update_user_value(username, "last_login_date", now_iso)
 
     def get_user_count(self) -> int:
         """Get the total number of users in the database."""
@@ -1094,21 +1224,11 @@ class Database:
 
     def update_user_trust_level(self, username: str, trust_level: int) -> None:
         """Update a user's trust level."""
-        cursor = self._conn.cursor()
-        cursor.execute(
-            "UPDATE users SET trust_level = ? WHERE username = ?",
-            (trust_level, username),
-        )
-        self._conn.commit()
+        self._update_user_value(username, "trust_level", trust_level)
 
     def update_user_motd_version(self, username: str, motd_version: int) -> None:
         """Update a user's motd version."""
-        cursor = self._conn.cursor()
-        cursor.execute(
-            "UPDATE users SET motd_version = ? WHERE username = ?",
-            (motd_version, username),
-        )
-        self._conn.commit()
+        self._update_user_value(username, "motd_version", motd_version)
 
     def count_pending_users(self) -> int:
         """Count users who are not yet approved."""
@@ -1126,10 +1246,9 @@ class Database:
         """Get users who are not yet approved, optionally as a bounded page."""
         cursor = self._conn.cursor()
         query = (
-            "SELECT id, username, password_hash, uuid, locale, preferences_json, "
-            "trust_level, approved, email, bio, motd_version, gender, "
-            "registration_date, last_login_date FROM users WHERE approved = 0 "
-            "ORDER BY LOWER(username)"
+            f"SELECT {_USER_RECORD_COLUMNS} FROM users WHERE approved = 0 "
+            "ORDER BY username_key, "
+            "username COLLATE BINARY"
         )
         params: tuple[object, ...] = ()
         if limit is not None:
@@ -1138,53 +1257,43 @@ class Database:
             query += " LIMIT ? OFFSET ?"
             params = (safe_limit, safe_offset)
         cursor.execute(query, params)
-        users = []
-        for row in cursor.fetchall():
-            users.append(UserRecord(
-                id=row["id"],
-                username=row["username"],
-                password_hash=row["password_hash"],
-                uuid=row["uuid"],
-                locale=row["locale"] or "en",
-                preferences_json=row["preferences_json"] or "{}",
-                trust_level=row["trust_level"] if row["trust_level"] is not None else 1,
-                approved=False,
-                email=row["email"] or "",
-                bio=row["bio"] or "",
-                motd_version=row["motd_version"] if "motd_version" in row.keys() else 0,
-                gender=row["gender"] if "gender" in row.keys() else "Not set",
-                registration_date=row["registration_date"] if "registration_date" in row.keys() else "",
-                last_login_date=row["last_login_date"] if "last_login_date" in row.keys() else "",
-            ))
-        return users
+        return [self._user_record_from_row(row) for row in cursor.fetchall()]
 
     def approve_user(self, username: str) -> bool:
         """Approve a user account. Returns True if user was found and approved."""
-        cursor = self._conn.cursor()
-        cursor.execute(
-            "UPDATE users SET approved = 1 WHERE username = ?",
-            (username,),
-        )
-        self._conn.commit()
-        return cursor.rowcount > 0
+        return self._update_user_value(username, "approved", 1)
 
     def delete_user(self, username: str) -> bool:
         """Delete a user account and safely clean up orphaned metadata. Returns True if user was found and deleted."""
         user = self.get_user(username)
         if not user:
             return False
+        canonical_username = user.username
 
         cursor = self._conn.cursor()
 
         # Delete dependent data using explicit soft keys (username/uuid)
         cursor.execute("DELETE FROM player_game_stats WHERE player_id = ?", (user.uuid,))
         cursor.execute("DELETE FROM player_ratings WHERE player_id = ?", (user.uuid,))
-        cursor.execute("DELETE FROM saved_tables WHERE username = ?", (username,))
-        self._delete_table_checkpoints_for_username(cursor, username)
-        cursor.execute("DELETE FROM bans WHERE username = ?", (username,))
-        cursor.execute("DELETE FROM mutes WHERE username = ?", (username,))
+        cursor.execute(
+            "DELETE FROM saved_tables WHERE username = ? COLLATE BINARY",
+            (canonical_username,),
+        )
+        self._delete_table_checkpoints_for_user(cursor, user)
+        cursor.execute(
+            "DELETE FROM bans WHERE username = ? COLLATE BINARY",
+            (canonical_username,),
+        )
+        cursor.execute(
+            "DELETE FROM mutes WHERE username = ? COLLATE BINARY",
+            (canonical_username,),
+        )
         cursor.execute("DELETE FROM friendships WHERE requester_id = ? OR receiver_id = ?", (user.uuid, user.uuid))
-        cursor.execute("DELETE FROM user_notifications WHERE user_id = ? OR source_username = ?", (user.uuid, username))
+        cursor.execute(
+            "DELETE FROM user_notifications "
+            "WHERE user_id = ? OR source_username = ? COLLATE BINARY",
+            (user.uuid, canonical_username),
+        )
         cursor.execute("DELETE FROM password_reset_tokens WHERE user_uuid = ?", (user.uuid,))
 
         # Anonymize historical game data rather than deleting it to preserve integrity
@@ -1195,30 +1304,31 @@ class Database:
         )
 
         # Finally delete the user
-        cursor.execute("DELETE FROM users WHERE username = ?", (username,))
+        cursor.execute("DELETE FROM users WHERE id = ?", (user.id,))
 
         self._conn.commit()
         return cursor.rowcount > 0
 
-    def _delete_table_checkpoints_for_username(
-        self, cursor: sqlite3.Cursor, username: str
+    def _delete_table_checkpoints_for_user(
+        self, cursor: sqlite3.Cursor, user: UserRecord
     ) -> int:
         """Delete transient table checkpoints that reference an account."""
-        username_key = username.casefold()
         cursor.execute("SELECT table_id, host, members_json FROM tables")
         table_ids: list[str] = []
         for row in cursor.fetchall():
-            if str(row["host"]).casefold() == username_key:
+            host = self.get_user(str(row["host"]))
+            if host and host.uuid == user.uuid:
                 table_ids.append(row["table_id"])
                 continue
             try:
                 members = json.loads(row["members_json"])
             except (TypeError, json.JSONDecodeError):
                 continue
-            if any(
-                str(member.get("username", "")).casefold() == username_key
+            member_records = (
+                self.get_user(str(member.get("username", "")))
                 for member in members
-            ):
+            )
+            if any(record and record.uuid == user.uuid for record in member_records):
                 table_ids.append(row["table_id"])
 
         for table_id in table_ids:
@@ -1229,53 +1339,21 @@ class Database:
         """Get all approved users who are not admins (trust_level < 2)."""
         cursor = self._conn.cursor()
         cursor.execute(
-            "SELECT id, username, password_hash, uuid, locale, preferences_json, trust_level, approved, email, bio, motd_version, gender, registration_date, last_login_date FROM users WHERE approved = 1 AND trust_level < 2 ORDER BY username"
+            f"SELECT {_USER_RECORD_COLUMNS} FROM users "
+            "WHERE approved = 1 AND trust_level < 2 "
+            "ORDER BY username_key, username COLLATE BINARY"
         )
-        users = []
-        for row in cursor.fetchall():
-            users.append(UserRecord(
-                id=row["id"],
-                username=row["username"],
-                password_hash=row["password_hash"],
-                uuid=row["uuid"],
-                locale=row["locale"] or "en",
-                preferences_json=row["preferences_json"] or "{}",
-                trust_level=row["trust_level"] if row["trust_level"] is not None else 1,
-                approved=True,
-                email=row["email"] or "",
-                bio=row["bio"] or "",
-                motd_version=row["motd_version"] if "motd_version" in row.keys() else 0,
-                gender=row["gender"] if "gender" in row.keys() else "Not set",
-                registration_date=row["registration_date"] if "registration_date" in row.keys() else "",
-                last_login_date=row["last_login_date"] if "last_login_date" in row.keys() else "",
-            ))
-        return users
+        return [self._user_record_from_row(row) for row in cursor.fetchall()]
 
     def get_admin_users(self) -> list[UserRecord]:
         """Get all users who are admins (trust_level >= 2)."""
         cursor = self._conn.cursor()
         cursor.execute(
-            "SELECT id, username, password_hash, uuid, locale, preferences_json, trust_level, approved, email, bio, motd_version, gender, registration_date, last_login_date FROM users WHERE trust_level >= 2 ORDER BY username"
+            f"SELECT {_USER_RECORD_COLUMNS} FROM users "
+            "WHERE trust_level >= 2 "
+            "ORDER BY username_key, username COLLATE BINARY"
         )
-        users = []
-        for row in cursor.fetchall():
-            users.append(UserRecord(
-                id=row["id"],
-                username=row["username"],
-                password_hash=row["password_hash"],
-                uuid=row["uuid"],
-                locale=row["locale"] or "en",
-                preferences_json=row["preferences_json"] or "{}",
-                trust_level=row["trust_level"],
-                approved=bool(row["approved"]) if row["approved"] is not None else False,
-                email=row["email"] or "",
-                bio=row["bio"] or "",
-                motd_version=row["motd_version"] if "motd_version" in row.keys() else 0,
-                gender=row["gender"] if "gender" in row.keys() else "Not set",
-                registration_date=row["registration_date"] if "registration_date" in row.keys() else "",
-                last_login_date=row["last_login_date"] if "last_login_date" in row.keys() else "",
-            ))
-        return users
+        return [self._user_record_from_row(row) for row in cursor.fetchall()]
 
     def _build_user_search_filters(
         self,
@@ -1287,15 +1365,14 @@ class Database:
         exclude_username: str | None = None,
         exclude_active_bans: bool = False,
         exclude_active_mutes: bool = False,
-    ) -> tuple[list[str], list[object], str, str]:
+    ) -> tuple[list[str], list[object], str]:
         """Build shared SQL filters for paginated user search/count queries."""
         now = datetime.now().isoformat()
-        term = query.strip()
-        like = f"%{term}%"
-        prefix = f"{term}%"
+        term = normalize_username(query)
+        term_key = username_key(term)
 
-        where = ["username LIKE ? COLLATE NOCASE"]
-        params: list[object] = [like]
+        where = ["INSTR(username_key, ?) > 0"]
+        params: list[object] = [term_key]
         if approved is not None:
             where.append("approved = ?")
             params.append(1 if approved else 0)
@@ -1306,14 +1383,16 @@ class Database:
             where.append("COALESCE(trust_level, 1) <= ?")
             params.append(max_trust_level)
         if exclude_username:
-            where.append("username != ? COLLATE NOCASE")
-            params.append(exclude_username)
+            excluded_user = self.get_user(exclude_username)
+            if excluded_user:
+                where.append("id != ?")
+                params.append(excluded_user.id)
         if exclude_active_bans:
             where.append(
                 """
                 NOT EXISTS (
                     SELECT 1 FROM bans
-                    WHERE bans.username = users.username
+                    WHERE bans.username = users.username COLLATE BINARY
                     AND (bans.expires_at IS NULL OR bans.expires_at > ?)
                 )
                 """
@@ -1324,13 +1403,13 @@ class Database:
                 """
                 NOT EXISTS (
                     SELECT 1 FROM mutes
-                    WHERE mutes.username = users.username
+                    WHERE mutes.username = users.username COLLATE BINARY
                     AND (mutes.expires_at IS NULL OR mutes.expires_at > ?)
                 )
                 """
             )
             params.append(now)
-        return where, params, term, prefix
+        return where, params, term_key
 
     def count_users(
         self,
@@ -1344,7 +1423,7 @@ class Database:
         exclude_active_mutes: bool = False,
     ) -> int:
         """Count users matching the same filters used by paginated search."""
-        where, params, _, _ = self._build_user_search_filters(
+        where, params, _ = self._build_user_search_filters(
             query,
             approved=approved,
             min_trust_level=min_trust_level,
@@ -1377,7 +1456,7 @@ class Database:
         """Search users with bounded, SQL-level filtering for large admin menus."""
         limit = max(1, min(int(limit), 100))
         offset = max(0, int(offset))
-        where, params, term, prefix = self._build_user_search_filters(
+        where, params, term_key = self._build_user_search_filters(
             query,
             approved=approved,
             min_trust_level=min_trust_level,
@@ -1389,42 +1468,23 @@ class Database:
         cursor = self._conn.cursor()
         cursor.execute(
             f"""
-            SELECT id, username, password_hash, uuid, locale, preferences_json,
-                   trust_level, approved, email, bio, motd_version, gender,
-                   registration_date, last_login_date
+            SELECT {_USER_RECORD_COLUMNS}
             FROM users
             WHERE {' AND '.join(where)}
             ORDER BY
                 CASE
-                    WHEN username = ? COLLATE NOCASE THEN 0
-                    WHEN username LIKE ? COLLATE NOCASE THEN 1
+                    WHEN username_key = ? THEN 0
+                    WHEN INSTR(username_key, ?) = 1 THEN 1
                     ELSE 2
                 END,
-                LOWER(username)
+                username_key,
+                username COLLATE BINARY
             LIMIT ?
             OFFSET ?
             """,
-            (*params, term, prefix, limit, offset),
+            (*params, term_key, term_key, limit, offset),
         )
-        users = []
-        for row in cursor.fetchall():
-            users.append(UserRecord(
-                id=row["id"],
-                username=row["username"],
-                password_hash=row["password_hash"],
-                uuid=row["uuid"],
-                locale=row["locale"] or "en",
-                preferences_json=row["preferences_json"] or "{}",
-                trust_level=row["trust_level"] if row["trust_level"] is not None else 1,
-                approved=bool(row["approved"]) if row["approved"] is not None else False,
-                email=row["email"] or "",
-                bio=row["bio"] or "",
-                motd_version=row["motd_version"] if "motd_version" in row.keys() else 0,
-                gender=row["gender"] if "gender" in row.keys() else "Not set",
-                registration_date=row["registration_date"] if "registration_date" in row.keys() else "",
-                last_login_date=row["last_login_date"] if "last_login_date" in row.keys() else "",
-            ))
-        return users
+        return [self._user_record_from_row(row) for row in cursor.fetchall()]
 
 
     # MOTD operations
@@ -1517,8 +1577,19 @@ class Database:
 
     # Ban operations
 
+    def _canonical_username_or_input(self, username: str) -> str:
+        """Return a registered display name when *username* resolves uniquely."""
+        resolution = self.resolve_user(username)
+        if resolution.ambiguous:
+            raise ValueError("Ambiguous username spelling")
+        if resolution.user is not None:
+            return resolution.user.username
+        return normalize_username(username)
+
     def ban_user(self, username: str, admin_username: str, reason_key: str, expires_at: str | None) -> BanRecord:
         """Ban a user."""
+        username = self._canonical_username_or_input(username)
+        admin_username = self._canonical_username_or_input(admin_username)
         issued_at = datetime.now().isoformat()
         cursor = self._conn.cursor()
         cursor.execute(
@@ -1537,19 +1608,23 @@ class Database:
 
     def unban_user(self, username: str) -> bool:
         """Unban a user by removing their active bans. Returns True if unbanned."""
+        username = self._canonical_username_or_input(username)
         cursor = self._conn.cursor()
-        cursor.execute("DELETE FROM bans WHERE username = ?", (username,))
+        cursor.execute(
+            "DELETE FROM bans WHERE username = ? COLLATE BINARY", (username,)
+        )
         self._conn.commit()
         return cursor.rowcount > 0
 
     def get_active_ban(self, username: str) -> BanRecord | None:
         """Get the active ban for a user, if any. Clears expired bans in one SQL call."""
+        username = self._canonical_username_or_input(username)
         now = datetime.now().isoformat()
         cursor = self._conn.cursor()
 
         # Purge expired bans for this user in a single DELETE
         cursor.execute(
-            "DELETE FROM bans WHERE username = ? AND expires_at IS NOT NULL AND expires_at <= ?",
+            "DELETE FROM bans WHERE username = ? COLLATE BINARY AND expires_at IS NOT NULL AND expires_at <= ?",
             (username, now),
         )
         if cursor.rowcount:
@@ -1560,7 +1635,7 @@ class Database:
             """
             SELECT id, username, admin_username, reason_key, issued_at, expires_at
             FROM bans
-            WHERE username = ? AND (expires_at IS NULL OR expires_at > ?)
+            WHERE username = ? COLLATE BINARY AND (expires_at IS NULL OR expires_at > ?)
             ORDER BY issued_at DESC, id DESC
             LIMIT 1
             """,
@@ -1598,7 +1673,7 @@ class Database:
     ) -> list[BanRecord]:
         """Search latest active ban records without loading the full ban table."""
         now = datetime.now().isoformat()
-        term = query.strip()
+        term = username_key(query)
         limit = max(1, min(int(limit), 100))
         offset = max(0, int(offset))
         cursor = self._conn.cursor()
@@ -1613,27 +1688,28 @@ class Database:
                     issued_at,
                     expires_at,
                     ROW_NUMBER() OVER (
-                        PARTITION BY LOWER(username)
+                        PARTITION BY username COLLATE BINARY
                         ORDER BY issued_at DESC, id DESC
                     ) AS row_number
                 FROM bans
                 WHERE (expires_at IS NULL OR expires_at > ?)
-                  AND username LIKE ? COLLATE NOCASE
+                  AND INSTR(USERNAME_KEY(username), ?) > 0
             )
             SELECT id, username, admin_username, reason_key, issued_at, expires_at
             FROM ranked_active_bans
             WHERE row_number = 1
             ORDER BY
                 CASE
-                    WHEN username = ? COLLATE NOCASE THEN 0
-                    WHEN username LIKE ? COLLATE NOCASE THEN 1
+                    WHEN USERNAME_KEY(username) = ? THEN 0
+                    WHEN INSTR(USERNAME_KEY(username), ?) = 1 THEN 1
                     ELSE 2
                 END,
-                LOWER(username)
+                USERNAME_KEY(username),
+                username COLLATE BINARY
             LIMIT ?
             OFFSET ?
             """,
-            (now, f"%{term}%", term, f"{term}%", limit, offset),
+            (now, term, term, term, limit, offset),
         )
         return [
             BanRecord(
@@ -1650,20 +1726,20 @@ class Database:
     def count_active_banned_users(self, query: str = "") -> int:
         """Count currently banned usernames matching an optional search term."""
         now = datetime.now().isoformat()
-        term = query.strip()
+        term = username_key(query)
         cursor = self._conn.cursor()
         cursor.execute(
             """
             SELECT COUNT(*) AS count
             FROM (
-                SELECT LOWER(username) AS username_key
+                SELECT username
                 FROM bans
                 WHERE (expires_at IS NULL OR expires_at > ?)
-                  AND username LIKE ? COLLATE NOCASE
-                GROUP BY LOWER(username)
+                  AND INSTR(USERNAME_KEY(username), ?) > 0
+                GROUP BY username COLLATE BINARY
             )
             """,
-            (now, f"%{term}%"),
+            (now, term),
         )
         row = cursor.fetchone()
         return int(row["count"] if row else 0)
@@ -1689,12 +1765,16 @@ class Database:
 
     def mute_user(self, username: str, admin_username: str, reason: str, expires_at: str | None) -> MuteRecord:
         """Mute a user."""
+        username = self._canonical_username_or_input(username)
+        admin_username = self._canonical_username_or_input(admin_username)
         issued_at = datetime.now().isoformat()
         cursor = self._conn.cursor()
         # Replace any existing mute so a user has at most one active mute and a
         # re-mute always supersedes the previous one (deterministic regardless of
         # timestamp ties).
-        cursor.execute("DELETE FROM mutes WHERE username = ?", (username,))
+        cursor.execute(
+            "DELETE FROM mutes WHERE username = ? COLLATE BINARY", (username,)
+        )
         cursor.execute(
             "INSERT INTO mutes (username, admin_username, reason, issued_at, expires_at) VALUES (?, ?, ?, ?, ?)",
             (username, admin_username, reason, issued_at, expires_at),
@@ -1711,19 +1791,23 @@ class Database:
 
     def unmute_user(self, username: str) -> bool:
         """Unmute a user by removing their active mutes. Returns True if unmuted."""
+        username = self._canonical_username_or_input(username)
         cursor = self._conn.cursor()
-        cursor.execute("DELETE FROM mutes WHERE username = ?", (username,))
+        cursor.execute(
+            "DELETE FROM mutes WHERE username = ? COLLATE BINARY", (username,)
+        )
         self._conn.commit()
         return cursor.rowcount > 0
 
     def get_active_mute(self, username: str) -> MuteRecord | None:
         """Get the active mute for a user, if any. Clears expired mutes."""
+        username = self._canonical_username_or_input(username)
         now = datetime.now().isoformat()
         cursor = self._conn.cursor()
 
         # Purge expired mutes
         cursor.execute(
-            "DELETE FROM mutes WHERE username = ? AND expires_at IS NOT NULL AND expires_at <= ?",
+            "DELETE FROM mutes WHERE username = ? COLLATE BINARY AND expires_at IS NOT NULL AND expires_at <= ?",
             (username, now),
         )
         if cursor.rowcount:
@@ -1734,7 +1818,7 @@ class Database:
             """
             SELECT id, username, admin_username, reason, issued_at, expires_at
             FROM mutes
-            WHERE username = ? AND (expires_at IS NULL OR expires_at > ?)
+            WHERE username = ? COLLATE BINARY AND (expires_at IS NULL OR expires_at > ?)
             ORDER BY issued_at DESC, id DESC
             LIMIT 1
             """,
@@ -1771,7 +1855,7 @@ class Database:
     ) -> list[MuteRecord]:
         """Search latest active mute records without loading the full mute table."""
         now = datetime.now().isoformat()
-        term = query.strip()
+        term = username_key(query)
         limit = max(1, min(int(limit), 100))
         offset = max(0, int(offset))
         cursor = self._conn.cursor()
@@ -1786,27 +1870,28 @@ class Database:
                     issued_at,
                     expires_at,
                     ROW_NUMBER() OVER (
-                        PARTITION BY LOWER(username)
+                        PARTITION BY username COLLATE BINARY
                         ORDER BY issued_at DESC, id DESC
                     ) AS row_number
                 FROM mutes
                 WHERE (expires_at IS NULL OR expires_at > ?)
-                  AND username LIKE ? COLLATE NOCASE
+                  AND INSTR(USERNAME_KEY(username), ?) > 0
             )
             SELECT id, username, admin_username, reason, issued_at, expires_at
             FROM ranked_active_mutes
             WHERE row_number = 1
             ORDER BY
                 CASE
-                    WHEN username = ? COLLATE NOCASE THEN 0
-                    WHEN username LIKE ? COLLATE NOCASE THEN 1
+                    WHEN USERNAME_KEY(username) = ? THEN 0
+                    WHEN INSTR(USERNAME_KEY(username), ?) = 1 THEN 1
                     ELSE 2
                 END,
-                LOWER(username)
+                USERNAME_KEY(username),
+                username COLLATE BINARY
             LIMIT ?
             OFFSET ?
             """,
-            (now, f"%{term}%", term, f"{term}%", limit, offset),
+            (now, term, term, term, limit, offset),
         )
         return [
             MuteRecord(
@@ -1823,20 +1908,20 @@ class Database:
     def count_active_muted_users(self, query: str = "") -> int:
         """Count currently muted usernames matching an optional search term."""
         now = datetime.now().isoformat()
-        term = query.strip()
+        term = username_key(query)
         cursor = self._conn.cursor()
         cursor.execute(
             """
             SELECT COUNT(*) AS count
             FROM (
-                SELECT LOWER(username) AS username_key
+                SELECT username
                 FROM mutes
                 WHERE (expires_at IS NULL OR expires_at > ?)
-                  AND username LIKE ? COLLATE NOCASE
-                GROUP BY LOWER(username)
+                  AND INSTR(USERNAME_KEY(username), ?) > 0
+                GROUP BY username COLLATE BINARY
             )
             """,
-            (now, f"%{term}%"),
+            (now, term),
         )
         row = cursor.fetchone()
         return int(row["count"] if row else 0)
@@ -2055,6 +2140,7 @@ class Database:
         members_json: str,
     ) -> SavedTableRecord:
         """Save a table state to a user's saved tables."""
+        username = self._canonical_username_or_input(username)
         saved_at = datetime.now().isoformat()
 
         cursor = self._conn.cursor()
@@ -2079,9 +2165,10 @@ class Database:
 
     def count_user_saved_tables(self, username: str) -> int:
         """Count saved tables for a user without loading every row."""
+        username = self._canonical_username_or_input(username)
         cursor = self._conn.cursor()
         cursor.execute(
-            "SELECT COUNT(*) AS count FROM saved_tables WHERE username = ?",
+            "SELECT COUNT(*) AS count FROM saved_tables WHERE username = ? COLLATE BINARY",
             (username,),
         )
         row = cursor.fetchone()
@@ -2095,8 +2182,9 @@ class Database:
         offset: int = 0,
     ) -> list[SavedTableRecord]:
         """Get saved tables for a user, optionally limited for paginated menus."""
+        username = self._canonical_username_or_input(username)
         cursor = self._conn.cursor()
-        query = "SELECT * FROM saved_tables WHERE username = ? ORDER BY saved_at DESC"
+        query = "SELECT * FROM saved_tables WHERE username = ? COLLATE BINARY ORDER BY saved_at DESC"
         params: list[object] = [username]
         if limit is not None:
             safe_limit = max(1, int(limit))
@@ -2426,7 +2514,8 @@ class Database:
             WHERE pgs.game_type = ? AND pgs.stat_key = ?
             ORDER BY
                 CAST(pgs.stat_value AS REAL) DESC,
-                LOWER(COALESCE(u.username, pgs.player_id)) ASC,
+                USERNAME_KEY(COALESCE(u.username, pgs.player_id)) ASC,
+                COALESCE(u.username, pgs.player_id) COLLATE BINARY ASC,
                 pgs.player_id ASC
             LIMIT ?
             """,
@@ -2455,7 +2544,8 @@ class Database:
             ORDER BY
                 CAST(pgs_w.stat_value AS REAL) DESC,
                 CAST(COALESCE(pgs_l.stat_value, 0) AS REAL) ASC,
-                LOWER(COALESCE(u.username, pgs_w.player_id)) ASC,
+                USERNAME_KEY(COALESCE(u.username, pgs_w.player_id)) ASC,
+                COALESCE(u.username, pgs_w.player_id) COLLATE BINARY ASC,
                 pgs_w.player_id ASC
             LIMIT ?
             """,

@@ -95,7 +95,6 @@ reg-dialog-title = ایجاد حساب Play Aural
 reg-title = ایجاد حساب جدید
 reg-info = برای شروع بازی لطفاً نام کاربری و رمز عبور بسازید.
 reg-username-label = نام کاربری:
-reg-username-help = فقط شامل حروف، اعداد، زیرخط و خط تیره
 reg-email-label = ایمیل:
 reg-password-label = رمز عبور:
 reg-confirm-password-label = تکرار رمز عبور:

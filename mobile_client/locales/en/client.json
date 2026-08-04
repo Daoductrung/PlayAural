@@ -158,6 +158,7 @@
   "auth-registration-error": "Registration failed due to a server error. Please try again.",
   "auth-error-wrong-password": "Incorrect password.",
   "auth-error-user-not-found": "User does not exist.",
+  "auth-error-username-ambiguous": "More than one legacy account matches this spelling. Enter the exact registered spelling.",
   "auth-error-version-mismatch": "Client version mismatch. The server has been updated to a newer version. Please update the app to continue.",
   "auth-error-username-length": "Username must be between 3 and 30 characters.",
   "auth-error-username-invalid-chars": "Username may only contain letters, numbers, and spaces. Do not use consecutive spaces or special characters.",

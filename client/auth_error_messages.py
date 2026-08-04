@@ -3,7 +3,9 @@
 from localization import Localization
 
 
-_CREDENTIAL_ERRORS = frozenset({"wrong_password", "user_not_found"})
+_CREDENTIAL_ERRORS = frozenset(
+    {"wrong_password", "user_not_found", "username_ambiguous"}
+)
 
 
 def get_login_failure_message(reason: str) -> str:
@@ -11,6 +13,7 @@ def get_login_failure_message(reason: str) -> str:
     reason_map = {
         "wrong_password": Localization.get("auth-error-wrong-password"),
         "user_not_found": Localization.get("auth-error-user-not-found"),
+        "username_ambiguous": Localization.get("auth-error-username-ambiguous"),
         "rate_limit": Localization.get("auth-error-rate-limit"),
     }
     return reason_map.get(reason) or Localization.get("login-info-failed")

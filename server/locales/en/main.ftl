@@ -5,6 +5,7 @@ auth-username-reserved-bot = This name is reserved for PlayAural bots. Please ch
 auth-registration-error = Registration failed due to a server error. Please try again.
 auth-error-wrong-password = Incorrect password.
 auth-error-user-not-found = User does not exist.
+username-ambiguous = More than one legacy account matches “{ $username }”. Enter the exact registered spelling.
 auth-kicked-logged-in-elsewhere = You have been disconnected because your account was logged in from another device.
 
 chat-global = { $player } says globally: { $message }

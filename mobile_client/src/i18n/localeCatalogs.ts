@@ -1,4 +1,5 @@
 import catalog_en from "../../locales/en/client.json";
+import catalog_es from "../../locales/es/client.json";
 import catalog_fa from "../../locales/fa/client.json";
 import catalog_vi from "../../locales/vi/client.json";
 
@@ -10,6 +11,12 @@ export const LOCALE_METADATA = {
     nativeName: "English",
     contributors: ["PlayAural core team"],
     official: true,
+  },
+  "es": {
+    name: "Spanish",
+    nativeName: "Español",
+    contributors: ["UnDuende"],
+    official: false,
   },
   "fa": {
     name: "Persian",
@@ -27,6 +34,7 @@ export const LOCALE_METADATA = {
 
 export const localeCatalogs = {
   "en": catalog_en,
+  "es": catalog_es,
   "fa": catalog_fa,
   "vi": catalog_vi,
 } as const;

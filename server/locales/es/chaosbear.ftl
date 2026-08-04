@@ -1,0 +1,129 @@
+game-name-chaosbear = Oso del Caos
+
+chaosbear-roll-dice = Lanzar dados
+chaosbear-draw-card = Robar una carta
+chaosbear-check-status = Ver estado
+chaosbear-action-in-progress = Espera a que termine el movimiento actual de la persecución antes de actuar de nuevo.
+chaosbear-error-roll-not-playing = No puedes lanzar el dado porque la persecución del Oso del Caos aún no ha comenzado.
+chaosbear-error-roll-no-turn = No puedes lanzar el dado porque la persecución está entre turnos en este momento. Espera a que se anuncie al siguiente corredor.
+chaosbear-error-roll-not-your-turn = No puedes lanzar el dado en este momento porque otro corredor tiene el turno en la persecución.
+chaosbear-error-roll-resolving = Aún no puedes volver a lanzar porque el movimiento actual de la persecución todavía se está resolviendo.
+chaosbear-error-roll-caught = No puedes lanzar porque el oso ya te atrapó en la casilla { $position }. El oso está en la casilla { $bear_position }.
+chaosbear-error-draw-not-playing = No puedes robar una carta de caos porque la persecución del Oso del Caos aún no ha comenzado.
+chaosbear-error-draw-no-turn = No puedes robar una carta de caos porque la persecución está entre turnos en este momento. Espera a que se anuncie al siguiente corredor.
+chaosbear-error-draw-not-your-turn = No puedes robar una carta de caos en este momento porque otro corredor tiene el turno en la persecución.
+chaosbear-error-draw-resolving = Aún no puedes robar otra carta de caos porque el movimiento actual de la persecución todavía se está resolviendo.
+chaosbear-error-draw-caught = No puedes robar una carta de caos porque el oso ya te atrapó en la casilla { $position }. El oso está en la casilla { $bear_position }.
+chaosbear-error-draw-not-on-multiple = Solo puedes robar una carta de caos mientras estés en un múltiplo positivo de 5. Muévete a una casilla válida antes de robar.
+chaosbear-error-status-not-playing = Puedes ver el estado de Oso del Caos después de que comience la persecución.
+
+chaosbear-intro-1 = ¡Comenzó Oso del Caos! Todos los jugadores empiezan 30 casillas por delante del oso.
+chaosbear-intro-2 = Lanza los dados para avanzar, y roba cartas en los múltiplos de 5 para un impulso de 3 casillas más un efecto especial.
+chaosbear-intro-3 = ¡No dejes que el oso te atrape!
+chaosbear-intro-brief = Comienza Oso del Caos. Empiezas en la casilla 30; mantente por delante del oso.
+
+chaosbear-turn-you = Tu turno. Estás en la casilla { $position }, { $gap } casillas por delante del oso.
+chaosbear-turn-other = Turno de { $player }. Está en la casilla { $position }, { $gap } casillas por delante del oso.
+chaosbear-turn = Turno de { $player }; casilla { $position }.
+chaosbear-turn-you-brief = Tu turno: casilla { $position }, distancia { $gap }.
+chaosbear-turn-other-brief = { $player }: casilla { $position }, distancia { $gap }.
+
+chaosbear-roll-you = Sacaste { $roll }.
+chaosbear-roll-other = { $player } sacó { $roll }.
+chaosbear-roll = { $player } sacó { $roll }.
+chaosbear-roll-you-brief = Sacaste { $roll }.
+chaosbear-roll-other-brief = { $player } sacó { $roll }.
+chaosbear-position-you = Llegas a la casilla { $position }, { $gap } casillas por delante del oso.
+chaosbear-position-other = { $player } llega a la casilla { $position }, { $gap } casillas por delante del oso.
+chaosbear-position = { $player } ahora está en la casilla { $position }.
+chaosbear-position-you-brief = Casilla { $position }, distancia { $gap }.
+chaosbear-position-other-brief = { $player }: casilla { $position }, distancia { $gap }.
+
+chaosbear-draw-card-you = Robas una carta de caos.
+chaosbear-draw-card-other = { $player } roba una carta de caos.
+chaosbear-draws-card = { $player } roba una carta.
+chaosbear-draw-card-you-brief = Robas.
+chaosbear-draw-card-other-brief = { $player } roba.
+chaosbear-card-impulsion-you = ¡Impulso! Avanzas de golpe hasta la casilla { $position }, { $gap } casillas por delante del oso.
+chaosbear-card-impulsion-other = ¡Impulso! { $player } avanza de golpe hasta la casilla { $position }, { $gap } casillas por delante del oso.
+chaosbear-card-impulsion = ¡Impulso! { $player } avanza de golpe hasta la casilla { $position }!
+chaosbear-card-impulsion-you-brief = Impulso: casilla { $position }, distancia { $gap }.
+chaosbear-card-impulsion-other-brief = { $player } Impulso: casilla { $position }, distancia { $gap }.
+chaosbear-card-super-impulsion-you = ¡Súper impulso! Sales disparado hasta la casilla { $position }, { $gap } casillas por delante del oso.
+chaosbear-card-super-impulsion-other = ¡Súper impulso! { $player } sale disparado hasta la casilla { $position }, { $gap } casillas por delante del oso.
+chaosbear-card-super-impulsion = ¡Súper impulso! { $player } sale disparado hasta la casilla { $position }!
+chaosbear-card-super-impulsion-you-brief = Súper impulso: casilla { $position }, distancia { $gap }.
+chaosbear-card-super-impulsion-other-brief = { $player } Súper impulso: casilla { $position }, distancia { $gap }.
+chaosbear-card-tiredness-you = ¡Cansancio! Llegas a la casilla { $position }, { $gap } casillas por delante del oso, y la energía del oso baja a { $energy }.
+chaosbear-card-tiredness-other = ¡Cansancio! { $player } llega a la casilla { $position }, { $gap } casillas por delante del oso, y la energía del oso baja a { $energy }.
+chaosbear-card-tiredness = ¡Cansancio! { $player } llega a la casilla { $position }, y la energía del oso baja a { $energy }.
+chaosbear-card-tiredness-you-brief = Cansancio: casilla { $position }, energía del oso { $energy }.
+chaosbear-card-tiredness-other-brief = { $player } Cansancio: casilla { $position }, energía del oso { $energy }.
+chaosbear-card-hunger-you = ¡Hambre! Llegas a la casilla { $position }, { $gap } casillas por delante del oso, pero la energía del oso sube a { $energy }.
+chaosbear-card-hunger-other = ¡Hambre! { $player } llega a la casilla { $position }, { $gap } casillas por delante del oso, pero la energía del oso sube a { $energy }.
+chaosbear-card-hunger = ¡Hambre! { $player } llega a la casilla { $position }, pero la energía del oso sube a { $energy }.
+chaosbear-card-hunger-you-brief = Hambre: casilla { $position }, energía del oso { $energy }.
+chaosbear-card-hunger-other-brief = { $player } Hambre: casilla { $position }, energía del oso { $energy }.
+chaosbear-card-backward-you = ¡Empujón hacia atrás! Pierdes el impulso de 3 casillas y te quedas en la casilla { $position }, { $gap } casillas por delante del oso.
+chaosbear-card-backward-other = ¡Empujón hacia atrás! { $player } pierde el impulso de 3 casillas y se queda en la casilla { $position }, { $gap } casillas por delante del oso.
+chaosbear-card-backward = ¡Empujón hacia atrás! { $player } pierde el impulso y se queda en la casilla { $position }.
+chaosbear-card-backward-you-brief = Empujón hacia atrás: casilla { $position }, distancia { $gap }.
+chaosbear-card-backward-other-brief = { $player } Empujón hacia atrás: casilla { $position }, distancia { $gap }.
+chaosbear-card-random-gift-you = ¡Regalo aleatorio! Tu carta todavía está decidiendo si te ayuda o te perjudica.
+chaosbear-card-random-gift-other = ¡Regalo aleatorio! La carta de { $player } todavía está decidiendo si le ayuda o le perjudica.
+chaosbear-card-random-gift = ¡Regalo aleatorio!
+chaosbear-card-random-gift-you-brief = Regalo aleatorio.
+chaosbear-card-random-gift-other-brief = { $player } recibe un regalo aleatorio.
+chaosbear-gift-back-you = El regalo aleatorio se vuelve en tu contra y te arrastra { $amount } casillas hacia atrás, a la casilla { $position }, { $gap } casillas por delante del oso.
+chaosbear-gift-back-other = El regalo aleatorio se vuelve en contra de { $player } y lo arrastra { $amount } casillas hacia atrás, a la casilla { $position }, { $gap } casillas por delante del oso.
+chaosbear-gift-back = { $player } retrocedió a la casilla { $position }.
+chaosbear-gift-back-you-brief = Regalo hacia atrás { $amount }: casilla { $position }, distancia { $gap }.
+chaosbear-gift-back-other-brief = { $player } regalo hacia atrás { $amount }: casilla { $position }, distancia { $gap }.
+chaosbear-gift-forward-you = El regalo aleatorio te ayuda y te empuja { $amount } casillas hacia adelante, a la casilla { $position }, { $gap } casillas por delante del oso.
+chaosbear-gift-forward-other = El regalo aleatorio ayuda a { $player } y lo empuja { $amount } casillas hacia adelante, a la casilla { $position }, { $gap } casillas por delante del oso.
+chaosbear-gift-forward = ¡{ $player } avanzó a la casilla { $position }!
+chaosbear-gift-forward-you-brief = Regalo hacia adelante { $amount }: casilla { $position }, distancia { $gap }.
+chaosbear-gift-forward-other-brief = { $player } regalo hacia adelante { $amount }: casilla { $position }, distancia { $gap }.
+
+chaosbear-bear-roll = El oso sacó { $roll } más su energía de { $energy } = { $total }.
+chaosbear-bear-energy-up = El oso sacó un 3 y ganó 1 de energía. Su energía ahora es { $energy }.
+chaosbear-bear-position = ¡El oso ahora está en la casilla { $position }!
+chaosbear-you-caught = El oso llegó a la casilla { $bear_position } y te atrapó en la casilla { $position }. Quedas fuera de la persecución.
+chaosbear-player-caught = El oso llegó a la casilla { $bear_position } y atrapó a { $player } en la casilla { $position }. { $player } queda fuera de la persecución.
+chaosbear-bear-feast = El oso se vuelve más lento tras atrapar corredores. Su energía ahora es { $energy }.
+chaosbear-bear-roll-brief = El oso saca { $roll } + { $energy } = { $total }.
+chaosbear-bear-energy-up-brief = Energía del oso: { $energy }.
+chaosbear-bear-position-brief = Casilla del oso: { $position }.
+chaosbear-you-caught-brief = Atrapado en la casilla { $position }. Quedas fuera.
+chaosbear-player-caught-brief = { $player } atrapado en la casilla { $position }.
+chaosbear-bear-feast-brief = El oso se ralentiza: energía { $energy }.
+
+chaosbear-status-header = Estado de la persecución
+chaosbear-status-round = Ronda { $round }
+chaosbear-status-turn = Turno: { $player } en la casilla { $position }, { $gap } casillas por delante del oso.
+chaosbear-status-no-turn = Ningún corredor tiene el turno en este momento.
+chaosbear-status-player-alive = { $player }: casilla { $position }, { $gap } casillas por delante del oso.
+chaosbear-status-player-caught = { $player }: atrapado en la casilla { $position }.
+chaosbear-status-bear = El oso está en la casilla { $position } con { $energy } de energía.
+
+chaosbear-winner-you = ¡Ganas! Te mantuviste por delante del oso y llegaste a la casilla { $position }.
+chaosbear-winner-other = ¡{ $player } gana! Se mantuvo por delante del oso y llegó a la casilla { $position }.
+chaosbear-winner = ¡{ $player } gana! ¡Llegó a la casilla { $position }!
+chaosbear-winner-you-brief = Ganas en la casilla { $position }.
+chaosbear-winner-other-brief = { $player } gana en la casilla { $position }.
+chaosbear-distance-winner-you = Ganas el desempate por distancia en la casilla { $position } después de que el oso atrapó a todos los demás.
+chaosbear-distance-winner-other = { $player } gana el desempate por distancia en la casilla { $position } después de que el oso atrapó a todos los demás.
+chaosbear-distance-winner-you-brief = Ganas el desempate por distancia en la casilla { $position }.
+chaosbear-distance-winner-other-brief = { $player } gana el desempate por distancia en la casilla { $position }.
+chaosbear-tie-you = Empatas en la delantera por distancia en la casilla { $position } con { $players } después de que el oso atrapa a todos.
+chaosbear-tie = Empate por distancia en la casilla { $position }: { $players } quedan atrapados juntos tras alcanzar la misma delantera.
+chaosbear-tie-you-brief = Empate en la casilla { $position } con { $players }.
+chaosbear-tie-brief = Empate por distancia en la casilla { $position }: { $players }.
+
+chaosbear-you-are-caught = El oso te ha atrapado.
+chaosbear-not-on-multiple = Solo puedes robar una carta de caos mientras estés en un múltiplo positivo de 5.
+
+chaosbear-final-positions = Posiciones finales
+chaosbear-line-format = { $rank }. { $player }: { $position } casillas ({ $status })
+chaosbear-status-caught = atrapado
+chaosbear-status-survived = sobrevivió

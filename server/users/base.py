@@ -43,6 +43,7 @@ class MenuItem:
     description: str | None = None
     description_key: str | None = None
     description_kwargs: dict[str, Any] | None = None
+    label: str | None = None
 
     def __post_init__(self) -> None:
         if self.description is not None and self.description_key is not None:
@@ -61,7 +62,17 @@ class MenuItem:
             self.description_key,
             **(self.description_kwargs or {}),
         )
+        if text == self.description_key and not Localization.has_message(
+            locale,
+            self.description_key,
+        ):
+            return None
         return text.strip() or None
+
+    @property
+    def canonical_text(self) -> str:
+        """Return the concise label retained by rendered/restored rows."""
+        return self.label if self.label is not None else self.text
 
     def display_text(self, locale: str, *, show_description: bool) -> str:
         """Render the row label under the global menu-hints policy."""
@@ -81,11 +92,11 @@ class MenuItem:
     ) -> str:
         """Combine a label and an already-resolved hint."""
         if not show_description or not description:
-            return self.text
+            return self.canonical_text
         return Localization.get(
             locale,
             "menu-item-with-hint",
-            label=self.text,
+            label=self.canonical_text,
             hint=description,
         )
 
@@ -101,6 +112,7 @@ class MenuItem:
             id=self.id,
             sound=self.sound,
             description=description,
+            label=self.canonical_text,
         )
 
     def to_dict(
@@ -129,10 +141,10 @@ class MenuItem:
             if description is not None:
                 # ``label`` keeps restoration idempotent after the rendered
                 # text has been stored in NetworkUser's current-menu state.
-                data["label"] = self.text
+                data["label"] = self.canonical_text
                 data["description"] = description
             return data
-        return self.text
+        return self.canonical_text
 
 
 class User(ABC):

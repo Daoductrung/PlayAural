@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from ..core.server import Server
+from ..cli import CapturingBot, SpectatorUser
 from ..messages.localization import Localization
 from ..users.base import MenuItem
 from ..users.network_user import NetworkUser
@@ -67,6 +68,18 @@ def test_menu_item_rejects_two_description_sources() -> None:
         )
 
 
+def test_missing_localized_hint_is_not_exposed_as_a_raw_key() -> None:
+    item = MenuItem(
+        text="Safe label",
+        id="safe",
+        description_key="missing-menu-hint-key",
+    )
+
+    packet = item.to_dict(locale="en", show_description=True)
+
+    assert packet == {"text": "Safe label", "id": "safe"}
+
+
 def test_network_menu_repaints_when_hint_preference_changes() -> None:
     user = NetworkUser("Tester", "en", connection=None)
     items = [
@@ -101,3 +114,34 @@ def test_restoring_a_rendered_menu_does_not_duplicate_its_hint() -> None:
 
     assert restored_packet["text"] == "Play card: Deal one damage."
     assert restored_packet["text"].count("Deal one damage.") == 1
+
+
+def test_restoring_a_mock_style_menu_item_does_not_duplicate_its_hint() -> None:
+    rendered = MenuItem(
+        text="Play card",
+        id="play_card",
+        description="Deal one damage.",
+    ).rendered("en", show_description=True)
+
+    restored = Server._restoreable_menu_items([rendered])[0]
+    rerendered = restored.rendered("en", show_description=True)
+
+    assert rerendered.text == "Play card: Deal one damage."
+    assert rerendered.text.count("Deal one damage.") == 1
+
+
+@pytest.mark.parametrize("user", [SpectatorUser(), CapturingBot("Bot")])
+def test_cli_capture_uses_the_shared_menu_hint_renderer(user) -> None:
+    item = MenuItem(
+        text="Play card",
+        id="play_card",
+        description="Deal one damage.",
+    )
+
+    user.show_menu("turn_menu", [item])
+
+    if isinstance(user, SpectatorUser):
+        captured = user._menus["turn_menu"]
+    else:
+        captured = user.captured_menus[-1]["items"]
+    assert captured == ["Play card: Deal one damage."]

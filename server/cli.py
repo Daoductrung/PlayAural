@@ -62,7 +62,7 @@ try:
     from games.registry import GameRegistry, get_game_class  # noqa: E402
     from games.base import Game, BOT_NAMES  # noqa: E402
     from audio import AudioCommand  # noqa: E402
-    from users.base import User, generate_uuid  # noqa: E402
+    from users.base import MenuItem, User, generate_uuid  # noqa: E402
     from users.bot import Bot  # noqa: E402
 except ImportError:
     # Fallback to package imports (module execution)
@@ -71,11 +71,30 @@ except ImportError:
     from server.games.registry import GameRegistry, get_game_class  # noqa: E402
     from server.games.base import Game, BOT_NAMES  # noqa: E402
     from server.audio import AudioCommand  # noqa: E402
-    from server.users.base import User, generate_uuid  # noqa: E402
+    from server.users.base import MenuItem, User, generate_uuid  # noqa: E402
     from server.users.bot import Bot  # noqa: E402
 
 # Ensure localization is initialized for standalone CLI use (idempotent).
 Localization.init(_MODULE_DIR / "locales")
+
+
+def _render_captured_menu_items(user: User, items: list) -> list[str]:
+    """Render CLI-captured rows through the same hint policy as clients."""
+    show_descriptions = user.preferences.show_menu_hints
+    item_texts: list[str] = []
+    for item in items:
+        if isinstance(item, MenuItem):
+            item_texts.append(
+                item.display_text(
+                    user.locale,
+                    show_description=show_descriptions,
+                )
+            )
+        elif isinstance(item, dict):
+            item_texts.append(item.get("text", str(item)))
+        else:
+            item_texts.append(str(item))
+    return item_texts
 
 
 @dataclass
@@ -124,16 +143,7 @@ class SpectatorUser(User):
             self._sounds.append({"tick": self._tick, "sound": command.asset})
 
     def show_menu(self, menu_id: str, items: list, **kwargs) -> None:
-        # Extract text from MenuItem objects
-        item_texts = []
-        for item in items:
-            if hasattr(item, "text"):
-                item_texts.append(item.text)
-            elif isinstance(item, dict):
-                item_texts.append(item.get("text", str(item)))
-            else:
-                item_texts.append(str(item))
-        self._menus[menu_id] = item_texts
+        self._menus[menu_id] = _render_captured_menu_items(self, items)
 
     def update_menu(
         self,
@@ -189,16 +199,12 @@ class CapturingBot(Bot):
             )
 
     def show_menu(self, menu_id: str, items: list, **kwargs) -> None:
-        item_texts = []
-        for item in items:
-            if hasattr(item, "text"):
-                item_texts.append(item.text)
-            elif isinstance(item, dict):
-                item_texts.append(item.get("text", str(item)))
-            else:
-                item_texts.append(str(item))
         self.captured_menus.append(
-            {"tick": self._tick, "menu_id": menu_id, "items": item_texts}
+            {
+                "tick": self._tick,
+                "menu_id": menu_id,
+                "items": _render_captured_menu_items(self, items),
+            }
         )
 
     def update_menu(

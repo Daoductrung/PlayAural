@@ -10945,6 +10945,7 @@ PlayAural Server
                         id=item.get("id"),
                         sound=item.get("sound"),
                         description=item.get("description"),
+                        label=item.get("label"),
                     )
                 )
             else:

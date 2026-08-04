@@ -416,6 +416,7 @@ class MenuManagementMixin:
                     description=raw_item.description,
                     description_key=raw_item.description_key,
                     description_kwargs=raw_item.description_kwargs,
+                    label=raw_item.label,
                 )
             else:
                 item = MenuItem(

@@ -220,10 +220,10 @@ SINGLE_FIRE_MULTI_ATTACKS = frozenset({cards.GATLING, cards.HOWITZER})
 # sequence another cue; keeping the measurements here makes those transitions
 # deterministic across desktop, web, mobile, and save restoration.
 AUDIO_DURATIONS_TICKS = {
-    SOUND_GAME_INTRO: 252,
-    SOUND_AMBIENCE_WESTERN: 410,
-    SOUND_MUSIC_GAMEPLAY: 2328,
-    SOUND_MUSIC_FINAL_SHOWDOWN: 3229,
+    SOUND_GAME_INTRO: 164,
+    SOUND_AMBIENCE_WESTERN: 407,
+    SOUND_MUSIC_GAMEPLAY: 3229,
+    SOUND_MUSIC_FINAL_SHOWDOWN: 3426,
     SOUND_CASING_DROPS[0]: 47,
     SOUND_CASING_DROPS[1]: 46,
     SOUND_IMPACT_BULLET_BODY[0]: 33,

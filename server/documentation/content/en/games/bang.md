@@ -33,9 +33,9 @@ In this manual, a player “currently in play” means a normal active player or
 
 Each player receives a public main character, a public alternate character, and a role. Your main character sets your ability and maximum life. The Sheriff gains one maximum life. Your opening hand contains one card for each point of starting life.
 
-The Western ambience begins with the introduction, and the first turn starts ten seconds after that introduction begins. The opening speech tells you your own role, character, life, and role objective, then identifies every role that is public from the start. It does not read anyone's opening hand or list every character at the table; use Read hand or View table when you want those details.
+At 4 to 8 players, the Sheriff takes the first turn. At 3 players, the Deputy starts. The opening announcement privately tells you your role, character, life, and objective, then identifies the roles that are public. Use Read your hand and in-play cards whenever you want to review your own cards.
 
-The Sheriff takes the first turn at tables of 4 to 8. The alternate character has no effect unless New Identity appears. Player status always shows current life, hand count, character, revealed role, cards in play, and current weapon. An unequipped player always has the permanent Colt .45 with range 1. The host's two lobby options control Expanded cards and characters and Turn-changing events; both are explained under Options.
+The alternate character has no ability unless New Identity appears. Anyone without an equipped Weapon uses the permanent Colt .45 with range 1. The host chooses whether to include expanded cards and characters and which event set to use; both options are explained later in this manual.
 
 \*\*A turn, step by step\*\*
 
@@ -43,9 +43,9 @@ The Sheriff takes the first turn at tables of 4 to 8. The alternate character ha
 2. Complete the draw step. Normally you draw two cards, but a character or event may replace or alter that draw.
 3. Choose a card or an available character ability. PlayAural shows only legal responses, costs, and targets. You may continue playing while the menu says it is your play step.
 4. Choose End turn. If your hand has more cards than your current life, select exactly the stated number of cards and confirm the discard. Sean Mallory instead has a hand limit of 10.
-5. Play passes to the next active player. Your own cards remain visible but unavailable in the menu while someone else acts, so reviewing them cannot change the game. You can also press H for a concise private hand reading.
+5. Play passes to the next active player. Your own cards remain visible but unavailable in the menu while someone else acts, so reviewing them cannot change the game. Press H for a concise private reading of both your hand and your own face-up cards.
 
-If an effect asks someone to respond or choose, the current action pauses. No player may begin an unrelated action until that response or choice is finished. Trying an unavailable action tells you who is deciding and the specific step still pending without revealing private cards.
+If an effect asks someone to respond or choose, the current action pauses. No player may begin an unrelated action until that response or choice is finished. Trying an unavailable action tells you who is deciding and the specific step still pending without revealing private cards. Check whose turn also reports this pending player and required action, even when that player is responding outside their own turn.
 
 \*\*Cards, suits, and draw checks\*\*
 
@@ -79,37 +79,33 @@ Only one Weapon card can be equipped. Equipping one never fires: it covers the C
 \* \*\*Winchester:\*\* Lever-action rifle, range 5.
 \* \*\*Volcanic:\*\* Repeating pistol, range 1; removes the normal one-BANG!-card limit during your turn.
 
-\*\*Shots, damage, recovery, and elimination\*\*
+\*\*Attacks, defense, recovery, and elimination\*\*
 
-A normal BANG! asks its target for one Missed! effect. Slab the Killer's BANG! cards require two. Missed!, Dodge, a successful Barrel, and ready defensive green cards can supply these effects. Dodge also draws one card. Slab's ability does not strengthen Gatling, Howitzer, Duel, or other non-BANG! attacks.
+Any attack showing the BANG! symbol asks its target for one Missed! effect unless the card says otherwise. This includes attacks such as BANG!, Punch, and Knife. Missed!, Dodge, a successful Barrel, and ready defensive green cards can supply that effect. Dodge then draws one card. Slab the Killer's BANG! cards require two Missed! effects, but his ability does not strengthen Punch, Knife, Gatling, Howitzer, Duel, or other cards that are not BANG! cards.
+
+Resolve every available Barrel check before choosing a card from hand. Each failed check leaves the attack pending; it does not force you to use Missed! until all remaining Barrel checks have been used or skipped. Jourdonnais with a real Barrel therefore has two separate checks. Each successful check supplies one Missed! effect.
 
 If the target supplies too few Missed! effects, the target loses one life. Duel instead alternates BANG! responses, and the first player unable or unwilling to answer loses one life. Indians! asks every other player for BANG! rather than Missed!.
 
 At zero or less life, play enough Beer from hand or use Sid Ketchum's ability enough times to return above zero. Beer may be played at full life but is discarded without healing. Beer also has no healing effect when only two players remain. Saloon and Tequila still work with two players. Life never exceeds maximum life.
 
-An eliminated player reveals their role and discards all cards unless Vulture Sam collects them. When cards are discarded, the eliminated player chooses their exact order across both the hand and cards in play, one card at a time; Finish uses the remaining menu order. The player responsible for eliminating an Outlaw draws three cards. If the Sheriff eliminates a Deputy, the Sheriff discards the entire hand and every card in play; a Sheriff who is also Vulture Sam collects first, then pays the penalty. Self-caused Duel damage has no responsible opponent.
+An eliminated player reveals their role and discards all cards unless Vulture Sam collects them. If both Vulture Sam and Vera Custer copying Vulture Sam are active, they split the cards: the collector nearest clockwise from the eliminated player chooses first, then the two collectors alternate until no cards remain. When cards are discarded normally, the eliminated player chooses their exact order across both the hand and cards in play, one card at a time; Finish uses the remaining menu order.
 
-\*\*How combat sounds resolve\*\*
+The player responsible for eliminating an Outlaw draws three cards. If the Sheriff eliminates a Deputy, the Sheriff discards the entire hand and every card in play; a Sheriff who is also Vulture Sam collects first, then pays the penalty. Damage caused by a player's own Duel does not give the opponent an elimination reward.
 
-PlayAural resolves one attack in a stable order, even when a bot answers immediately:
+\*\*Special attack rules\*\*
 
-1. The attack is announced and its attack sound begins. A firearm uses the sound of the shooter's currently active Weapon; with no active Weapon card, it uses the Colt .45.
-2. If a Barrel check is available, the target chooses whether to use it. A successful check stops one required Missed! effect; a failed check continues to the normal response without hiding the later hit sound.
-3. The target supplies the required defense or accepts the hit. The menu names the current requirement and shows only responses that are legal in that exact state.
-4. If life is lost, the matching impact plays and the new life total is announced. If the hit is lethal, Beer and Sid Ketchum recovery are resolved before elimination.
-5. On a real elimination, the fall begins about one-third of the way through the lethal impact, so both cues overlap naturally. The fall never holds up card collection or discarding, Outlaw rewards, Sheriff penalties, turn flow, or the victory check. Falls from eliminations resolved together are spaced slightly apart. A Ghost Town ghost leaving at turn end is not a new lethal hit and has no fall cue.
+During Duel, distance, Barrel, and Missed! do not apply. The challenged player answers first, and the two players alternate discarding BANG! cards. The first player who cannot or chooses not to answer loses one life.
 
-During Duel, range, Barrel, and Missed! do not apply. The challenged player answers first. Every discarded BANG! uses that responder's active Weapon sound. If a player loses before any BANG! is discarded, the opponent's Weapon fires before the body impact. If a BANG! was just discarded, that shot is the decisive shot and is not played twice.
-
-During Indians!, every other player resolves in clockwise order. A gunshot confirms that the current defender discarded BANG! successfully; the generic damage impact means that defender failed or chose not to defend and lost one life. These cues supplement the spoken result and never expose a private hand.
+During Indians!, every other player responds in clockwise order. Each must discard one BANG! card or lose one life. During Gatling and Howitzer, each other player instead needs one Missed! effect. PlayAural announces each person's result before moving to the next response.
 
 \*\*Complete card reference\*\*
 
 \*\*Immediate attacks and defenses\*\*
 
 \* \*\*BANG!:\*\* Fire at one player within current weapon range. Normally only one BANG! card per turn.
-\* \*\*Missed!:\*\* Supply one Missed! effect when a shot asks for one.
-\* \*\*Dodge:\*\* Supply one Missed! effect, then draw one card.
+\* \*\*Missed!:\*\* Supply one Missed! effect against an attack showing the BANG! symbol.
+\* \*\*Dodge:\*\* Supply one Missed! effect against an attack showing the BANG! symbol, then draw one card.
 \* \*\*Punch:\*\* Attack one player at distance 1; one Missed! effect prevents the damage.
 \* \*\*Springfield:\*\* Discard one extra hand card to shoot any other player at any distance.
 \* \*\*Duel:\*\* Challenge any other player. The target answers first, and the two players alternate BANG! cards until one stops and loses one life.
@@ -135,7 +131,7 @@ During Indians!, every other player resolves in clockwise order. A gunshot confi
 
 \*\*Blue cards in play\*\*
 
-\* \*\*Barrel:\*\* When a shot targets you, draw-check for Hearts to gain one Missed! effect. Jourdonnais can check once for the virtual Barrel and once for a real Barrel.
+\* \*\*Barrel:\*\* When an attack showing the BANG! symbol targets you, draw-check for Hearts to gain one Missed! effect. Use or skip all Barrel checks before choosing a defense card.
 \* \*\*Scope and Binocular:\*\* Each reduces the distance at which you see every other player by 1.
 \* \*\*Mustang and Hideout:\*\* Each increases the distance at which every other player sees you by 1.
 \* \*\*Jail:\*\* Place on another legal player. At that player's turn start, Hearts removes it safely; another suit skips the turn. The Sheriff cannot be jailed except at a 3-player table.
@@ -144,7 +140,7 @@ During Indians!, every other player resolves in clockwise order. A gunshot confi
 
 \*\*Green delayed-use cards\*\*
 
-\* \*\*Bible:\*\* Discard as one Missed! effect, then draw one card. If the same shot still needs another Missed! effect, an eligible card just drawn by Bible may be used immediately.
+\* \*\*Bible:\*\* Discard as one Missed! effect, then draw one card. If the same attack still needs another Missed! effect, an eligible card just drawn by Bible may be used immediately.
 \* \*\*Iron Plate, Sombrero, and Ten Gallon Hat:\*\* Discard as one Missed! effect.
 \* \*\*Buffalo Rifle:\*\* Choose and shoot any other player, regardless of distance.
 \* \*\*Can Can:\*\* Choose another player to lose one chosen card in play or one random hand card.
@@ -165,7 +161,7 @@ Life shown below is the character's normal maximum before the Sheriff's bonus.
 \* \*\*Calamity Janet — 4 life:\*\* Use BANG! as Missed! and Missed! as BANG!. A converted Missed! obeys the normal BANG! limit.
 \* \*\*El Gringo — 3 life:\*\* After surviving damage caused by another player's card, take one random hand card from that player per life lost. Self-played Duel and Dynamite do not trigger this.
 \* \*\*Jesse Jones — 4 life:\*\* The first normal draw may be taken randomly from another player's hand.
-\* \*\*Jourdonnais — 4 life:\*\* Always has a virtual Barrel, which stacks with one real Barrel.
+\* \*\*Jourdonnais — 4 life:\*\* Always has a virtual Barrel, which stacks with one real Barrel. Both checks come before cards such as Missed! or Dodge.
 \* \*\*Kit Carlson — 4 life:\*\* Look at the top three cards, keep the required draw count, and return the rest to the top without changing their relative order.
 \* \*\*Lucky Duke — 4 life:\*\* Reveal two cards for every draw check and choose which result counts.
 \* \*\*Paul Regret — 3 life:\*\* Every other player sees Paul at distance +1.
@@ -174,7 +170,7 @@ Life shown below is the character's normal maximum before the Sheriff's bonus.
 \* \*\*Sid Ketchum — 4 life:\*\* Between completed card effects, even outside his turn, discard exactly two hand cards to regain one life. He may also do this during his own lethal recovery, but cannot interrupt an unresolved card or choice.
 \* \*\*Slab the Killer — 4 life:\*\* Each BANG! card requires two Missed! effects.
 \* \*\*Suzy Lafayette — 4 life:\*\* When her hand becomes empty, draw one card after the current effect finishes.
-\* \*\*Vulture Sam — 4 life:\*\* Collect every hand card and card in play belonging to an eliminated player.
+\* \*\*Vulture Sam — 4 life:\*\* Collect every hand card and card in play belonging to an eliminated player. If Vera Custer is copying this ability, the two collectors alternate choices, beginning with the one nearest clockwise from the eliminated player.
 \* \*\*Willy the Kid — 4 life:\*\* May play any number of BANG! cards during his turn.
 \* \*\*Apache Kid — 3 life:\*\* Cards of Diamonds played by other players do not affect him, except during Duel.
 \* \*\*Belle Star — 4 life:\*\* During her turn, cards in front of other players have no effect.
@@ -251,11 +247,15 @@ The two lobby options are independent: changing Expanded cards and characters ne
 
 Use Read current event or press E whenever an event changes; PlayAural reads the exact active rule.
 
-\*\*Information and audio\*\*
+\*\*Information and accessible play\*\*
 
-Read hand gives a private, short TTS list containing only card name, rank, and suit. It remains available outside your turn, including while another player is choosing. Move through your disabled hand rows to inspect full visual card descriptions safely. Read life reports only your current and maximum life. Read role and character gives the longer identity, ability, alternate, life, and weapon summary. Read distances reports every legal seat distance and current weapon range. Read card piles reports draw, discard, and event counts. Read current event explains its active rule.
+Read your hand and in-play cards privately announces your hand first, then your own face-up cards. These short lists contain names, ranks, and suits but no rules descriptions. The action remains available outside your turn, including while another player is choosing. Full card descriptions stay in the card action rows where you decide what to play or use.
 
-View table opens a live public status panel with turn, phase, event, life, hand counts, characters, revealed roles, weapons, and cards in play. Time-critical responses are present in the current menu on touch clients. Speech always reports the rule-relevant result. Dedicated audio reinforces attacks, defenses, impacts, healing, elimination falls, and victory; event reveals, role reveals, rewards, penalties, General Store, and other effects without a dedicated cue rely on concise speech and standard card sounds. Table voice chat is a platform feature in the Chat area; BANG! does not assign it a game shortcut.
+Read distances opens a live status panel. Its first row shows your current Weapon and range; the other stable rows show your distance to each player still in play. Read the table opens a separate live public panel with the active turn, current event, life, hand counts, characters, revealed roles, weapons, and only the names of cards in play. Both panels update while open without forcing you to remember a long spoken list.
+
+Read life reports your current and maximum life. Read role and character reports your role, ability, alternate character, life, and Weapon. Read card piles reports the draw-pile size, discard-pile size, and top discard. Read current event explains the active event. Check whose turn reports both the active turn and any pending out-of-turn choice. Who's at the table opens the current table roster.
+
+Time-critical responses appear in the current menu on touch clients. Speech announces every rule-relevant result, while distinct sounds reinforce attacks, defenses, damage, healing, elimination, and victory without replacing the spoken information.
 
 \*\*Results\*\*
 
@@ -263,10 +263,10 @@ BANG! is scoreless. The game announces the winning side and every member of that
 
 \*\*Keyboard shortcuts\*\*
 
-\* \*\*H:\*\* Read your hand concisely.
+\* \*\*H:\*\* Read your hand and your own face-up cards concisely.
 \* \*\*R:\*\* Read your role, character, ability, alternate character, life, and weapon.
 \* \*\*L:\*\* Read your current and maximum life.
-\* \*\*D:\*\* Read distances and weapon range.
+\* \*\*D:\*\* Open the live distance and Weapon panel.
 \* \*\*P:\*\* Read draw, discard, and event-deck status.
 \* \*\*E:\*\* Read the current event.
 \* \*\*V:\*\* Open the live table status.

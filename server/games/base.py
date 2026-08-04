@@ -440,8 +440,16 @@ class Game(
         
         # Spectators should just be removed, not replaced by bots
         if player.is_spectator:
+            user = self.get_user(player)
+            username = user.username if user else player.name
             self.remove_spectator(player_id)
             self.play_table_leave_sound(player, is_spectator=True)
+            remove_member = getattr(self._table, "remove_member", None)
+            if callable(remove_member):
+                remove_member(
+                    username,
+                    voice_reason="voice-status-connection-lost",
+                )
             return
 
         if remaining_humans == 0:

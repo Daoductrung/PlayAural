@@ -305,16 +305,15 @@ def test_vietnamese_title_and_distance_sentence_are_polished():
         "bang-distance-line",
         player="Hacker",
         distance=1,
-        range=5,
     )
     report = Localization.get(
         "vi",
-        "bang-your-distances",
-        distances=distance,
+        "bang-distance-weapon",
         weapon="Winchester, tầm 5; Colt .45 nằm bên dưới",
     )
     assert ".." not in report
-    assert report.endswith(".")
+    assert distance == "Hacker cách bạn 1"
+    assert report == "Súng của bạn: Winchester, tầm 5; Colt .45 nằm bên dưới"
     assert cards.card_name(cards.CANTEEN, "vi") == "Bi đông"
     assert cards.card_name(cards.HOWITZER, "vi") == "Pháo lựu"
     assert cards.card_name(cards.PEPPERBOX, "vi") == "Súng lục nhiều nòng"
@@ -408,6 +407,14 @@ def test_hand_hotkey_is_concise_while_card_rows_keep_full_descriptions():
         border=cards.BLUE,
     )
     player.hand = [bang, weapon]
+    binocular = make_card(
+        1003,
+        cards.BINOCULAR,
+        suit=cards.DIAMONDS,
+        rank="10",
+        border=cards.BLUE,
+    )
+    player.in_play = [BangInPlayCard(binocular)]
     user = game.get_user(player)
     assert isinstance(user, MockUser)
     user.messages.clear()
@@ -417,8 +424,10 @@ def test_hand_hotkey_is_concise_while_card_rows_keep_full_descriptions():
     spoken = " ".join(speech_texts(game, game.players.index(player)))
     assert "BANG!, ace of spades" in spoken
     assert "Winchester, 8 of clubs" in spoken
+    assert "Your face-up cards are Binocular, 10 of diamonds." in spoken
     assert "Brown shot card" not in spoken
     assert "Blue Weapon" not in spoken
+    assert "distance reduced by one" not in spoken
 
     game.refresh_menus(player)
     game.flush_menus()
@@ -1684,6 +1693,62 @@ def test_public_status_always_identifies_effective_and_equipped_weapon():
     )
 
 
+def test_public_status_lists_in_play_names_without_card_details():
+    game = make_game(4)
+    player = game.players[0]
+    player.role = ROLE_SHERIFF
+    player.role_revealed = True
+    player.character = "bart_cassidy"
+    player.alternate_character = "black_jack"
+    player.life = player.max_life = 4
+    player.in_play = [
+        BangInPlayCard(
+            make_card(
+                1210,
+                cards.BINOCULAR,
+                rank="10",
+                suit=cards.DIAMONDS,
+                border=cards.BLUE,
+            )
+        )
+    ]
+    user = game.get_user(player)
+    assert isinstance(user, MockUser)
+
+    status = game._build_table_status(player, user)
+    line = next(
+        item.text for item in status.items if item.id == f"player:{player.id}"
+    )
+
+    assert "in play: Binocular" in line
+    assert "10 of diamonds" not in line
+    assert "distance reduced by one" not in line
+
+
+def test_read_distances_opens_a_live_status_box_with_stable_rows():
+    game = start_game(4, seed=167)
+    player = game.current_player
+    user = game.get_user(player)
+    assert isinstance(user, MockUser)
+    user.clear_messages()
+
+    game._action_read_distances(player, "read_distances")
+
+    assert player.id in game._live_status_boxes
+    assert "status_box" in user.menus
+    items = user.menus["status_box"]["items"]
+    assert [item.id for item in items] == [
+        "weapon",
+        *[
+            f"player:{target.id}"
+            for target in game.players_in_play
+            if target.id != player.id
+        ],
+    ]
+    assert items[0].text.startswith("Your weapon:")
+    assert not any(message.type == "speak" for message in user.messages)
+
+
 def test_public_status_distinguishes_an_active_ghost_from_elimination():
     game = make_game(4)
     player = game.players[0]
@@ -1702,6 +1767,24 @@ def test_public_status_distinguishes_an_active_ghost_from_elimination():
     )
 
     assert "status: active as a Ghost Town ghost" in line
+
+
+def test_target_choice_label_includes_the_current_character():
+    game = start_game(4, seed=170)
+    actor = game.current_player
+    target = game._clockwise_after(actor, exclude_actor=True)[0]
+    target.character = "jose_delgado"
+    target.hand = [make_card(1211, cards.BEER)]
+
+    label = game._get_choose_player_label(
+        actor,
+        f"choose_player_{target.id}",
+    )
+
+    assert label == (
+        f"{target.name}, {target.life} life, 1 card in hand; "
+        "character: José Delgado"
+    )
 
 
 def test_calamity_janet_can_play_missed_as_bang():
@@ -2481,9 +2564,11 @@ def test_successful_dodge_sound_matches_attack_type(
     game = start_game(4, seed=166)
     actor = game.current_player
     target = game._clockwise_after(actor, exclude_actor=True)[0]
-    missed = make_card(2317, cards.MISSED)
-    target.hand = [missed]
+    dodge = make_card(2317, cards.DODGE)
+    target.hand = [dodge]
     target.in_play.clear()
+    drawn = make_card(2318, cards.BEER)
+    game.deck.insert(0, drawn)
 
     game._start_shot(
         actor,
@@ -2494,12 +2579,42 @@ def test_successful_dodge_sound_matches_attack_type(
     assert game.decision and game.decision.kind == "missed"
     clear_user_messages(game)
 
-    game._use_decision_card(target, missed)
+    game._use_decision_card(target, dodge)
 
     assert expected_sound in sound_names(game)
     assert not set(sound_names(game)) & set(
         bang_audio.SOUND_DEFENSE_DODGE
     )
+    assert drawn in target.hand
+
+
+def test_jourdonnais_uses_both_barrels_before_hand_defenses():
+    game = start_game(4, seed=168)
+    actor = game.current_player
+    target = game._clockwise_after(actor, exclude_actor=True)[0]
+    target.character = "jourdonnais"
+    physical_barrel = make_card(2319, cards.BARREL, border=cards.BLUE)
+    missed = make_card(2320, cards.MISSED)
+    target.in_play = [BangInPlayCard(physical_barrel)]
+    target.hand = [missed]
+    game.deck = [
+        make_card(2321, cards.BEER, suit=cards.SPADES),
+        make_card(2322, cards.BEER, suit=cards.CLUBS),
+        *game.deck,
+    ]
+
+    game._start_shot(actor, target, source_kind=cards.KNIFE, required=1)
+    assert game.decision and game.decision.kind == "barrel"
+    game._resolve_item_decision(target, "use_barrel")
+
+    tick_until(game, lambda: game.decision is not None)
+    assert game.decision and game.decision.kind == "barrel"
+    assert missed in target.hand
+    game._resolve_item_decision(target, "use_barrel")
+
+    tick_until(game, lambda: game.decision is not None)
+    assert game.decision and game.decision.kind == "missed"
+    assert game.decision.card_ids == [missed.id]
 
 
 def test_hat_defenses_share_the_two_temporary_helmet_variants():
@@ -2562,6 +2677,34 @@ def test_barrel_success_uses_a_wood_impact_sound():
     assert set(sound_names(game)) & set(
         bang_audio.SOUND_IMPACT_WOOD_BARREL
     )
+
+
+def test_vietnamese_barrel_and_response_text_describe_nonbullet_attacks():
+    game = start_game(4, seed=169)
+    actor = game.current_player
+    target = game._clockwise_after(actor, exclude_actor=True)[0]
+    target_user = game.get_user(target)
+    assert isinstance(target_user, MockUser)
+    target_user._locale = "vi"
+    target_user.clear_messages()
+    frame = BangEffect(
+        kind="shot",
+        actor_id=actor.id,
+        target_id=target.id,
+        source=DamageSource(kind=cards.KNIFE, player_id=actor.id),
+    )
+
+    game._announce_barrel_result(target, frame, succeeded=True)
+
+    spoken = " ".join(speech_texts(game, game.players.index(target)))
+    assert f"Thùng gỗ của bạn chặn được Dao do {actor.name} gây ra." in spoken
+    assert "đạn" not in spoken
+    for kind in (cards.BARREL, cards.BIBLE, cards.DODGE, cards.MISSED):
+        description = Localization.get(
+            "vi",
+            f"bang-card-{kind.replace('_', '-')}-description",
+        )
+        assert "đạn" not in description
 
 
 def test_failed_barrel_cue_is_staggered_before_the_hit_sound():
@@ -2629,9 +2772,12 @@ def test_failed_barrel_cue_is_staggered_before_the_hit_sound():
     observer_text = " ".join(
         speech_texts(game, game.players.index(observer))
     )
-    assert f"{target.name}'s Barrel check against your shot fails" in actor_text
-    assert "Your Barrel check fails" in target_text
-    assert f"{target.name} fails a Barrel check" in observer_text
+    assert f"{target.name}'s Barrel fails to stop your BANG!" in actor_text
+    assert f"Your Barrel fails to stop {actor.name}'s BANG!" in target_text
+    assert (
+        f"{target.name}'s Barrel fails to stop {actor.name}'s BANG!"
+        in observer_text
+    )
     assert (
         f"Your BANG! costs {target.name} 1 life; they now have {target.life}"
         in actor_text
@@ -2851,6 +2997,54 @@ def test_simultaneous_eliminations_stagger_falls_without_delaying_victory():
         for scheduled in game.scheduled_sounds
         if scheduled[1] in bang_audio.SOUND_ELIMINATION_FALLS
     ]
+
+
+def test_vulture_sam_and_vera_custer_split_cards_clockwise_and_alternate():
+    game = start_game(4, seed=176)
+    victim, vera, sam, _ = game.players
+    for player in game.players:
+        player.character = "bart_cassidy"
+        player.copied_character = ""
+        player.hand.clear()
+        player.in_play.clear()
+    victim.role = ROLE_DEPUTY
+    vera.character = "vera_custer"
+    vera.copied_character = "vulture_sam"
+    sam.character = "vulture_sam"
+    public_card = make_card(2720, cards.BARREL, border=cards.BLUE)
+    victim.in_play = [BangInPlayCard(public_card)]
+    victim.hand = [
+        make_card(2721, cards.BANG),
+        make_card(2722, cards.MISSED),
+    ]
+    game.effect_stack = [
+        BangEffect(
+            kind="elimination",
+            target_id=victim.id,
+            source=DamageSource(kind="high_noon"),
+        )
+    ]
+    game.decision = None
+
+    game._continue_effects()
+
+    assert game.decision and game.decision.kind == "vulture"
+    assert game.decision.player_id == vera.id
+    game._resolve_vulture_item(
+        vera,
+        game.decision,
+        f"in_play_{public_card.id}",
+    )
+    assert game.decision and game.decision.player_id == sam.id
+    game._resolve_vulture_item(sam, game.decision, "random_hand")
+    assert game.decision and game.decision.player_id == vera.id
+    game._resolve_vulture_item(vera, game.decision, "random_hand")
+
+    assert not victim.hand
+    assert not victim.in_play
+    assert len(vera.hand) == 2
+    assert public_card in vera.hand
+    assert len(sam.hand) == 1
 
 
 def test_elimination_fall_trigger_survives_json_round_trip():
@@ -4819,6 +5013,40 @@ def test_waiting_error_does_not_reveal_an_uncommitted_hand_card():
     assert "Tequila" not in reason[1]["action"]
 
 
+def test_whose_turn_also_reports_an_out_of_turn_pending_action():
+    game = start_game(4, seed=171)
+    active = game.current_player
+    owner = game._clockwise_after(active, exclude_actor=True)[0]
+    observer = next(
+        player
+        for player in game.players
+        if player.id not in {active.id, owner.id}
+    )
+    tequila = make_card(2620, cards.TEQUILA)
+    owner.hand = [tequila]
+    game.decision = None
+    game.play_intent = BangPlayIntent(
+        kind="card",
+        actor_id=owner.id,
+        card_id=tequila.id,
+        stage="target",
+    )
+    observer_user = game.get_user(observer)
+    assert isinstance(observer_user, MockUser)
+    observer_user.clear_messages()
+
+    game._action_whose_turn(observer, "whose_turn")
+
+    spoken = speech_texts(game, game.players.index(observer))
+    assert any(active.name in text for text in spoken)
+    assert Localization.get(
+        "en",
+        "bang-error-waiting-for-player",
+        player=owner.name,
+        action=Localization.get("en", "bang-waiting-intent-target"),
+    ) in spoken
+
+
 def test_public_card_broadcasts_render_for_each_listener_locale():
     game = start_game(4, seed=149)
     actor = game.current_player
@@ -5920,12 +6148,16 @@ def test_manuals_are_synchronized_and_cover_accessible_play():
         "The story",
         "Your objective",
         "A turn, step by step",
-        "How combat sounds resolve",
+        "Attacks, defense, recovery, and elimination",
+        "Special attack rules",
+        "Information and accessible play",
         "Expanded cards and characters",
         "Turn-changing events",
         "Choosing a target commits the play immediately",
-        "the first turn starts ten seconds",
-        "fall begins about one-third",
+        "two separate checks",
+        "alternate until no cards remain",
+        "only the names of cards in play",
+        "pending out-of-turn choice",
         "Hear who is currently at the table",
     ):
         assert required in en
@@ -5933,12 +6165,16 @@ def test_manuals_are_synchronized_and_cover_accessible_play():
         "Chuyện ở miền biên ải",
         "Mục tiêu của bạn",
         "Một lượt, từng bước một",
-        "Diễn biến âm thanh khi giao chiến",
+        "Tấn công, phòng thủ, hồi máu và bị hạ",
+        "Quy tắc riêng của một số đòn đánh",
+        "Thông tin và cách chơi dễ tiếp cận",
         "Bài và nhân vật mở rộng",
         "Biến cố đổi luật",
         "Chọn mục tiêu là chốt nước đi ngay",
-        "lượt đầu bắt đầu sau đó 10 giây",
-        "tiếng ngã bắt đầu",
+        "được thử hai lần riêng biệt",
+        "luân phiên lấy từng lá cho tới hết",
+        "chỉ tên các lá trước mặt",
+        "lựa chọn ngoài lượt",
         "Nghe danh sách người hiện có ở bàn",
     ):
         assert required in vi
@@ -5950,6 +6186,10 @@ def test_manuals_are_synchronized_and_cover_accessible_play():
     ) < vi.index(r"\*\*Một lượt, từng bước một\*\*")
     assert "Toggle table voice chat" not in en
     assert "Bật hoặc tắt đàm thoại bàn" not in vi
+    assert "the first turn starts ten seconds" not in en
+    assert "fall begins about one-third" not in en
+    assert "lượt đầu bắt đầu sau đó 10 giây" not in vi
+    assert "tiếng ngã bắt đầu" not in vi
     assert "Bồi" not in vi
     assert "Đầm" not in vi
     assert "Già" not in vi

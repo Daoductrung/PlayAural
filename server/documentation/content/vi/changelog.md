@@ -1,5 +1,26 @@
 Nhật ký thay đổi
 
+Thứ Tư 5 Tháng Tám 2026
+
+Tính năng mới:
+
+* Tiếng Tây Ban Nha hiện đã có trên máy chủ, phần mềm máy tính, web, di động, và tài liệu người chơi dưới dạng bản dịch cộng đồng của UnDuende (Storm Demoner). Nội dung chưa được dịch sang tiếng Tây Ban Nha sẽ dùng bản tiếng Anh.
+* Gợi ý trong menu giờ mặc định đưa phần mô tả có sẵn vào ngay từng lựa chọn trên mọi máy khách. Nếu muốn dòng ngắn hơn, hãy tắt tại Cá nhân và Tùy chỉnh > Tùy chỉnh chung > Hỗ trợ tiếp cận > Gợi ý trong menu; trên máy tính, bạn vẫn có thể nhấn Space để nghe trợ giúp tại các mục hệ thống và tùy chọn trước ván có hỗ trợ.
+* Tên đăng nhập mới giờ có thể dùng chữ cái của mọi ngôn ngữ, chữ số, cùng dấu cách đơn, nên bạn có thể dùng họ tên tiếng Việt đầy đủ trong giới hạn từ 3 đến 30 ký tự.
+
+Cải thiện:
+
+* Các mục thông tin của BANG! Miền Tây Khói Lửa giờ dễ theo dõi hơn: Lượt của ai nêu cả lựa chọn ngoài lượt đang chờ, Xem khoảng cách và tầm súng mở thành màn hình trạng thái trực tiếp, Nghe bài trên tay và trước mặt đọc cả bài trước mặt của bạn, Xem toàn bàn giữ dòng bài công khai ngắn gọn, và lựa chọn mục tiêu nêu thêm nhân vật.
+* BANG! Miền Tây Khói Lửa giờ dùng lời báo và âm thanh phòng thủ đúng với phát súng, Dao, Cú đấm, và các đòn có biểu tượng BANG! khác. Nhạc nền và âm thanh miền Tây cũng đã được làm mới.
+* Trò chuyện thoại trên phần mềm máy tính giờ tham gia và rời nhanh hơn, giữ phản hồi tốt trong phiên dài, và bảo toàn chất lượng âm thanh nhận vào, kể cả âm thanh nổi. Khử ồn và khử tiếng vọng chỉ tác động lên âm thanh mic bạn gửi đi.
+* Việc tìm tên đăng nhập giờ không phân biệt chữ hoa chữ thường khi đăng nhập, gửi lời mời kết bạn, xem hồ sơ, và gửi tin nhắn riêng; mọi máy khách vẫn hiển thị đúng tên đã đăng ký.
+
+Sửa lỗi:
+
+* Trong BANG! Miền Tây Khói Lửa, Jourdonnais giờ có thể thử cả Thùng gỗ từ năng lực lẫn Thùng gỗ đang trang bị trước khi dùng bài phòng thủ trên tay. Khi hai người cùng có năng lực của Vulture Sam, người gần nạn nhân nhất theo chiều kim đồng hồ lấy lá đầu tiên, rồi họ luân phiên chia các lá còn lại.
+* Khán giả đã mất kết nối giờ được xóa khỏi Ai đang ở trong bàn thay vì tiếp tục nằm trong danh sách.
+* Gửi tin nhắn riêng cho chính mình không còn báo rằng bạn không phải bạn bè với tài khoản của mình.
+
 Thứ Bảy 1 Tháng Tám 2026
 
 Cải thiện:

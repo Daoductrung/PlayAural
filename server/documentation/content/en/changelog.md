@@ -1,5 +1,26 @@
 Changelog
 
+Wednesday 5 August 2026
+
+New Additions:
+
+* Spanish is now available across the server, desktop, web, mobile, and player guides as a community translation by UnDuende (Storm Demoner). Content not yet translated into Spanish falls back to English.
+* Menu Hints now show available descriptions directly in menu choices by default on every client. Turn them off under Personal and Options > General options > Accessibility > Menu Hints for shorter rows; desktop users can still press Space for help on supported system and game-setup choices.
+* New account names may now use letters in any language, numbers, and single spaces, making full Vietnamese names possible while keeping the 3-to-30-character limit.
+
+Improvements:
+
+* BANG! The Bullet information actions are now easier to review: Whose turn reports pending out-of-turn choices, Read distances remains open as a live status panel, Read your hand and in-play cards includes your face-up cards, Read the table keeps public card rows concise, and target choices identify each character.
+* BANG! The Bullet now uses attack-specific defense wording and sounds for gunshots, Knife, Punch, and other attacks with a BANG! symbol. Its Western soundtrack and ambience have also been refreshed.
+* Desktop Voice Chat now joins and leaves more quickly, stays responsive during long sessions, and preserves the quality of incoming audio, including stereo. Microphone noise and echo cancellation affect only the audio you send.
+* Username matching is now case-insensitive throughout login, friend requests, profiles, and private messages, while every client continues to show the account's registered spelling.
+
+Bug Fixes:
+
+* In BANG! The Bullet, Jourdonnais may now use both his built-in and equipped Barrel checks before playing a defense from his hand. When two players have Vulture Sam's ability, the one nearest the eliminated player clockwise takes the first card, then they divide the remaining cards alternately.
+* Disconnected spectators are now removed from Who's at the table instead of remaining in the roster.
+* Sending a private message to yourself no longer reports that you are not friends with your own account.
+
 Saturday 1 August 2026
 
 Improvements:

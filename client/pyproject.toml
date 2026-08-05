@@ -18,6 +18,7 @@ dependencies = [
     "psutil",
     "keyring>=24.0",
     "livekit>=1.1.5",
+    "numpy>=1.26",
     "sounddevice>=0.5.5",
 ]
 

@@ -3,10 +3,17 @@
 from __future__ import annotations
 
 import asyncio
+import queue
 import struct
 import threading
+import time
 import traceback
-from typing import Any, Awaitable, Callable
+from collections import deque
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass, field
+from typing import Any
+
+import numpy as np
 
 try:
     from livekit import rtc
@@ -37,9 +44,12 @@ VOICE_INPUT_QUEUE_MS = 200
 VOICE_INPUT_QUEUE_FRAMES = VOICE_INPUT_QUEUE_MS // VOICE_INPUT_FRAME_MS
 VOICE_REMOTE_STREAM_QUEUE_MS = 300
 VOICE_REMOTE_STREAM_QUEUE_FRAMES = VOICE_REMOTE_STREAM_QUEUE_MS // VOICE_IO_BLOCK_MS
-VOICE_MIXER_QUEUE_MS = 200
-VOICE_MIXER_QUEUE_FRAMES = VOICE_MIXER_QUEUE_MS // VOICE_IO_BLOCK_MS
 VOICE_OUTPUT_BUFFER_MS = 250
+VOICE_OUTPUT_STARTUP_MS = 40
+VOICE_OUTPUT_IDLE_RESET_MS = 200
+VOICE_ECHO_REFERENCE_QUEUE_FRAMES = 3
+VOICE_REMOTE_TRACK_DRAIN_MS = 60
+VOICE_MIC_DRAIN_TIMEOUT_MS = 250
 
 
 def _normalize_device_part(value: Any) -> str:
@@ -95,45 +105,275 @@ def resolve_audio_input_device(device_id: str) -> tuple[int | None, str, str, bo
 
 
 def _apply_pcm_gain(data: bytearray, gain: float) -> None:
-    """Apply gain multiplier to int16 PCM samples in a bytearray.
-
-    Pure Python implementation — no numpy required.
-    Works in-place on the bytearray to avoid memory allocations.
-    """
+    """Apply gain to int16 PCM without stalling the receive event loop."""
     if gain == 1.0:
         return
-    n = len(data) // 2  # number of int16 samples
-    # Process in chunks of 512 samples to avoid excessive struct overhead
-    CHUNK = 512
-    for chunk_start in range(0, n, CHUNK):
-        chunk_end = min(chunk_start + CHUNK, n)
-        for i in range(chunk_start, chunk_end):
-            sample = struct.unpack_from("<h", data, i * 2)[0]
-            scaled = int(sample * gain)
-            # Clamp to int16 range
-            if scaled > 32767:
-                scaled = 32767
-            elif scaled < -32768:
-                scaled = -32768
-            struct.pack_into("<h", data, i * 2, scaled)
+    samples = np.frombuffer(data, dtype="<i2")
+    scaled = samples.astype(np.float32) * gain
+    np.clip(scaled, -32_768, 32_767, out=scaled)
+    samples[:] = scaled
 
 
-class _AudioFrameIterator:
-    """Expose only decoded frames from a LiveKit AudioStream."""
+@dataclass(slots=True)
+class _CapturedInputFrame:
+    pcm: bytes
+    input_delay: float
+    captured_at: float
 
-    def __init__(self, stream: Any) -> None:
-        self.stream = stream
 
-    def __aiter__(self) -> "_AudioFrameIterator":
-        return self
+class _BoundedInputFrameBuffer:
+    """Thread-safe callback-to-async buffer that keeps the newest mic frames."""
 
-    async def __anext__(self) -> Any:
-        event = await self.stream.__anext__()
-        return event.frame
+    def __init__(
+        self,
+        loop: asyncio.AbstractEventLoop,
+        *,
+        capacity: int,
+    ) -> None:
+        if capacity < 1:
+            raise ValueError("capacity must be positive")
+        self._loop = loop
+        self._capacity = capacity
+        self._frames: deque[_CapturedInputFrame] = deque()
+        self._lock = threading.Lock()
+        self._event = asyncio.Event()
+        self._wake_pending = False
+        self._closed = False
+        self.dropped_frames = 0
+
+    def put(self, frame: _CapturedInputFrame) -> None:
+        with self._lock:
+            if self._closed:
+                return
+            if len(self._frames) >= self._capacity:
+                self._frames.popleft()
+                self.dropped_frames += 1
+            self._frames.append(frame)
+            self._schedule_wake_locked()
+
+    def close(self) -> None:
+        with self._lock:
+            if self._closed:
+                return
+            self._closed = True
+            self._schedule_wake_locked()
+
+    def discard(self) -> None:
+        with self._lock:
+            self._frames.clear()
+
+    def _schedule_wake_locked(self) -> None:
+        if self._wake_pending:
+            return
+        self._wake_pending = True
+        try:
+            self._loop.call_soon_threadsafe(self._wake)
+        except RuntimeError:
+            self._wake_pending = False
+
+    def _wake(self) -> None:
+        with self._lock:
+            self._wake_pending = False
+        self._event.set()
+
+    async def get(self) -> _CapturedInputFrame | None:
+        while True:
+            # Clear before inspecting the queue so a producer can never set the
+            # event between our empty check and the clear operation.
+            self._event.clear()
+            with self._lock:
+                if self._frames:
+                    return self._frames.popleft()
+                if self._closed:
+                    return None
+            await self._event.wait()
+
+
+class _AudioDelayEstimator:
+    """Share the latest PortAudio render delay with microphone processing."""
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._output_delay = 0.0
+
+    def set_output_delay(self, delay: float) -> None:
+        with self._lock:
+            self._output_delay = max(float(delay), 0.0)
+
+    def get_output_delay(self) -> float:
+        with self._lock:
+            return self._output_delay
+
+
+@dataclass(slots=True)
+class _RealtimeInputCapture:
+    source: Any
+    input_stream: Any
+    task: asyncio.Task[None]
+    frames: _BoundedInputFrameBuffer
+    apm: Any
+    delay_estimator: _AudioDelayEstimator
+    processing_lock: threading.Lock = field(default_factory=threading.Lock)
+    closed: bool = False
+
+    async def aclose(self) -> None:
+        if self.closed:
+            return
+        self.closed = True
+        await asyncio.to_thread(self._close_input_stream)
+        self.frames.close()
+        try:
+            await asyncio.wait_for(
+                asyncio.shield(self.task),
+                timeout=VOICE_MIC_DRAIN_TIMEOUT_MS / 1_000,
+            )
+        except asyncio.TimeoutError:
+            self.task.cancel()
+            await asyncio.gather(self.task, return_exceptions=True)
+            self.frames.discard()
+
+    def _close_input_stream(self) -> None:
+        try:
+            self.input_stream.stop()
+        except Exception:
+            pass
+        try:
+            self.input_stream.close()
+        except Exception:
+            pass
+
+
+async def _open_input_capture(
+    *,
+    loop: asyncio.AbstractEventLoop,
+    input_device: int | None,
+) -> _RealtimeInputCapture:
+    """Open microphone capture without scheduling fallible Queue.put callbacks."""
+    if rtc is None or sd is None:
+        raise RuntimeError("Voice input dependencies are unavailable")
+    source = rtc.AudioSource(
+        VOICE_SAMPLE_RATE,
+        VOICE_INPUT_CHANNELS,
+        queue_size_ms=VOICE_INPUT_QUEUE_MS,
+        loop=loop,
+    )
+    apm = rtc.AudioProcessingModule(
+        echo_cancellation=True,
+        noise_suppression=True,
+        high_pass_filter=True,
+        auto_gain_control=True,
+    )
+    delay_estimator = _AudioDelayEstimator()
+    processing_lock = threading.Lock()
+    frames = _BoundedInputFrameBuffer(loop, capacity=VOICE_INPUT_QUEUE_FRAMES)
+
+    def input_callback(indata: Any, frame_count: int, time_info: Any, status: Any) -> None:
+        try:
+            input_delay = max(
+                float(time_info.currentTime - time_info.inputBufferAdcTime),
+                0.0,
+            )
+        except Exception:
+            input_delay = 0.0
+        captured_at = time.monotonic()
+        frame_samples = VOICE_SAMPLE_RATE * VOICE_INPUT_FRAME_MS // 1_000
+        for start in range(0, frame_count - frame_samples + 1, frame_samples):
+            end = start + frame_samples
+            frames.put(
+                _CapturedInputFrame(
+                    pcm=indata[start:end, 0].tobytes(),
+                    input_delay=input_delay,
+                    captured_at=captured_at,
+                )
+            )
+
+    def open_stream() -> Any:
+        input_stream = sd.InputStream(
+            callback=input_callback,
+            dtype="int16",
+            channels=VOICE_INPUT_CHANNELS,
+            device=input_device,
+            samplerate=VOICE_SAMPLE_RATE,
+            blocksize=VOICE_IO_BLOCK_FRAMES,
+        )
+        try:
+            input_stream.start()
+        except Exception:
+            try:
+                input_stream.close()
+            except Exception:
+                pass
+            raise
+        return input_stream
+
+    try:
+        input_stream = await asyncio.to_thread(open_stream)
+    except Exception:
+        frames.close()
+        await source.aclose()
+        raise
+
+    async def pump() -> None:
+        frame_samples = VOICE_SAMPLE_RATE * VOICE_INPUT_FRAME_MS // 1_000
+        while True:
+            captured = await frames.get()
+            if captured is None:
+                return
+            frame = rtc.AudioFrame(
+                captured.pcm,
+                VOICE_SAMPLE_RATE,
+                VOICE_INPUT_CHANNELS,
+                frame_samples,
+            )
+            queue_delay = max(time.monotonic() - captured.captured_at, 0.0)
+            total_delay_ms = int(
+                (
+                    captured.input_delay
+                    + delay_estimator.get_output_delay()
+                    + queue_delay
+                )
+                * 1_000
+            )
+            try:
+                with processing_lock:
+                    apm.set_stream_delay_ms(total_delay_ms)
+                    apm.process_stream(frame)
+            except Exception:
+                pass
+            try:
+                await source.capture_frame(frame)
+            except Exception:
+                pass
+
+    task = asyncio.create_task(pump())
+    return _RealtimeInputCapture(
+        source=source,
+        input_stream=input_stream,
+        task=task,
+        frames=frames,
+        apm=apm,
+        delay_estimator=delay_estimator,
+        processing_lock=processing_lock,
+    )
+
+
+@dataclass(slots=True)
+class _RemoteTrackPlayback:
+    """Runtime resources for one independently decoded remote audio track."""
+
+    stream: Any
+    buffer: _BoundedPcmBuffer
+    task: asyncio.Task[None]
 
 
 class _RealtimeOutputPlayer:
-    """Mix remote audio without receive denoising or stereo channel collapse."""
+    """Render independent remote tracks without receive-side processing.
+
+    LiveKit's Python ``AudioMixer`` waits on every registered stream and treats
+    normal quiet periods as timeouts. Per-track buffers let PortAudio's device
+    clock decide the playout cadence, so a quiet participant cannot stall one
+    who is speaking.
+    """
 
     def __init__(
         self,
@@ -146,18 +386,25 @@ class _RealtimeOutputPlayer:
         self.get_volume = get_volume
         self.output_device = output_device
         self.num_channels = VOICE_PREFERRED_OUTPUT_CHANNELS
-        self.buffer = _BoundedPcmBuffer(
-            get_volume,
-            max_bytes=self._buffer_size(self.num_channels),
-            frame_bytes=self.num_channels * VOICE_SAMPLE_WIDTH_BYTES,
-        )
         self.output_stream = None
-        self.mixer = None
-        self.play_task: asyncio.Task | None = None
-        self.track_streams: dict[str, tuple[Any, _AudioFrameIterator]] = {}
+        self.track_streams: dict[str, _RemoteTrackPlayback] = {}
+        self._track_lock = asyncio.Lock()
+        self._track_buffers_lock = threading.Lock()
+        self._track_buffers: tuple[_BoundedPcmBuffer, ...] = ()
+        self._mix_scratch = np.zeros(
+            VOICE_IO_BLOCK_FRAMES * self.num_channels,
+            dtype=np.int32,
+        )
         self.running = False
         self.apm = None
         self.delay_estimator = None
+        self.apm_processing_lock = None
+        self._echo_processor_lock = threading.Lock()
+        self._echo_queue: queue.Queue[tuple[bytes, float | None] | None] = queue.Queue(
+            maxsize=VOICE_ECHO_REFERENCE_QUEUE_FRAMES
+        )
+        self._echo_stop = threading.Event()
+        self._echo_thread: threading.Thread | None = None
 
     @staticmethod
     def _buffer_size(num_channels: int) -> int:
@@ -171,10 +418,9 @@ class _RealtimeOutputPlayer:
 
     def _configure_channels(self, num_channels: int) -> None:
         self.num_channels = num_channels
-        self.buffer = _BoundedPcmBuffer(
-            self.get_volume,
-            max_bytes=self._buffer_size(num_channels),
-            frame_bytes=num_channels * VOICE_SAMPLE_WIDTH_BYTES,
+        self._mix_scratch = np.zeros(
+            VOICE_IO_BLOCK_FRAMES * num_channels,
+            dtype=np.int32,
         )
 
     def _start_output_stream(self) -> None:
@@ -195,6 +441,7 @@ class _RealtimeOutputPlayer:
                 )
                 output_stream.start()
                 self.output_stream = output_stream
+                self._start_echo_worker()
                 return
             except Exception as error:
                 last_error = error
@@ -209,27 +456,98 @@ class _RealtimeOutputPlayer:
         self, outdata: Any, frame_count: int, time_info: Any, status: Any
     ) -> None:
         bytes_needed = frame_count * self.num_channels * VOICE_SAMPLE_WIDTH_BYTES
-        chunk = self.buffer.read(bytes_needed)
-        copied = len(chunk)
-        if copied:
-            outdata[:copied] = chunk
-        if copied < bytes_needed:
-            outdata[copied:bytes_needed] = b"\x00" * (bytes_needed - copied)
+        self._render_remote_audio(outdata, bytes_needed)
         if self.apm is not None:
-            self._feed_echo_cancellation(bytes(outdata[:bytes_needed]), time_info)
+            self._queue_echo_reference(bytes(outdata[:bytes_needed]), time_info)
 
-    def _feed_echo_cancellation(self, rendered_pcm: bytes, time_info: Any) -> None:
-        apm = self.apm
-        if apm is None or rtc is None:
+    def _render_remote_audio(self, outdata: Any, bytes_needed: int) -> None:
+        """Mix ready tracks at the device deadline without waiting on quiet tracks."""
+        sample_count = bytes_needed // VOICE_SAMPLE_WIDTH_BYTES
+        output_samples = np.frombuffer(outdata, dtype="<i2", count=sample_count)
+        output_samples.fill(0)
+        with self._track_buffers_lock:
+            track_buffers = self._track_buffers
+        chunks = [buffer.read(bytes_needed) for buffer in track_buffers]
+        chunks = [chunk for chunk in chunks if chunk]
+        if not chunks:
             return
-        estimator = self.delay_estimator
-        if estimator is not None:
+        if len(chunks) == 1:
+            samples = np.frombuffer(chunks[0], dtype="<i2")
+            output_samples[: samples.size] = samples
+            return
+        if self._mix_scratch.size < sample_count:
+            self._mix_scratch = np.zeros(sample_count, dtype=np.int32)
+        mixed = self._mix_scratch[:sample_count]
+        mixed.fill(0)
+        for chunk in chunks:
+            samples = np.frombuffer(chunk, dtype="<i2")
+            mixed[: samples.size] += samples
+        np.clip(mixed, -32_768, 32_767, out=mixed)
+        output_samples[:] = mixed
+
+    def _queue_echo_reference(self, rendered_pcm: bytes, time_info: Any) -> None:
+        """Queue rendered PCM without doing signal processing in PortAudio's callback."""
+        if self.apm is None:
+            return
+        try:
+            output_delay = max(
+                float(time_info.outputBufferDacTime - time_info.currentTime),
+                0.0,
+            )
+        except Exception:
+            output_delay = None
+        item = (rendered_pcm, output_delay)
+        try:
+            self._echo_queue.put_nowait(item)
+        except queue.Full:
             try:
-                estimator.set_output_delay(
-                    max(float(time_info.outputBufferDacTime - time_info.currentTime), 0.0)
-                )
-            except Exception:
+                self._echo_queue.get_nowait()
+            except queue.Empty:
                 pass
+            try:
+                self._echo_queue.put_nowait(item)
+            except queue.Full:
+                pass
+
+    def _start_echo_worker(self) -> None:
+        if self._echo_thread is not None and self._echo_thread.is_alive():
+            return
+        self._discard_echo_references()
+        self._echo_stop.clear()
+        self._echo_thread = threading.Thread(
+            target=self._echo_worker_loop,
+            name="PlayAuralVoiceEchoReference",
+            daemon=True,
+        )
+        self._echo_thread.start()
+
+    def _echo_worker_loop(self) -> None:
+        while not self._echo_stop.is_set():
+            try:
+                item = self._echo_queue.get(timeout=0.1)
+            except queue.Empty:
+                continue
+            if item is None:
+                break
+            rendered_pcm, output_delay = item
+            with self._echo_processor_lock:
+                apm = self.apm
+                if apm is None or rtc is None:
+                    continue
+                estimator = self.delay_estimator
+                if estimator is not None and output_delay is not None:
+                    try:
+                        estimator.set_output_delay(output_delay)
+                    except Exception:
+                        pass
+                processing_lock = self.apm_processing_lock
+                if processing_lock is None:
+                    self._process_echo_reference(apm, rendered_pcm)
+                else:
+                    with processing_lock:
+                        self._process_echo_reference(apm, rendered_pcm)
+
+    def _process_echo_reference(self, apm: Any, rendered_pcm: bytes) -> None:
         try:
             mono_pcm = _downmix_to_mono(rendered_pcm, self.num_channels)
             frame_bytes = (
@@ -250,136 +568,202 @@ class _RealtimeOutputPlayer:
         except Exception:
             pass
 
-    def set_echo_processor(self, apm: Any, delay_estimator: Any) -> None:
-        """Provide a mono render reference for microphone-side echo cancellation."""
-        self.apm = apm
-        self.delay_estimator = delay_estimator
+    def _discard_echo_references(self) -> None:
+        while True:
+            try:
+                self._echo_queue.get_nowait()
+            except queue.Empty:
+                return
 
-    def clear_echo_processor(self, apm: Any, delay_estimator: Any) -> None:
-        if self.apm is apm:
-            self.apm = None
-        if self.delay_estimator is delay_estimator:
-            self.delay_estimator = None
+    def _stop_echo_worker(self) -> None:
+        self._echo_stop.set()
+        self._discard_echo_references()
+        try:
+            self._echo_queue.put_nowait(None)
+        except queue.Full:
+            pass
+        echo_thread = self._echo_thread
+        self._echo_thread = None
+        if echo_thread is not None and echo_thread.is_alive():
+            echo_thread.join(timeout=1.0)
+
+    def set_echo_processor(
+        self,
+        apm: Any,
+        delay_estimator: Any,
+        processing_lock: threading.Lock | None = None,
+    ) -> None:
+        """Provide a mono render reference for microphone-side echo cancellation."""
+        self._discard_echo_references()
+        with self._echo_processor_lock:
+            self.apm = apm
+            self.delay_estimator = delay_estimator
+            self.apm_processing_lock = processing_lock
+
+    def clear_echo_processor(
+        self,
+        apm: Any,
+        delay_estimator: Any,
+        processing_lock: threading.Lock | None = None,
+    ) -> None:
+        with self._echo_processor_lock:
+            if self.apm is apm:
+                self.apm = None
+            if self.delay_estimator is delay_estimator:
+                self.delay_estimator = None
+            if self.apm_processing_lock is processing_lock:
+                self.apm_processing_lock = None
+        self._discard_echo_references()
 
     async def start(self) -> None:
         if self.running:
             raise RuntimeError("Voice output is already running")
-        await asyncio.to_thread(self._start_output_stream)
         try:
-            self.mixer = rtc.AudioMixer(
-                sample_rate=VOICE_SAMPLE_RATE,
-                num_channels=self.num_channels,
-                blocksize=VOICE_IO_BLOCK_FRAMES,
-                stream_timeout_ms=40,
-                capacity=VOICE_MIXER_QUEUE_FRAMES,
-            )
+            await asyncio.to_thread(self._start_output_stream)
             self.running = True
-            self.play_task = asyncio.create_task(self._playback_loop())
         except Exception:
             await asyncio.to_thread(self._close_output_stream)
             raise
 
-    async def _playback_loop(self) -> None:
+    async def _consume_track(
+        self,
+        stream: Any,
+        buffer: _BoundedPcmBuffer,
+    ) -> None:
         try:
-            async for frame in self.mixer:
+            async for event in stream:
                 if not self.running:
                     break
-                self.buffer.extend(frame.data.tobytes())
+                buffer.extend(event.frame.data.tobytes())
         except asyncio.CancelledError:
             raise
         except Exception:
             traceback.print_exc()
-        finally:
-            self.running = False
+
+    def _refresh_track_buffers(self) -> None:
+        with self._track_buffers_lock:
+            self._track_buffers = tuple(
+                playback.buffer for playback in self.track_streams.values()
+            )
 
     async def add_track(self, track: Any) -> None:
-        if not self.running or self.mixer is None:
-            raise RuntimeError("Voice output is not running")
-        track_sid = getattr(track, "sid", "")
-        if not track_sid or track_sid in self.track_streams:
-            return
-        # Receive processing stays transparent: microphone cleanup belongs to the
-        # publisher, while speech, stereo music, and future media tracks retain
-        # their decoded channel content here.
-        stream = rtc.AudioStream(
-            track,
-            loop=self.loop,
-            capacity=VOICE_REMOTE_STREAM_QUEUE_FRAMES,
-            sample_rate=VOICE_SAMPLE_RATE,
-            num_channels=self.num_channels,
-            frame_size_ms=VOICE_IO_BLOCK_MS,
-            noise_cancellation=None,
-        )
-        iterator = _AudioFrameIterator(stream)
-        try:
-            self.mixer.add_stream(iterator)
-        except Exception:
+        async with self._track_lock:
+            if not self.running:
+                raise RuntimeError("Voice output is not running")
+            track_sid = getattr(track, "sid", "")
+            if not track_sid or track_sid in self.track_streams:
+                return
+            # Receive processing stays transparent: microphone cleanup belongs to the
+            # publisher, while speech, stereo music, and future media tracks retain
+            # their decoded channel content here.
+            stream = rtc.AudioStream(
+                track,
+                loop=self.loop,
+                capacity=VOICE_REMOTE_STREAM_QUEUE_FRAMES,
+                sample_rate=VOICE_SAMPLE_RATE,
+                num_channels=self.num_channels,
+                frame_size_ms=VOICE_IO_BLOCK_MS,
+                noise_cancellation=None,
+            )
+            buffer = _BoundedPcmBuffer(
+                self.get_volume,
+                max_bytes=self._buffer_size(self.num_channels),
+                frame_bytes=self.num_channels * VOICE_SAMPLE_WIDTH_BYTES,
+                startup_bytes=(
+                    VOICE_SAMPLE_RATE
+                    * self.num_channels
+                    * VOICE_SAMPLE_WIDTH_BYTES
+                    * VOICE_OUTPUT_STARTUP_MS
+                    // 1_000
+                ),
+                idle_reset_bytes=(
+                    VOICE_SAMPLE_RATE
+                    * self.num_channels
+                    * VOICE_SAMPLE_WIDTH_BYTES
+                    * VOICE_OUTPUT_IDLE_RESET_MS
+                    // 1_000
+                ),
+            )
             try:
-                await stream.aclose()
+                task = asyncio.create_task(self._consume_track(stream, buffer))
             except Exception:
-                pass
-            raise
-        self.track_streams[track_sid] = (stream, iterator)
+                try:
+                    await stream.aclose()
+                except Exception:
+                    pass
+                raise
+            self.track_streams[track_sid] = _RemoteTrackPlayback(
+                stream=stream,
+                buffer=buffer,
+                task=task,
+            )
+            self._refresh_track_buffers()
 
     async def remove_track(self, track: Any) -> None:
         track_sid = getattr(track, "sid", "")
-        entry = self.track_streams.pop(track_sid, None)
-        if entry is None:
-            return
-        stream, iterator = entry
-        if self.mixer is not None:
-            self.mixer.remove_stream(iterator)
-        try:
-            await stream.aclose()
-        except Exception:
-            pass
+        async with self._track_lock:
+            playback = self.track_streams.get(track_sid)
+            if playback is None:
+                return
+            # Give already-decoded speech a brief chance to reach the output before
+            # retiring an unpublished track. This protects sentence endings without
+            # retaining stale audio or adding steady-state latency.
+            await asyncio.sleep(VOICE_REMOTE_TRACK_DRAIN_MS / 1_000)
+            self.track_streams.pop(track_sid, None)
+            self._refresh_track_buffers()
+            playback.task.cancel()
+            try:
+                await playback.task
+            except asyncio.CancelledError:
+                pass
+            try:
+                await playback.stream.aclose()
+            except Exception:
+                pass
 
     def clear_buffer(self) -> None:
-        self.buffer.clear()
+        with self._track_buffers_lock:
+            track_buffers = self._track_buffers
+        for buffer in track_buffers:
+            buffer.clear()
 
     def _close_output_stream(self) -> None:
         output_stream = self.output_stream
         self.output_stream = None
-        if output_stream is None:
-            return
-        try:
-            output_stream.abort()
-        except Exception:
-            pass
-        try:
-            output_stream.close()
-        except Exception:
-            pass
+        if output_stream is not None:
+            try:
+                output_stream.abort()
+            except Exception:
+                pass
+            try:
+                output_stream.close()
+            except Exception:
+                pass
+        self._stop_echo_worker()
 
     async def aclose(self) -> None:
         self.running = False
-        self.buffer.clear()
+        self.clear_buffer()
         await asyncio.to_thread(self._close_output_stream)
-        if self.play_task is not None and not self.play_task.done():
-            self.play_task.cancel()
-            try:
-                await self.play_task
-            except asyncio.CancelledError:
-                pass
-        self.play_task = None
-        entries = list(self.track_streams.values())
-        self.track_streams.clear()
-        for stream, iterator in entries:
-            if self.mixer is not None:
-                self.mixer.remove_stream(iterator)
-        if entries:
-            await asyncio.gather(
-                *(stream.aclose() for stream, _ in entries),
-                return_exceptions=True,
-            )
-        if self.mixer is not None:
-            try:
-                await self.mixer.aclose()
-            except Exception:
-                pass
-        self.mixer = None
-        self.apm = None
-        self.delay_estimator = None
+        async with self._track_lock:
+            entries = list(self.track_streams.values())
+            self.track_streams.clear()
+            self._refresh_track_buffers()
+            for playback in entries:
+                playback.task.cancel()
+            if entries:
+                await asyncio.gather(
+                    *(playback.task for playback in entries),
+                    return_exceptions=True,
+                )
+                await asyncio.gather(
+                    *(playback.stream.aclose() for playback in entries),
+                    return_exceptions=True,
+                )
+        with self._echo_processor_lock:
+            self.apm = None
+            self.delay_estimator = None
+            self.apm_processing_lock = None
 
 
 class VoiceManager:
@@ -402,7 +786,6 @@ class VoiceManager:
         self.thread: threading.Thread | None = None
         self.ready = threading.Event()
         self.room = None
-        self.input_devices = None
         self.output_player = None
         self.input_capture = None
         self.local_publication = None
@@ -560,6 +943,24 @@ class VoiceManager:
         def on_track_unsubscribed(track: Any, publication: Any, participant: Any) -> None:
             asyncio.run_coroutine_threadsafe(self._remove_remote_track(track), self.loop)
 
+        @room.on("track_muted")
+        def on_track_muted(publication: Any, participant: Any) -> None:
+            track = getattr(publication, "track", None)
+            if track is not None and getattr(track, "kind", None) == rtc.TrackKind.KIND_AUDIO:
+                asyncio.run_coroutine_threadsafe(
+                    self._remove_remote_track(track),
+                    self.loop,
+                )
+
+        @room.on("track_unmuted")
+        def on_track_unmuted(publication: Any, participant: Any) -> None:
+            track = getattr(publication, "track", None)
+            if track is not None and getattr(track, "kind", None) == rtc.TrackKind.KIND_AUDIO:
+                asyncio.run_coroutine_threadsafe(
+                    self._add_remote_track(track),
+                    self.loop,
+                )
+
         @room.on("disconnected")
         def on_disconnected(reason: Any) -> None:
             if self.connected:
@@ -577,7 +978,11 @@ class VoiceManager:
         for participant in self.room.remote_participants.values():
             for publication in participant.track_publications.values():
                 track = getattr(publication, "track", None)
-                if track and getattr(track, "kind", None) == rtc.TrackKind.KIND_AUDIO:
+                if (
+                    track
+                    and not bool(getattr(publication, "muted", False))
+                    and getattr(track, "kind", None) == rtc.TrackKind.KIND_AUDIO
+                ):
                     await self._add_remote_track(track)
 
     async def _add_remote_track(self, track: Any) -> None:
@@ -612,21 +1017,9 @@ class VoiceManager:
         self._mic_busy = True
         try:
             if enabled:
-                if not self.input_devices:
-                    self.input_devices = rtc.MediaDevices(
-                        loop=self.loop,
-                        input_sample_rate=VOICE_SAMPLE_RATE,
-                        output_sample_rate=VOICE_SAMPLE_RATE,
-                        num_channels=VOICE_INPUT_CHANNELS,
-                        blocksize=VOICE_IO_BLOCK_FRAMES,
-                    )
-                self.input_capture = self.input_devices.open_input(
+                self.input_capture = await _open_input_capture(
+                    loop=self.loop,
                     input_device=input_device,
-                    enable_aec=True,
-                    noise_suppression=True,
-                    high_pass_filter=True,
-                    auto_gain_control=True,
-                    queue_capacity=VOICE_INPUT_QUEUE_FRAMES,
                 )
                 self._link_input_processing_to_output(self.input_capture)
                 self.local_track = rtc.LocalAudioTrack.create_audio_track(
@@ -657,6 +1050,7 @@ class VoiceManager:
         self.output_player.set_echo_processor(
             getattr(capture, "apm", None),
             getattr(capture, "delay_estimator", None),
+            getattr(capture, "processing_lock", None),
         )
 
     def _unlink_input_processing_from_output(self, capture: Any) -> None:
@@ -665,6 +1059,7 @@ class VoiceManager:
         self.output_player.clear_echo_processor(
             getattr(capture, "apm", None),
             getattr(capture, "delay_estimator", None),
+            getattr(capture, "processing_lock", None),
         )
 
     async def _disable_microphone(self) -> None:
@@ -675,16 +1070,21 @@ class VoiceManager:
         self.local_publication = None
         self.local_track = None
         self._unlink_input_processing_from_output(capture)
-        if source:
-            try:
-                source.clear_queue()
-            except Exception:
-                pass
         if capture:
             try:
                 await capture.aclose()
             except Exception:
                 pass
+        if source:
+            wait_for_playout = getattr(source, "wait_for_playout", None)
+            if callable(wait_for_playout):
+                try:
+                    await asyncio.wait_for(
+                        wait_for_playout(),
+                        timeout=VOICE_MIC_DRAIN_TIMEOUT_MS / 1_000,
+                    )
+                except Exception:
+                    pass
         if publication and self.room:
             sid = getattr(publication, "sid", "")
             if sid:
@@ -693,6 +1093,10 @@ class VoiceManager:
                 except Exception:
                     pass
         if source:
+            try:
+                source.clear_queue()
+            except Exception:
+                pass
             try:
                 await source.aclose()
             except Exception:
@@ -724,7 +1128,6 @@ class VoiceManager:
                 await output_player.aclose()
             except Exception:
                 pass
-        self.input_devices = None
         self.connected = False
         self.on_mic_state(False)
         self.on_state("disconnected")
@@ -758,7 +1161,7 @@ def _downmix_to_mono(data: bytes, num_channels: int) -> bytes:
 
 
 class _BoundedPcmBuffer:
-    """Thread-safe newest-first PCM buffer with per-frame volume gain."""
+    """Thread-safe latency-bounded PCM FIFO with per-frame volume gain."""
 
     def __init__(
         self,
@@ -766,6 +1169,8 @@ class _BoundedPcmBuffer:
         *,
         max_bytes: int,
         frame_bytes: int,
+        startup_bytes: int = 0,
+        idle_reset_bytes: int = 0,
     ) -> None:
         if frame_bytes < VOICE_SAMPLE_WIDTH_BYTES:
             raise ValueError("frame_bytes must hold at least one PCM sample")
@@ -773,6 +1178,16 @@ class _BoundedPcmBuffer:
         self._max_bytes = max_bytes - (max_bytes % frame_bytes)
         if self._max_bytes < frame_bytes:
             raise ValueError("max_bytes must hold at least one PCM frame")
+        self._startup_bytes = min(
+            self._max_bytes,
+            max(0, startup_bytes - (startup_bytes % frame_bytes)),
+        )
+        self._idle_reset_bytes = max(
+            0,
+            idle_reset_bytes - (idle_reset_bytes % frame_bytes),
+        )
+        self._idle_bytes = 0
+        self._playout_started = self._startup_bytes == 0
         self._inner = bytearray()
         self._get_volume = get_volume
         self._lock = threading.Lock()
@@ -806,10 +1221,23 @@ class _BoundedPcmBuffer:
         if max_bytes <= 0:
             return b""
         with self._lock:
+            if not self._playout_started:
+                if len(self._inner) < max(self._startup_bytes, max_bytes):
+                    return b""
+                self._playout_started = True
             take = min(max_bytes, len(self._inner))
             take -= take % self._frame_bytes
             data = bytes(self._inner[:take])
             del self._inner[:take]
+            if take:
+                self._idle_bytes = 0
+            elif self._playout_started and self._idle_reset_bytes:
+                self._idle_bytes = min(
+                    self._idle_bytes + max_bytes,
+                    self._idle_reset_bytes,
+                )
+                if self._idle_bytes >= self._idle_reset_bytes:
+                    self._playout_started = False
         return data
 
     def __len__(self) -> int:
@@ -819,3 +1247,5 @@ class _BoundedPcmBuffer:
     def clear(self) -> None:
         with self._lock:
             self._inner.clear()
+            self._idle_bytes = 0
+            self._playout_started = self._startup_bytes == 0

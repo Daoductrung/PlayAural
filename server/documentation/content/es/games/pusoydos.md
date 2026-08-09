@@ -92,4 +92,4 @@ La configuración opcional **Penalización por cada 2 en mano** duplica la penal
 * **C:** Consultar la baza actual.
 * **H:** Leer tu mano.
 * **E:** Leer cantidad de cartas (cuántas cartas le quedan a cada jugador).
-* **Mayús+T:** Consultar el temporizador de turno.
+* **Shift+T:** Consultar el temporizador de turno.

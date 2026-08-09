@@ -92,6 +92,6 @@ Después de esos turnos restantes:
 
 \* \*\*S:\*\* Consultar puntuaciones.
 
-\* \*\*Mayús+S:\*\* Abrir puntuaciones detalladas.
+\* \*\*Shift+S:\*\* Abrir puntuaciones detalladas.
 
 Dados al Vuelo está basado en el juego de dados publicado Toss Up y sus reglas de semáforo.

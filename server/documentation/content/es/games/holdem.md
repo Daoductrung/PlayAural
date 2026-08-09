@@ -111,7 +111,7 @@ En la revelación de cartas, los jugadores con manos vivas pueden usar las accio
 \* \*\*C:\*\* pasar o igualar.
 \* \*\*F:\*\* retirarse.
 \* \*\*R:\*\* subir.
-\* \*\*Mayús+A:\*\* all in.
+\* \*\*Shift+A:\*\* all in.
 \* \*\*W:\*\* leer tus cartas privadas.
 \* \*\*G:\*\* leer la fuerza de la mano.
 \* \*\*E:\*\* leer cartas comunitarias.
@@ -121,12 +121,12 @@ En la revelación de cartas, los jugadores con manos vivas pueden usar las accio
 \* \*\*H:\*\* ver jugadores en la mano.
 \* \*\*X:\*\* ver el botón.
 \* \*\*Z:\*\* ver tu posición.
-\* \*\*Mayús+T:\*\* ver el temporizador de turno.
+\* \*\*Shift+T:\*\* ver el temporizador de turno.
 \* \*\*V:\*\* ver el temporizador de ciegas.
 \* \*\*O:\*\* leer ambas cartas privadas en la revelación de cartas.
 \* \*\*U:\*\* leer la primera carta privada en la revelación de cartas.
 \* \*\*I:\*\* leer la segunda carta privada en la revelación de cartas.
 \* \*\*S:\*\* ver fichas restantes.
-\* \*\*Mayús+S:\*\* abrir totales de fichas detallados.
+\* \*\*Shift+S:\*\* abrir totales de fichas detallados.
 \* \*\*T:\*\* consultar de quién es el turno.
 \* \*\*Ctrl+U:\*\* escuchar quién está en la mesa.

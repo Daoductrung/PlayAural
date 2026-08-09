@@ -90,7 +90,7 @@ El primer jugador en retirar sus cinco fichas gana la partida.
 \* \*\*E:\*\* Lee el estado de la partida: fichas retiradas, la fase actual, y la tirada actual.
 \* \*\*C:\*\* Lee el resultado de la tirada de palillos actual.
 \* \*\*S:\*\* Lee la puntuación, la cantidad de fichas que ha retirado cada jugador.
-\* \*\*Mayús+S:\*\* Abre la vista de puntuación detallada.
+\* \*\*Shift+S:\*\* Abre la vista de puntuación detallada.
 \* \*\*T:\*\* Consulta de quién es el turno.
 
 \*\*Consejos de estrategia\*\*

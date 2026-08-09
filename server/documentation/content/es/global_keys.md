@@ -7,10 +7,10 @@ Esta guía explica los controles que funcionan en toda la plataforma de PlayAura
 \*\*Sistema y audio\*\*
 
 \* \*\*F2:\*\* Anuncia cuántas personas están en línea.
-\* \*\*Mayús + F2:\*\* Abre la lista completa de usuarios en línea.
+\* \*\*Shift + F2:\*\* Abre la lista completa de usuarios en línea.
 \* \*\*F4:\*\* Silencia o reactiva el búfer de mensajes actual.
 \* \*\*F6:\*\* Silencia o reactiva el chat de mesa.
-\* \*\*Mayús + F6:\*\* Silencia o reactiva el chat global.
+\* \*\*Shift + F6:\*\* Silencia o reactiva el chat global.
 \* \*\*F7 / F8:\*\* Baja o sube el volumen del ambiente.
 \* \*\*F9 / F10:\*\* Baja o sube el volumen de la música.
 \* \*\*Alt + P:\*\* Comprueba la latencia de la conexión.
@@ -31,9 +31,9 @@ Esta guía explica los controles que funcionan en toda la plataforma de PlayAura
 PlayAural agrupa los mensajes en búferes separados para que puedas revisar los mensajes de juego, el chat y otra información más fácilmente.
 
 \* \*\*`[` / `]`:\*\* Mueve al búfer anterior o siguiente.
-\* \*\*Mayús + `[` / Mayús + `]`:\*\* Salta al primer o al último búfer.
+\* \*\*Shift + `[` / Shift + `]`:\*\* Salta al primer o al último búfer.
 \* \*\*`,` / `.`:\*\* Lee el mensaje anterior o siguiente del búfer actual.
-\* \*\*Mayús + `,` / Mayús + `.`:\*\* Salta al mensaje más antiguo o más reciente del búfer actual.
+\* \*\*Shift + `,` / Shift + `.`:\*\* Salta al mensaje más antiguo o más reciente del búfer actual.
 
 \*\*Navegación de menús en escritorio\*\*
 

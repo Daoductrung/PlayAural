@@ -64,4 +64,4 @@ En los modos de equipo, los compañeros comparten una sola puntuación permanent
 
 \* \*\*S:\*\* Consultar puntuaciones.
 
-\* \*\*Mayús+S:\*\* Abrir puntuaciones detalladas.
+\* \*\*Shift+S:\*\* Abrir puntuaciones detalladas.

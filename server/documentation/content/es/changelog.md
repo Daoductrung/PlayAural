@@ -1,5 +1,26 @@
 Registro de cambios
 
+Miércoles 5 de agosto de 2026
+
+Novedades:
+
+* El español ya está disponible en el servidor, escritorio, web, móvil, y guías de jugador como traducción comunitaria de UnDuende (Storm Demoner). El contenido que aún no está traducido al español recurre al inglés.
+* Las Sugerencias de Menú ahora muestran las descripciones disponibles directamente en las opciones del menú, activadas por defecto en todos los clientes. Desactívalas en Personal y Opciones > Opciones generales > Accesibilidad > Sugerencias de Menú para filas más cortas; los usuarios de escritorio aún pueden presionar Espacio para obtener ayuda en las opciones de sistema y configuración de partida compatibles.
+* Los nombres de cuenta nuevos ahora pueden usar letras de cualquier idioma, números, y espacios individuales, lo que hace posible nombres vietnamitas completos manteniendo el límite de 3 a 30 caracteres.
+
+Mejoras:
+
+* Las acciones de información de BANG! La Bala ahora son más fáciles de revisar: De quién es el turno reporta las elecciones pendientes fuera de turno, Leer distancias permanece abierto como un panel de estado en vivo, Leer tu mano y cartas en juego incluye tus cartas boca arriba, Leer la mesa mantiene concisas las filas de cartas públicas, y las elecciones de objetivo identifican a cada personaje.
+* BANG! La Bala ahora usa términos y sonidos de defensa específicos por ataque para disparos, Cuchillo, Puñetazo, y otros ataques con símbolo ¡BANG!. Su banda sonora y ambiente del Oeste también se renovaron.
+* El Chat de Voz de escritorio ahora se une y se retira más rápido, se mantiene responsivo durante sesiones largas, y conserva la calidad del audio entrante, incluyendo estéreo. La cancelación de ruido de micrófono y eco solo afecta el audio que envías.
+* La coincidencia de nombres de usuario ahora ignora mayúsculas y minúsculas en el inicio de sesión, solicitudes de amistad, perfiles, y mensajes privados, mientras que cada cliente sigue mostrando la ortografía registrada de la cuenta.
+
+Corrección de errores:
+
+* En BANG! La Bala, Jourdonnais ahora puede usar tanto su verificación de Barril incorporada como la equipada antes de jugar una defensa de su mano. Cuando dos jugadores tienen la habilidad de Vulture Sam, el más cercano al jugador eliminado en sentido horario toma la primera carta, y luego se dividen las cartas restantes de forma alternada.
+* Los espectadores desconectados ahora se eliminan de Quién está en la mesa en lugar de permanecer en la lista.
+* Enviarte un mensaje privado a ti mismo ya no reporta que no eres amigo de tu propia cuenta.
+
 Sábado 1 de agosto de 2026
 
 Mejoras:
@@ -124,7 +145,7 @@ Novedades:
 * Quién está en la mesa ahora es una lista interactiva con un resumen de la mesa, los roles de cada persona, acciones de anfitrión, acciones de amigos, y eliminación de bots cuando está disponible.
 * Jugadores en línea ahora abre directamente el menú completo de acciones de amigos cuando seleccionas a alguien que ya es tu amigo.
 * Piratas de los Mares Perdidos ahora muestra Ver posición a los jugadores táctiles durante partidas en vivo.
-* El chat de voz de escritorio y web ahora usa Alt+V para unirse o salir, y Alt+Mayús+V para silenciar o reactivar el micrófono.
+* El chat de voz de escritorio y web ahora usa Alt+V para unirse o salir, y Alt+Shift+V para silenciar o reactivar el micrófono.
 * Se renovaron los sonidos de clic y activación de menú en móvil.
 
 Corrección de errores:
@@ -177,7 +198,7 @@ Domingo 21 de junio de 2026
 Novedades:
 
 * Yahtzee ahora admite práctica en solitario sin afectar las clasificaciones competitivas.
-* Yahtzee ahora permite a jugadores y espectadores presionar Mayús+C para consultar la planilla de cualquier jugador.
+* Yahtzee ahora permite a jugadores y espectadores presionar Shift+C para consultar la planilla de cualquier jugador.
 * El Portal de Piratas de los Mares Perdidos ahora incluye un destino Aleatorio que puede elegir cualquier espacio válido del mapa, incluidos mares vacíos.
 * Bolas Rodantes ahora incluye conjuntos de bolas Alrededor del Mundo y Viaje por Vietnam más ricos y precisos.
 * La documentación de Bolas Rodantes ahora acredita claramente al proyecto original de código abierto PlayPalace.
@@ -267,7 +288,7 @@ Corrección de errores:
 * Coup ahora aplica la regla oficial de la primera moneda del primer turno a dos jugadores, incluso cuando el primer jugador es un bot.
 * Los menús de intercambio de Coup ahora mantienen visibles las cartas seleccionadas y marcan las cartas intercambiadas.
 * Ciudadelas ahora da retroalimentación más clara de construcción, personajes y puntuación.
-* Senet ahora maneja correctamente a los espectadores y usa los atajos estándar S y Mayús+S para la puntuación.
+* Senet ahora maneja correctamente a los espectadores y usa los atajos estándar S y Shift+S para la puntuación.
 * Senet ya no sobrescribe otro menú abierto durante las actualizaciones del tablero.
 * Backgammon ahora hace que los Anuncios breves sean genuinamente breves.
 * Ludo ahora hace que los Anuncios breves sean genuinamente breves.

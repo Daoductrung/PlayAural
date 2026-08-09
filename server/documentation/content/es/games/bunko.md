@@ -48,5 +48,5 @@ El anfitrión elige uno de dos modos de victoria:
 \* \*\*D:\*\* Escuchar la última tirada y su resultado.
 \* \*\*T:\*\* Consultar de quién es el turno.
 \* \*\*S:\*\* Consultar la clasificación.
-\* \*\*Mayús+S:\*\* Abrir la clasificación detallada.
+\* \*\*Shift+S:\*\* Abrir la clasificación detallada.
 \* \*\*Ctrl+U:\*\* Escuchar quién está en la mesa.

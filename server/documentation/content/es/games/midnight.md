@@ -60,7 +60,7 @@ Si terminas sin ambos números requeridos, no calificas y anotas 0 en esa ronda.
 
 \*\*Opciones personales\*\*
 
-\* \*\*Estilo para guardar dados:\*\* Con Posición de los dados, presiona 1-6 para alternar dados por posición. Con Valores de los dados, cada dado recién lanzado empieza guardado; presiona 1-6 para soltar un dado guardado que coincida para la siguiente tirada, o Mayús+1-6 para volver a guardar un dado suelto que coincida. Repite una tecla para manejar valores duplicados un dado a la vez.
+\* \*\*Estilo para guardar dados:\*\* Con Posición de los dados, presiona 1-6 para alternar dados por posición. Con Valores de los dados, cada dado recién lanzado empieza guardado; presiona 1-6 para soltar un dado guardado que coincida para la siguiente tirada, o Shift+1-6 para volver a guardar un dado suelto que coincida. Repite una tecla para manejar valores duplicados un dado a la vez.
 
 \*\*Atajos de teclado\*\*
 
@@ -68,7 +68,7 @@ Si terminas sin ambos números requeridos, no calificas y anotas 0 en esa ronda.
 
 \* \*\*1-6:\*\* Alternar por posición en el modo Posición de los dados, o soltar un dado guardado que coincida en el modo Valores de los dados.
 
-\* \*\*Mayús+1-6:\*\* En el modo Valores de los dados, guardar un dado suelto que coincida.
+\* \*\*Shift+1-6:\*\* En el modo Valores de los dados, guardar un dado suelto que coincida.
 
 \* \*\*B:\*\* Anotar tu puntuación una vez que todos los dados estén decididos.
 
@@ -78,4 +78,4 @@ Si terminas sin ambos números requeridos, no calificas y anotas 0 en esa ronda.
 
 \* \*\*S:\*\* Leer puntuaciones.
 
-\* \*\*Mayús+S:\*\* Ver puntuaciones detalladas.
+\* \*\*Shift+S:\*\* Ver puntuaciones detalladas.

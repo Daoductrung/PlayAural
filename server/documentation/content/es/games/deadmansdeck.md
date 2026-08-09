@@ -26,7 +26,7 @@ La Baraja del Muerto usa una baraja pequeña de 20 cartas:
 
 Al inicio de cada ronda, el juego elige un rango objetivo: Ases, Reyes, o Reinas. Se supone que toda declaración de esa ronda es sobre ese rango objetivo.
 
-Los Comodines son salvajes. Un Comodín siempre cuenta como veraz para el rango objetivo.
+Los Comodines cuentan como cualquier rango. Un Comodín siempre cuenta como veraz para el rango objetivo.
 
 \*\*Preparación de la ronda\*\*
 
@@ -53,7 +53,7 @@ Ejemplo: si el rango objetivo son Reyes y juegas dos cartas, la mesa escucha que
 Esas cartas podrían realmente ser:
 
 \* Dos Reyes, lo cual es veraz.
-\* Un Rey y un Comodín, lo cual también es veraz porque el Comodín es salvaje.
+\* Un Rey y un Comodín, lo cual también es veraz porque el Comodín cuenta como cualquier rango.
 \* Un Rey y una Reina, lo cual es mentira.
 \* Dos cartas que no son Reyes, lo cual también es mentira.
 

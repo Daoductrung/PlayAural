@@ -120,7 +120,7 @@ Si seleccionas una carta que no se puede jugar en este momento, el juego explica
 
 \* \*\*1-6:\*\* Seleccionar y jugar una carta de tu mano por posición.
 
-\* \*\*Mayús+Entrar:\*\* Descartar la carta actualmente seleccionada.
+\* \*\*Shift+Entrar:\*\* Descartar la carta actualmente seleccionada.
 
 \* \*\*D:\*\* Jugar una Jugada Sucia (Coup Fourré).
 
@@ -128,4 +128,4 @@ Si seleccionas una carta que no se puede jugar en este momento, el juego explica
 
 \* \*\*S:\*\* Ver estado.
 
-\* \*\*Mayús+S:\*\* Panel de estado detallado.
+\* \*\*Shift+S:\*\* Panel de estado detallado.

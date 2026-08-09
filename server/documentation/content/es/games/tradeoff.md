@@ -66,7 +66,7 @@ Los dados que no encajan en la mejor combinación de puntuación valen 0 puntos.
 
 \* \*\*Anuncios breves:\*\* Acorta las revelaciones repetidas de intercambio y los resúmenes de puntuación.
 
-\* \*\*Estilo para guardar dados:\*\* Con Posición de los dados, presiona 1-5 durante el intercambio para alternar dados por posición. Con Valores de los dados, presiona 1-6 durante el intercambio para guardar un dado que coincida, y Mayús+1-6 para marcar un dado guardado que coincida para intercambiar.
+\* \*\*Estilo para guardar dados:\*\* Con Posición de los dados, presiona 1-5 durante el intercambio para alternar dados por posición. Con Valores de los dados, presiona 1-6 durante el intercambio para guardar un dado que coincida, y Shift+1-6 para marcar un dado guardado que coincida para intercambiar.
 
 \*\*Acciones de información\*\*
 
@@ -86,7 +86,7 @@ Fase de intercambio:
 
 \* \*\*1-6:\*\* Guardar un dado que coincida al usar Valores de los dados.
 
-\* \*\*Mayús+1-6:\*\* Marcar un dado guardado que coincida para intercambiar al usar Valores de los dados.
+\* \*\*Shift+1-6:\*\* Marcar un dado guardado que coincida para intercambiar al usar Valores de los dados.
 
 \* \*\*B:\*\* Confirmar tus elecciones de intercambio.
 
@@ -104,4 +104,4 @@ En cualquier momento durante la partida:
 
 \* \*\*S:\*\* Consultar puntuaciones.
 
-\* \*\*Mayús+S:\*\* Abrir puntuaciones detalladas.
+\* \*\*Shift+S:\*\* Abrir puntuaciones detalladas.

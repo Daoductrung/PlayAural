@@ -126,4 +126,4 @@ Si un jugador no tiene suficientes monedas para pagar una transferencia, paga lo
 \* \*\*H:\*\* Leer tu mano.
 \* \*\*E:\*\* Leer cantidad de cartas.
 \* \*\*V:\*\* Escuchar la variante seleccionada.
-\* \*\*Mayús+T:\*\* Consultar el temporizador de turno.
+\* \*\*Shift+T:\*\* Consultar el temporizador de turno.

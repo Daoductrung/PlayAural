@@ -50,4 +50,4 @@ PlayAural usa una escala de puntuación compacta para partidas más rápidas. La
 \* \*\*B:\*\* Guardar la puntuación de tu turno.
 \* \*\*C:\*\* Consultar la puntuación actual del turno.
 \* \*\*S:\*\* Consultar puntuaciones.
-\* \*\*Mayús+S:\*\* Abrir puntuaciones detalladas.
+\* \*\*Shift+S:\*\* Abrir puntuaciones detalladas.

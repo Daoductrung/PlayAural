@@ -46,7 +46,7 @@ El ganador es el jugador con más luz. Si varios jugadores tienen el mismo total
 \*\*Puntuaciones y estado\*\*
 
 \* \*\*S:\*\* Leer la puntuación de luz actual de cada jugador, una línea a la vez.
-\* \*\*Mayús+S:\*\* Abrir puntuaciones detalladas.
+\* \*\*Shift+S:\*\* Abrir puntuaciones detalladas.
 \* \*\*C:\*\* Abrir el panel de estado de la torreta en vivo.
 
 El panel de estado en vivo se actualiza mientras permanece abierto. Muestra la ronda, y de cada torreta su luz, energía, monedas, capacidad segura, y el riesgo de sobrecarga del próximo disparo.
@@ -67,4 +67,4 @@ El panel de estado en vivo se actualiza mientras permanece abierto. Muestra la r
 \* \*\*U:\*\* Mejorar núcleo.
 \* \*\*C:\*\* Ver estado de la torreta.
 \* \*\*S:\*\* Consultar puntuaciones.
-\* \*\*Mayús+S:\*\* Consultar puntuaciones detalladas.
+\* \*\*Shift+S:\*\* Consultar puntuaciones detalladas.

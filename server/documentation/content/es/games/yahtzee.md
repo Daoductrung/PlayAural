@@ -63,7 +63,7 @@ Después de cualquier Yahtzee posterior cuando la casilla de Yahtzee ya está ll
 \*\*Opciones personales\*\*
 
 \* \*\*Anuncios breves:\*\* Acorta los mensajes de tirada, puntuación, y bonificación.
-\* \*\*Estilo para guardar dados:\*\* Con Posición de los dados, presiona 1-5 para alternar dados por posición. Con Valores de los dados, presiona 1-6 para soltar un dado guardado con ese valor, o Mayús+1-6 para guardar un dado suelto con ese valor.
+\* \*\*Estilo para guardar dados:\*\* Con Posición de los dados, presiona 1-5 para alternar dados por posición. Con Valores de los dados, presiona 1-6 para soltar un dado guardado con ese valor, o Shift+1-6 para guardar un dado suelto con ese valor.
 \* \*\*Soltar dados guardados al lanzar:\*\* Cuando está activado, los dados se sueltan después de cada tirada, así vuelves a elegir qué guardar del nuevo resultado.
 
 \*\*Atajos de teclado\*\*
@@ -71,7 +71,7 @@ Después de cualquier Yahtzee posterior cuando la casilla de Yahtzee ya está ll
 \* \*\*R:\*\* Lanzar dados.
 \* \*\*1-5:\*\* En el modo Posición de los dados, alternar dados por posición.
 \* \*\*1-6:\*\* En el modo Valores de los dados, soltar un dado guardado que muestre ese valor.
-\* \*\*Mayús+1-6:\*\* En el modo Valores de los dados, guardar un dado suelto que muestre ese valor.
+\* \*\*Shift+1-6:\*\* En el modo Valores de los dados, guardar un dado suelto que muestre ese valor.
 \* \*\*D:\*\* Ver los dados actuales.
 \* \*\*C:\*\* Ver tu planilla.
-\* \*\*Mayús+C:\*\* Ver planilla de todos los jugadores.
+\* \*\*Shift+C:\*\* Ver planilla de todos los jugadores.

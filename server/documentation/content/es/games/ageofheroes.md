@@ -98,6 +98,6 @@ Descartas ambas cartas de Hierro y conservas Madera, Piedra, Grano, Oro, y Piedr
 
 \* \*\*V:\*\* Consultar el estado básico de todos los jugadores.
 
-\* \*\*Mayús+V:\*\* Abrir estado detallado en vivo, incluidos generales, fortalezas, caminos, ejércitos en recuperación, y fuerzas regresando.
+\* \*\*Shift+V:\*\* Abrir estado detallado en vivo, incluidos generales, fortalezas, caminos, ejércitos en recuperación, y fuerzas regresando.
 
 \* \*\*H:\*\* Consultar tu mano.

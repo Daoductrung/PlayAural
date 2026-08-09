@@ -92,4 +92,4 @@ El anfitrión elige qué conjuntos temáticos de bolas pueden aparecer en el tub
 
 \* \*\*S:\*\* Consultar puntuaciones.
 
-\* \*\*Mayús+S:\*\* Abrir puntuaciones detalladas.
+\* \*\*Shift+S:\*\* Abrir puntuaciones detalladas.

@@ -1745,7 +1745,7 @@
       "name": {
         "en": "Kunai",
         "vi": "Ảnh Phi Tiêu",
-        "es": "Kunai"
+        "es": "Cuchillo Arrojadizo"
       },
       "targeting": "enemies_only",
       "sound_path": "battle/mvsounds_named/kunai.ogg",

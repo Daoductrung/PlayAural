@@ -5,6 +5,7 @@ auth-username-reserved-bot = Este nombre está reservado para los bots de PlayAu
 auth-registration-error = El registro falló debido a un error del servidor. Inténtalo de nuevo.
 auth-error-wrong-password = Contraseña incorrecta.
 auth-error-user-not-found = El usuario no existe.
+username-ambiguous = Más de una cuenta antigua coincide con “{ $username }”. Ingresa la ortografía exacta con la que está registrada.
 auth-kicked-logged-in-elsewhere = Se cerró tu sesión porque tu cuenta se inició desde otro dispositivo.
 
 chat-global = { $player } dice en el chat global: { $message }
@@ -213,8 +214,8 @@ pref-changed-dice-keeping-style = Estilo para guardar dados establecido en { $ch
 pref-desc-play-turn-sound = Reproduce un sonido cuando llega tu turno.
 pref-desc-confirm-destructive-actions = Pide confirmación antes de acciones arriesgadas o irreversibles, como pasar en Pusoy Dos.
 pref-desc-allow-custom-bot-names = Te permite poner nombres personalizados a los bots que añadas a una mesa.
-pref-desc-clear-kept-on-roll = En juegos de dados compatibles como Yahtzee, suelta todos los dados guardados después de cada lanzamiento. Tu próximo lanzamiento vuelve a tirar todos los dados a menos que guardes algunos de nuevo; con Valores de los dados, usa Mayús+1-6 para guardar los dados que coincidan.
-pref-desc-dice-keeping-style = Posición de los dados: usa 1-5, o 1-6 en Midnight, para alternar dados por posición. Valores de los dados: usa 1-6 para soltar un dado guardado con ese valor y Mayús+1-6 para guardar un dado suelto que coincida. Durante la fase de intercambio de Tradeoff, 1-6 guarda un dado que coincida y Mayús+1-6 lo marca para intercambiar; durante la fase de toma, 1-6 toma un dado que coincida del montón.
+pref-desc-clear-kept-on-roll = En juegos de dados compatibles como Yahtzee, suelta todos los dados guardados después de cada lanzamiento. Tu próximo lanzamiento vuelve a tirar todos los dados a menos que guardes algunos de nuevo; con Valores de los dados, usa Shift+1-6 para guardar los dados que coincidan.
+pref-desc-dice-keeping-style = Posición de los dados: usa 1-5, o 1-6 en Midnight, para alternar dados por posición. Valores de los dados: usa 1-6 para soltar un dado guardado con ese valor y Shift+1-6 para guardar un dado suelto que coincida. Durante la fase de intercambio de Tradeoff, 1-6 guarda un dado que coincida y Shift+1-6 lo marca para intercambiar; durante la fase de toma, 1-6 toma un dado que coincida del montón.
 
 cancel = Cancelar
 no-bot-names-available = No hay nombres de bot disponibles.

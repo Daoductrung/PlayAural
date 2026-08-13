@@ -75,8 +75,8 @@ tradeoff-not-in-pool = En este momento no hay un { $value } en el montón compar
 tradeoff-not-your-take-turn = Es el turno de { $player } para tomar del montón. Espera a que anuncien tu nombre antes de elegir un dado.
 tradeoff-no-trading-die-value = No tienes un { $value } marcado actualmente para intercambiar.
 tradeoff-no-kept-die-value = No tienes un { $value } guardado para marcar como intercambio.
-tradeoff-value-trade-style-required = Los controles de intercambio con Mayús+número solo se usan con el estilo Valores de los dados. Usa las teclas numéricas simples por posición, o cambia tu estilo personal para guardar dados.
-tradeoff-use-plain-number-to-take = Usa la tecla numérica simple, no Mayús+número, para tomar un dado del montón.
+tradeoff-value-trade-style-required = Los controles de intercambio con Shift+número solo se usan con el estilo Valores de los dados. Usa las teclas numéricas simples por posición, o cambia tu estilo personal para guardar dados.
+tradeoff-use-plain-number-to-take = Usa la tecla numérica simple, no Shift+número, para tomar un dado del montón.
 tradeoff-no-dice-key-phase = Las teclas numéricas solo se usan al elegir intercambios o al tomar dados del montón.
 
 tradeoff-set-target = Puntuación objetivo: { $score }

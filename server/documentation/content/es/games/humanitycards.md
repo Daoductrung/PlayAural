@@ -80,7 +80,7 @@ El anfitrión puede configurar lo siguiente en la mesa antes de empezar:
 
 
 
-Hay cinco jugadores en la partida: Alicia, Roberto, Carolina, Daniel, y Eva. La puntuación para ganar es 7, y Alicia es la Zar de la Carta en esta ronda.
+Hay cinco jugadores en la partida: Alicia, Roberto, Carolina, Daniel, y Eva. La puntuación para ganar es 7, y Alicia es el Zar de la Carta en esta ronda.
 
 Se roba una carta negra: "¿Cuál es el placer culpable de Batman?"
 
@@ -108,4 +108,4 @@ Una vez que los cuatro han enviado, Alicia entra a la fase de juicio. Escucha lo
 
 \* \*\*S:\*\* Consultar puntuaciones.
 
-\* \*\*Mayús+S:\*\* Ver puntuaciones detalladas.
+\* \*\*Shift+S:\*\* Ver puntuaciones detalladas.

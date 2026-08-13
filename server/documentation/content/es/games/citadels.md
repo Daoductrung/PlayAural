@@ -118,7 +118,7 @@ Ciudadelas no usa ninguna opción de configuración de mesa específica del jueg
 
 \* \*\*I:\*\* Leer el resumen corto de estado.
 
-\* \*\*Mayús+I:\*\* Abrir la vista de estado detallado.
+\* \*\*Shift+I:\*\* Abrir la vista de estado detallado.
 
 \* \*\*K:\*\* Leer tu personaje oculto actual.
 

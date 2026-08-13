@@ -146,4 +146,4 @@ Los valores de opción guardados no válidos bloquean el inicio de la partida y 
 
 \* \*\*S:\*\* Ver el estado de la tripulación.
 
-\* \*\*Mayús+S:\*\* Abrir el estado detallado de la tripulación.
+\* \*\*Shift+S:\*\* Abrir el estado detallado de la tripulación.

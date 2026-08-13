@@ -100,13 +100,13 @@ Las cartas de tu mano permanecen visibles como acciones individuales para que el
 
 \* \*\*D:\*\* Leer el tamaño de tu mano y su valor en puntos.
 
-\* \*\*Mayús+C:\*\* Ordenar tu mano por color.
+\* \*\*Shift+C:\*\* Ordenar tu mano por color.
 
-\* \*\*Mayús+N:\*\* Ordenar tu mano por número/tipo.
+\* \*\*Shift+N:\*\* Ordenar tu mano por número/tipo.
 
 \* \*\*S:\*\* Consultar puntuaciones.
 
-\* \*\*Mayús+S:\*\* Abrir puntuaciones detalladas.
+\* \*\*Shift+S:\*\* Abrir puntuaciones detalladas.
 
 \* \*\*T:\*\* Consultar de quién es el turno.
 

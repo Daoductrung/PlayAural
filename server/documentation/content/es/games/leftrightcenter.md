@@ -58,4 +58,4 @@ Esta es la única opción de configuración del juego, así que no tiene combina
 
 \* \*\*S:\*\* Leer la cantidad actual de fichas de cada jugador.
 
-\* \*\*Mayús+S:\*\* Abrir la clasificación detallada de fichas en vivo.
+\* \*\*Shift+S:\*\* Abrir la clasificación detallada de fichas en vivo.

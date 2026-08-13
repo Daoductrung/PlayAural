@@ -225,7 +225,7 @@ Batalla es un juego de combate por turnos donde armas una pequeña lista de luch
 \*\*Atajos de teclado\*\*
 
 \* \*\*S:\*\* Leer estado de la batalla.
-\* \*\*Mayús+S:\*\* Abrir estado detallado de la batalla como una lista.
+\* \*\*Shift+S:\*\* Abrir estado detallado de la batalla como una lista.
 \* \*\*V:\*\* Leer la lista completa de combate. Esto está bloqueado durante la selección de luchadores.
 \* \*\*A:\*\* En modos por equipos, ver solo los luchadores aliados vivos.
 \* \*\*E:\*\* En modos por equipos, ver solo los luchadores enemigos vivos.

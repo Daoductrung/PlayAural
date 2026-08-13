@@ -58,9 +58,9 @@ El anfitrión decide si la triple repetición y la regla de las cincuenta jugada
 \* \*\*C:\*\* Consultar el estado actual de la partida.
 \* \*\*M:\*\* Escribir una jugada directamente.
 \* \*\*F:\*\* Voltear la orientación del tablero.
-\* \*\*Mayús+T:\*\* Consultar ambos relojes.
-\* \*\*Mayús+C:\*\* Reclamar tablas cuando la posición actual califica.
-\* \*\*Mayús+D:\*\* Ofrecer tablas.
-\* \*\*Mayús+U:\*\* Solicitar deshacer.
+\* \*\*Shift+T:\*\* Consultar ambos relojes.
+\* \*\*Shift+C:\*\* Reclamar tablas cuando la posición actual califica.
+\* \*\*Shift+D:\*\* Ofrecer tablas.
+\* \*\*Shift+U:\*\* Solicitar deshacer.
 \* \*\*Y:\*\* Aceptar una oferta de tablas o solicitud de deshacer.
 \* \*\*N:\*\* Rechazar una oferta de tablas o solicitud de deshacer.

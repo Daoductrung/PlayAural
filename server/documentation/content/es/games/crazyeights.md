@@ -86,7 +86,7 @@ La partida continúa hasta que un jugador alcanza la puntuación para ganar (con
 
 \* \*\*E:\*\* Leer cantidad de cartas (cartas que tienen los jugadores y las que quedan en el mazo).
 
-\* \*\*Mayús+T:\*\* Consultar el temporizador de turno.
+\* \*\*Shift+T:\*\* Consultar el temporizador de turno.
 
 
 

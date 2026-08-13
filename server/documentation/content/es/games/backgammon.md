@@ -76,7 +76,7 @@ Un enfrentamiento consiste en varias partidas jugadas hasta una puntuación obje
 \* \*\*Ctrl+Retroceso:\*\* Deselecciona la ficha actualmente seleccionada.
 \* \*\*Ctrl+Abajo o Ctrl+Derecha:\*\* Recorre hacia adelante los objetivos de navegación. Con una ficha seleccionada, recorre los destinos disponibles (primero las fichas sueltas del oponente). Sin selección, recorre los puntos de origen que tienen movimientos legales.
 \* \*\*Ctrl+Arriba o Ctrl+Izquierda:\*\* Recorre hacia atrás los objetivos de navegación.
-\* \*\*Mayús+D:\*\* Ofrecer un doblaje antes de lanzar (solo en juego por enfrentamiento).
+\* \*\*Shift+D:\*\* Ofrecer un doblaje antes de lanzar (solo en juego por enfrentamiento).
 \* \*\*Y:\*\* Aceptar un doblaje ofrecido.
 \* \*\*N:\*\* Rechazar un doblaje ofrecido.
 \* \*\*U:\*\* Deshacer el último submovimiento del turno actual.
@@ -84,5 +84,5 @@ Un enfrentamiento consiste en varias partidas jugadas hasta una puntuación obje
 \* \*\*P:\*\* Leer el conteo de pips de ambos jugadores.
 \* \*\*D:\*\* Leer el estado del cubo de doblaje.
 \* \*\*S:\*\* Leer la puntuación actual del enfrentamiento.
-\* \*\*Mayús+S:\*\* Abrir la puntuación detallada del enfrentamiento.
+\* \*\*Shift+S:\*\* Abrir la puntuación detallada del enfrentamiento.
 \* \*\*C:\*\* Leer los dados restantes del turno actual.

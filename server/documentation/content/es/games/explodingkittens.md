@@ -106,6 +106,6 @@ Leer mazo y descarte informa el tamaño de ambos mazos y la carta superior del d
 \* \*\*H:\*\* Leer tu mano.
 \* \*\*D:\*\* Leer el mazo y el descarte.
 \* \*\*V:\*\* Leer la mesa.
-\* \*\*Mayús+T:\*\* Ver el tiempo de respuesta Nope restante.
+\* \*\*Shift+T:\*\* Ver el tiempo de respuesta Nope restante.
 \* \*\*T:\*\* Consultar de quién es el turno.
 \* \*\*Ctrl+U:\*\* Escuchar quién está en la mesa.

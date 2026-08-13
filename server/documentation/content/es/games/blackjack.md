@@ -128,11 +128,11 @@ El anfitrión puede ajustar varias configuraciones en la mesa:
 
 \* \*\*C:\*\* Leer la mano del repartidor.
 
-\* \*\*Mayús + R:\*\* Leer las reglas de la mesa.
+\* \*\*Shift + R:\*\* Leer las reglas de la mesa.
 
 \* \*\*E:\*\* Ver el estado de la mesa.
 
-\* \*\*Mayús + T:\*\* Consultar el temporizador de turno.
+\* \*\*Shift + T:\*\* Consultar el temporizador de turno.
 
 \* \*\*T:\*\* Consultar de quién es el turno.
 

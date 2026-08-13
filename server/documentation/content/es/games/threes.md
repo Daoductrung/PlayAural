@@ -52,7 +52,7 @@ Tu puntuación de turno es 0 + 0 + 1 + 0 + 5 = 6 puntos.
 
 \* \*\*Anuncios breves:\*\* Acorta los anuncios repetidos de turno, tirada, guardar y puntuación.
 
-\* \*\*Estilo para guardar dados:\*\* Con Posición de los dados, presiona 1-5 para alternar dados por posición. Con Valores de los dados, cada dado recién lanzado empieza guardado; presiona 1-6 para soltar un dado guardado que coincida para la siguiente tirada, o Mayús+1-6 para volver a guardar un dado suelto que coincida. Repite una tecla para manejar valores duplicados un dado a la vez.
+\* \*\*Estilo para guardar dados:\*\* Con Posición de los dados, presiona 1-5 para alternar dados por posición. Con Valores de los dados, cada dado recién lanzado empieza guardado; presiona 1-6 para soltar un dado guardado que coincida para la siguiente tirada, o Shift+1-6 para volver a guardar un dado suelto que coincida. Repite una tecla para manejar valores duplicados un dado a la vez.
 
 \*\*Acciones de información\*\*
 
@@ -70,6 +70,6 @@ Tu puntuación de turno es 0 + 0 + 1 + 0 + 5 = 6 puntos.
 
 \* \*\*1-6:\*\* En el modo Valores de los dados, soltar un dado guardado que coincida.
 
-\* \*\*Mayús+1-6:\*\* En el modo Valores de los dados, guardar un dado suelto que coincida.
+\* \*\*Shift+1-6:\*\* En el modo Valores de los dados, guardar un dado suelto que coincida.
 
 \* \*\*H:\*\* Ver los dados actuales.

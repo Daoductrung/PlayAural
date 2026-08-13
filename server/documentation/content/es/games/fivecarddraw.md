@@ -106,7 +106,7 @@ Los espectadores pueden usar las acciones de información pública pero no puede
 \* \*\*C:\*\* Pasar o Igualar.
 \* \*\*F:\*\* Retirarse.
 \* \*\*R:\*\* Subir.
-\* \*\*Mayús+A:\*\* All in.
+\* \*\*Shift+A:\*\* All in.
 \* \*\*1 al 5:\*\* seleccionar o deseleccionar esa carta durante el descarte.
 \* \*\*D:\*\* cambiar las cartas seleccionadas o plantarte.
 \* \*\*W:\*\* leer tu mano.
@@ -117,8 +117,8 @@ Los espectadores pueden usar las acciones de información pública pero no puede
 \* \*\*H:\*\* ver jugadores en la mano.
 \* \*\*X:\*\* ver al repartidor.
 \* \*\*Z:\*\* ver tu posición.
-\* \*\*Mayús+T:\*\* ver el temporizador de turno.
+\* \*\*Shift+T:\*\* ver el temporizador de turno.
 \* \*\*S:\*\* ver fichas restantes.
-\* \*\*Mayús+S:\*\* abrir totales de fichas detallados.
+\* \*\*Shift+S:\*\* abrir totales de fichas detallados.
 \* \*\*T:\*\* consultar de quién es el turno.
 \* \*\*Ctrl+U:\*\* escuchar quién está en la mesa.

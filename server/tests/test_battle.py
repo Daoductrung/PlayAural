@@ -21,7 +21,7 @@ from ..games.battle.game import (
     PHASE_SELECTION,
     TURN_MODE_ROUND_ROBIN,
 )
-from ..games.battle.content import get_move_map, get_preset_map, load_battle_registry
+from ..games.battle.content import BattleLocalizedName, get_move_map, get_preset_map, load_battle_registry
 from ..game_utils.stats_extractor import StatsExtractor
 from ..games.registry import GameRegistry
 from ..messages.localization import Localization
@@ -1083,16 +1083,50 @@ def test_registry_content_is_fully_localized() -> None:
         assert move.name.vi
         assert move.name.vi != move.name.en
         assert not any(marker in move.name.vi for marker in corruption_markers)
+        assert move.name.es
+        assert move.name.es != move.name.en
+        assert not any(marker in move.name.es for marker in corruption_markers)
     for preset in registry.presets:
         assert preset.name.en
         assert preset.name.vi
         assert preset.name.vi != preset.name.en
         assert not any(marker in preset.name.vi for marker in corruption_markers)
+        assert preset.name.es
+        assert preset.name.es != preset.name.en
+        assert not any(marker in preset.name.es for marker in corruption_markers)
         assigned_move_ids.update(preset.move_ids)
         key = f"battle-classic-preset-{preset.id.replace('_', '-')}"
         assert Localization.get("vi", key) != Localization.get("en", key)
+        assert Localization.get("es", key) != Localization.get("en", key)
     assert Localization.get("vi", "game-name-battle") == "Đấu Trường Chiến Kỹ"
+    assert Localization.get("es", "game-name-battle") == "Batalla"
     assert {move.id for move in registry.moves} == assigned_move_ids
+
+
+def test_registry_spanish_names_survive_loading_and_selection() -> None:
+    """Regression test for the mashumaro dead-data bug: an es-only registry
+    field must be retained by the typed loader and returned by for_locale."""
+    registry = load_battle_registry()
+    moves = {move.id: move for move in registry.moves}
+    presets = {preset.id: preset for preset in registry.presets}
+
+    aircraft_cannon = moves["aircraft_cannon"]
+    assert aircraft_cannon.name.es == "Cañón de Avión"
+    assert aircraft_cannon.name.for_locale("es") == "Cañón de Avión"
+    assert aircraft_cannon.name.for_locale("en") == "Aircraft Cannon"
+    assert aircraft_cannon.name.for_locale("vi") == "Long Pháo Không Kích"
+    assert aircraft_cannon.name.for_locale("fa") == "Aircraft Cannon"
+
+    novice_boxer = presets["novice_boxer"]
+    assert novice_boxer.name.es == "Boxeador Novato"
+    assert novice_boxer.name.for_locale("es") == "Boxeador Novato"
+
+    # Backward compatibility: older saved Battle state may have serialized
+    # this dataclass back when only en/vi existed, with no es key at all.
+    legacy_shape = BattleLocalizedName.from_dict({"en": "Aircraft Cannon", "vi": "Long Pháo Không Kích"})
+    assert legacy_shape.es is None
+    assert legacy_shape.for_locale("es") == "Aircraft Cannon"
+    assert legacy_shape.for_locale("vi") == "Long Pháo Không Kích"
 
 
 def test_battle_registry_has_complete_functioning_loadouts() -> None:

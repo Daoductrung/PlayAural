@@ -15,12 +15,12 @@ from pathlib import Path
 
 import pytest
 
-from ..game_utils.menu_management_mixin import SEALED_MENU_ORCHESTRATORS
 from ..game_utils.action_context import ActionContext
-from ..users.base import MenuItem
-from ..users.network_user import NetworkUser
+from ..game_utils.menu_management_mixin import SEALED_MENU_ORCHESTRATORS
 from ..games.pig.game import PigGame
 from ..messages.localization import Localization
+from ..users.base import MenuItem
+from ..users.network_user import NetworkUser
 from ..users.test_user import MockUser
 
 _locales_dir = Path(__file__).parent.parent / "locales"
@@ -687,6 +687,12 @@ class TestStatusBoxes:
         assert user1.menus["status_box"]["items"][0].text == "Count: 2"
         assert status_box_messages(user1)[-1].data["selection_id"] is None
         assert turn_menu_messages(user1) == []
+
+        game.request_menu_focus(p1, "count")
+        game.flush_menus()
+
+        assert status_box_messages(user1)[-1].data["selection_id"] == "count"
+        assert p1.id not in game._pending_menu_focus
 
     def test_live_status_box_close_clears_builder_and_restores_turn_menu(self) -> None:
         game = make_game()

@@ -42,13 +42,12 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from .player import Player
     from ..users.base import User
+    from .player import Player
 
-from ..users.base import MenuItem, EscapeBehavior
 from ..messages.localization import Localization
+from ..users.base import EscapeBehavior, MenuItem
 from .client_types import is_touch_client
-
 
 #: Menu orchestrator methods that games must not override. Enforced at class
 #: creation time by ``MenuManagementMixin.__init_subclass__``.
@@ -326,7 +325,10 @@ class MenuManagementMixin:
             return
 
         if player.id in self._status_box_open and player.id in self._live_status_boxes:
-            self._paint_live_status_box(player, focus_id=None)
+            # Passive refreshes arrive with no focus intent. When an action has
+            # explicitly requested focus while opening or replacing a live
+            # panel, carry that one-shot semantic id into the panel repaint.
+            self._paint_live_status_box(player, focus_id=focus)
             return
 
         if self._is_menu_refresh_blocked(player, user):

@@ -6,7 +6,6 @@ build-backend = "hatchling.build"
 name = "playaural-client"
 version = "1.0.4.12"
 description = "PlayAural Game Client"
-readme = "../README.md"
 requires-python = ">=3.11"
 dependencies = [
     "wxPython>=4.2.0",

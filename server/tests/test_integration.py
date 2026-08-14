@@ -261,6 +261,7 @@ class TestGameRegistryIntegration:
             "metalpipe": "misc",
             "midnight": "dice",
             "milebymile": "cards",
+            "monopoly": "board",
             "nine": "cards",
             "ninetynine": "cards",
             "pig": "dice",

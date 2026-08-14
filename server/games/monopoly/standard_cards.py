@@ -1,0 +1,233 @@
+"""Reusable contemporary card decks for standard regional boards."""
+
+from __future__ import annotations
+
+from .models import (
+    CARD_BACK,
+    CARD_COLLECT,
+    CARD_COLLECT_EACH,
+    CARD_GO_TO_JAIL,
+    CARD_JAIL_FREE,
+    CARD_MOVE,
+    CARD_NEAREST,
+    CARD_PAY,
+    CARD_PAY_EACH,
+    CARD_REPAIRS,
+    SPACE_TRANSIT,
+    SPACE_UTILITY,
+    CardDefinition,
+)
+
+
+def standard_chance_cards(
+    *,
+    top_property_id: str,
+    red_property_id: str,
+    pink_property_id: str,
+    named_transit_id: str,
+) -> tuple[CardDefinition, ...]:
+    """Build the contemporary Chance deck with regional destinations."""
+
+    return (
+        CardDefinition(
+            "chance_top_property",
+            "monopoly-card-chance-top-property",
+            CARD_MOVE,
+            destination_id=top_property_id,
+            collect_go=False,
+        ),
+        CardDefinition(
+            "chance_go",
+            "monopoly-card-chance-go",
+            CARD_MOVE,
+            destination_id="go",
+        ),
+        CardDefinition(
+            "chance_red_property",
+            "monopoly-card-chance-red-property",
+            CARD_MOVE,
+            destination_id=red_property_id,
+        ),
+        CardDefinition(
+            "chance_pink_property",
+            "monopoly-card-chance-pink-property",
+            CARD_MOVE,
+            destination_id=pink_property_id,
+        ),
+        CardDefinition(
+            "chance_transit_1",
+            "monopoly-card-chance-nearest-transit",
+            CARD_NEAREST,
+            nearest_kind=SPACE_TRANSIT,
+            rent_multiplier=2,
+        ),
+        CardDefinition(
+            "chance_transit_2",
+            "monopoly-card-chance-nearest-transit",
+            CARD_NEAREST,
+            nearest_kind=SPACE_TRANSIT,
+            rent_multiplier=2,
+        ),
+        CardDefinition(
+            "chance_utility",
+            "monopoly-card-chance-nearest-utility",
+            CARD_NEAREST,
+            nearest_kind=SPACE_UTILITY,
+            rent_multiplier=10,
+        ),
+        CardDefinition(
+            "chance_dividend",
+            "monopoly-card-chance-dividend",
+            CARD_COLLECT,
+            amount=50,
+        ),
+        CardDefinition(
+            "chance_jail_free",
+            "monopoly-card-chance-jail-free",
+            CARD_JAIL_FREE,
+        ),
+        CardDefinition(
+            "chance_back_three",
+            "monopoly-card-chance-back-three",
+            CARD_BACK,
+            amount=3,
+        ),
+        CardDefinition(
+            "chance_go_jail",
+            "monopoly-card-chance-go-jail",
+            CARD_GO_TO_JAIL,
+        ),
+        CardDefinition(
+            "chance_repairs",
+            "monopoly-card-chance-repairs",
+            CARD_REPAIRS,
+            per_house=25,
+            per_hotel=100,
+        ),
+        CardDefinition(
+            "chance_speeding",
+            "monopoly-card-chance-speeding",
+            CARD_PAY,
+            amount=15,
+        ),
+        CardDefinition(
+            "chance_named_transit",
+            "monopoly-card-chance-named-transit",
+            CARD_MOVE,
+            destination_id=named_transit_id,
+        ),
+        CardDefinition(
+            "chance_chairperson",
+            "monopoly-card-chance-chairperson",
+            CARD_PAY_EACH,
+            amount=50,
+        ),
+        CardDefinition(
+            "chance_loan",
+            "monopoly-card-chance-loan",
+            CARD_COLLECT,
+            amount=150,
+        ),
+    )
+
+
+def standard_community_cards() -> tuple[CardDefinition, ...]:
+    """Build the contemporary Community Chest deck."""
+
+    return (
+        CardDefinition(
+            "community_neighbor",
+            "monopoly-card-community-neighbor",
+            CARD_COLLECT,
+            amount=100,
+        ),
+        CardDefinition(
+            "community_path",
+            "monopoly-card-community-path",
+            CARD_COLLECT,
+            amount=50,
+        ),
+        CardDefinition(
+            "community_blood",
+            "monopoly-card-community-blood",
+            CARD_COLLECT,
+            amount=10,
+        ),
+        CardDefinition(
+            "community_bake_buy",
+            "monopoly-card-community-bake-buy",
+            CARD_PAY,
+            amount=50,
+        ),
+        CardDefinition(
+            "community_jail_free",
+            "monopoly-card-community-jail-free",
+            CARD_JAIL_FREE,
+        ),
+        CardDefinition(
+            "community_party",
+            "monopoly-card-community-party",
+            CARD_COLLECT_EACH,
+            amount=10,
+        ),
+        CardDefinition(
+            "community_go_jail",
+            "monopoly-card-community-go-jail",
+            CARD_GO_TO_JAIL,
+        ),
+        CardDefinition(
+            "community_groceries",
+            "monopoly-card-community-groceries",
+            CARD_COLLECT,
+            amount=20,
+        ),
+        CardDefinition(
+            "community_playground",
+            "monopoly-card-community-playground",
+            CARD_COLLECT,
+            amount=100,
+        ),
+        CardDefinition(
+            "community_hospital",
+            "monopoly-card-community-hospital",
+            CARD_COLLECT,
+            amount=100,
+        ),
+        CardDefinition(
+            "community_car_wash",
+            "monopoly-card-community-car-wash",
+            CARD_PAY,
+            amount=100,
+        ),
+        CardDefinition(
+            "community_race",
+            "monopoly-card-community-race",
+            CARD_MOVE,
+            destination_id="go",
+        ),
+        CardDefinition(
+            "community_storm",
+            "monopoly-card-community-storm",
+            CARD_COLLECT,
+            amount=200,
+        ),
+        CardDefinition(
+            "community_shelter",
+            "monopoly-card-community-shelter",
+            CARD_PAY,
+            amount=50,
+        ),
+        CardDefinition(
+            "community_repairs",
+            "monopoly-card-community-repairs",
+            CARD_REPAIRS,
+            per_house=40,
+            per_hotel=115,
+        ),
+        CardDefinition(
+            "community_bake_sale",
+            "monopoly-card-community-bake-sale",
+            CARD_COLLECT,
+            amount=25,
+        ),
+    )

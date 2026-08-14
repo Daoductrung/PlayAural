@@ -258,7 +258,7 @@ def all_card_ids(game: BangGame) -> list[int]:
 
 def test_registration_metadata_options_and_catalog_count():
     assert GameRegistry.get("bang") is BangGame
-    assert len(GameRegistry.get_all()) == 44
+    assert len(GameRegistry.get_all()) == 45
     assert BangGame.get_name() == "BANG! The Bullet"
     assert BangGame.get_category() == "cards"
     assert (BangGame.get_min_players(), BangGame.get_max_players()) == (3, 8)

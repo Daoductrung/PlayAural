@@ -2,7 +2,6 @@
 name = "playaural-server"
 version = "1.0.4.12"
 description = "PlayAural Game Server"
-readme = "../README.md"
 requires-python = ">=3.11"
 dependencies = [
     "websockets>=12.0",
@@ -27,10 +26,37 @@ playaural-server = "server.__main__:main"
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[tool.hatch.build]
+dev-mode-dirs = [".."]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
 pythonpath = [".."]
 
 [tool.hatch.build.targets.wheel]
-packages = ["."]
+only-include = [
+    "__init__.py",
+    "__main__.py",
+    "audio.py",
+    "cli.py",
+    "main.py",
+    "menu_pagination.py",
+    "administration",
+    "auth",
+    "core",
+    "documentation",
+    "games",
+    "game_utils",
+    "locales",
+    "messages",
+    "network",
+    "persistence",
+    "tables",
+    "ui",
+    "users",
+    "voice",
+]
+
+[tool.hatch.build.targets.wheel.sources]
+"" = "server"

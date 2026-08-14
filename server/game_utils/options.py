@@ -982,7 +982,12 @@ class OptionsHandlerMixin:
             return None
         current_value = getattr(self.options, option_name, meta.default)
         if meta.description:
-            return Localization.get(user.locale, meta.description)
+            return meta.get_description(
+                user.locale,
+                current_value,
+                game=self,
+                player=player,
+            )
         description_key = self._conventional_option_description_key(
             self.get_type(),
             option_name,

@@ -1,5 +1,16 @@
 Nhật ký thay đổi
 
+Chủ Nhật 16 Tháng Tám 2026
+
+Tính năng mới:
+
+* Cờ tỷ phú đã được thêm cho 2 đến 8 người chơi. Chủ bàn có thể chọn Hoa Kỳ, Luân Đôn, Paris, Đức, Ý, Madrid, Tokyo, Úc, New Zealand hoặc Hà Nội, Việt Nam; mỗi bàn có tên ô, đơn vị tiền, thẻ bài, bất động sản giao thông và cách gọi cấp phát triển riêng. Trò chơi có mua và đấu giá bất động sản, thu tiền thuê, sở hữu trọn nhóm màu, phát triển cân bằng, thế chấp, trao đổi, nhà tù, nợ và phá sản, các luật tùy chọn, bot có chiến thuật, Thông báo ngắn gọn, màn hình bất động sản và bàn cờ thân thiện với trình đọc màn hình, âm thanh và nhạc riêng, cùng tài liệu cho người mới bằng tiếng Anh và tiếng Việt.
+
+Cải thiện:
+
+* Trò chuyện thoại trên phần mềm máy tính giờ giữ âm thanh mượt hơn khi nhiều người cùng nói hoặc kết nối chập chờn trong thời gian ngắn, giảm tiếng rè, ngắt quãng, mất đầu hoặc cuối câu và độ trễ, đồng thời vẫn giữ chất lượng âm thanh nổi nhận vào.
+* Người chơi dùng tiếng Tây Ban Nha giờ thấy các đấu sĩ mẫu và kỹ năng của Đấu Trường Chiến Kỹ bằng tiếng Tây Ban Nha; tên phím tắt cũng đã được thống nhất trong tài liệu người chơi tiếng Tây Ban Nha.
+
 Thứ Tư 5 Tháng Tám 2026
 
 Tính năng mới:

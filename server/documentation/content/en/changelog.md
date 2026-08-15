@@ -1,5 +1,16 @@
 Changelog
 
+Sunday 16 August 2026
+
+New Additions:
+
+* Monopoly has been added for 2 to 8 players. Choose from the United States, London, Paris, Germany, Italy, Madrid, Tokyo, Australia, New Zealand, and Hanoi, Vietnam boards, each with its own spaces, currency, cards, transport, and development terms. The game includes buying and auctioning property, collecting rent, completing color groups, balanced development, mortgages, trading, jail, debt and bankruptcy, configurable house rules, strategic bots, Brief announcements, screen-reader-friendly property and board views, dedicated music and sound, and beginner guides in English and Vietnamese.
+
+Improvements:
+
+* Desktop Voice Chat now remains smooth when several people speak or connections briefly fluctuate, reducing crackling, stuttering, cut-off words, and delayed audio while preserving incoming stereo quality.
+* Spanish players now see Battle's preset fighters and moves in Spanish, and keyboard shortcut names are consistent throughout the Spanish player guides.
+
 Wednesday 5 August 2026
 
 New Additions:

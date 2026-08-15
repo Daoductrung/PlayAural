@@ -179,6 +179,26 @@ def cash_reserve(board: BoardDefinition) -> int:
     return max(1, board.starting_cash // 6)
 
 
+def acquisition_cash_reserve(
+    board: BoardDefinition,
+    states: Mapping[str, PropertyState],
+    player_id: str,
+    *,
+    completes_group: bool,
+) -> int:
+    """Return the liquidity a bot keeps after buying a deed.
+
+    Completing a group justifies taking more risk, but never spending the
+    baseline emergency reserve.  This prevents an auction win from forcing an
+    immediate mortgage while remaining board-agnostic across currencies.
+    """
+
+    risk_reserve = risk_adjusted_cash_reserve(board, states, player_id)
+    if not completes_group:
+        return risk_reserve
+    return max(cash_reserve(board), risk_reserve * 3 // 4)
+
+
 def risk_adjusted_cash_reserve(
     board: BoardDefinition,
     states: Mapping[str, PropertyState],
@@ -203,6 +223,28 @@ def risk_adjusted_cash_reserve(
     return max(
         cash_reserve(board),
         min(highest_rent, max(1, board.starting_cash // 2)),
+    )
+
+
+def opponent_rent_pressure(
+    board: BoardDefinition,
+    states: Mapping[str, PropertyState],
+    player_id: str,
+) -> int:
+    """Return the strongest traffic-adjusted opposing rent exposure."""
+
+    return max(
+        (
+            round(
+                calculate_rent(board, states, space, 7)
+                * landing_weight(board, space.id)
+            )
+            for space in board.spaces
+            if (state := states.get(space.id))
+            and state.owner_id
+            and state.owner_id != player_id
+        ),
+        default=0,
     )
 
 
@@ -326,6 +368,41 @@ def trade_value_delta(
     return delta
 
 
+def strategic_position_value(
+    board: BoardDefinition,
+    states: Mapping[str, PropertyState],
+    player_id: str,
+    cash: int,
+) -> int:
+    """Return cash plus the strategic value of one player's portfolio."""
+
+    return cash + strategic_portfolio_value(board, states, player_id)
+
+
+def required_counterparty_trade_gain(
+    proposer_strength: int,
+    counterparty_strength: int,
+    proposer_gain: int,
+) -> int:
+    """Return the minimum gain that makes a deal competitively reasonable.
+
+    A balanced deal gives the counterparty at least half as much strategic
+    value as the proposer.  A trailing counterparty demands more; a leader may
+    concede part of an existing advantage.  The calculation uses only relative,
+    board-scaled values.
+    """
+
+    if proposer_gain <= 0:
+        return 0
+    balanced_gain = max(1, (proposer_gain + 1) // 2)
+    strength_gap = counterparty_strength - proposer_strength
+    if strength_gap > 0:
+        return max(1, balanced_gain - strength_gap // 8)
+    if strength_gap < 0:
+        return min(proposer_gain, balanced_gain + (-strength_gap) // 8)
+    return balanced_gain
+
+
 def property_value(
     board: BoardDefinition,
     states: dict[str, PropertyState],
@@ -392,10 +469,11 @@ def should_buy_property(
 ) -> bool:
     """Buy broadly, but preserve less cash when the deed completes a group."""
 
-    reserve = (
-        max(1, board.starting_cash // 15)
-        if _completes_group(board, states, space, player_id)
-        else risk_adjusted_cash_reserve(board, states, player_id)
+    reserve = acquisition_cash_reserve(
+        board,
+        states,
+        player_id,
+        completes_group=_completes_group(board, states, space, player_id),
     )
     return cash >= space.price + reserve
 
@@ -412,9 +490,12 @@ def maximum_auction_bid(
     value = property_value(board, states, space, player_id) + opponent_blocking_value(
         board, states, space, player_id
     )
-    reserve = risk_adjusted_cash_reserve(board, states, player_id)
-    if _completes_group(board, states, space, player_id):
-        reserve = min(reserve, max(1, board.starting_cash // 15))
+    reserve = acquisition_cash_reserve(
+        board,
+        states,
+        player_id,
+        completes_group=_completes_group(board, states, space, player_id),
+    )
     return min(max(0, cash - reserve), value)
 
 

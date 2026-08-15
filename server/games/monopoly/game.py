@@ -13,12 +13,14 @@ from ...game_utils.bot_helper import BotHelper
 from ...game_utils.game_result import GameResult, PlayerResult
 from ...game_utils.menu_management_mixin import StatusBoxBuild
 from ...game_utils.options import BoolOption, GameOptions, MenuOption, option_field
+from ...game_utils.sequence_runner_mixin import SequenceBeat, SequenceOperation
 from ...messages.localization import Localization
 from ...ui.keybinds import KeybindState
 from ...users.base import MenuItem
 from ..base import Game, Player
 from ..categories import CATEGORY_BOARD
 from ..registry import register_game
+from . import audio as game_audio
 from . import australia as _australia  # noqa: F401 - registers bundled board
 from . import germany as _germany  # noqa: F401 - registers bundled board
 from . import hanoi as _hanoi  # noqa: F401 - registers bundled board
@@ -32,13 +34,15 @@ from . import tokyo as _tokyo  # noqa: F401 - registers bundled board
 from .boards import DEFAULT_BOARD_ID, get_board, get_board_ids
 from .bot import (
     building_sale_damage,
-    cash_reserve,
     development_score,
     group_building_sale_damage,
     maximum_auction_bid,
     mortgage_damage,
+    opponent_rent_pressure,
+    required_counterparty_trade_gain,
     risk_adjusted_cash_reserve,
     should_buy_property,
+    strategic_position_value,
     trade_value_delta,
 )
 from .models import (
@@ -70,6 +74,7 @@ from .models import (
     CardDefinition,
     DebtState,
     MortgageTransferState,
+    PaymentBatchState,
     PropertyState,
     QueuedPayment,
     RentState,
@@ -159,6 +164,7 @@ class MonopolyPlayer(Player):
     bankruptcy_order: int = 0
     passed_go_once: bool = False
     bot_trade_turn: int = -1
+    bot_trade_cooldowns: dict[str, int] = field(default_factory=dict)
 
 
 @dataclass
@@ -273,6 +279,7 @@ class MonopolyGame(Game):
     """Board-driven property trading with explicit accessible decision phases."""
 
     relevant_preferences: ClassVar[list[str]] = ["brief_announcements"]
+    bot_trade_rejection_cooldown_rounds: ClassVar[int] = 2
     touch_standard_action_order: ClassVar[tuple[str, ...]] = (
         "manage_properties",
         "propose_trade",
@@ -306,7 +313,7 @@ class MonopolyGame(Game):
     rent_state: RentState | None = None
     auction_state: AuctionState | None = None
     debt_state: DebtState | None = None
-    payment_queue: list[QueuedPayment] = field(default_factory=list)
+    payment_batch_state: PaymentBatchState | None = None
     trade_state: TradeState | None = None
     mortgage_transfer_state: MortgageTransferState | None = None
     bankruptcy_state: BankruptcyState | None = None
@@ -316,6 +323,18 @@ class MonopolyGame(Game):
     winner_id: str = ""
     bankruptcy_counter: int = 0
     turn_number: int = 0
+
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        # Runtime-only pacing marker. Serialized bot timers remain authoritative;
+        # restoration simply gives the current bot a fresh human-sized pause.
+        self._bot_pacing_actor_id = ""
+
+    def on_discard(self) -> None:
+        """Drop match-scoped bot observations when this game loses ownership."""
+
+        self._clear_bot_strategy_memory()
+        super().on_discard()
 
     @classmethod
     def get_name(cls) -> str:
@@ -1181,22 +1200,15 @@ class MonopolyGame(Game):
             player.bankrupt = False
             player.bankruptcy_order = 0
             player.passed_go_once = False
-            player.bot_trade_turn = -1
+        self._clear_bot_strategy_memory()
 
         self.set_turn_players(active)
         self.bankruptcy_counter = 0
         self.turn_number = 0
-        first_player = self._choose_first_player(active)
+        first_player, opening_rounds = self._choose_first_player(active)
         if first_player:
             self.current_player = first_player
-        self._broadcast_global(
-            "monopoly-game-started",
-            "monopoly-game-started-brief",
-            players=len(active),
-            board=lambda locale: Localization.get(locale, board.name_key),
-            cash=lambda locale: self._money(locale, board.starting_cash),
-        )
-        self._start_turn(announce=True)
+        self._start_game_intro_sequence(opening_rounds)
 
     def _clear_interactions(self) -> None:
         self.phase = PHASE_AWAIT_ROLL
@@ -1205,7 +1217,7 @@ class MonopolyGame(Game):
         self.rent_state = None
         self.auction_state = None
         self.debt_state = None
-        self.payment_queue.clear()
+        self.payment_batch_state = None
         self.trade_state = None
         self.mortgage_transfer_state = None
         self.bankruptcy_state = None
@@ -1219,8 +1231,9 @@ class MonopolyGame(Game):
 
     def _choose_first_player(
         self, players: list[MonopolyPlayer]
-    ) -> MonopolyPlayer | None:
+    ) -> tuple[MonopolyPlayer | None, list[dict[str, Any]]]:
         contenders = players[:]
+        rounds: list[dict[str, Any]] = []
         while len(contenders) > 1:
             rolls = {
                 player.id: random.randint(1, 6) + random.randint(1, 6)
@@ -1228,25 +1241,77 @@ class MonopolyGame(Game):
             }
             high = max(rolls.values())
             tied = [player for player in contenders if rolls[player.id] == high]
-            for player in contenders:
-                self._broadcast_actor(
-                    player,
-                    "monopoly-you-opening-roll",
-                    "monopoly-player-opening-roll",
-                    total=rolls[player.id],
-                    brief_personal_key="monopoly-you-opening-roll-brief",
-                    brief_others_key="monopoly-player-opening-roll-brief",
-                )
+            rounds.append(
+                {
+                    "rolls": [
+                        {"player_id": player.id, "total": rolls[player.id]}
+                        for player in contenders
+                    ],
+                    "tied_player_ids": [player.id for player in tied]
+                    if len(tied) > 1
+                    else [],
+                }
+            )
             contenders = tied
-            if len(contenders) > 1:
-                self._broadcast_global(
-                    "monopoly-opening-roll-tie",
-                    "monopoly-opening-roll-tie-brief",
-                    players=lambda locale, tied=tied: Localization.format_list_and(
-                        locale, [player.name for player in tied]
-                    ),
+        return (contenders[0] if contenders else None), rounds
+
+    def _start_game_intro_sequence(self, rounds: list[dict[str, Any]]) -> None:
+        beats = [
+            SequenceBeat.after_audio(
+                game_audio.sound_ticks(game_audio.SOUND_BOARD_SETUP),
+                ops=[
+                    SequenceOperation.sound_op(game_audio.SOUND_BOARD_SETUP),
+                    SequenceOperation.callback_op("announce_game_start"),
+                ],
+            ),
+            SequenceBeat.after_audio(
+                game_audio.sound_ticks(game_audio.SOUND_DECK_SHUFFLE),
+                ops=[SequenceOperation.sound_op(game_audio.SOUND_DECK_SHUFFLE)],
+            ),
+            SequenceBeat(ops=[SequenceOperation.callback_op("start_music")]),
+        ]
+        for round_data in rounds:
+            for roll in round_data["rolls"]:
+                roll_sound = random.choice(  # nosec B311
+                    game_audio.SOUND_OPENING_ROLLS
                 )
-        return contenders[0] if contenders else None
+                beats.append(
+                    SequenceBeat(
+                        ops=[
+                            SequenceOperation.sound_op(roll_sound),
+                            SequenceOperation.callback_op(
+                                "announce_opening_roll", dict(roll)
+                            ),
+                        ],
+                        delay_after_ticks=(
+                            game_audio.sound_ticks(roll_sound)
+                            + game_audio.OPENING_ROLL_GAP_TICKS
+                        ),
+                    )
+                )
+            tied_player_ids = round_data["tied_player_ids"]
+            if tied_player_ids:
+                beats.append(
+                    SequenceBeat(
+                        ops=[
+                            SequenceOperation.callback_op(
+                                "announce_opening_roll_tie",
+                                {"player_ids": list(tied_player_ids)},
+                            )
+                        ],
+                        delay_after_ticks=game_audio.OPENING_ROLL_GAP_TICKS,
+                    )
+                )
+        beats.append(
+            SequenceBeat(ops=[SequenceOperation.callback_op("start_first_turn")])
+        )
+        self.start_sequence(
+            "monopoly_game_intro",
+            beats,
+            tag="monopoly_intro",
+            lock_scope=self.SEQUENCE_LOCK_GAMEPLAY,
+            pause_bots=True,
+        )
 
     def _start_turn(self, *, announce: bool) -> None:
         current = self.current_player
@@ -1258,6 +1323,9 @@ class MonopolyGame(Game):
         self.decision_player_id = current.id
         self.turn_number += 1
         if announce:
+            user = self.get_user(current)
+            if user and user.preferences.play_turn_sound:
+                user.play_sound(game_audio.SOUND_TURN)
             self._broadcast_actor(
                 current,
                 "monopoly-your-turn-status",
@@ -1268,8 +1336,6 @@ class MonopolyGame(Game):
                 brief_personal_key="monopoly-your-turn-status-brief",
                 brief_others_key="monopoly-player-turn-status-brief",
             )
-        if current.is_bot:
-            BotHelper.jolt_bot(current)
         self.refresh_menus()
 
     def _finish_turn(self) -> None:
@@ -1288,14 +1354,168 @@ class MonopolyGame(Game):
         self.process_sequences()
         if self.status != "playing" or not self.game_active:
             return
+        if self.is_sequence_bot_paused():
+            return
         actor = self._decision_player()
         if not actor or not actor.is_bot:
+            self._bot_pacing_actor_id = ""
+            return
+        if self._bot_pacing_actor_id != actor.id:
+            self._bot_pacing_actor_id = actor.id
+            self._jolt_bot(actor)
             return
         BotHelper.process_bot_action(
             actor,
             lambda: self.bot_think(actor),
-            lambda action_id: self.execute_action(actor, action_id),
+            lambda action_id: self._execute_bot_action(actor, action_id),
         )
+
+    def _jolt_bot(self, player: MonopolyPlayer) -> None:
+        BotHelper.jolt_bot(
+            player,
+            ticks=random.randint(  # nosec B311 - humanized game pacing
+                game_audio.BOT_ACTION_DELAY_MIN_TICKS,
+                game_audio.BOT_ACTION_DELAY_MAX_TICKS,
+            ),
+        )
+
+    def _execute_bot_action(self, player: MonopolyPlayer, action_id: str) -> None:
+        self.execute_action(player, action_id)
+        # Force a fresh pause before the next decision, including consecutive
+        # actions by the same bot in auctions, debt, trades, and management.
+        self._bot_pacing_actor_id = ""
+
+    def on_sequence_callback(
+        self,
+        sequence_id: str,
+        callback_id: str,
+        payload: dict[str, Any],
+    ) -> None:
+        if callback_id == "announce_game_start":
+            board = self.board
+            self._broadcast_global(
+                "monopoly-game-started",
+                "monopoly-game-started-brief",
+                players=len(self.alive_players),
+                board=lambda locale: Localization.get(locale, board.name_key),
+                cash=lambda locale: self._money(locale, board.starting_cash),
+            )
+            return
+        if callback_id == "start_music":
+            self.play_music(game_audio.SOUND_MUSIC_LOOP)
+            return
+        if callback_id == "announce_opening_roll":
+            player = self.get_player_by_id(str(payload.get("player_id", "")))
+            if isinstance(player, MonopolyPlayer):
+                self._broadcast_actor(
+                    player,
+                    "monopoly-you-opening-roll",
+                    "monopoly-player-opening-roll",
+                    total=int(payload.get("total", 0)),
+                    brief_personal_key="monopoly-you-opening-roll-brief",
+                    brief_others_key="monopoly-player-opening-roll-brief",
+                )
+            return
+        if callback_id == "announce_opening_roll_tie":
+            tied = [
+                player
+                for player_id in payload.get("player_ids", [])
+                if isinstance(
+                    (player := self.get_player_by_id(str(player_id))),
+                    MonopolyPlayer,
+                )
+            ]
+            if tied:
+                self._broadcast_global(
+                    "monopoly-opening-roll-tie",
+                    "monopoly-opening-roll-tie-brief",
+                    players=lambda locale: Localization.format_list_and(
+                        locale, [player.name for player in tied]
+                    ),
+                )
+            return
+        if callback_id == "start_first_turn":
+            self._start_turn(announce=True)
+            return
+        if callback_id == "regular_roll_move":
+            self._sequence_move_regular_roll(payload)
+            return
+        if callback_id == "award_snake_eyes_bonus":
+            player = self.get_player_by_id(str(payload.get("player_id", "")))
+            if isinstance(player, MonopolyPlayer) and not player.bankrupt:
+                self._award_snake_eyes_bonus(
+                    player,
+                    int(payload.get("die_1", 0)),
+                    int(payload.get("die_2", 0)),
+                )
+            return
+        if callback_id == "regular_roll_landing":
+            player = self.get_player_by_id(str(payload.get("player_id", "")))
+            if isinstance(player, MonopolyPlayer) and not player.bankrupt:
+                self._resolve_landing(player)
+                if not self.has_active_sequence(tag="monopoly_card"):
+                    self._focus_after_user_transition(player)
+            return
+        if callback_id == "regular_roll_jail":
+            player = self.get_player_by_id(str(payload.get("player_id", "")))
+            if isinstance(player, MonopolyPlayer) and not player.bankrupt:
+                self._broadcast_actor(
+                    player,
+                    "monopoly-you-three-doubles",
+                    "monopoly-player-three-doubles",
+                    jail=lambda locale: self._space_name(
+                        locale, self.board.space(self.board.jail_space_id)
+                    ),
+                    brief_personal_key="monopoly-you-three-doubles-brief",
+                    brief_others_key="monopoly-player-three-doubles-brief",
+                )
+                self._send_to_jail(player)
+                self._focus_after_user_transition(player)
+            return
+        if callback_id == "jail_roll_release":
+            self._sequence_release_from_jail(payload)
+            return
+        if callback_id == "jail_roll_move":
+            self._sequence_move_regular_roll(payload)
+            return
+        if callback_id == "jail_roll_failed":
+            self._sequence_failed_jail_roll(payload)
+            return
+        if callback_id == "jail_roll_landing":
+            player = self.get_player_by_id(str(payload.get("player_id", "")))
+            if isinstance(player, MonopolyPlayer) and not player.bankrupt:
+                self._resolve_landing(player)
+                if not self.has_active_sequence(tag="monopoly_card"):
+                    self._focus_after_user_transition(player)
+            return
+        if callback_id == "resolve_drawn_card":
+            player = self.get_player_by_id(str(payload.get("player_id", "")))
+            if not isinstance(player, MonopolyPlayer) or player.bankrupt:
+                return
+            card = self.board.card(
+                str(payload.get("deck_id", "")),
+                str(payload.get("card_id", "")),
+            )
+            self._announce_card(player, card)
+            self._resolve_card(player, card)
+            if not any(
+                sequence.tag == "monopoly_card"
+                and sequence.sequence_id != sequence_id
+                for sequence in self.active_sequences
+            ):
+                self._focus_after_user_transition(player)
+            return
+        if callback_id == "repair_card_charge":
+            player = self.get_player_by_id(str(payload.get("player_id", "")))
+            if isinstance(player, MonopolyPlayer) and not player.bankrupt:
+                self._start_debt(
+                    player,
+                    "",
+                    int(payload.get("amount", 0)),
+                    "monopoly-debt-repairs",
+                    continuation="finish_landing",
+                )
+                self._focus_after_user_transition(player)
 
     def _decision_player(self) -> MonopolyPlayer | None:
         player = (
@@ -1348,8 +1568,6 @@ class MonopolyGame(Game):
                     if int(self._bot_bid_input(player)) > self._auction_minimum_bid()
                     else "bid_minimum"
                 )
-            if self._bot_has_management_opportunity(player):
-                return "manage_properties"
             return "pass_auction"
         if self.phase == PHASE_DEBT:
             debt = self.debt_state
@@ -1381,7 +1599,12 @@ class MonopolyGame(Game):
                     space.mortgage_value,
                     self.board.rules.mortgage_interest_percent,
                 )
-                if player.cash >= cost + cash_reserve(self.board):
+                reserve = risk_adjusted_cash_reserve(
+                    self.board,
+                    self.property_states,
+                    player.id,
+                )
+                if player.cash >= cost + reserve:
                     return "unmortgage_received_now"
             return "keep_received_mortgaged"
         if self.phase == PHASE_TRADE_BUILD:
@@ -1433,14 +1656,42 @@ class MonopolyGame(Game):
         return str(min(maximum, max(minimum, auction.highest_bid + step)))
 
     def _bot_prefers_jail(self, player: MonopolyPlayer) -> bool:
-        """Stay safe in jail once most deeds are owned or rents are developed."""
+        """Stay safe only when opponents create meaningful rent exposure."""
 
         unowned = sum(
             1 for state in self.property_states.values() if not state.owner_id
         )
-        developed = any(state.buildings >= 2 for state in self.property_states.values())
-        late_board = developed or unowned <= max(2, len(self.property_states) // 4)
-        return late_board
+        opposing_engine = any(
+            state.owner_id
+            and state.owner_id != player.id
+            and (
+                state.buildings > 0
+                or owns_group(
+                    self.board,
+                    self.property_states,
+                    state.owner_id,
+                    self.board.space(property_id).group_id,
+                )
+            )
+            for property_id, state in self.property_states.items()
+        )
+        mostly_owned = unowned <= max(2, len(self.property_states) // 4)
+        meaningful_rent = opponent_rent_pressure(
+            self.board,
+            self.property_states,
+            player.id,
+        ) >= max(1, self.board.starting_cash // 60)
+        return meaningful_rent and (opposing_engine or mostly_owned)
+
+    def _clear_bot_strategy_memory(self) -> None:
+        """Clear bounded observations that belong only to this match instance."""
+
+        self._bot_pacing_actor_id = ""
+        for player in self.players:
+            if not isinstance(player, MonopolyPlayer):
+                continue
+            player.bot_trade_turn = -1
+            player.bot_trade_cooldowns.clear()
 
     def _bot_management_choice(
         self,
@@ -1451,57 +1702,18 @@ class MonopolyGame(Game):
         if not state or state.owner_id != player.id:
             return None
         space = self.board.space(property_id)
-        resume_phase = (
-            self.management_resume_phase if self.phase == PHASE_MANAGE else self.phase
-        )
         reserve = risk_adjusted_cash_reserve(
             self.board,
             self.property_states,
             player.id,
         )
 
-        # Do not let an auction detour spend the liquidity the bot is trying to
-        # raise. In that context the only useful management operation is
-        # mortgaging a low-priority undeveloped deed to fund a valuable bid.
-        if resume_phase == PHASE_AUCTION:
-            if state.mortgaged:
-                return None
-            auction = self.auction_state
-            if not auction:
-                return None
-            auction_space = self.board.space(auction.property_id)
-            affordable_after = maximum_auction_bid(
-                self.board,
-                self.property_states,
-                auction_space,
-                player.id,
-                player.cash + space.mortgage_value,
-            )
-            if (
-                self._auction_minimum_bid() <= affordable_after
-                and can_mortgage(
-                    self.board,
-                    self.property_states,
-                    property_id,
-                    player.id,
-                )
-                is None
-                and not owns_group(
-                    self.board,
-                    self.property_states,
-                    player.id,
-                    space.group_id,
-                )
-            ):
-                return (
-                    "mortgage",
-                    1_000_000
-                    - mortgage_damage(
-                        self.board,
-                        self.property_states,
-                        property_id,
-                    ),
-                )
+        # Auctions must be funded from available cash. Taking a mortgage only
+        # to keep bidding creates a fragile win followed by forced liquidation.
+        if self.phase == PHASE_AUCTION or (
+            self.phase == PHASE_MANAGE
+            and self.management_resume_phase == PHASE_AUCTION
+        ):
             return None
 
         if state.mortgaged:
@@ -1627,6 +1839,13 @@ class MonopolyGame(Game):
             self.property_states,
             player.id,
         )
+        self._prune_bot_trade_cooldowns(player)
+        player_strength = strategic_position_value(
+            self.board,
+            self.property_states,
+            player.id,
+            player.cash,
+        )
         unit = max(1, self.board.starting_cash // 150)
         offered_candidates = [""] + [
             property_id
@@ -1656,6 +1875,20 @@ class MonopolyGame(Game):
                 or not self._property_is_tradeable(requested.id, owner.id)
             ):
                 continue
+            memory_key = self._bot_trade_memory_key(owner.id, requested.id)
+            if player.bot_trade_cooldowns.get(memory_key, 0) > self.turn_number:
+                continue
+            owner_strength = strategic_position_value(
+                self.board,
+                self.property_states,
+                owner.id,
+                owner.cash,
+            )
+            owner_reserve = risk_adjusted_cash_reserve(
+                self.board,
+                self.property_states,
+                owner.id,
+            )
             for offered_id in offered_candidates:
                 offered_ids = [offered_id] if offered_id else []
                 requested_ids = [requested.id]
@@ -1679,10 +1912,18 @@ class MonopolyGame(Game):
                 )
                 if bot_base <= 0:
                     continue
-                target_required = max(0, bot_base // 4)
-                cash_needed = max(0, target_required - target_base)
+                target_required = required_counterparty_trade_gain(
+                    player_strength,
+                    owner_strength,
+                    bot_base,
+                )
+                cash_needed = max(
+                    0,
+                    target_required - target_base,
+                    owner_reserve - owner.cash,
+                )
                 offered_cash = ((cash_needed + unit - 1) // unit) * unit
-                if player.cash - offered_cash < max(1, reserve // 2):
+                if player.cash - offered_cash < reserve:
                     continue
                 bot_delta = bot_base - offered_cash
                 target_delta = target_base + offered_cash
@@ -1698,6 +1939,39 @@ class MonopolyGame(Game):
                 if score > best[0]:
                     best = score, plan
         return best[1]
+
+    @staticmethod
+    def _bot_trade_memory_key(target_id: str, requested_property_id: str) -> str:
+        return f"{target_id}:{requested_property_id}"
+
+    def _prune_bot_trade_cooldowns(self, player: MonopolyPlayer) -> None:
+        valid_keys = {
+            self._bot_trade_memory_key(target.id, property_id)
+            for target in self.alive_players
+            if target.id != player.id
+            for property_id in self.property_states
+        }
+        player.bot_trade_cooldowns = {
+            key: expires
+            for key, expires in player.bot_trade_cooldowns.items()
+            if key in valid_keys and expires > self.turn_number
+        }
+
+    def _remember_rejected_bot_trade(
+        self,
+        proposer: MonopolyPlayer,
+        trade: TradeState,
+    ) -> None:
+        if not proposer.is_bot:
+            return
+        expires = self.turn_number + max(
+            2,
+            self.bot_trade_rejection_cooldown_rounds * len(self.alive_players),
+        )
+        for property_id in trade.requested_property_ids:
+            proposer.bot_trade_cooldowns[
+                self._bot_trade_memory_key(trade.target_id, property_id)
+            ] = expires
 
     def _bot_trade_target_input(
         self,
@@ -1790,15 +2064,44 @@ class MonopolyGame(Game):
             offered_jail_cards=len(trade.offered_jail_card_ids),
             requested_jail_cards=len(trade.requested_jail_card_ids),
         )
-        remaining_cash = player.cash - trade.requested_cash + trade.offered_cash
+        own_interest = self._trade_transfer_interest(trade.offered_property_ids)
+        proposer_interest = self._trade_transfer_interest(
+            trade.requested_property_ids
+        )
+        own_delta -= own_interest
+        proposer_delta -= proposer_interest
+        remaining_cash = (
+            player.cash
+            - trade.requested_cash
+            + trade.offered_cash
+            - own_interest
+        )
         reserve = risk_adjusted_cash_reserve(
             self.board,
             self.property_states,
             player.id,
         )
-        return own_delta >= max(0, proposer_delta // 4) and remaining_cash >= max(
-            1, reserve // 2
+        proposer = self._alive_player_by_id(trade.proposer_id)
+        if not proposer:
+            return False
+        proposer_strength = strategic_position_value(
+            self.board,
+            self.property_states,
+            proposer.id,
+            proposer.cash,
         )
+        own_strength = strategic_position_value(
+            self.board,
+            self.property_states,
+            player.id,
+            player.cash,
+        )
+        required_gain = required_counterparty_trade_gain(
+            proposer_strength,
+            own_strength,
+            proposer_delta,
+        )
+        return own_delta >= max(1, required_gain) and remaining_cash >= reserve
 
     # ------------------------------------------------------------------
     # Visibility and contextual disabled reasons
@@ -1829,6 +2132,11 @@ class MonopolyGame(Game):
         return Visibility.VISIBLE
 
     def _is_roll_enabled(self, player: Player) -> str | None:
+        if (
+            self.decision_player_id == player.id
+            and self.is_sequence_gameplay_locked()
+        ):
+            return "monopoly-error-roll-resolving"
         if self._is_actor(player, PHASE_AWAIT_ROLL):
             return None
         if self._is_actor(player, PHASE_TURN_ACTIONS) and self.extra_roll_pending:
@@ -1905,6 +2213,11 @@ class MonopolyGame(Game):
         return self._visible_for_actor(player, PHASE_JAIL)
 
     def _is_jail_roll_enabled(self, player: Player) -> str | None:
+        if (
+            self.decision_player_id == player.id
+            and self.is_sequence_gameplay_locked()
+        ):
+            return "monopoly-error-roll-resolving"
         return (
             None if self._is_actor(player, PHASE_JAIL) else self._waiting_reason(player)
         )
@@ -2761,21 +3074,55 @@ class MonopolyGame(Game):
     def _roll_pair(self) -> tuple[int, int]:
         return random.randint(1, 6), random.randint(1, 6)
 
+    def _build_roll_cue_beats(
+        self,
+        player: MonopolyPlayer,
+        die_1: int,
+        die_2: int,
+    ) -> list[SequenceBeat]:
+        roll_sound = random.choice(game_audio.SOUND_DICE_ROLLS)  # nosec B311
+        beats = [
+            SequenceBeat.after_audio(
+                game_audio.sound_ticks(roll_sound),
+                ops=[SequenceOperation.sound_op(roll_sound)],
+            )
+        ]
+        if die_1 == die_2:
+            beats.append(
+                SequenceBeat(
+                    ops=[SequenceOperation.sound_op(game_audio.SOUND_ROLL_DOUBLES)],
+                )
+            )
+        if self.options.snake_eyes_bonus and (die_1, die_2) == (1, 1):
+            beats.append(
+                SequenceBeat.after_audio(
+                    game_audio.sound_ticks(game_audio.SOUND_SNAKE_EYES_BONUS),
+                    ops=[
+                        SequenceOperation.callback_op(
+                            "award_snake_eyes_bonus",
+                            {
+                                "player_id": player.id,
+                                "die_1": die_1,
+                                "die_2": die_2,
+                            },
+                        )
+                    ],
+                )
+            )
+        return beats
+
     def _action_roll_dice(self, player: MonopolyPlayer, action_id: str) -> None:
         del action_id
         if self._is_roll_enabled(player):
             return
         die_1, die_2 = self._roll_pair()
-        self._resolve_regular_roll(player, die_1, die_2)
-        self._focus_after_user_transition(player)
+        self._start_regular_roll_sequence(player, die_1, die_2)
 
-    def _resolve_regular_roll(
+    def _start_regular_roll_sequence(
         self,
         player: MonopolyPlayer,
         die_1: int,
         die_2: int,
-        *,
-        suppress_extra_roll: bool = False,
     ) -> None:
         self.last_die_1 = die_1
         self.last_die_2 = die_2
@@ -2792,27 +3139,75 @@ class MonopolyGame(Game):
             brief_personal_key="monopoly-you-roll-brief",
             brief_others_key="monopoly-player-roll-brief",
         )
-        self._award_snake_eyes_bonus(player, die_1, die_2)
-        if is_double and not suppress_extra_roll:
+        if is_double:
             self.doubles_count += 1
-            if self.doubles_count >= self.board.rules.consecutive_doubles_to_jail:
-                self._broadcast_actor(
-                    player,
-                    "monopoly-you-three-doubles",
-                    "monopoly-player-three-doubles",
-                    jail=lambda locale: self._space_name(
-                        locale, self.board.space(self.board.jail_space_id)
-                    ),
-                    brief_personal_key="monopoly-you-three-doubles-brief",
-                    brief_others_key="monopoly-player-three-doubles-brief",
+        send_to_jail = (
+            is_double
+            and self.doubles_count >= self.board.rules.consecutive_doubles_to_jail
+        )
+        self.extra_roll_pending = is_double and not send_to_jail
+        beats = self._build_roll_cue_beats(player, die_1, die_2)
+        beats.append(SequenceBeat.pause(game_audio.ROLL_TO_LANDING_PAUSE_TICKS))
+        if send_to_jail:
+            beats.append(
+                SequenceBeat(
+                    ops=[
+                        SequenceOperation.callback_op(
+                            "regular_roll_jail", {"player_id": player.id}
+                        )
+                    ]
                 )
-                self._send_to_jail(player)
-                return
-        self.extra_roll_pending = is_double and not suppress_extra_roll
-        self._move_by(player, total, collect_go=True)
+            )
+        else:
+            beats.extend(
+                [
+                    SequenceBeat(
+                        ops=[
+                            SequenceOperation.callback_op(
+                                "regular_roll_move",
+                                {"player_id": player.id, "spaces": total},
+                            )
+                        ],
+                        delay_after_ticks=(
+                            game_audio.sound_ticks(game_audio.SOUND_TOKEN_LANDED)
+                            + game_audio.LANDING_TO_EVENT_PAUSE_TICKS
+                        ),
+                    ),
+                    SequenceBeat(
+                        ops=[
+                            SequenceOperation.callback_op(
+                                "regular_roll_landing", {"player_id": player.id}
+                            )
+                        ]
+                    ),
+                ]
+            )
+        self.start_sequence(
+            f"monopoly_regular_roll_{self.turn_number}",
+            beats,
+            tag="monopoly_roll",
+            lock_scope=self.SEQUENCE_LOCK_GAMEPLAY,
+            pause_bots=True,
+        )
+
+    def _sequence_move_regular_roll(self, payload: dict[str, Any]) -> None:
+        player = self.get_player_by_id(str(payload.get("player_id", "")))
+        if not isinstance(player, MonopolyPlayer) or player.bankrupt:
+            return
+        self._move_by(
+            player,
+            int(payload.get("spaces", 0)),
+            collect_go=True,
+            resolve_landing=False,
+        )
 
     def _move_by(
-        self, player: MonopolyPlayer, spaces: int, *, collect_go: bool
+        self,
+        player: MonopolyPlayer,
+        spaces: int,
+        *,
+        collect_go: bool,
+        resolve_landing: bool = True,
     ) -> None:
         board_size = len(self.board.spaces)
         start = player.position
@@ -2823,7 +3218,8 @@ class MonopolyGame(Game):
             self._collect_go(player, landed_on_go=destination == go_position)
         player.position = destination
         self._announce_move(player, destination, spaces)
-        self._resolve_landing(player)
+        if resolve_landing:
+            self._resolve_landing(player)
 
     def _move_to(
         self,
@@ -2875,6 +3271,7 @@ class MonopolyGame(Game):
             brief_personal_key="monopoly-you-pass-go-brief",
             brief_others_key="monopoly-player-pass-go-brief",
         )
+        self.play_sound(random.choice(game_audio.SOUND_CASH_RECEIVED))  # nosec B311
 
     def _award_snake_eyes_bonus(
         self, player: MonopolyPlayer, die_1: int, die_2: int
@@ -2892,6 +3289,7 @@ class MonopolyGame(Game):
             brief_personal_key="monopoly-you-snake-eyes-bonus-brief",
             brief_others_key="monopoly-player-snake-eyes-bonus-brief",
         )
+        self.play_sound(game_audio.SOUND_SNAKE_EYES_BONUS)
 
     def _announce_move(
         self,
@@ -2911,6 +3309,7 @@ class MonopolyGame(Game):
             brief_personal_key="monopoly-you-move-brief",
             brief_others_key="monopoly-player-move-brief",
         )
+        self.play_sound(game_audio.SOUND_TOKEN_LANDED)
 
     def _resolve_landing(
         self,
@@ -3007,6 +3406,9 @@ class MonopolyGame(Game):
                         brief_personal_key="monopoly-your-utility-rent-roll-brief",
                         brief_others_key="monopoly-player-utility-rent-roll-brief",
                     )
+                    self.play_sound(
+                        random.choice(game_audio.SOUND_DICE_ROLLS)  # nosec B311
+                    )
                 rent = calculate_rent(
                     self.board,
                     self.property_states,
@@ -3063,6 +3465,7 @@ class MonopolyGame(Game):
                         brief_personal_key="monopoly-you-collect-free-parking-brief",
                         brief_others_key="monopoly-player-collects-free-parking-brief",
                     )
+                    self.play_sound(game_audio.SOUND_LARGE_CASH_PAYOUT)
                 else:
                     self._broadcast_actor(
                         player,
@@ -3130,6 +3533,7 @@ class MonopolyGame(Game):
             brief_personal_key="monopoly-you-buy-property-brief",
             brief_others_key="monopoly-player-buy-property-brief",
         )
+        self.play_sound(game_audio.SOUND_PROPERTY_PURCHASED)
         self._announce_completed_groups(player, [space.id])
         self._finish_landing()
         self._focus_after_user_transition(player)
@@ -3234,10 +3638,36 @@ class MonopolyGame(Game):
             raise RuntimeError(f"Monopoly {deck_id} deck is unexpectedly empty")
         card_id = deck.pop(0)
         card = self.board.card(deck_id, card_id)
-        self._announce_card(player, card)
         if card.action != CARD_JAIL_FREE:
             deck.append(card_id)
-        self._resolve_card(player, card)
+        draw_sound = random.choice(game_audio.SOUND_CARD_DRAWS)  # nosec B311
+        self.start_sequence(
+            (
+                f"monopoly_draw_card_{self.turn_number}_{deck_id}_"
+                f"{card_id}_{self.sound_scheduler_tick}"
+            ),
+            [
+                SequenceBeat.after_audio(
+                    game_audio.sound_ticks(draw_sound),
+                    ops=[SequenceOperation.sound_op(draw_sound)],
+                ),
+                SequenceBeat(
+                    ops=[
+                        SequenceOperation.callback_op(
+                            "resolve_drawn_card",
+                            {
+                                "player_id": player.id,
+                                "deck_id": deck_id,
+                                "card_id": card_id,
+                            },
+                        )
+                    ]
+                ),
+            ],
+            tag="monopoly_card",
+            lock_scope=self.SEQUENCE_LOCK_GAMEPLAY,
+            pause_bots=True,
+        )
 
     def _announce_card(self, player: MonopolyPlayer, card: CardDefinition) -> None:
         self._broadcast_actor(
@@ -3250,9 +3680,7 @@ class MonopolyGame(Game):
 
     def _card_text(self, locale: str, card: CardDefinition) -> str:
         kwargs: dict[str, str] = {
-            "go": self._space_name(
-                locale, self.board.space(self.board.go_space_id)
-            ),
+            "go": self._space_name(locale, self.board.space(self.board.go_space_id)),
             "jail": self._space_name(
                 locale, self.board.space(self.board.jail_space_id)
             ),
@@ -3307,6 +3735,9 @@ class MonopolyGame(Game):
                 brief_personal_key="monopoly-you-collect-bank-brief",
                 brief_others_key="monopoly-player-collect-bank-brief",
             )
+            self.play_sound(
+                random.choice(game_audio.SOUND_CASH_RECEIVED)  # nosec B311
+            )
             self._finish_landing()
             return
         if card.action == CARD_PAY:
@@ -3326,7 +3757,7 @@ class MonopolyGame(Game):
                 for other in self.alive_players
                 if other.id != player.id
             ]
-            self._start_payment_queue(payments)
+            self._start_payment_batch(player, CARD_COLLECT_EACH, card.amount, payments)
             return
         if card.action == CARD_PAY_EACH:
             payments = [
@@ -3336,7 +3767,7 @@ class MonopolyGame(Game):
                 for other in self.alive_players
                 if other.id != player.id
             ]
-            self._start_payment_queue(payments)
+            self._start_payment_batch(player, CARD_PAY_EACH, card.amount, payments)
             return
         if card.action == CARD_REPAIRS:
             houses, hotels = self._owned_building_counts(player.id)
@@ -3354,12 +3785,25 @@ class MonopolyGame(Game):
                 )
                 self._finish_landing()
                 return
-            self._start_debt(
-                player,
-                "",
-                amount,
-                "monopoly-debt-repairs",
-                continuation="finish_landing",
+            self.start_sequence(
+                f"monopoly_repair_charge_{self.turn_number}",
+                [
+                    SequenceBeat.after_audio(
+                        game_audio.sound_ticks(game_audio.SOUND_REPAIR_FEE),
+                        ops=[SequenceOperation.sound_op(game_audio.SOUND_REPAIR_FEE)],
+                    ),
+                    SequenceBeat(
+                        ops=[
+                            SequenceOperation.callback_op(
+                                "repair_card_charge",
+                                {"player_id": player.id, "amount": amount},
+                            )
+                        ]
+                    ),
+                ],
+                tag="monopoly_card",
+                lock_scope=self.SEQUENCE_LOCK_GAMEPLAY,
+                pause_bots=True,
             )
             return
         if card.action == CARD_JAIL_FREE:
@@ -3407,6 +3851,7 @@ class MonopolyGame(Game):
             brief_personal_key="monopoly-you-go-jail-brief",
             brief_others_key="monopoly-player-go-jail-brief",
         )
+        self.play_sound(game_audio.SOUND_SENT_TO_JAIL)
         self._finish_turn()
 
     def _action_jail_pay(self, player: MonopolyPlayer, action_id: str) -> None:
@@ -3429,6 +3874,7 @@ class MonopolyGame(Game):
         )
         self.phase = PHASE_AWAIT_ROLL
         self.decision_player_id = player.id
+        self._play_jail_release_cues(include_payment=True)
         self.refresh_menus()
         self._focus_after_user_transition(player)
 
@@ -3451,17 +3897,27 @@ class MonopolyGame(Game):
         )
         self.phase = PHASE_AWAIT_ROLL
         self.decision_player_id = player.id
+        self._play_jail_release_cues()
         self.refresh_menus()
         self._focus_after_user_transition(player)
 
     def _action_jail_roll(self, player: MonopolyPlayer, action_id: str) -> None:
         del action_id
-        if not self._is_actor(player, PHASE_JAIL):
+        if self._is_jail_roll_enabled(player):
             return
         die_1, die_2 = self._roll_pair()
+        self._start_jail_roll_sequence(player, die_1, die_2)
+
+    def _start_jail_roll_sequence(
+        self,
+        player: MonopolyPlayer,
+        die_1: int,
+        die_2: int,
+    ) -> None:
         self.last_die_1 = die_1
         self.last_die_2 = die_2
         total = die_1 + die_2
+        is_double = die_1 == die_2
         self._broadcast_actor(
             player,
             "monopoly-you-jail-roll",
@@ -3469,24 +3925,87 @@ class MonopolyGame(Game):
             die1=die_1,
             die2=die_2,
             total=total,
-            doubles="yes" if die_1 == die_2 else "no",
+            doubles="yes" if is_double else "no",
             brief_personal_key="monopoly-you-jail-roll-brief",
             brief_others_key="monopoly-player-jail-roll-brief",
         )
-        self._award_snake_eyes_bonus(player, die_1, die_2)
-        if die_1 == die_2:
-            player.in_jail = False
-            player.jail_turns = 0
-            self.extra_roll_pending = False
-            self._broadcast_actor(
-                player,
-                "monopoly-you-leave-jail-doubles",
-                "monopoly-player-leaves-jail-doubles",
-                brief_personal_key="monopoly-you-leave-jail-doubles-brief",
-                brief_others_key="monopoly-player-leaves-jail-doubles-brief",
+        beats = self._build_roll_cue_beats(player, die_1, die_2)
+        beats.append(SequenceBeat.pause(game_audio.ROLL_TO_LANDING_PAUSE_TICKS))
+        if is_double:
+            beats.extend(
+                [
+                    SequenceBeat(
+                        ops=[
+                            SequenceOperation.callback_op(
+                                "jail_roll_release", {"player_id": player.id}
+                            )
+                        ]
+                    ),
+                    SequenceBeat(
+                        ops=[
+                            SequenceOperation.callback_op(
+                                "jail_roll_move",
+                                {"player_id": player.id, "spaces": total},
+                            )
+                        ],
+                        delay_after_ticks=(
+                            game_audio.sound_ticks(game_audio.SOUND_TOKEN_LANDED)
+                            + game_audio.LANDING_TO_EVENT_PAUSE_TICKS
+                        ),
+                    ),
+                    SequenceBeat(
+                        ops=[
+                            SequenceOperation.callback_op(
+                                "jail_roll_landing", {"player_id": player.id}
+                            )
+                        ]
+                    ),
+                ]
             )
-            self._move_by(player, total, collect_go=True)
-            self._focus_after_user_transition(player)
+        else:
+            beats.append(
+                SequenceBeat(
+                    ops=[
+                        SequenceOperation.callback_op(
+                            "jail_roll_failed", {"player_id": player.id}
+                        )
+                    ]
+                )
+            )
+        self.start_sequence(
+            f"monopoly_jail_roll_{self.turn_number}",
+            beats,
+            tag="monopoly_roll",
+            lock_scope=self.SEQUENCE_LOCK_GAMEPLAY,
+            pause_bots=True,
+        )
+
+    def _sequence_release_from_jail(self, payload: dict[str, Any]) -> None:
+        player = self.get_player_by_id(str(payload.get("player_id", "")))
+        if not isinstance(player, MonopolyPlayer) or player.bankrupt:
+            return
+        player.in_jail = False
+        player.jail_turns = 0
+        self.extra_roll_pending = False
+        self._broadcast_actor(
+            player,
+            "monopoly-you-leave-jail-doubles",
+            "monopoly-player-leaves-jail-doubles",
+            brief_personal_key="monopoly-you-leave-jail-doubles-brief",
+            brief_others_key="monopoly-player-leaves-jail-doubles-brief",
+        )
+        self._play_jail_release_cues()
+
+    def _play_jail_release_cues(self, *, include_payment: bool = False) -> None:
+        """Start the shared release cues without blocking the next action."""
+
+        if include_payment:
+            self.play_sound(game_audio.SOUND_TAX_OR_FINE_PAID)
+        self.play_sound(game_audio.SOUND_LEAVE_JAIL, max_instances=1)
+
+    def _sequence_failed_jail_roll(self, payload: dict[str, Any]) -> None:
+        player = self.get_player_by_id(str(payload.get("player_id", "")))
+        if not isinstance(player, MonopolyPlayer) or player.bankrupt:
             return
         player.jail_turns += 1
         if player.jail_turns < self.board.rules.failed_jail_rolls_before_fine:
@@ -3510,7 +4029,8 @@ class MonopolyGame(Game):
             "monopoly-debt-jail",
             continuation="move_after_jail",
         )
-        self._focus_after_user_transition(player)
+        if self.phase == PHASE_DEBT:
+            self._focus_after_user_transition(player)
 
     # ------------------------------------------------------------------
     # Auctions
@@ -3559,6 +4079,7 @@ class MonopolyGame(Game):
                 locale, self.board.rules.auction_opening_bid
             ),
         )
+        self.play_sound(game_audio.SOUND_AUCTION_STARTED)
         first_bidder = self._alive_player_by_id(first_bidder_id)
         if first_bidder:
             self._announce_auction_turn(first_bidder)
@@ -3637,6 +4158,10 @@ class MonopolyGame(Game):
             brief_personal_key="monopoly-you-bid-brief",
             brief_others_key="monopoly-player-bids-brief",
         )
+        self.play_sound(
+            game_audio.SOUND_AUCTION_BID,
+            max_instances=1,
+        )
         self._advance_auction(player.id)
         return True
 
@@ -3687,7 +4212,6 @@ class MonopolyGame(Game):
                 self.decision_player_id = candidate
                 next_bidder = self._alive_player_by_id(candidate)
                 if next_bidder:
-                    BotHelper.jolt_bot(next_bidder)
                     self._announce_auction_turn(next_bidder)
                 self.refresh_menus()
                 return
@@ -3718,6 +4242,7 @@ class MonopolyGame(Game):
                 brief_personal_key="monopoly-you-win-auction-brief",
                 brief_others_key="monopoly-player-wins-auction-brief",
             )
+            self.play_sound(game_audio.SOUND_AUCTION_SOLD)
             self._announce_completed_groups(winner, [property_id])
         else:
             self._broadcast_global(
@@ -3766,7 +4291,7 @@ class MonopolyGame(Game):
         self.decision_player_id = debtor.id
         creditor = self.get_player_by_id(creditor_id) if creditor_id else None
         self._announce_debt(debtor, creditor, debt)
-        BotHelper.jolt_bot(debtor)
+        self.play_sound(game_audio.SOUND_DEBT_WARNING)
         self.refresh_menus()
 
     def _announce_debt(
@@ -3809,6 +4334,11 @@ class MonopolyGame(Game):
         amount = debt.amount
         reason_key = debt.reason_key
         self.debt_state = None
+        if continuation == "payment_batch" and self.payment_batch_state:
+            self.payment_batch_state.completed_count += 1
+            self.payment_batch_state.completed_total += amount
+            self._continue_after_debt(continuation)
+            return
         self._broadcast_actor(
             debtor,
             "monopoly-you-pay-debt",
@@ -3821,6 +4351,14 @@ class MonopolyGame(Game):
             brief_personal_key="monopoly-you-pay-debt-brief",
             brief_others_key="monopoly-player-pays-debt-brief",
         )
+        if continuation == "move_after_jail" and reason_key == "monopoly-debt-jail":
+            self._play_jail_release_cues(include_payment=True)
+            self._continue_after_debt(continuation)
+            return
+        if creditor:
+            self.play_sound(game_audio.SOUND_RENT_PAID)
+        elif reason_key != "monopoly-debt-repairs":
+            self.play_sound(game_audio.SOUND_TAX_OR_FINE_PAID)
         self._continue_after_debt(continuation)
 
     def _payment_funds_free_parking(self, reason_key: str) -> bool:
@@ -3953,6 +4491,13 @@ class MonopolyGame(Game):
             return
         creditor = self._alive_player_by_id(debt.creditor_id)
         continuation = debt.continuation
+        batch = self.payment_batch_state
+        if (
+            continuation == "payment_batch"
+            and batch
+            and batch.actor_id == player.id
+        ):
+            self._finish_payment_batch()
         self._broadcast_actor(
             player,
             "monopoly-you-bankrupt",
@@ -3963,6 +4508,7 @@ class MonopolyGame(Game):
             brief_personal_key="monopoly-you-bankrupt-brief",
             brief_others_key="monopoly-player-bankrupt-brief",
         )
+        self.play_sound(game_audio.SOUND_BANKRUPTCY_DECLARED)
         if creditor:
             self._bankrupt_to_player(player, creditor, continuation)
         else:
@@ -4053,8 +4599,8 @@ class MonopolyGame(Game):
 
     def _finish_bankruptcy_resume(self, continuation: str, was_current: bool) -> None:
         if was_current:
-            if continuation == "payment_queue":
-                self.payment_queue.clear()
+            if continuation == "payment_batch":
+                self._finish_payment_batch()
             if continuation == "mortgage_transfer":
                 self._complete_current_mortgage_transfer()
                 return
@@ -4083,14 +4629,12 @@ class MonopolyGame(Game):
             current = self.current_player
             if isinstance(current, MonopolyPlayer):
                 self.extra_roll_pending = False
-                self._move_by(
-                    current,
-                    self.last_die_1 + self.last_die_2,
-                    collect_go=True,
+                self._start_post_jail_move_sequence(
+                    current, self.last_die_1 + self.last_die_2
                 )
             return
-        if continuation == "payment_queue":
-            self._process_payment_queue()
+        if continuation == "payment_batch":
+            self._process_payment_batch()
             return
         if continuation == "resume_after_bankruptcy":
             self._resume_after_bankruptcy()
@@ -4100,13 +4644,59 @@ class MonopolyGame(Game):
             return
         self._finish_landing()
 
-    def _start_payment_queue(self, payments: list[QueuedPayment]) -> None:
-        self.payment_queue = payments
-        self._process_payment_queue()
+    def _start_post_jail_move_sequence(
+        self, player: MonopolyPlayer, spaces: int
+    ) -> None:
+        self.start_sequence(
+            f"monopoly_post_jail_move_{self.turn_number}",
+            [
+                SequenceBeat(
+                    ops=[
+                        SequenceOperation.callback_op(
+                            "jail_roll_move",
+                            {"player_id": player.id, "spaces": spaces},
+                        )
+                    ],
+                    delay_after_ticks=(
+                        game_audio.sound_ticks(game_audio.SOUND_TOKEN_LANDED)
+                        + game_audio.LANDING_TO_EVENT_PAUSE_TICKS
+                    ),
+                ),
+                SequenceBeat(
+                    ops=[
+                        SequenceOperation.callback_op(
+                            "jail_roll_landing", {"player_id": player.id}
+                        )
+                    ]
+                ),
+            ],
+            tag="monopoly_roll",
+            lock_scope=self.SEQUENCE_LOCK_GAMEPLAY,
+            pause_bots=True,
+        )
 
-    def _process_payment_queue(self) -> None:
-        while self.payment_queue:
-            payment = self.payment_queue.pop(0)
+    def _start_payment_batch(
+        self,
+        actor: MonopolyPlayer,
+        kind: str,
+        amount_each: int,
+        payments: list[QueuedPayment],
+    ) -> None:
+        self.payment_batch_state = PaymentBatchState(
+            actor_id=actor.id,
+            kind=kind,
+            amount_each=amount_each,
+            payments=payments,
+        )
+        self._process_payment_batch()
+
+    def _process_payment_batch(self) -> None:
+        batch = self.payment_batch_state
+        if not batch:
+            self._finish_landing()
+            return
+        while batch.payments:
+            payment = batch.payments.pop(0)
             payer = self._alive_player_by_id(payment.payer_id)
             payee = self._alive_player_by_id(payment.payee_id)
             if not payer or not payee:
@@ -4116,10 +4706,42 @@ class MonopolyGame(Game):
                 payee.id,
                 payment.amount,
                 payment.reason_key,
-                continuation="payment_queue",
+                continuation="payment_batch",
             )
             return
+        self._finish_payment_batch()
         self._finish_landing()
+
+    def _finish_payment_batch(self) -> None:
+        batch = self.payment_batch_state
+        self.payment_batch_state = None
+        if not batch or batch.completed_count <= 0:
+            return
+        actor = self.get_player_by_id(batch.actor_id)
+        if not isinstance(actor, MonopolyPlayer):
+            return
+        if batch.kind == CARD_COLLECT_EACH:
+            personal_key = "monopoly-you-collect-player-batch"
+            public_key = "monopoly-player-collects-player-batch"
+            brief_personal_key = "monopoly-you-collect-player-batch-brief"
+            brief_others_key = "monopoly-player-collects-player-batch-brief"
+        else:
+            personal_key = "monopoly-you-pay-player-batch"
+            public_key = "monopoly-player-pays-player-batch"
+            brief_personal_key = "monopoly-you-pay-player-batch-brief"
+            brief_others_key = "monopoly-player-pays-player-batch-brief"
+        self._broadcast_actor(
+            actor,
+            personal_key,
+            public_key,
+            amount=lambda locale: self._money(locale, batch.amount_each),
+            count=batch.completed_count,
+            total=lambda locale: self._money(locale, batch.completed_total),
+            cash=lambda locale: self._money(locale, actor.cash),
+            brief_personal_key=brief_personal_key,
+            brief_others_key=brief_others_key,
+        )
+        self.play_sound(game_audio.SOUND_RENT_PAID, max_instances=1)
 
     # ------------------------------------------------------------------
     # Mortgaged-property transfer choices
@@ -4181,7 +4803,6 @@ class MonopolyGame(Game):
                 brief_personal_key="monopoly-you-receive-mortgaged-brief",
                 brief_others_key="monopoly-player-receives-mortgaged-brief",
             )
-            BotHelper.jolt_bot(owner)
             self.refresh_menus()
             return
         self._finish_mortgage_transfers()
@@ -4246,6 +4867,7 @@ class MonopolyGame(Game):
             brief_personal_key="monopoly-you-unmortgage-received-now-brief",
             brief_others_key="monopoly-player-unmortgages-received-now-brief",
         )
+        self.play_sound(game_audio.SOUND_PROPERTY_UNMORTGAGED)
         self._complete_current_mortgage_transfer()
         self._focus_after_user_transition(player)
 
@@ -4831,6 +5453,7 @@ class MonopolyGame(Game):
                 brief_personal_key="monopoly-you-build-brief",
                 brief_others_key="monopoly-player-builds-brief",
             )
+            self.play_sound(game_audio.SOUND_DEVELOPMENT_BUILT)
         self.refresh_menus()
 
     def _action_sell_building(self, player: MonopolyPlayer, action_id: str) -> None:
@@ -4881,6 +5504,7 @@ class MonopolyGame(Game):
                 brief_personal_key="monopoly-you-sell-building-brief",
                 brief_others_key="monopoly-player-sells-building-brief",
             )
+            self.play_sound(game_audio.SOUND_DEVELOPMENT_SOLD)
         self.refresh_menus()
 
     def _apply_sell_group_buildings(
@@ -4917,6 +5541,7 @@ class MonopolyGame(Game):
                 brief_personal_key="monopoly-you-sell-group-buildings-brief",
                 brief_others_key="monopoly-player-sells-group-buildings-brief",
             )
+            self.play_sound(game_audio.SOUND_DEVELOPMENT_SOLD)
         self.refresh_menus()
 
     def _action_mortgage(self, player: MonopolyPlayer, action_id: str) -> None:
@@ -4946,6 +5571,7 @@ class MonopolyGame(Game):
                 brief_personal_key="monopoly-you-mortgage-brief",
                 brief_others_key="monopoly-player-mortgages-brief",
             )
+            self.play_sound(game_audio.SOUND_PROPERTY_MORTGAGED)
         self.refresh_menus()
 
     def _action_unmortgage(self, player: MonopolyPlayer, action_id: str) -> None:
@@ -4969,6 +5595,7 @@ class MonopolyGame(Game):
             brief_personal_key="monopoly-you-unmortgage-brief",
             brief_others_key="monopoly-player-unmortgages-brief",
         )
+        self.play_sound(game_audio.SOUND_PROPERTY_UNMORTGAGED)
         self._focus_management_task(player, "choose_unmortgage_property")
         self.refresh_menus()
 
@@ -5358,7 +5985,7 @@ class MonopolyGame(Game):
         self.phase = PHASE_TRADE_RESPONSE
         self.decision_player_id = target.id
         self._announce_trade_submission(player, target)
-        BotHelper.jolt_bot(target)
+        self.play_sound(game_audio.SOUND_TRADE_PROPOSED)
         self._focus_after_user_transition(player)
         self.refresh_menus()
 
@@ -5413,6 +6040,8 @@ class MonopolyGame(Game):
         proposer = self._alive_player_by_id(trade.proposer_id)
         resume_phase = trade.resume_phase
         resume_actor = trade.resume_decision_player_id
+        if proposer:
+            self._remember_rejected_bot_trade(proposer, trade)
         self.trade_state = None
         if proposer:
             self._broadcast_actor_target(
@@ -5444,6 +6073,11 @@ class MonopolyGame(Game):
         target = self._alive_player_by_id(trade.target_id)
         if not proposer or not target:
             return
+        for property_id in trade.requested_property_ids:
+            proposer.bot_trade_cooldowns.pop(
+                self._bot_trade_memory_key(target.id, property_id),
+                None,
+            )
         proposer_interest = self._trade_transfer_interest(trade.requested_property_ids)
         target_interest = self._trade_transfer_interest(trade.offered_property_ids)
         proposer.cash = proposer.cash - trade.offered_cash + trade.requested_cash
@@ -5473,8 +6107,15 @@ class MonopolyGame(Game):
             mortgaged="yes" if mortgaged_property_ids else "no",
             interest=proposer_interest + target_interest,
         )
-        self._announce_completed_groups(target, trade.offered_property_ids)
-        self._announce_completed_groups(proposer, trade.requested_property_ids)
+        self.play_sound(game_audio.SOUND_TRADE_ACCEPTED)
+        group_sound_played = self._announce_completed_groups(
+            target, trade.offered_property_ids
+        )
+        self._announce_completed_groups(
+            proposer,
+            trade.requested_property_ids,
+            play_sound=not group_sound_played,
+        )
         self.trade_state = None
         self._start_mortgage_transfers(
             mortgaged_property_ids,
@@ -5545,9 +6186,6 @@ class MonopolyGame(Game):
     def _restore_interrupted_phase(self, phase: str, actor_id: str) -> None:
         self.phase = phase or PHASE_TURN_ACTIONS
         self.decision_player_id = actor_id
-        actor = self._decision_player()
-        if actor and actor.is_bot:
-            BotHelper.jolt_bot(actor)
         self.refresh_menus()
 
     # ------------------------------------------------------------------
@@ -6486,16 +7124,30 @@ class MonopolyGame(Game):
         ]
 
     def _announce_completed_groups(
-        self, owner: MonopolyPlayer, acquired_property_ids: list[str]
-    ) -> None:
-        group_ids = {
-            self.board.space(property_id).group_id
-            for property_id in acquired_property_ids
-            if property_id in self.property_states
-        }
-        for group_id in group_ids:
-            if not owns_group(self.board, self.property_states, owner.id, group_id):
-                continue
+        self,
+        owner: MonopolyPlayer,
+        acquired_property_ids: list[str],
+        *,
+        play_sound: bool = True,
+    ) -> bool:
+        group_ids = list(
+            dict.fromkeys(
+                self.board.space(property_id).group_id
+                for property_id in acquired_property_ids
+                if property_id in self.property_states
+            )
+        )
+        completed_group_ids = [
+            group_id
+            for group_id in group_ids
+            if owns_group(self.board, self.property_states, owner.id, group_id)
+        ]
+        if completed_group_ids and play_sound:
+            self.play_sound(
+                game_audio.SOUND_COLOR_GROUP_COMPLETED,
+                max_instances=1,
+            )
+        for group_id in completed_group_ids:
             self._broadcast_actor(
                 owner,
                 "monopoly-you-complete-property-group",
@@ -6509,6 +7161,7 @@ class MonopolyGame(Game):
                 brief_personal_key="monopoly-you-complete-property-group-brief",
                 brief_others_key="monopoly-player-completes-property-group-brief",
             )
+        return bool(completed_group_ids)
 
     def _owned_building_counts(self, owner_id: str) -> tuple[int, int]:
         houses = 0
@@ -6545,6 +7198,11 @@ class MonopolyGame(Game):
             return False
         winner = alive[0]
         self.winner_id = winner.id
+        self._finish_payment_batch()
+        self.cancel_all_sequences()
+        self.scheduled_sounds.clear()
+        self.stop_music(fade_ms=0)
+        self.play_sound(game_audio.SOUND_GAME_WON)
         self._broadcast_actor(
             winner,
             "monopoly-you-win",

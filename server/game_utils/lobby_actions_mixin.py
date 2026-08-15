@@ -865,6 +865,8 @@ class LobbyActionsMixin:
 
     def destroy(self) -> None:
         """Request destruction of this game/table."""
+        if self._destroyed:
+            return
         self._destroyed = True
         
         # Cleanup game result (if GameResultMixin is present)
@@ -873,6 +875,7 @@ class LobbyActionsMixin:
             
         if self._table:
             self._table.destroy()
+        self.on_discard()
 
     def initialize_lobby(self, host_name: str, host_user: "User") -> None:
         """Initialize the game in lobby mode with a host."""

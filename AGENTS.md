@@ -362,6 +362,11 @@ Any persistent feature must define and test:
 - account-deletion behavior
 - migration/backward compatibility when schemas or supported games change
 
+`Game.on_discard()` is the idempotent lifecycle hook for match-scoped caches,
+bot observations, and similar memory that must not outlive its game instance.
+The framework calls it on both table destruction and game restart; it does not
+replace the retention and cleanup rules required for genuinely persistent data.
+
 Do not add database rows, tables, saved runtime state, notifications, chat logs,
 tokens, invites, moderation records, or similar data without this lifecycle.
 

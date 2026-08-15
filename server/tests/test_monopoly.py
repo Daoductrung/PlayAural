@@ -7,13 +7,21 @@ from pathlib import Path
 
 import pytest
 
+from server.core.server import SOUNDS_VERSION
+from server.game_utils.audio_duration import measure_audio_duration_ticks
+from server.games.monopoly import audio as monopoly_audio
 from server.games.monopoly.boards import (
     get_board,
     get_board_ids,
     register_board,
     validate_board,
 )
-from server.games.monopoly.bot import landing_weight, maximum_auction_bid
+from server.games.monopoly.bot import (
+    cash_reserve,
+    landing_weight,
+    maximum_auction_bid,
+    opponent_rent_pressure,
+)
 from server.games.monopoly.game import (
     PHASE_AUCTION,
     PHASE_AWAIT_ROLL,
@@ -63,6 +71,19 @@ NEW_ZEALAND_BOARD = get_board("new_zealand")
 HANOI_BOARD = get_board("hanoi")
 
 
+def drain_sequence(
+    game: MonopolyGame,
+    tag: str,
+    *,
+    max_ticks: int = 2_000,
+) -> None:
+    for _ in range(max_ticks):
+        if not game.has_active_sequence(tag=tag):
+            return
+        game.on_tick()
+    raise AssertionError(f"Monopoly {tag} sequence did not complete")
+
+
 def make_game(
     player_count: int = 2,
     *,
@@ -86,6 +107,7 @@ def make_game(
     game.host = "Player1"
     if start:
         game.on_start()
+        drain_sequence(game, "monopoly_intro")
         game.flush_menus()
     return game
 
@@ -1210,7 +1232,7 @@ def test_board_validation_rejects_invalid_regional_content() -> None:
         )
 
 
-def test_start_initializes_economy_without_audio() -> None:
+def test_start_initializes_economy_and_audio() -> None:
     game = make_game(3, start=True)
 
     assert game.status == "playing"
@@ -1223,8 +1245,21 @@ def test_start_initializes_economy_without_audio() -> None:
     for player in game.players:
         user = game.get_user(player)
         assert user is not None
-        assert not any(
-            message.type in {"play_sound", "play_music", "play_ambience"}
+        sounds = [
+            message.data["name"]
+            for message in user.messages
+            if message.type == "play_sound"
+        ]
+        assert sounds[:2] == [
+            monopoly_audio.SOUND_BOARD_SETUP,
+            monopoly_audio.SOUND_DECK_SHUFFLE,
+        ]
+        assert any(
+            sound in monopoly_audio.SOUND_OPENING_ROLLS for sound in sounds[2:]
+        )
+        assert any(
+            message.type == "play_music"
+            and message.data["name"] == monopoly_audio.SOUND_MUSIC_LOOP
             for message in user.messages
         )
 
@@ -1340,6 +1375,7 @@ def test_regional_boards_use_stations_currency_and_card_destinations(
     game.chance_deck.insert(0, "chance_red_property")
 
     game._draw_card(player, "chance")
+    drain_sequence(game, "monopoly_card")
 
     assert game.board is board
     assert game._money("en", 1_500) == english_money
@@ -1437,9 +1473,10 @@ def test_three_consecutive_doubles_send_player_to_jail() -> None:
     force_current(game)
     game._resolve_landing = lambda *args, **kwargs: None  # type: ignore[method-assign]
 
-    game._resolve_regular_roll(player, 1, 1)
-    game._resolve_regular_roll(player, 2, 2)
-    game._resolve_regular_roll(player, 3, 3)
+    for die in (1, 2, 3):
+        game._roll_pair = lambda die=die: (die, die)  # type: ignore[method-assign]
+        game._action_roll_dice(player, "roll_dice")
+        drain_sequence(game, "monopoly_roll")
 
     assert player.in_jail is True
     assert player.position == BOARD.space_index("jail")
@@ -1456,6 +1493,7 @@ def test_jail_doubles_move_without_an_extra_roll() -> None:
     game._roll_pair = lambda: (4, 4)  # type: ignore[method-assign]
 
     game._action_jail_roll(player, "jail_roll")
+    drain_sequence(game, "monopoly_roll")
 
     assert player.in_jail is False
     assert player.position == 18
@@ -1516,7 +1554,10 @@ def test_optional_variations_are_opt_in_and_rules_aligned() -> None:
     game.options.snake_eyes_bonus = True
     cash_before_bonus = player.cash
     game._move_by = lambda *args, **kwargs: None  # type: ignore[method-assign]
-    game._resolve_regular_roll(player, 1, 1)
+    game._roll_pair = lambda: (1, 1)  # type: ignore[method-assign]
+    force_current(game)
+    game._action_roll_dice(player, "roll_dice")
+    drain_sequence(game, "monopoly_roll")
     assert player.cash == cash_before_bonus + BOARD.snake_eyes_bonus
 
     game.options.no_rent_in_jail = True
@@ -1677,9 +1718,11 @@ def test_brief_announcements_are_selected_per_listener() -> None:
     actor_user.preferences.set_game_override("brief_announcements", "monopoly", True)
     actor_user.clear_messages()
     observer_user.clear_messages()
+    force_current(game)
     game._move_by = lambda *args, **kwargs: None  # type: ignore[method-assign]
+    game._roll_pair = lambda: (3, 4)  # type: ignore[method-assign]
 
-    game._resolve_regular_roll(actor, 3, 4)
+    game._action_roll_dice(actor, "roll_dice")
 
     assert actor_user.get_last_spoken() == "You: 7."
     assert "3 and 4, totaling 7" in observer_user.get_last_spoken()
@@ -1874,6 +1917,7 @@ def test_user_transition_focuses_first_phase_action_without_moving_others() -> N
     observer_user.clear_messages()
 
     game._action_roll_dice(actor, "roll_dice")
+    drain_sequence(game, "monopoly_roll")
     game.flush_menus()
 
     actor_turn_packets = [
@@ -2768,6 +2812,155 @@ def test_debt_liquidation_and_bankruptcy_to_player() -> None:
     assert game.status == "finished"
 
 
+@pytest.mark.parametrize(
+    ("deck_id", "card_id", "actor_cash", "other_cash", "verb"),
+    [
+        ("chance", "chance_chairperson", 1_150, 1_550, "pay"),
+        ("community", "community_party", 1_570, 1_490, "collect"),
+    ],
+)
+def test_multi_player_card_payments_use_one_summary_and_one_sound(
+    deck_id: str,
+    card_id: str,
+    actor_cash: int,
+    other_cash: int,
+    verb: str,
+) -> None:
+    game = make_game(8, start=True)
+    actor = game.players[0]
+    force_current(game)
+    users = [game.get_user(player) for player in game.players]
+    assert all(user is not None for user in users)
+    for user in users:
+        assert user is not None
+        user.clear_messages()
+
+    game._resolve_card(actor, game.board.card(deck_id, card_id))
+
+    assert actor.cash == actor_cash
+    assert all(player.cash == other_cash for player in game.players[1:])
+    assert game.payment_batch_state is None
+    for user in users:
+        assert user is not None
+        spoken = user.get_spoken_messages()
+        assert len(spoken) == 1
+        assert verb in spoken[0]
+        assert "7 players" in spoken[0]
+        assert "a payment to another player" not in spoken[0]
+        assert user.get_sounds_played() == [monopoly_audio.SOUND_RENT_PAID]
+
+
+def test_multi_player_payment_summary_honors_brief_locale_per_listener() -> None:
+    game = make_game(3, start=True, locale="vi")
+    actor, observer = game.players[:2]
+    force_current(game)
+    actor_user = game.get_user(actor)
+    observer_user = game.get_user(observer)
+    assert actor_user is not None and observer_user is not None
+    actor_user.preferences.set_game_override("brief_announcements", "monopoly", True)
+    for player in game.players:
+        user = game.get_user(player)
+        assert user is not None
+        user.clear_messages()
+
+    game._resolve_card(actor, game.board.card("chance", "chance_chairperson"))
+
+    assert actor_user.get_last_spoken() == (
+        "Đã trả tổng cộng 100 đô la cho 2 người chơi."
+    )
+    assert observer_user.get_last_spoken() == (
+        f"{actor.name} trả 50 đô la cho mỗi người trong số 2 người chơi, "
+        "tổng cộng 100 đô la. Họ còn 1.400 đô la."
+    )
+
+
+def test_multi_player_payment_batch_survives_save_during_liquidation() -> None:
+    game = make_game(4, start=True)
+    actor = game.players[0]
+    force_current(game)
+    actor.cash = 60
+
+    game._resolve_card(actor, game.board.card("chance", "chance_chairperson"))
+
+    assert game.phase == PHASE_DEBT
+    assert game.debt_state is not None
+    assert game.payment_batch_state is not None
+    assert game.payment_batch_state.completed_count == 1
+    assert game.payment_batch_state.completed_total == 50
+    assert len(game.payment_batch_state.payments) == 1
+
+    restored = MonopolyGame.from_json(game.to_json())
+
+    assert restored.payment_batch_state is not None
+    assert restored.payment_batch_state.completed_count == 1
+    assert restored.payment_batch_state.completed_total == 50
+    assert len(restored.payment_batch_state.payments) == 1
+    assert restored.debt_state is not None
+    assert restored.debt_state.continuation == "payment_batch"
+
+
+def test_bankruptcy_ends_multi_player_payment_without_repeating_prior_cues() -> None:
+    game = make_game(3, start=True)
+    actor = game.players[0]
+    force_current(game)
+    actor.cash = 60
+    game._resolve_card(actor, game.board.card("chance", "chance_chairperson"))
+    assert game.phase == PHASE_DEBT
+    for player in game.players:
+        user = game.get_user(player)
+        assert user is not None
+        user.clear_messages()
+
+    game._action_declare_bankruptcy(actor, "declare_bankruptcy")
+
+    assert actor.bankrupt is True
+    assert game.payment_batch_state is None
+    assert game.players[1].cash == 1_550
+    # The creditor receives the actor's remaining cash under bankruptcy rules.
+    assert game.players[2].cash == 1_510
+    for player in game.players:
+        user = game.get_user(player)
+        assert user is not None
+        sounds = user.get_sounds_played()
+        assert sounds.count(monopoly_audio.SOUND_RENT_PAID) == 1
+        assert sounds.count(monopoly_audio.SOUND_BANKRUPTCY_DECLARED) == 1
+
+
+def test_collect_from_each_continues_after_one_payer_goes_bankrupt() -> None:
+    game = make_game(3, start=True)
+    collector, insolvent, payer = game.players
+    force_current(game)
+    insolvent.cash = 0
+
+    game._resolve_card(
+        collector,
+        game.board.card("community", "community_party"),
+    )
+    assert game.phase == PHASE_DEBT
+    assert game.debt_state is not None
+    assert game.debt_state.debtor_id == insolvent.id
+    for player in game.players:
+        user = game.get_user(player)
+        assert user is not None
+        user.clear_messages()
+
+    game._action_declare_bankruptcy(insolvent, "declare_bankruptcy")
+
+    assert insolvent.bankrupt is True
+    assert collector.cash == 1_510
+    assert payer.cash == 1_490
+    assert game.payment_batch_state is None
+    collector_user = game.get_user(collector)
+    assert collector_user is not None
+    assert any(
+        "collect $10 from each of 1 player" in message
+        for message in collector_user.get_spoken_messages()
+    )
+    sounds = collector_user.get_sounds_played()
+    assert sounds.count(monopoly_audio.SOUND_RENT_PAID) == 1
+    assert sounds.count(monopoly_audio.SOUND_BANKRUPTCY_DECLARED) == 1
+
+
 def test_bankruptcy_to_bank_returns_and_auctions_properties() -> None:
     game = make_game(3, start=True)
     debtor = game.players[0]
@@ -3071,11 +3264,67 @@ def test_group_context_and_completion_are_announced_to_actor_and_observer() -> N
     observer_user.clear_messages()
     game._action_buy_property(buyer, "buy_property")
 
+    sounds = buyer_user.get_sounds_played()
+    assert sounds == [
+        monopoly_audio.SOUND_PROPERTY_PURCHASED,
+        monopoly_audio.SOUND_COLOR_GROUP_COMPLETED,
+    ]
+    color_cue = next(
+        message
+        for message in buyer_user.messages
+        if message.type == "play_sound"
+        and message.data["name"] == monopoly_audio.SOUND_COLOR_GROUP_COMPLETED
+    )
+    assert color_cue.data["max_instances"] == 1
+    assert not any(
+        scheduled[1] == monopoly_audio.SOUND_COLOR_GROUP_COMPLETED
+        for scheduled in game.scheduled_sounds
+    )
     assert "You now own the complete brown color group" in buyer_user.get_last_spoken()
     assert (
         f"{buyer.name} now owns the complete brown color group"
         in observer_user.get_last_spoken()
     )
+
+
+def test_trade_completing_two_players_groups_plays_one_cue_and_keeps_both_tts() -> None:
+    game = make_game(start=True)
+    proposer, target = game.players[:2]
+    proposer_user = game.get_user(proposer)
+    target_user = game.get_user(target)
+    assert proposer_user is not None and target_user is not None
+    force_current(game)
+    for property_id in ("mediterranean", "oriental", "vermont"):
+        game.property_states[property_id].owner_id = proposer.id
+    for property_id in ("baltic", "connecticut"):
+        game.property_states[property_id].owner_id = target.id
+    game.trade_state = TradeState(
+        proposer.id,
+        target.id,
+        offered_property_ids=["mediterranean"],
+        requested_property_ids=["connecticut"],
+        submitted=True,
+    )
+    game.phase = PHASE_TRADE_RESPONSE
+    game.decision_player_id = target.id
+    proposer_user.clear_messages()
+    target_user.clear_messages()
+
+    game._action_trade_accept(target, "trade_accept")
+
+    for user in (proposer_user, target_user):
+        assert user.get_sounds_played() == [
+            monopoly_audio.SOUND_TRADE_ACCEPTED,
+            monopoly_audio.SOUND_COLOR_GROUP_COMPLETED,
+        ]
+        group_messages = [
+            text
+            for text in user.get_spoken_messages()
+            if "complete" in text and "color group" in text
+        ]
+        assert len(group_messages) == 2
+        assert any("brown color group" in text for text in group_messages)
+        assert any("light blue color group" in text for text in group_messages)
 
 
 def test_declarative_actions_resolve_without_missing_callbacks_or_raw_keys() -> None:
@@ -3237,17 +3486,433 @@ def test_regional_board_round_trip_preserves_state(
     assert len(restored.chance_deck) == len(board.chance_cards) - 1
 
 
-def test_no_audio_api_calls_exist_in_monopoly_source() -> None:
-    source = (ROOT / "server" / "games" / "monopoly" / "game.py").read_text(
-        encoding="utf-8"
-    )
-    for forbidden in (
-        "play_sound(",
-        "play_music(",
-        "play_ambience(",
-        "schedule_sound(",
+def test_monopoly_audio_assets_match_every_first_party_sound_pack() -> None:
+    expected = {
+        "game_monopoly/auction_bid.ogg",
+        "game_monopoly/auction_sold.ogg",
+        "game_monopoly/auction_started.ogg",
+        "game_monopoly/bankruptcy_declared.ogg",
+        "game_monopoly/board_setup.ogg",
+        "game_monopoly/cash_received1.ogg",
+        "game_monopoly/cash_received2.ogg",
+        "game_monopoly/color_group_completed.ogg",
+        "game_monopoly/debt_warning.ogg",
+        "game_monopoly/deck_shuffle.ogg",
+        "game_monopoly/development_built.ogg",
+        "game_monopoly/development_sold.ogg",
+        "game_monopoly/dice_roll1.ogg",
+        "game_monopoly/dice_roll2.ogg",
+        "game_monopoly/game_won.ogg",
+        "game_monopoly/large_cash_payout.ogg",
+        "game_monopoly/leave_jail.ogg",
+        "game_monopoly/music_loop.ogg",
+        "game_monopoly/property_mortgaged.ogg",
+        "game_monopoly/property_purchased.ogg",
+        "game_monopoly/property_unmortgaged.ogg",
+        "game_monopoly/rent_paid.ogg",
+        "game_monopoly/repair_fee.ogg",
+        "game_monopoly/roll_doubles.ogg",
+        "game_monopoly/sent_to_jail.ogg",
+        "game_monopoly/snake_eyes_bonus.ogg",
+        "game_monopoly/tax_or_fine_paid.ogg",
+        "game_monopoly/token_landed.ogg",
+        "game_monopoly/trade_accepted.ogg",
+        "game_monopoly/trade_proposed.ogg",
+    }
+    assert set(monopoly_audio.MONOPOLY_ASSET_PATHS) == expected
+    assert all(monopoly_audio.AUDIO_DURATIONS_TICKS[path] > 0 for path in expected)
+
+    reference_bytes: dict[str, bytes] = {}
+    for pack_root in (
+        ROOT / "client" / "sounds",
+        ROOT / "web_client" / "sounds",
+        ROOT / "mobile_client" / "sounds",
     ):
-        assert forbidden not in source
+        monopoly_root = pack_root / "game_monopoly"
+        actual = {
+            f"game_monopoly/{path.name}"
+            for path in monopoly_root.iterdir()
+            if path.is_file()
+        }
+        assert actual == expected
+        for sound in expected:
+            data = (pack_root / sound).read_bytes()
+            if sound in reference_bytes:
+                assert data == reference_bytes[sound], sound
+            else:
+                reference_bytes[sound] = data
+
+    for sound, expected_ticks in monopoly_audio.AUDIO_DURATIONS_TICKS.items():
+        path = ROOT / "client" / "sounds" / sound
+        assert path.is_file(), sound
+        assert (
+            measure_audio_duration_ticks(
+                path,
+                ticks_per_second=monopoly_audio.TICKS_PER_SECOND,
+            )
+            == expected_ticks
+        )
+
+
+def test_sound_pack_versions_are_synchronized_after_monopoly_audio() -> None:
+    versions = {
+        (ROOT / pack / "sounds" / "version.txt").read_text(encoding="utf-8").strip()
+        for pack in ("client", "web_client", "mobile_client")
+    }
+    assert SOUNDS_VERSION == "4"
+    assert versions == {"4"}
+
+
+def test_regular_roll_audio_sequence_resolves_in_cinematic_order() -> None:
+    game = make_game(start=True)
+    player = game.players[0]
+    user = game.get_user(player)
+    assert user is not None
+    force_current(game)
+    player.position = game.board.space_index("community_1")
+    game._roll_pair = lambda: (1, 1)  # type: ignore[method-assign]
+    user.clear_messages()
+
+    game._action_roll_dice(player, "roll_dice")
+    assert player.position == game.board.space_index("community_1")
+    assert game.has_active_sequence(tag="monopoly_roll")
+
+    drain_sequence(game, "monopoly_roll")
+
+    sounds = [
+        message.data["name"]
+        for message in user.messages
+        if message.type == "play_sound"
+    ]
+    assert sounds[0] in monopoly_audio.SOUND_DICE_ROLLS
+    assert sounds[1:] == [
+        monopoly_audio.SOUND_ROLL_DOUBLES,
+        monopoly_audio.SOUND_TOKEN_LANDED,
+        monopoly_audio.SOUND_TAX_OR_FINE_PAID,
+    ]
+    assert player.position == game.board.space_index("income_tax")
+
+
+def test_doubles_cue_does_not_add_its_audio_duration_to_roll_pacing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    game = make_game(start=True)
+    player = game.players[0]
+    original_sound_ticks = monopoly_audio.sound_ticks
+    monkeypatch.setattr(
+        monopoly_audio,
+        "sound_ticks",
+        lambda sound: (
+            10_000
+            if sound == monopoly_audio.SOUND_ROLL_DOUBLES
+            else original_sound_ticks(sound)
+        ),
+    )
+
+    doubles_beats = game._build_roll_cue_beats(player, 3, 3)
+
+    assert sum(beat.delay_after_ticks for beat in doubles_beats) == (
+        doubles_beats[0].delay_after_ticks
+    )
+    assert doubles_beats[-1].delay_after_ticks == 0
+    assert doubles_beats[-1].ops[0].sound == monopoly_audio.SOUND_ROLL_DOUBLES
+
+
+def test_roll_spam_cannot_replace_an_authoritative_outcome() -> None:
+    game = make_game(start=True)
+    player = game.players[0]
+    user = game.get_user(player)
+    assert user is not None
+    force_current(game)
+    player.position = game.board.space_index("go")
+    outcomes = [(1, 2), (6, 6)]
+    calls = 0
+
+    def roll_pair() -> tuple[int, int]:
+        nonlocal calls
+        outcome = outcomes[calls]
+        calls += 1
+        return outcome
+
+    game._roll_pair = roll_pair  # type: ignore[method-assign]
+    game.execute_action(player, "roll_dice")
+    game.execute_action(player, "roll_dice")
+
+    assert calls == 1
+    assert (game.last_die_1, game.last_die_2) == (1, 2)
+    assert len(
+        [sequence for sequence in game.active_sequences if sequence.tag == "monopoly_roll"]
+    ) == 1
+    assert user.get_last_spoken() == (
+        "The current roll or space effect is still resolving. Please wait."
+    )
+
+    drain_sequence(game, "monopoly_roll")
+    assert player.position == game.board.space_index("baltic")
+
+
+def test_jail_roll_spam_cannot_replace_an_authoritative_outcome() -> None:
+    game = make_game(start=True)
+    player = game.players[0]
+    force_current(game)
+    player.in_jail = True
+    player.position = game.board.space_index(game.board.jail_space_id)
+    game.phase = PHASE_JAIL
+    game.decision_player_id = player.id
+    outcomes = [(1, 2), (6, 6)]
+    calls = 0
+
+    def roll_pair() -> tuple[int, int]:
+        nonlocal calls
+        outcome = outcomes[calls]
+        calls += 1
+        return outcome
+
+    game._roll_pair = roll_pair  # type: ignore[method-assign]
+    game.execute_action(player, "jail_roll")
+    game.execute_action(player, "jail_roll")
+
+    assert calls == 1
+    assert (game.last_die_1, game.last_die_2) == (1, 2)
+    drain_sequence(game, "monopoly_roll")
+    assert player.in_jail is True
+
+
+def test_card_draw_audio_finishes_before_the_card_event_sound() -> None:
+    game = make_game(start=True)
+    player = game.players[0]
+    user = game.get_user(player)
+    assert user is not None
+    force_current(game)
+    game.chance_deck.remove("chance_dividend")
+    game.chance_deck.insert(0, "chance_dividend")
+    cash_before = player.cash
+    user.clear_messages()
+
+    game._draw_card(player, "chance")
+    assert player.cash == cash_before
+    drain_sequence(game, "monopoly_card")
+
+    sounds = [
+        message.data["name"]
+        for message in user.messages
+        if message.type == "play_sound"
+    ]
+    assert sounds[0] in monopoly_audio.SOUND_CARD_DRAWS
+    assert sounds[1] in monopoly_audio.SOUND_CASH_RECEIVED
+    assert player.cash == cash_before + 50
+
+
+def test_jail_payment_starts_the_fine_and_unlock_together() -> None:
+    game = make_game(start=True)
+    player = game.players[0]
+    user = game.get_user(player)
+    assert user is not None
+    force_current(game)
+    player.in_jail = True
+    player.position = game.board.space_index(game.board.jail_space_id)
+    game.phase = PHASE_JAIL
+    game.decision_player_id = player.id
+    user.clear_messages()
+
+    game._action_jail_pay(player, "jail_pay")
+    assert not game.has_active_sequence(tag="monopoly_jail_release")
+    sounds = [
+        message.data["name"]
+        for message in user.messages
+        if message.type == "play_sound"
+    ]
+    assert sounds == [
+        monopoly_audio.SOUND_TAX_OR_FINE_PAID,
+        monopoly_audio.SOUND_LEAVE_JAIL,
+    ]
+    assert player.in_jail is False
+    assert game.phase == PHASE_AWAIT_ROLL
+    assert game._is_roll_enabled(player) is None
+
+
+def test_jail_card_plays_the_unlock_before_normal_rolling_resumes() -> None:
+    game = make_game(start=True)
+    player = game.players[0]
+    user = game.get_user(player)
+    assert user is not None
+    force_current(game)
+    player.in_jail = True
+    player.position = game.board.space_index(game.board.jail_space_id)
+    player.jail_card_ids = ["chance_jail_free"]
+    game.chance_deck.remove("chance_jail_free")
+    game.phase = PHASE_JAIL
+    game.decision_player_id = player.id
+    user.clear_messages()
+
+    game.execute_action(player, "jail_card")
+
+    assert not game.has_active_sequence(tag="monopoly_jail_release")
+    assert game._is_roll_enabled(player) is None
+    sounds = [
+        message.data["name"]
+        for message in user.messages
+        if message.type == "play_sound"
+    ]
+    assert sounds == [monopoly_audio.SOUND_LEAVE_JAIL]
+    assert player.in_jail is False
+    assert player.jail_card_ids == []
+    assert game.chance_deck[-1] == "chance_jail_free"
+    assert game.phase == PHASE_AWAIT_ROLL
+
+
+def test_rolling_doubles_plays_the_shared_jail_release_sound() -> None:
+    game = make_game(start=True)
+    player = game.players[0]
+    user = game.get_user(player)
+    assert user is not None
+    force_current(game)
+    player.in_jail = True
+    player.position = game.board.space_index(game.board.jail_space_id)
+    game.phase = PHASE_JAIL
+    game.decision_player_id = player.id
+    user.clear_messages()
+
+    game._start_jail_roll_sequence(player, 2, 2)
+    drain_sequence(game, "monopoly_roll")
+
+    sounds = [
+        message.data["name"]
+        for message in user.messages
+        if message.type == "play_sound"
+    ]
+    assert sounds.count(monopoly_audio.SOUND_LEAVE_JAIL) == 1
+    assert sounds.index(monopoly_audio.SOUND_LEAVE_JAIL) < sounds.index(
+        monopoly_audio.SOUND_TOKEN_LANDED
+    )
+    assert player.in_jail is False
+
+
+def test_forced_third_turn_jail_fine_releases_before_movement() -> None:
+    game = make_game(start=True)
+    player = game.players[0]
+    user = game.get_user(player)
+    assert user is not None
+    force_current(game)
+    player.in_jail = True
+    player.jail_turns = 2
+    player.position = game.board.space_index(game.board.jail_space_id)
+    game.phase = PHASE_JAIL
+    game.decision_player_id = player.id
+    user.clear_messages()
+
+    game._start_jail_roll_sequence(player, 1, 2)
+    drain_sequence(game, "monopoly_roll")
+
+    assert not game.has_active_sequence(tag="monopoly_jail_release")
+    sounds = [
+        message.data["name"]
+        for message in user.messages
+        if message.type == "play_sound"
+    ]
+    assert sounds[-3:] == [
+        monopoly_audio.SOUND_TAX_OR_FINE_PAID,
+        monopoly_audio.SOUND_LEAVE_JAIL,
+        monopoly_audio.SOUND_TOKEN_LANDED,
+    ]
+    assert player.in_jail is False
+
+
+def test_auction_audio_routes_start_bid_and_sale_events() -> None:
+    game = make_game(start=True)
+    first, second = game.players[:2]
+    user = game.get_user(first)
+    assert user is not None
+    force_current(game)
+    user.clear_messages()
+
+    game._start_auction(
+        "mediterranean", resume_kind="landing", first_bidder_id=first.id
+    )
+    assert game._place_bid(first, game._auction_minimum_bid()) is True
+    game._action_pass_auction(second, "pass_auction")
+
+    sounds = [
+        message.data["name"]
+        for message in user.messages
+        if message.type == "play_sound"
+    ]
+    assert sounds == [
+        monopoly_audio.SOUND_AUCTION_STARTED,
+        monopoly_audio.SOUND_AUCTION_BID,
+        monopoly_audio.SOUND_AUCTION_SOLD,
+    ]
+
+
+def test_roll_audio_sequence_survives_save_and_restore() -> None:
+    game = make_game(start=True)
+    player = game.players[0]
+    force_current(game)
+    game._roll_pair = lambda: (1, 2)  # type: ignore[method-assign]
+
+    game._action_roll_dice(player, "roll_dice")
+    for _ in range(3):
+        game.on_tick()
+    restored = MonopolyGame.from_json(game.to_json())
+
+    assert restored.has_active_sequence(tag="monopoly_roll")
+    drain_sequence(restored, "monopoly_roll")
+    restored_player = restored.players[0]
+    assert restored_player.position == restored.board.space_index("baltic")
+    assert restored.phase == PHASE_PROPERTY
+
+
+def test_winner_stops_music_before_the_victory_cue_and_announcement() -> None:
+    game = make_game(start=True)
+    winner, eliminated = game.players[:2]
+    user = game.get_user(winner)
+    assert user is not None
+    eliminated.bankrupt = True
+    user.clear_messages()
+
+    assert game._check_for_winner() is True
+
+    relevant = [
+        (
+            message.type,
+            message.data.get("name", ""),
+            message.data.get("text", ""),
+        )
+        for message in user.messages
+        if message.type in {"stop_music", "play_sound", "speak"}
+    ]
+    stop_index = next(
+        index for index, event in enumerate(relevant) if event[0] == "stop_music"
+    )
+    victory_index = next(
+        index
+        for index, event in enumerate(relevant)
+        if event[:2] == ("play_sound", monopoly_audio.SOUND_GAME_WON)
+    )
+    speech_index = next(
+        index
+        for index, event in enumerate(relevant)
+        if event[0] == "speak" and "win" in event[2].lower()
+    )
+    assert stop_index < victory_index < speech_index
+
+
+def test_bot_actions_receive_a_fresh_humanized_delay() -> None:
+    game = make_game(start=True, bots=True)
+    player = game.players[0]
+    force_current(game)
+    player.bot_think_ticks = 0
+    player.bot_pending_action = None
+    game._bot_pacing_actor_id = ""
+
+    game.on_tick()
+
+    assert (
+        monopoly_audio.BOT_ACTION_DELAY_MIN_TICKS
+        <= player.bot_think_ticks
+        <= monopoly_audio.BOT_ACTION_DELAY_MAX_TICKS
+    )
+    assert player.bot_pending_action is None
 
 
 def test_english_vietnamese_monopoly_locale_parity() -> None:
@@ -3497,6 +4162,23 @@ def test_bot_auction_uses_meaningful_bid_steps() -> None:
     assert game.auction_state.highest_bid == bid
 
 
+def test_bot_auction_budget_always_keeps_an_emergency_reserve() -> None:
+    states = {space.id: PropertyState() for space in BOARD.spaces if space.price}
+    states["mediterranean"].owner_id = "buyer"
+    cash = 500
+
+    maximum = maximum_auction_bid(
+        BOARD,
+        states,
+        BOARD.space("baltic"),
+        "buyer",
+        cash,
+    )
+
+    assert maximum <= cash - cash_reserve(BOARD)
+    assert maximum < cash
+
+
 def test_bot_traffic_model_uses_board_layout_and_movement_cards() -> None:
     assert landing_weight(BOARD, "illinois") > landing_weight(BOARD, "boardwalk")
     assert landing_weight(BOARD, "new_york") > landing_weight(BOARD, "park_place")
@@ -3532,7 +4214,17 @@ def test_bot_traffic_model_uses_board_layout_and_movement_cards() -> None:
     )
 
 
-def test_bots_can_complete_a_full_game_on_every_bundled_board() -> None:
+def test_bots_can_complete_a_full_game_on_every_bundled_board(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Exercise the complete rules engine without spending wall-clock time on
+    # the separately tested human-facing audio and bot pacing delays.
+    monkeypatch.setattr(monopoly_audio, "sound_ticks", lambda sound: 0)
+    monkeypatch.setattr(monopoly_audio, "ROLL_TO_LANDING_PAUSE_TICKS", 0)
+    monkeypatch.setattr(monopoly_audio, "LANDING_TO_EVENT_PAUSE_TICKS", 0)
+    monkeypatch.setattr(monopoly_audio, "OPENING_ROLL_GAP_TICKS", 0)
+    monkeypatch.setattr(monopoly_audio, "BOT_ACTION_DELAY_MIN_TICKS", 1)
+    monkeypatch.setattr(monopoly_audio, "BOT_ACTION_DELAY_MAX_TICKS", 1)
     random_state = random.getstate()
     try:
         for board_index, board_id in enumerate(get_board_ids()):
@@ -3583,6 +4275,30 @@ def test_bot_preserves_house_scarcity_before_upgrading_to_a_hotel() -> None:
     game.bank_houses = 8
     choice = game._bot_management_choice(builder, "boardwalk")
     assert choice is not None and choice[0] == "build"
+
+
+def test_bot_does_not_unmortgage_a_received_deed_into_rent_danger() -> None:
+    game = make_game(2, start=True, bots=True)
+    recipient, opponent = game.players[:2]
+    own_group(game, opponent.id, "dark_blue")
+    for space in game.board.group_spaces("dark_blue"):
+        game.property_states[space.id].buildings = 5
+    game.property_states["mediterranean"] = PropertyState(
+        recipient.id,
+        True,
+        0,
+    )
+    game.mortgage_transfer_state = MortgageTransferState(
+        property_ids=["mediterranean"]
+    )
+    game.phase = PHASE_MORTGAGE_TRANSFER
+    game.decision_player_id = recipient.id
+
+    recipient.cash = 600
+    assert game.bot_think(recipient) == "keep_received_mortgaged"
+
+    recipient.cash = 800
+    assert game.bot_think(recipient) == "unmortgage_received_now"
 
 
 def test_automatic_liquidation_protects_more_valuable_income() -> None:
@@ -3675,6 +4391,60 @@ def test_bot_proposes_and_accepts_a_fair_group_completing_trade() -> None:
     assert game.bot_think(target) == "trade_accept"
 
 
+def test_bot_remembers_a_rejected_trade_goal_before_trying_again() -> None:
+    game = make_game(2, start=True, bots=True)
+    proposer, target = game.players[:2]
+    force_current(game)
+    game.property_states["mediterranean"].owner_id = proposer.id
+    game.property_states["baltic"].owner_id = target.id
+    game.phase = PHASE_TURN_ACTIONS
+    game.decision_player_id = proposer.id
+
+    game.execute_action(proposer, "propose_trade")
+    for _ in range(10):
+        action = game.bot_think(proposer)
+        assert action is not None
+        game.execute_action(proposer, action)
+        if game.phase == PHASE_TRADE_RESPONSE:
+            break
+    assert game.phase == PHASE_TRADE_RESPONSE
+
+    game.execute_action(target, "trade_reject")
+
+    memory_key = game._bot_trade_memory_key(target.id, "baltic")
+    expires = proposer.bot_trade_cooldowns[memory_key]
+    assert expires > game.turn_number
+    assert game._bot_best_trade_plan(proposer) is None
+
+    restored = MonopolyGame.from_json(game.to_json())
+    restored_proposer = restored.get_player_by_id(proposer.id)
+    assert restored_proposer is not None
+    assert restored_proposer.bot_trade_cooldowns[memory_key] == expires
+
+    game.turn_number = expires
+    assert game._bot_best_trade_plan(proposer) is not None
+
+
+def test_bot_trade_memory_is_bounded_and_cleared_when_game_is_discarded() -> None:
+    game = make_game(2, start=True, bots=True)
+    proposer, target = game.players[:2]
+    valid_key = game._bot_trade_memory_key(target.id, "baltic")
+    proposer.bot_trade_turn = game.turn_number
+    proposer.bot_trade_cooldowns = {
+        valid_key: game.turn_number + 10,
+        "removed-player:missing-property": game.turn_number + 10_000,
+    }
+
+    game._prune_bot_trade_cooldowns(proposer)
+    assert proposer.bot_trade_cooldowns == {valid_key: game.turn_number + 10}
+
+    game.destroy()
+    assert game._destroyed is True
+    assert proposer.bot_trade_turn == -1
+    assert proposer.bot_trade_cooldowns == {}
+    assert game._bot_pacing_actor_id == ""
+
+
 def test_bot_jail_strategy_changes_after_the_board_is_developed() -> None:
     game = make_game(2, start=True, bots=True)
     player = game.players[0]
@@ -3686,8 +4456,16 @@ def test_bot_jail_strategy_changes_after_the_board_is_developed() -> None:
 
     assert game.bot_think(player) == "jail_card"
 
+    own_group(game, player.id, "brown")
+    game.property_states["mediterranean"].buildings = 2
+    assert opponent_rent_pressure(game.board, game.property_states, player.id) == 0
+    assert game.bot_think(player) == "jail_card"
+
+    for space in game.board.group_spaces("brown"):
+        game.property_states[space.id] = PropertyState()
     own_group(game, game.players[1].id, "brown")
     game.property_states["mediterranean"].buildings = 2
+    assert opponent_rent_pressure(game.board, game.property_states, player.id) > 0
     assert game.bot_think(player) == "jail_roll"
     player.jail_turns = 2
     assert game.bot_think(player) == "jail_roll"

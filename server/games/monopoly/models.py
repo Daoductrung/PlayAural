@@ -269,6 +269,18 @@ class QueuedPayment(DataClassJSONMixin):
 
 
 @dataclass
+class PaymentBatchState(DataClassJSONMixin):
+    """One card instruction that transfers money between several players."""
+
+    actor_id: str
+    kind: str
+    amount_each: int
+    payments: list[QueuedPayment] = field(default_factory=list)
+    completed_count: int = 0
+    completed_total: int = 0
+
+
+@dataclass
 class TradeState(DataClassJSONMixin):
     proposer_id: str
     target_id: str

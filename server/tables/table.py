@@ -839,6 +839,7 @@ class Table(DataClassJSONMixin):
 
         # 13. Mark and detach old runtime state so ticks or stale callbacks cannot affect the table.
         old_game._destroyed = True
+        old_game.on_discard()
         if hasattr(old_game, "clear_scheduled_sounds"):
             old_game.clear_scheduled_sounds()
         if hasattr(old_game, "cancel_all_sequences"):

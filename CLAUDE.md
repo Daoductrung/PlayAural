@@ -604,6 +604,11 @@ Any new persistent feature must define:
 - what happens on account deletion
 - tests for cleanup behavior
 
+`Game.on_discard()` is the idempotent lifecycle hook for match-scoped caches,
+bot observations, and similar memory that must not outlive its game instance.
+The framework calls it on both table destruction and game restart; it does not
+replace the retention and cleanup rules required for genuinely persistent data.
+
 ### Localization
 - All player-facing strings go through Fluent (`speak_l`, `broadcast_l`,
   `broadcast_personal_l`, and the localized option/pref/sequence helpers). No

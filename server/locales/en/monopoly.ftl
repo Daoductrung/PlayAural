@@ -524,6 +524,38 @@ monopoly-player-pays-debt = { $player } pays { $amount } to { $destination ->
 } for { $reason }. They have { $cash } left.
 monopoly-you-pay-debt-brief = Paid { $amount } for { $reason }.
 monopoly-player-pays-debt-brief = { $player } pays { $amount } for { $reason }.
+monopoly-you-pay-player-batch = You pay { $amount } to each of { $count ->
+    [one] 1 player
+   *[other] { $count } players
+}, { $total } total. You have { $cash } left.
+monopoly-player-pays-player-batch = { $player } pays { $amount } to each of { $count ->
+    [one] 1 player
+   *[other] { $count } players
+}, { $total } total. They have { $cash } left.
+monopoly-you-pay-player-batch-brief = Paid { $total } to { $count ->
+    [one] 1 player
+   *[other] { $count } players
+}.
+monopoly-player-pays-player-batch-brief = { $player } pays { $total } to { $count ->
+    [one] 1 player
+   *[other] { $count } players
+}.
+monopoly-you-collect-player-batch = You collect { $amount } from each of { $count ->
+    [one] 1 player
+   *[other] { $count } players
+}, { $total } total. You now have { $cash }.
+monopoly-player-collects-player-batch = { $player } collects { $amount } from each of { $count ->
+    [one] 1 player
+   *[other] { $count } players
+}, { $total } total. They now have { $cash }.
+monopoly-you-collect-player-batch-brief = Collected { $total } from { $count ->
+    [one] 1 player
+   *[other] { $count } players
+}.
+monopoly-player-collects-player-batch-brief = { $player } collects { $total } from { $count ->
+    [one] 1 player
+   *[other] { $count } players
+}.
 monopoly-you-raise-cash = You raise { $amount } by selling { $development } evenly, then mortgaging legal properties. You now have { $cash } against a debt of { $debt }.
 monopoly-player-raises-cash = { $player } raises { $amount } by selling { $development } evenly, then mortgaging legal properties. They now have { $cash } against a debt of { $debt }.
 monopoly-you-raise-cash-brief = Raised { $amount }.
@@ -712,6 +744,7 @@ monopoly-error-not-mortgaged = That property is not mortgaged.
 monopoly-error-unmortgage-needs-cash = Unmortgaging costs { $cost }, but you have only { $cash }.
 monopoly-error-unmortgage-received-needs-cash = Unmortgaging now costs { $cost }; you have { $cash }. Manage properties, or pay only the transfer interest to keep it mortgaged.
 monopoly-error-must-roll-doubles = You rolled doubles, so you must roll again before ending your turn.
+monopoly-error-roll-resolving = The current roll or space effect is still resolving. Please wait.
 monopoly-error-no-properties = You do not own any property to manage.
 monopoly-error-no-current-space = You do not have an active token on the board.
 monopoly-error-portfolio-player-unavailable = That player's portfolio is no longer available.

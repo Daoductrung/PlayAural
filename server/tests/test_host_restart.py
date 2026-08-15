@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import gc
+import weakref
 from types import SimpleNamespace
 
 import pytest
@@ -90,6 +92,9 @@ def test_game_completion_resets_to_a_silent_waiting_lobby() -> None:
 @pytest.mark.asyncio
 async def test_host_restart_requires_confirmation_and_resets_to_clean_lobby() -> None:
     server, table, old_game, alice, bob = _make_playing_table()
+    old_game_ref = weakref.ref(old_game)
+    discard_calls: list[str] = []
+    old_game.on_discard = lambda: discard_calls.append("discarded")
     server._voice_presence_by_user[alice.username] = {
         "scope": "table",
         "context_id": table.table_id,
@@ -125,6 +130,7 @@ async def test_host_restart_requires_confirmation_and_resets_to_clean_lobby() ->
     assert new_game.current_ambience == ""
     assert new_game.current_music == ""
     assert old_game._destroyed is True
+    assert discard_calls == ["discarded"]
     assert old_game.scheduled_sounds == []
     assert old_game._users == {}
     assert (
@@ -161,6 +167,30 @@ async def test_host_restart_requires_confirmation_and_resets_to_clean_lobby() ->
     new_game.on_tick()
     assert "old_delayed_sound.ogg" not in alice.get_sounds_played()
     assert "old_delayed_sound.ogg" not in bob.get_sounds_played()
+
+    del old_game
+    gc.collect()
+    assert old_game_ref() is None
+
+
+def test_table_destruction_discards_game_runtime_state_once() -> None:
+    server, table, game, _alice, _bob = _make_playing_table()
+    table_ref = weakref.ref(table)
+    game_ref = weakref.ref(game)
+    discard_calls: list[str] = []
+    game.on_discard = lambda: discard_calls.append("discarded")
+
+    table.destroy()
+    table.destroy()
+
+    assert discard_calls == ["discarded"]
+    assert server._tables.get_table(table.table_id) is None
+
+    del game
+    del table
+    gc.collect()
+    assert game_ref() is None
+    assert table_ref() is None
 
 
 @pytest.mark.asyncio

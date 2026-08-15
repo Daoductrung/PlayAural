@@ -524,6 +524,38 @@ monopoly-player-pays-debt = { $player } trả { $amount } cho { $destination ->
 } vì { $reason }. Họ còn { $cash }.
 monopoly-you-pay-debt-brief = Đã trả { $amount } vì { $reason }.
 monopoly-player-pays-debt-brief = { $player } trả { $amount } vì { $reason }.
+monopoly-you-pay-player-batch = Bạn trả { $amount } cho mỗi người trong số { $count ->
+    [one] 1 người chơi
+   *[other] { $count } người chơi
+}, tổng cộng { $total }. Bạn còn { $cash }.
+monopoly-player-pays-player-batch = { $player } trả { $amount } cho mỗi người trong số { $count ->
+    [one] 1 người chơi
+   *[other] { $count } người chơi
+}, tổng cộng { $total }. Họ còn { $cash }.
+monopoly-you-pay-player-batch-brief = Đã trả tổng cộng { $total } cho { $count ->
+    [one] 1 người chơi
+   *[other] { $count } người chơi
+}.
+monopoly-player-pays-player-batch-brief = { $player } trả tổng cộng { $total } cho { $count ->
+    [one] 1 người chơi
+   *[other] { $count } người chơi
+}.
+monopoly-you-collect-player-batch = Bạn nhận { $amount } từ mỗi người trong số { $count ->
+    [one] 1 người chơi
+   *[other] { $count } người chơi
+}, tổng cộng { $total }. Bạn hiện có { $cash }.
+monopoly-player-collects-player-batch = { $player } nhận { $amount } từ mỗi người trong số { $count ->
+    [one] 1 người chơi
+   *[other] { $count } người chơi
+}, tổng cộng { $total }. Họ hiện có { $cash }.
+monopoly-you-collect-player-batch-brief = Đã nhận tổng cộng { $total } từ { $count ->
+    [one] 1 người chơi
+   *[other] { $count } người chơi
+}.
+monopoly-player-collects-player-batch-brief = { $player } nhận tổng cộng { $total } từ { $count ->
+    [one] 1 người chơi
+   *[other] { $count } người chơi
+}.
 monopoly-you-raise-cash = Bạn huy động được { $amount } bằng cách bán đều { $development }, rồi thế chấp những bất động sản hợp lệ. Bạn hiện có { $cash } để trả khoản nợ { $debt }.
 monopoly-player-raises-cash = { $player } huy động được { $amount } bằng cách bán đều { $development }, rồi thế chấp những bất động sản hợp lệ. Họ hiện có { $cash } để trả khoản nợ { $debt }.
 monopoly-you-raise-cash-brief = Đã huy động { $amount }.
@@ -712,6 +744,7 @@ monopoly-error-not-mortgaged = Bất động sản đó không được thế ch
 monopoly-error-unmortgage-needs-cash = Chuộc thế chấp tốn { $cost }, nhưng bạn chỉ có { $cash }.
 monopoly-error-unmortgage-received-needs-cash = Chuộc ngay tốn { $cost }; bạn có { $cash }. Hãy quản lý bất động sản, hoặc chỉ trả lãi chuyển nhượng để giữ nguyên thế chấp.
 monopoly-error-must-roll-doubles = Bạn vừa tung ra đôi, vì vậy phải tung thêm trước khi kết thúc lượt.
+monopoly-error-roll-resolving = Lần tung hoặc hiệu ứng của ô hiện tại vẫn đang được xử lý. Vui lòng chờ.
 monopoly-error-no-properties = Bạn không sở hữu bất động sản nào để quản lý.
 monopoly-error-no-current-space = Bạn không có quân cờ đang hoạt động trên bàn.
 monopoly-error-portfolio-player-unavailable = Tài sản của người chơi đó không còn để xem.

@@ -187,6 +187,15 @@ class Game(
         else:
             self.migrate_legacy_audio_state()
 
+    def on_discard(self) -> None:
+        """Release game-specific memory before this instance is abandoned.
+
+        Table closure and table restart both call this idempotent lifecycle hook.
+        Persistent fields that exist only to inform the current match may be
+        cleared here so stale references cannot retain them while the discarded
+        game instance awaits garbage collection.
+        """
+
     def _reset_transcripts(self) -> None:
         """Initialize transcript storage for seated players."""
         self._transcripts = {

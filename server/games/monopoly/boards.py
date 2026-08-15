@@ -68,12 +68,24 @@ def get_board_ids() -> tuple[str, ...]:
 
 def validate_board(board: BoardDefinition) -> None:
     """Fail fast when a regional board is structurally unsafe."""
-    if (
-        not board.id
-        or not board.name_key
-        or not board.description_key
-        or not board.currency_key
-        or not board.transit_kind_key
+    terminology_keys = (
+        board.terminology.street_kind_key,
+        board.terminology.transit_kind_key,
+        board.terminology.utility_kind_key,
+        board.terminology.chance_kind_key,
+        board.terminology.community_kind_key,
+        board.terminology.chance_deck_key,
+        board.terminology.community_deck_key,
+        board.terminology.utility_rent_schedule_key,
+    )
+    if not all(
+        (
+            board.id,
+            board.name_key,
+            board.description_key,
+            board.currency_key,
+            *terminology_keys,
+        )
     ):
         raise ValueError("A Monopoly board needs stable localized metadata")
     if len(board.spaces) < 4:
@@ -93,6 +105,14 @@ def validate_board(board: BoardDefinition) -> None:
         raise ValueError("A Monopoly board must contain exactly one GO space")
     if sum(space.kind == SPACE_JAIL for space in board.spaces) != 1:
         raise ValueError("A Monopoly board must contain exactly one Jail space")
+    if sum(space.kind == SPACE_FREE_PARKING for space in board.spaces) != 1:
+        raise ValueError(
+            "A Monopoly board must contain exactly one Free Parking space"
+        )
+    if sum(space.kind == SPACE_GO_TO_JAIL for space in board.spaces) != 1:
+        raise ValueError(
+            "A Monopoly board must contain exactly one Go to Jail space"
+        )
     if (
         board.starting_cash <= 0
         or board.go_salary < 0
@@ -102,6 +122,41 @@ def validate_board(board: BoardDefinition) -> None:
         raise ValueError("Monopoly cash values cannot be invalid")
     if board.bank_houses < 0 or board.bank_hotels < 0:
         raise ValueError("Monopoly building supplies cannot be negative")
+    development = board.development
+    if development.level_keys and (
+        len(development.level_keys) != 5
+        or not development.empty_key
+        or any(not key for key in development.level_keys)
+    ):
+        raise ValueError(
+            "Named Monopoly development systems need an empty state and five levels"
+        )
+    if not all(
+        (
+            development.collective_key,
+            development.build_selector_key,
+            development.sell_selector_key,
+            development.rent_schedule_key,
+            development.bank_supply_key,
+            development.group_sale_description_key,
+        )
+    ):
+        raise ValueError("A Monopoly development system needs localized metadata")
+    error_keys = [key for key, _ in development.error_key_overrides]
+    if (
+        len(error_keys) != len(set(error_keys))
+        or any(
+            not key or not replacement
+            for key, replacement in development.error_key_overrides
+        )
+    ):
+        raise ValueError(
+            "Monopoly development error overrides must be unique and localized"
+        )
+    if development.finite_supply and (
+        board.bank_houses <= 0 or board.bank_hotels <= 0
+    ):
+        raise ValueError("A finite Monopoly development supply must contain pieces")
     rules = board.rules
     if (
         rules.auction_opening_bid <= 0
@@ -169,6 +224,8 @@ def validate_board(board: BoardDefinition) -> None:
                 raise ValueError(f"Monopoly move card {card.id} needs a destination")
             if card.destination_id and card.action != CARD_MOVE:
                 raise ValueError(f"Monopoly card {card.id} has an unused destination")
+            if card.collect_go and card.action != CARD_MOVE:
+                raise ValueError(f"Monopoly card {card.id} has unused collect-Go data")
             if card.action == CARD_NEAREST:
                 if card.nearest_kind not in OWNABLE_SPACE_KINDS:
                     raise ValueError(

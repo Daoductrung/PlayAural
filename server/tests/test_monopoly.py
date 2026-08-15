@@ -32,6 +32,7 @@ from server.games.monopoly.models import (
     AuctionState,
     BoardDefinition,
     DebtState,
+    DevelopmentDefinition,
     MortgageTransferState,
     PropertyState,
     RentState,
@@ -58,6 +59,8 @@ ITALY_BOARD = get_board("italy")
 MADRID_BOARD = get_board("madrid")
 TOKYO_BOARD = get_board("tokyo")
 AUSTRALIA_BOARD = get_board("australia")
+NEW_ZEALAND_BOARD = get_board("new_zealand")
+HANOI_BOARD = get_board("hanoi")
 
 
 def make_game(
@@ -66,6 +69,7 @@ def make_game(
     start: bool = False,
     touch: bool = False,
     bots: bool = False,
+    locale: str = "en",
 ) -> MonopolyGame:
     game = MonopolyGame()
     game.setup_keybinds()
@@ -74,7 +78,7 @@ def make_game(
         user = (
             Bot(name, uuid=f"p{index + 1}")
             if bots
-            else MockUser(name, uuid=f"p{index + 1}")
+            else MockUser(name, locale=locale, uuid=f"p{index + 1}")
         )
         if touch:
             user.client_type = "mobile"
@@ -115,9 +119,11 @@ def test_registration_metadata_and_catalog_count() -> None:
     assert get_board_ids() == (
         "australia",
         "germany",
+        "hanoi",
         "italy",
         "london",
         "madrid",
+        "new_zealand",
         "paris",
         "standard",
         "tokyo",
@@ -139,6 +145,10 @@ def test_registration_metadata_and_catalog_count() -> None:
     assert board_option.get_label("vi", "tokyo") == "Bàn cờ: Tokyo"
     assert board_option.get_label("en", "australia") == "Board: Australia"
     assert board_option.get_label("vi", "australia") == "Bàn cờ: Úc"
+    assert board_option.get_label("en", "new_zealand") == "Board: New Zealand"
+    assert board_option.get_label("vi", "new_zealand") == "Bàn cờ: New Zealand"
+    assert board_option.get_label("en", "hanoi") == "Board: Hanoi, Vietnam"
+    assert board_option.get_label("vi", "hanoi") == "Bàn cờ: Hà Nội, Việt Nam"
     assert MonopolyGame.relevant_preferences == ["brief_announcements"]
     game_options = MonopolyGame().options
     assert game_options.free_parking_cash is False
@@ -148,6 +158,13 @@ def test_registration_metadata_and_catalog_count() -> None:
     assert game_options.snake_eyes_bonus is False
     metas = game_options.get_option_metas()
     assert "House rule" not in metas["free_parking_cash"].get_label("en", False)
+    assert metas["free_parking_cash"].get_label("en", False) == (
+        "Rest-space jackpot: Off"
+    )
+    assert metas["free_parking_cash"].get_label("vi", False) == "Quỹ ô nghỉ: Tắt"
+    assert "board's rest space" in metas["free_parking_cash"].get_description(
+        "en", False
+    )
     snake_description = metas["snake_eyes_bonus"].get_description(
         "en", False, game=MonopolyGame()
     )
@@ -174,6 +191,16 @@ def test_registration_metadata_and_catalog_count() -> None:
     australia_game.options.board_id = "australia"
     assert "A$500" in metas["snake_eyes_bonus"].get_description(
         "en", False, game=australia_game
+    )
+    new_zealand_game = MonopolyGame()
+    new_zealand_game.options.board_id = "new_zealand"
+    assert "NZ$500" in metas["snake_eyes_bonus"].get_description(
+        "en", False, game=new_zealand_game
+    )
+    hanoi_game = MonopolyGame()
+    hanoi_game.options.board_id = "hanoi"
+    assert "500,000 VND" in metas["snake_eyes_bonus"].get_description(
+        "en", False, game=hanoi_game
     )
 
 
@@ -219,10 +246,9 @@ def test_dynamic_option_descriptions_render_through_the_real_menu_hint_path() ->
     )
 
 
-def test_unreleased_board_ids_have_no_compatibility_aliases() -> None:
-    for removed_id in ("classic_us", "classic_uk"):
-        with pytest.raises(ValueError, match="Unsupported Monopoly board"):
-            get_board(removed_id)
+def test_unknown_board_ids_are_rejected() -> None:
+    with pytest.raises(ValueError, match="Unsupported Monopoly board"):
+        get_board("unknown")
 
 
 @pytest.mark.parametrize("board_id", get_board_ids())
@@ -247,12 +273,16 @@ def test_each_bundled_board_is_complete_and_valid(board_id: str) -> None:
         )
         == 28
     )
-    assert board.starting_cash == 1_500
-    assert board.bank_houses == 32
-    assert board.bank_hotels == 12
+    assert board.starting_cash > 0
+    if board.development.finite_supply:
+        assert board.bank_houses == 32
+        assert board.bank_hotels == 12
+    else:
+        assert board.bank_houses == 0
+        assert board.bank_hotels == 0
     assert len(board.property_groups) == 10
     assert board.property_group("orange").name_key == "monopoly-group-orange"
-    assert board.rules.auction_opening_bid == 1
+    assert board.rules.auction_opening_bid > 0
 
 
 def test_bundled_boards_have_unambiguous_localized_metadata() -> None:
@@ -708,6 +738,379 @@ def test_australia_board_has_authentic_layout_economy_and_card_destinations() ->
     )
 
 
+def test_new_zealand_board_has_authentic_layout_economy_and_card_destinations() -> None:
+    assert NEW_ZEALAND_BOARD.currency_key == "monopoly-currency-nzd"
+    assert [space.id for space in NEW_ZEALAND_BOARD.spaces] == [
+        "go",
+        "palmerston_street",
+        "community_1",
+        "mackay_street",
+        "income_tax",
+        "balclutha_station",
+        "east_street",
+        "chance_1",
+        "stafford_street",
+        "thames_street",
+        "jail",
+        "gladstone_road",
+        "electric_company",
+        "marine_parade",
+        "bank_street",
+        "taumarunui_station",
+        "devon_street",
+        "community_2",
+        "rangitikei_street",
+        "victoria_avenue",
+        "free_parking",
+        "high_street",
+        "chance_2",
+        "market_street",
+        "trafalgar_street",
+        "kaikoura_station",
+        "cameron_road",
+        "fenton_street",
+        "water_works",
+        "garden_place",
+        "go_to_jail",
+        "dee_street",
+        "princes_street",
+        "community_3",
+        "cathedral_square",
+        "frankton_junction",
+        "chance_3",
+        "lambton_quay",
+        "super_tax",
+        "queen_street",
+    ]
+    assert NEW_ZEALAND_BOARD.space("palmerston_street").rents == (
+        2,
+        10,
+        30,
+        90,
+        160,
+        250,
+    )
+    assert NEW_ZEALAND_BOARD.space("queen_street").price == 400
+    assert NEW_ZEALAND_BOARD.space("super_tax").tax_amount == 100
+    assert NEW_ZEALAND_BOARD.property_group("transit").name_key == (
+        "monopoly-group-stations"
+    )
+    assert NEW_ZEALAND_BOARD.card("chance", "chance_top_property").destination_id == (
+        "queen_street"
+    )
+    assert NEW_ZEALAND_BOARD.card("chance", "chance_red_property").destination_id == (
+        "trafalgar_street"
+    )
+    assert NEW_ZEALAND_BOARD.card("chance", "chance_pink_property").destination_id == (
+        "gladstone_road"
+    )
+    assert (
+        NEW_ZEALAND_BOARD.card("chance", "chance_named_transit").destination_id
+        == "balclutha_station"
+    )
+
+
+def test_hanoi_board_has_authentic_layout_economy_and_rule_values() -> None:
+    assert HANOI_BOARD.currency_key == "monopoly-currency-vnd"
+    assert [space.id for space in HANOI_BOARD.spaces] == [
+        "go",
+        "dinh_liet",
+        "social_insurance",
+        "trang_tien",
+        "lottery_1",
+        "my_dinh_bus_station",
+        "hang_khay",
+        "lucky_draw_1",
+        "nguyen_huu_huan",
+        "ngo_tat_to",
+        "jail",
+        "hang_ga",
+        "lottery_2",
+        "hang_gai",
+        "hang_ca",
+        "nuoc_ngam_bus_station",
+        "cau_go",
+        "one_pillar_pagoda",
+        "bat_dan",
+        "thanh_nien",
+        "free_parking",
+        "nha_tho",
+        "lucky_draw_2",
+        "ngu_xa",
+        "hang_hanh",
+        "giap_bat_bus_station",
+        "ngo_huyen",
+        "nam_ngu",
+        "long_bien_bridge",
+        "hang_manh",
+        "go_to_jail",
+        "le_van_huu",
+        "giang_vo",
+        "lottery_3",
+        "hang_chao",
+        "gia_lam_bus_station",
+        "lucky_draw_3",
+        "nha_chung",
+        "excise_tax",
+        "lo_duc",
+    ]
+    assert HANOI_BOARD.space("dinh_liet").rents == (
+        2_000,
+        10_000,
+        30_000,
+        90_000,
+        160_000,
+        250_000,
+    )
+    assert HANOI_BOARD.space("lo_duc").price == 400_000
+    assert HANOI_BOARD.space("hang_hanh").building_cost == 150_000
+    assert HANOI_BOARD.space("social_insurance").tax_amount == 200_000
+    assert HANOI_BOARD.space("excise_tax").tax_amount == 100_000
+    assert HANOI_BOARD.space("one_pillar_pagoda").price == 150_000
+    assert HANOI_BOARD.space("long_bien_bridge").price == 280_000
+    assert HANOI_BOARD.space("long_bien_bridge").mortgage_value == 140_000
+    assert HANOI_BOARD.property_group("transit").name_key == (
+        "monopoly-group-hanoi-bus-stations"
+    )
+    assert HANOI_BOARD.property_group("utility").name_key == (
+        "monopoly-group-hanoi-landmarks"
+    )
+    assert HANOI_BOARD.starting_cash == 1_500_000
+    assert HANOI_BOARD.go_salary == 200_000
+    assert HANOI_BOARD.jail_fine == 100_000
+    assert HANOI_BOARD.rules.auction_opening_bid == 10_000
+    assert HANOI_BOARD.rules.auction_bid_increment == 5_000
+    assert HANOI_BOARD.development.finite_supply is False
+    assert len(HANOI_BOARD.development.level_keys) == 5
+    assert HANOI_BOARD.card("chance", "chance_dividend").amount == 50_000
+    assert HANOI_BOARD.card("chance", "chance_back_three").amount == 3
+    assert HANOI_BOARD.card("chance", "chance_red_property").destination_id == (
+        "hang_hanh"
+    )
+    assert HANOI_BOARD.card("chance", "chance_named_transit").destination_id == (
+        "my_dinh_bus_station"
+    )
+
+
+def test_hanoi_board_uses_named_unlimited_business_development() -> None:
+    game = make_game()
+    game.options.board_id = "hanoi"
+    game.on_start()
+    player = game.players[0]
+    player.cash = 10_000_000
+    own_group(game, player.id, "brown")
+    for space in game.board.group_spaces("brown"):
+        game.property_states[space.id].buildings = 4
+
+    assert game.bank_houses == 0
+    assert game.bank_hotels == 0
+    assert can_build(
+        game.board,
+        game.property_states,
+        "dinh_liet",
+        player.id,
+        game.bank_houses,
+        game.bank_hotels,
+    ) is None
+
+    game._apply_build(player, "dinh_liet", announce=False)
+
+    assert game.property_states["dinh_liet"].buildings == 5
+    assert game.bank_houses == 0
+    assert game.bank_hotels == 0
+    assert game._building_text("vi", 5) == "nhà hàng hoặc cửa hàng lớn"
+    assert game._get_management_selector_label(
+        player, "choose_build_property"
+    ) == "Upgrade a business"
+    assert "restaurant or large shop" in game._property_description(
+        "en", "dinh_liet"
+    )
+
+    game._apply_sell_building(player, "dinh_liet", announce=False)
+
+    assert game.property_states["dinh_liet"].buildings == 4
+    assert game.bank_houses == 0
+    assert game.bank_hotels == 0
+
+
+def test_hanoi_management_never_formats_impossible_standard_building_actions() -> None:
+    game = make_game(locale="vi")
+    game.options.board_id = "hanoi"
+    game.on_start()
+    player = game.players[0]
+    user = game.get_user(player)
+    assert user is not None
+    player.cash = 171_064
+    own_group(game, player.id, "brown")
+    game.phase = PHASE_MANAGE
+    game.decision_player_id = player.id
+    game.management_property_id = "dinh_liet"
+    game.property_states["dinh_liet"].buildings = 5
+
+    assert game._get_management_action_label(player, "build") == (
+        "Nâng cấp kinh doanh"
+    )
+    build_action = game.find_action(player, "build")
+    assert build_action is not None
+    build_resolution = game.resolve_action(player, build_action)
+    assert build_resolution.enabled is False
+    assert build_resolution.description == (
+        "Mua cấp phát triển tiếp theo cho bất động sản này. Mọi bất động sản "
+        "trong nhóm màu phải được phát triển đều."
+    )
+    assert build_resolution.description != "Hàng quán này đã đạt bậc cao nhất."
+    user.clear_messages()
+    game.execute_action(player, "build")
+    assert user.get_last_spoken() == "Hàng quán này đã đạt bậc cao nhất."
+
+    game.management_property_id = "hang_manh"
+    game.property_states["hang_manh"].owner_id = player.id
+    assert game.property_states["hang_manh"].buildings == 0
+    assert game._get_management_action_label(player, "sell_building") == (
+        "Bán một cấp nâng cấp kinh doanh"
+    )
+    assert game._get_management_action_label(player, "sell_group_buildings") == (
+        "Bán mọi cấp nâng cấp kinh doanh trong nhóm màu này"
+    )
+    sell_action = game.find_action(player, "sell_building")
+    assert sell_action is not None
+    sell_resolution = game.resolve_action(player, sell_action)
+    assert sell_resolution.enabled is False
+    assert sell_resolution.description == (
+        "Bán một cấp phát triển cho Ngân hàng với nửa giá mua. Mọi bất động sản "
+        "trong nhóm màu phải được bán đều."
+    )
+    user.clear_messages()
+    game.execute_action(player, "sell_building")
+    assert user.get_last_spoken() == (
+        "Hàng quán này chưa có cấp nâng cấp nào để bán."
+    )
+    assert "0 đồng" not in game._get_management_action_label(
+        player, "sell_group_buildings"
+    )
+    assert "ngôi nhà" not in " ".join(
+        game._get_management_action_label(player, action_id)
+        for action_id in ("build", "sell_building", "sell_group_buildings")
+    )
+
+
+def test_management_selector_empty_reasons_identify_the_actual_blocker() -> None:
+    game = make_game(start=True)
+    player = game.players[0]
+    user = game.get_user(player)
+    assert user is not None
+    force_current(game)
+    game.phase = PHASE_MANAGE
+    game.decision_player_id = player.id
+
+    assert game._is_management_selector_enabled(
+        player, action_id="choose_build_property"
+    ) == "monopoly-error-build-none-no-streets"
+
+    game.property_states["mediterranean"].owner_id = player.id
+    assert game._is_management_selector_enabled(
+        player, action_id="choose_build_property"
+    ) == "monopoly-error-build-none-no-color-set"
+
+    game.property_states["baltic"].owner_id = player.id
+    game.property_states["baltic"].mortgaged = True
+    assert game._is_management_selector_enabled(
+        player, action_id="choose_build_property"
+    ) == "monopoly-error-build-none-groups-mortgaged"
+
+    game.property_states["baltic"].mortgaged = False
+    for property_id in ("mediterranean", "baltic"):
+        game.property_states[property_id].buildings = 5
+    assert game._is_management_selector_enabled(
+        player, action_id="choose_build_property"
+    ) == "monopoly-error-build-none-fully-developed"
+
+    for property_id in ("mediterranean", "baltic"):
+        game.property_states[property_id].buildings = 0
+    player.cash = 0
+    build_reason = game._is_management_selector_enabled(
+        player, action_id="choose_build_property"
+    )
+    assert build_reason == (
+        "monopoly-error-build-none-needs-cash",
+        {"cost": "$50", "cash": "$0"},
+    )
+    build_action = game.find_action(player, "choose_build_property")
+    assert build_action is not None
+    build_resolution = game.resolve_action(player, build_action)
+    assert build_resolution.enabled is False
+    assert build_resolution.description == (
+        "Opens a list of properties where you can legally afford the next "
+        "development level."
+    )
+    user.clear_messages()
+    game.execute_action(player, "choose_build_property")
+    assert user.get_last_spoken() == (
+        "The cheapest legal building costs $50, but you have only $0."
+    )
+
+    assert game._is_management_selector_enabled(
+        player, action_id="choose_unmortgage_property"
+    ) == "monopoly-error-no-mortgaged-properties"
+    game.property_states["mediterranean"].mortgaged = True
+    assert game._is_management_selector_enabled(
+        player, action_id="choose_unmortgage_property"
+    ) == (
+        "monopoly-error-unmortgage-none-needs-cash",
+        {"cost": "$33", "cash": "$0"},
+    )
+
+
+def test_hanoi_board_uses_localized_space_deck_and_development_terms() -> None:
+    game = make_game()
+    game.options.board_id = "hanoi"
+    game.on_start()
+    player = game.players[0]
+
+    assert game._money("en", 1_500_000) == "1,500,000 VND"
+    assert game._money("vi", 1_500_000) == "1.500.000 đồng"
+    assert "type: bus station" in game._property_description(
+        "en", "my_dinh_bus_station"
+    )
+    assert "loại: địa danh" in game._property_description(
+        "vi", "one_pillar_pagoda"
+    )
+    assert "both landmarks" in game._property_description(
+        "en", "one_pillar_pagoda"
+    )
+    assert "cả hai địa danh" in game._property_description(
+        "vi", "one_pillar_pagoda"
+    )
+    nearest_landmark = game.board.card("chance", "chance_utility")
+    assert "nearest landmark" in game._card_text("en", nearest_landmark)
+    assert "địa danh gần nhất" in game._card_text("vi", nearest_landmark)
+    assert "Lucky Draw" in game._jail_card_option_label(
+        player, "chance_jail_free"
+    )
+    assert "Xổ Số Kiến Thiết" in game._jail_card_option_label(
+        player, "community_jail_free"
+    )
+    assert "mảnh nâng cấp kinh doanh" in game._card_text(
+        "vi", game.board.card("chance", "chance_repairs")
+    )
+    assert "Hồ Hoàn Kiếm" in game._card_text(
+        "vi", game.board.card("chance", "chance_go")
+    )
+    assert "Nhà tù Hỏa Lò" in game._card_text(
+        "vi", game.board.card("chance", "chance_go_jail")
+    )
+
+    user = game.get_user(player)
+    assert user is not None
+    user._locale = "vi"
+    user.clear_messages()
+    game._resolve_card(player, game.board.card("chance", "chance_repairs"))
+    assert user.get_last_spoken() == (
+        "Bạn không có cấp nâng cấp kinh doanh nên không phải trả phí sửa chữa "
+        "trên thẻ."
+    )
+
+
 def test_board_validation_rejects_invalid_regional_content() -> None:
     assert register_board(BOARD) is BOARD
 
@@ -746,6 +1149,49 @@ def test_board_validation_rejects_invalid_regional_content() -> None:
                 ),
             )
         )
+
+    invalid_collect_go = replace(BOARD.chance_cards[7], collect_go=True)
+    with pytest.raises(ValueError, match="unused collect-Go data"):
+        validate_board(
+            replace(
+                BOARD,
+                chance_cards=(
+                    *BOARD.chance_cards[:7],
+                    invalid_collect_go,
+                    *BOARD.chance_cards[8:],
+                ),
+            )
+        )
+
+    with pytest.raises(ValueError, match="localized metadata"):
+        validate_board(
+            replace(
+                BOARD,
+                terminology=replace(BOARD.terminology, utility_kind_key=""),
+            )
+        )
+    with pytest.raises(ValueError, match="five levels"):
+        validate_board(
+            replace(
+                BOARD,
+                development=DevelopmentDefinition(
+                    level_keys=("one", "two", "three", "four"),
+                    empty_key="empty",
+                ),
+            )
+        )
+    with pytest.raises(ValueError, match="unique and localized"):
+        validate_board(
+            replace(
+                BOARD,
+                development=replace(
+                    BOARD.development,
+                    error_key_overrides=(("same", "one"), ("same", "two")),
+                ),
+            )
+        )
+    with pytest.raises(ValueError, match="must contain pieces"):
+        validate_board(replace(BOARD, bank_houses=0))
 
     with pytest.raises(ValueError, match="name key already registered"):
         register_board(
@@ -800,37 +1246,89 @@ def test_london_board_start_uses_pounds_and_board_specific_station_terms() -> No
     assert any("London board" in message for message in user.get_spoken_messages())
 
 
-def test_london_movement_cards_use_the_selected_board_and_currency() -> None:
-    game = make_game()
-    game.options.board_id = "london"
-    game.on_start()
-    player = game.players[0]
-    force_current(game)
-    player.position = LONDON_BOARD.space_index("chance_3")
-    game.chance_deck.remove("chance_red_property")
-    game.chance_deck.insert(0, "chance_red_property")
-
-    game._draw_card(player, "chance")
-
-    assert player.position == LONDON_BOARD.space_index("trafalgar_square")
-    assert player.cash == LONDON_BOARD.starting_cash + LONDON_BOARD.go_salary
-    assert game.pending_property_id == "trafalgar_square"
-
-
 @pytest.mark.parametrize(
-    ("board_id", "board", "red_property_id", "station_id"),
     (
-        ("paris", PARIS_BOARD, "avenue_henri_martin", "gare_lyon"),
-        ("germany", GERMANY_BOARD, "opernplatz", "suedbahnhof"),
-        ("italy", ITALY_BOARD, "largo_colombo", "stazione_sud"),
-        ("madrid", MADRID_BOARD, "calle_cea_bermudez", "estacion_goya"),
+        "board_id",
+        "board",
+        "red_property_id",
+        "station_id",
+        "english_money",
+        "vietnamese_money",
+    ),
+    (
+        (
+            "london",
+            LONDON_BOARD,
+            "trafalgar_square",
+            "kings_cross_station",
+            "£1,500",
+            "1.500 bảng",
+        ),
+        (
+            "paris",
+            PARIS_BOARD,
+            "avenue_henri_martin",
+            "gare_lyon",
+            "€1,500",
+            "1.500 euro",
+        ),
+        (
+            "germany",
+            GERMANY_BOARD,
+            "opernplatz",
+            "suedbahnhof",
+            "€1,500",
+            "1.500 euro",
+        ),
+        (
+            "italy",
+            ITALY_BOARD,
+            "largo_colombo",
+            "stazione_sud",
+            "€1,500",
+            "1.500 euro",
+        ),
+        (
+            "madrid",
+            MADRID_BOARD,
+            "calle_cea_bermudez",
+            "estacion_goya",
+            "€1,500",
+            "1.500 euro",
+        ),
+        (
+            "tokyo",
+            TOKYO_BOARD,
+            "omotesando",
+            "shinjuku_station",
+            "$1,500",
+            "1.500 đô la Monopoly",
+        ),
+        (
+            "australia",
+            AUSTRALIA_BOARD,
+            "wickham_terrace",
+            "perth_station",
+            "A$1,500",
+            "1.500 đô la Úc",
+        ),
+        (
+            "new_zealand",
+            NEW_ZEALAND_BOARD,
+            "trafalgar_street",
+            "balclutha_station",
+            "NZ$1,500",
+            "1.500 đô la New Zealand",
+        ),
     ),
 )
-def test_euro_boards_use_stations_and_regional_card_destinations(
+def test_regional_boards_use_stations_currency_and_card_destinations(
     board_id: str,
     board: BoardDefinition,
     red_property_id: str,
     station_id: str,
+    english_money: str,
+    vietnamese_money: str,
 ) -> None:
     game = make_game()
     game.options.board_id = board_id
@@ -844,57 +1342,13 @@ def test_euro_boards_use_stations_and_regional_card_destinations(
     game._draw_card(player, "chance")
 
     assert game.board is board
-    assert game._money("en", 1_500) == "€1,500"
-    assert game._money("vi", 1_500) == "1.500 euro"
+    assert game._money("en", 1_500) == english_money
+    assert game._money("vi", 1_500) == vietnamese_money
     assert "type: station" in game._property_description("en", station_id)
     assert "loại: nhà ga" in game._property_description("vi", station_id)
     assert player.position == game.board.space_index(red_property_id)
     assert player.cash == game.board.starting_cash + game.board.go_salary
     assert game.pending_property_id == red_property_id
-
-
-def test_tokyo_uses_stations_monopoly_dollars_and_regional_card_destinations() -> None:
-    game = make_game()
-    game.options.board_id = "tokyo"
-    game.on_start()
-    player = game.players[0]
-    force_current(game)
-    player.position = TOKYO_BOARD.space_index("chance_3")
-    game.chance_deck.remove("chance_red_property")
-    game.chance_deck.insert(0, "chance_red_property")
-
-    game._draw_card(player, "chance")
-
-    assert game.board is TOKYO_BOARD
-    assert game._money("en", 1_500) == "$1,500"
-    assert game._money("vi", 1_500) == "1.500 đô la Monopoly"
-    assert "type: station" in game._property_description("en", "shinjuku_station")
-    assert "loại: nhà ga" in game._property_description("vi", "shinjuku_station")
-    assert player.position == TOKYO_BOARD.space_index("omotesando")
-    assert player.cash == TOKYO_BOARD.starting_cash + TOKYO_BOARD.go_salary
-    assert game.pending_property_id == "omotesando"
-
-
-def test_australia_uses_stations_australian_dollars_and_regional_cards() -> None:
-    game = make_game()
-    game.options.board_id = "australia"
-    game.on_start()
-    player = game.players[0]
-    force_current(game)
-    player.position = AUSTRALIA_BOARD.space_index("chance_3")
-    game.chance_deck.remove("chance_red_property")
-    game.chance_deck.insert(0, "chance_red_property")
-
-    game._draw_card(player, "chance")
-
-    assert game.board is AUSTRALIA_BOARD
-    assert game._money("en", 1_500) == "A$1,500"
-    assert game._money("vi", 1_500) == "1.500 đô la Úc"
-    assert "type: station" in game._property_description("en", "perth_station")
-    assert "loại: nhà ga" in game._property_description("vi", "perth_station")
-    assert player.position == AUSTRALIA_BOARD.space_index("wickham_terrace")
-    assert player.cash == AUSTRALIA_BOARD.starting_cash + AUSTRALIA_BOARD.go_salary
-    assert game.pending_property_id == "wickham_terrace"
 
 
 @pytest.mark.parametrize(
@@ -908,6 +1362,8 @@ def test_australia_uses_stations_australian_dollars_and_regional_cards() -> None
         ("madrid", "Collect €50 from the Bank."),
         ("tokyo", "Collect $50 from the Bank."),
         ("australia", "Collect A$50 from the Bank."),
+        ("new_zealand", "Collect NZ$50 from the Bank."),
+        ("hanoi", "Collect 50,000 VND from the Bank."),
     ),
 )
 def test_shared_card_templates_use_the_selected_board_currency(
@@ -931,6 +1387,8 @@ def test_shared_card_templates_use_the_selected_board_currency(
         ("madrid", "nearest station", "nhà ga gần nhất"),
         ("tokyo", "nearest station", "nhà ga gần nhất"),
         ("australia", "nearest station", "nhà ga gần nhất"),
+        ("new_zealand", "nearest station", "nhà ga gần nhất"),
+        ("hanoi", "nearest bus station", "bến xe gần nhất"),
     ),
 )
 def test_shared_card_templates_use_the_selected_transit_term(
@@ -1040,7 +1498,6 @@ def test_manage_properties_stays_available_without_owned_property(touch: bool) -
     game.execute_action(player, "manage_properties")
 
     assert game.phase == PHASE_AWAIT_ROLL
-    assert game.management_player_id == ""
     assert user.get_last_spoken() == "You do not own any property to manage."
 
 
@@ -1563,7 +2020,6 @@ def test_every_user_opened_phase_has_a_semantic_first_focus(
             "mediterranean",
             bidder_ids=[player.id, other.id],
             active_bidder_ids=[player.id, other.id],
-            current_bidder_id=player.id,
         )
     elif phase == PHASE_JAIL:
         player.in_jail = True
@@ -1631,9 +2087,11 @@ def test_user_opened_selection_menus_explicitly_focus_the_first_item() -> None:
         "standard",
         "australia",
         "germany",
+        "hanoi",
         "italy",
         "london",
         "madrid",
+        "new_zealand",
         "paris",
         "tokyo",
     ]
@@ -1676,6 +2134,12 @@ def test_user_opened_selection_menus_explicitly_focus_the_first_item() -> None:
     assert board_items["australia"].description == (
         "Australian capital-city streets, Australian dollars, and stations."
     )
+    assert board_items["new_zealand"].description == (
+        "Streets across New Zealand, New Zealand dollars, and stations."
+    )
+    assert board_items["hanoi"].description == (
+        "Hanoi streets and businesses, Vietnamese đồng, bus stations, and landmarks."
+    )
     lobby_game.handle_event(
         host,
         {
@@ -1711,8 +2175,10 @@ def test_board_menu_sorts_regional_boards_by_the_viewers_localized_names() -> No
     assert [item.id for item in menu["items"] if item.id != "_cancel"] == [
         "standard",
         "germany",
+        "hanoi",
         "london",
         "madrid",
+        "new_zealand",
         "paris",
         "tokyo",
         "australia",
@@ -2712,7 +3178,6 @@ def test_serialization_preserves_complex_pending_state() -> None:
         property_id="boardwalk",
         bidder_ids=[player.id for player in game.players],
         active_bidder_ids=[first.id, second.id],
-        current_bidder_id=second.id,
         highest_bidder_id=first.id,
         highest_bid=300,
     )
@@ -2747,6 +3212,8 @@ def test_serialization_preserves_complex_pending_state() -> None:
         ("madrid", MADRID_BOARD, "paseo_prado"),
         ("tokyo", TOKYO_BOARD, "ginza"),
         ("australia", AUSTRALIA_BOARD, "kings_avenue"),
+        ("new_zealand", NEW_ZEALAND_BOARD, "queen_street"),
+        ("hanoi", HANOI_BOARD, "lo_duc"),
     ),
 )
 def test_regional_board_round_trip_preserves_state(
@@ -2846,6 +3313,21 @@ def test_vietnamese_board_names_and_movement_cards_use_localized_terms() -> None
     assert Localization.get("vi", "monopoly-space-australia-perth-station") == (
         "Ga Perth"
     )
+    assert Localization.get("vi", "monopoly-space-new-zealand-queen-street") == (
+        "Phố Queen"
+    )
+    assert Localization.get("vi", "monopoly-space-new-zealand-balclutha-station") == (
+        "Ga Balclutha"
+    )
+    assert Localization.get("vi", "monopoly-space-hanoi-hoan-kiem-lake") == (
+        "Hồ Hoàn Kiếm"
+    )
+    assert Localization.get("vi", "monopoly-space-hanoi-my-dinh-bus-station") == (
+        "Bến xe Mỹ Đình"
+    )
+    assert Localization.get("vi", "monopoly-space-hanoi-one-pillar-pagoda") == (
+        "Chùa Một Cột"
+    )
 
 
 @pytest.mark.parametrize("board_id", get_board_ids())
@@ -2857,17 +3339,34 @@ def test_every_board_content_key_is_localized_in_english_and_vietnamese(
         board.name_key,
         board.description_key,
         board.currency_key,
-        board.transit_kind_key,
+        board.terminology.street_kind_key,
+        board.terminology.transit_kind_key,
+        board.terminology.utility_kind_key,
+        board.terminology.chance_kind_key,
+        board.terminology.community_kind_key,
+        board.terminology.chance_deck_key,
+        board.terminology.community_deck_key,
+        board.terminology.utility_rent_schedule_key,
+        board.development.collective_key,
+        board.development.build_selector_key,
+        board.development.sell_selector_key,
+        board.development.rent_schedule_key,
+        board.development.bank_supply_key,
+        board.development.group_sale_description_key,
+        board.development.empty_key,
+        *board.development.level_keys,
+        *(replacement for _, replacement in board.development.error_key_overrides),
         *(group.name_key for group in board.property_groups),
         *(space.name_key for space in board.spaces),
         *(card.text_key for card in board.chance_cards),
         *(card.text_key for card in board.community_cards),
     }
+    keys.discard("")
     for locale in ("en", "vi"):
         assert all(Localization.has_message(locale, key) for key in keys)
 
 
-def test_player_text_credits_origin_once_without_rulebook_commentary() -> None:
+def test_player_text_is_neutral_beginner_friendly_and_avoids_rulebook_commentary() -> None:
     paths = (
         ROOT / "server" / "locales" / "en" / "monopoly.ftl",
         ROOT / "server" / "locales" / "vi" / "monopoly.ftl",
@@ -2886,15 +3385,22 @@ def test_player_text_credits_origin_once_without_rulebook_commentary() -> None:
         assert phrase not in combined.casefold()
     english_manual = paths[2].read_text(encoding="utf-8")
     vietnamese_manual = paths[3].read_text(encoding="utf-8")
-    assert english_manual.count("Hasbro") == 1
-    assert vietnamese_manual.count("Hasbro") == 1
     assert english_manual.count("\\*\\*Default:") == 6
     assert vietnamese_manual.count("\\*\\*Mặc định:") == 6
     assert "\\*\\*Example of one turn\\*\\*" in english_manual
     assert "\\*\\*Ví dụ về một lượt chơi\\*\\*" in vietnamese_manual
-    for historical_name in ("Lizzie", "Charles Darrow", "Parker Brothers"):
-        assert historical_name in english_manual
-        assert historical_name in vietnamese_manual
+    assert "\\*\\*Dice and doubles\\*\\*" in english_manual
+    assert "\\*\\*Xúc xắc và ra đôi\\*\\*" in vietnamese_manual
+    assert "both dice show the same number" in english_manual
+    assert "cả hai xúc xắc có cùng số" in vietnamese_manual
+    for vendor_or_history in (
+        "Hasbro",
+        "Lizzie",
+        "Charles Darrow",
+        "Parker Brothers",
+    ):
+        assert vendor_or_history not in english_manual
+        assert vendor_or_history not in vietnamese_manual
 
 
 def test_every_actor_broadcast_has_localized_first_and_third_person_forms() -> None:
@@ -3108,7 +3614,6 @@ def test_bot_does_not_spend_auction_liquidity_on_buildings() -> None:
         property_id="boardwalk",
         bidder_ids=[player.id for player in game.players],
         active_bidder_ids=[player.id for player in game.players],
-        current_bidder_id=bidder.id,
         highest_bidder_id=leader.id,
         highest_bid=100,
         minimum_bid=101,

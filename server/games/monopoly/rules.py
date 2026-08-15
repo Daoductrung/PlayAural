@@ -103,12 +103,12 @@ def can_build(
     if state.buildings == 4:
         if any(level < 4 for level in levels):
             return "monopoly-error-hotels-require-four-each"
-        if bank_hotels < 1:
+        if board.development.finite_supply and bank_hotels < 1:
             return "monopoly-error-no-hotels"
         return None
     if state.buildings != min(levels):
         return "monopoly-error-build-evenly"
-    if bank_houses < 1:
+    if board.development.finite_supply and bank_houses < 1:
         return "monopoly-error-no-houses"
     return None
 
@@ -132,7 +132,11 @@ def can_sell_building(
     ]
     if state.buildings != max(levels):
         return "monopoly-error-sell-evenly"
-    if state.buildings == 5 and bank_houses < 4:
+    if (
+        board.development.finite_supply
+        and state.buildings == 5
+        and bank_houses < 4
+    ):
         return "monopoly-error-bank-needs-four-houses"
     return None
 

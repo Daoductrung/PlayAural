@@ -21,9 +21,11 @@ from ..categories import CATEGORY_BOARD
 from ..registry import register_game
 from . import australia as _australia  # noqa: F401 - registers bundled board
 from . import germany as _germany  # noqa: F401 - registers bundled board
+from . import hanoi as _hanoi  # noqa: F401 - registers bundled board
 from . import italy as _italy  # noqa: F401 - registers bundled board
 from . import london as _london  # noqa: F401 - registers bundled board
 from . import madrid as _madrid  # noqa: F401 - registers bundled board
+from . import new_zealand as _new_zealand  # noqa: F401 - registers bundled board
 from . import paris as _paris  # noqa: F401 - registers bundled board
 from . import standard as _standard  # noqa: F401 - registers bundled board
 from . import tokyo as _tokyo  # noqa: F401 - registers bundled board
@@ -308,7 +310,6 @@ class MonopolyGame(Game):
     trade_state: TradeState | None = None
     mortgage_transfer_state: MortgageTransferState | None = None
     bankruptcy_state: BankruptcyState | None = None
-    management_player_id: str = ""
     management_property_id: str = ""
     management_resume_phase: str = ""
     management_resume_decision_player_id: str = ""
@@ -551,6 +552,7 @@ class MonopolyGame(Game):
             (
                 "choose_build_property",
                 "monopoly-action-choose-build-property",
+                "monopoly-desc-choose-build-property",
                 "_build_property_options",
                 "_build_property_option_label",
                 "_property_option_description",
@@ -558,6 +560,7 @@ class MonopolyGame(Game):
             (
                 "choose_sell_property",
                 "monopoly-action-choose-sell-property",
+                "monopoly-desc-choose-sell-property",
                 "_sell_property_options",
                 "_sell_property_option_label",
                 "_sell_property_option_description",
@@ -565,6 +568,7 @@ class MonopolyGame(Game):
             (
                 "choose_mortgage_property",
                 "monopoly-action-choose-mortgage-property",
+                "monopoly-desc-choose-mortgage-property",
                 "_mortgage_property_options",
                 "_mortgage_property_option_label",
                 "_property_option_description",
@@ -572,6 +576,7 @@ class MonopolyGame(Game):
             (
                 "choose_unmortgage_property",
                 "monopoly-action-choose-unmortgage-property",
+                "monopoly-desc-choose-unmortgage-property",
                 "_unmortgage_property_options",
                 "_unmortgage_property_option_label",
                 "_property_option_description",
@@ -580,6 +585,7 @@ class MonopolyGame(Game):
         for (
             action_id,
             label_key,
+            description_key,
             options,
             option_label,
             option_description,
@@ -592,6 +598,7 @@ class MonopolyGame(Game):
                     "_action_choose_management_property",
                     "_is_management_selector_enabled",
                     "_is_management_selector_hidden",
+                    description_key=description_key,
                     input_request=MenuInput(
                         prompt=f"monopoly-prompt-{action_id.replace('_', '-')}",
                         options=options,
@@ -600,6 +607,7 @@ class MonopolyGame(Game):
                         option_description=option_description,
                         initial_selection="_first_menu_option",
                     ),
+                    get_label="_get_management_selector_label",
                 )
             )
         for action_id, label_key, handler, enabled in (
@@ -705,16 +713,8 @@ class MonopolyGame(Game):
                     handler,
                     enabled,
                     "_is_management_action_hidden",
-                    get_label=(
-                        "_get_management_action_label"
-                        if action_id != "finish_management"
-                        else None
-                    ),
-                    get_description=(
-                        "_get_management_action_description"
-                        if action_id != "finish_management"
-                        else None
-                    ),
+                    description_key=f"monopoly-desc-{action_id.replace('_', '-')}",
+                    get_label="_get_management_action_label",
                 )
             )
         action_set.add(
@@ -1209,7 +1209,6 @@ class MonopolyGame(Game):
         self.trade_state = None
         self.mortgage_transfer_state = None
         self.bankruptcy_state = None
-        self.management_player_id = ""
         self.management_property_id = ""
         self.management_resume_phase = ""
         self.management_resume_decision_player_id = ""
@@ -1558,7 +1557,7 @@ class MonopolyGame(Game):
         cash_after_build: int,
         reserve: int,
     ) -> bool:
-        """Balance rent growth, liquidity, and the finite building supply."""
+        """Balance rent growth, liquidity, and any finite development supply."""
 
         level = self.property_states[property_id].buildings
         if level < 3:
@@ -1568,6 +1567,8 @@ class MonopolyGame(Game):
         if score <= 0 or cash_after_build < reserve * 2:
             return False
         if level < 4:
+            return True
+        if not self.board.development.finite_supply:
             return True
         # Converting four houses into a hotel returns scarce houses to the Bank.
         # Preserve that blocking advantage while an opponent could immediately
@@ -1996,7 +1997,9 @@ class MonopolyGame(Game):
             )
         return None
 
-    def _is_raise_cash_enabled(self, player: MonopolyPlayer) -> str | None:
+    def _is_raise_cash_enabled(
+        self, player: MonopolyPlayer
+    ) -> str | tuple[str, dict] | None:
         debt = self.debt_state
         if not debt or not self._is_actor(player, PHASE_DEBT):
             return self._waiting_reason(player)
@@ -2011,10 +2014,16 @@ class MonopolyGame(Game):
             )
             <= player.cash
         ):
-            return "monopoly-error-no-assets-to-liquidate"
+            locale = self._locale(player)
+            return (
+                "monopoly-error-no-assets-to-liquidate",
+                {"development": self._development_collective_text(locale)},
+            )
         return None
 
-    def _is_bankruptcy_enabled(self, player: MonopolyPlayer) -> str | None:
+    def _is_bankruptcy_enabled(
+        self, player: MonopolyPlayer
+    ) -> str | tuple[str, dict] | None:
         debt = self.debt_state
         if not debt or not self._is_actor(player, PHASE_DEBT):
             return self._waiting_reason(player)
@@ -2027,7 +2036,11 @@ class MonopolyGame(Game):
             )
             >= debt.amount
         ):
-            return "monopoly-error-can-still-raise-cash"
+            locale = self._locale(player)
+            return (
+                "monopoly-error-can-still-raise-cash",
+                {"development": self._development_collective_text(locale)},
+            )
         return None
 
     def _is_management_action_hidden(
@@ -2054,17 +2067,14 @@ class MonopolyGame(Game):
 
     def _is_management_selector_enabled(
         self, player: Player, *, action_id: str | None = None
-    ) -> str | None:
+    ) -> str | tuple[str, dict] | None:
         if not self._is_actor(player, PHASE_MANAGE):
             return self._waiting_reason(player)
         if action_id and self._management_selector_options(player, action_id):
             return None
-        return {
-            "choose_build_property": "monopoly-error-no-buildable-properties",
-            "choose_sell_property": "monopoly-error-no-sellable-buildings",
-            "choose_mortgage_property": "monopoly-error-no-mortgageable-properties",
-            "choose_unmortgage_property": "monopoly-error-no-unmortgageable-properties",
-        }.get(action_id, "monopoly-error-no-properties")
+        if not isinstance(player, MonopolyPlayer):
+            return "monopoly-error-no-properties"
+        return self._management_selector_empty_reason(player, action_id or "")
 
     def _is_management_action_enabled(self, player: Player) -> str | None:
         return (
@@ -2128,14 +2138,14 @@ class MonopolyGame(Game):
             return self._waiting_reason(player)
         space, _ = context
         if space.kind != SPACE_STREET:
-            return "monopoly-error-not-your-street"
+            return self._development_error_key("monopoly-error-not-your-street")
         group = self.board.group_spaces(space.group_id)
         if not all(
             self.property_states[item.id].owner_id == player.id for item in group
         ):
-            return "monopoly-error-need-color-set"
+            return self._development_error_key("monopoly-error-need-color-set")
         if not any(self.property_states[item.id].buildings for item in group):
-            return "monopoly-error-no-group-buildings"
+            return self._development_error_key("monopoly-error-no-group-buildings")
         return None
 
     def _is_mortgage_enabled(self, player: MonopolyPlayer) -> str | None:
@@ -2301,22 +2311,40 @@ class MonopolyGame(Game):
             else self._waiting_reason(player)
         )
 
-    def _is_trade_offer_property_enabled(self, player: Player) -> str | None:
+    def _is_trade_offer_property_enabled(
+        self, player: Player
+    ) -> str | tuple[str, dict] | None:
         if not self._is_actor(player, PHASE_TRADE_BUILD):
             return self._waiting_reason(player)
         return (
             None
             if self._trade_offer_property_options(player)
-            else "monopoly-error-no-tradeable-properties"
+            else (
+                "monopoly-error-no-tradeable-properties",
+                {
+                    "development": self._development_collective_text(
+                        self._locale(player)
+                    )
+                },
+            )
         )
 
-    def _is_trade_request_property_enabled(self, player: Player) -> str | None:
+    def _is_trade_request_property_enabled(
+        self, player: Player
+    ) -> str | tuple[str, dict] | None:
         if not self._is_actor(player, PHASE_TRADE_BUILD):
             return self._waiting_reason(player)
         return (
             None
             if self._trade_request_property_options(player)
-            else "monopoly-error-target-no-tradeable-properties"
+            else (
+                "monopoly-error-target-no-tradeable-properties",
+                {
+                    "development": self._development_collective_text(
+                        self._locale(player)
+                    )
+                },
+            )
         )
 
     def _is_trade_offer_jail_card_enabled(self, player: Player) -> str | None:
@@ -2367,6 +2395,9 @@ class MonopolyGame(Game):
     def _space_name(self, locale: str, space: BoardSpaceDefinition) -> str:
         return Localization.get(locale, space.name_key)
 
+    def _space_of_kind(self, kind: str) -> BoardSpaceDefinition:
+        return next(space for space in self.board.spaces if space.kind == kind)
+
     def _group_name(self, locale: str, group_id: str) -> str:
         return Localization.get(locale, self.board.property_group(group_id).name_key)
 
@@ -2387,7 +2418,7 @@ class MonopolyGame(Game):
         if space.kind == SPACE_STREET:
             return Localization.get(
                 locale,
-                "monopoly-street-rent-schedule",
+                self.board.development.rent_schedule_key,
                 base=self._money(locale, space.rents[0]),
                 house1=self._money(locale, space.rents[1]),
                 house2=self._money(locale, space.rents[2]),
@@ -2411,7 +2442,7 @@ class MonopolyGame(Game):
         if space.kind == SPACE_UTILITY:
             return Localization.get(
                 locale,
-                "monopoly-utility-rent-schedule",
+                self.board.terminology.utility_rent_schedule_key,
                 single=self.board.rules.utility_single_multiplier,
                 complete=self.board.rules.utility_complete_group_multiplier,
             )
@@ -2592,6 +2623,21 @@ class MonopolyGame(Game):
             action=action_id,
         )
 
+    def _management_action_disabled_reason(
+        self, player: Player, action_id: str
+    ) -> str | tuple[str, dict] | None:
+        if not isinstance(player, MonopolyPlayer):
+            return None
+        checks = {
+            "build": self._is_build_enabled,
+            "sell_building": self._is_sell_building_enabled,
+            "sell_group_buildings": self._is_sell_group_buildings_enabled,
+            "mortgage": self._is_mortgage_enabled,
+            "unmortgage": self._is_unmortgage_enabled,
+        }
+        check = checks.get(action_id)
+        return check(player) if check else None
+
     def _get_management_action_label(self, player: Player, action_id: str) -> str:
         locale = self._locale(player)
         context = (
@@ -2612,20 +2658,39 @@ class MonopolyGame(Game):
             return Localization.get(
                 locale, f"monopoly-action-{action_id.replace('_', '-')}"
             )
+        reason = self._management_action_disabled_reason(player, action_id)
+        if reason:
+            if action_id == "build":
+                return Localization.get(
+                    locale, self.board.development.build_selector_key
+                )
+            if action_id == "sell_building":
+                return Localization.get(
+                    locale, self.board.development.sell_selector_key
+                )
+            if action_id == "sell_group_buildings":
+                return Localization.get(
+                    locale,
+                    "monopoly-action-sell-group-development",
+                    development=self._development_collective_text(locale),
+                )
+            return Localization.get(
+                locale, f"monopoly-action-{action_id.replace('_', '-')}"
+            )
         if action_id == "build":
-            kind = "hotel" if state.buildings == 4 else "house"
             return Localization.get(
                 locale,
                 "monopoly-build-label",
-                building=Localization.get(locale, f"monopoly-building-{kind}"),
+                building=self._development_level_text(
+                    locale, state.buildings + 1
+                ),
                 cost=self._money(locale, space.building_cost),
             )
         if action_id == "sell_building":
-            kind = "hotel" if state.buildings == 5 else "house"
             return Localization.get(
                 locale,
                 "monopoly-sell-building-label",
-                building=Localization.get(locale, f"monopoly-building-{kind}"),
+                building=self._development_level_text(locale, state.buildings),
                 value=self._money(locale, self._building_sale_value(space)),
             )
         if action_id == "sell_group_buildings":
@@ -2633,6 +2698,7 @@ class MonopolyGame(Game):
                 locale,
                 "monopoly-sell-group-buildings-label",
                 group=self._group_name(locale, space.group_id),
+                development=self._development_collective_text(locale),
                 value=self._money(
                     locale, self._group_building_sale_value(space.group_id)
                 ),
@@ -2658,30 +2724,16 @@ class MonopolyGame(Game):
             locale, f"monopoly-action-{action_id.replace('_', '-')}"
         )
 
-    def _get_management_action_description(self, player: Player, action_id: str) -> str:
-        locale = self._locale(player)
-        context = (
-            self._management_context(player)
-            if isinstance(player, MonopolyPlayer)
-            else None
-        )
-        if not context:
-            return ""
-        space, state = context
+    def _get_management_selector_label(
+        self, player: Player, action_id: str
+    ) -> str:
+        keys = {
+            "choose_build_property": self.board.development.build_selector_key,
+            "choose_sell_property": self.board.development.sell_selector_key,
+        }
         return Localization.get(
-            locale,
-            "monopoly-management-description",
-            action=Localization.get(
-                locale, f"monopoly-action-name-{action_id.replace('_', '-')}"
-            ),
-            property=self._space_name(locale, space),
-            group=self._group_name(locale, space.group_id),
-            buildings=(
-                self._building_text(locale, state.buildings)
-                if space.kind == SPACE_STREET
-                else Localization.get(locale, "monopoly-not-applicable")
-            ),
-            cash=self._money(locale, getattr(player, "cash", 0)),
+            self._locale(player),
+            keys.get(action_id, f"monopoly-action-{action_id.replace('_', '-')}"),
         )
 
     def _get_trade_action_label(self, player: Player, action_id: str) -> str:
@@ -2748,6 +2800,9 @@ class MonopolyGame(Game):
                     player,
                     "monopoly-you-three-doubles",
                     "monopoly-player-three-doubles",
+                    jail=lambda locale: self._space_name(
+                        locale, self.board.space(self.board.jail_space_id)
+                    ),
                     brief_personal_key="monopoly-you-three-doubles-brief",
                     brief_others_key="monopoly-player-three-doubles-brief",
                 )
@@ -2812,6 +2867,9 @@ class MonopolyGame(Game):
             player,
             "monopoly-you-pass-go",
             "monopoly-player-pass-go",
+            go=lambda locale: self._space_name(
+                locale, self.board.space(self.board.go_space_id)
+            ),
             amount=lambda locale: self._money(locale, amount),
             cash=lambda locale: self._money(locale, player.cash),
             brief_personal_key="monopoly-you-pass-go-brief",
@@ -2870,6 +2928,9 @@ class MonopolyGame(Game):
                         player,
                         "monopoly-you-must-pass-go-property",
                         "monopoly-player-must-pass-go-property",
+                        go=lambda locale: self._space_name(
+                            locale, self.board.space(self.board.go_space_id)
+                        ),
                         property=lambda locale: self._space_name(locale, space),
                         brief_personal_key="monopoly-you-must-pass-go-property-brief",
                         brief_others_key="monopoly-player-must-pass-go-property-brief",
@@ -2937,6 +2998,9 @@ class MonopolyGame(Game):
                         player,
                         "monopoly-your-utility-rent-roll",
                         "monopoly-player-utility-rent-roll",
+                        utility=lambda locale: Localization.get(
+                            locale, self.board.terminology.utility_kind_key
+                        ),
                         die1=die_1,
                         die2=die_2,
                         total=dice_total,
@@ -2993,6 +3057,7 @@ class MonopolyGame(Game):
                         player,
                         "monopoly-you-collect-free-parking",
                         "monopoly-player-collects-free-parking",
+                        space=lambda locale: self._space_name(locale, space),
                         amount=lambda locale: self._money(locale, amount),
                         cash=lambda locale: self._money(locale, player.cash),
                         brief_personal_key="monopoly-you-collect-free-parking-brief",
@@ -3003,6 +3068,7 @@ class MonopolyGame(Game):
                         player,
                         "monopoly-you-free-parking-empty",
                         "monopoly-player-free-parking-empty",
+                        space=lambda locale: self._space_name(locale, space),
                         suppress_brief=True,
                     )
             else:
@@ -3010,6 +3076,7 @@ class MonopolyGame(Game):
                     player,
                     "monopoly-you-free-parking",
                     "monopoly-player-free-parking",
+                    space=lambda locale: self._space_name(locale, space),
                     suppress_brief=True,
                 )
         elif space.kind == SPACE_JAIL:
@@ -3017,6 +3084,7 @@ class MonopolyGame(Game):
                 player,
                 "monopoly-you-just-visiting",
                 "monopoly-player-just-visiting",
+                jail=lambda locale: self._space_name(locale, space),
                 suppress_brief=True,
             )
         elif space.kind == SPACE_GO:
@@ -3024,6 +3092,7 @@ class MonopolyGame(Game):
                 player,
                 "monopoly-you-land-go",
                 "monopoly-player-land-go",
+                go=lambda locale: self._space_name(locale, space),
                 suppress_brief=True,
             )
         self._finish_landing()
@@ -3180,7 +3249,14 @@ class MonopolyGame(Game):
         )
 
     def _card_text(self, locale: str, card: CardDefinition) -> str:
-        kwargs: dict[str, str] = {}
+        kwargs: dict[str, str] = {
+            "go": self._space_name(
+                locale, self.board.space(self.board.go_space_id)
+            ),
+            "jail": self._space_name(
+                locale, self.board.space(self.board.jail_space_id)
+            ),
+        }
         if card.amount:
             kwargs["amount"] = self._money(locale, card.amount)
         if card.destination_id:
@@ -3192,7 +3268,13 @@ class MonopolyGame(Game):
         if card.per_hotel:
             kwargs["perHotel"] = self._money(locale, card.per_hotel)
         if card.action == CARD_NEAREST and card.nearest_kind == SPACE_TRANSIT:
-            kwargs["transit"] = Localization.get(locale, self.board.transit_kind_key)
+            kwargs["transit"] = Localization.get(
+                locale, self.board.terminology.transit_kind_key
+            )
+        if card.action == CARD_NEAREST and card.nearest_kind == SPACE_UTILITY:
+            kwargs["utility"] = Localization.get(
+                locale, self.board.terminology.utility_kind_key
+            )
         return Localization.get(locale, card.text_key, **kwargs)
 
     def _resolve_card(self, player: MonopolyPlayer, card: CardDefinition) -> None:
@@ -3264,6 +3346,9 @@ class MonopolyGame(Game):
                     player,
                     "monopoly-you-no-repair-cost",
                     "monopoly-player-no-repair-cost",
+                    development=lambda locale: self._development_collective_text(
+                        locale
+                    ),
                     brief_personal_key="monopoly-you-no-repair-cost-brief",
                     brief_others_key="monopoly-player-no-repair-cost-brief",
                 )
@@ -3313,6 +3398,12 @@ class MonopolyGame(Game):
             player,
             "monopoly-you-go-jail",
             "monopoly-player-go-jail",
+            jail=lambda locale: self._space_name(
+                locale, self.board.space(self.board.jail_space_id)
+            ),
+            go=lambda locale: self._space_name(
+                locale, self.board.space(self.board.go_space_id)
+            ),
             brief_personal_key="monopoly-you-go-jail-brief",
             brief_others_key="monopoly-player-go-jail-brief",
         )
@@ -3453,7 +3544,6 @@ class MonopolyGame(Game):
             property_id=property_id,
             bidder_ids=bidders[:],
             active_bidder_ids=bidders[:],
-            current_bidder_id=first_bidder_id,
             minimum_bid=self.board.rules.auction_opening_bid,
             resume_kind=resume_kind,
         )
@@ -3594,7 +3684,6 @@ class MonopolyGame(Game):
         for offset in range(1, len(ordered) + 1):
             candidate = ordered[(start + offset) % len(ordered)]
             if candidate in active and candidate != auction.highest_bidder_id:
-                auction.current_bidder_id = candidate
                 self.decision_player_id = candidate
                 next_bidder = self._alive_player_by_id(candidate)
                 if next_bidder:
@@ -3766,6 +3855,7 @@ class MonopolyGame(Game):
             player,
             "monopoly-you-raise-cash",
             "monopoly-player-raises-cash",
+            development=lambda locale: self._development_collective_text(locale),
             amount=lambda locale: self._money(locale, player.cash - raised_before),
             cash=lambda locale: self._money(locale, player.cash),
             debt=lambda locale: self._money(locale, debt.amount),
@@ -3932,7 +4022,6 @@ class MonopolyGame(Game):
         if self._check_for_winner():
             return
         self.bankruptcy_state = BankruptcyState(
-            eliminated_player_id=debtor.id,
             was_current_player=was_current,
             resume_continuation=continuation,
             property_auction_ids=property_ids,
@@ -4215,7 +4304,7 @@ class MonopolyGame(Game):
             self.bank_hotels,
         )
         if error:
-            return error
+            return self._development_error_key(error)
         if player.cash < space.building_cost:
             locale = self._locale(player)
             return (
@@ -4230,23 +4319,25 @@ class MonopolyGame(Game):
     def _sell_property_error(
         self, player: MonopolyPlayer, property_id: str
     ) -> str | None:
-        return can_sell_building(
+        error = can_sell_building(
             self.board,
             self.property_states,
             property_id,
             player.id,
             self.bank_houses,
         )
+        return self._development_error_key(error) if error else None
 
     def _mortgage_property_error(
         self, player: MonopolyPlayer, property_id: str
     ) -> str | None:
-        return can_mortgage(
+        error = can_mortgage(
             self.board,
             self.property_states,
             property_id,
             player.id,
         )
+        return self._development_error_key(error) if error else None
 
     def _unmortgage_property_error(
         self, player: MonopolyPlayer, property_id: str
@@ -4332,6 +4423,156 @@ class MonopolyGame(Game):
         builder = builders.get(action_id)
         return builder(player) if builder else []
 
+    def _management_selector_empty_reason(
+        self, player: MonopolyPlayer, action_id: str
+    ) -> str | tuple[str, dict]:
+        if action_id == "choose_build_property":
+            return self._build_selector_empty_reason(player)
+        if action_id == "choose_sell_property":
+            return self._development_error_key(
+                "monopoly-error-no-sellable-buildings"
+            )
+        if action_id == "choose_mortgage_property":
+            owned = [
+                property_id
+                for property_id in self._manage_property_options(player)
+                if property_id in self.property_states
+            ]
+            if not owned:
+                return "monopoly-error-no-properties"
+            if not any(
+                not self.property_states[property_id].mortgaged
+                for property_id in owned
+            ):
+                return "monopoly-error-no-unmortgaged-properties"
+            return self._development_error_key(
+                "monopoly-error-no-mortgageable-properties"
+            )
+        if action_id == "choose_unmortgage_property":
+            mortgaged = [
+                self.board.space(property_id)
+                for property_id in self._manage_property_options(player)
+                if self.property_states[property_id].mortgaged
+            ]
+            if not mortgaged:
+                return "monopoly-error-no-mortgaged-properties"
+            cheapest = min(
+                unmortgage_cost(
+                    space.mortgage_value,
+                    self.board.rules.mortgage_interest_percent,
+                )
+                for space in mortgaged
+            )
+            locale = self._locale(player)
+            return (
+                "monopoly-error-unmortgage-none-needs-cash",
+                {
+                    "cost": self._money(locale, cheapest),
+                    "cash": self._money(locale, player.cash),
+                },
+            )
+        return "monopoly-error-no-properties"
+
+    def _build_selector_empty_reason(
+        self, player: MonopolyPlayer
+    ) -> str | tuple[str, dict]:
+        owned_streets = [
+            space
+            for space in self.board.spaces
+            if space.kind == SPACE_STREET
+            and self.property_states[space.id].owner_id == player.id
+        ]
+        if not owned_streets:
+            return self._development_error_key(
+                "monopoly-error-build-none-no-streets"
+            )
+
+        complete_group_ids = {
+            space.group_id
+            for space in owned_streets
+            if owns_group(
+                self.board,
+                self.property_states,
+                player.id,
+                space.group_id,
+            )
+        }
+        if not complete_group_ids:
+            return self._development_error_key(
+                "monopoly-error-build-none-no-color-set"
+            )
+
+        available_group_ids = {
+            group_id
+            for group_id in complete_group_ids
+            if not any(
+                self.property_states[space.id].mortgaged
+                for space in self.board.group_spaces(group_id)
+            )
+        }
+        if not available_group_ids:
+            return self._development_error_key(
+                "monopoly-error-build-none-groups-mortgaged"
+            )
+
+        candidates = [
+            space
+            for group_id in available_group_ids
+            for space in self.board.group_spaces(group_id)
+        ]
+        if all(self.property_states[space.id].buildings >= 5 for space in candidates):
+            key = (
+                "monopoly-error-build-none-developed-or-mortgaged"
+                if available_group_ids != complete_group_ids
+                else "monopoly-error-build-none-fully-developed"
+            )
+            return self._development_error_key(key)
+
+        structurally_eligible = [
+            space
+            for space in candidates
+            if can_build(
+                self.board,
+                self.property_states,
+                space.id,
+                player.id,
+                max(self.bank_houses, 4),
+                max(self.bank_hotels, 1),
+            )
+            is None
+        ]
+        bank_errors = {
+            space.id: can_build(
+                self.board,
+                self.property_states,
+                space.id,
+                player.id,
+                self.bank_houses,
+                self.bank_hotels,
+            )
+            for space in structurally_eligible
+        }
+        bank_eligible = [
+            space for space in structurally_eligible if bank_errors[space.id] is None
+        ]
+        if not bank_eligible:
+            shortages = set(bank_errors.values())
+            if shortages == {"monopoly-error-no-houses"}:
+                return "monopoly-error-no-houses"
+            if shortages == {"monopoly-error-no-hotels"}:
+                return "monopoly-error-no-hotels"
+            return "monopoly-error-no-development-pieces"
+
+        cheapest = min(space.building_cost for space in bank_eligible)
+        locale = self._locale(player)
+        return (
+            self._development_error_key("monopoly-error-build-none-needs-cash"),
+            {
+                "cost": self._money(locale, cheapest),
+                "cash": self._money(locale, player.cash),
+            },
+        )
+
     def _other_managed_property_options(self, player: Player) -> list[str]:
         return [
             property_id
@@ -4359,17 +4600,12 @@ class MonopolyGame(Game):
         locale = self._locale(player)
         space = self.board.space(value)
         state = self.property_states[value]
-        building_key = (
-            "monopoly-building-hotel"
-            if state.buildings == 4
-            else "monopoly-building-house"
-        )
         return Localization.get(
             locale,
             "monopoly-build-property-option",
             property=self._space_name(locale, space),
             group=self._group_name(locale, space.group_id),
-            building=Localization.get(locale, building_key),
+            building=self._development_level_text(locale, state.buildings + 1),
             cost=self._money(locale, space.building_cost),
             current=self._building_text(locale, state.buildings),
             cash=self._money(locale, getattr(player, "cash", 0)),
@@ -4383,23 +4619,19 @@ class MonopolyGame(Game):
                 locale,
                 "monopoly-sell-group-option",
                 group=self._group_name(locale, group_id),
+                development=self._development_collective_text(locale),
                 value=self._money(locale, self._group_building_sale_value(group_id)),
             )
         if value not in self.property_states:
             return value
         space = self.board.space(value)
         state = self.property_states[value]
-        building_key = (
-            "monopoly-building-hotel"
-            if state.buildings == 5
-            else "monopoly-building-house"
-        )
         return Localization.get(
             locale,
             "monopoly-sell-property-option",
             property=self._space_name(locale, space),
             group=self._group_name(locale, space.group_id),
-            building=Localization.get(locale, building_key),
+            building=self._development_level_text(locale, state.buildings),
             value=self._money(locale, self._building_sale_value(space)),
             current=self._building_text(locale, state.buildings),
         )
@@ -4456,8 +4688,9 @@ class MonopolyGame(Game):
         ]
         return Localization.get(
             locale,
-            "monopoly-sell-group-option-description",
+            self.board.development.group_sale_description_key,
             group=self._group_name(locale, group_id),
+            development=self._development_collective_text(locale),
             properties=Localization.format_list_and(locale, summaries),
             value=self._money(locale, self._group_building_sale_value(group_id)),
             bank_houses=self.bank_houses,
@@ -4495,7 +4728,6 @@ class MonopolyGame(Game):
             return
         self.management_resume_phase = self.phase
         self.management_resume_decision_player_id = self.decision_player_id
-        self.management_player_id = player.id
         self.management_property_id = ""
         self.phase = PHASE_MANAGE
         self.decision_player_id = player.id
@@ -4577,21 +4809,22 @@ class MonopolyGame(Game):
         space = self.board.space(property_id)
         state = self.property_states[property_id]
         player.cash -= space.building_cost
-        if state.buildings == 4:
-            state.buildings = 5
-            self.bank_hotels -= 1
-            self.bank_houses += 4
-            building_key = "monopoly-building-hotel"
-        else:
-            state.buildings += 1
-            self.bank_houses -= 1
-            building_key = "monopoly-building-house"
+        built_level = state.buildings + 1
+        state.buildings = built_level
+        if self.board.development.finite_supply:
+            if built_level == 5:
+                self.bank_hotels -= 1
+                self.bank_houses += 4
+            else:
+                self.bank_houses -= 1
         if announce:
             self._broadcast_actor(
                 player,
                 "monopoly-you-build",
                 "monopoly-player-builds",
-                building=lambda locale: Localization.get(locale, building_key),
+                building=lambda locale: self._development_level_text(
+                    locale, built_level
+                ),
                 property=lambda locale: self._space_name(locale, space),
                 cost=lambda locale: self._money(locale, space.building_cost),
                 cash=lambda locale: self._money(locale, player.cash),
@@ -4624,15 +4857,14 @@ class MonopolyGame(Game):
             return
         space = self.board.space(property_id)
         state = self.property_states[property_id]
-        if state.buildings == 5:
-            state.buildings = 4
-            self.bank_hotels += 1
-            self.bank_houses -= 4
-            building_key = "monopoly-building-hotel"
-        else:
-            state.buildings -= 1
-            self.bank_houses += 1
-            building_key = "monopoly-building-house"
+        sold_level = state.buildings
+        state.buildings -= 1
+        if self.board.development.finite_supply:
+            if sold_level == 5:
+                self.bank_hotels += 1
+                self.bank_houses -= 4
+            else:
+                self.bank_houses += 1
         value = self._building_sale_value(space)
         player.cash += value
         if announce:
@@ -4640,7 +4872,9 @@ class MonopolyGame(Game):
                 player,
                 "monopoly-you-sell-building",
                 "monopoly-player-sells-building",
-                building=lambda locale: Localization.get(locale, building_key),
+                building=lambda locale: self._development_level_text(
+                    locale, sold_level
+                ),
                 property=lambda locale: self._space_name(locale, space),
                 value=lambda locale: self._money(locale, value),
                 cash=lambda locale: self._money(locale, player.cash),
@@ -4667,8 +4901,9 @@ class MonopolyGame(Game):
             else:
                 houses += state.buildings
             state.buildings = 0
-        self.bank_houses += houses
-        self.bank_hotels += hotels
+        if self.board.development.finite_supply:
+            self.bank_houses += houses
+            self.bank_hotels += hotels
         player.cash += value
         if announce:
             self._broadcast_actor(
@@ -4676,6 +4911,7 @@ class MonopolyGame(Game):
                 "monopoly-you-sell-group-buildings",
                 "monopoly-player-sells-group-buildings",
                 group=lambda locale: self._group_name(locale, group_id),
+                development=lambda locale: self._development_collective_text(locale),
                 value=lambda locale: self._money(locale, value),
                 cash=lambda locale: self._money(locale, player.cash),
                 brief_personal_key="monopoly-you-sell-group-buildings-brief",
@@ -4752,7 +4988,6 @@ class MonopolyGame(Game):
             return
         resume_phase = self.management_resume_phase
         resume_actor = self.management_resume_decision_player_id
-        self.management_player_id = ""
         self.management_property_id = ""
         self.management_resume_phase = ""
         self.management_resume_decision_player_id = ""
@@ -4931,7 +5166,9 @@ class MonopolyGame(Game):
         except KeyError:
             return value
         deck = (
-            "monopoly-deck-chance" if deck_id == "chance" else "monopoly-deck-community"
+            self.board.terminology.chance_deck_key
+            if deck_id == "chance"
+            else self.board.terminology.community_deck_key
         )
         return Localization.get(
             locale,
@@ -5808,7 +6045,7 @@ class MonopolyGame(Game):
             MenuItem(
                 text=Localization.get(
                     locale,
-                    "monopoly-bank-supply",
+                    self.board.development.bank_supply_key,
                     houses=self.bank_houses,
                     hotels=self.bank_hotels,
                 ),
@@ -5821,6 +6058,10 @@ class MonopolyGame(Game):
                     text=Localization.get(
                         locale,
                         "monopoly-free-parking-pot",
+                        space=self._space_name(
+                            locale,
+                            self._space_of_kind(SPACE_FREE_PARKING),
+                        ),
                         amount=self._money(locale, self.free_parking_pot),
                     ),
                     id="free-parking-pot",
@@ -5992,14 +6233,45 @@ class MonopolyGame(Game):
         locale: str,
         space: BoardSpaceDefinition,
     ) -> str:
-        key = (
-            self.board.transit_kind_key
-            if space.kind == SPACE_TRANSIT
-            else f"monopoly-space-kind-{space.kind.replace('_', '-')}"
+        themed_keys = {
+            SPACE_STREET: self.board.terminology.street_kind_key,
+            SPACE_TRANSIT: self.board.terminology.transit_kind_key,
+            SPACE_UTILITY: self.board.terminology.utility_kind_key,
+            SPACE_CHANCE: self.board.terminology.chance_kind_key,
+            SPACE_COMMUNITY: self.board.terminology.community_kind_key,
+        }
+        key = themed_keys.get(
+            space.kind, f"monopoly-space-kind-{space.kind.replace('_', '-')}"
         )
         return Localization.get(locale, key)
 
+    def _development_level_text(self, locale: str, level: int) -> str:
+        keys = self.board.development.level_keys
+        if keys:
+            if level <= 0:
+                return Localization.get(locale, self.board.development.empty_key)
+            return Localization.get(locale, keys[min(level, len(keys)) - 1])
+        return Localization.get(
+            locale,
+            "monopoly-building-hotel"
+            if level >= 5
+            else "monopoly-building-house",
+        )
+
+    def _development_collective_text(self, locale: str) -> str:
+        return Localization.get(locale, self.board.development.collective_key)
+
     def _building_text(self, locale: str, buildings: int) -> str:
+        buildings = min(max(buildings, 0), 5)
+        if self.board.development.level_keys:
+            key = (
+                self.board.development.empty_key
+                if buildings <= 0
+                else self.board.development.level_keys[
+                    min(buildings, len(self.board.development.level_keys)) - 1
+                ]
+            )
+            return Localization.get(locale, key)
         if buildings == 5:
             return Localization.get(locale, "monopoly-building-one-hotel")
         return Localization.get(
@@ -6257,10 +6529,15 @@ class MonopolyGame(Game):
         player.jail_card_ids.clear()
 
     def _return_buildings_to_bank(self, state: PropertyState) -> None:
+        if not self.board.development.finite_supply:
+            return
         if state.buildings == 5:
             self.bank_hotels += 1
         else:
             self.bank_houses += state.buildings
+
+    def _development_error_key(self, error_key: str) -> str:
+        return self.board.development.error_key(error_key)
 
     def _check_for_winner(self) -> bool:
         alive = self.alive_players

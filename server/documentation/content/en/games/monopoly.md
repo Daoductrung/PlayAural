@@ -1,172 +1,180 @@
 \*\*Monopoly\*\*
 
-\*\*Overview and history\*\*
+\*\*Overview\*\*
 
-Monopoly is a property-trading board game for 2 to 8 players. You travel around a 40-space board, buy property, collect rent, complete color groups, and build houses and hotels. Players who cannot pay what they owe eventually go bankrupt. The last player still in the game wins.
+Monopoly is a property-trading board game for 2 to 8 players. You move around a 40-space board, buy property, collect rent, complete color groups, and develop those groups so they earn more. Players who cannot pay what they owe go bankrupt. The last player still in the game wins.
 
-The game has a longer history than the familiar boxed edition. American inventor Elizabeth “Lizzie” Magie designed The Landlord's Game to demonstrate how land ownership and rent concentrate wealth, and patented it in 1904. Players carried the idea between communities, changing rules and replacing property names with places they knew. A version using Atlantic City names reached Charles Darrow during the Great Depression; he adapted and sold it as Monopoly. Parker Brothers began publishing his version widely in 1935 and also acquired Magie's patent. Hasbro is the present publisher. That history of locally renamed boards continues in PlayAural's regional board catalog.
-
-You may choose the United States, London, Paris, Germany, Italy, Madrid, Tokyo, or Australia board. The United States board uses Atlantic City properties and US dollars. London uses pounds. Paris, Germany, Italy, and Madrid use euros. Tokyo uses Tokyo districts, stations, and Monopoly dollars. Australia uses streets from its state and territory capitals, stations, and Australian dollars. All eight boards use the same deed prices, rents, building supply, and main rules, so learning one teaches you how to play them all.
+PlayAural handles the Bank, dice, movement, cards, rent, auctions, and calculations. Cash, positions, ownership, mortgages, development, and Get Out of Jail Free cards are public information.
 
 \*\*Your goal\*\*
 
-Stay solvent while every opponent goes bankrupt. Cash keeps you alive, but undeveloped property usually does not earn enough by itself. The strongest income comes from owning every street in one color group and building on that group.
+Stay solvent while every opponent goes bankrupt. Owning property brings in rent. Owning every street in a color group lets you develop that group, which can increase its rent greatly.
 
-There are no victory points. If only one non-bankrupt player remains, that player wins immediately.
+There are no points or target score. When only one non-bankrupt player remains, that player wins.
 
 \*\*Important words\*\*
 
-\* \*\*Property:\*\* A street, railroad or station, or utility that a player may own.
-\* \*\*Deed:\*\* The ownership record for one property. It lists the purchase price, mortgage value, building cost, and rent.
-\* \*\*Color group:\*\* The two or three streets sharing one color. Owning every street in the group is often called a monopoly.
-\* \*\*Bank:\*\* The holder of unowned deeds and the game's cash. Its cash does not run out, but its supply of houses and hotels is limited.
-\* \*\*Mortgage:\*\* Turning a property over to the Bank for immediate cash. A mortgaged property remains yours but cannot collect rent.
-\* \*\*Bankruptcy:\*\* Leaving the game because even all legally available cash, building sales, and mortgages cannot cover a debt.
+\* \*\*Property:\*\* A street or business, railroad or station, bus station, utility, or landmark that a player may own.
+\* \*\*Deed:\*\* The ownership record for one property. It shows the purchase price, mortgage value, development cost, and rent.
+\* \*\*Color group:\*\* The two or three streets that share a color. You control a complete color group when you own every street in it.
+\* \*\*Bank:\*\* The holder of unowned deeds and the game's cash. Bank cash never runs out.
+\* \*\*Mortgage:\*\* A way to receive cash from the Bank while keeping a property. A mortgaged property cannot collect rent.
+\* \*\*Bankruptcy:\*\* Leaving the game because your cash and everything you can legally sell or mortgage still cannot cover a debt.
+
+\*\*Boards\*\*
+
+The host chooses a board before the game. The available boards are United States, London, Paris, Germany, Italy, Madrid, Tokyo, Australia, New Zealand, and Hanoi, Vietnam. The selected board supplies all space names, deed values, cards, currency, transit spaces, development terms, and other board-specific amounts. The turn structure stays the same.
+
+Most boards use houses and hotels. The Hanoi, Vietnam board uses Vietnamese đồng, begins at Hồ Hoàn Kiếm, calls its buildable properties businesses, and uses five business-upgrade levels. Board-specific names and amounts are always shown in the menus.
 
 \*\*Starting the game\*\*
 
-Everyone begins on Go with 1,500 in the selected board's currency. Every property is unowned. The Bank starts with 32 houses and 12 hotels. Chance and Community Chest are separate shuffled decks.
+On most boards, everyone begins on Go with 1,500 in the selected currency. The Bank begins with 32 houses and 12 hotels. The Hanoi, Vietnam board begins at Hồ Hoàn Kiếm with 1,500,000 VND and has no shared limit on business upgrades. Every property begins unowned, and both card decks are shuffled separately.
 
-Everyone makes an opening roll. The highest roller takes the first turn; tied players roll again. Play then continues around the table.
+Everyone makes an opening roll with two dice. The highest total takes the first turn. Players tied for the highest total roll again. Play then continues around the table.
 
-Cash totals, positions, deeds, mortgages, buildings, and Get Out of Jail Free cards are public information. Chance and Community Chest cards are also announced publicly when drawn.
+\*\*Dice and doubles\*\*
+
+A normal roll uses two six-sided dice. Each die can show 1 through 6. Add the two numbers to find how many spaces you move. For example, a 2 and a 4 move you 6 spaces.
+
+\*\*Doubles\*\* means both dice show the same number, such as 3 and 3. After resolving the space where you land, doubles normally give you another roll. If you roll doubles three times in the same turn, you go directly to jail instead of moving for the third roll.
+
+Two ones are also called \*\*snake eyes\*\*. They count as doubles. The optional Snake eyes bonus can also award cash for this roll.
+
+Rolling doubles to leave jail is different: it moves you out of jail, but does not give another roll.
 
 \*\*A turn, step by step\*\*
 
-1. If you are in jail, first choose whether to pay the fine, use a Get Out of Jail Free card, or roll for doubles.
-2. Otherwise, choose \*\*Roll dice\*\*. Move forward by the total of the two dice.
-3. Resolve the space where you land. You may need to buy property, enter an auction, draw a card, pay money, or wait for a property owner to decide whether to collect rent.
-4. After the landing is completely resolved, you may manage property, propose a trade, or finish your turn. If you rolled doubles, you must roll again instead of ending the turn.
-5. Choose \*\*End turn\*\* when no required action or extra roll remains.
+1. If you are in jail, choose whether to pay the fine, use a Get Out of Jail Free card, or roll for doubles.
+2. Otherwise, choose \*\*Roll dice\*\*. Add the dice and move that many spaces.
+3. Resolve the space where you land. You may buy property, enter an auction, draw a card, pay money, or wait for another player to make a required choice.
+4. If you rolled doubles, roll again after the landing and every required choice are resolved.
+5. When no extra roll or required choice remains, you may manage property, propose a trade, or choose \*\*End turn\*\*.
 
-A required decision can belong to somebody other than the player whose turn it is. For example, when you land on another player's property, that owner receives \*\*Claim rent\*\* and \*\*Waive rent\*\*. The turn waits until the owner chooses. Check whose turn reports both the turn player and whoever currently must act.
+Sometimes a player must act during somebody else's turn. For example, a property owner must choose \*\*Claim rent\*\* or \*\*Waive rent\*\* when another player lands there. The turn waits for that choice. \*\*Check whose turn\*\* reports both the turn player and anyone currently required to respond.
 
 \*\*Example of one turn\*\*
 
-Suppose you have 1,500 and begin on Go. You roll a 3 and a 4, for a total of 7, and move to Chance. The game reads the card: advance to an unowned red property. Because the property has no owner, you hear its name, color group, price, and your cash.
+Suppose you are on Go on the United States board with $1,500. You roll a 2 and a 4. The total is 6, so you move six spaces to Oriental Avenue. It is unowned, costs $100, and belongs to the light blue color group.
 
-You may buy it for the printed price. If you buy a 220 property, your cash becomes 1,280 and the deed is yours. If you decline or cannot afford it, an auction starts instead. Every eligible player, including you, may bid. Once the purchase or auction finishes, you may inspect your assets, manage another property, propose a trade, or end your turn. You did not roll doubles, so play then moves to the next player.
+If you buy it, you pay the Bank $100, keep its deed, and have $1,400 left. If you decline or cannot afford it, the Bank starts an auction and you may still bid. After the purchase or auction finishes, you may manage property, propose a trade, or end your turn.
 
-If the same roll had been a double, you would resolve Chance and the property decision first, then roll again. Three consecutive doubles in the same turn send you directly to jail.
+A 3 and a 3 would also total 6, but it would be doubles. You would finish the property decision first and then roll again.
 
-\*\*Passing and landing on Go\*\*
+\*\*Board spaces\*\*
 
-Passing or landing on Go pays the board's Go salary, normally 200. Movement that sends you directly to jail does not pass Go and pays nothing. A card tells you whether its movement collects the salary.
+\* \*\*Start space:\*\* Passing or landing on it pays the board's salary. Moving directly to jail does not pass it and pays nothing. A card says whether its movement collects the salary.
+\* \*\*Unowned property:\*\* Buy it for the printed price or send it to auction.
+\* \*\*Owned property:\*\* You may owe rent if another player owns it and it is not mortgaged.
+\* \*\*Chance and Community Chest:\*\* Draw the top card and follow it. On the Hanoi, Vietnam board, these decks are called Lucky Draw and Xổ Số Kiến Thiết.
+\* \*\*Tax:\*\* Pay the amount shown for that board.
+\* \*\*Free Parking or the board's rest space:\*\* Nothing happens unless the Rest-space jackpot option is on.
+\* \*\*Jail / Just Visiting:\*\* Landing here by normal movement is only a visit.
+\* \*\*Go to Jail:\*\* Move directly to jail, collect no start-space salary, and end the turn.
 
-Rolling doubles gives another roll after the current landing and every required decision are resolved. Three consecutive doubles send you directly to jail and end the turn.
+Most cards return to the bottom of their deck after use. A Get Out of Jail Free card stays with its owner until it is used or traded, then returns to its original deck.
 
-\*\*Unowned property and auctions\*\*
+\*\*Buying property and auctions\*\*
 
-When you land on an unowned property, you may buy it from the Bank for the printed price. The purchase menu describes its color group, all group members, mortgage value, rent schedule, and your available cash.
+When you land on unowned property, the purchase menu gives its color group, group members, price, mortgage value, rent schedule, and your cash. Buying pays the printed price to the Bank and gives you the deed.
 
-Declining the purchase starts an auction immediately. The player who declined may still bid. Every active player begins in the auction unless the \*\*Pass Go before buying\*\* option makes that player ineligible.
+Declining the purchase starts an auction immediately. The player who declined may still bid. Choose \*\*Bid the minimum\*\* for the smallest legal raise, \*\*Enter a custom bid\*\* for a larger amount, or \*\*Leave the auction\*\*. Leaving is permanent. The final bidder pays the winning bid and receives the property. If everyone leaves before any bid, the property remains unowned.
 
-Bidding starts at 1 and each bid must increase the current bid by at least 1. Choose \*\*Bid the minimum\*\* for the quickest legal raise, or \*\*Enter a custom bid\*\* for a larger amount. A bidder may manage property to obtain cash before bidding. Leaving the auction is permanent. The final bidder pays the winning bid and receives the deed. If everyone leaves before any bid, the property remains unowned.
+On most boards, the opening bid is 1 and each raise is at least 1. The Hanoi, Vietnam board opens at 10,000 VND and raises by at least 5,000 VND. You may manage property to obtain cash before bidding.
 
-\*\*Owned property and rent\*\*
+\*\*Rent\*\*
 
-Landing on another player's unmortgaged property gives its owner a public rent decision. The owner may collect the displayed amount or waive it. No money moves until that choice is made. You never pay rent to yourself, and mortgaged property never collects rent.
+When you land on another player's unmortgaged property, its owner chooses whether to collect or waive the displayed rent. No rent is paid until the owner chooses. You do not pay rent to yourself, and mortgaged property cannot collect rent.
 
-Rent depends on the property:
+Rent depends on the property type:
 
-\* \*\*Street:\*\* Uses the rent level printed on its deed. An undeveloped street earns double base rent when one player owns its complete color group and none of that group's streets is mortgaged.
-\* \*\*Railroad or station:\*\* Rent rises when the owner has two, three, or all four transit properties.
-\* \*\*Utility:\*\* Rent is 4 times the dice total when the owner has one utility and 10 times the dice total when the owner has both.
+\* \*\*Street or Hanoi business:\*\* Uses the rent level on its deed. An undeveloped property earns double its base rent when one player owns the complete color group.
+\* \*\*Railroad, station, or Hanoi bus station:\*\* Rent rises as the owner collects more transit properties.
+\* \*\*Utility or Hanoi landmark:\*\* Rent is normally 4 times the dice total when the owner has one, or 10 times the dice total when the owner has both.
 
-Some Chance cards move you to the nearest transit property or utility. A transit property reached this way charges double its normal rent. An owned utility reached this way uses a fresh dice roll and charges 10 times that result.
+Some cards send you to the nearest transit property or utility. A transit property reached this way charges double rent. An owned utility reached this way uses a fresh dice roll and charges 10 times that total.
 
-\*\*Color groups, houses, and hotels\*\*
+\*\*Color groups and development\*\*
 
-You may build only after owning every street in one color group. No street in that group may be mortgaged. Use \*\*View property groups\*\* to hear every group, its members, owners, mortgages, buildings, and whether one player controls the complete group.
+You may develop a street only when you own every street in its color group and none of them is mortgaged. Development must stay even. Before one street receives a second house, every street in the group needs at least one house; the same rule applies at later levels. Four houses are followed by a hotel, which is the fifth level.
 
-Buildings must stay even across the group. Before placing a second house on one street, every street in the group needs at least one house; the same rule applies to later levels. After a street has four houses, its next level is a hotel. A hotel represents the fifth building level.
+On boards that use houses and hotels, the Bank has a limited supply. Buying a hotel returns that property's four houses to the Bank. Selling a hotel separately normally needs four Bank houses so the hotel can be exchanged correctly.
 
-The Bank's supply is limited to 32 houses and 12 hotels. You cannot build when the required piece is unavailable. Buying a hotel returns that street's four houses to the Bank. Selling a hotel normally requires four Bank houses so it can be broken back down correctly.
+The Hanoi, Vietnam board uses five business-upgrade levels: shoulder-pole stall or online shop; cart or booth; small stall; small eatery; and restaurant or large shop. These levels must also stay even across a color group, but their supply is unlimited.
 
-Buildings sell to the Bank for half their purchase cost and must also be sold evenly. \*\*Sell all buildings in this color group\*\* clears the whole group in a legal order and remains available when a house shortage prevents selling one hotel separately.
+Development sells to the Bank for half its purchase cost and must be sold evenly. The whole-group sale clears all development in a legal order and is useful when a house shortage prevents a hotel from being sold separately.
 
-\*\*Manage properties\*\* is always available during safe points in play. If you do not own anything yet, it tells you so without changing the menu. Otherwise, it opens a task-based workspace. \*\*Build a house or hotel\*\* lists only streets that can legally receive their next building and that you can currently afford. \*\*Sell a house or hotel\*\* lists only legal sales. If a Bank house shortage makes every individual hotel sale impossible, it offers the safe whole-group sale instead. The mortgage and unmortgage choices are filtered in the same way.
+\*\*Managing property\*\*
 
-Use \*\*Manage or inspect any property\*\* when you want the complete deed list or need to examine a property whose action is currently unavailable. A property detail menu contains only actions for that deed, \*\*Back to property list\*\*, and \*\*Finish property management\*\*. Back opens the complete list without leaving property management. After a purchase, sale, mortgage, or unmortgage, focus returns to the matching filtered task so you can continue efficiently.
+\*\*Manage properties\*\* stays visible at safe points in play. If you own nothing, activating it tells you that you do not own any property yet.
+
+The management workspace has separate tasks for buying development, selling development, mortgaging, and unmortgaging. Each task opens a filtered list containing only legal choices. \*\*Manage or inspect any property\*\* opens your complete deed list. From a property's details, use \*\*Back to property list\*\* to choose another deed or \*\*Finish property management\*\* to leave the workspace.
+
+Unavailable task buttons remain visible. Their menu hints explain what the task does; activating one speaks the specific reason it is unavailable, such as an incomplete color group, a mortgage, uneven development, insufficient cash, maximum development, or a shortage at the Bank.
 
 \*\*Mortgages\*\*
 
-Mortgaging an eligible property immediately pays its printed mortgage value. Before mortgaging a street, sell every building from its entire color group. A mortgaged property cannot collect rent, but it may still be traded.
+Mortgaging an eligible property pays its printed mortgage value immediately. Before mortgaging a street, sell all development from its entire color group. A mortgaged property remains yours and may be traded, but it cannot collect rent.
 
-To unmortgage your own property, pay its mortgage value plus 10 percent interest, rounded up. When a mortgaged deed changes owner, the recipient must immediately choose one of two paths:
+To unmortgage your own property, pay its mortgage value plus 10 percent interest, rounded up. When you receive a mortgaged property from another player, immediately choose one path:
 
-\* Pay the mortgage value plus 10 percent and unmortgage it now.
-\* Pay 10 percent now and keep it mortgaged. Unmortgaging it later still costs the mortgage value plus another 10 percent.
+\* Pay 10 percent of its mortgage value and keep it mortgaged. Unmortgaging it later still costs the mortgage value plus another 10 percent.
+\* Pay the mortgage value plus 10 percent and unmortgage it immediately.
 
-The Bank does not make any other loans, and players cannot privately lend money to one another.
+The Bank makes no other loans, and players cannot privately lend money.
 
 \*\*Trading\*\*
 
-During a stable point in play, the active turn player may propose a trade. A proposal may contain cash, properties, and Get Out of Jail Free cards on either side. The trade review shows both sides and any immediate mortgage interest the recipient must be able to pay.
+At a safe point in play, any active player may propose a trade with another active player. Either side may offer cash, properties, and Get Out of Jail Free cards. A property cannot be traded while any street in its color group still has development.
 
-A property cannot be traded while any street in its color group still has buildings. Nothing changes ownership while a proposal is being prepared. The recipient may review, accept, or reject the submitted offer. Cancelling or rejecting restores the exact game decision that was waiting before trading began.
-
-Draft offers are private to the proposer. Once submitted, the complete offer is public. Spectators can inspect submitted trades but cannot see a private draft or take gameplay actions.
+Nothing changes ownership while the offer is being prepared. The recipient reviews the complete offer, then accepts or rejects it. A recipient of mortgaged property must be able to pay the immediate mortgage interest. Draft offers are private to the proposer; submitted offers are public.
 
 \*\*Jail\*\*
 
-You go directly to jail after landing on Go to Jail, drawing a jail card, or rolling three consecutive doubles. Direct jail movement never collects the Go salary.
+You go directly to jail after landing on Go to Jail, drawing a card that sends you there, or rolling doubles three times in one turn. Direct jail movement pays no start-space salary.
 
-At the start of each jail turn, choose one method:
+At the start of a jail turn, choose one method:
 
-\* Pay 50, leave jail, then roll normally.
-\* Use a Get Out of Jail Free card, return it to its original deck, then roll normally.
+\* Pay the displayed fine, leave jail, and roll normally.
+\* Use a Get Out of Jail Free card, return it to its deck, and roll normally.
 \* Roll for doubles.
 
-Rolling doubles releases you and moves you by that result, but it does not grant another roll. A failed attempt ends your turn in jail. After the third failed attempt, you must pay 50 and move by that third roll. While jailed, you may still collect rent, trade, build, sell buildings, and mortgage property unless a selected option changes rent collection.
-
-Landing normally on the Jail space means Just Visiting; nothing else happens.
-
-\*\*Chance, Community Chest, taxes, and corner spaces\*\*
-
-\* \*\*Chance and Community Chest:\*\* Draw the top card and follow it. Most cards return to the bottom of their deck. A Get Out of Jail Free card remains with its owner until used or traded, then returns to its original deck.
-\* \*\*Income Tax:\*\* Pay 200 to the Bank.
-\* \*\*Luxury Tax, Super Tax, or Additional Tax:\*\* Pay 100 to the Bank. Its name varies by board.
-\* \*\*Free Parking:\*\* Nothing happens with the default settings.
-\* \*\*Jail / Just Visiting:\*\* Landing here normally is only a visit.
-\* \*\*Go to Jail:\*\* Move directly to jail, collect no Go salary, and end the turn.
+Doubles release you and move you by that roll, but give no extra roll. A failed attempt ends your turn in jail. After the third failed attempt, you must pay the board's jail fine and move by that third roll. While jailed, you may still collect rent, trade, develop, sell development, and mortgage property unless the No rent while in jail option is on.
 
 \*\*Debt and bankruptcy\*\*
 
-When you owe more cash than you have, the game pauses for you to raise money. You may sell buildings and mortgage property yourself, or choose \*\*Automatically raise cash\*\*. The automatic action sells legal building levels evenly before mortgaging eligible deeds and stops as soon as the debt can be paid.
+If you owe more cash than you hold, the game pauses for you to raise money. You may sell development and mortgage property yourself, or use \*\*Automatically raise cash\*\*. The automatic action follows the even-selling rule, mortgages eligible deeds, and stops as soon as you can pay.
 
-You may declare bankruptcy only when your cash plus every building and mortgage that can legally be liquidated still cannot cover the debt.
+You may choose \*\*Declare bankruptcy\*\* only when your cash and everything you can legally sell or mortgage still cannot cover the debt.
 
-If you owe another player, that creditor receives your remaining cash, deeds, and Get Out of Jail Free cards. Buildings are sold to the Bank first. Mortgaged deeds stay mortgaged and trigger their required transfer-interest choices.
-
-If you owe the Bank, your deeds return to the Bank unmortgaged and are auctioned one by one. Get Out of Jail Free cards return to their decks. You then leave the game.
+If you owe another player, that creditor receives your remaining cash, deeds, and Get Out of Jail Free cards after development is sold to the Bank. If you owe the Bank, your deeds return to the Bank unmortgaged and are auctioned one by one. You then leave the game.
 
 \*\*Information and accessible play\*\*
 
-\* \*\*Read cash:\*\* Speaks your current cash immediately.
-\* \*\*Read your current space:\*\* Speaks the space, group, owner, price, mortgage value, buildings, and rent schedule when applicable.
-\* \*\*Read board:\*\* Opens a live 40-row board view showing space order, groups, ownership, property state, and players at each position.
-\* \*\*View property groups:\*\* Opens a live group view showing every member and whether somebody owns the complete group.
-\* \*\*View everyone's properties:\*\* First lists one concise public summary per player. Choose a player to open only that player's deeds.
-\* \*\*View your portfolio:\*\* Opens the same detailed view for your own assets.
-\* \*\*Read game status:\*\* Shows the turn, required decision maker, phase, last roll, and any active auction, debt, or trade.
-\* \*\*Check whose turn:\*\* Reports both the active turn player and any player currently required to respond outside their turn.
+\* \*\*Read cash:\*\* Hear your current cash immediately.
+\* \*\*Read your current space:\*\* Hear the space and its relevant property details.
+\* \*\*Read board:\*\* Open a live view of all 40 spaces, ownership, property state, and player positions.
+\* \*\*Read property groups:\*\* Open a live view of every group and whether one player controls it completely.
+\* \*\*Read all portfolios:\*\* Choose a player, then view only that player's public assets.
+\* \*\*Read your portfolio:\*\* View your own assets.
+\* \*\*Read game status:\*\* View the turn, required decision maker, phase, last roll, and any auction, debt, or trade in progress.
+\* \*\*Check whose turn:\*\* Hear the turn player and anyone currently required to act outside their turn.
 
-Live views update without moving focus while you read them. Player-opened selection menus focus their first item. Normal background updates preserve the current item instead of unexpectedly moving the cursor.
+Live information views update without moving your reading position. Menus opened by your action begin on their first item. Normal background updates preserve your current item.
 
-On touch clients, required decisions stay first in the game menu. Property management, trading, cash, and personal information follow before the larger reference views. “Whose turn” and “Who’s at the table” are also available directly near the end. Desktop players use the standard actions menu and the shortcuts below.
+The \*\*Menu Hints\*\* setting under \*\*General options > Accessibility\*\* adds beginner explanations to actions that need them. A disabled action's hint continues to explain its purpose; activate the action to hear the exact reason it is currently unavailable.
 
-Spectators receive only public board, ownership, cash, position, auction, submitted-trade, and game-status information. They cannot access a player's private interaction state or use mutating controls.
+The \*\*Brief announcements\*\* setting under \*\*Game options > Display\*\* shortens routine speech while keeping required choices and important values.
 
-The \*\*Brief announcements\* display preference shortens routine speech without hiding required choices. For example, a landing reads only the destination, and a purchase reports only the buyer, property, and price.
+Spectators receive public board, ownership, cash, position, auction, submitted-trade, and game-status information. They cannot see a player's private draft or interaction state and cannot use actions that change the game.
 
-\*\*Game options\*\*
+\*\*Customizable options\*\*
 
-\* \*\*Board:\*\* Chooses the spaces, deeds, cards, currency, building supply, and rule values. Available boards are United States, London, Paris, Germany, Italy, Madrid, Tokyo, and Australia. United States stays first in the menu; the other boards are alphabetized in your language. Each choice has a short hint describing its places, currency, and transit spaces. \*\*Default: United States.\*\*
-\* \*\*Free Parking jackpot:\*\* Taxes, card fines, repair costs, and jail fines form a jackpot collected by landing on Free Parking. Mortgage payments, property purchases, and building purchases do not enter it. \*\*Default: Off.\*\*
-\* \*\*Double salary for landing on Go:\*\* Landing exactly on Go pays double; passing it pays the normal salary. \*\*Default: Off.\*\*
+\* \*\*Board:\*\* Chooses the spaces, deeds, cards, currency, development system, and board values. United States stays first in the list; the other boards are sorted by their localized names. \*\*Default: United States.\*\*
+\* \*\*Rest-space jackpot:\*\* Taxes, card fines, repair costs, and jail fines form a jackpot collected by landing on the board's rest space. Property purchases, development purchases, and mortgages do not enter the jackpot. \*\*Default: Off.\*\*
+\* \*\*Double salary for landing on the start space:\*\* Landing exactly on the start space pays double; passing it pays the normal salary. \*\*Default: Off.\*\*
 \* \*\*No rent while in jail:\*\* Owners in jail cannot collect rent. \*\*Default: Off.\*\*
-\* \*\*Pass Go before buying:\*\* Players must reach or pass Go once before buying or bidding on property. If nobody eligible can bid, the property remains unowned. \*\*Default: Off.\*\*
+\* \*\*Pass the start space before buying:\*\* Each player must reach or pass the start space once before buying or bidding on property. \*\*Default: Off.\*\*
 \* \*\*Snake eyes bonus:\*\* Rolling two ones pays the amount shown for the selected board, including when rolling for doubles in jail. \*\*Default: Off.\*\*
 
 \*\*Keyboard shortcuts\*\*
@@ -175,11 +183,11 @@ The \*\*Brief announcements\* display preference shortens routine speech without
 \* \*\*F:\*\* Read your current space.
 \* \*\*V:\*\* Read the board.
 \* \*\*C:\*\* Read your cash.
-\* \*\*Shift+C:\*\* View property groups.
-\* \*\*P:\*\* View your portfolio.
-\* \*\*O:\*\* View everyone's properties.
+\* \*\*Shift+C:\*\* Read property groups.
+\* \*\*P:\*\* Read your portfolio.
+\* \*\*O:\*\* Read all portfolios.
 \* \*\*E:\*\* Read game status.
-\* \*\*G:\*\* Manage property.
+\* \*\*G:\*\* Manage properties.
 \* \*\*R:\*\* Propose a trade.
 \* \*\*T:\*\* Check whose turn and who must currently act.
 \* \*\*Ctrl+U:\*\* Hear who is at the table.

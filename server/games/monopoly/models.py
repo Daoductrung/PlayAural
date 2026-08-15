@@ -66,7 +66,7 @@ class CardDefinition:
     action: str
     amount: int = 0
     destination_id: str = ""
-    collect_go: bool = True
+    collect_go: bool = False
     nearest_kind: str = ""
     rent_multiplier: int = 1
     per_house: int = 0
@@ -85,6 +85,45 @@ class RuleDefinition:
     building_sale_percent: int = 50
     utility_single_multiplier: int = 4
     utility_complete_group_multiplier: int = 10
+
+
+@dataclass(frozen=True)
+class BoardTerminology:
+    """Localized names for concepts that themed boards rename."""
+
+    street_kind_key: str = "monopoly-space-kind-street"
+    transit_kind_key: str = "monopoly-space-kind-railroad"
+    utility_kind_key: str = "monopoly-space-kind-utility"
+    chance_kind_key: str = "monopoly-space-kind-chance"
+    community_kind_key: str = "monopoly-space-kind-community"
+    chance_deck_key: str = "monopoly-deck-chance"
+    community_deck_key: str = "monopoly-deck-community"
+    utility_rent_schedule_key: str = "monopoly-utility-rent-schedule"
+
+
+@dataclass(frozen=True)
+class DevelopmentDefinition:
+    """Board-specific presentation and supply policy for building levels."""
+
+    level_keys: tuple[str, ...] = ()
+    empty_key: str = ""
+    collective_key: str = "monopoly-development-collective"
+    build_selector_key: str = "monopoly-action-choose-build-property"
+    sell_selector_key: str = "monopoly-action-choose-sell-property"
+    rent_schedule_key: str = "monopoly-street-rent-schedule"
+    bank_supply_key: str = "monopoly-bank-supply"
+    group_sale_description_key: str = "monopoly-sell-group-option-description"
+    finite_supply: bool = True
+    error_key_overrides: tuple[tuple[str, str], ...] = ()
+
+    @cached_property
+    def _error_key_lookup(self) -> Mapping[str, str]:
+        return MappingProxyType(dict(self.error_key_overrides))
+
+    def error_key(self, default_key: str) -> str:
+        """Return a board-specific rule explanation when one is configured."""
+
+        return self._error_key_lookup.get(default_key, default_key)
 
 
 @dataclass(frozen=True)
@@ -107,7 +146,8 @@ class BoardDefinition:
     bank_hotels: int = 12
     jail_space_id: str = "jail"
     go_space_id: str = "go"
-    transit_kind_key: str = "monopoly-space-kind-railroad"
+    terminology: BoardTerminology = field(default_factory=BoardTerminology)
+    development: DevelopmentDefinition = field(default_factory=DevelopmentDefinition)
     rules: RuleDefinition = field(default_factory=RuleDefinition)
 
     @cached_property
@@ -189,7 +229,7 @@ class BoardDefinition:
 class PropertyState(DataClassJSONMixin):
     owner_id: str = ""
     mortgaged: bool = False
-    buildings: int = 0  # 0-4 houses, 5 hotel
+    buildings: int = 0  # Board-defined development level from 0 through 5.
 
 
 @dataclass
@@ -198,7 +238,6 @@ class RentState(DataClassJSONMixin):
     owner_id: str
     property_id: str
     amount: int
-    resume_phase: str = "turn_actions"
 
 
 @dataclass
@@ -206,7 +245,6 @@ class AuctionState(DataClassJSONMixin):
     property_id: str
     bidder_ids: list[str] = field(default_factory=list)
     active_bidder_ids: list[str] = field(default_factory=list)
-    current_bidder_id: str = ""
     highest_bidder_id: str = ""
     highest_bid: int = 0
     minimum_bid: int = 1
@@ -259,7 +297,6 @@ class MortgageTransferState(DataClassJSONMixin):
 
 @dataclass
 class BankruptcyState(DataClassJSONMixin):
-    eliminated_player_id: str
     was_current_player: bool
     resume_continuation: str
     property_auction_ids: list[str] = field(default_factory=list)

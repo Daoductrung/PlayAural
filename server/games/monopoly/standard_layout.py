@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+
 from .models import (
     SPACE_CHANCE,
     SPACE_COMMUNITY,
@@ -46,7 +48,7 @@ _STANDARD_STREETS: dict[
 }
 
 _STANDARD_TRANSIT_POSITIONS = {5, 15, 25, 35}
-_STANDARD_UTILITY_POSITIONS = {12, 28}
+_STANDARD_UTILITY_ECONOMY = {12: (150, 75), 28: (150, 75)}
 _STANDARD_TAX_AMOUNTS = {4: 200, 38: 100}
 _STANDARD_SPACE_KINDS = {
     0: SPACE_GO,
@@ -64,8 +66,9 @@ _STANDARD_SPACE_KINDS = {
 
 def standard_property_groups(
     transit_name_key: str,
+    utility_name_key: str = "monopoly-group-utilities",
 ) -> tuple[PropertyGroupDefinition, ...]:
-    """Return the standard groups with a board-specific transit label."""
+    """Return standard color groups plus board-specific special groups."""
 
     return (
         PropertyGroupDefinition("brown", "monopoly-group-brown"),
@@ -77,22 +80,60 @@ def standard_property_groups(
         PropertyGroupDefinition("green", "monopoly-group-green"),
         PropertyGroupDefinition("dark_blue", "monopoly-group-dark-blue"),
         PropertyGroupDefinition("transit", transit_name_key),
-        PropertyGroupDefinition("utility", "monopoly-group-utilities"),
+        PropertyGroupDefinition("utility", utility_name_key),
     )
 
 
 def build_standard_spaces(
     names: tuple[tuple[str, str], ...],
+    *,
+    money_scale: int = 1,
+    special_space_kinds: Mapping[int, str] | None = None,
+    tax_amounts: Mapping[int, int] | None = None,
+    utility_economy: Mapping[int, tuple[int, int]] | None = None,
 ) -> tuple[BoardSpaceDefinition, ...]:
     """Build one regional edition using the standard layout and deed economy.
 
     ``names`` contains a stable id and localized name key for each space in
-    travel order. Regional boards with different rules remain free to define
-    their spaces directly instead of using this template.
+    travel order. Optional maps let regional editions retain the standard
+    street and transit positions while relocating taxes, card spaces, and
+    utility-like properties or scaling their economy.
     """
 
     if len(names) != 40:
         raise ValueError("A standard Monopoly layout needs exactly 40 space names")
+    if (
+        not isinstance(money_scale, int)
+        or isinstance(money_scale, bool)
+        or money_scale <= 0
+    ):
+        raise ValueError("A standard Monopoly layout needs a positive money scale")
+    kinds = dict(_STANDARD_SPACE_KINDS)
+    if special_space_kinds:
+        kinds.update(special_space_kinds)
+    taxes = dict(_STANDARD_TAX_AMOUNTS if tax_amounts is None else tax_amounts)
+    utilities = dict(
+        _STANDARD_UTILITY_ECONOMY
+        if utility_economy is None
+        else utility_economy
+    )
+    reserved_positions = set(_STANDARD_STREETS) | _STANDARD_TRANSIT_POSITIONS
+    configured_positions = (
+        set(taxes) | set(utilities) | set(special_space_kinds or {})
+    )
+    if reserved_positions & configured_positions:
+        raise ValueError("Regional special spaces cannot replace streets or transit")
+    if set(taxes) & set(utilities):
+        raise ValueError("A standard layout position cannot be both tax and utility")
+    if any(
+        position not in range(40)
+        for position in set(taxes) | set(utilities) | set(kinds)
+    ):
+        raise ValueError("A standard layout override has an invalid position")
+    if any(amount <= 0 for amount in taxes.values()) or any(
+        price <= 0 or mortgage <= 0 for price, mortgage in utilities.values()
+    ):
+        raise ValueError("Regional space economy values must be positive")
     spaces: list[BoardSpaceDefinition] = []
     for position, (space_id, name_key) in enumerate(names):
         street = _STANDARD_STREETS.get(position)
@@ -103,11 +144,11 @@ def build_standard_spaces(
                     id=space_id,
                     name_key=name_key,
                     kind=SPACE_STREET,
-                    price=price,
-                    mortgage_value=mortgage,
+                    price=price * money_scale,
+                    mortgage_value=mortgage * money_scale,
                     group_id=group_id,
-                    rents=rents,
-                    building_cost=building_cost,
+                    rents=tuple(rent * money_scale for rent in rents),
+                    building_cost=building_cost * money_scale,
                 )
             )
             continue
@@ -117,40 +158,49 @@ def build_standard_spaces(
                     id=space_id,
                     name_key=name_key,
                     kind=SPACE_TRANSIT,
-                    price=200,
-                    mortgage_value=100,
+                    price=200 * money_scale,
+                    mortgage_value=100 * money_scale,
                     group_id="transit",
-                    rents=(25, 50, 100, 200),
+                    rents=tuple(
+                        rent * money_scale for rent in (25, 50, 100, 200)
+                    ),
                 )
             )
             continue
-        if position in _STANDARD_UTILITY_POSITIONS:
+        if position in utilities:
+            price, mortgage = utilities[position]
             spaces.append(
                 BoardSpaceDefinition(
                     id=space_id,
                     name_key=name_key,
                     kind=SPACE_UTILITY,
-                    price=150,
-                    mortgage_value=75,
+                    price=price * money_scale,
+                    mortgage_value=mortgage * money_scale,
                     group_id="utility",
                 )
             )
             continue
-        if position in _STANDARD_TAX_AMOUNTS:
+        if position in taxes:
             spaces.append(
                 BoardSpaceDefinition(
                     space_id,
                     name_key,
                     SPACE_TAX,
-                    tax_amount=_STANDARD_TAX_AMOUNTS[position],
+                    tax_amount=taxes[position] * money_scale,
                 )
             )
             continue
+        try:
+            kind = kinds[position]
+        except KeyError:
+            raise ValueError(
+                f"Standard layout position {position} has no configured space kind"
+            ) from None
         spaces.append(
             BoardSpaceDefinition(
                 space_id,
                 name_key,
-                _STANDARD_SPACE_KINDS[position],
+                kind,
             )
         )
     return tuple(spaces)

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from .boards import register_board
-from .models import BoardDefinition
+from .models import BoardDefinition, BoardTerminology
 from .standard_cards import standard_chance_cards, standard_community_cards
 from .standard_layout import build_standard_spaces, standard_property_groups
 
@@ -68,7 +68,7 @@ MADRID_BOARD = BoardDefinition(
         named_transit_id="estacion_goya",
     ),
     community_cards=standard_community_cards(),
-    transit_kind_key="monopoly-space-kind-station",
+    terminology=BoardTerminology(transit_kind_key="monopoly-space-kind-station"),
 )
 
 register_board(MADRID_BOARD)

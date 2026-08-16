@@ -420,7 +420,10 @@ class NetworkUser(User):
 
     def remove_editbox(self, input_id: str) -> None:
         self._current_editboxes.pop(input_id, None)
-        # There's no explicit remove_editbox packet, showing a menu will replace it
+        # The client may have had an overlay above the last recorded menu, so
+        # the first replacement menu must never be content-diff suppressed.
+        self._last_menu_packet_id = None
+        self._queue_packet({"type": "remove_editbox", "input_id": input_id})
 
     def clear_ui(self) -> None:
         self._current_menus.clear()

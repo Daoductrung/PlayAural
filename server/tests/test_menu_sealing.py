@@ -180,6 +180,33 @@ class TestRecordAndFlush:
         )
         assert len(turn_menu_messages(user1)) >= 1
 
+    def test_stale_semantic_menu_id_never_falls_back_to_numeric_position(self) -> None:
+        game = make_game()
+        host = game.players[0]
+        user = game.get_user(host)
+        assert isinstance(user, MockUser)
+        game.refresh_menus(host)
+        game.flush_menus()
+        user.clear_messages()
+
+        # Position 1 is Start in this lobby. A stale semantic id must not be
+        # reinterpreted as that currently visible action.
+        game.handle_event(
+            host,
+            {
+                "type": "menu",
+                "menu_id": "turn_menu",
+                "selection": 1,
+                "selection_id": "stale_client_item",
+            },
+        )
+
+        assert game.status == "waiting"
+        assert turn_menu_messages(user)
+        assert "start_game" in {
+            item.id for item in user.get_current_menu_items("turn_menu") or []
+        }
+
     def test_session_handover_rebuilds_touch_menu_without_reconnect_grace(self) -> None:
         game = make_game()
         player = game.players[0]
@@ -230,6 +257,32 @@ class TestRecordAndFlush:
         assert player.id not in game._status_box_open
         assert replacement.get_current_menu_items("turn_menu") is not None
 
+    def test_bot_replacement_clears_human_ui_runtime_state(self) -> None:
+        game = make_game()
+        player = game.players[0]
+        game.status = "playing"
+        game._pending_actions[player.id] = "add_bot"
+        game._pending_action_return_focus[player.id] = "add_bot"
+        game._actions_menu_open.add(player.id)
+        game._actions_menu_return_focus[player.id] = "start_game"
+        game._status_box_open.add(player.id)
+        game._live_status_boxes[player.id] = object()
+        game._status_box_return_focus[player.id] = "whos_at_table"
+        game._pending_menu_focus[player.id] = "whose_turn"
+        game._options_path[player.id] = ["display"]
+
+        assert game._replace_with_bot(player)
+
+        assert player.id not in game._pending_actions
+        assert player.id not in game._pending_action_return_focus
+        assert player.id not in game._actions_menu_open
+        assert player.id not in game._actions_menu_return_focus
+        assert player.id not in game._status_box_open
+        assert player.id not in game._live_status_boxes
+        assert player.id not in game._status_box_return_focus
+        assert player.id not in game._pending_menu_focus
+        assert player.id not in game._options_path
+
 
 class TestPostGameMenuState:
     def test_end_screen_actions_are_ordered_leave_then_return(self) -> None:
@@ -244,6 +297,26 @@ class TestPostGameMenuState:
         assert items is not None
         assert [item.id for item in items[-2:]] == ["leave_game", "return_to_table"]
         assert game._is_end_screen_open_for_player(player)
+
+    def test_end_screen_dismisses_pending_input_before_repainting(self) -> None:
+        game = make_game()
+        player = game.players[0]
+        user = game.get_user(player)
+        assert isinstance(user, MockUser)
+        user.preferences.allow_custom_bot_names = True
+        game.execute_action(player, "add_bot")
+        assert game._pending_actions[player.id] == "add_bot"
+        assert "action_input_editbox" in user.editboxes
+        user.clear_messages()
+
+        result = game.build_game_result()
+        game._show_end_screen_to_player(player, result)
+
+        assert player.id not in game._pending_actions
+        assert "action_input_editbox" not in user.editboxes
+        packet_types = [message.type for message in user.messages]
+        assert packet_types.index("remove_editbox") < packet_types.index("show_menu")
+        assert game_over_messages(user)
 
     def test_score_line_selection_does_not_dismiss_end_screen(self) -> None:
         game = make_game()

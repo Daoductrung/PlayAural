@@ -3076,6 +3076,15 @@ class MainWindow(wx.Frame):
             input_id,
         )
 
+    def on_server_remove_editbox(self, packet):
+        """Dismiss an input which authoritative server state superseded."""
+        input_id = packet.get("input_id")
+        if self.current_mode != "edit":
+            return
+        if input_id and input_id != self.current_edit_input_id:
+            return
+        self.switch_to_list_mode()
+
     def on_server_clear_ui(self, packet):
         """Handle clear_ui packet from server."""
         self.cleanup_voice_chat(send_leave=False, announce=False)

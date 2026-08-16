@@ -1726,6 +1726,9 @@ export function PlayAuralApp() {
     if (packet.input_id && currentInput?.inputId !== packet.input_id) {
       return;
     }
+    if (currentInput) {
+      requestNativeMenuFocusOnNextPacket();
+    }
     Keyboard.dismiss();
     activeTextInputKeyRef.current = null;
     inputStateRef.current = null;

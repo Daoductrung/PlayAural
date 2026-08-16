@@ -485,6 +485,7 @@ class Game(
         
         # Clean up game-specific state
         self.player_action_sets.pop(player_id, None)
+        self._clear_player_ui_runtime_state(player_id)
         self._users.pop(player_id, None)
         self.prune_audio_recipient(player_id)
         discard_end_screen = getattr(self, "_discard_end_screen_player_id", None)
@@ -513,6 +514,7 @@ class Game(
         
         # Clean up game-specific state
         self.player_action_sets.pop(player_id, None)
+        self._clear_player_ui_runtime_state(player_id)
         self._users.pop(player_id, None)
         self.prune_audio_recipient(player_id)
         discard_end_screen = getattr(self, "_discard_end_screen_player_id", None)
@@ -548,6 +550,7 @@ class Game(
         player.replacement_bot_name = bot_name
         player.name = bot_name
         self._rename_team_member(human_name, bot_name)
+        self._clear_player_ui_runtime_state(player.id)
         self._users.pop(player.id, None)
 
         # Use same UUID so user can reclaim it
@@ -563,6 +566,20 @@ class Game(
         self._notify_table_presence_changed()
         # Note: Caller is responsible for playing sounds if needed
         return True
+
+    def _clear_player_ui_runtime_state(self, player_id: str) -> None:
+        """Release transient UI intent that must not outlive a human seat."""
+        self._pending_actions.pop(player_id, None)
+        self._pending_action_return_focus.pop(player_id, None)
+        self._action_context.pop(player_id, None)
+        self._actions_menu_open.discard(player_id)
+        self._actions_menu_return_focus.pop(player_id, None)
+        self._status_box_open.discard(player_id)
+        self._live_status_boxes.pop(player_id, None)
+        self._status_box_return_focus.pop(player_id, None)
+        self._menu_dirty.discard(player_id)
+        self._pending_menu_focus.pop(player_id, None)
+        self._options_path.pop(player_id, None)
 
     def _reserved_table_names(self, *, exclude_player_id: str | None = None) -> list[str]:
         """Return all names currently reserved by the table and game state."""

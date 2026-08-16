@@ -47,6 +47,7 @@ if TYPE_CHECKING:
 
 from ..messages.localization import Localization
 from ..users.base import EscapeBehavior, MenuItem
+from .actions import EditboxInput, MenuInput
 from .client_types import is_touch_client
 
 #: Menu orchestrator methods that games must not override. Enforced at class
@@ -271,7 +272,97 @@ class MenuManagementMixin:
             if state.get("menu") in server.GLOBAL_SYSTEM_MENUS or state.get("_transient"):
                 return True
 
-        return bool(self._pending_actions.get(player.id))
+        pending_action_id = self._pending_actions.get(player.id)
+        if pending_action_id and not self._is_pending_action_current(player):
+            self._discard_pending_action_input(player, user)
+            return False
+        return bool(pending_action_id)
+
+    def _is_pending_action_current(self, player: "Player") -> bool:
+        """Whether a pending input still belongs to an enabled action.
+
+        Action inputs are runtime UI intent. A public state transition can make
+        that intent obsolete before the player submits it; retaining the old
+        modal would then block every later turn-menu repaint for that player.
+        """
+        action_id = self._pending_actions.get(player.id)
+        if not action_id:
+            return False
+        if action_id == "leave_game_confirm":
+            return True
+        action = self.find_action(player, action_id)
+        if not action or action.input_request is None:
+            return False
+        resolved = self.resolve_action(player, action)
+        # Inputs can originate from the actions menu or a keybind, where a
+        # deliberately turn-menu-hidden action is still valid.
+        if not resolved.enabled:
+            return False
+        request = action.input_request
+        if isinstance(request, MenuInput):
+            if request.pre_input_check:
+                pre_input_check = getattr(self, request.pre_input_check, None)
+                if pre_input_check and pre_input_check(player, action.id):
+                    return False
+            return bool(self._get_menu_options_for_action(action, player))
+        return True
+
+    def _discard_pending_action_input(
+        self,
+        player: "Player",
+        user: "User | None" = None,
+    ) -> None:
+        """Dismiss an obsolete action-input overlay and its runtime intent."""
+        action_id = self._pending_actions.pop(player.id, None)
+        self._pending_action_return_focus.pop(player.id, None)
+        if not action_id:
+            return
+
+        if user is None:
+            user = self.get_user(player)
+        if not user:
+            return
+
+        action = self.find_action(player, action_id)
+        request = action.input_request if action else None
+        if action_id == "leave_game_confirm":
+            user.remove_menu("leave_game_confirm", send_packet=False)
+        elif isinstance(request, MenuInput):
+            # A fresh authoritative menu always follows this discard. Avoid an
+            # empty intermediary menu, which can drop touch/screen-reader focus.
+            user.remove_menu("action_input_menu", send_packet=False)
+        elif isinstance(request, EditboxInput):
+            user.remove_editbox("action_input_editbox")
+        else:
+            # If the action itself disappeared, its input type is unknowable.
+            # Clear both possible framework overlays before repainting. Menus
+            # replace each other directly; editboxes require an explicit packet.
+            user.remove_menu("action_input_menu", send_packet=False)
+            user.remove_editbox("action_input_editbox")
+
+    def _restore_pending_action_input(self, player: "Player") -> None:
+        """Repaint the authoritative input after a stale client event."""
+        action_id = self._pending_actions.get(player.id)
+        if not action_id:
+            return
+        if action_id == "leave_game_confirm":
+            self._action_leave_game(player, action_id)
+            return
+
+        action = self.find_action(player, action_id)
+        if not action or action.input_request is None:
+            return
+        return_focus = self._pending_action_return_focus.get(player.id)
+        self._request_action_input(action, player)
+        if return_focus and player.id in self._pending_actions:
+            self._pending_action_return_focus[player.id] = return_focus
+
+    def _force_turn_menu_resync(self, player: "Player") -> None:
+        """Force a full authoritative repaint after a stale menu selection."""
+        user = self.get_user(player)
+        if user:
+            user.remove_menu("turn_menu", send_packet=False)
+        self.refresh_menus(player)
 
     def _paint_player_menu(self, player: "Player", focus: str | None) -> None:
         """Build and send one player's turn menu (sealed; flush-internal).
@@ -374,6 +465,10 @@ class MenuManagementMixin:
         if pending_action_id == "leave_game_confirm":
             self._action_leave_game(player, pending_action_id)
             return
+        if pending_action_id:
+            if not self._is_pending_action_current(player):
+                self._discard_pending_action_input(player)
+                pending_action_id = None
         if pending_action_id:
             action = self.find_action(player, pending_action_id)
             if action and action.input_request is not None:

@@ -22,6 +22,7 @@ class PacketType(Enum):
     AUDIO = "audio"
     MENU_RESPONSE = "menu"
     REQUEST_INPUT = "request_input"
+    REMOVE_EDITBOX = "remove_editbox"
     CLEAR_UI = "clear_ui"
     DISCONNECT = "disconnect"
     TABLE_CREATE = "table_create"

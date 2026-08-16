@@ -92,6 +92,7 @@ Important server-driven packets include:
 - `menu`
 - `update_menu`
 - `request_input`
+- `remove_editbox`
 - `speak`
 - `audio`
 - `chat`

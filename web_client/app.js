@@ -2287,6 +2287,14 @@ class PlayAuralWebApp {
       case "request_input":
         this.showInlineInput(packet);
         break;
+      case "remove_editbox":
+        if (!packet.input_id || packet.input_id === this.pendingInput?.input_id) {
+          if (this.pendingInput) {
+            this.focusMenuOnNextPacket = true;
+          }
+          this.hideInlineInput();
+        }
+        break;
       case "update_locale":
         if (packet.locale) {
           Localization.load(packet.locale).then(() => this.applyLocalization());
@@ -2606,7 +2614,12 @@ class PlayAuralWebApp {
   }
 
   handleMenuPacket(packet) {
-    this.hideInlineInput();
+    // An action editbox is authoritative until the user submits/cancels it or
+    // the server explicitly removes it.  In particular, a delayed turn-menu
+    // repaint must not dismiss the input and expose stale controls underneath.
+    if (this.pendingInput) {
+      return;
+    }
     let items = this.normalizeMenuItems(packet.items);
     if (packet.menu_id === "voice_selection_menu") {
       this.webSpeech.requestVoiceRefresh();

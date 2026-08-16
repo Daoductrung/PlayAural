@@ -183,6 +183,12 @@ class GameResultMixin:
         """Show the end screen to a specific player."""
         user = self.get_user(player)
         if user:
+            # A result can replace an action input without an intervening
+            # player event (for example, when another player ends the game).
+            # Dismiss that modal explicitly before painting the result so web
+            # clients never retain an authoritative edit box over game_over.
+            if player.id in self._pending_actions:
+                self._discard_pending_action_input(player, user)
             if mark_open:
                 self._ensure_end_screen_state()
                 self._end_screen_open_player_ids.add(player.id)

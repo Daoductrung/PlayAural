@@ -80,15 +80,47 @@ def test_reshow_after_other_menu_is_sent() -> None:
     assert len(menu_packets(user)) == 1
 
 
-def test_reshow_after_editbox_is_sent() -> None:
+def test_reshow_after_dismissed_editbox_is_sent() -> None:
     user = make_user()
     user.show_menu("turn_menu", items("a", "b"))
     user.get_queued_messages()
 
     user.show_editbox("rename", "New name?")
+    user.remove_editbox("rename")
     user.get_queued_messages()
 
+    # An explicitly dismissed editbox must be followed by a full menu paint,
+    # even when that menu has the same content as before the input opened.
     user.show_menu("turn_menu", items("a", "b"))
+    assert len(menu_packets(user)) == 1
+
+
+def test_remove_editbox_notifies_remote_client() -> None:
+    user = make_user()
+    user.show_editbox("action_input_editbox", "Amount?")
+    user.get_queued_messages()
+
+    user.remove_editbox("action_input_editbox")
+
+    assert user.get_queued_messages() == [
+        {
+            "type": "remove_editbox",
+            "input_id": "action_input_editbox",
+        }
+    ]
+
+
+def test_remove_editbox_forces_next_menu_reshow() -> None:
+    user = make_user()
+    user.show_menu("turn_menu", items("a", "b"))
+    user.get_queued_messages()
+
+    # Even if server-side recovery did not observe the original request_input,
+    # dismissing a possible client overlay invalidates the menu snapshot.
+    user.remove_editbox("action_input_editbox")
+    user.get_queued_messages()
+    user.show_menu("turn_menu", items("a", "b"))
+
     assert len(menu_packets(user)) == 1
 
 

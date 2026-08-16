@@ -6,6 +6,7 @@ if TYPE_CHECKING:
     from .player import Player
 
 from .action_context import ActionContext
+from .actions import EditboxInput, MenuInput
 
 
 class EventHandlingMixin:
@@ -37,6 +38,26 @@ class EventHandlingMixin:
         """
         event_type = event.get("type")
 
+        pending_action_id = self._pending_actions.get(player.id)
+        if pending_action_id:
+            if not self._is_pending_action_current(player):
+                # The event was produced by an overlay which authoritative
+                # gameplay has already superseded. Dismiss and repaint, but do
+                # not reinterpret that stale packet against the new menu.
+                self._discard_pending_action_input(player)
+                self.refresh_menus(player)
+                self.flush_menus()
+                return
+            if not self._event_matches_pending_action_input(player, event):
+                # A modal input is the only actionable game UI until it is
+                # submitted or cancelled. This also makes duplicate/stale touch
+                # events from the underlying turn menu harmless. Repaint the
+                # input so a client which exposed that stale menu recovers
+                # immediately instead of remaining trapped there.
+                self._restore_pending_action_input(player)
+                self.flush_menus()
+                return
+
         if event_type == "menu":
             self._handle_menu_event(player, event)
 
@@ -56,6 +77,34 @@ class EventHandlingMixin:
             self._handle_action_event(player, event)
 
         self.flush_menus()
+
+    def _event_matches_pending_action_input(
+        self,
+        player: "Player",
+        event: dict,
+    ) -> bool:
+        """Whether ``event`` targets the player's authoritative input overlay."""
+        action_id = self._pending_actions.get(player.id)
+        event_type = event.get("type")
+        menu_id = event.get("menu_id")
+        if action_id == "leave_game_confirm":
+            return event_type in {"menu", "escape"} and menu_id == action_id
+
+        action = self.find_action(player, action_id) if action_id else None
+        request = action.input_request if action else None
+        if isinstance(request, MenuInput):
+            return (
+                event_type in {"menu", "escape"}
+                and menu_id == "action_input_menu"
+            )
+        if isinstance(request, EditboxInput):
+            if event_type == "editbox":
+                return event.get("input_id") == "action_input_editbox"
+            return (
+                event_type in {"menu", "escape"}
+                and menu_id == "action_input_editbox"
+            )
+        return False
 
     def _handle_action_event(self, player: "Player", event: dict) -> None:
         """Handle a direct action execution event."""
@@ -112,12 +161,15 @@ class EventHandlingMixin:
             # If interacting with turn_menu, actions menu is no longer open
             self._actions_menu_open.discard(player.id)
             self._actions_menu_return_focus.pop(player.id, None)
-            # Try by ID first, then by index
-            action = (
-                self.find_action(player, selection_id) if selection_id else None
-            )
-            if action:
-                resolved = self.resolve_action(player, action)
+            # Validate semantic IDs against the menu that authoritative state
+            # can currently paint. A stale/forged ID must never fall through to
+            # the same numeric position in a different menu shape.
+            visible_actions = self.get_all_visible_actions(player)
+            visible_by_id = {
+                resolved.action.id: resolved for resolved in visible_actions
+            }
+            resolved = visible_by_id.get(selection_id) if selection_id else None
+            if resolved:
                 if resolved.enabled:
                     self.execute_action(
                         player,
@@ -128,12 +180,36 @@ class EventHandlingMixin:
                         self.refresh_menus()
                 elif resolved.disabled_reason:
                     self._speak_action_disabled_reason(player, resolved.disabled_reason)
+            elif selection_id:
+                # Preserve the long-standing direct semantic-id path for
+                # enabled actions intentionally omitted from turn menus (for
+                # example lobby utilities reached through another client
+                # surface). A known action which is now disabled, or an
+                # unknown id, is stale and must restore the current menu.
+                hidden_action = self.find_action(player, selection_id)
+                hidden_resolved = (
+                    self.resolve_action(player, hidden_action)
+                    if hidden_action
+                    else None
+                )
+                if hidden_resolved and hidden_resolved.enabled:
+                    self.execute_action(
+                        player,
+                        selection_id,
+                        context=ActionContext(menu_item_id=selection_id),
+                    )
+                    if player.id not in self._pending_actions:
+                        self.refresh_menus()
+                else:
+                    # Invalidate the content-diff snapshot so the correction
+                    # is sent even if the server believes it already painted
+                    # the authoritative turn menu.
+                    self._force_turn_menu_resync(player)
             else:
-                # Fallback to index-based selection - use visible actions only
+                # Legacy/index-only selection: use the current visible menu.
                 selection = event.get("selection", 1) - 1  # Convert to 0-based
-                visible = self.get_all_visible_actions(player)
-                if 0 <= selection < len(visible):
-                    resolved = visible[selection]
+                if 0 <= selection < len(visible_actions):
+                    resolved = visible_actions[selection]
                     self.execute_action(
                         player,
                         resolved.action.id,

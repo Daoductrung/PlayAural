@@ -1833,6 +1833,128 @@ def test_auction_offers_minimum_bid_before_custom_bid() -> None:
     assert game.decision_player_id == second.id
 
 
+def test_auction_input_blocks_stale_underlying_turn_menu_events() -> None:
+    game = make_game(start=True, touch=True)
+    bidder = game.players[0]
+    game._start_auction(
+        "mediterranean",
+        resume_kind="landing",
+        first_bidder_id=bidder.id,
+    )
+    game.flush_menus()
+
+    game.handle_event(
+        bidder,
+        {
+            "type": "menu",
+            "menu_id": "turn_menu",
+            "selection_id": "place_bid",
+        },
+    )
+    assert game._pending_actions[bidder.id] == "place_bid"
+    user = game.get_user(bidder)
+    assert user is not None
+    user.clear_messages()
+
+    game.handle_event(
+        bidder,
+        {
+            "type": "menu",
+            "menu_id": "turn_menu",
+            "selection_id": "pass_auction",
+        },
+    )
+
+    assert game.auction_state is not None
+    assert bidder.id in game.auction_state.active_bidder_ids
+    assert game.decision_player_id == bidder.id
+    assert game._pending_actions[bidder.id] == "place_bid"
+    assert any(
+        message.type == "show_editbox"
+        and message.data.get("input_id") == "action_input_editbox"
+        for message in user.messages
+    )
+
+
+def test_obsolete_auction_input_is_dismissed_before_property_menu_repaint() -> None:
+    game = make_game(start=True, touch=True)
+    bidder = game.players[0]
+    user = game.get_user(bidder)
+    assert user is not None
+    game._start_auction(
+        "mediterranean",
+        resume_kind="landing",
+        first_bidder_id=bidder.id,
+    )
+    game.flush_menus()
+    game.handle_event(
+        bidder,
+        {
+            "type": "menu",
+            "menu_id": "turn_menu",
+            "selection_id": "place_bid",
+        },
+    )
+    assert "action_input_editbox" in user.editboxes
+    user.clear_messages()
+
+    # Simulate a public transition superseding an input while its client packet
+    # is still in flight. The next framework flush must not leave that player on
+    # the old auction UI forever.
+    game.auction_state = None
+    game.pending_property_id = "baltic"
+    game.phase = PHASE_PROPERTY
+    game.decision_player_id = bidder.id
+    game.refresh_menus()
+    game.flush_menus()
+
+    assert bidder.id not in game._pending_actions
+    assert "action_input_editbox" not in user.editboxes
+    item_ids = [item.id for item in user.get_current_menu_items("turn_menu") or []]
+    assert "buy_property" in item_ids
+    assert "decline_property" in item_ids
+    assert "pass_auction" not in item_ids
+    message_types = [message.type for message in user.messages]
+    assert message_types.index("remove_editbox") < message_types.index("show_menu")
+
+
+def test_stale_auction_button_resyncs_current_property_prompt() -> None:
+    game = make_game(start=True, touch=True)
+    buyer = game.players[0]
+    user = game.get_user(buyer)
+    assert user is not None
+    game.auction_state = None
+    game.pending_property_id = "baltic"
+    game.phase = PHASE_PROPERTY
+    game.decision_player_id = buyer.id
+    game.refresh_menus(buyer)
+    game.flush_menus()
+    user.clear_messages()
+
+    game.handle_event(
+        buyer,
+        {
+            "type": "menu",
+            "menu_id": "turn_menu",
+            "selection": 2,
+            "selection_id": "pass_auction",
+        },
+    )
+
+    assert game.phase == PHASE_PROPERTY
+    assert game.pending_property_id == "baltic"
+    assert game.decision_player_id == buyer.id
+    item_ids = [item.id for item in user.get_current_menu_items("turn_menu") or []]
+    assert "buy_property" in item_ids
+    assert "decline_property" in item_ids
+    assert "pass_auction" not in item_ids
+    assert any(
+        message.type == "show_menu"
+        and message.data.get("menu_id") == "turn_menu"
+        for message in user.messages
+    )
+
+
 def test_auction_turn_is_announced_to_bidder_and_observer() -> None:
     game = make_game(start=True)
     bidder, observer = game.players[:2]

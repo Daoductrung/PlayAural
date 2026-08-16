@@ -11,6 +11,11 @@ Cải thiện:
 * Trò chuyện thoại trên phần mềm máy tính giờ giữ âm thanh mượt hơn khi nhiều người cùng nói hoặc kết nối chập chờn trong thời gian ngắn, giảm tiếng rè, ngắt quãng, mất đầu hoặc cuối câu và độ trễ, đồng thời vẫn giữ chất lượng âm thanh nổi nhận vào.
 * Người chơi dùng tiếng Tây Ban Nha giờ thấy các đấu sĩ mẫu và kỹ năng của Đấu Trường Chiến Kỹ bằng tiếng Tây Ban Nha; tên phím tắt cũng đã được thống nhất trong tài liệu người chơi tiếng Tây Ban Nha.
 
+Sửa lỗi:
+
+* Đăng ký tài khoản không còn thỉnh thoảng thất bại với lỗi máy chủ khi hệ thống đang cập nhật dữ liệu tài khoản hoặc ván chơi khác.
+* Menu lựa chọn và ô nhập liệu giờ bám đúng trạng thái mới nhất khi tình hình trong bàn thay đổi trong lúc lời nhắc đang mở. Điều này ngăn nút Mua bất động sản bị mất, menu đấu giá Cờ tỷ phú bị kẹt, ô nhập liệu cũ còn sót lại, hoặc lựa chọn cũ có hiệu lực sau khi ván đã chuyển sang bước khác.
+
 Thứ Tư 5 Tháng Tám 2026
 
 Tính năng mới:
@@ -330,7 +335,7 @@ Tính năng mới:
 * Ống Sắt đã được thêm với menu và tài liệu được dịch.
 * Nine đã được thêm với menu và tài liệu được dịch.
 * Senet đã được thêm với menu và tài liệu được dịch.
-* Cards Against Humanity đã được thêm với menu và tài liệu được dịch.
+* Cards Against Humanity đã được thêm với menu và tài liệu được dịch, hiệu ứng âm thanh riêng, còn nội dung trên lá bài dùng tiếng Anh.
 * 21 (Luật Sinh Tồn) đã được thêm với menu và tài liệu được dịch.
 * UNO đã được thêm để thay thế Last Card.
 * Menu Chơi giờ có bộ lọc thể loại để duyệt trò chơi dễ hơn.
@@ -384,7 +389,6 @@ Sửa lỗi:
 * Âm thanh báo lượt giờ nhất quán hơn.
 * Crazy Eights giờ phát lại âm thanh khán giả vào và rời bàn.
 * Âm thanh vào/rời bàn giờ cũng phát khi có người bị đuổi hoặc đuổi và cấm.
-* Cards Against Humanity giờ dùng đúng hiệu ứng âm thanh riêng.
 * Người chơi thật không còn đăng ký được tên dành riêng cho bot.
 * Bot không còn giả dạng người chơi thật trong cùng bàn.
 * Chi tiết trạng thái trên di động giờ nằm cuối thứ tự đọc của trình đọc màn hình thay vì đứng trước nội dung chính.

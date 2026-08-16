@@ -73,8 +73,8 @@ import { TtsManager, type TtsVoiceOption } from "../tts/TtsManager";
 import { ENABLE_CLIENT_DEBUG_LOGS } from "../utils/debug";
 import { MobileVoiceManager, type MobileVoiceConnectionState } from "../voice/MobileVoiceManager";
 
-const MOBILE_CLIENT_VERSION = "1.0.4.13";
-const MOBILE_BUILD_STAMP = "2026-08-16 06:14:40 +07:00";
+const MOBILE_CLIENT_VERSION = "1.0.4.14";
+const MOBILE_BUILD_STAMP = "2026-08-16 19:07:22 +07:00";
 const DEFAULT_SERVER_URL = "wss://playaural.ddt.one:443";
 const CLIENT_CONFIG_STORAGE_KEY = "playaural.mobile.clientConfig";
 const CLIENT_PASSWORD_STORAGE_KEY = "playaural.mobile.password";

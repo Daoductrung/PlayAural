@@ -1,4 +1,4 @@
-const CACHE_NAME = "playaural-web-v1.0.4.13-shell-4";
+const CACHE_NAME = "playaural-web-v1.0.4.14-shell-4";
 
 const PRECACHE_URLS = [
   "./",

@@ -11,6 +11,11 @@ Improvements:
 * Desktop Voice Chat now remains smooth when several people speak or connections briefly fluctuate, reducing crackling, stuttering, cut-off words, and delayed audio while preserving incoming stereo quality.
 * Spanish players now see Battle's preset fighters and moves in Spanish, and keyboard shortcut names are consistent throughout the Spanish player guides.
 
+Bug Fixes:
+
+* Account registration no longer occasionally fails with a server error while other account or game records are being updated.
+* Game choices and text prompts now stay synchronized when the table changes while a prompt is open. This prevents missing property-purchase controls, stale Monopoly auction menus, stuck inputs, and outdated choices taking effect after the game has moved on.
+
 Wednesday 5 August 2026
 
 New Additions:
@@ -330,7 +335,7 @@ New Additions:
 * Metal Pipe was added with localized menus and documentation.
 * Nine was added with localized menus and documentation.
 * Senet was added with localized menus and documentation.
-* Cards Against Humanity was added with localized menus and documentation.
+* Cards Against Humanity was added with localized menus, documentation, dedicated audio, and English-language card text.
 * 21 (Survival Rules) was added with localized menus and documentation.
 * UNO was added as the replacement for Last Card.
 * The Play menu now has a category filter for browsing games by type.
@@ -384,7 +389,6 @@ Bug Fixes:
 * Turn sounds are more consistent.
 * Crazy Eights spectator join and leave sounds now play again.
 * Table join and leave sounds now also play for kicks and bans.
-* Cards Against Humanity now uses its dedicated sound effects.
 * Human players can no longer register names reserved for bots.
 * Bots can no longer impersonate human players at the same table.
 * Mobile status details now appear at the bottom of the screen reader order instead of before the main game content.

@@ -1,5 +1,6 @@
 """Regression tests for canonical, case-insensitive username identity."""
 
+import logging
 import sqlite3
 import uuid
 from concurrent.futures import ThreadPoolExecutor
@@ -282,6 +283,72 @@ def test_concurrent_first_account_creation_promotes_exactly_one_user(tmp_path):
         trust_levels = list(executor.map(create, ("Alice", "Bob")))
 
     assert sorted(trust_levels) == [1, 3]
+
+
+def test_registration_is_not_poisoned_by_prior_write_statement(db):
+    first = db.create_user("Alice", "hash")
+    assert first is not None
+
+    db._conn.execute(
+        "UPDATE users SET bio = ? WHERE id = ?",
+        ("updated", first.id),
+    )
+
+    assert db._conn.in_transaction is False
+    assert db.create_user("Bob", "hash") is not None
+
+
+def test_failed_atomic_write_rolls_back_and_registration_recovers(db):
+    existing = Table(
+        table_id="existing",
+        game_type="pig",
+        host="Alice",
+        members=[TableMember("Alice")],
+    )
+    db.save_table(existing)
+    invalid = Table(
+        table_id="invalid",
+        game_type="pig",
+        host="Alice",
+        members=[TableMember(object())],
+    )
+
+    with pytest.raises(TypeError):
+        db.save_all_tables([invalid])
+
+    assert db._conn.in_transaction is False
+    assert db.load_table("existing") is not None
+    assert db.create_user("Alice", "hash") is not None
+
+
+def test_registration_lock_failure_logs_sqlite_cause_at_error_level(
+    tmp_path,
+    caplog,
+):
+    path = tmp_path / "locked-registration.db"
+    database = Database(path)
+    database.connect(prune=False, timeout=0.01)
+    blocker = sqlite3.connect(path, timeout=0.01, isolation_level=None)
+    blocker.execute("BEGIN IMMEDIATE")
+    caplog.set_level(logging.ERROR, logger="playaural.db")
+
+    try:
+        assert database.create_user("Alice", "hash") is None
+    finally:
+        blocker.rollback()
+        blocker.close()
+        database.close()
+
+    matching = [
+        record
+        for record in caplog.records
+        if record.name == "playaural.db"
+        and record.levelno == logging.ERROR
+    ]
+    assert len(matching) == 1
+    assert matching[0].exc_info is not None
+    assert "Operational error creating user 'Alice'" in matching[0].message
+    assert "database is locked" in str(matching[0].exc_info[1])
 
 
 def test_username_prefix_prefers_longest_unique_case_insensitive_match():

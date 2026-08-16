@@ -4,6 +4,8 @@ import logging
 import sqlite3
 import uuid as uuid_module
 import json
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import datetime, timedelta
 from pathlib import Path
 from dataclasses import dataclass
@@ -167,7 +169,14 @@ class Database:
                 raise
 
     def _connect_once(self, *, prune: bool, timeout: float) -> None:
-        self._conn = sqlite3.connect(str(self.db_path), timeout=timeout)
+        # Keep the connection in SQLite autocommit mode. Multi-statement writes
+        # use _transaction() below, so a failed operation cannot leave an
+        # implicit transaction open and poison a later explicit BEGIN.
+        self._conn = sqlite3.connect(
+            str(self.db_path),
+            timeout=timeout,
+            isolation_level=None,
+        )
         self._conn.row_factory = sqlite3.Row
         self._conn.create_function(
             "USERNAME_KEY",
@@ -181,6 +190,26 @@ class Database:
         self._create_tables()
         if prune:
             self.prune_old_records()
+
+    @contextmanager
+    def _transaction(
+        self, *, immediate: bool = False
+    ) -> Iterator[sqlite3.Cursor]:
+        """Run an explicit, atomic transaction on the shared connection."""
+        if self._conn is None:
+            raise RuntimeError("Database is not connected")
+        if self._conn.in_transaction:
+            raise RuntimeError("Nested database transactions are not supported")
+
+        cursor = self._conn.cursor()
+        cursor.execute("BEGIN IMMEDIATE" if immediate else "BEGIN")
+        try:
+            yield cursor
+            self._conn.commit()
+        except BaseException:
+            if self._conn.in_transaction:
+                self._conn.rollback()
+            raise
 
     def close(self) -> None:
         """Close the database connection."""
@@ -254,7 +283,11 @@ class Database:
     def _create_tables(self) -> None:
         """Create database tables if they don't exist."""
         self._conn.execute("PRAGMA foreign_keys = ON;")
-        cursor = self._conn.cursor()
+        with self._transaction(immediate=True) as cursor:
+            self._create_tables_in_transaction(cursor)
+
+    def _create_tables_in_transaction(self, cursor: sqlite3.Cursor) -> None:
+        """Create and migrate the schema inside the caller's transaction."""
 
         # Users table
         cursor.execute("""
@@ -503,8 +536,6 @@ class Database:
             ON game_result_players(result_id)
         """)
 
-        self._conn.commit()
-
     def _ensure_column(
         self,
         cursor: sqlite3.Cursor,
@@ -563,64 +594,80 @@ class Database:
         one_day_ago = (now - timedelta(days=1)).isoformat()
         one_year_ago = (now - timedelta(days=365)).isoformat()
 
-        cursor = self._conn.cursor()
-
         # Ensure foreign keys are ON so cascading deletes work
         self._conn.execute("PRAGMA foreign_keys = ON;")
-
-        # 1. Prune game_results (ON DELETE CASCADE handles game_result_players)
-        cursor.execute("DELETE FROM game_results WHERE timestamp < ?", (thirty_days_ago,))
-        deleted_games = cursor.rowcount
-
-        # 2. Prune saved_tables
-        cursor.execute("DELETE FROM saved_tables WHERE saved_at < ?", (one_year_ago,))
-        deleted_saves = cursor.rowcount
-
-        # 2b. Prune transient table checkpoints.
-        cursor.execute(
-            """
-            DELETE FROM tables
-            WHERE (checkpoint_expires_at IS NOT NULL AND checkpoint_expires_at < ?)
-               OR (checkpoint_created_at != '' AND checkpoint_created_at < ?)
-            """,
-            (now.isoformat(), one_day_ago),
-        )
-        deleted_table_checkpoints = cursor.rowcount
-
-        # 3. Prune expired bans (keep them around for 30 days post-expiry for admin logs, then drop)
-        cursor.execute("DELETE FROM bans WHERE expires_at IS NOT NULL AND expires_at < ?", (thirty_days_ago,))
-        deleted_bans = cursor.rowcount
-
-        # 4. Prune pending friend requests older than 6 months (180 days)
-        six_months_ago = (now - timedelta(days=180)).isoformat()
-        cursor.execute("DELETE FROM friendships WHERE status = 'pending' AND created_at < ?", (six_months_ago,))
-        deleted_requests = cursor.rowcount
-
-        # 5. Prune old offline notifications
-        cursor.execute("DELETE FROM user_notifications WHERE created_at < ?", (six_months_ago,))
-        deleted_notifications = cursor.rowcount
-
-        # 6. Prune expired mutes
-        cursor.execute("DELETE FROM mutes WHERE expires_at IS NOT NULL AND expires_at < ?", (now.isoformat(),))
-        deleted_expired_mutes = cursor.rowcount
-
-        # 7. Prune orphaned mutes for usernames that no longer exist
-        cursor.execute("""
-            DELETE FROM mutes
-            WHERE NOT EXISTS (
-                SELECT 1
-                FROM users
-                WHERE users.username = mutes.username COLLATE BINARY
+        with self._transaction(immediate=True) as cursor:
+            # 1. Prune game_results (ON DELETE CASCADE handles child rows).
+            cursor.execute(
+                "DELETE FROM game_results WHERE timestamp < ?",
+                (thirty_days_ago,),
             )
-        """)
-        deleted_orphaned_mutes = cursor.rowcount
+            deleted_games = cursor.rowcount
 
-        # 8. Prune expired password reset tokens
-        cursor.execute("DELETE FROM password_reset_tokens WHERE expires_at < ?", (now.isoformat(),))
-        deleted_tokens = cursor.rowcount
-        deleted_mutes = deleted_expired_mutes + deleted_orphaned_mutes
+            # 2. Prune saved tables and transient table checkpoints.
+            cursor.execute(
+                "DELETE FROM saved_tables WHERE saved_at < ?",
+                (one_year_ago,),
+            )
+            deleted_saves = cursor.rowcount
+            cursor.execute(
+                """
+                DELETE FROM tables
+                WHERE (checkpoint_expires_at IS NOT NULL AND checkpoint_expires_at < ?)
+                   OR (checkpoint_created_at != '' AND checkpoint_created_at < ?)
+                """,
+                (now.isoformat(), one_day_ago),
+            )
+            deleted_table_checkpoints = cursor.rowcount
 
-        self._conn.commit()
+            # 3. Keep expired bans for 30 days for admin records, then prune.
+            cursor.execute(
+                "DELETE FROM bans "
+                "WHERE expires_at IS NOT NULL AND expires_at < ?",
+                (thirty_days_ago,),
+            )
+            deleted_bans = cursor.rowcount
+
+            # 4. Prune stale social data.
+            six_months_ago = (now - timedelta(days=180)).isoformat()
+            cursor.execute(
+                "DELETE FROM friendships "
+                "WHERE status = 'pending' AND created_at < ?",
+                (six_months_ago,),
+            )
+            deleted_requests = cursor.rowcount
+            cursor.execute(
+                "DELETE FROM user_notifications WHERE created_at < ?",
+                (six_months_ago,),
+            )
+            deleted_notifications = cursor.rowcount
+
+            # 5. Prune expired and orphaned mutes.
+            cursor.execute(
+                "DELETE FROM mutes "
+                "WHERE expires_at IS NOT NULL AND expires_at < ?",
+                (now.isoformat(),),
+            )
+            deleted_expired_mutes = cursor.rowcount
+            cursor.execute(
+                """
+                DELETE FROM mutes
+                WHERE NOT EXISTS (
+                    SELECT 1
+                    FROM users
+                    WHERE users.username = mutes.username COLLATE BINARY
+                )
+                """
+            )
+            deleted_orphaned_mutes = cursor.rowcount
+
+            # 6. Prune expired password reset tokens.
+            cursor.execute(
+                "DELETE FROM password_reset_tokens WHERE expires_at < ?",
+                (now.isoformat(),),
+            )
+            deleted_tokens = cursor.rowcount
+            deleted_mutes = deleted_expired_mutes + deleted_orphaned_mutes
 
         # Log results
         logger = logging.getLogger("playaural.db.prune")
@@ -744,7 +791,7 @@ class Database:
         )
         print(f"Database Pruning: Unregistered game types detected: {stale_label}.")
 
-        with self._conn:
+        with self._transaction(immediate=True) as cursor:
             if "game_results" in game_type_tables:
                 for child_table, child_column in game_result_children:
                     cursor.execute(
@@ -897,7 +944,7 @@ class Database:
         print(f"Database Pruning: Unsupported leaderboard stat keys detected: {stat_label}.")
         print(f"Database Pruning: Unsupported rating game types detected: {rating_label}.")
 
-        with self._conn:
+        with self._transaction(immediate=True) as cursor:
             for game_type, stat_key in unsupported_stat_pairs:
                 cursor.execute(
                     """
@@ -1035,53 +1082,55 @@ class Database:
             return None
         user_uuid = str(uuid_module.uuid4())
         now_iso = datetime.now().isoformat()
-        cursor = self._conn.cursor()
         try:
             # Serialize the key check and insert across server/CLI processes.
             # The legacy username column's NOCASE constraint covers ASCII only.
-            cursor.execute("BEGIN IMMEDIATE")
-            cursor.execute(
-                "SELECT 1 FROM users WHERE username_key = ? LIMIT 1",
-                (lookup_key,),
-            )
-            if cursor.fetchone() is not None:
-                self._conn.rollback()
-                return None
-            effective_trust_level = trust_level
-            effective_approved = approved
-            if promote_first_user:
-                cursor.execute("SELECT 1 FROM users LIMIT 1")
-                if cursor.fetchone() is None:
-                    effective_trust_level = 3
-                    effective_approved = True
-            cursor.execute(
-                "INSERT INTO users (username, username_key, password_hash, uuid, locale, trust_level, approved, email, bio, registration_date, last_login_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (
-                    username,
-                    lookup_key,
-                    password_hash,
-                    user_uuid,
-                    locale,
-                    effective_trust_level,
-                    1 if effective_approved else 0,
-                    email,
-                    bio,
-                    now_iso,
-                    "",
-                ),
-            )
-            self._conn.commit()
-        except (sqlite3.IntegrityError, sqlite3.OperationalError) as exc:
-            self._conn.rollback()
-            logging.getLogger("playaural.db").warning(
-                "Database error creating user '%s': %s", username, exc
+            with self._transaction(immediate=True) as cursor:
+                cursor.execute(
+                    "SELECT 1 FROM users WHERE username_key = ? LIMIT 1",
+                    (lookup_key,),
+                )
+                if cursor.fetchone() is not None:
+                    return None
+                effective_trust_level = trust_level
+                effective_approved = approved
+                if promote_first_user:
+                    cursor.execute("SELECT 1 FROM users LIMIT 1")
+                    if cursor.fetchone() is None:
+                        effective_trust_level = 3
+                        effective_approved = True
+                cursor.execute(
+                    "INSERT INTO users (username, username_key, password_hash, "
+                    "uuid, locale, trust_level, approved, email, bio, "
+                    "registration_date, last_login_date) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    (
+                        username,
+                        lookup_key,
+                        password_hash,
+                        user_uuid,
+                        locale,
+                        effective_trust_level,
+                        1 if effective_approved else 0,
+                        email,
+                        bio,
+                        now_iso,
+                        "",
+                    ),
+                )
+                user_id = cursor.lastrowid
+        except sqlite3.IntegrityError:
+            # Another process may have won the same registration race.
+            return None
+        except sqlite3.OperationalError:
+            # errors.log intentionally records ERROR and above, so retain the
+            # actionable SQLite cause and traceback at that configured level.
+            logging.getLogger("playaural.db").exception(
+                "Operational error creating user '%s'", username
             )
             return None
-        except sqlite3.DatabaseError:
-            self._conn.rollback()
-            raise
         return UserRecord(
-            id=cursor.lastrowid,
+            id=user_id,
             username=username,
             password_hash=password_hash,
             uuid=user_uuid,
@@ -1146,7 +1195,6 @@ class Database:
             f"UPDATE users SET {column} = ? WHERE id = ?",
             (value, user.id),
         )
-        self._conn.commit()
         return cursor.rowcount > 0
 
     def update_user_locale(self, username: str, locale: str) -> None:
@@ -1194,31 +1242,28 @@ class Database:
         Returns:
             The username of the user promoted to admin, or None if no promotion occurred.
         """
-        cursor = self._conn.cursor()
+        with self._transaction(immediate=True) as cursor:
+            # Check if there's exactly one user with no trust level set.
+            cursor.execute(
+                "SELECT id, username FROM users WHERE trust_level IS NULL"
+            )
+            users_without_trust = cursor.fetchall()
 
-        # Check if there's exactly one user with no trust level set
-        cursor.execute("SELECT id, username FROM users WHERE trust_level IS NULL")
-        users_without_trust = cursor.fetchall()
+            promoted_user = None
+            if len(users_without_trust) == 1:
+                cursor.execute("SELECT COUNT(*) FROM users")
+                total_users = cursor.fetchone()[0]
+                if total_users == 1:
+                    username = users_without_trust[0]["username"]
+                    cursor.execute(
+                        "UPDATE users SET trust_level = 3 WHERE id = ?",
+                        (users_without_trust[0]["id"],),
+                    )
+                    promoted_user = username
 
-        promoted_user = None
-
-        if len(users_without_trust) == 1:
-            # Check if this is the only user in the database
-            cursor.execute("SELECT COUNT(*) FROM users")
-            total_users = cursor.fetchone()[0]
-
-            if total_users == 1:
-                # First and only user - make them developer
-                username = users_without_trust[0]["username"]
-                cursor.execute(
-                    "UPDATE users SET trust_level = 3 WHERE id = ?",
-                    (users_without_trust[0]["id"],),
-                )
-                promoted_user = username
-
-        # Set all remaining users without trust level to 1 (player)
-        cursor.execute("UPDATE users SET trust_level = 1 WHERE trust_level IS NULL")
-        self._conn.commit()
+            cursor.execute(
+                "UPDATE users SET trust_level = 1 WHERE trust_level IS NULL"
+            )
 
         return promoted_user
 
@@ -1270,44 +1315,55 @@ class Database:
             return False
         canonical_username = user.username
 
-        cursor = self._conn.cursor()
+        with self._transaction(immediate=True) as cursor:
+            # Delete dependent data using explicit soft keys (username/uuid).
+            cursor.execute(
+                "DELETE FROM player_game_stats WHERE player_id = ?",
+                (user.uuid,),
+            )
+            cursor.execute(
+                "DELETE FROM player_ratings WHERE player_id = ?",
+                (user.uuid,),
+            )
+            cursor.execute(
+                "DELETE FROM saved_tables WHERE username = ? COLLATE BINARY",
+                (canonical_username,),
+            )
+            self._delete_table_checkpoints_for_user(cursor, user)
+            cursor.execute(
+                "DELETE FROM bans WHERE username = ? COLLATE BINARY",
+                (canonical_username,),
+            )
+            cursor.execute(
+                "DELETE FROM mutes WHERE username = ? COLLATE BINARY",
+                (canonical_username,),
+            )
+            cursor.execute(
+                "DELETE FROM friendships "
+                "WHERE requester_id = ? OR receiver_id = ?",
+                (user.uuid, user.uuid),
+            )
+            cursor.execute(
+                "DELETE FROM user_notifications "
+                "WHERE user_id = ? OR source_username = ? COLLATE BINARY",
+                (user.uuid, canonical_username),
+            )
+            cursor.execute(
+                "DELETE FROM password_reset_tokens WHERE user_uuid = ?",
+                (user.uuid,),
+            )
 
-        # Delete dependent data using explicit soft keys (username/uuid)
-        cursor.execute("DELETE FROM player_game_stats WHERE player_id = ?", (user.uuid,))
-        cursor.execute("DELETE FROM player_ratings WHERE player_id = ?", (user.uuid,))
-        cursor.execute(
-            "DELETE FROM saved_tables WHERE username = ? COLLATE BINARY",
-            (canonical_username,),
-        )
-        self._delete_table_checkpoints_for_user(cursor, user)
-        cursor.execute(
-            "DELETE FROM bans WHERE username = ? COLLATE BINARY",
-            (canonical_username,),
-        )
-        cursor.execute(
-            "DELETE FROM mutes WHERE username = ? COLLATE BINARY",
-            (canonical_username,),
-        )
-        cursor.execute("DELETE FROM friendships WHERE requester_id = ? OR receiver_id = ?", (user.uuid, user.uuid))
-        cursor.execute(
-            "DELETE FROM user_notifications "
-            "WHERE user_id = ? OR source_username = ? COLLATE BINARY",
-            (user.uuid, canonical_username),
-        )
-        cursor.execute("DELETE FROM password_reset_tokens WHERE user_uuid = ?", (user.uuid,))
+            # Preserve other players' historical results through anonymization.
+            cursor.execute(
+                "UPDATE game_result_players "
+                "SET player_id = 'deleted', player_name = 'Deleted User' "
+                "WHERE player_id = ?",
+                (user.uuid,),
+            )
+            cursor.execute("DELETE FROM users WHERE id = ?", (user.id,))
+            deleted = cursor.rowcount > 0
 
-        # Anonymize historical game data rather than deleting it to preserve integrity
-        # for other players in those matches.
-        cursor.execute(
-            "UPDATE game_result_players SET player_id = 'deleted', player_name = 'Deleted User' WHERE player_id = ?",
-            (user.uuid,)
-        )
-
-        # Finally delete the user
-        cursor.execute("DELETE FROM users WHERE id = ?", (user.id,))
-
-        self._conn.commit()
-        return cursor.rowcount > 0
+        return deleted
 
     def _delete_table_checkpoints_for_user(
         self, cursor: sqlite3.Cursor, user: UserRecord
@@ -1551,8 +1607,7 @@ class Database:
                 clean_translations[locale] = message
         if version <= 0 or not clean_translations:
             raise ValueError("MOTD requires a positive version and translations")
-        cursor = self._conn.cursor()
-        try:
+        with self._transaction(immediate=True) as cursor:
             cursor.execute("DELETE FROM motd")
             cursor.executemany(
                 "INSERT INTO motd (version, language, message) VALUES (?, ?, ?)",
@@ -1561,17 +1616,12 @@ class Database:
                     for language, message in clean_translations.items()
                 ],
             )
-            self._conn.commit()
-        except sqlite3.Error:
-            self._conn.rollback()
-            raise
 
     def delete_motd(self) -> None:
         """Delete all motd records."""
         cursor = self._conn.cursor()
         try:
             cursor.execute("DELETE FROM motd")
-            self._conn.commit()
         except sqlite3.OperationalError:
             pass
 
@@ -1596,7 +1646,6 @@ class Database:
             "INSERT INTO bans (username, admin_username, reason_key, issued_at, expires_at) VALUES (?, ?, ?, ?, ?)",
             (username, admin_username, reason_key, issued_at, expires_at),
         )
-        self._conn.commit()
         return BanRecord(
             id=cursor.lastrowid,
             username=username,
@@ -1613,7 +1662,6 @@ class Database:
         cursor.execute(
             "DELETE FROM bans WHERE username = ? COLLATE BINARY", (username,)
         )
-        self._conn.commit()
         return cursor.rowcount > 0
 
     def get_active_ban(self, username: str) -> BanRecord | None:
@@ -1627,8 +1675,6 @@ class Database:
             "DELETE FROM bans WHERE username = ? COLLATE BINARY AND expires_at IS NOT NULL AND expires_at <= ?",
             (username, now),
         )
-        if cursor.rowcount:
-            self._conn.commit()
 
         # Fetch the most-recent active ban (permanent or future expiry)
         cursor.execute(
@@ -1768,20 +1814,21 @@ class Database:
         username = self._canonical_username_or_input(username)
         admin_username = self._canonical_username_or_input(admin_username)
         issued_at = datetime.now().isoformat()
-        cursor = self._conn.cursor()
-        # Replace any existing mute so a user has at most one active mute and a
-        # re-mute always supersedes the previous one (deterministic regardless of
-        # timestamp ties).
-        cursor.execute(
-            "DELETE FROM mutes WHERE username = ? COLLATE BINARY", (username,)
-        )
-        cursor.execute(
-            "INSERT INTO mutes (username, admin_username, reason, issued_at, expires_at) VALUES (?, ?, ?, ?, ?)",
-            (username, admin_username, reason, issued_at, expires_at),
-        )
-        self._conn.commit()
+        # Replace any existing mute atomically so a re-mute always supersedes
+        # the previous one, even when timestamps tie.
+        with self._transaction(immediate=True) as cursor:
+            cursor.execute(
+                "DELETE FROM mutes WHERE username = ? COLLATE BINARY",
+                (username,),
+            )
+            cursor.execute(
+                "INSERT INTO mutes (username, admin_username, reason, "
+                "issued_at, expires_at) VALUES (?, ?, ?, ?, ?)",
+                (username, admin_username, reason, issued_at, expires_at),
+            )
+            mute_id = cursor.lastrowid
         return MuteRecord(
-            id=cursor.lastrowid,
+            id=mute_id,
             username=username,
             admin_username=admin_username,
             reason=reason,
@@ -1796,7 +1843,6 @@ class Database:
         cursor.execute(
             "DELETE FROM mutes WHERE username = ? COLLATE BINARY", (username,)
         )
-        self._conn.commit()
         return cursor.rowcount > 0
 
     def get_active_mute(self, username: str) -> MuteRecord | None:
@@ -1810,8 +1856,6 @@ class Database:
             "DELETE FROM mutes WHERE username = ? COLLATE BINARY AND expires_at IS NOT NULL AND expires_at <= ?",
             (username, now),
         )
-        if cursor.rowcount:
-            self._conn.commit()
 
         # Fetch the most-recent active mute
         cursor.execute(
@@ -1994,7 +2038,6 @@ class Database:
                 "",
             ),
         )
-        self._conn.commit()
 
     def load_table(self, table_id: str) -> Table | None:
         """Load a table from the database."""
@@ -2071,13 +2114,11 @@ class Database:
         """Delete a table from the database."""
         cursor = self._conn.cursor()
         cursor.execute("DELETE FROM tables WHERE table_id = ?", (table_id,))
-        self._conn.commit()
 
     def delete_all_tables(self) -> None:
         """Delete all tables from the database."""
         cursor = self._conn.cursor()
         cursor.execute("DELETE FROM tables")
-        self._conn.commit()
 
     def save_all_tables(
         self,
@@ -2089,8 +2130,7 @@ class Database:
     ) -> None:
         """Save multiple tables in a single transaction."""
         checkpoint_created_at = datetime.now().isoformat()
-        with self._conn:
-            cursor = self._conn.cursor()
+        with self._transaction(immediate=True) as cursor:
             cursor.execute("DELETE FROM tables")
             for table in tables:
                 members_json = json.dumps(
@@ -2151,7 +2191,6 @@ class Database:
         """,
             (username, save_name, game_type, game_json, members_json, saved_at),
         )
-        self._conn.commit()
 
         return SavedTableRecord(
             id=cursor.lastrowid,
@@ -2229,7 +2268,6 @@ class Database:
         """Delete a saved table."""
         cursor = self._conn.cursor()
         cursor.execute("DELETE FROM saved_tables WHERE id = ?", (save_id,))
-        self._conn.commit()
 
     # Game result operations (statistics)
 
@@ -2254,7 +2292,26 @@ class Database:
         Returns:
             The result ID
         """
-        cursor = self._conn.cursor()
+        with self._transaction(immediate=True) as cursor:
+            return self._save_game_result_in_transaction(
+                cursor,
+                game_type,
+                timestamp,
+                duration_ticks,
+                players,
+                custom_data,
+            )
+
+    def _save_game_result_in_transaction(
+        self,
+        cursor: sqlite3.Cursor,
+        game_type: str,
+        timestamp: str,
+        duration_ticks: int,
+        players: list[tuple[str, str, bool]],
+        custom_data: dict | None,
+    ) -> int:
+        """Persist one result and its derived records atomically."""
 
         # Insert the main result record
         cursor.execute(
@@ -2318,7 +2375,6 @@ class Database:
                             DO UPDATE SET stat_value = stat_value + excluded.stat_value
                         """, (p_id, game_type, stat_key, float(stat_value)))
 
-        self._conn.commit()
         return result_id
 
     def get_player_game_history(
@@ -2621,22 +2677,26 @@ class Database:
             INSERT OR REPLACE INTO smtp_config (id, host, port, username, password, from_email, from_name, encryption_type)
             VALUES (1, ?, ?, ?, ?, ?, ?, ?)
         """, (host, port, username, password, from_email, from_name, encryption_type))
-        self._conn.commit()
 
     # Password Reset Token Operations
 
     def save_password_reset_token(self, user_uuid: str, token_hash: str, expires_at: str) -> None:
         """Save a new password reset token and delete any existing ones for this user."""
         now = datetime.now().isoformat()
-        cursor = self._conn.cursor()
-        # Delete old tokens for user
-        cursor.execute("DELETE FROM password_reset_tokens WHERE user_uuid = ?", (user_uuid,))
-        # Insert new token
-        cursor.execute("""
-            INSERT INTO password_reset_tokens (user_uuid, token_hash, created_at, expires_at)
-            VALUES (?, ?, ?, ?)
-        """, (user_uuid, token_hash, now, expires_at))
-        self._conn.commit()
+        with self._transaction(immediate=True) as cursor:
+            cursor.execute(
+                "DELETE FROM password_reset_tokens WHERE user_uuid = ?",
+                (user_uuid,),
+            )
+            cursor.execute(
+                """
+                INSERT INTO password_reset_tokens (
+                    user_uuid, token_hash, created_at, expires_at
+                )
+                VALUES (?, ?, ?, ?)
+                """,
+                (user_uuid, token_hash, now, expires_at),
+            )
 
     def get_password_reset_token(self, user_uuid: str) -> dict | None:
         """Get the active password reset token for a user."""
@@ -2656,7 +2716,6 @@ class Database:
         """Delete all password reset tokens for a user."""
         cursor = self._conn.cursor()
         cursor.execute("DELETE FROM password_reset_tokens WHERE user_uuid = ?", (user_uuid,))
-        self._conn.commit()
 
     # Social / Friend Operations
 
@@ -2669,41 +2728,44 @@ class Database:
         'already_friends': Already accepted.
         """
         now = datetime.now().isoformat()
-        cursor = self._conn.cursor()
+        with self._transaction(immediate=True) as cursor:
+            cursor.execute(
+                """
+                SELECT status, requester_id FROM friendships
+                WHERE (requester_id = ? AND receiver_id = ?)
+                   OR (requester_id = ? AND receiver_id = ?)
+                """,
+                (requester_id, receiver_id, receiver_id, requester_id),
+            )
 
-        # Check existing connection
-        cursor.execute("""
-            SELECT status, requester_id FROM friendships
-            WHERE (requester_id = ? AND receiver_id = ?)
-               OR (requester_id = ? AND receiver_id = ?)
-        """, (requester_id, receiver_id, receiver_id, requester_id))
-
-        row = cursor.fetchone()
-        if row:
-            status = row["status"]
-            existing_requester = row["requester_id"]
-
-            if status == "accepted":
-                return "already_friends"
-            elif status == "pending":
-                if existing_requester == requester_id:
-                    return "duplicate"
-                else:
-                    # They sent one to us, we are sending one back -> Accept!
-                    cursor.execute("""
+            row = cursor.fetchone()
+            if row:
+                status = row["status"]
+                existing_requester = row["requester_id"]
+                if status == "accepted":
+                    return "already_friends"
+                if status == "pending":
+                    if existing_requester == requester_id:
+                        return "duplicate"
+                    cursor.execute(
+                        """
                         UPDATE friendships SET status = 'accepted'
                         WHERE requester_id = ? AND receiver_id = ?
-                    """, (existing_requester, requester_id))
-                    self._conn.commit()
+                        """,
+                        (existing_requester, requester_id),
+                    )
                     return "accepted"
 
-        # No existing relation, insert pending
-        cursor.execute("""
-            INSERT INTO friendships (requester_id, receiver_id, status, created_at)
-            VALUES (?, ?, 'pending', ?)
-        """, (requester_id, receiver_id, now))
-        self._conn.commit()
-        return "sent"
+            cursor.execute(
+                """
+                INSERT INTO friendships (
+                    requester_id, receiver_id, status, created_at
+                )
+                VALUES (?, ?, 'pending', ?)
+                """,
+                (requester_id, receiver_id, now),
+            )
+            return "sent"
 
     def accept_friend_request(self, requester_id: str, receiver_id: str) -> bool:
         """Accept a pending friend request."""
@@ -2712,7 +2774,6 @@ class Database:
             UPDATE friendships SET status = 'accepted'
             WHERE requester_id = ? AND receiver_id = ? AND status = 'pending'
         """, (requester_id, receiver_id))
-        self._conn.commit()
         return cursor.rowcount > 0
 
     def remove_friendship(self, user1_id: str, user2_id: str) -> bool:
@@ -2723,7 +2784,6 @@ class Database:
             WHERE (requester_id = ? AND receiver_id = ?)
                OR (requester_id = ? AND receiver_id = ?)
         """, (user1_id, user2_id, user2_id, user1_id))
-        self._conn.commit()
         return cursor.rowcount > 0
 
     def get_friends(self, user_id: str) -> list[str]:
@@ -2783,26 +2843,31 @@ class Database:
             INSERT INTO user_notifications (user_id, source_username, event_type, created_at)
             VALUES (?, ?, ?, ?)
         """, (user_id, source_username, event_type, now))
-        self._conn.commit()
 
     def get_and_clear_notifications(self, user_id: str) -> list[dict]:
         """Retrieve and immediately delete all notifications for a user."""
-        cursor = self._conn.cursor()
-        cursor.execute("""
-            SELECT id, source_username, event_type
-            FROM user_notifications
-            WHERE user_id = ?
-            ORDER BY created_at ASC
-        """, (user_id,))
-
-        notifications = [
-            {"source_username": row["source_username"], "event_type": row["event_type"]}
-            for row in cursor.fetchall()
-        ]
-
-        if notifications:
-            cursor.execute("DELETE FROM user_notifications WHERE user_id = ?", (user_id,))
-            self._conn.commit()
+        with self._transaction(immediate=True) as cursor:
+            cursor.execute(
+                """
+                SELECT source_username, event_type
+                FROM user_notifications
+                WHERE user_id = ?
+                ORDER BY created_at ASC
+                """,
+                (user_id,),
+            )
+            notifications = [
+                {
+                    "source_username": row["source_username"],
+                    "event_type": row["event_type"],
+                }
+                for row in cursor.fetchall()
+            ]
+            if notifications:
+                cursor.execute(
+                    "DELETE FROM user_notifications WHERE user_id = ?",
+                    (user_id,),
+                )
 
         return notifications
 
@@ -2842,7 +2907,6 @@ class Database:
             """,
             (player_id, game_type, mu, sigma),
         )
-        self._conn.commit()
 
     def get_rating_leaderboard(
         self, game_type: str, limit: int = 10

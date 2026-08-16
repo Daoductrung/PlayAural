@@ -2352,6 +2352,35 @@ def test_board_menu_sorts_regional_boards_by_the_viewers_localized_names() -> No
     ]
 
 
+def test_stale_trade_target_keeps_updated_target_prompt_open() -> None:
+    game = make_game(player_count=3, start=True)
+    proposer, stale_target, current_target = game.players
+    force_current(game)
+    user = game.get_user(proposer)
+    assert user is not None
+
+    game.execute_action(proposer, "propose_trade")
+    assert game._pending_actions[proposer.id] == "propose_trade"
+
+    stale_target.bankrupt = True
+    user.clear_messages()
+    game.handle_event(
+        proposer,
+        {
+            "type": "menu",
+            "menu_id": "action_input_menu",
+            "selection_id": stale_target.id,
+        },
+    )
+
+    assert game.trade_state is None
+    assert game._pending_actions[proposer.id] == "propose_trade"
+    assert [
+        item.id
+        for item in user.get_current_menu_items("action_input_menu") or []
+    ] == [current_target.id, "_cancel"]
+
+
 def test_property_detail_can_return_to_full_list_without_leaving_management() -> None:
     game = make_game(start=True, touch=True)
     player = game.players[0]

@@ -305,6 +305,8 @@ class MenuManagementMixin:
                 if pre_input_check and pre_input_check(player, action.id):
                     return False
             return bool(self._get_menu_options_for_action(action, player))
+        if isinstance(request, EditboxInput):
+            return self._should_prompt_for_action_input(action, player)
         return True
 
     def _discard_pending_action_input(

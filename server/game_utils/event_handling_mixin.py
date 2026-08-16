@@ -253,7 +253,31 @@ class EventHandlingMixin:
 
         elif menu_id == "action_input_menu":
             # Handle action input menu selection
-            cancelled = selection_id in ("_cancel", "back")
+            action_id = self._pending_actions.get(player.id)
+            action = self.find_action(player, action_id) if action_id else None
+            request = action.input_request if action else None
+            options = (
+                self._get_menu_options_for_action(action, player)
+                if isinstance(request, MenuInput)
+                else None
+            )
+            choice = selection_id
+            if not choice and options is not None:
+                selection = event.get("selection")
+                if isinstance(selection, int) and not isinstance(selection, bool):
+                    indexed_choices = [*options, "_cancel"]
+                    index = selection - 1
+                    if 0 <= index < len(indexed_choices):
+                        choice = indexed_choices[index]
+
+            cancelled = choice in ("_cancel", "back")
+            if options is None or (not cancelled and choice not in options):
+                # Dynamic inputs can change while a client's earlier response
+                # is in flight. Keep the authoritative prompt open rather than
+                # dispatching a stale/forged value or closing a newer overlay.
+                self._restore_pending_action_input(player)
+                return
+
             return_focus = None
             if player.id in self._pending_actions:
                 action_id = self._pending_actions.pop(player.id)
@@ -272,7 +296,7 @@ class EventHandlingMixin:
                     self.execute_action(
                         player,
                         action_id,
-                        selection_id,
+                        choice,
                         context=context,
                     )
             if cancelled and return_focus:

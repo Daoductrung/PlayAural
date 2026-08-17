@@ -138,7 +138,7 @@ def test_registration_metadata_and_catalog_count() -> None:
         "rating",
         "games_played",
     ]
-    assert len(GameRegistry.get_all()) == 45
+    assert len(GameRegistry.get_all()) == 46
     assert get_board_ids() == (
         "australia",
         "germany",

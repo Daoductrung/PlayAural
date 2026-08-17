@@ -781,11 +781,29 @@ Mobile rules:
   language names; metadata complements it and does not replace it.
 
 ### Game Counts and Catalog
-The server currently registers **45 games**:
+The server currently registers **46 games**:
 - category ids are `cards`, `dice`, `board`, `poker`, `arcade`, and `misc`
 - the Play menu exposes a persisted category filter with dynamic per-category game counts
 - games usually expose one category through `get_category()`, while `get_categories()` supports future multi-category games
-- recent additions include `Metal Pipe`, `Nine`, `Senet`, `Cards Against Humanity`, `21`, `Age of Heroes`, `UNO`, `Exploding Kittens`, `BANG! The Bullet`, and `Monopoly`
+- recent additions include `Metal Pipe`, `Nine`, `Senet`, `Cards Against Humanity`, `21`, `Age of Heroes`, `UNO`, `Exploding Kittens`, `BANG! The Bullet`, `Monopoly`, and `Lounge`
+
+#### Games Without a Play Phase
+`Game.has_play_phase()` returns `True` for every game that waits in a lobby
+until the host starts it. A social room returns `False`: its `waiting` status
+is its live state, it never becomes `playing`, and it therefore keeps letting
+newcomers take a seat instead of turning them into spectators. `Lounge` is the
+current example.
+
+Framework code that reads `waiting` as "has not begun yet" must ask this hook
+rather than special-casing a game type. Current consumers are the table
+listings (`_table_status_key`, which reports `table-status-open-room`), the
+table-creation prompt (which skips `waiting-for-players`), and the cross-game
+touch-menu invariant in `server/tests/test_touch_client_support.py`.
+
+Such a game owns the rest of its lobby story: it refuses `start_game` through
+`_is_start_game_enabled` with a localized explanation, hides the dead Start
+row, refuses bots and table saves the same way, and keeps its gameplay keybinds
+in `KeybindState.IDLE`.
 
 ### Key Tech Stack
 - Python 3.11, `asyncio`, `websockets>=12.0`, `mashumaro`, `fluent-runtime`, `openskill`, `argon2-cffi`

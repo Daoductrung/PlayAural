@@ -2510,6 +2510,24 @@ PlayAural Server
         )
         self._user_states[user.username] = {"menu": "active_tables_filter_menu"}
 
+    def _table_status_key(self, table: "Table") -> str:
+        """Return the localized status key describing a table in a listing.
+
+        Games without a play phase (social rooms such as the Lounge) are live
+        while their status is "waiting", so reporting them as waiting would
+        tell listeners the room has not begun when in fact it is open.
+        """
+        game = table.game
+        if not game:
+            return "table-status-waiting"
+        if game.status == "playing":
+            return "table-status-playing"
+        if game.status == "finished":
+            return "table-status-finished"
+        if not game.has_play_phase():
+            return "table-status-open-room"
+        return "table-status-waiting"
+
     def _get_tables_menu_items(
         self, user: NetworkUser, game_type: str, page: int = 1
     ) -> tuple[list[MenuItem], PaginatedMenuPage[Any]]:
@@ -2561,18 +2579,7 @@ PlayAural Server
                 if member.username != table.host
             ]
             members_str = Localization.format_list_and(user.locale, member_names)
-            if table.game:
-                if table.game.status == "waiting":
-                    status_key = "table-status-waiting"
-                elif table.game.status == "playing":
-                    status_key = "table-status-playing"
-                elif table.game.status == "finished":
-                    status_key = "table-status-finished"
-                else:
-                    status_key = "table-status-waiting"
-            else:
-                status_key = "table-status-waiting"
-            status_text = Localization.get(user.locale, status_key)
+            status_text = Localization.get(user.locale, self._table_status_key(table))
 
             if member_count == 1:
                 listing_key = "table-listing-game-one-status"
@@ -2688,18 +2695,7 @@ PlayAural Server
             ]
             members_str = Localization.format_list_and(user.locale, member_names)
 
-            if table.game:
-                if table.game.status == "waiting":
-                    status_key = "table-status-waiting"
-                elif table.game.status == "playing":
-                    status_key = "table-status-playing"
-                elif table.game.status == "finished":
-                    status_key = "table-status-finished"
-                else:
-                    status_key = "table-status-waiting"
-            else:
-                status_key = "table-status-waiting"
-            status_text = Localization.get(user.locale, status_key)
+            status_text = Localization.get(user.locale, self._table_status_key(table))
 
             if member_count == 1:
                 listing_key = "table-listing-game-one-status"
@@ -6469,15 +6465,19 @@ PlayAural Server
                             game=local_game_name
                         )
 
-                min_players = game_class.get_min_players()
-                max_players = game_class.get_max_players()
-                user.speak_l(
-                    "waiting-for-players",
-                    buffer="game",
-                    current=len(game.players),
-                    min=min_players,
-                    max=max_players,
-                )
+                # A room without a play phase is already open, so the
+                # "waiting for players" prompt would misdescribe it. Those
+                # games greet their host themselves when the seat is created.
+                if game_class.has_play_phase():
+                    min_players = game_class.get_min_players()
+                    max_players = game_class.get_max_players()
+                    user.speak_l(
+                        "waiting-for-players",
+                        buffer="game",
+                        current=len(game.players),
+                        min=min_players,
+                        max=max_players,
+                    )
 
         elif selection_id.startswith("table_"):
             table_id = selection_id[6:]  # Remove "table_" prefix

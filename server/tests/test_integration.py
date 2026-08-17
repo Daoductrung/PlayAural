@@ -257,6 +257,7 @@ class TestGameRegistryIntegration:
             "humanitycards": "cards",
             "leftrightcenter": "dice",
             "lightturret": "arcade",
+            "lounge": "misc",
             "ludo": "board",
             "metalpipe": "misc",
             "midnight": "dice",

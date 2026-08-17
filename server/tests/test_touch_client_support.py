@@ -169,6 +169,26 @@ def test_touch_waiting_lobby_hides_gameplay_actions_for_all_games(game_cls) -> N
     game, player = _new_game_with_players(game_cls, 1)
 
     assert game.status != "playing"
+
+    if not game_cls.has_play_phase():
+        # A room without a play phase (the Lounge) is already live while its
+        # status is "waiting", so its tools are meant to be reachable there.
+        # What must still hold is that a spectator only reaches the read-only
+        # subset, and never a seated-only tool such as the turn-set actions.
+        seated_ids = set(_touch_waiting_gameplay_action_ids(game, player))
+        assert seated_ids
+
+        watcher = MockUser("Watcher", uuid=f"new-game-{game.get_type()}-watcher")
+        watcher.client_type = "mobile"
+        spectator = game.add_spectator("Watcher", watcher)
+        spectator_ids = set(_touch_waiting_gameplay_action_ids(game, spectator))
+
+        assert spectator_ids < seated_ids
+        turn_set = game.get_action_set(spectator, "turn")
+        assert turn_set is not None
+        assert turn_set.get_visible_actions(game, spectator) == []
+        return
+
     assert _touch_waiting_gameplay_action_ids(game, player) == []
 
 

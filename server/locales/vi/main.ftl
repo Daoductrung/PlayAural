@@ -96,6 +96,7 @@ table-listing-game-with-status = { $game } [{ $status }]: Bàn của { $host } (
 table-status-waiting = Đang chờ
 table-status-playing = Đang chơi
 table-status-finished = Đã xong
+table-status-open-room = Phòng đang mở
 table-not-exists = Bàn chơi không còn tồn tại.
 table-full = Bàn đã đầy.
 player-replaced-by-bot = { $bot } đang chơi thay cho { $player }.

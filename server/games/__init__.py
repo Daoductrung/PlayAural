@@ -49,6 +49,7 @@ from .uno.game import UnoGame
 from .explodingkittens.game import ExplodingKittensGame
 from .bang.game import BangGame
 from .monopoly.game import MonopolyGame
+from .lounge.game import LoungeGame
 
 __all__ = [
     "Game",
@@ -100,4 +101,5 @@ __all__ = [
     "ExplodingKittensGame",
     "BangGame",
     "MonopolyGame",
+    "LoungeGame",
 ]

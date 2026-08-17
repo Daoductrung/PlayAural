@@ -259,6 +259,19 @@ class Game(
         return (normalize_category(cls.get_category()),)
 
     @classmethod
+    def has_play_phase(cls) -> bool:
+        """Return whether this game has a gameplay phase after the lobby.
+
+        Almost every game does: it waits in a lobby, the host starts it, and
+        ``status`` becomes "playing". A social room such as the Lounge does
+        not — its waiting state is its live state — so framework code that
+        reads "waiting" as "has not begun yet" (table listings, lobby
+        prompts, touch-menu expectations) asks here instead of special-casing
+        individual game types.
+        """
+        return True
+
+    @classmethod
     def get_min_players(cls) -> int:
         """Return minimum number of players."""
         return 2

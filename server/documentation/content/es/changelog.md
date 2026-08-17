@@ -1,5 +1,21 @@
 Registro de cambios
 
+Domingo 16 de agosto de 2026
+
+Novedades:
+
+* Se añadió Monopolio para 2 a 8 jugadores. Elige entre los tableros de Estados Unidos, Londres, París, Alemania, Italia, Madrid, Tokio, Australia, Nueva Zelanda, y Hanói, Vietnam, cada uno con sus propias casillas, moneda, cartas, transporte, y términos de desarrollo. El juego incluye compra y subasta de propiedades, cobro de alquiler, grupos de color completos, desarrollo parejo, hipotecas, intercambios, cárcel, deuda y bancarrota, reglas de casa configurables, bots estratégicos, Anuncios breves, vistas de propiedades y tablero compatibles con lectores de pantalla, música y sonido dedicados, y guías para principiantes en inglés y vietnamita.
+
+Mejoras:
+
+* El Chat de Voz de escritorio ahora se mantiene fluido cuando varias personas hablan o las conexiones fluctúan brevemente, reduciendo los chasquidos, las interrupciones, las palabras cortadas, y el audio retrasado, mientras conserva la calidad estéreo del audio entrante.
+* Los jugadores hispanohablantes ahora ven los personajes preestablecidos y movimientos de Batalla en español, y los nombres de los atajos de teclado son consistentes en todas las guías de jugador en español.
+
+Corrección de errores:
+
+* El registro de cuentas ya no falla ocasionalmente con un error del servidor mientras se actualizan otros registros de cuentas o de partidas.
+* Las opciones de juego y los mensajes de texto ahora se mantienen sincronizados cuando la mesa cambia mientras un mensaje está abierto. Esto evita que falten los controles de compra de propiedades, que los menús de subasta de Monopolio queden atascados, que los campos de entrada se queden obsoletos, o que decisiones ya vencidas surtan efecto después de que la partida avanzó.
+
 Miércoles 5 de agosto de 2026
 
 Novedades:

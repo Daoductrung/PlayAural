@@ -159,6 +159,7 @@ export default {
 
   "auth-error-wrong-password": "Contraseña incorrecta.",
   "auth-error-user-not-found": "El usuario no existe.",
+  "auth-error-username-ambiguous": "Hay más de una cuenta antigua que coincide con esta escritura. Ingresa el nombre de usuario exactamente como está registrado.",
   "auth-error-version-mismatch": "La versión del cliente no coincide. El servidor se actualizó. Actualiza esta página, o borra la caché del navegador e inténtalo de nuevo.",
   "auth-error-captcha-unavailable": "No se pudo iniciar la verificación porque reCAPTCHA fue bloqueado o no se pudo cargar. Permite reCAPTCHA para este sitio e inténtalo de nuevo.",
   "auth-error-captcha-execute-failed": "No se pudo completar la verificación. Recarga la página e inténtalo de nuevo.",

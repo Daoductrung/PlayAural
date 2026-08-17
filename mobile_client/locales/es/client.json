@@ -158,6 +158,7 @@
   "auth-registration-error": "El registro falló debido a un error del servidor. Inténtalo de nuevo.",
   "auth-error-wrong-password": "Contraseña incorrecta.",
   "auth-error-user-not-found": "El usuario no existe.",
+  "auth-error-username-ambiguous": "Hay más de una cuenta antigua que coincide con esta escritura. Ingresa el nombre de usuario exactamente como está registrado.",
   "auth-error-version-mismatch": "La versión del cliente no coincide. El servidor se actualizó a una versión más reciente. Actualiza la app para continuar.",
   "auth-error-username-length": "El nombre de usuario debe tener entre 3 y 30 caracteres.",
   "auth-error-username-invalid-chars": "El nombre de usuario solo puede contener letras, números y espacios. No uses espacios consecutivos ni caracteres especiales.",

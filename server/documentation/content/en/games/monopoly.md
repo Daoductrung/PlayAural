@@ -94,9 +94,9 @@ Rent depends on the property type:
 
 \* \*\*Street or Hanoi business:\*\* Uses the rent level on its deed. An undeveloped property earns double its base rent when one player owns the complete color group.
 \* \*\*Railroad, station, or Hanoi bus station:\*\* Rent rises as the owner collects more transit properties.
-\* \*\*Utility or Hanoi landmark:\*\* Rent is normally 4 times the dice total when the owner has one, or 10 times the dice total when the owner has both.
+\* \*\*Utility or Hanoi landmark:\*\* When you land on an owned utility or landmark, make a fresh rent roll. Each dice pip is worth 4 units of that board's currency when the owner has one, or 10 units when the owner has the complete group. On the Hanoi board, each pip is worth 4,000 VND with one landmark or 10,000 VND with both.
 
-Some cards send you to the nearest transit property or utility. A transit property reached this way charges double rent. An owned utility reached this way uses a fresh dice roll and charges 10 times that total.
+Some cards send you to the nearest transit property or utility. A transit property reached this way charges double rent. An owned utility reached this way uses the same fresh rent roll but charges the complete-group rate even when its owner has only one utility.
 
 \*\*Color groups and development\*\*
 

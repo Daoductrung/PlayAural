@@ -76,7 +76,7 @@ def calculate_rent(
                 else board.rules.utility_single_multiplier
             )
         )
-        return max(0, dice_total) * factor
+        return max(0, dice_total) * factor * board.rules.utility_dice_unit
     return 0
 
 

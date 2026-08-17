@@ -94,9 +94,9 @@ Tiền thuê phụ thuộc vào loại bất động sản:
 
 \* \*\*Đường phố hoặc hàng quán Hà Nội:\*\* Dùng mức tiền thuê trên giấy sở hữu. Bất động sản chưa phát triển thu gấp đôi mức cơ bản khi một người sở hữu trọn nhóm màu.
 \* \*\*Đường sắt, nhà ga hoặc bến xe Hà Nội:\*\* Tiền thuê tăng khi chủ sở hữu có thêm bất động sản giao thông.
-\* \*\*Công ty tiện ích hoặc địa danh Hà Nội:\*\* Tiền thuê thường bằng 4 lần tổng xúc xắc khi chủ sở hữu có một nơi, hoặc 10 lần khi có cả hai.
+\* \*\*Công ty tiện ích hoặc địa danh Hà Nội:\*\* Khi dừng tại công ty tiện ích hoặc địa danh đã có chủ, bạn tung một lần mới để tính tiền thuê. Mỗi điểm xúc xắc trị giá 4 đơn vị tiền của bàn cờ khi chủ sở hữu có một nơi, hoặc 10 đơn vị khi có trọn nhóm. Riêng bàn cờ Hà Nội, mỗi điểm trị giá 4.000 đồng khi chủ sở hữu có một địa danh hoặc 10.000 đồng khi có cả hai.
 
-Một số thẻ đưa bạn đến bất động sản giao thông hoặc công ty tiện ích gần nhất. Bất động sản giao thông đến bằng cách này thu gấp đôi tiền thuê. Công ty tiện ích đã có chủ sẽ dùng một lần tung mới và thu 10 lần tổng vừa tung.
+Một số thẻ đưa bạn đến bất động sản giao thông hoặc công ty tiện ích gần nhất. Bất động sản giao thông đến bằng cách này thu gấp đôi tiền thuê. Công ty tiện ích đã có chủ vẫn dùng lần tung mới, nhưng áp dụng mức của trọn nhóm ngay cả khi chủ sở hữu mới có một công ty.
 
 \*\*Nhóm màu và phát triển\*\*
 

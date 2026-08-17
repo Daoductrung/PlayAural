@@ -112,9 +112,9 @@ El alquiler depende del tipo de propiedad:
 
 \* \*\*Ferrocarril, estación o estación de autobús de Hanói:\*\* El alquiler sube a medida que el dueño acumula más propiedades de tránsito.
 
-\* \*\*Compañía de servicios o monumento de Hanói:\*\* El alquiler es normalmente 4 veces el total de los dados cuando el dueño tiene una, o 10 veces el total de los dados cuando el dueño tiene ambas.
+\* \*\*Compañía de servicios o monumento de Hanói:\*\* Cuando caes en una compañía de servicios o un monumento con dueño, haces una nueva tirada para calcular el alquiler. Cada punto vale 4 unidades de la moneda del tablero cuando el dueño tiene una propiedad, o 10 unidades cuando tiene el grupo completo. En el tablero de Hanói, cada punto vale 4000 VND con un monumento o 10 000 VND con ambos.
 
-Algunas cartas te envían a la propiedad de tránsito o compañía de servicios más cercana. Una propiedad de tránsito a la que llegas así cobra el doble de alquiler. Una compañía de servicios con dueño a la que llegas así usa una nueva tirada de dados y cobra 10 veces ese total.
+Algunas cartas te envían a la propiedad de tránsito o compañía de servicios más cercana. Una propiedad de tránsito a la que llegas así cobra el doble de alquiler. Una compañía de servicios con dueño a la que llegas así usa la misma tirada nueva, pero cobra la tarifa del grupo completo aunque su dueño solo tenga una.
 
 \*\*Grupos de color y desarrollo\*\*
 

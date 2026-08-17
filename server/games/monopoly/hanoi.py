@@ -176,6 +176,7 @@ HANOI_BOARD = BoardDefinition(
     rules=RuleDefinition(
         auction_opening_bid=10_000,
         auction_bid_increment=5_000,
+        utility_dice_unit=1_000,
     ),
 )
 

@@ -903,6 +903,7 @@ def test_hanoi_board_has_authentic_layout_economy_and_rule_values() -> None:
     assert HANOI_BOARD.jail_fine == 100_000
     assert HANOI_BOARD.rules.auction_opening_bid == 10_000
     assert HANOI_BOARD.rules.auction_bid_increment == 5_000
+    assert HANOI_BOARD.rules.utility_dice_unit == 1_000
     assert HANOI_BOARD.development.finite_supply is False
     assert len(HANOI_BOARD.development.level_keys) == 5
     assert HANOI_BOARD.card("chance", "chance_dividend").amount == 50_000
@@ -1099,15 +1100,21 @@ def test_hanoi_board_uses_localized_space_deck_and_development_terms() -> None:
     assert "loại: địa danh" in game._property_description(
         "vi", "one_pillar_pagoda"
     )
-    assert "both landmarks" in game._property_description(
-        "en", "one_pillar_pagoda"
-    )
-    assert "cả hai địa danh" in game._property_description(
-        "vi", "one_pillar_pagoda"
-    )
+    english_landmark = game._property_description("en", "one_pillar_pagoda")
+    vietnamese_landmark = game._property_description("vi", "one_pillar_pagoda")
+    assert "4,000 VND per dice pip" in english_landmark
+    assert "10,000 VND per dice pip" in english_landmark
+    assert "both landmarks" in english_landmark
+    assert "4.000 đồng cho mỗi điểm xúc xắc" in vietnamese_landmark
+    assert "10.000 đồng cho mỗi điểm" in vietnamese_landmark
+    assert "cả hai địa danh" in vietnamese_landmark
     nearest_landmark = game.board.card("chance", "chance_utility")
     assert "nearest landmark" in game._card_text("en", nearest_landmark)
+    assert "10,000 VND per dice pip" in game._card_text("en", nearest_landmark)
     assert "địa danh gần nhất" in game._card_text("vi", nearest_landmark)
+    assert "10.000 đồng cho mỗi điểm xúc xắc" in game._card_text(
+        "vi", nearest_landmark
+    )
     assert "Lucky Draw" in game._jail_card_option_label(
         player, "chance_jail_free"
     )
@@ -1216,6 +1223,13 @@ def test_board_validation_rejects_invalid_regional_content() -> None:
         )
     with pytest.raises(ValueError, match="must contain pieces"):
         validate_board(replace(BOARD, bank_houses=0))
+    with pytest.raises(ValueError, match="safe ranges"):
+        validate_board(
+            replace(
+                BOARD,
+                rules=replace(BOARD.rules, utility_dice_unit=0),
+            )
+        )
 
     with pytest.raises(ValueError, match="name key already registered"):
         register_board(
@@ -2875,6 +2889,146 @@ def test_rent_math_for_sets_transit_utilities_and_mortgage() -> None:
         == 84
     )
 
+    hanoi_states = {
+        space.id: PropertyState()
+        for space in HANOI_BOARD.spaces
+        if space.kind in {"street", "transit", "utility"}
+    }
+    hanoi_states["one_pillar_pagoda"].owner_id = "p1"
+    assert (
+        calculate_rent(
+            HANOI_BOARD,
+            hanoi_states,
+            HANOI_BOARD.space("one_pillar_pagoda"),
+            7,
+        )
+        == 28_000
+    )
+    hanoi_states["long_bien_bridge"].owner_id = "p1"
+    assert (
+        calculate_rent(
+            HANOI_BOARD,
+            hanoi_states,
+            HANOI_BOARD.space("one_pillar_pagoda"),
+            7,
+        )
+        == 70_000
+    )
+    assert (
+        calculate_rent(
+            HANOI_BOARD,
+            hanoi_states,
+            HANOI_BOARD.space("one_pillar_pagoda"),
+            8,
+            rent_multiplier=10,
+            utility_override=True,
+        )
+        == 80_000
+    )
+
+
+@pytest.mark.parametrize("owner_is_bot", [False, True])
+def test_hanoi_landmark_rent_roll_is_scaled_equally_for_human_and_bot_owners(
+    owner_is_bot: bool,
+) -> None:
+    game = make_game()
+    game.options.board_id = "hanoi"
+    game.on_start()
+    drain_sequence(game, "monopoly_intro")
+    tenant, owner = game.players[:2]
+    tenant_user = game.get_user(tenant)
+    owner_user = game.get_user(owner)
+    assert tenant_user is not None and owner_user is not None
+    owner.is_bot = owner_is_bot
+    force_current(game)
+    own_group(game, owner.id, "utility")
+    tenant.position = HANOI_BOARD.space_index("one_pillar_pagoda")
+    game.last_die_1 = 6
+    game.last_die_2 = 6
+    game._roll_pair = lambda: (3, 4)  # type: ignore[method-assign]
+    tenant_user.clear_messages()
+    owner_user.clear_messages()
+
+    game._resolve_landing(tenant)
+
+    assert game.has_active_sequence(tag="monopoly_utility_rent")
+    assert game.rent_state is None
+    assert tenant_user.get_last_spoken() == (
+        "Your new landmark rent roll is 3 and 4, totaling 7."
+    )
+    assert owner_user.get_last_spoken() == (
+        f"{tenant.name}'s new landmark rent roll is 3 and 4, totaling 7."
+    )
+    assert (game.last_die_1, game.last_die_2) == (3, 4)
+
+    drain_sequence(game, "monopoly_utility_rent")
+
+    assert game.phase == PHASE_RENT
+    assert game.decision_player_id == owner.id
+    assert game.rent_state == RentState(
+        tenant_id=tenant.id,
+        owner_id=owner.id,
+        property_id="one_pillar_pagoda",
+        amount=70_000,
+    )
+    assert owner_user.get_last_spoken() == (
+        f"{tenant.name} landed on your One Pillar Pagoda. "
+        "You may claim 70,000 VND rent or waive it."
+    )
+    tenant_cash = tenant.cash
+    owner_cash = owner.cash
+
+    game._action_claim_rent(owner, "claim_rent")
+    game._action_pay_debt(tenant, "pay_debt")
+
+    assert tenant.cash == tenant_cash - 70_000
+    assert owner.cash == owner_cash + 70_000
+
+
+def test_nearest_hanoi_landmark_card_uses_scaled_complete_group_rate() -> None:
+    game = make_game()
+    game.options.board_id = "hanoi"
+    game.on_start()
+    drain_sequence(game, "monopoly_intro")
+    tenant, owner = game.players[:2]
+    force_current(game)
+    game.property_states["one_pillar_pagoda"].owner_id = owner.id
+    tenant.position = HANOI_BOARD.space_index("cau_go")
+    game._roll_pair = lambda: (2, 3)  # type: ignore[method-assign]
+
+    game._move_to(
+        tenant,
+        "one_pillar_pagoda",
+        collect_go=True,
+        rent_multiplier=10,
+        utility_override=True,
+    )
+    drain_sequence(game, "monopoly_utility_rent")
+
+    assert game.rent_state is not None
+    assert game.rent_state.amount == 50_000
+
+
+def test_utility_rent_roll_sequence_survives_save_and_restore() -> None:
+    game = make_game()
+    game.options.board_id = "hanoi"
+    game.on_start()
+    drain_sequence(game, "monopoly_intro")
+    tenant, owner = game.players[:2]
+    force_current(game)
+    own_group(game, owner.id, "utility")
+    tenant.position = HANOI_BOARD.space_index("long_bien_bridge")
+    game._roll_pair = lambda: (5, 4)  # type: ignore[method-assign]
+
+    game._resolve_landing(tenant)
+    restored = MonopolyGame.from_json(game.to_json())
+
+    assert restored.has_active_sequence(tag="monopoly_utility_rent")
+    drain_sequence(restored, "monopoly_utility_rent")
+    assert restored.rent_state is not None
+    assert restored.rent_state.amount == 90_000
+    assert restored.phase == PHASE_RENT
+
 
 def test_rent_is_an_explicit_out_of_turn_owner_decision() -> None:
     game = make_game(start=True)
@@ -4166,8 +4320,19 @@ def test_gameplay_sequence_blocks_mutating_overlays_but_keeps_status_available()
     assert game.management_resume_phase == ""
     assert player.id not in game._pending_actions
 
+    user.clear_messages()
+    game.execute_action(player, "whose_turn")
+    assert user.get_last_spoken() == (
+        "It is your turn; you must wait for the current roll or space effect "
+        "to finish."
+    )
+
     game.execute_action(player, "read_status")
     assert "status_box" in user.menus
+    status_items = user.menus["status_box"]["items"]
+    assert "wait for the current roll or space effect to finish" in (
+        status_items[0].text
+    )
     drain_sequence(game, "monopoly_roll")
     game.flush_menus()
     assert "status_box" in user.menus

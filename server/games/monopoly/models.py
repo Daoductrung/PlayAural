@@ -85,6 +85,7 @@ class RuleDefinition:
     building_sale_percent: int = 50
     utility_single_multiplier: int = 4
     utility_complete_group_multiplier: int = 10
+    utility_dice_unit: int = 1
 
 
 @dataclass(frozen=True)

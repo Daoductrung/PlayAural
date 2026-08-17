@@ -167,6 +167,7 @@ def validate_board(board: BoardDefinition) -> None:
         or not 0 <= rules.building_sale_percent <= 100
         or rules.utility_single_multiplier <= 0
         or rules.utility_complete_group_multiplier <= 0
+        or rules.utility_dice_unit <= 0
     ):
         raise ValueError("Monopoly rule values are outside their safe ranges")
     group_ids = [group.id for group in board.property_groups]

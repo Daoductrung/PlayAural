@@ -1494,6 +1494,9 @@ class MonopolyGame(Game):
                 if not self.has_active_sequence(tag="monopoly_card"):
                     self._focus_after_user_transition(player)
             return
+        if callback_id == "resolve_utility_rent":
+            self._sequence_resolve_utility_rent(payload)
+            return
         if callback_id == "regular_roll_jail":
             player = self.get_player_by_id(str(payload.get("player_id", "")))
             if isinstance(player, MonopolyPlayer) and not player.bankrupt:
@@ -2839,8 +2842,16 @@ class MonopolyGame(Game):
             return Localization.get(
                 locale,
                 self.board.terminology.utility_rent_schedule_key,
-                single=self.board.rules.utility_single_multiplier,
-                complete=self.board.rules.utility_complete_group_multiplier,
+                single=self._money(
+                    locale,
+                    self.board.rules.utility_single_multiplier
+                    * self.board.rules.utility_dice_unit,
+                ),
+                complete=self._money(
+                    locale,
+                    self.board.rules.utility_complete_group_multiplier
+                    * self.board.rules.utility_dice_unit,
+                ),
             )
         return Localization.get(locale, "monopoly-not-applicable")
 
@@ -3481,26 +3492,16 @@ class MonopolyGame(Game):
                     )
                     self._finish_landing()
                     return
-                dice_total = self.last_die_1 + self.last_die_2
-                if space.kind == SPACE_UTILITY and utility_override:
-                    die_1, die_2 = self._roll_pair()
-                    dice_total = die_1 + die_2
-                    self._broadcast_actor(
+                if space.kind == SPACE_UTILITY:
+                    self._start_utility_rent_roll(
                         player,
-                        "monopoly-your-utility-rent-roll",
-                        "monopoly-player-utility-rent-roll",
-                        utility=lambda locale: Localization.get(
-                            locale, self.board.terminology.utility_kind_key
-                        ),
-                        die1=die_1,
-                        die2=die_2,
-                        total=dice_total,
-                        brief_personal_key="monopoly-your-utility-rent-roll-brief",
-                        brief_others_key="monopoly-player-utility-rent-roll-brief",
+                        owner,
+                        space,
+                        rent_multiplier=rent_multiplier,
+                        utility_override=utility_override,
                     )
-                    self.play_sound(
-                        random.choice(game_audio.SOUND_DICE_ROLLS)  # nosec B311
-                    )
+                    return
+                dice_total = self.last_die_1 + self.last_die_2
                 rent = calculate_rent(
                     self.board,
                     self.property_states,
@@ -3509,16 +3510,7 @@ class MonopolyGame(Game):
                     rent_multiplier=rent_multiplier,
                     utility_override=utility_override,
                 )
-                self.rent_state = RentState(
-                    tenant_id=player.id,
-                    owner_id=owner.id,
-                    property_id=space.id,
-                    amount=rent,
-                )
-                self.phase = PHASE_RENT
-                self.decision_player_id = owner.id
-                self._announce_rent_opportunity(owner, player, space, rent)
-                self.refresh_menus()
+                self._begin_rent_decision(player, owner, space, rent)
                 return
             self._finish_landing()
             return
@@ -3591,6 +3583,104 @@ class MonopolyGame(Game):
                 suppress_brief=True,
             )
         self._finish_landing()
+
+    def _start_utility_rent_roll(
+        self,
+        tenant: MonopolyPlayer,
+        owner: MonopolyPlayer,
+        space: BoardSpaceDefinition,
+        *,
+        rent_multiplier: int,
+        utility_override: bool,
+    ) -> None:
+        die_1, die_2 = self._roll_pair()
+        self.last_die_1 = die_1
+        self.last_die_2 = die_2
+        dice_total = die_1 + die_2
+        self._broadcast_actor(
+            tenant,
+            "monopoly-your-utility-rent-roll",
+            "monopoly-player-utility-rent-roll",
+            utility=lambda locale: Localization.get(
+                locale, self.board.terminology.utility_kind_key
+            ),
+            die1=die_1,
+            die2=die_2,
+            total=dice_total,
+            brief_personal_key="monopoly-your-utility-rent-roll-brief",
+            brief_others_key="monopoly-player-utility-rent-roll-brief",
+        )
+        roll_sound = random.choice(game_audio.SOUND_DICE_ROLLS)  # nosec B311
+        self.start_sequence(
+            (
+                f"monopoly_utility_rent_{self.turn_number}_"
+                f"{tenant.id}_{space.id}"
+            ),
+            [
+                SequenceBeat.after_audio(
+                    game_audio.sound_ticks(roll_sound),
+                    ops=[SequenceOperation.sound_op(roll_sound)],
+                ),
+                SequenceBeat(
+                    ops=[
+                        SequenceOperation.callback_op(
+                            "resolve_utility_rent",
+                            {
+                                "tenant_id": tenant.id,
+                                "owner_id": owner.id,
+                                "property_id": space.id,
+                                "dice_total": dice_total,
+                                "rent_multiplier": rent_multiplier,
+                                "utility_override": utility_override,
+                            },
+                        )
+                    ]
+                ),
+            ],
+            tag="monopoly_utility_rent",
+            lock_scope=self.SEQUENCE_LOCK_GAMEPLAY,
+            pause_bots=True,
+        )
+
+    def _sequence_resolve_utility_rent(self, payload: dict[str, Any]) -> None:
+        tenant = self._alive_player_by_id(str(payload.get("tenant_id", "")))
+        owner = self._alive_player_by_id(str(payload.get("owner_id", "")))
+        property_id = str(payload.get("property_id", ""))
+        state = self.property_states.get(property_id)
+        if not tenant or not owner or not state or state.owner_id != owner.id:
+            self._finish_landing()
+            return
+        space = self.board.space(property_id)
+        if space.kind != SPACE_UTILITY or state.mortgaged:
+            self._finish_landing()
+            return
+        rent = calculate_rent(
+            self.board,
+            self.property_states,
+            space,
+            int(payload.get("dice_total", 0)),
+            rent_multiplier=int(payload.get("rent_multiplier", 1)),
+            utility_override=bool(payload.get("utility_override", False)),
+        )
+        self._begin_rent_decision(tenant, owner, space, rent)
+
+    def _begin_rent_decision(
+        self,
+        tenant: MonopolyPlayer,
+        owner: MonopolyPlayer,
+        space: BoardSpaceDefinition,
+        rent: int,
+    ) -> None:
+        self.rent_state = RentState(
+            tenant_id=tenant.id,
+            owner_id=owner.id,
+            property_id=space.id,
+            amount=rent,
+        )
+        self.phase = PHASE_RENT
+        self.decision_player_id = owner.id
+        self._announce_rent_opportunity(owner, tenant, space, rent)
+        self.refresh_menus()
 
     def _finish_landing(self) -> None:
         if self.status != "playing":
@@ -3785,6 +3875,10 @@ class MonopolyGame(Game):
         if card.action == CARD_NEAREST and card.nearest_kind == SPACE_UTILITY:
             kwargs["utility"] = Localization.get(
                 locale, self.board.terminology.utility_kind_key
+            )
+            kwargs["rate"] = self._money(
+                locale,
+                card.rent_multiplier * self.board.rules.utility_dice_unit,
             )
         return Localization.get(locale, card.text_key, **kwargs)
 
@@ -7015,6 +7109,8 @@ class MonopolyGame(Game):
     # ------------------------------------------------------------------
 
     def _phase_name(self, locale: str) -> str:
+        if self.phase != PHASE_SETUP and self.is_sequence_gameplay_locked():
+            return Localization.get(locale, "monopoly-phase-resolving")
         return Localization.get(
             locale, f"monopoly-phase-{self.phase.replace('_', '-')}"
         )

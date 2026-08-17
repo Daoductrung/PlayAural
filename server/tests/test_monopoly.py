@@ -31,6 +31,7 @@ from server.games.monopoly.game import (
     PHASE_MORTGAGE_TRANSFER,
     PHASE_PROPERTY,
     PHASE_RENT,
+    PHASE_SETUP,
     PHASE_TRADE_BUILD,
     PHASE_TRADE_RESPONSE,
     PHASE_TURN_ACTIONS,
@@ -959,6 +960,7 @@ def test_hanoi_management_never_formats_impossible_standard_building_actions() -
     game = make_game(locale="vi")
     game.options.board_id = "hanoi"
     game.on_start()
+    drain_sequence(game, "monopoly_intro")
     player = game.players[0]
     user = game.get_user(player)
     assert user is not None
@@ -1264,6 +1266,89 @@ def test_start_initializes_economy_and_audio() -> None:
         )
 
 
+def test_intro_keeps_turn_unassigned_and_blocks_rolls_until_reveal() -> None:
+    game = make_game(3)
+    game.on_start()
+    player = game.players[0]
+    user = game.get_user(player)
+    assert user is not None
+
+    assert game.phase == PHASE_SETUP
+    assert game.current_player is None
+    assert game.decision_player_id == ""
+    assert game.turn_player_ids == []
+
+    user.clear_messages()
+    game._action_whose_turn(player, "whose_turn")
+    assert user.get_last_spoken() == Localization.get("en", "game-no-turn")
+
+    game.handle_event(player, {"type": "keybind", "key": "space"})
+    assert user.get_last_spoken() == Localization.get(
+        "en", "monopoly-error-setup-in-progress"
+    )
+    assert not game.has_active_sequence(tag="monopoly_roll")
+    assert game.current_player is None
+
+    drain_sequence(game, "monopoly_intro")
+    assert game.current_player in game.players
+    assert game.decision_player_id == game.current_player.id
+    assert game.phase == PHASE_AWAIT_ROLL
+
+
+def test_intro_reveal_and_first_player_survive_save_restore() -> None:
+    game = make_game(3)
+    game.on_start()
+    restored = MonopolyGame.from_json(game.to_json())
+    restored.rebuild_runtime_state()
+
+    assert restored.phase == PHASE_SETUP
+    assert restored.current_player is None
+    drain_sequence(game, "monopoly_intro")
+    drain_sequence(restored, "monopoly_intro")
+
+    assert restored.current_player is not None
+    assert game.current_player is not None
+    assert restored.current_player.id == game.current_player.id
+    assert restored.decision_player_id == restored.current_player.id
+
+
+@pytest.mark.parametrize("jailed", (False, True))
+def test_space_shortcut_dispatches_exactly_one_phase_appropriate_roll(
+    jailed: bool,
+) -> None:
+    game = make_game(start=True)
+    player = game.players[0]
+    user = game.get_user(player)
+    assert user is not None
+    force_current(game)
+    player.in_jail = jailed
+    if jailed:
+        player.position = game.board.space_index(game.board.jail_space_id)
+        game.phase = PHASE_JAIL
+    outcomes = [(1, 2), (6, 6)]
+    calls = 0
+
+    def roll_pair() -> tuple[int, int]:
+        nonlocal calls
+        outcome = outcomes[calls]
+        calls += 1
+        return outcome
+
+    game._roll_pair = roll_pair  # type: ignore[method-assign]
+    user.clear_messages()
+
+    game.handle_event(player, {"type": "keybind", "key": "space"})
+
+    assert calls == 1
+    assert (game.last_die_1, game.last_die_2) == (1, 2)
+    assert len(
+        [sequence for sequence in game.active_sequences if sequence.tag == "monopoly_roll"]
+    ) == 1
+    assert Localization.get(
+        "en", "monopoly-error-roll-resolving"
+    ) not in user.get_spoken_messages()
+
+
 def test_london_board_start_uses_pounds_and_board_specific_station_terms() -> None:
     game = make_game()
     game.options.board_id = "london"
@@ -1368,6 +1453,7 @@ def test_regional_boards_use_stations_currency_and_card_destinations(
     game = make_game()
     game.options.board_id = board_id
     game.on_start()
+    drain_sequence(game, "monopoly_intro")
     player = game.players[0]
     force_current(game)
     player.position = game.board.space_index("chance_3")
@@ -1647,6 +1733,7 @@ def test_get_out_of_jail_card_returns_to_its_deck_exactly_once(board_id: str) ->
     game = make_game()
     game.options.board_id = board_id
     game.on_start()
+    drain_sequence(game, "monopoly_intro")
     player = game.players[0]
     force_current(game)
     card_id = "chance_jail_free"
@@ -1831,6 +1918,116 @@ def test_auction_offers_minimum_bid_before_custom_bid() -> None:
     assert game.auction_state.highest_bid == 1
     assert game.auction_state.highest_bidder_id == first.id
     assert game.decision_player_id == second.id
+
+
+def test_auction_controls_persist_disabled_and_update_for_active_bidders() -> None:
+    game = make_game(3, start=True, touch=True)
+    first, second, third = game.players
+    first_user = game.get_user(first)
+    third_user = game.get_user(third)
+    assert first_user is not None and third_user is not None
+    force_current(game)
+    game.property_states["reading_railroad"].owner_id = first.id
+    game._start_auction(
+        "mediterranean",
+        resume_kind="landing",
+        first_bidder_id=first.id,
+    )
+    game.flush_menus()
+
+    auction_action_ids = {"bid_minimum", "place_bid", "pass_auction"}
+
+    def auction_actions(player):
+        action_set = game.get_action_set(player, "turn")
+        assert action_set is not None
+        return {
+            resolved.action.id: resolved
+            for resolved in action_set.get_visible_actions(game, player)
+            if resolved.action.id in auction_action_ids
+        }
+
+    for player in (first, second, third):
+        assert set(auction_actions(player)) == auction_action_ids
+    assert all(item.enabled for item in auction_actions(first).values())
+    assert not any(item.enabled for item in auction_actions(second).values())
+    assert not any(item.enabled for item in auction_actions(third).values())
+
+    game.handle_event(
+        first,
+        {
+            "type": "menu",
+            "menu_id": "turn_menu",
+            "selection_id": "bid_minimum",
+        },
+    )
+
+    assert game.auction_state is not None
+    assert game.auction_state.highest_bid == 1
+    assert game.decision_player_id == second.id
+    assert not any(item.enabled for item in auction_actions(first).values())
+    assert all(item.enabled for item in auction_actions(second).values())
+    assert first_user.menus["turn_menu"]["selection_id"] == "bid_minimum"
+    assert "$2" in auction_actions(first)["bid_minimum"].label
+
+    third_user.clear_messages()
+    game.handle_event(
+        third,
+        {
+            "type": "menu",
+            "menu_id": "turn_menu",
+            "selection_id": "bid_minimum",
+        },
+    )
+    assert game.auction_state.highest_bid == 1
+    assert game.decision_player_id == second.id
+    assert second.name in third_user.get_last_spoken()
+
+    for bidder in (second, third):
+        game.handle_event(
+            bidder,
+            {
+                "type": "menu",
+                "menu_id": "turn_menu",
+                "selection_id": "bid_minimum",
+            },
+        )
+    assert game.decision_player_id == first.id
+    assert all(item.enabled for item in auction_actions(first).values())
+
+    game.handle_event(
+        first,
+        {
+            "type": "menu",
+            "menu_id": "turn_menu",
+            "selection_id": "manage_properties",
+        },
+    )
+    assert game.phase == PHASE_MANAGE
+    for player in (first, second, third):
+        assert set(auction_actions(player)) == auction_action_ids
+        assert not any(item.enabled for item in auction_actions(player).values())
+
+    game.handle_event(
+        first,
+        {
+            "type": "menu",
+            "menu_id": "turn_menu",
+            "selection_id": "finish_management",
+        },
+    )
+    game.handle_event(
+        first,
+        {
+            "type": "menu",
+            "menu_id": "turn_menu",
+            "selection_id": "pass_auction",
+        },
+    )
+    assert game.auction_state is not None
+    assert first.id not in game.auction_state.active_bidder_ids
+    assert auction_actions(first) == {}
+    assert set(auction_actions(second)) == auction_action_ids
+    assert set(auction_actions(third)) == auction_action_ids
 
 
 def test_auction_input_blocks_stale_underlying_turn_menu_events() -> None:
@@ -2697,6 +2894,76 @@ def test_rent_is_an_explicit_out_of_turn_owner_decision() -> None:
     assert tenant.cash == tenant_cash - 2
 
 
+def test_rent_prompt_is_private_and_payment_is_one_perspective_aware_message() -> None:
+    game = make_game(3, start=True)
+    tenant, owner, observer = game.players
+    tenant_user = game.get_user(tenant)
+    owner_user = game.get_user(owner)
+    observer_user = game.get_user(observer)
+    assert tenant_user is not None
+    assert owner_user is not None
+    assert observer_user is not None
+    force_current(game)
+    game.property_states["mediterranean"].owner_id = owner.id
+    tenant.position = BOARD.space_index("mediterranean")
+    for user in (tenant_user, owner_user, observer_user):
+        user.clear_messages()
+
+    game._resolve_landing(tenant)
+
+    assert owner_user.get_spoken_messages() == [
+        f"{tenant.name} landed on your Mediterranean Avenue. "
+        "You may claim $2 rent or waive it."
+    ]
+    assert tenant_user.get_spoken_messages() == []
+    assert observer_user.get_spoken_messages() == []
+
+    for user in (tenant_user, owner_user, observer_user):
+        user.clear_messages()
+    game._action_claim_rent(owner, "claim_rent")
+
+    assert owner_user.get_spoken_messages() == [
+        f"You collect $2 rent from {tenant.name} for Mediterranean Avenue. "
+        "You now have $1,502."
+    ]
+    assert tenant_user.get_spoken_messages() == [
+        f"You pay $2 rent to {owner.name} for Mediterranean Avenue. "
+        "You have $1,498 left."
+    ]
+    assert observer_user.get_spoken_messages() == [
+        f"{tenant.name} pays {owner.name} $2 rent for Mediterranean Avenue."
+    ]
+
+
+def test_rent_debt_context_is_serialized_and_legacy_debts_remain_compatible() -> None:
+    game = make_game(start=True)
+    tenant, owner = game.players
+    tenant.cash = 0
+    game._start_debt(
+        tenant,
+        owner.id,
+        2,
+        "monopoly-debt-rent",
+        continuation="finish_landing",
+        property_id="mediterranean",
+    )
+
+    restored = MonopolyGame.from_json(game.to_json())
+    assert restored.debt_state is not None
+    assert restored.debt_state.property_id == "mediterranean"
+
+    legacy = DebtState.from_dict(
+        {
+            "debtor_id": tenant.id,
+            "creditor_id": owner.id,
+            "amount": 2,
+            "reason_key": "monopoly-debt-rent",
+            "continuation": "finish_landing",
+        }
+    )
+    assert legacy.property_id == ""
+
+
 def test_owned_and_mortgaged_landings_explain_why_no_rent_is_due() -> None:
     game = make_game(start=True)
     tenant, owner = game.players[:2]
@@ -3392,6 +3659,61 @@ def test_buy_action_returns_focus_to_stable_roll_anchor() -> None:
     assert packets[-1].data["items"][0].id == "roll_dice"
 
 
+def test_explicit_end_turn_focuses_only_the_acting_players_roll_anchor() -> None:
+    game = make_game(3, start=True, touch=True)
+    player, next_player, observer = game.players
+    player_user = game.get_user(player)
+    next_user = game.get_user(next_player)
+    observer_user = game.get_user(observer)
+    assert player_user is not None
+    assert next_user is not None
+    assert observer_user is not None
+    force_current(game)
+    game.phase = PHASE_TURN_ACTIONS
+    game.refresh_menus()
+    game.flush_menus()
+    for user in (player_user, next_user, observer_user):
+        user.clear_messages()
+
+    game.handle_event(
+        player,
+        {
+            "type": "menu",
+            "menu_id": "turn_menu",
+            "selection_id": "end_turn",
+        },
+    )
+
+    assert game.current_player == next_player
+    player_packets = [
+        message
+        for message in player_user.messages
+        if message.type in {"show_menu", "update_menu"}
+        and message.data.get("menu_id") == "turn_menu"
+    ]
+    next_packets = [
+        message
+        for message in next_user.messages
+        if message.type in {"show_menu", "update_menu"}
+        and message.data.get("menu_id") == "turn_menu"
+    ]
+    observer_packets = [
+        message
+        for message in observer_user.messages
+        if message.type in {"show_menu", "update_menu"}
+        and message.data.get("menu_id") == "turn_menu"
+    ]
+    assert player_packets[-1].data["selection_id"] == "roll_dice"
+    assert next_packets[-1].data["selection_id"] is None
+    assert observer_packets[-1].data["selection_id"] is None
+
+    game._pending_menu_focus.clear()
+    game.phase = PHASE_TURN_ACTIONS
+    game.decision_player_id = next_player.id
+    game._finish_turn()
+    assert game._pending_menu_focus == {}
+
+
 def test_group_context_and_completion_are_announced_to_actor_and_observer() -> None:
     game = make_game(start=True)
     buyer, observer = game.players[:2]
@@ -3602,6 +3924,26 @@ def test_serialization_preserves_complex_pending_state() -> None:
     assert restored.players[0].bot_trade_turn == 26
 
 
+def test_end_screen_uses_the_board_currency_snapshotted_in_the_result() -> None:
+    game = make_game(start=True)
+    winner = game.players[0]
+    game.winner_id = winner.id
+    result = game.build_game_result()
+
+    assert result.custom_data["board_id"] == "standard"
+    assert result.custom_data["currency_key"] == "monopoly-currency-usd"
+    original_lines = game.format_end_screen(result, "en")
+    assert "$1,500" in original_lines[1]
+
+    # The waiting-lobby instance can change its next board while another
+    # player still has this result screen open. The old result must not adopt
+    # the next game's currency.
+    game.options.board_id = "hanoi"
+    changed_lines = game.format_end_screen(result, "en")
+    assert changed_lines == original_lines
+    assert "VND" not in changed_lines[1]
+
+
 @pytest.mark.parametrize(
     ("board_id", "board", "property_id"),
     (
@@ -3800,6 +4142,72 @@ def test_roll_spam_cannot_replace_an_authoritative_outcome() -> None:
 
     drain_sequence(game, "monopoly_roll")
     assert player.position == game.board.space_index("baltic")
+
+
+def test_gameplay_sequence_blocks_mutating_overlays_but_keeps_status_available() -> None:
+    game = make_game(start=True, touch=True)
+    player = game.players[0]
+    user = game.get_user(player)
+    assert user is not None
+    force_current(game)
+    game.property_states["reading_railroad"].owner_id = player.id
+    game._roll_pair = lambda: (1, 2)  # type: ignore[method-assign]
+    game.execute_action(player, "roll_dice")
+    assert game.is_sequence_gameplay_locked()
+    assert game.phase == PHASE_AWAIT_ROLL
+
+    user.clear_messages()
+    game.execute_action(player, "manage_properties")
+    game.execute_action(player, "propose_trade")
+
+    resolving = Localization.get("en", "monopoly-error-roll-resolving")
+    assert user.get_spoken_messages() == [resolving, resolving]
+    assert game.phase == PHASE_AWAIT_ROLL
+    assert game.management_resume_phase == ""
+    assert player.id not in game._pending_actions
+
+    game.execute_action(player, "read_status")
+    assert "status_box" in user.menus
+    drain_sequence(game, "monopoly_roll")
+    game.flush_menus()
+    assert "status_box" in user.menus
+    assert game.phase == PHASE_PROPERTY
+
+
+def test_jail_roll_sequence_blocks_alternate_jail_actions() -> None:
+    game = make_game(start=True, touch=True)
+    player = game.players[0]
+    user = game.get_user(player)
+    assert user is not None
+    force_current(game)
+    player.in_jail = True
+    player.position = game.board.space_index(game.board.jail_space_id)
+    player.jail_card_ids.append("chance_jail_free")
+    game.phase = PHASE_JAIL
+    game._roll_pair = lambda: (1, 2)  # type: ignore[method-assign]
+    cash_before = player.cash
+    game.execute_action(player, "jail_roll")
+    assert game.is_sequence_gameplay_locked()
+
+    turn = game.get_action_set(player, "turn")
+    assert turn is not None
+    jail_actions = {
+        resolved.action.id: resolved
+        for resolved in turn.get_visible_actions(game, player)
+        if resolved.action.id in {"jail_roll", "jail_pay", "jail_card"}
+    }
+    assert set(jail_actions) == {"jail_roll", "jail_pay", "jail_card"}
+    assert not any(resolved.enabled for resolved in jail_actions.values())
+
+    user.clear_messages()
+    game.execute_action(player, "jail_pay")
+    game.execute_action(player, "jail_card")
+
+    resolving = Localization.get("en", "monopoly-error-roll-resolving")
+    assert user.get_spoken_messages() == [resolving, resolving]
+    assert player.cash == cash_before
+    assert player.in_jail is True
+    assert player.jail_card_ids == ["chance_jail_free"]
 
 
 def test_jail_roll_spam_cannot_replace_an_authoritative_outcome() -> None:

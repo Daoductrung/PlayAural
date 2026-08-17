@@ -258,6 +258,7 @@ class DebtState(DataClassJSONMixin):
     amount: int
     reason_key: str
     continuation: str = "finish_landing"
+    property_id: str = ""
 
 
 @dataclass

@@ -38,6 +38,8 @@ En la mayoría de los tableros, todos empiezan en la Salida con 1500 en la moned
 
 Todos hacen una tirada inicial con dos dados. El total más alto toma el primer turno. Los jugadores empatados en el total más alto vuelven a tirar. Luego el juego continúa alrededor de la mesa.
 
+No se asigna ningún turno hasta que terminan todas las tiradas iniciales. Durante esta preparación, los controles de tirada te piden que esperes y \*\*Ver de quién es el turno\*\* indica que todavía nadie tiene el turno.
+
 \*\*Dados y dobles\*\*
 
 Una tirada normal usa dos dados de seis caras. Cada dado puede mostrar del 1 al 6. Suma los dos números para saber cuántas casillas te mueves. Por ejemplo, un 2 y un 4 te mueven 6 casillas.
@@ -95,6 +97,8 @@ La mayoría de las cartas vuelven al fondo de su mazo después de usarse. Una ca
 Cuando caes en una propiedad sin dueño, el menú de compra muestra su grupo de color, los demás miembros del grupo, el precio, el valor de hipoteca, la tabla de alquiler y tu efectivo. Comprar paga el precio impreso al Banco y te da la escritura.
 
 Rechazar la compra inicia una subasta de inmediato. El jugador que rechazó aún puede pujar. Elige \*\*Pujar el mínimo\*\* para el aumento legal más pequeño, \*\*Ingresar una puja personalizada\*\* para un monto mayor, o \*\*Salir de la subasta\*\*. Salir es permanente. El último postor paga la puja ganadora y recibe la propiedad. Si todos salen antes de que haya alguna puja, la propiedad se queda sin dueño.
+
+Mientras sigas en una subasta, sus controles permanecen en el menú del turno. Se actualizan para mostrar la puja mínima actual y quedan deshabilitados mientras actúa otro postor. Solo desaparecen cuando sales de esa subasta o cuando la subasta termina.
 
 En la mayoría de los tableros, la puja inicial es 1 y cada aumento es de al menos 1. El tablero de Hanói, Vietnam abre en 10 000 VND y aumenta en al menos 5000 VND. Puedes administrar propiedades para obtener efectivo antes de pujar.
 
@@ -188,7 +192,9 @@ Si le debes a otro jugador, ese acreedor recibe tu efectivo restante, tus escrit
 
 \* \*\*Ver de quién es el turno:\*\* Escucha quién tiene el turno y quién debe actuar en ese momento fuera de su turno.
 
-Las vistas de información en vivo se actualizan sin mover tu posición de lectura. Los menús que abre tu acción empiezan en su primer elemento. Las actualizaciones normales de fondo conservan tu elemento actual.
+Las vistas de información en vivo se actualizan sin mover tu posición de lectura. Los menús que abre tu acción empiezan en su primer elemento. Las actualizaciones normales de fondo conservan tu elemento actual. Al elegir expresamente \*\*Terminar turno\*\*, solo tu foco vuelve al control persistente \*\*Tirar dados\*\*; la acción de otro jugador nunca obliga a que tu foco salte.
+
+Mientras se resuelve una tirada, el movimiento de una ficha o el efecto de una carta, los controles que podrían cambiar la partida permanecen deshabilitados. Las vistas de información de solo lectura siguen disponibles y permanecen abiertas.
 
 La opción \*\*Indicaciones de menú\*\* en \*\*Opciones generales > Accesibilidad\*\* agrega explicaciones para principiantes a las acciones que las necesitan. La indicación de una acción deshabilitada sigue explicando su propósito; actívala para escuchar el motivo exacto por el que no está disponible en ese momento.
 

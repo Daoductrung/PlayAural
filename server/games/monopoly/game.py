@@ -92,6 +92,7 @@ from .rules import (
     unmortgage_cost,
 )
 
+PHASE_SETUP = "setup"
 PHASE_AWAIT_ROLL = "await_roll"
 PHASE_PROPERTY = "property_decision"
 PHASE_RENT = "rent_decision"
@@ -454,6 +455,19 @@ class MonopolyGame(Game):
                 "_is_roll_enabled",
                 "_is_roll_hidden",
                 description_key="monopoly-desc-roll",
+            )
+        )
+        # Desktop uses one phase-aware shortcut action so a single Space press
+        # cannot execute the normal-roll action and then re-evaluate the jail
+        # alternative after the first action has started its sequence.
+        action_set.add(
+            self._action(
+                player,
+                "roll_shortcut",
+                "monopoly-action-roll",
+                "_action_roll_shortcut",
+                "_is_roll_shortcut_enabled",
+                "_is_roll_shortcut_hidden",
             )
         )
         action_set.add(
@@ -1041,7 +1055,7 @@ class MonopolyGame(Game):
     def setup_keybinds(self) -> None:
         super().setup_keybinds()
         self.define_keybind(
-            "space", "Roll dice", ["roll_dice", "jail_roll"], state=KeybindState.ACTIVE
+            "space", "Roll dice", ["roll_shortcut"], state=KeybindState.ACTIVE
         )
         self.define_keybind(
             "f",
@@ -1202,13 +1216,19 @@ class MonopolyGame(Game):
             player.passed_go_once = False
         self._clear_bot_strategy_memory()
 
-        self.set_turn_players(active)
+        # No player owns the turn until the audible opening rolls have revealed
+        # their winner. Keeping the turn list empty also prevents information
+        # actions from leaking the precomputed result during the intro.
+        self.turn_player_ids = []
+        self.turn_index = 0
+        self.phase = PHASE_SETUP
         self.bankruptcy_counter = 0
         self.turn_number = 0
         first_player, opening_rounds = self._choose_first_player(active)
-        if first_player:
-            self.current_player = first_player
-        self._start_game_intro_sequence(opening_rounds)
+        self._start_game_intro_sequence(
+            opening_rounds,
+            first_player.id if first_player else "",
+        )
 
     def _clear_interactions(self) -> None:
         self.phase = PHASE_AWAIT_ROLL
@@ -1255,7 +1275,11 @@ class MonopolyGame(Game):
             contenders = tied
         return (contenders[0] if contenders else None), rounds
 
-    def _start_game_intro_sequence(self, rounds: list[dict[str, Any]]) -> None:
+    def _start_game_intro_sequence(
+        self,
+        rounds: list[dict[str, Any]],
+        first_player_id: str,
+    ) -> None:
         beats = [
             SequenceBeat.after_audio(
                 game_audio.sound_ticks(game_audio.SOUND_BOARD_SETUP),
@@ -1303,7 +1327,14 @@ class MonopolyGame(Game):
                     )
                 )
         beats.append(
-            SequenceBeat(ops=[SequenceOperation.callback_op("start_first_turn")])
+            SequenceBeat(
+                ops=[
+                    SequenceOperation.callback_op(
+                        "start_first_turn",
+                        {"player_id": first_player_id},
+                    )
+                ]
+            )
         )
         self.start_sequence(
             "monopoly_game_intro",
@@ -1435,6 +1466,13 @@ class MonopolyGame(Game):
                 )
             return
         if callback_id == "start_first_turn":
+            active = self.alive_players
+            self.set_turn_players(active)
+            first_player = self._alive_player_by_id(
+                str(payload.get("player_id", ""))
+            )
+            if first_player:
+                self.current_player = first_player
             self._start_turn(announce=True)
             return
         if callback_id == "regular_roll_move":
@@ -1518,6 +1556,8 @@ class MonopolyGame(Game):
                 self._focus_after_user_transition(player)
 
     def _decision_player(self) -> MonopolyPlayer | None:
+        if self.phase == PHASE_SETUP:
+            return None
         player = (
             self.get_player_by_id(self.decision_player_id)
             if self.decision_player_id
@@ -2111,13 +2151,24 @@ class MonopolyGame(Game):
         return (
             self.status == "playing"
             and not getattr(player, "bankrupt", False)
+            and not self.is_sequence_gameplay_locked()
             and (phase is None or self.phase == phase)
             and self.decision_player_id == player.id
         )
 
     def _visible_for_actor(self, player: Player, phase: str) -> Visibility:
+        # Visibility deliberately ignores sequence locks. The authoritative
+        # control stays in place but resolves disabled until the movement or
+        # effect completes, preserving touch and screen-reader focus anchors.
         return (
-            Visibility.VISIBLE if self._is_actor(player, phase) else Visibility.HIDDEN
+            Visibility.VISIBLE
+            if (
+                self.status == "playing"
+                and not getattr(player, "bankrupt", False)
+                and self.phase == phase
+                and self.decision_player_id == player.id
+            )
+            else Visibility.HIDDEN
         )
 
     def _is_roll_hidden(self, player: Player) -> Visibility:
@@ -2131,7 +2182,18 @@ class MonopolyGame(Game):
         # collapsing while ownership of a required action moves around the table.
         return Visibility.VISIBLE
 
+    def _is_roll_shortcut_hidden(self, player: Player) -> Visibility:
+        del player
+        return Visibility.HIDDEN
+
+    def _is_roll_shortcut_enabled(self, player: Player) -> str | None:
+        if self.phase == PHASE_JAIL:
+            return self._is_jail_roll_enabled(player)
+        return self._is_roll_enabled(player)
+
     def _is_roll_enabled(self, player: Player) -> str | None:
+        if self.phase == PHASE_SETUP:
+            return "monopoly-error-setup-in-progress"
         if (
             self.decision_player_id == player.id
             and self.is_sequence_gameplay_locked()
@@ -2185,14 +2247,29 @@ class MonopolyGame(Game):
         )
 
     def _is_auction_action_hidden(self, player: Player) -> Visibility:
-        return self._visible_for_actor(player, PHASE_AUCTION)
+        auction = self.auction_state
+        auction_interface_open = self.phase == PHASE_AUCTION or (
+            self.phase == PHASE_MANAGE
+            and self.management_resume_phase == PHASE_AUCTION
+        )
+        return (
+            Visibility.VISIBLE
+            if (
+                self.status == "playing"
+                and auction_interface_open
+                and auction
+                and player.id in auction.active_bidder_ids
+                and not getattr(player, "bankrupt", False)
+            )
+            else Visibility.HIDDEN
+        )
 
     def _is_auction_action_enabled(self, player: Player) -> str | None:
-        return (
-            None
-            if self._is_actor(player, PHASE_AUCTION)
-            else self._waiting_reason(player)
-        )
+        if not self._is_actor(player, PHASE_AUCTION):
+            return self._waiting_reason(player)
+        if self.auction_state and self.auction_state.highest_bidder_id == player.id:
+            return "monopoly-error-leading-bid-cannot-pass"
+        return None
 
     def _is_bid_enabled(self, player: MonopolyPlayer) -> str | tuple[str, dict] | None:
         if not self._is_actor(player, PHASE_AUCTION):
@@ -2545,6 +2622,8 @@ class MonopolyGame(Game):
         )
 
     def _can_interrupt(self, player: MonopolyPlayer) -> bool:
+        if self.is_sequence_gameplay_locked():
+            return False
         if self.phase not in STABLE_INTERRUPT_PHASES:
             return False
         if self.phase in {PHASE_PROPERTY, PHASE_AUCTION, PHASE_DEBT}:
@@ -2685,6 +2764,10 @@ class MonopolyGame(Game):
         return error
 
     def _waiting_reason(self, player: Player) -> str | tuple[str, dict]:
+        if self.phase == PHASE_SETUP:
+            return "monopoly-error-setup-in-progress"
+        if self.is_sequence_gameplay_locked():
+            return "monopoly-error-roll-resolving"
         actor = self._decision_player()
         if actor:
             if actor.id == player.id:
@@ -3117,6 +3200,15 @@ class MonopolyGame(Game):
             return
         die_1, die_2 = self._roll_pair()
         self._start_regular_roll_sequence(player, die_1, die_2)
+
+    def _action_roll_shortcut(
+        self, player: MonopolyPlayer, action_id: str
+    ) -> None:
+        del action_id
+        if self.phase == PHASE_JAIL:
+            self._action_jail_roll(player, "jail_roll")
+            return
+        self._action_roll_dice(player, "roll_dice")
 
     def _start_regular_roll_sequence(
         self,
@@ -3565,19 +3657,19 @@ class MonopolyGame(Game):
         space: BoardSpaceDefinition,
         rent: int,
     ) -> None:
-        self._broadcast_actor_target(
-            owner,
-            tenant,
-            "monopoly-you-rent-opportunity",
-            "monopoly-player-rent-opportunity-for-you",
-            "monopoly-player-rent-opportunity",
-            brief_personal_key="monopoly-you-rent-opportunity-brief",
-            brief_target_key="monopoly-player-rent-opportunity-for-you-brief",
-            brief_others_key="monopoly-player-rent-opportunity-brief",
-            owner=owner.name,
+        user = self.get_user(owner)
+        if not user:
+            return
+        user.speak_l(
+            (
+                "monopoly-you-rent-opportunity-brief"
+                if self._wants_brief(user)
+                else "monopoly-you-rent-opportunity"
+            ),
+            buffer="game",
             tenant=tenant.name,
-            property=lambda locale: self._space_name(locale, space),
-            amount=lambda locale: self._money(locale, rent),
+            property=self._space_name(user.locale, space),
+            amount=self._money(user.locale, rent),
         )
 
     def _action_claim_rent(self, player: MonopolyPlayer, action_id: str) -> None:
@@ -3592,22 +3684,13 @@ class MonopolyGame(Game):
             self._finish_landing()
             self._focus_after_user_transition(player)
             return
-        self._broadcast_actor(
-            player,
-            "monopoly-you-claim-rent",
-            "monopoly-player-claim-rent",
-            tenant=tenant.name,
-            property=lambda locale: self._space_name(locale, space),
-            amount=lambda locale: self._money(locale, rent.amount),
-            brief_personal_key="monopoly-you-claim-rent-brief",
-            brief_others_key="monopoly-player-claim-rent-brief",
-        )
         self._start_debt(
             tenant,
             player.id,
             rent.amount,
             "monopoly-debt-rent",
             continuation="finish_landing",
+            property_id=space.id,
         )
         self._focus_after_user_transition(player)
 
@@ -4107,8 +4190,8 @@ class MonopolyGame(Game):
         del action_id
         if self._is_bid_enabled(player):
             return
-        self._place_bid(player, self._auction_minimum_bid())
-        self._focus_after_user_transition(player)
+        if self._place_bid(player, self._auction_minimum_bid()):
+            self._focus_after_auction_action(player, "bid_minimum")
 
     def _action_place_bid(
         self,
@@ -4126,7 +4209,7 @@ class MonopolyGame(Game):
             self._speak(player, "monopoly-error-bid-number")
             return
         if self._place_bid(player, amount):
-            self._focus_after_user_transition(player)
+            self._focus_after_auction_action(player, "place_bid")
 
     def _place_bid(self, player: MonopolyPlayer, amount: int) -> bool:
         auction = self.auction_state
@@ -4183,7 +4266,24 @@ class MonopolyGame(Game):
             brief_others_key="monopoly-player-passes-auction-brief",
         )
         self._advance_auction(player.id)
-        self._focus_after_user_transition(player)
+        self._focus_after_auction_action(player, "pass_auction")
+
+    def _focus_after_auction_action(
+        self,
+        player: MonopolyPlayer,
+        action_id: str,
+    ) -> None:
+        """Keep an explicit bidder action anchored without moving anyone else."""
+
+        if player.is_bot:
+            return
+        auction = self.auction_state
+        focus_id = (
+            action_id
+            if auction and player.id in auction.active_bidder_ids
+            else "roll_dice"
+        )
+        self.request_menu_focus(player, focus_id)
 
     def _advance_auction(self, previous_bidder_id: str) -> None:
         auction = self.auction_state
@@ -4271,6 +4371,7 @@ class MonopolyGame(Game):
         reason_key: str,
         *,
         continuation: str,
+        property_id: str = "",
     ) -> None:
         if amount <= 0:
             self._continue_after_debt(continuation)
@@ -4281,6 +4382,7 @@ class MonopolyGame(Game):
             amount=amount,
             reason_key=reason_key,
             continuation=continuation,
+            property_id=property_id,
         )
         if debtor.cash >= amount:
             self.debt_state = debt
@@ -4333,24 +4435,37 @@ class MonopolyGame(Game):
         continuation = debt.continuation
         amount = debt.amount
         reason_key = debt.reason_key
+        property_id = debt.property_id
         self.debt_state = None
         if continuation == "payment_batch" and self.payment_batch_state:
             self.payment_batch_state.completed_count += 1
             self.payment_batch_state.completed_total += amount
             self._continue_after_debt(continuation)
             return
-        self._broadcast_actor(
-            debtor,
-            "monopoly-you-pay-debt",
-            "monopoly-player-pays-debt",
-            creditor=creditor.name if creditor else "",
-            destination="player" if creditor else "bank",
-            amount=lambda locale: self._money(locale, amount),
-            cash=lambda locale: self._money(locale, debtor.cash),
-            reason=lambda locale: Localization.get(locale, reason_key),
-            brief_personal_key="monopoly-you-pay-debt-brief",
-            brief_others_key="monopoly-player-pays-debt-brief",
-        )
+        if (
+            reason_key == "monopoly-debt-rent"
+            and creditor
+            and property_id in self.property_states
+        ):
+            self._announce_rent_payment(
+                creditor,
+                debtor,
+                self.board.space(property_id),
+                amount,
+            )
+        else:
+            self._broadcast_actor(
+                debtor,
+                "monopoly-you-pay-debt",
+                "monopoly-player-pays-debt",
+                creditor=creditor.name if creditor else "",
+                destination="player" if creditor else "bank",
+                amount=lambda locale: self._money(locale, amount),
+                cash=lambda locale: self._money(locale, debtor.cash),
+                reason=lambda locale: Localization.get(locale, reason_key),
+                brief_personal_key="monopoly-you-pay-debt-brief",
+                brief_others_key="monopoly-player-pays-debt-brief",
+            )
         if continuation == "move_after_jail" and reason_key == "monopoly-debt-jail":
             self._play_jail_release_cues(include_payment=True)
             self._continue_after_debt(continuation)
@@ -4360,6 +4475,30 @@ class MonopolyGame(Game):
         elif reason_key != "monopoly-debt-repairs":
             self.play_sound(game_audio.SOUND_TAX_OR_FINE_PAID)
         self._continue_after_debt(continuation)
+
+    def _announce_rent_payment(
+        self,
+        owner: MonopolyPlayer,
+        tenant: MonopolyPlayer,
+        space: BoardSpaceDefinition,
+        amount: int,
+    ) -> None:
+        self._broadcast_actor_target(
+            owner,
+            tenant,
+            "monopoly-you-collect-rent",
+            "monopoly-you-pay-rent",
+            "monopoly-player-pays-rent",
+            brief_personal_key="monopoly-you-collect-rent-brief",
+            brief_target_key="monopoly-you-pay-rent-brief",
+            brief_others_key="monopoly-player-pays-rent-brief",
+            owner=owner.name,
+            tenant=tenant.name,
+            property=lambda locale: self._space_name(locale, space),
+            amount=lambda locale: self._money(locale, amount),
+            owner_cash=lambda locale: self._money(locale, owner.cash),
+            tenant_cash=lambda locale: self._money(locale, tenant.cash),
+        )
 
     def _payment_funds_free_parking(self, reason_key: str) -> bool:
         return self.options.free_parking_cash and reason_key in {
@@ -6197,14 +6336,18 @@ class MonopolyGame(Game):
         if self._is_end_turn_enabled(player):
             return
         self._finish_turn()
-        self._focus_after_user_transition(player)
+        # This jump belongs only to the player who explicitly ended their turn.
+        # Their disabled Roll control remains a stable anchor until their next
+        # turn; passive turn changes never move another player's cursor.
+        if not player.is_bot:
+            self.request_menu_focus(player, "roll_dice")
 
     def _action_whose_turn(self, player: Player, action_id: str) -> None:
         del action_id
         user = self.get_user(player)
         if not user:
             return
-        current = self.current_player
+        current = None if self.phase == PHASE_SETUP else self.current_player
         actor = self._decision_player()
         if not current:
             user.speak_l("game-no-turn", buffer="game")
@@ -6821,6 +6964,8 @@ class MonopolyGame(Game):
             custom_data={
                 "winner_name": self.winner.name if self.winner else None,
                 "winner_ids": [self.winner_id] if self.winner_id else [],
+                "board_id": self.board.id,
+                "currency_key": self.board.currency_key,
                 "rankings": summaries,
                 "team_rankings": [
                     {
@@ -6850,12 +6995,20 @@ class MonopolyGame(Game):
                     "monopoly-results-place",
                     rank=rank,
                     player=summary["player"],
-                    cash=self._money(locale, summary["cash"]),
-                    net_worth=self._money(locale, summary["net_worth"]),
+                    cash=self._result_money(result, locale, summary["cash"]),
+                    net_worth=self._result_money(
+                        result, locale, summary["net_worth"]
+                    ),
                     bankrupt="yes" if summary["bankrupt"] else "no",
                 )
             )
         return lines
+
+    def _result_money(self, result: GameResult, locale: str, amount: int) -> str:
+        currency_key = result.custom_data.get("currency_key")
+        if not isinstance(currency_key, str) or not currency_key:
+            currency_key = self.board.currency_key
+        return Localization.get(locale, currency_key, amount=amount)
 
     # ------------------------------------------------------------------
     # Shared communication helpers

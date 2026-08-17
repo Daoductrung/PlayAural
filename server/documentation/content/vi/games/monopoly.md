@@ -33,6 +33,8 @@ Trên hầu hết bàn cờ, mọi người bắt đầu tại ô Khởi hành v
 
 Mỗi người tung mở đầu bằng hai xúc xắc. Người có tổng cao nhất đi trước. Những người hòa ở tổng cao nhất tung lại. Sau đó, lượt chơi tiếp tục quanh bàn.
 
+Chưa ai có lượt cho đến khi mọi lần tung mở đầu kết thúc. Trong lúc thiết lập này, các nút tung sẽ yêu cầu bạn chờ, còn \*\*Kiểm tra lượt\*\* sẽ báo rằng hiện chưa có lượt nào.
+
 \*\*Xúc xắc và ra đôi\*\*
 
 Một lần tung thông thường dùng hai xúc xắc sáu mặt. Mỗi xúc xắc có thể ra từ 1 đến 6. Cộng hai số lại để biết mình đi bao nhiêu ô. Chẳng hạn, mặt 2 và mặt 4 cho tổng 6 nên bạn đi 6 ô.
@@ -79,6 +81,8 @@ Hầu hết thẻ được trả xuống cuối bộ sau khi dùng. Thẻ Ra tù
 Khi dừng tại bất động sản chưa có chủ, trình đơn mua cho biết nhóm màu, các thành viên cùng nhóm, giá mua, giá trị thế chấp, các mức tiền thuê và số tiền bạn có. Mua bất động sản nghĩa là trả đúng giá in sẵn cho Ngân hàng và nhận giấy sở hữu.
 
 Không mua sẽ lập tức mở đấu giá. Người vừa từ chối vẫn được đặt giá. Chọn \*\*Đặt mức giá tối thiểu\*\* để tăng đúng mức nhỏ nhất, \*\*Nhập mức giá khác\*\* để đặt cao hơn hoặc \*\*Rời cuộc đấu giá\*\*. Đã rời thì không thể quay lại. Người đặt giá cuối cùng trả số tiền thắng và nhận bất động sản. Nếu mọi người đều rời trước khi có ai đặt giá, bất động sản vẫn chưa có chủ.
+
+Khi bạn còn tham gia đấu giá, các nút đấu giá luôn ở trong trình đơn lượt. Mức giá tối thiểu trên nút sẽ tự cập nhật, còn các nút bị vô hiệu hóa trong lúc người khác đặt giá. Chúng chỉ biến mất khi bạn rời cuộc đấu giá đó hoặc khi cuộc đấu giá kết thúc.
 
 Trên hầu hết bàn cờ, giá đầu tiên là 1 và mỗi lần tăng ít nhất 1. Bàn cờ Hà Nội, Việt Nam mở giá ở 10.000 đồng và mỗi lần tăng ít nhất 5.000 đồng. Bạn có thể quản lý bất động sản để lấy thêm tiền trước khi đặt giá.
 
@@ -160,7 +164,9 @@ Nếu nợ người chơi khác, chủ nợ nhận tiền mặt, giấy sở h�
 \* \*\*Xem tình trạng ván chơi:\*\* Xem lượt, người đang phải quyết định, giai đoạn, lần tung gần nhất cùng cuộc đấu giá, khoản nợ hoặc trao đổi đang diễn ra.
 \* \*\*Kiểm tra lượt:\*\* Nghe người đang có lượt và bất kỳ ai hiện phải hành động ngoài lượt.
 
-Các bảng thông tin trực tiếp tự cập nhật mà không làm mất vị trí đang đọc. Trình đơn do hành động của bạn mở sẽ bắt đầu tại mục đầu tiên. Cập nhật nền thông thường giữ nguyên mục hiện tại.
+Các bảng thông tin trực tiếp tự cập nhật mà không làm mất vị trí đang đọc. Trình đơn do hành động của bạn mở sẽ bắt đầu tại mục đầu tiên. Cập nhật nền thông thường giữ nguyên mục hiện tại. Khi bạn chủ động chọn \*\*Kết thúc lượt\*\*, chỉ con trỏ của bạn trở về nút \*\*Tung xúc xắc\*\* luôn hiện diện; hành động của người khác không bao giờ ép con trỏ của bạn nhảy vị trí.
+
+Trong khi lần tung, bước di chuyển quân cờ hoặc hiệu ứng thẻ đang được xử lý, các nút có thể làm thay đổi ván sẽ bị vô hiệu hóa. Các bảng thông tin chỉ đọc vẫn dùng được và không bị đóng.
 
 Tùy chọn \*\*Gợi ý trong menu\*\* tại \*\*Tùy chỉnh chung > Hỗ trợ tiếp cận\*\* thêm lời giải thích dành cho người mới vào những hành động cần thiết. Gợi ý của nút bị vô hiệu hóa vẫn giải thích chức năng; hãy kích hoạt nút để nghe đúng lý do nó hiện chưa dùng được.
 

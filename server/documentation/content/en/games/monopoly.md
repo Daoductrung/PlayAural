@@ -33,6 +33,8 @@ On most boards, everyone begins on Go with 1,500 in the selected currency. The B
 
 Everyone makes an opening roll with two dice. The highest total takes the first turn. Players tied for the highest total roll again. Play then continues around the table.
 
+No turn is assigned until all opening rolls finish. During this setup, roll controls ask you to wait, and \*\*Check whose turn\*\* reports that no one has a turn yet.
+
 \*\*Dice and doubles\*\*
 
 A normal roll uses two six-sided dice. Each die can show 1 through 6. Add the two numbers to find how many spaces you move. For example, a 2 and a 4 move you 6 spaces.
@@ -79,6 +81,8 @@ Most cards return to the bottom of their deck after use. A Get Out of Jail Free 
 When you land on unowned property, the purchase menu gives its color group, group members, price, mortgage value, rent schedule, and your cash. Buying pays the printed price to the Bank and gives you the deed.
 
 Declining the purchase starts an auction immediately. The player who declined may still bid. Choose \*\*Bid the minimum\*\* for the smallest legal raise, \*\*Enter a custom bid\*\* for a larger amount, or \*\*Leave the auction\*\*. Leaving is permanent. The final bidder pays the winning bid and receives the property. If everyone leaves before any bid, the property remains unowned.
+
+While you remain in an auction, its controls stay in your turn menu. They update to show the current minimum bid and stay disabled while another bidder acts. They disappear only after you leave that auction or the auction ends.
 
 On most boards, the opening bid is 1 and each raise is at least 1. The Hanoi, Vietnam board opens at 10,000 VND and raises by at least 5,000 VND. You may manage property to obtain cash before bidding.
 
@@ -160,7 +164,9 @@ If you owe another player, that creditor receives your remaining cash, deeds, an
 \* \*\*Read game status:\*\* View the turn, required decision maker, phase, last roll, and any auction, debt, or trade in progress.
 \* \*\*Check whose turn:\*\* Hear the turn player and anyone currently required to act outside their turn.
 
-Live information views update without moving your reading position. Menus opened by your action begin on their first item. Normal background updates preserve your current item.
+Live information views update without moving your reading position. Menus opened by your action begin on their first item. Normal background updates preserve your current item. Explicitly choosing \*\*End turn\*\* returns only your focus to the persistent \*\*Roll dice\*\* control; another player's action never forces your focus to jump.
+
+While a roll, token movement, or card effect is resolving, controls that could change the game stay disabled. Read-only information views remain available and stay open.
 
 The \*\*Menu Hints\*\* setting under \*\*General options > Accessibility\*\* adds beginner explanations to actions that need them. A disabled action's hint continues to explain its purpose; activate the action to hear the exact reason it is currently unavailable.
 

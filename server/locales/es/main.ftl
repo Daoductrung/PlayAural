@@ -96,6 +96,7 @@ table-listing-game-with-status = { $game } [{ $status }]: mesa de { $host } ({ $
 table-status-waiting = Esperando
 table-status-playing = Jugando
 table-status-finished = Terminada
+table-status-open-room = Sala abierta
 table-not-exists = La mesa ya no existe.
 table-full = La mesa está llena.
 player-replaced-by-bot = { $bot } ahora está jugando en nombre de { $player }.

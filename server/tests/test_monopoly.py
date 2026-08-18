@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from server.core.server import SOUNDS_VERSION
+from server.game_utils.actions import MenuInput
 from server.game_utils.audio_duration import measure_audio_duration_ticks
 from server.games.monopoly import audio as monopoly_audio
 from server.games.monopoly.boards import (
@@ -2592,6 +2593,157 @@ def test_stale_trade_target_keeps_updated_target_prompt_open() -> None:
     ] == [current_target.id, "_cancel"]
 
 
+def test_portfolio_player_prompt_refreshes_cash_without_reopening_or_refocusing() -> None:
+    game = make_game(player_count=3, start=True)
+    viewer, owner = game.players[:2]
+    user = game.get_user(viewer)
+    assert user is not None
+
+    game.execute_action(viewer, "read_portfolios")
+    assert game._pending_actions[viewer.id] == "read_portfolios"
+    original = next(
+        item.text
+        for item in user.menus["action_input_menu"]["items"]
+        if item.id == owner.id
+    )
+    owner.cash += 275
+    user.clear_messages()
+
+    game.refresh_menus(viewer)
+    game.flush_menus()
+
+    assert game._pending_actions[viewer.id] == "read_portfolios"
+    refreshed = next(
+        item.text
+        for item in user.menus["action_input_menu"]["items"]
+        if item.id == owner.id
+    )
+    assert refreshed != original
+    assert "cash: $1,775" in refreshed
+    prompt_packets = [
+        message
+        for message in user.messages
+        if message.type == "show_menu"
+        and message.data.get("menu_id") == "action_input_menu"
+    ]
+    assert prompt_packets[-1].data["selection_id"] is None
+
+
+def test_property_management_selector_refreshes_live_cash_without_losing_state() -> None:
+    game = make_game(start=True, touch=True)
+    player = game.players[0]
+    user = game.get_user(player)
+    assert user is not None
+    force_current(game)
+    own_group(game, player.id, "brown")
+    game._action_manage_properties(player, "manage_properties")
+
+    game.execute_action(player, "choose_build_property")
+    assert game._pending_actions[player.id] == "choose_build_property"
+    player.cash -= 100
+    user.clear_messages()
+
+    game.refresh_menus(player)
+    game.flush_menus()
+
+    assert game.phase == PHASE_MANAGE
+    assert game._pending_actions[player.id] == "choose_build_property"
+    options = [
+        item.text
+        for item in user.menus["action_input_menu"]["items"]
+        if item.id != "_cancel"
+    ]
+    assert options
+    assert all("cash $1,400" in option for option in options)
+    prompt_packets = [
+        message
+        for message in user.messages
+        if message.type == "show_menu"
+        and message.data.get("menu_id") == "action_input_menu"
+    ]
+    assert prompt_packets[-1].data["selection_id"] is None
+
+
+def test_trade_target_prompt_locks_gameplay_until_explicit_cancel() -> None:
+    game = make_game(player_count=3, start=True)
+    current, proposer = game.players[:2]
+    current_user = game.get_user(current)
+    proposer_user = game.get_user(proposer)
+    assert current_user is not None and proposer_user is not None
+    force_current(game)
+
+    game.execute_action(proposer, "propose_trade")
+
+    assert game._pending_actions[proposer.id] == "propose_trade"
+    assert game._is_roll_enabled(current) == (
+        "monopoly-error-trade-partner-selection-player",
+        {"player": proposer.name},
+    )
+    current_user.clear_messages()
+    game.handle_event(
+        current,
+        {
+            "type": "menu",
+            "menu_id": "turn_menu",
+            "selection_id": "roll_dice",
+        },
+    )
+
+    assert not game.has_active_sequence(tag="monopoly_roll")
+    assert game._pending_actions[proposer.id] == "propose_trade"
+    assert "action_input_menu" in proposer_user.menus
+    assert current_user.get_last_spoken() == (
+        f"Waiting for {proposer.name} to choose a trade partner."
+    )
+
+    game.handle_event(
+        proposer,
+        {
+            "type": "menu",
+            "menu_id": "action_input_menu",
+            "selection_id": "_cancel",
+        },
+    )
+
+    assert proposer.id not in game._pending_actions
+    assert game._is_roll_enabled(current) is None
+
+
+def test_legacy_save_migrates_trade_target_gameplay_lock() -> None:
+    game = make_game(start=True)
+    for player in game.get_active_players():
+        action = game.find_action(player, "propose_trade")
+        assert action is not None
+        assert isinstance(action.input_request, MenuInput)
+        action.input_request.locks_gameplay = False
+
+    restored = MonopolyGame.from_json(game.to_json())
+    restored.rebuild_runtime_state()
+
+    for player in restored.get_active_players():
+        action = restored.find_action(player, "propose_trade")
+        assert action is not None
+        assert isinstance(action.input_request, MenuInput)
+        assert action.input_request.locks_gameplay is True
+
+
+def test_trade_target_lock_is_released_when_prompt_owner_becomes_a_bot() -> None:
+    game = make_game(player_count=3, start=True)
+    current, proposer = game.players[:2]
+    force_current(game)
+
+    game.execute_action(proposer, "propose_trade")
+    game._menu_dirty_all = False
+    game._menu_dirty.clear()
+
+    assert game._replace_with_bot(proposer)
+
+    assert proposer.id not in game._pending_actions
+    assert game._gameplay_input_lock_owner() is None
+    assert game._is_roll_enabled(current) is None
+    assert game._menu_dirty_all is True
+
+
 def test_property_detail_can_return_to_full_list_without_leaving_management() -> None:
     game = make_game(start=True, touch=True)
     player = game.players[0]
@@ -3362,6 +3514,40 @@ def test_trade_cancel_restores_interrupted_property_decision() -> None:
     assert game.phase == PHASE_PROPERTY
     assert game.decision_player_id == proposer.id
     assert game.pending_property_id == "mediterranean"
+
+
+def test_trading_every_asset_does_not_bankrupt_a_player_without_debt() -> None:
+    game = make_game(start=True)
+    proposer, target = game.players[:2]
+    force_current(game)
+    property_ids = ["mediterranean", "baltic"]
+    for property_id in property_ids:
+        game.property_states[property_id].owner_id = proposer.id
+    starting_cash = proposer.cash
+
+    game._action_propose_trade(proposer, target.id, "propose_trade")
+    assert game.trade_state is not None
+    game.trade_state.offered_property_ids = property_ids
+    game.trade_state.offered_cash = starting_cash
+    game._action_trade_submit(proposer, "trade_submit")
+    game._action_trade_accept(target, "trade_accept")
+
+    assert proposer.cash == 0
+    assert game._owned_property_ids(proposer.id) == []
+    assert proposer.bankrupt is False
+    assert proposer in game.alive_players
+    assert game.debt_state is None
+
+    game._start_debt(
+        proposer,
+        "",
+        1,
+        "monopoly-debt-tax",
+        continuation="finish_landing",
+    )
+
+    assert game.phase == PHASE_DEBT
+    assert game._is_bankruptcy_enabled(proposer) is None
 
 
 def test_debt_liquidation_and_bankruptcy_to_player() -> None:

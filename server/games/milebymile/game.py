@@ -18,7 +18,7 @@ from ...game_utils.round_timer import RoundTimer
 from ...game_utils.teams import TeamManager
 from ...messages.localization import Localization
 from ...ui.keybinds import KeybindState
-from ...users.base import EscapeBehavior, MenuItem
+from ...users.base import MenuItem
 
 from .bot import MileByMileBotStrategy
 from .cards import (
@@ -531,6 +531,7 @@ class MileByMileGame(Game):
                     bot_select="_bot_select_unplayable_card",
                     pre_input_check="_pre_input_check_unplayable_card",
                     option_label="_unplayable_card_option_label",
+                    initial_selection="_unplayable_card_initial_selection",
                 )
             elif card.card_type == CardType.HAZARD:
                 targets = self._get_valid_hazard_targets(player, card.value)
@@ -733,64 +734,75 @@ class MileByMileGame(Game):
             return player.hand[slot]
         return None
 
-    def _request_action_input(self, action: Action, player: Player) -> None:
-        """Request input, with a custom menu for unplayable card discard prompts."""
-        req = action.input_request
-        if (
-            isinstance(player, MileByMilePlayer)
-            and isinstance(req, MenuInput)
-            and req.options == "_unplayable_card_options"
-        ):
-            self._request_unplayable_card_input(action, player)
-            return
-        super()._request_action_input(action, player)
+    def _build_action_menu_input_items(
+        self,
+        action: Action,
+        player: Player,
+        user,
+        options: list[str],
+    ) -> list[MenuItem]:
+        """Keep the unplayable-card reason as a read-only prompt row."""
+        if not self._is_unplayable_card_prompt_action(player, action.id):
+            return super()._build_action_menu_input_items(
+                action,
+                player,
+                user,
+                options,
+            )
 
-    def _request_unplayable_card_input(
-        self, action: Action, player: MileByMilePlayer
+        reason_text = self._unplayable_card_reason_text(
+            player,
+            action.id,
+            user.locale,
+        )
+        if reason_text is None:
+            return []
+        return [
+            MenuItem(text=reason_text, id=UNPLAYABLE_REASON_OPTION),
+            MenuItem(
+                text=Localization.get(user.locale, "milebymile-discard-card"),
+                id=UNPLAYABLE_DISCARD_OPTION,
+            ),
+            MenuItem(text=Localization.get(user.locale, "cancel"), id="_cancel"),
+        ]
+
+    def _on_action_menu_input_opened(
+        self,
+        action: Action,
+        player: Player,
     ) -> None:
-        """Show a discard prompt with a static reason row and Discard focused."""
+        """Announce the unplayable-card explanation once, not on repaint."""
+        super()._on_action_menu_input_opened(action, player)
+        if not self._is_unplayable_card_prompt_action(player, action.id):
+            return
         user = self.get_user(player)
         if not user:
             return
-
-        req = action.input_request
-        if isinstance(req, MenuInput) and req.pre_input_check:
-            pre_input_check = getattr(self, req.pre_input_check, None)
-            if pre_input_check:
-                disabled_reason = pre_input_check(player, action.id)
-                if disabled_reason:
-                    user.speak_l(disabled_reason, buffer="game")
-                    return
-
-        card = self._get_card_for_action_id(player, action.id)
-        if card is None:
-            user.speak_l("no-options-available", buffer="game")
-            return
-
-        reason_text = Localization.get(
+        reason_text = self._unplayable_card_reason_text(
+            player,
+            action.id,
             user.locale,
-            "milebymile-unplayable-discard-question",
-            card=self._get_localized_card_name(card, user.locale),
-            reason=self._get_unplayable_reason(player, card, user.locale),
         )
-        user.speak(reason_text, buffer="game")
-        self._pending_actions[player.id] = action.id
-        return_focus = self._get_action_return_focus_id(player, action.id)
-        if return_focus:
-            self._pending_action_return_focus[player.id] = return_focus
-        user.show_menu(
-            "action_input_menu",
-            [
-                MenuItem(text=reason_text, id=""),
-                MenuItem(
-                    text=Localization.get(user.locale, "milebymile-discard-card"),
-                    id=UNPLAYABLE_DISCARD_OPTION,
-                ),
-                MenuItem(text=Localization.get(user.locale, "cancel"), id="_cancel"),
-            ],
-            multiletter=True,
-            escape_behavior=EscapeBehavior.SELECT_LAST,
-            selection_id=UNPLAYABLE_DISCARD_OPTION,
+        if reason_text is not None:
+            user.speak(reason_text, buffer="game")
+
+    def _unplayable_card_reason_text(
+        self,
+        player: Player,
+        action_id: str,
+        locale: str,
+    ) -> str | None:
+        """Return the localized explanation for an unplayable card action."""
+        if not isinstance(player, MileByMilePlayer):
+            return None
+        card = self._get_card_for_action_id(player, action_id)
+        if card is None:
+            return None
+        return Localization.get(
+            locale,
+            "milebymile-unplayable-discard-question",
+            card=self._get_localized_card_name(card, locale),
+            reason=self._get_unplayable_reason(player, card, locale),
         )
 
     def _handle_menu_event(self, player: Player, event: dict) -> None:
@@ -799,7 +811,7 @@ class MileByMileGame(Game):
             selection_id = event.get("selection_id", "")
             action_id = self._pending_actions.get(player.id)
             if (
-                selection_id in ("", None)
+                selection_id in ("", None, UNPLAYABLE_REASON_OPTION)
                 and self._is_unplayable_card_prompt_action(player, action_id)
             ):
                 return
@@ -1689,6 +1701,17 @@ class MileByMileGame(Game):
         options: list[str],
     ) -> str | None:
         """Bots discard cards they deliberately selected but cannot play."""
+        del player
+        if UNPLAYABLE_DISCARD_OPTION in options:
+            return UNPLAYABLE_DISCARD_OPTION
+        return None
+
+    def _unplayable_card_initial_selection(
+        self,
+        player: Player,
+        options: list[str],
+    ) -> str | None:
+        """Focus Discard when the unplayable-card prompt first opens."""
         del player
         if UNPLAYABLE_DISCARD_OPTION in options:
             return UNPLAYABLE_DISCARD_OPTION

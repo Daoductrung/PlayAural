@@ -156,6 +156,17 @@ Client focus doctrine:
   survives, or `selection_id` explicitly jumps focus.
 - Keep disabled-but-visible persistent controls when they anchor touch or screen
   reader focus. Use `request_menu_focus` only for deliberate action-driven jumps.
+- Open `MenuInput` selectors repaint live through sealed flushes; use stable
+  option ids. Pending `EditboxInput` prompts do not repaint passively. If a
+  selector must freeze public mutations, declare `locks_gameplay=True` and use
+  `_gameplay_input_lock_owner()` in the game's actor/permission checks rather
+  than hardcoding its action id; information actions may remain available.
+  Specialized selectors override the idempotent
+  `_build_action_menu_input_items(...)` hook; one-time TTS or sound belongs in
+  `_on_action_menu_input_opened(...)` so passive/stale-event repaints stay
+  silent. `_on_action_input_cancelled(...)` must only clean game-owned draft
+  state because the framework also calls it when an input becomes stale or its
+  human seat is removed/replaced.
 - The Escape/actions menu auto-refreshes in place through sealed
   `flush_menus()`. Games must not repaint or block it manually.
 - Framework-owned exits restore focus to the opener when possible: actions-menu

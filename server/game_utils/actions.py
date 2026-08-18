@@ -47,7 +47,10 @@ class MenuInput(DataClassJSONMixin):
 
     Callback fields are method names looked up on the game object at execution
     time. ``option_label`` and ``option_description`` receive the player and
-    raw option value and return localized row content.
+    raw option value and return localized row content. ``locks_gameplay``
+    declares public mutation should pause while the prompt is pending; the
+    game enforces that through ``_gameplay_input_lock_owner()`` in its actor or
+    permission checks.
     """
 
     prompt: str  # Localization key for menu title/prompt
@@ -57,6 +60,7 @@ class MenuInput(DataClassJSONMixin):
     option_label: str | None = None  # Optional method name for localized option labels
     option_description: str | None = None  # Optional localized help callback
     initial_selection: str | None = None  # Optional method name returning option id to focus
+    locks_gameplay: bool = False  # Game may suspend mutations while this prompt is open
 
 
 @dataclass

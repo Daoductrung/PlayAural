@@ -16,6 +16,7 @@ from ..games.milebymile.game import (
     MileByMileOptions,
     RaceState,
     UNPLAYABLE_DISCARD_OPTION,
+    UNPLAYABLE_REASON_OPTION,
 )
 from ..games.milebymile.cards import (
     Card,
@@ -1676,7 +1677,7 @@ class TestMileByMileUnplayableCardMenu:
             == UNPLAYABLE_DISCARD_OPTION
         )
         assert [getattr(item, "id", "") for item in items] == [
-            "",
+            UNPLAYABLE_REASON_OPTION,
             "discard_unplayable_card",
             "_cancel",
         ]
@@ -1684,6 +1685,53 @@ class TestMileByMileUnplayableCardMenu:
         assert "You cannot play 100 miles because you need a Green Light" in reason_text
         assert "Do you want to discard it?" in reason_text
         assert alice_user.get_last_spoken() == reason_text
+
+        alice_user.clear_messages()
+        game.refresh_menus(alice)
+        game.flush_menus()
+
+        refreshed_items = alice_user.get_current_menu_items("action_input_menu")
+        assert refreshed_items is not None
+        assert [getattr(item, "id", "") for item in refreshed_items] == [
+            UNPLAYABLE_REASON_OPTION,
+            "discard_unplayable_card",
+            "_cancel",
+        ]
+        assert getattr(refreshed_items[0], "text", "") == reason_text
+        assert alice_user.menus["action_input_menu"]["selection_id"] is None
+        assert alice_user.get_spoken_messages() == []
+
+        game.handle_event(
+            alice,
+            {
+                "type": "menu",
+                "menu_id": "action_input_menu",
+                "selection_id": "stale_client_choice",
+            },
+        )
+
+        assert alice.id in game._pending_actions
+        assert alice_user.get_spoken_messages() == []
+        assert [
+            getattr(item, "id", "")
+            for item in alice_user.get_current_menu_items("action_input_menu") or []
+        ] == [
+            UNPLAYABLE_REASON_OPTION,
+            "discard_unplayable_card",
+            "_cancel",
+        ]
+
+        game.handle_event(
+            alice,
+            {
+                "type": "menu",
+                "menu_id": "action_input_menu",
+                "selection_id": UNPLAYABLE_REASON_OPTION,
+            },
+        )
+
+        assert alice.id in game._pending_actions
+        assert alice.hand == [blocked_card]
 
         game.handle_event(
             alice,

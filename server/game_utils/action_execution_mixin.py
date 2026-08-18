@@ -190,6 +190,154 @@ class ActionExecutionMixin:
             return req.default
         return None
 
+    def _gameplay_input_lock_owner(
+        self,
+        *,
+        exclude_player_id: str | None = None,
+    ) -> "Player | None":
+        """Return the active player whose declarative input locks gameplay.
+
+        Pending inputs are runtime-only UI intent. Games with interruptible
+        public state can consult this helper from their actor/permission checks
+        instead of coupling gameplay locks to a particular action id.
+        """
+
+        for candidate in self.get_active_players():
+            if candidate.id == exclude_player_id:
+                continue
+            action_id = self._pending_actions.get(candidate.id)
+            action = self.find_action(candidate, action_id) if action_id else None
+            request = action.input_request if action else None
+            if isinstance(request, MenuInput) and request.locks_gameplay:
+                return candidate
+        return None
+
+    def _paint_action_menu_input(
+        self,
+        action: Action,
+        player: "Player",
+        *,
+        apply_initial_selection: bool,
+    ) -> bool:
+        """Paint a menu input from current authoritative options and labels."""
+
+        user = self.get_user(player)
+        request = action.input_request
+        if not user or not isinstance(request, MenuInput):
+            return False
+
+        options = self._get_menu_options_for_action(action, player)
+        if not options:
+            return False
+
+        items = self._build_action_menu_input_items(
+            action,
+            player,
+            user,
+            options,
+        )
+        if not items:
+            return False
+
+        selection_id = None
+        if apply_initial_selection and request.initial_selection:
+            initial_selection_method = getattr(
+                self,
+                request.initial_selection,
+                None,
+            )
+            if initial_selection_method:
+                selection_id = initial_selection_method(player, options)
+                if selection_id not in options:
+                    selection_id = None
+
+        user.show_menu(
+            "action_input_menu",
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+            selection_id=selection_id,
+        )
+        return True
+
+    def _build_action_menu_input_items(
+        self,
+        action: Action,
+        player: "Player",
+        user,
+        options: list[str],
+    ) -> list[MenuItem]:
+        """Build the current rows for a declarative menu input.
+
+        Games with a specialized input surface may override this idempotent
+        builder. One-time announcements and sounds belong in
+        ``_on_action_menu_input_opened`` so passive refreshes remain silent.
+        """
+
+        request = action.input_request
+        if not isinstance(request, MenuInput):
+            return []
+
+        menu_option_meta = None
+        if action.id.startswith("set_") and hasattr(self, "options"):
+            option_name = action.id[4:]
+            meta = get_option_meta(type(self.options), option_name)
+            if meta and isinstance(meta, MenuOption):
+                menu_option_meta = meta
+
+        option_label_method = (
+            getattr(self, request.option_label, None)
+            if request.option_label
+            else None
+        )
+        option_description_method = (
+            getattr(self, request.option_description, None)
+            if request.option_description
+            else None
+        )
+        items = []
+        for option in options:
+            if menu_option_meta:
+                display_text = menu_option_meta.get_localized_choice(
+                    option,
+                    user.locale,
+                )
+            elif option_label_method:
+                display_text = option_label_method(player, option)
+            else:
+                display_text = option
+            description = (
+                option_description_method(player, option)
+                if option_description_method
+                else None
+            )
+            items.append(
+                MenuItem(
+                    text=display_text,
+                    id=option,
+                    description=description,
+                )
+            )
+
+        items.append(
+            MenuItem(text=Localization.get(user.locale, "cancel"), id="_cancel")
+        )
+        return items
+
+    def _on_action_menu_input_opened(
+        self,
+        action: Action,
+        player: "Player",
+    ) -> None:
+        """Run one-time output after a menu input is opened successfully."""
+
+    def _on_action_input_cancelled(
+        self,
+        player: "Player",
+        action_id: str,
+    ) -> None:
+        """Clean game-owned draft state when an action input is dismissed."""
+
     def _request_action_input(self, action: Action, player: "Player") -> None:
         """Request input from a human player for an action."""
         user = self.get_user(player)
@@ -210,74 +358,22 @@ class ActionExecutionMixin:
             self._pending_action_return_focus[player.id] = return_focus
 
         if isinstance(req, MenuInput):
-            options = self._get_menu_options_for_action(action, player)
-            if not options:
+            if not self._paint_action_menu_input(
+                action,
+                player,
+                apply_initial_selection=True,
+            ):
                 # No options available
                 del self._pending_actions[player.id]
                 self._pending_action_return_focus.pop(player.id, None)
                 user.speak_l("no-options-available", buffer="game")
                 return
-
-            # Check if this is a MenuOption with localized choice labels
-            menu_option_meta = None
-            if action.id.startswith("set_") and hasattr(self, "options"):
-                option_name = action.id[4:]  # Remove "set_" prefix
-                meta = get_option_meta(type(self.options), option_name)
-                if meta and isinstance(meta, MenuOption):
-                    menu_option_meta = meta
-
-            option_label_method = None
-            if isinstance(req, MenuInput) and req.option_label:
-                option_label_method = getattr(self, req.option_label, None)
-            option_description_method = None
-            if isinstance(req, MenuInput) and req.option_description:
-                option_description_method = getattr(
-                    self,
-                    req.option_description,
-                    None,
-                )
-            initial_selection = None
-            if isinstance(req, MenuInput) and req.initial_selection:
-                initial_selection_method = getattr(self, req.initial_selection, None)
-                if initial_selection_method:
-                    initial_selection = initial_selection_method(player, options)
-                    if initial_selection not in options:
-                        initial_selection = None
-
-            # Build menu items with localized labels if available
-            items = []
-            for opt in options:
-                if menu_option_meta:
-                    display_text = menu_option_meta.get_localized_choice(
-                        opt, user.locale
-                    )
-                elif option_label_method:
-                    display_text = option_label_method(player, opt)
-                else:
-                    display_text = opt
-                description = (
-                    option_description_method(player, opt)
-                    if option_description_method
-                    else None
-                )
-                items.append(
-                    MenuItem(
-                        text=display_text,
-                        id=opt,
-                        description=description,
-                    )
-                )
-
-            items.append(
-                MenuItem(text=Localization.get(user.locale, "cancel"), id="_cancel")
-            )
-            user.show_menu(
-                "action_input_menu",
-                items,
-                multiletter=True,
-                escape_behavior=EscapeBehavior.SELECT_LAST,
-                selection_id=initial_selection,
-            )
+            self._on_action_menu_input_opened(action, player)
+            self._consume_refresh_for_direct_menu_overlay(player)
+            if req.locks_gameplay:
+                for other in self.get_active_players():
+                    if other.id != player.id:
+                        self.refresh_menus(other)
 
         elif isinstance(req, EditboxInput):
             # Show editbox for text input

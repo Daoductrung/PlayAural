@@ -58,6 +58,10 @@ SEALED_MENU_ORCHESTRATORS = (
     "restore_session_ui",
     "_paint_player_menu",
     "_is_menu_refresh_blocked",
+    "_request_action_input",
+    "_paint_action_menu_input",
+    "_restore_pending_action_input",
+    "_discard_pending_action_input",
 )
 
 
@@ -136,6 +140,10 @@ class MenuManagementMixin:
                     "before any menu paint\n"
                     "  - build_menu_items(player, user): supply custom "
                     "MenuItem lists / grid layouts\n"
+                    "  - _build_action_menu_input_items(...): supply a "
+                    "specialized declarative selector surface\n"
+                    "  - _on_action_menu_input_opened(...): emit one-time "
+                    "selector TTS or sound\n"
                     "  - request_menu_focus(player, action_id): queue a "
                     "one-shot focus jump for the next flush\n"
                     "See server/game_utils/menu_management_mixin.py for the "
@@ -215,6 +223,21 @@ class MenuManagementMixin:
         self._pending_menu_focus[player.id] = action_id
         self._menu_dirty.add(player.id)
 
+    def _consume_refresh_for_direct_menu_overlay(self, player: "Player") -> None:
+        """Mark an immediately painted selector as satisfying queued UI intent."""
+
+        self._pending_menu_focus.pop(player.id, None)
+        if self._menu_dirty_all:
+            self._menu_dirty_all = False
+            self._menu_dirty.discard(player.id)
+            self._menu_dirty.update(
+                candidate.id
+                for candidate in self.players
+                if candidate.id != player.id
+            )
+        else:
+            self._menu_dirty.discard(player.id)
+
     # ------------------------------------------------------------------
     # Sealed orchestrators — do not override in games
     # ------------------------------------------------------------------
@@ -263,20 +286,33 @@ class MenuManagementMixin:
         3. Pending action input (action_input_menu, action_input_editbox,
            leave_game_confirm): any pending action implies an open input UI.
         """
-        if player.id in self._status_box_open:
+        if self._is_non_action_menu_refresh_blocked(player, user):
             return True
-
-        server = getattr(getattr(self, "_table", None), "_server", None)
-        if server is not None:
-            state = server._user_states.get(user.username, {})
-            if state.get("menu") in server.GLOBAL_SYSTEM_MENUS or state.get("_transient"):
-                return True
 
         pending_action_id = self._pending_actions.get(player.id)
         if pending_action_id and not self._is_pending_action_current(player):
             self._discard_pending_action_input(player, user)
             return False
         return bool(pending_action_id)
+
+    def _is_non_action_menu_refresh_blocked(
+        self,
+        player: "Player",
+        user: "User",
+    ) -> bool:
+        """Whether a status or server overlay owns the client's surface."""
+
+        if player.id in self._status_box_open:
+            return True
+
+        server = getattr(getattr(self, "_table", None), "_server", None)
+        if server is None:
+            return False
+        state = server._user_states.get(user.username, {})
+        return bool(
+            state.get("menu") in server.GLOBAL_SYSTEM_MENUS
+            or state.get("_transient")
+        )
 
     def _is_pending_action_current(self, player: "Player") -> bool:
         """Whether a pending input still belongs to an enabled action.
@@ -320,13 +356,21 @@ class MenuManagementMixin:
         if not action_id:
             return
 
+        action = self.find_action(player, action_id)
+        request = action.input_request if action else None
+        if action_id != "leave_game_confirm":
+            # Stale authoritative state closes the same game-owned draft data
+            # as an explicit Cancel. This keeps auxiliary selection state from
+            # surviving after its input surface has ceased to be valid.
+            self._on_action_input_cancelled(player, action_id)
+        if isinstance(request, MenuInput) and request.locks_gameplay:
+            self.refresh_menus()
+
         if user is None:
             user = self.get_user(player)
         if not user:
             return
 
-        action = self.find_action(player, action_id)
-        request = action.input_request if action else None
         if action_id == "leave_game_confirm":
             user.remove_menu("leave_game_confirm", send_packet=False)
         elif isinstance(request, MenuInput):
@@ -353,6 +397,25 @@ class MenuManagementMixin:
 
         action = self.find_action(player, action_id)
         if not action or action.input_request is None:
+            return
+        if isinstance(action.input_request, MenuInput):
+            user = self.get_user(player)
+            if user:
+                # This path repairs a client which submitted from a stale
+                # surface or chose an option that has since disappeared.
+                # Invalidate the server-side content snapshot first: an
+                # identical authoritative prompt must still be sent because
+                # the client's visible state can no longer be trusted.
+                user.remove_menu("action_input_menu", send_packet=False)
+            if self._paint_action_menu_input(
+                action,
+                player,
+                apply_initial_selection=False,
+            ):
+                self._consume_refresh_for_direct_menu_overlay(player)
+            else:
+                self._discard_pending_action_input(player)
+                self.refresh_menus(player)
             return
         return_focus = self._pending_action_return_focus.get(player.id)
         self._request_action_input(action, player)
@@ -424,8 +487,27 @@ class MenuManagementMixin:
             self._paint_live_status_box(player, focus_id=focus)
             return
 
-        if self._is_menu_refresh_blocked(player, user):
+        if self._is_non_action_menu_refresh_blocked(player, user):
             return
+
+        pending_action_id = self._pending_actions.get(player.id)
+        if pending_action_id:
+            if not self._is_pending_action_current(player):
+                self._discard_pending_action_input(player, user)
+            else:
+                action = self.find_action(player, pending_action_id)
+                if action and isinstance(action.input_request, MenuInput):
+                    if self._paint_action_menu_input(
+                        action,
+                        player,
+                        apply_initial_selection=False,
+                    ):
+                        return
+                    self._discard_pending_action_input(player, user)
+                else:
+                    # Editboxes and confirmation overlays are not safe to
+                    # repaint: doing so would erase typed text or reset focus.
+                    return
 
         if player.id in self._actions_menu_open:
             painter = getattr(self, "_paint_actions_menu", None)

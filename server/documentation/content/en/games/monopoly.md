@@ -133,6 +133,8 @@ At a safe point in play, any active player may propose a trade with another acti
 
 Nothing changes ownership while the offer is being prepared. The recipient reviews the complete offer, then accepts or rejects it. A recipient of mortgaged property must be able to pay the immediate mortgage interest. Draft offers are private to the proposer; submitted offers are public.
 
+A trade may leave a player with no cash and no property. That alone is not bankruptcy: bankruptcy occurs only when the player later owes more than their cash and everything they can legally sell or mortgage can cover.
+
 \*\*Jail\*\*
 
 You go directly to jail after landing on Go to Jail, drawing a card that sends you there, or rolling doubles three times in one turn. Direct jail movement pays no start-space salary.

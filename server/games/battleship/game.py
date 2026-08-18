@@ -11,7 +11,7 @@ from mashumaro.mixins.json import DataClassJSONMixin
 
 from ..base import Game, Player, GameOptions
 from ..registry import register_game
-from ...game_utils.actions import Action, ActionSet, Visibility
+from ...game_utils.actions import Action, ActionSet, MenuInput, Visibility
 from ...game_utils.bot_helper import BotHelper
 from ...game_utils.game_result import GameResult, PlayerResult
 from ...game_utils.grid_mixin import GridGameMixin, GridCursor
@@ -20,7 +20,6 @@ from ...game_utils.poker_timer import PokerTurnTimer
 from ...game_utils.turn_timer_mixin import TurnTimerMixin
 from ...messages.localization import Localization
 from ...ui.keybinds import KeybindState
-from ...users.base import MenuItem, EscapeBehavior
 from .bot import bot_think as _bot_think
 
 if TYPE_CHECKING:
@@ -354,6 +353,22 @@ class BattleshipGame(GridGameMixin, TurnTimerMixin, Game):
     # Action sets                                                         #
     # ------------------------------------------------------------------ #
 
+    def _create_orientation_action(self) -> Action:
+        """Build the hidden declarative bearing selector."""
+        return Action(
+            id="orient_placement",
+            label="",
+            handler="_action_orient_placement",
+            is_enabled="_is_orient_placement_enabled",
+            is_hidden="_is_orient_placement_hidden",
+            input_request=MenuInput(
+                prompt="battleship-select-orientation",
+                options="_orientation_options",
+                option_label="_orientation_option_label",
+            ),
+            show_in_actions_menu=False,
+        )
+
     def create_turn_action_set(self, player: BattleshipPlayer) -> ActionSet:
         action_set = ActionSet(name="turn")
 
@@ -365,7 +380,27 @@ class BattleshipGame(GridGameMixin, TurnTimerMixin, Game):
         for action in self.build_grid_nav_actions():
             action_set.add(action)
 
+        # A grid selection opens this hidden declarative action. Keeping the
+        # bearing choice in the shared input lifecycle makes it modal,
+        # reconnectable, and safe from passive turn-menu repaints.
+        action_set.add(self._create_orientation_action())
+
         return action_set
+
+    def rebuild_runtime_state(self) -> None:
+        """Migrate saved action sets and discard non-restorable modal intent."""
+        super().rebuild_runtime_state()
+        for player in self.get_active_players():
+            bp = self._as_bp(player)
+            if not bp:
+                continue
+            turn_set = self.get_action_set(bp, "turn")
+            if turn_set and not turn_set.get_action("orient_placement"):
+                turn_set.add(self._create_orientation_action())
+            # Pending action inputs are runtime-only. An older checkpoint may
+            # retain this serialized marker without the modal which owned it;
+            # resume safely on the grid and require a fresh coordinate choice.
+            self._clear_orientation_draft(bp)
 
     def create_standard_action_set(self, player: Player) -> ActionSet:
         action_set = super().create_standard_action_set(player)
@@ -460,27 +495,6 @@ class BattleshipGame(GridGameMixin, TurnTimerMixin, Game):
         if not standard_set:
             return
         self._apply_standard_action_order(standard_set, self.get_user(player))
-
-    def _handle_menu_event(self, player: Player, event: dict) -> None:
-        """Handle the isolated orientation selection menu."""
-        menu_id = event.get("menu_id")
-        selection_id = event.get("selection_id", "")
-
-        if menu_id == "orient_menu":
-            self._pending_actions.pop(player.id, None)
-            bp = self._as_bp(player)
-            if not bp:
-                self.refresh_menus(player)
-                return
-            if selection_id == "_cancel" or not selection_id:
-                self.placing_orientation_pending[bp.id] = False
-                self.refresh_menus(bp)
-                return
-            horizontal = selection_id == "horizontal"
-            self._try_place_ship(bp, horizontal)
-            return
-
-        super()._handle_menu_event(player, event)
 
     # ------------------------------------------------------------------ #
     # Game lifecycle                                                      #
@@ -744,36 +758,88 @@ class BattleshipGame(GridGameMixin, TurnTimerMixin, Game):
             size=str(ship_size),
         )
 
+        action = self.find_action(bp, "orient_placement")
+        if action:
+            self._request_action_input(action, bp)
+
+    def _is_orient_placement_enabled(self, player: Player) -> str | None:
+        """Return whether the saved deployment coordinate needs a bearing."""
+        bp = self._as_bp(player)
+        if (
+            not bp
+            or self.status != "playing"
+            or self.phase != "deploying"
+            or self.options.placement_mode != "manual"
+            or bp.deploy_ready
+            or not self.placing_orientation_pending.get(bp.id, False)
+        ):
+            return "action-not-available"
+        ship_idx = self.placing_ship_index.get(bp.id, 0)
+        if ship_idx >= len(FLEET):
+            return "action-not-available"
+        if bp.id not in self.placing_row or bp.id not in self.placing_col:
+            return "battleship-select-cell-first"
+        return None
+
+    def _is_orient_placement_hidden(self, player: Player) -> Visibility:
+        del player
+        return Visibility.HIDDEN
+
+    def _orientation_options(self, player: Player) -> list[str]:
+        if self._is_orient_placement_enabled(player) is not None:
+            return []
+        return list(ORIENTATION_CHOICES)
+
+    def _orientation_option_label(self, player: Player, option: str) -> str:
+        bp = self._as_bp(player)
+        user = self.get_user(player)
+        if not bp or not user:
+            return option
+        ship_idx = self.placing_ship_index.get(bp.id, 0)
+        if ship_idx >= len(FLEET):
+            return option
+        ship_key, _ = FLEET[ship_idx]
         ship_name = Localization.get(user.locale, f"battleship-ship-{ship_key}")
-        items = [
-            MenuItem(
-                text=Localization.get(
-                    user.locale,
-                    "battleship-orient-horizontal-at",
-                    ship=ship_name,
-                    coord=coord,
-                ),
-                id="horizontal",
-            ),
-            MenuItem(
-                text=Localization.get(
-                    user.locale,
-                    "battleship-orient-vertical-at",
-                    ship=ship_name,
-                    coord=coord,
-                ),
-                id="vertical",
-            ),
-            MenuItem(text=Localization.get(user.locale, "cancel"), id="_cancel"),
-        ]
-        self._pending_actions[bp.id] = "orient_placement"
-        user.show_menu(
-            "orient_menu",
-            items,
-            multiletter=True,
-            escape_behavior=EscapeBehavior.SELECT_LAST,
+        coord = self._grid_cell_coordinate(
+            self.placing_row.get(bp.id, 0),
+            self.placing_col.get(bp.id, 0),
         )
-        return
+        key = (
+            "battleship-orient-horizontal-at"
+            if option == "horizontal"
+            else "battleship-orient-vertical-at"
+        )
+        return Localization.get(
+            user.locale,
+            key,
+            ship=ship_name,
+            coord=coord,
+        )
+
+    def _action_orient_placement(
+        self,
+        player: Player,
+        orientation: str,
+        action_id: str,
+    ) -> None:
+        del action_id
+        bp = self._as_bp(player)
+        if not bp or orientation not in ORIENTATION_CHOICES:
+            return
+        self._try_place_ship(bp, horizontal=orientation == "horizontal")
+
+    def _on_action_input_cancelled(self, player: Player, action_id: str) -> None:
+        if action_id != "orient_placement":
+            return
+        bp = self._as_bp(player)
+        if bp:
+            self._clear_orientation_draft(bp)
+
+    def _clear_orientation_draft(self, player: BattleshipPlayer) -> None:
+        """Release the coordinate owned by a closed bearing selector."""
+        self.placing_orientation_pending[player.id] = False
+        self.placing_row.pop(player.id, None)
+        self.placing_col.pop(player.id, None)
 
     def _try_place_ship(
         self, bp: BattleshipPlayer, horizontal: bool,
@@ -803,7 +869,7 @@ class BattleshipGame(GridGameMixin, TurnTimerMixin, Game):
             )
             # Return to the grid; the player can select the same coordinate
             # again if they want to try the other bearing.
-            self.placing_orientation_pending[bp.id] = False
+            self._clear_orientation_draft(bp)
             self.refresh_menus(bp)
             return
 
@@ -815,7 +881,7 @@ class BattleshipGame(GridGameMixin, TurnTimerMixin, Game):
         _place_ship_on_board(bp.own_board, ship)
         bp.ships.append(ship)
         bp.ships_placed += 1
-        self.placing_orientation_pending[bp.id] = False
+        self._clear_orientation_draft(bp)
 
         user.play_sound(SOUND_PLACE)
         coord = self._grid_cell_coordinate(row, col)

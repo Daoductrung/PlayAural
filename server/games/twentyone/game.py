@@ -946,11 +946,9 @@ class TwentyOneGame(ActionGuardMixin, Game):
         except (ValueError, IndexError):
             return None
 
-    def _request_action_input(self, action: Action, player: Player) -> None:
-        super()._request_action_input(action, player)
+    def _on_action_menu_input_opened(self, action: Action, player: Player) -> None:
+        super()._on_action_menu_input_opened(action, player)
         if action.id != "play_modifier":
-            return
-        if self._pending_actions.get(player.id) != action.id:
             return
         p = player if isinstance(player, TwentyOnePlayer) else None
         if not p:

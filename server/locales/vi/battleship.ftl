@@ -57,6 +57,7 @@ battleship-orient-horizontal = Triển khai ngang
 battleship-orient-vertical = Triển khai dọc
 battleship-orient-horizontal-at = Triển khai { $ship } nằm ngang tại { $coord }
 battleship-orient-vertical-at = Triển khai { $ship } theo chiều dọc tại { $coord }
+battleship-select-orientation = Chọn hướng triển khai
 battleship-toggle-view = Chuyển bản đồ
 battleship-read-fleet = Tình trạng hạm đội
 battleship-read-enemy-fleet = Trinh sát hạm đội địch

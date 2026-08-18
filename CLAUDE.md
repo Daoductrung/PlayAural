@@ -413,6 +413,23 @@ Consequences that still matter when designing a menu:
   no focus directive sends no packet at all, and the per-flush coalescer
   collapses same-tick duplicates. Bandwidth is not a reason to avoid
   `refresh_menus()`.
+- Open `MenuInput` selectors repaint in place from their current options,
+  labels, and descriptions when their player is marked dirty; keep option ids
+  semantic and stable so this live update preserves focus. Pending
+  `EditboxInput` prompts never repaint passively because that would destroy
+  typed text. When choosing from a selector must freeze public mutation, set
+  `MenuInput(locks_gameplay=True)` and consult `_gameplay_input_lock_owner()`
+  from the game's actor/permission checks; do not couple the lock to an action
+  id. Information actions may remain available when the game permits them.
+- A specialized `MenuInput` surface overrides the idempotent
+  `_build_action_menu_input_items(action, player, user, options)` hook instead
+  of painting a menu directly. Put announcements and opening sounds in
+  `_on_action_menu_input_opened(action, player)`; the builder may run on every
+  dirty flush or stale-packet recovery and must be silent. Treat
+  `_on_action_input_cancelled(player, action_id)` as cleanup-only: it also runs
+  when authoritative state invalidates the input and when a human seat is
+  removed or replaced, preventing game-owned draft state from leaking past the
+  UI lifecycle.
 - The Escape/actions menu is refreshed in place by the sealed flush while it
   is open. Do not block state changes just because a player is reading that
   menu, and do not manually rebuild it from a game.

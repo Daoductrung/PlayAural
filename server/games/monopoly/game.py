@@ -331,6 +331,15 @@ class MonopolyGame(Game):
         # restoration simply gives the current bot a fresh human-sized pause.
         self._bot_pacing_actor_id = ""
 
+    def rebuild_runtime_state(self) -> None:
+        """Migrate serialized action metadata from older Monopoly saves."""
+        super().rebuild_runtime_state()
+        for player in self.get_active_players():
+            action = self.find_action(player, "propose_trade")
+            request = action.input_request if action else None
+            if isinstance(request, MenuInput):
+                request.locks_gameplay = True
+
     def on_discard(self) -> None:
         """Drop match-scoped bot observations when this game loses ownership."""
 
@@ -1033,6 +1042,7 @@ class MonopolyGame(Game):
                     option_label="_trade_target_label",
                     option_description="_trade_target_description",
                     initial_selection="_first_menu_option",
+                    locks_gameplay=True,
                 ),
                 show_in_actions_menu=True,
             )
@@ -2155,6 +2165,7 @@ class MonopolyGame(Game):
             self.status == "playing"
             and not getattr(player, "bankrupt", False)
             and not self.is_sequence_gameplay_locked()
+            and self._gameplay_input_lock_owner() is None
             and (phase is None or self.phase == phase)
             and self.decision_player_id == player.id
         )
@@ -2627,6 +2638,8 @@ class MonopolyGame(Game):
     def _can_interrupt(self, player: MonopolyPlayer) -> bool:
         if self.is_sequence_gameplay_locked():
             return False
+        if self._gameplay_input_lock_owner(exclude_player_id=player.id):
+            return False
         if self.phase not in STABLE_INTERRUPT_PHASES:
             return False
         if self.phase in {PHASE_PROPERTY, PHASE_AUCTION, PHASE_DEBT}:
@@ -2771,6 +2784,14 @@ class MonopolyGame(Game):
             return "monopoly-error-setup-in-progress"
         if self.is_sequence_gameplay_locked():
             return "monopoly-error-roll-resolving"
+        input_lock_owner = self._gameplay_input_lock_owner()
+        if input_lock_owner:
+            if input_lock_owner.id == player.id:
+                return "monopoly-error-trade-partner-selection-you"
+            return (
+                "monopoly-error-trade-partner-selection-player",
+                {"player": input_lock_owner.name},
+            )
         actor = self._decision_player()
         if actor:
             if actor.id == player.id:

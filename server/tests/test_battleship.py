@@ -89,8 +89,9 @@ def fire_and_resolve(game: BattleshipGame, bp: BattleshipPlayer, row: int, col: 
 def choose_orientation(game: BattleshipGame, player: BattleshipPlayer, horizontal: bool) -> None:
     """Simulate selecting orientation from the isolated orientation menu."""
     selection = "horizontal" if horizontal else "vertical"
-    game._handle_menu_event(player, {
-        "menu_id": "orient_menu",
+    game.handle_event(player, {
+        "type": "menu",
+        "menu_id": "action_input_menu",
         "selection_id": selection,
     })
 
@@ -278,6 +279,30 @@ class TestGameInit:
         alice = get_bp(game, "Alice")
         assert not alice.viewing_own  # battle starts on shot view
 
+    def test_legacy_save_restores_orientation_action_and_clears_orphan_modal(self) -> None:
+        game = make_game(start=True, placement_mode="manual")
+        for player in game.get_active_players():
+            turn_set = game.get_action_set(player, "turn")
+            assert turn_set is not None
+            turn_set.remove("orient_placement")
+            game.placing_orientation_pending[player.id] = True
+
+        restored = BattleshipGame.from_json(game.to_json())
+        restored.rebuild_runtime_state()
+        for player in restored.get_active_players():
+            restored.attach_user(
+                player.id,
+                MockUser(player.name, uuid=player.id),
+            )
+            assert restored.find_action(player, "orient_placement") is not None
+            assert restored.placing_orientation_pending[player.id] is False
+            assert player.id not in restored.placing_row
+            assert player.id not in restored.placing_col
+
+        alice = get_bp(restored, "Alice")
+        restored.on_grid_select(alice, 0, 0)
+        assert restored._pending_actions[alice.id] == "orient_placement"
+
 
 # ------------------------------------------------------------------ #
 # Manual deployment                                                    #
@@ -301,7 +326,7 @@ class TestManualDeployment:
         assert alice.ships[0].row == 0
         assert alice.ships[0].col == 0
 
-    def test_orientation_choices_use_isolated_menu(self) -> None:
+    def test_orientation_choices_use_shared_modal_menu(self) -> None:
         game = make_game(start=True, placement_mode="manual")
         alice = get_bp(game, "Alice")
         user = game.get_user(alice)
@@ -309,10 +334,87 @@ class TestManualDeployment:
 
         game.on_grid_select(alice, 0, 0)
 
-        orient_menu = user.menus["orient_menu"]
+        orient_menu = user.menus["action_input_menu"]
         ids = [item.id for item in orient_menu["items"]]
         assert ids == ["horizontal", "vertical", "_cancel"]
         assert game._pending_actions[alice.id] == "orient_placement"
+
+        user.clear_messages()
+        game.refresh_menus(alice)
+        game.flush_menus()
+
+        refreshed = user.menus["action_input_menu"]
+        assert [item.id for item in refreshed["items"]] == ids
+        assert refreshed["selection_id"] is None
+
+    def test_orientation_cancel_clears_modal_deployment_state(self) -> None:
+        game = make_game(start=True, placement_mode="manual")
+        alice = get_bp(game, "Alice")
+
+        game.on_grid_select(alice, 0, 0)
+        game.handle_event(alice, {
+            "type": "menu",
+            "menu_id": "action_input_menu",
+            "selection_id": "_cancel",
+        })
+
+        assert alice.id not in game._pending_actions
+        assert game.placing_orientation_pending[alice.id] is False
+        assert alice.id not in game.placing_row
+        assert alice.id not in game.placing_col
+
+    def test_orientation_submit_restores_focus_to_selected_grid_cell(self) -> None:
+        game = make_game(start=True, placement_mode="manual")
+        alice = get_bp(game, "Alice")
+        user = game.get_user(alice)
+        assert user is not None
+        game.refresh_menus(alice)
+        game.flush_menus()
+        user.clear_messages()
+
+        game.handle_event(alice, {
+            "type": "menu",
+            "menu_id": "turn_menu",
+            "selection_id": "grid_cell_0_0",
+        })
+        game.handle_event(alice, {
+            "type": "menu",
+            "menu_id": "action_input_menu",
+            "selection_id": "horizontal",
+        })
+
+        turn_updates = [
+            message
+            for message in user.messages
+            if message.type == "show_menu"
+            and message.data.get("menu_id") == "turn_menu"
+        ]
+        assert turn_updates[-1].data["selection_id"] == "grid_cell_0_0"
+
+    def test_bot_replacement_discards_orientation_modal_and_draft(self) -> None:
+        game = make_game(start=True, placement_mode="manual")
+        alice = get_bp(game, "Alice")
+
+        game.on_grid_select(alice, 0, 0)
+        assert game._replace_with_bot(alice)
+
+        assert alice.id not in game._pending_actions
+        assert game.placing_orientation_pending[alice.id] is False
+
+    def test_session_handover_rebuilds_orientation_modal(self) -> None:
+        game = make_game(start=True, placement_mode="manual")
+        alice = get_bp(game, "Alice")
+        game.on_grid_select(alice, 0, 0)
+
+        replacement = MockUser("Alice", uuid=alice.id)
+        game.attach_user(alice.id, replacement, session_handover=True)
+        game.restore_session_ui(alice)
+
+        assert game._pending_actions[alice.id] == "orient_placement"
+        assert [
+            item.id
+            for item in replacement.get_current_menu_items("action_input_menu") or []
+        ] == ["horizontal", "vertical", "_cancel"]
 
     def test_place_vertical(self) -> None:
         game = make_game(start=True, placement_mode="manual")

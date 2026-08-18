@@ -16,6 +16,7 @@ from pathlib import Path
 import pytest
 
 from ..game_utils.action_context import ActionContext
+from ..game_utils.actions import MenuInput
 from ..game_utils.menu_management_mixin import SEALED_MENU_ORCHESTRATORS
 from ..games.pig.game import PigGame
 from ..messages.localization import Localization
@@ -70,6 +71,16 @@ def game_over_messages(user: MockUser) -> list:
 
 
 class TestSealedOrchestrators:
+    def test_legacy_menu_input_defaults_to_non_locking(self) -> None:
+        restored = MenuInput.from_dict(
+            {
+                "prompt": "legacy-prompt",
+                "options": "_legacy_options",
+            }
+        )
+
+        assert restored.locks_gameplay is False
+
     @pytest.mark.parametrize("name", SEALED_MENU_ORCHESTRATORS)
     def test_override_raises_at_class_creation(self, name: str) -> None:
         with pytest.raises(TypeError) as excinfo:
@@ -631,6 +642,40 @@ class TestPersistentStartAction:
         assert any(packet.get("type") == "speak" for packet in packets)
         assert not any(packet.get("type") == "menu" for packet in packets)
 
+    def test_stale_surface_forces_authoritative_input_menu_packet(self) -> None:
+        game = PigGame()
+        game.setup_keybinds()
+        user = NetworkUser("Player1", "en", connection=None)
+        host = game.add_player("Player1", user)
+        game.host = host.name
+        action = game.find_action(host, "start_game")
+        assert action is not None
+        action.input_request = MenuInput(
+            prompt="cancel",
+            options="_test_input_options",
+        )
+        game._test_input_options = lambda player: ["one"]
+
+        game.execute_action(host, "start_game")
+        assert game._pending_actions[host.id] == "start_game"
+        user.get_queued_messages()
+
+        game.handle_event(
+            host,
+            {
+                "type": "menu",
+                "menu_id": "turn_menu",
+                "selection_id": "whose_turn",
+            },
+        )
+
+        packets = user.get_queued_messages()
+        assert any(
+            packet.get("type") == "menu"
+            and packet.get("menu_id") == "action_input_menu"
+            for packet in packets
+        )
+
     def test_validate_start_combines_count_and_game_errors(self) -> None:
         game = make_game(player_count=1)
         game.options.team_mode = "2v2"
@@ -937,6 +982,95 @@ class TestActionMenuFocus:
 
         assert p1.id not in game._pending_actions
         assert turn_menu_messages(user1)[-1].data["selection_id"] == "add_bot"
+
+    def test_editbox_cancel_runs_game_cleanup_hook_once(self) -> None:
+        game = make_game()
+        player = game.players[0]
+        user = game.get_user(player)
+        user.preferences.allow_custom_bot_names = True
+        cancelled = []
+        game._on_action_input_cancelled = (
+            lambda hook_player, action_id: cancelled.append(
+                (hook_player.id, action_id)
+            )
+        )
+
+        game.execute_action(player, "add_bot")
+        game.handle_event(
+            player,
+            {
+                "type": "editbox",
+                "input_id": "action_input_editbox",
+                "text": "",
+                "cancelled": True,
+            },
+        )
+
+        assert cancelled == [(player.id, "add_bot")]
+
+    def test_leave_confirmation_does_not_run_action_input_cleanup_hook(self) -> None:
+        game = make_game()
+        player = game.players[0]
+        cancelled = []
+        game._on_action_input_cancelled = (
+            lambda hook_player, action_id: cancelled.append(
+                (hook_player.id, action_id)
+            )
+        )
+        game._pending_actions[player.id] = "leave_game_confirm"
+
+        game._discard_pending_action_input(player)
+
+        assert cancelled == []
+
+    def test_action_input_submit_returns_focus_to_opener(self) -> None:
+        game = make_game()
+        player = game.players[0]
+        user = game.get_user(player)
+        user.preferences.allow_custom_bot_names = True
+        game.refresh_menus(player)
+        game.flush_menus()
+        user.clear_messages()
+
+        game.handle_event(
+            player,
+            {
+                "type": "menu",
+                "menu_id": "turn_menu",
+                "selection_id": "add_bot",
+            },
+        )
+        game.handle_event(
+            player,
+            {
+                "type": "editbox",
+                "input_id": "action_input_editbox",
+                "text": "Focused Bot",
+            },
+        )
+
+        assert player.id not in game._pending_actions
+        assert turn_menu_messages(user)[-1].data["selection_id"] == "add_bot"
+
+    def test_passive_refresh_does_not_repaint_pending_editbox(self) -> None:
+        game = make_game()
+        player = game.players[0]
+        user = game.get_user(player)
+        user.preferences.allow_custom_bot_names = True
+        game.execute_action(player, "add_bot")
+        assert player.id in game._pending_actions
+        user.clear_messages()
+
+        game.refresh_menus(player)
+        game.flush_menus()
+
+        assert player.id in game._pending_actions
+        assert not [
+            message
+            for message in user.messages
+            if message.type == "show_editbox"
+            and message.data.get("input_id") == "action_input_editbox"
+        ]
 
     def test_leave_confirmation_no_returns_focus_to_touch_anchor(self) -> None:
         game = make_game()

@@ -279,13 +279,14 @@ class EventHandlingMixin:
                 return
 
             return_focus = None
+            locks_gameplay = (
+                isinstance(request, MenuInput) and request.locks_gameplay
+            )
             if player.id in self._pending_actions:
                 action_id = self._pending_actions.pop(player.id)
                 return_focus = self._pending_action_return_focus.pop(player.id, None)
                 if cancelled:
-                    cancel_hook = getattr(self, "_on_action_input_cancelled", None)
-                    if cancel_hook:
-                        cancel_hook(player, action_id)
+                    self._on_action_input_cancelled(player, action_id)
                 else:
                     # Execute the action with the selected input
                     context = (
@@ -299,12 +300,19 @@ class EventHandlingMixin:
                         choice,
                         context=context,
                     )
-            if cancelled and return_focus:
-                self.request_menu_focus(player, return_focus)
-            else:
-                self.refresh_menus(player)
+            if player.id not in self._pending_actions:
+                self._restore_action_input_return_focus(player, return_focus)
+            if locks_gameplay:
+                if player.id in self._pending_actions:
+                    for other in self.get_active_players():
+                        if other.id != player.id:
+                            self.refresh_menus(other)
+                else:
+                    self.refresh_menus()
         elif menu_id == "action_input_editbox":
-            self._pending_actions.pop(player.id, None)
+            action_id = self._pending_actions.pop(player.id, None)
+            if action_id:
+                self._on_action_input_cancelled(player, action_id)
             focus = self._pending_action_return_focus.pop(player.id, None)
             if focus:
                 self.request_menu_focus(player, focus)
@@ -340,16 +348,43 @@ class EventHandlingMixin:
             if player.id in self._pending_actions:
                 action_id = self._pending_actions.pop(player.id)
                 return_focus = self._pending_action_return_focus.pop(player.id, None)
-                if text and not event.get("cancelled") and not event.get("cancel"):
+                cancelled = bool(
+                    not text
+                    or event.get("cancelled")
+                    or event.get("cancel")
+                )
+                if not cancelled:
                     context = (
                         ActionContext(menu_item_id=return_focus)
                         if return_focus
                         else None
                     )
                     self.execute_action(player, action_id, text, context=context)
-                elif return_focus:
-                    self.request_menu_focus(player, return_focus)
+                else:
+                    self._on_action_input_cancelled(player, action_id)
+                if player.id in self._pending_actions:
                     return
+                self._restore_action_input_return_focus(player, return_focus)
+                return
+            self.refresh_menus(player)
+
+    def _restore_action_input_return_focus(
+        self,
+        player: "Player",
+        return_focus: str | None,
+    ) -> None:
+        """Restore an explicitly submitted/cancelled input to its opener."""
+        user = self.get_user(player)
+        if (
+            return_focus
+            and user is not None
+            and not self._destroyed
+            and player.id not in self._status_box_open
+            and player.id not in self._pending_menu_focus
+            and not self._is_menu_refresh_blocked(player, user)
+        ):
+            self.request_menu_focus(player, return_focus)
+        else:
             self.refresh_menus(player)
 
     def _handle_keybind_event(self, player: "Player", event: dict) -> None:

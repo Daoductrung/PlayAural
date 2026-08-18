@@ -57,6 +57,7 @@ battleship-orient-horizontal = Deploy Horizontal
 battleship-orient-vertical = Deploy Vertical
 battleship-orient-horizontal-at = Deploy { $ship } horizontally at { $coord }
 battleship-orient-vertical-at = Deploy { $ship } vertically at { $coord }
+battleship-select-orientation = Select deployment bearing
 battleship-toggle-view = Switch Grid
 battleship-read-fleet = Fleet Status
 battleship-read-enemy-fleet = Enemy Fleet Intel

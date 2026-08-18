@@ -133,6 +133,8 @@ Tại thời điểm an toàn trong ván, bất kỳ người nào còn chơi c�
 
 Trong lúc soạn đề nghị, chưa tài sản nào đổi chủ. Người nhận xem toàn bộ đề nghị rồi đồng ý hoặc từ chối. Nếu nhận bất động sản đang thế chấp, họ phải đủ tiền trả khoản lãi bắt buộc ngay lúc nhận. Bản nháp chỉ hiện với người đề nghị; đề nghị đã gửi là thông tin công khai.
 
+Một cuộc trao đổi có thể khiến người chơi không còn tiền mặt lẫn bất động sản. Chỉ riêng tình trạng đó không làm người chơi phá sản: phá sản chỉ xảy ra khi về sau họ mắc một khoản nợ lớn hơn tổng tiền mặt và mọi khoản có thể huy động hợp lệ bằng cách bán hoặc thế chấp.
+
 \*\*Nhà tù\*\*
 
 Bạn bị đưa thẳng vào tù khi dừng ở ô Vào tù, rút thẻ yêu cầu vào tù hoặc ra đôi ba lần trong một lượt. Đi thẳng vào tù không nhận tiền ở ô bắt đầu.

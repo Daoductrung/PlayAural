@@ -480,12 +480,13 @@ class Game(
         if not player:
             return
 
-        # Remove from players list
+        # Release modal/runtime intent while the player's declarative actions
+        # are still available for lock detection and game-owned cleanup hooks.
+        self._clear_player_ui_runtime_state(player_id, player=player)
+
+        # Remove from players list and game-specific action state.
         self.players = [p for p in self.players if p.id != player_id]
-        
-        # Clean up game-specific state
         self.player_action_sets.pop(player_id, None)
-        self._clear_player_ui_runtime_state(player_id)
         self._users.pop(player_id, None)
         self.prune_audio_recipient(player_id)
         discard_end_screen = getattr(self, "_discard_end_screen_player_id", None)
@@ -509,12 +510,13 @@ class Game(
         if self.team_arrangement_active and not player.is_spectator:
             self._cancel_team_arrangement_for_roster_change()
 
-        # Remove from players list
+        # Release modal/runtime intent while the player's declarative actions
+        # are still available for lock detection and game-owned cleanup hooks.
+        self._clear_player_ui_runtime_state(player_id, player=player)
+
+        # Remove from players list and game-specific action state.
         self.players = [p for p in self.players if p.id != player_id]
-        
-        # Clean up game-specific state
         self.player_action_sets.pop(player_id, None)
-        self._clear_player_ui_runtime_state(player_id)
         self._users.pop(player_id, None)
         self.prune_audio_recipient(player_id)
         discard_end_screen = getattr(self, "_discard_end_screen_player_id", None)
@@ -550,7 +552,7 @@ class Game(
         player.replacement_bot_name = bot_name
         player.name = bot_name
         self._rename_team_member(human_name, bot_name)
-        self._clear_player_ui_runtime_state(player.id)
+        self._clear_player_ui_runtime_state(player.id, player=player)
         self._users.pop(player.id, None)
 
         # Use same UUID so user can reclaim it
@@ -567,10 +569,19 @@ class Game(
         # Note: Caller is responsible for playing sounds if needed
         return True
 
-    def _clear_player_ui_runtime_state(self, player_id: str) -> None:
+    def _clear_player_ui_runtime_state(
+        self,
+        player_id: str,
+        *,
+        player: "Player | None" = None,
+    ) -> None:
         """Release transient UI intent that must not outlive a human seat."""
-        self._pending_actions.pop(player_id, None)
-        self._pending_action_return_focus.pop(player_id, None)
+        player = player or self.get_player_by_id(player_id)
+        if player and player_id in self._pending_actions:
+            self._discard_pending_action_input(player)
+        else:
+            self._pending_actions.pop(player_id, None)
+            self._pending_action_return_focus.pop(player_id, None)
         self._action_context.pop(player_id, None)
         self._actions_menu_open.discard(player_id)
         self._actions_menu_return_focus.pop(player_id, None)

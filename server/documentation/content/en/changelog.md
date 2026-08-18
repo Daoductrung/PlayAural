@@ -1,5 +1,23 @@
 Changelog
 
+Tuesday 18 August 2026
+
+Improvements:
+
+* Monopoly is now fully available in Spanish, including its boards, menus, announcements, and beginner guide, thanks to community translator UnDuende (Storm Demoner).
+* Spanish account screens now include username-character guidance during registration and clear instructions when an older account name has more than one capitalization match.
+* Choice menus can now update while they remain open without dropping screen-reader focus. Options, labels, descriptions, and balances follow the current game state; submitting or cancelling returns focus to the control that opened the prompt; text entries are not reset by background updates; and opening speech or sounds do not repeat during those updates. This keeps Monopoly's Read all portfolios, Manage properties, and Propose a trade choices, Battleship's manual deployment bearings, Mile by Mile's unplayable-card prompt, and 21 (Survival Rules) Change-card choices stable through game updates and reconnects.
+* Monopoly auction controls now remain visible for every participating bidder, update to show the current minimum bid, and stay unavailable while another bidder acts. They close only when you leave the auction or the auction ends.
+* Monopoly rent settlement now gives the property owner, the player paying, and other listeners one concise message from the appropriate perspective. Brief announcements remain shorter, and duplicate rent notices have been removed.
+* Explicitly choosing End turn in Monopoly now returns only your focus to Roll dice; another player's turn or action does not move your cursor. The guide also clarifies that having no cash and no property is not bankruptcy unless you later owe a debt you cannot cover.
+
+Bug Fixes:
+
+* Pressing Space for Roll dice in Monopoly now performs exactly one roll. During the opening setup, Whose turn reports that nobody has the turn yet and game-changing actions ask you to wait; while a roll, token movement, rent roll, or card effect is resolving, overlapping controls remain unavailable but information views stay accessible.
+* Choosing Propose a trade now pauses other game-changing actions until you select a trade partner or cancel, so another player's roll can no longer close the selection menu.
+* Owned utilities and Hanoi landmarks now always use a fresh rent roll and charge the same amount whether their owner is a person or a bot. On the Hanoi board, One Pillar Pagoda and Long Biên Bridge charge 4,000 VND per dice pip when the owner has one landmark or 10,000 VND per pip when the owner has both; cards that send you to the nearest utility use the complete-group rate as required.
+* A completed Monopoly result screen now keeps the currency of the board that was played, even if the host selects a different board for the next game.
+
 Sunday 16 August 2026
 
 New Additions:
@@ -14,7 +32,7 @@ Improvements:
 Bug Fixes:
 
 * Account registration no longer occasionally fails with a server error while other account or game records are being updated.
-* Game choices and text prompts now stay synchronized when the table changes while a prompt is open. This prevents missing property-purchase controls, stale Monopoly auction menus, stuck inputs, and outdated choices taking effect after the game has moved on.
+* Choice menus and text prompts now remain tied to the current table state. Responses from an outdated menu are ignored, and prompts that no longer apply close safely instead of carrying an earlier decision into a later part of the game.
 
 Wednesday 5 August 2026
 

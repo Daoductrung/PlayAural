@@ -1,5 +1,23 @@
 Nhật ký thay đổi
 
+Thứ Ba 18 Tháng Tám 2026
+
+Cải thiện:
+
+* Cờ tỷ phú giờ có bản dịch tiếng Tây Ban Nha đầy đủ, gồm bàn cờ, menu, thông báo và tài liệu cho người mới, nhờ đóng góp của dịch giả cộng đồng UnDuende (Storm Demoner).
+* Các màn hình tài khoản bằng tiếng Tây Ban Nha giờ hướng dẫn ký tự được phép dùng khi đăng ký và giải thích rõ cách nhập tên của tài khoản cũ khi nhiều cách viết hoa, viết thường cùng khớp.
+* Menu lựa chọn giờ có thể tự cập nhật ngay khi đang mở mà không làm mất tiêu điểm trình đọc màn hình. Lựa chọn, tên mục, mô tả và số tiền luôn theo trạng thái hiện tại; sau khi xác nhận hoặc hủy, tiêu điểm trở về nút đã mở lời nhắc; ô nhập văn bản không bị đặt lại bởi cập nhật nền; lời đọc hoặc âm thanh mở menu không lặp lại trong các lần cập nhật ấy. Nhờ đó, các lựa chọn Xem tài sản của mọi người, Quản lý bất động sản và Đề nghị trao đổi trong Cờ tỷ phú, chọn hướng triển khai thủ công trong Tàu Chiến, lời nhắc lá không đánh được trong Đường Đua Ngàn Dặm và chọn Lá Biến trong 21 (Luật Sinh Tồn) vẫn ổn định khi ván cập nhật hoặc kết nối lại.
+* Các nút đấu giá trong Cờ tỷ phú giờ luôn hiện với mọi người còn tham gia, tự cập nhật mức giá tối thiểu hiện tại và tạm thời không dùng được trong lúc người khác đặt giá. Chúng chỉ đóng khi bạn rời cuộc đấu giá hoặc cuộc đấu giá kết thúc.
+* Khi thanh toán tiền thuê trong Cờ tỷ phú, chủ bất động sản, người trả tiền và những người còn lại giờ mỗi bên chỉ nghe một thông báo ngắn gọn đúng theo góc nhìn của mình. Thông báo ngắn gọn vẫn súc tích hơn và các lời báo tiền thuê trùng lặp đã được loại bỏ.
+* Khi bạn chủ động chọn Kết thúc lượt trong Cờ tỷ phú, chỉ tiêu điểm của bạn trở về Tung xúc xắc; lượt hoặc hành động của người khác không làm con trỏ của bạn nhảy vị trí. Tài liệu cũng nói rõ rằng không còn tiền mặt và bất động sản chưa phải là phá sản, trừ khi về sau bạn mắc một khoản nợ không thể thanh toán.
+
+Sửa lỗi:
+
+* Nhấn Space để dùng Tung xúc xắc trong Cờ tỷ phú giờ chỉ thực hiện đúng một lần tung. Trong lúc thiết lập mở đầu, Lượt của ai báo rằng chưa ai có lượt và các hành động làm thay đổi ván sẽ yêu cầu bạn chờ; trong khi lần tung, bước di chuyển quân cờ, lần tung tính tiền thuê hoặc hiệu ứng thẻ đang được xử lý, các nút làm thay đổi ván sẽ tạm thời không dùng được nhưng các bảng thông tin vẫn truy cập được.
+* Khi chọn Đề nghị trao đổi, các hành động làm thay đổi ván khác giờ tạm dừng cho đến khi bạn chọn người để trao đổi hoặc hủy, nên lần tung của người khác không còn đóng menu lựa chọn này.
+* Tiền thuê của công ty tiện ích và địa danh Hà Nội đã có chủ giờ luôn dùng một lần tung mới và được tính như nhau dù chủ sở hữu là người hay bot. Trên bàn cờ Hà Nội, Chùa Một Cột và Cầu Long Biên thu 4.000 đồng cho mỗi điểm xúc xắc khi chủ sở hữu có một địa danh hoặc 10.000 đồng cho mỗi điểm khi có cả hai; thẻ đưa bạn đến công ty tiện ích gần nhất dùng đúng mức của trọn nhóm.
+* Màn hình kết quả Cờ tỷ phú đã hoàn tất giờ giữ nguyên đơn vị tiền của bàn cờ vừa chơi, kể cả khi chủ bàn chọn một bàn khác cho ván tiếp theo.
+
 Chủ Nhật 16 Tháng Tám 2026
 
 Tính năng mới:
@@ -14,7 +32,7 @@ Cải thiện:
 Sửa lỗi:
 
 * Đăng ký tài khoản không còn thỉnh thoảng thất bại với lỗi máy chủ khi hệ thống đang cập nhật dữ liệu tài khoản hoặc ván chơi khác.
-* Menu lựa chọn và ô nhập liệu giờ bám đúng trạng thái mới nhất khi tình hình trong bàn thay đổi trong lúc lời nhắc đang mở. Điều này ngăn nút Mua bất động sản bị mất, menu đấu giá Cờ tỷ phú bị kẹt, ô nhập liệu cũ còn sót lại, hoặc lựa chọn cũ có hiệu lực sau khi ván đã chuyển sang bước khác.
+* Menu lựa chọn và ô nhập liệu giờ luôn gắn với trạng thái hiện tại của bàn. Phản hồi gửi từ menu cũ bị bỏ qua, còn lời nhắc không còn hợp lệ sẽ đóng an toàn thay vì mang một quyết định trước đó sang giai đoạn sau của ván.
 
 Thứ Tư 5 Tháng Tám 2026
 

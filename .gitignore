@@ -47,3 +47,6 @@ PRIVATE_ANDROID_BUILD_GUIDE.md
 *.jks
 *.keystore
 *keystore*credential*.md
+__pycache__
+*.log
+.python-version

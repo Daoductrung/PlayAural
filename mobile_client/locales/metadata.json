@@ -24,6 +24,12 @@
       "nativeName": "Español",
       "contributors": ["UnDuende"],
       "official": false
+    },
+    "ar": {
+      "name": "Arabic",
+      "nativeName": "العربية",
+      "contributors": ["Jules AI"],
+      "official": false
     }
   }
 }

@@ -15,12 +15,15 @@ class BattleLocalizedName(DataClassJSONMixin):
     en: str
     vi: str
     es: str | None = None
+    ar: str | None = None
 
     def for_locale(self, locale: str) -> str:
         if locale == "es" and self.es:
             return self.es
         if locale == "vi" and self.vi:
             return self.vi
+        if locale == "ar" and self.ar:
+            return self.ar
         return self.en
 
 

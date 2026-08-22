@@ -25,4 +25,10 @@ export const LOCALE_METADATA = {
     contributors: ["UnDuende"],
     official: false,
   },
+  ar: {
+    name: "Arabic",
+    nativeName: "العربية",
+    contributors: ["Jules AI"],
+    official: false,
+  },
 };

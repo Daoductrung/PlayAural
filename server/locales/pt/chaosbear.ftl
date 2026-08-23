@@ -1,0 +1,129 @@
+game-name-chaosbear = Urso do Caos
+
+chaosbear-roll-dice = Rolar dados
+chaosbear-draw-card = Comprar uma carta
+chaosbear-check-status = Verificar status
+chaosbear-action-in-progress = Aguarde o término do movimento de perseguição atual antes de agir novamente.
+chaosbear-error-roll-not-playing = Você não pode rolar o dado porque a perseguição do Urso do Caos ainda não começou.
+chaosbear-error-roll-no-turn = Você não pode rolar o dado porque a perseguição está entre turnos no momento. Aguarde o anúncio do próximo corredor.
+chaosbear-error-roll-not-your-turn = Você não pode rolar o dado agora porque outro corredor tem o turno na perseguição.
+chaosbear-error-roll-resolving = Você ainda não pode rolar novamente porque o movimento de perseguição atual ainda está se resolvendo.
+chaosbear-error-roll-caught = Você não pode rolar porque o urso já te pegou na casa { $position }. O urso está na casa { $bear_position }.
+chaosbear-error-draw-not-playing = Você não pode comprar uma carta do caos porque a perseguição do Urso do Caos ainda não começou.
+chaosbear-error-draw-no-turn = Você não pode comprar uma carta do caos porque a perseguição está entre turnos no momento. Aguarde o anúncio do próximo corredor.
+chaosbear-error-draw-not-your-turn = Você não pode comprar uma carta do caos agora porque outro corredor tem o turno na perseguição.
+chaosbear-error-draw-resolving = Você ainda não pode comprar outra carta do caos porque o movimento de perseguição atual ainda está se resolvendo.
+chaosbear-error-draw-caught = Você não pode comprar uma carta do caos porque o urso já te pegou na casa { $position }. O urso está na casa { $bear_position }.
+chaosbear-error-draw-not-on-multiple = Você só pode comprar uma carta do caos enquanto estiver em um múltiplo positivo de 5. Mova-se para uma casa elegível antes de comprar.
+chaosbear-error-status-not-playing = Você pode verificar o status do Urso do Caos após o início da perseguição.
+
+chaosbear-intro-1 = O Urso do Caos começou! Todos os jogadores começam 30 casas à frente do urso.
+chaosbear-intro-2 = Role os dados para avançar e compre cartas em múltiplos de 5 para um impulso de 3 casas mais um efeito especial.
+chaosbear-intro-3 = Não deixe o urso te pegar!
+chaosbear-intro-brief = O Urso do Caos começa. Comece na casa 30; fique à frente do urso.
+
+chaosbear-turn-you = Seu turno. Você está na casa { $position }, { $gap } casas à frente do urso.
+chaosbear-turn-other = Turno de { $player }. Ele está na casa { $position }, { $gap } casas à frente do urso.
+chaosbear-turn = Turno de { $player }; casa { $position }.
+chaosbear-turn-you-brief = Seu turno: casa { $position }, distância { $gap }.
+chaosbear-turn-other-brief = { $player }: casa { $position }, distância { $gap }.
+
+chaosbear-roll-you = Você tirou { $roll }.
+chaosbear-roll-other = { $player } tirou { $roll }.
+chaosbear-roll = { $player } tirou { $roll }.
+chaosbear-roll-you-brief = Tirou { $roll }.
+chaosbear-roll-other-brief = { $player } tirou { $roll }.
+chaosbear-position-you = Você alcançou a casa { $position }, { $gap } casas à frente do urso.
+chaosbear-position-other = { $player } alcançou a casa { $position }, { $gap } casas à frente do urso.
+chaosbear-position = { $player } agora está na casa { $position }.
+chaosbear-position-you-brief = Casa { $position }, distância { $gap }.
+chaosbear-position-other-brief = { $player }: casa { $position }, distância { $gap }.
+
+chaosbear-draw-card-you = Você compra uma carta do caos.
+chaosbear-draw-card-other = { $player } compra uma carta do caos.
+chaosbear-draws-card = { $player } compra uma carta.
+chaosbear-draw-card-you-brief = Você compra.
+chaosbear-draw-card-other-brief = { $player } compra.
+chaosbear-card-impulsion-you = Impulsão! Você dispara para a frente até a casa { $position }, { $gap } casas à frente do urso.
+chaosbear-card-impulsion-other = Impulsão! { $player } dispara para a frente até a casa { $position }, { $gap } casas à frente do urso.
+chaosbear-card-impulsion = Impulsão! { $player } dispara para a frente até a casa { $position }!
+chaosbear-card-impulsion-you-brief = Impulsão: casa { $position }, distância { $gap }.
+chaosbear-card-impulsion-other-brief = Impulsão de { $player }: casa { $position }, distância { $gap }.
+chaosbear-card-super-impulsion-you = Super impulsão! Você dispara feito foguete até a casa { $position }, { $gap } casas à frente do urso.
+chaosbear-card-super-impulsion-other = Super impulsão! { $player } dispara feito foguete até a casa { $position }, { $gap } casas à frente do urso.
+chaosbear-card-super-impulsion = Super impulsão! { $player } dispara feito foguete até a casa { $position }!
+chaosbear-card-super-impulsion-you-brief = Super Impulsão: casa { $position }, distância { $gap }.
+chaosbear-card-super-impulsion-other-brief = Super Impulsão de { $player }: casa { $position }, distância { $gap }.
+chaosbear-card-tiredness-you = Cansaço! Você chega à casa { $position }, { $gap } casas à frente do urso, e a energia do urso cai para { $energy }.
+chaosbear-card-tiredness-other = Cansaço! { $player } chega à casa { $position }, { $gap } casas à frente do urso, e a energia do urso cai para { $energy }.
+chaosbear-card-tiredness = Cansaço! { $player } chega à casa { $position }, e a energia do urso cai para { $energy }.
+chaosbear-card-tiredness-you-brief = Cansaço: casa { $position }, energia do urso { $energy }.
+chaosbear-card-tiredness-other-brief = Cansaço de { $player }: casa { $position }, energia do urso { $energy }.
+chaosbear-card-hunger-you = Fome! Você chega à casa { $position }, { $gap } casas à frente do urso, mas a energia do urso sobe para { $energy }.
+chaosbear-card-hunger-other = Fome! { $player } chega à casa { $position }, { $gap } casas à frente do urso, mas a energia do urso sobe para { $energy }.
+chaosbear-card-hunger = Fome! { $player } chega à casa { $position }, mas a energia do urso sobe para { $energy }.
+chaosbear-card-hunger-you-brief = Fome: casa { $position }, energia do urso { $energy }.
+chaosbear-card-hunger-other-brief = Fome de { $player }: casa { $position }, energia do urso { $energy }.
+chaosbear-card-backward-you = Empurrão para trás! Você perde o impulso de 3 casas e fica na casa { $position }, { $gap } casas à frente do urso.
+chaosbear-card-backward-other = Empurrão para trás! { $player } perde o impulso de 3 casas e fica na casa { $position }, { $gap } casas à frente do urso.
+chaosbear-card-backward = Empurrão para trás! { $player } perde o impulso e fica na casa { $position }.
+chaosbear-card-backward-you-brief = Empurrão para trás: casa { $position }, distância { $gap }.
+chaosbear-card-backward-other-brief = Empurrão para trás de { $player }: casa { $position }, distância { $gap }.
+chaosbear-card-random-gift-you = Presente surpresa! Sua carta ainda está decidindo se vai te ajudar ou te prejudicar.
+chaosbear-card-random-gift-other = Presente surpresa! A carta de { $player } ainda está decidindo se vai ajudá-lo ou prejudicá-lo.
+chaosbear-card-random-gift = Presente surpresa!
+chaosbear-card-random-gift-you-brief = Presente surpresa.
+chaosbear-card-random-gift-other-brief = Presente surpresa de { $player }.
+chaosbear-gift-back-you = O presente surpresa se vira contra você e te puxa { $amount } casas para trás, para a casa { $position }, { $gap } casas à frente do urso.
+chaosbear-gift-back-other = O presente surpresa se vira contra { $player } e o puxa { $amount } casas para trás, para a casa { $position }, { $gap } casas à frente do urso.
+chaosbear-gift-back = { $player } voltou para a casa { $position }.
+chaosbear-gift-back-you-brief = Presente para trás { $amount }: casa { $position }, distância { $gap }.
+chaosbear-gift-back-other-brief = Presente para trás de { $player } { $amount }: casa { $position }, distância { $gap }.
+chaosbear-gift-forward-you = O presente surpresa te ajuda e te empurra { $amount } casas para a frente, para a casa { $position }, { $gap } casas à frente do urso.
+chaosbear-gift-forward-other = O presente surpresa ajuda { $player } e o empurra { $amount } casas para a frente, para a casa { $position }, { $gap } casas à frente do urso.
+chaosbear-gift-forward = { $player } avançou para a casa { $position }!
+chaosbear-gift-forward-you-brief = Presente para a frente { $amount }: casa { $position }, distância { $gap }.
+chaosbear-gift-forward-other-brief = Presente para a frente de { $player } { $amount }: casa { $position }, distância { $gap }.
+
+chaosbear-bear-roll = O urso tirou { $roll } + sua energia { $energy } = { $total }.
+chaosbear-bear-energy-up = O urso tirou um 3 e ganhou 1 de energia. Sua energia agora é { $energy }.
+chaosbear-bear-position = O urso agora está na casa { $position }!
+chaosbear-you-caught = O urso alcançou a casa { $bear_position } e te pegou na casa { $position }. Você está fora da perseguição.
+chaosbear-player-caught = O urso alcançou a casa { $bear_position } e pegou { $player } na casa { $position }. { $player } está fora da perseguição.
+chaosbear-bear-feast = O urso desacelera após pegar os corredores. Sua energia agora é { $energy }.
+chaosbear-bear-roll-brief = Urso rola { $roll } + { $energy } = { $total }.
+chaosbear-bear-energy-up-brief = Energia do urso { $energy }.
+chaosbear-bear-position-brief = Casa do urso { $position }.
+chaosbear-you-caught-brief = Pegou na casa { $position }. Você está fora.
+chaosbear-player-caught-brief = { $player } pego na casa { $position }.
+chaosbear-bear-feast-brief = Urso desacelera: energia { $energy }.
+
+chaosbear-status-header = Status da perseguição
+chaosbear-status-round = Rodada { $round }
+chaosbear-status-turn = Turno: { $player } na casa { $position }, { $gap } casas à frente do urso.
+chaosbear-status-no-turn = Nenhum corredor tem o turno no momento.
+chaosbear-status-player-alive = { $player }: casa { $position }, { $gap } casas à frente do urso.
+chaosbear-status-player-caught = { $player }: pego na casa { $position }.
+chaosbear-status-bear = O urso está na casa { $position } com { $energy } de energia.
+
+chaosbear-winner-you = Você venceu! Você ficou à frente do urso e alcançou a casa { $position }.
+chaosbear-winner-other = { $player } venceu! Ele ficou à frente do urso e alcançou a casa { $position }.
+chaosbear-winner = { $player } venceu! Ele alcançou a casa { $position }!
+chaosbear-winner-you-brief = Você venceu na casa { $position }.
+chaosbear-winner-other-brief = { $player } venceu na casa { $position }.
+chaosbear-distance-winner-you = Você venceu no critério de desempate por distância na casa { $position } depois que o urso pegou todo mundo.
+chaosbear-distance-winner-other = { $player } venceu no critério de desempate por distância na casa { $position } depois que o urso pegou todo mundo.
+chaosbear-distance-winner-you-brief = Você venceu no desempate por distância na casa { $position }.
+chaosbear-distance-winner-other-brief = { $player } venceu no desempate por distância na casa { $position }.
+chaosbear-tie-you = Você empata na liderança por distância na casa { $position } com { $players } depois que o urso pega todo mundo.
+chaosbear-tie = Empate por distância na casa { $position }: { $players } foram pegos juntos após alcançarem a mesma liderança.
+chaosbear-tie-you-brief = Empate na casa { $position } com { $players }.
+chaosbear-tie-brief = Empate por distância na casa { $position }: { $players }.
+
+chaosbear-you-are-caught = Você foi pego pelo urso.
+chaosbear-not-on-multiple = Você só pode comprar uma carta do caos enquanto estiver em um múltiplo positivo de 5.
+
+chaosbear-final-positions = Posições finais
+chaosbear-line-format = { $rank }. { $player }: { $position } casas ({ $status })
+chaosbear-status-caught = pego
+chaosbear-status-survived = sobreviveu

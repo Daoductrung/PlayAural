@@ -25,4 +25,10 @@ export const LOCALE_METADATA = {
     contributors: ["UnDuende"],
     official: false,
   },
+  pt: {
+    name: "Portuguese (Brazil)",
+    nativeName: "Português (Brasil)",
+    contributors: ["Tadeu Junior"],
+    official: false,
+  },
 };

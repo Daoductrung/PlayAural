@@ -16,6 +16,10 @@ if TYPE_CHECKING:
     from ..users.base import User
 
 
+ABANDONED_ACTIVE_TABLE_TIMEOUT_SECONDS = 15 * 60
+WAITING_MEMBER_DISCONNECT_TIMEOUT_SECONDS = 15
+
+
 @dataclass
 class TableMember:
     """A member of a table (player or spectator)."""
@@ -121,6 +125,8 @@ class Table(DataClassJSONMixin):
             ):
                 member.is_spectator = as_spectator
                 self._users[member.username] = user
+                if not as_spectator:
+                    self._offline_since = None
                 if self._manager and hasattr(self._manager, "_username_to_table"):
                     self._manager._username_to_table[member.username] = self.table_id
                 if self._server and hasattr(self._server, "on_tables_changed"):
@@ -133,6 +139,8 @@ class Table(DataClassJSONMixin):
 
         self.members.append(TableMember(username=username, is_spectator=as_spectator))
         self._users[username] = user
+        if not as_spectator:
+            self._offline_since = None
         if self._manager and hasattr(self._manager, "_username_to_table"):
             self._manager._username_to_table[username] = self.table_id
         if self._server and hasattr(self._server, "on_tables_changed"):
@@ -253,6 +261,12 @@ class Table(DataClassJSONMixin):
     def attach_user(self, username: str, user: "User") -> None:
         """Attach a user to a member (e.g., after deserialization)."""
         self._users[username] = user
+        member = next(
+            (member for member in self.members if member.username == username),
+            None,
+        )
+        if member and not member.is_spectator:
+            self._offline_since = None
         if self._manager and hasattr(self._manager, "_username_to_table"):
             self._manager._username_to_table[username] = self.table_id
 
@@ -284,7 +298,6 @@ class Table(DataClassJSONMixin):
         self._power_restore_started_at = time.time()
         self._power_restore_grace_seconds = max(0, int(grace_seconds))
         self._power_restore_processed = False
-        self._offline_since = None
         self._member_offline_since.clear()
 
     def clear_power_restore_grace(self) -> None:
@@ -341,15 +354,71 @@ class Table(DataClassJSONMixin):
             return True
         return not self._offline_active_humans()
 
-    def _has_reserved_active_human_seat(self) -> bool:
-        """Return whether an active human seat still belongs to an account.
+    def _reserved_active_human_seat_count(self) -> int:
+        """Return the number of active seats still owned by human accounts.
 
         ``members`` is the table's authoritative human-seat registry. A
         disconnected player remains here while a game player or replacement
         bot continues holding the gameplay slot, so ordinary network absence
-        must never expire that reservation.
+        does not turn that account-owned seat into a dedicated bot seat.
         """
-        return any(not member.is_spectator for member in self.members)
+        return sum(not member.is_spectator for member in self.members)
+
+    def _active_human_player_count(self) -> int:
+        """Return active gameplay seats currently represented by humans."""
+        if not self._game:
+            return 0
+        return sum(
+            not player.is_bot and not player.is_spectator
+            for player in self._game.players
+        )
+
+    def _handle_abandoned_playing_table(self, current_time: float) -> bool:
+        """Pause and eventually retire an unattended active table.
+
+        A normal active table receives this bounded cleanup once at most one
+        gameplay seat is still represented by a human; account-owned seats
+        already held by replacement bots remain reclaimable during the grace.
+        During planned-reboot restoration, the same timeout also bounds tables
+        where none of several humans has returned. Elapsed grace time is
+        checkpointed so rebooting cannot reset the countdown, while server
+        downtime itself does not consume it.
+        """
+        if not self._server:
+            self._offline_since = None
+            return False
+        if self.effective_status() != "playing":
+            self._offline_since = None
+            return False
+
+        if self._reserved_active_human_seat_count() == 0:
+            self.destroy()
+            return True
+
+        should_pause = not self._online_active_humans() and (
+            self._active_human_player_count() <= 1
+            or self.is_power_restore_grace_active()
+        )
+        if not should_pause:
+            self._offline_since = None
+            return False
+
+        if self._offline_since is None:
+            self._offline_since = current_time
+        elif (
+            current_time - self._offline_since
+            >= ABANDONED_ACTIVE_TABLE_TIMEOUT_SECONDS
+        ):
+            if self._game:
+                self._game.broadcast_l(
+                    "table-closed-disconnect-timeout",
+                    buffer="system",
+                    minutes=math.ceil(
+                        ABANDONED_ACTIVE_TABLE_TIMEOUT_SECONDS / 60
+                    ),
+                )
+            self.destroy()
+        return True
 
     def _handle_power_restore_grace(self, current_time: float) -> bool:
         """Return True when normal table ticking should remain paused."""
@@ -377,12 +446,8 @@ class Table(DataClassJSONMixin):
                 return False
             if not online_humans:
                 # Nobody is present to supervise the restored game yet. Keep
-                # gameplay frozen instead of letting bots advance an unattended
-                # table, but still let the abandoned-table timeout clean it up.
-                if self._offline_since is None:
-                    self._offline_since = current_time
-                elif current_time - self._offline_since > 300:
-                    self.destroy()
+                # gameplay frozen. _handle_abandoned_playing_table() owns the
+                # shared normal/reboot timeout and its persisted timestamp.
                 return True
             offline_players = self._offline_active_humans()
             missing_usernames = {
@@ -536,6 +601,9 @@ class Table(DataClassJSONMixin):
     def on_tick(self) -> None:
         """Called every tick. Forwards to game."""
         current_time = time.time()
+        self._sync_status_from_game()
+        if self._handle_abandoned_playing_table(current_time):
+            return
         if self._handle_power_restore_grace(current_time):
             return
 
@@ -553,105 +621,67 @@ class Table(DataClassJSONMixin):
                 if self._server and hasattr(self._server, "on_tables_changed"):
                     self._server.on_tables_changed()
 
-        # Timeout for abandoned tables
-        if self._server:
-            # Check host presence
+        # Waiting lobbies retain their established short per-member cleanup.
+        # Active-game abandonment is handled before gameplay ticks above.
+        if self._server and self.effective_status() == "waiting":
             host_online = self.host in self._server._users
-            
-            # Check if any active (non-spectating) human is present.
-            any_human_present = False
             if self._game:
                 any_human_present = bool(self._online_active_humans())
-            # Fallback for lobby if game not started (members check)
             else:
-                for m in self.members:
-                    if not m.is_spectator and m.username in self._server._users:
-                        any_human_present = True
-                        break
+                any_human_present = any(
+                    not member.is_spectator
+                    and member.username in self._server._users
+                    for member in self.members
+                )
 
-            should_destroy = False
-            
-            table_status = self.effective_status()
+            should_destroy = not host_online and not any_human_present
+            if not should_destroy:
+                for member in list(self.members):
+                    if member.username in self._server._users:
+                        self._member_offline_since.pop(member.username, None)
+                        continue
 
-            if table_status == "waiting":
-                # Waiting: 
-                # 1. If host offline and no other humans -> Destroy immediately
-                if not host_online and not any_human_present:
-                    should_destroy = True
-                
-                # 2. Check individual members for offline timeout (Auto-kick)
-                # This prevents "zombie members" in the lobby
-                if not should_destroy:
-                    for member in list(self.members): # Copy for safe iteration
-                        # Skip bots (they are always "offline" in server._users but valid in game)
-                        # Optimization: Check if username in server._users first (Fast path)
-                        if member.username in self._server._users:
-                            self._member_offline_since.pop(member.username, None)
-                            continue
+                    user = self._users.get(member.username)
+                    if user and getattr(user, "is_bot", False):
+                        continue
 
-                        # If not in server._users, check if it's a Bot instance
-                        user = self._users.get(member.username)
-                        if user and hasattr(user, "is_bot") and user.is_bot:
-                            continue # Bots are fine
-                        
-                        # It's a human and they are offline
-                        if member.username not in self._member_offline_since:
-                            self._member_offline_since[member.username] = current_time
-                        
-                        # Check timeout (15 seconds grace period for lobby)
-                        elif current_time - self._member_offline_since[member.username] > 15.0:
-                            # Kick them
-                            if self._game:
-                                self._game.broadcast_l("player-kicked-offline", buffer="system", player=member.username)
-                                
-                                # Clean up Game state to prevent ghost players
-                                # We need the UUID to call game methods
-                                user_record = self._users.get(member.username)
-                                if user_record:
-                                    if member.is_spectator:
-                                        player = self._game.get_player_by_id(
-                                            user_record.uuid
-                                        )
-                                        self._game.remove_spectator(user_record.uuid)
-                                        if player:
-                                            self._game.play_table_leave_sound(
-                                                player,
-                                                is_spectator=True,
-                                            )
-                                    else:
-                                        player = self._game.get_player_by_id(
-                                            user_record.uuid
-                                        )
-                                        self._game.remove_player(user_record.uuid)
-                                        if player:
-                                            self._game.play_table_leave_sound(
-                                                player,
-                                                is_spectator=False,
-                                            )
+                    offline_since = self._member_offline_since.get(member.username)
+                    if offline_since is None:
+                        self._member_offline_since[member.username] = current_time
+                        continue
+                    if (
+                        current_time - offline_since
+                        <= WAITING_MEMBER_DISCONNECT_TIMEOUT_SECONDS
+                    ):
+                        continue
 
-                            self.remove_member(
-                                member.username,
-                                voice_reason="voice-status-connection-lost",
-                            )
-                            # Remove from tracker
-                            self._member_offline_since.pop(member.username, None)
-            
-            elif table_status == "playing":
-                # A playing table is the authoritative reconnect reservation.
-                # Network absence alone cannot evict a valid human seat. Tables
-                # containing only bots/spectators have no reclaimable active
-                # seat and can be retired immediately. Planned-reboot no-show
-                # cleanup remains separately bounded in
-                # _handle_power_restore_grace().
-                self._offline_since = None
-                if not self._has_reserved_active_human_seat():
-                    should_destroy = True
+                    if self._game:
+                        self._game.broadcast_l(
+                            "player-kicked-offline",
+                            buffer="system",
+                            player=member.username,
+                        )
+                        user_record = self._users.get(member.username)
+                        if user_record:
+                            player = self._game.get_player_by_id(user_record.uuid)
+                            if member.is_spectator:
+                                self._game.remove_spectator(user_record.uuid)
+                            else:
+                                self._game.remove_player(user_record.uuid)
+                            if player:
+                                self._game.play_table_leave_sound(
+                                    player,
+                                    is_spectator=member.is_spectator,
+                                )
+
+                    self.remove_member(
+                        member.username,
+                        voice_reason="voice-status-connection-lost",
+                    )
+                    self._member_offline_since.pop(member.username, None)
 
             if should_destroy:
                 self.destroy()
-            elif any_human_present:
-                # Reset timer if humans are back
-                self._offline_since = None
 
     def handle_event(self, username: str, event: dict) -> None:
         """Handle an event from a member."""
@@ -866,6 +896,7 @@ class Table(DataClassJSONMixin):
         self.game_json = new_game.to_json()
         self._last_menu_state_hash = None
         self._member_offline_since.clear()
+        self._offline_since = None
         if self._server and hasattr(self._server, "on_tables_changed"):
             self._server.on_tables_changed()
         return True

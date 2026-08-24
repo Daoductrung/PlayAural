@@ -83,15 +83,6 @@ table-left = { $player } میز را ترک کرد.
 new-host = { $player } اکنون میزبان است.
 waiting-for-players = در انتظار بازیکنان. حداقل { $min }، حداکثر { $max }.
 game-starting = بازی شروع می‌شود!
-table-listing = میز { $host } ({ $count } کاربر)
-table-listing-one = میز { $host } ({ $count } کاربر)
-table-listing-with = میز { $host } ({ $count } کاربر) با { $members }
-table-listing-game = { $game }: میز { $host } ({ $count } کاربر)
-table-listing-game-one = { $game }: میز { $host } ({ $count } کاربر)
-table-listing-game-with = { $game }: میز { $host } ({ $count } کاربر) با { $members }
-table-listing-game-status = { $game } [{ $status }]: میز { $host } ({ $count } کاربر)
-table-listing-game-one-status = { $game } [{ $status }]: میز { $host } ({ $count } کاربر)
-table-listing-game-with-status = { $game } [{ $status }]: میز { $host } ({ $count } کاربر) با { $members }
 table-status-waiting = در انتظار
 table-status-playing = در حال بازی
 table-status-finished = تمام شده
@@ -346,16 +337,6 @@ table-players-many = { $count } بازیکن: { $players }.
 table-spectators = تماشاگران: { $spectators }.
 table-host-suffix = (میزبان)
 table-voice-chat-suffix = (در مکالمه‌ی صوتی)
-table-members-summary = خلاصه‌ی میز: { $total } { $total ->
-    [one] صندلی
-   *[other] صندلی
-}; { $real } { $real ->
-    [one] نفر واقعی
-   *[other] نفر واقعی
-}، { $bots } { $bots ->
-    [one] ربات
-   *[other] ربات
-}; { $active } فعال، { $spectators } در حال تماشا.
 table-members-empty = در حال حاضر هیچ عضوی در میز لیست نشده است. برای بازگشت و به‌روزرسانی نمای میز، از دکمه‌ی بازگشت استفاده کنید.
 table-member-entry = { $player }: { $status }
 table-member-status-host = میزبان

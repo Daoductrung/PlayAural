@@ -46,8 +46,8 @@ def test_active_tables_menu_lists_members_without_host() -> None:
 
     texts = _menu_texts(viewer, "active_tables_menu")
     expected = (
-        "Pig [Waiting]: Bob's table — 2 human players: Bob and Sue; "
-        "1 spectator: Jim."
+        "Pig [Waiting]: Bob's table. 2 players: Bob and Sue; "
+        "Spectator: Jim."
     )
     assert expected in texts
 
@@ -56,8 +56,8 @@ def test_active_tables_menu_lists_members_without_host() -> None:
     server._show_active_tables_menu(vi_viewer)
     vi_texts = _menu_texts(vi_viewer, "active_tables_menu")
     vi_expected = (
-        "Pig [Đang chờ]: Bàn của Bob — 2 người chơi: Bob và Sue; "
-        "1 khán giả: Jim."
+        "Pig [Đang chờ]: Bàn của Bob. 2 người chơi: Bob và Sue; "
+        "Khán giả: Jim."
     )
     assert vi_expected in vi_texts
 
@@ -75,7 +75,7 @@ def test_active_tables_menu_singular_player_format() -> None:
     server._show_active_tables_menu(viewer)
 
     texts = _menu_texts(viewer, "active_tables_menu")
-    expected = "Farkle [Waiting]: Kate's table — 1 human player: Kate."
+    expected = "Farkle [Waiting]: Kate's table. 1 player: Kate."
     assert expected in texts
 
 
@@ -108,10 +108,94 @@ def test_active_tables_menu_separates_players_bots_and_spectators() -> None:
 
     texts = _menu_texts(viewer, "active_tables_menu")
     expected = (
-        "Pig [Waiting]: n3x's table — 1 human player: n3x; "
-        "1 bot: Botty; 4 spectators: Watcher1, Watcher2, Watcher3, and Watcher4."
+        "Pig [Waiting]: n3x's table. 1 player: n3x; "
+        "1 bot; Spectators: Watcher1, Watcher2, and Watcher3; plus 1 more."
     )
     assert expected in texts
+    listing = next(text for text in texts if text.startswith("Pig [Waiting]"))
+    assert "Botty" not in listing
+    assert "Watcher4" not in listing
+
+    vi_viewer = MockUser("VietnameseViewer", locale="vi")
+    server._users[vi_viewer.username] = vi_viewer
+    server._show_active_tables_menu(vi_viewer)
+    vi_expected = (
+        "Pig [Đang chờ]: Bàn của n3x. 1 người chơi: n3x; "
+        "1 bot; Khán giả: Watcher1, Watcher2 và Watcher3; cùng 1 người khác."
+    )
+    assert vi_expected in _menu_texts(vi_viewer, "active_tables_menu")
+
+
+def test_active_tables_menu_identifies_spectating_host_in_bounded_preview() -> None:
+    server = _make_server()
+    host = MockUser("Host")
+    player = MockUser("Player")
+    spectators = [MockUser(f"Watcher{index}") for index in range(1, 5)]
+    viewer = MockUser("Viewer")
+    server._users = {
+        user.username: user
+        for user in [host, player, *spectators, viewer]
+    }
+    table = server._tables.create_table("pig", host.username, host)
+    table.members[0].is_spectator = True
+    table.add_member(player.username, player)
+    for spectator in spectators:
+        table.add_member(spectator.username, spectator, as_spectator=True)
+
+    from ..games.pig.game import PigGame
+
+    table.game = PigGame()
+    server._show_active_tables_menu(viewer)
+
+    texts = _menu_texts(viewer, "active_tables_menu")
+    expected = (
+        "Pig [Waiting]: Host's table. 1 player: Player; "
+        "Spectators: Host (host), Watcher1, and Watcher2; plus 2 more."
+    )
+    assert expected in texts
+
+
+def test_active_tables_menu_counts_replacement_without_exposing_bot_name(
+    monkeypatch,
+) -> None:
+    server = _make_server()
+    host = MockUser("Host")
+    guest = MockUser("Guest")
+    viewer = MockUser("Viewer")
+    server._users = {
+        host.username: host,
+        guest.username: guest,
+        viewer.username: viewer,
+    }
+    table = server._tables.create_table("pig", host.username, host)
+
+    from ..games.pig.game import PigGame
+
+    game = PigGame()
+    table.game = game
+    game._table = table
+    game.initialize_lobby(host.username, host)
+    table.add_member(guest.username, guest)
+    game.add_player(guest.username, guest)
+    game.on_start()
+    monkeypatch.setattr(
+        game,
+        "_generate_available_bot_name",
+        lambda _existing_names: "Substitute",
+    )
+    game.on_player_disconnect(guest.uuid)
+    server._users.pop(guest.username)
+
+    server._show_active_tables_menu(viewer)
+
+    texts = _menu_texts(viewer, "active_tables_menu")
+    expected = "Pig [Playing]: Host's table. 1 player: Host; 1 bot."
+    assert expected in texts
+    listing = next(text for text in texts if text.startswith("Pig [Playing]"))
+    replacement = game.get_player_by_id(guest.uuid)
+    assert replacement is not None
+    assert guest.username not in listing
+    assert replacement.name not in listing
 
 
 def test_main_menu_includes_active_tables_option() -> None:

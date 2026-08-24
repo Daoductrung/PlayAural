@@ -84,15 +84,6 @@ table-left = { $player } salió de la mesa.
 new-host = { $player } ahora es el anfitrión.
 waiting-for-players = Esperando jugadores. Mínimo {$min}, máximo { $max }.
 game-starting = ¡La partida está por comenzar!
-table-listing = Mesa de { $host } ({ $count } usuarios)
-table-listing-one = Mesa de { $host } ({ $count } usuario)
-table-listing-with = Mesa de { $host } ({ $count } usuarios) con { $members }
-table-listing-game = { $game }: mesa de { $host } ({ $count } usuarios)
-table-listing-game-one = { $game }: mesa de { $host } ({ $count } usuario)
-table-listing-game-with = { $game }: mesa de { $host } ({ $count } usuarios) con { $members }
-table-listing-game-status = { $game } [{ $status }]: mesa de { $host } ({ $count } usuarios)
-table-listing-game-one-status = { $game } [{ $status }]: mesa de { $host } ({ $count } usuario)
-table-listing-game-with-status = { $game } [{ $status }]: mesa de { $host } ({ $count } usuarios) con { $members }
 table-status-waiting = Esperando
 table-status-playing = Jugando
 table-status-finished = Terminada
@@ -347,16 +338,6 @@ table-players-many = { $count } jugadores: { $players }.
 table-spectators = Espectadores: { $spectators }.
 table-host-suffix = (Anfitrión)
 table-voice-chat-suffix = (en chat de voz)
-table-members-summary = Resumen de la mesa: { $total } { $total ->
-    [one] asiento
-   *[other] asientos
-}; { $real } { $real ->
-    [one] persona real
-   *[other] personas reales
-}, { $bots } { $bots ->
-    [one] bot
-   *[other] bots
-}; { $active } activos, { $spectators } observando.
 table-members-empty = No hay miembros de la mesa listados por ahora. Usa Atrás para volver y actualizar la vista de la mesa.
 table-member-entry = { $player }: { $status }
 table-member-status-host = Anfitrión

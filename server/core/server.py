@@ -122,6 +122,7 @@ PRESENCE_AUDIO_PRIORITIES = {
 MAIN_MENU_MUSIC = "mainmus.ogg"
 WELCOME_SOUND = "welcome.ogg"
 ONLINE_USERS_PAGE_SIZE = DEFAULT_MENU_PAGE_SIZE
+ACTIVE_TABLE_SPECTATOR_PREVIEW_LIMIT = 3
 VOICE_JOIN_AUTHORIZATION_WINDOW_SECONDS = 120
 SESSION_STATE_RETENTION_SECONDS = 300
 PRESENCE_OFFLINE_GRACE_SECONDS = 2.0
@@ -2634,6 +2635,42 @@ PlayAural Server
                 categories["human_players"].append(row["name"])
         return categories
 
+    @staticmethod
+    def _format_active_table_spectators(
+        locale: str,
+        table: "Table",
+        names: list[str],
+    ) -> str:
+        """Format a bounded spectator preview, keeping a spectator host visible."""
+        labels = list(names)
+        if table.host in labels:
+            labels.remove(table.host)
+            labels.insert(
+                0,
+                Localization.get(
+                    locale,
+                    "table-composition-spectator-host",
+                    host=table.host,
+                ),
+            )
+
+        visible_labels = labels[:ACTIVE_TABLE_SPECTATOR_PREVIEW_LIMIT]
+        remaining = len(labels) - len(visible_labels)
+        names_text = Localization.format_list_and(locale, visible_labels)
+        if remaining:
+            return Localization.get(
+                locale,
+                "table-composition-spectators-more",
+                names=names_text,
+                remaining=remaining,
+            )
+        return Localization.get(
+            locale,
+            "table-composition-spectators",
+            count=len(labels),
+            names=names_text,
+        )
+
     def _format_active_table_listing(
         self,
         user: NetworkUser,
@@ -2644,16 +2681,32 @@ PlayAural Server
         locale = user.locale
         categories = self._table_presence_categories(table)
         segments: list[str] = []
-        for category in ("human_players", "bots", "spectators"):
-            names = categories[category]
-            if not names:
-                continue
+        human_players = categories["human_players"]
+        if human_players:
             segments.append(
                 Localization.get(
                     locale,
-                    f"table-composition-{category.replace('_', '-')}",
-                    count=len(names),
-                    names=Localization.format_list_and(locale, names),
+                    "table-composition-human-players",
+                    count=len(human_players),
+                    names=Localization.format_list_and(locale, human_players),
+                )
+            )
+        bots = categories["bots"]
+        if bots:
+            segments.append(
+                Localization.get(
+                    locale,
+                    "table-composition-bots",
+                    count=len(bots),
+                )
+            )
+        spectators = categories["spectators"]
+        if spectators:
+            segments.append(
+                self._format_active_table_spectators(
+                    locale,
+                    table,
+                    spectators,
                 )
             )
         status = table.effective_status()

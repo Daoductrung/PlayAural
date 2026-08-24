@@ -63,6 +63,7 @@ class TestDatabaseIntegration:
             game_type="pig",
             host="testhost",
             status="waiting",
+            is_private=True,
         )
         table.add_member("testhost", MockUser("testhost"))
 
@@ -75,6 +76,7 @@ class TestDatabaseIntegration:
         assert loaded.table_id == "test123"
         assert loaded.game_type == "pig"
         assert loaded.host == "testhost"
+        assert loaded.is_private
         assert len(loaded.members) == 1
         assert loaded.members[0].username == "testhost"
 

@@ -789,13 +789,6 @@ class SenetGame(Game):
         return super()._is_check_scores_hidden(player)
 
     # ======================================================================
-    # Leave handling
-    # ======================================================================
-
-    def _perform_leave_game(self, player: Player) -> None:
-        super()._perform_leave_game(player)
-
-    # ======================================================================
     # Visibility / enabled / label callbacks
     # ======================================================================
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sqlite3
 from datetime import datetime, timedelta
 
 import pytest
@@ -11,7 +12,7 @@ from ..games.pig.game import PigGame
 from ..messages.localization import Localization
 from ..persistence.database import Database
 from ..tables.manager import TableManager
-from ..tables.table import Table
+from ..tables.table import ABANDONED_ACTIVE_TABLE_TIMEOUT_SECONDS, Table
 from ..users.base import MenuItem
 from ..users.test_user import MockUser
 
@@ -128,11 +129,22 @@ async def test_power_finalization_failure_unlocks_manager(monkeypatch) -> None:
     assert not manager.is_scheduled
 
 
-def test_active_table_checkpoints_replace_and_prune(tmp_path) -> None:
+def test_active_table_checkpoints_replace_and_prune(tmp_path, monkeypatch) -> None:
+    now = 1000.0
+    monkeypatch.setattr(
+        "server.persistence.database.time.time",
+        lambda: now,
+    )
     db = Database(tmp_path / "power.db")
     db.connect()
     try:
-        table = Table(table_id="abc", game_type="pig", host="Alice")
+        table = Table(
+            table_id="abc",
+            game_type="pig",
+            host="Alice",
+            is_private=True,
+        )
+        table._offline_since = now - 123.5
         table.members = []
         db.save_all_tables(
             [table],
@@ -141,9 +153,14 @@ def test_active_table_checkpoints_replace_and_prune(tmp_path) -> None:
             checkpoint_operation_id="op1",
         )
 
+        now = 5000.0
         loaded = db.load_all_tables()
         assert len(loaded) == 1
         assert getattr(loaded[0], "_checkpoint_kind") == "planned_reboot"
+        assert loaded[0].is_private
+        assert loaded[0]._offline_since is not None
+        restored_elapsed = now - loaded[0]._offline_since
+        assert restored_elapsed == pytest.approx(123.5, abs=1.0)
 
         db.save_all_tables([])
         assert db.load_all_tables() == []
@@ -159,6 +176,145 @@ def test_active_table_checkpoints_replace_and_prune(tmp_path) -> None:
         assert db.load_all_tables() == []
     finally:
         db.close()
+
+
+def test_legacy_table_checkpoint_schema_defaults_to_public(tmp_path) -> None:
+    db_path = tmp_path / "legacy-power.db"
+    connection = sqlite3.connect(db_path)
+    try:
+        connection.execute(
+            """
+            CREATE TABLE tables (
+                table_id TEXT PRIMARY KEY,
+                game_type TEXT NOT NULL,
+                host TEXT NOT NULL,
+                members_json TEXT NOT NULL,
+                game_json TEXT,
+                status TEXT DEFAULT 'waiting'
+            )
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO tables (
+                table_id, game_type, host, members_json, game_json, status
+            ) VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            ("legacy", "pig", "Alice", "[]", None, "waiting"),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    db = Database(db_path)
+    db.connect()
+    try:
+        loaded = db.load_table("legacy")
+        assert loaded is not None
+        assert not loaded.is_private
+        columns = {
+            row["name"] for row in db._conn.execute("PRAGMA table_info(tables)")
+        }
+        assert {"is_private", "active_human_offline_elapsed"} <= columns
+    finally:
+        db.close()
+
+
+@pytest.mark.parametrize(
+    "replacement_expected",
+    [False, True],
+    ids=["last-human-paused", "bot-replacement"],
+)
+def test_private_host_reclaims_reserved_seat_after_power_restore(
+    tmp_path,
+    replacement_expected: bool,
+) -> None:
+    db_path = tmp_path / "power.db"
+    original_server = Server(db_path=db_path)
+    original_server.db.connect()
+
+    original_server.db.create_user(
+        "Alice",
+        "Password123",
+        approved=True,
+        email="alice@example.com",
+    )
+    alice_record = original_server.db.get_user("Alice")
+    assert alice_record is not None
+
+    alice = MockUser("Alice", uuid=alice_record.uuid)
+    alice.connection = DummyClient("Alice")
+
+    table = original_server._tables.create_table("pig", "Alice", alice)
+    table.is_private = True
+
+    game = PigGame()
+    game.setup_keybinds()
+    game.add_player("Alice", alice)
+    if replacement_expected:
+        original_server.db.create_user(
+            "Bob",
+            "Password123",
+            approved=True,
+            email="bob@example.com",
+        )
+        bob_record = original_server.db.get_user("Bob")
+        assert bob_record is not None
+        bob = MockUser("Bob", uuid=bob_record.uuid)
+        bob.connection = DummyClient("Bob")
+        table.add_member("Bob", bob)
+        game.add_player("Bob", bob)
+    game.status = "playing"
+    game.host = "Alice"
+    table.game = game
+
+    game.on_player_disconnect(alice.uuid)
+    reserved_player = game.get_player_by_id(alice.uuid)
+    assert reserved_player is not None
+    assert reserved_player.is_bot is replacement_expected
+    assert reserved_player.replaced_human_name == (
+        "Alice" if replacement_expected else ""
+    )
+    if not replacement_expected:
+        table._offline_since = datetime.now().timestamp() - 60
+
+    original_server._save_tables(
+        checkpoint_kind="planned_reboot",
+        checkpoint_expires_at=(datetime.now() + timedelta(days=1)).isoformat(),
+        checkpoint_operation_id="private-host-recovery",
+    )
+    original_server.db.close()
+
+    restored_server = Server(db_path=db_path)
+    restored_server.db.connect()
+    try:
+        restored_server._load_tables()
+        restored_table = restored_server._tables.find_user_table("Alice")
+        assert restored_table is not None
+        assert restored_table.is_private
+        assert restored_table.host == "Alice"
+        assert restored_table.is_power_restore_grace_active()
+        if not replacement_expected:
+            assert restored_table._offline_since is not None
+
+        returning_alice = MockUser("Alice", uuid=alice.uuid)
+        returning_alice.connection = DummyClient("Alice")
+        restored_server._users["Alice"] = returning_alice
+        restored_server._restore_user_state(returning_alice, "Alice")
+
+        restored_player = restored_table.game.get_player_by_id(alice.uuid)
+        assert restored_player is not None
+        assert not restored_player.is_bot
+        assert restored_player.name == "Alice"
+        assert restored_table.get_user("Alice") is returning_alice
+        assert restored_table.game.get_user(restored_player) is returning_alice
+        assert restored_table._offline_since is None
+        assert restored_server._user_states["Alice"] == {
+            "menu": "in_game",
+            "table_id": restored_table.table_id,
+        }
+    finally:
+        restored_server.db.close()
 
 
 def test_admin_power_menu_is_dev_only(tmp_path) -> None:
@@ -460,7 +616,7 @@ async def test_power_restore_host_leave_with_only_offline_humans_keeps_table_pau
         assert game.get_player_by_id(carol.uuid).is_bot is False
         assert table._offline_since is not None
 
-        table._offline_since -= 301
+        table._offline_since -= ABANDONED_ACTIVE_TABLE_TIMEOUT_SECONDS + 1
         table.on_tick()
 
         assert table._destroyed

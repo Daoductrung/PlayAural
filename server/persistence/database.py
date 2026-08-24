@@ -2,6 +2,7 @@
 
 import logging
 import sqlite3
+import time
 import uuid as uuid_module
 import json
 from collections.abc import Iterator
@@ -320,12 +321,23 @@ class Database:
                 members_json TEXT NOT NULL,
                 game_json TEXT,
                 status TEXT DEFAULT 'waiting',
+                is_private INTEGER NOT NULL DEFAULT 0,
+                active_human_offline_elapsed REAL,
                 checkpoint_kind TEXT NOT NULL DEFAULT 'legacy',
                 checkpoint_created_at TEXT NOT NULL DEFAULT '',
                 checkpoint_expires_at TEXT,
                 checkpoint_operation_id TEXT NOT NULL DEFAULT ''
             )
         """)
+        self._ensure_column(
+            cursor, "tables", "is_private", "INTEGER NOT NULL DEFAULT 0"
+        )
+        self._ensure_column(
+            cursor,
+            "tables",
+            "active_human_offline_elapsed",
+            "REAL",
+        )
         self._ensure_column(
             cursor, "tables", "checkpoint_kind", "TEXT NOT NULL DEFAULT 'legacy'"
         )
@@ -1997,9 +2009,30 @@ class Database:
 
     # Table operations
 
+    @staticmethod
+    def _serialize_active_human_offline_elapsed(
+        table: Table,
+        now: float,
+    ) -> float | None:
+        """Serialize elapsed online-server time for the abandonment timer."""
+        if table._offline_since is None:
+            return None
+        return max(0.0, now - table._offline_since)
+
+    @staticmethod
+    def _restore_active_human_offline_since(
+        elapsed: float | None,
+        now: float,
+    ) -> float | None:
+        """Rebuild a runtime timestamp without counting server downtime."""
+        if elapsed is None:
+            return None
+        return now - max(0.0, float(elapsed))
+
     def save_table(self, table: Table) -> None:
         """Save a table to the database."""
         cursor = self._conn.cursor()
+        saved_at = time.time()
 
         # Serialize members
         members_json = json.dumps(
@@ -2018,12 +2051,14 @@ class Database:
                 members_json,
                 game_json,
                 status,
+                is_private,
+                active_human_offline_elapsed,
                 checkpoint_kind,
                 checkpoint_created_at,
                 checkpoint_expires_at,
                 checkpoint_operation_id
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
             (
                 table.table_id,
@@ -2032,8 +2067,10 @@ class Database:
                 members_json,
                 table.game_json,
                 table.status,
+                int(table.is_private),
+                self._serialize_active_human_offline_elapsed(table, saved_at),
                 "manual",
-                datetime.now().isoformat(),
+                datetime.fromtimestamp(saved_at).isoformat(),
                 None,
                 "",
             ),
@@ -2063,9 +2100,22 @@ class Database:
             members=members,
             game_json=row["game_json"],
             status=row["status"],
+            is_private=bool(row["is_private"]),
         )
-        table._checkpoint_kind = row["checkpoint_kind"] if "checkpoint_kind" in row.keys() else "legacy"
-        table._checkpoint_created_at = row["checkpoint_created_at"] if "checkpoint_created_at" in row.keys() else ""
+        table._checkpoint_kind = (
+            row["checkpoint_kind"]
+            if "checkpoint_kind" in row.keys()
+            else "legacy"
+        )
+        table._checkpoint_created_at = (
+            row["checkpoint_created_at"]
+            if "checkpoint_created_at" in row.keys()
+            else ""
+        )
+        table._offline_since = self._restore_active_human_offline_since(
+            row["active_human_offline_elapsed"],
+            time.time(),
+        )
         return table
 
     def load_all_tables(self) -> list[Table]:
@@ -2081,6 +2131,8 @@ class Database:
                 members_json,
                 game_json,
                 status,
+                is_private,
+                active_human_offline_elapsed,
                 checkpoint_kind,
                 checkpoint_created_at
             FROM tables
@@ -2088,6 +2140,7 @@ class Database:
             """
         )
         tables = []
+        restored_at = time.time()
         for row in cursor.fetchall():
             try:
                 members_data = json.loads(row["members_json"])
@@ -2102,9 +2155,14 @@ class Database:
                     members=members,
                     game_json=row["game_json"],
                     status=row["status"],
+                    is_private=bool(row["is_private"]),
                 )
                 table._checkpoint_kind = row["checkpoint_kind"] or "legacy"
                 table._checkpoint_created_at = row["checkpoint_created_at"] or ""
+                table._offline_since = self._restore_active_human_offline_since(
+                    row["active_human_offline_elapsed"],
+                    restored_at,
+                )
                 tables.append(table)
             except Exception:
                 pass  # Skip any malformed table records
@@ -2129,7 +2187,10 @@ class Database:
         checkpoint_operation_id: str = "",
     ) -> None:
         """Save multiple tables in a single transaction."""
-        checkpoint_created_at = datetime.now().isoformat()
+        checkpoint_saved_at = time.time()
+        checkpoint_created_at = datetime.fromtimestamp(
+            checkpoint_saved_at
+        ).isoformat()
         with self._transaction(immediate=True) as cursor:
             cursor.execute("DELETE FROM tables")
             for table in tables:
@@ -2148,12 +2209,14 @@ class Database:
                         members_json,
                         game_json,
                         status,
+                        is_private,
+                        active_human_offline_elapsed,
                         checkpoint_kind,
                         checkpoint_created_at,
                         checkpoint_expires_at,
                         checkpoint_operation_id
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         table.table_id,
@@ -2162,6 +2225,11 @@ class Database:
                         members_json,
                         table.game_json,
                         table.status,
+                        int(table.is_private),
+                        self._serialize_active_human_offline_elapsed(
+                            table,
+                            checkpoint_saved_at,
+                        ),
                         checkpoint_kind,
                         checkpoint_created_at,
                         checkpoint_expires_at,

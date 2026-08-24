@@ -84,28 +84,21 @@ table-left = { $player } left the table.
 new-host = { $player } is now the host.
 waiting-for-players = Waiting for players. {$min} min, { $max } max.
 game-starting = Game starting!
-table-listing = { $host }'s table ({ $count } users)
-table-listing-one = { $host }'s table ({ $count } user)
-table-listing-with = { $host }'s table ({ $count } users) with { $members }
-table-listing-game = { $game }: { $host }'s table ({ $count } users)
-table-listing-game-one = { $game }: { $host }'s table ({ $count } user)
-table-listing-game-with = { $game }: { $host }'s table ({ $count } users) with { $members }
-table-listing-game-status = { $game } [{ $status }]: { $host }'s table ({ $count } users)
-table-listing-game-one-status = { $game } [{ $status }]: { $host }'s table ({ $count } user)
-table-listing-game-with-status = { $game } [{ $status }]: { $host }'s table ({ $count } users) with { $members }
-table-listing-game-composition-status = { $game } [{ $status }]: { $host }'s table — { $composition }.
+table-listing-game-composition-status = { $game } [{ $status }]: { $host }'s table. { $composition }.
 table-composition-human-players = { $count } { $count ->
-    [one] human player
-   *[other] human players
+    [one] player
+   *[other] players
 }: { $names }
 table-composition-bots = { $count } { $count ->
     [one] bot
    *[other] bots
+}
+table-composition-spectators = { $count ->
+    [one] Spectator
+   *[other] Spectators
 }: { $names }
-table-composition-spectators = { $count } { $count ->
-    [one] spectator
-   *[other] spectators
-}: { $names }
+table-composition-spectators-more = Spectators: { $names }; plus { $remaining } more
+table-composition-spectator-host = { $host } (host)
 table-composition-two = { $first }; { $second }
 table-composition-three = { $first }; { $second }; { $third }
 table-composition-empty = no participants
@@ -114,6 +107,7 @@ table-status-playing = Playing
 table-status-finished = Finished
 table-not-exists = Table no longer exists.
 table-full = Table is full.
+table-closed-disconnect-timeout = Table closed because no active player returned within { $minutes } minutes.
 player-replaced-by-bot = { $bot } is now playing on behalf of { $player }.
 player-reclaimed-from-bot = { $player } has returned and taken their seat back from { $bot }.
 player-took-over = { $player } has taken their seat back from { $bot }.
@@ -363,16 +357,6 @@ table-players-many = { $count } players: { $players }.
 table-spectators = Spectators: { $spectators }.
 table-host-suffix = (Host)
 table-voice-chat-suffix = (in voice chat)
-table-members-summary = Table summary: { $total } { $total ->
-    [one] seat
-   *[other] seats
-}; { $real } { $real ->
-    [one] real person
-   *[other] real people
-}, { $bots } { $bots ->
-    [one] bot
-   *[other] bots
-}; { $active } active, { $spectators } spectating.
 table-members-summary-compact = Table summary: { $composition }.
 table-summary-human-players = { $count } { $count ->
     [one] human player

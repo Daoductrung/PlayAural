@@ -12,6 +12,7 @@ from server.games.crazyeights.game import CrazyEightsGame
 from server.games.pig.game import PigGame, PigOptions
 from server.messages.localization import Localization
 from server.persistence.database import Database
+from server.tables.table import ABANDONED_ACTIVE_TABLE_TIMEOUT_SECONDS
 from server.users.bot import Bot
 from server.users.test_user import MockUser
 
@@ -58,6 +59,18 @@ class TestTableInviteReclaim:
         game.add_player(guest.username, guest)
         game.on_start()
         return table, game
+
+    def _create_single_human_started_table(self):
+        host = self._create_online_user("Host")
+        table = self.server._tables.create_table("pig", host.username, host)
+        game = PigGame(options=PigOptions(target_score=25))
+        table.game = game
+        game._table = table
+        game.initialize_lobby(host.username, host)
+        bot = Bot("Botty")
+        game.add_player(bot.username, bot)
+        game.on_start()
+        return host, table, game
 
     def _create_waiting_table(self, host: MockUser, guest: MockUser, game):
         table = self.server._tables.create_table(game.get_type(), host.username, host)
@@ -1204,7 +1217,7 @@ class TestTableInviteReclaim:
             player=host.username,
         ) not in host.get_spoken_messages()
 
-    def test_private_playing_table_reserves_disconnected_seat_past_five_minutes(
+    def test_private_playing_table_preserves_reclaimable_seat_within_grace(
         self, monkeypatch
     ):
         host = self._create_online_user("Host")
@@ -1219,7 +1232,10 @@ class TestTableInviteReclaim:
 
         monkeypatch.setattr("server.tables.table.time.time", lambda: 100.0)
         table.on_tick()
-        monkeypatch.setattr("server.tables.table.time.time", lambda: 1000.0)
+        monkeypatch.setattr(
+            "server.tables.table.time.time",
+            lambda: 100.0 + ABANDONED_ACTIVE_TABLE_TIMEOUT_SECONDS - 0.1,
+        )
         table.on_tick()
 
         assert self.server._tables.get_table(table.table_id) is table
@@ -1243,6 +1259,70 @@ class TestTableInviteReclaim:
         assert game.get_user(restored_player) is returning_host
         assert table.get_user(host.username) is returning_host
         assert self.server._user_states[host.username]["menu"] == "in_game"
+
+    def test_single_human_disconnect_pauses_until_reconnect(self, monkeypatch):
+        host, table, game = self._create_single_human_started_table()
+        game.on_player_disconnect(host.uuid)
+        self.server._users.pop(host.username, None)
+        game_ticks: list[float] = []
+        monkeypatch.setattr(game, "on_tick", lambda: game_ticks.append(1.0))
+
+        started_at = 100.0
+        monkeypatch.setattr(
+            "server.tables.table.time.time",
+            lambda: started_at,
+        )
+        table.on_tick()
+        assert table._offline_since == started_at
+
+        monkeypatch.setattr(
+            "server.tables.table.time.time",
+            lambda: started_at + ABANDONED_ACTIVE_TABLE_TIMEOUT_SECONDS - 0.1,
+        )
+        table.on_tick()
+
+        assert self.server._tables.get_table(table.table_id) is table
+        assert game_ticks == []
+
+        returning_host = MockUser(host.username, uuid=host.uuid)
+        self.server._users[host.username] = returning_host
+        self.server._restore_user_state(returning_host, host.username)
+        table.on_tick()
+
+        assert table._offline_since is None
+        assert game_ticks == [1.0]
+        assert table.get_user(host.username) is returning_host
+
+    def test_single_human_disconnect_destroys_at_timeout_with_spectator(
+        self,
+        monkeypatch,
+    ):
+        host, table, game = self._create_single_human_started_table()
+        spectator = self._create_online_user("Spectator")
+        table.add_member(spectator.username, spectator, as_spectator=True)
+        game.add_spectator(spectator.username, spectator)
+        game.on_player_disconnect(host.uuid)
+        self.server._users.pop(host.username, None)
+
+        started_at = 200.0
+        monkeypatch.setattr(
+            "server.tables.table.time.time",
+            lambda: started_at,
+        )
+        table.on_tick()
+        monkeypatch.setattr(
+            "server.tables.table.time.time",
+            lambda: started_at + ABANDONED_ACTIVE_TABLE_TIMEOUT_SECONDS,
+        )
+        table.on_tick()
+
+        assert table._destroyed
+        assert self.server._tables.get_table(table.table_id) is None
+        assert Localization.get(
+            spectator.locale,
+            "table-closed-disconnect-timeout",
+            minutes=ABANDONED_ACTIVE_TABLE_TIMEOUT_SECONDS // 60,
+        ) in spectator.get_spoken_messages()
 
     def test_spectators_do_not_keep_bot_only_playing_table_alive(self, monkeypatch):
         host = self._create_online_user("Host")

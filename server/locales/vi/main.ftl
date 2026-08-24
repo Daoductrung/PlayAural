@@ -84,16 +84,7 @@ table-left = { $player } đã rời bàn.
 new-host = { $player } giờ là chủ bàn.
 waiting-for-players = Đang chờ người chơi. Tối thiểu {$min}, tối đa { $max }.
 game-starting = Trò chơi bắt đầu!
-table-listing = Bàn của { $host } ({ $count } người)
-table-listing-one = Bàn của { $host } ({ $count } người)
-table-listing-with = Bàn của { $host } ({ $count } người) cùng với { $members }
-table-listing-game = { $game }: Bàn của { $host } ({ $count } người)
-table-listing-game-one = { $game }: Bàn của { $host } ({ $count } người)
-table-listing-game-with = { $game }: Bàn của { $host } ({ $count } người) cùng với { $members }
-table-listing-game-status = { $game } [{ $status }]: Bàn của { $host } ({ $count } người)
-table-listing-game-one-status = { $game } [{ $status }]: Bàn của { $host } ({ $count } người)
-table-listing-game-with-status = { $game } [{ $status }]: Bàn của { $host } ({ $count } người) cùng với { $members }
-table-listing-game-composition-status = { $game } [{ $status }]: Bàn của { $host } — { $composition }.
+table-listing-game-composition-status = { $game } [{ $status }]: Bàn của { $host }. { $composition }.
 table-composition-human-players = { $count } { $count ->
     [one] người chơi
    *[other] người chơi
@@ -101,11 +92,13 @@ table-composition-human-players = { $count } { $count ->
 table-composition-bots = { $count } { $count ->
     [one] bot
    *[other] bot
+}
+table-composition-spectators = { $count ->
+    [one] Khán giả
+   *[other] Khán giả
 }: { $names }
-table-composition-spectators = { $count } { $count ->
-    [one] khán giả
-   *[other] khán giả
-}: { $names }
+table-composition-spectators-more = Khán giả: { $names }; cùng { $remaining } người khác
+table-composition-spectator-host = { $host } (chủ bàn)
 table-composition-two = { $first }; { $second }
 table-composition-three = { $first }; { $second }; { $third }
 table-composition-empty = không có ai
@@ -114,6 +107,7 @@ table-status-playing = Đang chơi
 table-status-finished = Đã xong
 table-not-exists = Bàn chơi không còn tồn tại.
 table-full = Bàn đã đầy.
+table-closed-disconnect-timeout = Bàn đã đóng vì không có người chơi nào trở lại trong vòng { $minutes } phút.
 player-replaced-by-bot = { $bot } đang chơi thay cho { $player }.
 player-reclaimed-from-bot = { $player } đã trở lại và lấy lại chỗ từ { $bot }.
 player-took-over = { $player } đã lấy lại chỗ từ { $bot }.
@@ -363,7 +357,6 @@ table-players-many = { $count } người chơi: { $players }.
 table-spectators = Khán giả: { $spectators }.
 table-host-suffix = (Chủ bàn)
 table-voice-chat-suffix = (đang tham gia trò chuyện thoại)
-table-members-summary = Tóm tắt bàn: { $total } chỗ; { $real } người thật, { $bots } bot; { $active } đang tham gia, { $spectators } đang xem.
 table-members-summary-compact = Tóm tắt bàn: { $composition }.
 table-summary-human-players = { $count } { $count ->
     [one] người chơi

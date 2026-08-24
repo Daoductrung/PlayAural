@@ -1,7 +1,7 @@
 import pytest
 
 from ..auth.chat_rate_limit import ChatRateLimiter
-from ..core.server import Server
+from ..core.server import MAX_CHAT_MESSAGE_LENGTH, Server
 from ..messages.localization import Localization
 from ..tables.manager import TableManager
 from ..users.test_user import MockUser
@@ -34,6 +34,9 @@ class MutatingConnection(RecordingConnection):
 class DummyDatabase:
     def get_active_mute(self, username: str):
         return None
+
+    def get_socially_blocked_ids(self, user_id: str) -> set[str]:
+        return set()
 
 
 def _make_server() -> Server:
@@ -213,3 +216,46 @@ async def test_non_admin_slash_commands_do_not_broadcast_as_chat(message: str) -
 
     assert alice_connection.sent == []
     assert bob_connection.sent == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("packet", "expected_key"),
+    [
+        (
+            {"convo": "forged", "message": "hello", "type": "chat"},
+            "chat-invalid-channel",
+        ),
+        (
+            {"convo": "global", "message": {"text": "hello"}, "type": "chat"},
+            "chat-invalid-message",
+        ),
+        (
+            {
+                "convo": "global",
+                "message": "x" * (MAX_CHAT_MESSAGE_LENGTH + 1),
+                "type": "chat",
+            },
+            "chat-message-too-long",
+        ),
+    ],
+)
+async def test_forged_or_oversized_chat_packets_are_rejected(
+    packet: dict, expected_key: str
+) -> None:
+    server = _make_server()
+    alice_connection = RecordingConnection()
+    bob_connection = RecordingConnection()
+    alice = _make_user("Alice", alice_connection)
+    bob = _make_user("Bob", bob_connection)
+    server._users = {"Alice": alice, "Bob": bob}
+
+    await server._handle_chat(DummyClient("Alice"), packet)
+
+    assert alice_connection.sent == []
+    assert bob_connection.sent == []
+    assert alice.get_last_spoken() == Localization.get(
+        alice.locale,
+        expected_key,
+        limit=MAX_CHAT_MESSAGE_LENGTH,
+    )

@@ -123,6 +123,9 @@ MAIN_MENU_MUSIC = "mainmus.ogg"
 WELCOME_SOUND = "welcome.ogg"
 ONLINE_USERS_PAGE_SIZE = DEFAULT_MENU_PAGE_SIZE
 ACTIVE_TABLE_SPECTATOR_PREVIEW_LIMIT = 3
+MAX_CHAT_MESSAGE_LENGTH = 500
+TABLE_CHAT_CONVERSATIONS = frozenset({"local", "table", "game"})
+SUPPORTED_CHAT_CONVERSATIONS = frozenset({"global", *TABLE_CHAT_CONVERSATIONS})
 VOICE_JOIN_AUTHORIZATION_WINDOW_SECONDS = 120
 SESSION_STATE_RETENTION_SECONDS = 300
 PRESENCE_OFFLINE_GRACE_SECONDS = 2.0
@@ -157,6 +160,7 @@ PRESENCE_PRIVILEGED_SOUND_ROLES = (
 )
 HOST_RESTART_CONFIRM_MENU = "host_restart_confirm_menu"
 FRIEND_REMOVE_CONFIRM_MENU = "friend_remove_confirm_menu"
+USER_BLOCK_CONFIRM_MENU = "user_block_confirm_menu"
 TABLE_MEMBERS_MENU = "table_members_menu"
 TABLE_MEMBER_ACTIONS_MENU = "table_member_actions_menu"
 NON_RESUMABLE_ACTION_MENUS = frozenset(
@@ -165,6 +169,7 @@ NON_RESUMABLE_ACTION_MENUS = frozenset(
         "demote_confirm_menu",
         "email_confirm_menu",
         FRIEND_REMOVE_CONFIRM_MENU,
+        USER_BLOCK_CONFIRM_MENU,
         HOST_RESTART_CONFIRM_MENU,
         "kick_confirm_menu",
         "logout_confirm_menu",
@@ -285,18 +290,21 @@ class Server:
     # This prevents active games from swallowing interactions meant for global overlays (like options or online list).
     GLOBAL_SYSTEM_MENUS = {
         "main_menu", "personal_options_menu", "games_menu", "tables_menu",
-        "game_category_filter_menu", "active_tables_menu", "active_tables_filter_menu", "join_menu",
+        "game_category_filter_menu", "active_tables_menu", "active_tables_filter_menu",
         *OPTIONS_MENU_IDS,
         "saved_tables_menu", "saved_table_actions_menu",
         "leaderboards_menu", "leaderboard_types_menu", "game_leaderboard",
         "my_stats_menu", "my_game_stats", "profile_menu", "gender_menu",
         "bio_actions_menu", "email_confirm_menu", "friends_hub_menu",
         "friends_list_menu", "friend_actions_menu", "friend_requests_menu",
-        "friend_request_actions_menu", FRIEND_REMOVE_CONFIRM_MENU,
+        "friend_request_actions_menu", "blocked_users_menu",
+        "blocked_user_actions_menu", FRIEND_REMOVE_CONFIRM_MENU,
+        USER_BLOCK_CONFIRM_MENU,
         "public_profile_menu", "online_users",
         "online_user_actions_menu", *ADMIN_MENU_IDS, "logout_confirm_menu",
         "documentation_menu", "doc_games_menu", "doc_viewer", "email_input",
-        "bio_input", "send_friend_request_input", "send_pm_input",
+        "bio_input", "send_friend_request_input", "block_user_input",
+        "send_pm_input",
         "speech_rate_input", "mobile_tts_rate_input", "waiting_for_approval",
         "host_management_menu", "host_invite_menu", "host_pass_menu",
         "host_kick_menu", "host_kick_ban_menu", HOST_RESTART_CONFIRM_MENU,
@@ -353,6 +361,7 @@ class Server:
         # Runtime-only, bounded debounce state. Presence events are derived
         # from live sessions and must never be persisted with account data.
         self._recent_presence_events: dict[str, tuple[bool, float]] = {}
+        self._social_block_revision = 0
         self._session_locks: weakref.WeakValueDictionary[
             str,
             asyncio.Lock,
@@ -928,15 +937,26 @@ PlayAural Server
         packet: dict,
     ) -> bool:
         """Serialize account deletion with login and retire any live owner."""
+        affected_social_peers: set[str] = set()
         async with self._session_lock_for(username):
+            account = self._db.get_user(username)
+            if account:
+                affected_social_peers = self._db.get_social_peer_ids(account.uuid)
             if not self._db.delete_user(username):
                 return False
+            canonical_username = account.username if account else username
+            self._cancel_social_invites_for_user(canonical_username)
+            self._social_block_revision = (
+                getattr(self, "_social_block_revision", 0) + 1
+            )
             user, client = await self._retire_account_session_locked(username)
             self._remove_deleted_account_from_table(username, user)
             self._chat_rate_limiter.remove_user(username)
             self._voice_rate_limiter.remove_user(username)
 
         await self._close_retired_session(client, packet)
+        if affected_social_peers:
+            self.on_social_relationships_changed(*affected_social_peers)
         if user:
             self.on_user_presence_changed()
         return True
@@ -1068,9 +1088,14 @@ PlayAural Server
 
         spec = PRESENCE_EVENT_SPECS[is_online]
         friend_uuids = set(self._db.get_friends(player_uuid))
+        socially_blocked_uuids = self._db.get_socially_blocked_ids(player_uuid)
 
         for user in tuple(self._users.values()):
-            if not user.approved:
+            if (
+                not user.approved
+                or user.uuid == player_uuid
+                or user.uuid in socially_blocked_uuids
+            ):
                 continue
 
             use_friend_notification = (
@@ -2573,6 +2598,7 @@ PlayAural Server
         table: "Table",
         *,
         status_filter: str | None = None,
+        socially_blocked_ids: set[str] | None = None,
     ) -> bool:
         """Return whether a live table belongs in this user's lobby lists."""
         if not table.game:
@@ -2585,6 +2611,12 @@ PlayAural Server
         if table.is_private and user.username not in {
             member.username for member in table.members
         }:
+            return False
+        if self._is_new_table_admission_blocked(
+            user,
+            table,
+            socially_blocked_ids=socially_blocked_ids,
+        ):
             return False
         return any(
             not member.is_spectator and member.username in self._users
@@ -2729,10 +2761,15 @@ PlayAural Server
     ) -> tuple[list[MenuItem], PaginatedMenuPage[Any]]:
         """Generate the list of MenuItems for a specific game's tables menu."""
         all_tables = self._tables.get_tables_by_type(game_type)
+        socially_blocked_ids = self._db.get_socially_blocked_ids(user.uuid)
         tables = [
             table
             for table in all_tables
-            if self._is_visible_active_table(user, table)
+            if self._is_visible_active_table(
+                user,
+                table,
+                socially_blocked_ids=socially_blocked_ids,
+            )
         ]
 
         game_class = get_game_class(game_type)
@@ -2792,6 +2829,7 @@ PlayAural Server
         """Generate the list of MenuItems for the global active tables menu."""
         all_tables = self._tables.get_all_tables()
         filter_type = user.preferences.active_tables_filter
+        socially_blocked_ids = self._db.get_socially_blocked_ids(user.uuid)
         tables = [
             table
             for table in all_tables
@@ -2799,6 +2837,7 @@ PlayAural Server
                 user,
                 table,
                 status_filter=filter_type,
+                socially_blocked_ids=socially_blocked_ids,
             )
         ]
 
@@ -2875,27 +2914,34 @@ PlayAural Server
 
     def on_friend_requests_changed(self, target_uuid: str) -> None:
         """Called when friend requests are sent, accepted, or declined to refresh UI."""
+        self.on_social_relationships_changed(target_uuid)
+
+    def on_social_relationships_changed(self, *target_uuids: str) -> None:
+        """Refresh authoritative social surfaces for the affected accounts."""
+        affected = {str(target_uuid) for target_uuid in target_uuids if target_uuid}
         for username, user in self._users.items():
+            if user.uuid not in affected:
+                continue
             state = self._user_states.get(username, {})
-            if user.uuid == target_uuid:
-                current_menu = state.get("menu")
-                if current_menu == "friends_hub_menu":
-                    items = self._get_friends_hub_menu_items(user)
-                    user.update_menu("friends_hub_menu", items)
-                elif current_menu == "friend_requests_menu":
-                    self._nav_refresh(
-                        user,
-                        self._show_friend_requests_menu,
-                        state.get("friend_requests_page", 1),
-                    )
-                elif current_menu == "friends_list_menu":
-                    self._nav_refresh(
-                        user,
-                        self._show_friends_list_menu,
-                        state.get("friends_page", 1),
-                    )
+            current_menu = state.get("menu")
+            if current_menu == "friends_hub_menu":
+                items = self._get_friends_hub_menu_items(user)
+                user.update_menu("friends_hub_menu", items)
+            elif current_menu == "friend_requests_menu":
+                self._nav_refresh(
+                    user,
+                    self._show_friend_requests_menu,
+                    state.get("friend_requests_page", 1),
+                )
+            elif current_menu == "blocked_users_menu":
+                self._nav_refresh(
+                    user,
+                    self._show_blocked_users_menu,
+                    state.get("blocked_users_page", 1),
+                )
             self._refresh_social_presence_menu(user, state)
             self._refresh_table_presence_menu(user, state)
+            self._refresh_table_browser_menu(user, state)
 
     def on_tables_changed(self) -> None:
         """Called by TableManager when a table is created, destroyed, or changes status.
@@ -2903,24 +2949,26 @@ PlayAural Server
         self.on_user_presence_changed()
         for username, user in self._users.items():
             state = self._user_states.get(username, {})
-            current_menu = state.get("menu")
+            self._refresh_table_browser_menu(user, state)
 
-            if current_menu == "active_tables_menu":
+    def _refresh_table_browser_menu(self, user: NetworkUser, state: dict) -> None:
+        """Refresh an open lobby table list after visibility or roster changes."""
+        current_menu = state.get("menu")
+        if current_menu == "active_tables_menu":
+            self._nav_refresh(
+                user,
+                self._show_active_tables_menu,
+                state.get("active_tables_page", 1),
+            )
+        elif current_menu == "tables_menu":
+            game_type = state.get("game_type")
+            if game_type:
                 self._nav_refresh(
                     user,
-                    self._show_active_tables_menu,
-                    state.get("active_tables_page", 1),
+                    self._show_tables_menu,
+                    game_type,
+                    state.get("tables_page", 1),
                 )
-
-            elif current_menu == "tables_menu":
-                game_type = state.get("game_type")
-                if game_type:
-                    self._nav_refresh(
-                        user,
-                        self._show_tables_menu,
-                        game_type,
-                        state.get("tables_page", 1),
-                    )
 
     def _refresh_social_presence_menu(self, user: NetworkUser, state: dict) -> None:
         """Refresh open social menus whose contents depend on presence or friendship."""
@@ -2945,6 +2993,30 @@ PlayAural Server
             target_username = state.get("target_username", "")
             if target_username:
                 self._nav_refresh(user, self._show_friend_actions_menu, target_username)
+        elif current_menu == "friend_request_actions_menu":
+            target_username = state.get("target_username", "")
+            if target_username:
+                self._nav_refresh(
+                    user,
+                    self._show_friend_request_actions_menu,
+                    target_username,
+                )
+        elif current_menu == "blocked_user_actions_menu":
+            target_username = state.get("target_username", "")
+            if target_username:
+                self._nav_refresh(
+                    user,
+                    self._show_blocked_user_actions_menu,
+                    target_username,
+                )
+        elif current_menu == "public_profile_menu":
+            target_username = state.get("target_username", "")
+            if target_username:
+                self._nav_refresh(
+                    user,
+                    self._show_public_profile,
+                    target_username,
+                )
 
     def _refresh_table_presence_menu(self, user: NetworkUser, state: dict) -> None:
         """Refresh open table-scoped menus after joins, leaves, host changes, or bot changes."""
@@ -5232,8 +5304,6 @@ PlayAural Server
             await self._handle_active_tables_selection(user, selection_id, state)
         elif current_menu == "active_tables_filter_menu":
             await self._handle_active_tables_filter_selection(user, selection_id)
-        elif current_menu == "join_menu":
-            await self._handle_join_selection(user, selection_id, state)
         elif current_menu == "options_menu":
             await self._handle_options_selection(user, selection_id)
         elif current_menu == "options_audio_submenu":
@@ -5300,10 +5370,18 @@ PlayAural Server
             await self._handle_friend_remove_confirm_selection(
                 user, selection_id, state
             )
+        elif current_menu == USER_BLOCK_CONFIRM_MENU:
+            await self._handle_user_block_confirm_selection(
+                user, selection_id, state
+            )
         elif current_menu == "friend_requests_menu":
             await self._handle_friend_requests_selection(user, selection_id, state)
         elif current_menu == "friend_request_actions_menu":
             await self._handle_friend_request_actions_selection(user, selection_id, state)
+        elif current_menu == "blocked_users_menu":
+            await self._handle_blocked_users_selection(user, selection_id, state)
+        elif current_menu == "blocked_user_actions_menu":
+            await self._handle_blocked_user_actions_selection(user, selection_id, state)
         elif current_menu == "public_profile_menu":
             await self._handle_public_profile_selection(user, selection_id, state)
         elif current_menu == "online_users":
@@ -5445,6 +5523,7 @@ PlayAural Server
     def _get_friends_hub_menu_items(self, user: NetworkUser) -> list[MenuItem]:
         """Build menu items for the friends hub menu."""
         pending_count = self._db.count_pending_incoming_requests(user.uuid)
+        blocked_count = self._db.count_blocked_users(user.uuid)
 
         req_text = Localization.get(user.locale, "friends-pending-requests", count=pending_count) if pending_count > 0 else Localization.get(user.locale, "friends-no-pending-requests")
 
@@ -5452,6 +5531,18 @@ PlayAural Server
             MenuItem(text=Localization.get(user.locale, "friends-my-friends"), id="my_friends"),
             MenuItem(text=req_text, id="pending_requests"),
             MenuItem(text=Localization.get(user.locale, "friends-send-request"), id="send_request"),
+            MenuItem(
+                text=Localization.get(user.locale, "friends-block-user"),
+                id="block_user",
+            ),
+            MenuItem(
+                text=Localization.get(
+                    user.locale,
+                    "friends-blocked-users",
+                    count=blocked_count,
+                ),
+                id="blocked_users",
+            ),
             MenuItem(text=Localization.get(user.locale, "back"), id="back")
         ]
 
@@ -5478,8 +5569,203 @@ PlayAural Server
                 Localization.get(user.locale, "enter-friend-username"),
             )
             self._enter_input_state(user, "send_friend_request_input")
+        elif selection_id == "block_user":
+            user.show_editbox(
+                "block_user_input",
+                Localization.get(user.locale, "enter-block-username"),
+            )
+            self._enter_input_state(user, "block_user_input")
+        elif selection_id == "blocked_users":
+            self._nav_push(user, self._show_blocked_users_menu)
         elif selection_id == "back":
             self._nav_back(user)
+
+    def _blocked_users_page(
+        self, user: NetworkUser, page: int
+    ) -> PaginatedMenuPage[str]:
+        """Return one stable page of accounts directionally blocked by a user."""
+        total = self._db.count_blocked_users(user.uuid)
+        safe_page = clamp_page(page, total, DEFAULT_MENU_PAGE_SIZE)
+        offset = (safe_page - 1) * DEFAULT_MENU_PAGE_SIZE
+        return PaginatedMenuPage(
+            items=self._db.get_blocked_users(
+                user.uuid,
+                limit=DEFAULT_MENU_PAGE_SIZE,
+                offset=offset,
+            ),
+            total=total,
+            page=safe_page,
+            page_size=DEFAULT_MENU_PAGE_SIZE,
+        )
+
+    def _get_blocked_users_menu_items(
+        self, user: NetworkUser, page: int = 1
+    ) -> tuple[list[MenuItem], PaginatedMenuPage[str]]:
+        """Build the paginated blocked-users management list."""
+        blocked = self._blocked_users_page(user, page)
+        items: list[MenuItem] = []
+        for blocked_uuid in blocked.items:
+            blocked_name = self._db.get_user_name_by_uuid(blocked_uuid)
+            if blocked_name:
+                items.append(
+                    MenuItem(text=blocked_name, id=f"blocked_{blocked_name}")
+                )
+        if not items:
+            items.append(
+                MenuItem(
+                    text=Localization.get(user.locale, "friends-blocked-empty"),
+                    id="",
+                )
+            )
+        if blocked.total_pages > 1:
+            items.append(
+                MenuItem(
+                    text=Localization.get(
+                        user.locale,
+                        "menu-page-summary",
+                        start=blocked.start_index,
+                        end=blocked.end_index,
+                        total=blocked.total,
+                        page=blocked.page,
+                        pages=blocked.total_pages,
+                    ),
+                    id="page_summary",
+                )
+            )
+        items.extend(pagination_menu_items(user.locale, blocked))
+        items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
+        return items, blocked
+
+    def _show_blocked_users_menu(
+        self,
+        user: NetworkUser,
+        page: int = 1,
+        *,
+        focus_page_start: bool = False,
+    ) -> None:
+        """Show the user's persistent block-management list."""
+        items, blocked = self._get_blocked_users_menu_items(user, page)
+        user.show_menu(
+            "blocked_users_menu",
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+            position=(
+                self._first_menu_item_position(
+                    items,
+                    lambda item_id: item_id.startswith("blocked_"),
+                )
+                if focus_page_start
+                else None
+            ),
+        )
+        self._user_states[user.username] = {
+            "menu": "blocked_users_menu",
+            "blocked_users_page": blocked.page,
+            "blocked_users_page_count": blocked.total_pages,
+        }
+
+    async def _handle_blocked_users_selection(
+        self, user: NetworkUser, selection_id: str, state: dict
+    ) -> None:
+        """Handle pagination and account selection in the blocked-users list."""
+        if selection_id == "back":
+            self._nav_back(user)
+        elif selection_id in MENU_PAGE_IDS:
+            current_page = int(state.get("blocked_users_page", 1) or 1)
+            page_count = max(
+                1, int(state.get("blocked_users_page_count", 1) or 1)
+            )
+            next_page = page_for_selection(selection_id, current_page, page_count)
+            if next_page is None:
+                return
+            if is_page_refresh(selection_id):
+                user.speak_l("menu-list-refreshed", buffer="system")
+            self._nav_refresh(
+                user,
+                self._show_blocked_users_menu,
+                next_page,
+                focus_page_start=is_page_navigation(selection_id),
+            )
+        elif selection_id.startswith("blocked_"):
+            target_username = selection_id[len("blocked_"):]
+            target_record = self._db.get_user(target_username)
+            if not target_record or not self._db.has_blocked(
+                user.uuid, target_record.uuid
+            ):
+                user.speak_l("block-no-longer-active", buffer="system")
+                self._nav_refresh(
+                    user,
+                    self._show_blocked_users_menu,
+                    state.get("blocked_users_page", 1),
+                )
+                return
+            self._nav_push(
+                user,
+                self._show_blocked_user_actions_menu,
+                target_record.username,
+            )
+
+    def _show_blocked_user_actions_menu(
+        self, user: NetworkUser, target_username: str
+    ) -> None:
+        """Show profile and unblock controls for one blocked account."""
+        target_record = self._db.get_user(target_username)
+        if not target_record:
+            user.speak_l("unknown-player", buffer="system")
+            self._nav_back(user)
+            return
+        items = []
+        if self._db.has_blocked(user.uuid, target_record.uuid):
+            items.extend(
+                [
+                    MenuItem(
+                        text=Localization.get(user.locale, "view-profile"),
+                        id="view_profile",
+                    ),
+                    MenuItem(
+                        text=Localization.get(user.locale, "unblock-user"),
+                        id="unblock",
+                    ),
+                ]
+            )
+        else:
+            items.append(
+                MenuItem(
+                    text=Localization.get(user.locale, "block-no-longer-active"),
+                    id="",
+                )
+            )
+        items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
+        user.show_menu(
+            "blocked_user_actions_menu",
+            items,
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self._user_states[user.username] = {
+            "menu": "blocked_user_actions_menu",
+            "target_username": target_record.username,
+        }
+
+    async def _handle_blocked_user_actions_selection(
+        self, user: NetworkUser, selection_id: str, state: dict
+    ) -> None:
+        """Handle one blocked-account management action."""
+        target_username = state.get("target_username", "")
+        if selection_id == "back":
+            self._nav_back(user)
+        elif selection_id == "view_profile":
+            self._nav_push(user, self._show_public_profile, target_username)
+        elif selection_id == "unblock":
+            if self._perform_unblock_user(user, target_username):
+                self._nav_back(user)
+            else:
+                self._nav_refresh(
+                    user,
+                    self._show_blocked_user_actions_menu,
+                    target_username,
+                )
 
     def _build_friends_list_menu_items(
         self, user: NetworkUser, page: int = 1
@@ -5637,13 +5923,36 @@ PlayAural Server
             if table:
                 # Only show "Join Table" if the table is public OR the user is already a member
                 user_is_member = any(m.username == user.username for m in table.members)
-                if not table.is_private or user_is_member:
+                if (
+                    (not table.is_private or user_is_member)
+                    and not self._is_new_table_admission_blocked(user, table)
+                ):
                     items.append(MenuItem(text=Localization.get(user.locale, "join-table"), id="join_table"))
 
         if self._find_current_friend_record(user, target_username):
             items.append(MenuItem(text=Localization.get(user.locale, "remove-friend"), id="remove_friend"))
+        block_item = self._get_block_action_item(user, target_username)
+        if block_item:
+            items.append(block_item)
         items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
         return items
+
+    def _get_block_action_item(
+        self, user: NetworkUser, target_username: str
+    ) -> MenuItem | None:
+        """Return the directional block/unblock action for another account."""
+        target_record = self._db.get_user(target_username)
+        if not target_record or target_record.uuid == user.uuid:
+            return None
+        if self._db.has_blocked(user.uuid, target_record.uuid):
+            return MenuItem(
+                text=Localization.get(user.locale, "unblock-user"),
+                id="unblock",
+            )
+        return MenuItem(
+            text=Localization.get(user.locale, "block-user"),
+            id="block",
+        )
 
     def _get_non_friend_user_actions_menu_items(
         self, user: NetworkUser, target_username: str
@@ -5654,13 +5963,25 @@ PlayAural Server
         ]
         target_record = self._db.get_user(target_username)
         is_self = bool(target_record and target_record.uuid == user.uuid)
-        if target_record and not is_self and not self._find_current_friend_record(user, target_username):
+        is_blocked_pair = bool(
+            target_record
+            and self._db.has_block_between(user.uuid, target_record.uuid)
+        )
+        if (
+            target_record
+            and not is_self
+            and not is_blocked_pair
+            and not self._find_current_friend_record(user, target_username)
+        ):
             items.append(
                 MenuItem(
                     text=Localization.get(user.locale, "friends-send-request"),
                     id="send_friend_request",
                 )
             )
+        block_item = self._get_block_action_item(user, target_username)
+        if block_item:
+            items.append(block_item)
         items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
         return items
 
@@ -5716,11 +6037,18 @@ PlayAural Server
                 "send_pm_input",
                 Localization.get(user.locale, "enter-pm-message", username=target_username),
                 multiline=True,
-                max_length=500
+                max_length=MAX_CHAT_MESSAGE_LENGTH,
             )
             self._enter_input_state(user, "send_pm_input", target_username=target_username)
 
         elif selection_id == "join_table":
+            if not self._get_current_friend_record(user, target_username):
+                self._nav_refresh(
+                    user,
+                    self._show_friend_actions_menu,
+                    target_username,
+                )
+                return
             table = self._tables.find_user_table(target_username)
             if table:
                 # Check if we are already in a table
@@ -5751,6 +6079,16 @@ PlayAural Server
                 return
             target_username = target_record.username
             self._nav_push(user, self._show_friend_remove_confirm_menu, target_username)
+
+        elif selection_id == "block":
+            self._nav_push(
+                user,
+                self._show_user_block_confirm_menu,
+                target_username,
+            )
+
+        elif selection_id == "unblock":
+            self._perform_unblock_user(user, target_username)
 
     def _find_current_friend_record(
         self, user: NetworkUser, target_username: str
@@ -5785,10 +6123,26 @@ PlayAural Server
 
         status = self._db.send_friend_request(user.uuid, target_record.uuid)
 
-        if status == "already_friends":
+        if status == "self":
+            user.speak_l("friend-error-self", buffer="system")
+        elif status == "unknown":
+            user.speak_l("unknown-player", buffer="system")
+        elif status == "already_friends":
             user.speak_l("friend-error-already-friends", buffer="system")
         elif status == "duplicate":
             user.speak_l("friend-error-duplicate", buffer="system")
+        elif status == "blocked_by_you":
+            user.speak_l(
+                "friend-error-blocked-by-you",
+                buffer="system",
+                username=target_record.username,
+            )
+        elif status == "blocked":
+            user.speak_l(
+                "friend-error-blocked",
+                buffer="system",
+                username=target_record.username,
+            )
         elif status == "accepted":
             user.speak_l(
                 "friend-accepted-success",
@@ -5810,8 +6164,10 @@ PlayAural Server
                     user.username,
                     "friend_accepted",
                 )
-            self.on_friend_requests_changed(target_record.uuid)
-            self.on_friend_requests_changed(user.uuid)
+            self.on_social_relationships_changed(
+                user.uuid,
+                target_record.uuid,
+            )
         elif status == "sent":
             user.speak_l(
                 "friend-request-sent",
@@ -5833,8 +6189,10 @@ PlayAural Server
                     user.username,
                     "friend_request_received",
                 )
-            self.on_friend_requests_changed(target_record.uuid)
-            self.on_friend_requests_changed(user.uuid)
+            self.on_social_relationships_changed(
+                user.uuid,
+                target_record.uuid,
+            )
 
         return status
 
@@ -5916,7 +6274,10 @@ PlayAural Server
                 "friend_removed",
             )
 
-        self.on_friend_requests_changed(target_record.uuid)
+        self.on_social_relationships_changed(
+            user.uuid,
+            target_record.uuid,
+        )
         return True
 
     def _return_after_friend_remove_confirm(self, user: NetworkUser) -> None:
@@ -5930,6 +6291,177 @@ PlayAural Server
             self._nav_back(user)
         else:
             self._show_friends_list_menu(user)
+
+    def _show_user_block_confirm_menu(
+        self, user: NetworkUser, target_username: str
+    ) -> None:
+        """Explain the full block effect before applying the persistent change."""
+        target_record = self._db.get_user(target_username)
+        if not target_record:
+            user.speak_l("unknown-player", buffer="system")
+            self._nav_back(user)
+            return
+        if target_record.uuid == user.uuid:
+            user.speak_l("block-error-self", buffer="system")
+            self._nav_back(user)
+            return
+        if self._db.has_blocked(user.uuid, target_record.uuid):
+            user.speak_l(
+                "block-already-active",
+                buffer="system",
+                username=target_record.username,
+            )
+            self._nav_back(user)
+            return
+
+        user.speak_l(
+            "block-confirm",
+            buffer="system",
+            username=target_record.username,
+        )
+        items = [
+            MenuItem(text=Localization.get(user.locale, "confirm-yes"), id="yes"),
+            MenuItem(text=Localization.get(user.locale, "confirm-no"), id="no"),
+        ]
+        user.show_menu(
+            USER_BLOCK_CONFIRM_MENU,
+            items,
+            multiletter=False,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self._user_states[user.username] = {
+            "menu": USER_BLOCK_CONFIRM_MENU,
+            "target_username": target_record.username,
+        }
+
+    async def _handle_user_block_confirm_selection(
+        self, user: NetworkUser, selection_id: str, state: dict
+    ) -> None:
+        """Apply a confirmed block or return without changing social state."""
+        target_username = state.get("target_username", "")
+        if selection_id == "yes" and target_username:
+            if self._perform_block_user(user, target_username):
+                stack = list(
+                    self._user_states.get(user.username, {}).get("_stack", [])
+                )
+                stack = [
+                    frame
+                    for frame in stack
+                    if frame.get("menu") != "friend_request_actions_menu"
+                ]
+                self._user_states[user.username]["_stack"] = stack
+        self._nav_back(user)
+
+    def _perform_block_user(
+        self, user: NetworkUser, target_username: str
+    ) -> bool:
+        """Apply one directional block and reconcile runtime social surfaces."""
+        target_record = self._db.get_user(target_username)
+        if not target_record:
+            user.speak_l("unknown-player", buffer="system")
+            return False
+
+        status = self._db.block_user(user.uuid, target_record.uuid)
+        if status == "self":
+            user.speak_l("block-error-self", buffer="system")
+            return False
+        if status == "unknown":
+            user.speak_l("unknown-player", buffer="system")
+            return False
+        if status == "already_blocked":
+            user.speak_l(
+                "block-already-active",
+                buffer="system",
+                username=target_record.username,
+            )
+            return False
+
+        self._cancel_social_invites_between(user.username, target_record.username)
+        self._social_block_revision = getattr(self, "_social_block_revision", 0) + 1
+        user.speak_l(
+            "block-success",
+            buffer="system",
+            username=target_record.username,
+        )
+        self.on_social_relationships_changed(user.uuid, target_record.uuid)
+        return True
+
+    def _perform_unblock_user(
+        self, user: NetworkUser, target_username: str
+    ) -> bool:
+        """Remove one directional block without restoring old relationships."""
+        target_record = self._db.get_user(target_username)
+        if not target_record:
+            user.speak_l("unknown-player", buffer="system")
+            return False
+        if not self._db.unblock_user(user.uuid, target_record.uuid):
+            user.speak_l("block-no-longer-active", buffer="system")
+            return False
+        user.speak_l(
+            "unblock-success",
+            buffer="system",
+            username=target_record.username,
+        )
+        self._social_block_revision = getattr(self, "_social_block_revision", 0) + 1
+        self.on_social_relationships_changed(user.uuid, target_record.uuid)
+        return True
+
+    def _cancel_social_invites_between(
+        self, username1: str, username2: str
+    ) -> None:
+        """Cancel runtime table invites invalidated by a new block."""
+        pair = {username1, username2}
+        self._cancel_matching_social_invites(
+            lambda invitee_name, invite: {
+                invitee_name,
+                str(invite.get("host_username", "")),
+            }
+            == pair
+        )
+
+    def _cancel_social_invites_for_user(self, username: str) -> None:
+        """Cancel runtime table invites that cannot outlive an account."""
+        self._cancel_matching_social_invites(
+            lambda invitee_name, invite: username
+            in {invitee_name, str(invite.get("host_username", ""))}
+        )
+
+    def _cancel_invalid_table_invites_for_table(self, table: "Table") -> None:
+        """Retire pending invites invalidated by a table's current host."""
+        self._cancel_matching_social_invites(
+            lambda invitee_name, invite: (
+                str(invite.get("table_id", "")) == table.table_id
+                and (invitee_user := self._users.get(invitee_name)) is not None
+                and self._is_new_table_admission_blocked(invitee_user, table)
+            )
+        )
+
+    def _cancel_matching_social_invites(
+        self,
+        predicate: Callable[[str, dict], bool],
+    ) -> None:
+        """Cancel matching invites and silently restore any displaced prompt."""
+        for invitee_name, invite in list(self._pending_invites.items()):
+            if not predicate(invitee_name, invite):
+                continue
+            table_id = str(invite.get("table_id", ""))
+            invitee_user = self._users.get(invitee_name)
+            state = self._user_states.get(invitee_name, {})
+            self._cancel_invite(invitee_name, table_id=table_id)
+            if (
+                invitee_user
+                and state.get("menu") == "table_invite_prompt"
+                and state.get("table_id") == table_id
+            ):
+                invitee_user.remove_menu(
+                    "table_invite_prompt",
+                    send_packet=False,
+                )
+                previous = state.get("prev_state", {})
+                self._restore_menu_from_state(
+                    invitee_user,
+                    previous if isinstance(previous, dict) else {},
+                )
 
     def _friend_requests_page(
         self, user: NetworkUser, page: int
@@ -6036,11 +6568,43 @@ PlayAural Server
 
     def _show_friend_request_actions_menu(self, user: NetworkUser, target_username: str) -> None:
         """Show accept/decline for a specific request."""
-        items = [
-            MenuItem(text=Localization.get(user.locale, "accept"), id="accept"),
-            MenuItem(text=Localization.get(user.locale, "decline"), id="decline"),
-            MenuItem(text=Localization.get(user.locale, "back"), id="back")
-        ]
+        target_record = self._db.get_user(target_username)
+        is_pending = bool(
+            target_record
+            and self._db.has_pending_friend_request(
+                target_record.uuid,
+                user.uuid,
+            )
+        )
+        items: list[MenuItem] = []
+        if is_pending and target_record:
+            items.extend(
+                [
+                    MenuItem(
+                        text=Localization.get(user.locale, "view-profile"),
+                        id="view_profile",
+                    ),
+                    MenuItem(
+                        text=Localization.get(user.locale, "accept"),
+                        id="accept",
+                    ),
+                    MenuItem(
+                        text=Localization.get(user.locale, "decline"),
+                        id="decline",
+                    ),
+                ]
+            )
+            block_item = self._get_block_action_item(user, target_record.username)
+            if block_item:
+                items.append(block_item)
+        else:
+            items.append(
+                MenuItem(
+                    text=Localization.get(user.locale, "request-not-found"),
+                    id="",
+                )
+            )
+        items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
         user.show_menu(
             "friend_request_actions_menu",
             items,
@@ -6067,39 +6631,61 @@ PlayAural Server
         if selection_id == "back":
             self._nav_back(user)
 
+        elif selection_id == "view_profile":
+            self._nav_push(user, self._show_public_profile, target_record.username)
+
+        elif selection_id == "block":
+            self._nav_push(
+                user,
+                self._show_user_block_confirm_menu,
+                target_record.username,
+            )
+
         elif selection_id == "accept":
             # Attempt to accept
             success = self._db.accept_friend_request(target_record.uuid, user.uuid)
             if success:
-                user.speak_l("friend-accepted-success", buffer="system", username=target_username)
+                user.speak_l("friend-accepted-success", buffer="system", username=target_record.username)
                 user.play_sound("friend_accepted.ogg")
 
                 # Notify target
-                target_user = self._users.get(target_username)
+                target_user = self._users.get(target_record.username)
                 if target_user:
                     target_user.speak_l("friend-accepted-notify", buffer="system", username=user.username)
                     target_user.play_sound("friend_accepted.ogg")
                 else:
                     self._db.add_notification(target_record.uuid, user.username, "friend_accepted")
-                self.on_friend_requests_changed(target_record.uuid)
+                self.on_social_relationships_changed(
+                    user.uuid,
+                    target_record.uuid,
+                )
             else:
                 user.speak_l("request-not-found", buffer="system")
             self._nav_back(user)
 
         elif selection_id == "decline":
-            # Delete it
-            self._db.remove_friendship(user.uuid, target_record.uuid)
+            success = self._db.decline_friend_request(
+                target_record.uuid,
+                user.uuid,
+            )
+            if not success:
+                user.speak_l("request-not-found", buffer="system")
+                self._nav_back(user)
+                return
             user.speak_l("friend-declined-success", buffer="system")
 
             # Notify target
-            target_user = self._users.get(target_username)
+            target_user = self._users.get(target_record.username)
             if target_user:
                 target_user.speak_l("friend-declined-notify", buffer="system", username=user.username)
                 target_user.play_sound("friend_declined.ogg")
             else:
                 self._db.add_notification(target_record.uuid, user.username, "friend_declined")
 
-            self.on_friend_requests_changed(target_record.uuid)
+            self.on_social_relationships_changed(
+                user.uuid,
+                target_record.uuid,
+            )
             self._nav_back(user)
 
     def _show_public_profile(self, requesting_user: NetworkUser, target_username: str) -> None:
@@ -6110,7 +6696,11 @@ PlayAural Server
             self._nav_back(requesting_user)
             return
 
-        date_str = target_record.registration_date[:10] if target_record.registration_date else "Unknown"
+        date_str = (
+            target_record.registration_date[:10]
+            if target_record.registration_date
+            else Localization.get(requesting_user.locale, "profile-date-unknown")
+        )
         bio_str = target_record.bio if target_record.bio else Localization.get(requesting_user.locale, "profile-bio-empty")
         gender_loc_key = f"gender-{target_record.gender.lower().replace(' ', '-')}"
         gender_str = Localization.get(requesting_user.locale, gender_loc_key)
@@ -6127,6 +6717,12 @@ PlayAural Server
              email_str = target_record.email if target_record.email else Localization.get(requesting_user.locale, "profile-email-empty")
              items.append(MenuItem(text=Localization.get(requesting_user.locale, "admin-view-email", email=email_str), id=""))
 
+        block_item = self._get_block_action_item(
+            requesting_user,
+            target_record.username,
+        )
+        if block_item:
+            items.append(block_item)
         items.append(MenuItem(text=Localization.get(requesting_user.locale, "back"), id="back"))
 
         requesting_user.show_menu(
@@ -6144,6 +6740,15 @@ PlayAural Server
         """Handle selection in public profile."""
         if selection_id == "back":
             self._nav_back(user)
+        elif selection_id == "block":
+            self._nav_push(
+                user,
+                self._show_user_block_confirm_menu,
+                state.get("target_username", ""),
+            )
+        elif selection_id == "unblock":
+            target_username = state.get("target_username", "")
+            self._perform_unblock_user(user, target_username)
 
     def _show_profile_menu(self, user: NetworkUser) -> None:
         """Show the user's profile menu."""
@@ -6152,7 +6757,11 @@ PlayAural Server
             self._nav_back(user)
             return
 
-        date_str = user_record.registration_date[:10] if user_record.registration_date else "Unknown"
+        date_str = (
+            user_record.registration_date[:10]
+            if user_record.registration_date
+            else Localization.get(user.locale, "profile-date-unknown")
+        )
         email_str = user_record.email if user_record.email else Localization.get(user.locale, "profile-email-empty")
         bio_str = user_record.bio if user_record.bio else Localization.get(user.locale, "profile-bio-empty")
         gender_loc_key = f"gender-{user_record.gender.lower().replace(' ', '-')}"
@@ -6916,8 +7525,14 @@ PlayAural Server
                 
                 # Broadcast table creation to all other approved users
                 name_key = game_class.get_name_key()
+                socially_blocked_ids = self._db.get_socially_blocked_ids(user.uuid)
                 for u in self._users.values():
-                    if u.username != user.username and u.approved and u.preferences.notify_table_created:
+                    if (
+                        u.username != user.username
+                        and u.approved
+                        and u.uuid not in socially_blocked_ids
+                        and u.preferences.notify_table_created
+                    ):
                         local_game_name = Localization.get(u.locale, name_key)
                         u.play_sound(TABLE_CREATED_NOTIFICATION_SOUND)
                         u.speak_l(
@@ -7030,6 +7645,81 @@ PlayAural Server
             self._nav_back(user)
             return
 
+    def _table_host_uuid(self, table: "Table") -> str | None:
+        """Resolve the current host account without depending on live presence."""
+        live_host = self._users.get(table.host)
+        if live_host and live_host.uuid:
+            return str(live_host.uuid)
+        game = table.game
+        if game:
+            get_player_by_name = getattr(game, "get_player_by_name", None)
+            host_player = (
+                get_player_by_name(table.host)
+                if callable(get_player_by_name)
+                else next(
+                    (
+                        player
+                        for player in getattr(game, "players", ())
+                        if getattr(player, "name", "") == table.host
+                    ),
+                    None,
+                )
+            )
+            if not host_player:
+                host_player = next(
+                    (
+                        player
+                        for player in getattr(game, "players", ())
+                        if getattr(player, "replaced_human_name", "") == table.host
+                    ),
+                    None,
+                )
+            if host_player and getattr(host_player, "id", None):
+                return str(host_player.id)
+        host_record = self._db.get_user(table.host)
+        return str(host_record.uuid) if host_record else None
+
+    @staticmethod
+    def _has_reserved_table_place(user: NetworkUser, table: "Table") -> bool:
+        """Return whether this account is already represented at the table."""
+        if any(member.username == user.username for member in table.members):
+            return True
+        game = table.game
+        if not game:
+            return False
+        get_player_by_id = getattr(game, "get_player_by_id", None)
+        if callable(get_player_by_id):
+            return bool(get_player_by_id(user.uuid))
+        return any(
+            getattr(player, "id", None) == user.uuid
+            for player in getattr(game, "players", ())
+        )
+
+    def _is_new_table_admission_blocked(
+        self,
+        user: NetworkUser,
+        table: "Table",
+        *,
+        socially_blocked_ids: set[str] | None = None,
+    ) -> bool:
+        """Block only new entry when either account has blocked the current host.
+
+        Existing membership and UUID-reserved seats are recovery state, so host
+        transfer, reconnect, and bot-seat reclamation never evict or strand a
+        participant who was already part of the table.
+        """
+        if self._has_reserved_table_place(user, table):
+            return False
+        host_uuid = self._table_host_uuid(table)
+        if not host_uuid or host_uuid == user.uuid:
+            return False
+        blocked_ids = (
+            socially_blocked_ids
+            if socially_blocked_ids is not None
+            else self._db.get_socially_blocked_ids(user.uuid)
+        )
+        return host_uuid in blocked_ids
+
     def _auto_join_table(
         self,
         user: NetworkUser,
@@ -7072,6 +7762,7 @@ PlayAural Server
             return
 
         user_is_member = any(member.username == user.username for member in table.members)
+        reclaimed_player = self._find_reclaimable_bot_player(game, user)
         if table.is_private and not user_is_member and not allow_private_join:
             user.speak_l("table-private-invite-only", buffer="system")
             refresh_current_table_list()
@@ -7084,12 +7775,28 @@ PlayAural Server
             refresh_current_table_list()
             return
 
+        if self._is_new_table_admission_blocked(user, table):
+            user.speak_l("table-join-social-blocked", buffer="system")
+            refresh_current_table_list()
+            return
+
         table_id = table.table_id
 
-        reclaimed_player = self._find_reclaimable_bot_player(game, user)
         current_table = self._tables.find_user_table(user.username)
         if current_table == table and not reclaimed_player:
             user.speak_l("already-in-table", buffer="system")
+            return
+
+        # Complete every fallible target-table preflight before leaving a
+        # different table. A rejected transfer must not strand the user in the
+        # lobby.
+        if self._table_name_conflicts(
+            user,
+            table,
+            allowed_user_uuid=user.uuid if reclaimed_player else None,
+        ):
+            user.speak_l("table-name-already-used", buffer="system")
+            refresh_current_table_list()
             return
 
         if current_table and current_table != table:
@@ -7098,11 +7805,6 @@ PlayAural Server
         if reclaimed_player:
             self._reclaim_bot_replaced_slot(user, table, reclaimed_player)
         else:
-            if self._table_name_conflicts(user, table):
-                user.speak_l("table-name-already-used", buffer="system")
-                refresh_current_table_list()
-                return
-
             # Determine if user can join as player
             active_players_count = sum(1 for p in game.players if not p.is_spectator)
             can_join_as_player = (
@@ -7272,13 +7974,6 @@ PlayAural Server
         user.set_table_context("")
         user.stop_all_audio(fade_ms=800)
         user.clear_ui()
-
-    def _return_from_join_menu(self, user: NetworkUser, state: dict) -> None:
-        """Return to the appropriate tables menu after join."""
-        if state.get("return_menu") == "active_tables_menu":
-            self._show_active_tables_menu(user)
-        else:
-            self._show_tables_menu(user, state.get("game_type", ""))
 
     # ==========================================================================
     # Host Table Management
@@ -7514,6 +8209,8 @@ PlayAural Server
         friend_uuids = self._db.get_friends(user.uuid)
         result = []
         for f_uuid in friend_uuids:
+            if self._db.has_block_between(user.uuid, f_uuid):
+                continue
             f_name = self._db.get_user_name_by_uuid(f_uuid)
             if not f_name:
                 continue
@@ -7600,6 +8297,9 @@ PlayAural Server
     ) -> bool:
         """Send a table invite and schedule its 30-second expiry."""
         invitee_name = invitee_user.username
+        if self._db.has_block_between(host_user.uuid, invitee_user.uuid):
+            host_user.speak_l("host-invite-friend-unavailable", buffer="system")
+            return False
         if invitee_name in self._pending_invites:
             host_user.speak_l("host-invite-already-pending", buffer="system")
             return False
@@ -7757,6 +8457,10 @@ PlayAural Server
                 user.speak_l("table-you-are-banned", buffer="system")
                 self._restore_menu_from_state(user, prev_state)
                 return
+            if self._is_new_table_admission_blocked(user, table):
+                user.speak_l("table-join-social-blocked", buffer="system")
+                self._restore_menu_from_state(user, prev_state)
+                return
             # _auto_join_table sets _user_states itself, so just call it
             self._auto_join_table(user, table, table.game_type, allow_private_join=True)
         else:
@@ -7832,6 +8536,7 @@ PlayAural Server
         ):
             table.host = new_host_name
             table.game.host = new_host_name
+            self._cancel_invalid_table_invites_for_table(table)
             table.game.broadcast_l("host-passed", buffer="system", player=new_host_name)
             table.game.refresh_menus()
             self.on_tables_changed()
@@ -8608,9 +9313,17 @@ PlayAural Server
                 "send_pm_input",
                 Localization.get(user.locale, "enter-pm-message", username=target_name),
                 multiline=True,
-                max_length=500,
+                max_length=MAX_CHAT_MESSAGE_LENGTH,
             )
             self._enter_input_state(user, "send_pm_input", target_username=target_name)
+        elif selection_id == "block" and row["kind"] == "user":
+            self._nav_push(
+                user,
+                self._show_user_block_confirm_menu,
+                target_name,
+            )
+        elif selection_id == "unblock" and row["kind"] == "user":
+            self._perform_unblock_user(user, target_name)
         elif selection_id == "join_table" and row["kind"] == "user":
             if not self._get_current_friend_record(user, target_name):
                 self._nav_refresh(
@@ -8667,101 +9380,6 @@ PlayAural Server
                 return
             self._nav_push(user, self._show_friend_remove_confirm_menu, target_name)
 
-    async def _handle_join_selection(
-        self, user: NetworkUser, selection_id: str, state: dict
-    ) -> None:
-        """Handle join menu selection."""
-        table_id = state.get("table_id")
-        table = self._tables.get_table(table_id)
-
-        if not table or not table.game:
-            user.speak_l("table-not-exists", buffer="system")
-            self._return_from_join_menu(user, state)
-            return
-
-        # Ban check (table-scoped)
-        user_record = self._db.get_user(user.username)
-        if user_record and table.is_banned(user_record.uuid):
-            user.speak_l("table-you-are-banned", buffer="system")
-            self._return_from_join_menu(user, state)
-            return
-
-        game = table.game
-
-        if selection_id == "join_player":
-            # Check if game is already in progress
-            if game.status == "playing":
-                # Look for a player with matching UUID that is now a bot
-                matching_player = self._find_reclaimable_bot_player(game, user)
-
-                if matching_player:
-                    self._reclaim_bot_replaced_slot(
-                        user,
-                        table,
-                        matching_player,
-                        message_key="player-took-over",
-                        sound_name="join.ogg",
-                    )
-                    return
-                else:
-                    if self._table_name_conflicts(user, table):
-                        user.speak_l("table-name-already-used", buffer="system")
-                        self._return_from_join_menu(user, state)
-                        return
-                    # No matching player - join as spectator instead
-                    if not table.add_member(user.username, user, as_spectator=True):
-                        user.speak_l("table-name-already-used", buffer="system")
-                        self._return_from_join_menu(user, state)
-                        return
-                    joined_player = game.add_spectator(user.username, user)
-                    user.speak_l("spectator-joined", buffer="system", host=table.host)
-                    game.broadcast_l("now-spectating", buffer="system", player=user.username)
-                    game.play_table_join_sound(joined_player, is_spectator=True)
-                    game.refresh_menus()
-                    self._set_in_game_state(user, table_id)
-                    return
-
-            active_players_count = sum(1 for p in game.players if not p.is_spectator)
-            if active_players_count >= game.get_max_players():
-                user.speak_l("table-full", buffer="system")
-                self._return_from_join_menu(user, state)
-                return
-
-            if self._table_name_conflicts(user, table):
-                user.speak_l("table-name-already-used", buffer="system")
-                self._return_from_join_menu(user, state)
-                return
-
-            # Add player to game
-            if not table.add_member(user.username, user, as_spectator=False):
-                user.speak_l("table-name-already-used", buffer="system")
-                self._return_from_join_menu(user, state)
-                return
-            joined_player = game.add_player(user.username, user)
-            game.broadcast_l("table-joined", buffer="system", player=user.username)
-            game.play_table_join_sound(joined_player, is_spectator=False)
-            game.refresh_menus()
-            self._set_in_game_state(user, table_id)
-
-        elif selection_id == "join_spectator":
-            if self._table_name_conflicts(user, table):
-                user.speak_l("table-name-already-used", buffer="system")
-                self._return_from_join_menu(user, state)
-                return
-            if not table.add_member(user.username, user, as_spectator=True):
-                user.speak_l("table-name-already-used", buffer="system")
-                self._return_from_join_menu(user, state)
-                return
-            joined_player = game.add_spectator(user.username, user)
-            user.speak_l("spectator-joined", buffer="system", host=table.host)
-            game.broadcast_l("now-spectating", buffer="system", player=user.username)
-            game.play_table_join_sound(joined_player, is_spectator=True)
-            game.refresh_menus()
-            self._set_in_game_state(user, table_id)
-
-        elif selection_id == "back":
-            self._return_from_join_menu(user, state)
-
     async def _handle_saved_tables_selection(
         self, user: NetworkUser, selection_id: str, state: dict
     ) -> None:
@@ -8806,8 +9424,10 @@ PlayAural Server
         if selection_id == "restore":
             await self._restore_saved_table(user, save_id)
         elif selection_id == "delete":
-            self._db.delete_saved_table(save_id)
-            user.speak_l("saved-table-deleted", buffer="system")
+            if self._db.delete_saved_table(save_id, username=user.username):
+                user.speak_l("saved-table-deleted", buffer="system")
+            else:
+                user.speak_l("table-not-exists", buffer="system")
             self._nav_back(user)
         elif selection_id == "back":
             self._nav_back(user)
@@ -8815,7 +9435,7 @@ PlayAural Server
     async def _restore_saved_table(self, user: NetworkUser, save_id: int) -> None:
         """Restore a saved table."""
 
-        record = self._db.get_saved_table(save_id)
+        record = self._db.get_saved_table(save_id, username=user.username)
         if not record:
             user.speak_l("table-not-exists", buffer="system")
             self._nav_back(user)
@@ -8828,95 +9448,251 @@ PlayAural Server
             self._nav_back(user)
             return
 
-        # Parse members from saved state
-        members_data = json.loads(record.members_json)
-        human_players = [m for m in members_data if not m.get("is_bot", False)]
+        table = None
+        try:
+            members_data = json.loads(record.members_json)
+            if not isinstance(members_data, list) or not members_data:
+                raise ValueError("saved table has no member list")
 
-        # Check all human players are available
-        missing_players = []
-        for member in human_players:
-            member_username = member.get("username")
-            if member_username not in self._users:
-                missing_players.append(member_username)
-            else:
-                # Check they're not already in a table
-                existing_table = self._tables.find_user_table(member_username)
-                if existing_table:
-                    missing_players.append(member_username)
+            # Validate and rebuild all serialized game state before exposing a
+            # replacement table or moving any participant into it.
+            game = game_class.from_json(record.game_json)
+            players_to_keep = []
+            spectator_ids = []
+            for player in game.players:
+                if getattr(player, "is_spectator", False):
+                    spectator_ids.append(player.id)
+                else:
+                    players_to_keep.append(player)
+            game.players = players_to_keep
+            for spectator_id in spectator_ids:
+                game._users.pop(spectator_id, None)
+            game.rebuild_runtime_state()
 
-        if missing_players:
-            user.speak_l("missing-players", buffer="system", players=", ".join(missing_players))
+            resolved_members: list[tuple[Any, str, bool]] = []
+            resolved_player_ids: set[str] = set()
+            for member in members_data:
+                if not isinstance(member, dict):
+                    raise ValueError("saved table contains an invalid member")
+                serialized_name = member.get("username")
+                if not isinstance(serialized_name, str) or not serialized_name:
+                    raise ValueError("saved table member has no username")
+                is_bot = member.get("is_bot", False)
+                if not isinstance(is_bot, bool):
+                    raise ValueError("saved table member has an invalid bot flag")
+                replaced_human = bool(member.get("replaced_human", False))
+                human_name = (
+                    member.get("replaced_human_name")
+                    if replaced_human
+                    else (None if is_bot else serialized_name)
+                )
+                if human_name is not None and (
+                    not isinstance(human_name, str) or not human_name
+                ):
+                    raise ValueError("replaced human has no account name")
+
+                player_id = member.get("player_id", "")
+                player = game.get_player_by_id(player_id) if player_id else None
+                if not player:
+                    player = game.get_player_by_name(serialized_name)
+                if not player or getattr(player, "is_spectator", False):
+                    raise ValueError("saved member has no active game player")
+                normalized_player_id = str(player.id)
+                if normalized_player_id in resolved_player_ids:
+                    raise ValueError("saved table contains a duplicate player")
+                resolved_player_ids.add(normalized_player_id)
+                resolved_members.append(
+                    (player, human_name or serialized_name, human_name is None)
+                )
+
+            active_player_ids = {str(player.id) for player in game.players}
+            if resolved_player_ids != active_player_ids:
+                raise ValueError("saved member and player rosters do not match")
+        except Exception:
+            logging.getLogger("playaural").warning(
+                "Rejected invalid saved table %s for game %s",
+                save_id,
+                record.game_type,
+                exc_info=True,
+            )
+            user.speak_l("saved-table-invalid", buffer="system")
             self._nav_back(user)
             return
 
-        # All players available - create table and restore game
-        table = self._tables.create_table(record.game_type, user.username, user)
-
-        # Load game from JSON and rebuild runtime state
-        game = game_class.from_json(record.game_json)
-
-        # Strip spectators from the game's internal state so they don't block the restore
-        # Note: Depending on the game's Player model, is_spectator might be an attribute.
-        players_to_keep = []
-        spectator_ids = []
-        for player in game.players:
-            if getattr(player, "is_spectator", False):
-                spectator_ids.append(player.id)
-            else:
-                players_to_keep.append(player)
-        game.players = players_to_keep
-        # Also clean up any users dictionaries or references if the base game engine uses them
-        for spec_id in spectator_ids:
-            game._users.pop(spec_id, None)
-
-        game.rebuild_runtime_state()
-        table.game = game
-        game._table = table  # Enable game to call table.destroy()
-
-        # Update host to the restorer
-        game.host = user.username
-
-        # Attach users and transfer all human players
-        # NOTE: We must attach users by player.id (UUID), not by username.
-        # The deserialized game has player objects with their original IDs.
-        for member in members_data:
-            member_username = member.get("username")
-            is_bot = member.get("is_bot", False)
-            player_id = member.get("player_id", "")
-
-            # Prefer the serialized player ID. Older saves did not include it,
-            # so fall back to the historical display-name lookup.
-            player = game.get_player_by_id(player_id) if player_id else None
-            if not player:
-                player = game.get_player_by_name(member_username)
-            if not player:
-                continue
-
+        # Resolve persistent account identities before checking live
+        # availability. This makes an actionable block error take precedence
+        # even when the affected participant is currently offline.
+        human_accounts: list[tuple[Any, Any]] = []
+        missing_accounts: list[str] = []
+        for player, participant_name, is_bot in resolved_members:
             if is_bot:
-                # Recreate bot with the player's original ID
-                bot_user = Bot(player.name, uuid=player.id)
-                game.attach_user(player.id, bot_user)
-            else:
-                # Attach human user by player ID
-                member_user = self._users.get(member_username)
-                if member_user:
-                    table.add_member(member_username, member_user, as_spectator=False)
-                    self._prepare_user_for_table_audio(member_user)
-                    game.attach_user(player.id, member_user)
-                    self._set_in_game_state(member_user, table.table_id)
+                continue
+            participant_record = self._db.get_user(participant_name)
+            if not participant_record:
+                missing_accounts.append(participant_name)
+                continue
+            if str(player.id) != participant_record.uuid:
+                user.speak_l("saved-table-invalid", buffer="system")
+                self._nav_back(user)
+                return
+            human_accounts.append((player, participant_record))
 
-        # Setup keybinds (runtime only, not serialized)
-        # Action sets are already restored from serialization
-        game.setup_keybinds()
+        if not any(account.uuid == user.uuid for _, account in human_accounts):
+            user.speak_l("saved-table-invalid", buffer="system")
+            self._nav_back(user)
+            return
 
-        # Rebuild menus for all players
-        game.refresh_menus()
+        # A manual restore creates a new table hosted by the restorer and
+        # automatically admits every former human player. Unlike reconnecting
+        # to a live reserved seat, that must respect the current social
+        # admission boundary.
+        socially_blocked_ids = self._db.get_socially_blocked_ids(user.uuid)
+        blocked_by_user_ids = set(self._db.get_blocked_users(user.uuid))
+        blocked_by_user = [
+            account.username
+            for _, account in human_accounts
+            if account.uuid != user.uuid
+            and account.uuid in blocked_by_user_ids
+        ]
+        otherwise_unavailable = [
+            account.username
+            for _, account in human_accounts
+            if account.uuid != user.uuid
+            and account.uuid in socially_blocked_ids
+            and account.uuid not in blocked_by_user_ids
+        ]
+        if blocked_by_user and otherwise_unavailable:
+            user.speak_l(
+                "saved-table-social-blocked-mixed",
+                buffer="system",
+                blocked=Localization.format_list_and(user.locale, blocked_by_user),
+                unavailable=Localization.format_list_and(
+                    user.locale,
+                    otherwise_unavailable,
+                ),
+            )
+            self._nav_back(user)
+            return
+        if blocked_by_user:
+            user.speak_l(
+                "saved-table-blocked-by-you",
+                buffer="system",
+                players=Localization.format_list_and(user.locale, blocked_by_user),
+            )
+            self._nav_back(user)
+            return
+        if otherwise_unavailable:
+            user.speak_l(
+                "saved-table-social-blocked",
+                buffer="system",
+                players=Localization.format_list_and(
+                    user.locale,
+                    otherwise_unavailable,
+                ),
+            )
+            self._nav_back(user)
+            return
 
-        # Notify all players
-        game.broadcast_l("table-restored", buffer="system")
+        human_entries: list[tuple[Any, NetworkUser]] = []
+        missing_players = list(missing_accounts)
+        for player, account in human_accounts:
+            participant = self._users.get(account.username)
+            if (
+                not participant
+                or participant.uuid != account.uuid
+                or self._tables.find_user_table(account.username)
+            ):
+                missing_players.append(account.username)
+                continue
+            human_entries.append((player, participant))
+
+        if missing_players:
+            user.speak_l(
+                "missing-players",
+                buffer="system",
+                players=Localization.format_list_and(user.locale, missing_players),
+            )
+            self._nav_back(user)
+            return
+
+        try:
+            # Every risky persisted-data operation has succeeded. Only now
+            # expose the new table and transfer its participants.
+            table = self._tables.create_table(
+                record.game_type,
+                user.username,
+                user,
+            )
+            table.game = game
+            game._table = table
+            game.host = user.username
+
+            human_users_by_id = {
+                str(player.id): participant
+                for player, participant in human_entries
+            }
+            reclaimed_slots: list[tuple[str, str]] = []
+            for player, _participant_name, is_bot in resolved_members:
+                if is_bot:
+                    game.attach_user(
+                        player.id,
+                        Bot(player.name, uuid=player.id),
+                    )
+                    continue
+
+                participant = human_users_by_id[str(player.id)]
+                replacement_bot_name = (
+                    player.name
+                    if getattr(player, "is_bot", False)
+                    or getattr(player, "replaced_human", False)
+                    else ""
+                )
+                player.is_bot = False
+                player.replaced_human = False
+                player.name = participant.username
+                player.replaced_human_name = ""
+                player.replacement_bot_name = ""
+                player.bot_pending_action = None
+                player.bot_think_ticks = 0
+                if not table.add_member(
+                    participant.username,
+                    participant,
+                    as_spectator=False,
+                ):
+                    raise ValueError("saved human name conflicts with the roster")
+                game.attach_user(player.id, participant)
+                if (
+                    replacement_bot_name
+                    and replacement_bot_name != participant.username
+                ):
+                    reclaimed_slots.append(
+                        (replacement_bot_name, participant.username)
+                    )
+
+            game.setup_keybinds()
+            for _, participant in human_entries:
+                self._prepare_user_for_table_audio(participant)
+                self._set_in_game_state(participant, table.table_id)
+            for bot_name, human_name in reclaimed_slots:
+                game._on_replacement_slot_reclaimed(bot_name, human_name)
+            game.refresh_menus()
+            game.broadcast_l("table-restored", buffer="system")
+        except Exception:
+            logging.getLogger("playaural").exception(
+                "Failed to activate saved table %s for game %s",
+                save_id,
+                record.game_type,
+            )
+            if table:
+                self._tables.remove_table(table.table_id)
+            for _, participant in human_entries:
+                self._show_main_menu(participant)
+            user.speak_l("saved-table-invalid", buffer="system")
+            self._nav_back(user)
+            return
 
         # Delete the saved table now that it's been restored
-        self._db.delete_saved_table(save_id)
+        self._db.delete_saved_table(save_id, username=user.username)
 
     def _game_has_leaderboards(self, game_class) -> bool:
         """Return whether a game exposes any public leaderboard type."""
@@ -9982,17 +10758,83 @@ PlayAural Server
                 self._restore_input_parent(user, user_state)
                 return
 
+            elif menu_id == "block_user_input":
+                value = str(value or "").strip()
+                if not value:
+                    self._restore_input_parent(user, user_state)
+                    return
+                resolution = self._db.resolve_user(value)
+                if resolution.ambiguous:
+                    user.speak_l(
+                        "username-ambiguous",
+                        buffer="system",
+                        username=value,
+                    )
+                    self._restore_input_parent(user, user_state)
+                    return
+                target_record = resolution.user
+                if not target_record:
+                    user.speak_l("unknown-player", buffer="system")
+                    self._restore_input_parent(user, user_state)
+                    return
+                if target_record.uuid == user.uuid:
+                    user.speak_l("block-error-self", buffer="system")
+                    self._restore_input_parent(user, user_state)
+                    return
+                if self._db.has_blocked(user.uuid, target_record.uuid):
+                    user.speak_l(
+                        "block-already-active",
+                        buffer="system",
+                        username=target_record.username,
+                    )
+                    self._restore_input_parent(user, user_state)
+                    return
+                self._nav_push_from_input(
+                    user,
+                    self._show_user_block_confirm_menu,
+                    target_record.username,
+                    fallback_parent={
+                        "menu": "friends_hub_menu",
+                        "_last_selection_id": "block_user",
+                    },
+                )
+                return
+
             elif menu_id == "send_pm_input":
                 target_username = user_state.get("target_username")
-                value = value.strip()
-                if value and target_username:
+                value = str(value or "").strip()
+                if len(value) > MAX_CHAT_MESSAGE_LENGTH:
+                    user.speak_l(
+                        "chat-message-too-long",
+                        buffer="system",
+                        limit=MAX_CHAT_MESSAGE_LENGTH,
+                    )
+                elif (
+                    value
+                    and target_username
+                    and self._check_chat_send_permission(user)
+                ):
                     await self._deliver_private_message(user, target_username, value)
 
                 self._restore_input_parent(user, user_state)
                 return
 
     async def _deliver_private_message(self, sender: NetworkUser, target_username: str, message: str) -> None:
-        """Deliver a private message after validating friendship and online status."""
+        """Deliver a bounded private message across an allowed social relationship."""
+        if not isinstance(message, str):
+            sender.speak_l("chat-invalid-message", buffer="system")
+            return
+        message = message.strip()
+        if not message:
+            return
+        if len(message) > MAX_CHAT_MESSAGE_LENGTH:
+            sender.speak_l(
+                "chat-message-too-long",
+                buffer="system",
+                limit=MAX_CHAT_MESSAGE_LENGTH,
+            )
+            return
+
         resolution = self._db.resolve_user(target_username)
         if resolution.ambiguous:
             sender.speak_l(
@@ -10011,7 +10853,24 @@ PlayAural Server
         )
         target_user = self._users.get(canonical_username)
 
-        # 1. Online Check
+        if not target_record:
+            sender.speak_l(
+                "pm-error-offline",
+                buffer="system",
+                username=canonical_username,
+            )
+            sender.play_sound("accounterror.ogg")
+            return
+
+        is_self = target_record.uuid == sender.uuid
+        if not is_self and self._db.has_block_between(
+            sender.uuid,
+            target_record.uuid,
+        ):
+            sender.speak_l("pm-error-blocked", buffer="system")
+            sender.play_sound("accounterror.ogg")
+            return
+
         if not target_user or not target_user.approved:
             sender.speak_l(
                 "pm-error-offline",
@@ -10022,7 +10881,7 @@ PlayAural Server
             return
 
         # A private note to yourself is valid and must not require friendship.
-        if target_user.uuid == sender.uuid:
+        if is_self:
             sender.speak_l(
                 "pm-sent-content",
                 buffer="chat",
@@ -10032,19 +10891,15 @@ PlayAural Server
             sender.play_sound("pm.ogg")
             return
 
-        # 2. Friend Check
         friend_uuids = self._db.get_friends(sender.uuid)
-        if target_user.uuid not in friend_uuids:
+        if target_record.uuid not in friend_uuids:
             sender.speak_l("pm-error-not-friends", buffer="system")
             sender.play_sound("accounterror.ogg")
             return
 
-        # 3. Delivery
-        # Receiver
         target_user.speak_l("pm-received", buffer="chat", username=sender.username, message=message)
         target_user.play_sound("pm.ogg")
 
-        # Sender FTL confirmation
         sender.speak_l(
             "pm-sent-content",
             buffer="chat",
@@ -10053,6 +10908,76 @@ PlayAural Server
         )
         sender.play_sound("pm.ogg")
 
+    def _check_chat_send_permission(self, user: NetworkUser) -> bool:
+        """Apply persistent moderation and the shared runtime chat rate limit."""
+        username = user.username
+        active_mute = self._db.get_active_mute(username)
+        if active_mute:
+            if not active_mute.expires_at:
+                user.speak_l("muted-permanent", buffer="system")
+                return False
+            remaining = (
+                datetime.fromisoformat(active_mute.expires_at) - datetime.now()
+            ).total_seconds()
+            if remaining > 0:
+                if remaining < 60:
+                    user.speak_l(
+                        "muted-remaining-seconds",
+                        buffer="system",
+                        seconds=str(int(remaining) + 1),
+                    )
+                else:
+                    user.speak_l(
+                        "muted-remaining-minutes",
+                        buffer="system",
+                        minutes=str(int(remaining // 60) + 1),
+                    )
+                return False
+            self._db.unmute_user(username)
+
+        allowed, reason = self._chat_rate_limiter.try_consume(username)
+        if allowed:
+            return True
+
+        if reason and reason.startswith("__auto_muted:"):
+            remaining = int(reason.split(":")[1])
+            if remaining < 60:
+                user.speak_l(
+                    "auto-muted-seconds",
+                    buffer="system",
+                    seconds=str(remaining),
+                )
+            else:
+                user.speak_l(
+                    "auto-muted-minutes",
+                    buffer="system",
+                    minutes=str(remaining // 60 + 1),
+                )
+        elif reason and reason.startswith("__auto_muted_seconds:"):
+            user.speak_l(
+                "auto-muted-applied-seconds",
+                buffer="system",
+                seconds=reason.split(":")[1],
+            )
+        elif reason and reason.startswith("__auto_muted_minutes:"):
+            user.speak_l(
+                "auto-muted-applied-minutes",
+                buffer="system",
+                minutes=reason.split(":")[1],
+            )
+        else:
+            user.speak_l("chat-rate-limited", buffer="system")
+
+        if self._chat_rate_limiter.should_notify_admins(username):
+            self._chat_rate_limiter.mark_admin_notified(username)
+            for recipient in self._users.values():
+                if recipient.trust_level >= 2 and recipient.username != username:
+                    recipient.speak_l(
+                        "admin-spam-alert",
+                        buffer="system",
+                        username=username,
+                    )
+        return False
 
     async def _handle_chat(self, client: ClientConnection, packet: dict) -> None:
         """Handle chat message."""
@@ -10064,52 +10989,26 @@ PlayAural Server
         if not user:
             return
 
-        # Check admin mute (persistent, stored in DB)
-        active_mute = self._db.get_active_mute(username)
-        if active_mute:
-            if active_mute.expires_at:
-                remaining = (datetime.fromisoformat(active_mute.expires_at) - datetime.now()).total_seconds()
-                if remaining > 0:
-                    if remaining < 60:
-                        user.speak_l("muted-remaining-seconds", buffer="system", seconds=str(int(remaining) + 1))
-                    else:
-                        user.speak_l("muted-remaining-minutes", buffer="system", minutes=str(int(remaining // 60) + 1))
-                    return
-                else:
-                    self._db.unmute_user(username)
-            else:
-                user.speak_l("muted-permanent", buffer="system")
-                return
-
-        # Check auto-mute and rate limit (in-memory token bucket)
-        allowed, reason = self._chat_rate_limiter.try_consume(username)
-        if not allowed:
-            if reason and reason.startswith("__auto_muted:"):
-                remaining = int(reason.split(":")[1])
-                if remaining < 60:
-                    user.speak_l("auto-muted-seconds", buffer="system", seconds=str(remaining))
-                else:
-                    user.speak_l("auto-muted-minutes", buffer="system", minutes=str(remaining // 60 + 1))
-            elif reason and reason.startswith("__auto_muted_seconds:"):
-                duration = reason.split(":")[1]
-                user.speak_l("auto-muted-applied-seconds", buffer="system", seconds=duration)
-            elif reason and reason.startswith("__auto_muted_minutes:"):
-                duration = reason.split(":")[1]
-                user.speak_l("auto-muted-applied-minutes", buffer="system", minutes=duration)
-            else:
-                user.speak_l("chat-rate-limited", buffer="system")
-
-            # Notify admins if severe spam threshold reached
-            if self._chat_rate_limiter.should_notify_admins(username):
-                self._chat_rate_limiter.mark_admin_notified(username)
-                for u in self._users.values():
-                    if u.trust_level >= 2 and u.username != username:
-                        u.speak_l("admin-spam-alert", buffer="system", username=username)
-
-            return
-
         convo = packet.get("convo", "local")
         message = packet.get("message", "")
+        if not isinstance(convo, str) or convo not in SUPPORTED_CHAT_CONVERSATIONS:
+            user.speak_l("chat-invalid-channel", buffer="system")
+            return
+        if not isinstance(message, str):
+            user.speak_l("chat-invalid-message", buffer="system")
+            return
+        message = message.strip()
+        if not message:
+            return
+        if len(message) > MAX_CHAT_MESSAGE_LENGTH:
+            user.speak_l(
+                "chat-message-too-long",
+                buffer="system",
+                limit=MAX_CHAT_MESSAGE_LENGTH,
+            )
+            return
+        if not self._check_chat_send_permission(user):
+            return
 
         # Handle Private Message chat command
         if message.startswith("@"):
@@ -10117,7 +11016,6 @@ PlayAural Server
 
             # Search through all known usernames (both online and offline friends)
             # Since users might message an offline friend and we want to correctly identify the target
-            user = self._users.get(username)
             if user:
                 friend_uuids = self._db.get_friends(user.uuid)
                 potential_targets = [self._db.get_user_name_by_uuid(f_uuid) for f_uuid in friend_uuids]
@@ -10146,7 +11044,6 @@ PlayAural Server
                 return
 
         if message.startswith("/reboot") or message.startswith("/stop"):
-            user = self._users.get(username)
             if user and user.trust_level >= 3:
                 user.speak_l("server-power-command-removed", buffer="system")
             return
@@ -10154,7 +11051,6 @@ PlayAural Server
         elif message.startswith("/kick"):
              # Kick command
              # Format: /kick <username>
-             user = self._users.get(username)
              if user and user.trust_level >= 2:
                  parts = message.split(" ", 1)
                  if len(parts) < 2:
@@ -10181,40 +11077,57 @@ PlayAural Server
             # "language": language,
         }
 
-        if convo == "local":
+        recipients: list[NetworkUser] = []
+        if convo in TABLE_CHAT_CONVERSATIONS:
             table = self._tables.find_user_table(username)
             if table:
                 for member_name in [m.username for m in table.members]:
-                    user = self._users.get(member_name)
+                    recipient = self._users.get(member_name)
                     if (
-                        user
-                        and user.approved
-                        and self._can_receive_chat(user, convo)
+                        recipient
+                        and recipient.approved
+                        and self._can_receive_chat(recipient, convo)
                     ):
-                        await user.connection.send(chat_packet)
-            else:
+                        recipients.append(recipient)
+            elif convo == "local":
                 # Lobby chat: send to all users who are NOT in a table
-                for user in list(self._users.values()):
-                    if self._users.get(user.username) is not user:
+                for recipient in list(self._users.values()):
+                    if self._users.get(recipient.username) is not recipient:
                         continue
-                    if user.approved:
+                    if recipient.approved:
                         # Check if this user is in a table
-                        user_table = self._tables.find_user_table(user.username)
-                        if not user_table and self._can_receive_chat(user, convo):
-                            await user.connection.send(chat_packet)
+                        user_table = self._tables.find_user_table(recipient.username)
+                        if not user_table and self._can_receive_chat(recipient, convo):
+                            recipients.append(recipient)
         elif convo == "global":
             # Broadcast to all approved users only
-            for user in list(self._users.values()):
-                if self._users.get(user.username) is not user:
+            for recipient in list(self._users.values()):
+                if self._users.get(recipient.username) is not recipient:
                     continue
-                if user.approved and self._can_receive_chat(user, convo):
-                    await user.connection.send(chat_packet)
+                if (
+                    recipient.approved
+                    and self._can_receive_chat(recipient, convo)
+                ):
+                    recipients.append(recipient)
+
+        block_revision = getattr(self, "_social_block_revision", 0)
+        socially_blocked = self._db.get_socially_blocked_ids(user.uuid)
+        for recipient in recipients:
+            if self._users.get(recipient.username) is not recipient:
+                continue
+            current_revision = getattr(self, "_social_block_revision", 0)
+            if current_revision != block_revision:
+                socially_blocked = self._db.get_socially_blocked_ids(user.uuid)
+                block_revision = current_revision
+            if recipient.uuid in socially_blocked:
+                continue
+            await recipient.connection.send(chat_packet)
 
     def _get_disabled_chat_send_key(self, user: NetworkUser, convo: str) -> str | None:
         """Return the localized error key when the sender has disabled this chat channel."""
         if convo == "global" and user.preferences.mute_global_chat:
             return "chat-global-disabled-send"
-        if convo in {"local", "table", "game"} and user.preferences.mute_table_chat:
+        if convo in TABLE_CHAT_CONVERSATIONS and user.preferences.mute_table_chat:
             return "chat-table-disabled-send"
         return None
 
@@ -10222,7 +11135,7 @@ PlayAural Server
         """Check per-user chat receive preferences for server-side delivery."""
         if convo == "global":
             return not user.preferences.mute_global_chat
-        if convo in {"local", "table", "game"}:
+        if convo in TABLE_CHAT_CONVERSATIONS:
             return not user.preferences.mute_table_chat
         return True
 
@@ -10547,6 +11460,16 @@ PlayAural Server
 
             # Refresh the actions menu so the button disappears, preserving the stack
             self._nav_refresh(user, self._show_online_user_actions_menu, target_username)
+
+        elif selection_id == "block":
+            self._nav_push(
+                user,
+                self._show_user_block_confirm_menu,
+                target_username,
+            )
+
+        elif selection_id == "unblock":
+            self._perform_unblock_user(user, target_username)
 
     def _navigation_frame_identity(self, frame: dict) -> tuple[Any, ...] | None:
         """Return the logical identity for stack frames that must not duplicate."""
@@ -10967,10 +11890,20 @@ PlayAural Server
             self._show_friend_remove_confirm_menu(
                 user, frame.get("target_username", "")
             )
+        elif menu == USER_BLOCK_CONFIRM_MENU:
+            self._show_user_block_confirm_menu(
+                user, frame.get("target_username", "")
+            )
         elif menu == "friend_requests_menu":
             self._show_friend_requests_menu(user, frame.get("friend_requests_page", 1))
         elif menu == "friend_request_actions_menu":
             self._show_friend_request_actions_menu(user, frame.get("target_username", ""))
+        elif menu == "blocked_users_menu":
+            self._show_blocked_users_menu(user, frame.get("blocked_users_page", 1))
+        elif menu == "blocked_user_actions_menu":
+            self._show_blocked_user_actions_menu(
+                user, frame.get("target_username", "")
+            )
         elif menu == "online_users":
             self._show_online_users_menu(user, frame.get("online_users_page", 1))
         elif menu == "online_user_actions_menu":

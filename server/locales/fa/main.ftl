@@ -90,7 +90,6 @@ table-not-exists = میز دیگر وجود ندارد.
 table-full = میز پر است.
 player-replaced-by-bot = { $bot } اکنون به جای { $player } بازی می‌کند.
 player-reclaimed-from-bot = { $player } بازگشت و جای خود را از { $bot } پس گرفت.
-player-took-over = { $player } جای خود را از { $bot } پس گرفت.
 spectator-joined = به عنوان تماشاگر به میز { $host } پیوست.
 
 spectate = تماشا

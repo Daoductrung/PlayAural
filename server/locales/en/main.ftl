@@ -110,7 +110,6 @@ table-full = Table is full.
 table-closed-disconnect-timeout = Table closed because no active player returned within { $minutes } minutes.
 player-replaced-by-bot = { $bot } is now playing on behalf of { $player }.
 player-reclaimed-from-bot = { $player } has returned and taken their seat back from { $bot }.
-player-took-over = { $player } has taken their seat back from { $bot }.
 spectator-joined = Joined { $host }'s table as a spectator.
 
 spectate = Spectate
@@ -304,6 +303,10 @@ restore-table = Restore
 delete-saved-table = Delete
 saved-table-deleted = Saved table deleted.
 missing-players = Cannot restore: these players are not available: { $players }
+saved-table-blocked-by-you = This saved table includes players you blocked: { $players }. To restore it, open Personal and Options, Friends, then Blocked Users and unblock them. Restoration can proceed only if direct social contact is then available for everyone. The save was kept.
+saved-table-social-blocked = This saved table cannot be restored because direct social contact is unavailable between you and: { $players }. The save was kept.
+saved-table-social-blocked-mixed = This saved table includes players you blocked: { $blocked }. Open Personal and Options, Friends, then Blocked Users and unblock them. Direct social contact is also unavailable with: { $unavailable }. The save was kept.
+saved-table-invalid = This saved table can no longer be restored because its stored game or player data is incomplete or incompatible. The save was kept.
 table-restored = Table restored! All players have been transferred.
 table-saved-destroying = Table saved! Returning to main menu.
 game-type-not-found = Game type no longer exists.
@@ -573,6 +576,9 @@ auto-muted-applied-minutes = You have been auto-muted for { $minutes } minutes d
 chat-rate-limited = Slow down! You are sending messages too quickly.
 chat-global-disabled-send = Global chat is disabled in your options. Turn global chat back on before sending global messages.
 chat-table-disabled-send = Table chat is disabled in your options. Turn table chat back on before sending table messages.
+chat-invalid-channel = That chat channel is not available.
+chat-invalid-message = That message could not be sent because its format is invalid.
+chat-message-too-long = That message is too long. Messages may contain at most { $limit } characters.
 admin-spam-alert = Warning: { $username } is spamming chat excessively and has been auto-muted.
 
 broadcast-announcement = Broadcast Announcement
@@ -716,6 +722,7 @@ personal-and-options = Personal and Options
 profile = Profile
 friends = Friends
 profile-registration-date = Registration Date: { $date }
+profile-date-unknown = Unknown
 profile-username = Username: { $username }
 profile-email = Email: { $email }
 admin-view-email = Admin View - Email: { $email }
@@ -760,6 +767,13 @@ friends-my-friends = My Friends
 friends-pending-requests = Pending Requests ({ $count })
 friends-no-pending-requests = Pending Requests
 friends-send-request = Send Friend Request
+friends-block-user = Block a User
+enter-block-username = Enter the username of the person you want to block:
+friends-blocked-users = { $count ->
+    [0] Blocked Users
+   *[other] Blocked Users ({ $count })
+}
+friends-blocked-empty = You have not blocked anyone.
 friends-list-empty = You have no friends yet.
 friend-status-offline = Offline
 friend-status-playing = Playing { $game }
@@ -769,6 +783,8 @@ friend-list-entry = { $username } ({ $status })
 
 friend-actions-title = Actions for { $username }
 view-profile = View Profile
+block-user = Block User
+unblock-user = Unblock User
 join-table = Join Table
 remove-friend = Remove Friend
 friend-remove-confirm = Remove { $username } from your friends list?
@@ -792,8 +808,17 @@ enter-friend-username = Enter the username of the person you want to friend:
 friend-error-self = You cannot send a friend request to yourself.
 friend-error-already-friends = You are already friends with this user.
 friend-error-duplicate = You already have a pending friend request to this user.
+friend-error-blocked-by-you = You blocked { $username }. Unblock them before sending a friend request.
+friend-error-blocked = Friend requests are unavailable between you and { $username }.
 friend-request-sent = Friend request sent to { $username }.
 friend-request-received = You have received a new friend request from { $username }.
+
+block-confirm = Block { $username }? This removes any friendship and pending friend requests between you. Neither of you will be able to send the other friend requests, private messages, or table invites, and ordinary chat messages will be hidden in both directions. Until unblocked, neither player can newly enter a table hosted by the other or restore a saved table containing both players. Blocking does not remove either player from a shared table, prevent recovery of a reserved seat, or mute table voice chat.
+block-success = You blocked { $username }. Direct social contact is now unavailable between you, their ordinary chat messages are hidden, and neither of you can newly enter a table hosted by the other or restore a saved table containing both players.
+block-error-self = You cannot block yourself.
+block-already-active = You have already blocked { $username }.
+block-no-longer-active = This block is no longer active.
+unblock-success = You unblocked { $username }. Previous friendships and requests were not restored.
 
 friends-grouped-requests = You have pending friend requests from: { $usernames }
 friends-grouped-accepted = Your friend requests were accepted by: { $usernames }
@@ -807,6 +832,7 @@ friends-and-others = { $names } and { $count } { $count ->
 send-private-message = Send Private Message
 enter-pm-message = Enter your message for { $username }:
 pm-error-not-friends = You can only send private messages to friends.
+pm-error-blocked = Private messages are unavailable between you and this player.
 pm-error-offline = { $username } is not currently online.
 pm-sent-success = Message sent to { $username }.
 pm-sent-content = You to { $username }: { $message }
@@ -850,6 +876,7 @@ host-kick-you = You have been kicked from the table by { $host }.
 host-kick-ban-you = You have been kicked and banned from the table by { $host }.
 table-you-are-banned = You are banned from this table.
 table-private-invite-only = This table is private. You must receive an invite from the host to join.
+table-join-social-blocked = You cannot enter this table because direct social contact is unavailable between you and its host. You can still recover a seat already reserved for you.
 
 voice-room-table-label = { $game } table voice
 voice-unavailable = Voice chat is not available right now.

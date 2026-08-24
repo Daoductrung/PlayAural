@@ -482,6 +482,20 @@ class Database:
             )
         """)
 
+        # Directional user blocks. UUIDs keep relationships stable even if
+        # display-name handling evolves; account deletion and startup pruning
+        # explicitly remove rows because the legacy users.uuid column is not a
+        # foreign-key target.
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS user_blocks (
+                blocker_id TEXT NOT NULL,
+                blocked_id TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                PRIMARY KEY (blocker_id, blocked_id),
+                CHECK (blocker_id != blocked_id)
+            )
+        """)
+
         # User Notifications table (offline alerts)
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS user_notifications (
@@ -544,6 +558,10 @@ class Database:
             ON friendships(receiver_id, status, created_at)
         """)
         cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_user_blocks_blocked
+            ON user_blocks(blocked_id)
+        """)
+        cursor.execute("""
             CREATE INDEX IF NOT EXISTS idx_result_players_result
             ON game_result_players(result_id)
         """)
@@ -598,6 +616,7 @@ class Database:
         - saved_tables: Older than 365 days.
         - tables checkpoints: Older than 1 day or explicitly expired.
         - bans: Expired more than 30 days ago.
+        - social relationships: Expired requests and orphaned rows.
         - mutes: Expired or orphaned.
         - password reset tokens: Expired.
         """
@@ -649,10 +668,53 @@ class Database:
             )
             deleted_requests = cursor.rowcount
             cursor.execute(
+                """
+                DELETE FROM friendships
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM users
+                    WHERE users.uuid = friendships.requester_id
+                )
+                OR NOT EXISTS (
+                    SELECT 1 FROM users
+                    WHERE users.uuid = friendships.receiver_id
+                )
+                """
+            )
+            deleted_orphaned_friendships = cursor.rowcount
+            cursor.execute(
+                """
+                DELETE FROM user_blocks
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM users
+                    WHERE users.uuid = user_blocks.blocker_id
+                )
+                OR NOT EXISTS (
+                    SELECT 1 FROM users
+                    WHERE users.uuid = user_blocks.blocked_id
+                )
+                """
+            )
+            deleted_orphaned_blocks = cursor.rowcount
+            cursor.execute(
                 "DELETE FROM user_notifications WHERE created_at < ?",
                 (six_months_ago,),
             )
             deleted_notifications = cursor.rowcount
+            cursor.execute(
+                """
+                DELETE FROM user_notifications
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM users
+                    WHERE users.uuid = user_notifications.user_id
+                )
+                OR NOT EXISTS (
+                    SELECT 1 FROM users
+                    WHERE users.username = user_notifications.source_username
+                        COLLATE BINARY
+                )
+                """
+            )
+            deleted_notifications += cursor.rowcount
 
             # 5. Prune expired and orphaned mutes.
             cursor.execute(
@@ -683,14 +745,14 @@ class Database:
 
         # Log results
         logger = logging.getLogger("playaural.db.prune")
-        if deleted_games > 0 or deleted_saves > 0 or deleted_table_checkpoints > 0 or deleted_bans > 0 or deleted_requests > 0 or deleted_notifications > 0 or deleted_mutes > 0 or deleted_tokens > 0:
-             logger.info(f"Database Pruning: Deleted {deleted_games} old game results, {deleted_saves} old saved tables, {deleted_table_checkpoints} table checkpoints, {deleted_bans} expired bans, {deleted_requests} pending requests, {deleted_notifications} notifications, {deleted_expired_mutes} expired mutes, {deleted_orphaned_mutes} orphaned mutes, {deleted_tokens} expired tokens.")
+        if deleted_games > 0 or deleted_saves > 0 or deleted_table_checkpoints > 0 or deleted_bans > 0 or deleted_requests > 0 or deleted_orphaned_friendships > 0 or deleted_orphaned_blocks > 0 or deleted_notifications > 0 or deleted_mutes > 0 or deleted_tokens > 0:
+             logger.info(f"Database Pruning: Deleted {deleted_games} old game results, {deleted_saves} old saved tables, {deleted_table_checkpoints} table checkpoints, {deleted_bans} expired bans, {deleted_requests} pending requests, {deleted_orphaned_friendships} orphaned friendships, {deleted_orphaned_blocks} orphaned user blocks, {deleted_notifications} notifications, {deleted_expired_mutes} expired mutes, {deleted_orphaned_mutes} orphaned mutes, {deleted_tokens} expired tokens.")
         else:
              logger.info("Database Pruning: 0 records deleted (no old data found).")
 
         # Also print to standard output for explicit CLI visibility on startup
-        if deleted_games > 0 or deleted_saves > 0 or deleted_table_checkpoints > 0 or deleted_bans > 0 or deleted_requests > 0 or deleted_notifications > 0 or deleted_mutes > 0 or deleted_tokens > 0:
-             print(f"Database Pruning: Cleaned up {deleted_games} game_results, {deleted_saves} saved_tables, {deleted_table_checkpoints} table checkpoints, {deleted_bans} bans, {deleted_requests} friend requests, {deleted_notifications} notifications, {deleted_expired_mutes} expired mutes, {deleted_orphaned_mutes} mutes, {deleted_tokens} tokens.")
+        if deleted_games > 0 or deleted_saves > 0 or deleted_table_checkpoints > 0 or deleted_bans > 0 or deleted_requests > 0 or deleted_orphaned_friendships > 0 or deleted_orphaned_blocks > 0 or deleted_notifications > 0 or deleted_mutes > 0 or deleted_tokens > 0:
+             print(f"Database Pruning: Cleaned up {deleted_games} game_results, {deleted_saves} saved_tables, {deleted_table_checkpoints} table checkpoints, {deleted_bans} bans, {deleted_requests} friend requests, {deleted_orphaned_friendships} orphaned friendships, {deleted_orphaned_blocks} orphaned user blocks, {deleted_notifications} notifications, {deleted_expired_mutes} expired mutes, {deleted_orphaned_mutes} mutes, {deleted_tokens} tokens.")
 
     @staticmethod
     def _quote_identifier(identifier: str) -> str:
@@ -1353,6 +1415,11 @@ class Database:
             cursor.execute(
                 "DELETE FROM friendships "
                 "WHERE requester_id = ? OR receiver_id = ?",
+                (user.uuid, user.uuid),
+            )
+            cursor.execute(
+                "DELETE FROM user_blocks "
+                "WHERE blocker_id = ? OR blocked_id = ?",
                 (user.uuid, user.uuid),
             )
             cursor.execute(
@@ -2314,10 +2381,23 @@ class Database:
             )
         return records
 
-    def get_saved_table(self, save_id: int) -> SavedTableRecord | None:
-        """Get a saved table by ID."""
+    def get_saved_table(
+        self,
+        save_id: int,
+        *,
+        username: str | None = None,
+    ) -> SavedTableRecord | None:
+        """Get a saved table by ID, optionally restricted to its owner."""
         cursor = self._conn.cursor()
-        cursor.execute("SELECT * FROM saved_tables WHERE id = ?", (save_id,))
+        if username is None:
+            cursor.execute("SELECT * FROM saved_tables WHERE id = ?", (save_id,))
+        else:
+            canonical_username = self._canonical_username_or_input(username)
+            cursor.execute(
+                "SELECT * FROM saved_tables "
+                "WHERE id = ? AND username = ? COLLATE BINARY",
+                (save_id, canonical_username),
+            )
         row = cursor.fetchone()
         if not row:
             return None
@@ -2332,10 +2412,24 @@ class Database:
             saved_at=row["saved_at"],
         )
 
-    def delete_saved_table(self, save_id: int) -> None:
-        """Delete a saved table."""
+    def delete_saved_table(
+        self,
+        save_id: int,
+        *,
+        username: str | None = None,
+    ) -> bool:
+        """Delete a saved table, optionally restricted to its owner."""
         cursor = self._conn.cursor()
-        cursor.execute("DELETE FROM saved_tables WHERE id = ?", (save_id,))
+        if username is None:
+            cursor.execute("DELETE FROM saved_tables WHERE id = ?", (save_id,))
+        else:
+            canonical_username = self._canonical_username_or_input(username)
+            cursor.execute(
+                "DELETE FROM saved_tables "
+                "WHERE id = ? AND username = ? COLLATE BINARY",
+                (save_id, canonical_username),
+            )
+        return cursor.rowcount > 0
 
     # Game result operations (statistics)
 
@@ -2794,9 +2888,35 @@ class Database:
         'accepted': They had already sent one to you, so it was mutually accepted.
         'duplicate': Already pending.
         'already_friends': Already accepted.
+        'blocked_by_you': The requester has blocked the receiver.
+        'blocked': The receiver has blocked the requester.
+        'self': Both UUIDs identify the same account.
+        'unknown': At least one UUID no longer identifies an account.
         """
+        if requester_id == receiver_id:
+            return "self"
         now = datetime.now().isoformat()
         with self._transaction(immediate=True) as cursor:
+            cursor.execute(
+                "SELECT COUNT(DISTINCT uuid) AS count FROM users WHERE uuid IN (?, ?)",
+                (requester_id, receiver_id),
+            )
+            if int(cursor.fetchone()["count"]) != 2:
+                return "unknown"
+            cursor.execute(
+                """
+                SELECT blocker_id FROM user_blocks
+                WHERE (blocker_id = ? AND blocked_id = ?)
+                   OR (blocker_id = ? AND blocked_id = ?)
+                """,
+                (requester_id, receiver_id, receiver_id, requester_id),
+            )
+            block_rows = cursor.fetchall()
+            if any(row["blocker_id"] == requester_id for row in block_rows):
+                return "blocked_by_you"
+            if block_rows:
+                return "blocked"
+
             cursor.execute(
                 """
                 SELECT status, requester_id FROM friendships
@@ -2836,12 +2956,38 @@ class Database:
             return "sent"
 
     def accept_friend_request(self, requester_id: str, receiver_id: str) -> bool:
-        """Accept a pending friend request."""
+        """Atomically accept an unblocked pending friend request."""
+        with self._transaction(immediate=True) as cursor:
+            cursor.execute(
+                """
+                SELECT 1 FROM user_blocks
+                WHERE (blocker_id = ? AND blocked_id = ?)
+                   OR (blocker_id = ? AND blocked_id = ?)
+                LIMIT 1
+                """,
+                (requester_id, receiver_id, receiver_id, requester_id),
+            )
+            if cursor.fetchone() is not None:
+                return False
+            cursor.execute(
+                """
+                UPDATE friendships SET status = 'accepted'
+                WHERE requester_id = ? AND receiver_id = ? AND status = 'pending'
+                """,
+                (requester_id, receiver_id),
+            )
+            return cursor.rowcount > 0
+
+    def decline_friend_request(self, requester_id: str, receiver_id: str) -> bool:
+        """Delete only the specified incoming request, never a newer relationship."""
         cursor = self._conn.cursor()
-        cursor.execute("""
-            UPDATE friendships SET status = 'accepted'
+        cursor.execute(
+            """
+            DELETE FROM friendships
             WHERE requester_id = ? AND receiver_id = ? AND status = 'pending'
-        """, (requester_id, receiver_id))
+            """,
+            (requester_id, receiver_id),
+        )
         return cursor.rowcount > 0
 
     def remove_friendship(self, user1_id: str, user2_id: str) -> bool:
@@ -2903,24 +3049,255 @@ class Database:
         cursor.execute(query, tuple(params))
         return [row["requester_id"] for row in cursor.fetchall()]
 
-    def add_notification(self, user_id: str, source_username: str, event_type: str) -> None:
-        """Add an offline notification for a user."""
-        now = datetime.now().isoformat()
+    def has_blocked(self, blocker_id: str, blocked_id: str) -> bool:
+        """Return whether one account has directionally blocked another."""
         cursor = self._conn.cursor()
-        cursor.execute("""
-            INSERT INTO user_notifications (user_id, source_username, event_type, created_at)
-            VALUES (?, ?, ?, ?)
-        """, (user_id, source_username, event_type, now))
+        cursor.execute(
+            """
+            SELECT 1 FROM user_blocks
+            WHERE blocker_id = ? AND blocked_id = ?
+            LIMIT 1
+            """,
+            (blocker_id, blocked_id),
+        )
+        return cursor.fetchone() is not None
+
+    def has_block_between(self, user1_id: str, user2_id: str) -> bool:
+        """Return whether either account has blocked the other."""
+        if user1_id == user2_id:
+            return False
+        cursor = self._conn.cursor()
+        cursor.execute(
+            """
+            SELECT 1 FROM user_blocks
+            WHERE (blocker_id = ? AND blocked_id = ?)
+               OR (blocker_id = ? AND blocked_id = ?)
+            LIMIT 1
+            """,
+            (user1_id, user2_id, user2_id, user1_id),
+        )
+        return cursor.fetchone() is not None
+
+    def get_socially_blocked_ids(self, user_id: str) -> set[str]:
+        """Return all UUIDs separated from this account by either block direction."""
+        cursor = self._conn.cursor()
+        cursor.execute(
+            """
+            SELECT blocked_id AS other_id FROM user_blocks WHERE blocker_id = ?
+            UNION
+            SELECT blocker_id AS other_id FROM user_blocks WHERE blocked_id = ?
+            """,
+            (user_id, user_id),
+        )
+        return {str(row["other_id"]) for row in cursor.fetchall()}
+
+    def get_social_peer_ids(self, user_id: str) -> set[str]:
+        """Return every account connected by a request, friendship, or block."""
+        cursor = self._conn.cursor()
+        cursor.execute(
+            """
+            SELECT receiver_id AS other_id FROM friendships WHERE requester_id = ?
+            UNION
+            SELECT requester_id AS other_id FROM friendships WHERE receiver_id = ?
+            UNION
+            SELECT blocked_id AS other_id FROM user_blocks WHERE blocker_id = ?
+            UNION
+            SELECT blocker_id AS other_id FROM user_blocks WHERE blocked_id = ?
+            """,
+            (user_id, user_id, user_id, user_id),
+        )
+        return {str(row["other_id"]) for row in cursor.fetchall()}
+
+    def count_blocked_users(self, blocker_id: str) -> int:
+        """Count valid accounts directionally blocked by this account."""
+        cursor = self._conn.cursor()
+        cursor.execute(
+            """
+            SELECT COUNT(*) AS count
+            FROM user_blocks
+            JOIN users ON users.uuid = user_blocks.blocked_id
+            WHERE user_blocks.blocker_id = ?
+            """,
+            (blocker_id,),
+        )
+        row = cursor.fetchone()
+        return int(row["count"] if row else 0)
+
+    def has_pending_friend_request(
+        self, requester_id: str, receiver_id: str
+    ) -> bool:
+        """Return whether one exact incoming request is still pending."""
+        cursor = self._conn.cursor()
+        cursor.execute(
+            """
+            SELECT 1 FROM friendships
+            WHERE requester_id = ? AND receiver_id = ? AND status = 'pending'
+            LIMIT 1
+            """,
+            (requester_id, receiver_id),
+        )
+        return cursor.fetchone() is not None
+
+    def get_blocked_users(
+        self,
+        blocker_id: str,
+        *,
+        limit: int | None = None,
+        offset: int = 0,
+    ) -> list[str]:
+        """Return directionally blocked UUIDs in stable username order."""
+        cursor = self._conn.cursor()
+        query = """
+            SELECT user_blocks.blocked_id
+            FROM user_blocks
+            JOIN users ON users.uuid = user_blocks.blocked_id
+            WHERE user_blocks.blocker_id = ?
+            ORDER BY users.username_key ASC, users.username ASC
+        """
+        params: list[object] = [blocker_id]
+        if limit is not None:
+            safe_limit = max(1, int(limit))
+            safe_offset = max(0, int(offset))
+            query += " LIMIT ? OFFSET ?"
+            params.extend([safe_limit, safe_offset])
+        cursor.execute(query, tuple(params))
+        return [str(row["blocked_id"]) for row in cursor.fetchall()]
+
+    def block_user(self, blocker_id: str, blocked_id: str) -> str:
+        """Persist a block and atomically remove every direct social tie.
+
+        Blocks live until explicit unblocking or either account is deleted.
+        The write also removes accepted friendships, requests in either
+        direction, and queued relationship notifications between the pair.
+        """
+        if blocker_id == blocked_id:
+            return "self"
+        now = datetime.now().isoformat()
+        with self._transaction(immediate=True) as cursor:
+            cursor.execute(
+                "SELECT uuid, username FROM users WHERE uuid IN (?, ?)",
+                (blocker_id, blocked_id),
+            )
+            users = {
+                str(row["uuid"]): str(row["username"])
+                for row in cursor.fetchall()
+            }
+            if blocker_id not in users or blocked_id not in users:
+                return "unknown"
+
+            cursor.execute(
+                """
+                SELECT 1 FROM user_blocks
+                WHERE blocker_id = ? AND blocked_id = ?
+                LIMIT 1
+                """,
+                (blocker_id, blocked_id),
+            )
+            if cursor.fetchone() is not None:
+                return "already_blocked"
+
+            cursor.execute(
+                """
+                DELETE FROM friendships
+                WHERE (requester_id = ? AND receiver_id = ?)
+                   OR (requester_id = ? AND receiver_id = ?)
+                """,
+                (blocker_id, blocked_id, blocked_id, blocker_id),
+            )
+            cursor.execute(
+                """
+                DELETE FROM user_notifications
+                WHERE (user_id = ? AND source_username = ? COLLATE BINARY)
+                   OR (user_id = ? AND source_username = ? COLLATE BINARY)
+                """,
+                (
+                    blocker_id,
+                    users[blocked_id],
+                    blocked_id,
+                    users[blocker_id],
+                ),
+            )
+            cursor.execute(
+                """
+                INSERT INTO user_blocks (blocker_id, blocked_id, created_at)
+                VALUES (?, ?, ?)
+                """,
+                (blocker_id, blocked_id, now),
+            )
+        return "blocked"
+
+    def unblock_user(self, blocker_id: str, blocked_id: str) -> bool:
+        """Remove one directional block without recreating prior relationships."""
+        cursor = self._conn.cursor()
+        cursor.execute(
+            "DELETE FROM user_blocks WHERE blocker_id = ? AND blocked_id = ?",
+            (blocker_id, blocked_id),
+        )
+        return cursor.rowcount > 0
+
+    def add_notification(self, user_id: str, source_username: str, event_type: str) -> bool:
+        """Atomically add an offline social notification for two valid accounts."""
+        now = datetime.now().isoformat()
+        with self._transaction(immediate=True) as cursor:
+            cursor.execute(
+                "SELECT 1 FROM users WHERE uuid = ? LIMIT 1",
+                (user_id,),
+            )
+            if cursor.fetchone() is None:
+                return False
+            cursor.execute(
+                """
+                SELECT uuid, username FROM users
+                WHERE username = ? COLLATE BINARY
+                LIMIT 1
+                """,
+                (source_username,),
+            )
+            source = cursor.fetchone()
+            if source is None:
+                return False
+            cursor.execute(
+                """
+                SELECT 1 FROM user_blocks
+                WHERE (blocker_id = ? AND blocked_id = ?)
+                   OR (blocker_id = ? AND blocked_id = ?)
+                LIMIT 1
+                """,
+                (user_id, source["uuid"], source["uuid"], user_id),
+            )
+            if cursor.fetchone() is not None:
+                return False
+            cursor.execute(
+                """
+                INSERT INTO user_notifications (
+                    user_id, source_username, event_type, created_at
+                )
+                VALUES (?, ?, ?, ?)
+                """,
+                (user_id, source["username"], event_type, now),
+            )
+            return cursor.rowcount > 0
 
     def get_and_clear_notifications(self, user_id: str) -> list[dict]:
         """Retrieve and immediately delete all notifications for a user."""
         with self._transaction(immediate=True) as cursor:
             cursor.execute(
                 """
-                SELECT source_username, event_type
-                FROM user_notifications
-                WHERE user_id = ?
-                ORDER BY created_at ASC
+                SELECT notification.source_username, notification.event_type
+                FROM user_notifications AS notification
+                LEFT JOIN users AS source
+                    ON source.username = notification.source_username COLLATE BINARY
+                WHERE notification.user_id = ?
+                  AND NOT EXISTS (
+                    SELECT 1 FROM user_blocks
+                    WHERE source.uuid IS NOT NULL
+                      AND (
+                        (blocker_id = notification.user_id AND blocked_id = source.uuid)
+                        OR
+                        (blocker_id = source.uuid AND blocked_id = notification.user_id)
+                      )
+                  )
+                ORDER BY notification.created_at ASC
                 """,
                 (user_id,),
             )
@@ -2931,11 +3308,10 @@ class Database:
                 }
                 for row in cursor.fetchall()
             ]
-            if notifications:
-                cursor.execute(
-                    "DELETE FROM user_notifications WHERE user_id = ?",
-                    (user_id,),
-                )
+            cursor.execute(
+                "DELETE FROM user_notifications WHERE user_id = ?",
+                (user_id,),
+            )
 
         return notifications
 

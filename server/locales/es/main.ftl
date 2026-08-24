@@ -91,7 +91,6 @@ table-not-exists = La mesa ya no existe.
 table-full = La mesa está llena.
 player-replaced-by-bot = { $bot } ahora está jugando en nombre de { $player }.
 player-reclaimed-from-bot = { $player } regresó y recuperó su asiento de manos de { $bot }.
-player-took-over = { $player } recuperó su asiento de manos de { $bot }.
 spectator-joined = Te uniste a la mesa de { $host } como espectador.
 
 spectate = Observar

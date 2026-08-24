@@ -110,7 +110,6 @@ table-full = Bàn đã đầy.
 table-closed-disconnect-timeout = Bàn đã đóng vì không có người chơi nào trở lại trong vòng { $minutes } phút.
 player-replaced-by-bot = { $bot } đang chơi thay cho { $player }.
 player-reclaimed-from-bot = { $player } đã trở lại và lấy lại chỗ từ { $bot }.
-player-took-over = { $player } đã lấy lại chỗ từ { $bot }.
 spectator-joined = Đã tham gia bàn của { $host } với tư cách khán giả.
 
 spectate = Xem
@@ -304,6 +303,10 @@ restore-table = Khôi phục
 delete-saved-table = Xóa
 saved-table-deleted = Đã xóa bàn đã lưu.
 missing-players = Không thể khôi phục: những người chơi này không có mặt: { $players }
+saved-table-blocked-by-you = Bàn đã lưu này có những người chơi bạn đã chặn: { $players }. Để khôi phục, hãy mở Cá nhân và Tùy chỉnh, chọn Bạn bè, rồi chọn Người chơi bị chặn và bỏ chặn họ. Sau đó, chỉ có thể khôi phục nếu mọi người đều có thể liên hệ trực tiếp với nhau. Bàn đã lưu vẫn được giữ lại.
+saved-table-social-blocked = Không thể khôi phục bàn đã lưu vì bạn và những người sau hiện không thể liên hệ trực tiếp qua các tính năng xã hội: { $players }. Bàn đã lưu vẫn được giữ lại.
+saved-table-social-blocked-mixed = Bàn đã lưu này có những người chơi bạn đã chặn: { $blocked }. Hãy mở Cá nhân và Tùy chỉnh, chọn Bạn bè, rồi chọn Người chơi bị chặn và bỏ chặn họ. Ngoài ra, bạn hiện không thể liên hệ trực tiếp với: { $unavailable }. Bàn đã lưu vẫn được giữ lại.
+saved-table-invalid = Không thể khôi phục bàn đã lưu này vì dữ liệu trò chơi hoặc người chơi trong đó không đầy đủ hay không còn tương thích. Bàn đã lưu vẫn được giữ lại.
 table-restored = Đã khôi phục bàn! Tất cả người chơi đã được chuyển vào.
 table-saved-destroying = Đã lưu bàn! Đang quay về menu chính.
 game-type-not-found = Loại trò chơi không còn tồn tại.
@@ -573,6 +576,9 @@ auto-muted-applied-minutes = Bạn đã bị tự động tắt tiếng { $minut
 chat-rate-limited = Chậm lại! Bạn đang gửi tin nhắn quá nhanh.
 chat-global-disabled-send = Trò chuyện chung đang bị tắt trong tùy chọn của bạn. Hãy bật lại trò chuyện chung trước khi gửi tin nhắn chung.
 chat-table-disabled-send = Trò chuyện trong bàn đang bị tắt trong tùy chọn của bạn. Hãy bật lại trò chuyện trong bàn trước khi gửi tin nhắn trong bàn.
+chat-invalid-channel = Kênh trò chuyện này không khả dụng.
+chat-invalid-message = Không thể gửi tin nhắn này vì định dạng không hợp lệ.
+chat-message-too-long = Tin nhắn quá dài. Mỗi tin nhắn chỉ được chứa tối đa { $limit } ký tự.
 admin-spam-alert = Cảnh báo: { $username } đang spam quá mức và đã bị tự động tắt tiếng.
 
 broadcast-announcement = Gửi thông báo
@@ -707,6 +713,7 @@ personal-and-options = Cá nhân và Tùy chỉnh
 profile = Hồ sơ
 friends = Bạn bè
 profile-registration-date = Ngày đăng ký: { $date }
+profile-date-unknown = Không xác định
 profile-username = Tên đăng nhập: { $username }
 profile-email = Email: { $email }
 admin-view-email = Chế độ xem của Quản trị viên - Email: { $email }
@@ -751,6 +758,13 @@ friends-my-friends = Bạn bè của tôi
 friends-pending-requests = Lời mời kết bạn ({ $count })
 friends-no-pending-requests = Lời mời kết bạn
 friends-send-request = Gửi lời mời kết bạn
+friends-block-user = Chặn một người chơi
+enter-block-username = Nhập tên người chơi bạn muốn chặn:
+friends-blocked-users = { $count ->
+    [0] Người chơi bị chặn
+   *[other] Người chơi bị chặn ({ $count })
+}
+friends-blocked-empty = Bạn chưa chặn người chơi nào.
 friends-list-empty = Bạn chưa có người bạn nào.
 friend-status-offline = Ngoại tuyến
 friend-status-playing = Đang chơi { $game }
@@ -760,6 +774,8 @@ friend-list-entry = { $username } ({ $status })
 
 friend-actions-title = Hành động cho { $username }
 view-profile = Xem hồ sơ
+block-user = Chặn người chơi
+unblock-user = Bỏ chặn người chơi
 join-table = Tham gia bàn
 remove-friend = Xóa bạn
 friend-remove-confirm = Xóa { $username } khỏi danh sách bạn bè của bạn?
@@ -783,8 +799,17 @@ enter-friend-username = Nhập tên người dùng bạn muốn kết bạn:
 friend-error-self = Bạn không thể gửi lời mời kết bạn cho chính mình.
 friend-error-already-friends = Bạn đã là bạn bè với người này.
 friend-error-duplicate = Bạn đã gửi một lời mời kết bạn cho người này rồi.
+friend-error-blocked-by-you = Bạn đã chặn { $username }. Hãy bỏ chặn họ trước khi gửi lời mời kết bạn.
+friend-error-blocked = Bạn và { $username } không thể gửi lời mời kết bạn cho nhau.
 friend-request-sent = Đã gửi lời mời kết bạn đến { $username }.
 friend-request-received = Bạn đã nhận được một lời mời kết bạn mới từ { $username }.
+
+block-confirm = Chặn { $username }? Thao tác này sẽ xóa quan hệ bạn bè và mọi lời mời kết bạn đang chờ giữa hai người. Hai người sẽ không thể gửi lời mời kết bạn, tin nhắn riêng hoặc lời mời vào bàn cho nhau, đồng thời tin nhắn trò chuyện thông thường sẽ bị ẩn theo cả hai chiều. Khi lệnh chặn còn hiệu lực, mỗi người không thể vào một bàn mới do người kia làm chủ bàn hoặc khôi phục một bàn đã lưu có cả hai người. Việc chặn không đưa ai ra khỏi bàn chung, không cản trở việc trở lại chỗ đã được giữ và không tắt tiếng trò chuyện thoại trong bàn.
+block-success = Bạn đã chặn { $username }. Hai người không thể liên hệ trực tiếp qua các tính năng xã hội, tin nhắn trò chuyện thông thường của họ sẽ bị ẩn, đồng thời mỗi người không thể vào một bàn mới do người kia làm chủ bàn hoặc khôi phục một bàn đã lưu có cả hai người.
+block-error-self = Bạn không thể chặn chính mình.
+block-already-active = Bạn đã chặn { $username } rồi.
+block-no-longer-active = Lệnh chặn này không còn hiệu lực.
+unblock-success = Bạn đã bỏ chặn { $username }. Quan hệ bạn bè và các lời mời trước đây không được khôi phục.
 
 friends-grouped-requests = Bạn có lời mời kết bạn đang chờ từ: { $usernames }
 friends-grouped-accepted = Lời mời kết bạn của bạn đã được chấp nhận bởi: { $usernames }
@@ -795,6 +820,7 @@ friends-and-others = { $names } và { $count } người khác
 send-private-message = Gửi tin nhắn riêng
 enter-pm-message = Nhập tin nhắn cho { $username }:
 pm-error-not-friends = Bạn chỉ có thể gửi tin nhắn riêng cho bạn bè.
+pm-error-blocked = Bạn và người chơi này không thể gửi tin nhắn riêng cho nhau.
 pm-error-offline = { $username } hiện không trực tuyến.
 pm-sent-success = Đã gửi tin nhắn đến { $username }.
 pm-sent-content = Bạn gửi đến { $username }: { $message }
@@ -838,6 +864,7 @@ host-kick-you = Bạn đã bị { $host } đuổi khỏi bàn.
 host-kick-ban-you = Bạn đã bị { $host } đuổi và cấm khỏi bàn.
 table-you-are-banned = Bạn bị cấm khỏi bàn này.
 table-private-invite-only = Bàn này là riêng tư. Bạn cần được chủ bàn mời để tham gia.
+table-join-social-blocked = Bạn không thể vào bàn này vì bạn và chủ bàn hiện không thể liên hệ trực tiếp qua các tính năng xã hội. Bạn vẫn có thể trở lại chỗ đã được giữ cho mình.
 
 voice-room-table-label = Thoại bàn { $game }
 voice-unavailable = Trò chuyện thoại hiện chưa khả dụng.

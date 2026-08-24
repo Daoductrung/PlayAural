@@ -105,6 +105,28 @@ Important server-driven packets include:
 
 **`silent` flag on `chat` packets**: Adding `"silent": True` suppresses both chat notification sounds and TTS in the first-party clients. Use it only when the server is also sending explicit `speak` and/or `audio` packets to control the output precisely.
 
+### Social Blocking Boundary
+
+User blocks are directional persistent records retained until explicit
+unblocking or either account is deleted. A block in either direction creates a
+mutual direct-contact boundary: neither account may send the other friend
+requests, private messages, or table invites; ordinary local/global text chat
+and presence notifications are filtered in both directions. Applying a block
+atomically removes any accepted friendship, pending requests in either
+direction, and queued relationship notifications between the pair. Unblocking
+does not recreate any of that deleted state. A blocked pair cannot newly enter
+tables hosted by one another or be brought together by manually restoring a
+saved table. Shared membership, reserved-seat recovery, planned-reboot
+restoration, later host transfer, and table voice chat remain unchanged; the
+confirmation UI must explain this distinction. Suppress optional global
+notifications attributable to blocked accounts, such as table creation.
+Enforce the boundary in database and shared server handlers; hidden buttons
+alone are never a security or privacy control. Manual saved-table restoration
+is an owner-scoped, all-or-nothing new admission: validate the complete
+serialized game and member roster before exposing a table, retain the save on
+every failure, treat bot-held human seats as their original human accounts,
+and identify only the restorer's own blocks when giving unblock instructions.
+
 ### Audio Control Protocol
 
 Server-controlled SFX, music, and ambience use the single versioned `audio`

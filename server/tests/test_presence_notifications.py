@@ -250,6 +250,40 @@ def test_friend_presence_respects_both_disabled_preferences(presence_server):
     recipient.play_sound.assert_not_called()
 
 
+def test_blocks_suppress_general_and_friend_presence_notifications(presence_server):
+    alice = _create_account(presence_server, "Alice")
+    bob = _create_account(presence_server, "Bob")
+    cara = _create_account(presence_server, "Cara")
+    blocked_recipient = _add_recipient(
+        presence_server,
+        bob,
+        notify_users=True,
+        notify_friends=True,
+    )
+    other_recipient = _add_recipient(
+        presence_server,
+        cara,
+        notify_users=True,
+        notify_friends=True,
+    )
+    assert presence_server._db.block_user(alice.uuid, bob.uuid) == "blocked"
+
+    assert presence_server._broadcast_presence(
+        alice.username,
+        alice.uuid,
+        trust_level=alice.trust_level,
+        is_online=True,
+    )
+
+    blocked_recipient.speak_l.assert_not_called()
+    blocked_recipient.play_sound.assert_not_called()
+    other_recipient.speak_l.assert_called_once_with(
+        "user-online",
+        buffer="system",
+        player=alice.username,
+    )
+
+
 def test_normal_friend_presence_keeps_friend_sound(presence_server):
     target = _create_account(presence_server, "Friend")
     recipient_record = _create_account(presence_server, "Recipient")

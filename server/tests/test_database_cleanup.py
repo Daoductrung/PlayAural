@@ -25,6 +25,12 @@ def test_prune_old_records(db):
 
     db.create_user("mute_active", "hash")
     db.create_user("mute_expired", "hash")
+    db.create_user("social_a", "hash")
+    db.create_user("social_b", "hash")
+    social_a = db.get_user("social_a")
+    social_b = db.get_user("social_b")
+    db.block_user(social_a.uuid, social_b.uuid)
+    db.send_friend_request(social_b.uuid, social_a.uuid)
 
     # Insert game_results
     cursor.execute("INSERT INTO game_results (game_type, timestamp, duration_ticks, custom_data) VALUES (?, ?, ?, ?)",
@@ -58,6 +64,19 @@ def test_prune_old_records(db):
                    ("mute_expired", "admin", "reason", old_game.isoformat(), recent.isoformat()))
     cursor.execute("INSERT INTO mutes (username, admin_username, reason, issued_at, expires_at) VALUES (?, ?, ?, ?, ?)",
                    ("mute_orphan", "admin", "reason", recent.isoformat(), future.isoformat()))
+
+    cursor.execute(
+        "INSERT INTO user_blocks (blocker_id, blocked_id, created_at) VALUES (?, ?, ?)",
+        ("missing-user", social_a.uuid, recent.isoformat()),
+    )
+    cursor.execute(
+        "INSERT INTO friendships (requester_id, receiver_id, status, created_at) VALUES (?, ?, ?, ?)",
+        ("missing-user", social_a.uuid, "accepted", recent.isoformat()),
+    )
+    cursor.execute(
+        "INSERT INTO user_notifications (user_id, source_username, event_type, created_at) VALUES (?, ?, ?, ?)",
+        (social_a.uuid, "missing-user", "friend_removed", recent.isoformat()),
+    )
 
     db._conn.commit()
 
@@ -93,6 +112,15 @@ def test_prune_old_records(db):
     assert "mute_active" in mutes
     assert "mute_expired" not in mutes
     assert "mute_orphan" not in mutes
+
+    cursor.execute("SELECT blocker_id, blocked_id FROM user_blocks")
+    assert [tuple(row) for row in cursor.fetchall()] == [
+        (social_a.uuid, social_b.uuid)
+    ]
+    cursor.execute("SELECT requester_id, receiver_id FROM friendships")
+    assert cursor.fetchall() == []
+    cursor.execute("SELECT user_id FROM user_notifications")
+    assert cursor.fetchall() == []
 
 def test_connect_can_skip_pruning_for_short_cli_operations(tmp_path):
     db_path = tmp_path / "PlayAural.db"

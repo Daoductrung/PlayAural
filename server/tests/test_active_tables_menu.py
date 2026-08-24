@@ -22,10 +22,12 @@ def _menu_ids(user: MockUser, menu_id: str) -> list[str]:
 
 
 def _make_server() -> Server:
-    return Server(
+    server = Server(
         db_path=":memory:",
         locales_dir=Path(__file__).resolve().parents[1] / "locales",
     )
+    server._db.connect(prune=False)
+    return server
 
 
 def test_active_tables_menu_lists_members_without_host() -> None:

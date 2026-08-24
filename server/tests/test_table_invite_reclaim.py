@@ -1,4 +1,5 @@
 import asyncio
+import json
 import os
 import tempfile
 from contextlib import suppress
@@ -98,6 +99,41 @@ class TestTableInviteReclaim:
         game.setup_player_actions(bot_player)
         return bot_player
 
+    def _save_pig_game(
+        self,
+        owner: MockUser,
+        *participants: MockUser,
+        replace: MockUser | None = None,
+    ):
+        """Create one valid user save using the production member schema."""
+        game = PigGame(options=PigOptions(target_score=25))
+        game.initialize_lobby(owner.username, owner)
+        for participant in participants:
+            game.add_player(participant.username, participant)
+        if replace:
+            game.status = "playing"
+            player = game.get_player_by_id(replace.uuid)
+            assert player is not None
+            assert game._replace_with_bot(player)
+        members_data = [
+            {
+                "player_id": player.id,
+                "username": player.name,
+                "is_bot": player.is_bot,
+                "replaced_human": player.replaced_human,
+                "replaced_human_name": player.replaced_human_name,
+            }
+            for player in game.players
+            if not player.is_spectator
+        ]
+        return self.db.save_user_table(
+            owner.username,
+            "Saved Pig game",
+            game.get_type(),
+            game.to_json(),
+            json.dumps(members_data),
+        )
+
     def test_live_mobile_to_desktop_handover_rebuilds_global_overlay(self):
         host = self._create_online_user("Host")
         guest = self._create_online_user("Guest")
@@ -145,7 +181,9 @@ class TestTableInviteReclaim:
         host = self._create_online_user("Host")
         listener_on = self._create_online_user("ListenerOn")
         listener_off = self._create_online_user("ListenerOff")
+        listener_blocked = self._create_online_user("ListenerBlocked")
         listener_off.preferences.notify_table_created = False
+        assert self.db.block_user(listener_blocked.uuid, host.uuid) == "blocked"
 
         await self.server._handle_tables_selection(
             host,
@@ -155,6 +193,7 @@ class TestTableInviteReclaim:
 
         assert "table_created.ogg" in self._sound_names(listener_on)
         assert "table_created.ogg" not in self._sound_names(listener_off)
+        assert "table_created.ogg" not in self._sound_names(listener_blocked)
         assert listener_on.get_last_spoken() == Localization.get(
             listener_on.locale,
             "table-created-broadcast",
@@ -162,6 +201,53 @@ class TestTableInviteReclaim:
             game=Localization.get(listener_on.locale, "game-name-pig"),
         )
         assert listener_off.get_last_spoken() is None
+        assert listener_blocked.get_last_spoken() is None
+
+    @pytest.mark.parametrize("host_blocks_entrant", [True, False])
+    def test_host_block_hides_table_and_denies_new_entry_without_forcing_transfer(
+        self,
+        host_blocks_entrant: bool,
+    ):
+        host = self._create_online_user("Host")
+        entrant = self._create_online_user("Entrant")
+        current_host = self._create_online_user("CurrentHost")
+
+        target_table = self.server._tables.create_table("pig", host.username, host)
+        target_game = PigGame(options=PigOptions(target_score=25))
+        target_table.game = target_game
+        target_game._table = target_table
+        target_game.initialize_lobby(host.username, host)
+
+        current_game = PigGame(options=PigOptions(target_score=25))
+        current_table, _ = self._create_waiting_table(
+            current_host,
+            entrant,
+            current_game,
+        )
+
+        self.server._show_active_tables_menu(entrant)
+        assert f"table_{target_table.table_id}" in self._get_menu_action_ids(
+            entrant,
+            "active_tables_menu",
+        )
+
+        blocker = host if host_blocks_entrant else entrant
+        blocked = entrant if host_blocks_entrant else host
+        assert self.server._perform_block_user(blocker, blocked.username)
+
+        assert f"table_{target_table.table_id}" not in self._get_menu_action_ids(
+            entrant,
+            "active_tables_menu",
+        )
+        entrant.clear_messages()
+        self.server._auto_join_table(entrant, target_table, target_table.game_type)
+
+        assert self.server._tables.find_user_table(entrant.username) is current_table
+        assert target_game.get_player_by_id(entrant.uuid) is None
+        assert entrant.get_last_spoken() == Localization.get(
+            entrant.locale,
+            "table-join-social-blocked",
+        )
 
     @pytest.mark.asyncio
     async def test_table_invite_always_plays_invite_notification_sound(self):
@@ -436,6 +522,227 @@ class TestTableInviteReclaim:
         assert "join.ogg" in self._sound_names(host)
         assert "join.ogg" in self._sound_names(guest)
 
+    @pytest.mark.asyncio
+    async def test_host_transfer_cancels_invite_blocked_by_new_host(self):
+        original_host = self._create_online_user("OriginalHost")
+        new_host = self._create_online_user("NewHost")
+        invitee = self._create_online_user("Invitee")
+        table = self.server._tables.create_table(
+            "pig",
+            original_host.username,
+            original_host,
+        )
+        game = PigGame(options=PigOptions(target_score=25))
+        table.game = game
+        game._table = table
+        game.initialize_lobby(original_host.username, original_host)
+        table.add_member(new_host.username, new_host, as_spectator=False)
+        game.add_player(new_host.username, new_host)
+
+        assert await self.server._send_table_invite(original_host, table, invitee)
+        invite_state = self.server._user_states[invitee.username]
+        assert self.server._perform_block_user(new_host, invitee.username)
+        assert invitee.username in self.server._pending_invites
+        assert self.server._perform_host_pass(
+            original_host,
+            table,
+            new_host.username,
+        )
+
+        assert invitee.username not in self.server._pending_invites
+        assert self.server._tables.find_user_table(invitee.username) is None
+        assert (
+            self.server._user_states[invitee.username]["menu"]
+            == invite_state["prev_state"]["menu"]
+        )
+        assert "table_invite_prompt" not in invitee.menus
+
+    def test_host_transfer_and_block_preserve_member_reconnect(self):
+        original_host = self._create_online_user("OriginalHost")
+        new_host = self._create_online_user("NewHost")
+        guest = self._create_online_user("Guest")
+        table = self.server._tables.create_table(
+            "pig",
+            original_host.username,
+            original_host,
+        )
+        game = PigGame(options=PigOptions(target_score=25))
+        table.game = game
+        game._table = table
+        game.initialize_lobby(original_host.username, original_host)
+        for member in (new_host, guest):
+            table.add_member(member.username, member, as_spectator=False)
+            game.add_player(member.username, member)
+
+        assert self.server._perform_block_user(new_host, guest.username)
+        assert self.server._perform_host_pass(
+            original_host,
+            table,
+            new_host.username,
+        )
+        assert table.host == new_host.username
+        assert table.get_user(guest.username) is guest
+
+        game.on_start()
+        guest_player = game.get_player_by_id(guest.uuid)
+        assert guest_player is not None
+        assert game._replace_with_bot(guest_player)
+        table._users.pop(guest.username, None)
+
+        guest.clear_messages()
+        self.server._restore_user_state(guest, guest.username)
+
+        reclaimed = game.get_player_by_id(guest.uuid)
+        assert reclaimed is not None
+        assert reclaimed.is_bot is False
+        assert table.get_user(guest.username) is guest
+        assert self.server._tables.find_user_table(guest.username) is table
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("restorer_blocks_guest", "message_key"),
+        [
+            (True, "saved-table-blocked-by-you"),
+            (False, "saved-table-social-blocked"),
+        ],
+    )
+    async def test_saved_table_restore_reports_block_direction_actionably(
+        self,
+        restorer_blocks_guest: bool,
+        message_key: str,
+    ):
+        restorer = self._create_online_user("Restorer")
+        guest = self._create_online_user("Guest")
+        record = self._save_pig_game(restorer, guest)
+        blocker = restorer if restorer_blocks_guest else guest
+        blocked = guest if restorer_blocks_guest else restorer
+        assert self.server._perform_block_user(blocker, blocked.username)
+
+        restorer.clear_messages()
+        await self.server._restore_saved_table(restorer, record.id)
+
+        assert self.server._tables.find_user_table(restorer.username) is None
+        assert self.server._tables.find_user_table(guest.username) is None
+        assert self.db.get_saved_table(record.id) is not None
+        assert restorer.get_last_spoken() == Localization.get(
+            restorer.locale,
+            message_key,
+            players=guest.username,
+        )
+
+    @pytest.mark.asyncio
+    async def test_saved_table_restore_reports_mixed_block_directions_once(self):
+        restorer = self._create_online_user("Restorer")
+        blocked_by_restorer = self._create_online_user("BlockedByRestorer")
+        blocks_restorer = self._create_online_user("BlocksRestorer")
+        record = self._save_pig_game(
+            restorer,
+            blocked_by_restorer,
+            blocks_restorer,
+        )
+        assert self.server._perform_block_user(
+            restorer,
+            blocked_by_restorer.username,
+        )
+        assert self.server._perform_block_user(
+            blocks_restorer,
+            restorer.username,
+        )
+
+        restorer.clear_messages()
+        await self.server._restore_saved_table(restorer, record.id)
+
+        assert self.server._tables.find_user_table(restorer.username) is None
+        assert self.db.get_saved_table(record.id) is not None
+        assert restorer.get_last_spoken() == Localization.get(
+            restorer.locale,
+            "saved-table-social-blocked-mixed",
+            blocked=blocked_by_restorer.username,
+            unavailable=blocks_restorer.username,
+        )
+
+    @pytest.mark.asyncio
+    async def test_saved_table_reports_restorer_block_before_offline_status(self):
+        restorer = self._create_online_user("Restorer")
+        guest = self._create_online_user("Guest")
+        record = self._save_pig_game(restorer, guest)
+        assert self.server._perform_block_user(restorer, guest.username)
+        self.server._users.pop(guest.username)
+
+        restorer.clear_messages()
+        await self.server._restore_saved_table(restorer, record.id)
+
+        assert self.db.get_saved_table(record.id) is not None
+        assert restorer.get_last_spoken() == Localization.get(
+            restorer.locale,
+            "saved-table-blocked-by-you",
+            players=guest.username,
+        )
+
+    @pytest.mark.asyncio
+    async def test_saved_table_restore_reclaims_replaced_human(self):
+        restorer = self._create_online_user("Restorer")
+        guest = self._create_online_user("Guest")
+        record = self._save_pig_game(restorer, guest, replace=guest)
+
+        await self.server._restore_saved_table(restorer, record.id)
+
+        table = self.server._tables.find_user_table(restorer.username)
+        assert table is not None
+        assert self.server._tables.find_user_table(guest.username) is table
+        restored = table.game.get_player_by_id(guest.uuid)
+        assert restored is not None
+        assert restored.is_bot is False
+        assert restored.replaced_human is False
+        assert restored.name == guest.username
+        assert self.db.get_saved_table(record.id) is None
+
+    @pytest.mark.asyncio
+    async def test_invalid_saved_table_is_retained_without_partial_table(self):
+        restorer = self._create_online_user("Restorer")
+        record = self.db.save_user_table(
+            restorer.username,
+            "Invalid save",
+            "pig",
+            "{}",
+            "[]",
+        )
+
+        await self.server._restore_saved_table(restorer, record.id)
+
+        assert self.server._tables.find_user_table(restorer.username) is None
+        assert self.db.get_saved_table(record.id) is not None
+        assert restorer.get_last_spoken() == Localization.get(
+            restorer.locale,
+            "saved-table-invalid",
+        )
+
+    @pytest.mark.asyncio
+    async def test_saved_table_restore_and_delete_are_owner_scoped(self):
+        owner = self._create_online_user("Owner")
+        other = self._create_online_user("Other")
+        record = self._save_pig_game(owner)
+
+        await self.server._restore_saved_table(other, record.id)
+        assert self.server._tables.find_user_table(other.username) is None
+        assert self.db.get_saved_table(record.id) is not None
+        assert other.get_last_spoken() == Localization.get(
+            other.locale,
+            "table-not-exists",
+        )
+
+        other.clear_messages()
+        await self.server._handle_saved_table_actions_selection(
+            other,
+            "delete",
+            {"save_id": record.id},
+        )
+        assert self.db.get_saved_table(record.id) is not None
+        assert other.get_last_spoken() == Localization.get(
+            other.locale,
+            "table-not-exists",
+        )
+
     def test_login_restore_reclaims_bot_replaced_seat_and_announces(self):
         host = self._create_online_user("Host")
         guest = self._create_online_user("Guest")
@@ -475,8 +782,7 @@ class TestTableInviteReclaim:
         assert "join.ogg" in self._sound_names(host)
         assert "join.ogg" in self._sound_names(guest)
 
-    @pytest.mark.asyncio
-    async def test_join_player_reclaims_bot_replaced_seat_before_menu_rebuild(self):
+    def test_auto_join_reclaims_bot_replaced_seat_before_menu_rebuild(self):
         host = self._create_online_user("Host")
         guest = self._create_online_user("Guest")
         table, game = self._create_started_table(host, guest)
@@ -490,12 +796,7 @@ class TestTableInviteReclaim:
         host.clear_messages()
         guest.clear_messages()
 
-        await self.server._handle_join_selection(
-            guest,
-            "join_player",
-            {"table_id": table.table_id, "game_type": "pig"},
-        )
-        await asyncio.sleep(0)
+        self.server._auto_join_table(guest, table, table.game_type)
 
         reclaimed = game.get_player_by_id(guest.uuid)
         assert reclaimed is not None
@@ -510,7 +811,7 @@ class TestTableInviteReclaim:
         }
         expected = Localization.get(
             guest.locale,
-            "player-took-over",
+            "player-reclaimed-from-bot",
             player=guest.username,
             bot=bot_name,
         )
@@ -519,10 +820,15 @@ class TestTableInviteReclaim:
         assert "join.ogg" in self._sound_names(host)
         assert "join.ogg" in self._sound_names(guest)
 
-    @pytest.mark.asyncio
-    async def test_join_player_rejects_name_matching_existing_bot(self):
+    def test_auto_join_rejects_name_matching_existing_bot(self):
         host = self._create_online_user("Host")
         entrant = self._create_online_user("Test")
+        current_host = self._create_online_user("CurrentHost")
+        current_table, _ = self._create_waiting_table(
+            current_host,
+            entrant,
+            PigGame(options=PigOptions(target_score=25)),
+        )
         table = self.server._tables.create_table("pig", host.username, host)
         game = PigGame(options=PigOptions(target_score=25))
         table.game = game
@@ -530,37 +836,9 @@ class TestTableInviteReclaim:
         game.initialize_lobby(host.username, host)
         self._add_named_bot(game, "Test")
 
-        await self.server._handle_join_selection(
-            entrant,
-            "join_player",
-            {"table_id": table.table_id, "game_type": "pig"},
-        )
+        self.server._auto_join_table(entrant, table, table.game_type)
 
-        assert self.server._tables.find_user_table(entrant.username) is None
-        assert game.get_player_by_id(entrant.uuid) is None
-        assert entrant.get_last_spoken() == Localization.get(
-            entrant.locale,
-            "table-name-already-used",
-        )
-
-    @pytest.mark.asyncio
-    async def test_join_spectator_rejects_name_matching_existing_bot(self):
-        host = self._create_online_user("Host")
-        entrant = self._create_online_user("Test")
-        table = self.server._tables.create_table("pig", host.username, host)
-        game = PigGame(options=PigOptions(target_score=25))
-        table.game = game
-        game._table = table
-        game.initialize_lobby(host.username, host)
-        self._add_named_bot(game, "Test")
-
-        await self.server._handle_join_selection(
-            entrant,
-            "join_spectator",
-            {"table_id": table.table_id, "game_type": "pig"},
-        )
-
-        assert self.server._tables.find_user_table(entrant.username) is None
+        assert self.server._tables.find_user_table(entrant.username) is current_table
         assert game.get_player_by_id(entrant.uuid) is None
         assert entrant.get_last_spoken() == Localization.get(
             entrant.locale,
@@ -1561,6 +1839,8 @@ class TestTableInviteReclaim:
         host = self._create_online_user("Host")
         guest = self._create_online_user("Guest")
         table, game = self._create_started_table(host, guest)
+        self.db.send_friend_request(host.uuid, guest.uuid)
+        self.db.accept_friend_request(host.uuid, guest.uuid)
 
         guest_player = game.get_player_by_id(guest.uuid)
         assert guest_player is not None
@@ -1607,6 +1887,8 @@ class TestTableInviteReclaim:
 
         table_a, game_a = self._create_started_table(host_a, mover)
         table_b, game_b = self._create_started_table(host_b, guest_b)
+        self.db.send_friend_request(host_b.uuid, mover.uuid)
+        self.db.accept_friend_request(host_b.uuid, mover.uuid)
 
         await self.server._handle_friend_actions_selection(
             mover,

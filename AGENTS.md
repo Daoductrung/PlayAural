@@ -28,6 +28,23 @@ Server-requested voice joins reuse `voice_join_info` with
 microphone without a separate explicit user action. `voice_context_closed`
 cancels both pending and active joins.
 
+User blocks are directional persistent records retained until explicit
+unblocking or either account is deleted. Any block between two accounts is a
+mutual direct-contact barrier: it blocks friend requests, private messages,
+table invites, ordinary text chat delivery, and presence notifications in both
+directions. Applying a block atomically removes their friendship, requests in
+either direction, and queued social notifications. It does not remove players
+from shared tables, prevent reserved-seat recovery, or mute table voice chat.
+It does prevent either account from newly entering a table hosted by the other
+or being brought together by manually restoring a saved table; later host
+transfer never evicts an existing participant. Optional global notifications
+attributable to a blocked account, such as table creation, are also suppressed.
+Enforce these boundaries in shared database/server handlers, not only through
+menu visibility. Manual saved-table restoration is owner-scoped and
+all-or-nothing: validate the complete game/member payload and current social
+admission before creating a table, preserve the save on every failure, and
+give actionable unblock guidance only for blocks the restorer controls.
+
 ## Commands
 
 Run server tests from the repo root through uv:

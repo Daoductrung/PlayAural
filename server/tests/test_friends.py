@@ -4,7 +4,9 @@ from server.auth.auth import AuthManager
 from server.persistence.database import Database
 from server.core.server import (
     FRIEND_REMOVE_CONFIRM_MENU,
+    MAX_CHAT_MESSAGE_LENGTH,
     Server,
+    USER_BLOCK_CONFIRM_MENU,
     VERSION,
 )
 from server.users.network_user import NetworkUser
@@ -94,6 +96,7 @@ class TestFriendsSystem:
         # 2. Try sending again (Duplicate)
         res2 = self.db.send_friend_request(u_alice.uuid, u_bob.uuid)
         assert res2 == "duplicate"
+        assert self.db.send_friend_request(u_alice.uuid, "missing-user") == "unknown"
 
     def test_cross_request_instant_accept(self):
         self.db.create_user("alice", "hash")
@@ -119,6 +122,8 @@ class TestFriendsSystem:
         # We need to use NetworkUser object to test the actual grouped output logic
         self.db.create_user("alice", "hash")
         u_alice = self.db.get_user("alice")
+        for source_username in ("bob", "charlie", "dave", "eve"):
+            self.db.create_user(source_username, "hash")
 
         # Add a bunch of offline notifications
         self.db.add_notification(u_alice.uuid, "bob", "friend_request_received")
@@ -146,8 +151,10 @@ class TestFriendsSystem:
     def test_account_deletion_cleanup(self):
         self.db.create_user("alice", "hash")
         self.db.create_user("bob", "hash")
+        self.db.create_user("charlie", "hash")
         u_alice = self.db.get_user("alice")
         u_bob = self.db.get_user("bob")
+        u_charlie = self.db.get_user("charlie")
 
         # Make them friends
         self.db.send_friend_request(u_alice.uuid, u_bob.uuid)
@@ -157,6 +164,8 @@ class TestFriendsSystem:
 
         # Add a notification
         self.db.add_notification(u_bob.uuid, "alice", "friend_removed")
+        self.db.block_user(u_alice.uuid, u_charlie.uuid)
+        self.db.block_user(u_charlie.uuid, u_alice.uuid)
 
         # Delete Alice
         self.db.delete_user("alice")
@@ -166,6 +175,7 @@ class TestFriendsSystem:
 
         # Verify Bob has NO notifications from Alice
         assert len(self.db.get_and_clear_notifications(u_bob.uuid)) == 0
+        assert self.db.get_socially_blocked_ids(u_charlie.uuid) == set()
 
     @pytest.mark.asyncio
     async def test_friends_list_marks_case_variant_login_as_online(self):
@@ -257,6 +267,37 @@ class TestFriendsSystem:
             for packet in alice_user.get_queued_messages()
         )
         self.server._restore_input_parent.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_friends_hub_can_block_offline_user_by_username(self):
+        self.db.create_user("Alice", "hash")
+        self.db.create_user("Nguyễn Văn An", "hash")
+        alice = self.db.get_user("Alice")
+        target = self.db.get_user("Nguyễn Văn An")
+        alice_user = self._make_network_user(alice.username, alice.uuid)
+        alice_user.connection.username = alice.username
+        self.server._show_friends_hub_menu(alice_user)
+
+        await self.server._handle_friends_hub_selection(alice_user, "block_user")
+        assert self.server._user_states[alice.username]["menu"] == "block_user_input"
+
+        await self.server._handle_editbox(
+            alice_user.connection,
+            {"text": "nguyễn văn an"},
+        )
+        state = self.server._user_states[alice.username]
+        assert state["menu"] == USER_BLOCK_CONFIRM_MENU
+        assert state["target_username"] == "Nguyễn Văn An"
+        assert not self.db.has_blocked(alice.uuid, target.uuid)
+
+        await self.server._handle_user_block_confirm_selection(
+            alice_user,
+            "yes",
+            state,
+        )
+
+        assert self.db.has_blocked(alice.uuid, target.uuid)
+        assert self.server._user_states[alice.username]["menu"] == "friends_hub_menu"
 
     @pytest.mark.asyncio
     async def test_private_message_to_self_accepts_case_variant_without_friendship(self):
@@ -520,3 +561,338 @@ class TestFriendsSystem:
             and msg.get("asset") == "friend_removed.ogg"
             for msg in messages
         )
+
+    def test_block_atomically_removes_direct_social_state(self):
+        alice, bob = self._create_friendship()
+        self.db.add_notification(alice.uuid, bob.username, "friend_removed")
+        self.db.add_notification(bob.uuid, alice.username, "friend_accepted")
+
+        assert self.db.block_user(alice.uuid, bob.uuid) == "blocked"
+
+        assert self.db.get_friends(alice.uuid) == []
+        assert self.db.get_pending_incoming_requests(alice.uuid) == []
+        assert self.db.get_pending_incoming_requests(bob.uuid) == []
+        assert self.db.get_and_clear_notifications(alice.uuid) == []
+        assert self.db.get_and_clear_notifications(bob.uuid) == []
+        assert self.db.has_blocked(alice.uuid, bob.uuid)
+        assert self.db.has_block_between(alice.uuid, bob.uuid)
+        assert self.db.count_blocked_users(alice.uuid) == 1
+        assert self.db.get_blocked_users(alice.uuid) == [bob.uuid]
+        assert self.db.send_friend_request(alice.uuid, bob.uuid) == "blocked_by_you"
+        assert self.db.send_friend_request(bob.uuid, alice.uuid) == "blocked"
+
+    def test_unblock_is_directional_and_does_not_restore_relationships(self):
+        self.db.create_user("Alice", "hash")
+        self.db.create_user("Bob", "hash")
+        alice = self.db.get_user("Alice")
+        bob = self.db.get_user("Bob")
+
+        assert self.db.block_user(alice.uuid, bob.uuid) == "blocked"
+        assert self.db.block_user(bob.uuid, alice.uuid) == "blocked"
+        assert self.db.unblock_user(alice.uuid, bob.uuid)
+
+        assert not self.db.has_blocked(alice.uuid, bob.uuid)
+        assert self.db.has_blocked(bob.uuid, alice.uuid)
+        assert self.db.has_block_between(alice.uuid, bob.uuid)
+        assert self.db.get_friends(alice.uuid) == []
+        assert self.db.send_friend_request(alice.uuid, bob.uuid) == "blocked"
+
+        assert self.db.unblock_user(bob.uuid, alice.uuid)
+        assert not self.db.has_block_between(alice.uuid, bob.uuid)
+        assert self.db.send_friend_request(alice.uuid, bob.uuid) == "sent"
+
+    def test_declining_stale_request_cannot_delete_newer_relationship(self):
+        self.db.create_user("Alice", "hash")
+        self.db.create_user("Bob", "hash")
+        alice = self.db.get_user("Alice")
+        bob = self.db.get_user("Bob")
+        assert self.db.send_friend_request(bob.uuid, alice.uuid) == "sent"
+
+        assert self.db.decline_friend_request(bob.uuid, alice.uuid)
+        assert self.db.send_friend_request(alice.uuid, bob.uuid) == "sent"
+        assert self.db.send_friend_request(bob.uuid, alice.uuid) == "accepted"
+
+        assert not self.db.decline_friend_request(bob.uuid, alice.uuid)
+        assert self.db.get_friends(alice.uuid) == [bob.uuid]
+
+    @pytest.mark.asyncio
+    async def test_block_confirmation_replaces_friend_actions_without_notifying_target(self):
+        alice, bob = self._create_friendship()
+        alice_user = self._make_network_user(alice.username, alice.uuid)
+        bob_user = self._make_network_user(bob.username, bob.uuid)
+        self.server._user_states[alice.username] = {
+            "menu": "friend_actions_menu",
+            "target_username": bob.username,
+            "_stack": [
+                {"menu": "friends_hub_menu"},
+                {"menu": "friends_list_menu"},
+            ],
+        }
+        self.server._user_states[bob.username] = {"menu": "friends_hub_menu"}
+
+        await self.server._handle_friend_actions_selection(
+            alice_user,
+            "block",
+            self.server._user_states[alice.username],
+        )
+        assert self.server._user_states[alice.username]["menu"] == USER_BLOCK_CONFIRM_MENU
+        assert bob.uuid in self.db.get_friends(alice.uuid)
+
+        alice_user.get_queued_messages()
+        bob_user.get_queued_messages()
+        await self.server._handle_user_block_confirm_selection(
+            alice_user,
+            "yes",
+            self.server._user_states[alice.username],
+        )
+
+        assert self.db.has_blocked(alice.uuid, bob.uuid)
+        assert self.server._user_states[alice.username]["menu"] == "friend_actions_menu"
+        alice_messages = alice_user.get_queued_messages()
+        assert any(
+            message.get("type") == "speak"
+            and message.get("key") == "block-success"
+            for message in alice_messages
+        )
+        actions_menu = next(
+            message
+            for message in reversed(alice_messages)
+            if message.get("type") == "menu"
+            and message.get("menu_id") == "friend_actions_menu"
+        )
+        action_ids = [item["id"] for item in actions_menu["items"]]
+        assert "unblock" in action_ids
+        assert "send_pm" not in action_ids
+        assert "remove_friend" not in action_ids
+        assert not any(
+            message.get("type") == "speak"
+            for message in bob_user.get_queued_messages()
+        )
+
+    def test_block_controls_cover_request_profile_and_management_menus(self):
+        self.db.create_user("Alice", "hash")
+        self.db.create_user("Bob", "hash")
+        alice = self.db.get_user("Alice")
+        bob = self.db.get_user("Bob")
+        alice_user = self._make_network_user(alice.username, alice.uuid)
+        assert self.db.send_friend_request(bob.uuid, alice.uuid) == "sent"
+
+        self.server._show_friend_request_actions_menu(alice_user, bob.username)
+        request_menu = next(
+            message
+            for message in reversed(alice_user.get_queued_messages())
+            if message.get("type") == "menu"
+        )
+        assert [item["id"] for item in request_menu["items"]] == [
+            "view_profile",
+            "accept",
+            "decline",
+            "block",
+            "back",
+        ]
+
+        assert self.db.block_user(alice.uuid, bob.uuid) == "blocked"
+        hub_ids = [
+            item.id for item in self.server._get_friends_hub_menu_items(alice_user)
+        ]
+        assert "blocked_users" in hub_ids
+        blocked_items, blocked_page = self.server._get_blocked_users_menu_items(
+            alice_user
+        )
+        assert blocked_page.total == 1
+        assert [item.id for item in blocked_items] == ["blocked_Bob", "back"]
+
+        self.server._show_public_profile(alice_user, bob.username)
+        profile_menu = next(
+            message
+            for message in reversed(alice_user.get_queued_messages())
+            if message.get("type") == "menu"
+            and message.get("menu_id") == "public_profile_menu"
+        )
+        assert "unblock" in [item["id"] for item in profile_menu["items"]]
+
+    @pytest.mark.asyncio
+    async def test_block_prevents_private_messages_and_filters_shared_chat_both_ways(self):
+        alice, bob = self._create_friendship()
+        self.db.create_user("Cara", "hash")
+        cara = self.db.get_user("Cara")
+        alice_user = self._make_network_user(alice.username, alice.uuid)
+        bob_user = self._make_network_user(bob.username, bob.uuid)
+        cara_user = self._make_network_user(cara.username, cara.uuid)
+        alice_user.connection.username = alice.username
+        bob_user.connection.username = bob.username
+        cara_user.connection.username = cara.username
+        assert self.db.block_user(alice.uuid, bob.uuid) == "blocked"
+
+        await self.server._deliver_private_message(alice_user, bob.username, "hello")
+        await self.server._deliver_private_message(bob_user, alice.username, "hello")
+        assert any(
+            message.get("key") == "pm-error-blocked"
+            for message in alice_user.get_queued_messages()
+        )
+        assert any(
+            message.get("key") == "pm-error-blocked"
+            for message in bob_user.get_queued_messages()
+        )
+
+        await self.server._handle_chat(
+            alice_user.connection,
+            {"type": "chat", "convo": "global", "message": "hello all"},
+        )
+        assert [m["message"] for m in alice_user.connection.sent_messages] == [
+            "hello all"
+        ]
+        assert bob_user.connection.sent_messages == []
+        assert [m["message"] for m in cara_user.connection.sent_messages] == [
+            "hello all"
+        ]
+
+        alice_user.connection.sent_messages.clear()
+        bob_user.connection.sent_messages.clear()
+        cara_user.connection.sent_messages.clear()
+        await self.server._handle_chat(
+            bob_user.connection,
+            {"type": "chat", "convo": "local", "message": "lobby hello"},
+        )
+        assert alice_user.connection.sent_messages == []
+        assert [m["message"] for m in bob_user.connection.sent_messages] == [
+            "lobby hello"
+        ]
+        assert [m["message"] for m in cara_user.connection.sent_messages] == [
+            "lobby hello"
+        ]
+
+    @pytest.mark.asyncio
+    async def test_private_message_input_uses_shared_mute_and_length_guards(self):
+        alice, bob = self._create_friendship()
+        alice_user = self._make_network_user(alice.username, alice.uuid)
+        bob_user = self._make_network_user(bob.username, bob.uuid)
+        alice_user.connection.username = alice.username
+        self.server._restore_input_parent = MagicMock()
+
+        self.db.mute_user(alice.username, "Admin", "", None)
+        self.server._user_states[alice.username] = {
+            "menu": "send_pm_input",
+            "target_username": bob.username,
+            "_transient": True,
+        }
+        await self.server._handle_editbox(
+            alice_user.connection,
+            {"text": "muted message"},
+        )
+        assert any(
+            message.get("key") == "muted-permanent"
+            for message in alice_user.get_queued_messages()
+        )
+        assert not any(
+            message.get("key") == "pm-received"
+            for message in bob_user.get_queued_messages()
+        )
+
+        self.db.unmute_user(alice.username)
+        self.server._user_states[alice.username] = {
+            "menu": "send_pm_input",
+            "target_username": bob.username,
+            "_transient": True,
+        }
+        await self.server._handle_editbox(
+            alice_user.connection,
+            {"text": "x" * (MAX_CHAT_MESSAGE_LENGTH + 1)},
+        )
+        assert any(
+            message.get("key") == "chat-message-too-long"
+            for message in alice_user.get_queued_messages()
+        )
+
+    @pytest.mark.asyncio
+    async def test_mid_broadcast_block_suppresses_later_recipients(self):
+        self.db.create_user("Alice", "hash")
+        self.db.create_user("Bob", "hash")
+        self.db.create_user("Cara", "hash")
+        alice = self.db.get_user("Alice")
+        bob = self.db.get_user("Bob")
+        cara = self.db.get_user("Cara")
+        alice_user = self._make_network_user(alice.username, alice.uuid)
+        bob_user = self._make_network_user(bob.username, bob.uuid)
+        cara_user = self._make_network_user(cara.username, cara.uuid)
+
+        server = self.server
+
+        class BlockingConnection(MockClient):
+            async def send(inner_self, message):
+                await super().send(message)
+                server._perform_block_user(alice_user, bob.username)
+
+        alice_connection = BlockingConnection("127.0.0.1:12000")
+        alice_connection.username = alice.username
+        alice_user._connection = alice_connection
+        bob_user.connection.username = bob.username
+        cara_user.connection.username = cara.username
+
+        await self.server._handle_chat(
+            alice_connection,
+            {"type": "chat", "convo": "global", "message": "hello"},
+        )
+
+        assert [message["message"] for message in alice_connection.sent_messages] == [
+            "hello"
+        ]
+        assert bob_user.connection.sent_messages == []
+        assert [
+            message["message"] for message in cara_user.connection.sent_messages
+        ] == ["hello"]
+
+    @pytest.mark.asyncio
+    async def test_block_cancels_pending_table_invite_and_stale_invite_cannot_send(self):
+        alice, bob = self._create_friendship()
+        alice_user = self._make_network_user(alice.username, alice.uuid)
+        bob_user = self._make_network_user(bob.username, bob.uuid)
+        self.server._user_states[alice.username] = {"menu": "main_menu"}
+        self.server._user_states[bob.username] = {"menu": "main_menu"}
+        table = self.server._tables.create_table(
+            "crazyeights",
+            alice.username,
+            alice_user,
+        )
+        try:
+            assert await self.server._send_table_invite(
+                alice_user,
+                table,
+                bob_user,
+            )
+            invite_task = self.server._pending_invites[bob.username]["task"]
+            assert self.server._user_states[bob.username]["menu"] == "table_invite_prompt"
+
+            assert self.server._perform_block_user(alice_user, bob.username)
+
+            assert bob.username not in self.server._pending_invites
+            assert invite_task.cancelled() or invite_task.cancelling()
+            assert self.server._user_states[bob.username]["menu"] == "main_menu"
+            assert not await self.server._send_table_invite(
+                alice_user,
+                table,
+                bob_user,
+            )
+            assert bob.username not in self.server._pending_invites
+        finally:
+            table.destroy()
+
+
+def test_blocks_survive_database_reconnect(tmp_path):
+    db_path = tmp_path / "social.db"
+    database = Database(db_path)
+    database.connect()
+    database.create_user("Alice", "hash")
+    database.create_user("Bob", "hash")
+    alice = database.get_user("Alice")
+    bob = database.get_user("Bob")
+    assert database.block_user(alice.uuid, bob.uuid) == "blocked"
+    database.close()
+
+    reopened = Database(db_path)
+    reopened.connect()
+    try:
+        assert reopened.has_blocked(alice.uuid, bob.uuid)
+        assert reopened.get_blocked_users(alice.uuid) == [bob.uuid]
+    finally:
+        reopened.close()

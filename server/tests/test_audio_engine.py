@@ -1,11 +1,87 @@
 """Unified audio protocol, routing, and persistence coverage."""
 
+import asyncio
+
 import pytest
 
-from ..audio import AudioCommand, AudioPlaybackState, AUDIO_PROTOCOL_VERSION
+from ..audio import (
+    AUDIO_PROTOCOL_VERSION,
+    AudioCommand,
+    AudioPlaybackState,
+    SameTurnAudioBatcher,
+)
 from ..games.pig.game import PigGame
 from ..users.network_user import NetworkUser
 from ..users.test_user import MockUser
+
+
+@pytest.mark.asyncio
+async def test_same_turn_audio_batcher_has_no_time_debounce_window() -> None:
+    batcher = SameTurnAudioBatcher()
+    calls: list[str] = []
+
+    assert batcher.queue("join", lambda: calls.append("first")) is True
+    assert batcher.queue("join", lambda: calls.append("duplicate")) is False
+    assert calls == []
+
+    await asyncio.sleep(0)
+    assert calls == ["first"]
+
+    assert batcher.queue("join", lambda: calls.append("next-turn")) is True
+    await asyncio.sleep(0)
+    assert calls == ["first", "next-turn"]
+
+
+@pytest.mark.asyncio
+async def test_same_turn_audio_batcher_isolates_callback_failures() -> None:
+    batcher = SameTurnAudioBatcher()
+    loop = asyncio.get_running_loop()
+    reported_errors: list[dict] = []
+    previous_handler = loop.get_exception_handler()
+    loop.set_exception_handler(lambda _loop, context: reported_errors.append(context))
+    calls: list[str] = []
+
+    def fail() -> None:
+        raise RuntimeError("listener disconnected")
+
+    try:
+        assert batcher.queue("alice", fail) is True
+        assert batcher.queue("bob", lambda: calls.append("bob")) is True
+        await asyncio.sleep(0)
+    finally:
+        loop.set_exception_handler(previous_handler)
+
+    assert calls == ["bob"]
+    assert len(reported_errors) == 1
+    assert isinstance(reported_errors[0]["exception"], RuntimeError)
+
+
+@pytest.mark.asyncio
+async def test_table_presence_cues_batch_only_within_one_event_loop_turn(
+    pig_game_with_players,
+) -> None:
+    game, alice, bob = pig_game_with_players
+    alice.clear_messages()
+    bob.clear_messages()
+
+    game.play_table_join_sound(is_bot=False, is_spectator=False)
+    game.play_table_join_sound(is_bot=False, is_spectator=False)
+    game.play_table_leave_sound(is_bot=False, is_spectator=False)
+    game.play_table_leave_sound(is_bot=False, is_spectator=False)
+    await asyncio.sleep(0)
+
+    for user in (alice, bob):
+        assert user.get_sounds_played() == ["join.ogg", "leave.ogg"]
+
+    game.play_table_join_sound(is_bot=False, is_spectator=False)
+    await asyncio.sleep(0)
+
+    for user in (alice, bob):
+        assert user.get_sounds_played() == [
+            "join.ogg",
+            "leave.ogg",
+            "join.ogg",
+        ]
 
 
 def test_audio_command_rejects_unsafe_assets_and_ids() -> None:

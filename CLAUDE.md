@@ -154,6 +154,17 @@ loading an asset.
   and its fail-closed regression test until upstream provides the same behavior.
   Android autolinking must build `expo-audio` from that guarded local source;
   the default precompiled artifact does not contain the fix.
+- Mobile LiveKit voice is media audio, not a phone-call audio session. Android
+  must pin `MODE_NORMAL`, `STREAM_MUSIC`, and `USAGE_MEDIA`, leave device
+  selection to the system, disable forced AudioSwitch routing, and avoid a
+  second LiveKit focus lease even while the microphone is published. iOS must
+  disable LiveKit's automatic getUserMedia category override: listen-only uses
+  `playback` with `default` mode, and explicit microphone publishing uses the
+  required `playAndRecord` category with `default` mode—never `voiceChat` or
+  `videoChat`. Preserve stereo Bluetooth A2DP output and exclude the HFP
+  hands-free route, which takes priority and collapses output to mono. Keep the
+  guarded LiveKit native iOS patch, postinstall hook, and fail-closed dependency
+  regression tests.
 - Async clients must generation-guard asset loads and fades so a late load or
   retiring source cannot resurrect, silence, or replace a newer command.
 - Replayable music, ambience, and explicitly persistent SFX loops live in the
@@ -186,6 +197,10 @@ loading an asset.
 - The PlayAural game server remains the authority for whether a user may join a voice context.
 - The media path is separate from gameplay networking. Gameplay continues over the normal WebSocket connection; live audio flows through the dedicated LiveKit service.
 - The server issues short-lived join packets, binds voice access to the caller's current table context, and closes that voice context when table membership ends.
+- Server-owned automation reuses `voice_join_info` with
+  `server_requested=true`. First-party clients may connect automatically but
+  always enter listen-only; microphone publishing remains a separate explicit
+  user action. `voice_context_closed` cancels both pending and active joins.
 - Voice presence is runtime-only state. It is tied to the active table lifecycle and must not create long-lived database rows unless a future feature defines retention and cleanup rules explicitly.
 
 ### Game Implementation Pattern

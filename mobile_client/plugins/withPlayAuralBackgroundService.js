@@ -2,6 +2,7 @@ const fs = require("fs");
 const path = require("path");
 
 const {
+  withAppBuildGradle,
   withAndroidManifest,
   withDangerousMod,
   withMainApplication,
@@ -279,9 +280,31 @@ function withPlayAuralNativeFiles(config) {
   ]);
 }
 
+function withPlayAuralDebugApplicationId(config) {
+  return withAppBuildGradle(config, (nextConfig) => {
+    const suffixLine = 'applicationIdSuffix ".debug"';
+    if (nextConfig.modResults.contents.includes(suffixLine)) {
+      return nextConfig;
+    }
+    const debugBlock = /(buildTypes\s*\{\s*debug\s*\{)/;
+    if (!debugBlock.test(nextConfig.modResults.contents)) {
+      throw new Error(
+        "Unable to isolate the PlayAural Android debug application ID. "
+          + "Review the generated app/build.gradle structure.",
+      );
+    }
+    nextConfig.modResults.contents = nextConfig.modResults.contents.replace(
+      debugBlock,
+      `$1\n            ${suffixLine}`,
+    );
+    return nextConfig;
+  });
+}
+
 module.exports = function withPlayAuralBackgroundService(config) {
   let nextConfig = withPlayAuralManifest(config);
   nextConfig = withPlayAuralMainApplication(nextConfig);
   nextConfig = withPlayAuralNativeFiles(nextConfig);
+  nextConfig = withPlayAuralDebugApplicationId(nextConfig);
   return nextConfig;
 };

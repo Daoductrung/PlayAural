@@ -32,7 +32,10 @@ if (Platform.OS !== "web") {
   try {
     const { registerGlobals } =
       require("@livekit/react-native") as typeof import("@livekit/react-native");
-    registerGlobals();
+    // PlayAural owns the iOS audio category and mode. LiveKit's default
+    // wrapper changes getUserMedia to the voice-oriented play-and-record
+    // profile, which enables call processing and can collapse game audio.
+    registerGlobals({ autoConfigureAudioSession: false });
   } catch (error) {
     globalScope.__PLAYAURAL_NATIVE_VOICE_BOOTSTRAP_ERROR__ =
       error instanceof Error ? error.message : String(error);

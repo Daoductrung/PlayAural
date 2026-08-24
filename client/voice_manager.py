@@ -935,16 +935,22 @@ class VoiceManager:
     def _bind_room_events(self, room: Any) -> None:
         @room.on("track_subscribed")
         def on_track_subscribed(track: Any, publication: Any, participant: Any) -> None:
+            if self.room is not room:
+                return
             if getattr(track, "kind", None) != rtc.TrackKind.KIND_AUDIO:
                 return
             asyncio.run_coroutine_threadsafe(self._add_remote_track(track), self.loop)
 
         @room.on("track_unsubscribed")
         def on_track_unsubscribed(track: Any, publication: Any, participant: Any) -> None:
+            if self.room is not room:
+                return
             asyncio.run_coroutine_threadsafe(self._remove_remote_track(track), self.loop)
 
         @room.on("track_muted")
         def on_track_muted(publication: Any, participant: Any) -> None:
+            if self.room is not room:
+                return
             track = getattr(publication, "track", None)
             if track is not None and getattr(track, "kind", None) == rtc.TrackKind.KIND_AUDIO:
                 asyncio.run_coroutine_threadsafe(
@@ -954,6 +960,8 @@ class VoiceManager:
 
         @room.on("track_unmuted")
         def on_track_unmuted(publication: Any, participant: Any) -> None:
+            if self.room is not room:
+                return
             track = getattr(publication, "track", None)
             if track is not None and getattr(track, "kind", None) == rtc.TrackKind.KIND_AUDIO:
                 asyncio.run_coroutine_threadsafe(
@@ -963,6 +971,8 @@ class VoiceManager:
 
         @room.on("disconnected")
         def on_disconnected(reason: Any) -> None:
+            if self.room is not room:
+                return
             if self.connected:
                 self.connected = False
                 self.mic_enabled = False

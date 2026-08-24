@@ -8,9 +8,11 @@ from types import SimpleNamespace
 
 import pytest
 
-from ..administration.manager import AdministrationManager
 from ..auth.voice_rate_limit import VoiceRateLimiter
+# Import Server first: administration imports core.power through the core
+# package, whose public initializer exposes Server.
 from ..core.server import Server
+from ..administration.manager import AdministrationManager
 from ..messages.localization import Localization
 from ..persistence.database import MuteRecord
 from ..tables.manager import TableManager
@@ -23,6 +25,14 @@ class RecordingConnection:
         self.sent: list[dict] = []
 
     async def send(self, packet: dict) -> None:
+        self.sent.append(packet)
+
+
+class YieldingRecordingConnection(RecordingConnection):
+    """Model a WebSocket whose write completes on a later loop turn."""
+
+    async def send(self, packet: dict) -> None:
+        await asyncio.sleep(0)
         self.sent.append(packet)
 
 
@@ -245,7 +255,7 @@ async def test_voice_presence_requires_recent_join_authorization() -> None:
     alice = MockUser("Alice", uuid="uuid-alice")
     bob = MockUser("Bob", uuid="uuid-bob")
     alice.connection = RecordingConnection()
-    bob.connection = RecordingConnection()
+    bob.connection = YieldingRecordingConnection()
     server._users["Alice"] = alice
     server._users["Bob"] = bob
     table = server._tables.create_table("testgame", "Alice", alice)
@@ -309,6 +319,7 @@ async def test_voice_presence_announces_connect_and_explicit_leave() -> None:
             "context_id": table.table_id,
         },
     )
+    await asyncio.sleep(0)
 
     assert "Alice connected" in bob.get_last_spoken()
     assert bob.get_sounds_played()[-1] == "voice_join.ogg"
@@ -318,11 +329,216 @@ async def test_voice_presence_announces_connect_and_explicit_leave() -> None:
         alice_client,
         {"type": "voice_leave", "scope": "table", "context_id": table.table_id},
     )
+    await asyncio.sleep(0)
 
     assert alice_client.sent[-1]["type"] == "voice_leave_ack"
     assert "Alice disconnected" in bob.get_last_spoken()
     assert bob.get_sounds_played()[-1] == "voice_leave.ogg"
     assert alice.get_sounds_played()[-1] == "voice_leave.ogg"
+
+
+@pytest.mark.asyncio
+async def test_voice_cues_batch_same_turn_but_not_separate_turns() -> None:
+    server = _make_server()
+    users = [
+        MockUser("Alice", uuid="uuid-alice"),
+        MockUser("Bob", uuid="uuid-bob"),
+        MockUser("Carol", uuid="uuid-carol"),
+    ]
+    for user in users:
+        user.connection = RecordingConnection()
+        server._users[user.username] = user
+    table = server._tables.create_table("testgame", "Alice", users[0])
+    table.add_member("Bob", users[1])
+    table.add_member("Carol", users[2])
+
+    clients: list[RecordingConnection] = []
+    for user in users[:2]:
+        client = RecordingConnection()
+        client.username = user.username
+        clients.append(client)
+        _authorize_voice_join(server, user.username, table.table_id)
+        await server._handle_voice_presence(
+            client,
+            {
+                "type": "voice_presence",
+                "state": "connected",
+                "scope": "table",
+                "context_id": table.table_id,
+            },
+        )
+
+    await asyncio.sleep(0)
+    for user in users:
+        assert user.get_sounds_played().count("voice_join.ogg") == 1
+        assert len(user.get_spoken_messages()) == 2
+        user.clear_messages()
+
+    await server._handle_voice_leave(
+        clients[0],
+        {
+            "type": "voice_leave",
+            "scope": "table",
+            "context_id": table.table_id,
+        },
+    )
+    await asyncio.sleep(0)
+    await server._handle_voice_leave(
+        clients[1],
+        {
+            "type": "voice_leave",
+            "scope": "table",
+            "context_id": table.table_id,
+        },
+    )
+    await asyncio.sleep(0)
+
+    for user in users:
+        assert user.get_sounds_played().count("voice_leave.ogg") == 2
+
+
+@pytest.mark.asyncio
+async def test_server_can_request_listen_only_voice_join_and_cancel_it() -> None:
+    server = _make_server()
+    alice = MockUser("Alice", uuid="uuid-alice")
+    alice.connection = RecordingConnection()
+    server._users[alice.username] = alice
+    table = server._tables.create_table("testgame", alice.username, alice)
+
+    assert await server.force_voice_context_join(
+        alice.username,
+        context_id=table.table_id,
+    )
+    join_packet = alice.connection.sent[-1]
+    assert join_packet["type"] == "voice_join_info"
+    assert join_packet["server_requested"] is True
+    assert join_packet["context_id"] == table.table_id
+    assert server._voice_join_authorizations_by_user[alice.username][
+        "context_id"
+    ] == table.table_id
+
+    assert await server.force_voice_context_leave(
+        alice.username,
+        scope="table",
+        context_id=table.table_id,
+    )
+    assert alice.username not in server._voice_join_authorizations_by_user
+    assert alice.connection.sent[-1] == {
+        "type": "voice_context_closed",
+        "scope": "table",
+        "context_id": table.table_id,
+    }
+
+
+@pytest.mark.asyncio
+async def test_stale_forced_voice_close_does_not_clear_newer_presence() -> None:
+    server = _make_server()
+    alice = MockUser("Alice", uuid="uuid-alice")
+    alice.connection = RecordingConnection()
+    server._users[alice.username] = alice
+    server._voice_presence_by_user[alice.username] = {
+        "scope": "table",
+        "context_id": "new-table",
+    }
+
+    assert await server.force_voice_context_leave(
+        alice.username,
+        scope="table",
+        context_id="old-table",
+    )
+
+    assert server._voice_presence_by_user[alice.username][
+        "context_id"
+    ] == "new-table"
+    assert alice.connection.sent[-1]["context_id"] == "old-table"
+
+
+@pytest.mark.asyncio
+async def test_unscoped_forced_voice_close_revokes_pending_and_active_contexts() -> None:
+    server = _make_server()
+    alice = MockUser("Alice", uuid="uuid-alice")
+    alice.connection = RecordingConnection()
+    server._users[alice.username] = alice
+    server._voice_presence_by_user[alice.username] = {
+        "scope": "table",
+        "context_id": "active-table",
+    }
+    _authorize_voice_join(server, alice.username, "pending-table")
+
+    assert await server.force_voice_context_leave(alice.username)
+
+    assert alice.username not in server._voice_presence_by_user
+    assert alice.username not in server._voice_join_authorizations_by_user
+    assert alice.connection.sent[-1]["context_id"] == "active-table"
+
+
+@pytest.mark.asyncio
+async def test_contextless_client_voice_teardown_cannot_clear_current_room() -> None:
+    server = _make_server()
+    alice = MockUser("Alice", uuid="uuid-alice")
+    alice.connection = RecordingConnection()
+    server._users[alice.username] = alice
+    table = server._tables.create_table("testgame", alice.username, alice)
+    server._voice_presence_by_user[alice.username] = {
+        "scope": "table",
+        "context_id": table.table_id,
+    }
+    _authorize_voice_join(server, alice.username, table.table_id)
+    client = RecordingConnection()
+    client.username = alice.username
+
+    await server._handle_voice_leave(
+        client,
+        {"type": "voice_leave", "scope": "table"},
+    )
+    await server._handle_voice_presence(
+        client,
+        {
+            "type": "voice_presence",
+            "state": "connection_lost",
+            "scope": "table",
+        },
+    )
+
+    assert server._voice_presence_by_user[alice.username]["context_id"] == table.table_id
+    assert server._voice_join_authorizations_by_user[alice.username][
+        "context_id"
+    ] == table.table_id
+    assert client.sent == [{"type": "voice_leave_ack"}]
+
+
+@pytest.mark.asyncio
+async def test_same_context_reauthorization_cancels_scheduled_stale_close() -> None:
+    server = _make_server()
+    alice = MockUser("Alice", uuid="uuid-alice")
+    bob = MockUser("Bob", uuid="uuid-bob")
+    alice.connection = RecordingConnection()
+    bob.connection = RecordingConnection()
+    server._users[alice.username] = alice
+    server._users[bob.username] = bob
+    table = server._tables.create_table("testgame", alice.username, alice)
+    table.add_member(bob.username, bob)
+    server._voice_presence_by_user[alice.username] = {
+        "scope": "table",
+        "context_id": table.table_id,
+    }
+
+    table.remove_member(alice.username)
+    assert table.add_member(alice.username, alice)
+    assert await server.force_voice_context_join(
+        alice.username,
+        context_id=table.table_id,
+    )
+    await asyncio.sleep(0)
+
+    assert server._voice_presence_by_user[alice.username][
+        "context_id"
+    ] == table.table_id
+    assert not any(
+        packet["type"] == "voice_context_closed"
+        for packet in alice.connection.sent
+    )
+    assert server._pending_voice_context_closures == {}
 
 
 @pytest.mark.asyncio
@@ -354,6 +570,7 @@ async def test_voice_presence_clears_when_member_leaves_table() -> None:
     alice.connection.sent.clear()
 
     table.remove_member("Alice")
+    await asyncio.sleep(0)
     await asyncio.sleep(0)
 
     assert "Alice left the table" in bob.get_last_spoken()
@@ -454,29 +671,49 @@ async def test_save_and_close_clears_voice_presence_and_notifies_client() -> Non
     table.add_member("Bob", bob)
     table.game = FakeGame(table)
 
-    alice_client = RecordingConnection()
-    alice_client.username = "Alice"
-    _authorize_voice_join(server, "Alice", table.table_id)
-    await server._handle_voice_presence(
-        alice_client,
-        {
-            "type": "voice_presence",
-            "state": "connected",
-            "scope": "table",
-            "context_id": table.table_id,
-        },
-    )
-    bob.clear_messages()
-    alice.connection.sent.clear()
+    for voice_user in (alice, bob):
+        voice_client = RecordingConnection()
+        voice_client.username = voice_user.username
+        _authorize_voice_join(server, voice_user.username, table.table_id)
+        await server._handle_voice_presence(
+            voice_client,
+            {
+                "type": "voice_presence",
+                "state": "connected",
+                "scope": "table",
+                "context_id": table.table_id,
+            },
+        )
+    await asyncio.sleep(0)
+    for voice_user in (alice, bob):
+        voice_user.clear_messages()
+        voice_user.connection.sent.clear()
 
     table.save_and_close("Alice")
+    await asyncio.sleep(0)
     await asyncio.sleep(0)
 
     assert server._db.saved_tables[-1]["username"] == "Alice"
     assert "Alice" not in server._voice_presence_by_user
-    assert alice.connection.sent[-1]["type"] == "voice_context_closed"
-    assert alice.connection.sent[-1]["context_id"] == table.table_id
-    assert "Alice left the table" in bob.get_last_spoken()
+    assert "Bob" not in server._voice_presence_by_user
+    for voice_user in (alice, bob):
+        closed_packets = [
+            packet
+            for packet in voice_user.connection.sent
+            if packet["type"] == "voice_context_closed"
+        ]
+        assert closed_packets == [
+            {
+                "type": "voice_context_closed",
+                "scope": "table",
+                "context_id": table.table_id,
+            }
+        ]
+        assert voice_user.get_sounds_played().count("voice_leave.ogg") == 1
+        assert any(
+            "left the table" in message
+            for message in voice_user.get_spoken_messages()
+        )
 
 
 @pytest.mark.asyncio

@@ -604,6 +604,7 @@ export function PlayAuralApp() {
   const [voiceStatusText, setVoiceStatusText] = useState(() => localization.t("voice-chat-not-connected"));
   const [voiceState, setVoiceState] = useState<MobileVoiceConnectionState>("disconnected");
   const [voiceMicEnabled, setVoiceMicEnabled] = useState(false);
+  const [voiceMicBusy, setVoiceMicBusy] = useState(false);
   const currentMusic = useMemo(
     () => audio.getActiveLayerAssets("music").join(", "),
     [audio, audioRevision],
@@ -618,6 +619,7 @@ export function PlayAuralApp() {
   const handleSystemSwipeRef = useRef<((direction: "up" | "down" | "left" | "right") => void) | null>(null);
   const lastPingStartedAtRef = useRef<number | null>(lastPingStartedAt);
   const preferencesRef = useRef<Record<string, unknown>>(preferences);
+  const voiceMicBusyRef = useRef(false);
   const voiceContextRef = useRef<VoiceContextState>({
     contextId: "",
     scope: "table",
@@ -679,6 +681,10 @@ export function PlayAuralApp() {
   const resetConfirmPasswordInputRef = useRef<TextInput | null>(null);
   const inputOverlayInputRef = useRef<TextInput | null>(null);
   const chatInputRef = useRef<TextInput | null>(null);
+  const updateVoiceMicBusy = useCallback((busy: boolean) => {
+    voiceMicBusyRef.current = busy;
+    setVoiceMicBusy(busy);
+  }, []);
 
   useEffect(() => {
     audio.setStateListener(() => {
@@ -1649,6 +1655,9 @@ export function PlayAuralApp() {
         audio.refreshPlaybackState();
         setVoiceStatusMessage("voice-chat-connection-lost", true);
       },
+      onMicBusy: (busy) => {
+        updateVoiceMicBusy(busy);
+      },
       onMicState: (enabled) => {
         setVoiceMicEnabled(enabled);
         audio.refreshPlaybackState();
@@ -1660,7 +1669,7 @@ export function PlayAuralApp() {
         setVoiceStatusMessage(messageKeyOrText, speak);
       },
     });
-  }, [audio, sendVoicePresence, setVoiceStatusMessage, voice]);
+  }, [audio, sendVoicePresence, setVoiceStatusMessage, updateVoiceMicBusy, voice]);
 
   const applyPreferenceUpdates = (updates: Record<string, unknown>) => {
     if (Object.keys(updates).length === 0) {
@@ -2063,6 +2072,14 @@ export function PlayAuralApp() {
       return;
     }
 
+    // The explicit microphone action starts the microphone-class service
+    // before WebRTC publishes a track. Let that serialized transition finish
+    // before this general reconciler changes the service type; when the busy
+    // flag clears, the effect runs again against the authoritative voice state.
+    if (voiceMicBusy) {
+      return;
+    }
+
     const hasVoiceSession = voiceState === "connected" || voiceState === "connecting";
     const hasAudibleManagedAudio = audio.hasAudibleManagedLayers();
     const shouldUseMicrophoneService = voiceMicEnabled && hasVoiceSession;
@@ -2096,7 +2113,7 @@ export function PlayAuralApp() {
           : "dataSync",
       title: localization.t("background-service-title"),
     });
-  }, [appState, audio, audioRevision, connected, localization, voiceMicEnabled, voiceState]);
+  }, [appState, audio, audioRevision, connected, localization, voiceMicBusy, voiceMicEnabled, voiceState]);
 
   const exitApplication = useCallback(() => {
     disableAutoReconnect();
@@ -2512,11 +2529,50 @@ export function PlayAuralApp() {
         if (packet.type === "voice_join_info") {
           const voicePacket = packet as VoiceJoinInfoPacket;
           const packetContextId = String(voicePacket.context_id || "");
-          if (!voiceJoinPendingRef.current) {
+          const packetScope = String(voicePacket.scope || "table");
+          const serverRequested = voicePacket.server_requested === true;
+          if (!serverRequested && !voiceJoinPendingRef.current) {
             return;
           }
-          if (!packetContextId || packetContextId !== voiceRequestedContextIdRef.current) {
+          const expectedContextId = serverRequested
+            ? voiceContextRef.current.contextId
+            : voiceRequestedContextIdRef.current;
+          if (packetScope !== "table") {
+            connectionRef.current?.send({
+              context_id: packetContextId,
+              scope: packetScope,
+              type: "voice_leave",
+            });
             return;
+          }
+          if (
+            !packetContextId
+            || packetContextId !== expectedContextId
+          ) {
+            connectionRef.current?.send({
+              context_id: packetContextId,
+              scope: "table",
+              type: "voice_leave",
+            });
+            return;
+          }
+          if (serverRequested && !voice.supported) {
+            connectionRef.current?.send({
+              context_id: packetContextId,
+              scope: "table",
+              type: "voice_leave",
+            });
+            voiceJoinPendingRef.current = false;
+            setVoiceRequestedContextId("");
+            setVoiceState("disconnected");
+            setVoiceStatusMessage("voice-chat-sdk-missing", true);
+            return;
+          }
+          if (serverRequested) {
+            voicePresenceRegisteredRef.current = false;
+            setVoiceState("connecting");
+            setVoiceMicEnabled(false);
+            setVoiceStatusMessage("voice-chat-joining", true);
           }
           voiceJoinPendingRef.current = false;
           setVoiceContext({
@@ -2562,9 +2618,11 @@ export function PlayAuralApp() {
           const closedPacket = packet as VoiceContextClosedPacket;
           const closedContextId = String(closedPacket.context_id || "");
           if (
-            closedContextId &&
-            closedContextId !== voiceContextRef.current.contextId &&
-            closedContextId !== voiceRequestedContextIdRef.current
+            !closedContextId
+            || (
+              closedContextId !== voiceContextRef.current.contextId
+              && closedContextId !== voiceRequestedContextIdRef.current
+            )
           ) {
             return;
           }
@@ -4354,22 +4412,40 @@ export function PlayAuralApp() {
       setVoiceStatusMessage("voice-chat-not-connected", true);
       return;
     }
-    if (!voiceMicEnabled) {
-      const granted = await ensureVoiceMicrophonePermission(true);
-      if (!granted) {
-        setVoiceStatusMessage("voice-chat-mic-denied", true);
+    if (voiceMicBusyRef.current) {
+      return;
+    }
+    const requestedContextId = voiceContextRef.current.contextId;
+    updateVoiceMicBusy(true);
+    try {
+      if (!voiceMicEnabled) {
+        const granted = await ensureVoiceMicrophonePermission(true);
+        if (!granted) {
+          updateVoiceMicBusy(false);
+          setVoiceStatusMessage("voice-chat-mic-denied", true);
+          return;
+        }
+        if (Platform.OS === "android") {
+          await androidForegroundService.sync({
+            message: localization.t("background-service-voice-mic"),
+            serviceType: "microphone",
+            title: localization.t("background-service-title"),
+          });
+        }
+      }
+      if (
+        voice.connectionState !== "connected"
+        || voiceContextRef.current.contextId !== requestedContextId
+      ) {
+        updateVoiceMicBusy(false);
         return;
       }
-      if (Platform.OS === "android") {
-        await androidForegroundService.sync({
-          message: localization.t("background-service-voice-mic"),
-          serviceType: "microphone",
-          title: localization.t("background-service-title"),
-        });
-      }
+      voice.setMicrophoneEnabled(!voiceMicEnabled);
+    } catch {
+      updateVoiceMicBusy(false);
+      setVoiceStatusMessage("voice-chat-mic-denied", true);
     }
-    voice.setMicrophoneEnabled(!voiceMicEnabled);
-  }, [ensureVoiceMicrophonePermission, localization, setVoiceStatusMessage, voice, voiceMicEnabled, voiceState]);
+  }, [ensureVoiceMicrophonePermission, localization, setVoiceStatusMessage, updateVoiceMicBusy, voice, voiceMicEnabled, voiceState]);
 
   const requestAuthFlow = async (
     packet: Record<string, unknown>,
@@ -4827,8 +4903,9 @@ export function PlayAuralApp() {
               voiceMicEnabled ? "voice-chat-turn-off-mic" : "voice-chat-turn-on-mic",
             )}
             accessibilityRole="button"
-            accessibilityState={{ selected: voiceMicEnabled }}
+            accessibilityState={{ disabled: voiceMicBusy, selected: voiceMicEnabled }}
             accessible
+            disabled={voiceMicBusy}
             onPress={() => {
               void audio.handleUserInteraction();
               void toggleVoiceMicrophone();
@@ -4844,6 +4921,7 @@ export function PlayAuralApp() {
               styles.buttonSecondary,
               styles.chatActionButton,
               chatFocusIndex === voiceMicChatFocusIndex ? styles.menuItemFocused : undefined,
+              voiceMicBusy ? styles.buttonDisabled : undefined,
             ]}
           >
             <Text style={styles.buttonText}>

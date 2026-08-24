@@ -242,16 +242,17 @@ class UnoGame(Game):
         bot_name = self._resolve_add_bot_name(player, bot_name)
         if bot_name is None:
             return
-        self.add_player(bot_name, Bot(bot_name))
+        bot = self.add_player(bot_name, Bot(bot_name))
         self.broadcast_l("table-joined", buffer="game", player=bot_name)
-        self.broadcast_sound("join.ogg")
+        self.play_table_join_sound(bot, is_bot=True)
         self.refresh_menus()
 
     def _action_remove_bot(self, player: Player, action_id: str) -> None:
         for i in range(len(self.players) - 1, -1, -1):
             if self.players[i].is_bot:
-                self.remove_player(self.players[i].id)
-                self.broadcast_sound("leave.ogg")
+                bot = self.players[i]
+                self.remove_player(bot.id)
+                self.play_table_leave_sound(bot, is_bot=True)
                 break
         self.refresh_menus()
 
@@ -260,7 +261,7 @@ class UnoGame(Game):
             self.remove_spectator(player.id)
             if self._table:
                 self._table.remove_member(player.name)
-            self.broadcast_sound("leave_spectator.ogg")
+            self.play_table_leave_sound(player, is_spectator=True)
             self.refresh_menus()
             return
 
@@ -271,12 +272,21 @@ class UnoGame(Game):
             )
             if other_humans:
                 if self._replace_with_bot(player):
-                    self.broadcast_sound("leave.ogg")
+                    self.play_table_leave_sound(
+                        player,
+                        is_bot=False,
+                        is_spectator=False,
+                    )
                 self.refresh_menus()
                 return
 
+        was_bot = player.is_bot
         self.remove_player(player.id)
-        self.broadcast_sound("leave.ogg")
+        self.play_table_leave_sound(
+            player,
+            is_bot=was_bot,
+            is_spectator=False,
+        )
         if self.status == "waiting" and self._table:
             self._table.remove_member(player.name)
 

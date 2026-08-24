@@ -150,55 +150,22 @@ class CrazyEightsGame(Game, TurnTimerMixin):
             return
         super().broadcast_sound(name, volume, pan, pitch)
 
-    def play_table_join_sound(
+    def _get_table_presence_sound(
         self,
-        player: Player | None = None,
+        event: str,
         *,
-        is_bot: bool | None = None,
-        is_spectator: bool | None = None,
-    ) -> None:
-        bot, spectator = self._table_presence_flags(
-            player,
-            is_bot=is_bot,
-            is_spectator=is_spectator,
-        )
-        if spectator:
-            super().play_table_join_sound(
-                player,
-                is_bot=bot,
-                is_spectator=spectator,
+        is_bot: bool,
+        is_spectator: bool,
+    ) -> str:
+        if is_spectator:
+            return super()._get_table_presence_sound(
+                event,
+                is_bot=is_bot,
+                is_spectator=True,
             )
-            return
-        self.play_sound(
-            "game_crazyeights/botsit.ogg"
-            if bot
-            else "game_crazyeights/personsit.ogg"
-        )
-
-    def play_table_leave_sound(
-        self,
-        player: Player | None = None,
-        *,
-        is_bot: bool | None = None,
-        is_spectator: bool | None = None,
-    ) -> None:
-        bot, spectator = self._table_presence_flags(
-            player,
-            is_bot=is_bot,
-            is_spectator=is_spectator,
-        )
-        if spectator:
-            super().play_table_leave_sound(
-                player,
-                is_bot=bot,
-                is_spectator=spectator,
-            )
-            return
-        self.play_sound(
-            "game_crazyeights/botleave.ogg"
-            if bot
-            else "game_crazyeights/personleave.ogg"
-        )
+        actor = "bot" if is_bot else "person"
+        action = "sit" if event == "join" else "leave"
+        return f"game_crazyeights/{actor}{action}.ogg"
 
     def add_player(self, name: str, user: User) -> CrazyEightsPlayer:
         player = super().add_player(name, user)

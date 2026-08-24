@@ -696,10 +696,10 @@ class LobbyActionsMixin:
         
         if player.is_spectator:
             self.broadcast_l("now-spectating", buffer="system", player=player.name)
-            self.broadcast_sound("join_spectator.ogg")
+            self.play_table_join_sound(player, is_spectator=True)
         else:
             self.broadcast_l("now-playing", buffer="system", player=player.name)
-            self.broadcast_sound("leave_spectator.ogg")
+            self.play_table_leave_sound(player, is_spectator=True)
 
         self.refresh_menus()
         self._notify_table_presence_changed()

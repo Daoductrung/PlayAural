@@ -200,6 +200,7 @@ export type VoiceJoinInfoPacket = {
   provider?: string;
   room?: string;
   room_label?: string;
+  server_requested?: boolean;
   scope?: string;
   token: string;
   url: string;
@@ -353,7 +354,7 @@ export type VoiceJoinPacket = {
 export type VoiceLeavePacket = {
   type: "voice_leave";
   context_id?: string;
-  scope: "table";
+  scope: string;
 };
 
 export type VoicePresencePacket = {

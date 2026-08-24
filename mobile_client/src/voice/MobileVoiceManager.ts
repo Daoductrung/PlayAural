@@ -6,6 +6,8 @@ import {
   type RemoteParticipant,
   type RemoteTrackPublication,
 } from "livekit-client";
+import type { AppleAudioConfiguration } from "@livekit/react-native";
+import type { VoiceJoinInfoPacket } from "../network/packets";
 
 type NativeLiveKitModule = typeof import("@livekit/react-native");
 type VoiceBootstrapGlobal = typeof globalThis & {
@@ -14,19 +16,10 @@ type VoiceBootstrapGlobal = typeof globalThis & {
 
 export type MobileVoiceConnectionState = "connected" | "connecting" | "disconnected";
 
-export type VoiceJoinInfoPacket = {
-  context_id?: string;
-  provider?: string;
-  room?: string;
-  room_label?: string;
-  scope?: string;
-  token: string;
-  url: string;
-};
-
 type VoiceCallbacks = {
   onConnected?: () => void;
   onDisconnect?: (reason: "connection_lost") => void;
+  onMicBusy?: (busy: boolean) => void;
   onMicState?: (enabled: boolean) => void;
   onState?: (state: MobileVoiceConnectionState) => void;
   onStatus?: (messageKeyOrText: string, speak: boolean) => void;
@@ -39,9 +32,10 @@ export class MobileVoiceManager {
   private micEnabled = false;
   private micBusy = false;
   private connected = false;
-  private localDisconnectRequested = false;
   private intent = 0;
   private nativeAudioSessionStarted = false;
+  private lifecycleTail: Promise<void> = Promise.resolve();
+  private expectedDisconnectRooms = new WeakSet<Room>();
   private remoteAudioElements = new Map<string, HTMLAudioElement>();
   private webAudioContainer: HTMLDivElement | null = null;
   // Voice volume: 0.1-1.0, applied to all remote audio elements
@@ -68,29 +62,34 @@ export class MobileVoiceManager {
 
   join(packet: VoiceJoinInfoPacket): void {
     const intent = this.nextIntent();
-    void this.joinInternal(packet, intent);
+    this.queueLifecycle(() => this.joinInternal(packet, intent));
   }
 
   leave(notify = true): void {
     this.nextIntent();
-    void this.leaveInternal(notify);
+    this.queueLifecycle(() => this.leaveInternal(notify));
   }
 
   setMicrophoneEnabled(enabled: boolean): void {
-    void this.setMicrophoneEnabledInternal(enabled);
+    if (this.micBusy) {
+      return;
+    }
+    this.setMicBusy(true);
+    const intent = this.intent;
+    this.queueLifecycle(() => this.setMicrophoneEnabledInternal(enabled, intent));
   }
 
   configureIdleAudioProfile(): void {
-    void this.configureIdleAudioProfileInternal();
+    this.queueLifecycle(() => this.configureIdleAudioProfileInternal());
   }
 
   refreshAudioSession(): void {
-    void this.refreshAudioSessionInternal();
+    this.queueLifecycle(() => this.refreshAudioSessionInternal());
   }
 
   shutdown(): void {
     this.nextIntent();
-    void this.leaveInternal(false);
+    this.queueLifecycle(() => this.leaveInternal(false));
   }
 
   setVoiceVolume(volume: number): void {
@@ -108,6 +107,11 @@ export class MobileVoiceManager {
     return this.intent;
   }
 
+  private queueLifecycle(operation: () => Promise<void>): void {
+    const run = this.lifecycleTail.then(operation, operation);
+    this.lifecycleTail = run.catch(() => undefined);
+  }
+
   private isCurrentIntent(intent: number): boolean {
     return this.intent === intent;
   }
@@ -120,6 +124,14 @@ export class MobileVoiceManager {
   private setMicState(enabled: boolean): void {
     this.micEnabled = enabled;
     this.callbacks.onMicState?.(enabled);
+  }
+
+  private setMicBusy(busy: boolean): void {
+    if (this.micBusy === busy) {
+      return;
+    }
+    this.micBusy = busy;
+    this.callbacks.onMicBusy?.(busy);
   }
 
   private async joinInternal(packet: VoiceJoinInfoPacket, intent: number): Promise<void> {
@@ -172,58 +184,101 @@ export class MobileVoiceManager {
 
   private bindRoomEvents(room: Room): void {
     room.on(RoomEvent.TrackSubscribed, (track, publication, participant) => {
+      if (this.room !== room) {
+        return;
+      }
       if (Platform.OS === "web" && track.kind === Track.Kind.Audio) {
         this.attachWebTrack(track as Track, publication, participant);
       }
     });
 
     room.on(RoomEvent.TrackUnsubscribed, (track, publication) => {
+      if (this.room !== room) {
+        return;
+      }
       if (Platform.OS === "web" && track.kind === Track.Kind.Audio) {
         this.detachWebTrack(publication);
       }
     });
 
     room.on(RoomEvent.Disconnected, () => {
-      const wasConnected = this.connected;
-      const expectedDisconnect = this.localDisconnectRequested;
-      this.connected = false;
-      this.cleanupWebAudioElements();
-      this.room = null;
-      this.setMicState(false);
-      this.setState("disconnected");
-      void this.stopNativeAudioSession().finally(() => {
-        this.configureIdleAudioProfile();
-        if (wasConnected && !expectedDisconnect) {
-          this.callbacks.onDisconnect?.("connection_lost");
-        }
-        this.localDisconnectRequested = false;
-      });
+      this.queueLifecycle(() => this.handleRoomDisconnected(room));
     });
 
     room.on(RoomEvent.MediaDevicesError, () => {
+      if (this.room !== room) {
+        return;
+      }
       this.callbacks.onStatus?.("voice-chat-mic-denied", true);
     });
   }
 
-  private async setMicrophoneEnabledInternal(enabled: boolean): Promise<void> {
-    if (!this.room || !this.connected) {
-      this.callbacks.onStatus?.("voice-chat-not-connected", true);
-      return;
-    }
-    if (this.micBusy || enabled === this.micEnabled) {
+  private async handleRoomDisconnected(room: Room): Promise<void> {
+    const expectedDisconnect = this.expectedDisconnectRooms.has(room);
+    this.expectedDisconnectRooms.delete(room);
+    if (this.room !== room) {
       return;
     }
 
-    this.micBusy = true;
+    const wasConnected = this.connected;
+    this.connected = false;
+    this.cleanupWebAudioElements();
+    this.room = null;
+    this.setMicBusy(false);
+    this.setMicState(false);
+    this.setState("disconnected");
+    await this.stopNativeAudioSession();
+    await this.configureIdleAudioProfileInternal();
+    if (wasConnected && !expectedDisconnect) {
+      this.callbacks.onDisconnect?.("connection_lost");
+    }
+  }
+
+  private async setMicrophoneEnabledInternal(
+    enabled: boolean,
+    intent: number,
+  ): Promise<void> {
     try {
-      await this.room.localParticipant.setMicrophoneEnabled(enabled);
+      if (!this.isCurrentIntent(intent)) {
+        return;
+      }
+      if (!this.room || !this.connected) {
+        this.callbacks.onStatus?.("voice-chat-not-connected", true);
+        return;
+      }
+      if (enabled === this.micEnabled) {
+        return;
+      }
+
+      const room = this.room;
+      if (enabled) {
+        await this.applyNativeMediaAudioProfile(true);
+      }
+      if (!this.isCurrentIntent(intent) || this.room !== room) {
+        await this.applyNativeMediaAudioProfile(false);
+        return;
+      }
+
+      await room.localParticipant.setMicrophoneEnabled(enabled);
+      if (!this.isCurrentIntent(intent) || this.room !== room || !this.connected) {
+        if (enabled) {
+          await room.localParticipant.setMicrophoneEnabled(false).catch(() => undefined);
+        }
+        await this.applyNativeMediaAudioProfile(false);
+        return;
+      }
+
+      // Reassert the media policy after WebRTC creates or removes its input
+      // track so no dependency callback can leave a call-oriented mode active.
+      await this.applyNativeMediaAudioProfile(enabled);
       this.setMicState(enabled);
       this.callbacks.onStatus?.(enabled ? "voice-chat-mic-on" : "voice-chat-mic-off", true);
     } catch {
       this.setMicState(false);
+      await this.applyNativeMediaAudioProfile(false).catch(() => undefined);
       this.callbacks.onStatus?.("voice-chat-mic-denied", true);
     } finally {
-      this.micBusy = false;
+      this.setMicBusy(false);
     }
   }
 
@@ -232,7 +287,7 @@ export class MobileVoiceManager {
     this.room = null;
 
     if (room) {
-      this.localDisconnectRequested = true;
+      this.expectedDisconnectRooms.add(room);
       try {
         await room.localParticipant.setMicrophoneEnabled(false);
       } catch {
@@ -246,6 +301,7 @@ export class MobileVoiceManager {
     }
 
     this.connected = false;
+    this.setMicBusy(false);
     this.cleanupWebAudioElements();
     await this.stopNativeAudioSession();
     await this.configureIdleAudioProfileInternal();
@@ -254,7 +310,6 @@ export class MobileVoiceManager {
     if (notify) {
       this.callbacks.onStatus?.("voice-chat-left", true);
     }
-    this.localDisconnectRequested = false;
   }
 
   private attachExistingWebTracks(room: Room): void {
@@ -357,7 +412,7 @@ export class MobileVoiceManager {
       return;
     }
 
-    await liveKitNative.AudioSession.configureAudio(this.getNativeAudioConfiguration(liveKitNative));
+    await this.applyNativeMediaAudioProfile(false, liveKitNative);
     await liveKitNative.AudioSession.startAudioSession();
     this.nativeAudioSessionStarted = true;
   }
@@ -382,7 +437,7 @@ export class MobileVoiceManager {
     }
 
     try {
-      await liveKitNative.AudioSession.configureAudio(this.getNativeAudioConfiguration(liveKitNative));
+      await this.applyNativeMediaAudioProfile(this.micEnabled, liveKitNative);
       await liveKitNative.AudioSession.startAudioSession();
       this.nativeAudioSessionStarted = true;
     } catch {
@@ -397,43 +452,79 @@ export class MobileVoiceManager {
     }
 
     try {
-      await liveKitNative.AudioSession.configureAudio({
-        android: {
-          audioTypeOptions: this.getAndroidMediaVoiceAudioOptions(liveKitNative),
-        },
-      });
+      await this.applyNativeMediaAudioProfile(false, liveKitNative);
     } catch {
       // Ignore idle-profile restore failures; they should not block gameplay audio.
     }
   }
 
-  private getNativeAudioConfiguration(liveKitNative: NativeLiveKitModule) {
-    const preferredOutputList: Array<"bluetooth" | "headset" | "speaker" | "earpiece"> = [
-      "bluetooth",
-      "headset",
-      "speaker",
-      "earpiece",
-    ];
-    const defaultOutput: "speaker" = "speaker";
-
-    return {
-      android: {
-        preferredOutputList,
-        // Keep LiveKit on Android's media route so microphone use does not collapse game audio to mono.
-        audioTypeOptions: this.getAndroidMediaVoiceAudioOptions(liveKitNative),
-      },
-      ios: {
-        defaultOutput,
-      },
-    };
+  private async applyNativeMediaAudioProfile(
+    microphoneEnabled: boolean,
+    liveKitNative = this.getNativeLiveKitModule(),
+  ): Promise<void> {
+    if (!liveKitNative || Platform.OS === "web") {
+      return;
+    }
+    if (Platform.OS === "android") {
+      await liveKitNative.AudioSession.configureAudio({
+        android: {
+          // MODE_NORMAL delegates wired/Bluetooth/speaker selection to
+          // Android. Supplying a preferred-output list would reintroduce
+          // call-style device routing through LiveKit's AudioSwitch layer.
+          audioTypeOptions: this.getAndroidMediaVoiceAudioOptions(liveKitNative),
+        },
+      });
+      return;
+    }
+    if (Platform.OS === "ios") {
+      await liveKitNative.AudioSession.setAppleAudioConfiguration(
+        this.getAppleMediaVoiceAudioOptions(microphoneEnabled),
+      );
+    }
   }
 
   private getAndroidMediaVoiceAudioOptions(liveKitNative: NativeLiveKitModule) {
     return {
       ...liveKitNative.AndroidAudioTypePresets.media,
-      audioAttributesContentType: "speech" as const,
+      // Pin every field that distinguishes media from call routing so an
+      // upstream preset change cannot silently opt PlayAural into mono voice.
+      audioMode: "normal" as const,
+      audioStreamType: "music" as const,
+      audioAttributesUsageType: "media" as const,
+      audioAttributesContentType: "music" as const,
       audioFocusMode: "gainTransientMayDuck" as const,
       manageAudioFocus: false,
+      forceHandleAudioRouting: false,
+    };
+  }
+
+  private getAppleMediaVoiceAudioOptions(
+    microphoneEnabled: boolean,
+  ): AppleAudioConfiguration {
+    if (microphoneEnabled) {
+      // Recording requires playAndRecord, but the default mode deliberately
+      // avoids voiceChat/videoChat processing and preserves media fidelity.
+      return {
+        audioCategory: "playAndRecord",
+        audioCategoryOptions: [
+          "allowAirPlay",
+          // Keep Bluetooth on stereo A2DP. Enabling the HFP option gives the
+          // mono hands-free route priority whenever microphone input is used.
+          "allowBluetoothA2DP",
+          "defaultToSpeaker",
+          "mixWithOthers",
+        ],
+        audioMode: "default",
+      };
+    }
+    return {
+      audioCategory: "playback",
+      audioCategoryOptions: [
+        "allowAirPlay",
+        "allowBluetoothA2DP",
+        "mixWithOthers",
+      ],
+      audioMode: "default",
     };
   }
 }

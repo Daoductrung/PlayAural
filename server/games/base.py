@@ -195,6 +195,13 @@ class Game(
         cleared here so stale references cannot retain them while the discarded
         game instance awaits garbage collection.
         """
+        table_audio_batcher = getattr(self, "_table_presence_audio_batcher", None)
+        if table_audio_batcher is not None:
+            # A lifecycle boundary may occur in the same synchronous action
+            # that queued a legitimate final departure cue. Flush it before
+            # detaching the game's users so the event is not lost or replayed
+            # later in an unrelated menu.
+            table_audio_batcher.flush()
 
     def _reset_transcripts(self) -> None:
         """Initialize transcript storage for seated players."""

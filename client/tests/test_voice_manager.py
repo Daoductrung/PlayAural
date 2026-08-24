@@ -494,7 +494,9 @@ async def test_muted_tracks_leave_playback_until_unmuted() -> None:
     manager.on_state = lambda state: None
     manager.on_disconnect = lambda reason: None
     manager.on_status = lambda key, speak: None
-    manager._bind_room_events(Room())
+    room = Room()
+    manager.room = room
+    manager._bind_room_events(room)
 
     track = SimpleNamespace(
         sid="remote-track",
@@ -503,6 +505,15 @@ async def test_muted_tracks_leave_playback_until_unmuted() -> None:
     publication = SimpleNamespace(track=track)
     handlers["track_muted"](publication, None)
     await asyncio.sleep(0.01)
+    handlers["track_unmuted"](publication, None)
+    await asyncio.sleep(0.01)
+
+    assert events == [("remove", "remote-track"), ("add", "remote-track")]
+
+    # Events delivered late by a replaced room must not touch the new room's
+    # output pipeline.
+    manager.room = Room()
+    handlers["track_muted"](publication, None)
     handlers["track_unmuted"](publication, None)
     await asyncio.sleep(0.01)
 

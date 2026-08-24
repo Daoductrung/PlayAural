@@ -9,6 +9,7 @@ from ..audio import (
     AudioPlaybackState,
     DEFAULT_AMBIENCE_FADE_MS,
     DEFAULT_MUSIC_FADE_MS,
+    SameTurnAudioBatcher,
     new_audio_handle,
 )
 
@@ -415,12 +416,16 @@ class GameSoundMixin:
         is_spectator: bool | None = None,
     ) -> None:
         """Play the appropriate table-entry sound for this game."""
-        _, spectator = self._table_presence_flags(
+        bot, spectator = self._table_presence_flags(
             player,
             is_bot=is_bot,
             is_spectator=is_spectator,
         )
-        self.broadcast_sound("join_spectator.ogg" if spectator else "join.ogg")
+        self._queue_table_presence_sound(
+            "join",
+            is_bot=bot,
+            is_spectator=spectator,
+        )
 
     def play_table_leave_sound(
         self,
@@ -430,12 +435,52 @@ class GameSoundMixin:
         is_spectator: bool | None = None,
     ) -> None:
         """Play the appropriate table-exit sound for this game."""
-        _, spectator = self._table_presence_flags(
+        bot, spectator = self._table_presence_flags(
             player,
             is_bot=is_bot,
             is_spectator=is_spectator,
         )
-        self.broadcast_sound("leave_spectator.ogg" if spectator else "leave.ogg")
+        self._queue_table_presence_sound(
+            "leave",
+            is_bot=bot,
+            is_spectator=spectator,
+        )
+
+    def _get_table_presence_sound(
+        self,
+        event: str,
+        *,
+        is_bot: bool,
+        is_spectator: bool,
+    ) -> str:
+        """Return the game-specific cue for one table presence transition."""
+        del is_bot
+        suffix = "_spectator" if is_spectator else ""
+        return f"{event}{suffix}.ogg"
+
+    def _queue_table_presence_sound(
+        self,
+        event: str,
+        *,
+        is_bot: bool,
+        is_spectator: bool,
+    ) -> None:
+        """Play an identical table cue once per event-loop turn."""
+        sound = self._get_table_presence_sound(
+            event,
+            is_bot=is_bot,
+            is_spectator=is_spectator,
+        )
+        if not sound:
+            return
+        batcher = getattr(self, "_table_presence_audio_batcher", None)
+        if batcher is None:
+            batcher = SameTurnAudioBatcher()
+            self._table_presence_audio_batcher = batcher
+        batcher.queue(
+            (event, sound),
+            lambda sound=sound: self.broadcast_sound(sound),
+        )
 
     def play_music(
         self,

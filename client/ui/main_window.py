@@ -751,16 +751,50 @@ class MainWindow(wx.Frame):
 
     def on_voice_join_info(self, packet):
         """Handle server-issued Voice Chat connection details."""
-        if self.voice_state != "connecting":
+        server_requested = packet.get("server_requested") is True
+        packet_scope = packet.get("scope", "table")
+        packet_context_id = packet.get("context_id", "")
+        if server_requested:
+            if (
+                packet_scope != "table"
+                or not packet_context_id
+                or packet_context_id != self.current_table_context_id
+            ):
+                self.network.send_packet(
+                    {
+                        "type": "voice_leave",
+                        "scope": packet_scope,
+                        "context_id": packet_context_id,
+                    }
+                )
+                return
+            if not self.voice_manager.supported:
+                self.network.send_packet(
+                    {
+                        "type": "voice_leave",
+                        "scope": packet_scope,
+                        "context_id": packet_context_id,
+                    }
+                )
+                self.on_voice_status("voice-chat-sdk-missing", True)
+                return
+            self.voice_presence_registered = False
+            self.voice_state = "connecting"
+            self.voice_mic_enabled = False
+            self.voice_mic_toggle_pending = None
+            self.voice_requested_context_id = packet_context_id
+            self.update_voice_ui()
+            self.on_voice_status("voice-chat-joining", True)
+        elif self.voice_state != "connecting":
             return
         if (
             self.voice_requested_context_id
-            and packet.get("context_id", "") != self.voice_requested_context_id
+            and packet_context_id != self.voice_requested_context_id
         ):
             return
         self.voice_context = {
-            "scope": packet.get("scope", "table"),
-            "context_id": packet.get("context_id", ""),
+            "scope": packet_scope,
+            "context_id": packet_context_id,
         }
         self.voice_manager.join(packet)
         # Apply any pending voice volume that arrived before voice connected

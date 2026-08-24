@@ -647,7 +647,7 @@ class VoiceChatManager {
     this.joinGeneration = 0;
     this.context = { scope: "table", contextId: "" };
     this.presenceRegistered = false;
-    this.expectedDisconnect = false;
+    this.expectedDisconnectRooms = new WeakSet();
     this.pendingJoin = false;
     this.micEnabled = false;
     this.micTogglePending = null;
@@ -778,6 +778,38 @@ class VoiceChatManager {
     });
   }
 
+  acceptServerJoin(packet) {
+    const scope = packet.scope || "table";
+    const contextId = packet.context_id || "";
+    if (scope !== "table" || !contextId || contextId !== this.currentTableContextId) {
+      this.app.send({
+        type: "voice_leave",
+        scope,
+        context_id: contextId,
+      });
+      return;
+    }
+    if (!window.LivekitClient || !window.LivekitClient.Room) {
+      this.app.send({
+        type: "voice_leave",
+        scope,
+        context_id: contextId,
+      });
+      this.setStatus("voice-chat-sdk-missing", true);
+      return;
+    }
+    this.joinGeneration += 1;
+    this.requestedContextId = contextId;
+    this.pendingJoin = true;
+    this.presenceRegistered = false;
+    this.state = "connecting";
+    this.micEnabled = false;
+    this.micTogglePending = null;
+    this.setStatus("voice-chat-joining", true);
+    this.updateUI();
+    this.connect(packet, this.joinGeneration);
+  }
+
   async connect(packet, joinGeneration) {
     if (!this.pendingJoin && this.state !== "connecting") {
       return;
@@ -797,7 +829,6 @@ class VoiceChatManager {
 
     await this.cleanup(false, false, false);
     const room = new LK.Room({ adaptiveStream: false, dynacast: false });
-    this.expectedDisconnect = false;
     this.room = room;
     this.state = "connecting";
     this.context = {
@@ -813,9 +844,12 @@ class VoiceChatManager {
       this.detachTrack(track, publication);
     });
     room.on("disconnected", () => {
+      const expected = this.expectedDisconnectRooms.has(room);
+      this.expectedDisconnectRooms.delete(room);
+      if (this.room !== room) {
+        return;
+      }
       const wasConnected = this.state === "connected";
-      const expected = this.expectedDisconnect;
-      this.expectedDisconnect = false;
       this.cleanupElements();
       this.room = null;
       this.pendingJoin = false;
@@ -920,7 +954,7 @@ class VoiceChatManager {
     this.room = null;
     this.cleanupElements();
     if (room) {
-      this.expectedDisconnect = true;
+      this.expectedDisconnectRooms.add(room);
       try {
         await room.localParticipant?.setMicrophoneEnabled(false);
       } catch {
@@ -2248,7 +2282,11 @@ class PlayAuralWebApp {
         });
         break;
       case "voice_join_info":
-        this.voice.connect(packet, this.voice.joinGeneration);
+        if (packet.server_requested === true) {
+          this.voice.acceptServerJoin(packet);
+        } else {
+          this.voice.connect(packet, this.voice.joinGeneration);
+        }
         break;
       case "voice_join_error":
         this.handleVoiceJoinError(packet);

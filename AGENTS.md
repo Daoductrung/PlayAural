@@ -23,6 +23,10 @@ server-authorized but media flows through the separate LiveKit service. Never
 merge voice media into gameplay WebSocket traffic. Voice membership is
 runtime-only table state unless a future feature explicitly defines retention,
 cleanup, and account-deletion behavior.
+Server-requested voice joins reuse `voice_join_info` with
+`server_requested=true`; clients connect listen-only and must never enable the
+microphone without a separate explicit user action. `voice_context_closed`
+cancels both pending and active joins.
 
 ## Commands
 
@@ -273,6 +277,14 @@ Audio-first is mandatory. Every important state change needs TTS and/or sound.
   `expo-audio` native routing patch applied by the mobile `postinstall` script.
   Android must build `expo-audio` from that guarded local source, not its
   otherwise-unpatched precompiled artifact.
+- Mobile LiveKit voice must remain media-quality audio. Android uses
+  `MODE_NORMAL`, `STREAM_MUSIC`, `USAGE_MEDIA`, no forced output selection, and
+  no LiveKit focus lease even while publishing the microphone. iOS disables
+  LiveKit's automatic call profile: listening uses `playback`/`default`, while
+  explicit microphone publishing uses `playAndRecord`/`default`, never
+  `voiceChat` or `videoChat`; keep stereo Bluetooth A2DP available but exclude
+  the mono hands-free profile. Retain the guarded LiveKit iOS native patch and
+  its fail-closed postinstall tests.
 - Persist only replayable layers in `active_audio` with recipient and paused
   state. It follows the containing table/save retention and deletion lifecycle;
   explicit stops, resets, transfers, and replacements prune stale state.

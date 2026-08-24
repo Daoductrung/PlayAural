@@ -6,6 +6,8 @@ clients, and voice media continues to use LiveKit.
 
 from __future__ import annotations
 
+import asyncio
+from collections.abc import Callable, Hashable
 from dataclasses import dataclass, field
 import math
 from pathlib import PurePosixPath
@@ -89,6 +91,69 @@ def new_audio_handle(prefix: str = "audio") -> str:
     """Create an opaque lifecycle handle safe for every client runtime."""
     safe_prefix = normalize_audio_id(prefix, field_name="handle prefix")
     return f"{safe_prefix}:{uuid.uuid4().hex}"
+
+
+class SameTurnAudioBatcher:
+    """Coalesce identical cues queued in one event-loop turn.
+
+    This deliberately has no time window. A callback scheduled after any
+    event-loop yield belongs to a new batch, even when only a tiny amount of
+    wall-clock time has passed. Synchronous tools and tests without a running
+    loop dispatch immediately instead of retaining work indefinitely.
+    """
+
+    def __init__(self) -> None:
+        self._pending: dict[Hashable, Callable[[], None]] = {}
+        self._flush_handle: asyncio.Handle | None = None
+        self._loop: asyncio.AbstractEventLoop | None = None
+
+    def queue(self, key: Hashable, callback: Callable[[], None]) -> bool:
+        """Queue one cue, returning whether this batch accepted the key."""
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            callback()
+            return True
+
+        if self._loop is not None and self._loop is not loop:
+            self.cancel()
+        self._loop = loop
+
+        if key in self._pending:
+            return False
+        self._pending[key] = callback
+        if self._flush_handle is None:
+            self._flush_handle = loop.call_soon(self.flush)
+        return True
+
+    def cancel(self) -> None:
+        """Discard queued cues and release the scheduled callback."""
+        if self._flush_handle is not None:
+            self._flush_handle.cancel()
+        self._flush_handle = None
+        self._pending.clear()
+        self._loop = None
+
+    def flush(self) -> None:
+        """Dispatch the current batch immediately."""
+        if self._flush_handle is not None:
+            self._flush_handle.cancel()
+        pending = self._pending
+        self._pending = {}
+        self._flush_handle = None
+        for callback in pending.values():
+            try:
+                callback()
+            except Exception as error:
+                if self._loop is None:
+                    raise
+                self._loop.call_exception_handler(
+                    {
+                        "message": "Same-turn audio callback failed",
+                        "exception": error,
+                        "callback": callback,
+                    }
+                )
 
 
 @dataclass

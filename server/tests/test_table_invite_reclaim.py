@@ -353,6 +353,7 @@ class TestTableInviteReclaim:
         host.clear_messages()
         guest.clear_messages()
         await self.server._handle_table_invite_selection(guest, "accept", state)
+        await asyncio.sleep(0)
 
         reclaimed = game.get_player_by_id(guest.uuid)
         assert reclaimed is not None
@@ -400,6 +401,7 @@ class TestTableInviteReclaim:
         host.clear_messages()
         guest.clear_messages()
         await self.server._handle_table_invite_selection(guest, "accept", state)
+        await asyncio.sleep(0)
 
         reclaimed = game.get_player_by_id(guest.uuid)
         assert reclaimed is not None
@@ -480,6 +482,7 @@ class TestTableInviteReclaim:
             "join_player",
             {"table_id": table.table_id, "game_type": "pig"},
         )
+        await asyncio.sleep(0)
 
         reclaimed = game.get_player_by_id(guest.uuid)
         assert reclaimed is not None
@@ -669,6 +672,7 @@ class TestTableInviteReclaim:
         host.clear_messages()
 
         await self.server._on_client_disconnect(client)
+        await asyncio.sleep(0)
 
         replacement = game.get_player_by_id(guest.uuid)
         assert replacement is not None
@@ -735,6 +739,7 @@ class TestTableInviteReclaim:
             f"kick_{guest.username}",
             {"table_id": table.table_id, "ban": is_ban},
         )
+        await asyncio.sleep(0)
 
         assert "leave.ogg" in self._sound_names(host)
         assert all(member.username != guest.username for member in table.members)
@@ -1159,6 +1164,7 @@ class TestTableInviteReclaim:
             f"kick_{guest.username}",
             {"table_id": table.table_id, "ban": True},
         )
+        await asyncio.sleep(0)
 
         sounds = self._sound_names(host)
         assert "game_crazyeights/personleave.ogg" in sounds
@@ -1398,6 +1404,7 @@ class TestTableInviteReclaim:
             "join_table",
             {"target_username": host.username},
         )
+        await asyncio.sleep(0)
 
         reclaimed = game.get_player_by_id(guest.uuid)
         assert reclaimed is not None

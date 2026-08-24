@@ -74,6 +74,7 @@ from ..game_utils.client_types import (
 )
 from ..game_utils.bot_names import bot_name_key
 from ..game_utils.game_result import GameResult
+from ..audio import SameTurnAudioBatcher
 
 
 VERSION = "1.0.4.14"
@@ -370,6 +371,10 @@ class Server:
         }
         self._voice_presence_by_user: dict[str, dict[str, str]] = {}
         self._voice_join_authorizations_by_user: dict[str, dict[str, str | float]] = {}
+        self._voice_presence_audio_batcher = SameTurnAudioBatcher()
+        self._pending_voice_context_closures: dict[
+            tuple[str, str, str], asyncio.Task
+        ] = {}
         self._audio_input_devices_by_user: dict[str, list[dict[str, str]]] = {}
 
         # Initialize admin manager
@@ -536,6 +541,10 @@ PlayAural Server
         for task in list(self._pending_session_state_cleanups.values()):
             task.cancel()
         self._pending_session_state_cleanups.clear()
+        for task in list(self._pending_voice_context_closures.values()):
+            task.cancel()
+        self._pending_voice_context_closures.clear()
+        self._voice_presence_audio_batcher.cancel()
 
         if clear_table_checkpoints:
             self._db.delete_all_tables()
@@ -655,10 +664,19 @@ PlayAural Server
 
     async def _close_all_voice_contexts_for_power(self) -> None:
         """Close runtime voice contexts before a server power transition."""
-        active_voice_sessions = list(self._voice_presence_by_user.items())
+        active_voice_sessions = dict(self._voice_join_authorizations_by_user)
+        active_voice_sessions.update(self._voice_presence_by_user)
         self._voice_presence_by_user.clear()
-        for voice_username, presence in active_voice_sessions:
-            self._clear_voice_join_authorization(voice_username)
+        self._voice_join_authorizations_by_user.clear()
+        for task in list(
+            getattr(self, "_pending_voice_context_closures", {}).values()
+        ):
+            task.cancel()
+        getattr(self, "_pending_voice_context_closures", {}).clear()
+        voice_audio_batcher = getattr(self, "_voice_presence_audio_batcher", None)
+        if voice_audio_batcher is not None:
+            voice_audio_batcher.cancel()
+        for voice_username, presence in active_voice_sessions.items():
             voice_user = self._users.get(voice_username)
             if not voice_user:
                 continue
@@ -2270,16 +2288,14 @@ PlayAural Server
                 play_outros=True,
                 outro_mode="immediate",
             )
-        if user.username in self._voice_presence_by_user:
-            try:
-                asyncio.get_running_loop().create_task(
-                    self._disconnect_user_from_voice(
-                        user.username,
-                        message_key="voice-status-left-table",
-                    )
-                )
-            except RuntimeError:
-                self._clear_voice_join_authorization(user.username)
+        voice_presence = self._voice_presence_by_user.get(user.username)
+        if voice_presence:
+            self._schedule_voice_context_close(
+                user.username,
+                message_key="voice-status-left-table",
+                scope=str(voice_presence.get("scope") or "table"),
+                context_id=str(voice_presence.get("context_id") or ""),
+            )
         # Invariant guard: a user must never be in a table while seeing the
         # main menu — that desynchronises table membership from _user_states
         # and causes ghost duplicates.  Log loudly so regressions are caught.
@@ -4098,8 +4114,23 @@ PlayAural Server
             "expires_at": asyncio.get_running_loop().time() + VOICE_JOIN_AUTHORIZATION_WINDOW_SECONDS,
         }
 
-    def _clear_voice_join_authorization(self, username: str) -> None:
+    def _clear_voice_join_authorization(
+        self,
+        username: str,
+        *,
+        scope: str = "",
+        context_id: str = "",
+    ) -> bool:
+        """Clear a pending grant, optionally only for one exact context."""
+        authorization = self._voice_join_authorizations_by_user.get(username)
+        if not authorization:
+            return False
+        if scope and authorization.get("scope") != scope:
+            return False
+        if context_id and authorization.get("context_id") != context_id:
+            return False
         self._voice_join_authorizations_by_user.pop(username, None)
+        return True
 
     def _consume_voice_join_authorization(self, username: str, *, scope: str, context_id: str) -> bool:
         authorization = self._voice_join_authorizations_by_user.get(username)
@@ -4114,49 +4145,38 @@ PlayAural Server
         self._clear_voice_join_authorization(username)
         return True
 
-    async def _disconnect_user_from_voice(
+    async def _authorize_voice_join(
         self,
-        username: str,
+        user: NetworkUser,
         *,
-        message_key: str,
-        send_context_closed: bool = True,
-    ) -> bool:
-        presence = self._voice_presence_by_user.get(username)
-        self._clear_voice_join_authorization(username)
-        if not presence:
-            return False
-        user = self._users.get(username)
-        scope = str(presence.get("scope") or "table")
-        context_id = str(presence.get("context_id") or "")
-        table = self._tables.get_table(context_id) if scope == "table" else None
-        if send_context_closed and user:
-            await self._send_voice_context_closed(
+        scope: str,
+        context_id: str,
+        enforce_rate_limit: bool,
+        server_requested: bool = False,
+    ) -> dict[str, Any] | None:
+        """Build one context-bound grant for a manual or server request."""
+        self._clear_voice_join_authorization(user.username)
+        if enforce_rate_limit and not self._voice_rate_limiter.try_consume(
+            user.username
+        ):
+            await self._send_voice_error(
                 user,
+                "voice-rate-limited",
                 scope=scope,
                 context_id=context_id,
             )
-        await self._clear_voice_presence(
-            username,
-            message_key,
-            table=table,
-        )
-        return True
-
-    async def _handle_voice_join(self, client: ClientConnection, packet: dict) -> None:
-        user = self._users.get(client.username)
-        if not user:
-            return
-        self._clear_voice_join_authorization(user.username)
-        if not self._voice_rate_limiter.try_consume(user.username):
-            await self._send_voice_error(user, "voice-rate-limited")
-            return
+            return None
         mute_error = self._get_voice_mute_error(user.username)
         if mute_error:
             message_key, params = mute_error
-            await self._send_voice_error(user, message_key, **params)
-            return
-        scope = str(packet.get("scope") or "table").strip().lower()
-        context_id = str(packet.get("context_id") or "").strip()
+            await self._send_voice_error(
+                user,
+                message_key,
+                scope=scope,
+                context_id=context_id,
+                **params,
+            )
+            return None
         resolver = self._voice_context_resolvers.get(scope)
         if not resolver:
             await self._send_voice_error(
@@ -4165,9 +4185,13 @@ PlayAural Server
                 scope=scope,
                 context_id=context_id,
             )
-            return
+            return None
+        request = {
+            "scope": scope,
+            "context_id": context_id,
+        }
         try:
-            context = resolver(user, packet)
+            context = resolver(user, request)
             response = self._voice.create_join_packet(
                 context=context,
                 identity=user.uuid,
@@ -4181,13 +4205,90 @@ PlayAural Server
                 scope=scope,
                 context_id=context_id,
             )
-            return
+            return None
         self._record_voice_join_authorization(
             user.username,
             scope=context.scope,
             context_id=context.context_id,
         )
-        await client.send(response)
+        self._cancel_scheduled_voice_context_close(
+            user.username,
+            scope=context.scope,
+            context_id=context.context_id,
+        )
+        if server_requested:
+            # First-party clients treat this as a server-owned, listen-only
+            # connection request. Microphone publishing remains a separate,
+            # explicit client action.
+            response["server_requested"] = True
+        return response
+
+    async def force_voice_context_join(
+        self,
+        username: str,
+        *,
+        scope: str = "table",
+        context_id: str = "",
+    ) -> bool:
+        """Ask an active client to enter an authorized context automatically.
+
+        The media client still confirms presence only after LiveKit connects,
+        preserving the existing authorization and stale-session safeguards.
+        """
+        user = self._users.get(username)
+        if not user or not user.approved or not getattr(user, "active", True):
+            return False
+        normalized_scope = str(scope or "table").strip().lower()
+        normalized_context_id = str(context_id or "").strip()
+        response = await self._authorize_voice_join(
+            user,
+            scope=normalized_scope,
+            context_id=normalized_context_id,
+            enforce_rate_limit=False,
+            server_requested=True,
+        )
+        if response is None:
+            return False
+
+        resolved_scope = str(response.get("scope") or normalized_scope)
+        resolved_context_id = str(response.get("context_id") or "")
+        if self._voice_presence_matches(
+            username,
+            scope=resolved_scope,
+            context_id=resolved_context_id,
+        ):
+            self._clear_voice_join_authorization(
+                username,
+                scope=resolved_scope,
+                context_id=resolved_context_id,
+            )
+            return True
+
+        existing = self._voice_presence_by_user.get(username)
+        if existing:
+            await self.force_voice_context_leave(
+                username,
+                message_key="voice-status-disconnected",
+                scope=str(existing.get("scope") or "table"),
+                context_id=str(existing.get("context_id") or ""),
+            )
+        await user.connection.send(response)
+        return True
+
+    async def _handle_voice_join(self, client: ClientConnection, packet: dict) -> None:
+        user = self._users.get(client.username)
+        if not user:
+            return
+        scope = str(packet.get("scope") or "table").strip().lower()
+        context_id = str(packet.get("context_id") or "").strip()
+        response = await self._authorize_voice_join(
+            user,
+            scope=scope,
+            context_id=context_id,
+            enforce_rate_limit=True,
+        )
+        if response is not None:
+            await client.send(response)
 
     def _set_in_game_state(self, user: NetworkUser, table_id: str) -> None:
         self._user_states[user.username] = {"menu": "in_game", "table_id": table_id}
@@ -4314,30 +4415,198 @@ PlayAural Server
         state = str(packet.get("state") or "").strip().lower()
         if state == "connected":
             await self._register_voice_presence(user, packet)
-        elif state == "connection_lost" and self._voice_presence_matches(
-            user.username,
-            scope=str(packet.get("scope") or "table").strip().lower(),
-            context_id=str(packet.get("context_id") or "").strip(),
-        ):
-            await self._disconnect_user_from_voice(
+        elif state == "connection_lost":
+            scope = str(packet.get("scope") or "table").strip().lower()
+            context_id = str(packet.get("context_id") or "").strip()
+            if context_id and self._voice_presence_matches(
                 user.username,
-                message_key="voice-status-connection-lost",
-                send_context_closed=False,
-            )
+                scope=scope,
+                context_id=context_id,
+            ):
+                await self.force_voice_context_leave(
+                    user.username,
+                    message_key="voice-status-connection-lost",
+                    scope=scope,
+                    context_id=context_id,
+                    send_context_closed=False,
+                )
 
     async def _handle_voice_leave(self, client: ClientConnection, packet: dict) -> None:
-        self._clear_voice_join_authorization(client.username)
-        if self._voice_presence_matches(
-            client.username,
-            scope=str(packet.get("scope") or "table").strip().lower(),
-            context_id=str(packet.get("context_id") or "").strip(),
-        ):
-            await self._disconnect_user_from_voice(
+        scope = str(packet.get("scope") or "table").strip().lower()
+        context_id = str(packet.get("context_id") or "").strip()
+        if context_id:
+            self._clear_voice_join_authorization(
                 client.username,
-                message_key="voice-status-disconnected",
-                send_context_closed=False,
+                scope=scope,
+                context_id=context_id,
             )
+            if self._voice_presence_matches(
+                client.username,
+                scope=scope,
+                context_id=context_id,
+            ):
+                await self.force_voice_context_leave(
+                    client.username,
+                    message_key="voice-status-disconnected",
+                    scope=scope,
+                    context_id=context_id,
+                    send_context_closed=False,
+                )
         await client.send({"type": "voice_leave_ack"})
+
+    async def force_voice_context_leave(
+        self,
+        username: str,
+        *,
+        message_key: str = "voice-status-disconnected",
+        scope: str = "",
+        context_id: str = "",
+        send_context_closed: bool = True,
+        broadcast: bool = True,
+        table=None,
+    ) -> bool:
+        """Cancel a pending grant and close a matching active voice context."""
+        presence = self._voice_presence_by_user.get(username)
+        authorization = self._voice_join_authorizations_by_user.get(username)
+        requested_scope = str(scope or "").strip().lower()
+        requested_context_id = str(context_id or "").strip()
+        matching_presence = presence if (
+            not requested_scope
+            or (presence or {}).get("scope") == requested_scope
+        ) else None
+        matching_authorization = authorization if (
+            not requested_scope
+            or (authorization or {}).get("scope") == requested_scope
+        ) else None
+        resolved_scope = str(
+            requested_scope
+            or (matching_presence or {}).get("scope")
+            or (matching_authorization or {}).get("scope")
+            or "table"
+        )
+        resolved_context_id = str(
+            requested_context_id
+            or (matching_presence or {}).get("context_id")
+            or (matching_authorization or {}).get("context_id")
+            or ""
+        )
+
+        authorization_cleared = self._clear_voice_join_authorization(
+            username,
+            scope=requested_scope,
+            context_id=requested_context_id,
+        )
+        if table is None and resolved_scope == "table":
+            table = self._tables.get_table(resolved_context_id)
+        presence_cleared = await self._clear_voice_presence(
+            username,
+            message_key,
+            table=table,
+            broadcast=broadcast,
+            expected_scope=resolved_scope if resolved_context_id else "",
+            expected_context_id=resolved_context_id,
+        )
+        # Update authoritative state before awaiting transport I/O. Lifecycle
+        # callbacks created in one server turn must form one audio batch even
+        # when individual WebSocket writes complete at different speeds.
+        user = self._users.get(username)
+        context_closed = False
+        if send_context_closed and user and resolved_context_id:
+            context_closed = await self._send_voice_context_closed(
+                user,
+                scope=resolved_scope,
+                context_id=resolved_context_id,
+            )
+        return authorization_cleared or context_closed or presence_cleared
+
+    def _schedule_voice_context_close(
+        self,
+        username: str,
+        *,
+        message_key: str,
+        scope: str,
+        context_id: str,
+        broadcast: bool = True,
+        table=None,
+    ) -> bool:
+        """Schedule one idempotent close for a synchronous lifecycle callback."""
+        normalized_scope = str(scope or "table").strip().lower()
+        normalized_context_id = str(context_id or "").strip()
+        key = (username, normalized_scope, normalized_context_id)
+        pending = getattr(self, "_pending_voice_context_closures", None)
+        if pending is None:
+            pending = {}
+            self._pending_voice_context_closures = pending
+        existing = pending.get(key)
+        if existing and not existing.done():
+            return False
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            self._clear_voice_join_authorization(
+                username,
+                scope=normalized_scope,
+                context_id=normalized_context_id,
+            )
+            if self._voice_presence_matches(
+                username,
+                scope=normalized_scope,
+                context_id=normalized_context_id,
+            ):
+                self._voice_presence_by_user.pop(username, None)
+            return False
+
+        task = loop.create_task(
+            self.force_voice_context_leave(
+                username,
+                message_key=message_key,
+                scope=normalized_scope,
+                context_id=normalized_context_id,
+                broadcast=broadcast,
+                table=table,
+            )
+        )
+        pending[key] = task
+
+        def release(completed: asyncio.Task) -> None:
+            if pending.get(key) is completed:
+                pending.pop(key, None)
+            if completed.cancelled():
+                return
+            error = completed.exception()
+            if error is not None:
+                logging.getLogger("playaural").error(
+                    "Voice context close failed for %s in %s:%s",
+                    username,
+                    normalized_scope,
+                    normalized_context_id,
+                    exc_info=(type(error), error, error.__traceback__),
+                )
+
+        task.add_done_callback(release)
+        return True
+
+    def _cancel_scheduled_voice_context_close(
+        self,
+        username: str,
+        *,
+        scope: str,
+        context_id: str,
+    ) -> bool:
+        """Cancel stale teardown when the same context is reauthorized."""
+        key = (
+            username,
+            str(scope or "table").strip().lower(),
+            str(context_id or "").strip(),
+        )
+        task = getattr(self, "_pending_voice_context_closures", {}).pop(
+            key,
+            None,
+        )
+        if task is None or task.done():
+            return False
+        task.cancel()
+        return True
 
     async def _send_voice_error(
         self,
@@ -4421,11 +4690,30 @@ PlayAural Server
         *,
         table=None,
         broadcast: bool = True,
+        expected_scope: str = "",
+        expected_context_id: str = "",
     ) -> bool:
-        self._clear_voice_join_authorization(username)
-        presence = self._voice_presence_by_user.pop(username, None)
+        presence = self._voice_presence_by_user.get(username)
         if not presence:
+            self._clear_voice_join_authorization(
+                username,
+                scope=expected_scope,
+                context_id=expected_context_id,
+            )
             return False
+        if expected_scope and presence.get("scope") != expected_scope:
+            return False
+        if (
+            expected_context_id
+            and presence.get("context_id") != expected_context_id
+        ):
+            return False
+        self._clear_voice_join_authorization(
+            username,
+            scope=str(presence.get("scope") or ""),
+            context_id=str(presence.get("context_id") or ""),
+        )
+        self._voice_presence_by_user.pop(username, None)
         if table is None and presence.get("scope") == "table":
             table = self._tables.get_table(presence.get("context_id", ""))
         if broadcast and message_key:
@@ -4446,12 +4734,11 @@ PlayAural Server
         presence = self._voice_presence_by_user.get(username)
         if not presence:
             return False
-        if not context_id:
-            return True
-        return (
-            presence.get("scope") == scope
-            and presence.get("context_id") == context_id
-        )
+        if scope and presence.get("scope") != scope:
+            return False
+        if context_id and presence.get("context_id") != context_id:
+            return False
+        return True
 
     async def _broadcast_voice_presence_event(
         self,
@@ -4472,7 +4759,16 @@ PlayAural Server
                 continue
             user.speak_l(message_key, buffer="system", player=actor_username)
             if sound_name:
-                user.play_sound(sound_name)
+                batcher = getattr(self, "_voice_presence_audio_batcher", None)
+                if batcher is None:
+                    batcher = SameTurnAudioBatcher()
+                    self._voice_presence_audio_batcher = batcher
+                batcher.queue(
+                    (id(user), sound_name),
+                    lambda user=user, sound_name=sound_name: user.play_sound(
+                        sound_name
+                    ),
+                )
 
     async def _send_voice_context_closed(
         self,
@@ -4480,14 +4776,18 @@ PlayAural Server
         *,
         scope: str,
         context_id: str,
-    ) -> None:
-        await user.connection.send(
+    ) -> bool:
+        connection = getattr(user, "connection", None)
+        if connection is None:
+            return False
+        await connection.send(
             {
                 "type": "voice_context_closed",
                 "scope": scope,
                 "context_id": context_id,
             }
         )
+        return True
 
     def on_table_member_removed(
         self,
@@ -4496,28 +4796,12 @@ PlayAural Server
         *,
         voice_reason: str = "voice-status-left-table",
     ) -> None:
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            return
-        removed_user = self._users.get(username)
-        if removed_user:
-            loop.create_task(
-                self._send_voice_context_closed(
-                    removed_user,
-                    scope="table",
-                    context_id=table.table_id,
-                )
-            )
-        self._clear_voice_join_authorization(username)
-        if username not in self._voice_presence_by_user:
-            return
-        loop.create_task(
-            self._clear_voice_presence(
-                username,
-                voice_reason,
-                table=table,
-            )
+        self._schedule_voice_context_close(
+            username,
+            message_key=voice_reason,
+            scope="table",
+            context_id=table.table_id,
+            table=table,
         )
 
     def _show_banned_menu(self, user: NetworkUser, active_ban) -> None:
@@ -9214,30 +9498,16 @@ PlayAural Server
 
     def on_table_destroy(self, table) -> None:
         """Handle table destruction. Called by TableManager."""
+        for member in list(table.members):
+            self._schedule_voice_context_close(
+                member.username,
+                message_key="voice-status-left-table",
+                scope="table",
+                context_id=table.table_id,
+                table=table,
+            )
         if not table.game:
             return
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            loop = None
-        if loop:
-            for member in list(table.members):
-                player_user = self._users.get(member.username)
-                if player_user:
-                    loop.create_task(
-                        self._send_voice_context_closed(
-                            player_user,
-                            scope="table",
-                            context_id=table.table_id,
-                        )
-                    )
-                loop.create_task(
-                    self._clear_voice_presence(
-                        member.username,
-                        "voice-status-left-table",
-                        table=table,
-                    )
-                )
         # Return all human players to main menu
         for player in table.game.players:
             if not player.is_bot:

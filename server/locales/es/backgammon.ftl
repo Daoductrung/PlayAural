@@ -6,9 +6,6 @@ game-name-backgammon = Backgammon
 backgammon-color-red = rojo
 backgammon-color-white = blanco
 
-# Ayudas de menú
-backgammon-unavailable = no disponible
-
 # Inicio de la partida
 backgammon-game-started = { $red } juega con rojo, { $white } juega con blanco.
 backgammon-opening-roll = Tirada inicial: { $red } saca { $red_die }, { $white } saca { $white_die }.
@@ -100,16 +97,11 @@ backgammon-point-occupied-selected = { $point } { $color }, { $count } seleccion
 # Etiquetas de acción
 backgammon-label-double = Doblar
 backgammon-label-undo = Deshacer
-backgammon-label-next = Siguiente
-backgammon-label-previous = Anterior
 backgammon-label-deselect = Deseleccionar
 backgammon-label-next-destination = Siguiente destino
 backgammon-label-previous-destination = Destino anterior
 
 # Retroalimentación de selección
-backgammon-selected-point = Punto { $point } seleccionado, { $count } fichas.
-backgammon-selected-bar = Barra seleccionada.
-backgammon-deselected = Deseleccionado.
 backgammon-no-checkers-there = No hay fichas ahí.
 backgammon-not-your-checkers = Esas no son tus fichas.
 backgammon-no-moves-from-here = No hay movimientos legales desde aquí.

@@ -41,7 +41,7 @@ Nếu còn quân trên thanh giữa, bạn phải nhập quân đó vào bàn tr
 
 \*\*Đưa quân ra khỏi bàn\*\*
 
-Khi cả mười lăm quân của bạn đã vào hết khu nhà, bạn có thể bắt đầu đưa quân ra khỏi bàn. Để đưa ra, hãy chọn quân rồi chọn lại điểm đó một lần nữa, hoặc nhấn Enter hai lần. Nếu xúc xắc ra đúng số, bạn đưa quân ra ngay. Nếu ra số lớn hơn số điểm cao nhất còn quân, bạn được đưa ra quân ở điểm cao nhất đó. Bạn không được dùng viên ra số quá cao để đưa ra quân ở điểm thấp hơn nếu phía trên vẫn còn quân.
+Khi cả mười lăm quân của bạn đã vào hết khu nhà, bạn có thể bắt đầu đưa quân ra khỏi bàn. Nếu đưa ra là đích hợp lệ duy nhất của quân đó, hãy kích hoạt điểm của nó một lần và trò chơi sẽ đưa quân ra ngay. Nếu quân đó cũng có thể đi đến một điểm khác, hãy kích hoạt một lần để chọn quân, rồi kích hoạt lại đúng điểm đó để chọn đưa ra. Nhờ vậy, bạn vẫn có thể chọn nước đi trên bàn nếu chưa muốn đưa quân ra. Nếu xúc xắc ra đúng số, bạn đưa quân ra ngay. Nếu ra số lớn hơn số điểm cao nhất còn quân, bạn được đưa ra quân ở điểm cao nhất đó. Bạn không được dùng viên ra số quá cao để đưa ra quân ở điểm thấp hơn nếu phía trên vẫn còn quân.
 
 Nếu một quân bị đá trong lúc đang đưa ra khỏi bàn, nó phải lên thanh giữa, vào lại bàn, và đi hết đường về nhà trước khi bạn có thể tiếp tục đưa quân ra.
 
@@ -80,7 +80,7 @@ Một trận gồm nhiều ván liên tiếp cho đến khi đạt điểm mục
 \* \*\*Y:\*\* Nhận nhân đôi.
 \* \*\*N:\*\* Bỏ lời xin nhân đôi.
 \* \*\*U:\*\* Hoàn tác bước đi vừa thực hiện trong lượt hiện tại.
-\* \*\*E:\*\* Đọc số quân đang ở thanh giữa và số quân đã ra khỏi bàn.
+\* \*\*E:\*\* Đọc số quân của mỗi màu đang ở thanh giữa, còn ngoài khu nhà và đã ra khỏi bàn.
 \* \*\*P:\*\* Đọc pip của cả hai bên.
 \* \*\*D:\*\* Đọc trạng thái khối nhân đôi.
 \* \*\*S:\*\* Đọc điểm trận hiện tại.

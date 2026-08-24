@@ -6,9 +6,6 @@ game-name-backgammon = Backgammon
 backgammon-color-red = red
 backgammon-color-white = white
 
-# Menu helpers
-backgammon-unavailable = unavailable
-
 # Game start
 backgammon-game-started = { $red } plays Red, { $white } plays White.
 backgammon-opening-roll = Opening roll: { $red } rolls { $red_die }, { $white } rolls { $white_die }.
@@ -96,20 +93,16 @@ backgammon-point-empty = { $point }
 backgammon-point-empty-selected = { $point } selected
 backgammon-point-occupied = { $point } { $color }, { $count }
 backgammon-point-occupied-selected = { $point } { $color }, { $count } selected
+backgammon-point-occupied-selected-bearoff = { $point } { $color }, { $count } selected; activate again to bear off
 
 # Action labels
 backgammon-label-double = Double
 backgammon-label-undo = Undo
-backgammon-label-next = Next
-backgammon-label-previous = Previous
 backgammon-label-deselect = Deselect
 backgammon-label-next-destination = Next destination
 backgammon-label-previous-destination = Previous destination
 
 # Selection feedback
-backgammon-selected-point = Selected point { $point }, { $count } checkers.
-backgammon-selected-bar = Selected bar.
-backgammon-deselected = Deselected.
 backgammon-no-checkers-there = No checkers there.
 backgammon-not-your-checkers = Those are not your checkers.
 backgammon-no-moves-from-here = No legal moves from here.
@@ -125,16 +118,21 @@ backgammon-bar-entry-blocked = You cannot enter on point { $point }; it is block
 backgammon-no-die-for-bar-entry = None of your remaining dice ({ $dice }) enters on point { $point }.
 backgammon-no-die-for-destination = None of your remaining dice ({ $dice }) moves from point { $src } to point { $dest }.
 backgammon-must-use-forced-die = You must use { $dice } now because backgammon requires both dice when possible, or the higher die when only one die can be played.
-backgammon-bearoff-not-home = You cannot bear off yet because not all of your checkers are in your home board.
+backgammon-move-would-waste-die = That move would prevent you from using as many dice as the rules require. Choose another legal move.
+backgammon-bearoff-not-home = You cannot bear off yet. Checkers outside your home board: { $outside }. Checkers on the bar: { $bar }. Bring every checker into points 1 through 6 and clear the bar first.
 backgammon-bearoff-blocked = You can't bear off from the { $point }-point with a { $die }, because there are checkers on your { $blocking_point }-point.
 backgammon-bearoff-no-die = You can't bear off from the { $point }-point with your remaining dice ({ $die }).
 backgammon-nothing-to-undo = Nothing to undo.
 backgammon-undone = Move undone.
 backgammon-cannot-double = You can't double right now.
+backgammon-double-single-game = The doubling cube is not used in a single game.
+backgammon-double-crawford = This is the Crawford game, so the doubling cube is unavailable.
+backgammon-double-cube-owned = Your opponent owns the cube, so only they may offer the next double.
+backgammon-double-before-roll-only = You may offer a double only at the start of your turn, before rolling.
 backgammon-cannot-undo = Nothing to undo.
 backgammon-not-doubling-phase = No double to respond to.
 backgammon-need-roll-first = You need to roll the dice before moving a checker.
-backgammon-confirm-drop-double = Dropping concedes this game at the current cube value. Press Drop again within 10 seconds to confirm.
+backgammon-confirm-drop-double = Dropping concedes this game at the current cube value. Press Drop again within { $seconds } seconds to confirm.
 
 # Info keybinds
 backgammon-check-status = Status
@@ -143,7 +141,7 @@ backgammon-check-pip = Pip count
 backgammon-check-score = Score
 backgammon-check-score-detailed = Detailed score
 backgammon-check-dice = Dice
-backgammon-status = Red bar: { $bar_red }. White bar: { $bar_white }. Red off: { $off_red }. White off: { $off_white }.
+backgammon-status = Red — bar: { $bar_red }, outside home: { $outside_red }, borne off: { $off_red }. White — bar: { $bar_white }, outside home: { $outside_white }, borne off: { $off_white }.
 backgammon-dice = { $dice }
 backgammon-dice-none = No dice.
 backgammon-cube-status = Cube at { $value }. { $owner ->

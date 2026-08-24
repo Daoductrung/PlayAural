@@ -13,12 +13,8 @@ from typing import TYPE_CHECKING
 
 log = logging.getLogger(__name__)
 
-from .moves import BackgammonMove, generate_legal_moves, has_any_legal_move
-from .state import (
-    color_sign,
-    opponent_color,
-    remaining_dice_unique,
-)
+from .moves import BackgammonMove
+from .state import color_sign
 
 if TYPE_CHECKING:
     from .game import BackgammonGame, BackgammonPlayer
@@ -39,10 +35,11 @@ def bot_think(game: BackgammonGame, player: BackgammonPlayer) -> str | None:
         return _decide_take_or_drop(game, player)
 
     if gs.turn_phase == "moving":
-        if not has_any_legal_move(gs, color):
+        legal_moves = game._legal_turn_moves()
+        if not legal_moves:
             game._end_moving_phase()
             return None
-        return _pick_move(game, player)
+        return _pick_move(game, player, legal_moves)
 
     return None
 
@@ -57,34 +54,37 @@ def _decide_take_or_drop(game: BackgammonGame, player: BackgammonPlayer) -> str 
     return "accept_double"
 
 
-def _pick_move(game: BackgammonGame, player: BackgammonPlayer) -> str | None:
+def _pick_move(
+    game: BackgammonGame,
+    player: BackgammonPlayer,
+    legal_moves: list[BackgammonMove] | None = None,
+) -> str | None:
     """Pick a move based on the configured difficulty."""
     gs = game.game_state
     color = player.color
     difficulty = game.options.bot_difficulty
+    moves = legal_moves if legal_moves is not None else game._legal_turn_moves()
 
     if difficulty == "random":
-        return _pick_random_move(game, color)
+        return _pick_random_move(moves)
 
     # "simple" and any unknown value fall back to the simple heuristic.
-    return _pick_simple_move(game, color)
+    return _pick_simple_move(game, color, moves)
 
 
-def _pick_random_move(game: BackgammonGame, color: str) -> str | None:
-    """Pick a random legal move, trying all unused die values."""
-    gs = game.game_state
-    for die_val in remaining_dice_unique(gs):
-        # Respect the forced-die rule: only dice the game allows are playable.
-        if game._forced_dice is not None and die_val not in game._forced_dice:
-            continue
-        moves = generate_legal_moves(gs, color, die_val)
-        if moves:
-            move = random.choice(moves)  # nosec B311
-            return f"point_{move.source}_{move.destination}"
-    return None
+def _pick_random_move(moves: list[BackgammonMove]) -> str | None:
+    """Pick a random move from the complete-roll legal set."""
+    if not moves:
+        return None
+    move = random.choice(moves)  # nosec B311
+    return f"point_{move.source}_{move.destination}"
 
 
-def _pick_simple_move(game: BackgammonGame, color: str) -> str | None:
+def _pick_simple_move(
+    game: BackgammonGame,
+    color: str,
+    legal_moves: list[BackgammonMove] | None = None,
+) -> str | None:
     """Pick a move using simple heuristics.
 
     Priority scoring:
@@ -98,15 +98,12 @@ def _pick_simple_move(game: BackgammonGame, color: str) -> str | None:
     best_move: BackgammonMove | None = None
     best_score = -9999
 
-    for die_val in remaining_dice_unique(gs):
-        # Respect the forced-die rule: only dice the game allows are playable.
-        if game._forced_dice is not None and die_val not in game._forced_dice:
-            continue
-        for move in generate_legal_moves(gs, color, die_val):
-            score = _score_move(gs, move, color)
-            if score > best_score:
-                best_score = score
-                best_move = move
+    moves = legal_moves if legal_moves is not None else game._legal_turn_moves()
+    for move in moves:
+        score = _score_move(gs, move, color)
+        if score > best_score:
+            best_score = score
+            best_move = move
 
     if best_move is None:
         return None
@@ -117,8 +114,6 @@ def _score_move(gs, move: BackgammonMove, color: str) -> int:
     """Score a move with simple heuristics. Higher is better."""
     score = 0
     sign = color_sign(color)
-    opp = opponent_color(color)
-
     # Bear off: strongly prefer
     if move.is_bear_off:
         score += 100

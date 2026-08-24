@@ -1,6 +1,7 @@
 """Tests for Backgammon (random + simple bots; no gnubg)."""
 
 import asyncio
+import json
 from pathlib import Path
 
 import pytest
@@ -16,6 +17,7 @@ from ..games.backgammon.state import (
     is_gammon,
     off_count,
     opponent_color,
+    outside_home_count,
     pip_count,
     point_count,
     point_number_for_player,
@@ -31,6 +33,7 @@ from ..games.backgammon.moves import (
     BackgammonMove,
     apply_move,
     generate_legal_moves,
+    generate_legal_turn_moves,
     has_any_legal_move,
     must_use_both_dice,
     undo_last_move,
@@ -237,6 +240,15 @@ class TestAllCheckersInHome:
         gs.board.points[0] = 14
         gs.board.bar_red = 1
         assert not all_checkers_in_home(gs, "red")
+
+    def test_outside_home_count_excludes_bar_and_home(self):
+        gs = build_initial_game_state()
+        gs.board.points = [0] * 24
+        gs.board.points[0] = 10
+        gs.board.points[6] = 2
+        gs.board.points[12] = 1
+        gs.board.bar_red = 2
+        assert outside_home_count(gs, "red") == 3
 
 
 class TestGammonBackgammon:
@@ -489,13 +501,60 @@ class TestMustUseBothDice:
         result = must_use_both_dice(gs, "red", [3, 3])
         assert result is None
 
-    def test_only_one_usable_returns_larger(self):
+    def test_bearing_off_must_preserve_the_second_die(self):
         gs = build_initial_game_state()
         gs.board.points = [0] * 24
         gs.board.points[3] = 1
         gs.board.off_red = 14
         result = must_use_both_dice(gs, "red", [2, 5])
-        assert result is None
+        assert result == [2]
+
+        gs.dice = [2, 5]
+        gs.dice_used = [False, False]
+        legal = generate_legal_turn_moves(gs, "red")
+        assert [(move.source, move.destination, move.die_value) for move in legal] == [
+            (3, 1, 2)
+        ]
+
+    def test_specific_move_prefix_cannot_strand_the_other_die(self):
+        gs = build_initial_game_state()
+        gs.board.points = [
+            1,
+            2,
+            0,
+            0,
+            0,
+            0,
+            0,
+            -2,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            -1,
+            0,
+            0,
+            -1,
+            -2,
+            0,
+            2,
+        ]
+        gs.board.off_red = 9
+        gs.board.off_white = 9
+        gs.dice = [1, 2]
+        gs.dice_used = [False, False]
+
+        raw_moves = generate_legal_moves(gs, "red", 1)
+        assert any(move.source == 10 and move.destination == 9 for move in raw_moves)
+
+        legal = generate_legal_turn_moves(gs, "red")
+        assert not any(move.source == 10 and move.destination == 9 for move in legal)
+        assert any(move.source == 1 and move.destination == 0 for move in legal)
 
     def test_neither_usable_returns_empty(self):
         gs = build_initial_game_state()
@@ -698,6 +757,196 @@ class TestBackgammonPolish:
         assert "selected" in game._get_point_label(red, "point_10")
         assert "selected" not in game._get_point_label(white, "point_10")
 
+    @pytest.mark.parametrize(
+        ("color", "source", "destination", "home_five", "sign"),
+        [
+            ("red", 5, 0, 4, 1),
+            ("white", 18, 23, 19, -1),
+        ],
+    )
+    def test_reported_hit_then_bear_off_survives_save_restore(
+        self,
+        color,
+        source,
+        destination,
+        home_five,
+        sign,
+    ):
+        game, _, _ = make_human_game(start=True)
+        player = game._get_player_by_color(color)
+        assert player is not None
+        user = game.get_user(player)
+        assert user is not None
+        user.client_type = "web"
+
+        gs = game.game_state
+        gs.board.points = [0] * 24
+        gs.board.points[source] = 2 * sign
+        gs.board.points[home_five] = 13 * sign
+        gs.board.points[destination] = -sign
+        if color == "red":
+            gs.board.bar_white = 2
+            gs.board.off_white = 12
+        else:
+            gs.board.bar_red = 2
+            gs.board.off_red = 12
+        gs.dice = [6, 5]
+        gs.dice_used = [False, False]
+        gs.current_color = color
+        gs.turn_phase = "moving"
+        game.current_player = player
+        game._check_forced_dice()
+
+        game.execute_action(player, f"point_{source}")
+        game.execute_action(player, f"point_{destination}")
+
+        assert remaining_dice(gs) == [6]
+        assert bar_count(gs, opponent_color(color)) == 3
+
+        restored = BackgammonGame.from_json(game.to_json())
+        restored.rebuild_runtime_state()
+        restored_player = restored._get_player_by_color(color)
+        assert restored_player is not None
+
+        # The point now has only one legal destination, so one activation bears
+        # off without a select-then-reselect round trip on touch clients.
+        restored._action_point_click(restored_player, f"point_{source}")
+
+        assert off_count(restored.game_state, color) == 1
+        assert restored.game_state.board.points[source] == 0
+
+    def test_ambiguous_bear_off_keeps_the_on_board_choice(self):
+        game, _, _ = make_human_game(start=True)
+        red = game._get_player_by_color("red")
+        assert red is not None
+        gs = game.game_state
+        gs.board.points = [0] * 24
+        gs.board.points[2] = 1
+        gs.board.points[0] = 14
+        gs.dice = [3, 1]
+        gs.dice_used = [False, False]
+        gs.current_color = "red"
+        gs.turn_phase = "moving"
+        game.current_player = red
+        game._check_forced_dice()
+
+        game.execute_action(red, "point_2")
+
+        # This checker may either move with the 1 or bear off with the 3, so the
+        # first activation selects it instead of forcing either choice.
+        assert gs.selected_source == 2
+        assert gs.board.off_red == 0
+
+    def test_bear_off_attempt_explains_checkers_outside_home(self):
+        game, _, _ = make_human_game(start=True)
+        red = game._get_player_by_color("red")
+        assert red is not None
+        user = game.get_user(red)
+        assert user is not None
+        gs = game.game_state
+        gs.board.points = [0] * 24
+        gs.board.points[5] = 14
+        gs.board.points[6] = 1
+        gs.dice = [6]
+        gs.dice_used = [False]
+        gs.current_color = "red"
+        gs.turn_phase = "moving"
+        game.current_player = red
+        user.preferences.brief_announcements = True
+        user.clear_messages()
+
+        game.execute_action(red, "point_5")
+
+        # Brief announcements shorten passive move commentary, not contextual
+        # errors whose state values explain how to recover from the failed action.
+        message = user.get_last_spoken()
+        assert "Checkers outside your home board: 1" in message
+        assert "Checkers on the bar: 0" in message
+        assert gs.selected_source is None
+
+    def test_illegal_turn_prefix_explains_required_dice_usage(self):
+        game, _, _ = make_human_game(start=True)
+        red = game._get_player_by_color("red")
+        assert red is not None
+        user = game.get_user(red)
+        assert user is not None
+        gs = game.game_state
+        gs.board.points = [
+            1,
+            2,
+            0,
+            0,
+            0,
+            0,
+            0,
+            -2,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            -1,
+            0,
+            0,
+            -1,
+            -2,
+            0,
+            2,
+        ]
+        gs.board.off_red = 9
+        gs.board.off_white = 9
+        gs.dice = [1, 2]
+        gs.dice_used = [False, False]
+        gs.current_color = "red"
+        gs.turn_phase = "moving"
+        game.current_player = red
+        game._check_forced_dice()
+        user.clear_messages()
+
+        assert 9 not in game._get_navigation_destinations("red", 10)
+        assert 8 in game._get_navigation_destinations("red", 10)
+
+        game.execute_action(red, "point_10")
+        game.execute_action(red, "point_9")
+
+        assert user.get_last_spoken() == (
+            "That move would prevent you from using as many dice as the rules require. "
+            "Choose another legal move."
+        )
+        assert gs.board.points[10] == 1
+        assert gs.board.points[9] == 0
+
+    def test_status_reports_outside_home_counts(self):
+        game, _, _ = make_human_game(start=True)
+        red = game._get_player_by_color("red")
+        assert red is not None
+        user = game.get_user(red)
+        assert user is not None
+        game.game_state.board.points = [0] * 24
+        game.game_state.board.points[0] = 13
+        game.game_state.board.points[6] = 2
+        user.preferences.brief_announcements = True
+        user.clear_messages()
+
+        game._action_check_status(red, "check_status")
+
+        # Explicit information queries remain complete in brief mode.
+        assert "outside home: 2" in user.get_last_spoken()
+
+    def test_spectator_uses_consistent_red_side_point_orientation(self):
+        game = make_game(start=True)
+        spectator = BackgammonPlayer(id="spectator", name="Viewer", is_spectator=True)
+        game.players.append(spectator)
+        spectator.color = ""
+
+        assert game._get_point_label(spectator, "point_0").startswith("1 ")
+        assert game._point_sound_for(spectator, 23) == "game_squares/token3.ogg"
+        assert game._point_sound_for(spectator, 0) == "game_squares/token4.ogg"
+
     def test_humans_cannot_use_internal_bot_combined_move_action(self):
         game, _, _ = make_human_game(start=True)
         red = game._get_player_by_color("red")
@@ -861,6 +1110,31 @@ class TestGameLifecycle:
         assert loaded.game_state.match_length == game.game_state.match_length
         assert loaded.game_state.board.points == game.game_state.board.points
         assert [p.color for p in loaded.players] == [p.color for p in game.players]
+
+    def test_derived_navigation_state_is_not_persisted_and_rebuilds_cleanly(self):
+        game = make_game(start=True)
+        game._forced_dice = [6]
+        game._nav_cursor = 12
+        game._nav_selected_source = 10
+
+        payload = game.to_json()
+        serialized = json.loads(payload)
+        assert "_forced_dice" not in serialized
+        assert "_nav_cursor" not in serialized
+        assert "_nav_selected_source" not in serialized
+
+        # Pre-cleanup saves may still contain these now-obsolete fields.
+        serialized["_forced_dice"] = [1]
+        serialized["_nav_cursor"] = 23
+        restored = BackgammonGame.from_json(json.dumps(serialized))
+        restored.rebuild_runtime_state()
+        assert restored._nav_cursor is None
+        assert restored._nav_selected_source is None
+        assert restored._forced_dice == must_use_both_dice(
+            restored.game_state,
+            restored.game_state.current_color,
+            remaining_dice(restored.game_state),
+        )
 
     @pytest.mark.parametrize("difficulty", ["random", "simple"])
     def test_full_bot_game_runs_to_completion(self, difficulty):

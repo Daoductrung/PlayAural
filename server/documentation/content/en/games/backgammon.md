@@ -41,7 +41,7 @@ If you have any checker on the bar, you must re-enter that checker before moving
 
 \*\*Bearing Off\*\*
 
-Once all fifteen of your checkers are in your home board, you may begin bearing them off. To bear off, select the checker and then select the same point again, or press Enter twice on it. An exact roll bears off a checker directly. If you roll higher than your highest occupied point, you may bear off from that highest point. You may not use an overshooting die to bear off from a lower point if any checker remains on a higher point.
+Once all fifteen of your checkers are in your home board, you may begin bearing them off. If bearing off is the checker's only legal destination, activate its point once and the game bears it off immediately. If that checker can also move to another point, activate it once to select it, then activate the same point again to choose bearing off. This keeps the on-board move available when you prefer not to bear off. An exact roll bears off a checker directly. If you roll higher than your highest occupied point, you may bear off from that highest point. You may not use an overshooting die to bear off from a lower point if any checker remains on a higher point.
 
 If a checker is hit during bearing off, it must go to the bar, re-enter, and travel all the way back home before you can resume bearing off.
 
@@ -80,7 +80,7 @@ A match consists of multiple games played to a target score. After each game, th
 \* \*\*Y:\*\* Accept an offered double.
 \* \*\*N:\*\* Drop an offered double.
 \* \*\*U:\*\* Undo the last sub-move of the current turn.
-\* \*\*E:\*\* Read the checker counts on the bar and already borne off.
+\* \*\*E:\*\* Read each color's checker counts on the bar, outside the home board, and already borne off.
 \* \*\*P:\*\* Read the pip counts for both players.
 \* \*\*D:\*\* Read the doubling cube status.
 \* \*\*S:\*\* Read the current match score.

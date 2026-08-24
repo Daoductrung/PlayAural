@@ -6,9 +6,6 @@ game-name-backgammon = تخته‌نرد
 backgammon-color-red = قرمز
 backgammon-color-white = سفید
 
-# راهنماهای منو
-backgammon-unavailable = در دسترس نیست
-
 # شروع بازی
 backgammon-game-started = { $red } قرمز بازی می‌کند، { $white } سفید بازی می‌کند.
 backgammon-opening-roll = تاس شروع: { $red } { $red_die } انداخت، { $white } { $white_die } انداخت.
@@ -100,16 +97,11 @@ backgammon-point-occupied-selected = { $point } { $color }، { $count } انتخ
 # برچسب‌های اقدامات
 backgammon-label-double = دابل
 backgammon-label-undo = برگرداندن
-backgammon-label-next = بعدی
-backgammon-label-previous = قبلی
 backgammon-label-deselect = لغو انتخاب
 backgammon-label-next-destination = مقصد بعدی
 backgammon-label-previous-destination = مقصد قبلی
 
 # بازخورد انتخاب
-backgammon-selected-point = خانه‌ی { $point } انتخاب شد، { $count } مهره.
-backgammon-selected-bar = میله انتخاب شد.
-backgammon-deselected = انتخاب لغو شد.
 backgammon-no-checkers-there = هیچ مهره‌ای آنجا نیست.
 backgammon-not-your-checkers = این مهره‌ها متعلق به شما نیستند.
 backgammon-no-moves-from-here = هیچ حرکت قانونی از اینجا وجود ندارد.

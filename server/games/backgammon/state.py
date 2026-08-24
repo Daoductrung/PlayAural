@@ -142,6 +142,24 @@ def all_checkers_in_home(state: BackgammonGameState, color: str) -> bool:
     return True
 
 
+def outside_home_count(state: BackgammonGameState, color: str) -> int:
+    """Return the number of checkers outside a color's home board.
+
+    Checkers on the bar are reported separately because they are useful context
+    when explaining why bearing off is unavailable.
+    """
+    sign = color_sign(color)
+    if color == "red":
+        outside_points = range(6, NUM_POINTS)
+    else:
+        outside_points = range(0, 18)
+    return sum(
+        abs(state.board.points[index])
+        for index in outside_points
+        if state.board.points[index] * sign > 0
+    )
+
+
 def pip_count(state: BackgammonGameState, color: str) -> int:
     """Calculate pip count for a color."""
     total = 0

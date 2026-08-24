@@ -6,9 +6,6 @@ game-name-backgammon = Cờ thỏ cáo
 backgammon-color-red = đỏ
 backgammon-color-white = trắng
 
-# Menu helpers
-backgammon-unavailable = không khả dụng
-
 # Game start
 backgammon-game-started = { $red } chơi Đỏ, { $white } chơi Trắng.
 backgammon-opening-roll = Lượt tung mở màn: { $red } tung được { $red_die }, { $white } tung được { $white_die }.
@@ -96,20 +93,16 @@ backgammon-point-empty = { $point }
 backgammon-point-empty-selected = { $point } đã chọn
 backgammon-point-occupied = { $point } { $color }, { $count }
 backgammon-point-occupied-selected = { $point } { $color }, { $count } đã chọn
+backgammon-point-occupied-selected-bearoff = { $point } { $color }, { $count } đã chọn; kích hoạt lần nữa để đưa quân ra
 
 # Action labels
 backgammon-label-double = Nhân đôi
 backgammon-label-undo = Hoàn tác
-backgammon-label-next = Tiếp
-backgammon-label-previous = Trước
 backgammon-label-deselect = Bỏ chọn
 backgammon-label-next-destination = Điểm đến tiếp theo
 backgammon-label-previous-destination = Điểm đến trước đó
 
 # Selection feedback
-backgammon-selected-point = Đã chọn điểm { $point }, { $count } quân.
-backgammon-selected-bar = Đã chọn thanh.
-backgammon-deselected = Đã bỏ chọn.
 backgammon-no-checkers-there = Không có quân ở đó.
 backgammon-not-your-checkers = Đó không phải quân của bạn.
 backgammon-no-moves-from-here = Không có nước đi hợp lệ từ đây.
@@ -125,16 +118,21 @@ backgammon-bar-entry-blocked = Bạn không thể nhập quân vào điểm { $p
 backgammon-no-die-for-bar-entry = Không viên xúc xắc nào còn lại ({ $dice }) nhập được quân vào điểm { $point }.
 backgammon-no-die-for-destination = Không viên xúc xắc nào còn lại ({ $dice }) đi được từ điểm { $src } đến điểm { $dest }.
 backgammon-must-use-forced-die = Lúc này bạn phải dùng { $dice }, vì cờ thỏ cáo bắt buộc dùng cả hai viên nếu có thể, hoặc dùng viên lớn hơn khi chỉ đi được một viên.
-backgammon-bearoff-not-home = Bạn chưa thể đưa quân ra khỏi bàn vì chưa đưa toàn bộ quân vào khu nhà.
+backgammon-move-would-waste-die = Nước này sẽ khiến bạn không dùng được đủ số viên xúc xắc mà luật yêu cầu. Hãy chọn một nước hợp lệ khác.
+backgammon-bearoff-not-home = Bạn chưa thể đưa quân ra. Số quân ở ngoài khu nhà: { $outside }. Số quân trên thanh: { $bar }. Trước tiên, hãy đưa toàn bộ quân vào các điểm từ 1 đến 6 và giải phóng hết quân trên thanh.
 backgammon-bearoff-blocked = Bạn không thể đưa quân ra từ điểm { $point } với { $die }, vì còn quân ở điểm { $blocking_point } của bạn.
 backgammon-bearoff-no-die = Bạn không thể đưa quân ra từ điểm { $point } với các xúc xắc còn lại ({ $die }).
 backgammon-nothing-to-undo = Không có gì để hoàn tác.
 backgammon-undone = Đã hoàn tác nước đi.
 backgammon-cannot-double = Bạn không thể nhân đôi lúc này.
+backgammon-double-single-game = Ván đơn không sử dụng khối nhân đôi.
+backgammon-double-crawford = Đây là ván Crawford, nên không được dùng khối nhân đôi.
+backgammon-double-cube-owned = Đối thủ đang giữ khối, nên chỉ họ mới được đề nghị nhân đôi tiếp theo.
+backgammon-double-before-roll-only = Bạn chỉ có thể đề nghị nhân đôi ở đầu lượt của mình, trước khi tung xúc xắc.
 backgammon-cannot-undo = Không có gì để hoàn tác.
 backgammon-not-doubling-phase = Không có lời nhân đôi nào để phản hồi.
 backgammon-need-roll-first = Bạn cần tung xúc xắc trước khi di chuyển quân.
-backgammon-confirm-drop-double = Bỏ lời nhân đôi sẽ chịu thua ván này theo giá trị khối hiện tại. Nhấn Bỏ lần nữa trong vòng 10 giây để xác nhận.
+backgammon-confirm-drop-double = Bỏ lời nhân đôi sẽ chịu thua ván này theo giá trị khối hiện tại. Nhấn Bỏ lần nữa trong vòng { $seconds } giây để xác nhận.
 
 # Info keybinds
 backgammon-check-status = Trạng thái
@@ -143,7 +141,7 @@ backgammon-check-pip = Số điểm pip
 backgammon-check-score = Điểm
 backgammon-check-score-detailed = Điểm chi tiết
 backgammon-check-dice = Xúc xắc
-backgammon-status = Thanh Đỏ: { $bar_red }. Thanh Trắng: { $bar_white }. Đỏ đã ra: { $off_red }. Trắng đã ra: { $off_white }.
+backgammon-status = Đỏ — trên thanh: { $bar_red }, ngoài khu nhà: { $outside_red }, đã đưa ra: { $off_red }. Trắng — trên thanh: { $bar_white }, ngoài khu nhà: { $outside_white }, đã đưa ra: { $off_white }.
 backgammon-dice = { $dice }
 backgammon-dice-none = Không còn xúc xắc.
 backgammon-cube-status = Khối nhân đôi đang ở mức { $value }. { $owner ->
@@ -160,8 +158,14 @@ backgammon-match-score-line = { $player }: { $score } trên { $match_length } đ
 backgammon-match-score-cube-line = Khối nhân đôi: { $cube }.
 
 # Scoring
-backgammon-wins-game-you = Bạn thắng { $points } điểm.
-backgammon-wins-game-player = { $player } thắng { $points } điểm.
+backgammon-wins-game-you = Bạn thắng { $points } { $points ->
+    [one] điểm
+    *[other] điểm
+}.
+backgammon-wins-game-player = { $player } thắng { $points } { $points ->
+    [one] điểm
+    *[other] điểm
+}.
 backgammon-new-game = Bắt đầu ván { $number }.
 backgammon-match-winner-you = Bạn thắng cả trận!
 backgammon-match-winner-player = { $player } thắng cả trận!

@@ -192,13 +192,6 @@ def test_uno_uses_standard_roster_audio():
     alice_user.clear_messages()
     watcher_user.clear_messages()
 
-    game.broadcast_sound("join.ogg")
-    assert alice_user.get_sounds_played() == ["join.ogg"]
-    assert watcher_user.get_sounds_played() == ["join.ogg"]
-
-    alice_user.clear_messages()
-    watcher_user.clear_messages()
-
     game._action_toggle_spectator(watcher, "toggle_spectator")
     assert "join_spectator.ogg" in alice_user.get_sounds_played()
     assert "join_spectator.ogg" in watcher_user.get_sounds_played()
@@ -207,8 +200,8 @@ def test_uno_uses_standard_roster_audio():
     watcher_user.clear_messages()
 
     game._action_add_bot(alice, "Botty", "add_bot")
-    assert "join.ogg" in alice_user.get_sounds_played()
-    assert "join.ogg" in watcher_user.get_sounds_played()
+    assert "table_join.ogg" in alice_user.get_sounds_played()
+    assert "table_join.ogg" in watcher_user.get_sounds_played()
 
 
 # ---------------------------------------------------------------------------

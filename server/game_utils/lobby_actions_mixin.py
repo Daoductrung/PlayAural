@@ -137,7 +137,7 @@ class LobbyActionsMixin:
                 player = self.get_player_by_id(user.uuid) if user else None
                 if player:
                     self.remove_spectator(player.id)
-                    self.play_table_leave_sound(player, is_spectator=True)
+                    self.play_table_disconnect_sound(player, is_spectator=True)
                 table.remove_member(
                     member.username,
                     voice_reason="voice-status-connection-lost",
@@ -161,7 +161,7 @@ class LobbyActionsMixin:
                 and not player.is_bot
                 and self._replace_with_bot(player, allow_waiting=True)
             ):
-                self.play_table_leave_sound(
+                self.play_table_disconnect_sound(
                     player,
                     is_bot=False,
                     is_spectator=False,

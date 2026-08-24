@@ -2345,7 +2345,7 @@ class PlayAuralWebApp {
         this.handlePong();
         break;
       case "table_create":
-        this.audio.playSound({ asset: "notify.ogg" });
+        this.audio.playSound({ family: "notify" });
         if (this.preferences.notify_table_created !== false) {
           this.speak(Localization.get("table-created-notify"), { buffer: "system" });
         }
@@ -2514,6 +2514,7 @@ class PlayAuralWebApp {
     let prefix = Localization.get("chat-prefix-system");
     let speakText = packet.message || "";
     let soundName = "chat.ogg";
+    let soundFamily = "";
     let shouldSpeak = !packet.silent;
     const convo = packet.convo || "system";
 
@@ -2524,7 +2525,7 @@ class PlayAuralWebApp {
     } else if (convo === "announcement") {
       prefix = Localization.get("chat-prefix-announcement");
       speakText = `${prefix}: ${packet.message || ""}`;
-      soundName = "notify.ogg";
+      soundFamily = "notify";
     } else if (["local", "table", "game"].includes(convo)) {
       const tableLike = convo !== "local" || this.isGameMenu(this.store.state.currentMenu.menuId);
       prefix = `${Localization.get(tableLike ? "chat-prefix-table" : "chat-prefix-local")} ${sender}`;
@@ -2536,7 +2537,11 @@ class PlayAuralWebApp {
     const display = `${prefix}: ${packet.message || ""}`;
     const outputAllowed = this.historyView.addEntry(display, { buffer: "chat", announce: false });
     if (shouldSpeak && outputAllowed) {
-      this.audio.playSound({ asset: soundName });
+      if (soundFamily) {
+        this.audio.playSound({ family: soundFamily });
+      } else {
+        this.audio.playSound({ asset: soundName });
+      }
       this.speak(speakText, { buffer: "chat", noHistory: true });
     }
   }

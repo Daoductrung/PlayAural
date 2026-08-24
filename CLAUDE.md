@@ -61,6 +61,7 @@ python client/client.py
 Serve `web_client/` from any HTTP server. For local development:
 ```bash
 python -m http.server 8080 --directory web_client
+node web_client/scripts/generate-sound-manifest.mjs
 ```
 
 ### Mobile Client
@@ -138,6 +139,11 @@ loading an asset.
 - Commands are `play`, `stop`, `pause`, `resume`, `set_bus`, and `stop_all`.
 - Kinds are `sfx`, `music`, and `ambience`. A named bus may be added without
   changing the protocol and inherits its kind's user-volume preference.
+- Randomized numbered one-shot SFX use the validated `family` field. Desktop
+  discovers family members from the installed pack, while Web and Mobile use
+  generated sound manifests. A family named `notify` resolves dynamically to
+  positive-integer assets such as `notify1.ogg`; never hardcode the count, and
+  never use a family for loops, music, or ambience.
 - Stable handles own lifecycle. Looping SFX must keep the returned/provided
   handle and stop it explicitly. Stop/pause/resume are idempotent.
 - Music and ambience replacement use simultaneous fade-out/fade-in. Pausing
@@ -780,6 +786,8 @@ Desktop rules:
 - **`web_client/store.js`** — UI state store for connection state, current menu, capped history buffers, pending input state, and server option data
 - **`web_client/network.js`** — WebSocket connection, packet validation, reconnect-safe send handling, and protocol dispatch boundaries
 - **`web_client/audio.js`** — browser audio engine for effects, music, ambience, volume/mute state, sound-pack versioning, effect preloading, and stale-effect protection
+- **`web_client/generated/soundManifest.js`** — generated asset registry used
+  for data-driven numbered sound families
 - **`web_client/a11y.js`** — ARIA live announcer with polite/assertive regions and duplicate-announcement guards
 - **`web_client/keybinds.js`** — desktop-style keyboard shortcuts, menu navigation, grid movement, buffer controls, and global command routing
 - **`web_client/ui/menus.js`** — menu rendering, stable item identity, keyboard/touch selection, grid layout, type navigation, context actions, and iOS-friendly pointer activation

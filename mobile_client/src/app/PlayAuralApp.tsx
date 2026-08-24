@@ -1945,12 +1945,17 @@ export function PlayAuralApp() {
 
     if (shouldSpeak && !buffers.isMuted("chat")) {
       let chatSound = "chat.ogg";
+      let chatSoundFamily = "";
       if (packet.convo === "local" || packet.convo === "table" || packet.convo === "game") {
         chatSound = "chatlocal.ogg";
       } else if (packet.convo === "announcement") {
-        chatSound = "notify.ogg";
+        chatSoundFamily = "notify";
       }
-      void audio.playSound(chatSound);
+      if (chatSoundFamily) {
+        void audio.playSoundFamily(chatSoundFamily);
+      } else {
+        void audio.playSound(chatSound);
+      }
       speakServerAnnouncement(message);
     }
   };

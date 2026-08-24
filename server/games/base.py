@@ -450,6 +450,8 @@ class Game(
         if not player or player.is_bot:
             return
 
+        self.play_table_disconnect_sound(player)
+
         # Check if this is the last human player (excluding spectators)
         # If so, do NOT replace with bot - just pause the game (let them reconnect)
         remaining_humans = sum(1 for p in self.players if not p.is_bot and not p.is_spectator and p.id != player_id)
@@ -459,7 +461,6 @@ class Game(
             user = self.get_user(player)
             username = user.username if user else player.name
             self.remove_spectator(player_id)
-            self.play_table_leave_sound(player, is_spectator=True)
             remove_member = getattr(self._table, "remove_member", None)
             if callable(remove_member):
                 remove_member(
@@ -474,11 +475,6 @@ class Game(
              return
 
         if self._replace_with_bot(player):
-            self.play_table_leave_sound(
-                player,
-                is_bot=False,
-                is_spectator=False,
-            )
             self.refresh_menus()
 
     def remove_spectator(self, player_id: str) -> None:

@@ -127,10 +127,11 @@ export type AudioCommandName = "play" | "stop" | "pause" | "resume" | "set_bus" 
 
 export type AudioCommandPacket = {
   type: "audio";
-  version: 1;
+  version: 2;
   command: AudioCommandName;
   kind?: AudioKind;
   asset?: string;
+  family?: string;
   handle?: string;
   bus?: string;
   scope?: "global" | "player" | "context";

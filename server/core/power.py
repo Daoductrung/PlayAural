@@ -199,7 +199,15 @@ class ServerPowerManager:
                 action=self.format_action(user.locale, operation.action),
                 admin=cancelled_by.username,
             )
-            sends.extend(self._announcement_packets(user, text, "notify.ogg", text))
+            sends.extend(
+                self._announcement_packets(
+                    user,
+                    text,
+                    "",
+                    text,
+                    sound_family="notify",
+                )
+            )
         if sends:
             await asyncio.gather(*sends, return_exceptions=True)
 
@@ -261,10 +269,18 @@ class ServerPowerManager:
         sound: str,
         speak_text: str,
         *,
+        sound_family: str = "",
         disconnect: bool = False,
         reconnect: bool = False,
     ) -> list[asyncio.Future]:
+        if bool(sound) == bool(sound_family):
+            raise ValueError("Exactly one alert sound asset or family is required")
         sys_name = Localization.get(user.locale, "system-name")
+        audio_command = (
+            AudioCommand(command="play", kind="sfx", family=sound_family)
+            if sound_family
+            else AudioCommand(command="play", kind="sfx", asset=sound)
+        )
         packets: list[dict] = [
             {
                 "type": "chat",
@@ -274,7 +290,7 @@ class ServerPowerManager:
                 "silent": True,
             },
             {"type": "speak", "text": speak_text, "buffer": "system"},
-            AudioCommand(command="play", kind="sfx", asset=sound).to_packet(),
+            audio_command.to_packet(),
         ]
         if disconnect:
             packets.append(

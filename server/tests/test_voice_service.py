@@ -609,7 +609,7 @@ async def test_table_presence_cues_outrank_concurrent_voice_cues() -> None:
     )
     await asyncio.sleep(0)
 
-    assert bob.get_sounds_played() == ["join.ogg"]
+    assert bob.get_sounds_played() == ["table_join.ogg"]
     assert "Alice connected" in bob.get_spoken_messages()[-1]
 
     alice.clear_messages()
@@ -623,7 +623,7 @@ async def test_table_presence_cues_outrank_concurrent_voice_cues() -> None:
     await asyncio.sleep(0)
     await asyncio.sleep(0)
 
-    assert bob.get_sounds_played() == ["leave.ogg"]
+    assert bob.get_sounds_played() == ["table_leave.ogg"]
     assert "voice_leave.ogg" not in bob.get_sounds_played()
     assert "Alice left the table" in bob.get_spoken_messages()[-1]
     assert alice.connection.sent[-1]["type"] == "voice_context_closed"

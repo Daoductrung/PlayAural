@@ -117,11 +117,36 @@ def test_sound_volume_updates_currently_playing_effects(monkeypatch):
 def test_sound_volume_can_mute_active_effects(monkeypatch):
     sound_manager = _load_sound_manager_module(monkeypatch)
     manager = sound_manager.SoundManager()
-    stream = manager.play("notify.ogg", volume=1.0)
+    stream = manager.play("roll.ogg", volume=1.0)
 
     manager.set_sound_volume(0)
 
     assert stream.volume == pytest.approx(0)
+
+
+def test_numbered_sound_family_is_discovered_and_randomly_selected(monkeypatch):
+    sound_manager = _load_sound_manager_module(monkeypatch)
+    manager = sound_manager.SoundManager()
+    variants = manager._sound_family_variants("notify")
+
+    expected = tuple(
+        path.name
+        for path in sorted(
+            (
+                path
+                for path in (CLIENT_DIR / "sounds").glob("notify[1-9]*.ogg")
+                if path.stem.removeprefix("notify").isdigit()
+            ),
+            key=lambda path: int(path.stem.removeprefix("notify")),
+        )
+    )
+    assert variants == expected
+    assert set(f"notify{index}.ogg" for index in range(1, 5)) <= set(variants)
+
+    monkeypatch.setattr(sound_manager.random, "choice", lambda choices: choices[-1])
+    stream = manager.play_family("notify")
+
+    assert stream.file_name.endswith(variants[-1])
 
 
 def test_looping_effect_stops_only_matching_handle(monkeypatch):
@@ -354,7 +379,7 @@ def test_named_bus_gain_updates_active_sources(monkeypatch):
     accepted = manager.handle_audio_command(
         {
             "type": "audio",
-            "version": 1,
+            "version": 2,
             "command": "set_bus",
             "bus": "music",
             "volume": 50,
@@ -373,5 +398,32 @@ def test_malformed_protocol_version_is_rejected_without_raising(monkeypatch):
         {"version": "invalid", "command": "stop_all"}
     ) is False
     assert manager.handle_audio_command(
-        {"version": 1, "command": "stop_all", "ducking": []}
+        {"version": 2, "command": "stop_all", "ducking": []}
+    ) is False
+
+
+def test_audio_protocol_resolves_numbered_sound_family(monkeypatch):
+    sound_manager = _load_sound_manager_module(monkeypatch)
+    manager = sound_manager.SoundManager()
+    monkeypatch.setattr(sound_manager.random, "choice", lambda choices: choices[0])
+
+    assert manager.handle_audio_command(
+        {
+            "type": "audio",
+            "version": 2,
+            "command": "play",
+            "kind": "sfx",
+            "family": "notify",
+        }
+    ) is True
+    assert manager.sound_cacher.refs[-1].file_name.endswith("notify1.ogg")
+    assert manager.handle_audio_command(
+        {
+            "type": "audio",
+            "version": 2,
+            "command": "play",
+            "kind": "sfx",
+            "asset": "roll.ogg",
+            "family": "notify",
+        }
     ) is False

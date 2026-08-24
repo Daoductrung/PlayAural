@@ -1,4 +1,6 @@
-const AUDIO_PROTOCOL_VERSION = 1;
+import { soundFamilies } from "./generated/soundManifest.js";
+
+const AUDIO_PROTOCOL_VERSION = 2;
 const MAX_ACTIVE_EFFECTS = 64;
 const MAX_ACTIVE_LAYERS = 32;
 const MAX_CACHED_EFFECTS = 128;
@@ -26,6 +28,44 @@ function validAsset(name) {
   }
   const parts = normalized.split("/");
   return parts.some((part) => !part || part === "." || part === "..") ? "" : normalized;
+}
+
+function validFamily(name) {
+  const normalized = String(name || "").trim().replaceAll("\\", "/");
+  if (!normalized || normalized.split("/").at(-1).includes(".")) {
+    return "";
+  }
+  return validAsset(`${normalized}1.ogg`) ? normalized : "";
+}
+
+function soundFamilyVariants(name) {
+  const family = validFamily(name);
+  return family ? soundFamilies[family] || [] : [];
+}
+
+function resolveSoundPacket(packet) {
+  const hasAsset = Boolean(packet.asset);
+  const hasFamily = Boolean(packet.family);
+  if (hasAsset === hasFamily) {
+    return null;
+  }
+  const asset = hasAsset ? validAsset(packet.asset) : "";
+  const family = hasFamily ? validFamily(packet.family) : "";
+  if (hasAsset && !asset || hasFamily && !family) {
+    return null;
+  }
+  if (!family) {
+    return { ...packet, asset };
+  }
+  if (packet.kind && packet.kind !== "sfx" || packet.loop) {
+    return null;
+  }
+  const variants = soundFamilyVariants(family);
+  if (!variants.length) {
+    return null;
+  }
+  const selected = variants[Math.floor(Math.random() * variants.length)];
+  return { ...packet, asset: selected, family: "" };
 }
 
 function validId(value) {
@@ -921,14 +961,14 @@ export function createAudioEngine(options = {}) {
   }
 
   async function playSound(packet) {
-    const asset = validAsset(packet.asset);
-    if (!asset) {
+    const resolvedPacket = resolveSoundPacket(packet);
+    if (!resolvedPacket) {
       return "";
     }
     const normalized = {
-      ...packet,
+      ...resolvedPacket,
       kind: "sfx",
-      asset,
+      asset: resolvedPacket.asset,
       bus: packet.bus || "sfx",
       volume: packet.volume ?? 100,
       pan: packet.pan ?? 0,
@@ -1282,15 +1322,19 @@ export function createAudioEngine(options = {}) {
     }
     switch (packet.command) {
       case "play":
-        if (
-          !["sfx", "music", "ambience"].includes(packet.kind)
-          || !validAsset(packet.asset)
-        ) {
+        if (!["sfx", "music", "ambience"].includes(packet.kind)) {
           return false;
         }
         if (packet.kind === "sfx") {
-          playSound(packet);
+          const resolvedPacket = resolveSoundPacket(packet);
+          if (!resolvedPacket) {
+            return false;
+          }
+          playSound(resolvedPacket);
         } else {
+          if (packet.family || !validAsset(packet.asset)) {
+            return false;
+          }
           playLayer(packet);
         }
         return true;

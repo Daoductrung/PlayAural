@@ -23,6 +23,19 @@ if (!fs.existsSync(soundsDir)) {
 }
 
 const files = walk(soundsDir).sort();
+const relativeAssets = files.map((file) => (
+  path.relative(soundsDir, file).replaceAll("\\", "/")
+));
+const families = new Map();
+for (const asset of relativeAssets) {
+  const match = /^(.*?)([1-9][0-9]*)\.(ogg|wav|mp3)$/i.exec(asset);
+  if (!match) {
+    continue;
+  }
+  const entries = families.get(match[1]) || [];
+  entries.push({ asset, index: Number(match[2]) });
+  families.set(match[1], entries);
+}
 const soundPackVersion = fs.existsSync(versionFile)
   ? fs.readFileSync(versionFile, "utf8").trim()
   : "";
@@ -30,11 +43,22 @@ const lines = [
   `export const bundledSoundVersion = ${JSON.stringify(soundPackVersion)};`,
   "",
   "export const soundManifest: Record<string, number> = {",
-  ...files.map((file) => {
-    const relative = path.relative(soundsDir, file).replaceAll("\\", "/");
-    const requirePath = "../../sounds/" + relative;
-    return `  ${JSON.stringify(relative)}: require(${JSON.stringify(requirePath)}),`;
+  ...relativeAssets.map((asset) => {
+    const requirePath = "../../sounds/" + asset;
+    return `  ${JSON.stringify(asset)}: require(${JSON.stringify(requirePath)}),`;
   }),
+  "};",
+  "",
+  "export const soundFamilies: Readonly<Record<string, readonly string[]>> = {",
+  ...[...families.entries()].sort(([left], [right]) => left.localeCompare(right)).map(
+    ([family, entries]) => {
+      const variants = entries
+        .sort((left, right) => left.index - right.index || left.asset.localeCompare(right.asset))
+        .map(({ asset }) => JSON.stringify(asset))
+        .join(", ");
+      return `  ${JSON.stringify(family)}: [${variants}],`;
+    },
+  ),
   "};",
   "",
 ];

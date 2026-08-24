@@ -454,7 +454,7 @@ class AdministrationManager:
                 if not recipient.approved:
                     continue
                 motd_text = localized_text_for_locale(recipient.locale, values)
-                recipient.play_sound("notify.ogg")
+                recipient.play_sound_family("notify")
                 recipient.speak_l(
                     "motd-broadcast", buffer="system", message=motd_text
                 )
@@ -2395,7 +2395,6 @@ class AdministrationManager:
         admin.speak_l("admin-broadcast-sent", buffer="system", count=count)
         
         # Also play a confirmation sound for admin locally via queue
-        # admin.play_sound("notify.ogg") 
         
         if show_menu:
             self._return_to_admin_root(admin, "broadcast_announcement")

@@ -16,7 +16,7 @@ from typing import Any, ClassVar
 import uuid
 
 
-AUDIO_PROTOCOL_VERSION = 1
+AUDIO_PROTOCOL_VERSION = 2
 DEFAULT_MUSIC_FADE_MS = 800
 DEFAULT_AMBIENCE_FADE_MS = 1200
 MAX_FADE_MS = 60_000
@@ -85,6 +85,19 @@ def normalize_audio_asset(value: str, *, required: bool = True) -> str:
     if any(part in {"", ".", ".."} for part in path.parts):
         raise ValueError(f"Invalid audio asset path: {value!r}")
     return path.as_posix()
+
+
+def normalize_audio_family(value: str, *, required: bool = True) -> str:
+    """Validate an extensionless, repository-relative numbered sound family."""
+    normalized = str(value or "").strip().replace("\\", "/")
+    if not normalized:
+        if required:
+            raise ValueError("Audio family is required")
+        return ""
+    if "." in normalized.rsplit("/", 1)[-1]:
+        raise ValueError(f"Audio family must not include an extension: {value!r}")
+    validated = normalize_audio_asset(f"{normalized}1.ogg")
+    return validated.removesuffix("1.ogg")
 
 
 def new_audio_handle(prefix: str = "audio") -> str:
@@ -199,6 +212,7 @@ class AudioCommand:
     command: str
     kind: str = ""
     asset: str = ""
+    family: str = ""
     handle: str = ""
     bus: str = ""
     scope: str = "global"
@@ -238,8 +252,12 @@ class AudioCommand:
 
         if self.asset:
             self.asset = normalize_audio_asset(self.asset)
-        if self.command == "play" and not self.asset:
-            raise ValueError("Play commands require an audio asset")
+        if self.family:
+            self.family = normalize_audio_family(self.family)
+        if self.asset and self.family:
+            raise ValueError("Play commands cannot combine an asset and family")
+        if self.command == "play" and not (self.asset or self.family):
+            raise ValueError("Play commands require an audio asset or family")
         self.intro = normalize_audio_asset(self.intro, required=False)
         self.outro = normalize_audio_asset(self.outro, required=False)
 
@@ -279,6 +297,10 @@ class AudioCommand:
             for bus, gain in dict(self.ducking or {}).items()
         }
         self.loop = bool(self.loop)
+        if self.family and (
+            self.command != "play" or self.kind != "sfx" or self.loop
+        ):
+            raise ValueError("Audio families are only valid for one-shot SFX")
         self.play_intro = bool(self.play_intro)
         self.play_outro = bool(self.play_outro)
         self.play_outros = bool(self.play_outros)
@@ -327,6 +349,7 @@ class AudioCommand:
         optional: dict[str, Any] = {
             "kind": self.kind,
             "asset": self.asset,
+            "family": self.family,
             "handle": self.handle,
             "bus": self.bus,
             "scope": self.scope,

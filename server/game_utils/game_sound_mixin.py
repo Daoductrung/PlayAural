@@ -18,6 +18,35 @@ if TYPE_CHECKING:
     from ..users.base import User
 
 
+TABLE_PRESENCE_SOUND_SPECS = {
+    "join": {
+        "direction": "join",
+        "player": "table_join.ogg",
+        "spectator": "join_spectator.ogg",
+    },
+    "leave": {
+        "direction": "leave",
+        "player": "table_leave.ogg",
+        "spectator": "leave_spectator.ogg",
+    },
+    "kick": {
+        "direction": "leave",
+        "player": "table_kick.ogg",
+        "spectator": "table_kick.ogg",
+    },
+    "disconnect": {
+        "direction": "leave",
+        "player": "disconnect.ogg",
+        "spectator": "disconnect.ogg",
+    },
+    "reconnect": {
+        "direction": "join",
+        "player": "reconnect.ogg",
+        "spectator": "reconnect.ogg",
+    },
+}
+
+
 class GameSoundMixin:
     """Mixin providing sound scheduling and playback functionality.
 
@@ -416,15 +445,11 @@ class GameSoundMixin:
         is_spectator: bool | None = None,
     ) -> None:
         """Play the appropriate table-entry sound for this game."""
-        bot, spectator = self._table_presence_flags(
+        self._play_table_presence_sound(
+            "join",
             player,
             is_bot=is_bot,
             is_spectator=is_spectator,
-        )
-        self._queue_table_presence_sound(
-            "join",
-            is_bot=bot,
-            is_spectator=spectator,
         )
 
     def play_table_leave_sound(
@@ -435,13 +460,74 @@ class GameSoundMixin:
         is_spectator: bool | None = None,
     ) -> None:
         """Play the appropriate table-exit sound for this game."""
+        self._play_table_presence_sound(
+            "leave",
+            player,
+            is_bot=is_bot,
+            is_spectator=is_spectator,
+        )
+
+    def play_table_kick_sound(
+        self,
+        player: "Player | None" = None,
+        *,
+        is_bot: bool | None = None,
+        is_spectator: bool | None = None,
+    ) -> None:
+        """Play the appropriate cue for an explicit or timeout table kick."""
+        self._play_table_presence_sound(
+            "kick",
+            player,
+            is_bot=is_bot,
+            is_spectator=is_spectator,
+        )
+
+    def play_table_disconnect_sound(
+        self,
+        player: "Player | None" = None,
+        *,
+        is_bot: bool | None = None,
+        is_spectator: bool | None = None,
+    ) -> None:
+        """Play the shared cue for an unexpected connection loss."""
+        self._play_table_presence_sound(
+            "disconnect",
+            player,
+            is_bot=is_bot,
+            is_spectator=is_spectator,
+        )
+
+    def play_table_reconnect_sound(
+        self,
+        player: "Player | None" = None,
+        *,
+        is_bot: bool | None = None,
+        is_spectator: bool | None = None,
+    ) -> None:
+        """Play the shared cue when a reserved table seat reconnects."""
+        self._play_table_presence_sound(
+            "reconnect",
+            player,
+            is_bot=is_bot,
+            is_spectator=is_spectator,
+        )
+
+    def _play_table_presence_sound(
+        self,
+        event: str,
+        player: "Player | None" = None,
+        *,
+        is_bot: bool | None = None,
+        is_spectator: bool | None = None,
+    ) -> None:
+        """Resolve actor flags and enqueue one table-presence transition."""
         bot, spectator = self._table_presence_flags(
             player,
             is_bot=is_bot,
             is_spectator=is_spectator,
         )
         self._queue_table_presence_sound(
-            "leave",
+            event,
             is_bot=bot,
             is_spectator=spectator,
         )
@@ -455,8 +541,11 @@ class GameSoundMixin:
     ) -> str:
         """Return the game-specific cue for one table presence transition."""
         del is_bot
-        suffix = "_spectator" if is_spectator else ""
-        return f"{event}{suffix}.ogg"
+        spec = TABLE_PRESENCE_SOUND_SPECS.get(event)
+        if spec is None:
+            raise ValueError(f"Unknown table presence event: {event!r}")
+        role = "spectator" if is_spectator else "player"
+        return spec[role]
 
     def _queue_table_presence_sound(
         self,
@@ -473,13 +562,17 @@ class GameSoundMixin:
         )
         if not sound:
             return
+        spec = TABLE_PRESENCE_SOUND_SPECS.get(event)
+        if spec is None:
+            raise ValueError(f"Unknown table presence event: {event!r}")
+        direction = spec["direction"]
         table = getattr(self, "_table", None)
         server = getattr(table, "_server", None) if table else None
         if server and hasattr(server, "queue_presence_audio"):
             users, _ = self._audio_recipients()
             server.queue_presence_audio(
                 users,
-                event=event,
+                event=direction,
                 sound_name=sound,
                 source="table",
             )
@@ -489,7 +582,7 @@ class GameSoundMixin:
             batcher = SameTurnAudioBatcher()
             self._table_presence_audio_batcher = batcher
         batcher.queue(
-            (event, sound),
+            direction,
             lambda sound=sound: self.broadcast_sound(sound),
         )
 

@@ -108,7 +108,7 @@ async def test_playing_human_leave_uses_reclaimable_shared_table_lifecycle() -> 
     assert replacement.replaced_human is True
     assert replacement.replaced_human_name == alpha.username
     assert replacement.name != alpha.username
-    assert beta.get_sounds_played() == ["leave.ogg"]
+    assert beta.get_sounds_played() == ["table_leave.ogg"]
 
 
 # ==========================================================================

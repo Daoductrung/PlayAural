@@ -316,6 +316,32 @@ class User(ABC):
         )
         return resolved_handle
 
+    def play_sound_family(
+        self,
+        family: str,
+        volume: int = 100,
+        pan: int = 0,
+        pitch: int = 100,
+        *,
+        bus: str = "sfx",
+        priority: int = 0,
+        max_instances: int = 0,
+    ) -> None:
+        """Play one randomly selected numbered member of an SFX family."""
+        self.send_audio_command(
+            AudioCommand(
+                command="play",
+                kind="sfx",
+                family=family,
+                bus=bus,
+                volume=volume,
+                pan=pan,
+                pitch=pitch,
+                priority=priority,
+                max_instances=max_instances,
+            )
+        )
+
     def stop_sound(self, handle: str, *, fade_ms: int = 0) -> None:
         """Stop one managed sound effect without affecting other instances."""
         self.send_audio_command(

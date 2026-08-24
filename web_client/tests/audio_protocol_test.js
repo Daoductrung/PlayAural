@@ -7,7 +7,7 @@ const engine = createAudioEngine({ soundBaseUrl: "../sounds/" });
 function command(overrides) {
   return {
     type: "audio",
-    version: 1,
+    version: 2,
     command: "play",
     kind: "sfx",
     asset: "menuclick.ogg",
@@ -36,6 +36,15 @@ runButton.addEventListener("click", async () => {
     }
     if (engine.handleAudioCommand(command({ ducking: ["music"] }))) {
       throw new Error("Malformed ducking configuration was accepted");
+    }
+    if (!engine.handleAudioCommand(command({ asset: undefined, family: "notify" }))) {
+      throw new Error("Numbered sound family was rejected");
+    }
+    if (engine.handleAudioCommand(command({ asset: "menuclick.ogg", family: "notify" }))) {
+      throw new Error("Combined sound asset and family was accepted");
+    }
+    if (engine.handleAudioCommand(command({ asset: "menuclick.ogg", family: "notify.ogg" }))) {
+      throw new Error("Asset combined with malformed family was accepted");
     }
 
     engine.handleAudioCommand(command({

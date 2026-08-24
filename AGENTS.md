@@ -64,6 +64,7 @@ Other common commands:
 cd server && python -m server
 python client/client.py
 python -m http.server 8080 --directory web_client
+node web_client/scripts/generate-sound-manifest.mjs
 cd mobile_client && cmd /c npm install && cmd /c npm run generate:sounds && cmd /c npm run generate:locales
 cd mobile_client && cmd /c npm run typecheck && npx expo start
 ```
@@ -266,6 +267,9 @@ Audio-first is mandatory. Every important state change needs TTS and/or sound.
 - All server-driven SFX, music, and ambience use the versioned `audio` command
   contract in `server/audio.py`. Do not add separate packet types or
   client-specific routing. Asset paths and command values must be validated.
+- Randomized numbered one-shot SFX use the validated `family` field. Clients
+  select from dynamically discovered `<family><positive integer>` assets; do
+  not hardcode a variant count or use families for loops, music, or ambience.
 - Looping SFX use stable handles and explicit stop; music supports fade
   pause/resume/stop; ambience uses independent `global`, `player`, or `context`
   scope plus a stable layer. Switching music or one ambience layer crossfades

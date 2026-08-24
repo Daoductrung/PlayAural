@@ -669,7 +669,7 @@ class Table(DataClassJSONMixin):
                             else:
                                 self._game.remove_player(user_record.uuid)
                             if player:
-                                self._game.play_table_leave_sound(
+                                self._game.play_table_kick_sound(
                                     player,
                                     is_spectator=member.is_spectator,
                                 )

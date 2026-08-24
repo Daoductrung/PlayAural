@@ -2755,12 +2755,11 @@ class MainWindow(wx.Frame):
             message = Localization.get("chat-local", player=packet.get("sender"), message=packet.get("message"))
         should_alert = not packet.get("silent")
         if should_alert:
-            sound = "chat"
-            if convo == "local":
-                sound += "local"
-            elif convo == "announcement":
-                sound = "notify"
-            self.sound_manager.play(sound + ".ogg")
+            if convo == "announcement":
+                self.sound_manager.play_family("notify")
+            else:
+                sound = "chatlocal" if convo == "local" else "chat"
+                self.sound_manager.play(sound + ".ogg")
         self.add_history(message, "chat", should_alert)
 
     def on_server_audio(self, packet):
@@ -2770,7 +2769,7 @@ class MainWindow(wx.Frame):
     def on_table_create(self, packet):
         host = packet.get("host")
         game = packet.get("game")
-        self.sound_manager.play("notify.ogg")
+        self.sound_manager.play_family("notify")
         self.add_history(f"{host} is hosting {game}.", "system")
 
     def compute_menu_diff_by_id(self, old_items, new_items, old_ids, new_ids):

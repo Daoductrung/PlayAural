@@ -152,6 +152,7 @@ class TestTableInviteReclaim:
 
         replacement = MockUser(host.username, uuid=host.uuid)
         replacement.client_type = "python"
+        guest.clear_messages()
         self.server._users[host.username] = replacement
         self.server._restore_user_state(
             replacement,
@@ -175,6 +176,7 @@ class TestTableInviteReclaim:
             "invert_multiline_enter",
             "back",
         ]
+        assert "reconnect.ogg" not in self._sound_names(guest)
 
     @pytest.mark.asyncio
     async def test_new_table_created_sound_follows_new_table_notification_preference(self):
@@ -478,8 +480,8 @@ class TestTableInviteReclaim:
         )
         assert expected in host.get_spoken_messages()
         assert expected in guest.get_spoken_messages()
-        assert "join.ogg" in self._sound_names(host)
-        assert "join.ogg" in self._sound_names(guest)
+        assert "reconnect.ogg" in self._sound_names(host)
+        assert "reconnect.ogg" in self._sound_names(guest)
 
     @pytest.mark.asyncio
     async def test_accepting_invite_reattaches_existing_table_member(self):
@@ -519,8 +521,8 @@ class TestTableInviteReclaim:
         )
         assert expected in host.get_spoken_messages()
         assert expected in guest.get_spoken_messages()
-        assert "join.ogg" in self._sound_names(host)
-        assert "join.ogg" in self._sound_names(guest)
+        assert "reconnect.ogg" in self._sound_names(host)
+        assert "reconnect.ogg" in self._sound_names(guest)
 
     @pytest.mark.asyncio
     async def test_host_transfer_cancels_invite_blocked_by_new_host(self):
@@ -779,8 +781,8 @@ class TestTableInviteReclaim:
         )
         assert expected in host.get_spoken_messages()
         assert expected in guest.get_spoken_messages()
-        assert "join.ogg" in self._sound_names(host)
-        assert "join.ogg" in self._sound_names(guest)
+        assert "reconnect.ogg" in self._sound_names(host)
+        assert "reconnect.ogg" in self._sound_names(guest)
 
     def test_auto_join_reclaims_bot_replaced_seat_before_menu_rebuild(self):
         host = self._create_online_user("Host")
@@ -817,8 +819,8 @@ class TestTableInviteReclaim:
         )
         assert expected in host.get_spoken_messages()
         assert expected in guest.get_spoken_messages()
-        assert "join.ogg" in self._sound_names(host)
-        assert "join.ogg" in self._sound_names(guest)
+        assert "reconnect.ogg" in self._sound_names(host)
+        assert "reconnect.ogg" in self._sound_names(guest)
 
     def test_auto_join_rejects_name_matching_existing_bot(self):
         host = self._create_online_user("Host")
@@ -949,7 +951,7 @@ class TestTableInviteReclaim:
         ) not in host.get_spoken_messages()
 
     @pytest.mark.asyncio
-    async def test_unexpected_disconnect_replacement_plays_table_leave_sound(self):
+    async def test_unexpected_disconnect_replacement_plays_disconnect_sound(self):
         host = self._create_online_user("Host")
         guest = self._create_online_user("Guest")
         table, game = self._create_started_table(host, guest)
@@ -969,13 +971,48 @@ class TestTableInviteReclaim:
         assert replacement is not None
         assert replacement.is_bot is True
         assert replacement.replaced_human_name == guest.username
-        assert "leave.ogg" in self._sound_names(host)
+        assert "disconnect.ogg" in self._sound_names(host)
         assert Localization.get(
             host.locale,
             "player-replaced-by-bot",
             player=guest.username,
             bot=replacement.name,
         ) in host.get_spoken_messages()
+
+    @pytest.mark.asyncio
+    async def test_waiting_member_disconnect_and_reconnect_use_connection_cues(self):
+        host = self._create_online_user("Host")
+        guest = self._create_online_user("Guest")
+        table, game = self._create_waiting_table(
+            host,
+            guest,
+            PigGame(options=PigOptions(target_score=25)),
+        )
+        client = SimpleNamespace(
+            username=guest.username,
+            address="guest-client",
+            authenticated=True,
+            retired=False,
+        )
+        guest.connection = client
+        host.clear_messages()
+
+        await self.server._on_client_disconnect(client)
+        await asyncio.sleep(0)
+
+        assert "disconnect.ogg" in self._sound_names(host)
+        assert "table_leave.ogg" not in self._sound_names(host)
+        assert any(member.username == guest.username for member in table.members)
+
+        returning_guest = MockUser(guest.username, uuid=guest.uuid)
+        self.server._users[guest.username] = returning_guest
+        host.clear_messages()
+        self.server._restore_user_state(returning_guest, guest.username)
+        await asyncio.sleep(0)
+
+        assert game.get_user(game.get_player_by_id(guest.uuid)) is returning_guest
+        assert "reconnect.ogg" in self._sound_names(host)
+        assert "table_join.ogg" not in self._sound_names(host)
 
     @pytest.mark.asyncio
     async def test_network_disconnected_replacement_stays_under_human_roster_row(self):
@@ -1015,7 +1052,7 @@ class TestTableInviteReclaim:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("is_ban", [False, True])
-    async def test_host_kick_plays_default_table_leave_sound(self, is_ban):
+    async def test_host_kick_plays_default_table_kick_sound(self, is_ban):
         host = self._create_online_user("Host")
         guest = self._create_online_user("Guest")
         table, _ = self._create_waiting_table(
@@ -1032,7 +1069,7 @@ class TestTableInviteReclaim:
         )
         await asyncio.sleep(0)
 
-        assert "leave.ogg" in self._sound_names(host)
+        assert "table_kick.ogg" in self._sound_names(host)
         assert all(member.username != guest.username for member in table.members)
 
     @pytest.mark.asyncio
@@ -1460,7 +1497,7 @@ class TestTableInviteReclaim:
 
         sounds = self._sound_names(host)
         assert "game_crazyeights/personleave.ogg" in sounds
-        assert "leave.ogg" not in sounds
+        assert "disconnect.ogg" not in sounds
         assert all(member.username != guest.username for member in table.members)
 
     def test_last_human_disconnect_survives_stale_waiting_table_status(
@@ -1687,7 +1724,7 @@ class TestTableInviteReclaim:
             player=guest.username,
             bot=replacement.name,
         ) in host.get_spoken_messages()
-        assert "leave.ogg" in self._sound_names(host)
+        assert "disconnect.ogg" in self._sound_names(host)
 
         host.clear_messages()
         monkeypatch.setattr("server.tables.table.time.time", lambda: 20.0)
@@ -1875,8 +1912,8 @@ class TestTableInviteReclaim:
         )
         assert expected in host.get_spoken_messages()
         assert expected in guest.get_spoken_messages()
-        assert "join.ogg" in self._sound_names(host)
-        assert "join.ogg" in self._sound_names(guest)
+        assert "reconnect.ogg" in self._sound_names(host)
+        assert "reconnect.ogg" in self._sound_names(guest)
 
     @pytest.mark.asyncio
     async def test_friend_join_switches_active_tables_via_leave_logic(self):

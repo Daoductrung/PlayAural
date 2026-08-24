@@ -144,12 +144,6 @@ class CrazyEightsGame(Game, TurnTimerMixin):
     def create_player(self, player_id: str, name: str, is_bot: bool = False) -> CrazyEightsPlayer:
         return CrazyEightsPlayer(id=player_id, name=name, is_bot=is_bot)
 
-    def broadcast_sound(self, name: str, volume: int = 100, pan: int = 0, pitch: int = 100) -> None:
-        """Suppress default system sounds that conflict with custom ones."""
-        if name in ("join.ogg", "leave.ogg"):
-            return
-        super().broadcast_sound(name, volume, pan, pitch)
-
     def _get_table_presence_sound(
         self,
         event: str,
@@ -157,11 +151,11 @@ class CrazyEightsGame(Game, TurnTimerMixin):
         is_bot: bool,
         is_spectator: bool,
     ) -> str:
-        if is_spectator:
+        if is_spectator or event in {"disconnect", "reconnect"}:
             return super()._get_table_presence_sound(
                 event,
                 is_bot=is_bot,
-                is_spectator=True,
+                is_spectator=is_spectator,
             )
         actor = "bot" if is_bot else "person"
         action = "sit" if event == "join" else "leave"

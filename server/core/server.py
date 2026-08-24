@@ -805,13 +805,7 @@ PlayAural Server
                 "voice-status-connection-lost",
                 table=table,
             )
-            if (
-                not self.power_manager.is_finalizing
-                and table
-                and table.game
-                and table.game.status == "playing"
-            ):
-                table.game.on_player_disconnect(user.uuid)
+            self._handle_user_table_disconnect(user, table)
 
             cleanup = self._pending_session_state_cleanups.pop(username, None)
             if cleanup:
@@ -893,17 +887,23 @@ PlayAural Server
             "voice-status-connection-lost",
             table=table,
         )
-        if (
-            not self.power_manager.is_finalizing
-            and table
-            and table.game
-            and table.game.status == "playing"
-        ):
-            table.game.on_player_disconnect(user.uuid)
+        self._handle_user_table_disconnect(user, table)
 
         if client:
             client.retired = True
         return user, client
+
+    def _handle_user_table_disconnect(self, user: NetworkUser, table) -> None:
+        """Apply one authoritative table disconnect transition."""
+        if self.power_manager.is_finalizing or not table or not table.game:
+            return
+        game = table.game
+        if game.status == "playing":
+            game.on_player_disconnect(user.uuid)
+            return
+        player = game.get_player_by_id(user.uuid)
+        if player and not player.is_bot:
+            game.play_table_disconnect_sound(player)
 
     @staticmethod
     async def _close_retired_session(
@@ -1842,6 +1842,8 @@ PlayAural Server
                                     user,
                                     session_handover=session_handover,
                                 )
+                                if not session_handover:
+                                    table.game.play_table_reconnect_sound(player)
 
                                 current_menu = saved_state.get("menu")
                                 restore_global_overlay = (
@@ -1872,6 +1874,8 @@ PlayAural Server
                                 user,
                                 session_handover=session_handover,
                             )
+                            if not session_handover:
+                                table.game.play_table_reconnect_sound(player)
                     else:
                         # Player's uuid is not in the game (should not normally happen, but
                         # can occur if the game was saved in an inconsistent state).  Remove
@@ -4968,7 +4972,7 @@ PlayAural Server
             self._presence_audio_batcher = batcher
         for user in users:
             batcher.queue(
-                (id(user), source, event, sound_name),
+                (id(user), source, event),
                 lambda user=user, sound_name=sound_name: user.play_sound(
                     sound_name
                 ),
@@ -7895,7 +7899,6 @@ PlayAural Server
         reclaimed_player: "Player",
         *,
         message_key: str = "player-reclaimed-from-bot",
-        sound_name: str = "join.ogg",
     ) -> None:
         """Restore a human user to an in-progress seat currently held by a bot."""
         game = table.game
@@ -7941,14 +7944,11 @@ PlayAural Server
             player=human_name,
             bot=bot_name,
         )
-        if sound_name in ("join.ogg", "join_spectator.ogg"):
-            game.play_table_join_sound(
-                reclaimed_player,
-                is_bot=False,
-                is_spectator=reclaimed_player.is_spectator,
-            )
-        else:
-            game.broadcast_sound(sound_name)
+        game.play_table_reconnect_sound(
+            reclaimed_player,
+            is_bot=False,
+            is_spectator=reclaimed_player.is_spectator,
+        )
         if hasattr(game, "_on_replacement_slot_reclaimed"):
             game._on_replacement_slot_reclaimed(bot_name, human_name)
         game.refresh_menus()
@@ -8687,27 +8687,27 @@ PlayAural Server
 
         if target_player.is_spectator:
             table.game.remove_spectator(target_player.id)
-            table.game.play_table_leave_sound(
+            table.game.play_table_kick_sound(
                 target_player,
                 is_bot=False,
                 is_spectator=True,
             )
         elif is_replacement_takeover:
-            table.game.play_table_leave_sound(
+            table.game.play_table_kick_sound(
                 target_player,
                 is_bot=False,
                 is_spectator=False,
             )
         elif table.game.status == "waiting":
             table.game.remove_player(target_player.id)
-            table.game.play_table_leave_sound(
+            table.game.play_table_kick_sound(
                 target_player,
                 is_bot=False,
                 is_spectator=False,
             )
         else:
             if table.game._replace_with_bot(target_player):
-                table.game.play_table_leave_sound(
+                table.game.play_table_kick_sound(
                     target_player,
                     is_bot=False,
                     is_spectator=False,

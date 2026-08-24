@@ -21,7 +21,7 @@ import { Asset } from "expo-asset";
 import { requireNativeModule } from "expo-modules-core";
 import { Platform } from "react-native";
 
-import { soundManifest } from "../generated/soundManifest";
+import { soundFamilies, soundManifest } from "../generated/soundManifest";
 import type { AudioCommandPacket, AudioKind } from "../network/packets";
 import { isTerminalNativePlaybackStatus } from "./playbackLifecycle";
 
@@ -93,7 +93,7 @@ type ExponentAVModule = {
   setAudioMode(mode: AndroidNativeAudioMode): Promise<void>;
 };
 
-const AUDIO_PROTOCOL_VERSION = 1;
+const AUDIO_PROTOCOL_VERSION = 2;
 const MAX_ACTIVE_EFFECTS = 64;
 const MAX_ACTIVE_LAYERS = 32;
 const MAX_CACHED_EFFECTS = 128;
@@ -270,6 +270,23 @@ export class MobileAudioManager {
     });
   }
 
+  async playSoundFamily(
+    family: string,
+    options: { volume?: number; pitch?: number; pan?: number } = {},
+  ): Promise<boolean> {
+    return this.handleAudioCommand({
+      type: "audio",
+      version: AUDIO_PROTOCOL_VERSION,
+      command: "play",
+      kind: "sfx",
+      family,
+      volume: (options.volume ?? 1) * 100,
+      pitch: (options.pitch ?? 1) * 100,
+      pan: (options.pan ?? 0) * 100,
+      priority: 100,
+    });
+  }
+
   playMusic(
     name: string,
     options: MusicPlaybackOptions = {},
@@ -349,16 +366,37 @@ export class MobileAudioManager {
     }
     switch (packet.command) {
       case "play":
-        if (
-          !packet.kind
-          || !["sfx", "music", "ambience"].includes(packet.kind)
-          || !this.normalizeAsset(packet.asset || "")
-        ) {
+        if (!packet.kind || !["sfx", "music", "ambience"].includes(packet.kind)) {
           return false;
         }
-        return packet.kind === "sfx"
-          ? this.playManagedEffect(packet)
-          : this.playManagedLayer(packet);
+        if (packet.kind === "sfx") {
+          const hasAsset = Boolean(packet.asset);
+          const hasFamily = Boolean(packet.family);
+          if (hasAsset === hasFamily) {
+            return false;
+          }
+          const asset = hasAsset ? this.normalizeAsset(packet.asset || "") : "";
+          const family = hasFamily ? this.normalizeFamily(packet.family || "") : "";
+          if (
+            hasAsset && !asset
+            || hasFamily && (!family || packet.loop)
+          ) {
+            return false;
+          }
+          const resolvedAsset = asset || this.chooseSoundFamilyVariant(family);
+          if (!resolvedAsset) {
+            return false;
+          }
+          return this.playManagedEffect({
+            ...packet,
+            asset: resolvedAsset,
+            family: undefined,
+          });
+        }
+        if (packet.family || !this.normalizeAsset(packet.asset || "")) {
+          return false;
+        }
+        return this.playManagedLayer(packet);
       case "stop":
         if (
           !packet.kind
@@ -436,6 +474,26 @@ export class MobileAudioManager {
       return "";
     }
     return normalized;
+  }
+
+  private normalizeFamily(name: string): string {
+    const normalized = String(name || "").trim().replaceAll("\\", "/");
+    if (!normalized || normalized.split("/").at(-1)?.includes(".")) {
+      return "";
+    }
+    return this.normalizeAsset(`${normalized}1.ogg`) ? normalized : "";
+  }
+
+  private soundFamilyVariants(name: string): readonly string[] {
+    const family = this.normalizeFamily(name);
+    return family ? soundFamilies[family] ?? [] : [];
+  }
+
+  private chooseSoundFamilyVariant(name: string): string {
+    const variants = this.soundFamilyVariants(name);
+    return variants.length
+      ? variants[Math.floor(Math.random() * variants.length)]
+      : "";
   }
 
   private validId(value: string): boolean {

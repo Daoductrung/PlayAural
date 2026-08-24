@@ -1,6 +1,7 @@
 """Unified audio protocol, routing, and persistence coverage."""
 
 import asyncio
+from pathlib import Path
 
 import pytest
 
@@ -13,6 +14,9 @@ from ..audio import (
 from ..games.pig.game import PigGame
 from ..users.network_user import NetworkUser
 from ..users.test_user import MockUser
+
+
+ROOT = Path(__file__).resolve().parents[2]
 
 
 @pytest.mark.asyncio
@@ -100,22 +104,22 @@ async def test_table_presence_cues_batch_only_within_one_event_loop_turn(
     bob.clear_messages()
 
     game.play_table_join_sound(is_bot=False, is_spectator=False)
-    game.play_table_join_sound(is_bot=False, is_spectator=False)
+    game.play_table_join_sound(is_bot=False, is_spectator=True)
     game.play_table_leave_sound(is_bot=False, is_spectator=False)
-    game.play_table_leave_sound(is_bot=False, is_spectator=False)
+    game.play_table_leave_sound(is_bot=False, is_spectator=True)
     await asyncio.sleep(0)
 
     for user in (alice, bob):
-        assert user.get_sounds_played() == ["join.ogg", "leave.ogg"]
+        assert user.get_sounds_played() == ["table_join.ogg", "table_leave.ogg"]
 
     game.play_table_join_sound(is_bot=False, is_spectator=False)
     await asyncio.sleep(0)
 
     for user in (alice, bob):
         assert user.get_sounds_played() == [
-            "join.ogg",
-            "leave.ogg",
-            "join.ogg",
+            "table_join.ogg",
+            "table_leave.ogg",
+            "table_join.ogg",
         ]
 
 
@@ -130,6 +134,60 @@ def test_audio_command_rejects_unsafe_assets_and_ids() -> None:
             asset="rain.ogg",
             scope="context",
         )
+
+
+def test_audio_command_serializes_validated_one_shot_sound_family() -> None:
+    packet = AudioCommand(
+        command="play",
+        kind="sfx",
+        family="notifications/notify",
+    ).to_packet()
+
+    assert packet["family"] == "notifications/notify"
+    assert "asset" not in packet
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"command": "play", "kind": "sfx", "family": "../notify"},
+        {"command": "play", "kind": "sfx", "family": "notify.ogg"},
+        {"command": "play", "kind": "sfx", "family": "notify.variant"},
+        {
+            "command": "play",
+            "kind": "sfx",
+            "asset": "notify1.ogg",
+            "family": "notify",
+        },
+        {"command": "play", "kind": "music", "family": "notify"},
+        {"command": "play", "kind": "sfx", "family": "notify", "loop": True},
+    ],
+)
+def test_audio_command_rejects_invalid_sound_family_usage(kwargs) -> None:
+    with pytest.raises(ValueError):
+        AudioCommand(**kwargs)
+
+
+def test_shared_presence_and_notification_assets_match_every_sound_pack() -> None:
+    pack_roots = [
+        ROOT / "client" / "sounds",
+        ROOT / "web_client" / "sounds",
+        ROOT / "mobile_client" / "sounds",
+    ]
+    required_assets = {
+        "chatlocal.ogg",
+        "disconnect.ogg",
+        "reconnect.ogg",
+        "table_join.ogg",
+        "table_kick.ogg",
+        "table_leave.ogg",
+        *(f"notify{index}.ogg" for index in range(1, 5)),
+    }
+
+    for asset in required_assets:
+        payloads = [(pack / asset).read_bytes() for pack in pack_roots]
+        assert payloads[1:] == payloads[:-1]
+    assert all(not (pack / "notify.ogg").exists() for pack in pack_roots)
 
 
 def test_audio_command_clamps_untrusted_mix_values() -> None:

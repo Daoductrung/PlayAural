@@ -77,7 +77,7 @@ class MockUser(User):
                     "play_sound",
                     {
                         **packet,
-                        "name": command.asset,
+                        "name": command.asset or command.family,
                         "volume": command.volume,
                         "pan": command.pan,
                         "pitch": command.pitch,

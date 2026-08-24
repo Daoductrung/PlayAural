@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 import os
+import random
 import re
 import threading
 import time
@@ -13,9 +14,10 @@ from sound_cacher import SoundCacher
 from sound_lib.external import pybass
 
 
-AUDIO_PROTOCOL_VERSION = 1
+AUDIO_PROTOCOL_VERSION = 2
 MAX_ACTIVE_EFFECTS = 64
 MAX_ACTIVE_LAYERS = 32
+MAX_SOUND_FAMILY_CACHE = 64
 MAX_GENERATION_ENTRIES = 512
 MAX_FADE_MS = 60_000
 _ID_PATTERN = re.compile(r"^[A-Za-z0-9_.:-]{1,128}$")
@@ -81,6 +83,7 @@ class SoundManager:
         self._bus_gains: dict[str, float] = {}
         self._bus_fade_tokens: dict[str, int] = {}
         self._duck_requests: dict[str, dict[str, float]] = {}
+        self._sound_family_cache: dict[str, tuple[str, ...]] = {}
 
     # ------------------------------------------------------------------
     # Validation and low-level stream lifecycle
@@ -105,6 +108,48 @@ class SoundManager:
         except ValueError:
             return None
         return resolved
+
+    def _sound_family_variants(self, family: str) -> tuple[str, ...]:
+        """Discover numbered family members from the installed sound pack."""
+        normalized = str(family or "").strip().replace("\\", "/")
+        cached = self._sound_family_cache.get(normalized)
+        if cached is not None:
+            return cached
+        if not normalized or os.path.splitext(normalized.rsplit("/", 1)[-1])[1]:
+            return ()
+
+        probe = self._asset_path(f"{normalized}1.ogg")
+        if not probe:
+            return ()
+        directory = os.path.dirname(probe)
+        stem = normalized.rsplit("/", 1)[-1]
+        pattern = re.compile(
+            rf"^{re.escape(stem)}([1-9][0-9]*)\.(ogg|wav|mp3)$",
+            re.IGNORECASE,
+        )
+        matches: list[tuple[int, str]] = []
+        try:
+            with os.scandir(directory) as entries:
+                for entry in entries:
+                    match = pattern.fullmatch(entry.name)
+                    if not entry.is_file() or not match:
+                        continue
+                    relative = os.path.relpath(
+                        entry.path,
+                        self.sounds_folder,
+                    ).replace(os.sep, "/")
+                    matches.append((int(match.group(1)), relative))
+        except OSError:
+            pass
+        variants = tuple(path for _, path in sorted(matches))
+        self._sound_family_cache[normalized] = variants
+        while len(self._sound_family_cache) > MAX_SOUND_FAMILY_CACHE:
+            self._sound_family_cache.pop(next(iter(self._sound_family_cache)))
+        return variants
+
+    def _choose_sound_family_variant(self, family: str) -> str:
+        variants = self._sound_family_variants(family)
+        return random.choice(variants) if variants else ""
 
     @staticmethod
     def _valid_id(value):
@@ -505,6 +550,11 @@ class SoundManager:
             self._fade(source, fade_in_ms, fade_in=True)
         self._watch(source)
         return stream_obj
+
+    def play_family(self, family, **kwargs):
+        """Play one randomly selected numbered member of an SFX family."""
+        asset = self._choose_sound_family_variant(family)
+        return self.play(asset, **kwargs) if asset else None
 
     def _stop_handle(
         self,
@@ -1017,6 +1067,13 @@ class SoundManager:
             return False
         if command == "play":
             asset = str(packet.get("asset") or "")
+            family = str(packet.get("family") or "")
+            if bool(asset) == bool(family):
+                return False
+            if family:
+                if kind != "sfx" or packet.get("loop"):
+                    return False
+                asset = self._choose_sound_family_variant(family)
             if not self._asset_path(asset) or kind not in {"sfx", "music", "ambience"}:
                 return False
             if kind == "sfx":

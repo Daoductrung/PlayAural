@@ -93,6 +93,22 @@ table-listing-game-with = { $game }: { $host }'s table ({ $count } users) with {
 table-listing-game-status = { $game } [{ $status }]: { $host }'s table ({ $count } users)
 table-listing-game-one-status = { $game } [{ $status }]: { $host }'s table ({ $count } user)
 table-listing-game-with-status = { $game } [{ $status }]: { $host }'s table ({ $count } users) with { $members }
+table-listing-game-composition-status = { $game } [{ $status }]: { $host }'s table — { $composition }.
+table-composition-human-players = { $count } { $count ->
+    [one] human player
+   *[other] human players
+}: { $names }
+table-composition-bots = { $count } { $count ->
+    [one] bot
+   *[other] bots
+}: { $names }
+table-composition-spectators = { $count } { $count ->
+    [one] spectator
+   *[other] spectators
+}: { $names }
+table-composition-two = { $first }; { $second }
+table-composition-three = { $first }; { $second }; { $third }
+table-composition-empty = no participants
 table-status-waiting = Waiting
 table-status-playing = Playing
 table-status-finished = Finished
@@ -357,6 +373,19 @@ table-members-summary = Table summary: { $total } { $total ->
     [one] bot
    *[other] bots
 }; { $active } active, { $spectators } spectating.
+table-members-summary-compact = Table summary: { $composition }.
+table-summary-human-players = { $count } { $count ->
+    [one] human player
+   *[other] human players
+}
+table-summary-bots = { $count } { $count ->
+    [one] bot
+   *[other] bots
+}
+table-summary-spectators = { $count } { $count ->
+    [one] spectator
+   *[other] spectators
+}
 table-members-empty = No table members are currently listed. Use Back to return and refresh the table view.
 table-member-entry = { $player }: { $status }
 table-member-status-host = Host

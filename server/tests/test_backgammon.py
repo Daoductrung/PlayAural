@@ -1,5 +1,6 @@
 """Tests for Backgammon (random + simple bots; no gnubg)."""
 
+import asyncio
 from pathlib import Path
 
 import pytest
@@ -85,6 +86,26 @@ def ftl_keys(path: Path) -> set[str]:
             continue
         keys.add(stripped.split("=", 1)[0].strip())
     return keys
+
+
+@pytest.mark.asyncio
+async def test_playing_human_leave_uses_reclaimable_shared_table_lifecycle() -> None:
+    game, alpha, beta = make_human_game(start=True)
+    alpha_player = game.get_player_by_id(alpha.uuid)
+    assert alpha_player is not None
+    alpha.clear_messages()
+    beta.clear_messages()
+
+    game._perform_leave_game(alpha_player)
+    await asyncio.sleep(0)
+
+    replacement = game.get_player_by_id(alpha.uuid)
+    assert replacement is not None
+    assert replacement.is_bot is True
+    assert replacement.replaced_human is True
+    assert replacement.replaced_human_name == alpha.username
+    assert replacement.name != alpha.username
+    assert beta.get_sounds_played() == ["leave.ogg"]
 
 
 # ==========================================================================

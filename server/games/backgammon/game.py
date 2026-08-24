@@ -16,7 +16,6 @@ from ...game_utils.bot_helper import BotHelper
 from ...game_utils.game_result import GameResult, PlayerResult
 from ...messages.localization import Localization
 from ...ui.keybinds import KeybindState
-from ...users.bot import Bot
 from ...users.base import User, MenuItem
 from ...game_utils.menu_management_mixin import MenuBuild
 from .bot import bot_think
@@ -1703,39 +1702,7 @@ class BackgammonGame(Game):
     # ==========================================================================
 
     def _perform_leave_game(self, player: Player) -> None:
-        if self.status == "playing" and not player.is_bot:
-            player.is_bot = True
-            self._users.pop(player.id, None)
-            bot_user = Bot(player.name, uuid=player.id)
-            self.attach_user(player.id, bot_user)
-            self.broadcast_l("player-replaced-by-bot", buffer="system", player=player.name)
-
-            has_humans = any(not p.is_bot for p in self.players)
-            if not has_humans:
-                self.destroy()
-                return
-
-            self.refresh_menus()
-            return
-
-        self.players = [p for p in self.players if p.id != player.id]
-        self.player_action_sets.pop(player.id, None)
-        self._users.pop(player.id, None)
-        self.broadcast_l("table-left", buffer="system", player=player.name)
-
-        has_humans = any(not p.is_bot for p in self.players)
-        if not has_humans:
-            self.destroy()
-            return
-
-        if self.status == "waiting":
-            if player.name == self.host and self.players:
-                for p in self.players:
-                    if not p.is_bot:
-                        self.host = p.name
-                        self.broadcast_l("new-host", buffer="system", player=p.name)
-                        break
-            self.refresh_menus()
+        super()._perform_leave_game(player)
 
     # ==========================================================================
     # Sound helpers

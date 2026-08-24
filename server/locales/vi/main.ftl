@@ -93,6 +93,22 @@ table-listing-game-with = { $game }: Bàn của { $host } ({ $count } người) 
 table-listing-game-status = { $game } [{ $status }]: Bàn của { $host } ({ $count } người)
 table-listing-game-one-status = { $game } [{ $status }]: Bàn của { $host } ({ $count } người)
 table-listing-game-with-status = { $game } [{ $status }]: Bàn của { $host } ({ $count } người) cùng với { $members }
+table-listing-game-composition-status = { $game } [{ $status }]: Bàn của { $host } — { $composition }.
+table-composition-human-players = { $count } { $count ->
+    [one] người chơi
+   *[other] người chơi
+}: { $names }
+table-composition-bots = { $count } { $count ->
+    [one] bot
+   *[other] bot
+}: { $names }
+table-composition-spectators = { $count } { $count ->
+    [one] khán giả
+   *[other] khán giả
+}: { $names }
+table-composition-two = { $first }; { $second }
+table-composition-three = { $first }; { $second }; { $third }
+table-composition-empty = không có ai
 table-status-waiting = Đang chờ
 table-status-playing = Đang chơi
 table-status-finished = Đã xong
@@ -348,6 +364,19 @@ table-spectators = Khán giả: { $spectators }.
 table-host-suffix = (Chủ bàn)
 table-voice-chat-suffix = (đang tham gia trò chuyện thoại)
 table-members-summary = Tóm tắt bàn: { $total } chỗ; { $real } người thật, { $bots } bot; { $active } đang tham gia, { $spectators } đang xem.
+table-members-summary-compact = Tóm tắt bàn: { $composition }.
+table-summary-human-players = { $count } { $count ->
+    [one] người chơi
+   *[other] người chơi
+}
+table-summary-bots = { $count } { $count ->
+    [one] bot
+   *[other] bot
+}
+table-summary-spectators = { $count } { $count ->
+    [one] khán giả
+   *[other] khán giả
+}
 table-members-empty = Hiện chưa có ai được liệt kê ở bàn này. Hãy dùng Quay lại để trở về và làm mới màn hình bàn.
 table-member-entry = { $player }: { $status }
 table-member-status-host = Chủ bàn

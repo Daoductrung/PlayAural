@@ -33,6 +33,41 @@ async def test_same_turn_audio_batcher_has_no_time_debounce_window() -> None:
 
 
 @pytest.mark.asyncio
+async def test_same_turn_audio_batcher_keeps_only_highest_group_priority() -> None:
+    batcher = SameTurnAudioBatcher()
+    calls: list[str] = []
+
+    assert batcher.queue(
+        "voice",
+        lambda: calls.append("voice"),
+        group="alice-leave",
+        priority=10,
+    )
+    assert batcher.queue(
+        "table",
+        lambda: calls.append("table"),
+        group="alice-leave",
+        priority=20,
+    )
+    assert not batcher.queue(
+        "late-voice",
+        lambda: calls.append("late-voice"),
+        group="alice-leave",
+        priority=10,
+    )
+    assert batcher.queue(
+        "second-table",
+        lambda: calls.append("second-table"),
+        group="alice-leave",
+        priority=20,
+    )
+
+    await asyncio.sleep(0)
+
+    assert calls == ["table", "second-table"]
+
+
+@pytest.mark.asyncio
 async def test_same_turn_audio_batcher_isolates_callback_failures() -> None:
     batcher = SameTurnAudioBatcher()
     loop = asyncio.get_running_loop()

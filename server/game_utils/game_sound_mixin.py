@@ -473,6 +473,17 @@ class GameSoundMixin:
         )
         if not sound:
             return
+        table = getattr(self, "_table", None)
+        server = getattr(table, "_server", None) if table else None
+        if server and hasattr(server, "queue_presence_audio"):
+            users, _ = self._audio_recipients()
+            server.queue_presence_audio(
+                users,
+                event=event,
+                sound_name=sound,
+                source="table",
+            )
+            return
         batcher = getattr(self, "_table_presence_audio_batcher", None)
         if batcher is None:
             batcher = SameTurnAudioBatcher()

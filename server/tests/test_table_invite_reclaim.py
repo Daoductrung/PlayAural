@@ -853,7 +853,8 @@ class TestTableInviteReclaim:
         roster_items = host.get_current_menu_items(TABLE_MEMBERS_MENU) or []
         roster_ids = [item.id for item in roster_items if hasattr(item, "id")]
         assert roster_items[0].id == "table_members_summary"
-        assert "Table summary" in roster_items[0].text
+        assert roster_items[0].text == "Table summary: 2 human players."
+        assert "0" not in roster_items[0].text
         assert roster_ids[-1] == "back"
         assert "" not in roster_ids
         assert len(roster_ids) == len(set(roster_ids))
@@ -1202,6 +1203,97 @@ class TestTableInviteReclaim:
             "player-kicked-offline",
             player=host.username,
         ) not in host.get_spoken_messages()
+
+    def test_private_playing_table_reserves_disconnected_seat_past_five_minutes(
+        self, monkeypatch
+    ):
+        host = self._create_online_user("Host")
+        guest = self._create_online_user("Guest")
+        table, game = self._create_started_table(host, guest)
+        table.is_private = True
+
+        game.on_player_disconnect(host.uuid)
+        self.server._users.pop(host.username, None)
+        game.on_player_disconnect(guest.uuid)
+        self.server._users.pop(guest.username, None)
+
+        monkeypatch.setattr("server.tables.table.time.time", lambda: 100.0)
+        table.on_tick()
+        monkeypatch.setattr("server.tables.table.time.time", lambda: 1000.0)
+        table.on_tick()
+
+        assert self.server._tables.get_table(table.table_id) is table
+        assert self.server._tables.find_user_table(host.username) is table
+        assert any(
+            member.username == host.username and not member.is_spectator
+            for member in table.members
+        )
+
+        # The bounded UI snapshot has expired, just as it would after the
+        # normal five-minute disconnected-session cleanup.
+        self.server._user_states.pop(host.username, None)
+        returning_host = MockUser(host.username, uuid=host.uuid)
+        self.server._users[host.username] = returning_host
+        self.server._restore_user_state(returning_host, host.username)
+
+        restored_player = game.get_player_by_id(host.uuid)
+        assert restored_player is not None
+        assert restored_player.is_bot is False
+        assert restored_player.name == host.username
+        assert game.get_user(restored_player) is returning_host
+        assert table.get_user(host.username) is returning_host
+        assert self.server._user_states[host.username]["menu"] == "in_game"
+
+    def test_spectators_do_not_keep_bot_only_playing_table_alive(self, monkeypatch):
+        host = self._create_online_user("Host")
+        guest = self._create_online_user("Guest")
+        spectator = self._create_online_user("Spectator")
+        table, game = self._create_started_table(host, guest)
+        table.add_member(spectator.username, spectator, as_spectator=True)
+        spectator_player = game.add_spectator(spectator.username, spectator)
+
+        table.members = [
+            member
+            for member in table.members
+            if member.username == spectator.username
+        ]
+        game.players = [spectator_player]
+        self.server._tables._username_to_table.pop(host.username, None)
+        self.server._tables._username_to_table.pop(guest.username, None)
+        monkeypatch.setattr(game, "on_tick", lambda: None)
+
+        table.on_tick()
+
+        assert self.server._tables.get_table(table.table_id) is None
+
+    @pytest.mark.asyncio
+    async def test_account_deletion_releases_indefinite_table_reservation(self):
+        host = self._create_online_user("Host")
+        guest = self._create_online_user("Guest")
+        table, game = self._create_started_table(host, guest)
+
+        deleted = await self.server._delete_account_and_evict(
+            guest.username,
+            {
+                "type": "disconnect",
+                "reason": "Account deleted",
+                "reconnect": False,
+            },
+        )
+
+        assert deleted is True
+        assert self.db.get_user(guest.username) is None
+        assert self.server._tables.get_table(table.table_id) is table
+        assert self.server._tables.find_user_table(guest.username) is None
+        assert not any(
+            member.username == guest.username for member in table.members
+        )
+        assert not any(
+            player.id == guest.uuid
+            or player.name == guest.username
+            or player.replaced_human_name == guest.username
+            for player in game.players
+        )
 
     def test_lobby_disconnected_player_becomes_reclaimable_bot_on_start(
         self, monkeypatch

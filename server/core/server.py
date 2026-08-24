@@ -115,6 +115,10 @@ TABLE_CREATED_NOTIFICATION_SOUND = "table_created.ogg"
 TABLE_INVITE_NOTIFICATION_SOUND = "table_invite.ogg"
 VOICE_CHAT_JOIN_SOUND = "voice_join.ogg"
 VOICE_CHAT_LEAVE_SOUND = "voice_leave.ogg"
+PRESENCE_AUDIO_PRIORITIES = {
+    "voice": 10,
+    "table": 20,
+}
 MAIN_MENU_MUSIC = "mainmus.ogg"
 WELCOME_SOUND = "welcome.ogg"
 ONLINE_USERS_PAGE_SIZE = DEFAULT_MENU_PAGE_SIZE
@@ -371,7 +375,7 @@ class Server:
         }
         self._voice_presence_by_user: dict[str, dict[str, str]] = {}
         self._voice_join_authorizations_by_user: dict[str, dict[str, str | float]] = {}
-        self._voice_presence_audio_batcher = SameTurnAudioBatcher()
+        self._presence_audio_batcher = SameTurnAudioBatcher()
         self._pending_voice_context_closures: dict[
             tuple[str, str, str], asyncio.Task
         ] = {}
@@ -544,7 +548,7 @@ PlayAural Server
         for task in list(self._pending_voice_context_closures.values()):
             task.cancel()
         self._pending_voice_context_closures.clear()
-        self._voice_presence_audio_batcher.cancel()
+        self._presence_audio_batcher.cancel()
 
         if clear_table_checkpoints:
             self._db.delete_all_tables()
@@ -673,9 +677,9 @@ PlayAural Server
         ):
             task.cancel()
         getattr(self, "_pending_voice_context_closures", {}).clear()
-        voice_audio_batcher = getattr(self, "_voice_presence_audio_batcher", None)
-        if voice_audio_batcher is not None:
-            voice_audio_batcher.cancel()
+        presence_audio_batcher = getattr(self, "_presence_audio_batcher", None)
+        if presence_audio_batcher is not None:
+            presence_audio_batcher.cancel()
         for voice_username, presence in active_voice_sessions.items():
             voice_user = self._users.get(voice_username)
             if not voice_user:
@@ -927,6 +931,7 @@ PlayAural Server
             if not self._db.delete_user(username):
                 return False
             user, client = await self._retire_account_session_locked(username)
+            self._remove_deleted_account_from_table(username, user)
             self._chat_rate_limiter.remove_user(username)
             self._voice_rate_limiter.remove_user(username)
 
@@ -934,6 +939,41 @@ PlayAural Server
         if user:
             self.on_user_presence_changed()
         return True
+
+    def _remove_deleted_account_from_table(
+        self,
+        username: str,
+        user: NetworkUser | None,
+    ) -> None:
+        """Release runtime table state that cannot outlive an account."""
+        table = self._tables.find_user_table(username)
+        if not table:
+            return
+
+        game = table.game
+        if game:
+            table_user = table.get_user(username)
+            user_id = str(
+                getattr(user, "uuid", "")
+                or getattr(table_user, "uuid", "")
+            )
+            player = game.get_player_by_id(user_id) if user_id else None
+            if player is None:
+                player = next(
+                    (
+                        candidate
+                        for candidate in game.players
+                        if candidate.name == username
+                        or getattr(candidate, "replaced_human_name", "")
+                        == username
+                    ),
+                    None,
+                )
+            if player is not None:
+                game._perform_leave_game(player)
+
+        if not table._destroyed:
+            table.remove_member(username)
 
     async def _delayed_offline_broadcast(
         self,
@@ -2526,29 +2566,121 @@ PlayAural Server
         )
         self._user_states[user.username] = {"menu": "active_tables_filter_menu"}
 
+    def _is_visible_active_table(
+        self,
+        user: NetworkUser,
+        table: "Table",
+        *,
+        status_filter: str | None = None,
+    ) -> bool:
+        """Return whether a live table belongs in this user's lobby lists."""
+        if not table.game:
+            return False
+        status = table.effective_status()
+        if status not in {"waiting", "playing"}:
+            return False
+        if status_filter not in {None, "all"} and status != status_filter:
+            return False
+        if table.is_private and user.username not in {
+            member.username for member in table.members
+        }:
+            return False
+        return any(
+            not member.is_spectator and member.username in self._users
+            for member in table.members
+        )
+
+    @staticmethod
+    def _format_table_composition(locale: str, segments: list[str]) -> str:
+        """Join up to three localized role segments without ambiguous counts."""
+        if not segments:
+            return Localization.get(locale, "table-composition-empty")
+        if len(segments) == 1:
+            return segments[0]
+        if len(segments) == 2:
+            return Localization.get(
+                locale,
+                "table-composition-two",
+                first=segments[0],
+                second=segments[1],
+            )
+        return Localization.get(
+            locale,
+            "table-composition-three",
+            first=segments[0],
+            second=segments[1],
+            third=segments[2],
+        )
+
+    def _table_presence_categories(
+        self,
+        table: "Table",
+        rows: list[dict[str, Any]] | None = None,
+    ) -> dict[str, list[str]]:
+        """Classify every roster row into one mutually exclusive role."""
+        categories: dict[str, list[str]] = {
+            "human_players": [],
+            "bots": [],
+            "spectators": [],
+        }
+        for row in rows if rows is not None else self._table_member_rows(table):
+            if row.get("is_spectator"):
+                categories["spectators"].append(row["name"])
+            elif row.get("is_bot") or row.get("is_replaced_by_bot"):
+                categories["bots"].append(
+                    row.get("replacement_bot_name") or row["name"]
+                )
+            else:
+                categories["human_players"].append(row["name"])
+        return categories
+
+    def _format_active_table_listing(
+        self,
+        user: NetworkUser,
+        table: "Table",
+        game_name: str,
+    ) -> str:
+        """Describe one table with role-correct counts and names."""
+        locale = user.locale
+        categories = self._table_presence_categories(table)
+        segments: list[str] = []
+        for category in ("human_players", "bots", "spectators"):
+            names = categories[category]
+            if not names:
+                continue
+            segments.append(
+                Localization.get(
+                    locale,
+                    f"table-composition-{category.replace('_', '-')}",
+                    count=len(names),
+                    names=Localization.format_list_and(locale, names),
+                )
+            )
+        status = table.effective_status()
+        status_key = (
+            f"table-status-{status}"
+            if status in {"waiting", "playing", "finished"}
+            else "table-status-waiting"
+        )
+        return Localization.get(
+            locale,
+            "table-listing-game-composition-status",
+            game=game_name,
+            status=Localization.get(locale, status_key),
+            host=table.host,
+            composition=self._format_table_composition(locale, segments),
+        )
+
     def _get_tables_menu_items(
         self, user: NetworkUser, game_type: str, page: int = 1
     ) -> tuple[list[MenuItem], PaginatedMenuPage[Any]]:
         """Generate the list of MenuItems for a specific game's tables menu."""
         all_tables = self._tables.get_tables_by_type(game_type)
-        tables = []
-        for t in all_tables:
-            if not t.game:
-                continue
-            if t.game.status not in ["waiting", "playing"]:
-                continue
-            # Hide private tables from non-members
-            if t.is_private and user.username not in {m.username for m in t.members}:
-                continue
-
-            has_active_human = False
-            for member in t.members:
-                if not member.is_spectator and member.username in self._users:
-                    has_active_human = True
-                    break
-
-            if has_active_human:
-                tables.append(t)
+        tables = [
+            table
+            for table in all_tables
+            if self._is_visible_active_table(user, table)
+        ]
 
         game_class = get_game_class(game_type)
         game_name = (
@@ -2570,42 +2702,12 @@ PlayAural Server
         )
 
         for table in page_data.items:
-            member_count = len(table.members)
-            member_names = [
-                member.username
-                for member in table.members
-                if member.username != table.host
-            ]
-            members_str = Localization.format_list_and(user.locale, member_names)
-            if table.game:
-                if table.game.status == "waiting":
-                    status_key = "table-status-waiting"
-                elif table.game.status == "playing":
-                    status_key = "table-status-playing"
-                elif table.game.status == "finished":
-                    status_key = "table-status-finished"
-                else:
-                    status_key = "table-status-waiting"
-            else:
-                status_key = "table-status-waiting"
-            status_text = Localization.get(user.locale, status_key)
-
-            if member_count == 1:
-                listing_key = "table-listing-game-one-status"
-            elif member_names:
-                listing_key = "table-listing-game-with-status"
-            else:
-                listing_key = "table-listing-game-status"
             items.append(
                 MenuItem(
-                    text=Localization.get(
-                        user.locale,
-                        listing_key,
-                        game=game_name,
-                        host=table.host,
-                        count=member_count,
-                        members=members_str,
-                        status=status_text,
+                    text=self._format_active_table_listing(
+                        user,
+                        table,
+                        game_name,
                     ),
                     id=f"table_{table.table_id}",
                 )
@@ -2636,30 +2738,16 @@ PlayAural Server
     ) -> tuple[list[MenuItem], PaginatedMenuPage[Any]]:
         """Generate the list of MenuItems for the global active tables menu."""
         all_tables = self._tables.get_all_tables()
-        tables = []
         filter_type = user.preferences.active_tables_filter
-
-        for t in all_tables:
-            if not t.game:
-                continue
-            if t.game.status not in ["waiting", "playing"]:
-                continue
-            # Hide private tables from everyone except members already in them
-            if t.is_private and user.username not in {m.username for m in t.members}:
-                continue
-
-            # Apply filter
-            if filter_type != "all" and t.game.status != filter_type:
-                continue
-
-            has_active_human = False
-            for member in t.members:
-                if not member.is_spectator and member.username in self._users:
-                    has_active_human = True
-                    break
-
-            if has_active_human:
-                tables.append(t)
+        tables = [
+            table
+            for table in all_tables
+            if self._is_visible_active_table(
+                user,
+                table,
+                status_filter=filter_type,
+            )
+        ]
 
         items: list[MenuItem] = []
 
@@ -2696,43 +2784,12 @@ PlayAural Server
                 if game_class
                 else table.game_type
             )
-            member_count = len(table.members)
-            member_names = [
-                member.username
-                for member in table.members
-                if member.username != table.host
-            ]
-            members_str = Localization.format_list_and(user.locale, member_names)
-
-            if table.game:
-                if table.game.status == "waiting":
-                    status_key = "table-status-waiting"
-                elif table.game.status == "playing":
-                    status_key = "table-status-playing"
-                elif table.game.status == "finished":
-                    status_key = "table-status-finished"
-                else:
-                    status_key = "table-status-waiting"
-            else:
-                status_key = "table-status-waiting"
-            status_text = Localization.get(user.locale, status_key)
-
-            if member_count == 1:
-                listing_key = "table-listing-game-one-status"
-            elif member_names:
-                listing_key = "table-listing-game-with-status"
-            else:
-                listing_key = "table-listing-game-status"
             items.append(
                 MenuItem(
-                    text=Localization.get(
-                        user.locale,
-                        listing_key,
-                        game=game_name,
-                        host=table.host,
-                        count=member_count,
-                        members=members_str,
-                        status=status_text,
+                    text=self._format_active_table_listing(
+                        user,
+                        table,
+                        game_name,
                     ),
                     id=f"table_{table.table_id}",
                 )
@@ -4463,6 +4520,7 @@ PlayAural Server
         context_id: str = "",
         send_context_closed: bool = True,
         broadcast: bool = True,
+        play_sound: bool = True,
         table=None,
     ) -> bool:
         """Cancel a pending grant and close a matching active voice context."""
@@ -4503,6 +4561,7 @@ PlayAural Server
             message_key,
             table=table,
             broadcast=broadcast,
+            play_sound=play_sound,
             expected_scope=resolved_scope if resolved_context_id else "",
             expected_context_id=resolved_context_id,
         )
@@ -4556,6 +4615,19 @@ PlayAural Server
                 self._voice_presence_by_user.pop(username, None)
             return False
 
+        if (
+            broadcast
+            and message_key
+            and self._voice_presence_matches(
+                username,
+                scope=normalized_scope,
+                context_id=normalized_context_id,
+            )
+        ):
+            if table is None and normalized_scope == "table":
+                table = self._tables.get_table(normalized_context_id)
+            self._queue_voice_presence_audio(table, message_key)
+
         task = loop.create_task(
             self.force_voice_context_leave(
                 username,
@@ -4563,6 +4635,7 @@ PlayAural Server
                 scope=normalized_scope,
                 context_id=normalized_context_id,
                 broadcast=broadcast,
+                play_sound=False,
                 table=table,
             )
         )
@@ -4690,6 +4763,7 @@ PlayAural Server
         *,
         table=None,
         broadcast: bool = True,
+        play_sound: bool = True,
         expected_scope: str = "",
         expected_context_id: str = "",
     ) -> bool:
@@ -4721,6 +4795,7 @@ PlayAural Server
                 table,
                 username,
                 message_key,
+                play_sound=play_sound,
             )
         return True
 
@@ -4740,35 +4815,81 @@ PlayAural Server
             return False
         return True
 
+    def queue_presence_audio(
+        self,
+        users: list[Any],
+        *,
+        event: str,
+        sound_name: str,
+        source: str,
+    ) -> None:
+        """Queue one exact-turn presence cue for each intended listener.
+
+        Table membership changes outrank voice membership changes for the same
+        listener and direction. Events separated by an event-loop yield form
+        separate batches and therefore always remain independently audible.
+        """
+        priority = PRESENCE_AUDIO_PRIORITIES.get(source)
+        if priority is None:
+            raise ValueError(f"Unknown presence audio source: {source!r}")
+        if event not in {"join", "leave"}:
+            raise ValueError(f"Unknown presence audio event: {event!r}")
+        if not sound_name:
+            return
+
+        batcher = getattr(self, "_presence_audio_batcher", None)
+        if batcher is None:
+            batcher = SameTurnAudioBatcher()
+            self._presence_audio_batcher = batcher
+        for user in users:
+            batcher.queue(
+                (id(user), source, event, sound_name),
+                lambda user=user, sound_name=sound_name: user.play_sound(
+                    sound_name
+                ),
+                group=(id(user), event),
+                priority=priority,
+            )
+
+    def _queue_voice_presence_audio(
+        self,
+        table,
+        message_key: str,
+    ) -> None:
+        """Queue the voice cue without coupling it to async TTS delivery."""
+        if not table:
+            return
+        is_join = message_key == "voice-status-connected"
+        sound_name = VOICE_CHAT_JOIN_SOUND if is_join else VOICE_CHAT_LEAVE_SOUND
+        users = [
+            user
+            for member in table.members
+            if (user := self._users.get(member.username)) and user.approved
+        ]
+        self.queue_presence_audio(
+            users,
+            event="join" if is_join else "leave",
+            sound_name=sound_name,
+            source="voice",
+        )
+
     async def _broadcast_voice_presence_event(
         self,
         table,
         actor_username: str,
         message_key: str,
+        *,
+        play_sound: bool = True,
     ) -> None:
         if not table:
             return
-        sound_name = (
-            VOICE_CHAT_JOIN_SOUND
-            if message_key == "voice-status-connected"
-            else VOICE_CHAT_LEAVE_SOUND
-        )
+        if play_sound:
+            self._queue_voice_presence_audio(table, message_key)
         for member in table.members:
             user = self._users.get(member.username)
             if not user or not user.approved:
                 continue
             user.speak_l(message_key, buffer="system", player=actor_username)
-            if sound_name:
-                batcher = getattr(self, "_voice_presence_audio_batcher", None)
-                if batcher is None:
-                    batcher = SameTurnAudioBatcher()
-                    self._voice_presence_audio_batcher = batcher
-                batcher.queue(
-                    (id(user), sound_name),
-                    lambda user=user, sound_name=sound_name: user.play_sound(
-                        sound_name
-                    ),
-                )
 
     async def _send_voice_context_closed(
         self,
@@ -8043,26 +8164,26 @@ PlayAural Server
         """Build the interactive table roster menu."""
         locale = user.locale
         rows = self._table_member_rows(table)
-        total = len(rows)
-        bot_count = sum(
-            1
-            for row in rows
-            if row["is_bot"] or row.get("is_replaced_by_bot")
-        )
-        real_count = total - bot_count
-        spectator_count = sum(1 for row in rows if row["is_spectator"])
-        active_count = total - spectator_count
+        categories = self._table_presence_categories(table, rows)
+        summary_segments = [
+            Localization.get(
+                locale,
+                f"table-summary-{category.replace('_', '-')}",
+                count=len(names),
+            )
+            for category, names in categories.items()
+            if names
+        ]
 
         items = [
             MenuItem(
                 text=Localization.get(
                     locale,
-                    "table-members-summary",
-                    total=total,
-                    real=real_count,
-                    bots=bot_count,
-                    active=active_count,
-                    spectators=spectator_count,
+                    "table-members-summary-compact",
+                    composition=self._format_table_composition(
+                        locale,
+                        summary_segments,
+                    ),
                 ),
                 id="table_members_summary",
             )

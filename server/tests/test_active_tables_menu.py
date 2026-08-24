@@ -45,8 +45,21 @@ def test_active_tables_menu_lists_members_without_host() -> None:
     server._show_active_tables_menu(viewer)
 
     texts = _menu_texts(viewer, "active_tables_menu")
-    expected = "Pig [Waiting]: Bob's table (3 users) with Sue and Jim"
+    expected = (
+        "Pig [Waiting]: Bob's table — 2 human players: Bob and Sue; "
+        "1 spectator: Jim."
+    )
     assert expected in texts
+
+    vi_viewer = MockUser("VietnameseViewer", locale="vi")
+    server._users[vi_viewer.username] = vi_viewer
+    server._show_active_tables_menu(vi_viewer)
+    vi_texts = _menu_texts(vi_viewer, "active_tables_menu")
+    vi_expected = (
+        "Pig [Đang chờ]: Bàn của Bob — 2 người chơi: Bob và Sue; "
+        "1 khán giả: Jim."
+    )
+    assert vi_expected in vi_texts
 
 
 def test_active_tables_menu_singular_player_format() -> None:
@@ -62,7 +75,42 @@ def test_active_tables_menu_singular_player_format() -> None:
     server._show_active_tables_menu(viewer)
 
     texts = _menu_texts(viewer, "active_tables_menu")
-    expected = "Farkle [Waiting]: Kate's table (1 user)"
+    expected = "Farkle [Waiting]: Kate's table — 1 human player: Kate."
+    assert expected in texts
+
+
+def test_active_tables_menu_separates_players_bots_and_spectators() -> None:
+    server = _make_server()
+    host = MockUser("n3x")
+    viewer = MockUser("Alice")
+    spectators = [MockUser(f"Watcher{index}") for index in range(1, 5)]
+    server._users = {
+        host.username: host,
+        viewer.username: viewer,
+        **{spectator.username: spectator for spectator in spectators},
+    }
+    table = server._tables.create_table("pig", host.username, host)
+
+    from ..games.pig.game import PigGame
+    from ..users.bot import Bot
+
+    game = PigGame()
+    table.game = game
+    game._table = table
+    game.initialize_lobby(host.username, host)
+    bot = Bot("Botty")
+    game.add_player(bot.username, bot)
+    for spectator in spectators:
+        table.add_member(spectator.username, spectator, as_spectator=True)
+        game.add_spectator(spectator.username, spectator)
+
+    server._show_active_tables_menu(viewer)
+
+    texts = _menu_texts(viewer, "active_tables_menu")
+    expected = (
+        "Pig [Waiting]: n3x's table — 1 human player: n3x; "
+        "1 bot: Botty; 4 spectators: Watcher1, Watcher2, Watcher3, and Watcher4."
+    )
     assert expected in texts
 
 

@@ -94,21 +94,34 @@ def new_audio_handle(prefix: str = "audio") -> str:
 
 
 class SameTurnAudioBatcher:
-    """Coalesce identical cues queued in one event-loop turn.
+    """Coalesce and prioritize cues queued in one event-loop turn.
 
     This deliberately has no time window. A callback scheduled after any
     event-loop yield belongs to a new batch, even when only a tiny amount of
     wall-clock time has passed. Synchronous tools and tests without a running
-    loop dispatch immediately instead of retaining work indefinitely.
+    loop dispatch immediately instead of retaining work indefinitely. Callers
+    may assign related cues to a group; only the highest-priority cues in that
+    group survive the turn, while distinct cues at the same priority remain.
     """
 
     def __init__(self) -> None:
-        self._pending: dict[Hashable, Callable[[], None]] = {}
+        self._pending: dict[
+            Hashable,
+            tuple[Hashable | None, int, Callable[[], None]],
+        ] = {}
+        self._group_priorities: dict[Hashable, int] = {}
         self._flush_handle: asyncio.Handle | None = None
         self._loop: asyncio.AbstractEventLoop | None = None
 
-    def queue(self, key: Hashable, callback: Callable[[], None]) -> bool:
-        """Queue one cue, returning whether this batch accepted the key."""
+    def queue(
+        self,
+        key: Hashable,
+        callback: Callable[[], None],
+        *,
+        group: Hashable | None = None,
+        priority: int = 0,
+    ) -> bool:
+        """Queue one cue, returning whether this batch accepted it."""
         try:
             loop = asyncio.get_running_loop()
         except RuntimeError:
@@ -119,9 +132,30 @@ class SameTurnAudioBatcher:
             self.cancel()
         self._loop = loop
 
-        if key in self._pending:
+        existing = self._pending.get(key)
+        if existing is not None and priority <= existing[1]:
             return False
-        self._pending[key] = callback
+        if existing is not None:
+            self._pending.pop(key, None)
+            existing_group = existing[0]
+            if existing_group is not None and not any(
+                entry[0] == existing_group for entry in self._pending.values()
+            ):
+                self._group_priorities.pop(existing_group, None)
+
+        if group is not None:
+            current_priority = self._group_priorities.get(group)
+            if current_priority is not None and priority < current_priority:
+                return False
+            if current_priority is not None and priority > current_priority:
+                self._pending = {
+                    pending_key: entry
+                    for pending_key, entry in self._pending.items()
+                    if entry[0] != group
+                }
+            self._group_priorities[group] = priority
+
+        self._pending[key] = (group, priority, callback)
         if self._flush_handle is None:
             self._flush_handle = loop.call_soon(self.flush)
         return True
@@ -132,6 +166,7 @@ class SameTurnAudioBatcher:
             self._flush_handle.cancel()
         self._flush_handle = None
         self._pending.clear()
+        self._group_priorities.clear()
         self._loop = None
 
     def flush(self) -> None:
@@ -140,8 +175,9 @@ class SameTurnAudioBatcher:
             self._flush_handle.cancel()
         pending = self._pending
         self._pending = {}
+        self._group_priorities = {}
         self._flush_handle = None
-        for callback in pending.values():
+        for _, _, callback in pending.values():
             try:
                 callback()
             except Exception as error:

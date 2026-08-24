@@ -581,6 +581,55 @@ async def test_voice_presence_clears_when_member_leaves_table() -> None:
 
 
 @pytest.mark.asyncio
+async def test_table_presence_cues_outrank_concurrent_voice_cues() -> None:
+    server = _make_server()
+    alice = MockUser("Alice", uuid="uuid-alice")
+    bob = MockUser("Bob", uuid="uuid-bob")
+    alice.connection = RecordingConnection()
+    bob.connection = RecordingConnection()
+    server._users = {alice.username: alice, bob.username: bob}
+    table = server._tables.create_table("pig", alice.username, alice)
+    table.add_member(bob.username, bob)
+
+    from ..games.pig.game import PigGame
+
+    game = PigGame()
+    table.game = game
+    game._table = table
+    game.initialize_lobby(alice.username, alice)
+    game.add_player(bob.username, bob)
+    alice_player = game.get_player_by_id(alice.uuid)
+    assert alice_player is not None
+
+    game.play_table_join_sound(alice_player)
+    await server._broadcast_voice_presence_event(
+        table,
+        alice.username,
+        "voice-status-connected",
+    )
+    await asyncio.sleep(0)
+
+    assert bob.get_sounds_played() == ["join.ogg"]
+    assert "Alice connected" in bob.get_spoken_messages()[-1]
+
+    alice.clear_messages()
+    bob.clear_messages()
+    server._voice_presence_by_user[alice.username] = {
+        "scope": "table",
+        "context_id": table.table_id,
+    }
+    game.play_table_leave_sound(alice_player)
+    table.remove_member(alice.username)
+    await asyncio.sleep(0)
+    await asyncio.sleep(0)
+
+    assert bob.get_sounds_played() == ["leave.ogg"]
+    assert "voice_leave.ogg" not in bob.get_sounds_played()
+    assert "Alice left the table" in bob.get_spoken_messages()[-1]
+    assert alice.connection.sent[-1]["type"] == "voice_context_closed"
+
+
+@pytest.mark.asyncio
 async def test_muting_connected_user_forces_voice_chat_exit() -> None:
     server = _make_server()
     admin = MockUser("Admin", uuid="uuid-admin")

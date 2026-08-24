@@ -196,8 +196,11 @@ class Table(DataClassJSONMixin):
         username: str,
         *,
         voice_reason: str = "voice-status-left-table",
-    ) -> None:
-        """Remove a member from the table."""
+    ) -> bool:
+        """Remove one current member, returning whether anything changed."""
+        if not any(member.username == username for member in self.members):
+            return False
+
         if self._game and hasattr(self._game, "_discard_end_screen_player_id"):
             for player in list(self._game.players):
                 replaced_name = getattr(player, "replaced_human_name", "")
@@ -224,15 +227,16 @@ class Table(DataClassJSONMixin):
                 # (e.g. host is the only player and others joined as spectators, or the
                 # host toggled to spectator and all remaining members are spectators).
                 self.destroy()
-                return
+                return True
 
         # Auto-destroy if no members left (e.g. all humans left)
         if not self.members:
             self.destroy()
-            return
+            return True
 
         if self._server and hasattr(self._server, "on_tables_changed"):
             self._server.on_tables_changed()
+        return True
 
     def is_banned(self, user_uuid: str) -> bool:
         """Check if a UUID is banned from this table instance."""
@@ -336,6 +340,16 @@ class Table(DataClassJSONMixin):
         if not self._game:
             return True
         return not self._offline_active_humans()
+
+    def _has_reserved_active_human_seat(self) -> bool:
+        """Return whether an active human seat still belongs to an account.
+
+        ``members`` is the table's authoritative human-seat registry. A
+        disconnected player remains here while a game player or replacement
+        bot continues holding the gameplay slot, so ordinary network absence
+        must never expire that reservation.
+        """
+        return any(not member.is_spectator for member in self.members)
 
     def _handle_power_restore_grace(self, current_time: float) -> bool:
         """Return True when normal table ticking should remain paused."""
@@ -544,15 +558,10 @@ class Table(DataClassJSONMixin):
             # Check host presence
             host_online = self.host in self._server._users
             
-            # Check if any human is present
+            # Check if any active (non-spectating) human is present.
             any_human_present = False
             if self._game:
-                for p in self._game.players:
-                    if not p.is_bot:
-                        user = self._game.get_user(p)
-                        if user and user.username in self._server._users:
-                            any_human_present = True
-                            break
+                any_human_present = bool(self._online_active_humans())
             # Fallback for lobby if game not started (members check)
             else:
                 for m in self.members:
@@ -628,17 +637,15 @@ class Table(DataClassJSONMixin):
                             self._member_offline_since.pop(member.username, None)
             
             elif table_status == "playing":
-                # Playing: 
-                # - If humans present: Keep alive forever (reset timer)
-                # - If NO humans present (e.g. host vs bot, host offline): 5 min timeout
-                if any_human_present:
-                    self._offline_since = None
-                else:
-                    # No humans left - start/check timer
-                    if self._offline_since is None:
-                        self._offline_since = current_time
-                    elif current_time - self._offline_since > 300:  # 5 minutes
-                        should_destroy = True
+                # A playing table is the authoritative reconnect reservation.
+                # Network absence alone cannot evict a valid human seat. Tables
+                # containing only bots/spectators have no reclaimable active
+                # seat and can be retired immediately. Planned-reboot no-show
+                # cleanup remains separately bounded in
+                # _handle_power_restore_grace().
+                self._offline_since = None
+                if not self._has_reserved_active_human_seat():
+                    should_destroy = True
 
             if should_destroy:
                 self.destroy()

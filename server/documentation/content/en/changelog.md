@@ -1,5 +1,25 @@
 Changelog
 
+Tuesday 25 August 2026
+
+New Additions:
+
+* Player blocking is now available from friend requests, profiles, online-player and table-member menus, or from Personal and Options > Friends > Block a User. Blocking removes any friendship and pending requests between the two accounts, prevents friend requests, private messages, table invites, and ordinary chat in both directions, and prevents either person from newly entering a table hosted by the other. Blocked Users lets you review and unblock people later. Blocking does not remove anyone from a shared table, mute table Voice Chat, or prevent either person from recovering a reserved seat; saved tables containing both people remain safely stored but require the block to be removed before restoration.
+
+Improvements:
+
+* Reserved seats in active tables, including private tables, now remain recoverable through ordinary disconnects and planned server restarts. Returning players are placed back into their table automatically. If the only active human player disconnects and leaves the table unattended, play pauses for up to 15 minutes before the table closes; this grace period is preserved across a planned restart without counting time while the server is offline.
+* Restoring a saved table is now owner-only and all-or-nothing: every participant is transferred successfully or the original table and save remain unchanged. Human seats held by replacement bots are restored correctly, and unavailable players, incompatible saved data, or blocking conflicts now produce clear guidance without deleting the save.
+* Who's at the table summaries now omit empty categories. Active-table listings name all human players, report bots only as a count, show a short spectator preview with any remaining total, and identify the host clearly when the host is spectating.
+* Backgammon bearing off is now faster and clearer. Activating a checker bears it off immediately when that is its only legal destination; when an on-board move is also possible, the checker remains selected so a second activation can bear it off. Invalid attempts explain whether checkers remain outside the home board or on the bar, whether the dice do not fit, or whether a higher occupied point blocks the move. Status now includes each color's checkers outside the home board, and doubling restrictions give specific explanations.
+* Table arrivals, voluntary departures, kicks, network disconnects, and reserved-seat returns now have distinct audio cues. Simultaneous table and Voice Chat changes no longer pile up duplicate sounds, while events that happen separately remain individually audible. System notifications also use a more varied set of cues, and chat, private-message, invitation, typing, and Voice Chat feedback has been refreshed.
+* Mobile Voice Chat now more firmly preserves full-quality stereo game audio and the wired, Bluetooth, or speaker route selected by the device. Music, ambience, ordinary effects, and looping effects continue independently while Voice Chat is active, and the microphone still turns on only after an explicit user action.
+* Chat now gives clear feedback when a channel is unavailable or a message is invalid or too long, instead of silently failing or sending it through the wrong conversation.
+
+Bug Fixes:
+
+* Backgammon now evaluates each move against the complete remaining roll, so people, bots, and keyboard navigation consistently use both dice when possible and the higher die when only one can be played. This fixes legal sequences that previously became stranded after the first move, including bearing off with the remaining die after a hit.
+
 Tuesday 18 August 2026
 
 Improvements:

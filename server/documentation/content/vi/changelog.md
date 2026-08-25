@@ -1,5 +1,25 @@
 Nhật ký thay đổi
 
+Thứ Ba 25 Tháng Tám 2026
+
+Tính năng mới:
+
+* Tính năng chặn người chơi giờ có trong menu lời mời kết bạn, hồ sơ, người chơi trực tuyến, thành viên trong bàn, hoặc tại Cá nhân và Tùy chỉnh > Bạn bè > Chặn một người chơi. Việc chặn sẽ xóa quan hệ bạn bè và lời mời đang chờ giữa hai tài khoản; ngăn lời mời kết bạn, tin nhắn riêng, lời mời vào bàn và tin nhắn trò chuyện thông thường theo cả hai chiều; đồng thời ngăn mỗi người vào một bàn mới do người kia làm chủ. Người chơi bị chặn cho phép bạn xem danh sách và bỏ chặn sau này. Việc chặn không đưa ai ra khỏi bàn chung, không tắt tiếng Trò chuyện thoại trong bàn và không cản trở việc trở lại chỗ đã được giữ; bàn đã lưu có cả hai người vẫn được giữ an toàn nhưng phải bỏ chặn trước khi khôi phục.
+
+Cải thiện:
+
+* Chỗ đã được giữ trong bàn đang chơi, kể cả bàn riêng tư, giờ vẫn có thể lấy lại sau khi mất kết nối thông thường hoặc máy chủ khởi động lại theo lịch. Khi trở lại, người chơi được tự động đưa về đúng bàn. Nếu người chơi thật duy nhất trong ván bị mất kết nối khiến bàn không còn ai trông coi, ván sẽ tạm dừng tối đa 15 phút trước khi bàn đóng; thời gian chờ này được giữ qua lần khởi động lại theo lịch và không tính lúc máy chủ đang ngoại tuyến.
+* Việc khôi phục bàn đã lưu giờ chỉ dành cho chủ bàn và được thực hiện trọn vẹn: hoặc mọi người đều được chuyển thành công, hoặc bàn hiện tại cùng bàn đã lưu vẫn giữ nguyên. Chỗ của người thật đang do bot thay thế nắm giữ được khôi phục đúng; nếu có người chưa sẵn sàng, dữ liệu đã lưu không còn tương thích hoặc xảy ra xung đột chặn, hệ thống sẽ hướng dẫn rõ mà không xóa bàn đã lưu.
+* Tóm tắt Ai đang ở trong bàn giờ bỏ các nhóm không có ai. Danh sách bàn đang chơi nêu tên tất cả người chơi thật, chỉ báo tổng số bot, đọc gọn một số tên khán giả kèm số người còn lại, và ghi rõ chủ bàn khi chủ bàn đang xem.
+* Phần đưa quân ra khỏi bàn trong Cờ thỏ cáo giờ nhanh và rõ hơn. Khi đưa ra là đích hợp lệ duy nhất, kích hoạt quân sẽ đưa nó ra ngay; nếu còn một nước đi trên bàn, quân vẫn được chọn để bạn có thể kích hoạt lần nữa và đưa ra. Lần thử không hợp lệ sẽ giải thích cụ thể nếu còn quân ngoài khu nhà hoặc trên thanh giữa, xúc xắc không phù hợp hay một điểm cao hơn vẫn còn quân. Trạng thái giờ đọc cả số quân của mỗi màu còn ngoài khu nhà, còn các giới hạn của khối nhân đôi có lời giải thích riêng.
+* Tham gia bàn, tự rời bàn, bị đuổi, mất kết nối mạng và trở lại chỗ đã được giữ giờ có âm thanh riêng biệt. Những thay đổi của bàn và Trò chuyện thoại xảy ra đồng thời không còn làm nhiều âm thanh trùng nhau phát chồng, còn các sự kiện xảy ra riêng vẫn được nghe riêng. Thông báo hệ thống cũng dùng bộ âm thanh đa dạng hơn; phản hồi trò chuyện, tin nhắn riêng, lời mời, gõ chữ và Trò chuyện thoại đã được làm mới.
+* Trò chuyện thoại trên di động giờ bảo toàn chắc chắn hơn âm thanh game nổi chất lượng cao và đúng tai nghe có dây, thiết bị Bluetooth hoặc loa do hệ thống chọn. Nhạc nền, âm thanh môi trường, hiệu ứng thông thường và hiệu ứng lặp vẫn chạy độc lập khi Trò chuyện thoại đang hoạt động; mic chỉ bật sau thao tác chủ động của người dùng.
+* Trò chuyện giờ báo rõ khi kênh không khả dụng hoặc tin nhắn có định dạng không hợp lệ hay quá dài, thay vì im lặng thất bại hoặc gửi nhầm sang cuộc trò chuyện khác.
+
+Sửa lỗi:
+
+* Cờ thỏ cáo giờ xét từng nước đi theo toàn bộ kết quả xúc xắc còn lại, nên người chơi, bot và điều hướng bằng bàn phím luôn dùng cả hai viên khi có thể, hoặc dùng viên lớn hơn khi chỉ đi được một viên. Điều này sửa các chuỗi nước hợp lệ trước đây bị mắc kẹt sau nước đầu tiên, gồm cả đưa quân ra bằng viên còn lại sau một nước đá quân.
+
 Thứ Ba 18 Tháng Tám 2026
 
 Cải thiện:

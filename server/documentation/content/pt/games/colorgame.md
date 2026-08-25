@@ -66,7 +66,7 @@ O jogo suporta duas condições de vitória:
 * **Maior Bancada No Limite de Rodadas**
 
 Ambos os modos também compartilham uma regra prática de término antecipado:
- 
+
 * Se apenas **um jogador capaz de pagar a aposta mínima** restar, a partida termina imediatamente, mesmo que o limite de rodadas ainda não tenha sido alcançado.
 
 Isso significa que o comportamento exato é:

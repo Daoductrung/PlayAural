@@ -106,4 +106,10 @@ Os jogadores começam com uma reserva de tokens (padrão 9). Quando um jogador c
 
 * **Compra Automática:** Se uma carta de reposição é comprada automaticamente após jogar. Quando desligado, os jogadores devem comprar manualmente com Espaço ou D (padrão ligado).
 
+**Atalhos de Teclado**
 
+* **C:** Verificar a contagem atual.
+
+* **Espaço ou D:** Comprar uma carta (se a compra manual estiver ativada).
+
+* **P:** Apenas o anfitrião, durante o cronômetro da próxima rodada: pausar o cronômetro. Pressione P novamente enquanto pausado para iniciar a próxima rodada imediatamente.

@@ -48,6 +48,8 @@ A pontuação do seu turno é 0 + 0 + 1 + 0 + 5 = 6 pontos.
 
 * **Rodadas:** Escolha quantas rodadas jogar. O padrão é 10.
 
+**Opções Personalizáveis**
+
 * **Anúncios breves:** Encurta os anúncios repetidos de turno, rolagem, guarda e pontuação.
 
 * **Estilo de guarda de dados:** Com Índices de dados, pressione 1-5 para alternar os dados por posição. Com Valores de dados, cada dado recém-rolado começa guardado; pressione 1-6 para liberar um dado correspondente para a próxima rolagem, ou Shift+1-6 para guardar um dado correspondente liberado novamente. Repita uma tecla para lidar com valores duplicados um dado de cada vez.

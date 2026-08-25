@@ -62,6 +62,8 @@ Dados que não se encaixam na melhor combinação de pontuação valem 0 pontos.
 
 * **Pontuação alvo:** A pontuação necessária para vencer após uma rodada de pontuação (padrão 60, intervalo de 30-500).
 
+**Opções Personalizáveis**
+
 * **Anúncios breves:** Encurta revelações de trocas repetidas e resumos de pontuação.
 
 * **Estilo de guarda de dados:** Com Índices de dados, pressione 1-5 durante a troca para alternar os dados por posição. Com Valores de dados, pressione 1-6 durante a troca para guardar um dado correspondente, e Shift+1-6 para marcar um dado guardado correspondente para troca.

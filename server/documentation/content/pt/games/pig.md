@@ -52,16 +52,3 @@ Nos modos de equipe, os companheiros de equipe compartilham uma pontuação perm
 * **T:** Verificar de quem é o turno.
 * **S:** Verificar pontuações.
 * **Shift+S:** Abrir pontuações detalhadas.
-
-
-
-
-
-
-
-
-
-
-
-
-

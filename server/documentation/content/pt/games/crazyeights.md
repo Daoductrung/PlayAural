@@ -93,4 +93,3 @@ O jogo continua até que um jogador alcance a pontuação vencedora (configuráv
 **Ao escolher um naipe após um Oito:**
 
 * **1:** Paus | **2:** Ouros | **3:** Copas | **4:** Espadas
-

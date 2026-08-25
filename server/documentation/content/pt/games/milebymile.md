@@ -20,7 +20,7 @@ Cada corrida, cada jogador começa parado. Você deve jogar um **Sinal Verde** p
 
 **Cartas de Distância**
 
-Elas adicionam milhas ao seu total: 25, 50, 75, 100 e 200 milhas. 
+Elas adicionam milhas ao seu total: 25, 50, 75, 100 e 200 milhas.
 
 * **Movimento:** Você só pode jogá-las quando estiver se movendo (sem perigos ativos ou paradas).
 
@@ -128,4 +128,3 @@ Se você selecionar uma carta que não pode ser jogada no momento, o jogo explic
 * **S:** Verificar status.
 
 * **Shift+S:** Caixa de status detalhada.
-

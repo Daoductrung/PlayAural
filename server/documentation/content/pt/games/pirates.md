@@ -118,32 +118,3 @@ Valores de opções armazenadas inválidos impedem que o jogo comece e explicam 
 * **M:** Verificar o status da Lua Dourada.
 * **S:** Verificar o status da tripulação.
 * **Shift+S:** Abrir o status detalhado da tripulação.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

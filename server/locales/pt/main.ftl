@@ -768,7 +768,7 @@ no-pending-requests = Nenhuma solicitação pendente.
 friend-request-from = Solicitação de amizade de { $username }
 accept = Aceitar
 decline = Recusar
-friend-accepted-success = Agora vocês são amigos de { $username }._fixed -> friend-accepted-success = Agora vocês são amigos.
+friend-accepted-success = Agora vocês são amigos de { $username }.
 friend-accepted-notify = { $username } aceitou sua solicitação de amizade!
 request-not-found = A solicitação de amizade não existe mais.
 friend-declined-success = Solicitação de amizade recusada.
@@ -819,7 +819,7 @@ host-invite-friend-unavailable = Esse amigo não está online no momento.
 host-invite-already-pending = Já existe um convite pendente para esse amigo.
 host-invite-friend-busy = Esse amigo já está em um jogo.
 host-invite-declined = { $player } recusou o convite para a mesa.
-table-invite-received = { $host } convidar você para a mesa de { $game }._fixed -> table-invite-received = { $host } convidou você para a mesa de { $game }.
+table-invite-received = { $host } convidou você para a mesa de { $game }.
 table-invite-queued = { $host } convidou você para a mesa de { $game }. Conclua sua entrada atual para responder.
 table-invite-expired = O convite para a mesa expirou.
 invite-accept = Aceitar Convite

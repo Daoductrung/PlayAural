@@ -10,7 +10,7 @@ Coup é um jogo intenso de dedução, blefe e manobra política. Você é o chef
 
 
 
-O jogo é jogado com um baralho de 15 cartas, consistindo em 3 cópias de cada um dos 5 personagens: Duque, Assassino, Capitão, Embaixador e Condessa. 
+O jogo é jogado com um baralho de 15 cartas, consistindo em 3 cópias de cada um dos 5 personagens: Duque, Assassino, Capitão, Embaixador e Condessa.
 
 
 
@@ -30,7 +30,7 @@ No seu turno, você pode realizar exatamente **uma** ação. Se a ação exigir 
 
 * **Ajuda Externa:** Pega 2 moedas do tesouro. Isso pode ser bloqueado por qualquer pessoa que afirme ter o Duque.
 
-* **Coup:** Paga 7 moedas para lançar um Coup contra outro jogador. Esse jogador perde imediatamente uma carta. Um Coup não pode ser bloqueado ou contestado. 
+* **Coup:** Paga 7 moedas para lançar um Coup contra outro jogador. Esse jogador perde imediatamente uma carta. Um Coup não pode ser bloqueado ou contestado.
 
 
 
@@ -56,7 +56,7 @@ Sempre que um jogador reivindica um personagem para realizar uma ação ou para 
 
 
 
-* **Contestar:** Se você acha que alguém está blefando, você pode contestá-lo. 
+* **Contestar:** Se você acha que alguém está blefando, você pode contestá-lo.
 
 &nbsp;   * Se eles estavam **dizendo a verdade**, eles revelam a carta reivindicada, embaralham-na de volta no baralho e compram uma nova carta. Você, o contestador, perde uma carta por estar errado!
 
@@ -107,4 +107,3 @@ O anfitrião pode configurar essas configurações na mesa antes de começar:
 * **H:** Verifica a Mão (lembra você de suas cartas atuais viradas para baixo).
 
 * **L:** Verifica a Mesa (lista todas as cartas eliminadas e reveladas na mesa).
-

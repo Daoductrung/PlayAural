@@ -50,7 +50,7 @@ pirates-status-line = { $player }: nível { $level }; { $xp } EXP total, { $prog
    *[other] joias
 }{ $detail ->
     [yes] ; posição { $position } em { $ocean }; carga: { $gems }; efeitos ativos: { $skills }
-    [no] { "" }
+   *[no] { "" }
 }.
 pirates-end-score-line = { $rank }. { $player }: { $points }, nível { $level }
 pirates-all-gems-collected = A última joia foi recuperada. As tripulações comparam suas cargas.

@@ -3,7 +3,9 @@ from server.auth.auth import AuthManager
 from server.persistence.database import Database
 from server.core.server import (
     ANDROID_UPDATE_URL,
+    SOUNDS_HASH,
     Server,
+    UPDATE_HASH,
     VERSION,
     WELCOME_SOUND,
 )
@@ -649,9 +651,11 @@ class TestAuthSecurity:
         assert update_packet["update_info"]["version"] == VERSION
         assert update_packet["update_info"]["target"] == "android"
         assert update_packet["update_info"]["url"] == ANDROID_UPDATE_URL
+        assert update_packet["update_info"]["delivery"] == "browser"
         assert update_packet["sounds_info"]["version"]
         assert update_packet["sounds_info"]["target"] == "android"
         assert update_packet["sounds_info"]["url"] == ANDROID_UPDATE_URL
+        assert update_packet["sounds_info"]["delivery"] == "browser"
         assert update_packet["reset_ui"] is True
         assert outdated_client.username is None
         assert outdated_client.authenticated is False
@@ -698,6 +702,16 @@ class TestAuthSecurity:
         assert metadata["update_info"]["available"] is available
         assert metadata["sounds_info"]["target"] == expected_target
         assert metadata["sounds_info"]["available"] is available
+        expected_delivery = (
+            "windows_zip"
+            if expected_target == "windows"
+            else "browser" if expected_target == "android" else ""
+        )
+        assert metadata["update_info"]["delivery"] == expected_delivery
+        assert metadata["sounds_info"]["delivery"] == expected_delivery
+        if expected_target == "windows":
+            assert metadata["update_info"]["hash"] == UPDATE_HASH == ""
+            assert metadata["sounds_info"]["hash"] == SOUNDS_HASH == ""
 
     @pytest.mark.parametrize("client_type", ["python", "web", "mobile"])
     @pytest.mark.asyncio

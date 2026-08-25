@@ -31,37 +31,3 @@ def test_client_release_platform_maps_supported_desktop_operating_systems(
     ):
         monkeypatch.setattr(client_info.platform, "system", lambda value=system: value)
         assert client_info.get_client_release_platform() == expected
-
-
-def test_release_download_url_requires_https_and_matching_target(monkeypatch):
-    monkeypatch.setattr(client_info.platform, "system", lambda: "Windows")
-    valid_url = "https://downloads.example.com/PlayAural.zip"
-
-    assert (
-        client_info.get_release_download_url(
-            {"target": "windows", "url": valid_url}
-        )
-        == valid_url
-    )
-    assert (
-        client_info.get_release_download_url(
-            {"target": "macos", "url": valid_url}
-        )
-        == ""
-    )
-    assert (
-        client_info.get_release_download_url(
-            {"target": "windows", "url": "http://example.com/update.zip"}
-        )
-        == ""
-    )
-
-
-def test_legacy_untargeted_download_is_windows_only(monkeypatch):
-    url = "https://downloads.example.com/PlayAural.zip"
-
-    monkeypatch.setattr(client_info.platform, "system", lambda: "Windows")
-    assert client_info.get_release_download_url({"url": url}) == url
-
-    monkeypatch.setattr(client_info.platform, "system", lambda: "Darwin")
-    assert client_info.get_release_download_url({"url": url}) == ""

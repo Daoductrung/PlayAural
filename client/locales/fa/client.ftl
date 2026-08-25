@@ -174,12 +174,8 @@ sounds-update-available-title = آپدیت صداها
 sounds-update-available-message = آپدیت جدیدی برای صداها موجود است. می‌خواهید دانلود کنید؟
 sounds-update-downloading = در حال دانلود صداها... { $percent }%
 sounds-update-extracting = در حال استخراج صداها...
-sounds-update-cancelled = آپدیت صداها لغو شد.
-sounds-update-complete = صداها با موفقیت آپدیت شدند. برنامه در حال راه‌اندازی مجدد است.
 sounds-update-error = آپدیت صداها ناموفق بود: { $error }
-sounds-update-file-lock = امکان آپدیت صداها نیست چون فایل‌ها در حال استفاده هستند. لطفاً بازی را دستی ببندید و دوباره باز کنید.
 
-update-checking = در حال بررسی آپدیت‌ها...
 update-cancelled = آپدیت لغو شد. بازی بسته خواهد شد.
 
 main-restarting = در حال راه‌اندازی مجدد...

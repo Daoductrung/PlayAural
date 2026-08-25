@@ -12,6 +12,7 @@ import wx
 import logging
 import sys
 import os
+from pathlib import Path
 
 # Fix CWD before importing modules that depend on it (sound_lib, etc)
 if getattr(sys, 'frozen', False):
@@ -50,11 +51,29 @@ def main():
     )
     Localization.init(locale=locale)
 
+    # The updater keeps the prior installation rollback-capable until the new
+    # executable has imported its runtime and initialized wx/config/locales.
+    from update_bootstrap import (
+        cleanup_stale_update_files,
+        mark_update_ready,
+        update_token_from_arguments,
+    )
+    from update_engine import cleanup_stale_transaction_directories
+    cleanup_stale_update_files()
+    is_update_startup = bool(update_token_from_arguments())
+
     disconnect_message = None
     
     while True:
         # Show login dialog
         login_dialog = LoginDialog(disconnect_message=disconnect_message)
+        # Constructing the first interactive window verifies that the packaged
+        # UI and its native dependencies load before the updater commits.
+        mark_update_ready(client_version=VERSION)
+        if getattr(sys, "frozen", False) and not is_update_startup:
+            cleanup_stale_transaction_directories(
+                Path(sys.executable).resolve().parent
+            )
 
         credentials = None
         came_from_failure = bool(disconnect_message)

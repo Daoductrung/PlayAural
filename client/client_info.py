@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import platform
 import sys
-from collections.abc import Mapping
 from urllib.parse import urlsplit
 
 
@@ -88,32 +87,15 @@ def client_auth_metadata(client: str = "python") -> dict[str, str]:
     return metadata
 
 
-def get_release_download_url(info: object) -> str:
-    """Return a safe download URL addressed to this desktop platform.
-
-    Packets from the immediately preceding server release have no target. They
-    are accepted only by Windows, which was the only distributed desktop build.
-    """
-    if not isinstance(info, Mapping):
-        return ""
-
-    current_target = get_client_release_platform()
-    packet_target = _compact(info.get("target", "")).lower()
-    if packet_target:
-        if packet_target != current_target:
-            return ""
-    elif current_target != "windows":
-        return ""
-
-    url = _compact(info.get("url", ""))
+def is_safe_https_download_url(value: object) -> bool:
+    """Return whether an untrusted artifact URL is safe for automatic download."""
+    url = _compact(value)
     if not url:
-        return ""
+        return False
     parsed = urlsplit(url)
-    if (
-        parsed.scheme.lower() != "https"
-        or not parsed.netloc
-        or parsed.username is not None
-        or parsed.password is not None
-    ):
-        return ""
-    return url
+    return bool(
+        parsed.scheme.lower() == "https"
+        and parsed.netloc
+        and parsed.username is None
+        and parsed.password is None
+    )

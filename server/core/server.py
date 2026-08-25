@@ -20,6 +20,11 @@ from .power import (
     ServerPowerManager,
 )
 from .release_artifacts import (
+    RELEASE_DELIVERY_BROWSER,
+    RELEASE_DELIVERY_WINDOWS_ZIP,
+    RELEASE_KIND_APPLICATION,
+    RELEASE_KIND_SOUNDS,
+    ReleaseArtifact,
     ReleaseArtifacts,
     freeze_release_registry,
     resolve_release_target,
@@ -85,22 +90,36 @@ UPDATE_HASH = "" # Optional SHA256
 
 SOUNDS_VERSION = "4"
 SOUNDS_URL = "https://github.com/Daoductrung/PlayAural/releases/latest/download/sounds.zip"
+SOUNDS_HASH = "" # Optional SHA256
 ANDROID_UPDATE_URL = "https://github.com/Daoductrung/PlayAural/releases/latest/download/PlayAural.apk"
 
 CLIENT_RELEASE_ARTIFACTS = freeze_release_registry(
     {
         "windows": ReleaseArtifacts(
             target="windows",
-            update_url=UPDATE_URL,
-            sounds_url=SOUNDS_URL,
-            update_hash=UPDATE_HASH,
+            application=ReleaseArtifact(
+                url=UPDATE_URL,
+                delivery=RELEASE_DELIVERY_WINDOWS_ZIP,
+                sha256=UPDATE_HASH,
+            ),
+            sounds=ReleaseArtifact(
+                url=SOUNDS_URL,
+                delivery=RELEASE_DELIVERY_WINDOWS_ZIP,
+                sha256=SOUNDS_HASH,
+            ),
         ),
         # Mobile sounds ship inside the APK, so either version gate downloads
         # the same complete Android artifact.
         "android": ReleaseArtifacts(
             target="android",
-            update_url=ANDROID_UPDATE_URL,
-            sounds_url=ANDROID_UPDATE_URL,
+            application=ReleaseArtifact(
+                url=ANDROID_UPDATE_URL,
+                delivery=RELEASE_DELIVERY_BROWSER,
+            ),
+            sounds=ReleaseArtifact(
+                url=ANDROID_UPDATE_URL,
+                delivery=RELEASE_DELIVERY_BROWSER,
+            ),
         ),
         # Explicit placeholders keep unsupported/future targets visible in one
         # registry without ever sending another platform's installer.
@@ -1180,8 +1199,8 @@ PlayAural Server
         artifacts = CLIENT_RELEASE_ARTIFACTS[release_target]
         return {
             "version": VERSION,
-            "update_info": artifacts.update_packet(VERSION),
-            "sounds_info": artifacts.sounds_packet(SOUNDS_VERSION),
+            "update_info": artifacts.packet(RELEASE_KIND_APPLICATION, VERSION),
+            "sounds_info": artifacts.packet(RELEASE_KIND_SOUNDS, SOUNDS_VERSION),
             "voice": self._voice.capability_packet(),
             "reset_ui": True,
         }

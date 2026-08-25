@@ -94,8 +94,8 @@ SOUND_IMPACT_RICOCHET = (
     "game_bang/impact_ricochet_metal_2.ogg",
 )
 SOUND_IMPACT_SNIPER = (
-    "game_bang/impact_sniper_1.wav",
-    "game_bang/impact_sniper_2.wav",
+    "game_bang/impact_sniper_1.ogg",
+    "game_bang/impact_sniper_2.ogg",
 )
 SOUND_IMPACT_WOOD_BARREL = (
     "game_bang/impact_wood_barrel_1.ogg",

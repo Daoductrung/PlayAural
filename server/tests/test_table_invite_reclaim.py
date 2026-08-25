@@ -480,8 +480,9 @@ class TestTableInviteReclaim:
         )
         assert expected in host.get_spoken_messages()
         assert expected in guest.get_spoken_messages()
-        assert "reconnect.ogg" in self._sound_names(host)
-        assert "reconnect.ogg" in self._sound_names(guest)
+        assert "table_join.ogg" in self._sound_names(host)
+        assert "table_join.ogg" in self._sound_names(guest)
+        assert "reconnect.ogg" not in self._sound_names(host)
 
     @pytest.mark.asyncio
     async def test_accepting_invite_reattaches_existing_table_member(self):
@@ -521,8 +522,9 @@ class TestTableInviteReclaim:
         )
         assert expected in host.get_spoken_messages()
         assert expected in guest.get_spoken_messages()
-        assert "reconnect.ogg" in self._sound_names(host)
-        assert "reconnect.ogg" in self._sound_names(guest)
+        assert "table_join.ogg" in self._sound_names(host)
+        assert "table_join.ogg" in self._sound_names(guest)
+        assert "reconnect.ogg" not in self._sound_names(host)
 
     @pytest.mark.asyncio
     async def test_host_transfer_cancels_invite_blocked_by_new_host(self):
@@ -783,6 +785,7 @@ class TestTableInviteReclaim:
         assert expected in guest.get_spoken_messages()
         assert "reconnect.ogg" in self._sound_names(host)
         assert "reconnect.ogg" in self._sound_names(guest)
+        assert "table_join.ogg" not in self._sound_names(host)
 
     def test_auto_join_reclaims_bot_replaced_seat_before_menu_rebuild(self):
         host = self._create_online_user("Host")
@@ -819,8 +822,9 @@ class TestTableInviteReclaim:
         )
         assert expected in host.get_spoken_messages()
         assert expected in guest.get_spoken_messages()
-        assert "reconnect.ogg" in self._sound_names(host)
-        assert "reconnect.ogg" in self._sound_names(guest)
+        assert "table_join.ogg" in self._sound_names(host)
+        assert "table_join.ogg" in self._sound_names(guest)
+        assert "reconnect.ogg" not in self._sound_names(host)
 
     def test_auto_join_rejects_name_matching_existing_bot(self):
         host = self._create_online_user("Host")
@@ -1912,8 +1916,9 @@ class TestTableInviteReclaim:
         )
         assert expected in host.get_spoken_messages()
         assert expected in guest.get_spoken_messages()
-        assert "reconnect.ogg" in self._sound_names(host)
-        assert "reconnect.ogg" in self._sound_names(guest)
+        assert "table_join.ogg" in self._sound_names(host)
+        assert "table_join.ogg" in self._sound_names(guest)
+        assert "reconnect.ogg" not in self._sound_names(host)
 
     @pytest.mark.asyncio
     async def test_friend_join_switches_active_tables_via_leave_logic(self):

@@ -10,7 +10,7 @@ import time
 import weakref
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Literal
 
 from .power import (
     POWER_REBOOT_EXIT_CODE,
@@ -1829,7 +1829,14 @@ PlayAural Server
                             restored_game = True
 
                             if player.is_bot:
-                                self._reclaim_bot_replaced_slot(user, table, player)
+                                self._reclaim_bot_replaced_slot(
+                                    user,
+                                    table,
+                                    player,
+                                    presence_event=(
+                                        None if session_handover else "reconnect"
+                                    ),
+                                )
                             else:
                                 # Set user state before any menu rebuild so the initial
                                 # turn menu is accepted by the in-game routing guard.
@@ -7807,7 +7814,12 @@ PlayAural Server
             self._leave_current_table_for_transfer(user, current_table)
 
         if reclaimed_player:
-            self._reclaim_bot_replaced_slot(user, table, reclaimed_player)
+            self._reclaim_bot_replaced_slot(
+                user,
+                table,
+                reclaimed_player,
+                presence_event="join",
+            )
         else:
             # Determine if user can join as player
             active_players_count = sum(1 for p in game.players if not p.is_spectator)
@@ -7898,9 +7910,12 @@ PlayAural Server
         table: "Table",
         reclaimed_player: "Player",
         *,
+        presence_event: Literal["join", "reconnect"] | None,
         message_key: str = "player-reclaimed-from-bot",
     ) -> None:
         """Restore a human user to an in-progress seat currently held by a bot."""
+        if presence_event not in {None, "join", "reconnect"}:
+            raise ValueError(f"Unknown table presence event: {presence_event!r}")
         game = table.game
         if not game:
             return
@@ -7944,11 +7959,18 @@ PlayAural Server
             player=human_name,
             bot=bot_name,
         )
-        game.play_table_reconnect_sound(
-            reclaimed_player,
-            is_bot=False,
-            is_spectator=reclaimed_player.is_spectator,
-        )
+        if presence_event == "join":
+            game.play_table_join_sound(
+                reclaimed_player,
+                is_bot=False,
+                is_spectator=reclaimed_player.is_spectator,
+            )
+        elif presence_event == "reconnect":
+            game.play_table_reconnect_sound(
+                reclaimed_player,
+                is_bot=False,
+                is_spectator=reclaimed_player.is_spectator,
+            )
         if hasattr(game, "_on_replacement_slot_reclaimed"):
             game._on_replacement_slot_reclaimed(bot_name, human_name)
         game.refresh_menus()

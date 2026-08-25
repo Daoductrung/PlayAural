@@ -23,7 +23,9 @@ async function waitFor(predicate, label, timeoutMs = 4000) {
     }
     await new Promise((resolve) => window.setTimeout(resolve, 20));
   }
-  throw new Error(`Timed out: ${label}`);
+  throw new Error(
+    `Timed out: ${label}; diagnostics=${JSON.stringify(engine.getDiagnostics())}`,
+  );
 }
 
 runButton.addEventListener("click", async () => {
@@ -40,14 +42,41 @@ runButton.addEventListener("click", async () => {
     if (!engine.handleAudioCommand(command({ asset: undefined, family: "notify" }))) {
       throw new Error("Numbered sound family was rejected");
     }
+    await waitFor(
+      () => engine.getDiagnostics().sourceCount === 1,
+      "numbered family start",
+    );
+    await waitFor(
+      () => engine.getDiagnostics().sourceCount === 0,
+      "numbered family completion",
+      8000,
+    );
     if (engine.handleAudioCommand(command({ asset: "menuclick.ogg", family: "notify" }))) {
       throw new Error("Combined sound asset and family was accepted");
     }
     if (engine.handleAudioCommand(command({ asset: "menuclick.ogg", family: "notify.ogg" }))) {
       throw new Error("Asset combined with malformed family was accepted");
     }
-
+    if (engine.handleAudioCommand(command({
+      asset: undefined,
+      family: "notify",
+      handle: "invalid:family-loop",
+      loop: true,
+    }))) {
+      throw new Error("Numbered sound family was accepted as a loop");
+    }
+    if (engine.handleAudioCommand(command({ asset: undefined, family: "constructor" }))) {
+      throw new Error("Unknown inherited sound family was accepted");
+    }
+    if (engine.handleAudioCommand(command({
+      command: "stop_all",
+      asset: undefined,
+      family: "notify",
+    }))) {
+      throw new Error("Sound family was accepted on a non-play command");
+    }
     engine.handleAudioCommand(command({
+      asset: "notify2.ogg",
       handle: "test:loop",
       loop: true,
       ducking: { music: 30 },
@@ -62,7 +91,10 @@ runButton.addEventListener("click", async () => {
       asset: undefined,
     }));
     await waitFor(
-      () => engine.getDiagnostics().sourceCount === 0,
+      () => (
+        !engine.getDiagnostics().activeHandles.includes("test:loop")
+        && engine.getDiagnostics().duckRequestCount === 0
+      ),
       "managed loop stop",
     );
 

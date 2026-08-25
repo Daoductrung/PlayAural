@@ -110,7 +110,11 @@ class SoundManager:
         return resolved
 
     def _sound_family_variants(self, family: str) -> tuple[str, ...]:
-        """Discover numbered family members from the installed sound pack."""
+        """Discover members only for an explicit family playback request.
+
+        Numbered files remain ordinary, exactly addressable assets everywhere
+        else; their names alone never opt a play command into randomization.
+        """
         normalized = str(family or "").strip().replace("\\", "/")
         cached = self._sound_family_cache.get(normalized)
         if cached is not None:
@@ -1031,7 +1035,7 @@ class SoundManager:
     # ------------------------------------------------------------------
 
     def handle_audio_command(self, packet):
-        """Validate and execute a version-one server audio command."""
+        """Validate and execute a versioned server audio command."""
         if not isinstance(packet, dict):
             return False
         try:
@@ -1057,6 +1061,8 @@ class SoundManager:
             return False
         command = packet.get("command")
         kind = packet.get("kind", "")
+        if packet.get("family") and command != "play":
+            return False
         if packet.get("all_layers") and (
             command != "stop"
             or kind != "ambience"

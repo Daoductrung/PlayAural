@@ -40,6 +40,7 @@ const soundPackVersion = fs.existsSync(versionFile)
   ? fs.readFileSync(versionFile, "utf8").trim()
   : "";
 const lines = [
+  "// Numbered entries are lookup candidates only; exact asset playback remains exact.",
   `export const bundledSoundVersion = ${JSON.stringify(soundPackVersion)};`,
   "",
   "export const soundManifest: Record<string, number> = {",

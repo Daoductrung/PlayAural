@@ -364,12 +364,17 @@ export class MobileAudioManager {
     if (Object.keys(ducking).some((bus) => !this.validId(bus))) {
       return false;
     }
+    if (packet.family && packet.command !== "play") {
+      return false;
+    }
     switch (packet.command) {
       case "play":
         if (!packet.kind || !["sfx", "music", "ambience"].includes(packet.kind)) {
           return false;
         }
         if (packet.kind === "sfx") {
+          // Family selection is explicit. A numbered asset remains an exact
+          // path and never enters the randomized family lookup below.
           const hasAsset = Boolean(packet.asset);
           const hasFamily = Boolean(packet.family);
           if (hasAsset === hasFamily) {
@@ -486,7 +491,10 @@ export class MobileAudioManager {
 
   private soundFamilyVariants(name: string): readonly string[] {
     const family = this.normalizeFamily(name);
-    return family ? soundFamilies[family] ?? [] : [];
+    if (!family || !Object.prototype.hasOwnProperty.call(soundFamilies, family)) {
+      return [];
+    }
+    return soundFamilies[family] ?? [];
   }
 
   private chooseSoundFamilyVariant(name: string): string {

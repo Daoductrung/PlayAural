@@ -40,10 +40,15 @@ function validFamily(name) {
 
 function soundFamilyVariants(name) {
   const family = validFamily(name);
-  return family ? soundFamilies[family] || [] : [];
+  if (!family || !Object.prototype.hasOwnProperty.call(soundFamilies, family)) {
+    return [];
+  }
+  return soundFamilies[family] || [];
 }
 
 function resolveSoundPacket(packet) {
+  // Randomization is opt-in through `family`. A numbered `asset` is always
+  // validated and played as the exact path supplied by the server.
   const hasAsset = Boolean(packet.asset);
   const hasFamily = Boolean(packet.family);
   if (hasAsset === hasFamily) {
@@ -1320,6 +1325,9 @@ export function createAudioEngine(options = {}) {
     if (Object.keys(ducking).some((bus) => !validId(bus))) {
       return false;
     }
+    if (packet.family && packet.command !== "play") {
+      return false;
+    }
     switch (packet.command) {
       case "play":
         if (!["sfx", "music", "ambience"].includes(packet.kind)) {
@@ -1518,6 +1526,7 @@ export function createAudioEngine(options = {}) {
     return Object.freeze({
       sourceCount: sources.size,
       handleCount: handles.size,
+      activeHandles: Object.freeze([...handles.keys()]),
       targetCount: targets.size,
       pausedCount: [...sources.values()].filter((source) => source.paused).length,
       duckRequestCount: duckRequests.size,

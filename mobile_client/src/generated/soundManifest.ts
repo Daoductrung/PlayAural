@@ -1,3 +1,4 @@
+// Numbered entries are lookup candidates only; exact asset playback remains exact.
 export const bundledSoundVersion = "4";
 
 export const soundManifest: Record<string, number> = {
@@ -238,8 +239,8 @@ export const soundManifest: Record<string, number> = {
   "game_bang/impact_punch_body_2.ogg": require("../../sounds/game_bang/impact_punch_body_2.ogg"),
   "game_bang/impact_ricochet_metal_1.ogg": require("../../sounds/game_bang/impact_ricochet_metal_1.ogg"),
   "game_bang/impact_ricochet_metal_2.ogg": require("../../sounds/game_bang/impact_ricochet_metal_2.ogg"),
-  "game_bang/impact_sniper_1.wav": require("../../sounds/game_bang/impact_sniper_1.wav"),
-  "game_bang/impact_sniper_2.wav": require("../../sounds/game_bang/impact_sniper_2.wav"),
+  "game_bang/impact_sniper_1.ogg": require("../../sounds/game_bang/impact_sniper_1.ogg"),
+  "game_bang/impact_sniper_2.ogg": require("../../sounds/game_bang/impact_sniper_2.ogg"),
   "game_bang/impact_wood_barrel_1.ogg": require("../../sounds/game_bang/impact_wood_barrel_1.ogg"),
   "game_bang/impact_wood_barrel_2.ogg": require("../../sounds/game_bang/impact_wood_barrel_2.ogg"),
   "game_bang/jail_close.ogg": require("../../sounds/game_bang/jail_close.ogg"),
@@ -793,7 +794,7 @@ export const soundFamilies: Readonly<Record<string, readonly string[]>> = {
   "game_bang/impact_knife_flesh_": ["game_bang/impact_knife_flesh_1.ogg", "game_bang/impact_knife_flesh_2.ogg"],
   "game_bang/impact_punch_body_": ["game_bang/impact_punch_body_1.ogg", "game_bang/impact_punch_body_2.ogg"],
   "game_bang/impact_ricochet_metal_": ["game_bang/impact_ricochet_metal_1.ogg", "game_bang/impact_ricochet_metal_2.ogg"],
-  "game_bang/impact_sniper_": ["game_bang/impact_sniper_1.wav", "game_bang/impact_sniper_2.wav"],
+  "game_bang/impact_sniper_": ["game_bang/impact_sniper_1.ogg", "game_bang/impact_sniper_2.ogg"],
   "game_bang/impact_wood_barrel_": ["game_bang/impact_wood_barrel_1.ogg", "game_bang/impact_wood_barrel_2.ogg"],
   "game_bang/weapon_buffalo_rifle_fire_": ["game_bang/weapon_buffalo_rifle_fire_1.ogg", "game_bang/weapon_buffalo_rifle_fire_2.ogg"],
   "game_bang/weapon_knife_throw_": ["game_bang/weapon_knife_throw_1.ogg", "game_bang/weapon_knife_throw_2.ogg"],

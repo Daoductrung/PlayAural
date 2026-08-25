@@ -147,6 +147,21 @@ def test_audio_command_serializes_validated_one_shot_sound_family() -> None:
     assert "asset" not in packet
 
 
+@pytest.mark.parametrize("loop", [False, True])
+def test_numbered_asset_remains_an_exact_sound_reference(loop: bool) -> None:
+    packet = AudioCommand(
+        command="play",
+        kind="sfx",
+        asset="effects/alert2.ogg",
+        handle="alert:exact" if loop else "",
+        loop=loop,
+    ).to_packet()
+
+    assert packet["asset"] == "effects/alert2.ogg"
+    assert "family" not in packet
+    assert packet["loop"] is loop
+
+
 @pytest.mark.parametrize(
     "kwargs",
     [
@@ -161,6 +176,7 @@ def test_audio_command_serializes_validated_one_shot_sound_family() -> None:
         },
         {"command": "play", "kind": "music", "family": "notify"},
         {"command": "play", "kind": "sfx", "family": "notify", "loop": True},
+        {"command": "stop_all", "family": "notify"},
     ],
 )
 def test_audio_command_rejects_invalid_sound_family_usage(kwargs) -> None:

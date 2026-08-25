@@ -70,3 +70,19 @@ test("the manager applies the terminal guard to its shared native source path", 
   assert.match(source, /Boolean\(packet\.loop\)/);
   assert.match(source, /packet\.loop\s*\?\?\s*true/);
 });
+
+test("numbered assets remain exact and families remain explicit", async () => {
+  const source = await readFile(
+    new URL("../src/audio/MobileAudioManager.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /const hasAsset = Boolean\(packet\.asset\)/);
+  assert.match(source, /const hasFamily = Boolean\(packet\.family\)/);
+  assert.match(source, /hasFamily && \(!family \|\| packet\.loop\)/);
+  assert.match(
+    source,
+    /const resolvedAsset = asset \|\| this\.chooseSoundFamilyVariant\(family\)/,
+  );
+  assert.match(source, /asset: resolvedAsset/);
+});

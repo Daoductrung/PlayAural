@@ -400,6 +400,9 @@ def test_malformed_protocol_version_is_rejected_without_raising(monkeypatch):
     assert manager.handle_audio_command(
         {"version": 2, "command": "stop_all", "ducking": []}
     ) is False
+    assert manager.handle_audio_command(
+        {"version": 2, "command": "stop_all", "family": "notify"}
+    ) is False
 
 
 def test_audio_protocol_resolves_numbered_sound_family(monkeypatch):
@@ -427,3 +430,40 @@ def test_audio_protocol_resolves_numbered_sound_family(monkeypatch):
             "family": "notify",
         }
     ) is False
+    assert manager.handle_audio_command(
+        {
+            "type": "audio",
+            "version": 2,
+            "command": "play",
+            "kind": "sfx",
+            "family": "notify",
+            "loop": True,
+            "handle": "invalid:family-loop",
+        }
+    ) is False
+
+
+def test_audio_protocol_plays_numbered_asset_exactly_even_when_looping(monkeypatch):
+    sound_manager = _load_sound_manager_module(monkeypatch)
+    manager = sound_manager.SoundManager()
+
+    def reject_family_selection(_choices):
+        raise AssertionError("exact asset playback attempted family selection")
+
+    monkeypatch.setattr(sound_manager.random, "choice", reject_family_selection)
+
+    assert manager.handle_audio_command(
+        {
+            "type": "audio",
+            "version": 2,
+            "command": "play",
+            "kind": "sfx",
+            "asset": "notify2.ogg",
+            "loop": True,
+            "handle": "test:numbered-loop",
+        }
+    ) is True
+    source = manager._sources["test:numbered-loop"]
+    assert source.asset == "notify2.ogg"
+    assert source.stream.file_name.endswith("notify2.ogg")
+    assert source.stream.looping is True

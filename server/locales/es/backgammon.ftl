@@ -93,6 +93,7 @@ backgammon-point-empty = { $point }
 backgammon-point-empty-selected = { $point } seleccionado
 backgammon-point-occupied = { $point } { $color }, { $count }
 backgammon-point-occupied-selected = { $point } { $color }, { $count } seleccionado
+backgammon-point-occupied-selected-bearoff = { $point } { $color }, { $count } seleccionado; actívalo de nuevo para sacarlo
 
 # Etiquetas de acción
 backgammon-label-double = Doblar
@@ -117,16 +118,17 @@ backgammon-bar-entry-blocked = No puedes entrar en el punto { $point }; está bl
 backgammon-no-die-for-bar-entry = Ninguno de tus dados restantes ({ $dice }) te permite entrar en el punto { $point }.
 backgammon-no-die-for-destination = Ninguno de tus dados restantes ({ $dice }) mueve del punto { $src } al punto { $dest }.
 backgammon-must-use-forced-die = Debes usar { $dice } ahora porque el backgammon requiere usar ambos dados cuando sea posible, o el dado más alto cuando solo se pueda jugar uno.
-backgammon-bearoff-not-home = Todavía no puedes sacar fichas porque no todas están en tu cuadrante final.
+backgammon-bearoff-not-home = Todavía no puedes sacar fichas. Fichas fuera de tu cuadrante final: { $outside }. Fichas en la barra: { $bar }. Primero lleva todas tus fichas a los puntos 1 al 6 y despeja la barra.
 backgammon-bearoff-blocked = No puedes sacar del punto { $point } con un { $die }, porque hay fichas en tu punto { $blocking_point }.
 backgammon-bearoff-no-die = No puedes sacar del punto { $point } con los dados que te quedan ({ $die }).
+backgammon-move-would-waste-die = Ese movimiento te impediría usar tantos dados como exigen las reglas. Elige otro movimiento legal.
 backgammon-nothing-to-undo = No hay nada que deshacer.
 backgammon-undone = Movimiento deshecho.
 backgammon-cannot-double = No puedes doblar en este momento.
 backgammon-cannot-undo = No hay nada que deshacer.
 backgammon-not-doubling-phase = No hay ningún doblaje que responder.
 backgammon-need-roll-first = Debes lanzar los dados antes de mover una ficha.
-backgammon-confirm-drop-double = Rechazar concede esta partida al valor actual del cubo. Presiona Rechazar de nuevo dentro de 10 segundos para confirmar.
+backgammon-confirm-drop-double = Rechazar concede esta partida al valor actual del cubo. Presiona Rechazar de nuevo dentro de { $seconds } segundos para confirmar.
 
 # Atajos de información
 backgammon-check-status = Estado
@@ -135,7 +137,7 @@ backgammon-check-pip = Cuenta de pips
 backgammon-check-score = Puntuación
 backgammon-check-score-detailed = Puntuación detallada
 backgammon-check-dice = Dados
-backgammon-status = Barra roja: { $bar_red }. Barra blanca: { $bar_white }. Rojo fuera: { $off_red }. Blanco fuera: { $off_white }.
+backgammon-status = Rojo — barra: { $bar_red }, fuera del cuadrante final: { $outside_red }, fichas sacadas: { $off_red }. Blanco — barra: { $bar_white }, fuera del cuadrante final: { $outside_white }, fichas sacadas: { $off_white }.
 backgammon-dice = { $dice }
 backgammon-dice-none = Sin dados.
 backgammon-cube-status = Cubo en { $value }. { $owner ->
@@ -147,6 +149,10 @@ backgammon-cube-status = Cubo en { $value }. { $owner ->
     *[no] El doblaje no está disponible en este momento.
 }
 backgammon-cube-no-match = No hay cubo de doblaje en partidas individuales.
+backgammon-double-single-game = El cubo de doblaje no se usa en una partida individual.
+backgammon-double-cube-owned = El cubo es propiedad de tu oponente, así que solo esa persona puede ofrecer el próximo doblaje.
+backgammon-double-crawford = Esta es la partida Crawford, así que el cubo de doblaje no está disponible.
+backgammon-double-before-roll-only = Solo puedes ofrecer un doblaje al inicio de tu turno, antes de lanzar los dados.
 backgammon-pip-count = Pips del rojo: { $red_pip }. Pips del blanco: { $white_pip }.
 backgammon-match-score-line = { $player }: { $score } de { $match_length }.
 backgammon-match-score-cube-line = Cubo: { $cube }.

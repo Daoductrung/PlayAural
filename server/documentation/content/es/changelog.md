@@ -1,5 +1,43 @@
 Registro de cambios
 
+Martes 25 de agosto de 2026
+
+Novedades:
+
+* Ya está disponible el bloqueo de jugadores desde las solicitudes de amistad, los perfiles, los menús de jugadores en línea y de miembros de mesa, o desde Personal y Opciones > Amigos > Bloquear a un usuario. Bloquear elimina cualquier amistad y solicitud pendiente entre las dos cuentas, impide las solicitudes de amistad, los mensajes privados, las invitaciones a mesas y el chat normal en ambas direcciones, e impide que cualquiera de los dos entre de nuevo a una mesa organizada por el otro. Usuarios Bloqueados te permite revisar y desbloquear personas más adelante. Bloquear no saca a nadie de una mesa compartida, no silencia el Chat de Voz de la mesa, ni impide que cualquiera de los dos recupere un asiento reservado; las mesas guardadas que incluyan a ambas personas se conservan de forma segura, pero requieren que se elimine el bloqueo antes de restaurarse.
+
+Mejoras:
+
+* Los asientos reservados en mesas activas, incluidas las mesas privadas, ahora se pueden recuperar tras desconexiones normales y reinicios planificados del servidor. Los jugadores que regresan son ubicados de nuevo en su mesa automáticamente. Si el único jugador humano activo se desconecta y deja la mesa sin nadie, la partida se pausa hasta 15 minutos antes de que la mesa se cierre; este período de gracia se conserva durante un reinicio planificado sin contar el tiempo en que el servidor estuvo fuera de línea.
+* Restaurar una mesa guardada ahora es exclusivo del anfitrión y todo o nada: todos los participantes se transfieren con éxito, o la mesa original y la mesa guardada permanecen sin cambios. Los asientos humanos ocupados por bots de reemplazo se restauran correctamente, y los jugadores no disponibles, los datos guardados incompatibles o los conflictos de bloqueo ahora dan indicaciones claras sin eliminar la mesa guardada.
+* Los resúmenes de Quién está en la mesa ahora omiten las categorías vacías. Los listados de mesas activas nombran a todos los jugadores humanos, informan los bots solo como una cantidad, muestran una vista previa breve de espectadores con el total restante, e identifican claramente al anfitrión cuando este está observando.
+* Sacar fichas en Backgammon ahora es más rápido y más claro. Activar una ficha la saca de inmediato cuando ese es su único destino legal; cuando también es posible un movimiento dentro del tablero, la ficha permanece seleccionada para que una segunda activación pueda sacarla. Los intentos no válidos explican si quedan fichas fuera del cuadrante final o en la barra, si los dados no encajan, o si un punto ocupado con más fichas bloquea el movimiento. El estado ahora incluye las fichas de cada color fuera del cuadrante final, y las restricciones de doblaje dan explicaciones específicas.
+* Las llegadas a la mesa, las salidas voluntarias, las expulsiones, las desconexiones de red y los regresos a un asiento reservado ahora tienen señales de audio distintas. Los cambios simultáneos de mesa y de Chat de Voz ya no acumulan sonidos duplicados, mientras que los eventos que ocurren por separado se siguen escuchando individualmente. Las notificaciones del sistema también usan un conjunto más variado de señales, y se renovó la retroalimentación de chat, mensajes privados, invitaciones, escritura y Chat de Voz.
+* El Chat de Voz móvil ahora conserva con más firmeza el audio estéreo del juego en calidad completa y la ruta con cable, Bluetooth o altavoz seleccionada por el dispositivo. La música, el ambiente, los efectos normales y los efectos en bucle continúan de forma independiente mientras el Chat de Voz está activo, y el micrófono solo se activa después de una acción explícita del usuario.
+* El chat ahora da una respuesta clara cuando un canal no está disponible o un mensaje no es válido o es demasiado largo, en vez de fallar en silencio o enviarlo a la conversación equivocada.
+
+Corrección de errores:
+
+* Backgammon ahora evalúa cada movimiento contra la tirada completa restante, así que las personas, los bots y la navegación por teclado usan de forma consistente ambos dados cuando es posible, y el dado más alto cuando solo se puede jugar uno. Esto corrige secuencias legales que antes quedaban varadas después del primer movimiento, incluido sacar fichas con el dado restante después de una captura.
+
+Martes 18 de agosto de 2026
+
+Mejoras:
+
+* Monopolio ahora está completamente disponible en español, incluidos sus tableros, menús, anuncios y guía para principiantes, gracias al traductor comunitario UnDuende (Storm Demoner).
+* Las pantallas de cuenta en español ahora incluyen indicaciones sobre los caracteres permitidos durante el registro, e instrucciones claras cuando el nombre de una cuenta anterior coincide con más de una combinación de mayúsculas y minúsculas.
+* Los menús de selección ahora pueden actualizarse mientras siguen abiertos sin perder el foco del lector de pantalla. Las opciones, etiquetas, descripciones y saldos siguen el estado actual de la partida; confirmar o cancelar devuelve el foco al control que abrió la ventana; los campos de texto no se reinician por actualizaciones en segundo plano; y el habla o los sonidos de apertura no se repiten durante esas actualizaciones. Esto mantiene estables durante actualizaciones de partida y reconexiones las opciones de Leer todos los portafolios, Administrar propiedades y Proponer un intercambio de Monopolio, las orientaciones de despliegue manual de Hundir la Flota, el aviso de carta injugable de Mile by Mile, y las opciones de Cambiar carta de 21 (Reglas de Supervivencia).
+* Los controles de subasta de Monopolio ahora permanecen visibles para todos los postores participantes, se actualizan para mostrar la puja mínima actual, y quedan no disponibles mientras otro postor actúa. Solo se cierran cuando sales de la subasta o esta termina.
+* El cobro de alquiler en Monopolio ahora le da al propietario, al jugador que paga, y a los demás oyentes un solo mensaje conciso desde la perspectiva correspondiente. Los anuncios breves siguen siendo más cortos, y se eliminaron los avisos de alquiler duplicados.
+* Elegir explícitamente Terminar turno en Monopolio ahora devuelve el foco solo a Tirar dados; el turno o la acción de otro jugador ya no mueve tu cursor. La guía también aclara que no tener efectivo ni propiedades no es bancarrota, a menos que después debas una deuda que no puedas cubrir.
+
+Corrección de errores:
+
+* Presionar Espacio para Tirar dados en Monopolio ahora realiza exactamente una tirada. Durante la preparación inicial, Ver de quién es el turno informa que todavía nadie tiene el turno y las acciones que cambian la partida piden que esperes; mientras se resuelve una tirada, el movimiento de una ficha, una tirada de alquiler o el efecto de una carta, los controles superpuestos quedan no disponibles, pero las vistas de información siguen accesibles.
+* Elegir Proponer un intercambio ahora pausa las demás acciones que cambian la partida hasta que elijas con quién intercambiar o canceles, así que la tirada de otro jugador ya no puede cerrar el menú de selección.
+* Las compañías de servicios y los monumentos de Hanói con dueño ahora siempre usan una tirada de alquiler nueva y cobran el mismo monto sin importar si su dueño es una persona o un bot. En el tablero de Hanói, la Pagoda de un Solo Pilar y el Puente Long Biên cobran 4000 VND por punto de dados cuando el dueño tiene un monumento, o 10 000 VND por punto cuando tiene ambos; las cartas que te envían a la compañía de servicios más cercana usan la tarifa de grupo completo cuando corresponde.
+* Una pantalla de resultados de Monopolio ya terminada ahora conserva la moneda del tablero que se jugó, incluso si el anfitrión elige un tablero distinto para la siguiente partida.
+
 Domingo 16 de agosto de 2026
 
 Novedades:

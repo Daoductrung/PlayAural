@@ -212,26 +212,36 @@ update-download-unexpected = Đã xảy ra lỗi tải xuống ngoài dự kiế
 updater-window-title = Trình cập nhật PlayAural
 updater-status-initializing = Đang khởi tạo trình cập nhật...
 updater-status-waiting = Đang chờ tiến trình PlayAural { $pid } đóng...
+updater-status-waiting-other-processes =
+    { $count ->
+        [one] Đang chờ một tiến trình PlayAural khác đóng...
+       *[other] Đang chờ { $count } tiến trình PlayAural khác đóng...
+    }
 updater-status-validating = Đang xác thực và chuẩn bị gói cập nhật...
 updater-status-extracting-progress = Đang giải nén bản cập nhật: { $percent }%
+updater-status-applying = Đã giải nén xong. Đang áp dụng bản cập nhật đã được xác thực...
 updater-status-verifying-startup = Bản cập nhật đã được cài đặt. Đang xác minh phiên bản mới có thể khởi động đúng cách...
 updater-status-launching = Đang khởi động ứng dụng PlayAural đã cập nhật...
 updater-status-complete = Bản cập nhật đã hoàn tất và được xác minh thành công.
 updater-close-disabled = Bản cập nhật vẫn đang được xử lý. Cửa sổ này sẽ tự đóng khi quá trình cài đặt đã an toàn.
 updater-error-title = Cập nhật PlayAural thất bại
 updater-error-process-still-running = PlayAural không đóng kịp thời gian. Hãy đóng hoàn toàn ứng dụng rồi cập nhật lại.
+updater-error-other-processes-running = Các tiến trình PlayAural khác vẫn đang dùng bản cài đặt này (mã tiến trình: { $pids }). Hãy đóng tất cả cửa sổ PlayAural rồi cập nhật lại.
 updater-error-windows-only = Tính năng tự động cài đặt từ gói ZIP chỉ có trên Windows.
 updater-error-invalid-executable = Trình cập nhật nhận được tên tệp thực thi không hợp lệ.
 updater-error-invalid-process = Trình cập nhật nhận được mã tiến trình PlayAural không hợp lệ.
 updater-error-invalid-locale = Trình cập nhật nhận được ngôn ngữ giao diện không hợp lệ.
 updater-error-sounds-directory-missing = Bản cập nhật gói âm thanh bị thiếu thư mục đích.
 updater-error-unexpected-sounds-directory = Bản cập nhật ứng dụng không thể dùng thư mục đích riêng cho gói âm thanh.
+updater-error-invalid-update-mode = Trình cập nhật nhận được các tham số ứng dụng và gói âm thanh mâu thuẫn với nhau.
+updater-error-unsafe-runtime-directory = Trình cập nhật không thể dùng thư mục làm việc nằm ngoài bản cài đặt PlayAural. Hãy bảo đảm thư mục tạm của Windows nằm ngoài thư mục cài đặt rồi thử lại.
 updater-error-executable-missing = Không tìm thấy tệp thực thi của ứng dụng sau khi cài đặt: { $path }
 updater-error-new-version-exited = Ứng dụng mới đã đóng trong lúc kiểm tra khởi động. Phiên bản trước đã được khôi phục.
 updater-error-health-timeout = Ứng dụng mới không xác nhận khởi động thành công kịp thời. Phiên bản trước đã được khôi phục.
 updater-error-unexpected = Đã xảy ra lỗi cài đặt ngoài dự kiến: { $error }
 updater-error-rollback-failed = Cập nhật thất bại và không thể tự động khôi phục phiên bản trước: { $error }
 updater-error-rollback-backup-missing = Bản sao lưu của phiên bản trước đã bị thiếu nên không thể tiếp tục khôi phục một cách an toàn.
+updater-error-precommit-restore-failed = Không thể cài đặt gói mới và cũng không thể tự động khôi phục bản cài đặt trước. Bản sao lưu vẫn còn tại { $path }.
 updater-error-invalid-hash = Mã kiểm tra của bản cập nhật có định dạng không hợp lệ.
 updater-error-package-unreadable = Không thể đọc gói cập nhật đã tải.
 updater-error-corrupt-package = Gói cập nhật bị hỏng gần mục { $member }.
@@ -249,7 +259,9 @@ updater-error-unsafe-cleanup-path = Trình cập nhật đã từ chối một v
 updater-error-stage-exists = Thư mục chuẩn bị cập nhật đã tồn tại.
 updater-error-extraction-failed = Không thể giải nén bản cập nhật một cách an toàn.
 updater-error-insufficient-space = Bản cập nhật cần khoảng { $required_mb } MB dung lượng trống nhưng hiện chỉ còn { $available_mb } MB.
-updater-error-files-in-use = Một tiến trình khác vẫn đang khóa tệp cập nhật. Hãy đóng PlayAural rồi thử lại.
+updater-error-files-in-use = Một tiến trình khác đang chặn thao tác cập nhật từ { $source } sang { $destination }. Hãy đóng tất cả cửa sổ PlayAural rồi thử lại. Windows báo lỗi: { $error }
+updater-error-permission-denied = Windows từ chối quyền di chuyển bản cập nhật từ { $source } sang { $destination }. Hãy bảo đảm tài khoản của bạn có thể sửa đổi thư mục cài đặt PlayAural rồi thử lại. Windows báo lỗi: { $error }
+updater-error-file-operation-failed = Windows không thể di chuyển bản cập nhật từ { $source } sang { $destination }. Windows báo lỗi: { $error }
 updater-error-invalid-required-file = Trình cập nhật nhận được yêu cầu gói không hợp lệ.
 updater-error-required-file-missing = Gói cập nhật không đầy đủ vì thiếu { $path }.
 updater-error-required-file-version = Gói cập nhật chứa sai phiên bản trong { $path }. Cần phiên bản { $expected }, nhưng tìm thấy { $actual }.

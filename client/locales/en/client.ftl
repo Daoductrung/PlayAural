@@ -212,26 +212,36 @@ update-download-unexpected = An unexpected download error occurred: { $error }
 updater-window-title = PlayAural Updater
 updater-status-initializing = Initializing the updater...
 updater-status-waiting = Waiting for PlayAural process { $pid } to close...
+updater-status-waiting-other-processes =
+    { $count ->
+        [one] Waiting for one other PlayAural process to close...
+       *[other] Waiting for { $count } other PlayAural processes to close...
+    }
 updater-status-validating = Validating and staging the update package...
 updater-status-extracting-progress = Extracting update: { $percent }%
+updater-status-applying = Extraction is complete. Applying the validated update...
 updater-status-verifying-startup = The update is installed. Verifying that the new version starts correctly...
 updater-status-launching = Starting the updated PlayAural client...
 updater-status-complete = Update completed and verified successfully.
 updater-close-disabled = The update is still in progress. This window will close automatically when the installation is safe.
 updater-error-title = PlayAural Update Failed
 updater-error-process-still-running = PlayAural did not close in time. Close it completely and start the update again.
+updater-error-other-processes-running = Other PlayAural processes are still using this installation (process IDs: { $pids }). Close every PlayAural window, then start the update again.
 updater-error-windows-only = ZIP-based automatic installation is available only on Windows.
 updater-error-invalid-executable = The updater received an invalid application executable name.
 updater-error-invalid-process = The updater received an invalid PlayAural process identifier.
 updater-error-invalid-locale = The updater received an invalid interface language.
 updater-error-sounds-directory-missing = The sound-pack update is missing its destination folder.
 updater-error-unexpected-sounds-directory = An application update cannot use a separate sound-pack destination.
+updater-error-invalid-update-mode = The updater received conflicting application and sound-pack parameters.
+updater-error-unsafe-runtime-directory = The updater could not use a working folder outside the PlayAural installation. Make sure the Windows temporary folder is outside the installation folder, then try again.
 updater-error-executable-missing = The application executable is missing after installation: { $path }
 updater-error-new-version-exited = The updated application closed during its startup check. The previous version has been restored.
 updater-error-health-timeout = The updated application did not confirm a healthy startup in time. The previous version has been restored.
 updater-error-unexpected = An unexpected installation error occurred: { $error }
 updater-error-rollback-failed = The update failed and automatic rollback was unsuccessful: { $error }
 updater-error-rollback-backup-missing = The previous installation backup is missing, so rollback cannot continue safely.
+updater-error-precommit-restore-failed = The new package could not be installed, and the previous installation could not be restored automatically. Its backup remains at { $path }.
 updater-error-invalid-hash = The update checksum has an invalid format.
 updater-error-package-unreadable = The downloaded update package cannot be read.
 updater-error-corrupt-package = The update package is corrupt near { $member }.
@@ -249,7 +259,9 @@ updater-error-unsafe-cleanup-path = The updater refused an unsafe cleanup locati
 updater-error-stage-exists = The update staging directory already exists.
 updater-error-extraction-failed = The update could not be extracted safely.
 updater-error-insufficient-space = The update needs about { $required_mb } MB of free space, but only { $available_mb } MB is available.
-updater-error-files-in-use = Update files remain locked by another process. Close PlayAural and try again.
+updater-error-files-in-use = Another process is blocking the update operation from { $source } to { $destination }. Close every PlayAural window and try again. Windows reported: { $error }
+updater-error-permission-denied = Windows denied permission to move the update from { $source } to { $destination }. Make sure your account can modify the PlayAural installation folder and try again. Windows reported: { $error }
+updater-error-file-operation-failed = Windows could not move the update from { $source } to { $destination }. Windows reported: { $error }
 updater-error-invalid-required-file = The updater received an invalid package requirement.
 updater-error-required-file-missing = The update package is incomplete because { $path } is missing.
 updater-error-required-file-version = The update package contains the wrong version in { $path }. Expected { $expected }, but found { $actual }.

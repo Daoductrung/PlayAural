@@ -20,6 +20,7 @@ from update_delivery import (
 from windows_update import (
     WindowsUpdaterLaunchRequest,
     build_windows_updater_command,
+    launch_windows_updater,
 )
 
 
@@ -161,3 +162,72 @@ def test_application_and_sound_requests_reject_crossed_destinations(tmp_path):
             current_client_version="1",
             sounds_directory=tmp_path / "sounds",
         )
+
+
+def test_sound_request_rejects_a_destination_outside_the_installation(tmp_path):
+    with pytest.raises(ReleaseUpdateError, match="unsafe-target"):
+        WindowsUpdaterLaunchRequest(
+            artifact=_artifact(),
+            kind=ReleaseKind.SOUNDS,
+            archive_path=tmp_path / "release.zip",
+            installation_directory=tmp_path / "PlayAural",
+            executable_name="PlayAural.exe",
+            process_id=123,
+            locale="en",
+            current_client_version="1",
+            sounds_directory=tmp_path / "external-sounds",
+        )
+
+
+def test_launcher_runs_the_temp_helper_with_an_external_working_directory(
+    monkeypatch,
+    tmp_path,
+):
+    runtime_directory = tmp_path / "runtime"
+    installation_directory = tmp_path / "PlayAural"
+    runtime_directory.mkdir()
+    installation_directory.mkdir()
+    (installation_directory / "updater.exe").write_bytes(b"updater")
+    request = _request(tmp_path)
+    launched = {}
+
+    class _Process:
+        def create_time(self):
+            return 42.0
+
+    def record_launch(command, **kwargs):
+        launched["command"] = command
+        launched["kwargs"] = kwargs
+
+    monkeypatch.setattr(
+        "windows_update.tempfile.gettempdir",
+        lambda: str(runtime_directory),
+    )
+    monkeypatch.setattr("windows_update.psutil.Process", lambda _pid: _Process())
+    monkeypatch.setattr("windows_update.subprocess.Popen", record_launch)
+
+    helper_path = launch_windows_updater(request)
+
+    assert helper_path.parent == runtime_directory.resolve()
+    assert launched["command"][0] == str(helper_path)
+    assert launched["kwargs"] == {
+        "cwd": runtime_directory.resolve(),
+        "close_fds": True,
+    }
+
+
+def test_launcher_rejects_a_temp_directory_inside_the_installation(
+    monkeypatch,
+    tmp_path,
+):
+    installation_directory = tmp_path / "PlayAural"
+    unsafe_runtime = installation_directory / "temp"
+    unsafe_runtime.mkdir(parents=True)
+    (installation_directory / "updater.exe").write_bytes(b"updater")
+    monkeypatch.setattr(
+        "windows_update.tempfile.gettempdir",
+        lambda: str(unsafe_runtime),
+    )
+
+    with pytest.raises(ReleaseUpdateError, match="unsafe-runtime-directory"):
+        launch_windows_updater(_request(tmp_path))

@@ -55,11 +55,15 @@ def main():
     # executable has imported its runtime and initialized wx/config/locales.
     from update_bootstrap import (
         cleanup_stale_update_files,
+        consume_update_helper_cleanup_path,
         mark_update_ready,
+        schedule_update_helper_cleanup,
         update_token_from_arguments,
     )
     from update_engine import cleanup_stale_transaction_directories
+    from update_contract import packaged_sounds_directory
     cleanup_stale_update_files()
+    schedule_update_helper_cleanup(consume_update_helper_cleanup_path())
     is_update_startup = bool(update_token_from_arguments())
 
     disconnect_message = None
@@ -71,8 +75,10 @@ def main():
         # UI and its native dependencies load before the updater commits.
         mark_update_ready(client_version=VERSION)
         if getattr(sys, "frozen", False) and not is_update_startup:
+            installation_directory = Path(sys.executable).resolve().parent
+            cleanup_stale_transaction_directories(installation_directory)
             cleanup_stale_transaction_directories(
-                Path(sys.executable).resolve().parent
+                packaged_sounds_directory(installation_directory)
             )
 
         credentials = None

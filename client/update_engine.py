@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import errno
 import hashlib
 import os
 import re
@@ -20,6 +21,17 @@ MAXIMUM_REQUIRED_TEXT_FILE_BYTES = 4 * 1024
 STALE_TRANSACTION_MAX_AGE_SECONDS = 24 * 60 * 60
 WINDOWS_DRIVE_RE = re.compile(r"^[A-Za-z]:")
 WINDOWS_INVALID_COMPONENT_RE = re.compile(r"[<>:\"|?*\x00-\x1f]")
+WINDOWS_ACCESS_DENIED = 5
+WINDOWS_SHARING_VIOLATION = 32
+WINDOWS_LOCK_VIOLATION = 33
+RETRYABLE_WINDOWS_REPLACE_ERRORS = frozenset(
+    {
+        WINDOWS_ACCESS_DENIED,
+        WINDOWS_SHARING_VIOLATION,
+        WINDOWS_LOCK_VIOLATION,
+    }
+)
+RETRYABLE_POSIX_REPLACE_ERRORS = frozenset({errno.EACCES, errno.EBUSY, errno.EPERM})
 WINDOWS_RESERVED_NAMES = frozenset(
     {
         "CON",
@@ -341,8 +353,30 @@ def _replace_with_retry(
             os.replace(source, destination)
             return
         except OSError as error:
-            if time.monotonic() >= deadline:
-                raise UpdateInstallationError("updater-error-files-in-use") from error
+            winerror = getattr(error, "winerror", None)
+            retryable = (
+                winerror in RETRYABLE_WINDOWS_REPLACE_ERRORS
+                or error.errno in RETRYABLE_POSIX_REPLACE_ERRORS
+            )
+            if not retryable or time.monotonic() >= deadline:
+                params = {
+                    "source": str(source),
+                    "destination": str(destination),
+                    "error": str(error),
+                }
+                if winerror in {
+                    WINDOWS_SHARING_VIOLATION,
+                    WINDOWS_LOCK_VIOLATION,
+                } or error.errno == errno.EBUSY:
+                    message_id = "updater-error-files-in-use"
+                elif (
+                    winerror == WINDOWS_ACCESS_DENIED
+                    or error.errno in {errno.EACCES, errno.EPERM}
+                ):
+                    message_id = "updater-error-permission-denied"
+                else:
+                    message_id = "updater-error-file-operation-failed"
+                raise UpdateInstallationError(message_id, **params) from error
             time.sleep(policy.file_operation_retry_seconds)
 
 
@@ -435,10 +469,25 @@ class PendingInstallation:
                 )
             restored = True
         finally:
-            if failed_directory and failed_directory.exists():
+            if restored and failed_directory and failed_directory.exists():
                 try:
                     _remove_owned_tree(failed_directory, self.apply_directory.parent)
                 except OSError:
+                    pass
+            elif (
+                failed_directory
+                and failed_directory.exists()
+                and not self.apply_directory.exists()
+            ):
+                try:
+                    _replace_with_retry(
+                        failed_directory,
+                        self.apply_directory,
+                        policy=self.policy,
+                    )
+                except UpdateInstallationError:
+                    # Preserve the failed tree for manual recovery rather than
+                    # deleting the only remaining runnable installation.
                     pass
             if restored:
                 self._settled = True
@@ -454,6 +503,7 @@ def stage_and_swap_update(
     required_text_files: Mapping[Path, str] | None = None,
     policy: InstallationPolicy | None = None,
     progress_callback: Callable[[ExtractionProgress], None] | None = None,
+    before_swap_callback: Callable[[], None] | None = None,
 ) -> PendingInstallation:
     """Validate, stage, and atomically swap one application or asset tree."""
     active_policy = policy or InstallationPolicy()
@@ -488,6 +538,8 @@ def stage_and_swap_update(
             required_files,
             required_text_files or {},
         )
+        if before_swap_callback:
+            before_swap_callback()
 
         if apply_directory.exists():
             _replace_with_retry(
@@ -508,11 +560,17 @@ def stage_and_swap_update(
             )
         except UpdateInstallationError:
             if original_moved and backup_directory.exists():
-                _replace_with_retry(
-                    backup_directory,
-                    apply_directory,
-                    policy=active_policy,
-                )
+                try:
+                    _replace_with_retry(
+                        backup_directory,
+                        apply_directory,
+                        policy=active_policy,
+                    )
+                except UpdateInstallationError as restore_error:
+                    raise UpdateInstallationError(
+                        "updater-error-precommit-restore-failed",
+                        path=str(backup_directory),
+                    ) from restore_error
             raise
         return PendingInstallation(
             apply_directory=apply_directory,

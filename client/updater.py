@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import argparse
+import os
 import queue
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import uuid
+from collections.abc import Collection
 from dataclasses import dataclass
 from pathlib import Path
 import tkinter as tk
@@ -18,7 +21,11 @@ import psutil
 
 from localization import Localization
 from client_info import get_client_release_platform
-from update_bootstrap import update_ready_marker_matches, update_ready_path
+from update_bootstrap import (
+    update_helper_cleanup_arguments,
+    update_ready_marker_matches,
+    update_ready_path,
+)
 from update_contract import (
     DEFAULT_LOCALE_TAG,
     UPDATER_EXECUTABLE_NAME,
@@ -26,6 +33,7 @@ from update_contract import (
     WINDOWS_RELEASE_TARGET,
     is_valid_locale_tag,
     is_valid_windows_executable_name,
+    path_is_within,
 )
 from update_engine import (
     ExtractionProgress,
@@ -55,6 +63,7 @@ HEALTH_READY_TIMEOUT_SECONDS = 30.0
 HEALTH_STABILIZATION_SECONDS = 2.0
 HEALTH_POLL_SECONDS = 0.1
 PROCESS_TERMINATE_TIMEOUT_SECONDS = 5.0
+INSTALLATION_PROCESS_POLL_SECONDS = 0.25
 PROGRESS_BEEP_STEP = 5
 PROGRESS_ANNOUNCEMENT_STEP = 10
 PROGRESS_MIN_FREQUENCY = 500
@@ -76,6 +85,36 @@ class UpdaterArguments:
     expected_client_version: str
     version_file: Path | None
     locale: str
+
+
+def installation_process_ids(
+    installation_directory: Path,
+    *,
+    excluded_pids: Collection[int] = (),
+) -> tuple[int, ...]:
+    """Return processes whose executable is inside the installation tree."""
+    installation_directory = Path(installation_directory).resolve()
+    excluded = frozenset(excluded_pids)
+    matches: set[int] = set()
+    try:
+        processes = psutil.process_iter(("pid", "exe"))
+        for process in processes:
+            try:
+                pid = int(process.info["pid"])
+                executable = process.info.get("exe")
+                executable_path = Path(executable) if executable else None
+                if (
+                    pid not in excluded
+                    and executable_path is not None
+                    and executable_path.is_absolute()
+                    and path_is_within(executable_path, installation_directory)
+                ):
+                    matches.add(pid)
+            except (KeyError, TypeError, ValueError, OSError, psutil.Error):
+                continue
+    except (OSError, psutil.Error):
+        return ()
+    return tuple(sorted(matches))
 
 
 class UpdaterApp:
@@ -225,6 +264,33 @@ class UpdaterApp:
             # The directory swap remains the authoritative lock check.
             return True
 
+    def _wait_for_installation_processes(self) -> bool:
+        deadline = time.monotonic() + PROCESS_WAIT_TIMEOUT_SECONDS
+        announced_pids: tuple[int, ...] | None = None
+        while True:
+            pids = installation_process_ids(
+                self.arguments.target_directory,
+                excluded_pids={os.getpid()},
+            )
+            if not pids:
+                return True
+            if pids != announced_pids:
+                announced_pids = pids
+                self._publish_status(
+                    "updater-status-waiting-other-processes",
+                    count=len(pids),
+                )
+            if time.monotonic() >= deadline:
+                self._publish(
+                    "error",
+                    Localization.get(
+                        "updater-error-other-processes-running",
+                        pids=", ".join(str(pid) for pid in pids),
+                    ),
+                )
+                return False
+            time.sleep(INSTALLATION_PROCESS_POLL_SECONDS)
+
     def _launch_path(self) -> Path:
         name = self.arguments.executable_name
         if not is_valid_windows_executable_name(name):
@@ -257,7 +323,12 @@ class UpdaterApp:
         ready_path.unlink(missing_ok=True)
         self._publish_status("updater-status-launching")
         process = subprocess.Popen(
-            [str(executable), "--update-token", token],
+            [
+                str(executable),
+                "--update-token",
+                token,
+                *update_helper_cleanup_arguments(Path(sys.executable)),
+            ],
             cwd=self.arguments.target_directory,
         )
         deadline = time.monotonic() + HEALTH_READY_TIMEOUT_SECONDS
@@ -292,7 +363,13 @@ class UpdaterApp:
     def _relaunch_previous_version(self) -> None:
         executable = self._launch_path()
         if executable.is_file():
-            subprocess.Popen([str(executable)], cwd=self.arguments.target_directory)
+            subprocess.Popen(
+                [
+                    str(executable),
+                    *update_helper_cleanup_arguments(Path(sys.executable)),
+                ],
+                cwd=self.arguments.target_directory,
+            )
 
     def _error_text(self, error: BaseException) -> str:
         if isinstance(error, UpdateInstallationError):
@@ -305,26 +382,17 @@ class UpdaterApp:
         previous_relaunched = False
         try:
             validate_windows_updater_contract(self.arguments)
+            leave_installation_working_directory(self.arguments)
             parent_exited = self._wait_for_parent()
             if not parent_exited:
                 self.arguments.archive_path.unlink(missing_ok=True)
                 return
-            apply_directory = (
-                self.arguments.extract_directory
-                or self.arguments.target_directory
+            if not self._wait_for_installation_processes():
+                self.arguments.archive_path.unlink(missing_ok=True)
+                return
+            apply_directory, required_files, required_text_files = (
+                update_package_requirements(self.arguments)
             )
-            required_files = self.arguments.required_files
-            required_text_files = {}
-            if self.arguments.version_file is not None:
-                required_text_files[self.arguments.version_file] = (
-                    self.arguments.artifact_version
-                )
-            if apply_directory == self.arguments.target_directory:
-                required_files = (
-                    *required_files,
-                    Path(self.arguments.executable_name),
-                    Path(UPDATER_EXECUTABLE_NAME),
-                )
 
             self._publish_status("updater-status-validating")
             transaction = stage_and_swap_update(
@@ -335,16 +403,30 @@ class UpdaterApp:
                 required_files=required_files,
                 required_text_files=required_text_files,
                 progress_callback=self._extraction_progress,
+                before_swap_callback=lambda: self._publish_status(
+                    "updater-status-applying"
+                ),
             )
             self._publish_status("updater-status-verifying-startup")
             try:
                 self._launch_and_confirm()
-            except Exception:
-                transaction.rollback()
+            except Exception as launch_error:
+                try:
+                    transaction.rollback()
+                except Exception as rollback_error:
+                    transaction = None
+                    previous_relaunched = True
+                    raise UpdateInstallationError(
+                        "updater-error-rollback-failed",
+                        error=self._error_text(rollback_error),
+                    ) from launch_error
                 transaction = None
-                self._relaunch_previous_version()
+                try:
+                    self._relaunch_previous_version()
+                except OSError:
+                    pass
                 previous_relaunched = True
-                raise
+                raise launch_error
 
             transaction.commit()
             transaction = None
@@ -360,6 +442,7 @@ class UpdaterApp:
                         "updater-error-rollback-failed",
                         error=self._error_text(rollback_error),
                     )
+                    previous_relaunched = True
             self.arguments.archive_path.unlink(missing_ok=True)
             if parent_exited and not previous_relaunched:
                 try:
@@ -401,6 +484,80 @@ def validate_windows_updater_contract(arguments: UpdaterArguments) -> None:
         raise UpdateInstallationError("updater-error-invalid-locale")
     if not arguments.artifact_version or not arguments.expected_client_version:
         raise UpdateInstallationError("updater-error-invalid-artifact-version")
+    has_extract_directory = arguments.extract_directory is not None
+    has_version_file = arguments.version_file is not None
+    if has_extract_directory != has_version_file:
+        raise UpdateInstallationError("updater-error-invalid-update-mode")
+    if arguments.extract_directory is not None:
+        extract_directory = arguments.extract_directory.resolve()
+        target_directory = arguments.target_directory.resolve()
+        if (
+            extract_directory == target_directory
+            or not path_is_within(extract_directory, target_directory)
+        ):
+            raise UpdateInstallationError("updater-error-unsafe-target")
+
+
+def select_updater_working_directory(
+    arguments: UpdaterArguments,
+    *,
+    executable_path: Path | None = None,
+    temporary_directory: Path | None = None,
+) -> Path:
+    """Select an existing runtime directory outside the replaceable install tree."""
+    target_directory = arguments.target_directory.resolve()
+    candidates = (
+        Path(executable_path or sys.executable).resolve().parent,
+        arguments.archive_path.resolve().parent,
+        Path(temporary_directory or tempfile.gettempdir()).resolve(),
+    )
+    for candidate in candidates:
+        if candidate.is_dir() and not path_is_within(candidate, target_directory):
+            return candidate
+    raise UpdateInstallationError("updater-error-unsafe-runtime-directory")
+
+
+def leave_installation_working_directory(
+    arguments: UpdaterArguments,
+    *,
+    executable_path: Path | None = None,
+    temporary_directory: Path | None = None,
+) -> Path:
+    """Move the updater CWD outside the tree Windows must atomically rename."""
+    working_directory = select_updater_working_directory(
+        arguments,
+        executable_path=executable_path,
+        temporary_directory=temporary_directory,
+    )
+    try:
+        os.chdir(working_directory)
+    except OSError as error:
+        raise UpdateInstallationError(
+            "updater-error-unsafe-runtime-directory"
+        ) from error
+    if path_is_within(Path.cwd(), arguments.target_directory):
+        raise UpdateInstallationError("updater-error-unsafe-runtime-directory")
+    return working_directory
+
+
+def update_package_requirements(
+    arguments: UpdaterArguments,
+) -> tuple[Path, tuple[Path, ...], dict[Path, str]]:
+    """Build application or sound requirements checked before the atomic swap."""
+    apply_directory = (
+        arguments.extract_directory or arguments.target_directory
+    ).resolve()
+    required_files = arguments.required_files
+    required_text_files: dict[Path, str] = {}
+    if arguments.version_file is not None:
+        required_text_files[arguments.version_file] = arguments.artifact_version
+    if apply_directory == arguments.target_directory.resolve():
+        required_files = (
+            *required_files,
+            Path(arguments.executable_name),
+            Path(UPDATER_EXECUTABLE_NAME),
+        )
+    return apply_directory, required_files, required_text_files
 
 
 def parse_arguments(arguments: list[str] | None = None) -> UpdaterArguments:

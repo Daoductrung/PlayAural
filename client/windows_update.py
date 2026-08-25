@@ -22,6 +22,7 @@ from update_contract import (
     WINDOWS_RELEASE_TARGET,
     is_valid_locale_tag,
     is_valid_windows_executable_name,
+    path_is_within,
 )
 from update_delivery import (
     ReleaseArtifact,
@@ -77,6 +78,15 @@ class WindowsUpdaterLaunchRequest:
         if self.kind is ReleaseKind.APPLICATION and self.sounds_directory is not None:
             raise ReleaseUpdateError("updater-error-unexpected-sounds-directory")
 
+        sounds_directory = None
+        if self.sounds_directory is not None:
+            sounds_directory = Path(self.sounds_directory).resolve()
+            if (
+                sounds_directory == installation_directory
+                or not path_is_within(sounds_directory, installation_directory)
+            ):
+                raise ReleaseUpdateError("updater-error-unsafe-target")
+
         object.__setattr__(self, "archive_path", archive_path)
         object.__setattr__(self, "installation_directory", installation_directory)
         object.__setattr__(self, "executable_name", executable_name)
@@ -86,12 +96,8 @@ class WindowsUpdaterLaunchRequest:
             "current_client_version",
             str(self.current_client_version).strip(),
         )
-        if self.sounds_directory is not None:
-            object.__setattr__(
-                self,
-                "sounds_directory",
-                Path(self.sounds_directory).resolve(),
-            )
+        if sounds_directory is not None:
+            object.__setattr__(self, "sounds_directory", sounds_directory)
 
 
 def find_packaged_updater(installation_directory: Path) -> Path | None:
@@ -153,6 +159,9 @@ def launch_windows_updater(request: WindowsUpdaterLaunchRequest) -> Path:
     helper_path = Path(tempfile.gettempdir()) / (
         f"{TEMPORARY_UPDATER_PREFIX}{uuid.uuid4().hex}{WINDOWS_EXECUTABLE_SUFFIX}"
     )
+    helper_path = helper_path.resolve()
+    if path_is_within(helper_path.parent, request.installation_directory):
+        raise ReleaseUpdateError("updater-error-unsafe-runtime-directory")
     try:
         shutil.copy2(updater_path, helper_path)
         try:
@@ -164,7 +173,11 @@ def launch_windows_updater(request: WindowsUpdaterLaunchRequest) -> Path:
             request,
             process_started_at=process_started_at,
         )
-        subprocess.Popen(command, close_fds=True)
+        subprocess.Popen(
+            command,
+            cwd=helper_path.parent,
+            close_fds=True,
+        )
     except Exception:
         helper_path.unlink(missing_ok=True)
         raise

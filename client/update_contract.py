@@ -21,6 +21,7 @@ APPLICATION_DOWNLOAD_PREFIX = "playaural-application-"
 SOUNDS_DOWNLOAD_PREFIX = "playaural-sounds-"
 UPDATER_EXECUTABLE_NAME = "updater.exe"
 SOUND_VERSION_FILE_NAME = "version.txt"
+SOUNDS_DIRECTORY_NAME = "sounds"
 TEMPORARY_UPDATER_PREFIX = "playaural-updater-"
 
 LOCALE_TAG_RE = re.compile(r"^[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*$")
@@ -44,3 +45,20 @@ def is_valid_windows_executable_name(value: object) -> bool:
         and Path(name).name == name
         and Path(name).suffix.lower() == WINDOWS_EXECUTABLE_SUFFIX
     )
+
+
+def path_is_within(path: Path, parent: Path) -> bool:
+    """Return whether a resolved path is the parent or one of its descendants."""
+    resolved_path = Path(path).resolve()
+    resolved_parent = Path(parent).resolve()
+    return resolved_path == resolved_parent or resolved_parent in resolved_path.parents
+
+
+def packaged_sounds_directory(installation_directory: Path) -> Path:
+    """Return the sound tree used by the supported PyInstaller layouts."""
+    installation_directory = Path(installation_directory).resolve()
+    internal_directory = installation_directory / PYINSTALLER_INTERNAL_DIRECTORY
+    content_directory = (
+        internal_directory if internal_directory.is_dir() else installation_directory
+    )
+    return content_directory / SOUNDS_DIRECTORY_NAME

@@ -3,6 +3,7 @@ game-name-battleship = Hundir la Flota
 # Options
 battleship-set-grid-size = Zona de combate: { $size }
 battleship-select-grid-size = Selecciona el tamaño de la zona de combate
+battleship-select-orientation = Selecciona la orientación de despliegue
 battleship-option-changed-grid-size = Zona de combate establecida en { $size }.
 battleship-desc-grid-size = Elige el tamaño de la cuadrícula del océano en Hundir la Flota; las cuadrículas más grandes hacen búsquedas más largas.
 

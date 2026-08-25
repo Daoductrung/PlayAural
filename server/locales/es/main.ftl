@@ -84,11 +84,31 @@ table-left = { $player } salió de la mesa.
 new-host = { $player } ahora es el anfitrión.
 waiting-for-players = Esperando jugadores. Mínimo {$min}, máximo { $max }.
 game-starting = ¡La partida está por comenzar!
+table-listing-game-composition-status = { $game } [{ $status }]: mesa de { $host }. { $composition }.
+table-composition-human-players = { $count } { $count ->
+    [one] jugador
+   *[other] jugadores
+}: { $names }
+table-composition-bots = { $count } { $count ->
+    [one] bot
+   *[other] bots
+}
+table-composition-spectators = { $count ->
+    [one] Espectador
+   *[other] Espectadores
+}: { $names }
+table-composition-spectators-more = Espectadores: { $names }; y { $remaining } más
+table-composition-spectator-host = { $host } (anfitrión)
+table-composition-two = { $first }; { $second }
+table-composition-three = { $first }; { $second }; { $third }
+table-composition-empty = sin participantes
 table-status-waiting = Esperando
 table-status-playing = Jugando
 table-status-finished = Terminada
 table-not-exists = La mesa ya no existe.
 table-full = La mesa está llena.
+table-join-social-blocked = No puedes entrar a esta mesa porque el contacto social directo no está disponible entre tú y su anfitrión. Aun así puedes recuperar un asiento ya reservado para ti.
+table-closed-disconnect-timeout = La mesa se cerró porque ningún jugador activo regresó dentro de { $minutes } minutos.
 player-replaced-by-bot = { $bot } ahora está jugando en nombre de { $player }.
 player-reclaimed-from-bot = { $player } regresó y recuperó su asiento de manos de { $bot }.
 spectator-joined = Te uniste a la mesa de { $host } como espectador.
@@ -284,6 +304,10 @@ restore-table = Restaurar
 delete-saved-table = Eliminar
 saved-table-deleted = Mesa guardada eliminada.
 missing-players = No se puede restaurar: estos jugadores no están disponibles: { $players }
+saved-table-blocked-by-you = Esta mesa guardada incluye jugadores que bloqueaste: { $players }. Para restaurarla, abre Personal y Opciones, Amigos, y luego Usuarios Bloqueados para desbloquearlos. La restauración solo puede continuar si el contacto social directo está disponible para todos. La mesa guardada se conservó.
+saved-table-social-blocked = Esta mesa guardada no se puede restaurar porque el contacto social directo no está disponible entre tú y: { $players }. La mesa guardada se conservó.
+saved-table-social-blocked-mixed = Esta mesa guardada incluye jugadores que bloqueaste: { $blocked }. Abre Personal y Opciones, Amigos, y luego Usuarios Bloqueados para desbloquearlos. El contacto social directo tampoco está disponible con: { $unavailable }. La mesa guardada se conservó.
+saved-table-invalid = Esta mesa guardada ya no se puede restaurar porque sus datos de partida o de jugadores están incompletos o son incompatibles. La mesa guardada se conservó.
 table-restored = ¡Mesa restaurada! Todos los jugadores fueron transferidos.
 table-saved-destroying = ¡Mesa guardada! Volviendo al menú principal.
 game-type-not-found = Ese tipo de juego ya no existe.
@@ -337,6 +361,19 @@ table-players-many = { $count } jugadores: { $players }.
 table-spectators = Espectadores: { $spectators }.
 table-host-suffix = (Anfitrión)
 table-voice-chat-suffix = (en chat de voz)
+table-members-summary-compact = Resumen de la mesa: { $composition }.
+table-summary-human-players = { $count } { $count ->
+    [one] jugador humano
+   *[other] jugadores humanos
+}
+table-summary-bots = { $count } { $count ->
+    [one] bot
+   *[other] bots
+}
+table-summary-spectators = { $count } { $count ->
+    [one] espectador
+   *[other] espectadores
+}
 table-members-empty = No hay miembros de la mesa listados por ahora. Usa Atrás para volver y actualizar la vista de la mesa.
 table-member-entry = { $player }: { $status }
 table-member-status-host = Anfitrión
@@ -540,6 +577,9 @@ auto-muted-applied-minutes = Se te silenció automáticamente por { $minutes } m
 chat-rate-limited = ¡Más despacio! Estás enviando mensajes demasiado rápido.
 chat-global-disabled-send = El chat global está desactivado en tus opciones. Actívalo antes de enviar mensajes globales.
 chat-table-disabled-send = El chat de mesa está desactivado en tus opciones. Actívalo antes de enviar mensajes en la mesa.
+chat-invalid-channel = Ese canal de chat no está disponible.
+chat-invalid-message = Ese mensaje no se pudo enviar porque su formato no es válido.
+chat-message-too-long = Ese mensaje es demasiado largo. Los mensajes pueden tener como máximo { $limit } caracteres.
 admin-spam-alert = Advertencia: { $username } está haciendo spam excesivo en el chat y fue silenciado automáticamente.
 
 broadcast-announcement = Anuncio general
@@ -669,6 +709,7 @@ profile-gender = Género: { $gender }
 profile-bio = Biografía: { $bio }
 profile-bio-empty = Sin definir
 profile-email-empty = Sin definir
+profile-date-unknown = Desconocida
 
 gender-male = Masculino
 gender-female = Femenino
@@ -706,6 +747,7 @@ friends-my-friends = Mis amigos
 friends-pending-requests = Solicitudes pendientes ({ $count })
 friends-no-pending-requests = Solicitudes pendientes
 friends-send-request = Enviar solicitud de amistad
+friends-block-user = Bloquear a un usuario
 friends-list-empty = Aún no tienes amigos.
 friend-status-offline = Desconectado
 friend-status-playing = Jugando { $game }
@@ -735,11 +777,28 @@ friend-declined-notify = { $username } rechazó tu solicitud de amistad.
 
 public-profile-title = Perfil de { $username }
 enter-friend-username = Ingresa el nombre de usuario de la persona que quieres agregar como amigo:
+enter-block-username = Ingresa el nombre de usuario de la persona que quieres bloquear:
 friend-error-self = No puedes enviarte una solicitud de amistad a ti mismo.
 friend-error-already-friends = Ya eres amigo de este usuario.
 friend-error-duplicate = Ya tienes una solicitud de amistad pendiente con este usuario.
+friend-error-blocked = Las solicitudes de amistad no están disponibles entre tú y { $username }.
+friend-error-blocked-by-you = Bloqueaste a { $username }. Desbloquéalo antes de enviarle una solicitud de amistad.
 friend-request-sent = Solicitud de amistad enviada a { $username }.
 friend-request-received = Recibiste una nueva solicitud de amistad de { $username }.
+
+block-confirm = ¿Bloquear a { $username }? Esto elimina cualquier amistad y solicitud de amistad pendiente entre ustedes. Ninguno de los dos podrá enviarle al otro solicitudes de amistad, mensajes privados ni invitaciones a mesas, y los mensajes de chat normales quedarán ocultos en ambas direcciones. Hasta que se desbloquee, ninguno de los dos podrá entrar de nuevo a una mesa organizada por el otro ni restaurar una mesa guardada que incluya a ambos jugadores. Bloquear no saca a ningún jugador de una mesa compartida, no impide recuperar un asiento reservado, ni silencia el chat de voz de la mesa.
+block-success = Bloqueaste a { $username }. El contacto social directo ya no está disponible entre ustedes, sus mensajes de chat normales quedan ocultos, y ninguno de los dos puede entrar de nuevo a una mesa organizada por el otro ni restaurar una mesa guardada que incluya a ambos jugadores.
+block-error-self = No puedes bloquearte a ti mismo.
+block-already-active = Ya bloqueaste a { $username }.
+block-no-longer-active = Este bloqueo ya no está activo.
+unblock-success = Desbloqueaste a { $username }. Las amistades y solicitudes anteriores no se restauraron.
+unblock-user = Desbloquear usuario
+block-user = Bloquear usuario
+friends-blocked-users = { $count ->
+    [0] Usuarios Bloqueados
+   *[other] Usuarios Bloqueados ({ $count })
+}
+friends-blocked-empty = No has bloqueado a nadie.
 
 friends-grouped-requests = Tienes solicitudes de amistad pendientes de: { $usernames }
 friends-grouped-accepted = Tus solicitudes de amistad fueron aceptadas por: { $usernames }
@@ -753,6 +812,7 @@ friends-and-others = { $names } y { $count } { $count ->
 send-private-message = Enviar mensaje privado
 enter-pm-message = Ingresa tu mensaje para { $username }:
 pm-error-not-friends = Solo puedes enviar mensajes privados a tus amigos.
+pm-error-blocked = Los mensajes privados no están disponibles entre tú y este jugador.
 pm-error-offline = { $username } no está en línea en este momento.
 pm-sent-success = Mensaje enviado a { $username }.
 pm-sent-content = Tú a { $username }: { $message }

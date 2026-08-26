@@ -6,9 +6,6 @@ game-name-backgammon = Gamão
 backgammon-color-red = vermelho
 backgammon-color-white = branco
 
-# Menu helpers
-backgammon-unavailable = indisponível
-
 # Game start
 backgammon-game-started = { $red } joga com Vermelho, { $white } joga com Branco.
 backgammon-opening-roll = Rolagem inicial: { $red } tirou { $red_die }, { $white } tirou { $white_die }.
@@ -100,16 +97,11 @@ backgammon-point-occupied-selected = { $point } { $color }, { $count } seleciona
 # Action labels
 backgammon-label-double = Dobrar
 backgammon-label-undo = Desfazer
-backgammon-label-next = Próxima
-backgammon-label-previous = Anterior
 backgammon-label-deselect = Desselecionar
 backgammon-label-next-destination = Próximo destino
 backgammon-label-previous-destination = Destino anterior
 
 # Selection feedback
-backgammon-selected-point = Ponta { $point } selecionada, { $count } damas.
-backgammon-selected-bar = Barra selecionada.
-backgammon-deselected = Desselecionado.
 backgammon-no-checkers-there = Não há damas lá.
 backgammon-not-your-checkers = Essas damas não são suas.
 backgammon-no-moves-from-here = Nenhuma jogada válida a partir daqui.
@@ -125,7 +117,6 @@ backgammon-bar-entry-blocked = Você não pode entrar na ponta { $point }; ela e
 backgammon-no-die-for-bar-entry = Nenhum dos seus dados restantes ({ $dice }) entra na ponta { $point }.
 backgammon-no-die-for-destination = Nenhum dos seus dados restantes ({ $dice }) move da ponta { $src } para a ponta { $dest }.
 backgammon-must-use-forced-die = Você deve usar { $dice } agora porque o gamão exige ambos os dados quando possível, ou o maior dado quando apenas um pode ser jogado.
-backgammon-bearoff-not-home = Você ainda não pode retirar damas porque nem todas estão no seu tabuleiro interno.
 backgammon-bearoff-blocked = Você não pode retirar damas da ponta { $point } com um { $die }, porque há damas na sua ponta { $blocking_point }.
 backgammon-bearoff-no-die = Você não pode retirar damas da ponta { $point } com seus dados restantes ({ $die }).
 backgammon-nothing-to-undo = Nada para desfazer.
@@ -134,7 +125,6 @@ backgammon-cannot-double = Você não pode dobrar agora.
 backgammon-cannot-undo = Nada para desfazer.
 backgammon-not-doubling-phase = Nenhum dobro para responder.
 backgammon-need-roll-first = Você precisa rolar os dados antes de mover uma dama.
-backgammon-confirm-drop-double = Rejeitar concede esta partida ao valor atual do cubo. Pressione Rejeitar novamente em até 10 segundos para confirmar.
 
 # Info keybinds
 backgammon-check-status = Status
@@ -143,7 +133,6 @@ backgammon-check-pip = Contagem de pips
 backgammon-check-score = Placar
 backgammon-check-score-detailed = Placar detalhado
 backgammon-check-dice = Dados
-backgammon-status = Barra vermelha: { $bar_red }. Barra branca: { $bar_white }. Vermelhas retiradas: { $off_red }. Brancas retiradas: { $off_white }.
 backgammon-dice = { $dice }
 backgammon-dice-none = Sem dados.
 backgammon-cube-status = Cubo em { $value }. { $owner ->

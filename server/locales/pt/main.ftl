@@ -84,15 +84,6 @@ table-left = { $player } saiu da mesa.
 new-host = { $player } agora é o host.
 waiting-for-players = Aguardando jogadores. Mínimo de {$min}, máximo de { $max }.
 game-starting = O jogo está começando!
-table-listing = Mesa de { $host } ({ $count } usuários)
-table-listing-one = Mesa de { $host } ({ $count } usuário)
-table-listing-with = Mesa de { $host } ({ $count } usuários) com { $members }
-table-listing-game = { $game }: Mesa de { $host } ({ $count } usuários)
-table-listing-game-one = { $game }: Mesa de { $host } ({ $count } usuário)
-table-listing-game-with = { $game }: Mesa de { $host } ({ $count } usuários) com { $members }
-table-listing-game-status = { $game } [{ $status }]: Mesa de { $host } ({ $count } usuários)
-table-listing-game-one-status = { $game } [{ $status }]: Mesa de { $host } ({ $count } usuário)
-table-listing-game-with-status = { $game } [{ $status }]: Mesa de { $host } ({ $count } usuários) com { $members }
 table-status-waiting = Aguardando
 table-status-playing = Jogando
 table-status-finished = Finalizado
@@ -100,7 +91,6 @@ table-not-exists = A mesa não existe mais.
 table-full = A mesa está cheia.
 player-replaced-by-bot = { $bot } está jogando no lugar de { $player }.
 player-reclaimed-from-bot = { $player } retornou e reassumiu seu lugar que estava com { $bot }.
-player-took-over = { $player } reassumiu seu lugar que estava com { $bot }.
 spectator-joined = Entrou na mesa de { $host } como espectador.
 
 spectate = Assistir
@@ -347,16 +337,6 @@ table-players-many = { $count } jogadores: { $players }.
 table-spectators = Espectadores: { $spectators }.
 table-host-suffix = (Host)
 table-voice-chat-suffix = (no chat de voz)
-table-members-summary = Resumo da mesa: { $total } { $total ->
-    [one] assento
-   *[other] assentos
-}; { $real } { $real ->
-    [one] pessoa real
-   *[other] pessoas reais
-}, { $bots } { $bots ->
-    [one] bot
-   *[other] bots
-}; { $active } ativo(s), { $spectators } assistindo.
 table-members-empty = Nenhum membro da mesa listado no momento. Use Voltar para retornar e atualizar a visualização da mesa.
 table-member-entry = { $player }: { $status }
 table-member-status-host = Host

@@ -60,7 +60,7 @@ Após qualquer Yahtzee posterior, quando a caixa Yahtzee já estiver preenchida,
 
 * **Número de Jogos:** Quantos jogos completos de 13 turnos jogar em uma sessão. O padrão é 1.
 
-* **Opções Pessoais**
+**Opções Pessoais**
 
 * **Anúncios breves:** Encurta as mensagens de rolagem, pontuação e bônus.
 * **Estilo de guarda de dados:** Com Índices de dados, pressione 1-5 para alternar os dados por posição. Com Valores de dados, pressione 1-6 para liberar um dado guardado com esse valor, ou Shift+1-6 para guardar um dado liberado com esse valor.

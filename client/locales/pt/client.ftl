@@ -177,12 +177,8 @@ sounds-update-available-title = Atualização de sons
 sounds-update-available-message = Há uma atualização de sons disponível. Deseja baixá-la agora?
 sounds-update-downloading = Baixando sons... { $percent }%
 sounds-update-extracting = Extraindo sons...
-sounds-update-cancelled = Atualização de sons cancelada.
-sounds-update-complete = Sons atualizados com sucesso. Reiniciando o aplicativo.
 sounds-update-error = Falha na atualização dos sons: { $error }
-sounds-update-file-lock = Não foi possível atualizar os sons porque os arquivos estão em uso. Reinicie o jogo manualmente para aplicar as alterações.
 
-update-checking = Procurando atualizações...
 update-cancelled = Atualização cancelada. O jogo será fechado.
 
 main-restarting = Reiniciando...

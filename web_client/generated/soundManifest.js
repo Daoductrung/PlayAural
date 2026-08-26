@@ -103,5 +103,5 @@ export const soundFamilies = Object.freeze({
   "game_uno/intercept": Object.freeze(["game_uno/intercept1.ogg", "game_uno/intercept2.ogg", "game_uno/intercept3.ogg", "game_uno/intercept4.ogg"]),
   "game_uno/wild": Object.freeze(["game_uno/wild4.ogg"]),
   "notify": Object.freeze(["notify1.ogg", "notify2.ogg", "notify3.ogg", "notify4.ogg"]),
-  "typing": Object.freeze(["typing1.ogg", "typing2.ogg", "typing3.ogg", "typing4.ogg"]),
+  "typing": Object.freeze(["typing1.ogg", "typing2.ogg", "typing3.ogg", "typing4.ogg", "typing5.ogg", "typing6.ogg", "typing7.ogg", "typing8.ogg", "typing9.ogg", "typing10.ogg", "typing11.ogg", "typing12.ogg", "typing13.ogg", "typing14.ogg", "typing15.ogg"]),
 });

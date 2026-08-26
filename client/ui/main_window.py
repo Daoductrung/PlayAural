@@ -19,6 +19,16 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from . import slash_commands
 from auth_error_messages import get_login_failure_message, is_credential_error
 from sound_manager import SoundManager
+from typing_sounds import (
+    TYPING_SOUND_HANDLE,
+    TYPING_SOUND_VOLUME,
+    resolve_typing_sound_cue,
+)
+from windows_typing import (
+    WindowsTextInputObserver,
+    recover_windows_virtual_key,
+    windows_alt_graph_active,
+)
 from network_manager import NetworkManager
 from buffer_system import BufferSystem
 from config_manager import set_item_in_dict
@@ -373,6 +383,9 @@ class MainWindow(wx.Frame):
         self.chat_label = wx.StaticText(panel, label=Localization.get("main-chat-label"))
         self.chat_input = wx.TextCtrl(panel, style=wx.TE_PROCESS_ENTER)
         self.chat_input.Bind(wx.EVT_TEXT_ENTER, self.on_chat_enter)
+        self._install_native_typing_observers(
+            (self.edit_input, self.edit_input_multiline, self.chat_input)
+        )
 
         self.voice_label = wx.StaticText(panel, label=Localization.get("main-voice-label"))
         self.voice_join_button = wx.Button(
@@ -654,6 +667,10 @@ class MainWindow(wx.Frame):
 
     def on_close(self, event):
         """Clean up background voice resources before the frame closes."""
+        for observer in self._typing_input_observers:
+            observer.close()
+        self._typing_input_observers.clear()
+        self._native_typing_control_handles.clear()
         try:
             self.voice_manager.shutdown()
         except Exception:
@@ -1322,9 +1339,20 @@ class MainWindow(wx.Frame):
         """Handle character input for game keypresses."""
         focused = wx.Window.FindFocus()
 
-        # SKIP IMMEDIATELY for text controls to avoid breaking IME (Vietnamese Telex)
-        # We handle Escape/Enter for these in their specific handlers or TextEnter events
+        # Native Windows observers cover IME-consumed keys. This hook remains
+        # the cross-platform/failure fallback and always lets wx and the IME
+        # process the original event normally.
         if isinstance(focused, wx.TextCtrl) or self.current_mode == "edit":
+            native_handle = (
+                int(focused.GetHandle())
+                if isinstance(focused, wx.TextCtrl)
+                else 0
+            )
+            if (
+                isinstance(focused, wx.TextCtrl)
+                and native_handle not in self._native_typing_control_handles
+            ):
+                self._play_typing_sound_for_event(event, focused)
             event.Skip()
             return
 
@@ -1510,6 +1538,90 @@ class MainWindow(wx.Frame):
 
         # Let other keys be processed normally (including Enter on menu)
         event.Skip()
+
+    @staticmethod
+    def _typing_key_from_event(event):
+        """Return a semantic key without observing or altering composed text."""
+        key_code = event.GetKeyCode()
+        if key_code in (wx.WXK_BACK, wx.WXK_DELETE, wx.WXK_NUMPAD_DELETE):
+            return "Backspace" if key_code == wx.WXK_BACK else "Delete"
+        if key_code in (wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER):
+            return "NumpadEnter" if key_code == wx.WXK_NUMPAD_ENTER else "Enter"
+        if wx.WXK_NUMPAD0 <= key_code <= wx.WXK_NUMPAD9:
+            return str(key_code - wx.WXK_NUMPAD0)
+        if ord("0") <= key_code <= ord("9"):
+            return chr(key_code)
+
+        unicode_key = event.GetUnicodeKey()
+        if unicode_key and unicode_key != wx.WXK_NONE:
+            try:
+                character = chr(unicode_key)
+            except (TypeError, ValueError, OverflowError):
+                character = ""
+            if character.isprintable():
+                return character
+        if 32 <= key_code <= 126:
+            return chr(key_code)
+
+        recovered_key = recover_windows_virtual_key(event.GetRawKeyFlags())
+        if 32 <= recovered_key <= 126:
+            return chr(recovered_key)
+        return ""
+
+    def _play_typing_sound_for_event(self, event, text_control):
+        """Play one non-overlapping cue for a writable text-control key press."""
+        cue = resolve_typing_sound_cue(
+            self._typing_key_from_event(event),
+            modified=(
+                event.MetaDown()
+                or (
+                    (event.ControlDown() or event.AltDown())
+                    and not windows_alt_graph_active()
+                )
+            ),
+            auto_repeat=event.IsAutoRepeat(),
+        )
+        if cue:
+            self._play_typing_cue(cue, text_control)
+
+    def _play_typing_cue(self, cue, text_control):
+        """Play a resolved cue if its originating control remains writable."""
+        try:
+            is_editable = text_control.IsEditable()
+        except RuntimeError:
+            return
+        if (
+            not is_editable
+            or not self.client_options.get("interface", {}).get(
+                "play_typing_sounds", True
+            )
+        ):
+            return
+        playback_options = {
+            "volume": TYPING_SOUND_VOLUME,
+            "handle": TYPING_SOUND_HANDLE,
+        }
+        if cue.family:
+            self.sound_manager.play_family(cue.family, **playback_options)
+        else:
+            self.sound_manager.play(cue.asset, **playback_options)
+
+    def _install_native_typing_observers(self, text_controls):
+        """Observe Windows IME key messages that wx does not surface."""
+        self._typing_input_observers = []
+        self._native_typing_control_handles = set()
+        for text_control in text_controls:
+            observer = WindowsTextInputObserver(
+                int(text_control.GetHandle()),
+                lambda cue, control=text_control: wx.CallAfter(
+                    self._play_typing_cue,
+                    cue,
+                    control,
+                ),
+            )
+            if observer.installed:
+                self._typing_input_observers.append(observer)
+                self._native_typing_control_handles.add(observer.window_handle)
 
     def on_menu_activate(self, event):
         """Handle menu item activation (Enter/Space/Double-click)."""
@@ -1748,32 +1860,11 @@ class MainWindow(wx.Frame):
         event.Skip()
 
     def on_edit_char(self, event):
-        """Handle character input in edit mode to play typing sounds."""
-        import random
-
-        key_code = event.GetKeyCode()
-
-        # Escape is handled in on_edit_key_down
-
-        # Only play typing sounds for printable characters (not Enter, Backspace, etc.)
-        # Don't play if read-only or if user has disabled typing sounds
-        if 32 <= key_code <= 126:  # Printable ASCII range
-            should_play = not self.current_edit_read_only and self.client_options.get(
-                "interface", {}
-            ).get("play_typing_sounds", True)
-            if should_play:
-                # Randomly pick typing1.ogg through typing4.ogg
-                sound_num = random.randint(1, 4)
-                sound_name = f"typing{sound_num}.ogg"
-                self.sound_manager.play(sound_name, volume=0.5)
-
-        # Let the event continue to process normally
+        """Allow normal single-line character and IME processing."""
         event.Skip()
 
     def on_edit_multiline_char(self, event):
         """Handle character input in multiline edit mode."""
-        import random
-
         key_code = event.GetKeyCode()
 
         # Escape is handled in on_edit_key_down
@@ -1811,18 +1902,6 @@ class MainWindow(wx.Frame):
                     self.switch_to_list_mode()
                     return  # Don't process the Enter key
                 # Plain Enter adds newline (falls through to Skip())
-
-        # Play typing sounds for printable characters (not Enter, Backspace, etc.)
-        # Don't play if read-only or if user has disabled typing sounds
-        if 32 <= key_code <= 126:  # Printable ASCII range
-            should_play = not self.current_edit_read_only and self.client_options.get(
-                "interface", {}
-            ).get("play_typing_sounds", True)
-            if should_play:
-                # Randomly pick typing1.ogg through typing4.ogg
-                sound_num = random.randint(1, 4)
-                sound_name = f"typing{sound_num}.ogg"
-                self.sound_manager.play(sound_name, volume=0.5)
 
         # Allow all other keys (including plain Enter for newlines in editable mode)
         event.Skip()

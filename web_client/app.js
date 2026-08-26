@@ -7,6 +7,14 @@ import { AVAILABLE_LOCALES, DEFAULT_LOCALE, loadLocaleBundle, normalizeLocale } 
 import { createHistoryView } from "./ui/history.js";
 import { createMenuView } from "./ui/menus.js";
 import { resolveMenuFocusIndex, stableMenuItemId } from "./ui/menuFocus.js";
+import {
+  TYPING_EXACT_ASSETS,
+  TYPING_SOUND_FAMILY,
+  TYPING_SOUND_HANDLE,
+  TYPING_SOUND_VOLUME,
+  isImeCompositionKeyEvent,
+  resolveTypingSoundCue,
+} from "./typing_sounds.js";
 
 const CLIENT_VERSION = String(window.PLAYAURAL_WEB_VERSION || "");
 const WEB_CLIENT_CONFIG = window.PLAYAURAL_WEB_CONFIG || {};
@@ -1033,6 +1041,7 @@ class PlayAuralWebApp {
       mute_global_chat: false,
       mute_table_chat: false,
       play_turn_sound: true,
+      play_typing_sounds: true,
       notify_table_created: true,
       music_volume: 10,
       sound_volume: 100,
@@ -1254,6 +1263,9 @@ class PlayAuralWebApp {
     for (const input of [this.elements.inlineInputText, this.elements.inlineInputValue]) {
       input?.addEventListener("keydown", (event) => this.handleInlineInputKeydown(event));
     }
+    this.elements.chatInput?.addEventListener("keydown", (event) => {
+      this.playTypingSoundForEvent(event, this.elements.chatInput);
+    });
     this.elements.chatForm?.addEventListener("submit", (event) => {
       event.preventDefault();
       this.sendChatFromInput();
@@ -1734,6 +1746,10 @@ class PlayAuralWebApp {
     this.audio.setEffectsVolumePercent(soundVolume);
     this.audio.setMusicVolumePercent(musicVolume);
     this.audio.setAmbienceVolumePercent(ambienceVolume);
+    if (this.preferences.play_typing_sounds !== false) {
+      this.audio.preloadEffectFamily?.(TYPING_SOUND_FAMILY);
+      this.audio.preloadEffects?.(TYPING_EXACT_ASSETS);
+    }
     this.voice.setVolume(voiceVolume);
     this.webSpeech.applyPreferences();
     this.updateVolumeLabels();
@@ -2901,37 +2917,34 @@ class PlayAuralWebApp {
     return null;
   }
 
-  isTypingSoundKey(event) {
+  playTypingSoundForEvent(event, input = event?.currentTarget) {
     if (
-      event.ctrlKey
-      || event.altKey
-      || event.metaKey
-      || event.isComposing
-      || event.key.length !== 1
+      this.preferences.play_typing_sounds === false
+      || !input
+      || input.readOnly
+      || input.disabled
     ) {
-      return false;
-    }
-    const input = this.getActiveInlineInputElement();
-    if (!input || input.readOnly || input.disabled) {
-      return false;
-    }
-    const code = event.key.charCodeAt(0);
-    return code >= 32;
-  }
-
-  playTypingSound() {
-    if (this.preferences.play_typing_sounds === false) {
       return;
     }
-    const soundNum = Math.floor(Math.random() * 4) + 1;
-    this.audio.playSound({ asset: `typing${soundNum}.ogg`, volume: 50 });
+    const cue = resolveTypingSoundCue(event);
+    if (cue) {
+      this.audio.playSound({
+        ...cue,
+        handle: TYPING_SOUND_HANDLE,
+        volume: TYPING_SOUND_VOLUME,
+      });
+    }
   }
 
   handleInlineInputKeydown(event) {
-    if (!this.pendingInput || event.isComposing) {
+    if (!this.pendingInput) {
       return;
     }
     const activeInput = this.getActiveInlineInputElement();
+    this.playTypingSoundForEvent(event, activeInput);
+    if (isImeCompositionKeyEvent(event)) {
+      return;
+    }
     const isMultiline = activeInput === this.elements.inlineInputValue && !activeInput.hidden;
 
     if (event.key === "Escape") {
@@ -2956,10 +2969,6 @@ class PlayAuralWebApp {
         this.submitInlineInput();
       }
       return;
-    }
-
-    if (this.isTypingSoundKey(event)) {
-      this.playTypingSound();
     }
   }
 

@@ -79,6 +79,27 @@ def test_returning_to_main_menu_preserves_existing_music(tmp_path) -> None:
         server._db.close()
 
 
+@pytest.mark.parametrize(
+    ("client_type", "typing_option_visible"),
+    (("python", True), ("web", True), ("mobile", False)),
+)
+def test_typing_sound_option_matches_client_capability(
+    tmp_path,
+    client_type: str,
+    typing_option_visible: bool,
+) -> None:
+    server, user = _make_server(tmp_path)
+    try:
+        user.client_type = client_type
+        server._show_audio_submenu(user)
+
+        assert (
+            "play_typing_sounds" in _menu_ids(user, "options_audio_submenu")
+        ) is typing_option_visible
+    finally:
+        server._db.close()
+
+
 def test_restore_state_replaces_web_only_menu_on_mobile(tmp_path) -> None:
     server, user = _make_server(tmp_path)
     try:

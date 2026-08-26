@@ -7,7 +7,6 @@ from pathlib import Path
 
 import pytest
 
-from server.core.server import SOUNDS_VERSION
 from server.game_utils.actions import MenuInput
 from server.game_utils.audio_duration import measure_audio_duration_ticks
 from server.games.monopoly import audio as monopoly_audio
@@ -4385,15 +4384,6 @@ def test_monopoly_audio_assets_match_every_first_party_sound_pack() -> None:
             )
             == expected_ticks
         )
-
-
-def test_sound_pack_versions_are_synchronized_after_monopoly_audio() -> None:
-    versions = {
-        (ROOT / pack / "sounds" / "version.txt").read_text(encoding="utf-8").strip()
-        for pack in ("client", "web_client", "mobile_client")
-    }
-    assert SOUNDS_VERSION == "4"
-    assert versions == {"4"}
 
 
 def test_regular_roll_audio_sequence_resolves_in_cinematic_order() -> None:

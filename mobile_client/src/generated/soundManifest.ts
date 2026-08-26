@@ -1,5 +1,5 @@
 // Numbered entries are lookup candidates only; exact asset playback remains exact.
-export const bundledSoundVersion = "4";
+export const bundledSoundVersion = "5";
 
 export const soundManifest: Record<string, number> = {
   "accountactionnotify.ogg": require("../../sounds/accountactionnotify.ogg"),
@@ -767,9 +767,32 @@ export const soundManifest: Record<string, number> = {
   "table_leave.ogg": require("../../sounds/table_leave.ogg"),
   "turn.ogg": require("../../sounds/turn.ogg"),
   "typing1.ogg": require("../../sounds/typing1.ogg"),
+  "typing10.ogg": require("../../sounds/typing10.ogg"),
+  "typing11.ogg": require("../../sounds/typing11.ogg"),
+  "typing12.ogg": require("../../sounds/typing12.ogg"),
+  "typing13.ogg": require("../../sounds/typing13.ogg"),
+  "typing14.ogg": require("../../sounds/typing14.ogg"),
+  "typing15.ogg": require("../../sounds/typing15.ogg"),
   "typing2.ogg": require("../../sounds/typing2.ogg"),
   "typing3.ogg": require("../../sounds/typing3.ogg"),
   "typing4.ogg": require("../../sounds/typing4.ogg"),
+  "typing5.ogg": require("../../sounds/typing5.ogg"),
+  "typing6.ogg": require("../../sounds/typing6.ogg"),
+  "typing7.ogg": require("../../sounds/typing7.ogg"),
+  "typing8.ogg": require("../../sounds/typing8.ogg"),
+  "typing9.ogg": require("../../sounds/typing9.ogg"),
+  "typing_delete.ogg": require("../../sounds/typing_delete.ogg"),
+  "typing_digit_eight.ogg": require("../../sounds/typing_digit_eight.ogg"),
+  "typing_digit_five.ogg": require("../../sounds/typing_digit_five.ogg"),
+  "typing_digit_four.ogg": require("../../sounds/typing_digit_four.ogg"),
+  "typing_digit_nine.ogg": require("../../sounds/typing_digit_nine.ogg"),
+  "typing_digit_one.ogg": require("../../sounds/typing_digit_one.ogg"),
+  "typing_digit_seven.ogg": require("../../sounds/typing_digit_seven.ogg"),
+  "typing_digit_six.ogg": require("../../sounds/typing_digit_six.ogg"),
+  "typing_digit_three.ogg": require("../../sounds/typing_digit_three.ogg"),
+  "typing_digit_two.ogg": require("../../sounds/typing_digit_two.ogg"),
+  "typing_digit_zero.ogg": require("../../sounds/typing_digit_zero.ogg"),
+  "typing_return.ogg": require("../../sounds/typing_return.ogg"),
   "update_alert.ogg": require("../../sounds/update_alert.ogg"),
   "update_complete.ogg": require("../../sounds/update_complete.ogg"),
   "voice_join.ogg": require("../../sounds/voice_join.ogg"),
@@ -883,5 +906,5 @@ export const soundFamilies: Readonly<Record<string, readonly string[]>> = {
   "game_uno/intercept": ["game_uno/intercept1.ogg", "game_uno/intercept2.ogg", "game_uno/intercept3.ogg", "game_uno/intercept4.ogg"],
   "game_uno/wild": ["game_uno/wild4.ogg"],
   "notify": ["notify1.ogg", "notify2.ogg", "notify3.ogg", "notify4.ogg"],
-  "typing": ["typing1.ogg", "typing2.ogg", "typing3.ogg", "typing4.ogg"],
+  "typing": ["typing1.ogg", "typing2.ogg", "typing3.ogg", "typing4.ogg", "typing5.ogg", "typing6.ogg", "typing7.ogg", "typing8.ogg", "typing9.ogg", "typing10.ogg", "typing11.ogg", "typing12.ogg", "typing13.ogg", "typing14.ogg", "typing15.ogg"],
 };

@@ -1444,6 +1444,10 @@ export function createAudioEngine(options = {}) {
     }
   }
 
+  function preloadEffectFamily(family) {
+    preloadEffects(soundFamilyVariants(family));
+  }
+
   function setMaster(kind, percent) {
     const bounded = clamp(percent, 0, 100, 100);
     masterValues[kind] = bounded / 100;
@@ -1586,6 +1590,7 @@ export function createAudioEngine(options = {}) {
     getEffectsVolumePercent: () => Math.round(masterValues.sfx * 100),
     setSoundVersion,
     preloadEffects,
+    preloadEffectFamily,
     setMuted,
     isMuted: () => muted,
     retryPendingPlayback,

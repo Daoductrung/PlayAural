@@ -75,7 +75,6 @@ from ..voice import VoiceAuthorizationError, VoiceContext, VoiceService
 from ..game_utils.client_types import (
     is_mobile_client_type,
     is_web_client_type,
-    uses_self_voicing_settings_type,
 )
 from ..game_utils.bot_names import bot_name_key
 from ..game_utils.game_result import GameResult
@@ -88,7 +87,7 @@ VERSION = "1.0.4.15"
 UPDATE_URL = "https://github.com/Daoductrung/PlayAural/releases/latest/download/PlayAural.zip"
 UPDATE_HASH = "" # Optional SHA256
 
-SOUNDS_VERSION = "4"
+SOUNDS_VERSION = "5"
 SOUNDS_URL = "https://github.com/Daoductrung/PlayAural/releases/latest/download/sounds.zip"
 SOUNDS_HASH = "" # Optional SHA256
 ANDROID_UPDATE_URL = "https://github.com/Daoductrung/PlayAural/releases/latest/download/PlayAural.apk"
@@ -3176,7 +3175,7 @@ PlayAural Server
                     description_key="general-desc-audio-input-device",
                 )
             )
-        if not uses_self_voicing_settings_type(user.client_type):
+        if not is_mobile_client_type(user.client_type):
             items.append(
                 MenuItem(
                     text=Localization.get(

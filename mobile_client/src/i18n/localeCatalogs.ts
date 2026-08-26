@@ -1,6 +1,7 @@
 import catalog_en from "../../locales/en/client.json";
 import catalog_es from "../../locales/es/client.json";
 import catalog_fa from "../../locales/fa/client.json";
+import catalog_pt from "../../locales/pt/client.json";
 import catalog_vi from "../../locales/vi/client.json";
 
 export const DEFAULT_LOCALE = "en";
@@ -24,6 +25,12 @@ export const LOCALE_METADATA = {
     contributors: ["Hamid Rezaei"],
     official: false,
   },
+  "pt": {
+    name: "Portuguese (Brazil)",
+    nativeName: "Português (Brasil)",
+    contributors: ["Tadeu Junior"],
+    official: false,
+  },
   "vi": {
     name: "Vietnamese",
     nativeName: "Tiếng Việt",
@@ -36,6 +43,7 @@ export const localeCatalogs = {
   "en": catalog_en,
   "es": catalog_es,
   "fa": catalog_fa,
+  "pt": catalog_pt,
   "vi": catalog_vi,
 } as const;
 

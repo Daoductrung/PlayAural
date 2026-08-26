@@ -562,6 +562,15 @@ the stable `start_game` item remains present and normal same-menu focus
 preservation keeps the cursor in place. Games use `prestart_validate()` only
 for their specific deal, ruleset, option-conflict, and team-mode checks.
 
+Every start also requires at least one active human-controlled player. Bots may
+satisfy a game's numeric player count, but spectators never satisfy the human
+requirement. Keep this rule in shared `validate_start()` so every game reports
+the same localized blocker before mutation. If start preparation converts any
+disconnected lobby seats to replacement bots, validate the resulting roster
+again before team arrangement or `on_start()`. A bot-only roster must remain in
+the waiting lobby; do not enter gameplay and depend on abandoned-table cleanup
+to destroy it afterward.
+
 #### Server-Side Navigation Stack
 Server menus use the breadcrumb stack in `_user_states[username]["_stack"]`.
 

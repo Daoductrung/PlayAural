@@ -47,12 +47,12 @@ class LobbyActionsMixin:
             return
 
         # Validate framework requirements and game-specific configuration.
-        errors = self.validate_start()
-        if errors:
-            self._broadcast_start_errors(errors)
+        if not self._validate_start_request():
             return
 
-        self._prepare_disconnected_lobby_members_for_start()
+        roster_changed = self._prepare_disconnected_lobby_members_for_start()
+        if roster_changed and not self._validate_start_request():
+            return
 
         if self._should_begin_team_arrangement():
             self._begin_team_arrangement()
@@ -115,6 +115,14 @@ class LobbyActionsMixin:
                 self.broadcast_l(error_key, buffer="game", **kwargs)
             else:
                 self.broadcast_l(error, buffer="game")
+
+    def _validate_start_request(self) -> bool:
+        """Report current start blockers and return whether starting is safe."""
+        errors = self.validate_start()
+        if not errors:
+            return True
+        self._broadcast_start_errors(errors)
+        return False
 
     def _prepare_disconnected_lobby_members_for_start(self) -> bool:
         """Convert offline lobby players to bots before game-specific setup."""
@@ -445,12 +453,13 @@ class LobbyActionsMixin:
         if player.name != self.host or not self.team_arrangement_active:
             return
 
-        errors = self.validate_start()
-        if errors:
-            self._broadcast_start_errors(errors)
+        if not self._validate_start_request():
             return
 
         roster_changed = self._prepare_disconnected_lobby_members_for_start()
+        if roster_changed and not self._validate_start_request():
+            self._cancel_team_arrangement_for_roster_change()
+            return
         if not self._should_begin_team_arrangement():
             self._start_game_from_lobby()
             return
@@ -886,14 +895,6 @@ class LobbyActionsMixin:
         self.refresh_menus()
 
     # Player management
-
-    def get_human_count(self) -> int:
-        """Get the number of human players."""
-        return sum(1 for p in self.players if not p.is_bot)
-
-    def get_bot_count(self) -> int:
-        """Get the number of bot players."""
-        return sum(1 for p in self.players if p.is_bot)
 
     def create_player(
         self, player_id: str, name: str, is_bot: bool = False

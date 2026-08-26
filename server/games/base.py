@@ -356,6 +356,9 @@ class Game(
                 )
             )
 
+        if not self.get_active_human_players():
+            errors.append("action-start-needs-human-player")
+
         legacy_count_keys = {"action-need-more-players", "action-table-full"}
         for error in self.prestart_validate():
             key = error[0] if isinstance(error, tuple) else error

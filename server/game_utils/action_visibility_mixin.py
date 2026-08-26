@@ -40,6 +40,16 @@ class ActionVisibilityMixin:
         """Get the number of active (non-spectator) players."""
         return len(self.get_active_players())
 
+    def get_active_human_players(self) -> list["Player"]:
+        """Get non-spectator seats currently represented by human players."""
+        return [
+            player for player in self.get_active_players() if not player.is_bot
+        ]
+
+    def get_active_human_player_count(self) -> int:
+        """Get the number of non-spectator seats represented by humans."""
+        return len(self.get_active_human_players())
+
     # --- Lobby actions ---
 
     def _is_start_game_enabled(self, player: "Player") -> str | None:
@@ -325,7 +335,7 @@ class ActionVisibilityMixin:
         if "rating" not in self.get_supported_leaderboards():
             return "action-not-available"
         # Need at least 2 human players for meaningful predictions
-        human_count = sum(1 for p in self.players if not p.is_bot and not p.is_spectator)
+        human_count = self.get_active_human_player_count()
         if human_count < 2:
             return "action-need-more-humans"
         return None

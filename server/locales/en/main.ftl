@@ -322,6 +322,7 @@ action-table-full = The table is full.
 action-start-needs-more-players = Cannot start. Active players: { $current }. Minimum required: { $minimum }.
 action-start-has-too-many-players = Cannot start. Active players: { $current }. Maximum allowed: { $maximum }.
 action-start-requires-exact-players = Cannot start. Active players: { $current }. Required: exactly { $required }.
+action-start-needs-human-player = Cannot start with only bots. At least one human must participate as a player. Switch from spectator to player; if the table is full, remove a bot first.
 action-no-bots = There are no bots to remove.
 action-bots-cannot = Bots cannot do this.
 action-no-scores = No scores available yet.

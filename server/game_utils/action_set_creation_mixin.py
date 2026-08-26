@@ -285,9 +285,19 @@ class ActionSetCreationMixin:
             state=KeybindState.IDLE,
             include_spectators=True,
         )
-        self.define_keybind("b", "Add bot", ["add_bot"], state=KeybindState.IDLE)
         self.define_keybind(
-            "shift+b", "Remove bot", ["remove_bot"], state=KeybindState.IDLE
+            "b",
+            "Add bot",
+            ["add_bot"],
+            state=KeybindState.IDLE,
+            include_spectators=True,
+        )
+        self.define_keybind(
+            "shift+b",
+            "Remove bot",
+            ["remove_bot"],
+            state=KeybindState.IDLE,
+            include_spectators=True,
         )
         self.define_keybind(
             "f3",

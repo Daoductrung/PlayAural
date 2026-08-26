@@ -252,6 +252,11 @@ Use declarative `GameOptions` with `option_field()`.
   `validate_start()` owns player-count checks and combines them with the game's
   `prestart_validate()` errors; never hide Start merely because setup is
   invalid.
+- Every start requires at least one active human-controlled player. Bots may
+  satisfy a game's numeric player count, but spectators do not satisfy this
+  human requirement. Reject bot-only starts in shared validation and recheck
+  after disconnected lobby seats are converted to replacement bots; never
+  enter gameplay and rely on abandoned-table cleanup to reject the match.
 - `prestart_validate()` must block impossible deals, unsupported option
   combinations, and team-mode conflicts with clear localized errors.
 

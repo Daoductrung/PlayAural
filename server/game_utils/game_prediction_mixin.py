@@ -16,6 +16,7 @@ class GamePredictionMixin:
     Expects on the Game class:
         - self._table: Any
         - self.players: list[Player]
+        - self.get_active_human_players() -> list[Player]
         - self.get_user(player) -> User | None
         - self.get_type() -> str
         - self.status_box(player, lines)
@@ -33,10 +34,7 @@ class GamePredictionMixin:
 
         rating_helper = RatingHelper(self._table._db, self.get_type())
 
-        # Get human players only (exclude spectators)
-        human_players = [
-            p for p in self.players if not p.is_bot and not p.is_spectator
-        ]
+        human_players = self.get_active_human_players()
 
         if len(human_players) < 2:
             user.speak_l("predict-need-players", buffer="game")

@@ -368,10 +368,7 @@ class Table(DataClassJSONMixin):
         """Return active gameplay seats currently represented by humans."""
         if not self._game:
             return 0
-        return sum(
-            not player.is_bot and not player.is_spectator
-            for player in self._game.players
-        )
+        return self._game.get_active_human_player_count()
 
     def _handle_abandoned_playing_table(self, current_time: float) -> bool:
         """Pause and eventually retire an unattended active table.
@@ -703,10 +700,6 @@ class Table(DataClassJSONMixin):
         """Save the current game state to game_json."""
         if self._game:
             self.game_json = self._game.to_json()
-
-    def can_start(self, min_players: int) -> bool:
-        """Check if the game can start."""
-        return self.player_count >= min_players
 
     def destroy(self) -> None:
         """Destroy this table. Called by Game.destroy()."""

@@ -229,6 +229,75 @@ class TestGameRegistryIntegration:
             assert game_class.get_category() in GAME_CATEGORY_IDS
             assert set(game_class.get_categories()).issubset(GAME_CATEGORY_IDS)
 
+    def test_registered_games_share_active_human_start_validation(self):
+        """Every registered game must reject bots-only but allow a human seat."""
+        from .. import games as registered_games
+
+        assert registered_games.GameRegistry is GameRegistry
+
+        for game_class in GameRegistry.get_all():
+            game_type = game_class.get_type()
+            bot_only = game_class()
+            bot_only.setup_keybinds()
+            host = bot_only.add_player(
+                "AuditHost",
+                MockUser("AuditHost", uuid=f"bot-only-host-{game_type}"),
+            )
+            bot_only.host = host.name
+            host.is_spectator = True
+            for index in range(game_class.get_min_players()):
+                bot = Bot(f"Audit Bot {index + 1}")
+                bot_only.add_player(bot.username, bot)
+
+            assert "action-start-needs-human-player" in bot_only.validate_start(), (
+                game_type
+            )
+
+            mixed = game_class()
+            mixed.setup_keybinds()
+            mixed_host = mixed.add_player(
+                "AuditHost",
+                MockUser("AuditHost", uuid=f"mixed-host-{game_type}"),
+            )
+            mixed.host = mixed_host.name
+            for index in range(max(0, game_class.get_min_players() - 1)):
+                bot = Bot(f"Audit Bot {index + 1}")
+                mixed.add_player(bot.username, bot)
+
+            assert "action-start-needs-human-player" not in mixed.validate_start(), (
+                game_type
+            )
+
+    def test_registered_keybinds_match_action_spectator_permissions(self):
+        """Static keybinds and their actions must agree on spectator access."""
+        from .. import games as registered_games
+
+        assert registered_games.GameRegistry is GameRegistry
+
+        for game_class in GameRegistry.get_all():
+            game = game_class()
+            game.setup_keybinds()
+            player = game.add_player(
+                "AuditHost",
+                MockUser(
+                    "AuditHost",
+                    uuid=f"keybind-host-{game_class.get_type()}",
+                ),
+            )
+            game.host = player.name
+
+            for bindings in game._keybinds.values():
+                for keybind in bindings:
+                    for action_id in keybind.actions:
+                        action = game.find_action(player, action_id)
+                        if action is None:
+                            continue
+                        assert action.include_spectators == keybind.include_spectators, (
+                            game_class.get_type(),
+                            keybind.default_key,
+                            action_id,
+                        )
+
     def test_registered_game_category_assignments(self):
         """Test canonical backend category assignments for all registered games."""
         from .. import games as registered_games

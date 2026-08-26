@@ -322,6 +322,7 @@ action-table-full = Bàn đã đầy.
 action-start-needs-more-players = Chưa thể bắt đầu. Số người đang tham gia: { $current }. Tối thiểu: { $minimum }.
 action-start-has-too-many-players = Chưa thể bắt đầu. Số người đang tham gia: { $current }. Tối đa: { $maximum }.
 action-start-requires-exact-players = Chưa thể bắt đầu. Số người đang tham gia: { $current }. Yêu cầu đúng: { $required }.
+action-start-needs-human-player = Không thể bắt đầu khi chỉ có bot. Phải có ít nhất một người chơi thật tham gia. Hãy chuyển từ khán giả sang người chơi; nếu bàn đã đầy, trước tiên hãy xóa một bot.
 action-no-bots = Không có bot nào để xóa.
 action-bots-cannot = Bot không thể làm điều này.
 action-no-scores = Chưa có điểm số nào.

@@ -1665,6 +1665,124 @@ class TestTableInviteReclaim:
 
         assert self.server._tables.get_table(table.table_id) is None
 
+    def test_spectating_host_cannot_start_bot_only_table(self):
+        host = self._create_online_user("Host")
+        table = self.server._tables.create_table("pig", host.username, host)
+        game = PigGame(options=PigOptions(target_score=25))
+        table.game = game
+        game._table = table
+        game.initialize_lobby(host.username, host)
+        self._add_named_bot(game, "Bot One")
+        self._add_named_bot(game, "Bot Two")
+        host_player = game.get_player_by_id(host.uuid)
+        assert host_player is not None
+
+        game.execute_action(host_player, "toggle_spectator")
+        host.clear_messages()
+        game.execute_action(host_player, "start_game")
+        table.on_tick()
+
+        assert host_player.is_spectator is True
+        assert game.status == "waiting"
+        assert table.status == "waiting"
+        assert game._destroyed is False
+        assert table._destroyed is False
+        assert self.server._tables.get_table(table.table_id) is table
+        assert Localization.get(
+            host.locale,
+            "action-start-needs-human-player",
+        ) in host.get_spoken_messages()
+        assert Localization.get(
+            host.locale,
+            "game-starting",
+        ) not in host.get_spoken_messages()
+
+    def test_start_revalidates_after_disconnected_human_becomes_bot(self):
+        host = self._create_online_user("Host")
+        guest = self._create_online_user("Guest")
+        table = self.server._tables.create_table("pig", host.username, host)
+        game = PigGame(options=PigOptions(target_score=25))
+        table.game = game
+        game._table = table
+        game.initialize_lobby(host.username, host)
+        table.add_member(guest.username, guest, as_spectator=False)
+        game.add_player(guest.username, guest)
+        self._add_named_bot(game, "Bot One")
+        host_player = game.get_player_by_id(host.uuid)
+        assert host_player is not None
+        game.execute_action(host_player, "toggle_spectator")
+        self.server._users.pop(guest.username, None)
+        assert game.validate_start() == []
+
+        host.clear_messages()
+        game.execute_action(host_player, "start_game")
+
+        replacement = game.get_player_by_id(guest.uuid)
+        assert replacement is not None
+        assert replacement.is_bot is True
+        assert replacement.replaced_human_name == guest.username
+        assert game.status == "waiting"
+        assert table.status == "waiting"
+        assert self.server._tables.get_table(table.table_id) is table
+        assert Localization.get(
+            host.locale,
+            "action-start-needs-human-player",
+        ) in host.get_spoken_messages()
+        assert Localization.get(
+            host.locale,
+            "game-starting",
+        ) not in host.get_spoken_messages()
+
+    def test_bot_only_team_confirmation_cancels_arrangement_and_can_recover(self):
+        host = self._create_online_user("Host")
+        guests = [
+            self._create_online_user(f"Guest{index}")
+            for index in range(1, 4)
+        ]
+        table = self.server._tables.create_table("pig", host.username, host)
+        game = PigGame(options=PigOptions(target_score=25, team_mode="2v2"))
+        table.game = game
+        game._table = table
+        game.initialize_lobby(host.username, host)
+        for guest in guests:
+            table.add_member(guest.username, guest, as_spectator=False)
+            game.add_player(guest.username, guest)
+        self._add_named_bot(game, "Bot One")
+        host_player = game.get_player_by_id(host.uuid)
+        assert host_player is not None
+        game.execute_action(host_player, "toggle_spectator")
+
+        game.execute_action(host_player, "start_game")
+        assert game.team_arrangement_active is True
+        for guest in guests:
+            self.server._users.pop(guest.username, None)
+
+        host.clear_messages()
+        game.execute_action(host_player, "start_game")
+
+        assert game.status == "waiting"
+        assert game.team_arrangement_active is False
+        assert game.team_manager.teams == []
+        assert self.server._tables.get_table(table.table_id) is table
+        assert Localization.get(
+            host.locale,
+            "action-start-needs-human-player",
+        ) in host.get_spoken_messages()
+        assert Localization.get(
+            host.locale,
+            "team-arrangement-cancelled-roster",
+        ) in host.get_spoken_messages()
+
+        game.handle_event(
+            host_player,
+            {"type": "keybind", "key": "shift+b"},
+        )
+        game.handle_event(host_player, {"type": "keybind", "key": "f3"})
+
+        assert host_player.is_spectator is False
+        assert game.get_active_human_players() == [host_player]
+        assert game.validate_start() == []
+
     @pytest.mark.asyncio
     async def test_account_deletion_releases_indefinite_table_reservation(self):
         host = self._create_online_user("Host")

@@ -20,6 +20,7 @@ from ..game_utils.actions import MenuInput
 from ..game_utils.menu_management_mixin import SEALED_MENU_ORCHESTRATORS
 from ..games.pig.game import PigGame
 from ..messages.localization import Localization
+from ..users.bot import Bot
 from ..users.base import MenuItem
 from ..users.network_user import NetworkUser
 from ..users.test_user import MockUser
@@ -579,6 +580,57 @@ class TestPersistentStartAction:
 
         assert "start_game" in visible
         assert visible["start_game"].enabled is True
+
+    def test_bot_only_lobby_requires_an_active_human_player(self) -> None:
+        game = make_game(player_count=1)
+        host = game.players[0]
+        host.is_spectator = True
+        for name in ("Bot One", "Bot Two"):
+            game.add_player(name, Bot(name))
+
+        assert game.validate_start() == ["action-start-needs-human-player"]
+
+        visible = {
+            resolved.action.id: resolved
+            for resolved in game.get_all_visible_actions(host)
+        }
+        assert visible["start_game"].enabled is True
+
+        game.execute_action(host, "start_game")
+
+        assert game.status == "waiting"
+        assert Localization.get(
+            "en",
+            "action-start-needs-human-player",
+        ) in game.get_user(host).get_spoken_messages()
+
+    def test_one_active_human_can_start_with_bots(self) -> None:
+        game = make_game(player_count=1)
+        host = game.players[0]
+        game.add_player("Bot One", Bot("Bot One"))
+
+        assert game.get_active_human_players() == [host]
+        assert game.get_active_human_player_count() == 1
+        assert game.validate_start() == []
+
+    def test_spectator_host_can_free_full_bot_seat_with_keybinds(self) -> None:
+        game = make_game(player_count=1)
+        host = game.players[0]
+        host.is_spectator = True
+        for index in range(game.get_max_players()):
+            name = f"Bot {index + 1}"
+            game.add_player(name, Bot(name))
+
+        assert game.get_active_player_count() == game.get_max_players()
+        assert game.validate_start() == ["action-start-needs-human-player"]
+
+        game.handle_event(host, {"type": "keybind", "key": "shift+b"})
+        game.handle_event(host, {"type": "keybind", "key": "f3"})
+
+        assert host.is_spectator is False
+        assert game.get_active_player_count() == game.get_max_players()
+        assert game.get_active_human_players() == [host]
+        assert game.validate_start() == []
 
     def test_non_host_sees_start_but_cannot_use_it(self) -> None:
         game = make_game()

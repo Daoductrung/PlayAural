@@ -216,10 +216,10 @@ def test_touch_gameplay_info_actions_only_appear_after_start(
             [
                 "check_status",
                 "check_pip",
-                "check_score",
-                "check_score_detailed",
+                "check_scores",
                 "check_cube",
                 "check_dice",
+                "check_legal_moves",
                 "whose_turn",
                 "whos_at_table",
             ],
@@ -306,10 +306,9 @@ def test_new_games_touch_standard_actions_follow_touch_order(
             [
                 "check_status",
                 "check_pip",
-                "check_score",
-                "check_score_detailed",
                 "check_cube",
                 "check_dice",
+                "check_legal_moves",
             ],
         ),
         (NineGame, 3, ["check_sequences_status", "check_hand_counts_status"]),
@@ -399,14 +398,15 @@ def test_backgammon_mobile_gets_info_and_double_buttons() -> None:
     game.current_player = player
 
     visible_ids = [resolved.action.id for resolved in game.get_all_visible_actions(player)]
+    assert "roll_dice" not in visible_ids
     for action_id in (
         "offer_double",
         "check_status",
         "check_pip",
-        "check_score",
-        "check_score_detailed",
+        "check_scores",
         "check_cube",
         "check_dice",
+        "check_legal_moves",
         "whose_turn",
         "whos_at_table",
     ):

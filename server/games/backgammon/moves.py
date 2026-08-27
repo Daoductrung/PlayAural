@@ -5,17 +5,20 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .state import (
+    BAR_SOURCE,
+    BEAR_OFF_DESTINATION,
+    COLOR_RED,
+    HOME_BOARD_POINTS,
+    NUM_POINTS,
     BackgammonGameState,
     all_checkers_in_home,
     bar_count,
     color_sign,
+    off_count,
     opponent_color,
-    point_count,
-    point_owner,
     remaining_dice,
     set_bar,
     set_off,
-    off_count,
 )
 
 
@@ -52,8 +55,8 @@ def generate_legal_moves(
     if on_bar > 0:
         # Red enters on points 24..19 (indices 23..18), die 1 -> index 23
         # White enters on points 1..6 (indices 0..5), die 1 -> index 0
-        if color == "red":
-            dest_idx = 24 - die_value
+        if color == COLOR_RED:
+            dest_idx = NUM_POINTS - die_value
         else:
             dest_idx = die_value - 1
 
@@ -64,7 +67,7 @@ def generate_legal_moves(
             is_hit = dest_val * opp_sign == 1
             moves.append(
                 BackgammonMove(
-                    source=-1,
+                    source=BAR_SOURCE,
                     destination=dest_idx,
                     die_value=die_value,
                     is_hit=is_hit,
@@ -75,13 +78,13 @@ def generate_legal_moves(
     # Check if we can bear off
     can_bear_off = all_checkers_in_home(state, color)
 
-    for i in range(24):
+    for i in range(NUM_POINTS):
         val = state.board.points[i]
         if val * sign <= 0:
             continue  # No own checkers here
 
         # Calculate destination
-        if color == "red":
+        if color == COLOR_RED:
             # Red moves from high index toward 0, then off
             dest_idx = i - die_value
         else:
@@ -89,15 +92,15 @@ def generate_legal_moves(
             dest_idx = i + die_value
 
         # Bear off
-        if color == "red" and dest_idx < 0:
+        if color == COLOR_RED and dest_idx < 0:
             if not can_bear_off:
                 continue
             # Exact bear off or highest point
-            if dest_idx == -1:
+            if die_value == i + 1:
                 moves.append(
                     BackgammonMove(
                         source=i,
-                        destination=24,
+                        destination=BEAR_OFF_DESTINATION,
                         die_value=die_value,
                         is_bear_off=True,
                     )
@@ -108,21 +111,21 @@ def generate_legal_moves(
                     moves.append(
                         BackgammonMove(
                             source=i,
-                            destination=24,
+                            destination=BEAR_OFF_DESTINATION,
                             die_value=die_value,
                             is_bear_off=True,
                         )
                     )
             continue
 
-        if color == "white" and dest_idx > 23:
+        if color != COLOR_RED and dest_idx >= NUM_POINTS:
             if not can_bear_off:
                 continue
-            if dest_idx == 24:
+            if die_value == NUM_POINTS - i:
                 moves.append(
                     BackgammonMove(
                         source=i,
-                        destination=24,
+                        destination=BEAR_OFF_DESTINATION,
                         die_value=die_value,
                         is_bear_off=True,
                     )
@@ -132,14 +135,14 @@ def generate_legal_moves(
                     moves.append(
                         BackgammonMove(
                             source=i,
-                            destination=24,
+                            destination=BEAR_OFF_DESTINATION,
                             die_value=die_value,
                             is_bear_off=True,
                         )
                     )
             continue
 
-        if dest_idx < 0 or dest_idx > 23:
+        if not 0 <= dest_idx < NUM_POINTS:
             continue
 
         # Normal move - check destination
@@ -168,12 +171,12 @@ def _is_highest_checker(state: BackgammonGameState, color: str, point_idx: int) 
     For white (moving toward index 23): no checkers on indices < point_idx
     """
     sign = color_sign(color)
-    if color == "red":
-        for i in range(point_idx + 1, 6):
+    if color == COLOR_RED:
+        for i in range(point_idx + 1, HOME_BOARD_POINTS):
             if state.board.points[i] * sign > 0:
                 return False
     else:
-        for i in range(18, point_idx):
+        for i in range(NUM_POINTS - HOME_BOARD_POINTS, point_idx):
             if state.board.points[i] * sign > 0:
                 return False
     return True
@@ -185,7 +188,7 @@ def apply_move(state: BackgammonGameState, move: BackgammonMove, color: str) -> 
     opp = opponent_color(color)
 
     # Remove checker from source
-    if move.source == -1:
+    if move.source == BAR_SOURCE:
         # From bar
         set_bar(state, color, bar_count(state, color) - 1)
     else:
@@ -235,32 +238,12 @@ def undo_last_move(state: BackgammonGameState, color: str) -> BackgammonMove | N
             set_bar(state, opp, bar_count(state, opp) - 1)
 
     # Reverse source
-    if move.source == -1:
+    if move.source == BAR_SOURCE:
         set_bar(state, color, bar_count(state, color) + 1)
     else:
         state.board.points[move.source] += sign
 
     return move
-
-
-def must_use_both_dice(
-    state: BackgammonGameState, color: str, dice_values: list[int]
-) -> list[int] | None:
-    """Return any die-value restriction imposed by the complete remaining roll.
-
-    This compatibility helper is intentionally derived from
-    :func:`generate_legal_turn_moves`.  A die-value-only restriction cannot
-    identify every illegal turn prefix, so callers that execute moves must use
-    that function directly.
-    """
-    legal_moves = generate_legal_turn_moves(state, color, dice_values)
-    if not legal_moves:
-        return []
-    available_values = set(dice_values)
-    legal_values = {move.die_value for move in legal_moves}
-    if legal_values == available_values:
-        return None
-    return sorted(legal_values)
 
 
 def generate_legal_turn_moves(
@@ -352,7 +335,7 @@ def _apply_temp(state: BackgammonGameState, move: BackgammonMove, color: str) ->
     sign = color_sign(color)
     opp = opponent_color(color)
 
-    if move.source == -1:
+    if move.source == BAR_SOURCE:
         set_bar(state, color, bar_count(state, color) - 1)
     else:
         state.board.points[move.source] -= sign
@@ -381,7 +364,7 @@ def _undo_temp(state: BackgammonGameState, move: BackgammonMove, color: str) -> 
             state.board.points[move.destination] += opp_sign
             set_bar(state, opp, bar_count(state, opp) - 1)
 
-    if move.source == -1:
+    if move.source == BAR_SOURCE:
         set_bar(state, color, bar_count(state, color) + 1)
     else:
         state.board.points[move.source] += sign

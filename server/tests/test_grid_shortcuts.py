@@ -65,12 +65,12 @@ def test_backgammon_ctrl_backspace_deselects_selected_checker() -> None:
 
     game.game_state.turn_phase = "moving"
     game.game_state.current_color = player.color
-    game.game_state.selected_source = 23
+    game._selected_source = 23
     user.clear_messages()
 
     game.handle_event(player, {"type": "keybind", "key": "backspace", "control": True})
 
-    assert game.game_state.selected_source is None
+    assert game._selected_source is None
     assert "show_menu" in _message_types(user)
 
 

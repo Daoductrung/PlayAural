@@ -136,6 +136,20 @@ def test_audio_command_rejects_unsafe_assets_and_ids() -> None:
         )
 
 
+def test_game_sound_family_dispatches_one_validated_family_to_every_listener(
+    pig_game_with_players,
+) -> None:
+    game, alice, bob = pig_game_with_players
+    alice.clear_messages()
+    bob.clear_messages()
+
+    game.play_sound_family("game_squares/diceroll")
+
+    for user in (alice, bob):
+        message = user.messages[-1]
+        assert message.type == "play_sound"
+        assert message.data["family"] == "game_squares/diceroll"
+        assert "asset" not in message.data
 def test_audio_command_serializes_validated_one_shot_sound_family() -> None:
     packet = AudioCommand(
         command="play",

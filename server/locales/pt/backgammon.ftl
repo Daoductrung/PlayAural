@@ -90,7 +90,6 @@ backgammon-drop = Rejeitar
 
 # Point labels
 backgammon-point-empty = { $point }
-backgammon-point-empty-selected = { $point } selecionada
 backgammon-point-occupied = { $point } { $color }, { $count }
 backgammon-point-occupied-selected = { $point } { $color }, { $count } selecionada
 
@@ -120,7 +119,6 @@ backgammon-must-use-forced-die = Você deve usar { $dice } agora porque o gamão
 backgammon-bearoff-blocked = Você não pode retirar damas da ponta { $point } com um { $die }, porque há damas na sua ponta { $blocking_point }.
 backgammon-bearoff-no-die = Você não pode retirar damas da ponta { $point } com seus dados restantes ({ $die }).
 backgammon-nothing-to-undo = Nada para desfazer.
-backgammon-undone = Jogada desfeita.
 backgammon-cannot-double = Você não pode dobrar agora.
 backgammon-cannot-undo = Nada para desfazer.
 backgammon-not-doubling-phase = Nenhum dobro para responder.
@@ -130,8 +128,6 @@ backgammon-need-roll-first = Você precisa rolar os dados antes de mover uma dam
 backgammon-check-status = Status
 backgammon-check-cube = Cubo
 backgammon-check-pip = Contagem de pips
-backgammon-check-score = Placar
-backgammon-check-score-detailed = Placar detalhado
 backgammon-check-dice = Dados
 backgammon-dice = { $dice }
 backgammon-dice-none = Sem dados.

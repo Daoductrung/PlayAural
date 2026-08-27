@@ -7,7 +7,6 @@ from pathlib import Path
 import pytest
 
 from ..games.backgammon.state import (
-    INITIAL_BOARD,
     all_checkers_in_home,
     bar_count,
     build_initial_game_state,
@@ -35,10 +34,9 @@ from ..games.backgammon.moves import (
     generate_legal_moves,
     generate_legal_turn_moves,
     has_any_legal_move,
-    must_use_both_dice,
     undo_last_move,
 )
-from ..games.backgammon.bot import _score_move, _pick_simple_move
+from ..games.backgammon.bot import _score_move
 from ..games.backgammon.game import (
     BackgammonGame,
     BackgammonOptions,
@@ -155,6 +153,12 @@ class TestStateHelpers:
     def test_opponent_color(self):
         assert opponent_color("red") == "white"
         assert opponent_color("white") == "red"
+
+    def test_unknown_colors_fail_closed(self):
+        with pytest.raises(ValueError):
+            color_sign("blue")
+        with pytest.raises(ValueError):
+            opponent_color("")
 
     def test_point_owner(self):
         gs = build_initial_game_state()
@@ -490,25 +494,34 @@ class TestApplyAndUndo:
         assert undo_last_move(gs, "red") is None
 
 
-class TestMustUseBothDice:
-    def test_both_usable_returns_none(self):
+class TestCompleteRollLegality:
+    def test_both_distinct_dice_are_available_when_both_can_be_used(self):
         gs = build_initial_game_state()
-        result = must_use_both_dice(gs, "red", [3, 1])
-        assert result is None
+        legal = generate_legal_turn_moves(gs, "red", [3, 1])
+        assert {move.die_value for move in legal} == {1, 3}
 
-    def test_doubles_returns_none(self):
+    def test_doubles_expose_the_rolled_value(self):
         gs = build_initial_game_state()
-        result = must_use_both_dice(gs, "red", [3, 3])
-        assert result is None
+        legal = generate_legal_turn_moves(gs, "red", [3, 3])
+        assert {move.die_value for move in legal} == {3}
+
+    def test_higher_die_is_required_when_only_one_can_be_played(self):
+        gs = build_initial_game_state()
+        gs.board.points = [0] * 24
+        gs.board.points[0] = 1
+        gs.board.off_red = 14
+
+        legal = generate_legal_turn_moves(gs, "red", [1, 6])
+
+        assert [(move.source, move.destination, move.die_value) for move in legal] == [
+            (0, 24, 6)
+        ]
 
     def test_bearing_off_must_preserve_the_second_die(self):
         gs = build_initial_game_state()
         gs.board.points = [0] * 24
         gs.board.points[3] = 1
         gs.board.off_red = 14
-        result = must_use_both_dice(gs, "red", [2, 5])
-        assert result == [2]
-
         gs.dice = [2, 5]
         gs.dice_used = [False, False]
         legal = generate_legal_turn_moves(gs, "red")
@@ -556,14 +569,13 @@ class TestMustUseBothDice:
         assert not any(move.source == 10 and move.destination == 9 for move in legal)
         assert any(move.source == 1 and move.destination == 0 for move in legal)
 
-    def test_neither_usable_returns_empty(self):
+    def test_neither_usable_returns_no_legal_moves(self):
         gs = build_initial_game_state()
         gs.board.points = [0] * 24
         gs.board.bar_red = 1
         gs.board.points[23] = -2
         gs.board.points[21] = -2
-        result = must_use_both_dice(gs, "red", [1, 3])
-        assert result == []
+        assert generate_legal_turn_moves(gs, "red", [1, 3]) == []
 
 
 class TestHasAnyLegalMove:
@@ -663,6 +675,33 @@ class TestGameRegistration:
 
 
 class TestBackgammonPolish:
+    def test_color_assignment_is_personalized_for_each_player(self):
+        game, _, _ = make_human_game(start=True)
+        red = game._get_player_by_color("red")
+        white = game._get_player_by_color("white")
+        assert red is not None
+        assert white is not None
+        red_user = game.get_user(red)
+        white_user = game.get_user(white)
+        assert red_user is not None
+        assert white_user is not None
+
+        assert any(
+            message == f"You play Red. {white.name} plays White."
+            for message in red_user.get_spoken_messages()
+        )
+        assert any(
+            message == f"You play White. {red.name} plays Red."
+            for message in white_user.get_spoken_messages()
+        )
+        spectator_user = MockUser("Viewer", uuid="spectator")
+        game.add_spectator("Viewer", spectator_user)
+        spectator_user.clear_messages()
+        game._announce_color_assignments(red, white)
+        assert spectator_user.get_last_spoken() == (
+            f"{red.name} plays Red, {white.name} plays White."
+        )
+
     def test_roll_uses_personal_and_public_announcements(self):
         game, _, _ = make_human_game(start=True, match_length=3)
         actor = game.players[0]
@@ -687,6 +726,34 @@ class TestBackgammonPolish:
         assert "You roll" in actor_text
         assert f"{actor.name} rolls" in other_text
 
+    def test_opening_roll_uses_each_listener_perspective(self):
+        game, _, _ = make_human_game(start=True)
+        red = game._get_player_by_color("red")
+        white = game._get_player_by_color("white")
+        assert red is not None
+        assert white is not None
+        red_user = game.get_user(red)
+        white_user = game.get_user(white)
+        assert red_user is not None
+        assert white_user is not None
+        spectator_user = MockUser("Viewer", uuid="spectator")
+        spectator = game.add_spectator("Viewer", spectator_user)
+        spectator.color = red.color
+        for user in (red_user, white_user, spectator_user):
+            user.clear_messages()
+
+        game._announce_opening_roll(red, white, 2, 5)
+
+        assert red_user.get_last_spoken() == (
+            f"Opening roll: You roll 2, {white.name} rolls 5."
+        )
+        assert white_user.get_last_spoken() == (
+            f"Opening roll: You roll 5, {red.name} rolls 2."
+        )
+        assert spectator_user.get_last_spoken() == (
+            f"Opening roll: {red.name} rolls 2, {white.name} rolls 5."
+        )
+
     def test_brief_move_announcement_uses_concise_points_per_listener(self):
         game, _, _ = make_human_game(start=True)
         red = game._get_player_by_color("red")
@@ -706,7 +773,6 @@ class TestBackgammonPolish:
         gs.current_color = "red"
         gs.turn_phase = "moving"
         game.current_player = red
-        game._forced_dice = None
         red_user.preferences.brief_announcements = True
         red_user.clear_messages()
         white_user.clear_messages()
@@ -718,6 +784,76 @@ class TestBackgammonPolish:
         assert "You: 11 to 8." in red_text
         assert "point" not in red_text.lower()
         assert f"{red.name} moves a checker from point" in white_text
+
+    def test_brief_hit_uses_first_second_and_third_person_by_listener(self):
+        game, _, _ = make_human_game(start=True)
+        red = game._get_player_by_color("red")
+        white = game._get_player_by_color("white")
+        assert red is not None
+        assert white is not None
+        red_user = game.get_user(red)
+        white_user = game.get_user(white)
+        assert red_user is not None
+        assert white_user is not None
+        spectator_user = MockUser("Viewer", uuid="spectator")
+        spectator = game.add_spectator("Viewer", spectator_user)
+        spectator.color = red.color
+        for user in (red_user, white_user, spectator_user):
+            user.preferences.brief_announcements = True
+            user.clear_messages()
+
+        game._announce_sub_move(
+            red,
+            BackgammonMove(
+                source=10,
+                destination=7,
+                die_value=3,
+                is_hit=True,
+            ),
+        )
+
+        assert "You: 11 to 8, hit" in red_user.get_last_spoken()
+        assert f"{red.name}: 14 to 17, hit you" in white_user.get_last_spoken()
+        assert (
+            f"{red.name}: 11 to 8, hit {white.name}"
+            in spectator_user.get_last_spoken()
+        )
+        assert spectator.is_spectator
+
+    def test_verbose_hit_uses_first_second_and_third_person_by_listener(self):
+        game, _, _ = make_human_game(start=True)
+        red = game._get_player_by_color("red")
+        white = game._get_player_by_color("white")
+        assert red is not None
+        assert white is not None
+        red_user = game.get_user(red)
+        white_user = game.get_user(white)
+        assert red_user is not None
+        assert white_user is not None
+        spectator_user = MockUser("Viewer", uuid="spectator")
+        game.add_spectator("Viewer", spectator_user)
+        for user in (red_user, white_user, spectator_user):
+            user.preferences.brief_announcements = False
+            user.clear_messages()
+
+        game._announce_sub_move(
+            red,
+            BackgammonMove(
+                source=10,
+                destination=7,
+                die_value=3,
+                is_hit=True,
+            ),
+        )
+
+        assert "You move a checker" in red_user.get_last_spoken()
+        assert "capture your checker" in white_user.get_last_spoken()
+        assert (
+            f"{red.name} moves a checker" in spectator_user.get_last_spoken()
+        )
+        assert (
+            f"capture {white.name}'s checker" in spectator_user.get_last_spoken()
+        )
 
     def test_blocked_destination_speaks_specific_error(self):
         game, _, _ = make_human_game(start=True)
@@ -734,15 +870,14 @@ class TestBackgammonPolish:
         gs.dice_used = [False]
         gs.current_color = "red"
         gs.turn_phase = "moving"
-        gs.selected_source = 10
+        game._selected_source = 10
         game.current_player = red
-        game._forced_dice = None
         user.clear_messages()
 
         game.execute_action(red, "point_7")
 
         assert user.get_last_spoken() == "Point 8 is blocked by 2 opposing checkers."
-        assert gs.selected_source is None
+        assert game._selected_source is None
 
     def test_selected_point_label_only_marks_current_player(self):
         game = make_game(start=True)
@@ -752,7 +887,8 @@ class TestBackgammonPolish:
         assert white is not None
 
         game.game_state.current_color = "red"
-        game.game_state.selected_source = 10
+        game.game_state.board.points[10] = 1
+        game._selected_source = 10
 
         assert "selected" in game._get_point_label(red, "point_10")
         assert "selected" not in game._get_point_label(white, "point_10")
@@ -795,7 +931,6 @@ class TestBackgammonPolish:
         gs.current_color = color
         gs.turn_phase = "moving"
         game.current_player = player
-        game._check_forced_dice()
 
         game.execute_action(player, f"point_{source}")
         game.execute_action(player, f"point_{destination}")
@@ -828,13 +963,12 @@ class TestBackgammonPolish:
         gs.current_color = "red"
         gs.turn_phase = "moving"
         game.current_player = red
-        game._check_forced_dice()
 
         game.execute_action(red, "point_2")
 
         # This checker may either move with the 1 or bear off with the 3, so the
         # first activation selects it instead of forcing either choice.
-        assert gs.selected_source == 2
+        assert game._selected_source == 2
         assert gs.board.off_red == 0
 
     def test_bear_off_attempt_explains_checkers_outside_home(self):
@@ -862,7 +996,265 @@ class TestBackgammonPolish:
         message = user.get_last_spoken()
         assert "Checkers outside your home board: 1" in message
         assert "Checkers on the bar: 0" in message
-        assert gs.selected_source is None
+        assert game._selected_source is None
+
+    def test_failed_second_activation_outside_home_clears_touch_selection(self):
+        game, _, _ = make_human_game(start=True)
+        red = game._get_player_by_color("red")
+        assert red is not None
+        user = game.get_user(red)
+        assert user is not None
+        user.client_type = "mobile"
+
+        gs = game.game_state
+        gs.current_color = "red"
+        gs.turn_phase = "moving"
+        gs.dice = [6, 5]
+        gs.dice_used = [False, False]
+        game.current_player = red
+        user.clear_messages()
+
+        game.execute_action(red, "point_7")
+        assert game._selected_source == 7
+        assert "deselect" in {
+            resolved.action.id for resolved in game.get_all_visible_actions(red)
+        }
+
+        game.execute_action(red, "point_7")
+
+        spoken = user.get_spoken_messages()
+        assert "Point 8 is outside your home board" in spoken[-2]
+        assert spoken[-1] == "Checker selection cleared."
+        assert game._selected_source is None
+
+    def test_explicit_deselect_reports_empty_selection_and_clears_a_checker(self):
+        game, _, _ = make_human_game(start=True)
+        red = game._get_player_by_color("red")
+        assert red is not None
+        user = game.get_user(red)
+        assert user is not None
+        user.client_type = "mobile"
+        gs = game.game_state
+        gs.current_color = "red"
+        gs.turn_phase = "moving"
+        game.current_player = red
+
+        visible = {
+            resolved.action.id: resolved
+            for resolved in game.get_all_visible_actions(red)
+        }
+        assert visible["deselect"].enabled is True
+
+        user.clear_messages()
+        game.execute_action(red, "deselect")
+        assert user.get_last_spoken() == "No checker is selected."
+
+        game._selected_source = 7
+        user.clear_messages()
+        game.execute_action(red, "deselect")
+
+        assert game._selected_source is None
+        assert user.get_last_spoken() == "Checker selection cleared."
+
+    def test_undo_hit_updates_actor_target_and_spectator(self):
+        game, _, _ = make_human_game(start=True)
+        red = game._get_player_by_color("red")
+        white = game._get_player_by_color("white")
+        assert red is not None
+        assert white is not None
+        red_user = game.get_user(red)
+        white_user = game.get_user(white)
+        assert red_user is not None
+        assert white_user is not None
+        spectator_user = MockUser("Viewer", uuid="spectator")
+        spectator = game.add_spectator("Viewer", spectator_user)
+        spectator.color = red.color
+
+        gs = game.game_state
+        gs.board.points = [0] * 24
+        gs.board.points[10] = 1
+        gs.board.points[7] = -1
+        gs.dice = [3]
+        gs.dice_used = [False]
+        gs.current_color = "red"
+        gs.turn_phase = "moving"
+        game.current_player = red
+        apply_move(
+            gs,
+            BackgammonMove(
+                source=10,
+                destination=7,
+                die_value=3,
+                is_hit=True,
+            ),
+            "red",
+        )
+        gs.dice_used[0] = True
+        for user in (red_user, white_user, spectator_user):
+            user.preferences.brief_announcements = True
+            user.clear_messages()
+
+        game.execute_action(red, "undo_move")
+
+        assert red_user.get_last_spoken() == (
+            f"You undo your move from 11 to 8, restoring {white.name}'s checker."
+        )
+        assert white_user.get_last_spoken() == (
+            f"{red.name} undoes their move from 14 to 17, restoring your checker."
+        )
+        assert spectator_user.get_last_spoken() == (
+            f"{red.name} undoes their move from 11 to 8, "
+            f"restoring {white.name}'s checker."
+        )
+        assert gs.board.points[10] == 1
+        assert gs.board.points[7] == -1
+        assert gs.board.bar_white == 0
+
+    def test_dead_cube_is_enforced_per_player(self):
+        game, _, _ = make_human_game(start=True, match_length=5)
+        red = game._get_player_by_color("red")
+        white = game._get_player_by_color("white")
+        assert red is not None
+        assert white is not None
+        gs = game.game_state
+        gs.is_crawford = False
+        gs.crawford_used = True
+        gs.cube_value = 2
+        gs.cube_owner = ""
+        gs.score_red = 3
+        gs.score_white = 0
+        gs.turn_phase = "pre_roll"
+
+        gs.current_color = "red"
+        assert game._double_disabled_reason(red) == "backgammon-double-dead-cube"
+
+        gs.current_color = "white"
+        assert game._double_disabled_reason(white) is None
+
+    def test_mobile_rolls_by_activating_the_board_without_a_roll_button(self):
+        game, _, _ = make_human_game(start=True, match_length=3)
+        current = game._get_player_by_color(game.game_state.current_color)
+        assert current is not None
+        user = game.get_user(current)
+        assert user is not None
+        user.client_type = "mobile"
+        game.game_state.turn_phase = "pre_roll"
+        game.current_player = current
+
+        visible = {
+            resolved.action.id: resolved
+            for resolved in game.get_all_visible_actions(current)
+        }
+        assert "roll_dice" not in visible
+        assert visible["point_0"].enabled is True
+
+        game._pending_menu_focus.clear()
+        game.execute_action(current, "point_0")
+        game.flush_menus()
+
+        assert game.game_state.turn_phase in {"moving", "pre_roll"}
+        assert game.game_state.dice
+        assert game._pending_menu_focus == {}
+        turn_updates = [
+            message
+            for message in user.messages
+            if message.type == "show_menu"
+            and message.data.get("menu_id") == "turn_menu"
+        ]
+        assert turn_updates[-1].data["selection_id"] is None
+
+    def test_touch_navigation_is_the_only_move_focus_directive(self):
+        game, _, _ = make_human_game(start=True)
+        red = game._get_player_by_color("red")
+        assert red is not None
+        user = game.get_user(red)
+        assert user is not None
+        user.client_type = "mobile"
+        gs = game.game_state
+        gs.current_color = "red"
+        gs.turn_phase = "moving"
+        gs.dice = [3, 1]
+        gs.dice_used = [False, False]
+        game.current_player = red
+
+        game._pending_menu_focus.clear()
+        game.execute_action(red, "navigate_next")
+
+        assert game._pending_menu_focus[red.id].startswith("point_")
+        expected_focus = game._pending_menu_focus[red.id]
+        game.flush_menus()
+        turn_updates = [
+            message
+            for message in user.messages
+            if message.type == "show_menu"
+            and message.data.get("menu_id") == "turn_menu"
+        ]
+        assert turn_updates[-1].data["selection_id"] == expected_focus
+
+    def test_hidden_roll_target_remains_available_to_keyboard_and_bots(self):
+        game, _, _ = make_human_game(start=True, match_length=3)
+        current = game._get_player_by_color(game.game_state.current_color)
+        assert current is not None
+        game.game_state.turn_phase = "pre_roll"
+        game.current_player = current
+
+        action_set = game.create_turn_action_set(current)
+        resolved = action_set.resolve_action(
+            game,
+            current,
+            action_set.get_action("roll_dice"),
+        )
+        assert resolved.visible is False
+
+        game.execute_action(current, "roll_dice")
+
+        assert game.game_state.dice
+
+    def test_turn_handoff_and_accepted_double_do_not_force_touch_focus(self):
+        game, _, _ = make_human_game(start=True, match_length=5)
+        red = game._get_player_by_color("red")
+        white = game._get_player_by_color("white")
+        assert red is not None
+        assert white is not None
+        red_user = game.get_user(red)
+        white_user = game.get_user(white)
+        assert red_user is not None
+        assert white_user is not None
+        red_user.client_type = "mobile"
+        white_user.client_type = "mobile"
+        gs = game.game_state
+
+        gs.current_color = "red"
+        gs.turn_phase = "moving"
+        game.current_player = red
+        game._pending_menu_focus.clear()
+        game._end_moving_phase()
+        assert game._pending_menu_focus == {}
+
+        gs.current_color = "red"
+        gs.turn_phase = "doubling"
+        game.current_player = red
+        game._pending_menu_focus.clear()
+        game._action_accept_double(white, "accept_double")
+        assert game._pending_menu_focus == {}
+
+    def test_legal_move_status_uses_stable_semantic_rows(self):
+        game, _, _ = make_human_game(start=True)
+        red = game._get_player_by_color("red")
+        assert red is not None
+        user = game.get_user(red)
+        assert user is not None
+        gs = game.game_state
+        gs.current_color = "red"
+        gs.turn_phase = "moving"
+        gs.dice = [3, 1]
+        gs.dice_used = [False, False]
+
+        items = game._build_legal_move_items(red, user)
+
+        assert items
+        assert all(item.id.startswith("legal_move:") for item in items)
+        assert all(item.text.startswith("You:") for item in items)
 
     def test_illegal_turn_prefix_explains_required_dice_usage(self):
         game, _, _ = make_human_game(start=True)
@@ -904,7 +1296,6 @@ class TestBackgammonPolish:
         gs.current_color = "red"
         gs.turn_phase = "moving"
         game.current_player = red
-        game._check_forced_dice()
         user.clear_messages()
 
         assert 9 not in game._get_navigation_destinations("red", 10)
@@ -936,6 +1327,50 @@ class TestBackgammonPolish:
 
         # Explicit information queries remain complete in brief mode.
         assert "outside home: 2" in user.get_last_spoken()
+        assert "You, Red" in user.get_last_spoken()
+
+    def test_information_queries_use_viewer_relative_wording(self):
+        game, _, _ = make_human_game(start=True, match_length=5)
+        red = game._get_player_by_color("red")
+        white = game._get_player_by_color("white")
+        assert red is not None
+        assert white is not None
+        red_user = game.get_user(red)
+        white_user = game.get_user(white)
+        assert red_user is not None
+        assert white_user is not None
+        gs = game.game_state
+        gs.current_color = "red"
+        gs.turn_phase = "moving"
+        gs.dice = [4, 2]
+        gs.dice_used = [False, False]
+        gs.score_red = 2
+        gs.score_white = 1
+
+        game._action_check_dice(red, "check_dice")
+        game._action_check_dice(white, "check_dice")
+        assert red_user.get_last_spoken().startswith("Your remaining dice")
+        assert white_user.get_last_spoken().startswith(
+            f"{red.name}'s remaining dice"
+        )
+
+        red_score = game._match_score_lines("en", viewer=red)
+        white_score = game._match_score_lines("en", viewer=white)
+        assert red_score[0].startswith("You:")
+        assert red_score[1].startswith(f"{white.name}:")
+        assert white_score[0].startswith(f"{red.name}:")
+        assert white_score[1].startswith("You:")
+
+        red_moves = game._build_legal_move_items(red, red_user)
+        white_moves = game._build_legal_move_items(white, white_user)
+        assert all(item.text.startswith("You:") for item in red_moves)
+        assert all(item.text.startswith(f"{red.name}:") for item in white_moves)
+
+        gs.cube_owner = "red"
+        game._action_check_cube(red, "check_cube")
+        game._action_check_cube(white, "check_cube")
+        assert "You own the cube" in red_user.get_last_spoken()
+        assert f"Owned by {red.name}" in white_user.get_last_spoken()
 
     def test_spectator_uses_consistent_red_side_point_orientation(self):
         game = make_game(start=True)
@@ -995,11 +1430,11 @@ class TestBackgammonPolish:
         game.game_state.score_red = 2
         game.game_state.score_white = 1
         game.game_state.cube_value = 4
-        expected = game._match_score_lines("en")
+        expected = game._match_score_lines("en", viewer=red)
 
-        assert [keybind.actions for keybind in game._keybinds["s"]] == [["check_score"]]
+        assert [keybind.actions for keybind in game._keybinds["s"]] == [["check_scores"]]
         assert [keybind.actions for keybind in game._keybinds["shift+s"]] == [
-            ["check_score_detailed"]
+            ["check_scores_detailed"]
         ]
 
         user.clear_messages()
@@ -1011,6 +1446,29 @@ class TestBackgammonPolish:
         status_items = user.get_current_menu_items("status_box") or []
         status_text = [item.text if hasattr(item, "text") else item for item in status_items]
         assert status_text == expected
+        assert [item.id for item in status_items] == [
+            "match_score:red",
+            "match_score:white",
+            "match_score:cube",
+        ]
+
+    def test_desktop_actions_menu_has_one_canonical_score_pair(self):
+        game, _, _ = make_human_game(start=True, match_length=5)
+        player = game.players[0]
+        user = game.get_user(player)
+        assert user is not None
+
+        game._action_show_actions_menu(player, "show_actions")
+
+        items = user.menus["actions_menu"]["items"]
+        action_ids = [item.id for item in items if item.id]
+        action_text = [item.text for item in items if item.id]
+        assert action_ids.count("check_scores") == 1
+        assert action_ids.count("check_scores_detailed") == 1
+        assert "check_score" not in action_ids
+        assert "check_score_detailed" not in action_ids
+        assert sum(text.startswith("Check scores") for text in action_text) == 1
+        assert sum(text.startswith("Detailed scores") for text in action_text) == 1
 
     def test_drop_double_respects_confirm_risky_actions_preference(self):
         game, _, _ = make_human_game(start=True, match_length=3)
@@ -1028,12 +1486,11 @@ class TestBackgammonPolish:
         gs.score_red = 0
         gs.score_white = 0
         game.current_player = red
-        white.drop_confirm_ticks = 0
         white_user.clear_messages()
 
         game.execute_action(white, "drop_double")
 
-        assert white.drop_confirm_ticks == 200
+        assert game._drop_confirm_ticks[white.id] == 200
         assert gs.score_red == 0
         assert white_user.get_last_spoken() == (
             "Dropping concedes this game at the current cube value. Press Drop again within 10 seconds to confirm."
@@ -1041,7 +1498,7 @@ class TestBackgammonPolish:
 
         game.execute_action(white, "drop_double")
 
-        assert white.drop_confirm_ticks == 0
+        assert white.id not in game._drop_confirm_ticks
         assert gs.score_red == 1
 
 
@@ -1062,6 +1519,140 @@ class TestDifficultyOptions:
         import server.games.backgammon.game as bg_game
 
         assert not hasattr(bg_game, "DIFFICULTY_PLY")
+
+
+class TestMatchAndCubeRules:
+    def test_accepting_double_transfers_cube_but_not_the_turn(self):
+        game, _, _ = make_human_game(start=True, match_length=7)
+        red = game._get_player_by_color("red")
+        white = game._get_player_by_color("white")
+        assert red is not None
+        assert white is not None
+        red_user = game.get_user(red)
+        white_user = game.get_user(white)
+        assert red_user is not None
+        assert white_user is not None
+        gs = game.game_state
+        gs.current_color = "red"
+        gs.turn_phase = "pre_roll"
+        gs.cube_value = 1
+        gs.cube_owner = ""
+        game.current_player = red
+        red_user.clear_messages()
+        white_user.clear_messages()
+
+        game.execute_action(red, "offer_double")
+
+        assert gs.turn_phase == "doubling"
+        assert gs.cube_value == 1
+        assert red_user.get_last_spoken() == "You offer to double the cube to 2."
+        assert white_user.get_last_spoken() == (
+            f"{red.name} offers to double the cube to 2."
+        )
+
+        game.execute_action(white, "accept_double")
+
+        assert gs.turn_phase == "pre_roll"
+        assert gs.current_color == "red"
+        assert game.current_player is red
+        assert gs.cube_value == 2
+        assert gs.cube_owner == "white"
+        assert white_user.get_last_spoken() == (
+            "You accept the double and take ownership of the cube."
+        )
+        assert red_user.get_last_spoken() == (
+            f"{white.name} accepts the double and takes ownership of the cube."
+        )
+        assert game._double_disabled_reason(red) == "backgammon-double-cube-owned"
+
+    def test_dropping_awards_the_current_not_proposed_cube_value(self):
+        game, _, _ = make_human_game(start=True, match_length=7)
+        red = game._get_player_by_color("red")
+        white = game._get_player_by_color("white")
+        assert red is not None
+        assert white is not None
+        white_user = game.get_user(white)
+        assert white_user is not None
+        white_user.preferences.confirm_destructive_actions = False
+        gs = game.game_state
+        gs.current_color = "red"
+        gs.turn_phase = "pre_roll"
+        gs.cube_value = 2
+        gs.cube_owner = "red"
+        gs.score_red = 0
+        gs.score_white = 0
+        game.current_player = red
+
+        game.execute_action(red, "offer_double")
+        game.execute_action(white, "drop_double")
+
+        assert gs.score_red == 2
+        assert gs.score_white == 0
+
+    @pytest.mark.parametrize(
+        ("loser_off", "loser_bar", "expected_points", "expected_result"),
+        [
+            (1, 0, 2, "Normal win"),
+            (0, 0, 4, "Gammon"),
+            (0, 1, 6, "Backgammon"),
+        ],
+    )
+    def test_cube_multiplies_single_gammon_and_backgammon_scores(
+        self,
+        loser_off,
+        loser_bar,
+        expected_points,
+        expected_result,
+    ):
+        game, _, _ = make_human_game(start=True, match_length=25)
+        red = game._get_player_by_color("red")
+        white = game._get_player_by_color("white")
+        assert red is not None
+        assert white is not None
+        red_user = game.get_user(red)
+        assert red_user is not None
+        gs = game.game_state
+        gs.board.points = [0] * 24
+        gs.board.off_red = 15
+        gs.board.off_white = loser_off
+        gs.board.bar_white = loser_bar
+        gs.cube_value = 2
+        gs.score_red = 0
+        red_user.preferences.brief_announcements = True
+        red_user.clear_messages()
+
+        game._win_game(red)
+
+        assert gs.score_red == expected_points
+        assert any(
+            expected_result in message for message in red_user.get_spoken_messages()
+        )
+
+    def test_crawford_occurs_once_then_post_crawford_doubling_returns(self):
+        game, _, _ = make_human_game(start=True, match_length=5)
+        red = game._get_player_by_color("red")
+        white = game._get_player_by_color("white")
+        assert red is not None
+        assert white is not None
+        gs = game.game_state
+        gs.score_red = 3
+        gs.score_white = 0
+
+        game._score_game(red, 1, result="single")
+
+        assert gs.score_red == 4
+        assert gs.is_crawford is True
+        assert gs.crawford_used is True
+        assert game._double_disabled_reason(white) == "backgammon-double-crawford"
+
+        game._score_game(white, 1, result="single")
+
+        assert gs.is_crawford is False
+        assert gs.crawford_used is True
+        gs.current_color = "white"
+        gs.turn_phase = "pre_roll"
+        gs.cube_owner = ""
+        assert game._double_disabled_reason(white) is None
 
 
 class TestGridLayout:
@@ -1111,30 +1702,47 @@ class TestGameLifecycle:
         assert loaded.game_state.board.points == game.game_state.board.points
         assert [p.color for p in loaded.players] == [p.color for p in game.players]
 
-    def test_derived_navigation_state_is_not_persisted_and_rebuilds_cleanly(self):
+    def test_replacement_bot_retains_human_result_identity(self):
         game = make_game(start=True)
-        game._forced_dice = [6]
+        replaced = game.players[0]
+        replaced.is_bot = True
+        replaced.replaced_human = True
+
+        result = game.build_game_result()
+        player_result = next(
+            item for item in result.player_results if item.player_id == replaced.id
+        )
+
+        assert player_result.is_bot is False
+
+    def test_runtime_selection_navigation_and_confirmation_state_is_not_persisted(self):
+        game = make_game(start=True)
+        game._selected_source = 7
         game._nav_cursor = 12
         game._nav_selected_source = 10
+        game._drop_confirm_ticks[game.players[0].id] = 200
 
         payload = game.to_json()
         serialized = json.loads(payload)
-        assert "_forced_dice" not in serialized
+        assert "_selected_source" not in serialized
+        assert "selected_source" not in serialized["game_state"]
         assert "_nav_cursor" not in serialized
         assert "_nav_selected_source" not in serialized
+        assert "_drop_confirm_ticks" not in serialized
 
         # Pre-cleanup saves may still contain these now-obsolete fields.
         serialized["_forced_dice"] = [1]
         serialized["_nav_cursor"] = 23
+        serialized["game_state"]["selected_source"] = 7
+        serialized["players"][0]["drop_confirm_ticks"] = 200
         restored = BackgammonGame.from_json(json.dumps(serialized))
         restored.rebuild_runtime_state()
+        assert restored._selected_source is None
         assert restored._nav_cursor is None
         assert restored._nav_selected_source is None
-        assert restored._forced_dice == must_use_both_dice(
-            restored.game_state,
-            restored.game_state.current_color,
-            remaining_dice(restored.game_state),
-        )
+        assert restored._drop_confirm_ticks == {}
+        assert not hasattr(restored, "_forced_dice")
+        assert not hasattr(restored.players[0], "drop_confirm_ticks")
 
     @pytest.mark.parametrize("difficulty", ["random", "simple"])
     def test_full_bot_game_runs_to_completion(self, difficulty):

@@ -90,7 +90,6 @@ backgammon-drop = Rechazar
 
 # Etiquetas de punto
 backgammon-point-empty = { $point }
-backgammon-point-empty-selected = { $point } seleccionado
 backgammon-point-occupied = { $point } { $color }, { $count }
 backgammon-point-occupied-selected = { $point } { $color }, { $count } seleccionado
 backgammon-point-occupied-selected-bearoff = { $point } { $color }, { $count } seleccionado; actívalo de nuevo para sacarlo
@@ -123,7 +122,6 @@ backgammon-bearoff-blocked = No puedes sacar del punto { $point } con un { $die 
 backgammon-bearoff-no-die = No puedes sacar del punto { $point } con los dados que te quedan ({ $die }).
 backgammon-move-would-waste-die = Ese movimiento te impediría usar tantos dados como exigen las reglas. Elige otro movimiento legal.
 backgammon-nothing-to-undo = No hay nada que deshacer.
-backgammon-undone = Movimiento deshecho.
 backgammon-cannot-double = No puedes doblar en este momento.
 backgammon-cannot-undo = No hay nada que deshacer.
 backgammon-not-doubling-phase = No hay ningún doblaje que responder.
@@ -134,8 +132,6 @@ backgammon-confirm-drop-double = Rechazar concede esta partida al valor actual d
 backgammon-check-status = Estado
 backgammon-check-cube = Cubo
 backgammon-check-pip = Cuenta de pips
-backgammon-check-score = Puntuación
-backgammon-check-score-detailed = Puntuación detallada
 backgammon-check-dice = Dados
 backgammon-status = Rojo — barra: { $bar_red }, fuera del cuadrante final: { $outside_red }, fichas sacadas: { $off_red }. Blanco — barra: { $bar_white }, fuera del cuadrante final: { $outside_white }, fichas sacadas: { $off_white }.
 backgammon-dice = { $dice }

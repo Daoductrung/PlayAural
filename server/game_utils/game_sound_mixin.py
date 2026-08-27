@@ -404,6 +404,43 @@ class GameSoundMixin:
         """Alias for :meth:`broadcast_sound`."""
         return self.broadcast_sound(name, volume, pan, pitch, **kwargs)
 
+    def broadcast_sound_family(
+        self,
+        family: str,
+        volume: int = 100,
+        pan: int = 0,
+        pitch: int = 100,
+        *,
+        bus: str = "sfx",
+        priority: int = 0,
+        max_instances: int = 0,
+        audience: Any = None,
+    ) -> str:
+        """Play one dynamically discovered numbered member of an SFX family."""
+        command = AudioCommand(
+            command="play",
+            kind="sfx",
+            family=family,
+            bus=bus,
+            volume=volume,
+            pan=pan,
+            pitch=pitch,
+            priority=priority,
+            max_instances=max_instances,
+        )
+        return self._dispatch_audio(command, audience=audience)
+
+    def play_sound_family(
+        self,
+        family: str,
+        volume: int = 100,
+        pan: int = 0,
+        pitch: int = 100,
+        **kwargs: Any,
+    ) -> str:
+        """Alias for :meth:`broadcast_sound_family`."""
+        return self.broadcast_sound_family(family, volume, pan, pitch, **kwargs)
+
     def stop_sound(
         self, handle: str, *, fade_ms: int = 0, audience: Any = None
     ) -> None:

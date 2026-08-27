@@ -8,7 +8,10 @@ backgammon-color-white = white
 
 # Game start
 backgammon-game-started = { $red } plays Red, { $white } plays White.
+backgammon-game-started-you-red = You play Red. { $opponent } plays White.
+backgammon-game-started-you-white = You play White. { $opponent } plays Red.
 backgammon-opening-roll = Opening roll: { $red } rolls { $red_die }, { $white } rolls { $white_die }.
+backgammon-opening-roll-you = Opening roll: You roll { $your_die }, { $opponent } rolls { $opponent_die }.
 backgammon-opening-tie = Both rolled { $die }, re-rolling.
 backgammon-opening-winner-you = You go first with { $die1 } and { $die2 }.
 backgammon-opening-winner-player = { $player } goes first with { $die1 } and { $die2 }.
@@ -90,13 +93,13 @@ backgammon-drop = Drop
 
 # Point labels
 backgammon-point-empty = { $point }
-backgammon-point-empty-selected = { $point } selected
 backgammon-point-occupied = { $point } { $color }, { $count }
 backgammon-point-occupied-selected = { $point } { $color }, { $count } selected
 backgammon-point-occupied-selected-bearoff = { $point } { $color }, { $count } selected; activate again to bear off
 
 # Action labels
 backgammon-label-double = Double
+backgammon-label-roll = Roll dice
 backgammon-label-undo = Undo
 backgammon-label-deselect = Deselect
 backgammon-label-next-destination = Next destination
@@ -120,52 +123,117 @@ backgammon-no-die-for-destination = None of your remaining dice ({ $dice }) move
 backgammon-must-use-forced-die = You must use { $dice } now because backgammon requires both dice when possible, or the higher die when only one die can be played.
 backgammon-move-would-waste-die = That move would prevent you from using as many dice as the rules require. Choose another legal move.
 backgammon-bearoff-not-home = You cannot bear off yet. Checkers outside your home board: { $outside }. Checkers on the bar: { $bar }. Bring every checker into points 1 through 6 and clear the bar first.
+backgammon-bearoff-outside-home-point = Point { $point } is outside your home board. Only checkers on points 1 through 6 can bear off.
 backgammon-bearoff-blocked = You can't bear off from the { $point }-point with a { $die }, because there are checkers on your { $blocking_point }-point.
 backgammon-bearoff-no-die = You can't bear off from the { $point }-point with your remaining dice ({ $die }).
 backgammon-nothing-to-undo = Nothing to undo.
-backgammon-undone = Move undone.
+backgammon-undo-move = { $listener ->
+    [actor] You undo your move from { $source } to { $destination }.
+    *[observer] { $player } undoes their move from { $source } to { $destination }.
+}
+backgammon-undo-hit = { $listener ->
+    [actor] You undo your move from { $source } to { $destination }, restoring { $opponent }'s checker.
+    [target] { $player } undoes their move from { $source } to { $destination }, restoring your checker.
+    *[observer] { $player } undoes their move from { $source } to { $destination }, restoring { $opponent }'s checker.
+}
+backgammon-selection-cleared = Checker selection cleared.
+backgammon-no-selection = No checker is selected.
 backgammon-cannot-double = You can't double right now.
 backgammon-double-single-game = The doubling cube is not used in a single game.
 backgammon-double-crawford = This is the Crawford game, so the doubling cube is unavailable.
+backgammon-double-dead-cube = You would already win the match by winning at the cube's current value, so the cube is dead for you and may not be doubled.
 backgammon-double-cube-owned = Your opponent owns the cube, so only they may offer the next double.
 backgammon-double-before-roll-only = You may offer a double only at the start of your turn, before rolling.
 backgammon-cannot-undo = Nothing to undo.
 backgammon-not-doubling-phase = No double to respond to.
 backgammon-need-roll-first = You need to roll the dice before moving a checker.
+backgammon-roll-before-moving-only = You may roll only at the start of your turn, before moving.
 backgammon-confirm-drop-double = Dropping concedes this game at the current cube value. Press Drop again within { $seconds } seconds to confirm.
 
 # Info keybinds
 backgammon-check-status = Status
 backgammon-check-cube = Cube
 backgammon-check-pip = Pip count
-backgammon-check-score = Score
-backgammon-check-score-detailed = Detailed score
 backgammon-check-dice = Dice
-backgammon-status = Red — bar: { $bar_red }, outside home: { $outside_red }, borne off: { $off_red }. White — bar: { $bar_white }, outside home: { $outside_white }, borne off: { $off_white }.
-backgammon-dice = { $dice }
+backgammon-check-legal-moves = Legal moves
+backgammon-status = { $red_self ->
+    [yes] You, Red
+    *[no] { $red }, Red
+} — bar: { $bar_red }, outside home: { $outside_red }, borne off: { $off_red }. { $white_self ->
+    [yes] You, White
+    *[no] { $white }, White
+} — bar: { $bar_white }, outside home: { $outside_white }, borne off: { $off_white }.
+backgammon-dice = { $is_self ->
+    [yes] Your remaining dice: { $dice }.
+    *[no] { $player }'s remaining dice: { $dice }.
+}
 backgammon-dice-none = No dice.
+backgammon-no-dice-list = none
 backgammon-cube-status = Cube at { $value }. { $owner ->
     [center] Centered, either player may double.
+    [self] You own the cube.
     *[other] Owned by { $owner }.
 } { $can_double ->
     [yes] Doubling is available now.
     [crawford] This is a Crawford game, no doubling allowed.
+    [dead] The cube is dead for the current player because its value is already enough to win the match.
     *[no] Doubling is not available right now.
 }
 backgammon-cube-no-match = No doubling cube in single games.
-backgammon-pip-count = Red pip count: { $red_pip }. White pip count: { $white_pip }.
-backgammon-match-score-line = { $player }: { $score } of { $match_length }.
+backgammon-pip-count = { $red_self ->
+    [yes] You, Red
+    *[no] { $red }, Red
+}: { $red_pip } pips. { $white_self ->
+    [yes] You, White
+    *[no] { $white }, White
+}: { $white_pip } pips.
+backgammon-match-score-line = { $is_self ->
+    [yes] You: { $score } of { $match_length }.
+    *[no] { $player }: { $score } of { $match_length }.
+}
 backgammon-match-score-cube-line = Cube: { $cube }.
 
-# Scoring
+# Legal move status
+backgammon-legal-moves-awaiting-roll = { $is_self ->
+    [yes] You must roll before any checker moves are available.
+    *[no] { $player } must roll before any checker moves are available.
+}
+backgammon-legal-moves-awaiting-double-response = { $is_self ->
+    [yes] You must accept or drop the offered double before play continues.
+    *[no] { $player } must accept or drop the offered double before play continues.
+}
+backgammon-legal-moves-none = { $is_self ->
+    [yes] You have no legal checker moves.
+    *[no] { $player } has no legal checker moves.
+}
+backgammon-move-source-bar = bar
+backgammon-move-destination-off = off the board
+backgammon-legal-move-line = { $is_self ->
+    [yes] You: { $source } to { $destination } using { $die }
+    *[no] { $player }: { $source } to { $destination } using { $die }
+}{ $hit ->
+    [yes] , hitting a blot.
+    *[no] .
+}
+
 backgammon-wins-game-you = You win { $points } point{ $points ->
     [one] {""}
     *[other] s
-}.
+}. { $result ->
+    [single] Normal win at cube { $cube }.
+    [gammon] Gammon at cube { $cube }.
+    [backgammon] Backgammon at cube { $cube }.
+    *[drop] Your opponent dropped the double at cube { $cube }.
+}
 backgammon-wins-game-player = { $player } wins { $points } point{ $points ->
     [one] {""}
     *[other] s
-}.
+}. { $result ->
+    [single] Normal win at cube { $cube }.
+    [gammon] Gammon at cube { $cube }.
+    [backgammon] Backgammon at cube { $cube }.
+    *[drop] Their opponent dropped the double at cube { $cube }.
+}
 backgammon-new-game = Starting game { $number }.
 backgammon-match-winner-you = You win the match!
 backgammon-match-winner-player = { $player } wins the match!

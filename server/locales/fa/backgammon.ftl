@@ -90,7 +90,6 @@ backgammon-drop = رها کردن
 
 # برچسب‌های خانه‌ها
 backgammon-point-empty = { $point }
-backgammon-point-empty-selected = { $point } انتخاب شد
 backgammon-point-occupied = { $point } { $color }، { $count }
 backgammon-point-occupied-selected = { $point } { $color }، { $count } انتخاب شد
 
@@ -121,7 +120,6 @@ backgammon-bearoff-not-home = هنوز نمی‌توانید بیرون بیاو
 backgammon-bearoff-blocked = نمی‌توانید از خانه‌ی { $point } با تاس { $die } بیرون بیاورید، زیرا مهره‌هایی در خانه‌ی { $blocking_point } شما وجود دارد.
 backgammon-bearoff-no-die = نمی‌توانید از خانه‌ی { $point } با تاس‌های باقی‌مانده‌ی خود ({ $die }) بیرون بیاورید.
 backgammon-nothing-to-undo = چیزی برای برگرداندن وجود ندارد.
-backgammon-undone = حرکت برگردانده شد.
 backgammon-cannot-double = در حال حاضر نمی‌توانید دابل کنید.
 backgammon-cannot-undo = چیزی برای برگرداندن وجود ندارد.
 backgammon-not-doubling-phase = دابلی برای پاسخ دادن وجود ندارد.
@@ -132,8 +130,6 @@ backgammon-confirm-drop-double = رها کردن دابل به معنای واگ
 backgammon-check-status = وضعیت
 backgammon-check-cube = تاس
 backgammon-check-pip = تعداد پیپ
-backgammon-check-score = امتیاز
-backgammon-check-score-detailed = امتیاز دقیق
 backgammon-check-dice = تاس‌ها
 backgammon-status = میله‌ی قرمز: { $bar_red }. میله‌ی سفید: { $bar_white }. خارج‌شده‌ی قرمز: { $off_red }. خارج‌شده‌ی سفید: { $off_white }.
 backgammon-dice = { $dice }

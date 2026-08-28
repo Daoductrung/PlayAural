@@ -323,6 +323,7 @@ action-table-full = La mesa está llena.
 action-start-needs-more-players = No se puede iniciar. Jugadores activos: { $current }. Mínimo requerido: { $minimum }.
 action-start-has-too-many-players = No se puede iniciar. Jugadores activos: { $current }. Máximo permitido: { $maximum }.
 action-start-requires-exact-players = No se puede iniciar. Jugadores activos: { $current }. Se requieren exactamente: { $required }.
+action-start-needs-human-player = No se puede iniciar solo con bots. Al menos un humano debe participar como jugador. Cambia de espectador a jugador; si la mesa está llena, primero elimina a un bot.
 action-no-bots = No hay bots para quitar.
 action-bots-cannot = Los bots no pueden hacer esto.
 action-no-scores = Aún no hay puntuaciones disponibles.

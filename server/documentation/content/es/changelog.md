@@ -1,5 +1,23 @@
 Registro de cambios
 
+Jueves 27 de agosto de 2026
+
+Novedades:
+
+* El portugués ya está disponible en el servidor, escritorio, web, móvil y guías de jugador, como traducción comunitaria de Tadeu Junior. El contenido que aún no se ha traducido al portugués cae de vuelta al inglés.
+
+Mejoras:
+
+* El actualizador de escritorio para Windows ahora instala las actualizaciones de PlayAural y de paquetes de sonido en una ventana accesible dedicada. Revisa el paquete descargado antes de modificar la instalación, espera a que se cierren todas las ventanas de PlayAural, verifica que el cliente actualizado inicie correctamente, y restaura la versión anterior que funcionaba si el inicio falla. Las actualizaciones fallidas o canceladas también limpian los archivos temporales y dan instrucciones de recuperación más claras.
+* Reproducir Sonidos de Escritura ahora funciona en el cuadro de chat de escritorio y en los cuadros de texto que abren los juegos, además del chat web y cuadros de texto compatibles. Las teclas normales usan una mayor variedad de sonidos, mientras que las teclas numéricas, Suprimir y Entrar tienen retroalimentación distinta. El teclado Telex vietnamita integrado de Windows y otros teclados de idioma ahora conservan un sonido para cada tecla sin duplicados al formar caracteres acentuados.
+* Backgammon ahora incluye una vista en vivo de Movimientos legales; retroalimentación más clara de Deseleccionar, fallos al sacar fichas, Deshacer, Estado, Cuenta de pips, Dados, Cubo, y puntaje; redacción personalizada para el jugador que mueve y para todos los demás; foco táctil más estable; y una guía para principiantes reconstruida. Los jugadores táctiles lanzan los dados tocando cualquier punto del tablero sin mover el foco, mientras que Siguiente destino y Destino anterior mueven el foco solo cuando se solicita.
+* El bloqueo de jugadores, los resúmenes de miembros de mesa, y el juego con el cubo de doblaje de Backgammon ya están disponibles en español.
+
+Corrección de errores:
+
+* Iniciar una mesa solo con bots y sin ningún jugador humano activo ahora se detiene antes de que la partida comience. La mesa permanece abierta y explica que un humano debe volver a un asiento de jugador, en vez de iniciar la partida y luego cancelarla.
+* Backgammon ahora puntúa correctamente los doblajes aceptados y rechazados, la posesión del cubo, las partidas Crawford, las victorias normales, los gammons, y los backgammons. También evita un doblaje inútil cuando el valor actual del cubo ya alcanza para ganar el enfrentamiento, y Deshacer restaura una ficha capturada con retroalimentación clara para todos en la mesa.
+
 Martes 25 de agosto de 2026
 
 Novedades:

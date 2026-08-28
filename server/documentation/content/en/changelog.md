@@ -1,5 +1,23 @@
 Changelog
 
+Thursday 27 August 2026
+
+New Additions:
+
+* Portuguese is now available across the server, desktop, web, mobile, and player guides as a community translation by Tadeu Junior. Content not yet translated into Portuguese falls back to English.
+
+Improvements:
+
+* The Windows desktop updater now installs PlayAural and sound-pack updates in a dedicated accessible window. It checks the downloaded package before changing the installation, waits for every PlayAural window to close, verifies that the updated client starts correctly, and restores the previous working version if startup fails. Failed or cancelled updates also clean up temporary files and give clearer recovery instructions.
+* Play Typing Sounds now works in the desktop chat box and text boxes opened by games, as well as supported web chat and text boxes. Ordinary keys use a wider variety of sounds, while number keys, Delete, and Enter have distinct feedback. The built-in Windows Vietnamese Telex keyboard and other language keyboards now keep a sound for each key without duplicates while forming accented characters.
+* Backgammon now includes a live Legal moves view; clearer Deselect, failed bearing-off, Undo, Status, Pip count, Dice, Cube, and score feedback; personalized wording for the player moving and everyone else; steadier touch focus; and a rebuilt beginner guide. Touch players roll by tapping any board point without moving focus, while Next destination and Previous destination move focus only when requested.
+* Player blocking, table membership summaries, and Backgammon doubling-cube play are now available in Spanish.
+
+Bug Fixes:
+
+* Starting a table with only bots and no active human player is now stopped before the game begins. The table stays open and explains that a human must return to a player seat, instead of starting and then being cancelled.
+* Backgammon now scores accepted and dropped doubles, cube ownership, Crawford games, normal wins, gammons, and backgammons correctly. It also prevents a pointless double when the current cube value is already enough to win the match, and Undo restores a hit checker with clear feedback for everyone at the table.
+
 Tuesday 25 August 2026
 
 New Additions:

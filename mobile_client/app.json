@@ -2,14 +2,14 @@
   "expo": {
     "name": "PlayAural Mobile",
     "slug": "playaural-mobile",
-    "version": "1.0.4.15",
+    "version": "1.0.4.16",
     "orientation": "portrait",
     "assetBundlePatterns": [
       "sounds/**/*"
     ],
     "android": {
       "package": "one.ddt.playaural.mobile",
-      "versionCode": 10415
+      "versionCode": 10416
     },
     "ios": {
       "bundleIdentifier": "one.ddt.playaural.mobile"

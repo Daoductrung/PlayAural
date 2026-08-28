@@ -1,5 +1,23 @@
 Nhật ký thay đổi
 
+Thứ Năm 27 Tháng Tám 2026
+
+Tính năng mới:
+
+* Tiếng Bồ Đào Nha giờ đã có trên máy chủ, phần mềm máy tính, phiên bản web, ứng dụng di động và tài liệu người chơi dưới dạng bản dịch cộng đồng của Tadeu Junior. Nội dung chưa được dịch sang Tiếng Bồ Đào Nha sẽ dùng bản tiếng Anh.
+
+Cải thiện:
+
+* Trình cập nhật PlayAural trên phần mềm máy tính Windows giờ cài đặt bản cập nhật PlayAural và gói âm thanh trong một cửa sổ tiếp cận riêng. Trình cập nhật kiểm tra gói đã tải trước khi thay đổi bản cài đặt, chờ mọi cửa sổ PlayAural đóng, xác minh phiên bản mới khởi động đúng và khôi phục phiên bản cũ đang hoạt động nếu lần khởi động thất bại. Bản cập nhật thất bại hoặc bị hủy cũng dọn tệp tạm và hướng dẫn khắc phục rõ hơn.
+* Âm thanh gõ phím giờ hoạt động trong ô trò chuyện và các ô nhập do trò chơi mở trên phần mềm máy tính, cũng như ô trò chuyện và ô nhập trực tiếp được hỗ trợ trên web. Các phím thông thường dùng nhiều âm thanh đa dạng hơn, còn phím số, Delete và Enter có phản hồi riêng. Bộ gõ Tiếng Việt Telex tích hợp của Windows cùng các phương thức nhập khác giờ giữ phản hồi cho từng phím mà không phát trùng âm thanh trong lúc ghép ký tự.
+* Cờ thỏ cáo giờ có bảng Nước đi hợp lệ cập nhật trực tiếp; phản hồi rõ hơn cho Bỏ chọn, lần đưa quân ra không hợp lệ, Hoàn tác, Trạng thái, Tổng pip, Xúc xắc, Khối nhân đôi và Xem điểm; lời thông báo phù hợp với người đi quân và những người còn lại; tiêu điểm cảm ứng ổn định hơn; cùng tài liệu cho người mới được viết lại. Người chơi cảm ứng chạm vào bất kỳ điểm nào trên bàn để tung xúc xắc mà không làm chuyển tiêu điểm; Điểm đến tiếp theo và Điểm đến trước đó chỉ chuyển tiêu điểm khi được chọn.
+* Chặn người chơi, tóm tắt thành viên trong bàn và phần Khối nhân đôi trong Cờ thỏ cáo giờ đã có bằng Tiếng Tây Ban Nha.
+
+Sửa lỗi:
+
+* Nếu bàn chỉ có bot mà không có người chơi thật đang ngồi chơi, Bắt đầu game giờ bị từ chối trước khi ván bắt đầu. Bàn vẫn mở và giải thích rằng một người thật phải trở lại vị trí người chơi, thay vì bắt đầu rồi bị hủy.
+* Cờ thỏ cáo giờ tính đúng điểm khi lời nhân đôi được Chấp nhận hoặc Bỏ, quyền giữ khối, ván Crawford, thắng thường, Gammon và Backgammon. Trò chơi cũng ngăn một lần nhân đôi không cần thiết khi giá trị khối hiện tại đã đủ để thắng trận; Hoàn tác một nước đá quân sẽ đưa quân bị đá trở lại và báo rõ cho mọi người trong bàn.
+
 Thứ Ba 25 Tháng Tám 2026
 
 Tính năng mới:
@@ -11,7 +29,7 @@ Cải thiện:
 * Chỗ đã được giữ trong bàn đang chơi, kể cả bàn riêng tư, giờ vẫn có thể lấy lại sau khi mất kết nối thông thường hoặc máy chủ khởi động lại theo lịch. Khi trở lại, người chơi được tự động đưa về đúng bàn. Nếu người chơi thật duy nhất trong ván bị mất kết nối khiến bàn không còn ai trông coi, ván sẽ tạm dừng tối đa 15 phút trước khi bàn đóng; thời gian chờ này được giữ qua lần khởi động lại theo lịch và không tính lúc máy chủ đang ngoại tuyến.
 * Việc khôi phục bàn đã lưu giờ chỉ dành cho chủ bàn và được thực hiện trọn vẹn: hoặc mọi người đều được chuyển thành công, hoặc bàn hiện tại cùng bàn đã lưu vẫn giữ nguyên. Chỗ của người thật đang do bot thay thế nắm giữ được khôi phục đúng; nếu có người chưa sẵn sàng, dữ liệu đã lưu không còn tương thích hoặc xảy ra xung đột chặn, hệ thống sẽ hướng dẫn rõ mà không xóa bàn đã lưu.
 * Tóm tắt Ai đang ở trong bàn giờ bỏ các nhóm không có ai. Danh sách bàn đang chơi nêu tên tất cả người chơi thật, chỉ báo tổng số bot, đọc gọn một số tên khán giả kèm số người còn lại, và ghi rõ chủ bàn khi chủ bàn đang xem.
-* Phần đưa quân ra khỏi bàn trong Cờ thỏ cáo giờ nhanh và rõ hơn. Khi đưa ra là đích hợp lệ duy nhất, kích hoạt quân sẽ đưa nó ra ngay; nếu còn một nước đi trên bàn, quân vẫn được chọn để bạn có thể kích hoạt lần nữa và đưa ra. Lần thử không hợp lệ sẽ giải thích cụ thể nếu còn quân ngoài khu nhà hoặc trên thanh giữa, xúc xắc không phù hợp hay một điểm cao hơn vẫn còn quân. Trạng thái giờ đọc cả số quân của mỗi màu còn ngoài khu nhà, còn các giới hạn của khối nhân đôi có lời giải thích riêng.
+* Phần đưa quân ra khỏi bàn trong Cờ thỏ cáo giờ nhanh và rõ hơn. Khi đưa ra là đích hợp lệ duy nhất, kích hoạt quân sẽ đưa nó ra ngay; nếu còn một nước đi trên bàn, quân vẫn được chọn để bạn có thể kích hoạt lần nữa và đưa ra. Lần thử không hợp lệ sẽ giải thích cụ thể nếu còn quân ngoài bảng nhà hoặc trên thanh giữa, xúc xắc không phù hợp hay một điểm cao hơn vẫn còn quân. Trạng thái giờ đọc cả số quân của mỗi màu còn ngoài bảng nhà, còn các giới hạn của khối nhân đôi có lời giải thích riêng.
 * Tham gia bàn, tự rời bàn, bị đuổi, mất kết nối mạng và trở lại chỗ đã được giữ giờ có âm thanh riêng biệt. Những thay đổi của bàn và Trò chuyện thoại xảy ra đồng thời không còn làm nhiều âm thanh trùng nhau phát chồng, còn các sự kiện xảy ra riêng vẫn được nghe riêng. Thông báo hệ thống cũng dùng bộ âm thanh đa dạng hơn; phản hồi trò chuyện, tin nhắn riêng, lời mời, gõ chữ và Trò chuyện thoại đã được làm mới.
 * Trò chuyện thoại trên di động giờ bảo toàn chắc chắn hơn âm thanh game nổi chất lượng cao và đúng tai nghe có dây, thiết bị Bluetooth hoặc loa do hệ thống chọn. Nhạc nền, âm thanh môi trường, hiệu ứng thông thường và hiệu ứng lặp vẫn chạy độc lập khi Trò chuyện thoại đang hoạt động; mic chỉ bật sau thao tác chủ động của người dùng.
 * Trò chuyện giờ báo rõ khi kênh không khả dụng hoặc tin nhắn có định dạng không hợp lệ hay quá dài, thay vì im lặng thất bại hoặc gửi nhầm sang cuộc trò chuyện khác.

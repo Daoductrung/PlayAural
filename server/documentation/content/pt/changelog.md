@@ -1,5 +1,43 @@
 # Changelog
 
+Quinta-feira, 27 de agosto de 2026
+
+Novas Adições:
+
+* O português agora está disponível em todo o servidor, aplicativo para computador, web, dispositivos móveis e guias de jogadores como uma tradução da comunidade por Tadeu Junior. O conteúdo ainda não traduzido para o português retorna ao inglês.
+
+Melhorias:
+
+* O atualizador de computador do Windows agora instala as atualizações do PlayAural e dos pacotes de som em uma janela dedicada e acessível. Ele verifica o pacote baixado antes de alterar a instalação, espera todas as janelas do PlayAural fecharem, verifica se o cliente atualizado inicia corretamente e restaura a versão de trabalho anterior se a inicialização falhar. Atualizações com falha ou canceladas também limpam os arquivos temporários e fornecem instruções de recuperação mais claras.
+* Os Sons de Digitação do Play agora funcionam na caixa de chat do computador e nas caixas de texto abertas pelos jogos, bem como no chat e nas caixas de texto da web suportados. Teclas comuns usam uma variedade maior de sons, enquanto teclas numéricas, Delete e Enter têm feedback distinto. O teclado vietnamita Telex integrado do Windows e outros teclados de idiomas agora mantêm um som para cada tecla sem duplicatas ao formar caracteres acentuados.
+* O Backgammon agora inclui uma visualização ao vivo de Movimentos legais; feedback mais claro de Desmarcar, remoção de peça com falha, Desfazer, Status, Contagem de pontos, Dados, Cubo e pontuação; texto personalizado para o jogador que está movendo e para todos os demais; foco de toque mais estável; e um guia para iniciantes reconstruído. Jogadores de toque rolam os dados tocando em qualquer ponto do tabuleiro sem mover o foco, enquanto Próximo destino e Destino anterior movem o foco apenas quando solicitado.
+* O bloqueio de jogadores, os resumos de associação à mesa e o jogo do cubo de redobro do Backgammon agora estão disponíveis em espanhol.
+
+Correções de bugs:
+
+* Iniciar uma mesa apenas com bots e sem nenhum jogador humano ativo agora é interrompido antes do início do jogo. A mesa permanece aberta e explica que um humano deve retornar a uma cadeira de jogador, em vez de iniciar e depois ser cancelada.
+* O Backgammon agora pontua corretamente dobras aceitas e recusadas, a posse do cubo, jogos Crawford, vitórias normais, gammons e backgammons. Ele também impede uma dobra desnecessária quando o valor atual do cubo já é suficiente para vencer a partida, e Desfazer restaura uma peça capturada com feedback claro para todos na mesa.
+
+Terça-feira, 25 de agosto de 2026
+
+Novas Adições:
+
+* O bloqueio de jogadores agora está disponível a partir de solicitações de amizade, perfis, menus de jogadores online e membros da mesa, ou em Pessoal e Opções > Amigos > Bloquear um usuário. O bloqueio remove qualquer amizade e solicitações pendentes entre as duas contas, impede solicitações de amizade, mensagens privadas, convites de mesa e chat comum em ambas as direções, e impede que qualquer uma das pessoas entre novamente em uma mesa hospedada pela outra. Usuários Bloqueados permite revisar e desbloquear pessoas posteriormente. O bloqueio não remove ninguém de uma mesa compartilhada, não silencia o Chat de Voz de mesa e não impede que nenhuma das pessoas recupere um assento reservado; mesas salvas contendo as duas pessoas permanecem armazenadas com segurança, mas exigem que o bloqueio seja removido antes da restauração.
+
+Melhorias:
+
+* Assentos reservados em mesas ativas, incluindo mesas privadas, agora permanecem recuperáveis por meio de desconexões comuns e reinicializações planejadas do servidor. Jogadores que retornam são colocados de volta em sua mesa automaticamente. Se o único jogador humano ativo se desconectar e deixar a mesa sem supervisão, o jogo é pausado por até 15 minutos antes de a mesa fechar; esse período de tolerância é preservado em uma reinicialização planejada sem contar o tempo enquanto o servidor está offline.
+* Restaurar uma mesa salva agora é exclusivo do proprietário e "tudo ou nada": todos os participantes são transferidos com sucesso, ou a mesa e o salvamento originais permanecem inalterados. Assentos humanos ocupados por bots de substituição são restaurados corretamente, e jogadores indisponíveis, dados salvos incompatíveis ou conflitos de bloqueio agora produzem orientações claras sem excluir o salvamento.
+* Os resumos de Quem está na mesa agora omitem categorias vazias. As listagens de mesas ativas nomeiam todos os jogadores humanos, relatam os bots apenas como uma contagem, mostram uma breve prévia de espectadores com qualquer total restante e identificam claramente o host quando o host está assistindo.
+* A remoção de peças no Backgammon agora é mais rápida e clara. Ativar uma peça a remove imediatamente quando esse é o seu único destino legal; quando um movimento no tabuleiro também é possível, a peça permanece selecionada para que uma segunda ativação possa removê-la. Tentativas inválidas explicam se restam peças fora do tabuleiro de casa ou na barra, se os dados não cabem ou se um ponto mais alto ocupado bloqueia o movimento. O status agora inclui as peças de cada cor fora do tabuleiro de casa, e as restrições de dobra fornecem explicações específicas.
+* Chegadas à mesa, saídas voluntárias, expulsões, desconexões de rede e retornos de assento reservado agora têm dicas de áudio distintas. Alterações simultâneas de mesa e Chat de Voz não acumulam mais sons duplicados, enquanto eventos que ocorrem separadamente permanecem audíveis individualmente. As notificações do sistema também usam um conjunto mais variado de dicas, e o feedback de chat, mensagens privadas, convites, digitação e Chat de Voz foi renovado.
+* O Chat de Voz para Dispositivos Móveis agora preserva de forma mais firme o áudio de jogo estéreo de qualidade total e a rota com fio, Bluetooth ou alto-falante selecionada pelo dispositivo. Música, atmosfera, efeitos comuns e efeitos em loop continuam de forma independente enquanto o Chat de Voz está ativo, e o microfone continua sendo ligado apenas após uma ação explícita do usuário.
+* O chat agora fornece feedback claro quando um canal está indisponível ou uma mensagem é inválida ou longa demais, em vez de falhar silenciosamente ou enviá-la pela conversa errada.
+
+Correções de bugs:
+
+* O Backgammon agora avalia cada movimento em relação à rolagem restante completa, de modo que pessoas, bots e navegação por teclado usem consistentemente ambos os dados quando possível e o dado maior quando apenas um pode ser jogado. Isso corrige sequências legais que anteriormente ficavam paradas após o primeiro movimento, incluindo a remoção de peças com o dado restante após uma captura.
+
 Terça-feira, 18 de agosto de 2026
 
 Melhorias:

@@ -221,7 +221,7 @@ Battle é um jogo de combate baseado em turnos onde você constrói um pequeno p
 * **Volley Of Fireballs:** Tem como alvo um lutador inimigo. Efeitos: causa 12-16 de dano; aumenta o ataque do usuário em 2. Atribuído a: The Fiery Lion.
 * **Vortex Of The Deceased:** Tem como alvo um lutador inimigo. Efeitos: causa 9-15 de dano; reduz o ataque do usuário em 2; reduz a defesa do usuário em 2; reduz a velocidade do usuário em 2. Atribuído a: Ghostly Fighter.
 * **Warding Spellblade:** Tem como alvo um lutador inimigo. Efeitos: causa 6-10 de dano; aumenta a defesa do usuário em 1; reduz o ataque do alvo em 1. Atribuído a: The Wizardly Warrior.
-* **Weaken:** Tem como alvo um lutador inimigo. Efeitos: reduces the target's attack by 3; reduz a velocidade do alvo em 5. Atribuído a: Ghostly Fighter.
+* **Weaken:** Tem como alvo um lutador inimigo. Efeitos: reduz o ataque do alvo em 3; reduz a velocidade do alvo em 5. Atribuído a: Ghostly Fighter.
 
 # **Atalhos de Teclado**
 

@@ -8,7 +8,10 @@ backgammon-color-white = blanco
 
 # Inicio de la partida
 backgammon-game-started = { $red } juega con rojo, { $white } juega con blanco.
+backgammon-game-started-you-red = Juegas con rojo. { $opponent } juega con blanco.
+backgammon-game-started-you-white = Juegas con blanco. { $opponent } juega con rojo.
 backgammon-opening-roll = Tirada inicial: { $red } saca { $red_die }, { $white } saca { $white_die }.
+backgammon-opening-roll-you = Tirada inicial: Sacas { $your_die }, { $opponent } saca { $opponent_die }.
 backgammon-opening-tie = Ambos sacaron { $die }, se vuelve a lanzar.
 backgammon-opening-winner-you = Empiezas tú con { $die1 } y { $die2 }.
 backgammon-opening-winner-player = { $player } empieza con { $die1 } y { $die2 }.
@@ -24,58 +27,58 @@ backgammon-no-moves-player = { $player } no tiene movimientos legales, así que 
 # Comentario breve de movimiento
 backgammon-brief-move-normal = { $is_self ->
     [yes] Tú: { $src } a { $dest }.
-    *[no] { $player }: { $src } a { $dest }.
+   *[no] { $player }: { $src } a { $dest }.
 }
 backgammon-brief-move-hit = { $is_self ->
     [yes] Tú: { $src } a { $dest }, capturas a { $opponent }.
     [spectator] { $player }: { $src } a { $dest }, captura a { $opponent }.
-    *[no] { $player }: { $src } a { $dest }, te captura.
+   *[no] { $player }: { $src } a { $dest }, te captura.
 }
 backgammon-brief-move-bar = { $is_self ->
     [yes] Tú: barra a { $dest }.
-    *[no] { $player }: barra a { $dest }.
+   *[no] { $player }: barra a { $dest }.
 }
 backgammon-brief-move-bar-hit = { $is_self ->
     [yes] Tú: barra a { $dest }, capturas a { $opponent }.
     [spectator] { $player }: barra a { $dest }, captura a { $opponent }.
-    *[no] { $player }: barra a { $dest }, te captura.
+   *[no] { $player }: barra a { $dest }, te captura.
 }
 backgammon-brief-move-bearoff = { $is_self ->
     [yes] Tú: sacas de { $src }.
-    *[no] { $player }: saca de { $src }.
+   *[no] { $player }: saca de { $src }.
 }
 
 # Comentario detallado de movimiento
 backgammon-verbose-move-normal = { $is_self ->
     [yes] Mueves una ficha del punto { $src } al punto { $dest }.
-    *[no] { $player } mueve una ficha del punto { $src } al punto { $dest }.
+   *[no] { $player } mueve una ficha del punto { $src } al punto { $dest }.
 } { $src_count ->
     [0] El punto { $src } ahora está vacío, { $dest_count } en el punto { $dest }.
-    *[other] { $src_count } ahora en el punto { $src }, { $dest_count } en el punto { $dest }.
+   *[other] { $src_count } ahora en el punto { $src }, { $dest_count } en el punto { $dest }.
 }
 backgammon-verbose-move-hit = { $is_self ->
     [yes] Mueves una ficha del punto { $src } y capturas la ficha de { $opponent } en el punto { $dest }.
     [spectator] { $player } mueve una ficha del punto { $src } y captura la ficha de { $opponent } en el punto { $dest }.
-    *[no] { $player } mueve una ficha del punto { $src } y captura tu ficha en el punto { $dest }.
+   *[no] { $player } mueve una ficha del punto { $src } y captura tu ficha en el punto { $dest }.
 } { $src_count ->
     [0] El punto { $src } ahora está vacío.
-    *[other] Quedan { $src_count } en el punto { $src }.
+   *[other] Quedan { $src_count } en el punto { $src }.
 }
 backgammon-verbose-move-bar = { $is_self ->
     [yes] Entras desde la barra al punto { $dest }.
-    *[no] { $player } entra desde la barra al punto { $dest }.
+   *[no] { $player } entra desde la barra al punto { $dest }.
 } Ahora hay { $dest_count } en el punto { $dest }.
 backgammon-verbose-move-bar-hit = { $is_self ->
     [yes] Entras desde la barra y capturas la ficha de { $opponent } en el punto { $dest }.
     [spectator] { $player } entra desde la barra y captura la ficha de { $opponent } en el punto { $dest }.
-    *[no] { $player } entra desde la barra y captura tu ficha en el punto { $dest }.
+   *[no] { $player } entra desde la barra y captura tu ficha en el punto { $dest }.
 }
 backgammon-verbose-move-bearoff = { $is_self ->
     [yes] Sacas una ficha del punto { $src }.
-    *[no] { $player } saca una ficha del punto { $src }.
+   *[no] { $player } saca una ficha del punto { $src }.
 } { $src_count ->
     [0] El punto { $src } ahora está vacío.
-    *[other] Quedan { $src_count } en el punto { $src }.
+   *[other] Quedan { $src_count } en el punto { $src }.
 }
 
 # Doblaje
@@ -96,6 +99,7 @@ backgammon-point-occupied-selected-bearoff = { $point } { $color }, { $count } s
 
 # Etiquetas de acción
 backgammon-label-double = Doblar
+backgammon-label-roll = Lanzar dados
 backgammon-label-undo = Deshacer
 backgammon-label-deselect = Deseleccionar
 backgammon-label-next-destination = Siguiente destino
@@ -117,15 +121,33 @@ backgammon-bar-entry-blocked = No puedes entrar en el punto { $point }; está bl
 backgammon-no-die-for-bar-entry = Ninguno de tus dados restantes ({ $dice }) te permite entrar en el punto { $point }.
 backgammon-no-die-for-destination = Ninguno de tus dados restantes ({ $dice }) mueve del punto { $src } al punto { $dest }.
 backgammon-must-use-forced-die = Debes usar { $dice } ahora porque el backgammon requiere usar ambos dados cuando sea posible, o el dado más alto cuando solo se pueda jugar uno.
+backgammon-move-would-waste-die = Ese movimiento te impediría usar tantos dados como exigen las reglas. Elige otro movimiento legal.
 backgammon-bearoff-not-home = Todavía no puedes sacar fichas. Fichas fuera de tu cuadrante final: { $outside }. Fichas en la barra: { $bar }. Primero lleva todas tus fichas a los puntos 1 al 6 y despeja la barra.
+backgammon-bearoff-outside-home-point = El punto { $point } está fuera de tu cuadrante final. Solo pueden sacarse las fichas de los puntos 1 al 6.
 backgammon-bearoff-blocked = No puedes sacar del punto { $point } con un { $die }, porque hay fichas en tu punto { $blocking_point }.
 backgammon-bearoff-no-die = No puedes sacar del punto { $point } con los dados que te quedan ({ $die }).
-backgammon-move-would-waste-die = Ese movimiento te impediría usar tantos dados como exigen las reglas. Elige otro movimiento legal.
 backgammon-nothing-to-undo = No hay nada que deshacer.
+backgammon-undo-move = { $listener ->
+    [actor] Deshaces tu movimiento de { $source } a { $destination }.
+   *[observer] { $player } deshace su movimiento de { $source } a { $destination }.
+}
+backgammon-undo-hit = { $listener ->
+    [actor] Deshaces tu movimiento de { $source } a { $destination } y restauras la ficha de { $opponent }.
+    [target] { $player } deshace su movimiento de { $source } a { $destination } y restaura tu ficha.
+   *[observer] { $player } deshace su movimiento de { $source } a { $destination } y restaura la ficha de { $opponent }.
+}
+backgammon-selection-cleared = Se canceló la selección de ficha.
+backgammon-no-selection = No hay ninguna ficha seleccionada.
 backgammon-cannot-double = No puedes doblar en este momento.
+backgammon-double-single-game = El cubo de doblaje no se usa en una partida individual.
+backgammon-double-crawford = Esta es la partida Crawford, así que el cubo de doblaje no está disponible.
+backgammon-double-dead-cube = Ya ganarías el enfrentamiento si ganas con el valor actual del cubo, así que el cubo está muerto para ti y no se puede doblar.
+backgammon-double-cube-owned = El cubo es propiedad de tu oponente, así que solo esa persona puede ofrecer el próximo doblaje.
+backgammon-double-before-roll-only = Solo puedes ofrecer un doblaje al inicio de tu turno, antes de lanzar los dados.
 backgammon-cannot-undo = No hay nada que deshacer.
 backgammon-not-doubling-phase = No hay ningún doblaje que responder.
 backgammon-need-roll-first = Debes lanzar los dados antes de mover una ficha.
+backgammon-roll-before-moving-only = Solo puedes lanzar los dados al inicio de tu turno, antes de mover.
 backgammon-confirm-drop-double = Rechazar concede esta partida al valor actual del cubo. Presiona Rechazar de nuevo dentro de { $seconds } segundos para confirmar.
 
 # Atajos de información
@@ -133,35 +155,85 @@ backgammon-check-status = Estado
 backgammon-check-cube = Cubo
 backgammon-check-pip = Cuenta de pips
 backgammon-check-dice = Dados
-backgammon-status = Rojo — barra: { $bar_red }, fuera del cuadrante final: { $outside_red }, fichas sacadas: { $off_red }. Blanco — barra: { $bar_white }, fuera del cuadrante final: { $outside_white }, fichas sacadas: { $off_white }.
-backgammon-dice = { $dice }
+backgammon-check-legal-moves = Movimientos legales
+backgammon-status = { $red_self ->
+    [yes] Tú, Rojo
+   *[no] { $red }, Rojo
+} — barra: { $bar_red }, fuera del cuadrante final: { $outside_red }, fichas sacadas: { $off_red }. { $white_self ->
+    [yes] Tú, Blanco
+   *[no] { $white }, Blanco
+} — barra: { $bar_white }, fuera del cuadrante final: { $outside_white }, fichas sacadas: { $off_white }.
+backgammon-dice = { $is_self ->
+    [yes] Tus dados restantes: { $dice }.
+   *[no] Dados restantes de { $player }: { $dice }.
+}
 backgammon-dice-none = Sin dados.
+backgammon-no-dice-list = ninguno
 backgammon-cube-status = Cubo en { $value }. { $owner ->
     [center] Centrado, cualquier jugador puede doblar.
-    *[other] Propiedad de { $owner }.
+    [self] Eres dueño del cubo.
+   *[other] Propiedad de { $owner }.
 } { $can_double ->
     [yes] El doblaje está disponible ahora.
     [crawford] Esta es una partida Crawford, no se permite doblar.
-    *[no] El doblaje no está disponible en este momento.
+    [dead] El cubo está muerto para el jugador en turno porque su valor ya alcanza para ganar el enfrentamiento.
+   *[no] El doblaje no está disponible en este momento.
 }
 backgammon-cube-no-match = No hay cubo de doblaje en partidas individuales.
-backgammon-double-single-game = El cubo de doblaje no se usa en una partida individual.
-backgammon-double-cube-owned = El cubo es propiedad de tu oponente, así que solo esa persona puede ofrecer el próximo doblaje.
-backgammon-double-crawford = Esta es la partida Crawford, así que el cubo de doblaje no está disponible.
-backgammon-double-before-roll-only = Solo puedes ofrecer un doblaje al inicio de tu turno, antes de lanzar los dados.
-backgammon-pip-count = Pips del rojo: { $red_pip }. Pips del blanco: { $white_pip }.
-backgammon-match-score-line = { $player }: { $score } de { $match_length }.
+backgammon-pip-count = { $red_self ->
+    [yes] Tú, Rojo
+   *[no] { $red }, Rojo
+}: { $red_pip } pips. { $white_self ->
+    [yes] Tú, Blanco
+   *[no] { $white }, Blanco
+}: { $white_pip } pips.
+backgammon-match-score-line = { $is_self ->
+    [yes] Tú: { $score } de { $match_length }.
+   *[no] { $player }: { $score } de { $match_length }.
+}
 backgammon-match-score-cube-line = Cubo: { $cube }.
 
-# Puntuación
+# Estado de movimientos legales
+backgammon-legal-moves-awaiting-roll = { $is_self ->
+    [yes] Debes lanzar los dados antes de que haya movimientos de ficha disponibles.
+   *[no] { $player } debe lanzar los dados antes de que haya movimientos de ficha disponibles.
+}
+backgammon-legal-moves-awaiting-double-response = { $is_self ->
+    [yes] Debes aceptar o rechazar el doblaje ofrecido antes de que la partida continúe.
+   *[no] { $player } debe aceptar o rechazar el doblaje ofrecido antes de que la partida continúe.
+}
+backgammon-legal-moves-none = { $is_self ->
+    [yes] No tienes ningún movimiento de ficha legal.
+   *[no] { $player } no tiene ningún movimiento de ficha legal.
+}
+backgammon-move-source-bar = barra
+backgammon-move-destination-off = fuera del tablero
+backgammon-legal-move-line = { $is_self ->
+    [yes] Tú: { $source } a { $destination } usando { $die }
+   *[no] { $player }: { $source } a { $destination } usando { $die }
+}{ $hit ->
+    [yes] , capturando una ficha suelta.
+   *[no] .
+}
+
 backgammon-wins-game-you = Ganas { $points } { $points ->
     [one] punto
    *[other] puntos
-}.
+}. { $result ->
+    [single] Victoria normal con el cubo en { $cube }.
+    [gammon] Gammon con el cubo en { $cube }.
+    [backgammon] Backgammon con el cubo en { $cube }.
+   *[drop] Tu oponente rechazó el doblaje con el cubo en { $cube }.
+}
 backgammon-wins-game-player = { $player } gana { $points } { $points ->
     [one] punto
    *[other] puntos
-}.
+}. { $result ->
+    [single] Victoria normal con el cubo en { $cube }.
+    [gammon] Gammon con el cubo en { $cube }.
+    [backgammon] Backgammon con el cubo en { $cube }.
+   *[drop] Su oponente rechazó el doblaje con el cubo en { $cube }.
+}
 backgammon-new-game = Comenzando la partida { $number }.
 backgammon-match-winner-you = ¡Ganas el enfrentamiento!
 backgammon-match-winner-player = ¡{ $player } gana el enfrentamiento!

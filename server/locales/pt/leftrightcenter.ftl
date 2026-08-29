@@ -1,4 +1,4 @@
-game-name-leftrightcenter = Left Center Right
+game-name-leftrightcenter = Esquerda Centro Direita
 
 lrc-roll = Rolar { $count } { $count ->
     [one] dado

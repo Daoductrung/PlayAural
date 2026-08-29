@@ -1,6 +1,6 @@
 # Rolling Balls
 
-game-name-rollingballs = Rolling Balls
+game-name-rollingballs = Bolas Rolantes
 
 # Actions
 rb-take = Pegar { $count } { $count ->

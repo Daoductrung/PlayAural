@@ -1,6 +1,6 @@
-**Metal Pipe**
+**Cano de Metal**
 
-Metal Pipe é um jogo curto de sorte automática para 2 a 8 jogadores. Ele é intencionalmente bobo e não tem decisões estratégicas após o anfitrião iniciar o jogo: o cano escolhe um jogador para balançar, escolhe um alvo, toca o som de pancada ("bonk") e declara o vencedor.
+Cano de Metal é um jogo curto de sorte automática para 2 a 8 jogadores. Ele é intencionalmente bobo e não tem decisões estratégicas após o anfitrião iniciar o jogo: o cano escolhe um jogador para balançar, escolhe um alvo, toca o som de pancada ("bonk") e declara o vencedor.
 
 O objetivo de polimento para este jogo é a clareza, não a complexidade. Cada resultado é aleatório, portanto, o jogo foca em feedback de áudio rápido, anúncios claros de eliminação e controles de status amigáveis ao toque.
 
@@ -15,7 +15,7 @@ Para cada pancada:
 * Se auto-pancadas forem permitidas, o agressor pode acidentalmente se tornar o alvo.
 * O alvo é eliminado.
 
-Nenhum jogador tem um turno manual durante a sequência de pancadas. O comando **De quem é o turno** explica que o Metal Pipe está se resolvendo automaticamente.
+Nenhum jogador tem um turno manual durante a sequência de pancadas. O comando **De quem é o turno** explica que o Cano de Metal está se resolvendo automaticamente.
 
 **Modo de Pancada Única**
 
@@ -50,7 +50,7 @@ Estas opções não entram em conflito entre si. Todas as combinações são sup
 **Opções Pessoais de Jogo**
 
 * **Anúncios resumidos:** Encurta os anúncios de pancada e vencedor, mantendo claros o agressor, o alvo e o resultado da eliminação.
-* **Confirmar ações arriscadas:** Não usado. O Metal Pipe não tem ação de jogabilidade manual arriscada após o anfitrião iniciar o jogo.
+* **Confirmar ações arriscadas:** Não usado. O Cano de Metal não tem ação de jogabilidade manual arriscada após o anfitrião iniciar o jogo.
 
 **Atalhos de Teclado**
 

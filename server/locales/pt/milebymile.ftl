@@ -1,4 +1,4 @@
-game-name-milebymile = Mile by Mile
+game-name-milebymile = 1000 Milhas
 
 milebymile-set-distance = Distância da corrida: { $miles } milhas
 milebymile-enter-distance = Digite a distância da corrida (300-3000)

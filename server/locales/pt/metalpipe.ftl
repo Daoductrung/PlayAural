@@ -1,6 +1,6 @@
 # Metal Pipe game messages
 
-game-name-metalpipe = Metal Pipe
+game-name-metalpipe = Cano de Metal
 
 metalpipe-mode-single = Uma batida
 metalpipe-mode-multiple = Múltiplas batidas
@@ -8,7 +8,7 @@ metalpipe-self-bonk-allowed = auto-batidas permitidas
 metalpipe-self-bonk-blocked = auto-batidas bloqueadas
 
 metalpipe-game-start = Metal Pipe começa no modo { $mode }. O cano escolherá tudo automaticamente.
-metalpipe-game-start-brief = Metal Pipe: { $mode }.
+metalpipe-game-start-brief = Cano de Metal: { $mode }.
 
 metalpipe-you-hit-other = Você balança o cano de metal e acerta { $bonked }. { $bonked } foi eliminado.
 metalpipe-player-hits-you = { $bonker } balança o cano de metal e acerta você. Você foi eliminado.

@@ -1,4 +1,4 @@
-**Pirates of the Lost Seas**
+**Piratas dos Mares Perdidos**
 
 Pirates of the Lost Seas é uma caça ao tesouro com foco em áudio para 2 a 5 jogadores. Cada jogador comanda uma tripulação navegando ao longo de uma rota compartilhada de 40 casas. Você recupera gemas, ganha experiência, desbloqueia habilidades mais fortes e interfere em navios rivais.
 

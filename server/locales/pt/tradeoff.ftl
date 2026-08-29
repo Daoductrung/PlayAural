@@ -1,4 +1,4 @@
-game-name-tradeoff = Tradeoff
+game-name-tradeoff = Intercâmbio
 
 tradeoff-round-start = Rodada { $round }.
 tradeoff-iteration = Mão { $iteration } de 3.

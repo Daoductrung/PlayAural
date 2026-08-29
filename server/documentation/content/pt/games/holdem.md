@@ -1,4 +1,4 @@
-**Texas Hold'em**
+**Poker Texas Hold'em**
 
 Texas Hold'em é um jogo de pôquer para 2 a 10 jogadores. Cada jogador recebe duas cartas particulares fechadas (hole cards) e todos compartilham até cinco cartas comunitárias na mesa.
 

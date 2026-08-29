@@ -1,4 +1,4 @@
-**Color Game**
+**Jogo das Cores**
 
 Color Game é a adaptação da PlayAural do tradicional jogo de apostas com dados de cores *perya* das Filipinas. Todos apostam em uma ou mais cores, três dados de cores são lançados juntos, e cada aposta de cor é paga estritamente de acordo com quantos dados mostraram essa mesma cor.
 

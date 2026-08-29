@@ -1,4 +1,4 @@
-# **BANG! The Bullet**
+# **BANG! A Bala**
 
 # **A história**
 

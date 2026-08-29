@@ -1,6 +1,6 @@
-**Tradeoff**
+**Intercâmbio**
 
-Tradeoff é um jogo de troca de dados para 2 a 8 jogadores. Todos rolam ao mesmo tempo, escolhem quais dados guardar e enviam o resto para um pool compartilhado. Em seguida, os jogadores pegam dados de volta desse pool para terminar de construir sua mão.
+Intercâmbio é um jogo de troca de dados para 2 a 8 jogadores. Todos rolam ao mesmo tempo, escolhem quais dados guardar e enviam o resto para um pool compartilhado. Em seguida, os jogadores pegam dados de volta desse pool para terminar de construir sua mão.
 
 Cada rodada dá a cada jogador 15 dados. O jogo pontua esses dados automaticamente encontrando os melhores conjuntos que não se sobrepõem.
 

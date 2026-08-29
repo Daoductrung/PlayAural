@@ -5,7 +5,7 @@ holdem-enter-starting-chips = Digite as fichas iniciais
 holdem-option-changed-starting-chips = Fichas iniciais definidas para { $count }.
 holdem-desc-starting-chips = Pilha inicial de cada jogador no Texas Hold'em, de 100 a 1.000.000 fichas. Padrão: 20.000.
 
-holdem-set-big-blind = Big blind: { $count }
+holdem-set-big-blind = Blind grande: { $count }
 holdem-enter-big-blind = Digite o big blind
 holdem-option-changed-big-blind = Big blind definido para { $count }.
 holdem-desc-big-blind = Valor base do big blind. Deve ser menor que a pilha inicial (padrão 200, intervalo 1-1.000.000 de fichas).

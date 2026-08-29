@@ -1,4 +1,4 @@
-**Snakes and Ladders**
+**Cobras e Escadas**
 
 Snakes and Ladders (Cobras e Escadas) é uma corrida baseada na sorte para 2 a 4 jogadores. Cada jogador tem uma peça e rola um dado de seis faces para viajar da área inicial até a casa 100.
 

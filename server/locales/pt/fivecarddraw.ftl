@@ -1,4 +1,4 @@
-game-name-fivecarddraw = Poker Five Card Draw
+game-name-fivecarddraw = Pôquer de Cinco Cartas
 
 draw-set-starting-chips = Fichas iniciais: { $count }
 draw-enter-starting-chips = Digite as fichas iniciais

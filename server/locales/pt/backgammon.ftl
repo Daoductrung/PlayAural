@@ -8,7 +8,10 @@ backgammon-color-white = branco
 
 # Game start
 backgammon-game-started = { $red } joga com Vermelho, { $white } joga com Branco.
+backgammon-game-started-you-red = Você joga com Vermelho. { $opponent } joga com Branco.
+backgammon-game-started-you-white = Você joga com Branco. { $opponent } joga com Vermelho.
 backgammon-opening-roll = Rolagem inicial: { $red } tirou { $red_die }, { $white } tirou { $white_die }.
+backgammon-opening-roll-you = Rolagem inicial: Você tirou { $your_die }, { $opponent } tirou { $opponent_die }.
 backgammon-opening-tie = Ambos tiraram { $die }, rolando novamente.
 backgammon-opening-winner-you = Você começa com { $die1 } e { $die2 }.
 backgammon-opening-winner-player = { $player } começa com { $die1 } e { $die2 }.
@@ -92,9 +95,11 @@ backgammon-drop = Rejeitar
 backgammon-point-empty = { $point }
 backgammon-point-occupied = { $point } { $color }, { $count }
 backgammon-point-occupied-selected = { $point } { $color }, { $count } selecionada
+backgammon-point-occupied-selected-bearoff = { $point } { $color }, { $count } selecionada; ative novamente para retirar
 
 # Action labels
 backgammon-label-double = Dobrar
+backgammon-label-roll = Rolar dados
 backgammon-label-undo = Desfazer
 backgammon-label-deselect = Desselecionar
 backgammon-label-next-destination = Próximo destino
@@ -116,43 +121,119 @@ backgammon-bar-entry-blocked = Você não pode entrar na ponta { $point }; ela e
 backgammon-no-die-for-bar-entry = Nenhum dos seus dados restantes ({ $dice }) entra na ponta { $point }.
 backgammon-no-die-for-destination = Nenhum dos seus dados restantes ({ $dice }) move da ponta { $src } para a ponta { $dest }.
 backgammon-must-use-forced-die = Você deve usar { $dice } agora porque o gamão exige ambos os dados quando possível, ou o maior dado quando apenas um pode ser jogado.
+backgammon-move-would-waste-die = Essa jogada o impediria de usar tantos dados quanto as regras exigem. Escolha outra jogada válida.
+backgammon-bearoff-not-home = Você ainda não pode retirar damas. Damas fora do seu tabuleiro interno: { $outside }. Damas na barra: { $bar }. Traga todas as damas para as pontas 1 a 6 e limpe a barra primeiro.
+backgammon-bearoff-outside-home-point = A ponta { $point } está fora do seu tabuleiro interno. Somente damas nas pontas 1 a 6 podem ser retiradas.
 backgammon-bearoff-blocked = Você não pode retirar damas da ponta { $point } com um { $die }, porque há damas na sua ponta { $blocking_point }.
 backgammon-bearoff-no-die = Você não pode retirar damas da ponta { $point } com seus dados restantes ({ $die }).
 backgammon-nothing-to-undo = Nada para desfazer.
+backgammon-undo-move = { $listener ->
+    [actor] Você desfaz sua jogada de { $source } para { $destination }.
+    *[observer] { $player } desfaz a jogada dele de { $source } para { $destination }.
+}
+backgammon-undo-hit = { $listener ->
+    [actor] Você desfaz sua jogada de { $source } para { $destination }, restaurando a dama de { $opponent }.
+    [target] { $player } desfaz a jogada dele de { $source } para { $destination }, restaurando a sua dama.
+    *[observer] { $player } desfaz a jogada dele de { $source } para { $destination }, restaurando a dama de { $opponent }.
+}
+backgammon-selection-cleared = Seleção de dama cancelada.
+backgammon-no-selection = Nenhuma dama está selecionada.
 backgammon-cannot-double = Você não pode dobrar agora.
+backgammon-double-single-game = O cubo de dobro não é usado em uma partida única.
+backgammon-double-crawford = Esta é a partida Crawford, então o cubo de dobro não está disponível.
+backgammon-double-dead-cube = Você já venceria a disputa ao ganhar com o valor atual do cubo, então o cubo está morto para você e não pode ser dobrado.
+backgammon-double-cube-owned = O cubo pertence ao seu oponente, então apenas ele pode oferecer o próximo dobro.
+backgammon-double-before-roll-only = Você pode oferecer um dobro apenas no início do seu turno, antes de rolar os dados.
 backgammon-cannot-undo = Nada para desfazer.
 backgammon-not-doubling-phase = Nenhum dobro para responder.
 backgammon-need-roll-first = Você precisa rolar os dados antes de mover uma dama.
+backgammon-roll-before-moving-only = Você pode rolar apenas no início do seu turno, antes de mover.
+backgammon-confirm-drop-double = Rejeitar concede esta partida pelo valor atual do cubo. Pressione Rejeitar novamente dentro de { $seconds } segundos para confirmar.
 
 # Info keybinds
 backgammon-check-status = Status
 backgammon-check-cube = Cubo
 backgammon-check-pip = Contagem de pips
 backgammon-check-dice = Dados
-backgammon-dice = { $dice }
+backgammon-check-legal-moves = Jogadas válidas
+backgammon-status = { $red_self ->
+    [yes] Você, Vermelho
+    *[no] { $red }, Vermelho
+} — barra: { $bar_red }, fora do tabuleiro interno: { $outside_red }, retiradas: { $off_red }. { $white_self ->
+    [yes] Você, Branco
+    *[no] { $white }, Branco
+} — barra: { $bar_white }, fora do tabuleiro interno: { $outside_white }, retiradas: { $off_white }.
+backgammon-dice = { $is_self ->
+    [yes] Seus dados restantes: { $dice }.
+    *[no] Dados restantes de { $player }: { $dice }.
+}
 backgammon-dice-none = Sem dados.
+backgammon-no-dice-list = nenhum
 backgammon-cube-status = Cubo em { $value }. { $owner ->
     [center] Centralizado, qualquer jogador pode dobrar.
+    [self] Você é o dono do cubo.
     *[other] Pertence a { $owner }.
 } { $can_double ->
     [yes] O dobro está disponível agora.
     [crawford] Esta é uma partida Crawford, dobrar não é permitido.
+    [dead] O cubo está morto para o jogador atual porque o valor dele já é suficiente para vencer a disputa.
     *[no] O dobro não está disponível agora.
 }
 backgammon-cube-no-match = Sem cubo de dobro em partidas únicas.
-backgammon-pip-count = Contagem de pips vermelha: { $red_pip }. Contagem de pips branca: { $white_pip }.
-backgammon-match-score-line = { $player }: { $score } de { $match_length }.
+backgammon-pip-count = { $red_self ->
+    [yes] Você, Vermelho
+    *[no] { $red }, Vermelho
+}: { $red_pip } pips. { $white_self ->
+    [yes] Você, Branco
+    *[no] { $white }, Branco
+}: { $white_pip } pips.
+backgammon-match-score-line = { $is_self ->
+    [yes] Você: { $score } de { $match_length }.
+    *[no] { $player }: { $score } de { $match_length }.
+}
 backgammon-match-score-cube-line = Cubo: { $cube }.
 
-# Scoring
+# Legal move status
+backgammon-legal-moves-awaiting-roll = { $is_self ->
+    [yes] Você deve rolar antes que alguma jogada de dama esteja disponível.
+    *[no] { $player } deve rolar antes que alguma jogada de dama esteja disponível.
+}
+backgammon-legal-moves-awaiting-double-response = { $is_self ->
+    [yes] Você deve aceitar ou rejeitar o dobro oferecido antes que o jogo continue.
+    *[no] { $player } deve aceitar ou rejeitar o dobro oferecido antes que o jogo continue.
+}
+backgammon-legal-moves-none = { $is_self ->
+    [yes] Você não tem nenhuma jogada de dama válida.
+    *[no] { $player } não tem nenhuma jogada de dama válida.
+}
+backgammon-move-source-bar = barra
+backgammon-move-destination-off = fora do tabuleiro
+backgammon-legal-move-line = { $is_self ->
+    [yes] Você: { $source } para { $destination } usando { $die }
+    *[no] { $player }: { $source } para { $destination } usando { $die }
+}{ $hit ->
+    [yes] , capturando uma dama desprotegida.
+    *[no] .
+}
+
 backgammon-wins-game-you = Você ganha { $points } ponto{ $points ->
     [one] {""}
     *[other] s
-}.
+}. { $result ->
+    [single] Vitória normal com o cubo em { $cube }.
+    [gammon] Gammon com o cubo em { $cube }.
+    [backgammon] Backgammon com o cubo em { $cube }.
+    *[drop] Seu oponente rejeitou o dobro com o cubo em { $cube }.
+}
 backgammon-wins-game-player = { $player } ganha { $points } ponto{ $points ->
     [one] {""}
     *[other] s
-}.
+}. { $result ->
+    [single] Vitória normal com o cubo em { $cube }.
+    [gammon] Gammon com o cubo em { $cube }.
+    [backgammon] Backgammon com o cubo em { $cube }.
+    *[drop] O oponente dele rejeitou o dobro com o cubo em { $cube }.
+}
 backgammon-new-game = Iniciando partida { $number }.
 backgammon-match-winner-you = Você venceu a disputa!
 backgammon-match-winner-player = { $player } venceu a disputa!

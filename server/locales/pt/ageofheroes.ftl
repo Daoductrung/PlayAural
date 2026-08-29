@@ -2,7 +2,7 @@
 # A civilization-building card game for 2-6 players
 
 # Game name
-game-name-ageofheroes = Age of Heroes
+game-name-ageofheroes = Era dos Heróis
 
 # Tribes
 ageofheroes-tribe-egyptians = Egípcios

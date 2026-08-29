@@ -1,6 +1,6 @@
-**Toss Up**
+**Dados ao Voo**
 
-Toss Up é um jogo de dados de tentar a sorte (push-your-luck) para 2 a 6 jogadores. Cada dado mostra uma de três cores de semáforo: verde, amarelo ou vermelho.
+Dados ao Voo é um jogo de dados de tentar a sorte (push-your-luck) para 2 a 6 jogadores. Cada dado mostra uma de três cores de semáforo: verde, amarelo ou vermelho.
 
 Os dados verdes ganham pontos. Os dados amarelos e vermelhos permanecem em sua mão para a próxima rolagem. Você decide quando depositar (bank) os pontos do seu turno, mas uma rolagem perigosa pode apagar tudo o que você ganhou durante esse turno.
 
@@ -94,4 +94,4 @@ Após esses turnos restantes:
 
 * **Shift+S:** Abrir pontuações detalhadas.
 
-Toss Up é baseado no jogo de dados publicado Toss Up e em suas regras de semáforo.
+Dados ao Voo é baseado no jogo de dados publicado Dados ao Voo e em suas regras de semáforo.

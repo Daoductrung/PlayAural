@@ -1,4 +1,4 @@
-**Chaos Bear**
+**Urso do Caos**
 
 Chaos Bear é um jogo de perseguição rápida para 2 a 4 jogadores. Todos começam à frente do urso e tentam ficar fora de alcance pelo maior tempo possível.
 

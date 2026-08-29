@@ -1,6 +1,6 @@
-**Poker de Azar**
+**O Pôquer do Morto**
 
-Poker de Azar é um jogo de pôquer de sobrevivência. Ele usa as classificações normais de mãos de pôquer, mas não usa fichas, dinheiro ou pontos. Cada aposta é uma bala. Se você desistir (fold) ou perder um confronto (showdown), as balas que você apostou são colocadas no revólver.
+O Pôquer do Morto é um jogo de pôquer de sobrevivência. Ele usa as classificações normais de mãos de pôquer, mas não usa fichas, dinheiro ou pontos. Cada aposta é uma bala. Se você desistir (fold) ou perder um confronto (showdown), as balas que você apostou são colocadas no revólver.
 
 Se você nunca jogou pôquer antes, comece com esta ideia: você está tentando formar a melhor mão de 5 cartas a partir de suas próprias 2 cartas particulares e das cartas compartilhadas na mesa. O jogo lê as informações importantes em voz alta, para que você possa aprender os tipos de mão enquanto joga.
 
@@ -12,7 +12,7 @@ Você não vence coletando fichas. Você vence tomando boas decisões, sobrevive
 
 **Jogadores**
 
-Poker de Azar suporta de 2 a 4 jogadores.
+O Pôquer do Morto suporta de 2 a 4 jogadores.
 
 Jogadores que são eliminados não recebem mais cartas nem turnos. A partida continua até que apenas um jogador continue vivo.
 
@@ -164,11 +164,11 @@ Use as ações de informação sempre que precisar de orientação:
 
 Não há pontuações e nenhum alvo de pontuação.
 
-A partida termina quando apenas um jogador ainda está vivo. Esse jogador vence o Poker de Azar.
+A partida termina quando apenas um jogador ainda está vivo. Esse jogador vence o O Pôquer do Morto.
 
 **Opções Personalizáveis**
 
-O Poker de Azar atualmente usa regras fixas. O anfitrião não tem opções específicas de jogo.
+O O Pôquer do Morto atualmente usa regras fixas. O anfitrião não tem opções específicas de jogo.
 
 **Atalhos de Teclado**
 

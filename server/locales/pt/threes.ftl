@@ -1,4 +1,4 @@
-game-name-threes = Threes
+game-name-threes = Três
 
 threes-roll = Rolar dados
 threes-bank = Guardar e encerrar o turno

@@ -1,6 +1,6 @@
-**Threes**
+**Três**
 
-Threes é um jogo de dados de pontuação baixa, também conhecido em alguns lugares como Threes Away ou Threes Are Free. Seu objetivo é simples: terminar o jogo com o menor número total de pontos.
+Três é um jogo de dados de pontuação baixa, também conhecido em alguns lugares como Threes Away ou Threes Are Free. Seu objetivo é simples: terminar o jogo com o menor número total de pontos.
 
 Cada jogador rola cinco dados. Os três são especiais porque valem 0 pontos. Cada outro dado conta como o seu valor de face, então números baixos são bons e números altos são arriscados.
 

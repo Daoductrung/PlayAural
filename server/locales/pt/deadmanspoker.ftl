@@ -1,4 +1,4 @@
-game-name-deadmanspoker = Dead Man's Poker
+game-name-deadmanspoker = O Pôquer do Morto
 
 deadmanspoker-call = Pagar
 deadmanspoker-match-all-in = Cobrir all-in

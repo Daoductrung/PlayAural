@@ -1,6 +1,6 @@
-**Pig**
+**Porquinho**
 
-Pig é um jogo de dados de arriscar a sorte para 2 a 6 jogadores. Em cada turno, você rola repetidamente um dado e acumula um total de turno temporário. Você pode guardar esse total com segurança a qualquer momento, mas rolar um 1 faz você perder todos os pontos não acumulados do turno.
+Porquinho é um jogo de dados de arriscar a sorte para 2 a 6 jogadores. Em cada turno, você rola repetidamente um dado e acumula um total de turno temporário. Você pode guardar esse total com segurança a qualquer momento, mas rolar um 1 faz você perder todos os pontos não acumulados do turno.
 
 O primeiro jogador ou equipe a acumular pontos suficientes para atingir a meta vence imediatamente.
 
@@ -31,7 +31,7 @@ Nos modos de equipe, os companheiros de equipe compartilham uma pontuação perm
 **Opções Personalizáveis**
 
 * **Pontuação Alvo:** O total necessário para vencer (padrão 100, intervalo de 10 a 1.000).
-* **Retenção Mínima:** O total de turno necessário antes que a opção Guardar esteja disponível. Um valor de 0 segue o Pig padrão. Deve permanecer abaixo da pontuação alvo (padrão 0, intervalo de 0 a 999).
+* **Retenção Mínima:** O total de turno necessário antes que a opção Guardar esteja disponível. Um valor de 0 segue o Porquinho padrão. Deve permanecer abaixo da pontuação alvo (padrão 0, intervalo de 0 a 999).
 * **Faces do Dado:** Rolar 1 sempre perde o total do turno, então mais faces reduzem a chance de perder pontos em cada rolagem (padrão dado de 6 faces, intervalo de 4 a 20 faces).
 * **Modo de Equipe:** Jogue individualmente ou em arranjos de equipe suportados. O arranjo selecionado deve corresponder ao número de jogadores ativos.
 

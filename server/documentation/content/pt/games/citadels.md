@@ -1,4 +1,4 @@
-**Citadels**
+**Citadelas**
 
 Citadels é um jogo de cartas de construção de cidades com papéis ocultos para 4 a 8 jogadores. Seu objetivo principal é completar sua cidade sendo o primeiro jogador a construir 7 distritos. Depois que essa rodada final termina, o jogador com a maior pontuação vence.
 

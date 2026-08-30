@@ -1,4 +1,4 @@
-game-name-tossup = Toss Up
+game-name-tossup = Dados ao Voo
 
 tossup-roll-first =
     Rolar { $count } { $count ->

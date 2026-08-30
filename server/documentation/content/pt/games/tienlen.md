@@ -1,4 +1,4 @@
-**Tien Len**
+**Tiến Lên**
 
 Tien Len é um jogo de cartas vietnamita do tipo "climbing" (subida) sobre se livrar da sua mão, controlar o ritmo e escolher o momento certo para gastar 2s poderosos, quadras ou sequências de pares consecutivos. O PlayAural suporta tanto o Tien Len do Sul quanto o Tien Len do Norte.
 

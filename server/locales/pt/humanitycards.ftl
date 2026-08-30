@@ -1,6 +1,6 @@
 # Humanity Cards - Portuguese localization
 
-game-name-humanitycards = Cards Against Humanity
+game-name-humanitycards = Cartas contra a Humanidade
 
 # Options
 hc-set-winning-score = Pontuação para vencer: { $score }

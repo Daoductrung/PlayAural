@@ -1,4 +1,4 @@
-game-name-deadmansdeck = Dead Man's Deck
+game-name-deadmansdeck = O Baralho do Morto
 
 deadmansdeck-call-liar = Acusar de mentiroso
 deadmansdeck-play-selected = Jogar cartas selecionadas
@@ -81,7 +81,7 @@ deadmansdeck-table-eliminated = Eliminados: { $players }.
 deadmansdeck-card-count-line = { $player }: { $count ->
     [one] 1 carta
    *[other] { $count } cartas
-} restantes.
+} restam.
 deadmansdeck-card-count-eliminated = { $player }: eliminado.
 
 deadmansdeck-revolvers-header = Status dos revólveres

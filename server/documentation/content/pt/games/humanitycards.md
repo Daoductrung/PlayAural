@@ -1,6 +1,6 @@
-**Cards Against Humanity (Cartas contra a Humanidade)**
+**Cartas contra a Humanidade**
 
-Cards Against Humanity é um jogo de festa para 3 a 10 jogadores, onde um jogador atua como o Czar das Cartas (Card Czar) a cada rodada, lendo um cartão de instrução preto em voz alta enquanto todos os outros competem para preencher as lacunas com a carta branca mais engraçada de sua mão.
+Cartas contra a Humanidade é um jogo de festa para 3 a 10 jogadores, onde um jogador atua como o Czar das Cartas (Card Czar) a cada rodada, lendo um cartão de instrução preto em voz alta enquanto todos os outros competem para preencher as lacunas com a carta branca mais engraçada de sua mão.
 
 A interface, os anúncios e a documentação são localizados, mas o texto das cartas de perguntas e respostas atualmente suporta apenas o inglês.
 
@@ -31,7 +31,7 @@ O anfitrião pode configurar estas configurações na mesa antes de começar:
 * **Pontuação Vencedora:** O número de pontos necessários para vencer (padrão 7, intervalo de 3 a 20).
 * **Tamanho da Mão:** O número de cartas brancas que cada jogador segura de cada vez (padrão 10, intervalo de 5 a 15).
 * **Pacotes de Cartas:** Quais pacotes de cartas incluir. O jogo vem com muitos pacotes, incluindo o conjunto base, expansões, edição de família, pacotes de férias e pacotes de nostalgia. Você pode misturar e combinar livremente, mas pelo menos um pacote deve ser selecionado. Os grupos de pacotes disponíveis são:
-    * **Conjunto Base:** Apenas o conjunto base original de Cards Against Humanity (padrão).
+    * **Conjunto Base:** Apenas o conjunto base original de Cartas contra a Humanidade (padrão).
     * **Base + Expansões:** O conjunto base combinado com todos os pacotes de expansão numerados oficiais.
     * **Edição de Família:** Pacotes da versão para a família do jogo.
     * **Pacotes de Férias:** Pacotes temáticos para ocasiões sazonais e feriados.

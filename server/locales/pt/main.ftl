@@ -84,11 +84,30 @@ table-left = { $player } saiu da mesa.
 new-host = { $player } agora é o host.
 waiting-for-players = Aguardando jogadores. Mínimo de {$min}, máximo de { $max }.
 game-starting = O jogo está começando!
+table-listing-game-composition-status = { $game } [{ $status }]: mesa de { $host }. { $composition }.
+table-composition-human-players = { $count } { $count ->
+    [one] jogador
+   *[other] jogadores
+}: { $names }
+table-composition-bots = { $count } { $count ->
+    [one] bot
+   *[other] bots
+}
+table-composition-spectators = { $count ->
+    [one] Espectador
+   *[other] Espectadores
+}: { $names }
+table-composition-spectators-more = Espectadores: { $names }; e mais { $remaining }
+table-composition-spectator-host = { $host } (host)
+table-composition-two = { $first }; { $second }
+table-composition-three = { $first }; { $second }; { $third }
+table-composition-empty = sem participantes
 table-status-waiting = Aguardando
 table-status-playing = Jogando
 table-status-finished = Finalizado
 table-not-exists = A mesa não existe mais.
 table-full = A mesa está cheia.
+table-closed-disconnect-timeout = A mesa foi fechada porque nenhum jogador ativo retornou dentro de { $minutes } minutos.
 player-replaced-by-bot = { $bot } está jogando no lugar de { $player }.
 player-reclaimed-from-bot = { $player } retornou e reassumiu seu lugar que estava com { $bot }.
 spectator-joined = Entrou na mesa de { $host } como espectador.
@@ -284,6 +303,10 @@ restore-table = Restaurar
 delete-saved-table = Excluir
 saved-table-deleted = Mesa salva excluída.
 missing-players = Não é possível restaurar: estes jogadores não estão disponíveis: { $players }
+saved-table-blocked-by-you = Esta mesa salva inclui jogadores que você bloqueou: { $players }. Para restaurá-la, abra Pessoal e Opções, Amigos e depois Usuários Bloqueados e desbloqueie-os. A restauração só pode prosseguir se o contato social direto estiver disponível para todos. A mesa salva foi mantida.
+saved-table-social-blocked = Esta mesa salva não pode ser restaurada porque o contato social direto não está disponível entre você e: { $players }. A mesa salva foi mantida.
+saved-table-social-blocked-mixed = Esta mesa salva inclui jogadores que você bloqueou: { $blocked }. Abra Pessoal e Opções, Amigos e depois Usuários Bloqueados e desbloqueie-os. O contato social direto também não está disponível com: { $unavailable }. A mesa salva foi mantida.
+saved-table-invalid = Esta mesa salva não pode mais ser restaurada porque seus dados de jogo ou de jogadores estão incompletos ou são incompatíveis. A mesa salva foi mantida.
 table-restored = Mesa restaurada! Todos os jogadores foram transferidos.
 table-saved-destroying = Mesa salva! Retornando ao menu principal.
 game-type-not-found = O tipo de jogo não existe mais.
@@ -299,6 +322,7 @@ action-table-full = A mesa está cheia.
 action-start-needs-more-players = Não é possível iniciar. Jogadores ativos: { $current }. Mínimo necessário: { $minimum }.
 action-start-has-too-many-players = Não é possível iniciar. Jogadores ativos: { $current }. Máximo permitido: { $maximum }.
 action-start-requires-exact-players = Não é possível iniciar. Jogadores ativos: { $current }. Necessário: exatamente { $required }.
+action-start-needs-human-player = Não é possível iniciar apenas com bots. Pelo menos um humano deve participar como jogador. Mude de espectador para jogador; se a mesa estiver cheia, remova um bot primeiro.
 action-no-bots = Não há bots para remover.
 action-bots-cannot = Os bots não podem fazer isso.
 action-no-scores = Nenhuma pontuação disponível ainda.
@@ -337,6 +361,19 @@ table-players-many = { $count } jogadores: { $players }.
 table-spectators = Espectadores: { $spectators }.
 table-host-suffix = (Host)
 table-voice-chat-suffix = (no chat de voz)
+table-members-summary-compact = Resumo da mesa: { $composition }.
+table-summary-human-players = { $count } { $count ->
+    [one] jogador humano
+   *[other] jogadores humanos
+}
+table-summary-bots = { $count } { $count ->
+    [one] bot
+   *[other] bots
+}
+table-summary-spectators = { $count } { $count ->
+    [one] espectador
+   *[other] espectadores
+}
 table-members-empty = Nenhum membro da mesa listado no momento. Use Voltar para retornar e atualizar a visualização da mesa.
 table-member-entry = { $player }: { $status }
 table-member-status-host = Host
@@ -540,6 +577,9 @@ auto-muted-applied-minutes = Você foi silenciado automaticamente por { $minutes
 chat-rate-limited = Devagar! Você está enviando mensagens muito rapidamente.
 chat-global-disabled-send = O chat global está desativado nas suas opções. Ative o chat global novamente antes de enviar mensagens globais.
 chat-table-disabled-send = O chat da mesa está desativado nas suas opções. Ative o chat da mesa novamente antes de enviar mensagens para a mesa.
+chat-invalid-channel = Esse canal de chat não está disponível.
+chat-invalid-message = Essa mensagem não pôde ser enviada porque o formato dela é inválido.
+chat-message-too-long = Essa mensagem é muito longa. As mensagens podem ter no máximo { $limit } caracteres.
 admin-spam-alert = Aviso: { $username } está fazendo spam excessivo no chat e foi silenciado automaticamente.
 
 broadcast-announcement = Anúncio de Transmissão
@@ -683,6 +723,7 @@ personal-and-options = Pessoal e Opções
 profile = Perfil
 friends = Amigos
 profile-registration-date = Data de Registro: { $date }
+profile-date-unknown = Desconhecida
 profile-username = Nome de usuário: { $username }
 profile-email = E-mail: { $email }
 admin-view-email = Visualização de Admin - E-mail: { $email }
@@ -727,6 +768,13 @@ friends-my-friends = Meus Amigos
 friends-pending-requests = Solicitações Pendentes ({ $count })
 friends-no-pending-requests = Solicitações Pendentes
 friends-send-request = Enviar Solicitação de Amizade
+friends-block-user = Bloquear um usuário
+enter-block-username = Digite o nome de usuário da pessoa que você quer bloquear:
+friends-blocked-users = { $count ->
+    [0] Usuários Bloqueados
+   *[other] Usuários Bloqueados ({ $count })
+}
+friends-blocked-empty = Você não bloqueou ninguém.
 friends-list-empty = Você ainda não tem amigos.
 friend-status-offline = Offline
 friend-status-playing = Jogando { $game }
@@ -736,6 +784,8 @@ friend-list-entry = { $username } ({ $status })
 
 friend-actions-title = Ações para { $username }
 view-profile = Ver Perfil
+block-user = Bloquear usuário
+unblock-user = Desbloquear usuário
 join-table = Entrar na Mesa
 remove-friend = Remover Amigo
 friend-remove-confirm = Remover { $username } da sua lista de amigos?
@@ -748,7 +798,7 @@ no-pending-requests = Nenhuma solicitação pendente.
 friend-request-from = Solicitação de amizade de { $username }
 accept = Aceitar
 decline = Recusar
-friend-accepted-success = Agora vocês são amigos de { $username }.
+friend-accepted-success = Agora você é amigo de { $username }.
 friend-accepted-notify = { $username } aceitou sua solicitação de amizade!
 request-not-found = A solicitação de amizade não existe mais.
 friend-declined-success = Solicitação de amizade recusada.
@@ -759,8 +809,16 @@ enter-friend-username = Insira o nome de usuário da pessoa que deseja adicionar
 friend-error-self = Você não pode enviar uma solicitação de amizade para si mesmo.
 friend-error-already-friends = Você já é amigo deste usuário.
 friend-error-duplicate = Você já tem uma solicitação de amizade pendente para este usuário.
+friend-error-blocked-by-you = Você bloqueou { $username }. Desbloqueie-o antes de enviar uma solicitação de amizade.
+friend-error-blocked = As solicitações de amizade não estão disponíveis entre você e { $username }.
 friend-request-sent = Solicitação de amizade enviada para { $username }.
 friend-request-received = Você recebeu uma nova solicitação de amizade de { $username }.
+block-confirm = Bloquear { $username }? Isso remove qualquer amizade e solicitação de amizade pendente entre vocês. Nenhum de vocês poderá enviar ao outro solicitações de amizade, mensagens privadas ou convites para mesas, e as mensagens de chat normais ficarão ocultas nas duas direções. Até o desbloqueio, nenhum de vocês poderá entrar novamente em uma mesa organizada pelo outro nem restaurar uma mesa salva que inclua os dois. Bloquear não remove jogadores de uma mesa compartilhada, não impede a recuperação de um assento reservado nem silencia o chat de voz da mesa.
+block-success = Você bloqueou { $username }. O contato social direto não está mais disponível entre vocês, suas mensagens de chat normais ficam ocultas, e nenhum de vocês pode entrar novamente em uma mesa organizada pelo outro nem restaurar uma mesa salva que inclua os dois.
+block-error-self = Você não pode se bloquear.
+block-already-active = Você já bloqueou { $username }.
+block-no-longer-active = Este bloqueio não está mais ativo.
+unblock-success = Você desbloqueou { $username }. Amizades e solicitações anteriores não foram restauradas.
 
 friends-grouped-requests = Você tem solicitações de amizade pendentes de: { $usernames }
 friends-grouped-accepted = Suas solicitações de amizade foram aceitas por: { $usernames }
@@ -774,6 +832,7 @@ friends-and-others = { $names } e mais { $count } { $count ->
 send-private-message = Enviar Mensagem Privada
 enter-pm-message = Insira sua mensagem para { $username }:
 pm-error-not-friends = Você só pode enviar mensagens privadas para amigos.
+pm-error-blocked = As mensagens privadas não estão disponíveis entre você e este jogador.
 pm-error-offline = { $username } não está online no momento.
 pm-sent-success = Mensagem enviada para { $username }.
 pm-sent-content = Você para { $username }: { $message }
@@ -817,6 +876,7 @@ host-kick-you = Você foi expulso da mesa por { $host }.
 host-kick-ban-you = Você foi expulso e banido da mesa por { $host }.
 table-you-are-banned = Você está banido desta mesa.
 table-private-invite-only = Esta mesa é privada. Você deve receber um convite do host para entrar.
+table-join-social-blocked = Você não pode entrar nesta mesa porque o contato social direto não está disponível entre você e o host dela. Ainda assim, você pode recuperar um assento já reservado para você.
 
 voice-room-table-label = Voz da mesa de { $game }
 voice-unavailable = O chat de voz não está disponível no momento.

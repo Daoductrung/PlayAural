@@ -1,12 +1,12 @@
-**Ninety Nine**
+**Noventa e Nove**
 
 
 
-Ninety Nine é um jogo de cartas clássico de sobrevivência e estratégia. Os jogadores se revezam jogando cartas que adicionam (ou às vezes subtraem de) um total acumulado compartilhado, e o objetivo é simples: não ser aquele que o empurra para cima de 99.
+Noventa e Nove é um jogo de cartas clássico de sobrevivência e estratégia. Os jogadores se revezam jogando cartas que adicionam (ou às vezes subtraem de) um total acumulado compartilhado, e o objetivo é simples: não ser aquele que o empurra para cima de 99.
 
 
 
-O jogo tem sido um elemento básico na comunidade de jogos acessíveis por anos. O PlayAural suporta duas variantes distintas: o baralho padrão de 52 cartas e uma variante de cartas de ação com um baralho especial de 60 cartas. Em sua essência, o Ninety Nine é um jogo de eliminação: cada jogador começa com um conjunto de tokens, perde-os por cometer erros e é eliminado quando fica sem eles. O último jogador restante vence.
+O jogo tem sido um elemento básico na comunidade de jogos acessíveis por anos. O PlayAural suporta duas variantes distintas: o baralho padrão de 52 cartas e uma variante de cartas de ação com um baralho especial de 60 cartas. Em sua essência, o Noventa e Nove é um jogo de eliminação: cada jogador começa com um conjunto de tokens, perde-os por cometer erros e é eliminado quando fica sem eles. O último jogador restante vence.
 
 
 
@@ -14,7 +14,7 @@ O jogo tem sido um elemento básico na comunidade de jogos acessíveis por anos.
 
 
 
-Ninety Nine é jogado em rodadas em uma **mesa**. No início de cada rodada, a contagem acumulada é redefinida para 0, e cada jogador sobrevivente recebe uma nova mão de cartas (3 por padrão).
+Noventa e Nove é jogado em rodadas em uma **mesa**. No início de cada rodada, a contagem acumulada é redefinida para 0, e cada jogador sobrevivente recebe uma nova mão de cartas (3 por padrão).
 
 
 
@@ -66,7 +66,7 @@ Usa um baralho de 60 cartas (1-9 e cartas especiais):
 
 * **Passar / Inverter / Pular:** Adiciona 0 com seus respectivos efeitos.
 
-* **Ninety Nine:** Define a contagem exatamente para 99.
+* **Noventa e Nove:** Define a contagem exatamente para 99.
 
 
 

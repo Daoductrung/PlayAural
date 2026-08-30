@@ -1,6 +1,6 @@
-# **Age of Heroes**
+# **Era dos Heróis**
 
-Age of Heroes é um jogo de cartas de construção de civilização para 2 a 6 jogadores. Cada jogador lidera uma tribo antiga - egípcios, romanos, gregos, babilônios, celtas ou chineses - e compete por meio de recursos, construção, comércio, desastres e guerras baseadas em dados.
+Era dos Heróis é um jogo de cartas de construção de civilização para 2 a 6 jogadores. Cada jogador lidera uma tribo antiga - egípcios, romanos, gregos, babilônios, celtas ou chineses - e compete por meio de recursos, construção, comércio, desastres e guerras baseadas em dados.
 
 # **Jogabilidade**
 
@@ -80,7 +80,7 @@ Cada rodada de batalha usa um dado por lado. Pelo menos um general concede +2. O
 
 # **Notas de Acessibilidade**
 
-Age of Heroes respeita as preferências globais de jogo onde elas ajudam o fluxo:
+Era dos Heróis respeita as preferências globais de jogo onde elas ajudam o fluxo:
 
 * **Anúncios breves:** Encurta mensagens repetidas de compra, imposto, passagem e batalha, mantendo os números importantes.
 

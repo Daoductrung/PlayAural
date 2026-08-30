@@ -1,6 +1,6 @@
-**Light Turret**
+**Torreta de Luz**
 
-Light Turret é um jogo de corrida de pontuação do tipo "arrrisque tudo" para 2 a 4 jogadores. Cada jogador controla uma torre que armazena luz, moedas e capacidade de energia. O objetivo é terminar com a maior quantidade de luz sem deixar a torre sobrecarregar muito cedo.
+Torreta de Luz é um jogo de corrida de pontuação do tipo "arrrisque tudo" para 2 a 4 jogadores. Cada jogador controla uma torre que armazena luz, moedas e capacidade de energia. O objetivo é terminar com a maior quantidade de luz sem deixar a torre sobrecarregar muito cedo.
 
 O jogo gira em torno de uma decisão simples de risco: disparar fornece luz e moedas imediatamente, enquanto atualizar gasta moedas para aumentar sua capacidade segura. Uma torre só sobrecarrega quando sua luz é maior do que sua energia. Uma quantidade de luz exatamente igual à energia ainda é segura.
 

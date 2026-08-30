@@ -1,4 +1,4 @@
-game-name-explodingkittens = Exploding Kittens
+game-name-explodingkittens = Gatinhos Explosivos
 
 explodingkittens-set-fast-game = Jogo mais rápido: { $enabled }
 explodingkittens-option-changed-fast-game = Jogo mais rápido definido para { $enabled }.

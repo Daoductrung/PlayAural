@@ -1,6 +1,6 @@
-**Rolling Balls**
+**Bolas Rolantes**
 
-Rolling Balls é um jogo de tubos e pontuação para 2 a 4 jogadores, baseado e originado do projeto de código aberto PlayPalace. Não é um jogo original criado pelo PlayAural. Os jogadores pegam bolas da frente de um tubo compartilhado. Cada bola tem um valor oculto de -5 a +5, então cada escolha pode aumentar ou diminuir sua pontuação.
+Bolas Rolantes é um jogo de tubos e pontuação para 2 a 4 jogadores, baseado e originado do projeto de código aberto PlayPalace. Não é um jogo original criado pelo PlayAural. Os jogadores pegam bolas da frente de um tubo compartilhado. Cada bola tem um valor oculto de -5 a +5, então cada escolha pode aumentar ou diminuir sua pontuação.
 
 Quando o tubo estiver vazio, o jogador com a pontuação mais alta vence. Se vários jogadores compartilharem a pontuação mais alta, eles dividem a vitória.
 

@@ -1,8 +1,8 @@
-**Mile by Mile**
+**1000 Milhas**
 
 
 
-Mile by Mile é um jogo de cartas de corrida baseado no clássico jogo francês Mille Bornes, criado em 1954 por Edmond Dujardin. O nome se traduz como "mil marcos", referindo-se aos marcos quilométricos ao longo das estradas francesas.
+1000 Milhas é um jogo de cartas de corrida baseado no clássico jogo francês Mille Bornes, criado em 1954 por Edmond Dujardin. O nome se traduz como "mil marcos", referindo-se aos marcos quilométricos ao longo das estradas francesas.
 
 
 

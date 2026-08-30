@@ -28,4 +28,4 @@ language-tr = Turco
 language-uk = Ucraniano
 language-vi = Vietnamita
 language-zh = Chinês
-language-zu = Zulu
+language-zu = Zulú

@@ -1,6 +1,6 @@
-**Dead Man's Deck**
+**O Baralho do Morto**
 
-Dead Man's Deck é um jogo de cartas tenso de blefe sobre mentir, ler a mesa e sobreviver ao revólver. Você não está tentando pontuar. Você está tentando se manter vivo até que todos os outros jogadores sejam eliminados.
+O Baralho do Morto é um jogo de cartas tenso de blefe sobre mentir, ler a mesa e sobreviver ao revólver. Você não está tentando pontuar. Você está tentando se manter vivo até que todos os outros jogadores sejam eliminados.
 
 Se você é novo em jogos de blefe, pense em cada turno como uma declaração oculta. Um jogador coloca cartas viradas para baixo e diz quais são essas cartas. As cartas podem corresponder à declaração, ou o jogador pode estar mentindo. Outros jogadores devem decidir se acreditam na afirmação ou chamam o blefe.
 
@@ -17,7 +17,7 @@ Perder um desafio não custa apenas pontos. O perdedor deve enfrentar seu própr
 
 **Cartas**
 
-Dead Man's Deck usa um pequeno baralho de 20 cartas:
+O Baralho do Morto usa um pequeno baralho de 20 cartas:
 
 * 6 Áses.
 * 6 Reis.
@@ -109,7 +109,7 @@ O jogo termina quando apenas um jogador ainda está vivo. Esse jogador vence a p
 
 **Opções Personalizáveis**
 
-Dead Man's Deck atualmente usa regras fixas. O anfitrião não tem opções específicas de jogo.
+O Baralho do Morto atualmente usa regras fixas. O anfitrião não tem opções específicas de jogo.
 
 **Atalhos de Teclado**
 

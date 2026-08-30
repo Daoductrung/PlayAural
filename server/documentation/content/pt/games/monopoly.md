@@ -1,8 +1,8 @@
-**Monopoly**
+**Monopólio**
 
 **Visão Geral**
 
-Monopoly é um jogo de tabuleiro de negociação de propriedades para 2 a 8 jogadores. Você se move por um tabuleiro de 40 casas, compra propriedades, coleta aluguéis, completa grupos de cores e desenvolve esses grupos para que eles rendam mais. Os jogadores que não conseguem pagar o que devem falem. O último jogador que continuar no jogo vence.
+Monopólio é um jogo de tabuleiro de negociação de propriedades para 2 a 8 jogadores. Você se move por um tabuleiro de 40 casas, compra propriedades, coleta aluguéis, completa grupos de cores e desenvolve esses grupos para que eles rendam mais. Os jogadores que não conseguem pagar o que devem falem. O último jogador que continuar no jogo vence.
 
 O PlayAural lida com o Banco, dados, movimento, cartas, aluguel, leilões e cálculos. Dinheiro, posições, propriedade, hipotecas, desenvolvimento e cartas de "Saia da Prisão de Graça" são informações públicas.
 

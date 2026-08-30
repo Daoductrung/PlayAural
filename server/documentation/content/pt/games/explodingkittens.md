@@ -1,6 +1,6 @@
-**Exploding Kittens**
+**Gatinhos Explosivos**
 
-Exploding Kittens é um jogo de cartas para 2 a 5 jogadores. Os jogadores se revezam usando cartas e comprando de uma pilha compartilhada. Escondidos entre essas cartas estão os Gatinhos Explosivos (Exploding Kittens). Compre um sem usar um Desarme (Defuse) e você estará fora do jogo.
+Gatinhos Explosivos é um jogo de cartas para 2 a 5 jogadores. Os jogadores se revezam usando cartas e comprando de uma pilha compartilhada. Escondidos entre essas cartas estão os Gatinhos Explosivos. Compre um sem usar um Desarme (Defuse) e você estará fora do jogo.
 
 Não há pontos. O último jogador que não explodiu vence.
 

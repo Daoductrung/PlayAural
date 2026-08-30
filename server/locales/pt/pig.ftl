@@ -1,4 +1,4 @@
-game-name-pig = Pig
+game-name-pig = Porquinho
 pig-desc-team-mode = Jogue individualmente ou em uma organização de equipes suportada. Uma equipe compartilha uma pontuação e vence imediatamente quando um membro possui pontos suficientes.
 
 pig-roll = Rolar o dado

@@ -1,4 +1,4 @@
-**Chess**
+**Xadrez**
 
 Xadrez é um duelo de cálculo, tempo e planejamento de longo prazo em um campo de batalha de 8 por 8. Dois jogadores comandam exércitos opostos, cada um tentando romper a posição, defender seu rei e aplicar o xeque-mate antes que o outro lado possa fazer o mesmo.
 

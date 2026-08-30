@@ -1,6 +1,6 @@
-**Five Card Draw (Pôquer com Descarte)**
+**Pôquer de Cinco Cartas**
 
-Five Card Draw é um jogo clássico de pôquer para 2 a 6 jogadores. Cada jogador recebe cinco cartas particulares e tem uma chance de trocar cartas antes da rodada de apostas final.
+Pôquer de Cinco Cartas é um jogo clássico de pôquer para 2 a 6 jogadores. Cada jogador recebe cinco cartas particulares e tem uma chance de trocar cartas antes da rodada de apostas final.
 
 O jogo lê suas cartas particulares apenas para você. Outros jogadores ouvem suas ações de apostas e quantas cartas você troca, mas não ouvem quais cartas você segura ou recebe.
 

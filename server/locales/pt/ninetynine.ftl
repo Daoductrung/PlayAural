@@ -1,4 +1,4 @@
-game-name-ninetynine = Ninety Nine
+game-name-ninetynine = Noventa e Nove
 ninetynine-description = Um jogo de cartas onde os jogadores tentam evitar empurrar o total acumulado acima de 99. O último jogador de pé vence!
 
 ninetynine-round = Rodada { $round }.
@@ -18,7 +18,7 @@ n99-card-minus-10 = -10
 n99-card-pass = Passar
 n99-card-reverse = Inverter
 n99-card-skip = Pular
-n99-card-ninety-nine = Ninety Nine
+n99-card-ninety-nine = Noventa e Nove
 
 ninetynine-you-lose-tokens = Você perde { $amount } { $amount ->
     [one] ficha

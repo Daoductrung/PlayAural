@@ -1,4 +1,4 @@
-# **Backgammon**
+# **Gamão**
 
 Backgammon é um dos jogos de tabuleiro de corrida mais antigos do mundo, com origens que se acredita remontarem a mais de quatro mil anos. Dois jogadores guiam quinze peças cada um ao redor de uma pista compartilhada de vinte e quatro pontos, tentando trazer todas as suas peças para casa e retirá-las do tabuleiro antes que o oponente possa fazer o mesmo.
 

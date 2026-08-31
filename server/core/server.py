@@ -4517,6 +4517,26 @@ PlayAural Server
         }
         user.set_table_context(table_id)
 
+    def _can_present_game_over(self, user: NetworkUser, table_id: str) -> bool:
+        """Return whether this user's active UI currently belongs to the table.
+
+        A finished game retains one pending result screen per participant, but
+        it must not replace a server-owned global menu or editbox. Those
+        surfaces have their own navigation stack and submission state; changing
+        ``_user_states`` behind the still-visible client input makes its next
+        event stale and can strand the user. The pending result is painted when
+        normal Back navigation returns the user to this exact table.
+        """
+        table = self._tables.find_user_table(user.username)
+        if not table or table.table_id != table_id:
+            return False
+        state = self._user_states.get(user.username, {})
+        return (
+            state.get("menu") in {"in_game", "game_over"}
+            and state.get("table_id") == table_id
+            and not state.get("_transient")
+        )
+
     def _clear_game_over_state(self, user: NetworkUser, table_id: str) -> None:
         state = self._user_states.get(user.username, {})
         if state.get("menu") != "game_over":

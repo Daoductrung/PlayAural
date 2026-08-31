@@ -1,4 +1,5 @@
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -12,8 +13,15 @@ def _make_playing_game_server() -> tuple[Server, MockUser, MockUser, object, obj
     server = Server(db_path=":memory:")
     server._db.connect()
 
-    host = MockUser("Alice", uuid="p1")
-    guest = MockUser("Bob", uuid="p2")
+    server._db.create_user("Alice", "hash")
+    server._db.create_user("Bob", "hash")
+    host_record = server._db.get_user("Alice")
+    guest_record = server._db.get_user("Bob")
+    assert host_record is not None
+    assert guest_record is not None
+
+    host = MockUser(host_record.username, uuid=host_record.uuid)
+    guest = MockUser(guest_record.username, uuid=guest_record.uuid)
     server._users = {host.username: host, guest.username: guest}
 
     table = server._tables.create_table("pig", host.username, host)
@@ -99,8 +107,9 @@ async def test_options_submenu_blocks_game_menu_rebuild_while_playing() -> None:
 
 
 @pytest.mark.asyncio
-async def test_game_over_interrupts_global_menu_and_remains_responsive() -> None:
+async def test_game_over_waits_behind_global_menu_until_return_to_table() -> None:
     server, host, _guest, table, game, _host_player = _make_playing_game_server()
+    server._sync_pref_to_client = lambda *args, **kwargs: None
     try:
         await server._handle_open_options(SimpleNamespace(username=host.username))
         await server._handle_menu(
@@ -116,11 +125,12 @@ async def test_game_over_interrupts_global_menu_and_remains_responsive() -> None
         host.clear_messages()
         game.finish_game()
         assert table.game is not game
-        assert server._user_states[host.username] == {
-            "menu": "game_over",
-            "table_id": table.table_id,
-        }
-        assert "game_over" in host.menus
+        assert server._user_states[host.username]["menu"] == "options_audio_submenu"
+        assert not any(
+            message.type == "show_menu"
+            and message.data.get("menu_id") == "game_over"
+            for message in host.messages
+        )
 
         original_typing_sounds = host.preferences.play_typing_sounds
         await server._handle_menu(
@@ -131,10 +141,38 @@ async def test_game_over_interrupts_global_menu_and_remains_responsive() -> None
                 "selection_id": "play_typing_sounds",
             },
         )
-        assert host.preferences.play_typing_sounds is original_typing_sounds
-        assert server._user_states[host.username]["menu"] == "game_over"
+        assert host.preferences.play_typing_sounds is not original_typing_sounds
+        assert server._user_states[host.username]["menu"] == "options_audio_submenu"
+
+        await server._handle_menu(
+            SimpleNamespace(username=host.username),
+            {
+                "type": "menu",
+                "menu_id": "options_audio_submenu",
+                "selection_id": "back",
+            },
+        )
+        assert server._user_states[host.username]["menu"] == "options_menu"
 
         host.clear_messages()
+        await server._handle_menu(
+            SimpleNamespace(username=host.username),
+            {
+                "type": "menu",
+                "menu_id": "options_menu",
+                "selection_id": "back",
+            },
+        )
+        assert server._user_states[host.username] == {
+            "menu": "game_over",
+            "table_id": table.table_id,
+        }
+        assert any(
+            message.type == "show_menu"
+            and message.data.get("menu_id") == "game_over"
+            for message in host.messages
+        )
+
         await server._handle_menu(
             SimpleNamespace(username=host.username),
             {
@@ -154,13 +192,23 @@ async def test_game_over_interrupts_global_menu_and_remains_responsive() -> None
 
 
 @pytest.mark.asyncio
-async def test_game_over_leave_from_interrupted_global_menu_routes_to_table() -> None:
+async def test_deferred_game_over_leave_routes_to_table() -> None:
     server, host, _guest, table, game, _host_player = _make_playing_game_server()
     try:
         await server._handle_open_options(SimpleNamespace(username=host.username))
         assert server._user_states[host.username]["menu"] == "options_menu"
 
         game.finish_game()
+        assert server._user_states[host.username]["menu"] == "options_menu"
+
+        await server._handle_menu(
+            SimpleNamespace(username=host.username),
+            {
+                "type": "menu",
+                "menu_id": "options_menu",
+                "selection_id": "back",
+            },
+        )
         assert server._user_states[host.username]["menu"] == "game_over"
 
         await server._handle_menu(
@@ -187,6 +235,131 @@ async def test_game_over_leave_from_interrupted_global_menu_routes_to_table() ->
         )
         assert table.get_user(host.username) is None
         assert server._user_states[host.username]["menu"] == "main_menu"
+    finally:
+        server._db.close()
+
+
+@pytest.mark.asyncio
+async def test_private_message_input_survives_game_over_and_sends_before_result() -> None:
+    server, host, guest, table, game, _host_player = _make_playing_game_server()
+    try:
+        assert server._db.send_friend_request(host.uuid, guest.uuid) == "sent"
+        assert server._db.send_friend_request(guest.uuid, host.uuid) == "accepted"
+
+        client = SimpleNamespace(username=host.username)
+        await server._handle_open_friends_hub(client)
+        await server._handle_menu(
+            client,
+            {
+                "type": "menu",
+                "menu_id": "friends_hub_menu",
+                "selection_id": "my_friends",
+            },
+        )
+        await server._handle_menu(
+            client,
+            {
+                "type": "menu",
+                "menu_id": "friends_list_menu",
+                "selection_id": f"friend_{guest.username}",
+            },
+        )
+        await server._handle_menu(
+            client,
+            {
+                "type": "menu",
+                "menu_id": "friend_actions_menu",
+                "selection_id": "send_pm",
+            },
+        )
+
+        input_state = server._user_states[host.username]
+        assert input_state["menu"] == "send_pm_input"
+        assert input_state["target_username"] == guest.username
+        assert input_state["_transient"] is True
+        assert "send_pm_input" in host.editboxes
+
+        host.clear_messages()
+        game.finish_game()
+
+        assert table.game is not game
+        assert server._user_states[host.username] == input_state
+        assert not any(
+            message.type in {"remove_editbox", "show_menu"}
+            and (
+                message.type == "remove_editbox"
+                or message.data.get("menu_id") == "game_over"
+            )
+            for message in host.messages
+        )
+
+        server._deliver_private_message = AsyncMock()
+        await server._handle_editbox(
+            client,
+            {
+                "type": "editbox",
+                "input_id": "send_pm_input",
+                "text": "Still here",
+            },
+        )
+        server._deliver_private_message.assert_awaited_once_with(
+            host,
+            guest.username,
+            "Still here",
+        )
+        assert server._user_states[host.username]["menu"] == "friend_actions_menu"
+
+        for menu_id in (
+            "friend_actions_menu",
+            "friends_list_menu",
+            "friends_hub_menu",
+        ):
+            await server._handle_menu(
+                client,
+                {
+                    "type": "menu",
+                    "menu_id": menu_id,
+                    "selection_id": "back",
+                },
+            )
+
+        assert server._user_states[host.username] == {
+            "menu": "game_over",
+            "table_id": table.table_id,
+        }
+        assert "game_over" in host.menus
+    finally:
+        server._db.close()
+
+
+@pytest.mark.asyncio
+async def test_new_game_clears_deferred_result_without_interrupting_global_menu() -> None:
+    server, host, _guest, table, game, _host_player = _make_playing_game_server()
+    try:
+        await server._handle_open_options(SimpleNamespace(username=host.username))
+        assert server._user_states[host.username]["menu"] == "options_menu"
+
+        game.finish_game()
+        new_game = table.game
+        assert new_game is not game
+        assert new_game._last_game_result is not None
+        assert new_game._end_screen_open_player_ids
+
+        host.clear_messages()
+        new_game._start_game_from_lobby()
+
+        assert new_game.status == "playing"
+        assert new_game._last_game_result is None
+        assert not new_game._end_screen_open_player_ids
+        assert server._user_states[host.username]["menu"] == "options_menu"
+        assert not any(
+            message.type == "remove_menu"
+            or (
+                message.type == "show_menu"
+                and message.data.get("menu_id") in {"game_over", "turn_menu"}
+            )
+            for message in host.messages
+        )
     finally:
         server._db.close()
 

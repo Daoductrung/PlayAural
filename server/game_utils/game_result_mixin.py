@@ -173,6 +173,16 @@ class GameResultMixin:
         if server is not None and table_id and hasattr(server, "_clear_game_over_state"):
             server._clear_game_over_state(user, table_id)
 
+    def _can_present_end_screen_to_user(self, user: "User") -> bool:
+        """Return whether the result may replace this user's current surface."""
+        table = getattr(self, "_table", None)
+        server = getattr(table, "_server", None)
+        table_id = getattr(table, "table_id", None)
+        if server is None or not table_id:
+            return True
+        checker = getattr(server, "_can_present_game_over", None)
+        return bool(checker and checker(user, table_id))
+
     def _show_end_screen_to_player(
         self,
         player: "Player",
@@ -183,15 +193,23 @@ class GameResultMixin:
         """Show the end screen to a specific player."""
         user = self.get_user(player)
         if user:
+            if mark_open:
+                self._ensure_end_screen_state()
+                self._end_screen_open_player_ids.add(player.id)
+
+            # Global server menus and editboxes own the client surface until
+            # their normal Back/submission flow returns to this table. Keep the
+            # result pending without changing server UI state or dismissing any
+            # active input. A later game-menu refresh restores it immediately.
+            if not self._can_present_end_screen_to_user(user):
+                return
+
             # A result can replace an action input without an intervening
             # player event (for example, when another player ends the game).
             # Dismiss that modal explicitly before painting the result so web
             # clients never retain an authoritative edit box over game_over.
             if player.id in self._pending_actions:
                 self._discard_pending_action_input(player, user)
-            if mark_open:
-                self._ensure_end_screen_state()
-                self._end_screen_open_player_ids.add(player.id)
             lines = self.format_end_screen(result, user.locale)
             items = [
                 MenuItem(text=line, id=f"score_line_{index}")
@@ -267,7 +285,10 @@ class GameResultMixin:
         self._discard_end_screen_player_id(player.id)
         user = self.get_user(player)
         if user:
-            user.remove_menu("game_over")
+            # A replacement lobby/confirmation menu follows in the same
+            # framework event. Remove the stored snapshot quietly so clients
+            # never receive an empty intermediary menu that can drop focus.
+            user.remove_menu("game_over", send_packet=False)
             self._clear_end_screen_server_state(user)
 
     def _dismiss_all_end_screens(self) -> None:
@@ -280,7 +301,10 @@ class GameResultMixin:
             player = self.get_player_by_id(player_id)
             user = self.get_user(player) if player else None
             if user:
-                user.remove_menu("game_over")
+                # A pending result may never have been painted because the
+                # player was using a global surface. Clearing it must therefore
+                # be silent; the new game's authoritative menu follows.
+                user.remove_menu("game_over", send_packet=False)
                 self._clear_end_screen_server_state(user)
 
     def _export_end_screen_state(self) -> dict[str, Any]:

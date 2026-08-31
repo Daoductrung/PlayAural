@@ -378,6 +378,7 @@ class TestPostGameMenuState:
         assert "game_over" in user2.menus
         assert not game._is_end_screen_open_for_player(p1)
         assert game._is_end_screen_open_for_player(p2)
+        assert not any(message.type == "remove_menu" for message in user1.messages)
 
     def test_table_refresh_keeps_each_open_end_screen_visible(self) -> None:
         game = make_game()
@@ -492,6 +493,8 @@ class TestPostGameMenuState:
         game._last_game_result = result
         game._show_end_screen_to_player(p1, result)
         game._show_end_screen_to_player(p2, result)
+        user1.clear_messages()
+        user2.clear_messages()
 
         game._start_game_from_lobby()
 
@@ -499,6 +502,8 @@ class TestPostGameMenuState:
         assert "game_over" not in user2.menus
         assert not game._end_screen_open_player_ids
         assert game._last_game_result is None
+        assert not any(message.type == "remove_menu" for message in user1.messages)
+        assert not any(message.type == "remove_menu" for message in user2.messages)
 
     def test_starting_game_focuses_first_active_turn_menu_item(self) -> None:
         game = make_game()

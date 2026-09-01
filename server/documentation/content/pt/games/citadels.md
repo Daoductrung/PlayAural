@@ -1,6 +1,6 @@
-**Citadelas**
+**Cidadelas**
 
-Citadels é um jogo de cartas de construção de cidades com papéis ocultos para 4 a 8 jogadores. Seu objetivo principal é completar sua cidade sendo o primeiro jogador a construir 7 distritos. Depois que essa rodada final termina, o jogador com a maior pontuação vence.
+Cidadelas é um jogo de cartas de construção de cidades com papéis ocultos para 4 a 8 jogadores. Seu objetivo principal é completar sua cidade sendo o primeiro jogador a construir 7 distritos. Depois que essa rodada final termina, o jogador com a maior pontuação vence.
 
 **Jogabilidade**
 
@@ -50,7 +50,7 @@ O próximo rank é então chamado, e o jogo continua até que a rodada termine.
 
 * **Arquiteto:** Imediatamente compra 2 cartas de distrito extras e pode construir até 3 distritos neste turno.
 
-* **Senhor da Guerra:** Ganha 1 de ouro para cada distrito militar em sua cidade. O Senhor da Guerra pode destruir 1 distrito pagando o custo daquele distrito menos 1 de ouro. O Senhor da Guerra não pode destruir distritos em uma cidade completa, não pode destruir uma cidade protegida pelo Bispo nesta rodada e não pode destruir a Torre de Vigia (Keep).
+* **Senhor da Guerra:** Ganha 1 de ouro para cada distrito militar em sua cidade. O Senhor da Guerra pode destruir 1 distrito pagando o custo daquele distrito menos 1 de ouro. O Senhor da Guerra não pode destruir distritos em uma cidade completa, não pode destruir uma cidade protegida pelo Bispo nesta rodada e não pode destruir a Torre de Vigia.
 
 * **Rainha:** Usada apenas em jogos de 8 jogadores. Se a Rainha estiver sentada ao lado do Rei, a Rainha ganha 3 de ouro.
 
@@ -64,7 +64,7 @@ O próximo rank é então chamado, e o jogo continua até que a rodada termine.
 
 * **Tesouro Imperial:** Vale 1 ponto para cada ouro que você ainda tiver no final do jogo.
 
-* **Torre de Vigia (Keep):** Não pode ser destruída pelo Senhor da Guerra.
+* **Torre de Vigia:** Não pode ser destruída pelo Senhor da Guerra.
 
 * **Laboratório:** Uma vez por turno, descarte 1 carta da sua mão para ganhar 2 de ouro.
 
@@ -104,7 +104,7 @@ Se os jogadores estiverem empatados na pontuação, o jogador empatado que revel
 
 **Opções Personalizáveis**
 
-Citadels não usa nenhuma opção de configuração de mesa específica do jogo. A tela de configurações está intencionalmente vazia para este jogo.
+Cidadelas não usa nenhuma opção de configuração de mesa específica do jogo. A tela de configurações está intencionalmente vazia para este jogo.
 
 **Atalhos de Teclado**
 

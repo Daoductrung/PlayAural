@@ -32,23 +32,23 @@ Se restarem menos bolas do que a retirada mínima, o jogador atual pega automati
 
 **Visualizar o Tubo** diz a você em segredo as próximas bolas no tubo antes de você retirar.
 
-A prévia mostra pelo menos 6 bolas. Se a retirada máxima for maior, ela pode mostrar até o dobro da retirada máxima, mas nunca mais do que 10 bolas.
+A visualização mostra pelo menos 6 bolas. Se a retirada máxima for maior, ela pode mostrar até o dobro da retirada máxima, mas nunca mais do que 10 bolas.
 
-O uso de uma prévia só é gasto quando a prévia é alterada. Se você abrir a mesma prévia novamente antes que o tubo mude, isso não custará outro uso.
+O uso de uma visualização só é gasto quando a visualização é alterada. Se você abrir a mesma visualização novamente antes que o tubo mude, isso não custará outro uso.
 
 Visualizar não termina seu turno.
 
-**Embaralhar a Frente**
+**Reembaralhar o Início do Tubo**
 
-**Embaralhar a Frente do Tubo** mistura as primeiras 15 bolas, ou todas as bolas restantes se restarem menos de 15.
+**Reembaralhar o Início do Tubo** mistura as primeiras 15 bolas, ou todas as bolas restantes se restarem menos de 15.
 
-Você pode embaralhar apenas no seu próprio turno. Você precisa de pelo menos 6 bolas no tubo e só pode embaralhar uma vez durante o mesmo turno. Embaralhar não termina seu turno, então você ainda precisa retirar bolas depois.
+Você pode reembaralhar apenas no seu próprio turno. Você precisa de pelo menos 6 bolas no tubo e só pode reembaralhar uma vez durante o mesmo turno. Reembaralhar não termina seu turno, então você ainda precisa retirar bolas depois.
 
-Se o host definir uma penalidade de embaralhar, essa quantidade de pontos será subtraída da sua pontuação quando você embaralhar.
+Se o host definir uma penalidade de reembaralhamento, essa quantidade de pontos será subtraída da sua pontuação quando você reembaralhar.
 
 **Informações Úteis**
 
-**Conferir Status do Tubo** informa a rodada, quantas bolas restam, o intervalo de retirada legal e de quem é a vez. Os jogadores ativos também ouvem quantas prévias e embaralhamentos ainda possuem.
+**Verificar estado do tubo** informa a rodada, quantas bolas restam, o intervalo de retirada legal e de quem é a vez. Os jogadores ativos também ouvem quantas visualizações e reembaralhamentos ainda possuem.
 
 **Conferir Pontuações** informa as pontuações atuais.
 
@@ -63,21 +63,21 @@ O host escolhe quais conjuntos de bolas temáticos podem aparecer no tubo.
 
 * **Mínimo de Bolas por Turno:** O menor número de bolas que um jogador pode retirar em um turno (padrão 1, intervalo de 1 a 5).
 * **Máximo de Bolas por Turno:** O maior número de bolas que um jogador pode retirar em um turno. O jogo não pode começar se o mínimo for maior que o máximo (padrão 3, intervalo de 1 a 5).
-* **Novas Prévias de Tubo por Jogador:** Quantas vezes cada jogador pode visualizar um tubo novo. Defina como 0 para desativar as prévias (padrão 5, intervalo de 0 a 100).
-* **Embaralhamentos por Jogador:** Quantas vezes cada jogador pode embaralhar o tubo atual. Defina como 0 para desativar o embaralhamento (padrão 3, intervalo de 0 a 100).
-* **Penalidade de Embaralhamento:** Pontos subtraídos quando um jogador embaralha. Isso aparece apenas quando o embaralhamento está ativado (padrão 1 ponto, intervalo de 0 a 5).
+* **Novas visualizações de tubo por jogador:** Quantas vezes cada jogador pode visualizar um tubo novo. Defina como 0 para desativar as visualizações (padrão 5, intervalo de 0 a 100).
+* **Reembaralhamentos por jogador:** Quantas vezes cada jogador pode reembaralhar o tubo atual. Defina como 0 para desativar o reembaralhamento (padrão 3, intervalo de 0 a 100).
+* **Penalidade de reembaralhamento:** Pontos subtraídos quando um jogador reembaralha. Isso aparece apenas quando o reembaralhamento está ativado (padrão 1 ponto, intervalo de 0 a 5).
 * **Conjuntos de Bolas:** Escolha um ou mais conjuntos para o tubo.
 
 **Opções Pessoais de Jogo**
 
-* **Anúncios Breves:** Encurta os resumos de bolas e turnos, mantendo as pontuações e bolas restantes claras.
+* **Anúncios breves:** Encurta os resumos de bolas e turnos, mantendo as pontuações e bolas restantes claras.
 
 **Atalhos de Teclado**
 
 * **1-5:** Retirar essa quantidade de bolas quando o número for legal.
 * **P:** Visualizar o tubo.
-* **D:** Embaralhar a frente do tubo.
-* **C:** Conferir o status do tubo.
+* **D:** Reembaralhar o início do tubo.
+* **C:** Verificar o estado do tubo.
 * **T:** Conferir de quem é a vez.
 * **S:** Conferir pontuações.
 * **Shift+S:** Abrir pontuações detalhadas.

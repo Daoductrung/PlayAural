@@ -1,4 +1,4 @@
-game-name-threes = Três
+game-name-threes = Threes
 
 threes-roll = Rolar dados
 threes-bank = Guardar e encerrar o turno
@@ -38,9 +38,9 @@ threes-you-scored = Você marca { $score } pontos neste turno. Seu total agora �
 threes-you-scored-brief = Marcou { $score }. Total { $total }.
 threes-scored = { $player } marca { $score } pontos neste turno. O total agora é { $total }.
 threes-scored-brief = { $player }: { $score }, total { $total }.
-threes-you-shot-moon = Você fez a lua com cinco seixos e marca { $score } pontos. Seu total agora é { $total }.
+threes-you-shot-moon = Você fez a lua com cinco 6s e marca { $score } pontos. Seu total agora é { $total }.
 threes-you-shot-moon-brief = Fez a lua: { $score }. Total { $total }.
-threes-shot-moon = { $player } fez a lua com cinco seixos e marca { $score } pontos. O total agora é { $total }.
+threes-shot-moon = { $player } fez a lua com cinco 6s e marca { $score } pontos. O total agora é { $total }.
 threes-shot-moon-brief = { $player } fez a lua: { $score }, total { $total }.
 
 threes-round-start = Começa a rodada { $round } de { $total }.

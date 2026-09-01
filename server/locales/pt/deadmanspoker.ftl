@@ -2,7 +2,7 @@ game-name-deadmanspoker = O Pôquer do Morto
 
 deadmanspoker-call = Pagar
 deadmanspoker-match-all-in = Cobrir all-in
-deadmanspoker-fold = Correr
+deadmanspoker-fold = Desistir
 deadmanspoker-coward-fold = Desistência covarde
 deadmanspoker-switch-card = Trocar carta
 deadmanspoker-all-in = All-in
@@ -62,11 +62,11 @@ deadmanspoker-player-all-in = { $player } vai de all-in e coloca { $added ->
     [one] 1 bala
    *[other] { $added } balas
 } na mesa. Total comprometido: { $total }.
-deadmanspoker-you-fold = Você corre e deve encarar o revólver com { $bullets ->
+deadmanspoker-you-fold = Você desiste e deve encarar o revólver com { $bullets ->
     [one] 1 bala
    *[other] { $bullets } balas
 }.
-deadmanspoker-player-folds = { $player } corre e deve encarar o revólver com { $bullets ->
+deadmanspoker-player-folds = { $player } desiste e deve encarar o revólver com { $bullets ->
     [one] 1 bala
    *[other] { $bullets } balas
 }.
@@ -135,7 +135,7 @@ deadmanspoker-hidden-community = { $count ->
    *[other] { $count } cartas ocultas
 }
 deadmanspoker-status-active = ativo
-deadmanspoker-status-folded = correu
+deadmanspoker-status-folded = desistiu
 deadmanspoker-status-eliminated = eliminado
 deadmanspoker-status-waiting = aguardando
 

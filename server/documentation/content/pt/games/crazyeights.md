@@ -28,11 +28,11 @@ No seu turno, você deve jogar uma carta da sua mão que corresponda ao naipe ou
 
 * **Curinga 8:** Os oitos podem ser jogados em cima de qualquer coisa, a qualquer momento. Quando você joga um Curinga 8, você escolhe o naipe que o próximo jogador deve seguir.
 
-* **Dama (Skip):** Pula inteiramente o turno do próximo jogador.
+* **Dama (Pular):** Pula inteiramente o turno do próximo jogador.
 
-* **Valete (Reverse):** Inverte a direção do jogo. Em um jogo de dois jogadores, ele simplesmente pula o outro jogador.
+* **Valete (Inverter):** Inverte a direção do jogo. Em um jogo de dois jogadores, ele simplesmente pula o outro jogador.
 
-* **Rei (Draw Two):** Força o próximo jogador a comprar 2 cartas e perder seu turno.
+* **Rei (Comprar duas):** Força o próximo jogador a comprar 2 cartas e perder seu turno.
 
 
 

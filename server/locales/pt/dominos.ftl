@@ -17,7 +17,7 @@ dominos-select-domino-set = Selecionar conjunto de dominós
 dominos-option-changed-domino-set = Conjunto de dominós alterado para { $domino_set }.
 dominos-desc-domino-set = Tamanho do conjunto de dominós. Duplo-6 suporta até 5 jogadores, Duplo-9 suporta até 7 jogadores e Duplo-12 suporta até 12 jogadores (padrão Duplo-6).
 
-dominos-set-spinner = Carretel (Spinner): { $enabled }
+dominos-set-spinner = Carretel: { $enabled }
 dominos-option-changed-spinner = Carretel definido para { $enabled }.
 dominos-desc-spinner-enabled = Controla se um duplo inicial cria um carretel de quatro vias (padrão ligado).
 

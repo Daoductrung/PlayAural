@@ -45,7 +45,7 @@ draw-betting-round-2 = Segunda rodada de apostas.
 draw-begin-draw = Fase de troca. Começando pelo primeiro jogador ativo à esquerda do dealer, escolha as cartas para trocar ou mantenha a mão.
 draw-not-draw-phase = A troca de cartas está disponível apenas após a primeira rodada de apostas. Continue com a ação de apostas atual.
 draw-not-betting = As apostas estão indisponíveis durante a fase de troca. Selecione quaisquer cartas para trocar e, em seguida, escolha Trocar cartas.
-draw-fold-not-available = Correr está indisponível durante a fase de troca. Selecione quaisquer cartas para trocar e, em seguida, escolha Trocar cartas.
+draw-fold-not-available = Desistir não está disponível durante a fase de troca. Selecione as cartas que deseja trocar e, em seguida, escolha Trocar cartas.
 
 draw-toggle-discard = Selecionar carta { $index } para trocar
 draw-card-keep = { $card }
@@ -75,7 +75,7 @@ draw-you-discard-limit = Você não pode trocar mais do que { $count } cartas so
 draw-four-requires-kept-ace = Trocar 4 cartas exige que você mantenha pelo menos um ás. Desmarque um ás ou troque no máximo 3 cartas.
 
 draw-raise-invalid = Digite um número inteiro maior que 0 para o valor do aumento.
-draw-raise-cap-reached = O limite de { $count } aumentos já foi atingido nesta rodada de apostas. Você pode pagar ou correr.
+draw-raise-cap-reached = O limite de { $count } aumentos já foi atingido nesta rodada de apostas. Você pode pagar ou desistir.
 draw-raise-over-stack = Você tentou aumentar em { $requested } fichas, mas tem apenas { $chips } fichas restantes. Digite um aumento menor ou escolha All-in.
 draw-raise-too-small = Você tentou aumentar em { $requested } fichas. O aumento mínimo é { $minimum } fichas.
 draw-raise-over-limit = Você tentou aumentar em { $requested } fichas. Sob { $mode ->
@@ -88,15 +88,15 @@ draw-all-in-over-limit = Você não pode ir all-in com suas { $stack } fichas re
     [double_pot] o limite do pote duplo
    *[other] o modo de aumento selecionado
 } atualmente permite um aumento de no máximo { $maximum } fichas após pagar. Use Aumentar para digitar um valor permitido.
-draw-all-in-raise-cap-reached = Você não pode ir all-in como um aumento total porque o limite de { $count } aumentos já foi atingido. Você pode pagar ou correr.
-draw-all-in-unavailable-raise-cap = O all-in está indisponível porque seria um aumento total após o limite de aumentos ser atingido. Você pode pagar ou correr.
+draw-all-in-raise-cap-reached = Você não pode ir all-in como um aumento total porque o limite de { $count } aumentos já foi atingido. Você pode pagar ou desistir.
+draw-all-in-unavailable-raise-cap = O all-in está indisponível porque seria um aumento total após o limite de aumentos ser atingido. Você pode pagar ou desistir.
 draw-all-in-unavailable-limit = O all-in está indisponível porque sua pilha excede o limite de apostas atual. Use Aumentar para digitar um valor permitido.
 draw-raise-unavailable-cap = O aumento está indisponível porque esta rodada de apostas atingiu seu limite de aumentos.
-draw-raise-unavailable-limit = Um aumento total está indisponível com sua pilha e o limite de apostas atual. Você pode pagar, correr ou usar All-in quando for legal.
+draw-raise-unavailable-limit = Um aumento total está indisponível com sua pilha e o limite de apostas atual. Você pode pagar, desistir ou usar All-in quando for permitido.
 
 draw-current-bet = A aposta atual na mesa é { $amount } fichas.
 draw-raise-range = O aumento mínimo é { $minimum } fichas. Você pode aumentar em até { $maximum } fichas após pagar.
-draw-no-full-raise-available = Você precisa de { $to_call } fichas para pagar e tem { $chips } fichas restantes, portanto não pode fazer um aumento total. Você pode pagar all-in ou correr.
+draw-no-full-raise-available = Você precisa de { $to_call } fichas para pagar e tem { $chips } fichas restantes, portanto não pode fazer um aumento total. Você pode pagar all-in ou desistir.
 draw-dealer-unavailable = Ainda não há uma posição de dealer para a mão atual.
 draw-position-unavailable = Você não está ativo na mão atual, portanto não tem uma posição de aposta.
 

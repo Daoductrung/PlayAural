@@ -63,7 +63,7 @@ battle-difficulty-insane = Insano
 battle-difficulty-professional = Profissional
 battle-difficulty-ultimate = Extrema
 
-battle-classic-preset-novice-boxer = Boxer Iniciante
+battle-classic-preset-novice-boxer = Boxeador Iniciante
 battle-classic-preset-boxer = Boxeador
 battle-classic-preset-the-great-fighter = O Grande Lutador
 battle-classic-preset-fighter-plane = Avião de Caça

@@ -16,14 +16,14 @@ Os jogadores se revezam jogando combinações de cartas. A combinação jogada d
 
 Os tipos de combinações são:
 
-* **Carta Simples:** Uma única carta.
+* **Carta Individual:** Uma única carta.
 * **Par:** Duas cartas do mesmo valor.
 * **Trinca:** Três cartas do mesmo valor.
 * **Mão de Cinco Cartas:** Você pode jogar combinações de cinco cartas, exatamente como mãos de pôquer. Elas são classificadas da menor para a maior da seguinte forma:
-  * **Sequência (Straight):** Cinco cartas consecutivas de naipes mistos (ex: 3-4-5-6-7). A carta mais alta determina a força da sequência.
+  * **Sequência:** Cinco cartas consecutivas de naipes mistos (ex: 3-4-5-6-7). A carta mais alta determina a força da sequência.
   * **Flush:** Cinco cartas exatamente do mesmo naipe (ex: cinco Espadas). Um Flush vence qualquer Sequência. O naipe é o principal decisor de força entre os Flushes; dentro do mesmo naipe, a carta mais alta vence.
   * **Full House:** Uma trinca combinada com um par. Um Full House vence qualquer Flush ou Sequência. O valor da parte da trinca dita sua força.
-  * **Quadra (Four of a Kind):** Quatro cartas do mesmo valor, jogadas com qualquer carta de apoio (kicker) para formar cinco. Vence um Full House.
+  * **Quadra:** Quatro cartas do mesmo valor, jogadas com qualquer carta de apoio (kicker) para formar cinco. Vence um Full House.
   * **Straight Flush:** Cinco cartas consecutivas exatamente do mesmo naipe. A combinação de 5 cartas mais forte possível.
 
 Uma vaza termina quando todos os outros jogadores passam consecutivamente. O último jogador a jogar cartas inicia uma nova vaza com qualquer combinação válida que escolher.
@@ -36,11 +36,11 @@ Quando a opção de Vitórias Instantâneas está ativada (ativada por padrão),
 * **Quatro 2s:** Todos os quatro 2s em uma única mão.
 * **Seis Pares:** Exatamente seis pares mais uma carta ímpar (sete valores distintos, seis dos quais aparecem duas vezes).
 
-Vitórias Instantâneas e Passe de Cartas são opções de configuração mutuamente exclusivas. Se ambas estiverem ativadas, o jogo recusará iniciar e pedirá ao host para desativar uma delas.
+Vitórias Instantâneas e Troca de Cartas são opções de configuração mutuamente exclusivas. Se ambas estiverem ativadas, o jogo recusará iniciar e pedirá ao host para desativar uma delas.
 
-**Passe de Cartas**
+**Troca de Cartas**
 
-Após a primeira rodada, a opção de Passe de Cartas pode exigir que vencedores e perdedores troquem cartas antes do início de cada rodada subsequente.
+Após a primeira rodada, a opção de Troca de Cartas pode exigir que vencedores e perdedores troquem cartas antes do início de cada rodada subsequente.
 
 * **Simples:** O 1º colocado e o último colocado trocam 1 carta cada. O perdedor dá automaticamente sua carta mais alta; o vencedor escolhe qual carta devolver.
 * **Completo:** O 1º e o último trocam 2 cartas; o 2º e o penúltimo trocam 1 carta (exige exatamente 2 ou 4 jogadores).
@@ -78,10 +78,10 @@ A configuração opcional **Penalidade por 2 Retido** dobra a penalidade total p
 * **Rodadas para Vencer** *(Apenas Eliminação):* Quantas rodadas um jogador deve vencer antes de ser eliminado (padrão 2, intervalo de 1 a 10).
 * **Derrotas para Perder** *(Apenas Derrotas):* Quantas últimas colocações antes de um jogador perder (padrão 3, intervalo de 1 a 10).
 * **Pontuação Alvo** *(Apenas Pontos / Eliminação por Pontos):* O limite de pontuação para vitória ou eliminação (padrão 100, intervalo de 10 a 10000).
-* **Cronômetro de Turno:** Limite de tempo por turno (padrão Ilimitado, opções: 10, 15, 20, 30, 45, 60 ou 90 segundos, ou Ilimitado).
+* **Temporizador de Turno:** Limite de tempo por turno (padrão Ilimitado, opções: 10, 15, 20, 30, 45, 60 ou 90 segundos, ou Ilimitado).
 * **Permitir 2 em Sequências:** Se o 2 pode aparecer em sequências, como A-2-3-4-5 (padrão desativado).
-* **Vitórias Instantâneas:** Se Dragão, Quatro 2s e Seis Pares vencem a rodada na distribuição. Não pode ser combinado com Passe de Cartas (padrão ativado).
-* **Passe de Cartas:** O passe completo é válido apenas com exatamente 2 ou 4 jogadores. Não pode ser combinado com Vitórias Instantâneas (padrão Desativado, opções: Desativado, Simples ou Completo; veja Passe de Cartas acima).
+* **Vitórias Instantâneas:** Define se Dragão, Quatro 2s e Seis Pares vencem a rodada na distribuição. Não pode ser combinada com Troca de Cartas (padrão ativado).
+* **Troca de Cartas:** A troca completa é válida apenas com exatamente 2 ou 4 jogadores. Não pode ser combinada com Vitórias Instantâneas (padrão Desativado, opções: Desativado, Simples ou Completo; veja Troca de Cartas acima).
 * **Nível de Penalidade** *(Apenas Pontos / Eliminação por Pontos):* Como as penalidades de cartas restantes são escaladas (padrão Padrão, opções: Padrão, Agressivo ou Plano).
 * **Penalidade por 2 Retido** *(Apenas Pontos / Eliminação por Pontos):* Dobra a penalidade para cada 2 restante em uma mão perdedora (padrão desativado).
 
@@ -92,4 +92,4 @@ A configuração opcional **Penalidade por 2 Retido** dobra a penalidade total p
 * **C:** Conferir vaza atual.
 * **H:** Ler sua mão.
 * **E:** Ler contagem de cartas (número de cartas restantes na mão de cada jogador).
-* **Shift+T:** Conferir cronômetro de turno.
+* **Shift+T:** Verificar temporizador de turno.

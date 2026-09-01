@@ -14,7 +14,7 @@ Um jogo é disputado em um número fixo de rodadas. Em cada rodada, cada jogador
 
 3. Os dados mantidos ficam travados quando você rola novamente. Dados travados não podem ser alterados.
 
-4. Continue até que todos os dados estejam travados. Se todos os dados já estiverem decididos, você pode acumular o turno em vez de rolar novamente.
+4. Continue até que todos os dados estejam travados. Se todos os dados já estiverem decididos, você pode guardar seus pontos em vez de rolar novamente.
 
 **Qualificação**
 
@@ -60,7 +60,7 @@ Se você terminar sem os dois números necessários, você não se qualifica e p
 
 **Opções Pessoais**
 
-* **Estilo de manutenção de dados:** Com Índices de dados, pressione 1-6 para alternar os dados por posição. Com Valores de dados, cada dado recém-rolado começa mantido; pressione 1-6 para liberar um dado correspondente para a próxima rolagem, ou Shift+1-6 para manter um dado correspondente liberado novamente. Repita uma tecla para lidar com valores duplicados um dado de cada vez.
+* **Estilo de retenção de dados:** Com Índices de dados, pressione 1-6 para alternar os dados por posição. Com Valores de dados, cada dado recém-rolado começa mantido; pressione 1-6 para liberar um dado correspondente para a próxima rolagem, ou Shift+1-6 para manter um dado correspondente liberado novamente. Repita uma tecla para lidar com valores duplicados um dado de cada vez.
 
 **Atalhos de Teclado**
 
@@ -70,7 +70,7 @@ Se você terminar sem os dois números necessários, você não se qualifica e p
 
 * **Shift+1-6:** No modo de valores de dados, manter um dado liberado correspondente.
 
-* **B:** Acumular sua pontuação assim que cada dado estiver decidido.
+* **B:** Guardar seus pontos assim que cada dado estiver decidido.
 
 * **H:** Ler os dados atuais.
 

@@ -1,12 +1,12 @@
 # **Contato**
 
-Use esta página quando precisar entrar em contato diretamente com o responsável pelo PlayAural. Você pode usar estes métodos de contato para dúvidas sobre o projeto, feedback de acessibilidade, relatórios de bugs, problemas da comunidade, dúvidas sobre doações ou outros assuntos relacionados ao PlayAural.
+Use esta página para entrar em contato diretamente com o responsável pelo PlayAural. Você pode usar estes métodos de contato para dúvidas sobre o projeto, feedback de acessibilidade, relatórios de bugs, problemas da comunidade, dúvidas sobre doações ou outros assuntos relacionados ao PlayAural.
 
 # **Antes de Entrar em Contato**
 
 * Se sua dúvida for sobre como jogar um jogo específico, consulte primeiro a documentação de Regras do Jogo.
 * Se sua dúvida for sobre controles, leia primeiro os Controles Globais.
-* Se você estiver relatando um problema, inclua o que estava fazendo, o que aconteceu e qual cliente estava usando: computador, web ou móvel.
+* Se você estiver relatando um problema, inclua o que estava fazendo, o que aconteceu e qual cliente estava usando (desktop, web ou móvel).
 * Por favor, não envie senhas, chaves privadas, detalhes de cartões de pagamento ou outras informações sensíveis.
 
 # **Métodos de Contato**
@@ -21,7 +21,7 @@ Para obter a resposta mais rápida e clara, inclua os detalhes relevantes em sua
 
 * Seu nome de usuário no PlayAural, se a dúvida for sobre sua conta.
 * O jogo ou recurso envolvido.
-* O cliente que você estava usando: computador, web ou móvel.
+* O cliente que você estava usando (desktop, web ou móvel).
 * Uma breve descrição do problema ou solicitação.
 * Quaisquer etapas que possam reproduzir um bug.
 

@@ -66,7 +66,7 @@ coup-exchanges = { $player } compra 2 cartas para trocar.
 coup-you-exchange-complete = Você concluiu sua troca.
 coup-exchange-complete = { $player } concluiu sua troca.
 
-coup-drew-replacement-card = Você comprou um(a) { $character } como substituto(a).
+coup-drew-replacement-card = Você comprou a carta de personagem { $character } para substituir a anterior.
 coup-action-pass-confirmed = Você passou.
 coup-player-passes-reaction = { $player } passa nesta janela de reação.
 
@@ -104,7 +104,7 @@ coup-you-lose-influence = Você perde seu(sua) { $character }!
 coup-loses-influence = { $player } perde seu(sua) { $character }!
 coup-must-lose-influence = Você deve escolher uma influência para perder.
 coup-must-return-card = Selecione uma carta para retornar ao baralho.
-coup-returned-card = Você retornou um(a) { $character } ao baralho.
+coup-returned-card = Você devolveu a carta de personagem { $character } ao baralho.
 
 coup-you-are-eliminated = Você foi eliminado e não pode realizar esta ação.
 

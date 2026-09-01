@@ -94,8 +94,8 @@ backgammon-drop = Rejeitar
 # Point labels
 backgammon-point-empty = { $point }
 backgammon-point-occupied = { $point } { $color }, { $count }
-backgammon-point-occupied-selected = { $point } { $color }, { $count } selecionada
-backgammon-point-occupied-selected-bearoff = { $point } { $color }, { $count } selecionada; ative novamente para retirar
+backgammon-point-occupied-selected = { $point } { $color }, quantidade selecionada: { $count }
+backgammon-point-occupied-selected-bearoff = { $point } { $color }, quantidade selecionada: { $count }; ative novamente para retirar
 
 # Action labels
 backgammon-label-double = Dobrar
@@ -245,10 +245,10 @@ backgammon-difficulty-random = Aleatório
 backgammon-difficulty-simple = Simples
 
 # Options
-backgammon-option-match-length = Comprimento da disputa: { $match_length }
-backgammon-option-select-match-length = Definir comprimento da disputa (1-25)
-backgammon-option-changed-match-length = Comprimento da disputa definido para { $match_length }.
-backgammon-desc-match-length = Pontos necessários para vencer a disputa de Gamão. O valor 1 é uma partida única sem cubo de dobro (padrão 1, intervalo de 1 a 25).
+backgammon-option-match-length = Pontos para vencer a partida: { $match_length }
+backgammon-option-select-match-length = Definir pontos para vencer a partida (1-25)
+backgammon-option-changed-match-length = Pontos para vencer a partida definidos como { $match_length }.
+backgammon-desc-match-length = Pontos necessários para vencer a partida de Gamão. O valor 1 é um jogo único sem cubo de dobro (padrão 1, intervalo de 1 a 25).
 backgammon-option-bot-difficulty = Dificuldade do bot: { $bot_difficulty }
 backgammon-option-select-bot-difficulty = Selecionar dificuldade do bot
 backgammon-option-changed-bot-difficulty = Dificuldade do bot definida para { $bot_difficulty }.

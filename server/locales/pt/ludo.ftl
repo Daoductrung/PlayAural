@@ -252,8 +252,8 @@ ludo-captures =
     }
 ludo-extra-turn = { $player } tirou 6. Turno extra.
 ludo-you-extra-turn = Você tirou 6. Turno extra.
-ludo-you-too-many-sixes = Você tirou { $count } seixos seguidos. Seus lances desta sequência de turnos foram desfeitos e seu turno termina.
-ludo-too-many-sixes = { $player } tirou { $count } seixos seguidos. Lances desfeitos. O turno termina.
+ludo-you-too-many-sixes = Você tirou { $count } 6s seguidos. Seus lances desta sequência de turnos foram desfeitos e seu turno termina.
+ludo-too-many-sixes = { $player } tirou { $count } 6s seguidos. Lances desfeitos. O turno termina.
 ludo-you-winner = Você venceu! Todos os 4 peões estão em casa.
 ludo-winner = { $player } ({ $color ->
     [red] Vermelho
@@ -284,10 +284,10 @@ ludo-token-home = Peão { $token } (coluna final { $position }/{ $total })
 ludo-token-finished = Peão { $token } (concluído)
 ludo-last-roll = Último resultado: { $roll }
 
-ludo-set-max-sixes = Máximo de seixos consecutivos: { $max_consecutive_sixes }
-ludo-enter-max-sixes = Digitar máximo de seixos consecutivos
-ludo-option-changed-max-sixes = Máximo de seixos consecutivos definido para { $max_consecutive_sixes }.
-ludo-desc-max-consecutive-sixes = Quantos seixos consecutivos um jogador pode tirar antes que o turno seja penalizado ou passado (padrão 3, intervalo de 0 a 5).
+ludo-set-max-sixes = Máximo de 6s consecutivos: { $max_consecutive_sixes }
+ludo-enter-max-sixes = Digitar máximo de 6s consecutivos
+ludo-option-changed-max-sixes = Máximo de 6s consecutivos definido para { $max_consecutive_sixes }.
+ludo-desc-max-consecutive-sixes = Quantos 6s consecutivos um jogador pode tirar antes que o turno seja penalizado ou passado (padrão 3, intervalo de 0 a 5).
 ludo-set-safe-start-squares = Casas iniciais seguras: { $enabled }
 ludo-option-changed-safe-start-squares = Casas iniciais seguras definidas para { $enabled }.
 ludo-desc-safe-start-squares = Controla se a casa inicial de cada jogador é tratada como uma casa segura.

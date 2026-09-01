@@ -14,11 +14,11 @@ O jogo é jogado em rodadas. A cada rodada, cada jogador ativo recebe duas carta
 
 
 
-No seu turno, você pode pedir carta (hit — comprar outra carta virada para cima), parar (stand — travar seu total) ou jogar uma carta de mudança (change card) da sua mão. Pedir carta tem chance de conceder a você uma carta de mudança aleatória adicional. Se o baralho estiver vazio, ou se um efeito de bloqueio de compra for direcionado a você, você não pode pedir carta e deve parar ou usar outra ação legal.
+No seu turno, você pode pedir carta, parar ou jogar uma carta de mudança da sua mão. Pedir carta tem chance de conceder a você uma carta de mudança aleatória adicional. Se o baralho estiver vazio, ou se um efeito de bloqueio de compra for direcionado a você, você não pode pedir carta e deve parar ou usar outra ação legal.
 
 
 
-Uma rodada termina quando cada jogador ativo tiver parado. As cartas ocultas são reveladas, então os totais são comparados com o alvo atual. O jogador mais próximo que não estourou (busted) vence. Se todo mundo estourar, quem estiver mais perto do alvo vence. Se o melhor total estiver empatado, ninguém vence a rodada e cada jogador sofre dano.
+Uma rodada termina quando cada jogador ativo tiver parado. As cartas ocultas são reveladas, então os totais são comparados com o alvo atual. O jogador mais próximo que não estourou vence. Se todo mundo estourar, quem estiver mais perto do alvo vence. Se o melhor total estiver empatado, ninguém vence a rodada e cada jogador sofre dano.
 
 
 
@@ -90,7 +90,7 @@ Pressione **C** ou selecione **Guia de Cartas de Mudança** no menu de ações p
 
 
 
-* **Desfazer compra:** Retorna sua própria última carta virada para cima comprada para o topo do baralho.
+* **Descomprar:** Retorna sua própria última carta virada para cima comprada para o topo do baralho.
 
 
 
@@ -102,11 +102,11 @@ Pressione **C** ou selecione **Guia de Cartas de Mudança** no menu de ações p
 
 
 
-* **Mudança (Change-up):** Descarte 2 de suas cartas de mudança, depois receba 3 novas cartas de mudança aleatórias.
+* **Reconfigurar:** Descarte 2 de suas cartas de mudança, depois receba 3 novas cartas de mudança aleatórias.
 
 
 
-* **Mudança aprimorada:** Descarte 1 de suas cartas de mudança, depois receba 4 novas cartas de mudança aleatórias.
+* **Reconfigurar aprimorado:** Descarte 1 de suas cartas de mudança, depois receba 4 novas cartas de mudança aleatórias.
 
 
 
@@ -114,7 +114,7 @@ Pressione **C** ou selecione **Guia de Cartas de Mudança** no menu de ações p
 
 
 
-* **Compra com falha (Glitched draw):** Descarte 1 carta de mudança aleatória; force seu oponente a comprar a carta de número mais alto disponível. Requer pelo menos 1 outra carta de mudança para pagar o custo.
+* **Compra corrompida:** Descarte 1 carta de mudança aleatória; force seu oponente a comprar a carta de número mais alto disponível. Requer pelo menos 1 outra carta de mudança para pagar o custo.
 
 
 
@@ -142,7 +142,7 @@ Pressione **C** ou selecione **Guia de Cartas de Mudança** no menu de ações p
 
 
 
-* **Excluir (Delete):** Destrói o efeito de mesa mais recente do seu oponente (instantâneo).
+* **Excluir:** Destrói o efeito de mesa mais recente do seu oponente (instantâneo).
 
 
 
@@ -150,15 +150,15 @@ Pressione **C** ou selecione **Guia de Cartas de Mudança** no menu de ações p
 
 
 
-* **Excluir com duplo aprimoramento:** Limpa todos os efeitos de mesa do oponente e impede que seu oponente jogue quaisquer cartas de mudança pelo resto da rodada (efeito de mesa).
+* **Excluir duplamente aprimorado:** Limpa todos os efeitos de mesa do oponente e impede que seu oponente jogue quaisquer cartas de mudança pelo resto da rodada (efeito de mesa).
 
 
 
-* **Ofensiva defensiva:** Requer pelo menos 3 de seus próprios efeitos de defesa ativos. Remove até 3 efeitos de defesa da sua mesa; dano do oponente +3 enquanto ativo.
+* **Ofensa defensiva:** Requer pelo menos 3 de seus próprios efeitos de defesa ativos. Remove até 3 efeitos de defesa da sua mesa; dano do oponente +3 enquanto ativo.
 
 
 
-* **Ofensiva defensiva aprimorada:** Requer pelo menos 2 de seus próprios efeitos de defesa ativos. Remove até 2 efeitos de defesa; dano do oponente +5 enquanto ativo.
+* **Ofensa defensiva aprimorada:** Requer pelo menos 2 de seus próprios efeitos de defesa ativos. Remove até 2 efeitos de defesa; dano do oponente +5 enquanto ativo.
 
 
 
@@ -194,7 +194,7 @@ Pressione **C** ou selecione **Guia de Cartas de Mudança** no menu de ações p
 
 
 
-* **Negócio sombrio:** Descarte metade de suas cartas de mudança, depois compre sua melhor carta; aumenta o dano do oponente em 10 enquanto ativo (efeito de mesa). Requer pelo menos 2 outras cartas de mudança.
+* **Pacto sombrio:** Descarte metade de suas cartas de mudança, depois compre sua melhor carta; aumenta o dano do oponente em 10 enquanto ativo (efeito de mesa). Requer pelo menos 2 outras cartas de mudança.
 
 
 
@@ -202,15 +202,15 @@ Pressione **C** ou selecione **Guia de Cartas de Mudança** no menu de ações p
 
 
 
-* **Alvo 17:** Define o alvo da rodada como 17 para todos os jogadores.
+* **Alvejar 17:** Define o alvo da rodada como 17 para todos os jogadores.
 
 
 
-* **Alvo 24:** Define o alvo da rodada como 24 para todos os jogadores.
+* **Alvejar 24:** Define o alvo da rodada como 24 para todos os jogadores.
 
 
 
-* **Alvo 27:** Define o alvo da rodada como 27 para todos os jogadores.
+* **Alvejar 27:** Define o alvo da rodada como 27 para todos os jogadores.
 
 
 
@@ -234,7 +234,7 @@ Pressione **C** ou selecione **Guia de Cartas de Mudança** no menu de ações p
 
 
 
-* **Não (Nope):** Cancela a rodada atual imediatamente e inicia uma nova (instantâneo).
+* **Cancelar:** Cancela a rodada atual imediatamente e inicia uma nova (instantâneo).
 
 
 
@@ -254,23 +254,23 @@ O host pode configurar essas configurações na mesa antes de iniciar:
 
 
 
-* **Saúde Inicial:** Quanto HP cada jogador começa (padrão 10, intervalo de 1 a 100).
+* **Vida inicial:** Quanto HP cada jogador começa (padrão 10, intervalo de 1 a 100).
 
 
 
-* **Aposta Base:** O dano base infligido ao perdedor da rodada antes dos ajustes de modificadores. Se isso for definido como 0, o jogo ainda deve ter uma maneira de criar dano através de cartas de mudança; uma configuração com aposta base 0, 0 cartas de mudança iniciais e 0% de chance de mudança de compra é bloqueada porque nunca pode terminar (padrão 1, intervalo de 0 a 50).
+* **Aposta base:** O dano base infligido ao perdedor da rodada antes dos ajustes de modificadores. Se isso for definido como 0, o jogo ainda deve ter uma maneira de criar dano através de cartas de mudança; uma configuração com aposta base 0, 0 cartas de mudança iniciais e 0% de chance de mudança de compra é bloqueada porque nunca pode terminar (padrão 1, intervalo de 0 a 50).
 
 
 
-* **Cartas de Mudança Iniciais por Rodada:** Quantas cartas de mudança aleatórias cada jogador recebe no início de cada rodada (padrão 1, intervalo de 0 a 10).
+* **Cartas de mudança iniciais por rodada:** Quantas cartas de mudança aleatórias cada jogador recebe no início de cada rodada (padrão 1, intervalo de 0 a 10).
 
 
 
-* **Chance de Carta de Mudança na Compra:** A chance percentual de ganhar uma carta de mudança aleatória cada vez que você pede carta (padrão 35%, intervalo de 0 a 100%).
+* **Chance de comprar carta de mudança:** A chance percentual de ganhar uma carta de mudança aleatória cada vez que você pede carta (padrão 35%, intervalo de 0 a 100%).
 
 
 
-* **Contagem de Baralhos:** Quantas cópias do baralho de 1 a 11 embaralhar juntas a cada rodada. Um baralho significa 11 cartas no total; mais baralhos significam mais cartas e menos previsibilidade (padrão 1, intervalo de 1 a 10).
+* **Contagem de baralhos:** Quantas cópias do baralho de 1 a 11 embaralhar juntas a cada rodada. Um baralho significa 11 cartas no total; mais baralhos significam mais cartas e menos previsibilidade (padrão 1, intervalo de 1 a 10).
 
 
 
@@ -330,7 +330,7 @@ Seu oponente sofre 2 de dano (aposta base 1, mais 1 do seu Aumentar um). Ele cai
 
 
 
-* **4:** Conferir status do 21 (anuncia alvo, HP, aposta atual, sua mão, cartas de mudança na mão e efeitos ativos; também mostra as informações visíveis de cada oponente).
+* **4:** Verificar status do 21 (anuncia alvo, HP, aposta atual, sua mão, cartas de mudança na mão e efeitos ativos; também mostra as informações visíveis de cada oponente).
 
 
 
@@ -338,7 +338,7 @@ Seu oponente sofre 2 de dano (aposta base 1, mais 1 do seu Aumentar um). Ele cai
 
 
 
-* **O:** Ler cartas viradas para cima do oponente (anuncia o que cada oponente está mostrando e seu total visível).
+* **O:** Ler cartas reveladas do oponente (anuncia o que cada oponente está mostrando e seu total visível).
 
 
 

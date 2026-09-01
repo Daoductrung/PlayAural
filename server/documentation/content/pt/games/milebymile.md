@@ -14,7 +14,7 @@ O objetivo é correr com o seu carro até a linha de chegada jogando cartas de d
 
 
 
-Cada corrida, cada jogador começa parado. Você deve jogar um **Sinal Verde** para começar a se mover. No seu turno, você compra uma carta para trazer sua mão para 7 e então joga ou descarta uma carta.
+Em cada corrida, todos os jogadores começam parados. Você deve jogar um **Sinal Verde** para começar a se mover. No seu turno, você compra uma carta para completar uma mão de 7 e então joga ou descarta uma carta.
 
 
 
@@ -28,7 +28,7 @@ Elas adicionam milhas ao seu total: 25, 50, 75, 100 e 200 milhas.
 
 * **A Regra das 200 Milhas:** Você só tem permissão para usar uma carta de 200 milhas **duas vezes por corrida**.
 
-* **Travessia Perfeita:** Por padrão, você deve atingir a distância alvo (por exemplo, 1.000 milhas) exatamente.
+* **Exigir chegada exata:** Por padrão, você deve atingir a distância alvo (por exemplo, 1.000 milhas) exatamente.
 
 
 
@@ -48,7 +48,7 @@ Elas adicionam milhas ao seu total: 25, 50, 75, 100 e 200 milhas.
 
 **Cartas de Segurança**
 
-These provide permanent protection for the rest of the race and grant an extra turn:
+Essas cartas oferecem proteção permanente até o fim da corrida e concedem um turno extra:
 
 * **Tanque Extra:** Protege contra Sem Gasolina.
 
@@ -60,14 +60,14 @@ These provide permanent protection for the rest of the race and grant an extra t
 
 
 
-**Golpes Baixos (Coup Fourré)**
+**Contra-ataques (Coup Fourré)**
 
-Quando um oponente joga um perigo em você, uma **janela de resposta de 7 segundos** se abre enquanto o jogo comum continua. Durante esse tempo, jogue a carta de segurança correspondente da sua mão pressionando **D**. Isso bloqueia o perigo, rende 300 pontos de bônus no final da corrida e concede um turno a você. Você saca um substituto para a segurança imediatamente. Se o turno de outro jogador já estiver em andamento, ele termina esse turno antes que seu turno concedido comece e você compre normalmente. Cada perigo recente mantém sua própria janela de resposta, de modo que uma resposta nunca cancela a oportunidade de outra equipe. Jogar o remédio correspondente fecha a janela desse perigo imediatamente. Se uma segurança e um remédio forem jogados quase juntos, a primeira valid play recebida decide o resultado: segurança primeiro rende o Golpe Baixo; remédio primeiro encerra a oportunidade. Se ninguém responder, a janela simplesmente expira sem interromper o jogo.
+Quando um oponente joga um perigo em você, uma **janela de resposta de 7 segundos** se abre enquanto o jogo comum continua. Durante esse tempo, jogue a carta de segurança correspondente da sua mão pressionando **D**. Isso bloqueia o perigo, rende 300 pontos de bônus no final da corrida e concede um turno a você. Você saca um substituto para a segurança imediatamente. Se o turno de outro jogador já estiver em andamento, ele termina esse turno antes que seu turno concedido comece e você compre normalmente. Cada perigo recente mantém sua própria janela de resposta, de modo que uma resposta nunca cancela a oportunidade de outra equipe. Jogar o remédio correspondente fecha a janela desse perigo imediatamente. Se uma segurança e um remédio forem jogados quase juntos, a primeira jogada válida recebida decide o resultado: segurança primeiro rende o contra-ataque; remédio primeiro encerra a oportunidade. Se ninguém responder, a janela simplesmente expira sem interromper o jogo.
 
-Durante essa janela, você também pode selecionar a carta de segurança correspondente diretamente da sua mão. Ela será tratada automaticamente como um Golpe Baixo, e não como uma jogada de segurança normal.
+Durante essa janela, você também pode selecionar a carta de segurança correspondente diretamente da sua mão. Ela será tratada automaticamente como um contra-ataque, e não como uma jogada de segurança normal.
 
 
-**Cartas Imjogáveis**
+**Cartas Injogáveis**
 
 Se você selecionar uma carta que não pode ser jogada no momento, o jogo explica o motivo exato e pergunta se você deseja descartá-la. Escolha **Descartar** para jogá-la fora, ou cancelar para mantê-la.
 
@@ -89,29 +89,29 @@ Se você selecionar uma carta que não pode ser jogada no momento, o jogo explic
 
 * **Blecaute:** 500 pontos (oponentes têm 0 milhas).
 
-* **Golpes Baixos:** 300 pontos cada.
+* **Contra-ataques:** 300 pontos cada.
 
 
 
 **Opções de Jogo**
 
-* **Distância da Rodada:** A distância alvo para cada corrida (padrão 1.000 milhas, intervalo de 300-3.000).
+* **Distância da corrida:** A distância alvo para cada corrida (padrão 1.000 milhas, intervalo de 300-3.000).
 
   Se a chegada exata estiver ativada, a distância deve ser divisível por 25 porque cada carta de distância é um múltiplo de 25.
 
-* **Pontuação Vencedora:** A pontuação total necessária para vencer a partida (padrão 5.000, intervalo de 1.000-10.000).
+* **Pontuação para vencer:** A pontuação total necessária para vencer a partida (padrão 5.000, intervalo de 1.000-10.000).
 
 * **Modo de Equipe:** Jogue individualmente ou em equipes.
 
-* **Travessia Perfeita:** Se você deve atingir a distância alvo exatamente (padrão ligado).
+* **Exigir chegada exata:** Se você deve atingir a distância alvo exatamente (padrão ligado).
 
-* **Permitir Empilhar Ataques:** Se vários perigos podem ser jogados no mesmo jogador (padrão desligado).
+* **Permitir empilhamento de ataques:** Se vários perigos podem ser jogados no mesmo jogador (padrão desligado).
 
-* **Embaralhar Pilha de Descarte:** Se a pilha de descarte é reembaralhada quando o monte de compras acaba (padrão ligado).
+* **Reembaralhar pilha de descarte:** Se a pilha de descarte é reembaralhada quando o monte de compras acaba (padrão ligado).
 
-* **Regra do Karma:** Se cartas de karma e ostracismo são usadas. Se um atacante e um alvo ainda tiverem karma, o ataque é neutralizado e ambos os lados perdem karma. Um lado que perdeu karma só pode atacar outro lado que também perdeu karma. Requer pelo menos 3 carros ou equipes (padrão desligado).
+* **Regra de karma:** Se cartas de karma e ostracismo são usadas. Se um atacante e um alvo ainda tiverem karma, o ataque é neutralizado e ambos os lados perdem karma. Um lado que perdeu karma só pode atacar outro lado que também perdeu karma. Requer pelo menos 3 carros ou equipes (padrão desligado).
 
-* **Manipular Baralho:** Ajusta a composição do baralho (sem duplicatas, 2x ataques, 2x defesas ou nenhum).
+* **Manipulação do baralho:** Ajusta a composição do baralho (sem duplicatas, 2x ataques, 2x defesas ou nenhum).
 
 
 
@@ -121,7 +121,7 @@ Se você selecionar uma carta que não pode ser jogada no momento, o jogo explic
 
 * **Shift+Enter:** Descartar a carta atualmente selecionada.
 
-* **D:** Jogar um Golpe Baixo (Coup Fourré).
+* **D:** Contra-atacar (Coup Fourré).
 
 * **I:** Ver informações do seu carro ou equipe.
 

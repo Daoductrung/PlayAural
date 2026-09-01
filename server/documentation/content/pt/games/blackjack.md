@@ -4,22 +4,22 @@ O Blackjack é o clássico jogo de cartas de cassino onde os jogadores competem 
 
 **Como Jogar**
 
-O jogo é jogado com um baralho padrão de 52 cartas (ou múltiplos baralhos, dependendo das configurações do anfitrião). Cada jogador recebe duas cartas, e o croupier recebe uma carta virada para cima e uma carta virada para baixo.
+O jogo usa um baralho padrão de 52 cartas (ou múltiplos baralhos, dependendo das configurações do anfitrião). Cada jogador recebe duas cartas, e o croupier recebe uma carta virada para cima e uma carta virada para baixo.
 
 Apenas os jogadores que possuem fichas e confirmam uma aposta participam da mão. Os jogadores que ficam sem fichas permanecem na mesa, mas ficam de fora das próximas mãos, a menos que o jogo já tenha terminado.
 
 O objetivo é vencer o croupier obtendo um total de mão mais próximo de 21 do que a mão do croupier, sem exceder 21 (estourar). Cartas com figuras (Valetes, Damas, Reis) valem 10. Os Áses valem 1 ou 11, o que for mais favorável. Todas as outras cartas valem seu valor nominal.
 
-Se você receber um Ás e uma carta de valor 10 como suas primeiras duas cartas, você tem um Blackjack! Isso normalmente paga em probabilidades maiores, a menos que o croupier também tenha um Blackjack (o que resulta em empate, ou push).
+Se você receber um Ás e uma carta de valor 10 como suas primeiras duas cartas, você tem um Blackjack! Isso normalmente oferece pagamento maior, a menos que o croupier também tenha um Blackjack (o que resulta em empate, ou push).
 
-Após todas as mãos dos jogadores terminarem, o croupier revela a carta oculta e compra uma carta por vez até atingir a regra de compra do croupier da mesa. Os anúncios de compra do croupier são ritmados para que a mesa possa acompanhar cada carta e o total claramente.
+Após todas as mãos dos jogadores terminarem, o croupier revela a carta oculta e compra uma carta por vez até atingir a regra da mesa que determina quando deve parar. Os anúncios de compra do croupier são ritmados para que a mesa possa acompanhar cada carta e o total claramente.
 
 **Ações**
 
 No seu turno, você tem várias escolhas:
 
-* **Pedir carta (Hit):** Compra outra carta para aumentar seu total. Você pode pedir quantas vezes quiser até estourar ou parar.
-* **Parar (Stand):** Encerra seu turno e mantém seu total atual.
+* **Pedir carta:** Compra outra carta para aumentar seu total. Você pode pedir quantas vezes quiser até estourar ou parar.
+* **Parar:** Encerra seu turno e mantém seu total atual.
 * **Dobrar (Double Down):** Dobra sua aposta original, recebe exatamente mais uma carta e depois para automaticamente.
 * **Dividir (Split):** Se suas duas primeiras cartas tiverem o mesmo valor (por exemplo, dois 8s), você pode dividi-las em duas mãos separadas fazendo uma aposta adicional igual à sua aposta original.
 * **Render-se (Surrender):** Desiste da sua mão e recebe metade da sua aposta de volta. Esta opção está disponível apenas antes de você pedir carta.
@@ -31,7 +31,7 @@ No seu turno, você tem várias escolhas:
 O anfitrião pode ajustar várias configurações na mesa:
 
 * **Perfil de Regras:** Seleciona conjuntos de regras pré-configurados (Vegas, Europeu ou Amigável), que ajustam várias configurações de uma só vez.
-* **Baralhos:** O número de baralhos padrão de 52 cartas usados no sabotador (padrão 4, intervalo de 1 a 8).
+* **Baralhos:** O número de baralhos padrão de 52 cartas usados no sabot (padrão 4, intervalo de 1 a 8).
 * **Fichas Iniciais:** O número de fichas com que cada jogador começa o jogo (padrão 500).
 * **Aposta Base:** O valor de aposta padrão para novas rodadas (padrão 10).
 * **Aposta Mínima / Máxima da Mesa:** Os limites de aposta da mesa (padrão mín. 5, máx. 100).

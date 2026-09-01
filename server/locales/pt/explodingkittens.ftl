@@ -72,8 +72,8 @@ explodingkittens-error-choose-target = Escolha um alvo para seu/sua { $action },
 explodingkittens-error-waiting-target = Aguardando { $player } escolher um alvo para { $action }.
 explodingkittens-error-choose-request = Escolha uma carta para pedir a { $target }, ou cancele.
 explodingkittens-error-waiting-request = Aguardando { $player } escolher uma carta para pedir a { $target }.
-explodingkittens-error-waiting-nope-you = Seu/Sua { $action } está aguardando respostas de Nope.
-explodingkittens-error-waiting-nope-player = O(A) { $action } de { $player } está aguardando respostas de Nope.
+explodingkittens-error-waiting-nope-you = Sua ação ({ $action }) está aguardando respostas de Nope.
+explodingkittens-error-waiting-nope-player = A ação { $action } de { $player } está aguardando respostas de Nope.
 explodingkittens-error-give-favor-card = Escolha uma carta para dar a { $player }.
 explodingkittens-error-waiting-favor-you = Aguardando { $target } lhe dar uma carta.
 explodingkittens-error-waiting-favor-player = Aguardando { $target } dar uma carta a { $player }.
@@ -107,7 +107,7 @@ explodingkittens-error-invalid-target = Esse jogador não pode ser visado.
 explodingkittens-error-invalid-request = Essa carta não pode ser pedida.
 explodingkittens-error-invalid-position = Essa posição de reinserção não está mais disponível.
 
-explodingkittens-game-started = Exploding Kittens começa com { $players } jogadores e { $cards } cartas na pilha de compras.
+explodingkittens-game-started = Gatinhos Explosivos começa com { $players } jogadores e { $cards } cartas na pilha de compras.
 explodingkittens-game-starting-wait = Aguarde o jogo começar.
 explodingkittens-hand = { $count ->
     [one] Sua carta: { $cards }.
@@ -136,10 +136,10 @@ explodingkittens-nope-time-remaining = { $seconds ->
     [one] Resta 1 segundo.
    *[other] Restam { $seconds } segundos.
 }
-explodingkittens-your-action-canceled = Seu/Sua { $action } foi cancelado(a).
-explodingkittens-player-action-canceled = O(A) { $action } de { $player } foi cancelado(a).
-explodingkittens-your-action-resolves = Seu/Sua { $action } entra em vigor.
-explodingkittens-player-action-resolves = O(A) { $action } de { $player } entra em vigor.
+explodingkittens-your-action-canceled = Sua ação ({ $action }) foi cancelada.
+explodingkittens-player-action-canceled = A ação { $action } de { $player } foi cancelada.
+explodingkittens-your-action-resolves = Sua ação ({ $action }) entra em vigor.
+explodingkittens-player-action-resolves = A ação { $action } de { $player } entra em vigor.
 explodingkittens-your-shuffle-resolves = Seu Embaralhar entra em vigor. A pilha de compras é embaralhada.
 explodingkittens-player-shuffle-resolves = O Embaralhar de { $player } entra em vigor. A pilha de compras é embaralhada.
 explodingkittens-your-attack-resolves = Seu Ataque entra em vigor. { $target } deve realizar { $turns ->
@@ -192,12 +192,12 @@ explodingkittens-pair-transfer-public = { $player } pega aleatoriamente uma cart
 explodingkittens-pair-empty-you = Seu par entra em vigor, mas { $target } não tem cartas para pegar.
 explodingkittens-pair-empty-target = O par de { $player } entra em vigor, mas você não tem cartas para pegar.
 explodingkittens-pair-empty-public = O par de { $player } entra em vigor, mas { $target } não tem cartas para pegar.
-explodingkittens-triple-transfer-you = { $target } lhe dá o/a { $card } pedido(a).
-explodingkittens-triple-transfer-target = Você dá o/a { $card } pedido(a) para { $player }.
-explodingkittens-triple-transfer-public = { $target } dá a carta pedida para { $player }.
-explodingkittens-triple-miss-you = { $target } não tem o/a { $card } pedido(a).
-explodingkittens-triple-miss-target = Você não tem o/a { $card } pedido(a) por { $player }.
-explodingkittens-triple-miss-public = { $target } não tem o/a { $card } pedido(a) por { $player }.
+explodingkittens-triple-transfer-you = { $target } lhe entrega a carta { $card } solicitada.
+explodingkittens-triple-transfer-target = Você entrega a carta { $card } solicitada a { $player }.
+explodingkittens-triple-transfer-public = { $target } entrega a carta solicitada a { $player }.
+explodingkittens-triple-miss-you = { $target } não tem a carta { $card } solicitada.
+explodingkittens-triple-miss-target = Você não tem a carta { $card } solicitada por { $player }.
+explodingkittens-triple-miss-public = { $target } não tem a carta { $card } solicitada por { $player }.
 
 explodingkittens-no-discard = nenhuma carta descartada
 explodingkittens-piles = Pilha de compras: { $deck }. Pilha de descarte: { $discard }. Topo do descarte: { $top }.

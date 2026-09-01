@@ -6,7 +6,7 @@ Noventa e Nove é um jogo de cartas clássico de sobrevivência e estratégia. O
 
 
 
-O jogo tem sido um elemento básico na comunidade de jogos acessíveis por anos. O PlayAural suporta duas variantes distintas: o baralho padrão de 52 cartas e uma variante de cartas de ação com um baralho especial de 60 cartas. Em sua essência, o Noventa e Nove é um jogo de eliminação: cada jogador começa com um conjunto de tokens, perde-os por cometer erros e é eliminado quando fica sem eles. O último jogador restante vence.
+O jogo tem sido um elemento básico na comunidade de jogadores cegos por anos. O PlayAural suporta duas variantes distintas: o baralho padrão de 52 cartas e uma variante de cartas de ação com um baralho especial de 60 cartas. Em sua essência, o Noventa e Nove é um jogo de eliminação: cada jogador começa com um conjunto de fichas, perde-as por cometer erros e é eliminado quando fica sem elas. O último jogador restante vence.
 
 
 
@@ -18,11 +18,11 @@ Noventa e Nove é jogado em rodadas em uma **mesa**. No início de cada rodada, 
 
 
 
-No seu turno, você joga uma carta da sua mão para modificar a contagem acumulada. A maioria das cartas adiciona seu valor de face, mas cartas especiais têm efeitos únicos. Após jogar, você compra uma carta de reposição (automática ou manualmente, dependendo das configurações do **anfitrião**).
+No seu turno, você joga uma carta da sua mão para modificar a contagem acumulada. A maioria das cartas adiciona seu valor de face, mas cartas especiais têm efeitos únicos. Após jogar, você compra uma carta de reposição (automaticamente ou manualmente, dependendo das configurações do **anfitrião**).
 
 
 
-A rodada termina quando alguém empurra a contagem acima de 99 (um "estouro"), cai exatamente em 99 na variante padrão ou fica sem cartas. O jogador infrator perde tokens, então um pequeno cronômetro é executado antes que a próxima rodada comece.
+A rodada termina quando alguém empurra a contagem acima de 99 (um "estouro"), cai exatamente em 99 na variante padrão ou fica sem cartas. O jogador infrator perde fichas, então um pequeno temporizador roda antes que a próxima rodada comece.
 
 
 
@@ -74,15 +74,15 @@ Usa um baralho de 60 cartas (1-9 e cartas especiais):
 
 
 
-* **Cair exatamente em 33 ou 66:** Todos os outros jogadores perdem 1 token.
+* **Cair exatamente em 33 ou 66:** Todos os outros jogadores perdem 1 ficha.
 
-* **Passar por 33 ou 66:** Você perde 1 token.
+* **Passar por 33 ou 66:** Você perde 1 ficha.
 
-* **Mover-se para baixo em direção a ou passando por 33 ou 66:** Ninguém perde tokens. Esses marcos só contam quando o total aumenta a partir de baixo, então reduzir pela metade o 66 para 33 com um 2 não penaliza os outros jogadores.
+* **Mover-se para baixo até ou além de 33 ou 66:** Ninguém perde fichas. Esses marcos só contam quando o total aumenta a partir de baixo, então reduzir pela metade o 66 para 33 com um 2 não penaliza os outros jogadores.
 
-* **Cair exatamente em 99:** Todos os outros jogadores perdem 2 tokens, e a rodada termina.
+* **Cair exatamente em 99:** Todos os outros jogadores perdem 2 fichas, e a rodada termina.
 
-* **Estourar (acima de 99):** Você perde 2 tokens, e a rodada termina.
+* **Estourar (acima de 99):** Você perde 2 fichas, e a rodada termina.
 
 
 
@@ -90,7 +90,7 @@ Usa um baralho de 60 cartas (1-9 e cartas especiais):
 
 
 
-Os jogadores começam com uma reserva de tokens (padrão 9). Quando um jogador chega a 0 tokens, ele é eliminado. O último jogador com tokens vence.
+Os jogadores começam com uma reserva de fichas (padrão 9). Quando um jogador chega a 0 fichas, ele é eliminado. O último jogador com fichas vence.
 
 
 
@@ -98,7 +98,7 @@ Os jogadores começam com uma reserva de tokens (padrão 9). Quando um jogador c
 
 
 
-* **Tokens Iniciais:** Com quantos tokens cada jogador começa (padrão 9, intervalo de 1 a 50).
+* **Fichas iniciais:** Com quantas fichas cada jogador começa (padrão 9, intervalo de 1 a 50).
 
 * **Tamanho da Mão:** Número de cartas distribuídas a cada jogador por rodada (padrão 3, intervalo de 1 a 13).
 
@@ -112,4 +112,4 @@ Os jogadores começam com uma reserva de tokens (padrão 9). Quando um jogador c
 
 * **Espaço ou D:** Comprar uma carta (se a compra manual estiver ativada).
 
-* **P:** Apenas o anfitrião, durante o cronômetro da próxima rodada: pausar o cronômetro. Pressione P novamente enquanto pausado para iniciar a próxima rodada imediatamente.
+* **P:** Apenas o anfitrião, durante o temporizador da próxima rodada: pausar o temporizador. Pressione P novamente enquanto pausado para iniciar a próxima rodada imediatamente.

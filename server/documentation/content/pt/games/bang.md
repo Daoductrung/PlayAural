@@ -1,4 +1,4 @@
-# **BANG! A Bala**
+**BANG! The Bullet**
 
 # **A história**
 
@@ -85,7 +85,7 @@ Qualquer ataque que mostre o símbolo BANG! pede ao seu alvo um efeito Errou!, a
 
 Resolva todas as verificações de Barril disponíveis antes de escolher uma carta da mão. Cada verificação falhada deixa o ataque pendente; ela não o obriga a usar Errou! até que todas as verificações de Barril restantes tenham sido usadas ou puladas. Jourdonnais com um Barril real, portanto, tem duas verificações separadas. Cada verificação bem-sucedida fornece um efeito Errou!.
 
-Se o alvo fornecer poucos efeitos Errou!, o alvo perde um vida. Duelo, em vez disso, alterna respostas BANG!, e o primeiro jogador incapaz ou indisposto a responder perde um vida. Índios! pede a cada outro jogador um BANG! em vez de Errou!.
+Se o alvo fornecer poucos efeitos Errou!, o alvo perde uma vida. Duelo, em vez disso, alterna respostas BANG!, e o primeiro jogador incapaz ou indisposto a responder perde uma vida. Índios! pede a cada outro jogador um BANG! em vez de Errou!.
 
 Com zero ou vida negativa, jogue cerveja suficiente da mão ou use a habilidade de Sid Ketchum vezes suficientes para retornar acima de zero. Cerveja pode ser jogada com vida cheia, mas é descartada sem curar. Cerveja também não tem efeito de cura quando apenas dois jogadores permanecem. Saloon e Tequila ainda funcionam com dois jogadores. A vida nunca excede a vida máxima.
 
@@ -95,9 +95,9 @@ O jogador responsável por eliminar um Fora da Lei compra três cartas. Se o Xer
 
 # **Regras de ataques especiais**
 
-Durante Duelo, distância, Barril e Errou! não se aplicam. O jogador desafiado responde primeiro, e os dois jogadores alternam descartando cartas BANG!. O primeiro jogador que não puder ou optar por não responder perde um vida.
+Durante Duelo, distância, Barril e Errou! não se aplicam. O jogador desafiado responde primeiro, e os dois jogadores alternam descartando cartas BANG!. O primeiro jogador que não puder ou optar por não responder perde uma vida.
 
-Durante Índios!, cada outro jogador responde em ordem horária. Cada um deve descartar uma carta BANG! ou perder um vida. Durante Gatling e Howitzer, cada outro jogador precisa de um efeito Errou!. O PlayAural anuncia o resultado de cada pessoa antes de passar para a resposta seguinte.
+Durante Índios!, cada outro jogador responde em ordem horária. Cada um deve descartar uma carta BANG! ou perder uma vida. Durante Gatling e Howitzer, cada outro jogador precisa de um efeito Errou!. O PlayAural anuncia o resultado de cada pessoa antes de passar para a resposta seguinte.
 
 # **Referência completa de cartas**
 
@@ -108,16 +108,16 @@ Durante Índios!, cada outro jogador responde em ordem horária. Cada um deve de
 * **Esquiva:** Forneça um efeito Errou! contra um ataque que mostre o símbolo BANG!, depois compre uma carta.
 * **Soco:** Ataque um jogador à distância 1; um efeito Errou! evita o dano.
 * **Springfield:** Descarte uma carta extra da mão para atirar em qualquer outro jogador a qualquer distância.
-* **Duelo:** Desafie qualquer outro jogador. O alvo responde primeiro, e os dois jogadores alternam cartas BANG! até que um pare e perca um vida.
+* **Duelo:** Desafie qualquer outro jogador. O alvo responde primeiro, e os dois jogadores alternam cartas BANG! até que um pare e perca uma vida.
 * **Gatling:** Atire em todos os outros jogadores; cada um precisa de um efeito Errou!.
-* **Índios!:** Cada outro jogador descarta uma carta BANG! ou perde um vida.
+* **Índios!:** Cada outro jogador descarta uma carta BANG! ou perde uma vida.
 
 # **Compra, cura e efeitos de mesa**
 
-* **Cerveja:** Recupere um vida, inclusive durante a recuperação letal. Pode ser descartada com vida cheia ou com dois jogadores restantes, mas então não cura nada.
-* **Saloon:** Cada jogador atualmente em jogo recupera um vida. O Reverendo não bloqueia o Saloon.
-* **Tequila:** Descarte uma carta extra da mão; escolha qualquer jogador atualmente em jogo, incluindo você mesmo, para recuperar um vida.
-* **Uísque:** Descarte uma carta extra da mão para recuperar dois vidas.
+* **Cerveja:** Recupere uma vida, inclusive durante a recuperação letal. Pode ser descartada com vida cheia ou com dois jogadores restantes, mas então não cura nada.
+* **Saloon:** Cada jogador atualmente em jogo recupera uma vida. O Reverendo não bloqueia o Saloon.
+* **Tequila:** Descarte uma carta extra da mão; escolha qualquer jogador atualmente em jogo, incluindo você mesmo, para recuperar uma vida.
+* **Uísque:** Descarte uma carta extra da mão para recuperar duas vidas.
 * **Diligência:** Compre duas cartas.
 * **Wells Fargo:** Compre três cartas.
 * **Armazém Geral:** Revele uma carta por jogador atualmente em jogo. Começando pelo ator e movendo-se no sentido horário, cada jogador escolhe uma. A oferta revelada e a escolha de cada jogador são públicas.
@@ -144,7 +144,7 @@ Durante Índios!, cada outro jogador responde em ordem horária. Cada um deve de
 * **Placa de Ferro, Chapéu de Aba Larga e Chapéu de Dez Galões:** Descarte como um efeito Errou!.
 * **Rifle Buffalo:** Escolha e atire em qualquer outro jogador, independentemente da distância.
 * **Can Can:** Escolha outro jogador para perder uma carta escolhida em jogo ou uma carta aleatória da mão.
-* **Cantil:** Recupere um vida.
+* **Cantil:** Recupere uma vida.
 * **Conestoga:** Escolha outro jogador e pegue uma carta escolhida em jogo ou uma carta aleatória da mão.
 * **Derringer:** Atire em um jogador à distância 1; após o tiro ser resolvido, compre uma carta.
 * **Howitzer:** Atire em todos os outros jogadores; cada um precisa de um efeito Errou!.
@@ -167,7 +167,7 @@ A vida mostrada abaixo é o normal máximo do personagem antes do bônus do Xeri
 * **Paul Regret — 3 vidas:** Todos os outros jogadores veem Paul à distância +1.
 * **Pedro Ramirez — 4 vidas:** A primeira compra normal pode ser a carta do topo virada para cima da pilha de descarte.
 * **Rose Doolan — 4 vidas:** Vê todos os outros jogadores à distância -1, até um mínimo de 1.
-* **Sid Ketchum — 4 vidas:** Entre os efeitos de cartas concluídos, mesmo fora de seu turno, descarte exatamente duas cartas da mão para recuperar um vida. Ele também pode fazer isso durante sua própria recuperação letal, mas não pode interromper uma carta ou escolha não resolvida.
+* **Sid Ketchum — 4 vidas:** Entre os efeitos de cartas concluídos, mesmo fora de seu turno, descarte exatamente duas cartas da mão para recuperar uma vida. Ele também pode fazer isso durante sua própria recuperação letal, mas não pode interromper uma carta ou escolha não resolvida.
 * **Slab the Killer — 4 vidas:** Cada carta BANG! exige dois efeitos Errou!.
 * **Suzy Lafayette — 4 vidas:** Quando sua mão ficar vazia, compre uma carta após o término do efeito atual.
 * **Vulture Sam — 4 vidas:** Colete cada carta da mão e carta em jogo pertencente a um jogador eliminado. Se Vera Custer estiver copiando esta habilidade, os dois coletores alternam as escolhas, começando com aquele mais próximo no sentido horário do jogador eliminado.
@@ -175,17 +175,17 @@ A vida mostrada abaixo é o normal máximo do personagem antes do bônus do Xeri
 * **Apache Kid — 3 vidas:** Cartas de Ouros jogadas por outros jogadores não o afetam, exceto durante Duelo.
 * **Belle Star — 4 vidas:** Durante o seu turno, as cartas na frente de outros jogadores não têm efeito.
 * **Bill Noface — 4 vidas:** Compre uma carta mais uma por vida perdida durante a fase normal de compra.
-* **Chuck Wengam — 4 vidas:** Durante o seu turno, perca um vida não final para comprar duas cartas; repita enquanto for legal.
+* **Chuck Wengam — 4 vidas:** Durante o seu turno, perca uma vida não final para comprar duas cartas; repita enquanto for legal.
 * **Doc Holyday — 4 vidas:** Uma vez por turno, descarte duas cartas da mão por um efeito BANG! dentro do alcance da arma.
 * **Elena Fuente — 3 vidas:** Use qualquer carta da mão como Errou!.
-* **Greg Digger — 4 vidas:** Recupere dois vidas sempre que outro jogador for eliminado.
+* **Greg Digger — 4 vidas:** Recupere duas vidas sempre que outro jogador for eliminado.
 * **Herb Hunter — 4 vidas:** Compre duas cartas sempre que outro jogador for eliminado.
 * **José Delgado — 4 vidas:** Até duas vezes por turno, descarte uma carta azul da mão para comprar duas cartas.
 * **Molly Stark — 4 vidas:** Fora de seu turno, compre uma carta de reposição após jogar ou descartar voluntariamente BANG!, Errou! ou Cerveja da mão. Esquiva e cartas já em jogo não se qualifiquem; as reposições de Duelo esperam até que o Duelo termine.
 * **Pat Brennan — 4 vidas:** Em vez da compra normal, pegue exatamente uma carta em jogo de qualquer jogador. A Chegada do Trem então adiciona sua compra extra, enquanto Mina Abandonada e Peyote substituem essa escolha.
 * **Pixie Pete — 3 vidas:** Compre três cartas na fase normal de compra.
 * **Sean Mallory — 3 vidas:** Tem um limite de mão de término de turno de 10 em vez da vida atual.
-* **Tequila Joe — 4 vidas:** Cada Cerveja que ele joga restaura dois vidas em vez de um.
+* **Tequila Joe — 4 vidas:** Cada Cerveja que ele joga restaura duas vidas em vez de uma.
 * **Vera Custer — 3 vidas:** No início do turno, copie a habilidade de outro personagem vivo até seu próximo turno.
 * **Claus "O Santo" — 3 vidas:** Compre uma carta a mais do que o número de jogadores atualmente em jogo, dê uma para cada outro jogador atualmente em jogo e mantenha duas.
 * **Johnny Kisch — 4 vidas:** Quando ele coloca uma carta em jogo, descarte todas as outras cartas em jogo com o mesmo nome.
@@ -203,23 +203,23 @@ Quando os eventos estão ativados, o primeiro evento é revelado no início do s
 * **Corrida ao Ouro:** Os turnos comuns correm no sentido anti-horário. Armazém Geral, Dinamite e efeitos que dizem explicitamente no sentido horário permanecem no sentido horário.
 * **Ressaca:** As habilidades dos personagens não funcionam. A vida máxima extra do Xerife permanece.
 * **Tiroteio:** Cada jogador pode jogar uma segunda carta BANG! durante o seu turno.
-* **Os Daltons:** Ao revelar, cada jogador com pelo menos uma carta azul em jogo escolhe e descarte uma carta azul.
-* **O Doutor:** Ao revelar, cada jogador vivo empatado com a menor vida recupera um vida.
+* **Os Daltons:** Ao revelar, cada jogador com pelo menos uma carta azul em jogo escolhe e descarta uma carta azul.
+* **O Doutor:** Ao revelar, cada jogador vivo empatado com a menor vida recupera uma vida.
 * **O Reverendo:** Cartas de Cerveja não podem ser jogadas. Saloon e outras curas ainda funcionam.
 * **O Sermão:** O jogador ativo não pode usar cartas BANG! durante o turno, incluindo um Errou! convertido por Calamity Janet e respostas BANG! no Duelo.
 * **Sede:** Compre uma carta a menos na fase normal de compra.
 * **Chegada do Trem:** Compre uma carta adicional na fase normal de compra.
 * **Algemas:** Após comprar, escolha o único naipe que você pode jogar da mão durante o seu turno. Isso inclui suas próprias respostas BANG! no Duelo e Cerveja usada para recuperação letal durante esse turno. Outros jogadores respondendo às suas ações não são restritos pela sua declaração.
 * **Nova Identidade:** No início do turno, substitua opcionalmente o personagem principal pelo personagem alternativo público, adote a vida máxima desse personagem e defina a vida atual como 2. A mudança é permanente.
-* **High Noon:** Finale permanente. Perca um vida no início de cada turno.
+* **High Noon:** Finale permanente. Perca uma vida no início de cada turno.
 
 # **Família de eventos Fistful**
 
 * **Mina Abandonada:** Durante a fase um, pegue as cartas viradas para cima do topo da pilha de descarte até que ela esteja vazia, depois termine a compra necessária da pilha de compra. Na fase três, coloque cartas extras da mão viradas para cima no topo da pilha de compra, mesmo quando a pilha de descarte começou vazia ou acabou.
 * **Emboscada:** A distância base entre cada par de jogadores é 1; os modificadores ainda se aplicam.
-* **Irmãos de Sangue:** No início do turno, perca opcionalmente um vida não final para que outro jogador vivo ferido recupere um. Nenhum prompt aparece se ninguém puder ser curado.
+* **Irmãos de Sangue:** No início do turno, perca opcionalmente uma vida não final para que outro jogador vivo ferido recupere uma. Nenhum prompt aparece se ninguém puder ser curado.
 * **Homem Morto:** O primeiro jogador eliminado retorna uma vez, no próximo turno daquele jogador, com duas vidas e duas cartas, depois executa a etapa normal de compra.
-* **Bebida Forte:** Em vez da compra normal, recupere um vida. Com vida cheia, a compra pulada não cura nada.
+* **Bebida Forte:** Em vez da compra normal, recupere uma vida. Com vida cheia, a compra pulada não cura nada.
 * **Laço:** As cartas em jogo não têm efeito, mas permanecem no lugar e ainda podem ser alvejadas. Prisão e Dinamite ficam com seus donos e não realizam suas verificações de início de turno até que o Laço seja substituído.
 * **Lei do Oeste:** Revele a segunda compra normal e jogue-a durante a fase de jogo se ela ainda tiver uma jogada legal. Ela não pode ser gasta como custo extra de outra ação.
 * **Peyote:** Substitua a compra normal por palpites repetidos de vermelho ou preto. Revele cada carta adivinhada para toda a mesa. Mantenha cada carta adivinhada corretamente; o primeiro palpite errado é descartado e encerra a compra.
@@ -251,7 +251,7 @@ Use Ler evento atual ou pressione E sempre que um evento mudar; o PlayAural lê 
 
 Ler sua mão e cartas em jogo anuncia em privado sua mão primeiro, depois suas próprias cartas viradas para cima. Essas listas curtas contêm nomes, valores e naipes, mas sem descrições de regras. A ação permanece disponível fora do seu turno, inclusive enquanto outro jogador está escolhendo. Quando **Dicas de Menu** estão ativadas, as linhas de cartas onde você decide o que jogar ou usar também incluem a descrição completa das regras de cada carta. Desativar Dicas de Menu mantém o contexto da ação, nome da carta, valor e naipe, enquanto oculta esse texto extra de regras.
 
-Ler distâncias abre um painel de status ao vivo. Sua primeira linha mostra sua Arma e alcance atuais; as outras linhas estáveis mostram sua distância para cada jogador ainda em jogo. Ler a tabela abre um painel público ao vivo separado com o turno ativo, evento atual, vida, contagem de mãos, personagens, papéis revelados, armas e apenas os nomes das cartas em jogo. Ambos os painéis são atualizados enquanto abertos sem forçá-lo a lembrar de uma longa lista falada.
+Ler distâncias abre um painel de status ao vivo. Sua primeira linha mostra sua Arma e alcance atuais; as outras linhas estáveis mostram sua distância para cada jogador ainda em jogo. Ler a mesa abre um painel público ao vivo separado com o turno ativo, evento atual, vida, contagem de mãos, personagens, papéis revelados, armas e apenas os nomes das cartas em jogo. Ambos os painéis são atualizados enquanto abertos sem forçá-lo a lembrar de uma longa lista falada.
 
 Ler vida relata sua vida atual e máxima. Ler papel e personagem relata seu papel, habilidade, personagem alternativo, vida e Arma. Ler pilhas de cartas relata o tamanho da pilha de compra, tamanho da pilha de descarte e o topo do descarte. Ler evento atual explica o evento ativo. Verificar de quem é o turno relata tanto o turno ativo quanto qualquer escolha pendente fora do turno. Quem está na mesa abre a lista atual da mesa.
 

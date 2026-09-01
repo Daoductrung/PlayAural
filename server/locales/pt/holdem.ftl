@@ -50,7 +50,7 @@ holdem-you-post-big-blind = { $sb_player } aposta o small blind ({ $sb } fichas)
 holdem-players-post-blinds = { $sb_player } aposta o small blind ({ $sb } fichas). { $bb_player } aposta o big blind ({ $bb } fichas).
 
 holdem-raise-invalid = Digite um número inteiro maior que 0 para o valor do aumento.
-holdem-raise-cap-reached = O limite de { $count } aumentos já foi atingido nesta rodada de apostas. Você pode pagar ou correr.
+holdem-raise-cap-reached = O limite de { $count } aumentos já foi atingido nesta rodada de apostas. Você pode pagar ou desistir.
 holdem-raise-over-stack = Você tentou aumentar em { $requested } fichas, mas tem apenas { $chips } fichas restantes. Digite um aumento menor ou escolha All-in.
 holdem-raise-too-small = Você tentou aumentar em { $requested } fichas. O aumento mínimo é { $minimum } fichas.
 holdem-raise-over-limit = Você tentou aumentar em { $requested } fichas. Sob { $mode ->
@@ -63,15 +63,15 @@ holdem-all-in-over-limit = Você não pode ir all-in com suas { $stack } fichas 
     [double_pot] o limite do pote duplo
    *[other] o modo de aumento selecionado
 } atualmente permite um aumento de no máximo { $maximum } fichas após pagar. Use Aumentar para digitar um valor permitido.
-holdem-all-in-raise-cap-reached = Você não pode ir all-in como um aumento total porque o limite de { $count } aumentos já foi atingido. Você pode pagar ou correr.
-holdem-all-in-unavailable-raise-cap = O all-in está indisponível porque seria um aumento total após o limite de aumentos ser atingido. Você pode pagar ou correr.
+holdem-all-in-raise-cap-reached = Você não pode ir all-in como um aumento total porque o limite de { $count } aumentos já foi atingido. Você pode pagar ou desistir.
+holdem-all-in-unavailable-raise-cap = O all-in está indisponível porque seria um aumento total após o limite de aumentos ser atingido. Você pode pagar ou desistir.
 holdem-all-in-unavailable-limit = O all-in está indisponível porque sua pilha excede o limite de apostas atual. Use Aumentar para digitar um valor permitido.
 holdem-raise-unavailable-cap = O aumento está indisponível porque esta rodada de apostas atingiu seu limite de aumentos.
-holdem-raise-unavailable-limit = Um aumento total está indisponível com sua pilha e o limite de apostas atual. Você pode pagar, correr ou usar All-in quando for legal.
+holdem-raise-unavailable-limit = Um aumento total está indisponível com sua pilha e o limite de apostas atual. Você pode pagar, desistir ou usar All-in quando for permitido.
 
 holdem-current-bet = A aposta atual na mesa é { $amount } fichas.
 holdem-raise-range = O aumento mínimo é { $minimum } fichas. Você pode aumentar em até { $maximum } fichas após pagar.
-holdem-no-full-raise-available = Você precisa de { $to_call } fichas para pagar e tem { $chips } fichas restantes, portanto não pode fazer um aumento total. Você pode pagar all-in ou correr.
+holdem-no-full-raise-available = Você precisa de { $to_call } fichas para pagar e tem { $chips } fichas restantes, portanto não pode fazer um aumento total. Você pode pagar all-in ou desistir.
 holdem-button-unavailable = Ainda não há uma posição de botão para a mão atual.
 holdem-position-unavailable = Você não está ativo na mão atual, portanto não tem uma posição de aposta.
 holdem-reveal-no-live-hand = Você pode revelar as cartas particulares apenas quando chegar ao showdown com uma mão ativa.

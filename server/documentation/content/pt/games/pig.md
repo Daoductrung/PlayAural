@@ -16,13 +16,13 @@ O jogo continua ao redor da mesa até que um jogador ou equipe acumule pontos su
 
 **Estratégia**
 
-Cada rolagem arrisca o total completo do turno. Com o dado padrão de seis faces, uma linha de base comum é guardar com cerca de 20 a 25 pontos de turno, ajustando em seguida para a pontuação:
+Cada rolagem arrisca o total completo do turno. Com o dado padrão de seis lados, uma linha de base comum é guardar com cerca de 20 a 25 pontos de turno, ajustando em seguida para a pontuação:
 
 * Guarde mais cedo quando você estiver confortavelmente à frente.
 * Assuma mais riscos quando um oponente estiver perto de vencer.
 * Se o total do seu turno atual for vencer o jogo, guardar garante a vitória imediatamente.
 
-Os bots consideram o número de faces do dado, a retenção mínima, a diferença de pontuação e quantos pontos restam para vencer.
+Os bots consideram o número de lados do dado, a guarda mínima, a diferença de pontuação e quantos pontos restam para vencer.
 
 **Equipes**
 
@@ -31,14 +31,14 @@ Nos modos de equipe, os companheiros de equipe compartilham uma pontuação perm
 **Opções Personalizáveis**
 
 * **Pontuação Alvo:** O total necessário para vencer (padrão 100, intervalo de 10 a 1.000).
-* **Retenção Mínima:** O total de turno necessário antes que a opção Guardar esteja disponível. Um valor de 0 segue o Porquinho padrão. Deve permanecer abaixo da pontuação alvo (padrão 0, intervalo de 0 a 999).
-* **Faces do Dado:** Rolar 1 sempre perde o total do turno, então mais faces reduzem a chance de perder pontos em cada rolagem (padrão dado de 6 faces, intervalo de 4 a 20 faces).
+* **Guarda mínima:** O total de turno necessário antes que a opção Guardar esteja disponível. Um valor de 0 segue o Porquinho padrão. Deve permanecer abaixo da pontuação alvo (padrão 0, intervalo de 0 a 999).
+* **Lados do dado:** Rolar 1 sempre perde o total do turno, então mais lados reduzem a chance de perder pontos em cada rolagem (padrão dado de 6 lados, intervalo de 4 a 20 lados).
 * **Modo de Equipe:** Jogue individualmente ou em arranjos de equipe suportados. O arranjo selecionado deve corresponder ao número de jogadores ativos.
 
 **Opções Pessoais de Jogo**
 
-* **Anúncios Resumidos:** Usa mensagens mais curtas de rolagem, salvamento, estouro, rodada e vencedor, mantendo todas as pontuações essenciais.
-* **Confirmar Ações Arriscadas:** Quando ativado, uma rolagem de alto risco deve ser pressionada uma segunda vez em até 10 segundos. Isso se aplica quando o total do turno atinge o limite de retenção estratégica do dado ou quando guardar já venceria o jogo.
+* **Anúncios breves:** Usa mensagens mais curtas de rolagem, salvamento, estouro, rodada e vencedor, mantendo todas as pontuações essenciais.
+* **Confirmar ações arriscadas:** Quando ativado, uma rolagem de alto risco deve ser pressionada uma segunda vez em até 10 segundos. Isso se aplica quando o total do turno atinge o limite de retenção estratégica do dado ou quando guardar já venceria o jogo.
 
 **Status do Turno**
 

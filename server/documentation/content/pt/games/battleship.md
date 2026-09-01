@@ -22,7 +22,7 @@ No modo manual, você posiciona os navios um de cada vez. Navegue pela grade par
 
 **Fase de Batalha**
 
-Os jogadores revezam turnos disparando contra a grade do oponente. Navegue até uma coordenada na grade alvo e pressione Enter para disparar. Após um breve atraso, o resultado é anunciado: acerto ou erro.
+Os jogadores revezam-se nos turnos disparando contra a grade do oponente. Navegue até uma coordenada na grade alvo e pressione Enter para disparar. Após um breve atraso, o resultado é anunciado: acerto ou erro.
 
 Quando todas as células de um navio forem atingidas, esse navio afunda e ambos os jogadores são notificados de qual embarcação foi destruída. Se a opção de salva extra ao acertar estiver ativada, um acerto bem-sucedido concede um tiro adicional antes que o turno passe para o oponente.
 

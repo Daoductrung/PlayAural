@@ -2,7 +2,7 @@
 
 
 
-Nine, também conhecido como Deviatka, é um jogo de cartas russo em formato "shedding" (descarte) onde os jogadores correm para esvaziar suas mãos construindo quatro sequências de naipes na mesa.
+Nove, também conhecido como Deviatka, é um jogo de cartas russo de descarte onde os jogadores correm para esvaziar suas mãos construindo quatro sequências de naipes na mesa.
 
 
 

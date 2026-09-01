@@ -23,11 +23,11 @@ Se um relógio estiver ativado, apenas o relógio do jogador ativo corre. Após 
 
 **Mecânicas Especiais**
 
-* **Roque:** O roque é legal se o rei e a torre envolvidos não se moveram, as casas entre eles estão vazias, o rei não está atualmente em xeque e o rei não se move através de ou para o xeque.
-* **En passant:** Se um peão oposto avança duas casas em um único movimento e pousa ao lado do seu peão, você pode capturá-lo imediatamente como se ele tivesse se movido apenas uma casa.
+* **Roque:** O roque é legal se o rei e a torre envolvidos não se moveram, as casas entre eles estão vazias, o rei não está atualmente em xeque e não passa por nem termina em uma casa sob ataque.
+* **En passant:** Se um peão oposto avança duas casas em um único movimento e termina ao lado do seu peão, você pode capturá-lo imediatamente como se ele tivesse se movido apenas uma casa.
 * **Promoção:** Quando um peão alcança a última fileira, ele deve ser promovido a uma dama, torre, bispo ou cavalo.
 * **Xeque-mate:** O jogo termina imediatamente quando um jogador está em xeque e não tem nenhum movimento legal.
-* **Afogamento (Stalemate):** O jogo empata se o lado a mover não está em xeque mas não tem nenhum movimento legal.
+* **Afogamento:** O jogo empata se o lado a mover não estiver em xeque, mas não tiver nenhum movimento legal.
 * **Material insuficiente:** O jogo empata automaticamente se nenhum dos lados tiver material suficiente para forçar o xeque-mate.
 * **Tempo esgotado:** Se o relógio de um jogador chega a zero, esse jogador perde por tempo, a menos que o oponente não tenha material suficiente para jamais dar xeque-mate, caso em que o jogo empata.
 
@@ -42,7 +42,7 @@ O xadrez inclui várias maneiras para um jogo terminar em empate.
 * **Oferta de empate:** Se as ofertas de empate estiverem ativadas para a mesa, um jogador pode oferecer um empate após ambos os jogadores terem feito pelo menos um movimento, e o oponente pode aceitar ou recusar.
 * **Pedido para desfazer:** Se os pedidos para desfazer estiverem ativados para a mesa, um jogador pode pedir para retomar o movimento mais recente e o oponente pode aceitar ou recusar.
 
-O anfitrião decide se a tríplice repetição e a regra dos cinquenta movimentos são tratadas automaticamente ou devem ser reivindicadas pelo jogador cujo turno é. A quíntupla repetição e a regra dos setenta e cinco movimentos são sempre automáticas.
+O anfitrião decide se a tríplice repetição e a regra dos cinquenta movimentos são tratadas automaticamente ou devem ser reivindicadas pelo jogador que está na vez. A quíntupla repetição e a regra dos setenta e cinco movimentos são sempre automáticas.
 
 **Opções Personalizáveis**
 

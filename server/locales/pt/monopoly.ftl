@@ -59,7 +59,7 @@ monopoly-action-jail-roll = Rolar por duplas
 monopoly-action-jail-pay = Pagar a multa e sair da prisão
 monopoly-action-jail-card = Usar carta Saia da Prisão de Graça
 monopoly-action-keep-received-mortgaged = Manter propriedade recebida hipotecada
-monopoly-action-unmortgage-received-now = Deshipotsecar propriedade recebida agora
+monopoly-action-unmortgage-received-now = Desipotecar propriedade recebida agora
 monopoly-action-pay-debt = Pagar dívida
 monopoly-action-raise-cash = Levantar dinheiro automaticamente
 monopoly-action-bankruptcy = Declarar falência
@@ -68,11 +68,11 @@ monopoly-action-sell-building = Vender construção
 monopoly-action-sell-group-buildings = Vender todas as construções deste grupo de cores
 monopoly-action-sell-group-development = Vender todos os { $development } deste grupo de cores
 monopoly-action-mortgage = Hipotecar propriedade
-monopoly-action-unmortgage = Deshipotsecar propriedade
+monopoly-action-unmortgage = Desipotecar propriedade
 monopoly-action-choose-build-property = Construir casa ou hotel
 monopoly-action-choose-sell-property = Vender casa ou hotel
 monopoly-action-choose-mortgage-property = Hipotecar propriedade
-monopoly-action-choose-unmortgage-property = Deshipotsecar propriedade
+monopoly-action-choose-unmortgage-property = Desipotecar propriedade
 monopoly-action-choose-managed-property = Gerenciar ou inspecionar qualquer propriedade
 monopoly-action-back-to-property-list = Voltar à lista de propriedades
 monopoly-action-finish-management = Concluir gerenciamento de propriedades
@@ -105,7 +105,7 @@ monopoly-desc-bankruptcy = Encerra seu jogo e transfere seus ativos restantes pa
 monopoly-desc-choose-build-property = Abre uma lista de propriedades onde você pode pagar legalmente o próximo nível de desenvolvimento.
 monopoly-desc-choose-sell-property = Abre uma lista de níveis de desenvolvimento que podem ser vendidos mantendo cada grupo de cores equilibrado.
 monopoly-desc-choose-mortgage-property = Abre uma lista de propriedades que podem ser hipotecadas. Um grupo de cores não deve ter nenhum desenvolvimento antes que uma de suas propriedades possa ser hipotecada.
-monopoly-desc-choose-unmortgage-property = Abre uma lista de propriedades hipotecadas que você pode pagar para deshipotsecar no momento.
+monopoly-desc-choose-unmortgage-property = Abre uma lista de propriedades hipotecadas que você pode pagar para desipotecar no momento.
 monopoly-desc-build = Compra o próximo nível de desenvolvimento nesta propriedade. O desenvolvimento deve permanecer equilibrado em seu grupo de cores.
 monopoly-desc-sell-building = Vende um nível de desenvolvimento para o Banco por metade do custo de compra. As vendas devem permanecer equilibradas no grupo de cores.
 monopoly-desc-sell-group-buildings = Vende todos os níveis de desenvolvimento neste grupo de cores, seguindo a regra de venda equilibrada.
@@ -116,7 +116,7 @@ monopoly-prompt-portfolio-player = Escolha um jogador para ver suas propriedades
 monopoly-prompt-choose-build-property = Escolha uma propriedade que possa receber seu próximo nível de desenvolvimento agora.
 monopoly-prompt-choose-sell-property = Escolha um nível de desenvolvimento que possa ser vendido agora.
 monopoly-prompt-choose-mortgage-property = Escolha uma propriedade que possa ser hipotecada agora.
-monopoly-prompt-choose-unmortgage-property = Escolha uma propriedade hipotecada que você possa pagar para deshipotsecar agora.
+monopoly-prompt-choose-unmortgage-property = Escolha uma propriedade hipotecada que você possa pagar para desipotecar agora.
 monopoly-prompt-choose-managed-property = Escolha uma de suas propriedades para inspecionar ou gerenciar.
 monopoly-prompt-back-to-property-list = Escolha outra propriedade ou cancele para continuar visualizando esta.
 monopoly-prompt-trade-player = Escolha o jogador com quem deseja negociar.
@@ -137,20 +137,20 @@ monopoly-custom-bid-label = Inserir lance personalizado; mínimo { $minimum }
 monopoly-bid-description = Maior lance atual: { $highest }, liderado por { $leader }. Você tem { $cash }.
 monopoly-pay-debt-label = Pagar { $amount }
 monopoly-keep-received-mortgaged-label = Manter { $property } hipotecada e pagar { $interest } de juros
-monopoly-unmortgage-received-now-label = Deshipotsecar { $property } agora por { $cost }
-monopoly-mortgage-transfer-description = Recebeu { $property } hipotecada. Pague { $interest } para mantê-la hipotecada ou { $unmortgage } para deshipotsecá-la agora.
-monopoly-build-label = Comprar um(a) { $building } por { $cost }
-monopoly-sell-building-label = Vender um(a) { $building } por { $value }
+monopoly-unmortgage-received-now-label = Desipotecar { $property } agora por { $cost }
+monopoly-mortgage-transfer-description = Recebeu { $property } hipotecada. Pague { $interest } para mantê-la hipotecada ou { $unmortgage } para desipotecá-la agora.
+monopoly-build-label = Comprar uma construção { $building } por { $cost }
+monopoly-sell-building-label = Vender uma construção { $building } por { $value }
 monopoly-sell-group-buildings-label = Vender todos(as) os(as) { $development } no grupo { $group } por { $value }
 monopoly-mortgage-label = Hipotecar por { $value }
-monopoly-unmortgage-label = Deshipotsecar por { $cost }
+monopoly-unmortgage-label = Desipotecar por { $cost }
 monopoly-managing-property = Gerenciando { $property }, { $group }; { $state }; dinheiro: { $cash }.
 monopoly-property-option = { $property }; { $group }; { $status }
-monopoly-build-property-option = { $property }; { $group }; comprar um(a) { $building } por { $cost }; atual: { $current }; dinheiro { $cash }
-monopoly-sell-property-option = { $property }; { $group }; vender um(a) { $building } por { $value }; atual: { $current }
+monopoly-build-property-option = { $property }; { $group }; comprar uma construção { $building } por { $cost }; atual: { $current }; dinheiro { $cash }
+monopoly-sell-property-option = { $property }; { $group }; vender uma construção { $building } por { $value }; atual: { $current }
 monopoly-sell-group-option = Vender todos(as) os(as) { $development } no grupo { $group } por { $value }
 monopoly-mortgage-property-option = { $property }; { $group }; hipotecar por { $value }; dinheiro { $cash }
-monopoly-unmortgage-property-option = { $property }; { $group }; deshipotsecar por { $cost }; dinheiro { $cash }
+monopoly-unmortgage-property-option = { $property }; { $group }; desipotecar por { $cost }; dinheiro { $cash }
 monopoly-group-building-member = { $property }: { $buildings }
 monopoly-sell-group-option-description = O Banco tem apenas { $bank_houses } casas, portanto nenhum hotel no grupo { $group } pode ser desfeito separadamente. Venda todos(as) os(as) { $development } do grupo por { $value }. Desenvolvimento atual: { $properties }.
 monopoly-property-description = { $property }; tipo: { $kind }; { $group }: { $group_members }; proprietário: { $owner }; preço: { $price }; hipoteca: { $mortgage }; desenvolvimento: { $buildings }; aluguel: { $rents }.
@@ -203,11 +203,11 @@ monopoly-building-house-count = { $count ->
 }
 monopoly-property-state = { $mortgaged ->
     [yes] hipotecada
-   *[no] deshipotecada
+   *[no] desipotecada
 }; { $buildings }
 monopoly-property-state-no-buildings = { $mortgaged ->
     [yes] hipotecada
-   *[no] deshipotecada
+   *[no] desipotecada
 }
 monopoly-player-active = ativo
 monopoly-you = você
@@ -300,7 +300,7 @@ monopoly-player-three-doubles = { $player } tirou duplas três vezes seguidas e 
 monopoly-you-three-doubles-brief = Três duplas: { $jail }.
 monopoly-player-three-doubles-brief = { $player }: três duplas, { $jail }.
 monopoly-you-pass-go = Você alcança ou passa por { $go } e coleta { $amount }. Agora você tem { $cash }.
-monopoly-player-pass-go = { $player } alcança ou passa por { $go } e coleta { $amount }. Agora eles têm { $cash }.
+monopoly-player-pass-go = { $player } alcança ou passa por { $go } e coleta { $amount }. Saldo atual: { $cash }.
 monopoly-you-pass-go-brief = +{ $amount }.
 monopoly-player-pass-go-brief = { $player }: +{ $amount }.
 monopoly-you-move = { $direction ->
@@ -330,7 +330,7 @@ monopoly-player-must-pass-go-property = { $player } não pode comprar { $propert
 monopoly-you-must-pass-go-property-brief = Não pode comprar antes de passar por { $go }; leilão.
 monopoly-player-must-pass-go-property-brief = { $player } não pode comprar ainda; leilão.
 monopoly-you-snake-eyes-bonus = Olhos de cobra pagam a você um bônus de { $amount }. Agora você tem { $cash }.
-monopoly-player-snake-eyes-bonus = Olhos de cobra pagam a { $player } um bônus de { $amount }. Agora eles têm { $cash }.
+monopoly-player-snake-eyes-bonus = Olhos de cobra pagam a { $player } um bônus de { $amount }. Saldo atual: { $cash }.
 monopoly-you-snake-eyes-bonus-brief = Olhos de cobra: +{ $amount }.
 monopoly-player-snake-eyes-bonus-brief = { $player }: olhos de cobra, +{ $amount }.
 monopoly-you-free-parking = Você descansa em { $space }. Nenhum dinheiro é coletado ou pago.
@@ -338,7 +338,7 @@ monopoly-player-free-parking = { $player } descansa em { $space }. Nenhum dinhei
 monopoly-you-free-parking-empty = Você parou em { $space }, mas o jackpot está vazio.
 monopoly-player-free-parking-empty = { $player } parou em { $space }, mas o jackpot está vazio.
 monopoly-you-collect-free-parking = Você coleta o jackpot de { $amount } em { $space }. Agora você tem { $cash }.
-monopoly-player-collects-free-parking = { $player } coleta o jackpot de { $amount } em { $space }. Agora eles têm { $cash }.
+monopoly-player-collects-free-parking = { $player } coleta o jackpot de { $amount } em { $space }. Saldo atual: { $cash }.
 monopoly-you-collect-free-parking-brief = Jackpot: +{ $amount }.
 monopoly-player-collects-free-parking-brief = { $player }: bote, +{ $amount }.
 monopoly-you-just-visiting = Você está apenas visitando { $jail }.
@@ -348,7 +348,7 @@ monopoly-player-land-go = { $player } parou em { $go }.
 
 # Purchasing, rent, and auctions
 monopoly-you-buy-property = Você compra { $property }, { $group }, por { $price }. Sobrou { $cash }.
-monopoly-player-buy-property = { $player } compra { $property }, { $group }, por { $price }. Sobrou { $cash } para eles.
+monopoly-player-buy-property = { $player } compra { $property }, { $group }, por { $price }. Saldo restante: { $cash }.
 monopoly-you-buy-property-brief = Você comprou { $property } por { $price }.
 monopoly-player-buy-property-brief = { $player } comprou { $property } por { $price }.
 monopoly-you-complete-property-group = Agora você possui o grupo { $group } completo: { $properties }.
@@ -390,7 +390,7 @@ monopoly-player-passes-auction = { $player } sai deste leilão.
 monopoly-you-pass-auction-brief = Você passa.
 monopoly-player-passes-auction-brief = { $player } passa.
 monopoly-you-win-auction = Você vence { $property }, { $group }, por { $amount }. Sobrou { $cash }.
-monopoly-player-wins-auction = { $player } vence { $property }, { $group }, por { $amount }. Sobrou { $cash } para eles.
+monopoly-player-wins-auction = { $player } vence { $property }, { $group }, por { $amount }. Saldo restante: { $cash }.
 monopoly-you-win-auction-brief = Você venceu { $property } por { $amount }.
 monopoly-player-wins-auction-brief = { $player } venceu { $property } por { $amount }.
 monopoly-auction-no-sale = Ninguém deu lance em { $property }, então ela permanece com o Banco.
@@ -406,11 +406,11 @@ monopoly-player-utility-rent-roll-brief = Rolagem de aluguel de { $utility } de 
 monopoly-you-draw-card = Você compra: { $card }
 monopoly-player-draw-card = { $player } compra: { $card }
 monopoly-you-no-repair-cost = Você não tem { $development }, então a carta de reparo não custa nada para você.
-monopoly-player-no-repair-cost = { $player } não tem { $development }, então a carta de reparo não custa nada para eles.
+monopoly-player-no-repair-cost = { $player } não tem { $development }, então a carta de reparo não gera nenhum custo.
 monopoly-you-no-repair-cost-brief = Sem { $development }; sem custo de reparo.
 monopoly-player-no-repair-cost-brief = { $player } não tem { $development }; sem custo de reparo.
 monopoly-you-collect-bank = Você coleta { $amount } do Banco. Agora você tem { $cash }.
-monopoly-player-collect-bank = { $player } coleta { $amount } do Banco. Agora eles têm { $cash }.
+monopoly-player-collect-bank = { $player } coleta { $amount } do Banco. Saldo atual: { $cash }.
 monopoly-you-collect-bank-brief = Banco: +{ $amount }.
 monopoly-player-collect-bank-brief = { $player }: +{ $amount }.
 monopoly-you-keep-jail-card = Você guarda uma carta Saia da Prisão de Graça até usá-la ou trocá-la.
@@ -458,7 +458,7 @@ monopoly-player-go-jail = { $player } vai diretamente para { $jail }. O turno de
 monopoly-you-go-jail-brief = Vá para { $jail }.
 monopoly-player-go-jail-brief = { $player } vai para { $jail }.
 monopoly-you-pay-jail = Você paga { $amount } e sai da prisão. Sobrou { $cash }; agora role normalmente.
-monopoly-player-pays-jail = { $player } paga { $amount } e sai da prisão. Sobrou { $cash } para eles.
+monopoly-player-pays-jail = { $player } paga { $amount } e sai da prisão. Saldo restante: { $cash }.
 monopoly-you-pay-jail-brief = Pago { $amount }; fora da prisão.
 monopoly-player-pays-jail-brief = { $player } paga { $amount } e sai da prisão.
 monopoly-you-use-jail-card = Você devolve uma carta Saia da Prisão de Graça e sai da prisão; agora role normalmente.
@@ -505,7 +505,7 @@ monopoly-you-owe = Você deve { $amount } para { $destination ->
 monopoly-player-owes = { $player } deve { $amount } para { $destination ->
     [player] { $creditor }
    *[bank] o Banco
-} por { $reason }. Atualmente eles têm { $cash }.
+} por { $reason }. Saldo atual: { $cash }.
 monopoly-you-owe-brief = Você deve { $amount } para { $destination ->
     [player] { $creditor }
    *[bank] o Banco
@@ -521,7 +521,7 @@ monopoly-you-pay-debt = Você paga { $amount } para { $destination ->
 monopoly-player-pays-debt = { $player } paga { $amount } para { $destination ->
     [player] { $creditor }
    *[bank] o Banco
-} por { $reason }. Sobrou { $cash } para eles.
+} por { $reason }. Saldo restante: { $cash }.
 monopoly-you-pay-debt-brief = Pago { $amount } por { $reason }.
 monopoly-player-pays-debt-brief = { $player } paga { $amount } por { $reason }.
 monopoly-you-pay-player-batch = Você paga { $amount } para cada um de { $count ->
@@ -531,7 +531,7 @@ monopoly-you-pay-player-batch = Você paga { $amount } para cada um de { $count 
 monopoly-player-pays-player-batch = { $player } paga { $amount } para cada um de { $count ->
     [one] 1 jogador
    *[other] { $count } jogadores
-}, { $total } no total. Sobrou { $cash } para eles.
+}, { $total } no total. Saldo restante: { $cash }.
 monopoly-you-pay-player-batch-brief = Pago { $total } para { $count ->
     [one] 1 jogador
    *[other] { $count } jogadores
@@ -547,7 +547,7 @@ monopoly-you-collect-player-batch = Você coleta { $amount } de cada um de { $co
 monopoly-player-collects-player-batch = { $player } coleta { $amount } de cada um de { $count ->
     [one] 1 jogador
    *[other] { $count } jogadores
-}, { $total } no total. Agora eles têm { $cash }.
+}, { $total } no total. Saldo atual: { $cash }.
 monopoly-you-collect-player-batch-brief = Coletado { $total } de { $count ->
     [one] 1 jogador
    *[other] { $count } jogadores
@@ -557,39 +557,39 @@ monopoly-player-collects-player-batch-brief = { $player } coleta { $total } de {
    *[other] { $count } jogadores
 }.
 monopoly-you-raise-cash = Você levanta { $amount } vendendo { $development } de forma equilibrada e hipotecando propriedades legais. Agora você tem { $cash } contra uma dívida de { $debt }.
-monopoly-player-raises-cash = { $player } levanta { $amount } vendendo { $development } de forma equilibrada e hipotecando propriedades legais. Agora eles têm { $cash } contra uma dívida de { $debt }.
+monopoly-player-raises-cash = { $player } levanta { $amount } vendendo { $development } de forma equilibrada e hipotecando propriedades elegíveis. O saldo agora é { $cash } para uma dívida de { $debt }.
 monopoly-you-raise-cash-brief = Levantado { $amount }.
 monopoly-player-raises-cash-brief = { $player } levanta { $amount }.
 monopoly-you-bankrupt = Você não pode levantar os { $amount } que deve e está falido. Seus ativos vão para { $destination ->
     [player] { $creditor }
    *[bank] o Banco
 }.
-monopoly-player-bankrupt = { $player } não pode levantar os { $amount } que deve e está falido. Os ativos deles vão para { $destination ->
+monopoly-player-bankrupt = { $player } não pode levantar os { $amount } que deve e está falido. Seus ativos vão para { $destination ->
     [player] { $creditor }
    *[bank] o Banco
 }.
 monopoly-you-bankrupt-brief = Você está falido.
 monopoly-player-bankrupt-brief = { $player } está falido.
-monopoly-you-build = Você compra um(a) { $building } em { $property } por { $cost }. Sobrou { $cash }.
-monopoly-player-builds = { $player } compra um(a) { $building } em { $property } por { $cost }. Sobrou { $cash } para eles.
-monopoly-you-build-brief = Construiu um(a) { $building } em { $property }.
-monopoly-player-builds-brief = { $player } constrói um(a) { $building } em { $property }.
-monopoly-you-sell-building = Você vende um(a) { $building } de { $property } por { $value }. Agora você tem { $cash }.
-monopoly-player-sells-building = { $player } vende um(a) { $building } de { $property } por { $value }. Agora eles têm { $cash }.
-monopoly-you-sell-building-brief = Vendido um(a) { $building } de { $property }.
-monopoly-player-sells-building-brief = { $player } vende um(a) { $building } de { $property }.
+monopoly-you-build = Você compra uma construção { $building } em { $property } por { $cost }. Sobrou { $cash }.
+monopoly-player-builds = { $player } compra uma construção { $building } em { $property } por { $cost }. Saldo restante: { $cash }.
+monopoly-you-build-brief = Você construiu uma construção { $building } em { $property }.
+monopoly-player-builds-brief = { $player } constrói uma construção { $building } em { $property }.
+monopoly-you-sell-building = Você vende uma construção { $building } de { $property } por { $value }. Agora você tem { $cash }.
+monopoly-player-sells-building = { $player } vende uma construção { $building } de { $property } por { $value }. Saldo atual: { $cash }.
+monopoly-you-sell-building-brief = Você vendeu uma construção { $building } de { $property }.
+monopoly-player-sells-building-brief = { $player } vende uma construção { $building } de { $property }.
 monopoly-you-sell-group-buildings = Você vende todos(as) os(as) { $development } no grupo { $group } por { $value }. Agora você tem { $cash }.
-monopoly-player-sells-group-buildings = { $player } vende todos(as) os(as) { $development } no grupo { $group } por { $value }. Agora eles têm { $cash }.
+monopoly-player-sells-group-buildings = { $player } vende todo o desenvolvimento ({ $development }) do grupo { $group } por { $value }. Saldo atual: { $cash }.
 monopoly-you-sell-group-buildings-brief = Vendido(as) todos(as) os(as) { $development } de { $group } por { $value }.
 monopoly-player-sells-group-buildings-brief = { $player } vende todos(as) os(as) { $development } de { $group } por { $value }.
 monopoly-you-mortgage = Você hipoteca { $property } por { $value }. Agora você tem { $cash }.
-monopoly-player-mortgages = { $player } hipoteca { $property } por { $value }. Agora eles têm { $cash }.
+monopoly-player-mortgages = { $player } hipoteca { $property } por { $value }. Saldo atual: { $cash }.
 monopoly-you-mortgage-brief = Hipotecado { $property } por { $value }.
 monopoly-player-mortgages-brief = { $player } hipoteca { $property } por { $value }.
-monopoly-you-unmortgage = Você paga { $cost } para deshipotsecar { $property }. Sobrou { $cash }.
-monopoly-player-unmortgages = { $player } paga { $cost } para deshipotsecar { $property }. Sobrou { $cash } para eles.
-monopoly-you-unmortgage-brief = Deshipotsecado { $property } por { $cost }.
-monopoly-player-unmortgages-brief = { $player } deshipotseca { $property } por { $cost }.
+monopoly-you-unmortgage = Você paga { $cost } para quitar a hipoteca de { $property }. Sobrou { $cash }.
+monopoly-player-unmortgages = { $player } paga { $cost } para quitar a hipoteca de { $property }. Saldo restante: { $cash }.
+monopoly-you-unmortgage-brief = Hipoteca de { $property } quitada por { $cost }.
+monopoly-player-unmortgages-brief = { $player } desipoteca { $property } por { $cost }.
 monopoly-you-win = Todos os outros jogadores estão falidos. Você vence com { $cash } em dinheiro e patrimônio líquido estimado em { $net_worth }.
 monopoly-player-wins = Todos os outros jogadores estão falidos. { $player } vence com { $cash } em dinheiro e patrimônio líquido estimado em { $net_worth }.
 monopoly-you-win-brief = Você vence.
@@ -715,7 +715,7 @@ monopoly-error-no-assets-to-liquidate = Você não tem { $development } que poss
 monopoly-error-can-still-raise-cash = Você pode declarar falência apenas após vender { $development } e hipotecar todas as propriedades legais; ainda há valor suficiente para cobrir esta dívida.
 monopoly-error-not-your-street = Esse espaço não é uma das suas ruas.
 monopoly-error-need-color-set = Você deve possuir todas as ruas deste grupo de cores antes de construir.
-monopoly-error-group-mortgaged = Deshipotseque todas as propriedades deste grupo de cores antes de construir.
+monopoly-error-group-mortgaged = Desipoteque todas as propriedades deste grupo de cores antes de construir.
 monopoly-error-already-hotel = Esta rua já tem um hotel.
 monopoly-error-hotels-require-four-each = Cada rua deste grupo de cores deve ter quatro casas antes de você comprar um hotel.
 monopoly-error-no-hotels = O Banco não tem peças de hotel disponíveis.
@@ -731,20 +731,20 @@ monopoly-error-property-no-longer-eligible = Essa propriedade não é mais eleg�
 monopoly-error-no-sellable-buildings = Você não tem nenhuma casa ou hotel que possa ser vendido legalmente agora.
 monopoly-error-build-none-no-streets = Você não possui nenhuma rua na qual construções possam ser colocadas.
 monopoly-error-build-none-no-color-set = Você ainda não possui todas as ruas de nenhum grupo de cores.
-monopoly-error-build-none-groups-mortgaged = Todo grupo de cores completo que você possui contém uma propriedade hipotecada. Deshipotseque o grupo inteiro antes de construir.
+monopoly-error-build-none-groups-mortgaged = Todo grupo de cores completo que você possui contém uma propriedade hipotecada. Desipoteque o grupo inteiro antes de construir.
 monopoly-error-build-none-fully-developed = Todas as ruas em seus grupos de cores completos disponíveis já estão totalmente desenvolvidas.
-monopoly-error-build-none-developed-or-mortgaged = Todo grupo de cores completo deshipotecado está totalmente desenvolvido, e cada grupo completo restante contém uma propriedade hipotecada.
+monopoly-error-build-none-developed-or-mortgaged = Todo grupo de cores completo e desipotecado está totalmente desenvolvido, e cada grupo completo restante contém uma propriedade hipotecada.
 monopoly-error-build-none-needs-cash = A construção legal mais barata custa { $cost }, mas você tem apenas { $cash }.
 monopoly-error-no-development-pieces = O Banco não tem nenhuma das peças de casa ou hotel necessárias para sua próxima construção legal.
-monopoly-error-no-mortgageable-properties = Toda propriedade deshipotecada que você possui está em um grupo de cores que ainda tem construções. Venda as construções do grupo primeiro.
+monopoly-error-no-mortgageable-properties = Toda propriedade desipotecada que você possui está em um grupo de cores que ainda tem construções. Venda as construções do grupo primeiro.
 monopoly-error-no-unmortgaged-properties = Toda propriedade que você possui já está hipotecada.
 monopoly-error-no-mortgaged-properties = Você não possui nenhuma propriedade hipotecada.
 monopoly-error-unmortgage-none-needs-cash = Sua hipoteca mais barata custa { $cost } para limpar, mas você tem apenas { $cash }.
 monopoly-error-already-mortgaged = Essa propriedade já está hipotecada.
 monopoly-error-sell-group-buildings-first = Venda todas as construções no grupo de cores desta propriedade antes de hipotecá-la ou negociá-la.
 monopoly-error-not-mortgaged = Essa propriedade não está hipotecada.
-monopoly-error-unmortgage-needs-cash = Deshipotsecar custa { $cost }, mas você tem apenas { $cash }.
-monopoly-error-unmortgage-received-needs-cash = Deshipotsecar agora custa { $cost }; você tem { $cash }. Gerencie propriedades ou pague apenas os juros de transferência para mantê-la hipotecada.
+monopoly-error-unmortgage-needs-cash = Desipotecar custa { $cost }, mas você tem apenas { $cash }.
+monopoly-error-unmortgage-received-needs-cash = Desipotecar agora custa { $cost }; você tem { $cash }. Gerencie propriedades ou pague apenas os juros de transferência para mantê-la hipotecada.
 monopoly-error-must-roll-doubles = Você tirou dupla, então deve rolar novamente antes de encerrar seu turno.
 monopoly-error-roll-resolving = A rolagem atual ou o efeito do espaço ainda estão sendo resolvidos. Por favor, aguarde.
 monopoly-error-setup-in-progress = O tabuleiro ainda está sendo configurado e as rolagens iniciais estão em andamento. Por favor, aguarde.
@@ -784,24 +784,24 @@ monopoly-hanoi-error-no-group-development = Este grupo de cores não tem melhori
 monopoly-hanoi-error-sell-group-development-first = Venda todas as melhorias de negócio no grupo de cores desta propriedade antes de hipotecá-la ou negociá-la.
 monopoly-hanoi-error-build-none-no-businesses = Você não possui nenhum negócio que possa ser melhorado.
 monopoly-hanoi-error-build-none-no-color-set = Você ainda não possui todos os negócios em nenhum grupo de cores.
-monopoly-hanoi-error-build-none-groups-mortgaged = Todo grupo de cores completo que você possui contém um negócio hipotecado. Deshipotseque o grupo inteiro antes de melhorar.
+monopoly-hanoi-error-build-none-groups-mortgaged = Todo grupo de cores completo que você possui contém um negócio hipotecado. Desipoteque o grupo inteiro antes de melhorar.
 monopoly-hanoi-error-build-none-fully-developed = Todos os negócios em seus grupos de cores completos disponíveis já estão em seu nível mais alto.
-monopoly-hanoi-error-build-none-developed-or-mortgaged = Todo grupo de cores completo deshipotecado está totalmente melhorado, e cada grupo completo restante contém um negócio hipotecado.
+monopoly-hanoi-error-build-none-developed-or-mortgaged = Todo grupo de cores completo e desipotecado está totalmente melhorado, e cada grupo completo restante contém um negócio hipotecado.
 monopoly-hanoi-error-build-none-needs-cash = A melhoria de negócio legal mais barata custa { $cost }, mas você tem apenas { $cash }.
 
 # Mortgaged deeds received from another player
 monopoly-you-receive-mortgaged = Você recebeu a propriedade hipotecada { $property }. Pague { $interest } para mantê-la hipotecada ou pague { $unmortgage } para retirar a hipoteca imediatamente.
 monopoly-player-receives-mortgaged = { $player } recebeu a propriedade hipotecada { $property } e deve decidir se mantém ou retira sua hipoteca.
-monopoly-you-receive-mortgaged-brief = { $property } está hipotecada. Escolha { $interest } de juros ou { $unmortgage } para deshipotsecar.
+monopoly-you-receive-mortgaged-brief = { $property } está hipotecada. Escolha { $interest } de juros ou { $unmortgage } para desipotecar.
 monopoly-player-receives-mortgaged-brief = { $player } deve lidar com a hipoteca em { $property }.
 monopoly-you-keep-received-mortgaged = Você paga { $interest } de juros e mantém { $property } hipotecada. Sobrou { $cash }.
-monopoly-player-keeps-received-mortgaged = { $player } paga { $interest } de juros e mantém { $property } hipotecada. Sobrou { $cash } para eles.
+monopoly-player-keeps-received-mortgaged = { $player } paga { $interest } de juros e mantém { $property } hipotecada. Saldo restante: { $cash }.
 monopoly-you-keep-received-mortgaged-brief = Pago { $interest }; { $property } continua hipotecada.
 monopoly-player-keeps-received-mortgaged-brief = { $player } mantém { $property } hipotecada.
 monopoly-you-unmortgage-received-now = Você paga { $cost } e retira imediatamente a hipoteca de { $property }. Sobrou { $cash }.
-monopoly-player-unmortgages-received-now = { $player } paga { $cost } e retira imediatamente a hipoteca de { $property }. Sobrou { $cash } para eles.
-monopoly-you-unmortgage-received-now-brief = Deshipotsecado { $property } por { $cost }.
-monopoly-player-unmortgages-received-now-brief = { $player } deshipotseca { $property }.
+monopoly-player-unmortgages-received-now = { $player } paga { $cost } e retira imediatamente a hipoteca de { $property }. Saldo restante: { $cash }.
+monopoly-you-unmortgage-received-now-brief = Hipoteca de { $property } quitada por { $cost }.
+monopoly-player-unmortgages-received-now-brief = { $player } desipoteca { $property }.
 
 # United States board spaces
 monopoly-space-go = Início

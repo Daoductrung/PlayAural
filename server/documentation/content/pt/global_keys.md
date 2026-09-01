@@ -4,7 +4,7 @@ Este guia explica os controles que funcionam em todo o PlayAural. Jogadores de c
 
 # **Dicas de Menu**
 
-Itens de menu que possuem ajuda extra incluem essa descrição no próprio item por padrão, de modo que navegar pelo menu lê tanto a escolha quanto o que ela faz. Para usar itens de menu mais curtos, abra **Pessoal e Opções > Opções gerais > Acessibilidade > Dicas de Menu** e desative a configuração. Essa preferência se aplica a menus do sistema, opções de configuração de jogo e escolhas de jogo que fornecem descrições em cada cliente.
+Itens de menu que possuem ajuda extra incluem sua descrição no próprio item por padrão, de modo que a navegação pelo menu lê tanto a escolha quanto sua função. Para usar itens de menu mais curtos, abra **Pessoal e Opções > Opções gerais > Acessibilidade > Dicas de Menu** e desative a configuração. Essa preferência se aplica a menus do sistema, opções de configuração de jogo e escolhas de jogo que fornecem descrições em cada cliente.
 
 Quando as Dicas de Menu estão desativadas, os usuários de computador podem pressionar **Espaço** em uma opção descrita de sistema ou de configuração de jogo para ouvir sua ajuda sem ativá-la. O Espaço mantém seu atalho de jogo normal durante uma partida ativa. Você pode ativar as Dicas de Menu novamente sempre que quiser que as descrições sejam incluídas automaticamente.
 
@@ -51,7 +51,7 @@ O PlayAural agrupa mensagens em buffers separados para que você possa revisar m
 
 # **Controles Móveis**
 
-Se você estiver usando o cliente móvel, é altamente recomendável desativar o seu leitor de tela imediatamente após conectar-se com sucesso ao jogo para ter a melhor experiência.
+Se você estiver usando o cliente móvel, é altamente recomendável desativar o leitor de tela do seu sistema imediatamente após conectar-se com sucesso ao jogo para ter a melhor experiência.
 
 O cliente móvel possui sua própria navegação falada integrada. Você pode reativar temporariamente o leitor de tela do seu sistema quando precisar de entrada de texto nativa, como digitar uma senha ou escrever uma mensagem no chat, e depois retornar aos gestos integrados para jogar normalmente.
 

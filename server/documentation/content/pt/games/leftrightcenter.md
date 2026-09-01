@@ -1,6 +1,6 @@
 **Esquerda Centro Direita**
 
-Esquerda Centro Direita (LCR) é um jogo de dados rápido baseado na sorte para 3 a 20 jogadores. As fichas viajam ao redor da mesa até que apenas um jogador ainda tenha alguma. Esse jogador vence e reivindica o pote central.
+Esquerda Centro Direita (LCR) é um jogo de dados rápido baseado na sorte para 3 a 20 jogadores. As fichas viajam ao redor da mesa até que apenas um jogador ainda tenha alguma. Esse jogador vence e fica com o pote central.
 
 **Configuração**
 
@@ -28,7 +28,7 @@ Todos os dados são resolvidos a partir da mesma rolagem. O botão de Rolagem é
 
 **Vitória**
 
-O jogo termina imediatamente quando apenas um jogador ativo tem fichas. O vencedor mantém suas fichas restantes e reivindica todas as fichas do pote central.
+O jogo termina imediatamente quando apenas um jogador ativo tem fichas. O vencedor mantém suas fichas restantes e fica com todas as fichas do pote central.
 
 **Opções de Jogo**
 

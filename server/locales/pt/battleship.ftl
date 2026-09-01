@@ -11,7 +11,7 @@ battleship-select-placement-mode = Selecione o modo de implantação
 battleship-option-changed-placement-mode = Modo de implantação definido para { $mode }.
 battleship-desc-placement-mode = Escolhe se os navios são posicionados automática ou manualmente antes do início da batalha.
 
-battleship-set-replay-on-hit = Salva extra ao acertas: { $enabled }
+battleship-set-replay-on-hit = Salva extra ao acertar: { $enabled }
 battleship-option-changed-replay-on-hit = Salva extra ao acertar definida para { $enabled }.
 battleship-desc-replay-on-hit = Quando ativado, um jogador que pontua um acerto efetua imediatamente outro disparo.
 

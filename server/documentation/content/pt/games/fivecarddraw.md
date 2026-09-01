@@ -21,14 +21,14 @@ Da mais forte para a mais fraca, as mãos de pôquer são:
 
 1. **Royal flush:** 10, valete, dama, rei e ás, todos do mesmo naipe.
 2. **Straight flush:** cinco cartas em sequência, todas do mesmo naipe.
-3. **Four of a kind (Quadra):** quatro cartas do mesmo valor.
+3. **Quadra:** quatro cartas do mesmo valor.
 4. **Full house:** três cartas de um valor e duas cartas de outro valor.
 5. **Flush:** cinco cartas do mesmo naipe, não em sequência.
-6. **Straight (Sequência):** cinco cartas em sequência, nem todas do mesmo naipe. Um ás pode ser baixo em A-2-3-4-5.
-7. **Three of a kind (Trinca):** três cartas do mesmo valor.
-8. **Two pair (Dois pares):** dois pares diferentes.
-9. **One pair (Um par):** duas cartas do mesmo valor.
-10. **High card (Carta alta):** nenhuma combinação mais forte. A carta mais alta decide a mão.
+6. **Sequência:** cinco cartas em sequência, nem todas do mesmo naipe. Um ás pode ser baixo em A-2-3-4-5.
+7. **Trinca:** três cartas do mesmo valor.
+8. **Dois pares:** dois pares diferentes.
+9. **Um par:** duas cartas do mesmo valor.
+10. **Carta alta:** nenhuma combinação mais forte. A carta mais alta decide a mão.
 
 Se dois jogadores tiverem o mesmo tipo de mão, os valores dentro da mão decidem o vencedor. Se as mãos forem exatamente iguais, o pote é dividido. Os naipes das cartas nunca quebram um empate.
 
@@ -47,29 +47,29 @@ O ante é pago automaticamente. Um jogador que tiver menos fichas do que o ante 
 
 Durante uma rodada de apostas, as ações disponíveis dependem da aposta atual:
 
-* **Mesa / Passar (Check):** permanece na mão sem adicionar fichas quando ninguém apostou mais do que você.
-* **Pagar (Call):** adiciona fichas suficientes para igualar a aposta atual.
-* **Aumentar (Raise):** paga a aposta atual e a aumenta. Insira o valor pelo qual deseja aumentar, não o total final.
+* **Mesa / Passar:** permanece na mão sem adicionar fichas quando ninguém apostou mais do que você.
+* **Pagar:** adiciona fichas suficientes para igualar a aposta atual.
+* **Aumentar:** paga a aposta atual e a aumenta. Insira o valor pelo qual deseja aumentar, não o total final.
 * **All in:** compromete cada ficha restante quando o modo de aumento selecionado permite.
-* **Desistir (Fold):** sai da mão atual e desiste de quaisquer fichas já comprometidas com o pote.
+* **Desistir:** sai da mão atual e desiste de quaisquer fichas já comprometidas com o pote.
 
 As apostas continuam até que cada jogador que possa agir tenha igualado a aposta atual ou desistido. Um jogador que fica sem fichas permanece na mão, mas não pode apostar novamente.
 
 Quando vários jogadores estão all in por valores diferentes, o jogo cria um pote principal e quaisquer potes paralelos necessários automaticamente. Um jogador pode ganhar apenas os potes para os quais contribuiu.
 
-**O Descarte (The Draw)**
+**A Troca**
 
-Após a primeira rodada de apostas, cada jogador que não desistiu tem direito a um descarte, começando pelo primeiro jogador ativo à esquerda do croupier.
+Após a primeira rodada de apostas, cada jogador que não desistiu tem direito a uma troca, começando pelo primeiro jogador ativo à esquerda do croupier.
 
-Selecione as cartas que deseja trocar e escolha Comprar cartas (Draw cards). O jogo diz aos outros jogadores apenas quantas cartas você trocou. Suas cartas de substituição e a mão final são lidas em privado para você.
+Selecione as cartas que deseja trocar e escolha Trocar cartas (Draw cards). O jogo diz aos outros jogadores apenas quantas cartas você trocou. Suas cartas de substituição e a mão final são lidas em privado para você.
 
-Sob a regra de descarte padrão, você pode trocar até três cartas. Você também pode não selecionar nenhuma carta e ficar com o que tem (stand pat), mantendo todas as cinco cartas.
+Sob a regra de troca padrão, você pode trocar até três cartas. Você também pode não selecionar nenhuma carta e ficar com o que tem (stand pat), mantendo todas as cinco cartas.
 
-A regra opcional de quatro cartas permite trocar quatro cartas apenas quando a única carta que você guarda é um ás.
+A regra opcional de quatro cartas permite trocar quatro cartas apenas quando a única carta que você mantém é um ás.
 
-**Segunda Rodada de Apostas e Confronto (Showdown)**
+**Segunda Rodada de Apostas e Confronto**
 
-Após todos descartarem, a segunda rodada de apostas começa. O jogador que primeiro abriu as apostas na primeira rodada age primeiro se ainda estiver na mão. Se esse jogador não puder mais agir, o jogo continua a partir do próximo assento elegível. Se todos passaram na primeira rodada, o primeiro jogador ativo à esquerda do croupier age primeiro.
+Após todos trocarem suas cartas, a segunda rodada de apostas começa. O jogador que primeiro abriu as apostas na primeira rodada age primeiro se ainda estiver na mão. Se esse jogador não puder mais agir, o jogo continua a partir do próximo assento elegível. Se todos passaram na primeira rodada, o primeiro jogador ativo à esquerda do croupier age primeiro.
 
 Se dois ou mais jogadores permanecerem após as apostas, o jogo anuncia o confronto e revela suas mãos. A mão mais forte vence cada pote. Vencedores empatados dividem o pote, com qualquer ficha extra indivisível concedida na ordem da mesa após o croupier.
 
@@ -85,7 +85,7 @@ Você pode verificar informações públicas da mesa sem gastar seu turno:
 * **Jogadores na mão:** ouve quem não desistiu.
 * **Quem é o croupier:** ouve a posição atual do croupier.
 * **Sua posição:** ouve a quantos assentos você está do croupier.
-* **Cronômetro de turno:** ouve o tempo restante para a decisão atual.
+* **Temporizador de turno:** ouve o tempo restante para a decisão atual.
 * **Ler mão:** ouve suas cinco cartas particulares.
 * **Ler força da mão:** ouve a classificação atual de pôquer da sua mão.
 * **Ver pontuações:** ouve as fichas restantes de cada jogador.
@@ -96,18 +96,18 @@ Espectadores podem usar as ações de informação pública, mas não podem ler 
 
 * **Fichas iniciais:** a pilha de abertura de cada jogador (padrão 20.000, intervalo de 100 a 1.000.000).
 * **Ante:** a contribuição obrigatória no início de cada mão. Deve ser menor que a pilha inicial (padrão 100, intervalo de 0 a 1.000.000).
-* **Cronômetro de turno:** quanto tempo um jogador tem para agir (padrão Ilimitado, escolhas: 5, 10, 15, 20, 30, 45, 60 ou 90 segundos, ou Ilimitado).
-* **Modo de aumento:** os modos baseados em pote exigem um ante maior que 0 para que a primeira rodada de apostas possa abrir normalmente (padrão Sem limite, escolhas: Sem limite, Limite de pote ou Limite de pote duplo).
+* **Temporizador de turno:** quanto tempo um jogador tem para agir (padrão Ilimitado, escolhas: 5, 10, 15, 20, 30, 45, 60 ou 90 segundos, ou Ilimitado).
+* **Modo de aumento:** os modos baseados no pote exigem um ante maior que 0 para que a primeira rodada de apostas possa abrir normalmente (padrão Sem limite, escolhas: Sem limite, Limite de pote ou Limite de pote duplo).
 * **Máximo de aumentos por rodada de apostas:** quantos aumentos são permitidos em cada rodada de apostas. Zero significa ilimitado (padrão 0, intervalo de 0 a 10).
-* **Regra de descarte:** se os jogadores podem trocar até 3 cartas, ou 4 cartas ao guardar um ás (padrão Até 3 cartas).
+* **Regra de troca:** se os jogadores podem trocar até 3 cartas, ou 4 cartas ao manter um ás (padrão Até 3 cartas).
 
 **Atalhos de Teclado**
 
-* **C:** Mesa (Check) ou Pagar (Call).
-* **F:** Desistir (Fold).
-* **R:** Aumentar (Raise).
+* **C:** Mesa ou Pagar.
+* **F:** Desistir.
+* **R:** Aumentar.
 * **Shift+A:** All in.
-* **1 a 5:** seleciona ou desmarca essa carta durante o descarte.
+* **1 a 5:** seleciona ou desmarca essa carta durante a troca.
 * **D:** troca as cartas selecionadas ou mantém a mão (stand pat).
 * **W:** lê sua mão.
 * **G:** lê a força da sua mão.
@@ -117,7 +117,7 @@ Espectadores podem usar as ações de informação pública, mas não podem ler 
 * **H:** verifica os jogadores na mão.
 * **X:** verifica o croupier.
 * **Z:** verifica sua posição.
-* **Shift+T:** verifica o cronômetro de turno.
+* **Shift+T:** verifica o temporizador de turno.
 * **S:** verifica as fichas restantes.
 * **Shift+S:** abre os totais detalhados de fichas.
 * **T:** verifica de quem é o turno.

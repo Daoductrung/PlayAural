@@ -1,6 +1,6 @@
 **O Pôquer do Morto**
 
-O Pôquer do Morto é um jogo de pôquer de sobrevivência. Ele usa as classificações normais de mãos de pôquer, mas não usa fichas, dinheiro ou pontos. Cada aposta é uma bala. Se você desistir (fold) ou perder um confronto (showdown), as balas que você apostou são colocadas no revólver.
+O Pôquer do Morto é um jogo de pôquer de sobrevivência. Ele usa as classificações normais de mãos de pôquer, mas não usa fichas, dinheiro ou pontos. Cada aposta é uma bala. Se você desistir ou perder um confronto, as balas que você apostou são colocadas no revólver.
 
 Se você nunca jogou pôquer antes, comece com esta ideia: você está tentando formar a melhor mão de 5 cartas a partir de suas próprias 2 cartas particulares e das cartas compartilhadas na mesa. O jogo lê as informações importantes em voz alta, para que você possa aprender os tipos de mão enquanto joga.
 
@@ -79,13 +79,13 @@ Cada mão tem 4 rodadas de apostas:
 
 Durante uma rodada de apostas normal, cada jogador ativo tem uma decisão. Quando todos os ainda ativos tiverem agido, o jogo avança para a próxima revelação ou para o confronto.
 
-**Pagar (Call)**
+**Pagar**
 
 Pagar significa que você permanece na mão e coloca mais 1 bala na mesa.
 
 Quanto mais balas você apostar, mais perigoso o revólver se torna se você desistir depois ou perder o confronto.
 
-**Desistir (Fold)**
+**Desistir**
 
 Desistir significa que você sai da mão atual.
 
@@ -93,7 +93,7 @@ Desistir não protege você de graça. Você deve encarar o revólver usando o n
 
 Na sua primeira decisão de uma mão, o botão Desistir muda para Desistência Covarde enquanto você ainda tiver apenas a bala inicial apostada. Se você já usou a Desistência Covarde antes na partida, o mesmo botão permanece nesse contexto e diz por que você não pode usá-la novamente.
 
-**Desistência Covarde (Coward's Fold)**
+**Desistência Covarde**
 
 A Desistência Covarde é uma ação especial de segurança.
 
@@ -101,7 +101,7 @@ Você pode usá-la apenas uma vez por partida e apenas na sua primeira decisão 
 
 Use-a quando suas cartas iniciais parecerem horríveis e você não quiser que o perigo cresça. Depois de usar a Desistência Covarde uma vez, você não pode usá-la novamente pelo resto da partida.
 
-**Trocar Carta (Switch Card)**
+**Trocar Carta**
 
 Trocar Carta pode ser usado uma vez por mão.
 
@@ -126,9 +126,9 @@ Quando alguém vai all-in, as apostas normais param. Todos os outros jogadores a
 
 Você pode cobrir um all-in com Pagar ou All-in. Ambos os botões executam a mesma resposta de cobrir o all-in durante este momento.
 
-Se todo o oponente desistir, o jogador de all-in vence a mão sem confronto.
+Se todos os oponentes desistirem, o jogador de all-in vence a mão sem confronto.
 
-**Confronto (Showdown)**
+**Confronto**
 
 Se mais de um jogador permanecer após a quarta rodada de apostas, o jogo vai para o confronto.
 
@@ -164,11 +164,11 @@ Use as ações de informação sempre que precisar de orientação:
 
 Não há pontuações e nenhum alvo de pontuação.
 
-A partida termina quando apenas um jogador ainda está vivo. Esse jogador vence o O Pôquer do Morto.
+A partida termina quando apenas um jogador ainda está vivo. Esse jogador vence O Pôquer do Morto.
 
 **Opções Personalizáveis**
 
-O O Pôquer do Morto atualmente usa regras fixas. O anfitrião não tem opções específicas de jogo.
+O Pôquer do Morto atualmente usa regras fixas. O anfitrião não tem opções específicas de jogo.
 
 **Atalhos de Teclado**
 

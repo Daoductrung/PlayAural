@@ -5,6 +5,7 @@ const {
   withAppBuildGradle,
   withAndroidManifest,
   withDangerousMod,
+  withMainActivity,
   withMainApplication,
 } = require("@expo/config-plugins");
 
@@ -174,6 +175,324 @@ class BatteryOptimizationModule(
 `;
 }
 
+function getGestureConfigurationModuleSource(packageName) {
+  return `package ${packageName}
+
+import android.util.TypedValue
+import android.view.ViewConfiguration
+
+import com.facebook.react.bridge.ReactApplicationContext
+import com.facebook.react.bridge.ReactContextBaseJavaModule
+
+class GestureConfigurationModule(
+  private val reactContext: ReactApplicationContext,
+) : ReactContextBaseJavaModule(reactContext) {
+  companion object {
+    private const val PATH_SAMPLE_DISTANCE_MM = 2.5f
+    private const val SWIPE_CONFIRMATION_DISTANCE_MM = 10f
+  }
+
+  override fun getName(): String = "PlayAuralGestureConfiguration"
+
+  override fun getConstants(): Map<String, Any> {
+    val displayMetrics = reactContext.resources.displayMetrics
+    val density = displayMetrics.density.coerceAtLeast(1f)
+    val viewConfiguration = ViewConfiguration.get(reactContext)
+    val sampleDistanceDp = TypedValue.applyDimension(
+      TypedValue.COMPLEX_UNIT_MM,
+      PATH_SAMPLE_DISTANCE_MM,
+      displayMetrics,
+    ) / density
+    val swipeConfirmationDistanceDp = TypedValue.applyDimension(
+      TypedValue.COMPLEX_UNIT_MM,
+      SWIPE_CONFIRMATION_DISTANCE_MM,
+      displayMetrics,
+    ) / density
+
+    return mapOf(
+      "doubleTapSlopDp" to viewConfiguration.scaledDoubleTapSlop / density,
+      "longPressTimeoutMs" to ViewConfiguration.getLongPressTimeout(),
+      "multiTapTimeoutMs" to ViewConfiguration.getDoubleTapTimeout(),
+      "pathSampleDistanceDp" to sampleDistanceDp,
+      "singleFingerSwipeConfirmDistanceDp" to swipeConfirmationDistanceDp,
+      "touchSlopDp" to viewConfiguration.scaledTouchSlop / density,
+    )
+  }
+}
+`;
+}
+
+function getGestureInputModuleSource(packageName) {
+  return `package ${packageName}
+
+import android.view.MotionEvent
+
+import com.facebook.react.bridge.Arguments
+import com.facebook.react.bridge.ReactApplicationContext
+import com.facebook.react.bridge.ReactContextBaseJavaModule
+import com.facebook.react.bridge.WritableArray
+import com.facebook.react.bridge.WritableMap
+
+class GestureInputModule(
+  private val reactContext: ReactApplicationContext,
+) : ReactContextBaseJavaModule(reactContext) {
+  companion object {
+    private const val EVENT_NAME = "PlayAuralGestureFrames"
+
+    @Volatile
+    private var activeModule: GestureInputModule? = null
+
+    fun dispatchTouchEvent(event: MotionEvent) {
+      activeModule?.handleTouchEvent(event)
+    }
+  }
+
+  private var forwardingMultiTouch = false
+  private var pendingDownFrame: WritableMap? = null
+  private val displayDensity = reactContext.resources.displayMetrics.density.coerceAtLeast(1f)
+
+  override fun getName(): String = "PlayAuralGestureInput"
+
+  override fun getConstants(): Map<String, Any> = mapOf(
+    "available" to true,
+    "eventName" to EVENT_NAME,
+  )
+
+  override fun initialize() {
+    super.initialize()
+    activeModule = this
+  }
+
+  override fun invalidate() {
+    if (activeModule === this) {
+      activeModule = null
+    }
+    resetGesture()
+    super.invalidate()
+  }
+
+  private fun handleTouchEvent(event: MotionEvent) {
+    when (event.actionMasked) {
+      MotionEvent.ACTION_DOWN -> {
+        resetGesture()
+        pendingDownFrame = createTransitionFrame(
+          event,
+          phase = "start",
+          startsGesture = true,
+        )
+      }
+      MotionEvent.ACTION_POINTER_DOWN -> {
+        val frame = createTransitionFrame(
+          event,
+          phase = "start",
+          startsGesture = false,
+        )
+        if (!forwardingMultiTouch && event.pointerCount >= 2) {
+          forwardingMultiTouch = true
+          val frames = mutableListOf<WritableMap>()
+          pendingDownFrame?.let(frames::add)
+          frames.add(frame)
+          pendingDownFrame = null
+          emitFrames(frames)
+        } else if (forwardingMultiTouch) {
+          emitFrames(listOf(frame))
+        }
+      }
+      MotionEvent.ACTION_MOVE -> {
+        if (forwardingMultiTouch) {
+          emitFrames(createMoveFrames(event))
+        }
+      }
+      MotionEvent.ACTION_POINTER_UP -> {
+        if (forwardingMultiTouch) {
+          emitFrames(
+            listOf(
+              createTransitionFrame(
+                event,
+                phase = "end",
+                startsGesture = false,
+              ),
+            ),
+          )
+        }
+      }
+      MotionEvent.ACTION_UP -> {
+        if (forwardingMultiTouch) {
+          emitFrames(
+            listOf(
+              createTransitionFrame(
+                event,
+                phase = "end",
+                startsGesture = false,
+              ),
+            ),
+          )
+        }
+        resetGesture()
+      }
+      MotionEvent.ACTION_CANCEL -> {
+        if (forwardingMultiTouch) {
+          emitFrames(
+            listOf(
+              createTransitionFrame(
+                event,
+                phase = "cancel",
+                startsGesture = false,
+              ),
+            ),
+          )
+        }
+        resetGesture()
+      }
+    }
+  }
+
+  private fun createMoveFrames(event: MotionEvent): List<WritableMap> {
+    val frames = mutableListOf<WritableMap>()
+    for (historyIndex in 0 until event.historySize) {
+      frames.add(createMoveFrame(event, historyIndex))
+    }
+    frames.add(createMoveFrame(event, historyIndex = null))
+    return frames
+  }
+
+  private fun createMoveFrame(event: MotionEvent, historyIndex: Int?): WritableMap {
+    val touches = createTouchArray(
+      event,
+      excludedPointerIndex = null,
+      historyIndex = historyIndex,
+    )
+    return createFrame(
+      activeTouchCount = event.pointerCount,
+      changedTouches = Arguments.createArray(),
+      phase = "move",
+      startsGesture = false,
+      timestamp = if (historyIndex == null) {
+        event.eventTime
+      } else {
+        event.getHistoricalEventTime(historyIndex)
+      },
+      touches = touches,
+    )
+  }
+
+  private fun createTransitionFrame(
+    event: MotionEvent,
+    phase: String,
+    startsGesture: Boolean,
+  ): WritableMap {
+    val endedPointerIndex = when (event.actionMasked) {
+      MotionEvent.ACTION_POINTER_UP,
+      MotionEvent.ACTION_UP -> event.actionIndex
+      else -> null
+    }
+    val activeTouchCount = when (event.actionMasked) {
+      MotionEvent.ACTION_POINTER_UP -> event.pointerCount - 1
+      MotionEvent.ACTION_UP,
+      MotionEvent.ACTION_CANCEL -> 0
+      else -> event.pointerCount
+    }
+    val changedTouches = when (event.actionMasked) {
+      MotionEvent.ACTION_CANCEL -> createTouchArray(
+        event,
+        excludedPointerIndex = null,
+        historyIndex = null,
+      )
+      else -> Arguments.createArray().apply {
+        pushMap(createTouch(event, event.actionIndex, historyIndex = null))
+      }
+    }
+    return createFrame(
+      activeTouchCount = activeTouchCount,
+      changedTouches = changedTouches,
+      phase = phase,
+      startsGesture = startsGesture,
+      timestamp = event.eventTime,
+      touches = if (event.actionMasked == MotionEvent.ACTION_CANCEL) {
+        Arguments.createArray()
+      } else {
+        createTouchArray(
+          event,
+          excludedPointerIndex = endedPointerIndex,
+          historyIndex = null,
+        )
+      },
+    )
+  }
+
+  private fun createFrame(
+    activeTouchCount: Int,
+    changedTouches: WritableArray,
+    phase: String,
+    startsGesture: Boolean,
+    timestamp: Long,
+    touches: WritableArray,
+  ): WritableMap = Arguments.createMap().apply {
+    putInt("activeTouchCount", activeTouchCount)
+    putArray("changedTouches", changedTouches)
+    putString("phase", phase)
+    putBoolean("startsGesture", startsGesture)
+    putDouble("timestamp", timestamp.toDouble())
+    putArray("touches", touches)
+  }
+
+  private fun createTouchArray(
+    event: MotionEvent,
+    excludedPointerIndex: Int?,
+    historyIndex: Int?,
+  ): WritableArray = Arguments.createArray().apply {
+    for (pointerIndex in 0 until event.pointerCount) {
+      if (pointerIndex != excludedPointerIndex) {
+        pushMap(createTouch(event, pointerIndex, historyIndex))
+      }
+    }
+  }
+
+  private fun createTouch(
+    event: MotionEvent,
+    pointerIndex: Int,
+    historyIndex: Int?,
+  ): WritableMap {
+    val x = if (historyIndex == null) {
+      event.getX(pointerIndex)
+    } else {
+      event.getHistoricalX(pointerIndex, historyIndex)
+    }
+    val y = if (historyIndex == null) {
+      event.getY(pointerIndex)
+    } else {
+      event.getHistoricalY(pointerIndex, historyIndex)
+    }
+    return Arguments.createMap().apply {
+      putInt("identifier", event.getPointerId(pointerIndex))
+      putDouble("pageX", (x / displayDensity).toDouble())
+      putDouble("pageY", (y / displayDensity).toDouble())
+    }
+  }
+
+  private fun emitFrames(frames: List<WritableMap>) {
+    if (
+      frames.isEmpty() ||
+      !reactContext.hasActiveReactInstance()
+    ) {
+      return
+    }
+    val frameArray = Arguments.createArray()
+    frames.forEach(frameArray::pushMap)
+    val payload = Arguments.createMap().apply {
+      putArray("frames", frameArray)
+    }
+    reactContext.emitDeviceEvent(EVENT_NAME, payload)
+  }
+
+  private fun resetGesture() {
+    forwardingMultiTouch = false
+    pendingDownFrame = null
+  }
+}
+`;
+}
+
 function getNativePackageSource(packageName) {
   return `package ${packageName}
 
@@ -184,7 +503,11 @@ import com.facebook.react.uimanager.ViewManager
 
 class PlayAuralNativePackage : ReactPackage {
   override fun createNativeModules(reactContext: ReactApplicationContext): List<NativeModule> =
-    listOf(BatteryOptimizationModule(reactContext))
+    listOf(
+      BatteryOptimizationModule(reactContext),
+      GestureConfigurationModule(reactContext),
+      GestureInputModule(reactContext),
+    )
 
   override fun createViewManagers(
     reactContext: ReactApplicationContext,
@@ -252,6 +575,38 @@ function withPlayAuralMainApplication(config) {
   });
 }
 
+function withPlayAuralMainActivity(config) {
+  return withMainActivity(config, (nextConfig) => {
+    if (nextConfig.modResults.language !== "kt") {
+      throw new Error(
+        "PlayAural gesture input requires the generated Android MainActivity to use Kotlin.",
+      );
+    }
+    let contents = nextConfig.modResults.contents;
+    if (!contents.includes("import android.view.MotionEvent")) {
+      contents = contents.replace(
+        /^(package\s+[^\r\n]+\r?\n)/,
+        `$1\nimport android.view.MotionEvent\n`,
+      );
+    }
+    if (!contents.includes("GestureInputModule.dispatchTouchEvent(event)")) {
+      const activityDeclaration = /class MainActivity\s*:\s*ReactActivity\(\)\s*\{/;
+      if (!activityDeclaration.test(contents)) {
+        throw new Error(
+          "Unable to install PlayAural's raw Android gesture observer. "
+            + "Review the generated MainActivity structure.",
+        );
+      }
+      contents = contents.replace(
+        activityDeclaration,
+        (match) => `${match}\n  override fun dispatchTouchEvent(event: MotionEvent): Boolean {\n    GestureInputModule.dispatchTouchEvent(event)\n    return super.dispatchTouchEvent(event)\n  }\n`,
+      );
+    }
+    nextConfig.modResults.contents = contents;
+    return nextConfig;
+  });
+}
+
 function withPlayAuralNativeFiles(config) {
   return withDangerousMod(config, [
     "android",
@@ -270,6 +625,14 @@ function withPlayAuralNativeFiles(config) {
       fs.writeFileSync(
         path.join(targetDir, "BatteryOptimizationModule.kt"),
         getBatteryOptimizationModuleSource(packageName),
+      );
+      fs.writeFileSync(
+        path.join(targetDir, "GestureConfigurationModule.kt"),
+        getGestureConfigurationModuleSource(packageName),
+      );
+      fs.writeFileSync(
+        path.join(targetDir, "GestureInputModule.kt"),
+        getGestureInputModuleSource(packageName),
       );
       fs.writeFileSync(
         path.join(targetDir, "PlayAuralNativePackage.kt"),
@@ -304,6 +667,7 @@ function withPlayAuralDebugApplicationId(config) {
 module.exports = function withPlayAuralBackgroundService(config) {
   let nextConfig = withPlayAuralManifest(config);
   nextConfig = withPlayAuralMainApplication(nextConfig);
+  nextConfig = withPlayAuralMainActivity(nextConfig);
   nextConfig = withPlayAuralNativeFiles(nextConfig);
   nextConfig = withPlayAuralDebugApplicationId(nextConfig);
   return nextConfig;

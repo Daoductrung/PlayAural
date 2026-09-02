@@ -15,6 +15,7 @@
     "patch:livekit-media-routing": "node scripts/patch-livekit-media-routing.mjs",
     "test:android-audio-routing": "node --test tests/android-audio-routing.test.mjs",
     "test:audio-lifecycle": "node --test tests/mobile-audio-lifecycle.test.mjs",
+    "test:gestures": "node --test tests/self-voicing-gestures.test.mjs",
     "generate:sounds": "node scripts/generate-sound-manifest.mjs",
     "generate:locales": "node scripts/generate-locale-registry.mjs"
   },

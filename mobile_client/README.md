@@ -47,6 +47,8 @@ mobile_client/
 |   |-- audio/
 |   |-- generated/
 |   |-- gestures/
+|   |   |-- SelfVoicingGestureRecognizer.ts
+|   |   `-- useSelfVoicingGestures.ts
 |   |-- i18n/
 |   |-- network/
 |   |-- state/
@@ -86,6 +88,12 @@ Run TypeScript validation:
 cmd /c npm run typecheck
 ```
 
+Run the deterministic self-voicing gesture recognizer tests:
+
+```bash
+cmd /c npm run test:gestures
+```
+
 ## Running the Client
 
 Start the Expo dev server:
@@ -105,6 +113,10 @@ npx expo start --web -c
 The web runtime is a development and testing target. Browser TTS voices can differ from Android TTS voices because the browser uses the Web Speech API while Android uses the device TTS service through Expo Speech.
 
 Voice chat UI state and server packet flow can be tested in the web runtime, but native Android routing, microphone permission behavior, and multi-finger gesture behavior still require device or emulator validation.
+
+Android self-voicing reads touch slop, double-tap timing/slop, physical swipe sampling distances, and the user's long-press timeout from the generated native `PlayAuralGestureConfiguration` module. Multi-finger gestures use the observing `PlayAuralGestureInput` module so every raw Android pointer transition and batched movement sample reaches the recognizer without depending on React Native responder touch counts. The observer never consumes the event; normal React Native input continues through the activity unchanged. Non-Android builds use the recognizer's documented platform-neutral fallbacks.
+
+Test self-voicing gestures with the system screen reader suspended. Android accessibility services that request multi-finger gestures receive three-finger input before the foreground application; enabling two-finger passthrough does not pass ordinary three-finger taps through to PlayAural. Native screen-reader mode remains available through the dedicated self-voicing toggle when TalkBack is active.
 
 ## Server Connection
 

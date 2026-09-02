@@ -583,6 +583,7 @@ export function PlayAuralApp() {
   const [authFocusIndex, setAuthFocusIndex] = useState(0);
   const [preferences, setPreferences] = useState<Record<string, unknown>>({});
   const [selfVoicingEnabled, setSelfVoicingEnabled] = useState(true);
+  const selfVoicingEnabledRef = useRef(true);
   const [screenReaderEnabled, setScreenReaderEnabled] = useState(WEB_SCREEN_READER_SUPPORT);
   const [activeTextInputKey, setActiveTextInputKey] = useState<string | null>(null);
   const [screenReaderAnnouncement, setScreenReaderAnnouncement] = useState<ScreenReaderAnnouncement>({
@@ -1421,8 +1422,10 @@ export function PlayAuralApp() {
         setPassword(storedPassword);
       }
       if (storedSelfVoicing === "0") {
+        selfVoicingEnabledRef.current = false;
         setSelfVoicingEnabled(false);
       } else if (storedSelfVoicing === "1") {
+        selfVoicingEnabledRef.current = true;
         setSelfVoicingEnabled(true);
       }
     } catch {
@@ -1475,8 +1478,15 @@ export function PlayAuralApp() {
   };
 
   const updateSelfVoicing = useCallback((enabled: boolean) => {
+    selfVoicingEnabledRef.current = enabled;
     setSelfVoicingEnabled(enabled);
-    const message = localization.t(enabled ? "sv-enabled-announcement" : "sv-disabled-announcement");
+    const message = localization.t(
+      enabled
+        ? "sv-enabled-announcement"
+        : screenReaderEnabled
+          ? "sv-disabled-announcement"
+          : "sv-disabled-no-screen-reader-announcement",
+    );
     addHistoryMessage("system", message);
     if (enabled) {
       tts.setUiEnabled(true);
@@ -1486,13 +1496,24 @@ export function PlayAuralApp() {
       });
       return;
     }
+    if (screenReaderEnabled) {
+      tts.setUiEnabled(false);
+      announceForNativeScreenReader(message);
+      return;
+    }
+    // Keep the global three-finger toggle self-confirming when no native
+    // screen reader is present. Announcement speech is not disabled with the
+    // UI channel, so the confirmation can finish after self-voicing turns off.
+    tts.speakAnnouncement(message, {
+      flushNativeQueue: true,
+      remember: false,
+    });
     tts.setUiEnabled(false);
-    announceForNativeScreenReader(message);
-  }, [addHistoryMessage, announceForNativeScreenReader, localization, tts]);
+  }, [addHistoryMessage, announceForNativeScreenReader, localization, screenReaderEnabled, tts]);
 
   const toggleSelfVoicing = useCallback(() => {
-    updateSelfVoicing(!selfVoicingEnabled);
-  }, [selfVoicingEnabled, updateSelfVoicing]);
+    updateSelfVoicing(!selfVoicingEnabledRef.current);
+  }, [updateSelfVoicing]);
 
   const sendVoicePresence = useCallback((state: "connected" | "connection_lost") => {
     const contextId = voiceContextRef.current.contextId;
@@ -3493,22 +3514,20 @@ export function PlayAuralApp() {
   };
 
   const toggleOverlay = (nextMode: Exclude<AppMode, "main">) => {
-    setMode((current) => {
-      const resolved = current === nextMode ? "main" : nextMode;
-      modeRef.current = resolved;
-      const key = resolved === "main" ? "overlay-closed" : "overlay-opened";
-      if (resolved === "shortcuts") {
-        setShortcutFocusIndex(0);
-      }
-      if (resolved === "chat") {
-        setChatFocusIndex(0);
-      }
-      if (resolved === "history") {
-        setHistoryIndex(0);
-      }
-      announceInterfaceFeedback(localization.t(key, { name: localization.t(`mode-${nextMode}`) }));
-      return resolved;
-    });
+    const resolved = modeRef.current === nextMode ? "main" : nextMode;
+    modeRef.current = resolved;
+    const key = resolved === "main" ? "overlay-closed" : "overlay-opened";
+    if (resolved === "shortcuts") {
+      setShortcutFocusIndex(0);
+    }
+    if (resolved === "chat") {
+      setChatFocusIndex(0);
+    }
+    if (resolved === "history") {
+      setHistoryIndex(0);
+    }
+    setMode(resolved);
+    announceInterfaceFeedback(localization.t(key, { name: localization.t(`mode-${nextMode}`) }));
   };
 
   const openNativeTab = (nextMode: AppMode) => {

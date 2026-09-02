@@ -1,587 +1,679 @@
 import { useEffect, useMemo, useRef } from "react";
-import { PanResponder, type GestureResponderEvent, type PanResponderGestureState } from "react-native";
+import {
+  DeviceEventEmitter,
+  NativeModules,
+  PanResponder,
+  Platform,
+  type GestureResponderEvent,
+  type PanResponderGestureState,
+} from "react-native";
 
-type SwipeDirection = "up" | "down" | "left" | "right";
+import {
+  type GestureDirection,
+  type GestureRecognizerConfig,
+  type GestureTouch,
+  type GestureTouchFrame,
+  type RecognizedGesture,
+  SelfVoicingGestureRecognizer,
+} from "./SelfVoicingGestureRecognizer";
 
-type GestureCallbacks = {
+export type GestureCallbacks = {
   enabled: boolean;
   globalToggleEnabled?: boolean;
   isNativeTextInputTarget?: (target: unknown) => boolean;
   isTextInputEditing?: () => boolean;
   onDoubleTap: () => void;
   onDoubleTapHold: () => void;
-  onSingleFingerSwipe: (direction: SwipeDirection) => void;
-  onSingleFingerSwipeHold?: (direction: SwipeDirection) => void;
-  onThreeFingerSwipe: (direction: SwipeDirection) => void;
+  onGesture?: (gesture: RecognizedGesture) => void;
+  onSingleFingerSwipe: (direction: GestureDirection) => void;
+  onSingleFingerSwipeHold?: (direction: GestureDirection) => void;
+  onThreeFingerSwipe: (direction: GestureDirection) => void;
   onThreeFingerTripleTap: () => void;
-  onTwoFingerSwipe: (direction: SwipeDirection) => void;
+  onTwoFingerSwipe: (direction: GestureDirection) => void;
   onTwoFingerTap: () => void;
 };
 
-type TouchTrack = {
-  consumed: boolean;
-  maxTouches: number;
-  moved: boolean;
-};
-
-type MultiTouchTrack = {
-  consumed: boolean;
-  gestureTouches: 2 | 3;
-  lastX: number;
-  lastY: number;
-  moved: boolean;
-  startX: number;
-  startY: number;
-};
-
 type NativeTouchPoint = {
-  identifier?: number;
+  identifier?: number | string;
   locationX?: number;
   locationY?: number;
   pageX?: number;
   pageY?: number;
 };
 
-const DOUBLE_TAP_WINDOW_MS = 350;
-const DOUBLE_TAP_HOLD_MS = 500;
-const SINGLE_FINGER_SWIPE_HOLD_DELAY_MS = 500;
-const SINGLE_FINGER_SWIPE_HOLD_REPEAT_MS = 170;
-const MULTI_TOUCH_REPEAT_WINDOW_MS = 200;
-const MULTI_TOUCH_PAN_RELEASE_SUPPRESSION_MS = 120;
-const MULTI_TOUCH_DOMINANCE_RATIO = 1.25;
-const THREE_FINGER_TAP_MAX_GAP_MS = 760;
-const THREE_FINGER_TRIPLE_TAP_DEBOUNCE_MS = 900;
-const THREE_FINGER_TAP_MAX_DRIFT = 34;
-const MOVE_TOLERANCE = 8;
-const SWIPE_THRESHOLD = 14;
+type NativeGestureConfiguration = {
+  doubleTapSlopDp?: number;
+  longPressTimeoutMs?: number;
+  multiTapTimeoutMs?: number;
+  pathSampleDistanceDp?: number;
+  singleFingerSwipeConfirmDistanceDp?: number;
+  touchSlopDp?: number;
+};
+
+type NativeGestureInputModule = {
+  available?: boolean;
+  eventName?: string;
+};
+
+type NativeGestureFrame = {
+  activeTouchCount?: number;
+  changedTouches?: NativeTouchPoint[];
+  phase?: GestureFramePhase;
+  startsGesture?: boolean;
+  timestamp?: number;
+  touches?: NativeTouchPoint[];
+};
+
+type GestureFramePhase = "end" | "move" | "start";
+
+const STANDARD_LONG_PRESS_TIMEOUT_MS = 500;
+const SWIPE_HOLD_REPEAT_MS = 170;
+
+const nativeGestureConfiguration =
+  Platform.OS === "android"
+    ? NativeModules.PlayAuralGestureConfiguration as NativeGestureConfiguration | undefined
+    : undefined;
+
+const nativeGestureInput =
+  Platform.OS === "android"
+    ? NativeModules.PlayAuralGestureInput as NativeGestureInputModule | undefined
+    : undefined;
+const nativeGestureEventName =
+  typeof nativeGestureInput?.eventName === "string" && nativeGestureInput.eventName.length > 0
+    ? nativeGestureInput.eventName
+    : "PlayAuralGestureFrames";
+const usesNativeMultiTouchInput = nativeGestureInput?.available === true;
+
+const positiveFiniteNumber = (value: unknown): number | undefined =>
+  typeof value === "number" && Number.isFinite(value) && value > 0
+    ? value
+    : undefined;
+
+const nativePathSampleDistance = positiveFiniteNumber(
+  nativeGestureConfiguration?.pathSampleDistanceDp,
+);
+const nativeMultiTapTimeout = positiveFiniteNumber(
+  nativeGestureConfiguration?.multiTapTimeoutMs,
+);
+const NATIVE_RECOGNIZER_CONFIG: Partial<GestureRecognizerConfig> = {
+  doubleTapSlopDp: positiveFiniteNumber(
+    nativeGestureConfiguration?.doubleTapSlopDp,
+  ),
+  minimumSegmentDistanceDp: nativePathSampleDistance,
+  multiTapTimeoutMs: nativeMultiTapTimeout,
+  pathSampleDistanceDp: nativePathSampleDistance,
+  singleFingerSwipeConfirmDistanceDp: positiveFiniteNumber(
+    nativeGestureConfiguration?.singleFingerSwipeConfirmDistanceDp,
+  ),
+  tapTransitionTimeoutMs: nativeMultiTapTimeout,
+  touchSlopDp: positiveFiniteNumber(nativeGestureConfiguration?.touchSlopDp),
+};
+
+Object.keys(NATIVE_RECOGNIZER_CONFIG).forEach((key) => {
+  const configKey = key as keyof GestureRecognizerConfig;
+  if (NATIVE_RECOGNIZER_CONFIG[configKey] === undefined) {
+    delete NATIVE_RECOGNIZER_CONFIG[configKey];
+  }
+});
+
+const GESTURE_INTERACTION_TIMING = Object.freeze({
+  // Android honors the user's system long-press preference. Other platforms
+  // retain the standard screen-reader timing.
+  holdDelayMs:
+    positiveFiniteNumber(nativeGestureConfiguration?.longPressTimeoutMs) ??
+    STANDARD_LONG_PRESS_TIMEOUT_MS,
+  // Preserve the established PlayAural continuous-navigation cadence.
+  swipeHoldRepeatMs: SWIPE_HOLD_REPEAT_MS,
+});
+
+const getNativeTouchArray = (
+  event: GestureResponderEvent,
+  key: "changedTouches" | "touches",
+): NativeTouchPoint[] => {
+  const nativeEvent = event.nativeEvent as GestureResponderEvent["nativeEvent"] & {
+    changedTouches?: NativeTouchPoint[];
+    touches?: NativeTouchPoint[];
+  };
+  const touches = nativeEvent[key];
+  return Array.isArray(touches) ? touches : [];
+};
+
+const toGestureTouches = (touches: NativeTouchPoint[]): GestureTouch[] | null => {
+  const parsed: GestureTouch[] = [];
+  for (const touch of touches) {
+    const x = touch.pageX ?? touch.locationX;
+    const y = touch.pageY ?? touch.locationY;
+    if (
+      touch.identifier === undefined ||
+      typeof x !== "number" ||
+      !Number.isFinite(x) ||
+      typeof y !== "number" ||
+      !Number.isFinite(y)
+    ) {
+      return null;
+    }
+    parsed.push({
+      id: touch.identifier,
+      x,
+      y,
+    });
+  }
+  return parsed;
+};
+
+const toGestureFrame = (
+  event: GestureResponderEvent,
+  phase: GestureFramePhase,
+  gestureState?: PanResponderGestureState,
+): GestureTouchFrame => {
+  const nativeEvent = event.nativeEvent as GestureResponderEvent["nativeEvent"] & {
+    timestamp?: number;
+  };
+  const changedTouches = toGestureTouches(getNativeTouchArray(event, "changedTouches"));
+  const touches = toGestureTouches(getNativeTouchArray(event, "touches"));
+  const responderTouchCount = gestureState?.numberActiveTouches;
+  const startTouchIds = new Set(
+    [...(touches ?? []), ...(changedTouches ?? [])].map((touch) => touch.id),
+  );
+  return {
+    activeTouchCount:
+      typeof responderTouchCount === "number" &&
+      Number.isInteger(responderTouchCount) &&
+      responderTouchCount >= 0
+        ? responderTouchCount
+        : phase === "start"
+          ? startTouchIds.size
+          : touches?.length ?? 0,
+    changedTouches: changedTouches ?? [],
+    timestamp:
+      typeof nativeEvent.timestamp === "number" && Number.isFinite(nativeEvent.timestamp)
+        ? nativeEvent.timestamp
+        : Date.now(),
+    touches: touches ?? [],
+    valid: changedTouches !== null && touches !== null,
+  };
+};
+
+const toNativeGestureFrame = (
+  value: unknown,
+): { frame: GestureTouchFrame; phase: GestureFramePhase | "cancel"; startsGesture: boolean } | null => {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const nativeFrame = value as NativeGestureFrame;
+  if (
+    nativeFrame.phase !== "start" &&
+    nativeFrame.phase !== "move" &&
+    nativeFrame.phase !== "end" &&
+    nativeFrame.phase !== "cancel"
+  ) {
+    return null;
+  }
+  if (
+    !Array.isArray(nativeFrame.changedTouches) ||
+    !Array.isArray(nativeFrame.touches) ||
+    typeof nativeFrame.activeTouchCount !== "number" ||
+    !Number.isInteger(nativeFrame.activeTouchCount) ||
+    nativeFrame.activeTouchCount < 0 ||
+    typeof nativeFrame.timestamp !== "number" ||
+    !Number.isFinite(nativeFrame.timestamp)
+  ) {
+    return null;
+  }
+  const changedTouches = toGestureTouches(nativeFrame.changedTouches);
+  const touches = toGestureTouches(nativeFrame.touches);
+  if (!changedTouches || !touches) {
+    return null;
+  }
+  return {
+    frame: {
+      activeTouchCount: nativeFrame.activeTouchCount,
+      changedTouches,
+      timestamp: nativeFrame.timestamp,
+      touches,
+      valid: true,
+    },
+    phase: nativeFrame.phase,
+    startsGesture: nativeFrame.startsGesture === true,
+  };
+};
+
+const gestureDistance = (gestureState: PanResponderGestureState) =>
+  Math.hypot(gestureState.dx, gestureState.dy);
 
 export function useSelfVoicingGestures(callbacks: GestureCallbacks) {
   const callbacksRef = useRef(callbacks);
-  const touchTrackRef = useRef<TouchTrack | null>(null);
-  const directTouchTrackRef = useRef<MultiTouchTrack | null>(null);
-  const lastSingleTapAtRef = useRef(0);
-  const lastThreeFingerTapAtRef = useRef(0);
-  const lastThreeFingerTripleTapAtRef = useRef(0);
-  const threeFingerTapCountRef = useRef(0);
-  const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const threeFingerTapResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const suppressPanReleaseRef = useRef(false);
-  const suppressPanReleaseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastMultiTouchDispatchRef = useRef<{ at: number; key: string } | null>(null);
-  const continuousSwipeStartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const continuousSwipeRepeatTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const recognizer = useMemo(
+    () => new SelfVoicingGestureRecognizer(NATIVE_RECOGNIZER_CONFIG),
+    [],
+  );
+  const nativeMultiTouchRecognizer = useMemo(
+    () => new SelfVoicingGestureRecognizer(NATIVE_RECOGNIZER_CONFIG),
+    [],
+  );
+  const doubleTapHoldTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const swipeHoldStartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const swipeHoldRepeatTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const committedSwipeRef = useRef<RecognizedGesture | null>(null);
+  const nativeMultiTouchActiveRef = useRef(false);
 
-  const clearHoldTimer = () => {
-    if (holdTimerRef.current) {
-      clearTimeout(holdTimerRef.current);
-      holdTimerRef.current = null;
+  // Responder callbacks are intentionally stable; update their live behavior
+  // synchronously so an overlay transition cannot leave one event on stale UI.
+  callbacksRef.current = callbacks;
+
+  const clearDoubleTapHold = () => {
+    if (doubleTapHoldTimerRef.current) {
+      clearTimeout(doubleTapHoldTimerRef.current);
+      doubleTapHoldTimerRef.current = null;
     }
   };
 
-  const clearThreeFingerTapResetTimer = () => {
-    if (threeFingerTapResetTimerRef.current) {
-      clearTimeout(threeFingerTapResetTimerRef.current);
-      threeFingerTapResetTimerRef.current = null;
+  const stopSwipeHold = () => {
+    if (swipeHoldStartTimerRef.current) {
+      clearTimeout(swipeHoldStartTimerRef.current);
+      swipeHoldStartTimerRef.current = null;
+    }
+    if (swipeHoldRepeatTimerRef.current) {
+      clearInterval(swipeHoldRepeatTimerRef.current);
+      swipeHoldRepeatTimerRef.current = null;
     }
   };
 
-  const clearSuppressPanReleaseTimer = () => {
-    if (suppressPanReleaseTimerRef.current) {
-      clearTimeout(suppressPanReleaseTimerRef.current);
-      suppressPanReleaseTimerRef.current = null;
-    }
-  };
-
-  const stopContinuousSwipe = () => {
-    if (continuousSwipeStartTimerRef.current) {
-      clearTimeout(continuousSwipeStartTimerRef.current);
-      continuousSwipeStartTimerRef.current = null;
-    }
-    if (continuousSwipeRepeatTimerRef.current) {
-      clearInterval(continuousSwipeRepeatTimerRef.current);
-      continuousSwipeRepeatTimerRef.current = null;
-    }
-  };
-
-  const suppressNextPanRelease = () => {
-    suppressPanReleaseRef.current = true;
-    clearSuppressPanReleaseTimer();
-    suppressPanReleaseTimerRef.current = setTimeout(() => {
-      suppressPanReleaseRef.current = false;
-      suppressPanReleaseTimerRef.current = null;
-    }, MULTI_TOUCH_PAN_RELEASE_SUPPRESSION_MS);
-  };
-
-  useEffect(() => {
-    callbacksRef.current = callbacks;
-  }, [callbacks]);
-
-  useEffect(() => () => {
-    clearHoldTimer();
-    clearThreeFingerTapResetTimer();
-    clearSuppressPanReleaseTimer();
-    stopContinuousSwipe();
-  }, []);
-
-  const getTouchArray = (
-    event: GestureResponderEvent,
-    key: "changedTouches" | "touches",
-  ): NativeTouchPoint[] => {
-    const nativeEvent = event.nativeEvent as GestureResponderEvent["nativeEvent"] & {
-      changedTouches?: NativeTouchPoint[];
-      touches?: NativeTouchPoint[];
-    };
-    const touches = nativeEvent[key];
-    return Array.isArray(touches) ? touches : [];
-  };
-
-  const getCentroid = (touches: NativeTouchPoint[]): { x: number; y: number } | null => {
-    if (!touches.length) {
-      return null;
-    }
-    const totals = touches.reduce(
-      (accumulator, touch) => ({
-        x: accumulator.x + (touch.pageX ?? touch.locationX ?? 0),
-        y: accumulator.y + (touch.pageY ?? touch.locationY ?? 0),
-      }),
-      { x: 0, y: 0 },
-    );
-    return {
-      x: totals.x / touches.length,
-      y: totals.y / touches.length,
-    };
-  };
-
-  const getActiveTouchPoint = (event: GestureResponderEvent): { count: number; x: number; y: number } | null => {
-    const activeTouches = getTouchArray(event, "touches");
-    const centroid = getCentroid(activeTouches);
-    if (!centroid) {
-      return null;
-    }
-    return {
-      count: activeTouches.length,
-      x: centroid.x,
-      y: centroid.y,
-    };
-  };
-
-  const normalizeMultiTouchCount = (activeTouches: number): 0 | 2 | 3 => {
-    if (activeTouches >= 3) {
-      return 3;
-    }
-    if (activeTouches >= 2) {
-      return 2;
-    }
-    return 0;
-  };
-
-  const beginMultiTouchTrack = (touches: 2 | 3, x: number, y: number): MultiTouchTrack => {
-    return {
-      consumed: false,
-      gestureTouches: touches,
-      lastX: x,
-      lastY: y,
-      moved: false,
-      startX: x,
-      startY: y,
-    };
-  };
-
-  const resetMultiTouchTrack = (track: MultiTouchTrack, touches: 2 | 3, x: number, y: number) => {
-    track.consumed = false;
-    track.gestureTouches = touches;
-    track.lastX = x;
-    track.lastY = y;
-    track.moved = false;
-    track.startX = x;
-    track.startY = y;
-  };
-
-  const classifySwipe = (gestureState: PanResponderGestureState): SwipeDirection | null => {
-    const { dx, dy } = gestureState;
-    if (Math.max(Math.abs(dx), Math.abs(dy)) < SWIPE_THRESHOLD) {
-      return null;
-    }
-    if (Math.abs(dx) > Math.abs(dy)) {
-      return dx > 0 ? "right" : "left";
-    }
-    return dy > 0 ? "down" : "up";
-  };
-
-  const classifySwipeDelta = (dx: number, dy: number, touches = 1): SwipeDirection | null => {
-    const scaledThreshold = SWIPE_THRESHOLD * Math.max(1, touches);
-    if (Math.max(Math.abs(dx), Math.abs(dy)) < scaledThreshold) {
-      return null;
-    }
-    const minAxis = Math.min(Math.abs(dx), Math.abs(dy));
-    if (minAxis > 0 && Math.max(Math.abs(dx), Math.abs(dy)) / minAxis < MULTI_TOUCH_DOMINANCE_RATIO) {
-      return null;
-    }
-    if (Math.abs(dx) > Math.abs(dy)) {
-      return dx > 0 ? "right" : "left";
-    }
-    return dy > 0 ? "down" : "up";
-  };
-
-  const beginHoldDetection = () => {
-    clearHoldTimer();
-    holdTimerRef.current = setTimeout(() => {
-      const track = touchTrackRef.current;
-      if (!track || track.moved || track.consumed || track.maxTouches !== 1) {
-        return;
-      }
-      track.consumed = true;
-      callbacksRef.current.onDoubleTapHold();
-    }, DOUBLE_TAP_HOLD_MS);
-  };
-
-  const dispatchSwipe = (direction: SwipeDirection, maxTouches: number) => {
-    if (maxTouches >= 2) {
-      const key = `swipe:${maxTouches}:${direction}`;
-      const now = Date.now();
-      const previous = lastMultiTouchDispatchRef.current;
-      if (
-        previous &&
-        previous.key === key &&
-        now - previous.at <= MULTI_TOUCH_REPEAT_WINDOW_MS
-      ) {
-        return;
-      }
-      lastMultiTouchDispatchRef.current = { at: now, key };
-    }
-    if (maxTouches >= 3) {
-      callbacksRef.current.onThreeFingerSwipe(direction);
-      return;
-    }
-    if (maxTouches >= 2) {
-      callbacksRef.current.onTwoFingerSwipe(direction);
-      return;
-    }
-    stopContinuousSwipe();
-    callbacksRef.current.onSingleFingerSwipe(direction);
-    continuousSwipeStartTimerRef.current = setTimeout(() => {
-      continuousSwipeStartTimerRef.current = null;
-      if (!callbacksRef.current.enabled || !touchTrackRef.current?.consumed) {
-        return;
-      }
-      const repeat = callbacksRef.current.onSingleFingerSwipeHold ?? callbacksRef.current.onSingleFingerSwipe;
-      repeat(direction);
-      continuousSwipeRepeatTimerRef.current = setInterval(() => {
-        if (!callbacksRef.current.enabled || !touchTrackRef.current?.consumed) {
-          stopContinuousSwipe();
-          return;
-        }
-        repeat(direction);
-      }, SINGLE_FINGER_SWIPE_HOLD_REPEAT_MS);
-    }, SINGLE_FINGER_SWIPE_HOLD_DELAY_MS);
-  };
-
-  const registerThreeFingerTap = () => {
-    const callbacks = callbacksRef.current;
-    const now = Date.now();
-    if (now - lastThreeFingerTapAtRef.current > THREE_FINGER_TAP_MAX_GAP_MS) {
-      threeFingerTapCountRef.current = 0;
-    }
-    lastThreeFingerTapAtRef.current = now;
-    threeFingerTapCountRef.current += 1;
-    clearThreeFingerTapResetTimer();
-
-    if (threeFingerTapCountRef.current >= 3 && callbacks.globalToggleEnabled !== false) {
-      threeFingerTapCountRef.current = 0;
-      if (now - lastThreeFingerTripleTapAtRef.current < THREE_FINGER_TRIPLE_TAP_DEBOUNCE_MS) {
-        return;
-      }
-      lastThreeFingerTripleTapAtRef.current = now;
-      callbacks.onThreeFingerTripleTap();
-      return;
-    }
-
-    threeFingerTapResetTimerRef.current = setTimeout(() => {
-      threeFingerTapResetTimerRef.current = null;
-      threeFingerTapCountRef.current = 0;
-    }, THREE_FINGER_TAP_MAX_GAP_MS);
-  };
-
-  const handleDirectTouchStart = (event: GestureResponderEvent) => {
-    const point = getActiveTouchPoint(event);
-    const multiTouchCount = normalizeMultiTouchCount(point?.count ?? 0);
-    if (!point || multiTouchCount === 0) {
-      return;
-    }
-    const current = directTouchTrackRef.current;
-    if (!current) {
-      directTouchTrackRef.current = beginMultiTouchTrack(multiTouchCount, point.x, point.y);
-    } else if (multiTouchCount > current.gestureTouches) {
-      resetMultiTouchTrack(current, multiTouchCount, point.x, point.y);
+  const resetResponderGesture = (clearTapHistory = false) => {
+    clearDoubleTapHold();
+    stopSwipeHold();
+    if (clearTapHistory) {
+      recognizer.clear();
     } else {
-      current.lastX = point.x;
-      current.lastY = point.y;
+      recognizer.cancel();
     }
-    if (touchTrackRef.current) {
-      touchTrackRef.current.consumed = true;
-    }
-    suppressNextPanRelease();
-    clearHoldTimer();
-    stopContinuousSwipe();
   };
 
-  const handleDirectTouchMove = (event: GestureResponderEvent) => {
-    const current = directTouchTrackRef.current;
-    if (!current) {
-      return;
-    }
-    const point = getActiveTouchPoint(event);
-    if (!point) {
-      return;
-    }
-    const multiTouchCount = normalizeMultiTouchCount(point.count);
-    if (multiTouchCount === 0) {
-      return;
-    }
-    if (multiTouchCount > current.gestureTouches) {
-      resetMultiTouchTrack(current, multiTouchCount, point.x, point.y);
-      return;
-    }
-    current.lastX = point.x;
-    current.lastY = point.y;
-    if (Math.max(Math.abs(point.x - current.startX), Math.abs(point.y - current.startY)) > MOVE_TOLERANCE) {
-      current.moved = true;
-      clearHoldTimer();
-    }
-    if (!callbacksRef.current.enabled) {
-      return;
-    }
-    if (current.consumed || multiTouchCount < current.gestureTouches) {
-      return;
-    }
-    const dx = current.lastX - current.startX;
-    const dy = current.lastY - current.startY;
-    const direction = classifySwipeDelta(dx, dy, current.gestureTouches);
-    if (!direction) {
-      return;
-    }
-    current.consumed = true;
-    suppressNextPanRelease();
-    dispatchSwipe(direction, current.gestureTouches);
+  const resetActiveGesture = (clearTapHistory = false) => {
+    resetResponderGesture(clearTapHistory);
+    committedSwipeRef.current = null;
   };
 
-  const handleDirectTouchEnd = (event: GestureResponderEvent) => {
-    const current = directTouchTrackRef.current;
-    if (!current) {
-      return;
+  const handleResponderCancellation = () => {
+    if (usesNativeMultiTouchInput && nativeMultiTouchActiveRef.current) {
+      resetResponderGesture(true);
+    } else {
+      resetActiveGesture(true);
     }
-    const activePoint = getActiveTouchPoint(event);
-    const activeMultiTouchCount = normalizeMultiTouchCount(activePoint?.count ?? 0);
-    if (activePoint && activeMultiTouchCount >= current.gestureTouches) {
-      current.lastX = activePoint.x;
-      current.lastY = activePoint.y;
-    }
-    const remainingTouches = getTouchArray(event, "touches");
-    if (remainingTouches.length > 0) {
-      return;
-    }
-    const changedTouches = getTouchArray(event, "changedTouches");
-    const finalCentroid = changedTouches.length >= current.gestureTouches ? getCentroid(changedTouches) : null;
-    if (finalCentroid) {
-      current.lastX = finalCentroid.x;
-      current.lastY = finalCentroid.y;
-    }
-    directTouchTrackRef.current = null;
-    suppressNextPanRelease();
-    clearHoldTimer();
-    if (current.consumed) {
-      return;
-    }
-    const direction = classifySwipeDelta(
-      current.lastX - current.startX,
-      current.lastY - current.startY,
-      current.gestureTouches,
-    );
-    if (direction && callbacksRef.current.enabled) {
-      dispatchSwipe(direction, current.gestureTouches);
-      return;
-    }
-    if (current.gestureTouches >= 3) {
-      if (
-        Math.max(Math.abs(current.lastX - current.startX), Math.abs(current.lastY - current.startY)) <=
-          THREE_FINGER_TAP_MAX_DRIFT
-      ) {
-        registerThreeFingerTap();
-      }
-      return;
-    }
-    if (!callbacksRef.current.enabled) {
-      return;
-    }
-    const now = Date.now();
-    const previous = lastMultiTouchDispatchRef.current;
-    if (
-      previous &&
-      previous.key === `tap:${current.gestureTouches}` &&
-      now - previous.at <= MULTI_TOUCH_REPEAT_WINDOW_MS
-    ) {
-      return;
-    }
-    lastMultiTouchDispatchRef.current = { at: now, key: `tap:${current.gestureTouches}` };
-    callbacksRef.current.onTwoFingerTap();
   };
 
-  const handleDirectTouchCancel = () => {
-    if (directTouchTrackRef.current) {
-      suppressNextPanRelease();
-    }
-    directTouchTrackRef.current = null;
-    clearHoldTimer();
-    stopContinuousSwipe();
-  };
-
-  const isTextInputTarget = (event: GestureResponderEvent): boolean => {
-    return callbacksRef.current.isNativeTextInputTarget?.(event.nativeEvent.target) ?? false;
-  };
-
-  const shouldHandleStartGesture = (event: GestureResponderEvent): boolean => {
-    const callbacks = callbacksRef.current;
-    if (!callbacks.enabled) {
-      return false;
-    }
-    if ((event.nativeEvent.touches.length || 1) !== 1) {
-      return false;
-    }
-    return !isTextInputTarget(event);
-  };
-
-  const shouldHandleMoveGesture = (
-    event: GestureResponderEvent,
-    gestureState: PanResponderGestureState,
-  ): boolean => {
-    const callbacks = callbacksRef.current;
-    if (!callbacks.enabled) {
-      return false;
-    }
-    if ((event.nativeEvent.touches.length || gestureState.numberActiveTouches || 1) !== 1) {
-      return false;
-    }
-    if (Math.max(Math.abs(gestureState.dx), Math.abs(gestureState.dy)) < SWIPE_THRESHOLD) {
-      return false;
-    }
-    if (isTextInputTarget(event)) {
-      return callbacks.isTextInputEditing?.() ?? false;
-    }
-    return true;
-  };
-
-  return useMemo(
-    () => {
-      const panResponder = PanResponder.create({
-        onMoveShouldSetPanResponder: shouldHandleMoveGesture,
-        onMoveShouldSetPanResponderCapture: shouldHandleMoveGesture,
-        onPanResponderGrant: (event: GestureResponderEvent) => {
-          const touches = event.nativeEvent.touches.length || 1;
-          if (touches === 1 && suppressPanReleaseRef.current) {
-            clearSuppressPanReleaseTimer();
-            suppressPanReleaseRef.current = false;
-          }
-          touchTrackRef.current = {
-            consumed: false,
-            maxTouches: touches,
-            moved: false,
-          };
-          if (touches >= 2) {
-            suppressNextPanRelease();
-          }
-          if (touches === 1 && Date.now() - lastSingleTapAtRef.current <= DOUBLE_TAP_WINDOW_MS) {
-            beginHoldDetection();
-          } else {
-            clearHoldTimer();
-          }
-        },
-        onPanResponderMove: (event: GestureResponderEvent, gestureState: PanResponderGestureState) => {
-          const track = touchTrackRef.current;
-          if (!track) {
-            return;
-          }
-          track.maxTouches = Math.max(track.maxTouches, event.nativeEvent.touches.length || track.maxTouches);
-          if (track.maxTouches >= 2) {
-            track.consumed = true;
-            suppressNextPanRelease();
-            clearHoldTimer();
-            return;
-          }
-          if (Math.max(Math.abs(gestureState.dx), Math.abs(gestureState.dy)) > MOVE_TOLERANCE) {
-            track.moved = true;
-            clearHoldTimer();
-          }
-          if (track.consumed) {
-            return;
-          }
-          const direction = classifySwipe(gestureState);
-          if (!direction) {
-            return;
-          }
-          track.consumed = true;
-          dispatchSwipe(direction, track.maxTouches);
-        },
-        onPanResponderRelease: (_event: GestureResponderEvent, gestureState: PanResponderGestureState) => {
-          clearHoldTimer();
-          stopContinuousSwipe();
-          const track = touchTrackRef.current;
-          touchTrackRef.current = null;
-          if (suppressPanReleaseRef.current) {
-            clearSuppressPanReleaseTimer();
-            suppressPanReleaseRef.current = false;
-            return;
-          }
-          if (!track || track.consumed) {
-            return;
-          }
-
-          const direction = classifySwipe(gestureState);
-          if (direction) {
-            dispatchSwipe(direction, track.maxTouches);
-            return;
-          }
-
-          if (track.maxTouches >= 3) {
-            return;
-          }
-          if (track.maxTouches === 2) {
-            callbacksRef.current.onTwoFingerTap();
-            return;
-          }
-
-          const now = Date.now();
-          if (now - lastSingleTapAtRef.current <= DOUBLE_TAP_WINDOW_MS) {
-            lastSingleTapAtRef.current = 0;
-            callbacksRef.current.onDoubleTap();
-            return;
-          }
-          lastSingleTapAtRef.current = now;
-        },
-        onPanResponderTerminate: () => {
-          clearHoldTimer();
-          clearSuppressPanReleaseTimer();
-          stopContinuousSwipe();
-          touchTrackRef.current = null;
-          suppressPanReleaseRef.current = false;
-        },
-        onStartShouldSetPanResponder: shouldHandleStartGesture,
-        // Capture non-text controls while SV is active so visible Pressables do
-        // not receive normal taps. TextInput starts must still pass through for
-        // native keyboard activation.
-        onStartShouldSetPanResponderCapture: shouldHandleStartGesture,
-      });
-
-      return {
-        ...panResponder,
-        panHandlers: {
-          ...panResponder.panHandlers,
-          onTouchCancel: handleDirectTouchCancel,
-          onTouchEnd: handleDirectTouchEnd,
-          onTouchMove: handleDirectTouchMove,
-          onTouchStart: handleDirectTouchStart,
-        },
-      };
+  useEffect(
+    () => () => {
+      resetActiveGesture(true);
+      nativeMultiTouchRecognizer.clear();
+      nativeMultiTouchActiveRef.current = false;
     },
     [],
   );
+
+  const dispatchGesture = (
+    gesture: RecognizedGesture,
+    sourceRecognizer = recognizer,
+  ) => {
+    const current = callbacksRef.current;
+    current.onGesture?.(gesture);
+
+    if (gesture.kind === "tap") {
+      if (
+        gesture.fingers === 3 &&
+        gesture.taps === 3 &&
+        current.globalToggleEnabled !== false
+      ) {
+        sourceRecognizer.resetTapSequence(gesture.fingers);
+        current.onThreeFingerTripleTap();
+        return;
+      }
+      if (!current.enabled) {
+        return;
+      }
+      if (gesture.fingers === 1 && gesture.taps === 2) {
+        sourceRecognizer.resetTapSequence(gesture.fingers);
+        current.onDoubleTap();
+      } else if (gesture.fingers === 2 && gesture.taps === 1) {
+        sourceRecognizer.resetTapSequence(gesture.fingers);
+        current.onTwoFingerTap();
+      }
+      return;
+    }
+
+    if (!current.enabled || gesture.path.length !== 1) {
+      return;
+    }
+    const direction = gesture.path[0];
+    if (gesture.fingers === 1) {
+      current.onSingleFingerSwipe(direction);
+    } else if (gesture.fingers === 2) {
+      current.onTwoFingerSwipe(direction);
+    } else if (gesture.fingers === 3) {
+      current.onThreeFingerSwipe(direction);
+    }
+  };
+
+  const beginDoubleTapHoldIfEligible = () => {
+    clearDoubleTapHold();
+    if (
+      !callbacksRef.current.enabled ||
+      recognizer.getCurrentTapOrdinal(1) !== 2 ||
+      !recognizer.isActiveTapCandidate(1)
+    ) {
+      return;
+    }
+    doubleTapHoldTimerRef.current = setTimeout(() => {
+      doubleTapHoldTimerRef.current = null;
+      if (
+        !callbacksRef.current.enabled ||
+        recognizer.getCurrentTapOrdinal(1) !== 2 ||
+        !recognizer.isActiveTapCandidate(1)
+      ) {
+        return;
+      }
+      recognizer.consumeActiveGesture();
+      recognizer.resetTapSequence(1);
+      callbacksRef.current.onDoubleTapHold();
+    }, GESTURE_INTERACTION_TIMING.holdDelayMs);
+  };
+
+  const beginSwipeHold = (direction: GestureDirection) => {
+    stopSwipeHold();
+    swipeHoldStartTimerRef.current = setTimeout(() => {
+      swipeHoldStartTimerRef.current = null;
+      const committed = committedSwipeRef.current;
+      if (
+        !callbacksRef.current.enabled ||
+        !committed ||
+        committed.kind !== "swipe" ||
+        committed.fingers !== 1 ||
+        committed.path.length !== 1 ||
+        committed.path[0] !== direction ||
+        recognizer.getActiveFingerCount() !== 1
+      ) {
+        stopSwipeHold();
+        return;
+      }
+      const repeat =
+        callbacksRef.current.onSingleFingerSwipeHold ??
+        callbacksRef.current.onSingleFingerSwipe;
+      repeat(direction);
+      swipeHoldRepeatTimerRef.current = setInterval(() => {
+        if (
+          !callbacksRef.current.enabled ||
+          recognizer.getActiveFingerCount() !== 1
+        ) {
+          stopSwipeHold();
+          return;
+        }
+        const nextRepeat =
+          callbacksRef.current.onSingleFingerSwipeHold ??
+          callbacksRef.current.onSingleFingerSwipe;
+        nextRepeat(direction);
+      }, GESTURE_INTERACTION_TIMING.swipeHoldRepeatMs);
+    }, GESTURE_INTERACTION_TIMING.holdDelayMs);
+  };
+
+  const dispatchStraightSwipeAsSoonAsRecognized = (
+    sourceRecognizer = recognizer,
+  ) => {
+    if (committedSwipeRef.current) {
+      return;
+    }
+    const preview = sourceRecognizer.getSwipePreview();
+    if (
+      !callbacksRef.current.enabled ||
+      !preview ||
+      preview.fingers > 3 ||
+      preview.path.length !== 1
+    ) {
+      return;
+    }
+
+    const gesture: RecognizedGesture = {
+      fingers: preview.fingers,
+      kind: "swipe",
+      path: preview.path,
+    };
+    committedSwipeRef.current = gesture;
+    sourceRecognizer.consumeActiveGesture(true);
+    dispatchGesture(gesture, sourceRecognizer);
+    if (gesture.fingers === 1) {
+      beginSwipeHold(gesture.path[0]);
+    }
+  };
+
+  const shouldClaimGesture = (
+    event: GestureResponderEvent,
+    gestureState: PanResponderGestureState,
+    moving: boolean,
+  ) => {
+    const current = callbacksRef.current;
+    const touchCount = Math.max(
+      event.nativeEvent.touches.length,
+      gestureState.numberActiveTouches,
+      1,
+    );
+    if (current.globalToggleEnabled !== false && touchCount >= 3) {
+      return true;
+    }
+    if (!current.enabled) {
+      return false;
+    }
+    if (touchCount >= 2) {
+      return true;
+    }
+    const isTextInput =
+      current.isNativeTextInputTarget?.(event.nativeEvent.target) ?? false;
+    if (!isTextInput) {
+      return true;
+    }
+    return Boolean(
+      moving &&
+        current.isTextInputEditing?.() &&
+        gestureDistance(gestureState) >= recognizer.config.touchSlopDp,
+    );
+  };
+
+  const handleGestureEnd = (
+    event: GestureResponderEvent,
+    gestureState?: PanResponderGestureState,
+  ) => {
+    if (usesNativeMultiTouchInput && nativeMultiTouchActiveRef.current) {
+      resetResponderGesture(true);
+      return;
+    }
+    clearDoubleTapHold();
+    stopSwipeHold();
+    const frame = toGestureFrame(event, "end", gestureState);
+    const gesture = recognizer.end(frame);
+    if (gesture) {
+      dispatchGesture(gesture);
+    }
+    if (recognizer.getActiveFingerCount() === 0) {
+      committedSwipeRef.current = null;
+    }
+  };
+
+  const handleGestureMove = (
+    event: GestureResponderEvent,
+    gestureState?: PanResponderGestureState,
+  ) => {
+    if (usesNativeMultiTouchInput && nativeMultiTouchActiveRef.current) {
+      resetResponderGesture(true);
+      return;
+    }
+    const frame = toGestureFrame(event, "move", gestureState);
+    recognizer.move(frame);
+    if (!recognizer.isActiveTapCandidate(1)) {
+      clearDoubleTapHold();
+    }
+    dispatchStraightSwipeAsSoonAsRecognized();
+  };
+
+  const handleGestureStart = (
+    event: GestureResponderEvent,
+    gestureState?: PanResponderGestureState,
+  ) => {
+    const frame = toGestureFrame(event, "start", gestureState);
+    const activeTouchCount = frame.activeTouchCount ?? frame.touches.length;
+    if (
+      usesNativeMultiTouchInput &&
+      (nativeMultiTouchActiveRef.current || activeTouchCount >= 2)
+    ) {
+      nativeMultiTouchActiveRef.current = true;
+      resetResponderGesture(true);
+      return;
+    }
+    recognizer.start(frame);
+    if (recognizer.getActiveFingerCount() !== 1) {
+      clearDoubleTapHold();
+      stopSwipeHold();
+    }
+  };
+
+  useEffect(() => {
+    if (!usesNativeMultiTouchInput || !nativeGestureInput) {
+      return undefined;
+    }
+
+    const subscription = DeviceEventEmitter.addListener(nativeGestureEventName, (payload: unknown) => {
+      const frames =
+        payload && typeof payload === "object" && Array.isArray((payload as { frames?: unknown }).frames)
+          ? (payload as { frames: unknown[] }).frames.map(toNativeGestureFrame)
+          : null;
+      if (!frames || frames.length === 0 || frames.some((frame) => frame === null)) {
+        nativeMultiTouchRecognizer.clear();
+        nativeMultiTouchActiveRef.current = false;
+        resetActiveGesture(true);
+        return;
+      }
+
+      nativeMultiTouchActiveRef.current = true;
+      resetResponderGesture(true);
+      for (const parsed of frames) {
+        if (!parsed) {
+          continue;
+        }
+        if (parsed.startsGesture) {
+          nativeMultiTouchRecognizer.cancel();
+          committedSwipeRef.current = null;
+        }
+        if (parsed.phase === "cancel") {
+          nativeMultiTouchRecognizer.clear();
+          committedSwipeRef.current = null;
+          nativeMultiTouchActiveRef.current = false;
+          continue;
+        }
+        if (parsed.phase === "start") {
+          nativeMultiTouchRecognizer.start(parsed.frame);
+          continue;
+        }
+        if (parsed.phase === "move") {
+          nativeMultiTouchRecognizer.move(parsed.frame);
+          dispatchStraightSwipeAsSoonAsRecognized(nativeMultiTouchRecognizer);
+          continue;
+        }
+
+        const gesture = nativeMultiTouchRecognizer.end(parsed.frame);
+        if (gesture) {
+          dispatchGesture(gesture, nativeMultiTouchRecognizer);
+        }
+        if (nativeMultiTouchRecognizer.getActiveFingerCount() === 0) {
+          committedSwipeRef.current = null;
+          nativeMultiTouchActiveRef.current = false;
+        }
+      }
+    });
+
+    return () => {
+      subscription.remove();
+      nativeMultiTouchRecognizer.clear();
+      nativeMultiTouchActiveRef.current = false;
+    };
+  }, []);
+
+  return useMemo(() => {
+    const panResponder = PanResponder.create({
+      onMoveShouldSetPanResponder: (event, gestureState) =>
+        shouldClaimGesture(event, gestureState, true),
+      onMoveShouldSetPanResponderCapture: (event, gestureState) =>
+        shouldClaimGesture(event, gestureState, true),
+      onPanResponderEnd: (event, gestureState) => {
+        handleGestureEnd(event, gestureState);
+      },
+      onPanResponderGrant: (event, gestureState) => {
+        resetActiveGesture();
+        const frame = toGestureFrame(event, "start", gestureState);
+        if (
+          frame.touches.length === 1 &&
+          Number.isFinite(gestureState.x0) &&
+          Number.isFinite(gestureState.y0)
+        ) {
+          recognizer.start({
+            ...frame,
+            touches: [
+              {
+                ...frame.touches[0],
+                x: gestureState.x0,
+                y: gestureState.y0,
+              },
+            ],
+          });
+          recognizer.move(frame);
+        } else {
+          recognizer.start(frame);
+        }
+        beginDoubleTapHoldIfEligible();
+      },
+      onPanResponderMove: (event, gestureState) => {
+        handleGestureMove(event, gestureState);
+      },
+      onPanResponderReject: () => {
+        handleResponderCancellation();
+      },
+      onPanResponderRelease: (event, gestureState) => {
+        handleGestureEnd(event, gestureState);
+      },
+      onPanResponderStart: (event, gestureState) => {
+        handleGestureStart(event, gestureState);
+      },
+      onPanResponderTerminate: () => {
+        handleResponderCancellation();
+      },
+      // Once a self-voicing gesture begins, keep one owner for the complete
+      // pointer stream. Changing responders mid-chord is indistinguishable
+      // from a missing finger and was the main source of intermittent input.
+      onPanResponderTerminationRequest: () => false,
+      onShouldBlockNativeResponder: () => true,
+      onStartShouldSetPanResponder: (event, gestureState) =>
+        shouldClaimGesture(event, gestureState, false),
+      onStartShouldSetPanResponderCapture: (event, gestureState) =>
+        shouldClaimGesture(event, gestureState, false),
+    });
+
+    return {
+      ...panResponder,
+      panHandlers: {
+        ...panResponder.panHandlers,
+        // Raw touch callbacks cover pointer transitions even when Fabric does
+        // not surface an intermediate transition through PanResponder. The
+        // recognizer is idempotent for duplicate frames, so both streams feed
+        // one authoritative session without competing gesture trackers.
+        onTouchCancel: () => {
+          handleResponderCancellation();
+        },
+        onTouchEnd: (event: GestureResponderEvent) => {
+          handleGestureEnd(event);
+        },
+        onTouchMove: (event: GestureResponderEvent) => {
+          handleGestureMove(event);
+        },
+        onTouchStart: (event: GestureResponderEvent) => {
+          handleGestureStart(event);
+        },
+      },
+    };
+  }, []);
 }

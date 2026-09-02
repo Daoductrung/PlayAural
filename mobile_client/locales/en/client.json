@@ -32,6 +32,7 @@
   "sv-toggle-button-on": "Turn self-voicing on",
   "sv-enabled-announcement": "Self-voicing on.",
   "sv-disabled-announcement": "Self-voicing off. Native screen reader mode active.",
+  "sv-disabled-no-screen-reader-announcement": "Self-voicing off. Repeat the three-finger triple tap or use the system accessibility shortcut to turn speech back on.",
   "chat-input-focus": "Chat input",
   "chat-input-label": "Chat input. Turn on your screen reader here if you need native text entry.",
   "chat-send-button": "Send message",

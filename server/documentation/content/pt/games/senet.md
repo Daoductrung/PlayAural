@@ -41,8 +41,8 @@ Após o lançamento, selecione uma de suas próprias peças para movê-la. Cada 
 
 * As peças só se movem para a frente, em direção à casa 30.
 * Você pode passar por cima de peças que estão em seu caminho.
-* Você não pode pousar em uma casa que já contenha uma de suas próprias peças.
-* Se você pousar em uma casa que contenha uma única peça oponente, as duas peças **trocam de lugar**: a sua assume o destino e a peça do oponente recua para a casa que você deixou.
+* Você não pode chegar a uma casa que já contenha uma de suas próprias peças.
+* Se você chegar a uma casa que contenha uma única peça oponente, as duas peças **trocam de lugar**: a sua assume o destino e a peça do oponente recua para a casa que você deixou.
 * Se você não tiver nenhum movimento legal para uma rolagem, você perde o movimento, mas ainda recebe qualquer lançamento bônus que a rolagem tenha rendido.
 
 **Proteção e Bloqueio**
@@ -59,7 +59,7 @@ Seis casas têm significado especial:
 * **Casa 26 — Casa da Felicidade:** cada peça **deve** pousar aqui a caminho de casa. Você não pode passar por cima da casa 26, portanto, uma rolagem que leve uma peça além dela sem parar não é um movimento legal. Uma vez que uma peça tenha descansado na casa 26, ela se move normalmente em um turno posterior. Esta casa é segura contra captura.
 * **Casa 27 — Casa da Água:** pousar aqui é infortúnio. A peça é enviada direto de volta para a Casa do Renascimento (casa 15). Se a casa 15 estiver ocupada, a peça vai para a casa vazia mais próxima antes dela. Mesmo uma peça que chega trocando de lugar com a água é enviada de volta desta forma.
 * **Casa 28 — Casa das Três Verdades:** uma peça que chega aqui fica trancada com segurança no lugar e só pode sair retirando-se com uma rolagem exata de **3**.
-* **Casa 29 — Casa de Re-Atum:** igual à casa 28, mas a peça se retira apenas com uma rolagem exata de **2**.
+* **Casa 29 — Casa de Ré-Atum:** igual à casa 28, mas a peça se retira apenas com uma rolagem exata de **2**.
 * **Casa 30 — Casa de Hórus:** uma peça se retira com uma rolagem exata de **1**. Ela também sai automaticamente no início do seu lançamento se você não tiver mais peças na primeira linha. Ao contrário das casas protegidas antes dela, esta casa final não é segura contra captura.
 
 As casas especiais marcadas da casa 15 até a casa 29 são protegidas contra captura. A casa 30 é a casa final e ainda pode ser alvo de troca de lugar pelo oponente.
@@ -84,7 +84,7 @@ O primeiro jogador a retirar todas as cinco peças do tabuleiro vence o jogo.
 
 **Atalhos de Teclado**
 
-* **Enter (em qualquer casa da grade):** Lança os gravetos antes de lançar, ou move a peça selecionada durante a fase de movimento.
+* **Enter (em qualquer casa da grade):** Lança os gravetos ou move a peça selecionada durante a fase de movimento.
 * **Ctrl+Setas Para Baixo ou Para a Direita:** Percorre para a frente através de suas peças que têm um movimento legal.
 * **Ctrl+Setas Para Cima ou Para a Esquerda:** Percorre para trás através de suas peças que têm um movimento legal.
 * **E:** Lê o status do jogo — peças retiradas, a fase atual e a rolagem atual.

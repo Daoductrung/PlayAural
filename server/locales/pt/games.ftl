@@ -137,10 +137,10 @@ rank-queen-plural = damas
 rank-king-plural = reis
 
 
-poker-high-card-with = { $high } alto, com { $rest }
-poker-high-card = { $high } alto
-poker-pair-with = Par de { $pair }, com { $rest }
-poker-pair = Par de { $pair }
+poker-high-card-with = Carta alta: { $high }, com { $rest }
+poker-high-card = Carta alta: { $high }
+poker-pair-with = Um par de { $pair }, com { $rest }
+poker-pair = Um par de { $pair }
 poker-two-pair-with = Dois pares, { $high } e { $low }, com { $kicker }
 poker-two-pair = Dois pares, { $high } e { $low }
 poker-trips-with = Trinca de { $trips }, com { $rest }

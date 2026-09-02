@@ -47,17 +47,17 @@ Com três ou mais jogadores, o small blind é o primeiro assento ativo à esquer
 
 Durante uma rodada de apostas, as ações disponíveis dependem da aposta atual:
 
-* **Mesa / Passar (Check):** permanece na mão sem adicionar fichas quando ninguém apostou mais do que você.
-* **Pagar (Call):** adiciona fichas suficientes para igualar a aposta atual.
-* **Aumentar (Raise):** paga a aposta atual e a aumenta. Insira o valor pelo qual deseja aumentar, não o total final.
+* **Mesa / Passar:** permanece na mão sem adicionar fichas quando ninguém apostou mais do que você.
+* **Pagar:** adiciona fichas suficientes para igualar a aposta atual.
+* **Aumentar:** paga a aposta atual e a aumenta. Insira o valor pelo qual deseja aumentar, não o total final.
 * **All in:** compromete cada ficha restante quando o modo de aumento selecionado permite.
-* **Desistir (Fold):** sai da mão atual e desiste de quaisquer fichas já comprometidas com o pote.
+* **Desistir:** sai da mão atual e desiste de quaisquer fichas já comprometidas com o pote.
 
 As apostas continuam até que cada jogador que possa agir tenha igualado a aposta atual ou desistido. Um jogador que fica sem fichas permanece na mão, mas não pode apostar novamente.
 
 Quando vários jogadores estão all in por valores diferentes, o jogo cria um pote principal e quaisquer potes paralelos necessários automaticamente. Um jogador pode ganhar apenas os potes para os quais contribuiu.
 
-**O Tabuleiro (The Board)**
+**O Tabuleiro**
 
 O Texas Hold'em tem quatro rodadas de apostas:
 
@@ -68,7 +68,7 @@ O Texas Hold'em tem quatro rodadas de apostas:
 
 Após o flop, o turn e o river serem distribuídos, as apostas começam com o primeiro jogador ativo à esquerda do botão.
 
-**Confronto (Showdown)**
+**Confronto**
 
 Se dois ou mais jogadores permanecerem após a rodada de apostas do river, o jogo anuncia o confronto. Cada jogador restante faz a melhor mão de cinco cartas possível a partir de qualquer combinação de suas duas cartas particulares e das cinco cartas comunitárias.
 
@@ -87,8 +87,8 @@ Você pode verificar informações públicas da mesa sem gastar seu turno:
 * **Ler cartas da mesa:** ouve as cartas comunitárias.
 * **Quem tem o botão:** ouve a posição atual do botão.
 * **Sua posição:** ouve a quantos assentos você está do botão e quem apostou os blinds.
-* **Cronômetro de turno:** ouve o tempo restante para a decisão atual.
-* **Cronômetro de blinds:** ouve quando os blinds vão subir.
+* **Temporizador de turno:** ouve o tempo restante para a decisão atual.
+* **Temporizador de blinds:** ouve quando os blinds vão subir.
 * **Ler mão:** ouve suas duas cartas particulares fechadas.
 * **Ler força da mão:** ouve a classificação atual de pôquer da sua melhor mão disponível.
 * **Ver pontuações:** ouve as fichas restantes de cada jogador.
@@ -101,8 +101,8 @@ No confronto, jogadores com mãos ativas podem usar as ações de revelação pa
 * **Big blind:** o valor base do big blind. Deve ser menor que a pilha inicial (padrão 200, intervalo de 1 a 1.000.000).
 * **Ante:** uma contribuição forçada opcional de cada jogador (padrão 0, intervalo de 0 a 1.000.000).
 * **Nível de início do ante:** o nível de blind onde os antes começam. Um valor de 0 significa que os antes estão ativos desde a primeira mão quando o ante é maior que 0 (padrão 0).
-* **Cronômetro de turno:** quanto tempo um jogador tem para agir (padrão Ilimitado, escolhas: 5, 10, 15, 20, 30, 45, 60 ou 90 segundos, ou Ilimitado).
-* **Cronômetro de blinds:** minutos entre os aumentos de blinds (padrão 20 minutos, escolhas: 5, 10, 15, 20 ou 30 minutos).
+* **Temporizador de turno:** quanto tempo um jogador tem para agir (padrão Ilimitado, escolhas: 5, 10, 15, 20, 30, 45, 60 ou 90 segundos, ou Ilimitado).
+* **Temporizador de blinds:** minutos entre os aumentos de blinds (padrão 20 minutos, escolhas: 5, 10, 15, 20 ou 30 minutos).
 * **Modo de aumento:** escolha a estrutura de limite de apostas (padrão Sem limite, escolhas: Sem limite, Limite de pote ou Limite de pote duplo).
 * **Máximo de aumentos por rodada de apostas:** quantos aumentos são permitidos em cada rodada de apostas. Zero significa ilimitado (padrão 0, intervalo de 0 a 10).
 
@@ -121,8 +121,8 @@ No confronto, jogadores com mãos ativas podem usar as ações de revelação pa
 * **H:** verifica os jogadores na mão.
 * **X:** verifica o botão.
 * **Z:** verifica sua posição.
-* **Shift+T:** verifica o cronômetro de turno.
-* **V:** verifica o cronômetro de blinds.
+* **Shift+T:** verifica o temporizador de turno.
+* **V:** verifica o temporizador de blinds.
 * **O:** lê ambas as cartas particulares no confronto.
 * **U:** lê a primeira carta particular no confronto.
 * **I:** lê a segunda carta particular no confronto.

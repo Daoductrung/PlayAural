@@ -87,7 +87,7 @@ export default {
   "voice-chat-sdk-missing": "O suporte ao bate-papo por voz não está instalado neste cliente.",
   "voice-chat-mic-unsupported": "Este navegador não consegue acessar um microfone a partir desta página.",
   "voice-chat-mic-denied": "Falha ao acessar o microfone. Verifique seu microfone e as permissões.",
-  "voice-chat-connect-failed": "Temporariamente impossível conectar ao bate-papo por voz.",
+  "voice-chat-connect-failed": "Não foi possível conectar ao bate-papo por voz no momento.",
   "voice-not-at-table": "Você ainda não entrou em uma mesa. Entre em uma mesa antes de iniciar o bate-papo por voz.",
   "voice-not-in-context": "Você não está mais naquela mesa. Volte à mesa antes de iniciar o bate-papo por voz.",
   "voice-invalid-context": "O bate-papo por voz solicitado não está mais disponível.",

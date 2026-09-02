@@ -1,6 +1,6 @@
-**Três**
+**Threes**
 
-Três é um jogo de dados de pontuação baixa, também conhecido em alguns lugares como Threes Away ou Threes Are Free. Seu objetivo é simples: terminar o jogo com o menor número total de pontos.
+Threes é um jogo de dados de pontuação baixa, também conhecido em alguns lugares como Threes Away ou Threes Are Free. Seu objetivo é simples: terminar o jogo com o menor número total de pontos.
 
 Cada jogador rola cinco dados. Os três são especiais porque valem 0 pontos. Cada outro dado conta como o seu valor de face, então números baixos são bons e números altos são arriscados.
 
@@ -22,7 +22,7 @@ No final do número escolhido de rodadas, o jogador com a pontuação total mais
 
 Uma vez que um dado é guardado e você rola novamente, esse dado fica travado pelo resto do turno. Dados travados não podem ser alterados.
 
-Se apenas um dado permanecer destravado, o turno é pontuado automaticamente. Você também pode usar **Depositar (Bank) e encerrar o turno** quando cada dado tiver sido guardado ou travado.
+Se apenas um dado permanecer destravado, o turno é pontuado automaticamente. Você também pode usar **Guardar e encerrar o turno** quando cada dado tiver sido guardado ou travado.
 
 **Pontuação**
 
@@ -32,7 +32,7 @@ Se apenas um dado permanecer destravado, o turno é pontuado automaticamente. Vo
 
 * Pontuações mais baixas são melhores.
 
-* Se você terminar com cinco 6s, você **acerta na mosca (shoot the moon)** e pontua -30 pontos para aquele turno.
+* Se você terminar com cinco 6s, você **faz a lua** e pontua -30 pontos para aquele turno.
 
 **Exemplo de Turno**
 
@@ -52,11 +52,11 @@ A pontuação do seu turno é 0 + 0 + 1 + 0 + 5 = 6 pontos.
 
 * **Anúncios breves:** Encurta os anúncios repetidos de turno, rolagem, guarda e pontuação.
 
-* **Estilo de guarda de dados:** Com Índices de dados, pressione 1-5 para alternar os dados por posição. Com Valores de dados, cada dado recém-rolado começa guardado; pressione 1-6 para liberar um dado correspondente para a próxima rolagem, ou Shift+1-6 para guardar um dado correspondente liberado novamente. Repita uma tecla para lidar com valores duplicados um dado de cada vez.
+* **Estilo de retenção de dados:** Com Índices de dados, pressione 1-5 para alternar os dados por posição. Com Valores de dados, cada dado recém-rolado começa guardado; pressione 1-6 para liberar um dado correspondente para a próxima rolagem, ou Shift+1-6 para guardar um dado correspondente liberado novamente. Repita uma tecla para lidar com valores duplicados um dado de cada vez.
 
 **Ações de Informação**
 
-* **Conferir dados:** Ouve os dados do turno atual, status de guardado ou travado, pontuação possível do turno e quantos dados permanecem destravados.
+* **Ver dados:** Ouve os dados do turno atual, status de guardado ou travado, pontuação possível do turno e quantos dados permanecem destravados.
 
 * **Conferir pontuações:** Ouve a classificação atual.
 
@@ -64,7 +64,7 @@ A pontuação do seu turno é 0 + 0 + 1 + 0 + 5 = 6 pontos.
 
 * **R:** Rolar os dados.
 
-* **B:** Depositar a pontuação do seu turno.
+* **B:** Guardar a pontuação do seu turno.
 
 * **1-5:** Guardar ou liberar dados ao usar controles de dados baseados em posição.
 
@@ -72,4 +72,4 @@ A pontuação do seu turno é 0 + 0 + 1 + 0 + 5 = 6 pontos.
 
 * **Shift+1-6:** No modo de valores de dados, guarda um dado liberado correspondente.
 
-* **H:** Conferir os dados atuais.
+* **H:** Ver dados.

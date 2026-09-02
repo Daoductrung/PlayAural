@@ -118,9 +118,9 @@ O anfitrião pode ajustar as seguintes opções antes de o jogo começar:
 
 
 
-* **Máximo de Seis Consecutivos:** O número de 6s que um jogador pode rolar em sequência antes que a penalidade de reversão seja aplicada. Definir como 0 desativa a penalidade (padrão 3, intervalo de 0 a 5).
+* **Máximo de 6s consecutivos:** O número de 6s que um jogador pode rolar em sequência antes que a penalidade de reversão seja aplicada. Definir como 0 desativa a penalidade (padrão 3, intervalo de 0 a 5).
 
-* **Casas de Início Seguras:** Quando ativado, todas as casas de partida coloridas contam como casas seguras e não podem ser usadas para capturas. Padrão: Ligado.
+* **Casas iniciais seguras:** Quando ativado, todas as casas de partida coloridas contam como casas seguras e não podem ser usadas para capturas. Padrão: Ligado.
 
 
 

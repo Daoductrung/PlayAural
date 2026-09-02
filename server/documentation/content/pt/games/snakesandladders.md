@@ -6,7 +6,7 @@ As escadas levam você para a frente. As cobras mandam você para trás. O prime
 
 **Iniciando o Jogo**
 
-Cada peça começa na área inicial, logo antes da casa 1. Sua primeira rolagem move sua peça para o tabuleiro numerado. Isso significa que rolar 1 como seu primeiro movimento cai na escada na casa 1 e o leva imediatamente para a casa 38.
+Cada peça começa na área inicial, logo antes da casa 1. Sua primeira rolagem move sua peça para o tabuleiro numerado. Isso significa que tirar 1 como seu primeiro movimento faz você cair na escada na casa 1 e o leva imediatamente para a casa 38.
 
 Mais de uma peça pode ocupar a mesma casa. Cair em cima de outro jogador não move nem captura nenhuma das peças.
 
@@ -28,13 +28,13 @@ Você usa uma escada ou cobra apenas quando seu movimento termina em sua casa in
 
 Você sempre pode vencer caindo exatamente na casa 100. A escada da casa 80 também alcança a casa 100 e vence imediatamente.
 
-O host escolhe uma de duas regras de término:
+O host escolhe uma de duas regras de chegada:
 
-* **Rebote, padrão:** Se uma rolagem passar da casa 100, vá para 100 e depois recue pela parte não utilizada da rolagem. Resolva qualquer cobra ou escada na casa onde o rebote termina. Por exemplo, a partir da casa 97, uma rolagem de 4 termina na casa 99.
+* **Retorno, padrão:** Se uma rolagem passar da casa 100, vá para 100 e depois recue pela parte não utilizada da rolagem. Resolva qualquer cobra ou escada na casa onde o retorno termina. Por exemplo, a partir da casa 97, uma rolagem de 4 termina na casa 99.
 
-* **Rolagem exata; fique parado após um excesso:** Se uma rolagem for maior do que o número necessário para alcançar a casa 100, sua peça não se move. Por exemplo, a partir da casa 97, apenas uma rolagem de 3 vence. Uma rolagem de 4, 5 ou 6 deixa você na casa 97.
+* **Tirada exata; permanece ao passar da meta:** Se uma rolagem for maior do que o número necessário para alcançar a casa 100, sua peça não se move. Por exemplo, a partir da casa 97, apenas uma rolagem de 3 vence. Uma rolagem de 4, 5 ou 6 deixa você na casa 97.
 
-Em qualquer uma das regras de término, uma rolagem de 6 ainda concede outro turno quando a opção **Turno extra no 6** está ativada, mesmo que um excesso deixe a peça no lugar.
+Em qualquer uma das regras de chegada, uma rolagem de 6 ainda concede outro turno quando a opção **Turno extra no 6** está ativada, mesmo que um excesso deixe a peça no lugar.
 
 **Layout do Tabuleiro**
 
@@ -44,22 +44,22 @@ Em qualquer uma das regras de término, uma rolagem de 6 ainda concede outro tur
 
 **Opções Personalizáveis**
 
-* **Regra de término:** Escolha como os excessos são tratados (padrão **Rebote**, a escolha também inclui **Rolagem exata; fique parado após um excesso**).
+* **Regra de chegada:** Escolha como os excessos são tratados (padrão **Retorno**, a escolha também inclui **Tirada exata; permanece ao passar da meta**).
 
 * **Turno extra no 6:** Quando ativado, rolar 6 dá ao mesmo jogador outro turno após o movimento ser totalmente resolvido (padrão ativado).
 
 **Opções Pessoais de Jogo**
 
-* **Anúncios Breves:** Usa mensagens mais curtas de movimento, escada, cobra, rebote e término perdido, preservando todas as casas importantes e resultados de dados.
+* **Anúncios breves:** Usa mensagens mais curtas de movimento, escada, cobra, retorno e excesso, preservando todas as casas importantes e resultados de dados.
 
 **Conferindo a Corrida**
 
-**Conferir posições** abre um painel ao vivo mostrando a regra de término e a casa atual de cada jogador ativo, distância do término e de quem é a vez. O painel permanece atualizado enquanto o movimento está sendo resolvido.
+**Ver posições** abre um painel ao vivo mostrando a regra de chegada e a casa atual de cada jogador ativo, distância do término e de quem é a vez. O painel permanece atualizado enquanto o movimento está sendo resolvido.
 
 **Atalhos de Teclado**
 
 * **R ou Espaço:** Rolar o dado.
 
-* **C:** Conferir posições.
+* **C:** Ver posições.
 
 * **T:** Conferir de quem é a vez.

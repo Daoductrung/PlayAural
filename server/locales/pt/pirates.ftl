@@ -65,16 +65,16 @@ pirates-players-tie = { $players } empatam em primeiro lugar com { $score } pont
 pirates-players-tie-brief = { $players } empatam com { $score }.
 
 # Gems and XP
-pirates-gem-found-you = Você recupera a/o { $gem }, no valor de { $value } { $value ->
+pirates-gem-found-you = Você recupera a joia { $gem }, no valor de { $value } { $value ->
     [one] ponto
    *[other] pontos
 }. Sua carga agora vale { $score } pontos; { $remaining } joias continuam no mar.
-pirates-gem-found-you-brief = Você recupera a/o { $gem }. Pontuação: { $score }.
-pirates-gem-found = { $player } recupera a/o { $gem }, no valor de { $value } { $value ->
+pirates-gem-found-you-brief = Você recupera a joia { $gem }. Pontuação: { $score }.
+pirates-gem-found = { $player } recupera a joia { $gem }, no valor de { $value } { $value ->
     [one] ponto
    *[other] pontos
 }. A carga deles agora vale { $score } pontos; { $remaining } joias continuam no mar.
-pirates-gem-found-brief = { $player } recupera a/o { $gem }.
+pirates-gem-found-brief = { $player } recupera a joia { $gem }.
 pirates-xp-gained-you = Você ganha { $xp } EXP por { $reason ->
     [gem] recuperar uma joia
     [attack] acertar um tiro de canhão
@@ -169,12 +169,12 @@ pirates-steal-rolls-defender = O total de roubo de { $attacker } é { $steal }; 
 pirates-steal-rolls-defender-brief = Roubo { $steal }; sua guarda { $defend }.
 pirates-steal-rolls-observer = { $attacker } tenta roubar de { $defender }: roubo { $steal }, guarda { $defend }.
 pirates-steal-rolls-observer-brief = { $attacker } rouba com { $steal } contra { $defender } com { $defend }.
-pirates-steal-success-you = Você rouba a/o { $gem } de { $target }. Sua carga vale { $attacker_score } pontos; a deles vale { $defender_score }.
-pirates-steal-success-you-brief = Você rouba a/o { $gem } de { $target }.
+pirates-steal-success-you = Você rouba a joia { $gem } de { $target }. Sua carga vale { $attacker_score } pontos; a deles vale { $defender_score }.
+pirates-steal-success-you-brief = Você rouba a joia { $gem } de { $target }.
 pirates-steal-success-them = { $attacker } rouba sua/seu { $gem }. A carga deles vale { $attacker_score } pontos; a sua vale { $defender_score }.
 pirates-steal-success-them-brief = { $attacker } rouba sua/seu { $gem }.
-pirates-steal-success = { $attacker } rouba a/o { $gem } de { $defender }. Os valores das cargas deles agora são { $attacker_score } e { $defender_score } pontos, respectivamente.
-pirates-steal-success-brief = { $attacker } rouba a/o { $gem } de { $defender }.
+pirates-steal-success = { $attacker } rouba a joia { $gem } de { $defender }. Os valores das cargas deles agora são { $attacker_score } e { $defender_score } pontos, respectivamente.
+pirates-steal-success-brief = { $attacker } rouba a joia { $gem } de { $defender }.
 pirates-steal-failed-you = Seu total de roubo de { $steal } não supera o total de guarda de { $target } de { $defend }. Você não rouba nada.
 pirates-steal-failed-you-brief = Seu roubo falha, { $steal } a { $defend }.
 pirates-steal-failed-defender = Você impede o roubo de { $attacker }, { $defend } a { $steal }, e mantém sua carga.
@@ -217,7 +217,7 @@ pirates-no-active-skills = nenhum
 pirates-skill-activated = { $player } ativa { $skill }. { $effect }
 pirates-skill-activated-brief = { $player } ativa { $skill }.
 pirates-buff-expired-you = Seu efeito de { $skill } expira antes que este turno comece.
-pirates-buff-expired-you-brief = Seu/Sua { $skill } expira.
+pirates-buff-expired-you-brief = Seu bônus de { $skill } expira.
 pirates-buff-expired = O efeito de { $skill } de { $player } expira antes que o turno dele comece.
 pirates-buff-expired-brief = O/A { $skill } de { $player } expira.
 
@@ -256,7 +256,7 @@ pirates-portal-success-brief = { $player } se teletransporta para a posição { 
 
 pirates-skill-seeker-name = Caçador de Joias
 pirates-skill-seeker-desc = Revele a posição exata de uma joia não coletada. Três usos por partida; usá-lo não encerra o turno.
-pirates-gem-seeker-reveal = Caçador de Joias localiza a/o { $gem } na posição { $position }. Você tem { $uses } usos restantes nesta partida.
+pirates-gem-seeker-reveal = Caçador de Joias localiza a joia { $gem } na posição { $position }. Você tem { $uses } usos restantes nesta partida.
 
 pirates-skill-sword-name = Espadachim
 pirates-skill-sword-desc = Ganhe +2 de ataque por 3 dos seus turnos. Recarga: 6 turnos. Não pode se sobrepor a Capitão Experiente.

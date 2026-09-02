@@ -109,8 +109,8 @@ Valores de opções armazenadas inválidos impedem que o jogo comece e explicam 
 
 **Opções Pessoais de Jogo**
 
-* **Anúncios Resumidos:** suportado. O modo resumido encurta mensagens frequentes de turno, movimento, combate, XP, habilidade e resultado, mantendo os totais importantes.
-* **Confirmar Ações Arriscadas:** não usado. Alvos de canhão, destinos de Portal e tentativas de roubo já exigem escolhas de menu explícitas.
+* **Anúncios breves:** suportado. O modo resumido encurta mensagens frequentes de turno, movimento, combate, XP, habilidade e resultado, mantendo os totais importantes.
+* **Confirmar ações arriscadas:** não usado. Alvos de canhão, destinos de Portal e tentativas de roubo já exigem escolhas de menu explícitas.
 
 **Atalhos de Teclado**
 

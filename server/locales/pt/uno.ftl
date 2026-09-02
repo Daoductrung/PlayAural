@@ -54,7 +54,7 @@ uno-desc-straights = Permite que um jogador continue fora de turno com o número
 
 uno-set-interceptions = Interceptações: { $enabled }
 uno-option-changed-interceptions = Interceptações { $enabled }.
-uno-desc-interceptions = Permite que os jogadores entrem fora de turno com uma carta de correspondência exata. Tentativas inválidas adicionam 3 pontos de penalidade.
+uno-desc-interceptions = Permite que os jogadores entrem fora de turno com uma carta exatamente igual. Tentativas inválidas adicionam 3 pontos de penalidade.
 
 uno-set-super-interceptions = Super interceptações: { $enabled }
 uno-option-changed-super-interceptions = Super interceptações { $enabled }.

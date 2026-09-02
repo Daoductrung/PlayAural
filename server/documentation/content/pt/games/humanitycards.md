@@ -14,7 +14,7 @@ Cada rodada tem duas fases:
 
 **Fase de submissão.** Todos os jogadores, exceto o Czar das Cartas, selecionam cartas brancas de suas mãos para preencher as lacunas da carta preta. Se a instrução tiver uma lacuna, você escolhe uma carta; se tiver duas lacunas, você escolhe duas, e assim por diante. O número de cartas necessárias é anunciado no início de cada rodada.
 
-Use as teclas numéricas para alternar as cartas dentro e fora de sua seleção. Quando estiver satisfeito com sua escolha, pressione Espaço para enviar. Você pode visualizar como sua resposta será lida antes de enviar pressionando V. Uma vez enviado, suas cartas são bloqueadas e não podem ser alteradas.
+Use as teclas numéricas para alternar as cartas dentro e fora de sua seleção. Quando estiver satisfeito com sua escolha, pressione Espaço para enviar. Você pode visualizar como sua resposta será lida antes de enviar pressionando V. Uma vez enviadas, suas cartas são bloqueadas e não podem ser alteradas.
 
 À medida que os jogadores enviam, o jogo anuncia o progresso contínuo. As submissões são anônimas para o Czar das Cartas.
 
@@ -28,7 +28,7 @@ O jogo termina quando um jogador atinge a pontuação alvo.
 
 O anfitrião pode configurar estas configurações na mesa antes de começar:
 
-* **Pontuação Vencedora:** O número de pontos necessários para vencer (padrão 7, intervalo de 3 a 20).
+* **Pontuação para vencer:** O número de pontos necessários para vencer (padrão 7, intervalo de 3 a 20).
 * **Tamanho da Mão:** O número de cartas brancas que cada jogador segura de cada vez (padrão 10, intervalo de 5 a 15).
 * **Pacotes de Cartas:** Quais pacotes de cartas incluir. O jogo vem com muitos pacotes, incluindo o conjunto base, expansões, edição de família, pacotes de férias e pacotes de nostalgia. Você pode misturar e combinar livremente, mas pelo menos um pacote deve ser selecionado. Os grupos de pacotes disponíveis são:
     * **Conjunto Base:** Apenas o conjunto base original de Cartas contra a Humanidade (padrão).

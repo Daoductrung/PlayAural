@@ -1,10 +1,10 @@
-# **Era dos Heróis**
+**Era dos Heróis**
 
-Era dos Heróis é um jogo de cartas de construção de civilização para 2 a 6 jogadores. Cada jogador lidera uma tribo antiga - egípcios, romanos, gregos, babilônios, celtas ou chineses - e compete por meio de recursos, construção, comércio, desastres e guerras baseadas em dados.
+Era dos Heróis é um jogo de cartas de construção de civilização para 2 a 6 jogadores. Cada jogador lidera uma tribo antiga - egípcios, romanos, gregos, babilônios, celtas ou chineses - e compete através de recursos, construção, comércio, desastres e guerras baseadas em dados.
 
 # **Jogabilidade**
 
-Uma partida é jogada ao longo de dias que se repetem. Cada dia possui as fases de Preparação, Feira e Jogo. Antes do primeiro dia, uma fase de Configuração atribui as tribos e decide o primeiro jogador.
+Uma partida se desenrola ao longo de dias que se repetem. Cada dia possui as fases de Preparação, Feira e Jogo. Antes do primeiro dia, uma fase de Configuração atribui as tribos e decide o primeiro jogador.
 
 Durante a Configuração, cada jogador recebe uma tribo e um recurso de monumento especial, depois rola dois dados. Quem obtiver o maior resultado torna-se o primeiro jogador. Se houver empate na maior rolagem, apenas os jogadores empatados rolam novamente. Cada jogador então recebe 5 cartas.
 
@@ -12,9 +12,9 @@ Durante a Configuração, cada jogador recebe uma tribo e um recurso de monument
 
 No início de cada dia, cartas de evento obrigatórias em cada mão são resolvidas automaticamente.
 
-* **Crescimento Populacional:** Constrói uma cidade gratuita se houver suprimento de cidades.
+* **Crescimento Populacional:** Constrói uma cidade gratuita se houver cidades no suprimento.
 
-* **Terremoto** e **Erupção:** São inofensivos e descartados no Dia 1. A partir do Dia 2, eles são salvos como cartas de desastre visadas e podem ser jogados durante o turno do proprietário.
+* **Terremoto** e **Erupção:** São inofensivos e descartados no Dia 1. A partir do Dia 2, são guardados como cartas de desastre que podem ser visadas e jogadas durante o turno do proprietário.
 
 * **Fome** e **Bárbaros:** São inofensivos no Dia 1. A partir do Dia 2, a Fome faz com que cada tribo perca Grãos, se possível, enquanto os Bárbaros saqueiam os recursos convencionais de uma tribo.
 
@@ -30,11 +30,11 @@ Quando terminar de negociar, escolha Parar de negociar. A Feira termina assim qu
 
 # **Fase de Jogo**
 
-Os jogadores turnam em ordem. No seu turno, você compra uma carta, resolve eventos de compra imediatos, se necessário, e escolhe uma ação principal:
+Os jogadores agem em ordem. No seu turno, você compra uma carta, resolve eventos de compra imediatos, se necessário, e escolhe uma ação principal:
 
 * **Cobrança de Impostos:** Compre cartas equivalentes às suas cidades sobreviventes. Se você não tiver cidades, descarte uma carta para comprar uma de reposição.
 
-* **Construção:** Gaste recursos para construir o máximo que puder pagar, depois pare de construir. O Ouro é um curinga apenas após o pagamento explícito de qualquer custo em Ouro. Por exemplo, o General custa Ferro e Ouro, portanto, um Ouro sozinho não pode pagar tanto o custo em Ouro quanto o Ferro faltando.
+* **Construção:** Gaste recursos para construir o máximo que puder pagar, depois pare de construir. O Ouro é um curinga apenas após o pagamento explícito de qualquer custo que exija Ouro. Por exemplo, o General custa Ferro e Ouro, portanto, um Ouro sozinho não pode cobrir o custo em Ouro e o Ferro que falta.
 
 * **Guerra:** Declare guerra, escolha um alvo e um objetivo, depois comprometa exércitos, generais e cartas de Herói. Se o defensor tiver Jogos Olímpicos, ele pode cancelar a guerra antes que as forças sejam escolhidas. Defensores humanos sempre escolhem suas próprias forças de defesa, mesmo quando atacados por um bot.
 
@@ -62,7 +62,7 @@ Os edifícios vêm de suprimentos compartilhados. As estradas conectam tribos se
 
 * **Saque:** Roube cartas do defensor: 2 cartas por exército atacante sobrevivente.
 
-* **Destruição:** Dancifique o monumento do defensor. Vença com 3 ou mais exércitos atacantes sobreviventes para destruir 2 de progresso; vença com 1 ou mais para destruir 1 de progresso.
+* **Destruição:** Danifique o monumento do defensor. Vença com 3 ou mais exércitos atacantes sobreviventes para destruir 2 de progresso; vença com 1 ou mais para destruir 1 de progresso.
 
 Cada rodada de batalha usa um dado por lado. Pelo menos um general concede +2. Os defensores também adicionam sua contagem de fortalezas. O total maior destrói um exército inimigo. Empates não destroem nada.
 

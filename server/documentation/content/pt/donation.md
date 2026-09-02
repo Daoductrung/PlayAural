@@ -1,12 +1,12 @@
 # **Apoie o PlayAural**
 
-O PlayAural continuará sendo totalmente gratuito para jogar. Se você gosta do projeto e gostaria de ajudar com os custos de desenvolvimento, servidores, manutenção, ou simplesmente quer demonstrar seu carinho pelo jogo, você pode apoiá-lo aqui.
+O PlayAural continuará sendo totalmente gratuito para jogar. Se você gosta do projeto e gostaria de ajudar com os custos de desenvolvimento, servidores, manutenção, ou simplesmente quer demonstrar seu carinho pelo jogo, você pode apoiar o projeto aqui.
 
 # **Uma Observação Gentil**
 
-* Por favor, doe apenas se for confortável para o seu próprio orçamento.
+* Por favor, doe apenas se isso couber no seu orçamento.
 * Nunca há qualquer obrigação de doar para poder jogar.
-* A maior doação é o afeto, a confiança e o apoio que os jogadores dão ao PlayAural fazendo parte da comunidade.
+* A maior doação é o afeto, a confiança e o apoio que os jogadores dão ao PlayAural ao fazerem parte da comunidade.
 
 # **No Que Seu Apoio Ajuda**
 

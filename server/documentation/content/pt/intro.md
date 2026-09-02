@@ -1,6 +1,6 @@
 # **Bem-vindo ao PlayAural**
 
-O PlayAural é uma plataforma de jogos online projetada em torno de som, fala e controles acessíveis. Menus, eventos de jogo, chat, atualizações de status e recursos de voz suportados são apresentados de uma maneira que pode ser acompanhada sem depender de informações visuais.
+O PlayAural é uma plataforma de jogos online projetada com foco em som, fala e controles acessíveis. Menus, eventos de jogo, chat, atualizações de status e recursos de voz disponíveis são apresentados de uma maneira que pode ser acompanhada sem depender de informações visuais.
 
 # **Onde Você Pode Jogar**
 
@@ -10,10 +10,10 @@ O PlayAural é uma plataforma de jogos online projetada em torno de som, fala e 
 
 # **Como Começar a Jogar**
 
-1. **Abrir Jogar:** Escolha Jogar no menu principal para navegar pela lista de jogos.
-2. **Verificar Mesas Ativas:** Use Mesas Ativas para encontrar mesas que já estão abertas e prontas para entrar.
-3. **Abrir Amigos:** Use Amigos para gerenciar sua lista de amigos, enviar solicitações de amizade e enviar mensagens privadas.
-4. **Abrir Opções:** Use Opções para alterar idioma, fala, som e outras configurações pessoais.
+1. **Acessar Jogos:** Escolha Jogar no menu principal para navegar pela lista de jogos.
+2. **Verificar Mesas Ativas:** Escolha Mesas Ativas para encontrar mesas que já estão abertas e prontas para entrar.
+3. **Acessar Amigos:** Escolha Amigos para gerenciar sua lista de amigos, enviar solicitações de amizade e enviar mensagens privadas.
+4. **Acessar Opções:** Escolha Opções para alterar idioma, fala, som e outras configurações pessoais.
 5. **Entrar ou criar uma mesa:** Uma vez em uma mesa, você pode convidar amigos, adicionar jogadores controlados pelo computador ou aguardar a entrada de outros.
 
 # **O Que Você Pode Fazer em uma Mesa**
@@ -21,15 +21,15 @@ O PlayAural é uma plataforma de jogos online projetada em torno de som, fala e 
 Quando você entra em uma mesa, geralmente pode:
 
 * Iniciar o jogo se você for o host.
-* Revisar as regras do jogo através de Como Jogar.
+* Revisar as regras do jogo através do guia Como Jogar.
 * Verificar Informações do Jogo para ouvir as configurações atuais da mesa.
-* Usar Quem está na mesa para ouvir quem está presente.
+* Verificar Quem está na mesa para ouvir quem está presente.
 * Conversar com outras pessoas na mesa ou enviar mensagens privadas.
 * Entrar no chat de voz da mesa nos clientes do PlayAural que suportam reprodução de voz e acesso ao microfone.
 
 # **Chat e Recursos Sociais**
 
-O PlayAural foi criado para ser social, bem como acessível.
+O PlayAural foi criado para ser social e também acessível.
 
 * **Amigos:** Acompanhe as pessoas com quem você gosta de jogar.
 * **Mensagens privadas:** Envie mensagens diretas sem sair da sua mesa atual.

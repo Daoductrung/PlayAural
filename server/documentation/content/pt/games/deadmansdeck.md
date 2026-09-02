@@ -65,7 +65,7 @@ As cartas selecionadas permanecem visíveis em sua mão até que você as jogue 
 
 Você ainda pode revisar suas cartas quando não for o seu turno ou enquanto uma sequência de revelação, desafio ou revólver estiver rolando. Se você tentar selecionar uma carta no momento errado, o jogo explicará por que a seleção não pode ser feita ainda.
 
-**Chamando Mentiroso (Call Liar)**
+**Chamando de Mentiroso**
 
 Depois que um jogador faz uma reivindicação, o próximo jogador elegível pode chamar mentiroso em vez de fazer uma nova reivindicação.
 
@@ -113,7 +113,7 @@ O Baralho do Morto atualmente usa regras fixas. O anfitrião não tem opções e
 
 **Atalhos de Teclado**
 
-* **C:** Chamar mentiroso (Call liar).
+* **C:** Chamar mentiroso.
 * **P:** Jogar cartas selecionadas.
 * **X:** Limpar cartas selecionadas.
 * **H:** Ler sua mão.

@@ -22,11 +22,11 @@ Scopa é jogado com um baralho padrão com as cartas de figura removidas (40 car
 
 
 
-1. **Correspondência de Valor (Rank Match):** Se a carta que você joga corresponde ao valor de uma carta na mesa, você captura essa carta.
+1. **Correspondência de valor:** Se a carta que você joga corresponde ao valor de uma carta na mesa, você captura essa carta.
 
 
 
-2. **Correspondência de Soma (Sum Match):** Se nenhuma carta individual corresponder por valor, mas várias cartas da mesa somarem o valor da carta jogada, você captura todo esse conjunto.
+2. **Correspondência de soma:** Se nenhuma carta individual corresponder por valor, mas várias cartas da mesa somarem o valor da carta jogada, você captura todo esse conjunto.
 
 
 
@@ -50,15 +50,15 @@ No final de cada rodada, 1 ponto é concedido para cada um dos seguintes itens (
 
 
 
-* **Mais Cartas:** Capturou o maior número total de cartas.
+* **Maioria das cartas:** Capturou o maior número total de cartas.
 
 
 
-* **Mais Ouros:** Capturou o maior número de cartas do naipe de Ouros.
+* **Maioria dos ouros:** Capturou o maior número de cartas do naipe de Ouros.
 
 
 
-* **7 de Ouros:** Capturou a carta específica 7 de Ouros.
+* **7 de ouros:** Capturou a carta específica 7 de Ouros.
 
 
 
@@ -102,11 +102,11 @@ Os pontos de Scopa são rastreados durante a mão e mostrados pelas verificaçõ
 
 
 
-* **Mecânica de Scopa:** Normal, Sem Scopas (as varreduras de mesa não pontuam) ou Apenas Scopas (apenas os pontos de varredura contam).
+* **Mecânica da Scopa:** Normal, Sem Scopas (as varreduras de mesa não pontuam) ou Só Scopas (apenas os pontos de varredura contam).
 
 
 
-* **Scopas de Vitória Instantânea:** Se uma Scopa válida vence o jogo imediatamente. Isso não pode ser combinado com Sem Scopas ou Scopa Inversa (padrão desativado).
+* **Vitória instantânea por scopa:** Se uma Scopa válida vence o jogo imediatamente. Isso não pode ser combinado com Sem Scopas ou Scopa Inversa (padrão desativado).
 
 
 
@@ -114,15 +114,15 @@ Os pontos de Scopa são rastreados durante a mão e mostrados pelas verificaçõ
 
 
 
-* **Seleção Manual:** Quando ativado, se uma carta jogada puder capturar várias combinações válidas da mesa, você poderá escolher manualmente qual combinação pegar em vez de o jogo selecionar automaticamente a com mais cartas.
+* **Seleção manual de captura:** Quando ativado, se uma carta jogada puder capturar várias combinações válidas da mesa, você poderá escolher manualmente qual combinação pegar em vez de o jogo selecionar automaticamente a com mais cartas.
 
 
 
-* **Asso piglia tudo (Ás pega tudo):** Jogar um Ás varre todas as cartas atualmente na mesa e pontua uma Scopa se a varredura for válida. Se já houver um Ás na mesa, ele captura apenas um Ás; se essa era a única carta da mesa, ele ainda pontua uma Scopa. Este modo não pode ser ativado junto com Escoba.
+* **Asso piglia tutto (ás leva tudo):** Jogar um Ás varre todas as cartas atualmente na mesa e pontua uma Scopa se a varredura for válida. Se já houver um Ás na mesa, ele captura apenas um Ás; se essa era a única carta da mesa, ele ainda pontua uma Scopa. Este modo não pode ser ativado junto com Escoba.
 
 
 
-* **Pontuação Tradicional de Primiera:** Se desativado, o jogo usa a variante de pontuação mais simples "Mais Setes" (padrão ativado para o Scopa padrão).
+* **Pontuação tradicional da Primiera:** Se desativado, o jogo usa a variante de pontuação mais simples "maioria dos setes" (padrão ativado para o Scopa padrão).
 
 
 
@@ -142,11 +142,11 @@ Os pontos de Scopa são rastreados durante a mão e mostrados pelas verificaçõ
 
 
 
-* **C:** Ver todas as cartas da mesa.
+* **C:** Ver mesa.
 
 
 
-* **D:** Ver a contagem de cartas capturadas.
+* **D:** Ver capturadas.
 
 
 

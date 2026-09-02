@@ -2,7 +2,7 @@
 
 Chaos Bear é um jogo de perseguição rápida para 2 a 4 jogadores. Todos começam à frente do urso e tentam ficar fora de alcance pelo maior tempo possível.
 
-O último corredor ainda vivo vence. Se o urso pegar todo mundo no mesmo turno do urso, o jogador ou jogadores que alcançaram a casa mais distante dividem o resultado da distância.
+O último corredor ainda vivo vence. Se o urso pegar todos no mesmo turno, vence o jogador que estiver mais longe; se houver empate, os jogadores empatados dividem o resultado da distância.
 
 **Iniciando a Perseguição**
 
@@ -62,7 +62,7 @@ Chaos Bear usa regras de mesa fixas para que todos tenham a mesma experiência r
 
 **Opções Pessoais de Jogo**
 
-* **Anúncios Resumidos:** Usa mensagens mais curtas de turno, movimento, carta, urso, captura e resultado, mantendo os valores importantes de casa, distância, rolagem e energia.
+* **Anúncios breves:** Usa mensagens mais curtas de turno, movimento, carta, urso, captura e resultado, mantendo os valores importantes de casa, distância, rolagem e energia.
 
 **Verificando a Perseguição**
 

@@ -11,7 +11,7 @@ O Tien Len usa um baralho padrão de 52 cartas. Cada jogador recebe 13 cartas.
 * **Primeira mão:** O jogador que possui o 3 de Espadas começa. A jogada inicial deve incluir essa carta. Se o 3 de Espadas não foi distribuído em uma mão de 2 ou 3 jogadores, a carta distribuída mais baixa começa.
 * **Mãos posteriores:** O primeiro colocado da mão anterior começa a próxima mão.
 * **No seu turno:** Jogue uma combinação legal que vença a vaza atual, ou passe.
-* **Passe bloqueado:** Passar bloqueia você da vaza atual até que a mesa limpe, exceto por janelas de corte (chop) legais do Tien Len do Sul.
+* **Passe bloqueado:** Passar bloqueia você da vaza atual até que a mesa limpe, exceto por janelas de corte legais do Tien Len do Sul.
 * **Redefinição da vaza:** Quando todos que podem responder passam, o último jogador invicto limpa a vaza e lidera uma nova.
 * **Colocações da mão:** A mão não termina quando o primeiro jogador sai. Esse jogador assume o primeiro lugar e sai; os jogadores restantes continuam até que apenas um jogador tenha cartas restantes.
 
@@ -23,7 +23,7 @@ No PlayAural, selecione uma ou mais cartas da sua mão e use **Jogar Cartas Sele
 * **Par:** duas cartas do mesmo valor.
 * **Trinca:** três cartas do mesmo valor.
 * **Quadra:** quatro cartas do mesmo valor.
-* **Sequência (Straight):** três ou mais valores consecutivos.
+* **Sequência:** três ou mais valores consecutivos.
 * **Pares Consecutivos:** Apenas no modo Sul; três ou mais pares consecutivos.
 
 **Tien Len do Sul**
@@ -34,7 +34,7 @@ O Tien Len do Sul é a variante mais solta e tática.
 * As sequências podem misturar naipes.
 * Os 2s não podem ser usados em sequências.
 * Três ou mais pares consecutivos são legais e podem ser usados para abrir uma nova vaza.
-* Quadra, três pares consecutivos, quatro pares consecutivos e cinco pares consecutivos são ferramentas de corte (chopping).
+* Quadra, três pares consecutivos, quatro pares consecutivos e cinco pares consecutivos são ferramentas de corte.
 
 **Corte no Tien Len do Sul**
 
@@ -116,7 +116,7 @@ Se um jogador não tiver moedas suficientes para pagar uma transferência, ele p
 
 * **Variante:** Escolha Tien Len do Sul ou Tien Len do Norte (padrão Tien Len do Sul).
 * **Moedas Iniciais:** Escolha o saldo inicial de cada jogador (padrão 50 moedas, opções: 20, 50, 100 ou 200 moedas).
-* **Cronômetro de Turno:** Escolha o limite de tempo por turno (padrão Ilimitado, opções: 10, 15, 20, 30, 45, 60 ou 90 segundos, ou Ilimitado).
+* **Temporizador de turno:** Escolha o limite de tempo por turno (padrão Ilimitado, opções: 10, 15, 20, 30, 45, 60 ou 90 segundos, ou Ilimitado).
 
 **Atalhos de Teclado**
 
@@ -126,4 +126,4 @@ Se um jogador não tiver moedas suficientes para pagar uma transferência, ele p
 * **H:** Ler sua mão.
 * **E:** Ler contagem de cartas.
 * **V:** Ouvir a variante selecionada.
-* **Shift+T:** Conferir o cronômetro de turno.
+* **Shift+T:** Verificar temporizador de turno.

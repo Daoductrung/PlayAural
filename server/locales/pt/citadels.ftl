@@ -1,4 +1,4 @@
-game-name-citadels = Citadelas
+game-name-citadels = Cidadelas
 
 citadels-character-1 = Assassino
 citadels-character-2 = Ladrão
@@ -48,7 +48,7 @@ citadels-district-statue = Estátua
 citadels-district-thieves_den = Covil dos Ladrões
 citadels-district-wishing_well = Poço dos Desejos
 
-citadels-game-start = Citadelas começou.
+citadels-game-start = Cidadelas começou.
 citadels-selection-start-you = Rodada { $round }. Você escolhe um personagem primeiro.
 citadels-selection-start = Rodada { $round }. { $player } escolhe um personagem primeiro.
 citadels-selection-prompt = Escolha um personagem agora.
@@ -207,7 +207,7 @@ citadels-character-line = { $brief ->
 citadels-discards-none = nenhum
 citadels-faceup-discards-line = Personagens descartados virados para cima: { $characters }
 
-citadels-status-header = Status de Citadelas
+citadels-status-header = Status de Cidadelas
 citadels-status-crown = Detentor da coroa: { $player }
 citadels-status-selection = Seleção de personagens. { $player } está escolhendo.
 citadels-status-rank-resolution = { $brief ->

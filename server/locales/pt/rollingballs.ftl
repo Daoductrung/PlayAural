@@ -81,7 +81,7 @@ rb-you-reshuffle = Você reembaralha as primeiras { $count } bolas. { $penalty -
 rb-player-reshuffles = { $player } reembaralha as primeiras { $count } bolas. { $penalty ->
     [0] Não há penalidade
    *[other] { $player } paga uma penalidade de { $penalty } pontos
-}; a pontuação deles agora é { $score }, e eles têm { $remaining } reembaralhamentos restantes.
+}; pontuação atual: { $score }; reembaralhamentos restantes: { $remaining }.
 rb-you-reshuffle-brief = Você reembaralha { $count } bolas; penalidade { $penalty }, pontuação { $score }, restam { $remaining } usos.
 rb-player-reshuffles-brief = { $player } reembaralha { $count } bolas; penalidade { $penalty }, pontuação { $score }, restam { $remaining } usos.
 

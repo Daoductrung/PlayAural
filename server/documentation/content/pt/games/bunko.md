@@ -9,7 +9,7 @@ Bunko é um jogo de dados rápido sobre perseguir o número alvo da rodada. O Pl
 * Cada rodada tem um **número alvo**. A rodada 1 tem como alvo o 1, a rodada 2 o 2, e assim por diante até o 6. Se a partida tiver mais de 6 rodadas, os números alvo voltam a ser contados a partir do 1.
 * No seu turno, role todos os três dados.
 * Se a jogada pontuar algum ponto, você mantém os dados e rola novamente.
-* Se a jogada pontuar 0, seu turno termina e a jogada passa para o próximo jogador.
+* Se a jogada valer 0 pontos, seu turno termina e a jogada passa para o próximo jogador.
 
 **Jogadas Especiais**
 
@@ -33,7 +33,7 @@ O anfitrião escolhe um entre dois modos de vitória:
 
 **Notas de Acessibilidade**
 
-* A preferência global **Anúncios resumidos** encurta as mensagens frequentes de rolagens e rodadas, mantendo os dados, pontos, pontuação da rodada e pontuação total.
+* A preferência global **Anúncios breves** encurta as mensagens frequentes de rolagens e rodadas, mantendo os dados, pontos, pontuação da rodada e pontuação total.
 * **Confirmar ações arriscadas** não é usado no Bunko porque rolar é obrigatório para o jogo normal e não há decisão de acumular/passar que possa sacrificar pontos acidentalmente.
 
 **Opções Personalizáveis**

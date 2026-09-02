@@ -1,4 +1,4 @@
-poker-fold = Correr
+poker-fold = Desistir
 poker-call = Pagar
 poker-check = Passar
 poker-raise = Aumentar
@@ -31,8 +31,8 @@ poker-pot-side = Pote secundário { $index }: { $amount } fichas.
 poker-to-call = Você precisa de { $amount } fichas para pagar.
 poker-min-raise = Aumento mínimo de { $amount } fichas.
 
-poker-player-folds = { $player } corre.
-poker-you-fold = Você corre.
+poker-player-folds = { $player } desiste.
+poker-you-fold = Você desiste.
 poker-player-checks = { $player } passa.
 poker-you-check = Você passa.
 poker-player-calls = { $player } paga { $amount } fichas.
@@ -54,7 +54,7 @@ poker-you-all-in = Você vai de all-in com { $amount } fichas.
 poker-player-wins-game = { $player } vence o jogo.
 poker-you-win-game = Você vence o jogo.
 
-poker-showdown = Showdown.
+poker-showdown = Confronto.
 
 poker-timer-disabled = O temporizador de turno está desativado.
 poker-timer-remaining = Restam { $seconds } segundos.
@@ -92,7 +92,7 @@ poker-hand-no-cards = Você não tem cartas na mão.
 poker-no-active-betting = Nenhuma rodada de apostas em andamento.
 
 poker-log-empty = Nenhuma ação ainda.
-poker-log-fold = { $player } correu
+poker-log-fold = { $player } desistiu
 poker-log-check = { $player } passou
 poker-log-call = { $player } pagou { $amount }
 poker-log-raise = { $player } aumentou para { $amount }

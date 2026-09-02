@@ -4,13 +4,13 @@ Quinta-feira, 27 de agosto de 2026
 
 Novas Adições:
 
-* O português agora está disponível em todo o servidor, aplicativo para computador, web, dispositivos móveis e guias de jogadores como uma tradução da comunidade por Tadeu Junior. O conteúdo ainda não traduzido para o português retorna ao inglês.
+* O português agora está disponível no servidor, no aplicativo para computador, na web, em dispositivos móveis e nos guias para jogadores, graças à tradução comunitária de Tadeu Junior. O conteúdo ainda não traduzido para o português será exibido em inglês.
 
 Melhorias:
 
 * O atualizador de computador do Windows agora instala as atualizações do PlayAural e dos pacotes de som em uma janela dedicada e acessível. Ele verifica o pacote baixado antes de alterar a instalação, espera todas as janelas do PlayAural fecharem, verifica se o cliente atualizado inicia corretamente e restaura a versão de trabalho anterior se a inicialização falhar. Atualizações com falha ou canceladas também limpam os arquivos temporários e fornecem instruções de recuperação mais claras.
 * Os Sons de Digitação do Play agora funcionam na caixa de chat do computador e nas caixas de texto abertas pelos jogos, bem como no chat e nas caixas de texto da web suportados. Teclas comuns usam uma variedade maior de sons, enquanto teclas numéricas, Delete e Enter têm feedback distinto. O teclado vietnamita Telex integrado do Windows e outros teclados de idiomas agora mantêm um som para cada tecla sem duplicatas ao formar caracteres acentuados.
-* O Backgammon agora inclui uma visualização ao vivo de Movimentos legais; feedback mais claro de Desmarcar, remoção de peça com falha, Desfazer, Status, Contagem de pontos, Dados, Cubo e pontuação; texto personalizado para o jogador que está movendo e para todos os demais; foco de toque mais estável; e um guia para iniciantes reconstruído. Jogadores de toque rolam os dados tocando em qualquer ponto do tabuleiro sem mover o foco, enquanto Próximo destino e Destino anterior movem o foco apenas quando solicitado.
+* O Backgammon agora inclui uma visualização ao vivo de Movimentos legais; feedback mais claro de Desmarcar, remoção de peça com falha, Desfazer, Status, Contagem de pontos, Dados, Cubo e pontuação; texto personalizado para o jogador que está movendo e para todos os demais; foco de toque mais estável; e um guia para iniciantes reconstruído. Jogadores de toque rolam os dados tocando em qualquer ponto do tabuleiro sem mover o foco, enquanto 'Próximo destino' e 'Destino anterior' movem o foco apenas quando solicitado.
 * O bloqueio de jogadores, os resumos de associação à mesa e o jogo do cubo de redobro do Backgammon agora estão disponíveis em espanhol.
 
 Correções de bugs:

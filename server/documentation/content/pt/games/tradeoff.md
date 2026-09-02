@@ -1,6 +1,6 @@
-**Intercâmbio**
+**Tradeoff**
 
-Intercâmbio é um jogo de troca de dados para 2 a 8 jogadores. Todos rolam ao mesmo tempo, escolhem quais dados guardar e enviam o resto para um pool compartilhado. Em seguida, os jogadores pegam dados de volta desse pool para terminar de construir sua mão.
+Tradeoff é um jogo de troca de dados para 2 a 8 jogadores. Todos rolam ao mesmo tempo, escolhem quais dados guardar e enviam o resto para um pote compartilhado. Em seguida, os jogadores pegam dados de volta desse pote para terminar de construir sua mão.
 
 Cada rodada dá a cada jogador 15 dados. O jogo pontua esses dados automaticamente encontrando os melhores conjuntos que não se sobrepõem.
 
@@ -20,7 +20,7 @@ Cada rodada tem três mãos. Cada mão tem duas fases: troca e retirada.
 
 3. Escolha quais dados você deseja guardar. Os dados guardados vão para a sua mão da rodada quando você confirma.
 
-4. Os dados ainda marcados para troca vão para o pool compartilhado.
+4. Os dados ainda marcados para troca vão para o pote compartilhado.
 
 5. Confirme suas escolhas de troca. Uma vez confirmado, você espera até que todos os outros jogadores também tenham confirmado.
 
@@ -28,9 +28,9 @@ Você pode trocar todos os 5 dados, guardar todos os 5 dados ou escolher qualque
 
 **Fase de Retirada**
 
-Após todos confirmarem, os dados trocados são revelados e colocados no pool compartilhado.
+Após todos confirmarem, os dados trocados são revelados e colocados no pote compartilhado.
 
-Os jogadores que trocaram dados revezam-se escolhendo um dado de cada vez do pool. Você deve pegar de volta exatamente o mesmo número de dados que trocou. Por exemplo, se você trocou 3 dados, você pegará 3 dados do pool antes que a mão termine.
+Os jogadores que trocaram dados revezam-se escolhendo um dado de cada vez do pote. Você deve pegar de volta exatamente o mesmo número de dados que trocou. Por exemplo, se você trocou 3 dados, você pegará 3 dados do pote antes que a mão termine.
 
 Jogadores com pontuações totais mais baixas jogam primeiro. Se as pontuações estiverem empatadas, o jogador com a soma da mão atual mais baixa joga primeiro. Se isso também estiver empatado, a ordem é randomizada.
 
@@ -42,19 +42,19 @@ Após a terceira mão, cada jogador tem 15 dados. O jogo verifica todas as combi
 
 * **Trinca:** 3 dados do mesmo valor. Vale **3 pontos**.
 
-* **Sequência curta:** 4 valores consecutivos, como 1-2-3-4. Vale **7 pontos**.
+* **Mini sequência:** 4 valores consecutivos, como 1-2-3-4. Vale **7 pontos**.
 
 * **Grupo de cinco:** 5 dados do mesmo valor. Vale **8 pontos**.
 
-* **Duas trincas:** Duas trincas diferentes, 6 dados no total. Vale **10 pontos**.
+* **Trinca dupla:** Duas trincas diferentes, 6 dados no total. Vale **10 pontos**.
 
 * **Sequência:** 5 valores consecutivos, seja 1-2-3-4-5 ou 2-3-4-5-6. Vale **12 pontos**.
 
-* **Dois grupos de cinco:** Dois grupos de cinco diferentes, 10 dados no total. Vale **30 pontos**.
+* **Grupo duplo:** Dois grupos de cinco diferentes, 10 dados no total. Vale **30 pontos**.
 
-* **Três grupos de cinco:** Três grupos de cinco cobrindo todos os 15 dados. Vale **50 pontos**.
+* **Todos os grupos:** Três grupos de cinco cobrindo todos os 15 dados. Vale **50 pontos**.
 
-* **Cinco trincas:** Cinco trincas cobrindo todos os 15 dados. Vale **50 pontos**.
+* **Todas as trincas:** Cinco trincas cobrindo todos os 15 dados. Vale **50 pontos**.
 
 Dados que não se encaixam na melhor combinação de pontuação valem 0 pontos.
 
@@ -66,13 +66,13 @@ Dados que não se encaixam na melhor combinação de pontuação valem 0 pontos.
 
 * **Anúncios breves:** Encurta revelações de trocas repetidas e resumos de pontuação.
 
-* **Estilo de guarda de dados:** Com Índices de dados, pressione 1-5 durante a troca para alternar os dados por posição. Com Valores de dados, pressione 1-6 durante a troca para guardar um dado correspondente, e Shift+1-6 para marcar um dado guardado correspondente para troca.
+* **Estilo de retenção de dados:** Com Índices de dados, pressione 1-5 durante a troca para alternar os dados por posição. Com Valores de dados, pressione 1-6 durante a troca para guardar um dado correspondente, e Shift+1-6 para marcar um dado guardado correspondente para troca.
 
 **Ações de Informação**
 
 * **Ver sua mão:** Ouve os dados que você já guardou nesta rodada. Durante a troca, também lê sua rolagem atual e quais dados estão marcados para troca.
 
-* **Ver o pool:** Ouve quais valores de dados estão disponíveis atualmente no pool compartilhado.
+* **Ver o pote:** Ouve quais valores de dados estão disponíveis atualmente no pote compartilhado.
 
 * **Ver jogadores:** Ouve a mão guardada de cada jogador e o que eles trocaram na última mão revelada.
 
@@ -92,13 +92,13 @@ Fase de troca:
 
 Fase de retirada:
 
-* **1-6:** Pegar um dado correspondente do pool compartilhado.
+* **1-6:** Pegar um dado correspondente do pote compartilhado.
 
 A qualquer momento durante o jogo:
 
 * **H:** Ver sua mão.
 
-* **P:** Ver o pool.
+* **P:** Ver o pote.
 
 * **V:** Ver jogadores.
 

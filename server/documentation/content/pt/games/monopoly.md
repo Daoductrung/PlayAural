@@ -2,7 +2,7 @@
 
 **Visão Geral**
 
-Monopólio é um jogo de tabuleiro de negociação de propriedades para 2 a 8 jogadores. Você se move por um tabuleiro de 40 casas, compra propriedades, coleta aluguéis, completa grupos de cores e desenvolve esses grupos para que eles rendam mais. Os jogadores que não conseguem pagar o que devem falem. O último jogador que continuar no jogo vence.
+Monopólio é um jogo de tabuleiro de negociação de propriedades para 2 a 8 jogadores. Você se move por um tabuleiro de 40 casas, compra propriedades, coleta aluguéis, completa grupos de cores e desenvolve esses grupos para que eles rendam mais. Os jogadores que não conseguem pagar o que devem vão à falência. O último jogador que continuar no jogo vence.
 
 O PlayAural lida com o Banco, dados, movimento, cartas, aluguel, leilões e cálculos. Dinheiro, posições, propriedade, hipotecas, desenvolvimento e cartas de "Saia da Prisão de Graça" são informações públicas.
 
@@ -43,7 +43,7 @@ Uma rolagem normal usa dois dados de seis faces. Cada dado pode mostrar de 1 a 6
 
 Dois uns também são chamados de **olhos de cobra**. Eles contam como duplas. O bônus opcional de Olhos de cobra também pode conceder dinheiro por esta rolagem.
 
-Rolar duplas para sair da prisão é diferente: isso tira você da prisão, mas não dá outro turno.
+Rolar duplas para sair da prisão é diferente: isso tira você da prisão, mas não dá outra rolagem.
 
 **Um turno, passo a passo**
 
@@ -53,7 +53,7 @@ Rolar duplas para sair da prisão é diferente: isso tira você da prisão, mas 
 4. Se você tirou duplas, role novamente após a parada e todas as escolhas obrigatórias estarem resolvidas.
 5. Quando nenhuma rolagem extra ou escolha obrigatória restar, você pode gerenciar propriedades, propor uma troca ou escolher **Encerrar turno**.
 
-Às vezes, um jogador deve agir durante o turno de outra pessoa. Por exemplo, um proprietário deve escolher **Reivindicar aluguel** ou **Dispensar aluguel** quando outro jogador pousa lá. O turno espera por essa escolha. **Verificar de quem é o turno** relata tanto o jogador do turno quanto qualquer pessoa atualmente obrigada a responder.
+Às vezes, um jogador deve agir durante o turno de outra pessoa. Por exemplo, um proprietário deve escolher **Cobrar aluguel** ou **Dispensar aluguel** quando outro jogador pousa lá. O turno espera por essa escolha. **Verificar de quem é o turno** relata tanto o jogador do turno quanto qualquer pessoa atualmente obrigada a responder.
 
 **Exemplo de um turno**
 
@@ -68,9 +68,9 @@ Um 3 e um 3 também somariam 6, mas seriam duplas. Você terminaria a decisão d
 * **Casa de Início:** Passar ou parar nela paga o salário do tabuleiro. Mover-se diretamente para a prisão não passa por ela e não paga nada. Uma carta diz se seu movimento coleta o salário.
 * **Propriedade sem dono:** Compre-a pelo preço impresso ou envie-a para leilão.
 * **Propriedade de propriedade alheia:** Você pode dever aluguel se outro jogador for dono dela e ela não estiver hipotecada.
-* **Chance e Sorte Grande:** Compre a carta do topo e siga-a. No tabuleiro de Hanói, Vietnã, esses baralhos são chamados de Sorte e Xổ Số Kiến Thiết.
+* **Sorte e Arca do Tesouro:** Compre a carta do topo e siga-a. No tabuleiro de Hanói, Vietnã, esses baralhos são chamados de Sorteio e Xổ Số Kiến Thiết.
 * **Imposto:** Pague o valor mostrado para esse tabuleiro.
-* **Estacionamento Livre ou a casa de descanso do tabuleiro:** Nada acontece a menos que a opção de jackpot da casa de descanso esteja ativada.
+* **Parada Livre ou o espaço de descanso do tabuleiro:** Nada acontece a menos que a opção de jackpot do espaço de descanso esteja ativada.
 * **Prisão / Apenas visitando:** Parar aqui por movimento normal é apenas uma visita.
 * **Vá para a Prisão:** Mude-se diretamente para a prisão, não colete o salário da casa de início e encerre o turno.
 
@@ -80,7 +80,7 @@ A maioria das cartas retorna ao fundo de seu baralho após o uso. Uma carta Saia
 
 Quando você pousa em uma propriedade sem dono, o menu de compra fornece seu grupo de cores, membros do grupo, preço, valor da hipoteca, tabela de aluguel e seu dinheiro. Comprar paga o preço impresso ao Banco e lhe dá a escritura.
 
-Recusar a compra inicia um leilão imediatamente. O jogador que recusou ainda pode dar lances. Escolha **Dar lance mínimo** para o menor aumento legal, **Inserir lance personalizado** para um valor maior ou **Sair do leilão**. A saída é permanente. O licitante final paga o lance vencedor e recebe a propriedade. Se todos saírem antes de qualquer lance, a propriedade permanece sem dono.
+Recusar a compra inicia um leilão imediatamente. O jogador que recusou ainda pode dar lances. Escolha **Dar lance mínimo** para o menor aumento legal, **Digitar lance personalizado** para um valor maior ou **Sair do leilão**. A saída é permanente. O licitante final paga o lance vencedor e recebe a propriedade. Se todos saírem antes de qualquer lance, a propriedade permanece sem dono.
 
 Enquanto você permanecer em um leilão, seus controles permanecem no seu menu de turno. Eles são atualizados para mostrar o lance mínimo atual e permanecem desativados enquanto outro licitante age. Eles desaparecem apenas depois que você sai desse leilão ou o leilão termina.
 
@@ -94,9 +94,9 @@ O aluguel depende do tipo de propriedade:
 
 * **Rua ou negócio de Hanói:** Usa o nível de aluguel em sua escritura. Uma propriedade não desenvolvida ganha o dobro do aluguel básico quando um jogador possui o grupo de cores completo.
 * **Ferrovia, estação ou rodoviária de Hanói:** O aluguel aumenta à medida que o proprietário coleta mais propriedades de trânsito.
-* **Utilidade ou marco de Hanói:** Quando você pousa em uma utilidade ou marco pertencente a alguém, faça uma nova rolagem de aluguel. Cada pip de dado vale 4 unidades da moeda daquele tabuleiro quando o dono tem uma, ou 10 unidades quando o dono tem o grupo completo. No tabuleiro de Hanói, cada pip vale 4.000 VND com um marco ou 10.000 VND com ambos.
+* **Utilidade ou marco de Hanói:** Quando você pousa em uma utilidade ou marco pertencente a alguém, faça uma nova rolagem de aluguel. Cada ponto de dado vale 4 unidades da moeda daquele tabuleiro quando o dono tem uma, ou 10 unidades quando o dono tem o grupo completo. No tabuleiro de Hanói, cada ponto vale 4.000 VND com um marco ou 10.000 VND com ambos.
 
-Algumas cartas enviam você para a propriedade de trânsito ou utilidade mais próxima. Uma propriedade de trânsito alcançada dessa forma cobra o dobro do aluguel. Uma utilidade de propriedade alcançada dessa forma usa a mesma nova rolagem de aluguel, mas cobra a taxa de grupo completo mesmo quando seu dono tem apenas uma utilidade.
+Algumas cartas enviam você para a propriedade de trânsito ou utilidade mais próxima. Uma propriedade de trânsito alcançada dessa forma cobra o dobro do aluguel. Uma utilidade com dono alcançada dessa forma usa a mesma nova rolagem de aluguel, mas cobra a taxa de grupo completo mesmo quando seu dono tem apenas uma utilidade.
 
 **Grupos de cores e desenvolvimento**
 
@@ -112,7 +112,7 @@ O desenvolvimento é vendido para o Banco pela metade do custo de compra e deve 
 
 **Gerenciar propriedades** permanece visível em pontos seguros do jogo. Se você não possui nada, ativá-lo informa que você ainda não possui nenhuma propriedade.
 
-O espaço de trabalho de gerenciamento tem tarefas separadas para comprar desenvolvimento, vender desenvolvimento, hipotecar e deshipotecar. Cada tarefa abre uma lista filtrada contendo apenas escolhas legais. **Gerenciar ou inspecionar qualquer propriedade** abre sua lista completa de escrituras. A partir dos detalhes de uma propriedade, use **Voltar à lista de propriedades** para escolher outra escritura ou **Concluir gerenciamento de propriedades** para sair do espaço de trabalho.
+O espaço de trabalho de gerenciamento tem tarefas separadas para comprar desenvolvimento, vender desenvolvimento, hipotecar e desipotecar. Cada tarefa abre uma lista filtrada contendo apenas escolhas permitidas. **Gerenciar ou inspecionar qualquer propriedade** abre sua lista completa de escrituras. A partir dos detalhes de uma propriedade, use **Voltar à lista de propriedades** para escolher outra escritura ou **Concluir gerenciamento de propriedades** para sair do espaço de trabalho.
 
 Botões de tarefas indisponíveis permanecem visíveis. Suas dicas de menu explicam o que a tarefa faz; ativar uma delas diz o motivo específico de sua indisponibilidade, como um grupo de cores incompleto, uma hipoteca, desenvolvimento desigual, dinheiro insuficiente, desenvolvimento máximo ou escassez no Banco.
 
@@ -120,10 +120,10 @@ Botões de tarefas indisponíveis permanecem visíveis. Suas dicas de menu expli
 
 Hipotecar uma propriedade elegível paga seu valor de hipoteca impresso imediatamente. Antes de hipotecar uma rua, venda todo o desenvolvimento de todo o seu grupo de cores. Uma propriedade hipotecada continua sendo sua e pode ser negociada, mas não pode coletar aluguel.
 
-Para deshipotecar sua própria propriedade, pague seu valor de hipoteca mais 10% de juros, arredondados para cima. Quando você recebe uma propriedade hipotecada de outro jogador, escolha imediatamente um caminho:
+Para desipotecar sua própria propriedade, pague seu valor de hipoteca mais 10% de juros, arredondados para cima. Quando você recebe uma propriedade hipotecada de outro jogador, escolha imediatamente um caminho:
 
-* Pagar 10% do valor da sua hipoteca e mantê-la hipotecada. Deshipotecá-la mais tarde ainda custa o valor da hipoteca mais outros 10%.
-* Pagar o valor da hipoteca mais 10% e deshipotecá-la imediatamente.
+* Pagar 10% do valor da sua hipoteca e mantê-la hipotecada. Desipotecá-la mais tarde ainda custa o valor da hipoteca mais outros 10%.
+* Pagar o valor da hipoteca mais 10% e desipotecá-la imediatamente.
 
 O Banco não faz outros empréstimos, e os jogadores não podem emprestar dinheiro privadamente.
 
@@ -145,11 +145,11 @@ No início de um turno na prisão, escolha um método:
 * Usar uma carta Saia da Prisão de Graça, devolvê-la ao seu baralho e rolar normalmente.
 * Rolar para tentar duplas.
 
-As duplas libertam você e o movem por essa rolagem, mas não dão nenhuma rolagem extra. Uma tentativa falhada encerra seu turno na prisão. Após a terceira tentativa falhada, você deve pagar a multa de prisão do tabuleiro e mover-se por essa terceira rolagem. Enquanto preso, você ainda pode coletar aluguel, negociar, desenvolver, vender desenvolvimento e hipotecar propriedades, a menos que a opção "Sem aluguel enquanto estiver na prisão" esteja ativada.
+As duplas libertam você e o movem por essa rolagem, mas não dão nenhuma rolagem extra. Uma tentativa falhada encerra seu turno na prisão. Após a terceira tentativa falhada, você deve pagar a multa de prisão do tabuleiro e mover-se por essa terceira rolagem. Enquanto preso, você ainda pode coletar aluguel, negociar, desenvolver, vender desenvolvimento e hipotecar propriedades, a menos que a opção "Sem aluguel na prisão" esteja ativada.
 
 **Dívida e falência**
 
-Se você deve mais dinheiro do que possui, o jogo pausa para você arrecadar dinheiro. Você pode vender desenvolvimento e hipotecar propriedades sozinho, ou usar **Arrecadar dinheiro automaticamente**. A ação automática segue a regra de venda uniforme, hipoteca escrituras elegíveis e para assim que você puder pagar.
+Se você deve mais dinheiro do que possui, o jogo pausa para você arrecadar dinheiro. Você pode vender desenvolvimento e hipotecar propriedades sozinho, ou usar **Levantar dinheiro automaticamente**. A ação automática segue a regra de venda uniforme, hipoteca escrituras elegíveis e para assim que você puder pagar.
 
 Você pode escolher **Declarar falência** apenas quando seu dinheiro e tudo o que você pode vender ou hipotecar legalmente ainda não puderem cobrir a dívida.
 
@@ -172,17 +172,17 @@ Enquanto uma rolagem, movimento de peão ou efeito de carta estiver sendo resolv
 
 A configuração **Dicas de menu** em **Opções gerais > Acessibilidade** adiciona explicações para iniciantes às ações que precisam delas. A dica de uma ação desativada continua a explicar seu propósito; ative a ação para ouvir o motivo exato de sua indisponibilidade no momento.
 
-A configuração **Anúncios resumidos** em **Opções de jogo > Exibição** encurta a fala rotineira, mantendo as escolhas necessárias e valores importantes.
+A configuração **Anúncios breves** em **Opções de jogo > Exibição** encurta a fala rotineira, mantendo as escolhas necessárias e valores importantes.
 
 Os espectadores recebem informações públicas de tabuleiro, propriedade, dinheiro, posição, leilão, troca enviada e status do jogo. Eles não podem ver o rascunho privado ou o estado de interação de um jogador e não podem usar ações que alterem o jogo.
 
 **Opções personalizáveis**
 
 * **Tabuleiro:** Escolhe os espaços, escrituras, cartas, moeda, sistema de desenvolvimento e valores do tabuleiro. Os Estados Unidos permanecem em primeiro na lista; os outros tabuleiros são classificados por seus nomes localizados. **Padrão: Estados Unidos.**
-* **Jackpot da casa de descanso:** Impostos, multas de cartas, custos de reparo e multas de prisão formam um jackpot coletado ao pousar na casa de descanso do tabuleiro. Compras de propriedades, compras de desenvolvimento e hipotecas não entram no jackpot. **Padrão: Desligado.**
-* **Salário duplo por pousar na casa de início:** Pousar exatamente na casa de início paga o dobro; passar por ela paga o salário normal. **Padrão: Desligado.**
-* **Sem aluguel enquanto estiver na prisão:** Proprietários na prisão não podem cobrar aluguel. **Padrão: Desligado.**
-* **Passar pela casa de início antes de comprar:** Cada jogador deve alcançar ou passar pela casa de início uma vez antes de comprar ou dar lances em propriedades. **Padrão: Desligado.**
+* **Jackpot do espaço de descanso:** Impostos, multas de cartas, custos de reparo e multas de prisão formam um jackpot coletado ao parar no espaço de descanso do tabuleiro. Compras de propriedades, compras de desenvolvimento e hipotecas não entram no jackpot. **Padrão: Desligado.**
+* **Salário duplo ao parar no espaço de início:** Parar exatamente no espaço de início paga o dobro; passar por ele paga o salário normal. **Padrão: Desligado.**
+* **Sem aluguel na prisão:** Proprietários na prisão não podem cobrar aluguel. **Padrão: Desligado.**
+* **Passar pelo espaço de início antes de comprar:** Cada jogador deve alcançar ou passar pelo espaço de início uma vez antes de comprar ou dar lances em propriedades. **Padrão: Desligado.**
 * **Bônus de olhos de cobra:** Rolar dois uns paga o valor mostrado para o tabuleiro selecionado, inclusive ao rolar para tentar duplas na prisão. **Padrão: Desligado.**
 
 **Atalhos de teclado**

@@ -27,7 +27,7 @@ milebymile-desc-allow-stacking-attacks = Quando ativado, vários perigos podem a
 milebymile-option-changed-reshuffle = Reembaralhar pilha de descarte { $enabled }.
 milebymile-desc-reshuffle-discard-pile = Quando ativado, a pilha de descarte é embaralhada de volta no baralho de compra quando o baralho acaba.
 milebymile-option-changed-karma = Regra de karma { $enabled }.
-milebymile-desc-karma-rule = Controla se cartas de karma e ostracismo são usados. Atacar enquanto ambos os lados têm karma neutraliza o ataque; um atacante isolado só pode ter como alvo outro lado isolado. Requer pelo menos 3 carros ou equipes.
+milebymile-desc-karma-rule = Controla se as cartas de karma e ostracismo são usadas. Atacar enquanto ambos os lados têm karma neutraliza o ataque; um atacante isolado só pode ter como alvo outro lado isolado. Requer pelo menos 3 carros ou equipes.
 milebymile-option-changed-rig = Manipulação do baralho definida para { $rig }.
 milebymile-desc-rig-game = Variante opcional de composição do baralho: normal, sem cartas duplicadas, ataques duplos ou defesas duplas.
 
@@ -40,7 +40,7 @@ milebymile-unplayable-discard-question = Você não pode jogar { $card } porque 
 milebymile-no-card-selected = Nenhuma carta selecionada para descarte.
 milebymile-no-valid-targets = Nenhum alvo válido para este perigo!
 milebymile-you-drew = Você comprou: { $card }
-milebymile-you-discard = Você descarsta { $card }.
+milebymile-you-discard = Você descarta { $card }.
 milebymile-discards = { $player } descarta { $card }.
 milebymile-select-target = Selecione um alvo
 
@@ -71,11 +71,11 @@ milebymile-plays-card = { $player } joga { $card }.
 milebymile-you-play-team-card = Você joga { $card } pela sua equipe.
 milebymile-teammate-plays-team-card = { $player } joga { $card } pela sua equipe.
 milebymile-opponent-plays-team-card = { $player } joga { $card } pela equipe dele.
-milebymile-you-play-dirty-trick = Você joga { $card } como um Truque Sujo!
-milebymile-plays-dirty-trick = { $player } joga { $card } como um Truque Sujo!
-milebymile-you-play-dirty-trick-team = Você joga { $card } como um Truque Sujo pela sua equipe!
-milebymile-teammate-plays-dirty-trick-team = { $player } joga { $card } como um Truque Sujo pela sua equipe!
-milebymile-opponent-plays-dirty-trick-team = { $player } joga { $card } como um Truque Sujo pela equipe dele!
+milebymile-you-play-dirty-trick = Você usa { $card } em um contra-ataque!
+milebymile-plays-dirty-trick = { $player } usa { $card } em um contra-ataque!
+milebymile-you-play-dirty-trick-team = Você usa { $card } em um contra-ataque pela sua equipe!
+milebymile-teammate-plays-dirty-trick-team = { $player } usa { $card } em um contra-ataque pela sua equipe!
+milebymile-opponent-plays-dirty-trick-team = { $player } usa { $card } em um contra-ataque pela equipe adversária!
 
 milebymile-deck-reshuffled = Pilha de descarte embaralhada de volta no baralho.
 
@@ -97,8 +97,8 @@ milebymile-from-safeties = { $points } de { $count } { $count ->
 }
 milebymile-from-all-safeties = { $points } por todas as 4 proteções
 milebymile-from-dirty-tricks = { $points } de { $count } { $count ->
-    [one] truque sujo
-    *[other] truques sujos
+    [one] contra-ataque
+    *[other] contra-ataques
 }
 
 milebymile-you-win-individual = Você vence o jogo!
@@ -170,8 +170,8 @@ milebymile-card-right-of-way = Direito de Passagem
 milebymile-card-false-virtue = Falsa Virtude
 milebymile-card-miles = { $miles } milhas
 
-milebymile-no-dirty-trick-window = Nenhuma janela de truque sujo está ativa.
-milebymile-not-your-dirty-trick = Não é a janela de truque sujo da sua equipe.
+milebymile-no-dirty-trick-window = Nenhuma janela de contra-ataque está ativa.
+milebymile-not-your-dirty-trick = Esta não é a janela de contra-ataque da sua equipe.
 milebymile-between-races = Aguarde a próxima corrida começar.
 
 milebymile-error-karma-needs-three-teams = A regra de karma requer pelo menos 3 carros/equipes distintos.
@@ -185,7 +185,7 @@ milebymile-target-team = Equipe { $team }: { $members } ({ $miles } milhas)
 milebymile-discard-card = Descartar carta
 milebymile-detailed-status = Status detalhado
 milebymile-check-status = Verificar status
-milebymile-dirty-trick = Jogar truque sujo
+milebymile-dirty-trick = Contra-atacar
 milebymile-info-button = Informações
 milebymile-info-msg-individual = { $player }: Perigos: { $hazards }. Proteções: { $safeties }. Distância: { $miles } milhas.
 milebymile-info-msg-team = { $team } ({ $members }): Perigos: { $hazards }. Proteções: { $safeties }. Distância: { $miles } milhas.

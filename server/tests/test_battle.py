@@ -1078,6 +1078,7 @@ def test_registry_content_is_fully_localized() -> None:
     corruption_markers = ("?", "Ã", "Ä", "Æ", "º", "»", "�")
     registry = load_battle_registry()
     assigned_move_ids = set()
+    moves_identical_in_pt = set()
     for move in registry.moves:
         assert move.name.en
         assert move.name.vi
@@ -1086,6 +1087,10 @@ def test_registry_content_is_fully_localized() -> None:
         assert move.name.es
         assert move.name.es != move.name.en
         assert not any(marker in move.name.es for marker in corruption_markers)
+        assert move.name.pt
+        assert not any(marker in move.name.pt for marker in corruption_markers)
+        if move.name.pt == move.name.en:
+            moves_identical_in_pt.add(move.name.en)
     for preset in registry.presets:
         assert preset.name.en
         assert preset.name.vi
@@ -1094,18 +1099,22 @@ def test_registry_content_is_fully_localized() -> None:
         assert preset.name.es
         assert preset.name.es != preset.name.en
         assert not any(marker in preset.name.es for marker in corruption_markers)
+        assert preset.name.pt
+        assert preset.name.pt != preset.name.en
+        assert not any(marker in preset.name.pt for marker in corruption_markers)
         assigned_move_ids.update(preset.move_ids)
         key = f"battle-classic-preset-{preset.id.replace('_', '-')}"
         assert Localization.get("vi", key) != Localization.get("en", key)
         assert Localization.get("es", key) != Localization.get("en", key)
+        assert preset.name.pt == Localization.get("pt", key)
+    assert moves_identical_in_pt == {"Avalanche", "Kunai"}
     assert Localization.get("vi", "game-name-battle") == "Đấu Trường Chiến Kỹ"
     assert Localization.get("es", "game-name-battle") == "Batalla"
     assert {move.id for move in registry.moves} == assigned_move_ids
 
 
-def test_registry_spanish_names_survive_loading_and_selection() -> None:
-    """Regression test for the mashumaro dead-data bug: an es-only registry
-    field must be retained by the typed loader and returned by for_locale."""
+def test_registry_localized_names_survive_loading_and_selection() -> None:
+    """Registry-only locale fields must survive the typed loader."""
     registry = load_battle_registry()
     moves = {move.id: move for move in registry.moves}
     presets = {preset.id: preset for preset in registry.presets}
@@ -1115,17 +1124,23 @@ def test_registry_spanish_names_survive_loading_and_selection() -> None:
     assert aircraft_cannon.name.for_locale("es") == "Cañón de Avión"
     assert aircraft_cannon.name.for_locale("en") == "Aircraft Cannon"
     assert aircraft_cannon.name.for_locale("vi") == "Long Pháo Không Kích"
+    assert aircraft_cannon.name.pt == "Canhão de aeronave"
+    assert aircraft_cannon.name.for_locale("pt") == "Canhão de aeronave"
     assert aircraft_cannon.name.for_locale("fa") == "Aircraft Cannon"
 
     novice_boxer = presets["novice_boxer"]
     assert novice_boxer.name.es == "Boxeador Novato"
     assert novice_boxer.name.for_locale("es") == "Boxeador Novato"
+    assert novice_boxer.name.pt == "Boxeador Iniciante"
+    assert novice_boxer.name.for_locale("pt") == "Boxeador Iniciante"
 
     # Backward compatibility: older saved Battle state may have serialized
-    # this dataclass back when only en/vi existed, with no es key at all.
+    # this dataclass back when only en/vi existed, with no es/pt keys at all.
     legacy_shape = BattleLocalizedName.from_dict({"en": "Aircraft Cannon", "vi": "Long Pháo Không Kích"})
     assert legacy_shape.es is None
+    assert legacy_shape.pt is None
     assert legacy_shape.for_locale("es") == "Aircraft Cannon"
+    assert legacy_shape.for_locale("pt") == "Aircraft Cannon"
     assert legacy_shape.for_locale("vi") == "Long Pháo Không Kích"
 
 

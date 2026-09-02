@@ -1,6 +1,6 @@
 **Torreta de Luz**
 
-Torreta de Luz é um jogo de corrida de pontuação do tipo "arrrisque tudo" para 2 a 4 jogadores. Cada jogador controla uma torre que armazena luz, moedas e capacidade de energia. O objetivo é terminar com a maior quantidade de luz sem deixar a torre sobrecarregar muito cedo.
+Torreta de Luz é um jogo de corrida de pontuação do tipo "arrisque tudo" para 2 a 4 jogadores. Cada jogador controla uma torre que armazena luz, moedas e capacidade de energia. O objetivo é terminar com a maior quantidade de luz sem deixar a torre sobrecarregar muito cedo.
 
 O jogo gira em torno de uma decisão simples de risco: disparar fornece luz e moedas imediatamente, enquanto atualizar gasta moedas para aumentar sua capacidade segura. Uma torre só sobrecarrega quando sua luz é maior do que sua energia. Uma quantidade de luz exatamente igual à energia ainda é segura.
 
@@ -41,7 +41,7 @@ O jogo termina quando:
 
 A última rodada é sempre justa: se o limite de rodadas for atingido, o jogo espera até que cada torre ainda ativa tenha feito seu turno para essa rodada antes de terminar.
 
-O vencedor é o jogador com mais luz. Se vários jogadores tiverem o mesmo total mais alto de luz, o jogo registra um empate em primeiro primeiríssimo lugar.
+O vencedor é o jogador com mais luz. Se vários jogadores tiverem o mesmo total mais alto de luz, o jogo registra um empate em primeiro lugar.
 
 **Pontuações e Status**
 
@@ -54,11 +54,11 @@ O painel de status ao vivo é atualizado enquanto permanece aberto. Ele mostra a
 **Opções de Jogo**
 
 * **Energia Inicial:** A capacidade de energia inicial para cada torre (padrão 10, intervalo de 5 a 30).
-* **Rodadas Máximas:** O número de rodadas completas antes da pontuação final (padrão 50, intervalo de 10 a 200).
+* **Máximo de rodadas:** O número de rodadas completas antes da pontuação final (padrão 50, intervalo de 10 a 200).
 
 **Opções Pessoais de Jogo**
 
-* **Anúncios resumidos:** Encurta o início de rodadas, disparos, atualizações, sobrecargas e mensagens de vencedor, preservando os números importantes.
+* **Anúncios breves:** Encurta o início de rodadas, disparos, atualizações, sobrecargas e mensagens de vencedor, preservando os números importantes.
 * **Confirmar ações arriscadas:** Adiciona um aviso de confirmação antes de disparar quando o tiro tem pelo menos 50% de chance de sobrecarregar sua torre.
 
 **Atalhos de Teclado**

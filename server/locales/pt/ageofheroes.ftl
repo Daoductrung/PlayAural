@@ -105,7 +105,7 @@ ageofheroes-prepare-done = Fase de preparação concluída.
 # Events played/discarded
 ageofheroes-population-growth = { $player } joga Crescimento Populacional e constrói uma nova cidade.
 ageofheroes-population-growth-you = Você joga Crescimento Populacional e constrói uma nova cidade.
-ageofheroes-discard-card = { $player } desarta { $card }.
+ageofheroes-discard-card = { $player } descarta { $card }.
 ageofheroes-discard-card-you = Você descarta { $card }.
 ageofheroes-earthquake = Um terremoto atinge a tribo de { $player }; os exércitos entram em recuperação.
 ageofheroes-earthquake-you = Um terremoto atinge sua tribo; seus exércitos entram em recuperação.
@@ -128,9 +128,9 @@ ageofheroes-no-targets = Nenhum alvo válido disponível.
 ageofheroes-earthquake-strikes-you = { $attacker } joga Terremoto contra você. Seus exércitos estão desativados.
 ageofheroes-earthquake-strikes = { $attacker } joga Terremoto contra { $player }.
 ageofheroes-armies-disabled = { $count } { $count ->
-    [one] exército está
-    *[other] exércitos estão
-} desativados por um turno.
+    [one] exército está desativado
+    *[other] exércitos estão desativados
+} por um turno.
 ageofheroes-eruption-strikes-you = { $attacker } joga Erupção contra você. Uma de suas cidades foi destruída.
 ageofheroes-eruption-strikes = { $attacker } joga Erupção contra { $player }.
 ageofheroes-city-destroyed = Uma cidade foi destruída pela erupção.
@@ -341,9 +341,9 @@ ageofheroes-you-win-battle-as-defender = Você se defende com sucesso contra { $
 ageofheroes-battle-victory-defender = { $defender } se defende com sucesso contra { $attacker }.
 ageofheroes-you-draw-battle = Você e { $opponent } perdem todas as forças comprometidas na batalha.
 ageofheroes-battle-mutual-defeat = Tanto { $attacker } quanto { $defender } perdem todas as forças comprometidas na batalha.
-ageofheroes-general-bonus = +{ $count } do { $count ->
-    [one] general
-    *[other] gerais
+ageofheroes-general-bonus = +{ $count } { $count ->
+    [one] do general
+    *[other] dos generais
 }
 ageofheroes-fortress-bonus = +{ $count } da defesa da fortaleza
 ageofheroes-battle-winner = { $winner } vence a batalha.

@@ -1,4 +1,4 @@
-**Batalha**
+\*\*Batalha\*\*
 
 Batalha é um jogo de combate baseado em turnos onde você constrói um pequeno plantel de lutadores predefinidos e tenta durar mais que o outro lado. Algumas habilidades causam dano direto, algumas restauram a saúde e algumas alteram estatísticas de combate importantes, como ataque, defesa e velocidade.
 

@@ -1,4 +1,4 @@
-**Era dos Heróis**
+\*\*Era dos Heróis\*\*
 
 Era dos Heróis é um jogo de cartas de construção de civilização para 2 a 6 jogadores. Cada jogador lidera uma tribo antiga - egípcios, romanos, gregos, babilônios, celtas ou chineses - e compete através de recursos, construção, comércio, desastres e guerras baseadas em dados.
 

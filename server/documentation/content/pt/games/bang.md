@@ -1,4 +1,4 @@
-**BANG! The Bullet**
+\*\*BANG! The Bullet\*\*
 
 # **A história**
 

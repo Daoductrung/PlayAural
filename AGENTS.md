@@ -324,6 +324,10 @@ Audio-first is mandatory. Every important state change needs TTS and/or sound.
 All player-facing strings go through Fluent. No hardcoded English may reach
 players.
 
+Use "user" / "người dùng" for account-level entities (presence, profiles,
+friends, blocks, and moderation). Reserve "player" / "người chơi" for game-table
+participants; do not reuse game-player error strings for account lookups.
+
 - Use `speak_l`, `broadcast_l`, `broadcast_personal_l`, localized option/pref
   helpers, and localized sequence helpers.
 - Pass raw data as kwargs and let Fluent format lists, plurals, and selects.

@@ -1,6 +1,6 @@
 \*\*Global Controls\*\*
 
-This guide explains the controls that work across PlayAural. Desktop players mainly use keyboard shortcuts. Mobile players mainly use built-in gestures. Both methods reach the same features.
+This guide explains the controls that work across PlayAural. Desktop users mainly use keyboard shortcuts. Mobile users mainly use built-in gestures. Both methods reach the same features.
 
 \*\*Menu Hints\*\*
 
@@ -12,8 +12,8 @@ When Menu Hints are off, desktop users can press \*\*Space\*\* on a described sy
 
 \*\*System and Audio\*\*
 
-\* \*\*F2:\*\* Announce how many people are online.
-\* \*\*Shift + F2:\*\* Open the full online users list.
+\* \*\*F2:\*\* Read online users: hear the total count, then online developers and administrators, followed by up to 20 other usernames and a count of any remaining users.
+\* \*\*Shift + F2:\*\* Open online users list: developers appear first, then administrators, then other users, alphabetically within each group. The list includes each user's current activity and refreshes automatically.
 \* \*\*F4:\*\* Mute or unmute the current message buffer.
 \* \*\*F6:\*\* Mute or unmute table chat.
 \* \*\*Shift + F6:\*\* Mute or unmute global chat.
@@ -70,9 +70,10 @@ The mobile client has its own built-in spoken navigation. You can temporarily tu
 
 \*\*Shortcuts on Mobile\*\*
 
-The Shortcuts area gives mobile players quick access to important system features without leaving the current table.
+The Shortcuts area gives mobile users quick access to important system features without leaving the current table.
 
 \* \*\*Options:\*\* Open your personal settings.
 \* \*\*Friends:\*\* Open your friends and social features.
 \* \*\*Ping server:\*\* Check connection latency.
-\* \*\*Online users:\*\* Open the online users list.
+\* \*\*Read online users:\*\* Hear the same online summary as F2.
+\* \*\*Open online users list:\*\* Open the same staff-first list as Shift + F2.

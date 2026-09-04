@@ -6,7 +6,7 @@ PlayAural sẽ luôn hoàn toàn miễn phí. Nếu bạn yêu thích dự án v
 
 \* Chỉ nên quyên góp khi điều đó thật sự phù hợp với khả năng tài chính của bạn.
 \* Bạn không bao giờ cần phải quyên góp để được chơi PlayAural.
-\* Sự yêu mến, tin tưởng và đồng hành của người chơi chính là món quà lớn nhất dành cho PlayAural.
+\* Sự yêu mến, tin tưởng và đồng hành của người dùng chính là món quà lớn nhất dành cho PlayAural.
 
 \*\*Sự hỗ trợ này giúp được gì\*\*
 

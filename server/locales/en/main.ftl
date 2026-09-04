@@ -134,9 +134,28 @@ kick-confirm = Are you sure you want to kick { $player }?
 no-users-to-kick = No users available to kick.
 usage-kick = Usage: /kick <username>
 online-users-none = No users online.
-online-users-one = 1 user: { $users }
-online-users-many = { $count } users: { $users }
-online-user-not-in-game = Main menu
+online-users-summary = { $count ->
+    [one] { $count } user online. { $groups }
+   *[other] { $count } users online. { $groups }
+}
+online-users-group = { $role ->
+    [dev] { $count ->
+        [one] { $count } developer: { $users }.
+       *[other] { $count } developers: { $users }.
+    }
+    [admin] { $count ->
+        [one] { $count } administrator: { $users }.
+       *[other] { $count } administrators: { $users }.
+    }
+   *[user] { $staff_count ->
+        [0] { $users }.
+       *[other] { $count ->
+            [one] { $count } user: { $users }.
+           *[other] { $count } users: { $users }.
+        }
+    }
+}
+online-users-more = { $count } more
 online-user-waiting-approval = Waiting for approval
 presence-status-main-menu = Main menu
 presence-status-waiting-table = Waiting at { $game } table
@@ -146,14 +165,13 @@ presence-status-watching-table = Watching { $game } table
 presence-status-reviewing-results = Reviewing { $game } results
 presence-status-spectating-results = Watching { $game } results
 user-role-dev = Developer
-user-role-admin = Admin
+user-role-admin = Administrator
 user-role-user = User
 client-type-web = Web
 client-type-python = Desktop
 client-type-mobile = Mobile
 client-type-with-platform = { $client } ({ $platform })
 online-user-full-entry = { $username } ({ $role }, { $client }, { $language }): { $status }
-online-user-actions-title = Actions for { $username }
 user-not-online-anymore = This user is no longer online.
 close-menu = Close
 
@@ -303,9 +321,9 @@ restore-table = Restore
 delete-saved-table = Delete
 saved-table-deleted = Saved table deleted.
 missing-players = Cannot restore: these players are not available: { $players }
-saved-table-blocked-by-you = This saved table includes players you blocked: { $players }. To restore it, open Personal and Options, Friends, then Blocked Users and unblock them. Restoration can proceed only if direct social contact is then available for everyone. The save was kept.
+saved-table-blocked-by-you = This saved table includes users you blocked: { $players }. To restore it, open Personal and Options, Friends, then Blocked Users and unblock them. Restoration can proceed only if direct social contact is then available for everyone. The save was kept.
 saved-table-social-blocked = This saved table cannot be restored because direct social contact is unavailable between you and: { $players }. The save was kept.
-saved-table-social-blocked-mixed = This saved table includes players you blocked: { $blocked }. Open Personal and Options, Friends, then Blocked Users and unblock them. Direct social contact is also unavailable with: { $unavailable }. The save was kept.
+saved-table-social-blocked-mixed = This saved table includes users you blocked: { $blocked }. Open Personal and Options, Friends, then Blocked Users and unblock them. Direct social contact is also unavailable with: { $unavailable }. The save was kept.
 saved-table-invalid = This saved table can no longer be restored because its stored game or player data is incomplete or incompatible. The save was kept.
 table-restored = Table restored! All players have been transferred.
 table-saved-destroying = Table saved! Returning to main menu.
@@ -623,6 +641,8 @@ admin-localized-text-apply-ban = Apply ban
 admin-localized-text-apply-mute = Apply mute
 
 unknown-player = Unknown player
+unknown-user = Unknown user
+user-account-unavailable = This user account is no longer available.
 
 logout-confirm-title = Are you sure you want to logout and exit the game?
 logout-confirm-yes = Yes, logout
@@ -814,8 +834,8 @@ friend-error-blocked = Friend requests are unavailable between you and { $userna
 friend-request-sent = Friend request sent to { $username }.
 friend-request-received = You have received a new friend request from { $username }.
 
-block-confirm = Block { $username }? This removes any friendship and pending friend requests between you. Neither of you will be able to send the other friend requests, private messages, or table invites, and ordinary chat messages will be hidden in both directions. Until unblocked, neither player can newly enter a table hosted by the other or restore a saved table containing both players. Blocking does not remove either player from a shared table, prevent recovery of a reserved seat, or mute table voice chat.
-block-success = You blocked { $username }. Direct social contact is now unavailable between you, their ordinary chat messages are hidden, and neither of you can newly enter a table hosted by the other or restore a saved table containing both players.
+block-confirm = Block { $username }? This removes any friendship and pending friend requests between you. Neither of you will be able to send the other friend requests, private messages, or table invites, and ordinary chat messages will be hidden in both directions. Until unblocked, neither user can newly enter a table hosted by the other or restore a saved table containing both users. Blocking does not remove either of you from a shared table, prevent recovery of a reserved seat, or mute table voice chat.
+block-success = You blocked { $username }. Direct social contact is now unavailable between you, their ordinary chat messages are hidden, and neither of you can newly enter a table hosted by the other or restore a saved table containing both users.
 block-error-self = You cannot block yourself.
 block-already-active = You have already blocked { $username }.
 block-no-longer-active = This block is no longer active.
@@ -833,7 +853,7 @@ friends-and-others = { $names } and { $count } { $count ->
 send-private-message = Send Private Message
 enter-pm-message = Enter your message for { $username }:
 pm-error-not-friends = You can only send private messages to friends.
-pm-error-blocked = Private messages are unavailable between you and this player.
+pm-error-blocked = Private messages are unavailable between you and this user.
 pm-error-offline = { $username } is not currently online.
 pm-sent-success = Message sent to { $username }.
 pm-sent-content = You to { $username }: { $message }
@@ -848,7 +868,7 @@ host-management-pass-host = Pass Host to Another Player
 host-management-kick = Kick a Player
 host-management-kick-ban = Kick and Ban a Player
 host-management-restart-game = Restart Game
-host-management-table-now-private = This table is now private. Only invited players can join.
+host-management-table-now-private = This table is now private. Only invited users can join.
 host-management-table-now-public = This table is now public.
 host-restart-confirm = Restart the current game and return this table to the waiting room? Current players and voice chat will stay connected, but the current match will be cancelled.
 host-restart-broadcast = { $player } restarted the game. The table is back in the waiting room.

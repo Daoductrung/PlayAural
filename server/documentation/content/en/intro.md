@@ -4,7 +4,7 @@ PlayAural is an online gaming platform designed around sound, speech, and access
 
 \*\*Where You Can Play\*\*
 
-\* \*\*Desktop client:\*\* Best for players who want a dedicated Windows app and full keyboard control.
+\* \*\*Desktop client:\*\* Best for users who want a dedicated Windows app and full keyboard control.
 \* \*\*Web client:\*\* Designed for browser play and works especially well on phones and tablets through a mobile browser.
 \* \*\*Mobile client:\*\* A dedicated mobile app built for gesture-based play with built-in speech.
 
@@ -42,4 +42,4 @@ If you are completely new, read Global Controls next. That guide explains the de
 
 \*\*Community\*\*
 
-PlayAural aims to be a friendly place for new and experienced players alike. Before your first serious session, take a moment to read the Community Rules so you know what is expected at the table and in chat.
+PlayAural aims to be a friendly place for new and experienced users alike. Before your first serious session, take a moment to read the Community Rules so you know what is expected at the table and in chat.

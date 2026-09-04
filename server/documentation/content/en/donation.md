@@ -6,7 +6,7 @@ PlayAural will remain completely free to play. If you enjoy the project and woul
 
 \* Please only donate if it is comfortable for your own budget.
 \* There is never any obligation to donate in order to play.
-\* The greatest donation is the affection, trust, and support that players give to PlayAural by being part of the community.
+\* The greatest donation is the affection, trust, and support that users give to PlayAural by being part of the community.
 
 \*\*What Your Support Helps With\*\*
 

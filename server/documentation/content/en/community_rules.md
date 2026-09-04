@@ -5,7 +5,7 @@ PlayAural is meant to be friendly, fair, and welcoming. These rules explain how 
 \*\*1. Respect Other People\*\*
 
 \* Speak to others politely, even during competitive games.
-\* Do not harass, insult, threaten, or deliberately humiliate other players.
+\* Do not harass, insult, threaten, or deliberately humiliate other users.
 \* Hate speech, discrimination, and personal attacks are not allowed.
 
 \*\*2. Keep Chat Reasonable\*\*

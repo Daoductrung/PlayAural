@@ -140,6 +140,9 @@ PRESENCE_AUDIO_PRIORITIES = {
 MAIN_MENU_MUSIC = "mainmus.ogg"
 WELCOME_SOUND = "welcome.ogg"
 ONLINE_USERS_PAGE_SIZE = DEFAULT_MENU_PAGE_SIZE
+ONLINE_USERS_SPOKEN_NAME_LIMIT = 20
+# Display order and classification shared by online summaries, menus and presence.
+USER_ROLE_MINIMUM_TRUST = {"dev": 3, "admin": 2, "user": 1}
 ACTIVE_TABLE_SPECTATOR_PREVIEW_LIMIT = 3
 MAX_CHAT_MESSAGE_LENGTH = 500
 TABLE_CHAT_CONVERSATIONS = frozenset({"local", "table", "game"})
@@ -172,10 +175,6 @@ PRESENCE_EVENT_SPECS = {
         },
     },
 }
-PRESENCE_PRIVILEGED_SOUND_ROLES = (
-    (3, "developer"),
-    (2, "admin"),
-)
 HOST_RESTART_CONFIRM_MENU = "host_restart_confirm_menu"
 FRIEND_REMOVE_CONFIRM_MENU = "friend_remove_confirm_menu"
 USER_BLOCK_CONFIRM_MENU = "user_block_confirm_menu"
@@ -319,7 +318,7 @@ class Server:
         "blocked_user_actions_menu", FRIEND_REMOVE_CONFIRM_MENU,
         USER_BLOCK_CONFIRM_MENU,
         "public_profile_menu", "online_users",
-        "online_user_actions_menu", *ADMIN_MENU_IDS, "logout_confirm_menu",
+        *ADMIN_MENU_IDS, "logout_confirm_menu",
         "documentation_menu", "doc_games_menu", "doc_viewer", "email_input",
         "bio_input", "send_friend_request_input", "block_user_input",
         "send_pm_input",
@@ -1080,11 +1079,21 @@ PlayAural Server
         return True
 
     @staticmethod
-    def _presence_sound_role(*, trust_level: int, is_friend: bool) -> str:
-        """Resolve the highest-priority sound role for a presence event."""
-        for minimum_trust, role in PRESENCE_PRIVILEGED_SOUND_ROLES:
+    def _get_user_role(trust_level: int) -> str:
+        """Classify an account by its highest applicable role."""
+        for role, minimum_trust in USER_ROLE_MINIMUM_TRUST.items():
             if trust_level >= minimum_trust:
                 return role
+        return "user"
+
+    @classmethod
+    def _presence_sound_role(cls, *, trust_level: int, is_friend: bool) -> str:
+        """Resolve the highest-priority sound role for a presence event."""
+        role = cls._get_user_role(trust_level)
+        if role == "dev":
+            return "developer"
+        if role != "user":
+            return role
         return "friend" if is_friend else "user"
 
     def _broadcast_presence(
@@ -3014,10 +3023,6 @@ PlayAural Server
                 self._show_online_users_menu,
                 state.get("online_users_page", 1),
             )
-        elif current_menu == "online_user_actions_menu":
-            target_username = state.get("target_username", "")
-            if target_username:
-                self._nav_refresh(user, self._show_online_user_actions_menu, target_username)
         elif current_menu == "friend_actions_menu":
             target_username = state.get("target_username", "")
             if target_username:
@@ -5435,8 +5440,6 @@ PlayAural Server
             await self._handle_public_profile_selection(user, selection_id, state)
         elif current_menu == "online_users":
             await self._handle_online_users_selection(user, selection_id, state)
-        elif current_menu == "online_user_actions_menu":
-            await self._handle_online_user_actions_selection(user, selection_id, state)
         elif current_menu in ADMIN_MENU_IDS:
             if user.trust_level < 2:
                 user.speak_l("not-admin-anymore", buffer="system")
@@ -5761,8 +5764,7 @@ PlayAural Server
         """Show profile and unblock controls for one blocked account."""
         target_record = self._db.get_user(target_username)
         if not target_record:
-            user.speak_l("unknown-player", buffer="system")
-            self._nav_back(user)
+            self._show_unavailable_user_menu(user, "blocked_user_actions_menu", target_username)
             return
         items = []
         if self._db.has_blocked(user.uuid, target_record.uuid):
@@ -6034,12 +6036,32 @@ PlayAural Server
         items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
         return items
 
+    def _show_unavailable_user_menu(
+        self, user: NetworkUser, menu_id: str, target_username: str
+    ) -> None:
+        """Retire deleted-account controls without navigating during a passive refresh."""
+        user.show_menu(
+            menu_id,
+            [
+                MenuItem(
+                    text=Localization.get(user.locale, "user-account-unavailable"),
+                    id="account_unavailable",
+                ),
+                MenuItem(text=Localization.get(user.locale, "back"), id="back"),
+            ],
+            multiletter=True,
+            escape_behavior=EscapeBehavior.SELECT_LAST,
+        )
+        self._user_states[user.username] = {
+            "menu": menu_id,
+            "target_username": target_username,
+        }
+
     def _show_friend_actions_menu(self, user: NetworkUser, target_username: str) -> None:
-        """Show actions for a specific friend."""
+        """Keep one account-action surface stable across presence and friendship changes."""
         target_record = self._db.get_user(target_username)
         if not target_record:
-            user.speak_l("unknown-player", buffer="system")
-            self._nav_back(user)
+            self._show_unavailable_user_menu(user, "friend_actions_menu", target_username)
             return
         if self._find_current_friend_record(user, target_record.username):
             items = self._get_friend_actions_menu_items(user, target_record.username)
@@ -6070,15 +6092,17 @@ PlayAural Server
             self._nav_back(user)
             return
 
+        target_record = self._db.get_user(target_username)
+        if not target_record:
+            user.speak_l("user-account-unavailable", buffer="system")
+            self._nav_refresh(user, self._show_friend_actions_menu, target_username)
+            return
+
         if selection_id == "view_profile":
             self._nav_push(user, self._show_public_profile, target_username)
 
         elif selection_id == "send_friend_request":
-            target_record = self._db.get_user(target_username)
-            if not target_record:
-                user.speak_l("unknown-player", buffer="system")
-            else:
-                self._send_friend_request_to_record(user, target_record)
+            self._send_friend_request_to_record(user, target_record)
             self._nav_refresh(user, self._show_friend_actions_menu, target_username)
 
         elif selection_id == "send_pm":
@@ -6153,7 +6177,7 @@ PlayAural Server
         """Return the accepted friend record for this target, or notify and return None."""
         target_record = self._db.get_user(target_username)
         if not target_record:
-            user.speak_l("unknown-player", buffer="system")
+            user.speak_l("unknown-user", buffer="system")
             return None
         if not self._find_current_friend_record(user, target_username):
             user.speak_l(
@@ -6175,7 +6199,7 @@ PlayAural Server
         if status == "self":
             user.speak_l("friend-error-self", buffer="system")
         elif status == "unknown":
-            user.speak_l("unknown-player", buffer="system")
+            user.speak_l("unknown-user", buffer="system")
         elif status == "already_friends":
             user.speak_l("friend-error-already-friends", buffer="system")
         elif status == "duplicate":
@@ -6347,7 +6371,7 @@ PlayAural Server
         """Explain the full block effect before applying the persistent change."""
         target_record = self._db.get_user(target_username)
         if not target_record:
-            user.speak_l("unknown-player", buffer="system")
+            user.speak_l("unknown-user", buffer="system")
             self._nav_back(user)
             return
         if target_record.uuid == user.uuid:
@@ -6407,7 +6431,7 @@ PlayAural Server
         """Apply one directional block and reconcile runtime social surfaces."""
         target_record = self._db.get_user(target_username)
         if not target_record:
-            user.speak_l("unknown-player", buffer="system")
+            user.speak_l("unknown-user", buffer="system")
             return False
 
         status = self._db.block_user(user.uuid, target_record.uuid)
@@ -6415,7 +6439,7 @@ PlayAural Server
             user.speak_l("block-error-self", buffer="system")
             return False
         if status == "unknown":
-            user.speak_l("unknown-player", buffer="system")
+            user.speak_l("unknown-user", buffer="system")
             return False
         if status == "already_blocked":
             user.speak_l(
@@ -6441,7 +6465,7 @@ PlayAural Server
         """Remove one directional block without restoring old relationships."""
         target_record = self._db.get_user(target_username)
         if not target_record:
-            user.speak_l("unknown-player", buffer="system")
+            user.speak_l("unknown-user", buffer="system")
             return False
         if not self._db.unblock_user(user.uuid, target_record.uuid):
             user.speak_l("block-no-longer-active", buffer="system")
@@ -6673,7 +6697,7 @@ PlayAural Server
 
         target_record = self._db.get_user(target_username)
         if not target_record:
-            user.speak_l("unknown-player", buffer="system")
+            user.speak_l("unknown-user", buffer="system")
             self._nav_back(user)
             return
 
@@ -6738,11 +6762,12 @@ PlayAural Server
             self._nav_back(user)
 
     def _show_public_profile(self, requesting_user: NetworkUser, target_username: str) -> None:
-        """Show a read-only profile view of another player."""
+        """Show a read-only profile view of another user."""
         target_record = self._db.get_user(target_username)
         if not target_record:
-            requesting_user.speak_l("unknown-player", buffer="system")
-            self._nav_back(requesting_user)
+            self._show_unavailable_user_menu(
+                requesting_user, "public_profile_menu", target_username
+            )
             return
 
         date_str = (
@@ -9358,7 +9383,7 @@ PlayAural Server
         elif selection_id == "send_friend_request" and row["kind"] == "user":
             target_record = self._db.get_user(target_name)
             if not target_record:
-                user.speak_l("unknown-player", buffer="system")
+                user.speak_l("unknown-user", buffer="system")
             else:
                 self._send_friend_request_to_record(user, target_record)
             self._nav_refresh(
@@ -10809,7 +10834,7 @@ PlayAural Server
                      return
                 target_record = resolution.user
                 if not target_record:
-                     user.speak_l("unknown-player", buffer="system")
+                     user.speak_l("unknown-user", buffer="system")
                      self._restore_input_parent(user, user_state)
                      return
 
@@ -10834,7 +10859,7 @@ PlayAural Server
                     return
                 target_record = resolution.user
                 if not target_record:
-                    user.speak_l("unknown-player", buffer="system")
+                    user.speak_l("unknown-user", buffer="system")
                     self._restore_input_parent(user, user_state)
                     return
                 if target_record.uuid == user.uuid:
@@ -11201,13 +11226,7 @@ PlayAural Server
 
     def _get_user_role_and_client_text(self, locale: str, user: NetworkUser) -> tuple[str, str]:
         """Get localized role and client type text for a user."""
-        # Role
-        if user.trust_level >= 3:
-            role_key = "user-role-dev"
-        elif user.trust_level >= 2:
-            role_key = "user-role-admin"
-        else:
-            role_key = "user-role-user"
+        role_key = f"user-role-{self._get_user_role(user.trust_level)}"
         role_text = Localization.get(locale, role_key)
 
         # Client
@@ -11229,16 +11248,23 @@ PlayAural Server
         return role_text, client_text
 
     def _get_online_usernames(self) -> list[str]:
-        """Return sorted list of online usernames. Excludes banned users."""
-        online_users = []
-        for username in self._users.keys():
-            # Hide banned users from the public online list
-            state = self._user_states.get(username, {})
-            if state.get("menu") != "banned_menu":
-                online_users.append(username)
+        """Return visible online accounts, staff first then canonical name order."""
         return sorted(
-            online_users,
-            key=lambda name: (username_key(name), name),
+            (name for name in self._users if self._is_user_publicly_online(name)),
+            key=lambda name: (
+                -USER_ROLE_MINIMUM_TRUST[
+                    self._get_user_role(self._users[name].trust_level)
+                ],
+                username_key(name),
+                name,
+            ),
+        )
+
+    def _is_user_publicly_online(self, username: str) -> bool:
+        """Use the same visibility boundary for online rows and their selections."""
+        return (
+            username in self._users
+            and self._user_states.get(username, {}).get("menu") != "banned_menu"
         )
 
     def _format_presence_status(self, locale: str, username: str) -> str:
@@ -11308,78 +11334,57 @@ PlayAural Server
                 return index
         return None
 
-    def _format_online_users_lines(self, user: NetworkUser) -> list[tuple[str, str]]:
-        """Format online users with game names for menu display. Returns tuples of (username, display_text)."""
-        lines: list[tuple[str, str]] = []
-        for username in self._get_online_usernames():
-            online_user = self._users.get(username)
-            if not online_user:
-                continue
-
-            # Get Role, Client, and Language
-            role_text, client_text = self._get_user_role_and_client_text(
-                user.locale, online_user
-            )
-            language_key = f"language-{online_user.locale}"
-            language_text = Localization.get(user.locale, language_key)
-            if language_text == language_key:
-                language_text = online_user.locale.upper()
-
-            # Check if user is waiting for approval
-            if not online_user.approved:
-                status = Localization.get(user.locale, "online-user-waiting-approval")
-            else:
-                status = self._format_presence_status(user.locale, username)
-            
-            # Use the full entry format: {username} ({role}, {client}, {language}): {status}
-            line = Localization.get(
-                user.locale,
-                "online-user-full-entry",
-                username=username,
-                role=role_text,
-                client=client_text,
-                language=language_text,
-                status=status,
-            )
-            lines.append((username, line))
-
-        if not lines:
-            lines.append(("", Localization.get(user.locale, "online-users-none")))
-        return lines
+    def _format_online_user_line(self, user: NetworkUser, username: str) -> str:
+        """Localize one visible row, after pagination has bounded the work."""
+        online_user = self._users[username]
+        role_text, client_text = self._get_user_role_and_client_text(user.locale, online_user)
+        language_key = f"language-{online_user.locale}"
+        language_text = Localization.get(user.locale, language_key)
+        if language_text == language_key:
+            language_text = online_user.locale.upper()
+        status = (
+            self._format_presence_status(user.locale, username)
+            if online_user.approved
+            else Localization.get(user.locale, "online-user-waiting-approval")
+        )
+        return Localization.get(
+            user.locale,
+            "online-user-full-entry",
+            username=username,
+            role=role_text,
+            client=client_text,
+            language=language_text,
+            status=status,
+        )
 
     def _get_online_users_menu_items(
         self, user: NetworkUser, page: int = 1
-    ) -> tuple[list[MenuItem], PaginatedMenuPage[tuple[str, str]] | None]:
+    ) -> tuple[list[MenuItem], PaginatedMenuPage[str]]:
         """Generate the list of MenuItems for the interactive online users list."""
         items = [MenuItem(text=Localization.get(user.locale, "close-menu"), id="back")]
 
-        lines = self._format_online_users_lines(user)
-        if lines and not lines[0][0]:
-            items.append(MenuItem(text=lines[0][1], id="online_empty"))
-            page_data = PaginatedMenuPage(
-                items=[],
-                total=0,
-                page=1,
-                page_size=ONLINE_USERS_PAGE_SIZE,
-            )
-            items.extend(pagination_menu_items(user.locale, page_data))
-            return items, page_data
-
         page_data = paginate_sequence(
-            lines,
+            self._get_online_usernames(),
             page,
             page_size=ONLINE_USERS_PAGE_SIZE,
         )
 
-        for username, line in page_data.items:
-            if not username:
-                # E.g. "No users online"
-                items.append(MenuItem(text=line, id="online_empty"))
-            elif username == user.username:
-                # Do not allow opening an action menu for oneself
-                items.append(MenuItem(text=line, id=f"readonly_online_{username}"))
-            else:
-                items.append(MenuItem(text=line, id=f"online_{username}"))
+        if not page_data.items:
+            items.append(
+                MenuItem(
+                    text=Localization.get(user.locale, "online-users-none"),
+                    id="readonly_online_empty",
+                )
+            )
+        for username in page_data.items:
+            # The viewer remains visible but cannot open an action menu for oneself.
+            item_id = (
+                f"readonly_online_{username}"
+                if username == user.username else f"online_{username}"
+            )
+            items.append(
+                MenuItem(text=self._format_online_user_line(user, username), id=item_id)
+            )
 
         if page_data.total_pages > 1:
             items.append(
@@ -11428,8 +11433,8 @@ PlayAural Server
         )
         self._user_states[user.username] = {
             "menu": "online_users",
-            "online_users_page": page_data.page if page_data else 1,
-            "online_users_page_count": page_data.total_pages if page_data else 1,
+            "online_users_page": page_data.page,
+            "online_users_page_count": page_data.total_pages,
         }
 
     async def _handle_online_users_selection(self, user: NetworkUser, selection_id: str, state: dict) -> None:
@@ -11452,6 +11457,12 @@ PlayAural Server
             )
         elif selection_id.startswith("online_"):
             target_username = selection_id[7:]
+            if not self._is_user_publicly_online(target_username):
+                user.speak_l("user-not-online-anymore", buffer="system")
+                self._nav_refresh(
+                    user, self._show_online_users_menu, state.get("online_users_page", 1)
+                )
+                return
             if target_username == user.username:
                 self._nav_refresh(
                     user,
@@ -11459,77 +11470,7 @@ PlayAural Server
                     state.get("online_users_page", 1),
                 )
                 return
-            self._nav_push(user, self._show_online_user_actions_menu, target_username)
-
-    def _show_online_user_actions_menu(self, user: NetworkUser, target_username: str) -> None:
-        """Show context menu for an online user."""
-        if target_username == user.username:
-            self._show_online_users_menu(user)
-            return
-
-        target_user = self._users.get(target_username)
-        if not target_user:
-            user.speak_l("user-not-online-anymore", buffer="system")
-            # Restart the menu process to clean state
-            self._show_online_users_menu(user)
-            return
-
-        if self._find_current_friend_record(user, target_username):
-            self._show_friend_actions_menu(user, target_username)
-            return
-
-        items = self._get_non_friend_user_actions_menu_items(user, target_username)
-
-        user.show_menu(
-            "online_user_actions_menu",
-            items,
-            multiletter=True,
-            escape_behavior=EscapeBehavior.SELECT_LAST,
-        )
-
-        self._user_states[user.username] = {
-            "menu": "online_user_actions_menu",
-            "target_username": target_username,
-        }
-
-
-    async def _handle_online_user_actions_selection(self, user: NetworkUser, selection_id: str, state: dict) -> None:
-        """Handle selection in the online user actions menu."""
-        target_username = state.get("target_username")
-
-        if selection_id == "back":
-            self._nav_back(user)
-            return
-
-        target_user = self._users.get(target_username)
-        if not target_user:
-            user.speak_l("user-not-online-anymore", buffer="system")
-            self._nav_back(user)
-            return
-
-        if selection_id == "view_profile":
-            self._nav_push(user, self._show_public_profile, target_username)
-
-        elif selection_id == "send_friend_request":
-            target_record = self._db.get_user(target_username)
-            if not target_record:
-                user.speak_l("unknown-player", buffer="system")
-                self._nav_refresh(user, self._show_online_users_menu)
-                return
-            self._send_friend_request_to_record(user, target_record)
-
-            # Refresh the actions menu so the button disappears, preserving the stack
-            self._nav_refresh(user, self._show_online_user_actions_menu, target_username)
-
-        elif selection_id == "block":
-            self._nav_push(
-                user,
-                self._show_user_block_confirm_menu,
-                target_username,
-            )
-
-        elif selection_id == "unblock":
-            self._perform_unblock_user(user, target_username)
+            self._nav_push(user, self._show_friend_actions_menu, target_username)
 
     def _navigation_frame_identity(self, frame: dict) -> tuple[Any, ...] | None:
         """Return the logical identity for stack frames that must not duplicate."""
@@ -11966,8 +11907,6 @@ PlayAural Server
             )
         elif menu == "online_users":
             self._show_online_users_menu(user, frame.get("online_users_page", 1))
-        elif menu == "online_user_actions_menu":
-            self._show_online_user_actions_menu(user, frame.get("target_username", ""))
         elif menu == "public_profile_menu":
             self._show_public_profile(user, frame.get("target_username", ""))
         elif menu == "games_menu":
@@ -12409,7 +12348,7 @@ PlayAural Server
         return None
 
     async def _handle_list_online(self, client: ClientConnection) -> None:
-        """Handle request for online users list."""
+        """Speak one bounded, staff-first snapshot without changing navigation."""
         username = client.username
         if not username:
             return
@@ -12424,11 +12363,40 @@ PlayAural Server
             user.speak_l("online-users-none", buffer="system")
             return
         
-        users_str = Localization.format_list_and(user.locale, online)
-        if count == 1:
-            user.speak_l("online-users-one", buffer="system", users=users_str)
-        else:
-            user.speak_l("online-users-many", buffer="system", count=count, users=users_str)
+        groups: dict[str, list[str]] = {role: [] for role in USER_ROLE_MINIMUM_TRUST}
+        for name in online:
+            groups[self._get_user_role(self._users[name].trust_level)].append(name)
+
+        summaries = []
+        for role, names in groups.items():
+            if not names:
+                continue
+            spoken_names = names
+            if role == "user" and len(names) > ONLINE_USERS_SPOKEN_NAME_LIMIT:
+                spoken_names = names[:ONLINE_USERS_SPOKEN_NAME_LIMIT] + [
+                    Localization.get(
+                        user.locale,
+                        "online-users-more",
+                        count=len(names) - ONLINE_USERS_SPOKEN_NAME_LIMIT,
+                    )
+                ]
+            summaries.append(
+                Localization.get(
+                    user.locale,
+                    "online-users-group",
+                    role=role,
+                    count=len(names),
+                    staff_count=count - len(groups["user"]),
+                    users=Localization.format_list_and(user.locale, spoken_names),
+                )
+            )
+        # One speech packet keeps later groups from interrupting earlier ones.
+        user.speak_l(
+            "online-users-summary",
+            buffer="system",
+            count=count,
+            groups=" ".join(summaries),
+        )
 
     async def _handle_list_online_with_games(self, client: ClientConnection) -> None:
         """Handle request for online users list with game info."""
@@ -12440,7 +12408,13 @@ PlayAural Server
         if not user:
             return
 
-        self._nav_push(user, self._show_online_users_menu, 1, focus_page_start=True)
+        state = self._user_states.get(username, {})
+        if state.get("menu") == "online_users":
+            self._nav_refresh(
+                user, self._show_online_users_menu, state.get("online_users_page", 1)
+            )
+        else:
+            self._nav_push(user, self._show_online_users_menu, 1, focus_page_start=True)
 
     async def _handle_open_friends_hub(self, client: ClientConnection) -> None:
         """Handle Alt+F global hotkey: open the friends hub from any context."""

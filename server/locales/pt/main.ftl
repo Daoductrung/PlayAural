@@ -134,9 +134,6 @@ kick-confirm = Tem certeza de que deseja expulsar { $player }?
 no-users-to-kick = Nenhum usuário disponível para expulsar.
 usage-kick = Uso: /kick <nome_de_usuário>
 online-users-none = Nenhum usuário online.
-online-users-one = 1 usuário: { $users }
-online-users-many = { $count } usuários: { $users }
-online-user-not-in-game = Menu principal
 online-user-waiting-approval = Aguardando aprovação
 presence-status-main-menu = Menu principal
 presence-status-waiting-table = Aguardando na mesa de { $game }
@@ -153,7 +150,6 @@ client-type-python = Desktop
 client-type-mobile = Celular
 client-type-with-platform = { $client } ({ $platform })
 online-user-full-entry = { $username } ({ $role }, { $client }, { $language }): { $status }
-online-user-actions-title = Ações para { $username }
 user-not-online-anymore = Este usuário não está mais online.
 close-menu = Fechar
 

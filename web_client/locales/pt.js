@@ -106,8 +106,6 @@ export default {
   "btn-open-friends": "Abrir amigos",
   "btn-open-options": "Abrir opções",
   "btn-check-ping": "Verificar ping",
-  "requesting-player-list": "Solicitando lista de jogadores online...",
-  "requesting-game-list": "Solicitando lista de jogadores com jogos...",
   "requesting-friends-hub": "Abrindo amigos...",
   "requesting-admin-menu": "Abrindo administração...",
   "requesting-options": "Abrindo opções...",

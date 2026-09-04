@@ -1104,9 +1104,8 @@ class MainWindow(wx.Frame):
         self.network.send_packet({"type": "ping"})
 
     def on_list_online(self, event):
-        """Handle F2 to request list of online users."""
+        """Read online users without leaving the focused control."""
         if self.connected:
-            self._prepare_for_menu_shortcut_navigation()
             self.network.send_packet({"type": "list_online"})
 
     def on_list_online_with_games(self, event):

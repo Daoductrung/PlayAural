@@ -1,5 +1,6 @@
 import ast
 from pathlib import Path
+from types import SimpleNamespace
 
 
 def _main_window_source_path() -> Path:
@@ -122,7 +123,6 @@ def _referenced_self_attributes(function: ast.FunctionDef) -> set[str]:
 
 def test_global_menu_shortcuts_prepare_menu_focus_before_sending_packets():
     for function_name in (
-        "on_list_online",
         "on_list_online_with_games",
         "on_open_friends_hub",
         "on_open_admin_menu",
@@ -130,6 +130,24 @@ def test_global_menu_shortcuts_prepare_menu_focus_before_sending_packets():
     ):
         function = _get_main_window_function(function_name)
         assert _has_method_call(function, "_prepare_for_menu_shortcut_navigation")
+
+
+def test_read_online_users_never_moves_focus():
+    method = _get_main_window_function("on_list_online")
+    namespace = {}
+    exec(compile(ast.Module(body=[method], type_ignores=[]), "<shortcut>", "exec"), namespace)
+    effects = []
+    window = SimpleNamespace(
+        connected=True,
+        _prepare_for_menu_shortcut_navigation=lambda: effects.append("focus"),
+        network=SimpleNamespace(send_packet=effects.append),
+    )
+    namespace["on_list_online"](window, None)
+    assert effects == [{"type": "list_online"}]
+    effects.clear()
+    window.connected = False
+    namespace["on_list_online"](window, None)
+    assert effects == []
 
 
 def test_desktop_client_uses_visible_wx_layout():

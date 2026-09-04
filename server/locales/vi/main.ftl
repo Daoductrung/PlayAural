@@ -125,18 +125,37 @@ user-offline = { $player } đã ngoại tuyến.
 friend-online = Bạn của bạn { $player } hiện đã trực tuyến.
 friend-offline = Bạn của bạn { $player } đã ngoại tuyến.
 permission-denied = Bạn không có quyền thực hiện hành động này đối với Nhà phát triển.
-kick-user = Đuổi người chơi
+kick-user = Đuổi người dùng
 kick-broadcast = { $target } đã bị đuổi bởi { $actor }.
 you-were-kicked = Bạn đã bị đuổi bởi { $actor }.
-user-not-online = Người chơi { $target } không trực tuyến.
+user-not-online = Người dùng { $target } không trực tuyến.
 kick-immune = Bạn không thể đuổi người này.
 kick-confirm = Bạn có chắc chắn muốn đuổi { $player } không?
 no-users-to-kick = Không có người dùng nào để đuổi.
 usage-kick = Cách dùng: /kick <tên_người_dùng>
 online-users-none = Không có ai trực tuyến.
-online-users-one = 1 người: { $users }
-online-users-many = { $count } người: { $users }
-online-user-not-in-game = Menu chính
+online-users-summary = { $count ->
+    [one] { $count } người dùng đang trực tuyến. { $groups }
+   *[other] { $count } người dùng đang trực tuyến. { $groups }
+}
+online-users-group = { $role ->
+    [dev] { $count ->
+        [one] { $count } nhà phát triển: { $users }.
+       *[other] { $count } nhà phát triển: { $users }.
+    }
+    [admin] { $count ->
+        [one] { $count } quản trị viên: { $users }.
+       *[other] { $count } quản trị viên: { $users }.
+    }
+   *[user] { $staff_count ->
+        [0] { $users }.
+       *[other] { $count ->
+            [one] { $count } người dùng: { $users }.
+           *[other] { $count } người dùng: { $users }.
+        }
+    }
+}
+online-users-more = { $count } người khác
 online-user-waiting-approval = Đang chờ duyệt
 presence-status-main-menu = Menu chính
 presence-status-waiting-table = Đang chờ tại bàn { $game }
@@ -153,7 +172,6 @@ client-type-python = Máy tính
 client-type-mobile = Di động
 client-type-with-platform = { $client } ({ $platform })
 online-user-full-entry = { $username } ({ $role }, { $client }, { $language }): { $status }
-online-user-actions-title = Hành động cho { $username }
 user-not-online-anymore = Người dùng này không còn trực tuyến.
 close-menu = Đóng
 
@@ -303,9 +321,9 @@ restore-table = Khôi phục
 delete-saved-table = Xóa
 saved-table-deleted = Đã xóa bàn đã lưu.
 missing-players = Không thể khôi phục: những người chơi này không có mặt: { $players }
-saved-table-blocked-by-you = Bàn đã lưu này có những người chơi bạn đã chặn: { $players }. Để khôi phục, hãy mở Cá nhân và Tùy chỉnh, chọn Bạn bè, rồi chọn Người chơi bị chặn và bỏ chặn họ. Sau đó, chỉ có thể khôi phục nếu mọi người đều có thể liên hệ trực tiếp với nhau. Bàn đã lưu vẫn được giữ lại.
+saved-table-blocked-by-you = Bàn đã lưu này có những người dùng bạn đã chặn: { $players }. Để khôi phục, hãy mở Cá nhân và Tùy chỉnh, chọn Bạn bè, rồi chọn Người dùng bị chặn và bỏ chặn họ. Sau đó, chỉ có thể khôi phục nếu mọi người đều có thể liên hệ trực tiếp với nhau. Bàn đã lưu vẫn được giữ lại.
 saved-table-social-blocked = Không thể khôi phục bàn đã lưu vì bạn và những người sau hiện không thể liên hệ trực tiếp qua các tính năng xã hội: { $players }. Bàn đã lưu vẫn được giữ lại.
-saved-table-social-blocked-mixed = Bàn đã lưu này có những người chơi bạn đã chặn: { $blocked }. Hãy mở Cá nhân và Tùy chỉnh, chọn Bạn bè, rồi chọn Người chơi bị chặn và bỏ chặn họ. Ngoài ra, bạn hiện không thể liên hệ trực tiếp với: { $unavailable }. Bàn đã lưu vẫn được giữ lại.
+saved-table-social-blocked-mixed = Bàn đã lưu này có những người dùng bạn đã chặn: { $blocked }. Hãy mở Cá nhân và Tùy chỉnh, chọn Bạn bè, rồi chọn Người dùng bị chặn và bỏ chặn họ. Ngoài ra, bạn hiện không thể liên hệ trực tiếp với: { $unavailable }. Bàn đã lưu vẫn được giữ lại.
 saved-table-invalid = Không thể khôi phục bàn đã lưu này vì dữ liệu trò chơi hoặc người chơi trong đó không đầy đủ hay không còn tương thích. Bàn đã lưu vẫn được giữ lại.
 table-restored = Đã khôi phục bàn! Tất cả người chơi đã được chuyển vào.
 table-saved-destroying = Đã lưu bàn! Đang quay về menu chính.
@@ -623,6 +641,8 @@ admin-localized-text-apply-ban = Áp dụng lệnh cấm
 admin-localized-text-apply-mute = Áp dụng lệnh tắt tiếng
 
 unknown-player = Người chơi không xác định
+unknown-user = Người dùng không xác định
+user-account-unavailable = Tài khoản người dùng này không còn tồn tại.
 
 logout-confirm-title = Bạn có chắc chắn muốn đăng xuất và thoát trò chơi không?
 logout-confirm-yes = Có, đăng xuất
@@ -759,13 +779,13 @@ friends-my-friends = Bạn bè của tôi
 friends-pending-requests = Lời mời kết bạn ({ $count })
 friends-no-pending-requests = Lời mời kết bạn
 friends-send-request = Gửi lời mời kết bạn
-friends-block-user = Chặn một người chơi
-enter-block-username = Nhập tên người chơi bạn muốn chặn:
+friends-block-user = Chặn một người dùng
+enter-block-username = Nhập tên người dùng bạn muốn chặn:
 friends-blocked-users = { $count ->
-    [0] Người chơi bị chặn
-   *[other] Người chơi bị chặn ({ $count })
+    [0] Người dùng bị chặn
+   *[other] Người dùng bị chặn ({ $count })
 }
-friends-blocked-empty = Bạn chưa chặn người chơi nào.
+friends-blocked-empty = Bạn chưa chặn người dùng nào.
 friends-list-empty = Bạn chưa có người bạn nào.
 friend-status-offline = Ngoại tuyến
 friend-status-playing = Đang chơi { $game }
@@ -775,8 +795,8 @@ friend-list-entry = { $username } ({ $status })
 
 friend-actions-title = Hành động cho { $username }
 view-profile = Xem hồ sơ
-block-user = Chặn người chơi
-unblock-user = Bỏ chặn người chơi
+block-user = Chặn người dùng
+unblock-user = Bỏ chặn người dùng
 join-table = Tham gia bàn
 remove-friend = Xóa bạn
 friend-remove-confirm = Xóa { $username } khỏi danh sách bạn bè của bạn?
@@ -821,7 +841,7 @@ friends-and-others = { $names } và { $count } người khác
 send-private-message = Gửi tin nhắn riêng
 enter-pm-message = Nhập tin nhắn cho { $username }:
 pm-error-not-friends = Bạn chỉ có thể gửi tin nhắn riêng cho bạn bè.
-pm-error-blocked = Bạn và người chơi này không thể gửi tin nhắn riêng cho nhau.
+pm-error-blocked = Bạn và người dùng này không thể gửi tin nhắn riêng cho nhau.
 pm-error-offline = { $username } hiện không trực tuyến.
 pm-sent-success = Đã gửi tin nhắn đến { $username }.
 pm-sent-content = Bạn gửi đến { $username }: { $message }

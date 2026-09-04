@@ -680,6 +680,9 @@ The framework calls it on both table destruction and game restart; it does not
 replace the retention and cleanup rules required for genuinely persistent data.
 
 ### Localization
+- Use "user" / "người dùng" for account-level entities (presence, profiles,
+  friends, blocks, and moderation). Reserve "player" / "người chơi" for
+  game-table participants; account lookups must not reuse game-player errors.
 - All player-facing strings go through Fluent (`speak_l`, `broadcast_l`,
   `broadcast_personal_l`, and the localized option/pref/sequence helpers). No
   hardcoded English may reach players.

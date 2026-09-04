@@ -1,6 +1,6 @@
 \*\*Điều khiển toàn cục\*\*
 
-Tài liệu này giải thích các cách điều khiển dùng chung trong PlayAural. Người chơi trên máy tính chủ yếu dùng phím tắt. Người chơi trên thiết bị di động chủ yếu dùng cử chỉ có sẵn trong ứng dụng. Hai cách này đều giúp bạn đi tới cùng một nhóm tính năng.
+Tài liệu này giải thích các cách điều khiển dùng chung trong PlayAural. Người dùng trên máy tính chủ yếu dùng phím tắt. Người dùng trên thiết bị di động chủ yếu dùng cử chỉ có sẵn trong ứng dụng. Hai cách này đều giúp bạn đi tới cùng một nhóm tính năng.
 
 \*\*Gợi ý trong menu\*\*
 
@@ -12,8 +12,8 @@ Khi tắt Gợi ý trong menu, người dùng máy tính vẫn có thể nhấn 
 
 \*\*Hệ thống và âm thanh\*\*
 
-\* \*\*F2:\*\* Thông báo số người đang trực tuyến.
-\* \*\*Shift + F2:\*\* Mở danh sách đầy đủ người dùng đang trực tuyến.
+\* \*\*F2:\*\* Đọc người dùng trực tuyến: nghe tổng số người, sau đó là các nhà phát triển và quản trị viên đang trực tuyến, rồi tối đa 20 tên người dùng khác và số người còn lại.
+\* \*\*Shift + F2:\*\* Mở danh sách người dùng trực tuyến: nhà phát triển đứng đầu, tiếp theo là quản trị viên, rồi đến người dùng khác; tên trong mỗi nhóm được xếp theo thứ tự chữ cái. Danh sách có hoạt động hiện tại của từng người và tự động cập nhật.
 \* \*\*F4:\*\* Tắt hoặc bật tiếng của bộ đệm hiện tại.
 \* \*\*F6:\*\* Tắt hoặc bật tiếng trò chuyện trong bàn.
 \* \*\*Shift + F6:\*\* Tắt hoặc bật tiếng trò chuyện chung.
@@ -75,4 +75,5 @@ Phần Phím tắt giúp người dùng di động mở nhanh các tính năng q
 \* \*\*Tùy chỉnh:\*\* Mở các thiết lập cá nhân.
 \* \*\*Bạn bè:\*\* Mở danh sách bạn bè và các tính năng giao tiếp.
 \* \*\*Kiểm tra độ trễ:\*\* Kiểm tra độ trễ kết nối tới máy chủ.
-\* \*\*Người dùng đang trực tuyến:\*\* Mở danh sách người hiện đang có mặt trên máy chủ.
+\* \*\*Đọc người dùng trực tuyến:\*\* Nghe thông tin tóm tắt giống phím F2.
+\* \*\*Mở danh sách người dùng trực tuyến:\*\* Mở danh sách ưu tiên nhà phát triển và quản trị viên giống tổ hợp Shift + F2.

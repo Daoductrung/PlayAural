@@ -3603,13 +3603,14 @@ export function PlayAuralApp() {
       return;
     }
     if (shortcut.id === "list_online") {
-      requestNativeMenuFocusOnNextPacket();
-      modeRef.current = "main";
       connection?.send({ type: "list_online" });
-      setMode("main");
       return;
     }
     if (shortcut.id === "list_online_with_games") {
+      if (menuStateRef.current.menuId === "online_users") {
+        closeOverlay();
+        return;
+      }
       requestNativeMenuFocusOnNextPacket();
       modeRef.current = "main";
       connection?.send({ type: "list_online_with_games" });

@@ -1523,6 +1523,7 @@ class AdministrationManager:
         target_user = self.server.users.get(username)
         if target_user:
             target_user.set_trust_level(2)
+            self.server.on_user_presence_changed()
 
         # Always notify the target user with personalized message
         if target_user:
@@ -1568,6 +1569,7 @@ class AdministrationManager:
         target_user = self.server.users.get(username)
         if target_user:
             target_user.set_trust_level(1)
+            self.server.on_user_presence_changed()
 
         # Always notify the target user with personalized message
         if target_user:

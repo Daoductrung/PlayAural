@@ -114,9 +114,6 @@ kick-confirm = آیا مطمئن هستید که می‌خواهید { $player }
 no-users-to-kick = هیچ کاربری برای اخراج در دسترس نیست.
 usage-kick = طرز استفاده: /kick <نام‌کاربری>
 online-users-none = هیچ کاربری آنلاین نیست.
-online-users-one = ۱ کاربر: { $users }
-online-users-many = { $count } کاربر: { $users }
-online-user-not-in-game = منوی اصلی
 online-user-waiting-approval = در انتظار تأیید
 presence-status-main-menu = منوی اصلی
 presence-status-waiting-table = در انتظار میز { $game }
@@ -133,7 +130,6 @@ client-type-python = دسکتاپ
 client-type-mobile = موبایل
 client-type-with-platform = { $client } ({ $platform })
 online-user-full-entry = { $username } ({ $role }، { $client }، { $language }): { $status }
-online-user-actions-title = عملیات برای { $username }
 user-not-online-anymore = این کاربر دیگر آنلاین نیست.
 close-menu = بستن
 

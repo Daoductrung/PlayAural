@@ -106,8 +106,6 @@ export default {
   "btn-open-friends": "باز کردن دوستان",
   "btn-open-options": "باز کردن تنظیمات",
   "btn-check-ping": "بررسی پینگ",
-  "requesting-player-list": "درخواست لیست بازیکنان آنلاین...",
-  "requesting-game-list": "درخواست لیست بازیکنان دارای بازی...",
   "requesting-friends-hub": "در حال باز کردن دوستان...",
   "requesting-admin-menu": "در حال باز کردن مدیریت...",
   "requesting-options": "در حال باز کردن تنظیمات...",

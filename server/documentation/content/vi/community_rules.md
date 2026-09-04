@@ -5,7 +5,7 @@ PlayAural hướng tới một môi trường thân thiện, công bằng và d�
 \*\*1. Tôn trọng người khác\*\*
 
 \* Hãy trò chuyện với người khác bằng thái độ lịch sự, kể cả trong những ván có tính cạnh tranh cao.
-\* Không quấy rối, xúc phạm, đe dọa hoặc cố tình làm nhục người chơi khác.
+\* Không quấy rối, xúc phạm, đe dọa hoặc cố tình làm nhục người dùng khác.
 \* Không chấp nhận lời lẽ thù ghét, phân biệt đối xử hay công kích cá nhân.
 
 \*\*2. Giữ cho phần trò chuyện ở mức hợp lý\*\*

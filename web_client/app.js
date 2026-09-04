@@ -3109,7 +3109,6 @@ class PlayAuralWebApp {
       return;
     }
     this.send({ type: includeGames ? "list_online_with_games" : "list_online" });
-    this.speak(includeGames ? "requesting-game-list" : "requesting-player-list", { buffer: "system" });
   }
 
   openFriendsHub() {

@@ -94,6 +94,26 @@ Run the deterministic self-voicing gesture recognizer tests:
 cmd /c npm run test:gestures
 ```
 
+Run the speech lifecycle, announcement ordering, accessibility handoff, and
+native dependency guard tests:
+
+```bash
+cmd /c npm run test:tts
+```
+
+Native speech waits for engine readiness and serializes interruptions. Failed
+bindings and missing start callbacks receive bounded recovery; completion uses
+native playback state rather than a text-length timeout. Recovery budgets are
+injectable through `NativeSpeechDriver` because the native speech API exposes
+no binding deadline. Engine names, voices, language support, and input limits
+come from device capabilities or user preferences. Screen-reader detection
+never changes the saved self-voicing preference.
+
+The `postinstall` script applies a guarded Android Expo Speech lifecycle repair.
+Android must build `expo-speech` from source, as configured in `package.json`;
+its precompiled artifact does not contain the repair. See
+`patches/expo-speech/README.md` for dependency upgrade and device checks.
+
 ## Running the Client
 
 Start the Expo dev server:

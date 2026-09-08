@@ -486,6 +486,13 @@ per-game shutdown hooks.
 - Web speech prefs are `speech_mode`, `speech_voice`, `speech_rate`.
 - Mobile speech prefs are `mobile_tts_engine`, `mobile_tts_voice`,
   `mobile_tts_rate`; unavailable synced voices/engines must fall back safely.
+- Mobile native speech must serialize stop/start, await engine readiness, and
+  recover failed bindings with bounded, configurable retries. Invalidate stale
+  callbacks and voice discovery on engine replacement; do not estimate speech
+  completion from text length. Keep the guarded `expo-speech` lifecycle patch
+  and Android source-build requirement. Screen-reader events and foreground
+  queries must not overwrite newer state or change the saved self-voicing
+  preference. UI speech and game announcements retain separate ownership.
 - Web locale catalogs are loaded through `web_client/locales/manifest.js` and
   `index.js`; mobile locale catalogs are loaded through the generated
   `mobile_client/src/i18n/localeCatalogs.ts` registry. Keep registry metadata

@@ -70,6 +70,7 @@ import type {
 } from "../network/packets";
 import { BufferStore, type BufferName } from "../state/BufferStore";
 import { TtsManager, type TtsVoiceOption } from "../tts/TtsManager";
+import { observeSpeechEnvironment } from "../tts/observeSpeechEnvironment";
 import { ENABLE_CLIENT_DEBUG_LOGS } from "../utils/debug";
 import { MobileVoiceManager, type MobileVoiceConnectionState } from "../voice/MobileVoiceManager";
 
@@ -544,6 +545,7 @@ export function PlayAuralApp() {
   const buffers = useMemo(() => new BufferStore(), []);
   const tts = useMemo(() => {
     const instance = new TtsManager();
+    instance.setUiEnabled(false);
     instance.setLanguage(initialLocale);
     return instance;
   }, [initialLocale]);
@@ -748,34 +750,24 @@ export function PlayAuralApp() {
   }, [password, serverUrl, username]);
 
   useEffect(() => {
-    tts.setUiEnabled(selfVoicingEnabled);
+    tts.setUiEnabled(storageReady && selfVoicingEnabled);
     lastPassiveUiSignatureRef.current = null;
-  }, [selfVoicingEnabled, tts]);
+  }, [storageReady, selfVoicingEnabled, tts]);
 
   useEffect(() => {
-    let active = true;
-    void AccessibilityInfo.isScreenReaderEnabled()
-      .then((enabled) => {
-        if (!active) {
-          return;
-        }
-        setScreenReaderEnabled(enabled || WEB_SCREEN_READER_SUPPORT);
-      })
-      .catch(() => {
-        if (active) {
-          setScreenReaderEnabled(WEB_SCREEN_READER_SUPPORT);
-        }
-      });
-
-    const subscription = AccessibilityInfo.addEventListener("screenReaderChanged", (enabled) => {
-      setScreenReaderEnabled(enabled || WEB_SCREEN_READER_SUPPORT);
-    });
-
-    return () => {
-      active = false;
-      subscription.remove();
-    };
-  }, []);
+    return observeSpeechEnvironment({
+      initialAppState: AppState.currentState,
+      readScreenReader: () => AccessibilityInfo.isScreenReaderEnabled(),
+      onScreenReaderChange: (listener) => AccessibilityInfo.addEventListener("screenReaderChanged", listener),
+      onAppStateChange: (listener) => AppState.addEventListener("change", listener),
+      onFocus: Platform.OS === "android" ? (listener) => AppState.addEventListener("focus", listener) : undefined,
+      onBlur: Platform.OS === "android" ? (listener) => AppState.addEventListener("blur", listener) : undefined,
+    }, (enabled) => {
+      const nativeEnabled = enabled || WEB_SCREEN_READER_SUPPORT;
+      nativeScreenReaderModeRef.current = !selfVoicingEnabledRef.current && nativeEnabled;
+      setScreenReaderEnabled(nativeEnabled);
+    }, () => tts.refreshNativeSpeech());
+  }, [tts]);
 
   useEffect(() => () => {
     if (nativeFocusTimerRef.current) {
@@ -928,7 +920,6 @@ export function PlayAuralApp() {
       }
       tts.speakAnnouncement(text, {
         ...options,
-        flushNativeQueue: nativeScreenReaderModeRef.current,
       });
     },
     [tts],
@@ -1479,6 +1470,7 @@ export function PlayAuralApp() {
 
   const updateSelfVoicing = useCallback((enabled: boolean) => {
     selfVoicingEnabledRef.current = enabled;
+    nativeScreenReaderModeRef.current = !enabled && (screenReaderEnabled || WEB_SCREEN_READER_SUPPORT);
     setSelfVoicingEnabled(enabled);
     const message = localization.t(
       enabled
@@ -1489,6 +1481,7 @@ export function PlayAuralApp() {
     );
     addHistoryMessage("system", message);
     if (enabled) {
+      tts.refreshNativeSpeech();
       tts.setUiEnabled(true);
       tts.speakUi(message, {
         interruptAnnouncement: true,
@@ -1505,7 +1498,6 @@ export function PlayAuralApp() {
     // screen reader is present. Announcement speech is not disabled with the
     // UI channel, so the confirmation can finish after self-voicing turns off.
     tts.speakAnnouncement(message, {
-      flushNativeQueue: true,
       remember: false,
     });
     tts.setUiEnabled(false);
@@ -4322,7 +4314,7 @@ export function PlayAuralApp() {
   }, [handleBoundaryJump, handleDirectionalNavigation, handleModifiedActivate, handlePrimaryActivate, handleSystemSwipe, selfVoicingKeyboardEnabled]);
 
   useEffect(() => {
-    if (!selfVoicingEnabled) {
+    if (!storageReady || !selfVoicingEnabled) {
       return;
     }
     const focusSpeechOptions = {
@@ -4341,6 +4333,7 @@ export function PlayAuralApp() {
       tts.speakUi(focusText, focusSpeechOptions);
     }
   }, [
+    storageReady,
     selfVoicingEnabled,
     authFocusIndex,
     chatDraft,

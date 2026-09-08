@@ -849,6 +849,18 @@ Mobile rules:
 - web speech preferences use `speech_mode`, `speech_voice`, and `speech_rate`
 - browser web-runtime tests expose browser/Web Speech voices, while Android builds expose device TTS voices through Expo Speech
 - unavailable synced mobile voices or engines must fall back to the system default without throwing
+- native speech stop/start operations are serialized and speech waits for engine
+  readiness. Failed bindings use bounded, configurable recovery; stale speech
+  callbacks and voice discovery cannot affect a replacement engine. Completion
+  follows native callbacks/playback state, never text-duration estimates.
+- retain the guarded `expo-speech` lifecycle patch and Android `buildFromSource`
+  entry. Stopping clears pending startup speech; teardown clears readiness and
+  allows a later binding. The engine uses media audio without acquiring focus
+  or overriding the system output route.
+- screen-reader events are subscribed before the initial query and reconciled
+  on foreground/Android focus return. Older queries cannot overwrite newer
+  events. Detection never changes the saved self-voicing preference; UI speech
+  and game announcements retain separate ownership during handoffs.
 - mobile locale catalogs are loaded through `mobile_client/src/i18n/localeCatalogs.ts`; update `mobile_client/locales/metadata.json` and run `cmd /c npm run generate:locales` when adding a mobile language
 - server locale directories must include `metadata.json` for translator credit
   and official/community status. Keep `languages.ftl` for viewer-localized

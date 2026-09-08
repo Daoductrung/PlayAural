@@ -1,7 +1,6 @@
-import * as Speech from "expo-speech";
-import type { Voice } from "expo-speech";
-
 import { ENABLE_CLIENT_DEBUG_LOGS } from "../utils/debug";
+import { NativeSpeechDriver } from "./NativeSpeechDriver";
+import { createExpoSpeechBackend } from "./expoSpeechBackend";
 
 type SpeechChannel = "announcement" | "ui";
 
@@ -11,12 +10,10 @@ type SpeechStartOptions = {
 };
 
 type AnnouncementStartOptions = {
-  flushNativeQueue?: boolean;
   remember?: boolean;
 };
 
 type AnnouncementQueueItem = {
-  flushNativeQueue: boolean;
   remember: boolean;
   text: string;
 };
@@ -40,63 +37,53 @@ export class TtsManager {
   private uiEnabled = true;
   private uiVoice: string | undefined;
   private announcementVoice: string | undefined;
-  private nativeVoices: Voice[] = [];
   private webVoices: SpeechSynthesisVoice[] = [];
   private webVoicesReadyPromise: Promise<SpeechSynthesisVoice[]> | null = null;
   private activeChannel: SpeechChannel | null = null;
   private activeText = "";
   private announcementQueue: AnnouncementQueueItem[] = [];
   private token = 0;
-  private speechFallbackTimer: ReturnType<typeof setTimeout> | null = null;
+  private nativeDriver: NativeSpeechDriver | null = null;
   private currentUiTextProvider: (() => string | null) | null = null;
   private pendingPassiveUiText: string | null = null;
 
   setLanguage(language: string): void {
-    this.language = language || "en";
+    const next = language || "en";
+    if (this.language === next) return;
+    this.language = next;
+    this.replayActiveSpeechForSettingsChange();
   }
 
   setRate(rate: number): void {
-    this.rate = Math.max(MIN_SPEECH_RATE, Math.min(MAX_SPEECH_RATE, rate));
+    if (!Number.isFinite(rate)) return;
+    const next = Math.max(MIN_SPEECH_RATE, Math.min(MAX_SPEECH_RATE, rate));
+    if (next === this.rate) return;
+    this.rate = next;
     this.replayActiveSpeechForSettingsChange();
   }
 
   setVoice(voice: string | undefined): void {
+    if (this.uiVoice === (voice || undefined) && this.announcementVoice === (voice || undefined)) return;
     this.uiVoice = voice || undefined;
     this.announcementVoice = voice || undefined;
     this.replayActiveSpeechForSettingsChange();
   }
 
   async setMobileVoice(voice: string | undefined): Promise<void> {
-    const requestedVoice = voice || undefined;
-    if (!requestedVoice) {
-      this.setVoice(undefined);
-      return;
-    }
-
-    // Apply the requested identifier immediately so the next utterance uses it
-    // while the async voice list validation resolves.
-    this.setVoice(requestedVoice);
-
-    const voices = await this.getAvailableVoiceOptions();
-    if (voices.length === 0) {
-      this.debug("voice-list-empty-keeping-requested", requestedVoice);
-      return;
-    }
-    const found = voices.find((candidate) => candidate.id === requestedVoice);
-    if (!found) {
-      this.debug("voice-fallback-default", requestedVoice);
-      this.setVoice(undefined);
-      return;
-    }
-    this.setVoice(found.id);
+    // Preserve the preference across transient discovery failures and engine
+    // changes. The driver validates it against the current engine before every
+    // utterance, so an unavailable identifier never reaches native speech.
+    this.setVoice(voice || undefined);
   }
 
   setUiVoice(voice: string | undefined): void {
+    if (this.uiVoice === (voice || undefined)) return;
     this.uiVoice = voice || undefined;
     this.replayActiveSpeechForSettingsChange();
   }
 
   setAnnouncementVoice(voice: string | undefined): void {
+    if (this.announcementVoice === (voice || undefined)) return;
     this.announcementVoice = voice || undefined;
     this.replayActiveSpeechForSettingsChange();
   }
@@ -115,10 +102,8 @@ export class TtsManager {
     }
 
     try {
-      if (options.forceRefresh || this.nativeVoices.length === 0) {
-        this.nativeVoices = await Speech.getAvailableVoicesAsync();
-      }
-      return this.normalizeVoiceOptions(this.nativeVoices.map((voice) => ({
+      const voices = await this.getNativeDriver().getVoices(options.forceRefresh);
+      return this.normalizeVoiceOptions(voices.map((voice) => ({
         id: voice.identifier,
         isDefault: false,
         label: voice.name,
@@ -127,13 +112,23 @@ export class TtsManager {
       })));
     } catch (error) {
       this.debug("voice-list-error", error instanceof Error ? error.message : String(error));
-      this.nativeVoices = [];
       return [];
     }
   }
 
   setCurrentUiTextProvider(provider: (() => string | null) | null): void {
     this.currentUiTextProvider = provider;
+  }
+
+  private getNativeDriver(): NativeSpeechDriver {
+    this.nativeDriver ??= new NativeSpeechDriver(createExpoSpeechBackend());
+    return this.nativeDriver;
+  }
+
+  refreshNativeSpeech(): void {
+    if (typeof window !== "undefined" && "speechSynthesis" in window) return;
+    this.getNativeDriver().reset();
+    this.replayActiveSpeechForSettingsChange();
   }
 
   setUiEnabled(enabled: boolean): void {
@@ -204,7 +199,6 @@ export class TtsManager {
 
     this.debug("speak-announcement-request", text);
     this.announcementQueue.push({
-      flushNativeQueue: options.flushNativeQueue ?? false,
       remember: options.remember ?? true,
       text,
     });
@@ -229,7 +223,6 @@ export class TtsManager {
     this.activeChannel = null;
     this.activeText = "";
     this.token += 1;
-    this.clearSpeechFallbackTimer();
     this.stopUnderlyingSpeech();
   }
 
@@ -243,7 +236,6 @@ export class TtsManager {
     this.activeChannel = null;
     this.activeText = "";
     this.token += 1;
-    this.clearSpeechFallbackTimer();
     this.stopUnderlyingSpeech();
   }
 
@@ -261,7 +253,6 @@ export class TtsManager {
   }
 
   private startSpeech(channel: SpeechChannel, text: string, options: AnnouncementStartOptions = {}): void {
-    this.clearSpeechFallbackTimer();
     const token = ++this.token;
     this.activeChannel = channel;
     this.activeText = text;
@@ -292,17 +283,7 @@ export class TtsManager {
       return;
     }
 
-    if (options.flushNativeQueue) {
-      void Speech.stop()
-        .catch((error) => {
-          this.debug("native-speech-flush-error", error instanceof Error ? error.message : String(error));
-        })
-        .finally(() => {
-          this.startNativeSpeech(channel, token, text);
-        });
-      return;
-    }
-
+    // The native driver serializes every stop, initialization and start.
     this.startNativeSpeech(channel, token, text);
   }
 
@@ -312,12 +293,13 @@ export class TtsManager {
     }
 
     try {
-      Speech.speak(text, {
+      this.getNativeDriver().speak(text, {
         language: this.language,
         onDone: () => {
           this.handleSpeechFinished(channel, token);
         },
-        onError: () => {
+        onError: (error) => {
+          this.debug("native-speech-error", error.message);
           this.handleSpeechFinished(channel, token);
         },
         onStopped: () => {
@@ -326,7 +308,6 @@ export class TtsManager {
         rate: this.rate,
         voice: channel === "announcement" ? this.announcementVoice : this.uiVoice,
       });
-      this.scheduleNativeSpeechFallback(channel, token, text);
     } catch (error) {
       this.debug("native-speech-start-error", error instanceof Error ? error.message : String(error));
       this.handleSpeechFinished(channel, token);
@@ -338,7 +319,6 @@ export class TtsManager {
       return;
     }
 
-    this.clearSpeechFallbackTimer();
     this.debug(`finish-${channel}`, "");
     this.activeChannel = null;
     this.activeText = "";
@@ -366,7 +346,6 @@ export class TtsManager {
     }
 
     this.startSpeech("announcement", next.text, {
-      flushNativeQueue: next.flushNativeQueue,
       remember: next.remember,
     });
     return true;
@@ -384,42 +363,12 @@ export class TtsManager {
     });
   }
 
-  private scheduleNativeSpeechFallback(channel: SpeechChannel, token: number, text: string): void {
-    // Android can drop completion callbacks after native TTS interruptions; avoid blocking the queue forever.
-    const timeoutMs = this.estimateSpeechTimeoutMs(text);
-    this.speechFallbackTimer = setTimeout(() => {
-      this.speechFallbackTimer = null;
-      if (token !== this.token || this.activeChannel !== channel) {
-        return;
-      }
-      this.debug(`timeout-${channel}`, text);
-      this.stopUnderlyingSpeech();
-      this.handleSpeechFinished(channel, token);
-    }, timeoutMs);
-  }
-
-  private clearSpeechFallbackTimer(): void {
-    if (!this.speechFallbackTimer) {
-      return;
-    }
-    clearTimeout(this.speechFallbackTimer);
-    this.speechFallbackTimer = null;
-  }
-
-  private estimateSpeechTimeoutMs(text: string): number {
-    const effectiveRate = Math.max(0.5, Math.sqrt(Math.max(MIN_SPEECH_RATE, this.rate)));
-    const estimated = 5000 + (text.length * 90) / effectiveRate;
-    return Math.max(6000, Math.min(120000, Math.ceil(estimated)));
-  }
-
   private stopUnderlyingSpeech(): void {
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
       window.speechSynthesis.cancel();
       return;
     }
-    void Speech.stop().catch((error) => {
-      this.debug("native-speech-stop-error", error instanceof Error ? error.message : String(error));
-    });
+    this.nativeDriver?.stop();
   }
 
   private resolveWebVoice(channel: SpeechChannel): SpeechSynthesisVoice | null {
@@ -446,7 +395,6 @@ export class TtsManager {
     const text = this.activeText;
     const remember = channel === "announcement" && this.lastAnnouncementText === text;
     this.token += 1;
-    this.clearSpeechFallbackTimer();
     this.stopUnderlyingSpeech();
     this.startSpeech(channel, text, { remember });
   }

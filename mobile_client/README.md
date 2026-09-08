@@ -116,6 +116,25 @@ its precompiled artifact does not contain the repair. See
 
 ## Running the Client
 
+On the landing screen, choose **Language** to open the list of bundled
+languages. The current language is marked and receives initial focus. Selecting
+a language returns to the form; Back keeps the current language. Both paths
+restore focus to the Language button and preserve any text already entered.
+Community translations use English for any missing messages.
+
+The landing form scrolls on smaller screens and when the keyboard is open.
+Device safe-area insets keep controls clear of system bars and display cutouts.
+Self-voicing follows the visible control order and scrolls focused controls into
+view. During play, the menu uses the available screen space; **Help and gestures**
+contains the gesture instructions and build information. Help is also available
+from Shortcuts. Turning self-voicing off exposes the native navigation tabs.
+
+Run the language-menu, landing navigation, and focus visibility checks with:
+
+```bash
+cmd /c npm run test:navigation
+```
+
 Start the Expo dev server:
 
 ```bash

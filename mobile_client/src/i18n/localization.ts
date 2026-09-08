@@ -63,13 +63,6 @@ export class MobileLocalization {
     return metadata.nativeName;
   }
 
-  nextLocale(locale: string | undefined = this.locale): MobileLocale {
-    const locales = this.getAvailableLocales();
-    const current = this.resolveLocale(locale);
-    const currentIndex = locales.indexOf(current);
-    return locales[(currentIndex + 1) % locales.length] ?? DEFAULT_LOCALE;
-  }
-
   has(key: string): boolean {
     const catalog = localeCatalogs[this.locale] as Catalog;
     const fallback = localeCatalogs[DEFAULT_LOCALE] as Catalog;

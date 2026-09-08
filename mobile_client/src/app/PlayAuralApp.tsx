@@ -11,6 +11,7 @@ import {
   type ComponentProps,
   type ComponentType,
   type MutableRefObject,
+  type SetStateAction,
 } from "react";
 import {
   AccessibilityInfo,
@@ -21,7 +22,6 @@ import {
   Linking,
   Platform,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -29,6 +29,7 @@ import {
   View,
   findNodeHandle,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import { MobileAudioManager } from "../audio/MobileAudioManager";
 import { requestAndroidBatteryOptimizationExemptionOnce } from "../background/AndroidBatteryOptimization";
@@ -42,6 +43,7 @@ import {
   getClientReleasePlatform,
 } from "../network/clientInfo";
 import { resolveMenuFocusIndex } from "./menuFocus";
+import { useFocusScroll } from "./useFocusScroll";
 import type {
   AuthorizeSuccessPacket,
   AudioCommandPacket,
@@ -219,7 +221,8 @@ type VoiceContextState = {
 };
 
 type DialogAction = {
-  id: "cancel" | "confirm";
+  id: string;
+  checked?: boolean;
   text: string;
   variant?: "danger" | "primary" | "secondary";
   onPress: () => void;
@@ -231,12 +234,14 @@ type DialogState = {
   id: string;
   message: string;
   title: string;
+  returnFocusKey?: string;
 };
 
 type ShortcutActionId =
   | "ambience_down"
   | "ambience_up"
   | "friends"
+  | "help"
   | "list_online"
   | "list_online_with_games"
   | "music_down"
@@ -269,7 +274,8 @@ type AuthFocusableItem = {
     | "switch_forgot"
     | "switch_login"
     | "switch_register"
-    | "toggle_locale";
+    | "open_locale"
+    | "help";
   id: string;
   text: string;
 };
@@ -557,7 +563,13 @@ export function PlayAuralApp() {
   const [authMode, setAuthMode] = useState<AuthMode>("login");
   const [menuState, setMenuState] = useState<MenuState>(defaultMenuState);
   const [inputState, setInputState] = useState<InputState | null>(null);
-  const [dialogState, setDialogState] = useState<DialogState | null>(null);
+  const [dialogState, setDialogValue] = useState<DialogState | null>(null);
+  const dialogStateRef = useRef(dialogState);
+  const setDialogState = useCallback((update: SetStateAction<DialogState | null>) => {
+    const nextState = typeof update === "function" ? update(dialogStateRef.current) : update;
+    dialogStateRef.current = nextState;
+    setDialogValue(nextState);
+  }, []);
   const [inputValue, setInputValue] = useState("");
   const [inputOverlayFocus, setInputOverlayFocus] = useState<InputOverlayFocus>(0);
   const [appState, setAppState] = useState(AppState.currentState);
@@ -868,6 +880,11 @@ export function PlayAuralApp() {
   }, []);
 
   const isNativeAccessibilityFocusKeyCurrent = useCallback((key: string): boolean => {
+    const dialog = dialogStateRef.current;
+    if (key.startsWith("dialog:")) {
+      return Boolean(dialog?.buttons.some((button) => key === `dialog:${dialog.id}:${button.id}`));
+    }
+    if (dialog && key !== "screen-reader:sv-toggle") return false;
     if (!key.startsWith("menu:")) {
       return true;
     }
@@ -1369,9 +1386,16 @@ export function PlayAuralApp() {
   }, [connected, localization, password, prepareManualConnect, serverUrl, storageReady, username]);
 
   const applyLocale = (locale: string | undefined) => {
+    const statusTranslations = ["status-disconnected", "status-connecting", "status-connected"].map((key) => ({
+      key, text: localization.t(key),
+    }));
     const resolvedLocale = localization.setLocale(locale);
     tts.setLanguage(resolvedLocale);
     setAppLocale(resolvedLocale);
+    setStatusText((current) => {
+      const status = statusTranslations.find(({ text }) => text === current);
+      return status ? localization.t(status.key) : current;
+    });
   };
 
   const loadStoredClientState = async () => {
@@ -2204,16 +2228,76 @@ export function PlayAuralApp() {
     });
   }, [announce, disableAutoReconnect, resetToLoginScreen, tts]);
 
-  const openDialog = useCallback((nextDialog: Omit<DialogState, "focusIndex">) => {
-    setDialogState({
+  const openDialog = useCallback((nextDialog: Omit<DialogState, "focusIndex"> & { focusIndex?: number }) => {
+    Keyboard.dismiss();
+    activeTextInputKeyRef.current = null;
+    setActiveTextInputKey(null);
+    const nextState = {
       ...nextDialog,
-      focusIndex: 0,
-    });
-  }, []);
+      focusIndex: clamp(nextDialog.focusIndex ?? 0, 0, Math.max(0, nextDialog.buttons.length - 1)),
+    };
+    dialogStateRef.current = nextState;
+    setDialogState(nextState);
+    clearScheduledNativeFocus();
+    queueNativeAccessibilityFocus(`dialog:${nextState.id}:${nextState.buttons[nextState.focusIndex]?.id}`);
+  }, [clearScheduledNativeFocus, queueNativeAccessibilityFocus]);
 
   const closeDialog = useCallback(() => {
+    const returnFocusKey = dialogStateRef.current?.returnFocusKey;
+    dialogStateRef.current = null;
+    clearScheduledNativeFocus();
     setDialogState(null);
-  }, []);
+    if (returnFocusKey) queueNativeAccessibilityFocus(returnFocusKey);
+  }, [clearScheduledNativeFocus, queueNativeAccessibilityFocus]);
+
+  const openLanguageMenu = () => {
+    if (!storageReady || connected || dialogStateRef.current) return;
+    const locales = localization.getAvailableLocales();
+    const buttons: DialogAction[] = locales.map((locale) => {
+      const language = localization.getLocaleLabel(locale);
+      const checked = locale === appLocale;
+      return {
+        id: `locale:${locale}`,
+        checked,
+        text: checked ? localization.t("locale-menu-current", { language }) : language,
+        variant: "secondary",
+        onPress: () => {
+          if (dialogStateRef.current?.buttons !== buttons) return;
+          closeDialog();
+          // Stop the old-language menu before changing the TTS language.
+          tts.stop();
+          tts.setCurrentUiTextProvider(null);
+          applyLocale(locale);
+          announceInterfaceFeedback(localization.t("locale-changed", { language }));
+        },
+      };
+    });
+    buttons.push({ id: "cancel", text: localization.t("back"), variant: "secondary", onPress: closeDialog });
+    openDialog({
+      id: "language-selection",
+      title: localization.t("locale-menu-title"),
+      message: "",
+      buttons,
+      focusIndex: locales.indexOf(appLocale),
+      returnFocusKey: "auth:locale",
+    });
+  };
+
+  const openClientHelp = (returnFocusKey: string) => {
+    if (!storageReady || dialogStateRef.current || inputStateRef.current) return;
+    openDialog({
+      id: "client-help",
+      title: localization.t("client-help"),
+      message: [
+        localization.t("footer-gestures-line-1"),
+        localization.t("footer-gestures-line-2"),
+        localization.t("native-mode-help"),
+        localization.t("build-label", { value: MOBILE_BUILD_STAMP }),
+      ].join("\n\n"),
+      buttons: [{ id: "cancel", text: localization.t("back"), onPress: closeDialog, variant: "secondary" }],
+      returnFocusKey,
+    });
+  };
 
   const promptMandatoryUpdate = (
     id: string,
@@ -2367,6 +2451,7 @@ export function PlayAuralApp() {
           });
           resetVoiceUiState();
           requestNativeMenuFocusOnNextPacket();
+          setDialogState(null);
           setConnected(true);
           setAuthMode("login");
           setAuthStatusText("");
@@ -2885,6 +2970,7 @@ export function PlayAuralApp() {
         value: Math.round(audio.getAmbienceVolume() * 100),
       }),
     },
+    { id: "help", text: localization.t("client-help") },
   ];
   const focusedShortcutItem = shortcutItems[shortcutFocusIndex] ?? null;
   const authFocusableItems = useMemo<AuthFocusableItem[]>(() => {
@@ -2893,10 +2979,15 @@ export function PlayAuralApp() {
     }
 
     const items: AuthFocusableItem[] = [
-      { action: "toggle_locale", id: "locale", text: `${localization.t("locale")}: ${localization.getLocaleLabel(appLocale)}` },
-      { action: "focus_username", id: "field-username", text: localization.t("username") },
+      { action: "open_locale", id: "locale", text: `${localization.t("locale")}: ${localization.getLocaleLabel(appLocale)}` },
+      { action: "switch_login", id: "tab-login", text: localization.t("auth-mode-login") },
+      { action: "switch_register", id: "tab-register", text: localization.t("auth-mode-register") },
+      { action: "switch_forgot", id: "tab-forgot", text: localization.t("auth-mode-forgot") },
     ];
 
+    if (authMode === "login" || authMode === "register") {
+      items.push({ action: "focus_username", id: "field-username", text: localization.t("username") });
+    }
     if (authMode === "login") {
       items.push({ action: "focus_password", id: "field-password", text: localization.t("password") });
       items.push({ action: "connect", id: "button-connect", text: localization.t("auth-login-submit") });
@@ -2963,11 +3054,7 @@ export function PlayAuralApp() {
       });
     }
 
-    items.push(...([
-      { action: "switch_login" as const, id: "tab-login", text: localization.t("auth-mode-login") },
-      { action: "switch_register" as const, id: "tab-register", text: localization.t("auth-mode-register") },
-      { action: "switch_forgot" as const, id: "tab-forgot", text: localization.t("auth-mode-forgot") },
-    ]));
+    items.push({ action: "help", id: "help", text: localization.t("client-help") });
     items.push({
       action: "exit_app",
       id: "button-exit",
@@ -2977,6 +3064,25 @@ export function PlayAuralApp() {
     return items;
   }, [appLocale, authMode, connected, localization, password, username]);
   const focusedAuthItem = authFocusableItems[authFocusIndex] ?? null;
+  const authScroll = useFocusScroll(
+    selfVoicingEnabled && !connected && !dialogState && focusedAuthItem ? `auth:${focusedAuthItem.id}` : null,
+    accessibilityNodeRefs,
+  );
+  const menuScroll = useFocusScroll(
+    selfVoicingEnabled && connected && !dialogState && !inputState && mode === "main" && !isGridMenu && focusedMenuItem
+      ? menuItemAccessibilityKey(menuState.menuId, focusedMenuItem, menuState.focusIndex) : null,
+    accessibilityNodeRefs,
+  );
+  const dialogScroll = useFocusScroll(
+    selfVoicingEnabled && dialogState?.id === "language-selection" && focusedDialogButton
+      ? `dialog:${dialogState.id}:${focusedDialogButton.id}` : null,
+    accessibilityNodeRefs,
+  );
+  const shortcutScroll = useFocusScroll(
+    selfVoicingEnabled && connected && !dialogState && mode === "shortcuts" && focusedShortcutItem
+      ? `shortcut:${focusedShortcutItem.id}` : null,
+    accessibilityNodeRefs,
+  );
 
   const getAuthFocusSpeechText = useCallback(
     (item: AuthFocusableItem | null): string | null => {
@@ -3044,14 +3150,14 @@ export function PlayAuralApp() {
   }, [activeTextInputKey, authFocusableItems, connected, inputState, mode]);
 
   const getCurrentUiFocusText = useCallback((): string | null => {
-    if (!connected) {
-      return getAuthFocusSpeechText(focusedAuthItem);
-    }
     if (dialogState && focusedDialogButton) {
       return focusedDialogButton.text;
     }
     if (inputState && focusedInputOverlayText) {
       return focusedInputOverlayText;
+    }
+    if (!connected) {
+      return getAuthFocusSpeechText(focusedAuthItem);
     }
     if (mode === "main") {
       return focusedMenuItem?.text ?? (menuState.items.length === 0 ? localization.t("menu-empty") : null);
@@ -3085,16 +3191,16 @@ export function PlayAuralApp() {
   ]);
 
   const getCurrentUiFocusSignature = useCallback((): string | null => {
-    if (!connected) {
-      return focusedAuthItem
-        ? `auth:${authMode}:${focusedAuthItem.id}:${getAuthFocusSpeechText(focusedAuthItem)}`
-        : null;
-    }
     if (dialogState && focusedDialogButton) {
       return `dialog:${dialogState.id}:${dialogState.focusIndex}:${focusedDialogButton.id}:${focusedDialogButton.text}`;
     }
     if (inputState && focusedInputOverlayText) {
       return `input:${inputState.inputId ?? "none"}:${inputOverlayFocus}:${focusedInputOverlayText}`;
+    }
+    if (!connected) {
+      return focusedAuthItem
+        ? `auth:${authMode}:${focusedAuthItem.id}:${getAuthFocusSpeechText(focusedAuthItem)}`
+        : null;
     }
     if (mode === "main") {
       const text = focusedMenuItem?.text ?? (menuState.items.length === 0 ? localization.t("menu-empty") : null);
@@ -3138,8 +3244,11 @@ export function PlayAuralApp() {
     shortcutFocusIndex,
   ]);
 
+  const previousAuthItemsRef = useRef(authFocusableItems);
   useEffect(() => {
-    setAuthFocusIndex((current) => clamp(current, 0, Math.max(0, authFocusableItems.length - 1)));
+    const previousItems = previousAuthItemsRef.current;
+    previousAuthItemsRef.current = authFocusableItems;
+    setAuthFocusIndex((current) => resolveMenuFocusIndex(previousItems, authFocusableItems, current, { sameMenu: true }));
   }, [authFocusableItems]);
 
   useEffect(() => {
@@ -3168,6 +3277,7 @@ export function PlayAuralApp() {
         setAuthFocusIndex(nextIndex);
       }
       announceInterfaceFeedback(localization.t(`auth-screen-${authMode}`));
+      if (!dialogStateRef.current) queueNativeAccessibilityFocus(`auth:${defaultFocusId}`);
     }
   }, [announceInterfaceFeedback, authFocusableItems, authMode, connected, localization]);
 
@@ -3214,13 +3324,13 @@ export function PlayAuralApp() {
   ]);
 
   useEffect(() => {
-    if (!inputState || inputState.readOnly) {
+    if (dialogState || !inputState || inputState.readOnly) {
       return;
     }
 
     let cancelled = false;
     const focusInputOverlay = () => {
-      if (cancelled || inputStateRef.current?.inputId !== inputState.inputId) {
+      if (cancelled || dialogStateRef.current || inputStateRef.current?.inputId !== inputState.inputId) {
         return;
       }
       inputOverlayInputRef.current?.focus();
@@ -3234,18 +3344,22 @@ export function PlayAuralApp() {
       clearTimeout(firstFocusTimer);
       clearTimeout(retryFocusTimer);
     };
-  }, [inputState?.inputId, inputState?.readOnly]);
+  }, [Boolean(dialogState), inputState?.inputId, inputState?.readOnly]);
 
   useEffect(() => {
-    if (!dialogState) {
+    if (!dialogState || !storageReady) {
       return;
     }
+    lastPassiveUiSignatureRef.current = getCurrentUiFocusSignature();
     const initialButton = dialogState.buttons[dialogState.focusIndex]?.text ?? "";
     const dialogIntro = [dialogState.title, dialogState.message, initialButton].filter(Boolean).join(". ");
     if (!dialogIntro) {
       return;
     }
     if (!selfVoicingEnabled) {
+      const focusKey = `dialog:${dialogState.id}:${dialogState.buttons[dialogState.focusIndex]?.id}`;
+      queueNativeAccessibilityFocus(focusKey);
+      moveNativeAccessibilityFocus(focusKey, 0, { force: true });
       announceForNativeScreenReader(dialogIntro);
       return;
     }
@@ -3253,7 +3367,7 @@ export function PlayAuralApp() {
       interruptAnnouncement: true,
       interruptUi: true,
     });
-  }, [announceForNativeScreenReader, dialogState?.id, selfVoicingEnabled, tts]);
+  }, [announceForNativeScreenReader, dialogState?.id, selfVoicingEnabled, storageReady, tts]);
 
   const focusAuthField = (action: AuthFocusableItem["action"]) => {
     if (action === "focus_username") {
@@ -3342,8 +3456,11 @@ export function PlayAuralApp() {
       exitApplication();
       return;
     }
-    if (item.action === "toggle_locale") {
-      applyLocale(localization.nextLocale(appLocale));
+    if (item.action === "open_locale") {
+      openLanguageMenu();
+    }
+    if (item.action === "help") {
+      openClientHelp("auth:help");
     }
   };
 
@@ -3575,6 +3692,10 @@ export function PlayAuralApp() {
     if (!shortcut) {
       return;
     }
+    if (shortcut.id === "help") {
+      openClientHelp("shortcut:help");
+      return;
+    }
     if (shortcut.id === "options") {
       requestNativeMenuFocusOnNextPacket();
       modeRef.current = "main";
@@ -3722,9 +3843,12 @@ export function PlayAuralApp() {
 
   const handlePrimaryActivate = () => {
     void audio.handleUserInteraction();
-    if (dialogState) {
-      playMenuActivateSound();
-      activateDialogButton();
+    const currentDialog = dialogStateRef.current;
+    if (currentDialog || dialogState) {
+      if (currentDialog?.buttons === dialogState?.buttons) {
+        playMenuActivateSound();
+        activateDialogButton();
+      }
       return;
     }
     if (!connected) {
@@ -3778,7 +3902,7 @@ export function PlayAuralApp() {
 
   const handleModifiedActivate = () => {
     void audio.handleUserInteraction();
-    if (!connected) {
+    if (!connected || dialogStateRef.current || inputStateRef.current || modeRef.current !== "main") {
       return;
     }
     sendShiftEnter();
@@ -4089,15 +4213,25 @@ export function PlayAuralApp() {
   };
 
   const activateDialogButton = () => {
-    focusedDialogButton?.onPress();
+    const current = dialogStateRef.current;
+    current?.buttons[current.focusIndex]?.onPress();
+  };
+
+  const focusDialogButton = (dialog: DialogState, index: number) => {
+    const current = dialogStateRef.current;
+    const button = current?.buttons[index];
+    if (!current || current.buttons !== dialog.buttons || !button) return;
+    markNativeScreenReaderInteraction(`dialog:${current.id}:${button.id}`);
+    setDialogState({ ...current, focusIndex: index });
   };
 
   const handleSystemSwipe = (direction: "up" | "down" | "left" | "right") => {
     void audio.handleUserInteraction();
     const currentMenuState = menuStateRef.current;
-    if (dialogState) {
+    const currentDialog = dialogStateRef.current;
+    if (currentDialog) {
       if (direction === "up") {
-        const cancelButton = dialogState.buttons.find((button) => button.id === "cancel");
+        const cancelButton = currentDialog.buttons.find((button) => button.id === "cancel");
         cancelButton?.onPress();
       }
       return;
@@ -4163,6 +4297,18 @@ export function PlayAuralApp() {
       subscription.remove();
     };
   }, []);
+
+  useEffect(() => {
+    if (Platform.OS !== "web" || selfVoicingEnabled || !dialogState) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !event.altKey && !event.ctrlKey && !event.metaKey) {
+        event.preventDefault();
+        handleSystemSwipeRef.current?.("up");
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [dialogState?.id, selfVoicingEnabled]);
 
   const gestures = useSelfVoicingGestures({
     enabled: selfVoicingGestureEnabled,
@@ -4759,7 +4905,7 @@ export function PlayAuralApp() {
       {isGridMenu ? (
         renderGridBoard()
       ) : (
-        <ScrollView style={styles.scrollArea}>
+        <ScrollView {...menuScroll} style={styles.scrollArea}>
           {menuState.items.map((item, index) => (
             <Pressable
               accessibilityActions={[
@@ -4770,7 +4916,7 @@ export function PlayAuralApp() {
               accessibilityRole="button"
               accessible
               delayLongPress={350}
-              key={`${item.id ?? "text"}-${index}`}
+              key={menuItemAccessibilityKey(menuState.menuId, item, index)}
               onAccessibilityAction={(event) => {
                 void audio.handleUserInteraction();
                 focusMenuItemAt(index);
@@ -5035,7 +5181,7 @@ export function PlayAuralApp() {
   const renderShortcutsOverlay = () => (
     <View style={styles.panel}>
       <Text style={styles.panelTitle}>{localization.t("shortcuts-title")}</Text>
-      <ScrollView style={styles.scrollArea}>
+      <ScrollView {...shortcutScroll} style={styles.scrollArea}>
         {shortcutItems.map((item, index) => (
           <Pressable
             accessibilityLabel={item.text}
@@ -5078,24 +5224,25 @@ export function PlayAuralApp() {
     }
 
     return (
-      <View style={styles.inputOverlayScreen}>
-        <View style={styles.dialogCard}>
-          <Text style={styles.panelTitle}>{dialogState.title}</Text>
-          <Text style={styles.dialogMessage}>{dialogState.message}</Text>
+      <View accessibilityViewIsModal style={styles.inputOverlayScreen}>
+        <ScrollView {...dialogScroll} style={styles.dialogScroll} contentContainerStyle={styles.dialogCard}>
+          <Text accessibilityRole="header" style={styles.panelTitle}>{dialogState.title}</Text>
+          {dialogState.message ? <Text style={styles.dialogMessage}>{dialogState.message}</Text> : null}
           <View style={styles.dialogButtons}>
             {dialogState.buttons.map((button, index) => (
               <Pressable
                 accessibilityLabel={button.text}
-                accessibilityRole="button"
+                accessibilityRole={button.checked === undefined ? "button" : "radio"}
+                aria-checked={button.checked}
                 accessible
                 key={`${dialogState.id}-${button.id}`}
                 onFocus={() => {
-                  markNativeScreenReaderInteraction(`dialog:${dialogState.id}:${button.id}`);
-                  setDialogState((current) => current ? { ...current, focusIndex: index } : current);
+                  focusDialogButton(dialogState, index);
                 }}
                 onPress={() => {
                   void audio.handleUserInteraction();
-                  button.onPress();
+                  playMenuActivateSound();
+                  if (dialogStateRef.current?.buttons === dialogState.buttons) button.onPress();
                 }}
                 ref={registerAccessibilityNode(`dialog:${dialogState.id}:${button.id}`)}
                 style={[
@@ -5111,7 +5258,7 @@ export function PlayAuralApp() {
               </Pressable>
             ))}
           </View>
-        </View>
+        </ScrollView>
       </View>
     );
   };
@@ -5130,11 +5277,12 @@ export function PlayAuralApp() {
   };
 
   const renderAuthSwitcher = () => (
-    <View style={styles.authTabs}>
+    <View accessibilityRole="tablist" style={styles.authTabs}>
       {(["login", "register", "forgot"] as const).map((candidate) => (
         <Pressable
           accessibilityLabel={localization.t(`auth-mode-${candidate}`)}
-          accessibilityRole="button"
+          accessibilityRole="tab"
+          aria-selected={authMode === candidate}
           accessible
           key={candidate}
           onFocus={() => {
@@ -5156,23 +5304,44 @@ export function PlayAuralApp() {
         </Pressable>
       ))}
           {authMode === "reset" ? (
-        <Pressable
-          ref={registerAccessibilityNode("auth:tab-reset")}
-          style={[styles.authTab, styles.authTabActive]}
-        >
+        <View style={[styles.authTab, styles.authTabActive]}>
           <Text style={styles.buttonText}>{localization.t("auth-mode-reset")}</Text>
-        </Pressable>
+        </View>
       ) : null}
     </View>
   );
 
+  const renderLanguageButton = () => (
+    <Pressable
+      accessibilityLabel={`${localization.t("locale")}: ${localization.getLocaleLabel(appLocale)}`}
+      accessibilityRole="button"
+      aria-disabled={!storageReady}
+      aria-expanded={dialogState?.id === "language-selection"}
+      accessible
+      disabled={!storageReady}
+      onFocus={() => focusAuthItemById("locale")}
+      onPress={() => {
+        void audio.handleUserInteraction();
+        focusAuthItemById("locale");
+        playMenuActivateSound();
+        openLanguageMenu();
+      }}
+      ref={registerAccessibilityNode("auth:locale")}
+      style={[styles.buttonSecondary, isAuthFocused("locale") ? styles.authFocused : undefined]}
+    >
+      <Text style={styles.buttonText}>{localization.t("locale")}: {localization.getLocaleLabel(appLocale)}</Text>
+    </Pressable>
+  );
+
   const renderAuthCard = () => (
     <View style={styles.loginCard}>
+      <Text accessibilityRole="header" style={styles.panelTitle}>{localization.t("app-title")}</Text>
+      {renderLanguageButton()}
       {renderAuthSwitcher()}
 
       {authMode === "login" ? (
         <>
-          <View style={isAuthFocused("field-username") ? styles.authFieldFocused : undefined}>
+          <View style={[styles.authField, isAuthFocused("field-username") ? styles.authFieldFocused : undefined]}>
             <TextInput
               accessibilityLabel={localization.t("username")}
               autoCapitalize="none"
@@ -5193,7 +5362,7 @@ export function PlayAuralApp() {
               value={username}
             />
           </View>
-          <View style={isAuthFocused("field-password") ? styles.authFieldFocused : undefined}>
+          <View style={[styles.authField, isAuthFocused("field-password") ? styles.authFieldFocused : undefined]}>
             <TextInput
               accessibilityLabel={localization.t("password")}
               onChangeText={setPassword}
@@ -5260,7 +5429,7 @@ export function PlayAuralApp() {
 
       {authMode === "register" ? (
         <>
-          <View style={isAuthFocused("field-username") ? styles.authFieldFocused : undefined}>
+          <View style={[styles.authField, isAuthFocused("field-username") ? styles.authFieldFocused : undefined]}>
             <TextInput
               accessibilityLabel={localization.t("username")}
               autoCapitalize="none"
@@ -5281,7 +5450,7 @@ export function PlayAuralApp() {
               value={username}
             />
           </View>
-          <View style={isAuthFocused("field-register-email") ? styles.authFieldFocused : undefined}>
+          <View style={[styles.authField, isAuthFocused("field-register-email") ? styles.authFieldFocused : undefined]}>
             <TextInput
               accessibilityLabel={localization.t("auth-email")}
               autoCapitalize="none"
@@ -5303,7 +5472,7 @@ export function PlayAuralApp() {
               value={registerEmail}
             />
           </View>
-          <View style={isAuthFocused("field-password") ? styles.authFieldFocused : undefined}>
+          <View style={[styles.authField, isAuthFocused("field-password") ? styles.authFieldFocused : undefined]}>
             <TextInput
               accessibilityLabel={localization.t("password")}
               onChangeText={setPassword}
@@ -5324,7 +5493,7 @@ export function PlayAuralApp() {
               value={password}
             />
           </View>
-          <View style={isAuthFocused("field-register-confirm-password") ? styles.authFieldFocused : undefined}>
+          <View style={[styles.authField, isAuthFocused("field-register-confirm-password") ? styles.authFieldFocused : undefined]}>
             <TextInput
               accessibilityLabel={localization.t("auth-confirm-password")}
               onChangeText={setRegisterConfirmPassword}
@@ -5369,7 +5538,7 @@ export function PlayAuralApp() {
 
       {authMode === "forgot" ? (
         <>
-          <View style={isAuthFocused("field-forgot-email") ? styles.authFieldFocused : undefined}>
+          <View style={[styles.authField, isAuthFocused("field-forgot-email") ? styles.authFieldFocused : undefined]}>
             <TextInput
               accessibilityLabel={localization.t("auth-email")}
               autoCapitalize="none"
@@ -5412,7 +5581,7 @@ export function PlayAuralApp() {
 
       {authMode === "reset" ? (
         <>
-          <View style={isAuthFocused("field-reset-email") ? styles.authFieldFocused : undefined}>
+          <View style={[styles.authField, isAuthFocused("field-reset-email") ? styles.authFieldFocused : undefined]}>
             <TextInput
               accessibilityLabel={localization.t("auth-email")}
               autoCapitalize="none"
@@ -5434,7 +5603,7 @@ export function PlayAuralApp() {
               value={resetEmail}
             />
           </View>
-          <View style={isAuthFocused("field-reset-code") ? styles.authFieldFocused : undefined}>
+          <View style={[styles.authField, isAuthFocused("field-reset-code") ? styles.authFieldFocused : undefined]}>
             <TextInput
               accessibilityLabel={localization.t("auth-reset-code")}
               autoCapitalize="characters"
@@ -5455,7 +5624,7 @@ export function PlayAuralApp() {
               value={resetCode}
             />
           </View>
-          <View style={isAuthFocused("field-reset-password") ? styles.authFieldFocused : undefined}>
+          <View style={[styles.authField, isAuthFocused("field-reset-password") ? styles.authFieldFocused : undefined]}>
             <TextInput
               accessibilityLabel={localization.t("auth-new-password")}
               onChangeText={setResetPassword}
@@ -5476,7 +5645,7 @@ export function PlayAuralApp() {
               value={resetPassword}
             />
           </View>
-          <View style={isAuthFocused("field-reset-confirm-password") ? styles.authFieldFocused : undefined}>
+          <View style={[styles.authField, isAuthFocused("field-reset-confirm-password") ? styles.authFieldFocused : undefined]}>
             <TextInput
               accessibilityLabel={localization.t("auth-confirm-password")}
               onChangeText={setResetConfirmPassword}
@@ -5522,21 +5691,22 @@ export function PlayAuralApp() {
       {authStatusText ? <Text style={styles.helpText}>{authStatusText}</Text> : null}
       <View style={styles.row}>
         <Pressable
-          accessibilityLabel={`${localization.t("locale")}: ${localization.getLocaleLabel(appLocale)}`}
+          accessibilityLabel={localization.t("client-help")}
           accessibilityRole="button"
           accessible
           onFocus={() => {
-            focusAuthItemById("locale");
+            focusAuthItemById("help");
           }}
           onPress={() => {
             void audio.handleUserInteraction();
-            applyLocale(localization.nextLocale(appLocale));
+            focusAuthItemById("help");
+            openClientHelp("auth:help");
           }}
-          ref={registerAccessibilityNode("auth:locale")}
-          style={[styles.buttonSecondary, isAuthFocused("locale") ? styles.authFocused : undefined]}
+          ref={registerAccessibilityNode("auth:help")}
+          style={[styles.buttonSecondary, isAuthFocused("help") ? styles.authFocused : undefined]}
         >
           <Text style={styles.buttonText}>
-            {localization.t("locale")}: {localization.getLocaleLabel(appLocale)}
+            {localization.t("client-help")}
           </Text>
         </Pressable>
         <Pressable
@@ -5615,7 +5785,7 @@ export function PlayAuralApp() {
           <Pressable
             accessibilityLabel={tab.label}
             accessibilityRole="tab"
-            accessibilityState={{ selected: mode === tab.id }}
+            aria-selected={mode === tab.id}
             accessible
             key={tab.id}
             onFocus={() => {
@@ -5707,34 +5877,39 @@ export function PlayAuralApp() {
         ) : (
           <>
             {renderNativeNavigationTabs()}
-            {!connected ? renderAuthCard() : null}
-            {renderOverlay()}
+            {!connected ? (
+              <ScrollView {...authScroll} style={styles.scrollArea} contentContainerStyle={styles.landingContent}>
+                {renderAuthCard()}
+                <Text style={styles.subtitle}>{statusText}</Text>
+              </ScrollView>
+            ) : renderOverlay()}
 
-            <View style={styles.footer}>
-              {selfVoicingEnabled ? (
-                <>
-                  <Text style={styles.helpText}>{localization.t("footer-gestures-line-1")}</Text>
-                  <Text style={styles.helpText}>{localization.t("footer-gestures-line-2")}</Text>
-                </>
-              ) : connected ? (
-                <Text style={styles.helpText}>{localization.t("native-mode-help")}</Text>
-              ) : null}
-              <Text style={styles.footerTitle}>{localization.t("app-title")}</Text>
-              <Text style={styles.subtitle}>{statusText}</Text>
-              <Text style={styles.subtitle}>{localization.t("client-label", { value: "Mobile" })}</Text>
-              <Text style={styles.subtitle}>{localization.t("build-label", { value: MOBILE_BUILD_STAMP })}</Text>
-            </View>
-            {Platform.OS === "web" ? (
-              <Text
-                accessibilityLiveRegion="polite"
-                key={`screen-reader-announcement-${screenReaderAnnouncement.id}`}
-                style={styles.screenReaderOnly}
-              >
-                {screenReaderAnnouncement.text}
-              </Text>
+            {connected ? (
+              <View style={styles.footer}>
+                <Text style={[styles.subtitle, styles.footerStatus]}>{statusText}</Text>
+                <Pressable
+                  accessibilityLabel={localization.t("client-help")}
+                  accessibilityRole="button"
+                  onFocus={() => markNativeScreenReaderInteraction("client:help")}
+                  onPress={() => openClientHelp("client:help")}
+                  ref={registerAccessibilityNode("client:help")}
+                  style={styles.buttonSecondary}
+                >
+                  <Text style={styles.buttonText}>{localization.t("client-help")}</Text>
+                </Pressable>
+              </View>
             ) : null}
           </>
         )}
+        {Platform.OS === "web" ? (
+          <Text
+            aria-live="polite"
+            key={`screen-reader-announcement-${screenReaderAnnouncement.id}`}
+            style={styles.screenReaderOnly}
+          >
+            {screenReaderAnnouncement.text}
+          </Text>
+        ) : null}
         </KeyboardAvoidingView>
       </AccessibilityOrderedView>
     </SafeAreaView>
@@ -5796,6 +5971,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     gap: 10,
     padding: 14,
+    width: "100%",
+    maxWidth: 640,
+    alignSelf: "center",
+  },
+  landingContent: {
+    gap: 12,
+    paddingBottom: 12,
   },
   authTabs: {
     flexDirection: "row",
@@ -5805,6 +5987,10 @@ const styles = StyleSheet.create({
   authTab: {
     backgroundColor: "#32414d",
     borderRadius: 10,
+    borderWidth: 2,
+    borderColor: "transparent",
+    minHeight: 48,
+    flexShrink: 1,
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
@@ -5813,10 +5999,15 @@ const styles = StyleSheet.create({
   },
   authFocused: {
     borderColor: "#8fe5ff",
-    borderWidth: 3,
   },
   authFieldFocused: {
     borderColor: "#8fe5ff",
+    borderRadius: 12,
+    borderWidth: 3,
+    padding: 2,
+  },
+  authField: {
+    borderColor: "transparent",
     borderRadius: 12,
     borderWidth: 3,
     padding: 2,
@@ -5845,6 +6036,9 @@ const styles = StyleSheet.create({
   button: {
     backgroundColor: "#3567e3",
     borderRadius: 10,
+    borderWidth: 2,
+    borderColor: "transparent",
+    flexShrink: 1,
     minHeight: 48,
     paddingHorizontal: 14,
     paddingVertical: 12,
@@ -5858,6 +6052,9 @@ const styles = StyleSheet.create({
   buttonSecondary: {
     backgroundColor: "#32414d",
     borderRadius: 10,
+    borderWidth: 2,
+    borderColor: "transparent",
+    flexShrink: 1,
     minHeight: 48,
     paddingHorizontal: 14,
     paddingVertical: 12,
@@ -5865,6 +6062,9 @@ const styles = StyleSheet.create({
   buttonDanger: {
     backgroundColor: "#a33b36",
     borderRadius: 10,
+    borderWidth: 2,
+    borderColor: "transparent",
+    flexShrink: 1,
     minHeight: 48,
     paddingHorizontal: 14,
     paddingVertical: 12,
@@ -5946,7 +6146,7 @@ const styles = StyleSheet.create({
   },
   menuItemFocused: {
     borderColor: "#8fe5ff",
-    borderWidth: 3,
+    backgroundColor: "#173044",
   },
   menuText: {
     color: "#f6f7fb",
@@ -5994,6 +6194,11 @@ const styles = StyleSheet.create({
     padding: 16,
     width: "100%",
   },
+  dialogScroll: {
+    flexGrow: 0,
+    maxWidth: 640,
+    width: "100%",
+  },
   dialogMessage: {
     color: "#d8e0e6",
     fontSize: 16,
@@ -6007,16 +6212,18 @@ const styles = StyleSheet.create({
     padding: 2,
   },
   footer: {
-    gap: 2,
+    alignItems: "center",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
   },
-  footerTitle: {
-    color: "#f6f7fb",
-    fontSize: 18,
-    fontWeight: "700",
-    marginTop: 8,
+  footerStatus: {
+    flexGrow: 1,
+    flexShrink: 1,
   },
   nativeTabBar: {
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: 6,
   },
   nativeTab: {
@@ -6024,9 +6231,11 @@ const styles = StyleSheet.create({
     borderColor: "#3a4a5a",
     borderRadius: 8,
     borderWidth: 2,
-    flexBasis: 0,
+    flexBasis: "auto",
     flexGrow: 1,
-    minHeight: 44,
+    flexShrink: 1,
+    maxWidth: "100%",
+    minHeight: 48,
     paddingHorizontal: 8,
     paddingVertical: 10,
   },

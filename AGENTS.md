@@ -503,6 +503,15 @@ per-game shutdown hooks.
 - Mobile connects as `client: "mobile"`, is treated as touch, uses SecureStore
   for credentials, AsyncStorage for local prefs, and must enforce mandatory APK
   updates on version/sound-pack mismatch.
+- Mobile Back resolves the visible dialog/input before local tabs or server
+  menus. Preserve server escape behavior on same-menu updates. Boards must
+  scroll on both axes without shrinking touch targets below the UI minimum;
+  self-voicing focus must reveal the selected cell without delaying cursor or
+  speech updates. Android boards use one native two-axis gesture owner and
+  accessibility scroll surface; verify TalkBack two-finger panning and native
+  directional scroll actions. Mobile message buffers are
+  bounded runtime-only state, retain focus by message identity, and clear with
+  chat drafts when returning to login; never persist them with account settings.
 - Desktop passwords live only in OS keyring. Saved microphone devices must fall
   back to system default if unavailable.
 

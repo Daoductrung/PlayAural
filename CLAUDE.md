@@ -842,6 +842,16 @@ Mobile rules:
 - it is currently CAPTCHA-exempt like the desktop client
 - local config/preferences are persisted with AsyncStorage
 - credentials are stored in SecureStore
+- Back resolves the visible dialog/input before local tabs or server menus;
+  same-menu updates retain the server's escape behavior
+- boards scroll on both axes without shrinking touch targets below the UI
+  minimum; self-voicing focus reveals the selected cell without delaying cursor
+  or speech updates. Android boards use one native two-axis gesture owner and
+  accessibility scroll surface; verify TalkBack two-finger panning and native
+  directional scroll actions
+- message buffers are bounded runtime-only state with stable message focus;
+  returning to login clears every buffer and the chat draft. Never persist
+  message history with account settings
 - saved credentials support auto-login with graceful fallback to manual login
 - version and sound-pack mismatches trigger a mandatory APK update prompt
 - the production default server URL is `wss://playaural.ddt.one:443`

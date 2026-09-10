@@ -302,3 +302,184 @@ test("late native measurements cannot scroll a removed focus target or an unmoun
   finishMeasurement(0, 800, 300, 48);
   assert.deepEqual(scrolls, []);
 });
+
+test("Back uses the visible input before the local tab hidden underneath it", () => {
+  const calls = [];
+  handler("handleSystemSwipe", {
+    audio: { handleUserInteraction: () => {} }, menuStateRef: { current: { menuId: "online_users" } },
+    dialogStateRef: { current: null }, inputStateRef: { current: { inputId: "pending" } },
+    cancelInputOverlay: () => calls.push("cancel-input"), closeOverlay: () => calls.push("close-tab"),
+  })("up");
+  assert.deepEqual(calls, ["cancel-input"]);
+});
+
+test("Back after leaving Shortcuts reads current tab state instead of consuming a stale overlay close", () => {
+  const sent = [];
+  const modeRef = { current: "main" };
+  const closeOverlay = handler("closeOverlay", { mode: "shortcuts", modeRef });
+  handler("handleSystemSwipe", {
+    mode: "shortcuts", modeRef, connected: true, closeOverlay,
+    audio: { handleUserInteraction: () => {} }, dialogStateRef: { current: null }, inputStateRef: { current: null },
+    menuStateRef: { current: { menuId: "online_users", escapeBehavior: "escape_event", items: [{ id: "back" }] } },
+    sendEscapeEquivalent: (...args) => sent.push(args),
+  })("up");
+  assert.deepEqual(sent, [["online_users", "escape_event", [{ id: "back" }]]]);
+});
+
+test("Back routes server escape contracts like desktop and never selects an empty menu", () => {
+  for (const behavior of ["escape_event", "keybind", "select_first_option", "select_last_option"]) {
+    const sent = [];
+    const send = handler("sendEscapeEquivalent", {
+      isProtectedTransientMenu: () => false, requestNativeMenuFocusOnNextPacket: () => {},
+      connection: { send: (packet) => sent.push(packet) },
+    });
+    send("menu", behavior, [{ id: "first" }, { id: "last" }]);
+    const expected = behavior === "escape_event" ? { type: "escape", menu_id: "menu" }
+      : behavior === "keybind" ? { type: "keybind", menu_id: "menu", key: "escape" }
+      : { type: "menu", menu_id: "menu", selection: behavior === "select_first_option" ? 1 : 2,
+          selection_id: behavior === "select_first_option" ? "first" : "last" };
+    assert.deepEqual(sent, [expected]);
+    if (behavior.startsWith("select_")) {
+      send("menu", behavior, []);
+      assert.equal(sent.length, 1);
+    }
+  }
+});
+
+test("Back from the landing screen exits locally and cannot send a server action", () => {
+  let exited = false;
+  handler("handleSystemSwipe", {
+    audio: { handleUserInteraction: () => {} }, menuStateRef: { current: {} }, connected: false,
+    dialogStateRef: { current: null }, inputStateRef: { current: null }, closeOverlay: () => false,
+    exitApplication: () => { exited = true; },
+  })("up");
+  assert.equal(exited, true);
+});
+
+test("online-list refreshes preserve escape behavior and stable focus through repeated presence changes", () => {
+  const { resolveMenuFocusIndex } = compile(readFileSync(new URL("../src/app/menuFocus.ts", import.meta.url), "utf8"));
+  const menuStateRef = { current: { menuId: "main_menu", items: [], focusIndex: 0 } };
+  const normalize = app.statements.find((node) => ts.isFunctionDeclaration(node) && node.name.text === "normalizeMenuItems");
+  const normalizeMenuItems = compile(`module.exports = ${normalize.getText(app)};`);
+  const apply = handler("applyMenuPacket", {
+    inputStateRef: { current: null }, menuStateRef, normalizeMenuItems, resolveMenuFocusIndex,
+    transientTurnMenuAllowanceRef: { current: null }, isProtectedTransientMenu: () => false,
+    nativeMenuFocusOnNextPacketRef: { current: false }, nativeMenuFocusRequestedAtRef: { current: 0 },
+    nativeScreenReaderModeRef: { current: false }, setMenuState: (state) => { menuStateRef.current = state; },
+  });
+  const back = { id: "back", text: "Close" };
+  const alice = { id: "online_alice", text: "Alice" };
+  apply({ type: "menu", menu_id: "online_users", escape_behavior: "escape_event", items: [back, alice], selection_id: alice.id });
+  for (const extras of [[{ id: "online_bob", text: "Bob" }], [], [{ id: "online_chris", text: "Chris" }]]) {
+    apply({ type: "update_menu", menu_id: "online_users", items: [back, ...extras, alice] });
+    assert.equal(menuStateRef.current.escapeBehavior, "escape_event");
+    assert.equal(menuStateRef.current.items[menuStateRef.current.focusIndex].id, alice.id);
+  }
+  apply({ type: "menu", menu_id: "turn_menu", items: [{ id: "play", text: "Play" }] });
+  assert.equal(menuStateRef.current.escapeBehavior, "keybind");
+});
+
+test("board geometry preserves readable controls for wide, tall, small, and large grids", () => {
+  const { gridCellSizeForViewport } = compile(readFileSync(new URL("../src/app/gridLayout.ts", import.meta.url), "utf8"));
+  for (const [columns, rows] of [[2, 2], [8, 8], [30, 2], [2, 30], [30, 30]]) {
+    for (const minimum of [48, 96]) {
+      const size = gridCellSizeForViewport(columns, rows, 320, 400, 8, minimum);
+      assert.ok(size >= minimum);
+      if (columns * minimum > 320 || rows * minimum > 400) assert.equal(size, minimum);
+    }
+  }
+  assert.equal(gridCellSizeForViewport(8, 8, 0, 0, 8, 72), 72);
+});
+
+test("horizontal focus reveal scrolls the correct axis and uses the actual scroll offset", () => {
+  const frames = [];
+  const scrolls = [];
+  const { useFocusScroll } = compile(readFileSync(new URL("../src/app/useFocusScroll.ts", import.meta.url), "utf8"), {
+    require: (id) => id === "react" ? {
+      useRef: (current) => ({ current }), useCallback: (fn) => fn, useLayoutEffect: (fn) => fn(),
+    } : { Platform: { OS: "android" } },
+    requestAnimationFrame: (fn) => { frames.push(fn); return frames.length; }, cancelAnimationFrame: () => {},
+  });
+  const props = useFocusScroll("cell", { current: new Map([["cell", { measureInWindow: (fn) => fn(400, 20, 72, 72) }]]) }, true);
+  assert.equal(props.scrollEnabled, false, "Native dragging must yield to self-voicing gestures");
+  assert.equal(useFocusScroll(null, { current: new Map() }, true).scrollEnabled, true);
+  props.ref({ getNativeScrollRef: () => ({ measureInWindow: (fn) => fn(20, 20, 300, 400) }), scrollTo: (value) => scrolls.push(value) });
+  props.onScroll({ nativeEvent: { contentOffset: { x: 90, y: 0 } } });
+  frames[0]();
+  assert.deepEqual(scrolls, [{ x: 242, animated: false }]);
+});
+
+test("rapid board navigation speaks and advances the latest cursor before any render or visual scroll", () => {
+  const nextGridNode = app.statements.find((node) => ts.isFunctionDeclaration(node) && node.name.text === "nextGridIndex");
+  const nextGridIndex = compile(`module.exports = ${nextGridNode.getText(app)};`);
+  const items = Array.from({ length: 144 }, (_, index) => ({ id: `cell_${index}`, text: `Cell ${index}` }));
+  const menuStateRef = { current: { menuId: "turn_menu", items, gridEnabled: true, gridWidth: 12, focusIndex: 0 } };
+  const renders = [], spoken = [];
+  const move = handler("handleDirectionalNavigation", {
+    audio: { handleUserInteraction() {} }, dialogStateRef: { current: null }, inputStateRef: { current: null },
+    connected: true, modeRef: { current: "main" },
+    menuStateRef, nextGridIndex, setMenuState: (value) => renders.push(value),
+    speakUserFocus: (text) => spoken.push(text), playMenuMoveSound() {},
+  });
+  for (let i = 0; i < 15; i++) move("right");
+  assert.equal(menuStateRef.current.focusIndex, 11);
+  assert.deepEqual(spoken, items.slice(1, 12).map((item) => item.text));
+  for (let i = 0; i < 15; i++) move("down");
+  assert.equal(menuStateRef.current.focusIndex, 143);
+  move("up"); move("left");
+  assert.equal(menuStateRef.current.focusIndex, 130);
+  assert.equal(spoken.at(-1), "Cell 130");
+  assert.equal(renders.every((value) => typeof value !== "function"), true, "Speech must not be deferred into a React updater");
+});
+
+test("a newly arrived dialog owns directional navigation before its first render", () => {
+  let navigatedDialog = false;
+  handler("handleDirectionalNavigation", {
+    audio: { handleUserInteraction() {} }, dialogState: null,
+    dialogStateRef: { current: { id: "current-dialog" } }, inputStateRef: { current: null }, modeRef: { current: "main" },
+    setDialogState: () => { navigatedDialog = true; },
+    setMenuState: () => assert.fail("The covered board must not receive the gesture"),
+  })("right");
+  assert.equal(navigatedDialog, true);
+});
+
+test("a boundary jump followed by a direction uses the new board cursor before repaint", () => {
+  const nextGridNode = app.statements.find((node) => ts.isFunctionDeclaration(node) && node.name.text === "nextGridIndex");
+  const nextGridIndex = compile(`module.exports = ${nextGridNode.getText(app)};`);
+  const items = Array.from({ length: 144 }, (_, index) => ({ id: `cell_${index}`, text: `Cell ${index}` }));
+  const menuStateRef = { current: { items, gridEnabled: true, gridWidth: 12, focusIndex: 0 } };
+  const spoken = [];
+  const bindings = {
+    audio: { handleUserInteraction() {} }, dialogStateRef: { current: null }, inputStateRef: { current: null },
+    connected: true, modeRef: { current: "main" }, menuStateRef, nextGridIndex,
+    setMenuState: (value) => assert.equal(typeof value, "object"),
+    speakUserFocus: (text) => spoken.push(text), playMenuMoveSound() {},
+  };
+  const jump = handler("handleBoundaryJump", bindings);
+  const move = handler("handleDirectionalNavigation", bindings);
+  jump("bottom"); move("left"); move("up");
+  assert.equal(menuStateRef.current.focusIndex, 130);
+  assert.deepEqual(spoken, ["Cell 143", "Cell 142", "Cell 130"]);
+  jump("top"); move("right");
+  assert.equal(menuStateRef.current.focusIndex, 1);
+  assert.equal(spoken.at(-1), "Cell 1");
+});
+
+test("two-axis focus reveal uses one measurement and one scroll command", () => {
+  const frames = [], scrolls = [];
+  let measured = 0;
+  const { useFocusScroll } = compile(readFileSync(new URL("../src/app/useFocusScroll.ts", import.meta.url), "utf8"), {
+    require: (id) => id === "react" ? {
+      useRef: (current) => ({ current }), useCallback: (fn) => fn, useLayoutEffect: (fn) => fn(),
+    } : { Platform: { OS: "ios" } },
+    requestAnimationFrame: (fn) => { frames.push(fn); return frames.length; }, cancelAnimationFrame() {},
+  });
+  const props = useFocusScroll("cell", { current: new Map([["cell", { measureInWindow: (fn) => {
+    measured++; fn(500, 700, 72, 72);
+  } }]]) }, "both");
+  props.ref({ getNativeScrollRef: () => ({ measureInWindow: (fn) => fn(20, 100, 300, 400) }), scrollTo: (value) => scrolls.push(value) });
+  props.onScroll({ nativeEvent: { contentOffset: { x: 50, y: 90 } } });
+  frames[0]();
+  assert.equal(measured, 1);
+  assert.deepEqual(scrolls, [{ x: 302, y: 362, animated: false }]);
+});

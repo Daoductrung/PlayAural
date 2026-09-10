@@ -511,7 +511,7 @@ class PlayAuralNativePackage : ReactPackage {
 
   override fun createViewManagers(
     reactContext: ReactApplicationContext,
-  ): List<ViewManager<*, *>> = emptyList()
+  ): List<ViewManager<*, *>> = listOf(BoardViewportManager())
 }
 `;
 }
@@ -637,6 +637,11 @@ function withPlayAuralNativeFiles(config) {
       fs.writeFileSync(
         path.join(targetDir, "PlayAuralNativePackage.kt"),
         getNativePackageSource(packageName),
+      );
+      fs.writeFileSync(
+        path.join(targetDir, "BoardViewportManager.kt"),
+        fs.readFileSync(path.join(__dirname, "../native/android/BoardViewportManager.kt"), "utf8")
+          .replace("__PLAYAURAL_PACKAGE__", packageName),
       );
       return nextConfig;
     },

@@ -14,9 +14,9 @@ export function focusScrollOffset(offset: number, top: number, height: number, v
   return Math.max(0, offset + Math.max(0, top + height - viewportTop - viewportHeight));
 }
 
-export function useFocusScroll(focusKey: string | null, nodes: { current: Map<string, unknown> }) {
+export function useFocusScroll(focusKey: string | null, nodes: { current: Map<string, unknown> }, horizontal: boolean | "both" = false) {
   const ref = useRef<ScrollView | null>(null);
-  const offset = useRef(0);
+  const offset = useRef({ x: 0, y: 0 });
   const revision = useRef(0);
   const frame = useRef<ReturnType<typeof requestAnimationFrame> | null>(null);
   const revealFocus = useCallback(() => {
@@ -32,19 +32,22 @@ export function useFocusScroll(focusKey: string | null, nodes: { current: Map<st
         node.scrollIntoView?.({ block: "nearest", inline: "nearest" });
         return;
       }
-      scroll.getNativeScrollRef()?.measureInWindow((_x, viewportTop, _width, viewportHeight) => {
+      scroll.getNativeScrollRef()?.measureInWindow((viewportLeft, viewportTop, viewportWidth, viewportHeight) => {
         if (!isCurrent()) return;
-        node.measureInWindow?.((_nodeX, top, _nodeWidth, height) => {
+        node.measureInWindow?.((left, top, width, height) => {
           if (!isCurrent()) return;
-          const y = focusScrollOffset(offset.current, top, height, viewportTop, viewportHeight);
-          if (y !== offset.current) {
-            offset.current = y;
-            scroll.scrollTo({ y, animated: false });
+          const x = horizontal !== false
+            ? focusScrollOffset(offset.current.x, left, width, viewportLeft, viewportWidth) : offset.current.x;
+          const y = horizontal !== true
+            ? focusScrollOffset(offset.current.y, top, height, viewportTop, viewportHeight) : offset.current.y;
+          if (x !== offset.current.x || y !== offset.current.y) {
+            offset.current = { x, y };
+            scroll.scrollTo({ ...(horizontal !== false ? { x } : {}), ...(horizontal !== true ? { y } : {}), animated: false });
           }
         });
       });
     });
-  }, [focusKey, nodes]);
+  }, [focusKey, horizontal, nodes]);
 
   useLayoutEffect(() => {
     revealFocus();
@@ -55,15 +58,20 @@ export function useFocusScroll(focusKey: string | null, nodes: { current: Map<st
   }, [revealFocus]);
 
   const attachScroll = useCallback((node: ScrollView | null) => {
-    if (ref.current !== node) offset.current = 0;
+    if (ref.current !== node) offset.current = { x: 0, y: 0 };
     ref.current = node;
   }, []);
 
   return {
     ref: attachScroll,
+    // Self-voicing owns the drag stream while it has a focus target. Native
+    // dragging must not compete with it; scrollTo still reveals focus.
+    scrollEnabled: focusKey === null,
     onLayout: revealFocus,
     onContentSizeChange: revealFocus,
-    onScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => { offset.current = event.nativeEvent.contentOffset.y; },
+    onScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      offset.current = { ...event.nativeEvent.contentOffset };
+    },
     scrollEventThrottle: 16,
     keyboardShouldPersistTaps: "handled" as const,
   };

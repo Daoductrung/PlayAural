@@ -39,6 +39,8 @@ mobile_client/
 |-- locales/
 |   |-- en/client.json
 |   `-- vi/client.json
+|-- native/
+|   `-- android/BoardViewportManager.kt
 |-- scripts/
 |   `-- generate-sound-manifest.mjs
 |-- sounds/
@@ -128,6 +130,35 @@ Self-voicing follows the visible control order and scrolls focused controls into
 view. During play, the menu uses the available screen space; **Help and gestures**
 contains the gesture instructions and build information. Help is also available
 from Shortcuts. Turning self-voicing off exposes the native navigation tabs.
+
+Android Back and the self-voicing Back gesture close the currently visible
+dialog or input before navigating the underlying screen. Closing Chat, History,
+or Shortcuts returns focus to the game menu. Server menus retain their own Back
+behavior across live updates, including the online user list.
+
+Game boards scroll vertically and horizontally when they exceed the available
+space. Cells keep readable text and usable touch targets at larger system font
+sizes. Self-voicing navigation brings the focused cell into view on both axes
+without waiting for scrolling before moving the cursor or speaking. With
+self-voicing off, drag in any direction; with TalkBack on, use two fingers.
+Chat, message history, and long input prompts also scroll, including when the
+keyboard is open.
+
+Android boards use a single native viewport for both axes, with the platform's
+gesture detection, inertia, clamped content bounds, and directional accessibility
+scroll actions. This avoids axis locking between nested scroll views. The Expo
+plugin copies `native/android/BoardViewportManager.kt` into the generated Android
+project during prebuild. Keep changes in that source file, and rerun prebuild
+before building. Device checks must cover curved and diagonal TalkBack two-finger
+drags, directional accessibility actions, enlarged text, self-voicing handoffs,
+and live row reflow that leaves the overall board bounds unchanged. One-finger
+tests alone do not validate screen-reader scrolling.
+
+Message history is kept only in memory, with a configurable `BufferStore`
+capacity of 500 messages per buffer by default. New messages preserve the
+focused message by identity; the oldest entries are pruned at the capacity.
+Returning to the login screen clears all buffers and the chat draft. History
+is never written to device storage and does not survive an app restart.
 
 Run the language-menu, landing navigation, and focus visibility checks with:
 

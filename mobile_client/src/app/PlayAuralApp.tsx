@@ -28,6 +28,7 @@ import {
   TextInput,
   View,
   findNodeHandle,
+  useWindowDimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -44,6 +45,9 @@ import {
 } from "../network/clientInfo";
 import { resolveMenuFocusIndex } from "./menuFocus";
 import { useFocusScroll } from "./useFocusScroll";
+import { useAnchoredFocus } from "./useAnchoredFocus";
+import { gridCellSizeForViewport } from "./gridLayout";
+import { BoardViewport } from "./BoardViewport";
 import type {
   AuthorizeSuccessPacket,
   AudioCommandPacket,
@@ -204,6 +208,7 @@ type InputOverlayFocus = 0 | 1;
 type DialogFocusIndex = number;
 
 type ChatFocusItem = {
+  id: string;
   kind: "close" | "input" | "message" | "send" | "voiceJoin" | "voiceLeave" | "voiceMic";
   text: string;
 };
@@ -299,10 +304,6 @@ const defaultMenuState: MenuState = {
 };
 
 const PROTECTED_TRANSIENT_MENU_IDS = new Set(["action_input_menu", "actions_menu", "status_box"]);
-const MAX_FULLY_SCALED_GRID_CELLS = 500;
-const MIN_SCALED_GRID_CELL_SIZE = 0.5;
-const MIN_SCROLLING_GRID_CELL_SIZE = 18;
-const MAX_SCROLLING_GRID_CELL_SIZE = 40;
 
 function isProtectedTransientMenu(menuId: string | undefined): boolean {
   return menuId !== undefined && PROTECTED_TRANSIENT_MENU_IDS.has(menuId);
@@ -503,22 +504,6 @@ function formatTextInputSpeech(
   });
 }
 
-function getGridVisualLabel(text: string, cellSize: number | null): string {
-  if (cellSize !== null && cellSize < 10) {
-    return "";
-  }
-  const trimmed = text.trim();
-  const coordinate = trimmed.match(/\b([A-Za-z]{1,3}\d{1,3}|\d{1,3}[A-Za-z]{1,3})\b/);
-  if (coordinate) {
-    return coordinate[1];
-  }
-  const firstClause = trimmed.split(/[,.;:-]/, 1)[0]?.trim();
-  if (firstClause && firstClause.length <= 6) {
-    return firstClause;
-  }
-  return trimmed;
-}
-
 function extractPreferenceUpdates(packet: UpdatePreferencePacket | AuthorizeSuccessPacket): Record<string, unknown> {
   if ("preferences" in packet && packet.preferences) {
     return packet.preferences;
@@ -576,8 +561,7 @@ export function PlayAuralApp() {
   const [chatDraft, setChatDraft] = useState("");
   const [statusText, setStatusText] = useState(() => localization.t("status-disconnected"));
   const [authStatusText, setAuthStatusText] = useState("");
-  const [, setHistoryRevision] = useState(0);
-  const [historyIndex, setHistoryIndex] = useState(0);
+  const [historyRevision, setHistoryRevision] = useState(0);
   const [serverUrl, setServerUrl] = useState(DEFAULT_SERVER_URL);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -593,7 +577,6 @@ export function PlayAuralApp() {
   const [storageReady, setStorageReady] = useState(false);
   const [lastPingStartedAt, setLastPingStartedAt] = useState<number | null>(null);
   const [shortcutFocusIndex, setShortcutFocusIndex] = useState(0);
-  const [chatFocusIndex, setChatFocusIndex] = useState(0);
   const [authFocusIndex, setAuthFocusIndex] = useState(0);
   const [preferences, setPreferences] = useState<Record<string, unknown>>({});
   const [selfVoicingEnabled, setSelfVoicingEnabled] = useState(true);
@@ -2178,6 +2161,9 @@ export function PlayAuralApp() {
   }, [audio, disableAutoReconnect, tts, voice]);
 
   const resetToLoginScreen = useCallback((statusMessage: string, authMessage = statusMessage) => {
+    buffers.clear();
+    setHistoryRevision((value) => value + 1);
+    setChatDraft("");
     void androidForegroundService.stop();
     voice.shutdown();
     audio.shutdown();
@@ -2208,7 +2194,7 @@ export function PlayAuralApp() {
     setAuthMode("login");
     setStatusText(statusMessage);
     setAuthStatusText(authMessage);
-  }, [audio, clearScheduledNativeFocus, resetVoiceUiState, voice]);
+  }, [audio, buffers, clearScheduledNativeFocus, resetVoiceUiState, voice]);
 
   const handleTerminalSessionExit = useCallback((message: string, announceMessage = true) => {
     disableAutoReconnect();
@@ -2834,66 +2820,35 @@ export function PlayAuralApp() {
   }, [localization, voiceState, voiceStatusText]);
 
   const connection = connectionRef.current;
-  const historyMessages = buffers.getMessages("all").reverse();
-  const chatMessages = buffers.getMessages("chat").reverse();
+  const historyMessages = useMemo(() => buffers.getMessages("all").reverse(), [buffers, historyRevision]);
+  const chatMessages = useMemo(() => buffers.getMessages("chat").reverse(), [buffers, historyRevision]);
+  const [historyIndex, setHistoryIndex] = useAnchoredFocus(historyMessages);
   const focusedHistoryMessage = historyMessages[historyIndex] ?? null;
   const focusedMenuItem = menuState.items[menuState.focusIndex];
   const focusedDialogButton = dialogState?.buttons[dialogState.focusIndex] ?? null;
-  const gridColumnCount = Math.max(1, menuState.gridWidth);
-  const menuGridRows = menuState.gridEnabled
-    ? Math.max(1, menuState.gridHeight || Math.ceil(menuState.items.length / gridColumnCount))
-    : 0;
-  const gridCellCount = menuState.items.length;
+  const { fontScale } = useWindowDimensions();
+  const gridColumnCount = Math.max(1, Math.trunc(menuState.gridWidth));
+  const menuGridRows = Math.max(1, Math.ceil(menuState.items.length / gridColumnCount));
   const isGridMenu = menuState.gridEnabled && gridColumnCount > 1;
-  const gridUsesVisualScroll = isGridMenu && gridCellCount > MAX_FULLY_SCALED_GRID_CELLS;
   const gridRows = useMemo(() => {
-    if (!isGridMenu) {
-      return [] as FocusableMenuItem[][];
-    }
-    return Array.from({ length: menuGridRows }, (_, rowIndex) => {
-      const start = rowIndex * gridColumnCount;
-      return menuState.items.slice(start, start + gridColumnCount);
-    });
+    if (!isGridMenu) return [] as FocusableMenuItem[][];
+    return Array.from({ length: menuGridRows }, (_, rowIndex) =>
+      menuState.items.slice(rowIndex * gridColumnCount, (rowIndex + 1) * gridColumnCount),
+    );
   }, [gridColumnCount, isGridMenu, menuGridRows, menuState.items]);
-  const gridGap =
-    gridCellCount > 300 || gridColumnCount > 20 || menuGridRows > 20
-      ? 0
-      : gridColumnCount >= 11 || menuGridRows >= 11
-        ? 2
-        : gridColumnCount >= 9 || menuGridRows >= 9
-          ? 4
-          : 8;
-  const gridContentWidth = Math.max(0, mainPanelLayout.width);
-  const gridContentHeight = Math.max(0, mainPanelLayout.height);
-  const gridCellWidth =
-    isGridMenu && gridContentWidth > 0
-      ? (gridContentWidth - gridGap * (gridColumnCount - 1)) / gridColumnCount
-      : null;
-  const gridCellHeight =
-    isGridMenu && menuGridRows > 0 && gridContentHeight > 0 && !gridUsesVisualScroll
-      ? (gridContentHeight - gridGap * (menuGridRows - 1)) / menuGridRows
-      : null;
-  const gridCellSize =
-    gridCellWidth !== null && (gridCellHeight !== null || gridUsesVisualScroll)
-      ? gridUsesVisualScroll
-        ? Math.max(MIN_SCROLLING_GRID_CELL_SIZE, Math.min(MAX_SCROLLING_GRID_CELL_SIZE, gridCellWidth))
-        : Math.max(MIN_SCALED_GRID_CELL_SIZE, Math.min(gridCellWidth, gridCellHeight ?? gridCellWidth))
-      : null;
-  const gridBoardWidth =
-    gridCellSize !== null ? gridColumnCount * gridCellSize + gridGap * Math.max(0, gridColumnCount - 1) : null;
-  const gridBoardHeight =
-    gridCellSize !== null ? menuGridRows * gridCellSize + gridGap * Math.max(0, menuGridRows - 1) : null;
-  const gridCellPadding = gridCellSize !== null ? Math.max(0, Math.min(3, Math.floor(gridCellSize * 0.08))) : 0;
-  const gridTextSize = gridCellSize !== null ? Math.max(1, Math.min(16, Math.floor(gridCellSize * 0.42))) : 16;
-  const gridTextLineHeight = gridCellSize !== null ? Math.max(1, Math.min(gridCellSize, gridTextSize + 1)) : 18;
-  const gridCellBorderWidth = gridCellSize !== null && gridCellSize < 6 ? 0 : 1;
-  const gridCellBorderRadius = gridCellSize !== null ? Math.min(8, Math.max(0, gridCellSize / 4)) : 8;
-  const chatFocusItems: ChatFocusItem[] = [
-    { kind: "input", text: localization.t("chat-input-focus") },
-    { kind: "send", text: localization.t("chat-send-button") },
+  const gridGap = styles.gridMenuBoard.gap;
+  const gridCellSize = gridCellSizeForViewport(
+    gridColumnCount, menuGridRows, mainPanelLayout.width, mainPanelLayout.height,
+    gridGap, styles.gridMenuItem.minWidth * Math.max(1, fontScale),
+  );
+  const gridBoardWidth = gridColumnCount * gridCellSize + gridGap * (gridColumnCount - 1);
+  const chatFocusItems = useMemo<ChatFocusItem[]>(() => [
+    { id: "input", kind: "input", text: localization.t("chat-input-focus") },
+    { id: "send", kind: "send", text: localization.t("chat-send-button") },
     voiceState === "connected"
-      ? { kind: "voiceLeave", text: localization.t("voice-chat-leave") }
+      ? { id: "voiceLeave", kind: "voiceLeave", text: localization.t("voice-chat-leave") }
       : {
+          id: "voiceJoin",
           kind: "voiceJoin",
           text: voiceState === "connecting"
             ? localization.t("voice-chat-joining")
@@ -2901,18 +2856,21 @@ export function PlayAuralApp() {
         },
     ...(voiceState === "connected"
       ? [{
+          id: "voiceMic",
           kind: "voiceMic" as const,
           text: localization.t(
             voiceMicEnabled ? "voice-chat-turn-off-mic" : "voice-chat-turn-on-mic",
           ),
         }]
       : []),
-    { kind: "close", text: localization.t("chat-close-button") },
+    { id: "close", kind: "close", text: localization.t("chat-close-button") },
     ...chatMessages.map((message) => ({
+      id: message.id,
       kind: "message" as const,
       text: message.text,
     })),
-  ];
+  ], [appLocale, chatMessages, localization, voiceMicEnabled, voiceState]);
+  const [chatFocusIndex, setChatFocusIndex] = useAnchoredFocus(chatFocusItems);
   const focusedChatItem = chatFocusItems[chatFocusIndex] ?? null;
   const getChatFocusSpeechText = useCallback(
     (item: ChatFocusItem | null): string | null => {
@@ -3073,6 +3031,22 @@ export function PlayAuralApp() {
       ? menuItemAccessibilityKey(menuState.menuId, focusedMenuItem, menuState.focusIndex) : null,
     accessibilityNodeRefs,
   );
+  const focusedGridKey = selfVoicingEnabled && connected && !dialogState && !inputState && mode === "main" && isGridMenu && focusedMenuItem
+    ? menuItemAccessibilityKey(menuState.menuId, focusedMenuItem, menuState.focusIndex) : null;
+  const chatScroll = useFocusScroll(
+    selfVoicingEnabled && connected && !dialogState && !inputState && mode === "chat" && focusedChatItem
+      ? `chat:${focusedChatItem.id}` : null,
+    accessibilityNodeRefs,
+  );
+  const historyScroll = useFocusScroll(
+    selfVoicingEnabled && connected && !dialogState && !inputState && mode === "history" && focusedHistoryMessage
+      ? `history:${focusedHistoryMessage.id}` : null,
+    accessibilityNodeRefs,
+  );
+  const inputScroll = useFocusScroll(
+    selfVoicingEnabled && !dialogState && inputState ? inputOverlayFocus === 0 ? "input:field" : "input:action" : null,
+    accessibilityNodeRefs,
+  );
   const dialogScroll = useFocusScroll(
     selfVoicingEnabled && dialogState?.id === "language-selection" && focusedDialogButton
       ? `dialog:${dialogState.id}:${focusedDialogButton.id}` : null,
@@ -3207,21 +3181,20 @@ export function PlayAuralApp() {
       if (!text) {
         return null;
       }
-      return `main:${menuState.menuId}:${menuState.focusIndex}:${focusedMenuItem?.id ?? "none"}:${text}`;
+      return `main:${menuState.menuId}:${focusedMenuItem?.id ?? menuState.focusIndex}:${text}`;
     }
     if (mode === "shortcuts" && focusedShortcutItem) {
       return `shortcuts:${shortcutFocusIndex}:${focusedShortcutItem.id}:${focusedShortcutItem.text}`;
     }
     if (mode === "history" && focusedHistoryMessage) {
-      return `history:${historyIndex}:${focusedHistoryMessage.timestamp}:${focusedHistoryMessage.text}`;
+      return `history:${focusedHistoryMessage.id}:${focusedHistoryMessage.text}`;
     }
     if (mode === "chat" && focusedChatItem) {
-      return `chat:${chatFocusIndex}:${focusedChatItem.kind}:${getChatFocusSpeechText(focusedChatItem)}`;
+      return `chat:${focusedChatItem.id}:${getChatFocusSpeechText(focusedChatItem)}`;
     }
     return null;
   }, [
     authMode,
-    chatFocusIndex,
     connected,
     dialogState,
     focusedAuthItem,
@@ -3233,7 +3206,6 @@ export function PlayAuralApp() {
     focusedShortcutItem,
     getAuthFocusSpeechText,
     getChatFocusSpeechText,
-    historyIndex,
     inputOverlayFocus,
     inputState,
     localization,
@@ -3280,10 +3252,6 @@ export function PlayAuralApp() {
       if (!dialogStateRef.current) queueNativeAccessibilityFocus(`auth:${defaultFocusId}`);
     }
   }, [announceInterfaceFeedback, authFocusableItems, authMode, connected, localization]);
-
-  useEffect(() => {
-    setChatFocusIndex((current) => clamp(current, 0, Math.max(0, chatFocusItems.length - 1)));
-  }, [chatFocusItems.length]);
 
   useEffect(() => {
     tts.setCurrentUiTextProvider(getCurrentUiFocusText);
@@ -3496,18 +3464,6 @@ export function PlayAuralApp() {
     connection?.send(outgoing);
   };
 
-  const sendEscape = () => {
-    const currentMenuState = menuStateRef.current;
-    if (isProtectedTransientMenu(currentMenuState.menuId)) {
-      transientTurnMenuAllowanceRef.current = currentMenuState.menuId;
-    }
-    requestNativeMenuFocusOnNextPacket();
-    connection?.send({
-      menu_id: currentMenuState.menuId || undefined,
-      type: "escape",
-    });
-  };
-
   const sendEscapeEquivalent = (
     menuId: string,
     escapeBehavior: string,
@@ -3516,36 +3472,22 @@ export function PlayAuralApp() {
     if (isProtectedTransientMenu(menuId)) {
       transientTurnMenuAllowanceRef.current = menuId;
     }
-    if (escapeBehavior === "select_last_option") {
-      const lastIndex = items.length - 1;
-      if (lastIndex >= 0) {
-        const item = items[lastIndex];
-        requestNativeMenuFocusOnNextPacket();
-        connection?.send({
-          menu_id: menuId || undefined,
-          selection: lastIndex + 1,
-          selection_id: item?.id,
-          type: "menu",
-        });
-      }
-      return;
+    const selectionIndex = escapeBehavior === "select_last_option" ? items.length - 1
+      : escapeBehavior === "select_first_option" ? 0 : null;
+    if (selectionIndex !== null && !items[selectionIndex]) return;
+    requestNativeMenuFocusOnNextPacket();
+    if (selectionIndex !== null) {
+      connection?.send({
+        menu_id: menuId || undefined,
+        selection: selectionIndex + 1,
+        selection_id: items[selectionIndex].id,
+        type: "menu",
+      });
+    } else if (escapeBehavior === "escape_event") {
+      connection?.send({ menu_id: menuId || undefined, type: "escape" });
+    } else {
+      connection?.send({ menu_id: menuId || undefined, type: "keybind", key: "escape" });
     }
-
-    if (escapeBehavior === "select_first_option") {
-      if (items.length > 0) {
-        const item = items[0];
-        requestNativeMenuFocusOnNextPacket();
-        connection?.send({
-          menu_id: menuId || undefined,
-          selection: 1,
-          selection_id: item?.id,
-          type: "menu",
-        });
-      }
-      return;
-    }
-
-    sendEscape();
   };
 
   const openActionsMenu = () => {
@@ -3612,12 +3554,21 @@ export function PlayAuralApp() {
   };
 
   const closeOverlay = () => {
-    if (mode === "main") {
+    const currentMode = modeRef.current;
+    if (currentMode === "main") {
       return false;
     }
-    const name = localization.t(`mode-${mode}`);
+    const name = localization.t(`mode-${currentMode}`);
+    clearNativeTabTextInputFocusTimers();
+    Keyboard.dismiss();
+    activeTextInputKeyRef.current = null;
+    setActiveTextInputKey(null);
     modeRef.current = "main";
     setMode("main");
+    const currentMenu = menuStateRef.current;
+    if (currentMenu.items.length) {
+      queueNativeAccessibilityFocus(menuItemAccessibilityKey(currentMenu.menuId, currentMenu.items[currentMenu.focusIndex], currentMenu.focusIndex));
+    }
     announceInterfaceFeedback(localization.t("overlay-closed", { name }));
     return true;
   };
@@ -3669,7 +3620,7 @@ export function PlayAuralApp() {
       focusChatInputForNativeReader();
     } else if (nextMode === "history") {
       setHistoryIndex(0);
-      moveNativeAccessibilityFocus("history:content", 0, { force: true });
+      moveNativeAccessibilityFocus(historyMessages[0] ? `history:${historyMessages[0].id}` : "history:empty", 0, { force: true });
     }
 
     modeRef.current = nextMode;
@@ -3910,6 +3861,8 @@ export function PlayAuralApp() {
 
   const handleBoundaryJump = (target: "bottom" | "top") => {
     void audio.handleUserInteraction();
+    const currentInput = inputStateRef.current;
+    const currentMode = modeRef.current;
 
     const boundaryIndex = (length: number) => {
       if (length <= 0) {
@@ -3918,7 +3871,7 @@ export function PlayAuralApp() {
       return target === "top" ? 0 : length - 1;
     };
 
-    if (dialogState) {
+    if (dialogStateRef.current) {
       setDialogState((current) => {
         if (!current || current.buttons.length === 0) {
           return current;
@@ -3937,7 +3890,7 @@ export function PlayAuralApp() {
       return;
     }
 
-    if (inputState) {
+    if (currentInput) {
       const nextFocus: InputOverlayFocus = target === "top" ? 0 : 1;
       setInputOverlayFocus(nextFocus);
       if (nextFocus !== inputOverlayFocus) {
@@ -3945,7 +3898,7 @@ export function PlayAuralApp() {
       }
       speakUserFocus(
         nextFocus === 0
-          ? formatTextInputSpeech(localization, inputState.prompt, inputValue, { readOnly: inputState.readOnly })
+          ? formatTextInputSpeech(localization, currentInput.prompt, inputValue, { readOnly: currentInput.readOnly })
           : inputOverlayButtonText,
       );
       return;
@@ -3964,7 +3917,7 @@ export function PlayAuralApp() {
       return;
     }
 
-    if (mode === "shortcuts") {
+    if (currentMode === "shortcuts") {
       if (shortcutItems.length === 0) {
         return;
       }
@@ -3977,7 +3930,7 @@ export function PlayAuralApp() {
       return;
     }
 
-    if (mode === "history") {
+    if (currentMode === "history") {
       if (historyMessages.length === 0) {
         speakUserFocus(localization.t("history-empty"));
         return;
@@ -3991,7 +3944,7 @@ export function PlayAuralApp() {
       return;
     }
 
-    if (mode === "chat") {
+    if (currentMode === "chat") {
       if (chatFocusItems.length === 0) {
         return;
       }
@@ -4004,27 +3957,21 @@ export function PlayAuralApp() {
       return;
     }
 
-    setMenuState((previous) => {
-      if (previous.items.length === 0) {
-        return previous;
-      }
-      const nextIndex = boundaryIndex(previous.items.length);
-      if (nextIndex !== previous.focusIndex) {
-        playMenuMoveSound(previous.items[nextIndex]);
-      }
-      speakUserFocus(previous.items[nextIndex]?.text);
-      const nextState = {
-        ...previous,
-        focusIndex: nextIndex,
-      };
-      menuStateRef.current = nextState;
-      return nextState;
-    });
+    const previous = menuStateRef.current;
+    if (previous.items.length === 0) return;
+    const nextIndex = boundaryIndex(previous.items.length);
+    const nextState = { ...previous, focusIndex: nextIndex };
+    menuStateRef.current = nextState;
+    setMenuState(nextState);
+    if (nextIndex !== previous.focusIndex) playMenuMoveSound(previous.items[nextIndex]);
+    speakUserFocus(previous.items[nextIndex]?.text);
   };
 
   const handleDirectionalNavigation = (direction: "up" | "down" | "left" | "right") => {
     void audio.handleUserInteraction();
-    if (dialogState) {
+    const currentInput = inputStateRef.current;
+    const currentMode = modeRef.current;
+    if (dialogStateRef.current) {
       setDialogState((current) => {
         if (!current || current.buttons.length === 0) {
           return current;
@@ -4042,13 +3989,13 @@ export function PlayAuralApp() {
       });
       return;
     }
-    if (inputState) {
+    if (currentInput) {
       setInputOverlayFocus((current) => {
         const next: InputOverlayFocus = direction === "left" || direction === "up" ? 0 : 1;
         if (next !== current) {
           speakUserFocus(
             next === 0
-              ? formatTextInputSpeech(localization, inputState.prompt, inputValue, { readOnly: inputState.readOnly })
+              ? formatTextInputSpeech(localization, currentInput.prompt, inputValue, { readOnly: currentInput.readOnly })
               : inputOverlayButtonText,
           );
           playMenuMoveSound();
@@ -4082,7 +4029,7 @@ export function PlayAuralApp() {
       });
       return;
     }
-    if (mode === "shortcuts") {
+    if (currentMode === "shortcuts") {
       setShortcutFocusIndex((current) => {
         if (shortcutItems.length === 0) {
           return 0;
@@ -4107,7 +4054,7 @@ export function PlayAuralApp() {
       });
       return;
     }
-    if (mode === "history") {
+    if (currentMode === "history") {
       setHistoryIndex((current) => {
         const max = Math.max(0, historyMessages.length - 1);
         if (direction === "left" || direction === "down") {
@@ -4130,7 +4077,7 @@ export function PlayAuralApp() {
       });
       return;
     }
-    if (mode === "chat") {
+    if (currentMode === "chat") {
       setChatFocusIndex((current) => {
         if (chatFocusItems.length === 0) {
           return 0;
@@ -4155,28 +4102,21 @@ export function PlayAuralApp() {
       });
       return;
     }
-    setMenuState((previous) => {
-      if (previous.items.length === 0) {
-        return previous;
-      }
-      const nextIndex = previous.gridEnabled
-        ? nextGridIndex(previous.focusIndex, previous.items.length, previous.gridWidth, direction)
-        : nextLinearIndex(
-            previous.focusIndex,
-            previous.items.length,
-            direction === "up" || direction === "left" ? "up" : "down",
-          );
-      const nextState = {
-        ...previous,
-        focusIndex: nextIndex,
-      };
-      if (nextIndex !== previous.focusIndex) {
-        speakUserFocus(previous.items[nextIndex]?.text);
-        playMenuMoveSound(previous.items[nextIndex]);
-      }
-      menuStateRef.current = nextState;
-      return nextState;
-    });
+    const previous = menuStateRef.current;
+    if (previous.items.length === 0) return;
+    const nextIndex = previous.gridEnabled
+      ? nextGridIndex(previous.focusIndex, previous.items.length, previous.gridWidth, direction)
+      : nextLinearIndex(
+          previous.focusIndex,
+          previous.items.length,
+          direction === "up" || direction === "left" ? "up" : "down",
+        );
+    if (nextIndex === previous.focusIndex) return;
+    const nextState = { ...previous, focusIndex: nextIndex };
+    menuStateRef.current = nextState;
+    setMenuState(nextState);
+    speakUserFocus(previous.items[nextIndex]?.text);
+    playMenuMoveSound(previous.items[nextIndex]);
   };
 
   const handleRepeatLast = () => {
@@ -4237,19 +4177,23 @@ export function PlayAuralApp() {
       return;
     }
     if (direction === "up") {
-      if (closeOverlay()) {
-        return;
-      }
-      if (inputState) {
+      if (inputStateRef.current) {
         cancelInputOverlay();
         return;
       }
-      if (connected && mode === "main" && currentMenuState.menuId === "turn_menu") {
+      if (closeOverlay()) {
+        return;
+      }
+      if (!connected) {
+        exitApplication();
+        return;
+      }
+      if (currentMenuState.menuId === "turn_menu") {
         playMenuActivateSound();
         openActionsMenu();
         return;
       }
-      if (connected && mode === "main" && currentMenuState.menuId === "main_menu") {
+      if (currentMenuState.menuId === "main_menu") {
         confirmLogout();
         return;
       }
@@ -4260,7 +4204,7 @@ export function PlayAuralApp() {
       );
       return;
     }
-    if (inputState) {
+    if (inputStateRef.current || !connected) {
       return;
     }
     if (direction === "right") {
@@ -4299,7 +4243,7 @@ export function PlayAuralApp() {
   }, []);
 
   useEffect(() => {
-    if (Platform.OS !== "web" || selfVoicingEnabled || !dialogState) return;
+    if (Platform.OS !== "web" || selfVoicingEnabled) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape" && !event.altKey && !event.ctrlKey && !event.metaKey) {
         event.preventDefault();
@@ -4308,7 +4252,7 @@ export function PlayAuralApp() {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [dialogState?.id, selfVoicingEnabled]);
+  }, [selfVoicingEnabled]);
 
   const gestures = useSelfVoicingGestures({
     enabled: selfVoicingGestureEnabled,
@@ -4769,7 +4713,8 @@ export function PlayAuralApp() {
       accessibilityRole="button"
       accessible
       delayLongPress={350}
-      key={`${item.id ?? "text"}-${index}`}
+      key={menuItemAccessibilityKey(menuState.menuId, item, index)}
+      nativeID={menuItemAccessibilityKey(menuState.menuId, item, index)}
       onAccessibilityAction={(event) => {
         void audio.handleUserInteraction();
         focusMenuItemAt(index);
@@ -4782,7 +4727,7 @@ export function PlayAuralApp() {
         sendMenuSelection(item, index);
       }}
       onFocus={() => {
-        focusMenuItemAt(index);
+        if (!selfVoicingEnabledRef.current) focusMenuItemAt(index);
       }}
       onLongPress={() => {
         handleMenuItemLongPress(item, index);
@@ -4794,99 +4739,26 @@ export function PlayAuralApp() {
       style={[
         styles.gridMenuItem,
         index === menuState.focusIndex ? styles.gridMenuItemFocused : undefined,
-        gridCellSize !== null
-          ? {
-              borderRadius: gridCellBorderRadius,
-              borderWidth: gridCellBorderWidth,
-              height: gridCellSize,
-              maxHeight: gridCellSize,
-              maxWidth: gridCellSize,
-              minHeight: gridCellSize,
-              minWidth: gridCellSize,
-              paddingHorizontal: gridCellPadding,
-              paddingVertical: gridCellPadding,
-              width: gridCellSize,
-            }
-          : {
-              flex: 1,
-              minHeight: 32,
-            },
+        { minHeight: gridCellSize, width: gridCellSize },
       ]}
     >
-      <Text
-        allowFontScaling={false}
-        ellipsizeMode="clip"
-        numberOfLines={1}
-        style={[
-          styles.menuText,
-          styles.gridMenuText,
-          gridCellSize !== null ? { fontSize: gridTextSize, lineHeight: gridTextLineHeight } : undefined,
-        ]}
-      >
-        {getGridVisualLabel(item.text, gridCellSize)}
+      <Text style={[styles.menuText, styles.gridMenuText]}>
+        {item.text}
       </Text>
     </Pressable>
   );
 
-  const renderGridBoard = () => {
-    const board = (
-      <View
-        style={[
-          styles.gridMenuBoard,
-          gridCellSize !== null
-            ? {
-                gap: gridGap,
-                height: gridUsesVisualScroll ? undefined : gridBoardHeight ?? undefined,
-                width: gridBoardWidth ?? undefined,
-              }
-            : undefined,
-        ]}
-      >
+  const renderGridBoard = () => (
+    <BoardViewport key={menuState.menuId} contentWidth={gridBoardWidth} focusKey={focusedGridKey} nodes={accessibilityNodeRefs}>
+      <View collapsable={false} style={[styles.gridMenuBoard, { width: gridBoardWidth }]}>
         {gridRows.map((rowItems, rowIndex) => (
-          <View
-            key={`grid-row-${rowIndex}`}
-            style={[
-              styles.gridMenuRow,
-              gridCellSize !== null
-                ? {
-                    gap: gridGap,
-                    height: gridCellSize,
-                    width: gridBoardWidth ?? undefined,
-                  }
-                : { gap: gridGap },
-            ]}
-          >
+          <View key={`grid-row-${rowIndex}`} style={[styles.gridMenuRow, { gap: gridGap }]}>
             {rowItems.map((item, columnIndex) => renderGridCell(item, rowIndex * gridColumnCount + columnIndex))}
           </View>
         ))}
       </View>
-    );
-
-    if (gridUsesVisualScroll) {
-      return (
-        <ScrollView
-          contentContainerStyle={styles.gridMenuScrollContent}
-          nestedScrollEnabled
-          style={styles.gridMenuScrollArea}
-        >
-          <ScrollView
-            horizontal
-            nestedScrollEnabled
-            showsHorizontalScrollIndicator={false}
-            style={styles.gridMenuHorizontalScroll}
-          >
-            {board}
-          </ScrollView>
-        </ScrollView>
-      );
-    }
-
-    return (
-      <View style={styles.gridMenuArea}>
-        {board}
-      </View>
-    );
-  };
+    </BoardViewport>
+  );
 
   const renderMainView = () => (
     <View style={styles.panel}>
@@ -4955,192 +4827,192 @@ export function PlayAuralApp() {
   const renderChatOverlay = () => (
     <View style={styles.panel}>
       <Text style={styles.panelTitle}>{localization.t("mode-chat")}</Text>
-      <Text style={styles.helpText}>{localization.t("chat-input-label")}</Text>
-      <View style={chatFocusIndex === 0 ? styles.authFieldFocused : undefined}>
-        <TextInput
-          accessibilityLabel={localization.t("chat-input-label")}
-          onChangeText={setChatDraft}
-          onFocus={() => {
-            handleTextInputFocus("chat:input", () => {
-              setChatFocusIndex(0);
-            });
-          }}
-          onBlur={() => {
-            handleTextInputBlur("chat:input");
-          }}
-          onSubmitEditing={submitChat}
-          placeholder={localization.t("chat-placeholder")}
-          placeholderTextColor="#b8c7d1"
-          ref={registerAccessibilityNode("chat:input", chatInputRef)}
-          showSoftInputOnFocus
-          style={styles.input}
-          value={chatDraft}
-        />
-      </View>
-      <View style={styles.row}>
-        <Pressable
-          accessibilityLabel={localization.t("chat-send-button")}
-          accessibilityRole="button"
+      <ScrollView {...chatScroll} style={styles.scrollArea}>
+        <Text style={styles.helpText}>{localization.t("chat-input-label")}</Text>
+        <View style={chatFocusIndex === 0 ? styles.authFieldFocused : undefined}>
+          <TextInput
+            accessibilityLabel={localization.t("chat-input-label")}
+            onChangeText={setChatDraft}
+            onFocus={() => {
+              handleTextInputFocus("chat:input", () => {
+                setChatFocusIndex(0);
+              });
+            }}
+            onBlur={() => {
+              handleTextInputBlur("chat:input");
+            }}
+            onSubmitEditing={submitChat}
+            placeholder={localization.t("chat-placeholder")}
+            placeholderTextColor="#b8c7d1"
+            ref={registerAccessibilityNode("chat:input", chatInputRef)}
+            showSoftInputOnFocus
+            style={styles.input}
+            value={chatDraft}
+          />
+        </View>
+        <View style={styles.row}>
+          <Pressable
+            accessibilityLabel={localization.t("chat-send-button")}
+            accessibilityRole="button"
+            accessible
+            onPress={() => {
+              void audio.handleUserInteraction();
+              submitChat();
+            }}
+            onFocus={() => {
+              markNativeScreenReaderInteraction("chat:send");
+              if (sendChatFocusIndex >= 0) {
+                setChatFocusIndex(sendChatFocusIndex);
+              }
+            }}
+            ref={registerAccessibilityNode("chat:send")}
+            style={[
+              styles.button,
+              styles.chatActionButton,
+              chatFocusIndex === sendChatFocusIndex ? styles.menuItemFocused : undefined,
+            ]}
+          >
+            <Text style={styles.buttonText}>{localization.t("chat-send-button")}</Text>
+          </Pressable>
+          {voiceState === "connected" ? (
+            <Pressable
+              accessibilityLabel={localization.t("voice-chat-leave")}
+              accessibilityRole="button"
+              accessible
+              onPress={() => {
+                void audio.handleUserInteraction();
+                leaveVoiceChat();
+              }}
+              onFocus={() => {
+                markNativeScreenReaderInteraction("chat:voiceLeave");
+                if (voiceLeaveChatFocusIndex >= 0) {
+                  setChatFocusIndex(voiceLeaveChatFocusIndex);
+                }
+              }}
+              ref={registerAccessibilityNode("chat:voiceLeave")}
+              style={[
+                styles.buttonSecondary,
+                styles.chatActionButton,
+                chatFocusIndex === voiceLeaveChatFocusIndex ? styles.menuItemFocused : undefined,
+              ]}
+            >
+              <Text style={styles.buttonText}>{localization.t("voice-chat-leave")}</Text>
+            </Pressable>
+          ) : (
+            <Pressable
+              accessibilityLabel={
+                voiceState === "connecting"
+                  ? localization.t("voice-chat-joining")
+                  : localization.t("voice-chat-join")
+              }
+              accessibilityRole="button"
+              accessibilityState={{ disabled: voiceState === "connecting" }}
+              accessible
+              disabled={voiceState === "connecting"}
+              onPress={() => {
+                void audio.handleUserInteraction();
+                joinVoiceChat();
+              }}
+              onFocus={() => {
+                markNativeScreenReaderInteraction("chat:voiceJoin");
+                if (voiceJoinChatFocusIndex >= 0) {
+                  setChatFocusIndex(voiceJoinChatFocusIndex);
+                }
+              }}
+              ref={registerAccessibilityNode("chat:voiceJoin")}
+              style={[
+                styles.buttonSecondary,
+                styles.chatActionButton,
+                chatFocusIndex === voiceJoinChatFocusIndex ? styles.menuItemFocused : undefined,
+                voiceState === "connecting" ? styles.buttonDisabled : undefined,
+              ]}
+            >
+              <Text style={styles.buttonText}>
+                {voiceState === "connecting"
+                  ? localization.t("voice-chat-joining")
+                  : localization.t("voice-chat-join")}
+              </Text>
+            </Pressable>
+          )}
+          {voiceState === "connected" ? (
+            <Pressable
+              accessibilityLabel={localization.t(
+                voiceMicEnabled ? "voice-chat-turn-off-mic" : "voice-chat-turn-on-mic",
+              )}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: voiceMicBusy, selected: voiceMicEnabled }}
+              accessible
+              disabled={voiceMicBusy}
+              onPress={() => {
+                void audio.handleUserInteraction();
+                void toggleVoiceMicrophone();
+              }}
+              onFocus={() => {
+                markNativeScreenReaderInteraction("chat:voiceMic");
+                if (voiceMicChatFocusIndex >= 0) {
+                  setChatFocusIndex(voiceMicChatFocusIndex);
+                }
+              }}
+              ref={registerAccessibilityNode("chat:voiceMic")}
+              style={[
+                styles.buttonSecondary,
+                styles.chatActionButton,
+                chatFocusIndex === voiceMicChatFocusIndex ? styles.menuItemFocused : undefined,
+                voiceMicBusy ? styles.buttonDisabled : undefined,
+              ]}
+            >
+              <Text style={styles.buttonText}>
+                {localization.t(voiceMicEnabled ? "voice-chat-turn-off-mic" : "voice-chat-turn-on-mic")}
+              </Text>
+            </Pressable>
+          ) : null}
+          <Pressable
+            accessibilityLabel={localization.t("chat-close-button")}
+            accessibilityRole="button"
+            accessible
+            onPress={() => {
+              void audio.handleUserInteraction();
+              closeOverlay();
+            }}
+            onFocus={() => {
+              markNativeScreenReaderInteraction("chat:close");
+              if (closeChatFocusIndex >= 0) {
+                setChatFocusIndex(closeChatFocusIndex);
+              }
+            }}
+            ref={registerAccessibilityNode("chat:close")}
+            style={[
+              styles.buttonSecondary,
+              styles.chatActionButton,
+              chatFocusIndex === closeChatFocusIndex ? styles.menuItemFocused : undefined,
+            ]}
+          >
+            <Text style={styles.buttonText}>{localization.t("chat-close-button")}</Text>
+          </Pressable>
+        </View>
+        <Text
+          accessibilityLabel={voiceStatusText || localization.t("voice-chat-not-connected")}
           accessible
-          onPress={() => {
-            void audio.handleUserInteraction();
-            submitChat();
-          }}
-          onFocus={() => {
-            markNativeScreenReaderInteraction("chat:send");
-            if (sendChatFocusIndex >= 0) {
-              setChatFocusIndex(sendChatFocusIndex);
-            }
-          }}
-          ref={registerAccessibilityNode("chat:send")}
-          style={[
-            styles.button,
-            styles.chatActionButton,
-            chatFocusIndex === sendChatFocusIndex ? styles.menuItemFocused : undefined,
-          ]}
+          style={styles.helpText}
         >
-          <Text style={styles.buttonText}>{localization.t("chat-send-button")}</Text>
-        </Pressable>
-        {voiceState === "connected" ? (
-          <Pressable
-            accessibilityLabel={localization.t("voice-chat-leave")}
-            accessibilityRole="button"
-            accessible
-            onPress={() => {
-              void audio.handleUserInteraction();
-              leaveVoiceChat();
-            }}
-            onFocus={() => {
-              markNativeScreenReaderInteraction("chat:voiceLeave");
-              if (voiceLeaveChatFocusIndex >= 0) {
-                setChatFocusIndex(voiceLeaveChatFocusIndex);
-              }
-            }}
-            ref={registerAccessibilityNode("chat:voiceLeave")}
-            style={[
-              styles.buttonSecondary,
-              styles.chatActionButton,
-              chatFocusIndex === voiceLeaveChatFocusIndex ? styles.menuItemFocused : undefined,
-            ]}
-          >
-            <Text style={styles.buttonText}>{localization.t("voice-chat-leave")}</Text>
-          </Pressable>
-        ) : (
-          <Pressable
-            accessibilityLabel={
-              voiceState === "connecting"
-                ? localization.t("voice-chat-joining")
-                : localization.t("voice-chat-join")
-            }
-            accessibilityRole="button"
-            accessibilityState={{ disabled: voiceState === "connecting" }}
-            accessible
-            disabled={voiceState === "connecting"}
-            onPress={() => {
-              void audio.handleUserInteraction();
-              joinVoiceChat();
-            }}
-            onFocus={() => {
-              markNativeScreenReaderInteraction("chat:voiceJoin");
-              if (voiceJoinChatFocusIndex >= 0) {
-                setChatFocusIndex(voiceJoinChatFocusIndex);
-              }
-            }}
-            ref={registerAccessibilityNode("chat:voiceJoin")}
-            style={[
-              styles.buttonSecondary,
-              styles.chatActionButton,
-              chatFocusIndex === voiceJoinChatFocusIndex ? styles.menuItemFocused : undefined,
-              voiceState === "connecting" ? styles.buttonDisabled : undefined,
-            ]}
-          >
-            <Text style={styles.buttonText}>
-              {voiceState === "connecting"
-                ? localization.t("voice-chat-joining")
-                : localization.t("voice-chat-join")}
-            </Text>
-          </Pressable>
-        )}
-        {voiceState === "connected" ? (
-          <Pressable
-            accessibilityLabel={localization.t(
-              voiceMicEnabled ? "voice-chat-turn-off-mic" : "voice-chat-turn-on-mic",
-            )}
-            accessibilityRole="button"
-            accessibilityState={{ disabled: voiceMicBusy, selected: voiceMicEnabled }}
-            accessible
-            disabled={voiceMicBusy}
-            onPress={() => {
-              void audio.handleUserInteraction();
-              void toggleVoiceMicrophone();
-            }}
-            onFocus={() => {
-              markNativeScreenReaderInteraction("chat:voiceMic");
-              if (voiceMicChatFocusIndex >= 0) {
-                setChatFocusIndex(voiceMicChatFocusIndex);
-              }
-            }}
-            ref={registerAccessibilityNode("chat:voiceMic")}
-            style={[
-              styles.buttonSecondary,
-              styles.chatActionButton,
-              chatFocusIndex === voiceMicChatFocusIndex ? styles.menuItemFocused : undefined,
-              voiceMicBusy ? styles.buttonDisabled : undefined,
-            ]}
-          >
-            <Text style={styles.buttonText}>
-              {localization.t(voiceMicEnabled ? "voice-chat-turn-off-mic" : "voice-chat-turn-on-mic")}
-            </Text>
-          </Pressable>
-        ) : null}
-        <Pressable
-          accessibilityLabel={localization.t("chat-close-button")}
-          accessibilityRole="button"
-          accessible
-          onPress={() => {
-            void audio.handleUserInteraction();
-            closeOverlay();
-          }}
-          onFocus={() => {
-            markNativeScreenReaderInteraction("chat:close");
-            if (closeChatFocusIndex >= 0) {
-              setChatFocusIndex(closeChatFocusIndex);
-            }
-          }}
-          ref={registerAccessibilityNode("chat:close")}
-          style={[
-            styles.buttonSecondary,
-            styles.chatActionButton,
-            chatFocusIndex === closeChatFocusIndex ? styles.menuItemFocused : undefined,
-          ]}
-        >
-          <Text style={styles.buttonText}>{localization.t("chat-close-button")}</Text>
-        </Pressable>
-      </View>
-      <Text
-        accessibilityLabel={voiceStatusText || localization.t("voice-chat-not-connected")}
-        accessible
-        style={styles.helpText}
-      >
-        {voiceStatusText || localization.t("voice-chat-not-connected")}
-      </Text>
-      <ScrollView style={styles.scrollArea}>
+          {voiceStatusText || localization.t("voice-chat-not-connected")}
+        </Text>
         {chatMessages.map((item, index) => (
           <Pressable
             accessibilityLabel={item.text}
             accessibilityRole="button"
             accessible
-            key={`chat-${item.timestamp}-${index}`}
+            key={item.id}
             onFocus={() => {
-              markNativeScreenReaderInteraction(`chat:message:${index}`);
+              markNativeScreenReaderInteraction(`chat:${item.id}`);
               setChatFocusIndex(chatMessageFocusOffset + index);
             }}
             onPress={() => {
-              markNativeScreenReaderInteraction(`chat:message:${index}`);
+              markNativeScreenReaderInteraction(`chat:${item.id}`);
               setChatFocusIndex(chatMessageFocusOffset + index);
               speakUserFocus(item.text);
             }}
-            ref={registerAccessibilityNode(`chat:message:${index}`)}
+            ref={registerAccessibilityNode(`chat:${item.id}`)}
             style={[
               styles.menuItem,
               chatFocusIndex === chatMessageFocusOffset + index ? styles.menuItemFocused : undefined,
@@ -5159,22 +5031,34 @@ export function PlayAuralApp() {
   const renderHistoryOverlay = () => (
     <View style={styles.panel}>
       <Text style={styles.panelTitle}>{localization.t("mode-history")}</Text>
-      <Pressable
-        accessibilityLabel={focusedHistoryMessage?.text ?? localization.t("history-empty")}
-        accessibilityRole="text"
-        accessible
-        onFocus={() => {
-          markNativeScreenReaderInteraction("history:content");
-        }}
-        ref={registerAccessibilityNode("history:content")}
-      >
-        <Text style={styles.historyText}>
-          {focusedHistoryMessage?.text ?? localization.t("history-empty")}
-        </Text>
-      </Pressable>
-      <Text style={styles.helpText}>
-        {historyMessages.length ? `${historyIndex + 1} / ${historyMessages.length}` : ""}
-      </Text>
+      <ScrollView {...historyScroll} style={styles.scrollArea}>
+        {historyMessages.map((item, index) => (
+          <Pressable
+            accessibilityLabel={item.text}
+            accessibilityRole="button"
+            accessible
+            key={item.id}
+            onFocus={() => {
+              markNativeScreenReaderInteraction(`history:${item.id}`);
+              setHistoryIndex(index);
+            }}
+            onPress={() => {
+              markNativeScreenReaderInteraction(`history:${item.id}`);
+              setHistoryIndex(index);
+              speakUserFocus(item.text);
+            }}
+            ref={registerAccessibilityNode(`history:${item.id}`)}
+            style={[styles.menuItem, historyIndex === index ? styles.menuItemFocused : undefined]}
+          >
+            <Text style={styles.historyText}>{item.text}</Text>
+          </Pressable>
+        ))}
+        {historyMessages.length === 0 ? (
+          <Text accessible ref={registerAccessibilityNode("history:empty")} style={styles.historyText}>
+            {localization.t("history-empty")}
+          </Text>
+        ) : null}
+      </ScrollView>
     </View>
   );
 
@@ -5824,7 +5708,7 @@ export function PlayAuralApp() {
         >
         {dialogState ? renderDialogOverlay() : inputState ? (
           <View style={styles.inputOverlayScreen}>
-            <View style={styles.inputOverlayCard}>
+            <ScrollView {...inputScroll} style={styles.dialogScroll} contentContainerStyle={styles.inputOverlayCard}>
               <Text style={styles.panelTitle}>{inputState.prompt}</Text>
               <View
                 style={[
@@ -5872,7 +5756,7 @@ export function PlayAuralApp() {
               >
                 <Text style={styles.buttonText}>{inputOverlayButtonText}</Text>
               </Pressable>
-            </View>
+            </ScrollView>
           </View>
         ) : (
           <>
@@ -6096,19 +5980,11 @@ const styles = StyleSheet.create({
   scrollArea: {
     flex: 1,
   },
-  gridMenuArea: {
-    alignItems: "center",
-    flex: 1,
-    justifyContent: "center",
-    overflow: "hidden",
-  },
   gridMenuBoard: {
+    gap: 8,
     alignItems: "stretch",
     justifyContent: "flex-start",
     overflow: "hidden",
-  },
-  gridMenuHorizontalScroll: {
-    flexGrow: 0,
   },
   menuItem: {
     backgroundColor: "#0f141a",
@@ -6120,6 +5996,8 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   gridMenuItem: {
+    minWidth: 72,
+    padding: 4,
     alignItems: "center",
     backgroundColor: "#0f141a",
     borderColor: "#3a4a5a",
@@ -6127,7 +6005,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: 0,
     overflow: "hidden",
-    padding: 0,
   },
   gridMenuItemFocused: {
     backgroundColor: "#173044",
@@ -6136,13 +6013,6 @@ const styles = StyleSheet.create({
   gridMenuRow: {
     flexDirection: "row",
     overflow: "hidden",
-  },
-  gridMenuScrollArea: {
-    flex: 1,
-  },
-  gridMenuScrollContent: {
-    alignItems: "center",
-    justifyContent: "flex-start",
   },
   menuItemFocused: {
     borderColor: "#8fe5ff",

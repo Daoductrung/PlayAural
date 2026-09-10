@@ -322,6 +322,7 @@ export type ChatSendPacket = {
 export type KeybindPacket = {
   type: "keybind";
   key: string;
+  menu_id?: string;
   menu_item_id?: string | null;
   shift?: boolean;
   control?: boolean;

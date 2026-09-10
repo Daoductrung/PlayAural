@@ -33,6 +33,9 @@ function localizationModule(url) {
   });
 }
 const { MobileLocalization } = localizationModule(new URL("../src/i18n/localization.ts", import.meta.url));
+const { BUFFER_NAMES, BufferStore, normalizeBufferName } = compile(
+  readFileSync(new URL("../src/state/BufferStore.ts", import.meta.url), "utf8"),
+);
 
 function languageHarness(locale = "vi", overrides = {}) {
   const localization = new MobileLocalization();
@@ -103,6 +106,7 @@ test("community catalogs fall back for new menu text and unknown saved locales r
   const h = languageHarness("pt-BR"); h.open();
   assert.equal(h.localization.getLocale(), "pt");
   assert.equal(h.dialogStateRef.current.title, "Choose a language");
+  assert.equal(h.localization.t("history-buffer-current", { name: "Game" }), "Buffer: Game");
   const unknown = languageHarness("unknown-locale"); unknown.open();
   assert.equal(unknown.dialogStateRef.current.buttons[unknown.dialogStateRef.current.focusIndex].id, "locale:en");
 });
@@ -110,10 +114,235 @@ test("community catalogs fall back for new menu text and unknown saved locales r
 test("EN and VI navigation strings retain matching placeholders", () => {
   const en = localizationModule(new URL("../locales/en/client.json", import.meta.url));
   const vi = localizationModule(new URL("../locales/vi/client.json", import.meta.url));
-  for (const key of ["locale-menu-title", "locale-menu-current", "locale-changed", "client-help"]) {
+  for (const key of [
+    "locale-menu-title", "locale-menu-current", "locale-changed", "client-help",
+    "history-buffer-current", "history-buffer-muted-name", "history-buffer-menu-title",
+    "history-buffer-menu-current", "history-buffer-mute", "history-buffer-unmute",
+    "history-buffer-muted-by-all", "history-buffer-muted-empty", "main-buffer-status", "main-buffer-info",
+  ]) {
     assert.ok(en[key]); assert.ok(vi[key]);
     assert.deepEqual(en[key].match(/\{\w+\}/g), vi[key].match(/\{\w+\}/g));
   }
+});
+
+test("EN and VI mobile buffer terminology matches the desktop and web contracts", () => {
+  const en = localizationModule(new URL("../locales/en/client.json", import.meta.url));
+  const vi = localizationModule(new URL("../locales/vi/client.json", import.meta.url));
+  const parity = {
+    "buffer-all": ["All", "Tất cả"],
+    "buffer-chat": ["Chat", "Trò chuyện"],
+    "buffer-game": ["Game", "Trò chơi"],
+    "buffer-system": ["System", "Hệ thống"],
+    "buffer-misc": ["Misc", "Linh tinh"],
+    "buffer-name-all": ["all", "tất cả"],
+    "buffer-name-chat": ["Chat", "Trò chuyện"],
+    "buffer-name-game": ["game", "trò chơi"],
+    "buffer-name-system": ["system", "hệ thống"],
+    "buffer-name-misc": ["misc", "linh tinh"],
+    "buffer-status-muted": ["muted", "đã tắt tiếng"],
+    "buffer-status-unmuted": ["unmuted", "đã bật tiếng"],
+    "main-status-muted-suffix": [", muted", ", đã tắt tiếng"],
+    "main-buffer-status": ["Buffer {name} {status}.", "Bộ đệm {name} {status}."],
+    "main-buffer-info": ["{name}{status}. {count} items", "{name}{status}. {count} mục"],
+  };
+  for (const [key, [english, vietnamese]] of Object.entries(parity)) {
+    assert.equal(en[key], english);
+    assert.equal(vi[key], vietnamese);
+  }
+});
+
+test("stored muted-buffer preferences are migrated to canonical values", () => {
+  const buffers = new BufferStore();
+  const preferencesRef = { current: { retained: "value" } };
+  let persistedPreferences = null;
+  let revision = 0;
+  const applyPreferenceUpdates = handler("applyPreferenceUpdates", {
+    buffers,
+    preferencesRef,
+    setHistoryRevision: (update) => { revision = update(revision); },
+    setPreferences: (value) => { persistedPreferences = value; },
+  });
+
+  applyPreferenceUpdates({ muted_buffers: ["chats", "bogus", "all", "chat"] });
+  assert.deepEqual(preferencesRef.current, {
+    retained: "value",
+    muted_buffers: ["all", "chat"],
+  });
+  assert.deepEqual(persistedPreferences, preferencesRef.current);
+  assert.equal(revision, 1);
+
+  applyPreferenceUpdates({ muted_buffers: ["all", "chat"] });
+  assert.deepEqual(preferencesRef.current.muted_buffers, ["all", "chat"]);
+  assert.equal(revision, 1, "An equivalent canonical preference must not repaint History");
+});
+
+test("History buffer selection is ordered, modal-safe, and restores its opener", () => {
+  const calls = [];
+  const dialogStateRef = { current: null };
+  const openHistoryBufferMenu = handler("openHistoryBufferMenu", {
+    BUFFER_NAMES,
+    closeDialog: () => { dialogStateRef.current = null; calls.push("close"); },
+    dialogStateRef,
+    getHistoryBufferOptionName: (buffer) => buffer === "game" ? "[Muted] Game" : buffer,
+    historyBuffer: "game",
+    inputStateRef: { current: null },
+    localization: {
+      t: (key, params = {}) => key === "history-buffer-menu-current"
+        ? `${params.name}. Current buffer.` : key,
+    },
+    modeRef: { current: "history" },
+    openDialog: (dialog) => { dialogStateRef.current = dialog; },
+    selectHistoryBuffer: (buffer) => calls.push(["select", buffer]),
+  });
+
+  openHistoryBufferMenu();
+  const dialog = dialogStateRef.current;
+  assert.deepEqual(dialog.buttons.slice(0, -1).map((button) => button.id),
+    BUFFER_NAMES.map((buffer) => `buffer:${buffer}`));
+  assert.equal(dialog.buttons[0].id, "buffer:all");
+  assert.equal(dialog.buttons[dialog.focusIndex].id, "buffer:game");
+  assert.equal(dialog.buttons[dialog.focusIndex].checked, true);
+  assert.equal(dialog.buttons[dialog.focusIndex].text, "[Muted] Game. Current buffer.");
+  assert.equal(dialog.buttons.at(-1).id, "cancel");
+  assert.equal(dialog.returnFocusKey, "history:buffer");
+
+  const selectChat = dialog.buttons.find((button) => button.id === "buffer:chat").onPress;
+  dialogStateRef.current = { id: "replacement", buttons: [] };
+  selectChat();
+  assert.deepEqual(calls, [], "A stale selector must not change the active filter");
+  dialogStateRef.current = dialog;
+  selectChat();
+  assert.deepEqual(calls, ["close", ["select", "chat"]]);
+});
+
+test("History mute updates direct settings but explains inherited All mute", () => {
+  const directBuffers = new BufferStore();
+  const updates = [];
+  const feedback = [];
+  let focusIndex = 0;
+  handler("toggleHistoryBufferMute", {
+    BUFFER_NAMES,
+    applyPreferenceUpdates: (value) => updates.push(value),
+    buffers: directBuffers,
+    deliverInterfaceFeedback: (value) => feedback.push(value),
+    historyBuffer: "chat",
+    historyBufferMutedByAll: false,
+    historyMuteFocusIndex: 4,
+    historyMuteControlText: "Mute Chat",
+    localization: { t: (key, params = {}) => `${key}:${params.name ?? ""}:${params.status ?? ""}` },
+    setHistoryIndex: (value) => { focusIndex = value; },
+  })();
+  assert.deepEqual(updates, [{ muted_buffers: ["chat"] }]);
+  assert.equal(focusIndex, 4);
+  assert.equal(feedback.length, 1);
+
+  updates.length = 0;
+  feedback.length = 0;
+  directBuffers.setMutedBuffers(["all"]);
+  handler("toggleHistoryBufferMute", {
+    BUFFER_NAMES,
+    applyPreferenceUpdates: (value) => updates.push(value),
+    buffers: directBuffers,
+    deliverInterfaceFeedback: (value) => feedback.push(value),
+    historyBuffer: "chat",
+    historyBufferMutedByAll: true,
+    historyMuteFocusIndex: 4,
+    historyMuteControlText: "Chat is muted by All",
+    localization: { t: (key) => key },
+    setHistoryIndex: () => {},
+  })();
+  assert.deepEqual(updates, []);
+  assert.deepEqual(feedback, ["Chat is muted by All"]);
+});
+
+test("server speech is retained but never voiced through a muted or malformed buffer", () => {
+  const buffers = new BufferStore();
+  const spoken = [];
+  let revision = 0;
+  const handleSpeakPacket = handler("handleSpeakPacket", {
+    buffers,
+    localization: { has: () => false, t: (key) => key },
+    localizeServerMessage: (text) => text,
+    normalizeBufferName,
+    setHistoryRevision: (update) => { revision = update(revision); },
+    speakServerAnnouncement: (text) => spoken.push(text),
+    toLocalizationParams: () => ({}),
+  });
+
+  handleSpeakPacket({ buffer: "game", text: "game update" });
+  buffers.setMutedBuffers(["chat"]);
+  handleSpeakPacket({ buffer: "chat", text: "quiet chat" });
+  handleSpeakPacket({ buffer: "unknown", text: "fallback output" });
+  handleSpeakPacket({ buffer: "system", muted: true, text: "server-muted" });
+
+  assert.deepEqual(spoken, ["game update", "fallback output"]);
+  assert.deepEqual(buffers.getMessages("chat").map((item) => item.text), ["quiet chat"]);
+  assert.deepEqual(buffers.getMessages("misc").map((item) => item.text), ["fallback output"]);
+  assert.equal(buffers.getMessages("all").some((item) => item.text === "quiet chat"), false);
+  assert.equal(revision, 4);
+});
+
+test("chat buffer mute suppresses its notification sound and TTS in both speech modes", () => {
+  const buffers = new BufferStore();
+  buffers.setMutedBuffers(["chat"]);
+  const effects = [];
+  let revision = 0;
+  const handleChatPacket = handler("handleChatPacket", {
+    audio: {
+      playSound: (asset) => effects.push(["sound", asset]),
+      playSoundFamily: (family) => effects.push(["family", family]),
+    },
+    buffers,
+    formatChatMessage: (_localization, packet) => packet.message,
+    localization: {},
+    preferencesRef: { current: {} },
+    setHistoryRevision: (update) => { revision = update(revision); },
+    speakServerAnnouncement: (text) => effects.push(["speech", text]),
+  });
+
+  handleChatPacket({ convo: "global", message: "quiet chat" });
+  assert.deepEqual(effects, []);
+  assert.deepEqual(buffers.getMessages("chat").map((item) => item.text), ["quiet chat"]);
+  assert.deepEqual(buffers.getMessages("all"), []);
+  assert.equal(revision, 1);
+});
+
+test("self-voicing History visits the buffer controls before newest-first messages", () => {
+  const historyControlFocusItems = handler("historyControlFocusItems", {
+    historyBufferControlText: "Buffer: All",
+    historyMuteControlText: "Mute all buffer",
+  });
+  const items = handler("historyFocusItems", {
+    historyControlFocusItems,
+    historyEmptyText: "Buffer empty.",
+    historyMessages: [
+      { id: "message:2", text: "newest" },
+      { id: "message:1", text: "oldest" },
+    ],
+  });
+  assert.deepEqual(items.map(({ id, kind }) => [id, kind]), [
+    ["buffer", "buffer"],
+    ["mute", "mute"],
+    ["message:2", "message"],
+    ["message:1", "message"],
+  ]);
+});
+
+test("empty History keeps both controls and a stable spoken empty row", () => {
+  const historyControlFocusItems = handler("historyControlFocusItems", {
+    historyBufferControlText: "Buffer: Game",
+    historyMuteControlText: "Unmute game buffer",
+  });
+  const items = handler("historyFocusItems", {
+    historyControlFocusItems,
+    historyEmptyText: "The game buffer is muted.",
+    historyMessages: [],
+  });
+  assert.deepEqual(items.map(({ id, kind, text }) => [id, kind, text]), [
+    ["buffer", "buffer", "Buffer: Game"],
+    ["mute", "mute", "Unmute game buffer"],
+    ["empty", "empty", "The game buffer is muted."],
+  ]);
 });
 
 test("self-voicing auth order follows the displayed controls and never includes hidden fields", () => {
@@ -132,7 +361,7 @@ test("dialog focus text and identity take precedence over the hidden landing for
     connected: false, dialogState: { id: "language-selection", focusIndex: 1 },
     focusedDialogButton: { id: "locale:es", text: "Español" },
     focusedAuthItem: { id: "field-password" }, inputState: null,
-    focusedInputOverlayText: null, focusedHistoryMessage: null, focusedChatItem: null,
+    focusedInputOverlayText: null, focusedHistoryItem: null, focusedChatItem: null,
     focusedMenuItem: null, focusedShortcutItem: null,
     getAuthFocusSpeechText: () => "Hidden password", getChatFocusSpeechText: () => null,
     localization: new MobileLocalization(), menuState: { items: [], focusIndex: 0 }, mode: "main",

@@ -1,4 +1,14 @@
-export type BufferName = "all" | "chat" | "game" | "system" | "misc";
+import type { SpeechBuffer } from "../network/packets";
+
+export const BUFFER_NAMES = ["all", "chat", "game", "system", "misc"] as const satisfies readonly SpeechBuffer[];
+export type BufferName = SpeechBuffer;
+
+export function normalizeBufferName(buffer: unknown): BufferName {
+  if (buffer === "chats") {
+    return "chat";
+  }
+  return BUFFER_NAMES.includes(buffer as BufferName) ? buffer as BufferName : "misc";
+}
 
 export type BufferItem = {
   id: string;
@@ -16,20 +26,21 @@ export class BufferStore {
     if (!Number.isSafeInteger(maxItemsPerBuffer) || maxItemsPerBuffer < 1) {
       throw new RangeError("Buffer capacity must be a positive integer");
     }
-    (["all", "chat", "game", "system", "misc"] as const).forEach((buffer) => {
+    BUFFER_NAMES.forEach((buffer) => {
       this.buffers.set(buffer, []);
     });
   }
 
-  add(buffer: BufferName, text: string): void {
+  add(buffer: BufferName | string, text: string): void {
+    const normalizedBuffer = normalizeBufferName(buffer);
     const item: BufferItem = {
       id: `message:${++this.nextId}`,
-      buffer,
+      buffer: normalizedBuffer,
       text,
       timestamp: Date.now(),
     };
-    this.append(buffer, item);
-    if (buffer !== "all") {
+    this.append(normalizedBuffer, item);
+    if (normalizedBuffer !== "all" && !this.isDirectlyMuted(normalizedBuffer)) {
       this.append("all", item);
     }
   }
@@ -51,7 +62,38 @@ export class BufferStore {
     return [...(this.buffers.get(buffer) ?? [])];
   }
 
-  isMuted(buffer: BufferName): boolean {
+  getVisibleMessages(buffer: BufferName): BufferItem[] {
+    return this.isMuted(buffer) ? [] : this.getMessages(buffer);
+  }
+
+  getMutedBuffers(): BufferName[] {
+    return BUFFER_NAMES.filter((buffer) => this.muted.has(buffer));
+  }
+
+  setMutedBuffers(buffers: unknown): boolean {
+    const next = new Set<BufferName>();
+    if (Array.isArray(buffers)) {
+      buffers.forEach((buffer) => {
+        const normalized = normalizeBufferName(buffer);
+        if (buffer === "chats" || BUFFER_NAMES.includes(buffer as BufferName)) {
+          next.add(normalized);
+        }
+      });
+    }
+    const changed = next.size !== this.muted.size
+      || [...next].some((buffer) => !this.muted.has(buffer));
+    if (changed) {
+      this.muted.clear();
+      next.forEach((buffer) => this.muted.add(buffer));
+    }
+    return changed;
+  }
+
+  isDirectlyMuted(buffer: BufferName): boolean {
     return this.muted.has(buffer);
+  }
+
+  isMuted(buffer: BufferName): boolean {
+    return this.muted.has("all") || this.muted.has(buffer);
   }
 }

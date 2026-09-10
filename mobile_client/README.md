@@ -16,7 +16,8 @@ The mobile client focuses on:
 
 ## Features
 
-- Self-voicing gesture navigation for menus, game actions, chat, and message history
+- Self-voicing gesture navigation for menus, game actions, chat, and filtered message history
+- Selectable All, Chat, Game, System, and Misc history buffers with per-buffer speech muting
 - Real mobile identity on the server with `client: "mobile"`
 - Touch-client game menus shared with the web client through server-side capability checks
 - Login, registration, password reset, saved credentials, and auto-login
@@ -159,6 +160,13 @@ capacity of 500 messages per buffer by default. New messages preserve the
 focused message by identity; the oldest entries are pruned at the capacity.
 Returning to the login screen clears all buffers and the chat draft. History
 is never written to device storage and does not survive an app restart.
+The selected filter returns to All with a new login session. Muted-buffer
+choices are client settings stored in AsyncStorage, matching the desktop and
+web clients; they persist across sessions without persisting message content.
+Muting hides the selected buffer and suppresses its TTS and chat notification
+audio while retaining its bounded source history. New entries from a directly
+muted source are omitted from the combined All view. Muting All suppresses
+every buffer until All is unmuted.
 
 Run the language-menu, landing navigation, and focus visibility checks with:
 

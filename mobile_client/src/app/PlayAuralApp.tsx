@@ -74,7 +74,12 @@ import type {
   VoiceJoinInfoPacket,
   VoiceLeaveAckPacket,
 } from "../network/packets";
-import { BufferStore, type BufferName } from "../state/BufferStore";
+import {
+  BUFFER_NAMES,
+  BufferStore,
+  normalizeBufferName,
+  type BufferName,
+} from "../state/BufferStore";
 import { TtsManager, type TtsVoiceOption } from "../tts/TtsManager";
 import { observeSpeechEnvironment } from "../tts/observeSpeechEnvironment";
 import { ENABLE_CLIENT_DEBUG_LOGS } from "../utils/debug";
@@ -210,6 +215,12 @@ type DialogFocusIndex = number;
 type ChatFocusItem = {
   id: string;
   kind: "close" | "input" | "message" | "send" | "voiceJoin" | "voiceLeave" | "voiceMic";
+  text: string;
+};
+
+type HistoryFocusItem = {
+  id: string;
+  kind: "buffer" | "empty" | "message" | "mute";
   text: string;
 };
 
@@ -562,6 +573,7 @@ export function PlayAuralApp() {
   const [statusText, setStatusText] = useState(() => localization.t("status-disconnected"));
   const [authStatusText, setAuthStatusText] = useState("");
   const [historyRevision, setHistoryRevision] = useState(0);
+  const [historyBuffer, setHistoryBuffer] = useState<BufferName>("all");
   const [serverUrl, setServerUrl] = useState(DEFAULT_SERVER_URL);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -1106,12 +1118,11 @@ export function PlayAuralApp() {
     setHistoryRevision((value) => value + 1);
   }, [buffers]);
 
-  const announceInterfaceFeedback = useCallback(
+  const deliverInterfaceFeedback = useCallback(
     (text: string) => {
       if (!text) {
         return;
       }
-      addHistoryMessage("system", text);
       if (selfVoicingEnabled) {
         tts.speakUi(text, {
           interruptAnnouncement: true,
@@ -1121,7 +1132,18 @@ export function PlayAuralApp() {
       }
       announceForNativeScreenReader(text);
     },
-    [addHistoryMessage, announceForNativeScreenReader, selfVoicingEnabled, tts],
+    [announceForNativeScreenReader, selfVoicingEnabled, tts],
+  );
+
+  const announceInterfaceFeedback = useCallback(
+    (text: string) => {
+      if (!text) {
+        return;
+      }
+      addHistoryMessage("system", text);
+      deliverInterfaceFeedback(text);
+    },
+    [addHistoryMessage, deliverInterfaceFeedback],
   );
 
   const announce = (text: string, buffer: BufferName = "system", speak = true) => {
@@ -1696,9 +1718,23 @@ export function PlayAuralApp() {
       return;
     }
 
-    const merged = { ...preferencesRef.current, ...updates };
+    let normalizedUpdates = updates;
+    let mutedBuffersChanged = false;
+    if (Object.prototype.hasOwnProperty.call(updates, "muted_buffers")) {
+      mutedBuffersChanged = buffers.setMutedBuffers(updates.muted_buffers);
+      normalizedUpdates = {
+        ...updates,
+        muted_buffers: buffers.getMutedBuffers(),
+      };
+    }
+
+    const merged = { ...preferencesRef.current, ...normalizedUpdates };
     preferencesRef.current = merged;
     setPreferences(merged);
+
+    if (mutedBuffersChanged) {
+      setHistoryRevision((value) => value + 1);
+    }
 
     if (typeof merged.music_volume === "number") {
       audio.setMusicVolume(merged.music_volume / 100);
@@ -1728,7 +1764,7 @@ export function PlayAuralApp() {
     if (!text) {
       return;
     }
-    const buffer = (packet.buffer ?? "misc") as BufferName;
+    const buffer = normalizeBufferName(packet.buffer);
     buffers.add(buffer, text);
     setHistoryRevision((value) => value + 1);
     if (!packet.muted && !buffers.isMuted(buffer)) {
@@ -2163,6 +2199,7 @@ export function PlayAuralApp() {
   const resetToLoginScreen = useCallback((statusMessage: string, authMessage = statusMessage) => {
     buffers.clear();
     setHistoryRevision((value) => value + 1);
+    setHistoryBuffer("all");
     setChatDraft("");
     void androidForegroundService.stop();
     voice.shutdown();
@@ -2820,10 +2857,53 @@ export function PlayAuralApp() {
   }, [localization, voiceState, voiceStatusText]);
 
   const connection = connectionRef.current;
-  const historyMessages = useMemo(() => buffers.getMessages("all").reverse(), [buffers, historyRevision]);
+  const getHistoryBufferOptionName = (buffer: BufferName): string => {
+    const name = localization.t(`buffer-${buffer}`);
+    return buffers.isMuted(buffer)
+      ? localization.t("history-buffer-muted-name", { name })
+      : name;
+  };
+  const historyBufferName = localization.t(`buffer-name-${historyBuffer}`);
+  const historyBufferDirectlyMuted = buffers.isDirectlyMuted(historyBuffer);
+  const historyBufferMuted = buffers.isMuted(historyBuffer);
+  const historyBufferMutedByAll = historyBuffer !== "all" && buffers.isDirectlyMuted("all");
+  const historyBufferControlText = localization.t("history-buffer-current", {
+    name: getHistoryBufferOptionName(historyBuffer),
+  });
+  const historyMuteControlText = historyBufferMutedByAll
+    ? localization.t("history-buffer-muted-by-all", { name: historyBufferName })
+    : localization.t(
+        historyBufferDirectlyMuted ? "history-buffer-unmute" : "history-buffer-mute",
+        { name: historyBufferName },
+      );
+  const historyMessages = useMemo(
+    () => buffers.getVisibleMessages(historyBuffer).reverse(),
+    [buffers, historyBuffer, historyRevision],
+  );
+  const historyEmptyText = buffers.isMuted(historyBuffer)
+    ? localization.t("history-buffer-muted-empty", { name: historyBufferName })
+    : localization.t("history-empty");
+  const historyControlFocusItems = useMemo<HistoryFocusItem[]>(() => [
+    { id: "buffer", kind: "buffer", text: historyBufferControlText },
+    { id: "mute", kind: "mute", text: historyMuteControlText },
+  ], [historyBufferControlText, historyMuteControlText]);
+  const historyFocusItems = useMemo<HistoryFocusItem[]>(() => [
+    ...historyControlFocusItems,
+    ...historyMessages.map((message) => ({
+      id: message.id,
+      kind: "message" as const,
+      text: message.text,
+    })),
+    ...(historyMessages.length === 0
+      ? [{ id: "empty", kind: "empty" as const, text: historyEmptyText }]
+      : []),
+  ], [historyControlFocusItems, historyEmptyText, historyMessages]);
   const chatMessages = useMemo(() => buffers.getMessages("chat").reverse(), [buffers, historyRevision]);
-  const [historyIndex, setHistoryIndex] = useAnchoredFocus(historyMessages);
-  const focusedHistoryMessage = historyMessages[historyIndex] ?? null;
+  const [historyIndex, setHistoryIndex] = useAnchoredFocus(historyFocusItems);
+  const focusedHistoryItem = historyFocusItems[historyIndex] ?? null;
+  const historyBufferFocusIndex = historyFocusItems.findIndex((item) => item.kind === "buffer");
+  const historyMuteFocusIndex = historyFocusItems.findIndex((item) => item.kind === "mute");
+  const historyMessageFocusOffset = historyControlFocusItems.length;
   const focusedMenuItem = menuState.items[menuState.focusIndex];
   const focusedDialogButton = dialogState?.buttons[dialogState.focusIndex] ?? null;
   const { fontScale } = useWindowDimensions();
@@ -3039,8 +3119,8 @@ export function PlayAuralApp() {
     accessibilityNodeRefs,
   );
   const historyScroll = useFocusScroll(
-    selfVoicingEnabled && connected && !dialogState && !inputState && mode === "history" && focusedHistoryMessage
-      ? `history:${focusedHistoryMessage.id}` : null,
+    selfVoicingEnabled && connected && !dialogState && !inputState && mode === "history" && focusedHistoryItem
+      ? `history:${focusedHistoryItem.id}` : null,
     accessibilityNodeRefs,
   );
   const inputScroll = useFocusScroll(
@@ -3140,7 +3220,7 @@ export function PlayAuralApp() {
       return focusedShortcutItem?.text ?? null;
     }
     if (mode === "history") {
-      return focusedHistoryMessage?.text ?? null;
+      return focusedHistoryItem?.text ?? null;
     }
     if (mode === "chat") {
       return getChatFocusSpeechText(focusedChatItem);
@@ -3151,7 +3231,7 @@ export function PlayAuralApp() {
     dialogState,
     focusedAuthItem,
     focusedDialogButton?.text,
-    focusedHistoryMessage?.text,
+    focusedHistoryItem?.text,
     focusedChatItem?.text,
     focusedInputOverlayText,
     focusedMenuItem?.text,
@@ -3186,8 +3266,8 @@ export function PlayAuralApp() {
     if (mode === "shortcuts" && focusedShortcutItem) {
       return `shortcuts:${shortcutFocusIndex}:${focusedShortcutItem.id}:${focusedShortcutItem.text}`;
     }
-    if (mode === "history" && focusedHistoryMessage) {
-      return `history:${focusedHistoryMessage.id}:${focusedHistoryMessage.text}`;
+    if (mode === "history" && focusedHistoryItem) {
+      return `history:${focusedHistoryItem.id}:${focusedHistoryItem.text}`;
     }
     if (mode === "chat" && focusedChatItem) {
       return `chat:${focusedChatItem.id}:${getChatFocusSpeechText(focusedChatItem)}`;
@@ -3200,7 +3280,7 @@ export function PlayAuralApp() {
     focusedAuthItem,
     focusedChatItem,
     focusedDialogButton,
-    focusedHistoryMessage,
+    focusedHistoryItem,
     focusedInputOverlayText,
     focusedMenuItem,
     focusedShortcutItem,
@@ -3584,7 +3664,7 @@ export function PlayAuralApp() {
       setChatFocusIndex(0);
     }
     if (resolved === "history") {
-      setHistoryIndex(0);
+      setHistoryIndex(historyBufferFocusIndex);
     }
     setMode(resolved);
     announceInterfaceFeedback(localization.t(key, { name: localization.t(`mode-${nextMode}`) }));
@@ -3619,8 +3699,8 @@ export function PlayAuralApp() {
       setChatFocusIndex(0);
       focusChatInputForNativeReader();
     } else if (nextMode === "history") {
-      setHistoryIndex(0);
-      moveNativeAccessibilityFocus(historyMessages[0] ? `history:${historyMessages[0].id}` : "history:empty", 0, { force: true });
+      setHistoryIndex(historyBufferFocusIndex);
+      moveNativeAccessibilityFocus("history:buffer", 0, { force: true });
     }
 
     modeRef.current = nextMode;
@@ -3637,6 +3717,96 @@ export function PlayAuralApp() {
         value,
       });
     }
+  };
+
+  const announceHistoryBufferInfo = (buffer: BufferName) => {
+    deliverInterfaceFeedback(localization.t("main-buffer-info", {
+      count: buffers.getMessages(buffer).length,
+      name: localization.t(`buffer-name-${buffer}`),
+      status: buffers.isMuted(buffer)
+        ? localization.t("main-status-muted-suffix")
+        : "",
+    }));
+  };
+
+  const selectHistoryBuffer = (buffer: BufferName) => {
+    setHistoryBuffer(buffer);
+    setHistoryIndex(historyBufferFocusIndex);
+    announceHistoryBufferInfo(buffer);
+  };
+
+  const openHistoryBufferMenu = () => {
+    if (dialogStateRef.current || inputStateRef.current || modeRef.current !== "history") {
+      return;
+    }
+    const buttons: DialogAction[] = BUFFER_NAMES.map((buffer) => ({
+      checked: buffer === historyBuffer,
+      id: `buffer:${buffer}`,
+      onPress: () => {
+        if (dialogStateRef.current?.buttons !== buttons) {
+          return;
+        }
+        closeDialog();
+        selectHistoryBuffer(buffer);
+      },
+      text: buffer === historyBuffer
+        ? localization.t("history-buffer-menu-current", {
+            name: getHistoryBufferOptionName(buffer),
+          })
+        : getHistoryBufferOptionName(buffer),
+      variant: "secondary",
+    }));
+    buttons.push({
+      id: "cancel",
+      onPress: closeDialog,
+      text: localization.t("back"),
+      variant: "secondary",
+    });
+    openDialog({
+      buttons,
+      focusIndex: BUFFER_NAMES.indexOf(historyBuffer),
+      id: "history-buffer-selection",
+      message: "",
+      returnFocusKey: "history:buffer",
+      title: localization.t("history-buffer-menu-title"),
+    });
+  };
+
+  const toggleHistoryBufferMute = () => {
+    if (historyBufferMutedByAll) {
+      deliverInterfaceFeedback(historyMuteControlText);
+      return;
+    }
+    const nextMuted = !buffers.isDirectlyMuted(historyBuffer);
+    const mutedBuffers = new Set(buffers.getMutedBuffers());
+    if (nextMuted) {
+      mutedBuffers.add(historyBuffer);
+    } else {
+      mutedBuffers.delete(historyBuffer);
+    }
+    applyPreferenceUpdates({
+      muted_buffers: BUFFER_NAMES.filter((buffer) => mutedBuffers.has(buffer)),
+    });
+    setHistoryIndex(historyMuteFocusIndex);
+    deliverInterfaceFeedback(localization.t("main-buffer-status", {
+      name: localization.t(`buffer-name-${historyBuffer}`),
+      status: localization.t(nextMuted ? "buffer-status-muted" : "buffer-status-unmuted"),
+    }));
+  };
+
+  const activateHistoryItem = (item: HistoryFocusItem | null) => {
+    if (!item) {
+      return;
+    }
+    if (item.kind === "buffer") {
+      openHistoryBufferMenu();
+      return;
+    }
+    if (item.kind === "mute") {
+      toggleHistoryBufferMute();
+      return;
+    }
+    speakUserFocus(item.text);
   };
 
   const activateShortcut = (shortcut: ShortcutItem | null) => {
@@ -3813,9 +3983,9 @@ export function PlayAuralApp() {
       return;
     }
     if (mode === "history") {
-      if (focusedHistoryMessage) {
+      if (focusedHistoryItem) {
         playMenuActivateSound();
-        speakUserFocus(focusedHistoryMessage.text);
+        activateHistoryItem(focusedHistoryItem);
       }
       return;
     }
@@ -3931,16 +4101,12 @@ export function PlayAuralApp() {
     }
 
     if (currentMode === "history") {
-      if (historyMessages.length === 0) {
-        speakUserFocus(localization.t("history-empty"));
-        return;
-      }
-      const nextIndex = boundaryIndex(historyMessages.length);
+      const nextIndex = boundaryIndex(historyFocusItems.length);
       setHistoryIndex(nextIndex);
       if (nextIndex !== historyIndex) {
         playMenuMoveSound();
       }
-      speakUserFocus(historyMessages[nextIndex]?.text);
+      speakUserFocus(historyFocusItems[nextIndex]?.text);
       return;
     }
 
@@ -4056,11 +4222,11 @@ export function PlayAuralApp() {
     }
     if (currentMode === "history") {
       setHistoryIndex((current) => {
-        const max = Math.max(0, historyMessages.length - 1);
+        const max = Math.max(0, historyFocusItems.length - 1);
         if (direction === "left" || direction === "down") {
           const next = Math.min(max, current + 1);
           if (next !== current) {
-            speakUserFocus(historyMessages[next]?.text);
+            speakUserFocus(historyFocusItems[next]?.text);
             playMenuMoveSound();
           }
           return next;
@@ -4068,7 +4234,7 @@ export function PlayAuralApp() {
         if (direction === "right" || direction === "up") {
           const next = Math.max(0, current - 1);
           if (next !== current) {
-            speakUserFocus(historyMessages[next]?.text);
+            speakUserFocus(historyFocusItems[next]?.text);
             playMenuMoveSound();
           }
           return next;
@@ -5032,6 +5198,58 @@ export function PlayAuralApp() {
     <View style={styles.panel}>
       <Text style={styles.panelTitle}>{localization.t("mode-history")}</Text>
       <ScrollView {...historyScroll} style={styles.scrollArea}>
+        <View style={styles.historyControls}>
+          <Pressable
+            accessibilityLabel={historyBufferControlText}
+            accessibilityRole="button"
+            aria-expanded={dialogState?.id === "history-buffer-selection"}
+            accessible
+            onFocus={() => {
+              markNativeScreenReaderInteraction("history:buffer");
+              setHistoryIndex(historyBufferFocusIndex);
+            }}
+            onPress={() => {
+              markNativeScreenReaderInteraction("history:buffer");
+              void audio.handleUserInteraction();
+              setHistoryIndex(historyBufferFocusIndex);
+              playMenuActivateSound();
+              openHistoryBufferMenu();
+            }}
+            ref={registerAccessibilityNode("history:buffer")}
+            style={[
+              styles.buttonSecondary,
+              styles.historyControlButton,
+              historyIndex === historyBufferFocusIndex ? styles.menuItemFocused : undefined,
+            ]}
+          >
+            <Text style={styles.buttonText}>{historyBufferControlText}</Text>
+          </Pressable>
+          <Pressable
+            accessibilityLabel={historyMuteControlText}
+            accessibilityRole="switch"
+            aria-checked={historyBufferMuted}
+            accessible
+            onFocus={() => {
+              markNativeScreenReaderInteraction("history:mute");
+              setHistoryIndex(historyMuteFocusIndex);
+            }}
+            onPress={() => {
+              markNativeScreenReaderInteraction("history:mute");
+              void audio.handleUserInteraction();
+              setHistoryIndex(historyMuteFocusIndex);
+              playMenuActivateSound();
+              toggleHistoryBufferMute();
+            }}
+            ref={registerAccessibilityNode("history:mute")}
+            style={[
+              historyBufferMuted ? styles.button : styles.buttonSecondary,
+              styles.historyControlButton,
+              historyIndex === historyMuteFocusIndex ? styles.menuItemFocused : undefined,
+            ]}
+          >
+            <Text style={styles.buttonText}>{historyMuteControlText}</Text>
+          </Pressable>
+        </View>
         {historyMessages.map((item, index) => (
           <Pressable
             accessibilityLabel={item.text}
@@ -5040,22 +5258,30 @@ export function PlayAuralApp() {
             key={item.id}
             onFocus={() => {
               markNativeScreenReaderInteraction(`history:${item.id}`);
-              setHistoryIndex(index);
+              setHistoryIndex(historyMessageFocusOffset + index);
             }}
             onPress={() => {
               markNativeScreenReaderInteraction(`history:${item.id}`);
-              setHistoryIndex(index);
+              setHistoryIndex(historyMessageFocusOffset + index);
               speakUserFocus(item.text);
             }}
             ref={registerAccessibilityNode(`history:${item.id}`)}
-            style={[styles.menuItem, historyIndex === index ? styles.menuItemFocused : undefined]}
+            style={[
+              styles.menuItem,
+              historyIndex === historyMessageFocusOffset + index ? styles.menuItemFocused : undefined,
+            ]}
           >
             <Text style={styles.historyText}>{item.text}</Text>
           </Pressable>
         ))}
         {historyMessages.length === 0 ? (
-          <Text accessible ref={registerAccessibilityNode("history:empty")} style={styles.historyText}>
-            {localization.t("history-empty")}
+          <Text
+            accessibilityLabel={historyEmptyText}
+            accessible
+            ref={registerAccessibilityNode("history:empty")}
+            style={styles.historyText}
+          >
+            {historyEmptyText}
           </Text>
         ) : null}
       </ScrollView>
@@ -5979,6 +6205,16 @@ const styles = StyleSheet.create({
   },
   scrollArea: {
     flex: 1,
+  },
+  historyControls: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+    marginBottom: 10,
+  },
+  historyControlButton: {
+    flexGrow: 1,
+    flexBasis: 140,
   },
   gridMenuBoard: {
     gap: 8,

@@ -10,7 +10,7 @@ function load(path, require = () => ({})) {
   new Function("module", "exports", "require", js)(module, module.exports, require);
   return module.exports;
 }
-const { BufferStore } = load("../src/state/BufferStore.ts");
+const { BUFFER_NAMES, BufferStore, normalizeBufferName } = load("../src/state/BufferStore.ts");
 const menuFocus = load("../src/app/menuFocus.ts");
 
 test("message buffers cap each audience independently and share stable identities with All", () => {
@@ -29,10 +29,42 @@ test("clearing a session drops every buffer without reusing stale message identi
   assert.equal(store.getMessages("all").length, 2);
   const oldIds = store.getMessages("all").map((item) => item.id);
   store.clear(); store.clear();
-  for (const buffer of ["all", "chat", "game", "system", "misc"]) assert.deepEqual(store.getMessages(buffer), []);
+  for (const buffer of BUFFER_NAMES) assert.deepEqual(store.getMessages(buffer), []);
   store.add("chat", "new session");
   assert.equal(oldIds.includes(store.getMessages("chat")[0].id), false);
   for (const capacity of [0, -1, NaN, Infinity, 1.5]) assert.throws(() => new BufferStore(capacity), RangeError);
+});
+
+test("buffer names stay canonical and All remains the first filter", () => {
+  assert.deepEqual(BUFFER_NAMES, ["all", "chat", "game", "system", "misc"]);
+  assert.equal(normalizeBufferName("chats"), "chat");
+  assert.equal(normalizeBufferName("unknown"), "misc");
+});
+
+test("muting a buffer suppresses its visible history and speech eligibility without losing its own backlog", () => {
+  const store = new BufferStore(5);
+  assert.equal(store.setMutedBuffers(["chat"]), true);
+  store.add("chats", "quiet chat");
+  store.add("game", "audible game");
+
+  assert.equal(store.isDirectlyMuted("chat"), true);
+  assert.equal(store.isMuted("chat"), true);
+  assert.deepEqual(store.getVisibleMessages("chat"), []);
+  assert.deepEqual(store.getMessages("chat").map((item) => item.text), ["quiet chat"]);
+  assert.deepEqual(store.getMessages("all").map((item) => item.text), ["audible game"]);
+
+  assert.equal(store.setMutedBuffers([]), true);
+  assert.deepEqual(store.getVisibleMessages("chat").map((item) => item.text), ["quiet chat"]);
+});
+
+test("All mute applies to every buffer and restored settings reject invalid names", () => {
+  const store = new BufferStore();
+  assert.equal(store.setMutedBuffers(["chats", "all", "bogus", "chat"]), true);
+  assert.deepEqual(store.getMutedBuffers(), ["all", "chat"]);
+  for (const buffer of BUFFER_NAMES) assert.equal(store.isMuted(buffer), true);
+  assert.equal(store.setMutedBuffers(["all", "chat"]), false);
+  assert.equal(store.setMutedBuffers(null), true);
+  for (const buffer of BUFFER_NAMES) assert.equal(store.isMuted(buffer), false);
 });
 
 test("message focus survives prepend, trimming, empty lists, and functional navigation before repaint", () => {

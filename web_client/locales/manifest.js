@@ -16,6 +16,7 @@ export const LOCALE_METADATA = {
   fa: {
     name: "Persian",
     nativeName: "فارسی",
+    direction: "rtl",
     contributors: ["Hamid Rezaei"],
     official: false,
   },

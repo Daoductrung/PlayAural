@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>PlayAural Web Layout Test</title>
+  <style>
+    html,
+    body,
+    iframe {
+      width: 100%;
+      min-height: 100%;
+      margin: 0;
+      border: 0;
+    }
+
+    iframe {
+      position: fixed;
+      inset: 0;
+      height: 100vh;
+      height: 100dvh;
+    }
+  </style>
+</head>
+<body>
+  <iframe id="client" src="../index.html" title="PlayAural responsive layout fixture"></iframe>
+  <script>
+    const frame = document.querySelector("#client");
+    frame.addEventListener("load", () => {
+      const deadline = performance.now() + 5000;
+      const prepare = () => {
+        const app = frame.contentWindow.playAuralWebClient;
+        if (!app) {
+          if (performance.now() < deadline) {
+            frame.contentWindow.requestAnimationFrame(prepare);
+          }
+          return;
+        }
+        app.elements.authScreen.hidden = true;
+        app.elements.gameScreen.hidden = false;
+        app.store.setConnection({ authenticated: true });
+        app.store.setMenu({
+          menuId: "layout_test_battleship",
+          title: "Battleship 12 by 12 board",
+          selection: 0,
+          gridEnabled: true,
+          gridWidth: 12,
+          items: Array.from({ length: 144 }, (_, index) => ({
+            id: `cell_${index}`,
+            text: `${String.fromCharCode(65 + Math.floor(index / 12))}${(index % 12) + 1}: Unknown`,
+          })),
+        });
+      };
+      prepare();
+    });
+  </script>
+</body>
+</html>

@@ -3,6 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "test": "node --test tests/history_test.mjs tests/layout_test.mjs",
+    "test:layout": "node --test tests/layout_test.mjs",
     "test:history": "node --test tests/history_test.mjs"
   },
   "dependencies": {

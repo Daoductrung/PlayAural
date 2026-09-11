@@ -3,7 +3,14 @@ import { createAudioEngine } from "./audio.js";
 import { installKeybinds } from "./keybinds.js";
 import { createNetworkClient, loadPacketValidator } from "./network.js";
 import { createStore, normalizeHistoryBuffer } from "./store.js";
-import { AVAILABLE_LOCALES, DEFAULT_LOCALE, loadLocaleBundle, normalizeLocale } from "./locales/index.js";
+import {
+  AVAILABLE_LOCALES,
+  DEFAULT_LOCALE,
+  LOCALE_METADATA,
+  loadLocaleBundle,
+  normalizeLocale,
+} from "./locales/index.js";
+import { installCollapsiblePanels } from "./ui/collapsiblePanels.js";
 import { createHistoryView } from "./ui/history.js";
 import { createMenuView } from "./ui/menus.js";
 import { resolveMenuFocusIndex, stableMenuItemId } from "./ui/menuFocus.js";
@@ -243,6 +250,7 @@ const Localization = {
     this.strings = bundle.messages;
     this.fallback = bundle.fallback;
     document.documentElement.lang = bundle.locale;
+    document.documentElement.dir = LOCALE_METADATA[bundle.locale]?.direction || "ltr";
     storageSet(LANG_KEY, bundle.locale);
   },
 
@@ -695,6 +703,12 @@ class VoiceChatManager {
     }
     if (speak && text) {
       this.app.speak(text, { buffer: "system" });
+    } else if (
+      text
+      && !this.app.elements.gameScreen?.hidden
+      && this.app.collapsiblePanels.get("chat")?.isCollapsed()
+    ) {
+      this.app.announceInterface(text);
     }
   }
 
@@ -1044,6 +1058,7 @@ class PlayAuralWebApp {
     };
     this.webSpeech = new WebSpeechManager({ getPreferences: () => this.preferences });
     this.elements = this.collectElements();
+    this.collapsiblePanels = installCollapsiblePanels(this.elements.gameScreen);
     this.webSpeech.onVoicesChanged = () => this.refreshVoiceSelectionMenuIfOpen();
     this.network = createNetworkClient({
       validator,
@@ -1428,6 +1443,7 @@ class PlayAuralWebApp {
   }
 
   focusChat() {
+    this.collapsiblePanels.get("chat")?.setCollapsed(false);
     if (this.isVisibleFocusTarget(this.elements.chatInput)) {
       this.elements.chatInput.focus({ preventScroll: true });
     }
@@ -1529,6 +1545,7 @@ class PlayAuralWebApp {
       [byId("audio-ambience-label"), "audio-ambience"],
       [byId("audio-voice-label"), "audio-voice"],
       [byId("audio-mute-label"), "audio-mute"],
+      [byId("volume-heading"), "volume-heading"],
       [byId("menu-heading"), "tab-menu"],
       [e.actionsBtn, "context-menu"],
       [byId("history-heading"), "tab-history"],
@@ -1542,7 +1559,7 @@ class PlayAuralWebApp {
       [byId("chat-input-label"), "chat-input-label"],
       [byId("btn-chat-send"), "btn-chat-send"],
       [byId("voice-chat-heading"), "voice-chat-heading"],
-      [byId("shortcuts-heading"), "players-title"],
+      [byId("shortcuts-heading"), "shortcuts-heading"],
       [e.listOnlineBtn, "btn-list-online"],
       [e.listOnlineGamesBtn, "btn-list-online-games"],
       [e.openFriendsBtn, "btn-open-friends"],
@@ -1560,7 +1577,6 @@ class PlayAuralWebApp {
       [byId("auth-controls"), "aria-label", "auth-controls-label"],
       [byId("account-actions-nav"), "aria-label", "account-actions-label"],
       [e.gameScreen, "aria-label", "game-client-label"],
-      [byId("audio-panel"), "aria-label", "audio-controls-label"],
       [e.menuList, "aria-label", "game-menu-label"],
       [e.history, "aria-label", "message-history-label"],
       [e.historyLog, "aria-label", "message-history-log-label"],

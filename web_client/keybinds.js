@@ -89,7 +89,8 @@ export function installKeybinds({
     const activeElement = document.activeElement;
     const typing = isTypingTarget(activeElement);
     const editing = isEditableTarget(activeElement);
-    const menuFocused = activeElement === menuView.getElement();
+    const menuElement = menuView.getElement();
+    const menuFocused = activeElement === menuElement || Boolean(menuElement?.contains(activeElement));
     const connected = store.state.connection.authenticated;
 
     if (

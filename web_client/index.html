@@ -176,52 +176,71 @@
         </section>
       </div>
 
-      <section class="panel chat-panel" aria-labelledby="chat-heading">
-        <h2 id="chat-heading">Chat and Voice</h2>
-        <form id="chat-form" class="chat-form">
-          <label for="chat-input" id="chat-input-label">Chat Message</label>
-          <div class="row chat-row">
-            <input id="chat-input" type="text" autocomplete="off" placeholder="Type a message...">
-            <button id="btn-chat-send" type="submit">Send</button>
+      <section class="panel collapsible-panel chat-panel" aria-labelledby="chat-heading" data-collapsible-panel="chat">
+        <h2 class="collapsible-panel-heading">
+          <button id="chat-toggle" class="collapsible-panel-toggle" type="button" aria-expanded="true" aria-controls="chat-content">
+            <span id="chat-heading">Chat and Voice</span>
+          </button>
+        </h2>
+        <div id="chat-content" class="collapsible-panel-content">
+          <form id="chat-form" class="chat-form">
+            <label for="chat-input" id="chat-input-label">Chat Message</label>
+            <div class="row chat-row">
+              <input id="chat-input" type="text" autocomplete="off" placeholder="Type a message...">
+              <button id="btn-chat-send" type="submit">Send</button>
+            </div>
+          </form>
+          <div class="voice-card" aria-labelledby="voice-chat-heading">
+            <h3 id="voice-chat-heading">Voice Chat</h3>
+            <div class="row">
+              <button id="btn-voice-join" type="button">Join Voice Chat</button>
+              <button id="btn-voice-leave" type="button" class="secondary" hidden>Leave Voice Chat</button>
+              <button id="btn-voice-mic" type="button" class="secondary" aria-pressed="false" hidden>Turn On Mic</button>
+            </div>
+            <p id="voice-chat-status" class="status" role="status" aria-live="polite">Voice Chat not connected.</p>
+            <div id="voice-chat-audio" aria-hidden="true"></div>
           </div>
-        </form>
-        <div class="voice-card" aria-labelledby="voice-chat-heading">
-          <h3 id="voice-chat-heading">Voice Chat</h3>
+        </div>
+      </section>
+
+      <section id="audio-panel" class="panel collapsible-panel audio-panel" aria-labelledby="volume-heading" data-collapsible-panel="volume">
+        <h2 class="collapsible-panel-heading">
+          <button id="volume-toggle" class="collapsible-panel-toggle" type="button" aria-expanded="false" aria-controls="volume-content">
+            <span id="volume-heading">Volume</span>
+          </button>
+        </h2>
+        <div id="volume-content" class="collapsible-panel-content" hidden>
+          <div class="row volume-controls">
+            <label for="sound-volume"><span id="audio-sound-label">Sound</span> <output id="sound-volume-value">100%</output></label>
+            <input id="sound-volume" type="range" min="10" max="100" step="1">
+            <label for="music-volume"><span id="audio-music-label">Music</span> <output id="music-volume-value">10%</output></label>
+            <input id="music-volume" type="range" min="0" max="100" step="1">
+            <label for="ambience-volume"><span id="audio-ambience-label">Ambience</span> <output id="ambience-volume-value">20%</output></label>
+            <input id="ambience-volume" type="range" min="0" max="100" step="1">
+            <label for="voice-volume"><span id="audio-voice-label">Voice</span> <output id="voice-volume-value">80%</output></label>
+            <input id="voice-volume" type="range" min="10" max="100" step="1">
+            <label class="check-row" for="audio-mute">
+              <input id="audio-mute" type="checkbox">
+              <span id="audio-mute-label">Mute browser audio</span>
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel collapsible-panel shortcuts-panel" aria-labelledby="shortcuts-heading" data-collapsible-panel="shortcuts">
+        <h2 class="collapsible-panel-heading">
+          <button id="shortcuts-toggle" class="collapsible-panel-toggle" type="button" aria-expanded="true" aria-controls="shortcuts-content">
+            <span id="shortcuts-heading">Shortcuts</span>
+          </button>
+        </h2>
+        <div id="shortcuts-content" class="collapsible-panel-content">
           <div class="row">
-            <button id="btn-voice-join" type="button">Join Voice Chat</button>
-            <button id="btn-voice-leave" type="button" class="secondary" hidden>Leave Voice Chat</button>
-            <button id="btn-voice-mic" type="button" class="secondary" aria-pressed="false" hidden>Turn On Mic</button>
+            <button id="btn-list-online" type="button" class="secondary">Read online users</button>
+            <button id="btn-list-online-games" type="button" class="secondary">Open online users list</button>
+            <button id="btn-open-friends" type="button" class="secondary">Open Friends</button>
+            <button id="btn-open-options" type="button" class="secondary">Open Options</button>
+            <button id="btn-check-ping" type="button" class="secondary">Check Ping</button>
           </div>
-          <p id="voice-chat-status" class="status" role="status" aria-live="polite">Voice Chat not connected.</p>
-          <div id="voice-chat-audio" aria-hidden="true"></div>
-        </div>
-      </section>
-
-      <section id="audio-panel" class="panel audio-panel" aria-label="Audio controls">
-        <div class="row volume-controls">
-          <label for="sound-volume"><span id="audio-sound-label">Sound</span> <output id="sound-volume-value">100%</output></label>
-          <input id="sound-volume" type="range" min="10" max="100" step="1">
-          <label for="music-volume"><span id="audio-music-label">Music</span> <output id="music-volume-value">10%</output></label>
-          <input id="music-volume" type="range" min="0" max="100" step="1">
-          <label for="ambience-volume"><span id="audio-ambience-label">Ambience</span> <output id="ambience-volume-value">20%</output></label>
-          <input id="ambience-volume" type="range" min="0" max="100" step="1">
-          <label for="voice-volume"><span id="audio-voice-label">Voice</span> <output id="voice-volume-value">80%</output></label>
-          <input id="voice-volume" type="range" min="10" max="100" step="1">
-          <label class="check-row" for="audio-mute">
-            <input id="audio-mute" type="checkbox">
-            <span id="audio-mute-label">Mute browser audio</span>
-          </label>
-        </div>
-      </section>
-
-      <section class="panel shortcuts-panel" aria-labelledby="shortcuts-heading">
-        <h2 id="shortcuts-heading">Shortcuts</h2>
-        <div class="row">
-          <button id="btn-list-online" type="button" class="secondary">Read online users</button>
-          <button id="btn-list-online-games" type="button" class="secondary">Open online users list</button>
-          <button id="btn-open-friends" type="button" class="secondary">Open Friends</button>
-          <button id="btn-open-options" type="button" class="secondary">Open Options</button>
-          <button id="btn-check-ping" type="button" class="secondary">Check Ping</button>
         </div>
       </section>
     </section>

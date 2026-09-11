@@ -49,13 +49,13 @@ lrc-player-passes-center = { $player } coloca { $count } { $count ->
 lrc-you-pass-center-brief = Você, centro: { $count }. Restantes: { $remaining }. Total do centro: { $center }.
 lrc-player-passes-center-brief = { $player }, centro: { $count }. Restantes: { $remaining }. Total do centro: { $center }.
 
-lrc-you-keep-all = Todos os seus dados são pontos, então você mantém todas as { $count } { $count ->
-    [one] ficha
-   *[other] fichas
+lrc-you-keep-all = Todos os seus dados são pontos, então { $count ->
+    [one] você mantém sua única ficha
+   *[other] você mantém todas as { $count } fichas
 }.
-lrc-player-keeps-all = Todos os dados de { $player } são pontos, então eles mantêm todas as { $count } { $count ->
-    [one] ficha
-   *[other] fichas
+lrc-player-keeps-all = Todos os dados de { $player } são pontos, então { $count ->
+    [one] { $player } mantém sua única ficha
+   *[other] { $player } mantém todas as { $count } fichas
 }.
 lrc-you-keep-all-brief = Você: sem transferências; { $count } { $count ->
     [one] ficha
@@ -71,14 +71,14 @@ lrc-player-skips-no-chips = { $player } não tem fichas, então o turno dele é 
 lrc-you-skip-no-chips-brief = Você: sem fichas; turno pulado.
 lrc-player-skips-no-chips-brief = { $player }: sem fichas; turno pulado.
 
-lrc-you-win = Você é o último jogador com fichas e vence com { $count } restantes. Você reivindica as { $center } { $center ->
-    [one] ficha
-   *[other] fichas
-} no centro.
-lrc-player-wins = { $player } é o último jogador com fichas e vence com { $count } restantes. Ele reivindica as { $center } { $center ->
-    [one] ficha
-   *[other] fichas
-} no centro.
+lrc-you-win = Você é o último jogador com fichas e vence com { $count } restantes. Você reivindica { $center ->
+    [one] a única ficha no centro
+   *[other] as { $center } fichas no centro
+}.
+lrc-player-wins = { $player } é o último jogador com fichas e vence com { $count } restantes. { $player } reivindica { $center ->
+    [one] a única ficha no centro
+   *[other] as { $center } fichas no centro
+}.
 lrc-you-win-brief = Você vence. Suas fichas: { $count }. Centro: { $center }.
 lrc-player-wins-brief = { $player } vence. Fichas: { $count }. Centro: { $center }.
 
@@ -98,7 +98,7 @@ lrc-last-roll-player = { $player } rolou por último { $results }.
 lrc-set-starting-chips = Fichas iniciais: { $count }
 lrc-enter-starting-chips = Digite as fichas iniciais:
 lrc-option-changed-starting-chips = Fichas iniciais definidas para { $count }.
-leftrightcenter-desc-starting-chips = Com quantas fichas cada jogador de Left Right Center começa (padrão 3, intervalo de 1 a 10).
+leftrightcenter-desc-starting-chips = Quantidade de fichas com que cada jogador começa em Esquerda Centro Direita (padrão 3, intervalo de 1 a 10).
 lrc-error-starting-chips-invalid = As fichas iniciais devem estar entre { $min } e { $max }; o valor atual é { $count }.
 
 lrc-line-format = { $player }: { $chips } { $chips ->

@@ -147,7 +147,7 @@ rb-error-take-range-conflict = A retirada mínima é { $min }, acima do máximo 
 rb-error-view-limit-invalid = O limite de visualização é { $count }; deve ser de { $min } a { $max }.
 rb-error-reshuffle-limit-invalid = O limite de reembaralhamento é { $count }; deve ser de { $min } a { $max }.
 rb-error-reshuffle-penalty-invalid = A penalidade de reembaralhamento é { $points }; deve ser de { $min } a { $max } pontos.
-rb-error-no-ball-packs = Selecione pelo menos um conjunto de bolas antes de iniciar o Rolling Balls.
+rb-error-no-ball-packs = Selecione pelo menos um conjunto de bolas antes de iniciar Bolas Rolantes.
 rb-error-invalid-ball-packs = A seleção contém { $count } { $count ->
     [one] conjunto de bolas indisponível
    *[other] conjuntos de bolas indisponíveis
@@ -219,7 +219,7 @@ rb-ball-niagara-falls-boat = Passeio de barco nas Cataratas do Niágara
 rb-ball-grand-canyon-heli = Excursão de helicóptero pelo Grand Canyon
 rb-ball-serengeti-migration = Grande Migração no Serengeti
 # Around the World: +5
-rb-ball-first-class-upgrade = Upgrade surpresa para a primeira classe
+rb-ball-first-class-upgrade = Melhoria surpresa para a primeira classe
 rb-ball-lottery-in-macau = Um passe ferroviário de um ano ganho
 rb-ball-private-jet = Viagem insubstituível pelas ilhas
 rb-ball-royal-palace-invite = Visita privada ao museu após o expediente

@@ -56,7 +56,7 @@ citadels-you-chose-character = Você escolheu um personagem.
 citadels-character-chosen = { $player } escolheu um personagem.
 citadels-select-character-line = { $brief ->
     [yes] { $character }
-   *[no] Rank { $rank }: { $character }
+   *[no] Ordem { $rank }: { $character }
 }
 citadels-turn-phase-start = A chamada de personagens começa.
 citadels-no-characters = Não há { $characters }.
@@ -64,11 +64,11 @@ citadels-list-pair = { $first } ou { $last }
 citadels-list-series = { $head } ou { $last }
 citadels-you-character-revealed = { $brief ->
     [yes] Você revela o { $character }.
-   *[no] Você revela o rank { $rank }, { $character }.
+   *[no] Você revela o personagem de ordem { $rank }, { $character }.
 }
 citadels-character-revealed = { $brief ->
     [yes] { $player } revela o { $character }.
-   *[no] { $player } revela o rank { $rank }, { $character }.
+   *[no] { $player } revela o personagem de ordem { $rank }, { $character }.
 }
 citadels-you-took-crown = Você pega a coroa e escolherá primeiro na próxima rodada.
 citadels-crown-taken = { $player } pega a coroa.
@@ -76,27 +76,27 @@ citadels-you-king-heir = Você revela o Rei no fim da rodada e pega a coroa.
 citadels-king-heir = { $player } revela o Rei no fim da rodada e pega a coroa.
 citadels-you-assassin-targeted = { $brief ->
     [yes] Você nomeia o { $character } para assassinato.
-   *[no] Você nomeia o rank { $rank }, { $character }, para assassinato.
+   *[no] Você nomeia o personagem de ordem { $rank }, { $character }, para assassinato.
 }
 citadels-assassin-targeted = { $brief ->
     [yes] { $player }, o Assassino, nomeia o { $character }.
-   *[no] { $player }, o Assassino, nomeia o rank { $rank }, { $character }.
+   *[no] { $player }, o Assassino, nomeia o personagem de ordem { $rank }, { $character }.
 }
 citadels-character-killed-skip = { $brief ->
     [yes] O { $character } foi assassinado e perde seu turno.
-   *[no] O rank { $rank }, { $character }, foi assassinado e perde seu turno.
+   *[no] O personagem de ordem { $rank }, { $character }, foi assassinado e perde seu turno.
 }
 citadels-you-character-killed-skip = { $brief ->
     [yes] Você foi assassinado como o { $character } e perde este turno.
-   *[no] Você foi assassinado como o rank { $rank }, { $character }, e perde este turno.
+   *[no] Você foi assassinado como o personagem de ordem { $rank }, { $character }, e perde este turno.
 }
 citadels-you-thief-targeted = { $brief ->
     [yes] Você roubará o { $character } quando esse personagem for revelado.
-   *[no] Você roubará o rank { $rank }, { $character }, quando esse personagem for revelado.
+   *[no] Você roubará o personagem de ordem { $rank }, { $character }, quando esse personagem for revelado.
 }
 citadels-thief-targeted = { $brief ->
     [yes] { $player }, o Ladrão, marca o { $character } para roubo.
-   *[no] { $player }, o Ladrão, marca o rank { $rank }, { $character }, para roubo.
+   *[no] { $player }, o Ladrão, marca o personagem de ordem { $rank }, { $character }, para roubo.
 }
 citadels-you-thief-found-nothing = Seu roubo não encontra ouro para roubar.
 citadels-thief-found-nothing = { $player }, o Ladrão, não encontra ouro para roubar.
@@ -152,11 +152,11 @@ citadels-read-discards = Ler descarte
 
 citadels-assassinate-target-line = { $brief ->
     [yes] Assassinar o { $character }
-   *[no] Assassinar o rank { $rank }: { $character }
+   *[no] Assassinar o personagem de ordem { $rank }: { $character }
 }
 citadels-thief-target-line = { $brief ->
     [yes] Roubar o { $character }
-   *[no] Roubar o rank { $rank }: { $character }
+   *[no] Roubar o personagem de ordem { $rank }: { $character }
 }
 citadels-magician-swap-line = Trocar com { $player } ({ $cards } cartas)
 citadels-warlord-target-line = Destruir o { $district } de { $player } por { $cost } de ouro
@@ -202,7 +202,7 @@ citadels-city-line = { $player }: { $count } distritos, { $gold } de ouro, { $sc
 citadels-character-none = Você não possui nenhum personagem no momento. Você tem { $gold } de ouro.
 citadels-character-line = { $brief ->
     [yes] { $character }. Você tem { $gold } de ouro.
-   *[no] Rank { $rank }: { $character }. Você tem { $gold } de ouro.
+   *[no] Ordem { $rank }: { $character }. Você tem { $gold } de ouro.
 }
 citadels-discards-none = nenhum
 citadels-faceup-discards-line = Personagens descartados virados para cima: { $characters }
@@ -212,25 +212,25 @@ citadels-status-crown = Detentor da coroa: { $player }
 citadels-status-selection = Seleção de personagens. { $player } está escolhendo.
 citadels-status-rank-resolution = { $brief ->
     [yes] Chamando o { $character }.
-   *[no] Chamando o rank { $rank }: { $character }.
+   *[no] Chamando o personagem de ordem { $rank }: { $character }.
 }
 citadels-status-turn = { $brief ->
     [yes] { $player } está jogando o turno como o { $character }.
-   *[no] { $player } está jogando o turno como o rank { $rank }, { $character }.
+   *[no] { $player } está jogando o turno como o personagem de ordem { $rank }, { $character }.
 }
 citadels-status-turn-progress = Construiu { $builds } de { $limit } distritos permitidos neste turno.
 citadels-status-killed = { $brief ->
-    [yes] Assassinado: { $character }.
-   *[no] Rank assassinado: { $rank }, { $character }.
+    [yes] Personagem assassinado: { $character }.
+   *[no] Personagem assassinado: { $character }, ordem { $rank }.
 }
 citadels-status-killed-none = Nenhum personagem foi assassinado nesta rodada.
 citadels-status-robbed = { $brief ->
-    [yes] Roubado: { $character }.
-   *[no] Rank roubado: { $rank }, { $character }.
+    [yes] Personagem marcado para roubo: { $character }.
+   *[no] Personagem marcado para roubo: { $character }, ordem { $rank }.
 }
 citadels-status-robbed-none = Nenhum personagem foi marcado para roubo nesta rodada.
 citadels-status-first-completed = Primeira cidade completa: { $player }
 
 citadels-standings-header = Classificação atual
-citadels-standing-line = Rank { $rank }: { $player }, { $score } pontos, { $gold } de ouro, { $districts } distritos, { $cards } cartas na mão.
-citadels-end-line = Rank { $rank }: { $player }, { $score } pontos, { $gold } de ouro, { $districts } distritos.
+citadels-standing-line = Posição { $rank }: { $player }, { $score } pontos, { $gold } de ouro, { $districts } distritos, { $cards } cartas na mão.
+citadels-end-line = Posição { $rank }: { $player }, { $score } pontos, { $gold } de ouro, { $districts } distritos.

@@ -243,7 +243,7 @@ monopoly-street-rent-schedule = base { $base }; 1 casa { $house1 }; 2 casas { $h
 monopoly-transit-rent-level = { $count } de propriedade: { $rent }
 monopoly-development-collective = construções
 monopoly-hanoi-development-none = sem melhoria de negócio
-monopoly-hanoi-development-level-1 = barraca de camburão ou loja online
+monopoly-hanoi-development-level-1 = barraca de vendedor ambulante ou loja online
 monopoly-hanoi-development-level-2 = carrinho ou estande
 monopoly-hanoi-development-level-3 = pequena barraca
 monopoly-hanoi-development-level-4 = pequena lanchonete
@@ -251,7 +251,7 @@ monopoly-hanoi-development-level-5 = restaurante ou grande loja
 monopoly-hanoi-development-collective = melhorias de negócio
 monopoly-hanoi-action-upgrade-business = Melhorar um negócio
 monopoly-hanoi-action-sell-business-upgrade = Vender melhoria de negócio
-monopoly-hanoi-rent-schedule = base { $base }; barraca de camburão ou loja online { $house1 }; carrinho ou estande { $house2 }; pequena barraca { $house3 }; pequena lanchonete { $house4 }; restaurante ou grande loja { $hotel }
+monopoly-hanoi-rent-schedule = base { $base }; barraca de vendedor ambulante ou loja online { $house1 }; carrinho ou estande { $house2 }; pequena barraca { $house3 }; pequena lanchonete { $house4 }; restaurante ou grande loja { $hotel }
 monopoly-hanoi-development-supply = Melhorias de negócio: sempre disponíveis.
 
 # Setup, turns, movement, and spaces
@@ -340,7 +340,7 @@ monopoly-player-free-parking-empty = { $player } parou em { $space }, mas o jack
 monopoly-you-collect-free-parking = Você coleta o jackpot de { $amount } em { $space }. Agora você tem { $cash }.
 monopoly-player-collects-free-parking = { $player } coleta o jackpot de { $amount } em { $space }. Saldo atual: { $cash }.
 monopoly-you-collect-free-parking-brief = Jackpot: +{ $amount }.
-monopoly-player-collects-free-parking-brief = { $player }: bote, +{ $amount }.
+monopoly-player-collects-free-parking-brief = { $player }: pote, +{ $amount }.
 monopoly-you-just-visiting = Você está apenas visitando { $jail }.
 monopoly-player-just-visiting = { $player } está apenas visitando { $jail }.
 monopoly-you-land-go = Você parou em { $go }.
@@ -454,7 +454,7 @@ monopoly-card-hanoi-lottery-repairs = Pague { $perHouse } por cada peça de neg�
 
 # Jail
 monopoly-you-go-jail = Você vai diretamente para { $jail }. Seu turno termina e você não coleta o salário de { $go }.
-monopoly-player-go-jail = { $player } vai diretamente para { $jail }. O turno deles termina e eles não coletam o salário de { $go }.
+monopoly-player-go-jail = { $player } vai diretamente para { $jail }. O turno de { $player } termina, e { $player } não recebe o salário de { $go }.
 monopoly-you-go-jail-brief = Vá para { $jail }.
 monopoly-player-go-jail-brief = { $player } vai para { $jail }.
 monopoly-you-pay-jail = Você paga { $amount } e sai da prisão. Sobrou { $cash }; agora role normalmente.
@@ -482,11 +482,11 @@ monopoly-player-jail-roll-brief = Rolagem da prisão de { $player }: { $total }{
    *[no] .
 }
 monopoly-you-leave-jail-doubles = Você tirou dupla e sai da prisão. Mova-se por esta rolagem, mas não role novamente.
-monopoly-player-leaves-jail-doubles = { $player } tirou dupla e sai da prisão. Eles se movem por esta rolagem, mas não rolam novamente.
+monopoly-player-leaves-jail-doubles = { $player } tirou dupla e sai da prisão. { $player } se move por esta rolagem, mas não rola novamente.
 monopoly-you-leave-jail-doubles-brief = Dupla: fora da prisão.
 monopoly-player-leaves-jail-doubles-brief = { $player } sai da prisão com dupla.
 monopoly-you-stay-jail = Você não tirou dupla na tentativa { $attempt }, então seu turno termina na prisão.
-monopoly-player-stays-jail = { $player } não tirou dupla na tentativa { $attempt }, então o turno deles termina na prisão.
+monopoly-player-stays-jail = { $player } não tirou dupla na tentativa { $attempt }, então o turno de { $player } termina na prisão.
 monopoly-you-stay-jail-brief = Ainda preso; tentativa { $attempt }.
 monopoly-player-stays-jail-brief = { $player } continua preso; tentativa { $attempt }.
 
@@ -687,7 +687,7 @@ monopoly-status-trade-preparing = { $proposer } está preparando uma troca com {
 monopoly-whose-turn-your-action = É o seu turno; você deve { $phase }.
 monopoly-whose-turn-your-turn-pending = É o seu turno, mas { $decision_player } deve { $phase }.
 monopoly-whose-turn-other-turn-your-action = É o turno de { $turn_player }, mas você deve { $phase }.
-monopoly-whose-turn-player-action = É o turno de { $turn_player }; eles devem { $phase }.
+monopoly-whose-turn-player-action = É o turno de { $turn_player }; { $turn_player } deve { $phase }.
 monopoly-whose-turn-pending = É o turno de { $turn_player }, mas { $decision_player } deve { $phase } no momento.
 monopoly-results-winner = Vencedor: { $player }.
 monopoly-results-place = { $rank }. { $player }; dinheiro { $cash }; patrimônio líquido estimado { $net_worth }; { $bankrupt ->
@@ -867,7 +867,7 @@ monopoly-space-london-oxford-street = Rua Oxford
 monopoly-space-london-bond-street = Rua Bond
 monopoly-space-london-liverpool-street-station = Estação Liverpool Street
 monopoly-space-london-park-lane = Park Lane
-monopoly-space-london-super-tax = Impuesto Adicional
+monopoly-space-london-super-tax = Imposto Adicional
 monopoly-space-london-mayfair = Mayfair
 
 # Paris board spaces
@@ -878,7 +878,7 @@ monopoly-space-paris-rue-vaugirard = Rue de Vaugirard
 monopoly-space-paris-rue-courcelles = Rue de Courcelles
 monopoly-space-paris-avenue-republique = Avenue de la République
 monopoly-space-paris-boulevard-villette = Boulevard de la Villette
-monopoly-space-paris-electric-company = Compañía Eléctrica
+monopoly-space-paris-electric-company = Companhia Elétrica
 monopoly-space-paris-avenue-neuilly = Avenue de Neuilly
 monopoly-space-paris-rue-paradis = Rue de Paradis
 monopoly-space-paris-gare-lyon = Estação Lyon
@@ -891,7 +891,7 @@ monopoly-space-paris-avenue-henri-martin = Avenue Henri-Martin
 monopoly-space-paris-gare-nord = Estação Nord
 monopoly-space-paris-faubourg-saint-honore = Faubourg Saint-Honoré
 monopoly-space-paris-place-bourse = Place de la Bourse
-monopoly-space-paris-water-company = Compañía de Agua
+monopoly-space-paris-water-company = Companhia de Água
 monopoly-space-paris-rue-la-fayette = Rue La Fayette
 monopoly-space-paris-avenue-breteuil = Avenue de Breteuil
 monopoly-space-paris-avenue-foch = Avenue Foch
@@ -903,12 +903,12 @@ monopoly-space-paris-rue-paix = Rue de la Paix
 # Germany board spaces
 monopoly-space-germany-badstrasse = Badstraße
 monopoly-space-germany-turmstrasse = Turmstraße
-monopoly-space-germany-suedbahnhof = Estação Sur
+monopoly-space-germany-suedbahnhof = Estação Sul
 monopoly-space-germany-chausseestrasse = Chausseestraße
 monopoly-space-germany-elisenstrasse = Elisenstraße
 monopoly-space-germany-poststrasse = Poststraße
 monopoly-space-germany-seestrasse = Seestraße
-monopoly-space-germany-elektrizitaetswerk = Compañía Eléctrica
+monopoly-space-germany-elektrizitaetswerk = Companhia Elétrica
 monopoly-space-germany-hafenstrasse = Hafenstraße
 monopoly-space-germany-neue-strasse = Neue Straße
 monopoly-space-germany-westbahnhof = Estação Oeste
@@ -921,26 +921,26 @@ monopoly-space-germany-opernplatz = Opernplatz
 monopoly-space-germany-nordbahnhof = Estação Norte
 monopoly-space-germany-lessingstrasse = Lessingstraße
 monopoly-space-germany-schillerstrasse = Schillerstraße
-monopoly-space-germany-wasserwerk = Compañía de Agua
+monopoly-space-germany-wasserwerk = Companhia de Água
 monopoly-space-germany-goethestrasse = Goethestraße
 monopoly-space-germany-rathausplatz = Rathausplatz
 monopoly-space-germany-hauptstrasse = Hauptstraße
 monopoly-space-germany-bahnhofstrasse = Bahnhofstraße
 monopoly-space-germany-hauptbahnhof = Estação Central
 monopoly-space-germany-parkstrasse = Parkstraße
-monopoly-space-germany-additional-tax = Impuesto Adicional
+monopoly-space-germany-additional-tax = Imposto Adicional
 monopoly-space-germany-schlossallee = Schlossallee
 
 # Italy board spaces
 monopoly-space-italy-vicolo-corto = Vicolo Corto
 monopoly-space-italy-vicolo-stretto = Vicolo Stretto
-monopoly-space-italy-income-tax = Impuesto a la Propiedad
-monopoly-space-italy-stazione-sud = Estação Sur
+monopoly-space-italy-income-tax = Imposto sobre a Propriedade
+monopoly-space-italy-stazione-sud = Estação Sul
 monopoly-space-italy-bastioni-gran-sasso = Bastioni Gran Sasso
 monopoly-space-italy-viale-monterosa = Viale Monterosa
 monopoly-space-italy-viale-vesuvio = Viale Vesuvio
 monopoly-space-italy-via-accademia = Via Accademia
-monopoly-space-italy-electric-company = Compañía Eléctrica
+monopoly-space-italy-electric-company = Companhia Elétrica
 monopoly-space-italy-corso-ateneo = Corso Ateneo
 monopoly-space-italy-piazza-universita = Piazza Università
 monopoly-space-italy-stazione-ovest = Estação Oeste
@@ -953,26 +953,26 @@ monopoly-space-italy-largo-colombo = Largo Colombo
 monopoly-space-italy-stazione-nord = Estação Norte
 monopoly-space-italy-viale-costantino = Viale Costantino
 monopoly-space-italy-viale-traiano = Viale Traiano
-monopoly-space-italy-water-works = Compañía de Agua
+monopoly-space-italy-water-works = Companhia de Água
 monopoly-space-italy-piazza-giulio-cesare = Piazza Giulio Cesare
 monopoly-space-italy-via-roma = Via Roma
 monopoly-space-italy-corso-impero = Corso Impero
 monopoly-space-italy-largo-augusto = Largo Augusto
 monopoly-space-italy-stazione-est = Estação Este
 monopoly-space-italy-viale-dei-giardini = Viale dei Giardini
-monopoly-space-italy-luxury-tax = Impuesto de Lujo
+monopoly-space-italy-luxury-tax = Imposto de Luxo
 monopoly-space-italy-parco-della-vittoria = Parco della Vittoria
 
 # Madrid board spaces
 monopoly-space-madrid-ronda-valencia = Ronda de Valencia
 monopoly-space-madrid-plaza-lavapies = Plaza Lavapiés
-monopoly-space-madrid-income-tax = Impuesto Patrimonial
+monopoly-space-madrid-income-tax = Imposto sobre o Patrimônio
 monopoly-space-madrid-estacion-goya = Estación de Goya
 monopoly-space-madrid-cuatro-caminos = Glorieta Cuatro Caminos
 monopoly-space-madrid-reina-victoria = Avenida Reina Victoria
 monopoly-space-madrid-bravo-murillo = Calle Bravo Murillo
 monopoly-space-madrid-glorieta-bilbao = Glorieta de Bilbao
-monopoly-space-madrid-electric-company = Compañía Eléctrica
+monopoly-space-madrid-electric-company = Companhia Elétrica
 monopoly-space-madrid-alberto-aguilera = Calle Alberto Aguilera
 monopoly-space-madrid-fuencarral = Calle Fuencarral
 monopoly-space-madrid-estacion-delicias = Estación de las Delicias
@@ -985,14 +985,14 @@ monopoly-space-madrid-cea-bermudez = Calle Cea Bermúdez
 monopoly-space-madrid-estacion-mediodia = Estación del Mediodía
 monopoly-space-madrid-reyes-catolicos = Avenida de los Reyes Católicos
 monopoly-space-madrid-bailen = Calle Bailén
-monopoly-space-madrid-water-works = Compañía de Agua
+monopoly-space-madrid-water-works = Companhia de Água
 monopoly-space-madrid-plaza-espana = Plaza de España
 monopoly-space-madrid-puerta-sol = Puerta del Sol
 monopoly-space-madrid-alcala = Calle Alcalá
 monopoly-space-madrid-gran-via = Gran Vía
 monopoly-space-madrid-estacion-norte = Estación del Norte
 monopoly-space-madrid-paseo-castellana = Paseo de la Castellana
-monopoly-space-madrid-luxury-tax = Impuesto de Lujo
+monopoly-space-madrid-luxury-tax = Imposto de Luxo
 monopoly-space-madrid-paseo-prado = Paseo del Prado
 
 # Tokyo board spaces
@@ -1019,7 +1019,7 @@ monopoly-space-tokyo-toranomon = Toranomon
 monopoly-space-tokyo-yurakucho = Yurakucho
 monopoly-space-tokyo-nihonbashi = Nihonbashi
 monopoly-space-tokyo-otemachi = Otemachi
-monopoly-space-tokyo-tokyo-station = Estação de Tokio
+monopoly-space-tokyo-tokyo-station = Estação de Tóquio
 monopoly-space-tokyo-marunouchi = Marunouchi
 monopoly-space-tokyo-ginza = Ginza
 
@@ -1051,7 +1051,7 @@ monopoly-space-australia-george-street = Rua George
 monopoly-space-australia-pitt-street = Rua Pitt
 monopoly-space-australia-sydney-station = Estação Sydney
 monopoly-space-australia-flinders-way = Flinders Way
-monopoly-space-australia-super-tax = Impuesto Adicional
+monopoly-space-australia-super-tax = Imposto Adicional
 monopoly-space-australia-kings-avenue = Avenida Kings
 
 # New Zealand board spaces
@@ -1080,7 +1080,7 @@ monopoly-space-new-zealand-princes-street = Rua Princes
 monopoly-space-new-zealand-cathedral-square = Praça Cathedral
 monopoly-space-new-zealand-frankton-junction = Estação Frankton Junction
 monopoly-space-new-zealand-lambton-quay = Lambton Quay
-monopoly-space-new-zealand-super-tax = Impuesto Adicional
+monopoly-space-new-zealand-super-tax = Imposto Adicional
 monopoly-space-new-zealand-queen-street = Rua Queen
 
 # Hanoi, Vietnam board

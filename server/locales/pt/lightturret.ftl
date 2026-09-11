@@ -1,7 +1,7 @@
 game-name-lightturret = Torreta de Luz
 
-lightturret-intro = Light Turret começa com { $power } de capacidade de energia e { $rounds } rodadas completas. Dispare para ganhar luz e o dobro de moedas. Uma torre só sofre sobrecarga quando a luz excede a energia. Os upgrades de núcleo custam { $cost } moedas e podem falhar.
-lightturret-intro-brief = Light Turret: { $power } energia, { $rounds } rodadas, upgrades { $cost } moedas.
+lightturret-intro = Torreta de Luz começa com { $power } de capacidade de energia e { $rounds } rodadas completas. Dispare para ganhar luz e o dobro de moedas. Uma torre só sofre sobrecarga quando a luz excede a energia. As melhorias de núcleo custam { $cost } moedas e podem falhar.
+lightturret-intro-brief = Torreta de Luz: { $power } energia, { $rounds } rodadas, melhorias { $cost } moedas.
 lightturret-round-start = A rodada { $round } de { $total } começa com { $alive } { $alive ->
     [one] torre ativa
    *[other] torres ativas

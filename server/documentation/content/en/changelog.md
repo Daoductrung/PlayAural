@@ -1,5 +1,26 @@
 Changelog
 
+Friday 11 September 2026
+
+New Additions:
+
+* History now provides six message buffers on Desktop, Web, and Mobile, in this order: All, Chat, Private Messages, Game, System, and Misc. Each buffer can be reviewed and muted separately. Muting All silences every buffer; when an individual buffer is unmuted, messages received while it was muted return to All in their original order. Muting Chat or Private Messages also silences its notification sounds. Message history is kept only for the current session.
+* The Web client now lets you collapse or expand Chat and Voice, Volume, and Shortcuts, with Volume collapsed by default. The familiar in-game Tab order remains unchanged.
+* Mobile Language now opens the complete list of available languages, marks the current choice, preserves anything already entered on the login or registration screen, and returns focus to the Language button after choosing a language or going Back.
+
+Improvements:
+
+* Mobile navigation and speech are more reliable throughout login and play. Self-voicing recognizes one-, two-, and three-finger gestures more consistently, recovers after Android speech-service interruptions, and switches cleanly between self-voicing and TalkBack. Back closes the visible dialog or text box before moving away from the current screen, and Help and gestures now keeps instructions and build information together.
+* Large game boards such as Battleship now keep readable touch targets and scroll smoothly in every direction on Web and Mobile, including two-finger panning with TalkBack. Focused cells are brought into view without delaying cursor movement or speech.
+* Read online users now announces the total first, followed by developers, administrators, and other users. Open online users list follows the same order, stays on the current page while it refreshes, and keeps account actions available as people come online, go offline, or change roles.
+* Text in right-to-left languages now uses the correct writing direction throughout Desktop, Web, and Mobile while keeping the familiar layout and navigation order.
+* The Brazilian Portuguese translation has received a broad update across game names, terminology, menus, announcements, and player guides, including Battle fighter and move names and refreshed Backgammon wording.
+
+Bug Fixes:
+
+* A game that finishes in the background no longer replaces a global menu, closes a text box, or interrupts a private message being written. The result appears when you return to the table.
+* Private messages to your own account are now rejected with a clear explanation, and a private message with no text is no longer sent.
+
 Thursday 27 August 2026
 
 New Additions:
@@ -11,7 +32,7 @@ Improvements:
 * The Windows desktop updater now installs PlayAural and sound-pack updates in a dedicated accessible window. It checks the downloaded package before changing the installation, waits for every PlayAural window to close, verifies that the updated client starts correctly, and restores the previous working version if startup fails. Failed or cancelled updates also clean up temporary files and give clearer recovery instructions.
 * Play Typing Sounds now works in the desktop chat box and text boxes opened by games, as well as supported web chat and text boxes. Ordinary keys use a wider variety of sounds, while number keys, Delete, and Enter have distinct feedback. The built-in Windows Vietnamese Telex keyboard and other language keyboards now keep a sound for each key without duplicates while forming accented characters.
 * Backgammon now includes a live Legal moves view; clearer Deselect, failed bearing-off, Undo, Status, Pip count, Dice, Cube, and score feedback; personalized wording for the player moving and everyone else; steadier touch focus; and a rebuilt beginner guide. Touch players roll by tapping any board point without moving focus, while Next destination and Previous destination move focus only when requested.
-* Player blocking, table membership summaries, and Backgammon doubling-cube play are now available in Spanish.
+* User blocking, table membership summaries, and Backgammon doubling-cube play are now available in Spanish.
 
 Bug Fixes:
 
@@ -22,7 +43,7 @@ Tuesday 25 August 2026
 
 New Additions:
 
-* Player blocking is now available from friend requests, profiles, online-player and table-member menus, or from Personal and Options > Friends > Block a User. Blocking removes any friendship and pending requests between the two accounts, prevents friend requests, private messages, table invites, and ordinary chat in both directions, and prevents either person from newly entering a table hosted by the other. Blocked Users lets you review and unblock people later. Blocking does not remove anyone from a shared table, mute table Voice Chat, or prevent either person from recovering a reserved seat; saved tables containing both people remain safely stored but require the block to be removed before restoration.
+* User blocking is now available from friend requests, profiles, online-user and table-member menus, or from Personal and Options > Friends > Block a User. Blocking removes any friendship and pending requests between the two accounts, prevents friend requests, private messages, table invites, and ordinary chat in both directions, and prevents either person from newly entering a table hosted by the other. Blocked Users lets you review and unblock people later. Blocking does not remove anyone from a shared table, mute table Voice Chat, or prevent either person from recovering a reserved seat; saved tables containing both people remain safely stored but require the block to be removed before restoration.
 
 Improvements:
 
@@ -215,7 +236,7 @@ Friday 26 June 2026
 New Additions:
 
 * Who's at the table is now an interactive roster with a table summary, each person's roles, host actions, friend actions, and bot removal where available.
-* Online Players now opens the full friend actions menu directly when you select someone who is already your friend.
+* Open online users list now opens the full friend actions menu directly when you select someone who is already your friend.
 * Pirates of the Lost Seas now shows Check position to touch players during live games.
 * Desktop and web Voice Chat now use Alt+V to join or leave and Alt+Shift+V to mute or unmute the microphone.
 * Mobile menu click and activation sounds have been refreshed.

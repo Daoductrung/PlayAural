@@ -1,5 +1,26 @@
 Nhật ký thay đổi
 
+Thứ Sáu 11 Tháng Chín 2026
+
+Tính năng mới:
+
+* Nhật ký giờ có sáu bộ đệm tin nhắn trên phần mềm máy tính, web và di động, theo đúng thứ tự: Tất cả, Trò chuyện, Tin nhắn riêng, Trò chơi, Hệ thống và Linh tinh. Bạn có thể xem và tắt tiếng riêng từng bộ đệm. Tắt tiếng Tất cả sẽ tắt tiếng mọi bộ đệm; khi bật tiếng lại một bộ đệm riêng, các tin đã nhận trong lúc bộ đệm đó bị tắt tiếng sẽ trở về Tất cả theo đúng thứ tự ban đầu. Tắt tiếng Trò chuyện hoặc Tin nhắn riêng cũng tắt âm thanh thông báo tương ứng. Nhật ký tin nhắn chỉ được giữ trong phiên hiện tại.
+* Phiên bản web giờ cho phép thu gọn hoặc mở rộng Trò chuyện và Trò chuyện thoại, Âm lượng và Phím tắt; riêng Âm lượng mặc định được thu gọn. Thứ tự Tab quen thuộc trong game vẫn giữ nguyên.
+* Nút Ngôn ngữ trên di động giờ mở danh sách đầy đủ các ngôn ngữ hiện có, đánh dấu lựa chọn hiện tại, giữ nguyên nội dung đã nhập trên màn hình đăng nhập hoặc đăng ký, rồi đưa tiêu điểm về nút Ngôn ngữ sau khi bạn chọn một ngôn ngữ hoặc Quay lại.
+
+Cải thiện:
+
+* Điều hướng và giọng đọc trên di động giờ đáng tin cậy hơn từ lúc đăng nhập đến khi chơi. Chế độ tự đọc nhận cử chỉ một, hai và ba ngón ổn định hơn, phục hồi sau khi dịch vụ đọc của Android bị gián đoạn, đồng thời chuyển đổi mượt mà giữa tự đọc và TalkBack. Quay lại sẽ đóng hộp thoại hoặc ô nhập đang hiện trước khi rời màn hình hiện tại; Trợ giúp và cử chỉ giờ tập trung cả hướng dẫn lẫn thông tin bản dựng.
+* Các bàn cờ lớn như Tàu Chiến giờ giữ kích thước chạm dễ dùng và cuộn mượt theo mọi hướng trên web lẫn di động, gồm cả thao tác kéo bằng hai ngón với TalkBack. Ô đang được chọn sẽ tự hiện vào vùng nhìn mà không làm chậm con trỏ hoặc lời đọc.
+* Đọc người dùng trực tuyến giờ đọc tổng số trước, rồi đến nhà phát triển, quản trị viên và những người dùng khác. Mở danh sách người dùng trực tuyến cũng dùng thứ tự này, giữ nguyên trang hiện tại khi tự làm mới và luôn cho phép mở các thao tác tài khoản phù hợp khi có người trực tuyến, ngoại tuyến hoặc thay đổi vai trò.
+* Văn bản trong các ngôn ngữ viết từ phải sang trái giờ hiển thị đúng chiều trên phần mềm máy tính, web và di động, trong khi bố cục cùng thứ tự điều hướng quen thuộc vẫn giữ nguyên.
+* Bản dịch Tiếng Bồ Đào Nha đã được cập nhật toàn diện về tên trò chơi, thuật ngữ, menu, thông báo và tài liệu người chơi, gồm tên đấu sĩ và chiêu trong Đấu Trường Chiến Kỹ cùng cách diễn đạt Cờ thỏ cáo đã được làm mới.
+
+Sửa lỗi:
+
+* Khi một ván kết thúc trong nền, màn hình kết quả không còn thay thế menu chung, đóng ô nhập hoặc làm gián đoạn tin nhắn riêng bạn đang viết. Kết quả sẽ hiện khi bạn trở lại bàn.
+* Hệ thống giờ từ chối tin nhắn riêng gửi cho chính tài khoản của bạn với lời giải thích rõ ràng, đồng thời không còn gửi tin nhắn riêng không có nội dung.
+
 Thứ Năm 27 Tháng Tám 2026
 
 Tính năng mới:
@@ -11,7 +32,7 @@ Cải thiện:
 * Trình cập nhật PlayAural trên phần mềm máy tính Windows giờ cài đặt bản cập nhật PlayAural và gói âm thanh trong một cửa sổ tiếp cận riêng. Trình cập nhật kiểm tra gói đã tải trước khi thay đổi bản cài đặt, chờ mọi cửa sổ PlayAural đóng, xác minh phiên bản mới khởi động đúng và khôi phục phiên bản cũ đang hoạt động nếu lần khởi động thất bại. Bản cập nhật thất bại hoặc bị hủy cũng dọn tệp tạm và hướng dẫn khắc phục rõ hơn.
 * Âm thanh gõ phím giờ hoạt động trong ô trò chuyện và các ô nhập do trò chơi mở trên phần mềm máy tính, cũng như ô trò chuyện và ô nhập trực tiếp được hỗ trợ trên web. Các phím thông thường dùng nhiều âm thanh đa dạng hơn, còn phím số, Delete và Enter có phản hồi riêng. Bộ gõ Tiếng Việt Telex tích hợp của Windows cùng các phương thức nhập khác giờ giữ phản hồi cho từng phím mà không phát trùng âm thanh trong lúc ghép ký tự.
 * Cờ thỏ cáo giờ có bảng Nước đi hợp lệ cập nhật trực tiếp; phản hồi rõ hơn cho Bỏ chọn, lần đưa quân ra không hợp lệ, Hoàn tác, Trạng thái, Tổng pip, Xúc xắc, Khối nhân đôi và Xem điểm; lời thông báo phù hợp với người đi quân và những người còn lại; tiêu điểm cảm ứng ổn định hơn; cùng tài liệu cho người mới được viết lại. Người chơi cảm ứng chạm vào bất kỳ điểm nào trên bàn để tung xúc xắc mà không làm chuyển tiêu điểm; Điểm đến tiếp theo và Điểm đến trước đó chỉ chuyển tiêu điểm khi được chọn.
-* Chặn người chơi, tóm tắt thành viên trong bàn và phần Khối nhân đôi trong Cờ thỏ cáo giờ đã có bằng Tiếng Tây Ban Nha.
+* Chặn người dùng, tóm tắt thành viên trong bàn và phần Khối nhân đôi trong Cờ thỏ cáo giờ đã có bằng Tiếng Tây Ban Nha.
 
 Sửa lỗi:
 
@@ -22,7 +43,7 @@ Thứ Ba 25 Tháng Tám 2026
 
 Tính năng mới:
 
-* Tính năng chặn người chơi giờ có trong menu lời mời kết bạn, hồ sơ, người chơi trực tuyến, thành viên trong bàn, hoặc tại Cá nhân và Tùy chỉnh > Bạn bè > Chặn một người chơi. Việc chặn sẽ xóa quan hệ bạn bè và lời mời đang chờ giữa hai tài khoản; ngăn lời mời kết bạn, tin nhắn riêng, lời mời vào bàn và tin nhắn trò chuyện thông thường theo cả hai chiều; đồng thời ngăn mỗi người vào một bàn mới do người kia làm chủ. Người chơi bị chặn cho phép bạn xem danh sách và bỏ chặn sau này. Việc chặn không đưa ai ra khỏi bàn chung, không tắt tiếng Trò chuyện thoại trong bàn và không cản trở việc trở lại chỗ đã được giữ; bàn đã lưu có cả hai người vẫn được giữ an toàn nhưng phải bỏ chặn trước khi khôi phục.
+* Tính năng chặn người dùng giờ có trong menu lời mời kết bạn, hồ sơ, người dùng trực tuyến, thành viên trong bàn, hoặc tại Cá nhân và Tùy chỉnh > Bạn bè > Chặn một người dùng. Việc chặn sẽ xóa quan hệ bạn bè và lời mời đang chờ giữa hai tài khoản; ngăn lời mời kết bạn, tin nhắn riêng, lời mời vào bàn và tin nhắn trò chuyện thông thường theo cả hai chiều; đồng thời ngăn mỗi người vào một bàn mới do người kia làm chủ. Người dùng bị chặn cho phép bạn xem danh sách và bỏ chặn sau này. Việc chặn không đưa ai ra khỏi bàn chung, không tắt tiếng Trò chuyện thoại trong bàn và không cản trở việc trở lại chỗ đã được giữ; bàn đã lưu có cả hai người vẫn được giữ an toàn nhưng phải bỏ chặn trước khi khôi phục.
 
 Cải thiện:
 
@@ -215,7 +236,7 @@ Thứ Sáu 26 Tháng Sáu 2026
 Tính năng mới:
 
 * Ai đang ở trong bàn giờ là danh sách tương tác có tóm tắt bàn, vai trò của từng người, hành động của chủ bàn, hành động bạn bè, và nút xóa Bot khi có thể.
-* Danh sách người chơi trực tuyến giờ mở thẳng menu hành động bạn bè đầy đủ khi bạn chọn một người đã là bạn.
+* Mở danh sách người dùng trực tuyến giờ mở thẳng menu hành động bạn bè đầy đủ khi bạn chọn một người đã là bạn.
 * Hải Tặc: Những Vùng Biển Thất Lạc giờ hiển thị Kiểm tra vị trí cho người chơi cảm ứng trong lúc ván đang diễn ra.
 * Trò chuyện thoại trên phần mềm máy tính và web giờ dùng Alt+V để tham gia hoặc rời, và Alt+Shift+V để bật hoặc tắt mic.
 * Âm thanh bấm và kích hoạt menu trên di động đã được làm mới.
@@ -254,7 +275,7 @@ Sửa lỗi:
 * Thay đổi giọng đọc TTS trên di động giờ áp dụng đáng tin cậy hơn mà không cần khởi động lại.
 * Thay đổi tốc độ đọc TTS trên di động giờ áp dụng đáng tin cậy hơn mà không cần khởi động lại.
 * Phím Tab trên web giờ chuyển vòng giữa menu, nhật ký, và trò chuyện trong lúc chơi.
-* Phím Escape trên web giờ hoạt động trong nhiều menu máy chủ hơn, bao gồm danh sách người chơi trực tuyến.
+* Phím Escape trên web giờ hoạt động trong nhiều menu máy chủ hơn, bao gồm danh sách người dùng trực tuyến.
 * Lời nhắc nhập liệu trên web giờ dùng ô một dòng hoặc nhiều dòng theo đúng loại yêu cầu từ máy chủ, và ô một dòng có thể gửi bằng Enter.
 * Âm thanh menu trên web giờ bám sát phản hồi điều hướng của phần mềm máy tính hơn.
 * Âm thanh gõ chữ trên web giờ phát trong các lời nhắc nhập liệu.
@@ -664,14 +685,14 @@ Chủ Nhật 29 Tháng Ba 2026
 
 Tính năng mới:
 
-* Danh sách người chơi trực tuyến giờ hiển thị ngôn ngữ hiện tại của từng người.
+* Danh sách người dùng trực tuyến giờ hiển thị ngôn ngữ hiện tại của từng người.
 * Người máy trong Đảo Chính giờ ghi nhớ lối chơi, nói dối có chiến thuật, thích nghi theo giai đoạn, và chiến đấu quyết liệt hơn để sinh tồn.
 
 Sửa lỗi:
 
 * Trạng thái trực tuyến trong danh sách bạn bè giờ xử lý chữ hoa/thường của tên tài khoản nhất quán hơn.
 * Đăng nhập trùng do viết hoa/thường tên tài khoản khác nhau đã bị chặn.
-* Danh sách người chơi trực tuyến giờ đưa tiêu điểm tới người đầu tiên thay vì nút Quay lại.
+* Danh sách người dùng trực tuyến giờ đưa tiêu điểm tới người đầu tiên thay vì nút Quay lại.
 * Người chơi Đảo Chính giờ bị loại đúng khi mất hết thẻ ảnh hưởng.
 * Số lá Trao đổi trong Đảo Chính giờ xử lý đúng khi bộ bài sắp hết.
 * Tiêu điểm trên phần mềm máy tính ổn định hơn trong các danh sách tự làm mới như Bạn bè.

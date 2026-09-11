@@ -161,6 +161,49 @@ def test_audio_command_serializes_validated_one_shot_sound_family() -> None:
     assert "asset" not in packet
 
 
+def test_audio_command_serializes_validated_output_buffer_for_notification_sfx() -> None:
+    packet = AudioCommand(
+        command="play",
+        kind="sfx",
+        asset="pm.ogg",
+        buffer="private",
+    ).to_packet()
+
+    assert packet["buffer"] == "private"
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {
+            "command": "play",
+            "kind": "sfx",
+            "asset": "pm.ogg",
+            "buffer": "unknown",
+        },
+        {
+            "command": "play",
+            "kind": "music",
+            "asset": "music.ogg",
+            "handle": "music",
+            "buffer": "private",
+        },
+        {
+            "command": "play",
+            "kind": "sfx",
+            "asset": "pm.ogg",
+            "handle": "pm",
+            "loop": True,
+            "buffer": "private",
+        },
+        {"command": "stop_all", "buffer": "private"},
+    ],
+)
+def test_audio_command_rejects_invalid_output_buffer_usage(kwargs) -> None:
+    with pytest.raises(ValueError):
+        AudioCommand(**kwargs)
+
+
 @pytest.mark.parametrize("loop", [False, True])
 def test_numbered_asset_remains_an_exact_sound_reference(loop: bool) -> None:
     packet = AudioCommand(

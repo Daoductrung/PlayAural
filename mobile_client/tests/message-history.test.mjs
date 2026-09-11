@@ -36,9 +36,82 @@ test("clearing a session drops every buffer without reusing stale message identi
 });
 
 test("buffer names stay canonical and All remains the first filter", () => {
-  assert.deepEqual(BUFFER_NAMES, ["all", "chat", "game", "system", "misc"]);
+  assert.deepEqual(BUFFER_NAMES, ["all", "chat", "private", "game", "system", "misc"]);
   assert.equal(normalizeBufferName("chats"), "chat");
   assert.equal(normalizeBufferName("unknown"), "misc");
+});
+
+test("private messages keep an independent backlog and omit direct mutes from All", () => {
+  const store = new BufferStore();
+  store.setMutedBuffers(["private"]);
+  store.add("private", "quiet private message");
+
+  assert.deepEqual(
+    store.getMessages("private").map((item) => item.text),
+    ["quiet private message"],
+  );
+  assert.deepEqual(store.getMessages("all"), []);
+});
+
+test("unmuting restores retained source messages to All chronologically and without duplicates", () => {
+  const store = new BufferStore(3);
+  store.setMutedBuffers(["private"]);
+  store.add("game", "one");
+  store.add("private", "same text");
+  store.add("system", "same text");
+  store.add("game", "four");
+
+  assert.deepEqual(
+    store.getMessages("all").map((item) => item.text),
+    ["one", "same text", "four"],
+  );
+  store.setMutedBuffers([]);
+  assert.deepEqual(
+    store.getMessages("all").map((item) => item.text),
+    ["same text", "same text", "four"],
+  );
+  assert.equal(store.getMessages("private")[0], store.getMessages("all")[0]);
+
+  store.setMutedBuffers(["private"]);
+  store.setMutedBuffers([]);
+  assert.deepEqual(
+    store.getMessages("all").map((item) => item.text),
+    ["same text", "same text", "four"],
+  );
+});
+
+test("unmuting All does not restore a source that remains directly muted", () => {
+  const store = new BufferStore();
+  store.setMutedBuffers(["all", "private"]);
+  store.add("private", "still private");
+  store.add("game", "combined while globally muted");
+
+  store.setMutedBuffers(["private"]);
+  assert.deepEqual(
+    store.getMessages("all").map((item) => item.text),
+    ["combined while globally muted"],
+  );
+  store.setMutedBuffers([]);
+  assert.deepEqual(
+    store.getMessages("all").map((item) => item.text),
+    ["still private", "combined while globally muted"],
+  );
+});
+
+test("private chat packets and buffer-scoped audio use the private mute boundary", () => {
+  const appSource = readFileSync(
+    new URL("../src/app/PlayAuralApp.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(
+    appSource,
+    /packet\.convo === "private"[\s\S]*?\? "private"[\s\S]*?: "chat"/,
+  );
+  assert.match(appSource, /else if \(buffer === "private"\) \{[\s\S]*?chatSound = "pm\.ogg"/);
+  assert.match(
+    appSource,
+    /!audioPacket\.buffer \|\| !buffers\.isMuted\(audioPacket\.buffer\)/,
+  );
 });
 
 test("muting a buffer suppresses its visible history and speech eligibility without losing its own backlog", () => {
@@ -55,6 +128,10 @@ test("muting a buffer suppresses its visible history and speech eligibility with
 
   assert.equal(store.setMutedBuffers([]), true);
   assert.deepEqual(store.getVisibleMessages("chat").map((item) => item.text), ["quiet chat"]);
+  assert.deepEqual(
+    store.getMessages("all").map((item) => item.text),
+    ["quiet chat", "audible game"],
+  );
 });
 
 test("All mute applies to every buffer and restored settings reject invalid names", () => {

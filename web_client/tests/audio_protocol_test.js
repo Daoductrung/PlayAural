@@ -39,6 +39,16 @@ runButton.addEventListener("click", async () => {
     if (engine.handleAudioCommand(command({ ducking: ["music"] }))) {
       throw new Error("Malformed ducking configuration was accepted");
     }
+    if (engine.handleAudioCommand(command({ buffer: "unknown" }))) {
+      throw new Error("Unknown output buffer was accepted");
+    }
+    if (engine.handleAudioCommand(command({
+      buffer: "private",
+      loop: true,
+      handle: "invalid:buffer-loop",
+    }))) {
+      throw new Error("Output buffer was accepted on a managed loop");
+    }
     if (!engine.handleAudioCommand(command({ asset: undefined, family: "notify" }))) {
       throw new Error("Numbered sound family was rejected");
     }

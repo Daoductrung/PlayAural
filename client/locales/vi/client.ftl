@@ -154,14 +154,17 @@ buffer-name-misc = linh tinh
 buffer-name-game = trò chơi
 buffer-name-system = hệ thống
 buffer-name-chat = Trò chuyện
+buffer-name-private = tin nhắn riêng
 buffer-all = Tất cả
 buffer-chat = Trò chuyện
+buffer-private = Tin nhắn riêng
 buffer-game = Trò chơi
 buffer-system = Hệ thống
 buffer-misc = Linh tinh
 
 system-announcement = Thông báo hệ thống
 chat-announcement = Thông báo hệ thống: { $message }
+chat-private = Tin nhắn riêng từ { $player }: { $message }
 common-app-closing = Trò chơi sẽ đóng lại ngay bây giờ.
 login-error-connection-refused = Kết nối bị từ chối: Máy chủ có thể đang ngoại tuyến.
 login-error-connection-timeout = Hết thời gian kết nối: Máy chủ không phản hồi.

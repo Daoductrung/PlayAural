@@ -7,6 +7,13 @@ import {
 export const HISTORY_COMPACT_MEDIA_QUERY = "(max-width: 920px), (pointer: coarse)";
 export const HISTORY_TOUCH_MEDIA_QUERY = "(pointer: coarse)";
 
+function getHistoryEntryText(entry) {
+  if (typeof entry === "string") {
+    return entry;
+  }
+  return typeof entry?.text === "string" ? entry.text : "";
+}
+
 export function createHistoryView({
   store,
   historyEl,
@@ -64,12 +71,16 @@ export function createHistoryView({
 
   function setMutedBuffers(bufferNames, { notify = false } = {}) {
     const normalizedBuffers = normalizeMutedHistoryBuffers(bufferNames);
+    const previouslyMuted = new Set(mutedBuffers);
     const changed = normalizedBuffers.length !== mutedBuffers.size
       || normalizedBuffers.some((buffer) => !mutedBuffers.has(buffer));
     mutedBuffers.clear();
     for (const bufferName of normalizedBuffers) {
       mutedBuffers.add(bufferName);
     }
+    store.mergeHistoryIntoAll(
+      [...previouslyMuted].filter((buffer) => !mutedBuffers.has(buffer)),
+    );
     render();
     if (notify) {
       onMutedBuffersChange(getMutedBuffers());
@@ -90,10 +101,21 @@ export function createHistoryView({
     return store.state.historyBuffers[bufferName] || [];
   }
 
+  function clearHistory() {
+    for (const name of getBufferNames()) {
+      bufferPositions[name] = 0;
+    }
+    return store.clearHistory();
+  }
+
   function getCurrentBufferInfo() {
     const name = getCurrentBufferName();
     const lines = getCurrentBufferLines();
-    const position = bufferPositions[name] || 0;
+    const position = Math.max(
+      0,
+      Math.min(Math.max(0, lines.length - 1), bufferPositions[name] || 0),
+    );
+    bufferPositions[name] = position;
     return {
       name,
       count: lines.length,
@@ -124,7 +146,7 @@ export function createHistoryView({
     if (index < 0 || index >= lines.length) {
       return "";
     }
-    return lines[index] || "";
+    return getHistoryEntryText(lines[index]);
   }
 
   function announceCurrentItem() {
@@ -154,7 +176,7 @@ export function createHistoryView({
       bufferSelectEl.value = bufferName;
     }
     renderBufferControls(bufferName);
-    const joined = lines.join("\n");
+    const joined = lines.map(getHistoryEntryText).join("\n");
     const revision = store.state.historyRevisions?.[bufferName] || 0;
     if (
       renderedLogBuffer === bufferName
@@ -174,7 +196,7 @@ export function createHistoryView({
       for (const line of lines) {
         const row = document.createElement("p");
         row.className = "history-line";
-        row.textContent = line;
+        row.textContent = getHistoryEntryText(line);
         fragment.appendChild(row);
       }
       historyLogEl.replaceChildren(fragment);
@@ -321,6 +343,7 @@ export function createHistoryView({
     }
     if (mutedBuffers.has(info.name)) {
       mutedBuffers.delete(info.name);
+      store.mergeHistoryIntoAll([info.name]);
     } else {
       mutedBuffers.add(info.name);
     }
@@ -356,6 +379,7 @@ export function createHistoryView({
 
   return {
     addEntry,
+    clearHistory,
     isBufferDirectlyMuted,
     isBufferMuted,
     getMutedBuffers,

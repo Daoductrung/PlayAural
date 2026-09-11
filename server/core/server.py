@@ -10894,9 +10894,10 @@ PlayAural Server
                         buffer="system",
                         limit=MAX_CHAT_MESSAGE_LENGTH,
                     )
+                elif not value:
+                    user.speak_l("pm-error-message-required", buffer="system")
                 elif (
-                    value
-                    and target_username
+                    target_username
                     and self._check_chat_send_permission(user)
                 ):
                     await self._deliver_private_message(user, target_username, value)
@@ -10911,6 +10912,7 @@ PlayAural Server
             return
         message = message.strip()
         if not message:
+            sender.speak_l("pm-error-message-required", buffer="system")
             return
         if len(message) > MAX_CHAT_MESSAGE_LENGTH:
             sender.speak_l(
@@ -10948,7 +10950,12 @@ PlayAural Server
             return
 
         is_self = target_record.uuid == sender.uuid
-        if not is_self and self._db.has_block_between(
+        if is_self:
+            sender.speak_l("pm-error-self", buffer="system")
+            sender.play_sound("accounterror.ogg")
+            return
+
+        if self._db.has_block_between(
             sender.uuid,
             target_record.uuid,
         ):
@@ -10965,33 +10972,27 @@ PlayAural Server
             sender.play_sound("accounterror.ogg")
             return
 
-        # A private note to yourself is valid and must not require friendship.
-        if is_self:
-            sender.speak_l(
-                "pm-sent-content",
-                buffer="chat",
-                username=target_user.username,
-                message=message,
-            )
-            sender.play_sound("pm.ogg")
-            return
-
         friend_uuids = self._db.get_friends(sender.uuid)
         if target_record.uuid not in friend_uuids:
             sender.speak_l("pm-error-not-friends", buffer="system")
             sender.play_sound("accounterror.ogg")
             return
 
-        target_user.speak_l("pm-received", buffer="chat", username=sender.username, message=message)
-        target_user.play_sound("pm.ogg")
+        target_user.speak_l(
+            "pm-received",
+            buffer="private",
+            username=sender.username,
+            message=message,
+        )
+        target_user.play_sound("pm.ogg", buffer="private")
 
         sender.speak_l(
             "pm-sent-content",
-            buffer="chat",
+            buffer="private",
             username=target_user.username,
             message=message,
         )
-        sender.play_sound("pm.ogg")
+        sender.play_sound("pm.ogg", buffer="private")
 
     def _check_chat_send_permission(self, user: NetworkUser) -> bool:
         """Apply persistent moderation and the shared runtime chat rate limit."""
@@ -11099,34 +11100,32 @@ PlayAural Server
         if message.startswith("@"):
             text_after_at = message[1:].strip()
 
-            # Search through all known usernames (both online and offline friends)
-            # Since users might message an offline friend and we want to correctly identify the target
-            if user:
-                friend_uuids = self._db.get_friends(user.uuid)
-                potential_targets = [self._db.get_user_name_by_uuid(f_uuid) for f_uuid in friend_uuids]
-                potential_targets = [t for t in potential_targets if t] # Filter out None
+            # Include offline friends so full names with spaces remain resolvable.
+            potential_targets = []
+            for friend_uuid in self._db.get_friends(user.uuid):
+                friend_name = self._db.get_user_name_by_uuid(friend_uuid)
+                if friend_name:
+                    potential_targets.append(friend_name)
+            potential_targets.extend(self._get_online_usernames())
 
-                # Add all currently online users to the pool
-                potential_targets.extend(self._get_online_usernames())
+            match = find_username_prefix(text_after_at, potential_targets)
+            if match:
+                target_username, consumed = match
+                pm_content = text_after_at[consumed:].strip()
+            else:
+                # Fall back to one word so an unknown target receives the
+                # standard unavailable-user response without leaking to chat.
+                parts = text_after_at.split(" ", 1)
+                target_username = parts[0] if len(parts) == 2 else ""
+                pm_content = parts[1].strip() if len(parts) == 2 else ""
 
-                match = find_username_prefix(text_after_at, potential_targets)
-                if match:
-                    target_username, consumed = match
-                    pm_content = text_after_at[consumed:].strip()
-                    if pm_content:
-                        await self._deliver_private_message(user, target_username, pm_content)
-                else:
-                    # Fallback if no matching user found: just split by space and try to deliver anyway
-                    # so the user gets the standard "user not found/offline" error instead of broadcasting a PM.
-                    parts = text_after_at.split(" ", 1)
-                    if len(parts) == 2:
-                        target_username = parts[0]
-                        pm_content = parts[1].strip()
-                        if pm_content:
-                            await self._deliver_private_message(user, target_username, pm_content)
-
-                # Unconditionally return to prevent the PM from ever broadcasting to global chat
+            if not target_username or not pm_content:
+                user.speak_l("pm-error-message-required", buffer="system")
                 return
+            await self._deliver_private_message(user, target_username, pm_content)
+
+            # Never allow a private-message command to fall through into chat.
+            return
 
         if message.startswith("/reboot") or message.startswith("/stop"):
             if user and user.trust_level >= 3:

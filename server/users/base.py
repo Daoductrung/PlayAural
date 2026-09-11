@@ -193,7 +193,7 @@ class User(ABC):
 
         Args:
             text: The message text.
-            buffer: Which buffer to route the message to (game, system, chat, misc).
+            buffer: Which buffer to route the message to (chat, private, game, system, misc).
         """
         ...
 
@@ -203,7 +203,7 @@ class User(ABC):
 
         Args:
             message_id: The message ID from the .ftl file.
-            buffer: Which buffer to route the message to (game, system, chat, misc).
+            buffer: Which buffer to route the message to (chat, private, game, system, misc).
             **kwargs: Variables to substitute into the message.
         """
         text = Localization.get(self.locale, message_id, **kwargs)
@@ -282,6 +282,7 @@ class User(ABC):
         loop: bool = False,
         handle: str = "",
         bus: str = "sfx",
+        buffer: str = "",
         fade_in_ms: int = 0,
         fade_out_ms: int = 0,
         priority: int = 0,
@@ -300,6 +301,7 @@ class User(ABC):
                 asset=name,
                 handle=resolved_handle,
                 bus=bus,
+                buffer=buffer,
                 scope=scope,
                 context=context,
                 layer=layer,
@@ -324,6 +326,7 @@ class User(ABC):
         pitch: int = 100,
         *,
         bus: str = "sfx",
+        buffer: str = "",
         priority: int = 0,
         max_instances: int = 0,
     ) -> None:
@@ -334,6 +337,7 @@ class User(ABC):
                 kind="sfx",
                 family=family,
                 bus=bus,
+                buffer=buffer,
                 volume=volume,
                 pan=pan,
                 pitch=pitch,

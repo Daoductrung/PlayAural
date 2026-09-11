@@ -172,6 +172,10 @@ loading an asset.
 - `priority` and `max_instances` bound SFX pressure. `ducking` temporarily
   lowers named buses for the life of its source and restores them on every
   completion/stop/error path. User volume remains the master gain.
+- One-shot notification SFX may declare the message `buffer` they accompany.
+  Clients apply effective buffer mute state before playback. Buffer association
+  is invalid for managed or looping audio so lifecycle commands can never be
+  suppressed accidentally.
 - Ducking is implemented but dormant and strictly opt-in. First-party gameplay
   must not send non-empty `ducking` maps until a future feature explicitly
   adopts and tunes it. Empty/default ducking must have no audible side effects.
@@ -656,16 +660,23 @@ chat-command reboot/shutdown paths or per-game shutdown hooks.
 Every `user.speak_l()` and `broadcast_l()` call must include an explicit `buffer=`:
 - `game` — gameplay events
 - `system` — settings, connection, moderation, errors, room/system events
-- `chat` — chat only
+- `chat` — shared chat
+- `private` — private messages
 - `misc` — minor non-chat, non-game informational output
 
 Desktop, Web, and mobile clients share one buffer-mute contract. Muting `all`
 makes every buffer effectively muted and prevents individual mute changes until
 `all` is unmuted. A directly muted source retains its own bounded runtime
-backlog but omits new items from the combined `all` view; muting `all` suppresses
-output without stopping that combined backlog. Effective Chat mute suppresses
-both speech and chat notification sounds. Persist only canonical direct-mute
-names, never message history.
+backlog but omits new items from the combined `all` view; unmuting it merges the
+retained backlog into `all` in original arrival order without duplicates.
+Muting `all` suppresses output without stopping that combined backlog. Effective
+Chat and Private Messages mutes suppress both speech and their related
+notification sounds. Persist only canonical direct-mute names, never message
+history.
+
+Web message history and chat drafts are runtime-only session data. Clear them
+when an authenticated session ends or a new login starts, but preserve them
+across automatic reconnection for the same authenticated session.
 
 #### Administration Privilege Tiers
 `user.trust_level` tiers:

@@ -854,7 +854,6 @@ enter-pm-message = Insira sua mensagem para { $username }:
 pm-error-not-friends = Você só pode enviar mensagens privadas para amigos.
 pm-error-blocked = As mensagens privadas não estão disponíveis entre você e este jogador.
 pm-error-offline = { $username } não está online no momento.
-pm-sent-success = Mensagem enviada para { $username }.
 pm-sent-content = Você para { $username }: { $message }
 pm-received = Mensagem privada de { $username }: { $message }
 

@@ -2874,28 +2874,41 @@ class MainWindow(wx.Frame):
     def on_receive_chat(self, packet):
         """Handle chat packet from server."""
         convo = packet.get("convo")
+        is_private = convo == "private"
         if convo == "global":
             message = Localization.get("chat-global", player=packet.get("sender"), message=packet.get("message"))
         elif convo == "announcement":
             message = Localization.get(
                 "chat-announcement", message=packet.get("message")
             )
+        elif is_private:
+            message = Localization.get(
+                "chat-private",
+                player=packet.get("sender"),
+                message=packet.get("message"),
+            )
         else:
             message = Localization.get("chat-local", player=packet.get("sender"), message=packet.get("message"))
+        buffer_name = "private" if is_private else "chat"
         should_alert = (
             not packet.get("silent")
-            and not self.buffer_system.is_effectively_muted("chat")
+            and not self.buffer_system.is_effectively_muted(buffer_name)
         )
         if should_alert:
             if convo == "announcement":
                 self.sound_manager.play_family("notify")
+            elif is_private:
+                self.sound_manager.play("pm.ogg")
             else:
                 sound = "chatlocal" if convo == "local" else "chat"
                 self.sound_manager.play(sound + ".ogg")
-        self.add_history(message, "chat", should_alert)
+        self.add_history(message, buffer_name, should_alert)
 
     def on_server_audio(self, packet):
         """Route one validated lifecycle command into the audio engine."""
+        buffer_name = packet.get("buffer")
+        if buffer_name and self.buffer_system.is_effectively_muted(buffer_name):
+            return
         self.sound_manager.handle_audio_command(packet)
 
     def on_table_create(self, packet):

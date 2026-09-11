@@ -62,11 +62,13 @@ class FakeElement {
 const strings = {
   "buffer-all": "All",
   "buffer-chat": "Chat",
+  "buffer-private": "Private Messages",
   "buffer-game": "Game",
   "buffer-system": "System",
   "buffer-misc": "Misc",
   "buffer-name-all": "all",
   "buffer-name-chat": "Chat",
+  "buffer-name-private": "private messages",
   "buffer-name-game": "game",
   "buffer-name-system": "system",
   "buffer-name-misc": "misc",
@@ -166,7 +168,7 @@ function createFixture(initialMutedBuffers = [], { compact = false, touchLike = 
 }
 
 test("history buffer names and muted preferences stay canonical", () => {
-  assert.deepEqual(HISTORY_BUFFER_ORDER, ["all", "chat", "game", "system", "misc"]);
+  assert.deepEqual(HISTORY_BUFFER_ORDER, ["all", "chat", "private", "game", "system", "misc"]);
   assert.equal(normalizeHistoryBuffer("chats"), "chat");
   assert.equal(normalizeHistoryBuffer("unknown"), "misc");
   assert.deepEqual(
@@ -176,6 +178,13 @@ test("history buffer names and muted preferences stay canonical", () => {
   assert.deepEqual(normalizeMutedHistoryBuffers(null), []);
 });
 
+test("the Web selector renders Private Messages immediately after Chat", async () => {
+  const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  const optionValues = [...html.matchAll(/<option[^>]+value="(all|chat|private|game|system|misc)"/g)]
+    .map((match) => match[1]);
+  assert.deepEqual(optionValues, HISTORY_BUFFER_ORDER);
+});
+
 test("history storage remains bounded per source and combined buffer", () => {
   const store = createStore();
   for (let index = 0; index <= HISTORY_BUFFER_LIMIT; index += 1) {
@@ -183,7 +192,40 @@ test("history storage remains bounded per source and combined buffer", () => {
   }
   assert.equal(store.state.historyBuffers.game.length, HISTORY_BUFFER_LIMIT);
   assert.equal(store.state.historyBuffers.all.length, HISTORY_BUFFER_LIMIT);
-  assert.equal(store.state.historyBuffers.game[0], "message 1");
+  assert.equal(store.state.historyBuffers.game[0].text, "message 1");
+});
+
+test("ending a Web session clears every history buffer without reusing identities", () => {
+  const store = createStore();
+  store.addHistory("private", "sensitive message");
+  const previousId = store.state.historyBuffers.private[0].id;
+  store.setHistoryBuffer("private");
+
+  assert.equal(store.clearHistory(), true);
+  assert.equal(store.state.historyBuffer, "all");
+  for (const buffer of HISTORY_BUFFER_ORDER) {
+    assert.deepEqual(store.state.historyBuffers[buffer], []);
+  }
+  assert.equal(store.clearHistory(), false);
+
+  store.addHistory("private", "next session");
+  assert.notEqual(store.state.historyBuffers.private[0].id, previousId);
+});
+
+test("ending a Web session resets message navigation for the next login", () => {
+  const fixture = createFixture();
+  for (const text of ["old one", "old two", "old three"]) {
+    fixture.view.addEntry(text, { buffer: "game", announce: false });
+  }
+  fixture.view.oldestMessage();
+
+  fixture.view.clearHistory();
+  for (const text of ["new one", "new two", "new three"]) {
+    fixture.view.addEntry(text, { buffer: "game", announce: false });
+  }
+  fixture.view.olderMessage();
+
+  assert.equal(fixture.announcements.at(-1), "new two");
 });
 
 test("history renderer follows pointer mode and compact layouts remain collapsible", () => {
@@ -211,6 +253,39 @@ test("history renderer follows pointer mode and compact layouts remain collapsib
   narrowDesktop.historyToggleEl.dispatch("click");
   assert.equal(narrowDesktop.historyContentEl.hidden, false);
   assert.equal(narrowDesktop.historyToggleEl.getAttribute("aria-expanded"), "true");
+});
+
+test("message navigation announces history text instead of entry objects", () => {
+  const fixture = createFixture();
+  fixture.view.addEntry("oldest message", { buffer: "game", announce: false });
+  fixture.view.addEntry("middle message", { buffer: "game", announce: false });
+  fixture.view.addEntry("newest message", { buffer: "game", announce: false });
+
+  fixture.view.olderMessage();
+  assert.equal(fixture.announcements.at(-1), "middle message");
+  fixture.view.newerMessage();
+  assert.equal(fixture.announcements.at(-1), "newest message");
+  fixture.view.oldestMessage();
+  assert.equal(fixture.announcements.at(-1), "oldest message");
+  fixture.view.newestMessage();
+  assert.equal(fixture.announcements.at(-1), "newest message");
+  assert.equal(fixture.announcements.includes("[object Object]"), false);
+});
+
+test("history rendering tolerates legacy string entries during a PWA update", () => {
+  const fixture = createFixture();
+  fixture.store.state.historyBuffers.all.push("legacy cached message");
+  fixture.store.state.historyRevisions.all += 1;
+
+  fixture.view.render();
+  fixture.view.newestMessage();
+
+  assert.equal(fixture.historyEl.value, "legacy cached message");
+  assert.equal(
+    fixture.historyLogEl.children[0].children[0].textContent,
+    "legacy cached message",
+  );
+  assert.equal(fixture.announcements.at(-1), "legacy cached message");
 });
 
 test("history updates and reopening a collapsed panel scroll to the latest message", () => {
@@ -247,7 +322,7 @@ test("All mute marks every option and blocks child mute changes", () => {
   assert.deepEqual(fixture.view.getMutedBuffers(), ["all", "chat"]);
   assert.deepEqual(
     fixture.bufferSelectEl.options.map((option) => option.textContent),
-    ["[Muted] All", "[Muted] Chat", "[Muted] Game", "[Muted] System", "[Muted] Misc"],
+    ["[Muted] All", "[Muted] Chat", "[Muted] Private Messages", "[Muted] Game", "[Muted] System", "[Muted] Misc"],
   );
   assert.equal(fixture.bufferMuteEl.textContent, "Unmute all buffer");
   assert.equal(fixture.bufferMuteEl.getAttribute("aria-pressed"), "true");
@@ -273,7 +348,7 @@ test("unmuting All restores independent direct mute state", () => {
   assert.deepEqual(fixture.view.getMutedBuffers(), ["chat"]);
   assert.deepEqual(
     fixture.bufferSelectEl.options.map((option) => option.textContent),
-    ["All", "[Muted] Chat", "Game", "System", "Misc"],
+    ["All", "[Muted] Chat", "Private Messages", "Game", "System", "Misc"],
   );
   assert.equal(fixture.bufferMuteEl.textContent, "Mute all buffer");
   assert.equal(fixture.bufferMuteEl.getAttribute("aria-pressed"), "false");
@@ -282,17 +357,94 @@ test("unmuting All restores independent direct mute state", () => {
 test("direct and global mutes retain the same history semantics as mobile", () => {
   const fixture = createFixture(["chat"]);
   assert.equal(fixture.view.addEntry("quiet chat", { buffer: "chat" }), false);
-  assert.deepEqual(fixture.store.state.historyBuffers.chat, ["quiet chat"]);
+  assert.deepEqual(fixture.store.state.historyBuffers.chat.map((item) => item.text), ["quiet chat"]);
   assert.deepEqual(fixture.store.state.historyBuffers.all, []);
+
+  fixture.view.setMutedBuffers(["private"]);
+  assert.equal(fixture.view.addEntry("quiet private message", { buffer: "private" }), false);
+  assert.deepEqual(
+    fixture.store.state.historyBuffers.private.map((item) => item.text),
+    ["quiet private message"],
+  );
+  assert.deepEqual(
+    fixture.store.state.historyBuffers.all.map((item) => item.text),
+    ["quiet chat"],
+  );
 
   fixture.view.setMutedBuffers(["all"]);
   assert.equal(fixture.view.addEntry("quiet game", { buffer: "game" }), false);
-  assert.deepEqual(fixture.store.state.historyBuffers.game, ["quiet game"]);
-  assert.deepEqual(fixture.store.state.historyBuffers.all, ["quiet game"]);
+  assert.deepEqual(fixture.store.state.historyBuffers.game.map((item) => item.text), ["quiet game"]);
+  assert.deepEqual(
+    fixture.store.state.historyBuffers.all.map((item) => item.text),
+    ["quiet chat", "quiet private message", "quiet game"],
+  );
   fixture.view.olderMessage();
   assert.equal(
     fixture.announcements.at(-1),
     "The all buffer is muted. Unmute it to show its history.",
+  );
+});
+
+test("unmuting merges retained messages into All by identity, arrival order, and capacity", () => {
+  const fixture = createFixture(["private"]);
+  fixture.view.addEntry("one", { buffer: "game", announce: false });
+  fixture.view.addEntry("same text", { buffer: "private", announce: false });
+  fixture.view.addEntry("same text", { buffer: "system", announce: false });
+
+  fixture.view.setMutedBuffers([]);
+  assert.deepEqual(
+    fixture.store.state.historyBuffers.all.map((item) => item.text),
+    ["one", "same text", "same text"],
+  );
+  assert.equal(
+    fixture.store.state.historyBuffers.private[0],
+    fixture.store.state.historyBuffers.all[1],
+  );
+
+  fixture.view.setMutedBuffers(["private"]);
+  fixture.view.setMutedBuffers([]);
+  assert.deepEqual(
+    fixture.store.state.historyBuffers.all.map((item) => item.text),
+    ["one", "same text", "same text"],
+  );
+
+  const cappedStore = createStore();
+  cappedStore.addHistory("private", "hidden oldest", { includeAll: false });
+  for (let index = 0; index < HISTORY_BUFFER_LIMIT; index += 1) {
+    cappedStore.addHistory("game", `visible ${index}`);
+  }
+  cappedStore.mergeHistoryIntoAll(["private"]);
+  assert.equal(cappedStore.state.historyBuffers.all.length, HISTORY_BUFFER_LIMIT);
+  assert.equal(cappedStore.state.historyBuffers.all[0].text, "visible 0");
+});
+
+test("the Web mute control restores the selected source backlog to All", () => {
+  const fixture = createFixture(["private"]);
+  fixture.view.addEntry("quiet private message", { buffer: "private", announce: false });
+  fixture.store.setHistoryBuffer("private");
+
+  assert.equal(fixture.view.toggleCurrentBufferMute(), true);
+  assert.deepEqual(fixture.view.getMutedBuffers(), []);
+  assert.deepEqual(
+    fixture.store.state.historyBuffers.all.map((item) => item.text),
+    ["quiet private message"],
+  );
+});
+
+test("unmuting All leaves sources with their own direct mute excluded", () => {
+  const fixture = createFixture(["all", "private"]);
+  fixture.view.addEntry("still private", { buffer: "private", announce: false });
+  fixture.view.addEntry("combined while globally muted", { buffer: "game", announce: false });
+
+  fixture.view.setMutedBuffers(["private"]);
+  assert.deepEqual(
+    fixture.store.state.historyBuffers.all.map((item) => item.text),
+    ["combined while globally muted"],
+  );
+  fixture.view.setMutedBuffers([]);
+  assert.deepEqual(
+    fixture.store.state.historyBuffers.all.map((item) => item.text),
+    ["still private", "combined while globally muted"],
   );
 });
 
@@ -306,6 +458,16 @@ test("chat notification sounds remain behind effective buffer output gating", as
   assert.match(
     handler,
     /if \(shouldSpeak && outputAllowed\) \{[\s\S]*?this\.audio\.playSound/,
+  );
+  assert.match(handler, /historyBuffer = convo === "private" \? "private" : "chat"/);
+  assert.match(handler, /soundName = "pm\.ogg"/);
+});
+
+test("buffer-scoped audio commands are suppressed by effective mute state", async () => {
+  const appSource = await readFile(new URL("../app.js", import.meta.url), "utf8");
+  assert.match(
+    appSource,
+    /case "audio":[\s\S]*?!this\.historyView\.isBufferMuted\(normalizeHistoryBuffer\(packet\.buffer\)\)[\s\S]*?this\.audio\.handleAudioCommand\(packet\)/,
   );
 });
 
@@ -329,6 +491,8 @@ test("Web buffer terminology matches the mobile English and Vietnamese catalogs"
     readFile(new URL("../../mobile_client/locales/vi/client.json", import.meta.url), "utf8").then(JSON.parse),
   ]);
   const keys = [
+    "buffer-private",
+    "buffer-name-private",
     "history-buffer-muted-name",
     "history-buffer-mute",
     "history-buffer-unmute",

@@ -11,7 +11,7 @@ from typing import Dict, List, Optional, Set, Tuple
 class BufferSystem:
     """Manages multiple message buffers for organizing game output."""
 
-    BUFFER_NAMES = ("all", "chat", "game", "system", "misc")
+    BUFFER_NAMES = ("all", "chat", "private", "game", "system", "misc")
     BUFFER_ALIASES = {
         "chats": "chat",
     }
@@ -31,6 +31,7 @@ class BufferSystem:
         self.current_buffer_index: int = 0  # which buffer user is viewing (0-based)
         self.buffer_positions: Dict[str, int] = {}  # name -> position (0 = newest)
         self.muted_buffers: Set[str] = set()  # set of muted buffer names
+        self._next_item_sequence = 0
 
     @classmethod
     def normalize_buffer_name(cls, name: object) -> str:
@@ -71,8 +72,14 @@ class BufferSystem:
         if buffer_name not in self.buffers:
             self.create_buffer(buffer_name)
 
-        # Create message item
-        item = {"text": text, "timestamp": time.time()}
+        # Create one stable item shared by its source and the combined history.
+        self._next_item_sequence += 1
+        item = {
+            "id": f"message:{self._next_item_sequence}",
+            "sequence": self._next_item_sequence,
+            "text": text,
+            "timestamp": time.time(),
+        }
 
         # Add to the source even while it is muted so its backlog remains available.
         self._append_item(buffer_name, item)
@@ -93,6 +100,24 @@ class BufferSystem:
         overflow = len(buffer) - self.max_items_per_buffer
         if overflow > 0:
             del buffer[:overflow]
+
+    def _merge_sources_into_all(self, source_names: Set[str]) -> None:
+        """Merge retained unmuted-source backlogs into All in arrival order."""
+        if "all" not in self.buffers:
+            return
+
+        items_by_id = {
+            item["id"]: item
+            for item in self.buffers["all"]
+        }
+        for source_name in source_names:
+            if source_name == "all":
+                continue
+            for item in self.buffers.get(source_name, []):
+                items_by_id[item["id"]] = item
+
+        merged = sorted(items_by_id.values(), key=lambda item: item["sequence"])
+        self.buffers["all"] = merged[-self.max_items_per_buffer :]
 
     def next_buffer(self) -> None:
         """Switch to the next buffer in the list (does not wrap)."""
@@ -217,6 +242,7 @@ class BufferSystem:
             return False
         if buffer_name in self.muted_buffers:
             self.muted_buffers.remove(buffer_name)
+            self._merge_sources_into_all({buffer_name})
         else:
             self.muted_buffers.add(buffer_name)
         return True
@@ -233,9 +259,11 @@ class BufferSystem:
                 ):
                     next_muted.add(normalized)
 
-        changed = next_muted != self.muted_buffers
+        previously_muted = self.muted_buffers.copy()
+        changed = next_muted != previously_muted
         if changed:
             self.muted_buffers = next_muted
+            self._merge_sources_into_all(previously_muted - next_muted)
         return changed
 
     def is_muted(self, buffer_name: str) -> bool:

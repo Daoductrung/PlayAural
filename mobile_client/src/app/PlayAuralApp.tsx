@@ -379,7 +379,7 @@ function formatChatMessage(localization: MobileLocalization, packet: ChatPacket)
   if (packet.convo === "announcement") {
     return localization.t("chat-announcement", { message });
   }
-  if (packet.convo === "private" || packet.convo === "pm") {
+  if (packet.convo === "private") {
     return localization.t("chat-private", { message, player: sender });
   }
   return localization.t("chat-local", { message, player: sender });
@@ -1989,7 +1989,10 @@ export function PlayAuralApp() {
 
   const handleChatPacket = (packet: ChatPacket) => {
     const message = formatChatMessage(localization, packet);
-    buffers.add("chat", message);
+    const buffer = packet.convo === "private"
+      ? "private"
+      : "chat";
+    buffers.add(buffer, message);
     setHistoryRevision((value) => value + 1);
 
     let shouldSpeak = !packet.silent;
@@ -2003,13 +2006,15 @@ export function PlayAuralApp() {
       shouldSpeak = false;
     }
 
-    if (shouldSpeak && !buffers.isMuted("chat")) {
+    if (shouldSpeak && !buffers.isMuted(buffer)) {
       let chatSound = "chat.ogg";
       let chatSoundFamily = "";
       if (packet.convo === "local" || packet.convo === "table" || packet.convo === "game") {
         chatSound = "chatlocal.ogg";
       } else if (packet.convo === "announcement") {
         chatSoundFamily = "notify";
+      } else if (buffer === "private") {
+        chatSound = "pm.ogg";
       }
       if (chatSoundFamily) {
         void audio.playSoundFamily(chatSoundFamily);
@@ -2584,7 +2589,9 @@ export function PlayAuralApp() {
 
         if (packet.type === "audio") {
           const audioPacket = packet as AudioCommandPacket;
-          void audio.handleAudioCommand(audioPacket);
+          if (!audioPacket.buffer || !buffers.isMuted(audioPacket.buffer)) {
+            void audio.handleAudioCommand(audioPacket);
+          }
           return;
         }
 

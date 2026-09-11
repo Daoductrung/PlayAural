@@ -154,14 +154,17 @@ buffer-name-misc = misc
 buffer-name-game = game
 buffer-name-system = system
 buffer-name-chat = Chat
+buffer-name-private = private messages
 buffer-all = All
 buffer-chat = Chat
+buffer-private = Private Messages
 buffer-game = Game
 buffer-system = System
 buffer-misc = Misc
 
 system-announcement = System Announcement
 chat-announcement = System Announcement: { $message }
+chat-private = Private message from { $player }: { $message }
 common-app-closing = The game will now close.
 login-error-connection-refused = Connection refused: Server might be offline.
 login-error-connection-timeout = Connection timeout: Server did not respond.

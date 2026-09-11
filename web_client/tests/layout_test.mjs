@@ -166,6 +166,51 @@ test("touch-rendered menu cells retain hardware-keyboard navigation", () => {
   assert.equal(prevented, true);
 });
 
+test("message-history punctuation shortcuts keep their established dispatch", () => {
+  const menuElement = { contains: () => false };
+  const calls = [];
+  let keydown = null;
+  globalThis.document = {
+    activeElement: menuElement,
+    addEventListener(type, listener) {
+      if (type === "keydown") {
+        keydown = listener;
+      }
+    },
+  };
+  installKeybinds({
+    store: {
+      state: {
+        connection: { authenticated: true },
+        currentMenu: {
+          gridEnabled: false,
+          gridWidth: 1,
+          items: [],
+          selection: 0,
+        },
+      },
+    },
+    menuView: { getElement: () => menuElement },
+    onOlderMessage: () => calls.push("older"),
+    onNewerMessage: () => calls.push("newer"),
+    onOldestMessage: () => calls.push("oldest"),
+    onNewestMessage: () => calls.push("newest"),
+  });
+
+  for (const [key, shiftKey] of [[",", false], [".", false], ["<", true], [">", true]]) {
+    keydown({
+      key,
+      altKey: false,
+      ctrlKey: false,
+      shiftKey,
+      metaKey: false,
+      preventDefault() {},
+    });
+  }
+
+  assert.deepEqual(calls, ["older", "newer", "oldest", "newest"]);
+});
+
 test("large grids retain accessible cells and pan on both axes", async () => {
   const css = await readFile(new URL("../style.css", import.meta.url), "utf8");
   const gridStart = css.indexOf(".menu-list.grid-mode {");
@@ -206,7 +251,9 @@ test("locale metadata identifies Persian as right-to-left", async () => {
   );
 });
 
-test("the offline shell precaches the disclosure module", async () => {
+test("the offline shell precaches the updated UI modules", async () => {
   const serviceWorker = await readFile(new URL("../sw.js", import.meta.url), "utf8");
-  assert.match(serviceWorker, /\.\/ui\/collapsiblePanels\.js/);
+  for (const asset of ["store.js", "ui/history.js", "ui/collapsiblePanels.js"]) {
+    assert.match(serviceWorker, new RegExp(`\\./${asset.replace("/", "\\/")}`));
+  }
 });

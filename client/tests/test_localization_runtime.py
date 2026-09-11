@@ -41,9 +41,11 @@ def test_desktop_buffer_terminology_matches_mobile_english_and_vietnamese():
     keys = (
         "buffer-all",
         "buffer-chat",
+        "buffer-private",
         "buffer-game",
         "buffer-system",
         "buffer-misc",
+        "buffer-name-private",
         "history-buffer-current",
         "history-buffer-muted-name",
         "history-buffer-muted-by-all",

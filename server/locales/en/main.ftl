@@ -855,7 +855,8 @@ enter-pm-message = Enter your message for { $username }:
 pm-error-not-friends = You can only send private messages to friends.
 pm-error-blocked = Private messages are unavailable between you and this user.
 pm-error-offline = { $username } is not currently online.
-pm-sent-success = Message sent to { $username }.
+pm-error-self = You cannot send a private message to yourself.
+pm-error-message-required = Enter a private message. When using chat, include a user name, for example: @User hello.
 pm-sent-content = You to { $username }: { $message }
 pm-received = Private message from { $username }: { $message }
 

@@ -266,19 +266,25 @@ Use declarative `GameOptions` with `option_field()`.
 Audio-first is mandatory. Every important state change needs TTS and/or sound.
 
 - Every `speak_l()` and `broadcast_l()` call must pass explicit `buffer=`.
-- Buffers: `game` for gameplay, `system` for settings/connection/moderation,
-  `chat` for chat only, `misc` for minor non-game informational output.
+- Buffers: `chat` for shared chat, `private` for private messages, `game` for
+  gameplay, `system` for settings/connection/moderation, and `misc` for minor
+  non-game informational output.
 - Desktop, Web, and mobile share one buffer-mute contract. Muting `all` makes
   every buffer effectively muted and blocks individual mute changes until it is
   unmuted. A directly muted source retains its bounded runtime backlog but
-  omits new items from `all`; a global mute keeps the combined backlog. An
-  effective Chat mute suppresses speech and notification sounds. Persist only
-  canonical direct-mute names, never message history.
+  omits new items from `all`; unmuting it merges that retained backlog into
+  `all` in original arrival order without duplicates. A global mute keeps the
+  combined backlog. An effective Chat or Private Messages mute suppresses
+  speech and its related notification sounds. Persist only canonical
+  direct-mute names, never message history.
 - Use `play_sound`, `user.play_sound`, `play_music`, ambience helpers, scheduled
   sounds, or sequences as appropriate.
 - All server-driven SFX, music, and ambience use the versioned `audio` command
   contract in `server/audio.py`. Do not add separate packet types or
   client-specific routing. Asset paths and command values must be validated.
+- One-shot notification SFX may declare their related output `buffer`; clients
+  suppress those cues when that buffer is effectively muted. Do not attach a
+  buffer to managed or looping audio.
 - Randomized numbered one-shot SFX use the validated `family` field. Clients
   select from dynamically discovered `<family><positive integer>` assets; do
   not hardcode a variant count or use families for loops, music, or ambience.
@@ -493,6 +499,8 @@ per-game shutdown hooks.
 - Desktop and Web visual history must follow newly rendered messages to the
   bottom without stealing the reader's caret or focus. Compact Web history
   remains collapsible, focus-safe, and opens at the newest rendered message.
+  Web history and chat drafts clear when an authenticated session ends, but
+  survive automatic reconnection for that same session.
 - Web speech prefs are `speech_mode`, `speech_voice`, `speech_rate`.
 - Mobile speech prefs are `mobile_tts_engine`, `mobile_tts_voice`,
   `mobile_tts_rate`; unavailable synced voices/engines must fall back safely.

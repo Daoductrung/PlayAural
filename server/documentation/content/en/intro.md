@@ -32,7 +32,7 @@ When you enter a table, you can usually:
 PlayAural is built to be social as well as accessible.
 
 \* \*\*Friends:\*\* Keep track of the people you enjoy playing with.
-\* \*\*Private messages:\*\* Send direct messages without leaving your current table.
+\* \*\*Private messages:\*\* Send direct messages without leaving your current table. Messages you send and receive are kept in the Private Messages history buffer for the current session.
 \* \*\*Online users:\*\* Check who is currently online.
 \* \*\*Global chat:\*\* Type `/g` followed by your message to send a message to everyone on the server.
 

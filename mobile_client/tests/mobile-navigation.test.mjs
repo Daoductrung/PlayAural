@@ -147,11 +147,13 @@ test("EN and VI mobile buffer terminology matches the desktop and web contracts"
   const parity = {
     "buffer-all": ["All", "Tất cả"],
     "buffer-chat": ["Chat", "Trò chuyện"],
+    "buffer-private": ["Private Messages", "Tin nhắn riêng"],
     "buffer-game": ["Game", "Trò chơi"],
     "buffer-system": ["System", "Hệ thống"],
     "buffer-misc": ["Misc", "Linh tinh"],
     "buffer-name-all": ["all", "tất cả"],
     "buffer-name-chat": ["Chat", "Trò chuyện"],
+    "buffer-name-private": ["private messages", "tin nhắn riêng"],
     "buffer-name-game": ["game", "trò chơi"],
     "buffer-name-system": ["system", "hệ thống"],
     "buffer-name-misc": ["misc", "linh tinh"],

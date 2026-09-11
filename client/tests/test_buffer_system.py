@@ -58,6 +58,27 @@ def test_effective_mute_inherits_all_buffer():
     assert buffer_system.is_effectively_muted("chat")
 
 
+def test_private_messages_buffer_follows_chat_in_shared_order():
+    buffer_system = BufferSystem()
+    buffer_system.create_default_buffers()
+
+    assert buffer_system.buffer_order == [
+        "all",
+        "chat",
+        "private",
+        "game",
+        "system",
+        "misc",
+    ]
+
+    buffer_system.toggle_mute("private")
+    buffer_system.add_item("private", "quiet private message")
+    assert [item["text"] for item in buffer_system.buffers["private"]] == [
+        "quiet private message"
+    ]
+    assert buffer_system.buffers["all"] == []
+
+
 def test_global_mute_blocks_individual_toggles_and_preserves_direct_mutes():
     buffer_system = BufferSystem()
     buffer_system.create_default_buffers()
@@ -86,6 +107,72 @@ def test_muted_sources_retain_backlogs_without_leaking_into_all():
         "hidden chat"
     ]
     assert buffer_system.buffers["all"] == []
+
+
+def test_unmuting_source_merges_retained_backlog_into_all_in_arrival_order():
+    buffer_system = BufferSystem()
+    buffer_system.create_default_buffers()
+    buffer_system.add_item("game", "before")
+    buffer_system.toggle_mute("private")
+    buffer_system.add_item("private", "quiet private message")
+    buffer_system.add_item("system", "after")
+
+    assert [item["text"] for item in buffer_system.buffers["all"]] == [
+        "before",
+        "after",
+    ]
+
+    assert buffer_system.toggle_mute("private")
+    assert [item["text"] for item in buffer_system.buffers["all"]] == [
+        "before",
+        "quiet private message",
+        "after",
+    ]
+    assert buffer_system.buffers["private"][0] is buffer_system.buffers["all"][1]
+
+
+def test_unmute_merge_is_deduplicated_and_respects_combined_capacity():
+    buffer_system = BufferSystem(max_items_per_buffer=3)
+    buffer_system.create_default_buffers()
+    buffer_system.toggle_mute("private")
+    buffer_system.add_item("game", "one")
+    buffer_system.add_item("private", "same text")
+    buffer_system.add_item("system", "same text")
+    buffer_system.add_item("game", "four")
+
+    buffer_system.set_muted_buffers([])
+    assert [item["text"] for item in buffer_system.buffers["all"]] == [
+        "same text",
+        "same text",
+        "four",
+    ]
+
+    buffer_system.set_muted_buffers(["private"])
+    buffer_system.set_muted_buffers([])
+    assert [item["text"] for item in buffer_system.buffers["all"]] == [
+        "same text",
+        "same text",
+        "four",
+    ]
+
+
+def test_unmuting_all_does_not_restore_still_directly_muted_sources():
+    buffer_system = BufferSystem()
+    buffer_system.create_default_buffers()
+    buffer_system.set_muted_buffers(["all", "private"])
+    buffer_system.add_item("private", "still private")
+    buffer_system.add_item("game", "combined while globally muted")
+
+    buffer_system.set_muted_buffers(["private"])
+    assert [item["text"] for item in buffer_system.buffers["all"]] == [
+        "combined while globally muted"
+    ]
+
+    buffer_system.set_muted_buffers([])
+    assert [item["text"] for item in buffer_system.buffers["all"]] == [
+        "still private",
+        "combined while globally muted",
+    ]
 
 
 def test_global_mute_keeps_combined_history_accumulating():
@@ -168,7 +255,7 @@ def test_chat_packets_do_not_speak_directly_outside_add_history():
     assert add_history_calls
 
 
-def test_chat_alerts_are_gated_by_effective_chat_buffer_mute():
+def test_chat_alerts_are_gated_by_the_effective_destination_buffer_mute():
     function = _get_main_window_function("on_receive_chat")
     should_alert_assignments = [
         node
@@ -187,10 +274,23 @@ def test_chat_alerts_are_gated_by_effective_chat_buffer_mute():
         and isinstance(node.func, ast.Attribute)
         and node.func.attr == "is_effectively_muted"
         and len(node.args) == 1
-        and isinstance(node.args[0], ast.Constant)
-        and node.args[0].value == "chat"
+        and isinstance(node.args[0], ast.Name)
+        and node.args[0].id == "buffer_name"
     ]
     assert effective_mute_calls
+
+
+def test_buffer_scoped_audio_is_gated_by_effective_mute_state():
+    function = _get_main_window_function("on_server_audio")
+    assert any(
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "is_effectively_muted"
+        and node.args
+        and isinstance(node.args[0], ast.Name)
+        and node.args[0].id == "buffer_name"
+        for node in ast.walk(function)
+    )
 
 
 def test_desktop_buffer_announcements_use_effective_mute_state():

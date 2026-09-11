@@ -748,7 +748,6 @@ send-private-message = ارسال پیام خصوصی
 enter-pm-message = پیام خود را برای { $username } وارد کنید:
 pm-error-not-friends = شما فقط می‌توانید برای دوستان خود پیام خصوصی بفرستید.
 pm-error-offline = { $username } در حال حاضر آنلاین نیست.
-pm-sent-success = پیام به { $username } ارسال شد.
 pm-sent-content = شما به { $username }: { $message }
 pm-received = پیام خصوصی از { $username }: { $message }
 

@@ -15,6 +15,7 @@ from sound_lib.external import pybass
 
 
 AUDIO_PROTOCOL_VERSION = 2
+AUDIO_OUTPUT_BUFFERS = frozenset({"chat", "private", "game", "system", "misc"})
 MAX_ACTIVE_EFFECTS = 64
 MAX_ACTIVE_LAYERS = 32
 MAX_SOUND_FAMILY_CACHE = 64
@@ -1061,6 +1062,15 @@ class SoundManager:
             return False
         command = packet.get("command")
         kind = packet.get("kind", "")
+        output_buffer = packet.get("buffer", "")
+        if output_buffer and (
+            not isinstance(output_buffer, str)
+            or output_buffer not in AUDIO_OUTPUT_BUFFERS
+            or command != "play"
+            or kind != "sfx"
+            or bool(packet.get("loop"))
+        ):
+            return False
         if packet.get("family") and command != "play":
             return False
         if packet.get("all_layers") and (

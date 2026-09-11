@@ -300,27 +300,34 @@ class TestFriendsSystem:
         assert self.server._user_states[alice.username]["menu"] == "friends_hub_menu"
 
     @pytest.mark.asyncio
-    async def test_private_message_to_self_accepts_case_variant_without_friendship(self):
+    async def test_private_message_to_self_is_rejected_by_canonical_identity(self):
         self.db.create_user("Trung", "hash")
         record = self.db.get_user("Trung")
         user = self._make_network_user(record.username, record.uuid)
+        user.connection.username = record.username
 
-        await self.server._deliver_private_message(user, "trung", "Remember this")
+        await self.server._handle_chat(
+            user.connection,
+            {"convo": "local", "message": "@trung Remember this"},
+        )
         messages = user.get_queued_messages()
         speech = [packet for packet in messages if packet.get("type") == "speak"]
 
-        assert [packet.get("key") for packet in speech] == ["pm-sent-content"]
-        assert speech[0]["params"] == {
-            "username": "Trung",
-            "message": "Remember this",
-        }
+        assert [packet.get("key") for packet in speech] == ["pm-error-self"]
+        assert speech[0]["buffer"] == "system"
+        assert not any(packet.get("asset") == "pm.ogg" for packet in messages)
 
     @pytest.mark.asyncio
     async def test_private_message_command_parses_full_spaced_username(self):
+        self.db.create_user("Alice", "hash")
         self.db.create_user("Nguyễn Văn An", "hash")
-        record = self.db.get_user("Nguyễn Văn An")
-        user = self._make_network_user(record.username, record.uuid)
-        user.connection.username = record.username
+        sender = self.db.get_user("Alice")
+        target = self.db.get_user("Nguyễn Văn An")
+        self.db.send_friend_request(sender.uuid, target.uuid)
+        self.db.accept_friend_request(sender.uuid, target.uuid)
+        user = self._make_network_user(sender.username, sender.uuid)
+        self._make_network_user(target.username, target.uuid)
+        user.connection.username = sender.username
 
         await self.server._handle_chat(
             user.connection,
@@ -337,7 +344,26 @@ class TestFriendsSystem:
                 "username": "Nguyễn Văn An",
                 "message": "Ghi chú cho tôi",
             }
+            and packet.get("buffer") == "private"
             for packet in messages
+        )
+
+    @pytest.mark.asyncio
+    async def test_private_message_command_reports_missing_message(self):
+        alice, bob = self._create_friendship()
+        alice_user = self._make_network_user(alice.username, alice.uuid)
+        self._make_network_user(bob.username, bob.uuid)
+        alice_user.connection.username = alice.username
+
+        await self.server._handle_chat(
+            alice_user.connection,
+            {"convo": "local", "message": "@Bob"},
+        )
+
+        assert any(
+            packet.get("key") == "pm-error-message-required"
+            and packet.get("buffer") == "system"
+            for packet in alice_user.get_queued_messages()
         )
 
     @pytest.mark.asyncio
@@ -353,13 +379,22 @@ class TestFriendsSystem:
         assert any(
             packet.get("key") == "pm-sent-content"
             and packet.get("params", {}).get("username") == "Bob"
+            and packet.get("buffer") == "private"
             for packet in sender_messages
         )
         assert any(
             packet.get("key") == "pm-received"
             and packet.get("params", {}).get("username") == "Alice"
+            and packet.get("buffer") == "private"
             for packet in recipient_messages
         )
+        for messages in (sender_messages, recipient_messages):
+            assert any(
+                packet.get("type") == "audio"
+                and packet.get("asset") == "pm.ogg"
+                and packet.get("buffer") == "private"
+                for packet in messages
+            )
 
     @pytest.mark.asyncio
     async def test_friends_list_pages_large_results(self):

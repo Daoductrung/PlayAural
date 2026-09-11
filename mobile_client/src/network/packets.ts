@@ -1,4 +1,5 @@
-export type SpeechBuffer = "all" | "chat" | "game" | "system" | "misc";
+export type SpeechBuffer = "all" | "chat" | "private" | "game" | "system" | "misc";
+export type OutputBuffer = Exclude<SpeechBuffer, "all">;
 
 export type MenuItemData = {
   id?: string;
@@ -33,7 +34,7 @@ export type SpeakPacket = {
 
 export type ChatPacket = {
   type: "chat";
-  convo?: "local" | "global" | "announcement" | "table" | "game" | "private" | "pm";
+  convo?: "local" | "global" | "announcement" | "table" | "game" | "private";
   sender?: string;
   message?: string;
   silent?: boolean;
@@ -134,6 +135,7 @@ export type AudioCommandPacket = {
   family?: string;
   handle?: string;
   bus?: string;
+  buffer?: OutputBuffer;
   scope?: "global" | "player" | "context";
   context?: string;
   layer?: string;

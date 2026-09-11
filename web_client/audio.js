@@ -1,6 +1,7 @@
 import { soundFamilies } from "./generated/soundManifest.js";
 
 const AUDIO_PROTOCOL_VERSION = 2;
+const AUDIO_OUTPUT_BUFFERS = new Set(["chat", "private", "game", "system", "misc"]);
 const MAX_ACTIVE_EFFECTS = 64;
 const MAX_ACTIVE_LAYERS = 32;
 const MAX_CACHED_EFFECTS = 128;
@@ -1326,6 +1327,18 @@ export function createAudioEngine(options = {}) {
       return false;
     }
     if (packet.family && packet.command !== "play") {
+      return false;
+    }
+    if (
+      packet.buffer
+      && (
+        typeof packet.buffer !== "string"
+        || !AUDIO_OUTPUT_BUFFERS.has(packet.buffer)
+        || packet.command !== "play"
+        || packet.kind !== "sfx"
+        || Boolean(packet.loop)
+      )
+    ) {
       return false;
     }
     switch (packet.command) {

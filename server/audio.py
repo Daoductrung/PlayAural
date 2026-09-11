@@ -31,6 +31,7 @@ AUDIO_COMMANDS = frozenset(
 )
 AUDIO_SCOPES = frozenset({"global", "player", "context"})
 AUDIO_OUTRO_MODES = frozenset({"immediate", "boundary"})
+AUDIO_OUTPUT_BUFFERS = frozenset({"chat", "private", "game", "system", "misc"})
 
 _ID_PATTERN = re.compile(r"^[A-Za-z0-9_.:-]{1,128}$")
 
@@ -215,6 +216,7 @@ class AudioCommand:
     family: str = ""
     handle: str = ""
     bus: str = ""
+    buffer: str = ""
     scope: str = "global"
     context: str = ""
     layer: str = "main"
@@ -267,6 +269,9 @@ class AudioCommand:
             self.bus = normalize_audio_id(self.bus, field_name="bus")
         elif self.kind:
             self.bus = self.kind
+        self.buffer = str(self.buffer or "")
+        if self.buffer and self.buffer not in AUDIO_OUTPUT_BUFFERS:
+            raise ValueError(f"Unknown audio output buffer: {self.buffer!r}")
         if self.context:
             self.context = normalize_audio_id(self.context, field_name="context")
         self.layer = normalize_audio_id(self.layer or "main", field_name="layer")
@@ -301,6 +306,10 @@ class AudioCommand:
             self.command != "play" or self.kind != "sfx" or self.loop
         ):
             raise ValueError("Audio families are only valid for one-shot SFX")
+        if self.buffer and (
+            self.command != "play" or self.kind != "sfx" or self.loop
+        ):
+            raise ValueError("Output buffers are only valid for one-shot SFX")
         self.play_intro = bool(self.play_intro)
         self.play_outro = bool(self.play_outro)
         self.play_outros = bool(self.play_outros)
@@ -352,6 +361,7 @@ class AudioCommand:
             "family": self.family,
             "handle": self.handle,
             "bus": self.bus,
+            "buffer": self.buffer,
             "scope": self.scope,
             "context": self.context,
             "layer": self.layer,

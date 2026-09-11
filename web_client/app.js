@@ -1552,6 +1552,7 @@ class PlayAuralWebApp {
       [byId("history-buffer-label"), "history-buffer-label"],
       [byId("buffer-option-all"), "buffer-all"],
       [byId("buffer-option-chat"), "buffer-chat"],
+      [byId("buffer-option-private"), "buffer-private"],
       [byId("buffer-option-game"), "buffer-game"],
       [byId("buffer-option-system"), "buffer-system"],
       [byId("buffer-option-misc"), "buffer-misc"],
@@ -1865,6 +1866,7 @@ class PlayAuralWebApp {
       this.localError("common-error", this.elements.loginStatus);
       return;
     }
+    this.clearSessionHistory();
     this.currentAuthStatusEl = this.elements.loginStatus;
     this.setAuthStatus("status-authenticating", this.elements.loginStatus);
     const captcha = await getCaptchaTokenResult("login");
@@ -2043,6 +2045,8 @@ class PlayAuralWebApp {
           speak: this.reconnectStartedAt === 0,
         });
       } else {
+        this.sessionEstablished = false;
+        this.clearSessionHistory();
         this.updateConnectionStatus("status-disconnected");
         this.showAuth();
       }
@@ -2208,6 +2212,7 @@ class PlayAuralWebApp {
     this.resetReconnectState();
     this.network.disconnect();
     this.cleanupRuntime(true);
+    this.clearSessionHistory();
     this.store.setConnection({ authenticated: false, status: "disconnected" });
     this.showAuth();
     this.updateConnectionStatus("main-reconnect-failed", true);
@@ -2225,6 +2230,7 @@ class PlayAuralWebApp {
     this.network.disconnect();
     this.store.setConnection({ authenticated: false, status: "disconnected" });
     this.cleanupRuntime(true);
+    this.clearSessionHistory();
     this.showAuth();
     this.updateConnectionStatus("status-disconnected");
   }
@@ -2240,6 +2246,13 @@ class PlayAuralWebApp {
     this.currentTableContextId = "";
     if (full) {
       this.store.clearUi();
+    }
+  }
+
+  clearSessionHistory() {
+    this.historyView.clearHistory();
+    if (this.elements.chatInput) {
+      this.elements.chatInput.value = "";
     }
   }
 
@@ -2343,7 +2356,12 @@ class PlayAuralWebApp {
         this.handleForceExit(packet);
         break;
       case "audio":
-        this.audio.handleAudioCommand(packet);
+        if (
+          !packet.buffer
+          || !this.historyView.isBufferMuted(normalizeHistoryBuffer(packet.buffer))
+        ) {
+          this.audio.handleAudioCommand(packet);
+        }
         break;
       case "clear_ui":
         this.cleanupRuntime(true);
@@ -2489,6 +2507,7 @@ class PlayAuralWebApp {
     this.network.disconnect();
     this.store.setConnection({ authenticated: false, status: "disconnected" });
     if (!this.shouldReconnect) {
+      this.clearSessionHistory();
       this.showAuth();
     }
     this.updateConnectionStatus(reason, true);
@@ -2504,6 +2523,7 @@ class PlayAuralWebApp {
     this.network.disconnect();
     this.store.setConnection({ authenticated: false, status: "disconnected" });
     this.cleanupRuntime(true);
+    this.clearSessionHistory();
     this.showAuth();
     this.updateConnectionStatus(reason, true);
   }
@@ -2553,6 +2573,7 @@ class PlayAuralWebApp {
     let soundFamily = "";
     let shouldSpeak = !packet.silent;
     const convo = packet.convo || "system";
+    const historyBuffer = convo === "private" ? "private" : "chat";
 
     if (convo === "global") {
       prefix = `${Localization.get("chat-prefix-global")} ${sender}`;
@@ -2562,6 +2583,12 @@ class PlayAuralWebApp {
       prefix = Localization.get("chat-prefix-announcement");
       speakText = `${prefix}: ${packet.message || ""}`;
       soundFamily = "notify";
+    } else if (historyBuffer === "private") {
+      speakText = Localization.get("chat-private", {
+        player: sender,
+        message: packet.message || "",
+      });
+      soundName = "pm.ogg";
     } else if (["local", "table", "game"].includes(convo)) {
       const tableLike = convo !== "local" || this.isGameMenu(this.store.state.currentMenu.menuId);
       prefix = `${Localization.get(tableLike ? "chat-prefix-table" : "chat-prefix-local")} ${sender}`;
@@ -2570,15 +2597,20 @@ class PlayAuralWebApp {
       shouldSpeak = shouldSpeak && this.preferences.mute_table_chat !== true;
     }
 
-    const display = `${prefix}: ${packet.message || ""}`;
-    const outputAllowed = this.historyView.addEntry(display, { buffer: "chat", announce: false });
+    const display = historyBuffer === "private"
+      ? speakText
+      : `${prefix}: ${packet.message || ""}`;
+    const outputAllowed = this.historyView.addEntry(display, {
+      buffer: historyBuffer,
+      announce: false,
+    });
     if (shouldSpeak && outputAllowed) {
       if (soundFamily) {
         this.audio.playSound({ family: soundFamily });
       } else {
         this.audio.playSound({ asset: soundName });
       }
-      this.speak(speakText, { buffer: "chat", noHistory: true });
+      this.speak(speakText, { buffer: historyBuffer, noHistory: true });
     }
   }
 

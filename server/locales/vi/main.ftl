@@ -843,7 +843,8 @@ enter-pm-message = Nhập tin nhắn cho { $username }:
 pm-error-not-friends = Bạn chỉ có thể gửi tin nhắn riêng cho bạn bè.
 pm-error-blocked = Bạn và người dùng này không thể gửi tin nhắn riêng cho nhau.
 pm-error-offline = { $username } hiện không trực tuyến.
-pm-sent-success = Đã gửi tin nhắn đến { $username }.
+pm-error-self = Bạn không thể gửi tin nhắn riêng cho chính mình.
+pm-error-message-required = Hãy nhập tin nhắn riêng. Khi dùng ô trò chuyện, hãy kèm tên người dùng, ví dụ: @User xin chào.
 pm-sent-content = Bạn gửi đến { $username }: { $message }
 pm-received = Tin nhắn riêng từ { $username }: { $message }
 

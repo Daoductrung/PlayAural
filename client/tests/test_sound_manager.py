@@ -403,6 +403,18 @@ def test_malformed_protocol_version_is_rejected_without_raising(monkeypatch):
     assert manager.handle_audio_command(
         {"version": 2, "command": "stop_all", "family": "notify"}
     ) is False
+    assert manager.handle_audio_command(
+        {"version": 2, "command": "stop_all", "buffer": "private"}
+    ) is False
+    assert manager.handle_audio_command(
+        {
+            "version": 2,
+            "command": "play",
+            "kind": "sfx",
+            "asset": "pm.ogg",
+            "buffer": "unknown",
+        }
+    ) is False
 
 
 def test_audio_protocol_resolves_numbered_sound_family(monkeypatch):

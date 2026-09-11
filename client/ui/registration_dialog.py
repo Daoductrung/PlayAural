@@ -14,6 +14,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from client_info import client_auth_metadata
 from localization import Localization
 from ssl_utils import make_ssl_context
+from .text_direction import apply_text_layout_direction
 
 
 class RegistrationDialog(wx.Dialog):
@@ -26,6 +27,7 @@ class RegistrationDialog(wx.Dialog):
         self.server_url = server_url
         self.registered_username = None # Store success username
         self._create_ui()
+        apply_text_layout_direction(self, Localization.current_locale())
         self.CenterOnScreen()
 
     def _create_ui(self):

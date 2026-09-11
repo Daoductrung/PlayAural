@@ -6,6 +6,7 @@ import {
 } from "./localeCatalogs";
 
 export type { MobileLocale };
+export type TextDirection = "ltr" | "rtl";
 
 type Catalog = Record<string, string>;
 const MESSAGE_ALIASES: Record<string, string> = {
@@ -61,6 +62,11 @@ export class MobileLocalization {
     const resolved = this.resolveLocale(locale);
     const metadata = LOCALE_METADATA[resolved];
     return metadata.nativeName;
+  }
+
+  getTextDirection(locale: string | undefined = this.locale): TextDirection {
+    const resolved = this.resolveLocale(locale);
+    return LOCALE_METADATA[resolved].direction;
   }
 
   has(key: string): boolean {

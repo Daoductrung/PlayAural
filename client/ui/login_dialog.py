@@ -19,6 +19,7 @@ from client_info import client_auth_metadata
 from localization import Localization
 from ssl_utils import make_ssl_context
 from version import VERSION
+from .text_direction import apply_text_layout_direction
 
 
 def _find_saved_account_id(
@@ -153,7 +154,8 @@ class LoginDialog(wx.Dialog):
             self._show_logged_in_ui(target_account)
         else:
             self._show_guest_ui()
-        
+
+        apply_text_layout_direction(self, Localization.current_locale())
         self.panel.Layout()
 
     def _show_logged_in_ui(self, account):
@@ -317,6 +319,7 @@ class LoginDialog(wx.Dialog):
 
         pnl.SetSizer(sz)
         dlg.CenterOnParent()
+        apply_text_layout_direction(dlg, Localization.current_locale())
 
         # Focus appropriately
         if prefill_username:
@@ -350,6 +353,7 @@ class LoginDialog(wx.Dialog):
             Localization.get("forgot-password-prompt"),
             Localization.get("login-btn-forgot-password")
         )
+        apply_text_layout_direction(dlg, Localization.current_locale())
 
         if dlg.ShowModal() == wx.ID_OK:
             email = dlg.GetValue().strip()
@@ -472,6 +476,7 @@ class LoginDialog(wx.Dialog):
 
         pnl.SetSizer(sz)
         dlg.CenterOnParent()
+        apply_text_layout_direction(dlg, Localization.current_locale())
         code_txt.SetFocus()
 
         while dlg.ShowModal() == wx.ID_OK:

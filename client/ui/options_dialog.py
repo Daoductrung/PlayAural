@@ -2,6 +2,7 @@
 
 import wx
 from . import uisound
+from .text_direction import apply_text_layout_direction
 from localization import Localization
 
 
@@ -47,6 +48,7 @@ class ClientOptionsDialog(wx.Dialog, uisound.SoundBindingsMixin):
         })
 
         self._create_ui()
+        apply_text_layout_direction(self, Localization.current_locale())
         self.CenterOnScreen()
 
     def _create_ui(self):

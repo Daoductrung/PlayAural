@@ -3,6 +3,7 @@
 import wx
 from .menu_list import MenuList
 from .menu_focus import resolve_menu_focus_index
+from .text_direction import apply_text_layout_direction
 import accessible_output2.outputs.auto as auto_output
 import sys
 import os
@@ -450,6 +451,7 @@ class MainWindow(wx.Frame):
 
         self._apply_accessibility_labels()
         self._sync_chat_area_tab_order()
+        apply_text_layout_direction(self, Localization.current_locale())
         self._layout_main_panel()
 
     def _apply_accessibility_labels(self):
@@ -473,6 +475,7 @@ class MainWindow(wx.Frame):
         self.history_label.SetLabel(Localization.get("main-history-label"))
         self.update_voice_ui()
         self._apply_accessibility_labels()
+        apply_text_layout_direction(self, Localization.current_locale())
         self._layout_main_panel()
 
         focusable_controls = (

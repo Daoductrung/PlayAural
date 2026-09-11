@@ -40,9 +40,14 @@ for (const code of localeDirs) {
   imports.push(`import ${binding} from "../../locales/${code}/client.json";`);
 
   const info = metadata.locales?.[code] ?? {};
+  const direction = info.direction ?? "ltr";
+  if (direction !== "ltr" && direction !== "rtl") {
+    throw new Error(`Invalid text direction for locale ${code}: ${direction}`);
+  }
   metadataEntries.push(`  ${JSON.stringify(code)}: {
     name: ${JSON.stringify(info.name ?? code)},
     nativeName: ${JSON.stringify(info.nativeName ?? info.name ?? code)},
+    direction: ${JSON.stringify(direction)},
     contributors: ${formatStringArray(info.contributors ?? [])},
     official: ${info.official === true ? "true" : "false"},
   },`);

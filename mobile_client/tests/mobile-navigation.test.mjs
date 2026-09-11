@@ -66,6 +66,22 @@ test("language menu discovers every bundled catalog, uses stable ids, and focuse
   assert.deepEqual(h.calls, [], "Opening the selector must not change the language");
 });
 
+test("locale metadata exposes text direction without changing locale resolution", () => {
+  const localization = new MobileLocalization();
+  assert.equal(localization.getTextDirection("fa"), "rtl");
+  assert.equal(localization.getTextDirection("fa-IR"), "rtl");
+  assert.equal(localization.getTextDirection("en"), "ltr");
+  assert.equal(localization.getTextDirection("unsupported-locale"), "ltr");
+});
+
+test("text direction follows the app locale without enabling global layout mirroring", () => {
+  const source = readFileSync(appUrl, "utf8");
+  assert.match(source, /getTextDirection\(appLocale\)/u);
+  assert.match(source, /direction: "rtl",\s+writingDirection: "rtl"/u);
+  assert.match(source, /direction: "ltr",\s+writingDirection: "ltr"/u);
+  assert.doesNotMatch(source, /I18nManager/u);
+});
+
 test("selecting a language closes the menu and announces in the newly selected locale", () => {
   const h = languageHarness("en"); h.open();
   h.dialogStateRef.current.buttons.find((row) => row.id === "locale:vi").onPress();

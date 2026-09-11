@@ -555,6 +555,10 @@ export function PlayAuralApp() {
   const voice = useMemo(() => new MobileVoiceManager(), []);
 
   const [appLocale, setAppLocale] = useState<MobileLocale>(initialLocale);
+  // Preserve navigation and board geometry; only rendered text follows locale direction.
+  const localeTextDirectionStyle = localization.getTextDirection(appLocale) === "rtl"
+    ? styles.rtlText
+    : styles.ltrText;
   const [mode, setMode] = useState<AppMode>("main");
   const [authMode, setAuthMode] = useState<AuthMode>("login");
   const [menuState, setMenuState] = useState<MenuState>(defaultMenuState);
@@ -4908,7 +4912,7 @@ export function PlayAuralApp() {
         { minHeight: gridCellSize, width: gridCellSize },
       ]}
     >
-      <Text style={[styles.menuText, styles.gridMenuText]}>
+      <Text style={[styles.menuText, styles.gridMenuText, localeTextDirectionStyle]}>
         {item.text}
       </Text>
     </Pressable>
@@ -4928,7 +4932,7 @@ export function PlayAuralApp() {
 
   const renderMainView = () => (
     <View style={styles.panel}>
-      <Text style={styles.panelTitle}>{localization.t("mode-main")}</Text>
+      <Text style={[styles.panelTitle, localeTextDirectionStyle]}>{localization.t("mode-main")}</Text>
       <View
         onLayout={(event) => {
           const { height, width } = event.nativeEvent.layout;
@@ -4981,7 +4985,7 @@ export function PlayAuralApp() {
                 index === menuState.focusIndex ? styles.menuItemFocused : undefined,
               ]}
             >
-              <Text style={styles.menuText}>{item.text}</Text>
+              <Text style={[styles.menuText, localeTextDirectionStyle]}>{item.text}</Text>
             </Pressable>
           ))}
         </ScrollView>
@@ -4992,9 +4996,9 @@ export function PlayAuralApp() {
 
   const renderChatOverlay = () => (
     <View style={styles.panel}>
-      <Text style={styles.panelTitle}>{localization.t("mode-chat")}</Text>
+      <Text style={[styles.panelTitle, localeTextDirectionStyle]}>{localization.t("mode-chat")}</Text>
       <ScrollView {...chatScroll} style={styles.scrollArea}>
-        <Text style={styles.helpText}>{localization.t("chat-input-label")}</Text>
+        <Text style={[styles.helpText, localeTextDirectionStyle]}>{localization.t("chat-input-label")}</Text>
         <View style={chatFocusIndex === 0 ? styles.authFieldFocused : undefined}>
           <TextInput
             accessibilityLabel={localization.t("chat-input-label")}
@@ -5038,7 +5042,7 @@ export function PlayAuralApp() {
               chatFocusIndex === sendChatFocusIndex ? styles.menuItemFocused : undefined,
             ]}
           >
-            <Text style={styles.buttonText}>{localization.t("chat-send-button")}</Text>
+            <Text style={[styles.buttonText, localeTextDirectionStyle]}>{localization.t("chat-send-button")}</Text>
           </Pressable>
           {voiceState === "connected" ? (
             <Pressable
@@ -5062,7 +5066,7 @@ export function PlayAuralApp() {
                 chatFocusIndex === voiceLeaveChatFocusIndex ? styles.menuItemFocused : undefined,
               ]}
             >
-              <Text style={styles.buttonText}>{localization.t("voice-chat-leave")}</Text>
+              <Text style={[styles.buttonText, localeTextDirectionStyle]}>{localization.t("voice-chat-leave")}</Text>
             </Pressable>
           ) : (
             <Pressable
@@ -5093,7 +5097,7 @@ export function PlayAuralApp() {
                 voiceState === "connecting" ? styles.buttonDisabled : undefined,
               ]}
             >
-              <Text style={styles.buttonText}>
+              <Text style={[styles.buttonText, localeTextDirectionStyle]}>
                 {voiceState === "connecting"
                   ? localization.t("voice-chat-joining")
                   : localization.t("voice-chat-join")}
@@ -5127,7 +5131,7 @@ export function PlayAuralApp() {
                 voiceMicBusy ? styles.buttonDisabled : undefined,
               ]}
             >
-              <Text style={styles.buttonText}>
+              <Text style={[styles.buttonText, localeTextDirectionStyle]}>
                 {localization.t(voiceMicEnabled ? "voice-chat-turn-off-mic" : "voice-chat-turn-on-mic")}
               </Text>
             </Pressable>
@@ -5153,13 +5157,13 @@ export function PlayAuralApp() {
               chatFocusIndex === closeChatFocusIndex ? styles.menuItemFocused : undefined,
             ]}
           >
-            <Text style={styles.buttonText}>{localization.t("chat-close-button")}</Text>
+            <Text style={[styles.buttonText, localeTextDirectionStyle]}>{localization.t("chat-close-button")}</Text>
           </Pressable>
         </View>
         <Text
           accessibilityLabel={voiceStatusText || localization.t("voice-chat-not-connected")}
           accessible
-          style={styles.helpText}
+          style={[styles.helpText, localeTextDirectionStyle]}
         >
           {voiceStatusText || localization.t("voice-chat-not-connected")}
         </Text>
@@ -5184,11 +5188,11 @@ export function PlayAuralApp() {
               chatFocusIndex === chatMessageFocusOffset + index ? styles.menuItemFocused : undefined,
             ]}
           >
-            <Text style={styles.historyText}>{item.text}</Text>
+            <Text style={[styles.historyText, localeTextDirectionStyle]}>{item.text}</Text>
           </Pressable>
         ))}
         {chatMessages.length === 0 ? (
-          <Text style={styles.historyText}>{localization.t("chat-empty")}</Text>
+          <Text style={[styles.historyText, localeTextDirectionStyle]}>{localization.t("chat-empty")}</Text>
         ) : null}
       </ScrollView>
     </View>
@@ -5196,7 +5200,7 @@ export function PlayAuralApp() {
 
   const renderHistoryOverlay = () => (
     <View style={styles.panel}>
-      <Text style={styles.panelTitle}>{localization.t("mode-history")}</Text>
+      <Text style={[styles.panelTitle, localeTextDirectionStyle]}>{localization.t("mode-history")}</Text>
       <ScrollView {...historyScroll} style={styles.scrollArea}>
         <View style={styles.historyControls}>
           <Pressable
@@ -5222,7 +5226,7 @@ export function PlayAuralApp() {
               historyIndex === historyBufferFocusIndex ? styles.menuItemFocused : undefined,
             ]}
           >
-            <Text style={styles.buttonText}>{historyBufferControlText}</Text>
+            <Text style={[styles.buttonText, localeTextDirectionStyle]}>{historyBufferControlText}</Text>
           </Pressable>
           <Pressable
             accessibilityLabel={historyMuteControlText}
@@ -5247,7 +5251,7 @@ export function PlayAuralApp() {
               historyIndex === historyMuteFocusIndex ? styles.menuItemFocused : undefined,
             ]}
           >
-            <Text style={styles.buttonText}>{historyMuteControlText}</Text>
+            <Text style={[styles.buttonText, localeTextDirectionStyle]}>{historyMuteControlText}</Text>
           </Pressable>
         </View>
         {historyMessages.map((item, index) => (
@@ -5271,7 +5275,7 @@ export function PlayAuralApp() {
               historyIndex === historyMessageFocusOffset + index ? styles.menuItemFocused : undefined,
             ]}
           >
-            <Text style={styles.historyText}>{item.text}</Text>
+            <Text style={[styles.historyText, localeTextDirectionStyle]}>{item.text}</Text>
           </Pressable>
         ))}
         {historyMessages.length === 0 ? (
@@ -5279,7 +5283,7 @@ export function PlayAuralApp() {
             accessibilityLabel={historyEmptyText}
             accessible
             ref={registerAccessibilityNode("history:empty")}
-            style={styles.historyText}
+            style={[styles.historyText, localeTextDirectionStyle]}
           >
             {historyEmptyText}
           </Text>
@@ -5290,7 +5294,7 @@ export function PlayAuralApp() {
 
   const renderShortcutsOverlay = () => (
     <View style={styles.panel}>
-      <Text style={styles.panelTitle}>{localization.t("shortcuts-title")}</Text>
+      <Text style={[styles.panelTitle, localeTextDirectionStyle]}>{localization.t("shortcuts-title")}</Text>
       <ScrollView {...shortcutScroll} style={styles.scrollArea}>
         {shortcutItems.map((item, index) => (
           <Pressable
@@ -5315,15 +5319,15 @@ export function PlayAuralApp() {
               index === shortcutFocusIndex ? styles.menuItemFocused : undefined,
             ]}
           >
-            <Text style={styles.menuText}>{item.text}</Text>
+            <Text style={[styles.menuText, localeTextDirectionStyle]}>{item.text}</Text>
           </Pressable>
         ))}
       </ScrollView>
       {currentMusic ? (
-        <Text style={styles.helpText}>{localization.t("current-music-track", { value: currentMusic })}</Text>
+        <Text style={[styles.helpText, localeTextDirectionStyle]}>{localization.t("current-music-track", { value: currentMusic })}</Text>
       ) : null}
       {currentAmbience ? (
-        <Text style={styles.helpText}>{localization.t("current-ambience-track", { value: currentAmbience })}</Text>
+        <Text style={[styles.helpText, localeTextDirectionStyle]}>{localization.t("current-ambience-track", { value: currentAmbience })}</Text>
       ) : null}
     </View>
   );
@@ -5336,8 +5340,8 @@ export function PlayAuralApp() {
     return (
       <View accessibilityViewIsModal style={styles.inputOverlayScreen}>
         <ScrollView {...dialogScroll} style={styles.dialogScroll} contentContainerStyle={styles.dialogCard}>
-          <Text accessibilityRole="header" style={styles.panelTitle}>{dialogState.title}</Text>
-          {dialogState.message ? <Text style={styles.dialogMessage}>{dialogState.message}</Text> : null}
+          <Text accessibilityRole="header" style={[styles.panelTitle, localeTextDirectionStyle]}>{dialogState.title}</Text>
+          {dialogState.message ? <Text style={[styles.dialogMessage, localeTextDirectionStyle]}>{dialogState.message}</Text> : null}
           <View style={styles.dialogButtons}>
             {dialogState.buttons.map((button, index) => (
               <Pressable
@@ -5364,7 +5368,7 @@ export function PlayAuralApp() {
                   index === dialogState.focusIndex ? styles.authFocused : undefined,
                 ]}
               >
-                <Text style={styles.buttonText}>{button.text}</Text>
+                <Text style={[styles.buttonText, localeTextDirectionStyle]}>{button.text}</Text>
               </Pressable>
             ))}
           </View>
@@ -5410,12 +5414,12 @@ export function PlayAuralApp() {
             isAuthFocused(`tab-${candidate}`) ? styles.authFocused : undefined,
           ]}
         >
-          <Text style={styles.buttonText}>{localization.t(`auth-mode-${candidate}`)}</Text>
+          <Text style={[styles.buttonText, localeTextDirectionStyle]}>{localization.t(`auth-mode-${candidate}`)}</Text>
         </Pressable>
       ))}
           {authMode === "reset" ? (
         <View style={[styles.authTab, styles.authTabActive]}>
-          <Text style={styles.buttonText}>{localization.t("auth-mode-reset")}</Text>
+          <Text style={[styles.buttonText, localeTextDirectionStyle]}>{localization.t("auth-mode-reset")}</Text>
         </View>
       ) : null}
     </View>
@@ -5439,13 +5443,13 @@ export function PlayAuralApp() {
       ref={registerAccessibilityNode("auth:locale")}
       style={[styles.buttonSecondary, isAuthFocused("locale") ? styles.authFocused : undefined]}
     >
-      <Text style={styles.buttonText}>{localization.t("locale")}: {localization.getLocaleLabel(appLocale)}</Text>
+      <Text style={[styles.buttonText, localeTextDirectionStyle]}>{localization.t("locale")}: {localization.getLocaleLabel(appLocale)}</Text>
     </Pressable>
   );
 
   const renderAuthCard = () => (
     <View style={styles.loginCard}>
-      <Text accessibilityRole="header" style={styles.panelTitle}>{localization.t("app-title")}</Text>
+      <Text accessibilityRole="header" style={[styles.panelTitle, localeTextDirectionStyle]}>{localization.t("app-title")}</Text>
       {renderLanguageButton()}
       {renderAuthSwitcher()}
 
@@ -5508,7 +5512,7 @@ export function PlayAuralApp() {
               ref={registerAccessibilityNode("auth:button-connect")}
               style={[styles.button, isAuthFocused("button-connect") ? styles.authFocused : undefined]}
             >
-              <Text style={styles.buttonText}>{localization.t("auth-login-submit")}</Text>
+              <Text style={[styles.buttonText, localeTextDirectionStyle]}>{localization.t("auth-login-submit")}</Text>
             </Pressable>
           </View>
           {username || password ? (
@@ -5530,7 +5534,7 @@ export function PlayAuralApp() {
                   isAuthFocused("button-clear-account") ? styles.authFocused : undefined,
                 ]}
               >
-                <Text style={styles.buttonText}>{localization.t("auth-clear-account")}</Text>
+                <Text style={[styles.buttonText, localeTextDirectionStyle]}>{localization.t("auth-clear-account")}</Text>
               </Pressable>
             </View>
           ) : null}
@@ -5641,7 +5645,7 @@ export function PlayAuralApp() {
             ref={registerAccessibilityNode("auth:button-register")}
             style={[styles.button, isAuthFocused("button-register") ? styles.authFocused : undefined]}
           >
-            <Text style={styles.buttonText}>{localization.t("auth-register-submit")}</Text>
+            <Text style={[styles.buttonText, localeTextDirectionStyle]}>{localization.t("auth-register-submit")}</Text>
           </Pressable>
         </>
       ) : null}
@@ -5684,7 +5688,7 @@ export function PlayAuralApp() {
             ref={registerAccessibilityNode("auth:button-forgot")}
             style={[styles.button, isAuthFocused("button-forgot") ? styles.authFocused : undefined]}
           >
-            <Text style={styles.buttonText}>{localization.t("auth-forgot-submit")}</Text>
+            <Text style={[styles.buttonText, localeTextDirectionStyle]}>{localization.t("auth-forgot-submit")}</Text>
           </Pressable>
         </>
       ) : null}
@@ -5793,12 +5797,12 @@ export function PlayAuralApp() {
             ref={registerAccessibilityNode("auth:button-reset")}
             style={[styles.button, isAuthFocused("button-reset") ? styles.authFocused : undefined]}
           >
-            <Text style={styles.buttonText}>{localization.t("auth-reset-submit")}</Text>
+            <Text style={[styles.buttonText, localeTextDirectionStyle]}>{localization.t("auth-reset-submit")}</Text>
           </Pressable>
         </>
       ) : null}
 
-      {authStatusText ? <Text style={styles.helpText}>{authStatusText}</Text> : null}
+      {authStatusText ? <Text style={[styles.helpText, localeTextDirectionStyle]}>{authStatusText}</Text> : null}
       <View style={styles.row}>
         <Pressable
           accessibilityLabel={localization.t("client-help")}
@@ -5815,7 +5819,7 @@ export function PlayAuralApp() {
           ref={registerAccessibilityNode("auth:help")}
           style={[styles.buttonSecondary, isAuthFocused("help") ? styles.authFocused : undefined]}
         >
-          <Text style={styles.buttonText}>
+          <Text style={[styles.buttonText, localeTextDirectionStyle]}>
             {localization.t("client-help")}
           </Text>
         </Pressable>
@@ -5833,7 +5837,7 @@ export function PlayAuralApp() {
           ref={registerAccessibilityNode("auth:button-exit")}
           style={[styles.buttonDanger, isAuthFocused("button-exit") ? styles.authFocused : undefined]}
         >
-          <Text style={styles.buttonText}>{localization.t("auth-exit")}</Text>
+          <Text style={[styles.buttonText, localeTextDirectionStyle]}>{localization.t("auth-exit")}</Text>
         </Pressable>
       </View>
     </View>
@@ -5866,7 +5870,7 @@ export function PlayAuralApp() {
         ref={registerAccessibilityNode("screen-reader:sv-toggle")}
         style={Platform.OS === "web" ? styles.screenReaderOnly : styles.nativeScreenReaderOnlyControl}
       >
-        <Text style={styles.nativeSelfVoicingToggleText}>
+        <Text style={[styles.nativeSelfVoicingToggleText, localeTextDirectionStyle]}>
           {localization.t(selfVoicingEnabled ? "sv-toggle-button-off" : "sv-toggle-button-on")}
         </Text>
       </Pressable>
@@ -5909,7 +5913,7 @@ export function PlayAuralApp() {
               mode === tab.id ? styles.nativeTabActive : undefined,
             ]}
           >
-            <Text style={styles.nativeTabText}>{tab.label}</Text>
+            <Text style={[styles.nativeTabText, localeTextDirectionStyle]}>{tab.label}</Text>
           </Pressable>
         ))}
       </View>
@@ -5935,7 +5939,7 @@ export function PlayAuralApp() {
         {dialogState ? renderDialogOverlay() : inputState ? (
           <View style={styles.inputOverlayScreen}>
             <ScrollView {...inputScroll} style={styles.dialogScroll} contentContainerStyle={styles.inputOverlayCard}>
-              <Text style={styles.panelTitle}>{inputState.prompt}</Text>
+              <Text style={[styles.panelTitle, localeTextDirectionStyle]}>{inputState.prompt}</Text>
               <View
                 style={[
                   styles.inputOverlayFocusRing,
@@ -5980,7 +5984,7 @@ export function PlayAuralApp() {
                 ref={registerAccessibilityNode("input:action")}
                 style={[styles.button, inputOverlayFocus === 1 ? styles.authFocused : undefined]}
               >
-                <Text style={styles.buttonText}>{inputOverlayButtonText}</Text>
+                <Text style={[styles.buttonText, localeTextDirectionStyle]}>{inputOverlayButtonText}</Text>
               </Pressable>
             </ScrollView>
           </View>
@@ -5990,13 +5994,13 @@ export function PlayAuralApp() {
             {!connected ? (
               <ScrollView {...authScroll} style={styles.scrollArea} contentContainerStyle={styles.landingContent}>
                 {renderAuthCard()}
-                <Text style={styles.subtitle}>{statusText}</Text>
+                <Text style={[styles.subtitle, localeTextDirectionStyle]}>{statusText}</Text>
               </ScrollView>
             ) : renderOverlay()}
 
             {connected ? (
               <View style={styles.footer}>
-                <Text style={[styles.subtitle, styles.footerStatus]}>{statusText}</Text>
+                <Text style={[styles.subtitle, styles.footerStatus, localeTextDirectionStyle]}>{statusText}</Text>
                 <Pressable
                   accessibilityLabel={localization.t("client-help")}
                   accessibilityRole="button"
@@ -6005,7 +6009,7 @@ export function PlayAuralApp() {
                   ref={registerAccessibilityNode("client:help")}
                   style={styles.buttonSecondary}
                 >
-                  <Text style={styles.buttonText}>{localization.t("client-help")}</Text>
+                  <Text style={[styles.buttonText, localeTextDirectionStyle]}>{localization.t("client-help")}</Text>
                 </Pressable>
               </View>
             ) : null}
@@ -6015,7 +6019,7 @@ export function PlayAuralApp() {
           <Text
             aria-live="polite"
             key={`screen-reader-announcement-${screenReaderAnnouncement.id}`}
-            style={styles.screenReaderOnly}
+            style={[styles.screenReaderOnly, localeTextDirectionStyle]}
           >
             {screenReaderAnnouncement.text}
           </Text>
@@ -6038,6 +6042,14 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 12,
     padding: 16,
+  },
+  rtlText: {
+    direction: "rtl",
+    writingDirection: "rtl",
+  },
+  ltrText: {
+    direction: "ltr",
+    writingDirection: "ltr",
   },
   screenReaderOnly: {
     height: 1,

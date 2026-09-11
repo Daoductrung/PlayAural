@@ -65,6 +65,7 @@ cd server && python -m server
 python client/client.py
 python -m http.server 8080 --directory web_client
 node web_client/scripts/generate-sound-manifest.mjs
+npm --prefix web_client run test:history
 cd mobile_client && cmd /c npm install && cmd /c npm run generate:sounds && cmd /c npm run generate:locales
 cd mobile_client && cmd /c npm run typecheck && npx expo start
 ```
@@ -267,6 +268,12 @@ Audio-first is mandatory. Every important state change needs TTS and/or sound.
 - Every `speak_l()` and `broadcast_l()` call must pass explicit `buffer=`.
 - Buffers: `game` for gameplay, `system` for settings/connection/moderation,
   `chat` for chat only, `misc` for minor non-game informational output.
+- Desktop, Web, and mobile share one buffer-mute contract. Muting `all` makes
+  every buffer effectively muted and blocks individual mute changes until it is
+  unmuted. A directly muted source retains its bounded runtime backlog but
+  omits new items from `all`; a global mute keeps the combined backlog. An
+  effective Chat mute suppresses speech and notification sounds. Persist only
+  canonical direct-mute names, never message history.
 - Use `play_sound`, `user.play_sound`, `play_music`, ambience helpers, scheduled
   sounds, or sequences as appropriate.
 - All server-driven SFX, music, and ambience use the versioned `audio` command
@@ -483,6 +490,9 @@ per-game shutdown hooks.
   focus anchoring, bottom-ordered ARIA live regions, and capped/coalesced
   history rendering. Server editbox packets choose single-line versus
   multiline inputs through the `multiline` flag.
+- Desktop and Web visual history must follow newly rendered messages to the
+  bottom without stealing the reader's caret or focus. Compact Web history
+  remains collapsible, focus-safe, and opens at the newest rendered message.
 - Web speech prefs are `speech_mode`, `speech_voice`, `speech_rate`.
 - Mobile speech prefs are `mobile_tts_engine`, `mobile_tts_voice`,
   `mobile_tts_rate`; unavailable synced voices/engines must fall back safely.

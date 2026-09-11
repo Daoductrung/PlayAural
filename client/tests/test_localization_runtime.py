@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 import sys
 
@@ -32,3 +33,32 @@ def test_set_locale_reloads_client_bundle_without_restart(tmp_path):
     assert Localization.current_locale() == "vi"
     assert Localization.get("dynamic-label") == "Nhãn tiếng Việt"
     assert Localization.get("fallback-only") == "Fallback value"
+
+
+def test_desktop_buffer_terminology_matches_mobile_english_and_vietnamese():
+    project_dir = CLIENT_DIR.parent
+    desktop_locales = CLIENT_DIR / "locales"
+    keys = (
+        "buffer-all",
+        "buffer-chat",
+        "buffer-game",
+        "buffer-system",
+        "buffer-misc",
+        "history-buffer-current",
+        "history-buffer-muted-name",
+        "history-buffer-muted-by-all",
+        "history-buffer-muted-empty",
+    )
+
+    for locale in ("en", "vi"):
+        mobile_catalog = json.loads(
+            (project_dir / "mobile_client" / "locales" / locale / "client.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        Localization.init(locales_dir=desktop_locales, locale=locale)
+        for key in keys:
+            expected = mobile_catalog[key].replace("{name}", "game")
+            assert Localization.get(key, name="game") == expected
+
+    Localization.init(locales_dir=desktop_locales, locale="en")

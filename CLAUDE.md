@@ -62,6 +62,7 @@ Serve `web_client/` from any HTTP server. For local development:
 ```bash
 python -m http.server 8080 --directory web_client
 node web_client/scripts/generate-sound-manifest.mjs
+npm --prefix web_client run test:history
 ```
 
 ### Mobile Client
@@ -658,6 +659,14 @@ Every `user.speak_l()` and `broadcast_l()` call must include an explicit `buffer
 - `chat` — chat only
 - `misc` — minor non-chat, non-game informational output
 
+Desktop, Web, and mobile clients share one buffer-mute contract. Muting `all`
+makes every buffer effectively muted and prevents individual mute changes until
+`all` is unmuted. A directly muted source retains its own bounded runtime
+backlog but omits new items from the combined `all` view; muting `all` suppresses
+output without stopping that combined backlog. Effective Chat mute suppresses
+both speech and chat notification sounds. Persist only canonical direct-mute
+names, never message history.
+
 #### Administration Privilege Tiers
 `user.trust_level` tiers:
 - `1` — user
@@ -820,6 +829,9 @@ Web rules:
   remains bounded to menu/history/chat targets during play
 - history buffers are capped and render work is coalesced; do not reintroduce
   unbounded per-message DOM rebuilds
+- desktop and Web visual history follows newly rendered messages to the bottom
+  without stealing the reader's caret or focus. Compact Web history remains
+  collapsible, focus-safe, and opens at the newest rendered message
 - Web Speech voice selection exposes a Default Voice option and stores browser
   voice values through stable client-generated menu ids
 - menu selection sounds, typing sounds, and action sounds should preload when

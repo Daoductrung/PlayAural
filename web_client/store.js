@@ -1,15 +1,31 @@
-const HISTORY_BUFFER_ORDER = ["all", "chat", "game", "system", "misc"];
-const HISTORY_BUFFER_LIMIT = 500;
+export const HISTORY_BUFFER_ORDER = Object.freeze(["all", "chat", "game", "system", "misc"]);
+export const HISTORY_BUFFER_LIMIT = 500;
 
 function createHistoryBuffers() {
   return Object.fromEntries(HISTORY_BUFFER_ORDER.map((name) => [name, []]));
 }
 
-function normalizeHistoryBuffer(buffer) {
+function createHistoryRevisions() {
+  return Object.fromEntries(HISTORY_BUFFER_ORDER.map((name) => [name, 0]));
+}
+
+export function normalizeHistoryBuffer(buffer) {
   if (buffer === "chats") {
     return "chat";
   }
   return HISTORY_BUFFER_ORDER.includes(buffer) ? buffer : "misc";
+}
+
+export function normalizeMutedHistoryBuffers(buffers) {
+  const normalized = new Set();
+  if (Array.isArray(buffers)) {
+    for (const buffer of buffers) {
+      if (buffer === "chats" || HISTORY_BUFFER_ORDER.includes(buffer)) {
+        normalized.add(normalizeHistoryBuffer(buffer));
+      }
+    }
+  }
+  return HISTORY_BUFFER_ORDER.filter((buffer) => normalized.has(buffer));
 }
 
 function pushCapped(buffer, text) {
@@ -38,6 +54,7 @@ export function createStore() {
       gridWidth: 1,
     },
     historyBuffers: createHistoryBuffers(),
+    historyRevisions: createHistoryRevisions(),
     historyBuffer: "all",
     audioUnlocked: false,
     pendingInput: null,
@@ -72,8 +89,10 @@ export function createStore() {
     addHistory(buffer, text, options = {}) {
       const normalized = normalizeHistoryBuffer(buffer);
       pushCapped(state.historyBuffers[normalized], text);
+      state.historyRevisions[normalized] += 1;
       if (normalized !== "all" && options.includeAll !== false) {
         pushCapped(state.historyBuffers.all, text);
+        state.historyRevisions.all += 1;
       }
       notify();
     },

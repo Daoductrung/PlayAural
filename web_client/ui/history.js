@@ -1,3 +1,12 @@
+import {
+  HISTORY_BUFFER_ORDER,
+  normalizeHistoryBuffer,
+  normalizeMutedHistoryBuffers,
+} from "../store.js";
+
+export const HISTORY_COMPACT_MEDIA_QUERY = "(max-width: 920px), (pointer: coarse)";
+export const HISTORY_TOUCH_MEDIA_QUERY = "(pointer: coarse)";
+
 export function createHistoryView({
   store,
   historyEl,
@@ -5,6 +14,7 @@ export function createHistoryView({
   historyContentEl,
   historyToggleEl,
   bufferSelectEl,
+  bufferMuteEl,
   a11y,
   announceFeedback = (text, options = {}) => a11y?.announce(text, options),
   initialMutedBuffers = [],
@@ -20,12 +30,16 @@ export function createHistoryView({
 }) {
   const mutedBuffers = new Set();
   const bufferPositions = {};
-  const isMobileLike = window.matchMedia("(pointer: coarse)").matches;
-  let mobileCollapsed = isMobileLike;
+  const usesTouchHistory = window.matchMedia(HISTORY_TOUCH_MEDIA_QUERY).matches;
+  let historyCollapsed = window.matchMedia(HISTORY_COMPACT_MEDIA_QUERY).matches;
   let renderedLogBuffer = "";
   let renderedLogValue = "";
+  let renderedLogRevision = -1;
   let renderScheduled = false;
-  const bufferFieldEl = bufferSelectEl?.closest("label") || bufferSelectEl || null;
+  const bufferControlsEl = bufferSelectEl?.closest(".history-buffer-controls")
+    || bufferSelectEl?.closest("label")
+    || bufferSelectEl
+    || null;
 
   setMutedBuffers(initialMutedBuffers, { notify: false });
 
@@ -35,38 +49,32 @@ export function createHistoryView({
     }
   }
 
-  function normalizeBufferName(bufferName) {
-    if (bufferName === "chats") {
-      return "chat";
-    }
-    return String(bufferName || "misc");
-  }
-
   function isBufferDirectlyMuted(bufferName) {
-    return mutedBuffers.has(normalizeBufferName(bufferName));
+    return mutedBuffers.has(normalizeHistoryBuffer(bufferName));
   }
 
   function isBufferMuted(bufferName) {
-    const name = normalizeBufferName(bufferName);
+    const name = normalizeHistoryBuffer(bufferName);
     return mutedBuffers.has("all") || mutedBuffers.has(name);
   }
 
   function getMutedBuffers() {
-    return Array.from(mutedBuffers).sort();
+    return HISTORY_BUFFER_ORDER.filter((buffer) => mutedBuffers.has(buffer));
   }
 
   function setMutedBuffers(bufferNames, { notify = false } = {}) {
+    const normalizedBuffers = normalizeMutedHistoryBuffers(bufferNames);
+    const changed = normalizedBuffers.length !== mutedBuffers.size
+      || normalizedBuffers.some((buffer) => !mutedBuffers.has(buffer));
     mutedBuffers.clear();
-    for (const bufferName of Array.isArray(bufferNames) ? bufferNames : []) {
-      const normalized = normalizeBufferName(bufferName);
-      if (normalized) {
-        mutedBuffers.add(normalized);
-      }
+    for (const bufferName of normalizedBuffers) {
+      mutedBuffers.add(bufferName);
     }
     render();
     if (notify) {
       onMutedBuffersChange(getMutedBuffers());
     }
+    return changed;
   }
 
   function getBufferNames() {
@@ -97,7 +105,7 @@ export function createHistoryView({
 
   function announceBufferInfo() {
     const info = getCurrentBufferInfo();
-    const status = info.muted ? `, ${localize("buffer-status-muted")}` : "";
+    const status = info.effectivelyMuted ? localize("main-status-muted-suffix") : "";
     announceFeedback(localize("main-buffer-info", {
       name: localizeBufferName(info.name),
       status,
@@ -120,6 +128,13 @@ export function createHistoryView({
   }
 
   function announceCurrentItem() {
+    const bufferName = getCurrentBufferName();
+    if (isBufferMuted(bufferName)) {
+      announceFeedback(localize("history-buffer-muted-empty", {
+        name: localizeBufferName(bufferName),
+      }), { assertive: true, interrupt: true });
+      return;
+    }
     const text = getCurrentItemText();
     if (text) {
       announceFeedback(text, { assertive: true, interrupt: true });
@@ -138,15 +153,21 @@ export function createHistoryView({
     if (bufferSelectEl && bufferSelectEl.value !== bufferName) {
       bufferSelectEl.value = bufferName;
     }
+    renderBufferControls(bufferName);
     const joined = lines.join("\n");
-    if (renderedLogBuffer === bufferName && renderedLogValue === joined) {
+    const revision = store.state.historyRevisions?.[bufferName] || 0;
+    if (
+      renderedLogBuffer === bufferName
+      && renderedLogValue === joined
+      && renderedLogRevision === revision
+    ) {
       return;
     }
     renderedLogBuffer = bufferName;
     renderedLogValue = joined;
+    renderedLogRevision = revision;
 
     historyEl.value = joined;
-    historyEl.scrollTop = historyEl.scrollHeight;
 
     if (historyLogEl) {
       const fragment = document.createDocumentFragment();
@@ -157,8 +178,8 @@ export function createHistoryView({
         fragment.appendChild(row);
       }
       historyLogEl.replaceChildren(fragment);
-      historyLogEl.scrollTop = historyLogEl.scrollHeight;
     }
+    scrollHistoryToLatest();
   }
 
   function render() {
@@ -169,31 +190,68 @@ export function createHistoryView({
     requestAnimationFrame(flushRender);
   }
 
-  function renderMobileVisibility() {
+  function scrollHistoryToLatest() {
+    historyEl.scrollTop = historyEl.scrollHeight;
+    if (historyLogEl) {
+      historyLogEl.scrollTop = historyLogEl.scrollHeight;
+    }
+  }
+
+  function scrollHistoryToLatestAfterLayout() {
+    requestAnimationFrame(scrollHistoryToLatest);
+  }
+
+  function renderBufferControls(bufferName = getCurrentBufferName()) {
+    if (bufferSelectEl) {
+      for (const option of bufferSelectEl.options) {
+        const name = normalizeHistoryBuffer(option.value);
+        const localizedName = localize(`buffer-${name}`);
+        option.textContent = isBufferMuted(name)
+          ? localize("history-buffer-muted-name", { name: localizedName })
+          : localizedName;
+      }
+    }
+    if (!bufferMuteEl) {
+      return;
+    }
+    const localizedName = localizeBufferName(bufferName);
+    const mutedByAll = bufferName !== "all" && isBufferDirectlyMuted("all");
+    const label = mutedByAll
+      ? localize("history-buffer-muted-by-all", { name: localizedName })
+      : localize(
+        isBufferDirectlyMuted(bufferName) ? "history-buffer-unmute" : "history-buffer-mute",
+        { name: localizedName },
+      );
+    bufferMuteEl.textContent = label;
+    bufferMuteEl.setAttribute("aria-pressed", isBufferMuted(bufferName) ? "true" : "false");
+  }
+
+  function renderHistoryVisibility() {
     if (!historyContentEl || !historyToggleEl || !historyLogEl) {
       return;
     }
-    const hideBufferField = isMobileLike && mobileCollapsed;
-    if (bufferFieldEl) {
-      bufferFieldEl.hidden = hideBufferField;
-      if (hideBufferField && bufferFieldEl.contains(document.activeElement)) {
-        historyToggleEl.focus({ preventScroll: true });
-      }
+    if (bufferControlsEl) {
+      bufferControlsEl.hidden = historyCollapsed;
     }
-    if (!isMobileLike) {
-      historyToggleEl.hidden = false;
-      historyToggleEl.tabIndex = -1;
-      historyToggleEl.setAttribute("aria-expanded", "true");
-      historyContentEl.hidden = false;
-      historyLogEl.setAttribute("aria-live", "off");
-      historyLogEl.hidden = true;
-      return;
+    if (
+      historyCollapsed
+      && (
+        bufferControlsEl?.contains(document.activeElement)
+        || historyContentEl.contains(document.activeElement)
+      )
+    ) {
+      historyToggleEl.focus({ preventScroll: true });
     }
-    historyToggleEl.tabIndex = -1;
-    historyContentEl.hidden = mobileCollapsed;
+    historyToggleEl.hidden = false;
+    historyToggleEl.tabIndex = 0;
+    historyToggleEl.setAttribute("aria-expanded", historyCollapsed ? "false" : "true");
+    historyContentEl.hidden = historyCollapsed;
+    historyEl.hidden = usesTouchHistory;
     historyLogEl.setAttribute("aria-live", "off");
-    historyLogEl.hidden = false;
-    historyToggleEl.setAttribute("aria-expanded", mobileCollapsed ? "false" : "true");
+    historyLogEl.hidden = !usesTouchHistory;
+    if (!historyCollapsed) {
+      scrollHistoryToLatestAfterLayout();
+    }
   }
 
   function addEntry(text, options = {}) {
@@ -203,7 +261,7 @@ export function createHistoryView({
       assertive = false,
     } = options;
 
-    const normalizedBuffer = normalizeBufferName(buffer);
+    const normalizedBuffer = normalizeHistoryBuffer(buffer);
     const incomingBufferMuted = isBufferMuted(normalizedBuffer);
     const sourceDirectlyMuted = normalizedBuffer !== "all" && isBufferDirectlyMuted(normalizedBuffer);
     store.addHistory(normalizedBuffer, text, { includeAll: !sourceDirectlyMuted });
@@ -253,7 +311,13 @@ export function createHistoryView({
   function toggleMuteCurrentBuffer() {
     const info = getCurrentBufferInfo();
     if (!info.name) {
-      return;
+      return false;
+    }
+    if (info.name !== "all" && isBufferDirectlyMuted("all")) {
+      announceFeedback(localize("history-buffer-muted-by-all", {
+        name: localizeBufferName(info.name),
+      }), { assertive: true, interrupt: true });
+      return false;
     }
     if (mutedBuffers.has(info.name)) {
       mutedBuffers.delete(info.name);
@@ -267,26 +331,32 @@ export function createHistoryView({
       name: localizeBufferName(info.name),
       status,
     }), { assertive: true, interrupt: true });
+    return true;
   }
 
   if (bufferSelectEl) {
     bufferSelectEl.addEventListener("change", () => {
       store.setHistoryBuffer(bufferSelectEl.value);
+      announceBufferInfo();
     });
+  }
+  if (bufferMuteEl) {
+    bufferMuteEl.addEventListener("click", toggleMuteCurrentBuffer);
   }
   if (historyToggleEl) {
     historyToggleEl.addEventListener("click", () => {
-      mobileCollapsed = !mobileCollapsed;
-      renderMobileVisibility();
+      historyCollapsed = !historyCollapsed;
+      renderHistoryVisibility();
     });
   }
 
   store.subscribe(render);
-  renderMobileVisibility();
+  renderHistoryVisibility();
   flushRender();
 
   return {
     addEntry,
+    isBufferDirectlyMuted,
     isBufferMuted,
     getMutedBuffers,
     setMutedBuffers,
@@ -317,8 +387,8 @@ export function createHistoryView({
     },
     toggleCurrentBufferMute: toggleMuteCurrentBuffer,
     setCollapsed(collapsed) {
-      mobileCollapsed = Boolean(collapsed);
-      renderMobileVisibility();
+      historyCollapsed = Boolean(collapsed);
+      renderHistoryVisibility();
     },
   };
 }

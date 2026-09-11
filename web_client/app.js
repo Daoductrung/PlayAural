@@ -2,7 +2,7 @@ import { createA11y } from "./a11y.js";
 import { createAudioEngine } from "./audio.js";
 import { installKeybinds } from "./keybinds.js";
 import { createNetworkClient, loadPacketValidator } from "./network.js";
-import { createStore } from "./store.js";
+import { createStore, normalizeHistoryBuffer } from "./store.js";
 import { AVAILABLE_LOCALES, DEFAULT_LOCALE, loadLocaleBundle, normalizeLocale } from "./locales/index.js";
 import { createHistoryView } from "./ui/history.js";
 import { createMenuView } from "./ui/menus.js";
@@ -78,16 +78,6 @@ function safeJsonParse(value, fallback) {
   } catch {
     return fallback;
   }
-}
-
-function normalizeBuffer(buffer) {
-  if (buffer === "chats") {
-    return "chat";
-  }
-  if (["game", "system", "chat", "misc"].includes(buffer)) {
-    return buffer;
-  }
-  return "misc";
 }
 
 function webSpeechRateFromPreference(value) {
@@ -1098,6 +1088,7 @@ class PlayAuralWebApp {
       historyContentEl: this.elements.historyContent,
       historyToggleEl: this.elements.historyToggle,
       bufferSelectEl: this.elements.historyBuffer,
+      bufferMuteEl: this.elements.historyBufferMute,
       a11y: this.a11y,
       announceFeedback: (text, options = {}) => this.announceInterface(text, options),
       onMutedBuffersChange: (buffers) => {
@@ -1184,6 +1175,7 @@ class PlayAuralWebApp {
       historyContent: byId("history-content"),
       historyToggle: byId("history-toggle"),
       historyBuffer: byId("history-buffer"),
+      historyBufferMute: byId("history-buffer-mute"),
       chatForm: byId("chat-form"),
       chatInput: byId("chat-input"),
       voiceJoinBtn: byId("btn-voice-join"),
@@ -1384,6 +1376,9 @@ class PlayAuralWebApp {
       const historyTarget = getHistoryTarget();
       const targets = [
         this.elements.menuList,
+        this.elements.historyToggle,
+        this.elements.historyBuffer,
+        this.elements.historyBufferMute,
         historyTarget,
         this.elements.chatInput,
       ].filter(isVisible);
@@ -1592,6 +1587,7 @@ class PlayAuralWebApp {
       this.connectionStatusParams,
     );
     this.updateVolumeLabels();
+    this.historyView?.render();
   }
 
   localizeBufferName(name) {
@@ -1643,7 +1639,12 @@ class PlayAuralWebApp {
     const config = safeJsonParse(storageGet(CONFIG_KEY), {});
     this.lastUrl = this.getServerUrl();
     this.preferences = { ...this.preferences, ...(config.preferences || {}) };
-    this.historyView?.setMutedBuffers(this.preferences.muted_buffers || []);
+    const storedMutedBuffers = this.preferences.muted_buffers;
+    this.historyView?.setMutedBuffers(storedMutedBuffers || []);
+    this.preferences.muted_buffers = this.historyView?.getMutedBuffers() || [];
+    const mutedBuffersWereNormalized = JSON.stringify(storedMutedBuffers) !== JSON.stringify(
+      this.preferences.muted_buffers,
+    );
     if (config.lastUsername && this.elements.username) {
       this.elements.username.value = config.lastUsername;
     }
@@ -1661,6 +1662,9 @@ class PlayAuralWebApp {
     }
     this.lastUser = savedUser || "";
     this.lastPass = savedPass || "";
+    if (mutedBuffersWereNormalized) {
+      this.saveLocalConfig();
+    }
   }
 
   saveLocalConfig() {
@@ -2264,7 +2268,7 @@ class PlayAuralWebApp {
     if (!text) {
       return;
     }
-    const normalizedBuffer = normalizeBuffer(buffer);
+    const normalizedBuffer = normalizeHistoryBuffer(buffer);
     let outputAllowed = !this.historyView.isBufferMuted(normalizedBuffer);
     if (!noHistory) {
       outputAllowed = this.historyView.addEntry(text, { buffer: normalizedBuffer, announce: false });
@@ -2292,7 +2296,7 @@ class PlayAuralWebApp {
         break;
       case "speak":
         this.speak(packet.text || "", {
-          buffer: normalizeBuffer(packet.buffer || "misc"),
+          buffer: normalizeHistoryBuffer(packet.buffer || "misc"),
           assertive: packet.buffer === "system",
           muted: packet.muted === true,
         });
@@ -3189,6 +3193,7 @@ class PlayAuralWebApp {
     this.applyPreferences();
     if (updates.muted_buffers !== undefined) {
       this.historyView.setMutedBuffers(updates.muted_buffers || []);
+      this.preferences.muted_buffers = this.historyView.getMutedBuffers();
     }
     if (updates.speech_voice !== undefined || updates.speech_mode !== undefined || updates.speech_rate !== undefined) {
       this.webSpeech.applyPreferences();

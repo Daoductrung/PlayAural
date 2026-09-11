@@ -1,6 +1,10 @@
 {
   "name": "playaural-web-client",
   "private": true,
+  "type": "module",
+  "scripts": {
+    "test:history": "node --test tests/history_test.mjs"
+  },
   "dependencies": {
     "livekit-client": "^2.18.2"
   }

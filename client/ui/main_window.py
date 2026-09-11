@@ -200,18 +200,14 @@ class MainWindow(wx.Frame):
 
         # Initialize buffer system
         self.buffer_system = BufferSystem()
-        self.buffer_system.create_buffer("all")
-        self.buffer_system.create_buffer("chat")
-        self.buffer_system.create_buffer("game")
-        self.buffer_system.create_buffer("system")
-        self.buffer_system.create_buffer("misc")
+        self.buffer_system.create_default_buffers()
 
         # Load muted buffers from preferences
         preferences = self._load_preferences()
-        if "muted_buffers" in preferences:
-            for buffer_name in preferences["muted_buffers"]:
-                if not self.buffer_system.is_muted(buffer_name):
-                    self.buffer_system.toggle_mute(buffer_name)
+        stored_muted_buffers = preferences.get("muted_buffers", [])
+        self.buffer_system.set_muted_buffers(stored_muted_buffers)
+        if stored_muted_buffers != self.buffer_system.get_muted_buffers_in_order():
+            self._save_muted_buffers()
 
         # Initialize UI components
         self._create_ui()
@@ -405,6 +401,7 @@ class MainWindow(wx.Frame):
 
         # No word wrap for better screen reader accessibility.
         self.history_label = wx.StaticText(panel, label=Localization.get("main-history-label"))
+        self.history_buffer_label = wx.StaticText(panel)
         self.history_text = wx.TextCtrl(
             panel, style=wx.TE_MULTILINE | wx.TE_READONLY | wx.TE_DONTWRAP
         )
@@ -431,7 +428,10 @@ class MainWindow(wx.Frame):
         right_sizer.Add(self.chat_input, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 4)
         right_sizer.Add(self.voice_label, 0, wx.LEFT | wx.RIGHT | wx.TOP, 4)
         right_sizer.Add(voice_controls, 0, wx.ALL, 4)
-        right_sizer.Add(self.history_label, 0, wx.LEFT | wx.RIGHT | wx.TOP, 4)
+        history_header = wx.BoxSizer(wx.HORIZONTAL)
+        history_header.Add(self.history_label, 0, wx.RIGHT, 8)
+        history_header.Add(self.history_buffer_label, 0)
+        right_sizer.Add(history_header, 0, wx.LEFT | wx.RIGHT | wx.TOP, 4)
         right_sizer.Add(
             self.history_text,
             1,
@@ -456,6 +456,7 @@ class MainWindow(wx.Frame):
         """Apply explicit accessibility names to primary controls."""
         self.chat_input.SetName(Localization.get("main-chat-label"))
         self.history_text.SetName(Localization.get("main-history-label"))
+        self._refresh_history_buffer_label()
         self.voice_join_button.SetName(self.voice_join_button.GetLabel())
         self.voice_leave_button.SetName(self.voice_leave_button.GetLabel())
         self.voice_mic_checkbox.SetName(Localization.get("voice-chat-mic"))
@@ -1280,10 +1281,43 @@ class MainWindow(wx.Frame):
             return localized_name
         return normalized_name
 
+    def _get_localized_buffer_display_name(self, buffer_name):
+        """Get the title-style buffer name used by visible controls."""
+        normalized_name = self.buffer_system.normalize_buffer_name(buffer_name)
+        localized_name = Localization.get(f"buffer-{normalized_name}")
+        if localized_name != f"buffer-{normalized_name}":
+            return localized_name
+        return self._get_localized_buffer_name(normalized_name)
+
+    def _refresh_history_buffer_label(self):
+        """Show the selected buffer and its effective mute state."""
+        if not hasattr(self, "history_buffer_label"):
+            return
+        buffer_name = self.buffer_system.get_current_buffer_name()
+        display_name = self._get_localized_buffer_display_name(buffer_name)
+        if self.buffer_system.is_effectively_muted(buffer_name):
+            display_name = Localization.get(
+                "history-buffer-muted-name", name=display_name
+            )
+        label = Localization.get("history-buffer-current", name=display_name)
+        self.history_buffer_label.SetLabel(label)
+        self.history_buffer_label.SetName(label)
+        self.main_panel.Layout()
+
     def on_buffer_mute_toggle(self, event):
         """Handle F4 to toggle mute for current buffer."""
         buffer_name = self.buffer_system.get_current_buffer_name()
-        self.buffer_system.toggle_mute(buffer_name)
+        if not buffer_name:
+            return
+        if not self.buffer_system.toggle_mute(buffer_name):
+            localized_name = self._get_localized_buffer_name(buffer_name)
+            self.speaker.speak(
+                Localization.get(
+                    "history-buffer-muted-by-all", name=localized_name
+                ),
+                interrupt=True,
+            )
+            return
         is_muted = self.buffer_system.is_muted(buffer_name)
 
         # Save muted buffers to config
@@ -1298,7 +1332,7 @@ class MainWindow(wx.Frame):
     def _announce_buffer_info(self):
         """Announce current buffer information (matches Legends format)."""
         name, count, position = self.buffer_system.get_buffer_info()
-        is_muted = self.buffer_system.is_muted(name)
+        is_muted = self.buffer_system.is_effectively_muted(name)
         mute_status = Localization.get("main-status-muted-suffix") if is_muted else ""
         
         localized_name = self._get_localized_buffer_name(name)
@@ -1308,6 +1342,16 @@ class MainWindow(wx.Frame):
 
     def _announce_current_message(self):
         """Announce the current message in the buffer (matches Legends format)."""
+        buffer_name = self.buffer_system.get_current_buffer_name()
+        if self.buffer_system.is_effectively_muted(buffer_name):
+            self.speaker.speak(
+                Localization.get(
+                    "history-buffer-muted-empty",
+                    name=self._get_localized_buffer_name(buffer_name),
+                ),
+                interrupt=True,
+            )
+            return
         item = self.buffer_system.get_current_item()
         if item:
             # Just speak the message text, no position info
@@ -1315,21 +1359,34 @@ class MainWindow(wx.Frame):
         else:
             self.speaker.speak(Localization.get("main-buffer-empty"), interrupt=True)
 
-    def _refresh_history_text_from_current_buffer(self):
+    def _refresh_history_text_from_current_buffer(
+        self, *, caret_distance_from_end=None
+    ):
         """Refresh the history text control from the selected buffer."""
         buffer_name = self.buffer_system.get_current_buffer_name()
-        if not buffer_name or buffer_name not in self.buffer_system.buffers:
-            self.history_text.ChangeValue("")
-            return
-        if self.buffer_system.is_effectively_muted(buffer_name):
-            self.history_text.ChangeValue("")
-            return
-        items = self.buffer_system.buffers.get(buffer_name, [])
+        self._refresh_history_buffer_label()
+        items = []
+        if (
+            buffer_name in self.buffer_system.buffers
+            and not self.buffer_system.is_effectively_muted(buffer_name)
+        ):
+            items = self.buffer_system.buffers[buffer_name]
         text = "\n".join(item["text"] for item in items)
         if text:
             text += "\n"
         self.history_text.ChangeValue(text)
-        self.history_text.SetInsertionPointEnd()
+        if caret_distance_from_end is None:
+            self.history_text.SetInsertionPointEnd()
+        else:
+            self.history_text.SetInsertionPoint(
+                max(0, self.history_text.GetLastPosition() - caret_distance_from_end)
+            )
+
+        self._scroll_history_to_latest()
+
+    def _scroll_history_to_latest(self):
+        """Keep the newest History line visible without changing focus."""
+        self.history_text.ShowPosition(self.history_text.GetLastPosition())
 
     def _is_message_muted_for_history(self, buffer_name):
         return self.buffer_system.is_effectively_muted(buffer_name)
@@ -1694,30 +1751,42 @@ class MainWindow(wx.Frame):
             buffer_name: Which buffer to add to (default: "misc")
             speak_aloud: Whether to speak the text aloud (default: True)
         """
+        current_buffer_name = self.buffer_system.get_current_buffer_name()
+        current_buffer_was_full = (
+            len(self.buffer_system.buffers.get(current_buffer_name, []))
+            >= self.buffer_system.max_items_per_buffer
+        )
+
         # Add to buffer system (automatically adds to "all" as well)
         self.buffer_system.add_item(buffer_name, text)
 
-        current_buffer_name = self.buffer_system.get_current_buffer_name()
         should_show_in_history = (
             not self._is_message_muted_for_history(buffer_name)
-            and not self.buffer_system.is_muted(current_buffer_name)
+            and not self.buffer_system.is_effectively_muted(current_buffer_name)
             and self.buffer_system.should_show_message(current_buffer_name, buffer_name)
         )
 
         if should_show_in_history:
-            current = self.history_text.GetValue()
-            history_text = text
-            if current and not current.endswith("\n"):
-                history_text = "\n" + text
+            if current_buffer_was_full:
+                caret_distance_from_end = (
+                    self.history_text.GetLastPosition()
+                    - self.history_text.GetInsertionPoint()
+                )
+                self._refresh_history_text_from_current_buffer(
+                    caret_distance_from_end=caret_distance_from_end
+                )
+            else:
+                current = self.history_text.GetValue()
+                history_text = text
+                if current and not current.endswith("\n"):
+                    history_text = "\n" + text
 
-            # Save current insertion point to prevent auto-scrolling
-            old_insertion_point = self.history_text.GetInsertionPoint()
+                # Preserve the reader's caret while keeping the newest line visible.
+                old_insertion_point = self.history_text.GetInsertionPoint()
 
-            # Append text to history widget
-            self.history_text.AppendText(history_text + "\n")
-
-            # Restore insertion point (prevents auto-scroll to end)
-            self.history_text.SetInsertionPoint(old_insertion_point)
+                self.history_text.AppendText(history_text + "\n")
+                self.history_text.SetInsertionPoint(old_insertion_point)
+                self._scroll_history_to_latest()
 
         if speak_aloud and not self._is_message_muted_for_history(buffer_name):
             try:
@@ -2810,7 +2879,10 @@ class MainWindow(wx.Frame):
             )
         else:
             message = Localization.get("chat-local", player=packet.get("sender"), message=packet.get("message"))
-        should_alert = not packet.get("silent")
+        should_alert = (
+            not packet.get("silent")
+            and not self.buffer_system.is_effectively_muted("chat")
+        )
         if should_alert:
             if convo == "announcement":
                 self.sound_manager.play_family("notify")
@@ -3238,7 +3310,7 @@ class MainWindow(wx.Frame):
         preferences = self._load_preferences()
 
         # Update muted buffers
-        preferences["muted_buffers"] = sorted(self.buffer_system.get_muted_buffers())
+        preferences["muted_buffers"] = self.buffer_system.get_muted_buffers_in_order()
 
         # Save
         config_dir.mkdir(parents=True, exist_ok=True)

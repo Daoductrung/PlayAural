@@ -5,18 +5,27 @@ Ported from XG Legends buffer_system.lua
 """
 
 import time
-from typing import Dict, List, Set, Tuple, Optional
+from typing import Dict, List, Optional, Set, Tuple
 
 
 class BufferSystem:
     """Manages multiple message buffers for organizing game output."""
 
+    BUFFER_NAMES = ("all", "chat", "game", "system", "misc")
     BUFFER_ALIASES = {
         "chats": "chat",
     }
+    DEFAULT_MAX_ITEMS_PER_BUFFER = 500
 
-    def __init__(self):
+    def __init__(self, max_items_per_buffer: int = DEFAULT_MAX_ITEMS_PER_BUFFER):
         """Initialize the buffer system."""
+        if (
+            isinstance(max_items_per_buffer, bool)
+            or not isinstance(max_items_per_buffer, int)
+            or max_items_per_buffer < 1
+        ):
+            raise ValueError("Buffer capacity must be a positive integer")
+        self.max_items_per_buffer = max_items_per_buffer
         self.buffers: Dict[str, List[Dict]] = {}  # name -> list of message items
         self.buffer_order: List[str] = []  # ordered list of buffer names
         self.current_buffer_index: int = 0  # which buffer user is viewing (0-based)
@@ -24,9 +33,16 @@ class BufferSystem:
         self.muted_buffers: Set[str] = set()  # set of muted buffer names
 
     @classmethod
-    def normalize_buffer_name(cls, name: str) -> str:
+    def normalize_buffer_name(cls, name: object) -> str:
         """Return the canonical name for a buffer."""
+        if not isinstance(name, str) or not name:
+            return "misc"
         return cls.BUFFER_ALIASES.get(name, name)
+
+    def create_default_buffers(self) -> None:
+        """Create the standard buffers in their shared client order."""
+        for name in self.BUFFER_NAMES:
+            self.create_buffer(name)
 
     def create_buffer(self, name: str) -> None:
         """
@@ -58,12 +74,25 @@ class BufferSystem:
         # Create message item
         item = {"text": text, "timestamp": time.time()}
 
-        # Add to specified buffer
-        self.buffers[buffer_name].append(item)
+        # Add to the source even while it is muted so its backlog remains available.
+        self._append_item(buffer_name, item)
 
-        # Also add to "all" buffer (unless this IS the "all" buffer)
-        if buffer_name != "all" and "all" in self.buffers:
-            self.buffers["all"].append(item)
+        # Directly muted sources do not add new items to the combined view. A global
+        # All mute only suppresses output, so combined history continues accumulating.
+        if (
+            buffer_name != "all"
+            and "all" in self.buffers
+            and not self.is_muted(buffer_name)
+        ):
+            self._append_item("all", item)
+
+    def _append_item(self, buffer_name: str, item: Dict) -> None:
+        """Append one item and enforce the runtime retention limit."""
+        buffer = self.buffers[buffer_name]
+        buffer.append(item)
+        overflow = len(buffer) - self.max_items_per_buffer
+        if overflow > 0:
+            del buffer[:overflow]
 
     def next_buffer(self) -> None:
         """Switch to the next buffer in the list (does not wrap)."""
@@ -176,7 +205,7 @@ class BufferSystem:
 
         return (buffer_name, len(buffer), position)
 
-    def toggle_mute(self, buffer_name: str) -> None:
+    def toggle_mute(self, buffer_name: str) -> bool:
         """
         Toggle mute status for a buffer.
 
@@ -184,10 +213,30 @@ class BufferSystem:
             buffer_name: Name of buffer to mute/unmute
         """
         buffer_name = self.normalize_buffer_name(buffer_name)
+        if buffer_name != "all" and self.is_muted("all"):
+            return False
         if buffer_name in self.muted_buffers:
             self.muted_buffers.remove(buffer_name)
         else:
             self.muted_buffers.add(buffer_name)
+        return True
+
+    def set_muted_buffers(self, buffer_names: object) -> bool:
+        """Replace direct mutes with canonical names for available buffers."""
+        next_muted = set()
+        if isinstance(buffer_names, list):
+            for buffer_name in buffer_names:
+                normalized = self.normalize_buffer_name(buffer_name)
+                if (
+                    isinstance(buffer_name, str)
+                    and (buffer_name in self.BUFFER_ALIASES or normalized in self.buffers)
+                ):
+                    next_muted.add(normalized)
+
+        changed = next_muted != self.muted_buffers
+        if changed:
+            self.muted_buffers = next_muted
+        return changed
 
     def is_muted(self, buffer_name: str) -> bool:
         """
@@ -221,6 +270,10 @@ class BufferSystem:
             Set of muted buffer names
         """
         return self.muted_buffers.copy()
+
+    def get_muted_buffers_in_order(self) -> List[str]:
+        """Return direct mutes in stable buffer order for persistence."""
+        return [name for name in self.buffer_order if name in self.muted_buffers]
 
     def clear_buffer(self, buffer_name: str) -> None:
         """

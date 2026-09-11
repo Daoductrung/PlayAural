@@ -155,16 +155,19 @@
             <button id="history-toggle" class="history-toggle-title" type="button" aria-expanded="true">
               <h2 id="history-heading">History</h2>
             </button>
-            <label for="history-buffer" class="compact-field">
-              <span id="history-buffer-label">Buffer</span>
-              <select id="history-buffer">
-                <option id="buffer-option-all" value="all">All</option>
-                <option id="buffer-option-chat" value="chat">Chat</option>
-                <option id="buffer-option-game" value="game">Game</option>
-                <option id="buffer-option-system" value="system">System</option>
-                <option id="buffer-option-misc" value="misc">Misc</option>
-              </select>
-            </label>
+            <div class="history-buffer-controls">
+              <label for="history-buffer" class="compact-field">
+                <span id="history-buffer-label">Buffer</span>
+                <select id="history-buffer">
+                  <option id="buffer-option-all" value="all">All</option>
+                  <option id="buffer-option-chat" value="chat">Chat</option>
+                  <option id="buffer-option-game" value="game">Game</option>
+                  <option id="buffer-option-system" value="system">System</option>
+                  <option id="buffer-option-misc" value="misc">Misc</option>
+                </select>
+              </label>
+              <button id="history-buffer-mute" type="button" class="secondary">Mute Buffer</button>
+            </div>
           </div>
           <div id="history-content">
             <textarea id="history" class="history" readonly aria-label="Message history"></textarea>

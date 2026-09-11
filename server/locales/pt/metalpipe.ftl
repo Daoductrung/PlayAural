@@ -7,7 +7,7 @@ metalpipe-mode-multiple = Múltiplas batidas
 metalpipe-self-bonk-allowed = auto-batidas permitidas
 metalpipe-self-bonk-blocked = auto-batidas bloqueadas
 
-metalpipe-game-start = Metal Pipe começa no modo { $mode }. O cano escolherá tudo automaticamente.
+metalpipe-game-start = Cano de Metal começa no modo { $mode }. O cano escolherá tudo automaticamente.
 metalpipe-game-start-brief = Cano de Metal: { $mode }.
 
 metalpipe-you-hit-other = Você balança o cano de metal e acerta { $bonked }. { $bonked } foi eliminado.
@@ -40,9 +40,9 @@ metalpipe-status-last-self = Última batida: { $bonker } acertou a si mesmo.
 metalpipe-status-player = { $player}: { $status }.
 metalpipe-status-alive = De pé
 metalpipe-status-eliminated = Eliminado
-metalpipe-no-turn-automatic = Metal Pipe está se resolvendo automaticamente. Há { $alive } jogadores ainda de pé, e nenhum jogador tem um turno manual.
+metalpipe-no-turn-automatic = Cano de Metal está sendo resolvido automaticamente. Há { $alive } jogadores ainda de pé, e nenhum jogador tem um turno manual.
 
-metalpipe-final-results = Resultados do Metal Pipe
+metalpipe-final-results = Resultados do Cano de Metal
 metalpipe-end-winner = Vencedor: { $player }.
 metalpipe-end-winners = Vencedores: { $players }.
 metalpipe-line-format = { $player}: { $status }

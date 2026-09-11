@@ -134,6 +134,28 @@ kick-confirm = Tem certeza de que deseja expulsar { $player }?
 no-users-to-kick = Nenhum usuário disponível para expulsar.
 usage-kick = Uso: /kick <nome_de_usuário>
 online-users-none = Nenhum usuário online.
+online-users-summary = { $count ->
+    [one] { $count } usuário online. { $groups }
+   *[other] { $count } usuários online. { $groups }
+}
+online-users-group = { $role ->
+    [dev] { $count ->
+        [one] { $count } desenvolvedor: { $users }.
+       *[other] { $count } desenvolvedores: { $users }.
+    }
+    [admin] { $count ->
+        [one] { $count } administrador: { $users }.
+       *[other] { $count } administradores: { $users }.
+    }
+   *[user] { $staff_count ->
+        [0] { $users }.
+       *[other] { $count ->
+            [one] { $count } usuário: { $users }.
+           *[other] { $count } usuários: { $users }.
+        }
+    }
+}
+online-users-more = mais { $count }
 online-user-waiting-approval = Aguardando aprovação
 presence-status-main-menu = Menu principal
 presence-status-waiting-table = Aguardando na mesa de { $game }
@@ -619,6 +641,8 @@ admin-localized-text-apply-ban = Aplicar banimento
 admin-localized-text-apply-mute = Aplicar silenciamento
 
 unknown-player = Jogador desconhecido
+unknown-user = Usuário desconhecido
+user-account-unavailable = Esta conta de usuário não está mais disponível.
 
 logout-confirm-title = Tem certeza de que deseja sair e encerrar o jogo?
 logout-confirm-yes = Sim, sair

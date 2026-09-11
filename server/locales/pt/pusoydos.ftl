@@ -95,10 +95,10 @@ pusoydos-you-eliminated = Você venceu { $count } rodadas e está fora! Bem joga
 pusoydos-player-eliminated = { $player } venceu { $count } rodadas e está fora! Bem jogado.
 pusoydos-you-last-player = Você é o último jogador restante. Fim de jogo!
 pusoydos-last-player = { $player } é o último jogador restante. Fim de jogo!
-pusoydos-players-remaining = Resta { $count } { $count ->
-    [one] jogador
-   *[other] jogadores
-}.
+pusoydos-players-remaining = { $count ->
+    [one] Resta 1 jogador.
+   *[other] Restam { $count } jogadores.
+}
 
 # Losses mode
 pusoydos-you-round-loser = Você termina em último e leva uma derrota! ({ $count } { $count ->

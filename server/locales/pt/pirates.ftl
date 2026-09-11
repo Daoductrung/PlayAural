@@ -73,7 +73,7 @@ pirates-gem-found-you-brief = Você recupera a joia { $gem }. Pontuação: { $sc
 pirates-gem-found = { $player } recupera a joia { $gem }, no valor de { $value } { $value ->
     [one] ponto
    *[other] pontos
-}. A carga deles agora vale { $score } pontos; { $remaining } joias continuam no mar.
+}. A carga de { $player } agora vale { $score } pontos; { $remaining } joias continuam no mar.
 pirates-gem-found-brief = { $player } recupera a joia { $gem }.
 pirates-xp-gained-you = Você ganha { $xp } EXP por { $reason ->
     [gem] recuperar uma joia
@@ -169,11 +169,11 @@ pirates-steal-rolls-defender = O total de roubo de { $attacker } é { $steal }; 
 pirates-steal-rolls-defender-brief = Roubo { $steal }; sua guarda { $defend }.
 pirates-steal-rolls-observer = { $attacker } tenta roubar de { $defender }: roubo { $steal }, guarda { $defend }.
 pirates-steal-rolls-observer-brief = { $attacker } rouba com { $steal } contra { $defender } com { $defend }.
-pirates-steal-success-you = Você rouba a joia { $gem } de { $target }. Sua carga vale { $attacker_score } pontos; a deles vale { $defender_score }.
+pirates-steal-success-you = Você rouba a joia { $gem } de { $target }. Sua carga vale { $attacker_score } pontos; a carga de { $target } vale { $defender_score }.
 pirates-steal-success-you-brief = Você rouba a joia { $gem } de { $target }.
-pirates-steal-success-them = { $attacker } rouba sua/seu { $gem }. A carga deles vale { $attacker_score } pontos; a sua vale { $defender_score }.
-pirates-steal-success-them-brief = { $attacker } rouba sua/seu { $gem }.
-pirates-steal-success = { $attacker } rouba a joia { $gem } de { $defender }. Os valores das cargas deles agora são { $attacker_score } e { $defender_score } pontos, respectivamente.
+pirates-steal-success-them = { $attacker } rouba de você a joia { $gem }. A carga de { $attacker } vale { $attacker_score } pontos; a sua vale { $defender_score }.
+pirates-steal-success-them-brief = { $attacker } rouba de você a joia { $gem }.
+pirates-steal-success = { $attacker } rouba a joia { $gem } de { $defender }. A carga de { $attacker } agora vale { $attacker_score } pontos, e a de { $defender } vale { $defender_score }.
 pirates-steal-success-brief = { $attacker } rouba a joia { $gem } de { $defender }.
 pirates-steal-failed-you = Seu total de roubo de { $steal } não supera o total de guarda de { $target } de { $defend }. Você não rouba nada.
 pirates-steal-failed-you-brief = Seu roubo falha, { $steal } a { $defend }.
@@ -181,7 +181,7 @@ pirates-steal-failed-defender = Você impede o roubo de { $attacker }, { $defend
 pirates-steal-failed-defender-brief = Você impede o roubo de { $attacker }.
 pirates-steal-failed = { $defender } impede o roubo de { $attacker }, { $defend } a { $steal }.
 pirates-steal-failed-brief = { $attacker } falha ao roubar de { $defender }.
-pirates-steal-no-gems-you = Você não pode roubar de { $target } porque eles não carregam mais nenhuma joia. Escolha um empurrão em vez disso.
+pirates-steal-no-gems-you = Você não pode roubar de { $target } porque esse jogador não carrega mais nenhuma joia. Escolha um empurrão em vez disso.
 pirates-steal-no-gems-you-brief = { $target } não tem joias para roubar.
 pirates-steal-no-gems-defender = { $attacker } não pode roubar de você porque sua carga não contém joias.
 pirates-steal-no-gems-defender-brief = Você não tem nenhuma joia para { $attacker } roubar.
@@ -219,7 +219,7 @@ pirates-skill-activated-brief = { $player } ativa { $skill }.
 pirates-buff-expired-you = Seu efeito de { $skill } expira antes que este turno comece.
 pirates-buff-expired-you-brief = Seu bônus de { $skill } expira.
 pirates-buff-expired = O efeito de { $skill } de { $player } expira antes que o turno dele comece.
-pirates-buff-expired-brief = O/A { $skill } de { $player } expira.
+pirates-buff-expired-brief = A habilidade { $skill } de { $player } expira.
 
 pirates-skill-instinct-name = Instinto de Marinheiro
 pirates-skill-instinct-desc = Revise cada setor de cinco casas, incluindo joias não coletadas e navios rivais. Esta ação de informação não encerra o turno.

@@ -1,88 +1,156 @@
 \*\*Gamão\*\*
 
-O Gamão é um dos jogos de tabuleiro de corrida mais antigos do mundo, com origens que se acredita remontarem a mais de quatro mil anos. Dois jogadores guiam quinze peças cada um ao redor de uma pista compartilhada de vinte e quatro pontos, tentando trazer todas as suas peças para casa e retirá-las do tabuleiro antes que o oponente possa fazer o mesmo.
+Gamão é uma corrida para exatamente dois jogadores. Cada jogador controla quinze peças em um tabuleiro com vinte e quatro pontos numerados. Seu objetivo é levar todas as peças para o seu quadrante interno e, depois, retirar as quinze antes que o oponente faça o mesmo.
 
-# **Posição Inicial**
+O PlayAural atribui a cor Vermelha a um jogador e a Branca ao outro. As cores mantêm as mesmas peças durante toda a partida, mas cada jogador ouve a numeração dos pontos conforme sua própria direção de movimento.
 
-Cada jogador começa com quinze peças na disposição de abertura padrão:
+\*\*O Tabuleiro\*\*
 
-* 2 peças no seu ponto 24
-* 5 peças no seu ponto 13
-* 3 peças no seu ponto 8
-* 5 peças no seu ponto 6
+O tabuleiro é uma pista dobrada em duas fileiras. Ele contém:
 
-As cores são atribuídas aleatoriamente no início de cada partida. Um jogador é Vermelho e o outro é Branco.
+\* \*\*24 pontos:\*\* Os espaços onde as peças ficam. Da sua perspectiva, o ponto 24 é o mais distante de casa, e o ponto 1 é o mais próximo da retirada.
+\* \*\*Seu quadrante interno:\*\* Os pontos de 1 a 6. Todas as suas quinze peças devem chegar a esses seis pontos antes que você possa retirá-las.
+\* \*\*A barra:\*\* A divisória no centro de um tabuleiro físico. Uma peça capturada espera aqui até poder reentrar.
+\* \*\*Fora do tabuleiro:\*\* O destino das peças que você retirou com sucesso.
 
-# **Layout do Tabuleiro**
+O tabuleiro acessível é uma grade estável de duas fileiras por doze colunas. Seu quadrante interno fica no canto inferior direito. A fileira inferior vai do ponto 12 ao ponto 1, em ordem decrescente, e a fileira superior vai do ponto 13 ao ponto 24, em ordem crescente. Suas peças avançam dos pontos de número maior para os de número menor; as peças do oponente avançam na direção contrária.
 
-O tabuleiro é exibido como uma grade a partir da sua perspectiva, com sua área de casa no canto inferior direito. Os pontos são numerados de 1 a 6 ao longo da parte inferior direita, continuando de 7 a 12 ao longo da parte inferior esquerda, depois de 13 a 18 ao longo da parte superior esquerda e de 19 a 24 ao longo da parte superior direita. O movimento segue este formato de ferradura: suas peças viajam dos pontos de numeração alta para baixo em direção ao seu tabuleiro de casa nos pontos 1 a 6. Seu oponente viaja na direção oposta.
+\*\*Posição Inicial\*\*
 
-# **Jogabilidade**
+Cada jogador começa com a disposição padrão de quinze peças:
 
-Cada jogo começa com uma rolagem de abertura. Ambos os jogadores rolam um dado, e o maior resultado começa; empates são rolados novamente até que alguém vença. Esses dois números iniciais são então usados imediatamente como o primeiro turno daquele jogador.
+\* 2 peças no ponto 24.
+\* 5 peças no ponto 13.
+\* 3 peças no ponto 8.
+\* 5 peças no ponto 6.
 
-Depois disso, os jogadores se revezam rolando dois dados e movendo suas peças de acordo com os números obtidos. Cada dado é um movimento separado. Se os dados forem diferentes, você normalmente deve usar ambos se existirem movimentos legais. Se você tirar dados iguais (duplas), você joga esse número quatro vezes. Role pressionando Enter em qualquer ponto do tabuleiro.
+Como os dois lados avançam em direções opostas, a numeração dos pontos do oponente é o inverso da sua.
 
-O menu de turno apresenta os movimentos legais disponíveis naquele momento. Você continua escolhendo movimentos até que todos os dados utilizáveis tenham sido gastos ou nenhum movimento legal permaneça. Se apenas um dado puder ser jogado legalmente, o dado mais alto deve ser usado.
+\*\*Início de um Jogo\*\*
 
-# **Movimento e Captura**
+Cada jogador lança um dado. Em caso de empate, os dados são lançados novamente. Quem obtiver o número maior começa e usa os dois números da abertura como os dados do primeiro turno. Uma nova rolagem de abertura é feita no início de cada jogo de uma partida.
 
-Para mover uma peça, primeiro selecione o ponto em que ela está, depois selecione o ponto de destino. O jogo corresponde automaticamente o seu movimento ao dado correto. Você pode se mover para:
+Depois do turno de abertura, os jogadores alternam os turnos e lançam dois dados a cada vez. Em um dispositivo de toque, toque em qualquer ponto do tabuleiro para rolar. No desktop, pressione Enter em qualquer ponto do tabuleiro ou pressione R. A rolagem mantém o foco onde estava, para que você possa continuar examinando o mesmo ponto.
 
-* Um ponto vazio.
-* Um ponto ocupado pelas suas próprias peças.
-* Um ponto ocupado por exatamente uma peça oponente.
+\*\*Uso dos Dados\*\*
 
-Se você chegar a um ponto com exatamente uma peça oponente, essa peça é capturada e enviada para a barra.
+Normalmente, cada dado move uma peça pela quantidade correspondente de pontos. Você pode mover duas peças diferentes ou mover a mesma peça duas vezes, desde que o ponto intermediário esteja aberto. A ordem pode fazer diferença: um percurso pode ser permitido usando primeiro um dos dados e ficar bloqueado se o outro for usado antes.
 
-Você não pode se mover para um ponto ocupado por duas ou mais peças oponentes. Esses pontos estão bloqueados.
+Você deve aproveitar a rolagem tanto quanto as regras permitirem:
 
-Se você tiver alguma peça na barra, deve reentrar com essa peça antes de mover quaisquer outras. Quando você tiver uma peça na barra, basta selecionar qualquer ponto de destino e o jogo se move da barra automaticamente. Uma peça na barra reentra em um ponto aberto no tabuleiro de casa do seu oponente, usando os dados assim como qualquer outro movimento. Se você tiver peças na barra e não puder entrar, todo o seu turno será perdido.
+\* Se os dois dados puderem ser usados, você deverá usar ambos.
+\* Se apenas um dado puder ser usado, você deverá usar o maior quando houver um movimento permitido para ele.
+\* Se tirar uma dupla, você jogará o número quatro vezes e deverá usar a maior quantidade possível desses quatro movimentos.
+\* Se nenhum dado puder ser usado, o jogo anunciará que o turno terminou.
 
-# **Retirada (Bearing Off)**
+O PlayAural avalia toda a rolagem restante. Por isso, ele rejeita um movimento que impediria desnecessariamente o uso de outro dado obrigatório. O turno termina automaticamente depois que todos os dados que podem ser usados legalmente forem gastos.
 
-Uma vez que todas as quinze peças estejam no seu tabuleiro de casa, você pode começar a retirá-las. Para retirar, selecione a peça e depois selecione o mesmo ponto novamente, ou pressione Enter duas vezes nele. Uma rolagem exata retira uma peça diretamente. Se você rolar um número maior do que o seu ponto ocupado mais alto, você pode retirar a partir desse ponto mais alto. Você não pode usar um dado que ultrapasse o valor para retirar de um ponto mais baixo se alguma peça permanecer em um ponto mais alto.
+\*\*Seleção e Movimento de uma Peça\*\*
 
-Se uma peça for capturada durante a retirada, ela deve ir para a barra, reentrar e percorrer todo o caminho de volta para casa antes que você possa retomar a retirada.
+Ative um ponto que contenha uma de suas peças para selecioná-la e, depois, ative um destino permitido. O PlayAural escolhe o dado não utilizado correspondente. Ative Desselecionar para cancelar a seleção atual. Se nenhuma peça estiver selecionada, Desselecionar confirmará que não há uma peça selecionada.
 
-# **Pontuação**
+Em um dispositivo de toque, ative Próximo destino ou Destino anterior para mover o foco pelas opções permitidas. Antes de selecionar uma peça, essas ações percorrem os pontos de origem permitidos ou os pontos de reentrada quando você tem uma peça na barra. Depois de selecionar uma peça, elas percorrem os destinos permitidos para ela. Esses são os únicos controles de movimento que alteram intencionalmente o foco no tabuleiro.
 
-O vencedor de um jogo pontua pontos de partida:
+A ação Movimentos legais abre uma lista dinâmica com todos os movimentos permitidos pela rolagem restante completa. Os números dos pontos nessa lista usam a sua perspectiva. Desfazer reverte o submovimento mais recente do turno atual, inclusive restaurando uma peça adversária capturada por esse movimento. Depois que o turno termina, seus movimentos não podem mais ser desfeitos.
 
-* **1 ponto** para uma vitória normal, se o perdedor já tiver retirado pelo menos uma peça.
-* **2 pontos** por uma gammon, se o perdedor não tiver retirado nenhuma.
-* **3 pontos** por uma backgammon, se o perdedor não tiver retirado nenhuma e ainda tiver uma peça na barra ou no tabuleiro de casa do vencedor.
+Você pode ocupar:
 
-Se o cubo de redobro tiver sido usado, o valor final do cubo multiplica a pontuação para aquele jogo.
+\* Um ponto vazio.
+\* Um ponto ocupado por qualquer quantidade de suas próprias peças.
+\* Um ponto ocupado por exatamente uma peça adversária.
 
-# **Cubo de Redobro e Regra de Crawford**
+Um ponto com duas ou mais peças adversárias está fechado, portanto você não pode ocupá-lo.
 
-Em partidas com mais de um ponto, o jogador ativo pode oferecer um redobro antes de rolar. Se o oponente aceitar, o valor do cubo dobra e a propriedade do cubo passa para o jogador que aceitou, que passa a ser o único que pode oferecer o próximo redobro. Se o oponente recusar (drop), o jogador que ofereceu vence o jogo atual imediatamente pelo valor atual do cubo.
+\*\*Peças Desprotegidas, Captura e Barra\*\*
 
-A regra de Crawford é aplicada automaticamente. Quando um jogador está a exatamente um ponto de vencer a partida, o próximo jogo torna-se um jogo de Crawford e o cubo de redobro é desativado para aquele jogo. Após o jogo de Crawford, o redobro é retomado para todos os jogos subsequentes. O cubo de redobro não está disponível em jogos únicos (partidas de 1 ponto).
+Uma peça sozinha em um ponto é chamada de peça desprotegida. Quando uma peça adversária ocupa esse ponto, a peça desprotegida é capturada e enviada para a barra.
 
-# **Partida (Match Play)**
+Se você tiver uma ou mais peças na barra, deverá reintroduzir todas elas antes de mover qualquer peça que já esteja no tabuleiro. Para reentrar, ative um destino aberto no quadrante interno do oponente. O dado determina o ponto de entrada: um 1 entra no ponto 1 do oponente, da perspectiva dele; um 6 entra no ponto 6 dele; e assim por diante. O PlayAural anuncia esses destinos usando a numeração dos pontos da sua perspectiva.
 
-Uma partida consiste em vários jogos jogados até uma pontuação alvo. Após cada jogo, os pontos do vencedor são adicionados à sua pontuação de partida. O primeiro jogador a atingir ou exceder o alvo vence a partida. As cores permanecem as mesmas durante toda a partida, mas uma nova rolagem de abertura determina quem começa em cada jogo. O cubo de redobro é reiniciado centralizado em 1 para cada novo jogo.
+Um ponto de entrada está aberto se estiver vazio, contiver suas próprias peças ou contiver uma única peça adversária desprotegida. Se houver várias peças na barra, você deverá reintroduzir tantas quantas os dados permitirem. Depois que a última reentrar, qualquer dado não utilizado poderá mover essa peça novamente ou mover outra peça. Se todos os pontos de entrada permitidos pelos dados restantes estiverem fechados, você não poderá se mover e perderá o restante do turno.
 
-# **Opções de Jogo**
+\*\*Retirada das Peças\*\*
 
-* **Pontos para vencer a partida:** O número de pontos necessários para vencer a partida. O valor 1 corresponde a um jogo único sem cubo de redobro (padrão 1, intervalo de 1 a 25).
-* **Dificuldade do Bot:** Como os bots escolhem seus movimentos (padrão Simples, opções: Simples ou Aleatório).
+Você só pode começar a retirada quando todas as suas quinze peças estiverem no seu quadrante interno e nenhuma estiver na barra.
 
-# **Atalhos de Teclado**
+\* Use um dado igual ao número do ponto de uma peça para retirá-la diretamente.
+\* Um dado maior que o ponto ocupado mais alto pode retirar uma peça desse ponto mais alto.
+\* Você não pode usar um dado maior para retirar uma peça de um ponto inferior enquanto alguma de suas peças permanecer em um ponto superior.
 
-* **Enter (em qualquer ponto da grade):** Rola os dados antes da rolagem, ou seleciona e move uma peça durante o movimento.
-* **Ctrl+Backspace:** Desseleciona a peça selecionada atualmente.
-* **Ctrl+Seta para Baixo ou Ctrl+Seta para a Direita:** Percorre os alvos de navegação para a frente. Com uma peça selecionada, percorre os destinos disponíveis (damas desprotegidas do oponente primeiro). Sem uma seleção, percorre os pontos de origem que possuem movimentos válidos.
-* **Ctrl+Seta para Cima ou Ctrl+Seta para a Esquerda:** Cicla para trás pelos alvos de navegação.
-* **Shift+D:** Oferece um redobro antes de rolar (apenas em jogos de partida).
-* **Y:** Aceita um redobro oferecido.
-* **N:** Recusa um redobro oferecido.
-* **U:** Anula o último submovimento do turno atual.
-* **E:** Lê a contagem de peças na barra e já retiradas.
-* **P:** Lê a contagem de pips para ambos os jogadores.
-* **D:** Lê o status do cubo de redobro.
-* **S:** Lê a pontuação atual da partida.
-* **Shift+S:** Abre a pontuação detalhada da partida.
-* **C:** Lê os dados restantes para o turno atual.
+Se a retirada for o único destino permitido para uma peça, ative o ponto dela uma vez. Se a peça puder avançar dentro do tabuleiro ou ser retirada, ative-a uma vez para selecioná-la e ative o mesmo ponto novamente para retirá-la. Assim, o destino dentro do tabuleiro continua disponível quando esse movimento for estrategicamente melhor.
+
+Se uma segunda ativação não puder retirar a peça, o PlayAural explicará o motivo e limpará a seleção. Se uma das peças restantes for capturada, você deverá reintroduzi-la e levá-la novamente ao seu quadrante interno antes de continuar a retirada.
+
+\*\*Vitória em um Jogo\*\*
+
+O primeiro jogador a retirar todas as quinze peças vence o jogo. O resultado básico é então multiplicado pelo cubo de redobro, caso ele esteja em uso:
+
+\* \*\*Vitória simples, 1 vez o valor do cubo:\*\* O perdedor retirou pelo menos uma peça.
+\* \*\*Gammon, 2 vezes o valor do cubo:\*\* O perdedor não retirou nenhuma peça.
+\* \*\*Backgammon, 3 vezes o valor do cubo:\*\* O perdedor não retirou nenhuma peça e ainda tem uma peça na barra ou no quadrante interno do vencedor.
+
+Em uma partida, o resultado é adicionado à pontuação do vencedor. O primeiro jogador a alcançar ou superar a pontuação-alvo vence a partida.
+
+\*\*O Cubo de Redobro\*\*
+
+Partidas com mais de um ponto usam um cubo de redobro, que começa centralizado no valor 1. No início do seu turno, antes de rolar, você pode oferecer o dobro do valor do jogo atual.
+
+Não é possível oferecer um redobro no turno de abertura, pois os dados já foram lançados para decidir quem começa.
+
+O oponente deverá escolher uma resposta:
+
+\* \*\*Aceitar:\*\* O valor do cubo dobra. O jogador que aceitou assume a posse do cubo e passa a ser o único que pode oferecer o próximo redobro.
+\* \*\*Recusar:\*\* O jogo atual termina imediatamente. Quem ofereceu o redobro vence pelo valor do cubo antes do aumento proposto.
+
+Recusar pode exigir uma segunda confirmação quando a confirmação de ações arriscadas estiver ativada. Um jogador não pode oferecer um redobro quando o oponente possui o cubo, depois de rolar, durante um jogo de Crawford ou quando aumentar o cubo não puder melhorar o resultado desse jogador na partida porque o valor atual já é suficiente para vencê-la. Jogos únicos de um ponto não usam o cubo.
+
+\*\*A Regra de Crawford\*\*
+
+Quando um dos jogadores começa um jogo a exatamente um ponto de vencer a partida pela primeira vez, esse jogo se torna o jogo de Crawford. O cubo de redobro fica desativado somente nesse jogo. Se a partida continuar, o cubo volta a ficar disponível em todos os jogos seguintes. O PlayAural aplica essa regra automaticamente.
+
+\*\*Opções Personalizáveis\*\*
+
+\* \*\*Duração da partida:\*\* A pontuação-alvo da partida, de 1 a 25. O padrão é 1. Uma partida de 1 ponto consiste em um único jogo sem o cubo de redobro.
+\* \*\*Dificuldade do bot:\*\* Simples, o padrão, prioriza movimentos táticos úteis. Aleatório escolhe entre os movimentos permitidos sem essa preferência tática.
+
+\*\*Opções Pessoais do Jogo\*\*
+
+\* \*\*Anúncios resumidos:\*\* Usa mensagens mais curtas para os movimentos das peças, mas ainda informa quem se moveu, a origem, o destino e se uma peça foi capturada, reintroduzida da barra ou retirada.
+\* \*\*Confirmar ações arriscadas:\*\* Exige que Recusar seja ativado uma segunda vez dentro de 10 segundos antes de conceder um jogo em resposta a um redobro.
+
+\*\*Ações Informativas\*\*
+
+\* \*\*Status:\*\* Informa, para cada jogador, quantas peças estão na barra, fora do quadrante interno e já retiradas.
+\* \*\*Contagem de pips:\*\* Informa a distância total que cada lado ainda precisa percorrer para levar suas peças para casa e retirá-las. Uma contagem menor costuma ser melhor em uma corrida pura, mas não considera possibilidades de bloqueio ou captura.
+\* \*\*Dados:\*\* Informa os dados ainda não utilizados no turno atual.
+\* \*\*Movimentos legais:\*\* Abre uma lista dinâmica dos movimentos permitidos pelos dados restantes.
+\* \*\*Cubo:\*\* Informa o valor e o proprietário do cubo e se um redobro pode ser oferecido no momento.
+\* \*\*Verificar pontuações:\*\* Lê a pontuação atual da partida. Pontuações detalhadas abre um painel dinâmico de pontuação.
+\* \*\*De quem é a vez e Quem está na mesa:\*\* Informam o jogador ativo e os participantes da mesa.
+
+As ações informativas usadas com mais frequência ficam disponíveis diretamente em dispositivos de toque. As demais permanecem no menu Ações.
+
+\*\*Atalhos de Teclado\*\*
+
+\* \*\*Enter em um ponto do tabuleiro:\*\* Rola antes do movimento, seleciona uma peça ou escolhe um destino.
+\* \*\*R:\*\* Rola no início do seu turno.
+\* \*\*Ctrl+Backspace:\*\* Desseleciona a peça atual.
+\* \*\*Ctrl+Seta para Baixo ou Ctrl+Seta para a Direita:\*\* Percorre para a frente os pontos de origem permitidos ou, depois que uma peça é selecionada, os destinos permitidos. As peças adversárias desprotegidas são apresentadas primeiro.
+\* \*\*Ctrl+Seta para Cima ou Ctrl+Seta para a Esquerda:\*\* Percorre as mesmas opções para trás.
+\* \*\*Shift+D:\*\* Oferece um redobro antes de rolar.
+\* \*\*Y:\*\* Aceita uma oferta de redobro.
+\* \*\*N:\*\* Recusa uma oferta de redobro.
+\* \*\*U:\*\* Desfaz o submovimento mais recente do turno atual.
+\* \*\*E:\*\* Lê o status das peças.
+\* \*\*P:\*\* Lê as duas contagens de pips.
+\* \*\*D:\*\* Lê o cubo de redobro.
+\* \*\*S:\*\* Lê a pontuação da partida.
+\* \*\*Shift+S:\*\* Abre as pontuações detalhadas.
+\* \*\*C:\*\* Lê os dados restantes.
+\* \*\*M:\*\* Abre Movimentos legais.
+
+\*\*Estratégia para Iniciantes\*\*
+
+Evite deixar peças desprotegidas ao alcance do oponente. Duas ou mais peças em um ponto impedem que o adversário o ocupe. Os bloqueios são especialmente valiosos quando atrasam uma peça adversária que tenta sair do seu quadrante interno.
+
+Quando você tiver uma peça na barra, verifique primeiro quais pontos de entrada estão abertos. Em uma corrida na qual não seja mais possível haver contato entre as peças, use a contagem de pips para comparar quem está à frente. Durante a retirada, considere toda a rolagem antes de escolher a primeira peça, pois uma ordem pode permitir o uso de mais dados do que outra.

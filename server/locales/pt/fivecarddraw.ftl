@@ -3,7 +3,7 @@ game-name-fivecarddraw = Pôquer de Cinco Cartas
 draw-set-starting-chips = Fichas iniciais: { $count }
 draw-enter-starting-chips = Digite as fichas iniciais
 draw-option-changed-starting-chips = Fichas iniciais definidas para { $count }.
-fivecarddraw-desc-starting-chips = Pilha inicial de cada jogador no Five Card Draw, de 100 a 1.000.000 fichas. Padrão: 20.000.
+fivecarddraw-desc-starting-chips = Pilha inicial de cada jogador em Pôquer de Cinco Cartas, de 100 a 1.000.000 fichas. Padrão: 20.000.
 
 draw-set-ante = Ante: { $count }
 draw-enter-ante = Digite o valor do ante

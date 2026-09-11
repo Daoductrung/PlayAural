@@ -58,8 +58,8 @@ midnight-game-tie = É um empate no jogo. { $players } terminaram cada um com { 
 midnight-set-rounds = Rodadas para jogar: { $rounds }
 midnight-enter-rounds = Digite o número de rodadas para jogar:
 midnight-option-changed-rounds = Rodadas para jogar alteradas para { $rounds }
-midnight-desc-rounds = Número de rodadas de Midnight a jogar antes da pontuação final (padrão 5, intervalo de 1 a 20).
-midnight-error-rounds-out-of-range = Midnight suporta de { $min } a { $max } rodadas. Configuração atual: { $rounds }.
+midnight-desc-rounds = Número de rodadas de 1-4-24 a jogar antes da pontuação final (padrão 5, intervalo de 1 a 20).
+midnight-error-rounds-out-of-range = 1-4-24 suporta de { $min } a { $max } rodadas. Configuração atual: { $rounds }.
 
 midnight-need-to-roll = Role os dados antes de escolher quais manter.
 midnight-no-dice-to-keep = Não há mais dados para rolar ou manter.
@@ -96,7 +96,7 @@ midnight-status-current-dice =
     }
 midnight-status-dice-not-rolled = não rolado
 midnight-status-last-qualified = Último turno: { $player } rolou { $dice } e pontuou { $score }.
-midnight-status-last-disqualified = Último turno: { $player } rolou { $dice } e não se qualificado.
+midnight-status-last-disqualified = Último turno: { $player } rolou { $dice } e não se qualificou.
 midnight-status-standing-line =
     { $qualified ->
         [yes] { $rank }. { $player }: { $wins } vitórias de rodada; rodada atual { $current}, qualificado.

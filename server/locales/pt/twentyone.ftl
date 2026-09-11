@@ -162,7 +162,7 @@ twentyone-modifier-help-all-in-silence = Fim de jogo: enquanto ativo, seu dano e
 
 # 21 (Survival Rules - Runtime Messages)
 twentyone-change-card-guide-entry = { $name }: { $description }
-twentyone-check-status-response = Alvo { $target }. Seu HP { $hp }, aposta atual { $bet }, mão { $hand } (total { $total }). Cartas de mudança: { $modifiers }. Efeitos ativos: { $effects }.
+twentyone-check-status-response = Alvo { $target }. Seu HP: { $hp }, aposta atual { $bet }, mão { $hand } (total { $total }). Cartas de mudança: { $modifiers }. Efeitos ativos: { $effects }.
 twentyone-check-status-guide-hint = Dica: use as ações de leitura para obter detalhes focados da mão, aposta e efeitos ativos.
 twentyone-check-status-opponent = Oponente { $player }: HP { $hp }, aposta { $bet }, cartas reveladas [{ $shown_cards }] total { $shown_total }, carta oculta.
 twentyone-no-opponent-available = Nenhum oponente disponível.
@@ -198,12 +198,12 @@ twentyone-you-lose-zero-bet = Você perde a rodada, mas não sofre dano porque s
 twentyone-player-loses-zero-bet = { $player } perde a rodada, mas não sofre dano porque a aposta dele é zero.
 twentyone-you-avoid-damage-with-effect = Você usa { $effect } e evita o dano.
 twentyone-player-avoids-damage-with-effect = { $player } usa { $effect } e evita o dano.
-twentyone-you-take-damage = Você sofre { $damage } de dano e agora tem { $hp } de HP.
-twentyone-player-takes-damage = { $player } sofre { $damage } de dano e agora tem { $hp } de HP.
-twentyone-game-win = { $player } vence o jogo com { $hp } de HP restante.
-twentyone-you-win-game = Você vence o jogo com { $hp } de HP restante.
-twentyone-player-wins-game = { $player } vence o jogo com { $hp } de HP restante.
-twentyone-final-hp-line = { $rank }. { $player }: { $hp } PV
+twentyone-you-take-damage = Você sofre { $damage } de dano e agora tem { $hp } HP.
+twentyone-player-takes-damage = { $player } sofre { $damage } de dano e agora tem { $hp } HP.
+twentyone-game-win = { $player } vence o jogo. HP restante: { $hp }.
+twentyone-you-win-game = Você vence o jogo. HP restante: { $hp }.
+twentyone-player-wins-game = { $player } vence o jogo. HP restante: { $hp }.
+twentyone-final-hp-line = { $rank }. { $player }: { $hp } HP
 twentyone-game-no-winner = O jogo termina sem vencedor.
 twentyone-cannot-draw-cards = { $player } não pode comprar cartas agora.
 twentyone-you-cannot-draw-cards = Você não pode comprar cartas agora.

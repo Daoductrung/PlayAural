@@ -65,8 +65,8 @@ deadmansdeck-you-roulette-survived = Câmara vazia. Você sobrevive. Seu próxim
 deadmansdeck-roulette-survived = Câmara vazia. { $player } sobrevive. O próximo puxão tem 1 em { $remaining } de risco.
 deadmansdeck-you-eliminated-by-gun = A arma dispara. Você foi eliminado.
 deadmansdeck-player-eliminated = A arma dispara. { $player } foi eliminado.
-deadmansdeck-you-win-game = Você é o último jogador sobrevivente e vence o Dead Man's Deck.
-deadmansdeck-player-wins = { $player } é o último jogador sobrevivente e vence o Dead Man's Deck.
+deadmansdeck-you-win-game = Você é o último jogador sobrevivente e vence o jogo O Baralho do Morto.
+deadmansdeck-player-wins = { $player } é o último jogador sobrevivente e vence o jogo O Baralho do Morto.
 deadmansdeck-no-winner = Nenhum vencedor pôde ser determinado.
 deadmansdeck-you-are-eliminated = Você foi eliminado deste jogo.
 
@@ -79,16 +79,16 @@ deadmansdeck-table-alive = Ainda vivos: { $players }.
 deadmansdeck-table-eliminated = Eliminados: { $players }.
 
 deadmansdeck-card-count-line = { $player }: { $count ->
-    [one] 1 carta
-   *[other] { $count } cartas
-} restam.
+    [one] resta 1 carta
+   *[other] restam { $count } cartas
+}.
 deadmansdeck-card-count-eliminated = { $player }: eliminado.
 
 deadmansdeck-revolvers-header = Status dos revólveres
 deadmansdeck-revolver-status = { $player }: { $survived } câmaras vazias usadas; próximo puxão é 1 em { $remaining }.
 deadmansdeck-revolver-eliminated = { $player }: eliminado.
 
-deadmansdeck-results-header = Resultados de Dead Man's Deck
+deadmansdeck-results-header = Resultados do jogo O Baralho do Morto
 deadmansdeck-results-winner = Vencedor: { $player }.
 deadmansdeck-results-survived = sobreviveu
 deadmansdeck-results-eliminated = eliminado

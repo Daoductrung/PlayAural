@@ -29,7 +29,7 @@ deadmanspoker-switch-no-cards = Você não tem uma carta particular para trocar.
 deadmanspoker-switch-no-deck = O baralho não tem cartas de substituição suficientes.
 deadmanspoker-switch-choice-missing = Essa carta de substituição não está mais disponível.
 
-deadmanspoker-match-start = Dead Man's Poker começa. Cada bala na mesa é uma aposta com a sua vida em risco.
+deadmanspoker-match-start = Começa o jogo O Pôquer do Morto. Cada bala na mesa é uma aposta com a sua vida em risco.
 deadmanspoker-hand-start = Mão { $hand }. Cada jogador ativo aposta a primeira bala.
 deadmanspoker-hand-start-all-alive = Mão { $hand }. Todos apostam a primeira bala.
 deadmanspoker-hand-start-survivors = Mão { $hand }. Cada sobrevivente aposta a primeira bala.
@@ -115,8 +115,8 @@ deadmanspoker-player-eliminated = A arma dispara. { $player } é eliminado após
     [one] 1 bala
    *[other] { $bullets } balas
 }.
-deadmanspoker-you-win-game = Você é o último sobrevivente e vence o Dead Man's Poker.
-deadmanspoker-player-wins = { $player } é o último sobrevivente e vence o Dead Man's Poker.
+deadmanspoker-you-win-game = Você é o último sobrevivente e vence o jogo O Pôquer do Morto.
+deadmanspoker-player-wins = { $player } é o último sobrevivente e vence o jogo O Pôquer do Morto.
 deadmanspoker-no-winner = Nenhum vencedor pôde ser determinado.
 deadmanspoker-you-are-eliminated = Você foi eliminado deste jogo.
 
@@ -147,9 +147,9 @@ deadmanspoker-revolver-status = { $player }: { $bullets ->
 deadmanspoker-revolver-eliminated = { $player }: eliminado.
 deadmanspoker-risk-none = sem risco atual de roleta
 deadmanspoker-risk-normal = chance de morte { $bullets } em 8
-deadmanspoker-risk-eight = 95 porcento de chance de morte, 5 porcento de sobrevivência com Deus nos Acuda
+deadmanspoker-risk-eight = 95 por cento de chance de morte e 5 por cento de chance de sobrevivência com Deus nos Acuda
 
-deadmanspoker-results-header = Resultados de Dead Man's Poker
+deadmanspoker-results-header = Resultados do jogo O Pôquer do Morto
 deadmanspoker-results-winner = Vencedor: { $player }.
 deadmanspoker-results-survived = sobreviveu
 deadmanspoker-results-eliminated = eliminado

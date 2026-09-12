@@ -32,7 +32,7 @@ Al entrar a una mesa, normalmente puedes:
 PlayAural está hecho para ser tan social como accesible.
 
 \* \*\*Amigos:\*\* Mantén registro de las personas con quienes te gusta jugar.
-\* \*\*Mensajes privados:\*\* Envía mensajes directos sin salir de tu mesa actual.
+\* \*\*Mensajes privados:\*\* Envía mensajes directos sin salir de tu mesa actual. Los mensajes que envías y recibes se guardan en el búfer de historial de Mensajes Privados durante la sesión actual.
 \* \*\*Usuarios en línea:\*\* Consulta quién está conectado en este momento.
 \* \*\*Chat global:\*\* Escribe `/g` seguido de tu mensaje para enviarlo a todos en el servidor.
 
@@ -42,4 +42,4 @@ Si eres completamente nuevo, lee Controles globales a continuación. Esa guía e
 
 \*\*Comunidad\*\*
 
-PlayAural busca ser un lugar amigable tanto para jugadores nuevos como experimentados. Antes de tu primera sesión en serio, tómate un momento para leer las Normas de la comunidad, así sabrás qué se espera en la mesa y en el chat.
+PlayAural busca ser un lugar amigable tanto para usuarios nuevos como experimentados. Antes de tu primera sesión en serio, tómate un momento para leer las Normas de la comunidad, así sabrás qué se espera en la mesa y en el chat.

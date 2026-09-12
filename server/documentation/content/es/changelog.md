@@ -1,5 +1,26 @@
 Registro de cambios
 
+Viernes 11 de septiembre de 2026
+
+Novedades:
+
+* El Historial ahora ofrece seis búferes de mensajes en Escritorio, Web y Móvil, en este orden: Todo, Chat, Mensajes Privados, Juego, Sistema y Varios. Cada búfer puede revisarse y silenciarse por separado. Silenciar Todo silencia todos los búferes; cuando se desactiva el silencio de un búfer individual, los mensajes recibidos mientras estaba silenciado vuelven a Todo en su orden original. Silenciar Chat o Mensajes Privados también silencia sus sonidos de notificación. El historial de mensajes se conserva solo durante la sesión actual.
+* El cliente Web ahora permite contraer o expandir Chat y voz, Volumen, y Atajos, con Volumen contraído de forma predeterminada. El orden de Tab habitual dentro del juego no cambia.
+* Idioma en Móvil ahora abre la lista completa de idiomas disponibles, marca la opción actual, conserva lo que ya se haya escrito en la pantalla de inicio de sesión o registro, y devuelve el foco al botón Idioma después de elegir un idioma o de volver atrás.
+
+Mejoras:
+
+* La navegación y la voz en Móvil son más confiables durante el inicio de sesión y el juego. La autolectura reconoce con más consistencia los gestos de uno, dos y tres dedos, se recupera después de interrupciones del servicio de voz de Android, y cambia sin problemas entre autolectura y TalkBack. Atrás cierra el diálogo o cuadro de texto visible antes de salir de la pantalla actual, y Ayuda y gestos ahora mantiene juntas las instrucciones y la información de compilación.
+* Los tableros de juego grandes, como Hundir la Flota, ahora mantienen objetivos táctiles legibles y se desplazan con fluidez en todas direcciones en Web y Móvil, incluido el desplazamiento con dos dedos en TalkBack. Las celdas enfocadas se llevan a la vista sin retrasar el movimiento del cursor ni la voz.
+* Leer usuarios en línea ahora anuncia primero el total, seguido de desarrolladores, administradores y demás usuarios. Abrir la lista de usuarios en línea sigue el mismo orden, permanece en la página actual mientras se actualiza, y mantiene disponibles las acciones de cuenta a medida que las personas se conectan, se desconectan o cambian de rol.
+* El texto en idiomas de derecha a izquierda ahora usa la dirección de escritura correcta en Escritorio, Web y Móvil, conservando el diseño y el orden de navegación habituales.
+* La traducción al portugués brasileño recibió una actualización amplia en nombres de juegos, terminología, menús, anuncios y guías de jugador, incluyendo los nombres de luchadores y movimientos de Batalla y una redacción renovada de Backgammon.
+
+Corrección de errores:
+
+* Una partida que termina en segundo plano ya no reemplaza un menú global, cierra un cuadro de texto, ni interrumpe un mensaje privado que se está escribiendo. El resultado aparece al volver a la mesa.
+* Los mensajes privados a tu propia cuenta ahora se rechazan con una explicación clara, y un mensaje privado sin texto ya no se envía.
+
 Jueves 27 de agosto de 2026
 
 Novedades:

@@ -1011,20 +1011,22 @@ class TestNinetyNineChoiceDialogs:
 
     def test_choice_input_resolves_card_play(self):
         """Submitting a choice should play the card immediately with the selected value."""
-        self.player1.hand = [Card(id=1, rank=1, suit=SUIT_HEARTS)]
+        ace_id = 9002
+        self.player1.hand = [Card(id=ace_id, rank=1, suit=SUIT_HEARTS)]
         self.game._update_turn_actions(self.player1)
 
         self.game.execute_action(self.player1, "card_slot_1", "Add 11")
 
         assert self.game.count == 61
-        assert all(card.id != 1 for card in self.player1.hand)
+        assert all(card.id != ace_id for card in self.player1.hand)
         assert self.game.pending_choice is None
         assert self.game.current_player == self.player2
 
     def test_single_valid_choice_auto_selects_instead_of_opening_dialog(self):
         """Single-outcome Ace plays should not open a choice dialog."""
+        ace_id = 9003
         self.game.count = 97
-        self.player1.hand = [Card(id=1, rank=1, suit=SUIT_HEARTS)]
+        self.player1.hand = [Card(id=ace_id, rank=1, suit=SUIT_HEARTS)]
         self.game._update_turn_actions(self.player1)
         self.user1.clear_messages()
 
@@ -1032,7 +1034,7 @@ class TestNinetyNineChoiceDialogs:
 
         assert "action_input_menu" not in self.user1.menus
         assert self.game.count == 98
-        assert all(card.id != 1 for card in self.player1.hand)
+        assert all(card.id != ace_id for card in self.player1.hand)
         assert self.game.current_player == self.player2
 
     def test_legacy_pending_choice_uses_shared_menu_and_cancel(self):

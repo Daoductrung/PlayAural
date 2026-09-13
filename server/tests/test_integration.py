@@ -311,6 +311,7 @@ class TestGameRegistryIntegration:
             "battle": "arcade",
             "battleship": "board",
             "blackjack": "cards",
+            "breachpoint": "board",
             "bunko": "dice",
             "chaosbear": "arcade",
             "chess": "board",

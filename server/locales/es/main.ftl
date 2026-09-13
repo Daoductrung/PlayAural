@@ -135,6 +135,28 @@ kick-confirm = ¿Seguro que quieres expulsar a { $player }?
 no-users-to-kick = No hay usuarios disponibles para expulsar.
 usage-kick = Uso: /kick <nombre de usuario>
 online-users-none = No hay usuarios en línea.
+online-users-summary = { $count ->
+    [one] { $count } usuario en línea. { $groups }
+   *[other] { $count } usuarios en línea. { $groups }
+}
+online-users-group = { $role ->
+    [dev] { $count ->
+        [one] { $count } desarrollador: { $users }.
+       *[other] { $count } desarrolladores: { $users }.
+    }
+    [admin] { $count ->
+        [one] { $count } administrador: { $users }.
+       *[other] { $count } administradores: { $users }.
+    }
+   *[user] { $staff_count ->
+        [0] { $users }.
+       *[other] { $count ->
+            [one] { $count } usuario: { $users }.
+           *[other] { $count } usuarios: { $users }.
+        }
+    }
+}
+online-users-more = { $count } más
 online-user-waiting-approval = Esperando aprobación
 presence-status-main-menu = Menú principal
 presence-status-waiting-table = Esperando en una mesa de { $game }
@@ -599,6 +621,8 @@ error-no-languages = Error: No se encontraron idiomas.
 ok = Aceptar
 
 unknown-player = Jugador desconocido
+unknown-user = Usuario desconocido
+user-account-unavailable = Esta cuenta de usuario ya no está disponible.
 
 logout-confirm-title = ¿Seguro que quieres cerrar sesión y salir del juego?
 logout-confirm-yes = Sí, cerrar sesión
@@ -811,6 +835,8 @@ enter-pm-message = Ingresa tu mensaje para { $username }:
 pm-error-not-friends = Solo puedes enviar mensajes privados a tus amigos.
 pm-error-blocked = Los mensajes privados no están disponibles entre tú y este jugador.
 pm-error-offline = { $username } no está en línea en este momento.
+pm-error-self = No puedes enviarte un mensaje privado a ti mismo.
+pm-error-message-required = Escribe un mensaje privado. Si usas el chat, incluye un nombre de usuario, por ejemplo: @Usuario hola.
 pm-sent-content = Tú a { $username }: { $message }
 pm-received = Mensaje privado de { $username }: { $message }
 

@@ -1,13 +1,13 @@
 \*\*Controles globales\*\*
 
-Esta guía explica los controles que funcionan en toda la plataforma de PlayAural. Los jugadores de escritorio usan principalmente atajos de teclado. Los jugadores móviles usan principalmente los gestos integrados. Ambos métodos llegan a las mismas funciones.
+Esta guía explica los controles que funcionan en toda la plataforma de PlayAural. Los usuarios de escritorio usan principalmente atajos de teclado. Los usuarios móviles usan principalmente los gestos integrados. Ambos métodos llegan a las mismas funciones.
 
 \*\*Atajos de teclado en escritorio\*\*
 
 \*\*Sistema y audio\*\*
 
-\* \*\*F2:\*\* Anuncia cuántas personas están en línea.
-\* \*\*Shift + F2:\*\* Abre la lista completa de usuarios en línea.
+\* \*\*F2:\*\* Leer usuarios en línea: escucha el total, luego los desarrolladores y administradores conectados, seguidos de hasta 20 nombres de otros usuarios y un conteo de los restantes.
+\* \*\*Shift + F2:\*\* Abrir lista de usuarios en línea: los desarrolladores aparecen primero, luego los administradores, luego los demás usuarios, en orden alfabético dentro de cada grupo. La lista incluye la actividad actual de cada usuario y se actualiza automáticamente.
 \* \*\*F4:\*\* Silencia o reactiva el búfer de mensajes actual.
 \* \*\*F6:\*\* Silencia o reactiva el chat de mesa.
 \* \*\*Shift + F6:\*\* Silencia o reactiva el chat global.
@@ -64,9 +64,10 @@ El cliente móvil tiene su propia navegación hablada integrada. Puedes activar 
 
 \*\*Atajos en móvil\*\*
 
-El área de Atajos les da a los jugadores móviles acceso rápido a funciones importantes del sistema sin salir de la mesa actual.
+El área de Atajos les da a los usuarios móviles acceso rápido a funciones importantes del sistema sin salir de la mesa actual.
 
 \* \*\*Opciones:\*\* Abre tu configuración personal.
 \* \*\*Amigos:\*\* Abre tus amigos y funciones sociales.
 \* \*\*Ping al servidor:\*\* Comprueba la latencia de la conexión.
-\* \*\*Usuarios en línea:\*\* Abre la lista de usuarios en línea.
+\* \*\*Leer usuarios en línea:\*\* Escucha el mismo resumen que F2.
+\* \*\*Abrir lista de usuarios en línea:\*\* Abre la misma lista con desarrolladores primero que Shift + F2.

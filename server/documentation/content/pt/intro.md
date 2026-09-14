@@ -32,7 +32,7 @@ Quando você entra em uma mesa, geralmente pode:
 O PlayAural foi criado para ser social e também acessível.
 
 * **Amigos:** Acompanhe as pessoas com quem você gosta de jogar.
-* **Mensagens privadas:** Envie mensagens diretas sem sair da sua mesa atual.
+* **Mensagens privadas:** Envie mensagens diretas sem sair da sua mesa atual. As mensagens que você envia e recebe ficam armazenadas em Mensagens privadas durante a sessão atual.
 * **Usuários online:** Verifique quem está online no momento.
 * **Chat global:** Digite `/g` seguido da sua mensagem para enviar uma mensagem para todos no servidor.
 

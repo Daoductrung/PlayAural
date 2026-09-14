@@ -118,17 +118,18 @@ test("language selection waits for preferences and cannot cover an active sessio
   }
 });
 
-test("community catalogs fall back for new menu text and unknown saved locales remain valid", () => {
+test("community catalogs localize new menu text and unknown saved locales remain valid", () => {
   const h = languageHarness("pt-BR"); h.open();
   assert.equal(h.localization.getLocale(), "pt");
-  assert.equal(h.dialogStateRef.current.title, "Choose a language");
+  assert.equal(h.dialogStateRef.current.title, "Escolha um idioma");
   assert.equal(h.localization.t("history-buffer-current", { name: "Game" }), "Buffer: Game");
   const unknown = languageHarness("unknown-locale"); unknown.open();
   assert.equal(unknown.dialogStateRef.current.buttons[unknown.dialogStateRef.current.focusIndex].id, "locale:en");
 });
 
-test("EN and VI navigation strings retain matching placeholders", () => {
+test("EN, PT, and VI navigation strings retain matching placeholders", () => {
   const en = localizationModule(new URL("../locales/en/client.json", import.meta.url));
+  const pt = localizationModule(new URL("../locales/pt/client.json", import.meta.url));
   const vi = localizationModule(new URL("../locales/vi/client.json", import.meta.url));
   for (const key of [
     "locale-menu-title", "locale-menu-current", "locale-changed", "client-help",
@@ -136,35 +137,38 @@ test("EN and VI navigation strings retain matching placeholders", () => {
     "history-buffer-menu-current", "history-buffer-mute", "history-buffer-unmute",
     "history-buffer-muted-by-all", "history-buffer-muted-empty", "main-buffer-status", "main-buffer-info",
   ]) {
-    assert.ok(en[key]); assert.ok(vi[key]);
+    assert.ok(en[key]); assert.ok(pt[key]); assert.ok(vi[key]);
+    assert.deepEqual(en[key].match(/\{\w+\}/g), pt[key].match(/\{\w+\}/g));
     assert.deepEqual(en[key].match(/\{\w+\}/g), vi[key].match(/\{\w+\}/g));
   }
 });
 
-test("EN and VI mobile buffer terminology matches the desktop and web contracts", () => {
+test("EN, PT, and VI mobile buffer terminology matches the desktop and web contracts", () => {
   const en = localizationModule(new URL("../locales/en/client.json", import.meta.url));
+  const pt = localizationModule(new URL("../locales/pt/client.json", import.meta.url));
   const vi = localizationModule(new URL("../locales/vi/client.json", import.meta.url));
   const parity = {
-    "buffer-all": ["All", "Tất cả"],
-    "buffer-chat": ["Chat", "Trò chuyện"],
-    "buffer-private": ["Private Messages", "Tin nhắn riêng"],
-    "buffer-game": ["Game", "Trò chơi"],
-    "buffer-system": ["System", "Hệ thống"],
-    "buffer-misc": ["Misc", "Linh tinh"],
-    "buffer-name-all": ["all", "tất cả"],
-    "buffer-name-chat": ["Chat", "Trò chuyện"],
-    "buffer-name-private": ["private messages", "tin nhắn riêng"],
-    "buffer-name-game": ["game", "trò chơi"],
-    "buffer-name-system": ["system", "hệ thống"],
-    "buffer-name-misc": ["misc", "linh tinh"],
-    "buffer-status-muted": ["muted", "đã tắt tiếng"],
-    "buffer-status-unmuted": ["unmuted", "đã bật tiếng"],
-    "main-status-muted-suffix": [", muted", ", đã tắt tiếng"],
-    "main-buffer-status": ["Buffer {name} {status}.", "Bộ đệm {name} {status}."],
-    "main-buffer-info": ["{name}{status}. {count} items", "{name}{status}. {count} mục"],
+    "buffer-all": ["All", "Tudo", "Tất cả"],
+    "buffer-chat": ["Chat", "Bate-papo", "Trò chuyện"],
+    "buffer-private": ["Private Messages", "Mensagens privadas", "Tin nhắn riêng"],
+    "buffer-game": ["Game", "Jogo", "Trò chơi"],
+    "buffer-system": ["System", "Sistema", "Hệ thống"],
+    "buffer-misc": ["Misc", "Diversos", "Linh tinh"],
+    "buffer-name-all": ["all", "tudo", "tất cả"],
+    "buffer-name-chat": ["Chat", "Bate-papo", "Trò chuyện"],
+    "buffer-name-private": ["private messages", "mensagens privadas", "tin nhắn riêng"],
+    "buffer-name-game": ["game", "jogo", "trò chơi"],
+    "buffer-name-system": ["system", "sistema", "hệ thống"],
+    "buffer-name-misc": ["misc", "diversos", "linh tinh"],
+    "buffer-status-muted": ["muted", "silenciado", "đã tắt tiếng"],
+    "buffer-status-unmuted": ["unmuted", "não silenciado", "đã bật tiếng"],
+    "main-status-muted-suffix": [", muted", ", silenciado", ", đã tắt tiếng"],
+    "main-buffer-status": ["Buffer {name} {status}.", "Buffer {name} {status}.", "Bộ đệm {name} {status}."],
+    "main-buffer-info": ["{name}{status}. {count} items", "{name}{status}. {count} itens", "{name}{status}. {count} mục"],
   };
-  for (const [key, [english, vietnamese]] of Object.entries(parity)) {
+  for (const [key, [english, portuguese, vietnamese]] of Object.entries(parity)) {
     assert.equal(en[key], english);
+    assert.equal(pt[key], portuguese);
     assert.equal(vi[key], vietnamese);
   }
 });

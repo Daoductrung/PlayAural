@@ -35,7 +35,7 @@ def test_set_locale_reloads_client_bundle_without_restart(tmp_path):
     assert Localization.get("fallback-only") == "Fallback value"
 
 
-def test_desktop_buffer_terminology_matches_mobile_english_and_vietnamese():
+def test_desktop_buffer_terminology_matches_mobile_catalogs():
     project_dir = CLIENT_DIR.parent
     desktop_locales = CLIENT_DIR / "locales"
     keys = (
@@ -45,14 +45,22 @@ def test_desktop_buffer_terminology_matches_mobile_english_and_vietnamese():
         "buffer-game",
         "buffer-system",
         "buffer-misc",
+        "buffer-name-all",
+        "buffer-name-chat",
         "buffer-name-private",
+        "buffer-name-game",
+        "buffer-name-system",
+        "buffer-name-misc",
+        "main-status-muted-suffix",
+        "main-buffer-status",
+        "main-buffer-info",
         "history-buffer-current",
         "history-buffer-muted-name",
         "history-buffer-muted-by-all",
         "history-buffer-muted-empty",
     )
 
-    for locale in ("en", "vi"):
+    for locale in ("en", "pt", "vi"):
         mobile_catalog = json.loads(
             (project_dir / "mobile_client" / "locales" / locale / "client.json").read_text(
                 encoding="utf-8"
@@ -60,7 +68,12 @@ def test_desktop_buffer_terminology_matches_mobile_english_and_vietnamese():
         )
         Localization.init(locales_dir=desktop_locales, locale=locale)
         for key in keys:
-            expected = mobile_catalog[key].replace("{name}", "game")
-            assert Localization.get(key, name="game") == expected
+            expected = (
+                mobile_catalog[key]
+                .replace("{name}", "game")
+                .replace("{status}", "muted")
+                .replace("{count}", "3")
+            )
+            assert Localization.get(key, name="game", status="muted", count=3) == expected
 
     Localization.init(locales_dir=desktop_locales, locale="en")

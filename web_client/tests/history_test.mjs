@@ -483,16 +483,32 @@ test("the in-game tab order keeps collapsed History keyboard-reachable", async (
   );
 });
 
-test("Web buffer terminology matches the mobile English and Vietnamese catalogs", async () => {
-  const [webEnglish, webVietnamese, mobileEnglish, mobileVietnamese] = await Promise.all([
+test("Web buffer terminology matches the mobile English, Portuguese, and Vietnamese catalogs", async () => {
+  const [webEnglish, webPortuguese, webVietnamese, mobileEnglish, mobilePortuguese, mobileVietnamese] = await Promise.all([
     import("../locales/en.js").then((module) => module.default),
+    import("../locales/pt.js").then((module) => module.default),
     import("../locales/vi.js").then((module) => module.default),
     readFile(new URL("../../mobile_client/locales/en/client.json", import.meta.url), "utf8").then(JSON.parse),
+    readFile(new URL("../../mobile_client/locales/pt/client.json", import.meta.url), "utf8").then(JSON.parse),
     readFile(new URL("../../mobile_client/locales/vi/client.json", import.meta.url), "utf8").then(JSON.parse),
   ]);
   const keys = [
+    "buffer-all",
+    "buffer-chat",
     "buffer-private",
+    "buffer-game",
+    "buffer-system",
+    "buffer-misc",
+    "buffer-name-all",
+    "buffer-name-chat",
     "buffer-name-private",
+    "buffer-name-game",
+    "buffer-name-system",
+    "buffer-name-misc",
+    "buffer-status-muted",
+    "buffer-status-unmuted",
+    "main-buffer-status",
+    "main-buffer-info",
     "history-buffer-muted-name",
     "history-buffer-mute",
     "history-buffer-unmute",
@@ -502,6 +518,7 @@ test("Web buffer terminology matches the mobile English and Vietnamese catalogs"
   ];
   for (const key of keys) {
     assert.equal(webEnglish[key], mobileEnglish[key], `English ${key}`);
+    assert.equal(webPortuguese[key], mobilePortuguese[key], `Portuguese ${key}`);
     assert.equal(webVietnamese[key], mobileVietnamese[key], `Vietnamese ${key}`);
   }
 });

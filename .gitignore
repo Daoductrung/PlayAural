@@ -1,3 +1,5 @@
+# Cosmos (Rust audio engine) build output
+cosmos/target/
 __pycache__/
 *.pyc
 *.pyo

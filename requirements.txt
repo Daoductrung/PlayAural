@@ -13,7 +13,9 @@ argon2-cffi>=23.1
 # ── Desktop Client ───────────────────────────────────────────────────────────
 wxPython>=4.2.0
 accessible-output2>=0.16
-sound-lib>=0.2.2
+# Cosmos audio engine (miniaudio + Steam Audio HRTF); built from cosmos/ and
+# shipped prebuilt in client/vendor/. Windows only.
+client/vendor/cosmos-0.2.0-cp311-abi3-win_amd64.whl; sys_platform == "win32"
 requests
 psutil
 keyring>=24.0

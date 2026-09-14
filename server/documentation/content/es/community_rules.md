@@ -5,7 +5,7 @@ PlayAural busca ser amigable, justo y acogedor. Estas normas explican cómo se e
 \*\*1. Respeta a los demás\*\*
 
 \* Habla con los demás con cortesía, incluso en partidas competitivas.
-\* No acoses, insultes, amenaces ni humilles deliberadamente a otros jugadores.
+\* No acoses, insultes, amenaces ni humilles deliberadamente a otros usuarios.
 \* No se permite el discurso de odio, la discriminación ni los ataques personales.
 
 \*\*2. Mantén el chat razonable\*\*

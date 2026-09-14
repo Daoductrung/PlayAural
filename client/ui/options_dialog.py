@@ -4,6 +4,7 @@ import wx
 from . import uisound
 from .text_direction import apply_text_layout_direction
 from localization import Localization
+from sound_manager import SPATIAL_MODES, normalize_spatial_mode
 
 
 class ClientOptionsDialog(wx.Dialog, uisound.SoundBindingsMixin):
@@ -148,6 +149,25 @@ class ClientOptionsDialog(wx.Dialog, uisound.SoundBindingsMixin):
         self.voice_spin.Bind(wx.EVT_TEXT, self.on_voice_spin_change)
         sizer.Add(self.voice_spin, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, 10)
 
+        sizer.Add(wx.StaticText(panel, label=Localization.get("options-spatial-audio-label")),
+                  0, wx.LEFT | wx.RIGHT | wx.TOP, 10)
+        self.spatial_choice = wx.Choice(
+            panel,
+            choices=[
+                Localization.get(f"options-spatial-audio-{mode}")
+                for mode in SPATIAL_MODES
+            ],
+        )
+        self.spatial_choice.SetSelection(
+            SPATIAL_MODES.index(
+                normalize_spatial_mode(
+                    self.options.get("audio", {}).get("spatial_audio")
+                )
+            )
+        )
+        self.spatial_choice.Bind(wx.EVT_CHOICE, self.on_spatial_choice_change)
+        sizer.Add(self.spatial_choice, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, 10)
+
         sizer.Add(wx.StaticText(panel, label=Localization.get("options-audio-hotkeys-note")),
                   0, wx.ALL, 10)
 
@@ -214,6 +234,17 @@ class ClientOptionsDialog(wx.Dialog, uisound.SoundBindingsMixin):
         if self.voice_manager:
             self.voice_manager.set_voice_volume(value / 100.0)
 
+    def _selected_spatial_mode(self) -> str:
+        index = self.spatial_choice.GetSelection()
+        if index == wx.NOT_FOUND:
+            return normalize_spatial_mode(None)
+        return SPATIAL_MODES[index]
+
+    def on_spatial_choice_change(self, event):
+        """Handle spatial audio mode change - apply to sounds started from now."""
+        if self.sound_manager:
+            self.sound_manager.set_spatial_mode(self._selected_spatial_mode())
+
     def _reset_current_tab_fields(self, data_source):
         """Reset fields in the current tab to values from the given data source."""
         current_page = self.notebook.GetSelection()
@@ -224,11 +255,14 @@ class ClientOptionsDialog(wx.Dialog, uisound.SoundBindingsMixin):
             self.sound_spin.SetValue(int(audio.get("sound_volume", 100)))
             self.ambience_spin.SetValue(int(audio.get("ambience_volume", 20)))
             self.voice_spin.SetValue(int(audio.get("voice_volume", 80)))
+            spatial_mode = normalize_spatial_mode(audio.get("spatial_audio"))
+            self.spatial_choice.SetSelection(SPATIAL_MODES.index(spatial_mode))
 
             if self.sound_manager:
                 self.sound_manager.set_music_volume(audio.get("music_volume", 20) / 100.0)
                 self.sound_manager.set_sound_volume(audio.get("sound_volume", 100) / 100.0)
                 self.sound_manager.set_ambience_volume(audio.get("ambience_volume", 20) / 100.0)
+                self.sound_manager.set_spatial_mode(spatial_mode)
             if self.voice_manager:
                 self.voice_manager.set_voice_volume(audio.get("voice_volume", 80) / 100.0)
 
@@ -266,6 +300,9 @@ class ClientOptionsDialog(wx.Dialog, uisound.SoundBindingsMixin):
         self.config_manager.set_client_option("audio/sound_volume", sound_volume, create_mode=True)
         self.config_manager.set_client_option("audio/ambience_volume", ambience_volume, create_mode=True)
         self.config_manager.set_client_option("audio/voice_volume", voice_volume, create_mode=True)
+        self.config_manager.set_client_option(
+            "audio/spatial_audio", self._selected_spatial_mode(), create_mode=True
+        )
 
         mute_global = self.mute_global_check.GetValue()
         mute_table = self.mute_table_check.GetValue()

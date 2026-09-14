@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import math
 import os
 import random
 import re
@@ -11,10 +12,12 @@ import time
 import uuid
 
 from sound_cacher import SoundCacher
-from sound_lib.external import pybass
 
 
 AUDIO_PROTOCOL_VERSION = 2
+SPATIAL_MODES = ("off", "stereo", "headphones")
+DEFAULT_SPATIAL_MODE = "headphones"
+MAX_POSITION_MAGNITUDE = 1000.0
 AUDIO_OUTPUT_BUFFERS = frozenset({"chat", "private", "game", "system", "misc"})
 MAX_ACTIVE_EFFECTS = 64
 MAX_ACTIVE_LAYERS = 32
@@ -30,6 +33,28 @@ def _clamp(value, minimum, maximum, default):
     except (TypeError, ValueError):
         parsed = default
     return max(minimum, min(maximum, parsed))
+
+
+def normalize_spatial_mode(value) -> str:
+    """Return a valid spatial mode name, defaulting to headphones."""
+    text = str(value or "").strip().lower()
+    return text if text in SPATIAL_MODES else DEFAULT_SPATIAL_MODE
+
+
+def _parse_position(value):
+    """Return a finite (x, y, z) tuple from a protocol field, or None."""
+    if not isinstance(value, (list, tuple)) or len(value) != 3:
+        return None
+    try:
+        coords = tuple(float(component) for component in value)
+    except (TypeError, ValueError):
+        return None
+    if not all(
+        math.isfinite(coord) and abs(coord) <= MAX_POSITION_MAGNITUDE
+        for coord in coords
+    ):
+        return None
+    return coords
 
 
 @dataclass
@@ -206,29 +231,23 @@ class SoundManager:
         pitch: float = 1.0,
         looping: bool = False,
         start: bool = True,
+        position=None,
     ):
         path = self._asset_path(asset)
         if not path:
             return None
+        options = {
+            "pan": pan,
+            "volume": volume,
+            "pitch": pitch,
+            "looping": looping,
+            "pinned": True,
+        }
+        if position is not None:
+            options["position"] = position
         try:
-            if not start:
-                stream_obj = self.sound_cacher.create(
-                    path,
-                    pan=pan,
-                    volume=volume,
-                    pitch=pitch,
-                    looping=looping,
-                    pinned=True,
-                )
-            else:
-                stream_obj = self.sound_cacher.play(
-                    path,
-                    pan=pan,
-                    volume=volume,
-                    pitch=pitch,
-                    looping=looping,
-                    pinned=True,
-                )
+            factory = self.sound_cacher.play if start else self.sound_cacher.create
+            stream_obj = factory(path, **options)
             if stream_obj is not None:
                 self.sound_cacher.pin(stream_obj)
             return stream_obj
@@ -237,26 +256,11 @@ class SoundManager:
 
     @staticmethod
     def _on_stream_end(stream_obj, callback) -> object | None:
-        """Register the backend's end sync, retaining its ctypes callback."""
-        handle = getattr(stream_obj, "handle", 0)
-        if not handle:
-            return None
-        try:
-            sync_callback = pybass.SYNCPROC(
-                lambda _sync, _channel, _data, _user: callback()
-            )
-            sync_handle = pybass.BASS_ChannelSetSync(
-                handle,
-                pybass.BASS_SYNC_END
-                | pybass.BASS_SYNC_MIXTIME
-                | pybass.BASS_SYNC_ONETIME,
-                0,
-                sync_callback,
-                None,
-            )
-            return sync_callback if sync_handle else None
-        except Exception:
-            return None
+        """Cosmos has no end-of-stream callback; callers poll instead.
+
+        Returning None selects the polling fallback at every call site.
+        """
+        return None
 
     def _next_generation(self, handle: str) -> int:
         generation = self._generations.get(handle, 0) + 1
@@ -495,8 +499,13 @@ class SoundManager:
         priority=0,
         max_instances=0,
         ducking=None,
+        position=None,
     ):
-        """Play an effect; managed/looping calls may later stop by handle."""
+        """Play an effect; managed/looping calls may later stop by handle.
+
+        ``position`` is an optional (x, y, z) in the listener's frame; it
+        is rendered according to the client's spatial audio setting.
+        """
         base_volume = _clamp(volume, 0.0, 1.0, 1.0)
         resolved_handle = str(handle or f"oneshot:{uuid.uuid4().hex}")
         with self._lock:
@@ -529,6 +538,7 @@ class SoundManager:
                 pan=_clamp(pan, -1.0, 1.0, 0.0),
                 pitch=_clamp(pitch, 0.25, 4.0, 1.0),
                 looping=bool(looping),
+                position=position,
             )
             if not stream_obj:
                 return None
@@ -724,9 +734,9 @@ class SoundManager:
 
             threading.Thread(target=wait_for_boundary, daemon=True).start()
 
-        # Removing the loop flag lets BASS finish the current iteration. The
-        # preloaded outro then starts from the native end callback with no
-        # fade or asset-load delay between same-stem segments.
+        # Removing the loop flag lets the engine finish the current iteration.
+        # The preloaded outro then starts as soon as the boundary watcher sees
+        # the loop stop, with no fade or asset-load delay between segments.
         if not self._set_stream_looping(source.stream, False):
             self._release_source(retired_handle, source.generation)
             return False
@@ -1110,6 +1120,7 @@ class SoundManager:
                     priority=packet.get("priority", 0),
                     max_instances=packet.get("max_instances", 0),
                     ducking=ducking,
+                    position=_parse_position(packet.get("position")),
                 )
             else:
                 self._play_layer(packet)
@@ -1215,6 +1226,26 @@ class SoundManager:
     def set_ambience_volume(self, volume):
         self.ambience_volume = _clamp(volume, 0.0, 1.0, 0.3)
         self._apply_mix()
+
+    def set_spatial_mode(self, mode) -> str:
+        """Choose how positioned sounds render: off, stereo or headphones.
+
+        Applies to sounds started from now on; a sound already playing keeps
+        the mode it started with.
+        """
+        resolved = normalize_spatial_mode(mode)
+        self.sound_cacher.spatial_mode = resolved
+        return resolved
+
+    @property
+    def spatial_mode(self) -> str:
+        return normalize_spatial_mode(
+            getattr(self.sound_cacher, "spatial_mode", DEFAULT_SPATIAL_MODE)
+        )
+
+    @property
+    def hrtf_available(self) -> bool:
+        return bool(getattr(self.sound_cacher, "hrtf_available", False))
 
     def play_menuclick(self):
         self.play(self.menuclick_sound, volume=0.5, priority=100)

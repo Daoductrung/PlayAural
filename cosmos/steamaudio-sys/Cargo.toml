@@ -1,0 +1,15 @@
+[package]
+name = "steamaudio-sys"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Raw FFI bindings to Steam Audio (Phonon)"
+links = "phonon"
+
+[features]
+# Regenerate src/bindings.rs with bindgen. Needs libclang (set LIBCLANG_PATH).
+# Off by default so that building Cosmos needs no LLVM install.
+regen-bindings = ["dep:bindgen"]
+
+[build-dependencies]
+bindgen = { version = "0.70", optional = true }

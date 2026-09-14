@@ -10,6 +10,9 @@ from ..audio import (
     AudioCommand,
     AudioPlaybackState,
     SameTurnAudioBatcher,
+    clock_position,
+    pan_from_position,
+    seat_position,
 )
 from ..games.pig.game import PigGame
 from ..users.network_user import NetworkUser
@@ -150,6 +153,27 @@ def test_game_sound_family_dispatches_one_validated_family_to_every_listener(
         assert message.type == "play_sound"
         assert message.data["family"] == "game_squares/diceroll"
         assert "asset" not in message.data
+
+
+def test_seated_sound_is_positioned_per_listener(pig_game_with_players) -> None:
+    game, alice, bob = pig_game_with_players
+    alice.clear_messages()
+    bob.clear_messages()
+    seated = next(player for player in game.players if str(player.id) == alice.uuid)
+
+    game.play_sound("game/test.ogg", seat_of=seated)
+
+    # The seated player hears their own cue unpositioned and centred.
+    own = alice.messages[-1].data
+    assert "position" not in own
+    assert own.get("pan", 0) == 0
+    # Two players face each other, so the other player hears it straight
+    # ahead, with a centred pan for clients that cannot place it.
+    other = bob.messages[-1].data
+    assert other["position"] == [0.0, 2.0, 0.0]
+    assert other.get("pan", 0) == 0
+
+
 def test_audio_command_serializes_validated_one_shot_sound_family() -> None:
     packet = AudioCommand(
         command="play",
@@ -286,6 +310,82 @@ def test_audio_command_clamps_untrusted_mix_values() -> None:
     assert command.priority == 100
     assert command.max_instances == 64
     assert packet["ducking"] == {"music": 0}
+
+
+def test_audio_command_validates_position_and_derives_pan() -> None:
+    right = AudioCommand(
+        command="play", kind="sfx", asset="game/test.ogg", position=[2, 0, 0]
+    )
+    assert right.position == (2.0, 0.0, 0.0)
+    assert right.pan == 100
+    packet = right.to_packet()
+    assert packet["position"] == [2.0, 0.0, 0.0]
+    assert packet["pan"] == 100
+
+    ahead = AudioCommand(
+        command="play", kind="sfx", asset="game/test.ogg", position=(0, 2, 0)
+    )
+    assert ahead.pan == 0
+    assert "pan" not in ahead.to_packet()
+
+    front_left = AudioCommand(
+        command="play", kind="sfx", asset="game/test.ogg", position=(-1, 1, 0)
+    )
+    assert front_left.pan == -71
+
+    explicit = AudioCommand(
+        command="play", kind="sfx", asset="game/test.ogg", position=[2, 0, 0], pan=-20
+    )
+    assert explicit.pan == -20
+
+    plain = AudioCommand(command="play", kind="sfx", asset="game/test.ogg")
+    assert plain.position is None
+    assert "position" not in plain.to_packet()
+
+    for bad in ([1, 2], "north", [1, float("nan"), 0], [1e9, 0, 0], {"x": 1}):
+        with pytest.raises(ValueError):
+            AudioCommand(
+                command="play", kind="sfx", asset="game/test.ogg", position=bad
+            )
+
+    state = AudioPlaybackState.from_command(
+        AudioCommand(
+            command="play",
+            kind="sfx",
+            asset="game/loop.ogg",
+            handle="engine",
+            loop=True,
+            position=[0, -2, 0],
+        )
+    )
+    assert state.to_command(replay=True).position == (0.0, -2.0, 0.0)
+
+
+def test_clock_and_seat_geometry_place_sounds_around_the_listener() -> None:
+    assert clock_position(12) == (0.0, 2.0, 0.0)
+    assert clock_position(3) == (2.0, 0.0, 0.0)
+    assert clock_position(6) == (0.0, -2.0, 0.0)
+    assert clock_position(9) == (-2.0, 0.0, 0.0)
+    assert pan_from_position(clock_position(6)) == 0
+    assert pan_from_position(clock_position(9)) == -100
+    assert pan_from_position(clock_position(1)) == 50
+
+    # Four seats, listener in seat 0: next clockwise is left, opposite is
+    # ahead, previous is right, own seat is unpositioned.
+    assert seat_position(0, 0, 4) is None
+    assert seat_position(1, 0, 4) == (-2.0, 0.0, 0.0)
+    assert seat_position(2, 0, 4) == (0.0, 2.0, 0.0)
+    assert seat_position(3, 0, 4) == (2.0, 0.0, 0.0)
+    # The same table heard from seat 2.
+    assert seat_position(0, 2, 4) == (0.0, 2.0, 0.0)
+    assert seat_position(3, 2, 4) == (-2.0, 0.0, 0.0)
+    # Two players face each other.
+    assert seat_position(1, 0, 2) == (0.0, 2.0, 0.0)
+    # A spectator hears seat 0 ahead and the rest clockwise.
+    assert seat_position(0, None, 4) == (0.0, 2.0, 0.0)
+    assert seat_position(1, None, 4) == (2.0, 0.0, 0.0)
+    # Degenerate tables have nothing to place.
+    assert seat_position(0, None, 1) is None
 
 
 def test_audio_packet_keeps_explicit_non_looping_and_stem_controls() -> None:

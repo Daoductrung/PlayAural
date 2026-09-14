@@ -240,6 +240,7 @@ class MainWindow(wx.Frame):
             self.sound_manager.set_music_volume(music_volume)
             self.sound_manager.set_sound_volume(sound_volume)
             self.sound_manager.set_ambience_volume(ambience_volume)
+            self.sound_manager.set_spatial_mode(audio.get("spatial_audio"))
             if self.voice_manager:
                 self.voice_manager.set_voice_volume(voice_volume)
             self._pending_voice_volume = voice_volume

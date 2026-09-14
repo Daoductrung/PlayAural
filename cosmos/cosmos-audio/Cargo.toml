@@ -1,0 +1,18 @@
+[package]
+name = "cosmos-audio"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "High-level 3D audio library with HRTF support"
+
+[dependencies]
+miniaudio-sys = { path = "../miniaudio-sys" }
+steamaudio-sys = { path = "../steamaudio-sys" }
+thiserror.workspace = true
+
+[build-dependencies]
+cc = "1.0"
+
+[[example]]
+name = "basic_playback"
+path = "../examples/basic_playback.rs"

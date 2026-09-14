@@ -162,6 +162,7 @@ class ConfigManager:
                 "sound_volume": 100,
                 "ambience_volume": 20,
                 "voice_volume": 80,
+                "spatial_audio": "headphones",
                 "input_device_id": "",
                 "input_device_name": "",
             },

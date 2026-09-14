@@ -238,6 +238,14 @@ wheels = [
 ]
 
 [[package]]
+name = "cosmos"
+version = "0.2.0"
+source = { path = "vendor/cosmos-0.2.0-cp311-abi3-win_amd64.whl" }
+wheels = [
+    { filename = "cosmos-0.2.0-cp311-abi3-win_amd64.whl", hash = "sha256:a75a01d4b2216cef1c5c8a9c66535c6d68bce7876a0cd514a5dd75733b2c8a0f" },
+]
+
+[[package]]
 name = "cryptography"
 version = "46.0.5"
 source = { registry = "https://pypi.org/simple" }
@@ -590,13 +598,13 @@ version = "1.0.4.17"
 source = { editable = "." }
 dependencies = [
     { name = "accessible-output2" },
+    { name = "cosmos" },
     { name = "fluent-runtime" },
     { name = "keyring" },
     { name = "livekit" },
     { name = "numpy" },
     { name = "psutil" },
     { name = "requests" },
-    { name = "sound-lib" },
     { name = "sounddevice" },
     { name = "websockets" },
     { name = "wxpython" },
@@ -612,6 +620,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "accessible-output2", specifier = ">=0.16" },
+    { name = "cosmos", path = "vendor/cosmos-0.2.0-cp311-abi3-win_amd64.whl" },
     { name = "fluent-runtime", specifier = ">=0.4.0" },
     { name = "keyring", specifier = ">=24.0" },
     { name = "livekit", specifier = ">=1.1.5" },
@@ -621,7 +630,6 @@ requires-dist = [
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.23" },
     { name = "pytest-xdist", marker = "extra == 'dev'", specifier = ">=3.5" },
     { name = "requests" },
-    { name = "sound-lib", specifier = ">=0.2.2" },
     { name = "sounddevice", specifier = ">=0.5.5" },
     { name = "websockets", specifier = ">=10.0" },
     { name = "wxpython", specifier = ">=4.2.0" },
@@ -803,19 +811,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/1c/03/e834bcd866f2f8a49a85eaff47340affa3bfa391ee9912a952a1faa68c7b/secretstorage-3.5.0.tar.gz", hash = "sha256:f04b8e4689cbce351744d5537bf6b1329c6fc68f91fa666f60a380edddcd11be", size = 19884, upload-time = "2025-11-23T19:02:53.191Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b7/46/f5af3402b579fd5e11573ce652019a67074317e18c1935cc0b4ba9b35552/secretstorage-3.5.0-py3-none-any.whl", hash = "sha256:0ce65888c0725fcb2c5bc0fdb8e5438eece02c523557ea40ce0703c266248137", size = 15554, upload-time = "2025-11-23T19:02:51.545Z" },
-]
-
-[[package]]
-name = "sound-lib"
-version = "0.83"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "libloader" },
-    { name = "platform-utils" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/6e/99/cd29df73c5375dd474f960ef0656083a78d07d126f01c49400f9b4ff650e/sound_lib-0.83.tar.gz", hash = "sha256:cac5e3112192cf9d13ac880fef6f82ca1346b6deccf80b2ffa16b7b792021f04", size = 4607043, upload-time = "2022-09-01T00:56:05.222Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/67/5a/a7a2fd04c54bcc1cf574dd85a03400e0986419b5ae7813d7fe087c8a0d47/sound_lib-0.83-py2.py3-none-any.whl", hash = "sha256:20039a18d4767b1687605c13b49bc7322802deb63b752ab8ad586512a35e6fea", size = 4636033, upload-time = "2022-09-01T00:56:03.311Z" },
 ]
 
 [[package]]

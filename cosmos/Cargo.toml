@@ -1,0 +1,19 @@
+[workspace]
+resolver = "2"
+members = [
+    "miniaudio-sys",
+    "steamaudio-sys",
+    "cosmos-audio",
+    "cosmos-screenreader",
+    "cosmos-window",
+    "cosmos-python",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/user/cosmos"
+
+[workspace.dependencies]
+thiserror = "1.0"

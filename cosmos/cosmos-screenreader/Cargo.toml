@@ -1,0 +1,10 @@
+[package]
+name = "cosmos-screenreader"
+version = "0.1.0"
+edition = "2021"
+description = "Screen reader support for Cosmos audio game library"
+
+[dependencies]
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.52", features = ["Win32_Foundation", "Win32_System_LibraryLoader"] }

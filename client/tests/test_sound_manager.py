@@ -45,6 +45,7 @@ class FakeSoundCacher:
         pitch=1.0,
         looping=False,
         pinned=False,
+        position=None,
     ):
         stream = FakeStream()
         stream.file_name = file_name
@@ -52,6 +53,7 @@ class FakeSoundCacher:
         stream.volume = volume
         stream.pitch = pitch
         stream.looping = looping
+        stream.position = position
         stream.is_playing = False
         self.refs.append(stream)
         if pinned:
@@ -66,6 +68,7 @@ class FakeSoundCacher:
         pitch=1.0,
         looping=False,
         pinned=False,
+        position=None,
     ):
         stream = self.create(
             file_name,
@@ -74,6 +77,7 @@ class FakeSoundCacher:
             pitch=pitch,
             looping=looping,
             pinned=pinned,
+            position=position,
         )
         stream.play()
         return stream
@@ -453,6 +457,46 @@ def test_audio_protocol_resolves_numbered_sound_family(monkeypatch):
             "handle": "invalid:family-loop",
         }
     ) is False
+
+
+def test_audio_protocol_threads_position_through_to_the_stream(monkeypatch):
+    sound_manager = _load_sound_manager_module(monkeypatch)
+    manager = sound_manager.SoundManager()
+
+    assert manager.handle_audio_command(
+        {
+            "type": "audio",
+            "version": 2,
+            "command": "play",
+            "kind": "sfx",
+            "asset": "roll.ogg",
+            "position": [2, 0, 0],
+        }
+    ) is True
+    assert manager.sound_cacher.refs[-1].position == (2.0, 0.0, 0.0)
+
+    for bad in ([1, 2], "north", [1, "x", 3], [float("inf"), 0, 0], [5000, 0, 0]):
+        assert manager.handle_audio_command(
+            {
+                "type": "audio",
+                "version": 2,
+                "command": "play",
+                "kind": "sfx",
+                "asset": "roll.ogg",
+                "position": bad,
+            }
+        ) is True
+        assert manager.sound_cacher.refs[-1].position is None
+
+
+def test_spatial_mode_is_normalized_and_forwarded_to_the_backend(monkeypatch):
+    sound_manager = _load_sound_manager_module(monkeypatch)
+    manager = sound_manager.SoundManager()
+
+    assert manager.spatial_mode == "headphones"
+    assert manager.set_spatial_mode("STEREO") == "stereo"
+    assert manager.sound_cacher.spatial_mode == "stereo"
+    assert manager.set_spatial_mode("nonsense") == "headphones"
 
 
 def test_audio_protocol_plays_numbered_asset_exactly_even_when_looping(monkeypatch):

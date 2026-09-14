@@ -11,7 +11,6 @@ dependencies = [
     "wxPython>=4.2.0",
     "accessible-output2>=0.16",
     "websockets>=10.0",
-    "sound-lib>=0.2.2",
     "fluent-runtime>=0.4.0",
     "requests",
     "psutil",
@@ -19,6 +18,7 @@ dependencies = [
     "livekit>=1.1.5",
     "numpy>=1.26",
     "sounddevice>=0.5.5",
+    "cosmos",
 ]
 
 [project.optional-dependencies]
@@ -33,3 +33,6 @@ playaural-client = "client:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["."]
+
+[tool.uv.sources]
+cosmos = { path = "vendor/cosmos-0.2.0-cp311-abi3-win_amd64.whl" }

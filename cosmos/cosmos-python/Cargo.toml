@@ -1,0 +1,16 @@
+[package]
+name = "cosmos-python"
+version = "0.2.0"
+edition = "2021"
+description = "Python bindings for Cosmos audio game library"
+
+[lib]
+name = "cosmos"
+crate-type = ["cdylib"]
+
+[dependencies]
+# abi3-py311: one wheel serves CPython 3.11 and later.
+pyo3 = { version = "0.29", features = ["extension-module", "abi3-py311"] }
+cosmos-audio = { path = "../cosmos-audio" }
+cosmos-screenreader = { path = "../cosmos-screenreader" }
+cosmos-window = { path = "../cosmos-window" }

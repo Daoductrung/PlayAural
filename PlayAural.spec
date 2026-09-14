@@ -6,7 +6,7 @@ datas = [("client/sounds", "sounds"), ("client/locales", "locales")]
 binaries = []
 hiddenimports = [
     "wx",
-    "sound_lib",
+    "cosmos",
     "requests",
     "psutil",
     "websockets",
@@ -15,9 +15,11 @@ hiddenimports = [
     "fluent.syntax",
 ]
 
+# collect_all("cosmos") carries cosmos.pyd and the Steam Audio runtime
+# (phonon.dll) that sits beside it in the package directory.
 for package_name in (
     "accessible_output2",
-    "sound_lib",
+    "cosmos",
     "requests",
     "fluent",
     "livekit",

@@ -1,32 +1,171 @@
-import ctypes
-from collections import OrderedDict
+"""Cosmos-backed audio streams for the desktop client.
+
+Cosmos is the CalmComputers audio engine: miniaudio for playback and mixing,
+Steam Audio for HRTF. Its source is in ../cosmos and the built wheel in
+vendor/. This module presents it to sound_manager.py through the interface
+the BASS-based cacher had: ``create``, ``play``, ``pin``, ``unpin``, ``clean``
+and stream objects with ``play``, ``stop``, ``pause``, ``is_playing``,
+``volume``, ``pan``, ``pitch`` and ``looping``.
+
+It adds one thing: a stream may carry a 3D ``position``, rendered according
+to the spatial mode ("off", "stereo" or "headphones"). Positions arrive from
+the server already in the listener's frame, so the listener never moves: it
+sits at the origin facing +Y, with +X to its right and +Z up.
+
+Cosmos keeps decoded audio cached inside its engine, so there is no byte
+cache here. The ``refs`` list only keeps stream objects alive until they
+finish, as the old cacher did.
+"""
+
+from __future__ import annotations
+
 import logging
+import threading
 
-from sound_lib import output, stream
+import cosmos
 
-MAX_CACHED_SOUNDS = 128
-MAX_CACHED_SOUND_BYTES = 96 * 1024 * 1024
+SPATIAL_MODES = ("off", "stereo", "headphones")
+DEFAULT_SPATIAL_MODE = "headphones"
+
+# One table unit is the distance from the listener to a seat. Sounds within
+# this radius are not attenuated, and a seat at the radius pans fully.
+TABLE_RADIUS = 2.0
+# Cosmos adds this fixed amount to the pan of every off-centre sound in
+# stereo mode; the pan step supplies the rest over one table radius.
+_HARD_CLOSE_PAN = 0.2
+_PAN_STEP = (1.0 - _HARD_CLOSE_PAN) / TABLE_RADIUS
+
+_log = logging.getLogger("playaural")
+
+
+def normalize_spatial_mode(value) -> str:
+    """Return a valid spatial mode, defaulting to headphones."""
+    text = str(value or "").strip().lower()
+    return text if text in SPATIAL_MODES else DEFAULT_SPATIAL_MODE
+
+
+def _cosmos_mode(position, spatial_mode: str) -> str:
+    """Pick the Cosmos rendering mode for one stream."""
+    if position is None or spatial_mode == "off":
+        return "direct"
+    return "hrtf" if spatial_mode == "headphones" else "basic"
+
+
+class CosmosStream:
+    """One playback of one asset: a thin adapter over ``cosmos.Sound``."""
+
+    __slots__ = ("_sound", "_spatial_mode", "_position", "file_name")
+
+    def __init__(
+        self,
+        sound,
+        file_name: str,
+        *,
+        pan: float,
+        volume: float,
+        pitch: float,
+        looping: bool,
+        position,
+        spatial_mode: str,
+    ):
+        self._sound = sound
+        self._spatial_mode = spatial_mode
+        self._position = None
+        self.file_name = file_name
+
+        # Everything set before the load is applied by the load itself.
+        sound.spatial_mode = _cosmos_mode(position, spatial_mode)
+        sound.min_distance = TABLE_RADIUS
+        sound.pan_step = _PAN_STEP
+        sound.pan = float(pan)
+        sound.volume = float(volume)
+        sound.pitch = float(pitch)
+        if position is not None:
+            self._position = tuple(float(c) for c in position)
+            sound.set_position(*self._position)
+        if not sound.load(file_name):
+            raise RuntimeError(f"Cosmos could not load {file_name}")
+        sound.looping = bool(looping)
+
+    def play(self) -> None:
+        self._sound.play()
+
+    def stop(self) -> None:
+        self._sound.stop()
+
+    def pause(self) -> None:
+        self._sound.pause()
+
+    @property
+    def is_playing(self) -> bool:
+        return bool(self._sound.playing)
+
+    @property
+    def volume(self) -> float:
+        return self._sound.volume
+
+    @volume.setter
+    def volume(self, value: float) -> None:
+        self._sound.volume = float(value)
+
+    @property
+    def pan(self) -> float:
+        return self._sound.pan
+
+    @pan.setter
+    def pan(self, value: float) -> None:
+        self._sound.pan = float(value)
+
+    @property
+    def pitch(self) -> float:
+        return self._sound.pitch
+
+    @pitch.setter
+    def pitch(self, value: float) -> None:
+        self._sound.pitch = float(value)
+
+    @property
+    def looping(self) -> bool:
+        return bool(self._sound.looping)
+
+    @looping.setter
+    def looping(self, value: bool) -> None:
+        self._sound.looping = bool(value)
+
+    @property
+    def position(self):
+        """The 3D position as an (x, y, z) tuple, or None for a plain cue."""
+        return self._position
+
+    @position.setter
+    def position(self, value) -> None:
+        if value is None:
+            self._position = None
+            self._sound.spatial_mode = "direct"
+            return
+        self._position = tuple(float(c) for c in value)
+        self._sound.set_position(*self._position)
+        self._sound.spatial_mode = _cosmos_mode(self._position, self._spatial_mode)
 
 
 class SoundCacher:
+    """Create Cosmos streams and keep them alive while they play."""
+
     def __init__(self):
-        self.cache = OrderedDict()
-        self.refs = []  # so sound objects don't get eaten by the gc
-        self.ref_files = {}
-        self.pinned = set()
-        try:
-            self.output = output.Output()
-        except Exception as e:
-            error_text = str(e)
-            if "14" in error_text or "already initialized" in error_text:
-                logging.getLogger("playaural").info(
-                    "SoundCacher: BASS was already initialized; reusing it."
-                )
-            else:
-                logging.getLogger("playaural").error(
-                    "Failed to initialize sound_lib output: %s", e
-                )
-                raise
+        self.manager = cosmos.SoundManager()
+        # Listener at the origin facing +Y; the server sends listener-relative
+        # positions, so this never changes.
+        self.manager.set_listener(0.0, 0.0, 0.0, 90.0)
+        self.hrtf_available = bool(self.manager.hrtf_available)
+        self.spatial_mode = DEFAULT_SPATIAL_MODE
+        self.refs: list[CosmosStream] = []
+        self.pinned: set[int] = set()
+        self._lock = threading.Lock()
+        if not self.hrtf_available:
+            _log.warning(
+                "SoundCacher: Steam Audio HRTF unavailable; headphone mode "
+                "falls back to stereo panning."
+            )
 
     def create(
         self,
@@ -36,29 +175,24 @@ class SoundCacher:
         pitch=1.0,
         looping=False,
         pinned=False,
-    ):
-        if file_name not in self.cache:
-            with open(file_name, "rb") as f:
-                self.cache[file_name] = ctypes.create_string_buffer(f.read())
-        else:
-            self.cache.move_to_end(file_name)
-        sound = stream.FileStream(
-            mem=True, file=self.cache[file_name], length=len(self.cache[file_name])
+        position=None,
+    ) -> CosmosStream:
+        stream = CosmosStream(
+            self.manager.create_sound(),
+            file_name,
+            pan=pan,
+            volume=volume,
+            pitch=pitch,
+            looping=looping,
+            position=position,
+            spatial_mode=normalize_spatial_mode(self.spatial_mode),
         )
-        if pan:
-            sound.pan = pan
-        if volume != 1.0:
-            sound.volume = volume
-        if pitch != 1.0:
-            sound.set_frequency(int(sound.get_frequency() * pitch))
-        sound.looping = bool(looping)
-        self.refs.append(sound)
-        self.ref_files[id(sound)] = file_name
-        if pinned:
-            self.pinned.add(id(sound))
+        with self._lock:
+            self.refs.append(stream)
+            if pinned:
+                self.pinned.add(id(stream))
         self.clean()
-        self._trim_cache()
-        return sound
+        return stream
 
     def play(
         self,
@@ -68,40 +202,34 @@ class SoundCacher:
         pitch=1.0,
         looping=False,
         pinned=False,
-    ):
-        sound = self.create(
+        position=None,
+    ) -> CosmosStream:
+        stream = self.create(
             file_name,
             pan=pan,
             volume=volume,
             pitch=pitch,
             looping=looping,
             pinned=pinned,
+            position=position,
         )
-        sound.play()
-        return sound
+        stream.play()
+        return stream
 
-    def clean(self):
-        for sound in self.refs[:]:
-            if id(sound) not in self.pinned and not sound.is_playing:
-                self.refs.remove(sound)
-                self.ref_files.pop(id(sound), None)
+    def clean(self) -> None:
+        """Drop unpinned streams that have finished."""
+        with self._lock:
+            self.refs = [
+                stream
+                for stream in self.refs
+                if id(stream) in self.pinned or stream.is_playing
+            ]
 
-    def pin(self, sound):
-        self.pinned.add(id(sound))
+    def pin(self, stream) -> None:
+        with self._lock:
+            self.pinned.add(id(stream))
 
-    def unpin(self, sound):
-        self.pinned.discard(id(sound))
+    def unpin(self, stream) -> None:
+        with self._lock:
+            self.pinned.discard(id(stream))
         self.clean()
-        self._trim_cache()
-
-    def _trim_cache(self):
-        active_files = set(self.ref_files.values())
-        for file_name in list(self.cache):
-            cache_bytes = sum(len(buffer) for buffer in self.cache.values())
-            if (
-                len(self.cache) <= MAX_CACHED_SOUNDS
-                and cache_bytes <= MAX_CACHED_SOUND_BYTES
-            ):
-                break
-            if file_name not in active_files:
-                self.cache.pop(file_name, None)

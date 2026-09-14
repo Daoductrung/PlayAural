@@ -1,0 +1,8 @@
+[package]
+name = "cosmos-window"
+version = "0.1.0"
+edition = "2021"
+description = "Window and keyboard input for Cosmos audio game library"
+
+[dependencies]
+winit = "0.30"

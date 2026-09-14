@@ -1,0 +1,40 @@
+use std::env;
+use std::path::PathBuf;
+
+fn main() {
+    let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
+    let csrc_dir = manifest_dir.join("csrc");
+
+    // Compile the miniaudio_phonon integration + the effect nodes (reverb,
+    // EQ, disperser). Bundled into a single `miniaudio_phonon` static lib
+    // for linker simplicity.
+    cc::Build::new()
+        .file(csrc_dir.join("miniaudio_phonon.c"))
+        .file(csrc_dir.join("ma_convreverb.c"))
+        .file(csrc_dir.join("ma_eq.c"))
+        .file(csrc_dir.join("ma_disperser.c"))
+        .file(csrc_dir.join("ma_filter.c"))
+        .file(csrc_dir.join("ma_delay.c"))
+        .file(csrc_dir.join("ma_distortion.c"))
+        .file(csrc_dir.join("ma_vocoder.c"))
+        .include(&csrc_dir)
+        .opt_level(2)
+        .compile("miniaudio_phonon");
+
+    println!("cargo:rerun-if-changed=csrc/miniaudio_phonon.c");
+    println!("cargo:rerun-if-changed=csrc/miniaudio_phonon.h");
+    println!("cargo:rerun-if-changed=csrc/ma_convreverb.c");
+    println!("cargo:rerun-if-changed=csrc/ma_convreverb.h");
+    println!("cargo:rerun-if-changed=csrc/ma_eq.c");
+    println!("cargo:rerun-if-changed=csrc/ma_eq.h");
+    println!("cargo:rerun-if-changed=csrc/ma_disperser.c");
+    println!("cargo:rerun-if-changed=csrc/ma_disperser.h");
+    println!("cargo:rerun-if-changed=csrc/ma_filter.c");
+    println!("cargo:rerun-if-changed=csrc/ma_filter.h");
+    println!("cargo:rerun-if-changed=csrc/ma_delay.c");
+    println!("cargo:rerun-if-changed=csrc/ma_delay.h");
+    println!("cargo:rerun-if-changed=csrc/ma_distortion.c");
+    println!("cargo:rerun-if-changed=csrc/ma_distortion.h");
+    println!("cargo:rerun-if-changed=csrc/ma_vocoder.c");
+    println!("cargo:rerun-if-changed=csrc/ma_vocoder.h");
+}

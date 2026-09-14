@@ -12,7 +12,7 @@ set "PYTHON_EXE="
 set "PYTHON_ARGS="
 set "PREFERRED_PYTHON_EXE="
 set "PREFERRED_PYTHON_ARGS="
-set "BUILD_DEPS_CHECK=import PyInstaller, wx, accessible_output2, sound_lib, keyring, requests, fluent.runtime, livekit, sounddevice"
+set "BUILD_DEPS_CHECK=import PyInstaller, wx, accessible_output2, cosmos, keyring, requests, fluent.runtime, livekit, sounddevice"
 set "DIST_ROOT=dist\PlayAural"
 set "CONTENTS_DIR="
 

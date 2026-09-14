@@ -14,7 +14,7 @@ import sys
 import os
 from pathlib import Path
 
-# Fix CWD before importing modules that depend on it (sound_lib, etc)
+# Fix CWD before importing modules that resolve paths relative to it
 if getattr(sys, 'frozen', False):
     os.chdir(os.path.dirname(sys.executable))
 else:

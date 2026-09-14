@@ -7,7 +7,7 @@ clients, and voice media continues to use LiveKit.
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable, Hashable
+from collections.abc import Callable, Hashable, Sequence
 from dataclasses import dataclass, field
 import math
 from pathlib import PurePosixPath
@@ -17,6 +17,11 @@ import uuid
 
 
 AUDIO_PROTOCOL_VERSION = 2
+# Positions are in the listener's frame: the listener sits at the origin
+# facing +Y, +X is to their right and +Z is up. One unit is a table radius,
+# so a seat at the table edge is TABLE_RADIUS away.
+MAX_AUDIO_POSITION = 1000.0
+TABLE_RADIUS = 2.0
 DEFAULT_MUSIC_FADE_MS = 800
 DEFAULT_AMBIENCE_FADE_MS = 1200
 MAX_FADE_MS = 60_000
@@ -99,6 +104,91 @@ def normalize_audio_family(value: str, *, required: bool = True) -> str:
         raise ValueError(f"Audio family must not include an extension: {value!r}")
     validated = normalize_audio_asset(f"{normalized}1.ogg")
     return validated.removesuffix("1.ogg")
+
+
+Position = tuple[float, float, float]
+
+
+def normalize_audio_position(value: Any) -> Position | None:
+    """Validate an optional (x, y, z) position in the listener's frame."""
+    if value is None:
+        return None
+    if isinstance(value, (str, bytes)) or not isinstance(value, Sequence):
+        raise ValueError(f"Invalid audio position: {value!r}")
+    items = list(value)
+    if len(items) != 3:
+        raise ValueError(f"Audio position needs three coordinates: {value!r}")
+    coords: list[float] = []
+    for item in items:
+        parsed = _finite_number(item, math.nan)
+        if not math.isfinite(parsed) or abs(parsed) > MAX_AUDIO_POSITION:
+            raise ValueError(f"Invalid audio position: {value!r}")
+        coords.append(round(parsed, 3))
+    return (coords[0], coords[1], coords[2])
+
+
+def pan_from_position(position: Position) -> int:
+    """Stereo pan for clients without spatial audio: the sine of the azimuth.
+
+    Straight ahead and straight behind are centred; a source level with the
+    listener's ears is hard left or right.
+    """
+    x, y, _ = position
+    horizontal = math.hypot(x, y)
+    if horizontal < 1e-6:
+        return 0
+    return clamp_int(round(100.0 * x / horizontal), -100, 100, 0)
+
+
+def direction_position(
+    degrees_clockwise: float, radius: float = TABLE_RADIUS, height: float = 0.0
+) -> Position:
+    """A point `radius` away in the horizontal plane.
+
+    Angles are clockwise from straight ahead: 0 is ahead, 90 is right, 180 is
+    behind, 270 is left.
+    """
+    phi = math.radians(degrees_clockwise)
+    return (
+        round(radius * math.sin(phi), 3),
+        round(radius * math.cos(phi), 3),
+        round(height, 3),
+    )
+
+
+def clock_position(hour: int, radius: float = TABLE_RADIUS) -> Position:
+    """A point at a clock-face hour: 12 is ahead, 3 is right, 6 is behind."""
+    return direction_position(30.0 * (int(hour) % 12), radius)
+
+
+def seat_position(
+    seat_index: int,
+    listener_index: int | None,
+    seat_count: int,
+    radius: float = TABLE_RADIUS,
+) -> Position | None:
+    """Where one seat sits, as heard from another.
+
+    Seats are numbered clockwise around the table. The listener's own seat
+    has no position (None): their own sounds play unpositioned. The seat
+    after the listener is to their left, the seat opposite is straight ahead
+    and the seat before them is to their right.
+
+    A listener with no seat (a spectator) hears seat 0 straight ahead and the
+    rest spread clockwise from there.
+
+        k = (seat_index - listener_index) mod seat_count
+        angle = 180 + 360 * k / seat_count      (clockwise from ahead)
+        position = (radius * sin(angle), radius * cos(angle), 0)
+    """
+    if seat_count < 2:
+        return None
+    if listener_index is None:
+        return direction_position(360.0 * (seat_index % seat_count) / seat_count, radius)
+    if seat_index == listener_index:
+        return None
+    step = (seat_index - listener_index) % seat_count
+    return direction_position(180.0 + 360.0 * step / seat_count, radius)
 
 
 def new_audio_handle(prefix: str = "audio") -> str:
@@ -237,6 +327,9 @@ class AudioCommand:
     priority: int = 0
     max_instances: int = 0
     ducking: dict[str, int] = field(default_factory=dict)
+    # Optional (x, y, z) in the listener's frame. Spatial clients render it;
+    # the others use the pan derived from it when no pan was given.
+    position: Position | None = None
 
     VERSION: ClassVar[int] = AUDIO_PROTOCOL_VERSION
 
@@ -284,6 +377,9 @@ class AudioCommand:
 
         self.volume = clamp_int(self.volume, 0, 100, 100)
         self.pan = clamp_int(self.pan, -100, 100, 0)
+        self.position = normalize_audio_position(self.position)
+        if self.position is not None and self.pan == 0:
+            self.pan = pan_from_position(self.position)
         self.pitch = clamp_int(self.pitch, 25, 400, 100)
         self.fade_in_ms = clamp_int(self.fade_in_ms, 0, MAX_FADE_MS, 0)
         self.fade_out_ms = clamp_int(self.fade_out_ms, 0, MAX_FADE_MS, 0)
@@ -382,6 +478,7 @@ class AudioCommand:
             "priority": self.priority,
             "max_instances": self.max_instances,
             "ducking": self.ducking,
+            "position": list(self.position) if self.position is not None else None,
         }
         defaults: dict[str, Any] = {
             "scope": "global",
@@ -440,6 +537,7 @@ class AudioPlaybackState:
     priority: int = 0
     max_instances: int = 0
     ducking: dict[str, int] = field(default_factory=dict)
+    position: Position | None = None
     recipient_ids: list[str] = field(default_factory=list)
     paused: bool = False
 
@@ -472,6 +570,7 @@ class AudioPlaybackState:
             priority=command.priority,
             max_instances=command.max_instances,
             ducking=dict(command.ducking),
+            position=command.position,
             recipient_ids=list(recipient_ids or []),
         )
 
@@ -505,4 +604,5 @@ class AudioPlaybackState:
             priority=self.priority,
             max_instances=self.max_instances,
             ducking=dict(self.ducking),
+            position=self.position,
         )

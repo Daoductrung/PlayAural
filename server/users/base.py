@@ -291,6 +291,7 @@ class User(ABC):
         scope: str = "global",
         context: str = "",
         layer: str = "main",
+        position: tuple[float, float, float] | None = None,
     ) -> str:
         """Play an effect and return its optional lifecycle handle."""
         resolved_handle = handle or (new_audio_handle("sfx") if loop else "")
@@ -314,6 +315,7 @@ class User(ABC):
                 priority=priority,
                 max_instances=max_instances,
                 ducking=ducking or {},
+                position=position,
             )
         )
         return resolved_handle

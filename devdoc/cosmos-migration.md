@@ -146,8 +146,8 @@ Because k depends on the listener, the server builds the command per recipient. 
 1. Done 14 September 2026: bindings generated and committed, clean build without LLVM, Cosmos moved into cosmos/.
 2. Done 14 September 2026: thread safety, direct mode, abi3 wheel at client/vendor/, smoke-tested.
 3. Done 14 September 2026, unreleased: client backend, packaging, spatial option and the client side of the position field. The client test suite passes (210 tests, including six against the real engine). Still to do before release: build with build_prod.bat and listen through a full session, paying attention to ambience outros and music intros, which now rely on polling rather than an engine callback.
-4. Next: the server side of the position field, seat geometry, and the three pilot games.
-5. Table-wide cues, then arcade design.
+4. Done 14 September 2026: the server side. AudioCommand and AudioPlaybackState carry an optional position, validated and rounded, with pan derived from it when none was given; the geometry helpers (`direction_position`, `clock_position`, `seat_position`) live in server/audio.py; `broadcast_sound` and `play_sound` accept `position=` for one point in every listener's frame or `seat_of=player` for a per-listener seat position. A temporary "Spatial audio test" entry on the main menu opens twelve clock-face directions that each play notify1.ogg from that direction; remove it once tuning is done.
+5. Next: the three pilot games (Bang saloon heal, Dead Man's Poker roulette, Dead Man's Deck preparation), then table-wide cues, then arcade design.
 
 Step 3 is the point of no return for sound_lib and is deliberately a no-behaviour-change release apart from the new option.
 

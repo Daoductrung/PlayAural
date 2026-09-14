@@ -53,6 +53,8 @@ smtp-current-enc = * { $value }
 main-menu-title = Main Menu
 
 play = Play
+spatial-audio-test = Spatial audio test (temporary)
+spatial-test-clock = { $hour } o'clock
 view-active-tables = View active tables
 options = Options
 logout = Logout

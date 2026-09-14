@@ -11,6 +11,7 @@ from ..audio import (
     DEFAULT_MUSIC_FADE_MS,
     SameTurnAudioBatcher,
     new_audio_handle,
+    seat_position,
 )
 
 if TYPE_CHECKING:
@@ -367,8 +368,15 @@ class GameSoundMixin:
         context: str = "",
         layer: str = "main",
         persist: bool = False,
+        position: tuple[float, float, float] | None = None,
+        seat_of: "Player | None" = None,
     ) -> str:
-        """Play an effect for an audience and optionally retain a loop."""
+        """Play an effect for an audience and optionally retain a loop.
+
+        ``position`` places the sound at one point in every listener's frame.
+        ``seat_of`` instead places it at that player's seat, computed for each
+        listener from where they sit; the seated player hears it unpositioned.
+        """
         resolved_handle = handle or (new_audio_handle("sfx") if loop else "")
         command = AudioCommand(
             command="play",
@@ -388,10 +396,54 @@ class GameSoundMixin:
             priority=priority,
             max_instances=max_instances,
             ducking=ducking or {},
+            position=position,
         )
+        if seat_of is not None:
+            return self._dispatch_seated_audio(
+                command, seat_of, audience=audience, persist=persist and loop
+            )
         return self._dispatch_audio(
             command, audience=audience, persist=persist and loop
         )
+
+    def _seat_index_of(self, user: "User | Player | None") -> int | None:
+        """Position in the seating order (``self.players``) of a user or player."""
+        if user is None:
+            return None
+        target_id = str(getattr(user, "id", "") or getattr(user, "uuid", ""))
+        for index, player in enumerate(self.players):
+            if str(player.id) == target_id:
+                return index
+        return None
+
+    def _dispatch_seated_audio(
+        self,
+        command: AudioCommand,
+        seat_of: "Player",
+        *,
+        audience: Any = None,
+        persist: bool = False,
+    ) -> str:
+        """Send one command per listener, positioned at ``seat_of``'s seat."""
+        users, _ = self._audio_recipients(audience)
+        seat_index = self._seat_index_of(seat_of)
+        seat_count = len(self.players)
+        for user in users:
+            listener_index = self._seat_index_of(user)
+            position = (
+                None
+                if seat_index is None
+                else seat_position(seat_index, listener_index, seat_count)
+            )
+            # `replace` re-runs validation, so the pan is derived afresh.
+            personal = replace(command, position=position, pan=0)
+            user.send_audio_command(personal)
+            if persist:
+                recipient_ids = [str(user.uuid)] if hasattr(user, "uuid") else []
+                self.active_audio[self._audio_state_key(personal, recipient_ids)] = (
+                    AudioPlaybackState.from_command(personal, recipient_ids)
+                )
+        return command.handle
 
     def play_sound(
         self,

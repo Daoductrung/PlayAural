@@ -61,6 +61,8 @@ Bạn luôn biết vị trí, máu và trạng thái của đồng đội. Vị 
 
 Khi kẻ địch rời khỏi mọi đường ngắm của đội, thông tin về họ lại bị che khuất. Chuyển động ngoài tầm nhìn chỉ báo rằng kẻ địch đã di chuyển, không tiết lộ điểm đến. Bảng hạ gục công khai luôn nêu người bắn, người bị hạ, vũ khí và khu vực hạ gục.
 
+Vì khu vực hạ gục đã được công khai, người chơi bị hạ vẫn xuất hiện tại đó trong bản đồ chiến thuật và trạng thái hai đội. Vị trí của kẻ địch còn sống vẫn bị che khuất khi đội bạn không có đường ngắm.
+
 Trước khi đặt bom, CT chỉ biết ai đang mang bom nếu nhìn thấy người đó. CT chỉ thấy bom rơi khi khu vực chứa bom nằm trong tầm nhìn. CT được canh bom rơi nhưng tuyệt đối không thể nhặt bom. T luôn biết tình trạng bom của mình. Sau khi bom được đặt thành công, Khu Đặt Bom và kíp nổ trở thành thông tin công khai.
 
 \*\*Bắn, máu, giáp và né tránh\*\*
@@ -81,7 +83,7 @@ Nếu kết thúc lượt mà chưa bắn và chưa giữ góc AWP, điểm hàn
 \* \*\*USP-S:\*\* Súng ngắn miễn phí của CT. Tầm 1; tối đa hai phát mỗi lượt; gây 36 sát thương khi đứng chung khu vực hoặc 32 ở tầm 1.
 \* \*\*AK-47:\*\* Vũ khí chính của T, giá $2.700. Tầm 2; một loạt 12 viên mỗi lượt; xuyên giáp tốt và gây 92, 69 hoặc 46 sát thương ở tầm 0, 1 hoặc 2.
 \* \*\*M4:\*\* Vũ khí chính của CT, giá $2.900. Tầm 2; tối đa hai loạt 12 viên nhắm vào hai kẻ địch khác nhau; gây 72, 54 hoặc 36 sát thương ở tầm 0, 1 hoặc 2.
-\* \*\*AWP:\*\* Vũ khí chính cho cả hai phe, giá $4.750. Tầm 3. Giữ góc AWP về đúng khu vực mục tiêu tốn 1 điểm và kết thúc lượt. Trong một lượt sau, bắn vào khu vực đã giữ tốn 2 điểm và gây 125, 120, 115 hoặc 110 sát thương từ tầm 0 đến 3.
+\* \*\*AWP:\*\* Vũ khí chính cho cả hai phe, giá $4.750. Tầm 3. Giữ góc AWP về đúng khu vực mục tiêu tốn 1 điểm và kết thúc lượt. Nếu sau đó kẻ địch đi vào khu vực đang bị canh qua một đường ngắm thông thoáng, lượt của họ tạm dừng trước khi họ dùng thêm điểm. Bạn được bắn ngay hoặc không bắn để tiếp tục giữ góc. Mỗi lần di chuyển chỉ mở một lượt giữ góc. Trong lượt thường về sau của bạn, bắn vào khu vực đã giữ vẫn tốn 2 điểm. Một phát AWP toàn lực gây 125, 120, 115 hoặc 110 sát thương từ tầm 0 đến 3.
 
 Góc AWP được giữ qua nhiều lượt, nhưng sẽ mất khi bạn di chuyển, đổi vũ khí, dùng lựu đạn, xử lý bom, chịu sát thương, bị choáng hoặc khai hỏa. Hạ đối thủ bằng AWP được thưởng $100; các vũ khí khác được thưởng $300.
 
@@ -100,7 +102,7 @@ Chỉ người T đang mang bom mới được đặt, và chỉ tại Khu Đặ
 
 Một CT còn sống nhận lượt đáp trả. Trò chơi ưu tiên CT đứng cùng khu vực với người đặt, rồi đến người có đường ngắm trực tiếp, cuối cùng mới xét thứ tự lượt. Bất kỳ phát bắn nào gây sát thương lên máu hoặc giáp đều ngắt quá trình đặt. Nếu còn sống, người đặt vẫn giữ bom; nếu bị hạ, họ làm rơi bom.
 
-Nếu lượt đáp trả kết thúc mà không ngắt được quá trình, bom mới chính thức được đặt. Lượt đáp trả chỉ tạm ngưng diễn biến thông thường; sau đó, lượt chuyển cho người chưa hành động đầu tiên đứng sau vị trí ban đầu của người đặt. Thứ tự lượt cố định không bao giờ bị thay đổi. Nếu CT đáp trả chưa hành động trong vòng chiến thuật này, lượt đáp trả được tính là lượt của họ; CT đã hành động vẫn được nhận lượt đáp trả đặc biệt.
+Nếu lượt đáp trả kết thúc mà không ngắt được quá trình, bom mới chính thức được đặt. Lượt đáp trả chỉ tạm ngưng diễn biến thông thường; sau đó, lượt chuyển cho người chưa hành động đầu tiên đứng sau vị trí ban đầu của người đặt. Thứ tự lượt cố định không bao giờ bị thay đổi. Người đáp trả chưa hành động sẽ có đủ 2 điểm và lượt này được tính là lượt thường của họ. Nếu đã hành động, họ chỉ có 1 điểm, nhờ vậy vẫn có cơ hội cản mục tiêu nhưng không được thêm nguyên một lượt thứ hai.
 
 \*\*CT không thể bắt đầu gỡ khi bom còn đang được đặt. Hành động Gỡ bom chỉ xuất hiện sau khi bom đã chính thức được đặt.\*\*
 
@@ -110,7 +112,7 @@ Bom đã đặt luôn có đủ hai vòng chiến thuật về sau trước khi 
 
 CT phải đứng trong khu vực có quả bom đã đặt. \*\*Gỡ bom\* tốn 2 điểm nếu không có Bộ Gỡ Bom hoặc 1 điểm nếu có, rồi kết thúc lượt của CT.
 
-Một T còn sống nhận lượt đáp trả theo cùng thứ tự ưu tiên về vị trí và đường ngắm. Bất kỳ sát thương nào lên máu hoặc giáp cũng ngắt quá trình gỡ; đòn bị né hoàn toàn thì không. Nếu lượt đáp trả kết thúc mà không ngắt được, bom được gỡ ngay. Nếu việc gỡ bị ngắt, diễn biến thông thường tiếp tục từ vị trí ban đầu của người gỡ trong thứ tự lượt.
+Một T còn sống nhận lượt đáp trả theo cùng thứ tự ưu tiên về vị trí, đường ngắm và quy tắc 2 điểm hoặc 1 điểm như khi đáp trả việc đặt bom. Bất kỳ sát thương nào lên máu hoặc giáp cũng ngắt quá trình gỡ; đòn bị né hoàn toàn thì không. Nếu lượt đáp trả kết thúc mà không ngắt được, bom được gỡ ngay. Nếu việc gỡ bị ngắt, diễn biến thông thường tiếp tục từ vị trí ban đầu của người gỡ trong thứ tự lượt.
 
 Người gỡ thành công nhận $300. Không có Bộ Gỡ Bom, CT thường cần một lượt để tới chỗ bom rồi một lượt sau để dùng đủ 2 điểm gỡ. Có bộ gỡ, CT có thể đi một khu vực và bắt đầu gỡ trong cùng một lượt đầy đủ.
 

@@ -199,6 +199,12 @@ class BreachPointBotCoordinator:
         self.observe(game)
         if game.phase == PHASE_BUY:
             return self.buy_action(game, bot)
+        if game._is_watched_entry_reaction():
+            if game.reaction_window.responding_player_id != bot.id:
+                return None
+            if game._is_reaction_shoot_enabled(bot) is None:
+                return "reaction_shoot"
+            return "reaction_pass"
         if game._turn_error(bot) is not None:
             return None
 

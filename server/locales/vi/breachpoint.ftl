@@ -73,6 +73,8 @@ breachpoint-action-plant = Bắt đầu đặt bom ({ $cost } điểm hành đ�
 breachpoint-action-defuse = Gỡ bom ({ $cost } điểm hành động)
 breachpoint-action-pickup = Nhặt bom ({ $cost } điểm hành động)
 breachpoint-action-end-turn = Kết thúc lượt; chuẩn bị { $guard } né tránh
+breachpoint-action-reaction-shoot = Bắn { $player } tại { $location } bằng { $weapon } đang giữ góc
+breachpoint-action-reaction-pass = Không bắn và tiếp tục giữ góc
 breachpoint-keybind-finish-or-end = Mua xong hoặc kết thúc lượt
 
 # Hành động thông tin
@@ -84,6 +86,10 @@ breachpoint-action-read-bomb = Xem tình trạng bom
 # Lỗi hành động
 breachpoint-error-spectator-action = Khán giả không thể thực hiện hành động chiến thuật. Hãy dùng các mục bản đồ, đội, bom và tỷ số để theo dõi trận đấu.
 breachpoint-error-eliminated-action = Bạn đã bị hạ trong hiệp đấu này. Bạn sẽ trở lại khi hiệp đấu tiếp theo bắt đầu.
+breachpoint-error-reaction-unavailable = Hiện không có tình huống giữ góc nào cần xử lý.
+breachpoint-error-reaction-player = Hãy chờ { $player } xử lý tình huống giữ góc.
+breachpoint-error-reaction-action-only = Hãy bắn hoặc tiếp tục giữ góc trước khi thực hiện hành động thường.
+breachpoint-error-reaction-expired = Mục tiêu vừa lọt vào góc ngắm không còn hợp lệ. Hãy chọn không bắn để trận đấu tiếp tục.
 breachpoint-error-buy-phase-active = Giai đoạn mua vẫn đang diễn ra. Hãy hoàn tất trang bị trước khi thực hiện hành động chiến đấu.
 breachpoint-error-buy-phase-ended = Giai đoạn mua của hiệp này đã kết thúc.
 breachpoint-error-not-your-buy-turn = Hãy chờ { $player } mua xong.
@@ -150,6 +156,15 @@ breachpoint-phase-postplant = Bom đã đặt, vòng { $round } trên { $total }
 breachpoint-tactical-round-start = { $phase }.
 breachpoint-turn-you = Lượt của bạn: { $team }, { $location }, { $ap } điểm hành động. Hiệp { $round }. { $phase }.
 breachpoint-turn-player = { $player }: { $team }, { $location }, { $ap } điểm hành động. Hiệp { $round }. { $phase }.
+breachpoint-response-plant = lượt đáp trả đặt bom
+breachpoint-response-defuse = lượt đáp trả gỡ bom
+breachpoint-response-turn-you = { $response } của bạn: { $team }, { $location }, { $ap } điểm hành động.
+breachpoint-response-turn-player = { $player } bắt đầu { $response }: { $team }, { $location }, { $ap } điểm hành động.
+breachpoint-watched-entry-you = { $enemy } vừa lọt vào góc bạn đang giữ tại { $location }. Hãy bắn ngay hoặc tiếp tục giữ góc.
+breachpoint-watched-entry-target = Bạn vừa lọt vào góc { $player } đang giữ tại { $location }.
+breachpoint-reaction-pass-you = Bạn không bắn và tiếp tục giữ góc.
+breachpoint-reaction-pass-target = { $player } không bắn.
+breachpoint-watched-entry-resume = Bạn tiếp tục lượt di chuyển với { $ap } điểm hành động.
 breachpoint-sides-swapped = Hai bên đổi phe. { $terrorists } giờ là T; { $counter_terrorists } giờ là CT.
 breachpoint-halftime = Đã hết giờ nghỉ giữa hai hiệp. Nửa sau của thời gian thi đấu chính thức bắt đầu.
 breachpoint-overtime-starts = Hai đội hòa sau thời gian thi đấu chính thức. Hiệp phụ MR3 thứ { $period } bắt đầu.

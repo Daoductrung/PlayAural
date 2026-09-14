@@ -73,6 +73,8 @@ breachpoint-action-plant = Begin planting the bomb ({ $cost } AP)
 breachpoint-action-defuse = Defuse the bomb ({ $cost } AP)
 breachpoint-action-pickup = Pick up the bomb ({ $cost } AP)
 breachpoint-action-end-turn = End activation; prepare { $guard } evasion
+breachpoint-action-reaction-shoot = Fire the held { $weapon } at { $player } in { $location }
+breachpoint-action-reaction-pass = Hold fire and keep the angle
 breachpoint-keybind-finish-or-end = Finish buying or end activation
 
 # Information actions
@@ -84,6 +86,10 @@ breachpoint-action-read-bomb = Read bomb status
 # Action errors
 breachpoint-error-spectator-action = Spectators cannot perform tactical actions. Use the map, team, bomb, and score actions to follow the match.
 breachpoint-error-eliminated-action = You have been eliminated for this combat round. You will return when the next combat round begins.
+breachpoint-error-reaction-unavailable = There is no held-angle reaction to resolve.
+breachpoint-error-reaction-player = Wait for { $player } to resolve the held-angle reaction.
+breachpoint-error-reaction-action-only = Resolve the held-angle shot or hold fire before taking normal actions.
+breachpoint-error-reaction-expired = The watched entry is no longer a valid shot. Hold fire to resume play.
 breachpoint-error-buy-phase-active = The buy phase is still active. Finish your loadout before performing combat actions.
 breachpoint-error-buy-phase-ended = Buying is closed for this combat round.
 breachpoint-error-not-your-buy-turn = Wait for { $player } to finish buying.
@@ -150,6 +156,15 @@ breachpoint-phase-postplant = Bomb planted { $round } of { $total }
 breachpoint-tactical-round-start = { $phase }.
 breachpoint-turn-you = Your activation: { $team }, { $location }, { $ap } AP. Combat round { $round }. { $phase }.
 breachpoint-turn-player = { $player }: { $team }, { $location }, { $ap } AP. Combat round { $round }. { $phase }.
+breachpoint-response-plant = plant response
+breachpoint-response-defuse = defuse response
+breachpoint-response-turn-you = Your { $response }: { $team }, { $location }, { $ap } AP.
+breachpoint-response-turn-player = { $player } begins a { $response }: { $team }, { $location }, { $ap } AP.
+breachpoint-watched-entry-you = Your held angle catches { $enemy } entering { $location }. Fire now or hold fire.
+breachpoint-watched-entry-target = { $player } has you in a held angle at { $location }.
+breachpoint-reaction-pass-you = You hold fire and keep the angle.
+breachpoint-reaction-pass-target = { $player } holds fire.
+breachpoint-watched-entry-resume = Your movement resumes with { $ap } AP.
 breachpoint-sides-swapped = Sides swap. { $terrorists } are now T; { $counter_terrorists } are now CT.
 breachpoint-halftime = Halftime is complete. The second regulation half begins.
 breachpoint-overtime-starts = Regulation is tied. MR3 overtime period { $period } begins.

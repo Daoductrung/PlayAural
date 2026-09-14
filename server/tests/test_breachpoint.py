@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from ..game_utils.actions import Visibility
+from ..game_utils.reaction_window import ReactionWindow
 from ..game_utils.stats_helpers import RatingHelper
 from ..games.breachpoint.arsenal import (
     AK47,
@@ -38,6 +39,9 @@ from ..games.breachpoint.game import (
     MATCH_REGULATION,
     PHASE_BUY,
     PHASE_COMBAT,
+    REACTION_DEFUSE,
+    REACTION_PLANT,
+    REACTION_WATCHED_ENTRY,
     TEAM_COUNTER_TERRORISTS,
     TEAM_TERRORISTS,
     WIN_DEFUSED,
@@ -388,6 +392,234 @@ def test_awp_requires_a_prepared_angle_and_retains_one_shot_lethality() -> None:
     assert target.armor == 95
     assert sniper.cash == game.economy.starting_cash + AWP.kill_reward
     assert not sniper.held_angle_node_id
+
+
+def test_watched_entry_pauses_movement_for_fire_or_hold_choice() -> None:
+    game = make_game(start=True)
+    mover = tactical_player(game, 2)
+    watcher = tactical_player(game, 1)
+    mover.position_id = "connector"
+    watcher.position_id = "mid_doors"
+    watcher.primary_weapon_id = AWP.id
+    watcher.equipped_weapon_id = AWP.id
+    watcher.held_angle_origin_id = watcher.position_id
+    watcher.held_angle_node_id = "a_site"
+    start_activation(game, mover)
+
+    game.execute_action(mover, "move_a_site")
+
+    assert mover.position_id == "a_site"
+    assert mover.action_points == 1
+    assert game.current_player is watcher
+    assert game.reaction_window.kind == REACTION_WATCHED_ENTRY
+    assert game.reaction_window.triggering_player_id == mover.id
+    assert game._is_reaction_shoot_enabled(watcher) is None
+    assert game._is_reaction_pass_enabled(watcher) is None
+    assert game._turn_error(watcher) == "breachpoint-error-reaction-action-only"
+    assert game._pending_menu_focus[watcher.id] == "reaction_shoot"
+    turn_set = game.get_action_set(watcher, "turn")
+    assert turn_set is not None
+    visible_ids = [
+        resolved.action.id for resolved in game.get_all_visible_actions(watcher)
+    ]
+    assert visible_ids[:2] == ["reaction_shoot", "reaction_pass"]
+
+    game.execute_action(watcher, "reaction_pass")
+
+    assert not game.reaction_window.is_open
+    assert game.current_player is mover
+    assert mover.action_points == 1
+    assert watcher.held_angle_node_id == "a_site"
+
+
+def test_watched_entry_shot_uses_evasion_then_resumes_surviving_mover() -> None:
+    game = make_game(start=True)
+    mover = tactical_player(game, 2)
+    watcher = tactical_player(game, 1)
+    mover.position_id = "connector"
+    mover.guard_points = game.rules.maximum_evasion_points
+    watcher.position_id = "mid_doors"
+    watcher.primary_weapon_id = AWP.id
+    watcher.equipped_weapon_id = AWP.id
+    watcher.held_angle_origin_id = watcher.position_id
+    watcher.held_angle_node_id = "a_site"
+    start_activation(game, mover)
+    mover.guard_points = game.rules.maximum_evasion_points
+
+    game.execute_action(mover, "move_a_site")
+    game.execute_action(watcher, "reaction_shoot")
+
+    assert mover.health == 5
+    assert mover.guard_points == 0
+    assert not mover.eliminated
+    assert game.current_player is mover
+    assert mover.action_points == 1
+    assert not watcher.held_angle_node_id
+    assert not game.reaction_window.is_open
+
+
+def test_lethal_watched_entry_shot_restores_order_after_the_mover() -> None:
+    game = make_game(start=True)
+    mover = tactical_player(game, 2)
+    watcher = tactical_player(game, 1)
+    next_player = tactical_player(game, 3)
+    game.round_acted_player_ids = [tactical_player(game, 0).id, watcher.id]
+    game.bomb_carrier_id = tactical_player(game, 0).id
+    mover.position_id = "connector"
+    watcher.position_id = "mid_doors"
+    watcher.primary_weapon_id = AWP.id
+    watcher.equipped_weapon_id = AWP.id
+    watcher.held_angle_origin_id = watcher.position_id
+    watcher.held_angle_node_id = "a_site"
+    start_activation(game, mover)
+
+    game.execute_action(mover, "move_a_site")
+    game.execute_action(watcher, "reaction_shoot")
+
+    assert mover.eliminated
+    assert mover.id in game.round_acted_player_ids
+    assert game.current_player is next_player
+    assert not game.reaction_window.is_open
+
+
+def test_smoke_blocks_watched_entry_without_consuming_the_held_angle() -> None:
+    game = make_game(start=True)
+    mover = tactical_player(game, 2)
+    watcher = tactical_player(game, 1)
+    mover.position_id = "connector"
+    watcher.position_id = "mid_doors"
+    watcher.primary_weapon_id = AWP.id
+    watcher.equipped_weapon_id = AWP.id
+    watcher.held_angle_origin_id = watcher.position_id
+    watcher.held_angle_node_id = "a_site"
+    game.smoke_expirations = {"a_site": game.tactical_round + 1}
+    start_activation(game, mover)
+
+    game.execute_action(mover, "move_a_site")
+
+    assert game.current_player is mover
+    assert mover.action_points == 1
+    assert watcher.held_angle_node_id == "a_site"
+    assert not game.reaction_window.is_open
+
+
+def test_one_move_opens_only_the_closest_valid_watched_entry_response() -> None:
+    game = make_game(start=True)
+    mover = tactical_player(game, 2)
+    remote_watcher = tactical_player(game, 1)
+    close_watcher = tactical_player(game, 3)
+    mover.position_id = "connector"
+    remote_watcher.position_id = "mid_doors"
+    close_watcher.position_id = "a_long"
+    for watcher in (remote_watcher, close_watcher):
+        watcher.primary_weapon_id = AWP.id
+        watcher.equipped_weapon_id = AWP.id
+        watcher.held_angle_origin_id = watcher.position_id
+        watcher.held_angle_node_id = "a_site"
+    start_activation(game, mover)
+
+    game.execute_action(mover, "move_a_site")
+
+    assert game.current_player is close_watcher
+    assert game.reaction_window.responding_player_id == close_watcher.id
+    game.execute_action(close_watcher, "reaction_pass")
+    assert game.current_player is mover
+    assert not game.reaction_window.is_open
+    assert remote_watcher.held_angle_node_id == "a_site"
+
+
+def test_objective_response_movement_cannot_open_a_nested_reaction() -> None:
+    game = make_game(start=True)
+    planter = tactical_player(game, 0)
+    responder = tactical_player(game, 1)
+    watcher = tactical_player(game, 2)
+    planter.position_id = "b_site"
+    responder.position_id = "connector"
+    watcher.position_id = "mid_doors"
+    watcher.primary_weapon_id = AWP.id
+    watcher.equipped_weapon_id = AWP.id
+    watcher.held_angle_origin_id = watcher.position_id
+    watcher.held_angle_node_id = "a_site"
+    game.bomb_carrier_id = planter.id
+    start_activation(game, planter)
+    game.execute_action(planter, "plant")
+
+    assert game.current_player is responder
+    assert game.reaction_window.kind == REACTION_PLANT
+    game.execute_action(responder, "move_a_site")
+
+    assert game.current_player is responder
+    assert game.reaction_window.kind == REACTION_PLANT
+    assert game.reaction_window.responding_player_id == responder.id
+    assert watcher.held_angle_node_id == "a_site"
+
+
+def test_watched_entry_window_survives_restore_and_bots_take_the_shot() -> None:
+    game = make_game(start=True, bot_indexes={1})
+    mover = tactical_player(game, 2)
+    watcher = tactical_player(game, 1)
+    mover.position_id = "connector"
+    watcher.position_id = "mid_doors"
+    watcher.primary_weapon_id = AWP.id
+    watcher.equipped_weapon_id = AWP.id
+    watcher.held_angle_origin_id = watcher.position_id
+    watcher.held_angle_node_id = "a_site"
+    start_activation(game, mover)
+    game.execute_action(mover, "move_a_site")
+
+    restored = BreachPointGame.from_json(game.to_json())
+    for restored_player in restored.players:
+        user = (
+            Bot(restored_player.name, uuid=restored_player.id)
+            if restored_player.id == watcher.id
+            else MockUser(restored_player.name, uuid=restored_player.id)
+        )
+        restored.attach_user(restored_player.id, user)
+    restored.rebuild_runtime_state()
+    restored_watcher = tactical_player(restored, 1)
+
+    assert restored.reaction_window.kind == REACTION_WATCHED_ENTRY
+    assert restored.current_player is restored_watcher
+    assert restored.bot_think(restored_watcher) == "reaction_shoot"
+
+
+def test_restore_discards_an_invalid_reaction_window() -> None:
+    game = make_game(start=True)
+    mover = tactical_player(game, 2)
+    watcher = tactical_player(game, 1)
+    game.current_player = watcher
+    game.reaction_window = ReactionWindow(
+        kind=REACTION_WATCHED_ENTRY,
+        triggering_player_id=mover.id,
+        responding_player_id=watcher.id,
+        resume_after_player_id=mover.id,
+        target_player_id=mover.id,
+        context={"node_id": "missing"},
+    )
+
+    game.rebuild_runtime_state()
+
+    assert not game.reaction_window.is_open
+    assert game.current_player is mover
+
+
+def test_restore_recovers_an_incomplete_watched_entry_window() -> None:
+    game = make_game(start=True)
+    mover = tactical_player(game, 2)
+    watcher = tactical_player(game, 1)
+    game.current_player = watcher
+    game.reaction_window = ReactionWindow(
+        kind=REACTION_WATCHED_ENTRY,
+        triggering_player_id=mover.id,
+        resume_after_player_id=mover.id,
+        target_player_id=mover.id,
+        context={"node_id": mover.position_id},
+    )
+
+    game.rebuild_runtime_state()
+
+    assert not game.reaction_window.is_open
+    assert game.current_player is mover
 
 
 def test_unused_ap_defense_is_consumed_and_attacking_prevents_rearming_it() -> None:
@@ -1074,7 +1306,7 @@ def test_damage_interrupts_pending_plant_without_dropping_bomb() -> None:
     assert carrier.health == 68
 
 
-def test_pending_plant_grants_a_living_ct_response_even_if_ct_already_acted() -> None:
+def test_pending_plant_limits_an_already_acted_ct_response_to_one_ap() -> None:
     game = make_game(start=True)
     carrier = tactical_player(game, 2)
     responder = tactical_player(game, 1)
@@ -1090,7 +1322,9 @@ def test_pending_plant_grants_a_living_ct_response_even_if_ct_already_acted() ->
 
     assert game.bomb_state == BOMB_PLANTING
     assert game.current_player is responder
-    assert responder.action_points == game.rules.action_points_per_activation
+    assert responder.action_points == game.rules.repeat_objective_response_action_points
+    assert game.reaction_window.kind == REACTION_PLANT
+    assert not game.reaction_window.consumes_activation
 
 
 def test_plant_response_resumes_after_the_planter_without_reordering_players() -> None:
@@ -1114,7 +1348,8 @@ def test_plant_response_resumes_after_the_planter_without_reordering_players() -
     game.execute_action(planter, "plant")
 
     assert game.current_player is responder
-    assert game.objective_response_turn_anchor_id == planter.id
+    assert game.reaction_window.resume_after_player_id == planter.id
+    assert game.reaction_window.consumes_activation
     game.execute_action(responder, "end_turn")
 
     assert game.bomb_state == BOMB_PLANTED
@@ -1146,7 +1381,7 @@ def test_interrupted_plant_response_restores_the_suspended_turn_order() -> None:
 
     assert game.bomb_state == BOMB_CARRIED
     assert game.current_player is responder
-    assert game.objective_response_turn_anchor_id == planter.id
+    assert game.reaction_window.resume_after_player_id == planter.id
 
     restored = BreachPointGame.from_json(game.to_json())
     for restored_player in restored.players:
@@ -1158,12 +1393,15 @@ def test_interrupted_plant_response_restores_the_suspended_turn_order() -> None:
     restored_responder = tactical_player(restored, 5)
 
     assert restored.current_player is restored_responder
-    assert restored.objective_response_turn_anchor_id == tactical_player(restored, 2).id
+    assert (
+        restored.reaction_window.resume_after_player_id
+        == tactical_player(restored, 2).id
+    )
     restored_responder.reconnect_grace_ticks = 0
     restored.execute_action(restored_responder, "end_turn")
     assert restored.current_player is tactical_player(restored, 3)
     assert restored.current_player.id == remote_next_player.id
-    assert restored.objective_response_turn_anchor_id == ""
+    assert not restored.reaction_window.is_open
 
 
 def test_interrupted_defuse_response_restores_the_suspended_turn_order() -> None:
@@ -1192,10 +1430,10 @@ def test_interrupted_defuse_response_restores_the_suspended_turn_order() -> None
 
     assert game.defusing_player_id == ""
     assert game.current_player is responder
-    assert game.objective_response_turn_anchor_id == defuser.id
+    assert game.reaction_window.resume_after_player_id == defuser.id
     game.execute_action(responder, "end_turn")
     assert game.current_player is remote_next_player
-    assert game.objective_response_turn_anchor_id == ""
+    assert not game.reaction_window.is_open
 
 
 def test_objective_responses_prioritize_a_co_located_enemy() -> None:
@@ -1215,10 +1453,11 @@ def test_objective_responses_prioritize_a_co_located_enemy() -> None:
     plant_game.execute_action(planter, "plant")
 
     assert plant_game.current_player is local_defender
-    assert plant_game.plant_response_player_id == local_defender.id
+    assert plant_game.reaction_window.kind == REACTION_PLANT
+    assert plant_game.reaction_window.responding_player_id == local_defender.id
     plant_game.execute_action(local_defender, "end_turn")
     assert plant_game.bomb_state == BOMB_PLANTED
-    assert plant_game.plant_response_player_id == ""
+    assert not plant_game.reaction_window.is_open
     assert plant_game.current_player is remote_defender
 
     defuse_game = make_game(start=True, player_count=6)
@@ -1238,7 +1477,8 @@ def test_objective_responses_prioritize_a_co_located_enemy() -> None:
     defuse_game.execute_action(defuser, "defuse")
 
     assert defuse_game.current_player is local_terrorist
-    assert defuse_game.defuse_response_player_id == local_terrorist.id
+    assert defuse_game.reaction_window.kind == REACTION_DEFUSE
+    assert defuse_game.reaction_window.responding_player_id == local_terrorist.id
 
 
 def test_hidden_plant_warns_ct_without_revealing_planter_or_site() -> None:
@@ -2013,6 +2253,24 @@ def test_kill_feed_is_public_and_includes_shooter_target_and_location() -> None:
         in watcher_user.get_spoken_messages()
     )
 
+    for viewer in game.players:
+        user = game.get_user(viewer)
+        assert isinstance(user, MockUser)
+        map_line = next(
+            item.text
+            for item in game._build_map_status(viewer, user)
+            if item.id == "breachpoint_map_node_mid_doors"
+        )
+        casualty_line = next(
+            item.text
+            for item in game._build_team_status(viewer, user)
+            if item.id == f"breachpoint_team_player_{target.id}"
+        )
+        assert "Player2" in map_line
+        assert "Player2" in casualty_line
+        assert "Mid Doors" in casualty_line
+        assert "eliminated this combat round" in casualty_line
+
 
 def test_result_records_true_team_ranking_and_winner_ids() -> None:
     game = make_game(start=True)
@@ -2051,8 +2309,9 @@ def test_save_restore_preserves_match_state_and_rebuilds_derived_actions() -> No
     assert restored.bomb_state == BOMB_PLANTING
     assert restored.planting_location_id == "a_site"
     assert restored.planting_player_id == carrier.id
-    assert restored.plant_response_player_id == current_id
-    assert restored.objective_response_turn_anchor_id == carrier.id
+    assert restored.reaction_window.kind == REACTION_PLANT
+    assert restored.reaction_window.responding_player_id == current_id
+    assert restored.reaction_window.resume_after_player_id == carrier.id
     assert restored.current_player is not None
     assert restored.current_player.id == current_id
     assert all(
@@ -2175,8 +2434,9 @@ def test_save_restore_preserves_a_valid_defuse_response_window() -> None:
 
     assert restored.defusing_player_id == defender.id
     assert restored.defusing_location_id == "a_site"
-    assert restored.defuse_response_player_id == responder_id
-    assert restored.objective_response_turn_anchor_id == defender.id
+    assert restored.reaction_window.kind == REACTION_DEFUSE
+    assert restored.reaction_window.responding_player_id == responder_id
+    assert restored.reaction_window.resume_after_player_id == defender.id
     assert restored.current_player is not None
     assert restored.current_player.id == responder_id
 

@@ -17,6 +17,7 @@ class BreachPointRules:
     plant_cost: int
     defuse_cost: int
     bomb_pickup_cost: int
+    repeat_objective_response_action_points: int
     preplant_tactical_round_limit: int
     bomb_fuse_tactical_rounds: int
     overtime_half_rounds: int
@@ -49,6 +50,7 @@ STANDARD_RULES = BreachPointRules(
     plant_cost=1,
     defuse_cost=2,
     bomb_pickup_cost=1,
+    repeat_objective_response_action_points=1,
     preplant_tactical_round_limit=6,
     bomb_fuse_tactical_rounds=2,
     overtime_half_rounds=3,
@@ -82,6 +84,7 @@ def _validate_rules(rules: BreachPointRules) -> None:
         rules.plant_cost,
         rules.defuse_cost,
         rules.bomb_pickup_cost,
+        rules.repeat_objective_response_action_points,
         rules.preplant_tactical_round_limit,
         rules.bomb_fuse_tactical_rounds,
         rules.overtime_half_rounds,
@@ -95,6 +98,11 @@ def _validate_rules(rules: BreachPointRules) -> None:
         raise ValueError("Breach Point evasion values cannot be negative")
     if rules.maximum_evasion_points > rules.action_points_per_activation:
         raise ValueError("Maximum evasion cannot exceed activation action points")
+    if (
+        rules.repeat_objective_response_action_points
+        > rules.action_points_per_activation
+    ):
+        raise ValueError("Repeat objective responses cannot exceed activation AP")
     if rules.disengage_cost < rules.move_cost:
         raise ValueError("Disengaging cannot cost less than ordinary movement")
     if any(

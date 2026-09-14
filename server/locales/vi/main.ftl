@@ -53,6 +53,8 @@ smtp-current-enc = * { $value }
 main-menu-title = Menu Chính
 
 play = Chơi
+spatial-audio-test = Kiểm tra âm thanh không gian (tạm thời)
+spatial-test-clock = Hướng { $hour } giờ
 view-active-tables = Xem các bàn đang hoạt động
 options = Tùy chỉnh
 logout = Đăng xuất

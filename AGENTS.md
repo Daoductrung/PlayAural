@@ -282,6 +282,12 @@ Audio-first is mandatory. Every important state change needs TTS and/or sound.
 - All server-driven SFX, music, and ambience use the versioned `audio` command
   contract in `server/audio.py`. Do not add separate packet types or
   client-specific routing. Asset paths and command values must be validated.
+- Optional 3D positions use listener-relative `(x, y, z)` coordinates with the
+  listener at the origin facing `+Y`. The server is the positioning authority
+  and derives ordinary pan from the same point for non-HRTF clients. Desktop
+  Cosmos currently consumes positions; Web and mobile consume the derived pan.
+  A point is not a moving-source attachment: do not build trajectory audio
+  until the protocol defines stable event/source ids and position updates.
 - One-shot notification SFX may declare their related output `buffer`; clients
   suppress those cues when that buffer is effectively muted. Do not attach a
   buffer to managed or looping audio.

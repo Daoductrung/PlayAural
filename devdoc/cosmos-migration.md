@@ -33,6 +33,8 @@ Everything else in the toolchain is present: cargo 1.97, uv (which provides matu
 
 No game sends positions. Bang, Dead Man's Deck, Dead Man's Poker and Left Right Center pan by seat using fixed constants; the arcade games do not pan at all. Web and mobile clients reject any packet whose version is not 2, and they only understand pan. So the protocol work is additive: a new optional field, derived pan for clients that cannot use it, and the version number stays at 2.
 
+The current position field describes one fixed point for one playback command. It does not yet attach audio to a stable gameplay event or moving source, and there is no packet id/update lifecycle for a projectile or other trajectory. Breach Point's future bullets, thrown utility, and similar travel audio must therefore wait for that attachment contract. Desktop is the only first-party client with native HRTF rendering at this stage; Web and mobile continue to use the server-derived stereo pan.
+
 ### 1.6 Licensing improves
 
 sound_lib wraps BASS, which is free only for non-commercial use. miniaudio is public domain or MIT-0 and Steam Audio is Apache 2.0 since version 4. Both are compatible with PlayAural's GPL.

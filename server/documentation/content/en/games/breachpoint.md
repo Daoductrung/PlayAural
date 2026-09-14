@@ -61,6 +61,8 @@ You always know your squad's positions, health, and status. You see an enemy's c
 
 When an enemy leaves every squad sightline, that enemy becomes concealed again. Hidden movement announces that the enemy moved without revealing the destination. The public kill feed always names the shooter, eliminated player, weapon, and elimination area.
 
+Because that elimination area is public, eliminated players remain listed there in the tactical map and team status. Living enemies are still concealed whenever your squad has no line of sight to them.
+
 Before planting, CT learns who carries the bomb only by seeing that player. CT sees a dropped bomb only when its area is visible. CT can guard a dropped bomb but can never pick it up. T always knows its own bomb state. After a successful plant, the bombsite and fuse become public.
 
 \*\*Shooting, health, armor, and evasion\*\*
@@ -81,7 +83,7 @@ Switching between an owned primary weapon and your sidearm is free, but it does 
 \* \*\*USP-S:\*\* Free CT sidearm. Range 1; up to two attacks per activation; 36 damage in the same area or 32 at range 1.
 \* \*\*AK-47:\*\* T primary for $2,700. Range 2; one 12-round burst per activation; strong armor penetration and 92, 69, or 46 damage at ranges 0, 1, or 2.
 \* \*\*M4:\*\* CT primary for $2,900. Range 2; up to two 12-round bursts aimed at different enemies; 72, 54, or 36 damage at ranges 0, 1, or 2.
-\* \*\*AWP:\*\* Primary for either side at $4,750. Range 3. Holding an exact area as an AWP angle costs 1 AP and ends the activation. During a later activation, firing at that prepared area costs 2 AP and deals 125, 120, 115, or 110 damage at ranges 0 through 3.
+\* \*\*AWP:\*\* Primary for either side at $4,750. Range 3. Holding an exact area as an AWP angle costs 1 AP and ends the activation. If an enemy later enters that watched area through a clear sightline, normal play pauses before the enemy can spend more AP. You may fire immediately or hold fire and keep the angle. Only one held-angle response occurs for each move. During your own later activation, firing at the prepared area still costs 2 AP. A full-strength AWP shot deals 125, 120, 115, or 110 damage at ranges 0 through 3.
 
 An AWP angle remains prepared between activations, but moving, changing weapons, using utility, handling the bomb, taking damage, becoming flashed, or firing breaks it. An AWP elimination pays $100; other weapon eliminations pay $300.
 
@@ -100,7 +102,7 @@ Only the current T bomb carrier may plant, and only at Bombsite A or Bombsite B.
 
 One living CT receives a response activation. The game prefers a CT in the planter's area, then one with direct line of sight, then stable turn order. Any shot that damages health or armor interrupts the plant. A surviving planter keeps the bomb; an eliminated planter drops it.
 
-If the response ends without interrupting the plant, the bomb becomes officially planted. The response temporarily pauses normal play: afterward, the first still-unacted player after the planter's original place receives the next activation. The permanent turn order never changes. If the responder had not yet acted during this tactical round, the response counts as that player's activation; a responder who had already acted still receives the special response.
+If the response ends without interrupting the plant, the bomb becomes officially planted. The response temporarily pauses normal play: afterward, the first still-unacted player after the planter's original place receives the next activation. The permanent turn order never changes. A responder who has not acted receives the normal 2 AP, and the response counts as that player's activation. A responder who already acted receives only 1 AP, preventing a second full activation while preserving one chance to contest the objective.
 
 \*\*CT cannot begin defusing while a plant is still in progress. Defuse becomes available only after the bomb is officially planted.\*\*
 
@@ -110,7 +112,7 @@ The planted bomb receives the full fixed fuse of two later tactical rounds, even
 
 A CT player must be in the planted bomb's area. Beginning the defuse costs 2 AP without a Defuse Kit or 1 AP with one, then ends the CT activation.
 
-One living T receives a response activation using the same position and sightline priorities. Any health or armor damage interrupts the defuse; a completely evaded attack does not. If the response ends without an interruption, the defuse succeeds immediately. If it is interrupted, normal play resumes after the defuser's original place in the turn order.
+One living T receives a response activation using the same position, sightline, and 2-AP-or-1-AP rules as a plant response. Any health or armor damage interrupts the defuse; a completely evaded attack does not. If the response ends without an interruption, the defuse succeeds immediately. If it is interrupted, normal play resumes after the defuser's original place in the turn order.
 
 The defuser receives $300. Without a Defuse Kit, CT usually needs one activation to reach the bomb and a later activation to spend 2 AP defusing. With a kit, CT can move one area and begin defusing in the same full activation.
 

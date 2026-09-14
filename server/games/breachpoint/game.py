@@ -10,6 +10,7 @@ from ...game_utils.actions import Action, ActionSet, Visibility
 from ...game_utils.bot_helper import BotHelper
 from ...game_utils.game_result import GameResult
 from ...game_utils.options import MenuOption, option_field
+from ...game_utils.reaction_window import ReactionWindow
 from ...messages.localization import Localization
 from ...ui.keybinds import KeybindState
 from ...users.base import MenuItem
@@ -64,6 +65,10 @@ from .state import (
     PHASE_BUY,
     PHASE_COMBAT,
     PHASES,
+    REACTION_DEFUSE,
+    REACTION_KINDS,
+    REACTION_PLANT,
+    REACTION_WATCHED_ENTRY,
     WIN_DEFUSED,
     WIN_DETONATED,
     WIN_ELIMINATION,
@@ -156,11 +161,9 @@ class BreachPointGame(Game):
     bomb_planted_tactical_round: int = 0
     planting_player_id: str = ""
     planting_location_id: str = ""
-    plant_response_player_id: str = ""
     defusing_player_id: str = ""
     defusing_location_id: str = ""
-    defuse_response_player_id: str = ""
-    objective_response_turn_anchor_id: str = ""
+    reaction_window: ReactionWindow = field(default_factory=ReactionWindow)
     side_squad_indexes: list[int] = field(
         default_factory=lambda: [TEAM_TERRORISTS, TEAM_COUNTER_TERRORISTS]
     )
@@ -415,6 +418,7 @@ class BreachPointGame(Game):
 
     def create_turn_action_set(self, player: Player) -> ActionSet:
         action_set = ActionSet(name="turn")
+        self._add_reaction_actions(action_set)
         self._add_buy_actions(action_set)
         self._add_objective_actions(action_set)
         self._add_weapon_actions(action_set)
@@ -436,6 +440,30 @@ class BreachPointGame(Game):
         self._add_end_activation_action(action_set)
         self._apply_turn_action_order(action_set)
         return action_set
+
+    def _add_reaction_actions(self, action_set: ActionSet) -> None:
+        action_set.add(
+            Action(
+                id="reaction_shoot",
+                label="",
+                handler="_action_reaction_shoot",
+                is_enabled="_is_reaction_shoot_enabled",
+                is_hidden="_is_reaction_action_hidden",
+                get_label="_get_reaction_shoot_label",
+                show_in_actions_menu=False,
+            )
+        )
+        action_set.add(
+            Action(
+                id="reaction_pass",
+                label="",
+                handler="_action_reaction_pass",
+                is_enabled="_is_reaction_pass_enabled",
+                is_hidden="_is_reaction_action_hidden",
+                get_label="_get_reaction_pass_label",
+                show_in_actions_menu=False,
+            )
+        )
 
     def _add_buy_actions(self, action_set: ActionSet) -> None:
         for weapon in get_purchasable_weapons(
@@ -617,6 +645,11 @@ class BreachPointGame(Game):
 
     @staticmethod
     def _apply_turn_action_order(action_set: ActionSet) -> None:
+        reaction_ids = [
+            action_id
+            for action_id in ("reaction_shoot", "reaction_pass")
+            if action_set.get_action(action_id)
+        ]
         buy_ids = [
             action_id
             for action_id in action_set._order
@@ -667,7 +700,7 @@ class BreachPointGame(Game):
             for action_id in action_set._order
             if action_id.startswith("throw_")
         ]
-        action_set._order = buy_ids + [
+        action_set._order = reaction_ids + buy_ids + [
             action_id for action_id in objective_ids if action_set.get_action(action_id)
         ]
         action_set._order.extend(weapon_ids)
@@ -857,11 +890,9 @@ class BreachPointGame(Game):
         self.bomb_planted_tactical_round = 0
         self.planting_player_id = ""
         self.planting_location_id = ""
-        self.plant_response_player_id = ""
         self.defusing_player_id = ""
         self.defusing_location_id = ""
-        self.defuse_response_player_id = ""
-        self.objective_response_turn_anchor_id = ""
+        self.reaction_window = ReactionWindow()
         self.smoke_expirations = {}
         self.smoke_known_team_indexes = {}
 
@@ -1247,19 +1278,13 @@ class BreachPointGame(Game):
 
         self._normalize_bomb_state(active_players)
         self._normalize_defuse_state(active_players)
-        objective_responder = None
-        if self.status == "playing" and self.phase == PHASE_COMBAT:
-            if self.bomb_state == BOMB_PLANTING:
-                objective_responder = self._breach_player_by_id(
-                    self.plant_response_player_id
-                )
-            elif self.defusing_player_id:
-                objective_responder = self._breach_player_by_id(
-                    self.defuse_response_player_id
-                )
-        if objective_responder:
-            self.current_player = objective_responder
-        self._normalize_objective_response_turn_anchor(active_players)
+        self._normalize_reaction_window(active_players)
+        if self.reaction_window.is_open:
+            responder = self._breach_player_by_id(
+                self.reaction_window.responding_player_id
+            )
+            if responder:
+                self.current_player = responder
         if self.last_round_win_reason not in WIN_REASONS:
             self.last_round_win_reason = ""
         if self.win_reason not in MATCH_RESULTS:
@@ -1325,33 +1350,9 @@ class BreachPointGame(Game):
                     self.bomb_state = BOMB_CARRIED
                     self.planting_player_id = ""
                     self.planting_location_id = ""
-                    self.plant_response_player_id = ""
-                else:
-                    responder = self._breach_player_by_id(self.plant_response_player_id)
-                    if (
-                        not responder
-                        or responder.id not in active_player_ids
-                        or responder.eliminated
-                        or responder.team_index != TEAM_COUNTER_TERRORISTS
-                    ):
-                        current = self._breach_player(self.current_player)
-                        responder = (
-                            current
-                            if current
-                            and not current.eliminated
-                            and current.team_index == TEAM_COUNTER_TERRORISTS
-                            else self._next_objective_response_player(
-                                TEAM_COUNTER_TERRORISTS,
-                                carrier,
-                            )
-                        )
-                        self.plant_response_player_id = (
-                            responder.id if responder else ""
-                        )
             else:
                 self.planting_player_id = ""
                 self.planting_location_id = ""
-                self.plant_response_player_id = ""
             return
 
         if self.bomb_state == BOMB_PLANTED:
@@ -1374,7 +1375,6 @@ class BreachPointGame(Game):
             )
             self.planting_player_id = ""
             self.planting_location_id = ""
-            self.plant_response_player_id = ""
             return
 
         if (
@@ -1386,7 +1386,6 @@ class BreachPointGame(Game):
             self.bomb_planted_tactical_round = 0
             self.planting_player_id = ""
             self.planting_location_id = ""
-            self.plant_response_player_id = ""
             return
 
         replacement = next(
@@ -1405,7 +1404,6 @@ class BreachPointGame(Game):
             self.bomb_planted_tactical_round = 0
             self.planting_player_id = ""
             self.planting_location_id = ""
-            self.plant_response_player_id = ""
         else:
             self.bomb_state = BOMB_DROPPED
             self.bomb_carrier_id = ""
@@ -1414,14 +1412,12 @@ class BreachPointGame(Game):
             self.bomb_planted_tactical_round = 0
             self.planting_player_id = ""
             self.planting_location_id = ""
-            self.plant_response_player_id = ""
 
     def _normalize_defuse_state(self, active_players: list[BreachPointPlayer]) -> None:
-        """Retain only a live, coherent post-plant defuse response window."""
+        """Retain only a live, coherent post-plant defuse attempt."""
 
         active_player_ids = {player.id for player in active_players}
         defuser = self._breach_player_by_id(self.defusing_player_id)
-        responder = self._breach_player_by_id(self.defuse_response_player_id)
         if (
             self.bomb_state != BOMB_PLANTED
             or not defuser
@@ -1430,35 +1426,133 @@ class BreachPointGame(Game):
             or defuser.team_index != TEAM_COUNTER_TERRORISTS
             or defuser.position_id != self.bomb_location_id
             or self.defusing_location_id != self.bomb_location_id
-            or not responder
-            or responder.id not in active_player_ids
-            or responder.eliminated
-            or responder.team_index != TEAM_TERRORISTS
         ):
             self._clear_pending_defuse()
 
     def _clear_pending_defuse(self) -> None:
         self.defusing_player_id = ""
         self.defusing_location_id = ""
-        self.defuse_response_player_id = ""
 
-    def _normalize_objective_response_turn_anchor(
+    def _normalize_reaction_window(
         self,
         active_players: list[BreachPointPlayer],
     ) -> None:
-        """Discard a stale resume anchor without disturbing a valid response."""
+        """Discard any reaction whose actors or trigger state are no longer valid."""
 
-        if not self.objective_response_turn_anchor_id:
-            return
+        window = self.reaction_window
         active_player_ids = {player.id for player in active_players}
-        current = self._breach_player(self.current_player)
+        if not window.is_open:
+            self.reaction_window = ReactionWindow()
+            if self.defusing_player_id:
+                self._clear_pending_defuse()
+            if window.kind in REACTION_KINDS:
+                self._recover_from_invalid_reaction(window, active_player_ids)
+            return
+        trigger = self._breach_player_by_id(window.triggering_player_id)
+        responder = self._breach_player_by_id(window.responding_player_id)
+        target = self._breach_player_by_id(window.target_player_id)
+        common_valid = bool(
+            self.status == "playing"
+            and self.phase == PHASE_COMBAT
+            and window.kind in REACTION_KINDS
+            and trigger
+            and responder
+            and trigger.id in active_player_ids
+            and responder.id in active_player_ids
+            and not responder.eliminated
+            and trigger.id != responder.id
+            and window.resume_after_player_id == trigger.id
+            and target
+            and target.id == trigger.id
+            and window.context.get("node_id", "") == trigger.position_id
+        )
+        responder_was_unacted = bool(
+            responder and responder.id not in self.round_acted_player_ids
+        )
+        expected_response_action_points = (
+            self.rules.action_points_per_activation
+            if responder_was_unacted
+            else self.rules.repeat_objective_response_action_points
+        )
+        kind_valid = False
+        if common_valid and window.kind == REACTION_PLANT:
+            kind_valid = bool(
+                trigger.team_index == TEAM_TERRORISTS
+                and responder.team_index == TEAM_COUNTER_TERRORISTS
+                and (
+                    self.bomb_state == BOMB_PLANTING
+                    and trigger.id == self.planting_player_id
+                    or self.bomb_state in {BOMB_CARRIED, BOMB_DROPPED}
+                    and not self.planting_player_id
+                )
+                and window.response_action_points
+                == expected_response_action_points
+                and window.consumes_activation == responder_was_unacted
+            )
+        elif common_valid and window.kind == REACTION_DEFUSE:
+            kind_valid = bool(
+                self.bomb_state == BOMB_PLANTED
+                and trigger.team_index == TEAM_COUNTER_TERRORISTS
+                and responder.team_index == TEAM_TERRORISTS
+                and self.defusing_player_id in {"", trigger.id}
+                and window.response_action_points
+                == expected_response_action_points
+                and window.consumes_activation == responder_was_unacted
+            )
+        elif common_valid and window.kind == REACTION_WATCHED_ENTRY:
+            weapon = self._equipped_weapon(responder)
+            node_id = window.context.get("node_id", "")
+            kind_valid = bool(
+                target
+                and target.id == trigger.id
+                and not target.eliminated
+                and target.team_index != responder.team_index
+                and target.position_id == node_id
+                and responder.held_angle_origin_id == responder.position_id
+                and responder.held_angle_node_id == node_id
+                and self._can_hold_angle(responder, node_id, weapon)
+                and self._can_see(responder, target)
+                and window.response_action_points == 0
+                and not window.consumes_activation
+            )
+        if kind_valid:
+            if window.kind in {REACTION_PLANT, REACTION_DEFUSE} and responder:
+                responder.action_points = min(
+                    responder.action_points,
+                    window.response_action_points,
+                )
+            return
+        if window.kind == REACTION_DEFUSE:
+            self._clear_pending_defuse()
+        self.reaction_window = ReactionWindow()
+        self._recover_from_invalid_reaction(window, active_player_ids)
+
+    def _recover_from_invalid_reaction(
+        self,
+        window: ReactionWindow,
+        active_player_ids: set[str],
+    ) -> None:
+        """Restore playable turn ownership after discarding a stale reaction."""
+
         if (
-            self.objective_response_turn_anchor_id not in active_player_ids
-            or not current
-            or current.eliminated
-            or current.id == self.objective_response_turn_anchor_id
+            self.status != "playing"
+            or self.phase != PHASE_COMBAT
+            or window.kind not in REACTION_KINDS
         ):
-            self.objective_response_turn_anchor_id = ""
+            return
+        trigger = self._breach_player_by_id(window.triggering_player_id)
+        if (
+            window.kind == REACTION_WATCHED_ENTRY
+            and trigger
+            and trigger.id in active_player_ids
+            and not trigger.eliminated
+        ):
+            self.current_player = trigger
+            return
+        if window.kind == REACTION_PLANT and self.bomb_state == BOMB_PLANTING:
+            self._complete_pending_plant()
+        if self.status == "playing":
+            self._continue_after_activation(window.resume_after_player_id)
 
     def _rebuild_turn_action_sets(self) -> None:
         for player in self.players:
@@ -1920,6 +2014,21 @@ class BreachPointGame(Game):
             return False
         return self._team_can_see_player(tactical_viewer.team_index, target)
 
+    def _viewer_knows_player_location(
+        self,
+        viewer: Player,
+        target: BreachPointPlayer,
+    ) -> bool:
+        """Return whether a status view may show one player's current area.
+
+        Living enemies remain governed by fog of war. Eliminated players stay
+        at the area already disclosed by the public kill feed, so hiding that
+        same location from later map and roster checks would make the two
+        public information surfaces contradict each other.
+        """
+
+        return target.eliminated or self._viewer_can_see_player(viewer, target)
+
     def _target_from_action(self, action_id: str) -> BreachPointPlayer | None:
         prefix = "shoot_"
         if not action_id.startswith(prefix):
@@ -1931,6 +2040,38 @@ class BreachPointGame(Game):
         if not action_id.startswith(prefix):
             return None
         return self._node(action_id[len(prefix) :])
+
+    def _is_watched_entry_reaction(self) -> bool:
+        return bool(
+            self.reaction_window.is_open
+            and self.reaction_window.kind == REACTION_WATCHED_ENTRY
+        )
+
+    def _reaction_turn_error(
+        self, player: Player
+    ) -> str | tuple[str, dict] | None:
+        tactical_player = self._breach_player(player)
+        if self.status != "playing":
+            return "action-not-playing"
+        if not tactical_player or tactical_player.is_spectator:
+            return "breachpoint-error-spectator-action"
+        if tactical_player.eliminated:
+            return "breachpoint-error-eliminated-action"
+        if not self._is_watched_entry_reaction():
+            return "breachpoint-error-reaction-unavailable"
+        if (
+            tactical_player.id != self.reaction_window.responding_player_id
+            or not self.current_player
+            or self.current_player.id != tactical_player.id
+        ):
+            responder = self._breach_player_by_id(
+                self.reaction_window.responding_player_id
+            )
+            return (
+                "breachpoint-error-reaction-player",
+                {"player": responder.name if responder else ""},
+            )
+        return None
 
     def _turn_error(self, player: Player) -> str | tuple[str, dict] | None:
         tactical_player = self._breach_player(player)
@@ -1948,6 +2089,8 @@ class BreachPointGame(Game):
                 "breachpoint-error-not-your-turn",
                 {"player": current.name if current else ""},
             )
+        if self._is_watched_entry_reaction():
+            return "breachpoint-error-reaction-action-only"
         return None
 
     def _buy_turn_error(self, player: Player) -> str | tuple[str, dict] | None:
@@ -2066,6 +2209,62 @@ class BreachPointGame(Game):
     # ------------------------------------------------------------------
     # Action visibility, validation, and labels
     # ------------------------------------------------------------------
+
+    def _is_reaction_action_hidden(self, player: Player) -> Visibility:
+        return (
+            Visibility.VISIBLE
+            if self._reaction_turn_error(player) is None
+            else Visibility.HIDDEN
+        )
+
+    def _is_reaction_shoot_enabled(
+        self, player: Player
+    ) -> str | tuple[str, dict] | None:
+        error = self._reaction_turn_error(player)
+        if error:
+            return error
+        responder = self._breach_player(player)
+        target = self._breach_player_by_id(self.reaction_window.target_player_id)
+        node_id = self.reaction_window.context.get("node_id", "")
+        weapon = self._equipped_weapon(responder) if responder else None
+        if (
+            not responder
+            or not target
+            or target.eliminated
+            or target.position_id != node_id
+            or responder.held_angle_origin_id != responder.position_id
+            or responder.held_angle_node_id != node_id
+            or not self._can_hold_angle(responder, node_id, weapon)
+            or not self._can_see(responder, target)
+        ):
+            return "breachpoint-error-reaction-expired"
+        return None
+
+    def _is_reaction_pass_enabled(
+        self, player: Player
+    ) -> str | tuple[str, dict] | None:
+        return self._reaction_turn_error(player)
+
+    def _get_reaction_shoot_label(self, player: Player, action_id: str) -> str:
+        user = self.get_user(player)
+        locale = user.locale if user else "en"
+        responder = self._breach_player(player)
+        target = self._breach_player_by_id(self.reaction_window.target_player_id)
+        weapon = self._equipped_weapon(responder) if responder else None
+        return Localization.get(
+            locale,
+            "breachpoint-action-reaction-shoot",
+            player=target.name if target else "",
+            weapon=self._weapon_name(locale, weapon),
+            location=self._node_name(
+                locale, self.reaction_window.context.get("node_id", "")
+            ),
+        )
+
+    def _get_reaction_pass_label(self, player: Player, action_id: str) -> str:
+        user = self.get_user(player)
+        locale = user.locale if user else "en"
+        return Localization.get(locale, "breachpoint-action-reaction-pass")
 
     def _is_buy_action_hidden(self, player: Player) -> Visibility:
         return (
@@ -2875,6 +3074,48 @@ class BreachPointGame(Game):
     # Gameplay actions
     # ------------------------------------------------------------------
 
+    def _action_reaction_shoot(self, player: Player, action_id: str) -> None:
+        if self._is_reaction_shoot_enabled(player):
+            return
+        responder = self._breach_player(player)
+        target = self._breach_player_by_id(self.reaction_window.target_player_id)
+        weapon = self._equipped_weapon(responder) if responder else None
+        if not responder or not target or not weapon:
+            return
+        round_finished = self._perform_attack(
+            responder,
+            target,
+            weapon,
+            damage_percent=100,
+        )
+        if round_finished:
+            return
+        self._finish_watched_entry_reaction()
+
+    def _action_reaction_pass(self, player: Player, action_id: str) -> None:
+        if self._is_reaction_pass_enabled(player):
+            return
+        responder = self._breach_player(player)
+        target = self._breach_player_by_id(self.reaction_window.target_player_id)
+        if not responder:
+            return
+        for listener in (responder, target):
+            if not listener:
+                continue
+            user = self.get_user(listener)
+            if not user:
+                continue
+            user.speak_l(
+                (
+                    "breachpoint-reaction-pass-you"
+                    if listener.id == responder.id
+                    else "breachpoint-reaction-pass-target"
+                ),
+                buffer="game",
+                player=responder.name,
+            )
+        self._finish_watched_entry_reaction()
+
     def _action_buy_weapon(self, player: Player, action_id: str) -> None:
         if self._is_buy_weapon_enabled(player, action_id=action_id):
             return
@@ -3145,6 +3386,8 @@ class BreachPointGame(Game):
             tactical_player,
             friendly_contact_visibility_before,
         )
+        if self._open_watched_entry_reaction(tactical_player, destination.id):
+            return
         self._finish_action(tactical_player)
 
     def _action_shoot(self, player: Player, action_id: str) -> None:
@@ -3166,15 +3409,35 @@ class BreachPointGame(Game):
         shooter.weapon_target_ids_this_activation.setdefault(weapon.id, []).append(
             target.id
         )
-        self._clear_held_angle(shooter)
-        distance = self._node_distance(shooter.position_id, target.position_id)
-        if distance is None:
-            return
         damage_percent = (
             100
             if shooter.shots_fired_this_activation == 1
             else weapon.followup_damage_percent
         )
+        round_finished = self._perform_attack(
+            shooter,
+            target,
+            weapon,
+            damage_percent=damage_percent,
+        )
+        if round_finished:
+            return
+        self._finish_action(shooter)
+
+    def _perform_attack(
+        self,
+        shooter: BreachPointPlayer,
+        target: BreachPointPlayer,
+        weapon: WeaponProfile,
+        *,
+        damage_percent: int,
+    ) -> bool:
+        """Resolve one normal or reaction attack and all shared consequences."""
+
+        self._clear_held_angle(shooter)
+        distance = self._node_distance(shooter.position_id, target.position_id)
+        if distance is None:
+            return False
         outcome = self._resolve_attack(
             target,
             weapon,
@@ -3212,8 +3475,8 @@ class BreachPointGame(Game):
                 )
             self._drop_bomb_from_eliminated_carrier(target)
             if self._check_elimination_victory():
-                return
-        self._finish_action(shooter)
+                return True
+        return False
 
     def _action_plant(self, player: Player, action_id: str) -> None:
         if self._is_plant_enabled(player):
@@ -3227,7 +3490,6 @@ class BreachPointGame(Game):
         self.bomb_state = BOMB_PLANTING
         self.planting_player_id = terrorist.id
         self.planting_location_id = terrorist.position_id
-        self.plant_response_player_id = ""
         self._announce_plant_started(terrorist)
         terrorist.action_points = 0
         self._end_activation(terrorist)
@@ -3244,7 +3506,6 @@ class BreachPointGame(Game):
         self._clear_held_angle(counter_terrorist)
         self.defusing_player_id = counter_terrorist.id
         self.defusing_location_id = self.bomb_location_id
-        self.defuse_response_player_id = ""
         self.broadcast_personal_l(
             counter_terrorist,
             "breachpoint-defuse-start-you",
@@ -3339,24 +3600,35 @@ class BreachPointGame(Game):
     # Turn and round flow
     # ------------------------------------------------------------------
 
-    def _start_activation(self, player: Player | None) -> None:
+    def _start_activation(
+        self,
+        player: Player | None,
+        *,
+        action_point_limit: int | None = None,
+    ) -> None:
         tactical_player = self._breach_player(player)
         if not tactical_player or tactical_player.eliminated:
             return
         if (
             self.bomb_state == BOMB_PLANTING
             and tactical_player.team_index == TEAM_TERRORISTS
-            and not self.plant_response_player_id
+            and not self.reaction_window.is_open
         ):
             self._complete_pending_plant()
+        available_action_points = self.rules.action_points_per_activation
+        if action_point_limit is not None:
+            available_action_points = max(
+                0,
+                min(available_action_points, action_point_limit),
+            )
         flash_penalty = min(
-            self.rules.action_points_per_activation,
+            available_action_points,
             tactical_player.flash_penalty,
         )
         tactical_player.guard_points = 0
         tactical_player.action_points = max(
             0,
-            self.rules.action_points_per_activation - flash_penalty,
+            available_action_points - flash_penalty,
         )
         tactical_player.flash_penalty = 0
         tactical_player.shots_fired_this_activation = 0
@@ -3375,11 +3647,23 @@ class BreachPointGame(Game):
             user = self.get_user(listener)
             if not user:
                 continue
-            key = (
-                "breachpoint-turn-you"
-                if listener.id == tactical_player.id
-                else "breachpoint-turn-player"
+            objective_response = bool(
+                self.reaction_window.is_open
+                and self.reaction_window.kind in {REACTION_PLANT, REACTION_DEFUSE}
+                and self.reaction_window.responding_player_id == tactical_player.id
             )
+            if objective_response:
+                key = (
+                    "breachpoint-response-turn-you"
+                    if listener.id == tactical_player.id
+                    else "breachpoint-response-turn-player"
+                )
+            else:
+                key = (
+                    "breachpoint-turn-you"
+                    if listener.id == tactical_player.id
+                    else "breachpoint-turn-player"
+                )
             user.speak_l(
                 key,
                 buffer="game",
@@ -3393,57 +3677,64 @@ class BreachPointGame(Game):
                 ap=tactical_player.action_points,
                 round=self.round,
                 phase=self._round_phase_label(user.locale),
+                response=Localization.get(
+                    user.locale,
+                    f"breachpoint-response-{self.reaction_window.kind}",
+                )
+                if objective_response
+                else "",
             )
         self.refresh_menus()
 
     def _end_activation(self, player: BreachPointPlayer) -> None:
         if self.status != "playing" or self.current_player is not player:
             return
-        response_turn_anchor_id = self.objective_response_turn_anchor_id
-        if response_turn_anchor_id:
-            self.objective_response_turn_anchor_id = ""
+        reaction = self.reaction_window
+        objective_response = bool(
+            reaction.is_open
+            and reaction.kind in {REACTION_PLANT, REACTION_DEFUSE}
+            and reaction.responding_player_id == player.id
+        )
         self._bot_coordinator.observe(self)
         if player.id not in self.round_acted_player_ids:
             self.round_acted_player_ids.append(player.id)
 
-        if self.defusing_player_id and player.id == self.defuse_response_player_id:
-            self._complete_pending_defuse()
+        if objective_response:
+            self.reaction_window = ReactionWindow()
+            if reaction.kind == REACTION_PLANT:
+                self._complete_pending_plant()
+            elif self._complete_pending_defuse():
+                return
+            if self.status != "playing":
+                return
+            self._continue_after_activation(reaction.resume_after_player_id)
             return
 
-        if (
-            self.bomb_state == BOMB_PLANTING
-            and player.id == self.plant_response_player_id
-        ):
-            self._complete_pending_plant()
-
-        next_player = None
         if self.defusing_player_id and player.id == self.defusing_player_id:
-            defuser = self._breach_player_by_id(self.defusing_player_id)
-            next_player = self._next_objective_response_player(
+            if self._open_objective_reaction(
+                REACTION_DEFUSE,
+                player,
                 TEAM_TERRORISTS,
-                defuser,
-            )
-            if next_player:
-                self.defuse_response_player_id = next_player.id
-                self.objective_response_turn_anchor_id = player.id
-            else:
-                self._complete_pending_defuse()
+            ):
+                return
+            if self._complete_pending_defuse():
                 return
         if self.bomb_state == BOMB_PLANTING and player.id == self.planting_player_id:
-            planter = self._breach_player_by_id(self.planting_player_id)
-            next_player = self._next_objective_response_player(
+            if self._open_objective_reaction(
+                REACTION_PLANT,
+                player,
                 TEAM_COUNTER_TERRORISTS,
-                planter,
-            )
-            if next_player:
-                self.plant_response_player_id = next_player.id
-                self.objective_response_turn_anchor_id = player.id
-            else:
-                self._complete_pending_plant()
-        if next_player is None:
-            next_player = self._next_unacted_living_player(
-                after_player_id=response_turn_anchor_id,
-            )
+            ):
+                return
+            self._complete_pending_plant()
+        self._continue_after_activation(player.id)
+
+    def _continue_after_activation(self, after_player_id: str) -> None:
+        """Resume stable turn order after an activation or temporary response."""
+
+        next_player = self._next_unacted_living_player(
+            after_player_id=after_player_id,
+        )
         if next_player:
             self.current_player = next_player
             self._start_activation(next_player)
@@ -3470,6 +3761,138 @@ class BreachPointGame(Game):
         self._announce_tactical_round_start()
         self._start_activation(next_player)
         BotHelper.jolt_bot(next_player)
+
+    def _open_objective_reaction(
+        self,
+        kind: str,
+        objective_actor: BreachPointPlayer,
+        responding_team_index: int,
+    ) -> bool:
+        """Suspend turn order for one objective response activation."""
+
+        if self.reaction_window.is_open or kind not in {
+            REACTION_PLANT,
+            REACTION_DEFUSE,
+        }:
+            return False
+        responder = self._next_objective_response_player(
+            responding_team_index,
+            objective_actor,
+        )
+        if not responder:
+            return False
+        consumes_activation = responder.id not in self.round_acted_player_ids
+        response_action_points = (
+            self.rules.action_points_per_activation
+            if consumes_activation
+            else self.rules.repeat_objective_response_action_points
+        )
+        self.reaction_window = ReactionWindow(
+            kind=kind,
+            triggering_player_id=objective_actor.id,
+            responding_player_id=responder.id,
+            resume_after_player_id=objective_actor.id,
+            target_player_id=objective_actor.id,
+            context={"node_id": objective_actor.position_id},
+            response_action_points=response_action_points,
+            consumes_activation=consumes_activation,
+        )
+        self.current_player = responder
+        self._start_activation(
+            responder,
+            action_point_limit=response_action_points,
+        )
+        BotHelper.jolt_bot(responder)
+        return True
+
+    def _open_watched_entry_reaction(
+        self,
+        mover: BreachPointPlayer,
+        destination_id: str,
+    ) -> bool:
+        """Offer one held-angle shot before a mover spends more AP."""
+
+        if self.reaction_window.is_open:
+            return False
+        turn_order = {
+            player_id: index for index, player_id in enumerate(self.turn_player_ids)
+        }
+        candidates: list[tuple[int, int, BreachPointPlayer]] = []
+        for candidate in self.get_active_players():
+            watcher = self._breach_player(candidate)
+            weapon = self._equipped_weapon(watcher) if watcher else None
+            if (
+                not watcher
+                or watcher.eliminated
+                or watcher.team_index == mover.team_index
+                or watcher.held_angle_origin_id != watcher.position_id
+                or watcher.held_angle_node_id != destination_id
+                or not self._can_hold_angle(watcher, destination_id, weapon)
+                or not self._can_see(watcher, mover)
+            ):
+                continue
+            distance = self._node_distance(watcher.position_id, destination_id)
+            if distance is None:
+                continue
+            candidates.append(
+                (
+                    distance,
+                    turn_order.get(watcher.id, len(turn_order)),
+                    watcher,
+                )
+            )
+        if not candidates:
+            return False
+        watcher = min(candidates, key=lambda candidate: candidate[:2])[2]
+        self.reaction_window = ReactionWindow(
+            kind=REACTION_WATCHED_ENTRY,
+            triggering_player_id=mover.id,
+            responding_player_id=watcher.id,
+            resume_after_player_id=mover.id,
+            target_player_id=mover.id,
+            context={"node_id": destination_id},
+        )
+        self.current_player = watcher
+        for listener in (watcher, mover):
+            user = self.get_user(listener)
+            if not user:
+                continue
+            user.speak_l(
+                (
+                    "breachpoint-watched-entry-you"
+                    if listener.id == watcher.id
+                    else "breachpoint-watched-entry-target"
+                ),
+                buffer="game",
+                player=watcher.name,
+                enemy=mover.name,
+                location=self._node_name(user.locale, destination_id),
+            )
+        self.request_menu_focus(watcher, "reaction_shoot")
+        self.refresh_menus()
+        BotHelper.jolt_bot(watcher)
+        return True
+
+    def _finish_watched_entry_reaction(self) -> None:
+        """Close a held-angle choice and return control to the interrupted mover."""
+
+        reaction = self.reaction_window
+        if not reaction.is_open or reaction.kind != REACTION_WATCHED_ENTRY:
+            return
+        mover = self._breach_player_by_id(reaction.triggering_player_id)
+        self.reaction_window = ReactionWindow()
+        if self.status != "playing" or not mover:
+            return
+        self.current_player = mover
+        if not mover.eliminated and mover.action_points:
+            user = self.get_user(mover)
+            if user:
+                user.speak_l(
+                    "breachpoint-watched-entry-resume",
+                    buffer="game",
+                    ap=mover.action_points,
+                )
+        self._finish_action(mover)
 
     def _next_unacted_living_player(
         self,
@@ -3815,7 +4238,6 @@ class BreachPointGame(Game):
         self.bomb_planted_tactical_round = self.tactical_round
         self.planting_player_id = ""
         self.planting_location_id = ""
-        self.plant_response_player_id = ""
         reward = self._add_cash(planter, self.economy.planter_reward)
         self.broadcast_personal_l(
             planter,
@@ -3838,7 +4260,6 @@ class BreachPointGame(Game):
         self.bomb_state = BOMB_CARRIED
         self.planting_player_id = ""
         self.planting_location_id = ""
-        self.plant_response_player_id = ""
         for listener in self.players:
             user = self.get_user(listener)
             if not user:
@@ -3982,7 +4403,6 @@ class BreachPointGame(Game):
         self.bomb_location_id = player.position_id
         self.planting_player_id = ""
         self.planting_location_id = ""
-        self.plant_response_player_id = ""
         for listener in self.players:
             user = self.get_user(listener)
             tactical_listener = self._breach_player(listener)
@@ -4014,6 +4434,7 @@ class BreachPointGame(Game):
     def _finish_combat_round(self, winning_side_index: int, reason: str) -> None:
         if self.status != "playing":
             return
+        self.reaction_window = ReactionWindow()
         winning_squad_index = self._squad_for_side(winning_side_index)
         winning_team = next(
             (
@@ -4181,6 +4602,7 @@ class BreachPointGame(Game):
     def _finish_match(self, squad_index: int, reason: str) -> None:
         if self.status != "playing":
             return
+        self.reaction_window = ReactionWindow()
         self.winning_team_index = squad_index
         self.win_reason = reason
         for listener in self.players:
@@ -4274,7 +4696,7 @@ class BreachPointGame(Game):
                 for tactical_player in self.get_active_players()
                 if isinstance(tactical_player, BreachPointPlayer)
                 and tactical_player.position_id == node.id
-                and self._viewer_can_see_player(player, tactical_player)
+                and self._viewer_knows_player_location(player, tactical_player)
             ]
             occupant_text = self._format_node_occupants(user.locale, occupants)
             site = (
@@ -4373,11 +4795,14 @@ class BreachPointGame(Game):
             )
             for team_player in team_players:
                 can_see = bool(
-                    tactical_viewer
-                    and not tactical_viewer.is_spectator
-                    and (
-                        tactical_viewer.squad_index == team_player.squad_index
-                        or self._viewer_can_see_player(player, team_player)
+                    team_player.eliminated
+                    or (
+                        tactical_viewer
+                        and not tactical_viewer.is_spectator
+                        and (
+                            tactical_viewer.squad_index == team_player.squad_index
+                            or self._viewer_can_see_player(player, team_player)
+                        )
                     )
                 )
                 if not can_see:

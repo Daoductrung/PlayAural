@@ -137,6 +137,13 @@ The server validates relative asset paths, ids, numeric ranges, commands,
 kinds, and scopes through `server/audio.py`; clients validate again before
 loading an asset.
 
+- Optional 3D positions use listener-relative `(x, y, z)` coordinates with the
+  listener at the origin facing `+Y`. The server is the positioning authority
+  and derives ordinary pan from the same point for non-HRTF clients. Desktop
+  Cosmos currently consumes positions; Web and mobile consume the derived pan.
+  A point is not a moving-source attachment: do not build trajectory audio
+  until the protocol defines stable event/source ids and position updates.
+
 - Commands are `play`, `stop`, `pause`, `resume`, `set_bus`, and `stop_all`.
 - Kinds are `sfx`, `music`, and `ambience`. A named bus may be added without
   changing the protocol and inherits its kind's user-volume preference.
@@ -908,7 +915,7 @@ The server currently registers **46 games**:
 
 ### Key Tech Stack
 - Python 3.11, `asyncio`, `websockets>=12.0`, `mashumaro`, `fluent-runtime`, `openskill`, `argon2-cffi`
-- Desktop: `wxPython`, `accessible-output2`, `sound-lib`, `keyring`, `livekit`, `sounddevice`
+- Desktop: `wxPython`, `accessible-output2`, `Cosmos` (miniaudio and Steam Audio), `keyring`, `livekit`, `sounddevice`
 - Mobile: `expo`, `react-native`, `expo-audio`, `expo-speech`, `@react-native-async-storage/async-storage`, `expo-secure-store`
 - Package manager: `uv` for Python components, `npm` for the mobile client
 - Languages: English and Vietnamese are official defaults; partial community translations fall back to English

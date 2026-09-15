@@ -1,6 +1,7 @@
 """Unified audio protocol, routing, and persistence coverage."""
 
 import asyncio
+import json
 from pathlib import Path
 
 import pytest
@@ -8,9 +9,14 @@ import pytest
 from ..audio import (
     AUDIO_PROTOCOL_VERSION,
     AudioCommand,
+    AudioGainAutomation,
+    AudioMotion,
     AudioPlaybackState,
+    DistanceAttenuation,
     SameTurnAudioBatcher,
+    audio_motion_position,
     clock_position,
+    distance_attenuation_gain,
     pan_from_position,
     seat_position,
 )
@@ -18,8 +24,10 @@ from ..games.pig.game import PigGame
 from ..users.network_user import NetworkUser
 from ..users.test_user import MockUser
 
-
 ROOT = Path(__file__).resolve().parents[2]
+CONFORMANCE = json.loads(
+    (ROOT / "audio_protocol_v3_conformance.json").read_text(encoding="utf-8")
+)
 
 
 @pytest.mark.asyncio
@@ -161,17 +169,69 @@ def test_seated_sound_is_positioned_per_listener(pig_game_with_players) -> None:
     bob.clear_messages()
     seated = next(player for player in game.players if str(player.id) == alice.uuid)
 
-    game.play_sound("game/test.ogg", seat_of=seated)
+    attenuation = DistanceAttenuation(
+        model="linear",
+        reference_distance=1,
+        max_distance=4,
+        rolloff_factor=1,
+        min_gain=0,
+        max_gain=1,
+    )
+    game.play_sound("game/test.ogg", seat_of=seated, attenuation=attenuation)
 
     # The seated player hears their own cue unpositioned and centred.
     own = alice.messages[-1].data
     assert "position" not in own
+    assert "attenuation" not in own
     assert own.get("pan", 0) == 0
     # Two players face each other, so the other player hears it straight
     # ahead, with a centred pan for clients that cannot place it.
     other = bob.messages[-1].data
     assert other["position"] == [0.0, 2.0, 0.0]
+    assert other["attenuation"]["model"] == "linear"
     assert other.get("pan", 0) == 0
+
+    with pytest.raises(ValueError, match="mutually exclusive"):
+        game.play_sound(
+            "game/test.ogg",
+            seat_of=seated,
+            position=(0, 2, 0),
+        )
+
+
+def test_seated_loop_persists_for_a_disconnected_listener(
+    pig_game_with_players,
+) -> None:
+    game, alice, bob = pig_game_with_players
+    seated = game.get_player_by_id(alice.uuid)
+    assert seated is not None
+    game._users.pop(bob.uuid)
+    alice.clear_messages()
+    bob.clear_messages()
+
+    game.play_sound(
+        "game/moving_loop.ogg",
+        loop=True,
+        handle="moving-loop",
+        persist=True,
+        seat_of=seated,
+    )
+
+    states = list(game.active_audio.values())
+    assert len(states) == 2
+    assert sorted(state.recipient_ids for state in states) == sorted(
+        [[alice.uuid], [bob.uuid]]
+    )
+    assert len(alice.messages) == 1
+    assert bob.messages == []
+
+    game.attach_user(bob.uuid, bob)
+
+    replay = bob.messages[-1].data
+    assert replay["handle"] == "moving-loop"
+    assert replay["position"] == [0.0, 2.0, 0.0]
+    assert replay["play_intro"] is False
+    assert "fade_in_ms" not in replay
 
 
 def test_audio_command_serializes_validated_one_shot_sound_family() -> None:
@@ -337,16 +397,31 @@ def test_audio_command_validates_position_and_derives_pan() -> None:
         command="play", kind="sfx", asset="game/test.ogg", position=[2, 0, 0], pan=-20
     )
     assert explicit.pan == -20
+    explicit_center = AudioCommand(
+        command="play", kind="sfx", asset="game/test.ogg", position=[2, 0, 0], pan=0
+    )
+    assert explicit_center.pan == 0
 
     plain = AudioCommand(command="play", kind="sfx", asset="game/test.ogg")
     assert plain.position is None
     assert "position" not in plain.to_packet()
 
-    for bad in ([1, 2], "north", [1, float("nan"), 0], [1e9, 0, 0], {"x": 1}):
+    for bad in (
+        [1, 2],
+        "north",
+        ["1", 0, 0],
+        [True, 0, 0],
+        [1, float("nan"), 0],
+        [1e9, 0, 0],
+        {"x": 1},
+    ):
         with pytest.raises(ValueError):
             AudioCommand(
                 command="play", kind="sfx", asset="game/test.ogg", position=bad
             )
+
+    with pytest.raises(ValueError, match="only valid on play"):
+        AudioCommand(command="stop", kind="sfx", handle="test", position=[1, 0, 0])
 
     state = AudioPlaybackState.from_command(
         AudioCommand(
@@ -359,6 +434,220 @@ def test_audio_command_validates_position_and_derives_pan() -> None:
         )
     )
     assert state.to_command(replay=True).position == (0.0, -2.0, 0.0)
+
+
+def test_distance_attenuation_matches_shared_protocol_vectors() -> None:
+    assert CONFORMANCE["protocol_version"] == AUDIO_PROTOCOL_VERSION
+    for vector in CONFORMANCE["distance_attenuation"]:
+        attenuation = DistanceAttenuation(**vector["attenuation"])
+        assert distance_attenuation_gain(
+            vector["position"], attenuation
+        ) == pytest.approx(vector["expected_gain"]), vector["id"]
+
+
+def test_audio_command_serializes_complete_attenuation_and_replays_it() -> None:
+    attenuation = DistanceAttenuation(
+        model="linear",
+        reference_distance=2,
+        max_distance=10,
+        rolloff_factor=1,
+        min_gain=0.1,
+        max_gain=0.9,
+    )
+    command = AudioCommand(
+        command="play",
+        kind="ambience",
+        asset="forest/loop.ogg",
+        handle="forest",
+        loop=True,
+        position=(6, 0, 0),
+        attenuation=attenuation,
+    )
+
+    assert command.to_packet()["attenuation"] == {
+        "model": "linear",
+        "reference_distance": 2.0,
+        "max_distance": 10.0,
+        "rolloff_factor": 1.0,
+        "min_gain": 0.1,
+        "max_gain": 0.9,
+    }
+    replay = AudioPlaybackState.from_command(command).to_command(replay=True)
+    assert replay.attenuation == attenuation
+    assert replay.position == (6.0, 0.0, 0.0)
+
+
+@pytest.mark.parametrize(
+    "attenuation",
+    [
+        {"model": "linear"},
+        {
+            "model": "linear",
+            "reference_distance": 2,
+            "max_distance": 10,
+            "rolloff_factor": 0,
+            "min_gain": 0,
+            "max_gain": 1,
+        },
+        {
+            "model": "linear",
+            "reference_distance": 2,
+            "max_distance": 10,
+            "rolloff_factor": 2,
+            "min_gain": 0,
+            "max_gain": 1,
+        },
+        {
+            "model": "inverse",
+            "reference_distance": 10,
+            "max_distance": 2,
+            "rolloff_factor": 1,
+            "min_gain": 0,
+            "max_gain": 1,
+        },
+        {"model": "none", "reference_distance": 2},
+        {"model": "unknown"},
+    ],
+)
+def test_audio_command_rejects_malformed_attenuation(attenuation) -> None:
+    with pytest.raises(ValueError):
+        AudioCommand(
+            command="play",
+            kind="sfx",
+            asset="game/test.ogg",
+            position=(6, 0, 0),
+            attenuation=attenuation,
+        )
+
+
+def test_audio_command_requires_position_for_attenuation() -> None:
+    with pytest.raises(ValueError, match="requires a spatial position"):
+        AudioCommand(
+            command="play",
+            kind="sfx",
+            asset="game/test.ogg",
+            attenuation={"model": "none"},
+        )
+
+    command = AudioCommand(
+        command="play",
+        kind="sfx",
+        asset="game/test.ogg",
+        position=(100, 0, 0),
+        attenuation={"model": "none"},
+    )
+    assert command.to_packet()["attenuation"] == {"model": "none"}
+    assert distance_attenuation_gain(command.position, command.attenuation) == 1
+
+    with pytest.raises(ValueError, match="requires a spatial position"):
+        distance_attenuation_gain(None, attenuation={
+            "model": "linear",
+            "reference_distance": 2,
+            "max_distance": 10,
+            "rolloff_factor": 1,
+            "min_gain": 0,
+            "max_gain": 1,
+        })
+
+
+def test_audio_motion_matches_shared_protocol_vectors() -> None:
+    for vector in CONFORMANCE["motion"]:
+        motion = AudioMotion(**vector["automation"])
+        assert audio_motion_position(motion) == pytest.approx(
+            vector["expected_position"]
+        ), vector["id"]
+        packet = AudioCommand(
+            command="update",
+            kind="sfx",
+            handle="engine",
+            motion=motion,
+        ).to_packet()
+        assert packet["motion"] == motion.to_packet()
+        assert "position" not in packet
+
+
+@pytest.mark.parametrize(
+    "motion",
+    [
+        {"origin_position": [0, 0, 0]},
+        {
+            "origin_position": [0, 0, 0],
+            "destination_position": [1, 0, 0],
+            "duration_ms": 0,
+            "elapsed_ms": 0,
+            "easing": "linear",
+        },
+        {
+            "origin_position": [0, 0, 0],
+            "destination_position": [1, 0, 0],
+            "duration_ms": 100,
+            "elapsed_ms": 101,
+            "easing": "linear",
+        },
+        {
+            "origin_position": [0, 0, 0],
+            "destination_position": [1, 0, 0],
+            "duration_ms": 100,
+            "elapsed_ms": 0,
+            "easing": "cubic-mystery",
+        },
+    ],
+)
+def test_audio_command_rejects_partial_or_invalid_motion(motion) -> None:
+    with pytest.raises((TypeError, ValueError)):
+        AudioCommand(
+            command="update",
+            kind="sfx",
+            handle="engine",
+            motion=motion,
+        )
+
+
+
+def test_audio_command_rejects_motion_on_play() -> None:
+    with pytest.raises(ValueError, match="only valid on update"):
+        AudioCommand(
+            command="play",
+            kind="sfx",
+            asset="engine.ogg",
+            motion=AudioMotion(
+                origin_position=(0, 0, 0),
+                destination_position=(1, 0, 0),
+                duration_ms=100,
+            ),
+        )
+
+
+def test_audio_gain_automation_matches_shared_protocol_vectors() -> None:
+    for vector in CONFORMANCE["source_gain"]:
+        automation = AudioGainAutomation(**vector["automation"])
+        assert automation.gain_at() == pytest.approx(
+            vector["expected_gain"]
+        ), vector["id"]
+        packet = AudioCommand(
+            command="update",
+            kind="ambience",
+            handle="forest",
+            gain_automation=automation,
+        ).to_packet()
+        assert packet["gain_automation"] == automation.to_packet()
+        assert "gain" not in packet
+
+
+@pytest.mark.parametrize("gain", [-0.01, 1.01, float("nan"), True, "0.5"])
+def test_audio_command_rejects_invalid_source_gain(gain) -> None:
+    with pytest.raises(ValueError):
+        AudioCommand(
+            command="play",
+            kind="sfx",
+            asset="engine.ogg",
+            gain=gain,
+        )
+
+
+def test_audio_update_requires_at_least_one_automation() -> None:
+    with pytest.raises(ValueError, match="automation"):
+        AudioCommand(command="update", kind="ambience", handle="forest")
 
 
 def test_clock_and_seat_geometry_place_sounds_around_the_listener() -> None:
@@ -585,6 +874,52 @@ def test_runtime_audio_ownership_tracks_replacements_and_teardown() -> None:
     )
 
 
+def test_runtime_audio_ownership_keeps_independent_sfx_handles() -> None:
+    user = MockUser("Alice")
+
+    user.play_sound("engine.ogg", loop=True, handle="vehicle:engine")
+    user.play_sound("radio.ogg", loop=True, handle="vehicle:radio")
+
+    assert user.has_managed_audio("sfx", handle="vehicle:engine")
+    assert user.has_managed_audio("sfx", handle="vehicle:radio")
+
+
+def test_runtime_audio_ownership_treats_handles_as_client_global() -> None:
+    user = MockUser("Alice")
+
+    user.play_sound("engine.ogg", loop=True, handle="shared:source")
+    user.play_music("music.ogg", handle="shared:source")
+
+    assert not user.has_managed_audio("sfx", handle="shared:source")
+    assert user.has_managed_audio(
+        "music",
+        handle="shared:source",
+        asset="music.ogg",
+    )
+
+    user.stop_music(handle="shared:source")
+    assert not user.has_managed_audio("music", handle="shared:source")
+
+
+def test_runtime_audio_ownership_clears_every_ambience_layer() -> None:
+    user = MockUser("Alice")
+
+    user.play_music("music.ogg")
+    user.play_ambience("rain.ogg", layer="weather")
+    user.play_ambience("fire.ogg", layer="room")
+    user.stop_all_ambience()
+
+    assert user.has_managed_audio("music", handle="music")
+    assert not user.has_managed_audio(
+        "ambience",
+        handle="ambience:global:default:weather",
+    )
+    assert not user.has_managed_audio(
+        "ambience",
+        handle="ambience:global:default:room",
+    )
+
+
 def test_game_start_stops_waiting_music_before_game_music(
     pig_game_with_players,
 ) -> None:
@@ -694,6 +1029,367 @@ def test_game_managed_effect_can_be_stopped_by_handle(
     assert alice.messages[-1].data["fade_out_ms"] == 300
 
 
+def test_replayable_handle_replacement_prunes_the_previous_layer(
+    pig_game_with_players,
+) -> None:
+    game, _, _ = pig_game_with_players
+    game.play_ambience(
+        "forest/loop.ogg",
+        handle="environment:shared",
+        layer="forest",
+    )
+    game.play_ambience(
+        "cave/loop.ogg",
+        handle="environment:shared",
+        layer="cave",
+    )
+
+    states = list(game.active_audio.values())
+    assert len(states) == 1
+    assert states[0].asset == "cave/loop.ogg"
+    assert states[0].layer == "cave"
+
+
+def test_private_layer_replacement_splits_state_and_public_takeover_unifies_it(
+    pig_game_with_players,
+) -> None:
+    game, alice, bob = pig_game_with_players
+    alice_player = game.get_player_by_id(alice.uuid)
+    bob_player = game.get_player_by_id(bob.uuid)
+    assert alice_player is not None
+    assert bob_player is not None
+    game.play_ambience(
+        "weather/rain.ogg",
+        handle="weather:rain",
+        audience=[alice_player, bob_player],
+        scope="context",
+        context="weather",
+        layer="weather",
+    )
+    game.play_ambience(
+        "weather/snow.ogg",
+        handle="weather:snow",
+        audience=alice_player,
+        scope="context",
+        context="weather",
+        layer="weather",
+    )
+
+    states = sorted(game.active_audio.values(), key=lambda state: state.asset)
+    assert [(state.asset, state.recipient_ids) for state in states] == [
+        ("weather/rain.ogg", [bob.uuid]),
+        ("weather/snow.ogg", [alice.uuid]),
+    ]
+
+    game.play_ambience(
+        "weather/clear.ogg",
+        handle="weather:clear",
+        scope="context",
+        context="weather",
+        layer="weather",
+    )
+    state = next(iter(game.active_audio.values()))
+    assert state.asset == "weather/clear.ogg"
+    assert state.recipient_ids == []
+
+
+def test_private_layer_cannot_partially_replace_public_replay_state(
+    pig_game_with_players,
+) -> None:
+    game, alice, bob = pig_game_with_players
+    alice_player = game.get_player_by_id(alice.uuid)
+    assert alice_player is not None
+    game.play_ambience("weather/rain.ogg", handle="weather:rain")
+    alice.clear_messages()
+    bob.clear_messages()
+
+    with pytest.raises(ValueError, match="public handle or layer"):
+        game.play_ambience(
+            "weather/snow.ogg",
+            handle="weather:snow",
+            audience=alice_player,
+        )
+
+    assert alice.messages == []
+    assert bob.messages == []
+    state = next(iter(game.active_audio.values()))
+    assert state.asset == "weather/rain.ogg"
+
+
+def test_managed_source_motion_advances_at_server_ticks_and_replays(
+    pig_game_with_players,
+) -> None:
+    game, alice, bob = pig_game_with_players
+    game.status = "playing"
+    attenuation = DistanceAttenuation(
+        model="linear",
+        reference_distance=1,
+        max_distance=11,
+        rolloff_factor=1,
+        min_gain=0,
+        max_gain=1,
+    )
+    handle = game.play_sound(
+        "engine.ogg",
+        loop=True,
+        handle="vehicle:engine",
+        persist=True,
+        position=(0, 1, 0),
+        attenuation=attenuation,
+    )
+    alice.clear_messages()
+    bob.clear_messages()
+
+    game.move_sound(
+        handle,
+        (0, 11, 0),
+        1000,
+        easing="ease-in-out",
+    )
+
+    for user in (alice, bob):
+        packet = user.messages[-1].data
+        assert packet["command"] == "update"
+        assert packet["handle"] == handle
+        assert packet["motion"]["origin_position"] == [0.0, 1.0, 0.0]
+        assert packet["motion"]["destination_position"] == [0.0, 11.0, 0.0]
+    for _ in range(10):
+        game.on_tick()
+    state = next(iter(game.active_audio.values()))
+    assert state.position == (0.0, 6.0, 0.0)
+    assert state.motion is not None
+    assert state.motion.elapsed_ms == 500
+
+    restored = PigGame.from_json(game.to_json())
+    restored.rebuild_runtime_state()
+    restored_alice = MockUser("Alice", uuid=alice.uuid)
+    restored.attach_user(alice.uuid, restored_alice)
+    replay_packets = [
+        message.data
+        for message in restored_alice.messages
+        if "command" in message.data
+    ]
+    assert [packet["command"] for packet in replay_packets[-2:]] == [
+        "play",
+        "update",
+    ]
+    assert replay_packets[-2]["position"] == [0.0, 6.0, 0.0]
+    assert replay_packets[-1]["motion"]["elapsed_ms"] == 500
+
+    for _ in range(10):
+        restored.on_tick()
+    restored_state = next(iter(restored.active_audio.values()))
+    assert restored_state.position == (0.0, 11.0, 0.0)
+    assert restored_state.motion is None
+
+
+def test_source_motion_rejects_unknown_unpositioned_and_partial_public_sources(
+    pig_game_with_players,
+) -> None:
+    game, alice, _ = pig_game_with_players
+    alice_player = game.get_player_by_id(alice.uuid)
+    assert alice_player is not None
+    with pytest.raises(ValueError, match="Unknown replayable"):
+        game.move_sound("missing", (1, 0, 0), 100)
+
+    game.play_sound(
+        "engine.ogg",
+        loop=True,
+        handle="unpositioned",
+        persist=True,
+    )
+    with pytest.raises(ValueError, match="already-positioned"):
+        game.move_sound("unpositioned", (1, 0, 0), 100)
+
+    game.play_sound(
+        "engine.ogg",
+        loop=True,
+        handle="public-engine",
+        persist=True,
+        position=(0, 1, 0),
+    )
+    with pytest.raises(ValueError, match="only part"):
+        game.move_sound(
+            "public-engine",
+            (1, 0, 0),
+            100,
+            audience=alice_player,
+        )
+
+
+def test_source_motion_persists_current_fallback_pan(pig_game_with_players) -> None:
+    game, _, _ = pig_game_with_players
+    game.status = "playing"
+    game.play_sound(
+        "engine.ogg",
+        loop=True,
+        handle="moving-pan",
+        persist=True,
+        position=(0, 1, 0),
+    )
+    game.move_sound("moving-pan", (1, 0, 0), 1000)
+
+    for _ in range(10):
+        game.on_tick()
+
+    state = next(iter(game.active_audio.values()))
+    assert state.position == (0.5, 0.5, 0.0)
+    assert state.pan == pan_from_position(state.position) == 71
+    assert state.to_command(replay=True).pan == 71
+
+
+def test_private_source_motion_splits_recipient_state(pig_game_with_players) -> None:
+    game, alice, bob = pig_game_with_players
+    alice_player = game.get_player_by_id(alice.uuid)
+    bob_player = game.get_player_by_id(bob.uuid)
+    assert alice_player is not None
+    assert bob_player is not None
+    game.play_sound(
+        "engine.ogg",
+        loop=True,
+        handle="private-engine",
+        persist=True,
+        audience=[alice_player, bob_player],
+        position=(0, 1, 0),
+    )
+    alice.clear_messages()
+    bob.clear_messages()
+
+    game.move_sound(
+        "private-engine",
+        (0, 11, 0),
+        1000,
+        audience=alice_player,
+    )
+
+    assert alice.messages[-1].data["command"] == "update"
+    assert bob.messages == []
+    states = sorted(game.active_audio.values(), key=lambda state: state.recipient_ids)
+    alice_state = next(state for state in states if state.recipient_ids == [alice.uuid])
+    bob_state = next(state for state in states if state.recipient_ids == [bob.uuid])
+    assert alice_state.motion is not None
+    assert bob_state.motion is None
+    for _ in range(10):
+        game.on_tick()
+    assert alice_state.position == (0.0, 6.0, 0.0)
+    assert bob_state.position == (0.0, 1.0, 0.0)
+
+
+def test_source_position_and_gain_automate_concurrently_and_replay(
+    pig_game_with_players,
+) -> None:
+    game, alice, _ = pig_game_with_players
+    game.status = "playing"
+    game.play_ambience(
+        "vehicle/engine.ogg",
+        handle="vehicle:engine",
+        position=(0, 1, 0),
+        gain=0.2,
+    )
+    alice.clear_messages()
+
+    game.update_audio_source(
+        "ambience",
+        "vehicle:engine",
+        1000,
+        destination=(0, 11, 0),
+        gain=0.8,
+        easing="linear",
+    )
+
+    packet = alice.messages[-1].data
+    assert packet["command"] == "update"
+    assert packet["motion"]["destination_position"] == [0.0, 11.0, 0.0]
+    assert packet["gain_automation"]["destination_gain"] == 0.8
+    for _ in range(10):
+        game.on_tick()
+    state = next(iter(game.active_audio.values()))
+    assert state.position == (0.0, 6.0, 0.0)
+    assert state.gain == pytest.approx(0.5)
+
+    replay = state.replay_commands()
+    assert replay[0].gain == pytest.approx(0.5)
+    assert replay[1].motion is not None
+    assert replay[1].gain_automation is not None
+    assert replay[1].motion.elapsed_ms == 500
+    assert replay[1].gain_automation.elapsed_ms == 500
+
+    restored = PigGame.from_json(game.to_json())
+    restored_state = next(iter(restored.active_audio.values()))
+    assert restored_state.gain == pytest.approx(0.5)
+    assert restored_state.gain_automation is not None
+    assert restored_state.gain_automation.destination_gain == 0.8
+
+
+def test_ambience_zone_blend_uses_normalized_constant_power_without_restart(
+    pig_game_with_players,
+) -> None:
+    game, alice, _ = pig_game_with_players
+    game.play_ambience("forest/loop.ogg", handle="zone:forest", layer="forest")
+    game.play_ambience(
+        "cave/loop.ogg", handle="zone:cave", layer="cave", gain=0
+    )
+    alice.clear_messages()
+
+    gains = game.blend_ambience_layers(
+        {"zone:forest": 1, "zone:cave": 1},
+        1000,
+    )
+
+    expected = 2 ** -0.5
+    assert gains == pytest.approx({"zone:forest": expected, "zone:cave": expected})
+    assert [message.data["command"] for message in alice.messages] == [
+        "update",
+        "update",
+    ]
+    assert all(
+        message.data["gain_automation"]["destination_gain"]
+        == pytest.approx(expected)
+        for message in alice.messages
+    )
+    assert all(message.data.get("asset") is None for message in alice.messages)
+    for _ in range(20):
+        game.on_tick()
+    assert {
+        state.handle: state.gain for state in game.active_audio.values()
+    } == pytest.approx({"zone:forest": expected, "zone:cave": expected})
+    assert all(
+        state.gain_automation is None for state in game.active_audio.values()
+    )
+
+
+def test_ambience_zone_blend_is_all_or_nothing(pig_game_with_players) -> None:
+    game, alice, _ = pig_game_with_players
+    game.play_ambience("forest/loop.ogg", handle="zone:forest", layer="forest")
+    alice.clear_messages()
+
+    with pytest.raises(ValueError, match="Unknown replayable"):
+        game.blend_ambience_layers(
+            {"zone:forest": 1, "zone:missing": 1},
+            1000,
+        )
+
+    assert alice.messages == []
+    state = next(iter(game.active_audio.values()))
+    assert state.gain == 1
+    assert state.gain_automation is None
+
+
+@pytest.mark.parametrize(
+    "weights",
+    [
+        {},
+        {"forest": 0, "cave": 0},
+        {"forest": -1, "cave": 2},
+        {"forest": float("nan")},
+        {"forest": 1e308, "cave": 1e308},
+    ],
+)
+def test_ambience_zone_blend_rejects_invalid_weights(weights) -> None:
+    with pytest.raises(ValueError):
+        PigGame.ambience_mix_gains(weights)
+
+
 def test_private_and_contextual_ambience_isolated_and_serialized(
     pig_game_with_players,
 ) -> None:
@@ -708,6 +1404,15 @@ def test_private_and_contextual_ambience_isolated_and_serialized(
         "forest/night.ogg",
         intro="forest/enter.ogg",
         layer="weather",
+        position=(6, 0, 0),
+        attenuation=DistanceAttenuation(
+            model="exponential",
+            reference_distance=2,
+            max_distance=10,
+            rolloff_factor=2,
+            min_gain=0.05,
+            max_gain=1,
+        ),
     )
 
     assert handle.startswith("ambience:player:")
@@ -725,6 +1430,8 @@ def test_private_and_contextual_ambience_isolated_and_serialized(
     assert restored_alice.messages[-1].data["asset"] == "forest/night.ogg"
     assert restored_alice.messages[-1].data["play_intro"] is False
     assert restored_alice.messages[-1].data.get("fade_in_ms", 0) == 0
+    assert restored_alice.messages[-1].data["position"] == [6.0, 0.0, 0.0]
+    assert restored_alice.messages[-1].data["attenuation"]["model"] == "exponential"
     assert restored_bob.messages == []
 
 

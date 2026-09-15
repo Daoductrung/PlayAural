@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <stdatomic.h>
 #include "phonon.h"
 #include "miniaudio.h"
 
@@ -28,8 +29,22 @@ typedef struct
     IPLAudioSettings iplAudioSettings;
     IPLContext iplContext;
     IPLBinauralEffect iplEffect;
-    IPLBinauralEffectParams iplEffectParams;
-    float spatial_blend_max_distance;
+    IPLHRTF iplHRTF;
+
+    /*
+    Control-thread parameters are read by miniaudio's real-time callback.
+    Every scalar is accessed with C11 atomics and paramsVersion
+    provides a lock-free, coherent snapshot of the complete parameter set.
+    */
+    atomic_uint_least32_t paramsVersion;
+    atomic_uint_least32_t directionXBits;
+    atomic_uint_least32_t directionYBits;
+    atomic_uint_least32_t directionZBits;
+    atomic_uint_least32_t spatialBlendBits;
+    atomic_uint_least32_t interpolation;
+
+    /* Last coherent snapshot, owned exclusively by the audio callback. */
+    IPLBinauralEffectParams audioThreadParams;
 
     float* ppBuffersIn[2];      /* Each buffer is an offset of _pHeap. */
     float* ppBuffersOut[2];     /* Each buffer is an offset of _pHeap. */
@@ -38,8 +53,7 @@ typedef struct
 
 MA_API ma_result ma_phonon_binaural_node_init(ma_node_graph* pNodeGraph, const ma_phonon_binaural_node_config* pConfig, const ma_allocation_callbacks* pAllocationCallbacks, ma_phonon_binaural_node* pBinauralNode);
 MA_API void ma_phonon_binaural_node_uninit(ma_phonon_binaural_node* pBinauralNode, const ma_allocation_callbacks* pAllocationCallbacks);
-MA_API ma_result ma_phonon_binaural_node_set_direction(ma_phonon_binaural_node* pBinauralNode, float x, float y, float z, float distance);
-MA_API ma_result ma_phonon_binaural_node_set_spatial_blend_max_distance(ma_phonon_binaural_node* pBinauralNode, float max_distance);
+MA_API ma_result ma_phonon_binaural_node_set_parameters(ma_phonon_binaural_node* pBinauralNode, float x, float y, float z, float spatialBlend, IPLHRTFInterpolation interpolation);
 
 // Global phonon context management
 MA_API ma_result ma_phonon_init(ma_uint32 sampleRate, ma_uint32 frameSize);

@@ -13,17 +13,20 @@
 //! let mut manager = SoundManager::new()?;
 //!
 //! // Create and load a sound
-//! let mut sound = manager.create_sound();
-//! sound.load("audio/footstep.ogg")?;
+//! let sound = manager.create_sound();
+//! {
+//!     let mut sound = sound.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+//!     sound.load("audio/footstep.ogg")?;
 //!
-//! // Enable HRTF for immersive 3D audio
-//! sound.set_hrtf(true);
+//!     // Enable HRTF for immersive 3D audio
+//!     sound.set_hrtf(true);
 //!
-//! // Position the sound in 3D space
-//! sound.set_position(5.0, 10.0, 0.0);
+//!     // Position the sound in 3D space
+//!     sound.set_position(5.0, 10.0, 0.0);
 //!
-//! // Play the sound
-//! sound.play()?;
+//!     // Play the sound
+//!     sound.play()?;
+//! }
 //!
 //! // Update listener position (e.g., in game loop)
 //! manager.set_listener(0.0, 0.0, 0.0, 90.0); // x, y, z, angle
@@ -61,6 +64,7 @@ pub use engine::AudioEngine;
 pub use error::AudioError;
 pub use group::{SoundGroup, SoundGroupRef};
 pub use manager::{SoundManager, SoundRef};
+pub use phonon_node::HrtfInterpolation;
 pub use sound::{Sound, SpatialMode};
 pub use tween::Easing;
 pub use volume::{db_to_linear, linear_to_db, pan_db_to_linear, pan_linear_to_db};

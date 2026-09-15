@@ -11,6 +11,7 @@ from ..audio import (
     AudioCommand,
     DEFAULT_AMBIENCE_FADE_MS,
     DEFAULT_MUSIC_FADE_MS,
+    DistanceAttenuation,
     new_audio_handle,
 )
 
@@ -234,12 +235,14 @@ class User(ABC):
 
         if command.command == "play" and command.handle:
             for key, state in list(states.items()):
-                if (
+                same_handle = state.handle == command.handle
+                same_layer = command.kind in {"music", "ambience"} and (
                     state.kind == command.kind
                     and state.scope == command.scope
                     and state.context == command.context
                     and state.layer == command.layer
-                ):
+                )
+                if same_handle or same_layer:
                     states.pop(key, None)
             states[(command.kind, command.handle)] = command
             return
@@ -247,8 +250,16 @@ class User(ABC):
         if command.command != "stop":
             return
 
+        if command.kind == "ambience" and command.all_layers:
+            for key, state in list(states.items()):
+                if state.kind == "ambience":
+                    states.pop(key, None)
+            return
+
         if command.handle:
-            states.pop((command.kind, command.handle), None)
+            for key, state in list(states.items()):
+                if state.handle == command.handle:
+                    states.pop(key, None)
             return
 
         for key, state in list(states.items()):
@@ -276,7 +287,7 @@ class User(ABC):
         self,
         name: str,
         volume: int = 100,
-        pan: int = 0,
+        pan: int | None = None,
         pitch: int = 100,
         *,
         loop: bool = False,
@@ -292,6 +303,8 @@ class User(ABC):
         context: str = "",
         layer: str = "main",
         position: tuple[float, float, float] | None = None,
+        attenuation: DistanceAttenuation | dict[str, Any] | None = None,
+        gain: float = 1.0,
     ) -> str:
         """Play an effect and return its optional lifecycle handle."""
         resolved_handle = handle or (new_audio_handle("sfx") if loop else "")
@@ -316,6 +329,8 @@ class User(ABC):
                 max_instances=max_instances,
                 ducking=ducking or {},
                 position=position,
+                attenuation=attenuation,
+                gain=gain,
             )
         )
         return resolved_handle
@@ -324,13 +339,16 @@ class User(ABC):
         self,
         family: str,
         volume: int = 100,
-        pan: int = 0,
+        pan: int | None = None,
         pitch: int = 100,
         *,
         bus: str = "sfx",
         buffer: str = "",
         priority: int = 0,
         max_instances: int = 0,
+        position: tuple[float, float, float] | None = None,
+        attenuation: DistanceAttenuation | dict[str, Any] | None = None,
+        gain: float = 1.0,
     ) -> None:
         """Play one randomly selected numbered member of an SFX family."""
         self.send_audio_command(
@@ -345,6 +363,9 @@ class User(ABC):
                 pitch=pitch,
                 priority=priority,
                 max_instances=max_instances,
+                position=position,
+                attenuation=attenuation,
+                gain=gain,
             )
         )
 
@@ -373,6 +394,9 @@ class User(ABC):
         scope: str = "global",
         context: str = "",
         layer: str = "main",
+        position: tuple[float, float, float] | None = None,
+        attenuation: DistanceAttenuation | dict[str, Any] | None = None,
+        gain: float = 1.0,
     ) -> str:
         """Play or crossfade a music layer and return its stable handle."""
         self.send_audio_command(
@@ -390,6 +414,9 @@ class User(ABC):
                 fade_out_ms=fade_out_ms,
                 priority=priority,
                 ducking=ducking or {},
+                position=position,
+                attenuation=attenuation,
+                gain=gain,
             )
         )
         return handle
@@ -451,6 +478,9 @@ class User(ABC):
         scope: str = "global",
         context: str = "",
         layer: str = "environment",
+        position: tuple[float, float, float] | None = None,
+        attenuation: DistanceAttenuation | dict[str, Any] | None = None,
+        gain: float = 1.0,
     ) -> str:
         """Play or crossfade one independently scoped ambience layer."""
         resolved_handle = handle or f"ambience:{scope}:{context or 'default'}:{layer}"
@@ -474,6 +504,9 @@ class User(ABC):
                 fade_out_ms=fade_out_ms,
                 priority=priority,
                 ducking=ducking or {},
+                position=position,
+                attenuation=attenuation,
+                gain=gain,
             )
         )
         return resolved_handle

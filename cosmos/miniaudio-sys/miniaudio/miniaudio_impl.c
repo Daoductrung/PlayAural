@@ -14,13 +14,22 @@
 
 #include <stdlib.h>
 
-// Helper functions for Rust bindings - allocate opaque structs
+typedef struct {
+    ma_engine engine;
+    ma_resource_manager resourceManager;
+    ma_bool32 resourceManagerInitialized;
+} cosmos_engine;
+
+// Helper functions for Rust bindings - allocate opaque structs. The resource
+// manager belongs to its engine; this permits multiple independent Cosmos
+// managers without sharing or prematurely freeing a process-global cache.
 ma_engine* ma_engine_alloc(void) {
-    return (ma_engine*)malloc(sizeof(ma_engine));
+    cosmos_engine* engine = (cosmos_engine*)calloc(1, sizeof(cosmos_engine));
+    return engine != NULL ? &engine->engine : NULL;
 }
 
 void ma_engine_free(ma_engine* engine) {
-    free(engine);
+    free((cosmos_engine*)engine);
 }
 
 ma_sound* ma_sound_alloc(void) {
@@ -31,37 +40,32 @@ void ma_sound_free(ma_sound* sound) {
     free(sound);
 }
 
-// Resource manager for sound caching
-static ma_resource_manager* g_resource_manager = NULL;
-
-ma_result ma_engine_init_with_caching(ma_engine* pEngine) {
+ma_result ma_engine_init_with_caching(ma_engine* pEngine, ma_uint32 periodSizeInFrames) {
     ma_result result;
+    cosmos_engine* pCosmosEngine;
+
+    if (pEngine == NULL || periodSizeInFrames == 0) {
+        return MA_INVALID_ARGS;
+    }
+    pCosmosEngine = (cosmos_engine*)pEngine;
 
     // Create resource manager for caching decoded audio
-    g_resource_manager = (ma_resource_manager*)malloc(sizeof(ma_resource_manager));
-    if (g_resource_manager == NULL) {
-        return MA_OUT_OF_MEMORY;
-    }
-
     ma_resource_manager_config rmConfig = ma_resource_manager_config_init();
-    result = ma_resource_manager_init(&rmConfig, g_resource_manager);
+    result = ma_resource_manager_init(&rmConfig, &pCosmosEngine->resourceManager);
     if (result != MA_SUCCESS) {
-        free(g_resource_manager);
-        g_resource_manager = NULL;
         return result;
     }
+    pCosmosEngine->resourceManagerInitialized = MA_TRUE;
 
     // Create engine with resource manager
     ma_engine_config engineConfig = ma_engine_config_init();
-    engineConfig.pResourceManager = g_resource_manager;
-    // Fixed period size for Steam Audio compatibility (must match phonon frame size)
-    engineConfig.periodSizeInFrames = 512;
+    engineConfig.pResourceManager = &pCosmosEngine->resourceManager;
+    engineConfig.periodSizeInFrames = periodSizeInFrames;
 
     result = ma_engine_init(&engineConfig, pEngine);
     if (result != MA_SUCCESS) {
-        ma_resource_manager_uninit(g_resource_manager);
-        free(g_resource_manager);
-        g_resource_manager = NULL;
+        ma_resource_manager_uninit(&pCosmosEngine->resourceManager);
+        pCosmosEngine->resourceManagerInitialized = MA_FALSE;
         return result;
     }
 
@@ -69,12 +73,16 @@ ma_result ma_engine_init_with_caching(ma_engine* pEngine) {
 }
 
 void ma_engine_uninit_with_caching(ma_engine* pEngine) {
+    cosmos_engine* pCosmosEngine;
+    if (pEngine == NULL) {
+        return;
+    }
+    pCosmosEngine = (cosmos_engine*)pEngine;
     ma_engine_uninit(pEngine);
 
-    if (g_resource_manager != NULL) {
-        ma_resource_manager_uninit(g_resource_manager);
-        free(g_resource_manager);
-        g_resource_manager = NULL;
+    if (pCosmosEngine->resourceManagerInitialized) {
+        ma_resource_manager_uninit(&pCosmosEngine->resourceManager);
+        pCosmosEngine->resourceManagerInitialized = MA_FALSE;
     }
 }
 

@@ -131,7 +131,7 @@ position = (r*sin(phi), r*cos(phi), 0)
 pan = round(100 * sin(phi))
 ```
 
-Sounds from the listener's own seat are sent unpositioned. With four players the next seat clockwise lands hard left, the seat across is straight ahead and the previous seat hard right, which matches how seat panning reads today. Set min_distance equal to r on the client so seats are not attenuated by distance.
+Sounds from the listener's own seat are sent unpositioned. With four players the next seat clockwise lands hard left, the seat across is straight ahead and the previous seat hard right, which matches how seat panning reads today. Table radius defines geometry only; distance gain remains neutral unless the command carries an explicit attenuation policy.
 
 Because k depends on the listener, the server builds the command per recipient. game_sound_mixin already resolves recipients in `_audio_recipients`; add a `seat_of` argument to broadcast_sound that triggers per-recipient dispatch.
 
@@ -145,11 +145,11 @@ Because k depends on the listener, the server builds the command per recipient. 
 
 1. Done 14 September 2026: bindings generated and committed, clean build without LLVM, Cosmos moved into cosmos/.
 2. Done 14 September 2026: thread safety, direct mode, abi3 wheel at client/vendor/, smoke-tested.
-3. Done 14 September 2026, unreleased: client backend, packaging, spatial option and the client side of the position field. The client test suite passes (210 tests, including six against the real engine). Still to do before release: build with build_prod.bat and listen through a full session, paying attention to ambience outros and music intros, which now rely on polling rather than an engine callback.
-4. Done 14 September 2026: the server side. AudioCommand and AudioPlaybackState carry an optional position, validated and rounded, with pan derived from it when none was given; the geometry helpers (`direction_position`, `clock_position`, `seat_position`) live in server/audio.py; `broadcast_sound` and `play_sound` accept `position=` for one point in every listener's frame or `seat_of=player` for a per-listener seat position. A temporary "Spatial audio test" entry on the main menu opens twelve clock-face directions that each play notify1.ogg from that direction; remove it once tuning is done.
+3. Done 14 September 2026, unreleased: client backend, packaging, spatial option and the client side of the position field. Automated coverage includes the real engine when an audio device is available. Still to do before release: build with build_prod.bat and listen through a full session, paying attention to ambience outros and music intros, which now rely on polling rather than an engine callback.
+4. Done 14 September 2026: the server side. AudioCommand and AudioPlaybackState carry an optional position, validated and rounded, with pan derived from it when none was given; the geometry helpers (`direction_position`, `clock_position`, `seat_position`) live in server/audio.py; `broadcast_sound` and `play_sound` accept `position=` for one point in every listener's frame or `seat_of=player` for a per-listener seat position. The temporary clock-direction tuning menu used during development has been removed from the player-facing main menu.
 5. Next: the three pilot games (Bang saloon heal, Dead Man's Poker roulette, Dead Man's Deck preparation), then table-wide cues, then arcade design.
 
-Step 3 is the point of no return for sound_lib and is deliberately a no-behaviour-change release apart from the new option.
+Step 3 is the point of no return for sound_lib. The later protocol-v3 work in section 10 deliberately extends spatial and managed-source behavior across every client.
 
 ## 7. Open questions for Rory
 
@@ -182,3 +182,109 @@ To regenerate the C bindings after updating miniaudio.h or phonon.h, set LIBCLAN
 * Cosmos initialises Steam Audio with a 512-frame period. If a machine's device defaults differently, HRTF falls back to basic spatialization silently. hrtf_available is exposed, so the options dialog can tell the user.
 * Pitch: BASS changed sample rate, Cosmos calls ma_sound_set_pitch; both shift speed and pitch together, so cues sound the same.
 * Steam Audio per-source binaural effects cost CPU. The manager caps effects at 64, which is well within budget on any modern machine, but the number is worth watching in the pirates ambience-heavy scenes.
+
+## 10. Cross-client HRTF hardening (15 September 2026)
+
+The cross-client spatial pass is implemented without weakening the existing
+ambience-stem lifecycle. Explicit attenuation advances the audio command
+contract to protocol version 3:
+
+* Cosmos now publishes HRTF direction, spatial blend, and interpolation as one
+  lock-free snapshot. Audio-thread reads are bounded and reuse their last good
+  snapshot if a control update is interrupted. Bilinear interpolation and full
+  HRTF blend are explicit policy rather than consequences of source distance.
+* Every Cosmos engine owns its resource manager. The process-wide Steam Audio
+  context is reference-counted, so creating or destroying a second manager
+  cannot invalidate the first manager's cache or HRTF effects.
+* Web Audio sources with `position` use `PannerNode` in `HRTF` mode, including
+  buffered effects, media-element fallbacks, music, and seamless ambience
+  intro/loop/outro stems. Server coordinates map to Web Audio as
+  `(x, y, z) -> (x, z, -y)`. Stereo pan remains the capability fallback.
+* Expo Web uses the same validation, coordinate mapping, and HRTF graph. Native
+  Android retains its existing MediaPlayer stereo-pan fallback where that API
+  is supported; iOS and native seamless stems remain centered for now. No new
+  native playback engine has been allowed to take audio focus or change the
+  selected system route.
+* Server and all clients reject malformed, non-finite, or out-of-range
+  positions. A steady position is valid only on `play`; continuous changes use
+  the complete, validated `motion` object on a stable-handle `update` command.
+
+Distance attenuation is explicit command data. Omission or `{model: "none"}`
+keeps directional spatialization at full level. `linear`, `inverse`, and
+`exponential` carry reference distance, maximum distance, rolloff, and gain
+limits with no client-side defaults. Desktop, Web, and mobile evaluate the same
+bounded formulas in their mixer; Cosmos and browser panners remain
+distance-neutral so gain is never applied twice. Replayable layers retain the
+policy through save/reconnect, and intro/loop/outro segments keep one spatial
+position and gain envelope.
+
+### 10.1 Native mobile decision
+
+Cosmos is the preferred route to equivalent native mobile HRTF, but the current
+crate cannot simply be linked into Expo:
+
+* The checked-in Steam Audio 4.5.2 library is Windows x64 only. Steam Audio's
+  official mobile SDK provides Android shared libraries and an iOS static
+  library; those artifacts, headers, licenses, architectures, and checksums
+  must be pinned and reviewed together.
+* The current Rust build assumes a Windows dynamic library and lets miniaudio
+  own a desktop device. Mobile needs a small, typed Expo module over a
+  platform-neutral Cosmos audio core, plus explicit Android/iOS build targets.
+* Android initialization must not request a competing audio-focus lease or
+  force an output device. It must remain media usage on the selected wired,
+  Bluetooth, or speaker route, with ExpoAV as the focus coordinator.
+* iOS initialization must operate inside PlayAural's existing playback/default
+  session. Microphone publication remains a separate explicit transition to
+  play-and-record/default, with A2DP available and the hands-free profile
+  excluded. Cosmos teardown must not rewrite the session.
+
+The native module should expose semantic operations, not raw engine pointers:
+load/preload, play, stop, pause/resume, source position, listener pose, gain,
+pitch, loop regions, and scheduled fades. It should use the same stable handles
+and generations as the protocol so late loads, fades, and callbacks cannot
+resurrect a replaced source. JavaScript continues to own validated packet and
+table lifecycle policy; native code owns the real-time graph and reports
+capabilities and terminal events.
+
+### 10.2 Next protocol slices
+
+Implement these in lockstep across server, desktop, Web, and mobile. Do not add
+a field that one first-party client silently interprets differently.
+
+1. **Done: source-parameter automation.** A stable-handle `update` carries
+   complete origin/destination positions, duration, elapsed time, and a named
+   quadratic easing curve. The server advances trajectory state at game ticks;
+   each client interpolates smoothly on its audio clock, so moving loops do not
+   depend on packet frequency. Save/reconnect resumes an unfinished trajectory,
+   and replacement or stop generations cancel it. The same update may carry a
+   complete source-gain automation independently or concurrently; gain remains
+   separate from authored volume, distance attenuation, fades, buses, ducking,
+   and user master volume. A 3D footstep remains a one-shot `play` at a point.
+   Future filter automation should extend this validated parameter system
+   rather than introduce parallel packet types.
+2. **Done: explicit distance policy.** Protocol version 3 carries named,
+   bounded attenuation models. All first-party mixers use the same formulas and
+   units, while native/browser renderer defaults are neutralized.
+3. **Done: environmental zone blending.** An environment is independently
+   addressable ambience layers. Normalized boundary weights drive configurable
+   linear or equal-power source-gain automation between neighboring layers;
+   stable context/layer identities preserve unrelated ambience. Layers stay
+   running at zero gain for phase-coherent return transitions. Authored
+   intro-to-loop and loop-to-outro seams remain contiguous, and stop still
+   defaults to the immediate loop-to-outro splice.
+4. **Environmental acoustics.** Add occlusion/transmission and early/reflection
+   sends only after the direct-source contract is stable. These are source or
+   bus parameters, not game-specific packet types.
+5. **Budgets and verification.** Cross-client attenuation and automation now
+   run against one protocol-v3 conformance corpus instead of four copied sets
+   of expected values. Remaining work is to establish device-class voice/HRTF
+   budgets, priority-based virtualization, underrun telemetry, coordinate
+   golden tests, offline impulse-response comparisons, sample-boundary stem
+   tests, moving-source stress tests, and physical wired/Bluetooth/speaker
+   routing tests.
+
+Replayable motion, source gain, and environmental layers belong in
+`active_audio` and follow their table/save lifecycle. One-shot footsteps, mixer
+interpolation state, and diagnostic counters stay runtime-only. A save made
+during automation records a well-defined current/destination state and
+remaining duration rather than a process-monotonic timestamp.

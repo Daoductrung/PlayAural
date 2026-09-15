@@ -1,11 +1,10 @@
 import importlib.util
-from pathlib import Path
 import sys
 import time
 import types
+from pathlib import Path
 
 import pytest
-
 
 CLIENT_DIR = Path(__file__).resolve().parents[1]
 
@@ -90,6 +89,7 @@ class FakeSoundCacher:
 
 
 def _load_sound_manager_module(monkeypatch):
+    monkeypatch.syspath_prepend(str(CLIENT_DIR))
     fake_sound_cacher = types.ModuleType("sound_cacher")
     fake_sound_cacher.SoundCacher = FakeSoundCacher
     monkeypatch.setitem(sys.modules, "sound_cacher", fake_sound_cacher)
@@ -383,7 +383,7 @@ def test_named_bus_gain_updates_active_sources(monkeypatch):
     accepted = manager.handle_audio_command(
         {
             "type": "audio",
-            "version": 2,
+            "version": 3,
             "command": "set_bus",
             "bus": "music",
             "volume": 50,
@@ -402,17 +402,23 @@ def test_malformed_protocol_version_is_rejected_without_raising(monkeypatch):
         {"version": "invalid", "command": "stop_all"}
     ) is False
     assert manager.handle_audio_command(
-        {"version": 2, "command": "stop_all", "ducking": []}
+        {"version": "3", "command": "stop_all"}
     ) is False
     assert manager.handle_audio_command(
-        {"version": 2, "command": "stop_all", "family": "notify"}
+        {"version": 3.0, "command": "stop_all"}
     ) is False
     assert manager.handle_audio_command(
-        {"version": 2, "command": "stop_all", "buffer": "private"}
+        {"version": 3, "command": "stop_all", "ducking": []}
+    ) is False
+    assert manager.handle_audio_command(
+        {"version": 3, "command": "stop_all", "family": "notify"}
+    ) is False
+    assert manager.handle_audio_command(
+        {"version": 3, "command": "stop_all", "buffer": "private"}
     ) is False
     assert manager.handle_audio_command(
         {
-            "version": 2,
+            "version": 3,
             "command": "play",
             "kind": "sfx",
             "asset": "pm.ogg",
@@ -429,7 +435,7 @@ def test_audio_protocol_resolves_numbered_sound_family(monkeypatch):
     assert manager.handle_audio_command(
         {
             "type": "audio",
-            "version": 2,
+            "version": 3,
             "command": "play",
             "kind": "sfx",
             "family": "notify",
@@ -439,7 +445,7 @@ def test_audio_protocol_resolves_numbered_sound_family(monkeypatch):
     assert manager.handle_audio_command(
         {
             "type": "audio",
-            "version": 2,
+            "version": 3,
             "command": "play",
             "kind": "sfx",
             "asset": "roll.ogg",
@@ -449,7 +455,7 @@ def test_audio_protocol_resolves_numbered_sound_family(monkeypatch):
     assert manager.handle_audio_command(
         {
             "type": "audio",
-            "version": 2,
+            "version": 3,
             "command": "play",
             "kind": "sfx",
             "family": "notify",
@@ -466,7 +472,7 @@ def test_audio_protocol_threads_position_through_to_the_stream(monkeypatch):
     assert manager.handle_audio_command(
         {
             "type": "audio",
-            "version": 2,
+            "version": 3,
             "command": "play",
             "kind": "sfx",
             "asset": "roll.ogg",
@@ -475,18 +481,25 @@ def test_audio_protocol_threads_position_through_to_the_stream(monkeypatch):
     ) is True
     assert manager.sound_cacher.refs[-1].position == (2.0, 0.0, 0.0)
 
-    for bad in ([1, 2], "north", [1, "x", 3], [float("inf"), 0, 0], [5000, 0, 0]):
+    for bad in (
+        [1, 2],
+        "north",
+        [1, "x", 3],
+        ["1", 0, 0],
+        [True, 0, 0],
+        [float("inf"), 0, 0],
+        [5000, 0, 0],
+    ):
         assert manager.handle_audio_command(
             {
                 "type": "audio",
-                "version": 2,
+                "version": 3,
                 "command": "play",
                 "kind": "sfx",
                 "asset": "roll.ogg",
                 "position": bad,
             }
-        ) is True
-        assert manager.sound_cacher.refs[-1].position is None
+        ) is False
 
 
 def test_spatial_mode_is_normalized_and_forwarded_to_the_backend(monkeypatch):
@@ -497,6 +510,290 @@ def test_spatial_mode_is_normalized_and_forwarded_to_the_backend(monkeypatch):
     assert manager.set_spatial_mode("STEREO") == "stereo"
     assert manager.sound_cacher.spatial_mode == "stereo"
     assert manager.set_spatial_mode("nonsense") == "headphones"
+
+
+def test_audio_protocol_rejects_position_on_non_play_command(monkeypatch):
+    sound_manager = _load_sound_manager_module(monkeypatch)
+    manager = sound_manager.SoundManager()
+
+    assert manager.handle_audio_command({
+        "type": "audio",
+        "version": 3,
+        "command": "stop",
+        "kind": "sfx",
+        "handle": "test",
+        "position": [1, 0, 0],
+    }) is False
+
+
+def test_audio_protocol_applies_explicit_distance_gain_once(monkeypatch):
+    sound_manager = _load_sound_manager_module(monkeypatch)
+    manager = sound_manager.SoundManager()
+    attenuation = {
+        "model": "linear",
+        "reference_distance": 2,
+        "max_distance": 10,
+        "rolloff_factor": 1,
+        "min_gain": 0,
+        "max_gain": 1,
+    }
+
+    assert manager.handle_audio_command({
+        "type": "audio",
+        "version": 3,
+        "command": "play",
+        "kind": "sfx",
+        "asset": "roll.ogg",
+        "handle": "test:attenuated",
+        "volume": 80,
+        "position": [6, 0, 0],
+        "attenuation": attenuation,
+    }) is True
+
+    source = manager._sources["test:attenuated"]
+    assert source.distance_gain == pytest.approx(0.5)
+    assert source.stream.volume == pytest.approx(0.4)
+
+
+def test_audio_protocol_moves_source_and_recomputes_attenuation(monkeypatch):
+    sound_manager = _load_sound_manager_module(monkeypatch)
+    monkeypatch.setattr(sound_manager, "SOURCE_AUTOMATION_INTERVAL_S", 10)
+    manager = sound_manager.SoundManager()
+    attenuation = {
+        "model": "linear",
+        "reference_distance": 1,
+        "max_distance": 11,
+        "rolloff_factor": 1,
+        "min_gain": 0,
+        "max_gain": 1,
+    }
+    assert manager.handle_audio_command({
+        "type": "audio",
+        "version": 3,
+        "command": "play",
+        "kind": "sfx",
+        "asset": "roll.ogg",
+        "handle": "test:moving",
+        "loop": True,
+        "position": [0, 1, 0],
+        "attenuation": attenuation,
+    }) is True
+    assert manager.handle_audio_command({
+        "type": "audio",
+        "version": 3,
+        "command": "update",
+        "kind": "sfx",
+        "handle": "test:moving",
+        "motion": {
+            "origin_position": [0, 1, 0],
+            "destination_position": [0, 11, 0],
+            "duration_ms": 1000,
+            "elapsed_ms": 0,
+            "easing": "linear",
+        },
+    }) is True
+
+    runtime = manager._motions["test:moving"]
+    source = manager._sources["test:moving"]
+    with manager._lock:
+        assert manager._apply_motion_to_source_locked(
+            source,
+            runtime,
+            runtime.started_at + 0.5,
+        ) is False
+    assert source.position == pytest.approx((0, 6, 0))
+    assert source.stream.position == pytest.approx((0, 6, 0))
+    assert source.distance_gain == pytest.approx(0.5)
+    assert source.stream.volume == pytest.approx(0.5)
+
+    with manager._lock:
+        assert manager._apply_motion_to_source_locked(
+            source,
+            runtime,
+            runtime.started_at + 1,
+        ) is True
+    assert source.position == pytest.approx((0, 11, 0))
+    assert source.stream.volume == pytest.approx(0)
+
+    manager.stop_sound("test:moving")
+    assert "test:moving" not in manager._motions
+
+
+def test_audio_protocol_automates_gain_concurrently_with_motion(monkeypatch):
+    sound_manager = _load_sound_manager_module(monkeypatch)
+    monkeypatch.setattr(sound_manager, "SOURCE_AUTOMATION_INTERVAL_S", 10)
+    manager = sound_manager.SoundManager()
+    assert manager.handle_audio_command({
+        "type": "audio",
+        "version": 3,
+        "command": "play",
+        "kind": "sfx",
+        "asset": "roll.ogg",
+        "handle": "test:automated",
+        "loop": True,
+        "position": [0, 1, 0],
+        "gain": 0.2,
+    }) is True
+    assert manager.handle_audio_command({
+        "type": "audio",
+        "version": 3,
+        "command": "update",
+        "kind": "sfx",
+        "handle": "test:automated",
+        "motion": {
+            "origin_position": [0, 1, 0],
+            "destination_position": [0, 3, 0],
+            "duration_ms": 1000,
+            "elapsed_ms": 0,
+            "easing": "linear",
+        },
+        "gain_automation": {
+            "origin_gain": 0.2,
+            "destination_gain": 0.8,
+            "duration_ms": 1000,
+            "elapsed_ms": 0,
+            "easing": "linear",
+        },
+    }) is True
+
+    source = manager._sources["test:automated"]
+    motion = manager._motions["test:automated"]
+    gain = manager._gain_automations["test:automated"]
+    with manager._lock:
+        manager._apply_motion_to_source_locked(
+            source, motion, motion.started_at + 0.5
+        )
+        manager._apply_gain_to_source_locked(
+            source, gain, gain.started_at + 0.5
+        )
+    assert source.position == pytest.approx((0, 2, 0))
+    assert source.source_gain == pytest.approx(0.5)
+    assert source.stream.volume == pytest.approx(0.5)
+
+    manager.stop_sound("test:automated")
+    assert "test:automated" not in manager._motions
+    assert "test:automated" not in manager._gain_automations
+
+
+def test_replacing_a_moving_source_cancels_stale_motion(monkeypatch):
+    sound_manager = _load_sound_manager_module(monkeypatch)
+    monkeypatch.setattr(sound_manager, "SOURCE_AUTOMATION_INTERVAL_S", 10)
+    manager = sound_manager.SoundManager()
+    manager.play(
+        "roll.ogg",
+        looping=True,
+        handle="test:moving",
+        position=(0, 1, 0),
+    )
+    assert manager.handle_audio_command({
+        "type": "audio",
+        "version": 3,
+        "command": "update",
+        "kind": "sfx",
+        "handle": "test:moving",
+        "motion": {
+            "origin_position": [0, 1, 0],
+            "destination_position": [0, 2, 0],
+            "duration_ms": 1000,
+            "elapsed_ms": 0,
+            "easing": "linear",
+        },
+    }) is True
+
+    replacement = manager.play(
+        "notify1.ogg",
+        looping=True,
+        handle="test:moving",
+        position=(1, 0, 0),
+        fade_out_ms=0,
+    )
+
+    assert "test:moving" not in manager._motions
+    assert manager._sources["test:moving"].stream is replacement
+    assert replacement.position == (1, 0, 0)
+
+
+def test_motion_expires_when_source_loading_failed(monkeypatch):
+    sound_manager = _load_sound_manager_module(monkeypatch)
+    monkeypatch.setattr(sound_manager, "SOURCE_AUTOMATION_INTERVAL_S", 0.001)
+    manager = sound_manager.SoundManager()
+    manager._next_generation("test:failed-load")
+
+    assert manager.handle_audio_command({
+        "type": "audio",
+        "version": 3,
+        "command": "update",
+        "kind": "sfx",
+        "handle": "test:failed-load",
+        "motion": {
+            "origin_position": [0, 1, 0],
+            "destination_position": [0, 2, 0],
+            "duration_ms": 1,
+            "elapsed_ms": 0,
+            "easing": "linear",
+        },
+    }) is True
+
+    for _ in range(100):
+        if "test:failed-load" not in manager._motions:
+            break
+        time.sleep(0.001)
+    assert "test:failed-load" not in manager._motions
+
+
+@pytest.mark.parametrize(
+    "attenuation",
+    [
+        {"model": "linear"},
+        {
+            "model": "linear",
+            "reference_distance": 2,
+            "max_distance": 10,
+            "rolloff_factor": 2,
+            "min_gain": 0,
+            "max_gain": 1,
+        },
+        {
+            "model": "inverse",
+            "reference_distance": 10,
+            "max_distance": 2,
+            "rolloff_factor": 1,
+            "min_gain": 0,
+            "max_gain": 1,
+        },
+        {
+            "model": "none",
+            "reference_distance": 2,
+        },
+    ],
+)
+def test_audio_protocol_rejects_invalid_attenuation(monkeypatch, attenuation):
+    sound_manager = _load_sound_manager_module(monkeypatch)
+    manager = sound_manager.SoundManager()
+
+    assert manager.handle_audio_command({
+        "type": "audio",
+        "version": 3,
+        "command": "play",
+        "kind": "sfx",
+        "asset": "roll.ogg",
+        "position": [6, 0, 0],
+        "attenuation": attenuation,
+    }) is False
+
+
+def test_audio_protocol_rejects_attenuation_without_position(monkeypatch):
+    sound_manager = _load_sound_manager_module(monkeypatch)
+    manager = sound_manager.SoundManager()
+
+    assert manager.handle_audio_command({
+        "type": "audio",
+        "version": 3,
+        "command": "play",
+        "kind": "sfx",
+        "asset": "roll.ogg",
+        "attenuation": {"model": "none"},
+    }) is False
 
 
 def test_audio_protocol_plays_numbered_asset_exactly_even_when_looping(monkeypatch):
@@ -511,7 +808,7 @@ def test_audio_protocol_plays_numbered_asset_exactly_even_when_looping(monkeypat
     assert manager.handle_audio_command(
         {
             "type": "audio",
-            "version": 2,
+            "version": 3,
             "command": "play",
             "kind": "sfx",
             "asset": "notify2.ogg",

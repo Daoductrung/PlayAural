@@ -18,6 +18,8 @@ fn main() {
         .file(csrc_dir.join("ma_distortion.c"))
         .file(csrc_dir.join("ma_vocoder.c"))
         .include(&csrc_dir)
+        .std("c11")
+        .flag_if_supported("/experimental:c11atomics")
         .opt_level(2)
         .compile("miniaudio_phonon");
 

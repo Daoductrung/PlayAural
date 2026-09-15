@@ -23,17 +23,24 @@ import logging
 import threading
 
 import cosmos
+from spatial_audio import normalize_audio_position
 
 SPATIAL_MODES = ("off", "stereo", "headphones")
 DEFAULT_SPATIAL_MODE = "headphones"
 
-# One table unit is the distance from the listener to a seat. Sounds within
-# this radius are not attenuated, and a seat at the radius pans fully.
+# One table unit is the distance from the listener to a seat. A seat at this
+# radius pans fully in the basic-stereo fallback; distance gain is controlled
+# independently by the versioned PlayAural mixer policy.
 TABLE_RADIUS = 2.0
 # Cosmos adds this fixed amount to the pan of every off-centre sound in
 # stereo mode; the pan step supplies the rest over one table radius.
 _HARD_CLOSE_PAN = 0.2
 _PAN_STEP = (1.0 - _HARD_CLOSE_PAN) / TABLE_RADIUS
+# Moving point sources need smooth interpolation between measured HRTF
+# directions. Full spatial blend keeps distance attenuation independent from
+# binaural coloration and matches the browser HRTF renderers.
+HRTF_INTERPOLATION = "bilinear"
+HRTF_SPATIAL_BLEND = 1.0
 
 _log = logging.getLogger("playaural")
 
@@ -70,18 +77,26 @@ class CosmosStream:
     ):
         self._sound = sound
         self._spatial_mode = spatial_mode
-        self._position = None
+        self._position = normalize_audio_position(position)
         self.file_name = file_name
 
         # Everything set before the load is applied by the load itself.
-        sound.spatial_mode = _cosmos_mode(position, spatial_mode)
-        sound.min_distance = TABLE_RADIUS
+        sound.spatial_mode = _cosmos_mode(self._position, spatial_mode)
+        sound.hrtf_interpolation = HRTF_INTERPOLATION
+        sound.hrtf_spatial_blend = HRTF_SPATIAL_BLEND
+        # PlayAural's versioned mixer owns distance gain. Keep Cosmos neutral
+        # so Basic and HRTF render direction without applying different hidden
+        # falloff curves. Pitch is likewise explicit protocol data, not a
+        # renderer-specific behind-the-listener cue.
+        sound.min_gain = 1.0
+        sound.max_gain = 1.0
+        sound.volume_step = 0.0
+        sound.behind_pitch_decrease = 0.0
         sound.pan_step = _PAN_STEP
         sound.pan = float(pan)
         sound.volume = float(volume)
         sound.pitch = float(pitch)
-        if position is not None:
-            self._position = tuple(float(c) for c in position)
+        if self._position is not None:
             sound.set_position(*self._position)
         if not sound.load(file_name):
             raise RuntimeError(f"Cosmos could not load {file_name}")
@@ -143,9 +158,10 @@ class CosmosStream:
             self._position = None
             self._sound.spatial_mode = "direct"
             return
-        self._position = tuple(float(c) for c in value)
-        self._sound.set_position(*self._position)
-        self._sound.spatial_mode = _cosmos_mode(self._position, self._spatial_mode)
+        position = normalize_audio_position(value)
+        self._sound.set_position(*position)
+        self._sound.spatial_mode = _cosmos_mode(position, self._spatial_mode)
+        self._position = position
 
 
 class SoundCacher:

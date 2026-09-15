@@ -13,7 +13,6 @@ from ..game_utils.options import (
     GameOptions as DeclarativeGameOptions,
     OptionsHandlerMixin,
 )
-from ..game_utils.game_result import GameResult, PlayerResult
 from ..game_utils.teams import TeamManager
 from ..game_utils.game_sound_mixin import GameSoundMixin
 from ..audio import AudioPlaybackState
@@ -397,6 +396,7 @@ class Game(
 
         Subclasses should call super().on_tick() to ensure base functionality runs.
         """
+        self.process_audio_automations()
         self._sync_replacement_team_members()
         for player in self.players:
             if getattr(player, "reconnect_grace_ticks", 0) > 0:
@@ -633,7 +633,8 @@ class Game(
         for state in self.active_audio.values():
             if state.recipient_ids and player_id not in state.recipient_ids:
                 continue
-            user.send_audio_command(state.to_command(replay=True))
+            for command in state.replay_commands():
+                user.send_audio_command(command)
             if state.paused and state.kind == "music":
                 user.pause_music(handle=state.handle, fade_ms=0)
         # Check for game resume (if this was a paused-table reconnect scenario).

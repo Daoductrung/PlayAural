@@ -24,6 +24,25 @@ import { Platform } from "react-native";
 import { soundFamilies, soundManifest } from "../generated/soundManifest";
 import type { AudioCommandPacket, AudioKind } from "../network/packets";
 import { isTerminalNativePlaybackStatus } from "./playbackLifecycle";
+import {
+  audioGainAt,
+  audioMotionPosition,
+  createWebAudioSpatializer,
+  distanceAttenuationGain,
+  normalizeAudioGain,
+  normalizeAudioGainAutomation,
+  normalizeAudioMotion,
+  normalizeAudioPosition,
+  normalizeDistanceAttenuation,
+  panFromPosition,
+  setAudioSpatializerPosition,
+} from "./spatialAudio";
+import type {
+  AudioGainAutomation,
+  AudioMotion,
+  AudioPosition,
+  DistanceAttenuation,
+} from "./spatialAudio";
 
 type CommandAudioSource = {
   active: boolean;
@@ -31,6 +50,9 @@ type CommandAudioSource = {
   baseVolume: number;
   bus: string;
   createdAt: number;
+  attenuation: DistanceAttenuation | undefined;
+  distanceGain: number;
+  sourceGain: number;
   ducking: Map<string, number>;
   envelope: number;
   fadeToken: number;
@@ -43,13 +65,15 @@ type CommandAudioSource = {
   outro: string;
   paused: boolean;
   priority: number;
+  position: AudioPosition | undefined;
+  pan: number;
   target: string;
   webGain: GainNode | null;
   webNode: AudioBufferSourceNode | MediaElementAudioSourceNode | null;
   webNodes: Set<AudioBufferSourceNode>;
   webStem: WebStemState | null;
   webElement: HTMLAudioElement | null;
-  webPanner: StereoPannerNode | null;
+  webPanner: AudioNode | null;
 };
 
 type NativeStemState = {
@@ -69,6 +93,24 @@ type WebStemState = {
   outroScheduled: boolean;
 };
 
+type SourceMotionRuntime = {
+  generation: number;
+  handle: string;
+  kind: AudioKind;
+  motion: AudioMotion;
+  startedAt: number;
+  timer: ReturnType<typeof setInterval> | null;
+};
+
+type SourceGainRuntime = {
+  automation: AudioGainAutomation;
+  generation: number;
+  handle: string;
+  kind: AudioKind;
+  startedAt: number;
+  timer: ReturnType<typeof setInterval> | null;
+};
+
 type AndroidNativeAudioMode = {
   interruptionModeAndroid: number;
   shouldDuckAndroid: boolean;
@@ -81,9 +123,12 @@ type MusicPlaybackOptions = Pick<
   | "context"
   | "fade_in_ms"
   | "fade_out_ms"
+  | "gain"
   | "handle"
   | "layer"
   | "loop"
+  | "position"
+  | "attenuation"
   | "priority"
   | "scope"
   | "volume"
@@ -93,7 +138,7 @@ type ExponentAVModule = {
   setAudioMode(mode: AndroidNativeAudioMode): Promise<void>;
 };
 
-const AUDIO_PROTOCOL_VERSION = 2;
+const AUDIO_PROTOCOL_VERSION = 3;
 const AUDIO_OUTPUT_BUFFERS = new Set(["chat", "private", "game", "system", "misc"]);
 const MAX_ACTIVE_EFFECTS = 64;
 const MAX_ACTIVE_LAYERS = 32;
@@ -102,6 +147,7 @@ const MAX_CACHED_BUFFER_BYTES = 96 * 1024 * 1024;
 const MAX_CACHED_ASSET_URIS = 512;
 const MAX_GENERATION_ENTRIES = 512;
 const MAX_FADE_MS = 60_000;
+const SOURCE_AUTOMATION_INTERVAL_MS = 1000 / 60;
 
 const exponentAV = Platform.OS === "android"
   ? requireNativeModule<ExponentAVModule>("ExponentAV")
@@ -138,6 +184,8 @@ export class MobileAudioManager {
   private commandTargets = new Map<string, string>();
   private commandTargetGenerations = new Map<string, number>();
   private commandGenerations = new Map<string, number>();
+  private commandMotions = new Map<string, SourceMotionRuntime>();
+  private commandGainAutomations = new Map<string, SourceGainRuntime>();
   private commandPausedMusicHandles = new Set<string>();
   private commandBusGains = new Map<string, number>();
   private commandBusFadeTokens = new Map<string, number>();
@@ -230,6 +278,8 @@ export class MobileAudioManager {
       && !source.paused
       && source.kind !== "sfx"
       && source.baseVolume > 0
+      && source.distanceGain > 0
+      && source.sourceGain > 0
       && this.masterGain(source.kind) > 0
       && (this.commandBusGains.get(source.bus) ?? 1) > 0
     ));
@@ -324,6 +374,37 @@ export class MobileAudioManager {
     if (packet.version !== AUDIO_PROTOCOL_VERSION) {
       return false;
     }
+    const position = normalizeAudioPosition(packet.position);
+    const attenuation = normalizeDistanceAttenuation(packet.attenuation);
+    const motion = normalizeAudioMotion(packet.motion);
+    const gain = packet.gain === undefined ? 1 : normalizeAudioGain(packet.gain);
+    const gainAutomation = normalizeAudioGainAutomation(packet.gain_automation);
+    if (
+      position === null
+      || attenuation === null
+      || motion === null
+      || gain === null
+      || gainAutomation === null
+      || (position !== undefined && packet.command !== "play")
+      || (attenuation !== undefined && packet.command !== "play")
+      || (attenuation !== undefined && position === undefined)
+      || (motion !== undefined && packet.command !== "update")
+      || (Object.prototype.hasOwnProperty.call(packet, "gain") && packet.command !== "play")
+      || (gainAutomation !== undefined && packet.command !== "update")
+    ) {
+      return false;
+    }
+    packet = {
+      ...packet,
+      position: position ? [...position] : undefined,
+      attenuation,
+      motion,
+      gain,
+      gain_automation: gainAutomation,
+      pan: position
+        ? packet.pan ?? Math.round(panFromPosition(position) * 100)
+        : packet.pan,
+    };
     for (const value of [
       packet.handle,
       packet.bus,
@@ -381,6 +462,25 @@ export class MobileAudioManager {
       return false;
     }
     switch (packet.command) {
+      case "update":
+        if (
+          !packet.kind
+          || !["sfx", "music", "ambience"].includes(packet.kind)
+          || !packet.handle
+          || (motion === undefined && gainAutomation === undefined)
+        ) {
+          return false;
+        }
+        return (
+          (motion === undefined
+            || this.startSourceMotion(packet.kind, packet.handle, motion))
+          && (gainAutomation === undefined
+            || this.startSourceGainAutomation(
+              packet.kind,
+              packet.handle,
+              gainAutomation,
+            ))
+        );
       case "play":
         if (!packet.kind || !["sfx", "music", "ambience"].includes(packet.kind)) {
           return false;
@@ -526,6 +626,8 @@ export class MobileAudioManager {
   }
 
   private nextGeneration(handle: string): number {
+    this.clearSourceMotion(handle);
+    this.clearSourceGainAutomation(handle);
     const next = (this.commandGenerations.get(handle) ?? 0) + 1;
     this.commandGenerations.delete(handle);
     this.commandGenerations.set(handle, next);
@@ -537,6 +639,8 @@ export class MobileAudioManager {
         break;
       }
       this.commandGenerations.delete(removable);
+      this.clearSourceMotion(removable);
+      this.clearSourceGainAutomation(removable);
     }
     return next;
   }
@@ -575,12 +679,192 @@ export class MobileAudioManager {
     return gain;
   }
 
+  private sourceSpatialFields(packet: AudioCommandPacket): Pick<
+    CommandAudioSource,
+    "attenuation" | "distanceGain" | "position"
+  > {
+    const position = normalizeAudioPosition(packet.position);
+    const attenuation = normalizeDistanceAttenuation(packet.attenuation);
+    if (
+      position === null
+      || attenuation === null
+      || (attenuation !== undefined && position === undefined)
+    ) {
+      throw new TypeError("Invalid spatial audio packet");
+    }
+    return {
+      position,
+      attenuation,
+      distanceGain: distanceAttenuationGain(position, attenuation),
+    };
+  }
+
   private outputGain(source: CommandAudioSource): number {
     const mix = source.baseVolume
+      * source.distanceGain
+      * source.sourceGain
       * (this.commandBusGains.get(source.bus) ?? 1)
       * this.duckGain(source.bus)
       * source.envelope;
     return Platform.OS === "web" ? mix : mix * this.masterGain(source.kind);
+  }
+
+  private audioClockMs(): number {
+    if (Platform.OS === "web" && this.webAudioContext) {
+      return this.webAudioContext.currentTime * 1000;
+    }
+    return globalThis.performance?.now?.() ?? Date.now();
+  }
+
+  private clearSourceMotion(handle: string): void {
+    const runtime = this.commandMotions.get(handle);
+    if (runtime?.timer) {
+      clearInterval(runtime.timer);
+    }
+    this.commandMotions.delete(handle);
+  }
+
+  private applySourceMotion(runtime: SourceMotionRuntime): boolean {
+    if (
+      this.commandMotions.get(runtime.handle) !== runtime
+      || this.commandGenerations.get(runtime.handle) !== runtime.generation
+    ) {
+      return true;
+    }
+    const elapsed = Math.min(
+      runtime.motion.duration_ms,
+      Math.max(0, this.audioClockMs() - runtime.startedAt),
+    );
+    const sourceKey = this.commandHandles.get(runtime.handle);
+    const source = sourceKey ? this.commandSources.get(sourceKey) : undefined;
+    if (source) {
+      if (source.kind !== runtime.kind || source.generation !== runtime.generation) {
+        this.clearSourceMotion(runtime.handle);
+        return true;
+      }
+      const position = audioMotionPosition(runtime.motion, elapsed);
+      source.position = position;
+      source.pan = Math.round(panFromPosition(position) * 100);
+      if (source.webPanner && this.webAudioContext) {
+        setAudioSpatializerPosition(
+          source.webPanner,
+          this.webAudioContext,
+          position,
+        );
+      }
+      source.distanceGain = distanceAttenuationGain(
+        position,
+        source.attenuation,
+      );
+      this.setAbsoluteVolume(source, this.outputGain(source));
+    }
+    if (elapsed >= runtime.motion.duration_ms) {
+      this.clearSourceMotion(runtime.handle);
+      return true;
+    }
+    return false;
+  }
+
+  private startSourceMotion(
+    kind: AudioKind,
+    handle: string,
+    motion: AudioMotion,
+  ): boolean {
+    const generation = this.commandGenerations.get(handle);
+    const sourceKey = this.commandHandles.get(handle);
+    const source = sourceKey ? this.commandSources.get(sourceKey) : undefined;
+    if (source && source.kind !== kind) {
+      return false;
+    }
+    if (generation === undefined) {
+      return true;
+    }
+    this.clearSourceMotion(handle);
+    const runtime: SourceMotionRuntime = {
+      generation,
+      handle,
+      kind,
+      motion,
+      startedAt: this.audioClockMs() - motion.elapsed_ms,
+      timer: null,
+    };
+    this.commandMotions.set(handle, runtime);
+    this.applySourceMotion(runtime);
+    if (this.commandMotions.get(handle) === runtime) {
+      runtime.timer = setInterval(() => {
+        this.applySourceMotion(runtime);
+      }, SOURCE_AUTOMATION_INTERVAL_MS);
+    }
+    return true;
+  }
+
+  private clearSourceGainAutomation(handle: string): void {
+    const runtime = this.commandGainAutomations.get(handle);
+    if (runtime?.timer) {
+      clearInterval(runtime.timer);
+    }
+    this.commandGainAutomations.delete(handle);
+  }
+
+  private applySourceGainAutomation(runtime: SourceGainRuntime): boolean {
+    if (
+      this.commandGainAutomations.get(runtime.handle) !== runtime
+      || this.commandGenerations.get(runtime.handle) !== runtime.generation
+    ) {
+      return true;
+    }
+    const elapsed = Math.min(
+      runtime.automation.duration_ms,
+      Math.max(0, this.audioClockMs() - runtime.startedAt),
+    );
+    const sourceKey = this.commandHandles.get(runtime.handle);
+    const source = sourceKey ? this.commandSources.get(sourceKey) : undefined;
+    if (source) {
+      if (source.kind !== runtime.kind || source.generation !== runtime.generation) {
+        this.clearSourceGainAutomation(runtime.handle);
+        return true;
+      }
+      source.sourceGain = audioGainAt(runtime.automation, elapsed);
+      this.setAbsoluteVolume(source, this.outputGain(source));
+    }
+    if (elapsed >= runtime.automation.duration_ms) {
+      this.clearSourceGainAutomation(runtime.handle);
+      return true;
+    }
+    return false;
+  }
+
+  private startSourceGainAutomation(
+    kind: AudioKind,
+    handle: string,
+    automation: AudioGainAutomation,
+  ): boolean {
+    const generation = this.commandGenerations.get(handle);
+    const sourceKey = this.commandHandles.get(handle);
+    const source = sourceKey ? this.commandSources.get(sourceKey) : undefined;
+    if (source && source.kind !== kind) {
+      return false;
+    }
+    if (generation === undefined) {
+      return true;
+    }
+    this.clearSourceGainAutomation(handle);
+    const runtime: SourceGainRuntime = {
+      generation,
+      handle,
+      kind,
+      automation,
+      startedAt: this.audioClockMs() - automation.elapsed_ms,
+      timer: null,
+    };
+    this.commandGainAutomations.set(handle, runtime);
+    this.applySourceGainAutomation(runtime);
+    if (this.commandGainAutomations.get(handle) === runtime) {
+      runtime.timer = setInterval(() => {
+        this.applySourceGainAutomation(runtime);
+      }, SOURCE_AUTOMATION_INTERVAL_MS);
+    }
+    return true;
   }
 
   private setCommandBusGain(
@@ -621,7 +905,13 @@ export class MobileAudioManager {
   ): void {
     const bounded = this.clamp(volume, 0, 1, 0);
     if (source.nativePlayer) {
-      this.setNativeSoundVolume(source.nativePlayer, bounded);
+      this.setNativeSoundVolume(
+        source.nativePlayer,
+        bounded,
+        Platform.OS === "android" && source.kind === "sfx"
+          ? source.pan / 100
+          : undefined,
+      );
     }
     if (source.nativeStem) {
       source.nativeStem.playlist.volume = bounded;
@@ -683,6 +973,14 @@ export class MobileAudioManager {
       this.commandDucking.set(source.key, source.ducking);
       this.refreshMix();
     }
+    const motion = this.commandMotions.get(source.handle);
+    if (motion) {
+      this.applySourceMotion(motion);
+    }
+    const gainAutomation = this.commandGainAutomations.get(source.handle);
+    if (gainAutomation) {
+      this.applySourceGainAutomation(gainAutomation);
+    }
     this.stateListener?.();
   }
 
@@ -695,6 +993,8 @@ export class MobileAudioManager {
     this.commandSources.delete(key);
     this.commandDucking.delete(key);
     if (this.commandHandles.get(source.handle) === key) {
+      this.clearSourceMotion(source.handle);
+      this.clearSourceGainAutomation(source.handle);
       this.commandHandles.delete(source.handle);
     }
     if (source.target && this.commandTargets.get(source.target) === key) {
@@ -835,6 +1135,10 @@ export class MobileAudioManager {
             handle,
             bus,
             volume: baseVolume * 100,
+            position: source.position ? [...source.position] : undefined,
+            attenuation: source.attenuation,
+            gain: source.sourceGain,
+            pan: source.pan,
           },
           outro,
           handle,
@@ -850,6 +1154,8 @@ export class MobileAudioManager {
     if (this.commandHandles.get(source.handle) === source.key) {
       this.commandHandles.delete(source.handle);
     }
+    this.clearSourceMotion(source.handle);
+    this.clearSourceGainAutomation(source.handle);
     this.stateListener?.();
   }
 
@@ -901,7 +1207,7 @@ export class MobileAudioManager {
       : context.currentTime + 0.02;
     const outroNode = context.createBufferSource();
     outroNode.buffer = stem.outroBuffer;
-    outroNode.connect(source.webGain);
+    outroNode.connect(source.webPanner ?? source.webGain);
     try {
       stem.loopNode.stop(boundary);
       outroNode.start(boundary);
@@ -997,6 +1303,9 @@ export class MobileAudioManager {
       outro,
       paused: false,
       priority: this.clamp(packet.priority, -100, 100, 0),
+      ...this.sourceSpatialFields(packet),
+      sourceGain: packet.gain ?? 1,
+      pan: this.clamp(packet.pan, -100, 100, 0),
       target,
       webGain: null,
       webNode: null,
@@ -1084,6 +1393,11 @@ export class MobileAudioManager {
       return null;
     }
     const gain = context.createGain();
+    const panner = createWebAudioSpatializer(context, {
+      position: normalizeAudioPosition(packet.position) ?? undefined,
+      pan: this.clamp(packet.pan, -100, 100, 0) / 100,
+    });
+    panner?.connect(gain);
     gain.connect(bus);
     const introNode = introBuffer ? context.createBufferSource() : null;
     const loopNode = context.createBufferSource();
@@ -1091,11 +1405,11 @@ export class MobileAudioManager {
     const loopStartedAt = startAt + (introBuffer?.duration || 0);
     if (introNode) {
       introNode.buffer = introBuffer;
-      introNode.connect(gain);
+      introNode.connect(panner ?? gain);
     }
     loopNode.buffer = loopBuffer;
     loopNode.loop = packet.loop !== false;
-    loopNode.connect(gain);
+    loopNode.connect(panner ?? gain);
     const key = `${handle}:${Date.now()}:${Math.random()}`;
     const webNodes = new Set<AudioBufferSourceNode>([loopNode]);
     if (introNode) {
@@ -1124,6 +1438,9 @@ export class MobileAudioManager {
       outro,
       paused: false,
       priority: this.clamp(packet.priority, -100, 100, 0),
+      ...this.sourceSpatialFields(packet),
+      sourceGain: packet.gain ?? 1,
+      pan: this.clamp(packet.pan, -100, 100, 0),
       target,
       webGain: gain,
       webNode: loopNode,
@@ -1136,7 +1453,7 @@ export class MobileAudioManager {
         outroScheduled: false,
       },
       webElement: null,
-      webPanner: null,
+      webPanner: panner ?? null,
     };
     gain.gain.value = this.outputGain(source);
     this.register(source);
@@ -1197,6 +1514,9 @@ export class MobileAudioManager {
       outro: this.normalizeAsset(packet.outro || ""),
       paused: false,
       priority: this.clamp(packet.priority, -100, 100, 0),
+      ...this.sourceSpatialFields(packet),
+      sourceGain: packet.gain ?? 1,
+      pan: this.clamp(packet.pan, -100, 100, 0),
       target,
       webGain: null,
       webNode: null,
@@ -1225,11 +1545,11 @@ export class MobileAudioManager {
         node.buffer = buffer;
         node.loop = looping;
         node.playbackRate.value = this.clamp(packet.pitch, 25, 400, 100) / 100;
-        const panner = typeof context.createStereoPanner === "function"
-          ? context.createStereoPanner()
-          : null;
+        const panner = createWebAudioSpatializer(context, {
+          position: source.position,
+          pan: source.pan / 100,
+        });
         if (panner) {
-          panner.pan.value = this.clamp(packet.pan, -100, 100, 0) / 100;
           node.connect(panner);
           panner.connect(gain);
         } else {
@@ -1238,7 +1558,7 @@ export class MobileAudioManager {
         gain.connect(bus);
         source.webNode = node;
         source.webNodes.add(node);
-        source.webPanner = panner;
+        source.webPanner = panner ?? null;
         this.register(source);
         node.onended = () => {
           this.dispose(key);
@@ -1255,10 +1575,20 @@ export class MobileAudioManager {
         element.loop = looping;
         element.preload = "auto";
         const node = context.createMediaElementSource(element);
-        node.connect(gain);
+        const panner = createWebAudioSpatializer(context, {
+          position: source.position,
+          pan: source.pan / 100,
+        });
+        if (panner) {
+          node.connect(panner);
+          panner.connect(gain);
+        } else {
+          node.connect(gain);
+        }
         gain.connect(bus);
         source.webElement = element;
         source.webNode = node;
+        source.webPanner = panner ?? null;
         source.paused = kind === "music"
           && this.commandPausedMusicHandles.has(handle);
         this.register(source);
@@ -1715,10 +2045,11 @@ export class MobileAudioManager {
   private setNativeSoundVolume(
     sound: ExpoAudio.Sound,
     volume: number,
+    pan?: number,
   ): void {
     const bounded = this.clamp(volume, 0, 1, 0);
     this.nativeSoundVolumes.set(sound, bounded);
-    void sound.setVolumeAsync(bounded).catch(() => undefined);
+    void sound.setVolumeAsync(bounded, pan).catch(() => undefined);
   }
 
   private async ensureWebAudioReady(): Promise<AudioContext | null> {

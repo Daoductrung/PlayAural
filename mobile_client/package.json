@@ -16,7 +16,7 @@
     "patch:android-audio-routing": "node scripts/patch-expo-audio-routing.mjs",
     "patch:livekit-media-routing": "node scripts/patch-livekit-media-routing.mjs",
     "test:android-audio-routing": "node --test tests/android-audio-routing.test.mjs",
-    "test:audio-lifecycle": "node --test tests/mobile-audio-lifecycle.test.mjs",
+    "test:audio-lifecycle": "node --test tests/mobile-audio-lifecycle.test.mjs tests/spatial-audio.test.mjs",
     "test:gestures": "node --test tests/self-voicing-gestures.test.mjs",
     "test:shortcuts": "node --test tests/shortcuts.test.mjs",
     "test:navigation": "node --test tests/mobile-navigation.test.mjs tests/message-history.test.mjs tests/board-viewport.test.mjs",

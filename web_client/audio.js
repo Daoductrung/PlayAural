@@ -1,6 +1,19 @@
 import { soundFamilies } from "./generated/soundManifest.js";
+import {
+  audioGainAt,
+  audioMotionPosition,
+  createAudioSpatializer,
+  distanceAttenuationGain,
+  normalizeAudioGain,
+  normalizeAudioGainAutomation,
+  normalizeAudioMotion,
+  normalizeAudioPosition,
+  normalizeDistanceAttenuation,
+  panFromPosition,
+  setAudioSpatializerPosition,
+} from "./spatial_audio.js";
 
-const AUDIO_PROTOCOL_VERSION = 2;
+const AUDIO_PROTOCOL_VERSION = 3;
 const AUDIO_OUTPUT_BUFFERS = new Set(["chat", "private", "game", "system", "misc"]);
 const MAX_ACTIVE_EFFECTS = 64;
 const MAX_ACTIVE_LAYERS = 32;
@@ -84,6 +97,19 @@ function normalizeDucking(ducking) {
   ));
 }
 
+function normalizeSpatialFields(packet) {
+  const position = normalizeAudioPosition(packet.position);
+  const attenuation = normalizeDistanceAttenuation(packet.attenuation);
+  if (position === null || attenuation === null || (attenuation && !position)) {
+    return null;
+  }
+  return {
+    position,
+    attenuation,
+    distanceGain: distanceAttenuationGain(position, attenuation),
+  };
+}
+
 function assetUrl(name, baseUrl, version) {
   const asset = validAsset(name);
   if (!asset) {
@@ -113,6 +139,8 @@ export function createAudioEngine(options = {}) {
   const targets = new Map();
   const generations = new Map();
   const targetGenerations = new Map();
+  const motions = new Map();
+  const gainAutomations = new Map();
   const effectBuffers = new Map();
   const effectBufferSizes = new Map();
   let effectBufferBytes = 0;
@@ -139,6 +167,8 @@ export function createAudioEngine(options = {}) {
   }
 
   function nextGeneration(handle) {
+    motions.delete(handle);
+    gainAutomations.delete(handle);
     const next = (generations.get(handle) || 0) + 1;
     generations.delete(handle);
     generations.set(handle, next);
@@ -150,6 +180,8 @@ export function createAudioEngine(options = {}) {
         break;
       }
       generations.delete(removable);
+      motions.delete(removable);
+      gainAutomations.delete(removable);
     }
     return next;
   }
@@ -198,6 +230,7 @@ export function createAudioEngine(options = {}) {
     for (const source of sources.values()) {
       if (!source.output && source.bus === bus && source.audio) {
         source.audio.volume = muted ? 0 : (source.mixLevel ?? source.baseVolume)
+          * source.distanceGain * source.sourceGain
           * masterValues[source.kind] * effectiveBusGain(bus);
       }
     }
@@ -235,12 +268,149 @@ export function createAudioEngine(options = {}) {
   function setOutputValue(source, value) {
     const bounded = clamp(value, 0, 1, 0);
     source.mixLevel = bounded;
+    const effective = bounded * source.distanceGain * source.sourceGain;
     if (source.output && context) {
-      source.output.gain.setValueAtTime(bounded, context.currentTime);
+      source.output.gain.setValueAtTime(effective, context.currentTime);
     } else if (source.audio) {
-      source.audio.volume = muted ? 0 : bounded
+      source.audio.volume = muted ? 0 : effective
         * masterValues[source.kind] * effectiveBusGain(source.bus);
     }
+  }
+
+  function audioClockMs() {
+    return context ? context.currentTime * 1000 : performance.now();
+  }
+
+  function applyMotionFrame(record) {
+    if (
+      motions.get(record.handle) !== record
+      || generations.get(record.handle) !== record.generation
+    ) {
+      return true;
+    }
+    const elapsed = Math.min(
+      record.motion.duration_ms,
+      Math.max(0, audioClockMs() - record.startedAt),
+    );
+    const sourceKey = handles.get(record.handle);
+    const source = sourceKey ? sources.get(sourceKey) : null;
+    if (source) {
+      if (source.kind !== record.kind || source.generation !== record.generation) {
+        motions.delete(record.handle);
+        return true;
+      }
+      const position = audioMotionPosition(record.motion, elapsed);
+      source.position = position;
+      source.pan = panFromPosition(position) * 100;
+      if (source.panner && context) {
+        setAudioSpatializerPosition(source.panner, context, position);
+      }
+      source.distanceGain = distanceAttenuationGain(position, source.attenuation);
+      setOutputValue(source, outputValue(source));
+    }
+    if (elapsed >= record.motion.duration_ms) {
+      motions.delete(record.handle);
+      return true;
+    }
+    return false;
+  }
+
+  function scheduleMotionFrame(record) {
+    const schedule = window.requestAnimationFrame
+      || ((callback) => window.setTimeout(callback, 16));
+    schedule(() => {
+      if (!applyMotionFrame(record)) {
+        scheduleMotionFrame(record);
+      }
+    });
+  }
+
+  function startSourceMotion(kind, handle, motion) {
+    const generation = generations.get(handle);
+    const sourceKey = handles.get(handle);
+    const source = sourceKey ? sources.get(sourceKey) : null;
+    if (source && source.kind !== kind) {
+      return false;
+    }
+    if (generation === undefined) {
+      return true;
+    }
+    const record = {
+      handle,
+      kind,
+      generation,
+      motion,
+      startedAt: audioClockMs() - motion.elapsed_ms,
+    };
+    motions.set(handle, record);
+    applyMotionFrame(record);
+    if (motions.get(handle) === record) {
+      scheduleMotionFrame(record);
+    }
+    return true;
+  }
+
+  function applyGainFrame(record) {
+    if (
+      gainAutomations.get(record.handle) !== record
+      || generations.get(record.handle) !== record.generation
+    ) {
+      return true;
+    }
+    const elapsed = Math.min(
+      record.automation.duration_ms,
+      Math.max(0, audioClockMs() - record.startedAt),
+    );
+    const sourceKey = handles.get(record.handle);
+    const source = sourceKey ? sources.get(sourceKey) : null;
+    if (source) {
+      if (source.kind !== record.kind || source.generation !== record.generation) {
+        gainAutomations.delete(record.handle);
+        return true;
+      }
+      source.sourceGain = audioGainAt(record.automation, elapsed);
+      setOutputValue(source, outputValue(source));
+    }
+    if (elapsed >= record.automation.duration_ms) {
+      gainAutomations.delete(record.handle);
+      return true;
+    }
+    return false;
+  }
+
+  function scheduleGainFrame(record) {
+    const schedule = window.requestAnimationFrame
+      || ((callback) => window.setTimeout(callback, 16));
+    schedule(() => {
+      if (!applyGainFrame(record)) {
+        scheduleGainFrame(record);
+      }
+    });
+  }
+
+  function startSourceGainAutomation(kind, handle, automation) {
+    const generation = generations.get(handle);
+    const sourceKey = handles.get(handle);
+    const source = sourceKey ? sources.get(sourceKey) : null;
+    if (source && source.kind !== kind) {
+      return false;
+    }
+    if (generation === undefined) {
+      return true;
+    }
+    const record = {
+      handle,
+      kind,
+      generation,
+      automation,
+      startedAt: audioClockMs() - automation.elapsed_ms,
+    };
+    gainAutomations.set(handle, record);
+    applyGainFrame(record);
+    if (gainAutomations.get(handle) === record) {
+      scheduleGainFrame(record);
+    }
+    return true;
   }
 
   function cancelPendingHandle(handle) {
@@ -306,6 +476,8 @@ export function createAudioEngine(options = {}) {
     sources.delete(key);
     duckRequests.delete(key);
     if (handles.get(source.handle) === key) {
+      motions.delete(source.handle);
+      gainAutomations.delete(source.handle);
       handles.delete(source.handle);
     }
     if (source.target && targets.get(source.target) === key) {
@@ -402,6 +574,10 @@ export function createAudioEngine(options = {}) {
         handle: outroHandle,
         bus,
         volume: source.baseVolume * 100,
+        position: source.position,
+        attenuation: source.attenuation,
+        gain: source.sourceGain,
+        pan: source.pan,
         loop: false,
       }, "", nextGeneration(outroHandle));
     }
@@ -424,7 +600,7 @@ export function createAudioEngine(options = {}) {
       : context.currentTime + 0.02;
     const outroNode = context.createBufferSource();
     outroNode.buffer = source.stem.outroBuffer;
-    outroNode.connect(source.output);
+    outroNode.connect(source.panner || source.output);
     source.nodes.add(outroNode);
     try {
       source.stem.loopNode.stop(boundary);
@@ -441,6 +617,8 @@ export function createAudioEngine(options = {}) {
     if (handles.get(source.handle) === source.key) {
       handles.delete(source.handle);
     }
+    motions.delete(source.handle);
+    gainAutomations.delete(source.handle);
     outroNode.addEventListener("ended", () => cleanup(source.key), { once: true });
     return true;
   }
@@ -454,6 +632,14 @@ export function createAudioEngine(options = {}) {
     if (source.ducking?.size) {
       duckRequests.set(source.key, source.ducking);
       refreshDucking();
+    }
+    const motion = motions.get(source.handle);
+    if (motion) {
+      applyMotionFrame(motion);
+    }
+    const gainAutomation = gainAutomations.get(source.handle);
+    if (gainAutomation) {
+      applyGainFrame(gainAutomation);
     }
   }
 
@@ -566,14 +752,15 @@ export function createAudioEngine(options = {}) {
     const node = context.createBufferSource();
     const output = context.createGain();
     const baseVolume = clamp(packet.volume, 0, 100, 100) / 100;
-    output.gain.value = packet.fade_in_ms ? 0 : baseVolume;
+    output.gain.value = 0;
     node.buffer = buffer;
     node.loop = Boolean(packet.loop);
     node.playbackRate.value = clamp(packet.pitch, 25, 400, 100) / 100;
-    let panner = null;
-    if (typeof context.createStereoPanner === "function") {
-      panner = context.createStereoPanner();
-      panner.pan.value = clamp(packet.pan, -100, 100, 0) / 100;
+    const panner = createAudioSpatializer(context, {
+      position: packet.position,
+      pan: clamp(packet.pan, -100, 100, 0) / 100,
+    });
+    if (panner) {
       node.connect(panner);
       panner.connect(output);
     } else {
@@ -592,6 +779,9 @@ export function createAudioEngine(options = {}) {
       priority,
       createdAt: performance.now(),
       baseVolume,
+      attenuation: packet.attenuation,
+      distanceGain: distanceAttenuationGain(packet.position, packet.attenuation),
+      sourceGain: packet.gain ?? 1,
       node,
       output,
       panner,
@@ -606,7 +796,10 @@ export function createAudioEngine(options = {}) {
       nodes: new Set([node]),
       seamless: false,
       stem: null,
+      position: packet.position,
+      pan: clamp(packet.pan, -100, 100, 0),
     };
+    setOutputValue(source, packet.fade_in_ms ? 0 : baseVolume);
     register(source);
     node.addEventListener("ended", () => cleanup(key), { once: true });
     node.start();
@@ -627,18 +820,27 @@ export function createAudioEngine(options = {}) {
     return { audio, url };
   }
 
-  function connectElement(audio, kind, bus) {
+  function connectElement(audio, kind, bus, packet) {
     if (!context) {
-      return { output: null, panner: null };
+      return { node: null, output: null, panner: null };
     }
     try {
       const node = context.createMediaElementSource(audio);
       const output = context.createGain();
-      node.connect(output);
+      const panner = createAudioSpatializer(context, {
+        position: packet.position,
+        pan: clamp(packet.pan, -100, 100, 0) / 100,
+      });
+      if (panner) {
+        node.connect(panner);
+        panner.connect(output);
+      } else {
+        node.connect(output);
+      }
       output.connect(busNode(kind, bus));
-      return { output, panner: node };
+      return { node, output, panner: panner || null };
     } catch {
-      return { output: null, panner: null };
+      return { node: null, output: null, panner: null };
     }
   }
 
@@ -678,7 +880,7 @@ export function createAudioEngine(options = {}) {
     const { audio } = created;
     const kind = packet.kind;
     const bus = String(packet.bus || kind);
-    const connected = connectElement(audio, kind, bus);
+    const connected = connectElement(audio, kind, bus, packet);
     const baseVolume = clamp(packet.volume, 0, 100, 100) / 100;
     audio.loop = Boolean(packet.loop);
     audio.muted = muted;
@@ -696,7 +898,10 @@ export function createAudioEngine(options = {}) {
       priority: clamp(packet.priority, -100, 100, 0),
       createdAt: performance.now(),
       baseVolume,
-      node: null,
+      attenuation: packet.attenuation,
+      distanceGain: distanceAttenuationGain(packet.position, packet.attenuation),
+      sourceGain: packet.gain ?? 1,
+      node: connected.node,
       output: connected.output,
       panner: connected.panner,
       audio,
@@ -714,6 +919,8 @@ export function createAudioEngine(options = {}) {
       bufferOffset: 0,
       startedAt: 0,
       nodeToken: 0,
+      position: packet.position,
+      pan: clamp(packet.pan, -100, 100, 0),
     };
     setOutputValue(source, packet.fade_in_ms ? 0 : baseVolume);
     register(source);
@@ -760,7 +967,7 @@ export function createAudioEngine(options = {}) {
     const node = context.createBufferSource();
     node.buffer = source.buffer;
     node.loop = source.loop;
-    node.connect(source.output);
+    node.connect(source.panner || source.output);
     const boundedOffset = source.buffer.duration > 0
       ? Math.min(Math.max(0, offset), source.buffer.duration)
       : 0;
@@ -817,9 +1024,14 @@ export function createAudioEngine(options = {}) {
       return true;
     }
     const output = context.createGain();
+    const panner = createAudioSpatializer(context, {
+      position: packet.position,
+      pan: clamp(packet.pan, -100, 100, 0) / 100,
+    });
+    panner?.connect(output);
     const bus = String(packet.bus || "music");
     const baseVolume = clamp(packet.volume, 0, 100, 100) / 100;
-    output.gain.value = packet.fade_in_ms ? 0 : baseVolume;
+    output.gain.value = 0;
     output.connect(busNode("music", bus));
     const key = sourceId();
     const source = {
@@ -832,9 +1044,12 @@ export function createAudioEngine(options = {}) {
       priority: clamp(packet.priority, -100, 100, 0),
       createdAt: performance.now(),
       baseVolume,
+      attenuation: packet.attenuation,
+      distanceGain: distanceAttenuationGain(packet.position, packet.attenuation),
+      sourceGain: packet.gain ?? 1,
       node: null,
       output,
-      panner: null,
+      panner: panner || null,
       audio: null,
       target,
       outro: "",
@@ -851,7 +1066,10 @@ export function createAudioEngine(options = {}) {
       startedAt: 0,
       nodeToken: 0,
       loop: packet.loop !== false,
+      position: packet.position,
+      pan: clamp(packet.pan, -100, 100, 0),
     };
+    setOutputValue(source, packet.fade_in_ms ? 0 : baseVolume);
     register(source);
     if (!startBufferedLayerNode(source)) {
       cleanup(key);
@@ -894,9 +1112,14 @@ export function createAudioEngine(options = {}) {
     }
 
     const output = context.createGain();
+    const panner = createAudioSpatializer(context, {
+      position: packet.position,
+      pan: clamp(packet.pan, -100, 100, 0) / 100,
+    });
+    panner?.connect(output);
     const bus = String(packet.bus || "ambience");
     const baseVolume = clamp(packet.volume, 0, 100, 100) / 100;
-    output.gain.value = packet.fade_in_ms ? 0 : baseVolume;
+    output.gain.value = 0;
     output.connect(busNode("ambience", bus));
     const introNode = introBuffer ? context.createBufferSource() : null;
     const loopNode = context.createBufferSource();
@@ -904,11 +1127,11 @@ export function createAudioEngine(options = {}) {
     const loopStartedAt = startAt + (introBuffer?.duration || 0);
     if (introNode) {
       introNode.buffer = introBuffer;
-      introNode.connect(output);
+      introNode.connect(panner || output);
     }
     loopNode.buffer = loopBuffer;
     loopNode.loop = packet.loop !== false;
-    loopNode.connect(output);
+    loopNode.connect(panner || output);
     const key = sourceId();
     const nodes = new Set([loopNode]);
     if (introNode) {
@@ -924,10 +1147,13 @@ export function createAudioEngine(options = {}) {
       priority: clamp(packet.priority, -100, 100, 0),
       createdAt: performance.now(),
       baseVolume,
+      attenuation: packet.attenuation,
+      distanceGain: distanceAttenuationGain(packet.position, packet.attenuation),
+      sourceGain: packet.gain ?? 1,
       node: loopNode,
       nodes,
       output,
-      panner: null,
+      panner: panner || null,
       audio: null,
       target,
       outro: outroAsset,
@@ -951,7 +1177,10 @@ export function createAudioEngine(options = {}) {
       bufferOffset: 0,
       startedAt: 0,
       nodeToken: 0,
+      position: packet.position,
+      pan: clamp(packet.pan, -100, 100, 0),
     };
+    setOutputValue(source, packet.fade_in_ms ? 0 : baseVolume);
     register(source);
     if (introNode) {
       introNode.start(startAt);
@@ -968,7 +1197,8 @@ export function createAudioEngine(options = {}) {
 
   async function playSound(packet) {
     const resolvedPacket = resolveSoundPacket(packet);
-    if (!resolvedPacket) {
+    const spatial = normalizeSpatialFields(packet);
+    if (!resolvedPacket || !spatial) {
       return "";
     }
     const normalized = {
@@ -979,6 +1209,8 @@ export function createAudioEngine(options = {}) {
       volume: packet.volume ?? 100,
       pan: packet.pan ?? 0,
       pitch: packet.pitch ?? 100,
+      position: spatial.position,
+      attenuation: spatial.attenuation,
     };
     const handle = String(packet.handle || `sfx:${sourceId()}`);
     cancelPendingHandle(handle);
@@ -996,7 +1228,8 @@ export function createAudioEngine(options = {}) {
   function playLayer(packet) {
     const kind = packet.kind;
     const asset = validAsset(packet.asset);
-    if (!asset || !["music", "ambience"].includes(kind)) {
+    const spatial = normalizeSpatialFields(packet);
+    if (!asset || !["music", "ambience"].includes(kind) || !spatial) {
       return "";
     }
     const target = targetOf(packet);
@@ -1028,6 +1261,8 @@ export function createAudioEngine(options = {}) {
       loop: packet.loop ?? true,
       bus: packet.bus || kind,
       volume: packet.volume ?? 100,
+      position: spatial.position,
+      attenuation: spatial.attenuation,
     };
     const intro = kind === "ambience" && packet.play_intro !== false
       ? validAsset(packet.intro)
@@ -1287,9 +1522,34 @@ export function createAudioEngine(options = {}) {
     if (!packet || typeof packet !== "object" || Array.isArray(packet)) {
       return false;
     }
-    if (Number(packet.version) !== AUDIO_PROTOCOL_VERSION) {
+    if (packet.version !== AUDIO_PROTOCOL_VERSION) {
       return false;
     }
+    const spatial = normalizeSpatialFields(packet);
+    const motion = normalizeAudioMotion(packet.motion);
+    const gain = packet.gain === undefined ? 1 : normalizeAudioGain(packet.gain);
+    const gainAutomation = normalizeAudioGainAutomation(packet.gain_automation);
+    if (
+      !spatial
+      || motion === null
+      || gain === null
+      || gainAutomation === null
+      || (spatial.position !== undefined && packet.command !== "play")
+      || (spatial.attenuation !== undefined && packet.command !== "play")
+      || (motion !== undefined && packet.command !== "update")
+      || (Object.hasOwn(packet, "gain") && packet.command !== "play")
+      || (gainAutomation !== undefined && packet.command !== "update")
+    ) {
+      return false;
+    }
+    packet = {
+      ...packet,
+      position: spatial.position,
+      attenuation: spatial.attenuation,
+      motion,
+      gain,
+      gain_automation: gainAutomation,
+    };
     for (const field of ["handle", "bus", "context", "layer"]) {
       if (packet[field] && !validId(packet[field])) {
         return false;
@@ -1342,6 +1602,22 @@ export function createAudioEngine(options = {}) {
       return false;
     }
     switch (packet.command) {
+      case "update":
+        if (
+          !["sfx", "music", "ambience"].includes(packet.kind)
+          || !packet.handle
+          || (!motion && !gainAutomation)
+        ) {
+          return false;
+        }
+        return (
+          (!motion || startSourceMotion(packet.kind, packet.handle, motion))
+          && (!gainAutomation || startSourceGainAutomation(
+            packet.kind,
+            packet.handle,
+            gainAutomation,
+          ))
+        );
       case "play":
         if (!["sfx", "music", "ambience"].includes(packet.kind)) {
           return false;
@@ -1580,6 +1856,14 @@ export function createAudioEngine(options = {}) {
           && !source.stem.outroScheduled
         ),
       ).length,
+      spatialSourceCount: [...sources.values()].filter(
+        (source) => source.position && source.panner,
+      ).length,
+      attenuatedSourceCount: [...sources.values()].filter(
+        (source) => source.distanceGain < 1,
+      ).length,
+      movingSourceCount: motions.size,
+      automatedGainSourceCount: gainAutomations.size,
     });
   }
 

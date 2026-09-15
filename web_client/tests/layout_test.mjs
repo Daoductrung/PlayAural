@@ -253,7 +253,12 @@ test("locale metadata identifies Persian as right-to-left", async () => {
 
 test("the offline shell precaches the updated UI modules", async () => {
   const serviceWorker = await readFile(new URL("../sw.js", import.meta.url), "utf8");
-  for (const asset of ["store.js", "ui/history.js", "ui/collapsiblePanels.js"]) {
+  for (const asset of [
+    "store.js",
+    "spatial_audio.js",
+    "ui/history.js",
+    "ui/collapsiblePanels.js",
+  ]) {
     assert.match(serviceWorker, new RegExp(`\\./${asset.replace("/", "\\/")}`));
   }
 });

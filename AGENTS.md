@@ -288,10 +288,35 @@ Audio-first is mandatory. Every important state change needs TTS and/or sound.
 - Randomized numbered one-shot SFX use the validated `family` field. Clients
   select from dynamically discovered `<family><positive integer>` assets; do
   not hardcode a variant count or use families for loops, music, or ambience.
+- Positioned `play` commands may carry a complete `attenuation` object using
+  `none`, `linear`, `inverse`, or `exponential`. Active curves always include
+  reference/maximum distance, rolloff, and minimum/maximum gain; clients must
+  reject partial or out-of-range objects. Omission and explicit `none` both
+  spatialize without volume falloff. Evaluate the versioned formulas in the
+  shared mixer exactly once and keep renderer/backend distance gain neutral.
+- Replayable positioned sources move through a stable-handle `update` command
+  carrying complete origin/destination positions, integer duration/elapsed
+  milliseconds, and a named easing curve. The server advances and persists
+  authoritative trajectory state; clients interpolate on their audio clocks.
+  Reconnect resumes from persisted elapsed state, while stop and replacement
+  generations cancel stale interpolation. Never persist process clock values.
 - Looping SFX use stable handles and explicit stop; music supports fade
   pause/resume/stop; ambience uses independent `global`, `player`, or `context`
   scope plus a stable layer. Switching music or one ambience layer crossfades
   without disturbing unrelated layers.
+- Stable handles are client-global. Server replay state must mirror handle and
+  layer replacement exactly; never leave two overlapping sources that one
+  recipient's client cannot own simultaneously. Reject a private operation
+  that would partially replace public replay state.
+- `play` may set an independent normalized source gain. Stable-handle `update`
+  may automate source gain, position, or both concurrently. Keep authored
+  volume, source gain, attenuation, fade envelope, bus/duck gain, and user
+  master volume as separate mixer stages. Persist current replayable gain and
+  unfinished automation, never process-clock timestamps.
+- Environmental boundary blends keep independent ambience layers playing and
+  phase coherent. Convert normalized zone weights to linear or equal-power
+  source-gain targets; do not restart stems. Zero-gain layers remain active
+  until explicit lifecycle teardown.
 - Ambience stems may define any combination of intro, loop, and outro assets.
   With seamless stem playback, intro-to-loop and loop-to-outro are contiguous
   boundaries with no fade or crossfade; fades apply only to starting, replacing,
@@ -307,6 +332,10 @@ Audio-first is mandatory. Every important state change needs TTS and/or sound.
 - Named buses, priority/max-instance limits, and source-lifetime ducking are
   protocol data, not game/client hardcoding. User volume remains the master.
   Async loads and fades must be generation-guarded against stale resurrection.
+- Cross-client attenuation and automation math must use the shared protocol-v3
+  conformance vectors at the repository root. Extend that corpus when formulas
+  or easing curves change; do not copy independent expected values into each
+  client suite.
 - Ducking is a dormant, opt-in capability. Do not add `ducking` to first-party
   gameplay commands until a future feature deliberately enables and tunes it;
   keep zero-duck defaults behaviorally identical to an engine without ducking.

@@ -2,28 +2,39 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-import math
 import os
 import random
 import re
 import threading
 import time
 import uuid
+from dataclasses import dataclass, field
 
 from sound_cacher import SoundCacher
+from spatial_audio import (
+    AudioGainAutomation,
+    AudioMotion,
+    DistanceAttenuation,
+    audio_gain_at,
+    audio_motion_position,
+    distance_attenuation_gain,
+    normalize_audio_gain,
+    normalize_audio_gain_automation,
+    normalize_audio_motion,
+    normalize_audio_position,
+    normalize_distance_attenuation,
+)
 
-
-AUDIO_PROTOCOL_VERSION = 2
+AUDIO_PROTOCOL_VERSION = 3
 SPATIAL_MODES = ("off", "stereo", "headphones")
 DEFAULT_SPATIAL_MODE = "headphones"
-MAX_POSITION_MAGNITUDE = 1000.0
 AUDIO_OUTPUT_BUFFERS = frozenset({"chat", "private", "game", "system", "misc"})
 MAX_ACTIVE_EFFECTS = 64
 MAX_ACTIVE_LAYERS = 32
 MAX_SOUND_FAMILY_CACHE = 64
 MAX_GENERATION_ENTRIES = 512
 MAX_FADE_MS = 60_000
+SOURCE_AUTOMATION_INTERVAL_S = 1 / 60
 _ID_PATTERN = re.compile(r"^[A-Za-z0-9_.:-]{1,128}$")
 
 
@@ -41,22 +52,6 @@ def normalize_spatial_mode(value) -> str:
     return text if text in SPATIAL_MODES else DEFAULT_SPATIAL_MODE
 
 
-def _parse_position(value):
-    """Return a finite (x, y, z) tuple from a protocol field, or None."""
-    if not isinstance(value, (list, tuple)) or len(value) != 3:
-        return None
-    try:
-        coords = tuple(float(component) for component in value)
-    except (TypeError, ValueError):
-        return None
-    if not all(
-        math.isfinite(coord) and abs(coord) <= MAX_POSITION_MAGNITUDE
-        for coord in coords
-    ):
-        return None
-    return coords
-
-
 @dataclass
 class _AudioSource:
     handle: str
@@ -65,6 +60,10 @@ class _AudioSource:
     bus: str
     asset: str
     base_volume: float
+    position: tuple[float, float, float] | None = None
+    attenuation: DistanceAttenuation | None = None
+    distance_gain: float = 1.0
+    source_gain: float = 1.0
     priority: int = 0
     target: str = ""
     outro: str = ""
@@ -78,6 +77,22 @@ class _AudioSource:
     stopping: bool = False
     queued_streams: list[object] = field(default_factory=list)
     backend_callbacks: list[object] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class _SourceMotionRuntime:
+    kind: str
+    generation: int
+    motion: AudioMotion
+    started_at: float
+
+
+@dataclass(frozen=True)
+class _SourceGainRuntime:
+    kind: str
+    generation: int
+    automation: AudioGainAutomation
+    started_at: float
 
 
 class SoundManager:
@@ -110,6 +125,9 @@ class SoundManager:
         self._bus_fade_tokens: dict[str, int] = {}
         self._duck_requests: dict[str, dict[str, float]] = {}
         self._sound_family_cache: dict[str, tuple[str, ...]] = {}
+        self._motions: dict[str, _SourceMotionRuntime] = {}
+        self._gain_automations: dict[str, _SourceGainRuntime] = {}
+        self._automation_thread: threading.Thread | None = None
 
     # ------------------------------------------------------------------
     # Validation and low-level stream lifecycle
@@ -263,6 +281,8 @@ class SoundManager:
         return None
 
     def _next_generation(self, handle: str) -> int:
+        self._motions.pop(handle, None)
+        self._gain_automations.pop(handle, None)
         generation = self._generations.get(handle, 0) + 1
         self._generations.pop(handle, None)
         self._generations[handle] = generation
@@ -278,7 +298,146 @@ class SoundManager:
             if removable is None:
                 break
             self._generations.pop(removable, None)
+            self._motions.pop(removable, None)
+            self._gain_automations.pop(removable, None)
         return generation
+
+    def _apply_motion_to_source_locked(
+        self,
+        source: _AudioSource,
+        runtime: _SourceMotionRuntime,
+        now: float,
+    ) -> bool:
+        """Apply one source-motion frame; return true at the destination."""
+        elapsed_ms = min(
+            runtime.motion.duration_ms,
+            max(0.0, (now - runtime.started_at) * 1000.0),
+        )
+        position = audio_motion_position(runtime.motion, elapsed_ms)
+        source.position = position
+        try:
+            source.stream.position = position
+        except Exception:
+            return True
+        source.distance_gain = distance_attenuation_gain(
+            position,
+            source.attenuation,
+        )
+        self._set_stream_volume(source.stream, self._effective_volume(source))
+        return elapsed_ms >= runtime.motion.duration_ms
+
+    def _apply_gain_to_source_locked(
+        self,
+        source: _AudioSource,
+        runtime: _SourceGainRuntime,
+        now: float,
+    ) -> bool:
+        """Apply one source-gain frame; return true at the destination."""
+        elapsed_ms = min(
+            runtime.automation.duration_ms,
+            max(0.0, (now - runtime.started_at) * 1000.0),
+        )
+        source.source_gain = audio_gain_at(runtime.automation, elapsed_ms)
+        self._set_stream_volume(source.stream, self._effective_volume(source))
+        return elapsed_ms >= runtime.automation.duration_ms
+
+    def _run_automation_worker(self) -> None:
+        while True:
+            with self._lock:
+                now = time.monotonic()
+                for handle, runtime in list(self._motions.items()):
+                    if self._generations.get(handle) != runtime.generation:
+                        self._motions.pop(handle, None)
+                        continue
+                    source = self._sources.get(handle)
+                    if source is None:
+                        if (
+                            now - runtime.started_at
+                            >= runtime.motion.duration_ms / 1000.0
+                        ):
+                            self._motions.pop(handle, None)
+                        continue
+                    if source.kind != runtime.kind or source.generation != runtime.generation:
+                        self._motions.pop(handle, None)
+                        continue
+                    if self._apply_motion_to_source_locked(source, runtime, now):
+                        self._motions.pop(handle, None)
+                for handle, runtime in list(self._gain_automations.items()):
+                    if self._generations.get(handle) != runtime.generation:
+                        self._gain_automations.pop(handle, None)
+                        continue
+                    source = self._sources.get(handle)
+                    if source is None:
+                        if (
+                            now - runtime.started_at
+                            >= runtime.automation.duration_ms / 1000.0
+                        ):
+                            self._gain_automations.pop(handle, None)
+                        continue
+                    if source.kind != runtime.kind or source.generation != runtime.generation:
+                        self._gain_automations.pop(handle, None)
+                        continue
+                    if self._apply_gain_to_source_locked(source, runtime, now):
+                        self._gain_automations.pop(handle, None)
+                if not self._motions and not self._gain_automations:
+                    self._automation_thread = None
+                    return
+            time.sleep(SOURCE_AUTOMATION_INTERVAL_S)
+
+    def _start_source_motion(self, kind: str, handle: str, motion: AudioMotion) -> None:
+        with self._lock:
+            generation = self._generations.get(handle)
+            source = self._sources.get(handle)
+            if source is not None and source.kind != kind:
+                raise ValueError("Audio motion kind does not match its source")
+            if generation is None:
+                return
+            runtime = _SourceMotionRuntime(
+                kind=kind,
+                generation=generation,
+                motion=motion,
+                started_at=time.monotonic() - (motion.elapsed_ms / 1000.0),
+            )
+            self._motions[handle] = runtime
+            if source is not None:
+                self._apply_motion_to_source_locked(source, runtime, time.monotonic())
+            if self._automation_thread is None:
+                self._automation_thread = threading.Thread(
+                    target=self._run_automation_worker,
+                    daemon=True,
+                )
+                self._automation_thread.start()
+
+    def _start_source_gain_automation(
+        self,
+        kind: str,
+        handle: str,
+        automation: AudioGainAutomation,
+    ) -> None:
+        with self._lock:
+            generation = self._generations.get(handle)
+            source = self._sources.get(handle)
+            if source is not None and source.kind != kind:
+                raise ValueError("Audio gain kind does not match its source")
+            if generation is None:
+                return
+            runtime = _SourceGainRuntime(
+                kind=kind,
+                generation=generation,
+                automation=automation,
+                started_at=(
+                    time.monotonic() - (automation.elapsed_ms / 1000.0)
+                ),
+            )
+            self._gain_automations[handle] = runtime
+            if source is not None:
+                self._apply_gain_to_source_locked(source, runtime, time.monotonic())
+            if self._automation_thread is None:
+                self._automation_thread = threading.Thread(
+                    target=self._run_automation_worker,
+                    daemon=True,
+                )
+                self._automation_thread.start()
 
     def _master_gain(self, kind: str) -> float:
         if kind == "music":
@@ -298,6 +457,8 @@ class SoundManager:
     def _base_mix_volume(self, source: _AudioSource) -> float:
         return (
             source.base_volume
+            * source.distance_gain
+            * source.source_gain
             * self._master_gain(source.kind)
             * self._bus_gains.get(source.bus, 1.0)
             * self._duck_gain(source.bus)
@@ -400,6 +561,9 @@ class SoundManager:
                             "loop": False,
                             "volume": round(outro_volume * 100),
                             "priority": outro_priority,
+                            "position": source.position,
+                            "attenuation": source.attenuation,
+                            "gain": source.source_gain,
                         }
                     )
             elif pause:
@@ -427,6 +591,8 @@ class SoundManager:
             ):
                 return
             self._sources.pop(handle, None)
+            self._motions.pop(handle, None)
+            self._gain_automations.pop(handle, None)
             self._duck_requests.pop(handle, None)
             if source.target and self._targets.get(source.target) == handle:
                 self._targets.pop(source.target, None)
@@ -500,12 +666,21 @@ class SoundManager:
         max_instances=0,
         ducking=None,
         position=None,
+        attenuation=None,
+        gain=1.0,
     ):
         """Play an effect; managed/looping calls may later stop by handle.
 
         ``position`` is an optional (x, y, z) in the listener's frame; it
         is rendered according to the client's spatial audio setting.
         """
+        try:
+            position = normalize_audio_position(position)
+            attenuation = normalize_distance_attenuation(attenuation)
+            distance_gain = distance_attenuation_gain(position, attenuation)
+            source_gain = normalize_audio_gain(gain)
+        except ValueError:
+            return None
         base_volume = _clamp(volume, 0.0, 1.0, 1.0)
         resolved_handle = str(handle or f"oneshot:{uuid.uuid4().hex}")
         with self._lock:
@@ -534,10 +709,15 @@ class SoundManager:
             generation = self._next_generation(resolved_handle)
             stream_obj = self._create_stream(
                 sound_name,
-                volume=0.0 if fade_in_ms else base_volume * self.sound_volume,
+                volume=(
+                    0.0
+                    if fade_in_ms
+                    else base_volume * source_gain * self.sound_volume
+                ),
                 pan=_clamp(pan, -1.0, 1.0, 0.0),
                 pitch=_clamp(pitch, 0.25, 4.0, 1.0),
                 looping=bool(looping),
+                start=False,
                 position=position,
             )
             if not stream_obj:
@@ -549,6 +729,10 @@ class SoundManager:
                 bus=str(bus or "sfx"),
                 asset=str(sound_name),
                 base_volume=base_volume,
+                position=position,
+                attenuation=attenuation,
+                distance_gain=distance_gain,
+                source_gain=source_gain,
                 priority=int(_clamp(priority, -100, 100, 0)),
                 ducking={
                     str(key): _clamp(value, 0.0, 1.0, 1.0)
@@ -561,6 +745,9 @@ class SoundManager:
             if source.ducking:
                 self._duck_requests[resolved_handle] = source.ducking
             self._apply_mix()
+        if not self._start_stream(stream_obj):
+            self._release_source(resolved_handle, generation)
+            return None
         if fade_in_ms:
             self._fade(source, fade_in_ms, fade_in=True)
         self._watch(source)
@@ -587,6 +774,9 @@ class SoundManager:
         if pause:
             source.paused = True
         else:
+            with self._lock:
+                self._motions.pop(str(handle), None)
+                self._gain_automations.pop(str(handle), None)
             source.stopping = True
             if (
                 play_outro
@@ -618,6 +808,7 @@ class SoundManager:
             volume=self._effective_volume(source),
             looping=False,
             start=False,
+            position=source.position,
         )
         if not outro_stream:
             return False
@@ -670,6 +861,7 @@ class SoundManager:
             volume=self._effective_volume(source),
             looping=False,
             start=False,
+            position=source.position,
         )
         if not outro_stream:
             return False
@@ -778,6 +970,10 @@ class SoundManager:
 
         generation = self._next_generation(handle)
         base_volume = _clamp(packet.get("volume", 100), 0, 100, 100) / 100
+        source_gain = packet.get("gain", 1.0)
+        position = packet.get("position")
+        attenuation = packet.get("attenuation")
+        distance_gain = distance_attenuation_gain(position, attenuation)
         intro = (
             str(packet.get("intro") or "")
             if packet.get("play_intro", True)
@@ -804,8 +1000,16 @@ class SoundManager:
                 envelope = 1.0
             stream_obj = stream_obj or self._create_stream(
                 asset_name,
-                volume=base_volume * self._master_gain(kind) * envelope,
+                volume=(
+                    base_volume
+                    * distance_gain
+                    * source_gain
+                    * self._master_gain(kind)
+                    * envelope
+                ),
                 looping=looping,
+                start=False,
+                position=position,
             )
             if not stream_obj:
                 return None
@@ -816,6 +1020,10 @@ class SoundManager:
                 bus=str(packet.get("bus") or kind),
                 asset=asset_name,
                 base_volume=base_volume,
+                position=position,
+                attenuation=attenuation,
+                distance_gain=distance_gain,
+                source_gain=source_gain,
                 priority=int(_clamp(packet.get("priority", 0), -100, 100, 0)),
                 target=target,
                 outro=(
@@ -840,6 +1048,23 @@ class SoundManager:
                 self._targets[target] = handle
                 if source.ducking:
                     self._duck_requests[handle] = source.ducking
+                runtime = self._motions.get(handle)
+                if runtime is not None and runtime.generation == generation:
+                    self._apply_motion_to_source_locked(
+                        source,
+                        runtime,
+                        time.monotonic(),
+                    )
+                gain_runtime = self._gain_automations.get(handle)
+                if (
+                    gain_runtime is not None
+                    and gain_runtime.generation == generation
+                ):
+                    self._apply_gain_to_source_locked(
+                        source,
+                        gain_runtime,
+                        time.monotonic(),
+                    )
                 self._apply_mix()
             if stream_obj is not None and not self._stream_is_playing(stream_obj):
                 if not self._start_stream(stream_obj):
@@ -860,9 +1085,15 @@ class SoundManager:
         loop_enabled = bool(packet.get("loop", True))
         prepared_loop = self._create_stream(
             loop_asset,
-            volume=0.0 if fade_in_ms else base_volume * self._master_gain(kind),
+            volume=(
+                0.0
+                if fade_in_ms
+                else base_volume * distance_gain * self._master_gain(kind)
+                * source_gain
+            ),
             looping=loop_enabled,
             start=False,
+            position=position,
         )
         intro_started_at = time.monotonic()
         intro_source = install(intro, False, outro="", watch=False)
@@ -933,6 +1164,9 @@ class SoundManager:
         layer: str = "main",
         fade_in_ms: int = 800,
         fade_out_ms: int = 800,
+        position=None,
+        attenuation=None,
+        gain=1.0,
     ):
         return self._play_layer(
             {
@@ -946,6 +1180,9 @@ class SoundManager:
                 "loop": looping,
                 "fade_in_ms": fade_in_ms if fade_out_old else 0,
                 "fade_out_ms": fade_out_ms if fade_out_old else 0,
+                "position": normalize_audio_position(position),
+                "attenuation": normalize_distance_attenuation(attenuation),
+                "gain": normalize_audio_gain(gain),
             }
         )
 
@@ -996,6 +1233,9 @@ class SoundManager:
         layer="environment",
         play_intro=True,
         seamless=True,
+        position=None,
+        attenuation=None,
+        gain=1.0,
     ):
         return self._play_layer(
             {
@@ -1013,6 +1253,9 @@ class SoundManager:
                 "seamless": seamless,
                 "fade_in_ms": fade_in_ms,
                 "fade_out_ms": fade_out_ms,
+                "position": normalize_audio_position(position),
+                "attenuation": normalize_distance_attenuation(attenuation),
+                "gain": normalize_audio_gain(gain),
             }
         )
 
@@ -1049,14 +1292,44 @@ class SoundManager:
         """Validate and execute a versioned server audio command."""
         if not isinstance(packet, dict):
             return False
+        version = packet.get("version")
+        if (
+            isinstance(version, bool)
+            or not isinstance(version, int)
+            or version != AUDIO_PROTOCOL_VERSION
+        ):
+            return False
+        command = packet.get("command")
         try:
-            version = int(packet.get("version", 0))
-        except (TypeError, ValueError, OverflowError):
+            position = normalize_audio_position(packet.get("position"))
+            attenuation = normalize_distance_attenuation(packet.get("attenuation"))
+            motion = normalize_audio_motion(packet.get("motion"))
+            gain = normalize_audio_gain(packet.get("gain", 1.0))
+            gain_automation = normalize_audio_gain_automation(
+                packet.get("gain_automation")
+            )
+        except ValueError:
             return False
-        if version != AUDIO_PROTOCOL_VERSION:
+        if position is not None and command != "play":
             return False
-        for field in ("handle", "bus", "context", "layer"):
-            if packet.get(field) and not self._valid_id(packet[field]):
+        if attenuation is not None and (
+            command != "play" or position is None
+        ):
+            return False
+        if motion is not None and command != "update":
+            return False
+        if "gain" in packet and command != "play":
+            return False
+        if gain_automation is not None and command != "update":
+            return False
+        packet = dict(packet)
+        packet["position"] = position
+        packet["attenuation"] = attenuation
+        packet["motion"] = motion
+        packet["gain"] = gain
+        packet["gain_automation"] = gain_automation
+        for field_name in ("handle", "bus", "context", "layer"):
+            if packet.get(field_name) and not self._valid_id(packet[field_name]):
                 return False
         if packet.get("scope", "global") not in {"global", "player", "context"}:
             return False
@@ -1070,7 +1343,6 @@ class SoundManager:
             return False
         if any(not self._valid_id(bus) for bus in ducking_data):
             return False
-        command = packet.get("command")
         kind = packet.get("kind", "")
         output_buffer = packet.get("buffer", "")
         if output_buffer and (
@@ -1083,6 +1355,24 @@ class SoundManager:
             return False
         if packet.get("family") and command != "play":
             return False
+        if command == "update":
+            handle = str(packet.get("handle") or "")
+            if (
+                kind not in {"sfx", "music", "ambience"}
+                or not handle
+                or (motion is None and gain_automation is None)
+            ):
+                return False
+            try:
+                if motion is not None:
+                    self._start_source_motion(kind, handle, motion)
+                if gain_automation is not None:
+                    self._start_source_gain_automation(
+                        kind, handle, gain_automation
+                    )
+            except ValueError:
+                return False
+            return True
         if packet.get("all_layers") and (
             command != "stop"
             or kind != "ambience"
@@ -1120,7 +1410,9 @@ class SoundManager:
                     priority=packet.get("priority", 0),
                     max_instances=packet.get("max_instances", 0),
                     ducking=ducking,
-                    position=_parse_position(packet.get("position")),
+                    position=position,
+                    attenuation=attenuation,
+                    gain=gain,
                 )
             else:
                 self._play_layer(packet)

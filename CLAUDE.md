@@ -137,7 +137,8 @@ The server validates relative asset paths, ids, numeric ranges, commands,
 kinds, and scopes through `server/audio.py`; clients validate again before
 loading an asset.
 
-- Commands are `play`, `stop`, `pause`, `resume`, `set_bus`, and `stop_all`.
+- Commands are `play`, `update`, `stop`, `pause`, `resume`, `set_bus`, and
+  `stop_all`.
 - Kinds are `sfx`, `music`, and `ambience`. A named bus may be added without
   changing the protocol and inherits its kind's user-volume preference.
 - Randomized numbered one-shot SFX use the validated `family` field. Desktop
@@ -145,13 +146,40 @@ loading an asset.
   generated sound manifests. A family named `notify` resolves dynamically to
   positive-integer assets such as `notify1.ogg`; never hardcode the count, and
   never use a family for loops, music, or ambience.
+- Positioned `play` commands may carry a complete `attenuation` object using
+  `none`, `linear`, `inverse`, or `exponential`. Active curves always include
+  reference/maximum distance, rolloff, and minimum/maximum gain; clients must
+  reject partial or out-of-range objects. Omission and explicit `none` both
+  spatialize without volume falloff. Evaluate the versioned formulas in the
+  shared mixer exactly once and keep renderer/backend distance gain neutral.
+- Replayable positioned sources move through a stable-handle `update` command
+  carrying complete origin/destination positions, integer duration/elapsed
+  milliseconds, and a named easing curve. The server advances and persists
+  authoritative trajectory state; clients interpolate on their audio clocks.
+  Reconnect resumes from persisted elapsed state, while stop and replacement
+  generations cancel stale interpolation. Never persist process clock values.
+- A `play` command may set an independent normalized source `gain`. The same
+  stable-handle `update` command may carry a complete gain automation, alone or
+  concurrently with position motion. Authored volume, source gain, distance
+  attenuation, fades, named buses, ducking, and user master volume remain
+  separate multiplicative stages; do not fold one into another or evaluate it
+  twice. The server persists current gain and unfinished automation so reconnect
+  resumes without restarting the asset.
 - Stable handles own lifecycle. Looping SFX must keep the returned/provided
-  handle and stop it explicitly. Stop/pause/resume are idempotent.
+  handle and stop it explicitly. Handles are client-global: reusing one for a
+  different replayable source replaces the prior ownership in persisted state
+  as well as on the client. A private play/update must not partially replace a
+  public handle or layer because that cannot be replayed unambiguously.
+  Stop/pause/resume are idempotent.
 - Music and ambience replacement use simultaneous fade-out/fade-in. Pausing
   music preserves position. Abrupt music stops are reserved for strict
   lifecycle boundaries where audio must not survive into the next context.
 - Ambience is keyed by `scope + context + layer`: `global`, `player`, or
   `context` scopes may coexist, and changing one layer must not stop another.
+  Environmental boundaries keep neighboring layers alive and phase coherent;
+  normalized weights drive linear or equal-power source-gain automation rather
+  than stop/play replacement. A zero-gain layer remains owned until an explicit
+  lifecycle stop, allowing a later boundary transition without an intro replay.
 - Ambience assets may be a simple loop or a segmented stem with optional intro
   and outro. When `seamless` is enabled, intro-to-loop and loop-to-outro are
   contiguous same-stem boundaries: never fade or crossfade those transitions.
@@ -172,6 +200,10 @@ loading an asset.
 - `priority` and `max_instances` bound SFX pressure. `ducking` temporarily
   lowers named buses for the life of its source and restores them on every
   completion/stop/error path. User volume remains the master gain.
+- Cross-client attenuation and automation math uses
+  `audio_protocol_v3_conformance.json` at the repository root. Extend that
+  single corpus when formulas or easing curves change; never maintain copied
+  expected values independently in the four client/server suites.
 - One-shot notification SFX may declare the message `buffer` they accompany.
   Clients apply effective buffer mute state before playback. Buffer association
   is invalid for managed or looping audio so lifecycle commands can never be

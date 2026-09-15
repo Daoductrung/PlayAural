@@ -11,8 +11,8 @@ use miniaudio_sys::{
     ma_sound_set_pitch, ma_sound_set_spatialization_enabled, ma_sound_set_volume, ma_sound_start,
     ma_sound_stop, ma_sound_uninit, MA_FALSE, MA_SOUND_FLAG_DECODE, MA_SUCCESS, MA_TRUE,
 };
+use std::f32::consts::{FRAC_1_SQRT_2, PI};
 use std::ffi::{c_void, CString};
-use std::f32::consts::PI;
 use std::mem::MaybeUninit;
 use std::ptr;
 use std::sync::{Arc, Mutex};
@@ -25,7 +25,7 @@ use crate::tween::{Easing, PitchTween};
 
 use crate::engine::AudioEngine;
 use crate::error::AudioError;
-use crate::phonon_node::BinauralNode;
+use crate::phonon_node::{BinauralNode, HrtfInterpolation};
 use crate::sync::lock;
 use crate::volume::db_to_linear;
 
@@ -102,6 +102,12 @@ pub struct Sound {
     // How pan, volume and pitch are derived: verbatim, from position, or HRTF.
     spatial_mode: SpatialMode,
 
+    // Explicit HRTF rendering policy. This is independent of distance
+    // attenuation: blend controls binaural coloration and interpolation
+    // controls direction-transition quality.
+    hrtf_spatial_blend: f32,
+    hrtf_interpolation: HrtfInterpolation,
+
     // Pan applied verbatim in direct mode and for stationary sounds.
     base_pan: f32,
 
@@ -125,11 +131,6 @@ pub struct Sound {
 }
 
 impl Sound {
-    /// Create a sound attached to the given audio engine (no group).
-    pub(crate) fn new(engine: Arc<Mutex<AudioEngine>>) -> Result<Self, AudioError> {
-        Self::new_in_group(engine, None)
-    }
-
     /// Create a sound that routes through the given bus instead of the engine endpoint.
     ///
     /// Use `SoundManager::create_sound()` / `create_sound_in_group()` instead of
@@ -164,6 +165,8 @@ impl Sound {
             behind_pitch_decrease: 0.04,
             hard_close_pan: true,
             spatial_mode: SpatialMode::Basic,
+            hrtf_spatial_blend: 1.0,
+            hrtf_interpolation: HrtfInterpolation::Bilinear,
             base_pan: 0.0,
             base_volume: 1.0,
             base_pitch: 1.0,
@@ -456,6 +459,9 @@ impl Sound {
 
     /// Set 3D position as a point (0-width AABB) and update spatialization.
     pub fn set_position(&mut self, x: f32, y: f32, z: f32) {
+        if !x.is_finite() || !y.is_finite() || !z.is_finite() {
+            return;
+        }
         self.min_x = x;
         self.min_y = y;
         self.min_z = z;
@@ -477,12 +483,27 @@ impl Sound {
         min_z: f32,
         max_z: f32,
     ) {
-        self.min_x = min_x;
-        self.max_x = max_x;
-        self.min_y = min_y;
-        self.max_y = max_y;
-        self.min_z = min_z;
-        self.max_z = max_z;
+        if ![min_x, max_x, min_y, max_y, min_z, max_z]
+            .iter()
+            .all(|coordinate| coordinate.is_finite())
+        {
+            return;
+        }
+        (self.min_x, self.max_x) = if min_x <= max_x {
+            (min_x, max_x)
+        } else {
+            (max_x, min_x)
+        };
+        (self.min_y, self.max_y) = if min_y <= max_y {
+            (min_y, max_y)
+        } else {
+            (max_y, min_y)
+        };
+        (self.min_z, self.max_z) = if min_z <= max_z {
+            (min_z, max_z)
+        } else {
+            (max_z, min_z)
+        };
         self.update_spatialization();
     }
 
@@ -592,7 +613,10 @@ impl Sound {
 
     /// Set base volume (0.0 to 1.0) - before 3D attenuation.
     pub fn set_volume(&mut self, volume: f32) {
-        self.base_volume = volume;
+        if !volume.is_finite() {
+            return;
+        }
+        self.base_volume = volume.clamp(0.0, 1.0);
         self.update_spatialization();
     }
 
@@ -602,9 +626,13 @@ impl Sound {
     }
 
     /// Set pitch (1.0 = normal).
-    /// The actual pitch may be further modified by behind_pitch_decrease during spatialization.
+    /// Basic spatialization may further modify it with behind_pitch_decrease;
+    /// HRTF mode preserves the authored pitch.
     /// Cancels any running pitch tween.
     pub fn set_pitch(&mut self, pitch: f32) {
+        if !pitch.is_finite() || pitch <= 0.0 {
+            return;
+        }
         self.base_pitch = pitch;
         self.pitch_tween = None;
         self.update_spatialization();
@@ -623,6 +651,9 @@ impl Sound {
     /// Replaces any existing tween. The tween advances whenever spatialization is
     /// recomputed (e.g. on listener updates) or via `SoundManager::tick()`.
     pub fn tween_pitch(&mut self, target: f32, duration: Duration, easing: Easing) {
+        if !target.is_finite() || target <= 0.0 {
+            return;
+        }
         // Sample the current value first so a tween starting mid-tween is smooth.
         if let Some(active) = &self.pitch_tween {
             let (current, _) = active.sample();
@@ -673,6 +704,9 @@ impl Sound {
     /// In the positional modes the pan is computed from position instead and
     /// this value is only remembered for when the mode changes back.
     pub fn set_pan(&mut self, pan: f32) {
+        if !pan.is_finite() {
+            return;
+        }
         self.base_pan = pan.clamp(-1.0, 1.0);
         self.update_spatialization();
     }
@@ -738,10 +772,40 @@ impl Sound {
         self.spatial_mode
     }
 
+    /// Set the dry/HRTF blend (0 = direct, 1 = fully binaural).
+    pub fn set_hrtf_spatial_blend(&mut self, blend: f32) {
+        if blend.is_finite() {
+            self.hrtf_spatial_blend = blend.clamp(0.0, 1.0);
+            self.update_spatialization();
+        }
+    }
+
+    /// Get the dry/HRTF blend.
+    pub fn hrtf_spatial_blend(&self) -> f32 {
+        self.hrtf_spatial_blend
+    }
+
+    /// Set how Steam Audio interpolates between measured HRTF directions.
+    pub fn set_hrtf_interpolation(&mut self, interpolation: HrtfInterpolation) {
+        self.hrtf_interpolation = interpolation;
+        if let Some(ref mut node) = self.binaural_node {
+            node.set_interpolation(interpolation);
+        }
+    }
+
+    /// Get HRTF interpolation quality.
+    pub fn hrtf_interpolation(&self) -> HrtfInterpolation {
+        self.hrtf_interpolation
+    }
+
     /// Set minimum distance for 3D falloff.
     /// Sound is at full volume within this distance.
     pub fn set_min_distance(&mut self, distance: f32) {
+        if !distance.is_finite() || distance < 0.0 {
+            return;
+        }
         self.min_distance = distance;
+        self.max_distance = self.max_distance.max(distance);
         self.update_spatialization();
     }
 
@@ -753,7 +817,11 @@ impl Sound {
     /// Set maximum distance for 3D falloff.
     /// Sound is silent beyond this distance.
     pub fn set_max_distance(&mut self, distance: f32) {
+        if !distance.is_finite() || distance < 0.0 {
+            return;
+        }
         self.max_distance = distance;
+        self.min_distance = self.min_distance.min(distance);
         self.update_spatialization();
     }
 
@@ -765,6 +833,9 @@ impl Sound {
     /// Set rolloff factor for 3D falloff.
     /// Higher values = faster volume dropoff with distance.
     pub fn set_rolloff(&mut self, rolloff: f32) {
+        if !rolloff.is_finite() || rolloff < 0.0 {
+            return;
+        }
         self.rolloff = rolloff;
         self.update_spatialization();
     }
@@ -776,7 +847,11 @@ impl Sound {
 
     /// Set minimum gain (volume floor).
     pub fn set_min_gain(&mut self, gain: f32) {
-        self.min_gain = gain;
+        if !gain.is_finite() {
+            return;
+        }
+        self.min_gain = gain.clamp(0.0, 1.0);
+        self.max_gain = self.max_gain.max(self.min_gain);
         self.update_spatialization();
     }
 
@@ -787,7 +862,11 @@ impl Sound {
 
     /// Set maximum gain (volume ceiling).
     pub fn set_max_gain(&mut self, gain: f32) {
-        self.max_gain = gain;
+        if !gain.is_finite() {
+            return;
+        }
+        self.max_gain = gain.clamp(0.0, 1.0);
+        self.min_gain = self.min_gain.min(self.max_gain);
         self.update_spatialization();
     }
 
@@ -798,6 +877,9 @@ impl Sound {
 
     /// Set pan step (pan amount per unit horizontal distance, default 0.05).
     pub fn set_pan_step(&mut self, step: f32) {
+        if !step.is_finite() || step < 0.0 {
+            return;
+        }
         self.pan_step = step;
         self.update_spatialization();
     }
@@ -809,6 +891,9 @@ impl Sound {
 
     /// Set volume step (volume reduction per unit distance, default 0.0333).
     pub fn set_volume_step(&mut self, step: f32) {
+        if !step.is_finite() || step < 0.0 {
+            return;
+        }
         self.volume_step = step;
         self.update_spatialization();
     }
@@ -820,6 +905,9 @@ impl Sound {
 
     /// Set behind pitch decrease (pitch reduction for sounds behind listener, default 0.04).
     pub fn set_behind_pitch_decrease(&mut self, decrease: f32) {
+        if !decrease.is_finite() || decrease < 0.0 {
+            return;
+        }
         self.behind_pitch_decrease = decrease;
         self.update_spatialization();
     }
@@ -862,7 +950,9 @@ impl Sound {
         let downstream = self.downstream_node_ptr();
 
         match BinauralNode::new(node_graph, 2) {
-            Ok(node) => {
+            Ok(mut node) => {
+                node.set_interpolation(self.hrtf_interpolation);
+                node.set_spatial_blend(self.hrtf_spatial_blend);
                 let sound_node = unsafe { ma_sound_get_node_ptr(self.sound) };
                 if !sound_node.is_null() {
                     unsafe {
@@ -928,9 +1018,10 @@ impl Sound {
                 ma_sound_set_pitch(self.sound, self.base_pitch);
             }
 
-            // For HRTF mode, set direction to forward (pass-through behavior)
+            // A stationary HRTF sound follows the listener and is deliberately
+            // dry. A full-strength front HRTF is not a transparent pass-through.
             if let Some(ref mut node) = self.binaural_node {
-                node.set_direction(0.0, 0.0, -1.0, 0.0);
+                node.set_spatial_parameters(0.0, 0.0, -1.0, 0.0);
             }
             return;
         }
@@ -980,7 +1071,16 @@ impl Sound {
 
         // Update binaural node direction
         if let Some(ref mut node) = self.binaural_node {
-            node.set_direction(steam_x, steam_y, steam_z, distance);
+            node.set_spatial_parameters(
+                steam_x,
+                steam_y,
+                steam_z,
+                if distance > 1e-4 {
+                    self.hrtf_spatial_blend
+                } else {
+                    0.0
+                },
+            );
         }
 
         // Apply volume attenuation based on distance
@@ -996,18 +1096,10 @@ impl Sound {
         // Clear pan since HRTF handles spatialization
         unsafe { ma_sound_set_pan(self.sound, 0.0) };
 
-        // Behind pitch decrease (applied to base_pitch)
-        const EPSILON: f32 = 1e-4;
-        let mut pitch = self.base_pitch;
-        if distance > 0.7071 + EPSILON {
-            if rot_y < -EPSILON {
-                pitch -= self.behind_pitch_decrease;
-            }
-            if dz < -EPSILON {
-                pitch -= self.behind_pitch_decrease;
-            }
-        }
-        unsafe { ma_sound_set_pitch(self.sound, pitch) };
+        // HRTF already supplies the spectral cues for front/back and
+        // elevation. Pitch remains an authored property, consistent with Web
+        // Audio HRTF and without detuning sources as they move behind us.
+        unsafe { ma_sound_set_pitch(self.sound, self.base_pitch) };
     }
 
     fn update_basic_spatialization(&mut self) {
@@ -1059,7 +1151,7 @@ impl Sound {
 
         // Behind pitch decrease (applied to base_pitch)
         let mut pitch = self.base_pitch;
-        if distance > 0.7071 + EPSILON {
+        if distance > FRAC_1_SQRT_2 + EPSILON {
             if rot_y < -EPSILON {
                 pitch -= self.behind_pitch_decrease;
             }
@@ -1067,7 +1159,7 @@ impl Sound {
                 pitch -= self.behind_pitch_decrease;
             }
         }
-        unsafe { ma_sound_set_pitch(self.sound, pitch) };
+        unsafe { ma_sound_set_pitch(self.sound, pitch.max(0.01)) };
     }
 }
 
@@ -1088,6 +1180,6 @@ impl Drop for Sound {
 // SAFETY: a `Sound` is only ever reached through the `Mutex` in its `SoundRef`,
 // so one caller thread at a time touches its `ma_sound`, binaural node and
 // stretched PCM. miniaudio's sound property setters, start and stop are
-// documented as safe to call from any thread, and the binaural node's
-// direction is a set of aligned float stores that the audio thread reads.
+// documented as safe to call from any thread. Binaural parameters are
+// published to the audio thread through a lock-free atomic snapshot.
 unsafe impl Send for Sound {}

@@ -53,6 +53,11 @@ smtp-current-enc = * { $value }
 main-menu-title = Menu Principal
 
 play = Jogar
+spatial-audio-test = Teste de áudio espacial (temporário)
+spatial-test-clock = { $hour ->
+    [one] 1 hora
+   *[other] { $hour } horas
+}
 view-active-tables = Ver mesas ativas
 options = Opções
 logout = Sair
@@ -854,6 +859,8 @@ enter-pm-message = Insira sua mensagem para { $username }:
 pm-error-not-friends = Você só pode enviar mensagens privadas para amigos.
 pm-error-blocked = As mensagens privadas não estão disponíveis entre você e este jogador.
 pm-error-offline = { $username } não está online no momento.
+pm-error-self = Você não pode enviar uma mensagem privada para si mesmo.
+pm-error-message-required = Digite uma mensagem privada. Ao usar o chat, inclua um nome de usuário, por exemplo: @Jogador olá.
 pm-sent-content = Você para { $username }: { $message }
 pm-received = Mensagem privada de { $username }: { $message }
 

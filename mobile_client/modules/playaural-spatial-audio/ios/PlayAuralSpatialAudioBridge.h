@@ -29,6 +29,21 @@ uintptr_t PACreateSpatialAudioSource(
     float spatialBlend,
     int32_t* result
 );
+uintptr_t PACreateSpatialAudioSequenceSource(
+    uintptr_t engineHandle,
+    NSArray<NSString*>* sequencePaths,
+    BOOL startPaused,
+    float volume,
+    float pitch,
+    float x,
+    float y,
+    float z,
+    float spatialBlend,
+    int32_t* result
+);
+NSArray<NSNumber*>* PASpatialAudioSourceSequenceDurations(
+    uintptr_t sourceHandle
+);
 void PADestroySpatialAudioSource(uintptr_t sourceHandle);
 int32_t PASetSpatialAudioSourceParameters(
     uintptr_t sourceHandle,

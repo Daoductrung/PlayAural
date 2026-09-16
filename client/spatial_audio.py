@@ -15,6 +15,7 @@ MAX_AUDIO_DISTANCE = (
 )
 MAX_AUDIO_ROLLOFF = 16.0
 MAX_AUDIO_AUTOMATION_MS = 3_600_000
+MAX_AUDIO_SEQUENCE_SEGMENTS = 32
 AUDIO_ATTENUATION_MODELS = frozenset({"none", "linear", "inverse", "exponential"})
 AUDIO_AUTOMATION_EASINGS = frozenset(
     {"linear", "ease-in", "ease-out", "ease-in-out"}
@@ -57,6 +58,18 @@ class AudioGainAutomation:
     easing: str
 
 
+@dataclass(frozen=True)
+class AudioSequenceSegment:
+    """Validated finite SFX segment scheduled from decoded frame counts."""
+
+    asset: str
+    position: AudioPosition | None
+    destination_position: AudioPosition | None
+    attenuation: DistanceAttenuation | None
+    gain: float
+    easing: str
+
+
 def normalize_audio_gain(value: Any) -> float:
     """Return a finite source gain in the closed unit interval."""
     if isinstance(value, bool) or not isinstance(value, (int, float)):
@@ -65,6 +78,58 @@ def normalize_audio_gain(value: Any) -> float:
     if not math.isfinite(gain) or not 0.0 <= gain <= 1.0:
         raise ValueError("Audio source gain is out of range")
     return gain
+
+
+def normalize_audio_sequence_segments(value: Any) -> tuple[AudioSequenceSegment, ...]:
+    """Parse the exact finite-sequence schema without partial playback."""
+    if value is None:
+        return ()
+    if isinstance(value, (str, bytes)) or not isinstance(value, Sequence):
+        raise ValueError("Audio sequence segments must be a sequence")
+    if not 0 < len(value) <= MAX_AUDIO_SEQUENCE_SEGMENTS:
+        raise ValueError("Audio sequence segment count is out of range")
+    expected = {
+        "asset",
+        "position",
+        "destination_position",
+        "attenuation",
+        "gain",
+        "easing",
+    }
+    normalized: list[AudioSequenceSegment] = []
+    for item in value:
+        if isinstance(item, AudioSequenceSegment):
+            normalized.append(item)
+            continue
+        if not isinstance(item, Mapping) or set(item) != expected:
+            raise ValueError("Audio sequence segment fields are invalid")
+        if not isinstance(item["asset"], str) or not item["asset"]:
+            raise ValueError("Audio sequence asset must be a non-empty string")
+        asset = item["asset"]
+        position = normalize_audio_position(item["position"])
+        destination = normalize_audio_position(item["destination_position"])
+        attenuation = normalize_distance_attenuation(item["attenuation"])
+        gain = normalize_audio_gain(item["gain"])
+        easing = str(item["easing"])
+        if attenuation is not None and position is None:
+            raise ValueError("Sequence attenuation requires a spatial position")
+        if destination is not None and position is None:
+            raise ValueError("Sequence motion requires an origin position")
+        if easing not in AUDIO_AUTOMATION_EASINGS:
+            raise ValueError("Unknown audio sequence easing")
+        if destination is None and easing != "linear":
+            raise ValueError("Static audio sequence segments require linear easing")
+        normalized.append(
+            AudioSequenceSegment(
+                asset=asset,
+                position=position,
+                destination_position=destination,
+                attenuation=attenuation,
+                gain=gain,
+                easing=easing,
+            )
+        )
+    return tuple(normalized)
 
 
 def normalize_audio_position(value: Any) -> AudioPosition | None:

@@ -25,7 +25,7 @@ The mobile client focuses on:
 - Login, registration, password reset, saved credentials, and auto-login
 - Local configuration storage with AsyncStorage
 - Credential storage with SecureStore
-- Bundled sound pack playback with music fades, seamless ambience stems, sound effects, and native Steam Audio HRTF for positioned sources
+- Bundled sound pack playback with music fades, seamless ambience stems, atomic multi-stage sound effects, and native Steam Audio HRTF for positioned sources
 - Mobile-specific TTS voice, engine, and rate preferences with safe device fallback
 - Server-synchronized account preferences
 - LiveKit-based table voice chat integrated with the shared server authorization flow
@@ -285,7 +285,11 @@ Positioned sounds on Android and physical iOS devices use the local
 renderer with the desktop client: miniaudio owns the real-time source graph and
 Steam Audio 4.8.1 performs binaural HRTF rendering. It supports one-shots,
 moving stable-handle sources, pitch, independent gain and distance attenuation,
-and sample-scheduled ambience intro/loop/outro stems.
+sample-scheduled ambience intro/loop/outro stems, and finite multi-stage sound
+effects. Multi-stage effects preload every asset and use decoded frame counts
+to schedule contiguous boundaries on the native engine clock. Asset-leading or
+trailing silence is intentionally preserved, so content intended for a seamless
+transition must be authored without unwanted silence at that boundary.
 
 The official Steam Audio headers and libraries are stored under
 `../cosmos/steamaudio-sys/phonon/`. `UPSTREAM.json` pins every required Windows,
@@ -401,8 +405,9 @@ If local signing is not configured, Gradle can still be used for local testing b
 For a USB-connected development device, verify `adb devices`, then use
 `npx expo run:android --device` or build and install the generated debug APK.
 Native HRTF, wired/Bluetooth route preservation, audio focus, lifecycle resume,
-and device performance must be validated on physical hardware; browser and
-Node tests cannot substitute for those checks.
+device performance, moving-source continuity, and multi-stage transition timing
+must be validated on physical hardware; browser and Node tests cannot substitute
+for those checks.
 
 ## Local iOS Builds
 

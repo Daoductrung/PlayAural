@@ -16,6 +16,9 @@ class FakeStream:
         self.looping = False
         self.paused = False
         self.stopped = False
+        self.length_frames = 48_000
+        self.sample_rate = 48_000
+        self.scheduled_frame = None
 
     def stop(self):
         self.stopped = True
@@ -29,12 +32,19 @@ class FakeStream:
         self.paused = False
         self.is_playing = True
 
+    def schedule_at_engine_frame(self, start_frame):
+        self.scheduled_frame = start_frame
+        self.is_playing = True
+        return True
+
 
 class FakeSoundCacher:
     def __init__(self):
         self.cache = {}
         self.refs = []
         self.pinned = set()
+        self.clock_frames = 1_000
+        self.sample_rate = 48_000
 
     def create(
         self,
@@ -826,3 +836,128 @@ def test_audio_protocol_plays_numbered_asset_exactly_even_when_looping(monkeypat
     assert source.asset == "notify2.ogg"
     assert source.stream.file_name.endswith("notify2.ogg")
     assert source.stream.looping is True
+
+
+def test_audio_sequence_preloads_and_sample_schedules_every_segment(monkeypatch):
+    sound_manager = _load_sound_manager_module(monkeypatch)
+    manager = sound_manager.SoundManager()
+    segments = [
+        {
+            "asset": "throw.ogg",
+            "position": [0, 1, 0],
+            "destination_position": None,
+            "attenuation": None,
+            "gain": 1,
+            "easing": "linear",
+        },
+        {
+            "asset": "flight.ogg",
+            "position": [0, 1, 0],
+            "destination_position": [8, 14, -2],
+            "attenuation": {"model": "none"},
+            "gain": 0.75,
+            "easing": "ease-out",
+        },
+        {
+            "asset": "explosion.ogg",
+            "position": [8, 14, -2],
+            "destination_position": None,
+            "attenuation": {"model": "none"},
+            "gain": 1,
+            "easing": "linear",
+        },
+    ]
+
+    assert manager.handle_audio_command({
+        "type": "audio",
+        "version": 3,
+        "command": "play",
+        "kind": "sfx",
+        "handle": "grenade:1",
+        "segments": segments,
+        "pitch": 200,
+    }) is True
+
+    source = manager._sources["grenade:1"]
+    assert [
+        stream.scheduled_frame for stream in manager.sound_cacher.refs
+    ] == [3_400, 27_400, 51_400]
+    assert source.completion_stream is manager.sound_cacher.refs[-1]
+    assert source.sequence_streams[1].duration_frames == 24_000
+    assert source.sequence_streams[1].stream.position == (0.0, 1.0, 0.0)
+    assert len(manager.sound_cacher.pinned) == 3
+
+    manager.handle_audio_command({
+        "type": "audio",
+        "version": 3,
+        "command": "stop",
+        "kind": "sfx",
+        "handle": "grenade:1",
+    })
+
+
+def test_audio_sequence_validation_is_all_or_nothing(monkeypatch):
+    sound_manager = _load_sound_manager_module(monkeypatch)
+    manager = sound_manager.SoundManager()
+    packet = {
+        "type": "audio",
+        "version": 3,
+        "command": "play",
+        "kind": "sfx",
+        "handle": "sequence:invalid",
+        "segments": [
+            {
+                "asset": "valid.ogg",
+                "position": None,
+                "destination_position": None,
+                "attenuation": None,
+                "gain": 1,
+                "easing": "linear",
+            },
+            {
+                "asset": "../invalid.ogg",
+                "position": None,
+                "destination_position": None,
+                "attenuation": None,
+                "gain": 1,
+                "easing": "linear",
+            },
+        ],
+    }
+
+    assert manager.handle_audio_command(packet) is False
+    assert manager.sound_cacher.refs == []
+    assert "sequence:invalid" not in manager._sources
+
+
+def test_audio_sequence_schedule_failure_stops_every_prepared_stream(monkeypatch):
+    sound_manager = _load_sound_manager_module(monkeypatch)
+    manager = sound_manager.SoundManager()
+    original_schedule = FakeStream.schedule_at_engine_frame
+    schedule_calls = 0
+
+    def fail_second_schedule(stream, start_frame):
+        nonlocal schedule_calls
+        schedule_calls += 1
+        if schedule_calls == 2:
+            return False
+        return original_schedule(stream, start_frame)
+
+    monkeypatch.setattr(FakeStream, "schedule_at_engine_frame", fail_second_schedule)
+    segments = [
+        {
+            "asset": asset,
+            "position": None,
+            "destination_position": None,
+            "attenuation": None,
+            "gain": 1,
+            "easing": "linear",
+        }
+        for asset in ("throw.ogg", "flight.ogg", "explosion.ogg")
+    ]
+
+    assert manager.play_sequence(segments, handle="sequence:failure") is None
+    assert schedule_calls == 2
+    assert all(stream.stopped for stream in manager.sound_cacher.refs)
+    assert manager.sound_cacher.pinned == set()
+    assert "sequence:failure" not in manager._sources

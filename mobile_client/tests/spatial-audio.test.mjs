@@ -254,3 +254,43 @@ test("mobile source-gain automation matches the shared protocol vectors", async 
     easing: "linear",
   }), null);
 });
+
+test("mobile validates complete finite audio sequences atomically", async () => {
+  const { normalizeAudioSequenceSegments } = await loadSpatialAudio();
+  const segments = normalizeAudioSequenceSegments([
+    {
+      asset: "throw.ogg",
+      position: [0, 1, 0],
+      destination_position: null,
+      attenuation: null,
+      gain: 1,
+      easing: "linear",
+    },
+    {
+      asset: "flight.ogg",
+      position: [0, 1, 0],
+      destination_position: [8, 14, -2],
+      attenuation: { model: "none" },
+      gain: 0.75,
+      easing: "ease-out",
+    },
+  ]);
+  assert.equal(segments.length, 2);
+  assert.deepEqual([...segments[1].destination_position], [8, 14, -2]);
+  assert.equal(normalizeAudioSequenceSegments([{
+    asset: "flight.ogg",
+    position: null,
+    destination_position: [1, 2, 3],
+    attenuation: null,
+    gain: 1,
+    easing: "linear",
+  }]), null);
+  assert.equal(normalizeAudioSequenceSegments([{
+    asset: "flight.ogg",
+    position: [0, 0, 0],
+    destination_position: null,
+    attenuation: null,
+    gain: 1,
+    easing: "ease-out",
+  }]), null);
+});

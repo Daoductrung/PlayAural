@@ -161,6 +161,11 @@ impl SoundManager {
     pub fn sample_rate(&self) -> u32 {
         lock(&self.engine).sample_rate()
     }
+
+    /// Current absolute engine clock in PCM frames.
+    pub fn time_in_pcm_frames(&self) -> u64 {
+        lock(&self.engine).time_in_pcm_frames()
+    }
 }
 
 impl Drop for SoundManager {

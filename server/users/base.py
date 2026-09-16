@@ -9,6 +9,7 @@ import uuid as uuid_module
 from ..messages.localization import Localization
 from ..audio import (
     AudioCommand,
+    AudioSequenceSegment,
     DEFAULT_AMBIENCE_FADE_MS,
     DEFAULT_MUSIC_FADE_MS,
     DistanceAttenuation,
@@ -331,6 +332,44 @@ class User(ABC):
                 position=position,
                 attenuation=attenuation,
                 gain=gain,
+            )
+        )
+        return resolved_handle
+
+    def play_sound_chain(
+        self,
+        segments: list[AudioSequenceSegment | dict[str, Any]],
+        *,
+        handle: str = "",
+        bus: str = "sfx",
+        buffer: str = "",
+        volume: int = 100,
+        pan: int | None = None,
+        pitch: int = 100,
+        fade_in_ms: int = 0,
+        fade_out_ms: int = 0,
+        priority: int = 0,
+        max_instances: int = 0,
+        ducking: dict[str, int] | None = None,
+    ) -> str:
+        """Play one finite SFX chain as an atomic audio command."""
+        resolved_handle = handle or new_audio_handle("sfx-sequence")
+        self.send_audio_command(
+            AudioCommand(
+                command="play",
+                kind="sfx",
+                handle=resolved_handle,
+                bus=bus,
+                buffer=buffer,
+                volume=volume,
+                pan=pan,
+                pitch=pitch,
+                fade_in_ms=fade_in_ms,
+                fade_out_ms=fade_out_ms,
+                priority=priority,
+                max_instances=max_instances,
+                ducking=ducking or {},
+                segments=segments,
             )
         )
         return resolved_handle

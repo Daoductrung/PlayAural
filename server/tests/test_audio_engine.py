@@ -12,6 +12,7 @@ from ..audio import (
     AudioGainAutomation,
     AudioMotion,
     AudioPlaybackState,
+    AudioSequenceSegment,
     DistanceAttenuation,
     SameTurnAudioBatcher,
     audio_motion_position,
@@ -197,6 +198,171 @@ def test_seated_sound_is_positioned_per_listener(pig_game_with_players) -> None:
             seat_of=seated,
             position=(0, 2, 0),
         )
+
+
+def test_audio_sequence_serializes_complete_atomic_timeline() -> None:
+    attenuation = DistanceAttenuation(
+        model="inverse",
+        reference_distance=1,
+        max_distance=30,
+        rolloff_factor=1,
+        min_gain=0.05,
+        max_gain=1,
+    )
+    command = AudioCommand(
+        command="play",
+        kind="sfx",
+        handle="grenade:42",
+        segments=[
+            AudioSequenceSegment(
+                asset="battle/mvsounds_named/throw.ogg",
+                position=(0, 1, 0),
+            ),
+            AudioSequenceSegment(
+                asset="battle/mvsounds_named/hand grenade.ogg",
+                position=(0, 1, 0),
+                destination_position=(8, 14, -2),
+                attenuation=attenuation,
+                gain=0.8,
+                easing="ease-out",
+            ),
+            AudioSequenceSegment(
+                asset="game_bang/dynamite_explosion.ogg",
+                position=(8, 14, -2),
+                attenuation=attenuation,
+            ),
+        ],
+    )
+
+    packet = command.to_packet()
+    assert packet["handle"] == "grenade:42"
+    assert "asset" not in packet
+    assert packet["segments"] == [
+        {
+            "asset": "battle/mvsounds_named/throw.ogg",
+            "position": [0.0, 1.0, 0.0],
+            "destination_position": None,
+            "attenuation": None,
+            "gain": 1.0,
+            "easing": "linear",
+        },
+        {
+            "asset": "battle/mvsounds_named/hand grenade.ogg",
+            "position": [0.0, 1.0, 0.0],
+            "destination_position": [8.0, 14.0, -2.0],
+            "attenuation": attenuation.to_packet(),
+            "gain": 0.8,
+            "easing": "ease-out",
+        },
+        {
+            "asset": "game_bang/dynamite_explosion.ogg",
+            "position": [8.0, 14.0, -2.0],
+            "destination_position": None,
+            "attenuation": attenuation.to_packet(),
+            "gain": 1.0,
+            "easing": "linear",
+        },
+    ]
+    with pytest.raises(ValueError, match="stable handle"):
+        AudioCommand(
+            command="play",
+            kind="sfx",
+            segments=[AudioSequenceSegment(asset="game/test.ogg")],
+        )
+
+
+def test_non_sequence_audio_packet_omits_empty_segments() -> None:
+    packet = AudioCommand(
+        command="play",
+        kind="sfx",
+        asset="game/test.ogg",
+    ).to_packet()
+
+    assert "segments" not in packet
+
+
+@pytest.mark.parametrize(
+    "segments",
+    [
+        [],
+        [{"asset": "sound.ogg"}],
+        [
+            {
+                "asset": "sound.ogg",
+                "position": None,
+                "destination_position": [1, 2, 3],
+                "attenuation": None,
+                "gain": 1,
+                "easing": "linear",
+            }
+        ],
+        [
+            {
+                "asset": "../sound.ogg",
+                "position": None,
+                "destination_position": None,
+                "attenuation": None,
+                "gain": 1,
+                "easing": "linear",
+            }
+        ],
+    ],
+)
+def test_audio_sequence_rejects_partial_empty_or_unsafe_payloads(segments) -> None:
+    with pytest.raises(ValueError):
+        AudioCommand(
+            command="play",
+            kind="sfx",
+            handle="sequence:test",
+            segments=segments,
+        )
+
+    if segments:
+        with pytest.raises(ValueError):
+            AudioCommand(command="play", kind="sfx", segments=segments)
+
+
+def test_game_sound_chain_dispatches_one_packet_and_is_not_replay_state(
+    pig_game_with_players,
+) -> None:
+    game, alice, bob = pig_game_with_players
+    alice.clear_messages()
+    bob.clear_messages()
+
+    handle = game.play_sound_chain(
+        [AudioSequenceSegment(asset="game/test.ogg", position=(0, 2, 0))],
+        handle="sequence:test",
+    )
+
+    assert handle == "sequence:test"
+    for user in (alice, bob):
+        assert user.messages[-1].data["handle"] == handle
+        assert len(user.messages[-1].data["segments"]) == 1
+    assert all(state.handle != handle for state in game.active_audio.values())
+
+
+def test_runtime_audio_cannot_replace_a_replayable_handle(
+    pig_game_with_players,
+) -> None:
+    game, alice, bob = pig_game_with_players
+    game.play_sound(
+        "fuse.ogg",
+        loop=True,
+        handle="shared:source",
+        persist=True,
+    )
+    alice.clear_messages()
+    bob.clear_messages()
+
+    with pytest.raises(ValueError, match="replayable stable handle"):
+        game.play_sound_chain(
+            [AudioSequenceSegment(asset="explosion.ogg")],
+            handle="shared:source",
+        )
+
+    assert alice.messages == []
+    assert bob.messages == []
+    assert next(iter(game.active_audio.values())).asset == "fuse.ogg"
 
 
 def test_seated_loop_persists_for_a_disconnected_listener(
@@ -1092,6 +1258,32 @@ def test_private_layer_replacement_splits_state_and_public_takeover_unifies_it(
     state = next(iter(game.active_audio.values()))
     assert state.asset == "weather/clear.ogg"
     assert state.recipient_ids == []
+
+
+def test_network_audio_sequence_is_one_ordered_websocket_packet() -> None:
+    user = NetworkUser("Alice", "en", connection=object())
+
+    user.play_sound_chain(
+        [
+            AudioSequenceSegment(asset="throw.ogg", position=(0, 1, 0)),
+            AudioSequenceSegment(
+                asset="flight.ogg",
+                position=(0, 1, 0),
+                destination_position=(0, 10, 0),
+            ),
+        ],
+        handle="grenade:packet",
+    )
+
+    packets = user.get_queued_messages()
+    assert len(packets) == 1
+    assert packets[0]["type"] == "audio"
+    assert packets[0]["sequence"] == 1
+    assert packets[0]["handle"] == "grenade:packet"
+    assert [segment["asset"] for segment in packets[0]["segments"]] == [
+        "throw.ogg",
+        "flight.ogg",
+    ]
 
 
 def test_managed_layer_pitch_is_configurable_and_replayable(

@@ -75,6 +75,18 @@ int32_t cosmos_mobile_source_at_end(cosmos_mobile_source* source) {
     (void)source;
     return 1;
 }
+uint32_t cosmos_mobile_source_sequence_count(const cosmos_mobile_source* source) {
+    (void)source;
+    return 0;
+}
+uint64_t cosmos_mobile_source_sequence_duration_frames(
+    const cosmos_mobile_source* source,
+    uint32_t index
+) {
+    (void)source;
+    (void)index;
+    return 0;
+}
 
 #else
 

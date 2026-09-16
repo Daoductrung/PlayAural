@@ -105,6 +105,10 @@ class CosmosStream:
     def play(self) -> None:
         self._sound.play()
 
+    def schedule_at_engine_frame(self, start_frame: int) -> bool:
+        """Schedule this stream on the manager's absolute sample clock."""
+        return bool(self._sound.schedule_at_engine_frame(int(start_frame)))
+
     def stop(self) -> None:
         self._sound.stop()
 
@@ -151,6 +155,14 @@ class CosmosStream:
     def position(self):
         """The 3D position as an (x, y, z) tuple, or None for a plain cue."""
         return self._position
+
+    @property
+    def length_frames(self) -> int:
+        return int(self._sound.length_frames)
+
+    @property
+    def sample_rate(self) -> int:
+        return int(self._sound.sample_rate)
 
     @position.setter
     def position(self, value) -> None:
@@ -209,6 +221,14 @@ class SoundCacher:
                 self.pinned.add(id(stream))
         self.clean()
         return stream
+
+    @property
+    def clock_frames(self) -> int:
+        return int(self.manager.clock_frames)
+
+    @property
+    def sample_rate(self) -> int:
+        return int(self.manager.sample_rate)
 
     def play(
         self,

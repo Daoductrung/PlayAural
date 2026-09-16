@@ -58,6 +58,13 @@ runButton.addEventListener("click", async () => {
       throw new Error("A null source gain was accepted");
     }
     if (engine.handleAudioCommand(command({
+      asset: undefined,
+      handle: "invalid:partial-sequence",
+      segments: [{ asset: "menuclick.ogg" }],
+    }))) {
+      throw new Error("A partial atomic audio sequence was accepted");
+    }
+    if (engine.handleAudioCommand(command({
       command: "update",
       asset: undefined,
       handle: "invalid:partial-motion",
@@ -303,6 +310,48 @@ runButton.addEventListener("click", async () => {
 
     engine.handleAudioCommand(command({ command: "stop_all", asset: undefined }));
     await waitFor(() => engine.getDiagnostics().sourceCount === 0, "stop all");
+
+    if (!engine.handleAudioCommand(command({
+      asset: undefined,
+      handle: "test:sequence",
+      segments: [
+        {
+          asset: "game_chaosbear/playerstep1.ogg",
+          position: [0, 2, 0],
+          destination_position: null,
+          attenuation: null,
+          gain: 1,
+          easing: "linear",
+        },
+        {
+          asset: "game_chaosbear/playerstep2.ogg",
+          position: [0, 2, 0],
+          destination_position: [2, 4, 1],
+          attenuation: { model: "none" },
+          gain: 0.75,
+          easing: "ease-out",
+        },
+        {
+          asset: "game_bang/weapon_punch_swing_1.ogg",
+          position: [2, 4, 1],
+          destination_position: null,
+          attenuation: { model: "none" },
+          gain: 1,
+          easing: "linear",
+        },
+      ],
+    }))) {
+      throw new Error("A valid atomic audio sequence was rejected");
+    }
+    await waitFor(
+      () => engine.getDiagnostics().activeHandles.includes("test:sequence"),
+      "atomic audio sequence start",
+    );
+    await waitFor(
+      () => !engine.getDiagnostics().activeHandles.includes("test:sequence"),
+      "atomic audio sequence completion",
+      8000,
+    );
 
     const originalMediaPlay = HTMLMediaElement.prototype.play;
     HTMLMediaElement.prototype.play = function rejectMediaPlayback() {

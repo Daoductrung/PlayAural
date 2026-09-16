@@ -33,6 +33,7 @@ MAX_AUDIO_PRIORITY = 100
 MAX_AUDIO_INSTANCES = 64
 MAX_AUDIO_ASSET_LENGTH = 256
 MAX_AUDIO_DUCK_BUSES = 32
+MAX_AUDIO_SEQUENCE_SEGMENTS = 32
 MAX_AUDIO_ROLLOFF = 16.0
 MAX_AUDIO_AUTOMATION_MS = 3_600_000
 
@@ -514,6 +515,102 @@ def normalize_audio_gain_automation(value: Any) -> AudioGainAutomation | None:
     return AudioGainAutomation(**fields)
 
 
+@dataclass(frozen=True)
+class AudioSequenceSegment:
+    """One sample-contiguous asset in a finite client-clocked SFX sequence.
+
+    A destination, when present, moves the source over the decoded duration of
+    this segment.  The duration deliberately is not repeated in protocol data:
+    every client schedules the next segment from the actual decoded frame
+    count, so replacements cannot leave stale timing constants behind.
+    """
+
+    asset: str
+    position: Position | None = None
+    destination_position: Position | None = None
+    attenuation: DistanceAttenuation | Mapping[str, Any] | None = None
+    gain: float = 1.0
+    easing: str = "linear"
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "asset", normalize_audio_asset(self.asset))
+        position = normalize_audio_position(self.position)
+        destination = normalize_audio_position(self.destination_position)
+        attenuation = normalize_distance_attenuation(self.attenuation)
+        gain = normalize_audio_gain(self.gain)
+        easing = str(self.easing)
+        if attenuation is not None and position is None:
+            raise ValueError("Sequence attenuation requires a spatial position")
+        if destination is not None and position is None:
+            raise ValueError("Sequence motion requires an origin position")
+        if easing not in AUDIO_AUTOMATION_EASINGS:
+            raise ValueError(f"Unknown audio sequence easing: {self.easing!r}")
+        if destination is None and easing != "linear":
+            raise ValueError("Static audio sequence segments require linear easing")
+        object.__setattr__(self, "position", position)
+        object.__setattr__(self, "destination_position", destination)
+        object.__setattr__(self, "attenuation", attenuation)
+        object.__setattr__(self, "gain", gain)
+        object.__setattr__(self, "easing", easing)
+
+    def to_packet(self) -> dict[str, Any]:
+        """Serialize a complete segment without renderer-specific defaults."""
+        return {
+            "asset": self.asset,
+            "position": list(self.position) if self.position is not None else None,
+            "destination_position": (
+                list(self.destination_position)
+                if self.destination_position is not None
+                else None
+            ),
+            "attenuation": (
+                self.attenuation.to_packet()
+                if isinstance(self.attenuation, DistanceAttenuation)
+                else None
+            ),
+            "gain": self.gain,
+            "easing": self.easing,
+        }
+
+
+def normalize_audio_sequence_segments(
+    value: Any,
+) -> tuple[AudioSequenceSegment, ...]:
+    """Validate an optional, bounded, all-or-nothing SFX sequence."""
+    if value is None or value == () or value == []:
+        return ()
+    if isinstance(value, (str, bytes, bytearray)) or not isinstance(value, Sequence):
+        raise ValueError("Audio sequence segments must be a sequence")
+    if not 0 < len(value) <= MAX_AUDIO_SEQUENCE_SEGMENTS:
+        raise ValueError(
+            "Audio sequences require between 1 and "
+            f"{MAX_AUDIO_SEQUENCE_SEGMENTS} segments"
+        )
+    expected = {
+        "asset",
+        "position",
+        "destination_position",
+        "attenuation",
+        "gain",
+        "easing",
+    }
+    normalized: list[AudioSequenceSegment] = []
+    for item in value:
+        if isinstance(item, AudioSequenceSegment):
+            normalized.append(item)
+            continue
+        if not isinstance(item, Mapping):
+            raise ValueError(f"Invalid audio sequence segment: {item!r}")
+        fields = dict(item)
+        if set(fields) != expected:
+            raise ValueError(
+                "Invalid audio sequence segment fields: "
+                f"{sorted(map(str, fields))!r}"
+            )
+        normalized.append(AudioSequenceSegment(**fields))
+    return tuple(normalized)
+
+
 def pan_from_position(position: Position) -> int:
     """Stereo pan for clients without spatial audio: the sine of the azimuth.
 
@@ -721,6 +818,9 @@ class AudioCommand:
     motion: AudioMotion | Mapping[str, Any] | None = None
     gain: float = 1.0
     gain_automation: AudioGainAutomation | Mapping[str, Any] | None = None
+    segments: Sequence[AudioSequenceSegment | Mapping[str, Any]] = field(
+        default_factory=tuple
+    )
 
     VERSION: ClassVar[int] = AUDIO_PROTOCOL_VERSION
 
@@ -740,15 +840,33 @@ class AudioCommand:
             self.asset = normalize_audio_asset(self.asset)
         if self.family:
             self.family = normalize_audio_family(self.family)
-        if self.asset and self.family:
-            raise ValueError("Play commands cannot combine an asset and family")
-        if self.command == "play" and not (self.asset or self.family):
-            raise ValueError("Play commands require an audio asset or family")
+        self.segments = normalize_audio_sequence_segments(self.segments)
+        play_sources = sum(
+            bool(value) for value in (self.asset, self.family, self.segments)
+        )
+        if play_sources > 1:
+            raise ValueError(
+                "Play commands cannot combine an asset, family, and sequence"
+            )
+        if self.command == "play" and play_sources != 1:
+            raise ValueError("Play commands require one asset, family, or sequence")
+        if self.segments and (
+            self.command != "play"
+            or self.kind != "sfx"
+            or self.loop
+            or self.intro
+            or self.outro
+        ):
+            raise ValueError(
+                "Audio sequences are only valid for finite SFX without stems"
+            )
         self.intro = normalize_audio_asset(self.intro, required=False)
         self.outro = normalize_audio_asset(self.outro, required=False)
 
         if self.handle:
             self.handle = normalize_audio_id(self.handle, field_name="handle")
+        if self.segments and not self.handle:
+            raise ValueError("Audio sequences require a stable handle")
         if self.bus:
             self.bus = normalize_audio_id(self.bus, field_name="bus")
         elif self.command == "play" and self.kind:
@@ -772,17 +890,23 @@ class AudioCommand:
         self.position = normalize_audio_position(self.position)
         if self.position is not None and self.command != "play":
             raise ValueError("Audio positions are only valid on play commands")
+        if self.segments and self.position is not None:
+            raise ValueError("Sequence positions belong to individual segments")
         self.attenuation = normalize_distance_attenuation(self.attenuation)
         if self.attenuation is not None and self.command != "play":
             raise ValueError("Audio attenuation is only valid on play commands")
         if self.attenuation is not None and self.position is None:
             raise ValueError("Audio attenuation requires a spatial position")
+        if self.segments and self.attenuation is not None:
+            raise ValueError("Sequence attenuation belongs to individual segments")
         self.motion = normalize_audio_motion(self.motion)
         if self.motion is not None and self.command != "update":
             raise ValueError("Audio motion is only valid on update commands")
         self.gain = normalize_audio_gain(self.gain)
         if self.gain != 1.0 and self.command != "play":
             raise ValueError("Audio source gain is only valid on play commands")
+        if self.segments and self.gain != 1.0:
+            raise ValueError("Sequence source gain belongs to individual segments")
         self.gain_automation = normalize_audio_gain_automation(self.gain_automation)
         if self.gain_automation is not None and self.command != "update":
             raise ValueError("Audio gain automation is only valid on update commands")
@@ -849,7 +973,8 @@ class AudioCommand:
         if self.play_outros and self.command != "stop_all":
             raise ValueError("Multi-outro playback is only valid for stop-all")
         if self.command == "play" and (
-            self.kind in {"music", "ambience"} or (self.kind == "sfx" and self.loop)
+            self.kind in {"music", "ambience"}
+            or (self.kind == "sfx" and (self.loop or self.segments))
         ) and not self.handle:
             raise ValueError("Managed or looping audio requires a handle")
 
@@ -909,6 +1034,7 @@ class AudioCommand:
                 if isinstance(self.gain_automation, AudioGainAutomation)
                 else None
             ),
+            "segments": [segment.to_packet() for segment in self.segments],
         }
         defaults: dict[str, Any] = {
             "scope": "global",
@@ -928,6 +1054,7 @@ class AudioCommand:
             "priority": 0,
             "max_instances": 0,
             "gain": 1.0,
+            "segments": [],
         }
         for key, value in optional.items():
             if value in ("", {}, None):

@@ -122,6 +122,14 @@ impl Sound {
         }
     }
 
+    /// Schedule playback at one absolute PCM frame on the manager clock.
+    fn schedule_at_engine_frame(&mut self, start_frame: u64) -> PyResult<bool> {
+        match lock(&self.inner).schedule_at_engine_frame(start_frame) {
+            Ok(()) => Ok(true),
+            Err(_) => Ok(false),
+        }
+    }
+
     /// Stop playing and reset to the beginning.
     fn stop(&mut self) -> PyResult<bool> {
         match lock(&self.inner).stop() {
@@ -166,6 +174,18 @@ impl Sound {
     #[getter]
     fn length(&self) -> u64 {
         lock(&self.inner).length()
+    }
+
+    /// Total decoded source length in PCM frames.
+    #[getter]
+    fn length_frames(&self) -> u64 {
+        lock(&self.inner).length_in_pcm_frames()
+    }
+
+    /// Decoded source sample rate.
+    #[getter]
+    fn sample_rate(&self) -> u32 {
+        lock(&self.inner).sample_rate()
     }
 
     /// Set the 3D position of this sound as a point source.
@@ -858,6 +878,18 @@ impl SoundManager {
     #[getter]
     fn hrtf_available(&self) -> bool {
         lock(&self.inner).is_hrtf_available()
+    }
+
+    /// Current absolute audio-engine clock in PCM frames.
+    #[getter]
+    fn clock_frames(&self) -> u64 {
+        lock(&self.inner).time_in_pcm_frames()
+    }
+
+    /// Audio-engine output sample rate.
+    #[getter]
+    fn sample_rate(&self) -> u32 {
+        lock(&self.inner).sample_rate()
     }
 
     /// Destroy the sound manager (no-op, resources cleaned up on drop).

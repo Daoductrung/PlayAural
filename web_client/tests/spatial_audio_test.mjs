@@ -268,3 +268,16 @@ test("managed layers preserve authored pitch across every stem segment", () => {
   assert.match(source, /node\.playbackRate\.value = source\.playbackRate/);
   assert.match(source, /pitch: source\.playbackRate \* 100/);
 });
+
+test("Web HRTF sources remain connected until their rendered tail is silent", () => {
+  const source = readFileSync(
+    new URL("../audio.js", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /function cleanupAfterRenderedTail\(source\)/);
+  assert.match(source, /analyser\.getFloatTimeDomainData\(samples\)/);
+  assert.match(source, /silentPolls >= WEB_AUDIO_TAIL_SILENCE_POLLS/);
+  assert.match(source, /output\.connect\(tailAnalyser\)/);
+  assert.match(source, /\(\) => cleanupAfterRenderedTail\(source\)/);
+});

@@ -7,6 +7,7 @@ import expo.modules.kotlin.records.Field
 import expo.modules.kotlin.records.Record
 
 private const val NATIVE_SUCCESS = 0
+private const val MAX_SEQUENCE_SEGMENTS = 32
 private val SOURCE_ID_PATTERN = Regex("^[A-Za-z0-9_.:-]{1,128}$")
 
 private class SpatialAudioException(message: String) : CodedException(message)
@@ -24,7 +25,8 @@ private class SpatialAudioSourceOptions(
   @Field val x: Double,
   @Field val y: Double,
   @Field val z: Double,
-  @Field val spatialBlend: Double
+  @Field val spatialBlend: Double,
+  @Field val sequencePaths: List<String>?
 ) : Record
 
 class PlayAuralSpatialAudioModule : Module() {
@@ -174,40 +176,83 @@ class PlayAuralSpatialAudioModule : Module() {
   private fun createSource(
     sourceId: String,
     options: SpatialAudioSourceOptions
-  ) {
+  ): List<Double> {
     if (engineHandle == 0L) {
       throw SpatialAudioException("Native spatial audio is not initialized")
     }
+    val sequencePaths = options.sequencePaths.orEmpty()
+    val hasStem = options.loopPath.isNotBlank()
+    val hasSequence = sequencePaths.isNotEmpty()
     if (
       !SOURCE_ID_PATTERN.matches(sourceId) ||
-      options.loopPath.isBlank() ||
+      hasStem == hasSequence ||
       options.loopPath.contains('\u0000') ||
       options.introPath?.contains('\u0000') == true ||
-      options.outroPath?.contains('\u0000') == true
+      options.outroPath?.contains('\u0000') == true ||
+      sequencePaths.size > MAX_SEQUENCE_SEGMENTS ||
+      sequencePaths.any { it.isBlank() || it.contains('\u0000') } ||
+      (hasSequence && (
+        !options.introPath.isNullOrEmpty() ||
+        !options.outroPath.isNullOrEmpty() ||
+        options.playIntro ||
+        options.looping ||
+        options.streamFromDisk
+      ))
     ) {
       throw SpatialAudioException("Invalid native spatial-audio source")
     }
     destroySource(sourceId)
-    val result = NativeSpatialAudioBridge.nativeCreateSource(
-      engineHandle,
-      options.introPath?.takeIf { it.isNotBlank() },
-      options.loopPath,
-      options.outroPath?.takeIf { it.isNotBlank() },
-      options.playIntro,
-      options.looping,
-      options.streamFromDisk,
-      options.startPaused,
-      options.volume.toFloat(),
-      options.pitch.toFloat(),
-      options.x.toFloat(),
-      options.y.toFloat(),
-      options.z.toFloat(),
-      options.spatialBlend.toFloat()
-    )
+    val result = if (hasSequence) {
+      NativeSpatialAudioBridge.nativeCreateSequenceSource(
+        engineHandle,
+        sequencePaths.toTypedArray(),
+        options.startPaused,
+        options.volume.toFloat(),
+        options.pitch.toFloat(),
+        options.x.toFloat(),
+        options.y.toFloat(),
+        options.z.toFloat(),
+        options.spatialBlend.toFloat()
+      )
+    } else {
+      NativeSpatialAudioBridge.nativeCreateSource(
+        engineHandle,
+        options.introPath?.takeIf { it.isNotBlank() },
+        options.loopPath,
+        options.outroPath?.takeIf { it.isNotBlank() },
+        options.playIntro,
+        options.looping,
+        options.streamFromDisk,
+        options.startPaused,
+        options.volume.toFloat(),
+        options.pitch.toFloat(),
+        options.x.toFloat(),
+        options.y.toFloat(),
+        options.z.toFloat(),
+        options.spatialBlend.toFloat()
+      )
+    }
     if (result.size != 2 || result[0] == 0L || result[1] != NATIVE_SUCCESS.toLong()) {
       throw SpatialAudioException("Native spatial-audio source creation failed (${result.getOrNull(1)})")
     }
-    sources[sourceId] = result[0]
+    val handle = result[0]
+    val durations = if (hasSequence) {
+      val sampleRate = NativeSpatialAudioBridge.nativeEngineSampleRate(engineHandle)
+      val durationFrames = NativeSpatialAudioBridge.nativeSequenceDurations(handle)
+      if (
+        sampleRate <= 0 ||
+        durationFrames.size != sequencePaths.size ||
+        durationFrames.any { it <= 0 }
+      ) {
+        NativeSpatialAudioBridge.nativeDestroySource(handle)
+        throw SpatialAudioException("Native spatial-audio sequence timing is invalid")
+      }
+      durationFrames.map { frames -> frames.toDouble() * 1000.0 / sampleRate }
+    } else {
+      emptyList()
+    }
+    sources[sourceId] = handle
+    return durations
   }
 
   private fun destroySource(sourceId: String) {

@@ -40,7 +40,7 @@ async function loadNativeSpatialAudio(bridge) {
 
 function createBridge(overrides = {}) {
   return {
-    createSource: async () => undefined,
+    createSource: async () => [],
     destroySource: () => undefined,
     drainEndedSources: () => [],
     initialize: async () => ({ available: true, hrtf: true, sampleRate: 48_000 }),
@@ -167,6 +167,71 @@ test("the adapter forwards configurable engine, source, and 3D parameters", asyn
   ]);
 });
 
+test("the adapter returns native decoded timing for atomic sequences", async () => {
+  const calls = [];
+  const bridge = createBridge({
+    createSource: async (...args) => {
+      calls.push(args);
+      return [100, 250, 75];
+    },
+  });
+  const { NativeSpatialAudio } = await loadNativeSpatialAudio(bridge);
+  const audio = new NativeSpatialAudio();
+
+  const timing = await audio.createSequence("source:sequence", {
+    paths: ["/throw.ogg", "/flight.ogg", "/explosion.ogg"],
+    startPaused: true,
+    volume: 0.8,
+    pitch: 1,
+    position: [0, 1, 0],
+    spatialBlend: 1,
+  });
+
+  assert.deepEqual(JSON.parse(JSON.stringify(timing)), {
+    durationsMilliseconds: [100, 250, 75],
+    startLeadMilliseconds: 512 * 1000 / 48_000,
+  });
+  assert.deepEqual(JSON.parse(JSON.stringify(calls[0])), [
+    "source:sequence",
+    {
+      introPath: null,
+      loopPath: "",
+      outroPath: null,
+      playIntro: false,
+      looping: false,
+      streamFromDisk: false,
+      startPaused: true,
+      volume: 0.8,
+      pitch: 1,
+      x: 0,
+      y: 1,
+      z: 0,
+      spatialBlend: 1,
+      sequencePaths: ["/throw.ogg", "/flight.ogg", "/explosion.ogg"],
+    },
+  ]);
+});
+
+test("the adapter destroys an atomic sequence with incomplete native timing", async () => {
+  const destroyed = [];
+  const bridge = createBridge({
+    createSource: async () => [100],
+    destroySource: (sourceId) => destroyed.push(sourceId),
+  });
+  const { NativeSpatialAudio } = await loadNativeSpatialAudio(bridge);
+  const audio = new NativeSpatialAudio();
+
+  assert.equal(await audio.createSequence("source:invalid-sequence", {
+    paths: ["/throw.ogg", "/flight.ogg"],
+    startPaused: true,
+    volume: 1,
+    pitch: 1,
+    position: [0, 0, 0],
+    spatialBlend: 0,
+  }), null);
+  assert.deepEqual(destroyed, ["source:invalid-sequence"]);
+});
+
 test("shutdown invalidates an initialization that completes late", async () => {
   let resolveInitialization;
   let shutdownCalls = 0;
@@ -260,6 +325,13 @@ test("the mobile manager routes positioned sources and seamless stems through HR
   assert.match(source, /source\.distanceGain = distanceAttenuationGain/);
   assert.match(source, /nativeSpatialAudio\.requestOutro/);
   assert.match(source, /nativeSpatialAudio\.drainEndedSources/);
+  assert.match(source, /nativeSpatialAudio\.createSequence/);
+  assert.match(source, /timing\.durationsMilliseconds/);
+  assert.match(source, /resumeStartedAt[\s\S]*?resumeFinishedAt/);
+  assert.match(
+    source,
+    /status\.currentTime \* 1000,[\s\S]*?status\.duration \* 1000/,
+  );
 });
 
 test("native playback preserves platform route and session ownership", async () => {
@@ -307,6 +379,7 @@ test("native playback preserves platform route and session ownership", async () 
   assert.match(mobileCore, /if \(config->start_paused\)[\s\S]*?source->paused = MA_TRUE;/);
   assert.match(mobileCore, /if \(!source->started\) \{[\s\S]*?source_schedule_initial\(source\)/);
   assert.match(mobileCore, /ma_phonon_binaural_node_init_with_tail_processing/);
+  assert.match(mobileCore, /ma_phonon_binaural_node_begin_tail_drain/);
   assert.match(mobileCore, /ma_phonon_binaural_node_tail_remaining/);
   assert.match(mobileCore, /pitched_frame_duration/);
   assert.match(mobileCore, /ma_sound_get_data_format\([\s\S]*?&segment->sample_rate/);
@@ -317,11 +390,17 @@ test("native playback preserves platform route and session ownership", async () 
   assert.match(mobileCore, /source->started && source->pitch != pitch/);
   assert.match(
     mobileCore,
+    /\(config->sequence_paths == NULL\) != \(config->sequence_count == 0\)/,
+  );
+  assert.match(
+    mobileCore,
     /required_cycles = ceill\([\s\S]*?source->loop\.sample_rate[\s\S]*?engine_sample_rate/,
   );
   assert.match(mobileCore, /steam_y = z \/ length/);
   assert.match(mobileCore, /steam_z = -y \/ length/);
   assert.match(phononNode, /ma_phonon_binaural_tail_node_process_pcm_frames/);
+  assert.match(phononNode, /tailDrainRequested/);
+  assert.match(phononNode, /drainingTail \? offeredInputFrames : consumedInputFrames/);
   assert.match(phononNode, /bufferedInputFrames/);
   assert.match(phononNode, /ppFramesIn == NULL/);
   assert.match(phononNode, /iplBinauralEffectGetTail/);

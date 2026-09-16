@@ -5,11 +5,12 @@
 use miniaudio_sys::{
     ma_audio_buffer_ref, ma_audio_buffer_ref_init, ma_audio_buffer_ref_uninit, ma_format_f32,
     ma_node_attach_output_bus, ma_node_detach_output_bus, ma_sound, ma_sound_at_end,
-    ma_sound_get_cursor_in_pcm_frames, ma_sound_get_length_in_pcm_frames, ma_sound_get_pan,
-    ma_sound_init_from_data_source, ma_sound_init_from_file, ma_sound_is_looping,
+    ma_sound_get_cursor_in_pcm_frames, ma_sound_get_data_format, ma_sound_get_length_in_pcm_frames,
+    ma_sound_get_pan, ma_sound_init_from_data_source, ma_sound_init_from_file, ma_sound_is_looping,
     ma_sound_is_playing, ma_sound_seek_to_pcm_frame, ma_sound_set_looping, ma_sound_set_pan,
-    ma_sound_set_pitch, ma_sound_set_spatialization_enabled, ma_sound_set_volume, ma_sound_start,
-    ma_sound_stop, ma_sound_uninit, MA_FALSE, MA_SOUND_FLAG_DECODE, MA_SUCCESS, MA_TRUE,
+    ma_sound_set_pitch, ma_sound_set_spatialization_enabled, ma_sound_set_start_time_in_pcm_frames,
+    ma_sound_set_volume, ma_sound_start, ma_sound_stop, ma_sound_uninit, MA_FALSE,
+    MA_SOUND_FLAG_DECODE, MA_SUCCESS, MA_TRUE,
 };
 use std::f32::consts::{FRAC_1_SQRT_2, PI};
 use std::ffi::{c_void, CString};
@@ -436,6 +437,20 @@ impl Sound {
         }
     }
 
+    /// Schedule playback at one absolute frame on the shared engine clock.
+    pub fn schedule_at_engine_frame(&mut self, start_frame: u64) -> Result<(), AudioError> {
+        if !self.loaded {
+            return Err(AudioError::NotLoaded);
+        }
+        unsafe { ma_sound_set_start_time_in_pcm_frames(self.sound, start_frame) };
+        let result = unsafe { ma_sound_start(self.sound) };
+        if result == MA_SUCCESS {
+            Ok(())
+        } else {
+            Err(AudioError::PlaybackFailed)
+        }
+    }
+
     /// Stop the sound and reset to beginning.
     pub fn stop(&mut self) -> Result<(), AudioError> {
         if !self.loaded {
@@ -553,7 +568,11 @@ impl Sound {
         if !self.loaded {
             return false;
         }
-        unsafe { ma_sound_is_playing(self.sound) == MA_TRUE }
+        (unsafe { ma_sound_is_playing(self.sound) == MA_TRUE })
+            || self
+                .binaural_node
+                .as_ref()
+                .is_some_and(BinauralNode::tail_remaining)
     }
 
     /// Check if sound has finished playing.
@@ -609,6 +628,43 @@ impl Sound {
             return 0;
         }
         (length_frames * 1000) / sample_rate as u64
+    }
+
+    /// Total decoded length in source PCM frames.
+    pub fn length_in_pcm_frames(&self) -> u64 {
+        if !self.loaded {
+            return 0;
+        }
+        let mut length_frames = 0;
+        let result = unsafe { ma_sound_get_length_in_pcm_frames(self.sound, &mut length_frames) };
+        if result == MA_SUCCESS {
+            length_frames
+        } else {
+            0
+        }
+    }
+
+    /// Decoded sample rate used to convert source frames to engine time.
+    pub fn sample_rate(&self) -> u32 {
+        if !self.loaded {
+            return 0;
+        }
+        let mut sample_rate = 0;
+        let result = unsafe {
+            ma_sound_get_data_format(
+                self.sound,
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+                &mut sample_rate,
+                std::ptr::null_mut(),
+                0,
+            )
+        };
+        if result == MA_SUCCESS {
+            sample_rate
+        } else {
+            0
+        }
     }
 
     /// Set base volume (0.0 to 1.0) - before 3D attenuation.

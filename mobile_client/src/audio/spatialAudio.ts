@@ -4,6 +4,7 @@
 import type {
   AudioGainAutomationPacket,
   AudioMotionPacket,
+  AudioSequenceSegmentPacket,
   DistanceAttenuationPacket,
 } from "../network/packets";
 
@@ -17,6 +18,14 @@ export type AudioMotion = Readonly<{
   easing: AudioMotionPacket["easing"];
 }>;
 export type AudioGainAutomation = Readonly<AudioGainAutomationPacket>;
+export type AudioSequenceSegment = Readonly<{
+  asset: string;
+  position: AudioPosition | undefined;
+  destination_position: AudioPosition | undefined;
+  attenuation: DistanceAttenuation | undefined;
+  gain: number;
+  easing: AudioSequenceSegmentPacket["easing"];
+}>;
 
 export const MAX_AUDIO_POSITION = 1000;
 const ATTENUATION_PRECISION_SCALE = 1_000_000;
@@ -25,9 +34,74 @@ export const MAX_AUDIO_DISTANCE = Math.ceil(
 ) / ATTENUATION_PRECISION_SCALE;
 export const MAX_AUDIO_ROLLOFF = 16;
 export const MAX_AUDIO_AUTOMATION_MS = 3_600_000;
+export const MAX_AUDIO_SEQUENCE_SEGMENTS = 32;
 export const TABLE_RADIUS = 2;
 const ATTENUATION_MODELS = new Set(["none", "linear", "inverse", "exponential"]);
 const MOTION_EASINGS = new Set(["linear", "ease-in", "ease-out", "ease-in-out"]);
+
+export function normalizeAudioSequenceSegments(
+  value: unknown,
+): readonly AudioSequenceSegment[] | null | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (
+    !Array.isArray(value)
+    || value.length === 0
+    || value.length > MAX_AUDIO_SEQUENCE_SEGMENTS
+  ) {
+    return null;
+  }
+  const expected = [
+    "asset",
+    "attenuation",
+    "destination_position",
+    "easing",
+    "gain",
+    "position",
+  ];
+  const normalized: AudioSequenceSegment[] = [];
+  for (const item of value) {
+    if (
+      !item
+      || typeof item !== "object"
+      || Array.isArray(item)
+      || Object.keys(item).sort().join("\0") !== expected.join("\0")
+    ) {
+      return null;
+    }
+    const fields = item as Record<string, unknown>;
+    const position = normalizeAudioPosition(fields.position);
+    const destination = normalizeAudioPosition(fields.destination_position);
+    const attenuation = normalizeDistanceAttenuation(fields.attenuation);
+    const gain = normalizeAudioGain(fields.gain);
+    const easing = fields.easing;
+    if (
+      typeof fields.asset !== "string"
+      || !fields.asset
+      || position === null
+      || destination === null
+      || attenuation === null
+      || gain === null
+      || attenuation !== undefined && position === undefined
+      || destination !== undefined && position === undefined
+      || typeof easing !== "string"
+      || !MOTION_EASINGS.has(easing)
+      || destination === undefined && easing !== "linear"
+    ) {
+      return null;
+    }
+    normalized.push(Object.freeze({
+      asset: fields.asset,
+      position,
+      destination_position: destination,
+      attenuation,
+      gain,
+      easing: easing as AudioSequenceSegmentPacket["easing"],
+    }));
+  }
+  return Object.freeze(normalized);
+}
 
 export function normalizeAudioPosition(
   value: unknown,

@@ -9,6 +9,8 @@
 #include "miniaudio.h"
 #include "miniaudio_phonon.h"
 
+#define COSMOS_MOBILE_MAX_SEQUENCE_SEGMENTS 32
+
 typedef struct cosmos_mobile_segment {
     ma_sound sound;
     ma_bool32 initialized;
@@ -37,6 +39,8 @@ struct cosmos_mobile_source {
     cosmos_mobile_segment intro;
     cosmos_mobile_segment loop;
     cosmos_mobile_segment outro;
+    cosmos_mobile_segment* sequence;
+    ma_uint32 sequence_count;
     ma_bool32 looping;
     ma_bool32 linked;
     ma_bool32 started;
@@ -112,10 +116,36 @@ static ma_bool32 pitched_frame_duration(
 }
 
 static ma_bool32 valid_source_config(const cosmos_mobile_source_config* config) {
-    return config != NULL
-        && config->loop_path != NULL
-        && config->loop_path[0] != '\0'
-        && (config->play_intro == 0 || config->play_intro == 1)
+    ma_uint32 index;
+    ma_bool32 has_stem;
+    ma_bool32 has_sequence;
+    if (config == NULL) {
+        return MA_FALSE;
+    }
+    has_stem = config->loop_path != NULL && config->loop_path[0] != '\0';
+    has_sequence = config->sequence_paths != NULL && config->sequence_count > 0;
+    if (
+        has_stem == has_sequence
+        || (config->sequence_paths == NULL) != (config->sequence_count == 0)
+        || config->sequence_count > COSMOS_MOBILE_MAX_SEQUENCE_SEGMENTS
+        || (has_sequence && (
+            config->intro_path != NULL
+            || config->outro_path != NULL
+            || config->play_intro
+            || config->looping
+        ))
+    ) {
+        return MA_FALSE;
+    }
+    for (index = 0; has_sequence && index < config->sequence_count; index += 1) {
+        if (
+            config->sequence_paths[index] == NULL
+            || config->sequence_paths[index][0] == '\0'
+        ) {
+            return MA_FALSE;
+        }
+    }
+    return (config->play_intro == 0 || config->play_intro == 1)
         && (config->looping == 0 || config->looping == 1)
         && (config->stream_from_disk == 0 || config->stream_from_disk == 1)
         && (config->start_paused == 0 || config->start_paused == 1)
@@ -214,12 +244,14 @@ static cosmos_mobile_result source_schedule_initial(cosmos_mobile_source* source
     ma_uint64 loop_start_frame;
     ma_uint64 outro_start_frame;
     ma_uint64 segment_duration;
+    ma_uint64 sequence_cursor;
+    ma_uint32 sequence_index;
 
     if (
         source == NULL
         || source->owner == NULL
         || source->started
-        || !source->loop.initialized
+        || (!source->loop.initialized && source->sequence_count == 0)
     ) {
         return COSMOS_MOBILE_INVALID_ARGUMENT;
     }
@@ -229,6 +261,32 @@ static cosmos_mobile_result source_schedule_initial(cosmos_mobile_source* source
         &first_frame
     )) {
         return COSMOS_MOBILE_PLAYBACK_FAILED;
+    }
+    if (source->sequence_count > 0) {
+        sequence_cursor = first_frame;
+        for (sequence_index = 0; sequence_index < source->sequence_count; sequence_index += 1) {
+            cosmos_mobile_segment* sequence_segment = &source->sequence[sequence_index];
+            result = segment_schedule(sequence_segment, sequence_cursor, MA_FALSE);
+            if (
+                result != COSMOS_MOBILE_SUCCESS
+                || !pitched_frame_duration(
+                    sequence_segment->length_frames,
+                    1,
+                    sequence_segment->sample_rate,
+                    ma_engine_get_sample_rate(source->owner->engine),
+                    source->pitch,
+                    &segment_duration
+                )
+                || !add_frames(sequence_cursor, segment_duration, &sequence_cursor)
+            ) {
+                return result == COSMOS_MOBILE_SUCCESS
+                    ? COSMOS_MOBILE_PLAYBACK_FAILED
+                    : result;
+            }
+        }
+        source->started = MA_TRUE;
+        ma_node_set_state((ma_node*)source->binaural_node, ma_node_state_started);
+        return COSMOS_MOBILE_SUCCESS;
     }
     loop_start_frame = first_frame;
     if (source->intro.initialized) {
@@ -408,6 +466,7 @@ cosmos_mobile_source* cosmos_mobile_source_create(
     ma_bool32 stream_from_disk;
     ma_phonon_binaural_node_config binaural_config;
     ma_node* group_node;
+    ma_uint32 sequence_index;
 
     set_result(result, COSMOS_MOBILE_INVALID_ARGUMENT);
     if (engine == NULL || engine->engine == NULL || !valid_source_config(config)) {
@@ -423,6 +482,7 @@ cosmos_mobile_source* cosmos_mobile_source_create(
         return NULL;
     }
     source->owner = engine;
+    source->sequence_count = config->sequence_count;
     stream_from_disk = config->stream_from_disk ? MA_TRUE : MA_FALSE;
 
     native_result = ma_sound_group_init(engine->engine, 0, NULL, &source->group);
@@ -477,7 +537,28 @@ cosmos_mobile_source* cosmos_mobile_source_create(
         goto on_error;
     }
 
-    if (config->play_intro && config->intro_path != NULL && config->intro_path[0] != '\0') {
+    if (source->sequence_count > 0) {
+        source->sequence = (cosmos_mobile_segment*)calloc(
+            source->sequence_count,
+            sizeof(*source->sequence)
+        );
+        if (source->sequence == NULL) {
+            source_result = COSMOS_MOBILE_OUT_OF_MEMORY;
+            goto on_error;
+        }
+        for (sequence_index = 0; sequence_index < source->sequence_count; sequence_index += 1) {
+            source_result = segment_init(
+                engine,
+                source,
+                &source->sequence[sequence_index],
+                config->sequence_paths[sequence_index],
+                stream_from_disk
+            );
+            if (source_result != COSMOS_MOBILE_SUCCESS) {
+                goto on_error;
+            }
+        }
+    } else if (config->play_intro && config->intro_path != NULL && config->intro_path[0] != '\0') {
         source_result = segment_init(
             engine,
             source,
@@ -489,25 +570,27 @@ cosmos_mobile_source* cosmos_mobile_source_create(
             goto on_error;
         }
     }
-    source_result = segment_init(
-        engine,
-        source,
-        &source->loop,
-        config->loop_path,
-        stream_from_disk
-    );
-    if (source_result != COSMOS_MOBILE_SUCCESS) {
-        goto on_error;
-    }
-    source_result = segment_init(
-        engine,
-        source,
-        &source->outro,
-        config->outro_path,
-        stream_from_disk
-    );
-    if (source_result != COSMOS_MOBILE_SUCCESS) {
-        goto on_error;
+    if (source->sequence_count == 0) {
+        source_result = segment_init(
+            engine,
+            source,
+            &source->loop,
+            config->loop_path,
+            stream_from_disk
+        );
+        if (source_result != COSMOS_MOBILE_SUCCESS) {
+            goto on_error;
+        }
+        source_result = segment_init(
+            engine,
+            source,
+            &source->outro,
+            config->outro_path,
+            stream_from_disk
+        );
+        if (source_result != COSMOS_MOBILE_SUCCESS) {
+            goto on_error;
+        }
     }
 
     source_result = cosmos_mobile_source_set_parameters(
@@ -554,6 +637,7 @@ on_error:
 
 void cosmos_mobile_source_destroy(cosmos_mobile_source* source) {
     ma_node* group_node;
+    ma_uint32 sequence_index;
     if (source == NULL) {
         return;
     }
@@ -561,6 +645,14 @@ void cosmos_mobile_source_destroy(cosmos_mobile_source* source) {
     segment_uninit(&source->intro);
     segment_uninit(&source->loop);
     segment_uninit(&source->outro);
+    if (source->sequence != NULL) {
+        for (sequence_index = 0; sequence_index < source->sequence_count; sequence_index += 1) {
+            segment_uninit(&source->sequence[sequence_index]);
+        }
+    }
+    free(source->sequence);
+    source->sequence = NULL;
+    source->sequence_count = 0;
     if (source->group_initialized) {
         group_node = ma_sound_get_node_ptr(&source->group);
         if (group_node != NULL) {
@@ -655,7 +747,11 @@ cosmos_mobile_result cosmos_mobile_source_pause(cosmos_mobile_source* source) {
     if (source->paused) {
         return COSMOS_MOBILE_SUCCESS;
     }
-    if (source->intro.initialized || source->outro.initialized) {
+    if (
+        source->intro.initialized
+        || source->outro.initialized
+        || source->sequence_count > 0
+    ) {
         return COSMOS_MOBILE_UNSUPPORTED_OPERATION;
     }
     if (ma_sound_group_stop(&source->group) != MA_SUCCESS) {
@@ -821,6 +917,7 @@ cosmos_mobile_result cosmos_mobile_source_request_outro(
 }
 
 void cosmos_mobile_source_stop(cosmos_mobile_source* source) {
+    ma_uint32 sequence_index;
     if (source == NULL || source->stopped) {
         return;
     }
@@ -832,6 +929,9 @@ void cosmos_mobile_source_stop(cosmos_mobile_source* source) {
     }
     if (source->outro.initialized) {
         ma_sound_stop(&source->outro.sound);
+    }
+    for (sequence_index = 0; sequence_index < source->sequence_count; sequence_index += 1) {
+        ma_sound_stop(&source->sequence[sequence_index].sound);
     }
     if (source->group_initialized) {
         ma_sound_group_stop(&source->group);
@@ -849,7 +949,11 @@ int32_t cosmos_mobile_source_at_end(cosmos_mobile_source* source) {
     if (!source->started || source->paused || source->looping) {
         return 0;
     }
-    if (source->outro_scheduled) {
+    if (source->sequence_count > 0) {
+        segments_ended = ma_sound_at_end(
+            &source->sequence[source->sequence_count - 1].sound
+        );
+    } else if (source->outro_scheduled) {
         segments_ended = ma_sound_at_end(&source->outro.sound);
     } else {
         segments_ended = ma_sound_at_end(&source->loop.sound);
@@ -860,6 +964,7 @@ int32_t cosmos_mobile_source_at_end(cosmos_mobile_source* source) {
     }
     now = ma_engine_get_time_in_pcm_frames(source->owner->engine);
     if (source->end_observation_deadline == 0) {
+        ma_phonon_binaural_node_begin_tail_drain(source->binaural_node);
         if (!add_frames(
             now,
             source->owner->hrtf_frame_size,
@@ -875,4 +980,34 @@ int32_t cosmos_mobile_source_at_end(cosmos_mobile_source* source) {
         return 0;
     }
     return ma_phonon_binaural_node_tail_remaining(source->binaural_node) ? 0 : 1;
+}
+
+uint32_t cosmos_mobile_source_sequence_count(const cosmos_mobile_source* source) {
+    return source != NULL ? source->sequence_count : 0;
+}
+
+uint64_t cosmos_mobile_source_sequence_duration_frames(
+    const cosmos_mobile_source* source,
+    uint32_t index
+) {
+    ma_uint64 duration = 0;
+    ma_uint32 engine_sample_rate;
+    const cosmos_mobile_segment* segment;
+    if (
+        source == NULL
+        || source->owner == NULL
+        || index >= source->sequence_count
+    ) {
+        return 0;
+    }
+    segment = &source->sequence[index];
+    engine_sample_rate = ma_engine_get_sample_rate(source->owner->engine);
+    return pitched_frame_duration(
+        segment->length_frames,
+        1,
+        segment->sample_rate,
+        engine_sample_rate,
+        source->pitch,
+        &duration
+    ) ? duration : 0;
 }

@@ -242,7 +242,7 @@ name = "cosmos"
 version = "0.3.0"
 source = { path = "vendor/cosmos-0.3.0-cp311-abi3-win_amd64.whl" }
 wheels = [
-    { filename = "cosmos-0.3.0-cp311-abi3-win_amd64.whl", hash = "sha256:cf8fe6bb7fae873a9eb2381578bf70ece9e0701707763bcf36cd26249d8ded6c" },
+    { filename = "cosmos-0.3.0-cp311-abi3-win_amd64.whl", hash = "sha256:3be3d8d0b472cf0996e74c910ff8f784ff7593f12f2ca94f260f6e317f4f0019" },
 ]
 
 [[package]]

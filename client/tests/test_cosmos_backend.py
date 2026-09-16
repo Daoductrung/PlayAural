@@ -167,6 +167,17 @@ def test_missing_asset_raises_so_the_manager_can_skip_it(cacher):
         cacher.create(str(CLIENT_DIR / "sounds" / "does-not-exist.ogg"))
 
 
+def test_decoded_timing_and_absolute_engine_scheduling_are_exposed(cacher):
+    stream = cacher.create(CLICK)
+    start_frame = cacher.clock_frames + 512
+
+    assert cacher.sample_rate > 0
+    assert stream.sample_rate > 0
+    assert stream.length_frames > 0
+    assert stream.schedule_at_engine_frame(start_frame) is True
+    stream.stop()
+
+
 def test_pinned_streams_stay_until_unpinned(cacher):
     # The manager pins every stream it creates and unpins on release; an
     # unpinned stream that is not playing is dropped at the next clean.

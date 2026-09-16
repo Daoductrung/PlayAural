@@ -48,6 +48,20 @@ export type NativeSpatialAudioSourceSpec = Readonly<{
   position: readonly [number, number, number];
 }>;
 
+export type NativeSpatialAudioSequenceSpec = Readonly<{
+  paths: readonly string[];
+  startPaused: boolean;
+  volume: number;
+  pitch: number;
+  position: readonly [number, number, number];
+  spatialBlend: number;
+}>;
+
+export type NativeSpatialAudioSequenceTiming = Readonly<{
+  durationsMilliseconds: readonly number[];
+  startLeadMilliseconds: number;
+}>;
+
 type NativeSpatialAudioCapabilities = {
   available: boolean;
   hrtf: boolean;
@@ -74,7 +88,8 @@ type NativeSpatialAudioBridge = {
     y: number;
     z: number;
     spatialBlend: number;
-  }): Promise<void>;
+    sequencePaths?: readonly string[];
+  }): Promise<readonly number[]>;
   setParameters(
     sourceId: string,
     volume: number,
@@ -136,6 +151,7 @@ export class NativeSpatialAudio {
   private ready = false;
   private failed = false;
   private lifecycleGeneration = 0;
+  private sampleRate = 0;
 
   readonly config: NativeSpatialAudioRuntimeConfig;
 
@@ -172,6 +188,7 @@ export class NativeSpatialAudio {
           && Number.isInteger(capabilities.sampleRate)
           && capabilities.sampleRate > 0,
         );
+        this.sampleRate = this.ready ? capabilities.sampleRate : 0;
         this.failed = !this.ready;
         if (!this.ready) {
           this.bridge?.shutdown();
@@ -235,11 +252,62 @@ export class NativeSpatialAudio {
     }
   }
 
+  async createSequence(
+    sourceId: string,
+    spec: NativeSpatialAudioSequenceSpec,
+  ): Promise<NativeSpatialAudioSequenceTiming | null> {
+    const lifecycleGeneration = this.lifecycleGeneration;
+    if (!await this.initialize() || !this.bridge || this.sampleRate <= 0) {
+      return null;
+    }
+    try {
+      const durationsMilliseconds = await this.bridge.createSource(sourceId, {
+        introPath: null,
+        loopPath: "",
+        outroPath: null,
+        playIntro: false,
+        looping: false,
+        streamFromDisk: false,
+        startPaused: spec.startPaused,
+        volume: spec.volume,
+        pitch: spec.pitch,
+        x: spec.position[0],
+        y: spec.position[1],
+        z: spec.position[2],
+        spatialBlend: spec.spatialBlend,
+        sequencePaths: [...spec.paths],
+      });
+      if (
+        this.lifecycleGeneration !== lifecycleGeneration
+        || durationsMilliseconds.length !== spec.paths.length
+        || durationsMilliseconds.some((duration) => (
+          !Number.isFinite(duration) || duration <= 0
+        ))
+      ) {
+        this.bridge.destroySource(sourceId);
+        return null;
+      }
+      return Object.freeze({
+        durationsMilliseconds: Object.freeze([...durationsMilliseconds]),
+        startLeadMilliseconds: this.config.hrtfFrameSize * 1000 / this.sampleRate,
+      });
+    } catch (error) {
+      try {
+        this.bridge.destroySource(sourceId);
+      } catch {
+        // Creation may have failed before native ownership was registered.
+      }
+      console.warn("Native spatial-audio sequence creation failed.", error);
+      return null;
+    }
+  }
+
   setParameters(
     sourceId: string,
     volume: number,
     pitch: number,
     position: readonly [number, number, number],
+    spatialBlend = 1,
   ): boolean {
     return this.ready && Boolean(this.bridge?.setParameters(
       sourceId,
@@ -248,7 +316,7 @@ export class NativeSpatialAudio {
       position[0],
       position[1],
       position[2],
-      1,
+      spatialBlend,
     ));
   }
 
@@ -298,5 +366,6 @@ export class NativeSpatialAudio {
     }
     this.ready = false;
     this.failed = false;
+    this.sampleRate = 0;
   }
 }

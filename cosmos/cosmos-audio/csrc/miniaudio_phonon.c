@@ -322,7 +322,13 @@ static void ma_phonon_binaural_tail_node_process_pcm_frames(
     ma_phonon_binaural_node* pBinauralNode = (ma_phonon_binaural_node*)pNode;
     IPLBinauralEffectParams effectParams;
     ma_uint32 channelsIn = ma_node_get_input_channels(pNode, 0);
-    ma_uint32 availableInputFrames = ppFramesIn != NULL ? *pFrameCountIn : 0;
+    ma_uint32 offeredInputFrames = ppFramesIn != NULL ? *pFrameCountIn : 0;
+    ma_bool32 drainingTail = atomic_load_explicit(
+        &pBinauralNode->tailDrainRequested,
+        memory_order_acquire
+    ) != 0;
+    ma_bool32 inputEnded = ppFramesIn == NULL || drainingTail;
+    ma_uint32 availableInputFrames = drainingTail ? 0 : offeredInputFrames;
     ma_uint32 requestedOutputFrames = *pFrameCountOut;
     ma_uint32 consumedInputFrames = 0;
     ma_uint32 outputFrame;
@@ -337,7 +343,7 @@ static void ma_phonon_binaural_tail_node_process_pcm_frames(
         ) {
             pBinauralNode->bufferedOutputOffset = 0;
             pBinauralNode->bufferedOutputFrames = 0;
-            if (ppFramesIn == NULL && pBinauralNode->bufferedInputFrames > 0) {
+            if (inputEnded && pBinauralNode->bufferedInputFrames > 0) {
                 for (channel = 0; channel < channelsIn; channel += 1) {
                     memset(
                         pBinauralNode->ppBuffersIn[channel]
@@ -358,7 +364,7 @@ static void ma_phonon_binaural_tail_node_process_pcm_frames(
                 pBinauralNode->bufferedOutputFrames =
                     (ma_uint32)pBinauralNode->iplAudioSettings.frameSize;
             } else if (
-                ppFramesIn == NULL
+                inputEnded
                 && pBinauralNode->bufferedEffectState
                     == IPL_AUDIOEFFECTSTATE_TAILREMAINING
             ) {
@@ -384,7 +390,7 @@ static void ma_phonon_binaural_tail_node_process_pcm_frames(
             ppFramesOut[0][(outputFrame * 2) + 1] = 0.0f;
         }
 
-        if (consumedInputFrames < availableInputFrames) {
+        if (!drainingTail && consumedInputFrames < availableInputFrames) {
             for (channel = 0; channel < channelsIn; channel += 1) {
                 pBinauralNode->ppBuffersIn[channel]
                     [pBinauralNode->bufferedInputFrames] =
@@ -411,7 +417,11 @@ static void ma_phonon_binaural_tail_node_process_pcm_frames(
     }
 
     if (ppFramesIn != NULL) {
-        *pFrameCountIn = consumedInputFrames;
+        /* Once upstream playback has ended, miniaudio's sound group can keep
+         * offering silent frames. Consume those frames while asking Steam
+         * Audio for its finite tail, otherwise zero-valued input is treated
+         * as a new effect block and the source never reaches completion. */
+        *pFrameCountIn = drainingTail ? offeredInputFrames : consumedInputFrames;
     }
     atomic_store_explicit(
         &pBinauralNode->tailRemaining,
@@ -508,6 +518,7 @@ static ma_result ma_phonon_binaural_node_init_internal(
     atomic_init(&pBinauralNode->spatialBlendBits, 0);
     atomic_init(&pBinauralNode->interpolation, (ma_uint32)IPL_HRTFINTERPOLATION_BILINEAR);
     atomic_init(&pBinauralNode->tailRemaining, 0);
+    atomic_init(&pBinauralNode->tailDrainRequested, 0);
     if (!atomic_is_lock_free(&pBinauralNode->paramsVersion)) {
         ma_node_uninit(&pBinauralNode->baseNode, pAllocationCallbacks);
         return MA_NOT_IMPLEMENTED;
@@ -632,6 +643,20 @@ MA_API ma_result ma_phonon_binaural_node_init_with_tail_processing(
         pAllocationCallbacks,
         pBinauralNode,
         MA_TRUE
+    );
+}
+
+MA_API void ma_phonon_binaural_node_begin_tail_drain(
+    ma_phonon_binaural_node* pBinauralNode
+)
+{
+    if (pBinauralNode == NULL) {
+        return;
+    }
+    atomic_store_explicit(
+        &pBinauralNode->tailDrainRequested,
+        1u,
+        memory_order_release
     );
 }
 

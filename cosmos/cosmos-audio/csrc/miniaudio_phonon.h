@@ -43,6 +43,7 @@ typedef struct
     atomic_uint_least32_t spatialBlendBits;
     atomic_uint_least32_t interpolation;
     atomic_uint_least32_t tailRemaining;
+    atomic_uint_least32_t tailDrainRequested;
 
     /* Last coherent snapshot, owned exclusively by the audio callback. */
     IPLBinauralEffectParams audioThreadParams;
@@ -62,6 +63,9 @@ MA_API ma_result ma_phonon_binaural_node_init(ma_node_graph* pNodeGraph, const m
 MA_API ma_result ma_phonon_binaural_node_init_with_tail_processing(ma_node_graph* pNodeGraph, const ma_phonon_binaural_node_config* pConfig, const ma_allocation_callbacks* pAllocationCallbacks, ma_phonon_binaural_node* pBinauralNode);
 MA_API void ma_phonon_binaural_node_uninit(ma_phonon_binaural_node* pBinauralNode, const ma_allocation_callbacks* pAllocationCallbacks);
 MA_API ma_result ma_phonon_binaural_node_set_parameters(ma_phonon_binaural_node* pBinauralNode, float x, float y, float z, float spatialBlend, IPLHRTFInterpolation interpolation);
+/* Idempotently switch a tail-processing node from terminal upstream input to
+ * Steam Audio's finite tail drain. Call only after the source is at end. */
+MA_API void ma_phonon_binaural_node_begin_tail_drain(ma_phonon_binaural_node* pBinauralNode);
 MA_API ma_bool32 ma_phonon_binaural_node_tail_remaining(const ma_phonon_binaural_node* pBinauralNode);
 MA_API ma_phonon_binaural_node* ma_phonon_binaural_node_alloc(void);
 MA_API void ma_phonon_binaural_node_free(ma_phonon_binaural_node* pNode);

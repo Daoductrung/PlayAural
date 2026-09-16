@@ -1,6 +1,7 @@
 #import "PlayAuralSpatialAudioBridge.h"
 
 #include "cosmos_mobile.h"
+#include <stdlib.h>
 
 uintptr_t PACreateSpatialAudioEngine(
     int32_t hrtfFrameSize,
@@ -48,7 +49,7 @@ uintptr_t PACreateSpatialAudioSource(
     float spatialBlend,
     int32_t* result
 ) {
-    cosmos_mobile_source_config config;
+    cosmos_mobile_source_config config = {0};
     cosmos_mobile_result nativeResult;
     cosmos_mobile_source* source;
     config.intro_path = introPath;
@@ -73,6 +74,80 @@ uintptr_t PACreateSpatialAudioSource(
         *result = (int32_t)nativeResult;
     }
     return (uintptr_t)source;
+}
+
+uintptr_t PACreateSpatialAudioSequenceSource(
+    uintptr_t engineHandle,
+    NSArray<NSString*>* sequencePaths,
+    BOOL startPaused,
+    float volume,
+    float pitch,
+    float x,
+    float y,
+    float z,
+    float spatialBlend,
+    int32_t* result
+) {
+    cosmos_mobile_source_config config = {0};
+    cosmos_mobile_result nativeResult = COSMOS_MOBILE_INVALID_ARGUMENT;
+    cosmos_mobile_source* source = NULL;
+    NSUInteger count = sequencePaths.count;
+    const char** paths = NULL;
+    if (count == 0 || count > 32 || count > UINT32_MAX) {
+        if (result != NULL) {
+            *result = (int32_t)nativeResult;
+        }
+        return 0;
+    }
+    paths = (const char**)calloc(count, sizeof(*paths));
+    if (paths == NULL) {
+        if (result != NULL) {
+            *result = (int32_t)COSMOS_MOBILE_OUT_OF_MEMORY;
+        }
+        return 0;
+    }
+    for (NSUInteger index = 0; index < count; index += 1) {
+        paths[index] = sequencePaths[index].UTF8String;
+        if (paths[index] == NULL || paths[index][0] == '\0') {
+            free(paths);
+            if (result != NULL) {
+                *result = (int32_t)nativeResult;
+            }
+            return 0;
+        }
+    }
+    config.start_paused = startPaused ? 1 : 0;
+    config.volume = volume;
+    config.pitch = pitch;
+    config.x = x;
+    config.y = y;
+    config.z = z;
+    config.spatial_blend = spatialBlend;
+    config.sequence_paths = paths;
+    config.sequence_count = (uint32_t)count;
+    source = cosmos_mobile_source_create(
+        (cosmos_mobile_engine*)engineHandle,
+        &config,
+        &nativeResult
+    );
+    free(paths);
+    if (result != NULL) {
+        *result = (int32_t)nativeResult;
+    }
+    return (uintptr_t)source;
+}
+
+NSArray<NSNumber*>* PASpatialAudioSourceSequenceDurations(
+    uintptr_t sourceHandle
+) {
+    cosmos_mobile_source* source = (cosmos_mobile_source*)sourceHandle;
+    uint32_t count = cosmos_mobile_source_sequence_count(source);
+    NSMutableArray<NSNumber*>* durations = [NSMutableArray arrayWithCapacity:count];
+    for (uint32_t index = 0; index < count; index += 1) {
+        uint64_t duration = cosmos_mobile_source_sequence_duration_frames(source, index);
+        [durations addObject:@(duration)];
+    }
+    return durations;
 }
 
 void PADestroySpatialAudioSource(uintptr_t sourceHandle) {

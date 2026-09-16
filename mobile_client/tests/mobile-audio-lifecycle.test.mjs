@@ -187,6 +187,22 @@ test("managed layer pitch reaches native, element, and seamless stem paths", asy
   assert.match(source, /pitch: source\.pitch \* 100/);
 });
 
+test("mobile Web HRTF sources drain their rendered tails before disposal", async () => {
+  const source = await readFile(
+    new URL("../src/audio/MobileAudioManager.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /disposeWebSourceAfterTail\(source: CommandAudioSource\)/);
+  assert.match(source, /analyser\.getFloatTimeDomainData\(samples\)/);
+  assert.match(source, /silentPolls >= WEB_AUDIO_TAIL_SILENCE_POLLS/);
+  assert.match(source, /gain\.connect\(analyser\)/);
+  assert.ok(
+    source.match(/this\.disposeWebSourceAfterTail\(source\)/g)?.length >= 2,
+    "one-shot and atomic sequence completion must both preserve HRTF tails",
+  );
+});
+
 test("native source identifiers remain unique across wraparound and async loads", async () => {
   const source = await readFile(
     new URL("../src/audio/MobileAudioManager.ts", import.meta.url),

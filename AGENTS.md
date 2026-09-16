@@ -288,6 +288,16 @@ Audio-first is mandatory. Every important state change needs TTS and/or sound.
 - Randomized numbered one-shot SFX use the validated `family` field. Clients
   select from dynamically discovered `<family><positive integer>` assets; do
   not hardcode a variant count or use families for loops, music, or ambience.
+- Finite multi-stage SFX use one atomic `play` command with complete `segments`
+  and a stable handle. Clients validate and preload every asset before starting,
+  then schedule contiguous boundaries from decoded frame counts and pitch on a
+  shared audio clock; authored silence remains part of the asset. Segment motion
+  spans that segment's decoded duration. Renderers keep the final HRTF tail
+  connected until it has finished rather than clipping it at the last decoded
+  frame. Never approximate these chains with
+  separate packets, server ticks, or replacement-sensitive duration constants.
+  Any load or scheduling failure cancels the whole chain, and finite sequences
+  remain runtime-only rather than entering `active_audio` replay state.
 - Positioned `play` commands may carry a complete `attenuation` object using
   `none`, `linear`, `inverse`, or `exponential`. Active curves always include
   reference/maximum distance, rolloff, and minimum/maximum gain; clients must

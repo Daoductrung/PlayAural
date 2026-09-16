@@ -17,6 +17,8 @@ export type SpatialAudioSourceOptions = {
   volume: number;
   pitch: number;
   position: readonly [number, number, number];
+  sequencePaths?: readonly string[];
+  spatialBlend?: number;
 };
 
 export type SpatialAudioEngineOptions = {
@@ -27,7 +29,7 @@ export type SpatialAudioEngineOptions = {
 
 export type PlayAuralSpatialAudioNativeModule = {
   initialize(options: SpatialAudioEngineOptions): Promise<SpatialAudioCapabilities>;
-  createSource(sourceId: string, options: SpatialAudioSourceOptions): Promise<void>;
+  createSource(sourceId: string, options: SpatialAudioSourceOptions): Promise<readonly number[]>;
   setParameters(
     sourceId: string,
     volume: number,
@@ -65,7 +67,8 @@ type PlayAuralSpatialAudioBridge = {
     y: number;
     z: number;
     spatialBlend: number;
-  }): Promise<void>;
+    sequencePaths?: readonly string[];
+  }): Promise<readonly number[]>;
   setParameters: PlayAuralSpatialAudioNativeModule["setParameters"];
   pauseSource: PlayAuralSpatialAudioNativeModule["pauseSource"];
   resumeSource: PlayAuralSpatialAudioNativeModule["resumeSource"];
@@ -98,7 +101,8 @@ const module: PlayAuralSpatialAudioNativeModule = {
     x: options.position[0],
     y: options.position[1],
     z: options.position[2],
-    spatialBlend: 1,
+    spatialBlend: options.spatialBlend ?? 1,
+    ...(options.sequencePaths ? { sequencePaths: options.sequencePaths } : {}),
   }),
   setParameters: (...args) => bridge.setParameters(...args),
   pauseSource: (sourceId) => bridge.pauseSource(sourceId),

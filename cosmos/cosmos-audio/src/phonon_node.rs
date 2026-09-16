@@ -46,7 +46,7 @@ extern "C" {
         ipl_hrtf: IPLHRTF,
     ) -> PhononBinauralNodeConfig;
 
-    fn ma_phonon_binaural_node_init(
+    fn ma_phonon_binaural_node_init_with_tail_processing(
         node_graph: *mut ma_node_graph,
         config: *const PhononBinauralNodeConfig,
         allocation_callbacks: *const ma_allocation_callbacks,
@@ -66,6 +66,10 @@ extern "C" {
         spatial_blend: f32,
         interpolation: IPLHRTFInterpolation,
     ) -> ma_result;
+
+    fn ma_phonon_binaural_node_tail_remaining(
+        binaural_node: *const PhononBinauralNode,
+    ) -> ma_bool32;
 
     fn ma_phonon_binaural_node_alloc() -> *mut PhononBinauralNode;
     fn ma_phonon_binaural_node_free(node: *mut PhononBinauralNode);
@@ -177,8 +181,14 @@ impl BinauralNode {
             )
         };
 
-        let result =
-            unsafe { ma_phonon_binaural_node_init(node_graph, &config, ptr::null(), node) };
+        let result = unsafe {
+            ma_phonon_binaural_node_init_with_tail_processing(
+                node_graph,
+                &config,
+                ptr::null(),
+                node,
+            )
+        };
 
         if result != MA_SUCCESS {
             unsafe { ma_phonon_binaural_node_free(node) };
@@ -197,6 +207,13 @@ impl BinauralNode {
     /// Get the raw node pointer for audio graph operations.
     pub fn as_ptr(&self) -> *mut PhononBinauralNode {
         self.node
+    }
+
+    /// Whether Steam Audio still has audible convolution tail to drain.
+    pub fn tail_remaining(&self) -> bool {
+        self.initialized
+            && !self.node.is_null()
+            && unsafe { ma_phonon_binaural_node_tail_remaining(self.node) == MA_TRUE }
     }
 
     /// Set the direction of the sound source relative to the listener.

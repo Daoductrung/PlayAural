@@ -1,5 +1,6 @@
 #include <jni.h>
 #include <stdint.h>
+#include <stdlib.h>
 
 #include "cosmos_mobile.h"
 
@@ -84,7 +85,7 @@ Java_one_ddt_playaural_spatialaudio_NativeSpatialAudioBridge_nativeCreateSource(
     const char* intro_chars = NULL;
     const char* loop_chars = NULL;
     const char* outro_chars = NULL;
-    cosmos_mobile_source_config config;
+    cosmos_mobile_source_config config = {0};
     cosmos_mobile_result result = COSMOS_MOBILE_INVALID_ARGUMENT;
     cosmos_mobile_source* source = NULL;
     (void)instance;
@@ -122,6 +123,8 @@ Java_one_ddt_playaural_spatialaudio_NativeSpatialAudioBridge_nativeCreateSource(
         config.y = y;
         config.z = z;
         config.spatial_blend = spatial_blend;
+        config.sequence_paths = NULL;
+        config.sequence_count = 0;
         source = cosmos_mobile_source_create(
             (cosmos_mobile_engine*)(intptr_t)engine_handle,
             &config,
@@ -147,6 +150,132 @@ cleanup:
         cosmos_mobile_source_destroy(source);
     }
     return output;
+}
+
+JNIEXPORT jlongArray JNICALL
+Java_one_ddt_playaural_spatialaudio_NativeSpatialAudioBridge_nativeCreateSequenceSource(
+    JNIEnv* env,
+    jobject instance,
+    jlong engine_handle,
+    jobjectArray sequence_paths,
+    jboolean start_paused,
+    jfloat volume,
+    jfloat pitch,
+    jfloat x,
+    jfloat y,
+    jfloat z,
+    jfloat spatial_blend
+) {
+    jsize count;
+    jsize index;
+    jstring* path_strings = NULL;
+    const char** path_chars = NULL;
+    cosmos_mobile_source_config config = {0};
+    cosmos_mobile_result result = COSMOS_MOBILE_INVALID_ARGUMENT;
+    cosmos_mobile_source* source = NULL;
+    (void)instance;
+
+    if (sequence_paths == NULL) {
+        return pointer_result(env, NULL, result);
+    }
+    count = (*env)->GetArrayLength(env, sequence_paths);
+    if ((*env)->ExceptionCheck(env) || count <= 0 || count > 32) {
+        return (*env)->ExceptionCheck(env) ? NULL : pointer_result(env, NULL, result);
+    }
+    path_strings = (jstring*)calloc((size_t)count, sizeof(*path_strings));
+    path_chars = (const char**)calloc((size_t)count, sizeof(*path_chars));
+    if (path_strings == NULL || path_chars == NULL) {
+        result = COSMOS_MOBILE_OUT_OF_MEMORY;
+        goto cleanup;
+    }
+    for (index = 0; index < count; index += 1) {
+        path_strings[index] = (jstring)(*env)->GetObjectArrayElement(
+            env,
+            sequence_paths,
+            index
+        );
+        if (path_strings[index] == NULL || (*env)->ExceptionCheck(env)) {
+            goto cleanup;
+        }
+        path_chars[index] = (*env)->GetStringUTFChars(
+            env,
+            path_strings[index],
+            NULL
+        );
+        if (path_chars[index] == NULL) {
+            goto cleanup;
+        }
+    }
+    config.loop_path = NULL;
+    config.start_paused = start_paused ? 1 : 0;
+    config.stream_from_disk = 0;
+    config.volume = volume;
+    config.pitch = pitch;
+    config.x = x;
+    config.y = y;
+    config.z = z;
+    config.spatial_blend = spatial_blend;
+    config.sequence_paths = path_chars;
+    config.sequence_count = (uint32_t)count;
+    source = cosmos_mobile_source_create(
+        (cosmos_mobile_engine*)(intptr_t)engine_handle,
+        &config,
+        &result
+    );
+
+cleanup:
+    if (path_strings != NULL && path_chars != NULL) {
+        for (index = 0; index < count; index += 1) {
+            if (path_chars[index] != NULL) {
+                (*env)->ReleaseStringUTFChars(
+                    env,
+                    path_strings[index],
+                    path_chars[index]
+                );
+            }
+            if (path_strings[index] != NULL) {
+                (*env)->DeleteLocalRef(env, path_strings[index]);
+            }
+        }
+    }
+    free(path_chars);
+    free(path_strings);
+    if ((*env)->ExceptionCheck(env)) {
+        cosmos_mobile_source_destroy(source);
+        return NULL;
+    }
+    jlongArray output = pointer_result(env, source, result);
+    if (output == NULL) {
+        cosmos_mobile_source_destroy(source);
+    }
+    return output;
+}
+
+JNIEXPORT jlongArray JNICALL
+Java_one_ddt_playaural_spatialaudio_NativeSpatialAudioBridge_nativeSequenceDurations(
+    JNIEnv* env,
+    jobject instance,
+    jlong source_handle
+) {
+    jlong values[32];
+    uint32_t count;
+    uint32_t index;
+    cosmos_mobile_source* source = (cosmos_mobile_source*)(intptr_t)source_handle;
+    (void)instance;
+    count = cosmos_mobile_source_sequence_count(source);
+    if (count == 0 || count > 32) {
+        return NULL;
+    }
+    for (index = 0; index < count; index += 1) {
+        uint64_t duration = cosmos_mobile_source_sequence_duration_frames(source, index);
+        values[index] = duration <= INT64_MAX ? (jlong)duration : 0;
+    }
+    jlongArray output = (*env)->NewLongArray(env, (jsize)count);
+    if (output == NULL) {
+        return NULL;
+    }
+    (*env)->SetLongArrayRegion(env, output, 0, (jsize)count, values);
+    return (*env)->ExceptionCheck(env) ? NULL : output;
 }
 
 JNIEXPORT void JNICALL

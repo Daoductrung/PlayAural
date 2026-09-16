@@ -12,6 +12,7 @@ from ..audio import (
     AudioGainAutomation,
     AudioMotion,
     AudioPlaybackState,
+    AudioSequenceSegment,
     DistanceAttenuation,
     SameTurnAudioBatcher,
     new_audio_handle,
@@ -220,6 +221,20 @@ class GameSoundMixin:
         persist: bool = False,
     ) -> str:
         users, recipient_ids = self._audio_recipients(audience)
+        if persist and command.segments:
+            raise ValueError("Finite audio sequences cannot be persisted")
+        if (
+            command.command == "play"
+            and command.handle
+            and not persist
+            and any(
+                state.handle == command.handle
+                for state in self.active_audio.values()
+            )
+        ):
+            raise ValueError(
+                "Runtime audio cannot replace a replayable stable handle"
+            )
         if persist:
             if audience is not None and not recipient_ids:
                 raise ValueError("Private replayable audio requires table recipients")
@@ -605,6 +620,43 @@ class GameSoundMixin:
     ) -> str:
         """Alias for :meth:`broadcast_sound`."""
         return self.broadcast_sound(name, volume, pan, pitch, **kwargs)
+
+    def play_sound_chain(
+        self,
+        segments: list[AudioSequenceSegment | dict[str, Any]],
+        *,
+        handle: str = "",
+        bus: str = "sfx",
+        buffer: str = "",
+        volume: int = 100,
+        pan: int | None = None,
+        pitch: int = 100,
+        fade_in_ms: int = 0,
+        fade_out_ms: int = 0,
+        priority: int = 0,
+        max_instances: int = 0,
+        ducking: dict[str, int] | None = None,
+        audience: Any = None,
+    ) -> str:
+        """Play a finite, preloaded SFX chain on each client's audio clock."""
+        resolved_handle = handle or new_audio_handle("sfx-sequence")
+        command = AudioCommand(
+            command="play",
+            kind="sfx",
+            handle=resolved_handle,
+            bus=bus,
+            buffer=buffer,
+            volume=volume,
+            pan=pan,
+            pitch=pitch,
+            fade_in_ms=fade_in_ms,
+            fade_out_ms=fade_out_ms,
+            priority=priority,
+            max_instances=max_instances,
+            ducking=ducking or {},
+            segments=segments,
+        )
+        return self._dispatch_audio(command, audience=audience)
 
     def broadcast_sound_family(
         self,

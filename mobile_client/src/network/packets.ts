@@ -149,6 +149,14 @@ export type AudioGainAutomationPacket = {
   elapsed_ms: number;
   easing: "linear" | "ease-in" | "ease-out" | "ease-in-out";
 };
+export type AudioSequenceSegmentPacket = {
+  asset: string;
+  position: [number, number, number] | null;
+  destination_position: [number, number, number] | null;
+  attenuation: DistanceAttenuationPacket | null;
+  gain: number;
+  easing: "linear" | "ease-in" | "ease-out" | "ease-in-out";
+};
 
 export type AudioCommandPacket = {
   type: "audio";
@@ -179,6 +187,7 @@ export type AudioCommandPacket = {
   motion?: AudioMotionPacket;
   gain?: number;
   gain_automation?: AudioGainAutomationPacket;
+  segments?: AudioSequenceSegmentPacket[];
   pitch?: number;
   fade_in_ms?: number;
   fade_out_ms?: number;

@@ -2,6 +2,7 @@ import ExpoModulesCore
 import Foundation
 
 private let nativeSuccess: Int32 = 0
+private let maxSequenceSegments = 32
 private let sourceIDPattern = try! NSRegularExpression(
   pattern: "^[A-Za-z0-9_.:-]{1,128}$"
 )
@@ -26,6 +27,7 @@ private struct SpatialAudioSourceOptions: Record {
   @Field var y: Double = 0
   @Field var z: Double = 0
   @Field var spatialBlend: Double = 1
+  @Field var sequencePaths: [String] = []
 }
 
 public final class PlayAuralSpatialAudioModule: Module {
@@ -189,55 +191,102 @@ public final class PlayAuralSpatialAudioModule: Module {
   private func createSource(
     sourceID: String,
     options: SpatialAudioSourceOptions
-  ) throws {
+  ) throws -> [Double] {
     guard engineHandle != 0 else {
       throw SpatialAudioException("Native spatial audio is not initialized")
     }
+    let hasStem = !options.loopPath.isEmpty
+    let hasSequence = !options.sequencePaths.isEmpty
     guard
       validSourceID(sourceID),
-      validPath(options.loopPath),
+      hasStem != hasSequence,
+      options.loopPath.isEmpty || validPath(options.loopPath),
       options.introPath.map(validPath) ?? true,
-      options.outroPath.map(validPath) ?? true
+      options.outroPath.map(validPath) ?? true,
+      options.sequencePaths.count <= maxSequenceSegments,
+      options.sequencePaths.allSatisfy(validPath),
+      !hasSequence || (
+        options.introPath == nil &&
+        options.outroPath == nil &&
+        !options.playIntro &&
+        !options.looping &&
+        !options.streamFromDisk
+      )
     else {
       throw SpatialAudioException("Invalid native spatial-audio source")
     }
     destroySource(sourceID)
     var result: Int32 = nativeSuccess
-    let handle = options.loopPath.withCString { loopCString in
-      let createWithIntro: (UnsafePointer<CChar>?) -> UInt = { introCString in
-        let createWithOutro: (UnsafePointer<CChar>?) -> UInt = { outroCString in
-          PACreateSpatialAudioSource(
-            self.engineHandle,
-            introCString,
-            loopCString,
-            outroCString,
-            options.playIntro,
-            options.looping,
-            options.streamFromDisk,
-            options.startPaused,
-            Float(options.volume),
-            Float(options.pitch),
-            Float(options.x),
-            Float(options.y),
-            Float(options.z),
-            Float(options.spatialBlend),
-            &result
-          )
+    let handle: UInt
+    if hasSequence {
+      handle = PACreateSpatialAudioSequenceSource(
+        engineHandle,
+        options.sequencePaths,
+        options.startPaused,
+        Float(options.volume),
+        Float(options.pitch),
+        Float(options.x),
+        Float(options.y),
+        Float(options.z),
+        Float(options.spatialBlend),
+        &result
+      )
+    } else {
+      handle = options.loopPath.withCString { loopCString in
+        let createWithIntro: (UnsafePointer<CChar>?) -> UInt = { introCString in
+          let createWithOutro: (UnsafePointer<CChar>?) -> UInt = { outroCString in
+            PACreateSpatialAudioSource(
+              self.engineHandle,
+              introCString,
+              loopCString,
+              outroCString,
+              options.playIntro,
+              options.looping,
+              options.streamFromDisk,
+              options.startPaused,
+              Float(options.volume),
+              Float(options.pitch),
+              Float(options.x),
+              Float(options.y),
+              Float(options.z),
+              Float(options.spatialBlend),
+              &result
+            )
+          }
+          if let outroPath = options.outroPath, !outroPath.isEmpty {
+            return outroPath.withCString(createWithOutro)
+          }
+          return createWithOutro(nil)
         }
-        if let outroPath = options.outroPath, !outroPath.isEmpty {
-          return outroPath.withCString(createWithOutro)
+        if let introPath = options.introPath, !introPath.isEmpty {
+          return introPath.withCString(createWithIntro)
         }
-        return createWithOutro(nil)
+        return createWithIntro(nil)
       }
-      if let introPath = options.introPath, !introPath.isEmpty {
-        return introPath.withCString(createWithIntro)
-      }
-      return createWithIntro(nil)
     }
     guard handle != 0, result == nativeSuccess else {
       throw SpatialAudioException("Native spatial-audio source creation failed (\(result))")
     }
+    let durations: [Double]
+    if hasSequence {
+      let sampleRate = PASpatialAudioEngineSampleRate(engineHandle)
+      let durationFrames = PASpatialAudioSourceSequenceDurations(handle)
+      guard
+        sampleRate > 0,
+        durationFrames.count == options.sequencePaths.count,
+        durationFrames.allSatisfy({ $0.uint64Value > 0 })
+      else {
+        PADestroySpatialAudioSource(handle)
+        throw SpatialAudioException("Native spatial-audio sequence timing is invalid")
+      }
+      durations = durationFrames.map {
+        Double(truncating: $0) * 1000 / Double(sampleRate)
+      }
+    } else {
+      durations = []
+    }
     sources[sourceID] = handle
+    return durations
   }
 
   private func destroySource(_ sourceID: String) {

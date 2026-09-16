@@ -4,7 +4,7 @@
 
 use miniaudio_sys::{
     ma_engine, ma_engine_get_node_graph, ma_engine_get_sample_rate,
-    ma_engine_listener_set_position, ma_node_graph, MA_SUCCESS,
+    ma_engine_get_time_in_pcm_frames, ma_engine_listener_set_position, ma_node_graph, MA_SUCCESS,
 };
 
 use crate::error::AudioError;
@@ -135,6 +135,15 @@ impl AudioEngine {
             44100 // Default fallback
         } else {
             unsafe { ma_engine_get_sample_rate(self.engine) }
+        }
+    }
+
+    /// Current absolute engine clock in PCM frames.
+    pub fn time_in_pcm_frames(&self) -> u64 {
+        if self.engine.is_null() {
+            0
+        } else {
+            unsafe { ma_engine_get_time_in_pcm_frames(self.engine) }
         }
     }
 }

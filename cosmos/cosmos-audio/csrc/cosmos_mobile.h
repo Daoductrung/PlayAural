@@ -51,6 +51,8 @@ typedef struct cosmos_mobile_source_config {
     float y;
     float z;
     float spatial_blend;
+    const char* const* sequence_paths;
+    uint32_t sequence_count;
 } cosmos_mobile_source_config;
 
 cosmos_mobile_engine* cosmos_mobile_engine_create(
@@ -85,6 +87,11 @@ cosmos_mobile_result cosmos_mobile_source_request_outro(
 );
 void cosmos_mobile_source_stop(cosmos_mobile_source* source);
 int32_t cosmos_mobile_source_at_end(cosmos_mobile_source* source);
+uint32_t cosmos_mobile_source_sequence_count(const cosmos_mobile_source* source);
+uint64_t cosmos_mobile_source_sequence_duration_frames(
+    const cosmos_mobile_source* source,
+    uint32_t index
+);
 
 #ifdef __cplusplus
 }

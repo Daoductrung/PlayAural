@@ -28,6 +28,18 @@ internal object NativeSpatialAudioBridge {
     z: Float,
     spatialBlend: Float
   ): LongArray
+  external fun nativeCreateSequenceSource(
+    engineHandle: Long,
+    sequencePaths: Array<String>,
+    startPaused: Boolean,
+    volume: Float,
+    pitch: Float,
+    x: Float,
+    y: Float,
+    z: Float,
+    spatialBlend: Float
+  ): LongArray
+  external fun nativeSequenceDurations(sourceHandle: Long): LongArray
   external fun nativeDestroySource(sourceHandle: Long)
   external fun nativeSetParameters(
     sourceHandle: Long,

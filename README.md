@@ -98,4 +98,9 @@ PlayAural is released as open-source software. Public source code and release bu
 
 ## License
 
-This project is licensed under the **GNU GENERAL PUBLIC LICENSE**. See [LICENSE](LICENSE) for the full text.
+This project is licensed under the **GNU General Public License, version 2
+only**. See [LICENSE](LICENSE) for the full text. That license covers
+PlayAural-authored software; it does not relicense third-party code, audio, or
+other assets. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for the
+software inventory, vendored notices, compatibility warning, and asset-license
+scope.

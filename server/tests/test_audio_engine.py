@@ -820,7 +820,7 @@ def test_network_audio_packets_are_unified_and_ordered() -> None:
     user = NetworkUser("Alice", "en", connection=object())
     handle = user.play_sound("fuse.ogg", loop=True, ducking={"music": 35})
     user.stop_sound(handle, fade_ms=250)
-    user.play_music("music.ogg")
+    user.play_music("music.ogg", pitch=125)
     user.pause_music()
     user.resume_music()
     user.stop_music()
@@ -833,6 +833,7 @@ def test_network_audio_packets_are_unified_and_ordered() -> None:
     assert packets[0]["handle"] == handle
     assert packets[0]["loop"] is True
     assert packets[0]["ducking"] == {"music": 35}
+    assert packets[2]["pitch"] == 125
     assert [packet["command"] for packet in packets[2:]] == [
         "play",
         "pause",
@@ -1092,6 +1093,29 @@ def test_private_layer_replacement_splits_state_and_public_takeover_unifies_it(
     assert state.asset == "weather/clear.ogg"
     assert state.recipient_ids == []
 
+
+def test_managed_layer_pitch_is_configurable_and_replayable(
+    pig_game_with_players,
+) -> None:
+    game, alice, _ = pig_game_with_players
+
+    game.play_music("music/slow.ogg", handle="slow-music", pitch=75)
+    game.play_ambience(
+        "weather/wind.ogg",
+        intro="weather/wind-in.ogg",
+        outro="weather/wind-out.ogg",
+        handle="fast-wind",
+        layer="weather",
+        pitch=150,
+    )
+
+    packets = [message.data for message in alice.messages[-2:]]
+    assert [packet["pitch"] for packet in packets] == [75, 150]
+    states = {state.handle: state for state in game.active_audio.values()}
+    assert states["slow-music"].pitch == 75
+    assert states["fast-wind"].pitch == 150
+    assert states["slow-music"].to_command(replay=True).pitch == 75
+    assert states["fast-wind"].to_command(replay=True).pitch == 150
 
 def test_private_layer_cannot_partially_replace_public_replay_state(
     pig_game_with_players,

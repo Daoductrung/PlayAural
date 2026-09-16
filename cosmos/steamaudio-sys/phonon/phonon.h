@@ -41,6 +41,12 @@
 extern "C" {
 #endif
 
+#if defined(IPL_ENABLE_OCTAVE_BANDS)
+#define IPL_NUM_BANDS   11
+#else
+#define IPL_NUM_BANDS   3
+#endif
+
 #define DECLARE_OPAQUE_HANDLE(x)    typedef struct _##x##_t* x
 
 /*****************************************************************************************************************/
@@ -714,13 +720,13 @@ typedef enum {
     IPL_SCENETYPE_DEFAULT,
 
     /** The Intel Embree ray tracer. Supports multi-threading. This is a highly optimized implementation, and
-        is likely to be faster than the Phonon ray tracer. However, Embree requires Windows, Linux, or macOS,
+        is likely to be faster than the default ray tracer. However, Embree requires Windows, Linux, or macOS,
         and a 32-bit x86 or 64-bit x86_64 CPU. */
     IPL_SCENETYPE_EMBREE,
 
     /** The AMD Radeon Rays ray tracer. This is an OpenCL implementation, and can use either the CPU or any
         GPU that supports OpenCL 1.2 or later. If using the GPU, it is likely to be significantly faster than
-        the Phonon ray tracer. However, with heavy real-time simulation workloads, it may impact your
+        the default ray tracer. However, with heavy real-time simulation workloads, it may impact your
         application's frame rate. On supported AMD GPUs, you can use the Resource Reservation feature to
         mitigate this issue. */
     IPL_SCENETYPE_RADEONRAYS,
@@ -772,7 +778,7 @@ typedef struct {
 */
 typedef struct {
     /** Fraction of sound energy absorbed at low, middle, high frequencies. Between 0.0 and 1.0. */
-    IPLfloat32 absorption[3];
+    IPLfloat32 absorption[IPL_NUM_BANDS];
 
     /** Fraction of sound energy scattered in a random direction on reflection. Between 0.0 (pure specular) and 1.0
         (pure diffuse). */
@@ -780,7 +786,7 @@ typedef struct {
 
     /** Fraction of sound energy transmitted through at low, middle, high frequencies. Between 0.0 and 1.0.
         Only used for direct occlusion calculations. */
-    IPLfloat32 transmission[3];
+    IPLfloat32 transmission[IPL_NUM_BANDS];
 } IPLMaterial;
 
 /** A ray in 3D space. */
@@ -828,7 +834,8 @@ typedef struct {
                                 origin than this value.
     \param  maxDistance         The maximum distance from the origin at which an intersection may occur for it
                                 to be considered. This function must not return any intersections farther from
-                                the origin than this value.
+                                the origin than this value. If this value is less than or equal to \c minDistance,
+                                the function should ignore the ray, and return immediately.
     \param  hit                 [out] Information describing the ray's intersection with geometry, if any.
     \param  userData            Pointer to a block of memory containing arbitrary data, specified during the call to
                                 \c iplSceneCreate.
@@ -845,7 +852,8 @@ typedef void (IPLCALL *IPLClosestHitCallback)(const IPLRay* ray, IPLfloat32 minD
                                 origin than this value.
     \param  maxDistance         The maximum distance from the origin at which an intersection may occur for it
                                 to be considered. This function must not return any intersections farther from
-                                the origin than this value.
+                                the origin than this value. If this value is less than or equal to \c minDistance,
+                                the function should ignore the ray, set \c occluded to 1, and return immediately.
     \param  occluded            [out] An integer indicating whether the ray intersects any geometry. A value of 0
                                 indicates no intersection, 1 indicates that an intersection exists.
     \param  userData            Pointer to a block of memory containing arbitrary data, specified during the call to
@@ -864,7 +872,9 @@ typedef void (IPLCALL *IPLAnyHitCallback)(const IPLRay* ray, IPLfloat32 minDista
     \param  minDistances        Array containing, for each ray, the minimum distance from the origin at which
                                 an intersection may occur for it to be considered.
     \param  maxDistances        Array containing, for each ray, the maximum distance from the origin at which
-                                an intersection may occur for it to be considered.
+                                an intersection may occur for it to be considered. If, for some ray with index \c i,
+                                `maxDistances[i]` is less than `minDistances[i]`, the function should ignore
+                                the ray.
     \param  hits                [out] Information describing each ray's intersection with geometry, if any.
     \param  userData            Pointer to a block of memory containing arbitrary data, specified during the call to
                                 \c iplSceneCreate.
@@ -880,7 +890,9 @@ typedef void (IPLCALL *IPLBatchedClosestHitCallback)(IPLint32 numRays, const IPL
     \param  minDistances        Array containing, for each ray, the minimum distance from the origin at which
                                 an intersection may occur for it to be considered.
     \param  maxDistances        Array containing, for each ray, the maximum distance from the origin at which
-                                an intersection may occur for it to be considered.
+                                an intersection may occur for it to be considered. If, for some ray with index \c i,
+                                `maxDistances[i]` is less than `minDistances[i]`, the function should ignore the
+                                ray and set `occluded[i]` to 1.
     \param  occluded            [out] Array of integers indicating, for each ray, whether the ray intersects any
                                 geometry. 0 indicates no intersection, 1 indicates that an intersection exists.
     \param  userData            Pointer to a block of memory containing arbitrary data, specified during the call to
@@ -1108,6 +1120,16 @@ IPLAPI void IPLCALL iplStaticMeshAdd(IPLStaticMesh staticMesh, IPLScene scene);
                         calling \c iplStaticMeshCreate.
 */
 IPLAPI void IPLCALL iplStaticMeshRemove(IPLStaticMesh staticMesh, IPLScene scene);
+
+/** Loads the material data of specified object in the iplStaticMesh.
+
+    \param  staticMesh  The static mesh to update.
+    \param  scene       The scene from which to update the static mesh. This must be the scene which was passed when
+                        calling \c iplStaticMeshCreate.
+    \param  newMaterial  The material data of specified object.
+    \param  index  The index of specified object. It means the object's index in the order it was exported.
+*/
+IPLAPI void IPLCALL iplStaticMeshSetMaterial(IPLStaticMesh staticMesh, IPLScene scene, IPLMaterial* newMaterial, IPLint32 index);
 
 /** Creates an instanced mesh.
 
@@ -1389,7 +1411,7 @@ typedef struct {
 
     /** Pointer to a buffer containing SOFA file data from which to load HRTF data. Either \c sofaFileName
         or \c sofaData should be non-NULL. Only for \c IPL_HRTFTYPE_SOFA. */
-    const uint8_t* sofaData;
+    const IPLuint8* sofaData;
 
     /** Size (in bytes) of the buffer pointed to by \c sofaData. Only for \c IPL_HRTFTYPE_SOFA. */
     int sofaDataSize;
@@ -1503,6 +1525,32 @@ IPLAPI void IPLCALL iplPanningEffectReset(IPLPanningEffect effect);
 */
 IPLAPI IPLAudioEffectState IPLCALL iplPanningEffectApply(IPLPanningEffect effect, IPLPanningEffectParams* params, IPLAudioBuffer* in, IPLAudioBuffer* out);
 
+/** Returns the number of tail samples remaining in a panning effect's internal buffers.
+
+    Tail samples are audio samples that should be played even after the input to the effect has stopped
+    playing and no further input samples are available.
+
+    \param  effect  The panning effect.
+
+    \return The number of tail samples remaining.
+*/
+IPLAPI IPLint32 IPLCALL iplPanningEffectGetTailSize(IPLPanningEffect effect);
+
+/** Retrieves a single frame of tail samples from a panning effect's internal buffers.
+
+    After the input to the panning effect has stopped, this function must be called instead of
+    \c iplPanningEffectApply until the return value indicates that no more tail samples remain.
+
+    \param  effect  The panning effect.
+    \param  out     The output audio buffer. Must have as many channels as needed for the speaker layout
+                    specified when creating the panning effect. For example, if the speaker layout is
+                    \c IPL_SPEAKERLAYOUTTYPE_SURROUND_5_1, the output buffer must contain 6 channels.
+
+    \return \c IPL_AUDIOEFFECTSTATE_TAILREMAINING if any tail samples remain in the effect's internal buffers, or
+            \c IPL_AUDIOEFFECTSTATE_TAILCOMPLETE otherwise.
+*/
+IPLAPI IPLAudioEffectState IPLCALL iplPanningEffectGetTail(IPLPanningEffect effect, IPLAudioBuffer* out);
+
 /** \} */
 
 
@@ -1601,6 +1649,30 @@ IPLAPI void IPLCALL iplBinauralEffectReset(IPLBinauralEffect effect);
 */
 IPLAPI IPLAudioEffectState IPLCALL iplBinauralEffectApply(IPLBinauralEffect effect, IPLBinauralEffectParams* params, IPLAudioBuffer* in, IPLAudioBuffer* out);
 
+/** Returns the number of tail samples remaining in a binaural effect's internal buffers.
+
+    Tail samples are audio samples that should be played even after the input to the effect has stopped
+    playing and no further input samples are available.
+
+    \param  effect  The binaural effect.
+
+    \return The number of tail samples remaining.
+*/
+IPLAPI IPLint32 IPLCALL iplBinauralEffectGetTailSize(IPLBinauralEffect effect);
+
+/** Retrieves a single frame of tail samples from a binaural effect's internal buffers.
+
+    After the input to the binaural effect has stopped, this function must be called instead of
+    \c iplBinauralEffectApply until the return value indicates that no more tail samples remain.
+
+    \param  effect  The binaural effect.
+    \param  out     The output audio buffer. Must be 2-channel.
+
+    \return \c IPL_AUDIOEFFECTSTATE_TAILREMAINING if any tail samples remain in the effect's internal buffers, or
+            \c IPL_AUDIOEFFECTSTATE_TAILCOMPLETE otherwise.
+*/
+IPLAPI IPLAudioEffectState IPLCALL iplBinauralEffectGetTail(IPLBinauralEffect effect, IPLAudioBuffer* out);
+
 /** \} */
 
 
@@ -1680,6 +1752,30 @@ IPLAPI void IPLCALL iplVirtualSurroundEffectReset(IPLVirtualSurroundEffect effec
 */
 IPLAPI IPLAudioEffectState IPLCALL iplVirtualSurroundEffectApply(IPLVirtualSurroundEffect effect, IPLVirtualSurroundEffectParams* params, IPLAudioBuffer* in, IPLAudioBuffer* out);
 
+/** Returns the number of tail samples remaining in a virtual surround effect's internal buffers.
+
+    Tail samples are audio samples that should be played even after the input to the effect has stopped
+    playing and no further input samples are available.
+
+    \param  effect  The virtual surround effect.
+
+    \return The number of tail samples remaining.
+*/
+IPLAPI IPLint32 IPLCALL iplVirtualSurroundEffectGetTailSize(IPLVirtualSurroundEffect effect);
+
+/** Retrieves a single frame of tail samples from a virtual surround effect's internal buffers.
+
+    After the input to the virtual surround effect has stopped, this function must be called instead of
+    \c iplVirtualSurroundEffectApply until the return value indicates that no more tail samples remain.
+
+    \param  effect  The virtual surround effect.
+    \param  out     The output audio buffer. Must be 2-channel.
+
+    \return \c IPL_AUDIOEFFECTSTATE_TAILREMAINING if any tail samples remain in the effect's internal buffers, or
+            \c IPL_AUDIOEFFECTSTATE_TAILCOMPLETE otherwise.
+*/
+IPLAPI IPLAudioEffectState IPLCALL iplVirtualSurroundEffectGetTail(IPLVirtualSurroundEffect effect, IPLAudioBuffer* out);
+
 /** \} */
 
 
@@ -1756,6 +1852,31 @@ IPLAPI void IPLCALL iplAmbisonicsEncodeEffectReset(IPLAmbisonicsEncodeEffect eff
 */
 IPLAPI IPLAudioEffectState IPLCALL iplAmbisonicsEncodeEffectApply(IPLAmbisonicsEncodeEffect effect, IPLAmbisonicsEncodeEffectParams* params, IPLAudioBuffer* in, IPLAudioBuffer* out);
 
+/** Returns the number of tail samples remaining in an Ambisonics encode effect's internal buffers.
+
+    Tail samples are audio samples that should be played even after the input to the effect has stopped
+    playing and no further input samples are available.
+
+    \param  effect  The Ambisonics encode effect.
+
+    \return The number of tail samples remaining.
+*/
+IPLAPI IPLint32 IPLCALL iplAmbisonicsEncodeEffectGetTailSize(IPLAmbisonicsEncodeEffect effect);
+
+/** Retrieves a single frame of tail samples from an Ambisonics encode effect's internal buffers.
+
+    After the input to the Ambisonics encode effect has stopped, this function must be called instead of
+    \c iplAmbisonicsEncodeEffectApply until the return value indicates that no more tail samples remain.
+
+    \param  effect  The Ambisonics encode effect.
+    \param  out     The output audio buffer. Must have as many channels as needed for the
+                    Ambisonics order specified when creating the effect.
+
+    \return \c IPL_AUDIOEFFECTSTATE_TAILREMAINING if any tail samples remain in the effect's internal buffers, or
+            \c IPL_AUDIOEFFECTSTATE_TAILCOMPLETE otherwise.
+*/
+IPLAPI IPLAudioEffectState IPLCALL iplAmbisonicsEncodeEffectGetTail(IPLAmbisonicsEncodeEffect effect, IPLAudioBuffer* out);
+
 /** \} */
 
 
@@ -1830,6 +1951,31 @@ IPLAPI void IPLCALL iplAmbisonicsPanningEffectReset(IPLAmbisonicsPanningEffect e
     \return \c IPL_AUDIOEFFECTSTATE_TAILCOMPLETE to indicate that this effect does not generate any tail samples.
 */
 IPLAPI IPLAudioEffectState IPLCALL iplAmbisonicsPanningEffectApply(IPLAmbisonicsPanningEffect effect, IPLAmbisonicsPanningEffectParams* params, IPLAudioBuffer* in, IPLAudioBuffer* out);
+
+/** Returns the number of tail samples remaining in an Ambisonics panning effect's internal buffers.
+
+    Tail samples are audio samples that should be played even after the input to the effect has stopped
+    playing and no further input samples are available.
+
+    \param  effect  The Ambisonics panning effect.
+
+    \return The number of tail samples remaining.
+*/
+IPLAPI IPLint32 IPLCALL iplAmbisonicsPanningEffectGetTailSize(IPLAmbisonicsPanningEffect effect);
+
+/** Retrieves a single frame of tail samples from a Ambisonics panning effect's internal buffers.
+
+    After the input to the Ambisonics panning effect has stopped, this function must be called instead of
+    \c iplAmbisonicsPanningEffectApply until the return value indicates that no more tail samples remain.
+
+    \param  effect  The Ambisonics panning effect.
+    \param  out     The output audio buffer. Must have as many channels as needed for the speaker layout
+                    specified when creating the effect.
+
+    \return \c IPL_AUDIOEFFECTSTATE_TAILREMAINING if any tail samples remain in the effect's internal buffers, or
+            \c IPL_AUDIOEFFECTSTATE_TAILCOMPLETE otherwise.
+*/
+IPLAPI IPLAudioEffectState IPLCALL iplAmbisonicsPanningEffectGetTail(IPLAmbisonicsPanningEffect effect, IPLAudioBuffer* out);
 
 /** \} */
 
@@ -1909,6 +2055,30 @@ IPLAPI void IPLCALL iplAmbisonicsBinauralEffectReset(IPLAmbisonicsBinauralEffect
 */
 IPLAPI IPLAudioEffectState IPLCALL iplAmbisonicsBinauralEffectApply(IPLAmbisonicsBinauralEffect effect, IPLAmbisonicsBinauralEffectParams* params, IPLAudioBuffer* in, IPLAudioBuffer* out);
 
+/** Returns the number of tail samples remaining in an Ambisonics binaural effect's internal buffers.
+
+    Tail samples are audio samples that should be played even after the input to the effect has stopped
+    playing and no further input samples are available.
+
+    \param  effect  The Ambisonics binaural effect.
+
+    \return The number of tail samples remaining.
+*/
+IPLAPI IPLint32 IPLCALL iplAmbisonicsBinauralEffectGetTailSize(IPLAmbisonicsBinauralEffect effect);
+
+/** Retrieves a single frame of tail samples from an Ambisonics binaural effect's internal buffers.
+
+    After the input to the Ambisonics binaural effect has stopped, this function must be called instead of
+    \c iplAmbisonicsBinauralEffectApply until the return value indicates that no more tail samples remain.
+
+    \param  effect  The Ambisonics binaural effect.
+    \param  out     The output audio buffer. Must have 2 channels.
+
+    \return \c IPL_AUDIOEFFECTSTATE_TAILREMAINING if any tail samples remain in the effect's internal buffers, or
+            \c IPL_AUDIOEFFECTSTATE_TAILCOMPLETE otherwise.
+*/
+IPLAPI IPLAudioEffectState IPLCALL iplAmbisonicsBinauralEffectGetTail(IPLAmbisonicsBinauralEffect effect, IPLAudioBuffer* out);
+
 /** \} */
 
 
@@ -1985,6 +2155,31 @@ IPLAPI void IPLCALL iplAmbisonicsRotationEffectReset(IPLAmbisonicsRotationEffect
 */
 IPLAPI IPLAudioEffectState IPLCALL iplAmbisonicsRotationEffectApply(IPLAmbisonicsRotationEffect effect, IPLAmbisonicsRotationEffectParams* params, IPLAudioBuffer* in, IPLAudioBuffer* out);
 
+/** Returns the number of tail samples remaining in an Ambisonics rotation effect's internal buffers.
+
+    Tail samples are audio samples that should be played even after the input to the effect has stopped
+    playing and no further input samples are available.
+
+    \param  effect  The Ambisonics rotation effect.
+
+    \return The number of tail samples remaining.
+*/
+IPLAPI IPLint32 IPLCALL iplAmbisonicsRotationEffectGetTailSize(IPLAmbisonicsRotationEffect effect);
+
+/** Retrieves a single frame of tail samples from an Ambisonics rotation effect's internal buffers.
+
+    After the input to the Ambisonics rotation effect has stopped, this function must be called instead of
+    \c iplAmbisonicsRotationEffectApply until the return value indicates that no more tail samples remain.
+
+    \param  effect  The Ambisonics rotation effect.
+    \param  out     The output audio buffer. Must have as many channels as needed for the Ambisonics order
+                    specified when creating the effect.
+
+    \return \c IPL_AUDIOEFFECTSTATE_TAILREMAINING if any tail samples remain in the effect's internal buffers, or
+            \c IPL_AUDIOEFFECTSTATE_TAILCOMPLETE otherwise.
+*/
+IPLAPI IPLAudioEffectState IPLCALL iplAmbisonicsRotationEffectGetTail(IPLAmbisonicsRotationEffect effect, IPLAudioBuffer* out);
+
 /** \} */
 
 
@@ -2052,9 +2247,9 @@ IPLAPI IPLAmbisonicsDecodeEffect IPLCALL iplAmbisonicsDecodeEffectRetain(IPLAmbi
 */
 IPLAPI void IPLCALL iplAmbisonicsDecodeEffectRelease(IPLAmbisonicsDecodeEffect* effect);
 
-/** Resets the internal processing state of an Ambisonics rotation effect.
+/** Resets the internal processing state of an Ambisonics decode effect.
 
-    \param  effect  The Ambisonics rotation effect to reset.
+    \param  effect  The Ambisonics decode effect to reset.
 */
 IPLAPI void IPLCALL iplAmbisonicsDecodeEffectReset(IPLAmbisonicsDecodeEffect effect);
 
@@ -2074,6 +2269,32 @@ IPLAPI void IPLCALL iplAmbisonicsDecodeEffectReset(IPLAmbisonicsDecodeEffect eff
             \c IPL_AUDIOEFFECTSTATE_TAILCOMPLETE otherwise.
 */
 IPLAPI IPLAudioEffectState IPLCALL iplAmbisonicsDecodeEffectApply(IPLAmbisonicsDecodeEffect effect, IPLAmbisonicsDecodeEffectParams* params, IPLAudioBuffer* in, IPLAudioBuffer* out);
+
+/** Returns the number of tail samples remaining in an Ambisonics decode effect's internal buffers.
+
+    Tail samples are audio samples that should be played even after the input to the effect has stopped
+    playing and no further input samples are available.
+
+    \param  effect  The Ambisonics decode effect.
+
+    \return The number of tail samples remaining.
+*/
+IPLAPI IPLint32 IPLCALL iplAmbisonicsDecodeEffectGetTailSize(IPLAmbisonicsDecodeEffect effect);
+
+/** Retrieves a single frame of tail samples from an Ambisonics decode effect's internal buffers.
+
+    After the input to the Ambisonics decode effect has stopped, this function must be called instead of
+    \c iplAmbisonicsDecodeEffectApply until the return value indicates that no more tail samples remain.
+
+    \param  effect  The Ambisonics decode effect.
+    \param  out     The output audio buffer. Must have as many channels as needed for the speaker layout
+                    specified when creating the effect (if using panning) or 2 channels (if using
+                    binaural rendering).
+
+    \return \c IPL_AUDIOEFFECTSTATE_TAILREMAINING if any tail samples remain in the effect's internal buffers, or
+            \c IPL_AUDIOEFFECTSTATE_TAILCOMPLETE otherwise.
+*/
+IPLAPI IPLAudioEffectState IPLCALL iplAmbisonicsDecodeEffectGetTail(IPLAmbisonicsDecodeEffect effect, IPLAudioBuffer* out);
 
 /** \} */
 
@@ -2133,7 +2354,7 @@ typedef struct {
     IPLfloat32 distanceAttenuation;
 
     /** 3-band EQ coefficients for air absorption, each between 0 and 1. */
-    IPLfloat32 airAbsorption[3];
+    IPLfloat32 airAbsorption[IPL_NUM_BANDS];
 
     /** Value of directivity term, between 0 and 1. */
     IPLfloat32 directivity;
@@ -2142,7 +2363,7 @@ typedef struct {
     IPLfloat32 occlusion;
 
     /** 3-band EQ coefficients for transmission, each between 0 and 1. */
-    IPLfloat32 transmission[3];
+    IPLfloat32 transmission[IPL_NUM_BANDS];
 } IPLDirectEffectParams;
 
 /** Creates a direct effect.
@@ -2189,6 +2410,30 @@ IPLAPI void IPLCALL iplDirectEffectReset(IPLDirectEffect effect);
             \c IPL_AUDIOEFFECTSTATE_TAILCOMPLETE otherwise.
 */
 IPLAPI IPLAudioEffectState IPLCALL iplDirectEffectApply(IPLDirectEffect effect, IPLDirectEffectParams* params, IPLAudioBuffer* in, IPLAudioBuffer* out);
+
+/** Returns the number of tail samples remaining in a direct effect's internal buffers.
+
+    Tail samples are audio samples that should be played even after the input to the effect has stopped
+    playing and no further input samples are available.
+
+    \param  effect  The direct effect.
+
+    \return The number of tail samples remaining.
+*/
+IPLAPI IPLint32 IPLCALL iplDirectEffectGetTailSize(IPLDirectEffect effect);
+
+/** Retrieves a single frame of tail samples from a direct effect's internal buffers.
+
+    After the input to the direct effect has stopped, this function must be called instead of
+    \c iplDirectEffectApply until the return value indicates that no more tail samples remain.
+
+    \param  effect  The direct effect.
+    \param  out     The output audio buffer. Must have as many channels as specified when creating the effect.
+
+    \return \c IPL_AUDIOEFFECTSTATE_TAILREMAINING if any tail samples remain in the effect's internal buffers, or
+            \c IPL_AUDIOEFFECTSTATE_TAILCOMPLETE otherwise.
+*/
+IPLAPI IPLAudioEffectState IPLCALL iplDirectEffectGetTail(IPLDirectEffect effect, IPLAudioBuffer* out);
 
 /** \} */
 
@@ -2262,11 +2507,11 @@ typedef struct {
 
     /** 3-band reverb decay times (RT60). For \c IPL_REFLECTIONEFFECTTYPE_PARAMETRIC or
         \c IPL_REFLECTIONEFFECTTYPE_HYBRID. */
-    IPLfloat32 reverbTimes[3];
+    IPLfloat32 reverbTimes[IPL_NUM_BANDS];
 
     /** 3-band EQ coefficients applied to the parametric part to ensure smooth transition.
         For \c IPL_REFLECTIONEFFECTTYPE_HYBRID. */
-    IPLfloat32 eq[3];
+    IPLfloat32 eq[IPL_NUM_BANDS];
 
     /** Samples after which parametric part starts. For \c IPL_REFLECTIONEFFECTTYPE_HYBRID. */
     IPLint32 delay;
@@ -2338,6 +2583,37 @@ IPLAPI void IPLCALL iplReflectionEffectReset(IPLReflectionEffect effect);
             \c IPL_AUDIOEFFECTSTATE_TAILCOMPLETE otherwise.
 */
 IPLAPI IPLAudioEffectState IPLCALL iplReflectionEffectApply(IPLReflectionEffect effect, IPLReflectionEffectParams* params, IPLAudioBuffer* in, IPLAudioBuffer* out, IPLReflectionMixer mixer);
+
+/** Returns the number of tail samples remaining in a reflection effect's internal buffers.
+
+    Tail samples are audio samples that should be played even after the input to the effect has stopped
+    playing and no further input samples are available.
+
+    \param  effect  The reflection effect.
+
+    \return The number of tail samples remaining.
+*/
+IPLAPI IPLint32 IPLCALL iplReflectionEffectGetTailSize(IPLReflectionEffect effect);
+
+/** Retrieves a single frame of tail samples from a reflection effect's internal buffers.
+
+    After the input to the reflection effect has stopped, this function must be called instead of
+    \c iplReflectionEffectApply until the return value indicates that no more tail samples remain.
+
+    \param  effect  The reflection effect.
+    \param  out     The output audio buffer. Must have as many channels as the impulse response
+                    specified when creating the effect (for convolution, hybrid, and TAN) or at
+                    least 1 channel (for parametric).
+    \param  mixer   If this is non-null, then the tail samples will be mixed into the given
+                    mixer object instead of being returned in the \c out parameter. The mixed output can
+                    be retrieved elsewhere in the audio pipeline using \c iplReflectionMixerApply. This
+                    can have a performance benefit if using convolution. If using TAN, specifying
+                    a mixer is required.
+
+    \return \c IPL_AUDIOEFFECTSTATE_TAILREMAINING if any tail samples remain in the effect's internal buffers, or
+            \c IPL_AUDIOEFFECTSTATE_TAILCOMPLETE otherwise.
+*/
+IPLAPI IPLAudioEffectState IPLCALL iplReflectionEffectGetTail(IPLReflectionEffect effect, IPLAudioBuffer* out, IPLReflectionMixer mixer);
 
 /** Creates a reflection effect mixer.
 
@@ -2419,7 +2695,7 @@ typedef struct {
 typedef struct {
     /** 3-band EQ coefficients for modeling frequency-dependent attenuation caused by paths bending around
         obstacles. */
-    IPLfloat32 eqCoeffs[3];
+    IPLfloat32 eqCoeffs[IPL_NUM_BANDS];
 
     /** Ambisonic coefficients for modeling the directional distribution of sound reaching the listener.
         The coefficients are specified in world-space, and must be rotated to match the listener's orientation
@@ -2441,6 +2717,13 @@ typedef struct {
     /** The position and orientation of the listener. Only used if \c spatialize was set to \c IPL_TRUE in
         \c IPLPathEffectSettings and \c binaural is set to \c IPL_TRUE. */
     IPLCoordinateSpace3 listener;
+
+    /** If \c IPL_TRUE, the values in \c eqCoeffs will be normalized before being used, i.e., each value in
+     *  \c eqCoeffs will be divided by the largest value in \c eqCoeffs. This can help counteract overly-aggressive
+     *  filtering due to a physics-based deviation model. If \c IPL_FALSE, the values in \c eqCoeffs will be
+     *  used as-is.
+     */
+    IPLbool normalizeEQ;
 } IPLPathEffectParams;
 
 /** Creates a path effect.
@@ -2488,6 +2771,453 @@ IPLAPI void IPLCALL iplPathEffectReset(IPLPathEffect effect);
             \c IPL_AUDIOEFFECTSTATE_TAILCOMPLETE otherwise.
 */
 IPLAPI IPLAudioEffectState IPLCALL iplPathEffectApply(IPLPathEffect effect, IPLPathEffectParams* params, IPLAudioBuffer* in, IPLAudioBuffer* out);
+
+/** Returns the number of tail samples remaining in a path effect's internal buffers.
+
+    Tail samples are audio samples that should be played even after the input to the effect has stopped
+    playing and no further input samples are available.
+
+    \param  effect  The path effect.
+
+    \return The number of tail samples remaining.
+*/
+IPLAPI IPLint32 IPLCALL iplPathEffectGetTailSize(IPLPathEffect effect);
+
+/** Retrieves a single frame of tail samples from a path effect's internal buffers.
+
+    After the input to the path effect has stopped, this function must be called instead of
+    \c iplPathEffectApply until the return value indicates that no more tail samples remain.
+
+    \param  effect  The path effect.
+    \param  out     The output audio buffer. Must have as many channels as needed for the
+                    Ambisonics order specified when creating the effect.
+
+    \return \c IPL_AUDIOEFFECTSTATE_TAILREMAINING if any tail samples remain in the effect's internal buffers, or
+            \c IPL_AUDIOEFFECTSTATE_TAILCOMPLETE otherwise.
+*/
+IPLAPI IPLAudioEffectState IPLCALL iplPathEffectGetTail(IPLPathEffect effect, IPLAudioBuffer* out);
+
+/** \} */
+
+
+/*********************************************************************************************************************/
+
+/** \defgroup energyfield Energy Field
+ *  \{
+ */
+
+/** An energy field. Energy fields represent a histogram of sound energy arriving at a point, as a function of
+    incident direction, frequency band, and arrival time.
+    
+    Time is subdivided into "bins" of the histogram, with each bin corresponding to 10ms. For each bin, incident energy is 
+    stored separately for each frequency band. For a given frequency band and time bin, we store an Ambisonic 
+    representation of the variation of incident energy as a function of direction.
+    
+    Energy field data is stored as a 3D array of size #channels * #bands * #bins, in row-major order. */
+DECLARE_OPAQUE_HANDLE(IPLEnergyField);
+
+/** Settings used to create an energy field. */
+typedef struct {
+    /** Total duration (in seconds) of the energy field. This determines the number of bins in each channel and band. */
+    IPLfloat32 duration;
+
+    /** The Ambisonic order. This determines the number of channels. */
+    IPLint32 order;
+} IPLEnergyFieldSettings;
+
+/** Creates an energy field.
+    
+    \param  context         The context used to initialize Steam Audio.
+    \param  settings        The settings to use when creating the energy field.
+    \param  energyField     [out] The created energy field.
+
+    \return Status code indicating whether or not the operation succeeded.
+*/
+IPLAPI IPLerror IPLCALL iplEnergyFieldCreate(IPLContext context, IPLEnergyFieldSettings* settings, IPLEnergyField* energyField);
+
+/** Retains an additional reference to an energy field.
+
+    \param  energyField     The energy field to retain a reference to.
+
+    \return The additional reference to the energy field.
+*/
+IPLAPI IPLEnergyField IPLCALL iplEnergyFieldRetain(IPLEnergyField energyField);
+
+/** Releases a reference to an energy field.
+
+    \param  energyField     The energy field to release a reference to.
+*/
+IPLAPI void IPLCALL iplEnergyFieldRelease(IPLEnergyField* energyField);
+
+/** Returns the number of channels in the energy field.
+
+    \param  energyField     The energy field.
+
+    \return The number of channels in the energy field.
+*/
+IPLAPI IPLint32 IPLCALL iplEnergyFieldGetNumChannels(IPLEnergyField energyField);
+
+/** Returns the number of bins in the energy field.
+
+    \param  energyField     The energy field.
+
+    \return The number of bins in the energy field.
+*/
+IPLAPI IPLint32 IPLCALL iplEnergyFieldGetNumBins(IPLEnergyField energyField);
+
+/** Returns a pointer to the data stored in the energy field.
+
+    \param  energyField     The energy field.
+
+    \return Pointer to #channels * #bands * #bins IPLfloat32 values stored in the energy field, in row-major order.
+*/
+IPLAPI IPLfloat32* IPLCALL iplEnergyFieldGetData(IPLEnergyField energyField);
+
+/** Returns a pointer to the data stored in the energy field for the given channel.
+
+    \param  energyField     The energy field.
+    \param  channelIndex    Index of the channel.
+
+    \return Pointer to #bands * #bins IPLfloat32 values stored in the energy field for the given channel, in 
+            row-major order.
+*/
+IPLAPI IPLfloat32* IPLCALL iplEnergyFieldGetChannel(IPLEnergyField energyField, IPLint32 channelIndex);
+
+/** Returns a pointer to the data stored in the energy field for the given channel and band.
+
+    \param  energyField     The energy field.
+    \param  channelIndex    Index of the channel.
+    \param  bandIndex       Index of the band.
+
+    \return Pointer to #bins IPLfloat32 values stored in the energy field for the given channel and band, in row-major 
+            order.
+*/
+IPLAPI IPLfloat32* IPLCALL iplEnergyFieldGetBand(IPLEnergyField energyField, IPLint32 channelIndex, IPLint32 bandIndex);
+
+/** Resets all values stored in an energy field to zero.
+
+    \param  energyField     The energy field.
+*/
+IPLAPI void IPLCALL iplEnergyFieldReset(IPLEnergyField energyField);
+
+/** Copies data from one energy field into another.
+
+    If the source and destination energy fields have different numbers of channels, only the smaller of the two
+    numbers of channels will be copied.
+
+    If the source and destination energy fields have different numbers of bins, only the smaller of the two numbers of
+    bins will be copied.
+
+    \param  src             The source energy field.
+    \param  dst             The destination energy field.
+*/
+IPLAPI void IPLCALL iplEnergyFieldCopy(IPLEnergyField src, IPLEnergyField dst);
+
+/** Swaps the data contained in one energy field with the data contained in another energy field.
+
+    The two energy fields may contain different numbers of channels or bins.
+
+    \param  a               The first energy field.
+    \param  b               The second energy field.
+*/
+IPLAPI void IPLCALL iplEnergyFieldSwap(IPLEnergyField a, IPLEnergyField b);
+
+/** Adds the values stored in two energy fields, and stores the result in a third energy field.
+
+    If the energy fields have different numbers of channels, only the smallest of the three numbers of channels will
+    be added.
+
+    If the energy fields have different numbers of bins, only the smallest of the three numbers of bins will
+    be added.
+
+    This function can be used for in-place addition, i.e. \c out may be equal to \c in1 or \c in2.
+
+    \param  in1             The first input energy field.
+    \param  in2             The second input energy field.
+    \param  out             The output energy field.
+*/
+IPLAPI void IPLCALL iplEnergyFieldAdd(IPLEnergyField in1, IPLEnergyField in2, IPLEnergyField out);
+
+/** Scales the values stored in an energy field by a scalar, and stores the result in a second energy field.
+
+    If the energy fields have different numbers of channels, only the smallest of the two numbers of channels will
+    be scaled.
+
+    If the energy fields have different numbers of bins, only the smallest of the two numbers of bins will
+    be scaled.
+
+    This function can be used for in-place scaling, i.e. \c out may be equal to \c in.
+
+    \param  in              The input energy field.
+    \param  scalar          The scalar value.
+    \param  out             The output energy field.
+*/
+IPLAPI void IPLCALL iplEnergyFieldScale(IPLEnergyField in, IPLfloat32 scalar, IPLEnergyField out);
+
+/** Scales the values stored in an energy field by a scalar, and adds the result to a second energy field.
+
+    If the energy fields have different numbers of channels, only the smallest of the two numbers of channels will
+    be added.
+
+    If the energy fields have different numbers of bins, only the smallest of the two numbers of bins will
+    be added.
+
+    This function can be used for in-place operation, i.e. \c out may be equal to \c in.
+
+    \param  in              The input energy field.
+    \param  scalar          The scalar value.
+    \param  out             The output energy field.
+*/
+IPLAPI void IPLCALL iplEnergyFieldScaleAccum(IPLEnergyField in, IPLfloat32 scalar, IPLEnergyField out);
+
+/** \} */
+
+
+/*********************************************************************************************************************/
+
+/** \defgroup impulseresponse Impulse Response
+ *  \{
+ */
+
+/** An impulse response. Impulse responses are represented in Ambisonics to allow for directional variation of
+    propagated sound.
+    
+    Impulse response data is stored as a 2D array of size #channels * #samples, in row-major order. */
+DECLARE_OPAQUE_HANDLE(IPLImpulseResponse);
+
+/** Settings used to create an impulse response. */
+typedef struct {
+    /** Total duration (in seconds) of the impulse response. This determines the number of samples in each channel. */
+    IPLfloat32 duration;
+
+    /** The Ambisonic order. This determines the number of channels. */
+    IPLint32 order;
+
+    /** The sampling rate. This, together with the duration, determines the number of samples in each channel. */
+    IPLint32 samplingRate;
+} IPLImpulseResponseSettings;
+
+/** Creates an impulse response.
+
+    \param  context         The context used to initialize Steam Audio.
+    \param  settings        The settings to use when creating the impulse response.
+    \param  impulseResponse [out] The created impulse response.
+
+    \return Status code indicating whether or not the operation succeeded.
+*/
+IPLAPI IPLerror IPLCALL iplImpulseResponseCreate(IPLContext context, IPLImpulseResponseSettings* settings, IPLImpulseResponse* impulseResponse);
+
+/** Retains an additional reference to an impulse response.
+
+    \param  impulseResponse The impulse response to retain a reference to.
+
+    \return The additional reference to the impulse response.
+*/
+IPLAPI IPLImpulseResponse IPLCALL iplImpulseResponseRetain(IPLImpulseResponse impulseResponse);
+
+/** Releases a reference to an impulse response.
+
+    \param  impulseResponse The impulse response to release a reference to.
+*/
+IPLAPI void IPLCALL iplImpulseResponseRelease(IPLImpulseResponse* impulseResponse);
+
+/** Returns the number of channels in the impulse response.
+
+    \param  impulseResponse The impulse response.
+
+    \return The number of channels in the impulse response.
+*/
+IPLAPI IPLint32 IPLCALL iplImpulseResponseGetNumChannels(IPLImpulseResponse impulseResponse);
+
+/** Returns the number of samples in the impulse response.
+
+    \param  impulseResponse The impulse response.
+
+    \return The number of samples in the impulse response.
+*/
+IPLAPI IPLint32 IPLCALL iplImpulseResponseGetNumSamples(IPLImpulseResponse impulseResponse);
+
+/** Returns a pointer to the data stored in the impulse response.
+
+    \param  impulseResponse The impulse response.
+
+    \return Pointer to #channels * #samples IPLfloat32 values stored in the impulse response, in row-major order.
+*/
+IPLAPI IPLfloat32* IPLCALL iplImpulseResponseGetData(IPLImpulseResponse impulseResponse);
+
+/** Returns a pointer to the data stored in the impulse response for the given channel.
+
+    \param  impulseResponse The impulse response.
+    \param  channelIndex    Index of the channel.
+
+    \return Pointer to #samples IPLfloat32 values stored in the impulse response for the given channel, in
+            row-major order.
+*/
+IPLAPI IPLfloat32* IPLCALL iplImpulseResponseGetChannel(IPLImpulseResponse impulseResponse, int channelIndex);
+
+/** Resets all values stored in an impulse response to zero.
+
+    \param  impulseResponse The impulse response.
+*/
+IPLAPI void IPLCALL iplImpulseResponseReset(IPLImpulseResponse impulseResponse);
+
+/** Copies data from one impulse response into another.
+
+    If the source and destination impulse responses have different numbers of channels, only the smaller of the two
+    numbers of channels will be copied.
+
+    If the source and destination impulse responses have different numbers of samples, only the smaller of the two numbers of
+    samples will be copied.
+
+    \param  src             The source impulse response.
+    \param  dst             The destination impulse response.
+*/
+IPLAPI void IPLCALL iplImpulseResponseCopy(IPLImpulseResponse src, IPLImpulseResponse dst);
+
+/** Swaps the data contained in one impulse response with the data contained in another impulse response.
+
+    The two impulse responses may contain different numbers of channels or samples.
+
+    \param  a               The first impulse response.
+    \param  b               The second impulse response.
+*/
+IPLAPI void IPLCALL iplImpulseResponseSwap(IPLImpulseResponse ir1, IPLImpulseResponse ir2);
+
+/** Adds the values stored in two impulse responses, and stores the result in a third impulse response.
+
+    If the impulse responses have different numbers of channels, only the smallest of the three numbers of channels will
+    be added.
+
+    If the impulse responses have different numbers of samples, only the smallest of the three numbers of samples will
+    be added.
+
+    This function can be used for in-place addition, i.e. \c out may be equal to \c in1 or \c in2.
+
+    \param  in1             The first input impulse response.
+    \param  in2             The second input impulse response.
+    \param  out             The output impulse response.
+*/
+IPLAPI void IPLCALL iplImpulseResponseAdd(IPLImpulseResponse in1, IPLImpulseResponse in2, IPLImpulseResponse out);
+
+/** Scales the values stored in an impulse response by a scalar, and stores the result in a second impulse response.
+
+    If the impulse responses have different numbers of channels, only the smallest of the two numbers of channels will
+    be scaled.
+
+    If the impulse responses have different numbers of samples, only the smallest of the two numbers of samples will
+    be scaled.
+
+    This function can be used for in-place scaling, i.e. \c out may be equal to \c in.
+
+    \param  in              The input impulse response.
+    \param  scalar          The scalar value.
+    \param  out             The output impulse response.
+*/
+IPLAPI void IPLCALL iplImpulseResponseScale(IPLImpulseResponse in, IPLfloat32 scalar, IPLImpulseResponse out);
+
+/** Scales the values stored in an impulse response by a scalar, and adds the result to a second impulse response.
+
+    If the impulse responses have different numbers of channels, only the smallest of the two numbers of channels will
+    be added.
+
+    If the impulse responses have different numbers of samples, only the smallest of the two numbers of samples will
+    be added.
+
+    This function can be used for in-place operation, i.e. \c out may be equal to \c in.
+
+    \param  in              The input impulse response.
+    \param  scalar          The scalar value.
+    \param  out             The output impulse response.
+*/
+IPLAPI void IPLCALL iplImpulseResponseScaleAccum(IPLImpulseResponse in, IPLfloat32 scalar, IPLImpulseResponse out);
+
+/** \} */
+
+
+/*********************************************************************************************************************/
+
+/** \defgroup reconstructor Reconstructor
+ *  \{
+ */
+
+/** An object that can convert energy fields to impulse responses. Energy fields are typically much smaller in size
+    than impulse responses, and therefore are used when storing baked reflections or reverb in a probe batch, but
+    impulse responses are what is needed at runtime for convolution. */
+DECLARE_OPAQUE_HANDLE(IPLReconstructor);
+
+/** Settings used to create a reconstructor. */
+typedef struct {
+    /** The largest possible duration (in seconds) of any impulse response that will be reconstructed using this 
+        reconstructor. */
+    IPLfloat32 maxDuration;
+
+    /** The largest possible Ambisonic order of any impulse response that will be reconstructed using this
+        reconstructor. */
+    IPLint32 maxOrder;
+
+    /** The sampling rate of impulse responses reconstructed using this reconstructor. */
+    IPLint32 samplingRate;
+} IPLReconstructorSettings;
+
+/** The inputs for a single reconstruction operation. */
+typedef struct {
+    /** The energy field from which to reconstruct an impulse response. */
+    IPLEnergyField energyField;
+} IPLReconstructorInputs;
+
+/** Inputs common to all reconstruction operations specified in a single call to \c iplReconstructorReconstruct. */
+typedef struct {
+    /** Duration of impulse responses to reconstruct. Must be less than or equal to \c maxDuration specified in
+        \c IPLReconstructorSettings. */
+    IPLfloat32 duration;
+
+    /** Ambisonic order of impulse responses to reconstruct. Must be less than or equal to \c maxOrder specified in
+        \c IPLReconstructorSettings. */
+    IPLint32 order;
+} IPLReconstructorSharedInputs;
+
+/** The outputs for a single reconstruction operation. */
+typedef struct {
+    /** The impulse response object into which the reconstructed impulse repsonse should be stored. */
+    IPLImpulseResponse impulseResponse;
+} IPLReconstructorOutputs;
+
+/** Creates a reconstructor.
+
+    \param  context         The context used to initialize Steam Audio.
+    \param  settings        The settings to use when creating the reconstructor.
+    \param  reconstructor   [out] The created reconstructor.
+
+    \return Status code indicating whether or not the operation succeeded.
+*/
+IPLAPI IPLerror IPLCALL iplReconstructorCreate(IPLContext context, IPLReconstructorSettings* settings, IPLReconstructor* reconstructor);
+
+/** Retains an additional reference to a reconstructor.
+
+    \param  reconstructor   The reconstructor to retain a reference to.
+
+    \return The additional reference to the reconstructor.
+*/
+IPLAPI IPLReconstructor IPLCALL iplReconstructorRetain(IPLReconstructor reconstructor);
+
+/** Releases a reference to a reconstructor.
+
+    \param  reconstructor   The reconstructor to release a reference to.
+*/
+IPLAPI void IPLCALL iplReconstructorRelease(IPLReconstructor* reconstructor);
+
+/** Reconstructs one or more impulse responses as a single batch of work.
+
+    \param  reconstructor   The reconstructor to use.
+    \param  numInputs       The number of impulse responses to reconstruct.
+    \param  inputs          Pointer to \c numInputs input structures, each describing a single energy field from which
+                            to reconstruct a corresponding impulse response.
+    \param  sharedInputs    Pointer to a single shared input structure, describing common inputs used across all
+                            impulse response reconstruction operations in this call.
+    \param  outputs         Pointer to \c numInputs output structures, each describing a single impulse response object
+                            into which to write the corresponding reconstructed impulse response.
+*/
+IPLAPI void IPLCALL iplReconstructorReconstruct(IPLReconstructor reconstructor, IPLint32 numInputs, IPLReconstructorInputs* inputs, IPLReconstructorSharedInputs* sharedInputs, IPLReconstructorOutputs* outputs);
 
 /** \} */
 
@@ -2718,6 +3448,25 @@ IPLAPI void IPLCALL iplProbeBatchRemoveData(IPLProbeBatch probeBatch, IPLBakedDa
     \param  identifier  The identifier of the baked data layer.
 */
 IPLAPI IPLsize IPLCALL iplProbeBatchGetDataSize(IPLProbeBatch probeBatch, IPLBakedDataIdentifier* identifier);
+
+/** Retrieves a single energy field in a specific baked data layer of a specific probe in a probe batch.
+
+    \param  probeBatch  The probe batch.
+    \param  identifier  The identifier of the baked data layer.
+    \param  probeIndex  The index of the probe.
+    \param  energyField The energy field into which to copy the baked energy field.
+*/
+IPLAPI void IPLCALL iplProbeBatchGetEnergyField(IPLProbeBatch probeBatch, IPLBakedDataIdentifier* identifier, IPLint32 probeIndex, IPLEnergyField energyField);
+
+/** Retrieves a single array of parametric reverb times in a specific baked data layer of a specific probe in a probe batch.
+
+    \param  probeBatch  The probe batch.
+    \param  identifier  The identifier of the baked data layer.
+    \param  probeIndex  The index of the probe.
+    \param  reverbTimes Pointer to an array containing at least 3 IPLfloat32 values, into which the baked reverb times
+                        will be copied.
+*/
+IPLAPI void IPLCALL iplProbeBatchGetReverb(IPLProbeBatch probeBatch, IPLBakedDataIdentifier* identifier, IPLint32 probeIndex, IPLfloat32* reverbTimes);
 
 /** \} */
 
@@ -2964,6 +3713,17 @@ typedef enum {
     IPL_AIRABSORPTIONTYPE_CALLBACK
 } IPLAirAbsorptionModelType;
 
+/** The types of deviation model that can be used. */
+typedef enum {
+    /** The default deviation model. This is a physics-based model, based on the Uniform Theory of Diffraction,
+     *  with various additional assumptions.
+     */
+    IPL_DEVIATIONTYPE_DEFAULT,
+
+    /** An arbitrary deviation model, defined by a callback function. */
+    IPL_DEVIATIONTYPE_CALLBACK,
+} IPLDeviationModelType;
+
 /** The different algorithms for simulating occlusion. */
 typedef enum {
     /** Raycast occlusion. A single ray is traced from the listener to the source. If the ray hits a solid object
@@ -3013,6 +3773,18 @@ typedef float (IPLCALL *IPLAirAbsorptionCallback)(IPLfloat32 distance, IPLint32 
 */
 typedef float (IPLCALL *IPLDirectivityCallback)(IPLVector3 direction, void* userData);
 
+/** Callback for calculating how much to attenuate sound in a given frequency band based on the angle of deviation
+ *  when the sound path bends around a corner as it propagated from the source to the listener.
+ * 
+ *  \param[in]  angle       Angle (in radians) that the sound path deviates (bends) by.
+ *  \param[in]  band        Index of the frequency band for which to calculate air absorption.
+ *  \param[in]  userData    Pointer to the arbitrary data specified in the \c IPLDeviationModel.
+ * 
+ *  \return The frequency-dependent attenuation to apply, between \c 0 and \c 1. \c 0 = sound in the frequency
+ *          band \c band is not audible; \c 1 = sound in the frequency band \c band is not attenuated.
+ */
+typedef float (IPLCALL *IPLDeviationCallback)(IPLfloat32 angle, IPLint32 band, void* userData);
+
 /** A distance attenuation model that can be used for modeling attenuation of sound over distance. Can be used
     with both direct and indirect sound propagation. */
 typedef struct {
@@ -3045,7 +3817,7 @@ typedef struct {
     IPLAirAbsorptionModelType type;
 
     /** The exponential falloff coefficients to use when \c type is \c IPL_AIRABSORPTIONTYPE_EXPONENTIAL. */
-    IPLfloat32 coefficients[3];
+    IPLfloat32 coefficients[IPL_NUM_BANDS];
 
     /** When \c type is \c IPL_AIRABSORPTIONTYPE_CALLBACK, this function will be called whenever Steam
         Audio needs to evaluate air absorption. */
@@ -3086,6 +3858,24 @@ typedef struct {
         May be \c NULL. */
     void* userData;
 } IPLDirectivity;
+
+/** A deviation model that can be used for modeling frequency-dependent attenuation of sound as it
+ *  bends along the path from the source to the listener.
+ */
+typedef struct {
+    /** The type of deviation model to use. */
+    IPLDeviationModelType type;
+
+    /** When \c type is \c IPL_DEVIATIONTYPE_CALLBACK, this function will be called whenever Steam Audio
+     *  needs to evaluate deviation-based attenuation.
+     */
+    IPLDeviationCallback callback;
+
+    /** Pointer to arbitrary data that will be provided to the \c callback function whenever it is called.
+     *  May be \c NULL.
+     */
+    void* userData;
+} IPLDeviationModel;
 
 /** Settings used to create a simulator. */
 typedef struct {
@@ -3198,7 +3988,7 @@ typedef struct {
     /** If using parametric or hybrid reverb for rendering reflections, the reverb decay times
         for each frequency band are scaled by these values. Set to \c {1.0f, 1.0f, 1.0f} to use
         the simulated values without modification. */
-    IPLfloat32 reverbScale[3];
+    IPLfloat32 reverbScale[IPL_NUM_BANDS];
 
     /** If using hybrid reverb for rendering reflections, this is the length (in seconds) of
         impulse response to use for convolution reverb. The rest of the impulse response will
@@ -3257,6 +4047,9 @@ typedef struct {
         results when multiple surfaces lie between the source and the listener, at the cost of
         increased CPU usage. */
     IPLint32 numTransmissionRays;
+
+    /** The deviation model to use for this source. Only used when simulating pathing. */
+    IPLDeviationModel* deviationModel;
 } IPLSimulationInputs;
 
 /** Callback for visualizing valid path segments during call to \c iplSimulatorRunPathing.
@@ -3457,12 +4250,16 @@ IPLAPI void IPLCALL iplSourceRelease(IPLSource* source);
 
 /** Adds a source to the set of sources processed by a simulator in subsequent simulations.
 
+    Call \c iplSimulatorCommit after calling this function for the changes to take effect.
+
     \param  simulator   The simulator being used.
     \param  source      The source to add.
 */
 IPLAPI void IPLCALL iplSourceAdd(IPLSource source, IPLSimulator simulator);
 
 /** Removes a source from the set of sources processed by a simulator in subsequent simulations.
+
+    Call \c iplSimulatorCommit after calling this function for the changes to take effect.
 
     \param  simulator   The simulator being used.
     \param  source      The source to remove.

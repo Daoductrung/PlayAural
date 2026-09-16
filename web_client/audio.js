@@ -524,7 +524,8 @@ export function createAudioEngine(options = {}) {
       return;
     }
     if (pause && source.buffer && context) {
-      const elapsed = Math.max(0, context.currentTime - source.startedAt);
+      const elapsed = Math.max(0, context.currentTime - source.startedAt)
+        * source.playbackRate;
       source.bufferOffset = source.loop && source.buffer.duration > 0
         ? elapsed % source.buffer.duration
         : Math.min(elapsed, source.buffer.duration);
@@ -574,6 +575,7 @@ export function createAudioEngine(options = {}) {
         handle: outroHandle,
         bus,
         volume: source.baseVolume * 100,
+        pitch: source.playbackRate * 100,
         position: source.position,
         attenuation: source.attenuation,
         gain: source.sourceGain,
@@ -600,6 +602,7 @@ export function createAudioEngine(options = {}) {
       : context.currentTime + 0.02;
     const outroNode = context.createBufferSource();
     outroNode.buffer = source.stem.outroBuffer;
+    outroNode.playbackRate.value = source.stem.playbackRate;
     outroNode.connect(source.panner || source.output);
     source.nodes.add(outroNode);
     try {
@@ -752,10 +755,11 @@ export function createAudioEngine(options = {}) {
     const node = context.createBufferSource();
     const output = context.createGain();
     const baseVolume = clamp(packet.volume, 0, 100, 100) / 100;
+    const playbackRate = clamp(packet.pitch, 25, 400, 100) / 100;
     output.gain.value = 0;
     node.buffer = buffer;
     node.loop = Boolean(packet.loop);
-    node.playbackRate.value = clamp(packet.pitch, 25, 400, 100) / 100;
+    node.playbackRate.value = playbackRate;
     const panner = createAudioSpatializer(context, {
       position: packet.position,
       pan: clamp(packet.pan, -100, 100, 0) / 100,
@@ -782,6 +786,7 @@ export function createAudioEngine(options = {}) {
       attenuation: packet.attenuation,
       distanceGain: distanceAttenuationGain(packet.position, packet.attenuation),
       sourceGain: packet.gain ?? 1,
+      playbackRate,
       node,
       output,
       panner,
@@ -884,9 +889,9 @@ export function createAudioEngine(options = {}) {
     const baseVolume = clamp(packet.volume, 0, 100, 100) / 100;
     audio.loop = Boolean(packet.loop);
     audio.muted = muted;
-    audio.playbackRate = kind === "sfx"
-      ? clamp(packet.pitch, 25, 400, 100) / 100
-      : 1;
+    const playbackRate = clamp(packet.pitch, 25, 400, 100) / 100;
+    audio.playbackRate = playbackRate;
+    audio.preservesPitch = false;
     const key = sourceId();
     const source = {
       key,
@@ -901,6 +906,7 @@ export function createAudioEngine(options = {}) {
       attenuation: packet.attenuation,
       distanceGain: distanceAttenuationGain(packet.position, packet.attenuation),
       sourceGain: packet.gain ?? 1,
+      playbackRate,
       node: connected.node,
       output: connected.output,
       panner: connected.panner,
@@ -967,6 +973,7 @@ export function createAudioEngine(options = {}) {
     const node = context.createBufferSource();
     node.buffer = source.buffer;
     node.loop = source.loop;
+    node.playbackRate.value = source.playbackRate;
     node.connect(source.panner || source.output);
     const boundedOffset = source.buffer.duration > 0
       ? Math.min(Math.max(0, offset), source.buffer.duration)
@@ -975,7 +982,7 @@ export function createAudioEngine(options = {}) {
     const nodeToken = source.nodeToken;
     source.node = node;
     source.nodes.add(node);
-    source.startedAt = context.currentTime - boundedOffset;
+    source.startedAt = context.currentTime - (boundedOffset / source.playbackRate);
     node.addEventListener("ended", () => {
       source.nodes.delete(node);
       if (
@@ -1031,6 +1038,7 @@ export function createAudioEngine(options = {}) {
     panner?.connect(output);
     const bus = String(packet.bus || "music");
     const baseVolume = clamp(packet.volume, 0, 100, 100) / 100;
+    const playbackRate = clamp(packet.pitch, 25, 400, 100) / 100;
     output.gain.value = 0;
     output.connect(busNode("music", bus));
     const key = sourceId();
@@ -1047,6 +1055,7 @@ export function createAudioEngine(options = {}) {
       attenuation: packet.attenuation,
       distanceGain: distanceAttenuationGain(packet.position, packet.attenuation),
       sourceGain: packet.gain ?? 1,
+      playbackRate,
       node: null,
       output,
       panner: panner || null,
@@ -1123,14 +1132,17 @@ export function createAudioEngine(options = {}) {
     output.connect(busNode("ambience", bus));
     const introNode = introBuffer ? context.createBufferSource() : null;
     const loopNode = context.createBufferSource();
+    const playbackRate = clamp(packet.pitch, 25, 400, 100) / 100;
     const startAt = context.currentTime + 0.03;
-    const loopStartedAt = startAt + (introBuffer?.duration || 0);
+    const loopStartedAt = startAt + ((introBuffer?.duration || 0) / playbackRate);
     if (introNode) {
       introNode.buffer = introBuffer;
+      introNode.playbackRate.value = playbackRate;
       introNode.connect(panner || output);
     }
     loopNode.buffer = loopBuffer;
     loopNode.loop = packet.loop !== false;
+    loopNode.playbackRate.value = playbackRate;
     loopNode.connect(panner || output);
     const key = sourceId();
     const nodes = new Set([loopNode]);
@@ -1150,6 +1162,7 @@ export function createAudioEngine(options = {}) {
       attenuation: packet.attenuation,
       distanceGain: distanceAttenuationGain(packet.position, packet.attenuation),
       sourceGain: packet.gain ?? 1,
+      playbackRate,
       node: loopNode,
       nodes,
       output,
@@ -1167,7 +1180,8 @@ export function createAudioEngine(options = {}) {
         introNode,
         loopNode,
         loopStartedAt,
-        loopDuration: loopBuffer.duration,
+        loopDuration: loopBuffer.duration / playbackRate,
+        playbackRate,
         outroBuffer,
         outroScheduled: false,
         outroRequestedAt: 0,

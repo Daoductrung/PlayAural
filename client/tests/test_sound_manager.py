@@ -260,6 +260,7 @@ def test_ambience_loop_to_outro_has_no_fade_or_load_delay(monkeypatch):
         "",
         "rain.ogg",
         "rain_out.ogg",
+        pitch=1.5,
         fade_in_ms=0,
         fade_out_ms=0,
     )
@@ -276,6 +277,8 @@ def test_ambience_loop_to_outro_has_no_fade_or_load_delay(monkeypatch):
     )
     assert prepared_outro.is_playing is False
     assert prepared_outro.volume == pytest.approx(manager.ambience_volume)
+    assert loop_stream.pitch == pytest.approx(1.5)
+    assert prepared_outro.pitch == pytest.approx(1.5)
 
     loop_stream.is_playing = False
     for _ in range(50):
@@ -348,6 +351,7 @@ def test_ambience_intro_to_loop_reuses_envelope_without_crossfade(monkeypatch):
         "rain_in.ogg",
         "rain.ogg",
         "rain_out.ogg",
+        pitch=0.75,
         fade_in_ms=0,
         fade_out_ms=500,
     )
@@ -360,6 +364,8 @@ def test_ambience_intro_to_loop_reuses_envelope_without_crossfade(monkeypatch):
 
     assert intro_stream.is_playing is True
     assert prepared_loop.is_playing is False
+    assert intro_stream.pitch == pytest.approx(0.75)
+    assert prepared_loop.pitch == pytest.approx(0.75)
 
     intro_stream.is_playing = False
     for _ in range(50):

@@ -42,9 +42,16 @@ typedef struct
     atomic_uint_least32_t directionZBits;
     atomic_uint_least32_t spatialBlendBits;
     atomic_uint_least32_t interpolation;
+    atomic_uint_least32_t tailRemaining;
 
     /* Last coherent snapshot, owned exclusively by the audio callback. */
     IPLBinauralEffectParams audioThreadParams;
+
+    /* Fixed-frame adapter state used by continuous mobile rendering. */
+    ma_uint32 bufferedInputFrames;
+    ma_uint32 bufferedOutputFrames;
+    ma_uint32 bufferedOutputOffset;
+    IPLAudioEffectState bufferedEffectState;
 
     float* ppBuffersIn[2];      /* Each buffer is an offset of _pHeap. */
     float* ppBuffersOut[2];     /* Each buffer is an offset of _pHeap. */
@@ -52,8 +59,12 @@ typedef struct
 } ma_phonon_binaural_node;
 
 MA_API ma_result ma_phonon_binaural_node_init(ma_node_graph* pNodeGraph, const ma_phonon_binaural_node_config* pConfig, const ma_allocation_callbacks* pAllocationCallbacks, ma_phonon_binaural_node* pBinauralNode);
+MA_API ma_result ma_phonon_binaural_node_init_with_tail_processing(ma_node_graph* pNodeGraph, const ma_phonon_binaural_node_config* pConfig, const ma_allocation_callbacks* pAllocationCallbacks, ma_phonon_binaural_node* pBinauralNode);
 MA_API void ma_phonon_binaural_node_uninit(ma_phonon_binaural_node* pBinauralNode, const ma_allocation_callbacks* pAllocationCallbacks);
 MA_API ma_result ma_phonon_binaural_node_set_parameters(ma_phonon_binaural_node* pBinauralNode, float x, float y, float z, float spatialBlend, IPLHRTFInterpolation interpolation);
+MA_API ma_bool32 ma_phonon_binaural_node_tail_remaining(const ma_phonon_binaural_node* pBinauralNode);
+MA_API ma_phonon_binaural_node* ma_phonon_binaural_node_alloc(void);
+MA_API void ma_phonon_binaural_node_free(ma_phonon_binaural_node* pNode);
 
 // Global phonon context management
 MA_API ma_result ma_phonon_init(ma_uint32 sampleRate, ma_uint32 frameSize);

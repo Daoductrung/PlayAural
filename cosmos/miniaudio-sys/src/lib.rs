@@ -32,7 +32,15 @@ extern "C" {
     pub fn ma_engine_free(engine: *mut ma_engine);
     pub fn ma_sound_alloc() -> *mut ma_sound;
     pub fn ma_sound_free(sound: *mut ma_sound);
-    pub fn ma_engine_init_with_caching(pEngine: *mut ma_engine) -> ma_result;
+    pub fn ma_engine_init_with_caching(
+        pEngine: *mut ma_engine,
+        periodSizeInFrames: ma_uint32,
+    ) -> ma_result;
+    pub fn ma_engine_init_mobile_with_caching(
+        pEngine: *mut ma_engine,
+        periodSizeInFrames: ma_uint32,
+        parameterSmoothingMilliseconds: ma_uint32,
+    ) -> ma_result;
     pub fn ma_engine_uninit_with_caching(pEngine: *mut ma_engine);
     pub fn ma_sound_get_node_ptr(pSound: *mut ma_sound) -> *mut ma_node;
 }

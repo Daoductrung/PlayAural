@@ -4,9 +4,11 @@ build-backend = "maturin"
 
 [project]
 name = "cosmos"
-version = "0.2.0"
+version = "0.3.0"
 description = "Audio game library with 3D spatial audio and screen reader support"
 requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
 classifiers = [
     "Programming Language :: Rust",
     "Programming Language :: Python :: Implementation :: CPython",
@@ -14,12 +16,17 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "License :: OSI Approved :: MIT License",
 ]
 
 [tool.maturin]
 features = ["pyo3/extension-module"]
-# Bundle the Steam Audio runtime DLL next to the compiled extension. build.rs
-# stages phonon.dll into OUT_DIR; maturin installs the extension as
-# cosmos/cosmos.pyd, so we drop the DLL into the `cosmos/` package dir alongside
-# it — that puts it on the extension's DLL search path at import time.
-include = [{ path = "phonon.dll", from = "out-dir", to = "cosmos/" }]
+# Bundle the Steam Audio runtime DLL next to the extension and retain its
+# license, third-party, trademark, and provenance documents in package data.
+include = [
+    { path = "phonon.dll", from = "out-dir", to = "cosmos/" },
+    { path = "steam_audio/LICENSE.md", from = "out-dir", to = "cosmos/third_party/" },
+    { path = "steam_audio/THIRDPARTY.md", from = "out-dir", to = "cosmos/third_party/" },
+    { path = "steam_audio/TRADEMARK_RIGHTS.md", from = "out-dir", to = "cosmos/third_party/" },
+    { path = "steam_audio/UPSTREAM.json", from = "out-dir", to = "cosmos/third_party/" },
+]

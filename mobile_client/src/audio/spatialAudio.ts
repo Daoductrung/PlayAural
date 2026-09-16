@@ -1,5 +1,5 @@
-// Web-renderer spatial policy. Native Android/iOS will consume the same
-// validated position type through the planned Cosmos Expo module.
+// Shared Web and native-renderer spatial policy. Android and iOS consume the
+// same validated values through the Cosmos-backed Expo module.
 
 import type {
   AudioGainAutomationPacket,

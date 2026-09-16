@@ -7,6 +7,10 @@ __pycache__/
 *.pyc
 *.pyd
 *.so
+!steamaudio-sys/phonon/android/armeabi-v7a/libphonon.so
+!steamaudio-sys/phonon/android/arm64-v8a/libphonon.so
+!steamaudio-sys/phonon/android/x86/libphonon.so
+!steamaudio-sys/phonon/android/x86_64/libphonon.so
 
 # IDE
 .idea/

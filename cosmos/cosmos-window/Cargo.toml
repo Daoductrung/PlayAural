@@ -1,7 +1,9 @@
 [package]
 name = "cosmos-window"
 version = "0.1.0"
-edition = "2021"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
 description = "Window and keyboard input for Cosmos audio game library"
 
 [dependencies]

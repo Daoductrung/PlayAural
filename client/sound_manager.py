@@ -64,6 +64,7 @@ class _AudioSource:
     attenuation: DistanceAttenuation | None = None
     distance_gain: float = 1.0
     source_gain: float = 1.0
+    pitch: float = 1.0
     priority: int = 0
     target: str = ""
     outro: str = ""
@@ -560,6 +561,7 @@ class SoundManager:
                             "layer": f"outro:{outro_id}",
                             "loop": False,
                             "volume": round(outro_volume * 100),
+                            "pitch": round(source.pitch * 100),
                             "priority": outro_priority,
                             "position": source.position,
                             "attenuation": source.attenuation,
@@ -682,6 +684,7 @@ class SoundManager:
         except ValueError:
             return None
         base_volume = _clamp(volume, 0.0, 1.0, 1.0)
+        source_pitch = _clamp(pitch, 0.25, 4.0, 1.0)
         resolved_handle = str(handle or f"oneshot:{uuid.uuid4().hex}")
         with self._lock:
             same_asset = [
@@ -715,7 +718,7 @@ class SoundManager:
                     else base_volume * source_gain * self.sound_volume
                 ),
                 pan=_clamp(pan, -1.0, 1.0, 0.0),
-                pitch=_clamp(pitch, 0.25, 4.0, 1.0),
+                pitch=source_pitch,
                 looping=bool(looping),
                 start=False,
                 position=position,
@@ -733,6 +736,7 @@ class SoundManager:
                 attenuation=attenuation,
                 distance_gain=distance_gain,
                 source_gain=source_gain,
+                pitch=source_pitch,
                 priority=int(_clamp(priority, -100, 100, 0)),
                 ducking={
                     str(key): _clamp(value, 0.0, 1.0, 1.0)
@@ -806,6 +810,7 @@ class SoundManager:
         outro_stream = self._create_stream(
             outro_asset,
             volume=self._effective_volume(source),
+            pitch=source.pitch,
             looping=False,
             start=False,
             position=source.position,
@@ -859,6 +864,7 @@ class SoundManager:
         outro_stream = self._create_stream(
             outro_asset,
             volume=self._effective_volume(source),
+            pitch=source.pitch,
             looping=False,
             start=False,
             position=source.position,
@@ -970,6 +976,7 @@ class SoundManager:
 
         generation = self._next_generation(handle)
         base_volume = _clamp(packet.get("volume", 100), 0, 100, 100) / 100
+        source_pitch = _clamp(packet.get("pitch", 100), 25, 400, 100) / 100
         source_gain = packet.get("gain", 1.0)
         position = packet.get("position")
         attenuation = packet.get("attenuation")
@@ -1007,6 +1014,7 @@ class SoundManager:
                     * self._master_gain(kind)
                     * envelope
                 ),
+                pitch=source_pitch,
                 looping=looping,
                 start=False,
                 position=position,
@@ -1024,6 +1032,7 @@ class SoundManager:
                 attenuation=attenuation,
                 distance_gain=distance_gain,
                 source_gain=source_gain,
+                pitch=source_pitch,
                 priority=int(_clamp(packet.get("priority", 0), -100, 100, 0)),
                 target=target,
                 outro=(
@@ -1091,6 +1100,7 @@ class SoundManager:
                 else base_volume * distance_gain * self._master_gain(kind)
                 * source_gain
             ),
+            pitch=source_pitch,
             looping=loop_enabled,
             start=False,
             position=position,
@@ -1162,6 +1172,7 @@ class SoundManager:
         scope: str = "global",
         context: str = "",
         layer: str = "main",
+        pitch: float = 1.0,
         fade_in_ms: int = 800,
         fade_out_ms: int = 800,
         position=None,
@@ -1178,6 +1189,7 @@ class SoundManager:
                 "context": context,
                 "layer": layer,
                 "loop": looping,
+                "pitch": round(_clamp(pitch, 0.25, 4.0, 1.0) * 100),
                 "fade_in_ms": fade_in_ms if fade_out_old else 0,
                 "fade_out_ms": fade_out_ms if fade_out_old else 0,
                 "position": normalize_audio_position(position),
@@ -1233,6 +1245,7 @@ class SoundManager:
         layer="environment",
         play_intro=True,
         seamless=True,
+        pitch=1.0,
         position=None,
         attenuation=None,
         gain=1.0,
@@ -1251,6 +1264,7 @@ class SoundManager:
                 "outro": outro_name or "",
                 "play_intro": play_intro,
                 "seamless": seamless,
+                "pitch": round(_clamp(pitch, 0.25, 4.0, 1.0) * 100),
                 "fade_in_ms": fade_in_ms,
                 "fade_out_ms": fade_out_ms,
                 "position": normalize_audio_position(position),

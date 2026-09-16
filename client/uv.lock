@@ -239,10 +239,10 @@ wheels = [
 
 [[package]]
 name = "cosmos"
-version = "0.2.0"
-source = { path = "vendor/cosmos-0.2.0-cp311-abi3-win_amd64.whl" }
+version = "0.3.0"
+source = { path = "vendor/cosmos-0.3.0-cp311-abi3-win_amd64.whl" }
 wheels = [
-    { filename = "cosmos-0.2.0-cp311-abi3-win_amd64.whl", hash = "sha256:61ce48aaef9303768a18e498f7214c9ce3e615c905465cbddc173dba01729a6e" },
+    { filename = "cosmos-0.3.0-cp311-abi3-win_amd64.whl", hash = "sha256:cf8fe6bb7fae873a9eb2381578bf70ece9e0701707763bcf36cd26249d8ded6c" },
 ]
 
 [[package]]
@@ -620,7 +620,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "accessible-output2", specifier = ">=0.16" },
-    { name = "cosmos", path = "vendor/cosmos-0.2.0-cp311-abi3-win_amd64.whl" },
+    { name = "cosmos", path = "vendor/cosmos-0.3.0-cp311-abi3-win_amd64.whl" },
     { name = "fluent-runtime", specifier = ">=0.4.0" },
     { name = "keyring", specifier = ">=24.0" },
     { name = "livekit", specifier = ">=1.1.5" },

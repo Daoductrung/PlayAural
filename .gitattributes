@@ -1,0 +1,2 @@
+# Preserve exact upstream formatting in the verified Steam Audio SDK header.
+cosmos/steamaudio-sys/phonon/phonon.h whitespace=-blank-at-eol

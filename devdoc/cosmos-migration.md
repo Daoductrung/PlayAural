@@ -24,24 +24,42 @@ Setting volume or pitch on a Cosmos sound re-runs spatialization, which recomput
 
 ### 1.4 The build was blocked on two things, both now resolved
 
-* phonon.dll (Steam Audio 4.5.2 runtime) was never committed; the header and import library were. Rory supplied it and it is now committed at cosmos/steamaudio-sys/phonon/phonon.dll, where both build scripts look for it.
+* The original Windows Steam Audio runtime was incomplete. The repository now
+  carries the complete official Steam Audio 4.8.1 Windows, Android, and iOS
+  artifact set, with upstream licenses and fail-closed SHA-256 verification.
 * bindgen needs libclang. LLVM turned out to be installed, so the bindings were generated once with LIBCLANG_PATH set and are now committed under each sys crate's src/. bindgen is behind the optional `regen-bindings` feature, so nobody else needs LLVM.
 
 Everything else in the toolchain is present: cargo 1.97, uv (which provides maturin through `uvx`), and Python 3.11 in the client venv.
 
 ### 1.5 There is no 3D data to play yet
 
-No game sends positions. Bang, Dead Man's Deck, Dead Man's Poker and Left Right Center pan by seat using fixed constants; the arcade games do not pan at all. Web and mobile clients reject any packet whose version is not 2, and they only understand pan. So the protocol work is additive: a new optional field, derived pan for clients that cannot use it, and the version number stays at 2.
+At the start of this migration no game sent positions and the protocol was at
+version 2. The completed cross-client work is described in section 10; current
+clients use protocol version 3 and share position, attenuation, and automation
+semantics.
 
 ### 1.6 Licensing improves
 
-sound_lib wraps BASS, which is free only for non-commercial use. miniaudio is public domain or MIT-0 and Steam Audio is Apache 2.0 since version 4. Both are compatible with PlayAural's GPL.
+sound_lib wraps BASS, which is free only for non-commercial use. Cosmos retains
+the MIT license declared in the original repository import, miniaudio is public
+domain or MIT-0, and Steam Audio is Apache-2.0. These are separate grants; the
+Cosmos MIT license does not relicense Steam Audio or its bundled dependencies.
+
+Apache-2.0 is compatible with GPLv3, but the Apache Software Foundation and the
+Free Software Foundation both state that it is not compatible with GPLv2 for a
+combined derivative work. PlayAural is GPL-2.0-only, so this document must not
+claim blanket compatibility. Release distributors must review the way each
+Apache-2.0 component is combined and distributed, and obtain qualified legal
+advice or an appropriate licensing solution where required. The authoritative
+inventory and upstream notices are in `THIRD_PARTY_NOTICES.md`.
 
 ## 2. Design decisions
 
 1. Cosmos becomes thread-safe at the Rust level. The client keeps its current thread structure so the diff there stays small and its tests stay valid. Moving the client to a single main-thread tick timer is a worthwhile later cleanup, not part of this migration.
 2. Positions are absolute, in the listener's frame. The listener is always at the origin facing +Y and the client never tracks listener state. The server computes each recipient's own view of a sound before sending, which fits how PlayAural already fans packets out per user and makes reconnect replay trivial.
-3. The server sends pan alongside position, derived from it. Web and mobile clients keep working with no change. Pan is derived from position, never the other way round, so there is one source of truth.
+3. The server sends pan alongside position, derived from it, so a renderer may
+   retain stereo-pan capability fallback. Pan is derived from position, never
+   the other way round, so there is one source of truth.
 4. Spatial mode is a client option with three values: off (pan only, current behaviour), stereo (Cosmos basic spatialization, works on speakers) and headphones (HRTF). Default is headphones, since that is what the feature is for, and the option is persisted with the other audio settings.
 5. Cosmos lives in this repository under cosmos/, and the wheel Rory builds from it is committed at client/vendor/ and installed as a path dependency. The friend never needs Rust, LLVM or maturin. The wheel is built against the stable ABI so one file serves Python 3.11 and later. (Rory's decision on 14 September 2026: a separate Cosmos repository can come later if a different version warrants it.)
 6. One sound object per playback, loaded by path. miniaudio's resource manager caches decoded audio, so SoundCacher's byte cache and its GC-protection list go away.
@@ -167,7 +185,7 @@ From the repository root, on Windows:
 ```
 cd cosmos\cosmos-python
 uvx maturin build --release --interpreter ..\..\client\.venv\Scripts\python.exe
-copy ..\target\wheels\cosmos-0.2.0-cp311-abi3-win_amd64.whl ..\..\client\vendor\
+copy ..\target\wheels\cosmos-0.3.0-cp311-abi3-win_amd64.whl ..\..\client\vendor\
 cd ..\..\client
 uv sync --extra dev
 ```
@@ -179,7 +197,11 @@ To regenerate the C bindings after updating miniaudio.h or phonon.h, set LIBCLAN
 ## 9. Risks
 
 * miniaudio caches decoded audio by path. The client's updater replaces files under sounds/ at runtime; a replaced file stays stale until restart. Acceptable, but worth a note in the updater's user message.
-* Cosmos initialises Steam Audio with a 512-frame period. If a machine's device defaults differently, HRTF falls back to basic spatialization silently. hrtf_available is exposed, so the options dialog can tell the user.
+* Cosmos configures Steam Audio with a fixed processing frame. Desktop requests
+  a matching graph period; the mobile renderer uses a bounded fixed-frame
+  adapter so arbitrary device callback sizes do not disable HRTF or drop a
+  final partial block and effect tail. `hrtf_available` remains exposed for
+  desktop capability reporting.
 * Pitch: BASS changed sample rate, Cosmos calls ma_sound_set_pitch; both shift speed and pitch together, so cues sound the same.
 * Steam Audio per-source binaural effects cost CPU. The manager caps effects at 64, which is well within budget on any modern machine, but the number is worth watching in the pirates ambience-heavy scenes.
 
@@ -201,10 +223,10 @@ contract to protocol version 3:
   intro/loop/outro stems. Server coordinates map to Web Audio as
   `(x, y, z) -> (x, z, -y)`. Stereo pan remains the capability fallback.
 * Expo Web uses the same validation, coordinate mapping, and HRTF graph. Native
-  Android retains its existing MediaPlayer stereo-pan fallback where that API
-  is supported; iOS and native seamless stems remain centered for now. No new
-  native playback engine has been allowed to take audio focus or change the
-  selected system route.
+  Android and physical iOS devices use the Cosmos/miniaudio Expo module with
+  Steam Audio HRTF; platform playback remains the capability fallback. The
+  native engine does not take audio focus, mutate the iOS session, or select an
+  output route.
 * Server and all clients reject malformed, non-finite, or out-of-range
   positions. A steady position is valid only on `play`; continuous changes use
   the complete, validated `motion` object on a stable-handle `update` command.
@@ -218,33 +240,35 @@ distance-neutral so gain is never applied twice. Replayable layers retain the
 policy through save/reconnect, and intro/loop/outro segments keep one spatial
 position and gain envelope.
 
-### 10.1 Native mobile decision
+### 10.1 Native mobile implementation
 
-Cosmos is the preferred route to equivalent native mobile HRTF, but the current
-crate cannot simply be linked into Expo:
+Native mobile HRTF is implemented as the local `playaural-spatial-audio` Expo
+module over the shared Cosmos C renderer:
 
-* The checked-in Steam Audio 4.5.2 library is Windows x64 only. Steam Audio's
-  official mobile SDK provides Android shared libraries and an iOS static
-  library; those artifacts, headers, licenses, architectures, and checksums
-  must be pinned and reviewed together.
-* The current Rust build assumes a Windows dynamic library and lets miniaudio
-  own a desktop device. Mobile needs a small, typed Expo module over a
-  platform-neutral Cosmos audio core, plus explicit Android/iOS build targets.
-* Android initialization must not request a competing audio-focus lease or
-  force an output device. It must remain media usage on the selected wired,
-  Bluetooth, or speaker route, with ExpoAV as the focus coordinator.
-* iOS initialization must operate inside PlayAural's existing playback/default
-  session. Microphone publication remains a separate explicit transition to
-  play-and-record/default, with A2DP available and the hands-free profile
-  excluded. Cosmos teardown must not rewrite the session.
+* The official Steam Audio 4.8.1 SDK is pinned as one reviewed artifact set:
+  Windows x64, all four Android ABIs, the iOS device archive, headers, license,
+  trademark terms, upstream third-party notices, and SHA-256 manifest. Mobile
+  installation fails closed if an artifact, architecture, version, or Android
+  16 KiB load alignment differs.
+* Android uses a dedicated miniaudio media device without requesting audio
+  focus or choosing an output. ExpoAV remains the focus coordinator and the
+  system-selected wired, Bluetooth, earpiece, or speaker route is preserved.
+* iOS runs inside the existing application audio session and never changes its
+  category or activation. The official Steam Audio archive is device-only, so
+  simulator builds use an explicit unsupported stub and the platform fallback.
+* The native module exposes validated semantic source operations rather than
+  raw pointers. JavaScript owns protocol, handle generations, source budgets,
+  attenuation, automation, fades, buses, and lifecycle policy. Native code owns
+  the real-time graph, HRTF processing, sample-scheduled stems, terminal state,
+  and bounded fixed-frame/tail adaptation.
+* Async loads reserve mixer capacity and unique native IDs before native work
+  begins. Replacement generations, shutdown, and failed creation release those
+  reservations and cannot resurrect or alias a stale source.
 
-The native module should expose semantic operations, not raw engine pointers:
-load/preload, play, stop, pause/resume, source position, listener pose, gain,
-pitch, loop regions, and scheduled fades. It should use the same stable handles
-and generations as the protocol so late loads, fades, and callbacks cannot
-resurrect a replaced source. JavaScript continues to own validated packet and
-table lifecycle policy; native code owns the real-time graph and reports
-capabilities and terminal events.
+The module renders positioned one-shots and managed loops, continuous movement,
+source gain, pitch, and phase-contiguous intro/loop/outro ambience. An
+unavailable native module or failed HRTF initialization falls back to platform
+playback without changing protocol semantics.
 
 ### 10.2 Next protocol slices
 

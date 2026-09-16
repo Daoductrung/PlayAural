@@ -134,3 +134,86 @@ test("source gain is independent, automatable, and generation guarded", async ()
     /detachSourceHandle[\s\S]*?clearSourceMotion\(source\.handle\)[\s\S]*?clearSourceGainAutomation\(source\.handle\)/,
   );
 });
+
+test("async source creation reserves bounded mixer capacity", async () => {
+  const source = await readFile(
+    new URL("../src/audio/MobileAudioManager.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /sourceLoadReservations = new Set<SourceLoadReservation>/);
+  assert.match(
+    source,
+    /matching\.length \+ pendingMatching >= limit/,
+  );
+  assert.match(
+    source,
+    /effects\.length \+ pendingEffects\.length >= MAX_ACTIVE_EFFECTS/,
+  );
+  assert.match(
+    source,
+    /layers\.length \+ pendingLayers\.length >= MAX_ACTIVE_LAYERS/,
+  );
+  assert.match(
+    source,
+    /reservation\.slot === handle[\s\S]*?sourceLoadReservations\.delete\(reservation\)/,
+  );
+  assert.match(
+    source,
+    /reservation\.slot === target[\s\S]*?sourceLoadReservations\.delete\(reservation\)/,
+  );
+  assert.match(
+    source,
+    /try \{[\s\S]*?createSource\([\s\S]*?finally \{\s*releaseReservation\(\)/,
+  );
+  assert.match(source, /shutdown\(\)[\s\S]*?sourceLoadReservations\.clear\(\)/);
+});
+
+test("managed layer pitch reaches native, element, and seamless stem paths", async () => {
+  const source = await readFile(
+    new URL("../src/audio/MobileAudioManager.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /pitch: this\.clamp\(packet\.pitch, 25, 400, 100\) \/ 100/);
+  assert.match(source, /playlist\.playbackRate = source\.pitch/);
+  assert.match(source, /introNode\.playbackRate\.value = pitch/);
+  assert.match(source, /loopNode\.playbackRate\.value = pitch/);
+  assert.match(source, /outroNode\.playbackRate\.value = source\.pitch/);
+  assert.match(source, /loopDuration: loopBuffer\.duration \/ pitch/);
+  assert.match(source, /element\.playbackRate = source\.pitch/);
+  assert.match(source, /element\.preservesPitch = false/);
+  assert.match(source, /shouldCorrectPitch: false/);
+  assert.match(source, /pitch: source\.pitch \* 100/);
+});
+
+test("native source identifiers remain unique across wraparound and async loads", async () => {
+  const source = await readFile(
+    new URL("../src/audio/MobileAudioManager.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /nativeSpatialIdsInUse = new Set<string>/);
+  assert.match(
+    source,
+    /attempts <= this\.nativeSpatialIdsInUse\.size[\s\S]*?!this\.nativeSpatialIdsInUse\.has\(sourceId\)[\s\S]*?nativeSpatialIdsInUse\.add\(sourceId\)/,
+  );
+  assert.match(source, /releaseNativeSpatialId\(sourceId: string\)/);
+  assert.match(source, /shutdown\(\)[\s\S]*?nativeSpatialIdsInUse\.clear\(\)/);
+  assert.ok(
+    source.match(/releaseNativeSpatialId\(sourceId\)/g)?.length >= 4,
+    "every native creation failure path must release its reserved identifier",
+  );
+});
+
+test("stale native completion reports cannot retain reserved identifiers", async () => {
+  const source = await readFile(
+    new URL("../src/audio/MobileAudioManager.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(
+    source,
+    /if \(!key \|\| !source \|\| source\.nativeSpatialId !== sourceId\) \{\s*this\.nativeSpatialSources\.delete\(sourceId\);\s*this\.releaseNativeSpatialId\(sourceId\);/,
+  );
+});

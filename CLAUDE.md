@@ -211,6 +211,16 @@ loading an asset.
 - Ducking is implemented but dormant and strictly opt-in. First-party gameplay
   must not send non-empty `ducking` maps until a future feature explicitly
   adopts and tunes it. Empty/default ducking must have no audible side effects.
+- Positioned native mobile playback uses the local Cosmos/miniaudio Expo module
+  and the complete official Steam Audio 4.8.1 artifact set. Keep Windows,
+  Android, iOS, headers, upstream licenses/notices, and the SHA-256 manifest as
+  one reviewed update. Mobile `postinstall` must fail closed on version, hash,
+  ABI, or Android 16 KiB alignment drift. The real-time fixed-frame adapter must
+  preserve partial input and the HRTF tail across arbitrary device callback
+  sizes. Async source creation reserves capacity and collision-free native IDs;
+  every failure, replacement, completion, and shutdown path releases them.
+  Physical iOS devices use the pinned archive; the simulator must report native
+  HRTF unavailable and use the platform fallback.
 - Android playback must preserve the system-selected wired, Bluetooth, or
   speaker route; game-audio setup must never force speakerphone routing. ExpoAV
   is the single audio-focus coordinator. The modern `expo-audio` playlist path

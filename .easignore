@@ -1,20 +1,61 @@
+# EAS packages from the Git repository root so the mobile native module can
+# compile the canonical Cosmos C sources and verified Steam Audio SDK artifacts.
+# Keep this root-scoped list explicit: nested ignore files are not consistently
+# honored by every EAS CLI host platform.
+
+# Version-control and local tool state
 .git/
-.gitignore
-.pytest_cache/
-__pycache__/
-.venv/
-venv/
-env/
-build/
-dist/
-htmlcov/
+.github/
+.claude/
+.vscode/
+.idea/
+.ruff_cache/
 .npm-cache/
+.mobile_eas_stage/
+**/__pycache__/
+**/.pytest_cache/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+**/*.egg-info/
+**/.coverage
+**/htmlcov/
 
-server/pytest-cache-files-*/
-server/.tmp/
-server/.pytest_cache/
+# Components not used to build the mobile application
+/client/
+/server/
+/web_client/
+/deployment/
+/devdoc/
+/scripts/
+cosmos/examples/
+cosmos/cosmos-python/
+cosmos/cosmos-screenreader/
+cosmos/cosmos-window/
+cosmos/target/
 
+# Mobile dependencies and generated native/build output
 mobile_client/node_modules/
+mobile_client/android/
+mobile_client/ios/
 mobile_client/.expo/
 mobile_client/dist/
-.mobile_eas_stage/
+mobile_client/modules/playaural-spatial-audio/android/.cxx/
+mobile_client/modules/playaural-spatial-audio/android/build/
+
+# Local data, credentials, and signing material
+config/*.json
+!config/default_*.json
+identities.json
+PlayAural.db
+errors.log
+PRIVATE_ANDROID_BUILD_GUIDE.md
+*.jks
+*.keystore
+*keystore*credential*.md
+
+# OS and editor artifacts
+.DS_Store
+Thumbs.db
+*.swp
+*.swo

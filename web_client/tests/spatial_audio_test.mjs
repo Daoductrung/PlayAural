@@ -248,3 +248,23 @@ test("source-gain automation matches the shared protocol vectors", () => {
     easing: "linear",
   }), null);
 });
+
+test("managed layers preserve authored pitch across every stem segment", () => {
+  const source = readFileSync(
+    new URL("../audio.js", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /audio\.playbackRate = playbackRate/);
+  assert.match(source, /audio\.preservesPitch = false/);
+  assert.match(source, /introNode\.playbackRate\.value = playbackRate/);
+  assert.match(source, /loopNode\.playbackRate\.value = playbackRate/);
+  assert.match(source, /outroNode\.playbackRate\.value = source\.stem\.playbackRate/);
+  assert.match(
+    source,
+    /loopStartedAt = startAt \+ \(\(introBuffer\?\.duration \|\| 0\) \/ playbackRate\)/,
+  );
+  assert.match(source, /loopDuration: loopBuffer\.duration \/ playbackRate/);
+  assert.match(source, /node\.playbackRate\.value = source\.playbackRate/);
+  assert.match(source, /pitch: source\.playbackRate \* 100/);
+});

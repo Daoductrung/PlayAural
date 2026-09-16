@@ -262,3 +262,43 @@ test("the offline shell precaches the updated UI modules", async () => {
     assert.match(serviceWorker, new RegExp(`\\./${asset.replace("/", "\\/")}`));
   }
 });
+
+test("the checked-in LiveKit bundle carries complete dependency notices", async () => {
+  const [bundle, lockText, notices] = await Promise.all([
+    readFile(new URL("../vendor/livekit-client.umd.js", import.meta.url), "utf8"),
+    readFile(new URL("../package-lock.json", import.meta.url), "utf8"),
+    readFile(new URL("../vendor/THIRD_PARTY_NOTICES.md", import.meta.url), "utf8"),
+  ]);
+  const lock = JSON.parse(lockText);
+  assert.match(bundle, /2\.18\.2/);
+  for (const path of Object.keys(lock.packages)) {
+    if (!path.startsWith("node_modules/") || path.startsWith("node_modules/@types/")) {
+      continue;
+    }
+    const packageName = path.slice("node_modules/".length);
+    assert.ok(
+      notices.includes(`| \`${packageName}\``),
+      `missing bundled dependency notice for ${packageName}`,
+    );
+  }
+  for (const file of [
+    "Apache-2.0.txt",
+    "buf-protobuf-BSD-3-Clause.txt",
+    "events-MIT.txt",
+    "jose-MIT.txt",
+    "loglevel-MIT.txt",
+    "sdp-MIT.txt",
+    "sdp-transform-MIT.txt",
+    "tslib-0BSD.txt",
+    "typed-emitter-MIT.txt",
+    "webrtc-adapter-BSD-3-Clause.txt",
+  ]) {
+    assert.ok(
+      (await readFile(new URL(`../vendor/licenses/${file}`, import.meta.url), "utf8")).trim(),
+      `${file} must contain its license text`,
+    );
+  }
+  assert.ok(
+    (await readFile(new URL("../vendor/LIVEKIT_NOTICE", import.meta.url), "utf8")).trim(),
+  );
+});

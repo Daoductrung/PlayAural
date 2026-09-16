@@ -339,6 +339,14 @@ Audio-first is mandatory. Every important state change needs TTS and/or sound.
 - Ducking is a dormant, opt-in capability. Do not add `ducking` to first-party
   gameplay commands until a future feature deliberately enables and tunes it;
   keep zero-duck defaults behaviorally identical to an engine without ducking.
+- Positioned native mobile playback uses the local Cosmos/miniaudio Expo module
+  and the complete official Steam Audio 4.8.1 artifact set. Treat its platform
+  libraries, headers, licenses/notices, and SHA-256 manifest as one update.
+  `postinstall` must fail closed on version, hash, ABI, or Android 16 KiB
+  alignment drift. Preserve partial frames and HRTF tails across arbitrary
+  device callback sizes. Reserve bounded source capacity and collision-free IDs
+  before async creation, and release them on every failure or lifecycle exit.
+  iOS Simulator must use the explicit non-HRTF platform fallback.
 - Android playback must preserve the system-selected wired, Bluetooth, or
   speaker route; game-audio setup must never force speakerphone routing. Keep
   ExpoAV as the single audio-focus coordinator, and retain the guarded

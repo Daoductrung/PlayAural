@@ -53,11 +53,6 @@ smtp-current-enc = * { $value }
 main-menu-title = Menu Principal
 
 play = Jogar
-spatial-audio-test = Teste de áudio espacial (temporário)
-spatial-test-clock = { $hour ->
-    [one] 1 hora
-   *[other] { $hour } horas
-}
 view-active-tables = Ver mesas ativas
 options = Opções
 logout = Sair

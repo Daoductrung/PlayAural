@@ -1,5 +1,26 @@
 # Changelog
 
+Sexta-feira, 11 de setembro de 2026
+
+Novidades:
+
+* O Histórico agora oferece seis buffers de mensagens no computador, na Web e no celular, nesta ordem: Tudo, Bate-papo, Mensagens privadas, Jogo, Sistema e Diversos. Cada buffer pode ser revisado e silenciado separadamente. Silenciar Tudo silencia todos os buffers; quando um buffer individual é reativado, as mensagens recebidas enquanto ele estava silenciado voltam a aparecer em Tudo na ordem original. Silenciar Bate-papo ou Mensagens privadas também silencia os sons de notificação correspondentes. O histórico de mensagens é mantido somente durante a sessão atual.
+* O cliente Web agora permite recolher ou expandir Bate-papo e voz, Volume e Atalhos; Volume começa recolhido por padrão. A ordem conhecida de navegação pela tecla Tab durante o jogo permanece inalterada.
+* A opção Idioma no celular agora abre a lista completa de idiomas disponíveis, indica a escolha atual, preserva qualquer texto já digitado na tela de login ou cadastro e devolve o foco ao botão Idioma depois que um idioma é escolhido ou ao voltar.
+
+Melhorias:
+
+* A navegação e a fala no celular estão mais confiáveis durante o login e as partidas. A narração automática reconhece gestos de um, dois e três dedos com mais consistência, recupera-se após interrupções do serviço de fala do Android e alterna corretamente entre a narração automática e o TalkBack. O botão Voltar fecha a caixa de diálogo ou o campo de texto visível antes de sair da tela atual, e Ajuda e gestos agora reúne as instruções e as informações da compilação.
+* Tabuleiros grandes, como o da Batalha Naval, agora mantêm alvos de toque legíveis e rolam suavemente em todas as direções na Web e no celular, inclusive ao usar o deslocamento com dois dedos no TalkBack. As células em foco são trazidas para a área visível sem atrasar o movimento do cursor nem a fala.
+* Ler usuários online agora anuncia primeiro o total, seguido de desenvolvedores, administradores e demais usuários. Abrir a lista de usuários online segue a mesma ordem, permanece na página atual durante as atualizações e mantém as ações de conta disponíveis quando as pessoas entram, saem ou mudam de função.
+* Textos em idiomas escritos da direita para a esquerda agora usam a direção correta no computador, na Web e no celular, sem alterar a disposição nem a ordem de navegação conhecidas.
+* A tradução para português do Brasil recebeu uma ampla atualização nos nomes de jogos, na terminologia, nos menus, nos anúncios e nos guias para jogadores, incluindo nomes de lutadores e golpes de Battle e a revisão do texto de Gamão.
+
+Correções de bugs:
+
+* Um jogo que termina em segundo plano não substitui mais um menu global, fecha um campo de texto nem interrompe uma mensagem privada que está sendo escrita. O resultado aparece quando você retorna à mesa.
+* Mensagens privadas enviadas para a própria conta agora são rejeitadas com uma explicação clara, e mensagens privadas sem texto não são mais enviadas.
+
 Quinta-feira, 27 de agosto de 2026
 
 Novas Adições:

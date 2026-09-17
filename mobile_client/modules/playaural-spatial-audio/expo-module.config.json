@@ -1,0 +1,9 @@
+{
+  "platforms": ["apple", "android"],
+  "apple": {
+    "modules": ["PlayAuralSpatialAudioModule"]
+  },
+  "android": {
+    "modules": ["one.ddt.playaural.spatialaudio.PlayAuralSpatialAudioModule"]
+  }
+}

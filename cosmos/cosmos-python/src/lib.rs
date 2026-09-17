@@ -6,7 +6,8 @@ use pyo3::prelude::*;
 use pyo3::exceptions::{PyRuntimeError, PyValueError};
 
 use cosmos_audio::{
-    Easing, SoundGroupRef, SoundManager as RustSoundManager, SoundRef, SpatialMode,
+    Easing, HrtfInterpolation, SoundGroupRef, SoundManager as RustSoundManager, SoundRef,
+    SpatialMode,
 };
 use cosmos_screenreader::ScreenReader as RustScreenReader;
 use cosmos_window::{Window as RustWindow, Key as RustKey};
@@ -36,6 +37,24 @@ fn spatial_mode_name(mode: SpatialMode) -> &'static str {
         SpatialMode::Direct => "direct",
         SpatialMode::Basic => "basic",
         SpatialMode::Hrtf => "hrtf",
+    }
+}
+
+fn parse_hrtf_interpolation(name: &str) -> PyResult<HrtfInterpolation> {
+    match name.to_ascii_lowercase().as_str() {
+        "nearest" => Ok(HrtfInterpolation::Nearest),
+        "bilinear" => Ok(HrtfInterpolation::Bilinear),
+        other => Err(PyValueError::new_err(format!(
+            "Unknown HRTF interpolation '{}'. Expected one of: nearest, bilinear",
+            other
+        ))),
+    }
+}
+
+fn hrtf_interpolation_name(interpolation: HrtfInterpolation) -> &'static str {
+    match interpolation {
+        HrtfInterpolation::Nearest => "nearest",
+        HrtfInterpolation::Bilinear => "bilinear",
     }
 }
 
@@ -103,6 +122,14 @@ impl Sound {
         }
     }
 
+    /// Schedule playback at one absolute PCM frame on the manager clock.
+    fn schedule_at_engine_frame(&mut self, start_frame: u64) -> PyResult<bool> {
+        match lock(&self.inner).schedule_at_engine_frame(start_frame) {
+            Ok(()) => Ok(true),
+            Err(_) => Ok(false),
+        }
+    }
+
     /// Stop playing and reset to the beginning.
     fn stop(&mut self) -> PyResult<bool> {
         match lock(&self.inner).stop() {
@@ -149,6 +176,18 @@ impl Sound {
         lock(&self.inner).length()
     }
 
+    /// Total decoded source length in PCM frames.
+    #[getter]
+    fn length_frames(&self) -> u64 {
+        lock(&self.inner).length_in_pcm_frames()
+    }
+
+    /// Decoded source sample rate.
+    #[getter]
+    fn sample_rate(&self) -> u32 {
+        lock(&self.inner).sample_rate()
+    }
+
     /// Set the 3D position of this sound as a point source.
     fn set_position(&mut self, x: f32, y: f32, z: f32) {
         lock(&self.inner).set_position(x, y, z);
@@ -167,7 +206,7 @@ impl Sound {
     }
 
     /// Set the 3D position from (x, y, z) tuple.
-    #[setter]
+    #[setter(position)]
     fn set_position_tuple(&mut self, value: (f32, f32, f32)) {
         lock(&self.inner).set_position(value.0, value.1, value.2);
     }
@@ -311,6 +350,30 @@ impl Sound {
         Ok(())
     }
 
+    /// Get/set the dry/HRTF blend (0.0 = direct, 1.0 = fully binaural).
+    #[getter]
+    fn hrtf_spatial_blend(&self) -> f32 {
+        lock(&self.inner).hrtf_spatial_blend()
+    }
+
+    #[setter]
+    fn set_hrtf_spatial_blend(&mut self, value: f32) {
+        lock(&self.inner).set_hrtf_spatial_blend(value);
+    }
+
+    /// Get/set HRTF direction interpolation: "nearest" or "bilinear".
+    #[getter]
+    fn hrtf_interpolation(&self) -> &'static str {
+        hrtf_interpolation_name(lock(&self.inner).hrtf_interpolation())
+    }
+
+    #[setter]
+    fn set_hrtf_interpolation(&mut self, value: &str) -> PyResult<()> {
+        let interpolation = parse_hrtf_interpolation(value)?;
+        lock(&self.inner).set_hrtf_interpolation(interpolation);
+        Ok(())
+    }
+
     /// Get/set minimum distance for 3D falloff.
     #[getter]
     fn min_distance(&self) -> f32 {
@@ -342,6 +405,28 @@ impl Sound {
     #[setter]
     fn set_rolloff(&mut self, value: f32) {
         lock(&self.inner).set_rolloff(value);
+    }
+
+    /// Get/set the lower bound applied by Cosmos distance attenuation.
+    #[getter]
+    fn min_gain(&self) -> f32 {
+        lock(&self.inner).min_gain()
+    }
+
+    #[setter]
+    fn set_min_gain(&mut self, value: f32) {
+        lock(&self.inner).set_min_gain(value);
+    }
+
+    /// Get/set the upper bound applied by Cosmos distance attenuation.
+    #[getter]
+    fn max_gain(&self) -> f32 {
+        lock(&self.inner).max_gain()
+    }
+
+    #[setter]
+    fn set_max_gain(&mut self, value: f32) {
+        lock(&self.inner).set_max_gain(value);
     }
 
     /// Get/set pan step.
@@ -793,6 +878,18 @@ impl SoundManager {
     #[getter]
     fn hrtf_available(&self) -> bool {
         lock(&self.inner).is_hrtf_available()
+    }
+
+    /// Current absolute audio-engine clock in PCM frames.
+    #[getter]
+    fn clock_frames(&self) -> u64 {
+        lock(&self.inner).time_in_pcm_frames()
+    }
+
+    /// Audio-engine output sample rate.
+    #[getter]
+    fn sample_rate(&self) -> u32 {
+        lock(&self.inner).sample_rate()
     }
 
     /// Destroy the sound manager (no-op, resources cleaned up on drop).

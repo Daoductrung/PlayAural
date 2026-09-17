@@ -1,0 +1,7 @@
+{
+  "name": "playaural-spatial-audio",
+  "version": "1.0.0",
+  "private": true,
+  "main": "index.ts",
+  "license": "GPL-2.0-only"
+}

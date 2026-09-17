@@ -1,0 +1,6 @@
+# Preserve exact upstream bytes for Steam Audio artifacts verified by SHA-256.
+cosmos/steamaudio-sys/phonon/LICENSE.md -text whitespace=-blank-at-eol
+cosmos/steamaudio-sys/phonon/THIRDPARTY.md -text whitespace=-blank-at-eol
+cosmos/steamaudio-sys/phonon/TRADEMARK_RIGHTS.md -text whitespace=-blank-at-eol
+cosmos/steamaudio-sys/phonon/phonon.h -text whitespace=-blank-at-eol
+cosmos/steamaudio-sys/phonon/phonon_version.h -text whitespace=-blank-at-eol

@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <stdatomic.h>
 #include "phonon.h"
 #include "miniaudio.h"
 
@@ -28,8 +29,30 @@ typedef struct
     IPLAudioSettings iplAudioSettings;
     IPLContext iplContext;
     IPLBinauralEffect iplEffect;
-    IPLBinauralEffectParams iplEffectParams;
-    float spatial_blend_max_distance;
+    IPLHRTF iplHRTF;
+
+    /*
+    Control-thread parameters are read by miniaudio's real-time callback.
+    Every scalar is accessed with C11 atomics and paramsVersion
+    provides a lock-free, coherent snapshot of the complete parameter set.
+    */
+    atomic_uint_least32_t paramsVersion;
+    atomic_uint_least32_t directionXBits;
+    atomic_uint_least32_t directionYBits;
+    atomic_uint_least32_t directionZBits;
+    atomic_uint_least32_t spatialBlendBits;
+    atomic_uint_least32_t interpolation;
+    atomic_uint_least32_t tailRemaining;
+    atomic_uint_least32_t tailDrainRequested;
+
+    /* Last coherent snapshot, owned exclusively by the audio callback. */
+    IPLBinauralEffectParams audioThreadParams;
+
+    /* Fixed-frame adapter state used by continuous mobile rendering. */
+    ma_uint32 bufferedInputFrames;
+    ma_uint32 bufferedOutputFrames;
+    ma_uint32 bufferedOutputOffset;
+    IPLAudioEffectState bufferedEffectState;
 
     float* ppBuffersIn[2];      /* Each buffer is an offset of _pHeap. */
     float* ppBuffersOut[2];     /* Each buffer is an offset of _pHeap. */
@@ -37,9 +60,15 @@ typedef struct
 } ma_phonon_binaural_node;
 
 MA_API ma_result ma_phonon_binaural_node_init(ma_node_graph* pNodeGraph, const ma_phonon_binaural_node_config* pConfig, const ma_allocation_callbacks* pAllocationCallbacks, ma_phonon_binaural_node* pBinauralNode);
+MA_API ma_result ma_phonon_binaural_node_init_with_tail_processing(ma_node_graph* pNodeGraph, const ma_phonon_binaural_node_config* pConfig, const ma_allocation_callbacks* pAllocationCallbacks, ma_phonon_binaural_node* pBinauralNode);
 MA_API void ma_phonon_binaural_node_uninit(ma_phonon_binaural_node* pBinauralNode, const ma_allocation_callbacks* pAllocationCallbacks);
-MA_API ma_result ma_phonon_binaural_node_set_direction(ma_phonon_binaural_node* pBinauralNode, float x, float y, float z, float distance);
-MA_API ma_result ma_phonon_binaural_node_set_spatial_blend_max_distance(ma_phonon_binaural_node* pBinauralNode, float max_distance);
+MA_API ma_result ma_phonon_binaural_node_set_parameters(ma_phonon_binaural_node* pBinauralNode, float x, float y, float z, float spatialBlend, IPLHRTFInterpolation interpolation);
+/* Idempotently switch a tail-processing node from terminal upstream input to
+ * Steam Audio's finite tail drain. Call only after the source is at end. */
+MA_API void ma_phonon_binaural_node_begin_tail_drain(ma_phonon_binaural_node* pBinauralNode);
+MA_API ma_bool32 ma_phonon_binaural_node_tail_remaining(const ma_phonon_binaural_node* pBinauralNode);
+MA_API ma_phonon_binaural_node* ma_phonon_binaural_node_alloc(void);
+MA_API void ma_phonon_binaural_node_free(ma_phonon_binaural_node* pNode);
 
 // Global phonon context management
 MA_API ma_result ma_phonon_init(ma_uint32 sampleRate, ma_uint32 frameSize);

@@ -124,11 +124,43 @@ export type ForceExitPacket = {
 };
 
 export type AudioKind = "sfx" | "music" | "ambience";
-export type AudioCommandName = "play" | "stop" | "pause" | "resume" | "set_bus" | "stop_all";
+export type AudioCommandName = "play" | "update" | "stop" | "pause" | "resume" | "set_bus" | "stop_all";
+export type DistanceAttenuationPacket =
+  | { model: "none" }
+  | {
+    model: "linear" | "inverse" | "exponential";
+    reference_distance: number;
+    max_distance: number;
+    rolloff_factor: number;
+    min_gain: number;
+    max_gain: number;
+  };
+export type AudioMotionPacket = {
+  origin_position: readonly [number, number, number];
+  destination_position: readonly [number, number, number];
+  duration_ms: number;
+  elapsed_ms: number;
+  easing: "linear" | "ease-in" | "ease-out" | "ease-in-out";
+};
+export type AudioGainAutomationPacket = {
+  origin_gain: number;
+  destination_gain: number;
+  duration_ms: number;
+  elapsed_ms: number;
+  easing: "linear" | "ease-in" | "ease-out" | "ease-in-out";
+};
+export type AudioSequenceSegmentPacket = {
+  asset: string;
+  position: [number, number, number] | null;
+  destination_position: [number, number, number] | null;
+  attenuation: DistanceAttenuationPacket | null;
+  gain: number;
+  easing: "linear" | "ease-in" | "ease-out" | "ease-in-out";
+};
 
 export type AudioCommandPacket = {
   type: "audio";
-  version: 2;
+  version: 3;
   command: AudioCommandName;
   kind?: AudioKind;
   asset?: string;
@@ -150,6 +182,12 @@ export type AudioCommandPacket = {
   seamless?: boolean;
   volume?: number;
   pan?: number;
+  position?: [number, number, number];
+  attenuation?: DistanceAttenuationPacket;
+  motion?: AudioMotionPacket;
+  gain?: number;
+  gain_automation?: AudioGainAutomationPacket;
+  segments?: AudioSequenceSegmentPacket[];
   pitch?: number;
   fade_in_ms?: number;
   fade_out_ms?: number;

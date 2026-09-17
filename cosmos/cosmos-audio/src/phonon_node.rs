@@ -6,9 +6,13 @@
 use miniaudio_sys::{
     ma_allocation_callbacks, ma_bool32, ma_node_graph, ma_result, ma_uint32, MA_SUCCESS, MA_TRUE,
 };
-use steamaudio_sys::{IPLAudioSettings, IPLContext, IPLHRTF};
 use std::ptr;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Mutex;
+use steamaudio_sys::{
+    IPLAudioSettings, IPLContext, IPLHRTFInterpolation,
+    IPLHRTFInterpolation_IPL_HRTFINTERPOLATION_BILINEAR,
+    IPLHRTFInterpolation_IPL_HRTFINTERPOLATION_NEAREST, IPLHRTF,
+};
 
 use crate::error::AudioError;
 
@@ -24,8 +28,7 @@ pub struct PhononBinauralNodeConfig {
 
 #[repr(C)]
 pub struct PhononBinauralNode {
-    // Opaque - actual struct is defined in C
-    _data: [u8; 512], // Placeholder, actual size determined by C
+    _private: [u8; 0],
 }
 
 extern "C" {
@@ -43,7 +46,7 @@ extern "C" {
         ipl_hrtf: IPLHRTF,
     ) -> PhononBinauralNodeConfig;
 
-    fn ma_phonon_binaural_node_init(
+    fn ma_phonon_binaural_node_init_with_tail_processing(
         node_graph: *mut ma_node_graph,
         config: *const PhononBinauralNodeConfig,
         allocation_callbacks: *const ma_allocation_callbacks,
@@ -55,40 +58,59 @@ extern "C" {
         allocation_callbacks: *const ma_allocation_callbacks,
     );
 
-    fn ma_phonon_binaural_node_set_direction(
+    fn ma_phonon_binaural_node_set_parameters(
         binaural_node: *mut PhononBinauralNode,
         x: f32,
         y: f32,
         z: f32,
-        distance: f32,
+        spatial_blend: f32,
+        interpolation: IPLHRTFInterpolation,
     ) -> ma_result;
 
-    #[allow(dead_code)]
-    fn ma_phonon_binaural_node_set_spatial_blend_max_distance(
-        binaural_node: *mut PhononBinauralNode,
-        max_distance: f32,
-    ) -> ma_result;
+    fn ma_phonon_binaural_node_tail_remaining(
+        binaural_node: *const PhononBinauralNode,
+    ) -> ma_bool32;
 
     fn ma_phonon_binaural_node_alloc() -> *mut PhononBinauralNode;
     fn ma_phonon_binaural_node_free(node: *mut PhononBinauralNode);
 }
 
-// Track global phonon initialization
-static PHONON_INITIALIZED: AtomicBool = AtomicBool::new(false);
+static PHONON_LIFECYCLE: Mutex<()> = Mutex::new(());
 
-/// Initialize the global Steam Audio context.
-///
-/// This should be called once when creating the audio engine.
-/// Returns Ok(true) if initialized successfully, Ok(false) if already initialized.
-pub fn phonon_init(sample_rate: u32, frame_size: u32) -> Result<bool, AudioError> {
-    if PHONON_INITIALIZED.load(Ordering::SeqCst) {
-        return Ok(false);
+/// Steam Audio processing block size. The same value is supplied to the
+/// miniaudio engine period and the HRTF context, so they cannot drift apart.
+pub const HRTF_FRAME_SIZE: u32 = 512;
+
+/// Direction interpolation used when a source falls between measured HRTF
+/// points. Bilinear is the smooth, high-quality choice for moving sources;
+/// nearest is retained as an explicit lower-CPU option.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum HrtfInterpolation {
+    Nearest,
+    #[default]
+    Bilinear,
+}
+
+impl HrtfInterpolation {
+    fn as_steam_audio(self) -> IPLHRTFInterpolation {
+        match self {
+            Self::Nearest => IPLHRTFInterpolation_IPL_HRTFINTERPOLATION_NEAREST,
+            Self::Bilinear => IPLHRTFInterpolation_IPL_HRTFINTERPOLATION_BILINEAR,
+        }
     }
+}
 
+/// Acquire the shared Steam Audio context for one audio engine.
+///
+/// Every successful acquisition must be paired with [`phonon_uninit`]. Engines
+/// must use identical sample-rate and frame-size settings while they coexist.
+pub fn phonon_init(sample_rate: u32, frame_size: u32) -> Result<(), AudioError> {
+    let _guard = PHONON_LIFECYCLE
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let result = unsafe { ma_phonon_init(sample_rate, frame_size) };
     if result == MA_SUCCESS {
-        PHONON_INITIALIZED.store(true, Ordering::SeqCst);
-        Ok(true)
+        Ok(())
     } else {
         Err(AudioError::PhononInitFailed)
     }
@@ -96,10 +118,10 @@ pub fn phonon_init(sample_rate: u32, frame_size: u32) -> Result<bool, AudioError
 
 /// Uninitialize the global Steam Audio context.
 pub fn phonon_uninit() {
-    if PHONON_INITIALIZED.load(Ordering::SeqCst) {
-        unsafe { ma_phonon_uninit() };
-        PHONON_INITIALIZED.store(false, Ordering::SeqCst);
-    }
+    let _guard = PHONON_LIFECYCLE
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    unsafe { ma_phonon_uninit() };
 }
 
 /// Check if Steam Audio is initialized.
@@ -129,6 +151,9 @@ pub fn phonon_get_audio_settings() -> IPLAudioSettings {
 pub struct BinauralNode {
     node: *mut PhononBinauralNode,
     initialized: bool,
+    direction: (f32, f32, f32),
+    spatial_blend: f32,
+    interpolation: HrtfInterpolation,
 }
 
 impl BinauralNode {
@@ -156,8 +181,14 @@ impl BinauralNode {
             )
         };
 
-        let result =
-            unsafe { ma_phonon_binaural_node_init(node_graph, &config, ptr::null(), node) };
+        let result = unsafe {
+            ma_phonon_binaural_node_init_with_tail_processing(
+                node_graph,
+                &config,
+                ptr::null(),
+                node,
+            )
+        };
 
         if result != MA_SUCCESS {
             unsafe { ma_phonon_binaural_node_free(node) };
@@ -167,12 +198,22 @@ impl BinauralNode {
         Ok(Self {
             node,
             initialized: true,
+            direction: (0.0, 0.0, -1.0),
+            spatial_blend: 1.0,
+            interpolation: HrtfInterpolation::default(),
         })
     }
 
     /// Get the raw node pointer for audio graph operations.
     pub fn as_ptr(&self) -> *mut PhononBinauralNode {
         self.node
+    }
+
+    /// Whether Steam Audio still has audible convolution tail to drain.
+    pub fn tail_remaining(&self) -> bool {
+        self.initialized
+            && !self.node.is_null()
+            && unsafe { ma_phonon_binaural_node_tail_remaining(self.node) == MA_TRUE }
     }
 
     /// Set the direction of the sound source relative to the listener.
@@ -183,24 +224,43 @@ impl BinauralNode {
     /// - Z: Back (+) / Front (-)
     ///
     /// The direction vector should be normalized.
-    pub fn set_direction(&mut self, x: f32, y: f32, z: f32, distance: f32) {
-        if self.initialized {
-            unsafe {
-                ma_phonon_binaural_node_set_direction(self.node, x, y, z, distance);
-            }
+    /// Set the dry/HRTF blend (0 = direct, 1 = fully binaural).
+    pub fn set_spatial_blend(&mut self, spatial_blend: f32) {
+        if spatial_blend.is_finite() {
+            self.spatial_blend = spatial_blend.clamp(0.0, 1.0);
+            self.apply_parameters();
         }
     }
 
-    /// Set the maximum distance for spatial blend.
-    ///
-    /// At distances beyond this, the HRTF effect is at full strength.
-    /// At closer distances, the effect is blended with the original signal.
-    #[allow(dead_code)]
-    pub fn set_spatial_blend_max_distance(&mut self, max_distance: f32) {
-        if self.initialized {
-            unsafe {
-                ma_phonon_binaural_node_set_spatial_blend_max_distance(self.node, max_distance);
-            }
+    /// Set HRTF measurement interpolation quality.
+    pub fn set_interpolation(&mut self, interpolation: HrtfInterpolation) {
+        self.interpolation = interpolation;
+        self.apply_parameters();
+    }
+
+    /// Publish direction and blend together as one coherent audio-thread update.
+    pub fn set_spatial_parameters(&mut self, x: f32, y: f32, z: f32, spatial_blend: f32) {
+        if x.is_finite() && y.is_finite() && z.is_finite() && spatial_blend.is_finite() {
+            self.direction = (x, y, z);
+            self.spatial_blend = spatial_blend.clamp(0.0, 1.0);
+            self.apply_parameters();
+        }
+    }
+
+    fn apply_parameters(&mut self) {
+        if !self.initialized {
+            return;
+        }
+        let (x, y, z) = self.direction;
+        unsafe {
+            ma_phonon_binaural_node_set_parameters(
+                self.node,
+                x,
+                y,
+                z,
+                self.spatial_blend,
+                self.interpolation.as_steam_audio(),
+            );
         }
     }
 }
@@ -216,6 +276,6 @@ impl Drop for BinauralNode {
     }
 }
 
-// BinauralNode contains raw pointers but the node is tied to a specific audio graph
-// and should only be used from the thread that created it.
-// We don't implement Send/Sync to prevent cross-thread usage.
+// BinauralNode is not Send/Sync on its own. Sound's guarded Send implementation
+// owns the cross-thread contract: graph access is serialized by SoundRef and
+// callback-visible parameters are published through the C11 atomic snapshot.

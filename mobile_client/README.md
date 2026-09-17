@@ -2,7 +2,9 @@
 
 The PlayAural mobile client is an Android-first Expo and React Native application for the PlayAural multiplayer game platform. It uses the same WebSocket protocol and sound directory layout as the other clients while providing self-voicing navigation, gesture-driven gameplay, and accessible text entry for mobile devices.
 
-The mobile client is part of PlayAural and is licensed under the **GNU GENERAL PUBLIC LICENSE**.
+PlayAural-authored mobile-client software is licensed under the **GNU General
+Public License, version 2 only**. Third-party code and assets retain their own
+terms; see [License](#license).
 
 ## Current Scope
 
@@ -23,7 +25,7 @@ The mobile client focuses on:
 - Login, registration, password reset, saved credentials, and auto-login
 - Local configuration storage with AsyncStorage
 - Credential storage with SecureStore
-- Bundled sound pack playback with music fades, ambience, sound effects, and positional audio
+- Bundled sound pack playback with music fades, seamless ambience stems, atomic multi-stage sound effects, and native Steam Audio HRTF for positioned sources
 - Mobile-specific TTS voice, engine, and rate preferences with safe device fallback
 - Server-synchronized account preferences
 - LiveKit-based table voice chat integrated with the shared server authorization flow
@@ -42,8 +44,14 @@ mobile_client/
 |   `-- vi/client.json
 |-- native/
 |   `-- android/BoardViewportManager.kt
+|-- modules/
+|   `-- playaural-spatial-audio/
+|       |-- android/
+|       |-- ios/
+|       `-- src/
 |-- scripts/
-|   `-- generate-sound-manifest.mjs
+|   |-- generate-sound-manifest.mjs
+|   `-- verify-steam-audio-sdk.mjs
 |-- sounds/
 |-- src/
 |   |-- app/
@@ -66,7 +74,7 @@ The `sounds/` directory intentionally mirrors the desktop sound-pack layout. A s
 
 - Node.js LTS
 - npm
-- Android device, emulator, or browser for web-runtime testing
+- Android device, emulator, iOS device, simulator, or browser for runtime testing
 - EAS CLI for cloud Android builds
 - Optional: Android Debug Bridge (`adb`) for USB port forwarding
 
@@ -79,6 +87,12 @@ cd mobile_client
 cmd /c npm install
 ```
 
+Installation is intentionally fail-closed. The `postinstall` chain verifies the
+pinned Steam Audio SDK version, checksums, Android ELF architectures and 16 KiB
+load alignment, then applies and verifies the guarded Expo Audio, Expo Speech,
+and LiveKit routing patches. An install failure must be investigated; do not
+skip the scripts for a release build.
+
 Generate the bundled sound manifest after changing `sounds/`:
 
 ```bash
@@ -89,6 +103,16 @@ Run TypeScript validation:
 
 ```bash
 cmd /c npm run typecheck
+```
+
+Run the spatial-audio protocol, native lifecycle, source-budget, routing, and
+SDK-integrity tests:
+
+```bash
+cmd /c npm run test:audio-lifecycle
+cmd /c npm run test:android-audio-routing
+cmd /c npm run test:licenses
+cmd /c npm run verify:native-spatial-audio
 ```
 
 Run the deterministic self-voicing gesture recognizer tests:
@@ -254,6 +278,34 @@ Regenerate it whenever sound files are added, removed, or renamed:
 cmd /c npm run generate:sounds
 ```
 
+## Native Spatial Audio
+
+Positioned sounds on Android and physical iOS devices use the local
+`playaural-spatial-audio` Expo module. The module shares the canonical Cosmos C
+renderer with the desktop client: miniaudio owns the real-time source graph and
+Steam Audio 4.8.1 performs binaural HRTF rendering. It supports one-shots,
+moving stable-handle sources, pitch, independent gain and distance attenuation,
+sample-scheduled ambience intro/loop/outro stems, and finite multi-stage sound
+effects. Multi-stage effects preload every asset and use decoded frame counts
+to schedule contiguous boundaries on the native engine clock. Asset-leading or
+trailing silence is intentionally preserved, so content intended for a seamless
+transition must be authored without unwanted silence at that boundary.
+
+The official Steam Audio headers and libraries are stored under
+`../cosmos/steamaudio-sys/phonon/`. `UPSTREAM.json` pins every required Windows,
+Android, and iOS artifact by SHA-256. Android packages `armeabi-v7a`, `arm64-v8a`,
+`x86`, and `x86_64`; all checked-in Android libraries must remain 16 KiB page
+aligned. Do not replace one architecture, a header, or a license in isolation.
+Run `npm run verify:native-spatial-audio` after any SDK update.
+
+The native renderer does not choose an output device or acquire a competing
+audio-focus/session lease. Expo AV remains the application audio-focus
+coordinator, and the OS-selected wired, Bluetooth, earpiece, or speaker route is
+preserved. If the module or HRTF initialization is unavailable, positioned
+playback falls back to the existing platform renderer without changing the
+server protocol. The iOS Simulator deliberately uses that fallback because the
+official pinned iOS Steam Audio library is device-only.
+
 ### Android Audio Routing Guard
 
 `npm install` applies a guarded Expo Audio native patch that prevents the
@@ -279,9 +331,11 @@ PlayAural can be built locally on Windows without using Expo cloud builds. This 
 - Node.js LTS and npm
 - Java 17
 - Android Studio
-- Android SDK Platform 35
-- Android SDK Build-tools 35.0.0
+- Android SDK Platform 36
+- Android SDK Build-tools 36.0.0
 - Android SDK Platform-tools
+- Android NDK `27.1.12297006`
+- CMake `3.22.1`
 
 The local shell environment must expose:
 
@@ -300,7 +354,16 @@ adb version
 sdkmanager --list_installed
 ```
 
-The installed SDK list should include `platforms;android-35`, `build-tools;35.0.0`, and `platform-tools`.
+Install the native toolchain from Android Studio's SDK Manager or with:
+
+```bash
+sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools" "ndk;27.1.12297006" "cmake;3.22.1"
+```
+
+The installed SDK list should include those exact platform, build-tools, NDK,
+and CMake entries. The full PlayAural repository checkout is required: the
+local Expo module compiles shared source and verified SDK artifacts from the
+repository-level `cosmos/` directory.
 
 ### Generate the Native Android Project
 
@@ -309,10 +372,14 @@ The Expo project does not need the generated Android directory in version contro
 ```bash
 cd mobile_client
 cmd /c npm install
-npx expo prebuild --platform android
+cmd /c npx expo prebuild --clean --platform android
 ```
 
-This creates `mobile_client/android/` on the local machine. Treat that directory as generated build infrastructure rather than shared source.
+This creates `mobile_client/android/` on the local machine and autolinks the
+native spatial-audio module. Treat that directory as generated build
+infrastructure rather than shared source. Use `--clean` whenever native module,
+plugin, or app configuration changes so stale generated files cannot mask a
+build problem.
 
 ### Build a Local Release APK
 
@@ -320,8 +387,7 @@ From the generated Android directory:
 
 ```bash
 cd mobile_client\android
-.\gradlew.bat clean
-.\gradlew.bat assembleRelease
+.\gradlew.bat :app:assembleRelease
 ```
 
 The release APK is written to:
@@ -335,6 +401,31 @@ mobile_client\android\app\build\outputs\apk\release\app-release.apk
 If a developer needs an officially signed APK, the release keystore and signing credentials must be configured locally in the generated Android project. Do not commit keystores, signing passwords, or credential-bearing `gradle.properties` files.
 
 If local signing is not configured, Gradle can still be used for local testing builds, but release-signing setup remains a local responsibility.
+
+For a USB-connected development device, verify `adb devices`, then use
+`npx expo run:android --device` or build and install the generated debug APK.
+Native HRTF, wired/Bluetooth route preservation, audio focus, lifecycle resume,
+device performance, moving-source continuity, and multi-stage transition timing
+must be validated on physical hardware; browser and Node tests cannot substitute
+for those checks.
+
+## Local iOS Builds
+
+iOS native builds require macOS, a compatible Xcode installation, CocoaPods,
+and the same full repository checkout. Generate a clean native project and run
+on a physical arm64 device with:
+
+```bash
+cd mobile_client
+npm install
+npx expo prebuild --clean --platform ios
+npx pod-install
+npx expo run:ios --device --configuration Release
+```
+
+The generated pod links the pinned device `libphonon.a` and compiles the shared
+Cosmos/miniaudio renderer. Simulator builds compile an explicit unsupported
+stub and exercise the platform fallback instead of falsely reporting HRTF.
 
 ### Cloud Builds with EAS
 
@@ -360,6 +451,19 @@ eas build --platform android --profile production
 ```
 
 Build profiles are configured in `eas.json`. Expo app metadata is configured in `app.json`.
+EAS commands are run from `mobile_client/`, but the upload is rooted at the Git
+repository so the `cosmos/` source and SDK artifacts retain the paths expected
+by CMake and CocoaPods. The root `.easignore` excludes unrelated components and
+all generated Rust, Python, Gradle, and npm state. Before changing that file or
+the repository layout, inspect an upload with:
+
+```bash
+eas build:inspect --platform android --stage archive --profile preview --output ../.mobile_eas_stage --force
+```
+
+Confirm the archive contains `mobile_client/modules/playaural-spatial-audio/`,
+`cosmos/cosmos-audio/csrc/`, `cosmos/miniaudio-sys/miniaudio/`, and the complete
+`cosmos/steamaudio-sys/phonon/` manifest before dispatching a cloud build.
 
 ## App Identity
 
@@ -376,10 +480,19 @@ The repository tracks source files, configuration files, locale files, and the g
 
 - `mobile_client/node_modules/`
 - `mobile_client/android/`
+- `mobile_client/ios/`
+- `mobile_client/modules/*/android/.cxx/`
+- `mobile_client/modules/*/android/build/`
 - `mobile_client/.expo/`
 - `mobile_client/dist/`
 - `.mobile_eas_stage/`
 
 ## License
 
-PlayAural is licensed under the **GNU GENERAL PUBLIC LICENSE**. See `../LICENSE` for the full license text.
+PlayAural is licensed under the **GNU General Public License, version 2 only**.
+See `../LICENSE` for the full text. That license covers PlayAural-authored
+software and does not relicense third-party code, audio, or other assets.
+Direct dependency licenses and the complete notices for checked-in Cosmos,
+miniaudio, stb_vorbis, Steam Audio, and patched Expo source are documented in
+`../THIRD_PARTY_NOTICES.md`; read its Apache-2.0/GPL-2.0 compatibility warning
+before distributing a native binary.

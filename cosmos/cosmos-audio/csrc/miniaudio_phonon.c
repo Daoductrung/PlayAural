@@ -4,6 +4,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <math.h>
 #include "miniaudio.h"
 #include "phonon.h"
 #include "miniaudio_phonon.h"
@@ -13,6 +14,26 @@ static IPLAudioSettings g_phonon_audio_settings = {44100, 256};
 static IPLContext g_phonon_context = NULL;
 static IPLHRTF g_phonon_hrtf = NULL;
 static ma_bool32 g_phonon_initialized = MA_FALSE;
+static ma_uint32 g_phonon_ref_count = 0;
+
+#define MA_PHONON_PARAMETER_SNAPSHOT_ATTEMPTS 3
+
+_Static_assert(sizeof(float) == sizeof(uint32_t), "HRTF atomic float storage requires IEEE-754-sized floats");
+
+static void atomic_store_float(atomic_uint_least32_t* destination, float value)
+{
+    uint32_t bits;
+    memcpy(&bits, &value, sizeof(bits));
+    atomic_store_explicit(destination, bits, memory_order_seq_cst);
+}
+
+static float atomic_load_float(const atomic_uint_least32_t* source)
+{
+    uint32_t bits = (uint32_t)atomic_load_explicit(source, memory_order_seq_cst);
+    float value;
+    memcpy(&value, &bits, sizeof(value));
+    return value;
+}
 
 static ma_result ma_result_from_IPLerror(IPLerror error)
 {
@@ -28,7 +49,23 @@ static ma_result ma_result_from_IPLerror(IPLerror error)
 
 MA_API ma_result ma_phonon_init(ma_uint32 sampleRate, ma_uint32 frameSize)
 {
-    if (g_phonon_initialized) return MA_SUCCESS;
+    /* Calls are serialized by the owning host's lifecycle lock. */
+    if (
+        sampleRate == 0
+        || frameSize == 0
+        || sampleRate > INT32_MAX
+        || frameSize > INT32_MAX
+    ) return MA_INVALID_ARGS;
+    if (g_phonon_initialized) {
+        if (
+            g_phonon_audio_settings.samplingRate != (IPLint32)sampleRate ||
+            g_phonon_audio_settings.frameSize != (IPLint32)frameSize
+        ) {
+            return MA_INVALID_OPERATION;
+        }
+        g_phonon_ref_count += 1;
+        return MA_SUCCESS;
+    }
 
     g_phonon_audio_settings.samplingRate = sampleRate;
     g_phonon_audio_settings.frameSize = frameSize;
@@ -51,12 +88,17 @@ MA_API ma_result ma_phonon_init(ma_uint32 sampleRate, ma_uint32 frameSize)
     }
 
     g_phonon_initialized = MA_TRUE;
+    g_phonon_ref_count = 1;
     return MA_SUCCESS;
 }
 
 MA_API void ma_phonon_uninit(void)
 {
     if (!g_phonon_initialized) return;
+    if (g_phonon_ref_count > 1) {
+        g_phonon_ref_count -= 1;
+        return;
+    }
 
     if (g_phonon_hrtf) {
         iplHRTFRelease(&g_phonon_hrtf);
@@ -67,6 +109,7 @@ MA_API void ma_phonon_uninit(void)
         g_phonon_context = NULL;
     }
     g_phonon_initialized = MA_FALSE;
+    g_phonon_ref_count = 0;
 }
 
 MA_API IPLContext ma_phonon_get_context(void)
@@ -103,11 +146,52 @@ MA_API ma_phonon_binaural_node_config ma_phonon_binaural_node_config_init(ma_uin
     return config;
 }
 
+static IPLBinauralEffectParams ma_phonon_binaural_node_load_parameters(
+    ma_phonon_binaural_node* pBinauralNode
+)
+{
+    IPLBinauralEffectParams effectParams = pBinauralNode->audioThreadParams;
+    IPLBinauralEffectParams candidateParams;
+    ma_uint32 paramsVersionBefore;
+    ma_uint32 paramsVersionAfter;
+    ma_uint32 snapshotAttempt;
+
+    /*
+    Read a coherent parameter snapshot without taking a lock on the audio
+    thread. A control update marks the version odd while publishing fields and
+    even when complete. Attempts are deliberately bounded: if the control
+    thread is preempted mid-update, the callback reuses its last good snapshot
+    instead of spinning and risking an audible deadline miss.
+    */
+    for (snapshotAttempt = 0; snapshotAttempt < MA_PHONON_PARAMETER_SNAPSHOT_ATTEMPTS; snapshotAttempt += 1) {
+        paramsVersionBefore = (ma_uint32)atomic_load_explicit(&pBinauralNode->paramsVersion, memory_order_seq_cst);
+        if ((paramsVersionBefore & 1) != 0) {
+            continue;
+        }
+        candidateParams = effectParams;
+        candidateParams.direction.x = atomic_load_float(&pBinauralNode->directionXBits);
+        candidateParams.direction.y = atomic_load_float(&pBinauralNode->directionYBits);
+        candidateParams.direction.z = atomic_load_float(&pBinauralNode->directionZBits);
+        candidateParams.spatialBlend = atomic_load_float(&pBinauralNode->spatialBlendBits);
+        candidateParams.interpolation = (IPLHRTFInterpolation)atomic_load_explicit(&pBinauralNode->interpolation, memory_order_seq_cst);
+        candidateParams.hrtf = pBinauralNode->iplHRTF;
+        paramsVersionAfter = (ma_uint32)atomic_load_explicit(&pBinauralNode->paramsVersion, memory_order_seq_cst);
+        if (paramsVersionBefore == paramsVersionAfter && (paramsVersionAfter & 1) == 0) {
+            effectParams = candidateParams;
+            pBinauralNode->audioThreadParams = candidateParams;
+            break;
+        }
+    }
+    return effectParams;
+}
+
 static void ma_phonon_binaural_node_process_pcm_frames(ma_node* pNode, const float** ppFramesIn, ma_uint32* pFrameCountIn, float** ppFramesOut, ma_uint32* pFrameCountOut)
 {
     ma_phonon_binaural_node* pBinauralNode = (ma_phonon_binaural_node*)pNode;
     IPLAudioBuffer inputBufferDesc;
     IPLAudioBuffer outputBufferDesc;
+    IPLBinauralEffectParams effectParams;
+    IPLAudioEffectState effectState;
     ma_uint32 totalFramesToProcess = *pFrameCountOut;
     ma_uint32 totalFramesProcessed = 0;
 
@@ -118,25 +202,57 @@ static void ma_phonon_binaural_node_process_pcm_frames(ma_node* pNode, const flo
     outputBufferDesc.numChannels = 2;
     outputBufferDesc.data        = pBinauralNode->ppBuffersOut;
 
+    effectParams = ma_phonon_binaural_node_load_parameters(pBinauralNode);
+
     while (totalFramesProcessed < totalFramesToProcess) {
         ma_uint32 framesToProcessThisIteration = totalFramesToProcess - totalFramesProcessed;
         if (framesToProcessThisIteration > (ma_uint32)pBinauralNode->iplAudioSettings.frameSize) {
             framesToProcessThisIteration = (ma_uint32)pBinauralNode->iplAudioSettings.frameSize;
         }
 
-        if (inputBufferDesc.numChannels == 1) {
-            /* Fast path. No need for deinterleaving since it's a mono stream. */
-            pBinauralNode->ppBuffersIn[0] = (float*)ma_offset_pcm_frames_const_ptr_f32(ppFramesIn[0], totalFramesProcessed, 1);
+        if (ppFramesIn == NULL) {
+            effectState = iplBinauralEffectGetTail(
+                pBinauralNode->iplEffect,
+                &outputBufferDesc
+            );
         } else {
-            /* Slow path. Need to deinterleave the input data. */
-            ma_deinterleave_pcm_frames(ma_format_f32, inputBufferDesc.numChannels, framesToProcessThisIteration, ma_offset_pcm_frames_const_ptr_f32(ppFramesIn[0], totalFramesProcessed, inputBufferDesc.numChannels), (void**)&pBinauralNode->ppBuffersIn[0]);
+            if (inputBufferDesc.numChannels == 1) {
+                memcpy(
+                    pBinauralNode->ppBuffersIn[0],
+                    ma_offset_pcm_frames_const_ptr_f32(ppFramesIn[0], totalFramesProcessed, 1),
+                    sizeof(float) * framesToProcessThisIteration
+                );
+            } else {
+                ma_deinterleave_pcm_frames(ma_format_f32, inputBufferDesc.numChannels, framesToProcessThisIteration, ma_offset_pcm_frames_const_ptr_f32(ppFramesIn[0], totalFramesProcessed, inputBufferDesc.numChannels), (void**)&pBinauralNode->ppBuffersIn[0]);
+            }
+
+            /* Steam Audio effects consume the configured frame size.
+            Zero-padding makes a short final input block safe. */
+            if (framesToProcessThisIteration < (ma_uint32)pBinauralNode->iplAudioSettings.frameSize) {
+                ma_uint32 iChannelIn;
+                for (iChannelIn = 0; iChannelIn < (ma_uint32)inputBufferDesc.numChannels; iChannelIn += 1) {
+                    memset(
+                        pBinauralNode->ppBuffersIn[iChannelIn] + framesToProcessThisIteration,
+                        0,
+                        sizeof(float) * ((ma_uint32)pBinauralNode->iplAudioSettings.frameSize - framesToProcessThisIteration)
+                    );
+                }
+            }
+
+            inputBufferDesc.data       = pBinauralNode->ppBuffersIn;
+            inputBufferDesc.numSamples = pBinauralNode->iplAudioSettings.frameSize;
+            effectState = iplBinauralEffectApply(
+                pBinauralNode->iplEffect,
+                &effectParams,
+                &inputBufferDesc,
+                &outputBufferDesc
+            );
         }
-
-        inputBufferDesc.data       = pBinauralNode->ppBuffersIn;
-        inputBufferDesc.numSamples = (IPLint32)framesToProcessThisIteration;
-
-        /* Apply the effect. */
-        iplBinauralEffectApply(pBinauralNode->iplEffect, &pBinauralNode->iplEffectParams, &inputBufferDesc, &outputBufferDesc);
+        atomic_store_explicit(
+            &pBinauralNode->tailRemaining,
+            effectState == IPL_AUDIOEFFECTSTATE_TAILREMAINING ? 1u : 0u,
+            memory_order_release
+        );
 
         /* Interleave straight into the output buffer. */
         ma_interleave_pcm_frames(ma_format_f32, 2, framesToProcessThisIteration, (const void**)&pBinauralNode->ppBuffersOut[0], ma_offset_pcm_frames_ptr_f32(ppFramesOut[0], totalFramesProcessed, 2));
@@ -148,6 +264,178 @@ static void ma_phonon_binaural_node_process_pcm_frames(ma_node* pNode, const flo
     (void)pFrameCountIn;    /* Unused. */
 }
 
+static IPLAudioEffectState ma_phonon_binaural_node_apply_buffered_frame(
+    ma_phonon_binaural_node* pBinauralNode,
+    IPLBinauralEffectParams* pEffectParams
+)
+{
+    IPLAudioBuffer inputBufferDesc;
+    IPLAudioBuffer outputBufferDesc;
+
+    inputBufferDesc.numSamples = pBinauralNode->iplAudioSettings.frameSize;
+    inputBufferDesc.numChannels = (IPLint32)ma_node_get_input_channels(
+        (ma_node*)pBinauralNode,
+        0
+    );
+    inputBufferDesc.data = pBinauralNode->ppBuffersIn;
+    outputBufferDesc.numSamples = pBinauralNode->iplAudioSettings.frameSize;
+    outputBufferDesc.numChannels = 2;
+    outputBufferDesc.data = pBinauralNode->ppBuffersOut;
+    return iplBinauralEffectApply(
+        pBinauralNode->iplEffect,
+        pEffectParams,
+        &inputBufferDesc,
+        &outputBufferDesc
+    );
+}
+
+static IPLAudioEffectState ma_phonon_binaural_node_get_buffered_tail(
+    ma_phonon_binaural_node* pBinauralNode
+)
+{
+    IPLAudioBuffer outputBufferDesc;
+    outputBufferDesc.numSamples = pBinauralNode->iplAudioSettings.frameSize;
+    outputBufferDesc.numChannels = 2;
+    outputBufferDesc.data = pBinauralNode->ppBuffersOut;
+    return iplBinauralEffectGetTail(
+        pBinauralNode->iplEffect,
+        &outputBufferDesc
+    );
+}
+
+/*
+Mobile device callbacks can contain any positive number of frames, while Steam
+Audio requires its configured frame size on every call. This adapter buffers
+one fixed input/output frame without allocating or blocking on the audio
+thread. Its one-frame latency is stable regardless of the device callback
+size, and null-input callbacks drain both the final partial frame and the HRTF
+tail without dropping samples.
+*/
+static void ma_phonon_binaural_tail_node_process_pcm_frames(
+    ma_node* pNode,
+    const float** ppFramesIn,
+    ma_uint32* pFrameCountIn,
+    float** ppFramesOut,
+    ma_uint32* pFrameCountOut
+)
+{
+    ma_phonon_binaural_node* pBinauralNode = (ma_phonon_binaural_node*)pNode;
+    IPLBinauralEffectParams effectParams;
+    ma_uint32 channelsIn = ma_node_get_input_channels(pNode, 0);
+    ma_uint32 offeredInputFrames = ppFramesIn != NULL ? *pFrameCountIn : 0;
+    ma_bool32 drainingTail = atomic_load_explicit(
+        &pBinauralNode->tailDrainRequested,
+        memory_order_acquire
+    ) != 0;
+    ma_bool32 inputEnded = ppFramesIn == NULL || drainingTail;
+    ma_uint32 availableInputFrames = drainingTail ? 0 : offeredInputFrames;
+    ma_uint32 requestedOutputFrames = *pFrameCountOut;
+    ma_uint32 consumedInputFrames = 0;
+    ma_uint32 outputFrame;
+
+    effectParams = ma_phonon_binaural_node_load_parameters(pBinauralNode);
+    for (outputFrame = 0; outputFrame < requestedOutputFrames; outputFrame += 1) {
+        ma_uint32 channel;
+
+        if (
+            pBinauralNode->bufferedOutputOffset
+            >= pBinauralNode->bufferedOutputFrames
+        ) {
+            pBinauralNode->bufferedOutputOffset = 0;
+            pBinauralNode->bufferedOutputFrames = 0;
+            if (inputEnded && pBinauralNode->bufferedInputFrames > 0) {
+                for (channel = 0; channel < channelsIn; channel += 1) {
+                    memset(
+                        pBinauralNode->ppBuffersIn[channel]
+                            + pBinauralNode->bufferedInputFrames,
+                        0,
+                        sizeof(float) * (
+                            (ma_uint32)pBinauralNode->iplAudioSettings.frameSize
+                            - pBinauralNode->bufferedInputFrames
+                        )
+                    );
+                }
+                pBinauralNode->bufferedEffectState =
+                    ma_phonon_binaural_node_apply_buffered_frame(
+                        pBinauralNode,
+                        &effectParams
+                    );
+                pBinauralNode->bufferedInputFrames = 0;
+                pBinauralNode->bufferedOutputFrames =
+                    (ma_uint32)pBinauralNode->iplAudioSettings.frameSize;
+            } else if (
+                inputEnded
+                && pBinauralNode->bufferedEffectState
+                    == IPL_AUDIOEFFECTSTATE_TAILREMAINING
+            ) {
+                pBinauralNode->bufferedEffectState =
+                    ma_phonon_binaural_node_get_buffered_tail(pBinauralNode);
+                pBinauralNode->bufferedOutputFrames =
+                    (ma_uint32)pBinauralNode->iplAudioSettings.frameSize;
+            }
+        }
+
+        if (
+            pBinauralNode->bufferedOutputOffset
+            < pBinauralNode->bufferedOutputFrames
+        ) {
+            for (channel = 0; channel < 2; channel += 1) {
+                ppFramesOut[0][(outputFrame * 2) + channel] =
+                    pBinauralNode->ppBuffersOut[channel]
+                        [pBinauralNode->bufferedOutputOffset];
+            }
+            pBinauralNode->bufferedOutputOffset += 1;
+        } else {
+            ppFramesOut[0][outputFrame * 2] = 0.0f;
+            ppFramesOut[0][(outputFrame * 2) + 1] = 0.0f;
+        }
+
+        if (!drainingTail && consumedInputFrames < availableInputFrames) {
+            for (channel = 0; channel < channelsIn; channel += 1) {
+                pBinauralNode->ppBuffersIn[channel]
+                    [pBinauralNode->bufferedInputFrames] =
+                    ppFramesIn[0][(consumedInputFrames * channelsIn) + channel];
+            }
+            pBinauralNode->bufferedInputFrames += 1;
+            consumedInputFrames += 1;
+            if (
+                pBinauralNode->bufferedInputFrames
+                    == (ma_uint32)pBinauralNode->iplAudioSettings.frameSize
+            ) {
+                /* Equal input/output rates guarantee the prior block drained. */
+                pBinauralNode->bufferedOutputOffset = 0;
+                pBinauralNode->bufferedEffectState =
+                    ma_phonon_binaural_node_apply_buffered_frame(
+                        pBinauralNode,
+                        &effectParams
+                    );
+                pBinauralNode->bufferedInputFrames = 0;
+                pBinauralNode->bufferedOutputFrames =
+                    (ma_uint32)pBinauralNode->iplAudioSettings.frameSize;
+            }
+        }
+    }
+
+    if (ppFramesIn != NULL) {
+        /* Once upstream playback has ended, miniaudio's sound group can keep
+         * offering silent frames. Consume those frames while asking Steam
+         * Audio for its finite tail, otherwise zero-valued input is treated
+         * as a new effect block and the source never reaches completion. */
+        *pFrameCountIn = drainingTail ? offeredInputFrames : consumedInputFrames;
+    }
+    atomic_store_explicit(
+        &pBinauralNode->tailRemaining,
+        (
+            pBinauralNode->bufferedInputFrames > 0
+            || pBinauralNode->bufferedOutputOffset
+                < pBinauralNode->bufferedOutputFrames
+            || pBinauralNode->bufferedEffectState
+                == IPL_AUDIOEFFECTSTATE_TAILREMAINING
+        ) ? 1u : 0u,
+        memory_order_release
+    );
+}
+
 static ma_node_vtable g_ma_phonon_binaural_node_vtable =
 {
     ma_phonon_binaural_node_process_pcm_frames,
@@ -157,16 +445,30 @@ static ma_node_vtable g_ma_phonon_binaural_node_vtable =
     0
 };
 
+static ma_node_vtable g_ma_phonon_binaural_tail_node_vtable =
+{
+    ma_phonon_binaural_tail_node_process_pcm_frames,
+    NULL,
+    1,
+    1,
+    MA_NODE_FLAG_CONTINUOUS_PROCESSING | MA_NODE_FLAG_ALLOW_NULL_INPUT
+};
+
 #define ma_offset_ptr64(p, offset) ((void*)((ma_uint8*)(p) + (uintptr_t)(offset)))
 
-MA_API ma_result ma_phonon_binaural_node_init(ma_node_graph* pNodeGraph, const ma_phonon_binaural_node_config* pConfig, const ma_allocation_callbacks* pAllocationCallbacks, ma_phonon_binaural_node* pBinauralNode)
+static ma_result ma_phonon_binaural_node_init_internal(
+    ma_node_graph* pNodeGraph,
+    const ma_phonon_binaural_node_config* pConfig,
+    const ma_allocation_callbacks* pAllocationCallbacks,
+    ma_phonon_binaural_node* pBinauralNode,
+    ma_bool32 processTail
+)
 {
     ma_result result;
     ma_node_config baseConfig;
     ma_uint32 channelsIn;
     ma_uint32 channelsOut;
     IPLBinauralEffectSettings iplBinauralEffectSettings;
-    IPLBinauralEffectParams binauralParams;
     size_t heapSizeInBytes;
 
     if (pBinauralNode == NULL) {
@@ -187,8 +489,17 @@ MA_API ma_result ma_phonon_binaural_node_init(ma_node_graph* pNodeGraph, const m
     channelsIn  = pConfig->channelsIn;
     channelsOut = 2;    /* Always stereo output. */
 
+    if (
+        (size_t)pConfig->iplAudioSettings.frameSize
+        > SIZE_MAX / (sizeof(float) * (channelsOut + channelsIn))
+    ) {
+        return MA_TOO_BIG;
+    }
+
     baseConfig = ma_node_config_init();
-    baseConfig.vtable          = &g_ma_phonon_binaural_node_vtable;
+    baseConfig.vtable          = processTail
+        ? &g_ma_phonon_binaural_tail_node_vtable
+        : &g_ma_phonon_binaural_node_vtable;
     baseConfig.pInputChannels  = &channelsIn;
     baseConfig.pOutputChannels = &channelsOut;
     result = ma_node_init(pNodeGraph, &baseConfig, pAllocationCallbacks, &pBinauralNode->baseNode);
@@ -198,19 +509,33 @@ MA_API ma_result ma_phonon_binaural_node_init(ma_node_graph* pNodeGraph, const m
 
     pBinauralNode->iplAudioSettings = pConfig->iplAudioSettings;
     pBinauralNode->iplContext       = pConfig->iplContext;
+    pBinauralNode->iplHRTF          = pConfig->iplHRTF;
 
-    pBinauralNode->spatial_blend_max_distance = 4.0f;
+    atomic_init(&pBinauralNode->paramsVersion, 0);
+    atomic_init(&pBinauralNode->directionXBits, 0);
+    atomic_init(&pBinauralNode->directionYBits, 0);
+    atomic_init(&pBinauralNode->directionZBits, 0);
+    atomic_init(&pBinauralNode->spatialBlendBits, 0);
+    atomic_init(&pBinauralNode->interpolation, (ma_uint32)IPL_HRTFINTERPOLATION_BILINEAR);
+    atomic_init(&pBinauralNode->tailRemaining, 0);
+    atomic_init(&pBinauralNode->tailDrainRequested, 0);
+    if (!atomic_is_lock_free(&pBinauralNode->paramsVersion)) {
+        ma_node_uninit(&pBinauralNode->baseNode, pAllocationCallbacks);
+        return MA_NOT_IMPLEMENTED;
+    }
+    atomic_store_float(&pBinauralNode->directionXBits, 0.0f);
+    atomic_store_float(&pBinauralNode->directionYBits, 0.0f);
+    atomic_store_float(&pBinauralNode->directionZBits, -1.0f);
+    atomic_store_float(&pBinauralNode->spatialBlendBits, 1.0f);
+    memset(&pBinauralNode->audioThreadParams, 0, sizeof(IPLBinauralEffectParams));
+    pBinauralNode->audioThreadParams.direction.z = -1.0f;
+    pBinauralNode->audioThreadParams.interpolation = IPL_HRTFINTERPOLATION_BILINEAR;
+    pBinauralNode->audioThreadParams.spatialBlend = 1.0f;
+    pBinauralNode->audioThreadParams.hrtf = pConfig->iplHRTF;
+    pBinauralNode->bufferedEffectState = IPL_AUDIOEFFECTSTATE_TAILCOMPLETE;
 
     memset(&iplBinauralEffectSettings, 0, sizeof(IPLBinauralEffectSettings));
     iplBinauralEffectSettings.hrtf = pConfig->iplHRTF;
-    memset(&binauralParams, 0, sizeof(IPLBinauralEffectParams));
-    binauralParams.interpolation = IPL_HRTFINTERPOLATION_NEAREST;
-    binauralParams.spatialBlend = 1.0f;  // Full HRTF effect
-    binauralParams.hrtf          = pConfig->iplHRTF;
-    binauralParams.direction.x = 0.0f;  // Default: sound in front
-    binauralParams.direction.y = 1.0f;
-    binauralParams.direction.z = 0.0f;
-    pBinauralNode->iplEffectParams = binauralParams;
 
     result = ma_result_from_IPLerror(iplBinauralEffectCreate(pBinauralNode->iplContext, &pBinauralNode->iplAudioSettings, &iplBinauralEffectSettings, &pBinauralNode->iplEffect));
     if (result != MA_SUCCESS) {
@@ -263,26 +588,87 @@ MA_API void ma_phonon_binaural_node_uninit(ma_phonon_binaural_node* pBinauralNod
     ma_free(pBinauralNode->_pHeap, pAllocationCallbacks);
 }
 
-MA_API ma_result ma_phonon_binaural_node_set_direction(ma_phonon_binaural_node* pBinauralNode, float x, float y, float z, float distance)
+MA_API ma_result ma_phonon_binaural_node_set_parameters(ma_phonon_binaural_node* pBinauralNode, float x, float y, float z, float spatialBlend, IPLHRTFInterpolation interpolation)
 {
-    if (pBinauralNode == NULL) {
+    ma_uint32 version;
+    if (
+        pBinauralNode == NULL ||
+        !isfinite(x) || !isfinite(y) || !isfinite(z) || !isfinite(spatialBlend) ||
+        spatialBlend < 0.0f || spatialBlend > 1.0f ||
+        (interpolation != IPL_HRTFINTERPOLATION_NEAREST && interpolation != IPL_HRTFINTERPOLATION_BILINEAR)
+    ) {
         return MA_INVALID_ARGS;
     }
-    pBinauralNode->iplEffectParams.direction.x = x;
-    pBinauralNode->iplEffectParams.direction.y = y;
-    pBinauralNode->iplEffectParams.direction.z = z;
-    pBinauralNode->iplEffectParams.spatialBlend = pBinauralNode->spatial_blend_max_distance > 0 ? distance / pBinauralNode->spatial_blend_max_distance : 1.0f;
-    if (pBinauralNode->iplEffectParams.spatialBlend > 1.0f) pBinauralNode->iplEffectParams.spatialBlend = 1.0f;
+
+    version = (ma_uint32)atomic_load_explicit(&pBinauralNode->paramsVersion, memory_order_seq_cst);
+    if ((version & 1) != 0) {
+        version += 1;
+    }
+    atomic_store_explicit(&pBinauralNode->paramsVersion, version + 1, memory_order_seq_cst);
+    atomic_store_float(&pBinauralNode->directionXBits, x);
+    atomic_store_float(&pBinauralNode->directionYBits, y);
+    atomic_store_float(&pBinauralNode->directionZBits, z);
+    atomic_store_float(&pBinauralNode->spatialBlendBits, spatialBlend);
+    atomic_store_explicit(&pBinauralNode->interpolation, (ma_uint32)interpolation, memory_order_seq_cst);
+    atomic_store_explicit(&pBinauralNode->paramsVersion, version + 2, memory_order_seq_cst);
     return MA_SUCCESS;
 }
 
-MA_API ma_result ma_phonon_binaural_node_set_spatial_blend_max_distance(ma_phonon_binaural_node* pBinauralNode, float max_distance)
+MA_API ma_result ma_phonon_binaural_node_init(
+    ma_node_graph* pNodeGraph,
+    const ma_phonon_binaural_node_config* pConfig,
+    const ma_allocation_callbacks* pAllocationCallbacks,
+    ma_phonon_binaural_node* pBinauralNode
+)
+{
+    return ma_phonon_binaural_node_init_internal(
+        pNodeGraph,
+        pConfig,
+        pAllocationCallbacks,
+        pBinauralNode,
+        MA_FALSE
+    );
+}
+
+MA_API ma_result ma_phonon_binaural_node_init_with_tail_processing(
+    ma_node_graph* pNodeGraph,
+    const ma_phonon_binaural_node_config* pConfig,
+    const ma_allocation_callbacks* pAllocationCallbacks,
+    ma_phonon_binaural_node* pBinauralNode
+)
+{
+    return ma_phonon_binaural_node_init_internal(
+        pNodeGraph,
+        pConfig,
+        pAllocationCallbacks,
+        pBinauralNode,
+        MA_TRUE
+    );
+}
+
+MA_API void ma_phonon_binaural_node_begin_tail_drain(
+    ma_phonon_binaural_node* pBinauralNode
+)
 {
     if (pBinauralNode == NULL) {
-        return MA_INVALID_ARGS;
+        return;
     }
-    pBinauralNode->spatial_blend_max_distance = max_distance;
-    return MA_SUCCESS;
+    atomic_store_explicit(
+        &pBinauralNode->tailDrainRequested,
+        1u,
+        memory_order_release
+    );
+}
+
+MA_API ma_bool32 ma_phonon_binaural_node_tail_remaining(
+    const ma_phonon_binaural_node* pBinauralNode
+)
+{
+    return pBinauralNode != NULL
+        && atomic_load_explicit(
+            &pBinauralNode->tailRemaining,
+            memory_order_acquire
+        ) != 0;
 }
 
 // Allocation functions for D bindings (ensures correct struct sizes)

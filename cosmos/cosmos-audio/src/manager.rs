@@ -121,6 +121,9 @@ impl SoundManager {
 
     /// Set both listener position and angle at once.
     pub fn set_listener(&mut self, x: f32, y: f32, z: f32, angle: f32) {
+        if !x.is_finite() || !y.is_finite() || !z.is_finite() || !angle.is_finite() {
+            return;
+        }
         {
             let mut engine = lock(&self.engine);
             engine.set_listener_position(x, y, z);
@@ -157,6 +160,11 @@ impl SoundManager {
     /// Get the sample rate of the audio engine.
     pub fn sample_rate(&self) -> u32 {
         lock(&self.engine).sample_rate()
+    }
+
+    /// Current absolute engine clock in PCM frames.
+    pub fn time_in_pcm_frames(&self) -> u64 {
+        lock(&self.engine).time_in_pcm_frames()
     }
 }
 

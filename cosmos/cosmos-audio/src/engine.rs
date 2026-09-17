@@ -4,17 +4,17 @@
 
 use miniaudio_sys::{
     ma_engine, ma_engine_get_node_graph, ma_engine_get_sample_rate,
-    ma_engine_listener_set_position, ma_node_graph, MA_SUCCESS,
+    ma_engine_get_time_in_pcm_frames, ma_engine_listener_set_position, ma_node_graph, MA_SUCCESS,
 };
 
 use crate::error::AudioError;
-use crate::phonon_node;
+use crate::phonon_node::{self, HRTF_FRAME_SIZE};
 
 // FFI for helper functions in miniaudio_impl.c
 extern "C" {
     fn ma_engine_alloc() -> *mut ma_engine;
     fn ma_engine_free(engine: *mut ma_engine);
-    fn ma_engine_init_with_caching(engine: *mut ma_engine) -> i32;
+    fn ma_engine_init_with_caching(engine: *mut ma_engine, period_size_in_frames: u32) -> i32;
     fn ma_engine_uninit_with_caching(engine: *mut ma_engine);
     fn ma_engine_get_endpoint(engine: *mut ma_engine) -> *mut std::ffi::c_void;
 }
@@ -43,7 +43,7 @@ impl AudioEngine {
         }
 
         // Initialize with resource manager for automatic sound caching
-        let result = unsafe { ma_engine_init_with_caching(engine) };
+        let result = unsafe { ma_engine_init_with_caching(engine, HRTF_FRAME_SIZE) };
         if result != MA_SUCCESS {
             unsafe { ma_engine_free(engine) };
             return Err(AudioError::EngineInitFailed);
@@ -51,8 +51,7 @@ impl AudioEngine {
 
         // Initialize Steam Audio for HRTF
         let sample_rate = unsafe { ma_engine_get_sample_rate(engine) };
-        // Use 512 frame size - must match engine periodSizeInFrames
-        let hrtf_initialized = phonon_node::phonon_init(sample_rate, 512).unwrap_or(false);
+        let hrtf_initialized = phonon_node::phonon_init(sample_rate, HRTF_FRAME_SIZE).is_ok();
 
         Ok(Self {
             engine,
@@ -87,6 +86,9 @@ impl AudioEngine {
 
     /// Set the 3D listener position.
     pub fn set_listener_position(&mut self, x: f32, y: f32, z: f32) {
+        if !x.is_finite() || !y.is_finite() || !z.is_finite() {
+            return;
+        }
         self.listener_x = x;
         self.listener_y = y;
         self.listener_z = z;
@@ -114,7 +116,10 @@ impl AudioEngine {
 
     /// Set the listener facing angle (degrees, unit circle: 0 = +X east, 90 = +Y north/forward).
     pub fn set_listener_angle(&mut self, angle: f32) {
-        self.listener_angle = angle;
+        if !angle.is_finite() {
+            return;
+        }
+        self.listener_angle = angle.rem_euclid(360.0);
         // Note: miniaudio uses direction vectors, not angles
         // We store the angle and use it in sound spatialization calculations
     }
@@ -130,6 +135,15 @@ impl AudioEngine {
             44100 // Default fallback
         } else {
             unsafe { ma_engine_get_sample_rate(self.engine) }
+        }
+    }
+
+    /// Current absolute engine clock in PCM frames.
+    pub fn time_in_pcm_frames(&self) -> u64 {
+        if self.engine.is_null() {
+            0
+        } else {
+            unsafe { ma_engine_get_time_in_pcm_frames(self.engine) }
         }
     }
 }

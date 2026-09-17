@@ -172,7 +172,7 @@ test("voice routing remains independent from every gameplay audio path", async (
   assert.match(audioSource, /interruptionMode: "mixWithOthers"/);
   assert.match(audioSource, /kind: "sfx"/);
   assert.match(audioSource, /kind: "music"/);
-  assert.match(audioSource, /kind: "ambience"/);
+  assert.match(audioSource, /kind === "ambience"/);
 
   const voiceSource = await readFile(
     new URL("../src/voice/MobileVoiceManager.ts", import.meta.url),

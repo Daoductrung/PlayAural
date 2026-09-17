@@ -1,22 +1,30 @@
 """Mixin providing sound scheduling and playback for games."""
 
+import math
 from collections.abc import Callable, Iterable
 from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 
 from ..audio import (
-    AudioCommand,
-    AudioPlaybackState,
     DEFAULT_AMBIENCE_FADE_MS,
     DEFAULT_MUSIC_FADE_MS,
+    AudioCommand,
+    AudioGainAutomation,
+    AudioMotion,
+    AudioPlaybackState,
+    AudioSequenceSegment,
+    DistanceAttenuation,
     SameTurnAudioBatcher,
     new_audio_handle,
+    normalize_audio_gain,
+    normalize_audio_position,
+    pan_from_position,
     seat_position,
 )
 
 if TYPE_CHECKING:
-    from .player import Player
     from ..users.base import User
+    from .player import Player
 
 
 TABLE_PRESENCE_SOUND_SPECS = {
@@ -121,6 +129,22 @@ class GameSoundMixin:
         self.scheduled_sounds = remaining
         self.sound_scheduler_tick += 1
 
+    def process_audio_automations(self) -> None:
+        """Advance persisted source parameters on the authoritative game tick."""
+        tick_ms = 1000 // self.TICKS_PER_SECOND
+        for state in self.active_audio.values():
+            if state.motion is not None:
+                motion = state.motion.advance(tick_ms)
+                state.position = motion.position_at()
+                state.pan = pan_from_position(state.position)
+                state.motion = None if motion.complete else motion
+            if state.gain_automation is not None:
+                automation = state.gain_automation.advance(tick_ms)
+                state.gain = automation.gain_at()
+                state.gain_automation = (
+                    None if automation.complete else automation
+                )
+
     # ==========================================================================
     # Sound Playback
     # ==========================================================================
@@ -197,13 +221,81 @@ class GameSoundMixin:
         persist: bool = False,
     ) -> str:
         users, recipient_ids = self._audio_recipients(audience)
+        if persist and command.segments:
+            raise ValueError("Finite audio sequences cannot be persisted")
+        if (
+            command.command == "play"
+            and command.handle
+            and not persist
+            and any(
+                state.handle == command.handle
+                for state in self.active_audio.values()
+            )
+        ):
+            raise ValueError(
+                "Runtime audio cannot replace a replayable stable handle"
+            )
+        if persist:
+            if audience is not None and not recipient_ids:
+                raise ValueError("Private replayable audio requires table recipients")
+            self._store_audio_state(command, recipient_ids)
         for user in users:
             user.send_audio_command(command)
-        if persist:
-            self.active_audio[self._audio_state_key(command, recipient_ids)] = (
-                AudioPlaybackState.from_command(command, recipient_ids)
-            )
         return command.handle
+
+    @staticmethod
+    def _audio_states_conflict(
+        command: AudioCommand, state: AudioPlaybackState
+    ) -> bool:
+        """Return whether two managed sources cannot coexist on one client."""
+        if command.handle == state.handle:
+            return True
+        return command.kind in {"music", "ambience"} and (
+            command.kind == state.kind
+            and command.scope == state.scope
+            and command.context == state.context
+            and command.layer == state.layer
+        )
+
+    def _store_audio_state(
+        self, command: AudioCommand, recipient_ids: list[str]
+    ) -> None:
+        """Mirror per-client handle and layer replacement in replayable state."""
+        recipients = set(recipient_ids)
+        conflicting = [
+            state
+            for state in self.active_audio.values()
+            if self._audio_states_conflict(command, state)
+        ]
+        if recipients and any(not state.recipient_ids for state in conflicting):
+            raise ValueError(
+                "Private audio cannot replace a public handle or layer for only "
+                "part of the table"
+            )
+
+        rebuilt: dict[str, AudioPlaybackState] = {}
+        for state in self.active_audio.values():
+            if not self._audio_states_conflict(command, state):
+                rebuilt[
+                    self._audio_state_key(state.to_command(), state.recipient_ids)
+                ] = state
+                continue
+            if not recipients:
+                continue
+            remaining = [
+                recipient
+                for recipient in state.recipient_ids
+                if recipient not in recipients
+            ]
+            if remaining:
+                retained = replace(state, recipient_ids=remaining)
+                rebuilt[
+                    self._audio_state_key(retained.to_command(), remaining)
+                ] = retained
+
+        new_state = AudioPlaybackState.from_command(command, recipient_ids)
+        rebuilt[self._audio_state_key(command, recipient_ids)] = new_state
+        self.active_audio = rebuilt
 
     def migrate_legacy_audio_state(self) -> None:
         """Migrate pre-protocol current-track fields into canonical state once."""
@@ -352,7 +444,7 @@ class GameSoundMixin:
         self,
         name: str,
         volume: int = 100,
-        pan: int = 0,
+        pan: int | None = None,
         pitch: int = 100,
         *,
         loop: bool = False,
@@ -369,6 +461,8 @@ class GameSoundMixin:
         layer: str = "main",
         persist: bool = False,
         position: tuple[float, float, float] | None = None,
+        attenuation: DistanceAttenuation | dict[str, Any] | None = None,
+        gain: float = 1.0,
         seat_of: "Player | None" = None,
     ) -> str:
         """Play an effect for an audience and optionally retain a loop.
@@ -377,31 +471,40 @@ class GameSoundMixin:
         ``seat_of`` instead places it at that player's seat, computed for each
         listener from where they sit; the seated player hears it unpositioned.
         """
+        if seat_of is not None and position is not None:
+            raise ValueError("seat_of and position are mutually exclusive")
+        if seat_of is not None and pan is not None:
+            raise ValueError("seat_of derives pan for each listener")
         resolved_handle = handle or (new_audio_handle("sfx") if loop else "")
-        command = AudioCommand(
-            command="play",
-            kind="sfx",
-            asset=name,
-            handle=resolved_handle,
-            bus=bus,
-            scope=scope,
-            context=context,
-            layer=layer,
-            loop=loop,
-            volume=volume,
-            pan=pan,
-            pitch=pitch,
-            fade_in_ms=fade_in_ms,
-            fade_out_ms=fade_out_ms,
-            priority=priority,
-            max_instances=max_instances,
-            ducking=ducking or {},
-            position=position,
-        )
+        command_fields = {
+            "command": "play",
+            "kind": "sfx",
+            "asset": name,
+            "handle": resolved_handle,
+            "bus": bus,
+            "scope": scope,
+            "context": context,
+            "layer": layer,
+            "loop": loop,
+            "volume": volume,
+            "pan": pan,
+            "pitch": pitch,
+            "fade_in_ms": fade_in_ms,
+            "fade_out_ms": fade_out_ms,
+            "priority": priority,
+            "max_instances": max_instances,
+            "ducking": ducking or {},
+            "attenuation": attenuation,
+            "gain": gain,
+        }
         if seat_of is not None:
             return self._dispatch_seated_audio(
-                command, seat_of, audience=audience, persist=persist and loop
+                command_fields,
+                seat_of,
+                audience=audience,
+                persist=persist and loop,
             )
+        command = AudioCommand(**command_fields, position=position)
         return self._dispatch_audio(
             command, audience=audience, persist=persist and loop
         )
@@ -418,55 +521,157 @@ class GameSoundMixin:
 
     def _dispatch_seated_audio(
         self,
-        command: AudioCommand,
+        command_fields: dict[str, Any],
         seat_of: "Player",
         *,
         audience: Any = None,
         persist: bool = False,
     ) -> str:
         """Send one command per listener, positioned at ``seat_of``'s seat."""
-        users, _ = self._audio_recipients(audience)
+        users, selected_player_ids = self._audio_recipients(audience)
+        users_by_id = {
+            str(user.uuid): user
+            for user in users
+            if getattr(user, "uuid", "")
+        }
+        player_ids = (
+            [str(player.id) for player in self.players]
+            if audience is None
+            else selected_player_ids
+        )
         seat_index = self._seat_index_of(seat_of)
         seat_count = len(self.players)
-        for user in users:
-            listener_index = self._seat_index_of(user)
+        deliveries: list[tuple["User | None", AudioCommand, list[str]]] = []
+        table_recipient_ids: set[str] = set()
+        for player_id in player_ids:
+            player = self.get_player_by_id(player_id)
+            if player is None:
+                continue
+            table_recipient_ids.add(player_id)
+            listener_index = self._seat_index_of(player)
             position = (
                 None
                 if seat_index is None
                 else seat_position(seat_index, listener_index, seat_count)
             )
-            # `replace` re-runs validation, so the pan is derived afresh.
-            personal = replace(command, position=position, pan=0)
-            user.send_audio_command(personal)
-            if persist:
-                recipient_ids = [str(user.uuid)] if hasattr(user, "uuid") else []
-                self.active_audio[self._audio_state_key(personal, recipient_ids)] = (
-                    AudioPlaybackState.from_command(personal, recipient_ids)
+            # The seated player is co-located and therefore hears this cue as
+            # ordinary non-spatial audio with no distance falloff.
+            personal_fields = dict(command_fields)
+            personal_fields["pan"] = None
+            personal_fields["attenuation"] = (
+                command_fields["attenuation"] if position is not None else None
+            )
+            personal = AudioCommand(
+                **personal_fields,
+                position=position,
+            )
+            deliveries.append((users_by_id.get(player_id), personal, [player_id]))
+
+        # Preserve the existing one-shot behavior for an explicitly supplied
+        # connected user who is not a table participant. Such a recipient can
+        # hear the seat-relative cue as a spectator, but cannot own persisted
+        # table audio state.
+        for user in users:
+            user_id = str(getattr(user, "uuid", ""))
+            if user_id in table_recipient_ids:
+                continue
+            position = (
+                None
+                if seat_index is None
+                else seat_position(seat_index, None, seat_count)
+            )
+            personal_fields = dict(command_fields)
+            personal_fields["pan"] = None
+            personal_fields["attenuation"] = (
+                command_fields["attenuation"] if position is not None else None
+            )
+            deliveries.append(
+                (user, AudioCommand(**personal_fields, position=position), [])
+            )
+        if persist:
+            if any(not recipient_ids for _, _, recipient_ids in deliveries):
+                raise ValueError("Seated replayable audio requires table recipients")
+            if any(
+                not state.recipient_ids
+                and any(
+                    self._audio_states_conflict(command, state)
+                    for _, command, _ in deliveries
                 )
-        return command.handle
+                for state in self.active_audio.values()
+            ):
+                raise ValueError(
+                    "Private audio cannot replace a public handle or layer for "
+                    "only part of the table"
+                )
+            for _, command, recipient_ids in deliveries:
+                self._store_audio_state(command, recipient_ids)
+        for user, command, _ in deliveries:
+            if user is not None:
+                user.send_audio_command(command)
+        return str(command_fields["handle"])
 
     def play_sound(
         self,
         name: str,
         volume: int = 100,
-        pan: int = 0,
+        pan: int | None = None,
         pitch: int = 100,
         **kwargs: Any,
     ) -> str:
         """Alias for :meth:`broadcast_sound`."""
         return self.broadcast_sound(name, volume, pan, pitch, **kwargs)
 
+    def play_sound_chain(
+        self,
+        segments: list[AudioSequenceSegment | dict[str, Any]],
+        *,
+        handle: str = "",
+        bus: str = "sfx",
+        buffer: str = "",
+        volume: int = 100,
+        pan: int | None = None,
+        pitch: int = 100,
+        fade_in_ms: int = 0,
+        fade_out_ms: int = 0,
+        priority: int = 0,
+        max_instances: int = 0,
+        ducking: dict[str, int] | None = None,
+        audience: Any = None,
+    ) -> str:
+        """Play a finite, preloaded SFX chain on each client's audio clock."""
+        resolved_handle = handle or new_audio_handle("sfx-sequence")
+        command = AudioCommand(
+            command="play",
+            kind="sfx",
+            handle=resolved_handle,
+            bus=bus,
+            buffer=buffer,
+            volume=volume,
+            pan=pan,
+            pitch=pitch,
+            fade_in_ms=fade_in_ms,
+            fade_out_ms=fade_out_ms,
+            priority=priority,
+            max_instances=max_instances,
+            ducking=ducking or {},
+            segments=segments,
+        )
+        return self._dispatch_audio(command, audience=audience)
+
     def broadcast_sound_family(
         self,
         family: str,
         volume: int = 100,
-        pan: int = 0,
+        pan: int | None = None,
         pitch: int = 100,
         *,
         bus: str = "sfx",
         priority: int = 0,
         max_instances: int = 0,
         audience: Any = None,
+        position: tuple[float, float, float] | None = None,
+        attenuation: DistanceAttenuation | dict[str, Any] | None = None,
+        gain: float = 1.0,
     ) -> str:
         """Play one dynamically discovered numbered member of an SFX family."""
         command = AudioCommand(
@@ -479,6 +684,9 @@ class GameSoundMixin:
             pitch=pitch,
             priority=priority,
             max_instances=max_instances,
+            position=position,
+            attenuation=attenuation,
+            gain=gain,
         )
         return self._dispatch_audio(command, audience=audience)
 
@@ -486,7 +694,7 @@ class GameSoundMixin:
         self,
         family: str,
         volume: int = 100,
-        pan: int = 0,
+        pan: int | None = None,
         pitch: int = 100,
         **kwargs: Any,
     ) -> str:
@@ -690,6 +898,10 @@ class GameSoundMixin:
         scope: str = "global",
         context: str = "",
         layer: str = "main",
+        pitch: int = 100,
+        position: tuple[float, float, float] | None = None,
+        attenuation: DistanceAttenuation | dict[str, Any] | None = None,
+        gain: float = 1.0,
     ) -> str:
         """Play or crossfade an independently addressable music layer."""
         command = AudioCommand(
@@ -702,12 +914,325 @@ class GameSoundMixin:
             context=context,
             layer=layer,
             loop=looping,
+            pitch=pitch,
             fade_in_ms=fade_in_ms,
             fade_out_ms=fade_out_ms,
             priority=priority,
             ducking=ducking or {},
+            position=position,
+            attenuation=attenuation,
+            gain=gain,
         )
         return self._dispatch_audio(command, audience=audience, persist=True)
+
+    def update_audio_source(
+        self,
+        kind: str,
+        handle: str,
+        duration_ms: int,
+        *,
+        destination: tuple[float, float, float] | None = None,
+        gain: float | None = None,
+        easing: str = "linear",
+        audience: Any = None,
+    ) -> str:
+        """Automate independent parameters of one replayable managed source.
+
+        A public source must move for its full audience. Private sources may be
+        split by recipient so an individualized transition remains correct on
+        reconnect and save restoration.
+        """
+        if destination is None and gain is None:
+            raise ValueError("Audio update requires a destination or gain")
+        destination_position = normalize_audio_position(destination)
+        destination_gain = None if gain is None else normalize_audio_gain(gain)
+        # Validate duration and easing before inspecting or mutating state. The
+        # actual origins are captured below from the authoritative live state.
+        if destination_position is not None:
+            AudioMotion(
+                origin_position=destination_position,
+                destination_position=destination_position,
+                duration_ms=duration_ms,
+                easing=easing,
+            )
+        if destination_gain is not None:
+            AudioGainAutomation(
+                origin_gain=destination_gain,
+                destination_gain=destination_gain,
+                duration_ms=duration_ms,
+                easing=easing,
+            )
+        _, recipient_ids = self._audio_recipients(audience)
+        requested = None if audience is None else set(recipient_ids)
+        if requested is not None and not requested:
+            raise ValueError("Private audio updates require table recipients")
+
+        matching = [
+            state
+            for state in self.active_audio.values()
+            if state.kind == kind and state.handle == handle
+        ]
+        if not matching:
+            raise ValueError(f"Unknown replayable audio source: {kind}:{handle}")
+        if requested is not None and any(not state.recipient_ids for state in matching):
+            raise ValueError(
+                "Public audio sources cannot be updated for only part of the table"
+            )
+        if requested is not None:
+            available = {
+                recipient
+                for state in matching
+                for recipient in state.recipient_ids
+            }
+            if not requested <= available:
+                raise ValueError("Audio source is not active for every requested recipient")
+        selected = (
+            matching
+            if requested is None
+            else [
+                state
+                for state in matching
+                if requested.intersection(state.recipient_ids)
+            ]
+        )
+        if destination_position is not None and any(
+            state.position is None for state in selected
+        ):
+            raise ValueError("Audio motion requires an already-positioned source")
+
+        rebuilt: dict[str, AudioPlaybackState] = {}
+        deliveries: list[tuple[AudioCommand, list[str]]] = []
+        for state in self.active_audio.values():
+            if state.kind != kind or state.handle != handle:
+                rebuilt[self._audio_state_key(state.to_command(), state.recipient_ids)] = state
+                continue
+            affected = (
+                list(state.recipient_ids)
+                if requested is None
+                else [item for item in state.recipient_ids if item in requested]
+            )
+            if requested is not None and not affected:
+                rebuilt[self._audio_state_key(state.to_command(), state.recipient_ids)] = state
+                continue
+            remaining = (
+                []
+                if requested is None
+                else [item for item in state.recipient_ids if item not in requested]
+            )
+            motion = (
+                AudioMotion(
+                    origin_position=state.position,
+                    destination_position=destination_position,
+                    duration_ms=duration_ms,
+                    easing=easing,
+                )
+                if destination_position is not None
+                else state.motion
+            )
+            gain_automation = (
+                AudioGainAutomation(
+                    origin_gain=state.gain,
+                    destination_gain=destination_gain,
+                    duration_ms=duration_ms,
+                    easing=easing,
+                )
+                if destination_gain is not None
+                else state.gain_automation
+            )
+            updated = replace(
+                state,
+                recipient_ids=affected,
+                motion=motion,
+                gain_automation=gain_automation,
+            )
+            rebuilt[self._audio_state_key(updated.to_command(), affected)] = updated
+            deliveries.append(
+                (
+                    AudioCommand(
+                        command="update",
+                        kind=kind,
+                        handle=handle,
+                        motion=(
+                            motion if destination_position is not None else None
+                        ),
+                        gain_automation=(
+                            gain_automation if destination_gain is not None else None
+                        ),
+                    ),
+                    affected,
+                )
+            )
+            if remaining:
+                retained = replace(state, recipient_ids=remaining)
+                rebuilt[self._audio_state_key(retained.to_command(), remaining)] = retained
+
+        self.active_audio = rebuilt
+        for command, recipients in deliveries:
+            delivery_audience = None
+            if recipients:
+                recipient_set = set(recipients)
+                delivery_audience = [
+                    player for player in self.players if player.id in recipient_set
+                ]
+            self._dispatch_audio(command, audience=delivery_audience)
+        return handle
+
+    def move_audio_source(
+        self,
+        kind: str,
+        handle: str,
+        destination: tuple[float, float, float],
+        duration_ms: int,
+        **kwargs: Any,
+    ) -> str:
+        """Move a managed source along a resumable 3D trajectory."""
+        return self.update_audio_source(
+            kind,
+            handle,
+            duration_ms,
+            destination=destination,
+            **kwargs,
+        )
+
+    def set_audio_source_gain(
+        self,
+        kind: str,
+        handle: str,
+        gain: float,
+        duration_ms: int,
+        **kwargs: Any,
+    ) -> str:
+        """Automate an independent per-source mix gain without restarting it."""
+        return self.update_audio_source(
+            kind,
+            handle,
+            duration_ms,
+            gain=gain,
+            **kwargs,
+        )
+
+    def move_sound(
+        self,
+        handle: str,
+        destination: tuple[float, float, float],
+        duration_ms: int,
+        **kwargs: Any,
+    ) -> str:
+        return self.move_audio_source("sfx", handle, destination, duration_ms, **kwargs)
+
+    def move_music(
+        self,
+        handle: str,
+        destination: tuple[float, float, float],
+        duration_ms: int,
+        **kwargs: Any,
+    ) -> str:
+        return self.move_audio_source("music", handle, destination, duration_ms, **kwargs)
+
+    def move_ambience(
+        self,
+        handle: str,
+        destination: tuple[float, float, float],
+        duration_ms: int,
+        **kwargs: Any,
+    ) -> str:
+        return self.move_audio_source("ambience", handle, destination, duration_ms, **kwargs)
+
+    def set_sound_gain(
+        self, handle: str, gain: float, duration_ms: int, **kwargs: Any
+    ) -> str:
+        return self.set_audio_source_gain("sfx", handle, gain, duration_ms, **kwargs)
+
+    def set_music_gain(
+        self, handle: str, gain: float, duration_ms: int, **kwargs: Any
+    ) -> str:
+        return self.set_audio_source_gain("music", handle, gain, duration_ms, **kwargs)
+
+    def set_ambience_gain(
+        self, handle: str, gain: float, duration_ms: int, **kwargs: Any
+    ) -> str:
+        return self.set_audio_source_gain(
+            "ambience", handle, gain, duration_ms, **kwargs
+        )
+
+    @staticmethod
+    def ambience_mix_gains(
+        weights: dict[str, float], *, curve: str = "equal-power"
+    ) -> dict[str, float]:
+        """Convert non-negative zone weights into normalized layer gains."""
+        if curve not in {"linear", "equal-power"}:
+            raise ValueError(f"Unknown ambience mix curve: {curve!r}")
+        if not weights:
+            raise ValueError("Ambience mix requires at least one layer")
+        normalized: dict[str, float] = {}
+        for handle, weight in weights.items():
+            if not isinstance(handle, str) or not handle:
+                raise ValueError("Ambience mix handles must be non-empty strings")
+            if (
+                isinstance(weight, bool)
+                or not isinstance(weight, (int, float))
+                or not math.isfinite(float(weight))
+                or float(weight) < 0.0
+            ):
+                raise ValueError(f"Invalid ambience weight for {handle!r}: {weight!r}")
+            normalized[handle] = float(weight)
+        total = sum(normalized.values())
+        if not math.isfinite(total) or total <= 0.0:
+            raise ValueError("Ambience mix requires a positive total weight")
+        return {
+            handle: (
+                value / total
+                if curve == "linear"
+                else math.sqrt(value / total)
+            )
+            for handle, value in normalized.items()
+        }
+
+    def blend_ambience_layers(
+        self,
+        weights: dict[str, float],
+        duration_ms: int,
+        *,
+        curve: str = "equal-power",
+        easing: str = "linear",
+        audience: Any = None,
+    ) -> dict[str, float]:
+        """Blend active ambience handles without restarting authored stems."""
+        gains = self.ambience_mix_gains(weights, curve=curve)
+        # Validate the complete operation before dispatching any packet.
+        _, recipient_ids = self._audio_recipients(audience)
+        requested = None if audience is None else set(recipient_ids)
+        for handle, gain in gains.items():
+            matching = [
+                state
+                for state in self.active_audio.values()
+                if state.kind == "ambience" and state.handle == handle
+            ]
+            if not matching:
+                raise ValueError(f"Unknown replayable audio source: ambience:{handle}")
+            if requested is not None and (
+                not requested
+                or any(not state.recipient_ids for state in matching)
+                or not requested
+                <= {
+                    recipient
+                    for state in matching
+                    for recipient in state.recipient_ids
+                }
+            ):
+                raise ValueError(
+                    "Ambience layer is not private to every requested recipient"
+                )
+            AudioGainAutomation(gain, gain, duration_ms, easing=easing)
+        for handle, gain in gains.items():
+            self.set_ambience_gain(
+                handle,
+                gain,
+                duration_ms,
+                easing=easing,
+                audience=audience,
+            )
+        return gains
 
     def pause_music(
         self,
@@ -793,6 +1318,10 @@ class GameSoundMixin:
         scope: str = "global",
         context: str = "",
         layer: str = "environment",
+        pitch: int = 100,
+        position: tuple[float, float, float] | None = None,
+        attenuation: DistanceAttenuation | dict[str, Any] | None = None,
+        gain: float = 1.0,
     ) -> str:
         """Play or crossfade a global, private, or contextual ambience layer."""
         resolved_handle = handle or f"ambience:{scope}:{context or 'default'}:{layer}"
@@ -811,10 +1340,14 @@ class GameSoundMixin:
             play_intro=play_intro,
             seamless=seamless,
             volume=volume,
+            pitch=pitch,
             fade_in_ms=fade_in_ms,
             fade_out_ms=fade_out_ms,
             priority=priority,
             ducking=ducking or {},
+            position=position,
+            attenuation=attenuation,
+            gain=gain,
         )
         return self._dispatch_audio(command, audience=audience, persist=True)
 

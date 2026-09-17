@@ -7,7 +7,7 @@ const engine = createAudioEngine({ soundBaseUrl: "../sounds/" });
 function command(overrides) {
   return {
     type: "audio",
-    version: 2,
+    version: 3,
     command: "play",
     kind: "sfx",
     asset: "menuclick.ogg",
@@ -42,6 +42,52 @@ runButton.addEventListener("click", async () => {
     if (engine.handleAudioCommand(command({ buffer: "unknown" }))) {
       throw new Error("Unknown output buffer was accepted");
     }
+    if (engine.handleAudioCommand(command({ position: [1, Number.NaN, 0] }))) {
+      throw new Error("Malformed spatial position was accepted");
+    }
+    if (engine.handleAudioCommand(command({
+      position: [6, 0, 0],
+      attenuation: { model: "linear" },
+    }))) {
+      throw new Error("Partial attenuation configuration was accepted");
+    }
+    if (engine.handleAudioCommand(command({ attenuation: { model: "none" } }))) {
+      throw new Error("Attenuation without a position was accepted");
+    }
+    if (engine.handleAudioCommand(command({ gain: null }))) {
+      throw new Error("A null source gain was accepted");
+    }
+    if (engine.handleAudioCommand(command({
+      asset: undefined,
+      handle: "invalid:partial-sequence",
+      segments: [{ asset: "menuclick.ogg" }],
+    }))) {
+      throw new Error("A partial atomic audio sequence was accepted");
+    }
+    if (engine.handleAudioCommand(command({
+      command: "update",
+      asset: undefined,
+      handle: "invalid:partial-motion",
+      motion: { origin_position: [0, 0, 0] },
+    }))) {
+      throw new Error("Partial source motion was accepted");
+    }
+    if (engine.handleAudioCommand(command({
+      command: "update",
+      asset: undefined,
+      handle: "invalid:partial-gain",
+      gain_automation: { origin_gain: 0 },
+    }))) {
+      throw new Error("Partial source-gain automation was accepted");
+    }
+    if (engine.handleAudioCommand(command({
+      command: "stop",
+      asset: undefined,
+      handle: "invalid:position-stop",
+      position: [1, 0, 0],
+    }))) {
+      throw new Error("Spatial position was accepted on a stop command");
+    }
     if (engine.handleAudioCommand(command({
       buffer: "private",
       loop: true,
@@ -52,6 +98,86 @@ runButton.addEventListener("click", async () => {
     if (!engine.handleAudioCommand(command({ asset: undefined, family: "notify" }))) {
       throw new Error("Numbered sound family was rejected");
     }
+    engine.handleAudioCommand(command({
+      handle: "test:attenuated-loop",
+      loop: true,
+      position: [6, 0, 0],
+      attenuation: {
+        model: "linear",
+        reference_distance: 2,
+        max_distance: 10,
+        rolloff_factor: 1,
+        min_gain: 0,
+        max_gain: 1,
+      },
+    }));
+    await waitFor(
+      () => engine.getDiagnostics().attenuatedSourceCount === 1,
+      "attenuated source start",
+    );
+    if (!engine.handleAudioCommand(command({
+      command: "update",
+      asset: undefined,
+      handle: "test:attenuated-loop",
+      motion: {
+        origin_position: [6, 0, 0],
+        destination_position: [2, 0, 0],
+        duration_ms: 100,
+        elapsed_ms: 0,
+        easing: "ease-in-out",
+      },
+      gain_automation: {
+        origin_gain: 1,
+        destination_gain: 0.25,
+        duration_ms: 100,
+        elapsed_ms: 0,
+        easing: "ease-in-out",
+      },
+    }))) {
+      throw new Error("Managed source motion was rejected");
+    }
+    await waitFor(
+      () => engine.getDiagnostics().movingSourceCount === 1,
+      "moving source start",
+    );
+    await waitFor(
+      () => engine.getDiagnostics().automatedGainSourceCount === 1,
+      "source-gain automation start",
+    );
+    await waitFor(
+      () => engine.getDiagnostics().movingSourceCount === 0,
+      "moving source completion",
+    );
+    await waitFor(
+      () => engine.getDiagnostics().automatedGainSourceCount === 0,
+      "source-gain automation completion",
+    );
+    engine.handleAudioCommand(command({
+      command: "update",
+      asset: undefined,
+      handle: "test:attenuated-loop",
+      gain_automation: {
+        origin_gain: 0.25,
+        destination_gain: 1,
+        duration_ms: 4000,
+        elapsed_ms: 0,
+        easing: "linear",
+      },
+    }));
+    await waitFor(
+      () => engine.getDiagnostics().automatedGainSourceCount === 1,
+      "cancellable source-gain automation start",
+    );
+    engine.handleAudioCommand(command({
+      command: "stop",
+      handle: "test:attenuated-loop",
+      asset: undefined,
+    }));
+    await waitFor(
+      () => engine.getDiagnostics().attenuatedSourceCount === 0
+        && engine.getDiagnostics().automatedGainSourceCount === 0,
+      "attenuated source stop",
+    );
     await waitFor(
       () => engine.getDiagnostics().sourceCount === 1,
       "numbered family start",
@@ -184,6 +310,48 @@ runButton.addEventListener("click", async () => {
 
     engine.handleAudioCommand(command({ command: "stop_all", asset: undefined }));
     await waitFor(() => engine.getDiagnostics().sourceCount === 0, "stop all");
+
+    if (!engine.handleAudioCommand(command({
+      asset: undefined,
+      handle: "test:sequence",
+      segments: [
+        {
+          asset: "game_chaosbear/playerstep1.ogg",
+          position: [0, 2, 0],
+          destination_position: null,
+          attenuation: null,
+          gain: 1,
+          easing: "linear",
+        },
+        {
+          asset: "game_chaosbear/playerstep2.ogg",
+          position: [0, 2, 0],
+          destination_position: [2, 4, 1],
+          attenuation: { model: "none" },
+          gain: 0.75,
+          easing: "ease-out",
+        },
+        {
+          asset: "game_bang/weapon_punch_swing_1.ogg",
+          position: [2, 4, 1],
+          destination_position: null,
+          attenuation: { model: "none" },
+          gain: 1,
+          easing: "linear",
+        },
+      ],
+    }))) {
+      throw new Error("A valid atomic audio sequence was rejected");
+    }
+    await waitFor(
+      () => engine.getDiagnostics().activeHandles.includes("test:sequence"),
+      "atomic audio sequence start",
+    );
+    await waitFor(
+      () => !engine.getDiagnostics().activeHandles.includes("test:sequence"),
+      "atomic audio sequence completion",
+      8000,
+    );
 
     const originalMediaPlay = HTMLMediaElement.prototype.play;
     HTMLMediaElement.prototype.play = function rejectMediaPlayback() {

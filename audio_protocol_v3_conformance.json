@@ -1,0 +1,179 @@
+{
+  "protocol_version": 3,
+  "distance_attenuation": [
+    {
+      "id": "none-keeps-direction-without-falloff",
+      "position": [100, 0, 0],
+      "attenuation": {
+        "model": "none"
+      },
+      "expected_gain": 1
+    },
+    {
+      "id": "linear-midfield",
+      "position": [6, 0, 0],
+      "attenuation": {
+        "model": "linear",
+        "reference_distance": 2,
+        "max_distance": 10,
+        "rolloff_factor": 1,
+        "min_gain": 0,
+        "max_gain": 1
+      },
+      "expected_gain": 0.5
+    },
+    {
+      "id": "inverse-midfield",
+      "position": [6, 0, 0],
+      "attenuation": {
+        "model": "inverse",
+        "reference_distance": 2,
+        "max_distance": 10,
+        "rolloff_factor": 2,
+        "min_gain": 0,
+        "max_gain": 1
+      },
+      "expected_gain": 0.2
+    },
+    {
+      "id": "exponential-midfield",
+      "position": [6, 0, 0],
+      "attenuation": {
+        "model": "exponential",
+        "reference_distance": 2,
+        "max_distance": 10,
+        "rolloff_factor": 2,
+        "min_gain": 0,
+        "max_gain": 1
+      },
+      "expected_gain": 0.1111111111111111
+    },
+    {
+      "id": "active-curve-honors-gain-bounds",
+      "position": [100, 0, 0],
+      "attenuation": {
+        "model": "inverse",
+        "reference_distance": 2,
+        "max_distance": 10,
+        "rolloff_factor": 1,
+        "min_gain": 0.25,
+        "max_gain": 0.8
+      },
+      "expected_gain": 0.25
+    }
+  ],
+  "motion": [
+    {
+      "id": "linear-quarter",
+      "automation": {
+        "origin_position": [0, 0, 0],
+        "destination_position": [10, -4, 2],
+        "duration_ms": 1000,
+        "elapsed_ms": 250,
+        "easing": "linear"
+      },
+      "expected_position": [2.5, -1, 0.5]
+    },
+    {
+      "id": "ease-in-quarter",
+      "automation": {
+        "origin_position": [0, 0, 0],
+        "destination_position": [10, -4, 2],
+        "duration_ms": 1000,
+        "elapsed_ms": 250,
+        "easing": "ease-in"
+      },
+      "expected_position": [0.625, -0.25, 0.125]
+    },
+    {
+      "id": "ease-out-quarter",
+      "automation": {
+        "origin_position": [0, 0, 0],
+        "destination_position": [10, -4, 2],
+        "duration_ms": 1000,
+        "elapsed_ms": 250,
+        "easing": "ease-out"
+      },
+      "expected_position": [4.375, -1.75, 0.875]
+    },
+    {
+      "id": "ease-in-out-quarter",
+      "automation": {
+        "origin_position": [0, 0, 0],
+        "destination_position": [10, -4, 2],
+        "duration_ms": 1000,
+        "elapsed_ms": 250,
+        "easing": "ease-in-out"
+      },
+      "expected_position": [1.25, -0.5, 0.25]
+    },
+    {
+      "id": "ease-in-out-complete",
+      "automation": {
+        "origin_position": [0, 0, 0],
+        "destination_position": [10, -4, 2],
+        "duration_ms": 1000,
+        "elapsed_ms": 1000,
+        "easing": "ease-in-out"
+      },
+      "expected_position": [10, -4, 2]
+    }
+  ],
+  "source_gain": [
+    {
+      "id": "linear-quarter",
+      "automation": {
+        "origin_gain": 0.2,
+        "destination_gain": 0.8,
+        "duration_ms": 1000,
+        "elapsed_ms": 250,
+        "easing": "linear"
+      },
+      "expected_gain": 0.35
+    },
+    {
+      "id": "ease-in-quarter",
+      "automation": {
+        "origin_gain": 0.2,
+        "destination_gain": 0.8,
+        "duration_ms": 1000,
+        "elapsed_ms": 250,
+        "easing": "ease-in"
+      },
+      "expected_gain": 0.2375
+    },
+    {
+      "id": "ease-out-quarter",
+      "automation": {
+        "origin_gain": 0.2,
+        "destination_gain": 0.8,
+        "duration_ms": 1000,
+        "elapsed_ms": 250,
+        "easing": "ease-out"
+      },
+      "expected_gain": 0.4625
+    },
+    {
+      "id": "ease-in-out-quarter",
+      "automation": {
+        "origin_gain": 0.2,
+        "destination_gain": 0.8,
+        "duration_ms": 1000,
+        "elapsed_ms": 250,
+        "easing": "ease-in-out"
+      },
+      "expected_gain": 0.275
+    },
+    {
+      "id": "ease-in-out-complete",
+      "automation": {
+        "origin_gain": 0.2,
+        "destination_gain": 0.8,
+        "duration_ms": 1000,
+        "elapsed_ms": 1000,
+        "easing": "ease-in-out"
+      },
+      "expected_gain": 0.8
+    }
+  ]
+}

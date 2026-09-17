@@ -284,20 +284,55 @@ Audio-first is mandatory. Every important state change needs TTS and/or sound.
   client-specific routing. Asset paths and command values must be validated.
 - Optional 3D positions use listener-relative `(x, y, z)` coordinates with the
   listener at the origin facing `+Y`. The server is the positioning authority
-  and derives ordinary pan from the same point for non-HRTF clients. Desktop
-  Cosmos currently consumes positions; Web and mobile consume the derived pan.
-  A point is not a moving-source attachment: do not build trajectory audio
-  until the protocol defines stable event/source ids and position updates.
+  and derives ordinary pan from the same point for non-HRTF fallbacks. Desktop,
+  Web, and native mobile playback consume the same spatial contract. Use a
+  fixed position for a point event, atomic `segments` for a finite multi-stage
+  sound, and stable-handle `update` commands for a replayable moving source.
 - One-shot notification SFX may declare their related output `buffer`; clients
   suppress those cues when that buffer is effectively muted. Do not attach a
   buffer to managed or looping audio.
 - Randomized numbered one-shot SFX use the validated `family` field. Clients
   select from dynamically discovered `<family><positive integer>` assets; do
   not hardcode a variant count or use families for loops, music, or ambience.
+- Finite multi-stage SFX use one atomic `play` command with complete `segments`
+  and a stable handle. Clients validate and preload every asset before starting,
+  then schedule contiguous boundaries from decoded frame counts and pitch on a
+  shared audio clock; authored silence remains part of the asset. Segment motion
+  spans that segment's decoded duration. Renderers keep the final HRTF tail
+  connected until it has finished rather than clipping it at the last decoded
+  frame. Never approximate these chains with
+  separate packets, server ticks, or replacement-sensitive duration constants.
+  Any load or scheduling failure cancels the whole chain, and finite sequences
+  remain runtime-only rather than entering `active_audio` replay state.
+- Positioned `play` commands may carry a complete `attenuation` object using
+  `none`, `linear`, `inverse`, or `exponential`. Active curves always include
+  reference/maximum distance, rolloff, and minimum/maximum gain; clients must
+  reject partial or out-of-range objects. Omission and explicit `none` both
+  spatialize without volume falloff. Evaluate the versioned formulas in the
+  shared mixer exactly once and keep renderer/backend distance gain neutral.
+- Replayable positioned sources move through a stable-handle `update` command
+  carrying complete origin/destination positions, integer duration/elapsed
+  milliseconds, and a named easing curve. The server advances and persists
+  authoritative trajectory state; clients interpolate on their audio clocks.
+  Reconnect resumes from persisted elapsed state, while stop and replacement
+  generations cancel stale interpolation. Never persist process clock values.
 - Looping SFX use stable handles and explicit stop; music supports fade
   pause/resume/stop; ambience uses independent `global`, `player`, or `context`
   scope plus a stable layer. Switching music or one ambience layer crossfades
   without disturbing unrelated layers.
+- Stable handles are client-global. Server replay state must mirror handle and
+  layer replacement exactly; never leave two overlapping sources that one
+  recipient's client cannot own simultaneously. Reject a private operation
+  that would partially replace public replay state.
+- `play` may set an independent normalized source gain. Stable-handle `update`
+  may automate source gain, position, or both concurrently. Keep authored
+  volume, source gain, attenuation, fade envelope, bus/duck gain, and user
+  master volume as separate mixer stages. Persist current replayable gain and
+  unfinished automation, never process-clock timestamps.
+- Environmental boundary blends keep independent ambience layers playing and
+  phase coherent. Convert normalized zone weights to linear or equal-power
+  source-gain targets; do not restart stems. Zero-gain layers remain active
+  until explicit lifecycle teardown.
 - Ambience stems may define any combination of intro, loop, and outro assets.
   With seamless stem playback, intro-to-loop and loop-to-outro are contiguous
   boundaries with no fade or crossfade; fades apply only to starting, replacing,
@@ -313,9 +348,21 @@ Audio-first is mandatory. Every important state change needs TTS and/or sound.
 - Named buses, priority/max-instance limits, and source-lifetime ducking are
   protocol data, not game/client hardcoding. User volume remains the master.
   Async loads and fades must be generation-guarded against stale resurrection.
+- Cross-client attenuation and automation math must use the shared protocol-v3
+  conformance vectors at the repository root. Extend that corpus when formulas
+  or easing curves change; do not copy independent expected values into each
+  client suite.
 - Ducking is a dormant, opt-in capability. Do not add `ducking` to first-party
   gameplay commands until a future feature deliberately enables and tunes it;
   keep zero-duck defaults behaviorally identical to an engine without ducking.
+- Positioned native mobile playback uses the local Cosmos/miniaudio Expo module
+  and the complete official Steam Audio 4.8.1 artifact set. Treat its platform
+  libraries, headers, licenses/notices, and SHA-256 manifest as one update.
+  `postinstall` must fail closed on version, hash, ABI, or Android 16 KiB
+  alignment drift. Preserve partial frames and HRTF tails across arbitrary
+  device callback sizes. Reserve bounded source capacity and collision-free IDs
+  before async creation, and release them on every failure or lifecycle exit.
+  iOS Simulator must use the explicit non-HRTF platform fallback.
 - Android playback must preserve the system-selected wired, Bluetooth, or
   speaker route; game-audio setup must never force speakerphone routing. Keep
   ExpoAV as the single audio-focus coordinator, and retain the guarded

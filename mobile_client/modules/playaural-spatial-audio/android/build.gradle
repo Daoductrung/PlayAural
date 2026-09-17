@@ -1,0 +1,55 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+def reactNativeArchitectures() {
+  def value = project.getProperties().get("reactNativeArchitectures")
+  return value ? value.split(",") : ["armeabi-v7a", "arm64-v8a", "x86", "x86_64"]
+}
+
+def repositoryRoot = file("../../../..")
+def steamAudioDirectory = new File(repositoryRoot, "cosmos/steamaudio-sys/phonon/android")
+
+group = 'one.ddt.playaural.spatialaudio'
+version = '1.0.0'
+
+android {
+  if (rootProject.hasProperty("ndkPath")) {
+    ndkPath rootProject.ext.ndkPath
+  }
+  if (rootProject.hasProperty("ndkVersion")) {
+    ndkVersion rootProject.ext.ndkVersion
+  }
+
+  namespace "one.ddt.playaural.spatialaudio"
+  defaultConfig {
+    minSdk 24
+    versionCode 1
+    versionName "1.0.0"
+
+    externalNativeBuild {
+      cmake {
+        abiFilters (*reactNativeArchitectures())
+        arguments "-DPLAYAURAL_REPOSITORY_ROOT=${repositoryRoot.absolutePath.replace('\\', '/')}",
+          "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON"
+      }
+    }
+  }
+
+  externalNativeBuild {
+    cmake {
+      path "CMakeLists.txt"
+    }
+  }
+
+  sourceSets {
+    main {
+      jniLibs.srcDirs += [steamAudioDirectory]
+    }
+  }
+}
+
+dependencies {
+  implementation 'com.facebook.react:react-android'
+}

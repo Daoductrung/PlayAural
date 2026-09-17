@@ -78,7 +78,7 @@ from ..game_utils.client_types import (
 )
 from ..game_utils.bot_names import bot_name_key
 from ..game_utils.game_result import GameResult
-from ..audio import SameTurnAudioBatcher, clock_position
+from ..audio import SameTurnAudioBatcher
 
 
 VERSION = "1.0.4.17"
@@ -138,9 +138,6 @@ PRESENCE_AUDIO_PRIORITIES = {
     "table": 20,
 }
 MAIN_MENU_MUSIC = "mainmus.ogg"
-# Cue for the temporary spatial audio test menu: short and broadband, so
-# direction is easy to judge.
-SPATIAL_TEST_SOUND = "notify1.ogg"
 WELCOME_SOUND = "welcome.ogg"
 ONLINE_USERS_PAGE_SIZE = DEFAULT_MENU_PAGE_SIZE
 ONLINE_USERS_SPOKEN_NAME_LIMIT = 20
@@ -330,7 +327,6 @@ class Server:
         "host_kick_menu", "host_kick_ban_menu", HOST_RESTART_CONFIRM_MENU,
         TABLE_MEMBERS_MENU, TABLE_MEMBER_ACTIONS_MENU,
         "table_invite_prompt", "game_over",
-        "spatial_audio_test_menu",
     }
 
     # Subset of GLOBAL_SYSTEM_MENUS: menus that are transient overlays shown
@@ -2430,11 +2426,6 @@ PlayAural Server
             ),
             MenuItem(
                 text=Localization.get(user.locale, "documentation-menu"), id="documentation"
-            ),
-            # Temporary, while spatial audio is being tuned on the desktop client.
-            MenuItem(
-                text=Localization.get(user.locale, "spatial-audio-test"),
-                id="spatial_audio_test",
             ),
         ]
         # Add administration menu for admins
@@ -5355,8 +5346,6 @@ PlayAural Server
         # Handle menu selections based on current menu
         if current_menu == "main_menu":
             await self._handle_main_menu_selection(user, selection_id)
-        elif current_menu == "spatial_audio_test_menu":
-            await self._handle_spatial_audio_test_selection(user, selection_id)
         elif current_menu == "personal_options_menu":
             await self._handle_personal_options_selection(user, selection_id)
         elif current_menu == "games_menu":
@@ -5524,47 +5513,11 @@ PlayAural Server
             self._nav_push(user, self._show_personal_options_menu)
         elif selection_id == "documentation":
             self._nav_push(user, self._show_documentation_menu)
-        elif selection_id == "spatial_audio_test":
-            self._nav_push(user, self._show_spatial_audio_test_menu)
         elif selection_id == "administration":
             if user.trust_level >= 2:
                 self._nav_push(user, self.admin_manager._show_admin_menu)
         elif selection_id == "logout":
             self._nav_push(user, self._show_logout_confirm_menu)
-
-    def _show_spatial_audio_test_menu(self, user: NetworkUser) -> None:
-        """Temporary: one cue per clock-face direction, to tune spatial audio."""
-        items = [
-            MenuItem(
-                text=Localization.get(user.locale, "spatial-test-clock", hour=hour),
-                id=f"clock_{hour}",
-            )
-            for hour in (12, *range(1, 12))
-        ]
-        items.append(MenuItem(text=Localization.get(user.locale, "back"), id="back"))
-        user.show_menu(
-            "spatial_audio_test_menu",
-            items,
-            multiletter=True,
-            escape_behavior=EscapeBehavior.SELECT_LAST,
-        )
-        self._user_states[user.username] = {"menu": "spatial_audio_test_menu"}
-
-    async def _handle_spatial_audio_test_selection(
-        self, user: NetworkUser, selection_id: str
-    ) -> None:
-        """Play the test cue from the chosen clock direction; the menu stays up."""
-        if selection_id == "back":
-            self._nav_back(user)
-            return
-        if not selection_id.startswith("clock_"):
-            return
-        try:
-            hour = int(selection_id.removeprefix("clock_"))
-        except ValueError:
-            return
-        if 1 <= hour <= 12:
-            user.play_sound(SPATIAL_TEST_SOUND, position=clock_position(hour))
 
     def _show_personal_options_menu(self, user: NetworkUser) -> None:
         """Show the personal and options sub-menu."""
@@ -11887,8 +11840,6 @@ PlayAural Server
         # For all other menus: call show function then re-inject stack
         if menu == "main_menu":
             self._show_main_menu(user)
-        elif menu == "spatial_audio_test_menu":
-            self._show_spatial_audio_test_menu(user)
         elif menu == "personal_options_menu":
             self._show_personal_options_menu(user)
         elif menu == "options_menu":

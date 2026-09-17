@@ -1,0 +1,23 @@
+{
+  "name": "Steam Audio SDK",
+  "version": "4.8.1",
+  "releaseUrl": "https://github.com/ValveSoftware/steam-audio/releases/tag/v4.8.1",
+  "archive": {
+    "name": "steamaudio_4.8.1.zip",
+    "sha256": "4a0aa5ec1176f38f0b0993a37c2259d9e86f27e22d5e24f83ec4c3cb9a1d5449"
+  },
+  "artifacts": {
+    "LICENSE.md": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+    "THIRDPARTY.md": "a95e143e7d2466e82a28d6680c7287d9fc7d772136c323ab538a6d24472e70f0",
+    "TRADEMARK_RIGHTS.md": "36258d69c656be820168bfec306e38e96a72a7d50567e31494fc50f5339499ac",
+    "android/arm64-v8a/libphonon.so": "05b953634ad38fb6b1307cadd4d3be78e61c07205e38db958789ca14f4c70487",
+    "android/armeabi-v7a/libphonon.so": "03751745cec1709055322f06efc9f69d3f6f605ff69aecfd30660b68933e106c",
+    "android/x86/libphonon.so": "b48fc4dc2759738df00bf4d378f50b039da623ae7dd3c4ea938e2abca84fe16e",
+    "android/x86_64/libphonon.so": "35a3221019823541eb981f8c6a117b65218ffe5cb5232d56b4835984036d06c2",
+    "ios/libphonon.a": "bedd7b4cabab25f7b4edb7536aefea7c6932811a39548cdb2b19381ec3c3dd82",
+    "phonon.dll": "ca3dbc01dbc24492717011e80f6a51404ca143ae344ca660971d2c983f1e058d",
+    "phonon.h": "cfab67684fe1ed75a16bb9bccb81c31276b6fb3bad904073407db900045229e7",
+    "phonon.lib": "b6b2dc8c5f91b4d7ae8d9eef03203df8d4675f1f8816fb7ac1b7a6ee3eb0f4d8",
+    "phonon_version.h": "ed3a14daa8a32c5884400ff12fe9acaee80b324279450f16083519cfc25270b1"
+  }
+}

@@ -245,7 +245,10 @@ class User(ABC):
                 )
                 if same_handle or same_layer:
                     states.pop(key, None)
-            states[(command.kind, command.handle)] = command
+            # A finite effect (one-shot or chain) ends on its own and is never
+            # stopped, so recording it would grow this mirror without bound.
+            if command.kind != "sfx" or command.loop:
+                states[(command.kind, command.handle)] = command
             return
 
         if command.command != "stop":

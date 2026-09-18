@@ -1,6 +1,7 @@
 """Table manager for tracking all active tables."""
 
 from typing import TYPE_CHECKING, Any
+import logging
 import uuid
 
 from .table import Table
@@ -80,7 +81,13 @@ class TableManager:
     def on_tick(self) -> None:
         """Tick all active tables."""
         for table in list(self._tables.values()):
-            table.on_tick()
+            # One table's failure must not cost every later table its tick.
+            try:
+                table.on_tick()
+            except Exception as e:
+                logging.error(
+                    f"Error in tick for table {table.table_id}: {e}", exc_info=True
+                )
 
     def flush_menus(self) -> None:
         """Flush pending menu refreshes for every table's game.

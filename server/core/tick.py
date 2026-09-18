@@ -15,6 +15,7 @@ class TickScheduler:
 
     TICK_INTERVAL_MS = 50
     TICK_INTERVAL_S = TICK_INTERVAL_MS / 1000.0
+    MAX_CATCH_UP_S = 4 * TICK_INTERVAL_S
 
     def __init__(self, on_tick: Callable[[], None]):
         self._on_tick = on_tick
@@ -38,6 +39,8 @@ class TickScheduler:
 
     async def _tick_loop(self) -> None:
         """Main tick loop."""
+        loop = asyncio.get_running_loop()
+        deadline = loop.time()
         while self._running:
             try:
                 # Call tick callback synchronously
@@ -45,5 +48,12 @@ class TickScheduler:
             except Exception as e:
                 logging.error(f"Error in tick: {e}", exc_info=True)
 
-            # Sleep for tick interval
-            await asyncio.sleep(self.TICK_INTERVAL_S)
+            # Sleep until the next deadline rather than for a fixed interval,
+            # so tick work and coarse timers (about 15 ms on Windows) do not
+            # accumulate: everything that counts ticks treats one as 50 ms.
+            # After a long stall, resume from now instead of bursting ticks.
+            deadline += self.TICK_INTERVAL_S
+            now = loop.time()
+            if deadline < now - self.MAX_CATCH_UP_S:
+                deadline = now
+            await asyncio.sleep(max(0.0, deadline - now))

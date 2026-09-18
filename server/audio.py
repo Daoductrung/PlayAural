@@ -162,11 +162,13 @@ class DistanceAttenuation:
         ):
             raise ValueError("Active attenuation requires finite numeric parameters")
 
-        reference_distance = float(self.reference_distance)
-        max_distance = float(self.max_distance)
-        rolloff_factor = float(self.rolloff_factor)
-        min_gain = float(self.min_gain)
-        max_gain = float(self.max_gain)
+        # Round before validating: the rounded values are what clients receive
+        # and divide by, so they are the ones that must satisfy the contract.
+        reference_distance = round(float(self.reference_distance), ATTENUATION_PRECISION)
+        max_distance = round(float(self.max_distance), ATTENUATION_PRECISION)
+        rolloff_factor = round(float(self.rolloff_factor), ATTENUATION_PRECISION)
+        min_gain = round(float(self.min_gain), ATTENUATION_PRECISION)
+        max_gain = round(float(self.max_gain), ATTENUATION_PRECISION)
         if not 0.0 < reference_distance < max_distance <= MAX_AUDIO_DISTANCE:
             raise ValueError(
                 "Attenuation distances must satisfy "
@@ -187,7 +189,7 @@ class DistanceAttenuation:
             ("min_gain", min_gain),
             ("max_gain", max_gain),
         ):
-            object.__setattr__(self, name, round(value, ATTENUATION_PRECISION))
+            object.__setattr__(self, name, value)
 
     def to_packet(self) -> dict[str, Any]:
         """Serialize the complete selected model without implicit defaults."""
@@ -347,9 +349,17 @@ class AudioMotion:
         """Return the point on the authored trajectory at one elapsed time."""
         elapsed = self.elapsed_ms if elapsed_ms is None else elapsed_ms
         ratio = audio_motion_progress(elapsed / self.duration_ms, self.easing)
+        if ratio >= 1.0:
+            return self.destination_position
+        # Floating-point interpolation can overshoot an endpoint by one ulp,
+        # which at the coordinate limit would fail validation. A point on the
+        # segment is always between its endpoints, so clamp it there.
         return normalize_audio_position(
             tuple(
-                origin + ((destination - origin) * ratio)
+                min(
+                    max(origin + ((destination - origin) * ratio), min(origin, destination)),
+                    max(origin, destination),
+                )
                 for origin, destination in zip(
                     self.origin_position,
                     self.destination_position,
@@ -463,8 +473,12 @@ class AudioGainAutomation:
     def gain_at(self, elapsed_ms: int | None = None) -> float:
         elapsed = self.elapsed_ms if elapsed_ms is None else elapsed_ms
         ratio = audio_motion_progress(elapsed / self.duration_ms, self.easing)
-        return self.origin_gain + (
-            (self.destination_gain - self.origin_gain) * ratio
+        if ratio >= 1.0:
+            return self.destination_gain
+        gain = self.origin_gain + ((self.destination_gain - self.origin_gain) * ratio)
+        return min(
+            max(gain, min(self.origin_gain, self.destination_gain)),
+            max(self.origin_gain, self.destination_gain),
         )
 
     def advance(self, elapsed_ms: int) -> AudioGainAutomation:

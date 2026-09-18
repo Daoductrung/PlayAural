@@ -33,8 +33,10 @@ class FakeStream:
         self.is_playing = True
 
     def schedule_at_engine_frame(self, start_frame):
+        # Like Cosmos, a scheduled stream reports not playing until the engine
+        # clock reaches its start frame.
         self.scheduled_frame = start_frame
-        self.is_playing = True
+        self.is_playing = False
         return True
 
 
@@ -894,6 +896,42 @@ def test_audio_sequence_preloads_and_sample_schedules_every_segment(monkeypatch)
         "kind": "sfx",
         "handle": "grenade:1",
     })
+
+
+def test_audio_sequence_is_not_released_before_its_scheduled_end(monkeypatch):
+    sound_manager = _load_sound_manager_module(monkeypatch)
+    manager = sound_manager.SoundManager()
+    segment = {
+        "position": None,
+        "destination_position": None,
+        "attenuation": None,
+        "gain": 1,
+        "easing": "linear",
+    }
+
+    assert manager.handle_audio_command({
+        "type": "audio",
+        "version": 3,
+        "command": "play",
+        "kind": "sfx",
+        "handle": "chain",
+        "segments": [
+            {**segment, "asset": "throw.ogg"},
+            {**segment, "asset": "explosion.ogg"},
+        ],
+    }) is True
+    source = manager._sources["chain"]
+
+    # The last segment is scheduled for later, so it reports not playing.
+    time.sleep(0.2)
+    assert manager._sources.get("chain") is source
+    assert not any(stream.stopped for stream in manager.sound_cacher.refs)
+
+    manager.sound_cacher.clock_frames = source.completion_frame
+    deadline = time.monotonic() + 2
+    while "chain" in manager._sources and time.monotonic() < deadline:
+        time.sleep(0.01)
+    assert "chain" not in manager._sources
 
 
 def test_audio_sequence_validation_is_all_or_nothing(monkeypatch):

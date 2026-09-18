@@ -85,6 +85,8 @@ class _AudioSource:
     backend_callbacks: list[object] = field(default_factory=list)
     sequence_streams: list["_SequenceStream"] = field(default_factory=list)
     completion_stream: object | None = None
+    # Engine-clock frame before which a scheduled source cannot have finished.
+    completion_frame: int = 0
 
 
 @dataclass
@@ -658,7 +660,18 @@ class SoundManager:
                     if self._sources.get(source.handle) is not source:
                         return
                     paused = source.paused
-                if paused or self._stream_is_playing(completion_stream):
+                # A stream scheduled for a future frame reports not playing
+                # until the engine clock reaches it, exactly as a finished one
+                # does, so only the clock can tell them apart.
+                scheduled = (
+                    source.completion_frame
+                    and self.sound_cacher.clock_frames < source.completion_frame
+                )
+                if (
+                    paused
+                    or scheduled
+                    or self._stream_is_playing(completion_stream)
+                ):
                     observed_stopped = False
                     time.sleep(0.05)
                     continue
@@ -1018,6 +1031,7 @@ class SoundManager:
                 queued_streams=list(streams[1:]),
                 sequence_streams=timeline,
                 completion_stream=streams[-1],
+                completion_frame=cursor,
             )
             self._sources[resolved_handle] = source
             if source.ducking:
@@ -1260,7 +1274,10 @@ class SoundManager:
                 self._stop_handle(victim.handle, fade_ms=0)
         self._retire_target(target, fade_out_ms)
 
-        generation = self._next_generation(handle)
+        # Fade threads reach here too (the non-seamless outro), and pruning
+        # iterates the generation table.
+        with self._lock:
+            generation = self._next_generation(handle)
         base_volume = _clamp(packet.get("volume", 100), 0, 100, 100) / 100
         source_pitch = _clamp(packet.get("pitch", 100), 25, 400, 100) / 100
         source_gain = packet.get("gain", 1.0)

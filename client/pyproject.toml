@@ -35,4 +35,4 @@ playaural-client = "client:main"
 packages = ["."]
 
 [tool.uv.sources]
-cosmos = { path = "vendor/cosmos-0.3.0-cp311-abi3-win_amd64.whl" }
+cosmos = { path = "vendor/cosmos-0.3.1-cp311-abi3-win_amd64.whl" }

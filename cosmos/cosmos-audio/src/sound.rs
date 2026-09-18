@@ -618,16 +618,13 @@ impl Sound {
         if !self.loaded {
             return 0;
         }
-        let mut length_frames: u64 = 0;
-        let result = unsafe { ma_sound_get_length_in_pcm_frames(self.sound, &mut length_frames) };
-        if result != MA_SUCCESS {
-            return 0;
-        }
-        let sample_rate = lock(&self.engine).sample_rate();
+        // The length is in the asset's own frames, so it is the asset's rate,
+        // not the engine's, that converts it to time.
+        let sample_rate = self.sample_rate();
         if sample_rate == 0 {
             return 0;
         }
-        (length_frames * 1000) / sample_rate as u64
+        (self.length_in_pcm_frames() * 1000) / sample_rate as u64
     }
 
     /// Total decoded length in source PCM frames.

@@ -75032,7 +75032,13 @@ static ma_result ma_node_read_pcm_frames(ma_node* pNode, ma_uint32 outputBusInde
     therefore need to offset it by a number of frames to accommodate. The same thing applies for
     the stop time.
     */
-    timeOffsetBeg = (globalTimeBeg < startTime) ? (ma_uint32)(globalTimeEnd - startTime) : 0;
+    /*
+    COSMOS PATCH (upstream 0.11.23 has `globalTimeEnd - startTime` here): the leading silence is
+    the distance from the start of this read to the start time. The upstream expression silences
+    the wrong span, so a node scheduled k frames into a read began at (frameCount - k) instead,
+    which put scheduled starts up to one period away from where they were asked for.
+    */
+    timeOffsetBeg = (globalTimeBeg < startTime) ? (ma_uint32)(startTime - globalTimeBeg) : 0;
     timeOffsetEnd = (globalTimeEnd > stopTime)  ? (ma_uint32)(globalTimeEnd - stopTime)  : 0;
 
     /* Trim based on the start offset. We need to silence the start of the buffer. */

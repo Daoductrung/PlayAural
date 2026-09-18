@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "cosmos"
-version = "0.3.0"
+version = "0.3.1"
 description = "Audio game library with 3D spatial audio and screen reader support"
 requires-python = ">=3.11"
 license = "MIT"

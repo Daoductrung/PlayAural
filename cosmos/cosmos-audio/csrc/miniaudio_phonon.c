@@ -289,6 +289,29 @@ static IPLAudioEffectState ma_phonon_binaural_node_apply_buffered_frame(
     );
 }
 
+static ma_bool32 ma_phonon_binaural_node_buffered_input_is_silent(
+    const ma_phonon_binaural_node* pBinauralNode,
+    ma_uint32 frameCount
+)
+{
+    ma_uint32 channelsIn = ma_node_get_input_channels(
+        (const ma_node*)pBinauralNode,
+        0
+    );
+    ma_uint32 channel;
+    ma_uint32 frame;
+
+    for (channel = 0; channel < channelsIn; channel += 1) {
+        const float* samples = pBinauralNode->ppBuffersIn[channel];
+        for (frame = 0; frame < frameCount; frame += 1) {
+            if (samples[frame] != 0.0f) {
+                return MA_FALSE;
+            }
+        }
+    }
+    return MA_TRUE;
+}
+
 static IPLAudioEffectState ma_phonon_binaural_node_get_buffered_tail(
     ma_phonon_binaural_node* pBinauralNode
 )
@@ -301,6 +324,42 @@ static IPLAudioEffectState ma_phonon_binaural_node_get_buffered_tail(
         pBinauralNode->iplEffect,
         &outputBufferDesc
     );
+}
+
+/*
+Render the buffered input frame into the buffered output frame and report
+whether the output holds anything.
+
+miniaudio only passes NULL input when nothing is attached upstream. A sound
+that has ended, been stopped, or not yet started stays attached and is read as
+exact (memset) silence, and iplBinauralEffectApply reports a remaining tail
+after every call whatever its input, so applying that silence would keep the
+tail flag raised, and the convolution running, for the life of the node.
+Convolution is linear: the response to a silent frame is exactly the remaining
+tail, so ask for that instead, and once it is complete do no work at all.
+*/
+static ma_bool32 ma_phonon_binaural_node_render_buffered_frame(
+    ma_phonon_binaural_node* pBinauralNode,
+    IPLBinauralEffectParams* pEffectParams
+)
+{
+    if (!ma_phonon_binaural_node_buffered_input_is_silent(
+        pBinauralNode,
+        (ma_uint32)pBinauralNode->iplAudioSettings.frameSize
+    )) {
+        pBinauralNode->bufferedEffectState =
+            ma_phonon_binaural_node_apply_buffered_frame(
+                pBinauralNode,
+                pEffectParams
+            );
+        return MA_TRUE;
+    }
+    if (pBinauralNode->bufferedEffectState == IPL_AUDIOEFFECTSTATE_TAILREMAINING) {
+        pBinauralNode->bufferedEffectState =
+            ma_phonon_binaural_node_get_buffered_tail(pBinauralNode);
+        return MA_TRUE;
+    }
+    return MA_FALSE;
 }
 
 /*
@@ -355,14 +414,14 @@ static void ma_phonon_binaural_tail_node_process_pcm_frames(
                         )
                     );
                 }
-                pBinauralNode->bufferedEffectState =
-                    ma_phonon_binaural_node_apply_buffered_frame(
-                        pBinauralNode,
-                        &effectParams
-                    );
                 pBinauralNode->bufferedInputFrames = 0;
-                pBinauralNode->bufferedOutputFrames =
-                    (ma_uint32)pBinauralNode->iplAudioSettings.frameSize;
+                if (ma_phonon_binaural_node_render_buffered_frame(
+                    pBinauralNode,
+                    &effectParams
+                )) {
+                    pBinauralNode->bufferedOutputFrames =
+                        (ma_uint32)pBinauralNode->iplAudioSettings.frameSize;
+                }
             } else if (
                 inputEnded
                 && pBinauralNode->bufferedEffectState
@@ -404,14 +463,14 @@ static void ma_phonon_binaural_tail_node_process_pcm_frames(
             ) {
                 /* Equal input/output rates guarantee the prior block drained. */
                 pBinauralNode->bufferedOutputOffset = 0;
-                pBinauralNode->bufferedEffectState =
-                    ma_phonon_binaural_node_apply_buffered_frame(
-                        pBinauralNode,
-                        &effectParams
-                    );
                 pBinauralNode->bufferedInputFrames = 0;
                 pBinauralNode->bufferedOutputFrames =
-                    (ma_uint32)pBinauralNode->iplAudioSettings.frameSize;
+                    ma_phonon_binaural_node_render_buffered_frame(
+                        pBinauralNode,
+                        &effectParams
+                    )
+                        ? (ma_uint32)pBinauralNode->iplAudioSettings.frameSize
+                        : 0;
             }
         }
     }
@@ -426,7 +485,11 @@ static void ma_phonon_binaural_tail_node_process_pcm_frames(
     atomic_store_explicit(
         &pBinauralNode->tailRemaining,
         (
-            pBinauralNode->bufferedInputFrames > 0
+            /* Buffered silence is not pending audio; see the render note. */
+            !ma_phonon_binaural_node_buffered_input_is_silent(
+                pBinauralNode,
+                pBinauralNode->bufferedInputFrames
+            )
             || pBinauralNode->bufferedOutputOffset
                 < pBinauralNode->bufferedOutputFrames
             || pBinauralNode->bufferedEffectState

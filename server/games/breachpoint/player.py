@@ -25,6 +25,7 @@ class BreachPointPlayer(Player):
     stationary_guard_activations: int = 0
     flash_penalty: int = 0
     cash: int = 0
+    sidearm_weapon_id: str = ""
     primary_weapon_id: str = ""
     equipped_weapon_id: str = ""
     armor: int = 0

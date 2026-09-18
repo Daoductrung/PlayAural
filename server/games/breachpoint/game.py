@@ -24,6 +24,7 @@ from .arsenal import (
     UTILITY_EFFECT_FLASH,
     UTILITY_EFFECT_SMOKE,
     WEAPON_SLOT_PRIMARY,
+    WEAPON_SLOT_SIDEARM,
     EconomyProfile,
     EquipmentProfile,
     UtilityProfile,
@@ -422,7 +423,7 @@ class BreachPointGame(Game):
         self._add_buy_actions(action_set)
         self._add_objective_actions(action_set)
         self._add_weapon_actions(action_set)
-        self._sync_aim_actions(action_set)
+        self._sync_hold_angle_actions(action_set)
         self._sync_shoot_actions(action_set, player)
         self._sync_utility_actions(action_set)
         for node in self.tactical_map.nodes:
@@ -582,7 +583,7 @@ class BreachPointGame(Game):
                 )
             )
 
-    def _sync_aim_actions(self, action_set: ActionSet) -> None:
+    def _sync_hold_angle_actions(self, action_set: ActionSet) -> None:
         action_set.remove_by_prefix("hold_angle_")
         for node in self.tactical_map.nodes:
             action_set.add(
@@ -680,7 +681,7 @@ class BreachPointGame(Game):
             for action_id in ("equip_primary", "equip_sidearm")
             if action_set.get_action(action_id)
         ]
-        aim_ids = [
+        hold_angle_ids = [
             action_id
             for action_id in action_set._order
             if action_id.startswith("hold_angle_")
@@ -704,7 +705,7 @@ class BreachPointGame(Game):
             action_id for action_id in objective_ids if action_set.get_action(action_id)
         ]
         action_set._order.extend(weapon_ids)
-        action_set._order.extend(aim_ids)
+        action_set._order.extend(hold_angle_ids)
         action_set._order.extend(shoot_ids)
         action_set._order.extend(utility_ids)
         action_set._order.extend(move_ids)
@@ -795,7 +796,7 @@ class BreachPointGame(Game):
     def before_menu_build(self, player: Player) -> None:
         turn_set = self.get_action_set(player, "turn")
         if turn_set:
-            self._sync_aim_actions(turn_set)
+            self._sync_hold_angle_actions(turn_set)
             self._sync_shoot_actions(turn_set, player)
             self._sync_utility_actions(turn_set)
             self._apply_turn_action_order(turn_set)
@@ -867,6 +868,7 @@ class BreachPointGame(Game):
         self.winning_team_index = -1
         self.last_round_win_reason = ""
         self.win_reason = ""
+        self._bot_coordinator.clear()
         self._apply_current_sides(active_players)
         self._reset_economy(self.economy.starting_cash, active_players)
         self._prepare_combat_round(active_players)
@@ -898,22 +900,20 @@ class BreachPointGame(Game):
 
         for player in active_players:
             if player.eliminated:
+                player.sidearm_weapon_id = ""
                 player.primary_weapon_id = ""
                 player.armor = 0
                 player.utility_counts = {}
                 player.equipment_counts = {}
-            primary = get_weapon(player.primary_weapon_id)
-            if (
-                not primary
-                or primary.slot != WEAPON_SLOT_PRIMARY
-                or player.team_index not in primary.allowed_sides
-            ):
+            primary = self._primary_weapon(player)
+            if not primary:
                 player.primary_weapon_id = ""
-            sidearm = get_default_sidearm(player.team_index)
+            sidearm = self._sidearm(player)
+            if not sidearm:
+                sidearm = get_default_sidearm(player.team_index)
+                player.sidearm_weapon_id = sidearm.id if sidearm else ""
             player.equipped_weapon_id = (
-                (player.primary_weapon_id if player.primary_weapon_id else sidearm.id)
-                if sidearm
-                else ""
+                primary.id if primary else sidearm.id if sidearm else ""
             )
             player.position_id = self._spawn_for_team(player.team_index)
             player.health = self.rules.max_health
@@ -961,6 +961,8 @@ class BreachPointGame(Game):
         ]
         for player in players:
             player.cash = starting_cash
+            sidearm = get_default_sidearm(player.team_index)
+            player.sidearm_weapon_id = sidearm.id if sidearm else ""
             player.primary_weapon_id = ""
             player.armor = 0
             player.utility_counts = {}
@@ -973,7 +975,6 @@ class BreachPointGame(Game):
             player.flash_penalty = 0
             player.held_angle_node_id = ""
             player.held_angle_origin_id = ""
-            sidearm = get_default_sidearm(player.team_index)
             player.equipped_weapon_id = sidearm.id if sidearm else ""
 
     def _start_buy_phase(self) -> None:
@@ -1009,7 +1010,9 @@ class BreachPointGame(Game):
             "breachpoint-buy-turn",
             buffer="game",
             cash=player.cash,
-            weapon=self._weapon_name(user.locale, self._equipped_weapon(player)),
+            primary=self._weapon_name(user.locale, self._primary_weapon(player)),
+            sidearm=self._weapon_name(user.locale, self._sidearm(player)),
+            equipped=self._weapon_name(user.locale, self._equipped_weapon(player)),
             armor=player.armor,
             utility=self._utility_summary(user.locale, player),
             equipment=self._equipment_summary(user.locale, player),
@@ -1159,15 +1162,13 @@ class BreachPointGame(Game):
                 player.position_id = self._spawn_for_team(player.team_index)
             player.cash = max(0, min(self.economy.maximum_cash, player.cash))
             player.armor = max(0, min(self.economy.maximum_armor, player.armor))
-            primary = get_weapon(player.primary_weapon_id)
-            if (
-                not primary
-                or primary.slot != WEAPON_SLOT_PRIMARY
-                or player.team_index not in primary.allowed_sides
-            ):
+            primary = self._primary_weapon(player)
+            if not primary:
                 player.primary_weapon_id = ""
-                primary = None
-            sidearm = get_default_sidearm(player.team_index)
+            sidearm = self._sidearm(player)
+            if not sidearm:
+                sidearm = get_default_sidearm(player.team_index)
+                player.sidearm_weapon_id = sidearm.id if sidearm else ""
             valid_equipped_ids = {
                 weapon.id for weapon in (primary, sidearm) if weapon is not None
             }
@@ -1197,39 +1198,14 @@ class BreachPointGame(Game):
                 0,
                 min(self.rules.action_points_per_activation, player.flash_penalty),
             )
-            player.weapon_shots_fired_this_activation = {
-                weapon_id: max(
-                    0,
-                    min(
-                        weapon.shots_per_activation,
-                        shot_count,
-                    ),
-                )
-                for weapon_id, shot_count in (
-                    player.weapon_shots_fired_this_activation.items()
-                )
-                if weapon_id in owned_weapon_ids
-                and isinstance(shot_count, int)
-                and (weapon := get_weapon(weapon_id)) is not None
-            }
-            player.weapon_target_ids_this_activation = {
-                weapon_id: list(
-                    dict.fromkeys(
-                        target_id
-                        for target_id in target_ids
-                        if target_id in valid_player_ids and target_id != player.id
-                    )
-                )[: weapon.shots_per_activation]
-                for weapon_id, target_ids in (
-                    player.weapon_target_ids_this_activation.items()
-                )
-                if weapon_id in owned_weapon_ids
-                and isinstance(target_ids, list)
-                and (weapon := get_weapon(weapon_id)) is not None
-            }
+            spent_attack_action_points = self._normalize_activation_attack_ledger(
+                player,
+                owned_weapon_ids,
+                valid_player_ids,
+            )
             if (
                 not equipped
-                or not equipped.requires_aim
+                or equipped.hold_action_point_cost <= 0
                 or player.held_angle_origin_id != player.position_id
                 or player.held_angle_node_id not in valid_nodes
                 or not self._can_hold_angle(player, player.held_angle_node_id, equipped)
@@ -1264,15 +1240,9 @@ class BreachPointGame(Game):
                     player.action_points = max(
                         0,
                         min(
-                            self.rules.action_points_per_activation,
+                            self.rules.action_points_per_activation
+                            - spent_attack_action_points,
                             player.action_points,
-                        ),
-                    )
-                    player.shots_fired_this_activation = max(
-                        0,
-                        min(
-                            self.rules.action_points_per_activation,
-                            player.shots_fired_this_activation,
                         ),
                     )
 
@@ -1723,6 +1693,53 @@ class BreachPointGame(Game):
                 normalized[equipment.id] = min(equipment.maximum_carry, count)
         player.equipment_counts = normalized
 
+    def _normalize_activation_attack_ledger(
+        self,
+        player: BreachPointPlayer,
+        owned_weapon_ids: set[str],
+        valid_player_ids: set[str],
+    ) -> int:
+        """Bound restored attacks by weapon capacity and the activation AP budget."""
+
+        remaining_action_points = self.rules.action_points_per_activation
+        normalized_shots: dict[str, int] = {}
+        for weapon_id, shot_count in (
+            player.weapon_shots_fired_this_activation.items()
+        ):
+            weapon = get_weapon(weapon_id)
+            if (
+                weapon_id not in owned_weapon_ids
+                or not weapon
+                or not isinstance(shot_count, int)
+                or isinstance(shot_count, bool)
+                or shot_count <= 0
+            ):
+                continue
+            normalized_count = min(
+                weapon.shots_per_activation,
+                shot_count,
+                remaining_action_points // weapon.action_point_cost,
+            )
+            if normalized_count <= 0:
+                continue
+            normalized_shots[weapon_id] = normalized_count
+            remaining_action_points -= normalized_count * weapon.action_point_cost
+
+        player.weapon_shots_fired_this_activation = normalized_shots
+        player.weapon_target_ids_this_activation = {
+            weapon_id: list(
+                dict.fromkeys(
+                    target_id
+                    for target_id in target_ids
+                    if target_id in valid_player_ids and target_id != player.id
+                )
+            )[: normalized_shots[weapon_id]]
+            for weapon_id, target_ids in player.weapon_target_ids_this_activation.items()
+            if weapon_id in normalized_shots and isinstance(target_ids, list)
+        }
+        player.shots_fired_this_activation = sum(normalized_shots.values())
+        return self.rules.action_points_per_activation - remaining_action_points
+
     def _modified_action_point_cost(
         self,
         player: BreachPointPlayer,
@@ -1783,7 +1800,14 @@ class BreachPointGame(Game):
         player.stationary_guard_activations = 0
 
     def _sidearm(self, player: BreachPointPlayer) -> WeaponProfile | None:
-        return get_default_sidearm(player.team_index)
+        weapon = get_weapon(player.sidearm_weapon_id)
+        if (
+            weapon
+            and weapon.slot == WEAPON_SLOT_SIDEARM
+            and player.team_index in weapon.allowed_sides
+        ):
+            return weapon
+        return None
 
     def _primary_weapon(self, player: BreachPointPlayer) -> WeaponProfile | None:
         weapon = get_weapon(player.primary_weapon_id)
@@ -1815,9 +1839,9 @@ class BreachPointGame(Game):
         distance = self._node_distance(player.position_id, node_id)
         return bool(
             weapon
-            and weapon.requires_aim
+            and weapon.hold_action_point_cost > 0
             and source
-            and node_id in source.sightlines
+            and (node_id == player.position_id or node_id in source.sightlines)
             and distance is not None
             and distance <= weapon.max_range
         )
@@ -2259,6 +2283,7 @@ class BreachPointGame(Game):
             location=self._node_name(
                 locale, self.reaction_window.context.get("node_id", "")
             ),
+            percent=weapon.reaction_damage_percent if weapon else 0,
         )
 
     def _get_reaction_pass_label(self, player: Player, action_id: str) -> str:
@@ -2302,8 +2327,16 @@ class BreachPointGame(Game):
             or tactical_player.team_index not in weapon.allowed_sides
         ):
             return "breachpoint-error-weapon-unavailable"
-        if tactical_player.primary_weapon_id:
+        if (
+            weapon.slot == WEAPON_SLOT_PRIMARY
+            and tactical_player.primary_weapon_id == weapon.id
+        ):
             return "breachpoint-error-primary-owned"
+        if (
+            weapon.slot == WEAPON_SLOT_SIDEARM
+            and tactical_player.sidearm_weapon_id == weapon.id
+        ):
+            return "breachpoint-error-sidearm-owned"
         if tactical_player.cash < weapon.cost:
             return (
                 "breachpoint-error-not-enough-cash",
@@ -2559,8 +2592,12 @@ class BreachPointGame(Game):
         tactical_player = self._breach_player(player)
         weapon = self._equipped_weapon(tactical_player) if tactical_player else None
         node_id = self._node_from_hold_action(action_id or "")
-        if not tactical_player or not weapon or not weapon.requires_aim:
-            return "breachpoint-error-aim-unavailable"
+        if (
+            not tactical_player
+            or not weapon
+            or weapon.hold_action_point_cost <= 0
+        ):
+            return "breachpoint-error-hold-unavailable"
         if not self._can_hold_angle(tactical_player, node_id, weapon):
             return "breachpoint-error-illegal-angle"
         if (
@@ -2568,11 +2605,13 @@ class BreachPointGame(Game):
             and tactical_player.held_angle_node_id == node_id
         ):
             return "breachpoint-error-angle-held"
-        if tactical_player.action_points < weapon.aim_action_point_cost:
+        if tactical_player.shots_fired_this_activation:
+            return "breachpoint-error-hold-after-firing"
+        if tactical_player.action_points < weapon.hold_action_point_cost:
             return (
                 "breachpoint-error-not-enough-ap",
                 {
-                    "needed": weapon.aim_action_point_cost,
+                    "needed": weapon.hold_action_point_cost,
                     "remaining": tactical_player.action_points,
                 },
             )
@@ -2589,7 +2628,7 @@ class BreachPointGame(Game):
             "breachpoint-action-hold-angle",
             weapon=self._weapon_name(locale, weapon),
             location=self._node_name(locale, node_id),
-            cost=weapon.aim_action_point_cost if weapon else 0,
+            cost=weapon.hold_action_point_cost if weapon else 0,
         )
 
     def _is_throw_utility_hidden(
@@ -2631,7 +2670,11 @@ class BreachPointGame(Game):
                 "breachpoint-error-utility-range",
                 {"range": utility.throw_range},
             )
-        if utility.effect == UTILITY_EFFECT_SMOKE and self._is_smoked(node_id):
+        if (
+            utility.effect == UTILITY_EFFECT_SMOKE
+            and self._is_smoked(node_id)
+            and self._team_knows_smoke(tactical_player.team_index, node_id)
+        ):
             return "breachpoint-error-smoke-active"
         if tactical_player.action_points < utility.action_point_cost:
             return (
@@ -3086,7 +3129,7 @@ class BreachPointGame(Game):
             responder,
             target,
             weapon,
-            damage_percent=100,
+            damage_percent=weapon.reaction_damage_percent,
         )
         if round_finished:
             return
@@ -3125,7 +3168,10 @@ class BreachPointGame(Game):
         if not buyer or not weapon or not user:
             return
         buyer.cash -= weapon.cost
-        buyer.primary_weapon_id = weapon.id
+        if weapon.slot == WEAPON_SLOT_PRIMARY:
+            buyer.primary_weapon_id = weapon.id
+        elif weapon.slot == WEAPON_SLOT_SIDEARM:
+            buyer.sidearm_weapon_id = weapon.id
         buyer.equipped_weapon_id = weapon.id
         user.speak_l(
             "breachpoint-buy-weapon-complete",
@@ -3256,17 +3302,17 @@ class BreachPointGame(Game):
     def _action_hold_angle(self, player: Player, action_id: str) -> None:
         if self._is_hold_angle_enabled(player, action_id=action_id):
             return
-        sniper = self._breach_player(player)
-        weapon = self._equipped_weapon(sniper) if sniper else None
+        holder = self._breach_player(player)
+        weapon = self._equipped_weapon(holder) if holder else None
         node_id = self._node_from_hold_action(action_id)
         if (
-            not sniper
+            not holder
             or not weapon
-            or not self._spend_action_points(sniper, weapon.aim_action_point_cost)
+            or not self._spend_action_points(holder, weapon.hold_action_point_cost)
         ):
             return
-        sniper.held_angle_origin_id = sniper.position_id
-        sniper.held_angle_node_id = node_id
+        holder.held_angle_origin_id = holder.position_id
+        holder.held_angle_node_id = node_id
         for listener in self.players:
             tactical_listener = self._breach_player(listener)
             user = self.get_user(listener)
@@ -3274,22 +3320,22 @@ class BreachPointGame(Game):
                 not tactical_listener
                 or not user
                 or tactical_listener.is_spectator
-                or tactical_listener.team_index != sniper.team_index
+                or tactical_listener.team_index != holder.team_index
             ):
                 continue
             user.speak_l(
                 (
                     "breachpoint-hold-angle-you"
-                    if listener.id == sniper.id
+                    if listener.id == holder.id
                     else "breachpoint-hold-angle-player"
                 ),
                 buffer="game",
-                player=sniper.name,
+                player=holder.name,
                 weapon=self._weapon_name(user.locale, weapon),
                 location=self._node_name(user.locale, node_id),
             )
-        sniper.action_points = 0
-        self._end_activation(sniper)
+        holder.action_points = 0
+        self._end_activation(holder)
 
     def _action_throw_utility(self, player: Player, action_id: str) -> None:
         if self._is_throw_utility_enabled(player, action_id=action_id):
@@ -3313,8 +3359,9 @@ class BreachPointGame(Game):
             visible_team_indexes,
         )
         if utility.effect == UTILITY_EFFECT_SMOKE:
-            self.smoke_expirations[node_id] = (
-                self.tactical_round + utility.duration_tactical_rounds
+            self.smoke_expirations[node_id] = max(
+                self.smoke_expirations.get(node_id, 0),
+                self.tactical_round + utility.duration_tactical_rounds,
             )
             for team_index in visible_team_indexes:
                 self._remember_smoke_for_team(node_id, team_index)
@@ -3387,6 +3434,7 @@ class BreachPointGame(Game):
             friendly_contact_visibility_before,
         )
         if self._open_watched_entry_reaction(tactical_player, destination.id):
+            self._bot_coordinator.observe(self)
             return
         self._finish_action(tactical_player)
 
@@ -4434,6 +4482,7 @@ class BreachPointGame(Game):
     def _finish_combat_round(self, winning_side_index: int, reason: str) -> None:
         if self.status != "playing":
             return
+        self._bot_coordinator.record_round_result(self, winning_side_index)
         self.reaction_window = ReactionWindow()
         winning_squad_index = self._squad_for_side(winning_side_index)
         winning_team = next(
@@ -4650,7 +4699,11 @@ class BreachPointGame(Game):
             max_health=self.rules.max_health,
             ap=tactical_player.action_points,
             armor=tactical_player.armor,
-            weapon=self._weapon_name(
+            primary=self._weapon_name(
+                user.locale, self._primary_weapon(tactical_player)
+            ),
+            sidearm=self._weapon_name(user.locale, self._sidearm(tactical_player)),
+            equipped=self._weapon_name(
                 user.locale, self._equipped_weapon(tactical_player)
             ),
             utility=self._utility_summary(user.locale, tactical_player),

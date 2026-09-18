@@ -43,7 +43,7 @@ When everyone is ready, the first tactical round begins. Living players receive 
 2. Check \*\*Read tactical map\* or another information action if you need the current situation.
 3. Spend up to 2 AP in any legal order. You can move and shoot, use utility, handle the bomb, or combine actions when their total cost fits.
 4. If an action spends your final AP, the activation ends automatically. Otherwise, choose \*\*End activation\* when finished.
-5. Unused AP becomes evasion only if you did not fire or hold an AWP angle during that activation.
+5. Unused AP becomes evasion only if you did not fire or hold an angle during that activation.
 
 For example, you can spend 1 AP moving from Mid to Mid Doors, then spend the final AP firing at a visible enemy. A CT carrying a Defuse Kit could instead move 1 area and begin defusing with the remaining 1 AP.
 
@@ -53,7 +53,7 @@ Moving to a directly connected area costs 1 AP. Several allies and enemies may o
 
 Leaving an area shared with a living enemy is called \*\*Disengage\* and costs 2 AP. Because that uses the whole normal activation, you cannot shoot or move again afterward.
 
-Moving breaks a prepared AWP angle and resets stationary evasion decay.
+Moving breaks a prepared angle and resets stationary evasion decay.
 
 \*\*Fog of war\*\*
 
@@ -71,28 +71,35 @@ Shooting normally costs 1 AP. The target must be alive, in your own line of sigh
 
 Every player has 100 health. Kevlar absorbs a weapon-specific part of incoming damage before health is reduced, and loses the amount it absorbed. Reaching zero health eliminates the player for the rest of that combat round.
 
-Ending an activation without firing or holding an AWP angle converts unused AP into up to 2 evasion. Evasion affects only the next incoming attack and otherwise expires when your next activation begins. Two evasion avoids one pistol shot completely. Rifle bursts can lose some on-target rounds to evasion, but at least one round still lands. An AWP projectile cannot be avoided; each evasion point instead reduces its damage by 10.
+Ending an activation without firing or holding an angle converts unused AP into up to 2 evasion. Evasion affects only the next incoming attack and otherwise expires when your next activation begins. Two evasion avoids a single-round pistol attack completely; against a close Glock burst, it removes one of the two on-target rounds instead. Rifle and SMG bursts can also lose on-target rounds to evasion, but at least one round still lands. An AWP projectile cannot be avoided; each evasion point instead reduces its damage by 10.
 
 Repeatedly preparing evasion in the same area becomes weaker. The first stationary preparation may use all saved AP, the next loses 1 point, and later stationary preparations fall to 0. Moving to another area resets this decay.
 
 \*\*Weapons\*\*
 
-Switching between an owned primary weapon and your sidearm is free, but it does not restore a weapon's spent attacks. A later attack during the same activation deals reduced damage from recoil and hurried aim.
+Switching between an owned primary weapon and your sidearm is free, but it does not restore a weapon's spent attacks. A later attack during the same activation deals reduced damage from recoil and hurried aim. Buying a weapon replaces the weapon in that slot and equips the new one, so you can upgrade an SMG to a rifle in a later buy phase.
 
-\* \*\*Glock:\*\* Free T sidearm. Range 1; up to two attacks per activation; 38 damage in the same area or 30 at range 1.
+Every firearm can hold its current area or one visible area. Holding an angle costs 1 AP, is available only before you fire during that activation, and ends the activation without preparing evasion. If an enemy later moves into the watched area through a clear sightline, movement pauses before that enemy can spend more AP. The closest eligible watcher may fire or pass; firing consumes the angle, while passing keeps it. Only one response occurs for each move. MAC-10 responses use 50% damage; MP9, Galil AR, and FAMAS responses use 65%; Glock, USP-S, AK-47, and M4 responses use 75%; and Desert Eagle and AWP responses use full damage. Smoke blocks sight from outside the smoked area without consuming the angle, but occupants of that area can still react at point-blank range. A flashbang breaks the affected player's held angle.
+
+\* \*\*Glock:\*\* Free T sidearm. Range 1; up to two attacks per activation. Its three-round burst puts two rounds on target for 38 damage in the same area, but only one round and 30 damage at range 1. The extra on-target round makes close evasion less absolute, while armor still sharply reduces the burst.
 \* \*\*USP-S:\*\* Free CT sidearm. Range 1; up to two attacks per activation; 36 damage in the same area or 32 at range 1.
+\* \*\*Desert Eagle:\*\* Sidearm for either side at $700. Range 2; one precise attack per activation; strong armor penetration and 72, 58, or 44 damage at ranges 0, 1, or 2. Two prepared evasion can still avoid its single shot completely.
+\* \*\*MAC-10:\*\* T primary for $1,050. Range 1; up to two 15-round bursts per activation. It deals 76 damage in the same area but only 36 at range 1. The follow-up deals 55% damage. Its poor armor penetration makes it best for close anti-eco attacks. Eliminations pay $600.
+\* \*\*MP9:\*\* CT primary for $1,250. Range 1; up to two 15-round bursts per activation. It deals 68 damage in the same area or 48 at range 1, and the follow-up deals 60% damage. It is steadier than the MAC-10 at range 1 but remains weak against armor. Eliminations pay $600.
+\* \*\*Galil AR:\*\* T primary for $1,800. Range 2; up to two 12-round bursts per activation, but each burst must target a different enemy. It deals 74, 56, or 34 damage at ranges 0, 1, or 2; the follow-up deals 55% damage. It provides affordable multi-target pressure but cannot match an AK-47 in a focused duel.
+\* \*\*FAMAS:\*\* CT primary for $1,950. Range 2; up to two controlled three-round bursts against the same enemy or two different enemies. It deals 64, 50, or 32 damage at ranges 0, 1, or 2; the follow-up deals 60% damage. Two close bursts can eliminate an unarmored enemy, but armor prevents that quick finish.
 \* \*\*AK-47:\*\* T primary for $2,700. Range 2; one 12-round burst per activation; strong armor penetration and 92, 69, or 46 damage at ranges 0, 1, or 2.
-\* \*\*M4:\*\* CT primary for $2,900. Range 2; up to two 12-round bursts aimed at different enemies; 72, 54, or 36 damage at ranges 0, 1, or 2.
-\* \*\*AWP:\*\* Primary for either side at $4,750. Range 3. Holding an exact area as an AWP angle costs 1 AP and ends the activation. If an enemy later enters that watched area through a clear sightline, normal play pauses before the enemy can spend more AP. You may fire immediately or hold fire and keep the angle. Only one held-angle response occurs for each move. During your own later activation, firing at the prepared area still costs 2 AP. A full-strength AWP shot deals 125, 120, 115, or 110 damage at ranges 0 through 3.
+\* \*\*M4:\*\* CT primary for $2,900. Range 2; up to two controlled 12-round bursts against the same enemy or two different enemies. The first deals 72, 54, or 36 damage at ranges 0, 1, or 2; the follow-up deals 65% of its normal damage.
+\* \*\*AWP:\*\* Primary for either side at $4,750. Range 3. Unlike other weapons, it must already be holding the target's exact area before it can fire during a normal activation. That shot costs 2 AP. An AWP held-angle response uses full damage. A full-strength shot deals 125, 120, 115, or 110 damage at ranges 0 through 3.
 
-An AWP angle remains prepared between activations, but moving, changing weapons, using utility, handling the bomb, taking damage, becoming flashed, or firing breaks it. An AWP elimination pays $100; other weapon eliminations pay $300.
+A held angle remains prepared between activations, but moving, changing weapons, using utility, handling the bomb, taking damage, becoming flashed, or firing breaks it. An AWP elimination pays $100, a MAC-10 or MP9 elimination pays $600, and other weapon eliminations pay $300.
 
 \*\*Utility and equipment\*\*
 
 \* \*\*Kevlar:\*\* Costs $650 and provides 100 armor.
 \* \*\*Defuse Kit:\*\* CT-only equipment costing $400. It reduces a defuse from 2 AP to 1 AP.
 \* \*\*Smoke Grenade:\*\* Costs $300; maximum one carried. Throwing costs 1 AP. Smoke covers the current tactical round and the next, blocking sightlines into and out of that area. Players sharing the smoked area still see one another.
-\* \*\*Flashbang:\*\* Costs $200; maximum two carried. Throwing costs 1 AP. Everyone in the target area except the thrower—including allies—loses 1 AP from their next activation and any prepared AWP angle.
+\* \*\*Flashbang:\*\* Costs $200; maximum two carried. Throwing costs 1 AP. Everyone in the target area except the thrower—including allies—loses 1 AP from their next activation and any prepared angle.
 
 You may throw utility into your current area or a connected area. Your squad always receives a teammate's utility callout. The opposing squad learns the exact throw immediately only when it can see the action; concealed smoke becomes known when the area can later be observed.
 
@@ -128,7 +135,7 @@ Mid Doors has long firing lanes into both bombsites, although movement to either
 
 \*\*Economy and buy phase\*\*
 
-Every regulation half starts each player at $800. Survivors keep their primary weapon, remaining armor, equipment, unused utility, and saved cash for the next combat round. Eliminated players lose their primary weapon, armor, equipment, and utility, but keep their cash and receive the free sidearm for their current side. Cash cannot exceed $16,000.
+Every regulation half starts each player at $800. Survivors keep their primary weapon, sidearm, remaining armor, equipment, unused utility, and saved cash for the next combat round. Eliminated players lose both purchased weapons, armor, equipment, and utility, but keep their cash and receive the free sidearm for their current side. Cash cannot exceed $16,000.
 
 Winners receive $3,250 for an elimination or time win, or $3,500 for a defuse or detonation. The losing squad receives $1,400, $1,900, $2,400, $2,900, then $3,400 as consecutive losses build. Each half starts at the $1,900 step. A loss raises the step; a win lowers it by one. If CT defuses, every T player also receives the $600 planted-bomb loss bonus. Completing a plant or defuse pays that player $300.
 
@@ -144,7 +151,7 @@ If regulation ends level, the selected \*\*Tied match resolution\* either ends t
 
 \*\*Information actions\*\*
 
-\* \*\*Read your tactical status:\*\* Your side, area, health, armor, equipped weapon, equipment, utility, cash, AP, evasion, and prepared AWP angle.
+\* \*\*Read your tactical status:\*\* Your side, area, health, armor, primary, sidearm, equipped weapon, equipment, utility, cash, AP, evasion, and prepared angle.
 \* \*\*Read tactical map:\*\* A live report of areas, connections, firing lanes, known smoke, allies, and visible enemies.
 \* \*\*Read team status:\*\* A live roster with scores, current sides, allies, and visible enemy information.
 \* \*\*Read bomb status:\*\* The bomb information currently known to your side.

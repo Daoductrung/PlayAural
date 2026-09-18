@@ -12,6 +12,19 @@ WEAPON_SLOT_SIDEARM = "sidearm"
 WEAPON_SLOT_PRIMARY = "primary"
 WEAPON_SLOTS = frozenset({WEAPON_SLOT_SIDEARM, WEAPON_SLOT_PRIMARY})
 
+PURCHASE_ROLE_STANDARD = "standard"
+PURCHASE_ROLE_ANTI_ECO = "anti_eco"
+PURCHASE_ROLE_BUDGET = "budget"
+PURCHASE_ROLE_PRECISION = "precision"
+PURCHASE_ROLES = frozenset(
+    {
+        PURCHASE_ROLE_STANDARD,
+        PURCHASE_ROLE_ANTI_ECO,
+        PURCHASE_ROLE_BUDGET,
+        PURCHASE_ROLE_PRECISION,
+    }
+)
+
 
 @dataclass(frozen=True)
 class WeaponProfile:
@@ -35,7 +48,9 @@ class WeaponProfile:
     followup_damage_percent: int
     can_repeat_target: bool
     requires_aim: bool
-    aim_action_point_cost: int
+    hold_action_point_cost: int
+    reaction_damage_percent: int
+    purchase_role: str
     kill_reward: int
 
     def hits_at_range(self, distance: int) -> int:
@@ -139,8 +154,8 @@ GLOCK = WeaponProfile(
     allowed_sides=(SIDE_TERRORISTS,),
     cost=0,
     max_range=1,
-    rounds_per_attack=1,
-    hits_by_range=(1, 1),
+    rounds_per_attack=3,
+    hits_by_range=(2, 1),
     damage_by_range=(38, 30),
     minimum_hits_after_evasion=0,
     evasion_points_per_hit=2,
@@ -151,7 +166,9 @@ GLOCK = WeaponProfile(
     followup_damage_percent=75,
     can_repeat_target=True,
     requires_aim=False,
-    aim_action_point_cost=0,
+    hold_action_point_cost=1,
+    reaction_damage_percent=75,
+    purchase_role=PURCHASE_ROLE_STANDARD,
     kill_reward=300,
 )
 
@@ -174,7 +191,134 @@ USP_S = WeaponProfile(
     followup_damage_percent=75,
     can_repeat_target=True,
     requires_aim=False,
-    aim_action_point_cost=0,
+    hold_action_point_cost=1,
+    reaction_damage_percent=75,
+    purchase_role=PURCHASE_ROLE_STANDARD,
+    kill_reward=300,
+)
+
+DESERT_EAGLE = WeaponProfile(
+    id="desert_eagle",
+    name_key="breachpoint-weapon-desert-eagle",
+    slot=WEAPON_SLOT_SIDEARM,
+    allowed_sides=SIDE_INDEXES,
+    cost=700,
+    max_range=2,
+    rounds_per_attack=1,
+    hits_by_range=(1, 1, 1),
+    damage_by_range=(72, 58, 44),
+    minimum_hits_after_evasion=0,
+    evasion_points_per_hit=2,
+    evasion_damage_reduction_per_point=12,
+    armor_reduction_percent=7,
+    action_point_cost=1,
+    shots_per_activation=1,
+    followup_damage_percent=70,
+    can_repeat_target=True,
+    requires_aim=False,
+    hold_action_point_cost=1,
+    reaction_damage_percent=100,
+    purchase_role=PURCHASE_ROLE_STANDARD,
+    kill_reward=300,
+)
+
+MAC10 = WeaponProfile(
+    id="mac10",
+    name_key="breachpoint-weapon-mac10",
+    slot=WEAPON_SLOT_PRIMARY,
+    allowed_sides=(SIDE_TERRORISTS,),
+    cost=1050,
+    max_range=1,
+    rounds_per_attack=15,
+    hits_by_range=(5, 2),
+    damage_by_range=(76, 36),
+    minimum_hits_after_evasion=1,
+    evasion_points_per_hit=1,
+    evasion_damage_reduction_per_point=5,
+    armor_reduction_percent=40,
+    action_point_cost=1,
+    shots_per_activation=2,
+    followup_damage_percent=55,
+    can_repeat_target=True,
+    requires_aim=False,
+    hold_action_point_cost=1,
+    reaction_damage_percent=50,
+    purchase_role=PURCHASE_ROLE_ANTI_ECO,
+    kill_reward=600,
+)
+
+MP9 = WeaponProfile(
+    id="mp9",
+    name_key="breachpoint-weapon-mp9",
+    slot=WEAPON_SLOT_PRIMARY,
+    allowed_sides=(SIDE_COUNTER_TERRORISTS,),
+    cost=1250,
+    max_range=1,
+    rounds_per_attack=15,
+    hits_by_range=(4, 3),
+    damage_by_range=(68, 48),
+    minimum_hits_after_evasion=1,
+    evasion_points_per_hit=1,
+    evasion_damage_reduction_per_point=5,
+    armor_reduction_percent=35,
+    action_point_cost=1,
+    shots_per_activation=2,
+    followup_damage_percent=60,
+    can_repeat_target=True,
+    requires_aim=False,
+    hold_action_point_cost=1,
+    reaction_damage_percent=65,
+    purchase_role=PURCHASE_ROLE_ANTI_ECO,
+    kill_reward=600,
+)
+
+GALIL_AR = WeaponProfile(
+    id="galil_ar",
+    name_key="breachpoint-weapon-galil-ar",
+    slot=WEAPON_SLOT_PRIMARY,
+    allowed_sides=(SIDE_TERRORISTS,),
+    cost=1800,
+    max_range=2,
+    rounds_per_attack=12,
+    hits_by_range=(4, 3, 1),
+    damage_by_range=(74, 56, 34),
+    minimum_hits_after_evasion=1,
+    evasion_points_per_hit=1,
+    evasion_damage_reduction_per_point=7,
+    armor_reduction_percent=22,
+    action_point_cost=1,
+    shots_per_activation=2,
+    followup_damage_percent=55,
+    can_repeat_target=False,
+    requires_aim=False,
+    hold_action_point_cost=1,
+    reaction_damage_percent=65,
+    purchase_role=PURCHASE_ROLE_BUDGET,
+    kill_reward=300,
+)
+
+FAMAS = WeaponProfile(
+    id="famas",
+    name_key="breachpoint-weapon-famas",
+    slot=WEAPON_SLOT_PRIMARY,
+    allowed_sides=(SIDE_COUNTER_TERRORISTS,),
+    cost=1950,
+    max_range=2,
+    rounds_per_attack=3,
+    hits_by_range=(3, 2, 1),
+    damage_by_range=(64, 50, 32),
+    minimum_hits_after_evasion=1,
+    evasion_points_per_hit=1,
+    evasion_damage_reduction_per_point=6,
+    armor_reduction_percent=30,
+    action_point_cost=1,
+    shots_per_activation=2,
+    followup_damage_percent=60,
+    can_repeat_target=True,
+    requires_aim=False,
+    hold_action_point_cost=1,
+    reaction_damage_percent=65,
+    purchase_role=PURCHASE_ROLE_BUDGET,
     kill_reward=300,
 )
 
@@ -197,7 +341,9 @@ AK47 = WeaponProfile(
     followup_damage_percent=65,
     can_repeat_target=True,
     requires_aim=False,
-    aim_action_point_cost=0,
+    hold_action_point_cost=1,
+    reaction_damage_percent=75,
+    purchase_role=PURCHASE_ROLE_STANDARD,
     kill_reward=300,
 )
 
@@ -217,10 +363,12 @@ M4 = WeaponProfile(
     armor_reduction_percent=25,
     action_point_cost=1,
     shots_per_activation=2,
-    followup_damage_percent=75,
-    can_repeat_target=False,
+    followup_damage_percent=65,
+    can_repeat_target=True,
     requires_aim=False,
-    aim_action_point_cost=0,
+    hold_action_point_cost=1,
+    reaction_damage_percent=75,
+    purchase_role=PURCHASE_ROLE_STANDARD,
     kill_reward=300,
 )
 
@@ -243,7 +391,9 @@ AWP = WeaponProfile(
     followup_damage_percent=100,
     can_repeat_target=True,
     requires_aim=True,
-    aim_action_point_cost=1,
+    hold_action_point_cost=1,
+    reaction_damage_percent=100,
+    purchase_role=PURCHASE_ROLE_PRECISION,
     kill_reward=100,
 )
 
@@ -288,6 +438,11 @@ WEAPONS = {
     for weapon in (
         GLOCK,
         USP_S,
+        DESERT_EAGLE,
+        MAC10,
+        MP9,
+        GALIL_AR,
+        FAMAS,
         AK47,
         M4,
         AWP,
@@ -330,6 +485,8 @@ def _validate_weapon(weapon: WeaponProfile) -> None:
         raise ValueError("Weapons require stable ids and localized names")
     if weapon.slot not in WEAPON_SLOTS:
         raise ValueError(f"Weapon {weapon.id} has an invalid slot")
+    if weapon.purchase_role not in PURCHASE_ROLES:
+        raise ValueError(f"Weapon {weapon.id} has an invalid purchase role")
     if not weapon.allowed_sides or any(
         side not in SIDE_INDEXES for side in weapon.allowed_sides
     ):
@@ -338,12 +495,14 @@ def _validate_weapon(weapon: WeaponProfile) -> None:
     if (
         weapon.cost < 0
         or weapon.max_range < 0
+        or weapon.hold_action_point_cost < 0
         or len(weapon.hits_by_range) != range_value_count
         or len(weapon.damage_by_range) != range_value_count
         or weapon.minimum_hits_after_evasion < 0
         or weapon.evasion_damage_reduction_per_point < 0
         or not 0 <= weapon.armor_reduction_percent <= 100
         or not 1 <= weapon.followup_damage_percent <= 100
+        or not 1 <= weapon.reaction_damage_percent <= 100
         or any(
             value <= 0
             for value in (
@@ -366,8 +525,8 @@ def _validate_weapon(weapon: WeaponProfile) -> None:
         raise ValueError(f"Weapon {weapon.id} hit profile must not rise with range")
     if tuple(sorted(weapon.damage_by_range, reverse=True)) != weapon.damage_by_range:
         raise ValueError(f"Weapon {weapon.id} damage must not rise with range")
-    if weapon.requires_aim != (weapon.aim_action_point_cost > 0):
-        raise ValueError(f"Weapon {weapon.id} has inconsistent aim requirements")
+    if weapon.requires_aim and weapon.hold_action_point_cost <= 0:
+        raise ValueError(f"Weapon {weapon.id} cannot satisfy its aim requirement")
 
 
 def _validate_utility(utility: UtilityProfile) -> None:
@@ -460,6 +619,17 @@ def _validate_economy(economy: EconomyProfile) -> None:
 
 for _weapon in WEAPONS.values():
     _validate_weapon(_weapon)
+if set(DEFAULT_SIDEARMS) != set(SIDE_INDEXES):
+    raise ValueError("Every side requires exactly one default sidearm")
+for _side_index, _weapon_id in DEFAULT_SIDEARMS.items():
+    _default_sidearm = WEAPONS.get(_weapon_id)
+    if (
+        not _default_sidearm
+        or _default_sidearm.slot != WEAPON_SLOT_SIDEARM
+        or _default_sidearm.cost != 0
+        or _side_index not in _default_sidearm.allowed_sides
+    ):
+        raise ValueError(f"Side {_side_index} has an invalid default sidearm")
 for _utility in UTILITIES.values():
     _validate_utility(_utility)
 for _equipment in EQUIPMENT.values():
@@ -479,13 +649,21 @@ def get_default_sidearm(side_index: int) -> WeaponProfile | None:
     return get_weapon(DEFAULT_SIDEARMS.get(side_index, ""))
 
 
-def get_purchasable_weapons(side_index: int) -> tuple[WeaponProfile, ...]:
-    """Return purchasable weapons available to a side in registry order."""
+def get_purchasable_weapons(
+    side_index: int,
+    slot: str | None = None,
+) -> tuple[WeaponProfile, ...]:
+    """Return side-appropriate purchasable weapons, optionally for one slot."""
+
+    if slot is not None and slot not in WEAPON_SLOTS:
+        return ()
 
     return tuple(
         weapon
         for weapon in WEAPONS.values()
-        if weapon.cost > 0 and side_index in weapon.allowed_sides
+        if weapon.cost > 0
+        and side_index in weapon.allowed_sides
+        and (slot is None or weapon.slot == slot)
     )
 
 

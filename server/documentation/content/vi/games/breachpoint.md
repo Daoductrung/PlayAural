@@ -43,7 +43,7 @@ Khi tất cả đã sẵn sàng, vòng chiến thuật đầu tiên bắt đầu
 2. Dùng \*\*Xem bản đồ chiến thuật\* hoặc một hành động thông tin khác nếu cần nắm lại tình hình.
 3. Dùng tối đa 2 điểm hành động theo bất kỳ thứ tự hợp lệ nào. Bạn có thể di chuyển rồi bắn, ném lựu đạn, xử lý bom hoặc kết hợp nhiều việc nếu đủ điểm.
 4. Hành động dùng hết điểm cuối cùng sẽ tự kết thúc lượt. Nếu vẫn còn điểm mà không muốn làm gì thêm, hãy chọn \*\*Kết thúc lượt\*.
-5. Điểm chưa dùng chỉ chuyển thành né tránh nếu trong lượt đó bạn không bắn và không giữ góc AWP.
+5. Điểm chưa dùng chỉ chuyển thành né tránh nếu trong lượt đó bạn không bắn và không giữ góc.
 
 Ví dụ, bạn có thể tốn 1 điểm đi từ Đường Giữa đến Cửa Giữa, rồi dùng điểm cuối để bắn một kẻ địch đang nhìn thấy. Một CT có Bộ Gỡ Bom có thể dùng 1 điểm đi vào khu vực có bom, rồi dùng điểm còn lại để bắt đầu gỡ.
 
@@ -53,7 +53,7 @@ Ví dụ, bạn có thể tốn 1 điểm đi từ Đường Giữa đến Cửa
 
 Rời khỏi khu vực đang có kẻ địch còn sống được gọi là \*\*Thoát giao tranh\* và tốn 2 điểm. Vì hành động này dùng trọn lượt thông thường, bạn không thể bắn hay di chuyển tiếp sau đó.
 
-Di chuyển làm mất góc AWP đang giữ và đặt lại mức giảm né tránh do đứng yên.
+Di chuyển làm mất góc đang giữ và đặt lại mức giảm né tránh do đứng yên.
 
 \*\*Sương mù chiến tranh\*\*
 
@@ -71,28 +71,35 @@ Bắn thường tốn 1 điểm hành động. Mục tiêu phải còn sống, n
 
 Mỗi người có 100 máu. Giáp Kevlar hấp thụ một phần sát thương tùy theo vũ khí trước khi trừ máu, rồi mất đúng lượng giáp đã hấp thụ. Người hết máu bị hạ trong phần còn lại của hiệp đấu.
 
-Nếu kết thúc lượt mà chưa bắn và chưa giữ góc AWP, điểm hành động còn dư sẽ chuyển thành tối đa 2 né tránh. Né tránh chỉ có tác dụng với đòn tấn công kế tiếp và tự hết khi lượt sau của bạn bắt đầu. Hai né tránh chặn hoàn toàn một phát súng ngắn. Với loạt súng trường, né tránh loại bớt các viên hướng trúng nhưng ít nhất một viên vẫn trúng. Đạn AWP không thể bị né; thay vào đó, mỗi điểm né tránh giảm 10 sát thương.
+Nếu kết thúc lượt mà chưa bắn và chưa giữ góc, điểm hành động còn dư sẽ chuyển thành tối đa 2 né tránh. Né tránh chỉ có tác dụng với đòn tấn công kế tiếp và tự hết khi lượt sau của bạn bắt đầu. Hai né tránh chặn hoàn toàn một lần bắn súng ngắn chỉ trúng một viên; với loạt Glock ở cự ly gần, nó loại một trong hai viên hướng trúng. Né tránh cũng loại bớt các viên hướng trúng trong loạt súng trường và súng tiểu liên, nhưng ít nhất một viên vẫn trúng. Đạn AWP không thể bị né; thay vào đó, mỗi điểm né tránh giảm 10 sát thương.
 
 Đứng yên mãi một chỗ làm né tránh yếu dần. Lần chuẩn bị đầu tiên tại chỗ có thể dùng hết số điểm để dành; lần kế tiếp bị giảm 1; những lần sau giảm về 0. Chuyển sang khu vực khác sẽ xóa mức giảm này.
 
 \*\*Vũ khí\*\*
 
-Đổi giữa vũ khí chính đang sở hữu và súng ngắn là miễn phí, nhưng không khôi phục số lần bắn đã dùng của khẩu súng đó. Đòn tấn công sau trong cùng lượt bị giảm sát thương vì độ giật và ngắm vội.
+Đổi giữa vũ khí chính đang sở hữu và súng ngắn là miễn phí, nhưng không khôi phục số lần bắn đã dùng của khẩu súng đó. Đòn tấn công sau trong cùng lượt bị giảm sát thương vì độ giật và ngắm vội. Khi mua vũ khí mới, bạn thay khẩu súng trong đúng ô đó và lập tức cầm khẩu mới; vì vậy, ở giai đoạn mua sau, bạn có thể nâng cấp súng tiểu liên lên súng trường.
 
-\* \*\*Glock:\*\* Súng ngắn miễn phí của T. Tầm 1; tối đa hai phát mỗi lượt; gây 38 sát thương khi đứng chung khu vực hoặc 30 ở tầm 1.
+Mọi loại súng đều có thể giữ khu vực đang đứng hoặc một khu vực đang nhìn thấy. Giữ góc tốn 1 điểm, chỉ dùng được trước khi bạn bắn trong lượt đó, rồi kết thúc lượt mà không tạo né tránh. Nếu về sau kẻ địch đi vào khu vực đang bị canh qua một đường ngắm thông thoáng, bước di chuyển của họ tạm dừng trước khi họ dùng thêm điểm. Người giữ góc hợp lệ ở gần nhất được bắn hoặc bỏ qua; bắn sẽ làm mất góc, còn bỏ qua thì tiếp tục giữ. Mỗi lần di chuyển chỉ mở một lượt đáp trả. MAC-10 gây 50% sát thương khi đáp trả; MP9, Galil AR và FAMAS gây 65%; Glock, USP-S, AK-47 và M4 gây 75%; còn Desert Eagle và AWP gây đủ sát thương. Khói chặn tầm nhìn từ bên ngoài vào khu vực có khói mà không làm mất góc, nhưng người đang đứng trong đó vẫn được đáp trả ở cự ly sát sườn. Lựu Đạn Choáng làm người trúng mất góc đang giữ.
+
+\* \*\*Glock:\*\* Súng ngắn miễn phí của T. Tầm 1; tối đa hai lần bắn mỗi lượt. Loạt ba viên sẽ trúng hai viên, gây 38 sát thương khi đứng chung khu vực, nhưng ở tầm 1 chỉ trúng một viên và gây 30 sát thương. Viên hướng trúng thứ hai khiến né tránh ở cự ly gần bớt tuyệt đối, còn giáp vẫn giảm mạnh sức sát thương của loạt bắn.
 \* \*\*USP-S:\*\* Súng ngắn miễn phí của CT. Tầm 1; tối đa hai phát mỗi lượt; gây 36 sát thương khi đứng chung khu vực hoặc 32 ở tầm 1.
+\* \*\*Desert Eagle:\*\* Súng ngắn cho cả hai phe, giá $700. Tầm 2; một phát chính xác mỗi lượt; xuyên giáp tốt và gây 72, 58 hoặc 44 sát thương ở tầm 0, 1 hoặc 2. Hai né tránh đã chuẩn bị vẫn có thể né hoàn toàn phát bắn duy nhất này.
+\* \*\*MAC-10:\*\* Vũ khí chính của T, giá $1.050. Tầm 1; tối đa hai loạt 15 viên mỗi lượt. Súng gây 76 sát thương khi đứng chung khu vực nhưng chỉ còn 36 ở tầm 1. Loạt sau gây 55% sát thương. Khả năng xuyên giáp yếu khiến súng phù hợp nhất để áp sát đối thủ đang tiết kiệm. Mỗi lần hạ đối thủ được thưởng $600.
+\* \*\*MP9:\*\* Vũ khí chính của CT, giá $1.250. Tầm 1; tối đa hai loạt 15 viên mỗi lượt. Súng gây 68 sát thương khi đứng chung khu vực hoặc 48 ở tầm 1; loạt sau gây 60% sát thương. MP9 ổn định hơn MAC-10 ở tầm 1 nhưng vẫn yếu trước giáp. Mỗi lần hạ đối thủ được thưởng $600.
+\* \*\*Galil AR:\*\* Vũ khí chính của T, giá $1.800. Tầm 2; tối đa hai loạt 12 viên mỗi lượt, nhưng mỗi loạt phải nhắm vào một kẻ địch khác nhau. Súng gây 74, 56 hoặc 34 sát thương ở tầm 0, 1 hoặc 2; loạt sau gây 55% sát thương. Đây là lựa chọn vừa túi tiền để ghìm chân nhiều mục tiêu, nhưng không thể đấu tay đôi ngang sức với AK-47.
+\* \*\*FAMAS:\*\* Vũ khí chính của CT, giá $1.950. Tầm 2; tối đa hai loạt ba viên có kiểm soát, nhắm vào cùng một kẻ địch hoặc hai kẻ địch khác nhau. Súng gây 64, 50 hoặc 32 sát thương ở tầm 0, 1 hoặc 2; loạt sau gây 60% sát thương. Hai loạt ở cự ly sát sườn đủ hạ đối thủ không giáp, nhưng không thể kết liễu nhanh đối thủ có giáp.
 \* \*\*AK-47:\*\* Vũ khí chính của T, giá $2.700. Tầm 2; một loạt 12 viên mỗi lượt; xuyên giáp tốt và gây 92, 69 hoặc 46 sát thương ở tầm 0, 1 hoặc 2.
-\* \*\*M4:\*\* Vũ khí chính của CT, giá $2.900. Tầm 2; tối đa hai loạt 12 viên nhắm vào hai kẻ địch khác nhau; gây 72, 54 hoặc 36 sát thương ở tầm 0, 1 hoặc 2.
-\* \*\*AWP:\*\* Vũ khí chính cho cả hai phe, giá $4.750. Tầm 3. Giữ góc AWP về đúng khu vực mục tiêu tốn 1 điểm và kết thúc lượt. Nếu sau đó kẻ địch đi vào khu vực đang bị canh qua một đường ngắm thông thoáng, lượt của họ tạm dừng trước khi họ dùng thêm điểm. Bạn được bắn ngay hoặc không bắn để tiếp tục giữ góc. Mỗi lần di chuyển chỉ mở một lượt giữ góc. Trong lượt thường về sau của bạn, bắn vào khu vực đã giữ vẫn tốn 2 điểm. Một phát AWP toàn lực gây 125, 120, 115 hoặc 110 sát thương từ tầm 0 đến 3.
+\* \*\*M4:\*\* Vũ khí chính của CT, giá $2.900. Tầm 2; tối đa hai loạt 12 viên có kiểm soát, nhắm vào cùng một kẻ địch hoặc hai kẻ địch khác nhau. Loạt đầu gây 72, 54 hoặc 36 sát thương ở tầm 0, 1 hoặc 2; loạt sau gây 65% sát thương thông thường.
+\* \*\*AWP:\*\* Vũ khí chính cho cả hai phe, giá $4.750. Tầm 3. Khác với các súng khác, AWP phải giữ đúng khu vực của mục tiêu từ trước mới được bắn trong lượt thường. Phát bắn đó tốn 2 điểm. Khi đáp trả từ góc đang giữ, AWP gây đủ sát thương. Một phát toàn lực gây 125, 120, 115 hoặc 110 sát thương từ tầm 0 đến 3.
 
-Góc AWP được giữ qua nhiều lượt, nhưng sẽ mất khi bạn di chuyển, đổi vũ khí, dùng lựu đạn, xử lý bom, chịu sát thương, bị choáng hoặc khai hỏa. Hạ đối thủ bằng AWP được thưởng $100; các vũ khí khác được thưởng $300.
+Góc đã giữ được duy trì qua nhiều lượt, nhưng sẽ mất khi bạn di chuyển, đổi vũ khí, dùng lựu đạn, xử lý bom, chịu sát thương, bị choáng hoặc khai hỏa. Hạ đối thủ bằng AWP được thưởng $100, bằng MAC-10 hoặc MP9 được thưởng $600, còn các vũ khí khác được thưởng $300.
 
 \*\*Lựu đạn và trang bị\*\*
 
 \* \*\*giáp Kevlar:\*\* Giá $650, cung cấp 100 giáp.
 \* \*\*Bộ Gỡ Bom:\*\* Trang bị riêng của CT, giá $400. Nó giảm chi phí gỡ bom từ 2 điểm xuống 1 điểm.
 \* \*\*Lựu Đạn Khói:\*\* Giá $300, được mang tối đa một quả. Ném tốn 1 điểm. Khói che khu vực trong vòng chiến thuật hiện tại và vòng kế tiếp, chặn đường ngắm vào và ra; những người đứng chung trong khói vẫn nhìn thấy nhau.
-\* \*\*Lựu Đạn Choáng:\*\* Giá $200, được mang tối đa hai quả. Ném tốn 1 điểm. Mọi người trong khu vực mục tiêu trừ người ném—kể cả đồng đội—mất 1 điểm ở lượt kế tiếp và mất góc AWP đang giữ.
+\* \*\*Lựu Đạn Choáng:\*\* Giá $200, được mang tối đa hai quả. Ném tốn 1 điểm. Mọi người trong khu vực mục tiêu trừ người ném—kể cả đồng đội—mất 1 điểm ở lượt kế tiếp và mất góc đang giữ.
 
 Bạn được ném lựu đạn vào vị trí hiện tại hoặc một khu vực liền kề. Đội bạn luôn nghe thông báo khi đồng đội ném. Đối thủ chỉ biết ngay loại lựu đạn và đích ném nếu họ nhìn thấy hành động đó; khói bị che giấu sẽ lộ ra khi về sau họ quan sát được khu vực.
 
@@ -128,7 +135,7 @@ Cửa Giữa có đường bắn dài tới cả hai khu đặt bom, dù muốn 
 
 \*\*Kinh tế và giai đoạn mua\*\*
 
-Mỗi nửa thời gian thi đấu chính thức bắt đầu với $800 cho mỗi người. Người sống sót giữ vũ khí chính, số giáp còn lại, trang bị, lựu đạn chưa dùng và tiền tiết kiệm sang hiệp sau. Người bị hạ mất vũ khí chính, giáp, trang bị và lựu đạn, nhưng vẫn giữ tiền và nhận súng ngắn miễn phí của phe hiện tại. Tiền tối đa là $16.000.
+Mỗi nửa thời gian thi đấu chính thức bắt đầu với $800 cho mỗi người. Người sống sót giữ vũ khí chính, súng ngắn, số giáp còn lại, trang bị, lựu đạn chưa dùng và tiền tiết kiệm sang hiệp sau. Người bị hạ mất cả hai vũ khí đã mua, giáp, trang bị và lựu đạn, nhưng vẫn giữ tiền và nhận súng ngắn miễn phí của phe hiện tại. Tiền tối đa là $16.000.
 
 Mỗi người thắng nhận $3.250 nếu đội thắng nhờ hạ toàn bộ đối thủ hoặc hết giờ, và $3.500 nếu thắng nhờ gỡ bom hoặc bom phát nổ. Đội thua lần lượt nhận $1.400, $1.900, $2.400, $2.900 rồi $3.400 khi chuỗi thua dài dần. Mỗi nửa trận bắt đầu ở bậc $1.900. Thua làm tăng một bậc; thắng làm giảm một bậc. Nếu CT gỡ bom, mỗi người T còn nhận thêm $600 thưởng thua khi đã đặt bom. Người hoàn tất việc đặt hoặc gỡ bom nhận $300.
 
@@ -144,7 +151,7 @@ Nếu hai đội hòa sau thời gian thi đấu chính thức, mục \*\*Cách 
 
 \*\*Hành động thông tin\*\*
 
-\* \*\*Xem trạng thái chiến thuật của bạn:\*\* Nghe phe, khu vực, máu, giáp, vũ khí đang cầm, trang bị, lựu đạn, tiền, điểm hành động, né tránh và góc AWP đã chuẩn bị.
+\* \*\*Xem trạng thái chiến thuật của bạn:\*\* Nghe phe, khu vực, máu, giáp, vũ khí chính, súng ngắn, vũ khí đang cầm, trang bị, lựu đạn, tiền, điểm hành động, né tránh và góc đã chuẩn bị.
 \* \*\*Xem bản đồ chiến thuật:\*\* Mở báo cáo trực tiếp về các khu vực, lối đi, đường ngắm, khói đã phát hiện, đồng đội và kẻ địch đang nhìn thấy.
 \* \*\*Xem tình trạng hai đội:\*\* Mở danh sách trực tiếp gồm tỷ số, phe hiện tại, đồng đội và thông tin đối thủ đang nhìn thấy.
 \* \*\*Xem tình trạng bom:\*\* Nghe thông tin về bom mà phe bạn hiện biết.

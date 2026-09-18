@@ -74904,7 +74904,8 @@ MA_API ma_node_state ma_node_get_state_by_time(const ma_node* pNode, ma_uint64 g
         return ma_node_state_stopped;
     }
 
-    return ma_node_get_state_by_time_range(pNode, globalTime, globalTime);
+    /* COSMOS PATCH: the range query now means "produces anything in [beg, end)", so one instant is [t, t + 1). */
+    return ma_node_get_state_by_time_range(pNode, globalTime, globalTime + 1);
 }
 
 MA_API ma_node_state ma_node_get_state_by_time_range(const ma_node* pNode, ma_uint64 globalTimeBeg, ma_uint64 globalTimeEnd)
@@ -74927,15 +74928,28 @@ MA_API ma_node_state ma_node_get_state_by_time_range(const ma_node* pNode, ma_ui
     its start time not having been reached yet. Also, the stop time may have also been reached in
     which case it'll be considered stopped.
     */
-    if (ma_node_get_state_time(pNode, ma_node_state_started) > globalTimeBeg) {
-        return ma_node_state_stopped;   /* Start time has not yet been reached. */
+    /*
+    COSMOS PATCH (upstream 0.11.23 tests `startTime > globalTimeBeg` and `stopTime <= globalTimeEnd`):
+    the node is started for this range if any part of it lies inside [startTime, stopTime). The
+    upstream tests treat a range as stopped when the start time is anywhere after its first frame,
+    or the stop time anywhere before its last, so a scheduled start was deferred to the next whole
+    read and a scheduled stop cut the whole read containing it; the straddling code in
+    ma_node_read_pcm_frames, which silences the frames before the start and after the stop, was
+    never reached. With this test that code runs and the start and stop land on their frames.
+    */
+    if (ma_node_get_state_time(pNode, ma_node_state_started) >= globalTimeEnd) {
+        return ma_node_state_stopped;   /* Start time is not reached within this range. */
     }
 
-    if (ma_node_get_state_time(pNode, ma_node_state_stopped) <= globalTimeEnd) {
-        return ma_node_state_stopped;   /* Stop time has been reached. */
+    if (ma_node_get_state_time(pNode, ma_node_state_stopped) <= globalTimeBeg) {
+        return ma_node_state_stopped;   /* Stop time was reached before this range. */
     }
 
-    /* Getting here means the node is marked as started and is within its start/stop times. */
+    if (ma_node_get_state_time(pNode, ma_node_state_stopped) <= ma_node_get_state_time(pNode, ma_node_state_started)) {
+        return ma_node_state_stopped;   /* A stop at or before the start leaves nothing to play. */
+    }
+
+    /* Getting here means the node is marked as started and some of the range is within its start/stop times. */
     return ma_node_state_started;
 }
 
@@ -75034,9 +75048,10 @@ static ma_result ma_node_read_pcm_frames(ma_node* pNode, ma_uint32 outputBusInde
     */
     /*
     COSMOS PATCH (upstream 0.11.23 has `globalTimeEnd - startTime` here): the leading silence is
-    the distance from the start of this read to the start time. The upstream expression silences
-    the wrong span, so a node scheduled k frames into a read began at (frameCount - k) instead,
-    which put scheduled starts up to one period away from where they were asked for.
+    the distance from the start of this read to the start time. Upstream this line was unreachable,
+    because ma_node_get_state_by_time_range reported the whole read stopped whenever the start time
+    was after its first frame; see the patch there. Both patches are covered by
+    miniaudio-sys/tests/scheduled_start.rs.
     */
     timeOffsetBeg = (globalTimeBeg < startTime) ? (ma_uint32)(startTime - globalTimeBeg) : 0;
     timeOffsetEnd = (globalTimeEnd > stopTime)  ? (ma_uint32)(globalTimeEnd - stopTime)  : 0;

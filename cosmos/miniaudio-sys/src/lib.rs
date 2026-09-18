@@ -17,14 +17,18 @@ include!("bindings.rs");
 pub const MA_TRUE: ma_bool32 = 1;
 pub const MA_FALSE: ma_bool32 = 0;
 
-// Sound flags
+// Sound flags, as numbered by the bundled miniaudio.h (the enum is not in
+// the bindgen allowlist). 0.11.18 moved the last three up to 0x1000 and
+// gave 0x10 and 0x20 to UNKNOWN_LENGTH and LOOPING.
 pub const MA_SOUND_FLAG_STREAM: ma_uint32 = 0x00000001;
 pub const MA_SOUND_FLAG_DECODE: ma_uint32 = 0x00000002;
 pub const MA_SOUND_FLAG_ASYNC: ma_uint32 = 0x00000004;
 pub const MA_SOUND_FLAG_WAIT_INIT: ma_uint32 = 0x00000008;
-pub const MA_SOUND_FLAG_NO_DEFAULT_ATTACHMENT: ma_uint32 = 0x00000010;
-pub const MA_SOUND_FLAG_NO_PITCH: ma_uint32 = 0x00000020;
-pub const MA_SOUND_FLAG_NO_SPATIALIZATION: ma_uint32 = 0x00000040;
+pub const MA_SOUND_FLAG_UNKNOWN_LENGTH: ma_uint32 = 0x00000010;
+pub const MA_SOUND_FLAG_LOOPING: ma_uint32 = 0x00000020;
+pub const MA_SOUND_FLAG_NO_DEFAULT_ATTACHMENT: ma_uint32 = 0x00001000;
+pub const MA_SOUND_FLAG_NO_PITCH: ma_uint32 = 0x00002000;
+pub const MA_SOUND_FLAG_NO_SPATIALIZATION: ma_uint32 = 0x00004000;
 
 // Helper functions defined in miniaudio_impl.c
 extern "C" {

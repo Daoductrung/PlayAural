@@ -381,6 +381,7 @@ static void ma_phonon_binaural_tail_node_process_pcm_frames(
     ma_phonon_binaural_node* pBinauralNode = (ma_phonon_binaural_node*)pNode;
     IPLBinauralEffectParams effectParams;
     ma_uint32 channelsIn = ma_node_get_input_channels(pNode, 0);
+    ma_uint32 frameSize = (ma_uint32)pBinauralNode->iplAudioSettings.frameSize;
     ma_uint32 offeredInputFrames = ppFramesIn != NULL ? *pFrameCountIn : 0;
     ma_bool32 drainingTail = atomic_load_explicit(
         &pBinauralNode->tailDrainRequested,
@@ -393,6 +394,84 @@ static void ma_phonon_binaural_tail_node_process_pcm_frames(
     ma_uint32 outputFrame;
 
     effectParams = ma_phonon_binaural_node_load_parameters(pBinauralNode);
+
+    /*
+    Aligned path. When the callback is a whole number of Steam Audio frames and
+    the adapter holds nothing audible, render in place with no added latency.
+    That is every callback on desktop, where the device period is the frame
+    size, so an HRTF stream stays frame-aligned with a direct one. The first
+    callback of any other size falls through to the buffered path below, which
+    then keeps its stable one-frame latency while it holds audio; buffered
+    silence is discarded here, so the node realigns the next time it is quiet.
+    */
+    if (
+        ppFramesIn != NULL
+        && !drainingTail
+        && requestedOutputFrames > 0
+        && requestedOutputFrames % frameSize == 0
+        && offeredInputFrames >= requestedOutputFrames
+        && pBinauralNode->bufferedOutputOffset >= pBinauralNode->bufferedOutputFrames
+        && ma_phonon_binaural_node_buffered_input_is_silent(
+            pBinauralNode,
+            pBinauralNode->bufferedInputFrames
+        )
+    ) {
+        ma_uint32 processedFrames;
+
+        pBinauralNode->bufferedInputFrames = 0;
+        pBinauralNode->bufferedOutputFrames = 0;
+        pBinauralNode->bufferedOutputOffset = 0;
+        for (
+            processedFrames = 0;
+            processedFrames < requestedOutputFrames;
+            processedFrames += frameSize
+        ) {
+            float* blockOut = ma_offset_pcm_frames_ptr_f32(
+                ppFramesOut[0],
+                processedFrames,
+                2
+            );
+            const float* blockIn = ma_offset_pcm_frames_const_ptr_f32(
+                ppFramesIn[0],
+                processedFrames,
+                channelsIn
+            );
+            if (channelsIn == 1) {
+                memcpy(pBinauralNode->ppBuffersIn[0], blockIn, sizeof(float) * frameSize);
+            } else {
+                ma_deinterleave_pcm_frames(
+                    ma_format_f32,
+                    channelsIn,
+                    frameSize,
+                    blockIn,
+                    (void**)&pBinauralNode->ppBuffersIn[0]
+                );
+            }
+            if (ma_phonon_binaural_node_render_buffered_frame(
+                pBinauralNode,
+                &effectParams
+            )) {
+                ma_interleave_pcm_frames(
+                    ma_format_f32,
+                    2,
+                    frameSize,
+                    (const void**)&pBinauralNode->ppBuffersOut[0],
+                    blockOut
+                );
+            } else {
+                ma_silence_pcm_frames(blockOut, frameSize, ma_format_f32, 2);
+            }
+        }
+        *pFrameCountIn = requestedOutputFrames;
+        atomic_store_explicit(
+            &pBinauralNode->tailRemaining,
+            pBinauralNode->bufferedEffectState
+                == IPL_AUDIOEFFECTSTATE_TAILREMAINING ? 1u : 0u,
+            memory_order_release
+        );
+        return;
+    }
+
     for (outputFrame = 0; outputFrame < requestedOutputFrames; outputFrame += 1) {
         ma_uint32 channel;
 

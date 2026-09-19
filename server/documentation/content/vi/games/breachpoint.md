@@ -20,8 +20,8 @@ Sau khi bom đã được đặt, việc hạ hết T chưa làm hiệp đấu k
 \* \*\*Vòng chiến thuật:\*\* Một vòng mà mỗi người còn sống nhận một lượt hành động.
 \* \*\*Lượt hành động:\*\* Khoảng thời gian một người được dùng điểm hành động.
 \* \*\*Điểm hành động:\*\* Số điểm dùng để di chuyển, bắn, ném lựu đạn hoặc xử lý bom. Mỗi lượt thông thường bắt đầu với 2 điểm hành động.
-\* \*\*Khu vực:\*\* Một địa điểm có tên trên bản đồ, chẳng hạn Đường Giữa, Lối Liên Thông hoặc Khu Đặt Bom A.
-\* \*\*Đường ngắm:\*\* Đường bắn nối từ khu vực này tới khu vực khác. Hai khu vực đi thẳng được giữa nhau luôn có đường ngắm, nhưng một số đường ngắm còn xa hơn một bước di chuyển.
+\* \*\*Khu vực:\*\* Một địa điểm có tên trên bản đồ, chẳng hạn Đường Giữa, Đường Ngắn A hoặc Khu Đặt Bom A. Mỗi khu vực chiếm một phần không gian thật trên bản đồ nền.
+\* \*\*Đường ngắm:\*\* Đường bắn thông thoáng nối từ khu vực này tới khu vực khác. Lối đi và đường ngắm được xác định riêng: một góc khuất có thể cho phép đi qua nhưng chặn phát bắn, còn một đường ngắm xa có thể vượt qua nhiều bước di chuyển.
 \* \*\*Né tránh:\*\* Khả năng phòng thủ được chuẩn bị bằng cách kết thúc lượt khi vẫn còn điểm hành động.
 \* \*\*Lượt đáp trả:\*\* Một lượt chen ngang tạm thời để đối phương tìm cách ngăn việc đặt hoặc gỡ bom.
 
@@ -79,20 +79,24 @@ Nếu kết thúc lượt mà chưa bắn và chưa giữ góc, điểm hành đ
 
 Đổi giữa vũ khí chính đang sở hữu và súng ngắn là miễn phí, nhưng không khôi phục số lần bắn đã dùng của khẩu súng đó. Đòn tấn công sau trong cùng lượt bị giảm sát thương vì độ giật và ngắm vội. Khi mua vũ khí mới, bạn thay khẩu súng trong đúng ô đó và lập tức cầm khẩu mới; vì vậy, ở giai đoạn mua sau, bạn có thể nâng cấp súng tiểu liên lên súng trường.
 
-Mọi loại súng đều có thể giữ khu vực đang đứng hoặc một khu vực đang nhìn thấy. Giữ góc tốn 1 điểm, chỉ dùng được trước khi bạn bắn trong lượt đó, rồi kết thúc lượt mà không tạo né tránh. Nếu về sau kẻ địch đi vào khu vực đang bị canh qua một đường ngắm thông thoáng, bước di chuyển của họ tạm dừng trước khi họ dùng thêm điểm. Người giữ góc hợp lệ ở gần nhất được bắn hoặc bỏ qua; bắn sẽ làm mất góc, còn bỏ qua thì tiếp tục giữ. Mỗi lần di chuyển chỉ mở một lượt đáp trả. MAC-10 gây 50% sát thương khi đáp trả; MP9, Galil AR và FAMAS gây 65%; Glock, USP-S, AK-47 và M4 gây 75%; còn Desert Eagle và AWP gây đủ sát thương. Khói chặn tầm nhìn từ bên ngoài vào khu vực có khói mà không làm mất góc, nhưng người đang đứng trong đó vẫn được đáp trả ở cự ly sát sườn. Lựu Đạn Choáng làm người trúng mất góc đang giữ.
+Mỗi lần bắn đều tiêu hao đạn. Nếu trong băng không đủ đạn cho một loạt đầy đủ, súng sẽ bắn loạt cuối ngắn hơn, có ít viên hướng trúng hơn và gây ít sát thương tương ứng. Nạp đạn tốn 1 điểm hành động và làm mất góc đang giữ. Với súng dùng băng đạn, bạn bỏ toàn bộ số đạn còn trong băng cũ, dùng một băng dự trữ rồi nạp đầy súng. Riêng Nova giữ nguyên số đạn đã nạp và đưa thêm tối đa hai viên dự trữ vào súng mỗi lần nạp. Mỗi vũ khí đang sở hữu đều được nạp đầy và bổ sung đủ đạn dự trữ khi hiệp đấu mới bắt đầu.
+
+Mọi loại súng đều có thể giữ khu vực đang đứng hoặc một khu vực đang nhìn thấy. Giữ góc tốn 1 điểm, chỉ dùng được trước khi bạn bắn trong lượt đó, rồi kết thúc lượt mà không tạo né tránh. Nếu về sau kẻ địch đi vào khu vực đang bị canh qua một đường ngắm thông thoáng, bước di chuyển của họ tạm dừng trước khi họ dùng thêm điểm. Người giữ góc hợp lệ ở gần nhất được bắn hoặc bỏ qua; bắn sẽ làm mất góc và tiêu hao đạn, còn bỏ qua thì tiếp tục giữ. Mỗi lần di chuyển chỉ mở một lượt đáp trả. MAC-10 và Nova gây 50% sát thương khi đáp trả; MP9, Galil AR và FAMAS gây 65%; Glock, USP-S, AK-47 và M4 gây 75%; còn Desert Eagle, SSG 08 và AWP gây đủ sát thương. Khói chặn tầm nhìn từ bên ngoài vào khu vực có khói mà không làm mất góc, nhưng người đang đứng trong đó vẫn được đáp trả ở cự ly sát sườn. Lựu Đạn Choáng làm người trúng mất góc đang giữ.
 
 \* \*\*Glock:\*\* Súng ngắn miễn phí của T. Tầm 1; tối đa hai lần bắn mỗi lượt. Loạt ba viên sẽ trúng hai viên, gây 38 sát thương khi đứng chung khu vực, nhưng ở tầm 1 chỉ trúng một viên và gây 30 sát thương. Viên hướng trúng thứ hai khiến né tránh ở cự ly gần bớt tuyệt đối, còn giáp vẫn giảm mạnh sức sát thương của loạt bắn.
 \* \*\*USP-S:\*\* Súng ngắn miễn phí của CT. Tầm 1; tối đa hai phát mỗi lượt; gây 36 sát thương khi đứng chung khu vực hoặc 32 ở tầm 1.
 \* \*\*Desert Eagle:\*\* Súng ngắn cho cả hai phe, giá $700. Tầm 2; một phát chính xác mỗi lượt; xuyên giáp tốt và gây 72, 58 hoặc 44 sát thương ở tầm 0, 1 hoặc 2. Hai né tránh đã chuẩn bị vẫn có thể né hoàn toàn phát bắn duy nhất này.
 \* \*\*MAC-10:\*\* Vũ khí chính của T, giá $1.050. Tầm 1; tối đa hai loạt 15 viên mỗi lượt. Súng gây 76 sát thương khi đứng chung khu vực nhưng chỉ còn 36 ở tầm 1. Loạt sau gây 55% sát thương. Khả năng xuyên giáp yếu khiến súng phù hợp nhất để áp sát đối thủ đang tiết kiệm. Mỗi lần hạ đối thủ được thưởng $600.
+\* \*\*Nova:\*\* Vũ khí chính cho cả hai phe, giá $1.050. Tầm 1; mỗi lần bắn dùng một viên và mỗi lượt chỉ bắn một lần. Chùm đạn ghém gây 96 sát thương khi đứng chung khu vực nhưng chỉ còn 38 ở tầm 1; giáp hấp thụ phần lớn sát thương. Súng chứa 8 viên và mang 16 viên dự trữ. Mỗi lần nạp đưa thêm tối đa hai viên vào súng mà không bỏ số đạn đang có. Mỗi lần hạ đối thủ được thưởng $900.
 \* \*\*MP9:\*\* Vũ khí chính của CT, giá $1.250. Tầm 1; tối đa hai loạt 15 viên mỗi lượt. Súng gây 68 sát thương khi đứng chung khu vực hoặc 48 ở tầm 1; loạt sau gây 60% sát thương. MP9 ổn định hơn MAC-10 ở tầm 1 nhưng vẫn yếu trước giáp. Mỗi lần hạ đối thủ được thưởng $600.
 \* \*\*Galil AR:\*\* Vũ khí chính của T, giá $1.800. Tầm 2; tối đa hai loạt 12 viên mỗi lượt, nhưng mỗi loạt phải nhắm vào một kẻ địch khác nhau. Súng gây 74, 56 hoặc 34 sát thương ở tầm 0, 1 hoặc 2; loạt sau gây 55% sát thương. Đây là lựa chọn vừa túi tiền để ghìm chân nhiều mục tiêu, nhưng không thể đấu tay đôi ngang sức với AK-47.
 \* \*\*FAMAS:\*\* Vũ khí chính của CT, giá $1.950. Tầm 2; tối đa hai loạt ba viên có kiểm soát, nhắm vào cùng một kẻ địch hoặc hai kẻ địch khác nhau. Súng gây 64, 50 hoặc 32 sát thương ở tầm 0, 1 hoặc 2; loạt sau gây 60% sát thương. Hai loạt ở cự ly sát sườn đủ hạ đối thủ không giáp, nhưng không thể kết liễu nhanh đối thủ có giáp.
+\* \*\*SSG 08:\*\* Vũ khí chính cho cả hai phe, giá $1.700. Tầm 3; mỗi lượt bắn một phát. Tương tự AWP, súng phải giữ đúng khu vực của mục tiêu từ trước mới được bắn trong lượt thường, nhưng khai hỏa chỉ tốn 1 điểm. Súng gây 88, 84, 80 hoặc 74 sát thương từ tầm 0 đến 3, vì vậy không thể hạ một đối thủ đầy máu chỉ bằng một phát. Súng chứa 10 viên và mang ba băng dự trữ.
 \* \*\*AK-47:\*\* Vũ khí chính của T, giá $2.700. Tầm 2; một loạt 12 viên mỗi lượt; xuyên giáp tốt và gây 92, 69 hoặc 46 sát thương ở tầm 0, 1 hoặc 2.
 \* \*\*M4:\*\* Vũ khí chính của CT, giá $2.900. Tầm 2; tối đa hai loạt 12 viên có kiểm soát, nhắm vào cùng một kẻ địch hoặc hai kẻ địch khác nhau. Loạt đầu gây 72, 54 hoặc 36 sát thương ở tầm 0, 1 hoặc 2; loạt sau gây 65% sát thương thông thường.
 \* \*\*AWP:\*\* Vũ khí chính cho cả hai phe, giá $4.750. Tầm 3. Khác với các súng khác, AWP phải giữ đúng khu vực của mục tiêu từ trước mới được bắn trong lượt thường. Phát bắn đó tốn 2 điểm. Khi đáp trả từ góc đang giữ, AWP gây đủ sát thương. Một phát toàn lực gây 125, 120, 115 hoặc 110 sát thương từ tầm 0 đến 3.
 
-Góc đã giữ được duy trì qua nhiều lượt, nhưng sẽ mất khi bạn di chuyển, đổi vũ khí, dùng lựu đạn, xử lý bom, chịu sát thương, bị choáng hoặc khai hỏa. Hạ đối thủ bằng AWP được thưởng $100, bằng MAC-10 hoặc MP9 được thưởng $600, còn các vũ khí khác được thưởng $300.
+Góc đã giữ được duy trì qua nhiều lượt, nhưng sẽ mất khi bạn di chuyển, đổi vũ khí, nạp đạn, dùng lựu đạn, xử lý bom, chịu sát thương, bị choáng hoặc khai hỏa. Hạ đối thủ bằng AWP được thưởng $100; bằng Nova được thưởng $900; bằng MAC-10 hoặc MP9 được thưởng $600; còn các vũ khí khác được thưởng $300.
 
 \*\*Lựu đạn và trang bị\*\*
 
@@ -113,7 +117,7 @@ Nếu lượt đáp trả kết thúc mà không ngắt được quá trình, bo
 
 \*\*CT không thể bắt đầu gỡ khi bom còn đang được đặt. Hành động Gỡ bom chỉ xuất hiện sau khi bom đã chính thức được đặt.\*\*
 
-Bom đã đặt luôn có đủ hai vòng chiến thuật về sau trước khi phát nổ, kể cả khi T bắt đầu đặt ở lượt cuối cùng trước khi hết giờ. Vòng có quá trình đặt bom không làm kíp nổ giảm.
+Bom đã đặt luôn có đủ ba vòng chiến thuật về sau trước khi phát nổ, kể cả khi T bắt đầu đặt ở lượt cuối cùng trước khi hết giờ. Vòng có quá trình đặt bom không làm kíp nổ giảm. Khoảng thời gian này đủ để một CT ở khu đặt bom bên kia xoay sang và thử gỡ thường, nhưng nếu không có Bộ Gỡ Bom thì gần như không còn điểm hành động dư.
 
 \*\*Gỡ bom\*\*
 
@@ -123,15 +127,18 @@ Một T còn sống nhận lượt đáp trả theo cùng thứ tự ưu tiên v
 
 Người gỡ thành công nhận $300. Không có Bộ Gỡ Bom, CT thường cần một lượt để tới chỗ bom rồi một lượt sau để dùng đủ 2 điểm gỡ. Có bộ gỡ, CT có thể đi một khu vực và bắt đầu gỡ trong cùng một lượt đầy đủ.
 
-\*\*Bản đồ Kho Hàng\*\*
+\*\*Bản đồ Dust\*\*
 
-Kho Hàng dùng các khu vực có tên nối thành đồ thị, không phải lưới ô vuông:
+Dust là một chiến trường hai chiều được trình bày bằng các khu vực có tên đơn giản. Đằng sau những cái tên đó, mỗi người có tọa độ riêng, mỗi khu vực có ranh giới được đo đạc và vật che chắn chiếm vị trí thật. Giao diện vẫn gọn gàng, còn lớp hình học nền bảo đảm khoảng cách, phương hướng, đường ngắm và âm thanh không gian sau này luôn nhất quán.
 
-\* \*\*Tuyến A:\*\* Khu Xuất Phát T, Sân Tây, Hành Lang Dài A, Khu Đặt Bom A, Lối Nối A, Khu Xuất Phát CT.
-\* \*\*Tuyến Giữa:\*\* Khu Xuất Phát T, Đường Giữa, Cửa Giữa, Lối Liên Thông, Khu Xuất Phát CT. Lối Liên Thông còn nối với cả hai khu đặt bom.
-\* \*\*Tuyến B:\*\* Khu Xuất Phát T, Sân Đông, Đường Hầm B, Khu Đặt Bom B, Lối Nối B, Khu Xuất Phát CT.
+\* \*\*Tuyến Long A:\*\* Khu Xuất Phát T, Ngoài Long, Cửa Long, Hành Lang Dài A, Dốc A, Khu Đặt Bom A. Hố là vị trí phòng thủ bên Long, có đường ngắm tầm 3 vào khu đặt bom.
+\* \*\*Tuyến Đường Ngắn A:\*\* Khu Xuất Phát T, Đường Giữa, Lối Trên, Đường Ngắn A, Khu Đặt Bom A.
+\* \*\*Tuyến Giữa:\*\* Khu Xuất Phát T, Đường Giữa, Cửa Giữa, Giữa Phía CT, Khu Xuất Phát CT. Hầm Dưới cũng thông ra Đường Giữa.
+\* \*\*Tuyến B:\*\* Khu Xuất Phát T, Ngoài Hầm, Hầm Trên, Đường Hầm B, Khu Đặt Bom B. Phe phòng thủ vào B qua Cửa B từ Giữa Phía CT hoặc Khu Xuất Phát CT.
 
-Cửa Giữa có đường bắn dài tới cả hai khu đặt bom, dù muốn di chuyển tới đó vẫn phải qua Lối Liên Thông. \*\*Xem bản đồ chiến thuật\* liệt kê lối đi, đường ngắm, khói đã phát hiện, đồng đội và kẻ địch đang nhìn thấy tại từng khu vực.
+Lối đi và tầm nhìn được tách riêng có chủ đích. Chẳng hạn, Đường Giữa nối với Hầm Dưới qua một góc khuất, nên người chơi có thể đi qua nhưng không thể bắn thẳng. Các đường ngắm xa giữa Hố và Khu Đặt Bom A, Khu Xuất Phát T và Giữa Phía CT, Đường Giữa và Khu Xuất Phát CT, cùng Khu Xuất Phát CT và Đường Hầm B tạo vị trí thực sự hữu ích cho vũ khí chính xác tầm 3. Súng tầm ngắn vẫn phải tiến lên hoặc chọn góc gần hơn.
+
+\*\*Xem bản đồ chiến thuật\* mở đầu bằng lời mô tả tự nhiên về nơi bạn đang đứng, vật che chắn gần đó và các đường ngắm kèm cự ly. Sau đó, mục này liệt kê lối đi, đường ngắm và tầm bắn, khói đã phát hiện, đồng đội cùng kẻ địch đang nhìn thấy trong từng khu vực.
 
 \*\*Kinh tế và giai đoạn mua\*\*
 
@@ -151,7 +158,7 @@ Nếu hai đội hòa sau thời gian thi đấu chính thức, mục \*\*Cách 
 
 \*\*Hành động thông tin\*\*
 
-\* \*\*Xem trạng thái chiến thuật của bạn:\*\* Nghe phe, khu vực, máu, giáp, vũ khí chính, súng ngắn, vũ khí đang cầm, trang bị, lựu đạn, tiền, điểm hành động, né tránh và góc đã chuẩn bị.
+\* \*\*Xem trạng thái chiến thuật của bạn:\*\* Nghe phe, khu vực, máu, giáp, vũ khí chính, súng ngắn, vũ khí đang cầm, số đạn trong súng và đạn dự trữ, trang bị, lựu đạn, tiền, điểm hành động, né tránh và góc đã chuẩn bị.
 \* \*\*Xem bản đồ chiến thuật:\*\* Mở báo cáo trực tiếp về các khu vực, lối đi, đường ngắm, khói đã phát hiện, đồng đội và kẻ địch đang nhìn thấy.
 \* \*\*Xem tình trạng hai đội:\*\* Mở danh sách trực tiếp gồm tỷ số, phe hiện tại, đồng đội và thông tin đối thủ đang nhìn thấy.
 \* \*\*Xem tình trạng bom:\*\* Nghe thông tin về bom mà phe bạn hiện biết.
@@ -163,7 +170,7 @@ Nếu hai đội hòa sau thời gian thi đấu chính thức, mục \*\*Cách 
 \* \*\*Thể thức trận đấu:\*\* MR7, MR12 hoặc MR15. Mặc định: MR12.
 \* \*\*Cách xử lý trận hòa:\*\* Kết thúc hòa sau thời gian thi đấu chính thức, hoặc lặp hiệp phụ MR3 đến khi một đội thắng. Mặc định: Lặp hiệp phụ MR3 đến khi một đội thắng.
 
-Đồng hồ sáu vòng trước khi đặt bom và kíp nổ hai vòng là luật cố định.
+Đồng hồ sáu vòng trước khi đặt bom và kíp nổ ba vòng là luật cố định.
 
 \*\*Phím tắt bàn phím\*\*
 
@@ -174,5 +181,6 @@ Nếu hai đội hòa sau thời gian thi đấu chính thức, mục \*\*Cách 
 \* \*\*S:\*\* Kiểm tra tỷ số.
 \* \*\*Shift+S:\*\* Mở tỷ số chi tiết.
 \* \*\*E:\*\* Mua xong trong giai đoạn mua hoặc kết thúc lượt khi giao tranh.
+\* \*\*R:\*\* Nạp đạn cho vũ khí đang cầm.
 \* \*\*T:\*\* Kiểm tra lượt của ai.
 \* \*\*Escape:\*\* Mở trình đơn hành động.

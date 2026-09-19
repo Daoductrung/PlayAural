@@ -1,7 +1,9 @@
 """Tests for the Breach Point tactical board game."""
 
 import json
+import math
 from dataclasses import replace
+from itertools import pairwise
 from pathlib import Path
 
 from ..game_utils.actions import Visibility
@@ -16,14 +18,16 @@ from ..games.breachpoint.arsenal import (
     FLASHBANG,
     GALIL_AR,
     GLOCK,
-    MAC10,
     M4,
+    MAC10,
     MP9,
+    NOVA,
     PURCHASE_ROLE_ANTI_ECO,
     PURCHASE_ROLE_BUDGET,
     PURCHASE_ROLE_PRECISION,
     PURCHASE_ROLE_STANDARD,
     SMOKE_GRENADE,
+    SSG08,
     STANDARD_ECONOMY,
     USP_S,
     WEAPON_SLOT_PRIMARY,
@@ -66,7 +70,15 @@ from ..games.breachpoint.game import (
     BreachPointGame,
     BreachPointOptions,
 )
-from ..games.breachpoint.maps import DEPOT_MAP, TacticalMap, TacticalNode, _validate_map
+from ..games.breachpoint.maps import (
+    DUST_MAP,
+    GridPoint,
+    GridRect,
+    TacticalMap,
+    TacticalNode,
+    TacticalSightline,
+    _validate_map,
+)
 from ..games.breachpoint.player import BreachPointPlayer
 from ..games.breachpoint.rules import OVERTIME_DRAW, STANDARD_RULES
 from ..games.registry import GameRegistry
@@ -90,6 +102,7 @@ def make_game(
 ) -> BreachPointGame:
     game = BreachPointGame(options=BreachPointOptions(**option_overrides))
     game._bot_coordinator.seed_strategy(2)
+    game._spatial_rng.seed(2)
     game.setup_keybinds()
     bot_indexes = bot_indexes or set()
     touch_indexes = touch_indexes or set()
@@ -179,14 +192,18 @@ def test_arsenal_and_economy_profiles_are_side_specific_and_data_driven() -> Non
     assert get_purchasable_weapons(TEAM_TERRORISTS) == (
         DESERT_EAGLE,
         MAC10,
+        NOVA,
         GALIL_AR,
+        SSG08,
         AK47,
         AWP,
     )
     assert get_purchasable_weapons(TEAM_COUNTER_TERRORISTS) == (
         DESERT_EAGLE,
+        NOVA,
         MP9,
         FAMAS,
+        SSG08,
         M4,
         AWP,
     )
@@ -197,7 +214,7 @@ def test_arsenal_and_economy_profiles_are_side_specific_and_data_driven() -> Non
     assert get_purchasable_weapons(
         TEAM_COUNTER_TERRORISTS,
         WEAPON_SLOT_PRIMARY,
-    ) == (MP9, FAMAS, M4, AWP)
+    ) == (NOVA, MP9, FAMAS, SSG08, M4, AWP)
     assert get_purchasable_weapons(TEAM_TERRORISTS, "invalid") == ()
     assert get_purchasable_utilities(TEAM_TERRORISTS) == (
         SMOKE_GRENADE,
@@ -247,6 +264,17 @@ def test_arsenal_and_economy_profiles_are_side_specific_and_data_driven() -> Non
     assert MP9.reaction_damage_percent == 65
     assert MP9.purchase_role == PURCHASE_ROLE_ANTI_ECO
     assert MP9.kill_reward == 600
+    assert NOVA.allowed_sides == (
+        TEAM_TERRORISTS,
+        TEAM_COUNTER_TERRORISTS,
+    )
+    assert NOVA.cost == 1050
+    assert NOVA.damage_by_range == (96, 38)
+    assert NOVA.magazine_capacity == 8
+    assert NOVA.reserve_units == 16
+    assert NOVA.reload_units_per_action == 2
+    assert not NOVA.discard_loaded_rounds_on_reload
+    assert NOVA.kill_reward == 900
     assert GALIL_AR.allowed_sides == (TEAM_TERRORISTS,)
     assert GALIL_AR.cost == 1800
     assert GALIL_AR.max_range == 2
@@ -266,6 +294,16 @@ def test_arsenal_and_economy_profiles_are_side_specific_and_data_driven() -> Non
     assert FAMAS.followup_damage_percent == 60
     assert FAMAS.reaction_damage_percent == 65
     assert FAMAS.purchase_role == PURCHASE_ROLE_BUDGET
+    assert SSG08.allowed_sides == (
+        TEAM_TERRORISTS,
+        TEAM_COUNTER_TERRORISTS,
+    )
+    assert SSG08.cost == 1700
+    assert SSG08.max_range == 3
+    assert SSG08.damage_by_range == (88, 84, 80, 74)
+    assert SSG08.requires_aim
+    assert SSG08.action_point_cost == 1
+    assert SSG08.purchase_role == PURCHASE_ROLE_PRECISION
     assert AK47.rounds_per_attack == 12
     assert AK47.shots_per_activation == 1
     assert AK47.followup_damage_percent == 65
@@ -279,6 +317,7 @@ def test_arsenal_and_economy_profiles_are_side_specific_and_data_driven() -> Non
     assert AWP.minimum_hits_after_evasion == 1
     assert AWP.reaction_damage_percent == 100
     assert AWP.purchase_role == PURCHASE_ROLE_PRECISION
+    assert AWP.reserve_units == 2
     assert FLASHBANG.affects_thrower is False
     assert STANDARD_RULES.allow_contested_entry
     assert STANDARD_RULES.disengage_cost == STANDARD_RULES.action_points_per_activation
@@ -325,6 +364,274 @@ def test_buy_phase_is_sequential_private_and_blocks_combat() -> None:
     assert terrorist.action_points == game.rules.action_points_per_activation
 
 
+def test_ammunition_profiles_scale_partial_attacks_without_inventing_rounds() -> None:
+    game = make_game(start=True)
+    target = tactical_player(game, 1)
+
+    full = game._preview_attack(target, AK47, 0)
+    partial = game._preview_attack(
+        target,
+        AK47,
+        0,
+        ammunition_used=6,
+    )
+    empty = game._preview_attack(
+        target,
+        AK47,
+        0,
+        ammunition_used=0,
+    )
+
+    assert (full.rounds_fired, full.rounds_on_target, full.health_damage) == (
+        12,
+        4,
+        92,
+    )
+    assert (partial.rounds_fired, partial.rounds_on_target, partial.health_damage) == (
+        6,
+        2,
+        46,
+    )
+    assert (empty.rounds_fired, empty.rounds_on_target, empty.health_damage) == (
+        0,
+        0,
+        0,
+    )
+
+
+def test_magazine_attacks_consume_ammunition_and_reload_discards_the_old_magazine() -> (
+    None
+):
+    game = make_game(start=True)
+    shooter = tactical_player(game, 0)
+    target = tactical_player(game, 1)
+    shooter.primary_weapon_id = AK47.id
+    shooter.equipped_weapon_id = AK47.id
+    game._set_full_weapon_ammunition(shooter, AK47)
+    shooter.position_id = "mid"
+    target.position_id = "mid"
+    start_activation(game, shooter)
+
+    game.execute_action(shooter, f"shoot_{target.id}")
+
+    assert shooter.weapon_magazine_ammo[AK47.id] == 18
+    assert shooter.weapon_reserve_units[AK47.id] == AK47.reserve_units
+    assert shooter.action_points == 1
+    assert game._is_reload_enabled(shooter) is None
+
+    game.execute_action(shooter, "reload")
+
+    assert shooter.weapon_magazine_ammo[AK47.id] == AK47.magazine_capacity
+    assert shooter.weapon_reserve_units[AK47.id] == AK47.reserve_units - 1
+    assert shooter.action_points == 0
+    assert any(
+        "discarding 18 loaded rounds" in message for message in spoken_text(game, 0)
+    )
+
+
+def test_reload_uses_personal_team_and_shared_enemy_vision_perspectives() -> None:
+    game = make_game(start=True)
+    shooter = tactical_player(game, 0)
+    visible_enemy = tactical_player(game, 1)
+    teammate = tactical_player(game, 2)
+    concealed_enemy = tactical_player(game, 3)
+    shooter.primary_weapon_id = AK47.id
+    shooter.equipped_weapon_id = AK47.id
+    shooter.weapon_magazine_ammo[AK47.id] = 6
+    shooter.weapon_reserve_units[AK47.id] = 1
+    shooter.position_id = "t_spawn"
+    visible_enemy.position_id = "ct_spawn"
+    teammate.position_id = "t_spawn"
+    concealed_enemy.position_id = "ct_spawn"
+    start_activation(game, shooter)
+    clear_spoken(game)
+
+    game.execute_action(shooter, "reload")
+
+    assert any("You reload AK-47" in message for message in spoken_text(game, 0))
+    assert any("Player1 reloads AK-47" in message for message in spoken_text(game, 2))
+    assert all("reloads AK-47" not in message for message in spoken_text(game, 1))
+    assert all("reloads AK-47" not in message for message in spoken_text(game, 3))
+
+    shooter.weapon_magazine_ammo[AK47.id] = 6
+    shooter.weapon_reserve_units[AK47.id] = 1
+    shooter.position_id = visible_enemy.position_id = "mid"
+    start_activation(game, shooter)
+    clear_spoken(game)
+    game.execute_action(shooter, "reload")
+
+    assert any("Player1 reloads AK-47" in message for message in spoken_text(game, 1))
+    assert any("Player1 reloads AK-47" in message for message in spoken_text(game, 3))
+
+
+def test_shell_reload_keeps_loaded_rounds_and_loads_bounded_individual_shells() -> None:
+    game = make_game(start=True)
+    shooter = tactical_player(game, 0)
+    shooter.primary_weapon_id = NOVA.id
+    shooter.equipped_weapon_id = NOVA.id
+    shooter.weapon_magazine_ammo[NOVA.id] = 5
+    shooter.weapon_reserve_units[NOVA.id] = 3
+    start_activation(game, shooter)
+
+    game.execute_action(shooter, "reload")
+
+    assert shooter.weapon_magazine_ammo[NOVA.id] == 7
+    assert shooter.weapon_reserve_units[NOVA.id] == 1
+    assert shooter.action_points == 1
+    assert any("load 2 shells" in message for message in spoken_text(game, 0))
+
+    game.execute_action(shooter, "reload")
+
+    assert shooter.weapon_magazine_ammo[NOVA.id] == NOVA.magazine_capacity
+    assert shooter.weapon_reserve_units[NOVA.id] == 0
+    assert shooter.action_points == 0
+
+
+def test_empty_weapon_requires_reload_and_cannot_prepare_a_reaction() -> None:
+    game = make_game(start=True)
+    shooter = tactical_player(game, 0)
+    target = tactical_player(game, 1)
+    shooter.primary_weapon_id = SSG08.id
+    shooter.equipped_weapon_id = SSG08.id
+    shooter.weapon_magazine_ammo[SSG08.id] = 0
+    shooter.weapon_reserve_units[SSG08.id] = 1
+    shooter.position_id = "mid"
+    target.position_id = "mid"
+    start_activation(game, shooter)
+
+    shoot_error = game._is_shoot_enabled(
+        shooter,
+        action_id=f"shoot_{target.id}",
+    )
+    hold_error = game._is_hold_angle_enabled(
+        shooter,
+        action_id="hold_angle_mid",
+    )
+
+    assert shoot_error == (
+        "breachpoint-error-weapon-empty",
+        {"weapon": "SSG 08"},
+    )
+    assert hold_error == shoot_error
+    assert game._is_reload_enabled(shooter) is None
+
+    game.execute_action(shooter, "reload")
+
+    assert shooter.weapon_magazine_ammo[SSG08.id] == SSG08.magazine_capacity
+    assert shooter.weapon_reserve_units[SSG08.id] == 0
+    assert any(
+        "insert a fresh magazine into the empty SSG 08" in message
+        for message in spoken_text(game, 0)
+    )
+
+
+def test_reload_reports_empty_reserves_without_spending_action_points() -> None:
+    game = make_game(start=True)
+    shooter = tactical_player(game, 0)
+    shooter.primary_weapon_id = NOVA.id
+    shooter.equipped_weapon_id = NOVA.id
+    shooter.weapon_magazine_ammo[NOVA.id] = 4
+    shooter.weapon_reserve_units[NOVA.id] = 0
+    start_activation(game, shooter)
+
+    assert game._is_reload_enabled(shooter) == (
+        "breachpoint-error-no-reserve-ammo",
+        {"weapon": "Nova"},
+    )
+
+    game.execute_action(shooter, "reload")
+
+    assert shooter.action_points == game.rules.action_points_per_activation
+    assert shooter.weapon_magazine_ammo[NOVA.id] == 4
+
+    shooter.weapon_magazine_ammo[NOVA.id] = 0
+    no_ammunition = (
+        "breachpoint-error-no-ammunition",
+        {"weapon": "Nova"},
+    )
+    assert game._is_reload_enabled(shooter) == no_ammunition
+    assert (
+        game._is_hold_angle_enabled(
+            shooter,
+            action_id="hold_angle_mid",
+        )
+        == no_ammunition
+    )
+
+    target = tactical_player(game, 1)
+    shooter.position_id = target.position_id = "mid"
+    assert (
+        game._is_shoot_enabled(
+            shooter,
+            action_id=f"shoot_{target.id}",
+        )
+        == no_ammunition
+    )
+
+
+def test_nova_and_ssg08_keep_distinct_close_and_long_range_roles() -> None:
+    game = make_game(start=True)
+    target = tactical_player(game, 1)
+
+    nova_close = game._preview_attack(target, NOVA, 0)
+    nova_far = game._preview_attack(target, NOVA, 1)
+    ssg_close = game._preview_attack(target, SSG08, 0)
+    ssg_far = game._preview_attack(target, SSG08, 3)
+
+    assert (nova_close.rounds_fired, nova_close.rounds_on_target) == (9, 6)
+    assert nova_close.health_damage == 96
+    assert nova_far.health_damage == 38
+    assert ssg_close.health_damage == 88
+    assert ssg_far.health_damage == 74
+
+    target.armor = game.economy.maximum_armor
+    armored_nova = game._preview_attack(target, NOVA, 0)
+    armored_ssg = game._preview_attack(target, SSG08, 3)
+
+    assert (armored_nova.health_damage, armored_nova.armor_absorbed) == (58, 38)
+    assert (armored_ssg.health_damage, armored_ssg.armor_absorbed) == (67, 7)
+
+
+def test_nova_evasion_removes_pellets_but_cannot_erase_the_close_attack() -> None:
+    game = make_game(start=True)
+    target = tactical_player(game, 1)
+    target.guard_points = game.rules.maximum_evasion_points
+
+    outcome = game._preview_attack(target, NOVA, 0)
+
+    assert outcome.rounds_on_target == 6
+    assert outcome.rounds_evaded == 2
+    assert outcome.health_damage == 64
+    assert not outcome.fully_evaded
+
+
+def test_weapon_purchase_and_round_setup_refill_only_owned_weapons() -> None:
+    game = make_game(start=True, finish_buy_phase=False)
+    buyer = tactical_player(game, 0)
+    buyer.cash = GALIL_AR.cost + NOVA.cost
+
+    game.execute_action(buyer, "buy_weapon_nova")
+    assert buyer.weapon_magazine_ammo[NOVA.id] == NOVA.magazine_capacity
+    assert buyer.weapon_reserve_units[NOVA.id] == NOVA.reserve_units
+
+    game.execute_action(buyer, "buy_weapon_galil_ar")
+    assert NOVA.id not in buyer.weapon_magazine_ammo
+    assert NOVA.id not in buyer.weapon_reserve_units
+    buyer.weapon_magazine_ammo[GALIL_AR.id] = 1
+    buyer.weapon_reserve_units[GALIL_AR.id] = 0
+
+    game._prepare_combat_round()
+
+    assert buyer.weapon_magazine_ammo == {
+        GLOCK.id: GLOCK.magazine_capacity,
+        GALIL_AR.id: GALIL_AR.magazine_capacity,
+    }
+    assert buyer.weapon_reserve_units == {
+        GLOCK.id: GLOCK.reserve_units,
+        GALIL_AR.id: GALIL_AR.reserve_units,
+    }
+
+
 def test_buying_side_rifles_and_armor_updates_private_loadouts() -> None:
     game = make_game(start=True, finish_buy_phase=False)
     terrorist = tactical_player(game, 0)
@@ -356,10 +663,13 @@ def test_upgraded_sidearms_use_an_independent_slot_for_both_sides() -> None:
     assert terrorist.sidearm_weapon_id == DESERT_EAGLE.id
     assert terrorist.equipped_weapon_id == DESERT_EAGLE.id
     assert terrorist.cash == 0
-    assert game._is_buy_weapon_enabled(
-        terrorist,
-        action_id="buy_weapon_desert_eagle",
-    ) == "breachpoint-error-sidearm-owned"
+    assert (
+        game._is_buy_weapon_enabled(
+            terrorist,
+            action_id="buy_weapon_desert_eagle",
+        )
+        == "breachpoint-error-sidearm-owned"
+    )
 
     game.execute_action(terrorist, "finish_buy")
     defender = tactical_player(game, 1)
@@ -379,14 +689,20 @@ def test_buying_a_different_primary_replaces_and_equips_the_old_primary() -> Non
 
     game.execute_action(terrorist, "buy_weapon_mac10")
     assert terrorist.primary_weapon_id == MAC10.id
-    assert game._is_buy_weapon_enabled(
-        terrorist,
-        action_id="buy_weapon_mac10",
-    ) == "breachpoint-error-primary-owned"
-    assert game._is_buy_weapon_enabled(
-        terrorist,
-        action_id="buy_weapon_ak47",
-    ) is None
+    assert (
+        game._is_buy_weapon_enabled(
+            terrorist,
+            action_id="buy_weapon_mac10",
+        )
+        == "breachpoint-error-primary-owned"
+    )
+    assert (
+        game._is_buy_weapon_enabled(
+            terrorist,
+            action_id="buy_weapon_ak47",
+        )
+        is None
+    )
 
     game.execute_action(terrorist, "buy_weapon_ak47")
 
@@ -458,8 +774,8 @@ def test_weapon_range_damage_armor_and_shot_limits_are_profile_driven() -> None:
     game = make_game(start=True)
     terrorist = tactical_player(game, 0)
     defender = tactical_player(game, 1)
-    terrorist.position_id = "mid_doors"
-    defender.position_id = "a_site"
+    terrorist.position_id = "t_spawn"
+    defender.position_id = "mid_doors"
     action_id = f"shoot_{defender.id}"
 
     assert game._is_shoot_enabled(terrorist, action_id=action_id)[0] == (
@@ -475,8 +791,8 @@ def test_weapon_range_damage_armor_and_shot_limits_are_profile_driven() -> None:
     start_activation(game, defender)
     defender.primary_weapon_id = M4.id
     defender.equipped_weapon_id = M4.id
-    defender.position_id = "connector"
-    terrorist.position_id = "a_site"
+    defender.position_id = "mid_doors"
+    terrorist.position_id = "ct_mid"
     terrorist.health = game.rules.max_health
     terrorist.armor = 0
     second_terrorist = tactical_player(game, 2)
@@ -496,7 +812,7 @@ def test_ak_cannot_one_shot_and_m4_can_commit_its_followup_burst() -> None:
     terrorist = tactical_player(game, 0)
     defender = tactical_player(game, 1)
     terrorist.position_id = "a_site"
-    defender.position_id = "connector"
+    defender.position_id = "a_ramp"
 
     terrorist.primary_weapon_id = AK47.id
     terrorist.equipped_weapon_id = AK47.id
@@ -683,7 +999,7 @@ def test_awp_requires_a_prepared_angle_and_retains_one_shot_lethality() -> None:
     game = make_game(start=True)
     sniper = tactical_player(game, 0)
     target = tactical_player(game, 1)
-    sniper.position_id = "mid_doors"
+    sniper.position_id = "pit"
     target.position_id = "a_site"
     sniper.primary_weapon_id = AWP.id
     sniper.equipped_weapon_id = AWP.id
@@ -711,18 +1027,21 @@ def test_awp_requires_a_prepared_angle_and_retains_one_shot_lethality() -> None:
 def test_every_firearm_can_hold_a_visible_lane_before_firing() -> None:
     game = make_game(start=True)
     holder = tactical_player(game, 1)
-    holder.position_id = "a_link"
+    holder.position_id = "a_short"
     holder.primary_weapon_id = M4.id
     holder.equipped_weapon_id = M4.id
     start_activation(game, holder)
 
-    assert game._is_hold_angle_enabled(
-        holder,
-        action_id="hold_angle_a_site",
-    ) is None
+    assert (
+        game._is_hold_angle_enabled(
+            holder,
+            action_id="hold_angle_a_site",
+        )
+        is None
+    )
     game.execute_action(holder, "hold_angle_a_site")
 
-    assert holder.held_angle_origin_id == "a_link"
+    assert holder.held_angle_origin_id == "a_short"
     assert holder.held_angle_node_id == "a_site"
     assert holder.action_points == 0
     assert holder.guard_points == 0
@@ -732,7 +1051,7 @@ def test_firing_prevents_preparing_a_held_angle_in_the_same_activation() -> None
     game = make_game(start=True)
     defender = tactical_player(game, 1)
     target = tactical_player(game, 0)
-    defender.position_id = "connector"
+    defender.position_id = "ct_spawn"
     target.position_id = "a_site"
     defender.primary_weapon_id = M4.id
     defender.equipped_weapon_id = M4.id
@@ -741,18 +1060,21 @@ def test_firing_prevents_preparing_a_held_angle_in_the_same_activation() -> None
     game.execute_action(defender, f"shoot_{target.id}")
 
     assert defender.action_points == 1
-    assert game._is_hold_angle_enabled(
-        defender,
-        action_id="hold_angle_b_site",
-    ) == "breachpoint-error-hold-after-firing"
+    assert (
+        game._is_hold_angle_enabled(
+            defender,
+            action_id="hold_angle_a_site",
+        )
+        == "breachpoint-error-hold-after-firing"
+    )
 
 
 def test_watched_entry_pauses_movement_for_fire_or_hold_choice() -> None:
     game = make_game(start=True)
     mover = tactical_player(game, 2)
     watcher = tactical_player(game, 1)
-    mover.position_id = "connector"
-    watcher.position_id = "mid_doors"
+    mover.position_id = "a_ramp"
+    watcher.position_id = "pit"
     watcher.primary_weapon_id = AWP.id
     watcher.equipped_weapon_id = AWP.id
     watcher.held_angle_origin_id = watcher.position_id
@@ -789,9 +1111,9 @@ def test_watched_entry_shot_uses_evasion_then_resumes_surviving_mover() -> None:
     game = make_game(start=True)
     mover = tactical_player(game, 2)
     watcher = tactical_player(game, 1)
-    mover.position_id = "connector"
+    mover.position_id = "a_ramp"
     mover.guard_points = game.rules.maximum_evasion_points
-    watcher.position_id = "mid_doors"
+    watcher.position_id = "pit"
     watcher.primary_weapon_id = AWP.id
     watcher.equipped_weapon_id = AWP.id
     watcher.held_angle_origin_id = watcher.position_id
@@ -802,7 +1124,7 @@ def test_watched_entry_shot_uses_evasion_then_resumes_surviving_mover() -> None:
     game.execute_action(mover, "move_a_site")
     game.execute_action(watcher, "reaction_shoot")
 
-    assert mover.health == 5
+    assert mover.health == 10
     assert mover.guard_points == 0
     assert not mover.eliminated
     assert game.current_player is mover
@@ -815,8 +1137,8 @@ def test_rifle_watched_entry_uses_profile_reaction_damage_and_label() -> None:
     game = make_game(start=True)
     mover = tactical_player(game, 0)
     watcher = tactical_player(game, 1)
-    mover.position_id = "a_long"
-    watcher.position_id = "a_link"
+    mover.position_id = "a_short"
+    watcher.position_id = "a_ramp"
     watcher.primary_weapon_id = M4.id
     watcher.equipped_weapon_id = M4.id
     watcher.held_angle_origin_id = watcher.position_id
@@ -833,6 +1155,9 @@ def test_rifle_watched_entry_uses_profile_reaction_damage_and_label() -> None:
     game.execute_action(watcher, "reaction_shoot")
 
     assert mover.health == 59
+    assert watcher.weapon_magazine_ammo[M4.id] == (
+        M4.magazine_capacity - M4.ammunition_per_attack
+    )
     assert not mover.eliminated
     assert game.current_player is mover
     assert mover.action_points == 1
@@ -847,8 +1172,8 @@ def test_lethal_watched_entry_shot_restores_order_after_the_mover() -> None:
     next_player = tactical_player(game, 3)
     game.round_acted_player_ids = [tactical_player(game, 0).id, watcher.id]
     game.bomb_carrier_id = tactical_player(game, 0).id
-    mover.position_id = "connector"
-    watcher.position_id = "mid_doors"
+    mover.position_id = "a_ramp"
+    watcher.position_id = "pit"
     watcher.primary_weapon_id = AWP.id
     watcher.equipped_weapon_id = AWP.id
     watcher.held_angle_origin_id = watcher.position_id
@@ -868,8 +1193,8 @@ def test_smoke_blocks_watched_entry_without_consuming_the_held_angle() -> None:
     game = make_game(start=True)
     mover = tactical_player(game, 2)
     watcher = tactical_player(game, 1)
-    mover.position_id = "connector"
-    watcher.position_id = "mid_doors"
+    mover.position_id = "a_ramp"
+    watcher.position_id = "pit"
     watcher.primary_weapon_id = AWP.id
     watcher.equipped_weapon_id = AWP.id
     watcher.held_angle_origin_id = watcher.position_id
@@ -889,7 +1214,7 @@ def test_smoke_does_not_hide_point_blank_entry_from_a_site_occupant() -> None:
     game = make_game(start=True)
     mover = tactical_player(game, 0)
     watcher = tactical_player(game, 1)
-    mover.position_id = "a_long"
+    mover.position_id = "a_ramp"
     watcher.position_id = "a_site"
     watcher.held_angle_origin_id = watcher.position_id
     watcher.held_angle_node_id = watcher.position_id
@@ -909,8 +1234,8 @@ def test_one_move_opens_only_the_closest_valid_watched_entry_response() -> None:
     mover = tactical_player(game, 2)
     remote_watcher = tactical_player(game, 1)
     close_watcher = tactical_player(game, 3)
-    mover.position_id = "connector"
-    remote_watcher.position_id = "mid_doors"
+    mover.position_id = "a_short"
+    remote_watcher.position_id = "pit"
     close_watcher.position_id = "a_long"
     for watcher in (remote_watcher, close_watcher):
         watcher.primary_weapon_id = AWP.id
@@ -935,8 +1260,8 @@ def test_objective_response_movement_cannot_open_a_nested_reaction() -> None:
     responder = tactical_player(game, 1)
     watcher = tactical_player(game, 2)
     planter.position_id = "b_site"
-    responder.position_id = "connector"
-    watcher.position_id = "mid_doors"
+    responder.position_id = "ct_spawn"
+    watcher.position_id = "pit"
     watcher.primary_weapon_id = AWP.id
     watcher.equipped_weapon_id = AWP.id
     watcher.held_angle_origin_id = watcher.position_id
@@ -959,8 +1284,8 @@ def test_watched_entry_window_survives_restore_and_bots_take_the_shot() -> None:
     game = make_game(start=True, bot_indexes={1})
     mover = tactical_player(game, 2)
     watcher = tactical_player(game, 1)
-    mover.position_id = "connector"
-    watcher.position_id = "mid_doors"
+    mover.position_id = "a_ramp"
+    watcher.position_id = "pit"
     watcher.primary_weapon_id = AWP.id
     watcher.equipped_weapon_id = AWP.id
     watcher.held_angle_origin_id = watcher.position_id
@@ -1048,7 +1373,7 @@ def test_full_evasion_dodges_a_pistol_but_only_mitigates_an_awp() -> None:
     defender = tactical_player(game, 0)
     sniper = tactical_player(game, 1)
     defender.position_id = "a_site"
-    sniper.position_id = "mid_doors"
+    sniper.position_id = "pit"
 
     game.execute_action(defender, "end_turn")
     assert defender.guard_points == game.rules.maximum_evasion_points
@@ -1057,7 +1382,7 @@ def test_full_evasion_dodges_a_pistol_but_only_mitigates_an_awp() -> None:
     sniper.held_angle_origin_id = sniper.position_id
     sniper.held_angle_node_id = defender.position_id
     game.execute_action(sniper, f"shoot_{defender.id}")
-    assert defender.health == 5
+    assert defender.health == 10
     assert defender.guard_points == 0
 
     defender.guard_points = game.rules.maximum_evasion_points
@@ -1139,7 +1464,7 @@ def test_weapon_switching_is_free_and_preserves_per_weapon_attack_limits() -> No
     defender = tactical_player(game, 1)
     terrorist.primary_weapon_id = AK47.id
     terrorist.equipped_weapon_id = AK47.id
-    terrorist.position_id = "connector"
+    terrorist.position_id = "a_ramp"
     defender.position_id = "a_site"
 
     game.execute_action(terrorist, f"shoot_{defender.id}")
@@ -1178,7 +1503,7 @@ def test_desert_eagle_is_a_recoil_limited_rifle_backup() -> None:
     terrorist.sidearm_weapon_id = DESERT_EAGLE.id
     terrorist.primary_weapon_id = AK47.id
     terrorist.equipped_weapon_id = AK47.id
-    terrorist.position_id = "connector"
+    terrorist.position_id = "a_ramp"
     defender.position_id = "a_site"
 
     game.execute_action(terrorist, f"shoot_{defender.id}")
@@ -1200,7 +1525,7 @@ def test_second_sidearm_attack_has_recoil_and_evasion_only_applies_once() -> Non
     game = make_game(start=True)
     shooter = tactical_player(game, 0)
     target = tactical_player(game, 1)
-    shooter.position_id = "connector"
+    shooter.position_id = "a_ramp"
     target.position_id = "a_site"
     target.guard_points = game.rules.maximum_evasion_points
 
@@ -1249,16 +1574,41 @@ def test_start_validation_rejects_stale_option_and_map_values() -> None:
 
 
 def test_map_registry_is_reciprocal_and_rejects_invalid_edges() -> None:
-    _validate_map(DEPOT_MAP)
+    _validate_map(DUST_MAP)
     invalid = TacticalMap(
         id="invalid",
         name_key="invalid-map",
+        bounds=GridRect(0, 0, 9, 4),
+        grid_unit_meters=1.0,
+        range_band_grid_units=3.0,
+        minimum_player_spacing=1,
+        maximum_area_occupants=2,
         terrorist_spawn="one",
         counter_terrorist_spawn="two",
+        terrorist_spawn_heading=0,
+        counter_terrorist_spawn_heading=180,
+        spectator_anchor=GridPoint(2, 2),
         nodes=(
-            TacticalNode("one", "one", ("two",), (), bomb_site=True),
-            TacticalNode("two", "two", (), (), bomb_site=False),
+            TacticalNode(
+                "one",
+                "one",
+                "one-description",
+                GridRect(0, 0, 3, 3),
+                GridPoint(1, 1),
+                ("two",),
+                bomb_site=True,
+            ),
+            TacticalNode(
+                "two",
+                "two",
+                "two-description",
+                GridRect(6, 0, 9, 3),
+                GridPoint(8, 1),
+                (),
+                bomb_site=False,
+            ),
         ),
+        sightlines=(TacticalSightline("one", "two"),),
     )
     try:
         _validate_map(invalid)
@@ -1266,6 +1616,134 @@ def test_map_registry_is_reciprocal_and_rejects_invalid_edges() -> None:
         assert "not reciprocal" in str(error)
     else:
         raise AssertionError("An asymmetric movement edge must be rejected")
+
+
+def test_dust_geometry_separates_routes_sightlines_and_weapon_ranges() -> None:
+    assert DUST_MAP.bounds == GridRect(0, 0, 66, 55)
+    assert len(DUST_MAP.nodes) == 19
+    assert DUST_MAP.get_node("mid").adjacent == (
+        "t_spawn",
+        "mid_doors",
+        "catwalk",
+        "lower_tunnels",
+    )
+    assert not DUST_MAP.has_sightline("mid", "lower_tunnels")
+    assert DUST_MAP.combat_distance("t_spawn", "mid_doors") == 2
+    assert DUST_MAP.combat_distance("t_spawn", "ct_mid") == 3
+    assert DUST_MAP.combat_distance("pit", "a_site") == 3
+
+    game = make_game(start=True)
+    shooter = tactical_player(game, 0)
+    shooter.position_id = "t_spawn"
+    shooter.sidearm_weapon_id = DESERT_EAGLE.id
+    shooter.equipped_weapon_id = DESERT_EAGLE.id
+    assert game._can_hold_angle(shooter, "mid_doors", DESERT_EAGLE)
+    assert not game._can_hold_angle(shooter, "ct_mid", DESERT_EAGLE)
+    shooter.primary_weapon_id = AWP.id
+    shooter.equipped_weapon_id = AWP.id
+    assert game._can_hold_angle(shooter, "ct_mid", AWP)
+
+
+def test_round_start_assigns_unique_spaced_walkable_coordinates() -> None:
+    game = make_game(start=True, player_count=10)
+
+    for spawn_id in (
+        game.tactical_map.terrorist_spawn,
+        game.tactical_map.counter_terrorist_spawn,
+    ):
+        occupants = [
+            player
+            for player in game.get_active_players()
+            if isinstance(player, BreachPointPlayer) and player.position_id == spawn_id
+        ]
+        points = [game._player_grid_point(player) for player in occupants]
+        assert len(points) == len(set(points)) == 5
+        assert all(game._node(spawn_id).is_walkable(point) for point in points)
+        assert all(
+            (first.x - second.x) ** 2 + (first.y - second.y) ** 2
+            >= game.tactical_map.minimum_player_spacing**2
+            for index, first in enumerate(points)
+            for second in points[index + 1 :]
+        )
+
+
+def test_every_dust_area_can_space_the_full_roster() -> None:
+    game = make_game(start=True, player_count=10)
+    players = [
+        player
+        for player in game.get_active_players()
+        if isinstance(player, BreachPointPlayer)
+    ]
+
+    for node in game.tactical_map.nodes:
+        for player in players:
+            player.position_id = node.id
+            player.grid_x = -1
+            player.grid_y = -1
+        game._normalize_spatial_positions(players)
+        points = [game._player_grid_point(player) for player in players]
+        assert len(points) == len(set(points)) == len(players)
+        assert all(game._player_has_valid_grid_point(player) for player in players)
+        assert all(
+            (first.x - second.x) ** 2 + (first.y - second.y) ** 2
+            >= game.tactical_map.minimum_player_spacing**2
+            for index, first in enumerate(points)
+            for second in points[index + 1 :]
+        )
+
+
+def test_movement_places_player_in_destination_and_faces_travel_direction() -> None:
+    game = make_game(start=True)
+    player = tactical_player(game, 0)
+    origin = game._player_grid_point(player)
+    source = game._node(player.position_id)
+    destination = game._node("outside_long")
+    assert source is not None
+    assert destination is not None
+
+    game.execute_action(player, "move_outside_long")
+
+    point = game._player_grid_point(player)
+    expected_heading = (
+        round(
+            math.degrees(
+                math.atan2(
+                    destination.anchor.x - source.anchor.x,
+                    destination.anchor.y - source.anchor.y,
+                )
+            )
+        )
+        % 360
+    )
+    assert point != origin
+    assert destination.is_walkable(point)
+    assert player.facing_degrees == expected_heading
+
+
+def test_restore_preserves_valid_spatial_state_and_repairs_collisions() -> None:
+    game = make_game(start=True)
+    first = tactical_player(game, 0)
+    second = tactical_player(game, 2)
+    first_point = game._player_grid_point(first)
+    first_heading = first.facing_degrees
+
+    restored = BreachPointGame.from_json(game.to_json())
+    restored.rebuild_runtime_state()
+    restored_first = tactical_player(restored, 0)
+    assert restored._player_grid_point(restored_first) == first_point
+    assert restored_first.facing_degrees == first_heading
+
+    second.grid_x = first.grid_x
+    second.grid_y = first.grid_y
+    collided = BreachPointGame.from_json(game.to_json())
+    collided.rebuild_runtime_state()
+    repaired_first = tactical_player(collided, 0)
+    repaired_second = tactical_player(collided, 2)
+    assert collided._player_grid_point(repaired_first) != collided._player_grid_point(
+        repaired_second
+    )
+    assert collided._player_has_valid_grid_point(repaired_first)
+    assert collided._player_has_valid_grid_point(repaired_second)
 
 
 def test_start_assigns_fixed_sides_spawns_bomb_and_balanced_turn_order() -> None:
@@ -1338,13 +1816,13 @@ def test_legal_movement_spends_ap_and_last_ap_advances_turn() -> None:
     game = make_game(start=True)
     player = tactical_player(game, 0)
 
-    game.execute_action(player, "move_west_yard")
-    assert player.position_id == "west_yard"
+    game.execute_action(player, "move_outside_long")
+    assert player.position_id == "outside_long"
     assert player.action_points == 1
     assert game.current_player is player
 
-    game.execute_action(player, "move_a_long")
-    assert player.position_id == "a_long"
+    game.execute_action(player, "move_long_doors")
+    assert player.position_id == "long_doors"
     assert player.action_points == 0
     assert game.current_player is tactical_player(game, 1)
 
@@ -1377,22 +1855,22 @@ def test_contested_entry_enables_point_blank_attack_and_costly_disengagement() -
     assert game._can_see(terrorist, defender)
     assert "Contact: Player2 at Bombsite B." in spoken_text(game, 0)
     assert "Contact: Player2 at Bombsite B." in spoken_text(game, 2)
-    assert game._is_move_enabled(terrorist, action_id="move_connector") == (
+    assert game._is_move_enabled(terrorist, action_id="move_b_doors") == (
         "breachpoint-error-not-enough-ap",
         {"needed": game.rules.disengage_cost, "remaining": 1},
     )
-    game.execute_action(terrorist, "move_connector")
+    game.execute_action(terrorist, "move_b_doors")
     assert terrorist.position_id == "b_site"
     assert terrorist.action_points == 1
 
     start_activation(game, terrorist)
-    assert game._is_move_enabled(terrorist, action_id="move_connector") is None
-    assert game._get_move_label(terrorist, "move_connector") == (
-        "Disengage to Connector (2 AP; ends activation)"
+    assert game._is_move_enabled(terrorist, action_id="move_b_doors") is None
+    assert game._get_move_label(terrorist, "move_b_doors") == (
+        "Disengage to B Doors (2 AP; ends activation)"
     )
-    game.execute_action(terrorist, "move_connector")
+    game.execute_action(terrorist, "move_b_doors")
 
-    assert terrorist.position_id == "connector"
+    assert terrorist.position_id == "b_doors"
     assert terrorist.action_points == 0
     assert terrorist.guard_points == 0
     assert game.current_player is defender
@@ -1405,9 +1883,7 @@ def test_last_ap_contested_entry_yields_a_point_blank_counterattack() -> None:
     defender = tactical_player(game, 1)
     defender.position_id = "b_site"
 
-    game.execute_action(terrorist, "move_east_yard")
-    game.execute_action(terrorist, "move_b_tunnels")
-    start_activation(game, terrorist)
+    terrorist.position_id = "b_tunnels"
     terrorist.action_points = 1
 
     game.execute_action(terrorist, "move_b_site")
@@ -1422,7 +1898,7 @@ def test_sidearm_followup_requires_line_of_sight_and_uses_remaining_ap() -> None
     game = make_game(start=True)
     shooter = tactical_player(game, 0)
     target = tactical_player(game, 1)
-    shooter.position_id = "connector"
+    shooter.position_id = "a_ramp"
     target.position_id = "a_site"
 
     action_id = f"shoot_{target.id}"
@@ -1436,7 +1912,7 @@ def test_sidearm_followup_requires_line_of_sight_and_uses_remaining_ap() -> None
     assert target.health == 47
     assert shooter.action_points == 0
     start_activation(game, shooter)
-    target.position_id = "east_yard"
+    target.position_id = "outside_tunnels"
     assert game._is_shoot_enabled(shooter, action_id=action_id) == (
         "breachpoint-error-no-line-of-sight",
         {"player": target.name},
@@ -1458,11 +1934,11 @@ def test_forged_friendly_fire_and_off_turn_actions_are_rejected() -> None:
     game.execute_action(current, friendly_action)
     assert teammate.health == game.rules.max_health
 
-    assert game._is_move_enabled(off_turn_enemy, action_id="move_a_link") == (
+    assert game._is_move_enabled(off_turn_enemy, action_id="move_a_short") == (
         "breachpoint-error-not-your-turn",
         {"player": current.name},
     )
-    game.execute_action(off_turn_enemy, "move_a_link")
+    game.execute_action(off_turn_enemy, "move_a_short")
     assert off_turn_enemy.position_id == "ct_spawn"
 
 
@@ -1557,9 +2033,9 @@ def test_ct_objective_logic_knows_bomb_carrier_only_after_visual_contact() -> No
     assert "concealed" in game._bomb_status_line(defender, "en")
     assert bot_target_nodes(game, defender) == ("a_site",)
 
-    carrier.position_id = "connector"
+    carrier.position_id = "ct_mid"
     assert "Player1" in game._bomb_status_line(defender, "en")
-    assert bot_target_nodes(game, defender) == ("connector",)
+    assert bot_target_nodes(game, defender) == ("ct_mid",)
 
 
 def test_bomb_recovery_identifies_carrier_to_ct_only_with_team_vision() -> None:
@@ -1578,13 +2054,13 @@ def test_bomb_recovery_identifies_carrier_to_ct_only_with_team_vision() -> None:
 
     game.bomb_state = BOMB_DROPPED
     game.bomb_carrier_id = ""
-    game.bomb_location_id = "connector"
-    recovering.position_id = "connector"
+    game.bomb_location_id = "ct_mid"
+    recovering.position_id = "ct_mid"
     defender.position_id = "ct_spawn"
     start_activation(game, recovering)
     clear_spoken(game)
     game.execute_action(recovering, "pick_up_bomb")
-    assert "Player3 recovers the dropped bomb at Connector." in spoken_text(game, 1)
+    assert "Player3 recovers the dropped bomb at CT Mid." in spoken_text(game, 1)
 
 
 def test_plant_completes_after_one_ct_response_then_defuse_scores_round() -> None:
@@ -1602,7 +2078,7 @@ def test_plant_completes_after_one_ct_response_then_defuse_scores_round() -> Non
     game.execute_action(defender, "end_turn")
     assert game.bomb_state == BOMB_PLANTED
     assert game.bomb_location_id == "a_site"
-    assert game.bomb_fuse_remaining == 2
+    assert game.bomb_fuse_remaining == game.rules.bomb_fuse_tactical_rounds
     assert game.bomb_planted_tactical_round == 1
     assert carrier.cash == game.economy.starting_cash + game.economy.planter_reward
 
@@ -1665,10 +2141,19 @@ def test_opposite_site_ct_can_rotate_then_defuse_with_the_fixed_fuse() -> None:
     defender.position_id = "a_site"
     start_activation(game, defender)
 
-    assert game._node_distance("a_site", "b_site") == 2
-    game.execute_action(defender, "move_connector")
+    assert game._node_distance("a_site", "b_site") == 3
+    game.execute_action(defender, "move_ct_spawn")
+    game.execute_action(defender, "move_b_doors")
+    assert defender.position_id == "b_doors"
+    assert game.bomb_fuse_remaining == game.rules.bomb_fuse_tactical_rounds
+
+    start_activation(game, defender)
     game.execute_action(defender, "move_b_site")
     assert defender.position_id == "b_site"
+    assert game._is_defuse_enabled(defender) == (
+        "breachpoint-error-not-enough-ap",
+        {"needed": game.rules.defuse_cost, "remaining": 1},
+    )
     assert game.bomb_fuse_remaining == game.rules.bomb_fuse_tactical_rounds
 
     start_activation(game, defender)
@@ -1689,7 +2174,7 @@ def test_defuse_kit_allows_move_then_interruptible_defuse() -> None:
     game.bomb_location_id = "a_site"
     game.bomb_fuse_remaining = game.rules.bomb_fuse_tactical_rounds
     game.bomb_planted_tactical_round = game.tactical_round
-    defender.position_id = "connector"
+    defender.position_id = "ct_spawn"
     defender.equipment_counts = {DEFUSE_KIT.id: 1}
     terrorist.position_id = "b_site"
     start_activation(game, defender)
@@ -1702,7 +2187,7 @@ def test_defuse_kit_allows_move_then_interruptible_defuse() -> None:
     responder = game.current_player
     assert isinstance(responder, BreachPointPlayer)
     assert responder.team_index == TEAM_TERRORISTS
-    responder.position_id = "connector"
+    responder.position_id = "a_ramp"
     assert game._squad_score(TEAM_COUNTER_TERRORISTS) == 0
 
     game.execute_action(responder, f"shoot_{defender.id}")
@@ -1727,7 +2212,7 @@ def test_fully_evaded_pistol_does_not_interrupt_defuse() -> None:
     game.execute_action(defender, "defuse")
     responder = game.current_player
     assert isinstance(responder, BreachPointPlayer)
-    responder.position_id = "connector"
+    responder.position_id = "ct_mid"
     game.execute_action(responder, f"shoot_{defender.id}")
 
     assert defender.health == game.rules.max_health
@@ -1741,7 +2226,7 @@ def test_damage_interrupts_pending_plant_without_dropping_bomb() -> None:
     carrier = tactical_player(game, 0)
     defender = tactical_player(game, 1)
     carrier.position_id = "a_site"
-    defender.position_id = "connector"
+    defender.position_id = "a_ramp"
 
     game.execute_action(carrier, "plant")
     assert game.current_player is defender
@@ -1931,7 +2416,7 @@ def test_objective_responses_prioritize_a_co_located_enemy() -> None:
 def test_hidden_plant_warns_ct_without_revealing_planter_or_site() -> None:
     game = make_game(start=True)
     carrier = tactical_player(game, 0)
-    carrier.position_id = "a_site"
+    carrier.position_id = "b_site"
     clear_spoken(game)
 
     game.execute_action(carrier, "plant")
@@ -1940,9 +2425,9 @@ def test_hidden_plant_warns_ct_without_revealing_planter_or_site() -> None:
         messages = spoken_text(game, defender_index)
         assert "Plant attempt detected. CT has one response." in messages
         assert all(
-            "Player1" not in text and "Bombsite A" not in text for text in messages
+            "Player1" not in text and "Bombsite B" not in text for text in messages
         )
-    assert any("Bombsite A" in text for text in spoken_text(game, 2))
+    assert any("Bombsite B" in text for text in spoken_text(game, 2))
 
 
 def test_planting_round_does_not_consume_fuse_but_later_rounds_do() -> None:
@@ -1953,11 +2438,14 @@ def test_planting_round_does_not_consume_fuse_but_later_rounds_do() -> None:
     game._complete_pending_plant()
 
     assert not game._complete_tactical_round()
-    assert game.bomb_fuse_remaining == 2
+    assert game.bomb_fuse_remaining == 3
     game.tactical_round = 2
     assert not game._complete_tactical_round()
-    assert game.bomb_fuse_remaining == 1
+    assert game.bomb_fuse_remaining == 2
     game.tactical_round = 3
+    assert not game._complete_tactical_round()
+    assert game.bomb_fuse_remaining == 1
+    game.tactical_round = 4
     assert game._complete_tactical_round()
     assert game.status == "playing"
     assert game._squad_score(TEAM_TERRORISTS) == 1
@@ -1975,21 +2463,21 @@ def test_postplant_phase_labels_replace_the_expired_preplant_counter() -> None:
     game.bomb_planted_tactical_round = game.tactical_round
 
     assert game._round_phase_label("en") == (
-        "Bomb planted; 2 full tactical rounds remain"
+        "Bomb planted; 3 full tactical rounds remain"
     )
     clear_spoken(game)
     game._announce_tactical_round_start()
-    assert "Bomb planted; 2 full tactical rounds remain." in spoken_text(game, 0)
+    assert "Bomb planted; 3 full tactical rounds remain." in spoken_text(game, 0)
     assert all("7 of 6" not in text for text in spoken_text(game, 0))
 
     game.tactical_round += 1
-    assert game._round_phase_label("en") == "Bomb planted 1 of 2"
+    assert game._round_phase_label("en") == "Bomb planted 1 of 3"
     clear_spoken(game)
     start_activation(game, tactical_player(game, 0))
-    assert any("Bomb planted 1 of 2." in text for text in spoken_text(game, 0))
+    assert any("Bomb planted 1 of 3." in text for text in spoken_text(game, 0))
     assert all("of 6" not in text for text in spoken_text(game, 0))
     game.bomb_fuse_remaining = 1
-    assert game._round_phase_label("en") == "Bomb planted 2 of 2"
+    assert game._round_phase_label("en") == "Bomb planted 3 of 3"
 
 
 def test_last_second_plant_receives_the_full_post_plant_fuse() -> None:
@@ -2011,7 +2499,7 @@ def test_last_second_plant_receives_the_full_post_plant_fuse() -> None:
     assert game.tactical_round == game.rules.preplant_tactical_round_limit + 1
     assert game.round == 1
 
-    for expected_fuse in (1, 0):
+    for expected_fuse in (2, 1, 0):
         game.execute_action(carrier, "end_turn")
         game.execute_action(responder, "end_turn")
         if expected_fuse:
@@ -2301,12 +2789,10 @@ def test_touch_menu_exposes_gameplay_and_status_actions_in_stable_order() -> Non
     ]
     assert visible_turn_ids == [
         "hold_angle_t_spawn",
-        "hold_angle_west_yard",
         "hold_angle_mid",
-        "hold_angle_east_yard",
-        "move_west_yard",
+        "move_outside_long",
         "move_mid",
-        "move_east_yard",
+        "move_outside_tunnels",
         "end_turn",
     ]
     visible_standard_ids = [
@@ -2336,13 +2822,13 @@ def test_touch_menu_orders_preparation_and_utility_before_movement() -> None:
         action.action.id for action in turn_set.get_visible_actions(game, player)
     ]
     assert visible_ids.index("equip_sidearm") < visible_ids.index(
-        "hold_angle_west_yard"
+        "hold_angle_outside_long"
     )
-    assert visible_ids.index("hold_angle_east_yard") < visible_ids.index(
+    assert visible_ids.index("hold_angle_outside_tunnels") < visible_ids.index(
         "throw_smoke_t_spawn"
     )
-    assert visible_ids.index("throw_flashbang_east_yard") < visible_ids.index(
-        "move_west_yard"
+    assert visible_ids.index("throw_flashbang_outside_tunnels") < visible_ids.index(
+        "move_outside_long"
     )
     assert visible_ids[-1] == "end_turn"
 
@@ -2371,6 +2857,7 @@ def test_game_keybinds_use_active_scope_without_base_collisions() -> None:
         "o": "read_bomb",
         "v": "read_teams",
         "e": "end_turn",
+        "r": "reload",
     }
     for key, action_id in expected.items():
         bindings = [
@@ -2397,11 +2884,14 @@ def test_live_map_uses_stable_ids_and_reports_exits_sightlines_and_occupants() -
 
     items = game._build_map_status(player, user)
     assert items[0].id == "breachpoint_map_header"
+    assert items[1].id == "breachpoint_map_spatial_context"
+    assert "You are at T Spawn" in items[1].text
+    assert "stacked supply crates" in items[1].text
     mid_doors = next(
         item for item in items if item.id == "breachpoint_map_node_mid_doors"
     )
-    assert "Connector" in mid_doors.text
-    assert "Bombsite A" in mid_doors.text
+    assert "Connected areas: Mid and CT Mid" in mid_doors.text
+    assert "CT Spawn, range 2" in mid_doors.text
     t_spawn = next(item for item in items if item.id == "breachpoint_map_node_t_spawn")
     assert "Player1" in t_spawn.text
     assert "Player3" in t_spawn.text
@@ -2421,7 +2911,7 @@ def test_live_map_uses_the_postplant_phase_instead_of_an_expired_round_limit() -
 
     header = game._build_map_status(player, user)[0].text
 
-    assert "Bomb planted; 2 full tactical rounds remain" in header
+    assert "Bomb planted; 3 full tactical rounds remain" in header
     assert "7 of 6" not in header
 
 
@@ -2457,7 +2947,7 @@ def test_team_shared_los_reveals_contacts_without_granting_remote_shots() -> Non
     user = game.get_user(shooter)
     assert isinstance(user, MockUser)
 
-    scout.position_id = "connector"
+    scout.position_id = "ct_mid"
     enemy.position_id = "ct_spawn"
     map_text = "\n".join(item.text for item in game._build_map_status(shooter, user))
     assert "Player2" in map_text
@@ -2473,7 +2963,7 @@ def test_smoke_blocks_endpoint_sightlines_for_two_tactical_rounds() -> None:
     target = tactical_player(game, 1)
     user = game.get_user(thrower)
     assert isinstance(user, MockUser)
-    thrower.position_id = "connector"
+    thrower.position_id = "ct_spawn"
     target.position_id = "a_site"
     thrower.utility_counts = {SMOKE_GRENADE.id: 1}
 
@@ -2509,7 +2999,7 @@ def test_utility_callouts_are_teamwide_but_enemy_visibility_limited() -> None:
     assert all("Smoke Grenade" not in text for text in spoken_text(game, 3))
 
     thrower.utility_counts = {FLASHBANG.id: 1}
-    thrower.position_id = "connector"
+    thrower.position_id = "ct_spawn"
     hidden_enemy.position_id = "a_site"
     start_activation(game, thrower)
     clear_spoken(game)
@@ -2525,13 +3015,13 @@ def test_visible_utility_impact_does_not_reveal_concealed_thrower() -> None:
     game = make_game(start=True)
     thrower = tactical_player(game, 0)
     observer = tactical_player(game, 1)
-    observer.position_id = "b_tunnels"
+    observer.position_id = "upper_tunnels"
     thrower.utility_counts = {SMOKE_GRENADE.id: 1}
     clear_spoken(game)
 
-    game.execute_action(thrower, "throw_smoke_east_yard")
+    game.execute_action(thrower, "throw_smoke_outside_tunnels")
 
-    assert "Enemy Smoke Grenade at East Yard." in spoken_text(game, 1)
+    assert "Enemy Smoke Grenade at Outside Tunnels." in spoken_text(game, 1)
     assert all("Player1" not in text for text in spoken_text(game, 1))
 
 
@@ -2601,15 +3091,16 @@ def test_team_discovers_hidden_smoke_when_movement_reveals_its_boundary() -> Non
     game = make_game(start=True)
     thrower = tactical_player(game, 0)
     observer = tactical_player(game, 1)
+    observer_teammate = tactical_player(game, 3)
     thrower.position_id = "b_tunnels"
-    observer.position_id = "a_site"
+    observer.position_id = observer_teammate.position_id = "ct_mid"
     thrower.utility_counts = {SMOKE_GRENADE.id: 1}
 
     game.execute_action(thrower, "throw_smoke_b_site")
     assert not game._team_knows_smoke(TEAM_COUNTER_TERRORISTS, "b_site")
 
     start_activation(game, observer)
-    game.execute_action(observer, "move_connector")
+    game.execute_action(observer, "move_b_doors")
 
     assert game._team_knows_smoke(TEAM_COUNTER_TERRORISTS, "b_site")
     assert TEAM_COUNTER_TERRORISTS in game.smoke_known_team_indexes["b_site"]
@@ -2641,9 +3132,9 @@ def test_flashbang_spares_thrower_but_affects_teammates_and_enemies() -> None:
     teammate.position_id = "a_site"
     thrower.utility_counts = {FLASHBANG.id: 1}
     defender.held_angle_origin_id = defender.position_id
-    defender.held_angle_node_id = "connector"
+    defender.held_angle_node_id = "ct_mid"
     teammate.held_angle_origin_id = teammate.position_id
-    teammate.held_angle_node_id = "connector"
+    teammate.held_angle_node_id = "ct_mid"
 
     game.execute_action(thrower, "throw_flashbang_a_site")
     assert thrower.flash_penalty == 0
@@ -2663,14 +3154,14 @@ def test_flashbang_spares_thrower_but_affects_teammates_and_enemies() -> None:
 def test_using_utility_breaks_a_prepared_angle() -> None:
     game = make_game(start=True)
     sniper = tactical_player(game, 0)
-    sniper.position_id = "connector"
+    sniper.position_id = "ct_mid"
     sniper.primary_weapon_id = AWP.id
     sniper.equipped_weapon_id = AWP.id
     sniper.utility_counts = {SMOKE_GRENADE.id: 1}
-    sniper.held_angle_origin_id = "connector"
+    sniper.held_angle_origin_id = "ct_mid"
     sniper.held_angle_node_id = "a_site"
 
-    game.execute_action(sniper, "throw_smoke_b_site")
+    game.execute_action(sniper, "throw_smoke_b_doors")
     assert not sniper.held_angle_origin_id
     assert not sniper.held_angle_node_id
 
@@ -2679,16 +3170,17 @@ def test_enemy_movement_conceals_destination_until_team_los_detects_it() -> None
     game = make_game(start=True)
     mover = tactical_player(game, 0)
     observing_enemy = tactical_player(game, 1)
-    observing_enemy.position_id = "connector"
+    observing_teammate = tactical_player(game, 3)
+    observing_enemy.position_id = observing_teammate.position_id = "a_short"
     clear_spoken(game)
 
     game.execute_action(mover, "move_mid")
     assert spoken_text(game, 1) == ["Player1 moved."]
     assert spoken_text(game, 3) == ["Player1 moved."]
 
-    game.execute_action(mover, "move_mid_doors")
-    assert any("Contact: Player1 at Mid Doors" in text for text in spoken_text(game, 1))
-    assert any("Contact: Player1 at Mid Doors" in text for text in spoken_text(game, 3))
+    game.execute_action(mover, "move_catwalk")
+    assert any("Contact: Player1 at Catwalk" in text for text in spoken_text(game, 1))
+    assert any("Contact: Player1 at Catwalk" in text for text in spoken_text(game, 3))
 
 
 def test_spectator_status_and_shot_feed_do_not_reveal_positions() -> None:
@@ -2867,7 +3359,7 @@ def test_save_restore_preserves_per_weapon_attack_cadence_and_recoil() -> None:
     target = tactical_player(game, 1)
     shooter.primary_weapon_id = AK47.id
     shooter.equipped_weapon_id = AK47.id
-    shooter.position_id = "connector"
+    shooter.position_id = "a_ramp"
     target.position_id = "a_site"
     game.execute_action(shooter, f"shoot_{target.id}")
 
@@ -2930,6 +3422,36 @@ def test_save_restore_preserves_a_purchased_sidearm() -> None:
     assert restored_buyer.cash == game.economy.starting_cash - DESERT_EAGLE.cost
 
 
+def test_save_restore_preserves_authoritative_weapon_ammunition() -> None:
+    game = make_game(start=True)
+    shooter = tactical_player(game, 1)
+    shooter.primary_weapon_id = M4.id
+    shooter.equipped_weapon_id = M4.id
+    shooter.weapon_magazine_ammo = {
+        USP_S.id: 4,
+        M4.id: 6,
+    }
+    shooter.weapon_reserve_units = {
+        USP_S.id: 2,
+        M4.id: 1,
+    }
+
+    restored = BreachPointGame.from_json(game.to_json())
+    for player in restored.players:
+        restored.attach_user(player.id, MockUser(player.name, uuid=player.id))
+    restored.rebuild_runtime_state()
+    restored_shooter = tactical_player(restored, 1)
+
+    assert restored_shooter.weapon_magazine_ammo == {
+        USP_S.id: 4,
+        M4.id: 6,
+    }
+    assert restored_shooter.weapon_reserve_units == {
+        USP_S.id: 2,
+        M4.id: 1,
+    }
+
+
 def test_save_restore_preserves_a_valid_defuse_response_window() -> None:
     game = make_game(start=True)
     defender = tactical_player(game, 1)
@@ -2980,7 +3502,6 @@ def test_save_restore_preserves_squad_scores_and_current_sides() -> None:
 
 def test_restore_normalizes_invalid_match_metadata_and_scores() -> None:
     game = make_game(start=True, match_format="mr7")
-    game.map_id = "missing"
     game.options.match_format = "mr99"
     game.options.overtime_mode = "sudden_death"
     game.side_squad_indexes = [0, 0]
@@ -3007,10 +3528,19 @@ def test_restore_normalizes_invalid_match_metadata_and_scores() -> None:
         GLOCK.id: [tactical_player(game, 1).id, tactical_player(game, 1).id],
         "missing": [tactical_player(game, 1).id],
     }
+    first_player.weapon_magazine_ammo = {
+        GLOCK.id: GLOCK.magazine_capacity + 99,
+        M4.id: 4,
+        "missing": 1,
+    }
+    first_player.weapon_reserve_units = {
+        GLOCK.id: -1,
+        M4.id: 1,
+        "missing": 1,
+    }
 
     game.rebuild_runtime_state()
 
-    assert game.map_id == "depot"
     assert game.options.match_format == "mr12"
     assert game.options.overtime_mode == "mr3"
     assert game.side_squad_indexes == [0, 1]
@@ -3029,6 +3559,22 @@ def test_restore_normalizes_invalid_match_metadata_and_scores() -> None:
     assert first_player.weapon_target_ids_this_activation == {
         GLOCK.id: [tactical_player(game, 1).id]
     }
+    assert first_player.weapon_magazine_ammo == {
+        GLOCK.id: GLOCK.magazine_capacity,
+    }
+    assert first_player.weapon_reserve_units == {GLOCK.id: 0}
+
+
+def test_restore_rejects_an_unknown_map_instead_of_migrating_it() -> None:
+    game = make_game(start=True)
+    game.map_id = "missing"
+
+    try:
+        game.rebuild_runtime_state()
+    except ValueError as error:
+        assert "Unknown Breach Point tactical map" in str(error)
+    else:
+        raise AssertionError("An unknown unreleased map must not be migrated")
 
 
 def test_restore_caps_combined_attack_history_to_the_activation_ap_budget() -> None:
@@ -3071,9 +3617,9 @@ def test_bot_strategy_uses_legal_objective_and_path_actions() -> None:
 
     first_action = game.bot_think(terrorist_bot)
     assert first_action in {
-        "move_west_yard",
+        "move_outside_long",
         "move_mid",
-        "move_east_yard",
+        "move_outside_tunnels",
     }
     terrorist_bot.position_id = "a_site"
     terrorist_bot.action_points = 2
@@ -3083,7 +3629,7 @@ def test_bot_strategy_uses_legal_objective_and_path_actions() -> None:
     game.bomb_state = BOMB_PLANTED
     game.bomb_carrier_id = ""
     game.bomb_location_id = "a_site"
-    game.bomb_fuse_remaining = 2
+    game.bomb_fuse_remaining = game.rules.bomb_fuse_tactical_rounds
     defender_bot.position_id = "a_site"
     terrorist_bot.position_id = "b_site"
     start_activation(game, defender_bot)
@@ -3117,11 +3663,11 @@ def test_bot_pathfinding_does_not_route_around_a_concealed_enemy(
     bot = tactical_player(game, 0)
     enemy = tactical_player(game, 1)
     bot.position_id = "t_spawn"
-    enemy.position_id = "west_yard"
-    game.smoke_expirations = {"west_yard": game.tactical_round + 1}
+    enemy.position_id = "outside_long"
+    game.smoke_expirations = {"outside_long": game.tactical_round + 1}
 
     assert not game._team_can_see_player(bot.team_index, enemy)
-    assert bot_path_step(game, bot, ("a_site",)) == "west_yard"
+    assert bot_path_step(game, bot, ("pit",)) == "outside_long"
 
     game.smoke_expirations = {}
     assert game._team_can_see_player(bot.team_index, enemy)
@@ -3158,7 +3704,7 @@ def test_bots_buy_for_their_side_and_prefer_rifles_when_affordable() -> None:
     assert game.bot_think(defender) == "buy_utility_flashbang"
 
 
-def test_bots_reserve_side_specific_smgs_for_anti_eco_rounds() -> None:
+def test_bots_reserve_close_range_primaries_for_anti_eco_rounds() -> None:
     game = make_game(start=True, bot_indexes={0, 1, 2, 3}, finish_buy_phase=False)
     entry = next(
         player
@@ -3176,7 +3722,7 @@ def test_bots_reserve_side_specific_smgs_for_anti_eco_rounds() -> None:
     ct_squad = game._squad_for_side(TEAM_COUNTER_TERRORISTS)
     game.squad_loss_streaks[ct_squad] = game.economy.initial_loss_count + 1
     entry.cash = AK47.cost
-    assert game.bot_think(entry) == "buy_weapon_mac10"
+    assert game.bot_think(entry) == "buy_weapon_nova"
 
     game.current_player = carrier
     carrier.cash = AK47.cost
@@ -3200,6 +3746,37 @@ def test_bots_reserve_side_specific_smgs_for_anti_eco_rounds() -> None:
 
     game.squad_loss_streaks[t_squad] += 1
     assert game.bot_think(defender) == "buy_weapon_m4"
+
+
+def test_terrorist_anti_eco_roles_split_alpha_and_sustained_weapons() -> None:
+    game = make_game(
+        start=True,
+        player_count=10,
+        bot_indexes=set(range(10)),
+        finish_buy_phase=False,
+    )
+    terrorists = game._turn_order_players_on_team(TEAM_TERRORISTS)
+    entry = next(
+        player
+        for player in terrorists
+        if game._bot_coordinator.assignment_for(player.id).role == ROLE_ENTRY
+    )
+    lurker = next(
+        player
+        for player in terrorists
+        if game._bot_coordinator.assignment_for(player.id).role == ROLE_LURKER
+    )
+    game.squad_loss_streaks[entry.squad_index] = 0
+    opposing_squad = game._squad_for_side(TEAM_COUNTER_TERRORISTS)
+    game.squad_loss_streaks[opposing_squad] = game.economy.initial_loss_count + 1
+
+    for bot, expected_action in (
+        (entry, "buy_weapon_nova"),
+        (lurker, "buy_weapon_mac10"),
+    ):
+        game.current_player = bot
+        bot.cash = AK47.cost
+        assert game.bot_think(bot) == expected_action
 
 
 def test_bots_buy_budget_rifles_only_when_the_loadout_can_protect_them() -> None:
@@ -3248,8 +3825,7 @@ def test_bot_close_range_force_buy_count_scales_with_squad_size() -> None:
         )
         expected_count = max(
             1,
-            team_size
-            // game._bot_coordinator.profile.close_range_primary_team_divisor,
+            team_size // game._bot_coordinator.profile.close_range_primary_team_divisor,
         )
         for team_index in (TEAM_TERRORISTS, TEAM_COUNTER_TERRORISTS):
             teammates = game._turn_order_players_on_team(team_index)
@@ -3430,6 +4006,22 @@ def test_one_designated_rotator_buys_the_squads_precision_weapon() -> None:
     assert game.bot_think(rotator) == "buy_weapon_m4"
 
 
+def test_designated_precision_bot_protects_an_ssg08_force_buy_with_armor() -> None:
+    game = make_game(
+        start=True,
+        player_count=6,
+        bot_indexes=set(range(6)),
+        finish_buy_phase=False,
+    )
+    rotator = game._turn_order_players_on_team(TEAM_COUNTER_TERRORISTS)[-1]
+    game.current_player = rotator
+    rotator.cash = SSG08.cost + game.economy.armor_cost
+
+    assert game.bot_think(rotator) == "buy_weapon_ssg08"
+    game.execute_action(rotator, "buy_weapon_ssg08")
+    assert game.bot_think(rotator) == "buy_armor"
+
+
 def test_bot_squad_limits_upgraded_sidearms_to_one_full_loadout() -> None:
     game = make_game(
         start=True,
@@ -3466,25 +4058,40 @@ def test_bots_split_sites_then_rotate_to_a_public_planted_bomb() -> None:
     game.bomb_state = BOMB_PLANTED
     game.bomb_carrier_id = ""
     game.bomb_location_id = "b_site"
-    game.bomb_fuse_remaining = 2
+    game.bomb_fuse_remaining = game.rules.bomb_fuse_tactical_rounds
     terrorist_a.position_id = "b_site"
     terrorist_b.position_id = "b_site"
     defender_a.position_id = "a_site"
     start_activation(game, defender_a)
 
     assert bot_target_nodes(game, defender_a) == ("b_site",)
-    assert bot_path_step(game, defender_a, ("b_site",)) == "connector"
-    assert game.bot_think(defender_a) == "move_connector"
-    game.execute_action(defender_a, "move_connector")
-    assert game.bot_think(defender_a) == "move_b_site"
+    assert bot_path_step(game, defender_a, ("b_site",)) == "ct_spawn"
+    assert game.bot_think(defender_a) == "move_ct_spawn"
+    game.execute_action(defender_a, "move_ct_spawn")
+    assert game.bot_think(defender_a) == "move_b_doors"
 
 
-def test_ct_takes_a_tempo_safe_ranged_shot_before_rotating() -> None:
+def test_ct_prioritizes_a_cross_site_rotation_over_a_tempo_shot() -> None:
     game = make_game(start=True, bot_indexes={1})
     terrorist = tactical_player(game, 0)
     defender = tactical_player(game, 1)
     terrorist.position_id = "a_site"
-    defender.position_id = "connector"
+    defender.position_id = "ct_spawn"
+    game.bomb_state = BOMB_PLANTED
+    game.bomb_carrier_id = ""
+    game.bomb_location_id = "b_site"
+    game.bomb_fuse_remaining = game.rules.bomb_fuse_tactical_rounds
+    start_activation(game, defender)
+
+    assert game.bot_think(defender) == "move_b_doors"
+    assert terrorist.health == game.rules.max_health
+
+
+def test_ct_bot_fights_a_shared_node_enemy_before_rotating_with_time() -> None:
+    game = make_game(start=True, bot_indexes={1})
+    terrorist = tactical_player(game, 0)
+    defender = tactical_player(game, 1)
+    terrorist.position_id = defender.position_id = "ct_mid"
     game.bomb_state = BOMB_PLANTED
     game.bomb_carrier_id = ""
     game.bomb_location_id = "b_site"
@@ -3493,25 +4100,10 @@ def test_ct_takes_a_tempo_safe_ranged_shot_before_rotating() -> None:
 
     assert game.bot_think(defender) == f"shoot_{terrorist.id}"
     game.execute_action(defender, f"shoot_{terrorist.id}")
-    assert game.bot_think(defender) == "move_b_site"
 
-
-def test_ct_bot_disengages_from_an_off_site_enemy_to_rotate_postplant() -> None:
-    game = make_game(start=True, bot_indexes={1})
-    terrorist = tactical_player(game, 0)
-    defender = tactical_player(game, 1)
-    terrorist.position_id = defender.position_id = "connector"
-    game.bomb_state = BOMB_PLANTED
-    game.bomb_carrier_id = ""
-    game.bomb_location_id = "b_site"
-    game.bomb_fuse_remaining = game.rules.bomb_fuse_tactical_rounds
-    start_activation(game, defender)
-
-    assert game.bot_think(defender) == "move_b_site"
-    game.execute_action(defender, "move_b_site")
-
-    assert defender.position_id == "b_site"
-    assert defender.action_points == 0
+    assert defender.position_id == "ct_mid"
+    assert defender.action_points == 1
+    assert terrorist.health < game.rules.max_health
 
 
 def test_bot_switches_to_sidearm_after_spending_its_rifle_attack() -> None:
@@ -3520,7 +4112,7 @@ def test_bot_switches_to_sidearm_after_spending_its_rifle_attack() -> None:
     target = tactical_player(game, 1)
     bot.primary_weapon_id = AK47.id
     bot.equipped_weapon_id = AK47.id
-    bot.position_id = "connector"
+    bot.position_id = "a_ramp"
     target.position_id = "a_site"
     start_activation(game, bot)
 
@@ -3539,10 +4131,10 @@ def test_m4_bot_commits_its_followup_burst_to_a_wounded_target() -> None:
     ally = tactical_player(game, 3)
     bot.primary_weapon_id = M4.id
     bot.equipped_weapon_id = M4.id
-    bot.position_id = "connector"
-    target.position_id = "a_site"
-    second_target.position_id = "b_site"
-    ally.position_id = "connector"
+    bot.position_id = "mid_doors"
+    target.position_id = "ct_mid"
+    second_target.position_id = "mid"
+    ally.position_id = "mid_doors"
     start_activation(game, bot)
 
     assert game.bot_think(bot) == f"shoot_{target.id}"
@@ -3558,6 +4150,23 @@ def test_m4_bot_commits_its_followup_burst_to_a_wounded_target() -> None:
     assert game.bot_think(bot) == f"shoot_{target.id}"
 
 
+def test_bot_reloads_before_moving_when_the_next_full_attack_is_unavailable() -> None:
+    game = make_game(start=True, bot_indexes={0, 1, 2, 3})
+    bot = tactical_player(game, 1)
+    bot.primary_weapon_id = M4.id
+    bot.equipped_weapon_id = M4.id
+    bot.weapon_magazine_ammo[M4.id] = M4.ammunition_per_attack - 1
+    bot.weapon_reserve_units[M4.id] = 1
+    start_activation(game, bot)
+
+    assert game.bot_think(bot) == "reload"
+    game.execute_action(bot, "reload")
+
+    assert bot.weapon_magazine_ammo[M4.id] == M4.magazine_capacity
+    assert bot.weapon_reserve_units[M4.id] == 0
+    assert bot.action_points == 1
+
+
 def test_outnumbered_ct_bot_falls_back_after_firing() -> None:
     game = make_game(
         start=True,
@@ -3570,10 +4179,10 @@ def test_outnumbered_ct_bot_falls_back_after_firing() -> None:
     third_target = tactical_player(game, 4)
     bot.primary_weapon_id = M4.id
     bot.equipped_weapon_id = M4.id
-    bot.position_id = "connector"
+    bot.position_id = "a_short"
     first_target.position_id = "a_site"
-    second_target.position_id = "b_site"
-    third_target.position_id = "mid_doors"
+    second_target.position_id = "catwalk"
+    third_target.position_id = "a_site"
     start_activation(game, bot)
 
     game.execute_action(bot, f"shoot_{first_target.id}")
@@ -3593,9 +4202,9 @@ def test_ct_pair_holds_ground_against_an_equal_visible_force() -> None:
     ally = tactical_player(game, 3)
     bot.primary_weapon_id = M4.id
     bot.equipped_weapon_id = M4.id
-    bot.position_id = ally.position_id = "connector"
+    bot.position_id = ally.position_id = "a_short"
     first_target.position_id = "a_site"
-    second_target.position_id = "b_site"
+    second_target.position_id = "catwalk"
     start_activation(game, bot)
 
     game.execute_action(bot, f"shoot_{first_target.id}")
@@ -3620,7 +4229,7 @@ def test_exhausted_bot_ends_activation_when_it_cannot_afford_disengagement() -> 
         USP_S.id: USP_S.shots_per_activation,
     }
 
-    assert bot_path_step(game, bot, ("b_site",)) == "connector"
+    assert bot_path_step(game, bot, ("b_site",)) == "ct_spawn"
     assert game.bot_think(bot) == "end_turn"
 
 
@@ -3668,7 +4277,7 @@ def test_bot_uses_objective_when_visible_enemy_is_out_of_weapon_range() -> None:
     planter = tactical_player(game, 0)
     defender = tactical_player(game, 1)
     planter.position_id = "a_site"
-    defender.position_id = "mid_doors"
+    defender.position_id = "pit"
     game.bomb_carrier_id = planter.id
     start_activation(game, planter)
 
@@ -3700,8 +4309,8 @@ def test_ct_roles_follow_activation_order_after_halftime_rotation() -> None:
 
 def test_ct_site_assignments_rotate_between_combat_rounds() -> None:
     game = make_game(start=True, player_count=6, bot_indexes=set(range(6)))
-    first_defender, second_defender, _rotator = (
-        game._turn_order_players_on_team(TEAM_COUNTER_TERRORISTS)
+    first_defender, second_defender, _rotator = game._turn_order_players_on_team(
+        TEAM_COUNTER_TERRORISTS
     )
     assert game._bot_coordinator.assigned_bomb_site(game, first_defender) == "a_site"
     assert game._bot_coordinator.assigned_bomb_site(game, second_defender) == "b_site"
@@ -3716,7 +4325,7 @@ def test_ct_site_assignments_rotate_between_combat_rounds() -> None:
 def test_bot_smokes_a_known_objective_before_entering_it() -> None:
     game = make_game(start=True, bot_indexes={1, 2, 3})
     defender = tactical_player(game, 1)
-    defender.position_id = "connector"
+    defender.position_id = "b_doors"
     defender.utility_counts = {SMOKE_GRENADE.id: 1}
     game.bomb_state = BOMB_PLANTED
     game.bomb_carrier_id = ""
@@ -3733,7 +4342,7 @@ def test_bot_smokes_a_known_objective_before_entering_it() -> None:
 def test_bot_with_kit_moves_then_defuses_instead_of_delaying_for_smoke() -> None:
     game = make_game(start=True, bot_indexes={1, 2, 3})
     defender = tactical_player(game, 1)
-    defender.position_id = "connector"
+    defender.position_id = "b_doors"
     defender.equipment_counts = {DEFUSE_KIT.id: 1}
     defender.utility_counts = {SMOKE_GRENADE.id: 1}
     game.bomb_state = BOMB_PLANTED
@@ -3857,11 +4466,12 @@ def test_split_execute_uses_a_map_derived_route_without_backtracking() -> None:
         game.tactical_map.counter_terrorist_spawn,
     }
     route = game._bot_coordinator._topology_path(game, stage, plan.attack_site_id)
-    pressure_node = game._node(route[1])
-    assert pressure_node is not None
+    assert route[0] == stage
+    assert route[-1] == plan.attack_site_id
+    assert len(route) == len(set(route))
     assert all(
-        site_id in pressure_node.sightlines
-        for site_id in game.tactical_map.bomb_site_ids()
+        destination_id in game._node(source_id).adjacent
+        for source_id, destination_id in pairwise(route)
     )
     terrorists = game._turn_order_players_on_team(TEAM_TERRORISTS)
     carrier = next(
@@ -4038,10 +4648,10 @@ def test_bomb_carrier_stages_behind_the_entry_player() -> None:
     entry = tactical_player(game, 2)
     start_activation(game, carrier)
 
-    assert game.bot_think(carrier) == "move_west_yard"
-    game.execute_action(carrier, "move_west_yard")
+    assert game.bot_think(carrier) == "move_mid"
+    game.execute_action(carrier, "move_mid")
 
-    assert carrier.position_id == "west_yard"
+    assert carrier.position_id == "mid"
     assert entry.position_id == "t_spawn"
     assert game.bot_think(carrier) == "end_turn"
 
@@ -4052,7 +4662,7 @@ def test_bomb_carrier_preserves_smoke_for_the_site_execute() -> None:
     carrier.utility_counts = {SMOKE_GRENADE.id: 1}
     start_activation(game, carrier)
 
-    assert game.bot_think(carrier) == "move_west_yard"
+    assert game.bot_think(carrier) == "move_mid"
 
 
 def test_site_anchor_flashes_a_visible_execute_before_firing() -> None:
@@ -4060,20 +4670,22 @@ def test_site_anchor_flashes_a_visible_execute_before_firing() -> None:
     carrier = tactical_player(game, 0)
     anchor = tactical_player(game, 1)
     entry = tactical_player(game, 2)
-    carrier.position_id = entry.position_id = "a_long"
+    carrier.position_id = entry.position_id = "a_ramp"
     anchor.position_id = "a_site"
     anchor.utility_counts = {FLASHBANG.id: 1}
     start_activation(game, anchor)
 
-    assert game.bot_think(anchor) == "throw_flashbang_a_long"
+    assert game.bot_think(anchor) == "throw_flashbang_a_ramp"
 
 
-def test_entry_flashes_a_visible_site_defender_without_private_angle_knowledge() -> None:
+def test_entry_flashes_a_visible_site_defender_without_private_angle_knowledge() -> (
+    None
+):
     game = make_game(start=True, player_count=6, bot_indexes=set(range(6)))
     entry = tactical_player(game, 2)
     defender = tactical_player(game, 1)
     game._bot_coordinator.team_plans[TEAM_TERRORISTS].attack_site_id = "a_site"
-    entry.position_id = "a_long"
+    entry.position_id = "a_ramp"
     entry.utility_counts = {FLASHBANG.id: 1}
     defender.position_id = "a_site"
     defender.held_angle_origin_id = ""
@@ -4089,12 +4701,26 @@ def test_bomb_carrier_uses_the_squad_flash_to_support_a_site_execute() -> None:
     carrier = tactical_player(game, 0)
     defender = tactical_player(game, 1)
     game._bot_coordinator.team_plans[TEAM_TERRORISTS].attack_site_id = "a_site"
-    carrier.position_id = "a_long"
+    carrier.position_id = "a_ramp"
     carrier.utility_counts = {FLASHBANG.id: 1}
     defender.position_id = "a_site"
     start_activation(game, carrier)
 
     assert game._bot_coordinator.assignment_for(carrier.id).role == ROLE_OBJECTIVE
+    assert game.bot_think(carrier) == "throw_flashbang_a_site"
+
+
+def test_bomb_carrier_can_flash_the_execute_after_moving_into_throw_range() -> None:
+    game = make_game(start=True, bot_indexes={0, 1, 2, 3})
+    carrier = tactical_player(game, 0)
+    defender = tactical_player(game, 1)
+    game._bot_coordinator.team_plans[TEAM_TERRORISTS].attack_site_id = "a_site"
+    carrier.position_id = "a_ramp"
+    carrier.action_points = FLASHBANG.action_point_cost
+    carrier.utility_counts = {FLASHBANG.id: 1}
+    defender.position_id = "a_site"
+    game.current_player = carrier
+
     assert game.bot_think(carrier) == "throw_flashbang_a_site"
 
 
@@ -4105,10 +4731,10 @@ def test_bomb_carrier_flashes_a_visible_site_approach_during_the_execute() -> No
     game._bot_coordinator.team_plans[TEAM_TERRORISTS].attack_site_id = "a_site"
     carrier.position_id = "a_site"
     carrier.utility_counts = {FLASHBANG.id: 1}
-    defender.position_id = "a_link"
+    defender.position_id = "a_short"
     start_activation(game, carrier)
 
-    assert game.bot_think(carrier) == "throw_flashbang_a_link"
+    assert game.bot_think(carrier) == "throw_flashbang_a_short"
 
 
 def test_entry_holds_the_captured_site_for_the_incoming_carrier() -> None:
@@ -4130,7 +4756,7 @@ def test_entry_takes_a_site_while_its_visible_defender_is_flashed() -> None:
     entry = tactical_player(game, 2)
     defender = tactical_player(game, 1)
     game._bot_coordinator.team_plans[TEAM_TERRORISTS].attack_site_id = "a_site"
-    entry.position_id = "a_long"
+    entry.position_id = "a_ramp"
     defender.position_id = "a_site"
     defender.flash_penalty = FLASHBANG.activation_penalty
     start_activation(game, entry)
@@ -4144,7 +4770,7 @@ def test_entry_does_not_rush_an_unflashed_site_defender() -> None:
     entry = tactical_player(game, 2)
     defender = tactical_player(game, 1)
     game._bot_coordinator.team_plans[TEAM_TERRORISTS].attack_site_id = "a_site"
-    entry.position_id = "a_long"
+    entry.position_id = "a_ramp"
     defender.position_id = "a_site"
     start_activation(game, entry)
     entry.action_points = game.rules.move_cost
@@ -4159,7 +4785,7 @@ def test_support_trades_the_entry_by_taking_contested_site_space() -> None:
     support = tactical_player(game, 4)
     game._bot_coordinator.team_plans[TEAM_TERRORISTS].attack_site_id = "a_site"
     entry.position_id = defender.position_id = "a_site"
-    support.position_id = "a_long"
+    support.position_id = "a_ramp"
     game.smoke_expirations = {"a_site": game.tactical_round + 1}
     start_activation(game, support)
     support.action_points = game.rules.move_cost
@@ -4176,14 +4802,16 @@ def test_support_takes_a_lethal_trade_shot_before_moving_onto_site() -> None:
     support = tactical_player(game, 4)
     game._bot_coordinator.team_plans[TEAM_TERRORISTS].attack_site_id = "a_site"
     entry.position_id = defender.position_id = "a_site"
-    support.position_id = "a_long"
+    support.position_id = "a_ramp"
     defender.health = GLOCK.damage_at_range(1)
     start_activation(game, support)
 
     assert game.bot_think(support) == f"shoot_{defender.id}"
 
 
-def test_support_trades_a_recently_eliminated_entry_without_chasing_stale_contact() -> None:
+def test_support_trades_a_recently_eliminated_entry_without_chasing_stale_contact() -> (
+    None
+):
     game = make_game(start=True, player_count=8, bot_indexes=set(range(8)))
     entry = tactical_player(game, 2)
     defender = tactical_player(game, 1)
@@ -4191,7 +4819,7 @@ def test_support_trades_a_recently_eliminated_entry_without_chasing_stale_contac
     plan = game._bot_coordinator.team_plans[TEAM_TERRORISTS]
     plan.attack_site_id = "a_site"
     entry.position_id = defender.position_id = "a_site"
-    support.position_id = "a_long"
+    support.position_id = "a_ramp"
     game._bot_coordinator.observe(game)
     entry.health = 0
     entry.eliminated = True
@@ -4200,7 +4828,7 @@ def test_support_trades_a_recently_eliminated_entry_without_chasing_stale_contac
 
     assert game.bot_think(support) == "move_a_site"
 
-    support.position_id = "a_long"
+    support.position_id = "a_ramp"
     game.tactical_round += 1
     start_activation(game, support)
 
@@ -4213,7 +4841,7 @@ def test_support_trades_an_entry_eliminated_during_a_watched_move() -> None:
     defender = tactical_player(game, 1)
     support = tactical_player(game, 4)
     game._bot_coordinator.team_plans[TEAM_TERRORISTS].attack_site_id = "a_site"
-    entry.position_id = support.position_id = "a_long"
+    entry.position_id = support.position_id = "a_ramp"
     entry.health = 20
     defender.position_id = "a_site"
     defender.held_angle_origin_id = "a_site"
@@ -4229,7 +4857,7 @@ def test_support_trades_an_entry_eliminated_during_a_watched_move() -> None:
     game.execute_action(defender, "reaction_shoot")
     assert entry.eliminated
 
-    support.position_id = "a_long"
+    support.position_id = "a_ramp"
     start_activation(game, support)
     assert game.bot_think(support) == "move_a_site"
 
@@ -4253,7 +4881,7 @@ def test_bot_with_awp_prepares_then_uses_a_visible_angle() -> None:
     game = make_game(start=True, bot_indexes={1, 2, 3})
     sniper = tactical_player(game, 1)
     target = tactical_player(game, 0)
-    sniper.position_id = "mid_doors"
+    sniper.position_id = "pit"
     target.position_id = "a_site"
     sniper.primary_weapon_id = AWP.id
     sniper.equipped_weapon_id = AWP.id
@@ -4274,7 +4902,7 @@ def test_awp_bot_prepares_a_likely_ingress_angle_after_deploying() -> None:
     start_activation(game, sniper)
 
     assert game._bot_coordinator.assigned_bomb_site(game, sniper) == "a_site"
-    assert game.bot_think(sniper) == "hold_angle_a_long"
+    assert game.bot_think(sniper) == "hold_angle_pit"
 
 
 def test_rifle_anchor_occupies_its_site_and_holds_point_blank_entry() -> None:
@@ -4285,8 +4913,6 @@ def test_rifle_anchor_occupies_its_site_and_holds_point_blank_entry() -> None:
     start_activation(game, anchor)
 
     assert game._bot_coordinator.assigned_bomb_site(game, anchor) == "a_site"
-    assert game.bot_think(anchor) == "move_a_link"
-    game.execute_action(anchor, "move_a_link")
     assert game.bot_think(anchor) == "move_a_site"
     game.execute_action(anchor, "move_a_site")
 
@@ -4308,12 +4934,12 @@ def test_terrorist_entry_leads_the_carrier_and_then_defends_postplant() -> None:
     escort.position_id = "t_spawn"
 
     assert bot_target_nodes(game, escort) == ("a_site",)
-    assert bot_path_step(game, escort, ("a_site",)) == "west_yard"
+    assert bot_path_step(game, escort, ("a_site",)) == "mid"
 
     game.bomb_state = BOMB_PLANTED
     game.bomb_carrier_id = ""
     game.bomb_location_id = "b_site"
-    assert bot_target_nodes(game, escort) == ("b_link",)
+    assert bot_target_nodes(game, escort) == ("b_doors",)
 
 
 def test_large_terrorist_squad_spreads_specialists_after_planting() -> None:
@@ -4330,10 +4956,10 @@ def test_large_terrorist_squad_spreads_specialists_after_planting() -> None:
     game.bomb_location_id = "a_site"
 
     assert bot_target_nodes(game, carrier) == ("a_site",)
-    assert bot_target_nodes(game, entry) == ("a_link",)
+    assert bot_target_nodes(game, entry) == ("ct_spawn",)
     assert bot_target_nodes(game, first_support) == ("a_site",)
     assert bot_target_nodes(game, second_support) == ("a_site",)
-    assert bot_target_nodes(game, lurker) == ("connector",)
+    assert bot_target_nodes(game, lurker) == ("a_short",)
 
 
 def test_bot_memory_records_only_team_visible_contacts_and_expires() -> None:
@@ -4343,7 +4969,7 @@ def test_bot_memory_records_only_team_visible_contacts_and_expires() -> None:
 
     assert game._bot_coordinator.contacts_for_team(TEAM_COUNTER_TERRORISTS) == ()
 
-    observer.position_id = "connector"
+    observer.position_id = "ct_spawn"
     carrier.position_id = "a_site"
     game._bot_coordinator.observe(game)
     contacts = game._bot_coordinator.contacts_for_team(TEAM_COUNTER_TERRORISTS)
@@ -4351,7 +4977,7 @@ def test_bot_memory_records_only_team_visible_contacts_and_expires() -> None:
         (carrier.id, "a_site")
     ]
 
-    observer.position_id = "b_link"
+    observer.position_id = tactical_player(game, 3).position_id = "b_doors"
     game.tactical_round += game._bot_coordinator.profile.contact_memory_tactical_rounds
     game._bot_coordinator.observe(game)
     assert game._bot_coordinator.contacts_for_team(TEAM_COUNTER_TERRORISTS)
@@ -4365,15 +4991,15 @@ def test_completed_actions_feed_visible_contacts_into_bot_memory() -> None:
     game = make_game(start=True, bot_indexes={1})
     mover = tactical_player(game, 0)
     observer = tactical_player(game, 1)
-    observer.position_id = "connector"
+    observer.position_id = tactical_player(game, 3).position_id = "a_short"
 
     game.execute_action(mover, "move_mid")
     assert game._bot_coordinator.contacts_for_team(TEAM_COUNTER_TERRORISTS) == ()
 
-    game.execute_action(mover, "move_mid_doors")
+    game.execute_action(mover, "move_catwalk")
     contacts = game._bot_coordinator.contacts_for_team(TEAM_COUNTER_TERRORISTS)
     assert [(contact.player_id, contact.node_id) for contact in contacts] == [
-        (mover.id, "mid_doors")
+        (mover.id, "catwalk")
     ]
 
 
@@ -4391,13 +5017,13 @@ def test_rotator_uses_a_teammates_last_known_contact_without_hidden_vision() -> 
     assignment = game._bot_coordinator.assignment_for(rotator.id)
     assert assignment is not None
     assert assignment.role == ROLE_ROTATOR
-    assert bot_target_nodes(game, rotator) == ("connector",)
+    assert bot_target_nodes(game, rotator) == ("b_doors",)
 
     start_activation(game, rotator)
-    assert game.bot_think(rotator) == "move_connector"
-    game.execute_action(rotator, "move_connector")
+    assert game.bot_think(rotator) == "move_b_doors"
+    game.execute_action(rotator, "move_b_doors")
     assert bot_target_nodes(game, rotator) == ("a_long",)
-    assert game.bot_think(rotator) == "hold_angle_a_site"
+    assert game.bot_think(rotator) == "move_ct_spawn"
 
 
 def test_large_defense_does_not_overrotate_to_an_unconfirmed_decoy() -> None:
@@ -4413,18 +5039,16 @@ def test_large_defense_does_not_overrotate_to_an_unconfirmed_decoy() -> None:
         for player in defenders
         if game._bot_coordinator.assignment_for(player.id).role == ROLE_ROTATOR
     )
-    rotator.position_id = "connector"
+    rotator.position_id = "b_doors"
     for attacker in attackers[1:3]:
         attacker.position_id = "b_site"
 
     game._bot_coordinator.observe(game)
 
     assert len(game._bot_coordinator.contacts_for_team(TEAM_COUNTER_TERRORISTS)) == 2
-    assert bot_target_nodes(game, rotator) == ("connector",)
+    assert bot_target_nodes(game, rotator) == ("b_doors",)
 
-    carrier = next(
-        player for player in attackers if player.id == game.bomb_carrier_id
-    )
+    carrier = next(player for player in attackers if player.id == game.bomb_carrier_id)
     carrier.position_id = "b_site"
     game._bot_coordinator.observe(game)
 
@@ -4443,7 +5067,7 @@ def test_small_defense_rotates_when_visible_contacts_are_a_majority() -> None:
         for player in game._turn_order_players_on_team(TEAM_COUNTER_TERRORISTS)
         if game._bot_coordinator.assignment_for(player.id).role == ROLE_ROTATOR
     )
-    rotator.position_id = "connector"
+    rotator.position_id = "b_doors"
     for attacker in attackers[1:]:
         attacker.position_id = "b_site"
 
@@ -4457,14 +5081,14 @@ def test_bot_memory_is_runtime_only_and_cleared_at_lifecycle_boundaries() -> Non
     game = make_game(start=True, bot_indexes={1})
     enemy = tactical_player(game, 0)
     observer = tactical_player(game, 1)
-    observer.position_id = "connector"
+    observer.position_id = "ct_mid"
     enemy.position_id = "a_site"
     game._bot_coordinator.observe(game)
     game._bot_coordinator.record_round_result(game, TEAM_TERRORISTS)
     assert game._bot_coordinator.contacts_for_team(TEAM_COUNTER_TERRORISTS)
     assert game._bot_coordinator.squad_memories
 
-    observer.position_id = "b_link"
+    observer.position_id = tactical_player(game, 3).position_id = "b_doors"
     payload = json.loads(game.to_json())
     assert "_bot_coordinator" not in payload
     restored = BreachPointGame.from_json(game.to_json())
@@ -4484,7 +5108,7 @@ def test_match_completion_immediately_releases_bot_memory() -> None:
     game = make_game(start=True, bot_indexes={1})
     enemy = tactical_player(game, 0)
     observer = tactical_player(game, 1)
-    observer.position_id = "connector"
+    observer.position_id = "ct_mid"
     enemy.position_id = "a_site"
     game._bot_coordinator.observe(game)
     game._bot_coordinator.record_round_result(game, TEAM_TERRORISTS)
@@ -4542,7 +5166,7 @@ def test_bot_round_roles_scale_from_two_to_five_players_per_side() -> None:
             assert [
                 game._bot_coordinator.assignment_for(player.id).anchor_node_id
                 for player in defenders[2:]
-            ] == ["connector", "mid_doors"]
+            ] == ["b_doors", "ct_mid"]
 
 
 def test_surplus_five_player_anchors_form_defender_side_crossfires() -> None:
@@ -4556,14 +5180,14 @@ def test_surplus_five_player_anchors_form_defender_side_crossfires() -> None:
 
     assert bot_target_nodes(game, primary_a) == ("a_site",)
     assert bot_target_nodes(game, primary_b) == ("b_site",)
-    assert bot_target_nodes(game, rotator) == ("connector",)
-    assert bot_target_nodes(game, secondary_a) == ("a_link",)
-    assert bot_target_nodes(game, secondary_b) == ("b_link",)
+    assert bot_target_nodes(game, rotator) == ("b_doors",)
+    assert bot_target_nodes(game, secondary_a) == ("ct_spawn",)
+    assert bot_target_nodes(game, secondary_b) == ("b_doors",)
 
     secondary_a.position_id = game.tactical_map.counter_terrorist_spawn
+    secondary_a.primary_weapon_id = M4.id
+    secondary_a.equipped_weapon_id = M4.id
     start_activation(game, secondary_a)
-    assert game.bot_think(secondary_a) == "move_a_link"
-    game.execute_action(secondary_a, "move_a_link")
     assert game.bot_think(secondary_a) == "hold_angle_a_site"
 
 
@@ -4576,7 +5200,7 @@ def test_surplus_anchor_collapses_to_the_site_after_primary_is_eliminated() -> N
     primary_a, _primary_b, _rotator, secondary_a, _secondary_b = (
         game._turn_order_players_on_team(TEAM_COUNTER_TERRORISTS)
     )
-    assert bot_target_nodes(game, secondary_a) == ("a_link",)
+    assert bot_target_nodes(game, secondary_a) == ("ct_spawn",)
 
     primary_a.eliminated = True
     primary_a.health = 0
@@ -4589,7 +5213,7 @@ def test_postplant_bot_takes_a_route_opening_kill_then_rotates() -> None:
     game = make_game(start=True, bot_indexes={1})
     terrorist = tactical_player(game, 0)
     defender = tactical_player(game, 1)
-    terrorist.position_id = defender.position_id = "connector"
+    terrorist.position_id = defender.position_id = "ct_mid"
     terrorist.health = 30
     game.bomb_state = BOMB_PLANTED
     game.bomb_carrier_id = ""
@@ -4600,7 +5224,7 @@ def test_postplant_bot_takes_a_route_opening_kill_then_rotates() -> None:
     assert game.bot_think(defender) == f"shoot_{terrorist.id}"
     game.execute_action(defender, f"shoot_{terrorist.id}")
     assert terrorist.eliminated
-    assert game.bot_think(defender) == "move_b_site"
+    assert game.bot_think(defender) == "move_b_doors"
 
 
 def test_postplant_bot_keeps_rotation_tempo_after_opening_its_route() -> None:
@@ -4608,9 +5232,9 @@ def test_postplant_bot_keeps_rotation_tempo_after_opening_its_route() -> None:
     close_terrorist = tactical_player(game, 0)
     defender = tactical_player(game, 1)
     distant_terrorist = tactical_player(game, 2)
-    close_terrorist.position_id = defender.position_id = "connector"
+    close_terrorist.position_id = defender.position_id = "ct_mid"
     close_terrorist.health = 30
-    distant_terrorist.position_id = "a_site"
+    distant_terrorist.position_id = "mid"
     distant_terrorist.health = 1
     game.bomb_state = BOMB_PLANTED
     game.bomb_carrier_id = ""
@@ -4622,7 +5246,7 @@ def test_postplant_bot_keeps_rotation_tempo_after_opening_its_route() -> None:
 
     assert close_terrorist.eliminated
     assert game._can_see(defender, distant_terrorist)
-    assert game.bot_think(defender) == "move_b_site"
+    assert game.bot_think(defender) == "move_b_doors"
 
 
 def test_postplant_bot_does_not_mistake_one_of_two_kills_for_an_open_route() -> None:
@@ -4630,8 +5254,8 @@ def test_postplant_bot_does_not_mistake_one_of_two_kills_for_an_open_route() -> 
     first_terrorist = tactical_player(game, 0)
     defender = tactical_player(game, 1)
     second_terrorist = tactical_player(game, 2)
-    first_terrorist.position_id = defender.position_id = "connector"
-    second_terrorist.position_id = "connector"
+    first_terrorist.position_id = defender.position_id = "ct_mid"
+    second_terrorist.position_id = "ct_mid"
     first_terrorist.health = 1
     game.bomb_state = BOMB_PLANTED
     game.bomb_carrier_id = ""
@@ -4639,7 +5263,10 @@ def test_postplant_bot_does_not_mistake_one_of_two_kills_for_an_open_route() -> 
     game.bomb_fuse_remaining = game.rules.bomb_fuse_tactical_rounds
     start_activation(game, defender)
 
-    assert game.bot_think(defender) == "move_b_site"
+    assert game.bot_think(defender) == f"shoot_{first_terrorist.id}"
+    game.execute_action(defender, f"shoot_{first_terrorist.id}")
+    assert first_terrorist.eliminated
+    assert game.bot_think(defender) == f"shoot_{second_terrorist.id}"
 
 
 def test_surviving_ct_anchors_keep_their_sites_after_a_teammate_is_eliminated() -> None:
@@ -4684,9 +5311,7 @@ def test_terrorist_objective_role_follows_a_new_bomb_carrier() -> None:
     game._bot_coordinator.observe(game)
 
     assert game._bot_coordinator.assignment_for(teammate.id).role == ROLE_OBJECTIVE
-    assert (
-        game._bot_coordinator.assignment_for(original_carrier.id).role == ROLE_ENTRY
-    )
+    assert game._bot_coordinator.assignment_for(original_carrier.id).role == ROLE_ENTRY
 
 
 def test_bot_squad_does_not_duplicate_existing_objective_equipment() -> None:

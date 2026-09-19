@@ -8,7 +8,6 @@ from dataclasses import dataclass, field
 
 from server.games.breachpoint.game import (
     MATCH_DRAW,
-    PHASE_BUY,
     TEAM_COUNTER_TERRORISTS,
     TEAM_TERRORISTS,
     BreachPointGame,
@@ -17,7 +16,6 @@ from server.games.breachpoint.game import (
 from server.games.breachpoint.player import BreachPointPlayer
 from server.games.breachpoint.rules import MATCH_FORMATS
 from server.users.bot import Bot
-
 
 SIDE_NAMES = {
     TEAM_TERRORISTS: "T",
@@ -76,6 +74,7 @@ def _make_game(team_size: int, match_format: str, seed: int) -> BreachPointGame:
         )
     )
     game._bot_coordinator.seed_strategy(seed)
+    game._spatial_rng.seed(seed)
     game.setup_keybinds()
     for index in range(team_size * 2):
         name = f"Bot {index + 1}"
@@ -93,6 +92,7 @@ def _action_family(action_id: str) -> str:
         ("throw_", "utility"),
         ("hold_angle_", "hold"),
         ("equip_", "equip"),
+        ("reload", "reload"),
         ("reaction_", "reaction"),
     ):
         if action_id.startswith(prefix):
@@ -122,11 +122,16 @@ def _state_fingerprint(game: BreachPointGame) -> tuple[object, ...]:
             (
                 player.id,
                 player.position_id,
+                player.grid_x,
+                player.grid_y,
+                player.facing_degrees,
                 player.health,
                 player.action_points,
                 player.eliminated,
                 player.cash,
                 player.equipped_weapon_id,
+                tuple(sorted(player.weapon_magazine_ammo.items())),
+                tuple(sorted(player.weapon_reserve_units.items())),
                 player.sidearm_weapon_id,
                 player.primary_weapon_id,
                 player.armor,
@@ -190,9 +195,7 @@ def run_match(
         previous_sides = tuple(game.side_squad_indexes)
         previous_state = _state_fingerprint(game)
         attack_plan = game._bot_coordinator.team_plans.get(TEAM_TERRORISTS)
-        previous_attack_strategy = (
-            attack_plan.attack_strategy_id if attack_plan else ""
-        )
+        previous_attack_strategy = attack_plan.attack_strategy_id if attack_plan else ""
         previous_attack_site = attack_plan.attack_site_id if attack_plan else ""
         assignment = game._bot_coordinator.assignment_for(current.id)
         targets = game._bot_coordinator.target_nodes(game, current)
@@ -233,8 +236,7 @@ def run_match(
                     actions=round_action_count,
                     regulation_pistol_round=bool(
                         previous_overtime_period == 0
-                        and previous_round
-                        in {1, game.match_format.rounds_per_half + 1}
+                        and previous_round in {1, game.match_format.rounds_per_half + 1}
                     ),
                     attack_strategy=previous_attack_strategy,
                     attack_site=previous_attack_site,
@@ -350,11 +352,7 @@ def _print_summary(diagnostics: list[MatchDiagnostic]) -> None:
         for round_diagnostic in diagnostic.rounds
         if round_diagnostic.winning_side == TEAM_TERRORISTS
     )
-    stalled = [
-        diagnostic
-        for diagnostic in diagnostics
-        if diagnostic.stalled_state
-    ]
+    stalled = [diagnostic for diagnostic in diagnostics if diagnostic.stalled_state]
     print(
         f"{team_size}v{team_size}, {len(diagnostics)} seeded matches: "
         f"squad 1 wins={squad_wins[0]}, squad 2 wins={squad_wins[1]}, "

@@ -52,7 +52,7 @@ STANDARD_RULES = BreachPointRules(
     bomb_pickup_cost=1,
     repeat_objective_response_action_points=1,
     preplant_tactical_round_limit=6,
-    bomb_fuse_tactical_rounds=2,
+    bomb_fuse_tactical_rounds=3,
     overtime_half_rounds=3,
 )
 

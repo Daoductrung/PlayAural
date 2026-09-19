@@ -12,6 +12,9 @@ class BreachPointPlayer(Player):
     squad_index: int = -1
     team_index: int = -1
     position_id: str = ""
+    grid_x: int = -1
+    grid_y: int = -1
+    facing_degrees: int = 0
     health: int = 0
     eliminated: bool = False
     action_points: int = 0
@@ -28,6 +31,8 @@ class BreachPointPlayer(Player):
     sidearm_weapon_id: str = ""
     primary_weapon_id: str = ""
     equipped_weapon_id: str = ""
+    weapon_magazine_ammo: dict[str, int] = field(default_factory=dict)
+    weapon_reserve_units: dict[str, int] = field(default_factory=dict)
     armor: int = 0
     utility_counts: dict[str, int] = field(default_factory=dict)
     equipment_counts: dict[str, int] = field(default_factory=dict)

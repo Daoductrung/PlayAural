@@ -37,6 +37,14 @@ class WeaponProfile:
     cost: int
     max_range: int
     rounds_per_attack: int
+    ammunition_per_attack: int
+    magazine_capacity: int
+    reserve_units: int
+    reserve_unit_name_key: str
+    reload_rounds_per_unit: int
+    reload_units_per_action: int
+    discard_loaded_rounds_on_reload: bool
+    reload_action_point_cost: int
     hits_by_range: tuple[int, ...]
     damage_by_range: tuple[int, ...]
     minimum_hits_after_evasion: int
@@ -62,6 +70,18 @@ class WeaponProfile:
         """Return damage before evasion and armor at a validated graph distance."""
 
         return self.damage_by_range[distance]
+
+    def projectiles_for_ammunition(self, ammunition: int) -> int:
+        """Scale one projectile group to the ammunition actually available."""
+
+        ammunition = max(0, min(self.ammunition_per_attack, ammunition))
+        if not ammunition:
+            return 0
+        return min(
+            self.rounds_per_attack,
+            (self.rounds_per_attack * ammunition + self.ammunition_per_attack - 1)
+            // self.ammunition_per_attack,
+        )
 
 
 UTILITY_EFFECT_SMOKE = "smoke"
@@ -155,6 +175,14 @@ GLOCK = WeaponProfile(
     cost=0,
     max_range=1,
     rounds_per_attack=3,
+    ammunition_per_attack=3,
+    magazine_capacity=20,
+    reserve_units=3,
+    reserve_unit_name_key="breachpoint-ammo-unit-magazine",
+    reload_rounds_per_unit=20,
+    reload_units_per_action=1,
+    discard_loaded_rounds_on_reload=True,
+    reload_action_point_cost=1,
     hits_by_range=(2, 1),
     damage_by_range=(38, 30),
     minimum_hits_after_evasion=0,
@@ -180,6 +208,14 @@ USP_S = WeaponProfile(
     cost=0,
     max_range=1,
     rounds_per_attack=1,
+    ammunition_per_attack=1,
+    magazine_capacity=12,
+    reserve_units=3,
+    reserve_unit_name_key="breachpoint-ammo-unit-magazine",
+    reload_rounds_per_unit=12,
+    reload_units_per_action=1,
+    discard_loaded_rounds_on_reload=True,
+    reload_action_point_cost=1,
     hits_by_range=(1, 1),
     damage_by_range=(36, 32),
     minimum_hits_after_evasion=0,
@@ -205,6 +241,14 @@ DESERT_EAGLE = WeaponProfile(
     cost=700,
     max_range=2,
     rounds_per_attack=1,
+    ammunition_per_attack=1,
+    magazine_capacity=7,
+    reserve_units=3,
+    reserve_unit_name_key="breachpoint-ammo-unit-magazine",
+    reload_rounds_per_unit=7,
+    reload_units_per_action=1,
+    discard_loaded_rounds_on_reload=True,
+    reload_action_point_cost=1,
     hits_by_range=(1, 1, 1),
     damage_by_range=(72, 58, 44),
     minimum_hits_after_evasion=0,
@@ -230,6 +274,14 @@ MAC10 = WeaponProfile(
     cost=1050,
     max_range=1,
     rounds_per_attack=15,
+    ammunition_per_attack=15,
+    magazine_capacity=30,
+    reserve_units=3,
+    reserve_unit_name_key="breachpoint-ammo-unit-magazine",
+    reload_rounds_per_unit=30,
+    reload_units_per_action=1,
+    discard_loaded_rounds_on_reload=True,
+    reload_action_point_cost=1,
     hits_by_range=(5, 2),
     damage_by_range=(76, 36),
     minimum_hits_after_evasion=1,
@@ -255,6 +307,14 @@ MP9 = WeaponProfile(
     cost=1250,
     max_range=1,
     rounds_per_attack=15,
+    ammunition_per_attack=15,
+    magazine_capacity=30,
+    reserve_units=3,
+    reserve_unit_name_key="breachpoint-ammo-unit-magazine",
+    reload_rounds_per_unit=30,
+    reload_units_per_action=1,
+    discard_loaded_rounds_on_reload=True,
+    reload_action_point_cost=1,
     hits_by_range=(4, 3),
     damage_by_range=(68, 48),
     minimum_hits_after_evasion=1,
@@ -272,6 +332,39 @@ MP9 = WeaponProfile(
     kill_reward=600,
 )
 
+NOVA = WeaponProfile(
+    id="nova",
+    name_key="breachpoint-weapon-nova",
+    slot=WEAPON_SLOT_PRIMARY,
+    allowed_sides=SIDE_INDEXES,
+    cost=1050,
+    max_range=1,
+    rounds_per_attack=9,
+    ammunition_per_attack=1,
+    magazine_capacity=8,
+    reserve_units=16,
+    reserve_unit_name_key="breachpoint-ammo-unit-shell",
+    reload_rounds_per_unit=1,
+    reload_units_per_action=2,
+    discard_loaded_rounds_on_reload=False,
+    reload_action_point_cost=1,
+    hits_by_range=(6, 2),
+    damage_by_range=(96, 38),
+    minimum_hits_after_evasion=1,
+    evasion_points_per_hit=1,
+    evasion_damage_reduction_per_point=4,
+    armor_reduction_percent=40,
+    action_point_cost=1,
+    shots_per_activation=1,
+    followup_damage_percent=100,
+    can_repeat_target=True,
+    requires_aim=False,
+    hold_action_point_cost=1,
+    reaction_damage_percent=50,
+    purchase_role=PURCHASE_ROLE_ANTI_ECO,
+    kill_reward=900,
+)
+
 GALIL_AR = WeaponProfile(
     id="galil_ar",
     name_key="breachpoint-weapon-galil-ar",
@@ -280,6 +373,14 @@ GALIL_AR = WeaponProfile(
     cost=1800,
     max_range=2,
     rounds_per_attack=12,
+    ammunition_per_attack=12,
+    magazine_capacity=35,
+    reserve_units=3,
+    reserve_unit_name_key="breachpoint-ammo-unit-magazine",
+    reload_rounds_per_unit=35,
+    reload_units_per_action=1,
+    discard_loaded_rounds_on_reload=True,
+    reload_action_point_cost=1,
     hits_by_range=(4, 3, 1),
     damage_by_range=(74, 56, 34),
     minimum_hits_after_evasion=1,
@@ -305,6 +406,14 @@ FAMAS = WeaponProfile(
     cost=1950,
     max_range=2,
     rounds_per_attack=3,
+    ammunition_per_attack=3,
+    magazine_capacity=25,
+    reserve_units=3,
+    reserve_unit_name_key="breachpoint-ammo-unit-magazine",
+    reload_rounds_per_unit=25,
+    reload_units_per_action=1,
+    discard_loaded_rounds_on_reload=True,
+    reload_action_point_cost=1,
     hits_by_range=(3, 2, 1),
     damage_by_range=(64, 50, 32),
     minimum_hits_after_evasion=1,
@@ -322,6 +431,39 @@ FAMAS = WeaponProfile(
     kill_reward=300,
 )
 
+SSG08 = WeaponProfile(
+    id="ssg08",
+    name_key="breachpoint-weapon-ssg08",
+    slot=WEAPON_SLOT_PRIMARY,
+    allowed_sides=SIDE_INDEXES,
+    cost=1700,
+    max_range=3,
+    rounds_per_attack=1,
+    ammunition_per_attack=1,
+    magazine_capacity=10,
+    reserve_units=3,
+    reserve_unit_name_key="breachpoint-ammo-unit-magazine",
+    reload_rounds_per_unit=10,
+    reload_units_per_action=1,
+    discard_loaded_rounds_on_reload=True,
+    reload_action_point_cost=1,
+    hits_by_range=(1, 1, 1, 1),
+    damage_by_range=(88, 84, 80, 74),
+    minimum_hits_after_evasion=1,
+    evasion_points_per_hit=1,
+    evasion_damage_reduction_per_point=8,
+    armor_reduction_percent=10,
+    action_point_cost=1,
+    shots_per_activation=1,
+    followup_damage_percent=100,
+    can_repeat_target=True,
+    requires_aim=True,
+    hold_action_point_cost=1,
+    reaction_damage_percent=100,
+    purchase_role=PURCHASE_ROLE_PRECISION,
+    kill_reward=300,
+)
+
 AK47 = WeaponProfile(
     id="ak47",
     name_key="breachpoint-weapon-ak47",
@@ -330,6 +472,14 @@ AK47 = WeaponProfile(
     cost=2700,
     max_range=2,
     rounds_per_attack=12,
+    ammunition_per_attack=12,
+    magazine_capacity=30,
+    reserve_units=3,
+    reserve_unit_name_key="breachpoint-ammo-unit-magazine",
+    reload_rounds_per_unit=30,
+    reload_units_per_action=1,
+    discard_loaded_rounds_on_reload=True,
+    reload_action_point_cost=1,
     hits_by_range=(4, 3, 2),
     damage_by_range=(92, 69, 46),
     minimum_hits_after_evasion=1,
@@ -355,6 +505,14 @@ M4 = WeaponProfile(
     cost=2900,
     max_range=2,
     rounds_per_attack=12,
+    ammunition_per_attack=12,
+    magazine_capacity=30,
+    reserve_units=3,
+    reserve_unit_name_key="breachpoint-ammo-unit-magazine",
+    reload_rounds_per_unit=30,
+    reload_units_per_action=1,
+    discard_loaded_rounds_on_reload=True,
+    reload_action_point_cost=1,
     hits_by_range=(4, 3, 2),
     damage_by_range=(72, 54, 36),
     minimum_hits_after_evasion=1,
@@ -380,6 +538,14 @@ AWP = WeaponProfile(
     cost=4750,
     max_range=3,
     rounds_per_attack=1,
+    ammunition_per_attack=1,
+    magazine_capacity=5,
+    reserve_units=2,
+    reserve_unit_name_key="breachpoint-ammo-unit-magazine",
+    reload_rounds_per_unit=5,
+    reload_units_per_action=1,
+    discard_loaded_rounds_on_reload=True,
+    reload_action_point_cost=1,
     hits_by_range=(1, 1, 1, 1),
     damage_by_range=(125, 120, 115, 110),
     minimum_hits_after_evasion=1,
@@ -440,9 +606,11 @@ WEAPONS = {
         USP_S,
         DESERT_EAGLE,
         MAC10,
+        NOVA,
         MP9,
         GALIL_AR,
         FAMAS,
+        SSG08,
         AK47,
         M4,
         AWP,
@@ -507,6 +675,12 @@ def _validate_weapon(weapon: WeaponProfile) -> None:
             value <= 0
             for value in (
                 weapon.rounds_per_attack,
+                weapon.ammunition_per_attack,
+                weapon.magazine_capacity,
+                weapon.reserve_units,
+                weapon.reload_rounds_per_unit,
+                weapon.reload_units_per_action,
+                weapon.reload_action_point_cost,
                 weapon.evasion_points_per_hit,
                 weapon.action_point_cost,
                 weapon.shots_per_activation,
@@ -519,6 +693,21 @@ def _validate_weapon(weapon: WeaponProfile) -> None:
         raise ValueError(f"Weapon {weapon.id} has invalid combat values")
     if any(hits > weapon.rounds_per_attack for hits in weapon.hits_by_range):
         raise ValueError(f"Weapon {weapon.id} hits more rounds than it fires")
+    if weapon.ammunition_per_attack > weapon.magazine_capacity:
+        raise ValueError(f"Weapon {weapon.id} consumes more than one full magazine")
+    if not weapon.reserve_unit_name_key:
+        raise ValueError(f"Weapon {weapon.id} requires a reserve-unit name")
+    if weapon.discard_loaded_rounds_on_reload and (
+        weapon.reload_rounds_per_unit != weapon.magazine_capacity
+        or weapon.reload_units_per_action != 1
+    ):
+        raise ValueError(f"Weapon {weapon.id} has an invalid magazine reload")
+    if (
+        not weapon.discard_loaded_rounds_on_reload
+        and weapon.reload_rounds_per_unit * weapon.reload_units_per_action
+        > weapon.magazine_capacity
+    ):
+        raise ValueError(f"Weapon {weapon.id} loads too much ammunition at once")
     if weapon.minimum_hits_after_evasion > min(weapon.hits_by_range):
         raise ValueError(f"Weapon {weapon.id} has an invalid evasion hit floor")
     if tuple(sorted(weapon.hits_by_range, reverse=True)) != weapon.hits_by_range:

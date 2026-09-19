@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+import random
 from collections import deque
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
@@ -39,7 +41,13 @@ from .arsenal import (
     get_weapon,
 )
 from .bot import BreachPointBotCoordinator
-from .maps import DEFAULT_MAP_ID, TacticalMap, TacticalNode, get_tactical_map
+from .maps import (
+    DEFAULT_MAP_ID,
+    GridPoint,
+    TacticalMap,
+    TacticalNode,
+    get_tactical_map,
+)
 from .player import BreachPointPlayer
 from .rules import (
     DEFAULT_MATCH_FORMAT_ID,
@@ -138,7 +146,7 @@ class BreachPointOptions(GameOptions):
 @register_game
 @dataclass
 class BreachPointGame(Game):
-    """A deterministic, graph-based bomb-defusal tactical game."""
+    """A deterministic bomb-defusal game on a spatial tactical map."""
 
     players: list[BreachPointPlayer] = field(default_factory=list)
     options: BreachPointOptions = field(default_factory=BreachPointOptions)
@@ -178,6 +186,7 @@ class BreachPointGame(Game):
     def __post_init__(self) -> None:
         super().__post_init__()
         self._bot_coordinator = BreachPointBotCoordinator()
+        self._spatial_rng = random.Random()  # nosec B311 - cosmetic placement
 
     def on_discard(self) -> None:
         """Release runtime-only tactical observations with the game instance."""
@@ -236,9 +245,9 @@ class BreachPointGame(Game):
     def tactical_map(self) -> TacticalMap:
         """Return the active validated map definition."""
 
-        tactical_map = get_tactical_map(self.map_id) or get_tactical_map(DEFAULT_MAP_ID)
+        tactical_map = get_tactical_map(self.map_id)
         if tactical_map is None:
-            raise RuntimeError("Breach Point has no registered default map")
+            raise RuntimeError(f"Unknown Breach Point tactical map: {self.map_id}")
         return tactical_map
 
     def create_player(
@@ -582,6 +591,17 @@ class BreachPointGame(Game):
                     show_in_actions_menu=False,
                 )
             )
+        action_set.add(
+            Action(
+                id="reload",
+                label="",
+                handler="_action_reload",
+                is_enabled="_is_reload_enabled",
+                is_hidden="_is_reload_hidden",
+                get_label="_get_reload_label",
+                show_in_actions_menu=False,
+            )
+        )
 
     def _sync_hold_angle_actions(self, action_set: ActionSet) -> None:
         action_set.remove_by_prefix("hold_angle_")
@@ -678,7 +698,7 @@ class BreachPointGame(Game):
         ]
         weapon_ids = [
             action_id
-            for action_id in ("equip_primary", "equip_sidearm")
+            for action_id in ("equip_primary", "equip_sidearm", "reload")
             if action_set.get_action(action_id)
         ]
         hold_angle_ids = [
@@ -701,9 +721,15 @@ class BreachPointGame(Game):
             for action_id in action_set._order
             if action_id.startswith("throw_")
         ]
-        action_set._order = reaction_ids + buy_ids + [
-            action_id for action_id in objective_ids if action_set.get_action(action_id)
-        ]
+        action_set._order = (
+            reaction_ids
+            + buy_ids
+            + [
+                action_id
+                for action_id in objective_ids
+                if action_set.get_action(action_id)
+            ]
+        )
         action_set._order.extend(weapon_ids)
         action_set._order.extend(hold_angle_ids)
         action_set._order.extend(shoot_ids)
@@ -839,6 +865,12 @@ class BreachPointGame(Game):
             ["finish_buy", "end_turn"],
             state=KeybindState.ACTIVE,
         )
+        self.define_keybind(
+            "r",
+            Localization.get("en", "breachpoint-action-reload-keybind"),
+            ["reload"],
+            state=KeybindState.ACTIVE,
+        )
 
     # ------------------------------------------------------------------
     # Lifecycle and restoration
@@ -915,7 +947,11 @@ class BreachPointGame(Game):
             player.equipped_weapon_id = (
                 primary.id if primary else sidearm.id if sidearm else ""
             )
+            self._refill_owned_weapon_ammunition(player)
             player.position_id = self._spawn_for_team(player.team_index)
+            player.grid_x = -1
+            player.grid_y = -1
+            player.facing_degrees = self._spawn_heading_for_team(player.team_index)
             player.health = self.rules.max_health
             player.eliminated = False
             player.action_points = 0
@@ -929,6 +965,8 @@ class BreachPointGame(Game):
             player.held_angle_origin_id = ""
             self._normalize_utility_counts(player)
             self._normalize_equipment_counts(player)
+
+        self._normalize_spatial_positions(active_players)
 
         turn_players = self._get_team_turn_players(active_players)
         self.set_turn_players(turn_players)
@@ -976,6 +1014,7 @@ class BreachPointGame(Game):
             player.held_angle_node_id = ""
             player.held_angle_origin_id = ""
             player.equipped_weapon_id = sidearm.id if sidearm else ""
+            self._refill_owned_weapon_ammunition(player)
 
     def _start_buy_phase(self) -> None:
         """Begin private sequential purchases for the new combat round."""
@@ -1013,6 +1052,11 @@ class BreachPointGame(Game):
             primary=self._weapon_name(user.locale, self._primary_weapon(player)),
             sidearm=self._weapon_name(user.locale, self._sidearm(player)),
             equipped=self._weapon_name(user.locale, self._equipped_weapon(player)),
+            ammunition=self._ammunition_summary(
+                user.locale,
+                player,
+                self._equipped_weapon(player),
+            ),
             armor=player.armor,
             utility=self._utility_summary(user.locale, player),
             equipment=self._equipment_summary(user.locale, player),
@@ -1044,7 +1088,7 @@ class BreachPointGame(Game):
         super().rebuild_runtime_state()
         self._bot_coordinator.clear()
         if get_tactical_map(self.map_id) is None:
-            self.map_id = DEFAULT_MAP_ID
+            raise ValueError(f"Unknown Breach Point tactical map: {self.map_id}")
         if get_match_format(self.options.match_format) is None:
             self.options.match_format = DEFAULT_MATCH_FORMAT_ID
         if self.options.overtime_mode not in OVERTIME_MODES:
@@ -1177,6 +1221,7 @@ class BreachPointGame(Game):
                     primary.id if primary else sidearm.id if sidearm else ""
                 )
             owned_weapon_ids = valid_equipped_ids
+            self._normalize_weapon_ammunition(player, owned_weapon_ids)
             equipped = self._equipped_weapon(player)
             self._normalize_utility_counts(player)
             self._normalize_equipment_counts(player)
@@ -1246,6 +1291,7 @@ class BreachPointGame(Game):
                         ),
                     )
 
+        self._normalize_spatial_positions(active_players)
         self._normalize_bomb_state(active_players)
         self._normalize_defuse_state(active_players)
         self._normalize_reaction_window(active_players)
@@ -1455,8 +1501,7 @@ class BreachPointGame(Game):
                     or self.bomb_state in {BOMB_CARRIED, BOMB_DROPPED}
                     and not self.planting_player_id
                 )
-                and window.response_action_points
-                == expected_response_action_points
+                and window.response_action_points == expected_response_action_points
                 and window.consumes_activation == responder_was_unacted
             )
         elif common_valid and window.kind == REACTION_DEFUSE:
@@ -1465,8 +1510,7 @@ class BreachPointGame(Game):
                 and trigger.team_index == TEAM_COUNTER_TERRORISTS
                 and responder.team_index == TEAM_TERRORISTS
                 and self.defusing_player_id in {"", trigger.id}
-                and window.response_action_points
-                == expected_response_action_points
+                and window.response_action_points == expected_response_action_points
                 and window.consumes_activation == responder_was_unacted
             )
         elif common_valid and window.kind == REACTION_WATCHED_ENTRY:
@@ -1580,6 +1624,107 @@ class BreachPointGame(Game):
             return self.tactical_map.counter_terrorist_spawn
         return self.tactical_map.terrorist_spawn
 
+    def _spawn_heading_for_team(self, team_index: int) -> int:
+        if team_index == TEAM_COUNTER_TERRORISTS:
+            return self.tactical_map.counter_terrorist_spawn_heading
+        return self.tactical_map.terrorist_spawn_heading
+
+    @staticmethod
+    def _player_grid_point(player: BreachPointPlayer) -> GridPoint:
+        return GridPoint(player.grid_x, player.grid_y)
+
+    def _player_has_valid_grid_point(self, player: BreachPointPlayer) -> bool:
+        node = self._node(player.position_id)
+        return bool(
+            node
+            and self._player_grid_point(player)
+            in node.placement_points(self.tactical_map.minimum_player_spacing)
+        )
+
+    def _choose_grid_point(
+        self,
+        node: TacticalNode,
+        occupied: set[GridPoint],
+    ) -> GridPoint:
+        candidates = [
+            point
+            for point in node.placement_points(self.tactical_map.minimum_player_spacing)
+            if point not in occupied
+        ]
+        if not candidates:
+            raise RuntimeError(f"Tactical area {node.id} has no free placement cell")
+        if not occupied:
+            return self._spatial_rng.choice(candidates)
+        distances = {
+            point: min(
+                (point.x - other.x) ** 2 + (point.y - other.y) ** 2
+                for other in occupied
+            )
+            for point in candidates
+        }
+        farthest_distance = max(distances.values())
+        farthest = [
+            point for point in candidates if distances[point] == farthest_distance
+        ]
+        return self._spatial_rng.choice(farthest)
+
+    def _place_player_in_node(
+        self,
+        player: BreachPointPlayer,
+        node_id: str,
+        *,
+        occupied: set[GridPoint] | None = None,
+        heading: int | None = None,
+    ) -> None:
+        """Place one player on a free cell and derive travel orientation."""
+
+        node = self._node(node_id)
+        if not node:
+            raise RuntimeError(f"Unknown tactical area {node_id}")
+        previous_node = self._node(player.position_id)
+        if occupied is None:
+            occupied = {
+                self._player_grid_point(other)
+                for other in self.get_active_players()
+                if isinstance(other, BreachPointPlayer)
+                and other.id != player.id
+                and other.position_id == node_id
+                and self._player_has_valid_grid_point(other)
+            }
+        destination = self._choose_grid_point(node, occupied)
+        player.position_id = node_id
+        player.grid_x = destination.x
+        player.grid_y = destination.y
+        if heading is not None:
+            player.facing_degrees = heading % 360
+        elif previous_node and previous_node.id != node.id:
+            delta_x = node.anchor.x - previous_node.anchor.x
+            delta_y = node.anchor.y - previous_node.anchor.y
+            player.facing_degrees = (
+                round(math.degrees(math.atan2(delta_x, delta_y))) % 360
+            )
+
+    def _normalize_spatial_positions(
+        self,
+        players: list[BreachPointPlayer],
+    ) -> None:
+        """Keep restored/new occupants on unique walkable coordinates."""
+
+        occupied_by_node: dict[str, set[GridPoint]] = {}
+        for player in players:
+            player.facing_degrees %= 360
+            occupied = occupied_by_node.setdefault(player.position_id, set())
+            point = self._player_grid_point(player)
+            if not self._player_has_valid_grid_point(player) or point in occupied:
+                self._place_player_in_node(
+                    player,
+                    player.position_id,
+                    occupied=occupied,
+                    heading=player.facing_degrees,
+                )
+                point = self._player_grid_point(player)
+            occupied.add(point)
+
     def _node(self, node_id: str) -> TacticalNode | None:
         return self.tactical_map.get_node(node_id)
 
@@ -1587,6 +1732,37 @@ class BreachPointGame(Game):
         node = self._node(node_id)
         key = node.name_key if node else "breachpoint-node-unknown"
         return Localization.get(locale, key)
+
+    def _spatial_context(self, locale: str, node_id: str) -> str:
+        """Describe an area's physical setting and deliberate firing lanes."""
+
+        node = self._node(node_id)
+        if not node:
+            return Localization.get(locale, "breachpoint-node-unknown")
+        terrain = Localization.format_list_and(
+            locale,
+            [Localization.get(locale, feature.name_key) for feature in node.terrain],
+        )
+        sightlines = Localization.format_list_and(
+            locale,
+            [
+                Localization.get(
+                    locale,
+                    "breachpoint-map-sightline-entry",
+                    location=self._node_name(locale, visible_id),
+                    range=self._combat_distance(node.id, visible_id),
+                )
+                for visible_id in self.tactical_map.visible_node_ids(node.id)
+            ],
+        )
+        return Localization.get(
+            locale,
+            "breachpoint-map-spatial-context",
+            location=self._node_name(locale, node.id),
+            description=Localization.get(locale, node.description_key),
+            terrain=terrain,
+            sightlines=sightlines,
+        )
 
     @staticmethod
     def _weapon_from_buy_action(action_id: str) -> WeaponProfile | None:
@@ -1693,6 +1869,172 @@ class BreachPointGame(Game):
                 normalized[equipment.id] = min(equipment.maximum_carry, count)
         player.equipment_counts = normalized
 
+    def _owned_weapons(self, player: BreachPointPlayer) -> tuple[WeaponProfile, ...]:
+        """Return the player's valid weapon slots without duplicates."""
+
+        return tuple(
+            {
+                weapon.id: weapon
+                for weapon in (self._sidearm(player), self._primary_weapon(player))
+                if weapon
+            }.values()
+        )
+
+    @staticmethod
+    def _set_full_weapon_ammunition(
+        player: BreachPointPlayer,
+        weapon: WeaponProfile,
+    ) -> None:
+        player.weapon_magazine_ammo[weapon.id] = weapon.magazine_capacity
+        player.weapon_reserve_units[weapon.id] = weapon.reserve_units
+
+    def _refill_owned_weapon_ammunition(self, player: BreachPointPlayer) -> None:
+        """Start a combat round with full ammunition for every retained weapon."""
+
+        player.weapon_magazine_ammo = {}
+        player.weapon_reserve_units = {}
+        for weapon in self._owned_weapons(player):
+            self._set_full_weapon_ammunition(player, weapon)
+
+    def _normalize_weapon_ammunition(
+        self,
+        player: BreachPointPlayer,
+        owned_weapon_ids: set[str],
+    ) -> None:
+        """Clamp serialized ammunition to the currently owned weapon profiles."""
+
+        player.weapon_magazine_ammo = {
+            weapon_id: max(0, min(weapon.magazine_capacity, ammunition))
+            for weapon_id, ammunition in player.weapon_magazine_ammo.items()
+            if weapon_id in owned_weapon_ids
+            and (weapon := get_weapon(weapon_id)) is not None
+            and isinstance(ammunition, int)
+            and not isinstance(ammunition, bool)
+        }
+        player.weapon_reserve_units = {
+            weapon_id: max(0, min(weapon.reserve_units, reserve_units))
+            for weapon_id, reserve_units in player.weapon_reserve_units.items()
+            if weapon_id in owned_weapon_ids
+            and (weapon := get_weapon(weapon_id)) is not None
+            and isinstance(reserve_units, int)
+            and not isinstance(reserve_units, bool)
+        }
+        for weapon in self._owned_weapons(player):
+            player.weapon_magazine_ammo.setdefault(weapon.id, weapon.magazine_capacity)
+            player.weapon_reserve_units.setdefault(weapon.id, weapon.reserve_units)
+
+    @staticmethod
+    def _loaded_ammunition(
+        player: BreachPointPlayer,
+        weapon: WeaponProfile,
+    ) -> int:
+        return max(
+            0,
+            min(
+                weapon.magazine_capacity,
+                player.weapon_magazine_ammo.get(weapon.id, weapon.magazine_capacity),
+            ),
+        )
+
+    @staticmethod
+    def _reserve_ammunition_units(
+        player: BreachPointPlayer,
+        weapon: WeaponProfile,
+    ) -> int:
+        return max(
+            0,
+            min(
+                weapon.reserve_units,
+                player.weapon_reserve_units.get(weapon.id, weapon.reserve_units),
+            ),
+        )
+
+    def _consume_attack_ammunition(
+        self,
+        player: BreachPointPlayer,
+        weapon: WeaponProfile,
+    ) -> int:
+        """Consume and return the rounds or shells used by one attack."""
+
+        loaded = self._loaded_ammunition(player, weapon)
+        ammunition = min(weapon.ammunition_per_attack, loaded)
+        player.weapon_magazine_ammo[weapon.id] = loaded - ammunition
+        return ammunition
+
+    def _reload_weapon(
+        self,
+        player: BreachPointPlayer,
+        weapon: WeaponProfile,
+    ) -> tuple[int, int, int]:
+        """Reload from profile data and return loaded, discarded, and used units."""
+
+        loaded = self._loaded_ammunition(player, weapon)
+        reserve_units = self._reserve_ammunition_units(player, weapon)
+        needed_rounds = weapon.magazine_capacity - loaded
+        if needed_rounds <= 0 or reserve_units <= 0:
+            return 0, 0, 0
+        if weapon.discard_loaded_rounds_on_reload:
+            used_units = 1
+            discarded = loaded
+            new_loaded = weapon.magazine_capacity
+        else:
+            maximum_needed_units = (
+                needed_rounds + weapon.reload_rounds_per_unit - 1
+            ) // weapon.reload_rounds_per_unit
+            used_units = min(
+                reserve_units,
+                weapon.reload_units_per_action,
+                maximum_needed_units,
+            )
+            discarded = 0
+            new_loaded = min(
+                weapon.magazine_capacity,
+                loaded + used_units * weapon.reload_rounds_per_unit,
+            )
+        player.weapon_magazine_ammo[weapon.id] = new_loaded
+        player.weapon_reserve_units[weapon.id] = reserve_units - used_units
+        return new_loaded - loaded, discarded, used_units
+
+    def _ammunition_summary(
+        self,
+        locale: str,
+        player: BreachPointPlayer,
+        weapon: WeaponProfile | None,
+    ) -> str:
+        if not weapon:
+            return Localization.get(locale, "breachpoint-ammo-none")
+        reserve_units = self._reserve_ammunition_units(player, weapon)
+        return Localization.get(
+            locale,
+            "breachpoint-ammo-status",
+            loaded=self._loaded_ammunition(player, weapon),
+            capacity=weapon.magazine_capacity,
+            reserve=reserve_units,
+            unit=Localization.get(
+                locale,
+                weapon.reserve_unit_name_key,
+                count=reserve_units,
+            ),
+        )
+
+    def _empty_weapon_error(
+        self,
+        player: BreachPointPlayer,
+        weapon: WeaponProfile,
+    ) -> tuple[str, dict] | None:
+        """Explain whether an empty weapon can still be reloaded."""
+
+        if self._loaded_ammunition(player, weapon) > 0:
+            return None
+        user = self.get_user(player)
+        locale = user.locale if user else "en"
+        error_key = (
+            "breachpoint-error-weapon-empty"
+            if self._reserve_ammunition_units(player, weapon) > 0
+            else "breachpoint-error-no-ammunition"
+        )
+        return error_key, {"weapon": self._weapon_name(locale, weapon)}
+
     def _normalize_activation_attack_ledger(
         self,
         player: BreachPointPlayer,
@@ -1703,9 +2045,7 @@ class BreachPointGame(Game):
 
         remaining_action_points = self.rules.action_points_per_activation
         normalized_shots: dict[str, int] = {}
-        for weapon_id, shot_count in (
-            player.weapon_shots_fired_this_activation.items()
-        ):
+        for weapon_id, shot_count in player.weapon_shots_fired_this_activation.items():
             weapon = get_weapon(weapon_id)
             if (
                 weapon_id not in owned_weapon_ids
@@ -1835,13 +2175,11 @@ class BreachPointGame(Game):
         weapon: WeaponProfile | None = None,
     ) -> bool:
         weapon = weapon or self._equipped_weapon(player)
-        source = self._node(player.position_id)
-        distance = self._node_distance(player.position_id, node_id)
+        distance = self._combat_distance(player.position_id, node_id)
         return bool(
             weapon
+            and self._loaded_ammunition(player, weapon) > 0
             and weapon.hold_action_point_cost > 0
-            and source
-            and (node_id == player.position_id or node_id in source.sightlines)
             and distance is not None
             and distance <= weapon.max_range
         )
@@ -1872,8 +2210,7 @@ class BreachPointGame(Game):
                 return True
             if self._is_smoked(observer.position_id):
                 continue
-            observer_node = self._node(observer.position_id)
-            if observer_node and node_id in observer_node.sightlines:
+            if self.tactical_map.has_sightline(observer.position_id, node_id):
                 return True
         return False
 
@@ -1947,6 +2284,11 @@ class BreachPointGame(Game):
                 queue.append((neighbor_id, distance + 1))
         return None
 
+    def _combat_distance(self, source_id: str, target_id: str) -> int | None:
+        """Return the coordinate-derived range band for a clear firing lane."""
+
+        return self.tactical_map.combat_distance(source_id, target_id)
+
     def _weapon_can_reach(
         self,
         shooter: BreachPointPlayer,
@@ -1954,7 +2296,7 @@ class BreachPointGame(Game):
         weapon: WeaponProfile | None = None,
     ) -> bool:
         weapon = weapon or self._equipped_weapon(shooter)
-        distance = self._node_distance(shooter.position_id, target.position_id)
+        distance = self._combat_distance(shooter.position_id, target.position_id)
         return bool(
             weapon
             and distance is not None
@@ -2008,8 +2350,10 @@ class BreachPointGame(Game):
             return True
         if self._is_smoked(source.position_id) or self._is_smoked(target.position_id):
             return False
-        node = self._node(source.position_id)
-        return bool(node and target.position_id in node.sightlines)
+        return self.tactical_map.has_sightline(
+            source.position_id,
+            target.position_id,
+        )
 
     def _team_can_see_node(self, team_index: int, node_id: str) -> bool:
         target_node = self._node(node_id)
@@ -2020,8 +2364,7 @@ class BreachPointGame(Game):
                 return True
             if self._is_smoked(observer.position_id) or self._is_smoked(node_id):
                 continue
-            observer_node = self._node(observer.position_id)
-            if observer_node and node_id in observer_node.sightlines:
+            if self.tactical_map.has_sightline(observer.position_id, node_id):
                 return True
         return False
 
@@ -2071,9 +2414,7 @@ class BreachPointGame(Game):
             and self.reaction_window.kind == REACTION_WATCHED_ENTRY
         )
 
-    def _reaction_turn_error(
-        self, player: Player
-    ) -> str | tuple[str, dict] | None:
+    def _reaction_turn_error(self, player: Player) -> str | tuple[str, dict] | None:
         tactical_player = self._breach_player(player)
         if self.status != "playing":
             return "action-not-playing"
@@ -2146,6 +2487,7 @@ class BreachPointGame(Game):
         distance: int,
         *,
         damage_percent: int = 100,
+        ammunition_used: int | None = None,
     ) -> AttackOutcome:
         """Apply a deterministic projectile group through evasion and armor."""
 
@@ -2154,6 +2496,7 @@ class BreachPointGame(Game):
             weapon,
             distance,
             damage_percent=damage_percent,
+            ammunition_used=ammunition_used,
         )
         target.guard_points = 0
         target.armor = max(0, target.armor - outcome.armor_absorbed)
@@ -2167,11 +2510,24 @@ class BreachPointGame(Game):
         distance: int,
         *,
         damage_percent: int = 100,
+        ammunition_used: int | None = None,
     ) -> AttackOutcome:
         """Calculate one attack without mutating authoritative player state."""
 
         distance = max(0, min(weapon.max_range, distance))
-        rounds_on_target = weapon.hits_at_range(distance)
+        ammunition_used = (
+            weapon.ammunition_per_attack
+            if ammunition_used is None
+            else max(0, min(weapon.ammunition_per_attack, ammunition_used))
+        )
+        rounds_fired = weapon.projectiles_for_ammunition(ammunition_used)
+        full_rounds_on_target = weapon.hits_at_range(distance)
+        rounds_on_target = (
+            (full_rounds_on_target * rounds_fired + weapon.rounds_per_attack - 1)
+            // weapon.rounds_per_attack
+            if rounds_fired
+            else 0
+        )
         damage_percent = max(1, min(100, damage_percent))
         base_damage = (weapon.damage_at_range(distance) * damage_percent + 99) // 100
         guard_points = min(
@@ -2190,8 +2546,11 @@ class BreachPointGame(Game):
         remaining_guard_points = guard_points - spent_guard_points
         damaging_rounds = rounds_on_target - rounds_evaded
         projectile_damage = (
-            base_damage * damaging_rounds + rounds_on_target - 1
-        ) // rounds_on_target
+            (base_damage * damaging_rounds + full_rounds_on_target - 1)
+            // full_rounds_on_target
+            if full_rounds_on_target
+            else 0
+        )
         remaining_damage = max(
             0,
             projectile_damage
@@ -2206,7 +2565,7 @@ class BreachPointGame(Game):
         remaining_damage -= armor_absorbed
         health_damage = min(target.health, remaining_damage)
         return AttackOutcome(
-            rounds_fired=weapon.rounds_per_attack,
+            rounds_fired=rounds_fired,
             rounds_on_target=rounds_on_target,
             rounds_evaded=rounds_evaded,
             health_damage=health_damage,
@@ -2552,6 +2911,69 @@ class BreachPointGame(Game):
             return "breachpoint-error-weapon-equipped"
         return None
 
+    def _is_reload_hidden(self, player: Player) -> Visibility:
+        tactical_player = self._breach_player(player)
+        weapon = self._equipped_weapon(tactical_player) if tactical_player else None
+        if (
+            self._turn_error(player) is None
+            and tactical_player
+            and weapon
+            and self._loaded_ammunition(tactical_player, weapon)
+            < weapon.magazine_capacity
+        ):
+            return Visibility.VISIBLE
+        return Visibility.HIDDEN
+
+    def _is_reload_enabled(self, player: Player) -> str | tuple[str, dict] | None:
+        error = self._turn_error(player)
+        if error:
+            return error
+        tactical_player = self._breach_player(player)
+        weapon = self._equipped_weapon(tactical_player) if tactical_player else None
+        if not tactical_player or not weapon:
+            return "breachpoint-error-weapon-unavailable"
+        user = self.get_user(player)
+        locale = user.locale if user else "en"
+        weapon_name = self._weapon_name(locale, weapon)
+        if self._loaded_ammunition(tactical_player, weapon) >= weapon.magazine_capacity:
+            return (
+                "breachpoint-error-magazine-full",
+                {"weapon": weapon_name},
+            )
+        if self._reserve_ammunition_units(tactical_player, weapon) <= 0:
+            return (
+                (
+                    "breachpoint-error-no-ammunition"
+                    if self._loaded_ammunition(tactical_player, weapon) <= 0
+                    else "breachpoint-error-no-reserve-ammo"
+                ),
+                {"weapon": weapon_name},
+            )
+        if tactical_player.action_points < weapon.reload_action_point_cost:
+            return (
+                "breachpoint-error-not-enough-ap",
+                {
+                    "needed": weapon.reload_action_point_cost,
+                    "remaining": tactical_player.action_points,
+                },
+            )
+        return None
+
+    def _get_reload_label(self, player: Player, action_id: str) -> str:
+        user = self.get_user(player)
+        locale = user.locale if user else "en"
+        tactical_player = self._breach_player(player)
+        weapon = self._equipped_weapon(tactical_player) if tactical_player else None
+        return Localization.get(
+            locale,
+            "breachpoint-action-reload",
+            weapon=self._weapon_name(locale, weapon),
+            ammunition=self._ammunition_summary(locale, tactical_player, weapon)
+            if tactical_player
+            else Localization.get(locale, "breachpoint-ammo-none"),
+            cost=weapon.reload_action_point_cost if weapon else 0,
+        )
+
     def _get_equip_weapon_label(self, player: Player, action_id: str) -> str:
         user = self.get_user(player)
         locale = user.locale if user else "en"
@@ -2592,12 +3014,10 @@ class BreachPointGame(Game):
         tactical_player = self._breach_player(player)
         weapon = self._equipped_weapon(tactical_player) if tactical_player else None
         node_id = self._node_from_hold_action(action_id or "")
-        if (
-            not tactical_player
-            or not weapon
-            or weapon.hold_action_point_cost <= 0
-        ):
+        if not tactical_player or not weapon or weapon.hold_action_point_cost <= 0:
             return "breachpoint-error-hold-unavailable"
+        if ammunition_error := self._empty_weapon_error(tactical_player, weapon):
+            return ammunition_error
         if not self._can_hold_angle(tactical_player, node_id, weapon):
             return "breachpoint-error-illegal-angle"
         if (
@@ -2837,7 +3257,9 @@ class BreachPointGame(Game):
         weapon = self._equipped_weapon(tactical_player)
         if not weapon:
             return "breachpoint-error-weapon-unavailable"
-        distance = self._node_distance(
+        if ammunition_error := self._empty_weapon_error(tactical_player, weapon):
+            return ammunition_error
+        distance = self._combat_distance(
             tactical_player.position_id,
             target.position_id,
         )
@@ -2911,6 +3333,9 @@ class BreachPointGame(Game):
             armor=target.armor,
             guard=target.guard_points,
             weapon=self._weapon_name(locale, weapon),
+            ammunition=self._ammunition_summary(locale, tactical_player, weapon)
+            if tactical_player
+            else Localization.get(locale, "breachpoint-ammo-none"),
             strength=Localization.get(
                 locale,
                 (
@@ -3173,6 +3598,9 @@ class BreachPointGame(Game):
         elif weapon.slot == WEAPON_SLOT_SIDEARM:
             buyer.sidearm_weapon_id = weapon.id
         buyer.equipped_weapon_id = weapon.id
+        owned_weapon_ids = {owned.id for owned in self._owned_weapons(buyer)}
+        self._normalize_weapon_ammunition(buyer, owned_weapon_ids)
+        self._set_full_weapon_ammunition(buyer, weapon)
         user.speak_l(
             "breachpoint-buy-weapon-complete",
             buffer="game",
@@ -3299,6 +3727,71 @@ class BreachPointGame(Game):
         self.refresh_menus(tactical_player)
         BotHelper.jolt_bot(tactical_player)
 
+    def _action_reload(self, player: Player, action_id: str) -> None:
+        if self._is_reload_enabled(player):
+            return
+        tactical_player = self._breach_player(player)
+        user = self.get_user(player)
+        weapon = self._equipped_weapon(tactical_player) if tactical_player else None
+        if (
+            not tactical_player
+            or not user
+            or not weapon
+            or not self._spend_action_points(
+                tactical_player,
+                weapon.reload_action_point_cost,
+            )
+        ):
+            return
+        self._clear_held_angle(tactical_player)
+        loaded, discarded, used_units = self._reload_weapon(
+            tactical_player,
+            weapon,
+        )
+        if not used_units:
+            tactical_player.action_points += weapon.reload_action_point_cost
+            return
+        for listener in self.players:
+            tactical_listener = self._breach_player(listener)
+            listener_user = self.get_user(listener)
+            if (
+                not tactical_listener
+                or not listener_user
+                or tactical_listener.is_spectator
+                or (
+                    listener.id != tactical_player.id
+                    and tactical_listener.team_index != tactical_player.team_index
+                    and not self._viewer_can_see_player(listener, tactical_player)
+                )
+            ):
+                continue
+            listener_user.speak_l(
+                (
+                    (
+                        (
+                            "breachpoint-reload-magazine-you"
+                            if discarded
+                            else "breachpoint-reload-empty-magazine-you"
+                        )
+                        if weapon.discard_loaded_rounds_on_reload
+                        else "breachpoint-reload-shells-you"
+                    )
+                    if listener.id == tactical_player.id
+                    else "breachpoint-reload-player"
+                ),
+                buffer="game",
+                player=tactical_player.name,
+                weapon=self._weapon_name(listener_user.locale, weapon),
+                loaded=loaded,
+                discarded=discarded,
+                ammunition=self._ammunition_summary(
+                    listener_user.locale,
+                    tactical_player,
+                    weapon,
+                ),
+            )
+        self._finish_action(tactical_player)
+
     def _action_hold_angle(self, player: Player, action_id: str) -> None:
         if self._is_hold_angle_enabled(player, action_id=action_id):
             return
@@ -3421,7 +3914,7 @@ class BreachPointGame(Game):
         if not self._spend_action_points(tactical_player, movement_cost):
             return
         self._clear_held_angle(tactical_player)
-        tactical_player.position_id = destination.id
+        self._place_player_in_node(tactical_player, destination.id)
         self._reset_stationary_evasion(tactical_player)
         self._remember_observable_smokes_for_team(tactical_player.team_index)
         self._announce_movement(
@@ -3483,14 +3976,21 @@ class BreachPointGame(Game):
         """Resolve one normal or reaction attack and all shared consequences."""
 
         self._clear_held_angle(shooter)
-        distance = self._node_distance(shooter.position_id, target.position_id)
+        distance = self._combat_distance(shooter.position_id, target.position_id)
         if distance is None:
+            return False
+        ammunition_used = self._consume_attack_ammunition(
+            shooter,
+            weapon,
+        )
+        if ammunition_used <= 0:
             return False
         outcome = self._resolve_attack(
             target,
             weapon,
             distance,
             damage_percent=damage_percent,
+            ammunition_used=ammunition_used,
         )
         if target.health == 0:
             target.eliminated = True
@@ -3879,7 +4379,7 @@ class BreachPointGame(Game):
                 or not self._can_see(watcher, mover)
             ):
                 continue
-            distance = self._node_distance(watcher.position_id, destination_id)
+            distance = self._combat_distance(watcher.position_id, destination_id)
             if distance is None:
                 continue
             candidates.append(
@@ -4706,6 +5206,11 @@ class BreachPointGame(Game):
             equipped=self._weapon_name(
                 user.locale, self._equipped_weapon(tactical_player)
             ),
+            ammunition=self._ammunition_summary(
+                user.locale,
+                tactical_player,
+                self._equipped_weapon(tactical_player),
+            ),
             utility=self._utility_summary(user.locale, tactical_player),
             equipment=self._equipment_summary(user.locale, tactical_player),
             cash=tactical_player.cash,
@@ -4734,6 +5239,16 @@ class BreachPointGame(Game):
                 id="breachpoint_map_header",
             )
         ]
+        if tactical_viewer and not tactical_viewer.is_spectator:
+            items.append(
+                MenuItem(
+                    text=self._spatial_context(
+                        user.locale,
+                        tactical_viewer.position_id,
+                    ),
+                    id="breachpoint_map_spatial_context",
+                )
+            )
         for node in self.tactical_map.nodes:
             smoke_key = "breachpoint-map-smoke-unconfirmed"
             if tactical_viewer and not tactical_viewer.is_spectator:
@@ -4775,8 +5290,15 @@ class BreachPointGame(Game):
                         sightlines=Localization.format_list_and(
                             user.locale,
                             [
-                                self._node_name(user.locale, visible_id)
-                                for visible_id in node.sightlines
+                                Localization.get(
+                                    user.locale,
+                                    "breachpoint-map-sightline-entry",
+                                    location=self._node_name(user.locale, visible_id),
+                                    range=self._combat_distance(node.id, visible_id),
+                                )
+                                for visible_id in self.tactical_map.visible_node_ids(
+                                    node.id
+                                )
                             ],
                         ),
                         effect=Localization.get(

@@ -20,8 +20,8 @@ The first squad to reach the target for the selected match format wins the match
 \* \*\*Tactical round:\*\* One pass in which every living player receives an activation.
 \* \*\*Activation:\*\* One player's chance to spend action points.
 \* \*\*Action points, or AP:\*\* The points spent to move, shoot, use utility, or handle the bomb. A normal activation starts with 2 AP.
-\* \*\*Area:\*\* A named place on the map, such as Mid, Connector, or Bombsite A.
-\* \*\*Line of sight:\*\* A firing lane from one area to another. A movement connection is always a firing lane, but some firing lanes are longer than one movement step.
+\* \*\*Area:\*\* A named place on the map, such as Mid, A Short, or Bombsite A. Every area occupies a physical part of the underlying map.
+\* \*\*Line of sight:\*\* A clear firing lane from one area to another. Movement connections and firing lanes are separate: a corner may permit movement while blocking a shot, and a long lane may cross several movement steps.
 \* \*\*Evasion:\*\* Protection prepared by ending an activation with unused AP.
 \* \*\*Response activation:\*\* A temporary interruption that lets one opponent contest a plant or defuse attempt.
 
@@ -79,20 +79,24 @@ Repeatedly preparing evasion in the same area becomes weaker. The first stationa
 
 Switching between an owned primary weapon and your sidearm is free, but it does not restore a weapon's spent attacks. A later attack during the same activation deals reduced damage from recoil and hurried aim. Buying a weapon replaces the weapon in that slot and equips the new one, so you can upgrade an SMG to a rifle in a later buy phase.
 
-Every firearm can hold its current area or one visible area. Holding an angle costs 1 AP, is available only before you fire during that activation, and ends the activation without preparing evasion. If an enemy later moves into the watched area through a clear sightline, movement pauses before that enemy can spend more AP. The closest eligible watcher may fire or pass; firing consumes the angle, while passing keeps it. Only one response occurs for each move. MAC-10 responses use 50% damage; MP9, Galil AR, and FAMAS responses use 65%; Glock, USP-S, AK-47, and M4 responses use 75%; and Desert Eagle and AWP responses use full damage. Smoke blocks sight from outside the smoked area without consuming the angle, but occupants of that area can still react at point-blank range. A flashbang breaks the affected player's held angle.
+Every attack consumes ammunition. If a magazine has too few rounds for a full burst, the weapon fires a smaller final burst with proportionally fewer rounds on target and less damage. Reloading costs 1 AP and breaks a prepared angle. Reloading a magazine-fed weapon discards every round still loaded, then consumes one reserve magazine and fills the weapon. The Nova keeps its loaded shells and inserts up to two reserve shells per reload. Each owned weapon begins every combat round fully loaded with its complete reserve supply.
+
+Every firearm can hold its current area or one visible area. Holding an angle costs 1 AP, is available only before you fire during that activation, and ends the activation without preparing evasion. If an enemy later moves into the watched area through a clear sightline, movement pauses before that enemy can spend more AP. The closest eligible watcher may fire or pass; firing consumes the angle and ammunition, while passing keeps it. Only one response occurs for each move. MAC-10 and Nova responses use 50% damage; MP9, Galil AR, and FAMAS responses use 65%; Glock, USP-S, AK-47, and M4 responses use 75%; and Desert Eagle, SSG 08, and AWP responses use full damage. Smoke blocks sight from outside the smoked area without consuming the angle, but occupants of that area can still react at point-blank range. A flashbang breaks the affected player's held angle.
 
 \* \*\*Glock:\*\* Free T sidearm. Range 1; up to two attacks per activation. Its three-round burst puts two rounds on target for 38 damage in the same area, but only one round and 30 damage at range 1. The extra on-target round makes close evasion less absolute, while armor still sharply reduces the burst.
 \* \*\*USP-S:\*\* Free CT sidearm. Range 1; up to two attacks per activation; 36 damage in the same area or 32 at range 1.
 \* \*\*Desert Eagle:\*\* Sidearm for either side at $700. Range 2; one precise attack per activation; strong armor penetration and 72, 58, or 44 damage at ranges 0, 1, or 2. Two prepared evasion can still avoid its single shot completely.
 \* \*\*MAC-10:\*\* T primary for $1,050. Range 1; up to two 15-round bursts per activation. It deals 76 damage in the same area but only 36 at range 1. The follow-up deals 55% damage. Its poor armor penetration makes it best for close anti-eco attacks. Eliminations pay $600.
+\* \*\*Nova:\*\* Primary for either side at $1,050. Range 1; one shell per attack and one attack per activation. Its pellet spread deals 96 damage in the same area but only 38 at range 1, and armor absorbs a large share. It holds 8 shells and carries 16 reserve shells. Reloading inserts up to two shells without discarding those already loaded. Eliminations pay $900.
 \* \*\*MP9:\*\* CT primary for $1,250. Range 1; up to two 15-round bursts per activation. It deals 68 damage in the same area or 48 at range 1, and the follow-up deals 60% damage. It is steadier than the MAC-10 at range 1 but remains weak against armor. Eliminations pay $600.
 \* \*\*Galil AR:\*\* T primary for $1,800. Range 2; up to two 12-round bursts per activation, but each burst must target a different enemy. It deals 74, 56, or 34 damage at ranges 0, 1, or 2; the follow-up deals 55% damage. It provides affordable multi-target pressure but cannot match an AK-47 in a focused duel.
 \* \*\*FAMAS:\*\* CT primary for $1,950. Range 2; up to two controlled three-round bursts against the same enemy or two different enemies. It deals 64, 50, or 32 damage at ranges 0, 1, or 2; the follow-up deals 60% damage. Two close bursts can eliminate an unarmored enemy, but armor prevents that quick finish.
+\* \*\*SSG 08:\*\* Primary for either side at $1,700. Range 3; one shot per activation. Like the AWP, it must already be holding the target's exact area before a normal shot, but firing costs only 1 AP. It deals 88, 84, 80, or 74 damage at ranges 0 through 3, so it cannot eliminate a healthy enemy in one shot. It holds 10 rounds and carries three reserve magazines.
 \* \*\*AK-47:\*\* T primary for $2,700. Range 2; one 12-round burst per activation; strong armor penetration and 92, 69, or 46 damage at ranges 0, 1, or 2.
 \* \*\*M4:\*\* CT primary for $2,900. Range 2; up to two controlled 12-round bursts against the same enemy or two different enemies. The first deals 72, 54, or 36 damage at ranges 0, 1, or 2; the follow-up deals 65% of its normal damage.
 \* \*\*AWP:\*\* Primary for either side at $4,750. Range 3. Unlike other weapons, it must already be holding the target's exact area before it can fire during a normal activation. That shot costs 2 AP. An AWP held-angle response uses full damage. A full-strength shot deals 125, 120, 115, or 110 damage at ranges 0 through 3.
 
-A held angle remains prepared between activations, but moving, changing weapons, using utility, handling the bomb, taking damage, becoming flashed, or firing breaks it. An AWP elimination pays $100, a MAC-10 or MP9 elimination pays $600, and other weapon eliminations pay $300.
+A held angle remains prepared between activations, but moving, changing weapons, reloading, using utility, handling the bomb, taking damage, becoming flashed, or firing breaks it. An AWP elimination pays $100; a Nova elimination pays $900; a MAC-10 or MP9 elimination pays $600; and other weapon eliminations pay $300.
 
 \*\*Utility and equipment\*\*
 
@@ -113,7 +117,7 @@ If the response ends without interrupting the plant, the bomb becomes officially
 
 \*\*CT cannot begin defusing while a plant is still in progress. Defuse becomes available only after the bomb is officially planted.\*\*
 
-The planted bomb receives the full fixed fuse of two later tactical rounds, even if planting began on the final pre-plant activation. The tactical round containing the plant does not reduce the fuse.
+The planted bomb receives the full fixed fuse of three later tactical rounds, even if planting began on the final pre-plant activation. The tactical round containing the plant does not reduce the fuse. This gives a CT rotating from the opposite site enough time to reach the bomb and attempt a normal defuse, but leaves almost no spare AP without a Defuse Kit.
 
 \*\*Defusing the bomb\*\*
 
@@ -123,15 +127,18 @@ One living T receives a response activation using the same position, sightline, 
 
 The defuser receives $300. Without a Defuse Kit, CT usually needs one activation to reach the bomb and a later activation to spend 2 AP defusing. With a kit, CT can move one area and begin defusing in the same full activation.
 
-\*\*The Depot map\*\*
+\*\*The Dust map\*\*
 
-Depot uses named areas connected as a graph rather than a square grid:
+Dust is a two-dimensional battlefield presented through simple named areas. Beneath those names, every player has a distinct coordinate, every area has a measured footprint, and cover occupies real space. The named-area interface stays concise while the geometry establishes consistent distance, direction, firing lanes, and future spatial audio.
 
-\* \*\*A route:\*\* T Spawn, West Yard, A Long, Bombsite A, A Link, CT Spawn.
-\* \*\*Mid route:\*\* T Spawn, Mid, Mid Doors, Connector, CT Spawn. Connector also connects to both bombsites.
-\* \*\*B route:\*\* T Spawn, East Yard, B Tunnels, Bombsite B, B Link, CT Spawn.
+\* \*\*Long A route:\*\* T Spawn, Outside Long, Long Doors, A Long, A Ramp, Bombsite A. Pit is a defensive pocket beside Long with a range-3 sightline into the site.
+\* \*\*Short A route:\*\* T Spawn, Mid, Catwalk, A Short, Bombsite A.
+\* \*\*Middle route:\*\* T Spawn, Mid, Mid Doors, CT Mid, CT Spawn. Lower Tunnels also opens into Mid.
+\* \*\*B route:\*\* T Spawn, Outside Tunnels, Upper Tunnels, B Tunnels, Bombsite B. Defenders enter through B Doors from CT Mid or CT Spawn.
 
-Mid Doors has long firing lanes into both bombsites, although movement to either site passes through Connector. \*\*Read tactical map\* lists each area's movement connections, firing lanes, known smoke, allies, and visible enemies.
+Movement and vision are deliberately different. For example, Mid connects to Lower Tunnels around a blind corner, so players can move between them without gaining a direct shot. Long lanes across Pit and Bombsite A, T Spawn and CT Mid, Mid and CT Spawn, and CT Spawn and B Tunnels give range-3 precision weapons meaningful positions. Shorter firearms still need to advance or choose a closer angle.
+
+\*\*Read tactical map\* begins with a natural description of your present surroundings, nearby cover, and measured firing lanes. It then lists every area's movement connections, firing lanes and ranges, known smoke, allies, and visible enemies.
 
 \*\*Economy and buy phase\*\*
 
@@ -151,7 +158,7 @@ If regulation ends level, the selected \*\*Tied match resolution\* either ends t
 
 \*\*Information actions\*\*
 
-\* \*\*Read your tactical status:\*\* Your side, area, health, armor, primary, sidearm, equipped weapon, equipment, utility, cash, AP, evasion, and prepared angle.
+\* \*\*Read your tactical status:\*\* Your side, area, health, armor, primary, sidearm, equipped weapon, loaded and reserve ammunition, equipment, utility, cash, AP, evasion, and prepared angle.
 \* \*\*Read tactical map:\*\* A live report of areas, connections, firing lanes, known smoke, allies, and visible enemies.
 \* \*\*Read team status:\*\* A live roster with scores, current sides, allies, and visible enemy information.
 \* \*\*Read bomb status:\*\* The bomb information currently known to your side.
@@ -163,7 +170,7 @@ If regulation ends level, the selected \*\*Tied match resolution\* either ends t
 \* \*\*Match format:\*\* MR7, MR12, or MR15. Default: MR12.
 \* \*\*Tied match resolution:\*\* End tied regulation in a draw, or repeat MR3 overtime until one squad wins. Default: Repeat MR3 overtime until one squad wins.
 
-The six-round pre-plant clock and two-round bomb fuse are fixed rules.
+The six-round pre-plant clock and three-round bomb fuse are fixed rules.
 
 \*\*Keyboard shortcuts\*\*
 
@@ -174,5 +181,6 @@ The six-round pre-plant clock and two-round bomb fuse are fixed rules.
 \* \*\*S:\*\* Check scores.
 \* \*\*Shift+S:\*\* Open detailed scores.
 \* \*\*E:\*\* Finish buying during the buy phase, or end your activation during combat.
+\* \*\*R:\*\* Reload the equipped weapon.
 \* \*\*T:\*\* Check whose turn it is.
 \* \*\*Escape:\*\* Open the actions menu.

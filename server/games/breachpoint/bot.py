@@ -8,13 +8,13 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from .arsenal import (
-    SIDE_COUNTER_TERRORISTS,
-    SIDE_INDEXES,
-    SIDE_TERRORISTS,
     PURCHASE_ROLE_ANTI_ECO,
     PURCHASE_ROLE_BUDGET,
     PURCHASE_ROLE_PRECISION,
     PURCHASE_ROLE_STANDARD,
+    SIDE_COUNTER_TERRORISTS,
+    SIDE_INDEXES,
+    SIDE_TERRORISTS,
     UTILITY_EFFECT_FLASH,
     UTILITY_EFFECT_SMOKE,
     WEAPON_SLOT_PRIMARY,
@@ -293,9 +293,7 @@ class BreachPointBotCoordinator:
                     if team_index == SIDE_TERRORISTS
                     else ATTACK_STRATEGY_DIRECT
                 ),
-                decoy_site_id=(
-                    decoy_site if team_index == SIDE_TERRORISTS else ""
-                ),
+                decoy_site_id=(decoy_site if team_index == SIDE_TERRORISTS else ""),
                 primary_staging_node_id=(
                     primary_staging_node if team_index == SIDE_TERRORISTS else ""
                 ),
@@ -468,6 +466,19 @@ class BreachPointBotCoordinator:
         if lethal_target:
             return f"shoot_{lethal_target.id}"
 
+        if visible_enemies and equipped_weapon:
+            loaded = game._loaded_ammunition(bot, equipped_weapon)
+            if loaded <= 0:
+                switch_action = self.weapon_switch_action(
+                    game,
+                    bot,
+                    visible_enemies,
+                )
+                if switch_action:
+                    return switch_action
+                if game._is_reload_enabled(bot) is None:
+                    return "reload"
+
         entry_breach_action = self._entry_breach_action(
             game,
             bot,
@@ -513,7 +524,11 @@ class BreachPointBotCoordinator:
         if shootable_enemies:
             return f"shoot_{shootable_enemies[0].id}"
 
-        angle_action = self._angle_action(game, bot, visible_enemies)
+        angle_action = (
+            None
+            if bot.held_angle_node_id
+            else self._angle_action(game, bot, visible_enemies)
+        )
         if angle_action:
             return angle_action
 
@@ -524,10 +539,20 @@ class BreachPointBotCoordinator:
         if objective_action:
             return objective_action
 
+        reload_action = self.reload_action(game, bot)
+        if reload_action:
+            return reload_action
+
         if self._should_maintain_prepared_angle(game, bot):
             return "end_turn"
 
-        proactive_angle_action = self._proactive_angle_action(game, bot)
+        # An attacking sniper that already covered one reaction window must
+        # advance when that angle no longer serves its route. Re-aiming at a
+        # different long lane here would let richer map geometry trap it in an
+        # endless sequence of holds.
+        proactive_angle_action = (
+            None if bot.held_angle_node_id else self._proactive_angle_action(game, bot)
+        )
         if proactive_angle_action:
             return proactive_angle_action
 
@@ -619,8 +644,7 @@ class BreachPointBotCoordinator:
         if (
             last_attack.won
             and consecutive_site_attacks < self.profile.successful_site_repeat_limit
-            and self._rng.randrange(100)
-            < self.profile.successful_site_repeat_percent
+            and self._rng.randrange(100) < self.profile.successful_site_repeat_percent
         ):
             return last_attack.site_id
         last_index = site_ids.index(last_attack.site_id)
@@ -797,10 +821,7 @@ class BreachPointBotCoordinator:
                 return plan.decoy_site_id
             return plan.primary_staging_node_id or plan.attack_site_id
 
-        if (
-            plan.attack_strategy_id == ATTACK_STRATEGY_SPLIT
-            and assignment
-        ):
+        if plan.attack_strategy_id == ATTACK_STRATEGY_SPLIT and assignment:
             if plan.strategy_committed:
                 return plan.attack_site_id
             if self._uses_split_route(plan, assignment):
@@ -814,16 +835,14 @@ class BreachPointBotCoordinator:
         assignment: TacticalAssignment,
     ) -> bool:
         support_count = sum(
-            candidate.role == ROLE_SUPPORT
-            for candidate in plan.assignments.values()
+            candidate.role == ROLE_SUPPORT for candidate in plan.assignments.values()
         )
         if support_count >= 2:
             return assignment.role == ROLE_SUPPORT
         if support_count == 1:
             return assignment.role in {ROLE_SUPPORT, ROLE_LURKER}
         if any(
-            candidate.role == ROLE_LURKER
-            for candidate in plan.assignments.values()
+            candidate.role == ROLE_LURKER for candidate in plan.assignments.values()
         ):
             return assignment.role == ROLE_LURKER
         return assignment.role == ROLE_ENTRY
@@ -851,8 +870,7 @@ class BreachPointBotCoordinator:
                     continue
                 enemy = game._living_enemy_at(bot, neighbor_id)
                 known_enemy = bool(
-                    enemy
-                    and game._team_can_see_player(bot.team_index, enemy)
+                    enemy and game._team_can_see_player(bot.team_index, enemy)
                 )
                 if neighbor_id in target_set:
                     if (
@@ -945,9 +963,7 @@ class BreachPointBotCoordinator:
         teammates = game._players_on_team(bot.team_index, alive_only=True)
         utilities = list(get_purchasable_utilities(bot.team_index))
         if bot.team_index == SIDE_COUNTER_TERRORISTS and bot.equipment_counts:
-            utilities.sort(
-                key=lambda utility: utility.effect != UTILITY_EFFECT_FLASH
-            )
+            utilities.sort(key=lambda utility: utility.effect != UTILITY_EFFECT_FLASH)
         for utility in utilities:
             team_target = (
                 max(
@@ -962,8 +978,7 @@ class BreachPointBotCoordinator:
                 bot.cash >= utility.cost
                 and bot.utility_counts.get(utility.id, 0) < utility.maximum_carry
                 and sum(
-                    teammate.utility_counts.get(utility.id, 0)
-                    for teammate in teammates
+                    teammate.utility_counts.get(utility.id, 0) for teammate in teammates
                 )
                 < team_target
             ):
@@ -976,8 +991,7 @@ class BreachPointBotCoordinator:
 
         return bool(
             game.overtime_period == 0
-            and game.round
-            in {1, game.match_format.rounds_per_half + 1}
+            and game.round in {1, game.match_format.rounds_per_half + 1}
         )
 
     def team_priority_equipment(
@@ -1033,21 +1047,34 @@ class BreachPointBotCoordinator:
             return None
         if owned_primary:
             purchasable = tuple(
-                weapon
-                for weapon in purchasable
-                if weapon.cost > owned_primary.cost
+                weapon for weapon in purchasable if weapon.cost > owned_primary.cost
             )
-        precision_weapon = next(
-            (
-                weapon
-                for weapon in purchasable
-                if weapon.purchase_role == PURCHASE_ROLE_PRECISION
-                and bot.cash >= weapon.cost
-            ),
-            None,
+        precision_weapons = tuple(
+            weapon
+            for weapon in purchasable
+            if weapon.purchase_role == PURCHASE_ROLE_PRECISION
+        )
+        affordable_precision = tuple(
+            weapon for weapon in precision_weapons if bot.cash >= weapon.cost
+        )
+        precision_weapon = max(
+            affordable_precision,
+            key=lambda weapon: weapon.cost,
+            default=None,
+        )
+        non_precision_costs = [
+            weapon.cost
+            for weapon in purchasable
+            if weapon.purchase_role != PURCHASE_ROLE_PRECISION
+        ]
+        premium_precision = bool(
+            precision_weapon
+            and non_precision_costs
+            and precision_weapon.cost > max(non_precision_costs)
         )
         if (
             precision_weapon
+            and premium_precision
             and self._is_designated_precision_user(game, bot)
             and not any(
                 (weapon := game._primary_weapon(teammate)) and weapon.requires_aim
@@ -1078,7 +1105,7 @@ class BreachPointBotCoordinator:
             if weapon.purchase_role == PURCHASE_ROLE_STANDARD
         )
         if close_range and self._should_buy_close_range_primary(game, bot):
-            affordable = close_range
+            return self._preferred_close_range_weapon(bot, close_range)
         elif standard:
             affordable = standard
         elif budget:
@@ -1089,6 +1116,17 @@ class BreachPointBotCoordinator:
                 or bot.cash - weapon.cost >= game.economy.armor_cost
             )
         else:
+            affordable = ()
+        if not affordable and (
+            precision_weapon
+            and self._is_designated_precision_user(game, bot)
+            and (
+                bot.armor >= game.economy.maximum_armor
+                or bot.cash - precision_weapon.cost >= game.economy.armor_cost
+            )
+        ):
+            affordable = (precision_weapon,)
+        if not affordable:
             return None
         return max(
             affordable,
@@ -1096,6 +1134,36 @@ class BreachPointBotCoordinator:
                 weapon.cost,
                 weapon.max_range,
                 max(weapon.damage_by_range),
+            ),
+            default=None,
+        )
+
+    def _preferred_close_range_weapon(
+        self,
+        bot: BreachPointPlayer,
+        weapons: tuple[WeaponProfile, ...],
+    ) -> WeaponProfile | None:
+        """Match close-range weapon traits to the bot's assigned squad role."""
+
+        assignment = self.assignment_for(bot.id)
+        if assignment and assignment.role == ROLE_ENTRY:
+            return max(
+                weapons,
+                key=lambda weapon: (
+                    weapon.damage_at_range(0),
+                    -weapon.armor_reduction_percent,
+                    weapon.kill_reward,
+                    -weapon.cost,
+                ),
+                default=None,
+            )
+        return max(
+            weapons,
+            key=lambda weapon: (
+                weapon.shots_per_activation,
+                weapon.followup_damage_percent,
+                weapon.damage_at_range(weapon.max_range),
+                -weapon.cost,
             ),
             default=None,
         )
@@ -1142,23 +1210,19 @@ class BreachPointBotCoordinator:
             1,
             len(candidates) // self.profile.close_range_primary_team_divisor,
         )
-        return bot.id in {
-            teammate.id for teammate in candidates[:designated_count]
-        }
+        return bot.id in {teammate.id for teammate in candidates[:designated_count]}
 
     def _should_buy_close_range_primary(
         self,
         game: BreachPointGame,
         bot: BreachPointPlayer,
     ) -> bool:
-        """Use an SMG only for the conversion after the opponent's first loss."""
+        """Use a close-range primary for the conversion after the first loss."""
 
         if not 0 <= bot.squad_index < len(game.squad_loss_streaks):
             return False
         opposing_side = next(
-            side_index
-            for side_index in SIDE_INDEXES
-            if side_index != bot.team_index
+            side_index for side_index in SIDE_INDEXES if side_index != bot.team_index
         )
         opposing_squad = game._squad_for_side(opposing_side)
         if not 0 <= opposing_squad < len(game.squad_loss_streaks):
@@ -1169,8 +1233,7 @@ class BreachPointBotCoordinator:
         )
         return bool(
             game.squad_loss_streaks[bot.squad_index] == 0
-            and game.squad_loss_streaks[opposing_squad]
-            == conversion_loss_count
+            and game.squad_loss_streaks[opposing_squad] == conversion_loss_count
             and self._is_designated_close_range_user(game, bot)
         )
 
@@ -1263,6 +1326,7 @@ class BreachPointBotCoordinator:
             if (
                 not weapon
                 or weapon.id == equipped.id
+                or game._loaded_ammunition(bot, weapon) <= 0
                 or bot.weapon_shots_fired_this_activation.get(weapon.id, 0)
                 >= weapon.shots_per_activation
                 or game._is_equip_weapon_enabled(bot, action_id=action_id) is not None
@@ -1420,6 +1484,22 @@ class BreachPointBotCoordinator:
             return action_id
         return None
 
+    @staticmethod
+    def reload_action(
+        game: BreachPointGame,
+        bot: BreachPointPlayer,
+    ) -> str | None:
+        """Reload only when the current weapon cannot make its next full attack."""
+
+        weapon = game._equipped_weapon(bot)
+        if (
+            not weapon
+            or game._loaded_ammunition(bot, weapon) >= weapon.ammunition_per_attack
+            or game._is_reload_enabled(bot) is not None
+        ):
+            return None
+        return "reload"
+
     def _ensure_current_round(self, game: BreachPointGame) -> None:
         marker = self._round_marker(game)
         if any(
@@ -1533,9 +1613,7 @@ class BreachPointBotCoordinator:
         # A partial extra site layer becomes mobile coverage. When the layer is
         # complete, keep one rotator per site so an even roster does not become
         # a static stack with no one able to answer mid or the opposite site.
-        evenly_distributed_extras = (
-            extra_players % len(site_ids) if site_ids else 0
-        )
+        evenly_distributed_extras = extra_players % len(site_ids) if site_ids else 0
         preferred_rotators = (
             evenly_distributed_extras
             if evenly_distributed_extras
@@ -1574,11 +1652,7 @@ class BreachPointBotCoordinator:
 
         if site_count <= 0:
             return 0
-        round_number = (
-            game.overtime_round
-            if game.overtime_period > 0
-            else game.round
-        )
+        round_number = game.overtime_round if game.overtime_period > 0 else game.round
         return max(0, round_number - 1) % site_count
 
     def _central_staging_nodes(self, game: BreachPointGame) -> tuple[str, ...]:
@@ -1672,7 +1746,10 @@ class BreachPointBotCoordinator:
             node.id
             for node in game.tactical_map.nodes
             if node.id not in excluded
-            and all(site_id in node.sightlines for site_id in site_ids)
+            and all(
+                game.tactical_map.has_sightline(node.id, site_id)
+                for site_id in site_ids
+            )
         ]
         if not candidates:
             candidates = list(self._central_staging_nodes(game))
@@ -1821,11 +1898,15 @@ class BreachPointBotCoordinator:
             return
         decoy = game._node(plan.decoy_site_id)
         decoy_contact_nodes = (
-            {plan.decoy_site_id, *decoy.sightlines} if decoy else set()
+            {
+                plan.decoy_site_id,
+                *game.tactical_map.visible_node_ids(plan.decoy_site_id),
+            }
+            if decoy
+            else set()
         )
         confirmed_contacts = sum(
-            contact.node_id in decoy_contact_nodes
-            for contact in plan.contacts.values()
+            contact.node_id in decoy_contact_nodes for contact in plan.contacts.values()
         )
         living_diversion_players = any(
             assignment.role in {ROLE_ENTRY, ROLE_LURKER}
@@ -1950,7 +2031,7 @@ class BreachPointBotCoordinator:
         target: BreachPointPlayer,
     ) -> bool:
         weapon = game._equipped_weapon(bot)
-        distance = game._node_distance(bot.position_id, target.position_id)
+        distance = game._combat_distance(bot.position_id, target.position_id)
         if not weapon or distance is None:
             return False
         damage_percent = (
@@ -1964,6 +2045,10 @@ class BreachPointBotCoordinator:
                 weapon,
                 distance,
                 damage_percent=damage_percent,
+                ammunition_used=min(
+                    weapon.ammunition_per_attack,
+                    game._loaded_ammunition(bot, weapon),
+                ),
             ).health_damage
             >= target.health
         )
@@ -2047,7 +2132,10 @@ class BreachPointBotCoordinator:
                     if assignment
                     and assignment.role == ROLE_ANCHOR
                     and assignment.anchor_node_id != bot.position_id
-                    and assignment.anchor_node_id in source.sightlines
+                    and game.tactical_map.has_sightline(
+                        source.id,
+                        assignment.anchor_node_id,
+                    )
                     else bot.position_id
                 )
                 action_id = f"hold_angle_{watched_node_id}"
@@ -2075,7 +2163,10 @@ class BreachPointBotCoordinator:
                 and next_node.bomb_site
                 and any(
                     contact.node_id == next_node.id
-                    or contact.node_id in next_node.sightlines
+                    or game.tactical_map.has_sightline(
+                        next_node.id,
+                        contact.node_id,
+                    )
                     for contact in plan.contacts.values()
                 )
             ):
@@ -2085,7 +2176,10 @@ class BreachPointBotCoordinator:
             return None
 
         for node_id in target_nodes:
-            if node_id == bot.position_id or node_id not in source.sightlines:
+            if node_id == bot.position_id or not game.tactical_map.has_sightline(
+                source.id,
+                node_id,
+            ):
                 continue
             action_id = f"hold_angle_{node_id}"
             if game._is_hold_angle_enabled(bot, action_id=action_id) is None:
@@ -2098,7 +2192,7 @@ class BreachPointBotCoordinator:
         )
         opposing_spawn = game._spawn_for_team(opposing_team_index)
         ordered_candidates = sorted(
-            enumerate(source.sightlines),
+            enumerate(game.tactical_map.visible_node_ids(source.id)),
             key=lambda entry: self._approach_sort_key(
                 game,
                 entry[1],
@@ -2140,8 +2234,7 @@ class BreachPointBotCoordinator:
             # forward objective movement on every later activation.
             return False
         return bool(
-            bot.held_angle_node_id in target_nodes
-            or bot.position_id in target_nodes
+            bot.held_angle_node_id in target_nodes or bot.position_id in target_nodes
         )
 
     def _flash_action(
@@ -2164,7 +2257,7 @@ class BreachPointBotCoordinator:
         assignment = self.assignment_for(bot.id)
         plan = self.team_plans.get(SIDE_TERRORISTS)
         execute_site = self._active_execute_site(plan) if plan else ""
-        if bot.action_points != game.rules.action_points_per_activation:
+        if bot.action_points < flash.action_point_cost:
             return None
         execute_node = game._node(execute_site)
         defending_assigned_site = bool(
@@ -2174,7 +2267,10 @@ class BreachPointBotCoordinator:
             and assignment.anchor_node_id == bot.position_id
         )
         attacking_execute_nodes = (
-            {execute_site, *execute_node.sightlines}
+            {
+                execute_site,
+                *game.tactical_map.visible_node_ids(execute_site),
+            }
             if bot.team_index == SIDE_TERRORISTS
             and assignment
             and assignment.role in {ROLE_OBJECTIVE, ROLE_ENTRY, ROLE_SUPPORT}
@@ -2281,10 +2377,7 @@ class BreachPointBotCoordinator:
         ]
         if len(closest_sites) > 1:
             return False
-        return (
-            len(closest_sites) == 1
-            and assignment.anchor_node_id == closest_sites[0]
-        )
+        return len(closest_sites) == 1 and assignment.anchor_node_id == closest_sites[0]
 
     def _reinforcement_contact(
         self,
@@ -2372,10 +2465,7 @@ class BreachPointBotCoordinator:
             SIDE_TERRORISTS,
             alive_only=True,
         )
-        return bool(
-            living_attackers
-            and len(plan.contacts) * 2 > len(living_attackers)
-        )
+        return bool(living_attackers and len(plan.contacts) * 2 > len(living_attackers))
 
     def _defensive_fallback_action(
         self,
@@ -2402,8 +2492,7 @@ class BreachPointBotCoordinator:
             )
         )
         low_health = (
-            bot.health * 100
-            <= game.rules.max_health * self.profile.low_health_percent
+            bot.health * 100 <= game.rules.max_health * self.profile.low_health_percent
         )
         if (
             not low_health
@@ -2422,8 +2511,10 @@ class BreachPointBotCoordinator:
                 enemy.position_id == node_id
                 or (
                     not game._is_smoked(enemy.position_id)
-                    and (enemy_node := game._node(enemy.position_id)) is not None
-                    and node_id in enemy_node.sightlines
+                    and game.tactical_map.has_sightline(
+                        enemy.position_id,
+                        node_id,
+                    )
                 )
                 for enemy in visible_enemies
             )
@@ -2431,6 +2522,8 @@ class BreachPointBotCoordinator:
         current_exposure = exposure_count(bot.position_id)
         candidates: list[tuple[int, int, int, str]] = []
         for stable_order, node_id in enumerate(source.adjacent):
+            if any(enemy.position_id == node_id for enemy in visible_enemies):
+                continue
             action_id = f"move_{node_id}"
             if game._is_move_enabled(bot, action_id=action_id) is not None:
                 continue
@@ -2475,9 +2568,7 @@ class BreachPointBotCoordinator:
         ):
             return None
         site_defenders = [
-            enemy
-            for enemy in visible_enemies
-            if enemy.position_id == execute_site
+            enemy for enemy in visible_enemies if enemy.position_id == execute_site
         ]
         if not site_defenders or any(
             enemy.flash_penalty <= 0 for enemy in site_defenders
@@ -2518,8 +2609,7 @@ class BreachPointBotCoordinator:
                 and not plan.strategy_committed
             )
             or not any(
-                contact.node_id == execute_site
-                for contact in plan.contacts.values()
+                contact.node_id == execute_site for contact in plan.contacts.values()
             )
         ):
             return None

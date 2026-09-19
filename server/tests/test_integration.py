@@ -310,6 +310,7 @@ class TestGameRegistryIntegration:
             "bang": "cards",
             "battle": "arcade",
             "battleship": "board",
+            "bingo": "misc",
             "blackjack": "cards",
             "bunko": "dice",
             "chaosbear": "arcade",

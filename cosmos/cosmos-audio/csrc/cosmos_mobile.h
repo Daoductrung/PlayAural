@@ -80,6 +80,15 @@ cosmos_mobile_result cosmos_mobile_source_set_parameters(
     float z,
     float spatial_blend
 );
+cosmos_mobile_result cosmos_mobile_source_set_sequence_segment_parameters(
+    cosmos_mobile_source* source,
+    uint32_t index,
+    float gain,
+    float x,
+    float y,
+    float z,
+    float spatial_blend
+);
 cosmos_mobile_result cosmos_mobile_source_pause(cosmos_mobile_source* source);
 cosmos_mobile_result cosmos_mobile_source_resume(cosmos_mobile_source* source);
 cosmos_mobile_result cosmos_mobile_source_request_outro(

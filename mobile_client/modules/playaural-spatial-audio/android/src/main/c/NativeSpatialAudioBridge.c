@@ -333,6 +333,34 @@ Java_one_ddt_playaural_spatialaudio_NativeSpatialAudioBridge_nativeSetParameters
 }
 
 JNIEXPORT jint JNICALL
+Java_one_ddt_playaural_spatialaudio_NativeSpatialAudioBridge_nativeSetSequenceSegmentParameters(
+    JNIEnv* env,
+    jobject instance,
+    jlong source_handle,
+    jint index,
+    jfloat gain,
+    jfloat x,
+    jfloat y,
+    jfloat z,
+    jfloat spatial_blend
+) {
+    (void)env;
+    (void)instance;
+    if (index < 0) {
+        return (jint)COSMOS_MOBILE_INVALID_ARGUMENT;
+    }
+    return (jint)cosmos_mobile_source_set_sequence_segment_parameters(
+        (cosmos_mobile_source*)(intptr_t)source_handle,
+        (uint32_t)index,
+        gain,
+        x,
+        y,
+        z,
+        spatial_blend
+    );
+}
+
+JNIEXPORT jint JNICALL
 Java_one_ddt_playaural_spatialaudio_NativeSpatialAudioBridge_nativePauseSource(
     JNIEnv* env,
     jobject instance,

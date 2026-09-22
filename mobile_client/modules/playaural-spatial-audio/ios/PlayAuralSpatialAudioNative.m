@@ -54,6 +54,24 @@ cosmos_mobile_result cosmos_mobile_source_set_parameters(
     (void)spatial_blend;
     return COSMOS_MOBILE_UNSUPPORTED_OPERATION;
 }
+cosmos_mobile_result cosmos_mobile_source_set_sequence_segment_parameters(
+    cosmos_mobile_source* source,
+    uint32_t index,
+    float gain,
+    float x,
+    float y,
+    float z,
+    float spatial_blend
+) {
+    (void)source;
+    (void)index;
+    (void)gain;
+    (void)x;
+    (void)y;
+    (void)z;
+    (void)spatial_blend;
+    return COSMOS_MOBILE_UNSUPPORTED_OPERATION;
+}
 cosmos_mobile_result cosmos_mobile_source_pause(cosmos_mobile_source* source) {
     (void)source;
     return COSMOS_MOBILE_UNSUPPORTED_OPERATION;

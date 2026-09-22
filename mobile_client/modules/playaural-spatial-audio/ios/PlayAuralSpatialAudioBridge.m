@@ -195,6 +195,26 @@ int32_t PASetSpatialAudioSourceParameters(
     );
 }
 
+int32_t PASetSpatialAudioSequenceSegmentParameters(
+    uintptr_t sourceHandle,
+    uint32_t index,
+    float gain,
+    float x,
+    float y,
+    float z,
+    float spatialBlend
+) {
+    return (int32_t)cosmos_mobile_source_set_sequence_segment_parameters(
+        (cosmos_mobile_source*)sourceHandle,
+        index,
+        gain,
+        x,
+        y,
+        z,
+        spatialBlend
+    );
+}
+
 int32_t PAPauseSpatialAudioSource(uintptr_t sourceHandle) {
     return (int32_t)cosmos_mobile_source_pause(
         (cosmos_mobile_source*)sourceHandle

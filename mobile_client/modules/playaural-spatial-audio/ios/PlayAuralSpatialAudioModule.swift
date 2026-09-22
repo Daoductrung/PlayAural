@@ -82,6 +82,33 @@ public final class PlayAuralSpatialAudioModule: Module {
       }
     }
 
+    Function("setSequenceSegmentParameters") {
+        (
+          sourceID: String,
+          index: Int,
+          gain: Double,
+          x: Double,
+          y: Double,
+          z: Double,
+          spatialBlend: Double
+        ) -> Bool in
+      self.withLock {
+        guard
+          let source = self.sources[sourceID],
+          let nativeIndex = UInt32(exactly: index)
+        else { return false }
+        return PASetSpatialAudioSequenceSegmentParameters(
+          source,
+          nativeIndex,
+          Float(gain),
+          Float(x),
+          Float(y),
+          Float(z),
+          Float(spatialBlend)
+        ) == nativeSuccess
+      }
+    }
+
     Function("pauseSource") { (sourceID: String) -> Bool in
       self.withLock {
         self.sources[sourceID].map { PAPauseSpatialAudioSource($0) == nativeSuccess } ?? false

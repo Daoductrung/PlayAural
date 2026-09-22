@@ -101,6 +101,15 @@ type NativeSpatialAudioBridge = {
     z: number,
     spatialBlend: number,
   ): boolean;
+  setSequenceSegmentParameters(
+    sourceId: string,
+    index: number,
+    gain: number,
+    x: number,
+    y: number,
+    z: number,
+    spatialBlend: number,
+  ): boolean;
   pauseSource(sourceId: string): boolean;
   resumeSource(sourceId: string): boolean;
   requestOutro(sourceId: string, finishLoopBoundary: boolean): boolean;
@@ -325,6 +334,24 @@ export class NativeSpatialAudio {
       sourceId,
       volume,
       pitch,
+      position[0],
+      position[1],
+      position[2],
+      spatialBlend,
+    ));
+  }
+
+  setSequenceSegmentParameters(
+    sourceId: string,
+    index: number,
+    gain: number,
+    position: readonly [number, number, number],
+    spatialBlend: number,
+  ): boolean {
+    return this.ready && Boolean(this.bridge?.setSequenceSegmentParameters(
+      sourceId,
+      index,
+      gain,
       position[0],
       position[1],
       position[2],

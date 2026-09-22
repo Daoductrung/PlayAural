@@ -135,6 +135,30 @@ test("source gain is independent, automatable, and generation guarded", async ()
   );
 });
 
+test("completed updates survive native source creation", async () => {
+  const source = await readFile(
+    new URL("../src/audio/MobileAudioManager.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(
+    source,
+    /elapsed >= runtime\.motion\.duration_ms[\s\S]*?if \(source\) \{\s*this\.clearSourceMotion/,
+  );
+  assert.match(
+    source,
+    /const complete = this\.applySourceMotion\(runtime\);\s*if \(!complete/,
+  );
+  assert.match(
+    source,
+    /elapsed >= runtime\.automation\.duration_ms[\s\S]*?if \(source\) \{\s*this\.clearSourceGainAutomation/,
+  );
+  assert.match(
+    source,
+    /const complete = this\.applySourceGainAutomation\(runtime\);\s*if \(!complete/,
+  );
+});
+
 test("async source creation reserves bounded mixer capacity", async () => {
   const source = await readFile(
     new URL("../src/audio/MobileAudioManager.ts", import.meta.url),
@@ -209,11 +233,31 @@ test("managed layer pitch reaches native, element, and seamless stem paths", asy
   assert.match(source, /introNode\.playbackRate\.value = pitch/);
   assert.match(source, /loopNode\.playbackRate\.value = pitch/);
   assert.match(source, /outroNode\.playbackRate\.value = source\.pitch/);
-  assert.match(source, /loopDuration: loopBuffer\.duration \/ pitch/);
+  assert.match(source, /const loopDuration = loopBuffer\.duration \/ pitch/);
+  assert.match(source, /webStem: \{\s*loopDuration,/);
   assert.match(source, /element\.playbackRate = source\.pitch/);
   assert.match(source, /element\.preservesPitch = false/);
   assert.match(source, /shouldCorrectPitch: false/);
   assert.match(source, /pitch: source\.pitch \* 100/);
+});
+
+test("mobile Web non-looping stems schedule their outro on the audio clock", async () => {
+  const source = await readFile(
+    new URL("../src/audio/MobileAudioManager.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /scheduleWebStemOutroAt\(/);
+  assert.match(source, /outroNode\.start\(boundary\)/);
+  assert.match(
+    source,
+    /if \(!loopNode\.loop\)[\s\S]*?naturalOutroAt[\s\S]*?scheduleWebStemOutroAt\(source, naturalOutroAt, false\)/,
+  );
+  assert.match(
+    source,
+    /stem\.outroScheduled[\s\S]*?scheduledNode\.stop\(\)[\s\S]*?source\.webNodes\.delete\(scheduledNode\)/,
+  );
+  assert.match(source, /source\.webStem\?\.outroNode === outroNode/);
 });
 
 test("mobile Web HRTF sources drain their rendered tails before disposal", async () => {

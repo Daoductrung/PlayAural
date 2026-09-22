@@ -69,6 +69,7 @@ type CommandAudioSource = {
   kind: AudioKind;
   nativePlayer: ExpoAudio.Sound | null;
   nativeSpatialId: string | null;
+  nativeSpatialSequence: boolean;
   nativeSpatialStem: boolean;
   nativeSpatialBlend: number;
   nativeStem: NativeStemState | null;
@@ -117,12 +118,21 @@ type WebStemState = {
   loopNode: AudioBufferSourceNode;
   loopStartedAt: number;
   outroBuffer: AudioBuffer | null;
+  outroNode: AudioBufferSourceNode | null;
   outroScheduled: boolean;
+  outroStartsAt: number;
 };
 
 type NativeSequenceState = {
   startTimers: Set<ReturnType<typeof setTimeout>>;
   tracks: NativeSequenceTrack[];
+};
+
+type NativeSpatialSequenceTrack = {
+  durationMilliseconds: number;
+  finalParametersApplied: boolean;
+  segment: AudioSequenceSegment;
+  startsAtMilliseconds: number;
 };
 
 type NativeSequenceTrack = {
@@ -844,6 +854,7 @@ export class MobileAudioManager {
       kind,
       nativePlayer: null,
       nativeSpatialId: null,
+      nativeSpatialSequence: false,
       nativeSpatialStem: false,
       nativeSpatialBlend: 1,
       nativeStem: null,
@@ -965,7 +976,14 @@ export class MobileAudioManager {
       this.setAbsoluteVolume(source, this.outputGain(source));
     }
     if (elapsed >= runtime.motion.duration_ms) {
-      this.clearSourceMotion(runtime.handle);
+      if (source) {
+        this.clearSourceMotion(runtime.handle);
+      } else if (runtime.timer) {
+        // The update can finish while a cold asset is still loading. Stop the
+        // polling timer but retain the destination for register() to consume.
+        clearInterval(runtime.timer);
+        runtime.timer = null;
+      }
       return true;
     }
     return false;
@@ -995,8 +1013,8 @@ export class MobileAudioManager {
       timer: null,
     };
     this.commandMotions.set(handle, runtime);
-    this.applySourceMotion(runtime);
-    if (this.commandMotions.get(handle) === runtime) {
+    const complete = this.applySourceMotion(runtime);
+    if (!complete && this.commandMotions.get(handle) === runtime) {
       runtime.timer = setInterval(() => {
         this.applySourceMotion(runtime);
       }, SOURCE_AUTOMATION_INTERVAL_MS);
@@ -1034,7 +1052,14 @@ export class MobileAudioManager {
       this.setAbsoluteVolume(source, this.outputGain(source));
     }
     if (elapsed >= runtime.automation.duration_ms) {
-      this.clearSourceGainAutomation(runtime.handle);
+      if (source) {
+        this.clearSourceGainAutomation(runtime.handle);
+      } else if (runtime.timer) {
+        // Preserve the completed value across asynchronous source creation,
+        // while avoiding an idle interval for a value that can no longer move.
+        clearInterval(runtime.timer);
+        runtime.timer = null;
+      }
       return true;
     }
     return false;
@@ -1064,8 +1089,8 @@ export class MobileAudioManager {
       timer: null,
     };
     this.commandGainAutomations.set(handle, runtime);
-    this.applySourceGainAutomation(runtime);
-    if (this.commandGainAutomations.get(handle) === runtime) {
+    const complete = this.applySourceGainAutomation(runtime);
+    if (!complete && this.commandGainAutomations.get(handle) === runtime) {
       runtime.timer = setInterval(() => {
         this.applySourceGainAutomation(runtime);
       }, SOURCE_AUTOMATION_INTERVAL_MS);
@@ -1113,7 +1138,9 @@ export class MobileAudioManager {
     if (source.nativeSpatialId) {
       this.nativeSpatialAudio.setParameters(
         source.nativeSpatialId,
-        bounded,
+        source.nativeSpatialSequence
+          ? this.clamp(this.sourceMixGain(source), 0, 1, 0)
+          : bounded,
         source.pitch,
         source.position ?? [0, 0, 0],
         source.nativeSpatialBlend,
@@ -1316,6 +1343,7 @@ export class MobileAudioManager {
       this.nativeSpatialAudio.destroySource(source.nativeSpatialId);
       this.releaseNativeSpatialId(source.nativeSpatialId);
       source.nativeSpatialId = null;
+      source.nativeSpatialSequence = false;
       if (!this.nativeSpatialSources.size) {
         this.stopNativeSpatialCompletionPolling();
       }
@@ -1609,17 +1637,52 @@ export class MobileAudioManager {
       !context
       || !source.webGain
       || !stem?.outroBuffer
-      || stem.outroScheduled
-      || context.currentTime < stem.loopStartedAt
       || stem.loopDuration <= 0
     ) {
       return false;
     }
+    if (stem.outroScheduled) {
+      if (mode === "boundary" || context.currentTime >= stem.outroStartsAt) {
+        source.asset = source.outro;
+        source.outro = "";
+        this.detachSourceHandle(source);
+        return true;
+      }
+      const scheduledNode = stem.outroNode;
+      stem.outroNode = null;
+      stem.outroScheduled = false;
+      stem.outroStartsAt = 0;
+      if (scheduledNode) {
+        try { scheduledNode.stop(); } catch { /* Already stopped. */ }
+        try { scheduledNode.disconnect(); } catch { /* Already disconnected. */ }
+        source.webNodes.delete(scheduledNode);
+      }
+    }
     const elapsed = Math.max(0, context.currentTime - stem.loopStartedAt);
     const cycles = Math.floor(elapsed / stem.loopDuration) + 1;
     const boundary = mode === "boundary"
-      ? stem.loopStartedAt + (cycles * stem.loopDuration)
+      ? stem.loopStartedAt + (Math.max(1, cycles) * stem.loopDuration)
       : context.currentTime + 0.02;
+    return this.scheduleWebStemOutroAt(source, boundary, true);
+  }
+
+  private scheduleWebStemOutroAt(
+    source: CommandAudioSource,
+    boundary: number,
+    detachHandle: boolean,
+  ): boolean {
+    const context = this.webAudioContext;
+    const stem = source.webStem;
+    if (
+      !context
+      || !source.webGain
+      || !stem?.outroBuffer
+      || stem.outroScheduled
+      || !Number.isFinite(boundary)
+      || boundary < context.currentTime
+    ) {
+      return false;
+    }
     const outroNode = context.createBufferSource();
     outroNode.buffer = stem.outroBuffer;
     outroNode.playbackRate.value = source.pitch;
@@ -1633,11 +1696,17 @@ export class MobileAudioManager {
     }
     source.webNodes.add(outroNode);
     stem.outroScheduled = true;
-    source.asset = source.outro;
-    source.outro = "";
-    this.detachSourceHandle(source);
+    stem.outroNode = outroNode;
+    stem.outroStartsAt = boundary;
+    if (detachHandle) {
+      source.asset = source.outro;
+      source.outro = "";
+      this.detachSourceHandle(source);
+    }
     outroNode.addEventListener("ended", () => {
-      this.dispose(source.key);
+      if (source.webStem?.outroNode === outroNode) {
+        this.dispose(source.key);
+      }
     }, { once: true });
     return true;
   }
@@ -1957,6 +2026,7 @@ export class MobileAudioManager {
     const pitch = this.clamp(packet.pitch, 25, 400, 100) / 100;
     const startAt = context.currentTime + 0.03;
     const loopStartedAt = startAt + ((introBuffer?.duration || 0) / pitch);
+    const loopDuration = loopBuffer.duration / pitch;
     if (introNode) {
       introNode.buffer = introBuffer;
       introNode.playbackRate.value = pitch;
@@ -1986,11 +2056,13 @@ export class MobileAudioManager {
       webNode: loopNode,
       webNodes,
       webStem: {
-        loopDuration: loopBuffer.duration / pitch,
+        loopDuration,
         loopNode,
         loopStartedAt,
         outroBuffer,
+        outroNode: null,
         outroScheduled: false,
+        outroStartsAt: 0,
       },
       webElement: null,
       webPanner: panner ?? null,
@@ -2000,7 +2072,10 @@ export class MobileAudioManager {
     introNode?.start(startAt);
     loopNode.start(loopStartedAt);
     if (!loopNode.loop) {
-      loopNode.addEventListener("ended", () => this.dispose(key), { once: true });
+      const naturalOutroAt = loopStartedAt + loopDuration;
+      if (!this.scheduleWebStemOutroAt(source, naturalOutroAt, false)) {
+        loopNode.addEventListener("ended", () => this.dispose(key), { once: true });
+      }
     }
     if (packet.fade_in_ms) {
       this.fade(source, 1, packet.fade_in_ms);
@@ -2493,14 +2568,13 @@ export class MobileAudioManager {
     if (paths.some((path) => !path) || !isCurrent()) {
       return null;
     }
-    const first = segments[0];
     const key = `${handle}:${Date.now()}:${Math.random()}`;
     const source = this.buildSource(
       {
         ...packet,
-        position: first.position ? [...first.position] : undefined,
-        attenuation: first.attenuation,
-        gain: first.gain,
+        position: undefined,
+        attenuation: undefined,
+        gain: 1,
       },
       assetKey,
       handle,
@@ -2509,16 +2583,16 @@ export class MobileAudioManager {
       key,
       "sfx",
     );
-    source.nativeSpatialBlend = first.position ? 1 : 0;
+    source.nativeSpatialBlend = 0;
     const sourceId = this.nextNativeSpatialId();
     const timing = await this.nativeSpatialAudio.createSequence(sourceId, {
       paths: paths as string[],
       nextStartRatios: segments.map((segment) => segment.next_start_ratio),
       startPaused: true,
-      volume: this.outputGain(source),
+      volume: this.sourceMixGain(source),
       pitch: source.pitch,
-      position: source.position ?? [0, 0, 0],
-      spatialBlend: source.nativeSpatialBlend,
+      position: [0, 0, 0],
+      spatialBlend: 0,
     });
     if (!timing || !isCurrent()) {
       if (timing) {
@@ -2528,6 +2602,47 @@ export class MobileAudioManager {
       return null;
     }
     source.nativeSpatialId = sourceId;
+    const durations = timing.durationsMilliseconds;
+    let segmentCursor = 0;
+    const tracks: NativeSpatialSequenceTrack[] = durations.map(
+      (durationMilliseconds, index) => {
+        const track = {
+          durationMilliseconds,
+          finalParametersApplied: !segments[index].destination_position,
+          segment: segments[index],
+          startsAtMilliseconds: segmentCursor,
+        };
+        segmentCursor += durationMilliseconds * segments[index].next_start_ratio;
+        return track;
+      },
+    );
+    source.nativeSpatialSequence = true;
+    const applyTrackParameters = (
+      track: NativeSpatialSequenceTrack,
+      index: number,
+      localElapsed: number,
+    ) => {
+      const position = this.sequencePosition(
+        track.segment,
+        localElapsed,
+        track.durationMilliseconds,
+      );
+      return this.nativeSpatialAudio.setSequenceSegmentParameters(
+        sourceId,
+        index,
+        track.segment.gain * distanceAttenuationGain(
+          position,
+          track.segment.attenuation,
+        ),
+        position ?? [0, 0, 0],
+        position ? 1 : 0,
+      );
+    };
+    if (tracks.some((track, index) => !applyTrackParameters(track, index, 0))) {
+      this.nativeSpatialAudio.destroySource(sourceId);
+      this.releaseNativeSpatialId(sourceId);
+      return null;
+    }
     this.register(source);
     const resumeStartedAt = this.audioClockMs();
     if (!this.nativeSpatialAudio.resumeSource(sourceId)) {
@@ -2540,45 +2655,42 @@ export class MobileAudioManager {
     const startsAtMilliseconds = (
       (resumeStartedAt + resumeFinishedAt) / 2
     ) + timing.startLeadMilliseconds;
-    const durations = timing.durationsMilliseconds;
-    const segmentStarts: number[] = [];
-    let segmentCursor = 0;
-    for (let index = 0; index < durations.length; index += 1) {
-      segmentStarts.push(segmentCursor);
-      segmentCursor += durations[index] * segments[index].next_start_ratio;
+    for (const track of tracks) {
+      track.startsAtMilliseconds += startsAtMilliseconds;
     }
     const update = () => {
       if (!source.active) {
         return;
       }
-      const elapsed = Math.max(0, this.audioClockMs() - startsAtMilliseconds);
-      let index = 0;
-      for (let candidate = 1; candidate < segmentStarts.length; candidate += 1) {
-        if (elapsed < segmentStarts[candidate]) {
-          break;
+      const now = this.audioClockMs();
+      let allFinal = true;
+      for (let index = 0; index < tracks.length; index += 1) {
+        const track = tracks[index];
+        const elapsed = now - track.startsAtMilliseconds;
+        if (elapsed < 0) {
+          allFinal = false;
+          continue;
         }
-        index = candidate;
+        if (track.finalParametersApplied) {
+          continue;
+        }
+        const localElapsed = Math.min(track.durationMilliseconds, elapsed);
+        if (!applyTrackParameters(track, index, localElapsed)) {
+          this.dispose(key);
+          return;
+        }
+        track.finalParametersApplied = elapsed >= track.durationMilliseconds;
+        allFinal = allFinal && track.finalParametersApplied;
       }
-      const segment = segments[index];
-      const localElapsed = Math.min(
-        durations[index],
-        Math.max(0, elapsed - segmentStarts[index]),
-      );
-      source.position = this.sequencePosition(segment, localElapsed, durations[index]);
-      source.nativeSpatialBlend = segment.position ? 1 : 0;
-      source.attenuation = segment.attenuation;
-      source.sourceGain = segment.gain;
-      source.distanceGain = distanceAttenuationGain(
-        source.position,
-        source.attenuation,
-      );
-      source.pan = source.position
-        ? Math.round(panFromPosition(source.position) * 100)
-        : this.clamp(packet.pan, -100, 100, 0);
-      this.setAbsoluteVolume(source, this.outputGain(source));
+      if (allFinal && source.sequenceTimer) {
+        clearInterval(source.sequenceTimer);
+        source.sequenceTimer = null;
+      }
     };
-    update();
-    source.sequenceTimer = setInterval(update, SOURCE_AUTOMATION_INTERVAL_MS);
+    if (tracks.some((track) => track.segment.destination_position)) {
+      update();
+      source.sequenceTimer = setInterval(update, SOURCE_AUTOMATION_INTERVAL_MS);
+    }
     this.scheduleSequenceFade(source, startsAtMilliseconds, packet.fade_in_ms ?? 0);
     return source;
   }

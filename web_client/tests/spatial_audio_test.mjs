@@ -304,3 +304,46 @@ test("Web HRTF sources remain connected until their rendered tail is silent", ()
   assert.match(source, /output\.connect\(tailAnalyser\)/);
   assert.match(source, /\(\) => cleanupAfterRenderedTail\(source\)/);
 });
+
+test("completed updates survive asynchronous asset loading", () => {
+  const source = readFileSync(
+    new URL("../audio.js", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(
+    source,
+    /elapsed >= record\.motion\.duration_ms[\s\S]*?if \(source\) \{\s*motions\.delete\(record\.handle\)/,
+  );
+  assert.match(
+    source,
+    /const complete = applyMotionFrame\(record\);\s*if \(!complete/,
+  );
+  assert.match(
+    source,
+    /elapsed >= record\.automation\.duration_ms[\s\S]*?if \(source\) \{\s*gainAutomations\.delete\(record\.handle\)/,
+  );
+  assert.match(
+    source,
+    /const complete = applyGainFrame\(record\);\s*if \(!complete/,
+  );
+});
+
+test("non-looping seamless stems schedule their outro on the audio clock", () => {
+  const source = readFileSync(
+    new URL("../audio.js", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /function scheduleStemOutroAt\(source, boundary, detachHandle\)/);
+  assert.match(source, /outroNode\.start\(boundary\)/);
+  assert.match(
+    source,
+    /if \(!loopNode\.loop\)[\s\S]*?naturalOutroAt[\s\S]*?scheduleStemOutroAt\(source, naturalOutroAt, false\)/,
+  );
+  assert.match(
+    source,
+    /source\.stem\.outroScheduled[\s\S]*?scheduledNode\.stop\(\)[\s\S]*?source\.nodes\.delete\(scheduledNode\)/,
+  );
+  assert.match(source, /source\.stem\?\.outroNode === outroNode/);
+});

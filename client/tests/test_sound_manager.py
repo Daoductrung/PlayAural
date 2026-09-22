@@ -938,6 +938,48 @@ def test_audio_sequence_is_not_released_before_its_scheduled_end(monkeypatch):
     assert "chain" not in manager._sources
 
 
+def test_audio_sequence_waits_for_every_overlapping_renderer_tail(monkeypatch):
+    sound_manager = _load_sound_manager_module(monkeypatch)
+    manager = sound_manager.SoundManager()
+    segment = {
+        "position": None,
+        "destination_position": None,
+        "attenuation": None,
+        "gain": 1,
+        "easing": "linear",
+        "next_start_ratio": 0,
+    }
+
+    assert manager.handle_audio_command({
+        "type": "audio",
+        "version": 3,
+        "command": "play",
+        "kind": "sfx",
+        "handle": "overlap",
+        "segments": [
+            {**segment, "asset": "throw.ogg"},
+            {**segment, "asset": "explosion.ogg"},
+        ],
+    }) is True
+    source = manager._sources["overlap"]
+    first, last = [item.stream for item in source.sequence_streams]
+    manager.sound_cacher.clock_frames = source.completion_frame
+
+    # Model a sibling HRTF node whose decoded asset ended with the chain but
+    # whose convolution tail is still draining after the selected completion
+    # stream has stopped.
+    first.is_playing = True
+    last.is_playing = False
+    time.sleep(0.2)
+    assert manager._sources.get("overlap") is source
+
+    first.is_playing = False
+    deadline = time.monotonic() + 2
+    while "overlap" in manager._sources and time.monotonic() < deadline:
+        time.sleep(0.01)
+    assert "overlap" not in manager._sources
+
+
 def test_audio_sequence_validation_is_all_or_nothing(monkeypatch):
     sound_manager = _load_sound_manager_module(monkeypatch)
     manager = sound_manager.SoundManager()

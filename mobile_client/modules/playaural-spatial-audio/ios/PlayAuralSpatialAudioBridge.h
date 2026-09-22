@@ -55,6 +55,15 @@ int32_t PASetSpatialAudioSourceParameters(
     float z,
     float spatialBlend
 );
+int32_t PASetSpatialAudioSequenceSegmentParameters(
+    uintptr_t sourceHandle,
+    uint32_t index,
+    float gain,
+    float x,
+    float y,
+    float z,
+    float spatialBlend
+);
 int32_t PAPauseSpatialAudioSource(uintptr_t sourceHandle);
 int32_t PAResumeSpatialAudioSource(uintptr_t sourceHandle);
 int32_t PARequestSpatialAudioSourceOutro(

@@ -77,6 +77,29 @@ class PlayAuralSpatialAudioModule : Module() {
       }
     }
 
+    Function("setSequenceSegmentParameters") {
+        sourceId: String,
+        index: Int,
+        gain: Double,
+        x: Double,
+        y: Double,
+        z: Double,
+        spatialBlend: Double ->
+      synchronized(lock) {
+        sources[sourceId]?.let { sourceHandle ->
+          NativeSpatialAudioBridge.nativeSetSequenceSegmentParameters(
+            sourceHandle,
+            index,
+            gain.toFloat(),
+            x.toFloat(),
+            y.toFloat(),
+            z.toFloat(),
+            spatialBlend.toFloat()
+          ) == NATIVE_SUCCESS
+        } ?: false
+      }
+    }
+
     Function("pauseSource") { sourceId: String ->
       synchronized(lock) {
         sources[sourceId]?.let {

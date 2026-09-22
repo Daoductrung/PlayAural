@@ -47,6 +47,7 @@ function createBridge(overrides = {}) {
     pauseSource: () => true,
     requestOutro: () => true,
     resumeSource: () => true,
+    setSequenceSegmentParameters: () => true,
     setParameters: () => true,
     shutdown: () => undefined,
     ...overrides,
@@ -214,6 +215,36 @@ test("the adapter returns native decoded timing for atomic sequences", async () 
   ]);
 });
 
+test("the adapter forwards independent native sequence segment parameters", async () => {
+  const calls = [];
+  const bridge = createBridge({
+    setSequenceSegmentParameters: (...args) => {
+      calls.push(args);
+      return true;
+    },
+  });
+  const { NativeSpatialAudio } = await loadNativeSpatialAudio(bridge);
+  const audio = new NativeSpatialAudio();
+
+  assert.equal(await audio.initialize(), true);
+  assert.equal(audio.setSequenceSegmentParameters(
+    "source:sequence",
+    2,
+    0.35,
+    [-4, 6, 1],
+    1,
+  ), true);
+  assert.deepEqual(calls[0], [
+    "source:sequence",
+    2,
+    0.35,
+    -4,
+    6,
+    1,
+    1,
+  ]);
+});
+
 test("the adapter destroys an atomic sequence with incomplete native timing", async () => {
   const destroyed = [];
   const bridge = createBridge({
@@ -363,6 +394,7 @@ test("the mobile manager routes positioned sources and seamless stems through HR
   assert.match(source, /nativeSpatialAudio\.requestOutro/);
   assert.match(source, /nativeSpatialAudio\.drainEndedSources/);
   assert.match(source, /nativeSpatialAudio\.createSequence/);
+  assert.match(source, /nativeSpatialAudio\.setSequenceSegmentParameters/);
   assert.match(source, /timing\.durationsMilliseconds/);
   assert.match(source, /resumeStartedAt[\s\S]*?resumeFinishedAt/);
   assert.match(
@@ -426,6 +458,15 @@ test("native playback preserves platform route and session ownership", async () 
     /\(long double\)engine_sample_rate[\s\S]*?\(long double\)source_sample_rate/,
   );
   assert.match(mobileCore, /source->started && source->pitch != pitch/);
+  assert.match(mobileCore, /ma_sound_group_set_pitch\(&source->group, 1\.0f\)/);
+  assert.match(mobileCore, /source_set_segment_pitch\(source, pitch\)/);
+  assert.match(
+    mobileCore,
+    /ma_sound_set_pitch\(&source->sequence\[sequence_index\]\.sound, pitch\)/,
+  );
+  assert.match(mobileCore, /cosmos_mobile_source_set_sequence_segment_parameters/);
+  assert.match(mobileCore, /segment->binaural_node/);
+  assert.match(mobileCore, /source->active_renderers|owner->active_renderers/);
   assert.match(
     mobileCore,
     /\(config->sequence_paths == NULL\) != \(config->sequence_count == 0\)/,

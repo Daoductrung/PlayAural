@@ -40,6 +40,15 @@ export type PlayAuralSpatialAudioNativeModule = {
     z: number,
     spatialBlend: number,
   ): boolean;
+  setSequenceSegmentParameters(
+    sourceId: string,
+    index: number,
+    gain: number,
+    x: number,
+    y: number,
+    z: number,
+    spatialBlend: number,
+  ): boolean;
   pauseSource(sourceId: string): boolean;
   resumeSource(sourceId: string): boolean;
   requestOutro(sourceId: string, finishLoopBoundary: boolean): boolean;
@@ -72,6 +81,8 @@ type PlayAuralSpatialAudioBridge = {
     sequenceNextStartRatios?: readonly number[];
   }): Promise<readonly number[]>;
   setParameters: PlayAuralSpatialAudioNativeModule["setParameters"];
+  setSequenceSegmentParameters:
+    PlayAuralSpatialAudioNativeModule["setSequenceSegmentParameters"];
   pauseSource: PlayAuralSpatialAudioNativeModule["pauseSource"];
   resumeSource: PlayAuralSpatialAudioNativeModule["resumeSource"];
   requestOutro: PlayAuralSpatialAudioNativeModule["requestOutro"];
@@ -110,6 +121,9 @@ const module: PlayAuralSpatialAudioNativeModule = {
       : {}),
   }),
   setParameters: (...args) => bridge.setParameters(...args),
+  setSequenceSegmentParameters: (...args) => (
+    bridge.setSequenceSegmentParameters(...args)
+  ),
   pauseSource: (sourceId) => bridge.pauseSource(sourceId),
   resumeSource: (sourceId) => bridge.resumeSource(sourceId),
   requestOutro: (sourceId, boundary) => bridge.requestOutro(sourceId, boundary),

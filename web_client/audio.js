@@ -377,7 +377,12 @@ export function createAudioEngine(options = {}) {
       setOutputValue(source, outputValue(source));
     }
     if (elapsed >= record.motion.duration_ms) {
-      motions.delete(record.handle);
+      // An update can finish while a cold asset is still decoding. Retain its
+      // final value until register() installs that generation; otherwise the
+      // late source would remain forever at the play packet's old position.
+      if (source) {
+        motions.delete(record.handle);
+      }
       return true;
     }
     return false;
@@ -411,8 +416,8 @@ export function createAudioEngine(options = {}) {
       startedAt: audioClockMs() - motion.elapsed_ms,
     };
     motions.set(handle, record);
-    applyMotionFrame(record);
-    if (motions.get(handle) === record) {
+    const complete = applyMotionFrame(record);
+    if (!complete && motions.get(handle) === record) {
       scheduleMotionFrame(record);
     }
     return true;
@@ -440,7 +445,12 @@ export function createAudioEngine(options = {}) {
       setOutputValue(source, outputValue(source));
     }
     if (elapsed >= record.automation.duration_ms) {
-      gainAutomations.delete(record.handle);
+      // Keep a completed update until an asynchronously loaded source has
+      // consumed its destination value. nextGeneration() still bounds and
+      // invalidates records for sources that never install.
+      if (source) {
+        gainAutomations.delete(record.handle);
+      }
       return true;
     }
     return false;
@@ -474,8 +484,8 @@ export function createAudioEngine(options = {}) {
       startedAt: audioClockMs() - automation.elapsed_ms,
     };
     gainAutomations.set(handle, record);
-    applyGainFrame(record);
-    if (gainAutomations.get(handle) === record) {
+    const complete = applyGainFrame(record);
+    if (!complete && gainAutomations.get(handle) === record) {
       scheduleGainFrame(record);
     }
     return true;
@@ -706,17 +716,53 @@ export function createAudioEngine(options = {}) {
     if (
       !context
       || !source.stem?.outroBuffer
-      || source.stem.outroScheduled
-      || context.currentTime < source.stem.loopStartedAt
       || source.stem.loopDuration <= 0
     ) {
       return false;
     }
+    if (source.stem.outroScheduled) {
+      if (
+        mode === "boundary"
+        || context.currentTime >= source.stem.outroStartsAt
+      ) {
+        source.outro = "";
+        if (handles.get(source.handle) === source.key) {
+          handles.delete(source.handle);
+        }
+        motions.delete(source.handle);
+        gainAutomations.delete(source.handle);
+        return true;
+      }
+      const scheduledNode = source.stem.outroNode;
+      source.stem.outroNode = null;
+      source.stem.outroScheduled = false;
+      source.stem.outroStartsAt = 0;
+      if (scheduledNode) {
+        try { scheduledNode.stop(); } catch { /* already stopped */ }
+        try { scheduledNode.disconnect(); } catch { /* already disconnected */ }
+        source.nodes.delete(scheduledNode);
+      }
+    }
     const elapsed = Math.max(0, context.currentTime - source.stem.loopStartedAt);
     const cycles = Math.floor(elapsed / source.stem.loopDuration) + 1;
     const boundary = mode === "boundary"
-      ? source.stem.loopStartedAt + (cycles * source.stem.loopDuration)
+      ? source.stem.loopStartedAt + (
+        Math.max(1, cycles) * source.stem.loopDuration
+      )
       : context.currentTime + 0.02;
+    return scheduleStemOutroAt(source, boundary, true);
+  }
+
+  function scheduleStemOutroAt(source, boundary, detachHandle) {
+    if (
+      !context
+      || !source.stem?.outroBuffer
+      || source.stem.outroScheduled
+      || !Number.isFinite(boundary)
+      || boundary < context.currentTime
+    ) {
+      return false;
+    }
     const outroNode = context.createBufferSource();
     outroNode.buffer = source.stem.outroBuffer;
     outroNode.playbackRate.value = source.stem.playbackRate;
@@ -731,15 +777,22 @@ export function createAudioEngine(options = {}) {
       return false;
     }
     source.stem.outroScheduled = true;
+    source.stem.outroNode = outroNode;
     source.stem.outroRequestedAt = context.currentTime;
     source.stem.outroStartsAt = boundary;
-    source.outro = "";
-    if (handles.get(source.handle) === source.key) {
-      handles.delete(source.handle);
+    if (detachHandle) {
+      source.outro = "";
+      if (handles.get(source.handle) === source.key) {
+        handles.delete(source.handle);
+      }
+      motions.delete(source.handle);
+      gainAutomations.delete(source.handle);
     }
-    motions.delete(source.handle);
-    gainAutomations.delete(source.handle);
-    outroNode.addEventListener("ended", () => cleanup(source.key), { once: true });
+    outroNode.addEventListener("ended", () => {
+      if (source.stem?.outroNode === outroNode) {
+        cleanup(source.key);
+      }
+    }, { once: true });
     return true;
   }
 
@@ -1512,6 +1565,7 @@ export function createAudioEngine(options = {}) {
         loopDuration: loopBuffer.duration / playbackRate,
         playbackRate,
         outroBuffer,
+        outroNode: null,
         outroScheduled: false,
         outroRequestedAt: 0,
         outroStartsAt: 0,
@@ -1530,7 +1584,10 @@ export function createAudioEngine(options = {}) {
     }
     loopNode.start(loopStartedAt);
     if (!loopNode.loop) {
-      loopNode.addEventListener("ended", () => cleanup(key), { once: true });
+      const naturalOutroAt = loopStartedAt + source.stem.loopDuration;
+      if (!scheduleStemOutroAt(source, naturalOutroAt, false)) {
+        loopNode.addEventListener("ended", () => cleanup(key), { once: true });
+      }
     }
     if (packet.fade_in_ms) {
       fade(source, baseVolume, packet.fade_in_ms);

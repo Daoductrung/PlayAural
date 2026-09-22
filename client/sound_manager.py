@@ -652,6 +652,11 @@ class SoundManager:
         completion_stream = source.completion_stream or source.stream
         if getattr(completion_stream, "looping", False):
             return
+        completion_streams = (
+            [item.stream for item in source.sequence_streams]
+            if source.sequence_streams
+            else [completion_stream]
+        )
 
         def run():
             observed_stopped = False
@@ -670,7 +675,15 @@ class SoundManager:
                 if (
                     paused
                     or scheduled
-                    or self._stream_is_playing(completion_stream)
+                    # Overlapping chains can finish their decoded assets on
+                    # the same frame while only some streams still own an
+                    # HRTF tail. Keep every stream connected until its own
+                    # renderer reports completion; watching only the latest
+                    # decoded stream can clip a sibling tail.
+                    or any(
+                        self._stream_is_playing(stream)
+                        for stream in completion_streams
+                    )
                 ):
                     observed_stopped = False
                     time.sleep(0.05)

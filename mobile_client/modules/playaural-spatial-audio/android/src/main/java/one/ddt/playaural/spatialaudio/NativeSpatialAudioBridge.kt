@@ -51,6 +51,15 @@ internal object NativeSpatialAudioBridge {
     z: Float,
     spatialBlend: Float
   ): Int
+  external fun nativeSetSequenceSegmentParameters(
+    sourceHandle: Long,
+    index: Int,
+    gain: Float,
+    x: Float,
+    y: Float,
+    z: Float,
+    spatialBlend: Float
+  ): Int
   external fun nativePauseSource(sourceHandle: Long): Int
   external fun nativeResumeSource(sourceHandle: Long): Int
   external fun nativeRequestOutro(sourceHandle: Long, finishLoopBoundary: Boolean): Int

@@ -531,12 +531,14 @@ def normalize_audio_gain_automation(value: Any) -> AudioGainAutomation | None:
 
 @dataclass(frozen=True)
 class AudioSequenceSegment:
-    """One sample-contiguous asset in a finite client-clocked SFX sequence.
+    """One sample-scheduled asset in a finite client-clocked SFX sequence.
 
     A destination, when present, moves the source over the decoded duration of
-    this segment.  The duration deliberately is not repeated in protocol data:
-    every client schedules the next segment from the actual decoded frame
-    count, so replacements cannot leave stale timing constants behind.
+    this segment. ``next_start_ratio`` controls when the following segment
+    starts as a fraction of this segment's decoded duration, allowing authored
+    tails to overlap without changing pitch. The duration deliberately is not
+    repeated in protocol data, so replacements cannot leave stale timing
+    constants behind.
     """
 
     asset: str
@@ -545,6 +547,7 @@ class AudioSequenceSegment:
     attenuation: DistanceAttenuation | Mapping[str, Any] | None = None
     gain: float = 1.0
     easing: str = "linear"
+    next_start_ratio: float = 1.0
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "asset", normalize_audio_asset(self.asset))
@@ -552,6 +555,7 @@ class AudioSequenceSegment:
         destination = normalize_audio_position(self.destination_position)
         attenuation = normalize_distance_attenuation(self.attenuation)
         gain = normalize_audio_gain(self.gain)
+        next_start_ratio = normalize_audio_gain(self.next_start_ratio)
         easing = str(self.easing)
         if attenuation is not None and position is None:
             raise ValueError("Sequence attenuation requires a spatial position")
@@ -566,6 +570,7 @@ class AudioSequenceSegment:
         object.__setattr__(self, "attenuation", attenuation)
         object.__setattr__(self, "gain", gain)
         object.__setattr__(self, "easing", easing)
+        object.__setattr__(self, "next_start_ratio", next_start_ratio)
 
     def to_packet(self) -> dict[str, Any]:
         """Serialize a complete segment without renderer-specific defaults."""
@@ -584,6 +589,7 @@ class AudioSequenceSegment:
             ),
             "gain": self.gain,
             "easing": self.easing,
+            "next_start_ratio": self.next_start_ratio,
         }
 
 
@@ -607,6 +613,7 @@ def normalize_audio_sequence_segments(
         "attenuation",
         "gain",
         "easing",
+        "next_start_ratio",
     }
     normalized: list[AudioSequenceSegment] = []
     for item in value:

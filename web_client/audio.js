@@ -130,6 +130,7 @@ function normalizeSequenceSegments(value) {
     "destination_position",
     "easing",
     "gain",
+    "next_start_ratio",
     "position",
   ];
   const normalized = [];
@@ -147,6 +148,7 @@ function normalizeSequenceSegments(value) {
     const destination = normalizeAudioPosition(item.destination_position);
     const attenuation = normalizeDistanceAttenuation(item.attenuation);
     const gain = normalizeAudioGain(item.gain);
+    const nextStartRatio = normalizeAudioGain(item.next_start_ratio);
     const easing = String(item.easing || "");
     if (
       !asset
@@ -154,6 +156,7 @@ function normalizeSequenceSegments(value) {
       || destination === null
       || attenuation === null
       || gain === null
+      || nextStartRatio === null
       || attenuation !== undefined && position === undefined
       || destination !== undefined && position === undefined
       || !["linear", "ease-in", "ease-out", "ease-in-out"].includes(easing)
@@ -168,6 +171,7 @@ function normalizeSequenceSegments(value) {
       attenuation,
       gain,
       easing,
+      next_start_ratio: nextStartRatio,
     });
   }
   return normalized;
@@ -211,6 +215,7 @@ export function createAudioEngine(options = {}) {
   const pendingMusic = new Map();
   const pendingAmbiences = new Map();
   const pausedMusicHandles = new Set();
+  let finiteSfxLaunchQueue = Promise.resolve();
 
   let soundBaseUrl = options.soundBaseUrl || "./sounds/";
   let soundVersion = String(options.soundVersion || "");
@@ -977,6 +982,8 @@ export function createAudioEngine(options = {}) {
     const key = sourceId();
     const startAt = context.currentTime + SEQUENCE_START_LEAD_SECONDS;
     let cursor = startAt;
+    let completionAt = startAt;
+    let completionTrack = null;
     const nodes = new Set();
     const sequenceTracks = [];
 
@@ -1016,7 +1023,12 @@ export function createAudioEngine(options = {}) {
       };
       sequenceTracks.push(track);
       nodes.add(node);
-      cursor += duration;
+      const segmentEnd = cursor + duration;
+      if (segmentEnd >= completionAt) {
+        completionAt = segmentEnd;
+        completionTrack = track;
+      }
+      cursor += duration * segment.next_start_ratio;
     }
 
     const tailAnalyser = sequenceTracks.some(
@@ -1078,7 +1090,7 @@ export function createAudioEngine(options = {}) {
       cleanup(key);
       return false;
     }
-    sequenceTracks.at(-1).node.addEventListener(
+    completionTrack.node.addEventListener(
       "ended",
       () => cleanupAfterRenderedTail(source),
       { once: true },
@@ -1561,7 +1573,10 @@ export function createAudioEngine(options = {}) {
     };
     const handle = String(packet.handle || `sfx:${sourceId()}`);
     cancelPendingHandle(handle);
-    const generation = nextGeneration(handle);
+    const generation = packet._generation ?? nextGeneration(handle);
+    if (packet._generation !== undefined && generations.get(handle) !== generation) {
+      return "";
+    }
     const oldKey = handles.get(handle);
     if (oldKey) {
       await stopKey(oldKey, packet.fade_out_ms || 0);
@@ -1570,6 +1585,31 @@ export function createAudioEngine(options = {}) {
       playElement({ ...normalized, handle }, "", generation);
     }
     return handle;
+  }
+
+  function queueFiniteSound(packet) {
+    const handle = String(packet.handle || `sfx:${sourceId()}`);
+    cancelPendingHandle(handle);
+    const generation = nextGeneration(handle);
+    const queuedPacket = { ...packet, handle, _generation: generation };
+    const assets = queuedPacket.segments?.length
+      ? queuedPacket.segments.map((segment) => segment.asset)
+      : [queuedPacket.asset];
+    // Begin decoding immediately, but serialize the moment each finite source
+    // is started. Cached reports must not overtake an uncached projectile chain.
+    const preload = context
+      ? Promise.all(assets.map((asset) => loadEffect(asset)))
+      : Promise.resolve();
+    const launch = finiteSfxLaunchQueue
+      .catch(() => undefined)
+      .then(async () => {
+        await preload;
+        if (generations.get(handle) !== generation) {
+          return;
+        }
+        await playSound(queuedPacket);
+      });
+    finiteSfxLaunchQueue = launch.catch(() => undefined);
   }
 
   function playLayer(packet) {
@@ -1988,14 +2028,14 @@ export function createAudioEngine(options = {}) {
             if (packet.asset || packet.family) {
               return false;
             }
-            void playSound(packet);
+            queueFiniteSound(packet);
             return true;
           }
           const resolvedPacket = resolveSoundPacket(packet);
           if (!resolvedPacket) {
             return false;
           }
-          playSound(resolvedPacket);
+          queueFiniteSound(resolvedPacket);
         } else {
           if (packet.family || !validAsset(packet.asset)) {
             return false;

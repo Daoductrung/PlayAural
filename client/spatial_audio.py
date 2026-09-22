@@ -60,7 +60,7 @@ class AudioGainAutomation:
 
 @dataclass(frozen=True)
 class AudioSequenceSegment:
-    """Validated finite SFX segment scheduled from decoded frame counts."""
+    """Validated finite SFX segment with a decoded-duration onset."""
 
     asset: str
     position: AudioPosition | None
@@ -68,6 +68,7 @@ class AudioSequenceSegment:
     attenuation: DistanceAttenuation | None
     gain: float
     easing: str
+    next_start_ratio: float
 
 
 def normalize_audio_gain(value: Any) -> float:
@@ -95,6 +96,7 @@ def normalize_audio_sequence_segments(value: Any) -> tuple[AudioSequenceSegment,
         "attenuation",
         "gain",
         "easing",
+        "next_start_ratio",
     }
     normalized: list[AudioSequenceSegment] = []
     for item in value:
@@ -110,6 +112,7 @@ def normalize_audio_sequence_segments(value: Any) -> tuple[AudioSequenceSegment,
         destination = normalize_audio_position(item["destination_position"])
         attenuation = normalize_distance_attenuation(item["attenuation"])
         gain = normalize_audio_gain(item["gain"])
+        next_start_ratio = normalize_audio_gain(item["next_start_ratio"])
         easing = str(item["easing"])
         if attenuation is not None and position is None:
             raise ValueError("Sequence attenuation requires a spatial position")
@@ -127,6 +130,7 @@ def normalize_audio_sequence_segments(value: Any) -> tuple[AudioSequenceSegment,
                 attenuation=attenuation,
                 gain=gain,
                 easing=easing,
+                next_start_ratio=next_start_ratio,
             )
         )
     return tuple(normalized)

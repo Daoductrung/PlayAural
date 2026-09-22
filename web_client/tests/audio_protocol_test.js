@@ -65,6 +65,21 @@ runButton.addEventListener("click", async () => {
       throw new Error("A partial atomic audio sequence was accepted");
     }
     if (engine.handleAudioCommand(command({
+      asset: undefined,
+      handle: "invalid:sequence-onset",
+      segments: [{
+        asset: "menuclick.ogg",
+        position: null,
+        destination_position: null,
+        attenuation: null,
+        gain: 1,
+        easing: "linear",
+        next_start_ratio: 1.1,
+      }],
+    }))) {
+      throw new Error("An out-of-range sequence onset was accepted");
+    }
+    if (engine.handleAudioCommand(command({
       command: "update",
       asset: undefined,
       handle: "invalid:partial-motion",
@@ -322,6 +337,7 @@ runButton.addEventListener("click", async () => {
           attenuation: null,
           gain: 1,
           easing: "linear",
+          next_start_ratio: 0,
         },
         {
           asset: "game_chaosbear/playerstep2.ogg",
@@ -330,6 +346,7 @@ runButton.addEventListener("click", async () => {
           attenuation: { model: "none" },
           gain: 0.75,
           easing: "ease-out",
+          next_start_ratio: 1,
         },
         {
           asset: "game_bang/weapon_punch_swing_1.ogg",
@@ -338,6 +355,7 @@ runButton.addEventListener("click", async () => {
           attenuation: { model: "none" },
           gain: 1,
           easing: "linear",
+          next_start_ratio: 1,
         },
       ],
     }))) {

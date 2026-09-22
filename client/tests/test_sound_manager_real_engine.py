@@ -60,6 +60,7 @@ def _segment(position):
         "attenuation": None if position is None else {"model": "none"},
         "gain": 1,
         "easing": "linear",
+        "next_start_ratio": 1,
     }
 
 

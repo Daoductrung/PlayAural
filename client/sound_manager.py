@@ -1010,9 +1010,18 @@ class SoundManager:
                 self.sound_cacher.sample_rate * SEQUENCE_START_LEAD_SECONDS
             )
             cursor = start_frame
+            completion_frame = start_frame
+            completion_stream = streams[0]
             for sequence_stream in timeline:
                 sequence_stream.start_frame = cursor
-                cursor += sequence_stream.duration_frames
+                segment_end = cursor + sequence_stream.duration_frames
+                if segment_end >= completion_frame:
+                    completion_frame = segment_end
+                    completion_stream = sequence_stream.stream
+                cursor += math.ceil(
+                    sequence_stream.duration_frames
+                    * sequence_stream.segment.next_start_ratio
+                )
             source = _AudioSource(
                 handle=resolved_handle,
                 stream=streams[0],
@@ -1030,8 +1039,8 @@ class SoundManager:
                 envelope=0.0 if fade_in_ms else 1.0,
                 queued_streams=list(streams[1:]),
                 sequence_streams=timeline,
-                completion_stream=streams[-1],
-                completion_frame=cursor,
+                completion_stream=completion_stream,
+                completion_frame=completion_frame,
             )
             self._sources[resolved_handle] = source
             if source.ducking:

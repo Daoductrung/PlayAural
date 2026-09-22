@@ -72,7 +72,7 @@ cd mobile_client && cmd /c npm run typecheck && npx expo start
 
 ## Core Architecture
 
-- `server/games/` currently registers 45 games. Categories are `cards`, `dice`,
+- `server/games/` currently registers 46 games. Categories are `cards`, `dice`,
   `board`, `poker`, `arcade`, and `misc`; user-facing category labels must be
   localized. The Play menu uses dynamic counts, not hardcoded category counts.
 - Games are `@dataclass` classes registered with `@register_game`, inherit from
@@ -282,6 +282,12 @@ Audio-first is mandatory. Every important state change needs TTS and/or sound.
 - All server-driven SFX, music, and ambience use the versioned `audio` command
   contract in `server/audio.py`. Do not add separate packet types or
   client-specific routing. Asset paths and command values must be validated.
+- Optional 3D positions use listener-relative `(x, y, z)` coordinates with the
+  listener at the origin facing `+Y`. The server is the positioning authority
+  and derives ordinary pan from the same point for non-HRTF fallbacks. Desktop,
+  Web, and native mobile playback consume the same spatial contract. Use a
+  fixed position for a point event, atomic `segments` for a finite multi-stage
+  sound, and stable-handle `update` commands for a replayable moving source.
 - One-shot notification SFX may declare their related output `buffer`; clients
   suppress those cues when that buffer is effectively muted. Do not attach a
   buffer to managed or looping audio.
@@ -290,9 +296,11 @@ Audio-first is mandatory. Every important state change needs TTS and/or sound.
   not hardcode a variant count or use families for loops, music, or ambience.
 - Finite multi-stage SFX use one atomic `play` command with complete `segments`
   and a stable handle. Clients validate and preload every asset before starting,
-  then schedule contiguous boundaries from decoded frame counts and pitch on a
-  shared audio clock; authored silence remains part of the asset. Segment motion
-  spans that segment's decoded duration. Renderers keep the final HRTF tail
+  then schedule each onset from decoded frame counts, pitch, and the validated
+  per-segment next-onset ratio on a shared audio clock. A ratio of `1` is
+  contiguous; a smaller ratio overlaps authored tails without altering pitch,
+  and authored silence remains part of the asset. Segment motion spans that
+  segment's decoded duration. Renderers keep every overlapping HRTF tail
   connected until it has finished rather than clipping it at the last decoded
   frame. Never approximate these chains with
   separate packets, server ticks, or replacement-sensitive duration constants.

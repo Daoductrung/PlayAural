@@ -23,6 +23,29 @@ const CONFORMANCE = JSON.parse(readFileSync(
   "utf8",
 ));
 
+test("finite sound commands preload concurrently but launch in packet order", () => {
+  const source = readFileSync(
+    new URL("../audio.js", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /let finiteSfxLaunchQueue = Promise\.resolve\(\)/);
+  assert.match(
+    source,
+    /const preload = context[\s\S]*?Promise\.all\(assets\.map\(\(asset\) => loadEffect\(asset\)\)\)/,
+  );
+  assert.match(
+    source,
+    /const launch = finiteSfxLaunchQueue[\s\S]*?await preload[\s\S]*?await playSound\(queuedPacket\)/,
+  );
+  assert.match(
+    source,
+    /const generation = packet\._generation \?\? nextGeneration\(handle\)/,
+  );
+  assert.match(source, /cursor \+= duration \* segment\.next_start_ratio/);
+  assert.match(source, /completionTrack\.node\.addEventListener/);
+});
+
 function audioParam() {
   return {
     calls: [],

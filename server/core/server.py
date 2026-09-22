@@ -87,7 +87,7 @@ VERSION = "1.0.4.17"
 UPDATE_URL = "https://github.com/Daoductrung/PlayAural/releases/latest/download/PlayAural.zip"
 UPDATE_HASH = "" # Optional SHA256
 
-SOUNDS_VERSION = "5"
+SOUNDS_VERSION = "9"
 SOUNDS_URL = "https://github.com/Daoductrung/PlayAural/releases/latest/download/sounds.zip"
 SOUNDS_HASH = "" # Optional SHA256
 ANDROID_UPDATE_URL = "https://github.com/Daoductrung/PlayAural/releases/latest/download/PlayAural.apk"

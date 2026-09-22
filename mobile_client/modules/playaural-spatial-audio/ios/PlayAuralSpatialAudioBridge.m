@@ -1,6 +1,7 @@
 #import "PlayAuralSpatialAudioBridge.h"
 
 #include "cosmos_mobile.h"
+#include <math.h>
 #include <stdlib.h>
 
 uintptr_t PACreateSpatialAudioEngine(
@@ -79,6 +80,7 @@ uintptr_t PACreateSpatialAudioSource(
 uintptr_t PACreateSpatialAudioSequenceSource(
     uintptr_t engineHandle,
     NSArray<NSString*>* sequencePaths,
+    NSArray<NSNumber*>* sequenceNextStartRatios,
     BOOL startPaused,
     float volume,
     float pitch,
@@ -93,14 +95,23 @@ uintptr_t PACreateSpatialAudioSequenceSource(
     cosmos_mobile_source* source = NULL;
     NSUInteger count = sequencePaths.count;
     const char** paths = NULL;
-    if (count == 0 || count > 32 || count > UINT32_MAX) {
+    float* nextStartRatios = NULL;
+    if (
+        count == 0
+        || count > 32
+        || count > UINT32_MAX
+        || sequenceNextStartRatios.count != count
+    ) {
         if (result != NULL) {
             *result = (int32_t)nativeResult;
         }
         return 0;
     }
     paths = (const char**)calloc(count, sizeof(*paths));
-    if (paths == NULL) {
+    nextStartRatios = (float*)calloc(count, sizeof(*nextStartRatios));
+    if (paths == NULL || nextStartRatios == NULL) {
+        free(paths);
+        free(nextStartRatios);
         if (result != NULL) {
             *result = (int32_t)COSMOS_MOBILE_OUT_OF_MEMORY;
         }
@@ -108,8 +119,16 @@ uintptr_t PACreateSpatialAudioSequenceSource(
     }
     for (NSUInteger index = 0; index < count; index += 1) {
         paths[index] = sequencePaths[index].UTF8String;
-        if (paths[index] == NULL || paths[index][0] == '\0') {
+        nextStartRatios[index] = sequenceNextStartRatios[index].floatValue;
+        if (
+            paths[index] == NULL
+            || paths[index][0] == '\0'
+            || !isfinite(nextStartRatios[index])
+            || nextStartRatios[index] < 0.0f
+            || nextStartRatios[index] > 1.0f
+        ) {
             free(paths);
+            free(nextStartRatios);
             if (result != NULL) {
                 *result = (int32_t)nativeResult;
             }
@@ -124,6 +143,7 @@ uintptr_t PACreateSpatialAudioSequenceSource(
     config.z = z;
     config.spatial_blend = spatialBlend;
     config.sequence_paths = paths;
+    config.sequence_next_start_ratios = nextStartRatios;
     config.sequence_count = (uint32_t)count;
     source = cosmos_mobile_source_create(
         (cosmos_mobile_engine*)engineHandle,
@@ -131,6 +151,7 @@ uintptr_t PACreateSpatialAudioSequenceSource(
         &nativeResult
     );
     free(paths);
+    free(nextStartRatios);
     if (result != NULL) {
         *result = (int32_t)nativeResult;
     }

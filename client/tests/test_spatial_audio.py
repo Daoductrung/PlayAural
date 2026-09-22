@@ -22,6 +22,32 @@ sys.modules[SPEC.name] = spatial_audio
 SPEC.loader.exec_module(spatial_audio)
 
 
+def _sequence_segment(**overrides):
+    segment = {
+        "asset": "step.ogg",
+        "position": None,
+        "destination_position": None,
+        "attenuation": None,
+        "gain": 1,
+        "easing": "linear",
+        "next_start_ratio": 1,
+    }
+    segment.update(overrides)
+    return segment
+
+
+def test_sequence_next_onset_ratio_is_strict_and_bounded() -> None:
+    normalized = spatial_audio.normalize_audio_sequence_segments(
+        [_sequence_segment(next_start_ratio=0.5)]
+    )
+    assert normalized[0].next_start_ratio == 0.5
+    for ratio in (-0.01, 1.01, float("inf"), float("nan"), True):
+        with pytest.raises(ValueError):
+            spatial_audio.normalize_audio_sequence_segments(
+                [_sequence_segment(next_start_ratio=ratio)]
+            )
+
+
 def test_distance_models_match_shared_protocol_vectors() -> None:
     assert CONFORMANCE["protocol_version"] == 3
     for vector in CONFORMANCE["distance_attenuation"]:

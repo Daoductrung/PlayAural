@@ -156,6 +156,7 @@ export type AudioSequenceSegmentPacket = {
   attenuation: DistanceAttenuationPacket | null;
   gain: number;
   easing: "linear" | "ease-in" | "ease-out" | "ease-in-out";
+  next_start_ratio: number;
 };
 
 export type AudioCommandPacket = {

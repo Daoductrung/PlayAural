@@ -31,12 +31,21 @@ Setting volume or pitch on a Cosmos sound re-runs spatialization, which recomput
 
 Everything else in the toolchain is present: cargo 1.97, uv (which provides maturin through `uvx`), and Python 3.11 in the client venv.
 
-### 1.5 There is no 3D data to play yet
+### 1.5 The spatial contract is ready for gameplay integration
 
 At the start of this migration no game sent positions and the protocol was at
 version 2. The completed cross-client work is described in section 10; current
 clients use protocol version 3 and share position, attenuation, and automation
 semantics.
+
+Protocol version 3 now supports fixed point events, atomic finite segment
+sequences, and replayable moving sources through stable handles and `update`
+automation. Desktop, Web, and native mobile playback share the same spatial,
+attenuation, and automation semantics, with platform fallbacks when native HRTF
+is unavailable. Breach Point can therefore model future bullets and thrown
+utility without inventing game-specific packets; it still needs authoritative
+map coordinates, per-listener transforms, audience filtering, and deliberate
+asset timing before gameplay audio is added.
 
 ### 1.6 Licensing improves
 

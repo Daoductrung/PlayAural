@@ -158,6 +158,7 @@ Java_one_ddt_playaural_spatialaudio_NativeSpatialAudioBridge_nativeCreateSequenc
     jobject instance,
     jlong engine_handle,
     jobjectArray sequence_paths,
+    jfloatArray sequence_next_start_ratios,
     jboolean start_paused,
     jfloat volume,
     jfloat pitch,
@@ -170,17 +171,33 @@ Java_one_ddt_playaural_spatialaudio_NativeSpatialAudioBridge_nativeCreateSequenc
     jsize index;
     jstring* path_strings = NULL;
     const char** path_chars = NULL;
+    jfloat next_start_ratios[32];
     cosmos_mobile_source_config config = {0};
     cosmos_mobile_result result = COSMOS_MOBILE_INVALID_ARGUMENT;
     cosmos_mobile_source* source = NULL;
     (void)instance;
 
-    if (sequence_paths == NULL) {
+    if (sequence_paths == NULL || sequence_next_start_ratios == NULL) {
         return pointer_result(env, NULL, result);
     }
     count = (*env)->GetArrayLength(env, sequence_paths);
-    if ((*env)->ExceptionCheck(env) || count <= 0 || count > 32) {
+    if (
+        (*env)->ExceptionCheck(env)
+        || count <= 0
+        || count > 32
+        || (*env)->GetArrayLength(env, sequence_next_start_ratios) != count
+    ) {
         return (*env)->ExceptionCheck(env) ? NULL : pointer_result(env, NULL, result);
+    }
+    (*env)->GetFloatArrayRegion(
+        env,
+        sequence_next_start_ratios,
+        0,
+        count,
+        next_start_ratios
+    );
+    if ((*env)->ExceptionCheck(env)) {
+        return NULL;
     }
     path_strings = (jstring*)calloc((size_t)count, sizeof(*path_strings));
     path_chars = (const char**)calloc((size_t)count, sizeof(*path_chars));
@@ -216,6 +233,7 @@ Java_one_ddt_playaural_spatialaudio_NativeSpatialAudioBridge_nativeCreateSequenc
     config.z = z;
     config.spatial_blend = spatial_blend;
     config.sequence_paths = path_chars;
+    config.sequence_next_start_ratios = next_start_ratios;
     config.sequence_count = (uint32_t)count;
     source = cosmos_mobile_source_create(
         (cosmos_mobile_engine*)(intptr_t)engine_handle,

@@ -25,6 +25,7 @@ export type AudioSequenceSegment = Readonly<{
   attenuation: DistanceAttenuation | undefined;
   gain: number;
   easing: AudioSequenceSegmentPacket["easing"];
+  next_start_ratio: number;
 }>;
 
 export const MAX_AUDIO_POSITION = 1000;
@@ -58,6 +59,7 @@ export function normalizeAudioSequenceSegments(
     "destination_position",
     "easing",
     "gain",
+    "next_start_ratio",
     "position",
   ];
   const normalized: AudioSequenceSegment[] = [];
@@ -75,6 +77,7 @@ export function normalizeAudioSequenceSegments(
     const destination = normalizeAudioPosition(fields.destination_position);
     const attenuation = normalizeDistanceAttenuation(fields.attenuation);
     const gain = normalizeAudioGain(fields.gain);
+    const nextStartRatio = normalizeAudioGain(fields.next_start_ratio);
     const easing = fields.easing;
     if (
       typeof fields.asset !== "string"
@@ -83,6 +86,7 @@ export function normalizeAudioSequenceSegments(
       || destination === null
       || attenuation === null
       || gain === null
+      || nextStartRatio === null
       || attenuation !== undefined && position === undefined
       || destination !== undefined && position === undefined
       || typeof easing !== "string"
@@ -98,6 +102,7 @@ export function normalizeAudioSequenceSegments(
       attenuation,
       gain,
       easing: easing as AudioSequenceSegmentPacket["easing"],
+      next_start_ratio: nextStartRatio,
     }));
   }
   return Object.freeze(normalized);

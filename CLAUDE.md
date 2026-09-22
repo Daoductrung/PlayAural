@@ -137,6 +137,12 @@ The server validates relative asset paths, ids, numeric ranges, commands,
 kinds, and scopes through `server/audio.py`; clients validate again before
 loading an asset.
 
+- Optional 3D positions use listener-relative `(x, y, z)` coordinates with the
+  listener at the origin facing `+Y`. The server is the positioning authority
+  and derives ordinary pan from the same point for non-HRTF fallbacks. Desktop,
+  Web, and native mobile playback consume the same spatial contract. Use a
+  fixed position for a point event, atomic `segments` for a finite multi-stage
+  sound, and stable-handle `update` commands for a replayable moving source.
 - Commands are `play`, `update`, `stop`, `pause`, `resume`, `set_bus`, and
   `stop_all`.
 - Kinds are `sfx`, `music`, and `ambience`. A named bus may be added without
@@ -148,9 +154,11 @@ loading an asset.
   never use a family for loops, music, or ambience.
 - Finite multi-stage SFX use one atomic `play` command with complete `segments`
   and a stable handle. Clients validate and preload every asset before starting,
-  then schedule contiguous boundaries from decoded frame counts and pitch on a
-  shared audio clock; authored silence remains part of the asset. Segment motion
-  spans that segment's decoded duration. Renderers keep the final HRTF tail
+  then schedule each onset from decoded frame counts, pitch, and the validated
+  per-segment next-onset ratio on a shared audio clock. A ratio of `1` is
+  contiguous; a smaller ratio overlaps authored tails without altering pitch,
+  and authored silence remains part of the asset. Segment motion spans that
+  segment's decoded duration. Renderers keep every overlapping HRTF tail
   connected until it has finished rather than clipping it at the last decoded
   frame. Never approximate these chains with
   separate packets, server ticks, or replacement-sensitive duration constants.
@@ -268,7 +276,7 @@ loading an asset.
 ### Server Architecture
 - **`server/core/server.py`** — Main orchestrator, auth routing, menus, reconnect, moderation, MOTD, presence
 - **`server/network/websocket_server.py`** — Async WebSocket transport
-- **`server/games/`** — 45 registered game implementations
+- **`server/games/`** — 46 registered game implementations
 - **`server/game_utils/`** — shared game mixins and helpers
 - **`server/tables/`** — table lifecycle, save/restore, membership
 - **`server/auth/`** — authentication, CAPTCHA checks, password reset, rate limiting
@@ -952,7 +960,7 @@ Mobile rules:
   language names; metadata complements it and does not replace it.
 
 ### Game Counts and Catalog
-The server currently registers **45 games**:
+The server currently registers **46 games**:
 - category ids are `cards`, `dice`, `board`, `poker`, `arcade`, and `misc`
 - the Play menu exposes a persisted category filter with dynamic per-category game counts
 - games usually expose one category through `get_category()`, while `get_categories()` supports future multi-category games
@@ -960,7 +968,7 @@ The server currently registers **45 games**:
 
 ### Key Tech Stack
 - Python 3.11, `asyncio`, `websockets>=12.0`, `mashumaro`, `fluent-runtime`, `openskill`, `argon2-cffi`
-- Desktop: `wxPython`, `accessible-output2`, `sound-lib`, `keyring`, `livekit`, `sounddevice`
+- Desktop: `wxPython`, `accessible-output2`, `Cosmos` (miniaudio and Steam Audio), `keyring`, `livekit`, `sounddevice`
 - Mobile: `expo`, `react-native`, `expo-audio`, `expo-speech`, `@react-native-async-storage/async-storage`, `expo-secure-store`
 - Package manager: `uv` for Python components, `npm` for the mobile client
 - Languages: English and Vietnamese are official defaults; partial community translations fall back to English

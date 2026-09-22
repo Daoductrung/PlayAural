@@ -28,6 +28,7 @@ private struct SpatialAudioSourceOptions: Record {
   @Field var z: Double = 0
   @Field var spatialBlend: Double = 1
   @Field var sequencePaths: [String] = []
+  @Field var sequenceNextStartRatios: [Double] = []
 }
 
 public final class PlayAuralSpatialAudioModule: Module {
@@ -205,6 +206,8 @@ public final class PlayAuralSpatialAudioModule: Module {
       options.outroPath.map(validPath) ?? true,
       options.sequencePaths.count <= maxSequenceSegments,
       options.sequencePaths.allSatisfy(validPath),
+      !hasSequence || options.sequenceNextStartRatios.count == options.sequencePaths.count,
+      options.sequenceNextStartRatios.allSatisfy { $0.isFinite && $0 >= 0 && $0 <= 1 },
       !hasSequence || (
         options.introPath == nil &&
         options.outroPath == nil &&
@@ -222,6 +225,7 @@ public final class PlayAuralSpatialAudioModule: Module {
       handle = PACreateSpatialAudioSequenceSource(
         engineHandle,
         options.sequencePaths,
+        options.sequenceNextStartRatios.map { NSNumber(value: $0) },
         options.startPaused,
         Float(options.volume),
         Float(options.pitch),

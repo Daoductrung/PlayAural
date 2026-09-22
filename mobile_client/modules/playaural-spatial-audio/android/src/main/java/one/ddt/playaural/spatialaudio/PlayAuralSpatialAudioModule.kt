@@ -26,7 +26,8 @@ private class SpatialAudioSourceOptions(
   @Field val y: Double,
   @Field val z: Double,
   @Field val spatialBlend: Double,
-  @Field val sequencePaths: List<String>?
+  @Field val sequencePaths: List<String>?,
+  @Field val sequenceNextStartRatios: List<Double>?
 ) : Record
 
 class PlayAuralSpatialAudioModule : Module() {
@@ -181,6 +182,7 @@ class PlayAuralSpatialAudioModule : Module() {
       throw SpatialAudioException("Native spatial audio is not initialized")
     }
     val sequencePaths = options.sequencePaths.orEmpty()
+    val sequenceNextStartRatios = options.sequenceNextStartRatios.orEmpty()
     val hasStem = options.loopPath.isNotBlank()
     val hasSequence = sequencePaths.isNotEmpty()
     if (
@@ -191,6 +193,8 @@ class PlayAuralSpatialAudioModule : Module() {
       options.outroPath?.contains('\u0000') == true ||
       sequencePaths.size > MAX_SEQUENCE_SEGMENTS ||
       sequencePaths.any { it.isBlank() || it.contains('\u0000') } ||
+      (hasSequence && sequenceNextStartRatios.size != sequencePaths.size) ||
+      sequenceNextStartRatios.any { !it.isFinite() || it < 0.0 || it > 1.0 } ||
       (hasSequence && (
         !options.introPath.isNullOrEmpty() ||
         !options.outroPath.isNullOrEmpty() ||
@@ -206,6 +210,7 @@ class PlayAuralSpatialAudioModule : Module() {
       NativeSpatialAudioBridge.nativeCreateSequenceSource(
         engineHandle,
         sequencePaths.toTypedArray(),
+        sequenceNextStartRatios.map { it.toFloat() }.toFloatArray(),
         options.startPaused,
         options.volume.toFloat(),
         options.pitch.toFloat(),

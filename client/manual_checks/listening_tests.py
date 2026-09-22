@@ -56,6 +56,7 @@ def segment(asset, position):
         "attenuation": None if position is None else NO_ATTENUATION,
         "gain": 1,
         "easing": "linear",
+        "next_start_ratio": 1,
     }
 
 

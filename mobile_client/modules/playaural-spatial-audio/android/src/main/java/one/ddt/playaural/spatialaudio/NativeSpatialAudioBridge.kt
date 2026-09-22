@@ -31,6 +31,7 @@ internal object NativeSpatialAudioBridge {
   external fun nativeCreateSequenceSource(
     engineHandle: Long,
     sequencePaths: Array<String>,
+    sequenceNextStartRatios: FloatArray,
     startPaused: Boolean,
     volume: Float,
     pitch: Float,

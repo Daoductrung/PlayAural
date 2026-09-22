@@ -32,6 +32,7 @@ uintptr_t PACreateSpatialAudioSource(
 uintptr_t PACreateSpatialAudioSequenceSource(
     uintptr_t engineHandle,
     NSArray<NSString*>* sequencePaths,
+    NSArray<NSNumber*>* sequenceNextStartRatios,
     BOOL startPaused,
     float volume,
     float pitch,

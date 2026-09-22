@@ -148,11 +148,14 @@ def test_blackjack_hand_value_handles_soft_aces() -> None:
     assert soft is False
 
 
-def test_blackjack_on_start_waits_for_bets_then_deals_and_posts_bets() -> None:
+def test_blackjack_on_start_waits_for_bets_then_deals_and_posts_bets(
+    monkeypatch,
+) -> None:
     game, host_player, host_user = create_game_with_host()
     game.options = BlackjackOptions(starting_chips=100, base_bet=10, deck_count=1)
     guest_user = MockUser("Guest")
     guest_player = game.add_player("Guest", guest_user)
+    monkeypatch.setattr(random, "shuffle", lambda cards: None)
 
     game.on_start()
 
@@ -169,17 +172,6 @@ def test_blackjack_on_start_waits_for_bets_then_deals_and_posts_bets() -> None:
     game._action_set_next_bet(host_player, "10", "set_next_bet")
     assert game.phase == "settle"
     assert game.hand_number == 0
-
-    game.deck = Deck(
-        [
-            make_card(1, 9, 1),
-            make_card(2, 8, 2),
-            make_card(3, 10, 3),
-            make_card(4, 7, 1),
-            make_card(5, 7, 2),
-            make_card(6, 6, 3),
-        ]
-    )
 
     game._action_set_next_bet(guest_player, "10", "set_next_bet")
 

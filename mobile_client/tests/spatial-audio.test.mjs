@@ -265,6 +265,7 @@ test("mobile validates complete finite audio sequences atomically", async () => 
       attenuation: null,
       gain: 1,
       easing: "linear",
+      next_start_ratio: 0.5,
     },
     {
       asset: "flight.ogg",
@@ -273,10 +274,12 @@ test("mobile validates complete finite audio sequences atomically", async () => 
       attenuation: { model: "none" },
       gain: 0.75,
       easing: "ease-out",
+      next_start_ratio: 1,
     },
   ]);
   assert.equal(segments.length, 2);
   assert.deepEqual([...segments[1].destination_position], [8, 14, -2]);
+  assert.equal(segments[0].next_start_ratio, 0.5);
   assert.equal(normalizeAudioSequenceSegments([{
     asset: "flight.ogg",
     position: null,
@@ -284,6 +287,7 @@ test("mobile validates complete finite audio sequences atomically", async () => 
     attenuation: null,
     gain: 1,
     easing: "linear",
+    next_start_ratio: 1,
   }]), null);
   assert.equal(normalizeAudioSequenceSegments([{
     asset: "flight.ogg",
@@ -292,5 +296,15 @@ test("mobile validates complete finite audio sequences atomically", async () => 
     attenuation: null,
     gain: 1,
     easing: "ease-out",
+    next_start_ratio: 1,
+  }]), null);
+  assert.equal(normalizeAudioSequenceSegments([{
+    asset: "step.ogg",
+    position: null,
+    destination_position: null,
+    attenuation: null,
+    gain: 1,
+    easing: "linear",
+    next_start_ratio: 1.1,
   }]), null);
 });

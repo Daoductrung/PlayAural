@@ -18,6 +18,7 @@ export type SpatialAudioSourceOptions = {
   pitch: number;
   position: readonly [number, number, number];
   sequencePaths?: readonly string[];
+  sequenceNextStartRatios?: readonly number[];
   spatialBlend?: number;
 };
 
@@ -68,6 +69,7 @@ type PlayAuralSpatialAudioBridge = {
     z: number;
     spatialBlend: number;
     sequencePaths?: readonly string[];
+    sequenceNextStartRatios?: readonly number[];
   }): Promise<readonly number[]>;
   setParameters: PlayAuralSpatialAudioNativeModule["setParameters"];
   pauseSource: PlayAuralSpatialAudioNativeModule["pauseSource"];
@@ -103,6 +105,9 @@ const module: PlayAuralSpatialAudioNativeModule = {
     z: options.position[2],
     spatialBlend: options.spatialBlend ?? 1,
     ...(options.sequencePaths ? { sequencePaths: options.sequencePaths } : {}),
+    ...(options.sequenceNextStartRatios
+      ? { sequenceNextStartRatios: options.sequenceNextStartRatios }
+      : {}),
   }),
   setParameters: (...args) => bridge.setParameters(...args),
   pauseSource: (sourceId) => bridge.pauseSource(sourceId),

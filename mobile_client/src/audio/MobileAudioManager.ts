@@ -96,6 +96,7 @@ type CommandAudioSource = {
 
 type WebSequenceTrack = {
   durationMilliseconds: number;
+  node: AudioBufferSourceNode;
   output: GainNode;
   panner: AudioNode | null;
   segment: AudioSequenceSegment;
@@ -120,9 +121,16 @@ type WebStemState = {
 };
 
 type NativeSequenceState = {
-  playlist: AudioPlaylist;
-  statusSubscription: { remove(): void };
-  trackSubscription: { remove(): void };
+  startTimers: Set<ReturnType<typeof setTimeout>>;
+  tracks: NativeSequenceTrack[];
+};
+
+type NativeSequenceTrack = {
+  durationMilliseconds: number;
+  ended: boolean;
+  player: ExpoAudio.Sound;
+  segment: AudioSequenceSegment;
+  startsAtMilliseconds: number;
 };
 
 type SourceMotionRuntime = {
@@ -247,6 +255,7 @@ export class MobileAudioManager {
   private commandBusGains = new Map<string, number>();
   private commandBusFadeTokens = new Map<string, number>();
   private commandDucking = new Map<string, Map<string, number>>();
+  private finiteSfxLaunchQueue: Promise<void> = Promise.resolve();
   private stateListener: (() => void) | null = null;
 
   async initialize(): Promise<void> {
@@ -360,7 +369,12 @@ export class MobileAudioManager {
         source.nativeStem.playlist.play();
       }
       if (source.nativeSequence && !source.paused) {
-        source.nativeSequence.playlist.play();
+        const now = this.audioClockMs();
+        for (const track of source.nativeSequence.tracks) {
+          if (!track.ended && now >= track.startsAtMilliseconds) {
+            void track.player.playAsync().catch(() => undefined);
+          }
+        }
       }
       if (source.nativeSpatialId && !source.paused) {
         this.nativeSpatialAudio.resumeSource(source.nativeSpatialId);
@@ -487,6 +501,7 @@ export class MobileAudioManager {
         attenuation: segment.attenuation ?? null,
         gain: segment.gain,
         easing: segment.easing,
+        next_start_ratio: segment.next_start_ratio,
       })),
       pan: position
         ? packet.pan ?? Math.round(panFromPosition(position) * 100)
@@ -599,17 +614,17 @@ export class MobileAudioManager {
             return false;
           }
           if (hasSequence) {
-            return this.playManagedSequence(packet);
+            return this.queueFiniteSfx(packet, true);
           }
           const resolvedAsset = asset || this.chooseSoundFamilyVariant(family);
           if (!resolvedAsset) {
             return false;
           }
-          return this.playManagedEffect({
+          return this.queueFiniteSfx({
             ...packet,
             asset: resolvedAsset,
             family: undefined,
-          });
+          }, false);
         }
         if (packet.family || !this.normalizeAsset(packet.asset || "")) {
           return false;
@@ -856,14 +871,16 @@ export class MobileAudioManager {
     };
   }
 
-  private outputGain(source: CommandAudioSource): number {
+  private sourceMixGain(source: CommandAudioSource): number {
     const mix = source.baseVolume
-      * source.distanceGain
-      * source.sourceGain
       * (this.commandBusGains.get(source.bus) ?? 1)
       * this.duckGain(source.bus)
       * source.envelope;
     return Platform.OS === "web" ? mix : mix * this.masterGain(source.kind);
+  }
+
+  private outputGain(source: CommandAudioSource): number {
+    return this.sourceMixGain(source) * source.distanceGain * source.sourceGain;
   }
 
   private synchronizePendingAutomation(source: CommandAudioSource): void {
@@ -1115,7 +1132,30 @@ export class MobileAudioManager {
       source.nativeStem.playlist.volume = bounded;
     }
     if (source.nativeSequence) {
-      source.nativeSequence.playlist.volume = bounded;
+      const now = this.audioClockMs();
+      for (const track of source.nativeSequence.tracks) {
+        const elapsed = now - track.startsAtMilliseconds;
+        const active = !track.ended && elapsed >= 0;
+        const position = this.sequencePosition(
+          track.segment,
+          Math.min(track.durationMilliseconds, Math.max(0, elapsed)),
+          track.durationMilliseconds,
+        );
+        const trackVolume = active
+          ? this.sourceMixGain(source)
+            * track.segment.gain
+            * distanceAttenuationGain(position, track.segment.attenuation)
+          : 0;
+        this.setNativeSoundVolume(
+          track.player,
+          trackVolume,
+          Platform.OS === "android"
+            ? position !== undefined
+              ? panFromPosition(position)
+              : source.pan / 100
+            : undefined,
+        );
+      }
     }
     if (source.webGain && this.webAudioContext) {
       source.webGain.gain.setValueAtTime(
@@ -1287,9 +1327,12 @@ export class MobileAudioManager {
       source.nativeStem = null;
     }
     if (source.nativeSequence) {
-      source.nativeSequence.statusSubscription.remove();
-      source.nativeSequence.trackSubscription.remove();
-      source.nativeSequence.playlist.destroy();
+      for (const timer of source.nativeSequence.startTimers) {
+        clearTimeout(timer);
+      }
+      for (const track of source.nativeSequence.tracks) {
+        this.disposeNativeSound(track.player);
+      }
       source.nativeSequence = null;
     }
     if (source.webElement) {
@@ -2320,6 +2363,8 @@ export class MobileAudioManager {
     source.webGain = gain;
     const startsAtMilliseconds = (context.currentTime * 1000) + 50;
     let cursorMilliseconds = startsAtMilliseconds;
+    let completionTrack: WebSequenceTrack | null = null;
+    let completionAtMilliseconds = startsAtMilliseconds;
 
     for (let index = 0; index < segments.length; index += 1) {
       const segment = segments[index];
@@ -2351,14 +2396,21 @@ export class MobileAudioManager {
         segment.attenuation,
       );
       source.webNodes.add(node);
-      source.webSequenceTracks.push({
+      const track = {
         durationMilliseconds,
+        node,
         output,
         panner: panner ?? null,
         segment,
         startsAtMilliseconds: cursorMilliseconds,
-      });
-      cursorMilliseconds += durationMilliseconds;
+      };
+      source.webSequenceTracks.push(track);
+      const segmentEndMilliseconds = cursorMilliseconds + durationMilliseconds;
+      if (segmentEndMilliseconds >= completionAtMilliseconds) {
+        completionAtMilliseconds = segmentEndMilliseconds;
+        completionTrack = track;
+      }
+      cursorMilliseconds += durationMilliseconds * segment.next_start_ratio;
     }
     if (source.webSequenceTracks.some((track) => isHrtfPanner(track.panner))) {
       const analyser = context.createAnalyser();
@@ -2384,8 +2436,7 @@ export class MobileAudioManager {
       this.dispose(key);
       return null;
     }
-    const lastNode = [...source.webNodes].at(-1);
-    lastNode?.addEventListener(
+    completionTrack?.node.addEventListener(
       "ended",
       () => this.disposeWebSourceAfterTail(source),
       { once: true },
@@ -2462,6 +2513,7 @@ export class MobileAudioManager {
     const sourceId = this.nextNativeSpatialId();
     const timing = await this.nativeSpatialAudio.createSequence(sourceId, {
       paths: paths as string[],
+      nextStartRatios: segments.map((segment) => segment.next_start_ratio),
       startPaused: true,
       volume: this.outputGain(source),
       pitch: source.pitch,
@@ -2489,29 +2541,28 @@ export class MobileAudioManager {
       (resumeStartedAt + resumeFinishedAt) / 2
     ) + timing.startLeadMilliseconds;
     const durations = timing.durationsMilliseconds;
+    const segmentStarts: number[] = [];
+    let segmentCursor = 0;
+    for (let index = 0; index < durations.length; index += 1) {
+      segmentStarts.push(segmentCursor);
+      segmentCursor += durations[index] * segments[index].next_start_ratio;
+    }
     const update = () => {
       if (!source.active) {
         return;
       }
       const elapsed = Math.max(0, this.audioClockMs() - startsAtMilliseconds);
-      let offset = 0;
-      let index = durations.length - 1;
-      let found = false;
-      for (let candidate = 0; candidate < durations.length; candidate += 1) {
-        if (elapsed < offset + durations[candidate]) {
-          index = candidate;
-          found = true;
+      let index = 0;
+      for (let candidate = 1; candidate < segmentStarts.length; candidate += 1) {
+        if (elapsed < segmentStarts[candidate]) {
           break;
         }
-        offset += durations[candidate];
-      }
-      if (!found) {
-        offset -= durations[index];
+        index = candidate;
       }
       const segment = segments[index];
       const localElapsed = Math.min(
         durations[index],
-        Math.max(0, elapsed - offset),
+        Math.max(0, elapsed - segmentStarts[index]),
       );
       source.position = this.sequencePosition(segment, localElapsed, durations[index]);
       source.nativeSpatialBlend = segment.position ? 1 : 0;
@@ -2540,20 +2591,10 @@ export class MobileAudioManager {
     assetKey: string,
   ): Promise<CommandAudioSource | null> {
     const isCurrent = () => this.commandGenerations.get(handle) === generation;
-    const playlistSources = segments.map((segment) => (
-      this.modernNativeSource(segment.asset)
-    ));
-    if (playlistSources.some((source) => !source) || !isCurrent()) {
-      return null;
-    }
-    let playlist: AudioPlaylist;
-    try {
-      playlist = createAudioPlaylist({
-        sources: playlistSources as ModernAudioSource[],
-        updateInterval: 50,
-        loop: "none",
-      });
-    } catch {
+    const resolvedSources = await Promise.all(
+      segments.map((segment) => this.resolveNativeSource(segment.asset)),
+    );
+    if (resolvedSources.some((resolved) => !resolved) || !isCurrent()) {
       return null;
     }
     const first = segments[0];
@@ -2572,75 +2613,147 @@ export class MobileAudioManager {
       key,
       "sfx",
     );
-    const applySegment = (
-      index: number,
-      elapsedMilliseconds = 0,
-      durationMilliseconds = 0,
-    ) => {
-      const segment = segments[index];
-      if (!segment || !source.active) {
-        return;
-      }
-      source.position = this.sequencePosition(
-        segment,
-        elapsedMilliseconds,
-        durationMilliseconds,
-      );
-      source.attenuation = segment.attenuation;
-      source.sourceGain = segment.gain;
-      source.distanceGain = distanceAttenuationGain(
-        source.position,
-        source.attenuation,
-      );
-      playlist.volume = this.outputGain(source);
-    };
-    const trackSubscription = playlist.addListener(
-      "trackChanged",
-      ({ currentIndex }: { currentIndex: number }) => applySegment(currentIndex),
+    const players = await Promise.all(
+      resolvedSources.map((resolved) => this.createNativeSound(
+        resolved as AVPlaybackSource,
+        {
+          isLooping: false,
+          progressUpdateIntervalMillis: SOURCE_AUTOMATION_INTERVAL_MS,
+          rate: source.pitch,
+          shouldCorrectPitch: false,
+          shouldPlay: false,
+          volume: 0,
+        },
+      )),
     );
-    const statusSubscription = playlist.addListener(
-      "playlistStatusUpdate",
-      (status: AudioPlaylistStatus) => {
-        if (!source.active) {
+    if (players.some((player) => !player) || !isCurrent()) {
+      for (const player of players) {
+        if (player) {
+          this.disposeNativeSound(player);
+        }
+      }
+      return null;
+    }
+    const loadedPlayers = players as ExpoAudio.Sound[];
+    let statuses: AVPlaybackStatus[];
+    try {
+      statuses = await Promise.all(
+        loadedPlayers.map((player) => player.getStatusAsync()),
+      );
+    } catch {
+      loadedPlayers.forEach((player) => this.disposeNativeSound(player));
+      return null;
+    }
+    if (
+      !isCurrent()
+      || statuses.some((status) => (
+        !status.isLoaded
+        || !Number.isFinite(status.durationMillis)
+        || !status.durationMillis
+      ))
+    ) {
+      loadedPlayers.forEach((player) => this.disposeNativeSound(player));
+      return null;
+    }
+    const startsAtMilliseconds = this.audioClockMs() + 50;
+    let cursorMilliseconds = startsAtMilliseconds;
+    const tracks: NativeSequenceTrack[] = loadedPlayers.map((player, index) => {
+      const status = statuses[index];
+      const durationMilliseconds = status.isLoaded
+        ? (status.durationMillis as number) / source.pitch
+        : 0;
+      const track = {
+        durationMilliseconds,
+        ended: false,
+        player,
+        segment: segments[index],
+        startsAtMilliseconds: cursorMilliseconds,
+      };
+      cursorMilliseconds += durationMilliseconds * segments[index].next_start_ratio;
+      return track;
+    });
+    const startTimers = new Set<ReturnType<typeof setTimeout>>();
+    source.nativeSequence = { startTimers, tracks };
+    this.register(source);
+    for (const track of tracks) {
+      track.player.setOnPlaybackStatusUpdate((status: AVPlaybackStatus) => {
+        if (!isTerminalNativePlaybackStatus(status) || track.ended) {
           return;
         }
-        applySegment(
-          status.currentIndex,
-          status.currentTime * 1000,
-          status.duration * 1000,
-        );
-        if (status.didJustFinish) {
+        track.ended = true;
+        if (tracks.every((candidate) => candidate.ended)) {
           this.dispose(key);
         }
-      },
-    );
-    source.nativeSequence = {
-      playlist,
-      statusSubscription,
-      trackSubscription,
-    };
-    if (!isCurrent()) {
-      statusSubscription.remove();
-      trackSubscription.remove();
-      playlist.destroy();
-      return null;
+      });
+      const timer = setTimeout(() => {
+        startTimers.delete(timer);
+        if (!source.active || !isCurrent()) {
+          return;
+        }
+        void track.player.playAsync().catch(() => this.dispose(key));
+      }, Math.max(0, track.startsAtMilliseconds - this.audioClockMs()));
+      startTimers.add(timer);
     }
-    playlist.playbackRate = source.pitch;
-    playlist.volume = this.outputGain(source);
-    this.register(source);
-    try {
-      playlist.play();
-    } catch {
-      this.dispose(key);
-      return null;
-    }
+    this.setAbsoluteVolume(source, this.outputGain(source));
+    source.sequenceTimer = setInterval(() => {
+      if (source.active) {
+        this.setAbsoluteVolume(source, this.outputGain(source));
+      }
+    }, SOURCE_AUTOMATION_INTERVAL_MS);
     if (packet.fade_in_ms) {
       this.fade(source, 1, packet.fade_in_ms);
     }
     return source;
   }
 
-  private async playManagedSequence(packet: AudioCommandPacket): Promise<boolean> {
+  private primeFiniteSfx(packet: AudioCommandPacket): Promise<unknown> {
+    const assets = packet.segments?.length
+      ? packet.segments.map((segment) => segment.asset)
+      : [packet.asset || ""];
+    if (Platform.OS === "web") {
+      return Promise.all(assets.map((asset) => this.loadWebBuffer(asset)));
+    }
+    return Promise.all(assets.map((asset) => this.resolveNativeSource(asset)));
+  }
+
+  private queueFiniteSfx(
+    packet: AudioCommandPacket,
+    sequence: boolean,
+  ): Promise<boolean> {
+    const handle = String(
+      packet.handle || `sfx:${Date.now()}:${Math.random()}`,
+    );
+    const generation = this.nextGeneration(handle);
+    const oldKey = this.commandHandles.get(handle);
+    if (oldKey) {
+      this.stopKey(oldKey, packet.fade_out_ms ?? 0, false, false);
+    }
+    const queuedPacket = { ...packet, handle };
+    // Asset resolution begins concurrently, while source creation remains in
+    // packet order so a cached report cannot overtake a projectile or impact.
+    const preload = this.primeFiniteSfx(queuedPacket);
+    const launch = this.finiteSfxLaunchQueue
+      .catch(() => undefined)
+      .then(async () => {
+        await preload;
+        if (this.commandGenerations.get(handle) !== generation) {
+          return false;
+        }
+        return sequence
+          ? this.playManagedSequence(queuedPacket, generation)
+          : this.playManagedEffect(queuedPacket, generation);
+      });
+    this.finiteSfxLaunchQueue = launch.then(
+      () => undefined,
+      () => undefined,
+    );
+    return launch;
+  }
+
+  private async playManagedSequence(
+    packet: AudioCommandPacket,
+    expectedGeneration?: number,
+  ): Promise<boolean> {
     const parsedSegments = normalizeAudioSequenceSegments(packet.segments);
     if (!parsedSegments?.length || !packet.handle) {
       return false;
@@ -2661,10 +2774,18 @@ export class MobileAudioManager {
       return false;
     }
     try {
-      const generation = this.nextGeneration(handle);
-      const oldKey = this.commandHandles.get(handle);
-      if (oldKey) {
-        this.stopKey(oldKey, packet.fade_out_ms ?? 0, false, false);
+      const generation = expectedGeneration ?? this.nextGeneration(handle);
+      if (
+        expectedGeneration !== undefined
+        && this.commandGenerations.get(handle) !== expectedGeneration
+      ) {
+        return false;
+      }
+      if (expectedGeneration === undefined) {
+        const oldKey = this.commandHandles.get(handle);
+        if (oldKey) {
+          this.stopKey(oldKey, packet.fade_out_ms ?? 0, false, false);
+        }
       }
       return Boolean(
         Platform.OS === "web"
@@ -2694,7 +2815,10 @@ export class MobileAudioManager {
     }
   }
 
-  private async playManagedEffect(packet: AudioCommandPacket): Promise<boolean> {
+  private async playManagedEffect(
+    packet: AudioCommandPacket,
+    expectedGeneration?: number,
+  ): Promise<boolean> {
     const asset = this.normalizeAsset(packet.asset || "");
     if (!asset) {
       return false;
@@ -2707,10 +2831,18 @@ export class MobileAudioManager {
       return false;
     }
     try {
-      const generation = this.nextGeneration(handle);
-      const oldKey = this.commandHandles.get(handle);
-      if (oldKey) {
-        this.stopKey(oldKey, packet.fade_out_ms ?? 0, false, false);
+      const generation = expectedGeneration ?? this.nextGeneration(handle);
+      if (
+        expectedGeneration !== undefined
+        && this.commandGenerations.get(handle) !== expectedGeneration
+      ) {
+        return false;
+      }
+      if (expectedGeneration === undefined) {
+        const oldKey = this.commandHandles.get(handle);
+        if (oldKey) {
+          this.stopKey(oldKey, packet.fade_out_ms ?? 0, false, false);
+        }
       }
       return Boolean(await this.createSource(
         packet,

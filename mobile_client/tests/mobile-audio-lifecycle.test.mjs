@@ -169,6 +169,35 @@ test("async source creation reserves bounded mixer capacity", async () => {
   assert.match(source, /shutdown\(\)[\s\S]*?sourceLoadReservations\.clear\(\)/);
 });
 
+test("finite SFX preload concurrently and launch in command order", async () => {
+  const source = await readFile(
+    new URL("../src/audio/MobileAudioManager.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /finiteSfxLaunchQueue: Promise<void> = Promise\.resolve\(\)/);
+  assert.match(
+    source,
+    /const preload = this\.primeFiniteSfx\(queuedPacket\)[\s\S]*?const launch = this\.finiteSfxLaunchQueue/,
+  );
+  assert.match(
+    source,
+    /cursorMilliseconds \+= durationMilliseconds \* segment\.next_start_ratio/,
+  );
+  assert.match(
+    source,
+    /durationMilliseconds \* segments\[index\]\.next_start_ratio/,
+  );
+  assert.match(
+    source,
+    /await preload[\s\S]*?this\.playManagedSequence\(queuedPacket, generation\)[\s\S]*?this\.playManagedEffect\(queuedPacket, generation\)/,
+  );
+  assert.match(
+    source,
+    /expectedGeneration \?\? this\.nextGeneration\(handle\)/,
+  );
+});
+
 test("managed layer pitch reaches native, element, and seamless stem paths", async () => {
   const source = await readFile(
     new URL("../src/audio/MobileAudioManager.ts", import.meta.url),

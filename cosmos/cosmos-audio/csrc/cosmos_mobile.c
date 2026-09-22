@@ -17,6 +17,7 @@ typedef struct cosmos_mobile_segment {
     ma_uint64 length_frames;
     ma_uint32 sample_rate;
     ma_uint64 start_frame;
+    float next_start_ratio;
 } cosmos_mobile_segment;
 
 struct cosmos_mobile_engine {
@@ -115,6 +116,28 @@ static ma_bool32 pitched_frame_duration(
     return MA_TRUE;
 }
 
+static ma_bool32 ratio_frame_duration(
+    ma_uint64 frames,
+    float ratio,
+    ma_uint64* result
+) {
+    long double duration;
+    if (
+        result == NULL
+        || !isfinite(ratio)
+        || ratio < 0.0f
+        || ratio > 1.0f
+    ) {
+        return MA_FALSE;
+    }
+    duration = ceill((long double)frames * (long double)ratio);
+    if (duration < 0.0L || duration > (long double)UINT64_MAX) {
+        return MA_FALSE;
+    }
+    *result = (ma_uint64)duration;
+    return MA_TRUE;
+}
+
 static ma_bool32 valid_source_config(const cosmos_mobile_source_config* config) {
     ma_uint32 index;
     ma_bool32 has_stem;
@@ -127,6 +150,7 @@ static ma_bool32 valid_source_config(const cosmos_mobile_source_config* config) 
     if (
         has_stem == has_sequence
         || (config->sequence_paths == NULL) != (config->sequence_count == 0)
+        || (config->sequence_next_start_ratios == NULL) != (config->sequence_count == 0)
         || config->sequence_count > COSMOS_MOBILE_MAX_SEQUENCE_SEGMENTS
         || (has_sequence && (
             config->intro_path != NULL
@@ -141,6 +165,9 @@ static ma_bool32 valid_source_config(const cosmos_mobile_source_config* config) 
         if (
             config->sequence_paths[index] == NULL
             || config->sequence_paths[index][0] == '\0'
+            || !isfinite(config->sequence_next_start_ratios[index])
+            || config->sequence_next_start_ratios[index] < 0.0f
+            || config->sequence_next_start_ratios[index] > 1.0f
         ) {
             return MA_FALSE;
         }
@@ -244,6 +271,7 @@ static cosmos_mobile_result source_schedule_initial(cosmos_mobile_source* source
     ma_uint64 loop_start_frame;
     ma_uint64 outro_start_frame;
     ma_uint64 segment_duration;
+    ma_uint64 next_start_offset;
     ma_uint64 sequence_cursor;
     ma_uint32 sequence_index;
 
@@ -277,7 +305,12 @@ static cosmos_mobile_result source_schedule_initial(cosmos_mobile_source* source
                     source->pitch,
                     &segment_duration
                 )
-                || !add_frames(sequence_cursor, segment_duration, &sequence_cursor)
+                || !ratio_frame_duration(
+                    segment_duration,
+                    sequence_segment->next_start_ratio,
+                    &next_start_offset
+                )
+                || !add_frames(sequence_cursor, next_start_offset, &sequence_cursor)
             ) {
                 return result == COSMOS_MOBILE_SUCCESS
                     ? COSMOS_MOBILE_PLAYBACK_FAILED
@@ -547,6 +580,8 @@ cosmos_mobile_source* cosmos_mobile_source_create(
             goto on_error;
         }
         for (sequence_index = 0; sequence_index < source->sequence_count; sequence_index += 1) {
+            source->sequence[sequence_index].next_start_ratio =
+                config->sequence_next_start_ratios[sequence_index];
             source_result = segment_init(
                 engine,
                 source,
@@ -942,6 +977,7 @@ void cosmos_mobile_source_stop(cosmos_mobile_source* source) {
 int32_t cosmos_mobile_source_at_end(cosmos_mobile_source* source) {
     ma_bool32 segments_ended;
     ma_uint64 now;
+    ma_uint32 sequence_index;
 
     if (source == NULL || source->stopped) {
         return 1;
@@ -950,9 +986,17 @@ int32_t cosmos_mobile_source_at_end(cosmos_mobile_source* source) {
         return 0;
     }
     if (source->sequence_count > 0) {
-        segments_ended = ma_sound_at_end(
-            &source->sequence[source->sequence_count - 1].sound
-        );
+        segments_ended = MA_TRUE;
+        for (
+            sequence_index = 0;
+            sequence_index < source->sequence_count;
+            sequence_index += 1
+        ) {
+            if (!ma_sound_at_end(&source->sequence[sequence_index].sound)) {
+                segments_ended = MA_FALSE;
+                break;
+            }
+        }
     } else if (source->outro_scheduled) {
         segments_ended = ma_sound_at_end(&source->outro.sound);
     } else {

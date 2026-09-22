@@ -180,6 +180,7 @@ test("the adapter returns native decoded timing for atomic sequences", async () 
 
   const timing = await audio.createSequence("source:sequence", {
     paths: ["/throw.ogg", "/flight.ogg", "/explosion.ogg"],
+    nextStartRatios: [0, 1, 1],
     startPaused: true,
     volume: 0.8,
     pitch: 1,
@@ -208,6 +209,7 @@ test("the adapter returns native decoded timing for atomic sequences", async () 
       z: 0,
       spatialBlend: 1,
       sequencePaths: ["/throw.ogg", "/flight.ogg", "/explosion.ogg"],
+      sequenceNextStartRatios: [0, 1, 1],
     },
   ]);
 });
@@ -223,6 +225,7 @@ test("the adapter destroys an atomic sequence with incomplete native timing", as
 
   assert.equal(await audio.createSequence("source:invalid-sequence", {
     paths: ["/throw.ogg", "/flight.ogg"],
+    nextStartRatios: [1, 1],
     startPaused: true,
     volume: 1,
     pitch: 1,
@@ -230,6 +233,40 @@ test("the adapter destroys an atomic sequence with incomplete native timing", as
     spatialBlend: 0,
   }), null);
   assert.deepEqual(destroyed, ["source:invalid-sequence"]);
+});
+
+test("the adapter rejects invalid sequence onset ratios before native creation", async () => {
+  let createCalls = 0;
+  const bridge = createBridge({
+    createSource: async () => {
+      createCalls += 1;
+      return [100, 100];
+    },
+  });
+  const { NativeSpatialAudio } = await loadNativeSpatialAudio(bridge);
+  const audio = new NativeSpatialAudio();
+  const base = {
+    paths: ["/left.ogg", "/right.ogg"],
+    startPaused: true,
+    volume: 1,
+    pitch: 1,
+    position: [0, 0, 0],
+    spatialBlend: 0,
+  };
+
+  assert.equal(await audio.createSequence("source:mismatch", {
+    ...base,
+    nextStartRatios: [1],
+  }), null);
+  assert.equal(await audio.createSequence("source:negative", {
+    ...base,
+    nextStartRatios: [1, -0.1],
+  }), null);
+  assert.equal(await audio.createSequence("source:overflow", {
+    ...base,
+    nextStartRatios: [1, 1.1],
+  }), null);
+  assert.equal(createCalls, 0);
 });
 
 test("shutdown invalidates an initialization that completes late", async () => {
@@ -330,8 +367,9 @@ test("the mobile manager routes positioned sources and seamless stems through HR
   assert.match(source, /resumeStartedAt[\s\S]*?resumeFinishedAt/);
   assert.match(
     source,
-    /status\.currentTime \* 1000,[\s\S]*?status\.duration \* 1000/,
+    /durationMilliseconds \* segments\[index\]\.next_start_ratio/,
   );
+  assert.match(source, /setTimeout\([\s\S]*?track\.player\.playAsync/);
 });
 
 test("native playback preserves platform route and session ownership", async () => {
@@ -392,6 +430,9 @@ test("native playback preserves platform route and session ownership", async () 
     mobileCore,
     /\(config->sequence_paths == NULL\) != \(config->sequence_count == 0\)/,
   );
+  assert.match(mobileCore, /config->sequence_next_start_ratios\[index\]/);
+  assert.match(mobileCore, /ratio_frame_duration/);
+  assert.match(mobileCore, /sequence_segment->next_start_ratio/);
   assert.match(
     mobileCore,
     /required_cycles = ceill\([\s\S]*?source->loop\.sample_rate[\s\S]*?engine_sample_rate/,

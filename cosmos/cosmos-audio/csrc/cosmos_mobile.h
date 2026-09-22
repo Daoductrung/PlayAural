@@ -52,6 +52,7 @@ typedef struct cosmos_mobile_source_config {
     float z;
     float spatial_blend;
     const char* const* sequence_paths;
+    const float* sequence_next_start_ratios;
     uint32_t sequence_count;
 } cosmos_mobile_source_config;
 

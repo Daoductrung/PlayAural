@@ -851,6 +851,7 @@ def test_audio_sequence_preloads_and_sample_schedules_every_segment(monkeypatch)
             "attenuation": None,
             "gain": 1,
             "easing": "linear",
+            "next_start_ratio": 0.5,
         },
         {
             "asset": "flight.ogg",
@@ -859,6 +860,7 @@ def test_audio_sequence_preloads_and_sample_schedules_every_segment(monkeypatch)
             "attenuation": {"model": "none"},
             "gain": 0.75,
             "easing": "ease-out",
+            "next_start_ratio": 1,
         },
         {
             "asset": "explosion.ogg",
@@ -867,6 +869,7 @@ def test_audio_sequence_preloads_and_sample_schedules_every_segment(monkeypatch)
             "attenuation": {"model": "none"},
             "gain": 1,
             "easing": "linear",
+            "next_start_ratio": 1,
         },
     ]
 
@@ -883,7 +886,7 @@ def test_audio_sequence_preloads_and_sample_schedules_every_segment(monkeypatch)
     source = manager._sources["grenade:1"]
     assert [
         stream.scheduled_frame for stream in manager.sound_cacher.refs
-    ] == [3_400, 27_400, 51_400]
+    ] == [3_400, 15_400, 39_400]
     assert source.completion_stream is manager.sound_cacher.refs[-1]
     assert source.sequence_streams[1].duration_frames == 24_000
     assert source.sequence_streams[1].stream.position == (0.0, 1.0, 0.0)
@@ -907,6 +910,7 @@ def test_audio_sequence_is_not_released_before_its_scheduled_end(monkeypatch):
         "attenuation": None,
         "gain": 1,
         "easing": "linear",
+        "next_start_ratio": 1,
     }
 
     assert manager.handle_audio_command({
@@ -951,6 +955,7 @@ def test_audio_sequence_validation_is_all_or_nothing(monkeypatch):
                 "attenuation": None,
                 "gain": 1,
                 "easing": "linear",
+                "next_start_ratio": 1,
             },
             {
                 "asset": "../invalid.ogg",
@@ -959,6 +964,7 @@ def test_audio_sequence_validation_is_all_or_nothing(monkeypatch):
                 "attenuation": None,
                 "gain": 1,
                 "easing": "linear",
+                "next_start_ratio": 1,
             },
         ],
     }
@@ -990,6 +996,7 @@ def test_audio_sequence_schedule_failure_stops_every_prepared_stream(monkeypatch
             "attenuation": None,
             "gain": 1,
             "easing": "linear",
+            "next_start_ratio": 1,
         }
         for asset in ("throw.ogg", "flight.ogg", "explosion.ogg")
     ]

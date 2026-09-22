@@ -50,6 +50,7 @@ export type NativeSpatialAudioSourceSpec = Readonly<{
 
 export type NativeSpatialAudioSequenceSpec = Readonly<{
   paths: readonly string[];
+  nextStartRatios: readonly number[];
   startPaused: boolean;
   volume: number;
   pitch: number;
@@ -89,6 +90,7 @@ type NativeSpatialAudioBridge = {
     z: number;
     spatialBlend: number;
     sequencePaths?: readonly string[];
+    sequenceNextStartRatios?: readonly number[];
   }): Promise<readonly number[]>;
   setParameters(
     sourceId: string,
@@ -257,6 +259,15 @@ export class NativeSpatialAudio {
     spec: NativeSpatialAudioSequenceSpec,
   ): Promise<NativeSpatialAudioSequenceTiming | null> {
     const lifecycleGeneration = this.lifecycleGeneration;
+    if (
+      !spec.paths.length
+      || spec.nextStartRatios.length !== spec.paths.length
+      || spec.nextStartRatios.some((ratio) => (
+        !Number.isFinite(ratio) || ratio < 0 || ratio > 1
+      ))
+    ) {
+      return null;
+    }
     if (!await this.initialize() || !this.bridge || this.sampleRate <= 0) {
       return null;
     }
@@ -276,6 +287,7 @@ export class NativeSpatialAudio {
         z: spec.position[2],
         spatialBlend: spec.spatialBlend,
         sequencePaths: [...spec.paths],
+        sequenceNextStartRatios: [...spec.nextStartRatios],
       });
       if (
         this.lifecycleGeneration !== lifecycleGeneration

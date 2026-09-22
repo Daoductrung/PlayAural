@@ -903,7 +903,13 @@ class GameSoundMixin:
         attenuation: DistanceAttenuation | dict[str, Any] | None = None,
         gain: float = 1.0,
     ) -> str:
-        """Play or crossfade an independently addressable music layer."""
+        """Play or crossfade an independently addressable music layer.
+
+        Looping tracks are replayable state and resume after reconnect. Finite
+        music cues are deliberately runtime-only; replacing a replayable track
+        with one removes the old server-side ownership while the shared handle
+        lets clients perform the authored crossfade.
+        """
         command = AudioCommand(
             command="play",
             kind="music",
@@ -923,7 +929,18 @@ class GameSoundMixin:
             attenuation=attenuation,
             gain=gain,
         )
-        return self._dispatch_audio(command, audience=audience, persist=True)
+        persist = looping
+        if not persist:
+            _, recipient_ids = self._audio_recipients(audience)
+            self._remove_audio_states(
+                lambda state: self._audio_states_conflict(command, state),
+                None if audience is None else recipient_ids,
+            )
+        return self._dispatch_audio(
+            command,
+            audience=audience,
+            persist=persist,
+        )
 
     def update_audio_source(
         self,

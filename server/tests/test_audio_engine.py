@@ -245,6 +245,7 @@ def test_audio_sequence_serializes_complete_atomic_timeline() -> None:
             "attenuation": None,
             "gain": 1.0,
             "easing": "linear",
+            "next_start_ratio": 1.0,
         },
         {
             "asset": "battle/mvsounds_named/hand grenade.ogg",
@@ -253,6 +254,7 @@ def test_audio_sequence_serializes_complete_atomic_timeline() -> None:
             "attenuation": attenuation.to_packet(),
             "gain": 0.8,
             "easing": "ease-out",
+            "next_start_ratio": 1.0,
         },
         {
             "asset": "game_bang/dynamite_explosion.ogg",
@@ -261,6 +263,7 @@ def test_audio_sequence_serializes_complete_atomic_timeline() -> None:
             "attenuation": attenuation.to_packet(),
             "gain": 1.0,
             "easing": "linear",
+            "next_start_ratio": 1.0,
         },
     ]
     with pytest.raises(ValueError, match="stable handle"):
@@ -279,6 +282,12 @@ def test_non_sequence_audio_packet_omits_empty_segments() -> None:
     ).to_packet()
 
     assert "segments" not in packet
+
+
+@pytest.mark.parametrize("ratio", [-0.01, 1.01, float("inf"), float("nan"), True])
+def test_audio_sequence_rejects_invalid_next_onset_ratios(ratio) -> None:
+    with pytest.raises(ValueError):
+        AudioSequenceSegment(asset="game/test.ogg", next_start_ratio=ratio)
 
 
 @pytest.mark.parametrize(
@@ -954,6 +963,39 @@ def test_all_layer_ambience_stop_preserves_music_and_requests_outros(
     assert packet.get("play_outro", True) is True
     assert packet.get("outro_mode", "immediate") == "immediate"
     assert [state.kind for state in game.active_audio.values()] == ["music"]
+
+
+def test_finite_music_crossfades_without_becoming_replayable_state(
+    pig_game_with_players,
+) -> None:
+    game, alice, _ = pig_game_with_players
+    game.play_music(
+        "music/round_loop.ogg",
+        handle="phase-music",
+        layer="phase",
+    )
+    assert any(
+        state.kind == "music" and state.handle == "phase-music"
+        for state in game.active_audio.values()
+    )
+    alice.clear_messages()
+
+    game.play_music(
+        "music/round_stinger.ogg",
+        looping=False,
+        handle="phase-music",
+        layer="phase",
+    )
+
+    packet = alice.messages[-1].data
+    assert packet["command"] == "play"
+    assert packet["kind"] == "music"
+    assert packet["loop"] is False
+    assert packet["handle"] == "phase-music"
+    assert not any(
+        state.kind == "music" and state.handle == "phase-music"
+        for state in game.active_audio.values()
+    )
 
 
 def test_stop_all_can_preserve_every_ambience_outro(

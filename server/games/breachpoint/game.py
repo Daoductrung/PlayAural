@@ -6,7 +6,7 @@ import math
 import random
 from collections import deque
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from ...game_utils.actions import Action, ActionSet, Visibility
 from ...game_utils.bot_helper import BotHelper
@@ -330,6 +330,9 @@ class BreachPointOptions(GameOptions):
 class BreachPointGame(BreachPointAudioMixin, Game):
     """A deterministic bomb-defusal game on a spatial tactical map."""
 
+    _turn_action_templates: ClassVar[dict[tuple[type, str], ActionSet]] = {}
+    visibility_first_action_sets: ClassVar[frozenset[str]] = frozenset({"turn"})
+
     players: list[BreachPointPlayer] = field(default_factory=list)
     options: BreachPointOptions = field(default_factory=BreachPointOptions)
 
@@ -626,16 +629,28 @@ class BreachPointGame(BreachPointAudioMixin, Game):
     # ------------------------------------------------------------------
 
     def create_turn_action_set(self, player: Player) -> ActionSet:
+        template_key = (type(self), self.map_id)
+        template = type(self)._turn_action_templates.get(template_key)
+        if template is None:
+            template = self._create_turn_action_template()
+            type(self)._turn_action_templates[template_key] = template
+        action_set = template.copy_shared_actions()
+        self._sync_donation_actions(action_set, player)
+        self._sync_dropped_weapon_actions(action_set)
+        self._sync_shoot_actions(action_set, player)
+        self._apply_turn_action_order(action_set)
+        return action_set
+
+    def _create_turn_action_template(self) -> ActionSet:
+        """Build immutable map/catalog actions shared by every player set."""
+
         action_set = ActionSet(name="turn")
         self._add_reaction_actions(action_set)
         self._add_buy_actions(action_set)
-        self._sync_donation_actions(action_set, player)
         self._add_combat_menu_actions(action_set)
         self._add_objective_actions(action_set)
         self._add_weapon_actions(action_set)
-        self._sync_dropped_weapon_actions(action_set)
         self._sync_hold_angle_actions(action_set)
-        self._sync_shoot_actions(action_set, player)
         self._sync_utility_actions(action_set)
         for node in self.tactical_map.nodes:
             action_set.add(
@@ -985,15 +1000,32 @@ class BreachPointGame(BreachPointAudioMixin, Game):
         self,
         action_set: ActionSet,
         player: Player,
-    ) -> None:
+    ) -> bool:
         """Expose side-legal firearm donations to every active teammate."""
+
+        donor = self._breach_player(player)
+        teammates = self._eligible_donation_recipients(donor) if donor else []
+        weapons = get_purchasable_weapons(donor.team_index) if donor else []
+        desired_ids = [
+            *(
+                f"{BUY_MENU_DONATION_TARGET_PREFIX}{teammate.id}"
+                for teammate in teammates
+            ),
+            *(
+                self._donate_weapon_action_id(weapon, teammate)
+                for teammate in teammates
+                for weapon in weapons
+            ),
+        ]
+        if not self._dynamic_action_ids_changed(
+            action_set,
+            (BUY_MENU_DONATION_TARGET_PREFIX, DONATE_WEAPON_ACTION_PREFIX),
+            desired_ids,
+        ):
+            return False
 
         action_set.remove_by_prefix(DONATE_WEAPON_ACTION_PREFIX)
         action_set.remove_by_prefix(BUY_MENU_DONATION_TARGET_PREFIX)
-        donor = self._breach_player(player)
-        if not donor:
-            return
-        teammates = self._eligible_donation_recipients(donor)
         for teammate in teammates:
             action_set.add(
                 Action(
@@ -1006,7 +1038,8 @@ class BreachPointGame(BreachPointAudioMixin, Game):
                     show_in_actions_menu=False,
                 )
             )
-            for weapon in get_purchasable_weapons(donor.team_index):
+        for teammate in teammates:
+            for weapon in weapons:
                 action_set.add(
                     Action(
                         id=self._donate_weapon_action_id(weapon, teammate),
@@ -1019,6 +1052,7 @@ class BreachPointGame(BreachPointAudioMixin, Game):
                         show_in_actions_menu=False,
                     )
                 )
+        return True
 
     def _add_objective_actions(self, action_set: ActionSet) -> None:
         action_set.add(
@@ -1080,8 +1114,34 @@ class BreachPointGame(BreachPointAudioMixin, Game):
             )
         )
 
-    def _sync_dropped_weapon_actions(self, action_set: ActionSet) -> None:
+    @staticmethod
+    def _dynamic_action_ids_changed(
+        action_set: ActionSet,
+        prefixes: tuple[str, ...],
+        desired_ids: list[str],
+    ) -> bool:
+        """Whether a prefixed dynamic action collection needs rebuilding."""
+
+        current_ids = [
+            action_id
+            for action_id in action_set._order
+            if action_id.startswith(prefixes)
+        ]
+        return current_ids != desired_ids
+
+    def _sync_dropped_weapon_actions(self, action_set: ActionSet) -> bool:
         """Keep stable pickup actions aligned with authoritative ground state."""
+
+        desired_ids = [
+            self._dropped_weapon_action_id(dropped_weapon)
+            for dropped_weapon in self.dropped_weapons
+        ]
+        if not self._dynamic_action_ids_changed(
+            action_set,
+            (PICK_UP_WEAPON_ACTION_PREFIX,),
+            desired_ids,
+        ):
+            return False
 
         action_set.remove_by_prefix(PICK_UP_WEAPON_ACTION_PREFIX)
         for dropped_weapon in self.dropped_weapons:
@@ -1096,6 +1156,7 @@ class BreachPointGame(BreachPointAudioMixin, Game):
                     show_in_actions_menu=False,
                 )
             )
+        return True
 
     def _sync_hold_angle_actions(self, action_set: ActionSet) -> None:
         action_set.remove_by_prefix("hold_angle_")
@@ -1158,11 +1219,20 @@ class BreachPointGame(BreachPointAudioMixin, Game):
         ):
             action_set.add(action)
 
-    def _sync_shoot_actions(self, action_set: ActionSet, player: Player) -> None:
+    def _sync_shoot_actions(self, action_set: ActionSet, player: Player) -> bool:
+        targets = [
+            target for target in self.get_active_players() if target.id != player.id
+        ]
+        desired_ids = [f"shoot_{target.id}" for target in targets]
+        if not self._dynamic_action_ids_changed(
+            action_set,
+            ("shoot_",),
+            desired_ids,
+        ):
+            return False
+
         action_set.remove_by_prefix("shoot_")
-        for target in self.get_active_players():
-            if target.id == player.id:
-                continue
+        for target in targets:
             action_set.add(
                 Action(
                     id=f"shoot_{target.id}",
@@ -1174,6 +1244,7 @@ class BreachPointGame(BreachPointAudioMixin, Game):
                     show_in_actions_menu=False,
                 )
             )
+        return True
 
     @staticmethod
     def _apply_turn_action_order(action_set: ActionSet) -> None:
@@ -1429,12 +1500,13 @@ class BreachPointGame(BreachPointAudioMixin, Game):
     def before_menu_build(self, player: Player) -> None:
         turn_set = self.get_action_set(player, "turn")
         if turn_set:
-            self._sync_hold_angle_actions(turn_set)
-            self._sync_shoot_actions(turn_set, player)
-            self._sync_utility_actions(turn_set)
-            self._sync_dropped_weapon_actions(turn_set)
-            self._sync_donation_actions(turn_set, player)
-            self._apply_turn_action_order(turn_set)
+            sync_results = (
+                self._sync_shoot_actions(turn_set, player),
+                self._sync_dropped_weapon_actions(turn_set),
+                self._sync_donation_actions(turn_set, player),
+            )
+            if any(sync_results):
+                self._apply_turn_action_order(turn_set)
         standard_set = self.get_action_set(player, "standard")
         if standard_set:
             self._apply_standard_action_order(standard_set, self.get_user(player))
@@ -5979,12 +6051,18 @@ class BreachPointGame(BreachPointAudioMixin, Game):
     ) -> Visibility:
         tactical_player = self._breach_player(player)
         state = self._combat_menu_state(player)
+        if (
+            not self._combat_menu_owner(player)
+            or not tactical_player
+            or state.view != COMBAT_MENU_UTILITY
+        ):
+            return Visibility.HIDDEN
+        utility = self._combat_utility_from_action(action_id or "")
         return (
             Visibility.VISIBLE
-            if self._combat_menu_owner(player)
-            and tactical_player
-            and state.view == COMBAT_MENU_UTILITY
-            and action_id in self._combat_menu_view_action_ids(tactical_player, state)
+            if utility
+            and utility in get_purchasable_utilities(tactical_player.team_index)
+            and tactical_player.utility_counts.get(utility.id, 0) > 0
             else Visibility.HIDDEN
         )
 
@@ -6281,12 +6359,25 @@ class BreachPointGame(BreachPointAudioMixin, Game):
     ) -> Visibility:
         tactical_player = self._breach_player(player)
         state = self._combat_menu_state(player)
+        if (
+            not self._combat_menu_owner(player)
+            or not tactical_player
+            or state.view != COMBAT_MENU_ANGLE
+        ):
+            return Visibility.HIDDEN
+        weapon = self._equipped_weapon(tactical_player)
+        node_id = self._node_from_hold_action(action_id or "")
+        distance = (
+            self._combat_distance(tactical_player.position_id, node_id)
+            if node_id
+            else None
+        )
         return (
             Visibility.VISIBLE
-            if self._combat_menu_owner(player)
-            and tactical_player
-            and state.view == COMBAT_MENU_ANGLE
-            and action_id in self._combat_menu_view_action_ids(tactical_player, state)
+            if weapon
+            and weapon.hold_action_point_cost > 0
+            and distance is not None
+            and distance <= weapon.max_range
             else Visibility.HIDDEN
         )
 
@@ -6347,12 +6438,26 @@ class BreachPointGame(BreachPointAudioMixin, Game):
     ) -> Visibility:
         tactical_player = self._breach_player(player)
         state = self._combat_menu_state(player)
+        if (
+            not self._combat_menu_owner(player)
+            or not tactical_player
+            or state.view != COMBAT_MENU_UTILITY_TARGETS
+        ):
+            return Visibility.HIDDEN
+        details = self._throw_action_details(action_id or "")
+        utility, node_id = details if details else (None, "")
+        if (
+            not utility
+            or utility.id != state.utility_id
+            or tactical_player.team_index not in utility.allowed_sides
+            or tactical_player.utility_counts.get(utility.id, 0) <= 0
+        ):
+            return Visibility.HIDDEN
+        distance = self._node_distance(tactical_player.position_id, node_id)
         return (
             Visibility.VISIBLE
-            if self._combat_menu_owner(player)
-            and tactical_player
-            and state.view == COMBAT_MENU_UTILITY_TARGETS
-            and action_id in self._combat_menu_view_action_ids(tactical_player, state)
+            if distance is not None
+            and distance <= utility.throw_range
             else Visibility.HIDDEN
         )
 

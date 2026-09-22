@@ -2,6 +2,7 @@
 
 import json
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 
 from babel import Locale
@@ -13,6 +14,7 @@ from babel.lists import format_list
 DEFAULT_LOCALE = "en"
 PINNED_LOCALES = (DEFAULT_LOCALE, "vi")
 LOCALE_METADATA_FILENAME = "metadata.json"
+LOCALE_RESOLUTION_CACHE_SIZE = 128
 
 
 @dataclass(frozen=True)
@@ -46,12 +48,28 @@ class Localization:
     _bundles: dict[str, FluentBundle] = {}
     _bundle_cache_by_dir: dict[Path, dict[str, FluentBundle]] = {}
     _locales_dir: Path | None = None
+    _available_locale_codes_cache: tuple[str, ...] | None = None
 
     @classmethod
     def init(cls, locales_dir: Path | str) -> None:
         """Initialize the localization system with a locales directory."""
         cls._locales_dir = Path(locales_dir).resolve()
         cls._bundles = cls._bundle_cache_by_dir.setdefault(cls._locales_dir, {})
+        cls.refresh_locale_catalog()
+
+    @classmethod
+    def refresh_locale_catalog(cls) -> None:
+        """Invalidate dynamically discovered locale and fallback results.
+
+        Installed locale directories are deployment configuration, not mutable
+        request data.  Keep their discovery dynamic, but scan the filesystem
+        once per initialization (or explicit refresh) instead of once for every
+        localized string.  Menu rendering can format hundreds of labels in one
+        event, so repeated directory enumeration otherwise blocks the asyncio
+        server loop.
+        """
+        cls._available_locale_codes_cache = None
+        cls._resolve_locale_from_catalog.cache_clear()
 
     @classmethod
     def preload_bundles(cls) -> None:
@@ -89,6 +107,8 @@ class Localization:
     @classmethod
     def available_locale_codes(cls) -> list[str]:
         """Return available locale directory names in stable display order."""
+        if cls._available_locale_codes_cache is not None:
+            return list(cls._available_locale_codes_cache)
         if cls._locales_dir is None or not cls._locales_dir.exists():
             return []
         codes = sorted(
@@ -98,7 +118,8 @@ class Localization:
         )
         pinned = [code for code in PINNED_LOCALES if code in codes]
         community = [code for code in codes if code not in PINNED_LOCALES]
-        return pinned + community
+        cls._available_locale_codes_cache = tuple(pinned + community)
+        return list(cls._available_locale_codes_cache)
 
     @classmethod
     def official_locale_codes(cls) -> list[str]:
@@ -160,11 +181,27 @@ class Localization:
         cls, locale: str | None, *, fallback: str = DEFAULT_LOCALE
     ) -> str:
         """Resolve a requested locale to an installed locale code."""
-        available = set(cls.available_locale_codes())
+        requested = cls._sanitize_locale(locale)
+        fallback_code = cls._sanitize_locale(fallback)
+        return cls._resolve_locale_from_catalog(
+            requested,
+            fallback_code,
+            tuple(cls.available_locale_codes()),
+        )
+
+    @staticmethod
+    @lru_cache(maxsize=LOCALE_RESOLUTION_CACHE_SIZE)
+    def _resolve_locale_from_catalog(
+        requested: str,
+        fallback_code: str,
+        available_codes: tuple[str, ...],
+    ) -> str:
+        """Resolve against an immutable catalog with a bounded shared cache."""
+
+        available = set(available_codes)
         if not available:
             return DEFAULT_LOCALE
 
-        requested = cls._sanitize_locale(locale)
         if requested in available:
             return requested
 
@@ -172,7 +209,6 @@ class Localization:
         if language in available:
             return language
 
-        fallback_code = cls._sanitize_locale(fallback)
         if fallback_code in available:
             return fallback_code
         fallback_language = fallback_code.split("-", 1)[0]
@@ -180,7 +216,7 @@ class Localization:
             return fallback_language
         if DEFAULT_LOCALE in available:
             return DEFAULT_LOCALE
-        return sorted(available)[0]
+        return min(available)
 
     @classmethod
     def _get_bundle(cls, locale: str) -> FluentBundle:
@@ -190,13 +226,8 @@ class Localization:
                 "Localization not initialized. Call Localization.init() first."
             )
 
-        requested_locale = cls._sanitize_locale(locale)
-        if requested_locale in cls._bundles:
-            return cls._bundles[requested_locale]
-
-        actual_locale = cls.resolve_locale(requested_locale)
+        actual_locale = cls.resolve_locale(locale)
         if actual_locale in cls._bundles:
-            cls._bundles[requested_locale] = cls._bundles[actual_locale]
             return cls._bundles[actual_locale]
 
         locale_dir = cls._locales_dir / actual_locale
@@ -225,7 +256,6 @@ class Localization:
                 FluentResource(ftl_file.read_text(encoding="utf-8"))
             )
         cls._bundles[actual_locale] = bundle
-        cls._bundles[requested_locale] = bundle
         return bundle
 
     # Unicode bidi isolation characters that Fluent adds around variables

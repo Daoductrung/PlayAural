@@ -1,7 +1,11 @@
 from pathlib import Path
 
 from server.documentation.manager import DocumentationManager
-from server.messages.localization import DEFAULT_LOCALE, Localization
+from server.messages.localization import (
+    DEFAULT_LOCALE,
+    LOCALE_RESOLUTION_CACHE_SIZE,
+    Localization,
+)
 from server.tools.compare_locales import compare_locale
 
 
@@ -102,6 +106,55 @@ hello = Hola
     assert metadata.native_name == "Espanol"
     assert metadata.translators == ("Elena",)
     assert metadata.official is False
+
+
+def test_locale_catalog_cache_refreshes_explicitly_and_on_init(tmp_path):
+    locales_dir = tmp_path / "locales"
+    _write(locales_dir / "en" / "main.ftl", "hello = Hello")
+    _write(locales_dir / "vi" / "main.ftl", "hello = Xin chao")
+
+    Localization.init(locales_dir)
+    assert Localization.available_locale_codes() == ["en", "vi"]
+    assert Localization.resolve_locale("fr") == "en"
+
+    _write(locales_dir / "fr" / "main.ftl", "hello = Bonjour")
+    # Runtime formatting stays filesystem-free until configuration explicitly
+    # changes; both refresh paths invalidate locale fallback results as well.
+    assert Localization.available_locale_codes() == ["en", "vi"]
+    assert Localization.resolve_locale("fr") == "en"
+
+    Localization.refresh_locale_catalog()
+    assert Localization.available_locale_codes() == ["en", "vi", "fr"]
+    assert Localization.resolve_locale("fr") == "fr"
+
+    _write(locales_dir / "es" / "main.ftl", "hello = Hola")
+    Localization.init(locales_dir)
+    assert Localization.available_locale_codes() == ["en", "vi", "es", "fr"]
+
+
+def test_locale_resolution_cache_is_bounded_for_untrusted_locale_values(tmp_path):
+    locales_dir = tmp_path / "locales"
+    _write(locales_dir / "en" / "main.ftl", "hello = Hello")
+    Localization.init(locales_dir)
+
+    for index in range(LOCALE_RESOLUTION_CACHE_SIZE * 2):
+        assert Localization.resolve_locale(f"unknown-{index}") == "en"
+
+    assert (
+        Localization._resolve_locale_from_catalog.cache_info().currsize
+        == LOCALE_RESOLUTION_CACHE_SIZE
+    )
+
+
+def test_bundle_cache_only_retains_installed_locale_codes(tmp_path):
+    locales_dir = tmp_path / "locales"
+    _write(locales_dir / "en" / "main.ftl", "hello = Hello")
+    Localization.init(locales_dir)
+
+    for index in range(LOCALE_RESOLUTION_CACHE_SIZE * 2):
+        assert Localization.get(f"unknown-{index}", "hello") == "Hello"
+
+    assert set(Localization._bundles) == {"en"}
 
 
 def test_documentation_manager_resolves_base_locale_and_falls_back(tmp_path):

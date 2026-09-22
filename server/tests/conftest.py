@@ -33,6 +33,7 @@ def _isolate_localization():
     saved_dir = Localization._locales_dir
     saved_bundles = Localization._bundles
     saved_cache = Localization._bundle_cache_by_dir
+    saved_locale_codes = Localization._available_locale_codes_cache
     # Re-pin the canonical locales dir in case a prior test left it nulled.
     Localization.init(_locales_dir)
     try:
@@ -41,6 +42,8 @@ def _isolate_localization():
         Localization._locales_dir = saved_dir
         Localization._bundles = saved_bundles
         Localization._bundle_cache_by_dir = saved_cache
+        Localization._available_locale_codes_cache = saved_locale_codes
+        Localization._resolve_locale_from_catalog.cache_clear()
 
 
 @pytest.fixture

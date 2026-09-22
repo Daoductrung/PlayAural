@@ -184,7 +184,23 @@ class ActionSet(DataClassJSONMixin):
         self, game: "Game", player: "Player", action: Action
     ) -> ResolvedAction:
         """Resolve a single action's state for a player."""
-        # Resolve enabled state
+        disabled_reason = self._resolve_enabled_state(game, player, action)
+        visible = self._resolve_visibility(game, player, action)
+        return self._resolve_display(
+            game,
+            player,
+            action,
+            disabled_reason=disabled_reason,
+            visible=visible,
+        )
+
+    @staticmethod
+    def _resolve_enabled_state(
+        game: "Game",
+        player: "Player",
+        action: Action,
+    ) -> str | tuple[str, dict] | None:
+        """Resolve only whether an action is enabled."""
         disabled_reason: str | tuple[str, dict] | None = None
         if action.is_enabled:
             method = getattr(game, action.is_enabled, None)
@@ -194,8 +210,15 @@ class ActionSet(DataClassJSONMixin):
                     disabled_reason = method(player, action_id=action.id)
                 else:
                     disabled_reason = method(player)
+        return disabled_reason
 
-        # Resolve visibility
+    @staticmethod
+    def _resolve_visibility(
+        game: "Game",
+        player: "Player",
+        action: Action,
+    ) -> bool:
+        """Resolve only whether an action belongs in the turn menu."""
         visible = True
         if action.is_hidden:
             method = getattr(game, action.is_hidden, None)
@@ -206,8 +229,25 @@ class ActionSet(DataClassJSONMixin):
                 else:
                     visibility = method(player)
                 visible = visibility == Visibility.VISIBLE
+        return visible
 
-        # Resolve label
+    @staticmethod
+    def _resolve_display(
+        game: "Game",
+        player: "Player",
+        action: Action,
+        *,
+        disabled_reason: str | tuple[str, dict] | None,
+        visible: bool,
+    ) -> ResolvedAction:
+        """Resolve the player-facing fields for an action already selected.
+
+        Label, sound, and description callbacks frequently localize text or
+        inspect rich game state.  Turn-menu and actions-menu collectors call
+        this only after their inexpensive eligibility filters have passed.
+        Direct ``resolve_action`` calls still resolve every field exactly as
+        before.
+        """
         label = action.label
         if action.get_label:
             method = getattr(game, action.get_label, None)
@@ -269,23 +309,71 @@ class ActionSet(DataClassJSONMixin):
         Spectators never receive turn-menu buttons — they access permitted
         actions via the actions menu (Escape) and keybinds instead.
         """
-        return [
-            ra
-            for ra in self.resolve_actions(game, player)
-            if ra.visible
-            and not (player.is_spectator and not ra.action.include_spectators)
-        ]
+        result = []
+        visibility_first = self.name in getattr(
+            game,
+            "visibility_first_action_sets",
+            (),
+        )
+        for aid in self._order:
+            action = self._actions.get(aid)
+            if action is None:
+                continue
+            if player.is_spectator and not action.include_spectators:
+                continue
+            if visibility_first:
+                # Large declarative sets may opt in after auditing their state
+                # callbacks as pure.  This avoids resolving enabled state for
+                # hundreds of contextually hidden rows.
+                visible = self._resolve_visibility(game, player, action)
+                if not visible:
+                    continue
+                disabled_reason = self._resolve_enabled_state(game, player, action)
+            else:
+                # Preserve the established callback order for every existing
+                # action set.  Only presentation fields are lazy globally.
+                disabled_reason = self._resolve_enabled_state(game, player, action)
+                visible = self._resolve_visibility(game, player, action)
+                if not visible:
+                    continue
+            result.append(
+                self._resolve_display(
+                    game,
+                    player,
+                    action,
+                    disabled_reason=disabled_reason,
+                    visible=True,
+                )
+            )
+        return result
 
     def get_enabled_actions(
         self, game: "Game", player: "Player"
     ) -> list[ResolvedAction]:
         """Get all enabled actions for the actions menu (includes hidden)."""
-        return [
-            ra
-            for ra in self.resolve_actions(game, player)
-            if ra.enabled and ra.action.show_in_actions_menu
-            and not (player.is_spectator and not ra.action.include_spectators)
-        ]
+        result = []
+        for aid in self._order:
+            action = self._actions.get(aid)
+            if action is None or not action.show_in_actions_menu:
+                continue
+            if player.is_spectator and not action.include_spectators:
+                continue
+            disabled_reason = self._resolve_enabled_state(game, player, action)
+            visible = self._resolve_visibility(game, player, action)
+            if disabled_reason is not None:
+                continue
+            # Turn-menu visibility does not control the Escape/actions menu,
+            # but retain the resolved flag for callers that inspect it.
+            result.append(
+                self._resolve_display(
+                    game,
+                    player,
+                    action,
+                    disabled_reason=None,
+                    visible=visible,
+                )
+            )
+        return result
 
     def get_all_actions(
         self, game: "Game", player: "Player"
@@ -296,3 +384,18 @@ class ActionSet(DataClassJSONMixin):
     def copy(self) -> "ActionSet":
         """Deep copy for templates."""
         return copy.deepcopy(self)
+
+    def copy_shared_actions(self) -> "ActionSet":
+        """Copy mutable collection state while sharing action definitions.
+
+        Declarative ``Action`` definitions are immutable by convention after
+        construction.  Large games may therefore reuse those definitions
+        across per-player sets while retaining independent dictionaries and
+        ordering lists for dynamic additions and removals.  Games which mutate
+        an ``Action`` object itself must continue to use ``copy()``.
+        """
+        return ActionSet(
+            name=self.name,
+            _actions=self._actions.copy(),
+            _order=self._order.copy(),
+        )

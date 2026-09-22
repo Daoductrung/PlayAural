@@ -89,6 +89,9 @@ class Game(
 
     #: User preference names this game is relevant to (for per-game overrides).
     relevant_preferences: ClassVar[list[str]] = []
+    #: Action sets whose pure visibility callbacks may run before enabled-state
+    #: callbacks so contextually hidden rows can be discarded cheaply.
+    visibility_first_action_sets: ClassVar[frozenset[str]] = frozenset()
 
     # Game state
     players: list[Player] = field(default_factory=list)

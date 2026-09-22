@@ -137,6 +137,10 @@ from ..games.breachpoint.game import (
     BOMB_PLANTING,
     BUY_COUNTDOWN_SECONDS,
     BUY_COUNTDOWN_SEQUENCE_TAG,
+    COMBAT_MENU_ANGLE,
+    COMBAT_MENU_UTILITY,
+    COMBAT_MENU_UTILITY_ACTION_PREFIX,
+    COMBAT_MENU_UTILITY_TARGETS,
     MATCH_DRAW,
     MATCH_OVERTIME,
     MATCH_REGULATION,
@@ -157,6 +161,7 @@ from ..games.breachpoint.game import (
     WIN_TIME,
     BreachPointGame,
     BreachPointOptions,
+    CombatMenuState,
 )
 from ..games.breachpoint.ground import BuyTransaction, DroppedWeapon
 from ..games.breachpoint.maps import (
@@ -6183,6 +6188,135 @@ def test_touch_menu_exposes_gameplay_and_status_actions_in_stable_order() -> Non
         "whose_turn",
         "whos_at_table",
     ]
+
+
+def test_passive_menu_build_preserves_unchanged_dynamic_action_objects() -> None:
+    game = make_game(start=True)
+    player = tactical_player(game, 0)
+    turn_set = game.get_action_set(player, "turn")
+    assert turn_set is not None
+
+    stable_ids = (
+        "hold_angle_mid",
+        "throw_smoke_mid",
+        "shoot_p2",
+        "buy_menu_donation_target_p3",
+    )
+    original_actions = {
+        action_id: turn_set.get_action(action_id) for action_id in stable_ids
+    }
+    assert all(original_actions.values())
+
+    game.refresh_menus()
+    game.flush_menus()
+
+    assert {
+        action_id: turn_set.get_action(action_id) for action_id in stable_ids
+    } == original_actions
+    assert all(
+        turn_set.get_action(action_id) is original_action
+        for action_id, original_action in original_actions.items()
+    )
+
+
+def test_turn_action_sets_share_static_definitions_but_not_dynamic_state() -> None:
+    game = make_game(start=True)
+    first = tactical_player(game, 0)
+    second = tactical_player(game, 1)
+    first_turn = game.get_action_set(first, "turn")
+    second_turn = game.get_action_set(second, "turn")
+    assert first_turn is not None
+    assert second_turn is not None
+
+    assert first_turn._actions is not second_turn._actions
+    assert first_turn._order is not second_turn._order
+    assert first_turn.get_action("throw_smoke_mid") is second_turn.get_action(
+        "throw_smoke_mid"
+    )
+    assert first_turn.get_action(f"shoot_{second.id}") is not second_turn.get_action(
+        f"shoot_{first.id}"
+    )
+
+    first_turn.remove("throw_smoke_mid")
+    assert second_turn.get_action("throw_smoke_mid") is not None
+
+
+def test_static_action_template_resolves_against_each_concurrent_match() -> None:
+    first_game = make_game(start=True)
+    second_game = make_game(start=True)
+    first_player = tactical_player(first_game, 0)
+    second_player = tactical_player(second_game, 0)
+    first_turn = first_game.get_action_set(first_player, "turn")
+    second_turn = second_game.get_action_set(second_player, "turn")
+    assert first_turn is not None
+    assert second_turn is not None
+
+    first_action = first_turn.get_action("combat_menu_move")
+    second_action = second_turn.get_action("combat_menu_move")
+    assert first_action is not None
+    assert first_action is second_action
+
+    first_game.phase = PHASE_BUY
+    assert (
+        first_turn.resolve_action(first_game, first_player, first_action).visible
+        is False
+    )
+    assert (
+        second_turn.resolve_action(second_game, second_player, second_action).visible
+        is True
+    )
+
+
+def test_optimized_combat_visibility_matches_authoritative_submenu_membership() -> None:
+    game = make_game(start=True)
+    player = tactical_player(game, 0)
+    turn_set = game.get_action_set(player, "turn")
+    assert turn_set is not None
+    player.primary_weapon_id = AWP.id
+    player.equipped_weapon_id = AWP.id
+    game._set_full_weapon_ammunition(player, AWP)
+    utilities = get_purchasable_utilities(player.team_index)
+    player.utility_counts = {utility.id: 1 for utility in utilities}
+
+    game._combat_menu_views[player.id] = CombatMenuState(COMBAT_MENU_UTILITY)
+    expected_utility_choices = set(game._combat_menu_view_action_ids(player))
+    actual_utility_choices = {
+        action_id
+        for action_id in turn_set._order
+        if action_id.startswith(COMBAT_MENU_UTILITY_ACTION_PREFIX)
+        and game._is_combat_utility_choice_hidden(
+            player,
+            action_id=action_id,
+        )
+        == Visibility.VISIBLE
+    }
+    assert actual_utility_choices == expected_utility_choices
+
+    for utility in utilities:
+        game._combat_menu_views[player.id] = CombatMenuState(
+            COMBAT_MENU_UTILITY_TARGETS,
+            utility.id,
+        )
+        expected_targets = set(game._combat_menu_view_action_ids(player))
+        actual_targets = {
+            action_id
+            for action_id in turn_set._order
+            if action_id.startswith("throw_")
+            and game._is_throw_utility_hidden(player, action_id=action_id)
+            == Visibility.VISIBLE
+        }
+        assert actual_targets == expected_targets
+
+    game._combat_menu_views[player.id] = CombatMenuState(COMBAT_MENU_ANGLE)
+    expected_angles = set(game._combat_menu_view_action_ids(player))
+    actual_angles = {
+        action_id
+        for action_id in turn_set._order
+        if action_id.startswith("hold_angle_")
+        and game._is_hold_angle_hidden(player, action_id=action_id)
+        == Visibility.VISIBLE
+    }
+    assert actual_angles == expected_angles
 
 
 def test_combat_submenus_isolate_actions_and_restore_their_parent_focus() -> None:

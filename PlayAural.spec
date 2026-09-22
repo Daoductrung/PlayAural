@@ -1,35 +1,40 @@
 # -*- mode: python ; coding: utf-8 -*-
-from PyInstaller.utils.hooks import collect_all
+from PyInstaller.utils.hooks import collect_data_files, collect_dynamic_libs
 
 
-datas = [("client/sounds", "sounds"), ("client/locales", "locales")]
-binaries = []
+datas = [
+    ("client/sounds", "sounds"),
+    ("client/locales", "locales"),
+    ("cosmos/LICENSE", "cosmos"),
+]
+binaries = collect_dynamic_libs("cosmos")
 hiddenimports = [
     "wx",
     "cosmos",
+    "cosmos.cosmos",
     "requests",
     "psutil",
     "websockets",
-    "pyperclip",
     "fluent.runtime",
     "fluent.syntax",
+    "livekit.rtc",
+    "livekit.rtc.resources",
 ]
 
-# collect_all("cosmos") carries cosmos.pyd and the Steam Audio runtime
-# (phonon.dll) that sits beside it in the package directory.
-for package_name in (
-    "accessible_output2",
+# Keep only the package resources used at runtime. Broad collect_all() calls
+# also copy source modules and *.dist-info metadata as loose files. PyInstaller
+# already analyzes the Python modules, and its standard hooks collect the
+# accessible_output2 DLLs, sounddevice's PortAudio DLL, and keyring's backends.
+# Keyring's hook intentionally retains its distribution metadata because its
+# runtime backend discovery reads the entry points declared there.
+datas += collect_data_files(
     "cosmos",
-    "requests",
-    "fluent",
-    "livekit",
-    "sounddevice",
-    "keyring",
-):
-    tmp_ret = collect_all(package_name)
-    datas += tmp_ret[0]
-    binaries += tmp_ret[1]
-    hiddenimports += tmp_ret[2]
+    includes=["third_party/steam_audio/*"],
+)
+datas += collect_data_files(
+    "livekit.rtc",
+    includes=["resources/livekit_ffi.dll", "resources/LICENSE.md"],
+)
 
 hiddenimports += [
     "keyring.backends",

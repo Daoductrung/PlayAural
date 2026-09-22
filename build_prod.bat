@@ -12,7 +12,7 @@ set "PYTHON_EXE="
 set "PYTHON_ARGS="
 set "PREFERRED_PYTHON_EXE="
 set "PREFERRED_PYTHON_ARGS="
-set "BUILD_DEPS_CHECK=import PyInstaller, wx, accessible_output2, cosmos, keyring, requests, fluent.runtime, livekit, sounddevice"
+set "BUILD_DEPS_CHECK=import PyInstaller, wx, accessible_output2, cosmos, keyring, requests, psutil, websockets, fluent.runtime, numpy, sounddevice; from livekit import rtc; assert callable(cosmos.SoundManager); assert callable(rtc.Room)"
 set "DIST_ROOT=dist\PlayAural"
 set "CONTENTS_DIR="
 
@@ -128,6 +128,50 @@ if not exist "%CONTENTS_DIR%\locales" (
     pause
     exit /b 1
 )
+call :require_release_file "%CONTENTS_DIR%\accessible_output2\lib\nvdaControllerClient64.dll"
+if errorlevel 1 goto :release_verification_failed
+call :require_release_file "%CONTENTS_DIR%\_sounddevice_data\portaudio-binaries\libportaudio64bit.dll"
+if errorlevel 1 goto :release_verification_failed
+call :require_release_file "%CONTENTS_DIR%\livekit\rtc\resources\livekit_ffi.dll"
+if errorlevel 1 goto :release_verification_failed
+call :require_release_file "%CONTENTS_DIR%\livekit\rtc\resources\LICENSE.md"
+if errorlevel 1 goto :release_verification_failed
+call :require_release_file "%CONTENTS_DIR%\cosmos\cosmos.pyd"
+if errorlevel 1 goto :release_verification_failed
+call :require_release_file "%CONTENTS_DIR%\cosmos\phonon.dll"
+if errorlevel 1 goto :release_verification_failed
+call :require_release_file "%CONTENTS_DIR%\cosmos\LICENSE"
+if errorlevel 1 goto :release_verification_failed
+call :require_release_file "%CONTENTS_DIR%\cosmos\third_party\steam_audio\LICENSE.md"
+if errorlevel 1 goto :release_verification_failed
+call :require_release_file "%CONTENTS_DIR%\cosmos\third_party\steam_audio\THIRDPARTY.md"
+if errorlevel 1 goto :release_verification_failed
+call :require_release_file "%CONTENTS_DIR%\cosmos\third_party\steam_audio\TRADEMARK_RIGHTS.md"
+if errorlevel 1 goto :release_verification_failed
+call :require_release_file "%CONTENTS_DIR%\cosmos\third_party\steam_audio\UPSTREAM.json"
+if errorlevel 1 goto :release_verification_failed
+"%PYTHON_EXE%" %PYTHON_ARGS% -c "import hashlib, json, pathlib, zipfile; root = pathlib.Path(r'%CONTENTS_DIR%\cosmos'); notices = root / 'third_party' / 'steam_audio'; wheels = list(pathlib.Path('client/vendor').glob('cosmos-*.whl')); assert len(wheels) == 1; wheel = zipfile.ZipFile(wheels[0]); names = wheel.namelist(); digest = lambda data: hashlib.sha256(data).hexdigest(); packaged = lambda path: path.read_bytes(); assert digest(packaged(root / 'cosmos.pyd')) == digest(wheel.read('cosmos/cosmos.pyd')); assert digest(packaged(root / 'phonon.dll')) == digest(wheel.read('cosmos/phonon.dll')); license_name = next(name for name in names if name.endswith('.dist-info/licenses/LICENSE')); assert packaged(root / 'LICENSE') == wheel.read(license_name); manifest = json.loads(packaged(notices / 'UPSTREAM.json')); assert digest(packaged(root / 'phonon.dll')) == manifest['artifacts']['phonon.dll']; assert all(digest(packaged(notices / name)) == manifest['artifacts'][name] == digest(wheel.read('cosmos/third_party/steam_audio/' + name)) for name in ('LICENSE.md', 'THIRDPARTY.md', 'TRADEMARK_RIGHTS.md'))"
+if errorlevel 1 (
+    echo.
+    echo ERROR: Packaged Cosmos or Steam Audio files failed integrity verification.
+    goto :release_verification_failed
+)
+
+if exist "%CONTENTS_DIR%\accessible_output2-*.dist-info" (
+    echo.
+    echo ERROR: Redundant accessible_output2 distribution metadata was packaged.
+    goto :release_verification_failed
+)
+if exist "%CONTENTS_DIR%\livekit-*.dist-info" (
+    echo.
+    echo ERROR: Redundant LiveKit distribution metadata was packaged.
+    goto :release_verification_failed
+)
+if exist "%CONTENTS_DIR%\cosmos\target" (
+    echo.
+    echo ERROR: Cosmos source build artifacts were packaged.
+    goto :release_verification_failed
+)
 echo       Release folder verified.
 echo       Asset content directory: %CONTENTS_DIR%
 echo.
@@ -210,9 +254,37 @@ exit /b 0
 exit /b %errorlevel%
 
 :bootstrap_build_dependencies
+if /I "%PYTHON_EXE%"=="%CD%\client\.venv\Scripts\python.exe" (
+    where uv >nul 2>nul
+    if not errorlevel 1 (
+        uv sync --project client --extra dev
+        if errorlevel 1 exit /b 1
+        uv pip install --python "%PYTHON_EXE%" --upgrade "pyinstaller>=6.0"
+        if errorlevel 1 exit /b 1
+        exit /b 0
+    )
+)
+"%PYTHON_EXE%" %PYTHON_ARGS% -m ensurepip --upgrade >nul 2>nul
 "%PYTHON_EXE%" %PYTHON_ARGS% -m pip install --upgrade pip setuptools wheel
 if errorlevel 1 (
     exit /b 1
 )
 "%PYTHON_EXE%" %PYTHON_ARGS% -m pip install --upgrade pyinstaller -r requirements.txt
 exit /b %errorlevel%
+
+:require_release_file
+if not exist "%~1" (
+    echo.
+    echo ERROR: Required release file is missing: %~1
+    exit /b 1
+)
+for %%F in ("%~1") do if %%~zF EQU 0 (
+    echo.
+    echo ERROR: Required release file is empty: %~1
+    exit /b 1
+)
+exit /b 0
+
+:release_verification_failed
+pause
+exit /b 1

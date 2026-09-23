@@ -771,7 +771,58 @@ _SOUND_ASSET_ROOTS = (
     _REPOSITORY_ROOT / "web_client" / "sounds",
     _REPOSITORY_ROOT / "mobile_client" / "sounds",
 )
-_FALLBACK_FOOTSTEP_TICKS = 10
+
+# Server packages deliberately do not bundle the clients' sound files. Keep
+# the measured timing metadata needed by authoritative gameplay alongside the
+# game so a wheel-only deployment preserves the same pacing as a source tree.
+# Tests require this table to match the shipped assets whenever they change.
+SERVER_TIMING_ASSET_DURATIONS_MS = {
+    "game_breachpoint/movement/concrete_step1.ogg": 540,
+    "game_breachpoint/movement/concrete_step2.ogg": 624,
+    "game_breachpoint/movement/concrete_step3.ogg": 851,
+    "game_breachpoint/movement/concrete_step4.ogg": 643,
+    "game_breachpoint/movement/concrete_step5.ogg": 543,
+    "game_breachpoint/movement/concrete_step6.ogg": 841,
+    "game_breachpoint/movement/gravel_step1.ogg": 520,
+    "game_breachpoint/movement/gravel_step2.ogg": 579,
+    "game_breachpoint/movement/gravel_step3.ogg": 868,
+    "game_breachpoint/movement/gravel_step4.ogg": 561,
+    "game_breachpoint/movement/gravel_step5.ogg": 868,
+    "game_breachpoint/movement/gravel_step6.ogg": 660,
+    "game_breachpoint/movement/gravel_step7.ogg": 874,
+    "game_breachpoint/movement/gravel_step8.ogg": 563,
+    "game_breachpoint/movement/gravel_step9.ogg": 869,
+    "game_breachpoint/movement/gravel_step10.ogg": 576,
+    "game_breachpoint/movement/sand_step1.ogg": 500,
+    "game_breachpoint/movement/sand_step2.ogg": 500,
+    "game_breachpoint/movement/sand_step3.ogg": 750,
+    "game_breachpoint/movement/sand_step4.ogg": 750,
+    "game_breachpoint/movement/sand_step5.ogg": 500,
+    "game_breachpoint/movement/sand_step6.ogg": 500,
+    "game_breachpoint/movement/sand_step7.ogg": 750,
+    "game_breachpoint/movement/sand_step8.ogg": 750,
+    "game_breachpoint/movement/sand_step9.ogg": 750,
+    "game_breachpoint/movement/sand_step10.ogg": 1000,
+    "game_breachpoint/movement/sand_step11.ogg": 750,
+    "game_breachpoint/movement/sand_step12.ogg": 820,
+    "game_breachpoint/objective/bomb_arm.ogg": 1240,
+    "game_breachpoint/objective/bomb_nvg_on.ogg": 1758,
+    "game_breachpoint/utility/flashbang/draw.ogg": 408,
+    "game_breachpoint/utility/flashbang/landing.ogg": 385,
+    "game_breachpoint/utility/flashbang/pin.ogg": 794,
+    "game_breachpoint/utility/flashbang/pin_start.ogg": 580,
+    "game_breachpoint/utility/he_grenade/draw.ogg": 438,
+    "game_breachpoint/utility/he_grenade/pin.ogg": 794,
+    "game_breachpoint/utility/he_grenade/pin_start.ogg": 580,
+    "game_breachpoint/utility/incendiary_grenade/draw.ogg": 442,
+    "game_breachpoint/utility/incendiary_grenade/pin.ogg": 794,
+    "game_breachpoint/utility/incendiary_grenade/pin_start.ogg": 580,
+    "game_breachpoint/utility/molotov/draw.ogg": 442,
+    "game_breachpoint/utility/smoke/draw.ogg": 402,
+    "game_breachpoint/utility/smoke/landing.ogg": 385,
+    "game_breachpoint/utility/smoke/pin.ogg": 794,
+    "game_breachpoint/utility/smoke/pin_start.ogg": 580,
+}
 
 
 @cache
@@ -788,8 +839,9 @@ def sound_ticks(sound: str) -> int:
         )
         if measured is not None:
             return measured
-    if any(sound in assets for assets in FOOTSTEP_ASSETS_BY_SURFACE.values()):
-        return _FALLBACK_FOOTSTEP_TICKS
+    duration_ms = SERVER_TIMING_ASSET_DURATIONS_MS.get(sound)
+    if duration_ms is not None:
+        return math.ceil(duration_ms * TICKS_PER_SECOND / 1000)
     return 0
 
 
@@ -807,6 +859,9 @@ def sound_milliseconds(sound: str) -> int:
         )
         if measured is not None:
             return measured
+    duration_ms = SERVER_TIMING_ASSET_DURATIONS_MS.get(sound)
+    if duration_ms is not None:
+        return duration_ms
     return math.ceil(sound_ticks(sound) * 1000 / TICKS_PER_SECOND)
 
 

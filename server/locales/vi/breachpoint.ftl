@@ -492,6 +492,7 @@ breachpoint-bomb-status-planted = Bom đã được đặt tại { $location } v
 breachpoint-bomb-status-detonating = Bom đang trong chuỗi kích nổ cuối cùng tại { $location }. Đã quá muộn để gỡ bom.
 breachpoint-bomb-status-defusing = { $player } đang gỡ bom tại { $location }; T có một lượt đáp trả. Kíp nổ còn { $rounds } vòng chiến thuật trọn vẹn.
 breachpoint-bomb-status-concealed = Bom chưa được đặt. Người mang hoặc vị trí bom bị che khuất khỏi phe bạn.
+breachpoint-bomb-status-spectator-concealed = Bom chưa được đặt. Khán giả không thể biết ai đang giữ bom hoặc bom đang ở đâu.
 breachpoint-bomb-status-unavailable = Không có thông tin về bom.
 breachpoint-score-brief = Hiệp { $round }: T { $terrorists }, CT { $counter_terrorists }.
 breachpoint-score-header = Tỷ số trong hoặc sau hiệp đấu { $round }, thể thức { $format }.

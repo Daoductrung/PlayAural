@@ -11,6 +11,7 @@ from ..audio import distance_attenuation_gain
 from ..game_utils.actions import Visibility
 from ..game_utils.reaction_window import ReactionWindow
 from ..game_utils.stats_helpers import RatingHelper
+from ..games.breachpoint import audio as breachpoint_audio
 from ..games.breachpoint.arsenal import (
     AK47,
     AWP,
@@ -102,6 +103,7 @@ from ..games.breachpoint.audio import (
     RADIO_CUE_HANDLE,
     RADIO_TERRORISTS_WIN_ASSET,
     ROUND_STINGER_HANDLE,
+    SERVER_TIMING_ASSET_DURATIONS_MS,
     TICKS_PER_SECOND,
     TURN_NOTIFICATION_ASSET,
     UTILITY_AUDIO_PROFILES,
@@ -4465,6 +4467,46 @@ def test_breachpoint_audio_assets_are_complete_and_identical_across_clients() ->
             assert sound_ticks(PurePosixPath(*asset.parts).as_posix()) > 0
 
 
+def test_server_timing_metadata_matches_assets_and_supports_wheel_deployments(
+    monkeypatch,
+) -> None:
+    timing_assets = {
+        BOMB_NVG_ON_ASSET,
+        BOMB_ARM_ASSET,
+        *(asset for assets in FOOTSTEP_ASSETS_BY_SURFACE.values() for asset in assets),
+        *(
+            asset
+            for profile in UTILITY_AUDIO_PROFILES.values()
+            for asset in (
+                profile.draw_asset,
+                *profile.pin_assets,
+                profile.landing_asset,
+            )
+            if asset
+        ),
+    }
+    assert set(SERVER_TIMING_ASSET_DURATIONS_MS) == timing_assets
+
+    breachpoint_audio.sound_ticks.cache_clear()
+    breachpoint_audio.sound_milliseconds.cache_clear()
+    for asset, duration_ms in SERVER_TIMING_ASSET_DURATIONS_MS.items():
+        assert breachpoint_audio.sound_milliseconds(asset) == duration_ms
+
+    with monkeypatch.context() as context:
+        context.setattr(breachpoint_audio, "_SOUND_ASSET_ROOTS", ())
+        breachpoint_audio.sound_ticks.cache_clear()
+        breachpoint_audio.sound_milliseconds.cache_clear()
+        for asset, duration_ms in SERVER_TIMING_ASSET_DURATIONS_MS.items():
+            assert breachpoint_audio.sound_milliseconds(asset) == duration_ms
+            assert breachpoint_audio.sound_ticks(asset) == math.ceil(
+                duration_ms * TICKS_PER_SECOND / 1000
+            )
+        assert bomb_detonation_warning_ticks() > 1
+
+    breachpoint_audio.sound_ticks.cache_clear()
+    breachpoint_audio.sound_milliseconds.cache_clear()
+
+
 def test_restore_preserves_valid_spatial_state_and_repairs_collisions() -> None:
     game = make_game(start=True)
     first = tactical_player(game, 0)
@@ -6077,6 +6119,40 @@ def test_mr7_halftime_swap_and_regulation_victory_follow_squads() -> None:
     assert game._squad_score(0) == 8
 
 
+def test_mr7_halftime_rebuilds_objective_controls_for_each_new_side() -> None:
+    game = make_game(start=True, match_format="mr7")
+    original_terrorist = tactical_player(game, 0)
+    original_counter_terrorist = tactical_player(game, 1)
+    game.round = game.match_format.rounds_per_half
+
+    game._finish_combat_round(TEAM_TERRORISTS, WIN_ELIMINATION)
+    complete_round_transition(game)
+    complete_buy_phase(game)
+
+    assert original_terrorist.team_index == TEAM_COUNTER_TERRORISTS
+    assert original_counter_terrorist.team_index == TEAM_TERRORISTS
+
+    start_activation(game, original_counter_terrorist)
+    game.execute_action(original_counter_terrorist, "combat_menu_objective")
+    game.flush_menus()
+    terrorist_controls = set(turn_menu_ids(game, 1))
+    assert {"plant", "pick_up_bomb"} <= terrorist_controls
+    assert "defuse" not in terrorist_controls
+    assert game._is_defuse_hidden(original_counter_terrorist) is Visibility.HIDDEN
+    assert (
+        game._is_defuse_enabled(original_counter_terrorist)
+        == "breachpoint-error-counter-terrorists-only"
+    )
+
+    start_activation(game, original_terrorist)
+    game.execute_action(original_terrorist, "combat_menu_objective")
+    game.flush_menus()
+    counter_terrorist_controls = set(turn_menu_ids(game, 0))
+    assert "defuse" in counter_terrorist_controls
+    assert "plant" not in counter_terrorist_controls
+    assert "pick_up_bomb" not in counter_terrorist_controls
+
+
 def test_regulation_tie_can_end_as_draw() -> None:
     game = make_game(
         start=True,
@@ -7427,7 +7503,20 @@ def test_spectator_status_and_shot_feed_do_not_reveal_positions() -> None:
         item.text for item in game._build_map_status(watcher, watcher_user)
     )
     assert all(player.name not in map_text for player in game.get_active_players())
-    assert "concealed" in game._bomb_status_line(watcher, "en")
+    expected_english = (
+        "The bomb has not been planted. Spectators cannot see who has it or "
+        "where it is."
+    )
+    expected_vietnamese = (
+        "Bom chưa được đặt. Khán giả không thể biết ai đang giữ bom hoặc bom "
+        "đang ở đâu."
+    )
+    for bomb_state in (BOMB_CARRIED, BOMB_PLANTING, BOMB_DROPPED):
+        game.bomb_state = bomb_state
+        assert game._bomb_status_line(watcher, "en") == expected_english
+        assert game._bomb_status_line(watcher, "vi") == expected_vietnamese
+
+    game.bomb_state = BOMB_CARRIED
 
     shooter = tactical_player(game, 0)
     target = tactical_player(game, 1)

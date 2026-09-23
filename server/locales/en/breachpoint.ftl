@@ -492,6 +492,7 @@ breachpoint-bomb-status-planted = The bomb is planted at { $location } with { $r
 breachpoint-bomb-status-detonating = The bomb is in its final arming sequence at { $location }. It is too late to defuse.
 breachpoint-bomb-status-defusing = { $player } is defusing at { $location }; T has one response. The fuse has { $rounds } complete tactical rounds remaining.
 breachpoint-bomb-status-concealed = The bomb has not been planted. Its carrier or location is concealed from your side.
+breachpoint-bomb-status-spectator-concealed = The bomb has not been planted. Spectators cannot see who has it or where it is.
 breachpoint-bomb-status-unavailable = Bomb status is unavailable.
 breachpoint-score-brief = Round { $round }: T { $terrorists }, CT { $counter_terrorists }.
 breachpoint-score-header = Match score after or during combat round { $round }, format { $format }.

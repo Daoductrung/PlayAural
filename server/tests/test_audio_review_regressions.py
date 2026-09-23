@@ -2,6 +2,7 @@
 
 import asyncio
 import random
+import time
 
 import pytest
 
@@ -123,3 +124,41 @@ def test_ticks_average_the_nominal_interval_despite_tick_work() -> None:
 
     # A fixed sleep after the work gave about 16 ticks a second on Windows.
     assert 18 <= asyncio.run(run()) <= 22
+
+
+def test_missed_tick_deadlines_are_skipped_instead_of_replayed_in_a_burst() -> None:
+    async def run() -> list[float]:
+        tick_times: list[float] = []
+        enough_ticks = asyncio.Event()
+
+        def on_tick() -> None:
+            tick_times.append(asyncio.get_running_loop().time())
+            if len(tick_times) == 1:
+                # Model one table traversal that overruns multiple deadlines.
+                time.sleep(TickScheduler.TICK_INTERVAL_S * 2.5)
+            if len(tick_times) == 3:
+                enough_ticks.set()
+
+        scheduler = TickScheduler(on_tick)
+        await scheduler.start()
+        await asyncio.wait_for(enough_ticks.wait(), timeout=1.0)
+        await scheduler.stop()
+        return tick_times
+
+    tick_times = asyncio.run(run())
+
+    # The old catch-up loop emitted the second and third callbacks together.
+    assert tick_times[2] - tick_times[1] >= TickScheduler.TICK_INTERVAL_S * 0.75
+
+
+def test_starting_a_running_tick_scheduler_is_idempotent() -> None:
+    async def run() -> None:
+        scheduler = TickScheduler(lambda: None)
+        await scheduler.start()
+        first_task = scheduler._task
+        await scheduler.start()
+        assert scheduler._task is first_task
+        await scheduler.stop()
+        assert scheduler._task is None
+
+    asyncio.run(run())

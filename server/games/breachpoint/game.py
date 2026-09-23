@@ -11042,7 +11042,12 @@ class BreachPointGame(BreachPointAudioMixin, Game):
                 rounds=self.bomb_fuse_remaining,
             )
         tactical_viewer = self._breach_player(viewer)
-        if not tactical_viewer or tactical_viewer.is_spectator:
+        if tactical_viewer and tactical_viewer.is_spectator:
+            return Localization.get(
+                locale,
+                "breachpoint-bomb-status-spectator-concealed",
+            )
+        if not tactical_viewer:
             return Localization.get(locale, "breachpoint-bomb-status-concealed")
         viewer_is_terrorist = tactical_viewer.team_index == TEAM_TERRORISTS
         if self.bomb_state == BOMB_PLANTING:

@@ -15,7 +15,6 @@ class TickScheduler:
 
     TICK_INTERVAL_MS = 50
     TICK_INTERVAL_S = TICK_INTERVAL_MS / 1000.0
-    MAX_CATCH_UP_S = 4 * TICK_INTERVAL_S
 
     def __init__(self, on_tick: Callable[[], None]):
         self._on_tick = on_tick
@@ -24,6 +23,8 @@ class TickScheduler:
 
     async def start(self) -> None:
         """Start the tick scheduler."""
+        if self._task is not None and not self._task.done():
+            return
         self._running = True
         self._task = asyncio.create_task(self._tick_loop())
 
@@ -36,6 +37,8 @@ class TickScheduler:
                 await self._task
             except asyncio.CancelledError:
                 pass
+            finally:
+                self._task = None
 
     async def _tick_loop(self) -> None:
         """Main tick loop."""
@@ -49,11 +52,13 @@ class TickScheduler:
                 logging.error(f"Error in tick: {e}", exc_info=True)
 
             # Sleep until the next deadline rather than for a fixed interval,
-            # so tick work and coarse timers (about 15 ms on Windows) do not
-            # accumulate: everything that counts ticks treats one as 50 ms.
-            # After a long stall, resume from now instead of bursting ticks.
+            # so ordinary tick work and coarse timers (about 15 ms on Windows)
+            # do not accumulate. If the event loop or callback misses a whole
+            # deadline, skip that elapsed slot instead of replaying it with
+            # back-to-back ticks: game sequences treat every tick as 50 ms and
+            # must never run faster merely because a busy server fell behind.
             deadline += self.TICK_INTERVAL_S
             now = loop.time()
-            if deadline < now - self.MAX_CATCH_UP_S:
-                deadline = now
+            if deadline <= now:
+                deadline = now + self.TICK_INTERVAL_S
             await asyncio.sleep(max(0.0, deadline - now))

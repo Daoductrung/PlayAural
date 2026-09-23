@@ -23,7 +23,7 @@ import logging
 import threading
 
 import cosmos
-from spatial_audio import normalize_audio_position
+from spatial_audio import TABLE_RADIUS, normalize_audio_position
 
 SPATIAL_MODES = ("off", "stereo", "headphones")
 DEFAULT_SPATIAL_MODE = "headphones"
@@ -31,7 +31,6 @@ DEFAULT_SPATIAL_MODE = "headphones"
 # One table unit is the distance from the listener to a seat. A seat at this
 # radius pans fully in the basic-stereo fallback; distance gain is controlled
 # independently by the versioned PlayAural mixer policy.
-TABLE_RADIUS = 2.0
 # Cosmos adds this fixed amount to the pan of every off-centre sound in
 # stereo mode; the pan step supplies the rest over one table radius.
 _HARD_CLOSE_PAN = 0.2

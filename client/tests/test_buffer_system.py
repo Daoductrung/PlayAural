@@ -219,6 +219,65 @@ def test_buffer_history_is_bounded_per_source_and_combined_view():
     ]
 
 
+def test_historical_navigation_stays_anchored_when_new_items_arrive():
+    buffer_system = BufferSystem()
+    buffer_system.create_default_buffers()
+    buffer_system.current_buffer_index = buffer_system.buffer_order.index("game")
+    for number in range(1, 9):
+        buffer_system.add_item("game", f"message {number}")
+
+    buffer_system.move_in_buffer("older")
+    buffer_system.move_in_buffer("older")
+    assert buffer_system.get_current_item()["text"] == "message 6"
+
+    buffer_system.add_item("game", "message 9")
+    assert buffer_system.get_current_item()["text"] == "message 6"
+    assert buffer_system.get_current_item_location() == (5, 9)
+
+
+def test_navigation_anchor_survives_combined_backlog_merges():
+    buffer_system = BufferSystem()
+    buffer_system.create_default_buffers()
+    buffer_system.add_item("game", "before")
+    buffer_system.toggle_mute("private")
+    buffer_system.add_item("private", "restored between")
+    buffer_system.add_item("system", "after")
+
+    buffer_system.move_in_buffer("older")
+    assert buffer_system.get_current_item()["text"] == "before"
+
+    buffer_system.toggle_mute("private")
+    assert buffer_system.get_current_item()["text"] == "before"
+
+
+def test_pruned_navigation_anchor_falls_to_oldest_surviving_item():
+    buffer_system = BufferSystem(max_items_per_buffer=3)
+    buffer_system.create_default_buffers()
+    buffer_system.current_buffer_index = buffer_system.buffer_order.index("game")
+    for number in range(1, 4):
+        buffer_system.add_item("game", f"message {number}")
+    buffer_system.move_in_buffer("oldest")
+
+    buffer_system.add_item("game", "message 4")
+    assert buffer_system.get_current_item()["text"] == "message 2"
+    buffer_system.add_item("game", "message 5")
+    assert buffer_system.get_current_item()["text"] == "message 3"
+
+
+def test_returning_to_live_edge_resumes_following_new_items():
+    buffer_system = BufferSystem()
+    buffer_system.create_default_buffers()
+    buffer_system.current_buffer_index = buffer_system.buffer_order.index("game")
+    for number in range(1, 4):
+        buffer_system.add_item("game", f"message {number}")
+
+    buffer_system.move_in_buffer("older")
+    buffer_system.move_in_buffer("newer")
+    buffer_system.add_item("game", "message 4")
+
+    assert buffer_system.get_current_item()["text"] == "message 4"
+
+
 def test_buffer_capacity_must_be_a_positive_integer():
     for invalid in (0, -1, True, 1.5):
         try:

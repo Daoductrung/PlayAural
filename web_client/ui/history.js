@@ -3,9 +3,16 @@ import {
   normalizeHistoryBuffer,
   normalizeMutedHistoryBuffers,
 } from "../store.js";
+import {
+  frontalPositionForPan,
+  proportionalListPan,
+} from "../spatial_audio.js";
 
 export const HISTORY_COMPACT_MEDIA_QUERY = "(max-width: 920px), (pointer: coarse)";
 export const HISTORY_TOUCH_MEDIA_QUERY = "(pointer: coarse)";
+export const BUFFER_CATEGORY_NAVIGATION_ASSET = "buffer_category_navigation.ogg";
+export const BUFFER_ITEM_NAVIGATION_ASSET = "buffer_item_navigation.ogg";
+const BUFFER_NAVIGATION_HANDLE = "client:buffer-navigation";
 
 function getHistoryEntryText(entry) {
   if (typeof entry === "string") {
@@ -24,6 +31,7 @@ export function createHistoryView({
   bufferMuteEl,
   a11y,
   announceFeedback = (text, options = {}) => a11y?.announce(text, options),
+  playNavigationSound = () => {},
   initialMutedBuffers = [],
   onMutedBuffersChange = () => {},
   localize = (key, params = {}) => {
@@ -36,7 +44,7 @@ export function createHistoryView({
   localizeBufferName = (name) => String(name || ""),
 }) {
   const mutedBuffers = new Set();
-  const bufferPositions = {};
+  const bufferAnchors = {};
   const usesTouchHistory = window.matchMedia(HISTORY_TOUCH_MEDIA_QUERY).matches;
   let historyCollapsed = window.matchMedia(HISTORY_COMPACT_MEDIA_QUERY).matches;
   let renderedLogBuffer = "";
@@ -50,10 +58,52 @@ export function createHistoryView({
 
   setMutedBuffers(initialMutedBuffers, { notify: false });
 
-  function ensureBufferPosition(bufferName) {
-    if (!Object.hasOwn(bufferPositions, bufferName)) {
-      bufferPositions[bufferName] = 0;
+  function ensureBufferAnchor(bufferName) {
+    if (!Object.hasOwn(bufferAnchors, bufferName)) {
+      bufferAnchors[bufferName] = null;
     }
+  }
+
+  function resolveBufferIndex(bufferName, lines) {
+    ensureBufferAnchor(bufferName);
+    if (!lines.length) {
+      bufferAnchors[bufferName] = null;
+      return -1;
+    }
+
+    const anchor = bufferAnchors[bufferName];
+    if (anchor === null) {
+      return lines.length - 1;
+    }
+
+    const exactIndex = lines.indexOf(anchor);
+    if (exactIndex >= 0) {
+      return exactIndex;
+    }
+
+    const anchorSequence = Number(anchor?.sequence);
+    let fallbackIndex = Number.isSafeInteger(anchorSequence)
+      ? lines.findIndex((entry) => Number(entry?.sequence) >= anchorSequence)
+      : 0;
+    if (fallbackIndex < 0) {
+      fallbackIndex = lines.length - 1;
+    }
+    bufferAnchors[bufferName] = lines[fallbackIndex];
+    return fallbackIndex;
+  }
+
+  function playNavigationCue(asset, index, count) {
+    if (count <= 0) {
+      return;
+    }
+    const pan = proportionalListPan(index, count);
+    playNavigationSound({
+      asset,
+      handle: BUFFER_NAVIGATION_HANDLE,
+      pan: pan * 100,
+      position: frontalPositionForPan(pan),
+      priority: 100,
+    });
   }
 
   function isBufferDirectlyMuted(bufferName) {
@@ -103,7 +153,7 @@ export function createHistoryView({
 
   function clearHistory() {
     for (const name of getBufferNames()) {
-      bufferPositions[name] = 0;
+      bufferAnchors[name] = null;
     }
     return store.clearHistory();
   }
@@ -111,15 +161,11 @@ export function createHistoryView({
   function getCurrentBufferInfo() {
     const name = getCurrentBufferName();
     const lines = getCurrentBufferLines();
-    const position = Math.max(
-      0,
-      Math.min(Math.max(0, lines.length - 1), bufferPositions[name] || 0),
-    );
-    bufferPositions[name] = position;
+    const index = resolveBufferIndex(name, lines);
     return {
       name,
       count: lines.length,
-      position,
+      index: Math.max(0, index),
       muted: isBufferDirectlyMuted(name),
       effectivelyMuted: isBufferMuted(name),
     };
@@ -141,8 +187,7 @@ export function createHistoryView({
       return "";
     }
     const name = getCurrentBufferName();
-    const position = Math.max(0, Math.min(lines.length - 1, bufferPositions[name] || 0));
-    const index = lines.length - 1 - position;
+    const index = resolveBufferIndex(name, lines);
     if (index < 0 || index >= lines.length) {
       return "";
     }
@@ -168,7 +213,7 @@ export function createHistoryView({
   function flushRender() {
     renderScheduled = false;
     for (const name of getBufferNames()) {
-      ensureBufferPosition(name);
+      ensureBufferAnchor(name);
     }
     const bufferName = store.state.historyBuffer;
     const lines = isBufferMuted(bufferName) ? [] : (store.state.historyBuffers[bufferName] || []);
@@ -308,25 +353,36 @@ export function createHistoryView({
       nextIndex = Math.max(0, Math.min(names.length - 1, nextIndex + step));
     }
     store.setHistoryBuffer(names[nextIndex]);
+    playNavigationCue(BUFFER_CATEGORY_NAVIGATION_ASSET, nextIndex, names.length);
     announceBufferInfo();
   }
 
   function moveInCurrentBuffer(direction) {
     const info = getCurrentBufferInfo();
-    const maxPosition = Math.max(0, info.count - 1);
-    let next = info.position;
+    const lines = getCurrentBufferLines();
+    const lastIndex = info.count - 1;
+    let nextIndex = info.index;
 
     if (direction === "older") {
-      next = Math.min(maxPosition, info.position + 1);
+      nextIndex = Math.max(0, info.index - 1);
     } else if (direction === "newer") {
-      next = Math.max(0, info.position - 1);
+      nextIndex = Math.min(lastIndex, info.index + 1);
     } else if (direction === "oldest") {
-      next = maxPosition;
+      nextIndex = 0;
     } else if (direction === "newest") {
-      next = 0;
+      nextIndex = lastIndex;
+    } else {
+      return;
     }
 
-    bufferPositions[info.name] = next;
+    if (info.count > 0) {
+      bufferAnchors[info.name] = (
+        direction === "newest" || (direction === "newer" && nextIndex === lastIndex)
+          ? null
+          : lines[nextIndex]
+      );
+      playNavigationCue(BUFFER_ITEM_NAVIGATION_ASSET, nextIndex, info.count);
+    }
     announceCurrentItem();
   }
 
@@ -360,6 +416,12 @@ export function createHistoryView({
   if (bufferSelectEl) {
     bufferSelectEl.addEventListener("change", () => {
       store.setHistoryBuffer(bufferSelectEl.value);
+      const names = getBufferNames();
+      playNavigationCue(
+        BUFFER_CATEGORY_NAVIGATION_ASSET,
+        Math.max(0, names.indexOf(getCurrentBufferName())),
+        names.length,
+      );
       announceBufferInfo();
     });
   }

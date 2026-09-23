@@ -56,6 +56,20 @@ def test_distance_models_match_shared_protocol_vectors() -> None:
         ) == pytest.approx(vector["expected_gain"]), vector["id"]
 
 
+def test_ordered_list_positions_span_the_front_audio_field_proportionally() -> None:
+    assert spatial_audio.proportional_list_pan(0, 5) == -1
+    assert spatial_audio.proportional_list_pan(2, 5) == 0
+    assert spatial_audio.proportional_list_pan(4, 5) == 1
+    assert spatial_audio.proportional_list_pan(0, 1) == 0
+    assert spatial_audio.proportional_list_pan(499_999, 1_000_000) == pytest.approx(
+        -1 / 999_999
+    )
+
+    assert spatial_audio.frontal_position_for_pan(-1) == (-2, 0, 0)
+    assert spatial_audio.frontal_position_for_pan(0) == (0, 2, 0)
+    assert spatial_audio.frontal_position_for_pan(1) == (2, 0, 0)
+
+
 def test_distance_gain_clamps_distance_and_output_gain() -> None:
     attenuation = {
         "model": "inverse",

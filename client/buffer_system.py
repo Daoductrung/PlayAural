@@ -29,7 +29,9 @@ class BufferSystem:
         self.buffers: Dict[str, List[Dict]] = {}  # name -> list of message items
         self.buffer_order: List[str] = []  # ordered list of buffer names
         self.current_buffer_index: int = 0  # which buffer user is viewing (0-based)
-        self.buffer_positions: Dict[str, int] = {}  # name -> position (0 = newest)
+        # None follows the live edge. An integer anchors navigation to the
+        # stable sequence of a historical item while newer items arrive.
+        self.buffer_anchors: Dict[str, Optional[int]] = {}
         self.muted_buffers: Set[str] = set()  # set of muted buffer names
         self._next_item_sequence = 0
 
@@ -56,7 +58,7 @@ class BufferSystem:
         if name not in self.buffers:
             self.buffers[name] = []
             self.buffer_order.append(name)
-            self.buffer_positions[name] = 0
+            self.buffer_anchors[name] = None
 
     def add_item(self, buffer_name: str, text: str) -> None:
         """
@@ -154,6 +156,55 @@ class BufferSystem:
             return self.buffer_order[self.current_buffer_index]
         return ""
 
+    def _current_item_index(self, buffer_name: str) -> int:
+        """Resolve the selected item by stable identity, newest-first by default."""
+        buffer = self.buffers.get(buffer_name, [])
+        if not buffer:
+            self.buffer_anchors[buffer_name] = None
+            return -1
+
+        anchor = self.buffer_anchors.get(buffer_name)
+        if anchor is None:
+            return len(buffer) - 1
+
+        for index, item in enumerate(buffer):
+            if item.get("sequence") == anchor:
+                return index
+
+        # The selected item can disappear only when bounded retention prunes
+        # it. Fall forward to the oldest surviving item at or after its former
+        # sequence, then make that fallback the new stable anchor.
+        index = next(
+            (
+                candidate
+                for candidate, item in enumerate(buffer)
+                if isinstance(item.get("sequence"), int)
+                and item["sequence"] >= anchor
+            ),
+            len(buffer) - 1,
+        )
+        sequence = buffer[index].get("sequence")
+        self.buffer_anchors[buffer_name] = (
+            sequence if isinstance(sequence, int) else None
+        )
+        return index
+
+    def get_current_item_location(self) -> Tuple[int, int]:
+        """Return the selected chronological index and current buffer size."""
+        buffer_name = self.get_current_buffer_name()
+        if not buffer_name:
+            return (0, 0)
+        buffer = self.buffers.get(buffer_name, [])
+        index = self._current_item_index(buffer_name)
+        return (max(0, index), len(buffer))
+
+    def get_current_buffer_location(self) -> Tuple[int, int]:
+        """Return the selected buffer index and total buffer count."""
+        count = len(self.buffer_order)
+        if not count:
+            return (0, 0)
+        return (max(0, min(count - 1, self.current_buffer_index)), count)
+
     def move_in_buffer(self, direction: str) -> None:
         """
         Navigate through messages in the current buffer.
@@ -167,26 +218,30 @@ class BufferSystem:
 
         buffer = self.buffers[buffer_name]
         buffer_size = len(buffer)
-        current_position = self.buffer_positions.get(buffer_name, 0)
+        current_index = self._current_item_index(buffer_name)
 
         if direction == "older":
-            # Move back in history (increase position)
-            if current_position < buffer_size - 1:
-                self.buffer_positions[buffer_name] = current_position + 1
+            next_index = max(0, current_index - 1)
 
         elif direction == "newer":
-            # Move forward in history (decrease position)
-            if current_position > 0:
-                self.buffer_positions[buffer_name] = current_position - 1
+            next_index = min(buffer_size - 1, current_index + 1)
 
         elif direction == "oldest":
-            # Jump to oldest message
-            if buffer_size > 0:
-                self.buffer_positions[buffer_name] = buffer_size - 1
+            next_index = 0
 
         elif direction == "newest":
-            # Jump to newest message
-            self.buffer_positions[buffer_name] = 0
+            self.buffer_anchors[buffer_name] = None
+            return
+
+        else:
+            return
+
+        if buffer_size > 0:
+            self.buffer_anchors[buffer_name] = (
+                None
+                if direction == "newer" and next_index == buffer_size - 1
+                else buffer[next_index]["sequence"]
+            )
 
     def get_current_item(self) -> Optional[Dict]:
         """
@@ -200,19 +255,10 @@ class BufferSystem:
             return None
 
         buffer = self.buffers[buffer_name]
-        position = self.buffer_positions.get(buffer_name, 0)
-
-        if len(buffer) == 0:
+        if not buffer:
             return None
 
-        # Position 0 = newest (last item in array)
-        # Position increases as you go back in time
-        index = len(buffer) - 1 - position
-
-        if 0 <= index < len(buffer):
-            return buffer[index]
-
-        return None
+        return buffer[self._current_item_index(buffer_name)]
 
     def get_buffer_info(self) -> Tuple[str, int, int]:
         """
@@ -226,7 +272,8 @@ class BufferSystem:
             return ("", 0, 0)
 
         buffer = self.buffers[buffer_name]
-        position = self.buffer_positions.get(buffer_name, 0)
+        index = self._current_item_index(buffer_name)
+        position = max(0, len(buffer) - 1 - index)
 
         return (buffer_name, len(buffer), position)
 
@@ -313,10 +360,10 @@ class BufferSystem:
         buffer_name = self.normalize_buffer_name(buffer_name)
         if buffer_name in self.buffers:
             self.buffers[buffer_name] = []
-            self.buffer_positions[buffer_name] = 0
+            self.buffer_anchors[buffer_name] = None
 
     def clear_all_buffers(self) -> None:
         """Clear all messages from all buffers."""
         for buffer_name in self.buffers:
             self.buffers[buffer_name] = []
-            self.buffer_positions[buffer_name] = 0
+            self.buffer_anchors[buffer_name] = None

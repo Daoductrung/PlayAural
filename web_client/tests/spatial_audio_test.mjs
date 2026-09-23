@@ -9,11 +9,13 @@ import {
   audioMotionPosition,
   createAudioSpatializer,
   distanceAttenuationGain,
+  frontalPositionForPan,
   normalizeAudioGainAutomation,
   normalizeAudioMotion,
   normalizeAudioPosition,
   normalizeDistanceAttenuation,
   panFromPosition,
+  proportionalListPan,
   setAudioSpatializerPosition,
   toWebAudioPosition,
 } from "../spatial_audio.js";
@@ -77,6 +79,19 @@ test("server coordinates map to Web Audio without losing elevation", () => {
   assert.equal(panFromPosition([0, -2, 0]), 0);
   assert.equal(panFromPosition([2, 0, 0]), 1);
   assert.equal(panFromPosition([-2, 0, 0]), -1);
+});
+
+test("ordered list positions remain proportional for very large histories", () => {
+  assert.equal(proportionalListPan(0, 5), -1);
+  assert.equal(proportionalListPan(2, 5), 0);
+  assert.equal(proportionalListPan(4, 5), 1);
+  assert.equal(proportionalListPan(0, 1), 0);
+  assert.equal(proportionalListPan((Number.MAX_SAFE_INTEGER - 1) / 2, Number.MAX_SAFE_INTEGER), 0);
+  assert.equal(proportionalListPan(Number.POSITIVE_INFINITY, 5), -1);
+
+  assert.deepEqual(frontalPositionForPan(-1), [-2, 0, 0]);
+  assert.deepEqual(frontalPositionForPan(0), [0, 2, 0]);
+  assert.deepEqual(frontalPositionForPan(1), [2, 0, 0]);
 });
 
 test("positioned sources use full Web Audio HRTF with neutral distance gain", () => {

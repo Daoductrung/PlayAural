@@ -20,6 +20,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from . import slash_commands
 from auth_error_messages import get_login_failure_message, is_credential_error
 from sound_manager import SoundManager
+from spatial_audio import frontal_position_for_pan, proportional_list_pan
 from typing_sounds import (
     TYPING_SOUND_HANDLE,
     TYPING_SOUND_VOLUME,
@@ -64,6 +65,9 @@ MENU_MIN_WIDTH = 280
 CONNECTION_AUDIO_ASSET = "connectloop.ogg"
 CONNECTION_AUDIO_HANDLE = "client:connection"
 CONNECTION_AUDIO_LAYER = "connection"
+BUFFER_CATEGORY_NAVIGATION_ASSET = "buffer_category_navigation.ogg"
+BUFFER_ITEM_NAVIGATION_ASSET = "buffer_item_navigation.ogg"
+BUFFER_NAVIGATION_HANDLE = "client:buffer-navigation"
 DOWNLOAD_PROGRESS_INTERVAL_SECONDS = 0.1
 DOWNLOAD_PROGRESS_UI_TIMEOUT_SECONDS = 5.0
 DOWNLOAD_SPEECH_PERCENT_STEP = 10
@@ -1233,48 +1237,85 @@ class MainWindow(wx.Frame):
 
     # Buffer navigation event handlers
 
+    def _play_buffer_navigation_sound(self, asset, index, count):
+        """Play a directional cue for a selected position in an ordered list."""
+        if count <= 0:
+            return
+        pan = proportional_list_pan(index, count)
+        self.sound_manager.play(
+            asset,
+            pan=pan,
+            position=frontal_position_for_pan(pan),
+            handle=BUFFER_NAVIGATION_HANDLE,
+            priority=100,
+        )
+
+    def _play_buffer_category_navigation_sound(self):
+        index, count = self.buffer_system.get_current_buffer_location()
+        self._play_buffer_navigation_sound(
+            BUFFER_CATEGORY_NAVIGATION_ASSET,
+            index,
+            count,
+        )
+
+    def _play_buffer_item_navigation_sound(self):
+        index, count = self.buffer_system.get_current_item_location()
+        self._play_buffer_navigation_sound(
+            BUFFER_ITEM_NAVIGATION_ASSET,
+            index,
+            count,
+        )
+
     def on_prev_buffer(self, event):
         """Handle [ key to switch to previous buffer."""
         self.buffer_system.previous_buffer()
         self._refresh_history_text_from_current_buffer()
+        self._play_buffer_category_navigation_sound()
         self._announce_buffer_info()
 
     def on_next_buffer(self, event):
         """Handle ] key to switch to next buffer."""
         self.buffer_system.next_buffer()
         self._refresh_history_text_from_current_buffer()
+        self._play_buffer_category_navigation_sound()
         self._announce_buffer_info()
 
     def on_first_buffer(self, event):
         """Handle Shift+[ to jump to first buffer."""
         self.buffer_system.first_buffer()
         self._refresh_history_text_from_current_buffer()
+        self._play_buffer_category_navigation_sound()
         self._announce_buffer_info()
 
     def on_last_buffer(self, event):
         """Handle Shift+] to jump to last buffer."""
         self.buffer_system.last_buffer()
         self._refresh_history_text_from_current_buffer()
+        self._play_buffer_category_navigation_sound()
         self._announce_buffer_info()
 
     def on_older_message(self, event):
         """Handle , key to move to older message in current buffer."""
         self.buffer_system.move_in_buffer("older")
+        self._play_buffer_item_navigation_sound()
         self._announce_current_message()
 
     def on_newer_message(self, event):
         """Handle . key to move to newer message in current buffer."""
         self.buffer_system.move_in_buffer("newer")
+        self._play_buffer_item_navigation_sound()
         self._announce_current_message()
 
     def on_oldest_message(self, event):
         """Handle Shift+, to jump to oldest message in buffer."""
         self.buffer_system.move_in_buffer("oldest")
+        self._play_buffer_item_navigation_sound()
         self._announce_current_message()
 
     def on_newest_message(self, event):
         """Handle Shift+. to jump to newest message in buffer."""
         self.buffer_system.move_in_buffer("newest")
+        self._play_buffer_item_navigation_sound()
         self._announce_current_message()
 
     def _get_localized_buffer_name(self, buffer_name):

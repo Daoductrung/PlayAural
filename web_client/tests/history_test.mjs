@@ -140,6 +140,7 @@ function createFixture(initialMutedBuffers = [], { compact = false, touchLike = 
   );
 
   const announcements = [];
+  const navigationSounds = [];
   const store = createStore();
   const view = createHistoryView({
     store,
@@ -150,6 +151,7 @@ function createFixture(initialMutedBuffers = [], { compact = false, touchLike = 
     bufferSelectEl,
     bufferMuteEl,
     announceFeedback: (text) => announcements.push(text),
+    playNavigationSound: (packet) => navigationSounds.push(packet),
     initialMutedBuffers,
     localize,
     localizeBufferName: (name) => strings[`buffer-name-${name}`],
@@ -162,6 +164,7 @@ function createFixture(initialMutedBuffers = [], { compact = false, touchLike = 
     historyEl,
     historyLogEl,
     historyToggleEl,
+    navigationSounds,
     store,
     view,
   };
@@ -270,6 +273,81 @@ test("message navigation announces history text instead of entry objects", () =>
   fixture.view.newestMessage();
   assert.equal(fixture.announcements.at(-1), "newest message");
   assert.equal(fixture.announcements.includes("[object Object]"), false);
+});
+
+test("historical navigation stays anchored when new messages arrive", () => {
+  const fixture = createFixture();
+  for (let number = 1; number <= 8; number += 1) {
+    fixture.view.addEntry(`message ${number}`, { buffer: "game", announce: false });
+  }
+
+  fixture.view.olderMessage();
+  fixture.view.olderMessage();
+  assert.equal(fixture.announcements.at(-1), "message 6");
+
+  fixture.view.addEntry("message 9", { buffer: "game", announce: false });
+  fixture.view.olderMessage();
+  assert.equal(fixture.announcements.at(-1), "message 5");
+});
+
+test("history anchors survive backlog merges and resume following at the live edge", () => {
+  const fixture = createFixture(["private"]);
+  fixture.view.addEntry("before", { buffer: "game", announce: false });
+  fixture.view.addEntry("restored between", { buffer: "private", announce: false });
+  fixture.view.addEntry("after", { buffer: "system", announce: false });
+
+  fixture.view.olderMessage();
+  assert.equal(fixture.announcements.at(-1), "before");
+  fixture.view.setMutedBuffers([]);
+  fixture.view.newerMessage();
+  assert.equal(fixture.announcements.at(-1), "restored between");
+  fixture.view.newerMessage();
+  fixture.view.addEntry("latest", { buffer: "game", announce: false });
+  fixture.view.olderMessage();
+  assert.equal(fixture.announcements.at(-1), "after");
+});
+
+test("a pruned history anchor falls to the oldest retained message", () => {
+  const fixture = createFixture();
+  for (let number = 1; number <= HISTORY_BUFFER_LIMIT; number += 1) {
+    fixture.view.addEntry(`message ${number}`, { buffer: "game", announce: false });
+  }
+  fixture.view.oldestMessage();
+  fixture.view.addEntry(`message ${HISTORY_BUFFER_LIMIT + 1}`, {
+    buffer: "game",
+    announce: false,
+  });
+
+  fixture.view.olderMessage();
+  assert.equal(fixture.announcements.at(-1), "message 2");
+});
+
+test("buffer navigation cues span categories and messages from left to right", () => {
+  const fixture = createFixture();
+  fixture.view.previousBuffer();
+  assert.deepEqual(fixture.navigationSounds.at(-1), {
+    asset: "buffer_category_navigation.ogg",
+    handle: "client:buffer-navigation",
+    pan: -100,
+    position: [-2, 0, 0],
+    priority: 100,
+  });
+
+  fixture.view.lastBuffer();
+  assert.equal(fixture.navigationSounds.at(-1).pan, 100);
+  assert.deepEqual(fixture.navigationSounds.at(-1).position, [2, 0, 0]);
+
+  for (const text of ["old", "middle", "new"]) {
+    fixture.view.addEntry(text, { buffer: "game", announce: false });
+  }
+  fixture.store.setHistoryBuffer("game");
+  fixture.view.oldestMessage();
+  assert.equal(fixture.navigationSounds.at(-1).asset, "buffer_item_navigation.ogg");
+  assert.equal(fixture.navigationSounds.at(-1).pan, -100);
+  fixture.view.newerMessage();
+  assert.equal(fixture.navigationSounds.at(-1).pan, 0);
+  fixture.view.newestMessage();
+  assert.equal(fixture.navigationSounds.at(-1).pan, 100);
 });
 
 test("history rendering tolerates legacy string entries during a PWA update", () => {

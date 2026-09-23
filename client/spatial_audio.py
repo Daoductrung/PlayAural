@@ -16,6 +16,7 @@ MAX_AUDIO_DISTANCE = (
 MAX_AUDIO_ROLLOFF = 16.0
 MAX_AUDIO_AUTOMATION_MS = 3_600_000
 MAX_AUDIO_SEQUENCE_SEGMENTS = 32
+TABLE_RADIUS = 2.0
 AUDIO_ATTENUATION_MODELS = frozenset({"none", "linear", "inverse", "exponential"})
 AUDIO_AUTOMATION_EASINGS = frozenset(
     {"linear", "ease-in", "ease-out", "ease-in-out"}
@@ -155,6 +156,25 @@ def normalize_audio_position(value: Any) -> AudioPosition | None:
     ):
         raise ValueError("Audio position coordinates must be finite and in range")
     return position
+
+
+def proportional_list_pan(index: int, count: int) -> float:
+    """Map a zero-based list index across the full left-to-right field."""
+    if count <= 1:
+        return 0.0
+    bounded_index = max(0, min(count - 1, index))
+    return (bounded_index / (count - 1) * 2.0) - 1.0
+
+
+def frontal_position_for_pan(
+    pan: float,
+    radius: float = TABLE_RADIUS,
+) -> AudioPosition:
+    """Place a normalized pan on the listener's forward-facing semicircle."""
+    bounded_pan = max(-1.0, min(1.0, float(pan)))
+    x = bounded_pan * radius
+    y = math.sqrt(max(0.0, radius * radius - x * x))
+    return (x, y, 0.0)
 
 
 def normalize_distance_attenuation(value: Any) -> DistanceAttenuation | None:

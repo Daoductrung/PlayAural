@@ -36,6 +36,35 @@ export function panFromPosition(position) {
     : Math.max(-1, Math.min(1, x / horizontalDistance));
 }
 
+export function proportionalListPan(index, count) {
+  const resolvedCount = Number(count);
+  if (!Number.isFinite(resolvedCount) || resolvedCount <= 1) {
+    return 0;
+  }
+  const lastIndex = resolvedCount - 1;
+  const resolvedIndex = Number(index);
+  const boundedIndex = Math.max(
+    0,
+    Math.min(lastIndex, Number.isFinite(resolvedIndex) ? resolvedIndex : 0),
+  );
+  return (boundedIndex / lastIndex * 2) - 1;
+}
+
+export function frontalPositionForPan(pan, radius = TABLE_RADIUS) {
+  const resolvedPan = Number(pan);
+  const boundedPan = Math.max(
+    -1,
+    Math.min(1, Number.isFinite(resolvedPan) ? resolvedPan : 0),
+  );
+  const resolvedRadius = Number(radius);
+  const boundedRadius = Number.isFinite(resolvedRadius) && resolvedRadius > 0
+    ? Math.min(MAX_AUDIO_POSITION, resolvedRadius)
+    : TABLE_RADIUS;
+  const x = boundedPan * boundedRadius;
+  const y = Math.sqrt(Math.max(0, (boundedRadius ** 2) - (x ** 2)));
+  return Object.freeze([x, y, 0]);
+}
+
 export function normalizeDistanceAttenuation(value) {
   if (value === undefined || value === null) {
     return undefined;

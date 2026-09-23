@@ -11,7 +11,11 @@ import {
   normalizeLocale,
 } from "./locales/index.js";
 import { installCollapsiblePanels } from "./ui/collapsiblePanels.js";
-import { createHistoryView } from "./ui/history.js";
+import {
+  BUFFER_CATEGORY_NAVIGATION_ASSET,
+  BUFFER_ITEM_NAVIGATION_ASSET,
+  createHistoryView,
+} from "./ui/history.js";
 import { createMenuView } from "./ui/menus.js";
 import { resolveMenuFocusIndex, stableMenuItemId } from "./ui/menuFocus.js";
 import {
@@ -1106,6 +1110,7 @@ class PlayAuralWebApp {
       bufferMuteEl: this.elements.historyBufferMute,
       a11y: this.a11y,
       announceFeedback: (text, options = {}) => this.announceInterface(text, options),
+      playNavigationSound: (packet) => this.audio.playSound(packet),
       onMutedBuffersChange: (buffers) => {
         this.preferences.muted_buffers = buffers;
         this.saveLocalConfig();
@@ -1767,6 +1772,10 @@ class PlayAuralWebApp {
     this.audio.setEffectsVolumePercent(soundVolume);
     this.audio.setMusicVolumePercent(musicVolume);
     this.audio.setAmbienceVolumePercent(ambienceVolume);
+    this.audio.preloadEffects?.([
+      BUFFER_CATEGORY_NAVIGATION_ASSET,
+      BUFFER_ITEM_NAVIGATION_ASSET,
+    ]);
     if (this.preferences.play_typing_sounds !== false) {
       this.audio.preloadEffectFamily?.(TYPING_SOUND_FAMILY);
       this.audio.preloadEffects?.(TYPING_EXACT_ASSETS);

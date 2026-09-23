@@ -1,5 +1,21 @@
 Nhật ký thay đổi
 
+Thứ Tư 23 Tháng Chín 2026
+
+Tính năng mới:
+
+* Điểm Đột Phá đã được thêm cho hai đội ngang quân số từ 2 đấu 2 đến 5 đấu 5. Trong trò chiến thuật theo lượt trên bản đồ Dust này, T phải đặt và bảo vệ bom, còn CT phải ngăn đặt hoặc gỡ bom. Trò chơi có sương mù chiến tranh, đường ngắm và Kê góc; hệ thống vũ khí, giáp và lựu đạn; kinh tế qua từng hiệp với hoàn tiền và mua tặng đồng đội; vũ khí bị rơi; thể thức MR7, MR12 và MR15; tùy chọn hiệp phụ MR3 có thể lặp lại; bot biết theo đuổi mục tiêu; trình đơn mua và chiến đấu dễ tiếp cận; hệ thống âm thanh không gian đầy đủ; cùng tài liệu cho người mới bằng tiếng Anh và tiếng Việt.
+* Phần mềm máy tính, web và di động giờ đều có thể phát các âm thanh được hỗ trợ trong không gian ba chiều. Âm thanh có thể xuất hiện ở phía trên, phía dưới, xung quanh bạn, từ xa hoặc đang chuyển động; các đoạn nối tiếp và chồng nhau vẫn khớp nhịp. Âm thanh nổi có hướng vẫn giúp bạn nhận biết vị trí khi thiết bị không phát được đầy đủ hiệu ứng không gian.
+
+Cải thiện:
+
+* Nhật ký trên phần mềm máy tính và web giờ giữ nguyên đúng tin bạn đang đọc khi có tin mới hoặc khi nội dung từng bị tắt tiếng được đưa trở lại. Phím ngoặc vuông trái và phải chuyển giữa các bộ đệm, còn phím phẩy và chấm chuyển giữa các tin; mỗi âm báo điều hướng di chuyển dần từ trái sang phải để thể hiện vị trí từ cũ nhất đến mới nhất.
+* Trên di động, khi tắt chế độ tự đọc, TalkBack giờ tự xếp hàng và đọc thông báo từ máy chủ cùng giao diện theo đúng thứ tự mà không chen ngang lời đang đọc. Khi bạn điều hướng hoặc thực hiện thao tác khác, các thông báo còn chờ sẽ được xóa để ưu tiên phản hồi hiện tại. Khi bật chế độ tự đọc trên Android, nếu giọng hoặc bộ máy TTS đã chọn không phát được, ứng dụng sẽ thử giọng mặc định và các bộ máy TTS khác đã cài thay vì tiếp tục im lặng.
+
+Sửa lỗi:
+
+* Khi lưu và khôi phục bàn, hệ thống giờ giữ đúng trạng thái riêng tư và danh sách cấm của bàn, kể cả qua lần máy chủ khởi động lại theo lịch. Bàn riêng tư vẫn là bàn riêng tư; ai từng bị chủ bàn chọn Đuổi và cấm người chơi sẽ không thể vào lại sau khi khôi phục. Các bàn đã lưu từ phiên bản cũ vẫn tải bình thường.
+
 Thứ Sáu 11 Tháng Chín 2026
 
 Tính năng mới:
@@ -10,7 +26,7 @@ Tính năng mới:
 
 Cải thiện:
 
-* Điều hướng và giọng đọc trên di động giờ đáng tin cậy hơn từ lúc đăng nhập đến khi chơi. Chế độ tự đọc nhận cử chỉ một, hai và ba ngón ổn định hơn, phục hồi sau khi dịch vụ đọc của Android bị gián đoạn, đồng thời chuyển đổi mượt mà giữa tự đọc và TalkBack. Quay lại sẽ đóng hộp thoại hoặc ô nhập đang hiện trước khi rời màn hình hiện tại; Trợ giúp và cử chỉ giờ tập trung cả hướng dẫn lẫn thông tin bản dựng.
+* Điều hướng trên di động giờ đáng tin cậy hơn từ lúc đăng nhập đến khi chơi. Chế độ tự đọc nhận cử chỉ một, hai và ba ngón ổn định hơn. Quay lại sẽ đóng hộp thoại hoặc ô nhập đang hiện trước khi rời màn hình hiện tại; Trợ giúp và cử chỉ giờ tập trung cả hướng dẫn lẫn thông tin bản dựng.
 * Các bàn cờ lớn như Tàu Chiến giờ giữ kích thước chạm dễ dùng và cuộn mượt theo mọi hướng trên web lẫn di động, gồm cả thao tác kéo bằng hai ngón với TalkBack. Ô đang được chọn sẽ tự hiện vào vùng nhìn mà không làm chậm con trỏ hoặc lời đọc.
 * Đọc người dùng trực tuyến giờ đọc tổng số trước, rồi đến nhà phát triển, quản trị viên và những người dùng khác. Mở danh sách người dùng trực tuyến cũng dùng thứ tự này, giữ nguyên trang hiện tại khi tự làm mới và luôn cho phép mở các thao tác tài khoản phù hợp khi có người trực tuyến, ngoại tuyến hoặc thay đổi vai trò.
 * Văn bản trong các ngôn ngữ viết từ phải sang trái giờ hiển thị đúng chiều trên phần mềm máy tính, web và di động, trong khi bố cục cùng thứ tự điều hướng quen thuộc vẫn giữ nguyên.
@@ -283,7 +299,7 @@ Sửa lỗi:
 * Phím chỉnh âm lượng nhạc và môi trường trên web giờ điều chỉnh âm thanh trình duyệt đang phát.
 * ARIA live và Web Speech trên web giờ tránh bỏ sót thông báo đáng tin cậy hơn.
 * Phím đọc bộ đệm trên web giờ hoạt động trong chế độ Web Speech.
-* Phần chọn giọng nói và tốc độ đọc trên web giờ rõ hơn trên Windows, Android, iOS, và macOS.
+* Phần chọn giọng nói và tốc độ đọc trên web giờ rõ hơn trên Windows, Android và macOS.
 * Bản dịch và thông báo kết nối trên web giờ rõ hơn bằng tiếng Anh và tiếng Việt.
 
 Chủ Nhật 21 Tháng Sáu 2026

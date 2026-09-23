@@ -1,5 +1,21 @@
 Changelog
 
+Wednesday 23 September 2026
+
+New Additions:
+
+* Breach Point has been added for two equal squads from 2v2 through 5v5. This turn-based tactical game on Dust pits T, which must plant and defend the bomb, against CT, which must prevent the plant or defuse it. It includes fog of war, sightlines and held angles, weapons, armor and grenades, a round-to-round economy with refunds and teammate purchases, dropped weapons, MR7, MR12, and MR15 formats, optional repeatable MR3 overtime, objective-aware bots, accessible buy and combat menus, a fully spatial soundscape, and beginner guides in English and Vietnamese.
+* Desktop, Web, and Mobile can now play supported sounds in three-dimensional space. Cues may come from above, below, around you, at a distance, or in motion, while connected and overlapping effects remain synchronized. Directional stereo keeps these cues useful when full spatial playback is unavailable.
+
+Improvements:
+
+* History on Desktop and Web now keeps the exact message you are reviewing selected when new messages arrive or a muted backlog returns. The left and right bracket keys move between buffers, while comma and period move between messages; each navigation cue travels from left to right to show your position from oldest to newest.
+* On Mobile, turning self-voicing off now lets TalkBack queue and speak server and interface announcements in order without interrupting current speech. Navigating or performing another action clears pending announcements so current feedback takes priority. With self-voicing on, Android now retries the default voice and other installed TTS engines if the selected voice or engine cannot speak, instead of remaining silent.
+
+Bug Fixes:
+
+* Saving and restoring a table now preserves its private status and table ban list, including through planned server restarts. A private table stays private, and anyone removed with Kick and Ban a Player cannot rejoin after restoration. Saved tables from older versions continue to load normally.
+
 Friday 11 September 2026
 
 New Additions:
@@ -10,7 +26,7 @@ New Additions:
 
 Improvements:
 
-* Mobile navigation and speech are more reliable throughout login and play. Self-voicing recognizes one-, two-, and three-finger gestures more consistently, recovers after Android speech-service interruptions, and switches cleanly between self-voicing and TalkBack. Back closes the visible dialog or text box before moving away from the current screen, and Help and gestures now keeps instructions and build information together.
+* Mobile navigation is more reliable throughout login and play. Self-voicing recognizes one-, two-, and three-finger gestures more consistently. Back closes the visible dialog or text box before moving away from the current screen, and Help and gestures now keeps instructions and build information together.
 * Large game boards such as Battleship now keep readable touch targets and scroll smoothly in every direction on Web and Mobile, including two-finger panning with TalkBack. Focused cells are brought into view without delaying cursor movement or speech.
 * Read online users now announces the total first, followed by developers, administrators, and other users. Open online users list follows the same order, stays on the current page while it refreshes, and keeps account actions available as people come online, go offline, or change roles.
 * Text in right-to-left languages now uses the correct writing direction throughout Desktop, Web, and Mobile while keeping the familiar layout and navigation order.
@@ -283,7 +299,7 @@ Bug Fixes:
 * Web music and ambience volume shortcuts now adjust the active browser audio.
 * Web ARIA live and Web Speech output now avoids skipped messages more reliably.
 * Web buffer-reading shortcuts now work in Web Speech mode.
-* Web voice selection and speech speed controls are clearer across Windows, Android, iOS, and macOS.
+* Web voice selection and speech speed controls are clearer across Windows, Android, and macOS.
 * Web localization and connection messages are clearer in English and Vietnamese.
 
 Sunday 21 June 2026

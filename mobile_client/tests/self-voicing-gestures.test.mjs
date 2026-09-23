@@ -108,16 +108,17 @@ test("overlay gestures resolve from synchronous mode state", () => {
 test("self-voicing disable remains audible without a native screen reader", () => {
   assert.match(
     appSource,
-    /if \(screenReaderEnabled\) \{[\s\S]*announceForNativeScreenReader\(message\);/,
+    /if \(nativeReaderEnabled\) \{[\s\S]*announceForNativeScreenReader\(message\);/,
   );
   assert.match(
     appSource,
-    /tts\.speakAnnouncement\(message, \{[\s\S]*remember: false,[\s\S]*\}\);[\s\S]*tts\.setUiEnabled\(false\);/,
+    /tts\.stop\(\);\s*tts\.setUiEnabled\(false\);[\s\S]*tts\.speakAnnouncement\(message, \{[\s\S]*remember: false,[\s\S]*\}\);/,
   );
 });
 
 test("self-voicing toggles resolve from synchronous state", () => {
   assert.match(appSource, /selfVoicingEnabledRef\.current = enabled;/);
+  assert.match(appSource, /const nativeReaderEnabled = screenReaderEnabledRef\.current;/);
   assert.match(
     appSource,
     /updateSelfVoicing\(!selfVoicingEnabledRef\.current\);/,

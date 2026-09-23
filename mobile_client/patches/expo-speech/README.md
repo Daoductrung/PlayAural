@@ -15,9 +15,13 @@ focus or selecting an output device. No utterance text is logged or persisted.
 The JS driver owns readiness deadlines, bounded retries, current utterance
 cancellation, native input-length chunking, and completion polling after speech
 starts. Its recovery policy is injectable; Android and iOS do not supply binding
-or callback deadlines. Recovery first retries with the current system engine's
-default voice. A permanent failure releases the queue, and later speech requests
-can try again. This cannot repair a disabled engine or unavailable voice data.
+or callback deadlines. Recovery first retries with the current engine's default
+voice. If that engine still cannot start, Android discovers installed engines,
+prefers system engines without relying on package-name allowlists, and tries a
+bounded set until one starts. The working runtime fallback remains active until
+the speech environment is refreshed; the user's synchronized engine and voice
+preferences are never overwritten. Errors received after speech starts are not
+replayed, because doing so could duplicate already-audible text.
 
 ## Dependency updates
 

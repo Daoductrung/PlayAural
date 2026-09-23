@@ -5,10 +5,12 @@ import vm from "node:vm";
 import ts from "typescript";
 
 async function fixture(platform = "android") {
-  const listeners = new Map(); const requests = []; let resets = 0, stops = 0;
+  const listeners = new Map(); const requests = []; const selectedEngines = []; let resets = 0, stops = 0;
   const native = {
     maxSpeechInputLength: platform === "android" ? 4000 : undefined,
+    getEngines: async () => [{ identifier: "engine", label: "Engine", isDefault: true, isSystem: true }],
     getVoices: async () => [], isSpeaking: async () => false,
+    setEngine: async (identifier) => { selectedEngines.push(identifier); },
     stop: async () => { stops++; }, reset: async () => { resets++; },
     speak: async (id, text, options) => { requests.push({ id, text, options }); },
     addListener: (event, listener) => {
@@ -33,7 +35,7 @@ async function fixture(platform = "android") {
   return {
     create: module.exports.createExpoSpeechBackend, native, requests, emit,
     listenerCount: () => [...listeners.values()].reduce((sum, entries) => sum + entries.size, 0),
-    resets: () => resets, stops: () => stops,
+    resets: () => resets, selectedEngines, stops: () => stops,
   };
 }
 
@@ -56,6 +58,17 @@ test("native rejection and cancellation release listeners and keep callbacks off
   f.native.speak = async () => { throw new Error("unavailable"); };
   await assert.rejects(backend.speak("failed", {}), /unavailable/);
   assert.equal(f.listenerCount(), 0);
+});
+
+test("Android exposes engine discovery and selection while iOS omits Android-only controls", async () => {
+  const android = await fixture(); const androidBackend = android.create();
+  assert.equal((await androidBackend.getEngines())[0].identifier, "engine");
+  await androidBackend.selectEngine("engine");
+  assert.deepEqual(android.selectedEngines, ["engine"]);
+
+  const ios = await fixture("ios"); const iosBackend = ios.create();
+  assert.equal(iosBackend.getEngines, undefined);
+  assert.equal(iosBackend.selectEngine, undefined);
 });
 
 test("iOS uses its unbounded speech input and stop fallback without Android-only APIs", async () => {

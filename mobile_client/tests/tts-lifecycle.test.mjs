@@ -21,7 +21,7 @@ async function load(name, globals = {}) {
   return module.exports;
 }
 
-async function fixture() {
+async function fixture(policyOverrides = {}) {
   let now = 0, nextId = 0;
   const timers = new Map();
   const clock = {
@@ -49,6 +49,7 @@ async function fixture() {
   const { NativeSpeechDriver } = await load("NativeSpeechDriver", clock);
   const driver = new NativeSpeechDriver(backend, {
     operationTimeoutMs: 100, startTimeoutMs: 100, completionPollMs: 10, recoveryAttempts: 1,
+    ...policyOverrides,
   });
   return { driver, backend, calls, utterances, advance, timers };
 }
@@ -80,6 +81,26 @@ test("failed initialization rebinds and speaks without restarting the app", asyn
   assert.equal(attempts, 2); assert.ok(f.calls.includes("reset"));
   assert.equal(f.utterances[0].text, "recovered");
   f.driver.stop(); await flush();
+});
+
+test("a transient initialization failure does not blacklist an untried preferred voice", async () => {
+  const f = await fixture(); let voiceQueries = 0;
+  f.backend.getVoices = async () => {
+    if (voiceQueries++ === 0) throw new Error("temporary initialization failure");
+    return [{ identifier: "installed" }];
+  };
+  f.backend.speak = async (text, options) => {
+    f.utterances.push({ text, options });
+    options.onDone();
+  };
+
+  f.driver.speak("recover", { voice: "installed" });
+  for (let index = 0; index < 8; index++) await flush();
+  assert.equal(f.utterances[0].options.voice, undefined);
+
+  f.driver.speak("retry preferred voice", { voice: "installed" });
+  for (let index = 0; index < 5; index++) await flush();
+  assert.equal(f.utterances.at(-1).options.voice, "installed");
 });
 
 test("missing initialization and start callbacks have bounded recovery", async () => {
@@ -207,6 +228,127 @@ test("native rejection retries with default voice and propagates permanent failu
   assert.equal(f.utterances.length, 2); assert.equal(f.utterances[0].options.voice, "installed");
   assert.equal(f.utterances[1].options.voice, undefined); assert.equal(errors, 1);
   assert.equal(f.timers.size, 0);
+});
+
+test("a failed preferred voice is bypassed on later utterances without losing the preference", async () => {
+  const f = await fixture();
+  f.backend.speak = async (text, options) => {
+    f.utterances.push({ text, options });
+    if (options.voice) throw new Error("voice failed");
+    options.onDone();
+  };
+  f.driver.speak("first", { voice: "installed" });
+  await flush(); await flush(); await flush();
+  assert.deepEqual(f.utterances.map((entry) => entry.options.voice), ["installed", undefined]);
+
+  f.driver.speak("second", { voice: "installed" });
+  await flush(); await flush();
+  assert.equal(f.utterances.at(-1).text, "second");
+  assert.equal(f.utterances.at(-1).options.voice, undefined);
+});
+
+test("an engine error after speech starts is reported without replaying audible text", async () => {
+  const f = await fixture(); let errors = 0;
+  f.driver.speak("do not repeat", { onError: () => errors++ }); await flush();
+  f.utterances[0].options.onStart();
+  f.utterances[0].options.onError(new Error("late engine failure"));
+  await flush();
+  assert.equal(f.utterances.length, 1);
+  assert.equal(errors, 1);
+});
+
+test("a silent default engine falls back to an installed system engine and keeps using it", async () => {
+  const f = await fixture(); let selected = "broken.default"; const selections = [];
+  f.backend.getEngines = async () => [
+    { identifier: "broken.default", isDefault: true, isSystem: false, label: "Broken" },
+    { identifier: "working.system", isDefault: false, isSystem: true, label: "Working" },
+  ];
+  f.backend.selectEngine = async (identifier) => { selected = identifier; selections.push(identifier); };
+  f.backend.reset = async () => { selected = "broken.default"; f.calls.push("reset"); };
+  f.backend.speak = async (text, options) => {
+    f.utterances.push({ engine: selected, text, options });
+    if (selected === "broken.default") throw new Error("engine failed");
+    options.onDone();
+  };
+
+  f.driver.speak("recover", {});
+  for (let index = 0; index < 10; index++) await flush();
+  assert.equal(f.utterances.at(-1).engine, "working.system");
+  assert.deepEqual(selections, ["working.system"]);
+
+  f.driver.speak("stay recovered", {});
+  for (let index = 0; index < 5; index++) await flush();
+  assert.equal(f.utterances.at(-1).engine, "working.system");
+  assert.deepEqual(selections, ["working.system"]);
+});
+
+test("engine fallback is bounded and prioritizes installed system engines", async () => {
+  const f = await fixture({ maxEngineFallbacks: 1 }); let selected = "broken.default", errors = 0;
+  const selections = [];
+  f.backend.getEngines = async () => [
+    { identifier: "broken.default", isDefault: true, label: "Default" },
+    { identifier: "third.party", label: "A third-party engine" },
+    { identifier: "working.system", isSystem: true, label: "System engine" },
+  ];
+  f.backend.selectEngine = async (identifier) => { selected = identifier; selections.push(identifier); };
+  f.backend.speak = async (text, options) => {
+    f.utterances.push({ engine: selected, text, options });
+    throw new Error("engine failed");
+  };
+
+  f.driver.speak("bounded recovery", { onError: () => errors++ });
+  for (let index = 0; index < 12; index++) await flush();
+  assert.deepEqual(selections, ["working.system"]);
+  assert.equal(errors, 1);
+});
+
+test("invalid recovery budgets fall back to finite defaults", async () => {
+  const f = await fixture({ maxEngineFallbacks: Infinity, recoveryAttempts: 0 });
+  const selections = []; let errors = 0;
+  f.backend.getEngines = async () => [
+    { identifier: "broken.default", isDefault: true },
+    ...Array.from({ length: 12 }, (_, index) => ({ identifier: `fallback.${index}` })),
+  ];
+  f.backend.selectEngine = async (identifier) => { selections.push(identifier); };
+  f.backend.speak = async () => { throw new Error("engine failed"); };
+
+  f.driver.speak("bounded invalid policy", { onError: () => errors++ });
+  for (let index = 0; index < 20; index++) await flush();
+  assert.equal(selections.length, 8);
+  assert.equal(errors, 1);
+});
+
+test("engine discovery completing after reset cannot restore a stale fallback catalog", async () => {
+  const f = await fixture(); const staleCatalog = deferred(); let catalogRequests = 0;
+  let selected = "broken.default"; const selections = [];
+  f.backend.getEngines = () => ++catalogRequests === 1
+    ? staleCatalog.promise
+    : Promise.resolve([
+      { identifier: "broken.default", isDefault: true, label: "Default" },
+      { identifier: "current.system", isSystem: true, label: "Current" },
+    ]);
+  f.backend.selectEngine = async (identifier) => { selected = identifier; selections.push(identifier); };
+  f.backend.reset = async () => { selected = "broken.default"; f.calls.push("reset"); };
+  f.backend.speak = async (text, options) => {
+    f.utterances.push({ engine: selected, text, options });
+    if (selected === "current.system") options.onDone();
+    else throw new Error("engine failed");
+  };
+
+  f.driver.speak("stale request", {});
+  await flush(); await flush();
+  assert.equal(catalogRequests, 1);
+  f.driver.reset();
+  f.driver.speak("current request", {});
+  for (let index = 0; index < 5; index++) await flush();
+  assert.equal(catalogRequests, 2);
+  staleCatalog.resolve([
+    { identifier: "broken.default", isDefault: true, label: "Default" },
+    { identifier: "stale.system", isSystem: true, label: "Stale" },
+  ]);
+  for (let index = 0; index < 12; index++) await flush();
+  assert.deepEqual(selections, ["current.system"]);
+  assert.equal(f.utterances.at(-1).text, "current request");
 });
 
 test("long input is delivered in native-sized chunks without breaking emoji or ordering", async () => {

@@ -32,6 +32,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { PoliteAnnouncementQueue } from "../accessibility/PoliteAnnouncementQueue";
 import { MobileAudioManager } from "../audio/MobileAudioManager";
 import { requestAndroidBatteryOptimizationExemptionOnce } from "../background/AndroidBatteryOptimization";
 import { androidForegroundService } from "../background/AndroidForegroundService";
@@ -77,6 +78,7 @@ import type {
 import {
   BUFFER_NAMES,
   BufferStore,
+  DEFAULT_BUFFER_CAPACITY,
   normalizeBufferName,
   type BufferName,
 } from "../state/BufferStore";
@@ -598,11 +600,19 @@ export function PlayAuralApp() {
   const [selfVoicingEnabled, setSelfVoicingEnabled] = useState(true);
   const selfVoicingEnabledRef = useRef(true);
   const [screenReaderEnabled, setScreenReaderEnabled] = useState(WEB_SCREEN_READER_SUPPORT);
+  const screenReaderEnabledRef = useRef(WEB_SCREEN_READER_SUPPORT);
   const [activeTextInputKey, setActiveTextInputKey] = useState<string | null>(null);
   const [screenReaderAnnouncement, setScreenReaderAnnouncement] = useState<ScreenReaderAnnouncement>({
     id: 0,
     text: "",
   });
+  const screenReaderAnnouncementQueue = useMemo(() => new PoliteAnnouncementQueue(
+    (text) => setScreenReaderAnnouncement((current) => ({
+      id: current.id + 1,
+      text,
+    })),
+    DEFAULT_BUFFER_CAPACITY,
+  ), []);
   const [mainPanelLayout, setMainPanelLayout] = useState({ height: 0, width: 0 });
   const [voiceCapability, setVoiceCapability] = useState<VoiceCapability>({
     enabled: false,
@@ -775,6 +785,7 @@ export function PlayAuralApp() {
       onBlur: Platform.OS === "android" ? (listener) => AppState.addEventListener("blur", listener) : undefined,
     }, (enabled) => {
       const nativeEnabled = enabled || WEB_SCREEN_READER_SUPPORT;
+      screenReaderEnabledRef.current = nativeEnabled;
       nativeScreenReaderModeRef.current = !selfVoicingEnabledRef.current && nativeEnabled;
       setScreenReaderEnabled(nativeEnabled);
     }, () => tts.refreshNativeSpeech());
@@ -797,15 +808,17 @@ export function PlayAuralApp() {
       clearTimeout(programmaticNativeFocusTimerRef.current);
       programmaticNativeFocusTimerRef.current = null;
     }
-  }, []);
+    screenReaderAnnouncementQueue.dispose();
+  }, [screenReaderAnnouncementQueue]);
 
-  const nativeScreenReaderMode = !selfVoicingEnabled && (screenReaderEnabled || WEB_SCREEN_READER_SUPPORT);
+  const nativeScreenReaderMode = !selfVoicingEnabled && screenReaderEnabled;
   const selfVoicingGestureEnabled = selfVoicingEnabled;
   const selfVoicingKeyboardEnabled = selfVoicingEnabled && activeTextInputKey === null;
 
   useEffect(() => {
     nativeScreenReaderModeRef.current = nativeScreenReaderMode;
     if (!nativeScreenReaderMode) {
+      screenReaderAnnouncementQueue.clear();
       lastNativeFocusKeyRef.current = null;
       pendingNativeAccessibilityFocusKeyRef.current = null;
       nativeFocusTargetKeyRef.current = null;
@@ -820,34 +833,39 @@ export function PlayAuralApp() {
         nativeFocusTargetReleaseTimerRef.current = null;
       }
     }
-  }, [nativeScreenReaderMode]);
+  }, [nativeScreenReaderMode, screenReaderAnnouncementQueue]);
 
-  const postNativeScreenReaderAnnouncement = useCallback((text: string) => {
+  const clearScreenReaderAnnouncements = useCallback(() => {
+    screenReaderAnnouncementQueue.clear();
+  }, [screenReaderAnnouncementQueue]);
+
+  const postNativeScreenReaderAnnouncement = useCallback((
+    text: string,
+    options: { queue?: boolean } = {},
+  ) => {
     if (!text) {
       return;
     }
-    if (Platform.OS === "web") {
-      setScreenReaderAnnouncement((current) => ({
-        id: current.id + 1,
-        text,
-      }));
+    if (Platform.OS === "ios") {
+      AccessibilityInfo.announceForAccessibilityWithOptions(text, {
+        queue: options.queue ?? true,
+      });
     } else {
-      const announceWithOptions = (
-        AccessibilityInfo as typeof AccessibilityInfo & {
-          announceForAccessibilityWithOptions?: (announcement: string, options: { queue?: boolean }) => void;
-        }
-      ).announceForAccessibilityWithOptions;
-      if (announceWithOptions) {
-        announceWithOptions(text, { queue: false });
-      } else {
-        AccessibilityInfo.announceForAccessibility(text);
-      }
+      // One live-region commit per frame prevents React batching from
+      // collapsing adjacent server messages, while the screen reader remains
+      // responsible for the actual speech queue.
+      screenReaderAnnouncementQueue.enqueue(text, {
+        interrupt: options.queue === false,
+      });
     }
-  }, []);
+  }, [screenReaderAnnouncementQueue]);
 
   const announceForNativeScreenReader = useCallback((text: string) => {
+    if (!nativeScreenReaderModeRef.current) {
+      return;
+    }
     tts.stopAnnouncements();
-    postNativeScreenReaderAnnouncement(text);
+    postNativeScreenReaderAnnouncement(text, { queue: false });
   }, [postNativeScreenReaderAnnouncement, tts]);
 
   const clearScheduledNativeFocus = useCallback((key?: string | null) => {
@@ -915,6 +933,7 @@ export function PlayAuralApp() {
       }
     }
     tts.stopAnnouncements();
+    clearScreenReaderAnnouncements();
     pendingNativeAccessibilityFocusKeyRef.current = null;
     pendingNativeAccessibilityFocusQueuedAtRef.current = 0;
     nativeFocusTargetKeyRef.current = null;
@@ -927,18 +946,24 @@ export function PlayAuralApp() {
       clearTimeout(nativeFocusTargetReleaseTimerRef.current);
       nativeFocusTargetReleaseTimerRef.current = null;
     }
-  }, [nativeScreenReaderMode, tts]);
+  }, [clearScreenReaderAnnouncements, nativeScreenReaderMode, tts]);
 
   const speakServerAnnouncement = useCallback(
     (text: string, options?: { remember?: boolean }) => {
       if (!text) {
         return;
       }
+      if (!selfVoicingEnabledRef.current) {
+        if (nativeScreenReaderModeRef.current) {
+          postNativeScreenReaderAnnouncement(text, { queue: true });
+        }
+        return;
+      }
       tts.speakAnnouncement(text, {
         ...options,
       });
     },
-    [tts],
+    [postNativeScreenReaderAnnouncement, tts],
   );
 
   const registerAccessibilityNode = useCallback(
@@ -1447,9 +1472,11 @@ export function PlayAuralApp() {
       }
       if (storedSelfVoicing === "0") {
         selfVoicingEnabledRef.current = false;
+        nativeScreenReaderModeRef.current = screenReaderEnabledRef.current;
         setSelfVoicingEnabled(false);
       } else if (storedSelfVoicing === "1") {
         selfVoicingEnabledRef.current = true;
+        nativeScreenReaderModeRef.current = false;
         setSelfVoicingEnabled(true);
       }
     } catch {
@@ -1502,28 +1529,32 @@ export function PlayAuralApp() {
   };
 
   const updateSelfVoicing = useCallback((enabled: boolean) => {
+    const nativeReaderEnabled = screenReaderEnabledRef.current;
     selfVoicingEnabledRef.current = enabled;
-    nativeScreenReaderModeRef.current = !enabled && (screenReaderEnabled || WEB_SCREEN_READER_SUPPORT);
+    nativeScreenReaderModeRef.current = !enabled && nativeReaderEnabled;
     setSelfVoicingEnabled(enabled);
     const message = localization.t(
       enabled
         ? "sv-enabled-announcement"
-        : screenReaderEnabled
+        : nativeReaderEnabled
           ? "sv-disabled-announcement"
           : "sv-disabled-no-screen-reader-announcement",
     );
     addHistoryMessage("system", message);
     if (enabled) {
+      clearScreenReaderAnnouncements();
+      tts.stop();
       tts.refreshNativeSpeech();
-      tts.setUiEnabled(true);
+      tts.setUiEnabled(true, { refreshCurrentFocus: false });
       tts.speakUi(message, {
         interruptAnnouncement: true,
         interruptUi: true,
       });
       return;
     }
-    if (screenReaderEnabled) {
-      tts.setUiEnabled(false);
+    tts.stop();
+    tts.setUiEnabled(false);
+    if (nativeReaderEnabled) {
       announceForNativeScreenReader(message);
       return;
     }
@@ -1533,8 +1564,7 @@ export function PlayAuralApp() {
     tts.speakAnnouncement(message, {
       remember: false,
     });
-    tts.setUiEnabled(false);
-  }, [addHistoryMessage, announceForNativeScreenReader, localization, screenReaderEnabled, tts]);
+  }, [addHistoryMessage, announceForNativeScreenReader, clearScreenReaderAnnouncements, localization, tts]);
 
   const toggleSelfVoicing = useCallback(() => {
     updateSelfVoicing(!selfVoicingEnabledRef.current);
@@ -5851,10 +5881,6 @@ export function PlayAuralApp() {
   );
 
   const renderScreenReaderOnlyControls = () => {
-    if (Platform.OS === "web" && !screenReaderEnabled && !WEB_SCREEN_READER_SUPPORT) {
-      return null;
-    }
-
     return (
       <Pressable
         accessibilityLabel={localization.t(
@@ -6022,15 +6048,20 @@ export function PlayAuralApp() {
             ) : null}
           </>
         )}
-        {Platform.OS === "web" ? (
+        {Platform.OS !== "ios" ? [0, 1].map((slot) => (
           <Text
-            aria-live="polite"
-            key={`screen-reader-announcement-${screenReaderAnnouncement.id}`}
-            style={[styles.screenReaderOnly, localeTextDirectionStyle]}
+            accessibilityLiveRegion={Platform.OS === "android" ? "polite" : undefined}
+            aria-live={Platform.OS === "web" ? "polite" : undefined}
+            key={`screen-reader-announcement-${slot}`}
+            pointerEvents="none"
+            style={[
+              Platform.OS === "web" ? styles.screenReaderOnly : styles.nativeScreenReaderAnnouncement,
+              localeTextDirectionStyle,
+            ]}
           >
-            {screenReaderAnnouncement.text}
+            {screenReaderAnnouncement.id % 2 === slot ? screenReaderAnnouncement.text : ""}
           </Text>
-        ) : null}
+        )) : null}
         </KeyboardAvoidingView>
       </AccessibilityOrderedView>
     </SafeAreaView>
@@ -6065,6 +6096,14 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     position: "absolute",
     top: 0,
+    width: 1,
+  },
+  nativeScreenReaderAnnouncement: {
+    bottom: 0,
+    height: 1,
+    opacity: 0.01,
+    overflow: "hidden",
+    position: "absolute",
     width: 1,
   },
   nativeScreenReaderOnlyControl: {

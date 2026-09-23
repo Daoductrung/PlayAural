@@ -2,12 +2,29 @@ import type { SpeechOptions, Voice } from "expo-speech";
 
 export interface NativeSpeechBackend {
   maxSpeechInputLength: number;
+  getEngines?(): Promise<SpeechEngine[]>;
   getVoices(): Promise<Voice[]>;
   speak(text: string, options: SpeechOptions): Promise<void>;
   stop(): Promise<void>;
   reset(): Promise<void>;
+  selectEngine?(identifier: string): Promise<void>;
   isSpeaking(): Promise<boolean>;
 }
+
+export type SpeechEngine = {
+  identifier: string;
+  isDefault?: boolean;
+  isSystem?: boolean;
+  label?: string;
+};
+
+export type SpeechRecoveryPolicy = {
+  completionPollMs: number;
+  maxEngineFallbacks?: number;
+  operationTimeoutMs: number;
+  recoveryAttempts: number;
+  startTimeoutMs: number;
+};
 
 // Android exposes no binding/start deadline. These are injectable recovery
 // budgets, not estimates of how long text takes to speak. Never cut off speech
@@ -17,23 +34,70 @@ export const DEFAULT_SPEECH_RECOVERY_POLICY = {
   startTimeoutMs: 10000,
   completionPollMs: 1000,
   recoveryAttempts: 1,
-};
+  maxEngineFallbacks: 8,
+} satisfies Required<SpeechRecoveryPolicy>;
+
+class SpeechAttemptError extends Error {
+  constructor(error: unknown, readonly started: boolean) {
+    super(error instanceof Error ? error.message : String(error));
+    this.name = "SpeechAttemptError";
+  }
+}
+
+function policyInteger(value: number | undefined, fallback: number, minimum: number): number {
+  if (value === undefined || !Number.isSafeInteger(value) || value < minimum) return fallback;
+  return value;
+}
 
 export class NativeSpeechDriver {
   private generation = 0;
   private control: Promise<void> = Promise.resolve();
   private controlRevision = 0;
   private resetPending = false;
+  private activeEngine: string | undefined;
+  private engineGeneration = 0;
+  private engineReadiness: Promise<SpeechEngine[]> | null = null;
+  private engines: SpeechEngine[] | null = null;
+  private failedVoiceKey: string | null = null;
   private voices: Voice[] | null = null;
   private readiness: Promise<Voice[]> | null = null;
   private voiceGeneration = 0;
   private timer: ReturnType<typeof setTimeout> | null = null;
   private cancelUtterance: (() => void) | null = null;
+  private readonly policy: Required<SpeechRecoveryPolicy>;
 
   constructor(
     private readonly backend: NativeSpeechBackend,
-    private readonly policy = DEFAULT_SPEECH_RECOVERY_POLICY,
-  ) {}
+    policy: SpeechRecoveryPolicy = DEFAULT_SPEECH_RECOVERY_POLICY,
+  ) {
+    this.policy = {
+      completionPollMs: policyInteger(
+        policy.completionPollMs,
+        DEFAULT_SPEECH_RECOVERY_POLICY.completionPollMs,
+        1,
+      ),
+      maxEngineFallbacks: policyInteger(
+        policy.maxEngineFallbacks,
+        DEFAULT_SPEECH_RECOVERY_POLICY.maxEngineFallbacks,
+        0,
+      ),
+      operationTimeoutMs: policyInteger(
+        policy.operationTimeoutMs,
+        DEFAULT_SPEECH_RECOVERY_POLICY.operationTimeoutMs,
+        1,
+      ),
+      recoveryAttempts: policyInteger(
+        policy.recoveryAttempts,
+        DEFAULT_SPEECH_RECOVERY_POLICY.recoveryAttempts,
+        0,
+      ),
+      startTimeoutMs: policyInteger(
+        policy.startTimeoutMs,
+        DEFAULT_SPEECH_RECOVERY_POLICY.startTimeoutMs,
+        1,
+      ),
+    };
+  }
 
   private async bounded<T>(operation: Promise<T>): Promise<T> {
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -70,6 +134,7 @@ export class NativeSpeechDriver {
       },
       (error) => {
         if (generation !== this.voiceGeneration) return this.getVoices();
+        this.activeEngine = undefined;
         this.enqueueControl(true); // Also retire hung voice-only initialization.
         throw error;
       },
@@ -77,6 +142,34 @@ export class NativeSpeechDriver {
       if (this.readiness === pending) this.readiness = null;
     });
     this.readiness = pending;
+    return pending;
+  }
+
+  private async getEngines(): Promise<SpeechEngine[]> {
+    if (!this.backend.getEngines) return [];
+    if (this.engines !== null) return this.engines;
+    if (this.engineReadiness) return this.engineReadiness;
+    const generation = this.engineGeneration;
+    const pending = this.bounded(Promise.resolve().then(() => this.backend.getEngines!())).then(
+      (discovered) => {
+        if (generation !== this.engineGeneration) return this.getEngines();
+        const seen = new Set<string>();
+        this.engines = discovered.flatMap((engine) => {
+          const identifier = String(engine.identifier || "").trim();
+          if (!identifier || seen.has(identifier)) return [];
+          seen.add(identifier);
+          return [{ ...engine, identifier }];
+        });
+        return this.engines;
+      },
+      (error) => {
+        if (generation !== this.engineGeneration) return this.getEngines();
+        throw error;
+      },
+    ).finally(() => {
+      if (this.engineReadiness === pending) this.engineReadiness = null;
+    });
+    this.engineReadiness = pending;
     return pending;
   }
 
@@ -117,7 +210,46 @@ export class NativeSpeechDriver {
 
   reset(): void {
     this.invalidate();
+    this.activeEngine = undefined;
+    this.engineGeneration += 1;
+    this.engineReadiness = null;
+    this.engines = null;
+    this.failedVoiceKey = null;
     this.enqueueControl(true);
+  }
+
+  clearFailedVoice(): void {
+    this.failedVoiceKey = null;
+  }
+
+  private async selectEngine(identifier: string, generation: number): Promise<boolean> {
+    if (!this.backend.selectEngine || generation !== this.generation) return false;
+    this.voiceGeneration += 1;
+    this.voices = null;
+    this.readiness = null;
+    this.resetPending = false;
+    const revision = ++this.controlRevision;
+    let applied = false;
+    const operation = this.control.then(async () => {
+      if (revision !== this.controlRevision || generation !== this.generation) return;
+      await this.bounded(this.backend.selectEngine!(identifier));
+      applied = true;
+    });
+    this.control = operation.catch(() => {
+      this.voices = null;
+    });
+    await operation;
+    if (!applied || generation !== this.generation) return false;
+    this.activeEngine = identifier;
+    return true;
+  }
+
+  private rebindCurrentEngine(generation: number): Promise<boolean> {
+    if (this.activeEngine && this.backend.selectEngine) {
+      return this.selectEngine(this.activeEngine, generation);
+    }
+    this.enqueueControl(true);
+    return this.control.then(() => generation === this.generation);
   }
 
   speak(text: string, options: SpeechOptions): void {
@@ -138,28 +270,88 @@ export class NativeSpeechDriver {
       }
       const chunk = remaining.slice(0, end);
       let completed = false;
+      let lastError: unknown = new Error("TTS did not start");
+      let engines: SpeechEngine[] = [];
+      try {
+        await this.control;
+        if (generation !== this.generation) return;
+        engines = await this.getEngines();
+      } catch {
+        // Engine discovery is an enhancement. The selected engine can still
+        // recover through the original bounded rebind path when discovery is
+        // unavailable or an older native module is in use.
+      }
+
       for (let attempt = 0; attempt <= this.policy.recoveryAttempts; attempt += 1) {
+        let attemptedVoiceKey: string | null = null;
         try {
           await this.control;
           if (generation !== this.generation) return;
           const voices = await this.getVoices();
           if (generation !== this.generation) return;
-          const voice = attempt === 0 && voices.some((item) => item.identifier === options.voice)
+          const voiceKey = `${this.activeEngine ?? "system"}\u0000${options.voice ?? ""}`;
+          const voice = attempt === 0
+            && this.failedVoiceKey !== voiceKey
+            && voices.some((item) => item.identifier === options.voice)
             ? options.voice : undefined;
+          if (voice) attemptedVoiceKey = voiceKey;
           await this.utter(chunk, { ...options, voice }, generation);
           completed = true;
           break;
         } catch (error) {
           if (generation !== this.generation) return;
-          if (attempt === this.policy.recoveryAttempts) {
-            this.enqueueControl(true);
-            options.onError?.(error instanceof Error ? error : new Error(String(error)));
+          lastError = error;
+          if (error instanceof SpeechAttemptError && error.started) {
+            options.onError?.(error);
             return;
           }
-          this.enqueueControl(true);
+          if (attemptedVoiceKey) this.failedVoiceKey = attemptedVoiceKey;
+          if (attempt < this.policy.recoveryAttempts) {
+            if (!await this.rebindCurrentEngine(generation)) return;
+          }
         }
       }
-      if (!completed || generation !== this.generation) return;
+
+      if (!completed && this.backend.selectEngine && engines.length > 0) {
+        const currentEngine = this.activeEngine
+          ?? engines.find((engine) => engine.isDefault)?.identifier;
+        const fallbackEngines = engines
+          .filter((engine) => engine.identifier !== currentEngine)
+          .sort((left, right) => {
+            const systemDifference = Number(Boolean(right.isSystem)) - Number(Boolean(left.isSystem));
+            if (systemDifference !== 0) return systemDifference;
+            const defaultDifference = Number(Boolean(right.isDefault)) - Number(Boolean(left.isDefault));
+            if (defaultDifference !== 0) return defaultDifference;
+            return String(left.label || left.identifier).localeCompare(String(right.label || right.identifier));
+          })
+          .slice(0, this.policy.maxEngineFallbacks);
+
+        for (const engine of fallbackEngines) {
+          try {
+            if (!await this.selectEngine(engine.identifier, generation)) return;
+            await this.getVoices();
+            if (generation !== this.generation) return;
+            await this.utter(chunk, { ...options, voice: undefined }, generation);
+            completed = true;
+            break;
+          } catch (error) {
+            if (generation !== this.generation) return;
+            lastError = error;
+            if (error instanceof SpeechAttemptError && error.started) {
+              options.onError?.(error);
+              return;
+            }
+          }
+        }
+      }
+
+      if (!completed) {
+        this.activeEngine = undefined;
+        this.enqueueControl(true);
+        options.onError?.(lastError instanceof Error ? lastError : new Error(String(lastError)));
+        return;
+      }
+      if (generation !== this.generation) return;
       remaining = remaining.slice(end);
     }
     if (generation === this.generation) options.onDone?.();
@@ -177,7 +369,7 @@ export class NativeSpeechDriver {
           this.timer = null;
           this.cancelUtterance = null;
         }
-        if (error) reject(error);
+        if (error) reject(new SpeechAttemptError(error, started));
         else resolve();
       };
       this.cancelUtterance = () => finish();

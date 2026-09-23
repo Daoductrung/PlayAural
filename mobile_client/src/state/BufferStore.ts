@@ -1,6 +1,7 @@
 import type { SpeechBuffer } from "../network/packets";
 
 export const BUFFER_NAMES = ["all", "chat", "private", "game", "system", "misc"] as const satisfies readonly SpeechBuffer[];
+export const DEFAULT_BUFFER_CAPACITY = 500;
 export type BufferName = SpeechBuffer;
 
 export function normalizeBufferName(buffer: unknown): BufferName {
@@ -23,7 +24,7 @@ export class BufferStore {
   private readonly muted = new Set<BufferName>();
   private nextId = 0;
 
-  constructor(private readonly maxItemsPerBuffer = 500) {
+  constructor(private readonly maxItemsPerBuffer = DEFAULT_BUFFER_CAPACITY) {
     if (!Number.isSafeInteger(maxItemsPerBuffer) || maxItemsPerBuffer < 1) {
       throw new RangeError("Buffer capacity must be a positive integer");
     }

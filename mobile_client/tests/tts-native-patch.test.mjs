@@ -28,3 +28,11 @@ test("installed speech module and build configuration enforce the reviewed lifec
   assert.ok(pkg.expo.autolinking.android.buildFromSource.includes("expo-speech"));
   assert.match(pkg.scripts.postinstall, /patch:tts-lifecycle/);
 });
+
+test("speech patch discovers installed engines and validates runtime fallback selection", () => {
+  assert.match(replacement, /AsyncFunction\("getEngines"\)/);
+  assert.match(replacement, /AsyncFunction\("setEngine"\)/);
+  assert.match(replacement, /availableEngines\.any \{ it\.identifier == normalized \}/);
+  assert.match(replacement, /ApplicationInfo\.FLAG_SYSTEM or ApplicationInfo\.FLAG_UPDATED_SYSTEM_APP/);
+  assert.doesNotMatch(replacement, /com\.google\.android\.tts/);
+});

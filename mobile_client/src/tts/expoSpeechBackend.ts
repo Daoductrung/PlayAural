@@ -2,13 +2,15 @@ import { requireNativeModule } from "expo";
 import { Platform } from "react-native";
 import type { SpeechOptions, Voice } from "expo-speech";
 
-import type { NativeSpeechBackend } from "./NativeSpeechDriver";
+import type { NativeSpeechBackend, SpeechEngine } from "./NativeSpeechDriver";
 
 type SpeechEvent = { id: string; error?: string; charIndex?: number; charLength?: number };
 type SpeechModule = {
   addListener(name: string, listener: (event: SpeechEvent) => void): { remove(): void };
   maxSpeechInputLength: number;
+  getEngines?(): Promise<SpeechEngine[]>;
   getVoices(): Promise<Voice[]>;
+  setEngine?(identifier: string): Promise<void>;
   speak(id: string, text: string, options: SpeechOptions): Promise<void>;
   stop(): Promise<void>;
   reset(): Promise<void>;
@@ -23,6 +25,9 @@ export function createExpoSpeechBackend(): NativeSpeechBackend {
   let cleanup = () => {};
   return {
     maxSpeechInputLength: native.maxSpeechInputLength ?? Number.MAX_SAFE_INTEGER,
+    getEngines: Platform.OS === "android" && native.getEngines
+      ? () => native.getEngines!()
+      : undefined,
     getVoices: () => native.getVoices(),
     isSpeaking: () => native.isSpeaking(),
     stop: async () => {
@@ -34,6 +39,12 @@ export function createExpoSpeechBackend(): NativeSpeechBackend {
       if (Platform.OS === "android") await native.reset();
       else await native.stop();
     },
+    selectEngine: Platform.OS === "android" && native.setEngine
+      ? async (identifier) => {
+        cleanup();
+        await native.setEngine!(identifier);
+      }
+      : undefined,
     speak: async (text, options) => {
       cleanup();
       const id = String(++nextUtteranceId);

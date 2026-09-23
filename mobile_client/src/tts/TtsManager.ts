@@ -73,6 +73,7 @@ export class TtsManager {
     // Preserve the preference across transient discovery failures and engine
     // changes. The driver validates it against the current engine before every
     // utterance, so an unavailable identifier never reaches native speech.
+    this.nativeDriver?.clearFailedVoice();
     this.setVoice(voice || undefined);
   }
 
@@ -131,7 +132,7 @@ export class TtsManager {
     this.replayActiveSpeechForSettingsChange();
   }
 
-  setUiEnabled(enabled: boolean): void {
+  setUiEnabled(enabled: boolean, options: { refreshCurrentFocus?: boolean } = {}): void {
     if (this.uiEnabled === enabled) {
       return;
     }
@@ -150,7 +151,9 @@ export class TtsManager {
       return;
     }
 
-    this.refreshCurrentUiFocusForSettingsChange();
+    if (options.refreshCurrentFocus !== false) {
+      this.refreshCurrentUiFocusForSettingsChange();
+    }
   }
 
   speakUi(text: string, options: SpeechStartOptions = {}): void {

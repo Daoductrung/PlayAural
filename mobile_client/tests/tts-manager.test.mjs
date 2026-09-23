@@ -7,6 +7,7 @@ import ts from "typescript";
 async function fixture() {
   const calls = [], utterances = [];
   class Driver {
+    clearFailedVoice() { calls.push("clear-failed-voice"); }
     stop() { calls.push("stop"); }
     reset() { calls.push("reset"); }
     getVoices() { return Promise.resolve([]); }
@@ -81,6 +82,14 @@ test("voice preferences are retained for validation against each new native engi
   assert.equal(f.utterances[1].options.voice, "temporarily unavailable");
 });
 
+test("a synchronized voice preference allows a previously failed voice to be retried", async () => {
+  const f = await fixture();
+  f.manager.speakUi("focus");
+  await f.manager.setMobileVoice("retry this voice");
+  assert.ok(f.calls.includes("clear-failed-voice"));
+  assert.equal(f.utterances.at(-1).options.voice, "retry this voice");
+});
+
 test("enabling self-voicing restores current focus; stopping suppresses all stale callbacks", async () => {
   const f = await fixture();
   f.manager.setUiEnabled(false); f.manager.setCurrentUiTextProvider(() => "current focus");
@@ -88,4 +97,14 @@ test("enabling self-voicing restores current focus; stopping suppresses all stal
   f.manager.setUiEnabled(true); assert.equal(f.utterances[0].text, "current focus");
   f.manager.speakAnnouncement("queued"); f.manager.stop(); f.finish();
   assert.equal(f.utterances.length, 1);
+});
+
+test("an explicit enable confirmation can suppress a redundant focus utterance", async () => {
+  const f = await fixture();
+  f.manager.setUiEnabled(false);
+  f.manager.setCurrentUiTextProvider(() => "current focus");
+  f.manager.setUiEnabled(true, { refreshCurrentFocus: false });
+  assert.equal(f.utterances.length, 0);
+  f.manager.speakUi("self-voicing enabled");
+  assert.deepEqual(f.utterances.map((utterance) => utterance.text), ["self-voicing enabled"]);
 });

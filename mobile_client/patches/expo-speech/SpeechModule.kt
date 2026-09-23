@@ -2,6 +2,7 @@
 // SpeechModule; installed only against the reviewed upstream source hash.
 package expo.modules.speech
 
+import android.content.pm.ApplicationInfo
 import android.media.AudioAttributes
 import android.os.Bundle
 import android.os.Handler
@@ -14,6 +15,8 @@ import expo.modules.kotlin.Promise
 import expo.modules.kotlin.functions.Queues
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
+import expo.modules.kotlin.records.Field
+import expo.modules.kotlin.records.Record
 import java.util.Locale
 
 private const val TAG = "PlayAuralTTS"
@@ -30,8 +33,12 @@ class SpeechModule : Module() {
   private var engine: TextToSpeech? = null
   private var ready = false
   private var generation = 0L
+  private var selectedEngine: String? = null
+  private var engineCatalogReady = false
+  private var availableEngines = emptyList<EngineRecord>()
   private val pendingSpeech = linkedMapOf<String, Utterance>()
   private val activeIds = mutableSetOf<String>()
+  private val pendingEngines = mutableListOf<Promise>()
   private val pendingVoices = mutableListOf<Promise>()
 
   override fun definition() = ModuleDefinition {
@@ -44,9 +51,28 @@ class SpeechModule : Module() {
     OnActivityDestroys { handler.post { retire("Activity destroyed") } }
     OnDestroy { handler.post { retire("Module destroyed") } }
 
-    AsyncFunction("reset") { retire("Speech context changed") }.runOnQueue(Queues.MAIN)
+    AsyncFunction("reset") {
+      selectedEngine = null
+      engineCatalogReady = false
+      availableEngines = emptyList()
+      retire("Speech context changed")
+    }.runOnQueue(Queues.MAIN)
+    AsyncFunction("setEngine") { identifier: String ->
+      val normalized = identifier.trim()
+      require(normalized.isNotEmpty() && availableEngines.any { it.identifier == normalized }) {
+        "Speech engine is not installed"
+      }
+      selectedEngine = normalized
+      retire("Speech engine changed")
+    }.runOnQueue(Queues.MAIN)
     AsyncFunction("stop") { stopSpeech() }.runOnQueue(Queues.MAIN)
     AsyncFunction<Boolean>("isSpeaking") { ready && engine?.isSpeaking == true }.runOnQueue(Queues.MAIN)
+    AsyncFunction("getEngines") { promise: Promise ->
+      if (engineCatalogReady) promise.resolve(availableEngines) else {
+        pendingEngines.add(promise)
+        ensureEngine()
+      }
+    }.runOnQueue(Queues.MAIN)
     AsyncFunction("getVoices") { promise: Promise ->
       if (ready) resolveVoices(promise) else {
         pendingVoices.add(promise)
@@ -68,37 +94,75 @@ class SpeechModule : Module() {
   private fun ensureEngine() {
     if (engine != null) return
     val current = ++generation
-    Log.d(TAG, "Binding system speech engine; generation=$current")
+    Log.d(TAG, "Binding speech engine; generation=$current; selected=${selectedEngine ?: "system"}")
     try {
-      engine = TextToSpeech(appContext.reactContext?.applicationContext) { status ->
-        handler.post {
-          if (current != generation) return@post
-          val tts = engine ?: return@post
-          if (status != TextToSpeech.SUCCESS) {
-            failEngine("Speech engine initialization failed: $status")
-            return@post
-          }
-          try {
-            tts.setAudioAttributes(AudioAttributes.Builder()
-              .setUsage(AudioAttributes.USAGE_MEDIA)
-              .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-              .build())
-            tts.setOnUtteranceProgressListener(listener(current))
-            ready = true
-            Log.d(TAG, "Speech engine ready; generation=$current")
-            val requests = pendingVoices.toList()
-            pendingVoices.clear()
-            requests.forEach(::resolveVoices)
-            val utterances = pendingSpeech.values.toList()
-            pendingSpeech.clear()
-            utterances.forEach(::speakOut)
-          } catch (error: Exception) {
-            failEngine(error.message ?: "Speech engine setup failed")
-          }
-        }
-      }
+      val context = appContext.reactContext?.applicationContext
+        ?: throw IllegalStateException("Speech application context is unavailable")
+      engine = if (selectedEngine == null) TextToSpeech(context) { status ->
+        finishEngineInitialization(current, status)
+      } else TextToSpeech(context, { status ->
+        finishEngineInitialization(current, status)
+      }, selectedEngine)
     } catch (error: Exception) {
       failEngine(error.message ?: "Speech engine binding failed")
+    }
+  }
+
+  private fun finishEngineInitialization(current: Long, status: Int) {
+    handler.post {
+      if (current != generation) return@post
+      val tts = engine ?: return@post
+      cacheAndResolveEngines(tts)
+      if (status != TextToSpeech.SUCCESS) {
+        failEngine("Speech engine initialization failed: $status")
+        return@post
+      }
+      try {
+        tts.setAudioAttributes(AudioAttributes.Builder()
+          .setUsage(AudioAttributes.USAGE_MEDIA)
+          .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+          .build())
+        tts.setOnUtteranceProgressListener(listener(current))
+        ready = true
+        Log.d(TAG, "Speech engine ready; generation=$current")
+        val requests = pendingVoices.toList()
+        pendingVoices.clear()
+        requests.forEach(::resolveVoices)
+        val utterances = pendingSpeech.values.toList()
+        pendingSpeech.clear()
+        utterances.forEach(::speakOut)
+      } catch (error: Exception) {
+        failEngine(error.message ?: "Speech engine setup failed")
+      }
+    }
+  }
+
+  private fun cacheAndResolveEngines(tts: TextToSpeech) {
+    try {
+      val defaultEngine = tts.defaultEngine
+      val packageManager = appContext.reactContext?.applicationContext?.packageManager
+      availableEngines = tts.engines.map { info ->
+        val isSystem = try {
+          val flags = packageManager?.getApplicationInfo(info.name, 0)?.flags ?: 0
+          flags and (ApplicationInfo.FLAG_SYSTEM or ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0
+        } catch (_: Exception) {
+          false
+        }
+        EngineRecord(
+          identifier = info.name,
+          label = info.label ?: info.name,
+          isDefault = info.name == defaultEngine,
+          isSystem = isSystem
+        )
+      }.distinctBy { it.identifier }
+      engineCatalogReady = true
+      val requests = pendingEngines.toList()
+      pendingEngines.clear()
+      requests.forEach { it.resolve(availableEngines) }
+    } catch (error: Exception) {
+      val requests = pendingEngines.toList()
+      pendingEngines.clear()
+      requests.forEach { it.reject("ERR_SPEECH_ENGINES", error.message ?: "Unable to list speech engines", error) }
     }
   }
 
@@ -196,10 +260,20 @@ class SpeechModule : Module() {
     activeIds.clear()
     val requests = pendingVoices.toList()
     pendingVoices.clear()
+    val engineRequests = pendingEngines.toList()
+    pendingEngines.clear()
+    engineRequests.forEach { it.reject("ERR_SPEECH_RESET", reason, null) }
     requests.forEach { it.reject("ERR_SPEECH_RESET", reason, null) }
     ids.forEach { sendEvent(STOPPED, mapOf("id" to it)) }
     previous?.shutdown()
   }
 
   private data class Utterance(val id: String, val text: String, val options: SpeechOptions)
+
+  private data class EngineRecord(
+    @Field val identifier: String,
+    @Field val label: String,
+    @Field val isDefault: Boolean,
+    @Field val isSystem: Boolean
+  ) : Record
 }

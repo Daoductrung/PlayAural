@@ -132,9 +132,19 @@ Native speech waits for engine readiness and serializes interruptions. Failed
 bindings and missing start callbacks receive bounded recovery; completion uses
 native playback state rather than a text-length timeout. Recovery budgets are
 injectable through `NativeSpeechDriver` because the native speech API exposes
-no binding deadline. Engine names, voices, language support, and input limits
-come from device capabilities or user preferences. Screen-reader detection
-never changes the saved self-voicing preference.
+no binding deadline. A failed voice retries with the current engine's default;
+a still-silent Android engine falls back across a bounded, dynamically
+discovered set of installed engines, preferring system engines without fixed
+package names. A fallback changes runtime output only and never overwrites the
+saved engine or voice preference. Engine names, voices, language support, and
+input limits come from device capabilities or user preferences.
+
+When self-voicing is off, server announcements never enter native TTS. Android
+publishes them through alternating polite accessibility live regions, Web uses
+the matching `aria-live` behavior, and iOS queues them through VoiceOver. The
+active screen reader therefore owns voice, rate, queueing, and interruption;
+focus or activation clears the app's pending live-region content. Screen-reader
+detection never changes the saved self-voicing preference.
 
 The `postinstall` script applies a guarded Android Expo Speech lifecycle repair.
 Android must build `expo-speech` from source, as configured in `package.json`;

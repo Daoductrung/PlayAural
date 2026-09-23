@@ -4210,15 +4210,23 @@ class BreachPointGame(BreachPointAudioMixin, Game):
         if not isinstance(payload, dict):
             payload = {}
         actor = self._breach_player_by_id(str(payload.get("player_id", "")))
+        viewer = self._breach_player(player)
         if sequence.tag == MOVEMENT_SEQUENCE_TAG:
+            if not actor or not viewer:
+                return ("breachpoint-error-wait-event", {})
+            if actor.id != viewer.id and actor.team_index != viewer.team_index:
+                return (
+                    "breachpoint-error-wait-movement-hidden",
+                    {"player": actor.name},
+                )
             return (
                 (
                     "breachpoint-error-wait-movement-you"
-                    if actor and actor.id == player.id
+                    if actor.id == player.id
                     else "breachpoint-error-wait-movement-player"
                 ),
                 {
-                    "player": actor.name if actor else "",
+                    "player": actor.name,
                     "location": self._node_name(
                         locale,
                         str(payload.get("destination_node_id", "")),
@@ -4226,15 +4234,24 @@ class BreachPointGame(BreachPointAudioMixin, Game):
                 },
             )
         if sequence.tag == UTILITY_SEQUENCE_TAG:
+            if (
+                not actor
+                or not viewer
+                or (
+                    actor.id != viewer.id
+                    and actor.team_index != viewer.team_index
+                )
+            ):
+                return ("breachpoint-error-wait-event", {})
             utility = get_utility(str(payload.get("utility_id", "")))
             return (
                 (
                     "breachpoint-error-wait-utility-you"
-                    if actor and actor.id == player.id
+                    if actor.id == player.id
                     else "breachpoint-error-wait-utility-player"
                 ),
                 {
-                    "player": actor.name if actor else "",
+                    "player": actor.name,
                     "utility": (self._utility_name(locale, utility) if utility else ""),
                 },
             )
@@ -10590,6 +10607,18 @@ class BreachPointGame(BreachPointAudioMixin, Game):
             team_two_score=self._squad_score(TEAM_COUNTER_TERRORISTS),
         )
 
+    def _squad_scoreboard(self) -> list[tuple[int, int, int]]:
+        """Return persistent squad scores paired with their current sides."""
+
+        return [
+            (
+                squad_index,
+                self._squad_score(squad_index),
+                self._side_for_squad(squad_index),
+            )
+            for squad_index in TEAM_INDEXES
+        ]
+
     def _finish_match(self, squad_index: int, reason: str) -> None:
         if self.status != "playing":
             return
@@ -11092,17 +11121,16 @@ class BreachPointGame(BreachPointAudioMixin, Game):
 
     def _action_check_scores(self, player: Player, action_id: str) -> None:
         user = self.get_user(player)
-        if user:
+        if not user:
+            return
+        for squad_index, score, side_index in self._squad_scoreboard():
             user.speak_l(
                 "breachpoint-score-brief",
                 buffer="game",
                 round=self.round,
-                terrorists=self._squad_score(
-                    self._squad_for_side(TEAM_TERRORISTS)
-                ),
-                counter_terrorists=self._squad_score(
-                    self._squad_for_side(TEAM_COUNTER_TERRORISTS)
-                ),
+                squad=self._squad_name(user.locale, squad_index),
+                score=score,
+                side=self._team_name(user.locale, side_index),
             )
 
     def _action_check_scores_detailed(self, player: Player, action_id: str) -> None:
@@ -11123,14 +11151,14 @@ class BreachPointGame(BreachPointAudioMixin, Game):
                 ),
             )
         ]
-        for squad_index in TEAM_INDEXES:
+        for squad_index, score, side_index in self._squad_scoreboard():
             lines.append(
                 Localization.get(
                     locale,
                     "breachpoint-score-line",
                     squad=self._squad_name(locale, squad_index),
-                    score=self._squad_score(squad_index),
-                    side=self._team_name(locale, self._side_for_squad(squad_index)),
+                    score=score,
+                    side=self._team_name(locale, side_index),
                 )
             )
         if self.overtime_period:

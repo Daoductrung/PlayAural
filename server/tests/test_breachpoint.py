@@ -3282,6 +3282,100 @@ def test_movement_waits_for_measured_spatial_footsteps() -> None:
     assert mover_user.get_spoken_messages()
 
 
+def test_movement_wait_feedback_conceals_enemy_destination() -> None:
+    game = make_game(start=True)
+    mover = tactical_player(game, 0)
+    enemy = tactical_player(game, 1)
+    teammate = tactical_player(game, 2)
+
+    game.execute_action(mover, "move_mid")
+    clear_spoken(game)
+
+    game.execute_action(enemy, "context_finish_or_end")
+    game.execute_action(teammate, "context_finish_or_end")
+    game.execute_action(mover, "context_finish_or_end")
+
+    assert spoken_text(game, 1) == ["Player1 is moving. Wait until they arrive."]
+    assert all("Mid" not in text for text in spoken_text(game, 1))
+    assert spoken_text(game, 2) == [
+        "Player1 is moving to Mid. Wait until they arrive."
+    ]
+    assert spoken_text(game, 0) == ["You are moving to Mid. Wait until you arrive."]
+
+
+def test_hidden_utility_wait_feedback_does_not_reveal_tactical_details() -> None:
+    game = make_game(start=True)
+    thrower = tactical_player(game, 0)
+    enemy = tactical_player(game, 1)
+    teammate = tactical_player(game, 2)
+    thrower.utility_counts = {SMOKE_GRENADE.id: 1}
+
+    game.execute_action(thrower, "throw_smoke_t_spawn")
+    clear_spoken(game)
+
+    game.execute_action(enemy, "context_finish_or_end")
+    game.execute_action(teammate, "context_finish_or_end")
+    game.execute_action(thrower, "context_finish_or_end")
+
+    assert spoken_text(game, 1) == [
+        "A tactical event is still resolving. Wait for it to finish before acting."
+    ]
+    assert all("Smoke" not in text for text in spoken_text(game, 1))
+    assert spoken_text(game, 2) == [
+        "Player1's Smoke Grenade is still in flight. Wait for it to land."
+    ]
+    assert spoken_text(game, 0) == [
+        "Your Smoke Grenade is still in flight. Wait for it to land."
+    ]
+
+
+def test_inaudible_movement_does_not_send_hidden_trajectory_coordinates() -> None:
+    game = make_game(start=True)
+    mover = tactical_player(game, 0)
+    distant_enemy = tactical_player(game, 1)
+    nearby_teammate = tactical_player(game, 2)
+    distant_user = game.get_user(distant_enemy)
+    nearby_user = game.get_user(nearby_teammate)
+    assert isinstance(distant_user, MockUser)
+    assert isinstance(nearby_user, MockUser)
+    clear_spoken(game)
+
+    game.execute_action(mover, "move_outside_tunnels")
+
+    assert not any(
+        message.type == "play_sound" and message.data.get("segments")
+        for message in distant_user.messages
+    )
+    assert any(
+        message.type == "play_sound" and message.data.get("segments")
+        for message in nearby_user.messages
+    )
+
+
+def test_inaudible_point_sound_does_not_send_hidden_source_coordinates() -> None:
+    game = make_game(start=True)
+    source_player = tactical_player(game, 0)
+    distant_enemy = tactical_player(game, 1)
+    nearby_teammate = tactical_player(game, 2)
+    distant_enemy.position_id = "b_site"
+    distant_user = game.get_user(distant_enemy)
+    nearby_user = game.get_user(nearby_teammate)
+    assert isinstance(distant_user, MockUser)
+    assert isinstance(nearby_user, MockUser)
+    clear_spoken(game)
+
+    game._play_spatial_asset(
+        FOOTSTEP_ASSETS_BY_SURFACE["sand"][0],
+        game._player_grid_point(source_player),
+        actor_id=source_player.id,
+        source_height_meters=FOOTSTEP_SOURCE_HEIGHT_METERS,
+        attenuation=FOOTSTEP_ATTENUATION,
+    )
+
+    assert not any(message.type == "play_sound" for message in distant_user.messages)
+    assert any(message.type == "play_sound" for message in nearby_user.messages)
+
+
 def test_utility_unlocks_when_detonation_is_dispatched_not_after_its_tail() -> None:
     game = make_game(start=True)
     thrower = tactical_player(game, 0)
@@ -6097,18 +6191,29 @@ def test_eliminating_all_counter_terrorists_finishes_for_terrorists() -> None:
 def test_mr7_halftime_swap_and_regulation_victory_follow_squads() -> None:
     game = make_game(start=True, match_format="mr7")
 
-    for squad_index in (0, 1, 0, 1, 0, 1, 0):
+    for squad_index in (1, 0, 1, 1, 0, 1, 1):
         game._finish_combat_round(game._side_for_squad(squad_index), WIN_ELIMINATION)
         complete_round_transition(game)
 
     assert game.round == 8
-    assert game._squad_score(0) == 4
-    assert game._squad_score(1) == 3
+    assert game._squad_score(0) == 2
+    assert game._squad_score(1) == 5
     assert game.side_squad_indexes == [1, 0]
-    assert tactical_player(game, 0).squad_index == 0
-    assert tactical_player(game, 0).team_index == TEAM_COUNTER_TERRORISTS
+    player = tactical_player(game, 0)
+    assert player.squad_index == 0
+    assert player.team_index == TEAM_COUNTER_TERRORISTS
+    clear_spoken(game)
+    game._action_check_scores(player, "check_scores")
+    assert spoken_text(game, 0) == [
+        "Round 8, Team 1: 2 round wins, currently CT.",
+        "Round 8, Team 2: 5 round wins, currently T.",
+    ]
+    assert game._score_status_lines("en")[1:3] == [
+        "Team 1: 2 round wins, currently CT",
+        "Team 2: 5 round wins, currently T",
+    ]
 
-    for _ in range(4):
+    for _ in range(6):
         game._finish_combat_round(game._side_for_squad(0), WIN_ELIMINATION)
         if game.status == "playing":
             complete_round_or_match_transition(game)
@@ -6729,7 +6834,7 @@ def test_turn_status_reports_reaction_decision_owner() -> None:
     assert spoken_text(game, 1) == ["The game is waiting for your response."]
 
 
-def test_brief_score_reports_current_side_scores_in_one_line() -> None:
+def test_brief_and_detailed_scores_keep_squad_identity_after_side_swap() -> None:
     game = make_game(start=True)
     player = tactical_player(game, 0)
     game._team_manager.teams[0].total_score = 4
@@ -6739,7 +6844,14 @@ def test_brief_score_reports_current_side_scores_in_one_line() -> None:
 
     game._action_check_scores(player, "check_scores")
 
-    assert spoken_text(game, 0) == [f"Round {game.round}: T 7, CT 4."]
+    assert spoken_text(game, 0) == [
+        f"Round {game.round}, Team 1: 4 round wins, currently CT.",
+        f"Round {game.round}, Team 2: 7 round wins, currently T.",
+    ]
+    assert game._score_status_lines("en")[1:3] == [
+        "Team 1: 4 round wins, currently CT",
+        "Team 2: 7 round wins, currently T",
+    ]
 
 
 def test_live_map_uses_stable_ids_and_reports_exits_sightlines_and_occupants() -> None:
@@ -8039,6 +8151,16 @@ def test_save_restore_preserves_squad_scores_and_current_sides() -> None:
     restored_player = tactical_player(restored, 0)
     assert restored_player.squad_index == 0
     assert restored_player.team_index == TEAM_COUNTER_TERRORISTS
+    clear_spoken(restored)
+    restored._action_check_scores(restored_player, "check_scores")
+    assert spoken_text(restored, 0) == [
+        "Round 8, Team 1: 4 round wins, currently CT.",
+        "Round 8, Team 2: 3 round wins, currently T.",
+    ]
+    assert restored._score_status_lines("en")[1:3] == [
+        "Team 1: 4 round wins, currently CT",
+        "Team 2: 3 round wins, currently T",
+    ]
 
 
 def test_restore_normalizes_invalid_match_metadata_and_scores() -> None:
@@ -10247,10 +10369,12 @@ def test_movement_uses_spatial_audio_then_announces_arrival() -> None:
         if not isinstance(user, MockUser):
             continue
         assert user.get_spoken_messages()
-        assert any(
-            message.type == "play_sound" and message.data.get("segments")
-            for message in user.messages
-        )
+    player_user = game.get_user(player)
+    assert isinstance(player_user, MockUser)
+    assert any(
+        message.type == "play_sound" and message.data.get("segments")
+        for message in player_user.messages
+    )
 
 
 def test_bots_can_complete_matches_at_every_supported_roster_size() -> None:

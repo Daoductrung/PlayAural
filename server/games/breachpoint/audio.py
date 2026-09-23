@@ -8,7 +8,11 @@ from functools import cache
 from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING
 
-from ...audio import AudioSequenceSegment, DistanceAttenuation
+from ...audio import (
+    AudioSequenceSegment,
+    DistanceAttenuation,
+    distance_attenuation_gain,
+)
 from ...game_utils.audio_duration import measure_audio_duration_ticks
 from .arsenal import EQUIPMENT, UTILITIES, WEAPONS, get_utility
 from .maps import DEFAULT_MAP_ID, TACTICAL_MAPS, GridPoint, TacticalNode
@@ -1222,6 +1226,64 @@ class BreachPointAudioMixin:
                 listeners.append((listener, user))
         return listeners
 
+    def _listener_spatialization(
+        self,
+        listener: BreachPointPlayer,
+        source: GridPoint,
+        *,
+        actor_id: str = "",
+        source_height_meters: float,
+        attenuation: DistanceAttenuation,
+    ) -> tuple[
+        tuple[float, float, float] | None,
+        DistanceAttenuation | None,
+    ] | None:
+        """Return audible spatial data without disclosing silent world positions."""
+
+        if listener.id == actor_id:
+            return None, None
+        position = self._relative_audio_position(
+            listener,
+            source,
+            source_height_meters=source_height_meters,
+        )
+        if distance_attenuation_gain(position, attenuation) <= 0:
+            return None
+        return position, attenuation
+
+    def _listener_can_hear_path(
+        self,
+        listener: BreachPointPlayer,
+        origin: GridPoint,
+        destination: GridPoint,
+        *,
+        source_height_meters: float,
+        attenuation: DistanceAttenuation,
+    ) -> bool:
+        """Return whether any point on a moving source's path is audible."""
+
+        listener_point, _ = self._audio_listener_frame(listener)
+        path_x = destination.x - origin.x
+        path_y = destination.y - origin.y
+        path_length_squared = path_x * path_x + path_y * path_y
+        if path_length_squared:
+            projection = (
+                (listener_point.x - origin.x) * path_x
+                + (listener_point.y - origin.y) * path_y
+            ) / path_length_squared
+            projection = max(0.0, min(1.0, projection))
+        else:
+            projection = 0.0
+        closest_x = origin.x + path_x * projection
+        closest_y = origin.y + path_y * projection
+        scale = self.tactical_map.grid_unit_meters
+        closest_position = (
+            (closest_x - listener_point.x) * scale,
+            (closest_y - listener_point.y) * scale,
+            source_height_meters - LISTENER_EAR_HEIGHT_METERS,
+        )
+        return distance_attenuation_gain(closest_position, attenuation) > 0
+
     def _play_spatial_asset(
         self,
         asset: str,
@@ -1259,16 +1321,16 @@ class BreachPointAudioMixin:
         volume: int = 100,
         priority: int = 0,
     ) -> None:
-        if listener.id == actor_id:
-            position = None
-            curve = None
-        else:
-            position = self._relative_audio_position(
-                listener,
-                source,
-                source_height_meters=source_height_meters,
-            )
-            curve = attenuation
+        spatialization = self._listener_spatialization(
+            listener,
+            source,
+            actor_id=actor_id,
+            source_height_meters=source_height_meters,
+            attenuation=attenuation,
+        )
+        if spatialization is None:
+            return
+        position, curve = spatialization
         user.play_sound(
             asset,
             buffer="game",
@@ -1293,16 +1355,16 @@ class BreachPointAudioMixin:
         """Play one dynamically discovered variant at a world-space source."""
 
         for listener, user in self._audio_listeners():
-            if listener.id == actor_id:
-                position = None
-                curve = None
-            else:
-                position = self._relative_audio_position(
-                    listener,
-                    source,
-                    source_height_meters=source_height_meters,
-                )
-                curve = attenuation
+            spatialization = self._listener_spatialization(
+                listener,
+                source,
+                actor_id=actor_id,
+                source_height_meters=source_height_meters,
+                attenuation=attenuation,
+            )
+            if spatialization is None:
+                continue
+            position, curve = spatialization
             user.play_sound_family(
                 family,
                 buffer="game",
@@ -1715,16 +1777,16 @@ class BreachPointAudioMixin:
             assets = profile.reload_assets
         source = self._player_grid_point(player)
         for listener, user in self._audio_listeners():
-            if listener.id == player.id:
-                position = None
-                curve = None
-            else:
-                position = self._relative_audio_position(
-                    listener,
-                    source,
-                    source_height_meters=WEAPON_SOURCE_HEIGHT_METERS,
-                )
-                curve = POSITIONAL_ATTENUATION
+            spatialization = self._listener_spatialization(
+                listener,
+                source,
+                actor_id=player.id,
+                source_height_meters=WEAPON_SOURCE_HEIGHT_METERS,
+                attenuation=POSITIONAL_ATTENUATION,
+            )
+            if spatialization is None:
+                continue
+            position, curve = spatialization
             user.play_sound_chain(
                 [
                     AudioSequenceSegment(
@@ -1782,16 +1844,16 @@ class BreachPointAudioMixin:
         if not profile or not destination_node:
             return
         source = self._player_grid_point(thrower)
-        if listener.id == thrower.id:
-            source_position = None
-            source_curve = None
-        else:
-            source_position = self._relative_audio_position(
-                listener,
-                source,
-                source_height_meters=UTILITY_SOURCE_HEIGHT_METERS,
-            )
-            source_curve = POSITIONAL_ATTENUATION
+        spatialization = self._listener_spatialization(
+            listener,
+            source,
+            actor_id=thrower.id,
+            source_height_meters=UTILITY_SOURCE_HEIGHT_METERS,
+            attenuation=POSITIONAL_ATTENUATION,
+        )
+        if spatialization is None:
+            return
+        source_position, source_curve = spatialization
         segments = [
             AudioSequenceSegment(
                 asset,
@@ -1849,6 +1911,14 @@ class BreachPointAudioMixin:
         duration_ms = max(1, math.ceil(duration_ticks * 1000 / TICKS_PER_SECOND))
         handle = self._utility_flight_audio_handle(sequence_id)
         for listener, _ in self._audio_listeners():
+            if not self._listener_can_hear_path(
+                listener,
+                source,
+                destination,
+                source_height_meters=UTILITY_SOURCE_HEIGHT_METERS,
+                attenuation=POSITIONAL_ATTENUATION,
+            ):
+                continue
             origin_position = self._relative_audio_position(
                 listener,
                 source,
@@ -2042,16 +2112,16 @@ class BreachPointAudioMixin:
             )
             keypad_assets.append(self._spatial_rng.choice(candidates))
         for listener, user in self._audio_listeners():
-            if listener.id == planter.id:
-                position = None
-                curve = None
-            else:
-                position = self._relative_audio_position(
-                    listener,
-                    source,
-                    source_height_meters=UTILITY_SOURCE_HEIGHT_METERS,
-                )
-                curve = POSITIONAL_ATTENUATION
+            spatialization = self._listener_spatialization(
+                listener,
+                source,
+                actor_id=planter.id,
+                source_height_meters=UTILITY_SOURCE_HEIGHT_METERS,
+                attenuation=POSITIONAL_ATTENUATION,
+            )
+            if spatialization is None:
+                continue
+            position, curve = spatialization
             user.play_sound_chain(
                 [
                     AudioSequenceSegment(
@@ -2183,16 +2253,16 @@ class BreachPointAudioMixin:
 
         source = self._player_grid_point(player)
         for listener, user in self._audio_listeners():
-            if listener.id == player.id:
-                position = None
-                curve = None
-            else:
-                position = self._relative_audio_position(
-                    listener,
-                    source,
-                    source_height_meters=UTILITY_SOURCE_HEIGHT_METERS,
-                )
-                curve = POSITIONAL_ATTENUATION
+            spatialization = self._listener_spatialization(
+                listener,
+                source,
+                actor_id=player.id,
+                source_height_meters=UTILITY_SOURCE_HEIGHT_METERS,
+                attenuation=POSITIONAL_ATTENUATION,
+            )
+            if spatialization is None:
+                continue
+            position, curve = spatialization
             user.play_sound_chain(
                 [
                     AudioSequenceSegment(
@@ -2439,16 +2509,16 @@ class BreachPointAudioMixin:
     def _play_fire_damage_audio(self, player: BreachPointPlayer) -> None:
         source = self._player_grid_point(player)
         for listener, user in self._audio_listeners():
-            if listener.id == player.id:
-                position = None
-                curve = None
-            else:
-                position = self._relative_audio_position(
-                    listener,
-                    source,
-                    source_height_meters=WEAPON_SOURCE_HEIGHT_METERS,
-                )
-                curve = POSITIONAL_ATTENUATION
+            spatialization = self._listener_spatialization(
+                listener,
+                source,
+                actor_id=player.id,
+                source_height_meters=WEAPON_SOURCE_HEIGHT_METERS,
+                attenuation=POSITIONAL_ATTENUATION,
+            )
+            if spatialization is None:
+                continue
+            position, curve = spatialization
             user.play_sound_family(
                 FIRE_DAMAGE_FAMILY,
                 buffer="game",
@@ -2682,6 +2752,14 @@ class BreachPointAudioMixin:
     ) -> None:
         segment_count = len(assets)
         if not segment_count:
+            return
+        if listener.id != mover.id and not self._listener_can_hear_path(
+            listener,
+            origin,
+            destination,
+            source_height_meters=FOOTSTEP_SOURCE_HEIGHT_METERS,
+            attenuation=FOOTSTEP_ATTENUATION,
+        ):
             return
         segments: list[AudioSequenceSegment] = []
         for index, asset in enumerate(assets):

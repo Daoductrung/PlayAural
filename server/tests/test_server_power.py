@@ -144,6 +144,7 @@ def test_active_table_checkpoints_replace_and_prune(tmp_path, monkeypatch) -> No
             host="Alice",
             is_private=True,
         )
+        table.ban_user("banned-user-uuid")
         table._offline_since = now - 123.5
         table.members = []
         db.save_all_tables(
@@ -158,6 +159,7 @@ def test_active_table_checkpoints_replace_and_prune(tmp_path, monkeypatch) -> No
         assert len(loaded) == 1
         assert getattr(loaded[0], "_checkpoint_kind") == "planned_reboot"
         assert loaded[0].is_private
+        assert loaded[0].is_banned("banned-user-uuid")
         assert loaded[0]._offline_since is not None
         restored_elapsed = now - loaded[0]._offline_since
         assert restored_elapsed == pytest.approx(123.5, abs=1.0)
@@ -215,7 +217,62 @@ def test_legacy_table_checkpoint_schema_defaults_to_public(tmp_path) -> None:
         columns = {
             row["name"] for row in db._conn.execute("PRAGMA table_info(tables)")
         }
-        assert {"is_private", "active_human_offline_elapsed"} <= columns
+        assert {
+            "is_private",
+            "table_state_json",
+            "active_human_offline_elapsed",
+        } <= columns
+    finally:
+        db.close()
+
+
+def test_legacy_user_saved_table_schema_adds_empty_table_state(tmp_path) -> None:
+    db_path = tmp_path / "legacy-user-save.db"
+    connection = sqlite3.connect(db_path)
+    try:
+        connection.execute(
+            """
+            CREATE TABLE saved_tables (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT NOT NULL,
+                save_name TEXT NOT NULL,
+                game_type TEXT NOT NULL,
+                game_json TEXT NOT NULL,
+                members_json TEXT NOT NULL,
+                saved_at TEXT NOT NULL
+            )
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO saved_tables (
+                username, save_name, game_type, game_json, members_json, saved_at
+            ) VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "Alice",
+                "Legacy save",
+                "pig",
+                "{}",
+                "[]",
+                datetime.now().isoformat(),
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    db = Database(db_path)
+    db.connect(prune=False)
+    try:
+        records = db.get_user_saved_tables("Alice")
+        assert len(records) == 1
+        assert records[0].table_state_json == "{}"
+        columns = {
+            row["name"]
+            for row in db._conn.execute("PRAGMA table_info(saved_tables)")
+        }
+        assert "table_state_json" in columns
     finally:
         db.close()
 

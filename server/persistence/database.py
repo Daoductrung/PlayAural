@@ -97,6 +97,7 @@ class SavedTableRecord:
     game_json: str
     members_json: str
     saved_at: str
+    table_state_json: str = "{}"
 
 
 class Database:
@@ -322,6 +323,7 @@ class Database:
                 game_json TEXT,
                 status TEXT DEFAULT 'waiting',
                 is_private INTEGER NOT NULL DEFAULT 0,
+                table_state_json TEXT NOT NULL DEFAULT '{}',
                 active_human_offline_elapsed REAL,
                 checkpoint_kind TEXT NOT NULL DEFAULT 'legacy',
                 checkpoint_created_at TEXT NOT NULL DEFAULT '',
@@ -331,6 +333,12 @@ class Database:
         """)
         self._ensure_column(
             cursor, "tables", "is_private", "INTEGER NOT NULL DEFAULT 0"
+        )
+        self._ensure_column(
+            cursor,
+            "tables",
+            "table_state_json",
+            "TEXT NOT NULL DEFAULT '{}'",
         )
         self._ensure_column(
             cursor,
@@ -361,9 +369,16 @@ class Database:
                 game_type TEXT NOT NULL,
                 game_json TEXT NOT NULL,
                 members_json TEXT NOT NULL,
+                table_state_json TEXT NOT NULL DEFAULT '{}',
                 saved_at TEXT NOT NULL
             )
         """)
+        self._ensure_column(
+            cursor,
+            "saved_tables",
+            "table_state_json",
+            "TEXT NOT NULL DEFAULT '{}'",
+        )
 
         # Game results (for statistics)
         cursor.execute("""
@@ -2119,13 +2134,14 @@ class Database:
                 game_json,
                 status,
                 is_private,
+                table_state_json,
                 active_human_offline_elapsed,
                 checkpoint_kind,
                 checkpoint_created_at,
                 checkpoint_expires_at,
                 checkpoint_operation_id
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
             (
                 table.table_id,
@@ -2134,7 +2150,10 @@ class Database:
                 members_json,
                 table.game_json,
                 table.status,
+                # Keep the legacy scalar populated during the compatibility
+                # window; table_state_json is the canonical extensible state.
                 int(table.is_private),
+                table.serialize_saved_state(),
                 self._serialize_active_human_offline_elapsed(table, saved_at),
                 "manual",
                 datetime.fromtimestamp(saved_at).isoformat(),
@@ -2169,6 +2188,9 @@ class Database:
             status=row["status"],
             is_private=bool(row["is_private"]),
         )
+        table.restore_saved_state(
+            Table.deserialize_saved_state(row["table_state_json"])
+        )
         table._checkpoint_kind = (
             row["checkpoint_kind"]
             if "checkpoint_kind" in row.keys()
@@ -2199,6 +2221,7 @@ class Database:
                 game_json,
                 status,
                 is_private,
+                table_state_json,
                 active_human_offline_elapsed,
                 checkpoint_kind,
                 checkpoint_created_at
@@ -2223,6 +2246,9 @@ class Database:
                     game_json=row["game_json"],
                     status=row["status"],
                     is_private=bool(row["is_private"]),
+                )
+                table.restore_saved_state(
+                    Table.deserialize_saved_state(row["table_state_json"])
                 )
                 table._checkpoint_kind = row["checkpoint_kind"] or "legacy"
                 table._checkpoint_created_at = row["checkpoint_created_at"] or ""
@@ -2277,13 +2303,14 @@ class Database:
                         game_json,
                         status,
                         is_private,
+                        table_state_json,
                         active_human_offline_elapsed,
                         checkpoint_kind,
                         checkpoint_created_at,
                         checkpoint_expires_at,
                         checkpoint_operation_id
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         table.table_id,
@@ -2293,6 +2320,7 @@ class Database:
                         table.game_json,
                         table.status,
                         int(table.is_private),
+                        table.serialize_saved_state(),
                         self._serialize_active_human_offline_elapsed(
                             table,
                             checkpoint_saved_at,
@@ -2313,6 +2341,7 @@ class Database:
         game_type: str,
         game_json: str,
         members_json: str,
+        table_state_json: str = "{}",
     ) -> SavedTableRecord:
         """Save a table state to a user's saved tables."""
         username = self._canonical_username_or_input(username)
@@ -2321,10 +2350,26 @@ class Database:
         cursor = self._conn.cursor()
         cursor.execute(
             """
-            INSERT INTO saved_tables (username, save_name, game_type, game_json, members_json, saved_at)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO saved_tables (
+                username,
+                save_name,
+                game_type,
+                game_json,
+                members_json,
+                table_state_json,
+                saved_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?)
         """,
-            (username, save_name, game_type, game_json, members_json, saved_at),
+            (
+                username,
+                save_name,
+                game_type,
+                game_json,
+                members_json,
+                table_state_json,
+                saved_at,
+            ),
         )
 
         return SavedTableRecord(
@@ -2335,6 +2380,21 @@ class Database:
             game_json=game_json,
             members_json=members_json,
             saved_at=saved_at,
+            table_state_json=table_state_json,
+        )
+
+    @staticmethod
+    def _saved_table_record_from_row(row: sqlite3.Row) -> SavedTableRecord:
+        """Build one saved-table record through the shared schema boundary."""
+        return SavedTableRecord(
+            id=row["id"],
+            username=row["username"],
+            save_name=row["save_name"],
+            game_type=row["game_type"],
+            game_json=row["game_json"],
+            members_json=row["members_json"],
+            saved_at=row["saved_at"],
+            table_state_json=row["table_state_json"],
         )
 
     def count_user_saved_tables(self, username: str) -> int:
@@ -2366,20 +2426,10 @@ class Database:
             query += " LIMIT ? OFFSET ?"
             params.extend([safe_limit, safe_offset])
         cursor.execute(query, tuple(params))
-        records = []
-        for row in cursor.fetchall():
-            records.append(
-                SavedTableRecord(
-                    id=row["id"],
-                    username=row["username"],
-                    save_name=row["save_name"],
-                    game_type=row["game_type"],
-                    game_json=row["game_json"],
-                    members_json=row["members_json"],
-                    saved_at=row["saved_at"],
-                )
-            )
-        return records
+        return [
+            self._saved_table_record_from_row(row)
+            for row in cursor.fetchall()
+        ]
 
     def get_saved_table(
         self,
@@ -2402,15 +2452,7 @@ class Database:
         if not row:
             return None
 
-        return SavedTableRecord(
-            id=row["id"],
-            username=row["username"],
-            save_name=row["save_name"],
-            game_type=row["game_type"],
-            game_json=row["game_json"],
-            members_json=row["members_json"],
-            saved_at=row["saved_at"],
-        )
+        return self._saved_table_record_from_row(row)
 
     def delete_saved_table(
         self,

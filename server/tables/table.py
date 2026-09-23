@@ -1,9 +1,11 @@
 """Table management for games."""
 
+import json
 import math
 import time
-from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+import types
+from dataclasses import dataclass, field, fields
+from typing import TYPE_CHECKING, Any, Literal, Union, get_args, get_origin
 
 from mashumaro.mixins.json import DataClassJSONMixin
 
@@ -18,6 +20,125 @@ if TYPE_CHECKING:
 
 ABANDONED_ACTIVE_TABLE_TIMEOUT_SECONDS = 15 * 60
 WAITING_MEMBER_DISCONNECT_TIMEOUT_SECONDS = 15
+TABLE_STATE_SCHEMA_VERSION = 1
+SAVED_TABLE_PROPERTY = "saved_table_property"
+
+
+def _encode_saved_table_value(value: Any) -> Any:
+    """Convert one declared table property to deterministic JSON-safe data."""
+    if value is None or isinstance(value, (bool, int, str)):
+        return value
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            raise ValueError("saved table properties cannot contain non-finite numbers")
+        return value
+    if isinstance(value, dict):
+        if not all(isinstance(key, str) for key in value):
+            raise TypeError("saved table property mappings must use string keys")
+        return {
+            key: _encode_saved_table_value(item)
+            for key, item in value.items()
+        }
+    if isinstance(value, (list, tuple)):
+        return [_encode_saved_table_value(item) for item in value]
+    if isinstance(value, (set, frozenset)):
+        encoded = [_encode_saved_table_value(item) for item in value]
+        return sorted(
+            encoded,
+            key=lambda item: json.dumps(
+                item,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            ),
+        )
+    raise TypeError(
+        f"unsupported saved table property type: {type(value).__name__}"
+    )
+
+
+def _decode_saved_table_value(value: Any, annotation: Any, path: str) -> Any:
+    """Strictly validate and rebuild one declared table property."""
+    origin = get_origin(annotation)
+    arguments = get_args(annotation)
+
+    if annotation is Any:
+        return _encode_saved_table_value(value)
+    if annotation is type(None):
+        if value is not None:
+            raise ValueError(f"{path} must be null")
+        return None
+    if origin in (Union, types.UnionType):
+        for member_type in arguments:
+            try:
+                return _decode_saved_table_value(value, member_type, path)
+            except (TypeError, ValueError):
+                continue
+        raise ValueError(f"{path} has an invalid value")
+    if origin is Literal:
+        if value not in arguments or type(value) not in {type(item) for item in arguments}:
+            raise ValueError(f"{path} has an unsupported value")
+        return value
+    if annotation is bool:
+        if type(value) is not bool:
+            raise ValueError(f"{path} must be a boolean")
+        return value
+    if annotation is int:
+        if type(value) is not int:
+            raise ValueError(f"{path} must be an integer")
+        return value
+    if annotation is float:
+        if type(value) not in (int, float) or not math.isfinite(value):
+            raise ValueError(f"{path} must be a finite number")
+        return float(value)
+    if annotation is str:
+        if not isinstance(value, str):
+            raise ValueError(f"{path} must be a string")
+        return value
+    collection_type = origin or annotation
+    if collection_type in (list, set, frozenset):
+        if not isinstance(value, list):
+            raise ValueError(f"{path} must be a list")
+        item_type = arguments[0] if arguments else Any
+        decoded = [
+            _decode_saved_table_value(item, item_type, f"{path}[{index}]")
+            for index, item in enumerate(value)
+        ]
+        if collection_type in (set, frozenset):
+            unique = collection_type(decoded)
+            if len(unique) != len(decoded):
+                raise ValueError(f"{path} cannot contain duplicate values")
+            return unique
+        return decoded
+    if collection_type is tuple:
+        if not isinstance(value, list):
+            raise ValueError(f"{path} must be a list")
+        if len(arguments) == 2 and arguments[1] is Ellipsis:
+            return tuple(
+                _decode_saved_table_value(item, arguments[0], f"{path}[{index}]")
+                for index, item in enumerate(value)
+            )
+        if arguments and len(value) != len(arguments):
+            raise ValueError(f"{path} has the wrong number of values")
+        return tuple(
+            _decode_saved_table_value(
+                item,
+                arguments[index] if arguments else Any,
+                f"{path}[{index}]",
+            )
+            for index, item in enumerate(value)
+        )
+    if collection_type is dict:
+        if not isinstance(value, dict):
+            raise ValueError(f"{path} must be an object")
+        key_type, item_type = arguments if arguments else (str, Any)
+        if key_type is not str or not all(isinstance(key, str) for key in value):
+            raise ValueError(f"{path} must use string keys")
+        return {
+            key: _decode_saved_table_value(item, item_type, f"{path}.{key}")
+            for key, item in value.items()
+        }
+    raise TypeError(f"{path} uses an unsupported persisted type: {annotation!r}")
 
 
 @dataclass
@@ -43,7 +164,20 @@ class Table(DataClassJSONMixin):
     members: list[TableMember] = field(default_factory=list)
     game_json: str | None = None  # Serialized game state
     status: str = "waiting"  # waiting, playing, finished
-    is_private: bool = False  # Private tables are hidden from active tables lists
+    is_private: bool = field(
+        default=False,
+        metadata={SAVED_TABLE_PROPERTY: "is_private"},
+    )  # Private tables are hidden from active tables lists
+
+    # These properties follow this table through manual saves and transient
+    # server checkpoints. They are not account-global: final table/save
+    # deletion still ends their lifecycle.
+    _banned_uuids: set[str] = field(
+        default_factory=set,
+        init=False,
+        repr=False,
+        metadata={SAVED_TABLE_PROPERTY: "banned_uuids"},
+    )
 
     # Not serialized
     _game: "Game | None" = field(default=None, repr=False)
@@ -66,13 +200,108 @@ class Table(DataClassJSONMixin):
         self._member_offline_since = {}
         self._offline_since = None
         self._destroyed = False
-        # Table-scoped ban list — runtime only, never serialized.
-        # Keyed by player UUID. Dies with this Table instance, so no ban can
-        # carry over even if a future table reuses the same table_id.
-        self._banned_uuids: set[str] = set()
         self._power_restore_started_at: float | None = None
         self._power_restore_grace_seconds: int = 0
         self._power_restore_processed: bool = False
+
+    @classmethod
+    def _saved_property_fields(cls) -> dict[str, Any]:
+        """Return the single declarative registry of persisted table fields."""
+        registered: dict[str, Any] = {}
+        for declared_field in fields(cls):
+            property_name = declared_field.metadata.get(SAVED_TABLE_PROPERTY)
+            if property_name is None:
+                continue
+            if not isinstance(property_name, str) or not property_name:
+                raise TypeError(
+                    f"{declared_field.name} has an invalid saved-table property name"
+                )
+            if property_name in registered:
+                raise TypeError(
+                    f"duplicate saved-table property name: {property_name}"
+                )
+            registered[property_name] = declared_field
+        return registered
+
+    def serialize_saved_state(self) -> str:
+        """Serialize every declaratively persisted table property."""
+        properties: dict[str, Any] = {}
+        for property_name, declared_field in self._saved_property_fields().items():
+            encoded_value = _encode_saved_table_value(
+                getattr(self, declared_field.name)
+            )
+            _decode_saved_table_value(
+                encoded_value,
+                declared_field.type,
+                f"properties.{property_name}",
+            )
+            properties[property_name] = encoded_value
+        return json.dumps(
+            {
+                "version": TABLE_STATE_SCHEMA_VERSION,
+                "properties": properties,
+            },
+            ensure_ascii=False,
+            allow_nan=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+
+    @classmethod
+    def deserialize_saved_state(cls, state_json: str | None) -> dict[str, Any]:
+        """Validate persisted state without mutating or exposing a table.
+
+        Empty objects are legacy records created before table properties were
+        stored. Unknown fields fail closed so an older server cannot silently
+        discard a newer privacy, admission, or lifecycle rule.
+        """
+        if state_json in (None, ""):
+            return {}
+        try:
+            payload = json.loads(state_json)
+        except (TypeError, json.JSONDecodeError) as exc:
+            raise ValueError("saved table state is not valid JSON") from exc
+        if not isinstance(payload, dict):
+            raise ValueError("saved table state must be an object")
+        if not payload:
+            return {}
+        if set(payload) != {"version", "properties"}:
+            raise ValueError("saved table state has unsupported fields")
+        version = payload["version"]
+        if type(version) is not int or version != TABLE_STATE_SCHEMA_VERSION:
+            raise ValueError("saved table state has an unsupported version")
+        properties = payload["properties"]
+        if not isinstance(properties, dict):
+            raise ValueError("saved table properties must be an object")
+
+        registered = cls._saved_property_fields()
+        unknown = set(properties) - set(registered)
+        if unknown:
+            raise ValueError(
+                "saved table state contains unsupported properties: "
+                + ", ".join(sorted(str(name) for name in unknown))
+            )
+
+        return {
+            declared_field.name: _decode_saved_table_value(
+                properties[property_name],
+                declared_field.type,
+                f"properties.{property_name}",
+            )
+            for property_name, declared_field in registered.items()
+            if property_name in properties
+        }
+
+    def restore_saved_state(self, state: dict[str, Any]) -> None:
+        """Apply state returned by :meth:`deserialize_saved_state`."""
+        allowed_fields = {
+            declared_field.name
+            for declared_field in self._saved_property_fields().values()
+        }
+        if not isinstance(state, dict) or not set(state) <= allowed_fields:
+            raise ValueError("saved table state was not validated")
+        for field_name, value in state.items():
+            setattr(self, field_name, value)
 
     @property
     def game(self) -> "Game | None":
@@ -247,7 +476,7 @@ class Table(DataClassJSONMixin):
         return True
 
     def is_banned(self, user_uuid: str) -> bool:
-        """Check if a UUID is banned from this table instance."""
+        """Check if a UUID is banned from this table lifecycle."""
         return user_uuid in self._banned_uuids
 
     def ban_user(self, user_uuid: str) -> None:

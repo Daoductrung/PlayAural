@@ -13,7 +13,10 @@ from server.games.crazyeights.game import CrazyEightsGame
 from server.games.pig.game import PigGame, PigOptions
 from server.messages.localization import Localization
 from server.persistence.database import Database
-from server.tables.table import ABANDONED_ACTIVE_TABLE_TIMEOUT_SECONDS
+from server.tables.table import (
+    ABANDONED_ACTIVE_TABLE_TIMEOUT_SECONDS,
+    TABLE_STATE_SCHEMA_VERSION,
+)
 from server.users.bot import Bot
 from server.users.test_user import MockUser
 
@@ -699,7 +702,122 @@ class TestTableInviteReclaim:
         assert restored.is_bot is False
         assert restored.replaced_human is False
         assert restored.name == guest.username
+        assert table.is_private is False
         assert self.db.get_saved_table(record.id) is None
+
+    @pytest.mark.asyncio
+    async def test_saved_table_restore_preserves_privacy_and_table_bans(self):
+        host = self._create_online_user("Host")
+        banned = self._create_online_user("Banned")
+        outsider = self._create_online_user("Outsider")
+        table, _ = self._create_waiting_table(
+            host,
+            banned,
+            PigGame(options=PigOptions(target_score=25)),
+        )
+        table.is_private = True
+        assert self.server._perform_host_kick(
+            host,
+            table,
+            banned.username,
+            is_ban=True,
+        )
+
+        self.server.on_table_save(table, host.username)
+
+        records = self.db.get_user_saved_tables(host.username)
+        assert len(records) == 1
+        record = records[0]
+        saved_state = json.loads(record.table_state_json)
+        assert saved_state["properties"] == {
+            "banned_uuids": [banned.uuid],
+            "is_private": True,
+        }
+
+        await self.server._restore_saved_table(host, record.id)
+
+        restored_table = self.server._tables.find_user_table(host.username)
+        assert restored_table is not None
+        assert restored_table.is_private is True
+        assert restored_table.is_banned(banned.uuid)
+        assert self.db.get_saved_table(record.id) is None
+
+        self.server._auto_join_table(
+            outsider,
+            restored_table,
+            restored_table.game_type,
+        )
+        assert self.server._tables.find_user_table(outsider.username) is None
+        assert outsider.get_last_spoken() == Localization.get(
+            outsider.locale,
+            "table-private-invite-only",
+        )
+
+        self.server._auto_join_table(
+            banned,
+            restored_table,
+            restored_table.game_type,
+            allow_private_join=True,
+        )
+        assert self.server._tables.find_user_table(banned.username) is None
+        assert banned.get_last_spoken() == Localization.get(
+            banned.locale,
+            "table-you-are-banned",
+        )
+
+    def test_invalid_runtime_table_property_aborts_save_before_destroy(self):
+        host = self._create_online_user("Host")
+        table = self.server._tables.create_table("pig", host.username, host)
+        game = PigGame(options=PigOptions(target_score=25))
+        table.game = game
+        game._table = table
+        game.initialize_lobby(host.username, host)
+        table.is_private = 1
+
+        with pytest.raises(ValueError, match="is_private must be a boolean"):
+            self.server.on_table_save(table, host.username)
+
+        assert self.server._tables.get_table(table.table_id) is table
+        assert self.db.count_user_saved_tables(host.username) == 0
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "table_state",
+        [
+            {
+                "version": TABLE_STATE_SCHEMA_VERSION,
+                "properties": {"is_private": "not-a-boolean"},
+            },
+            {
+                "version": TABLE_STATE_SCHEMA_VERSION,
+                "properties": {"future_admission_rule": True},
+            },
+            {
+                "version": TABLE_STATE_SCHEMA_VERSION + 1,
+                "properties": {},
+            },
+        ],
+        ids=["invalid-type", "unknown-property", "unknown-version"],
+    )
+    async def test_invalid_saved_table_properties_fail_without_partial_restore(
+        self,
+        table_state,
+    ):
+        restorer = self._create_online_user("Restorer")
+        record = self._save_pig_game(restorer)
+        self.db._conn.execute(
+            "UPDATE saved_tables SET table_state_json = ? WHERE id = ?",
+            (json.dumps(table_state), record.id),
+        )
+
+        await self.server._restore_saved_table(restorer, record.id)
+
+        assert self.server._tables.find_user_table(restorer.username) is None
+        assert self.db.get_saved_table(record.id) is not None
+        assert restorer.get_last_spoken() == Localization.get(
+            restorer.locale,
+            "saved-table-invalid",
+        )
 
     @pytest.mark.asyncio
     async def test_invalid_saved_table_is_retained_without_partial_table(self):

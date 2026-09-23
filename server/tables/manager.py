@@ -23,8 +23,10 @@ class TableManager:
         game_type: str,
         host_username: str,
         host_user: "User",
+        *,
+        saved_state: dict[str, Any] | None = None,
     ) -> Table:
-        """Create a new table."""
+        """Create a new table, applying validated saved state before exposure."""
         table_id = str(uuid.uuid4())[:8]
         while table_id in self._tables:
             table_id = str(uuid.uuid4())[:8]
@@ -33,6 +35,8 @@ class TableManager:
             game_type=game_type,
             host=host_username,
         )
+        if saved_state is not None:
+            table.restore_saved_state(saved_state)
         table._manager = self
         table._server = self._server
         if self._server:

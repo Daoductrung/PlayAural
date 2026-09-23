@@ -71,6 +71,7 @@ class DummyDb:
         game_type: str,
         game_json: str,
         members_json: str,
+        table_state_json: str = "{}",
     ) -> None:
         self.saved_tables.append(
             {
@@ -79,6 +80,7 @@ class DummyDb:
                 "game_type": game_type,
                 "game_json": game_json,
                 "members_json": members_json,
+                "table_state_json": table_state_json,
             }
         )
 

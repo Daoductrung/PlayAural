@@ -43,6 +43,7 @@ from ..auth.rate_limit import RateLimiter
 from ..auth.chat_rate_limit import ChatRateLimiter
 from ..auth.voice_rate_limit import VoiceRateLimiter
 from ..tables.manager import TableManager
+from ..tables.table import Table
 from ..users.network_user import NetworkUser
 from ..users.base import MenuItem, EscapeBehavior
 from ..users.identity import find_username_prefix, normalize_username, username_key
@@ -9535,6 +9536,7 @@ PlayAural Server
 
         table = None
         try:
+            table_state = Table.deserialize_saved_state(record.table_state_json)
             members_data = json.loads(record.members_json)
             if not isinstance(members_data, list) or not members_data:
                 raise ValueError("saved table has no member list")
@@ -9627,6 +9629,12 @@ PlayAural Server
             self._nav_back(user)
             return
 
+        banned_uuids = table_state.get("_banned_uuids", set())
+        if any(account.uuid in banned_uuids for _, account in human_accounts):
+            user.speak_l("saved-table-invalid", buffer="system")
+            self._nav_back(user)
+            return
+
         # A manual restore creates a new table hosted by the restorer and
         # automatically admits every former human player. Unlike reconnecting
         # to a live reserved seat, that must respect the current social
@@ -9707,6 +9715,7 @@ PlayAural Server
                 record.game_type,
                 user.username,
                 user,
+                saved_state=table_state,
             )
             table.game = game
             game._table = table
@@ -10614,6 +10623,7 @@ PlayAural Server
             game_type=table.game_type,
             game_json=game_json,
             members_json=members_json,
+            table_state_json=table.serialize_saved_state(),
         )
 
         # Broadcast save message and destroy the table

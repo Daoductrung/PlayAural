@@ -1,5 +1,21 @@
 Registro de cambios
 
+Miércoles 23 de septiembre de 2026
+
+Novedades:
+
+* Se añadió Punto de Ruptura para dos escuadrones iguales, de 2v2 a 5v5. Este juego táctico por turnos en Dust enfrenta a T, que debe plantar y defender la bomba, contra CT, que debe evitar la plantada o desactivarla. Incluye niebla de guerra, ángulos de tiro y ángulos mantenidos, armas, armadura y granadas, una economía de ronda a ronda con reembolsos y compras para compañeros, armas soltadas, los formatos MR7, MR12 y MR15, tiempo extra MR3 repetible opcional, bots conscientes del objetivo, menús de compra y combate accesibles, un paisaje sonoro totalmente espacial, y guías para principiantes en inglés y vietnamita.
+* Escritorio, Web y Móvil ahora pueden reproducir los sonidos compatibles en un espacio tridimensional. Las señales pueden venir de arriba, abajo, alrededor tuyo, a distancia, o en movimiento, mientras que los efectos conectados y superpuestos se mantienen sincronizados. El estéreo direccional mantiene estas señales útiles cuando la reproducción espacial completa no está disponible.
+
+Mejoras:
+
+* El Historial en Escritorio y Web ahora mantiene seleccionado el mensaje exacto que estás revisando cuando llegan mensajes nuevos o vuelve un historial acumulado que estaba silenciado. Las teclas de corchete izquierdo y derecho se mueven entre búferes, mientras que la coma y el punto se mueven entre mensajes; cada señal de navegación se desplaza de izquierda a derecha para mostrar tu posición del más antiguo al más reciente.
+* En Móvil, desactivar la autolectura ahora permite que TalkBack encole y lea en orden los anuncios del servidor y de la interfaz sin interrumpir el habla en curso. Navegar o realizar otra acción borra los anuncios pendientes para que la retroalimentación actual tenga prioridad. Con la autolectura activada, Android ahora reintenta con la voz predeterminada y otros motores de texto a voz instalados si la voz o el motor seleccionados no pueden hablar, en lugar de quedarse en silencio.
+
+Corrección de errores:
+
+* Guardar y restaurar una mesa ahora conserva su estado privado y su lista de jugadores baneados de la mesa, incluso a través de reinicios planificados del servidor. Una mesa privada se mantiene privada, y cualquiera que haya sido eliminado con Expulsar y banear a un jugador no puede volver a entrar después de la restauración. Las mesas guardadas de versiones anteriores se siguen cargando con normalidad.
+
 Viernes 11 de septiembre de 2026
 
 Novedades:
@@ -10,7 +26,7 @@ Novedades:
 
 Mejoras:
 
-* La navegación y la voz en Móvil son más confiables durante el inicio de sesión y el juego. La autolectura reconoce con más consistencia los gestos de uno, dos y tres dedos, se recupera después de interrupciones del servicio de voz de Android, y cambia sin problemas entre autolectura y TalkBack. Atrás cierra el diálogo o cuadro de texto visible antes de salir de la pantalla actual, y Ayuda y gestos ahora mantiene juntas las instrucciones y la información de compilación.
+* La navegación en Móvil es más confiable durante el inicio de sesión y el juego. La autolectura reconoce con más consistencia los gestos de uno, dos y tres dedos. Atrás cierra el diálogo o cuadro de texto visible antes de salir de la pantalla actual, y Ayuda y gestos ahora mantiene juntas las instrucciones y la información de compilación.
 * Los tableros de juego grandes, como Hundir la Flota, ahora mantienen objetivos táctiles legibles y se desplazan con fluidez en todas direcciones en Web y Móvil, incluido el desplazamiento con dos dedos en TalkBack. Las celdas enfocadas se llevan a la vista sin retrasar el movimiento del cursor ni la voz.
 * Leer usuarios en línea ahora anuncia primero el total, seguido de desarrolladores, administradores y demás usuarios. Abrir la lista de usuarios en línea sigue el mismo orden, permanece en la página actual mientras se actualiza, y mantiene disponibles las acciones de cuenta a medida que las personas se conectan, se desconectan o cambian de rol.
 * El texto en idiomas de derecha a izquierda ahora usa la dirección de escritura correcta en Escritorio, Web y Móvil, conservando el diseño y el orden de navegación habituales.
@@ -283,7 +299,7 @@ Corrección de errores:
 * Los atajos de volumen de música y ambiente en web ahora ajustan el audio activo del navegador.
 * La salida de ARIA live y Web Speech en web ahora evita con más confiabilidad que se salten mensajes.
 * Los atajos de lectura de búfer en web ahora funcionan en modo Web Speech.
-* La selección de voz y los controles de velocidad de habla en web son más claros en Windows, Android, iOS y macOS.
+* La selección de voz y los controles de velocidad de habla en web son más claros en Windows, Android y macOS.
 * Los mensajes de localización y conexión en web son más claros en inglés y vietnamita.
 
 Domingo 21 de junio de 2026

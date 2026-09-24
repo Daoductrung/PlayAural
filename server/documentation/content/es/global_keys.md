@@ -50,11 +50,11 @@ PlayAural es totalmente compatible con mandos estándar en el cliente de escrito
 \*\*Equivalencia de botones por tipo de mando\*\*
 
 \* \*\*Botón inferior / Sur (Cruz en PlayStation / A en Xbox / B en Switch / Botón 0 en genérico):\*\* Confirmar, activar el elemento enfocado o jugar la carta/ficha seleccionada (equivalente a Entrar).
-\* \*\*Botón derecho / Este (Círculo en PlayStation / B en Xbox / A en Switch / Botón 1 en genérico):\*\* Cancelar, retroceder, cerrar el menú actual o abrir el menú de acciones del juego (equivalente a Escape).
-\* \*\*Botón izquierdo / Oeste (Cuadrado en PlayStation / X en Xbox / Y en Switch / Botón 2 en genérico):\*\* Acción principal o Espacio. Juega la acción predeterminada o lee la descripción de ayuda de la opción enfocada. Combinado con R3: consulta puntuaciones o alterna entre espectador y jugador en la sala de espera (F3).
+\* \*\*Botón derecho / Este (Círculo en PlayStation / B en Xbox / A en Switch / Botón 1 en genérico):\*\* Cancelar, retroceder, cerrar el menú actual o abrir el menú de acciones del juego (equivalente a Escape). Mantener presionado prolongadamente dentro de una mesa sale de la mesa (Ctrl + Q).
+\* \*\*Botón izquierdo / Oeste (Cuadrado en PlayStation / X en Xbox / Y en Switch / Botón 2 en genérico):\*\* Acción principal o Espacio. Juega la acción predeterminada o lee la descripción de ayuda de la opción enfocada. Pulsado simultáneamente con el botón Sur (Cruz / A): añade un bot a la mesa (B). Combinado con R3: consulta puntuaciones o alterna entre espectador y jugador en la sala de espera (F3).
 \* \*\*Botón superior / Norte (Triángulo en PlayStation / Y en Xbox / X en Switch / Botón 3 en genérico):\*\* Tabulador (Tab): cambia entre campos de texto y paneles.
 \* \*\*Cruceta (D-Pad) y Stick izquierdo:\*\* Navegan por menús, listas y posiciones de cuadrícula del tablero.
-\* \*\*Pulsación del Stick izquierdo (L3 / LS):\*\* Devuelve el foco al menú principal (Alt + M).
+\* \*\*Pulsación del Stick izquierdo (L3 / LS):\*\* Lee el elemento actual enfocado o el mensaje activo. Pulsado simultáneamente con R3 dentro de una mesa: guarda la mesa (Ctrl + S).
 \* \*\*Options / Menu / Start / +:\*\* Abre el menú de Opciones (Alt + O).
 \* \*\*Share / Create / View / Select / Back / -:\*\* Abre las Opciones de la mesa / Gestión del anfitrión (Ctrl + M) si eres el anfitrión de la mesa.
 \* \*\*Botón Guía (PS / Xbox / Home):\*\* Devuelve el foco al menú principal (Alt + M).
@@ -71,14 +71,17 @@ PlayAural es totalmente compatible con mandos estándar en el cliente de escrito
 Inclina el stick analógico derecho en cualquiera de las cuatro direcciones para acceder rápidamente a información clave o realizar acciones en la mesa:
 
 \* \*\*Stick derecho arriba:\*\* Abre Cómo jugar (Ctrl + F1).
-\* \*\*Stick derecho abajo:\*\* Abre Quién está en la mesa (Ctrl + U).
+\* \*\*Stick derecho abajo:\*\* Abre Gestión del anfitrión si eres el anfitrión de la mesa (Ctrl + M).
 \* \*\*Stick derecho izquierda:\*\* Abre Información del juego (Ctrl + I).
-\* \*\*Stick derecho derecha:\*\* Alterna el modo espectador o jugador en la sala de espera, o consulta las puntuaciones en juego (F3).
+\* \*\*Stick derecho derecha:\*\* Abre Quién está en la mesa (Ctrl + U).
 
-\*\*Modificador R3 (Navegación al inicio y al final)\*\*
+\*\*Modificador R3 y combinaciones de mesa (Navegación y controles de mesa)\*\*
 
-Mantener presionado el botón del stick derecho (R3 / RS) funciona como la tecla Shift para saltar directamente al principio o al fin de listas, búferes y mensajes:
+Mantener presionado el botón del stick derecho (R3 / RS) funciona como la tecla Shift para saltar directamente al principio o al fin de listas, búferes y mensajes. Además, el mando admite combinaciones rápidas para la gestión de la mesa:
 
+\* \*\*L3 + R3 (pulsación simultánea):\*\* Guarda la mesa actual (Ctrl + S).
+\* \*\*Cruz + Cuadrado / Sur + Oeste (pulsación simultánea):\*\* Añade un bot a la mesa (B).
+\* \*\*Mantener Círculo / Este (0.7 segundos):\*\* Sale de la mesa actual (Ctrl + Q).
 \* \*\*R3 + L1 / LB / L:\*\* Salta al primer búfer de mensajes (Shift + `[`).
 \* \*\*R3 + R1 / RB / R:\*\* Salta al último búfer de mensajes (Shift + `]`).
 \* \*\*R3 + L2 / LT / ZL:\*\* Salta al mensaje más antiguo del búfer actual (Shift + `,`).

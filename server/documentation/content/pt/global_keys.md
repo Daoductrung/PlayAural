@@ -56,11 +56,11 @@ O PlayAural é totalmente compatível com controles padrão no cliente de comput
 # **Equivalência de Botões por Controle**
 
 * **Botão Sul / Inferior (Cruz no PlayStation / A no Xbox / B no Switch / Botão 0 em genéricos):** Confirmar, ativar o item em foco ou jogar a carta/peça selecionada (equivalente ao Enter).
-* **Botão Leste / Direito (Círculo no PlayStation / B no Xbox / A no Switch / Botão 1 em genéricos):** Cancelar, voltar, fechar o menu atual ou abrir o menu de ações do jogo (equivalente ao Escape).
-* **Botão Oeste / Esquerdo (Quadrado no PlayStation / X no Xbox / Y no Switch / Botão 2 em genéricos):** Ação principal ou Espaço. Executa a ação padrão ou lê a descrição de ajuda do item em foco. Quando combinado com R3: consulta pontuações ou alterna entre espectador e jogador na sala de espera (F3).
+* **Botão Leste / Direito (Círculo no PlayStation / B no Xbox / A no Switch / Botão 1 em genéricos):** Cancelar, voltar, fechar o menu atual ou abrir o menu de ações do jogo (equivalente ao Escape). Segurar pressionado dentro de uma mesa sai da mesa (Ctrl + Q).
+* **Botão Oeste / Esquerdo (Quadrado no PlayStation / X no Xbox / Y no Switch / Botão 2 em genéricos):** Ação principal ou Espaço. Executa a ação padrão ou lê a descrição de ajuda do item em foco. Pressionado simultaneamente com o botão Sul (Cruz / A): adiciona um bot à mesa (B). Quando combinado com R3: consulta pontuações ou alterna entre espectador e jogador na sala de espera (F3).
 * **Botão Norte / Superior (Triângulo no PlayStation / Y no Xbox / X no Switch / Botão 3 em genéricos):** Tab: alterna entre campos de texto e painéis.
 * **Direcional (D-Pad) e Alavanca Esquerda:** Navegam por menus, listas e posições no tabuleiro.
-* **Clique da Alavanca Esquerda (L3 / LS):** Retorna o foco para o menu principal (Alt + M).
+* **Clique da Alavanca Esquerda (L3 / LS):** Lê o item em foco ou a mensagem ativa. Pressionado simultaneamente com R3 em uma mesa: salva a mesa (Ctrl + S).
 * **Options / Menu / Start / +:** Abre o menu de Opções (Alt + O).
 * **Share / Create / View / Select / Back / -:** Abre as Opções da mesa / Gerenciamento de host (Ctrl + M) se você for o host da mesa.
 * **Botão Guia (PS / Xbox / Home):** Retorna o foco para o menu principal (Alt + M).
@@ -77,14 +77,17 @@ O PlayAural é totalmente compatível com controles padrão no cliente de comput
 Incline a alavanca analógica direita em qualquer uma das quatro direções para abrir rapidamente informações importantes ou realizar ações na mesa:
 
 * **Alavanca Direita para Cima:** Abre Como Jogar (Ctrl + F1).
-* **Alavanca Direita para Baixo:** Abre Quem está na mesa (Ctrl + U).
+* **Alavanca Direita para Baixo:** Abre Gerenciamento de host se você for o anfitrião da mesa (Ctrl + M).
 * **Alavanca Direita para a Esquerda:** Abre as Informações do Jogo (Ctrl + I).
-* **Alavanca Direita para a Direita:** Alterna modo espectador ou jogador na sala de espera, ou consulta pontuações na partida (F3).
+* **Alavanca Direita para a Direita:** Abre Quem está na mesa (Ctrl + U).
 
-# **Modificador R3 (Navegação para Início e Fim)**
+# **Modificador R3 e Combinações de Mesa (Navegação e Controles de Mesa)**
 
-Pressionar e segurar o clique da alavanca direita (R3 / RS) funciona como a tecla Shift para saltar diretamente ao início ou ao fim de listas e buffers:
+Pressionar e segurar o clique da alavanca direita (R3 / RS) funciona como a tecla Shift para saltar diretamente ao início ou ao fim de listas e buffers. Além disso, controles oferecem combinações rápidas para a mesa:
 
+* **L3 + R3 (clique simultâneo):** Salva a mesa atual (Ctrl + S).
+* **Cruz + Quadrado / Sul + Oeste (pressionamento simultâneo):** Adiciona um bot à mesa (B).
+* **Segurar Círculo / Leste (0.7 segundos):** Sai da mesa atual (Ctrl + Q).
 * **R3 + L1 / LB / L:** Vai para o primeiro buffer de mensagens (Shift + `[`).
 * **R3 + R1 / RB / R:** Vai para o último buffer de mensagens (Shift + `]`).
 * **R3 + L2 / LT / ZL:** Vai para a mensagem mais antiga no buffer atual (Shift + `,`).

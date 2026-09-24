@@ -56,11 +56,11 @@ PlayAural hỗ trợ đầy đủ các loại tay cầm tiêu chuẩn trên ứn
 \*\*Tương đương nút trên các loại tay cầm\*\*
 
 \* \*\*Nút dưới / South (PlayStation X / Xbox A / Switch B / Nút 0 trên tay cầm chung):\*\* Xác nhận, kích hoạt mục đang chọn hoặc đánh lá bài/nước đi đã chọn (tương đương phím Enter).
-\* \*\*Nút phải / East (PlayStation O / Xbox B / Switch A / Nút 1 trên tay cầm chung):\*\* Hủy, quay lại, đóng menu hiện tại hoặc mở menu hành động trong ván chơi (tương đương phím Escape).
-\* \*\*Nút trái / West (PlayStation Vuông / Xbox X / Switch Y / Nút 2 trên tay cầm chung):\*\* Hành động chính hoặc phím Space. Đánh nước mặc định hoặc đọc mô tả gợi ý của mục được chọn. Khi kết hợp cùng R3: xem điểm hoặc chuyển đổi giữa người chơi và khán giả trong phòng chờ (F3).
+\* \*\*Nút phải / East (PlayStation O / Xbox B / Switch A / Nút 1 trên tay cầm chung):\*\* Hủy, quay lại, đóng menu hiện tại hoặc mở menu hành động trong ván chơi (tương đương phím Escape). Nhấn giữ nút này khi đang ở trong bàn sẽ rời bàn (Ctrl + Q).
+\* \*\*Nút trái / West (PlayStation Vuông / Xbox X / Switch Y / Nút 2 trên tay cầm chung):\*\* Hành động chính hoặc phím Space. Đánh nước mặc định hoặc đọc mô tả gợi ý của mục được chọn. Nhấn đồng thời với nút dưới (X / A): thêm bot vào bàn (B). Khi kết hợp cùng R3: xem điểm hoặc chuyển đổi giữa người chơi và khán giả trong phòng chờ (F3).
 \* \*\*Nút trên / North (PlayStation Tam giác / Xbox Y / Switch X / Nút 3 trên tay cầm chung):\*\* Phím Tab: chuyển đổi qua lại giữa các ô nhập liệu và khu vực chức năng.
 \* \*\*Phím điều hướng (D-Pad) và cần gạt trái:\*\* Di chuyển trong menu, danh sách và vị trí ô cờ trên bàn.
-\* \*\*Nhấn cần gạt trái (L3 / LS):\*\* Đưa tiêu điểm về menu chính (Alt + M).
+\* \*\*Nhấn cần gạt trái (L3 / LS):\*\* Đọc mục đang được chọn hoặc tin nhắn hiện tại. Nhấn đồng thời với R3 khi ở trong bàn: lưu bàn (Ctrl + S).
 \* \*\*Options / Menu / Start / +:\*\* Mở mục Tùy chỉnh (Alt + O).
 \* \*\*Share / Create / View / Select / Back / -:\*\* Mở phần Tùy chọn bàn / Quản lý bàn (Ctrl + M) nếu bạn là chủ bàn.
 \* \*\*Nút Home / Guide (PS / Xbox / Home):\*\* Đưa tiêu điểm về menu chính (Alt + M).
@@ -77,14 +77,17 @@ PlayAural hỗ trợ đầy đủ các loại tay cầm tiêu chuẩn trên ứn
 Gạt cần analog phải theo 4 hướng để truy cập nhanh các thông tin quan trọng hoặc thực hiện thao tác trong bàn:
 
 \* \*\*Cần phải gạt lên:\*\* Mở phần Cách chơi (Ctrl + F1).
-\* \*\*Cần phải gạt xuống:\*\* Mở phần Ai đang ở bàn (Ctrl + U).
+\* \*\*Cần phải gạt xuống:\*\* Mở phần Quản lý bàn nếu bạn là chủ bàn (Ctrl + M).
 \* \*\*Cần phải gạt sang trái:\*\* Mở phần Thông tin trò chơi (Ctrl + I).
-\* \*\*Cần phải gạt sang phải:\*\* Chuyển đổi giữa khán giả và người chơi trong phòng chờ, hoặc xem điểm trong ván (F3).
+\* \*\*Cần phải gạt sang phải:\*\* Mở phần Ai đang ở bàn (Ctrl + U).
 
-\*\*Nút bổ trợ R3 (Nhảy tới đầu và cuối danh sách)\*\*
+\*\*Nút bổ trợ R3 và tổ hợp phím bàn (Điều hướng nhanh và thao tác bàn)\*\*
 
-Nhấn giữ nút cần gạt phải (R3 / RS) hoạt động giống như phím Shift để nhảy nhanh tới đầu hoặc cuối danh sách và bộ đệm:
+Nhấn giữ nút cần gạt phải (R3 / RS) hoạt động giống như phím Shift để nhảy nhanh tới đầu hoặc cuối danh sách và bộ đệm. Ngoài ra tay cầm còn hỗ trợ các tổ hợp phím hữu ích trong bàn:
 
+\* \*\*L3 + R3 (nhấn đồng thời):\*\* Lưu bàn chơi hiện tại (Ctrl + S).
+\* \*\*X + Vuông / South + West (nhấn đồng thời):\*\* Thêm bot vào bàn (B).
+\* \*\*Nhấn giữ nút O / East (0.7 giây):\*\* Rời khỏi bàn chơi hiện tại (Ctrl + Q).
 \* \*\*R3 + L1 / LB / L:\*\* Nhảy tới bộ đệm đầu tiên (Shift + `[`).
 \* \*\*R3 + R1 / RB / R:\*\* Nhảy tới bộ đệm cuối cùng (Shift + `]`).
 \* \*\*R3 + L2 / LT / ZL:\*\* Nhảy tới tin nhắn cũ nhất trong bộ đệm hiện tại (Shift + `,`).

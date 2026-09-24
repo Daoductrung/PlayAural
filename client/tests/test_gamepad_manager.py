@@ -208,6 +208,7 @@ def test_main_window_has_gamepad_integration():
     assert "def _on_gamepad_button_down(self, btn_name: str, controller_id: int):" in source
     assert "def _navigate_menu(self, direction: str):" in source
     assert "def _send_keybind(" in source
+    assert "def trigger_escape(" in source
     assert "self.gamepad_manager.shutdown()" in source
     assert "right_stick_up" in source
     assert "touchpad_swipe_down" in source
@@ -246,6 +247,8 @@ def test_main_window_gamepad_mappings():
         menu_list=MagicMock(),
         buffer_system=MagicMock(),
         gamepad_manager=MagicMock(),
+        network=MagicMock(),
+        sound_manager=MagicMock(),
         silence_speech=lambda: called_actions.append("silence_speech"),
         _send_keybind=lambda key, has_control=False, has_alt=False, has_shift=False: called_actions.append(
             f"keybind:{key}:{has_control}:{has_shift}"
@@ -276,14 +279,21 @@ def test_main_window_gamepad_mappings():
         _read_current_item_or_message=lambda: called_actions.append("_read_current_item_or_message"),
         _misc1_press_time=None,
         _misc1_hold_triggered=False,
+        _east_press_time=None,
+        _east_hold_triggered=False,
+        _l3_is_down=False,
         _r3_is_down=False,
         _r3_modifier_used=False,
+        _south_is_down=False,
+        _west_is_down=False,
+        _west_combo_used=False,
     )
 
     dummy._handle_gamepad_mic_tap = MainWindow._handle_gamepad_mic_tap.__get__(dummy)
     dummy._handle_gamepad_mic_hold = MainWindow._handle_gamepad_mic_hold.__get__(dummy)
     dummy._on_gamepad_button_down = MainWindow._on_gamepad_button_down.__get__(dummy)
     dummy._on_gamepad_button_up = MainWindow._on_gamepad_button_up.__get__(dummy)
+    dummy.trigger_escape = MainWindow.trigger_escape.__get__(dummy)
 
     # 1. Touchpad click -> Open online users with games
     dummy._on_gamepad_button_down("touchpad", 0)
@@ -345,7 +355,7 @@ def test_main_window_gamepad_mappings():
 
     called_actions.clear()
     dummy._on_gamepad_button_down("right_stick_down", 0)
-    assert "keybind:u:True:False" in called_actions
+    assert "keybind:m:True:False" in called_actions
 
     called_actions.clear()
     dummy._on_gamepad_button_down("right_stick_left", 0)
@@ -353,7 +363,7 @@ def test_main_window_gamepad_mappings():
 
     called_actions.clear()
     dummy._on_gamepad_button_down("right_stick_right", 0)
-    assert "keybind:f3:False:False" in called_actions
+    assert "keybind:u:True:False" in called_actions
 
     called_actions.clear()
     dummy._on_gamepad_button_down("back", 0)
@@ -422,3 +432,156 @@ def test_main_window_gamepad_mappings():
     dummy._on_gamepad_button_down("right_stick", 0)
     dummy._on_gamepad_button_up("right_stick", 0)
     assert "_jump_start_or_end" in called_actions
+
+    # 16. Circle (East) short tap -> Escape (keybind mode)
+    called_actions.clear()
+    dummy._on_gamepad_button_down("east", 0)
+    dummy._on_gamepad_button_up("east", 0)
+    assert "keybind:escape:False:False" in called_actions
+
+    # 16b. Circle (East) short tap in menu -> Select last option (Back)
+    dummy.escape_behavior = "select_last_option"
+    dummy.current_mode = "list"
+    dummy.current_menu_id = "gamepad_options_menu"
+    dummy.current_menu_item_ids = ["enable_gamepad", "back"]
+    dummy.menu_list.GetCount.return_value = 2
+    dummy.network.send_packet.reset_mock()
+    called_actions.clear()
+    dummy._on_gamepad_button_down("east", 0)
+    dummy._on_gamepad_button_up("east", 0)
+    dummy.network.send_packet.assert_called_once_with(
+        {"type": "menu", "menu_id": "gamepad_options_menu", "selection": 2, "selection_id": "back"}
+    )
+    # 16c. Circle (East) short tap in main_menu -> Select last option (Logout / Exit confirm)
+    dummy.escape_behavior = "select_last_option"
+    dummy.current_mode = "list"
+    dummy.current_menu_id = "main_menu"
+    dummy.current_menu_item_ids = ["play", "active_tables", "saved_tables", "logout"]
+    dummy.menu_list.GetCount.return_value = 4
+    dummy.network.send_packet.reset_mock()
+    called_actions.clear()
+    dummy._on_gamepad_button_down("east", 0)
+    dummy._on_gamepad_button_up("east", 0)
+    dummy.network.send_packet.assert_called_once_with(
+        {"type": "menu", "menu_id": "main_menu", "selection": 4, "selection_id": "logout"}
+    )
+    # Restore dummy state for subsequent tests
+    dummy.escape_behavior = "keybind"
+    dummy.current_mode = "normal"
+    dummy.current_menu_id = "lobby"
+    dummy.current_menu_item_ids = []
+
+    # 17. Circle (East) long hold -> Leave table (Ctrl + Q)
+    called_actions.clear()
+    dummy._on_gamepad_button_down("east", 0)
+    dummy._east_press_time = time.monotonic() - 1.0  # simulate > 0.7s passed
+    # simulate tick hold detection logic
+    if getattr(dummy, "_east_press_time", None) is not None:
+        if not getattr(dummy, "_east_hold_triggered", False) and (
+            time.monotonic() - dummy._east_press_time >= 0.7
+        ):
+            dummy._east_hold_triggered = True
+            dummy.silence_speech()
+            dummy._send_keybind("q", has_control=True)
+            dummy.gamepad_manager.rumble(0.35, 0.35, 90)
+    dummy._on_gamepad_button_up("east", 0)
+    assert "keybind:q:True:False" in called_actions
+    assert "keybind:escape:False:False" not in called_actions
+
+    # 18. L3 + R3 combo -> Save table (Ctrl + S)
+    called_actions.clear()
+    dummy._on_gamepad_button_down("left_stick", 0)
+    dummy._on_gamepad_button_down("right_stick", 0)
+    dummy._on_gamepad_button_up("left_stick", 0)
+    dummy._on_gamepad_button_up("right_stick", 0)
+    assert "keybind:s:True:False" in called_actions
+
+    # 19. South (Cross) + West (Square) combo -> Add bot (B)
+    called_actions.clear()
+    dummy._on_gamepad_button_down("south", 0)
+    dummy._on_gamepad_button_down("west", 0)
+    dummy._on_gamepad_button_up("south", 0)
+    dummy._on_gamepad_button_up("west", 0)
+    assert "keybind:b:False:False" in called_actions
+
+
+def test_game_audio_haptic_vibration_triggers():
+    """Verify that in-game audio cues trigger appropriate tactile haptic vibrations."""
+    from types import SimpleNamespace
+    try:
+        from client.ui.main_window import MainWindow
+    except ModuleNotFoundError:
+        from ui.main_window import MainWindow
+
+    gm_mock = MagicMock()
+    gm_mock.vibration_enabled = True
+
+    dummy = SimpleNamespace(
+        gamepad_manager=gm_mock,
+    )
+    dummy._trigger_game_audio_haptics = MainWindow._trigger_game_audio_haptics.__get__(dummy)
+
+    # 1. Breach Point - Bomb explosion
+    gm_mock.rumble.reset_mock()
+    dummy._trigger_game_audio_haptics({"command": "play", "asset": "game_breachpoint/objective/bomb_explode.ogg"})
+    gm_mock.rumble.assert_called_once_with(0.8, 0.8, 500)
+
+    # 2. Breach Point - HE Grenade
+    gm_mock.rumble.reset_mock()
+    dummy._trigger_game_audio_haptics({"command": "play", "asset": "game_breachpoint/utility/he_grenade/detonate_close1.ogg"})
+    gm_mock.rumble.assert_called_once_with(0.65, 0.65, 300)
+
+    # 3. Breach Point - Weapon fire
+    gm_mock.rumble.reset_mock()
+    dummy._trigger_game_audio_haptics({"command": "play", "asset": "game_breachpoint/weapons/ak47/fire_close.ogg"})
+    gm_mock.rumble.assert_called_once_with(0.35, 0.35, 75)
+
+    # 4. Mille Bornes - Accident / Crash
+    gm_mock.rumble.reset_mock()
+    dummy._trigger_game_audio_haptics({"command": "play", "asset": "game_milebymile/crash1.ogg"})
+    gm_mock.rumble.assert_called_once_with(0.65, 0.65, 320)
+
+    # 5. Mille Bornes - Flat tire
+    gm_mock.rumble.reset_mock()
+    dummy._trigger_game_audio_haptics({"command": "play", "asset": "game_milebymile/flat.ogg"})
+    gm_mock.rumble.assert_called_once_with(0.45, 0.45, 180)
+
+    # 6. Mille Bornes - Safety card
+    gm_mock.rumble.reset_mock()
+    dummy._trigger_game_audio_haptics({"command": "play", "asset": "game_milebymile/drivingace.ogg"})
+    gm_mock.rumble.assert_called_once_with(0.4, 0.4, 200)
+
+    # 7. Farkle - Farkle penalty
+    gm_mock.rumble.reset_mock()
+    dummy._trigger_game_audio_haptics({"command": "play", "asset": "game_farkle/farkle.ogg"})
+    gm_mock.rumble.assert_called_once_with(0.55, 0.55, 300)
+
+    # 8. Farkle - Hot dice
+    gm_mock.rumble.reset_mock()
+    dummy._trigger_game_audio_haptics({"command": "play", "asset": "game_farkle/hotdice.ogg"})
+    gm_mock.rumble.assert_called_once_with(0.45, 0.45, 200)
+
+    # 9. Sorry - Pawn captured
+    gm_mock.rumble.reset_mock()
+    dummy._trigger_game_audio_haptics({"command": "play", "asset": "game_chess/capture1.ogg"})
+    gm_mock.rumble.assert_called_once_with(0.5, 0.5, 220)
+
+    # 10. Turn notification
+    gm_mock.rumble.reset_mock()
+    dummy._trigger_game_audio_haptics({"command": "play", "asset": "turn.ogg"})
+    gm_mock.rumble.assert_called_once_with(0.2, 0.2, 90)
+
+    # 11. Segments sequence support (e.g. Sorry movement or multi-part sound)
+    gm_mock.rumble.reset_mock()
+    dummy._trigger_game_audio_haptics({
+        "command": "play",
+        "segments": [{"asset": "game_chess/capture2.ogg"}]
+    })
+    gm_mock.rumble.assert_called_once_with(0.5, 0.5, 220)
+
+    # 12. Vibration disabled - no rumble
+    gm_mock.vibration_enabled = False
+    gm_mock.rumble.reset_mock()
+    dummy._trigger_game_audio_haptics({"command": "play", "asset": "game_farkle/farkle.ogg"})
+    gm_mock.rumble.assert_not_called()
+

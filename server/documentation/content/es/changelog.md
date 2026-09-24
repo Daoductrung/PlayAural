@@ -1,5 +1,21 @@
 Registro de cambios
 
+Jueves 24 de septiembre de 2026
+
+Novedades:
+
+* El cliente de escritorio ahora cuenta con soporte completo para mandos DualSense, Xbox y controladores estándar con vibración háptica, navegación en listas y cuadrículas, y respuesta táctil en los topes.
+* Los gestos del panel táctil de DualSense ya están disponibles en escritorio: la pulsación física abre la lista de usuarios con partidas, deslizar hacia arriba lee los usuarios en línea, deslizar hacia abajo conmuta entre jugador y espectador, deslizar con un dedo hacia los lados silencia el búfer actual o el chat de mesa, deslizar con dos dedos hacia los lados silencia el chat global o comprueba la latencia, deslizar con dos dedos en vertical ajusta el volumen de la música, y un toque suave anuncia de quién es el turno.
+* Integración de chat de voz en el mando: una pulsación en el botón de micrófono del mando entra a la sala de voz o conmuta el micrófono, y mantenerlo pulsado sale de la sala de voz.
+* Respuesta háptica semántica en eventos de juego para Breach Point (detonaciones de bomba, explosiones de granada, disparos, cegadoras y daño), Mil Millas (choques, pinchaduras, falta de combustible y golpes de suerte), Farkle (penalizaciones de farkle y hot dice), Sorry (captura de peones), Uno, tiradas de dados, avisos de turno y victorias.
+* El nuevo menú Opciones de mando en opciones personales permite elegir el controlador activo, activar o desactivar la vibración y regular la fuerza de vibración del 10% al 100% con un pulso de prueba.
+
+Mejoras:
+
+* Nuevos atajos de mando: pulsar L3 + R3 guarda la mesa, mantener Círculo sale de la mesa, pulsar Cruz + Cuadrado añade un bot, y las combinaciones con R3 permiten saltar al inicio o final de búferes, mensajes del historial y menús.
+* Círculo y Start en el mando ahora retroceden con fluidez en los submenús del servidor, cancelan cuadros de edición y abren la confirmación de salida en el menú principal.
+* La documentación de teclas globales ahora incluye tablas completas de referencia para mandos en español, inglés, portugués, vietnamita y persa.
+
 Miércoles 23 de septiembre de 2026
 
 Novedades:

@@ -1161,3 +1161,121 @@ async def test_restore_frame_game_options_and_category(tmp_path) -> None:
         assert _user_state(server, user.username).get("pref_field") == "dice_keeping_style"
     finally:
         server._db.close()
+
+
+@pytest.mark.parametrize(
+    ("client_type", "gamepad_option_visible"),
+    (("python", True), ("web", False), ("mobile", False)),
+)
+def test_gamepad_option_visible_only_on_desktop(
+    tmp_path,
+    client_type: str,
+    gamepad_option_visible: bool,
+) -> None:
+    server, user = _make_server(tmp_path)
+    try:
+        user.client_type = client_type
+        server._show_options_menu(user)
+        assert ("gamepad_options" in _menu_ids(user, "options_menu")) is gamepad_option_visible
+    finally:
+        server._db.close()
+
+
+@pytest.mark.asyncio
+async def test_gamepad_options_submenu_and_toggle(tmp_path) -> None:
+    server, user = _make_server(tmp_path)
+    try:
+        server._show_options_menu(user)
+        await server._handle_options_selection(user, "gamepad_options")
+        assert _current_menu(server, user.username) == "gamepad_options_submenu"
+        assert _menu_ids(user, "gamepad_options_submenu") == [
+            "gamepad_device",
+            "gamepad_vibration",
+            "gamepad_vibration_strength",
+            "back",
+        ]
+
+        # Toggle vibration off
+        synced_prefs = []
+        server._sync_pref_to_client = lambda u, k, v: synced_prefs.append((k, v))
+        assert user.preferences.desktop_gamepad_vibration is True
+        await server._handle_gamepad_options_selection(user, "gamepad_vibration")
+        assert user.preferences.desktop_gamepad_vibration is False
+        assert ("interface/gamepad_vibration", False) in synced_prefs
+
+        # Toggle vibration on
+        await server._handle_gamepad_options_selection(user, "gamepad_vibration")
+        assert user.preferences.desktop_gamepad_vibration is True
+        assert ("interface/gamepad_vibration", True) in synced_prefs
+    finally:
+        server._db.close()
+
+
+@pytest.mark.asyncio
+async def test_gamepad_device_and_strength_selection(tmp_path) -> None:
+    server, user = _make_server(tmp_path)
+    try:
+        server._gamepad_devices_by_user[user.username] = [
+            {"id": "0", "name": "PS5 DualSense Controller"},
+            {"id": "1", "name": "Xbox Wireless Controller"},
+        ]
+        synced_prefs = []
+        server._sync_pref_to_client = lambda u, k, v: synced_prefs.append((k, v))
+
+        # Device selection menu
+        server._show_gamepad_device_menu(user)
+        assert _current_menu(server, user.username) == "gamepad_device_menu"
+        assert _menu_ids(user, "gamepad_device_menu") == [
+            "gamepad_device_auto",
+            "gamepad_device::0",
+            "gamepad_device::1",
+            "back",
+        ]
+
+        # Select DualSense
+        await server._handle_gamepad_device_selection(user, "gamepad_device::0")
+        assert user.preferences.desktop_gamepad_device_id == "0"
+        assert user.preferences.desktop_gamepad_device_name == "PS5 DualSense Controller"
+        assert ("interface/gamepad_device_id", "0") in synced_prefs
+        assert ("interface/gamepad_device_name", "PS5 DualSense Controller") in synced_prefs
+
+        # Select auto
+        await server._handle_gamepad_device_selection(user, "gamepad_device_auto")
+        assert user.preferences.desktop_gamepad_device_id == ""
+        assert user.preferences.desktop_gamepad_device_name == ""
+
+        # Vibration strength selection menu
+        server._show_gamepad_vibration_strength_menu(user)
+        assert _current_menu(server, user.username) == "gamepad_vibration_strength_menu"
+        assert _menu_ids(user, "gamepad_vibration_strength_menu") == [
+            "gamepad_strength_25",
+            "gamepad_strength_50",
+            "gamepad_strength_75",
+            "gamepad_strength_100",
+            "back",
+        ]
+
+        # Select 50%
+        await server._handle_gamepad_vibration_strength_selection(user, "gamepad_strength_50")
+        assert user.preferences.desktop_gamepad_vibration_strength == 50
+        assert ("interface/gamepad_vibration_strength", 50) in synced_prefs
+    finally:
+        server._db.close()
+
+
+@pytest.mark.asyncio
+async def test_restore_frame_gamepad_menus(tmp_path) -> None:
+    server, user = _make_server(tmp_path)
+    try:
+        stack = list(_stack(server, user.username))
+        server._restore_frame(user, {"menu": "gamepad_options_submenu"}, stack)
+        assert _current_menu(server, user.username) == "gamepad_options_submenu"
+
+        server._restore_frame(user, {"menu": "gamepad_device_menu"}, stack)
+        assert _current_menu(server, user.username) == "gamepad_device_menu"
+
+        server._restore_frame(user, {"menu": "gamepad_vibration_strength_menu"}, stack)
+        assert _current_menu(server, user.username) == "gamepad_vibration_strength_menu"
+    finally:
+        server._db.close()
+

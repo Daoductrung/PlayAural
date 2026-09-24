@@ -79,6 +79,8 @@ class GamepadManager:
         on_controller_connected: Optional[Callable[[str], None]] = None,
         on_controller_disconnected: Optional[Callable[[str], None]] = None,
         vibration_enabled: bool = True,
+        vibration_strength: int = 100,
+        preferred_controller_id: str = "",
         enabled: bool = True,
     ) -> None:
         self.on_button_down = on_button_down
@@ -86,6 +88,8 @@ class GamepadManager:
         self.on_controller_connected = on_controller_connected
         self.on_controller_disconnected = on_controller_disconnected
         self.vibration_enabled = vibration_enabled
+        self.vibration_strength: int = vibration_strength
+        self.preferred_controller_id: str = str(preferred_controller_id or "")
         self.enabled = enabled
 
         self._controllers: Dict[int, Any] = {}
@@ -166,6 +170,20 @@ class GamepadManager:
         """Return a list of names for all connected controllers."""
         return [c.name for c in self._controllers.values() if hasattr(c, "name")]
 
+    def get_controller_info_list(self) -> List[Dict[str, str]]:
+        """Return a list of dicts with id and name for all connected controllers."""
+        res = []
+        for cid, c in self._controllers.items():
+            name = getattr(c, "name", f"Controller {cid}")
+            res.append({"id": str(cid), "name": name})
+        return res
+
+    def _is_controller_active(self, cid: int) -> bool:
+        """Check if controller with instance_id cid is accepted based on preferred_controller_id."""
+        if not self.preferred_controller_id:
+            return True
+        return str(cid) == str(self.preferred_controller_id)
+
     def poll(self) -> None:
         """Process pending SDL controller events. Non-blocking."""
         if not self._initialized or not self.enabled:
@@ -212,31 +230,40 @@ class GamepadManager:
         elif event_type == pygame.CONTROLLERBUTTONDOWN:
             btn_id = getattr(event, "button", -1)
             cid = getattr(event, "instance_id", 0)
-            btn_name = BUTTON_MAP.get(btn_id)
-            if btn_name and self.on_button_down:
-                self.on_button_down(btn_name, cid)
+            if self._is_controller_active(cid):
+                btn_name = BUTTON_MAP.get(btn_id)
+                if btn_name and self.on_button_down:
+                    self.on_button_down(btn_name, cid)
 
         elif event_type == pygame.CONTROLLERBUTTONUP:
             btn_id = getattr(event, "button", -1)
             cid = getattr(event, "instance_id", 0)
-            btn_name = BUTTON_MAP.get(btn_id)
-            if btn_name and self.on_button_up:
-                self.on_button_up(btn_name, cid)
+            if self._is_controller_active(cid):
+                btn_name = BUTTON_MAP.get(btn_id)
+                if btn_name and self.on_button_up:
+                    self.on_button_up(btn_name, cid)
 
         elif event_type == getattr(pygame, "CONTROLLERTOUCHPADDOWN", -999):
-            self._handle_touch_down(event)
+            cid = getattr(event, "instance_id", 0)
+            if self._is_controller_active(cid):
+                self._handle_touch_down(event)
 
         elif event_type == getattr(pygame, "CONTROLLERTOUCHPADMOTION", -999):
-            self._handle_touch_motion(event)
+            cid = getattr(event, "instance_id", 0)
+            if self._is_controller_active(cid):
+                self._handle_touch_motion(event)
 
         elif event_type == getattr(pygame, "CONTROLLERTOUCHPADUP", -999):
-            self._handle_touch_up(event)
+            cid = getattr(event, "instance_id", 0)
+            if self._is_controller_active(cid):
+                self._handle_touch_up(event)
 
         elif event_type == pygame.CONTROLLERAXISMOTION:
             axis = getattr(event, "axis", -1)
             val = getattr(event, "value", 0)
             cid = getattr(event, "instance_id", 0)
-            self._handle_axis_motion(axis, val, cid)
+            if self._is_controller_active(cid):
+                self._handle_axis_motion(axis, val, cid)
 
     def _handle_touch_down(self, event: Any) -> None:
         """Handle finger touch down on touchpad, supporting single and multi-touch gestures."""
@@ -452,16 +479,30 @@ class GamepadManager:
                     self.on_button_down(direction, 0)
 
     def rumble(self, low_frequency: float = 0.5, high_frequency: float = 0.5, duration_ms: int = 200) -> bool:
-        """Trigger dual-motor vibration on all connected controllers."""
+        """Trigger dual-motor vibration on controllers with strength scaling."""
         if not self.vibration_enabled or not self.enabled or not self._controllers:
             return False
 
-        clamped_low = max(0.0, min(1.0, float(low_frequency)))
-        clamped_high = max(0.0, min(1.0, float(high_frequency)))
+        mult = max(0.0, min(1.0, float(getattr(self, "vibration_strength", 100)) / 100.0))
+        clamped_low = max(0.0, min(1.0, float(low_frequency) * mult))
+        clamped_high = max(0.0, min(1.0, float(high_frequency) * mult))
         clamped_duration = max(10, min(5000, int(duration_ms)))
 
+        target_controllers = []
+        pref_id = getattr(self, "preferred_controller_id", "")
+        if pref_id:
+            try:
+                target_cid = int(pref_id)
+                if target_cid in self._controllers:
+                    target_controllers = [self._controllers[target_cid]]
+            except (ValueError, TypeError):
+                pass
+
+        if not target_controllers:
+            target_controllers = list(self._controllers.values())
+
         success = False
-        for c in list(self._controllers.values()):
+        for c in target_controllers:
             try:
                 res = c.rumble(clamped_low, clamped_high, clamped_duration)
                 if not res and hasattr(c, "as_joystick"):

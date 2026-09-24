@@ -1,5 +1,21 @@
 Nhật ký thay đổi
 
+Thứ Năm 24 Tháng Chín 2026
+
+Tính năng mới:
+
+* Phần mềm máy tính giờ hỗ trợ đầy đủ tay cầm DualSense, Xbox và các tay cầm tiêu chuẩn với phản hồi rung xúc giác, điều hướng danh sách và lưới, cùng cảm giác nảy rung khi chạm giới hạn.
+* Cử chỉ bàn di cảm ứng DualSense trên máy tính: nhấn vật lý mở danh sách người dùng cùng trò chơi, vuốt lên đọc người dùng trực tuyến, vuốt xuống chuyển đổi giữa người chơi và khán giả trong bàn, vuốt 1 ngón ngang tắt/bật tiếng bộ đệm hoặc trò chuyện bàn, vuốt 2 ngón ngang tắt/bật trò chuyện chung hoặc kiểm tra độ trễ, vuốt 2 ngón dọc chỉnh âm lượng nhạc, và chạm nhẹ thông báo đến lượt ai.
+* Tích hợp trò chuyện thoại trên tay cầm: nhấn nút micrô trên tay cầm để tham gia hoặc bật/tắt micrô, và nhấn giữ để rời trò chuyện thoại.
+* Rung xúc giác ngữ nghĩa đồng bộ với âm thanh trong Điểm Đột Phá (nổ bom, lựu đạn, nổ súng, choáng và sát thương), Mil Millas (tai nạn, thủng lốp, hết xăng và chiêu an toàn), Farkle (mất lượt farkle và xúc xắc đỏ), Sorry (đá quân về xuất phát), Uno, đổ xúc xắc, báo đến lượt và chiến thắng.
+* Trình đơn Tùy chọn tay cầm mới trong tùy chọn cá nhân cho phép chọn tay cầm hoạt động, bật/tắt rung và điều chỉnh cường độ rung từ 10% đến 100% kèm xung thử nghiệm.
+
+Cải thiện:
+
+* Các phím tắt tay cầm gồm L3 + R3 để lưu bàn, giữ Tròn để rời bàn, nhấn X + Vuông để thêm bot, cùng tổ hợp R3 để nhảy đến đầu/cuối bộ đệm, tin nhắn và trình đơn.
+* Nút Tròn và Start trên tay cầm giờ quay lại mượt mà trong các trình đơn máy chủ, hủy ô nhập văn bản và mở xác nhận thoát ở trình đơn chính.
+* Hướng dẫn phím tắt toàn cầu giờ bổ sung bảng tra cứu đầy đủ cho tay cầm bằng cả tiếng Anh, tiếng Tây Ban Nha, tiếng Bồ Đào Nha, tiếng Việt và tiếng Ba Tư.
+
 Thứ Tư 23 Tháng Chín 2026
 
 Tính năng mới:

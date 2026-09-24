@@ -91,6 +91,10 @@ class UserPreferences:
     voice_volume: int = 80  # 10-100 range (not 0 to avoid complete muting)
     desktop_audio_input_device_id: str = ""
     desktop_audio_input_device_name: str = ""
+    desktop_gamepad_device_id: str = ""
+    desktop_gamepad_device_name: str = ""
+    desktop_gamepad_vibration: bool = True
+    desktop_gamepad_vibration_strength: int = 100
 
     # Web speech preferences
     speech_mode: str = "aria"  # "aria" or "web_speech"
@@ -185,6 +189,10 @@ class UserPreferences:
             "voice_volume": self.voice_volume,
             "desktop_audio_input_device_id": self.desktop_audio_input_device_id,
             "desktop_audio_input_device_name": self.desktop_audio_input_device_name,
+            "desktop_gamepad_device_id": self.desktop_gamepad_device_id,
+            "desktop_gamepad_device_name": self.desktop_gamepad_device_name,
+            "desktop_gamepad_vibration": self.desktop_gamepad_vibration,
+            "desktop_gamepad_vibration_strength": self.desktop_gamepad_vibration_strength,
             "speech_mode": self.speech_mode,
             "speech_rate": self.speech_rate,
             "speech_voice": self.speech_voice,
@@ -221,6 +229,12 @@ class UserPreferences:
             desktop_audio_input_device_id=data.get("desktop_audio_input_device_id", ""),
             desktop_audio_input_device_name=data.get(
                 "desktop_audio_input_device_name", ""
+            ),
+            desktop_gamepad_device_id=data.get("desktop_gamepad_device_id", ""),
+            desktop_gamepad_device_name=data.get("desktop_gamepad_device_name", ""),
+            desktop_gamepad_vibration=data.get("desktop_gamepad_vibration", True),
+            desktop_gamepad_vibration_strength=data.get(
+                "desktop_gamepad_vibration_strength", 100
             ),
             speech_mode=data.get("speech_mode", "aria"),
             speech_rate=data.get("speech_rate", 100),

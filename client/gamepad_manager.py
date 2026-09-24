@@ -57,8 +57,12 @@ BUTTON_MAP: Dict[int, str] = {
     12: "dpad_down",
     13: "dpad_left",
     14: "dpad_right",
-    15: "touchpad",      # PS4 / PS5 touchpad click
-    16: "misc1",         # Mic mute on DualSense
+    15: "misc1",         # Mic mute on DualSense / Share on Xbox (SDL_CONTROLLER_BUTTON_MISC1)
+    16: "paddle1",       # Elite / Pro controller paddle 1
+    17: "paddle2",       # Elite / Pro controller paddle 2
+    18: "paddle3",       # Elite / Pro controller paddle 3
+    19: "paddle4",       # Elite / Pro controller paddle 4
+    20: "touchpad",      # PS4 / PS5 touchpad click (SDL_CONTROLLER_BUTTON_TOUCHPAD)
 }
 
 # Reverse mapping for testing and simulation
@@ -235,89 +239,142 @@ class GamepadManager:
             self._handle_axis_motion(axis, val, cid)
 
     def _handle_touch_down(self, event: Any) -> None:
-        """Handle finger touch down on touchpad."""
-        finger = getattr(event, "finger", 0)
-        if finger != 0:
-            return
+        """Handle finger touch down on touchpad, supporting single and multi-touch gestures."""
         cid = getattr(event, "instance_id", 0)
+        finger = getattr(event, "finger", 0)
         x = float(getattr(event, "x", 0.0))
         y = float(getattr(event, "y", 0.0))
         now = time.monotonic()
-        self._touch_data[cid] = {
+
+        td = self._touch_data.get(cid)
+        if not td or not td.get("fingers") or finger == 0:
+            td = {
+                "fingers": {},
+                "start_time": now,
+                "max_fingers": 1,
+                "swiped": False,
+                "last_dx": 0.0,
+                "last_dy": 0.0,
+            }
+            self._touch_data[cid] = td
+
+        td["fingers"][finger] = {
             "start_x": x,
             "start_y": y,
             "last_x": x,
             "last_y": y,
-            "start_time": now,
-            "last_time": now,
-            "swiped": False,
+            "time": now,
         }
+        num_fingers = len(td["fingers"])
+        if num_fingers > td["max_fingers"]:
+            td["max_fingers"] = num_fingers
 
     def _handle_touch_motion(self, event: Any) -> None:
         """Track finger motion on touchpad and detect directional swipes in real time."""
-        finger = getattr(event, "finger", 0)
-        if finger != 0:
-            return
         cid = getattr(event, "instance_id", 0)
+        finger = getattr(event, "finger", 0)
         td = self._touch_data.get(cid)
-        if not td:
+        if not td or not td.get("fingers"):
             return
-        x = float(getattr(event, "x", td["last_x"]))
-        y = float(getattr(event, "y", td["last_y"]))
-        td["last_x"] = x
-        td["last_y"] = y
+
+        x = float(getattr(event, "x", 0.0))
+        y = float(getattr(event, "y", 0.0))
         now = time.monotonic()
-        td["last_time"] = now
+
+        f_data = td["fingers"].get(finger)
+        if f_data:
+            f_data["last_x"] = x
+            f_data["last_y"] = y
+            f_data["time"] = now
+        else:
+            td["fingers"][finger] = {
+                "start_x": x,
+                "start_y": y,
+                "last_x": x,
+                "last_y": y,
+                "time": now,
+            }
+            num_fingers = len(td["fingers"])
+            if num_fingers > td["max_fingers"]:
+                td["max_fingers"] = num_fingers
 
         if td["swiped"]:
             return
 
-        dx = x - td["start_x"]
-        dy = y - td["start_y"]
         dt = now - td["start_time"]
+        if dt > 0.7:
+            return
 
-        # Active swipe threshold (0.18 normalized distance, within 0.7s)
-        if dt < 0.7:
-            if abs(dy) >= 0.18 and abs(dy) >= abs(dx) * 1.3:
-                td["swiped"] = True
-                gesture = "touchpad_swipe_down" if dy > 0 else "touchpad_swipe_up"
-                if self.on_button_down:
-                    self.on_button_down(gesture, cid)
-            elif abs(dx) >= 0.18 and abs(dx) >= abs(dy) * 1.3:
-                td["swiped"] = True
-                gesture = "touchpad_swipe_right" if dx > 0 else "touchpad_swipe_left"
-                if self.on_button_down:
-                    self.on_button_down(gesture, cid)
+        # Determine reference finger (finger 0 if present, else first active finger)
+        primary = td["fingers"].get(0)
+        if not primary:
+            primary = next(iter(td["fingers"].values()))
+
+        dx = primary["last_x"] - primary["start_x"]
+        dy = primary["last_y"] - primary["start_y"]
+        td["last_dx"] = dx
+        td["last_dy"] = dy
+
+        is_two_finger = td["max_fingers"] >= 2 or len(td["fingers"]) >= 2
+        prefix = "touchpad_2finger_swipe_" if is_two_finger else "touchpad_swipe_"
+        threshold = 0.15 if is_two_finger else 0.18
+        ratio = 1.2 if is_two_finger else 1.3
+
+        if abs(dy) >= threshold and abs(dy) >= abs(dx) * ratio:
+            td["swiped"] = True
+            gesture = f"{prefix}down" if dy > 0 else f"{prefix}up"
+            if self.on_button_down:
+                self.on_button_down(gesture, cid)
+        elif abs(dx) >= threshold and abs(dx) >= abs(dy) * ratio:
+            td["swiped"] = True
+            gesture = f"{prefix}right" if dx > 0 else f"{prefix}left"
+            if self.on_button_down:
+                self.on_button_down(gesture, cid)
 
     def _handle_touch_up(self, event: Any) -> None:
         """Handle finger release on touchpad; recognize tap or flick swipe."""
-        finger = getattr(event, "finger", 0)
-        if finger != 0:
-            return
         cid = getattr(event, "instance_id", 0)
-        td = self._touch_data.pop(cid, None)
+        finger = getattr(event, "finger", 0)
+        td = self._touch_data.get(cid)
         if not td:
             return
 
-        if not td["swiped"]:
-            dx = td["last_x"] - td["start_x"]
-            dy = td["last_y"] - td["start_y"]
-            dt = time.monotonic() - td["start_time"]
+        f_data = td.get("fingers", {}).pop(finger, None)
+        if f_data:
+            td["last_dx"] = f_data["last_x"] - f_data["start_x"]
+            td["last_dy"] = f_data["last_y"] - f_data["start_y"]
 
-            # Tap: short duration and minimal movement
-            if dt < 0.35 and abs(dx) < 0.08 and abs(dy) < 0.08:
-                if self.on_button_down:
-                    self.on_button_down("touchpad_tap", cid)
+        # Wait until all fingers are lifted before finishing touch contact
+        if td.get("fingers"):
+            return
+
+        self._touch_data.pop(cid, None)
+
+        if not td["swiped"]:
+            dx = td["last_dx"]
+            dy = td["last_dy"]
+            dt = time.monotonic() - td["start_time"]
+            is_two_finger = td["max_fingers"] >= 2
+
+            if not is_two_finger:
+                # Tap: short duration and minimal movement
+                if dt < 0.35 and abs(dx) < 0.08 and abs(dy) < 0.08:
+                    if self.on_button_down:
+                        self.on_button_down("touchpad_tap", cid)
+                    return
+
+            prefix = "touchpad_2finger_swipe_" if is_two_finger else "touchpad_swipe_"
             # Flick release swipe: quick flick released before motion threshold
-            elif dt < 0.5:
+            if dt < 0.5:
                 if abs(dy) >= 0.12 and abs(dy) >= abs(dx) * 1.2:
-                    gesture = "touchpad_swipe_down" if dy > 0 else "touchpad_swipe_up"
+                    gesture = f"{prefix}down" if dy > 0 else f"{prefix}up"
                     if self.on_button_down:
                         self.on_button_down(gesture, cid)
                 elif abs(dx) >= 0.12 and abs(dx) >= abs(dy) * 1.2:
-                    gesture = "touchpad_swipe_right" if dx > 0 else "touchpad_swipe_left"
+                    gesture = f"{prefix}right" if dx > 0 else f"{prefix}left"
                     if self.on_button_down:
                         self.on_button_down(gesture, cid)
+
 
     def _handle_axis_motion(self, axis: int, value: int, controller_id: int) -> None:
         threshold = 16000
@@ -387,6 +444,8 @@ class GamepadManager:
     def _process_stick_repeats(self) -> None:
         now = time.monotonic()
         for direction, pressed in self._stick_state.items():
+            if not direction.startswith("dpad_"):
+                continue
             if pressed and self._stick_repeat_time[direction] > 0.0 and now >= self._stick_repeat_time[direction]:
                 self._stick_repeat_time[direction] = now + 0.18  # 180ms repeat pacing
                 if self.on_button_down:

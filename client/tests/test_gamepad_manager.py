@@ -48,6 +48,8 @@ def test_button_mapping_consistency():
     for name in required:
         btn_id = SEMANTIC_TO_SDL_BUTTON[name]
         assert BUTTON_MAP[btn_id] == name
+    assert BUTTON_MAP[15] == "misc1"
+    assert BUTTON_MAP[20] == "touchpad"
 
 
 def test_gamepad_manager_lifecycle():
@@ -164,6 +166,34 @@ def test_touchpad_gestures_and_tap():
     gm._handle_touch_motion(MagicMock(finger=0, instance_id=1, x=0.7, y=0.5))
     assert "touchpad_swipe_right" in downs
 
+    # 6. Two-finger Swipe Up (Music volume up): fingers 0 and 1 down, move up
+    downs.clear()
+    gm._handle_touch_down(MagicMock(finger=0, instance_id=1, x=0.4, y=0.8))
+    gm._handle_touch_down(MagicMock(finger=1, instance_id=1, x=0.6, y=0.8))
+    gm._handle_touch_motion(MagicMock(finger=0, instance_id=1, x=0.4, y=0.4))
+    assert "touchpad_2finger_swipe_up" in downs
+
+    # 7. Two-finger Swipe Down (Music volume down): fingers 0 and 1 down, move down
+    downs.clear()
+    gm._handle_touch_down(MagicMock(finger=0, instance_id=1, x=0.4, y=0.2))
+    gm._handle_touch_down(MagicMock(finger=1, instance_id=1, x=0.6, y=0.2))
+    gm._handle_touch_motion(MagicMock(finger=0, instance_id=1, x=0.4, y=0.6))
+    assert "touchpad_2finger_swipe_down" in downs
+
+    # 8. Two-finger Swipe Left (Alt+P): fingers 0 and 1 down, move left
+    downs.clear()
+    gm._handle_touch_down(MagicMock(finger=0, instance_id=1, x=0.8, y=0.5))
+    gm._handle_touch_down(MagicMock(finger=1, instance_id=1, x=0.8, y=0.7))
+    gm._handle_touch_motion(MagicMock(finger=0, instance_id=1, x=0.4, y=0.5))
+    assert "touchpad_2finger_swipe_left" in downs
+
+    # 9. Two-finger Swipe Right (Shift+F6): fingers 0 and 1 down, move right
+    downs.clear()
+    gm._handle_touch_down(MagicMock(finger=0, instance_id=1, x=0.2, y=0.5))
+    gm._handle_touch_down(MagicMock(finger=1, instance_id=1, x=0.2, y=0.7))
+    gm._handle_touch_motion(MagicMock(finger=0, instance_id=1, x=0.6, y=0.5))
+    assert "touchpad_2finger_swipe_right" in downs
+
 
 def test_main_window_has_gamepad_integration():
     """Verify MainWindow source contains gamepad initialization, handlers, speech silence, and cleanup."""
@@ -192,3 +222,203 @@ def test_options_dialog_has_gamepad_controls():
     assert "self.gamepad_vibration_check" in source
     assert 'self.config_manager.set_client_option("interface/enable_gamepad"' in source
     assert 'self.config_manager.set_client_option("interface/gamepad_vibration"' in source
+
+
+def test_main_window_gamepad_mappings():
+    """Verify all gamepad semantic mappings on MainWindow dispatch to expected actions."""
+    from types import SimpleNamespace
+    try:
+        from client.ui.main_window import MainWindow
+    except ModuleNotFoundError:
+        from ui.main_window import MainWindow
+
+    called_actions = []
+
+    dummy = SimpleNamespace(
+        IsActive=lambda: True,
+        current_mode="normal",
+        current_menu_id="lobby",
+        current_menu_item_ids=[],
+        escape_behavior="keybind",
+        connected=True,
+        voice_state="disconnected",
+        voice_mic_enabled=False,
+        menu_list=MagicMock(),
+        buffer_system=MagicMock(),
+        gamepad_manager=MagicMock(),
+        silence_speech=lambda: called_actions.append("silence_speech"),
+        _send_keybind=lambda key, has_control=False, has_alt=False, has_shift=False: called_actions.append(
+            f"keybind:{key}:{has_control}:{has_shift}"
+        ),
+        _navigate_menu=lambda direction: called_actions.append(f"navigate:{direction}"),
+        on_prev_buffer=lambda evt: called_actions.append("on_prev_buffer"),
+        on_next_buffer=lambda evt: called_actions.append("on_next_buffer"),
+        on_first_buffer=lambda evt: called_actions.append("on_first_buffer"),
+        on_last_buffer=lambda evt: called_actions.append("on_last_buffer"),
+        on_older_message=lambda evt: called_actions.append("on_older_message"),
+        on_newer_message=lambda evt: called_actions.append("on_newer_message"),
+        on_oldest_message=lambda evt: called_actions.append("on_oldest_message"),
+        on_newest_message=lambda evt: called_actions.append("on_newest_message"),
+        on_volume_up=lambda evt: called_actions.append("on_volume_up"),
+        on_volume_down=lambda evt: called_actions.append("on_volume_down"),
+        on_list_online=lambda evt: called_actions.append("on_list_online"),
+        on_list_online_with_games=lambda evt: called_actions.append("on_list_online_with_games"),
+        on_buffer_mute_toggle=lambda evt: called_actions.append("on_buffer_mute_toggle"),
+        on_toggle_table_chat=lambda evt: called_actions.append("on_toggle_table_chat"),
+        on_toggle_global_chat=lambda evt: called_actions.append("on_toggle_global_chat"),
+        on_ping=lambda evt: called_actions.append("on_ping"),
+        on_toggle_voice_mic=lambda evt: called_actions.append("on_toggle_voice_mic"),
+        _request_voice_join=lambda: called_actions.append("_request_voice_join"),
+        _request_voice_leave=lambda: called_actions.append("_request_voice_leave"),
+        _jump_menu_start=lambda: called_actions.append("_jump_menu_start"),
+        _jump_menu_end=lambda: called_actions.append("_jump_menu_end"),
+        _jump_start_or_end=lambda: called_actions.append("_jump_start_or_end"),
+        _read_current_item_or_message=lambda: called_actions.append("_read_current_item_or_message"),
+        _misc1_press_time=None,
+        _misc1_hold_triggered=False,
+        _r3_is_down=False,
+        _r3_modifier_used=False,
+    )
+
+    dummy._handle_gamepad_mic_tap = MainWindow._handle_gamepad_mic_tap.__get__(dummy)
+    dummy._handle_gamepad_mic_hold = MainWindow._handle_gamepad_mic_hold.__get__(dummy)
+    dummy._on_gamepad_button_down = MainWindow._on_gamepad_button_down.__get__(dummy)
+    dummy._on_gamepad_button_up = MainWindow._on_gamepad_button_up.__get__(dummy)
+
+    # 1. Touchpad click -> Open online users with games
+    dummy._on_gamepad_button_down("touchpad", 0)
+    assert "on_list_online_with_games" in called_actions
+
+    # 2. Touchpad 1-finger swipe up -> Read online users (F2)
+    called_actions.clear()
+    dummy._on_gamepad_button_down("touchpad_swipe_up", 0)
+    assert "on_list_online" in called_actions
+
+    # 3. Touchpad 1-finger swipe down -> Toggle spectator mode in table / F3
+    called_actions.clear()
+    dummy._on_gamepad_button_down("touchpad_swipe_down", 0)
+    assert "keybind:f3:False:False" in called_actions
+
+    # 4. Touchpad 1-finger swipe left -> F4: Mute current buffer
+    called_actions.clear()
+    dummy._on_gamepad_button_down("touchpad_swipe_left", 0)
+    assert "on_buffer_mute_toggle" in called_actions
+
+    # 5. Touchpad 1-finger swipe right -> F6: Mute table chat
+    called_actions.clear()
+    dummy._on_gamepad_button_down("touchpad_swipe_right", 0)
+    assert "on_toggle_table_chat" in called_actions
+
+    # 6. Touchpad 2-finger swipe right -> Shift+F6: Mute global chat
+    called_actions.clear()
+    dummy._on_gamepad_button_down("touchpad_2finger_swipe_right", 0)
+    assert "on_toggle_global_chat" in called_actions
+
+    # 7. Touchpad 2-finger swipe left -> Alt+P: Ping latency
+    called_actions.clear()
+    dummy._on_gamepad_button_down("touchpad_2finger_swipe_left", 0)
+    assert "on_ping" in called_actions
+
+    # 8. Touchpad 2-finger swipe up/down -> F10 / F9: Music volume
+    called_actions.clear()
+    dummy._on_gamepad_button_down("touchpad_2finger_swipe_up", 0)
+    assert "on_volume_up" in called_actions
+
+    called_actions.clear()
+    dummy._on_gamepad_button_down("touchpad_2finger_swipe_down", 0)
+    assert "on_volume_down" in called_actions
+
+    # 9. Touchpad tap -> Whose turn / Table status ("t")
+    called_actions.clear()
+    dummy._on_gamepad_button_down("touchpad_tap", 0)
+    assert "keybind:t:False:False" in called_actions
+
+    # 10. Square (west) -> Space: Action
+    called_actions.clear()
+    dummy._on_gamepad_button_down("west", 0)
+    assert "keybind:space:False:False" in called_actions
+
+    # 11. Right stick directions:
+    called_actions.clear()
+    dummy._on_gamepad_button_down("right_stick_up", 0)
+    assert "keybind:f1:True:False" in called_actions
+
+    called_actions.clear()
+    dummy._on_gamepad_button_down("right_stick_down", 0)
+    assert "keybind:u:True:False" in called_actions
+
+    called_actions.clear()
+    dummy._on_gamepad_button_down("right_stick_left", 0)
+    assert "keybind:i:True:False" in called_actions
+
+    called_actions.clear()
+    dummy._on_gamepad_button_down("right_stick_right", 0)
+    assert "keybind:f3:False:False" in called_actions
+
+    called_actions.clear()
+    dummy._on_gamepad_button_down("back", 0)
+    assert "keybind:m:True:False" in called_actions
+
+    # 12. Microphone button (misc1) tap when disconnected -> Join voice
+    called_actions.clear()
+    dummy.voice_state = "disconnected"
+    dummy._on_gamepad_button_down("misc1", 0)
+    dummy._on_gamepad_button_up("misc1", 0)
+    assert "_request_voice_join" in called_actions
+
+    # 13. Microphone button (misc1) tap when connected -> Toggle mic
+    called_actions.clear()
+    dummy.voice_state = "connected"
+    dummy._on_gamepad_button_down("misc1", 0)
+    dummy._on_gamepad_button_up("misc1", 0)
+    assert "on_toggle_voice_mic" in called_actions
+
+    # 14. Microphone button hold -> Leave voice
+    called_actions.clear()
+    dummy.voice_state = "connected"
+    dummy._handle_gamepad_mic_hold()
+    assert "_request_voice_leave" in called_actions
+
+    # 15. R3 Combos (Shift modifier):
+    called_actions.clear()
+    dummy._on_gamepad_button_down("right_stick", 0)
+    dummy._on_gamepad_button_down("left_shoulder", 0)
+    dummy._on_gamepad_button_up("right_stick", 0)
+    assert "on_first_buffer" in called_actions
+    assert "_jump_start_or_end" not in called_actions
+
+    called_actions.clear()
+    dummy._on_gamepad_button_down("right_stick", 0)
+    dummy._on_gamepad_button_down("right_shoulder", 0)
+    dummy._on_gamepad_button_up("right_stick", 0)
+    assert "on_last_buffer" in called_actions
+
+    called_actions.clear()
+    dummy._on_gamepad_button_down("right_stick", 0)
+    dummy._on_gamepad_button_down("left_trigger", 0)
+    dummy._on_gamepad_button_up("right_stick", 0)
+    assert "on_oldest_message" in called_actions
+
+    called_actions.clear()
+    dummy._on_gamepad_button_down("right_stick", 0)
+    dummy._on_gamepad_button_down("right_trigger", 0)
+    dummy._on_gamepad_button_up("right_stick", 0)
+    assert "on_newest_message" in called_actions
+
+    called_actions.clear()
+    dummy._on_gamepad_button_down("right_stick", 0)
+    dummy._on_gamepad_button_down("dpad_up", 0)
+    dummy._on_gamepad_button_up("right_stick", 0)
+    assert "_jump_menu_start" in called_actions
+
+    called_actions.clear()
+    dummy._on_gamepad_button_down("right_stick", 0)
+    dummy._on_gamepad_button_down("dpad_down", 0)
+    dummy._on_gamepad_button_up("right_stick", 0)
+    assert "_jump_menu_end" in called_actions
+
+    # R3 standalone click -> Jump start or end
+    called_actions.clear()
+    dummy._on_gamepad_button_down("right_stick", 0)
+    dummy._on_gamepad_button_up("right_stick", 0)
+    assert "_jump_start_or_end" in called_actions

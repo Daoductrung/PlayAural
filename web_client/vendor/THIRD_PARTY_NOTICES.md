@@ -27,3 +27,16 @@ match `../package-lock.json`; each project remains under its own license.
 
 `@types/dom-mediacapture-record` is a type-only package used while building the
 upstream client and is not executable code in the UMD bundle.
+
+## Ogg Vorbis fallback
+
+`stb-vorbis.js` is the unmodified `stb-vorbis` 0.0.6 ES module distribution.
+It is loaded only when the browser cannot natively decode PlayAural's Ogg
+Vorbis assets. The JavaScript/WebAssembly wrapper is distributed under
+[Apache-2.0](licenses/Apache-2.0.txt). Its embedded `stb_vorbis` decoder is
+available under the player's choice of the
+[MIT license or public-domain dedication](licenses/stb_vorbis-MIT-or-Public-Domain.txt).
+
+| Package | Version | License and notice |
+| --- | --- | --- |
+| `stb-vorbis` | 0.0.6 | [Apache-2.0](licenses/Apache-2.0.txt) wrapper; embedded [stb_vorbis terms](licenses/stb_vorbis-MIT-or-Public-Domain.txt) |

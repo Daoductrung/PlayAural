@@ -29,6 +29,13 @@ const WEB_AUDIO_TAIL_FFT_SIZE = 256;
 const WEB_AUDIO_TAIL_POLL_MS = 16;
 const WEB_AUDIO_TAIL_SILENCE_POLLS = 2;
 const WEB_AUDIO_TAIL_TIMEOUT_MS = 2000;
+const AUDIO_CONTEXT_TRANSITION_TIMEOUT_MS = 1500;
+const AUDIO_CONTEXT_HEALTH_CHECK_MS = 250;
+const AUDIO_SESSION_PLAYBACK = "playback";
+const AUDIO_SESSION_PLAY_AND_RECORD = "play-and-record";
+const VORBIS_DECODER_MODULE = "./vendor/stb-vorbis.js";
+
+let vorbisDecoderModulePromise = null;
 
 function clamp(value, minimum, maximum, fallback) {
   const parsed = Number(value);
@@ -194,7 +201,85 @@ function sourceId() {
   return globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`;
 }
 
+export function configureBrowserAudioSession(audioSession, microphoneActive = false) {
+  if (!audioSession) {
+    return false;
+  }
+  const type = microphoneActive
+    ? AUDIO_SESSION_PLAY_AND_RECORD
+    : AUDIO_SESSION_PLAYBACK;
+  try {
+    if (audioSession.type !== type) {
+      audioSession.type = type;
+    }
+    return audioSession.type === type;
+  } catch {
+    return false;
+  }
+}
+
+export function createAudioBufferFromChannels(context, decoded) {
+  const channels = decoded?.channels;
+  const sampleRate = Number(decoded?.sampleRate);
+  const sampleCount = channels?.[0]?.length;
+  if (
+    !context
+    || !Array.isArray(channels)
+    || !channels.length
+    || !Number.isInteger(sampleRate)
+    || sampleRate <= 0
+    || !Number.isInteger(sampleCount)
+    || sampleCount <= 0
+    || channels.some(
+      (channel) => !(channel instanceof Float32Array) || channel.length !== sampleCount,
+    )
+  ) {
+    return null;
+  }
+  try {
+    const buffer = context.createBuffer(channels.length, sampleCount, sampleRate);
+    channels.forEach((channel, index) => {
+      if (typeof buffer.copyToChannel === "function") {
+        buffer.copyToChannel(channel, index);
+      } else {
+        buffer.getChannelData(index).set(channel);
+      }
+    });
+    return buffer;
+  } catch {
+    return null;
+  }
+}
+
+async function decodeVorbisFallback(context, bytes) {
+  if (!vorbisDecoderModulePromise) {
+    vorbisDecoderModulePromise = import(VORBIS_DECODER_MODULE)
+      .then(async ({ StbVorbis }) => {
+        await StbVorbis.ready;
+        return StbVorbis;
+      })
+      .catch(() => {
+        vorbisDecoderModulePromise = null;
+        return null;
+      });
+  }
+  const decoder = await vorbisDecoderModulePromise;
+  if (!decoder) {
+    return null;
+  }
+  try {
+    return createAudioBufferFromChannels(context, decoder.decode(bytes));
+  } catch {
+    return null;
+  }
+}
+
 export function createAudioEngine(options = {}) {
+  const audioSession = options.audioSession === undefined
+    ? window.navigator?.audioSession
+    : options.audioSession;
+  let microphoneActive = false;
+  configureBrowserAudioSession(audioSession, microphoneActive);
   const AudioContextClass = window.AudioContext || window.webkitAudioContext;
   const context = AudioContextClass ? new AudioContextClass() : null;
   const masters = {};
@@ -216,6 +301,9 @@ export function createAudioEngine(options = {}) {
   const pendingAmbiences = new Map();
   const pausedMusicHandles = new Set();
   let finiteSfxLaunchQueue = Promise.resolve();
+  let contextRecovery = null;
+  let foregroundRecovery = null;
+  let contextHasRun = context?.state === "running";
 
   let soundBaseUrl = options.soundBaseUrl || "./sounds/";
   let soundVersion = String(options.soundVersion || "");
@@ -232,6 +320,12 @@ export function createAudioEngine(options = {}) {
       masters[kind].gain.value = masterValues[kind];
       masters[kind].connect(context.destination);
     }
+    context.addEventListener?.("statechange", () => {
+      if (context.state === "running") {
+        contextHasRun = true;
+        retryPendingPlayback();
+      }
+    });
   }
 
   function nextGeneration(handle) {
@@ -696,7 +790,7 @@ export function createAudioEngine(options = {}) {
     cleanup(key);
     if (outroAsset) {
       const outroHandle = `outro:${sourceId()}`;
-      playElement({
+      const outroPacket = {
         kind,
         asset: outroAsset,
         handle: outroHandle,
@@ -708,7 +802,33 @@ export function createAudioEngine(options = {}) {
         gain: source.sourceGain,
         pan: source.pan,
         loop: false,
-      }, "", nextGeneration(outroHandle));
+      };
+      const outroGeneration = nextGeneration(outroHandle);
+      if (source.buffer && context) {
+        const outroTarget = `outro:${outroHandle}`;
+        const outroTargetGeneration = nextTargetGeneration(outroTarget);
+        void playBufferedLayer(
+          outroPacket,
+          outroTarget,
+          outroHandle,
+          outroGeneration,
+          outroTargetGeneration,
+        ).then((played) => {
+          if (
+            !played
+            && generations.get(outroHandle) === outroGeneration
+            && targetGenerations.get(outroTarget) === outroTargetGeneration
+          ) {
+            playElement(
+              outroPacket,
+              outroTarget,
+              outroGeneration,
+            );
+          }
+        });
+      } else {
+        playElement(outroPacket, "", outroGeneration);
+      }
     }
   }
 
@@ -844,8 +964,23 @@ export function createAudioEngine(options = {}) {
           }
           return response.arrayBuffer();
         })
-        .then((bytes) => context.decodeAudioData(bytes))
+        .then(async (bytes) => {
+          try {
+            const decoded = await context.decodeAudioData(bytes.slice(0));
+            if (decoded) {
+              return decoded;
+            }
+          } catch {
+            // WebKit before Safari 18.4 cannot decode the Ogg container.
+          }
+          return asset.toLowerCase().endsWith(".ogg")
+            ? decodeVorbisFallback(context, bytes)
+            : null;
+        })
         .then((buffer) => {
+          if (!buffer) {
+            throw new Error("Unsupported audio asset");
+          }
           if (effectBuffers.get(url) === request) {
             const size = buffer.length * buffer.numberOfChannels * 4;
             effectBufferSizes.set(url, size);
@@ -1374,6 +1509,7 @@ export function createAudioEngine(options = {}) {
         && source.nodeToken === nodeToken
       ) {
         cleanup(source.key);
+        source.onEnded?.();
       }
     }, { once: true });
     try {
@@ -1392,12 +1528,15 @@ export function createAudioEngine(options = {}) {
     handle,
     generation,
     targetGeneration,
+    onEnded = null,
   ) {
-    if (!context) {
+    const kind = packet.kind;
+    if (!context || !["music", "ambience"].includes(kind)) {
       return false;
     }
     if (context.state !== "running") {
-      pendingMusic.set(target, { ...packet, handle });
+      (kind === "music" ? pendingMusic : pendingAmbiences)
+        .set(target, { ...packet, handle });
       return true;
     }
     const buffer = await loadEffect(packet.asset);
@@ -1408,7 +1547,7 @@ export function createAudioEngine(options = {}) {
     ) {
       return false;
     }
-    if (pausedMusicHandles.has(handle)) {
+    if (kind === "music" && pausedMusicHandles.has(handle)) {
       pendingMusic.set(target, { ...packet, handle });
       return true;
     }
@@ -1418,17 +1557,17 @@ export function createAudioEngine(options = {}) {
       pan: clamp(packet.pan, -100, 100, 0) / 100,
     });
     panner?.connect(output);
-    const bus = String(packet.bus || "music");
+    const bus = String(packet.bus || kind);
     const baseVolume = clamp(packet.volume, 0, 100, 100) / 100;
     const playbackRate = clamp(packet.pitch, 25, 400, 100) / 100;
     output.gain.value = 0;
-    output.connect(busNode("music", bus));
+    output.connect(busNode(kind, bus));
     const key = sourceId();
     const source = {
       key,
       handle,
       generation,
-      kind: "music",
+      kind,
       bus,
       asset: packet.asset,
       priority: clamp(packet.priority, -100, 100, 0),
@@ -1443,7 +1582,7 @@ export function createAudioEngine(options = {}) {
       panner: panner || null,
       audio: null,
       target,
-      outro: "",
+      outro: validAsset(packet.outro),
       ducking: normalizeDucking(packet.ducking),
       active: true,
       paused: false,
@@ -1457,6 +1596,7 @@ export function createAudioEngine(options = {}) {
       startedAt: 0,
       nodeToken: 0,
       loop: packet.loop !== false,
+      onEnded,
       position: packet.position,
       pan: clamp(packet.pan, -100, 100, 0),
     };
@@ -1730,62 +1870,69 @@ export function createAudioEngine(options = {}) {
       });
       return handle;
     }
-    if (!intro) {
-      const fallbackToBufferedMusic = kind === "music"
-        ? (failedSource) => {
+    const playElementWithBufferedFallback = (layerPacket, onEnded = null) => {
+      const fallbackToBufferedLayer = (failedSource) => {
+        if (
+          generations.get(handle) !== generation
+          || targetGenerations.get(target) !== targetGeneration
+        ) {
+          return;
+        }
+        if (
+          kind === "music"
+          && (pausedMusicHandles.has(handle) || failedSource.paused)
+        ) {
+          void stopKey(failedSource.key, 0).then(() => {
             if (
-              generations.get(handle) !== generation
-              || targetGenerations.get(target) !== targetGeneration
+              pausedMusicHandles.has(handle)
+              && generations.get(handle) === generation
+              && targetGenerations.get(target) === targetGeneration
             ) {
-              return;
+              pendingMusic.set(target, normalized);
             }
-            if (pausedMusicHandles.has(handle) || failedSource.paused) {
-              void stopKey(failedSource.key, 0).then(() => {
-                if (
-                  pausedMusicHandles.has(handle)
-                  && generations.get(handle) === generation
-                  && targetGenerations.get(target) === targetGeneration
-                ) {
-                  pendingMusic.set(target, normalized);
-                }
-              });
-              return;
-            }
-            void stopKey(failedSource.key, 0).then(() => (
-              playBufferedLayer(
-                normalized,
-                target,
-                handle,
-                generation,
-                targetGeneration,
-              )
-            )).then((played) => {
-              if (
-                !played
-                && generations.get(handle) === generation
-                && targetGenerations.get(target) === targetGeneration
-              ) {
-                pendingMusic.set(target, normalized);
-              }
-            });
+          });
+          return;
+        }
+        void stopKey(failedSource.key, 0).then(() => (
+          playBufferedLayer(
+            layerPacket,
+            target,
+            handle,
+            generation,
+            targetGeneration,
+            onEnded,
+          )
+        )).then((played) => {
+          if (
+            !played
+            && generations.get(handle) === generation
+            && targetGenerations.get(target) === targetGeneration
+          ) {
+            (kind === "music" ? pendingMusic : pendingAmbiences)
+              .set(target, normalized);
           }
-        : null;
-      playElement(
-        normalized,
+        });
+      };
+      return playElement(
+        layerPacket,
         target,
         generation,
-        null,
-        fallbackToBufferedMusic,
+        onEnded,
+        fallbackToBufferedLayer,
       );
+    };
+    if (!intro) {
+      playElementWithBufferedFallback(normalized);
       return handle;
     }
-    playElement(
+    playElementWithBufferedFallback(
       { ...normalized, asset: intro, loop: false, outro: "" },
-      target,
-      generation,
       () => {
-        if (generations.get(handle) === generation) {
-          playElement(normalized, target, generation);
+        if (
+          generations.get(handle) === generation
+          && targetGenerations.get(target) === targetGeneration
+        ) {
+          playElementWithBufferedFallback(normalized);
         }
       },
     );
@@ -2149,15 +2296,133 @@ export function createAudioEngine(options = {}) {
     }
   }
 
-  async function unlock() {
-    if (context?.state === "suspended") {
-      await context.resume().catch(() => null);
+  function waitForContextTransition(transition) {
+    return new Promise((resolve) => {
+      let settled = false;
+      const finish = (result) => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        clearTimeout(timer);
+        resolve(result);
+      };
+      const timer = setTimeout(
+        () => finish(false),
+        AUDIO_CONTEXT_TRANSITION_TIMEOUT_MS,
+      );
+      Promise.resolve(transition).then(() => finish(true), () => finish(false));
+    });
+  }
+
+  function recoverContext({ restartRunning = false } = {}) {
+    configureBrowserAudioSession(audioSession, microphoneActive);
+    if (!context) {
+      retryPendingPlayback();
+      return Promise.resolve(true);
     }
-    retryPendingPlayback();
-    return !context || context.state === "running";
+    if (context.state === "closed") {
+      return Promise.resolve(false);
+    }
+    if (contextRecovery) {
+      return contextRecovery;
+    }
+    const recovery = (async () => {
+      if (
+        restartRunning
+        && context.state === "running"
+        && typeof context.suspend === "function"
+      ) {
+        let transition;
+        try {
+          transition = context.suspend();
+        } catch {
+          transition = null;
+        }
+        if (transition) {
+          await waitForContextTransition(transition);
+        }
+      }
+      if (context.state !== "running" && typeof context.resume === "function") {
+        let transition;
+        try {
+          transition = context.resume();
+        } catch {
+          transition = null;
+        }
+        if (transition) {
+          await waitForContextTransition(transition);
+        }
+      }
+      if (context.state === "running") {
+        contextHasRun = true;
+        retryPendingPlayback();
+        return true;
+      }
+      return false;
+    })();
+    contextRecovery = recovery;
+    return recovery.finally(() => {
+      if (contextRecovery === recovery) {
+        contextRecovery = null;
+      }
+    });
+  }
+
+  function unlock() {
+    return recoverContext();
+  }
+
+  function recoverAfterForeground() {
+    if (!context || !contextHasRun) {
+      configureBrowserAudioSession(audioSession, microphoneActive);
+      return Promise.resolve(!context);
+    }
+    if (foregroundRecovery) {
+      return foregroundRecovery;
+    }
+    const recovery = (async () => {
+      if (!await recoverContext()) {
+        return false;
+      }
+      const observedTime = context.currentTime;
+      await new Promise((resolve) => setTimeout(resolve, AUDIO_CONTEXT_HEALTH_CHECK_MS));
+      if (
+        typeof document !== "undefined"
+        && document.visibilityState === "hidden"
+      ) {
+        return false;
+      }
+      if (context.state !== "running") {
+        return recoverContext();
+      }
+      if (context.currentTime <= observedTime) {
+        return recoverContext({ restartRunning: true });
+      }
+      retryPendingPlayback();
+      return true;
+    })();
+    foregroundRecovery = recovery;
+    return recovery.finally(() => {
+      if (foregroundRecovery === recovery) {
+        foregroundRecovery = null;
+      }
+    });
+  }
+
+  function setMicrophoneActive(active) {
+    microphoneActive = Boolean(active);
+    const configured = configureBrowserAudioSession(audioSession, microphoneActive);
+    if (!microphoneActive && context && context.state !== "running") {
+      void recoverContext();
+    }
+    return configured;
   }
 
   function retryPendingPlayback() {
+    if (context && context.state !== "running") {
+      return false;
+    }
     const queuedMusic = [...pendingMusic.entries()];
     pendingMusic.clear();
     for (const [target, packet] of queuedMusic) {
@@ -2195,6 +2460,7 @@ export function createAudioEngine(options = {}) {
           }
         });
     }
+    return true;
   }
 
   function preloadEffects(names = []) {
@@ -2342,6 +2608,8 @@ export function createAudioEngine(options = {}) {
 
   return {
     unlock,
+    recoverAfterForeground,
+    setMicrophoneActive,
     handleAudioCommand,
     playSound,
     playMusic,

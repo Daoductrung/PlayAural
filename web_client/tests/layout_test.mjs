@@ -258,12 +258,13 @@ test("the offline shell precaches the updated UI modules", async () => {
     "spatial_audio.js",
     "ui/history.js",
     "ui/collapsiblePanels.js",
+    "vendor/stb-vorbis.js",
   ]) {
     assert.match(serviceWorker, new RegExp(`\\./${asset.replace("/", "\\/")}`));
   }
 });
 
-test("the checked-in LiveKit bundle carries complete dependency notices", async () => {
+test("the checked-in Web vendors carry complete dependency notices", async () => {
   const [bundle, lockText, notices] = await Promise.all([
     readFile(new URL("../vendor/livekit-client.umd.js", import.meta.url), "utf8"),
     readFile(new URL("../package-lock.json", import.meta.url), "utf8"),
@@ -292,6 +293,7 @@ test("the checked-in LiveKit bundle carries complete dependency notices", async 
     "tslib-0BSD.txt",
     "typed-emitter-MIT.txt",
     "webrtc-adapter-BSD-3-Clause.txt",
+    "stb_vorbis-MIT-or-Public-Domain.txt",
   ]) {
     assert.ok(
       (await readFile(new URL(`../vendor/licenses/${file}`, import.meta.url), "utf8")).trim(),

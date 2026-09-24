@@ -870,6 +870,7 @@ class VoiceChatManager {
       this.room = null;
       this.pendingJoin = false;
       this.micEnabled = false;
+      this.app.audio.setMicrophoneActive(false);
       this.micTogglePending = null;
       this.state = "disconnected";
       if (wasConnected && !expected && this.presenceRegistered) {
@@ -891,6 +892,7 @@ class VoiceChatManager {
       this.pendingJoin = false;
       this.state = "connected";
       this.micEnabled = false;
+      this.app.audio.setMicrophoneActive(false);
       this.attachExistingTracks(room);
       this.presenceRegistered = this.sendPresence("connected");
       this.requestedContextId = "";
@@ -969,6 +971,7 @@ class VoiceChatManager {
     this.state = "disconnected";
     this.room = null;
     this.cleanupElements();
+    this.app.audio.setMicrophoneActive(false);
     if (room) {
       this.expectedDisconnectRooms.add(room);
       try {
@@ -1005,7 +1008,9 @@ class VoiceChatManager {
     if (this.micTogglePending !== null) {
       return;
     }
+    const room = this.room;
     const enable = !this.micEnabled;
+    const previousMicEnabled = this.micEnabled;
     if (enable && (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia)) {
       this.app.audio.playSound({ asset: "voice_mic_error.ogg" });
       this.setStatus("voice-chat-mic-unsupported", true);
@@ -1013,14 +1018,32 @@ class VoiceChatManager {
     }
     this.micTogglePending = enable;
     this.updateUI();
+    if (enable) {
+      this.app.audio.setMicrophoneActive(true);
+    }
     try {
-      await this.room.localParticipant.setMicrophoneEnabled(enable);
+      await room.localParticipant.setMicrophoneEnabled(enable);
+      if (this.room !== room || this.state !== "connected") {
+        if (enable) {
+          try {
+            await room.localParticipant.setMicrophoneEnabled(false);
+          } catch {
+            // The stale room may already be disconnected.
+          }
+        }
+        return;
+      }
       this.micEnabled = enable;
+      this.app.audio.setMicrophoneActive(enable);
       this.app.audio.playSound({ asset: enable ? "voice_mic_on.ogg" : "voice_mic_off.ogg" });
       this.setStatus(enable ? "voice-chat-mic-on" : "voice-chat-mic-off", true);
     } catch (error) {
+      if (this.room !== room || this.state !== "connected") {
+        return;
+      }
       console.warn("Voice Chat microphone toggle failed:", error);
-      this.micEnabled = false;
+      this.micEnabled = previousMicEnabled;
+      this.app.audio.setMicrophoneActive(previousMicEnabled);
       if (enable) {
         this.app.audio.playSound({ asset: "voice_mic_error.ogg" });
       }
@@ -1030,8 +1053,10 @@ class VoiceChatManager {
         this.setStatus("voice-chat-connect-failed", true);
       }
     } finally {
-      this.micTogglePending = null;
-      this.updateUI();
+      if (this.room === room) {
+        this.micTogglePending = null;
+        this.updateUI();
+      }
     }
   }
 }
@@ -1347,6 +1372,16 @@ class PlayAuralWebApp {
     document.addEventListener("pointerdown", unlock, { passive: true });
     document.addEventListener("keydown", unlock);
     document.addEventListener("touchstart", unlock, { passive: true });
+    const recoverAudio = () => {
+      this.audio.recoverAfterForeground()
+        .then((unlocked) => this.store.setAudioUnlocked(unlocked));
+    };
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") {
+        recoverAudio();
+      }
+    });
+    window.addEventListener("pageshow", recoverAudio);
 
     window.addEventListener("beforeinstallprompt", (event) => {
       if (this.isStandalone()) {

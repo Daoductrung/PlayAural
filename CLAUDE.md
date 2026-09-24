@@ -907,6 +907,12 @@ Web rules:
   voice values through stable client-generated menu ids
 - menu selection sounds, typing sounds, and action sounds should preload when
   possible and must not delay touch menu activation
+- browser game audio uses a playback audio session so iOS does not silence Web
+  Audio with the hardware mute switch. Switch to `play-and-record` only while
+  the user explicitly publishes a voice-chat microphone, then restore playback.
+  Recover previously running contexts after foregrounding without consuming the
+  initial user gesture, and retain the lazy Ogg Vorbis decoder fallback for
+  browsers that cannot decode the shipped container natively
 - table voice chat lives in the Chat area and must keep browser permission handling, ARIA announcements, and voice cleanup in sync with table lifecycle packets
 
 ### Mobile Client Architecture

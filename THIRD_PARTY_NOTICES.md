@@ -60,6 +60,7 @@ binary release that includes it.
 | Steam Audio 4.8.1 | HRTF binaural rendering on Windows, Android, and iOS | Apache-2.0; [license](cosmos/steamaudio-sys/phonon/LICENSE.md), [third-party notices](cosmos/steamaudio-sys/phonon/THIRDPARTY.md), [trademark terms](cosmos/steamaudio-sys/phonon/TRADEMARK_RIGHTS.md), and [pinned artifact manifest](cosmos/steamaudio-sys/phonon/UPSTREAM.json) |
 | Expo Speech 55.0.17 | Reviewed Android lifecycle source used by the guarded mobile patch | MIT; [mobile_client/patches/expo-speech/LICENSE](mobile_client/patches/expo-speech/LICENSE) |
 | LiveKit JavaScript client 2.18.2 UMD bundle | Browser table voice chat | Apache-2.0 plus bundled dependency licenses; [web_client/vendor/THIRD_PARTY_NOTICES.md](web_client/vendor/THIRD_PARTY_NOTICES.md) |
+| stb-vorbis 0.0.6 | Lazy browser fallback for Ogg Vorbis decoding | Apache-2.0 wrapper with embedded MIT-or-public-domain stb_vorbis; [web client notices](web_client/vendor/THIRD_PARTY_NOTICES.md) |
 
 Steam Audio is a Valve Corporation product. The Valve and Steam marks are not
 licensed for endorsement or affiliation; the checked-in trademark terms govern
@@ -94,6 +95,7 @@ the lockfiles listed above.
 | Dependency | License |
 | --- | --- |
 | LiveKit JavaScript client | Apache-2.0 |
+| stb-vorbis wrapper | Apache-2.0; embedded stb_vorbis is MIT or public domain |
 
 ### Mobile client
 

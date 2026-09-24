@@ -1,4 +1,4 @@
-const CACHE_NAME = "playaural-web-v1.0.5-shell-12";
+const CACHE_NAME = "playaural-web-v1.0.5-shell-13";
 
 const PRECACHE_URLS = [
   "./",
@@ -24,6 +24,7 @@ const PRECACHE_URLS = [
   "./ui/collapsiblePanels.js",
   "./ui/menus.js",
   "./vendor/livekit-client.umd.js",
+  "./vendor/stb-vorbis.js",
 ];
 
 self.addEventListener("install", (event) => {

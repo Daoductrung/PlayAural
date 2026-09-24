@@ -557,6 +557,11 @@ per-game shutdown hooks.
   Web history and chat drafts clear when an authenticated session ends, but
   survive automatic reconnection for that same session.
 - Web speech prefs are `speech_mode`, `speech_voice`, `speech_rate`.
+- Web game audio uses a `playback` audio session and switches to
+  `play-and-record` only while the user explicitly publishes a voice-chat
+  microphone. Recover previously running contexts after foregrounding without
+  consuming the initial user gesture, and retain the lazy Ogg Vorbis fallback
+  for browsers without native container support.
 - Mobile speech prefs are `mobile_tts_engine`, `mobile_tts_voice`,
   `mobile_tts_rate`; unavailable synced voices/engines must fall back safely.
 - Mobile native speech must serialize stop/start, await engine readiness, and
